@@ -226,8 +226,8 @@ function ScanHeroCard({ onPress }: { onPress: () => void }) {
       </View>
       <View style={styles.scanHeroText}>
         <ThemedText style={styles.scanHeroTitle}>Scan a package</ThemedText>
-        <ThemedText style={styles.scanHeroSub}>
-          Receive, track, and reorder supplies
+        <ThemedText style={styles.scanHeroSub} numberOfLines={2}>
+          Receive, track, and reorder
         </ThemedText>
       </View>
       <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.85)" />

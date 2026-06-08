@@ -3,13 +3,11 @@
  *
  * Headline interaction: a search field that ranks across all 66 pages
  * using the ported search.ts logic. Below search, the 8-9 sections are
- * shown as expandable rows with the page list inside. Tapping any page
- * (from search results or the browse list) pushes the reader screen.
+ * shown as grouped cards (expandable) with the page list inside each card.
+ * Tapping any page (from search results or the browse list) pushes the
+ * reader screen.
  *
- * Route: app/wiki/index.tsx  (expo-router auto-discovers this as /wiki)
- * Nav wiring the orchestrator must add (in _layout.tsx Stack section):
- *   <Stack.Screen name="wiki/index" options={{ title: 'Help & Wiki' }} />
- *   <Stack.Screen name="wiki/[slug]" options={{ title: '' }} />
+ * Route: app/(tabs)/wiki.tsx  (expo-router auto-discovers this as /wiki)
  *
  * House style: no em-dashes, no emojis, no mid-sentence colons.
  */
@@ -28,6 +26,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/themed-text';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
+import { Card } from '@/components/ui/Card';
 import { useTheme, palette } from '@/lib/design';
 import {
   getBundledContent,
@@ -61,7 +60,7 @@ const SECTION_ROWS = buildSectionRows(CONTENT);
 // ---------------------------------------------------------------------------
 
 export default function WikiBrowseScreen() {
-  const { surface, spacing } = useTheme();
+  const { surface } = useTheme();
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
@@ -100,18 +99,20 @@ export default function WikiBrowseScreen() {
 
   return (
     <ScreenFrame>
-      <View style={[styles.header, { backgroundColor: surface.bg, borderBottomColor: surface.border }]}>
-        <ThemedText style={[styles.title, { color: surface.text }]}>Help &amp; Wiki</ThemedText>
-      </View>
-
-      {/* Search bar */}
-      <View style={[styles.searchWrap, { backgroundColor: surface.bg, paddingHorizontal: spacing.lg }]}>
-        <SearchBar
-          value={query}
-          onChangeText={setQuery}
-          onClear={clearSearch}
-          inputRef={inputRef}
-        />
+      {/* Header matches every other tab: big title, muted tagline, then search. */}
+      <View style={styles.headerArea}>
+        <ThemedText type="title">Help &amp; Wiki</ThemedText>
+        <ThemedText style={[styles.tagline, { color: surface.muted }]}>
+          Guides and help, searchable across every page.
+        </ThemedText>
+        <View style={styles.searchWrap}>
+          <SearchBar
+            value={query}
+            onChangeText={setQuery}
+            onClear={clearSearch}
+            inputRef={inputRef}
+          />
+        </View>
       </View>
 
       {/* Content area */}
@@ -209,7 +210,7 @@ function SearchResults({
     <SectionList
       sections={sections}
       keyExtractor={(item) => item.entry.slug}
-      contentContainerStyle={[styles.listContent, { paddingBottom: 40 }]}
+      contentContainerStyle={[styles.searchListContent, { paddingBottom: 40 }]}
       renderSectionHeader={({ section }) => (
         <View style={[styles.sectionHeader, { backgroundColor: surface.bg }]}>
           <ThemedText style={[styles.sectionLabel, { color: surface.muted }]}>
@@ -233,7 +234,7 @@ function SearchHitRow({
   query: string;
   onPress: () => void;
 }) {
-  const { surface, spacing, radii } = useTheme();
+  const { surface, spacing } = useTheme();
   const isTitleMatch = hit.matchKind === 'title';
 
   return (
@@ -306,7 +307,7 @@ function SnippetText({ hit, style }: { hit: WikiSearchHit; style?: object }) {
 }
 
 // ---------------------------------------------------------------------------
-// Browse list
+// Browse list (grouped cards)
 // ---------------------------------------------------------------------------
 
 function BrowseList({
@@ -321,9 +322,13 @@ function BrowseList({
   onSelectPage: (entry: WikiEntry) => void;
 }) {
   return (
-    <ScrollView contentContainerStyle={styles.listContent}>
+    <ScrollView
+      style={styles.fill}
+      contentContainerStyle={styles.browseContent}
+      keyboardShouldPersistTaps="handled"
+    >
       {sectionRows.map(({ section, pages }) => (
-        <SectionAccordion
+        <SectionCard
           key={section.id}
           section={section}
           pages={pages}
@@ -337,7 +342,7 @@ function BrowseList({
   );
 }
 
-function SectionAccordion({
+function SectionCard({
   section,
   pages,
   expanded,
@@ -350,18 +355,15 @@ function SectionAccordion({
   onToggle: () => void;
   onSelectPage: (entry: WikiEntry) => void;
 }) {
-  const { surface, spacing } = useTheme();
+  const { surface } = useTheme();
 
   return (
-    <View>
+    <Card style={styles.sectionCard}>
       <Pressable
         onPress={onToggle}
         style={({ pressed }) => [
-          styles.sectionAccordion,
-          {
-            backgroundColor: pressed ? surface.pressed : surface.bg,
-            borderBottomColor: surface.border,
-          },
+          styles.sectionCardHeader,
+          pressed ? { backgroundColor: surface.pressed } : null,
         ]}
         accessibilityRole="button"
         accessibilityState={{ expanded }}
@@ -392,7 +394,7 @@ function SectionAccordion({
             />
           ))
         : null}
-    </View>
+    </Card>
   );
 }
 
@@ -403,15 +405,15 @@ function PageRow({
   entry: WikiEntry;
   onPress: () => void;
 }) {
-  const { surface, spacing } = useTheme();
+  const { surface } = useTheme();
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
         styles.pageRow,
         {
-          backgroundColor: pressed ? surface.pressed : surface.surface,
-          borderBottomColor: surface.border,
+          backgroundColor: pressed ? surface.pressed : 'transparent',
+          borderTopColor: surface.border,
         },
       ]}
     >
@@ -435,14 +437,14 @@ function PageRow({
 // ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
-  header: {
-    paddingHorizontal: 20,
+  fill: { flex: 1 },
+  headerArea: {
+    paddingHorizontal: 24,
     paddingTop: 16,
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingBottom: 4,
   },
-  title: { fontSize: 22, fontWeight: '700', lineHeight: 28 },
-  searchWrap: { paddingVertical: 10 },
+  tagline: { fontSize: 14, lineHeight: 20, marginTop: 4 },
+  searchWrap: { paddingTop: 12 },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -454,9 +456,10 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 16, lineHeight: 20 },
   clearBtn: { marginLeft: 6 },
 
-  listContent: { flexGrow: 1 },
+  // Search results list (flat rows under uppercase section headers)
+  searchListContent: { flexGrow: 1 },
   sectionHeader: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingTop: 14,
     paddingBottom: 6,
   },
@@ -465,7 +468,7 @@ const styles = StyleSheet.create({
   hitRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
@@ -475,12 +478,22 @@ const styles = StyleSheet.create({
   highlight: { backgroundColor: 'rgba(26, 160, 230, 0.20)', color: palette.sky },
   chevron: { marginLeft: 8 },
 
-  sectionAccordion: {
+  // Browse list (grouped cards)
+  browseContent: {
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    gap: 12,
+  },
+  sectionCard: {
+    padding: 0,
+    gap: 0,
+  },
+  sectionCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    borderRadius: 16,
   },
   sectionTitle: { fontSize: 16, fontWeight: '700', lineHeight: 22 },
   sectionBlurb: { fontSize: 13, lineHeight: 18, marginTop: 2 },
@@ -488,15 +501,14 @@ const styles = StyleSheet.create({
   pageRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingLeft: 32,
+    paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   pageTitle: { fontSize: 15, fontWeight: '500', lineHeight: 20 },
   pageBlurb: { fontSize: 13, lineHeight: 18 },
 
-  emptyWrap: { alignItems: 'center', paddingHorizontal: 20 },
+  emptyWrap: { alignItems: 'center', paddingHorizontal: 24 },
   emptyText: { fontSize: 15, lineHeight: 22, textAlign: 'center' },
   bottomPad: { height: 40 },
 });
