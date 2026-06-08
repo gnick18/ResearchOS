@@ -147,7 +147,7 @@ export default function CalendarFeedsIntegrationPage() {
       <h2>After a calendar is connected</h2>
       <p>
         Each subscription becomes a row in the <strong>Connected</strong>{" "}
-        list at the top of the panel. The row shows:
+        list at the top of the panel. Here&apos;s what each row gives you.
       </p>
       <ul className="list-disc pl-6 space-y-1">
         <li>
@@ -202,7 +202,7 @@ export default function CalendarFeedsIntegrationPage() {
         on your behalf, because browsers can&apos;t fetch{" "}
         <code>calendar.google.com</code> directly (Google doesn&apos;t set the
         right CORS headers). The proxy refuses a few classes of URL
-        outright so it can&apos;t be used to scan internal infrastructure:
+        outright so it can&apos;t be used to scan internal infrastructure.
       </p>
       <ul className="list-disc pl-6 space-y-1">
         <li>

@@ -25,7 +25,7 @@ export default function CloningWorkspaceFeaturePage() {
         what the assembled construct will be, where each fragment lands, and which
         oligos you need. The Cloning Workspace is the tool that answers those
         questions without leaving ResearchOS. It is a pure in-silico assembly
-        engine: you describe the reaction, and it computes the product sequence, the
+        engine. You describe the reaction, and it computes the product sequence, the
         features carried across the junctions, and the primers (when a chemistry
         needs them), all in your browser.
       </p>
@@ -33,9 +33,9 @@ export default function CloningWorkspaceFeaturePage() {
         The Workspace opens from the Assemble button in the header of the{" "}
         <Link href="/wiki/features/sequences">Sequences</Link> library, not from an
         editor tab or the top navigation. Inside, a single method picker offers four
-        assembly chemistries, and every one of them runs the same calm two-step
-        flow: pick and order your fragments and set the method&apos;s options, then
-        review the computed product and save it to the library.
+        assembly chemistries, and every one of them runs the same two-step flow.
+        First you pick and order your fragments and set the method&apos;s options.
+        Then you review the computed product and save it to the library.
       </p>
 
       <TryInDemo href="/sequences">Try the Sequences workbench</TryInDemo>
@@ -67,8 +67,8 @@ export default function CloningWorkspaceFeaturePage() {
         homologous ends. At the bench you amplify each fragment with primers whose
         5&apos; ends carry a homology tail matching the neighbouring fragment; the
         exonuclease chews back, the matching single strands anneal, and the fragments
-        fuse seamlessly with the shared homology present exactly once at each
-        junction. This is the chemistry behind Gibson assembly and NEBuilder HiFi.
+        fuse with the shared homology present exactly once at each junction. This is
+        the chemistry behind Gibson assembly and NEBuilder HiFi.
       </p>
       <p>
         In the Workspace you add two or more fragments in the order you want them
@@ -78,7 +78,7 @@ export default function CloningWorkspaceFeaturePage() {
         target melting temperature. From there the Workspace does two things. It
         computes the assembled product as the fragment bodies joined in order, with
         the homology living once at each seam. And it designs the per-fragment PCR
-        primers: each primer is an annealing region sized to a target Tm (about 60
+        primers, where each primer is an annealing region sized to a target Tm (about 60
         degrees C, using the same nearest-neighbor model as the rest of the app) plus
         a 5&apos; homology tail copied from the adjacent fragment&apos;s end, so the
         amplicons carry the overlap.
@@ -143,7 +143,7 @@ export default function CloningWorkspaceFeaturePage() {
       <p>
         Gateway cloning moves a DNA segment between vectors by site-specific
         recombination, with no restriction digestion and no ligation. The reaction
-        happens between short att sites that share a common core: BP Clonase
+        happens between short att sites that share a common core. BP Clonase
         recombines an attB-flanked insert with an attP donor to make an attL entry
         clone (and an attR byproduct), and LR Clonase recombines an attL entry clone
         with an attR destination to make an attB expression clone (and an attP

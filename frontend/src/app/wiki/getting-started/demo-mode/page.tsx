@@ -42,16 +42,16 @@ export default function DemoModePage() {
         (<code>/gantt</code>, <code>/methods</code>). Demo state follows you
         through those navigations via a sticky session flag, so the
         watermarked data and the demo affordances persist across every route.
-        Deep links like <code>/demo/methods</code> also work: the app installs
+        Deep links like <code>/demo/methods</code> also work. The app installs
         the fixture first, then redirects to <code>/methods</code> so the
         shareable link lands the visitor on the right view.
       </p>
 
       <h2>Who&apos;s in the demo lab</h2>
       <p>
-        Four seeded users are available from the user-picker. Knowing who is
-        who matters because the lab-head and shared-records walkthroughs
-        depend on signing in as the right researcher.
+        Four seeded users are available from the user-picker. It helps to know
+        who is who, since exploring the lab-head views and the shared records
+        means signing in as the right researcher.
       </p>
       <ul>
         <li>
@@ -65,10 +65,10 @@ export default function DemoModePage() {
         </li>
         <li>
           <strong>Dr. Mira Castellanos</strong> (account_type{" "}
-          <code>lab_head</code>). The PI of the demo lab. Mira is the user to
-          pick when exploring the lab-head walkthrough, the lab inbox, the PI
-          audit log, the announcements, and the flag-for-review notifications.
-          She owns the orange (#f97316) user color in the comment threads.
+          <code>lab_head</code>). The PI of the demo lab. Pick her to explore
+          the lab-head views, the lab inbox, the PI audit log, the
+          announcements, and the flag-for-review notifications. She owns the
+          orange (#f97316) user color in the comment threads.
         </li>
         <li>
           <strong>Dr. Sam Whitley</strong> (member, archived). Sam was
@@ -140,7 +140,7 @@ export default function DemoModePage() {
         bottom-right and follows you across every route while the demo flag
         is set. It&apos;s undismissable, so you never lose the exit. Clicking
         it opens a dialog titled <strong>Leave the demo?</strong> with two
-        choices:
+        choices.
       </p>
       <ul>
         <li>

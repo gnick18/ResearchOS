@@ -17,7 +17,7 @@ export default function ProjectsFeaturePage() {
         grid on the <strong>Projects</strong> tab. That tab is the default
         landing view, so a member who opens ResearchOS sees their projects
         first, not a flat task list. Each project is a single card. From top to
-        bottom, a card carries:
+        bottom, a card carries four things.
       </p>
       <ul>
         <li>
@@ -208,7 +208,7 @@ export default function ProjectsFeaturePage() {
       <p>
         The Funding section ties a project to the grants that pay for it, which
         is the backbone of an accurate data-management or grant report. It shows
-        two complementary things:
+        two complementary things.
       </p>
       <ul>
         <li>
@@ -240,7 +240,7 @@ export default function ProjectsFeaturePage() {
       <h2>Top-bar actions on the route</h2>
       <p>
         The project route&apos;s sticky top bar holds the project-level actions
-        as icon buttons on the right. Hover any icon for a tooltip naming it:
+        as icon buttons on the right. Hover any icon for a tooltip naming it.
       </p>
       <ul>
         <li>
@@ -290,7 +290,7 @@ export default function ProjectsFeaturePage() {
         which user&apos;s files to read.
       </p>
       <p>
-        How much you can change depends on the permission you were granted:
+        How much you can change depends on the permission you were granted.
       </p>
       <ul>
         <li>
@@ -318,7 +318,7 @@ export default function ProjectsFeaturePage() {
       <p>
         ResearchOS ships with a built-in <strong>Miscellaneous</strong> project
         for standalone tasks that don&apos;t belong to a specific research
-        project. It behaves differently from a real project:
+        project. It behaves differently from a real project.
       </p>
       <ul>
         <li>

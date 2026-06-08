@@ -6,7 +6,7 @@ export default function LabInboxCommentsPage() {
   return (
     <WikiPage
       title="Comments"
-      intro="Comments are short asynchronous messages attached to a record (a task, a note, or a purchase). They keep a conversation tied to the thing it is about: a question about a PCR recipe lives on that PCR task, not in a separate chat channel. One level of reply nesting keeps threads readable without turning them into Reddit."
+      intro="Comments are short asynchronous messages attached to a record (a task, a note, or a purchase). They keep a conversation tied to the thing it is about, so a question about a PCR recipe lives on that PCR task, not in a separate chat channel. One level of reply nesting keeps threads readable without turning them into Reddit."
     >
       <Screenshot
         src="/wiki/screenshots/lab-inbox-comments-rail.png"
@@ -16,7 +16,7 @@ export default function LabInboxCommentsPage() {
 
       <h2>Where comments live</h2>
       <p>
-        Three record types accept comments today:
+        Three record types accept comments today.
       </p>
       <ul>
         <li><strong>Tasks</strong> (experiments, lists, purchase orders).</li>
@@ -57,7 +57,7 @@ export default function LabInboxCommentsPage() {
         rail already expanded and the cursor in the composer, so a quick note
         to a labmate is two clicks from the board.
       </p>
-      <h2>Threading: one level deep</h2>
+      <h2>Threading, one level deep</h2>
       <p>
         Comments support a single level of reply nesting. A top-level comment
         can have replies; a reply cannot have its own reply. This keeps a
@@ -70,7 +70,7 @@ export default function LabInboxCommentsPage() {
       <p>
         Type <code>@</code> inside a comment to summon the mention picker.
         Pick a lab member from the dropdown and the editor inserts a mention
-        chip. The mention does two things:
+        chip. The mention does two things.
       </p>
       <ul>
         <li>
@@ -88,7 +88,7 @@ export default function LabInboxCommentsPage() {
         body. That fell apart with edits, mention chip styling, and special
         characters. The denormalized <code>mentions</code> array is now the
         only source of truth for &quot;was X mentioned.&quot; The body
-        rendering is independent: it can change layout without breaking the
+        rendering is independent, so it can change layout without breaking the
         filter index.
       </Callout>
       <p>
@@ -101,7 +101,7 @@ export default function LabInboxCommentsPage() {
         Clicking a comment row in the Lab Inbox opens the host record in a
         popup on top of the inbox. The inbox itself stays mounted underneath,
         so closing the host popup drops you straight back into the inbox at
-        the same scroll position. This is the Lab Inbox R1 affordance: you can
+        the same scroll position. That is the Lab Inbox R1 affordance. You can
         triage a stream of comments by opening each host record, leaving a
         reply, and closing it without losing your place in the stream.
       </p>
@@ -123,8 +123,9 @@ export default function LabInboxCommentsPage() {
       </p>
 
       <Callout variant="tip" title="Comments are not the bell">
-        Comments are the asynchronous-chat layer of ResearchOS: low-friction,
-        in-context, no hard notification unless you @-mention someone. If you
+        Comments are the asynchronous-chat layer of ResearchOS. They are
+        low-friction and in-context, with no hard notification unless you
+        @-mention someone. If you
         need someone to see something right now, mention them and the bell
         pings. Otherwise, drop the comment and trust that the recipient will
         find it on their next inbox scan.

@@ -20,12 +20,12 @@ export default function InventoryFeaturePage() {
         trust it, skip a reorder, and find an empty bottle on experiment day.
       </p>
       <p>
-        So Inventory is built around a different question. Not &ldquo;what can
-        we track&rdquo; but &ldquo;what will a busy lab realistically keep
-        current with near-zero effort, and how do we make those few things
-        produce real value.&rdquo; The answer is to count containers instead of
-        volumes, to flip status with one tap instead of math, and to let the
-        passage of time compute the rest.
+        So Inventory is built around a different question. The question is not
+        what we can track. It is what a busy lab will realistically keep current
+        with near-zero effort, and how to make those few things produce real
+        value. The answer is to count containers instead of volumes, flip status
+        with one tap instead of doing math, and let the passage of time compute
+        the rest.
       </p>
 
       <h2>The big idea, count containers not volumes</h2>
@@ -95,8 +95,8 @@ export default function InventoryFeaturePage() {
       </ul>
       <p>
         None of these needs an accurate running total of anything. Expiry and
-        staleness need zero ongoing input at all. That is the whole game. The
-        value lives in signals that the passage of time computes for free.
+        staleness need zero ongoing input at all. That is the point. The value
+        lives in signals that the passage of time computes for free.
       </p>
 
       <h2>The Supplies hub, where ordering becomes inventory</h2>

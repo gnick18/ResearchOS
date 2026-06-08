@@ -37,7 +37,7 @@ export default function SecurityPage() {
         operating system&apos;s file browser and see exactly what is
         there.
       </p>
-      <p>The folder holds:</p>
+      <p>Here is what the folder holds.</p>
       <ul>
         <li>Every experiment, lab note, and result you write.</li>
         <li>
@@ -131,7 +131,7 @@ export default function SecurityPage() {
       </ul>
       <p>
         The calendar CORS-bypass proxy uses the most defensive shape we
-        know how to write: HTTPS only, private-IP blocking, redirect
+        know how to write, with HTTPS only, private-IP blocking, redirect
         re-validation, byte cap, timeout, content-type denylist, and
         per-IP rate limiting. The Vercel Analytics endpoint is a
         Vercel-owned script and beacon target, its posture is
@@ -215,8 +215,8 @@ export default function SecurityPage() {
         ways to confirm what the app is doing. The first is built into
         Settings and takes about thirty seconds.
       </p>
-      <Callout variant="tip" title="The easy way: open Settings">
-        ResearchOS ships three affordances inside Settings:
+      <Callout variant="tip" title="The easy way is to open Settings">
+        ResearchOS ships three affordances inside Settings.
         <ul>
           <li>
             The <strong>Data inventory</strong> panel lists every file path
@@ -238,7 +238,7 @@ export default function SecurityPage() {
       </Callout>
       <details className="mt-4 border border-border rounded-lg p-3 [&[open]>summary]:mb-3">
         <summary className="cursor-pointer font-medium text-foreground">
-          The thorough way: open DevTools and watch the network yourself
+          The thorough way, open DevTools and watch the network yourself
         </summary>
         <p className="text-body text-foreground mt-2">
           Your browser already shows every network request the app makes.
@@ -270,7 +270,7 @@ export default function SecurityPage() {
             <code>vitals.vercel-insights.com</code> for anonymous
             page-view pings (unless <strong>Offline mode</strong> is on,
             in which case you&apos;ll see none of those). One more
-            destination may appear in a narrow circumstance: if the AI
+            destination may appear in a narrow circumstance. If the AI
             Helper prompts bundled with your running app are older than
             the latest deploy and you click{" "}
             <strong>Pull latest from research-os-xi.vercel.app</strong>{" "}
@@ -296,7 +296,7 @@ export default function SecurityPage() {
               </li>
               <li>
                 <code>keyval-store</code> holds three small
-                session-routing strings: the folder name plus its grant
+                session-routing strings, the folder name plus its grant
                 timestamp, the currently signed-in user, and (if you are
                 a PI signed in) the primary account.
               </li>
@@ -364,12 +364,12 @@ export default function SecurityPage() {
       <p>
         A trust claim is only as good as the thing that keeps it true over
         time. The whole app is gated by automated tests that run on every
-        commit and every pull request to <code>main</code>: linting, a full
-        TypeScript typecheck, the Vitest unit and integration suite with
-        coverage, and Playwright end-to-end tests in a real browser. The
+        commit and every pull request to <code>main</code>. That gate runs
+        linting, a full TypeScript typecheck, the Vitest unit and integration
+        suite with coverage, and Playwright end-to-end tests in a real browser. The
         workflow lives in <code>.github/workflows/ci.yml</code>. If any of
         those gates fail, the change does not ship. That same machinery is
-        what keeps the scientific calculations honest, which is its own page:{" "}
+        what keeps the scientific calculations honest, which is its own page.{" "}
         <a href="/wiki/trust/method-validation">Method validation</a> explains
         how every sequence and lab calculation is re-checked against the
         reference tools the field trusts, on every commit.

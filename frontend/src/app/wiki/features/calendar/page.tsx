@@ -59,7 +59,7 @@ export default function CalendarFeaturePage() {
 
       <Callout variant="info" title="Default view">
         The month/week/day toggle changes your view for the current session only.
-        The change is ephemeral: when you reload the app, the calendar returns to
+        The change is ephemeral. When you reload the app, the calendar returns to
         its persisted startup view. To change that startup view, open{" "}
         <strong>Settings</strong> → <strong>View defaults</strong> and pick a
         different starting view. ResearchOS reads the setting from settings.json
@@ -93,8 +93,8 @@ export default function CalendarFeaturePage() {
 
       <Callout variant="info" title="Default colors by type">
         If you don&apos;t pick a color, the event uses its type&apos;s
-        default: purple for conferences, red for deadlines, blue for
-        meetings, gray for other.
+        default, which is purple for conferences, red for deadlines, blue for
+        meetings, and gray for other.
       </Callout>
 
       <h2>Edit or delete an event</h2>
@@ -124,7 +124,7 @@ export default function CalendarFeaturePage() {
         <strong>Manage</strong> in the sidebar) to open the modal. You can also
         navigate to <code>/calendar?addFeed=1</code> directly, which auto-opens
         the modal so you can share a deep-link that drops someone straight into
-        the add-feed flow. The same iCal-URL flow works for all four providers:
+        the add-feed flow. The same iCal-URL flow works for all four providers.
       </p>
       <ul>
         <li>
@@ -205,7 +205,7 @@ export default function CalendarFeaturePage() {
       <h2>The Calendar sidebar</h2>
       <p>
         On the Calendar page the usual left sidebar swaps in a
-        calendar-specific one with two sections:
+        calendar-specific one with two sections.
       </p>
       <ul>
         <li>

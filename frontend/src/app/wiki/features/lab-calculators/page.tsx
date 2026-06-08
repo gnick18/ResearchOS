@@ -11,7 +11,7 @@ export default function LabCalculatorsFeaturePage() {
     >
       <h2>What the lab calculators are</h2>
       <p>
-        Bench work is full of small calculations: how much powder to weigh out for a
+        Bench work is full of small calculations. How much powder to weigh out for a
         stock, how much to add for a dilution, what the melting temperature of a
         primer is, how many picomoles are in a microgram of DNA. The lab calculators
         gather the common ones into a single floating modal so you can do the math
@@ -40,8 +40,8 @@ export default function LabCalculatorsFeaturePage() {
 
       <h2>The calculators</h2>
       <p>
-        The modal carries one tab per calculator. Each tab is self-contained: you fill
-        in the fields it needs and the result appears below, updating on every
+        The modal carries one tab per calculator. Each tab is self-contained, so you
+        fill in the fields it needs and the result appears below, updating on every
         keystroke. Most tabs accept values with a unit selector (nM, uM, mM, M for
         concentration; uL, mL, L for volume; ng, ug, mg, g for mass), and the result
         is shown in whatever unit reads most naturally for the number.
@@ -79,8 +79,8 @@ export default function LabCalculatorsFeaturePage() {
       <p>
         Builds a serial-dilution table. Give a starting concentration, a fold factor
         per step, a number of steps, and a per-tube final volume, and it lays out each
-        tube: the concentration at that step, the volume of sample to carry over from
-        the previous tube, and the volume of diluent to add. Each tube takes a fixed
+        tube with the concentration at that step, the volume of sample to carry over
+        from the previous tube, and the volume of diluent to add. Each tube takes a fixed
         transfer of the previous one and tops up to the per-tube volume, giving an
         equal fold dilution per step.
       </p>
@@ -90,7 +90,7 @@ export default function LabCalculatorsFeaturePage() {
         The primer melting-temperature calculator. Paste a DNA or RNA sequence and it
         reports the length, the GC content, and the melting temperature using a
         nearest-neighbor model (the SantaLucia parameters that IDT OligoAnalyzer,
-        Primer3, NEB, and SnapGene use). Only the sequence is required: standard
+        Primer3, NEB, and SnapGene use). Only the sequence is required, standard
         reaction conditions are assumed, and an Advanced section lets you enter your
         actual salt, Mg2+, dNTP, and oligo concentrations for a sharper value. For
         very short oligos it also shows the Wallace 2-4 rule, where the rule of thumb
@@ -111,8 +111,8 @@ export default function LabCalculatorsFeaturePage() {
 
       <h3>Protein properties</h3>
       <p>
-        Paste an amino-acid sequence and it reports the physico-chemical properties
-        the ExPASy ProtParam tool reports: the average molecular weight, the
+        Paste an amino-acid sequence and it reports the same physico-chemical properties
+        the ExPASy ProtParam tool reports, including the average molecular weight, the
         isoelectric point (pI), the molar extinction coefficient at 280 nm and the
         corresponding absorbance of a 0.1 percent solution, the amino-acid
         composition, the instability index, the GRAVY hydropathy, the aromaticity, and

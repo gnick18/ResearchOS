@@ -6,7 +6,7 @@ export default function LabArchivesIntegrationPage() {
   return (
     <WikiPage
       title="LabArchives"
-      intro="Bring notebooks out of LabArchives and into ResearchOS as native, file-on-disk tasks — and recover the inline images that LabArchives keeps in the cloud, all without any API credentials."
+      intro="Bring notebooks out of LabArchives and into ResearchOS as native, file-on-disk tasks, and recover the inline images that LabArchives keeps in the cloud, all without any API credentials."
     >
       <h2>The shape of the integration</h2>
       <p>
@@ -18,15 +18,15 @@ export default function LabArchivesIntegrationPage() {
       </p>
       <p>
         Everything runs through one entry point under{" "}
-        <strong>Settings &rarr; LabArchives</strong>:
+        <strong>Settings &rarr; LabArchives</strong>.
       </p>
       <ul className="list-disc pl-6 space-y-1">
         <li>
-          <strong>Import from LabArchives</strong> — the import wizard. You
+          <strong>Import from LabArchives</strong> is the import wizard. You
           download an Offline Notebook ZIP from LabArchives and feed it to the
-          wizard. Every notebook page becomes a ResearchOS task; every folder
-          becomes a project you can map to your existing project list. No
-          credentials, works offline.
+          wizard. Every notebook page becomes a ResearchOS task, and every
+          folder becomes a project you can map to your existing project list.
+          No credentials, works offline.
         </li>
       </ul>
 
@@ -47,7 +47,7 @@ export default function LabArchivesIntegrationPage() {
       <p>
         If you import the ZIP without fetching Form-B images, the wizard writes
         a <code>missing-&hellip;</code> placeholder for each one. Your notes
-        still come across; the images at those URLs simply aren&apos;t there
+        still come across, and the images at those URLs aren&apos;t there
         yet. You can recover them at any time using one of the three paths
         described below, or remove individual placeholders using the
         broken-image popup.
@@ -90,8 +90,8 @@ export default function LabArchivesIntegrationPage() {
           you when the ZIP is ready.
         </Step>
         <Step>
-          Download the ZIP from the email link. Don&apos;t unzip it — ResearchOS
-          reads the raw archive.
+          Download the ZIP from the email link. Don&apos;t unzip it, since
+          ResearchOS reads the raw archive.
         </Step>
       </Steps>
 
@@ -123,19 +123,19 @@ export default function LabArchivesIntegrationPage() {
         </Step>
         <Step>
           If the wizard detected Form-B images (and you&apos;re not in demo
-          mode), a <strong>Fetch images</strong> step appears. It shows two
-          tabs:
+          mode), a <strong>Fetch images</strong> step appears with two
+          tabs.
           <ul className="list-disc pl-6 mt-2 space-y-1">
             <li>
-              <strong>Generate browser script</strong> — the DevTools-script
+              <strong>Generate browser script</strong> is the DevTools-script
               path (see below).
             </li>
             <li>
-              <strong>Drop your own images</strong> — the manual folder/ZIP
+              <strong>Drop your own images</strong> is the manual folder/ZIP
               drop path (see below).
             </li>
           </ul>
-          Either fetch images now or click <strong>Skip &mdash; leave as
+          Either fetch images now or click <strong>Skip, leave as
           placeholders</strong> to continue without them.
         </Step>
         <Step>
@@ -159,25 +159,26 @@ export default function LabArchivesIntegrationPage() {
       <h2 id="recovering-form-b-images">Recovering Form-B images</h2>
       <p>
         Three paths exist to pull Form-B images into your notes. All three
-        are credential-free: ResearchOS never asks for your LabArchives
+        are credential-free, so ResearchOS never asks for your LabArchives
         password.
       </p>
 
-      <h3 id="devtools-script">Path 1: DevTools browser script</h3>
+      <h3 id="devtools-script">Path 1, the DevTools browser script</h3>
       <p>
         The <strong>Generate browser script</strong> tab (in the wizard&apos;s
         Fetch images step, or in the per-task Rehydrate panel) shows a
         self-contained JavaScript snippet you paste into the browser console
-        while you&apos;re logged into LabArchives. The script:
+        while you&apos;re logged into LabArchives. Here&apos;s what the script
+        does.
       </p>
       <ol className="list-decimal pl-6 space-y-1">
         <li>
-          Checks that it&apos;s running on <code>labarchives.com</code> —
-          it refuses to do anything on other origins.
+          Checks that it&apos;s running on <code>labarchives.com</code>. It
+          refuses to do anything on other origins.
         </li>
         <li>
           Fetches each missing image URL using your existing session cookies
-          (no password, no API key — just the session the browser already has
+          (no password, no API key, only the session the browser already has
           from your login).
         </li>
         <li>
@@ -202,7 +203,7 @@ export default function LabArchivesIntegrationPage() {
           notebook you imported. You just need to be logged in.
         </Step>
         <Step>
-          Open DevTools (F12 or right-click &rarr; Inspect), switch to the{" "}
+            Open DevTools (F12 or right-click and Inspect), switch to the{" "}
           <strong>Console</strong> tab, paste the script, and press Enter.
         </Step>
         <Step>
@@ -227,12 +228,12 @@ export default function LabArchivesIntegrationPage() {
         wizard. The URLs are hard-coded into the script (no dynamic eval, no
         network round-trip back to ResearchOS). The{" "}
         <code>credentials: &quot;include&quot;</code> flag only attaches cookies
-        the browser already has from your LabArchives login — the script
+        the browser already has from your LabArchives login, so the script
         cannot fetch anything you couldn&apos;t load by clicking the image
         yourself.
       </Callout>
 
-      <h3 id="manual-drop">Path 2: Manual folder or ZIP drop</h3>
+      <h3 id="manual-drop">Path 2, a manual folder or ZIP drop</h3>
       <p>
         If you already have the Form-B image files on disk (from a previous
         download, a screenshot batch, or an export from another tool), use
@@ -242,37 +243,37 @@ export default function LabArchivesIntegrationPage() {
       </p>
       <p>
         This path also accepts the ZIP produced by the DevTools script above,
-        which is why the two-tab flow is designed the way it is: generate
+        which is why the two-tab flow is designed the way it is. Generate
         and download in the DevTools tab, then drop the result in the manual
         tab.
       </p>
 
       <h3 id="broken-image-popup">
-        Path 3: Per-image broken-placeholder popup
+        Path 3, the per-image broken-placeholder popup
       </h3>
       <p>
         After import, any task that still has unresolved Form-B images shows
         broken image placeholders in the Lab Notes editor. Clicking a broken
-        placeholder opens a small popup with three options:
+        placeholder opens a small popup with three options.
       </p>
       <ul className="list-disc pl-6 space-y-1">
         <li>
-          <strong>Find on LabArchives</strong> — opens the original image URL
+          <strong>Find on LabArchives</strong> opens the original image URL
           in a new tab pointed at{" "}
           <code>mynotebook.labarchives.com</code>. If you&apos;re logged in,
-          the image loads and you can right-click &rarr; Save. Then use{" "}
+          the image loads and you can right-click and Save. Then use{" "}
           <em>Replace from disk</em> below, or drag the saved file onto the
           note.
         </li>
         <li>
-          <strong>Replace from disk</strong> — opens a file picker. Pick a
-          local image file; ResearchOS writes it to{" "}
+          <strong>Replace from disk</strong> opens a file picker. Pick a
+          local image file, and ResearchOS writes it to{" "}
           <code>notes/Images/</code>, rewrites the markdown reference, and
           removes the entry from the task&apos;s <code>_import_source.json</code>{" "}
           sidecar so the popup doesn&apos;t re-appear on the next open.
         </li>
         <li>
-          <strong>Remove reference</strong> — deletes the broken placeholder
+          <strong>Remove reference</strong> deletes the broken placeholder
           from the markdown entirely. Use this when you don&apos;t have the
           image and don&apos;t need it.
         </li>
@@ -281,7 +282,7 @@ export default function LabArchivesIntegrationPage() {
       <Callout variant="tip" title="Drag-and-drop shortcut">
         If you saved an image via &quot;Find on LabArchives&quot; and it
         filename-matches an outstanding placeholder, dragging it straight onto
-        the note triggers the same recovery pipeline as the file picker — no
+        the note triggers the same recovery pipeline as the file picker, no
         need to open the popup first.
       </Callout>
     </WikiPage>

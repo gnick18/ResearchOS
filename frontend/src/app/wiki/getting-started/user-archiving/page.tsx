@@ -25,7 +25,7 @@ export default function UserArchivingPage() {
 
       <h2>Archive vs. delete</h2>
       <p>
-        The two paths are different on purpose:
+        These two paths do different jobs.
       </p>
       <ul>
         <li>
@@ -67,7 +67,7 @@ export default function UserArchivingPage() {
 
       <h2>What happens on archive</h2>
       <p>
-        The action does six things atomically:
+        One archive runs six steps, all in a single atomic action.
       </p>
       <ol>
         <li>

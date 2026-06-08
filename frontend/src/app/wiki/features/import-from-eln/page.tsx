@@ -12,8 +12,8 @@ export default function ImportFromELNPage() {
     >
       <h2>Page-as-task</h2>
       <p>
-        The mental model for the importer is one rule:{" "}
-        <strong>each LabArchives page becomes one ResearchOS task</strong>.
+        The mental model for the importer is one rule.{" "}
+        <strong>Each LabArchives page becomes one ResearchOS task</strong>.
         Every entry on that page (text, headings, attachments, embedded
         images) is collapsed into the task&apos;s Lab Notes body. The
         page&apos;s newest entry timestamp becomes the task&apos;s start
@@ -76,8 +76,8 @@ export default function ImportFromELNPage() {
         </Step>
         <Step>
           <strong>Preview notebook.</strong> The wizard parses the ZIP
-          and shows what it found: folder count, page count, entry
-          count, attachment count, plus a collapsible tree of the
+          and shows what it found, including folder count, page count,
+          entry count, attachment count, plus a collapsible tree of the
           notebook structure. If LabArchives left some inline images as
           URLs rather than bundling them, an amber banner here calls
           that out so you know to expect the <em>Fetch images</em> step
@@ -85,7 +85,7 @@ export default function ImportFromELNPage() {
         </Step>
         <Step>
           <strong>Map projects.</strong> One row per top-level notebook
-          folder. Each row offers three decisions: <em>Create new
+          folder. Each row offers three decisions. <em>Create new
           project</em> (the default, with a suggested name you can
           edit), <em>Use existing</em> (pick from your live project
           list), or <em>No project</em> (the pages on that branch land
@@ -95,7 +95,7 @@ export default function ImportFromELNPage() {
           <strong>Fetch images</strong> (optional). If the notebook has
           inline images that LabArchives stores as URLs (and you&apos;re
           not in demo mode), the wizard offers a step to bring those
-          images in. Two paths are available, both credential-free: a
+          images in. Two paths are available, both credential-free. One is a
           generated DevTools script you paste into a browser tab where
           you&apos;re already signed in to LabArchives, or a manual drop
           zone where you drag the image files you&apos;ve downloaded
@@ -108,7 +108,7 @@ export default function ImportFromELNPage() {
         </Step>
         <Step>
           <strong>Importing.</strong> A progress bar walks through the
-          two write phases: creating new projects first, then writing
+          two write phases, creating new projects first, then writing
           one task directory per page. Leave the tab open. Each page
           becomes <code>users/&lt;you&gt;/results/task-&lt;id&gt;/</code>{" "}
           with a <code>notes.md</code>, a <code>notes/Files/</code>{" "}
@@ -148,7 +148,7 @@ export default function ImportFromELNPage() {
         don&apos;t affect any pages aren&apos;t shown either.
       </p>
       <p>
-        The three decisions behave like this:
+        Here is how the three decisions behave.
       </p>
       <ul className="list-disc pl-6 space-y-1">
         <li>
@@ -182,7 +182,7 @@ export default function ImportFromELNPage() {
         wizard with a full-screen list of every task the import just
         created. Tasks are grouped by their assigned project (or under{" "}
         <em>(no project)</em> if unassigned), and each row exposes the
-        same three knobs:
+        same three knobs.
       </p>
       <ul className="list-disc pl-6 space-y-1">
         <li>
@@ -202,8 +202,8 @@ export default function ImportFromELNPage() {
       </ul>
       <p>
         Tick the checkbox on multiple rows and the top of the screen
-        switches to a bulk action bar: <em>Move to</em> a project,{" "}
-        <em>Change type to</em>, or <em>Delete N tasks</em>. Edits write
+        switches to a bulk action bar with <em>Move to</em> a project,{" "}
+        <em>Change type to</em>, and <em>Delete N tasks</em>. Edits write
         through to disk one row at a time, so you can leave the screen
         partway through and the work already done stays.
       </p>
@@ -215,7 +215,7 @@ export default function ImportFromELNPage() {
         with the source ZIP path, the LabArchives page id, the entry
         count at the time of import, and the import timestamp. The
         importer uses those sidecars to decide what to skip on a
-        re-run:
+        re-run.
       </p>
       <ul className="list-disc pl-6 space-y-1">
         <li>
@@ -247,7 +247,7 @@ export default function ImportFromELNPage() {
       <p>
         The importer is deliberately scoped to the content of the
         Offline Notebook ZIP. A few LabArchives concepts don&apos;t
-        round-trip:
+        round-trip.
       </p>
       <ul className="list-disc pl-6 space-y-1">
         <li>

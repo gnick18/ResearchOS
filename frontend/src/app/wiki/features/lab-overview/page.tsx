@@ -6,13 +6,13 @@ export default function LabOverviewFeaturePage() {
   return (
     <WikiPage
       title="Lab Overview"
-      intro="The Lab Overview at /lab-overview is the lab head's landing page: a fixed, curated, action-first view of the whole lab. It's the same designed layout for every PI, ordered so the things that need you sit at the top. There's nothing to configure: no tiles to add, no canvas to rearrange. You open it and the lab's state is already laid out for you."
+      intro="The Lab Overview at /lab-overview is the lab head's landing page, a fixed, curated, action-first view of the whole lab. It's the same designed layout for every PI, ordered so the things that need you sit at the top. There's nothing to configure, no tiles to add, no canvas to rearrange. You open it and the lab's state is already laid out for you."
     >
       <h2>Who this page is for</h2>
       <p>
         Lab Overview is gated on the lab head (PI) account type. A PI lands
         here automatically on sign-in. Lab members and solo researchers never
-        see it: they land on the{" "}
+        see it. They land on the{" "}
         <Link href="/wiki/features/experiments">Workbench</Link> instead, which
         opens on their projects. So the two starting points answer two
         different questions. The Workbench asks &quot;what's on my plate,&quot;
@@ -20,7 +20,7 @@ export default function LabOverviewFeaturePage() {
         needs my attention.&quot;
       </p>
       <Callout variant="info" title="One fixed page, not a dashboard you build">
-        Lab Overview used to be a customizable widget canvas: a grid of
+        Lab Overview used to be a customizable widget canvas, a grid of
         draggable tiles, an add-widget palette, a configurable sidebar rail.
         That's gone. The page is now a single curated layout that's the same
         for every PI. You can't add, remove, drag, or reset anything, because
@@ -36,8 +36,8 @@ export default function LabOverviewFeaturePage() {
       <ul>
         <li>
           <strong>Pending approvals bar.</strong> A compact row at the very top
-          that summarizes what's waiting on you: purchase approvals, the flag
-          queue, and unread @-mentions. Each segment links straight to the
+          that summarizes what's waiting on you, like purchase approvals, the
+          flag queue, and unread @-mentions. Each segment links straight to the
           surface that resolves it. When nothing is pending, the bar collapses
           to a thin &quot;you're all caught up&quot; line, so a clear queue
           reads as clear at a glance.
@@ -54,7 +54,7 @@ export default function LabOverviewFeaturePage() {
           inline so the latest notices are visible without leaving the page.
         </li>
         <li>
-          <strong>Lab activity.</strong> The centerpiece feed: a running log of
+          <strong>Lab activity.</strong> The centerpiece feed, a running log of
           what members have been doing across the lab (saves, completions, new
           experiments, and the like).
         </li>

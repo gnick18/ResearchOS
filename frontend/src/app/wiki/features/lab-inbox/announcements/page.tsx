@@ -7,7 +7,7 @@ export default function LabInboxAnnouncementsPage() {
   return (
     <WikiPage
       title="Announcements"
-      intro="Announcements are the PI's broadcast channel: short posts visible to every member, pinned to the top of the lab activity surface until they age out. Members read; PIs write. Writing is gated by an edit-session unlock so an accidental keystroke does not push something out to the whole lab."
+      intro="Announcements are the PI's broadcast channel. They're short posts every member can see, pinned to the top of the lab activity surface until they age out. Members read, PIs write. Writing is gated by an edit-session unlock so an accidental keystroke doesn't push something out to the whole lab."
     >
       {/* TODO screenshot agent: capture the Announcements composer with a draft in progress.
           Route: /lab-overview (Announcements Tool popup, compose form expanded)
@@ -24,17 +24,17 @@ export default function LabInboxAnnouncementsPage() {
 
       <h2>Who can post</h2>
       <p>
-        Posting is PI only. The compose form does not render for member
+        Posting is PI only. The compose form doesn&apos;t render for member
         accounts at all, and the underlying API rejects writes from any
         account without <code>account_type === &quot;lab_head&quot;</code>.
-        Reading is universal: every member sees the same announcement
+        Reading is open to everyone. Every member sees the same announcement
         stream.
       </p>
 
       <h2>Edit-session unlock</h2>
       <p>
-        A PI cannot post an announcement directly from a cold session.
-        The flow requires a short edit-session unlock first:
+        A PI can&apos;t post an announcement straight from a cold session.
+        You unlock a short edit session first.
       </p>
       <ol>
         <li>
@@ -62,8 +62,8 @@ export default function LabInboxAnnouncementsPage() {
 
       <h2>Pin / edit / delete</h2>
       <p>
-        Each announcement carries three actions the author can take after
-        publishing:
+        Once an announcement is published, the author has three actions on
+        it.
       </p>
       <ul>
         <li>
@@ -94,9 +94,9 @@ export default function LabInboxAnnouncementsPage() {
         The compose form persists in-progress drafts to{" "}
         <code>sessionStorage</code> as you type, so an accidental tab close
         or refresh does not lose your unposted announcement. The draft
-        restores automatically when you next mount the compose form. It is
-        per-Lab-Head and per-tab; it does not survive into a fresh browser
-        session, which is intentional, since a long-dead draft is rarely
+        restores automatically when you next mount the compose form. It&apos;s
+        per-Lab-Head and per-tab, and it doesn&apos;t survive into a fresh browser
+        session. That&apos;s on purpose, since a long-dead draft is rarely
         worth resurrecting.
       </p>
 
@@ -121,13 +121,13 @@ export default function LabInboxAnnouncementsPage() {
       <h2>When to post an announcement vs. a comment</h2>
       <p>
         Announcements and comments are both async, but they answer different
-        questions:
+        questions.
       </p>
       <ul>
         <li>
           <strong>Post an announcement</strong> when the message is for the
           whole lab, persists for at least a few days, and benefits from
-          being on the lab&apos;s shared front page. Examples: &quot;Freezer
+          being on the lab&apos;s shared front page. A few examples, &quot;Freezer
           is down, do not store anything in -80B,&quot; &quot;Lab meeting
           moved to Thursday,&quot; &quot;Equipment ordering deadline is
           Friday.&quot;

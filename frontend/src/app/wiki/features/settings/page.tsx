@@ -36,9 +36,10 @@ export default function SettingsFeaturePage() {
       <h2>Personal vs Lab Mode tabs</h2>
       <p>
         PI accounts (<code>account_type === &quot;lab_head&quot;</code>)
-        see a two-tab strip at the top of the page: <strong>Personal</strong>{" "}
-        (the default, every panel documented below) and <strong>Lab Mode</strong>{" "}
-        (the lab-wide configuration that only a PI can change). The
+        see a two-tab strip at the top of the page. <strong>Personal</strong>{" "}
+        is the default (every panel documented below) and{" "}
+        <strong>Lab Mode</strong> is the lab-wide configuration that only a PI
+        can change. The
         Personal tab is identical to what every account sees. The Lab Mode tab
         holds the LabRoster (see{" "}
         <Link href="/wiki/getting-started/user-archiving">User archiving</Link>),
@@ -59,10 +60,10 @@ export default function SettingsFeaturePage() {
         The <strong>Primary color</strong> row is a fixed 10-color palette.
         Clicking a swatch updates the avatar preview instantly and refreshes
         every avatar bubble across the app on the next paint. A swatch is
-        grayed out when another lab member already holds that color as a solid
-        (direction-insensitive: blue-to-green and green-to-blue count as the
-        same combination, so the collision system blocks whichever pair was
-        claimed first).
+        grayed out when another lab member already holds that color as a solid.
+        Direction doesn&apos;t matter, so blue-to-green and green-to-blue count
+        as the same combination, and the collision system blocks whichever pair
+        was claimed first.
       </p>
       <p>
         Below the primary row sits an <strong>Optional second color for
@@ -76,7 +77,7 @@ export default function SettingsFeaturePage() {
       </p>
       <p>
         The <strong>Tint header with my color</strong> toggle controls one
-        thing: whether the top header bar uses your gradient or stays plain
+        thing, whether the top header bar uses your gradient or stays plain
         white. Your avatar bubbles keep your color either way.
       </p>
 
@@ -122,11 +123,11 @@ export default function SettingsFeaturePage() {
       <p>
         Generates a schema-aware prompt you can paste into Claude, ChatGPT, or
         Gemini to turn it into a support assistant that understands your
-        ResearchOS data model. The section has three parts: a size picker, a
+        ResearchOS data model. The section has three parts, a size picker, a
         copy button, and one-click open-in buttons.
       </p>
       <p>
-        The <strong>size picker</strong> is a three-option radio group:
+        The <strong>size picker</strong> is a three-option radio group.
       </p>
       <ul>
         <li>
@@ -145,8 +146,8 @@ export default function SettingsFeaturePage() {
       <p>
         The <strong>Copy prompt to clipboard</strong> button copies the
         selected size&apos;s markdown. The <strong>Open in your AI</strong>{" "}
-        row has three buttons (Claude, ChatGPT, Gemini): each one copies the
-        prompt and opens the provider in a new tab so you can paste it as your
+        row has three buttons (Claude, ChatGPT, Gemini). Each one copies the
+        prompt and opens that provider in a new tab so you can paste it as your
         first message.
       </p>
       <p>
@@ -179,8 +180,8 @@ export default function SettingsFeaturePage() {
         3, 7, 14, or 30 days. Switch the toggle off and the dropdown grays out.
       </p>
       <p>
-        If you uncheck both toggles, an amber warning appears: the sidebar
-        will be empty on non-calendar pages.
+        If you uncheck both toggles, an amber warning appears to tell you the
+        sidebar will be empty on non-calendar pages.
       </p>
 
       <h2>View defaults</h2>
@@ -220,7 +221,7 @@ export default function SettingsFeaturePage() {
         flavor description. The selected tile gets a purple ring.
       </p>
       <p>
-        The eleven available themes are:
+        The eleven available themes.
       </p>
       <ul>
         <li><strong>Celebration</strong>, confetti, unicorns, and rainbows.</li>
@@ -233,7 +234,7 @@ export default function SettingsFeaturePage() {
         <li><strong>Animals</strong>, paw prints, birds, and butterflies.</li>
         <li><strong>Fungi</strong>, mushrooms, spores, and mycelium.</li>
         <li><strong>Scary</strong>, skulls, ghosts, and monsters.</li>
-        <li><strong>BeakerBot</strong>, random BeakerBot scenes: ladders, skateboards, and more.</li>
+        <li><strong>BeakerBot</strong>, random BeakerBot scenes with ladders, skateboards, and more.</li>
       </ul>
       <p>
         Pick the one that suits your vibe. The change takes effect the next
@@ -241,7 +242,7 @@ export default function SettingsFeaturePage() {
       </p>
       <p>
         Below the grid sits a separate <strong>BeakerBot animations</strong>{" "}
-        toggle. This is a different control: it governs BeakerBot&apos;s daily
+        toggle. This is a different control. It governs BeakerBot&apos;s daily
         hello wave (a quick &quot;Hi!&quot; the first time you open ResearchOS
         each day) and the BeakerBot streak-celebration scenes that fire when you
         hit a streak milestone. Leave it on for the full personality, or turn it
@@ -284,7 +285,7 @@ export default function SettingsFeaturePage() {
       </p>
       <p>
         When streaks are enabled, a <strong>stat trio</strong> appears below
-        the toggle:
+        the toggle.
       </p>
       <ul>
         <li><strong>Current streak</strong>, the number of consecutive workdays with at least one save.</li>
@@ -310,37 +311,38 @@ export default function SettingsFeaturePage() {
         computer. Everything here is view-only.
       </p>
       <p>
-        <strong>Files on disk</strong>: a scrollable list of every file path
+        <strong>Files on disk</strong> is a scrollable list of every file path
         the app has written to your connected folder, grouped by top-level
         directory. A <strong>Refresh</strong> button re-scans on demand. The
         file count and group count appear above the list.
       </p>
       <p>
-        <strong>Browser IndexedDB keys</strong>: four known keys the app keeps
-        in your browser:
+        <strong>Browser IndexedDB keys</strong> lists four known keys the app
+        keeps in your browser.
       </p>
       <ul>
         <li>
-          <code>research-os-fsa / handles / research-os-directory-handle</code>:
-          an opaque File System Access handle (the browser&apos;s proof of
-          folder permission). Does not contain the path string.
+          <code>research-os-fsa / handles / research-os-directory-handle</code>{" "}
+          is an opaque File System Access handle (the browser&apos;s proof of
+          folder permission). It does not contain the path string.
         </li>
         <li>
-          <code>keyval-store / keyval / research-os-directory-handle-meta</code>:
-          folder name and grant timestamp.
+          <code>keyval-store / keyval / research-os-directory-handle-meta</code>{" "}
+          holds the folder name and grant timestamp.
         </li>
         <li>
-          <code>keyval-store / keyval / research-os-current-user</code>:
-          the username string of the currently signed-in user.
+          <code>keyval-store / keyval / research-os-current-user</code>{" "}
+          holds the username string of the currently signed-in user.
         </li>
         <li>
-          <code>keyval-store / keyval / research-os-main-user</code>:
-          the primary account when a PI is signed in.
+          <code>keyval-store / keyval / research-os-main-user</code>{" "}
+          holds the primary account when a PI is signed in.
         </li>
       </ul>
       <p>
-        <strong>External calls</strong>: a disclosure paragraph listing the
-        destinations your browser contacts when using ResearchOS: (a){" "}
+        <strong>External calls</strong> is a disclosure paragraph listing the
+        destinations your browser contacts when using ResearchOS. There are
+        two. (a){" "}
         <code>/api/calendar-feed</code> on this app&apos;s origin,
         which fetches ICS calendars on your behalf; and (b){" "}
         <code>va.vercel-scripts.com</code> / <code>vitals.vercel-insights.com</code>{" "}
@@ -410,7 +412,7 @@ export default function SettingsFeaturePage() {
         <li>
           <strong>Clean up orphaned LabArchives credentials</strong>, scans for
           two sidecar files left behind by the removed institutional LabArchives
-          API: <code>_labarchives-deployer.json</code> at the folder root
+          API. One is <code>_labarchives-deployer.json</code> at the folder root
           (which stored an institutional access password in plaintext) and{" "}
           <code>users/&lt;u&gt;/_labarchives.json</code> per user. If orphans
           are found, the button shows a confirmation before deleting. An amber
@@ -428,21 +430,10 @@ export default function SettingsFeaturePage() {
 
       <h2>Onboarding</h2>
       <p>
-        A single row for restarting the v4 BeakerBot walkthrough on your real
-        account. New users see the tour automatically on their first sign-in;
-        existing users can opt back in here any time.
-      </p>
-      <p>
-        Clicking <strong>Re-run tour</strong> clears the tour&apos;s completion
-        and skip flags so Phase 1 setup runs again, then launches the in-product
-        walkthrough immediately without a page reload.
-      </p>
-      <p>
-        If a previous tour left demo data on your real account (because the
-        auto-cleanup at the end was skipped), an <strong>amber recovery
-        banner</strong> appears above the button. It shows the count of
-        leftover demo items and explains that re-running the tour will offer
-        to clean them up at the end.
+        The guided BeakerBot walkthrough that used to live here has been
+        retired, so there is no tour to re-run. If a leftover-demo-data recovery
+        banner ever shows up (from an older tour run), it will offer to clean up
+        any demo items it finds.
       </p>
 
       <h2>Security</h2>
@@ -481,7 +472,7 @@ export default function SettingsFeaturePage() {
       <h2>Offline mode</h2>
       <p>
         A single toggle, <strong>Block calls to our server</strong>, that
-        disables the proxy route the app uses for external data fetching:
+        disables the proxy route the app uses for external data fetching,{" "}
         <code>/api/calendar-feed</code> (ICS calendar sync). Enabling
         this makes the app make no outbound calls to its own server. An amber
         notice appears while the toggle is on, confirming which features are

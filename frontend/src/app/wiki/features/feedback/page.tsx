@@ -7,7 +7,7 @@ export default function FeedbackFeaturePage() {
   return (
     <WikiPage
       title="Feedback"
-      intro="The feedback button is a thin layer over GitHub Issues. Click it, pick a type (bug, feature, feedback), fill in the modal, and ResearchOS opens a pre-filled GitHub issue URL in a new tab. Nothing submits automatically: you see the body, you edit it, you click Submit. The whole loop is the most privacy-respecting bug-tracking flow we could think of."
+      intro="The feedback button is a thin layer over GitHub Issues. Click it, pick a type (bug, feature, feedback), fill in the modal, and ResearchOS opens a pre-filled GitHub issue URL in a new tab. Nothing submits automatically. You see the body, you edit it, you click Submit. It's the most privacy-respecting bug-tracking flow we could think of."
     >
       {/* TODO screenshot agent: capture the FeedbackModal with the Bug type selected.
           Route: any page; click the FeedbackButton at the bottom
@@ -34,12 +34,12 @@ export default function FeedbackFeaturePage() {
 
       <h2>The three feedback types</h2>
       <p>
-        Pick a type at the top of the modal:
+        Pick a type at the top of the modal.
       </p>
       <ul>
         <li>
-          <strong>Bug.</strong> Something is broken: a crash, a wrong number,
-          a misrendering. The modal auto-attaches the current route, the
+          <strong>Bug.</strong> Something is broken, like a crash, a wrong
+          number, or a misrendering. The modal auto-attaches the current route, the
           browser/OS string, and any recent uncaught error details so the
           report has enough context for a fix.
         </li>
@@ -50,8 +50,8 @@ export default function FeedbackFeaturePage() {
         </li>
         <li>
           <strong>Feedback.</strong> Anything that does not fit the first
-          two: a comment on UX, a typo, a confused-by-naming note. Routes
-          to the feedback label.
+          two, like a comment on UX, a typo, or a confused-by-naming note.
+          Routes to the feedback label.
         </li>
       </ul>
 
@@ -62,7 +62,7 @@ export default function FeedbackFeaturePage() {
         string, then opens that URL in a new tab. You see the body GitHub
         is about to create, you can edit any of it, and the issue does not
         exist until you click <strong>Submit</strong> on the GitHub side.
-        This means:
+        A few things follow from that.
       </p>
       <ul>
         <li>Nothing on your machine moves until you intentionally submit.</li>
@@ -81,12 +81,11 @@ export default function FeedbackFeaturePage() {
 
       <h2>The BugStomp scene</h2>
       <p>
-        The BugStomp scene (a small BeakerBot moment you might hit during
-        onboarding or after a crash recovery) ends with the same feedback
-        flow. Stomping the bug opens the FeedbackModal pre-set to Bug type
-        and prefilled with a hint from the crash context. It is the same
-        modal as the manual entry point; the only difference is the auto-
-        populated body.
+        The BugStomp scene (a small BeakerBot moment you might hit after a
+        crash recovery) ends with the same feedback flow. Stomping the bug
+        opens the FeedbackModal pre-set to Bug type and prefilled with a hint
+        from the crash context. It's the same modal as the manual entry
+        point, just with an auto-populated body.
       </p>
 
       <Callout variant="tip" title="Why a pre-filled URL instead of a POST">
@@ -95,7 +94,7 @@ export default function FeedbackFeaturePage() {
         We did not, because the moment a POST endpoint exists, every typed
         word is a thing that left your machine before you saw the final
         copy. The pre-filled URL pattern keeps the auditable boundary
-        crisp: nothing leaves until you click Submit on the GitHub page.
+        crisp. Nothing leaves until you click Submit on the GitHub page.
         See <Link href="/wiki/security">Security</Link> for the broader
         no-server posture this fits into.
       </Callout>

@@ -7,7 +7,7 @@ export default function PurchasesFeaturePage() {
   return (
     <WikiPage
       title="Purchases & Funding"
-      intro="The Purchases page answers a single question for grant management: where is the money going right now? It pairs a flat reverse-chronological list of every purchase order with a live spending dashboard, so a PI can scan recent activity and check budget burn without leaving the page."
+      intro="The Purchases page answers one question for grant management. Where is the money going right now? It pairs a flat reverse-chronological list of every purchase order with a live spending dashboard, so a PI can scan recent activity and check budget burn without leaving the page."
     >
       <Screenshot
         src="/wiki/screenshots/purchases-unified-scroll.png"
@@ -22,7 +22,7 @@ export default function PurchasesFeaturePage() {
         and inside each row is a small spreadsheet of line items (the actual things
         you bought). The page is built around lookup, not data entry. Lab purchase
         lifecycles are short, often only a few days from order to arrival, so the
-        common question is &ldquo;did we already buy that primer?&rdquo;
+        usual question is &ldquo;did we already buy that primer?&rdquo;
       </p>
       <p>
         The header at the top reads{" "}
@@ -44,7 +44,7 @@ export default function PurchasesFeaturePage() {
       <p>
         Reordering lives right here in this flow, not in a separate floating
         button anywhere else in the app. Above the Item Name field is a{" "}
-        <strong>recently ordered</strong> row: a few one-tap chips for the
+        <strong>recently ordered</strong> row, a few one-tap chips for the
         items you bought most recently, newest first. Tap one and the modal
         pre-fills the name, vendor, and price per unit from that item&apos;s
         most-recent record so you can restock a primer or a reagent without
@@ -61,7 +61,7 @@ export default function PurchasesFeaturePage() {
        */}
 
       <p>
-        The modal has six fields:
+        The modal has six fields.
       </p>
       <ul>
         <li>
@@ -105,14 +105,6 @@ export default function PurchasesFeaturePage() {
         the inline PurchaseEditor to add more line items to the same order.
       </p>
 
-      <Callout variant="info" title="Tour integration">
-        During the onboarding tour, a <code>DemoPurchasesViewer</code> component
-        mounts on the <code>/purchases</code> route to show Alex&apos;s fixture
-        data as a read-only overlay. The tour also drives this modal end-to-end via
-        the BeakerBot cursor script. Production users who are not in the tour never
-        see the demo overlay.
-      </Callout>
-
       <h2>The unified scroll</h2>
       <p>
         Above the order list are two rows of chips. The first is a category
@@ -140,7 +132,7 @@ export default function PurchasesFeaturePage() {
       <p>
         The list itself is a single column sorted by start date, newest first. There is no
         active vs earlier split. A completed order looks almost identical to an
-        in-flight one: same row, same colors, with a small green dot and the text{" "}
+        in-flight one, with the same row, the same colors, a small green dot, and the text{" "}
         <code>· Complete</code> appended to the metadata line. The row itself is
         not tinted, so completed orders don&apos;t dominate the page once most
         of your purchases have landed.
@@ -185,8 +177,8 @@ export default function PurchasesFeaturePage() {
       <Callout variant="tip" title="Two things named Miscellaneous">
         Be careful not to conflate two distinct concepts that share the same
         label. The <strong>Category select in NewPurchaseModal</strong> picks
-        which project the parent purchase task routes to: choosing
-        &ldquo;Miscellaneous&rdquo; routes to the{" "}
+        which project the parent purchase task routes to, and choosing
+        &ldquo;Miscellaneous&rdquo; routes it to the{" "}
         <code>_misc_purchases</code> hidden project. Separately, the{" "}
         <strong>Miscellaneous filter chip</strong> on the order list surfaces
         exactly those tasks. Neither of these is the same as the free-text{" "}
@@ -221,7 +213,7 @@ export default function PurchasesFeaturePage() {
         The free-text <strong>vendor</strong> and <strong>category</strong>{" "}
         columns on individual <code>PurchaseItem</code> rows are distinct from
         the top-level project routing. The top-level routing has one reserved
-        bucket: <strong>Miscellaneous</strong> routes to the hidden{" "}
+        bucket. <strong>Miscellaneous</strong> routes to the hidden{" "}
         <code>_misc_purchases</code> project. One is the project the order lives
         in, the other is a per-line-item annotation inside an order.
       </Callout>
@@ -298,7 +290,7 @@ export default function PurchasesFeaturePage() {
       <h3>Time range and project scope</h3>
       <p>
         The top of the dashboard has two controls. The{" "}
-        <strong>time range</strong> dropdown chooses the window: <em>Last 30
+        <strong>time range</strong> dropdown chooses the window, <em>Last 30
         days</em>, <em>Last 90 days</em>, <em>Last 12 months</em> (the default),{" "}
         <em>All time</em>, or a <em>Custom date range</em> with from and to
         inputs. The <strong>All projects</strong> checkbox lets the dashboard
@@ -421,7 +413,7 @@ export default function PurchasesFeaturePage() {
         PIs do not have <code>/purchases</code> in their nav. The
         canonical surface for them is the LabPurchases Tool inside the Lab
         Overview, opened either from a pinned widget tile or from the Tools
-        launcher in the header. The popup is a four-tab dashboard:
+        launcher in the header. The popup is a four-tab dashboard.
       </p>
       <ul>
         <li>
@@ -456,7 +448,7 @@ export default function PurchasesFeaturePage() {
       <p>
         A declined purchase carries a <code>declined_at</code> timestamp and
         renders with a red <code>PurchaseDeclinedBadge</code> wherever it
-        appears: in the member&apos;s own list, in the All Purchases tab, in
+        appears, in the member&apos;s own list, in the All Purchases tab, and in
         the Lab Activity stream. The Pending Approvals tab also shows a{" "}
         <strong>Recently declined</strong> section at the bottom so a PI
         can <strong>Re-approve</strong> a previously-declined purchase
@@ -494,7 +486,7 @@ export default function PurchasesFeaturePage() {
         Each funding account can carry the official grant details beneath its
         everyday label. Expand <strong>Grant details (for data sharing / DOI)</strong>{" "}
         on an account and you can record the structured fields a repository
-        deposit needs:
+        deposit needs.
       </p>
       <ul>
         <li>
@@ -550,7 +542,7 @@ export default function PurchasesFeaturePage() {
       <h2>Future considerations</h2>
       <p>
         A few things in this area are not yet shipped, listed here so you do not
-        spend time looking for them:
+        spend time looking for them.
       </p>
       <ul>
         <li>Per-item dates (the time axis uses the parent task&apos;s start date)</li>

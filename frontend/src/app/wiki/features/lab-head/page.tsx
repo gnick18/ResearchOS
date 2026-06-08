@@ -7,7 +7,7 @@ export default function LabHeadFeaturePage() {
   return (
     <WikiPage
       title="PI (Principal Investigator)"
-      intro="A PI is a per-user role: an account flagged with account_type === 'lab_head' that gains a small superset of affordances over a regular member. PI is not a separate user pool, it is a property on a normal account. One or more lab members fill this role (typical labs have a single PI, but co-PI labs and shared-leadership models are supported). The role unlocks the Lab Overview surface, the soft-write approval queue, the audit trail, and the user-archiving controls."
+      intro="A PI is a per-user role. It's an account flagged with account_type === 'lab_head' that gains a small superset of affordances over a regular member. PI is not a separate user pool, it's a property on a normal account. One or more lab members fill this role (typical labs have a single PI, but co-PI labs and shared-leadership models work too). The role unlocks the Lab Overview surface, the soft-write approval queue, the audit trail, and the user-archiving controls."
     >
       {/* TODO screenshot agent: capture the login picker with a PI badge + sort-to-top.
           Route: / (login picker)
@@ -25,26 +25,26 @@ export default function LabHeadFeaturePage() {
 
       <h2>What a PI actually is</h2>
       <p>
-        The role is a single flag on a user&apos;s metadata:{" "}
+        The role is a single flag on a user&apos;s metadata. That flag is{" "}
         <code>account_type</code>, with values <code>&quot;member&quot;</code>{" "}
         (the default) or <code>&quot;lab_head&quot;</code>. A lab folder can
-        have one or more accounts flagged as PI; co-PI labs simply set
-        the flag on every PI. A PI is otherwise a normal account: they
-        have their own projects, tasks, and notes. The role does not replace
+        have one or more accounts flagged as PI, and co-PI labs set
+        the flag on every PI. A PI is otherwise a normal account, with
+        their own projects, tasks, and notes. The role does not replace
         any of that, it adds a layer of cross-lab affordances on top.
       </p>
       <p>
         Picking a PI is a deliberate decision the lab makes. Usually
         the principal investigator who actually runs the lab fills the
-        role, but it can be anyone: a senior postdoc, a lab
-        manager, a designated person who triages purchases. The role does
+        role, but it can be anyone, like a senior postdoc, a lab
+        manager, or a designated person who triages purchases. The role does
         not assume any particular real-world title.
       </p>
 
       <h2>The six phases of the PI feature</h2>
       <p>
         The PI role shipped in six tracked phases. Each one added a
-        capability:
+        capability.
       </p>
       <ol>
         <li>
@@ -96,7 +96,7 @@ export default function LabHeadFeaturePage() {
       </p>
       <p>
         The badge is also visible on comment rows wherever the PI
-        posted: a small chip next to their name so members can tell when
+        posted. It&apos;s a small chip next to their name so members can tell when
         feedback is coming from the PI versus from another member.
       </p>
 
@@ -104,7 +104,7 @@ export default function LabHeadFeaturePage() {
         A PI has implicit read access to every record in the lab,
         regardless of <code>shared_with</code>. The permission system still
         respects the explicit sharing arrays for writes, but for reads, the
-        PI sees everything. This is what makes the Lab Overview
+        PI sees everything. That&apos;s what makes the Lab Overview
         dashboards possible (the lab-wide member workload widget, for
         example, has to read every member&apos;s active tasks). See{" "}
         <Link href="/wiki/features/sharing-and-permissions">
@@ -115,7 +115,7 @@ export default function LabHeadFeaturePage() {
 
       <h2>When to use it</h2>
       <p>
-        Set one account as the PI when:
+        Set one account as the PI in these cases.
       </p>
       <ul>
         <li>
@@ -133,8 +133,8 @@ export default function LabHeadFeaturePage() {
         </li>
       </ul>
       <p>
-        Set no PI (every account stays <code>&quot;member&quot;</code>)
-        when:
+        Skip the PI (every account stays <code>&quot;member&quot;</code>)
+        in these cases.
       </p>
       <ul>
         <li>

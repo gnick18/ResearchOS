@@ -26,9 +26,9 @@ export default function RestrictionDigestFeaturePage() {
         sites, designing a diagnostic digest, and reading a gel. The restriction
         digest tools in the{" "}
         <Link href="/wiki/features/sequences">Sequences</Link> workbench answer that
-        question for any DNA sequence you have open: which enzymes cut, at what
-        positions, on which strand, what overhang each cut leaves, and what fragment
-        sizes result.
+        question for any DNA sequence you have open. They tell you which enzymes cut,
+        at what positions, on which strand, what overhang each cut leaves, and what
+        fragment sizes result.
       </p>
       <p>
         The digest is a display layer on the open sequence. Turn on the Restriction
@@ -52,7 +52,8 @@ export default function RestrictionDigestFeaturePage() {
         The Workspace ships with a large catalog of restriction enzymes drawn from a
         standard NEB-derived dataset (over two hundred enzymes). Each enzyme carries
         its recognition sequence and its cut geometry, and from that the catalog
-        derives the metadata you filter on: how long the recognition site is, whether
+        derives the metadata you filter on. That covers how long the recognition site
+        is, whether
         the site is palindromic, whether it contains a degenerate (non-ACGT) code, and
         what overhang the cut leaves. You never have to type an enzyme&apos;s
         recognition site or cut position; it all comes from the bundled data.
@@ -64,12 +65,12 @@ export default function RestrictionDigestFeaturePage() {
         on both strands, the forward strand and the reverse complement, so a cut site
         is found regardless of which way the recognition sequence reads. Each cut
         records its position and which strand the recognition site sat on. The result
-        is a per-enzyme breakdown: every enzyme in the active set, each place it cuts,
-        and a total cut count. That count is what drives the unique-cutter and
+        is a per-enzyme breakdown that lists every enzyme in the active set, each
+        place it cuts, and a total cut count. That count is what drives the unique-cutter and
         N-cutter filters described below.
       </p>
 
-      <h2>Overhangs: 5 prime, 3 prime, and blunt</h2>
+      <h2>Overhangs, 5 prime, 3 prime, and blunt</h2>
       <p>
         When an enzyme cuts, the top-strand cut and the bottom-strand cut may land at
         the same position or at offset positions. When they coincide, the cut leaves a
@@ -99,7 +100,7 @@ export default function RestrictionDigestFeaturePage() {
       <p>
         The enzyme picker mirrors the SnapGene chooser. You can search enzymes by
         name, hide enzymes that never cut the open sequence, and restrict the list by
-        cut-count category: only the enzymes that cut exactly once (unique cutters),
+        cut-count category. You can show only the enzymes that cut exactly once (unique cutters),
         or those that cut exactly N times, or the non-cutters. You can also require a
         minimum recognition-site length (longer sites cut more rarely and more
         cleanly), restrict to palindromic sites only, restrict to non-degenerate ACGT

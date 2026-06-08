@@ -17,7 +17,7 @@ export default function NotificationsFeaturePage() {
 
       <h2>What you&apos;ll see and where</h2>
       <p>
-        ResearchOS shows you new things in three places:
+        ResearchOS surfaces new things in three places.
       </p>
       <ul>
         <li>
@@ -42,7 +42,7 @@ export default function NotificationsFeaturePage() {
       <h2>The bell</h2>
       <p>
         Click the bell to drop down a list of notifications. Each row is one
-        of three kinds:
+        of three kinds.
       </p>
       <ul>
         <li>
@@ -74,8 +74,8 @@ export default function NotificationsFeaturePage() {
         Clicking anywhere on an unread row marks it as read but doesn&apos;t go
         anywhere. Clicking a row that is already read is a no-op. Each row also
         has a <strong>blue pill with a checkmark</strong> on the right that marks
-        just that one item as read, making it the primary affordance for silencing
-        a single notification without touching the rest. Reminder rows have an
+        just that one item as read, so you can silence a single notification
+        without touching the rest. Reminder rows have an
         extra <strong>Open in calendar →</strong>{" "}
         link that jumps the calendar to the day of the event and closes the
         dropdown. Shift-alert rows have <strong>View task →</strong> (jumps
@@ -96,7 +96,7 @@ export default function NotificationsFeaturePage() {
         The bell rechecks for new notifications every 30 seconds while the app
         is open. When something fires inside this tab (e.g., a calendar
         reminder), the badge updates immediately rather than waiting for the
-        next poll. Shift alerts are different: another lab member writes them
+        next poll. Shift alerts work differently. Another lab member writes them
         into your shared folder as sidecar files, so the bell scans for new
         ones once when the app loads. Closing and reopening the tab (or
         refreshing) is the cue that picks them up.
@@ -115,12 +115,12 @@ export default function NotificationsFeaturePage() {
         caption="Open the Inbox to see waiting photos. Each row has a Move-to-active and Delete button, and clicking the row opens an editor for the caption and filename."
       />
       <p>
-        Each row has these actions on the right:
+        Each row carries these actions on the right.
       </p>
       <ul>
         <li>
           <strong>Move to active.</strong> Sends the photo into whichever
-          surface is currently open in ResearchOS: an experiment, a note,
+          surface is currently open in ResearchOS, whether an experiment, a note,
           or (if both popups are open) a small dropdown lets you pick
           between them. The button is disabled when nothing is open, with
           a tooltip explaining why.
@@ -128,7 +128,7 @@ export default function NotificationsFeaturePage() {
         <li>
           <strong>⋯ (more actions).</strong> A small ellipsis button that only
           fades in when you hover the row. Clicking it opens the same menu as
-          right-click, anchored under the button: <em>Send to task&hellip;</em>,{" "}
+          right-click, anchored under the button, with <em>Send to task&hellip;</em>,{" "}
           <em>Send to note&hellip;</em>, <em>Move to active</em>, and{" "}
           <em>Delete</em>.
         </li>
@@ -147,7 +147,7 @@ export default function NotificationsFeaturePage() {
       <p>
         For a stack of photos that all belong to the same experiment, the
         modal supports multi-select so you don&apos;t have to file them one at
-        a time:
+        a time.
       </p>
       <ul>
         <li>
@@ -226,14 +226,14 @@ export default function NotificationsFeaturePage() {
       <p>
         The bell handles your personal queue (shared-with-me, reminders,
         shift alerts). Comments and announcements live in a separate
-        surface: the{" "}
+        surface, the{" "}
         <Link href="/wiki/features/lab-inbox">Lab Inbox</Link>. The two are
-        intentionally distinct.
+        kept separate on purpose.
       </p>
       <ul>
         <li>
           <strong>The bell pings you</strong> for things you need to
-          acknowledge: a labmate shared a task with you, a calendar reminder
+          acknowledge. A labmate shared a task with you, a calendar reminder
           fired, your task was shifted by someone with edit access.
         </li>
         <li>
@@ -243,7 +243,7 @@ export default function NotificationsFeaturePage() {
         </li>
       </ul>
       <p>
-        The bell does ping for one comment case: when someone{" "}
+        The bell does ping for one comment case. When someone{" "}
         <strong>@-mentions you</strong> by name in a comment, that mention
         shows up as a row in the bell so you do not miss a direct callout.
         General comments on records you can read stay in the Lab Inbox only.
@@ -257,7 +257,7 @@ export default function NotificationsFeaturePage() {
         Reminders are a single setting that applies to every timed event on
         your calendar. Open the <strong>Calendar</strong> page and click{" "}
         <strong>Reminders</strong> at the top of the left sidebar. The popup
-        has:
+        holds three things.
       </p>
       <ul>
         <li>

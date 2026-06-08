@@ -18,9 +18,9 @@ export default function TrashFeaturePage() {
         button used to be irrecoverable; the new trash flow gives you a safety
         net without changing how you delete.
       </p>
-      <Callout variant="info" title="Deleted vs edited: two different safety nets">
+      <Callout variant="info" title="Deleted vs edited, two different safety nets">
         Trash recovers a record you <strong>deleted</strong>. It does not help
-        with a record you <strong>edited</strong>: a paragraph you overwrote
+        with a record you <strong>edited</strong>. A paragraph you overwrote
         three saves ago is not in the trash, because the note itself was never
         deleted. For that, ResearchOS keeps a separate per-save timeline you can
         scroll back through and (in the restore pilot) roll back. See{" "}
@@ -59,7 +59,7 @@ export default function TrashFeaturePage() {
         and mass spec protocols. A section only appears when it has something
         in it, so the page stays short when most categories are empty.
       </p>
-      <p>Each row shows:</p>
+      <p>Each row shows the following.</p>
       <ul>
         <li>A checkbox for selecting the row (more on that below).</li>
         <li>The record&rsquo;s name (recovered from the original title).</li>
@@ -139,7 +139,7 @@ export default function TrashFeaturePage() {
       <p>
         Defaults to <strong>30 days</strong>. Change it under{" "}
         <Link href="/settings#history-and-trash">Settings &rarr; History &amp; Trash</Link>.
-        Four options: 7 days, 30 days, 90 days, or Never. The Never option
+        Four options, 7 days, 30 days, 90 days, or Never. The Never option
         means automatic cleanup never fires; you can still delete from the
         trash page manually.
       </p>
@@ -197,20 +197,20 @@ export default function TrashFeaturePage() {
 
       <h2>Archive vs trash on Projects</h2>
       <p>
-        Projects are the one entity type with TWO recovery states. Both
-        coexist by design:
+        Projects are the one entity type with TWO recovery states, and both
+        coexist on purpose.
       </p>
       <ul>
         <li>
-          <strong>Archive</strong> (the existing button): the project stays at
+          <strong>Archive</strong> (the existing button) keeps the project at
           <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta mx-1">users/&lt;you&gt;/projects/&lt;id&gt;.json</code>{" "}
           with <code>is_archived: true</code>. It is hidden from default
           views but visible in the archived list. Use this for projects
           you are done with but want to keep on disk for reference.
         </li>
         <li>
-          <strong>Delete</strong> (now routes through trash): the project file
-          moves to{" "}
+          <strong>Delete</strong> (now routes through trash) moves the project file
+          to{" "}
           <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta mx-1">_trash/projects/</code>{" "}
           and the cleanup window starts. The trash entry preserves the
           <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta mx-1">is_archived</code>{" "}
@@ -229,7 +229,7 @@ export default function TrashFeaturePage() {
         Records like Tasks (parent: Project), Notes (no parent), Purchase
         Items (parent: Task), and High-level Goals (parent: Project) record a
         soft reference to their parent at delete time. When you restore a
-        record whose parent is ALSO in trash, a prompt asks:
+        record whose parent is ALSO in trash, a prompt asks what you want to do.
       </p>
       <ul>
         <li><strong>Restore both</strong> (default): restores the parent first, then this record.</li>

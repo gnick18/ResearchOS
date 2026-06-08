@@ -7,7 +7,7 @@ export default function LabHeadSoftWritePage() {
   return (
     <WikiPage
       title="Soft-write actions"
-      intro="A soft-write is a PI action that touches a record owned by someone else: approving a member's purchase, assigning a member to a task, flagging a note for review. These go through the edit-session unlock and write to the audit log, which keeps cross-member writes accountable without making them painful. Posting a lab announcement is the one exception: it's the PI's own broadcast, so once logged in a PI posts it directly with no unlock."
+      intro="A soft-write is a PI action that touches a record owned by someone else, like approving a member's purchase, assigning a member to a task, or flagging a note for review. These go through the edit-session unlock and write to the audit log, which keeps cross-member writes accountable without making them painful. Posting a lab announcement is the one exception. It's the PI's own broadcast, so once logged in a PI posts it directly with no unlock."
     >
       {/* TODO screenshot agent: capture the PI Actions popup with the Pending Approvals tab open.
           Route: /lab-overview (PI Actions Tool popup, Pending tab)
@@ -30,7 +30,7 @@ export default function LabHeadSoftWritePage() {
         Pending purchases show up in the <strong>Pending approvals</strong>{" "}
         tab of the PI Actions popup, on the Pending tile in the Lab Overview
         sidebar, and inline on the Purchases page as a yellow stripe. Each
-        row has two inline buttons:
+        row has two inline buttons.
       </p>
       <ul>
         <li>
@@ -74,7 +74,7 @@ export default function LabHeadSoftWritePage() {
       <p>
         A PI can flag any task, note, or purchase as needing review.
         The affordance is a small <strong>Flag</strong> button on the host
-        record popup. Flagged items show up:
+        record popup. Flagged items show up in three places.
       </p>
       <ul>
         <li>In the <strong>Flagged</strong> tab of the PI Actions popup.</li>
@@ -82,7 +82,7 @@ export default function LabHeadSoftWritePage() {
         <li>In the Lab Activity stream as a flag-event row.</li>
       </ul>
       <p>
-        Flags are intentionally lightweight: there is no required comment or
+        Flags are intentionally lightweight. There is no required comment or
         category, just a single bit that says &quot;this needs another
         look.&quot; The member resolves the flag by clicking{" "}
         <strong>Resolve</strong> on their copy, which writes a resolve event
@@ -93,7 +93,7 @@ export default function LabHeadSoftWritePage() {
       <p>
         Announcements are a lab-wide PI broadcast covered in its own page.
         Unlike the soft-writes above, posting an announcement does not require
-        unlocking an edit session: it touches no member&apos;s record, so once
+        unlocking an edit session. It touches no member&apos;s record, so once
         a PI is logged in they post directly. It still writes an audit row. See{" "}
         <Link href="/wiki/features/lab-inbox/announcements">
           Announcements

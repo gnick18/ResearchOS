@@ -41,11 +41,10 @@ export default function ImageAnnotationFeaturePage() {
       </p>
       <p>
         Because the markup lives in its own file, two things follow that matter
-        for trustworthy records. Your annotations are always re-editable, since
-        every shape comes back as a live object you can move, recolor, or
-        delete. And reverting is as simple as deleting the sidecar, which
-        returns the image to its pristine original with no quality loss and no
-        trace of the edit baked in.
+        for trustworthy records. Your annotations stay re-editable, since every
+        shape comes back as a live object you can move, recolor, or delete. And
+        to revert, you delete the sidecar. That returns the image to its
+        original with no quality loss and no trace of the edit baked in.
       </p>
 
       <Callout variant="tip" title="Vector shapes, not painted pixels">
@@ -144,7 +143,7 @@ export default function ImageAnnotationFeaturePage() {
       <p>
         The shapes are stored in the image&apos;s natural pixel space, so a
         single saved annotation scales correctly from a full-width figure all
-        the way down to a 64-pixel thumbnail. You annotate once and it reads
+        the way down to a 64-pixel thumbnail. Annotate it once and it reads
         right at every size.
       </p>
 

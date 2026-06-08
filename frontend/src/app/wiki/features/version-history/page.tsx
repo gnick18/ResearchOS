@@ -74,7 +74,7 @@ export default function VersionHistoryPage() {
       <p>
         A working note can accumulate dozens of saves in an afternoon. A flat
         list of every save would be noise, so the sidebar groups them the way
-        you actually remember your work: by <strong>day</strong> first, then by{" "}
+        you actually remember your work, by <strong>day</strong> first, then by{" "}
         <strong>editing session</strong> within the day.
       </p>
       <ul>
@@ -101,7 +101,7 @@ export default function VersionHistoryPage() {
       <h2>The in-place diff</h2>
       <p>
         Select any version and the note body column does not just show that old
-        snapshot. It shows a <strong>diff</strong>: the note as it stands, with
+        snapshot. It shows a <strong>diff</strong>, the note as it stands, with
         the selected version&apos;s changes marked inline. Added lines render in
         green, removed lines in red with a strike-through, and unchanged prose
         renders normally so you keep your bearings. The change is shown in the
@@ -133,8 +133,8 @@ export default function VersionHistoryPage() {
         By default, a version is diffed against the one immediately{" "}
         <strong>before</strong> it, so you see exactly what that single save
         changed. A toggle at the top of the sidebar switches the comparison base
-        to the <strong>current</strong> version instead, which answers a
-        different question: &quot;what is different between this old state and the
+        to the <strong>current</strong> version instead. That answers a
+        different question, &quot;what is different between this old state and the
         note as it stands right now?&quot; Use <em>Previous</em> to audit one
         edit; use <em>Current</em> to see everything that has happened since.
       </p>
@@ -144,7 +144,7 @@ export default function VersionHistoryPage() {
         caption="The compare base toggle. Previous shows what one save changed; Current shows the full delta from an old state to today."
       />
 
-      <h2>Who sees it: local and private</h2>
+      <h2>Who sees it, local and private</h2>
       <p>
         Version history is part of your data folder, not a cloud service. The
         history file sits inside the note owner&apos;s folder on disk, right
@@ -204,7 +204,7 @@ export default function VersionHistoryPage() {
       <h2>Why it matters for compliance</h2>
       <p>
         A per-entry edit history with the ability to revert is one of the things
-        funders and reviewers look for in a research record: it is what makes the
+        funders and reviewers look for in a research record. It is what makes the
         record <em>provenanced</em>, a tamper-evident trail of who changed what
         and when. ResearchOS records that trail automatically and keeps it in your
         own data folder in an open, plain-text format you can read without the

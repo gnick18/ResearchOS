@@ -16,8 +16,8 @@ export default function NihDataManagementPage() {
         notebook, and there is no badge a tool can earn. When LabArchives or
         anyone else lists &ldquo;NIH Data Management Mandates &amp; Sharing
         support&rdquo; as a feature, that is a marketing claim that decodes
-        to one honest sentence: <em>our features help your researchers do
-        the things NIH expects of them</em>.
+        to one honest sentence. <em>Our features help your researchers do
+        the things NIH expects of them.</em>
       </p>
       <Callout variant="info" title="So what are universities actually paying for?">
         Not a DMS certificate. The enterprise price tag buys security
@@ -39,7 +39,7 @@ export default function NihDataManagementPage() {
       </p>
 
       <h2>What the policy actually asks for</h2>
-      <p>NIH expects funded investigators to do three things:</p>
+      <p>NIH expects funded investigators to do three things.</p>
       <ul>
         <li>
           <strong>Plan and budget</strong> for managing and sharing
@@ -50,7 +50,7 @@ export default function NihDataManagementPage() {
           it with the funding application.
         </li>
         <li>
-          <strong>Implement the plan</strong>: manage the data rigorously
+          <strong>Implement the plan</strong> by managing the data rigorously
           during the project, then share it no later than publication or the
           end of the award, whichever comes first.
         </li>
@@ -60,8 +60,8 @@ export default function NihDataManagementPage() {
         investigators are <strong>not</strong> expected to share laboratory
         notebooks, preliminary analyses, drafts, or communications. What you
         share is a <strong>curated dataset</strong>, deposited into an
-        appropriate repository. So a notebook&apos;s real job is twofold:
-        manage the data well while you work, and produce a clean, portable
+        appropriate repository. So a notebook&apos;s real job is twofold. It
+        manages the data well while you work, and it produces a clean, portable
         export you can hand to a repository when it is time to share. That
         plays directly to how ResearchOS stores everything.
       </Callout>
@@ -206,7 +206,7 @@ export default function NihDataManagementPage() {
         happens, not the notebook. NIH does not mandate a specific one. It
         publishes <em>Desirable Characteristics of Data Repositories</em>{" "}
         (persistent identifiers, long-term stewardship, curation, clear reuse
-        terms) and expects you to pick one that fits your data: a
+        terms) and expects you to pick one that fits your data, either a
         domain-specific repository where one exists, or a generalist
         repository such as Zenodo, Figshare, Dryad, or Vivli otherwise.
       </p>
@@ -234,7 +234,7 @@ export default function NihDataManagementPage() {
         plan.
       </p>
       <Callout variant="info" title="Guided deposit now, one-click coming soon">
-        ResearchOS has a <strong>guided deposit</strong> dialog today: it
+        ResearchOS has a <strong>guided deposit</strong> dialog today. It
         prefills your DataCite-shaped metadata, bundles the data, and opens the
         repository&apos;s own upload page, where the repository mints the DOI.
         What is not shipped yet is the <strong>fully automated one-click</strong>{" "}
@@ -263,7 +263,7 @@ export default function NihDataManagementPage() {
       </Callout>
       <Callout variant="warning" title="No third-party security certifications">
         ResearchOS holds no FedRAMP, SOC 2, ISO 27001, or 21 CFR Part 11
-        attestation. Its security posture is different by design: a
+        attestation. Its security posture is different by design, a
         local-first app with no vendor database to certify (see{" "}
         <Link href="/wiki/security">Security</Link>). That is the right
         trade-off for many labs, but if your institution requires a certified
@@ -273,7 +273,7 @@ export default function NihDataManagementPage() {
       <h2>The official sources</h2>
       <p>
         Do not anchor a compliance decision to a vendor blog (including this
-        one). The primary sources are short and readable:
+        one). The primary sources are short and readable.
       </p>
       <ul>
         <li>
@@ -298,7 +298,7 @@ export default function NihDataManagementPage() {
           >
             NOT-OD-21-013
           </a>{" "}
-          : the Final NIH Policy itself.
+          is the Final NIH Policy itself.
         </li>
         <li>
           <a
@@ -308,7 +308,7 @@ export default function NihDataManagementPage() {
           >
             NOT-OD-21-014
           </a>{" "}
-          : the required elements of a DMS Plan. This is the real checklist.
+          lists the required elements of a DMS Plan. This is the real checklist.
         </li>
         <li>
           <a
@@ -318,7 +318,7 @@ export default function NihDataManagementPage() {
           >
             NOT-OD-21-016
           </a>{" "}
-          : desirable characteristics of data repositories.
+          covers desirable characteristics of data repositories.
         </li>
       </ul>
       <p>

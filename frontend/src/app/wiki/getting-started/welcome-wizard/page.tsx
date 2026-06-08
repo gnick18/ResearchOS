@@ -26,7 +26,7 @@ export default function WelcomeWizardPage() {
         first real project.
       </p>
       <p>
-        Three things are true about every run:
+        Three things are true about every run.
       </p>
       <ul>
         <li>
@@ -55,8 +55,9 @@ export default function WelcomeWizardPage() {
       </Callout>
 
       <Callout variant="info" title="This is not the 3-minute walkthrough on the picker">
-        Quick disambiguation: the folder-picker screen (before you link a
-        folder) shows a small <strong>Take the 3-minute walkthrough</strong>{" "}
+        One quick thing to keep separate. The folder-picker screen (before you
+        link a folder) shows a small{" "}
+        <strong>Take the 3-minute walkthrough</strong>{" "}
         button next to BeakerBot in the upper-right. That is a separate, opt-
         in 4-beat modal that introduces ResearchOS at a high level (welcome,
         data security, folder choice, cloud provider). It runs <em>before</em>{" "}
@@ -72,7 +73,7 @@ export default function WelcomeWizardPage() {
 
       <h2>Who sees the tour</h2>
       <p>
-        The tour auto-fires only when three conditions all hold:
+        The tour auto-fires only when three conditions all hold.
       </p>
       <ul>
         <li>The folder has no <code>_user_metadata</code> entry, or the file is empty.</li>
@@ -105,7 +106,7 @@ export default function WelcomeWizardPage() {
         caption="The Re-run tour button in Settings. Clears completion state and re-mounts BeakerBot at the welcome screen without a page reload."
       />
 
-      <h2>Phase 1: setup questions</h2>
+      <h2>Phase 1, setup questions</h2>
       <p>
         The first few minutes are a short Q&amp;A that BeakerBot uses to shape
         the rest of the tour and which tabs appear in your sidebar. Every
@@ -113,7 +114,7 @@ export default function WelcomeWizardPage() {
         <strong>Skip this step</strong>.
       </p>
 
-      <h3>Q1: solo or lab?</h3>
+      <h3>Q1, solo or lab?</h3>
       <p>
         The first call is whether you are flying solo (one user, your own
         account) or running a multi-person lab (everyone points their
@@ -130,13 +131,13 @@ export default function WelcomeWizardPage() {
 
       <Callout variant="info" title="Q1 auto-skips when other users exist">
         When the lab folder already has other users in it (someone signed in
-        before you), the wizard auto-skips Q1 and assumes Lab. The reasoning:
-        if there is already a lab to join, you are joining a lab, not
+        before you), the wizard auto-skips Q1 and assumes Lab. If there is
+        already a lab to join, you are joining a lab, not
         starting a solo workspace. Q1 still appears for the first user in a
         fresh folder so a single-person workflow stays a deliberate choice.
       </Callout>
 
-      <h3>Q1c: are you the PI?</h3>
+      <h3>Q1c, are you the PI?</h3>
       <p>
         Conditional on Q1 = Lab. After picking Lab, BeakerBot follows up with
         a single binary question. Are you the PI, or are you a member?
@@ -149,9 +150,9 @@ export default function WelcomeWizardPage() {
         <Link href="/wiki/features/lab-head">PI</Link>.
       </p>
 
-      <h3>Q2 through Q6: feature picks</h3>
+      <h3>Q2 through Q6, feature picks</h3>
       <p>
-        Five questions about ResearchOS surfaces and preferences:
+        Five questions about ResearchOS surfaces and preferences.
       </p>
       <ul>
         <li><strong>Q2:</strong> Will you track lab purchases? (Yes / No / Maybe later)</li>
@@ -172,10 +173,10 @@ export default function WelcomeWizardPage() {
         conditional walkthrough clusters fire in Phase 2.
       </p>
 
-      <h3>Q7: Links / Lab Links</h3>
+      <h3>Q7, Links / Lab Links</h3>
       <p>
         The final setup question asks whether you want a tab for saving
-        bookmarks: VPN links, lab calendars, freezer inventory spreadsheets,
+        bookmarks, things like VPN links, lab calendars, freezer inventory spreadsheets,
         manuscript drafts, and so on. Each card holds a URL plus a label so
         you can jump straight to the resource.
       </p>
@@ -187,7 +188,7 @@ export default function WelcomeWizardPage() {
         Phase 2.
       </p>
 
-      <h2>Phase 2: walkthrough on your real account</h2>
+      <h2>Phase 2, walkthrough on your real account</h2>
       <p>
         This is where the tour starts touching real data. BeakerBot walks a
         universal sequence covering the major surfaces (Home, Project,
@@ -205,7 +206,7 @@ export default function WelcomeWizardPage() {
         experiment, wire a Gantt dependency) so the muscle memory sticks.
       </p>
 
-      <h3>Universal sequence: major surface tour</h3>
+      <h3>Universal sequence, major surface tour</h3>
 
       <h4>Home and your first project</h4>
       <p>
@@ -564,14 +565,14 @@ export default function WelcomeWizardPage() {
         for the data-side retirement story.
       </Callout>
 
-      <h2>Terminal step: tour-goodbye</h2>
+      <h2>Terminal step, tour-goodbye</h2>
       <p>
         The final step is <code>tour-goodbye</code>. BeakerBot says{" "}
         &quot;You&apos;re set! Here&apos;s to many great experiments ahead.&quot;
         and presents a single <strong>Let&apos;s go</strong> button.
       </p>
       <p>
-        Clicking <strong>Let&apos;s go</strong> triggers the outro:
+        Clicking <strong>Let&apos;s go</strong> triggers the outro.
       </p>
       <ol>
         <li>A full-screen overlay mounts. BeakerBot cheers and confetti fires (~1.8 s).</li>
@@ -591,7 +592,7 @@ export default function WelcomeWizardPage() {
         BeakerBot is the canonical ResearchOS mascot, a sky-blue chemistry
         beaker with pastel-rainbow liquid, dot eyes, and measurement-mark cheek
         dashes. The voice is funny and playful throughout. The tour draws from
-        nine or more poses, chosen contextually:
+        nine or more poses, chosen contextually.
       </p>
       <ul>
         <li><strong>Idle</strong>, the always-on baseline bob.</li>
@@ -628,7 +629,8 @@ export default function WelcomeWizardPage() {
         Closing the tab partway through writes the current step plus every
         artifact created so far into{" "}
         <code>_onboarding.json.wizard_resume_state</code>. The next time you
-        open ResearchOS with this folder, a small modal asks:
+        open ResearchOS with this folder, a small modal gives you three
+        options.
       </p>
       <ul>
         <li><strong>Resume</strong>, mount the tour at the saved step with every artifact and feature-pick intact.</li>
@@ -659,7 +661,7 @@ export default function WelcomeWizardPage() {
       <p>
         Your Q1 through Q7 answers determine the visible-tab set through two
         helpers in{" "}
-        <code>frontend/src/lib/onboarding/feature-picks-tabs.ts</code>:
+        <code>frontend/src/lib/onboarding/feature-picks-tabs.ts</code>.
       </p>
       <ul>
         <li>
@@ -672,7 +674,7 @@ export default function WelcomeWizardPage() {
         </li>
       </ul>
       <p>
-        The rules:
+        The rules work like this.
       </p>
       <ul>
         <li><strong>Always visible:</strong> Home, Workbench, Methods, Experiments, Gantt, Search.</li>
@@ -695,7 +697,7 @@ export default function WelcomeWizardPage() {
         <strong>Settings &gt; Onboarding &gt; Visible tabs</strong>.
       </p>
 
-      <Callout variant="tip" title="Power-user shortcut: ?wizard-preview=1">
+      <Callout variant="tip" title="Power-user shortcut, ?wizard-preview=1">
         Developers and demo-givers can append <code>?wizard-preview=1</code> to
         any URL to force-mount the tour against the current sidecar state. The
         session also activates when the sticky sessionStorage key{" "}
@@ -706,7 +708,7 @@ export default function WelcomeWizardPage() {
         fixture for screenshot captures.
       </Callout>
 
-      <h2>Dev affordances: the BeakerBot button</h2>
+      <h2>Dev affordances, the BeakerBot button</h2>
       <p>
         In development builds, a small BeakerBot button sits in the
         bottom-right floating cluster alongside the data-folder and switch-user
@@ -717,7 +719,7 @@ export default function WelcomeWizardPage() {
         production builds drop it as dead code.
       </p>
       <p>
-        The three actions are:
+        There are three actions.
       </p>
       <ul>
         <li>

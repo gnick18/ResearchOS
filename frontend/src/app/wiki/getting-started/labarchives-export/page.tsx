@@ -31,7 +31,7 @@ export default function LabArchivesExportPage() {
       <Callout variant="info" title="LabArchives may change their UI">
         LabArchives occasionally renames menu items or moves them between
         toolbars. If a label below doesn&apos;t match what you see on
-        screen, look for the same underlying concept: you&apos;re asking
+        screen, look for the same underlying concept. You&apos;re asking
         LabArchives to produce an <strong>Offline Notebook</strong>{" "}
         export of a single notebook. Other names you might see for the
         same action include <em>Create Offline Notebook</em>,{" "}
@@ -88,7 +88,7 @@ export default function LabArchivesExportPage() {
       <h2>What&apos;s inside the ZIP</h2>
       <p>
         You don&apos;t need to open the ZIP yourself, but it helps to
-        know what&apos;s in there:
+        know what&apos;s in there.
       </p>
       <ul className="list-disc pl-6 space-y-1">
         <li>

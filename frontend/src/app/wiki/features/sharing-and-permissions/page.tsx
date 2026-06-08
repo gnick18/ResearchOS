@@ -25,8 +25,8 @@ export default function SharingAndPermissionsPage() {
 
       <h2>The shared_with array</h2>
       <p>
-        Every shareable record carries a field whose TypeScript signature
-        is:
+        Every shareable record carries a field. Here is its TypeScript
+        signature.
       </p>
       <pre className="text-body bg-surface-sunken rounded p-3 overflow-x-auto">
         <code>{`type SharedUser = {
@@ -38,7 +38,7 @@ shared_with: SharedUser[];`}</code>
       </pre>
       <p>
         Each entry pairs a recipient with the level of access they get on
-        this record. An empty array means &quot;private to me&quot;: the
+        this record. An empty array means &quot;private to me&quot;, since the
         owner is implicit and never appears in their own list. Adding an
         entry grants that user the chosen level. Removing the entry revokes
         access entirely. The shape lives in
@@ -46,8 +46,8 @@ shared_with: SharedUser[];`}</code>
         where the read and write helpers documented below are defined.
       </p>
       <p>
-        Inspecting your JSON folder, you will see the objects on disk. A
-        method shared with two members at different levels looks like:
+        Inspecting your JSON folder, you will see the objects on disk. Here
+        is a method shared with two members at different levels.
       </p>
       <pre className="text-body bg-surface-sunken rounded p-3 overflow-x-auto">
         <code>{`"shared_with": [
@@ -93,10 +93,10 @@ shared_with: SharedUser[];`}</code>
         never requires a sweep across every record to keep things in sync.
       </p>
 
-      <h2>The two primitives: canRead and canWrite</h2>
+      <h2>The two primitives, canRead and canWrite</h2>
       <p>
         Every permission decision in the app routes through one of two
-        pure, synchronous functions:
+        pure, synchronous functions.
       </p>
       <ul>
         <li>
@@ -122,7 +122,7 @@ shared_with: SharedUser[];`}</code>
         </li>
       </ul>
       <p>
-        Both functions are pure: same input, same output, no I/O. They are
+        Both functions are pure, so the same input always gives the same output, with no I/O. They are
         synchronous, so every render and every save can call them without
         async ceremony.
       </p>
@@ -133,7 +133,7 @@ shared_with: SharedUser[];`}</code>
         an extra rule on the read side only: <code>canRead</code> returns
         true for every record in the lab regardless of{" "}
         <code>shared_with</code>. The Lab Overview cross-lab dashboards
-        depend on this rule: the member workload widget has to be able to
+        depend on this rule. The member workload widget has to be able to
         read every member&apos;s active tasks even when those tasks are
         private to the member.
       </p>
@@ -179,13 +179,13 @@ shared_with: SharedUser[];`}</code>
         that carried <code>is_public: true</code> rewrites to{" "}
         <code>{`shared_with: [{ username: "*", level: "read" }]`}</code>{" "}
         on first read. No user action is required, and no Settings button
-        needs to be clicked: the rewrite runs in the background and is
+        needs to be clicked. The rewrite runs in the background and is
         idempotent on repeat logins.
       </Callout>
 
-      <h2>Granularity: what is shareable</h2>
+      <h2>Granularity, what is shareable</h2>
       <p>
-        Sharing is per-record:
+        Sharing is per-record.
       </p>
       <ul>
         <li>
@@ -229,7 +229,7 @@ shared_with: SharedUser[];`}</code>
       <h2>Hosting a labmate&apos;s task in your project</h2>
       <p>
         Sharing a task one way is read or edit access on that task. Hosting goes a
-        step further: a labmate can let one of their tasks{" "}
+        step further. A labmate can let one of their tasks{" "}
         <strong>also appear inside your project</strong>, so the experiment lives
         in your project board alongside your own tasks without ever leaving its
         original owner&apos;s folder. The task file stays where it started (so the
@@ -243,12 +243,12 @@ shared_with: SharedUser[];`}</code>
         deleted, or the reference goes stale), ResearchOS{" "}
         <strong>self-heals</strong> the mismatch on read and through a background
         sweep, dropping orphaned entries so the board never shows a phantom task.
-        The repair is automatic, so hosting feels seamless from both ends.
+        The repair is automatic, so hosting stays clean from both ends.
       </p>
 
       <h2>Cross-link map</h2>
       <p>
-        Pages elsewhere in the wiki that touch sharing decisions:
+        Pages elsewhere in the wiki that touch sharing decisions.
       </p>
       <ul>
         <li>

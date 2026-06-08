@@ -12,10 +12,10 @@ export default function ResultsFeaturePage() {
       <Callout variant="info" title="Old bookmarks still work">
         Visiting <code>/results</code> now redirects to{" "}
         <Link href="/wiki/features/experiments">Workbench</Link>, where the
-        bulk of the old page&apos;s content lives. No data moved on disk:
-        every task lives at{" "}
+        bulk of the old page&apos;s content lives. No data moved on disk,
+        every task still lives at{" "}
         <code>users/&lt;owner&gt;/results/task-&lt;id&gt;/</code>. New file
-        attachments land in per-tab subdirectories: notes files go to{" "}
+        attachments land in per-tab subdirectories. Notes files go to{" "}
         <code>notes/Files/</code> and results files go to{" "}
         <code>results/Files/</code>, rather than a flat <code>Files/</code>{" "}
         folder at the task root.
@@ -27,7 +27,7 @@ export default function ResultsFeaturePage() {
         Earlier results section at the bottom of the{" "}
         <Link href="/wiki/features/experiments">Workbench</Link> page, with
         the header rendered in uppercase as <strong>EARLIER RESULTS</strong>.
-        They keep all the same write-up affordances: clicking a card opens
+        They keep all the same write-up affordances. Clicking a card opens
         the task detail popup with the Results tab selected, where you fill
         in the markdown summary and drop in images.
       </p>

@@ -20,8 +20,8 @@ export default function OneOnOnesFeaturePage() {
       */}
       <Screenshot
         src="/wiki/screenshots/one-on-ones-surface.png"
-        alt="The 1:1 surface: a left list of the viewer's 1:1s and a main pane with Weekly goals, Meeting notes, Notes, and Agenda tabs."
-        caption="A lab head's view: the left rail lists one row per mentee, and the main pane carries the four shared areas."
+        alt="The 1:1 surface, with a left list of the viewer's 1:1s and a main pane carrying Weekly goals, Meeting notes, Notes, and Agenda tabs."
+        caption="A lab head's view. The left rail lists one row per mentee, and the main pane carries the four shared areas."
       />
 
       <h2>What a 1:1 is</h2>

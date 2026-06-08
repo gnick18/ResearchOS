@@ -7,7 +7,7 @@ import { TryInDemo } from "@/components/wiki/TryInDemo";
 export default function GanttFeaturePage() {
   return (
     <WikiPage
-      intro="The Gantt timeline holds every active task across every project you can see. The view trades calendar precision for visual rhythm: you scan packed rows of colored bars and your eye picks out the busy weeks, the dependencies that cross projects, and the gaps where work is not yet planned. The chart is a working surface, not a read-only report. You drag bars to reschedule, drop one on another to chain them, right-click a day to mark it as PTO, and drop an image straight onto a task."
+      intro="The Gantt timeline holds every active task across every project you can see. You scan packed rows of colored bars and your eye picks out the busy weeks, the dependencies that cross projects, and the gaps where nothing is planned yet. The chart is a working surface, not a read-only report. You drag bars to reschedule, drop one on another to chain them, right-click a day to mark it as PTO, and drop an image straight onto a task."
     >
       {/* TODO screenshot agent: capture the Gantt with the redesigned toolbar + diverse bar styles.
           Route: /gantt
@@ -21,7 +21,7 @@ export default function GanttFeaturePage() {
       <Screenshot
         src="/wiki/screenshots/gantt-overview.png"
         alt="The Gantt timeline with packed rows of colored bars, a multi-select project dropdown in the toolbar, PTO stripes on a Saturday cell, and a dependency stripe linking two bars across rows."
-        caption="The Gantt at a glance: packed rows of bars colored by project, a multi-select project dropdown in the toolbar, weekend hash, and PTO stripes."
+        caption="The Gantt at a glance, with packed rows of bars colored by project, a multi-select project dropdown in the toolbar, weekend hash, and PTO stripes."
       />
 
       <TryInDemo href="/gantt">Try the Gantt view</TryInDemo>
@@ -29,8 +29,8 @@ export default function GanttFeaturePage() {
       <h2>Anatomy of the Gantt</h2>
       <p>
         Every visual element on the Gantt encodes one specific thing. Once
-        the vocabulary clicks, a scroll across the timeline reads almost
-        like sheet music.
+        you know the vocabulary, a scroll across the timeline tells you
+        most of what you need at a glance.
       </p>
       <ul>
         <li>
@@ -106,8 +106,8 @@ export default function GanttFeaturePage() {
           <strong>Projects dropdown</strong> (multi-select). Click it to open
           the project list. Every project starts checked, so the default
           chart shows everything. Untick a project to hide its bars. Two
-          quick actions at the top: <strong>Select all</strong> restores the
-          everyone-checked default; <strong>Unselect all</strong> clears the
+          quick actions sit at the top. <strong>Select all</strong> restores the
+          everyone-checked default, and <strong>Unselect all</strong> clears the
           list so you can re-tick only the project you want.
         </li>
         <li>
@@ -145,7 +145,7 @@ export default function GanttFeaturePage() {
         Grab any bar and drag it to a different day. On drop, the task&apos;s
         start date moves to that day and its duration stays the same. Any
         downstream tasks linked through a dependency recompute their dates to
-        keep their constraints valid: an FS (start-after) child of a moved
+        keep their constraints valid. An FS (start-after) child of a moved
         parent slides forward to start the day after the new parent end.
       </p>
       <p>
@@ -170,7 +170,7 @@ export default function GanttFeaturePage() {
         A dependency captures the idea that one piece of bench work cannot
         sensibly begin (or end) until another one reaches a certain point.
         On the Gantt you express that by dragging one bar and dropping it on
-        top of another. A popup then asks how the two tasks should be linked:
+        top of another. A popup then asks how the two tasks should be linked.
       </p>
       <ul>
         <li>
@@ -184,7 +184,7 @@ export default function GanttFeaturePage() {
         </li>
         <li>
           <strong>Finish before</strong> (SF). The dragged task finishes the
-          day before the target starts. This is a strict gap: the predecessor
+          day before the target starts. This is a strict gap, where the predecessor
           clears the calendar entirely before the successor begins, so the two
           never share a day even when the predecessor is a single-day task.
         </li>
@@ -199,27 +199,27 @@ export default function GanttFeaturePage() {
         Only experiments can be chained. Lists and purchases are deliberately
         kept out of dependency chains, since linking a shopping order or a
         checklist into a scheduling chain tends to create constraints nobody
-        wanted. On the Gantt this shows up as a non-interactive signal: drag a
+        wanted. On the Gantt this shows up as a non-interactive signal. Drag a
         list or purchase bar (or aim one at a list or purchase target) and the
         blue drop zone never appears, so the link simply will not form. The
-        same rule holds when you build a task: the &quot;After Task&quot;
+        same rule holds when you build a task, where the &quot;After Task&quot;
         scheduling mode and its parent picker only surface for experiment
         tasks.
       </Callout>
 
-      <h3>See a whole chain at once: hover-highlight</h3>
+      <h3>See a whole chain at once with hover-highlight</h3>
       <p>
         Because bars pack into rows by date rather than by chain, the members
         of one dependency chain can end up scattered across the timeline. Two
-        cues help you read them as a group. The first is always on: each bar
+        cues help you read them as a group. The first is always on. Each bar
         in a chain carries small chain-colored dots in its corner, where the
         dot count matches the chain length and the fully-opaque dot marks this
         task&apos;s position in the order.
       </p>
       <p>
         The second cue is the hover treatment. Move your cursor over any bar
-        that belongs to a multi-member chain and the whole chain lights up:
-        every bar in that chain stays at full strength and picks up a ring in
+        that belongs to a multi-member chain and the whole chain lights up.
+        Every bar in that chain stays at full strength and picks up a ring in
         the chain&apos;s color, while every bar outside the chain dims back so
         the group reads as one unit. Move off and the chart returns to normal.
         Solo tasks (a chain of one, with no peers) do not trigger the effect.
@@ -228,7 +228,7 @@ export default function GanttFeaturePage() {
       <h2>Filter with the multi-select project dropdown</h2>
       <p>
         The redesigned toolbar replaced the long pill row with a single
-        dropdown. The interaction is:
+        dropdown. Here is how it works.
       </p>
       <ul>
         <li>Click <strong>Projects</strong> to expand the list.</li>
@@ -288,9 +288,9 @@ export default function GanttFeaturePage() {
         the chart shows the whole lab&apos;s work side by side.
       </p>
       <p>
-        This shifts the role of the page. For a member, the Gantt is a
+        That changes what the page is for. For a member, the Gantt is a
         personal schedule. For a PI, it becomes a coordination
-        surface: dependency chains can stretch across users, the
+        surface. Dependency chains can stretch across users, the
         project dropdown doubles as a per-member filter (untick a
         student&apos;s projects to focus on a co-PI&apos;s timeline),
         and rescheduling a bar cascades downstream tasks regardless of
@@ -300,7 +300,7 @@ export default function GanttFeaturePage() {
       <Screenshot
         src="/wiki/screenshots/gantt-overview-lab-head.png"
         alt="The Gantt as a PI, with the project dropdown open showing projects from every member in the lab."
-        caption="Lab head view: the project dropdown spans every member's projects, so one timeline shows the whole lab."
+        caption="Lab head view, where the project dropdown spans every member's projects, so one timeline shows the whole lab."
       />
 
       <h2>Drop an image on a task</h2>

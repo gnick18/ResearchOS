@@ -12,7 +12,7 @@ export default function HomeFeaturePage() {
       <h2>The root URL is a router, not a page</h2>
       <p>
         ResearchOS used to open on a customizable widget dashboard at{" "}
-        <code>/</code>: a canvas of tiles you pinned, dragged, and rearranged.
+        <code>/</code>, a canvas of tiles you pinned, dragged, and rearranged.
         That dashboard is gone. The root URL now renders nothing of its own. It
         signs you in, handles any deep link you arrived with (e.g. a task or
         project link someone shared), and then forwards you to the surface that
@@ -73,7 +73,7 @@ export default function HomeFeaturePage() {
         </Step>
       </Steps>
       <Callout variant="tip" title="Color is visual grouping everywhere">
-        The color you pick follows the project across the whole app: the bar on
+        The color you pick follows the project across the whole app, the bar on
         the <Link href="/wiki/features/gantt">Gantt</Link>, the dot on the
         project card, and the overlay on the calendar. Pick distinct colors
         early so a busy Gantt stays readable as your project count grows.
@@ -82,10 +82,10 @@ export default function HomeFeaturePage() {
       <h2>Shared projects appear here too</h2>
       <p>
         When a labmate shares a project with you, it surfaces in your Projects
-        grid alongside your own. The card reads the same as any other: color,
-        progress, open-task count. Whether your edits save back depends on the
-        permission the owner granted: edit permission writes to their copy,
-        view permission is read-only. See{" "}
+        grid alongside your own. The card reads the same as any other, with its
+        color, progress, and open-task count. Whether your edits save back
+        depends on the permission the owner granted. Edit permission writes to
+        their copy, view permission is read-only. See{" "}
         <Link href="/wiki/features/sharing-and-permissions">
           Sharing and permissions
         </Link>{" "}

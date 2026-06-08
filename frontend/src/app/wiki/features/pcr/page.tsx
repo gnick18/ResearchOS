@@ -14,24 +14,24 @@ export default function PCRFeaturePage() {
       <Screenshot
         src="/wiki/screenshots/pcr-editor.png"
         alt="The PCR protocol editor with a row of colored temperature blocks on top and a reagent table below."
-        caption="The protocol editor: thermal gradient on top, reagent table below."
+        caption="The protocol editor, with the thermal gradient on top and the reagent table below."
       />
 
       <h2>What a PCR protocol is</h2>
       <p>
         Each protocol opens in a popup with two panels stacked on top of each
-        other:
+        other.
       </p>
       <ul>
         <li>
-          The <strong>Thermal Gradient</strong> panel up top: a left-to-right
+          The <strong>Thermal Gradient</strong> panel up top is a left-to-right
           row of colored square blocks, one per step. Each block shows the
           temperature and duration of that step. A purple dashed rectangle
           wraps the cycled section and carries a small <code>x35</code> badge
           for the repeat count.
         </li>
         <li>
-          The <strong>Reaction Recipe</strong> panel below: one row per
+          The <strong>Reaction Recipe</strong> panel below has one row per
           ingredient with a stock concentration and a per-reaction volume in
           microliters. The bottom <em>Total</em> row is a manual entry where
           you type the target reaction volume. It looks identical to the
@@ -80,7 +80,7 @@ export default function PCRFeaturePage() {
         </li>
       </ul>
       <p>
-        Block color is keyed to temperature across six bands: blue (≤ 15 °C),
+        Block color is keyed to temperature across six bands, blue (≤ 15 °C),
         cyan (≤ 30 °C), green (≤ 50 °C), amber (≤ 70 °C), orange (≤ 85 °C),
         and red (above 85 °C). A step typed in at the wrong temperature is
         visually obvious because its color doesn&apos;t match its neighbors.
@@ -104,7 +104,7 @@ export default function PCRFeaturePage() {
         </Step>
         <Step>
           <strong>Edit any block.</strong> Double-click a block to open the
-          Edit Step popup. It has three fields: <em>Step Name</em> (e.g.{" "}
+          Edit Step popup. It has three fields, <em>Step Name</em> (e.g.{" "}
           <em>Annealing</em>), <em>Temperature (°C)</em> as a number input,
           and <em>Duration</em> as free text (e.g. <em>20 sec</em>,{" "}
           <em>2 min</em>). The <em>Hold</em> checkbox next to the duration
@@ -115,7 +115,7 @@ export default function PCRFeaturePage() {
           ring appears) and a pair of <strong>← →</strong> arrow buttons drop
           in above the block. The arrows swap the block with its neighbor.
           The arrows step <em>around</em> the cycled block rather than into
-          it: a block outside the cycle stays outside, and a block inside the
+          it. A block outside the cycle stays outside, and a block inside the
           cycle stays inside.
         </Step>
         <Step>
@@ -147,7 +147,7 @@ export default function PCRFeaturePage() {
           <strong>Add</strong>, and you fill it by adding steps and using{" "}
           <em>Add to Cycle</em>). To delete, switch on the red{" "}
           <strong>Gradient Eraser</strong> and click any block to remove it.
-          The purple <strong>Cycle Eraser</strong> works differently: click a{" "}
+          The purple <strong>Cycle Eraser</strong> works differently. Click a{" "}
           <code>x35</code> badge and it removes just the cycle rectangle,
           leaving its steps behind as ordinary final steps. In normal (non-
           eraser) mode, clicking the same <code>x35</code> badge opens the{" "}

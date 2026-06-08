@@ -27,7 +27,7 @@ export default function ExperimentsFeaturePage() {
       <p>
         The Workbench packs four different views of your in-flight work
         into one page. The tab strip across the top names them and gives
-        each a color identity:
+        each a color identity.
         <strong> Projects</strong> (indigo),
         <strong> Experiments</strong> (blue),
         <strong> Notes</strong> (emerald),
@@ -78,12 +78,12 @@ export default function ExperimentsFeaturePage() {
 
       <h3>Standalone tasks with no project</h3>
       <p>
-        Some tasks never get filed under a project: a one-off experiment you
+        Some tasks never get filed under a project. A one-off experiment you
         spin up in the &quot;Miscellaneous&quot; standalone slot stays
         project-less on purpose. To move a task into or out of a project
         later, open it and use the project dropdown on the popup&apos;s
         Details tab. Alongside your real projects it offers a{" "}
-        <strong>Standalone (no project)</strong> option: pick it to drop the
+        <strong>Standalone (no project)</strong> option. Pick it to drop the
         task off every project, or pick a real project to file an orphan task
         back under it. On the{" "}
         <Link href="/wiki/features/gantt">Gantt timeline</Link> the project
@@ -97,7 +97,7 @@ export default function ExperimentsFeaturePage() {
         stage of the protocol. The in-flight work sits on a{" "}
         <strong>kanban board</strong> of four columns across the top, and the
         finished work sits in two results zones below it. The four board columns
-        run side by side so you can scan the whole pipeline at a glance:
+        run side by side so you can scan the whole pipeline at a glance.
       </p>
 
       <h3>Ready to start</h3>
@@ -195,7 +195,7 @@ export default function ExperimentsFeaturePage() {
         The Notes tab holds every note that isn&apos;t tied to a
         specific experiment. Meeting notes from a Tuesday lab meeting, a
         running log of equipment-room weirdness, half-formed ideas you
-        want to find again next month: they all land here, in one flat
+        want to find again next month, they all land here, in one flat
         list with no section headers. The choice to skip grouping is
         deliberate. Notes are search-first, not date-first, because a
         researcher coming back to a note usually remembers <em>what</em>{" "}
@@ -228,10 +228,10 @@ export default function ExperimentsFeaturePage() {
       <h2>The Lists tab</h2>
       <p>
         The Lists tab is the queue view of every list task you own.
-        Lists are the non-experiment task type: checklists, paperwork,
+        Lists are the non-experiment task type, things like checklists, paperwork,
         ordering tasks, errands, anything that isn&apos;t a protocol.
         The Lists tab sorts them into five stages by how their dates
-        relate to today, stacked top-to-bottom in this order:
+        relate to today, stacked top-to-bottom in this order.
       </p>
       <ol>
         <li>
@@ -277,7 +277,7 @@ export default function ExperimentsFeaturePage() {
       <p>
         Clicking a list card expands it in place. A violet border
         highlights the open card, and a panel slides down below the
-        header row. Inside the panel:
+        header row. Inside the panel, you get these controls.
       </p>
       <ul>
         <li>
@@ -295,12 +295,12 @@ export default function ExperimentsFeaturePage() {
           checklist.
         </li>
         <li>
-          <strong>Mark list complete</strong> button in the footer: marks
+          <strong>Mark list complete</strong> button in the footer marks
           the whole list done and cascades all un-checked items to
           complete. Click again to mark it incomplete.
         </li>
         <li>
-          <strong>Open full view</strong> link in the footer: opens the
+          <strong>Open full view</strong> link in the footer opens the
           legacy full-screen popup for the same task, useful for the
           Details and date-editing fields not exposed in the inline panel.
         </li>
@@ -327,7 +327,7 @@ export default function ExperimentsFeaturePage() {
         completed. You land on the same view every time, then pick the
         tab that fits the task at hand.
       </p>
-      <p>The popup carries four tabs across the header:</p>
+      <p>The popup carries four tabs across the header.</p>
       <ul>
         <li>
           <strong>Details</strong> is the entry tab. It holds the name,
@@ -364,23 +364,23 @@ export default function ExperimentsFeaturePage() {
       <p>
         The two markdown tabs hold different kinds of writing on the
         same experiment. <strong>Lab Notes</strong> is the
-        during-the-run record: running observations, what reagents you
+        during-the-run record, holding running observations, what reagents you
         grabbed, what went sideways, the photo you took at the bench
         five minutes ago. <strong>Results</strong> is the final-output
-        writeup: the gel image, the plot, the short summary of what the
+        writeup, holding the gel image, the plot, the short summary of what the
         experiment actually showed. Both live on the same task and both
         write to the same per-task folder on disk, so flipping between
         the two tabs in the popup is instantaneous.
       </p>
       <p>
-        Both tabs use the same editor surface: a single live markdown body
+        Both tabs use the same editor surface, a single live markdown body
         with an <strong>Edit / Preview</strong> toggle, an attachment strip
         (Images / Files tabs) pinned below the editor, and an{" "}
-        <strong>Add File</strong> toolbar button. Saving is explicit: each{" "}
+        <strong>Add File</strong> toolbar button. Saving is explicit, so each{" "}
         <strong>Save checkpoint</strong> records a revertible version you can
         browse and restore from the Version history button. The full editor
         reference (shortcuts, the language picker, image-resize popovers, the
-        attachment strip, checkpoints) lives on its own page:{" "}
+        attachment strip, checkpoints) lives on its own page,{" "}
         <Link href="/wiki/features/markdown-editor">
           The Markdown Editor
         </Link>
@@ -455,7 +455,7 @@ export default function ExperimentsFeaturePage() {
       </p>
       <p>
         The <strong>Note Deviations</strong> dialog is where you write one. You
-        describe what changed during the run, then choose what to do with it:
+        describe what changed during the run, then choose what to do with it.
       </p>
       <ul>
         <li>

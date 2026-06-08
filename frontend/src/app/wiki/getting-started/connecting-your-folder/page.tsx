@@ -7,7 +7,7 @@ import { Steps, Step } from "@/components/wiki/Steps";
 export default function ConnectingYourFolderPage() {
   return (
     <WikiPage
-      intro="Pick a folder on your disk. ResearchOS will read and write JSON files inside it (no cloud, no upload). On a brand-new visit, BeakerBot waves at you from the upper-right with an optional 3-minute walkthrough you can take before linking anything."
+      intro="Pick a folder on your disk. ResearchOS will read and write JSON files inside it (no cloud, no upload). On a brand-new visit, BeakerBot waves at you from the upper-right and offers an optional 3-minute walkthrough you can take before linking anything."
     >
       <Callout variant="info" title="Chrome or Edge only">
         ResearchOS uses the File System Access API, which is only available in
@@ -22,7 +22,7 @@ export default function ConnectingYourFolderPage() {
       <Screenshot
         src="/wiki/screenshots/folder-connect.png"
         alt="The folder-link screen with a single Link a folder card in the center, BeakerBot waving from the upper-right with a Take the 3-minute walkthrough button, an Explore demo in browser link below the card, and the RISE credentials stamp in the bottom-right corner."
-        caption="The first screen you see on a fresh install: one centered Link a folder card, BeakerBot's optional walkthrough nudge in the upper-right, and the RISE credentials stamp pinned bottom-right."
+        caption="The first screen you see on a fresh install. One centered Link a folder card, BeakerBot's optional walkthrough nudge in the upper-right, and the RISE credentials stamp pinned bottom-right."
       />
 
       <h2>Why there is one card, not two</h2>
@@ -34,15 +34,15 @@ export default function ConnectingYourFolderPage() {
         Documents root). An earlier version of this screen had a separate
         &ldquo;Create New Folder&rdquo; card with a name field, but it dead-ended
         on that browser limitation, so the screen is now a single{" "}
-        <strong>Link a folder</strong> card. Whether you are linking an existing
-        ResearchOS folder or starting fresh, you point at a folder that already
-        exists on disk, and ResearchOS sets up an empty one automatically the
-        first time you link it.
+        <strong>Link a folder</strong> card. Linking an existing ResearchOS
+        folder and starting fresh both work the same way. You point at a folder
+        that already exists on disk, and ResearchOS sets up an empty one
+        automatically the first time you link it.
       </p>
 
       <h2>The page layout, at a glance</h2>
       <p>
-        Three things are on this screen on a first visit:
+        On a first visit, three things share this screen.
       </p>
       <ul>
         <li>
@@ -50,8 +50,8 @@ export default function ConnectingYourFolderPage() {
           titled <strong>Link a folder</strong>. It holds a short description,
           the &ldquo;Starting fresh? Make an empty folder first&rdquo;
           instructions, a drag-and-drop zone, and the{" "}
-          <strong>Link Folder</strong> button. This is the whole folder flow,
-          link an existing folder or a brand-new empty one through the same card.
+          <strong>Link Folder</strong> button. This is the whole folder flow.
+          Link an existing folder or a brand-new empty one through the same card.
         </li>
         <li>
           <strong>BeakerBot in the upper-right</strong>: a small sky-blue
@@ -88,9 +88,9 @@ export default function ConnectingYourFolderPage() {
       <p>
         Because the picker can only open a folder that already exists, the card
         spells out a short make-it-yourself recipe under the heading{" "}
-        <strong>Starting fresh? Make an empty folder first:</strong>. Do this
+        <strong>Starting fresh? Make an empty folder first</strong>. Do this
         with your normal file manager (Finder on Mac, Explorer on Windows)
-        before you click Link Folder:
+        before you click Link Folder.
       </p>
       <Steps>
         <Step>
@@ -112,7 +112,7 @@ export default function ConnectingYourFolderPage() {
       <h2>What you&apos;ll do</h2>
       <Steps>
         <Step>
-          Link the folder. You have two equivalent ways: click the{" "}
+          Link the folder. You have two equivalent ways. Click the{" "}
           <strong>Link Folder</strong> button to open your operating
           system&apos;s folder picker, or <strong>drag a folder directly onto
           the Link a folder card</strong>. The card highlights with a dashed
@@ -128,19 +128,14 @@ export default function ConnectingYourFolderPage() {
         <Step>
           ResearchOS initializes the folder structure (e.g., <code>users/</code>,{" "}
           <code>lab/</code>) the first time you link an empty folder, then shows
-          the user-picker screen. After you pick or create a username, the
-          in-product BeakerBot tour auto-fires on the empty account. That tour is
-          a different thing from the walkthrough modal on this picker page; see{" "}
-          <Link href="/wiki/getting-started/welcome-wizard">
-            Welcome Tour (BeakerBot)
-          </Link>{" "}
-          for the breakdown.
+          the user-picker screen. After you pick or create a username, you land
+          in the app and can start working right away.
         </Step>
       </Steps>
 
       <Callout variant="warning" title="If Chrome refuses the folder you picked">
         If Chrome says a folder &ldquo;contains system files&rdquo; after you
-        pick it, that is its block on sensitive locations: the top-level
+        pick it, that is its block on sensitive locations. The top-level
         Desktop, Documents, Downloads, and home folders are off limits. The
         picker shows a recovery popup (<em>That folder can&apos;t be used. Pick a
         different spot.</em>) with a <strong>Link a folder in Documents</strong>{" "}
@@ -152,11 +147,11 @@ export default function ConnectingYourFolderPage() {
       <p>
         The <strong>Take the 3-minute walkthrough</strong> button on the
         picker opens a small 4-beat modal that introduces the app before you
-        commit to picking a folder. It is opt-in, not auto-fire: brand-new
+        commit to picking a folder. It is opt-in, not auto-fire. Brand-new
         users see the speech bubble&apos;s gentle nudge (&ldquo;New here? It
         is strongly recommended to take a short onboarding walkthrough (3
         minutes). Returning? Just take it from here.&rdquo;), and returning
-        users ignore it entirely. The four beats are:
+        users ignore it entirely. Here is what the four beats cover.
       </p>
       <ol>
         <li>
@@ -165,9 +160,9 @@ export default function ConnectingYourFolderPage() {
           click the mascot.
         </li>
         <li>
-          <strong>Data security.</strong> The core promise: your data NEVER
-          leaves your computer. No upload, no central server, no telemetry on
-          your research. See <Link href="/wiki/security">Security</Link> for
+          <strong>Data security.</strong> The core promise is that your data
+          NEVER leaves your computer. No upload, no central server, no telemetry
+          on your research. See <Link href="/wiki/security">Security</Link> for
           the full story.
         </li>
         <li>
@@ -206,7 +201,7 @@ export default function ConnectingYourFolderPage() {
 
       <h2>What gets created inside the folder</h2>
       <p>
-        ResearchOS creates a simple tree the first time you connect:
+        ResearchOS creates a simple tree the first time you connect.
       </p>
       <pre className="my-3 rounded-lg bg-surface-sunken border border-border px-4 py-3 overflow-x-auto text-meta text-foreground font-mono leading-relaxed">{`your-folder/
 ├── users/

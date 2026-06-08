@@ -13,7 +13,7 @@ export default function SequencesFeaturePage() {
       <Screenshot
         src="/wiki/screenshots/sequences-workbench-overview.png"
         alt="The Sequences workbench showing the library panel on the left and the editor surface on the right, with a circular plasmid map rendered in the main view area."
-        caption="The Sequences workbench: the library on the left, the editor and map on the right."
+        caption="The Sequences workbench, with the library on the left and the editor and map on the right."
       />
 
       <TryInDemo href="/sequences">Try the Sequences workbench</TryInDemo>
@@ -22,19 +22,18 @@ export default function SequencesFeaturePage() {
       <p>
         The Sequences workbench is a SnapGene-style sequence editor built directly
         into ResearchOS. It holds every DNA, RNA, and protein sequence in your lab
-        folder in one indexed library, and it opens those sequences in a rich editor
+        folder in one indexed library, and it opens those sequences in an editor
         that renders circular plasmid maps, annotated linear maps, and base-level
-        sequence views without requiring any external software. The workbench lives
+        sequence views without any external software. The workbench lives
         at <code>/sequences</code> and is always one click away from the rest of
         the app.
       </p>
       <p>
-        The central design choice is that your sequences are first-class records
-        alongside your experiments and notes, not attachments tucked inside a
-        separate application. A plasmid you designed last month, the oligos for a
-        current cloning reaction, the protein from a collaborator&apos;s GenBank
-        file: they all land in the same library, open in the same editor, and are
-        searchable by the same search box.
+        The point is that your sequences live alongside your experiments and notes,
+        not as attachments tucked inside a separate application. A plasmid you
+        designed last month, the oligos for a current cloning reaction, the protein
+        from a collaborator&apos;s GenBank file. They all land in the same library,
+        open in the same editor, and are searchable by the same search box.
       </p>
 
       <h2>The sequence library</h2>
@@ -69,7 +68,7 @@ export default function SequencesFeaturePage() {
       <h2>Getting sequences into the library</h2>
       <p>
         There are three ways to add a sequence. The New Sequence dialog creates a
-        sequence from scratch: you name it, pick a type and topology, and type or
+        sequence from scratch. You name it, pick a type and topology, and type or
         paste the bases directly. The Import path accepts SnapGene files
         (.dna, .prot), GenBank (.gb, .gbk), FASTA (.fa, .fasta, including
         multi-record FASTA where each record lands as its own sequence), and
@@ -90,8 +89,8 @@ export default function SequencesFeaturePage() {
 
       <h2>The tab bar and view modes</h2>
       <p>
-        The bottom of the editor panel carries a tab bar with five tabs: Map,
-        Sequence, Features, Primers, and History. These tabs are the primary view
+        The bottom of the editor panel carries a tab bar with five tabs, Map,
+        Sequence, Features, Primers, and History. These tabs are the main view
         switcher for the open sequence, modeled on SnapGene&apos;s bottom navigation.
         The Features and Primers tabs carry a count badge showing how many
         annotations or primer_bind features the sequence currently holds.
@@ -110,7 +109,7 @@ export default function SequencesFeaturePage() {
       <h2>The view-control rail</h2>
       <p>
         A narrow vertical strip of icon buttons runs along the left edge of the
-        editor. This is the view-control rail. Each button is a toggle: pressing
+        editor. This is the view-control rail. Each button is a toggle, and pressing
         it switches a display layer on or off without changing the active tab. The
         rail carries toggles for features, restriction enzyme cut sites, CDS
         translation, open reading frames, primers, the base-position ruler, and the
@@ -134,7 +133,7 @@ export default function SequencesFeaturePage() {
 
       <h2>The circular and linear map</h2>
       <p>
-        When the Map tab is active, plasmid sequences render as a circular map:
+        When the Map tab is active, plasmid sequences render as a circular map,
         a color-coded ring where each annotated feature appears as a named arc in
         the color assigned to its feature type. Clicking a feature arc on the map
         selects it and scrolls the Features panel to that entry. The topology
@@ -177,14 +176,14 @@ export default function SequencesFeaturePage() {
         backspace and delete remove them; and selecting a range and typing replaces
         it. The keyboard shortcuts for copy, cut, paste, select-all, undo, and redo
         all work as they do in a text editor. Cut and paste carry the molecular
-        context: pasting over a selection updates any feature coordinates that span
+        context, so pasting over a selection updates any feature coordinates that span
         the replaced region, and pasting a copied range that included features
         proposes bringing those features along.
       </p>
       <p>
         A toolbar above the editor carries the Undo, Redo, and Save buttons, plus
         dropdown menus for Edit operations, Feature and Primer actions, Enzyme
-        management, and Analyze tools. Saving is explicit: the Save button records
+        management, and Analyze tools. Saving is explicit. The Save button records
         a new checkpoint in the sequence history. The History tab surfaces every
         saved checkpoint with a diff and an optional restore path.
       </p>
@@ -231,8 +230,8 @@ export default function SequencesFeaturePage() {
         The most direct path is to select a region on the map or sequence and
         open the feature editor from the context menu or the Feature toolbar menu.
         The feature editor dialog mirrors the SnapGene &ldquo;Edit Feature&rdquo;
-        interface: name, type, strand, a segment table for multi-segment features,
-        a color swatch, and the qualifiers editor. A &ldquo;Translate in sequence
+        interface, with a name, type, strand, a segment table for multi-segment
+        features, a color swatch, and the qualifiers editor. A &ldquo;Translate in sequence
         view&rdquo; toggle marks CDS features for translation display; a
         &ldquo;Prioritize display&rdquo; toggle keeps important features legible
         on dense maps.
@@ -245,7 +244,7 @@ export default function SequencesFeaturePage() {
       <p>
         For sequences without annotations, two automated paths under the Analyze
         menu can propose features. Detect Features runs a local database scan
-        against bundled protein and DNA element reference sets: it identifies
+        against bundled protein and DNA element reference sets. It identifies
         common elements such as fluorescent proteins, origins of replication,
         antibiotic resistance genes, and common promoters, and it reports each
         hit with its position, strand, and percent identity so you can review and
@@ -272,7 +271,7 @@ export default function SequencesFeaturePage() {
       </p>
       <p>
         Restriction and ligation cuts two sequences at chosen restriction enzyme
-        sites (from a set of common cutters: EcoRI, BamHI, HindIII, PstI, KpnI,
+        sites (from a set of common cutters, EcoRI, BamHI, HindIII, PstI, KpnI,
         SmaI, XhoI, NotI) and ligates the compatible ends, computing all possible
         directional products and letting you pick the intended one.
       </p>
@@ -289,7 +288,7 @@ export default function SequencesFeaturePage() {
         caption="The Cloning Workspace. Pick a chemistry from the four method pills, then add fragments from the library or paste them in."
       />
       <p>
-        All four chemistries share the same two-step flow: pick fragments and set
+        All four chemistries share the same two-step flow. Pick fragments and set
         options, then review the computed product. The review screen shows the
         assembled sequence with its features and any warnings (such as internal cut
         sites that would be severed by the chosen enzyme). Saving the product
@@ -329,7 +328,7 @@ export default function SequencesFeaturePage() {
       </p>
       <p>
         The Primer Design mode in the Add Primer dialog includes a mutagenesis
-        path: opening the dialog in mutagenesis mode lets you specify a substitution,
+        path. Opening the dialog in mutagenesis mode lets you specify a substitution,
         insertion, or deletion at a chosen position, and the engine designs a
         primer with the mutation incorporated and the flanking bases selected to
         hit a target Tm.
@@ -342,7 +341,7 @@ export default function SequencesFeaturePage() {
         opens the NCBI Primer-BLAST interface in a new tab with the primer sequence
         pre-filled, handing off to NCBI&apos;s servers to check for off-target
         binding against any genome in their database. This is a handoff, not an
-        embedded result: the check runs in the browser against NCBI&apos;s public
+        embedded result. The check runs in the browser against NCBI&apos;s public
         API, and the result stays in the NCBI tab.
       </p>
       <Screenshot
@@ -355,7 +354,7 @@ export default function SequencesFeaturePage() {
       <p>
         The Compare / Align dialog (accessible from the Analyze menu in the editor
         or from the library header) accepts two sequences from the library and runs
-        a pairwise alignment. Two alignment modes are available: global
+        a pairwise alignment. Two alignment modes are available, global
         (Needleman-Wunsch, end-to-end alignment) and local (Smith-Waterman, best
         matching region). Scoring is IUPAC-aware for DNA, so degenerate base codes
         in either sequence match their constituent bases correctly, and a BLOSUM62
@@ -383,7 +382,7 @@ export default function SequencesFeaturePage() {
         Site-directed mutagenesis primer design is available directly from the
         sequence editor. Select the target region, open the Add Primer dialog
         from the Primer menu, and switch to Mutagenesis mode. The mutagenesis
-        designer accepts three mutation types: substitution (change one or more
+        designer accepts three mutation types, substitution (change one or more
         bases to specific alternatives), insertion (add bases at a position), and
         deletion (remove a span of bases). Given the mutation spec and the
         flanking template sequence, the engine computes a primer that incorporates

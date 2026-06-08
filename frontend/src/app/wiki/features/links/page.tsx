@@ -7,7 +7,7 @@ export default function LinksFeaturePage() {
   return (
     <WikiPage
       title="Links / Lab Links"
-      intro="Your own bookmark wall: link cards with preview images, grouped into categories, stored under your user."
+      intro="Your own bookmark wall, link cards with preview images, grouped into categories, stored under your user."
     >
       {/* links.png needs recapture: predates Q7-conditional label */}
       <Screenshot
@@ -22,7 +22,7 @@ export default function LinksFeaturePage() {
         The feature is identical either way.
       </Callout>
 
-      <Callout variant="info" title="Q7 opt-in: Links is only visible if you enabled it">
+      <Callout variant="info" title="Q7 opt-in, Links is only visible if you enabled it">
         The Links tab only appears if you answered &quot;Yes&quot; to the
         setup wizard question about storing bookmarks (Q7). If you
         don&apos;t see the tab, open Settings and re-run the setup
@@ -81,7 +81,7 @@ export default function LinksFeaturePage() {
       <h2>Edit or delete a link</h2>
       <p>
         Hover a card. Two small icons appear in the top-right corner of the
-        preview image: a pencil to edit (reopens the same form pre-filled),
+        preview image, a pencil to edit (reopens the same form pre-filled),
         and a trash can to delete (prompts for confirmation). The hostname
         line at the bottom of each card is auto-derived from the URL. You
         only ever set the title, not the URL display.
@@ -89,8 +89,9 @@ export default function LinksFeaturePage() {
 
       <h2>What each link stores</h2>
       <p>
-        Per the on-disk JSON: a title, a URL, an optional description, an
-        optional category, a color, and an optional preview image URL.
+        Per the on-disk JSON, a link is a title, a URL, an optional
+        description, an optional category, a color, and an optional preview
+        image URL.
         That&apos;s it. There is no per-link sharing toggle, no
         cross-user visibility, no labmate ordering. If a labmate needs the
         same set of URLs, they add them to their own Links page.

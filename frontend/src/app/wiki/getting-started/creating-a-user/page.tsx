@@ -47,7 +47,7 @@ export default function CreatingAUserPage() {
         <Step>
           A directory at <code>users/&lt;your-name&gt;/</code> is created and
           you&apos;re signed in. The app initializes a full subdirectory tree
-          inside it: <code>projects/</code>, <code>tasks/</code>,{" "}
+          inside it, with <code>projects/</code>, <code>tasks/</code>,{" "}
           <code>dependencies/</code>, <code>methods/</code>,{" "}
           <code>events/</code>, <code>goals/</code>,{" "}
           <code>pcr_protocols/</code>, <code>purchase_items/</code>,{" "}
@@ -57,13 +57,12 @@ export default function CreatingAUserPage() {
       </Steps>
 
       <Callout variant="info" title="What happens right after Create">
-        Brand-new users land in BeakerBot&apos;s welcome tour, a short guided
-        walkthrough on your real account. Plan on roughly five to ten
-        minutes, depending on which features you opt into. See{" "}
+        Once your user exists, you&apos;re signed in and the app is ready to go.
+        Explore at your own pace. A good place to start is your first project,
+        covered in{" "}
         <Link href="/wiki/getting-started/welcome-wizard">
-          Welcome Tour (BeakerBot)
-        </Link>{" "}
-        for the full walkthrough, or skip it and explore on your own.
+          Getting Started
+        </Link>.
       </Callout>
 
       <h2>Optional password</h2>

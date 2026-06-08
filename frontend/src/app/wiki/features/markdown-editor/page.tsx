@@ -23,7 +23,7 @@ export default function MarkdownEditorPage() {
       <h2>Where you&apos;ll see it</h2>
       <p>
         The same editor opens in every place you write more than a sentence
-        in ResearchOS:
+        in ResearchOS.
       </p>
       <ul>
         <li>
@@ -57,12 +57,12 @@ export default function MarkdownEditorPage() {
         same content.
       </p>
 
-      <h2>One surface: type markdown, watch it render</h2>
+      <h2>One surface, type markdown and watch it render</h2>
       <p>
         There&apos;s nothing to configure and no block to click into. The
         editor is a single, continuous writing surface, like a normal
         document. You type plain markdown and the editor renders it live around
-        your cursor: headings look like headings, bold looks bold, and images
+        your cursor. Headings look like headings, bold looks bold, and images
         show as images, all in one flowing column.
       </p>
       <Screenshot
@@ -82,7 +82,7 @@ export default function MarkdownEditorPage() {
         The toolbar carries a two-way <strong>Edit | Preview</strong> toggle.{" "}
         <strong>Edit</strong> is the live writing surface above and where
         almost all of your work happens. <strong>Preview</strong> is the same
-        document as read-only rendered output: handy when you&apos;re sharing
+        document as read-only rendered output, handy when you&apos;re sharing
         your screen or reviewing. The choice is purely a viewing preference, it
         doesn&apos;t change what gets saved, so you can flip between the two
         freely. Click any image in Preview to bring up the resize picker.
@@ -102,7 +102,7 @@ export default function MarkdownEditorPage() {
       </Callout>
 
       <Callout variant="info" title="Languages with syntax highlighting">
-        Around 20 popular languages get highlighting on render: JavaScript,
+        Around 20 popular languages get highlighting on render, including JavaScript,
         TypeScript, Python, Bash, JSON, HTML, CSS, SQL, Java, C, C++, C#, Go,
         Rust, Ruby, PHP, Swift, Kotlin, YAML, Markdown, Dockerfile, and Plain
         Text. Anything else still works, it just renders monospace without
@@ -112,14 +112,14 @@ export default function MarkdownEditorPage() {
       <h2>The toolbar</h2>
       <p>
         Every editor has a single toolbar along the top. From left to right it
-        carries:
+        carries these controls.
       </p>
       <ul>
         <li>
           The <strong>Edit | Preview</strong> toggle (covered above).
         </li>
         <li>
-          <strong>Focus mode</strong>: the expand glyph drops the editor into a
+          <strong>Focus mode</strong>. The expand glyph drops the editor into a
           full-screen distraction-free writing view (also{" "}
           <Kbd>Cmd</Kbd>+<Kbd>Shift</Kbd>+<Kbd>F</Kbd>).
         </li>
@@ -187,7 +187,7 @@ export default function MarkdownEditorPage() {
 
       <h2 id="attachments">Attachments</h2>
       <p>
-        Images and files live in one place: a single attachment strip along the
+        Images and files live in one place, a single attachment strip along the
         bottom of the editor, toggled with the toolbar&apos;s{" "}
         <strong>Strip</strong> button. A small <strong>Images / Files</strong>{" "}
         tab bar above the strip switches it between image thumbnails and file
@@ -202,7 +202,7 @@ export default function MarkdownEditorPage() {
       />
 
       <h3>Adding an image</h3>
-      <p>There are four ways to get a new image in:</p>
+      <p>There are four ways to get a new image in.</p>
       <ul>
         <li>
           <strong>Click the toolbar&apos;s Add Image button</strong> to pick one
@@ -247,8 +247,8 @@ export default function MarkdownEditorPage() {
         whether or not the body references the image yet. Images already
         referenced look normal. Images that exist on disk but aren&apos;t
         referenced yet (e.g., a fresh arrival from Telegram) show a small blue
-        dot in the corner so you can spot them. Useful things you can do from
-        the tab:
+        dot in the corner so you can spot them. Here&apos;s what you can do from
+        the tab.
       </p>
       <ul>
         <li>
@@ -308,10 +308,10 @@ export default function MarkdownEditorPage() {
         protocols, archives) drops into a sibling <code>Files/</code> folder and
         shows up as a clickable hyperlink in the prose, not as an inline
         preview. Switch the bottom strip to its <strong>Files</strong> tab to
-        manage them. The add flow mirrors images: drag from Finder, paste, or
-        use the toolbar&apos;s <em>Add File</em> button (which replaces{" "}
-        <em>Add Image</em> on surfaces that accept any file type: experiment Lab
-        Notes, Results, and Notes). The chosen file copies into{" "}
+        manage them. The add flow mirrors images, so you drag from Finder,
+        paste, or use the toolbar&apos;s <em>Add File</em> button (which replaces{" "}
+        <em>Add Image</em> on surfaces that accept any file type, namely
+        experiment Lab Notes, Results, and Notes). The chosen file copies into{" "}
         <code>Files/</code> and a markdown link inserts at the cursor.
       </p>
       <ul>
@@ -459,7 +459,7 @@ A3 looks suspect, repeat tomorrow morning.`}</code>
 
       <h2>Tables, lists, and other markdown</h2>
       <p>
-        Standard GitHub-flavored markdown all works:
+        Standard GitHub-flavored markdown all works.
       </p>
       <ul>
         <li>
@@ -515,7 +515,7 @@ A3 looks suspect, repeat tomorrow morning.`}</code>
       <h2 id="saving">Saving is a checkpoint</h2>
       <p>
         The editor doesn&apos;t autosave. You save explicitly, and every save
-        is a <strong>checkpoint</strong>: a permanent, revertible version of the
+        is a <strong>checkpoint</strong>, a permanent, revertible version of the
         document. Click <strong>Save checkpoint</strong> in the toolbar (or
         press <Kbd>Cmd</Kbd>+<Kbd>S</Kbd>) to write your edits to disk and record
         a version you can come back to.
@@ -545,7 +545,7 @@ A3 looks suspect, repeat tomorrow morning.`}</code>
         If you have write access, the sidebar footer offers a{" "}
         <strong>Restore</strong> action. Restoring writes the chosen version
         back as the current content and records it as a fresh checkpoint, so the
-        restore is itself revertible: you can always roll forward again to the
+        restore is itself revertible. You can always roll forward again to the
         pre-restore state. The timeline labels these entries so a restored note
         reads clearly in its own history.
       </p>
@@ -573,7 +573,7 @@ A3 looks suspect, repeat tomorrow morning.`}</code>
       <h2>Things people miss</h2>
       <ul>
         <li>
-          <strong>Undo / redo across the whole document</strong>: the editor
+          <strong>Undo / redo across the whole document</strong>. The editor
           maintains its own undo stack. <Kbd>Cmd</Kbd>+<Kbd>Z</Kbd> steps back
           through edits, including image drops and deletions.{" "}
           <Kbd>Cmd</Kbd>+<Kbd>Shift</Kbd>+<Kbd>Z</Kbd> (or{" "}

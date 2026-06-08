@@ -14,21 +14,22 @@ export default function MethodCatalogPage() {
       <p>
         A <strong>template</strong> is a starting point for a{" "}
         <Link href="/wiki/features/methods">method</Link>. It is a complete,
-        structured protocol someone has already written: the right method type
-        (PCR, plate layout, LC gradient, free-form markdown), the reagent table
-        filled in, the cycling program set, the steps written out. When you use a
+        structured protocol someone has already written, with the right method
+        type (PCR, plate layout, LC gradient, free-form markdown), the reagent
+        table filled in, the cycling program set, and the steps written out. When
+        you use a
         template, ResearchOS copies it into your own Methods library as a new
         method you fully own and can edit. The original template is never touched,
         and your copy is yours to adapt for your bench.
       </p>
       <p>
-        The point is twofold. First, speed: you should not have to retype a
+        The point is twofold. First comes speed. You should not have to retype a
         standard agarose-gel procedure or rebuild a colony-PCR program from
-        memory every time. Second, and just as important, <strong>fidelity</strong>:
-        a transcribed protocol from a known source is less error-prone than one
-        reconstructed from memory or copied out of an old lab notebook, and when
-        the template carries its source document you can verify it (more on that
-        below).
+        memory every time. Second, and just as important, comes{" "}
+        <strong>fidelity</strong>. A transcribed protocol from a known source is
+        less error-prone than one reconstructed from memory or copied out of an
+        old lab notebook, and when the template carries its source document you
+        can verify it (more on that below).
       </p>
 
       <h2>What is in the library</h2>
@@ -39,7 +40,7 @@ export default function MethodCatalogPage() {
       </p>
       <ul>
         <li>
-          <strong>Molecular biology</strong> is the largest group: PCR setups
+          <strong>Molecular biology</strong> is the largest group, with PCR setups
           (Q5, Taq, colony-PCR screens), gel electrophoresis, cloning and
           assembly steps, and similar bench protocols.
         </li>
@@ -75,11 +76,11 @@ export default function MethodCatalogPage() {
 
       <h2>The verifiable source PDF</h2>
       <p>
-        Here is the part that makes these templates trustworthy rather than just
-        convenient. A growing subset of the library, <strong>52 of the 91
-        templates today</strong> and rolling out further, <strong>bundles the
-        actual vendor document</strong> the protocol was transcribed from: the
-        kit insert, the manufacturer handbook, the published method PDF. The file
+        This is what makes these templates trustworthy and not only convenient.
+        A growing subset of the library, <strong>52 of the 91 templates today</strong>{" "}
+        and rolling out further, <strong>bundles the actual vendor document</strong>{" "}
+        the protocol was transcribed from, whether that is the kit insert, the
+        manufacturer handbook, or the published method PDF. The file
         ships with ResearchOS and is recorded with its original source URL and a
         SHA-256 checksum, so the copy you have is verifiably the document it
         claims to be.
@@ -94,10 +95,10 @@ export default function MethodCatalogPage() {
       <Screenshot
         src="/wiki/screenshots/method-catalog-source-pdf.png"
         alt="A template detail with its bundled source PDF open side by side, showing the transcribed reagent table next to the same values in the original vendor insert."
-        caption="The money shot: the structured template beside the vendor PDF it came from. Any value in the template can be checked against the original."
+        caption="The structured template beside the vendor PDF it came from. Any value in the template can be checked against the original."
       />
       <Callout variant="info" title="Not every template, and that is honest">
-        Source-PDF bundling is a rollout, not a finished state: 52 of the 91
+        Source-PDF bundling is a rollout, not a finished state. 52 of the 91
         templates carry their document today. Templates without a bundled PDF
         still cite their source in the protocol text (a URL and a reference), so
         you always know where a procedure came from, even when the document is
@@ -119,9 +120,9 @@ export default function MethodCatalogPage() {
           <strong>search box</strong> (by name, type, or tag) to narrow the list.
         </Step>
         <Step>
-          <strong>Select a template</strong> to preview it in the detail pane:
-          the full protocol body, the structured fields, and, for the 52 with a
-          bundled document, the source PDF you can open and read.
+          <strong>Select a template</strong> to preview it in the detail pane,
+          where you see the full protocol body, the structured fields, and, for
+          the 52 with a bundled document, the source PDF you can open and read.
         </Step>
         <Step>
           Pick a <strong>destination category</strong> for where the new method
@@ -143,7 +144,7 @@ export default function MethodCatalogPage() {
 
       <h2 id="plates">384-well plates</h2>
       <p>
-        Plate-layout templates are not just a picture of a grid: they are an
+        Plate-layout templates are not just a picture of a grid. They are an
         interactive, annotated layout for the exact plate format you work in,
         including <strong>384-well</strong> plates (16 rows A through P by 24
         columns). The 384-well viability template, for example, ships with the
@@ -160,8 +161,8 @@ export default function MethodCatalogPage() {
 
       <h2 id="lcms">LC-MS combination templates</h2>
       <p>
-        A few of the LC-MS templates are <strong>combinations</strong>: they
-        package a liquid-chromatography gradient and a mass spec acquisition
+        A few of the LC-MS templates are <strong>combinations</strong>, packaging
+        a liquid-chromatography gradient and a mass spec acquisition
         method into one attachable unit, because in practice the two are run
         together and the parameters are tuned as a pair. Three of these LC-MS
         combination templates ship today (peptide, metabolite, and intact-protein

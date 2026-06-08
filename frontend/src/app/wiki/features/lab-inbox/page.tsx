@@ -7,7 +7,7 @@ export default function LabInboxFeaturePage() {
   return (
     <WikiPage
       title="Lab Inbox"
-      intro="The Lab Inbox is the lab-wide activity surface for everything anyone said to anyone else. Comments on tasks, notes, and purchases all land here, as do @-mentions and lab-wide announcements. It is the asynchronous chat layer of ResearchOS: the place you check first thing in the morning to see what happened while you were away."
+      intro="The Lab Inbox is the lab-wide activity surface for everything anyone said to anyone else. Comments on tasks, notes, and purchases all land here, as do @-mentions and lab-wide announcements. Think of it as the asynchronous chat layer of ResearchOS, the place you check first thing in the morning to see what happened while you were away."
     >
       {/* TODO screenshot agent: capture the Lab Inbox popup with mixed comment + announcement rows.
           Route: /lab-overview (Lab Inbox Tool popup open)
@@ -19,7 +19,7 @@ export default function LabInboxFeaturePage() {
       <Screenshot
         src="/wiki/screenshots/lab-inbox-overview.png"
         alt="The Lab Inbox popup showing a mix of comments, @-mentions, and announcement rows in a single chronological stream."
-        caption="The Lab Inbox in one stream: comments, @-mentions, and announcements all flow through here."
+        caption="The Lab Inbox in one stream. Comments, @-mentions, and announcements all flow through here."
       />
 
       <h2>Who sees what</h2>
@@ -62,9 +62,10 @@ export default function LabInboxFeaturePage() {
       <h2>How it relates to the bell</h2>
       <p>
         The Lab Inbox and the bell-icon notification dropdown are siblings
-        with different scopes. The bell is your personal queue: shared-with-me,
-        reminders, shift alerts, things you specifically need to acknowledge.
-        The Lab Inbox is the lab&apos;s ambient chatter: a place to drop a
+        with different scopes. The bell is your personal queue, the
+        shared-with-me items, reminders, shift alerts, and things you
+        specifically need to acknowledge.
+        The Lab Inbox is the lab&apos;s ambient chatter, a place to drop a
         comment without summoning the recipient with a hard ping. The two
         intentionally do not duplicate each other.
       </p>

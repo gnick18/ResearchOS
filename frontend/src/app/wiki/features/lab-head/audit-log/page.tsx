@@ -7,7 +7,7 @@ export default function LabHeadAuditLogPage() {
   return (
     <WikiPage
       title="Audit log"
-      intro="Every PI soft-write writes a row to _pi_audit.json. The log is the forensic trail of the lab: who approved which purchase, who flagged which note, who archived which user. The data is on disk in plain JSON, and the PiActions popup gives you a sortable view on top of it. Use it to settle a 'who said what' question, or just to remember what you did last week."
+      intro="Every PI soft-write writes a row to _pi_audit.json. The log is the forensic trail of the lab. It records who approved which purchase, who flagged which note, who archived which user. The data is on disk in plain JSON, and the PiActions popup gives you a sortable view on top of it. Use it to settle a 'who said what' question, or to remember what you did last week."
     >
       {/* TODO screenshot agent: capture the Audit Log tab of the PI Actions popup.
           Route: /lab-overview (PI Actions Tool popup, Audit log tab)
@@ -24,8 +24,8 @@ export default function LabHeadAuditLogPage() {
 
       <h2>What gets logged</h2>
       <p>
-        Every soft-write affordance appends a row. The captured fields per
-        row are:
+        Every soft-write affordance appends a row. Here is what each row
+        captures.
       </p>
       <ul>
         <li>
@@ -71,7 +71,7 @@ export default function LabHeadAuditLogPage() {
         lab metadata. Per-user audit entries also append to{" "}
         <code>users/&lt;username&gt;/_pi_audit.json</code> when the action
         targets a record owned by that user. The two views serve different
-        purposes:
+        purposes.
       </p>
       <ul>
         <li>
@@ -94,7 +94,7 @@ export default function LabHeadAuditLogPage() {
         Open the PI Actions popup from the Lab Overview (its tile, or via the
         Tools launcher) and switch to the third tab,{" "}
         <strong>Audit log</strong>. The tab renders the lab-level file as a
-        sortable table:
+        sortable table.
       </p>
       <ul>
         <li>
@@ -114,7 +114,7 @@ export default function LabHeadAuditLogPage() {
 
       <h2>Forensic use cases</h2>
       <p>
-        The audit log is the place to go when:
+        Reach for the audit log when one of these comes up.
       </p>
       <ul>
         <li>

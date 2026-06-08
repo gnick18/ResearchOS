@@ -7,7 +7,7 @@ export default function LabHeadEditSessionPage() {
   return (
     <WikiPage
       title="Edit session and password"
-      intro="A PI's cross-member soft-write actions (approve a purchase, archive a user, assign a task, flag a record) are gated by a short edit session. You unlock the session once with the PI password, get a 5-minute window during which the affordances become active, and the session auto-expires after. Posting a lab announcement is the one PI action that's exempt: once logged in, a PI posts it directly. This page covers the unlock flow and why the gate exists."
+      intro="A PI's cross-member soft-write actions (approve a purchase, archive a user, assign a task, flag a record) are gated by a short edit session. You unlock the session once with the PI password, get a 5-minute window during which the affordances become active, and the session auto-expires after. Posting a lab announcement is the one PI action that's exempt, since once logged in a PI posts it directly. This page covers the unlock flow and why the gate exists."
     >
       {/* TODO screenshot agent: capture the Request Edit password dialog open.
           Route: /lab-overview (any soft-write affordance clicked while session is locked)
@@ -33,7 +33,7 @@ export default function LabHeadEditSessionPage() {
         absent-minded press and forces a moment of intent.
       </p>
       <p>
-        The model is the same as elevating to admin on a normal OS: the
+        The model is the same as elevating to admin on a normal OS. The
         password proves intent, not identity. Anyone with the file system
         already has access to your data folder (see{" "}
         <Link href="/wiki/security">Security</Link>); the gate is about
@@ -51,7 +51,7 @@ export default function LabHeadEditSessionPage() {
       <p>
         The edit-session gate reuses that account password on its first
         unlock, so you do not have to invent a second secret to get started.
-        The two stay identical until you change one of them: change the PI
+        The two stay identical until you change one of them. Change the PI
         edit password from Settings, or change your account sign-in password,
         and from that point the two diverge. Keeping them separable lets you
         give the edit gate a stronger or different secret than your everyday
@@ -62,7 +62,7 @@ export default function LabHeadEditSessionPage() {
       <p>
         Any locked soft-write affordance shows a <strong>Request Edit</strong>{" "}
         button (or, on inline affordances, the action itself prompts on
-        click). The unlock flow is:
+        click). Here is the unlock flow.
       </p>
       <ol>
         <li>Click <strong>Request Edit</strong>.</li>
@@ -109,7 +109,7 @@ export default function LabHeadEditSessionPage() {
       <h2>Other soft-write affordances that use the same session</h2>
       <p>
         The same 5-minute session covers every PI soft-write that touches a
-        member&apos;s record:
+        member&apos;s record.
       </p>
       <ul>
         <li>

@@ -15,7 +15,7 @@ export default function MethodsFeaturePage() {
       <Screenshot
         src="/wiki/screenshots/methods-library.png"
         alt="The Methods page showing categories of method cards, with type pills marking the method type on each card."
-        caption="The Method Library: cards grouped under category headings, with type pills on each card."
+        caption="The Method Library, where cards are grouped under category headings with type pills on each card."
       />
 
       <TryInDemo href="/methods">Try methods in the demo</TryInDemo>
@@ -44,8 +44,8 @@ export default function MethodsFeaturePage() {
         experiment tabs, and its own colored pill on the library card.
       </p>
       <p>
-        <strong>Standard methods</strong> are body-only (no structured
-        fields beyond title and tags):
+        <strong>Standard methods</strong> are body-only, with no structured
+        fields beyond title and tags.
       </p>
       <ul>
         <li>
@@ -63,7 +63,7 @@ export default function MethodsFeaturePage() {
       </ul>
       <p>
         <strong>Structured methods</strong> swap the markdown body for a
-        purpose-built editor:
+        purpose-built editor.
       </p>
       <ul>
         <li>
@@ -113,7 +113,7 @@ export default function MethodsFeaturePage() {
           into the right bucket.
         </Step>
         <Step>
-          Fill in the body: write markdown, upload a PDF, draw an LC
+          Fill in the body. Write markdown, upload a PDF, draw an LC
           gradient, lay out a plate, or build a PCR program and recipe.
           For markdown methods you can drag images and attachment files
           directly into the editor.
@@ -207,7 +207,7 @@ export default function MethodsFeaturePage() {
 
       <h3>Transient read access when a task is shared with you</h3>
       <p>
-        There is one more way a method becomes readable: when a user shares
+        There is one more way a method becomes readable. When a user shares
         a task with you and that task references a method, you get a
         transient read on the underlying protocol even if the method
         itself is not in your <code>shared_with</code>. The check lives in{" "}
@@ -217,7 +217,7 @@ export default function MethodsFeaturePage() {
         the first time it fires for a given viewer. So sharing a task does
         not silently leak the protocol without a paper trail, and a method
         owner can see who has been reading their protocols through
-        someone else&apos;s task. The grant is depth-1 only: kit
+        someone else&apos;s task. The grant is depth-1 only, so kit
         children are not transitively included, and only the
         directly referenced method is unlocked. See{" "}
         <Link href="/wiki/features/sharing-and-permissions">
