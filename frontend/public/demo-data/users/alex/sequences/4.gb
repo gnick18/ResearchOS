@@ -1,0 +1,51 @@
+LOCUS       pEGFP_N1_fragA      2360 bp    DNA     linear   SYN 04-JUN-2026
+DEFINITION  pEGFP-N1 fragment A, linear PCR product (Gibson assembly demo).
+ACCESSION   .
+VERSION     .
+KEYWORDS    .
+SOURCE      synthetic DNA construct
+  ORGANISM  synthetic DNA construct
+FEATURES             Location/Qualifiers
+     source          1..2360
+ORIGIN      
+        1 tagttattaa tagtaatcaa ttacggggtc attagttcat agcccatata tggagttccg
+       61 cgttacataa cttacggtaa atggcccgcc tggctgaccg cccaacgacc cccgcccatt
+      121 gacgtcaata atgacgtatg ttcccatagt aacgccaata gggactttcc attgacgtca
+      181 atgggtggag tatttacggt aaactgccca cttggcagta catcaagtgt atcatatgcc
+      241 aagtacgccc cctattgacg tcaatgacgg taaatggccc gcctggcatt atgcccagta
+      301 catgacctta tgggactttc ctacttggca gtacatctac gtattagtca tcgctattac
+      361 catggtgatg cggttttggc agtacatcaa tgggcgtgga tagcggtttg actcacgggg
+      421 atttccaagt ctccacccca ttgacgtcaa tgggagtttg ttttggcacc aaaatcaacg
+      481 ggactttcca aaatgtcgta acaactccgc cccattgacg caaatgggcg gtaggcgtgt
+      541 acggtgggag gtctatataa gcagagctgg tttagtgaac cgtcagatcc gctagcgcta
+      601 ccggactcag atctcgagct caagcttcga attctgcagt cgacggtacc gcgggcccgg
+      661 gatccaccgg tcgccaccat ggtgagcaag ggcgaggagc tgttcaccgg ggtggtgccc
+      721 atcctggtcg agctggacgg cgacgtaaac ggccacaagt tcagcgtgtc cggcgagggc
+      781 gagggcgatg ccacctacgg caagctgacc ctgaagttca tctgcaccac cggcaagctg
+      841 cccgtgccct ggcccaccct cgtgaccacc ctgacctacg gcgtgcagtg cttcagccgc
+      901 taccccgacc acatgaagca gcacgacttc ttcaagtccg ccatgcccga aggctacgtc
+      961 caggagcgca ccatcttctt caaggacgac ggcaactaca agacccgcgc cgaggtgaag
+     1021 ttcgagggcg acaccctggt gaaccgcatc gagctgaagg gcatcgactt caaggaggac
+     1081 ggcaacatcc tggggcacaa gctggagtac aactacaaca gccacaacgt ctatatcatg
+     1141 gccgacaagc agaagaacgg catcaaggtg aacttcaaga tccgccacaa catcgaggac
+     1201 ggcagcgtgc agctcgccga ccactaccag cagaacaccc ccatcggcga cggccccgtg
+     1261 ctgctgcccg acaaccacta cctgagcacc cagtccgccc tgagcaaaga ccccaacgag
+     1321 aagcgcgatc acatggtcct gctggagttc gtgaccgccg ccgggatcac tctcggcatg
+     1381 gacgagctgt acaagtaaag cggccgcgac tctagatcat aatcagccat accacatttg
+     1441 tagaggtttt acttgcttta aaaaacctcc cacacctccc cctgaacctg aaacataaaa
+     1501 tgaatgcaat tgttgttgtt aacttgttta ttgcagctta taatggttac aaataaagca
+     1561 atagcatcac aaatttcaca aataaagcat ttttttcact gcattctagt tgtggtttgt
+     1621 ccaaactcat caatgtatct taaggcgtaa attgtaagcg ttaatatttt gttaaaattc
+     1681 gcgttaaatt tttgttaaat cagctcattt tttaaccaat aggccgaaat cggcaaaatc
+     1741 ccttataaat caaaagaata gaccgagata gggttgagtg ttgttccagt ttggaacaag
+     1801 agtccactat taaagaacgt ggactccaac gtcaaagggc gaaaaaccgt ctatcagggc
+     1861 gatggcccac tacgtgaacc atcaccctaa tcaagttttt tggggtcgag gtgccgtaaa
+     1921 gcactaaatc ggaaccctaa agggagcccc cgatttagag cttgacgggg aaagccggcg
+     1981 aacgtggcga gaaaggaagg gaagaaagcg aaaggagcgg gcgctagggc gctggcaagt
+     2041 gtagcggtca cgctgcgcgt aaccaccaca cccgccgcgc ttaatgcgcc gctacagggc
+     2101 gcgtcaggtg gcacttttcg gggaaatgtg cgcggaaccc ctatttgttt atttttctaa
+     2161 atacattcaa atatgtatcc gctcatgaga caataaccct gataaatgct tcaataatat
+     2221 tgaaaaagga agagtcctga ggcggaaaga accagctgtg gaatgtgtgt cagttagggt
+     2281 gtggaaagtc cccaggctcc ccagcaggca gaagtatgca aagcatgcat ctcaattagt
+     2341 cagcaaccag gtgtggaaag
+//

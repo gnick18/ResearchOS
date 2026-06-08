@@ -1,0 +1,30 @@
+LOCUS       attR_dest          964 bp    DNA     circular   SYN 04-JUN-2026
+DEFINITION  Gateway attR destination vector, ccdB-style stuffer flanked by attR1/attR2 (demo).
+ACCESSION   .
+VERSION     .
+KEYWORDS    .
+SOURCE      synthetic DNA construct
+  ORGANISM  synthetic DNA construct
+FEATURES             Location/Qualifiers
+     source          1..964
+     misc_feature     358..657
+                     /label="ccdB stuffer"
+ORIGIN      
+        1 cagaggaggt tggacgtgac ctatcaaatc gctgccctat caaaaggctg aacctcattg
+       61 cttaattcgt atcgagacga atccctatca aaagtgatgg gacagcccct atcaaaagtg
+      121 attttcgctg gggacagccc tgcactgtta gtgggctatg aaccaagtac agttcgctgg
+      181 ggacagctgc tagcgtttgt caagtttgta caaaaaagtt gaacgagaaa cgtaaaatga
+      241 tataaatatc aatatattaa attagatttt gcataaaaaa cagactacat aatactgtaa
+      301 aacacaacat atgcagtcac tatgaatcaa ctacttagat ggtattagtg acctgtaaag
+      361 aatccggcct acgctacagc tacctcgacg agttcctcag atatgatcgt tctagtacta
+      421 ttttcatgtc accgactctc tctctctctc tctctctcac cacacgagtt cctcaggaag
+      481 gccgcgcagc tacctcgacc cagggtagga aatggtgtaa aatcctcagc ccgctcgtac
+      541 ctgacctctc caggttgcta cgctcttgaa ccaagtacag aggcttatca gggtatgcct
+      601 gttactgttc cgtaaccgtg attctcgtat tttgatgcga taacggttat ctccaggttg
+      661 tgttttacag tattatgtag tctgtttttt atgcaaaatc taatttaata tattgatatt
+      721 tatatcattt tacgtttctc gttcaacttt cttgtacaaa gtggtttacc tcgacaacag
+      781 gttggacgtg agaatccggc ctagctacgc ctgacgtgga tcgtattcat gcgatagaag
+      841 gttggacgtg agaatccggc tggggatgcg tttcgaacta tttgataacc atttcaaaag
+      901 ttagtgggcc gaggtcttag atgggctgca caacccgaca aaagcataga ccgaggcagt
+      961 acag
+//

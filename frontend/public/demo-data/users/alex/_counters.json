@@ -18,5 +18,6 @@
   "weekly_goals": 1,
   "inventory_items": 7,
   "inventory_stocks": 8,
-  "storage_nodes": 3
+  "storage_nodes": 3,
+  "sequences": 9
 }

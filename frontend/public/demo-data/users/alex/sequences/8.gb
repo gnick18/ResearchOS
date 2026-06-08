@@ -1,0 +1,29 @@
+LOCUS       attL_entry         910 bp    DNA     circular   SYN 04-JUN-2026
+DEFINITION  Gateway attL entry clone, gene of interest flanked by attL1/attL2 (demo).
+ACCESSION   .
+VERSION     .
+KEYWORDS    .
+SOURCE      synthetic DNA construct
+  ORGANISM  synthetic DNA construct
+FEATURES             Location/Qualifiers
+     source          1..910
+     CDS             251..610
+                     /label="gene of interest"
+ORIGIN      
+        1 cagaggaggt tggacgtgac ctatcaaatc gctgccctat caaaaggctg aacctcattg
+       61 cttaattcgt atcgagacga atccctatca aaagtgatgg gacagcccct atcaaaagtg
+      121 attttcgctg gggacagccc tgcactgtta gtgggctatg aaccaagtac agttcgctgg
+      181 ggacagctgc tagcgtttgt tgatgagcaa tgctttttta taatgccaac tttgtacaaa
+      241 aaagcaggct gcgtcctttg cccggcacca taatgttaat tcgtacaagc tacgcctgac
+      301 cgcctgcata gaccgacaaa agcatagcgg tcgaaaagca tagaccgaca aaagcatccg
+      361 aggtaggtct acgcaatatg atcgttctag tttgaaacga taatgttgcc tagataacta
+      421 ttttcaccaa tccgctacgc ctgacgtgga tcgtattcag taactattta acaatttagc
+      481 gcttaattcg tatggggctc tctctctctc tctctctctc tctctctcgg ggatgcgata
+      541 acgccaattg cggaagcctc tgtgcgtaca gaggcttaat tcgatagagt cgggcagccc
+      601 gcaatgactg acccagcttt cttgtacaaa gttggcatta taagaaagca ttgcttatca
+      661 atttgttgca acgaacaggt cactatcagt caaaataaaa tcattatttg tttacctcga
+      721 caacaggttg gacgtgagaa tccggcctag ctacgcctga cgtggatcgt attcatgcga
+      781 tagaaggttg gacgtgagaa tccggctggg gatgcgtttc gaactatttg ataaccattt
+      841 caaaagttag tgggccgagg tcttagatgg gctgcacaac ccgacaaaag catagaccga
+      901 ggcagtacag
+//

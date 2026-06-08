@@ -1,0 +1,9 @@
+{
+  "id": 4,
+  "display_name": "pEGFP-N1 fragment A (linear PCR)",
+  "project_ids": [
+    "2"
+  ],
+  "added_at": "2026-06-04T00:00:00Z",
+  "seq_type": "dna"
+}

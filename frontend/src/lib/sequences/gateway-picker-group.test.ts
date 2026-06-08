@@ -20,11 +20,7 @@ function loadFixtureSeq(id: number): string {
   return detail!.seq;
 }
 
-// SKIPPED (HR, flag-flip sweep): the demo fixture generator stopped emitting
-// sequence .gb entries, so buildWikiFixtures() has no users/alex/sequences/*.gb
-// (a real /demo + wiki-capture regression, tracked separately). Un-skip once the
-// demo-data sequences are restored + regenerated.
-describe.skip("groupGatewayPicker floats att-flanked substrates to the top", () => {
+describe("groupGatewayPicker floats att-flanked substrates to the top", () => {
   it("puts the attL entry clone + attR destination in att, the rest in other", () => {
     const attL = loadFixtureSeq(8); // attL entry clone
     const attR = loadFixtureSeq(9); // attR destination vector

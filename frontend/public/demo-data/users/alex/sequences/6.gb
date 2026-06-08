@@ -1,0 +1,19 @@
+LOCUS       GG_cassette1       338 bp    DNA     linear   SYN 04-JUN-2026
+DEFINITION  Golden Gate cassette 1, BsaI-flanked linear part (demo).
+ACCESSION   .
+VERSION     .
+KEYWORDS    .
+SOURCE      synthetic DNA construct
+  ORGANISM  synthetic DNA construct
+FEATURES             Location/Qualifiers
+     source          1..338
+     misc_feature     20..319
+                     /label="GG part 1 body"
+ORIGIN      
+        1 agctagctgg tctcaaatgg gtgcggcacc ataagcggca ccataatgtt gcggctgaaa
+       61 cgaagcagaa ctccgaggtc ttagaactcc gaggtggact gacgtggatc gtattcacgc
+      121 catcgatcta gcgttttgaa aagtgatttt cgctgcctcg gccaggttgg acgtgtgtgg
+      181 tttcgctggg gacagcccct atcaaaagtg attttcgctg taaccggtta accggttaca
+      241 gaggctgttg gacgtgagaa tccggcctac gctcttgaac caagtacagt gtggggatgc
+      301 gataactatt ttcatgtcag caaagagacc tcgatcga
+//
