@@ -3,7 +3,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -103,13 +103,16 @@ export default function RootLayout() {
         </View>
         {/* Celebratory "sent to your lab" burst, floats over everything, never
             blocks taps, renders null when idle. */}
-        <SuccessBurst />
+        {/* Skia overlays are native-only. On the web build (used as a fast
+            design-preview of the real screens) they are skipped, since Skia
+            needs a CanvasKit shim there. They render normally on iOS/Android. */}
+        {Platform.OS !== 'web' ? <SuccessBurst /> : null}
         {/* Live BeakerBot mascot, top-right on every screen. Idle breathe +
             blink, tap him for a heart burst. Small absolute Pressable, so taps
             elsewhere pass through. */}
-        <HeaderMascot />
+        {Platform.OS !== 'web' ? <HeaderMascot /> : null}
       </View>
-      {splashVisible ? <AppSplash onFinish={handleSplashFinish} /> : null}
+      {splashVisible && Platform.OS !== 'web' ? <AppSplash onFinish={handleSplashFinish} /> : null}
       <StatusBar style="auto" />
     </ThemeProvider>
     </SafeAreaProvider>
