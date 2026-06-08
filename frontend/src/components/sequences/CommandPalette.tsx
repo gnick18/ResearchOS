@@ -30,9 +30,7 @@ import {
   DOCK_HEIGHT_FALLBACK,
   DOCK_STORAGE_KEY,
   applyArrowKey,
-  armedWall,
   clampPosition,
-  endDrag,
   fromPersisted,
   initialDockState,
   nearestSide,
@@ -948,10 +946,12 @@ export function CommandPalette({
     ],
   );
 
-  // BeakerSearch v3. Dragging the dock by its header. We capture the pointer on
-  // the header, follow it through pointermove (clamped to the viewport), and on
-  // release decide whether the position tucks the dock off a side (drag-to-edge).
-  // While dragging within the snap zone, armedSide drives the "Hide here" hint.
+  // BeakerSearch v3. Dragging the dock by its header. While the pointer is down
+  // the dock tracks the cursor 1:1 with NO clamping (so it never stalls near a
+  // wall) and NO React state (imperative style writes only). The hide arms only
+  // when the MOUSE CURSOR reaches a screen corner, then hides to that left /
+  // right side; positioning near an edge no longer snaps. State commits once on
+  // release (clamped back on screen, or tucked if a corner was armed).
   const dragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -959,6 +959,17 @@ export function CommandPalette({
     originX: number;
     originY: number;
   } | null>(null);
+
+  // Px box in each screen corner that arms a hide while dragging.
+  const CORNER_HIT = 40;
+  const cornerArm = useCallback((cx: number, cy: number, vp: Viewport): DockSide | null => {
+    const nearL = cx <= CORNER_HIT;
+    const nearR = cx >= vp.width - CORNER_HIT;
+    const nearT = cy <= CORNER_HIT;
+    const nearB = cy >= vp.height - CORNER_HIT;
+    if ((nearL || nearR) && (nearT || nearB)) return nearR ? "right" : "left";
+    return null;
+  }, []);
 
   const onHeaderPointerDown = useCallback((e: React.PointerEvent) => {
     // Ignore drags that start on a header control (close / collapse / hide).
@@ -981,51 +992,66 @@ export function CommandPalette({
     gestureHeightRef.current = el.offsetHeight || DOCK_HEIGHT_FALLBACK;
     liveGeomRef.current = { x, y, width: cur.width };
     armedRef.current = null;
+    // Kill any CSS transition for the duration of the drag so imperative
+    // left / top changes are instant, never eased (the "won't keep up" feel).
+    el.style.transition = "none";
     // Capture on the header (the element with the move/up listeners) so a fast
     // drag that outruns the dock keeps delivering events instead of stalling.
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     setGesture("drag");
   }, []);
 
-  const onHeaderPointerMove = useCallback((e: React.PointerEvent) => {
-    const d = dragRef.current;
-    if (!d || d.pointerId !== e.pointerId) return;
-    const el = dockRef.current;
-    if (!el) return;
-    const vp: Viewport = { width: window.innerWidth, height: window.innerHeight };
-    const h = gestureHeightRef.current;
-    const w = dockStateRef.current.width;
-    // DESIRED (unclamped) decides arming; the dock sits at the clamped position.
-    const desiredX = d.originX + (e.clientX - d.startX);
-    const desiredY = d.originY + (e.clientY - d.startY);
-    const next = clampPosition(desiredX, desiredY, vp, 44, h, w);
-    liveGeomRef.current = { x: next.x, y: next.y, width: w };
-    // Imperative move, no React state, so the dock tracks the pointer 1:1.
-    el.style.left = `${next.x}px`;
-    el.style.top = `${next.y}px`;
-    const armed = armedWall(desiredX, desiredY, vp, h, w);
-    if (armed !== armedRef.current) {
-      armedRef.current = armed;
-      setArmedSide(armed);
-    }
-  }, []);
+  const onHeaderPointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      const d = dragRef.current;
+      if (!d || d.pointerId !== e.pointerId) return;
+      const el = dockRef.current;
+      if (!el) return;
+      const vp: Viewport = { width: window.innerWidth, height: window.innerHeight };
+      const w = dockStateRef.current.width;
+      // Track the cursor exactly, no clamp, so the dock follows 1:1 everywhere.
+      const x = d.originX + (e.clientX - d.startX);
+      const y = d.originY + (e.clientY - d.startY);
+      liveGeomRef.current = { x, y, width: w };
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      const armed = cornerArm(e.clientX, e.clientY, vp);
+      if (armed !== armedRef.current) {
+        armedRef.current = armed;
+        setArmedSide(armed);
+      }
+    },
+    [cornerArm],
+  );
 
-  const onHeaderPointerUp = useCallback((e: React.PointerEvent) => {
-    const d = dragRef.current;
-    if (!d || d.pointerId !== e.pointerId) return;
-    dragRef.current = null;
-    const header = e.currentTarget as HTMLElement;
-    if (header.hasPointerCapture(e.pointerId)) header.releasePointerCapture(e.pointerId);
-    const vp: Viewport = { width: window.innerWidth, height: window.innerHeight };
-    const h = gestureHeightRef.current;
-    const desiredX = d.originX + (e.clientX - d.startX);
-    const desiredY = d.originY + (e.clientY - d.startY);
-    liveGeomRef.current = null;
-    armedRef.current = null;
-    setArmedSide(null);
-    setGesture(null);
-    setDock((curState) => endDrag(curState, desiredX, desiredY, vp, h));
-  }, []);
+  const onHeaderPointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      const d = dragRef.current;
+      if (!d || d.pointerId !== e.pointerId) return;
+      dragRef.current = null;
+      const header = e.currentTarget as HTMLElement;
+      if (header.hasPointerCapture(e.pointerId)) header.releasePointerCapture(e.pointerId);
+      const el = dockRef.current;
+      if (el) el.style.transition = ""; // restore the class-based settle transition
+      const vp: Viewport = { width: window.innerWidth, height: window.innerHeight };
+      const h = gestureHeightRef.current;
+      const w = dockStateRef.current.width;
+      const x = d.originX + (e.clientX - d.startX);
+      const y = d.originY + (e.clientY - d.startY);
+      const armed = cornerArm(e.clientX, e.clientY, vp);
+      liveGeomRef.current = null;
+      armedRef.current = null;
+      setArmedSide(null);
+      setGesture(null);
+      if (armed) {
+        setDock((cur) => tuckDock(cur, armed, vp, h));
+      } else {
+        const c = clampPosition(x, y, vp, 44, h, w);
+        setDock((cur) => ({ ...cur, x: c.x, y: c.y, tucked: false }));
+      }
+    },
+    [cornerArm],
+  );
 
   // Header control actions.
   const doTuck = useCallback(() => {
@@ -1057,6 +1083,7 @@ export function CommandPalette({
         y: cur.y ?? rect?.top ?? 0,
         width: cur.width,
       };
+      if (el) el.style.transition = "none";
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
       setGesture("resize");
     },
@@ -1082,6 +1109,8 @@ export function CommandPalette({
     resizeRef.current = null;
     const handle = e.currentTarget as HTMLElement;
     if (handle.hasPointerCapture(e.pointerId)) handle.releasePointerCapture(e.pointerId);
+    const el = dockRef.current;
+    if (el) el.style.transition = "";
     const vp: Viewport = { width: window.innerWidth, height: window.innerHeight };
     const nz = resizeWidth(dockStateRef.current, r.edge, e.clientX, vp);
     liveGeomRef.current = null;
@@ -1201,42 +1230,34 @@ export function CommandPalette({
 
   return createPortal(
     <>
-      {/* The drag-to-edge "Hide here" hint zones, one per wall. They paint a soft
-          accent wash on the wall the dock would hide against, pulse while that
-          wall is armed (the "let go and I hide" cue), and stay pointer-inert so
-          they never block the page. Shown only while dragging. */}
+      {/* Corner hide targets, shown only while dragging. Throwing the cursor into
+          a screen corner hides the dock to that left / right side; the corners on
+          the armed side pulse as the "let go and I hide" cue. Pointer-inert so
+          they never block the page. */}
       {dragging ? (
         <>
           <div
             aria-hidden="true"
-            className={`pointer-events-none fixed inset-y-0 left-0 z-[78] w-[80px] bg-gradient-to-r from-brand-action/30 to-transparent transition-opacity ${
-              armedSide === "left"
-                ? "opacity-100 animate-pulse motion-reduce:animate-none"
-                : "opacity-30"
+            className={`pointer-events-none fixed left-0 top-0 z-[78] h-16 w-16 rounded-br-2xl bg-brand-action/25 transition-opacity ${
+              armedSide === "left" ? "opacity-100 animate-pulse motion-reduce:animate-none" : "opacity-25"
             }`}
           />
           <div
             aria-hidden="true"
-            className={`pointer-events-none fixed inset-y-0 right-0 z-[78] w-[80px] bg-gradient-to-l from-brand-action/30 to-transparent transition-opacity ${
-              armedSide === "right"
-                ? "opacity-100 animate-pulse motion-reduce:animate-none"
-                : "opacity-30"
+            className={`pointer-events-none fixed bottom-0 left-0 z-[78] h-16 w-16 rounded-tr-2xl bg-brand-action/25 transition-opacity ${
+              armedSide === "left" ? "opacity-100 animate-pulse motion-reduce:animate-none" : "opacity-25"
             }`}
           />
           <div
             aria-hidden="true"
-            className={`pointer-events-none fixed inset-x-0 top-0 z-[78] h-[80px] bg-gradient-to-b from-brand-action/30 to-transparent transition-opacity ${
-              armedSide === "top"
-                ? "opacity-100 animate-pulse motion-reduce:animate-none"
-                : "opacity-30"
+            className={`pointer-events-none fixed right-0 top-0 z-[78] h-16 w-16 rounded-bl-2xl bg-brand-action/25 transition-opacity ${
+              armedSide === "right" ? "opacity-100 animate-pulse motion-reduce:animate-none" : "opacity-25"
             }`}
           />
           <div
             aria-hidden="true"
-            className={`pointer-events-none fixed inset-x-0 bottom-0 z-[78] h-[80px] bg-gradient-to-t from-brand-action/30 to-transparent transition-opacity ${
-              armedSide === "bottom"
-                ? "opacity-100 animate-pulse motion-reduce:animate-none"
-                : "opacity-30"
+            className={`pointer-events-none fixed bottom-0 right-0 z-[78] h-16 w-16 rounded-tl-2xl bg-brand-action/25 transition-opacity ${
+              armedSide === "right" ? "opacity-100 animate-pulse motion-reduce:animate-none" : "opacity-25"
             }`}
           />
         </>
