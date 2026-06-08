@@ -43,6 +43,7 @@ export type LoadingStage =
   | "verifying-permission"
   | "validating-folder"
   | "discovering-users"
+  | "warming-cache"
   | "preparing";
 
 interface FileSystemState {
@@ -350,6 +351,14 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
             "[FileSystemProvider] pruneOrphanUserMetadataEntries failed:",
             err,
           );
+        }
+
+        // Warm the FSA read cache: evict any stale entries before the UI mounts.
+        setState((prev) => ({ ...prev, loadingStage: "warming-cache" }));
+        try {
+          await fileService.runConnectSweep(users);
+        } catch (err) {
+          console.warn("[FileSystemProvider] cache sweep failed:", err);
         }
 
         // Best-effort disk hygiene (legacy trash migration, trash auto-cleanup,

@@ -22,6 +22,7 @@ const STAGE_MESSAGES: Record<NonNullable<LoadingStage>, string> = {
   "verifying-permission": "Verifying read/write access",
   "validating-folder": "Inspecting folder contents",
   "discovering-users": "Discovering users",
+  "warming-cache": "Warming up…",
   preparing: "Preparing your workspace",
 };
 
@@ -33,6 +34,7 @@ const STAGE_SUBTITLES: Record<NonNullable<LoadingStage>, string> = {
   "validating-folder":
     "Cloud folders are slow on first read while the OS catches up. This is normal.",
   "discovering-users": "Scanning users/ for everyone with data here.",
+  "warming-cache": "Checking cached file versions against disk.",
   preparing: "Loading projects, tasks, and recent activity.",
 };
 
