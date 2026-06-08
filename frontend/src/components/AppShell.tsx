@@ -36,6 +36,7 @@ import { useLateNightCoffeeTrigger } from "@/hooks/useLateNightCoffeeTrigger";
 import { useFeaturePicks } from "@/hooks/useFeaturePicks";
 import { useIsLabHead } from "@/hooks/useIsLabHead";
 import { deriveVisibleTabs } from "@/lib/onboarding/feature-picks-tabs";
+import { usePrefetchOnHover } from "@/lib/perf/use-prefetch-on-hover";
 import { headerGradient, rainbowTheme } from "@/lib/colors";
 import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
 import UserAvatarMenu from "@/components/UserAvatarMenu";
@@ -43,6 +44,7 @@ import ResearcherProfileModal from "@/components/researchers/ResearcherProfileMo
 import ProfileSettingsModal from "@/components/profile/ProfileSettingsModal";
 import SettingsModal from "@/components/settings/SettingsModal";
 import SharingClaimResume from "@/components/sharing/SharingClaimResume";
+import { LabSessionMount } from "@/components/lab/LabSessionMount";
 // BeakerSearch step 2a, the app-chrome front-door pill. Visible on every app
 // page, opens the always-present global Cmd-K palette.
 import BeakerSearchPill from "@/components/beaker-search/BeakerSearchPill";
@@ -67,6 +69,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // full contract + Settings UI carve-out note. `undefined` (loading)
   // is treated the same as `null` so first-paint never flickers.
   const featurePicks = useFeaturePicks(currentUser);
+  // Intent-scoped hover-prefetch: warm note/experiment Loro docs on row hover so
+  // their detail popups open instantly (flag-gated, see use-prefetch-on-hover).
+  usePrefetchOnHover(currentUser);
   const effectiveVisibleTabs = useMemo(
     () => deriveVisibleTabs(featurePicks ?? null, visibleTabs),
     [featurePicks, visibleTabs],
@@ -572,7 +577,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <DailyTasksSidebar />
         )}
         <main className="flex-1 flex flex-col overflow-hidden">
-          {children}
+          <LabSessionMount>{children}</LabSessionMount>
         </main>
       </div>
 
