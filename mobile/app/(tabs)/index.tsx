@@ -59,6 +59,15 @@ export default function HomeScreen() {
               Paired {formatPairedAt(pairing.pairedAt)}
             </ThemedText>
             <Pressable
+              style={styles.primaryButton}
+              onPress={() => router.push('/(tabs)/capture')}
+              accessibilityRole="button"
+            >
+              <ThemedText style={styles.primaryButtonText}>
+                Take a bench photo
+              </ThemedText>
+            </Pressable>
+            <Pressable
               style={styles.secondaryButton}
               onPress={onUnpair}
               accessibilityRole="button"
