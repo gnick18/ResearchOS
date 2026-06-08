@@ -282,5 +282,22 @@ entities). Frecency ranking, inline previews beyond favicons, result sub-actions
 the one-action-source refactor, tokens, bulk, and the global Notes entity are all
 explicitly OUT of this push.
 
-All decisions are now LOCKED. Chunk 1 (the sub-flow framework, supporting both the
-inline and stacked presentations per the hybrid rule) is ready to build.
+All decisions are now LOCKED.
+
+## 8. Build status
+
+- CHUNK 1 DONE + on `main` (cherry-picked as `880fc30bb`): the in-palette sub-flow
+  framework. `PaletteSubflow` contract + `EditorCommand.subflow` + a `subpick`
+  PaletteItem kind, the palette state machine (`subStack` + `inlineAnchorKey`,
+  `openSubflow` / `pickSubItem` / `popSubflow`), the HYBRID presentation
+  (`resolveSubflowPresentation`, inline at depth 1, stack when explicit or chained,
+  a flow promotes to the stack on its first chain), Escape pops a stage then closes
+  at root. Proof, two Gantt commands now run real in-palette flows, "Assign <task>
+  to a lab member" (INLINE single-stage -> assignTask) and "Add a dependency from
+  <task>" (STACK multi-stage, pick experiment -> pick FS/SS/SF -> dependenciesApi
+  .create). Additive, any command without `subflow` is unchanged. 21 new tests, tsc
+  clean, 98 palette + gantt tests green.
+- NEXT, CHUNK 2 (the picker debts), wire the rest of the deferred pickers onto the
+  framework, one page at a time, reusing v1's handlers, assign / flag / change-
+  project / set-funding / add-dependency (done on Gantt) / move-note / move-method-
+  category / link-event-to-task. Then CHUNK 3 (the three lifts).
