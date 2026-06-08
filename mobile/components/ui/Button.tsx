@@ -51,9 +51,16 @@ export function Button({
           borderWidth: 0,
         },
         variant === 'secondary' && {
-          backgroundColor: 'transparent',
-          borderWidth: 1.5,
-          borderColor: palette.sky,
+          // Elevated white card so secondary actions read clearly on the
+          // sky-tinted canvas instead of fading into it.
+          backgroundColor: palette.white,
+          borderWidth: 1,
+          borderColor: palette.elevatedBorder,
+          shadowColor: '#101828',
+          shadowOpacity: 0.1,
+          shadowRadius: 6,
+          shadowOffset: { width: 0, height: 2 },
+          elevation: 2,
         },
         variant === 'ghost' && {
           backgroundColor: 'transparent',

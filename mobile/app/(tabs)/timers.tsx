@@ -167,7 +167,7 @@ export default function TimersScreen() {
                 {PRESETS.map((p) => (
                   <Pressable
                     key={p.sec}
-                    style={[styles.preset, { backgroundColor: palette.skyDim, borderRadius: radii.pill }]}
+                    style={[styles.preset, { backgroundColor: palette.white, borderColor: palette.elevatedBorder, borderRadius: radii.pill }]}
                     onPress={() => startPreset(p.sec)}
                     accessibilityRole="button"
                     accessibilityLabel={`Start ${p.label} timer`}
@@ -369,6 +369,12 @@ const styles = StyleSheet.create({
   preset: {
     paddingHorizontal: 15,
     paddingVertical: 9,
+    borderWidth: 1,
+    shadowColor: '#101828',
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
   presetText: {
     fontSize: 14,

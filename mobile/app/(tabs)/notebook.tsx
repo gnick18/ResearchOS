@@ -338,10 +338,8 @@ export default function NotebookScreen() {
               ]}
               accessibilityRole="button"
             >
-              <Ionicons name="create-outline" size={24} color={palette.sky} />
-              <ThemedText style={[styles.actionLabel, { color: palette.sky }]}>
-                Quick note
-              </ThemedText>
+              <Ionicons name="create-outline" size={24} color={palette.white} />
+              <ThemedText style={styles.actionLabel}>Quick note</ThemedText>
             </Pressable>
           </View>
         ) : null}
@@ -750,7 +748,8 @@ const styles = StyleSheet.create({
     backgroundColor: palette.sky,
   },
   actionTinted: {
-    backgroundColor: palette.skyDim,
+    // Coral partner to the sky photo card: high contrast, on-brand highlight.
+    backgroundColor: palette.coral,
   },
   actionLabel: {
     fontSize: 14,

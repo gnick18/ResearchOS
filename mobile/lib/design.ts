@@ -15,11 +15,26 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 // Palette (static, not theme-aware)
 // ---------------------------------------------------------------------------
 export const palette = {
-  // Brand
+  // Brand. Sky is the primary/main color (buttons, links, active state). Coral
+  // and amber are the two warm highlight accents, used tastefully to make things
+  // pop against the sky-tinted canvas (never both at once on the same element,
+  // never a full rainbow).
   sky: '#1AA0E6',
   skyLight: '#E6F4FE',
   skyDim: 'rgba(26, 160, 230, 0.12)',
   skyBorder: 'rgba(26, 160, 230, 0.35)',
+
+  // Warm highlight accents
+  coral: '#FF6F61',
+  coralDim: 'rgba(255, 111, 97, 0.12)',
+  coralBorder: 'rgba(255, 111, 97, 0.40)',
+  amber: '#F59E0B',
+  amberDim: 'rgba(245, 158, 11, 0.14)',
+  amberBorder: 'rgba(245, 158, 11, 0.40)',
+
+  // Elevated-white secondary surface: a crisp white that pops on the canvas, with
+  // a faintly sky-tinted hairline border.
+  elevatedBorder: '#d4e2ee',
 
   // Accent (links, destructive context on light bg)
   purple: '#5B47D6',

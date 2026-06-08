@@ -272,13 +272,13 @@ function TrackedStockRow({
       <View
         style={[
           styles.pill,
-          { backgroundColor: isLow ? palette.warningLight : palette.successLight },
+          { backgroundColor: isLow ? palette.amberDim : palette.successLight },
         ]}
       >
         <ThemedText
           style={[
             styles.pillText,
-            { color: isLow ? palette.warning : palette.success },
+            { color: isLow ? palette.amber : palette.success },
           ]}
         >
           {isLow ? 'low' : 'ok'}
