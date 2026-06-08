@@ -210,6 +210,10 @@ export async function copyDirRecursiveMfs(
  *   (b) shared_notebooks files: array fields named "participants", "members",
  *       or "usernames". Also nulls out a string "owner" or "sharedBy" field
  *       if it equals a moved username.
+ * It ALSO clears lab-wide sharing, which is stale once the folder is solo:
+ *   (d) drops the "*" wildcard (shared with all lab members) from every share
+ *       array, and
+ *   (e) sets is_shared to false.
  *
  * Only rewrites a file if it actually changed. Skips files that are not valid
  * JSON or that have none of the relevant fields.
@@ -281,6 +285,26 @@ async function stripSharesFromPrimary(
         removed.push(obj[field] as string);
         obj[field] = null;
       }
+    }
+
+    // (d) Lab-wide sharing is stale once the folder is solo (there is no lab to
+    //     share with). Drop the "*" wildcard (shared-with-all-lab-members) from
+    //     every share array. "*" may be a plain string or an object form.
+    for (const field of ["shared_with", "participants", "members", "usernames"] as const) {
+      if (Array.isArray(obj[field])) {
+        const before = obj[field] as unknown[];
+        const after = before.filter((e) => resolveUsername(e) !== "*");
+        if (after.length !== before.length) {
+          removed.push("*");
+          obj[field] = after;
+        }
+      }
+    }
+
+    // (e) Clear the is_shared flag: a solo folder shares with no one.
+    if (obj["is_shared"] === true) {
+      obj["is_shared"] = false;
+      removed.push("is_shared");
     }
 
     if (removed.length === 0) return; // no changes
