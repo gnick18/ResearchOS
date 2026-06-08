@@ -15,11 +15,14 @@
 // so the spinner shown while it runs MUST be CSS-animated and we defer one frame
 // before kicking it off so the loading state actually paints.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { usePopupLayer } from "@/lib/ui/popup-stack";
 
-import { createLocalIdentity } from "@/lib/sharing/identity/storage";
+import {
+  confirmRecoveryInSidecar,
+  createLocalIdentity,
+} from "@/lib/sharing/identity/storage";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import Tooltip from "@/components/Tooltip";
 import {
@@ -46,14 +49,22 @@ interface CreateLocalIdentityStepProps {
    * (the keypair is minted and sealed); closing does not undo that.
    */
   onClose: () => void;
+  /**
+   * When true the close button and backdrop dismissal are hidden and Escape is
+   * suppressed, forcing the user to confirm they saved their recovery code before
+   * continuing. Use in contexts where the account is mandatory (shared/lab folders)
+   * so the user cannot skip seeing the recovery code.
+   */
+  required?: boolean;
 }
 
 export default function CreateLocalIdentityStep({
   username,
   onComplete,
   onClose,
+  required = false,
 }: CreateLocalIdentityStepProps) {
-  useEscapeToClose(onClose);
+  useEscapeToClose(onClose, !required);
 
   // Account creation is a big, attention-demanding step, so it wants blur. But
   // it frequently opens ON TOP of another popup (the profile modal, the sharing
@@ -107,12 +118,26 @@ export default function CreateLocalIdentityStep({
     }
   }, [recoveryCode]);
 
+  // Stamp recoveryConfirmedAt in the sidecar before handing off to the caller,
+  // so SharingSection and any lab gate can trust the field is set.
+  const completing = useRef(false);
+  const handleComplete = useCallback(async () => {
+    if (completing.current) return;
+    completing.current = true;
+    try {
+      await confirmRecoveryInSidecar(username);
+    } catch {
+      // best-effort: sidecar stamp failure must not block entry
+    }
+    onComplete();
+  }, [username, onComplete]);
+
   return (
     <div
       className={`fixed inset-0 z-[200] flex items-center justify-center ${
         shouldDim ? "bg-black/50" : ""
       } ${shouldBlur ? "backdrop-blur-sm" : ""}`}
-      onClick={onClose}
+      onClick={required ? undefined : onClose}
     >
       <div
         className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-3xl w-full mx-4 max-h-[90vh] flex flex-col overflow-hidden"
@@ -126,15 +151,17 @@ export default function CreateLocalIdentityStep({
             </h3>
             <p className="text-meta text-foreground-muted mt-0.5">for {username}</p>
           </div>
-          <Tooltip label="Close" placement="bottom">
-            <button
-              onClick={onClose}
-              className="text-foreground-muted hover:text-foreground"
-              aria-label="Close"
-            >
-              <CloseIcon className="w-5 h-5" />
-            </button>
-          </Tooltip>
+          {!required && (
+            <Tooltip label="Close" placement="bottom">
+              <button
+                onClick={onClose}
+                className="text-foreground-muted hover:text-foreground"
+                aria-label="Close"
+              >
+                <CloseIcon className="w-5 h-5" />
+              </button>
+            </Tooltip>
+          )}
         </div>
 
         <div className="px-6 py-5 flex-1 overflow-y-auto">
@@ -215,7 +242,7 @@ export default function CreateLocalIdentityStep({
 
               <button
                 type="button"
-                onClick={onComplete}
+                onClick={() => void handleComplete()}
                 disabled={!recoverySaved}
                 className="w-full py-2.5 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
                 data-testid="create-local-identity-continue"

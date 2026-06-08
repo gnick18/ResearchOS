@@ -1814,6 +1814,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       {forceProfileFor && (
         <CreateLocalIdentityStep
           username={forceProfileFor.username}
+          required
           onComplete={() => {
             const u = forceProfileFor.username;
             setForceProfileFor(null);

@@ -104,8 +104,10 @@ describe("useLabSession", () => {
     await act(async () => {});
 
     expect(result.current).not.toBeNull();
-    expect(result.current!.labId).toBe("L1");
-    expect(result.current!.controller).toBe(stubController);
+    const s = result.current;
+    if (!s || s.loading) throw new Error("expected resolved session");
+    expect(s.labId).toBe("L1");
+    expect(s.controller).toBe(stubController);
   });
 
   it("returns null when user has no lab_id (solo user)", async () => {

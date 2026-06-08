@@ -363,3 +363,17 @@ export async function sealIdentityIntoSidecar(
   return { recoveryCode, recoveryWords };
 }
 
+/**
+ * Stamps recoveryConfirmedAt on the user's sidecar, marking that they saved
+ * their recovery words. Called when the user ticks the confirmation checkbox and
+ * completes CreateLocalIdentityStep. No-op if the sidecar is absent.
+ */
+export async function confirmRecoveryInSidecar(username: string): Promise<void> {
+  const sc = await readSharingIdentity(username);
+  if (!sc) return;
+  await writeSharingIdentity(username, {
+    ...sc,
+    recoveryConfirmedAt: new Date().toISOString(),
+  });
+}
+

@@ -7,8 +7,11 @@
 //   2. There is an active currentUser.
 //   3. That user has a persisted lab_id in their settings.json.
 //
-// Returns null in every other case (solo users, flag-off, loading, signed-out).
-// A null return means the gate is a no-op for this user.
+// Returns { loading: true } while the settings read is in flight for a user
+// who MIGHT be a lab member; the caller can block rendering until this resolves.
+//
+// Returns null in every other case (solo users, flag-off, signed-out).
+// A null return means the gate is a permanent no-op for this user.
 //
 // The controller is stable across renders (useMemo on [labId, currentUser]) so
 // it is not recreated on every parent re-render. lab_id is read reactively by
@@ -28,14 +31,20 @@ import {
 } from "@/lib/settings/user-settings";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
+export type LabSessionResult =
+  | { loading: true }
+  | { loading: false; controller: LabSessionController; labId: string }
+  | null;
+
 /**
  * Resolves the lab session controller + labId for the active user.
  *
- * Returns `null` when the gate should be a no-op (solo user, flag off,
- * loading, or no active user). Returns `{ controller, labId }` when the user
- * is a lab member and the flag is on.
+ * Returns `{ loading: true }` while settings are being read for a user who
+ * may be a lab member. Returns `null` when the gate is a permanent no-op
+ * (solo user, flag off, no active user). Returns `{ controller, labId }` when
+ * the user is a confirmed lab member.
  */
-export function useLabSession(): { controller: LabSessionController; labId: string } | null {
+export function useLabSession(): LabSessionResult {
   const { currentUser } = useCurrentUser();
 
   // undefined = loading; null = no lab_id (solo); string = lab member
@@ -88,7 +97,14 @@ export function useLabSession(): { controller: LabSessionController; labId: stri
     );
   }, [labId, currentUser]);
 
-  if (!LAB_TIER_ENABLED || !currentUser || !labId || !controller) return null;
+  if (!LAB_TIER_ENABLED) return null;
+  if (!currentUser) return null;
 
-  return { controller, labId };
+  // Settings read is still in flight: the user MIGHT be a lab member.
+  if (labId === undefined) return { loading: true };
+
+  // Confirmed solo (no lab_id in settings).
+  if (!labId || !controller) return null;
+
+  return { loading: false, controller, labId };
 }
