@@ -15,14 +15,20 @@
 //                 is the markdown text.
 //   application/x-researchos-reorder
 //                 a barcode reorder request from a paired phone. The body is a
-//                 JSON description of the item; it lands as a visible Note
-//                 titled "Reorder: <name|catalog|barcode>", then acks.
+//                 JSON description of the item; it lands as a real purchase
+//                 line item ("needs_ordering") in the per-user reorder queue
+//                 (see reorder-queue.ts) so it shows up on the Purchases tab,
+//                 then acks.
 //   anything else logged and SKIPPED (not acked, so nothing is lost, the relay
 //                 keeps it and a future build can handle it).
 //
 // Robustness: each capture is handled inside its own try/catch so one bad item
 // never wedges the loop, and a capture is only acked AFTER it has landed on
-// disk. An un-acked capture simply reappears on the next poll.
+// disk. An un-acked capture simply reappears on the next poll. To stop that
+// retry from creating DUPLICATES (a reorder purchase / note has no dedup the
+// way images get a "-1" copy), every landed captureId is recorded in a
+// `.seen_captures` ledger BEFORE the ack (see seen-captures.ts); a later poll
+// that sees a known captureId re-acks it and skips the write.
 //
 // Observability: every step logs a `[capture-poller]` line so the console tells
 // the whole story (poll start, pending count, per-item import, write path, ack,
@@ -43,6 +49,11 @@ import {
   type PendingCapture,
   type UserCaptureKeys,
 } from "@/lib/mobile-relay/client";
+import { addReorderQueueItem } from "@/lib/purchases/reorder-queue";
+import {
+  loadSeenCaptures,
+  markCaptureSeen,
+} from "@/lib/mobile-relay/seen-captures";
 
 const LOG_PREFIX = "[capture-poller]";
 
@@ -86,19 +97,6 @@ function reorderLabel(payload: ReorderPayload): string {
     payload.product_barcode?.trim() ||
     "item"
   );
-}
-
-/** Render a reorder payload as a readable markdown note body. */
-function reorderNoteBody(payload: ReorderPayload): string {
-  const lines: string[] = ["Reorder request from a paired phone.", ""];
-  if (payload.name) lines.push(`- Name: ${payload.name}`);
-  if (payload.itemId !== undefined && payload.itemId !== null)
-    lines.push(`- Inventory item id: ${payload.itemId}`);
-  if (payload.catalog_number) lines.push(`- Catalog number: ${payload.catalog_number}`);
-  if (payload.vendor) lines.push(`- Vendor: ${payload.vendor}`);
-  if (payload.product_barcode) lines.push(`- Barcode: ${payload.product_barcode}`);
-  if (payload.note) lines.push(`- Note: ${payload.note}`);
-  return lines.join("\n");
 }
 
 /** Maps a capture content-type to a sensible image extension. */
@@ -184,6 +182,11 @@ export async function runCaptureInboxPoll(
   let pulled = 0;
   let errors = 0;
 
+  // Captures we have already landed (across previous polls). Loaded once per
+  // poll; markCaptureSeen mutates this set + the on-disk ledger as we go so the
+  // idempotency check below is correct both across polls AND within one poll.
+  const seen = await loadSeenCaptures(currentUser);
+
   for (const capture of pending) {
     const kind = classifyCapture(capture.contentType);
     console.info(
@@ -196,6 +199,23 @@ export async function runCaptureInboxPoll(
       console.warn(
         `${LOG_PREFIX} skipping ${capture.captureId}, unsupported content type ${capture.contentType}`,
       );
+      continue;
+    }
+
+    // Idempotency guard. A capture only lands in `seen` AFTER its destination
+    // write succeeded last time, so if it is here the previous ack must have
+    // failed and the relay handed it back. Re-ack to clean it off the relay and
+    // skip the write so we never create a duplicate purchase / note.
+    if (seen.has(capture.captureId)) {
+      console.info(
+        `${LOG_PREFIX} skipping ${capture.captureId}, already processed (dedup), re-acking`,
+      );
+      try {
+        await ackCaptures(keys, [capture.captureId]);
+      } catch (ackErr) {
+        const message = ackErr instanceof Error ? ackErr.message : String(ackErr);
+        console.warn(`${LOG_PREFIX} re-ack failed for ${capture.captureId}`, message);
+      }
       continue;
     }
 
@@ -222,32 +242,29 @@ export async function runCaptureInboxPoll(
         );
       } else if (kind === "reorder") {
         // Barcode reorder request. The phone sends a JSON body describing the
-        // item to reorder. We land it as a visible Note (see report flag for
-        // why a Note and not a Purchase) so the lab sees the request in the
-        // Notes UI. Tolerant of partial payloads.
+        // item to reorder. We land it as a real purchase line item in the
+        // per-user reorder queue (needs_ordering) so it shows up on the
+        // Purchases tab and flows through the normal ordering pipeline.
+        // Tolerant of partial payloads.
         let payload: ReorderPayload = {};
         try {
           payload = JSON.parse(await blob.text()) as ReorderPayload;
         } catch (parseErr) {
           console.warn(
-            `${LOG_PREFIX} reorder ${capture.captureId} has unparseable body, landing a bare note`,
+            `${LOG_PREFIX} reorder ${capture.captureId} has unparseable body, landing a bare line item`,
             parseErr instanceof Error ? parseErr.message : String(parseErr),
           );
         }
-        const label = reorderLabel(payload);
-        const title = `Reorder: ${label}`;
-        const note = await notesApi.create({
-          title,
-          entries: [
-            {
-              title,
-              date: (capture.createdAt || new Date().toISOString()).slice(0, 10),
-              content: reorderNoteBody(payload),
-            },
-          ],
+        const { taskId, item } = await addReorderQueueItem(currentUser, {
+          item_name: reorderLabel(payload),
+          vendor: payload.vendor ?? null,
+          catalog_number: payload.catalog_number ?? null,
+          product_barcode: payload.product_barcode ?? null,
+          inventory_item_id: payload.itemId ?? null,
+          note: payload.note ?? null,
         });
         console.info(
-          `${LOG_PREFIX} wrote reorder note users/${currentUser}/notes/${note.id}.json`,
+          `${LOG_PREFIX} wrote reorder purchase item ${item.id} into queue task ${taskId}`,
         );
       } else {
         // text/*. Land a real Note so it is visible in the Notes UI. The body is
@@ -269,9 +286,13 @@ export async function runCaptureInboxPoll(
         );
       }
 
-      // Only ack after the capture is safely on disk. If ack fails the capture
-      // reappears next poll, which dedup-names images to a -1 copy; the common
-      // path acks cleanly so duplicates are rare.
+      // Record the capture as landed BEFORE acking. If the ack then fails the
+      // capture reappears next poll, but the dedup guard above sees it in the
+      // ledger and skips the re-create. Written first so the ledger is never
+      // behind the destination write.
+      await markCaptureSeen(currentUser, seen, capture.captureId);
+
+      // Only ack after the capture is safely on disk and ledgered.
       await ackCaptures(keys, [capture.captureId]);
       console.info(`${LOG_PREFIX} acked ${capture.captureId}`);
       pulled += 1;
