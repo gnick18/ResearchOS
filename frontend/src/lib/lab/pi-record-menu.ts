@@ -20,8 +20,13 @@
 
 import type { EditMenuItem } from "@/components/sequences/SequenceEditMenu";
 
-/** The record types the PI menu surfaces actions for. */
-export type PiMenuRecordType = "task" | "note" | "purchase";
+/** The record types the PI menu surfaces actions for. "inventory_item" is the
+ *  Supplies v2 unified-page Supply row (chunk 6, section 4.6): unlike the other
+ *  three (which are pure PI-on-a-member-record menus), a Supply row also offers
+ *  universal inline-mirror actions (reorder / edit / set status) to its own
+ *  owner / editor, with the lab-head approve / decline / flag rows acting on the
+ *  supply's linked open purchase line as the additive PI layer. */
+export type PiMenuRecordType = "task" | "note" | "purchase" | "inventory_item";
 
 /**
  * The audit log's record_type for a given menu record type. The audit log and
@@ -36,7 +41,13 @@ export type PiMenuRecordType = "task" | "note" | "purchase";
 export type AuditRecordType = "task" | "note" | "purchase_item";
 
 export function auditRecordTypeFor(menuType: PiMenuRecordType): AuditRecordType {
-  return menuType === "purchase" ? "purchase_item" : menuType;
+  // A Supply's audit history is its linked open purchase line (where the
+  // lab-head approve / decline / flag actions land), so "inventory_item" maps to
+  // the same "purchase_item" record_type as a purchase. There is no separate
+  // inventory audit record_type today.
+  return menuType === "purchase" || menuType === "inventory_item"
+    ? "purchase_item"
+    : menuType;
 }
 
 /** The minimal record shape the builder needs. Each caller maps its own record
@@ -53,6 +64,21 @@ export interface PiMenuRecord {
   flagged: boolean;
   /** Purchase only: current approval state, for the Approve / Decline toggle. */
   approved?: boolean;
+  /** inventory_item only: whether the current user may edit the supply's backing
+   *  item (whole-lab-edit sharing carries over from inventory). Gates the
+   *  universal "Edit item" / "Set status" rows. */
+  canEdit?: boolean;
+  /** inventory_item only: the supply's first OPEN purchase line, when present, so
+   *  the lab-head approve / decline / flag rows act on it (the additive PI
+   *  layer). Null / absent when the supply has no open line (on-hand-only), in
+   *  which case those rows are omitted. owner is the line's owner (resolved by
+   *  the caller from the decorated record). */
+  linkedPurchase?: {
+    owner: string;
+    id: number;
+    approved: boolean;
+    flagged: boolean;
+  } | null;
 }
 
 /** The callbacks the consumer hook supplies. Each runs the matching pi-action
@@ -74,6 +100,14 @@ export interface PiMenuCallbacks {
   /** Open the per-record audit trail for this record (the read-only viewer,
    *  filtered to this one record). Always offered for a member record. */
   onViewAudit?: () => void;
+  /** inventory_item only: add the supply to the reorder cart (universal). */
+  onReorder?: () => void;
+  /** inventory_item only: open the supply's backing item in the edit form
+   *  (offered when the viewer can edit). */
+  onEditItem?: () => void;
+  /** inventory_item only: open the supply so its stock status can be tapped
+   *  (offered when the viewer can edit). */
+  onSetStatus?: () => void;
 }
 
 export interface BuildPiRecordMenuArgs {
@@ -126,6 +160,16 @@ export function isPiViewingMemberRecord(
 export function buildPiRecordMenuItems(args: BuildPiRecordMenuArgs): EditMenuItem[] {
   const { recordType, record, viewerUsername, isLabHead, callbacks } = args;
   const includeEditAsPi = args.includeEditAsPi ?? true;
+
+  // inventory_item (Supplies v2 chunk 6) is NOT a pure PI-on-member menu: it
+  // offers universal reorder / edit / set-status rows to the owner / editor too,
+  // with the PI approve / decline / flag rows as an additive layer on the
+  // supply's linked open line. So it bypasses the isPiViewingMemberRecord gate
+  // below (which is the right rule for task / note / purchase) and has its own
+  // builder.
+  if (recordType === "inventory_item") {
+    return buildSupplyMenuItems(args);
+  }
 
   if (!isPiViewingMemberRecord(isLabHead, viewerUsername, record.owner)) {
     return [];
@@ -204,6 +248,116 @@ export function buildPiRecordMenuItems(args: BuildPiRecordMenuArgs): EditMenuIte
   if (callbacks.onViewAudit) {
     items.push({
       id: "pi-view-audit-trail",
+      label: "View audit trail",
+      enabled: true,
+      group: true,
+      onRun: callbacks.onViewAudit,
+    });
+  }
+
+  return items;
+}
+
+/**
+ * Build the right-click menu for a Supplies v2 unified-page Supply row
+ * (recordType "inventory_item", section 4.6). Two layers:
+ *   - Universal: "Reorder" (anyone), then "Edit item" / "Set status..." when the
+ *     viewer can edit the backing item (record.canEdit). These mirror the row's
+ *     inline controls so the menu is additive, never the only path.
+ *   - Lab-head: when a lab head views a member-owned open purchase line
+ *     (record.linkedPurchase), the approve / decline / flag rows act on that
+ *     line, and "View audit trail" opens that line's history. Members never see
+ *     this layer (the own-record / non-PI rules are unchanged for it).
+ *
+ * Returns [] only when there is nothing to offer (e.g. a non-editable supply
+ * with no member-owned open line for a non-PI), so a member on their own supply
+ * still gets the universal rows, while a bystander gets the normal right-click
+ * fall-through.
+ */
+function buildSupplyMenuItems(args: BuildPiRecordMenuArgs): EditMenuItem[] {
+  const { record, callbacks, isLabHead, viewerUsername } = args;
+  const items: EditMenuItem[] = [];
+
+  // ── Universal inline-mirror actions. ──────────────────────────────────────
+  if (callbacks.onReorder) {
+    items.push({
+      id: "supply-reorder",
+      label: "Reorder",
+      enabled: true,
+      onRun: callbacks.onReorder,
+    });
+  }
+  if (record.canEdit) {
+    if (callbacks.onEditItem) {
+      items.push({
+        id: "supply-edit-item",
+        label: "Edit item",
+        enabled: true,
+        onRun: callbacks.onEditItem,
+      });
+    }
+    if (callbacks.onSetStatus) {
+      items.push({
+        id: "supply-set-status",
+        label: "Set status...",
+        enabled: true,
+        onRun: callbacks.onSetStatus,
+      });
+    }
+  }
+
+  // ── Lab-head layer: act on the member-owned open purchase line. ────────────
+  const linked = record.linkedPurchase ?? null;
+  const piOnLine =
+    !!linked && isPiViewingMemberRecord(isLabHead, viewerUsername, linked.owner);
+  if (linked && piOnLine) {
+    if (callbacks.onApprove && !linked.approved) {
+      items.push({
+        id: "supply-approve-line",
+        label: "Approve order line",
+        enabled: true,
+        group: true,
+        onRun: callbacks.onApprove,
+      });
+    }
+    if (callbacks.onDecline) {
+      items.push({
+        id: "supply-decline-line",
+        label: "Decline order line",
+        enabled: true,
+        // Group when it leads the PI block (no Approve row precedes it).
+        group: !!linked.approved,
+        destructive: true,
+        onRun: callbacks.onDecline,
+      });
+    }
+    if (linked.flagged) {
+      if (callbacks.onClearFlag) {
+        items.push({
+          id: "supply-clear-flag",
+          label: "Clear flag on order line",
+          enabled: true,
+          group: true,
+          onRun: callbacks.onClearFlag,
+        });
+      }
+    } else if (callbacks.onFlag) {
+      items.push({
+        id: "supply-flag-line",
+        label: "Flag order line for review",
+        enabled: true,
+        group: true,
+        onRun: callbacks.onFlag,
+      });
+    }
+  }
+
+  // ── View audit (lab head only), the linked purchase line's history (where the
+  // PI actions land). Shown with the rest of the PI layer, so it requires a
+  // member-owned open line, never appearing on a member's own supply. ──────────
+  if (piOnLine && callbacks.onViewAudit) {
+    items.push({
+      id: "supply-view-audit-trail",
       label: "View audit trail",
       enabled: true,
       group: true,

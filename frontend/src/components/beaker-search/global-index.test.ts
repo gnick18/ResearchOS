@@ -241,12 +241,22 @@ function makeInventoryItem(over: Partial<InventoryItem> = {}): InventoryItem {
 }
 
 describe("buildInventoryEntry (pure entry builder)", () => {
-  it("builds the composite key and base href", () => {
+  it("builds the composite key and the /supplies deep-link href", () => {
     const entry = buildInventoryEntry(makeInventoryItem({ id: 5, owner: CURRENT_USER }));
     expect(entry.type).toBe("inventory");
     expect(entry.key).toBe(`${CURRENT_USER}:5`);
-    expect(entry.href).toBe("/inventory");
+    // chunk 6: /inventory redirects into /supplies, and the `supply` param opens
+    // the item's Supply row. The param is the identity key (vendor+catalog when
+    // both present), URL-encoded because it carries ":" / "|".
+    expect(entry.href).toBe("/supplies?supply=vc%3Aneb%7Cm0491s");
     expect(entry.enabled).toBe(true);
+  });
+
+  it("falls back to a name-keyed deep-link when vendor / catalog are missing", () => {
+    const entry = buildInventoryEntry(
+      makeInventoryItem({ name: "Bench roll", vendor: null, catalog_number: null }),
+    );
+    expect(entry.href).toBe("/supplies?supply=n%3Abench%20roll");
   });
 
   it("uses the owner namespace for a shared item", () => {

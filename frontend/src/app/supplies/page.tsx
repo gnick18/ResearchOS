@@ -16,7 +16,8 @@
 // icon-only buttons, no emojis / em-dashes / mid-sentence colons.
 
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import AppShell from "@/components/AppShell";
 import { Icon } from "@/components/icons";
@@ -24,6 +25,7 @@ import Tooltip from "@/components/Tooltip";
 import LivingPopup from "@/components/ui/LivingPopup";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useIsLabHead } from "@/hooks/useIsLabHead";
+import { usePiRecordMenu } from "@/hooks/usePiRecordMenu";
 import { useAppStore } from "@/lib/store";
 import { INVENTORY_ENABLED } from "@/lib/inventory/config";
 import {
@@ -32,14 +34,27 @@ import {
   fetchAllStorageNodesIncludingShared,
   fetchAllProjectsIncludingShared,
   fetchAllTasksIncludingShared,
+  inventoryItemsApi,
   labApi,
   purchasesApi,
 } from "@/lib/local-api";
-import type { InventoryItem } from "@/lib/types";
+import {
+  isPurchasePending,
+  type InventoryItem,
+  type InventoryItemCreate,
+  type InventoryItemUpdate,
+  type PurchaseItem,
+} from "@/lib/types";
 import { CATEGORY_LABEL, statusChipClass } from "@/components/inventory/inventory-ui";
+import { normalizeSharedWith, WHOLE_LAB_SENTINEL } from "@/lib/sharing/unified";
 import { buildSupplies, type Supply } from "@/lib/supplies/supply-model";
 import { seedFromSupply } from "@/lib/supplies/reorder";
+import ItemFormDialog from "@/components/inventory/ItemFormDialog";
+import ScanFlow from "@/components/inventory/ScanFlow";
+import ImportInventoryDialog from "@/components/inventory/ImportInventoryDialog";
 import SupplyDetailPanel from "@/components/supplies/SupplyDetailPanel";
+import { useSuppliesBeakerSource } from "./useSuppliesBeakerSource";
+import type { SupplyFilter } from "./supplies-beaker-source";
 import {
   ReorderCartProvider,
   useReorderCart,
@@ -53,8 +68,9 @@ import SpendingDashboard from "@/components/SpendingDashboard";
 import FundingAccountsManager from "@/components/FundingAccountsManager";
 
 // "awaiting_approval" is the lab-head-only "Orders & approvals" lens (decision
-// 4.2): an order-grouped queue, NOT a per-supply view. Members never see it.
-type SupplyFilter = "all" | "attention" | "onorder" | "awaiting_approval";
+// 4.2): an order-grouped queue, NOT a per-supply view. Members never see it. The
+// SupplyFilter union is owned by the BeakerSearch source (chunk 6, imported at
+// the top) so the page + palette share one definition.
 
 /** Days until an ISO date, UTC-day based (matches the inventory date handling). */
 function daysUntil(iso: string): number {
@@ -93,6 +109,31 @@ function metaLine(s: Supply): string {
   return parts.filter((p) => p && String(p).trim()).join(" · ");
 }
 
+/** Whole-lab-edit sharing carries over from inventory. Mirrors SupplyDetailPanel
+ *  / useSuppliesBeakerSource (each restated locally rather than threaded). */
+function canEditInventoryItem(item: InventoryItem, currentUser: string | null): boolean {
+  if (!currentUser) return false;
+  if (item.owner === currentUser) return true;
+  return normalizeSharedWith(item.shared_with).some(
+    (sh) =>
+      (sh.username === currentUser || sh.username === WHOLE_LAB_SENTINEL) &&
+      sh.level === "edit",
+  );
+}
+
+/** Owner to route an item write into (the owner's folder for a shared-into-me
+ *  record, else the cheap current-user path). Mirrors /inventory. */
+function effectiveOwnerOf(item: InventoryItem, currentUser: string | null): string | undefined {
+  return item.is_shared_with_me && item.owner !== currentUser ? item.owner : undefined;
+}
+
+/** Read the owner the loader decorated onto a purchase line (supply-model types
+ *  openLines as plain PurchaseItem[], but they come from listAllIncludingShared,
+ *  which decorates owner). Falls back to the current user for an own line. */
+function ownerOfLine(line: PurchaseItem, currentUser: string | null): string {
+  return (line as PurchaseItem & { owner?: string }).owner ?? currentUser ?? "";
+}
+
 export default function SuppliesPage() {
   return (
     <ReorderCartProvider>
@@ -103,13 +144,31 @@ export default function SuppliesPage() {
 
 function SuppliesPageInner() {
   const { currentUser } = useCurrentUser();
+  const queryClient = useQueryClient();
   const cart = useReorderCart();
   const isLabHead = useIsLabHead(currentUser ?? null) === true;
+  const piMenu = usePiRecordMenu();
   const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
+  const searchParams = useSearchParams();
   const [filter, setFilter] = useState<SupplyFilter>("all");
   const [query, setQuery] = useState("");
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  // Deep-link (chunk 6 + global-index): /supplies?supply={identityKey} opens that
+  // supply's detail. Read once via the lazy initializer so a click from global
+  // search lands on the right row without a setState-in-effect cascade. The key
+  // is URL-encoded (it may contain ":" / "|"); the router decodes it on read.
+  const [selectedKey, setSelectedKey] = useState<string | null>(
+    () => searchParams.get("supply"),
+  );
   const [cartOpen, setCartOpen] = useState(false);
+  // Add-item / scan / import surfaces (chunk 6): the BeakerSearch source + the
+  // right-click menu drive these, mirroring /inventory's own affordances so the
+  // unified page is self-sufficient (no bounce to /inventory).
+  const [itemDialogOpen, setItemDialogOpen] = useState(false);
+  const [editItem, setEditItem] = useState<InventoryItem | null>(null);
+  // A barcode the scanner hands off to a fresh Add-item form (scan -> create).
+  const [addBarcode, setAddBarcode] = useState<string | null>(null);
+  const [scanOpen, setScanOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   // Lab-head drawers (decision 4.5): spending is a drawer, not permanent page
   // height; the funding-budget cards live in the Manage Funding popup. Members
   // see neither (they cannot act on budgets).
@@ -250,6 +309,120 @@ function SuppliesPageInner() {
     const backing = s.onHand ? itemsById.get(s.onHand.itemIds[0]) ?? null : null;
     cart.add(s.key, seedFromSupply(s, backing));
   };
+
+  // Add-item form support (chunk 6). vendorOptions feeds the form's datalist;
+  // ownItems is the merge-don't-duplicate target for the spreadsheet import
+  // (import always writes into the current user's dir).
+  const vendorOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const it of items) if (it.vendor) set.add(it.vendor);
+    return [...set].sort();
+  }, [items]);
+  const ownItems = useMemo(() => items.filter((it) => !it.is_shared_with_me), [items]);
+
+  const refreshInventory = () => {
+    void queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
+    void queryClient.invalidateQueries({ queryKey: ["inventory-stocks"] });
+  };
+
+  const submitItem = async (data: InventoryItemCreate | InventoryItemUpdate) => {
+    if (editItem) {
+      await inventoryItemsApi.update(
+        editItem.id,
+        data as InventoryItemUpdate,
+        effectiveOwnerOf(editItem, currentUser ?? null),
+      );
+    } else {
+      await inventoryItemsApi.create(data as InventoryItemCreate);
+    }
+    closeItemForm();
+    refreshInventory();
+  };
+
+  const openAddItem = (barcode?: string | null) => {
+    setEditItem(null);
+    setAddBarcode(barcode ?? null);
+    setItemDialogOpen(true);
+  };
+
+  const closeItemForm = () => {
+    setItemDialogOpen(false);
+    setEditItem(null);
+    setAddBarcode(null);
+  };
+
+  // The right-click menu record for a Supply (chunk 6). owner / id resolve to the
+  // backing inventory item (its audit history), falling back to the first open
+  // line for an order-only supply. linkedPurchase carries the first open line
+  // (preferring a still-pending one) so the lab-head approve / decline / flag
+  // rows act on it; null for an on-hand-only supply (no PI layer).
+  const buildSupplyMenuRecord = (s: Supply) => {
+    const backing = s.onHand ? itemsById.get(s.onHand.itemIds[0]) ?? null : null;
+    const firstLine =
+      s.ordering?.openLines.find((p) => isPurchasePending(p)) ??
+      s.ordering?.openLines[0] ??
+      null;
+    const owner = backing
+      ? backing.owner
+      : firstLine
+        ? ownerOfLine(firstLine, currentUser ?? null)
+        : currentUser ?? "";
+    const id = backing ? backing.id : firstLine ? firstLine.id : 0;
+    return {
+      owner,
+      id,
+      flagged: false,
+      canEdit: backing ? canEditInventoryItem(backing, currentUser ?? null) : false,
+      linkedPurchase: firstLine
+        ? {
+            owner: ownerOfLine(firstLine, currentUser ?? null),
+            id: firstLine.id,
+            approved: !!firstLine.approved,
+            flagged: !!firstLine.flagged,
+          }
+        : null,
+    };
+  };
+
+  const openSupplyContextMenu = (event: React.MouseEvent, s: Supply) => {
+    const backing = s.onHand ? itemsById.get(s.onHand.itemIds[0]) ?? null : null;
+    piMenu.handleContextMenu(event, {
+      recordType: "inventory_item",
+      record: buildSupplyMenuRecord(s),
+      onEditAsPi: () => setSelectedKey(s.key),
+      onReorder: cart.has(s.key) ? undefined : () => addToCart(s),
+      onEditItem: backing ? () => setEditItem(backing) : undefined,
+      onSetStatus: () => setSelectedKey(s.key),
+    });
+  };
+
+  // Register the Supplies BeakerSearch source (chunk 6) while the page is mounted.
+  // The pure builder + the thin wiring live in supplies-beaker-source.ts /
+  // useSuppliesBeakerSource.ts; this hands it the page-owned UI state + the
+  // create / scan / import / spending openers + the reorder-to-cart action.
+  useSuppliesBeakerSource({
+    supplies,
+    visible,
+    counts,
+    items,
+    stocks: stocksQuery.data ?? [],
+    pendingApprovalCount,
+    categoryLabelOf: categoryLabel,
+    filter,
+    setFilter,
+    selectedKey,
+    setSelectedKey,
+    isInCart: (key) => cart.has(key),
+    reorderSupply: addToCart,
+    openAddItem,
+    openScan: () => setScanOpen(true),
+    openImport: () => setImportOpen(true),
+    openSpending: () => setSpendingOpen(true),
+  });
+
+  // editItem opening the form is a single effect-free derived intent; keep the
+  // dialog open whenever an item is staged for edit.
+  const itemFormOpen = itemDialogOpen || editItem != null;
 
   if (!INVENTORY_ENABLED) {
     return (
@@ -428,10 +601,15 @@ function SuppliesPageInner() {
               const showQuickReorder = isLowOrOut(s);
               const inCart = cart.has(s.key);
               return (
-                <li key={s.key} className="relative">
+                <li
+                  key={s.key}
+                  className="relative"
+                  data-beaker-target={`supply:${s.key}`}
+                >
                   <button
                     type="button"
                     onClick={() => setSelectedKey(s.key)}
+                    onContextMenu={(e) => openSupplyContextMenu(e, s)}
                     className="flex w-full items-center gap-3 rounded-xl border border-border bg-surface-raised px-4 py-3 text-left transition-colors hover:border-brand-action/40 hover:bg-surface-sunken/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action/40"
                   >
                     <div className="min-w-0 flex-1">
@@ -532,6 +710,83 @@ function SuppliesPageInner() {
             <FundingAccountsManager fundingAccounts={fundingAccountsQuery.data ?? []} />
           </LivingPopup>
         ) : null}
+
+        {/* Add / edit item (chunk 6): reuses /inventory's ItemFormDialog so the
+            "Add supply" palette command + the right-click "Edit item" land here
+            without bouncing to /inventory. */}
+        <LivingPopup
+          open={itemFormOpen}
+          onClose={closeItemForm}
+          label={editItem ? "Edit item" : "Add item"}
+          widthClassName="max-w-2xl"
+          card
+          closeOnScrimClick={false}
+          fillHeight
+        >
+          {itemFormOpen && (
+            <div className="overflow-y-auto">
+              <ItemFormDialog
+                item={editItem}
+                vendorOptions={vendorOptions}
+                initialBarcode={editItem ? null : addBarcode}
+                onCancel={closeItemForm}
+                onSubmit={submitItem}
+              />
+            </div>
+          )}
+        </LivingPopup>
+
+        {/* Spreadsheet import (chunk 6), reusing /inventory's dialog. */}
+        <LivingPopup
+          open={importOpen}
+          onClose={() => setImportOpen(false)}
+          label="Import inventory"
+          widthClassName="max-w-2xl"
+          card
+          closeOnScrimClick={false}
+          fillHeight
+        >
+          {importOpen && (
+            <div className="overflow-y-auto">
+              <ImportInventoryDialog
+                existingItems={ownItems}
+                onCancel={() => setImportOpen(false)}
+                onDone={() => {
+                  setImportOpen(false);
+                  refreshInventory();
+                }}
+              />
+            </div>
+          )}
+        </LivingPopup>
+
+        {/* Barcode scan (chunk 6), reusing /inventory's ScanFlow. */}
+        <LivingPopup
+          open={scanOpen}
+          onClose={() => setScanOpen(false)}
+          label="Scan a barcode"
+          widthClassName="max-w-lg"
+          card
+          closeOnScrimClick={false}
+        >
+          {scanOpen && (
+            <ScanFlow
+              items={items}
+              stocks={stocksQuery.data ?? []}
+              currentUser={currentUser}
+              onRefresh={refreshInventory}
+              onClose={() => setScanOpen(false)}
+              onCreateItemWithCode={(code) => {
+                setScanOpen(false);
+                openAddItem(code);
+              }}
+            />
+          )}
+        </LivingPopup>
+
+        {/* The right-click PI menu's Assign modal + read-only audit viewer live
+            here so a supply row's context menu has a home (chunk 6). */}
+        {piMenu.modals}
       </div>
     </AppShell>
   );

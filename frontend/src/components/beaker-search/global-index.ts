@@ -25,6 +25,7 @@ import type { IconName } from "@/components/icons";
 import { taskKey, type Task, type Method, type Project, type SequenceRecord, type InventoryItem } from "@/lib/types";
 import { getMethodTypeMeta } from "@/lib/methods/method-type-registry";
 import { INVENTORY_ENABLED } from "@/lib/inventory/config";
+import { supplyKeyFor } from "@/lib/supplies/supply-model";
 
 /** The uniform record the global source ranks and renders. One per core record.
  *  Ranking and rendering branch only on `type`, `iconName`, and `open`, never on
@@ -199,6 +200,15 @@ export function buildInventoryEntry(item: InventoryItem): GlobalIndexEntry {
     (p): p is string => Boolean(p && p.trim()),
   );
   const meta = metaParts.join(" · ") || item.category;
+  // Deep-link into the Supplies v2 unified page (chunk 6 + decision 9.1):
+  // /inventory now redirects into /supplies, and the `supply` param opens that
+  // item's Supply row. The param is the identity key (supplyKeyFor), which may
+  // contain ":" / "|", so it is URL-encoded. Same key the supplies page reads.
+  const supplyKey = supplyKeyFor({
+    name: item.name,
+    vendor: item.vendor,
+    catalogNumber: item.catalog_number,
+  });
   return {
     type: "inventory",
     key,
@@ -207,7 +217,7 @@ export function buildInventoryEntry(item: InventoryItem): GlobalIndexEntry {
     haystack: buildHaystack([item.name, item.vendor, item.catalog_number, item.cas, item.notes]),
     recencyAt: toEpoch(item.last_edited_at),
     iconName: "vial" as IconName,
-    href: "/inventory",
+    href: `/supplies?supply=${encodeURIComponent(supplyKey)}`,
     enabled: true,
   };
 }

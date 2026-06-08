@@ -251,9 +251,197 @@ describe("auditRecordTypeFor", () => {
   it("maps purchase to the audit record_type purchase_item", () => {
     expect(auditRecordTypeFor("purchase")).toBe("purchase_item");
   });
+  it("maps inventory_item to purchase_item (its linked line's history)", () => {
+    expect(auditRecordTypeFor("inventory_item")).toBe("purchase_item");
+  });
   it("leaves task and note unchanged (already consistent)", () => {
     expect(auditRecordTypeFor("task")).toBe("task");
     expect(auditRecordTypeFor("note")).toBe("note");
+  });
+});
+
+// ── inventory_item (Supplies v2 chunk 6) ─────────────────────────────────────
+
+describe("buildPiRecordMenuItems inventory_item (Supply row)", () => {
+  function supplyCallbacks(
+    overrides: Partial<PiMenuCallbacks> = {},
+  ): PiMenuCallbacks {
+    return {
+      onEditAsPi: vi.fn(),
+      onFlag: vi.fn(),
+      onClearFlag: vi.fn(),
+      onApprove: vi.fn(),
+      onDecline: vi.fn(),
+      onViewAudit: vi.fn(),
+      onReorder: vi.fn(),
+      onEditItem: vi.fn(),
+      onSetStatus: vi.fn(),
+      ...overrides,
+    };
+  }
+
+  it("a member on their own editable supply gets reorder + edit + set-status only", () => {
+    const items = buildPiRecordMenuItems({
+      recordType: "inventory_item",
+      record: { owner: "alex", id: 1, flagged: false, canEdit: true, linkedPurchase: null },
+      viewerUsername: "alex",
+      isLabHead: false,
+      callbacks: supplyCallbacks(),
+    });
+    expect(items.map((i) => i.id)).toEqual([
+      "supply-reorder",
+      "supply-edit-item",
+      "supply-set-status",
+    ]);
+  });
+
+  it("a non-editable supply offers only reorder", () => {
+    const items = buildPiRecordMenuItems({
+      recordType: "inventory_item",
+      record: { owner: "alex", id: 1, flagged: false, canEdit: false, linkedPurchase: null },
+      viewerUsername: "alex",
+      isLabHead: false,
+      callbacks: supplyCallbacks(),
+    });
+    expect(items.map((i) => i.id)).toEqual(["supply-reorder"]);
+  });
+
+  it("a lab head viewing a member-owned supply with a pending line gets the full set", () => {
+    const items = buildPiRecordMenuItems({
+      recordType: "inventory_item",
+      record: {
+        owner: "alex",
+        id: 1,
+        flagged: false,
+        canEdit: true,
+        linkedPurchase: { owner: "alex", id: 7, approved: false, flagged: false },
+      },
+      viewerUsername: "mira",
+      isLabHead: true,
+      callbacks: supplyCallbacks(),
+    });
+    expect(items.map((i) => i.id)).toEqual([
+      "supply-reorder",
+      "supply-edit-item",
+      "supply-set-status",
+      "supply-approve-line",
+      "supply-decline-line",
+      "supply-flag-line",
+      "supply-view-audit-trail",
+    ]);
+    expect(items.find((i) => i.id === "supply-decline-line")!.destructive).toBe(true);
+  });
+
+  it("hides Approve when the linked line is already approved", () => {
+    const items = buildPiRecordMenuItems({
+      recordType: "inventory_item",
+      record: {
+        owner: "alex",
+        id: 1,
+        flagged: false,
+        canEdit: false,
+        linkedPurchase: { owner: "alex", id: 7, approved: true, flagged: false },
+      },
+      viewerUsername: "mira",
+      isLabHead: true,
+      callbacks: supplyCallbacks(),
+    });
+    const ids = items.map((i) => i.id);
+    expect(ids).not.toContain("supply-approve-line");
+    expect(ids).toContain("supply-decline-line");
+  });
+
+  it("shows Clear flag instead of Flag when the linked line is flagged", () => {
+    const items = buildPiRecordMenuItems({
+      recordType: "inventory_item",
+      record: {
+        owner: "alex",
+        id: 1,
+        flagged: false,
+        canEdit: false,
+        linkedPurchase: { owner: "alex", id: 7, approved: false, flagged: true },
+      },
+      viewerUsername: "mira",
+      isLabHead: true,
+      callbacks: supplyCallbacks(),
+    });
+    const ids = items.map((i) => i.id);
+    expect(ids).toContain("supply-clear-flag");
+    expect(ids).not.toContain("supply-flag-line");
+  });
+
+  it("a lab head on their OWN linked line gets no PI layer (only the universal rows)", () => {
+    const items = buildPiRecordMenuItems({
+      recordType: "inventory_item",
+      record: {
+        owner: "mira",
+        id: 1,
+        flagged: false,
+        canEdit: true,
+        linkedPurchase: { owner: "mira", id: 7, approved: false, flagged: false },
+      },
+      viewerUsername: "mira",
+      isLabHead: true,
+      callbacks: supplyCallbacks(),
+    });
+    expect(items.map((i) => i.id)).toEqual([
+      "supply-reorder",
+      "supply-edit-item",
+      "supply-set-status",
+    ]);
+  });
+
+  it("omits the PI layer when there is no linked line (on-hand-only member supply)", () => {
+    const items = buildPiRecordMenuItems({
+      recordType: "inventory_item",
+      record: { owner: "alex", id: 1, flagged: false, canEdit: false, linkedPurchase: null },
+      viewerUsername: "mira",
+      isLabHead: true,
+      callbacks: supplyCallbacks(),
+    });
+    expect(items.map((i) => i.id)).toEqual(["supply-reorder"]);
+  });
+
+  it("runs the universal + PI callbacks from the right items", () => {
+    const cbs = supplyCallbacks();
+    const items = buildPiRecordMenuItems({
+      recordType: "inventory_item",
+      record: {
+        owner: "alex",
+        id: 1,
+        flagged: false,
+        canEdit: true,
+        linkedPurchase: { owner: "alex", id: 7, approved: false, flagged: false },
+      },
+      viewerUsername: "mira",
+      isLabHead: true,
+      callbacks: cbs,
+    });
+    items.find((i) => i.id === "supply-reorder")!.onRun();
+    items.find((i) => i.id === "supply-edit-item")!.onRun();
+    items.find((i) => i.id === "supply-set-status")!.onRun();
+    items.find((i) => i.id === "supply-approve-line")!.onRun();
+    items.find((i) => i.id === "supply-decline-line")!.onRun();
+    items.find((i) => i.id === "supply-flag-line")!.onRun();
+    items.find((i) => i.id === "supply-view-audit-trail")!.onRun();
+    expect(cbs.onReorder).toHaveBeenCalledOnce();
+    expect(cbs.onEditItem).toHaveBeenCalledOnce();
+    expect(cbs.onSetStatus).toHaveBeenCalledOnce();
+    expect(cbs.onApprove).toHaveBeenCalledOnce();
+    expect(cbs.onDecline).toHaveBeenCalledOnce();
+    expect(cbs.onFlag).toHaveBeenCalledOnce();
+    expect(cbs.onViewAudit).toHaveBeenCalledOnce();
+  });
+
+  it("omits reorder when no onReorder is supplied (already in cart)", () => {
+    const items = buildPiRecordMenuItems({
+      recordType: "inventory_item",
+      record: { owner: "alex", id: 1, flagged: false, canEdit: true, linkedPurchase: null },
+      viewerUsername: "alex",
+      isLabHead: false,
+      callbacks: supplyCallbacks({ onReorder: undefined }),
+    });
+    expect(items.map((i) => i.id)).not.toContain("supply-reorder");
   });
 });
 

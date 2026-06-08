@@ -68,6 +68,9 @@ async function invalidateForType(
   } else if (recordType === "note") {
     await queryClient.invalidateQueries({ queryKey: ["notes"] });
     await queryClient.invalidateQueries({ queryKey: ["lab", "notes-shared"] });
+  } else if (recordType === "inventory_item") {
+    await queryClient.invalidateQueries({ queryKey: ["inventory-items"] });
+    await queryClient.invalidateQueries({ queryKey: ["inventory-stocks"] });
   } else {
     await queryClient.invalidateQueries({ queryKey: ["purchases"] });
     await queryClient.invalidateQueries({ queryKey: ["purchases-all"] });
@@ -119,6 +122,12 @@ export interface PiRecordMenuArgs {
    *  rows). The detail-popup header callers pass false, since the record is
    *  already open there, so the menu shows only the role actions. */
   includeEditAsPi?: boolean;
+  /** inventory_item (Supplies v2 chunk 6) only: the universal inline-mirror
+   *  actions the Supply row offers (reorder / edit / set status). The page wires
+   *  these to its cart + item-form + detail-panel handlers. */
+  onReorder?: () => void;
+  onEditItem?: () => void;
+  onSetStatus?: () => void;
 }
 
 export interface PiRecordMenuApi {
@@ -153,7 +162,10 @@ export function usePiRecordMenu(): PiRecordMenuApi {
   } | null>(null);
 
   const runFlag = useCallback(
-    async (recordType: PiMenuRecordType, record: PiMenuRecord) => {
+    async (
+      recordType: Exclude<PiMenuRecordType, "inventory_item">,
+      record: PiMenuRecord,
+    ) => {
       if (!currentUser) return;
       const flag: PiFlag = {
         by: currentUser,
@@ -173,7 +185,10 @@ export function usePiRecordMenu(): PiRecordMenuApi {
   );
 
   const runClearFlag = useCallback(
-    async (recordType: PiMenuRecordType, record: PiMenuRecord) => {
+    async (
+      recordType: Exclude<PiMenuRecordType, "inventory_item">,
+      record: PiMenuRecord,
+    ) => {
       if (!currentUser) return;
       // The owner-clear path is the symmetric clear; for a PI clearing a
       // member's flag we route through setFlagForReview(flag: null) so the
@@ -220,8 +235,78 @@ export function usePiRecordMenu(): PiRecordMenuApi {
 
   const buildItems = useCallback(
     (args: PiRecordMenuArgs): EditMenuItem[] => {
-      const { recordType, record, onEditAsPi, onAssign, onViewAudit, includeEditAsPi } =
-        args;
+      const {
+        recordType,
+        record,
+        onEditAsPi,
+        onAssign,
+        onViewAudit,
+        includeEditAsPi,
+        onReorder,
+        onEditItem,
+        onSetStatus,
+      } = args;
+
+      // The View-audit default opens the hook-owned read-only viewer filtered to
+      // this one record. For a supply the audit history is the backing item's.
+      const onViewAuditResolved =
+        onViewAudit ??
+        (() =>
+          setAudit({
+            targetUser: record.owner,
+            recordFilter: {
+              recordType: auditRecordTypeFor(recordType),
+              recordId: record.id,
+            },
+          }));
+
+      // inventory_item (Supplies v2 chunk 6): the PI approve / decline / flag rows
+      // act on the supply's LINKED open purchase line, not the inventory item. So
+      // those callbacks run against a purchase-shaped record built from
+      // record.linkedPurchase (recordType "purchase", so the flag stamps
+      // purchase_item + the purchases caches invalidate). The universal reorder /
+      // edit / set-status callbacks come from the page.
+      if (recordType === "inventory_item") {
+        const linked = record.linkedPurchase ?? null;
+        const linkedRec: PiMenuRecord | null = linked
+          ? { owner: linked.owner, id: linked.id, flagged: linked.flagged, approved: linked.approved }
+          : null;
+        // The PI flag / approve / decline / view-audit rows act on the linked
+        // open purchase line. The builder only renders them when that line exists
+        // and is member-owned (piOnLine), so the no-op fallbacks for the required
+        // onFlag / onClearFlag fields are never actually invoked.
+        const noop = () => {};
+        const onViewAuditInv =
+          onViewAudit ??
+          (linked
+            ? () =>
+                setAudit({
+                  targetUser: linked.owner,
+                  recordFilter: { recordType: "purchase_item", recordId: linked.id },
+                })
+            : undefined);
+        return buildPiRecordMenuItems({
+          recordType,
+          record,
+          viewerUsername: currentUser,
+          isLabHead,
+          includeEditAsPi,
+          callbacks: {
+            onEditAsPi,
+            onReorder,
+            onEditItem,
+            onSetStatus,
+            onFlag: linkedRec ? () => void runFlag("purchase", linkedRec) : noop,
+            onClearFlag: linkedRec
+              ? () => void runClearFlag("purchase", linkedRec)
+              : noop,
+            onApprove: linkedRec ? () => void runApprove(linkedRec) : undefined,
+            onDecline: linkedRec ? () => void runDecline(linkedRec) : undefined,
+            onViewAudit: onViewAuditInv,
+          },
+        });
+      }
+
       return buildPiRecordMenuItems({
         recordType,
         record,
@@ -243,16 +328,7 @@ export function usePiRecordMenu(): PiRecordMenuApi {
           // Default: open the hook-owned viewer filtered to this one record. The
           // caller can override (onViewAudit) but no caller needs to, since the
           // record already carries owner + id.
-          onViewAudit:
-            onViewAudit ??
-            (() =>
-              setAudit({
-                targetUser: record.owner,
-                recordFilter: {
-                  recordType: auditRecordTypeFor(recordType),
-                  recordId: record.id,
-                },
-              })),
+          onViewAudit: onViewAuditResolved,
         },
       });
     },
