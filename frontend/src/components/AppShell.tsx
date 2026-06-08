@@ -262,7 +262,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // has opted into a colored header in Settings → Profile. Either off →
   // the classic white header. On the tinted variant, every interactive
   // element lives inside a floating white pill so text never sits
-  // directly on the gradient.
+  // directly on the gradient. The tinted header also carries `light-scope`
+  // (see header className) so its contents stay light-mode-readable even when
+  // the app is in dark mode: the gradient + white pills are always light, so
+  // dark-mode token values (light text) would wash out on them.
   //
   // Stop selection: when the user has opted into a 2-color gradient
   // (`color_secondary` set) we render those two stops directly so the
@@ -310,7 +313,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* Header */}
       <header
         className={`px-4 py-2.5 flex items-center gap-2 ${
-          tinted ? "shadow-sm" : "bg-surface-raised border-b border-border"
+          tinted ? "light-scope shadow-sm" : "bg-surface-raised border-b border-border"
         }`}
         style={headerStyle}
       >
