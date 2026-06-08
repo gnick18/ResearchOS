@@ -49,8 +49,12 @@ function makeCommands(): EditorCommand[] {
 }
 
 describe("fuzzyScore", () => {
-  it("returns a score for an in-order subsequence and null otherwise", () => {
-    expect(fuzzyScore("dom", "Find protein domains")).not.toBeNull();
+  it("returns a score for a quality in-order match and null otherwise", () => {
+    // "dom" must match a haystack where the greedy pass finds it at a word
+    // boundary with a contiguous run; the old haystack "Find protein domains"
+    // produced a scattered d+o+m match (score 0) that now correctly falls below
+    // the relevance floor.
+    expect(fuzzyScore("dom", "protein domains")).not.toBeNull();
     expect(fuzzyScore("prim", "Design primers")).not.toBeNull();
     expect(fuzzyScore("zzz", "Design primers")).toBeNull();
   });
@@ -63,6 +67,53 @@ describe("fuzzyScore", () => {
 
   it("treats an empty query as a neutral match", () => {
     expect(fuzzyScore("", "anything")).toBe(0);
+  });
+
+  // Relevance floor: scattered-subsequence false positives are suppressed.
+  it("drops a scattered match where letters appear by coincidence with no structural alignment", () => {
+    // Each query letter is isolated by 'x' separators: no adjacency bonus, no
+    // word-boundary bonus (x is not a separator char), depth penalty applies.
+    // Raw score = 6 chars * 1 pt - 1 (depth) = 5, which is below the floor of
+    // max(2, 6*2)=12. The floor returns null for this pattern.
+    expect(fuzzyScore("primer", "xpxrxixmxexr")).toBeNull();
+  });
+
+  it("keeps a genuine word-start match above the floor", () => {
+    // "primer" appears at the start of a word: scores well above the floor.
+    expect(fuzzyScore("primer", "primer design for PCR")).not.toBeNull();
+    expect(fuzzyScore("primer", "run primer design analysis")).not.toBeNull();
+  });
+
+  // Hyphen/slash/underscore normalization: word boundaries across separators.
+  it("matches a space-separated query against a hyphen-separated haystack", () => {
+    // "PCR screen" should find "PCR-screen integrants".
+    expect(fuzzyScore("PCR screen", "PCR-screen integrants")).not.toBeNull();
+  });
+
+  it("matches a hyphen-separated query against a space-separated haystack", () => {
+    expect(fuzzyScore("PCR-screen", "PCR screen integrants")).not.toBeNull();
+  });
+
+  it("matches underscore and slash separators the same way", () => {
+    expect(fuzzyScore("pcr screen", "pcr_screen results")).not.toBeNull();
+    expect(fuzzyScore("pcr screen", "pcr/screen protocol")).not.toBeNull();
+  });
+
+  it("scores the hyphen-normalized match no lower than the space version", () => {
+    const withHyphen = fuzzyScore("PCR screen", "PCR-screen integrants")!;
+    const withSpace  = fuzzyScore("PCR screen", "PCR screen integrants")!;
+    expect(withHyphen).not.toBeNull();
+    expect(withSpace).not.toBeNull();
+    expect(withHyphen).toBe(withSpace);
+  });
+
+  // Known-good regression guard: short queries still surface their expected hits.
+  it("still finds PCR as a prefix match", () => {
+    expect(fuzzyScore("PCR", "PCR optimization protocol")).not.toBeNull();
+  });
+
+  it("still finds a multi-word query in a matching title", () => {
+    expect(fuzzyScore("yeast transformation", "Yeast transformation protocol")).not.toBeNull();
   });
 });
 

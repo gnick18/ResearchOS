@@ -356,9 +356,12 @@ export interface PaletteContext {
  *  the most on-the-nose command floats up. Returns null when there is no match.
  *  No dependency, the matcher is deliberately small. */
 export function fuzzyScore(query: string, haystack: string): number | null {
-  const q = query.trim().toLowerCase();
+  // Normalize hyphens, slashes, and underscores to spaces in both strings so
+  // "PCR screen" matches "PCR-screen integrants" and vice versa. Done before
+  // the length check so the floor uses the normalized length.
+  const q = query.trim().toLowerCase().replace(/[-/_]/g, " ");
   if (q === "") return 0;
-  const h = haystack.toLowerCase();
+  const h = haystack.toLowerCase().replace(/[-/_]/g, " ");
   let qi = 0;
   let score = 0;
   let prevHit = -2;
@@ -379,7 +382,13 @@ export function fuzzyScore(query: string, haystack: string): number | null {
   // Prefix bonus, and a mild penalty for matches that start deep in the string.
   if (firstHit === 0) score += 8;
   else score -= Math.min(firstHit, 8);
-  return score;
+  // Relevance floor: drop matches where the query letters appear by coincidence
+  // with no structural alignment (no contiguous runs, no word-boundary hits).
+  // Normalized to query length so longer queries require proportionally more
+  // signal. Score 2 is the absolute minimum so single-char word-start hits
+  // (+1 base + 4 boundary = 5) still pass.
+  const minScore = Math.max(2, q.length * 2);
+  return score >= minScore ? score : null;
 }
 
 /** Score a command against a query across its label AND keywords, taking the

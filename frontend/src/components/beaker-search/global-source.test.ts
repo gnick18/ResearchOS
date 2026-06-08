@@ -176,6 +176,61 @@ describe("rankGlobalEntries", () => {
     expect(tasks?.entries.length).toBe(GLOBAL_PER_TYPE_CAP);
     expect(methods?.entries.length).toBe(1);
   });
+
+  // Relevance floor + hyphen normalization tests.
+
+  it("drops a task whose haystack only matches primer by scattered coincidence", () => {
+    // This haystack has p,r,i,m,e,r scattered with no contiguous run and no
+    // word-boundary alignment, so it should not survive the relevance floor.
+    const noise = entry({
+      key: "t:noise",
+      type: "task",
+      haystack: "abstract work on improving results every time",
+    });
+    const signal = entry({
+      key: "t:signal",
+      type: "task",
+      haystack: "primer design for PCR amplification",
+    });
+    const groups = rankGlobalEntries([noise, signal], "primer", { now: NOW, activePageType: null });
+    const keys = allEntries(groups).map((e) => e.key);
+    // The noise task must not appear; the signal task must appear and lead.
+    expect(keys).not.toContain("t:noise");
+    expect(keys[0]).toBe("t:signal");
+  });
+
+  it("finds PCR-screen integrants when the query uses a space instead of a hyphen", () => {
+    // The haystack is built with a hyphen; the query uses a space. After
+    // separator normalization both sides see "pcr screen integrants".
+    const hyphenTask = entry({
+      key: "t:pcr-screen",
+      type: "task",
+      haystack: "PCR-screen integrants colony pcr",
+    });
+    const groups = rankGlobalEntries([hyphenTask], "PCR screen", { now: NOW, activePageType: null });
+    expect(allEntries(groups).map((e) => e.key)).toContain("t:pcr-screen");
+  });
+
+  it("does not surface a task above the floor for a long unrelated query", () => {
+    // "yeast transformation" is 20 chars; the floor is 40. A task whose
+    // haystack has a few scattered letters but no meaningful alignment fails.
+    const unrelated = entry({
+      key: "t:unrelated",
+      type: "task",
+      haystack: "yearly results for eastern analytical system format",
+    });
+    const groups = rankGlobalEntries([unrelated], "yeast transformation", { now: NOW, activePageType: null });
+    expect(allEntries(groups).map((e) => e.key)).not.toContain("t:unrelated");
+  });
+
+  it("regression: known-good queries still surface their expected top hit", () => {
+    const pcr = entry({ key: "t:pcr", type: "task", haystack: "PCR optimization protocol" });
+    const other = entry({ key: "t:other", type: "task", haystack: "cell culture maintenance" });
+    const groups = rankGlobalEntries([pcr, other], "PCR", { now: NOW, activePageType: null });
+    const keys = allEntries(groups).map((e) => e.key);
+    expect(keys).toContain("t:pcr");
+    expect(keys[0]).toBe("t:pcr");
+  });
 });
 
 describe("activePageTypeForPath", () => {
