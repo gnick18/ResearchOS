@@ -64,8 +64,10 @@ const RAINBOW_OFFSETS_DARK = ['0%', '22%', '48%', '72%', '100%'];
 // Wordmark color per scheme (white reads cleanly on both sky and black).
 const WORDMARK_COLOR = '#ffffff';
 
-// Timings.
-const HOLD_MS = 420;
+// Timings. HOLD_MS is the settled beat AFTER the entrance, so it must comfortably
+// exceed ENTRANCE_MS or the mark starts leaving before it finishes easing in
+// (which made the splash flash by too fast to see).
+const HOLD_MS = 1100;
 const EXIT_MS = 450;
 const ENTRANCE_MS = 480;
 
