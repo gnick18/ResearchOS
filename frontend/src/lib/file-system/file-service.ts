@@ -1,5 +1,5 @@
 import { notifyFileWritten } from "./file-write-hooks";
-import { getCacheEntry, putCacheEntry } from "./indexeddb-store";
+import { getCacheEntry, putCacheEntry, deleteCacheEntry, getManifestMtime, setManifestMtime } from "./indexeddb-store";
 
 export interface FileServiceConfig {
   directoryHandle: FileSystemDirectoryHandle;
@@ -28,6 +28,8 @@ export class FileService {
   // screen to show "Loaded N files…" so the user knows something's happening
   // even when OneDrive is being slow.
   private readCount = 0;
+  private _manifestWritePending = false;
+  private _manifestDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   setDirectoryHandle(handle: FileSystemDirectoryHandle): void {
     this.directoryHandle = handle;
@@ -405,6 +407,120 @@ export class FileService {
     await this.atomicWrite(path, blob);
   }
 
+  private scheduleManifestTouch(): void {
+    if (this._manifestDebounceTimer) clearTimeout(this._manifestDebounceTimer);
+    this._manifestDebounceTimer = setTimeout(() => {
+      this._manifestDebounceTimer = null;
+      this.touchManifest();
+    }, 500);
+  }
+
+  private touchManifest(): void {
+    if (!this.directoryHandle || this._manifestWritePending) return;
+    this._manifestWritePending = true;
+    this.atomicWrite(
+      "_cache_manifest.json",
+      JSON.stringify({ lastWrite: Date.now() })
+    )
+      .catch(() => { /* best-effort */ })
+      .finally(() => { this._manifestWritePending = false; });
+  }
+
+  private static readonly ENTITY_DIRS = [
+    "projects", "tasks", "notes", "methods", "dependencies",
+    "goals", "pcr_protocols", "purchase_items", "sequences",
+  ] as const;
+
+  private static readonly USER_SINGLETONS = [
+    "_counters.json", "_auth.json", "_shared_with_me.json",
+    "_notifications.json", "_calendar-feeds.json",
+    "_schema_migrations.json", "_shifted-alerts.json",
+    "_seen-shift-alerts.json",
+  ] as const;
+
+  private static readonly ROOT_SINGLETONS = [
+    "_user_metadata.json", "_global_counters.json",
+  ] as const;
+
+  async sweepAndInvalidate(knownUsers: string[]): Promise<void> {
+    if (!this.directoryHandle) return;
+    const folderName = this.getFolderName();
+
+    const checkAndEvict = async (path: string, file: File) => {
+      const key = `${folderName}::${path}`;
+      const cached = await getCacheEntry(key);
+      if (cached && cached.lastModified !== file.lastModified) {
+        await deleteCacheEntry(key);
+      }
+    };
+
+    for (const user of knownUsers) {
+      for (const dir of FileService.ENTITY_DIRS) {
+        const dirPath = `users/${user}/${dir}`;
+        const dirHandle = await this.getDirectory(dirPath);
+        if (!dirHandle) continue;
+        for await (const entry of (dirHandle as unknown as { values(): AsyncIterable<FileSystemHandle> }).values()) {
+          if (entry.kind !== "file") continue;
+          try {
+            const file = await (entry as FileSystemFileHandle).getFile();
+            await checkAndEvict(`${dirPath}/${entry.name}`, file);
+          } catch {
+            // best-effort; a file that disappeared is fine
+          }
+        }
+      }
+
+      for (const name of FileService.USER_SINGLETONS) {
+        const path = `users/${user}/${name}`;
+        try {
+          const handle = await this.getHandleByPath(path) as FileSystemFileHandle | null;
+          if (!handle || handle.kind !== "file") continue;
+          const file = await handle.getFile();
+          await checkAndEvict(path, file);
+        } catch {
+          // missing singleton is fine
+        }
+      }
+    }
+
+    for (const name of FileService.ROOT_SINGLETONS) {
+      try {
+        const handle = await this.getHandleByPath(name) as FileSystemFileHandle | null;
+        if (!handle || handle.kind !== "file") continue;
+        const file = await handle.getFile();
+        await checkAndEvict(name, file);
+      } catch {
+        // missing file is fine
+      }
+    }
+  }
+
+  async runConnectSweep(knownUsers: string[]): Promise<void> {
+    if (!this.directoryHandle) return;
+    const folderName = this.getFolderName();
+
+    try {
+      const manifestHandle = await this.getHandleByPath("_cache_manifest.json") as FileSystemFileHandle | null;
+      if (manifestHandle && manifestHandle.kind === "file") {
+        const manifestFile = await manifestHandle.getFile();
+        const stored = await getManifestMtime(folderName);
+        if (stored !== null && stored === manifestFile.lastModified) {
+          if (process.env.NEXT_PUBLIC_DEBUG_FILE_CACHE === "1") {
+            console.log("[file-cache] sweep SKIPPED (manifest fast-path)");
+          }
+          return;
+        }
+        await this.sweepAndInvalidate(knownUsers);
+        await setManifestMtime(folderName, manifestFile.lastModified);
+        return;
+      }
+    } catch {
+      // manifest file missing or unreadable — fall through to sweep
+    }
+
+    await this.sweepAndInvalidate(knownUsers);
+  }
+
   // Atomic write helper: write to `${fileName}.tmp` first, then rename via FSA
   // `move()` to the final name. The rename is atomic on Chromium so a torn
   // write (tab close, crash, unhandled rejection mid-write) can only ever
@@ -522,6 +638,10 @@ export class FileService {
     // streak-activity-tracker.ts (Streaks-and-Milestones S1) for the
     // canonical consumer.
     notifyFileWritten(path);
+
+    if (!this._manifestWritePending && path !== "_cache_manifest.json") {
+      this.scheduleManifestTouch();
+    }
   }
 
   async createWritable(path: string): Promise<FileSystemWritableFileStream | null> {

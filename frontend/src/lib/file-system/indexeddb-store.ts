@@ -212,6 +212,26 @@ export async function putCacheEntry(entry: CacheEntry): Promise<void> {
   }
 }
 
+const MANIFEST_MTIME_PREFIX = "cache-manifest-mtime::";
+
+export async function getManifestMtime(folderName: string): Promise<number | null> {
+  if (isDemoTab()) return null;
+  try {
+    return (await get<number>(MANIFEST_MTIME_PREFIX + folderName)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setManifestMtime(folderName: string, mtime: number): Promise<void> {
+  if (isDemoTab()) return;
+  try {
+    await set(MANIFEST_MTIME_PREFIX + folderName, mtime);
+  } catch {
+    // best-effort
+  }
+}
+
 export async function deleteCacheEntry(key: string): Promise<void> {
   if (isDemoTab()) return;
   const db = await initDB();
