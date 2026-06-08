@@ -624,18 +624,9 @@ const ICONS_RAW = {
   },
 
   // ── Companion / phone linking (Settings Devices redesign, Grant sign-off
-  //    2026-06-08). Bodies verbatim from the shipped DevicesSection.
-  companion: {
-    concept: "Companion / BeakerBot tile",
-    body: (
-      <>
-        <rect x="4" y="8" width="16" height="11" rx="3" />
-        <path d="M12 8V4M9 4h6" />
-        <circle cx="9.5" cy="13" r="1.2" fill="currentColor" stroke="none" />
-        <circle cx="14.5" cy="13" r="1.2" fill="currentColor" stroke="none" />
-      </>
-    ),
-  },
+  //    2026-06-08). Bodies verbatim from the shipped DevicesSection. The
+  //    BeakerBot tile renders the real <BeakerBot> mascot, not a registry glyph
+  //    (the mascot IS BeakerBot), so there is no `companion` robot icon here.
   phone: {
     concept: "Phone / device",
     body: (

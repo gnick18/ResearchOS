@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 
+import BeakerBot from "@/components/BeakerBot";
 import Tooltip from "@/components/Tooltip";
 import { Icon } from "@/components/icons";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -70,15 +71,23 @@ function formatCountdown(seconds: number): string {
 
 // ── BeakerBot companion tile ───────────────────────────────────────────────────
 
-/** BeakerBot tile: sky-to-purple gradient rounded square with the companion icon. */
+/** BeakerBot tile: sky-to-purple gradient rounded square with the real mascot.
+ *  The inner glyph is the canonical BeakerBot (white, static, no liquid), not an
+ *  invented bot shape — the mascot IS BeakerBot. */
 function BotTile() {
   return (
     <span
       aria-hidden="true"
-      className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-[9px] text-white"
+      className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-[9px]"
       style={{ background: "linear-gradient(135deg,#1AA0E6,#5B47D6)" }}
     >
-      <Icon name="companion" className="w-5 h-5" />
+      <BeakerBot
+        pose="idle"
+        noLiquid
+        animated={false}
+        easterEgg="none"
+        className="w-5 h-5 text-white"
+      />
     </span>
   );
 }
