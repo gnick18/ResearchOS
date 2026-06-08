@@ -22,6 +22,7 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -152,12 +153,12 @@ export default function CaptureScreen() {
   );
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
+    <ScreenFrame>
+      <ScrollView
+        style={styles.fill}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
           <ThemedText type="title">Capture</ThemedText>
           <ThemedText style={[styles.tagline, { color: surface.muted }]}>
             Snap a photo at the bench and queue it to your lab.
@@ -242,9 +243,8 @@ export default function CaptureScreen() {
               ))}
             </>
           )}
-        </ScrollView>
-      </SafeAreaView>
-    </ThemedView>
+      </ScrollView>
+    </ScreenFrame>
   );
 }
 
@@ -339,6 +339,7 @@ function formatCreatedAt(iso: string): string {
 }
 
 const styles = StyleSheet.create({
+  fill: { flex: 1 },
   container: { flex: 1 },
   safe: { flex: 1 },
   scrollContent: {

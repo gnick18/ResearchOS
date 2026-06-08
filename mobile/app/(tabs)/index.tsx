@@ -15,6 +15,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { BeakerBotMark } from '@/components/ui/BeakerBotMark';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -40,8 +41,8 @@ export default function HomeScreen() {
   }, [refresh]);
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safe}>
+    <ScreenFrame>
+      <View style={styles.safe}>
         {/* Hero */}
         <View style={[styles.hero, { gap: spacing.lg }]}>
           <BeakerBotMark size="lg" alive />
@@ -83,8 +84,8 @@ export default function HomeScreen() {
         ) : (
           <NotPairedCard onPair={() => router.push('/pair')} />
         )}
-      </SafeAreaView>
-    </ThemedView>
+      </View>
+    </ScreenFrame>
   );
 }
 

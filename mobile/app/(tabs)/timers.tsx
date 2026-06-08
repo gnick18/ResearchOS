@@ -18,6 +18,7 @@ import { useFocusEffect } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -106,12 +107,12 @@ export default function TimersScreen() {
   const finished = timers.filter((t) => t.status !== 'running');
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
+    <ScreenFrame>
+      <ScrollView
+        style={styles.fill}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
           <ThemedText type="title">Timers</ThemedText>
           <ThemedText style={[styles.tagline, { color: surface.muted }]}>
             Start a countdown at the bench and get an alert when it finishes.
@@ -218,9 +219,8 @@ export default function TimersScreen() {
               ))}
             </>
           ) : null}
-        </ScrollView>
-      </SafeAreaView>
-    </ThemedView>
+      </ScrollView>
+    </ScreenFrame>
   );
 }
 
@@ -293,6 +293,7 @@ function formatClock(totalSec: number): string {
 }
 
 const styles = StyleSheet.create({
+  fill: { flex: 1 },
   container: { flex: 1 },
   safe: { flex: 1 },
   scrollContent: {

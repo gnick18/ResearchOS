@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useTheme, palette } from '@/lib/design';
@@ -63,12 +64,12 @@ export default function NoteScreen() {
   }, []);
 
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safe} edges={['bottom']}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
+    <ScreenFrame edges={['bottom']}>
+      <ScrollView
+        style={styles.fill}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
           <ThemedText style={[styles.tagline, { color: surface.muted }]}>
             Jot a quick note and send it to your lab inbox.
           </ThemedText>
@@ -152,13 +153,13 @@ export default function NoteScreen() {
               />
             </>
           )}
-        </ScrollView>
-      </SafeAreaView>
-    </ThemedView>
+      </ScrollView>
+    </ScreenFrame>
   );
 }
 
 const styles = StyleSheet.create({
+  fill: { flex: 1 },
   container: { flex: 1 },
   safe: { flex: 1 },
   scrollContent: {
