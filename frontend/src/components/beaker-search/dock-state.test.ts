@@ -5,11 +5,15 @@ import { describe, expect, it } from "vitest";
 import {
   ARM_OVERSHOOT,
   DOCK_WIDTH,
+  DOCK_DEFAULT_WIDTH,
+  DOCK_MAX_WIDTH,
+  DOCK_MIN_WIDTH,
   DOCK_STORAGE_KEY,
   applyArrowKey,
   armedWall,
   arrowToSide,
   clampPosition,
+  clampWidth,
   closeDock,
   defaultFloatPos,
   endDrag,
@@ -22,6 +26,7 @@ import {
   parsePersisted,
   reclampForViewport,
   resetDock,
+  resizeWidth,
   restingPos,
   toPersisted,
   toggleCollapsed,
@@ -38,7 +43,7 @@ const H = 420; // a representative measured dock height
 describe("initial + default placement", () => {
   it("starts closed, expanded, untucked, right, unplaced", () => {
     const s = initialDockState();
-    expect(s).toEqual({ open: false, collapsed: false, tucked: false, side: "right", x: null, y: null });
+    expect(s).toEqual({ open: false, collapsed: false, tucked: false, side: "right", x: null, y: null, width: DOCK_DEFAULT_WIDTH });
   });
 
   it("defaults to the top-right corner", () => {
@@ -240,13 +245,43 @@ describe("reset + reclamp", () => {
   });
 });
 
+describe("resize width", () => {
+  it("clampWidth bounds to [MIN, MAX] and the viewport", () => {
+    expect(clampWidth(10, VP)).toBe(DOCK_MIN_WIDTH);
+    expect(clampWidth(9999, VP)).toBe(DOCK_MAX_WIDTH);
+    // A narrow viewport caps below MAX.
+    expect(clampWidth(9999, { width: 500, height: 800 })).toBe(500 - 32);
+  });
+
+  it("right edge grows the width with x fixed", () => {
+    const s: DockState = { ...openDock(initialDockState(), VP), x: 200, width: DOCK_DEFAULT_WIDTH };
+    const nz = resizeWidth(s, "right", 700, VP); // pointer at x=700, dock x=200
+    expect(nz.x).toBe(200);
+    expect(nz.width).toBe(500);
+  });
+
+  it("right edge clamps to MIN and MAX", () => {
+    const s: DockState = { ...openDock(initialDockState(), VP), x: 100, width: DOCK_DEFAULT_WIDTH };
+    expect(resizeWidth(s, "right", 110, VP).width).toBe(DOCK_MIN_WIDTH); // too small
+    expect(resizeWidth(s, "right", 100 + 9999, VP).width).toBe(DOCK_MAX_WIDTH); // too big
+  });
+
+  it("left edge moves x and pins the right side", () => {
+    const s: DockState = { ...openDock(initialDockState(), VP), x: 400, width: 400 }; // right edge at 800
+    const nz = resizeWidth(s, "left", 300, VP);
+    expect(nz.x).toBe(300);
+    expect(nz.x + nz.width).toBe(800); // right edge unchanged
+  });
+});
+
 describe("persistence", () => {
   it("round-trips a tucked-bottom state", () => {
-    const s = tuckDock(openDock(initialDockState(), VP), "bottom", VP, H);
+    const s = { ...tuckDock(openDock(initialDockState(), VP), "bottom", VP, H), width: 520 };
     const restored = fromPersisted(parsePersisted(JSON.stringify(toPersisted(s))));
     expect(restored.tucked).toBe(true);
     expect(restored.side).toBe("bottom");
     expect(restored.y).toBe(s.y);
+    expect(restored.width).toBe(520);
     expect(restored.open).toBe(false);
   });
 
@@ -260,7 +295,7 @@ describe("persistence", () => {
   it("parsePersisted accepts all four sides and coerces the rest", () => {
     expect(parsePersisted('{"side":"top"}')?.side).toBe("top");
     expect(parsePersisted('{"side":"bogus"}')?.side).toBe("right");
-    expect(parsePersisted("{}")).toEqual({ collapsed: false, tucked: false, side: "right", x: null, y: null });
+    expect(parsePersisted("{}")).toEqual({ collapsed: false, tucked: false, side: "right", x: null, y: null, width: DOCK_DEFAULT_WIDTH });
   });
 
   it("fromPersisted with null keeps the initial state", () => {

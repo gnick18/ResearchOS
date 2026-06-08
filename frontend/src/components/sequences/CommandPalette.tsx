@@ -29,7 +29,6 @@ import type { SelectionKind } from "@/lib/sequences/inspector-context";
 import {
   DOCK_HEIGHT_FALLBACK,
   DOCK_STORAGE_KEY,
-  DOCK_WIDTH,
   applyArrowKey,
   armedWall,
   clampPosition,
@@ -40,12 +39,14 @@ import {
   openDock,
   parsePersisted,
   reclampForViewport,
+  resizeWidth,
   toPersisted,
   toggleCollapsed,
   tuckDock,
   untuckDock,
   type DockSide,
   type DockState,
+  type ResizeEdge,
   type Viewport,
 } from "@/components/beaker-search/dock-state";
 import type { CapturedContext } from "@/components/beaker-search/captured-context";
@@ -976,9 +977,10 @@ export function CommandPalette({
     // the clamped position so it can be pressed flush against the wall.
     const desiredX = d.originX + (e.clientX - d.startX);
     const desiredY = d.originY + (e.clientY - d.startY);
-    const next = clampPosition(desiredX, desiredY, vp, 44, h);
+    const w = dockStateRef.current.width;
+    const next = clampPosition(desiredX, desiredY, vp, 44, h, w);
     setDock((cur) => ({ ...cur, x: next.x, y: next.y, tucked: false }));
-    setArmedSide(armedWall(desiredX, desiredY, vp, h));
+    setArmedSide(armedWall(desiredX, desiredY, vp, h, w));
   }, [dockHeight]);
 
   const onHeaderPointerUp = useCallback((e: React.PointerEvent) => {
@@ -1006,6 +1008,37 @@ export function CommandPalette({
     setDock((cur) => untuckDock(cur, vp, dockHeight()));
   }, [dockHeight]);
   const doCollapse = useCallback(() => setDock((cur) => toggleCollapsed(cur)), []);
+
+  // BeakerSearch v3. Width resize by dragging the left or right edge. The right
+  // edge grows the width with x fixed; the left edge moves x while pinning the
+  // right side. Width is clamped to [MIN, MAX] and to the viewport in the pure
+  // resizeWidth. Height stays content-driven (up to max-h), so only width moves.
+  const resizeRef = useRef<{ pointerId: number; edge: ResizeEdge } | null>(null);
+  const onResizePointerDown = useCallback(
+    (edge: ResizeEdge) => (e: React.PointerEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+      resizeRef.current = { pointerId: e.pointerId, edge };
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    },
+    [],
+  );
+  const onResizePointerMove = useCallback((e: React.PointerEvent) => {
+    const r = resizeRef.current;
+    if (!r || r.pointerId !== e.pointerId) return;
+    const vp: Viewport = { width: window.innerWidth, height: window.innerHeight };
+    setDock((cur) => {
+      const nz = resizeWidth(cur, r.edge, e.clientX, vp);
+      return { ...cur, x: nz.x, width: nz.width };
+    });
+  }, []);
+  const onResizePointerUp = useCallback((e: React.PointerEvent) => {
+    const r = resizeRef.current;
+    if (!r || r.pointerId !== e.pointerId) return;
+    resizeRef.current = null;
+    const el = e.currentTarget as HTMLElement;
+    if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+  }, []);
 
   // BeakerSearch v3. Arrow keys hide the dock to a wall, or pull it back from
   // one. They act ONLY when focus is "parked" on nothing focusable (the document
@@ -1212,11 +1245,35 @@ export function CommandPalette({
         style={{
           left: `${left}px`,
           top: `${top}px`,
-          width: `${DOCK_WIDTH}px`,
+          width: `${dock.width}px`,
           transform: tuckTransform,
         }}
         className={`fixed z-[79] flex max-h-[80vh] flex-col overflow-hidden rounded-2xl border border-border bg-surface-raised shadow-2xl ${transitionClass} ${armedRingClass}`}
       >
+        {/* Width resize handles on the left and right edges. Thin grab strips
+            (cursor ew-resize) that widen the dock; the rest of the header still
+            drags it. Hidden while collapsed or tucked. They sit above the body
+            and stopPropagation so a resize never starts a move. */}
+        {!dock.collapsed && !dock.tucked ? (
+          <>
+            <div
+              aria-hidden="true"
+              onPointerDown={onResizePointerDown("left")}
+              onPointerMove={onResizePointerMove}
+              onPointerUp={onResizePointerUp}
+              onPointerCancel={onResizePointerUp}
+              className="absolute left-0 top-0 z-[82] h-full w-1.5 cursor-ew-resize hover:bg-brand-action/20"
+            />
+            <div
+              aria-hidden="true"
+              onPointerDown={onResizePointerDown("right")}
+              onPointerMove={onResizePointerMove}
+              onPointerUp={onResizePointerUp}
+              onPointerCancel={onResizePointerUp}
+              className="absolute right-0 top-0 z-[82] h-full w-1.5 cursor-ew-resize hover:bg-brand-action/20"
+            />
+          </>
+        ) : null}
         {/* Dock header. The drag handle (whole header), the BeakerBot mark +
             wordmark, and the control cluster (hide-to-edge, collapse, close). A
             collapsed dock shows only this header; clicking it re-expands. */}
