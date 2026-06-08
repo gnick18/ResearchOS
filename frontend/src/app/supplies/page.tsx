@@ -29,6 +29,7 @@ import {
 } from "@/lib/local-api";
 import { CATEGORY_LABEL, statusChipClass } from "@/components/inventory/inventory-ui";
 import { buildSupplies, type Supply } from "@/lib/supplies/supply-model";
+import SupplyDetailPanel from "@/components/supplies/SupplyDetailPanel";
 
 type SupplyFilter = "all" | "attention" | "onorder";
 
@@ -68,6 +69,7 @@ export default function SuppliesPage() {
   const { currentUser } = useCurrentUser();
   const [filter, setFilter] = useState<SupplyFilter>("all");
   const [query, setQuery] = useState("");
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
   const itemsQuery = useQuery({
     queryKey: ["inventory-items", currentUser],
@@ -220,9 +222,11 @@ export default function SuppliesPage() {
         ) : (
           <ul className="space-y-2">
             {visible.map((s) => (
-              <li
-                key={s.key}
-                className="flex items-center gap-3 rounded-xl border border-border bg-surface-raised px-4 py-3"
+              <li key={s.key}>
+              <button
+                type="button"
+                onClick={() => setSelectedKey(s.key)}
+                className="flex w-full items-center gap-3 rounded-xl border border-border bg-surface-raised px-4 py-3 text-left transition-colors hover:border-brand-action/40 hover:bg-surface-sunken/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action/40"
               >
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-body font-semibold text-foreground">
@@ -239,10 +243,25 @@ export default function SuppliesPage() {
                     <span className="text-meta text-foreground-muted">no stock or orders</span>
                   ) : null}
                 </div>
+              </button>
               </li>
             ))}
           </ul>
         )}
+
+        {selectedKey != null
+          ? (() => {
+              const sel = supplies.find((s) => s.key === selectedKey);
+              if (!sel) return null;
+              return (
+                <SupplyDetailPanel
+                  supply={sel}
+                  stocks={stocksQuery.data ?? []}
+                  onClose={() => setSelectedKey(null)}
+                />
+              );
+            })()
+          : null}
       </div>
     </AppShell>
   );
