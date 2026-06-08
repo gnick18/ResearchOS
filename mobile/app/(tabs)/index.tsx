@@ -84,6 +84,22 @@ export default function HomeScreen() {
         ) : (
           <NotPairedCard onPair={() => router.push('/pair')} />
         )}
+
+        {/* Calculators -- available offline, no pairing required */}
+        <Card style={{ gap: spacing.sm }}>
+          <ThemedText style={[styles.cardTitle, { color: surface.text }]}>
+            Lab calculators
+          </ThemedText>
+          <ThemedText style={[styles.cardMeta, { color: surface.muted }]}>
+            Molarity, dilution, Tm, protein properties and more. No pairing needed.
+          </ThemedText>
+          <Button
+            variant="secondary"
+            label="Open calculators"
+            onPress={() => router.push('/calc')}
+            style={{ marginTop: spacing.xs }}
+          />
+        </Card>
       </View>
     </ScreenFrame>
   );
