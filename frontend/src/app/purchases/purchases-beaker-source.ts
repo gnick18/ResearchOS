@@ -390,6 +390,19 @@ function buildChangeProjectSubflow(
       onRun: () => {},
     });
   }
+  // Belt-and-suspenders: the command is gated on having a target, but if the
+  // picker somehow opens empty, show a quiet disabled placeholder rather than
+  // a blank list.
+  if (items.length === 0) {
+    items.push({
+      id: "no-projects",
+      label: "No other projects yet",
+      iconName: "list",
+      tone: "project",
+      enabled: false,
+      onRun: () => {},
+    });
+  }
   return {
     title: `Change project of "${task.name}"`,
     placeholder: "Pick a project",
@@ -591,7 +604,10 @@ function buildCommands(
       keywords: "move reassign bucket",
       group: PURCHASES_GROUP_SELECTED,
       iconName: ICON_FUNDING,
-      enabled: writable,
+      // Gate on having somewhere to move it (a real project or the misc
+      // catch-all) so we never open an empty picker. Mirrors set-funding below.
+      enabled:
+        writable && (data.moveTargets.length > 0 || data.miscProjectId != null),
       run: () => handlers.setSelectedTask(task),
       subflow: () => buildChangeProjectSubflow(task, data, handlers),
     });

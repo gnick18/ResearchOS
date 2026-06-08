@@ -146,6 +146,9 @@ export default function PurchaseEditor({
     catalogItem: CatalogItem;
   } | null>(null);
   const [saving, setSaving] = useState(false);
+  // Synchronous double-fire guard for the overwrite-dialog choice (a
+  // double-click before re-render would otherwise create a duplicate row).
+  const overwriteInFlightRef = useRef(false);
   const suggestionsRef = useRef<HTMLTableCellElement>(null);
   
   // Editing state for existing items
@@ -688,6 +691,12 @@ export default function PurchaseEditor({
   const handleOverwriteChoice = useCallback(
     async (choice: "overwrite" | "new") => {
       if (!overwriteDialog) return;
+      // Guard against a double-click firing two catalog writes + two
+      // doAddRow calls (which would create a duplicate line item). The
+      // disabled buttons cover the common case; this ref covers the
+      // synchronous double-fire before React re-renders.
+      if (overwriteInFlightRef.current) return;
+      overwriteInFlightRef.current = true;
       setSaving(true);
 
       if (choice === "overwrite") {
@@ -715,7 +724,11 @@ export default function PurchaseEditor({
       }
 
       setOverwriteDialog(null);
-      await doAddRow(newRow);
+      try {
+        await doAddRow(newRow);
+      } finally {
+        overwriteInFlightRef.current = false;
+      }
     },
     [overwriteDialog, newRow, doAddRow, purchasesApi]
   );
@@ -788,13 +801,15 @@ export default function PurchaseEditor({
           <div className="flex gap-2">
             <button
               onClick={() => handleOverwriteChoice("overwrite")}
-              className="px-3 py-1.5 text-meta bg-amber-600 text-white rounded-lg hover:bg-amber-700"
+              disabled={saving}
+              className="px-3 py-1.5 text-meta bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Overwrite existing
             </button>
             <button
               onClick={() => handleOverwriteChoice("new")}
-              className="px-3 py-1.5 text-meta bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              disabled={saving}
+              className="px-3 py-1.5 text-meta bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Save as new item
             </button>
@@ -1036,7 +1051,7 @@ export default function PurchaseEditor({
                         disabled={saving || !editingRow.item_name.trim()}
                         className="text-green-500 hover:text-green-700 dark:hover:text-green-300 text-body font-bold disabled:opacity-30"
                       >
-                        ✓
+                        <Icon name="check" className="w-4 h-4" />
                       </button>
                     </Tooltip>
                     <Tooltip label="Cancel editing" placement="bottom">
@@ -1045,7 +1060,7 @@ export default function PurchaseEditor({
                         onClick={handleCancelEdit}
                         className="text-foreground-muted hover:text-foreground-muted text-body"
                       >
-                        ✕
+                        <Icon name="close" className="w-4 h-4" />
                       </button>
                     </Tooltip>
                   </td>
@@ -1188,25 +1203,32 @@ export default function PurchaseEditor({
                         />
                       )}
                       {item.flagged && !canActAsLabHead && (
-                        <span
-                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-meta font-semibold uppercase tracking-wide bg-red-100 dark:bg-red-500/20 text-red-800 dark:text-red-200 border border-red-300"
-                          title={item.flagged.reason ?? `Flagged by ${item.flagged.by}`}
-                          data-testid="lab-head-purchase-flag-badge"
+                        <Tooltip
+                          label={
+                            item.flagged.reason ??
+                            `Flagged by ${item.flagged.by}`
+                          }
+                          placement="bottom"
                         >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="10"
-                            height="10"
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                            stroke="currentColor"
-                            strokeWidth="1.5"
-                            aria-hidden="true"
+                          <span
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-meta font-semibold uppercase tracking-wide bg-red-100 dark:bg-red-500/20 text-red-800 dark:text-red-200 border border-red-300"
+                            data-testid="lab-head-purchase-flag-badge"
                           >
-                            <path d="M4 22V4a2 2 0 0 1 2-2h8l2 4h4v10h-6l-2-4H6v10" />
-                          </svg>
-                          Flagged
-                        </span>
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="10"
+                              height="10"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              aria-hidden="true"
+                            >
+                              <path d="M4 22V4a2 2 0 0 1 2-2h8l2 4h4v10h-6l-2-4H6v10" />
+                            </svg>
+                            Flagged
+                          </span>
+                        </Tooltip>
                       )}
                     </div>
                   </td>
@@ -1290,7 +1312,7 @@ export default function PurchaseEditor({
                           }}
                           className="text-red-400 hover:text-red-600 dark:hover:text-red-300 text-meta"
                         >
-                          ✕
+                          <Icon name="close" className="w-3.5 h-3.5" />
                         </button>
                       </Tooltip>
                     )}

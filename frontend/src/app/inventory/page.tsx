@@ -224,6 +224,9 @@ export default function InventoryPage() {
   // box cell. The map consumes the target once and calls back to clear it.
   const jumpToCell = useCallback(
     (nodeId: number, position: string | null) => {
+      // Clear any active signal filter (mirrors openItemInList) so returning to
+      // List view doesn't drop the user back into the signal-filtered subset.
+      setActiveSignal(null);
       setView("storage");
       setJumpTarget({ nodeId, position });
     },

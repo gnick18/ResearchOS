@@ -230,6 +230,18 @@ export function usePurchasesBeakerSource(args: UsePurchasesBeakerSourceArgs): vo
     return sum;
   }, [sortedTasks, purchasesByTask]);
 
+  // Number of line items in the currently visible (filtered) orders. Gates the
+  // "Export current spending" command so it disables when the active filter
+  // shows zero orders, matching what the export would actually contain.
+  const visibleItemCount = useMemo(
+    () =>
+      sortedTasks.reduce(
+        (n, t) => n + (purchasesByTask[`${t.owner}:${t.id}`]?.length ?? 0),
+        0,
+      ),
+    [sortedTasks, purchasesByTask],
+  );
+
   // The hovered order, resolved from the provider key `purchase:${taskKey}`. A
   // live selection always wins, so this is null when an order is selected. The
   // key is parsed into its kind + composite "{self|owner}:{id}" taskKey, the
@@ -437,7 +449,7 @@ export function usePurchasesBeakerSource(args: UsePurchasesBeakerSourceArgs): vo
       categoryFilter: args.categoryFilter,
       orderStatusFilter: args.orderStatusFilter,
       visibleTotal,
-      hasExportableItems: allPurchases.length > 0,
+      hasExportableItems: visibleItemCount > 0,
       selectedTask: args.selectedTask,
       hoveredTask,
       currentUser,
@@ -462,7 +474,7 @@ export function usePurchasesBeakerSource(args: UsePurchasesBeakerSourceArgs): vo
     args.orderStatusFilter,
     args.selectedTask,
     visibleTotal,
-    allPurchases.length,
+    visibleItemCount,
     hoveredTask,
     currentUser,
     isLabHead,
