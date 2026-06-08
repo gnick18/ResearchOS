@@ -28,12 +28,14 @@ export interface BeakerBotProps {
 
 const SKY = '#1AA0E6';
 
-// viewBox from the master SVG: x=8 y=3 w=24 h=31
+// viewBox from the master SVG was "8 3 24 31", but the spout-curl paths reach
+// up to y=1, so y=3 cropped the top of his head. Widen the top (y=0, height=34)
+// to give the curl room, matching x + bottom.
 const VB_X = 8;
-const VB_Y = 3;
+const VB_Y = 0;
 const VB_W = 24;
-const VB_H = 31;
-const ASPECT = VB_W / VB_H; // ~0.774
+const VB_H = 34;
+const ASPECT = VB_W / VB_H; // ~0.706
 
 export function BeakerBot({ size = 80, color = SKY }: BeakerBotProps) {
   const width = size * ASPECT;
