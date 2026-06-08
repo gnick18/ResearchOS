@@ -64,7 +64,7 @@ import {
 } from "./captured-context";
 // Imported from the sequences tree for this step; relocation into beaker-search/
 // is a future step (see the file header).
-import { CommandPalette } from "@/components/sequences/CommandPalette";
+import { CommandPalette, type DockControl } from "@/components/sequences/CommandPalette";
 // BeakerSearch global object search, chunk 2. activePageTypeForPath maps the
 // current route to the object type the page hosts as its own entity, so the
 // palette drops that type's global group (on-page de-dup).
@@ -133,6 +133,15 @@ const BeakerSearchHoverContext = createContext<string | null>(null);
 
 export function BeakerSearchProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  // The latest `open`, read by the global Cmd/Ctrl+K handler without
+  // re-subscribing the listener on every open / close.
+  const openRef = useRef(open);
+  openRef.current = open;
+  // BeakerSearch v3. The dock publishes its collapsed / tucked sub-state plus the
+  // expand / untuck actions into this ref (see CommandPalette's dockControlRef).
+  // The provider owns open / close; this ref lets the Cmd/Ctrl+K handler consult
+  // the sub-state so it RESTORES a collapsed or tucked dock instead of closing it.
+  const dockControlRef = useRef<DockControl | null>(null);
   // The source STACK. The last element is the active source (most-recently
   // registered surface wins).
   const [sources, setSources] = useState<BeakerSearchSource[]>([]);
@@ -298,21 +307,43 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
 
   // The GLOBAL Cmd-K / Ctrl-K listener. As of step 2a the global layer is ALWAYS
   // present, so the palette opens on EVERY page (Grant wants Cmd-K everywhere).
-  // The listener no longer gates on hasSource; it always toggles and always
-  // preventDefaults the shortcut so the app palette wins over the browser. The
-  // synthetic global-only source below keeps the palette renderable even on a
-  // page that registers no source of its own.
+  // The listener no longer gates on hasSource; it always preventDefaults the
+  // shortcut so the app palette wins over the browser. The synthetic global-only
+  // source below keeps the palette renderable even on a page that registers no
+  // source of its own.
+  //
+  // BeakerSearch v3 made the dock collapsible and tuckable, so a plain toggle is
+  // no longer right. Cmd/Ctrl+K now means "bring BeakerSearch to me":
+  //   - closed            -> open it (wherever it was left).
+  //   - open + collapsed  -> expand it (do NOT close).
+  //   - open + tucked     -> untuck / restore it (do NOT close).
+  //   - open + visible    -> close it.
+  // The collapsed / tucked sub-state lives in the dock (CommandPalette), which
+  // publishes it here via dockControlRef. Escape and the X button stay full-close.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Plain Cmd/Ctrl+K toggles. Shift is reserved for the v3 re-check chord
-      // (Cmd/Ctrl+Shift+K), so it must not also toggle here.
+      // Plain Cmd/Ctrl+K. Shift is reserved for the v3 re-check chord
+      // (Cmd/Ctrl+Shift+K), so it must not also act here.
       if (
         (e.metaKey || e.ctrlKey) &&
         !e.shiftKey &&
         e.key.toLowerCase() === "k"
       ) {
         e.preventDefault();
-        setOpen((cur) => !cur);
+        if (!openRef.current) {
+          setOpen(true);
+          return;
+        }
+        // Open, so consult the dock's sub-state. A collapsed or tucked dock is
+        // restored (untuck first, then expand) and stays open; both can be set
+        // at once, so both are reversed. A fully visible dock closes.
+        const ctrl = dockControlRef.current;
+        if (ctrl && (ctrl.collapsed || ctrl.tucked)) {
+          if (ctrl.tucked) ctrl.untuck();
+          if (ctrl.collapsed) ctrl.expand();
+          return;
+        }
+        setOpen(false);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -389,6 +420,7 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
           capturedContext={capturedContext}
           onRecheck={recheckPageContext}
           recheckShortcutLabel={recheckShortcutLabel}
+          dockControlRef={dockControlRef}
         />
         </BeakerSearchHoverContext.Provider>
       </BeakerSearchRegistryContext.Provider>

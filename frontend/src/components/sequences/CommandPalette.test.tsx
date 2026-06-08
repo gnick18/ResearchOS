@@ -5,10 +5,10 @@
 // Suggested biasing. No inline icon markup here (the icon-guard forbids it);
 // icons render through the verified Icon registry inside the component.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
-import { CommandPalette } from "./CommandPalette";
+import { CommandPalette, type DockControl } from "./CommandPalette";
 import type { EditorCommand } from "./editor-commands";
 import type { GlobalIndexEntry } from "@/components/beaker-search/global-index";
 
@@ -979,5 +979,111 @@ describe("CommandPalette sub-flows", () => {
     fireEvent.mouseDown(screen.getByText("Protein properties"));
     expect(run).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ── BeakerSearch v3, Cmd-K RESTORES a collapsed / tucked dock ────────────────
+//
+// The dock can be OPEN yet collapsed (pill) or tucked (off-edge peek tab). A
+// plain toggle would CLOSE it on Cmd-K, which loses the dock the user only meant
+// to bring back. The provider's Cmd-K handler consults the dock's collapsed /
+// tucked sub-state (published via dockControlRef) and restores instead. This
+// harness mirrors that provider wiring exactly so the integration is covered
+// without rendering the heavy app shell.
+function RestoreHarness({ commands }: { commands: EditorCommand[] }) {
+  const [open, setOpen] = useState(false);
+  const openRef = useRef(open);
+  openRef.current = open;
+  const dockControlRef = useRef<DockControl | null>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        !e.shiftKey &&
+        e.key.toLowerCase() === "k"
+      ) {
+        e.preventDefault();
+        if (!openRef.current) {
+          setOpen(true);
+          return;
+        }
+        const ctrl = dockControlRef.current;
+        if (ctrl && (ctrl.collapsed || ctrl.tucked)) {
+          if (ctrl.tucked) ctrl.untuck();
+          if (ctrl.collapsed) ctrl.expand();
+          return;
+        }
+        setOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  return (
+    <CommandPalette
+      open={open}
+      onClose={() => setOpen(false)}
+      commands={commands}
+      selectionKind="none"
+      hasOrganism={false}
+      dockControlRef={dockControlRef}
+    />
+  );
+}
+
+describe("BeakerSearch v3 dock restore", () => {
+  it("expands a collapsed dock when its header chevron is clicked", () => {
+    // The double-toggle regression: the chevron's onClick expanded the dock, but
+    // the same click bubbled to the header (which also toggles collapse when the
+    // dock is collapsed), undoing it in one event so the button looked dead.
+    render(
+      <CommandPalette
+        open
+        onClose={() => {}}
+        commands={makeCommands()}
+        selectionKind="none"
+        hasOrganism={false}
+      />,
+    );
+    // Expanded, so the search input (the collapsible body) is present.
+    expect(screen.getByRole("combobox")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Collapse BeakerSearch"));
+    // Collapsed to the pill, the body (and its input) is gone.
+    expect(screen.queryByRole("combobox")).toBeNull();
+    // The chevron now reads "Expand BeakerSearch" and must actually expand.
+    fireEvent.click(screen.getByLabelText("Expand BeakerSearch"));
+    expect(screen.getByRole("combobox")).toBeTruthy();
+  });
+
+  it("Cmd-K expands a collapsed dock instead of closing it", () => {
+    render(<RestoreHarness commands={makeCommands()} />);
+    // Closed -> open.
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(screen.getByRole("combobox")).toBeTruthy();
+    // Collapse to the pill.
+    fireEvent.click(screen.getByLabelText("Collapse BeakerSearch"));
+    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    // Cmd-K must EXPAND, not close.
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(screen.getByRole("combobox")).toBeTruthy();
+    // Now fully visible, so Cmd-K closes as before.
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("Cmd-K untucks a tucked dock instead of closing it", () => {
+    render(<RestoreHarness commands={makeCommands()} />);
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    // Hide the dock off the nearest edge into its peek tab.
+    fireEvent.click(screen.getByLabelText("Hide to edge"));
+    expect(screen.getByLabelText("Show BeakerSearch")).toBeTruthy();
+    // Cmd-K must UNTUCK, not close, so the peek tab gives way to the full dock.
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    expect(screen.queryByLabelText("Show BeakerSearch")).toBeNull();
+    expect(screen.getByRole("dialog")).toBeTruthy();
   });
 });

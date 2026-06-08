@@ -349,6 +349,18 @@ function GenericContextCard({
   );
 }
 
+/** The handle the dock publishes UP to the provider so its global Cmd/Ctrl+K
+ *  handler can RESTORE a collapsed or tucked dock (expand / untuck) instead of
+ *  closing it. The dock owns the collapsed / tucked sub-state; `collapsed` /
+ *  `tucked` are the live flags and `expand` / `untuck` apply the matching
+ *  dock-state helper. Published into the provider's `dockControlRef`. */
+export interface DockControl {
+  collapsed: boolean;
+  tucked: boolean;
+  expand: () => void;
+  untuck: () => void;
+}
+
 export interface CommandPaletteProps {
   open: boolean;
   onClose: () => void;
@@ -409,6 +421,13 @@ export interface CommandPaletteProps {
    *  button (e.g. "R"). The dock owns the key listener (plain "r" while floating
    *  and focus is parked); the provider supplies the re-check handler + label. */
   recheckShortcutLabel?: string;
+  /** BeakerSearch v3. The provider's global Cmd/Ctrl+K handler RESTORES a
+   *  collapsed or tucked dock (expand / untuck) instead of closing it. The dock
+   *  owns that sub-state, so it publishes a small control handle (the live flags
+   *  plus expand / untuck actions) into this ref for the provider to consult.
+   *  Absent on non-shell callers (the editor's own tests), which keep the plain
+   *  open / close toggle. */
+  dockControlRef?: { current: DockControl | null };
 }
 
 /** The BeakerSearch v3 floating dock. Renders nothing when closed (the geometry
@@ -436,6 +455,7 @@ export function CommandPalette({
   capturedContext,
   onRecheck,
   recheckShortcutLabel,
+  dockControlRef,
 }: CommandPaletteProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -1104,6 +1124,31 @@ export function CommandPalette({
     setDock((cur) => untuckDock(cur, vp, dockHeight()));
   }, [dockHeight]);
   const doCollapse = useCallback(() => setDock((cur) => toggleCollapsed(cur)), []);
+  // Expand a collapsed dock (a no-op when already expanded). Distinct from
+  // doCollapse's toggle so the provider's Cmd/Ctrl+K restore can only ever open
+  // the pill, never re-collapse a visible dock.
+  const doExpand = useCallback(
+    () => setDock((cur) => (cur.collapsed ? toggleCollapsed(cur) : cur)),
+    [],
+  );
+
+  // BeakerSearch v3. Publish the dock's collapsed / tucked sub-state plus the
+  // expand / untuck actions UP to the provider so its global Cmd/Ctrl+K handler
+  // can RESTORE a collapsed or tucked dock instead of closing it. The provider
+  // owns open / close; the dock owns this sub-state, and this ref is the seam
+  // between them. Republished whenever the flags change; cleared on unmount.
+  useEffect(() => {
+    if (!dockControlRef) return;
+    dockControlRef.current = {
+      collapsed: dock.collapsed,
+      tucked: dock.tucked,
+      expand: doExpand,
+      untuck: doUntuck,
+    };
+    return () => {
+      dockControlRef.current = null;
+    };
+  }, [dockControlRef, dock.collapsed, dock.tucked, doExpand, doUntuck]);
 
   // BeakerSearch v3. Width resize by dragging the left or right edge. The right
   // edge grows the width with x fixed; the left edge moves x while pinning the
@@ -1397,7 +1442,13 @@ export function CommandPalette({
           onPointerMove={onHeaderPointerMove}
           onPointerUp={onHeaderPointerUp}
           onPointerCancel={onHeaderPointerUp}
-          onClick={() => {
+          onClick={(e) => {
+            // Ignore clicks that land on a header control (collapse / tuck /
+            // close); each owns its own onClick. Without this guard the bubbled
+            // click double-toggles collapse, so the chevron's expand is undone in
+            // the same event and the button looks dead. Clicking the pill body
+            // (anywhere not a control) still expands.
+            if ((e.target as HTMLElement).closest("[data-dock-act]")) return;
             if (dock.collapsed) setDock((cur) => toggleCollapsed(cur));
           }}
           className={`flex select-none items-center gap-2 px-3 py-2 ${
