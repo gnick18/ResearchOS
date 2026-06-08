@@ -153,6 +153,9 @@ export function usePrefetchOnHover(currentUser: string | null | undefined) {
         const promise = warm(target);
         if (promise) {
           warmed.add(key);
+          // Dogfood breadcrumb: confirms a warm actually fired (flag is already
+          // on to reach here). Quiet debug level, no-op in normal use.
+          console.debug(`[hover-prefetch] warming ${key} (${warmed.size}/${SESSION_CAP})`);
           track(promise);
         }
       }, DWELL_MS);
