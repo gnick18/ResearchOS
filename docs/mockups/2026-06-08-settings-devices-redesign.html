@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Settings - Devices redesign (Telegram-free phone linking)</title>
+<style>
+  :root{--surface:#ffffff;--raised:#ffffff;--sunken:#f6f8fb;--fg:#171717;--muted:#667085;--border:#e5e7eb;--action:#1283C9;--sky:#1AA0E6;--purple:#5B47D6;--ok-bg:#d1fae5;--ok-fg:#047857;--page:#eef2f7;--danger:#dc2626}
+  [data-theme="dark"]{--surface:#0a0e1a;--raised:#131c2e;--sunken:#0d1424;--fg:#f1f5f9;--muted:#aebbcd;--border:rgba(255,255,255,.18);--action:#3aa0e0;--sky:#3aa0e0;--purple:#8170e6;--ok-bg:rgba(16,185,129,.2);--ok-fg:#6ee7b7;--page:#05080f;--danger:#f87171}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--page);color:var(--fg)}
+  .topbar{position:sticky;top:0;z-index:50;background:var(--page);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .topbar h1{font-size:16px;margin:0;font-weight:700}.topbar .sub{font-size:12.5px;color:var(--muted)}
+  .spacer{flex:1}
+  .btn{font:inherit;font-size:13px;border:1px solid var(--border);background:var(--raised);color:var(--fg);border-radius:9px;padding:7px 12px;cursor:pointer}
+  .btn-brand{background:linear-gradient(135deg,var(--sky),var(--purple));color:#fff;border:none}
+  .legend{display:flex;gap:10px;font-size:12px;color:var(--muted);align-items:center;flex-wrap:wrap}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px}.dot.ok{background:#16a34a}.dot.warn{background:#d97706}.dot.none{background:#cbd5e1}
+  .wrap{max-width:920px;margin:0 auto;padding:20px 20px 120px}
+  .note{font-size:12.5px;color:var(--muted);max-width:820px;margin:12px 0 8px;line-height:1.55}
+  .section{margin:22px 0;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--page)}
+  .section-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--sunken)}
+  .section-head .name{font-size:13px;font-weight:700}.section-head .id{font-size:11px;color:var(--muted)}
+  .review{margin-left:auto;display:flex;gap:6px}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .seg button{font:inherit;font-size:12px;padding:5px 10px;border:none;background:var(--raised);color:var(--muted);cursor:pointer}
+  .seg button.active.ok{background:#16a34a;color:#fff}.seg button.active.warn{background:#d97706;color:#fff}.seg button.active.none{background:#64748b;color:#fff}
+  .cmt{width:100%;margin-top:10px;font:inherit;font-size:12.5px;border:1px dashed var(--border);border-radius:8px;background:var(--raised);color:var(--fg);padding:8px 10px;resize:vertical;min-height:34px}
+  .stage{padding:20px;background:var(--surface)}
+  /* settings card mimic */
+  .scard{border:1px solid var(--border);border-radius:16px;background:var(--raised);padding:20px;max-width:620px}
+  .scard-head{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+  .bot{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--sky),var(--purple));flex-shrink:0;display:flex;align-items:center;justify-content:center}
+  .h-title{font-size:16px;font-weight:650;margin:0}
+  .desc{font-size:13px;color:var(--muted);line-height:1.55;margin:6px 0 0}
+  .feat{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 4px}
+  .chip{font-size:11.5px;border:1px solid var(--border);border-radius:999px;padding:4px 10px;color:var(--muted);display:flex;align-items:center;gap:5px;background:var(--sunken)}
+  .row{display:flex;align-items:center;gap:12px;border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-top:10px;background:var(--surface)}
+  .row .ic{width:30px;height:30px;border-radius:8px;background:var(--sunken);display:flex;align-items:center;justify-content:center;color:var(--muted);flex-shrink:0}
+  .row .meta{flex:1;min-width:0}
+  .row .t{font-size:13.5px;font-weight:600}
+  .row .s{font-size:12px;color:var(--muted);margin-top:1px}
+  .pill{font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px}
+  .pill.live{background:var(--ok-bg);color:var(--ok-fg)}
+  .pill.idle{background:var(--sunken);color:var(--muted)}
+  .primary{background:linear-gradient(135deg,var(--sky),var(--purple));color:#fff;border:none;border-radius:11px;padding:11px 16px;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+  .ghost{background:transparent;border:1px solid var(--border);color:var(--fg);border-radius:10px;padding:8px 13px;font:inherit;font-size:12.5px;cursor:pointer}
+  .ghost.danger{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 40%,transparent)}
+  .qrwrap{display:flex;gap:20px;align-items:center;flex-wrap:wrap;margin-top:14px;padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--sunken)}
+  .qr{width:150px;height:150px;display:grid;grid-template-columns:repeat(11,1fr);gap:2px;background:#fff;padding:8px;border-radius:10px;flex-shrink:0}
+  .qr i{background:#111;border-radius:1px}.qr i.off{background:transparent}
+  .waiting{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);margin-top:6px}
+  .pulse{width:9px;height:9px;border-radius:50%;background:var(--sky);animation:p 1.2s infinite}@keyframes p{0%,100%{opacity:.3}50%{opacity:1}}
+  .gate{display:flex;gap:10px;align-items:flex-start;border:1px dashed var(--border);border-radius:12px;padding:14px;background:var(--sunken);font-size:13px;color:var(--muted);line-height:1.5}
+  .synced{font-size:11.5px;color:var(--muted);margin-top:12px;display:flex;align-items:center;gap:6px}
+  .opt{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:8px;cursor:pointer}
+  .opt:hover{background:var(--sunken)}.opt.sel{outline:2px solid var(--action);outline-offset:-1px}
+  .opt .t{font-size:13px;font-weight:600}.opt .d{font-size:12px;color:var(--muted);margin-top:2px}
+  .reco{font-size:10.5px;font-weight:700;color:var(--action);border:1px solid var(--action);border-radius:999px;padding:1px 7px;margin-left:6px}
+  .lbl{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 8px}
+  svg{display:block}
+  #ex{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+  #ex .box{background:var(--raised);color:var(--fg);border-radius:14px;max-width:680px;width:100%;padding:18px;border:1px solid var(--border)}
+  #ex textarea{width:100%;min-height:240px;font-family:ui-monospace,Menlo,monospace;font-size:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--fg);padding:10px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div><h1>Settings &rsaquo; Devices redesign</h1><div class="sub">Telegram-free phone linking, all the companion controls in one place. Design proposal.</div></div>
+  <div class="spacer"></div>
+  <div class="legend"><span><span class="dot ok"></span>Approve</span><span><span class="dot warn"></span>Needs change</span><span><span class="dot none"></span>Undecided</span></div>
+  <button class="btn" id="themeBtn">Dark mode</button>
+  <button class="btn btn-brand" id="exBtn">Export feedback</button>
+</div>
+<div class="wrap">
+  <p class="note">This replaces the current cramped Devices section and removes everything Telegram. One clean card for the ResearchOS Companion: pair a phone, manage paired phones, and see sync status. Three states shown below (not paired / pairing / paired), then two decisions. Sample UI, real data fills in live.</p>
+
+  <!-- 1 not paired -->
+  <div class="section" data-sec="empty" data-label="Not-paired state (the pairing CTA)">
+    <div class="section-head"><span class="name">State A: no phone yet</span><span class="id">#empty</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="scard">
+        <div class="scard-head">
+          <span class="bot">__BOT__</span>
+          <div>
+            <h2 class="h-title">ResearchOS Companion</h2>
+            <div class="desc" style="margin-top:1px">Pair your phone to capture at the bench and glance at today.</div>
+          </div>
+        </div>
+        <p class="desc">Snap bench photos, jot quick notes, scan to reorder, and see today's tasks, all synced to your folder through an encrypted relay that only ever holds data in transit. Your phone is authorized with your identity key.</p>
+        <div class="feat">
+          <span class="chip">__CAM__ Bench photos</span>
+          <span class="chip">__NOTE__ Quick notes</span>
+          <span class="chip">__SCAN__ Scan to reorder</span>
+          <span class="chip">__SUN__ Today glance</span>
+        </div>
+        <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+          <button class="primary">__PHONE__ Pair a phone</button>
+          <button class="ghost">Get the app</button>
+        </div>
+      </div>
+      <p class="note" style="margin-top:14px">When the identity is locked (rare now that it persists across refreshes), this shows a soft inline gate instead of the buttons, see the bottom of State C.</p>
+    </div>
+  </div>
+
+  <!-- 2 pairing -->
+  <div class="section" data-sec="pairing" data-label="Pairing state (QR + waiting)">
+    <div class="section-head"><span class="name">State B: pairing</span><span class="id">#pairing</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="scard">
+        <div class="scard-head">
+          <span class="bot">__BOT__</span>
+          <div><h2 class="h-title">Pair a phone</h2><div class="desc" style="margin-top:1px">Open ResearchOS on your phone and scan this.</div></div>
+        </div>
+        <div class="qrwrap">
+          <div class="qr" id="qr"></div>
+          <div>
+            <div style="font-size:13.5px;font-weight:600">Scan with the companion app</div>
+            <div class="desc" style="margin-top:4px">On your phone, open ResearchOS, tap Pair, and point the camera here.</div>
+            <div class="waiting"><span class="pulse"></span> Waiting for your phone &middot; expires in 1:48</div>
+            <button class="ghost" style="margin-top:12px">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 paired -->
+  <div class="section" data-sec="paired" data-label="Paired state (device management + sync)">
+    <div class="section-head"><span class="name">State C: paired</span><span class="id">#paired</span><span class="review"></span></div>
+    <div class="stage">
+      <div class="scard">
+        <div class="scard-head">
+          <span class="bot">__BOT__</span>
+          <div><h2 class="h-title">ResearchOS Companion</h2><div class="desc" style="margin-top:1px">1 phone paired.</div></div>
+        </div>
+
+        <p class="lbl" style="margin-top:16px">Paired phones</p>
+        <div class="row">
+          <span class="ic">__PHONE__</span>
+          <div class="meta">
+            <div class="t">Grant's iPhone</div>
+            <div class="s">Paired Jun 7 &middot; last active just now</div>
+          </div>
+          <span class="pill live">Active</span>
+          <button class="ghost danger">Unpair</button>
+        </div>
+
+        <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <button class="ghost">__PLUS__ Pair another phone</button>
+          <span class="synced" style="margin:0">__SYNC__ Auto-syncing &middot; captures land in your inbox on their own</span>
+        </div>
+
+        <details style="margin-top:14px">
+          <summary style="font-size:12.5px;color:var(--muted);cursor:pointer">Advanced</summary>
+          <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">
+            <button class="ghost">Check for new captures now</button>
+            <button class="ghost">Re-publish today snapshot</button>
+          </div>
+        </details>
+
+        <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+          <p class="lbl">If your identity is locked</p>
+          <div class="gate">__LOCK__ <span>Your account keypair is what authorizes a phone. It now stays unlocked across refreshes; if it ever locks, you'll see Unlock with your recovery code or passkey right here instead of the pair button.</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- decisions -->
+  <div class="section" data-sec="dname" data-label="DECISION: section name">
+    <div class="section-head"><span class="name">Decision: what to call this section</span><span class="id">#dname</span><span class="review"></span></div>
+    <div class="stage"><div id="nameopts"></div></div>
+  </div>
+
+  <div class="section" data-sec="dsync" data-label="DECISION: manual sync controls visibility">
+    <div class="section-head"><span class="name">Decision: the manual sync buttons</span><span class="id">#dsync</span><span class="review"></span></div>
+    <div class="stage">
+      <p class="note" style="margin-top:0">Captures auto-sync now, so the old "Check for new captures" button is rarely needed.</p>
+      <div id="syncopts"></div>
+    </div>
+  </div>
+</div>
+
+<div id="ex"><div class="box">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><strong style="font-size:14px">Feedback summary</strong><span class="spacer" style="flex:1"></span><button class="btn" onclick="navigator.clipboard.writeText(document.getElementById('exT').value)">Copy</button><button class="btn" onclick="document.getElementById('ex').style.display='none'">Close</button></div>
+  <textarea id="exT" readonly></textarea>
+</div></div>
+
+<script>
+const I={
+ bot:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="11" rx="3"/><path d="M12 8V4M9 4h6"/><circle cx="9.5" cy="13" r="1.2" fill="#fff" stroke="none"/><circle cx="14.5" cy="13" r="1.2" fill="#fff" stroke="none"/></svg>',
+ phone:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-3px"><rect x="6" y="3" width="12" height="18" rx="3"/><path d="M11 18h2"/></svg>',
+ cam:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L19 6h0a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.2"/></svg>',
+ note:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11l3 3v15H5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>',
+ scan:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M4 12h16"/></svg>',
+ sun:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg>',
+ plus:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display:inline-block;vertical-align:-2px"><path d="M12 5v14M5 12h14"/></svg>',
+ sync:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-7.5-4M3 12a9 9 0 0 1 9-9 9 9 0 0 1 7.5 4"/><path d="M21 3v4h-4M3 21v-4h4"/></svg>',
+ lock:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>'
+};
+(function(){const q=document.getElementById('qr');const pat=[1,1,1,0,1,0,1,1,0,1,1,1,0,1,0,0,1,0,1,1,0,1,1,1,0,1,1,0,1,0,0,1,1,0,0,1,0,1,1,0,1,1,0,0,1,0,1,1,0,0,1,0,1,1,1,0,0,1,0,1,1,1,0,1,0,0,1,1,0,1,0,0,1,1,0,1,0,1,1,0,1,1,0,0,1,1,0,0,1,1,0,1,1,1,0,1,0,1,1,0,0,1,0,1,1,1,0,1,0,0,1,1,0,1,0,1,0,1,1,0,1];let h='';for(let i=0;i<121;i++)h+='<i class="'+(pat[i]?'':'off')+'"></i>';q.innerHTML=h;})();
+document.body.innerHTML=document.body.innerHTML.replaceAll('__BOT__',I.bot).replaceAll('__PHONE__',I.phone).replaceAll('__CAM__',I.cam).replaceAll('__NOTE__',I.note).replaceAll('__SCAN__',I.scan).replaceAll('__SUN__',I.sun).replaceAll('__PLUS__',I.plus).replaceAll('__SYNC__',I.sync).replaceAll('__LOCK__',I.lock);
+
+const KEY='settings-devices-redesign-2026-06-08';const store=JSON.parse(localStorage.getItem(KEY)||'{}');function save(){localStorage.setItem(KEY,JSON.stringify(store));}
+const nameOpts=[["Companion",1,'Section titled "ResearchOS Companion" (or "Companion"). Frames it as the app, not just hardware. Matches the app-v2 BeakerBot branding.'],["Devices",0,'Keep "Devices". Generic, familiar, but reads like hardware management rather than the phone app.'],["Phone",0,'Title it "Phone". Short + concrete, but does not cover a future tablet/2nd phone as well.']];
+const syncOpts=[["Tuck under Advanced",1,'Auto-sync is the default; hide "Check for new captures" + "Re-publish" under a collapsed Advanced disclosure (as drawn). Clean for the common case, power controls still there.'],["Always visible",0,'Keep the manual buttons always shown. More discoverable for debugging, but more clutter now that sync is automatic.'],["Remove entirely",0,'Drop the manual buttons; rely purely on auto-sync. Cleanest, but no manual nudge if a sync ever stalls.']];
+function picker(host,key,opts){const h=document.getElementById(host);opts.forEach((o,i)=>{const el=document.createElement('div');el.className='opt'+(String(store[key])===String(i)?' sel':'');el.innerHTML='<div><div class="t">'+o[0]+(o[1]?'<span class="reco">recommended</span>':'')+'</div><div class="d">'+o[2]+'</div></div>';el.onclick=()=>{store[key]=i;save();document.querySelectorAll('#'+host+' .opt').forEach((e,j)=>e.classList.toggle('sel',j===i));};h.appendChild(el);});}
+picker('nameopts','name_pick',nameOpts);picker('syncopts','sync_pick',syncOpts);
+
+document.querySelectorAll('.section').forEach(sec=>{const id=sec.dataset.sec;const host=sec.querySelector('.review');if(!host)return;const cur=store[id]||{v:'',c:''};const seg=document.createElement('div');seg.className='seg';[['ok','Approve'],['warn','Needs change'],['none','Undecided']].forEach(([v,lbl])=>{const b=document.createElement('button');b.textContent=lbl;b.onclick=()=>{store[id]={...(store[id]||{}),v};save();render();};seg.appendChild(b);});host.appendChild(seg);const stage=sec.querySelector('.stage');const ta=document.createElement('textarea');ta.className='cmt';ta.placeholder='Comment (optional)';ta.value=cur.c||'';ta.oninput=()=>{store[id]={...(store[id]||{}),c:ta.value};save();};stage.appendChild(ta);});
+function render(){document.querySelectorAll('.section').forEach(sec=>{const id=sec.dataset.sec;const cur=store[id]||{};sec.querySelectorAll('.seg button').forEach(b=>{const v=b.textContent==='Approve'?'ok':b.textContent==='Needs change'?'warn':'none';b.className=(cur.v===v?'active '+v:'');});});}
+render();
+document.getElementById('themeBtn').onclick=function(){const r=document.documentElement;const d=r.getAttribute('data-theme')==='dark';r.setAttribute('data-theme',d?'light':'dark');this.textContent=d?'Dark mode':'Light mode';};
+document.getElementById('exBtn').onclick=function(){let out='SETTINGS DEVICES REDESIGN - '+new Date().toString().slice(0,21)+'\\n'+'='.repeat(44)+'\\n\\n';document.querySelectorAll('.section').forEach(sec=>{const id=sec.dataset.sec;const c=store[id]||{};const v=c.v==='ok'?'APPROVE':c.v==='warn'?'NEEDS CHANGE':c.v==='none'?'undecided':'(unmarked)';out+='['+v+'] '+sec.dataset.label+'\\n';if(c.c&&c.c.trim())out+='   note: '+c.c.trim()+'\\n';});out+='\\nSection name: '+(store.name_pick!=null?nameOpts[store.name_pick][0]:'(not picked)')+'\\n';out+='Manual sync controls: '+(store.sync_pick!=null?syncOpts[store.sync_pick][0]:'(not picked)')+'\\n';document.getElementById('exT').value=out;document.getElementById('ex').style.display='flex';};
+</script>
+</body>
+</html>
