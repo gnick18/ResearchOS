@@ -20,6 +20,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { useTheme, palette } from '@/lib/design';
 import { ensureNotificationPermission } from '@/lib/notifications';
@@ -195,11 +196,10 @@ export default function TimersScreen() {
           <SectionHeader title="Running" />
 
           {running.length === 0 ? (
-            <Card>
-              <ThemedText style={[styles.cardHint, { color: surface.muted }]}>
-                No timers running. Start one above.
-              </ThemedText>
-            </Card>
+            <EmptyState
+              icon="timer-outline"
+              text="No timers running. Start one above."
+            />
           ) : (
             running.map((timer) => (
               <TimerRow key={timer.id} timer={timer} onCancel={onCancel} />

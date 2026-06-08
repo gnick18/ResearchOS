@@ -1,26 +1,26 @@
 /**
- * BeakerBotMark. A rounded branded tile that renders the BeakerBot app icon
- * image. Uses the bundled icon.png asset via require() — zero new dependencies.
+ * BeakerBotMark. A rounded branded tile that renders the BeakerBot vector mark.
+ * Uses the react-native-svg BeakerBot component (ported from brand/beakerbot-mark.svg)
+ * so it scales crisply at any resolution. The icon.png dependency is removed.
  *
- * Sizes: sm=56, md=80, lg=108. The container is a sky-tinted rounded rect
- * behind the image so it looks intentional even while the asset loads.
+ * Sizes: sm=56, md=80, lg=108. A soft sky-tinted rounded rect sits behind the
+ * mark and frames it intentionally in the hero context.
  *
  * House style: no em-dashes, no emojis, no mid-sentence colons.
  */
 
 import React from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useTheme, palette } from '@/lib/design';
-
-// The app icon is BeakerBot. Require at module level so Metro bundles it.
-const ICON = require('@/assets/images/icon.png') as number;
+import { BeakerBot } from './BeakerBot';
 
 export type BeakerBotMarkSize = 'sm' | 'md' | 'lg';
 
-const SIZE_MAP: Record<BeakerBotMarkSize, number> = {
-  sm: 56,
-  md: 80,
-  lg: 108,
+// Tile size (outer container), bot size (vector height inside the tile).
+const SIZE_MAP: Record<BeakerBotMarkSize, { tile: number; bot: number }> = {
+  sm: { tile: 56, bot: 36 },
+  md: { tile: 80, bot: 52 },
+  lg: { tile: 108, bot: 72 },
 };
 
 export interface BeakerBotMarkProps {
@@ -29,7 +29,7 @@ export interface BeakerBotMarkProps {
 
 export function BeakerBotMark({ size = 'md' }: BeakerBotMarkProps) {
   const { radii, dark } = useTheme();
-  const dim = SIZE_MAP[size];
+  const { tile, bot } = SIZE_MAP[size];
   const radius = size === 'sm' ? radii.md : size === 'md' ? radii.lg : radii.xl;
 
   return (
@@ -37,18 +37,14 @@ export function BeakerBotMark({ size = 'md' }: BeakerBotMarkProps) {
       style={[
         styles.tile,
         {
-          width: dim,
-          height: dim,
+          width: tile,
+          height: tile,
           borderRadius: radius,
           backgroundColor: dark ? 'rgba(26,160,230,0.18)' : palette.skyLight,
         },
       ]}
     >
-      <Image
-        source={ICON}
-        style={{ width: dim * 0.78, height: dim * 0.78 }}
-        resizeMode="contain"
-      />
+      <BeakerBot size={bot} />
     </View>
   );
 }

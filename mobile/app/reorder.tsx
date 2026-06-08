@@ -27,6 +27,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { useTheme, palette } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
@@ -217,11 +218,10 @@ export default function ReorderScreen() {
           <SyncLine sync={sync} paired={paired} />
 
           {!paired ? (
-            <Card>
-              <ThemedText style={[styles.cardHint, { color: surface.muted }]}>
-                Pair this phone from the home tab to scan and send reorders.
-              </ThemedText>
-            </Card>
+            <EmptyState
+              icon="barcode-outline"
+              text="Pair this phone from the home tab to scan and send reorders."
+            />
           ) : null}
 
           {paired && permission && !permission.granted ? (

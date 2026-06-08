@@ -16,11 +16,21 @@
 //
 // See docs/proposals/PASSKEY_IDENTITY_UNLOCK.md.
 
+import { sha256 } from "@noble/hashes/sha2.js";
+import { utf8ToBytes } from "@noble/hashes/utils.js";
+
 // A fixed, public PRF salt. Public is fine, the security is the authenticator-held
 // credential, not salt secrecy. Stable forever, changing it orphans every passkey.
-// 32 bytes derived from the ASCII of "researchos/sharing/passkey-prf/salt/v1".
-const PRF_SALT = new TextEncoder().encode(
-  "researchos/sharing/passkey-prf/salt/v1",
+//
+// The WebAuthn L3 prf extension requires eval.first to be EXACTLY 32 bytes, and
+// Chrome enforces this hard: a salt of any other length makes the PRF output
+// absent from getClientExtensionResults(), so readPrfOutput() returns null and
+// unlock silently always falls back to the recovery code. The raw ASCII of the
+// label below is 38 bytes, so we hash it to a stable 32-byte digest. The digest
+// is deterministic and computed once at module load, so it is identical at enroll
+// and unlock, which is the property a wrapping-key salt must have.
+export const PRF_SALT = sha256(
+  utf8ToBytes("researchos/sharing/passkey-prf/salt/v1"),
 );
 
 const RP_NAME = "ResearchOS";

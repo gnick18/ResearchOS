@@ -43,9 +43,9 @@ export default function HomeScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safe}>
         {/* Hero */}
-        <View style={[styles.hero, { gap: spacing.sm }]}>
+        <View style={[styles.hero, { gap: spacing.lg }]}>
           <BeakerBotMark size="lg" />
-          <View style={[styles.heroText, { gap: spacing.xs }]}>
+          <View style={[styles.heroText, { gap: spacing.sm }]}>
             <ThemedText
               style={[
                 styles.wordmark,
@@ -187,7 +187,6 @@ const styles = StyleSheet.create({
   },
   heroText: {
     alignItems: 'center',
-    marginTop: 6,
   },
   wordmark: {
     fontSize: 28,
@@ -199,7 +198,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     textAlign: 'center',
-    maxWidth: 320,
+    maxWidth: 300,
+    marginTop: 2,
   },
   cardTitle: {
     fontSize: 17,

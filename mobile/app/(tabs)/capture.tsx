@@ -24,6 +24,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { useTheme, palette } from '@/lib/design';
 import {
@@ -216,11 +217,10 @@ export default function CaptureScreen() {
           </View>
 
           {captures.length === 0 ? (
-            <Card>
-              <ThemedText style={[styles.cardHint, { color: surface.muted }]}>
-                No captures yet. Snap a bench photo above.
-              </ThemedText>
-            </Card>
+            <EmptyState
+              icon="camera-outline"
+              text="No captures yet. Snap a bench photo above."
+            />
           ) : (
             <>
               {paired && captures.some((c) => c.status === 'queued' || c.status === 'failed') ? (

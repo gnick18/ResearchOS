@@ -107,6 +107,35 @@ const darkSurface: SurfaceTokens = {
 };
 
 // ---------------------------------------------------------------------------
+// Elevation / shadow tokens (platform-adaptive; use via useTheme().elevation)
+// ---------------------------------------------------------------------------
+export interface ElevationToken {
+  // iOS shadow props
+  shadowColor: string;
+  shadowOffset: { width: number; height: number };
+  shadowOpacity: number;
+  shadowRadius: number;
+  // Android elevation
+  elevation: number;
+}
+
+const elevationLight: ElevationToken = {
+  shadowColor: '#000000',
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.07,
+  shadowRadius: 4,
+  elevation: 2,
+};
+
+const elevationDark: ElevationToken = {
+  shadowColor: '#000000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.28,
+  shadowRadius: 6,
+  elevation: 4,
+};
+
+// ---------------------------------------------------------------------------
 // Shape radii
 // ---------------------------------------------------------------------------
 export const radii = {
@@ -152,6 +181,8 @@ export interface Theme {
   radii: typeof radii;
   spacing: typeof spacing;
   type: typeof type;
+  /** Soft card shadow. Spread these props directly onto a View style. */
+  elevation: ElevationToken;
   dark: boolean;
 }
 
@@ -164,6 +195,7 @@ export function useTheme(): Theme {
     radii,
     spacing,
     type,
+    elevation: dark ? elevationDark : elevationLight,
     dark,
   };
 }

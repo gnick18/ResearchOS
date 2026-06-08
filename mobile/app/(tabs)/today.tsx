@@ -19,6 +19,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { useTheme, palette } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
@@ -180,9 +181,10 @@ export default function TodayScreen() {
                       <TaskRow key={task.id ?? `today-${i}`} task={task} />
                     ))
                   ) : (
-                    <ThemedText style={[styles.emptyLine, { color: surface.muted }]}>
-                      Nothing scheduled for today.
-                    </ThemedText>
+                    <EmptyState
+                      icon="calendar-outline"
+                      text="Nothing scheduled for today."
+                    />
                   )}
 
                   {overdueTasks.length > 0 ? (

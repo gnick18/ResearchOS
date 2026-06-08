@@ -1,6 +1,8 @@
 /**
  * Card primitive. A rounded, bordered, themed surface for grouping content.
- * Matches the web app Card aesthetic in React Native terms.
+ * Applies a subtle, theme-aware elevation shadow so cards lift off the
+ * background without looking heavy. Shadow is soft on light, slightly deeper on
+ * dark (both pulled from the design.ts elevation token).
  *
  * House style: no em-dashes, no emojis, no mid-sentence colons.
  */
@@ -15,7 +17,7 @@ export interface CardProps extends ViewProps {
 }
 
 export function Card({ compact = false, style, children, ...rest }: CardProps) {
-  const { surface, radii, spacing } = useTheme();
+  const { surface, radii, spacing, elevation } = useTheme();
 
   return (
     <View
@@ -26,6 +28,8 @@ export function Card({ compact = false, style, children, ...rest }: CardProps) {
           borderColor: surface.border,
           borderRadius: radii.lg,
           padding: compact ? spacing.md : spacing.lg,
+          // Elevation shadow (theme-aware, soft)
+          ...elevation,
         },
         style,
       ]}
