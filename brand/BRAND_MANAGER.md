@@ -11,8 +11,10 @@ Read `brand/README.md` first for the raw color/type spec. This file is the
 
 - The visual brand: BeakerBot mascot, the ResearchOS wordmark, the rainbow, color and type.
 - The SVG/PNG asset library under `brand/` and its generators under `brand/src/`.
-- The social presence: profiles + posts on YouTube, Bluesky, LinkedIn (and future platforms).
-- In-app brand surfaces: favicon, OpenGraph/social-share card, welcome/landing brand copy.
+- The social + community presence: profiles + posts on YouTube, Bluesky, LinkedIn,
+  and the GitHub org / repo / Sponsors page (and future platforms).
+- In-app brand surfaces: favicon, OpenGraph/social-share card, welcome/landing
+  brand copy, and the `/thanks` page (sponsors + open-source credits).
 - Outbound copy: social posts, taglines, descriptions, and (later) advertising.
 
 ## Brand fundamentals (do not violate)
@@ -111,6 +113,21 @@ adding X unless Grant asks. Mastodon is also skipped for now (smaller, fragmente
   website, industry, description, company type Privately Held, year founded 2026.
   An earlier duplicate `research-os-app` (id 125604102) was deactivated, do not
   use it. Grant's profile lists Founder at ResearchOS linked to this page.
+- **GitHub:** the public repo is `github.com/gnick18/ResearchOS` (AGPLv3, with a
+  branded README, CONTRIBUTING, SECURITY, About description + topics, Discussions
+  on, Wiki tab off). The LLC's GitHub org is `ResearchOS-LLC` (display name
+  ResearchOS, BeakerBot avatar), which exists to receive GitHub Sponsors. The
+  Sponsors page is `github.com/sponsors/ResearchOS-LLC` (tiers Bench $5 / Lab $25
+  / Institute $100, pending GitHub approval as of 2026-06-07). `.github/FUNDING.yml`
+  in the repo points the Sponsor button at the org. An earlier stray org
+  `ResearchOS-App` was deleted; do not recreate it.
+- **Sponsors data + the /thanks page:** the sponsor list lives in
+  `frontend/src/data/sponsors.json` (hand-curated, `{name, url?, logo?, tier}`).
+  To add a sponsor, add an entry. Bench shows only on the `/thanks` sponsor wall;
+  Lab and Institute also render site-wide via `SponsorStrip` (welcome page +
+  wiki footer), Institute featured first and larger, all OPT-IN (only if the
+  sponsor wants their logo shown). The `/thanks` page carries the brand rainbow
+  ribbon + Wordmark; the wiki top bar and welcome page have the ribbon too.
 - **Email:** `support@research-os.app` already forwards to gnickles@wisc.edu via
   ForwardEmail (MX is forwardemail.net). DNS for research-os.app is on Vercel.
   Add aliases with a `forward-email=<alias>:gnickles@wisc.edu` TXT record. This
@@ -146,11 +163,13 @@ held), reading state via screenshots/zoom.
   user's tab) trigger "another admin is editing" conflicts. Navigate your tab off
   the editor (e.g. to example.com) so the user can save, or vice versa.
 - **LinkedIn page deletion + OAuth.** "Sign in with LinkedIn" / the API uses a
-  LinkedIn DEVELOPER APP that must be associated with a company page. Deleting
-  that page can break OAuth. NEVER delete a LinkedIn page without first confirming
-  at linkedin.com/developers which page the app is verified against. (We once had
-  two ResearchOS pages and the old, API-linked one got deleted by mistake; verify
-  the dev-app association points at the surviving `research-os-app` page.)
+  LinkedIn DEVELOPER APP that must be associated with a company page. Deleting or
+  deactivating that page can break OAuth. NEVER delete or deactivate a LinkedIn
+  page without first confirming at linkedin.com/developers which page the app is
+  verified against. STATUS: the canonical live page is id `125434048`; the
+  duplicate `research-os-app` (id `125604102`) was DEACTIVATED. OPEN ITEM: confirm
+  the dev-app association points at the live `125434048` page and that deactivating
+  the duplicate did not break "Sign in with LinkedIn".
 - **Founder identity / stealth / pricing / legal claims are the user's calls.**
   Recommend, then ask. Do not unilaterally publish a title, a price, or a legal
   claim.
