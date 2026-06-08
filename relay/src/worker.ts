@@ -179,6 +179,21 @@ export default {
     // open at the transport (the blob is useless without the lab key). ADDITIVE
     // and dormant (client gate is LAB_TIER_ENABLED). Dispatched BEFORE the
     // /lab/create|append|get block so it matches first.
+    // CORS preflight for ALL cross-origin /lab/* requests (the JSON Content-Type
+    // on the lab-record POSTs + the lab-data GETs make these non-simple). MUST
+    // run BEFORE the method-specific /lab blocks below, which 405 a non-POST and
+    // would otherwise turn the preflight into a 405 that the browser rejects.
+    if (request.method === "OPTIONS" && url.pathname.startsWith("/lab/")) {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        },
+      });
+    }
+
     if (url.pathname.startsWith("/lab/data/")) {
       return handleLabData(url, request, env);
     }
@@ -213,21 +228,6 @@ export default {
       }
       const stub = env.LAB_RECORD.get(env.LAB_RECORD.idFromName(labId));
       return stub.fetch(request);
-    }
-
-    // CORS preflight for the cross-origin lab-record POSTs and lab-data GETs
-    // from the app (the JSON Content-Type + GET /lab/data/get make these
-    // non-simple requests). Handled before the capture dispatch so an OPTIONS
-    // never tries to parse a body.
-    if (request.method === "OPTIONS" && url.pathname.startsWith("/lab/")) {
-      return new Response(null, {
-        status: 204,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
-        },
-      });
     }
 
     // CORS preflight for the cross-origin capture POSTs/GETs from the app (the
@@ -1255,8 +1255,15 @@ export class CaptureInbox {
     // The index of pending captures. blob_key is the R2 key (`<u>/<captureId>`);
     // the blob is deleted from R2 on ack alongside the row.
     this.sql().exec(
-      "CREATE TABLE IF NOT EXISTS captures (capture_id TEXT PRIMARY KEY, caption TEXT, created_at TEXT, content_type TEXT, blob_key TEXT, uploaded_at TEXT)",
+      "CREATE TABLE IF NOT EXISTS captures (capture_id TEXT PRIMARY KEY, caption TEXT, created_at TEXT, content_type TEXT, blob_key TEXT, uploaded_at TEXT, annotation TEXT)",
     );
+    // Additive migration for DOs created before the annotation column existed.
+    // annotation holds the photo markup as the web .annot.json string, or null.
+    try {
+      this.sql().exec("ALTER TABLE captures ADD COLUMN annotation TEXT");
+    } catch {
+      // Column already present (fresh table above, or a prior migration).
+    }
   }
 
   private sql(): SqlStorage {
@@ -1427,6 +1434,7 @@ export class CaptureInbox {
       createdAt?: unknown;
       contentType?: unknown;
       sig?: unknown;
+      annotation?: unknown;
     };
     try {
       meta = JSON.parse(metaRaw);
@@ -1474,13 +1482,14 @@ export class CaptureInbox {
     }
 
     this.sql().exec(
-      "INSERT INTO captures (capture_id, caption, created_at, content_type, blob_key, uploaded_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(capture_id) DO UPDATE SET caption = excluded.caption, created_at = excluded.created_at, content_type = excluded.content_type, blob_key = excluded.blob_key, uploaded_at = excluded.uploaded_at",
+      "INSERT INTO captures (capture_id, caption, created_at, content_type, blob_key, uploaded_at, annotation) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(capture_id) DO UPDATE SET caption = excluded.caption, created_at = excluded.created_at, content_type = excluded.content_type, blob_key = excluded.blob_key, uploaded_at = excluded.uploaded_at, annotation = excluded.annotation",
       captureId,
       typeof meta.caption === "string" ? meta.caption : null,
       createdAt,
       contentType,
       blobKey,
       new Date().toISOString(),
+      typeof meta.annotation === "string" ? meta.annotation : null,
     );
 
     return this.json({ ok: true, captureId }, 200);
@@ -1500,8 +1509,9 @@ export class CaptureInbox {
         caption: string | null;
         created_at: string;
         content_type: string;
+        annotation: string | null;
       }>(
-        "SELECT capture_id, caption, created_at, content_type FROM captures ORDER BY created_at DESC",
+        "SELECT capture_id, caption, created_at, content_type, annotation FROM captures ORDER BY created_at DESC",
       )
       .toArray();
 
@@ -1510,6 +1520,7 @@ export class CaptureInbox {
       caption: r.caption,
       createdAt: r.created_at,
       contentType: r.content_type,
+      annotation: r.annotation,
     }));
 
     return this.json({ captures }, 200);

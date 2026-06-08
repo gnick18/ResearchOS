@@ -67,6 +67,7 @@ import { fileService } from "@/lib/file-system/file-service";
 import { appQueryClient } from "@/lib/query-client";
 import { notesApi, inventoryItemsApi, inventoryStocksApi, purchasesApi } from "@/lib/local-api";
 import { attachImageToTask } from "@/lib/attachments/attach-image";
+import { writeAnnotations, type AnnotationDoc } from "@/lib/attachments/annotations";
 import { imageEvents } from "@/lib/attachments/image-events";
 import { sidecarPath, type ImageSidecar } from "@/lib/attachments/image-folder";
 import {
@@ -715,6 +716,26 @@ export async function runCaptureInboxPoll(
         console.info(
           `${LOG_PREFIX} wrote ${basePath}/Images/${result.finalFilename}`,
         );
+        // Photo markup from the phone, written as the non-destructive
+        // {imageName}.annot.json sidecar the web AnnotatedImage renderer reads,
+        // so markup is editable across phone and laptop. Defensive: a malformed
+        // annotation is skipped, never blocks the image import.
+        if (capture.annotation) {
+          try {
+            const doc = JSON.parse(capture.annotation) as AnnotationDoc;
+            if (doc && Array.isArray(doc.shapes)) {
+              await writeAnnotations(basePath, result.finalFilename, doc);
+              console.info(
+                `${LOG_PREFIX} wrote ${basePath}/Images/${result.finalFilename}.annot.json`,
+              );
+            }
+          } catch (err) {
+            console.warn(
+              `${LOG_PREFIX} skipped malformed annotation for ${result.finalFilename}`,
+              err,
+            );
+          }
+        }
       } else if (kind === "reorder") {
         // Barcode reorder request. The phone sends a JSON body describing the
         // item to reorder. We land it as a real purchase line item in the

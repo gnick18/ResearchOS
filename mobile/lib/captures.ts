@@ -191,14 +191,11 @@ export async function sendCapture(
       name: fileNameForUri(capture.uri, contentType),
       type: contentType,
     } as unknown as Blob);
-    // RELAY/POLLER FOLLOW-UP (orchestrator): capture.annotation holds the EXACT
-    // AnnotationDoc the laptop expects in {imageName}.annot.json. To ship it,
-    // add an `annotation: capture.annotation` field to this meta JSON (and fold
-    // it into the signed captureUploadMessage on both sides so the relay accepts
-    // it), then have the laptop poller write it next to the imported image as
-    // `${imageName}.annot.json`. Nothing on the mobile editor side is missing,
-    // the doc is fully built and persisted on the Capture; only the wire +
-    // poller remain.
+    // Photo markup rides along as the web .annot.json string. It is UNSIGNED
+    // meta (the sig binds the image bytes via captureUploadMessage), which is
+    // fine for this bound-device transient relay and avoids a canonical-string
+    // change. The relay stores it; the laptop poller writes it to
+    // {imageName}.annot.json. Omitted when the photo has no markup.
     form.append(
       'meta',
       JSON.stringify({
@@ -209,6 +206,9 @@ export async function sendCapture(
         createdAt: capture.createdAt,
         contentType,
         sig,
+        ...(capture.annotation
+          ? { annotation: JSON.stringify(capture.annotation) }
+          : {}),
       }),
     );
 

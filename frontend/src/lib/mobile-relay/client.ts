@@ -177,6 +177,9 @@ export interface PendingCapture {
   caption: string | null;
   createdAt: string;
   contentType: string;
+  /** Photo markup as the web .annot.json string, or null. The phone sends it in
+   *  the upload meta; the poller writes it to {imageName}.annot.json. */
+  annotation?: string | null;
 }
 
 /** GET /capture/inbox. Lists pending captures newest-first. */
