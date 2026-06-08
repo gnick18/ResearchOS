@@ -25,9 +25,14 @@ const SIZE_MAP: Record<BeakerBotMarkSize, { tile: number; bot: number }> = {
 
 export interface BeakerBotMarkProps {
   size?: BeakerBotMarkSize;
+  /**
+   * Bring the mark to life (blink + sway + gaze). Default false so inline marks
+   * stay static. The Home hero opts in. Reduce-motion is honored inside BeakerBot.
+   */
+  alive?: boolean;
 }
 
-export function BeakerBotMark({ size = 'md' }: BeakerBotMarkProps) {
+export function BeakerBotMark({ size = 'md', alive = false }: BeakerBotMarkProps) {
   const { radii, dark } = useTheme();
   const { tile, bot } = SIZE_MAP[size];
   const radius = size === 'sm' ? radii.md : size === 'md' ? radii.lg : radii.xl;
@@ -44,7 +49,7 @@ export function BeakerBotMark({ size = 'md' }: BeakerBotMarkProps) {
         },
       ]}
     >
-      <BeakerBot size={bot} />
+      <BeakerBot size={bot} alive={alive} />
     </View>
   );
 }

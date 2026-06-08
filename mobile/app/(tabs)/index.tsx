@@ -44,7 +44,7 @@ export default function HomeScreen() {
       <SafeAreaView style={styles.safe}>
         {/* Hero */}
         <View style={[styles.hero, { gap: spacing.lg }]}>
-          <BeakerBotMark size="lg" />
+          <BeakerBotMark size="lg" alive />
           <View style={[styles.heroText, { gap: spacing.sm }]}>
             <ThemedText
               style={[
