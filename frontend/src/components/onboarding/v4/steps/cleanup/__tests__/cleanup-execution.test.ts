@@ -17,7 +17,6 @@ const {
   userDelete,
   purchaseDelete,
   deleteFeed,
-  clearPairing,
   deleteImageFromBase,
   patchUserSettings,
   tasksGet,
@@ -35,7 +34,6 @@ const {
   ) => ({ status: "ok", deleted_username: "", message: "" })),
   purchaseDelete: vi.fn(async (_id: number) => {}),
   deleteFeed: vi.fn(async (_username: string, _id: number) => true),
-  clearPairing: vi.fn(async (_username: string) => {}),
   deleteImageFromBase: vi.fn(
     async (_basePath: string, _filename: string) => {},
   ),
@@ -69,10 +67,6 @@ vi.mock("@/lib/calendar/external-feeds-store", () => ({
   deleteFeed,
 }));
 
-vi.mock("@/lib/telegram/telegram-store", () => ({
-  clearPairing,
-}));
-
 vi.mock("@/lib/attachments/move-image", () => ({
   deleteImageFromBase,
 }));
@@ -102,7 +96,6 @@ beforeEach(() => {
   userDelete.mockClear();
   purchaseDelete.mockClear();
   deleteFeed.mockClear();
-  clearPairing.mockClear();
   deleteImageFromBase.mockClear();
   patchUserSettings.mockClear();
   tasksGet.mockClear();
@@ -167,39 +160,6 @@ describe("cleanupArtifacts per-type routing", () => {
       "alice",
     );
     expect(deleteFeed).toHaveBeenCalledWith("alice", 7);
-  });
-
-  it("routes telegram_link to clearPairing", async () => {
-    await cleanupArtifacts([art("telegram_link", "paired")], "alice");
-    expect(clearPairing).toHaveBeenCalledWith("alice");
-  });
-
-  it("routes inbox-located telegram_image to inbox base", async () => {
-    await cleanupArtifacts(
-      [art("telegram_image", "photo.png:inbox")],
-      "alice",
-    );
-    expect(deleteImageFromBase).toHaveBeenCalledWith(
-      "users/alice/inbox",
-      "photo.png",
-    );
-  });
-
-  it("routes task-located telegram_image to the task's results base", async () => {
-    tasksGet.mockResolvedValueOnce({
-      id: 12,
-      owner: "bob",
-      name: "x",
-    } as never);
-    await cleanupArtifacts(
-      [art("telegram_image", "photo.png:task-12")],
-      "alice",
-    );
-    expect(tasksGet).toHaveBeenCalledWith(12);
-    expect(deleteImageFromBase).toHaveBeenCalledWith(
-      "users/bob/tasks/12/results",
-      "photo.png",
-    );
   });
 
   it("routes lab_user through usersApi.delete with confirmation step 2 + ack", async () => {

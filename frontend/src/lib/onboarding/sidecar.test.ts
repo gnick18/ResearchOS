@@ -192,7 +192,6 @@ describe("sidecar v4 round-trip", () => {
     purchases: "yes",
     calendar: "yes",
     goals: "maybe",
-    telegram: "no",
     ai_helper: "full",
   };
   const sampleResume: WizardResumeState = {
@@ -478,7 +477,6 @@ describe("clearWizardCompletion (v4 Re-run-tour bypass)", () => {
         purchases: "yes",
         calendar: "yes",
         goals: "maybe",
-        telegram: "no",
         ai_helper: "minimal",
       },
       wizard_completed_at: "2026-05-20T12:00:00Z",
@@ -537,7 +535,6 @@ describe("clearWizardCompletion (v4 Re-run-tour bypass)", () => {
         purchases: "no",
         calendar: "no",
         goals: "no",
-        telegram: "no",
         ai_helper: "no",
       },
       wizard_completed_at: null,
@@ -589,7 +586,6 @@ describe("clearWizardCompletion (v4 Re-run-tour bypass)", () => {
         purchases: "no",
         calendar: "no",
         goals: "no",
-        telegram: "no",
         ai_helper: "no",
       },
       wizard_completed_at: "2026-05-20T12:00:00Z",

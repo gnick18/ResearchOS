@@ -2,13 +2,13 @@ import { promises as dns } from "node:dns";
 import { isIP } from "node:net";
 
 /**
- * Shared SSRF + safe-fetch primitives for the two server-side proxy routes
- * (`/api/telegram-file`, `/api/calendar-feed`). Both routes fetch URLs
- * influenced by untrusted client input, so they need:
+ * Shared SSRF + safe-fetch primitives for the server-side proxy route
+ * (`/api/calendar-feed`). The route fetches URLs influenced by untrusted
+ * client input, so it needs:
  *
  *   - scheme allowlist (no `file://`, `gopher://`, etc.),
  *   - DNS resolution + private/loopback/metadata IP rejection,
- *   - optional host allowlist (Telegram's CDN host is fixed),
+ *   - optional host allowlist,
  *   - manual redirect handling so each hop is re-validated,
  *   - response-size cap (streamed; aborts when exceeded),
  *   - timeout via AbortController,

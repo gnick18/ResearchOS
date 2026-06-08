@@ -41,14 +41,7 @@ import { hasLocalAccount } from "@/lib/auth/account-store";
 import LabRoster from "@/components/lab-head/LabRoster";
 import AuditTrailViewer from "@/components/lab-head/AuditTrailViewer";
 import { loadIdentity } from "@/lib/sharing/identity/storage";
-import {
-  deleteEncryptedBackup,
-  hasEncryptedBackup,
-  writeEncryptedBackup,
-} from "@/lib/telegram/encrypted-backup";
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
-import { readPairing, type TelegramPairing } from "@/lib/telegram/telegram-store";
-import { useTelegramPopup } from "@/lib/telegram/telegram-popup-store";
 import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
 import {
   clearWizardCompletion,
@@ -58,7 +51,6 @@ import {
   replayOnboarding,
 } from "@/lib/onboarding/sidecar";
 import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
-import { forgetAllTelegramTokenCache } from "@/lib/telegram/telegram-token-cache";
 import StreaksSection from "./StreaksSection";
 import { patchStreak } from "@/lib/streak/streak-sidecar";
 import { useTheme, type ThemeChoice } from "@/lib/theme/use-theme";
@@ -271,7 +263,7 @@ function SettingsBodyInner() {
   // not again when the user switches accounts mid-session.
   const scrolledToHashRef = useRef(false);
 
-  // Scroll to URL hash (e.g. /settings#ai-helper, #telegram, #personalize)
+  // Scroll to URL hash (e.g. /settings#ai-helper, #behavior, #personalize)
   // once the section is actually in the DOM. Onboarding-tip setupActions
   // navigate here, so this is the entry point users hit cold.
   useEffect(() => {
@@ -705,8 +697,7 @@ function SectionShell({
   description?: string;
   children: React.ReactNode;
   /** Optional fragment-id anchor — used by deep-links like
-   *  `/settings#telegram` and `/settings#personalize` (fired by the
-   *  Telegram and Personalize-Colors onboarding tips' setupActions). */
+   *  `/settings#personalize` (fired by onboarding tips' setupActions). */
   id?: string;
   /** Optional `data-tour-target` value — used by the Onboarding v4
    *  walkthrough to anchor spotlights on specific Settings sections
@@ -1730,17 +1721,11 @@ function AnimationSection({ settings, update }: SectionProps) {
 function BehaviorSection({ settings, update }: SectionProps) {
   return (
     <SectionShell
-      id="telegram"
-      tourTarget="settings-telegram-section"
-      title="Notifications & behavior"
-      description="Master switches for messaging and safety prompts."
-      searchKeywords="telegram notifications bot auto-reconnect encrypted backup destructive confirm prompts safety"
+      id="behavior"
+      title="Behavior"
+      description="Safety prompts for destructive actions."
+      searchKeywords="destructive confirm prompts safety behavior"
     >
-      {/* Alias anchor so `/settings#behavior` also lands on this section
-          (some docs/links use the section's title word rather than the
-          original `#telegram` id). */}
-      <span id="behavior" aria-hidden="true" />
-      <TelegramPointerRow />
       <ToggleRow
         label="Confirm destructive actions"
         description='Show "Are you sure?" prompts before deleting tasks, projects, etc.'
@@ -1758,67 +1743,6 @@ function BehaviorSection({ settings, update }: SectionProps) {
   );
 }
 
-// Telegram is managed entirely from the top-bar paper-plane button and its
-// consolidated popup (pairing, notifications, auto-reconnect, encrypted backup,
-// disconnect). Settings keeps a one-line pointer that opens that same popup, so
-// there is no forked Telegram config surface.
-function TelegramPointerRow() {
-  const { currentUser } = useFileSystem();
-  const openPopup = useTelegramPopup((s) => s.openPopup);
-  const [pairing, setPairing] = useState<TelegramPairing | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const p = currentUser ? await readPairing(currentUser) : null;
-      if (!cancelled) setPairing(p);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [currentUser]);
-
-  const paired = !!pairing;
-
-  return (
-    <SearchableRow
-      id="telegram:connection"
-      label="Telegram connection"
-      desc="Pair or manage the Telegram bot that sends photos to your inbox. Notifications, auto-reconnect, and encrypted backup live in its popup. Connect manage bot handle notifications."
-    >
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-body text-foreground">
-            <HighlightedText text="Telegram connection" />
-          </p>
-          <p className="text-meta text-foreground-muted mt-0.5">
-            {paired ? (
-              <>
-                <span className="text-emerald-600 dark:text-emerald-300 font-medium">
-                  Connected as @{pairing.botUsername}
-                </span>
-                . Manage it from the paper-plane button in the top bar.
-              </>
-            ) : (
-              <>
-                Not connected. Open the paper-plane button in the top bar to
-                connect a bot.
-              </>
-            )}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => openPopup()}
-          className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
-        >
-          {paired ? "Manage" : "Connect"}
-        </button>
-      </div>
-    </SearchableRow>
-  );
-}
-
 // ── Data inventory ──────────────────────────────────────────────────────────
 //
 // Read-only verification surface for the wiki's "data stays on your computer"
@@ -1826,7 +1750,7 @@ function TelegramPointerRow() {
 // IndexedDB key the app keeps in the browser. No actions besides Refresh.
 // Closes the security audit role brief's affordance #1.
 
-const IDB_KEYS: { key: string; meaning: string; isCredential?: boolean }[] = [
+const IDB_KEYS: { key: string; meaning: string }[] = [
   {
     key: "research-os-fsa / handles / research-os-directory-handle",
     meaning:
@@ -1844,12 +1768,6 @@ const IDB_KEYS: { key: string; meaning: string; isCredential?: boolean }[] = [
     key: "keyval-store / keyval / research-os-main-user",
     meaning:
       "Username string of the Lab Mode primary account, when Lab Mode is in use.",
-  },
-  {
-    key: "research-os-telegram-token-cache / tokens / {folderName, username}",
-    meaning:
-      "Recovery cache for your Telegram bot credentials when the on-disk _telegram.json is missing or unreadable (misshared OneDrive deletion, iCloud sync hiccup, manual cleanup). Holds {bot_token, chat_id, bot_username} keyed per folder + user so a lab-mate sharing this folder does NOT see your cached token. Use the Forget button on the right to wipe every cached entry for the current folder.",
-    isCredential: true,
   },
 ];
 
@@ -1875,46 +1793,6 @@ function DataInventorySection() {
   const [scanning, setScanning] = useState(false);
   const [files, setFiles] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [forgetting, setForgetting] = useState(false);
-  const [forgetStatus, setForgetStatus] = useState<{
-    text: string;
-    kind: "ok" | "err";
-  } | null>(null);
-  const [encryptedBackup, setEncryptedBackup] = useState<
-    { state: "loading" } | { state: "absent" } | { state: "present"; savedAt: string | null }
-  >({ state: "loading" });
-
-  const handleForgetTelegramCache = useCallback(async () => {
-    if (!directoryName) {
-      setForgetStatus({
-        text: "No folder is currently connected.",
-        kind: "err",
-      });
-      setTimeout(() => setForgetStatus(null), 4000);
-      return;
-    }
-    setForgetting(true);
-    setForgetStatus(null);
-    try {
-      await forgetAllTelegramTokenCache(directoryName);
-      setForgetStatus({
-        text: `Wiped Telegram-token cache entries for folder "${directoryName}".`,
-        kind: "ok",
-      });
-    } catch (err) {
-      console.error("[Data inventory] Forget Telegram cache failed:", err);
-      setForgetStatus({
-        text:
-          err instanceof Error
-            ? err.message
-            : "Forget failed. See console for details.",
-        kind: "err",
-      });
-    } finally {
-      setForgetting(false);
-      setTimeout(() => setForgetStatus(null), 4000);
-    }
-  }, [directoryName]);
 
   const runScan = useCallback(async () => {
     setScanning(true);
@@ -1938,43 +1816,6 @@ function DataInventorySection() {
   useEffect(() => {
     void runScan();
   }, [runScan]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const probe = async () => {
-      if (!currentUser) {
-        if (!cancelled) setEncryptedBackup({ state: "absent" });
-        return;
-      }
-      const path = `users/${currentUser}/_telegram-encrypted.json`;
-      try {
-        const exists = await fileService.fileExists(path);
-        if (cancelled) return;
-        if (!exists) {
-          setEncryptedBackup({ state: "absent" });
-          return;
-        }
-        const sidecar = await fileService.readJson<{ saved_at?: unknown }>(path);
-        if (cancelled) return;
-        const savedAt =
-          sidecar && typeof sidecar.saved_at === "string" ? sidecar.saved_at : null;
-        setEncryptedBackup({ state: "present", savedAt });
-      } catch (err) {
-        console.warn("[Data inventory] encrypted-backup probe failed:", err);
-        if (!cancelled) setEncryptedBackup({ state: "absent" });
-      }
-    };
-    void probe();
-    return () => {
-      cancelled = true;
-    };
-  }, [currentUser]);
-
-  const handleManageEncryptedBackup = useCallback(() => {
-    if (typeof document === "undefined") return;
-    const target = document.getElementById("telegram");
-    if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, []);
 
   // Group by top-level path segment ("(root)" for files at folder root).
   const grouped = useMemo(() => {
@@ -2001,7 +1842,7 @@ function DataInventorySection() {
     <SectionShell
       title="Data inventory"
       description="Every file path the app has written to your folder, plus every IndexedDB key in your browser. Read-only — proves nothing is leaving your computer."
-      searchKeywords="files disk IndexedDB IDB telegram bot backup encrypted forget cache external calls api network privacy"
+      searchKeywords="files disk IndexedDB IDB cache external calls api network privacy"
     >
       <div>
         <div className="flex items-start justify-between gap-4 mb-3">
@@ -2059,7 +1900,7 @@ function DataInventorySection() {
       <div className="border-t border-border pt-4">
         <p className="text-body font-medium text-foreground">Browser IndexedDB keys</p>
         <p className="text-meta text-foreground-muted mt-1 mb-2">
-          Five known keys, listed below. Open DevTools → Application → IndexedDB
+          Four known keys, listed below. Open DevTools → Application → IndexedDB
           to verify.
         </p>
         <ul className="space-y-2">
@@ -2075,94 +1916,16 @@ function DataInventorySection() {
                   </code>
                   <p className="text-meta text-foreground-muted mt-1">{k.meaning}</p>
                 </div>
-                {k.isCredential && (
-                  <Tooltip
-                    label="Wipe every Telegram-token cache entry for this folder"
-                    placement="left"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => void handleForgetTelegramCache()}
-                      disabled={forgetting || !directoryName}
-                      className="px-2.5 py-1.5 text-meta bg-rose-600 hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md whitespace-nowrap shrink-0"
-                    >
-                      {forgetting ? "Forgetting…" : "Forget"}
-                    </button>
-                  </Tooltip>
-                )}
               </div>
-              {k.isCredential && forgetStatus && (
-                <p
-                  className={`text-meta mt-2 ${
-                    forgetStatus.kind === "ok"
-                      ? "text-emerald-700 dark:text-emerald-300"
-                      : "text-red-600 dark:text-red-300"
-                  }`}
-                >
-                  {forgetStatus.text}
-                </p>
-              )}
             </li>
           ))}
         </ul>
       </div>
 
       <div className="border-t border-border pt-4">
-        <p className="text-body font-medium text-foreground">
-          Telegram bot backup{" "}
-          <span
-            className={`ml-2 align-middle inline-flex items-center rounded-md px-1.5 py-0.5 text-meta font-semibold ${
-              encryptedBackup.state === "present"
-                ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-200"
-                : "bg-surface-sunken text-foreground-muted ring-1 ring-border"
-            }`}
-          >
-            Encrypted backup:{" "}
-            {encryptedBackup.state === "loading"
-              ? "…"
-              : encryptedBackup.state === "present"
-                ? "ON"
-                : "OFF"}
-          </span>
-        </p>
-        <div className="flex items-start justify-between gap-3 mt-1">
-          <p className="text-meta text-foreground-muted leading-relaxed min-w-0 flex-1">
-            {encryptedBackup.state === "present" ? (
-              <>
-                Encrypted backup present at{" "}
-                <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">
-                  users/{currentUser ?? "<u>"}/_telegram-encrypted.json
-                </code>
-                .{" "}
-                {encryptedBackup.savedAt
-                  ? `Last saved: ${new Date(encryptedBackup.savedAt).toLocaleString()}.`
-                  : "Last saved: unknown (sidecar missing the saved_at field)."}
-              </>
-            ) : (
-              <>
-                No encrypted backup. The browser-scoped recovery (IDB cache) is
-                still active.
-              </>
-            )}
-          </p>
-          <button
-            type="button"
-            onClick={handleManageEncryptedBackup}
-            className="shrink-0 px-2.5 py-1.5 text-meta bg-surface-sunken hover:bg-gray-300 text-foreground rounded-md whitespace-nowrap"
-          >
-            Manage
-          </button>
-        </div>
-      </div>
-
-      <div className="border-t border-border pt-4">
         <p className="text-body font-medium text-foreground">External calls</p>
         <p className="text-meta text-foreground-muted mt-1 leading-relaxed">
           When using ResearchOS, your browser makes outbound calls to: (a){" "}
-          <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">
-            api.telegram.org
-          </code>{" "}
-          directly, if you&apos;ve paired a Telegram bot; (b){" "}
           <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">
             /api/calendar-feed
           </code>{" "}
@@ -2171,12 +1934,7 @@ function DataInventorySection() {
           <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">
             x-calendar-url
           </code>{" "}
-          request header; (c){" "}
-          <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">
-            /api/telegram-file
-          </code>{" "}
-          on this app&apos;s origin, which proxies Telegram CDN file downloads;
-          (d){" "}
+          request header; (b){" "}
           <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">
             va.vercel-scripts.com
           </code>{" "}
@@ -2185,7 +1943,7 @@ function DataInventorySection() {
             vitals.vercel-insights.com
           </code>{" "}
           for anonymous page-view pings via Vercel Web Analytics and
-          anonymous Core Web Vitals via Vercel Speed Insights; and (e){" "}
+          anonymous Core Web Vitals via Vercel Speed Insights; and (c){" "}
           <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">
             research-os-xi.vercel.app
           </code>{" "}
@@ -2193,12 +1951,8 @@ function DataInventorySection() {
           <strong>Pull latest from research-os-xi.vercel.app</strong> in the AI
           Helper section above (a user-initiated, on-demand fetch of the newest
           AI Helper prompt when the bundled copy is stale). Toggle
-          &quot;Offline mode&quot; below to disable destinations (b), (c), and
-          (d) durably. Direct{" "}
-          <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">
-            api.telegram.org
-          </code>{" "}
-          polling continues either way since the proxy isn&apos;t on that path.
+          &quot;Offline mode&quot; below to disable destinations (a) and (b)
+          durably.
         </p>
       </div>
     </SectionShell>
@@ -3231,28 +2985,25 @@ function SecuritySection({
 
 // ── Offline mode ────────────────────────────────────────────────────────────
 //
-// Closes the role brief's affordance #2: a single switch that stops the two
-// browser → own-server proxy calls (`/api/calendar-feed`, `/api/telegram-file`).
-// Direct browser → Telegram polling continues because that talks to
-// api.telegram.org directly and Telegram cannot function otherwise.
+// Closes the role brief's affordance #2: a single switch that stops the
+// browser → own-server proxy call (`/api/calendar-feed`).
 
 function OfflineModeSection({ settings, update }: SectionProps) {
   return (
     <SectionShell
       title="Offline mode"
-      description="Disable the two proxy routes (/api/calendar-feed and /api/telegram-file) so the app makes no calls to its own server. Useful if you want zero outbound network from the app surface."
+      description="Disable the /api/calendar-feed proxy route so the app makes no calls to its own server. Useful if you want zero outbound network from the app surface."
       searchKeywords="network proxy server outbound block disable api"
     >
       <ToggleRow
         label="Block calls to our server"
-        description="External calendar feeds stop syncing and Telegram file downloads stop. Direct Telegram polling still works (it talks to api.telegram.org from the browser, not through our proxy)."
+        description="External calendar feeds stop syncing."
         checked={settings.offlineMode}
         onChange={(v) => void update({ offlineMode: v })}
       />
       {settings.offlineMode && (
         <div className="rounded-md border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 px-3 py-2 text-meta text-amber-900 dark:text-amber-300">
-          Offline mode active. Calendar feeds and Telegram file downloads are blocked.
-          Direct Telegram polling still works.
+          Offline mode active. Calendar feeds are blocked.
         </div>
       )}
     </SectionShell>

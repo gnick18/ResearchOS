@@ -1,12 +1,12 @@
 /**
  * Tiny pubsub for image-related changes that should make UI components
  * re-list / refresh without prop drilling. The image strip listens here so
- * that newly-attached images (from in-app upload OR the Telegram pipeline)
- * show up immediately, and so that sidecar-caption edits propagate to
- * tooltips.
+ * that newly-attached images (from in-app upload OR the mobile relay
+ * pipeline) show up immediately, and so that sidecar-caption edits
+ * propagate to tooltips.
  *
  * Cross-tab plumbing: Grant runs ResearchOS in multiple tabs. The
- * Telegram polling loop is cross-tab-locked to one tab, so when a photo
+ * mobile-relay poller is cross-tab-locked to one tab, so when a photo
  * lands the attach emit fires only in that tab; without cross-tab
  * broadcast the OTHER tabs' InboxBadge / InboxToast / ImageStrip stay
  * stale until a refresh. We solve it with a layered approach: keep the

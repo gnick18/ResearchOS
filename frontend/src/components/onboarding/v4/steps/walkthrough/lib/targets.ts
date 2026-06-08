@@ -306,12 +306,11 @@ export const TOUR_TARGETS = {
   ganttDepPickerStartAfter: "gantt-dep-picker-start-after",
   ganttDepPickerStartBefore: "gantt-dep-picker-start-before",
   ganttDepPickerStartSame: "gantt-dep-picker-start-same",
-  // Telegram inbox badge — the small "Inbox" pill in the AppShell
-  // top-right cluster that opens the InboxPanel. The §6.13 Telegram
-  // step uses this as a gentle-redirect anchor once a photo lands.
-  // Replaces the legacy `data-testid='inbox-tab'` selector (Lab Inbox
-  // concept was renamed; the prior testid no longer existed in
-  // source). Walkthrough audit fix manager (2026-05-25).
+  // Inbox badge — the small "Inbox" pill in the AppShell top-right
+  // cluster that opens the InboxPanel. Replaces the legacy
+  // `data-testid='inbox-tab'` selector (Lab Inbox concept was renamed;
+  // the prior testid no longer existed in source). Walkthrough audit
+  // fix manager (2026-05-25).
   inboxBadge: "inbox-badge",
 
   // User picker (top-right floating cluster), used by the real
@@ -368,7 +367,6 @@ export const TOUR_TARGETS = {
   // targetSelector) until the surfaces ship. FOLLOW-UP comments in the
   // step bodies tag the wire-up site.
   settingsFolderSection: "settings-folder-section",
-  settingsTelegramSection: "settings-telegram-section",
   settingsTabsSection: "settings-tabs-section",
   settingsStreakSection: "settings-streak-section",
   settingsRerunSection: "settings-rerun-section",

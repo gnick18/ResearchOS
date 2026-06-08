@@ -52,8 +52,6 @@ const TYPE_ICON: Readonly<Record<string, string>> = {
   variation_note: "N",
   note_entry: "N",
   hybrid_edit: "N",
-  telegram_link: "T",
-  telegram_image: "I",
   calendar_feed: "K",
   settings_change: "S",
   lab_user: "L",

@@ -18,19 +18,16 @@ export interface ImageSidecar {
   description?: string;
   tags?: string[];
   receivedAt?: string;
-  source?: "telegram" | "upload" | "import" | "relay";
+  source?: "upload" | "import" | "relay";
+  /** True when the photo arrived during the guided tutorial's first-photo
+   *  step. Used to scan the inbox on tutorial-end and delete leftover test
+   *  photos. */
+  tutorial_test?: boolean;
+  /** Legacy Telegram sidecar fields. The Telegram integration was removed;
+   *  old sidecars may still carry these. Readers ignore them. */
   telegramMessageId?: number;
   telegramChatId?: number;
-  /** Telegram media_group_id of the album this photo arrived in (a numeric
-   *  string), when it landed in the Inbox as part of a multi-photo send.
-   *  Additive, no migration: photos saved before this field existed simply
-   *  aren't grouped. The InboxPanel groups inbox images that share a value.
-   *  DATA-SHAPE addition (telegram-simplify 2026-06-02). */
   telegramMediaGroupId?: string;
-  /** True when the photo arrived during the guided tutorial's first-photo
-   *  step. Used by `lib/telegram/tutorial-cleanup.ts` to scan the inbox
-   *  on tutorial-end and delete leftover test photos. */
-  tutorial_test?: boolean;
 }
 
 export interface FolderImageEntry {

@@ -17,7 +17,7 @@ import type { SetupStepProps } from "./types";
  * radio reads naturally for both account types; the brief explicitly
  * called this out.
  *
- * Shape mirrors Q5TelegramStep — local-pick state to avoid the
+ * Shape mirrors the other setup-q steps — local-pick state to avoid the
  * sidecar-write-latency flicker (see Q2 docstring), P12 hydration so
  * Resume / back-step lands on the saved answer.
  */

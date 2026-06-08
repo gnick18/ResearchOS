@@ -8,7 +8,6 @@ import {
   hasLocalAccount,
   loginWithPassword,
 } from "@/lib/auth/account-store";
-import { deleteEncryptedBackup } from "@/lib/telegram/encrypted-backup";
 import { folderRequiresLogin } from "@/lib/auth/login-policy";
 import { discoverUsers } from "@/lib/file-system/user-discovery";
 import { readUserSettings } from "@/lib/settings/user-settings";
@@ -163,11 +162,6 @@ export default function AccountPasswordPopup({
           return;
         }
         await deleteLocalAccount(username);
-        try {
-          await deleteEncryptedBackup(username);
-        } catch {
-          /* best-effort, the backup is keyed to the now-removed identity */
-        }
         setHasExisting(false);
         setDone("Login removed.");
         resetForm();

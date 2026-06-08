@@ -31,7 +31,7 @@ function enqueueOnboardingWrite<T>(
 /**
  * Per-user onboarding sidecar at `users/<u>/_onboarding.json`.
  *
- * Mirrors `_telegram.json` / `_calendar-feeds.json` / `_labarchives.json`,
+ * Mirrors `_calendar-feeds.json` / `_labarchives.json`,
  * one JSON blob per user that captures where this user is in the
  * onboarding v3 walkthrough and which feature picks they made at Phase 1.
  *
@@ -117,7 +117,6 @@ export interface FeaturePicks {
   purchases?: "yes" | "no" | "maybe";
   calendar?: "yes" | "no" | "maybe";
   goals?: "yes" | "no" | "maybe";
-  telegram?: "yes" | "no" | "maybe";
   ai_helper?: "full" | "medium" | "minimal" | "no" | "maybe";
   /** Q7 Links: do you want a page to store important links to other
    *  sites? Lab Links manager 2026-05-22 — the surface was previously
@@ -138,7 +137,7 @@ export interface FeaturePicks {
  *  persisted sidecars + step bodies that still append it. */
 export interface WizardArtifact {
   /** Domain category: "project", "method", "experiment", "purchase",
-   *  "goal", "calendar_feed", "telegram_link", "lab_user", "lab_task",
+   *  "goal", "calendar_feed", "lab_user", "lab_task",
    *  "settings_change", "hybrid_edit", etc. Free-form string so the
    *  auto-cleanup sweep can dispatch without coupling to a fixed enum. */
   type: string;
@@ -458,9 +457,6 @@ function parseFeaturePicks(raw: unknown): FeaturePicks | null {
   }
   if (typeof o.goals === "string" && YES_NO_MAYBE.has(o.goals)) {
     picks.goals = o.goals as FeaturePicks["goals"];
-  }
-  if (typeof o.telegram === "string" && YES_NO_MAYBE.has(o.telegram)) {
-    picks.telegram = o.telegram as FeaturePicks["telegram"];
   }
   if (typeof o.ai_helper === "string" && AI_HELPER_VALUES.has(o.ai_helper)) {
     picks.ai_helper = o.ai_helper as FeaturePicks["ai_helper"];

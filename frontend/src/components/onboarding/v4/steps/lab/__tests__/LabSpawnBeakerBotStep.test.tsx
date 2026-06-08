@@ -46,7 +46,6 @@ function picks(over: Partial<FeaturePicks> = {}): FeaturePicks {
     purchases: "no",
     calendar: "no",
     goals: "no",
-    telegram: "no",
     ai_helper: "no",
     ...over,
   };

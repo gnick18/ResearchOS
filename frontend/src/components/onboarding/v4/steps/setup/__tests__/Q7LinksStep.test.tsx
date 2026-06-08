@@ -1,6 +1,6 @@
 /**
- * Q7 Links step (Lab Links manager 2026-05-22): mirrors the
- * Q5TelegramStep shape — three options (yes / no / maybe later),
+ * Q7 Links step (Lab Links manager 2026-05-22): three options
+ * (yes / no / maybe later),
  * Next disabled until a pick is made, sidecar patched on click,
  * hydration from sidecar on mount so Resume / back-step lands on
  * the saved answer.
@@ -19,7 +19,6 @@ function postQ1Sidecar(): OnboardingSidecar {
       purchases: "maybe",
       calendar: "maybe",
       goals: "maybe",
-      telegram: "maybe",
       ai_helper: "full",
     },
   });
@@ -120,7 +119,6 @@ describe("Q7LinksStep", () => {
         purchases: "yes",
         calendar: "yes",
         goals: "yes",
-        telegram: "yes",
         ai_helper: "full",
         links: "yes",
       },

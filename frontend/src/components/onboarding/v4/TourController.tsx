@@ -541,7 +541,7 @@ export interface TourControllerProviderProps {
   ) => Promise<void>;
   /** Username for the active user. Threaded into the Phase 4 cleanup
    *  step so its `cleanupArtifacts` sweep can resolve per-user file
-   *  paths (settings revert, telegram inbox, etc.). Optional because
+   *  paths (settings revert, image inbox, etc.). Optional because
    *  the controller is used in tests without an end-to-end user
    *  identity. */
   username?: string;

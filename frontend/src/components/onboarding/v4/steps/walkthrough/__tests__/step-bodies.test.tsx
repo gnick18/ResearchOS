@@ -125,7 +125,6 @@ import { animationPickerStep } from "../AnimationPickerStep";
 import { settingsColorStep } from "../SettingsColorStep";
 import {
   settingsTourFolderStep,
-  settingsTourTelegramStep,
   settingsTourAccountTypeToggleStep,
   settingsTourVisibleTabsStep,
   settingsTourStreakStep,
@@ -231,7 +230,6 @@ const ALL_STEPS: ReadonlyArray<TourStep> = [
   // ALL_STEPS so the contract sweep doesn't re-evaluate retired bodies.
   settingsColorStep,
   settingsTourFolderStep,
-  settingsTourTelegramStep,
   settingsTourAccountTypeToggleStep,
   settingsTourVisibleTabsStep,
   settingsTourStreakStep,
@@ -316,7 +314,6 @@ describe("P5 step bodies — universal contract", () => {
       // §6.10 Settings phase redesign 2026-05-22 (Settings manager).
       "personalization-color",
       "settings-tour-folder",
-      "settings-tour-telegram",
       "settings-tour-account-type-toggle",
       "settings-tour-visible-tabs",
       "settings-tour-streak",
@@ -1097,7 +1094,6 @@ describe("Gantt steps (§6.8) — Gantt manager redesign 2026-05-22", () => {
       purchases: "no",
       calendar: "no",
       goals: "yes",
-      telegram: "no",
       ai_helper: "no",
     };
     const no: FeaturePicks = { ...yes, goals: "no" };
@@ -1142,7 +1138,7 @@ describe("Settings steps (§6.10)", () => {
     );
   });
   // §6.10 Settings phase redesign 2026-05-22 (Settings manager): the
-  // legacy `settings-more` pointer is retired in favor of the 7
+  // legacy `settings-more` pointer is retired in favor of the
   // settings-tour-* narration beats. Direct assertions on
   // `settingsMoreStep.targetSelector` are gone; the new beats are
   // covered by SettingsTourBeats.test.tsx.
@@ -1152,7 +1148,6 @@ describe("Settings steps (§6.10)", () => {
       purchases: "no",
       calendar: "no",
       goals: "no",
-      telegram: "no",
       ai_helper: v,
     });
     expect(

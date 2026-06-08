@@ -35,7 +35,7 @@ import type { TourStep } from "../../step-types";
  * manual-advance rule applies to every BeakerBot-led step in the
  * walkthrough; literal readers who needed more than 7.5s to read the
  * speech had no way to pace themselves. The other conditional
- * walkthrough steps (purchases, telegram, etc.) already use
+ * walkthrough steps (purchases, links, etc.) already use
  * manualAdvance per Wave 1.
  */
 

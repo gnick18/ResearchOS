@@ -94,7 +94,7 @@ const P5_STEP_IDS = [
   "personalization-color",
   "settings-tour-folder",
   // settings-tour-calendar retired 2026-05-27.
-  "settings-tour-telegram",
+  // settings-tour-telegram retired with the Telegram removal.
   "settings-tour-account-type-toggle",
   "settings-tour-visible-tabs",
   "settings-tour-streak",

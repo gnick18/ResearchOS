@@ -1,7 +1,7 @@
 /**
  * §6.10 Settings phase redesign 2026-05-22 (Settings manager).
  *
- * Per-step contract tests for the 7 settings-tour-* narration beats.
+ * Per-step contract tests for the settings-tour-* narration beats.
  * Each test verifies:
  *
  *   - The step body exports a TourStep with the right id.
@@ -12,9 +12,9 @@
  *   - The speech bubble contains the key phrases from the spec.
  *   - The speech bubble does NOT contain em-dashes (Grant standing rule).
  *
- * Three beats are conditional (calendar / telegram / account-type-toggle);
- * the other four (folder / visible-tabs / streak / rerun) fire for
- * everyone (no `conditionalOn`).
+ * The account-type-toggle beat is conditional; the others
+ * (folder / visible-tabs / streak / rerun) fire for everyone
+ * (no `conditionalOn`).
  */
 import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
@@ -23,7 +23,6 @@ import type { TourStep } from "../../../step-types";
 import {
   settingsTourFolderStep,
   // settingsTourCalendarStep retired 2026-05-27.
-  settingsTourTelegramStep,
   settingsTourAccountTypeToggleStep,
   settingsTourVisibleTabsStep,
   settingsTourStreakStep,
@@ -37,7 +36,6 @@ function picks(over: Partial<FeaturePicks> = {}): FeaturePicks {
     purchases: "no",
     calendar: "no",
     goals: "no",
-    telegram: "no",
     ai_helper: "no",
     ...over,
   };
@@ -92,41 +90,6 @@ describe("settings-tour-folder (universal)", () => {
 // content on the surface. The step body stays @deprecated in
 // SettingsTourBeats.tsx for git history; no describe block here
 // because the step is no longer in TOUR_STEP_ORDER.
-
-describe("settings-tour-telegram (conditional: telegram === yes)", () => {
-  it("has the right id + pose + completion contract", () => {
-    expect(settingsTourTelegramStep.id).toBe("settings-tour-telegram");
-    expect(settingsTourTelegramStep.pose).toBe("pointing");
-    expect(settingsTourTelegramStep.completion.type).toBe("manual");
-    expect(settingsTourTelegramStep.expectedRoute).toBe("/settings");
-  });
-  it("anchors on the settings-telegram-section spotlight target", () => {
-    expect(settingsTourTelegramStep.targetSelector).toBe(
-      "[data-tour-target=\"settings-telegram-section\"]",
-    );
-  });
-  it("conditionalOn passes only when picks.telegram === 'yes'", () => {
-    const gate = settingsTourTelegramStep.conditionalOn!;
-    expect(gate(picks({ telegram: "yes" }))).toBe(true);
-    expect(gate(picks({ telegram: "no" }))).toBe(false);
-    expect(gate(picks({ telegram: "maybe" }))).toBe(false);
-    expect(gate(null)).toBe(false);
-  });
-  it("speech mentions Telegram + the neutral linked/not-linked framing", () => {
-    // R2 chip C 2026-05-22: the prior copy ("You linked it during
-    // setup. ...this is the spot") was false for users who picked Q6 =
-    // yes-later (Q5=yes still gates this step, but they did NOT link).
-    // The reworked speech is neutral about whether the user linked
-    // already and points them at the steps in the Settings section.
-    const text = renderSpeech(settingsTourTelegramStep);
-    expect(text).toMatch(/Telegram/);
-    expect(text).toMatch(/wire it up anytime/i);
-    expect(text).not.toMatch(/You linked it during setup/i);
-  });
-  it("speech is em-dash free", () => {
-    expect(renderSpeech(settingsTourTelegramStep)).not.toContain("—");
-  });
-});
 
 describe("settings-tour-account-type-toggle (conditional: solo only)", () => {
   it("has the right id + pose + completion contract", () => {

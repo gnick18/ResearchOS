@@ -21,7 +21,6 @@ const {
   userDelete,
   purchaseDelete,
   deleteFeed,
-  clearPairing,
   deleteImageFromBase,
   patchUserSettings,
   tasksGet,
@@ -37,7 +36,6 @@ const {
   ) => ({ status: "ok", deleted_username: "beakerbot", message: "" })),
   purchaseDelete: vi.fn(async (_id: number) => {}),
   deleteFeed: vi.fn(async (_username: string, _id: number) => true),
-  clearPairing: vi.fn(async (_username: string) => {}),
   deleteImageFromBase: vi.fn(
     async (_basePath: string, _filename: string) => {},
   ),
@@ -60,10 +58,6 @@ vi.mock("@/lib/local-api", () => ({
 
 vi.mock("@/lib/calendar/external-feeds-store", () => ({
   deleteFeed,
-}));
-
-vi.mock("@/lib/telegram/telegram-store", () => ({
-  clearPairing,
 }));
 
 vi.mock("@/lib/attachments/move-image", () => ({
@@ -90,7 +84,6 @@ function baseSidecar(
       purchases: "maybe",
       calendar: "maybe",
       goals: "maybe",
-      telegram: "maybe",
       ai_helper: "maybe",
     },
     wizard_completed_at: null,
@@ -173,7 +166,6 @@ beforeEach(() => {
   userDelete.mockClear();
   purchaseDelete.mockClear();
   deleteFeed.mockClear();
-  clearPairing.mockClear();
   deleteImageFromBase.mockClear();
   patchUserSettings.mockClear();
   tasksGet.mockClear();

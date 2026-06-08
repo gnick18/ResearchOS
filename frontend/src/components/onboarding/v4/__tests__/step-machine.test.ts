@@ -26,7 +26,6 @@ function picks(over: Partial<FeaturePicks> = {}): FeaturePicks {
     purchases: "no",
     calendar: "no",
     goals: "no",
-    telegram: "no",
     ai_helper: "no",
     ...over,
   };
@@ -124,7 +123,8 @@ describe("TOUR_STEP_ORDER", () => {
     // tour page-lock kept them on /settings, so the instruction was
     // unactionable. Step body remains @deprecated for git history.
     expect(TOUR_STEP_ORDER).not.toContain("settings-tour-calendar");
-    expect(TOUR_STEP_ORDER).toContain("settings-tour-telegram");
+    // Telegram removed from the app: the settings-tour-telegram beat is gone.
+    expect(TOUR_STEP_ORDER).not.toContain("settings-tour-telegram");
     expect(TOUR_STEP_ORDER).toContain("settings-tour-account-type-toggle");
     expect(TOUR_STEP_ORDER).toContain("settings-tour-visible-tabs");
     expect(TOUR_STEP_ORDER).toContain("settings-tour-streak");
@@ -132,7 +132,8 @@ describe("TOUR_STEP_ORDER", () => {
     expect(TOUR_STEP_ORDER).toContain("ai-helper-size-diff");
     expect(TOUR_STEP_ORDER).toContain("ai-helper-use-case-paste");
     expect(TOUR_STEP_ORDER).toContain("ai-helper-use-case-agentic");
-    expect(TOUR_STEP_ORDER).toContain("telegram");
+    // Telegram removed from the app: the walkthrough telegram beat is gone.
+    expect(TOUR_STEP_ORDER).not.toContain("telegram");
     // Purchases manager 2026-05-22: the legacy single `purchases` id is
     // replaced by the 8-step cluster. The list intentionally retires
     // the old id, sub-bots that look it up under that name resolve via
@@ -397,7 +398,6 @@ describe("TOUR_STEP_ORDER", () => {
       purchases: "yes",
       calendar: "yes",
       goals: "yes",
-      telegram: "yes",
       ai_helper: "full",
     });
     const allNo = picks();
@@ -448,7 +448,6 @@ describe("TOUR_STEP_ORDER", () => {
       purchases: "yes",
       calendar: "yes",
       goals: "yes",
-      telegram: "yes",
       ai_helper: "full",
     });
     const allNo = picks();
@@ -717,12 +716,6 @@ describe("isStepGatedOut — setup-q1c (PI follow-up)", () => {
 });
 
 describe("isStepGatedOut — Phase 2 conditional walkthroughs (§6.13-6.15)", () => {
-  it("gates telegram on picks.telegram === 'yes'", () => {
-    expect(isStepGatedOut("telegram", picks({ telegram: "yes" }))).toBe(false);
-    expect(isStepGatedOut("telegram", picks({ telegram: "no" }))).toBe(true);
-    expect(isStepGatedOut("telegram", picks({ telegram: "maybe" }))).toBe(true);
-  });
-
   it("gates the entire purchases cluster on picks.purchases === 'yes'", () => {
     // Purchases manager 2026-05-22: 8-step cluster, all members share
     // the same gate. Each id checked here is what the redesigned
@@ -833,19 +826,6 @@ describe("isStepGatedOut — Phase 2 conditional walkthroughs (§6.13-6.15)", ()
   // alongside the step removal; the prior `gates settings-tour-calendar
   // on picks.calendar === 'yes'` test was deleted with the step.
 
-  it("gates settings-tour-telegram on picks.telegram === 'yes'", () => {
-    expect(
-      isStepGatedOut("settings-tour-telegram", picks({ telegram: "yes" })),
-    ).toBe(false);
-    expect(
-      isStepGatedOut("settings-tour-telegram", picks({ telegram: "no" })),
-    ).toBe(true);
-    expect(
-      isStepGatedOut("settings-tour-telegram", picks({ telegram: "maybe" })),
-    ).toBe(true);
-    expect(isStepGatedOut("settings-tour-telegram", null)).toBe(true);
-  });
-
   it("gates settings-tour-account-type-toggle on solo accounts only", () => {
     // Lab users are already on a lab account, so they skip this beat.
     // Solo users see it so they know how to flip over later.
@@ -881,11 +861,10 @@ describe("isStepGatedOut — Phase 2 conditional walkthroughs (§6.13-6.15)", ()
     }
   });
 
-  it("orders the §6.10 Settings cluster: color → 6 tour beats → 4 ai-helper beats (Wave 1 added ai-helper-size-options 2026-05-27; settings-tour-calendar retired 2026-05-27)", () => {
+  it("orders the §6.10 Settings cluster: color → 5 tour beats → 4 ai-helper beats (Wave 1 added ai-helper-size-options 2026-05-27; settings-tour-calendar retired 2026-05-27; settings-tour-telegram retired with Telegram removal)", () => {
     const order = [
       "personalization-color",
       "settings-tour-folder",
-      "settings-tour-telegram",
       "settings-tour-account-type-toggle",
       "settings-tour-visible-tabs",
       "settings-tour-streak",
@@ -1020,7 +999,6 @@ describe("getNextStep — forward traversal", () => {
       purchases: "yes",
       calendar: "yes",
       goals: "yes",
-      telegram: "yes",
       ai_helper: "full",
       // Lab Links manager 2026-05-22: maximal lab path now includes
       // the Q7 links pick + the links conditional walkthrough step.
@@ -1038,7 +1016,8 @@ describe("getNextStep — forward traversal", () => {
     // in the maximal lab walk.
     expect(visited).toContain("setup-q7");
     expect(visited).toContain("links");
-    expect(visited).toContain("telegram");
+    // Telegram removed from the app: the telegram walkthrough beat is gone.
+    expect(visited).not.toContain("telegram");
     // Purchases manager 2026-05-22: all 8 cluster ids fire in the
     // maximal lab walk.
     expect(visited).toContain("purchases-intro");
@@ -1052,9 +1031,9 @@ describe("getNextStep — forward traversal", () => {
     expect(visited).toContain("calendar");
     expect(visited).toContain("gantt-goals-overview");
     // §6.10 Settings phase redesign 2026-05-22 (Settings manager): the
-    // maximal lab walk includes the 3 ai-helper-* beats + the 6
+    // maximal lab walk includes the 3 ai-helper-* beats + the
     // settings-tour-* beats that apply to lab accounts (folder,
-    // calendar, telegram, visible-tabs, streak, rerun). Lab users skip
+    // visible-tabs, streak, rerun). Lab users skip
     // account-type-toggle because they're already on a lab account.
     expect(visited).not.toContain("ai-helper-deep-explain");
     expect(visited).toContain("ai-helper-size-diff");
@@ -1065,7 +1044,8 @@ describe("getNextStep — forward traversal", () => {
     // step is no longer in TOUR_STEP_ORDER, so the maximal-lab walk
     // skips it even with calendar=yes.
     expect(visited).not.toContain("settings-tour-calendar");
-    expect(visited).toContain("settings-tour-telegram");
+    // Telegram removed from the app: settings-tour-telegram is gone.
+    expect(visited).not.toContain("settings-tour-telegram");
     expect(visited).not.toContain("settings-tour-account-type-toggle");
     expect(visited).toContain("settings-tour-visible-tabs");
     expect(visited).toContain("settings-tour-streak");
@@ -1153,13 +1133,13 @@ describe("getPreviousStep — backward traversal", () => {
     // "lab-prompt" with lab=solo → first non-lab non-calendar before.
     // Easier check: from "calendar" with all-no, getPreviousStep should
     // skip purchases too (gated out under all-no).
-    const allNo = picks({ purchases: "no", calendar: "no", telegram: "no" });
+    const allNo = picks({ purchases: "no", calendar: "no" });
     // §6.12 Wiki pointer redesign 2026-05-22, collapsed to 2 beats
     // 2026-06-03 (HR / tour-simplification): the cluster's terminal beat
     // is now `wiki-pointer-icon-spotlight` (the click-demo + back-demo
     // navigation beats were cut), so backstep from `calendar` under
     // all-no picks lands there (skipping the gated-out purchases /
-    // telegram / links cluster between).
+    // links cluster between).
     expect(getPreviousStep("calendar", allNo)).toBe("wiki-pointer-icon-spotlight");
     // With purchases=yes, backstep from "calendar" lands on the LAST
     // applicable purchases cluster step (purchases-back-to-real per
@@ -1200,7 +1180,6 @@ describe("getPreviousStep — backward traversal", () => {
         purchases: "yes",
         calendar: "yes",
         goals: "yes",
-        telegram: "yes",
         ai_helper: "full",
         links: "yes",
       })],
@@ -1209,7 +1188,6 @@ describe("getPreviousStep — backward traversal", () => {
         purchases: "yes",
         calendar: "yes",
         goals: "yes",
-        telegram: "yes",
         ai_helper: "full",
         links: "yes",
       })],
@@ -1242,7 +1220,6 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
       purchases: "yes",
       calendar: "yes",
       goals: "yes",
-      telegram: "yes",
       ai_helper: "full",
       // Lab Links manager 2026-05-22: maximal picks include links=yes
       // so labCount === TOUR_STEP_ORDER.length (no conditionals gated
@@ -1283,17 +1260,14 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     // §6.10 Settings phase redesign 2026-05-22 (Settings manager):
     // ai-helper-deep-explain split into 3 beats (size-diff, paste,
     // agentic) sharing the prior ai_helper ∈ {full,medium,minimal}
-    // gate. 7 settings-tour-* beats added; calendar gates on
-    // calendar=yes, telegram gates on telegram=yes, account-type-toggle
+    // gate. settings-tour-* beats added; account-type-toggle
     // gates on account_type=solo.
     //
-    // Solo+minimal skips: 4 prior conditionals (telegram, calendar,
+    // Solo+minimal skips: 3 prior conditionals (calendar,
     // links, gantt-goals-overview) + 4 ai-helper-* (Wave 1 2026-05-27
     // added ai-helper-size-options to the trio, all 4 share the same
     // gate) + 8 purchases cluster + 1 lab-cleanup + 6 Gantt share
-    // cluster + 1 settings-tour-* conditional (telegram; calendar's
-    // settings beat retired 2026-05-27, account-type-toggle FIRES for
-    // solo) + 1 setup-q1c (lab-only) = 25 gated out for solo. Constant
+    // cluster + 1 setup-q1c (lab-only) = 23 gated out for solo. Constant
     // dropped from 28 to 27 on 2026-05-27 when the settings-tour-calendar
     // step was retired, then rose from 27 to 29 on 2026-05-28 when
     // share-back user-action manager split gantt-share-user-shares-back
@@ -1305,8 +1279,11 @@ describe("firstApplicableStep / totalApplicableSteps / applicableStepIndex", () 
     // 29 to 25 on 2026-06-03 when tour simplification pass 4 collapsed the
     // Gantt share cluster from 10 lab-only beats to 6 (cut
     // beakerbot-shares + the clicks-share / fills-dialog / saves-dialog
-    // field walk).
-    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 25);
+    // field walk), then dropped from 25 to 23 when Telegram was removed
+    // from the app (the walkthrough telegram beat + settings-tour-telegram
+    // beat left TOUR_STEP_ORDER entirely, so they no longer count as
+    // gated-out steps for solo).
+    expect(soloCount).toBe(TOUR_STEP_ORDER.length - 23);
     // Lab+max: inline-editor collapse (onboarding-inline bot 2026-06-02)
     // removed the branch-gated HE-3 (hybrid-markdown-overview), which used
     // to be gated out on the lab path too. Now only

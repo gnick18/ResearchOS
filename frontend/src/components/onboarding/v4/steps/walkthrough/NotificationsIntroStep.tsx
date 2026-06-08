@@ -53,7 +53,7 @@ export const notificationsIntroStep = buildWalkthroughStep({
       <p>
         The <strong>inbox</strong> next to it is where files land when
         something is sent to you from outside the app, like photos from
-        Telegram or shared attachments.
+        your phone or shared attachments.
       </p>
     </>
   ),

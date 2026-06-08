@@ -66,27 +66,6 @@ export const settingsTourFolderStep = buildWalkthroughStep({
 // /settings, so the beat narrated UI the user couldn't see. Feed
 // management lives on the /calendar page via CalendarFeedsButton.
 
-/** §6.10c — Telegram narration (gated on Q5=yes). Anchors on the
- *  BehaviorSection which already carries `id="telegram"` for deep-
- *  links from the Telegram onboarding tip.
- *
- *  R2 chip C 2026-05-22 copy fix: the prior speech claimed "You linked
- *  it during setup", which is only true for users who picked Q6 = yes-
- *  now. The Q5=yes gate covers BOTH the yes-now AND yes-later branches,
- *  so the neutral reframe ("if you didn't link it during setup, you can
- *  wire it up anytime") fits both audiences without making a false
- *  claim. */
-export const settingsTourTelegramStep = buildWalkthroughStep({
-  id: "settings-tour-telegram",
-  speech:
-    "Telegram lives here. If you didn't link it during setup, you can wire it up anytime by following the steps in this section.",
-  pose: "pointing",
-  targetSelector: targetSelector(TOUR_TARGETS.settingsTelegramSection),
-  completion: manualAdvance("Got it, next"),
-  conditionalOn: (picks: FeaturePicks | null) => picks?.telegram === "yes",
-  expectedRoute: "/settings",
-});
-
 /** §6.10d — Account-type toggle narration (gated on Q1=solo).
  *
  *  Speech-honesty fix (Settings fix manager R1, 2026-05-22): no

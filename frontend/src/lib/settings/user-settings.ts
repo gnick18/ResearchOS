@@ -210,13 +210,6 @@ export interface UserSettings {
   timeFormat: TimeFormat;
 
   // Behavior
-  telegramNotifications: boolean;
-  /** When on, the user has opted into the encrypted-backup auto-reconnect
-   *  path. The actual encrypted sidecar lives at
-   *  users/<u>/_telegram-encrypted.json — this flag just records the
-   *  user's intent so the polling tab knows whether to prompt for the
-   *  password on startup when the pairing file is missing. */
-  telegramAutoReconnect: boolean;
   confirmDestructiveActions: boolean;
 
   // Left sidebar (the one shown on every page except /calendar, which has
@@ -256,9 +249,8 @@ export interface UserSettings {
   // allowed by design, per Grant's 2026-05-23 decisions).
   account_type: AccountType;
 
-  // When on, the app makes zero calls to its own server proxies
-  // (`/api/calendar-feed`, `/api/telegram-file`). Direct browser → Telegram
-  // polling continues because that talks to api.telegram.org directly.
+  // When on, the app makes zero calls to its own server proxy
+  // (`/api/calendar-feed`).
   offlineMode: boolean;
 
   // What's-new popup (whats-new bot, 2026-05-29). The version string of
@@ -377,8 +369,6 @@ export const DEFAULT_SETTINGS: UserSettings = {
   professionalMode: false,
   dateFormat: "MDY",
   timeFormat: "12h",
-  telegramNotifications: true,
-  telegramAutoReconnect: false,
   confirmDestructiveActions: true,
   sidebarShowTasks: true,
   sidebarShowCalendarEvents: false,

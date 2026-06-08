@@ -83,7 +83,6 @@ describe("useFeaturePicks() — populated picks", () => {
       purchases: "yes" as const,
       calendar: "no" as const,
       goals: "maybe" as const,
-      telegram: "no" as const,
       ai_helper: "medium" as const,
     };
     memFs.set(PATH, {

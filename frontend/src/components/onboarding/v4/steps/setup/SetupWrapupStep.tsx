@@ -275,14 +275,13 @@ function formatTabList(
 }
 
 /** Render the integrations summary. Lists every integration the user
- *  opted into during setup; renders "None set up yet" if all three are
- *  off / maybe / undefined. Telegram and Calendar are the two
+ *  opted into during setup; renders "None set up yet" if all are
+ *  off / maybe / undefined. Calendar feeds and goal tracking are the
  *  integrations the setup phase asks about directly; the AI Helper is
  *  rendered separately because it has more sub-states. */
 function formatIntegrations(picks: FeaturePicks | null): string {
   if (!picks) return "Not set up yet";
   const enabled: string[] = [];
-  if (picks.telegram === "yes") enabled.push("Telegram image inbox");
   if (picks.calendar === "yes") enabled.push("Calendar feeds");
   if (picks.goals === "yes") enabled.push("Goal tracking");
   if (enabled.length === 0) {

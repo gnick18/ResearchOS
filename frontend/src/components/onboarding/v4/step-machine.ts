@@ -30,7 +30,7 @@ import type { TourStepId } from "./step-types";
  *   Phase 2 — in-product tour : home → project → notifications →
  *                               methods → workbench → hybrid editor →
  *                               gantt → settings → search → wiki
- *   Phase 2b — conditional    : telegram / purchases / calendar
+ *   Phase 2b — conditional    : purchases / calendar
  *   Phase 2c — lab tour       : prompt → spawn fake user → permission
  *                               practice
  *   Terminal — goodbye outro  : "tour-goodbye" (auto-cleanup + animation;
@@ -70,7 +70,6 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   "setup-q2",
   "setup-q3",
   "setup-q4",
-  "setup-q5",
   "setup-q6",
   // Q7 Lab Links (Lab Links manager 2026-05-22): the Lab Links surface
   // was previously shown unconditionally for lab accounts and never
@@ -367,16 +366,15 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   //
   //   - `personalization-color` REFINED to demo primary + invite
   //     optional secondary user-action pick.
-  //   - 7 new `settings-tour-*` narration beats explaining the
-  //     folder / calendar / telegram / account-type toggle / visible
+  //   - new `settings-tour-*` narration beats explaining the
+  //     folder / calendar / account-type toggle / visible
   //     tabs / streak / re-run surfaces.
   //   - 3 new `ai-helper-*` beats splitting the prior wall of
   //     speech into manual-advance size-diff + paste use case +
   //     agentic use case.
   //
-  // Three of the new settings-tour-* beats are conditional:
+  // Two of the new settings-tour-* beats are conditional:
   //   - `settings-tour-calendar`         gates on picks.calendar === "yes"
-  //   - `settings-tour-telegram`         gates on picks.telegram === "yes"
   //   - `settings-tour-account-type-toggle` gates on picks.account_type === "solo"
   //
   // The 3 ai-helper-* beats inherit the prior single-id gate
@@ -393,7 +391,6 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
   // confusing. Speech body had no actionable content for the user on
   // this surface. Step body kept @deprecated in SettingsTourBeats.tsx
   // for git history reference.
-  "settings-tour-telegram",
   "settings-tour-account-type-toggle",
   "settings-tour-visible-tabs",
   "settings-tour-streak",
@@ -428,13 +425,10 @@ export const TOUR_STEP_ORDER: readonly TourStepId[] = [
 
   // ----- Phase 2b: conditional walkthroughs (§6.13 - §6.15, plus
   // links from Lab Links manager 2026-05-22)
-  // Order matches Grant's voice-to-text: telegram first (since it can
-  // dovetail into hybrid editor image), then purchases, then calendar.
   // `links` lives after calendar and before the lab phase per the
   // Lab Links manager brief (the surface is in the top nav alongside
   // calendar / purchases, so the cluster keeps related-surface beats
   // together).
-  "telegram",
   // Purchases redesign 2026-05-22 (Purchases manager): the single
   // `purchases` id is replaced by an 8-step cluster split into two
   // phases. Phase 1 teaches on the user's empty page (intro → create
@@ -503,7 +497,6 @@ const SETUP_STEP_IDS: ReadonlySet<TourStepId> = new Set<TourStepId>([
   "setup-q2",
   "setup-q3",
   "setup-q4",
-  "setup-q5",
   "setup-q6",
   "setup-q7",
   "setup-wrapup",
@@ -598,7 +591,6 @@ export function isStepGatedOut(
   // dashboard" so it reads correctly for a PI.
 
   // Phase 2 conditional walkthroughs (§6.13 - §6.15).
-  if (step === "telegram") return picks?.telegram !== "yes";
   // Purchases redesign 2026-05-22 (Purchases manager): the legacy
   // single-id `purchases` gate fans out to the 8-step cluster. Every
   // member shares the same `picks.purchases === "yes"` gate, so a
@@ -659,7 +651,6 @@ export function isStepGatedOut(
   // Two of the remaining beats are conditional; the others (folder,
   // visible-tabs, streak, rerun) fire for everyone.
   //
-  //   - settings-tour-telegram         → picks.telegram === "yes"
   //   - settings-tour-account-type-toggle → picks.account_type === "solo"
   //
   // Lab users skip the account-type-toggle beat because they're already
@@ -670,9 +661,6 @@ export function isStepGatedOut(
   // TOUR_STEP_ORDER, so this predicate is unreachable. Kept removed
   // rather than gating-false so the registry skip path matches the
   // ordering source of truth.
-  if (step === "settings-tour-telegram") {
-    return picks?.telegram !== "yes";
-  }
   if (step === "settings-tour-account-type-toggle") {
     return picks?.account_type !== "solo";
   }

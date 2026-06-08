@@ -1,7 +1,7 @@
 /**
- * Q2 / Q3 / Q4 / Q5 share the same yes / no / maybe-later radio shape +
+ * Q2 / Q3 / Q4 share the same yes / no / maybe-later radio shape +
  * local-pick-state-to-avoid-flicker pattern (see Q2 docstring). One
- * suite covers the four to keep the test file count proportional to
+ * suite covers the three to keep the test file count proportional to
  * the actual surface area.
  *
  * P12 hydration: the bodies now seed their local `pick` state from the
@@ -20,7 +20,6 @@ import type { OnboardingSidecar } from "@/lib/onboarding/sidecar";
 import Q2PurchasesStep from "../Q2PurchasesStep";
 import Q3CalendarStep from "../Q3CalendarStep";
 import Q4GoalsStep from "../Q4GoalsStep";
-import Q5TelegramStep from "../Q5TelegramStep";
 import { baseSidecar } from "./baseSidecar";
 
 function postQ1Sidecar(): OnboardingSidecar {
@@ -30,7 +29,6 @@ function postQ1Sidecar(): OnboardingSidecar {
       purchases: "maybe",
       calendar: "maybe",
       goals: "maybe",
-      telegram: "maybe",
       ai_helper: "full",
     },
   });
@@ -61,12 +59,6 @@ const STEPS = [
     field: "goals" as const,
     radioName: "q4-goals",
   },
-  {
-    name: "Q5TelegramStep",
-    Component: Q5TelegramStep,
-    field: "telegram" as const,
-    radioName: "q5-telegram",
-  },
 ];
 
 describe.each(STEPS)(
@@ -96,7 +88,6 @@ describe.each(STEPS)(
           purchases: "yes",
           calendar: "yes",
           goals: "yes",
-          telegram: "yes",
           ai_helper: "full",
         },
       });

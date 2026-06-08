@@ -18,7 +18,6 @@ function picks(over: Partial<FeaturePicks> = {}): FeaturePicks {
     purchases: "maybe",
     calendar: "maybe",
     goals: "maybe",
-    telegram: "maybe",
     ai_helper: "full",
     ...over,
   };
@@ -40,7 +39,6 @@ describe("tabsForFeaturePicks() — solo paths", () => {
         purchases: "no",
         calendar: "no",
         goals: "no",
-        telegram: "no",
         ai_helper: "no",
       }),
     );
@@ -69,7 +67,6 @@ describe("tabsForFeaturePicks() — solo paths", () => {
         purchases: "yes",
         calendar: "yes",
         goals: "yes",
-        telegram: "yes",
       }),
     );
     expect(result).toEqual([
@@ -113,7 +110,6 @@ describe("tabsForFeaturePicks() — lab paths", () => {
         purchases: "no",
         calendar: "no",
         goals: "no",
-        telegram: "no",
       }),
     );
     expect(result).toEqual([
@@ -132,7 +128,6 @@ describe("tabsForFeaturePicks() — lab paths", () => {
         purchases: "no",
         calendar: "no",
         goals: "no",
-        telegram: "no",
         links: "yes",
       }),
     );
@@ -152,7 +147,6 @@ describe("tabsForFeaturePicks() — lab paths", () => {
         purchases: "yes",
         calendar: "yes",
         goals: "yes",
-        telegram: "yes",
         links: "yes",
       }),
     );
@@ -166,17 +160,11 @@ describe("tabsForFeaturePicks() — lab paths", () => {
 
 describe("tabsForFeaturePicks() — toggle independence", () => {
   // Confirms each Q2/Q3 toggle independently adds exactly its tab without
-  // cross-contamination. goals and telegram have no top-nav href today;
-  // toggling them must not move other tabs in or out of the set.
+  // cross-contamination. goals has no top-nav href today;
+  // toggling it must not move other tabs in or out of the set.
   it("toggling goals=yes does not change the tab set (no /goals nav href today)", () => {
     const off = tabsForFeaturePicks(picks({ goals: "no" }));
     const on = tabsForFeaturePicks(picks({ goals: "yes" }));
-    expect(on).toEqual(off);
-  });
-
-  it("toggling telegram=yes does not change the tab set (telegram is not a top-nav tab)", () => {
-    const off = tabsForFeaturePicks(picks({ telegram: "no" }));
-    const on = tabsForFeaturePicks(picks({ telegram: "yes" }));
     expect(on).toEqual(off);
   });
 

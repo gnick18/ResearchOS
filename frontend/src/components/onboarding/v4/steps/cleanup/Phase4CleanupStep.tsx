@@ -106,8 +106,6 @@ const SECTIONS: ReadonlyArray<{
       "note_entry",
       "hybrid_edit",
       "goal",
-      "telegram_link",
-      "telegram_image",
       "calendar_feed",
       "purchase",
       "purchase_item",
@@ -152,16 +150,6 @@ function describeArtifact(artifact: WizardArtifact): string {
       return `Funding string: ${artifact.id}`;
     case "goal":
       return `Goal #${artifact.id}`;
-    case "telegram_link":
-      return "Telegram pairing";
-    case "telegram_image": {
-      const decoded = decodeTelegramImageLocation(artifact.id);
-      if (!decoded) return artifact.id;
-      if (decoded.location === "inbox") {
-        return `${decoded.filename} (in image inbox)`;
-      }
-      return `${decoded.filename} (attached to task #${decoded.location.taskId})`;
-    }
     case "calendar_feed": {
       const decoded = decodeCalendarFeedId(artifact.id);
       if (!decoded) return `Calendar feed #${artifact.id}`;

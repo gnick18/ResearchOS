@@ -68,8 +68,7 @@ interface CommentsThreadProps {
 }
 
 // Session-scoped override map: tracks entities where the user has explicitly
-// toggled the section away from its data-derived default. Mirror of the
-// pendingCaptions pattern in lib/telegram/image-router.ts. Composite key
+// toggled the section away from its data-derived default. Composite key
 // `${entityKind}:${owner ?? "self"}:${id}` so notes and tasks (and shared
 // entities from different owners) keep independent collapse state.
 const userCollapseMap = new Map<string, boolean>();

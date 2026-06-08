@@ -5,15 +5,12 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import DailyTasksSidebar from "./DailyTasksSidebar";
 import CalendarSidebar from "./CalendarSidebar";
-import TelegramHeaderButton from "./telegram/TelegramHeaderButton";
-import TelegramPopup from "./telegram/TelegramPopup";
 import InboxBadge from "./InboxBadge";
 import InboxToast from "./InboxToast";
 import NoteDeleteUndoToast from "./NoteDeleteUndoToast";
 import SequenceDeleteUndoToast from "./SequenceDeleteUndoToast";
 import NotificationBadge from "./NotificationBadge";
 import ReminderRunner from "./ReminderRunner";
-import TelegramEncryptedRecoveryPrompt from "./TelegramEncryptedRecoveryPrompt";
 import IdlePasswordWipe from "./IdlePasswordWipe";
 import Tooltip from "./Tooltip";
 import FeedbackButton from "./FeedbackButton";
@@ -304,8 +301,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* Showcase unlock Curtain Reveal overlay (portaled to body when
           the 7th brand-mark click fires). Null otherwise. */}
       {revealElement}
-      <TelegramEncryptedRecoveryPrompt />
-      <TelegramPopup />
       <IdlePasswordWipe />
       {/* Header */}
       <header
@@ -454,7 +449,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <BeakerSearchPill />
           <NotificationBadge pill={tinted} />
           <InboxBadge />
-          <TelegramHeaderButton tinted={tinted} />
           <Tooltip label="Help & documentation" placement="bottom">
           <Link
             href={helpHref}

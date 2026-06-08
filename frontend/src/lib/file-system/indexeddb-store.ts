@@ -1,5 +1,4 @@
 import { get, set, del } from "idb-keyval";
-import { forgetAllTelegramTokenCache } from "@/lib/telegram/telegram-token-cache";
 
 const DIRECTORY_HANDLE_KEY = "research-os-directory-handle";
 const CURRENT_USER_KEY = "research-os-current-user";
@@ -564,23 +563,6 @@ export async function clearDirectoryHandle(): Promise<void> {
   if (isDemoTab()) {
     deleteDemoIdentity(DEMO_HANDLE_FLAG_KEY);
     return;
-  }
-
-  // SENSITIVE: bot-token cache lives at SECURITY_AUDIT.md §1.3. Cache scope
-  // follows disk scope, so leaving the folder (disconnect / folder switch)
-  // wipes every cached token tied to that folder name before the handle +
-  // meta themselves disappear. The folder name is the cache's scope key,
-  // so we must read it BEFORE deleting the meta entry below.
-  try {
-    const meta = await get<{ name: string; grantedAt: number }>(
-      DIRECTORY_HANDLE_KEY + "-meta",
-    );
-    if (meta?.name) {
-      await forgetAllTelegramTokenCache(meta.name);
-    }
-  } catch {
-    // Ignore: cache wipe is best-effort. A failure here can't leave the
-    // user worse off than the pre-cache behavior; the disk side still wins.
   }
 
   const db = await initDB();

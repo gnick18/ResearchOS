@@ -32,7 +32,6 @@ import Q1cLabHeadStep from "./Q1cLabHeadStep";
 import Q2PurchasesStep from "./Q2PurchasesStep";
 import Q3CalendarStep from "./Q3CalendarStep";
 import Q4GoalsStep from "./Q4GoalsStep";
-import Q5TelegramStep from "./Q5TelegramStep";
 import Q6AiHelperStep from "./Q6AiHelperStep";
 import Q7LinksStep from "./Q7LinksStep";
 // v4 setup wrap-up step manager 2026-05-24. Confirmation beat between
@@ -117,13 +116,6 @@ export const SETUP_STEP_DESCRIPTORS: Partial<
       "You can set up high-level goals for projects, or even private goals for things outside the lab. They show up right on your Gantt chart to help you keep track of what you want to achieve and how much time is left. Want to turn this on?",
     Component: Q4GoalsStep,
   },
-  "setup-q5": {
-    title: "Telegram for image inbox?",
-    pose: "thinking",
-    speech:
-      "You can link a Telegram bot to send photos directly from your phone to your ResearchOS inbox. This makes it easy to quickly upload gel images or bench notes. Do you want to enable this integration?",
-    Component: Q5TelegramStep,
-  },
   "setup-q6": {
     title: "AI Helper prompt?",
     pose: "thinking",
@@ -169,7 +161,6 @@ export {
   Q2PurchasesStep,
   Q3CalendarStep,
   Q4GoalsStep,
-  Q5TelegramStep,
   Q6AiHelperStep,
   Q7LinksStep,
   SetupWrapupStep,

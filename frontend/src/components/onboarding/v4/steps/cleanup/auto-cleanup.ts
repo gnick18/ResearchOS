@@ -43,7 +43,6 @@ import {
   tasksApi,
 } from "@/lib/local-api";
 import { deleteFeed } from "@/lib/calendar/external-feeds-store";
-import { clearPairing } from "@/lib/telegram/telegram-store";
 import { deleteImageFromBase } from "@/lib/attachments/move-image";
 import { taskNotesBase } from "@/lib/tasks/results-paths";
 import {
@@ -291,30 +290,6 @@ async function cleanupOne(
       const decoded = decodeCalendarFeedId(artifact.id);
       const id = decoded ? decoded.feedId : Number(artifact.id);
       if (Number.isFinite(id)) await deleteFeed(username, id);
-      return;
-    }
-    case "telegram_link":
-    case "telegram_pair": {
-      await clearPairing(username);
-      return;
-    }
-    case "telegram_image":
-    case "telegram_synthetic_image": {
-      const decoded = decodeTelegramImageLocation(artifact.id);
-      if (!decoded) return;
-      if (decoded.location === "inbox") {
-        await deleteImageFromBase(
-          `users/${username}/inbox`,
-          decoded.filename,
-        );
-        return;
-      }
-      const taskId = decoded.location.taskId;
-      const task = await tasksApi.get(taskId);
-      if (!task) return;
-      const owner = task.owner || username;
-      const taskBase = `users/${owner}/tasks/${taskId}/results`;
-      await deleteImageFromBase(taskBase, decoded.filename);
       return;
     }
     case "notes_image":

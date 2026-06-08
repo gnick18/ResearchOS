@@ -12,7 +12,7 @@
  *      topbar. Speech tells the user where to look AND, as awareness,
  *      what clicking it does (jump to the matching help article, back
  *      arrow returns them where they left off). Manual advance, advance
- *      lands on the next applicable step (telegram / purchases / etc).
+ *      lands on the next applicable step (purchases / calendar / etc).
  *
  * 2026-06-03 (HR / tour-simplification): Grant hand-walked the cluster
  * and found the two cursor navigation demos overbuilt for a single icon.
@@ -51,7 +51,7 @@ export const wikiPointerIntroStep = buildWalkthroughStep({
  * §6.12 beat 2 - spotlight the `?` icon in the top bar.
  *
  * Spotlight only, no cursor. The icon lives in AppShell next to
- * NotificationBadge / InboxBadge / TelegramHeaderButton / Settings,
+ * NotificationBadge / InboxBadge / Settings,
  * stamped with `data-tour-target="wiki-nav-tab"`. Speech tells the user
  * where to look and, as awareness (no demo), what clicking it does and
  * how the back arrow returns them where they left off.

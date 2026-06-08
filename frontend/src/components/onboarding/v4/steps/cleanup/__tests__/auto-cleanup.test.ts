@@ -27,7 +27,6 @@ const {
   purchaseDelete,
   dependencyDelete,
   deleteFeed,
-  clearPairing,
   deleteImageFromBase,
   tasksGet,
   getNotifications,
@@ -43,7 +42,6 @@ const {
   purchaseDelete: vi.fn(async (_id: number) => {}),
   dependencyDelete: vi.fn(async (_id: number) => {}),
   deleteFeed: vi.fn(async (_username: string, _id: number) => true),
-  clearPairing: vi.fn(async (_username: string) => {}),
   deleteImageFromBase: vi.fn(
     async (_basePath: string, _filename: string) => {},
   ),
@@ -105,10 +103,6 @@ vi.mock("@/lib/local-api", () => ({
 
 vi.mock("@/lib/calendar/external-feeds-store", () => ({
   deleteFeed,
-}));
-
-vi.mock("@/lib/telegram/telegram-store", () => ({
-  clearPairing,
 }));
 
 vi.mock("@/lib/attachments/move-image", () => ({
@@ -174,7 +168,6 @@ beforeEach(() => {
   purchaseDelete.mockClear();
   dependencyDelete.mockClear();
   deleteFeed.mockClear();
-  clearPairing.mockClear();
   deleteImageFromBase.mockClear();
   tasksGet.mockClear();
   getNotifications.mockReset();
@@ -314,15 +307,6 @@ describe("runEndOfTourAutoCleanup — per-type delete routing", () => {
       firstProjectId: null,
     });
     expect(goalDelete).toHaveBeenCalledWith(8);
-  });
-
-  it("routes telegram_link to clearPairing", async () => {
-    seedArtifacts([art("telegram_link", "paired")]);
-    await runEndOfTourAutoCleanup({
-      username: "alice",
-      firstProjectId: null,
-    });
-    expect(clearPairing).toHaveBeenCalledWith("alice");
   });
 
   it("treats funding_string and category as no-ops", async () => {

@@ -30,7 +30,6 @@ import {
   PasskeyPrfUnavailableError,
   PasskeyCancelledError,
 } from "@/lib/sharing/identity/webauthn";
-import { deleteEncryptedBackup } from "@/lib/telegram/encrypted-backup";
 import { performUserDelete } from "@/lib/users/perform-delete";
 import { readUserSettings } from "@/lib/settings/user-settings";
 import { readArchivedSet } from "@/lib/lab/user-archive";

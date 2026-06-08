@@ -4,7 +4,7 @@
 //
 // This is the EXISTING photo-triage flow, moved verbatim out of InboxPanel so
 // the unified inbox shell can mount it under the "Photos" tab with zero
-// behavior change. Everything here, the Telegram-album grouping, multi-select
+// behavior change. Everything here, the album grouping, multi-select
 // (shift / cmd-ctrl), the right-click context menu, send-to-task,
 // send-to-note, the ImageMetadataPopup, duplicate resolution, and move-to-active,
 // is identical to the pre-rework InboxPanel. The only structural change is that
@@ -567,12 +567,13 @@ export default function PhotosInboxTab() {
     return `Send ${selectedCount} items to note…`;
   }, [selectedCount]);
 
-  // ---- Batch grouping (telegram-simplify 2026-06-02) -----------------------
-  // Photos sent to Telegram as one album share a `telegramMediaGroupId` in
-  // their sidecar (recorded by lib/telegram/batch-routing.ts on inbox
-  // arrival). Group consecutive entries that share that id into a single
-  // visual cluster so a user can file the whole album in one action. Entries
-  // without the field (older photos, single sends) render as standalone rows.
+  // ---- Batch grouping -------------------------------------------------------
+  // Legacy: photos that arrived as one album share a `telegramMediaGroupId` in
+  // their sidecar (written by the now-removed Telegram integration). Group
+  // consecutive entries that share that id into a single visual cluster so a
+  // user can file the whole album in one action. Entries without the field
+  // (everything sent via the mobile relay, single sends) render as standalone
+  // rows, which is now the common case.
   //
   // `rows` is an ordered list of either a single entry or a batch group; the
   // original `entries` order is preserved (arrivals are already sorted) so
@@ -720,7 +721,7 @@ export default function PhotosInboxTab() {
           <p className="text-body text-foreground-muted text-center py-8">Loading…</p>
         ) : entries.length === 0 ? (
           <p className="text-body text-foreground-muted italic text-center py-8">
-            Inbox is empty. Telegram photos sent with no experiment open land here.
+            Inbox is empty. Photos sent with no experiment open land here.
           </p>
         ) : (
           <ul className="space-y-2">
@@ -729,15 +730,15 @@ export default function PhotosInboxTab() {
                 renderRow(row.entry)
               ) : (
                 <li key={`batch-${row.groupId}`} className="list-none">
-                  {/* Telegram album: a single batch the user sent at once.
-                      Grouped visually so it reads as one unit, with a
-                      one-tap "select all" so the whole album can be filed
-                      together via the right-click menu. */}
+                  {/* Album: a single batch the user sent at once. Grouped
+                      visually so it reads as one unit, with a one-tap
+                      "select all" so the whole album can be filed together
+                      via the right-click menu. */}
                   <div className="rounded-lg border border-blue-100 bg-blue-50 dark:bg-blue-500/10 p-2">
                     <div className="flex items-center justify-between px-1 pb-1.5">
                       <span className="inline-flex items-center gap-1.5 text-meta font-medium uppercase tracking-wide text-blue-500">
                         <BatchIcon />
-                        Telegram album · {row.entries.length} photos
+                        Album · {row.entries.length} photos
                       </span>
                       <button
                         type="button"
@@ -909,7 +910,7 @@ export default function PhotosInboxTab() {
   );
 }
 
-// Small stacked-photos glyph for the Telegram-album group header. Inline
+// Small stacked-photos glyph for the album group header. Inline
 // SVG (project rule: no emoji / no icon-font deps in UI).
 function BatchIcon() {
   return (

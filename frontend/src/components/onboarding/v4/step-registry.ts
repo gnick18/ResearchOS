@@ -12,7 +12,7 @@
  *        storage decision moved to pre-onboarding §6.4.
  *   P5 → home-create-project through the wiki-pointer cluster's
  *        terminal beat wiki-pointer-icon-spotlight (universal §6.1-6.12)
- *   P6 → telegram + purchases + calendar (conditional §6.13-6.15)
+ *   P6 → purchases + calendar (conditional §6.13-6.15)
  *   P7 → lab-prompt + lab-spawn-beakerbot + lab-permission-practice
  *      + lab-cleanup (§6.16, minimal lab tour per L19; lab-cleanup
  *        is the terminal step that auto-tombstones the fake user
@@ -36,7 +36,6 @@ import type { FeaturePicks } from "@/lib/onboarding/sidecar";
 import type { TourStep, TourStepId } from "./step-types";
 import { TOUR_STEP_ORDER, isStepGatedOut } from "./step-machine";
 import { SETUP_STEP_DESCRIPTORS } from "./steps/setup";
-import { telegramConditionalStep } from "./steps/walkthrough/TelegramConditionalStep";
 // Onboarding v4 §6.14 Purchases redesign 2026-05-22 (Purchases manager).
 // The single `purchasesConditionalStep` body is replaced by an 8-step
 // cluster: 4 Phase-1 steps that teach on the user's empty page, then 4
@@ -260,10 +259,10 @@ import {
   // seven settings-tour-* beats replaced its single pointer beat with
   // per-surface narration.
 } from "./steps/walkthrough/SettingsColorStep";
-// §6.10 Settings phase redesign 2026-05-22 (Settings manager). Seven
-// new narration beats spotlight each Settings surface (folder /
-// calendar / telegram / account-type toggle / visible tabs / streak /
-// re-run welcome tour). Three are conditional; the others are
+// §6.10 Settings phase redesign 2026-05-22 (Settings manager). New
+// narration beats spotlight each Settings surface (folder /
+// calendar / account-type toggle / visible tabs / streak /
+// re-run welcome tour). Some are conditional; the others are
 // universal. See SettingsTourBeats.tsx for the per-step bodies.
 import {
   settingsTourFolderStep,
@@ -271,7 +270,6 @@ import {
   // confusing "head over to Calendar tab" instruction while tour
   // page-lock kept user on /settings. Body kept @deprecated in
   // SettingsTourBeats.tsx for git history.
-  settingsTourTelegramStep,
   settingsTourAccountTypeToggleStep,
   settingsTourVisibleTabsStep,
   settingsTourStreakStep,
@@ -428,7 +426,6 @@ const WALKTHROUGH_STEP_BODIES: Record<string, TourStep> = {
   [settingsColorStep.id]: settingsColorStep,
   [settingsTourFolderStep.id]: settingsTourFolderStep,
   // settingsTourCalendarStep retired 2026-05-27 (Grant hand-walk).
-  [settingsTourTelegramStep.id]: settingsTourTelegramStep,
   [settingsTourAccountTypeToggleStep.id]: settingsTourAccountTypeToggleStep,
   [settingsTourVisibleTabsStep.id]: settingsTourVisibleTabsStep,
   [settingsTourStreakStep.id]: settingsTourStreakStep,
@@ -521,7 +518,6 @@ export const TOUR_STEPS: Record<TourStepId, TourStep> = Object.fromEntries(
 // Each real body retains the same `id` + matching `conditionalOn`
 // predicate the placeholder used, so step-machine.ts's gating contract
 // continues to apply.
-TOUR_STEPS["telegram"] = telegramConditionalStep;
 // §6.14 Purchases redesign 2026-05-22 (Purchases manager): the legacy
 // single-id "purchases" body is replaced by the 8-step cluster.
 // `step-machine.ts` drives ordering via the explicit ids in
@@ -536,7 +532,7 @@ TOUR_STEPS["purchases-demo-charts"] = purchasesDemoChartsStep;
 TOUR_STEPS["purchases-back-to-real"] = purchasesBackToRealStep;
 TOUR_STEPS["calendar"] = calendarConditionalStep;
 // Lab Links manager 2026-05-22: links conditional walkthrough added
-// alongside the existing telegram / purchases / calendar conditionals.
+// alongside the existing purchases / calendar conditionals.
 // Gated by picks.links === "yes".
 TOUR_STEPS["links"] = linksConditionalStep;
 
