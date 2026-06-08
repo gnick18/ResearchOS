@@ -215,6 +215,71 @@ describe("CommandPalette", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("restores focus to the opener on close by default", () => {
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      return (
+        <div>
+          <button type="button" data-testid="opener" onClick={() => setOpen(true)}>
+            open
+          </button>
+          <CommandPalette
+            open={open}
+            onClose={() => setOpen(false)}
+            commands={makeCommands()}
+            selectionKind="none"
+            hasOrganism={false}
+          />
+        </div>
+      );
+    }
+    render(<Harness />);
+    const opener = screen.getByTestId("opener");
+    opener.focus();
+    fireEvent.click(opener); // captures the opener as the restore target
+    // Move focus into the palette so the close-time restore is observable
+    // (jsdom does not run the open-focus rAF).
+    (screen.getByRole("combobox") as HTMLElement).focus();
+    expect(document.activeElement).not.toBe(opener);
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(document.activeElement).toBe(opener);
+  });
+
+  it("does NOT refocus an opener marked data-palette-no-refocus (e.g. the pill)", () => {
+    // Regression: refocusing the tooltip-bearing BeakerSearch pill on close
+    // popped its hover tooltip + focus ring unbidden after Escape.
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      return (
+        <div>
+          <button
+            type="button"
+            data-testid="opener"
+            data-palette-no-refocus=""
+            onClick={() => setOpen(true)}
+          >
+            open
+          </button>
+          <CommandPalette
+            open={open}
+            onClose={() => setOpen(false)}
+            commands={makeCommands()}
+            selectionKind="none"
+            hasOrganism={false}
+          />
+        </div>
+      );
+    }
+    render(<Harness />);
+    const opener = screen.getByTestId("opener");
+    opener.focus();
+    fireEvent.click(opener);
+    // Move focus into the palette; on close it must NOT snap back to the opener.
+    (screen.getByRole("combobox") as HTMLElement).focus();
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(document.activeElement).not.toBe(opener);
+  });
+
   it("runs a command on mouse click", () => {
     const run = vi.fn();
     render(

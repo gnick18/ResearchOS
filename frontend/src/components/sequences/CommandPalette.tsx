@@ -633,7 +633,15 @@ export function CommandPalette({
   useEffect(() => {
     if (open) return;
     const el = restoreFocusRef.current;
-    if (el && typeof el.focus === "function") el.focus();
+    if (!el || typeof el.focus !== "function") return;
+    // Openers that carry a hover/focus tooltip + focus ring (e.g. the
+    // BeakerSearch pill) opt out: programmatically refocusing them after close
+    // pops the tooltip and ring unbidden while the user's pointer is elsewhere.
+    // They are persistent, self-labeled chrome, so letting focus fall to the
+    // body is fine. Triggers reached via Cmd-K (focus was a field/body) still
+    // get focus restored normally.
+    if (el.getAttribute?.("data-palette-no-refocus") != null) return;
+    el.focus();
   }, [open]);
 
   // BeakerSearch v2 (sub-flow framework, chunk 1). OPEN a sub-flow from a command

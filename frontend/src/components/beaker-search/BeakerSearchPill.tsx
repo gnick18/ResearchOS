@@ -28,6 +28,11 @@ export default function BeakerSearchPill() {
         type="button"
         onClick={() => openPalette()}
         data-testid="beakersearch-pill"
+        // Closing the palette must NOT programmatically refocus this pill, or
+        // its hover tooltip + focus ring pop unbidden after an Escape close (the
+        // pointer is elsewhere). The palette honors this opt-out; the pill is
+        // persistent, self-labeled chrome, so focus falling to the body is fine.
+        data-palette-no-refocus=""
         aria-label="Open BeakerSearch (Cmd K)"
         // Closing the palette restores focus here (correct a11y), so the
         // resting focus state must look intentional. The default browser
