@@ -81,7 +81,7 @@ export default function ResearcherProfile({
   if (profile === null) {
     return (
       <PageShell>
-        <div className="mt-6 rounded-2xl bg-surface-raised p-8 text-center shadow-xl ring-1 ring-black/5">
+        <div className="mt-6 rounded-2xl bg-surface-overlay border border-border p-8 text-center shadow-xl ring-1 ring-black/5">
           <h1 className="text-heading font-semibold text-foreground">
             Profile not found
           </h1>

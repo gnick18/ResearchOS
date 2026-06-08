@@ -60,11 +60,11 @@ export default function ResearcherProfileModal() {
       card={false}
     >
       {profile === undefined ? (
-        <div className="flex items-center justify-center rounded-2xl bg-surface-raised p-12 shadow-2xl ring-1 ring-black/5">
+        <div className="flex items-center justify-center rounded-2xl bg-surface-overlay border border-border p-12 shadow-2xl ring-1 ring-black/5">
           <div className="h-7 w-7 animate-spin rounded-full border-2 border-border border-t-sky-500" />
         </div>
       ) : profile === null ? (
-        <div className="rounded-2xl bg-surface-raised p-8 text-center shadow-2xl ring-1 ring-black/5">
+        <div className="rounded-2xl bg-surface-overlay border border-border p-8 text-center shadow-2xl ring-1 ring-black/5">
           <h2 className="text-heading font-semibold text-foreground">
             No profile yet
           </h2>
