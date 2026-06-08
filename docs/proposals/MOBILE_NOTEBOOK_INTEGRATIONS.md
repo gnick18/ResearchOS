@@ -155,6 +155,69 @@ sets the (newly lifted) store tab state.
 3. Transport: relay-DO lanes (the phone is not a collab peer). Timer ticks are
    local; only create/done/dismiss sync. No need for the collab DO here.
 
+## Design refinements, round 2 (2026-06-08)
+
+### Security envelope (E2E, reuse the snapshot crypto)
+
+Context and commands carry research content (experiment names, the appended
+calculated line), so they are E2E SEALED, never plaintext to the relay. Reuse
+sealToRecipient / openSealed (X25519 ECDH + HKDF-SHA256 + XChaCha20-Poly1305)
+from frontend/src/lib/sharing/encryption.ts, exactly like the download/snapshot
+path already does.
+
+- Focus context (laptop -> phone): the laptop SEALS the context to each bound
+  device's X25519 pubkey (already in the relay `devices` table). Phone unseals
+  with its device X25519 private key (already on device). Relay sees only the
+  sealed blob + the device id it is for.
+- Commands (phone -> laptop): the phone SEALS the command to the USER's X25519
+  pubkey. Prereq: the phone needs that pubkey. Add `userX25519` to the pairing
+  grant (or the register response) so the phone learns it at pairing. Laptop
+  unseals with the user X25519 private key.
+
+So the relay stores only sealed blobs keyed by user + device, short TTL, deleted
+on ack. Same trust model as captures/snapshots.
+
+### Relay contract (new, mirrors the capture endpoints)
+
+New canonical signed strings (the contract; keep byte-exact across all three):
+```
+researchos-context-publish\nu=..\ndevice=..\nts=..\nsha256=..   // USER-signed (laptop)
+researchos-context-get\nu=..\ndevice=..\nts=..                  // DEVICE-signed (phone)
+researchos-command-post\nu=..\ndevice=..\ncommandId=..\nts=..\nsha256=..  // DEVICE-signed (phone)
+researchos-command-poll\nu=..\nts=..                            // USER-signed (laptop)
+researchos-command-ack\nu=..\ncommandId=..\nts=..               // USER-signed (laptop)
+```
+Two new tables on the existing CaptureInbox DO (per-user):
+```
+context  (device_pubkey TEXT PRIMARY KEY, sealed BLOB, updated_at TEXT)  -- overwrite-latest per device
+commands (command_id TEXT PRIMARY KEY, sealed BLOB, created_at TEXT)     -- FIFO, deleted on ack
+```
+Heartbeat: laptop publishes context ~every 10s while an experiment popup is
+open, and once with kind:'none' when it closes. Phone polls commands on the same
+loop it already polls captures.
+
+### Append semantics (the one real gotcha)
+
+The audit found setTaskContentText REPLACES the whole doc (delete 0..len +
+insert), which would CLOBBER concurrent collab edits. Do NOT reuse it for
+append. Add a targeted `appendTaskLine(doc, line)` that does
+`content.insert(content.length, "\n" + line)` (a single CRDT insert at the end),
+which is safe under live editing. The line is `"<expr> = <value>"` with units,
+built phone-side from the calculator state.
+
+### Edge cases to handle
+
+- Laptop offline / stale context: phone treats context older than ~20s as
+  kind:'none' -> inbox / picker. No false "send to experiment".
+- Target task not currently open: append still works (writes the doc). For the
+  auto-switch part, if the experiment is not the open one, the laptop opens it
+  to the chosen tab then appends (flag: confirm this vs append-silently-if-closed).
+- Multiple laptops: v1 assumes one. Context is last-writer-wins per device; note
+  multi-laptop disambiguation as a follow-up.
+- Idempotency: commandId dedups; ack deletes; safe to retry. Timer dismiss is
+  idempotent by timerId. Timers carry absolute endsAt (epoch ms) so each device
+  computes remaining locally, clock skew is cosmetic.
+
 ## Locked decisions (2026-06-08)
 
 - A. Auto-switch + append. When the phone exports to a doc that is not the
