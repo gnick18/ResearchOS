@@ -19,7 +19,7 @@
 // inventory-ui helpers (containerWord, statusChipClass, formatDate,
 // STATUS_LABEL).
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Icon } from "@/components/icons";
 import BarcodeScanner from "@/components/inventory/BarcodeScanner";
@@ -33,9 +33,40 @@ import {
   type BarcodeResolution,
 } from "@/components/inventory/barcode-resolve";
 import { lookupProductBarcode } from "@/lib/inventory/barcode-lookup";
-import { inventoryItemsApi, inventoryStocksApi } from "@/lib/local-api";
+import {
+  inventoryItemsApi,
+  inventoryStocksApi,
+  purchasesApi,
+} from "@/lib/local-api";
 import { createReorderPurchase } from "@/lib/purchases/reorder-actions";
 import type { InventoryItem, InventoryStock } from "@/lib/types";
+
+/**
+ * Best-effort dedup guard for the reorder drop. Returns true when a
+ * needs-ordering purchase line already exists for this item, so the consume
+ * path can skip creating a SECOND one. Without it, a scan -> undo -> scan cycle
+ * re-crosses the low/empty threshold (undo restores the count but intentionally
+ * does NOT unwind the first reorder) and would queue a duplicate purchase.
+ * Matches by item name (case-insensitive); when both sides name a vendor they
+ * must agree too. Reads the current user's own purchase lines only.
+ */
+async function reorderAlreadyQueued(
+  itemName: string,
+  vendor: string | null | undefined,
+): Promise<boolean> {
+  const name = itemName.trim().toLowerCase();
+  if (!name) return false;
+  const wantVendor = vendor?.trim().toLowerCase() || null;
+  const existing = await purchasesApi.listAll();
+  return existing.some((p) => {
+    if (p.order_status !== "needs_ordering") return false;
+    if (p.item_name.trim().toLowerCase() !== name) return false;
+    const pVendor = p.vendor?.trim().toLowerCase() || null;
+    // Only treat differing vendors as distinct when BOTH sides name one.
+    if (wantVendor && pVendor && wantVendor !== pVendor) return false;
+    return true;
+  });
+}
 
 /** Owner to route a write through (mirrors the page's effectiveOwnerOf). */
 function effectiveOwnerOf(
@@ -86,6 +117,18 @@ export default function ScanFlow({
   const [state, setState] = useState<FlowState>({ phase: "scanning" });
   const [busy, setBusy] = useState(false);
 
+  // Set true on unmount so an in-flight consume() (which awaits the stock
+  // update before dropping a reorder line item) doesn't create a "surprise"
+  // reorder purchase after the user closes the scan popup. Mirrors
+  // BarcodeScanner's own `cancelled` flag pattern.
+  const cancelledRef = useRef(false);
+  useEffect(() => {
+    cancelledRef.current = false;
+    return () => {
+      cancelledRef.current = true;
+    };
+  }, []);
+
   const handleDetect = (code: string) => {
     const resolution = resolveBarcode(code, items, stocks);
     if (resolution.kind === "container" || resolution.kind === "product-single") {
@@ -120,18 +163,25 @@ export default function ScanFlow({
       // createReorderPurchase helper (no new Purchases plumbing). Failures are
       // swallowed so a consume never fails because of the reorder side effect.
       let reorderDropped = false;
-      if (crossedLow && currentUser) {
+      if (crossedLow && currentUser && !cancelledRef.current) {
         try {
-          await createReorderPurchase(
-            {
-              item_name: item.name,
-              vendor: item.vendor,
-              cas: item.cas,
-              link: item.url,
-            },
-            { currentUser },
-          );
-          reorderDropped = true;
+          // Skip the create if this item already has a needs-ordering line
+          // (e.g. a prior scan -> undo -> scan cycle re-crossed the threshold).
+          // It is still queued either way, so the "now low" note stays honest.
+          if (await reorderAlreadyQueued(item.name, item.vendor)) {
+            reorderDropped = true;
+          } else {
+            await createReorderPurchase(
+              {
+                item_name: item.name,
+                vendor: item.vendor,
+                cas: item.cas,
+                link: item.url,
+              },
+              { currentUser },
+            );
+            reorderDropped = true;
+          }
         } catch {
           reorderDropped = false;
         }

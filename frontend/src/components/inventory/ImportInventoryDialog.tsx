@@ -245,6 +245,7 @@ export default function ImportInventoryDialog({
           skippedCount={skippedCount}
           mergeExisting={mergeExisting}
           onToggleMerge={setMergeExisting}
+          existingKeys={existingKeys}
         />
       )}
 
@@ -539,13 +540,24 @@ function PreviewStep({
   skippedCount,
   mergeExisting,
   onToggleMerge,
+  existingKeys,
 }: {
   rows: ImportRow[];
   validCount: number;
   skippedCount: number;
   mergeExisting: boolean;
   onToggleMerge: (v: boolean) => void;
+  existingKeys: Set<string>;
 }) {
+  // When merge is OFF, a row whose name+catalog already exists will create a
+  // fully duplicate item. Flag those so the duplication is visible before the
+  // user commits (we never block, just warn).
+  const isDuplicateRow = (row: ImportRow) =>
+    !mergeExisting &&
+    row.valid &&
+    existingKeys.has(matchKey(row.item.name, row.item.catalog_number));
+  const duplicateCount = rows.filter(isDuplicateRow).length;
+
   return (
     <div className="mt-4">
       <p className="mb-3 text-meta text-foreground-muted">
@@ -555,6 +567,17 @@ function PreviewStep({
           : ""}
         . Each row becomes an item plus one stock.
       </p>
+
+      {duplicateCount > 0 && (
+        <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-meta text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+          <Icon name="alert" className="mt-0.5 h-4 w-4 flex-shrink-0" />
+          <span>
+            {duplicateCount} item{duplicateCount === 1 ? "" : "s"} already exist
+            {duplicateCount === 1 ? "s" : ""} in your inventory, importing
+            anyway. Turn on merge below to add new stock instead of duplicates.
+          </span>
+        </div>
+      )}
       <div className="max-h-[280px] overflow-auto rounded-lg border border-border">
         <table className="w-full text-meta">
           <thead className="sticky top-0">
@@ -596,6 +619,12 @@ function PreviewStep({
                 <td className="px-3 py-2 text-foreground-muted">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span>{row.stock.location_text ?? ""}</span>
+                    {isDuplicateRow(row) && (
+                      <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
+                        <Icon name="alert" className="h-3 w-3" />
+                        already in inventory, will create a duplicate
+                      </span>
+                    )}
                     {row.issues.map((issue, j) => (
                       <span
                         key={j}
