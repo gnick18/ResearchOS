@@ -22,6 +22,7 @@
     "wiki:screenshots": "node ../scripts/capture-wiki-screenshots.mjs",
     "wiki:coverage": "node ../scripts/check-wiki-coverage.mjs",
     "wiki:search-index": "node ../scripts/build-wiki-search-index.mjs",
+    "wiki:content": "node ../scripts/build-wiki-content.mjs && cp public/wiki-content.json ../mobile/assets/wiki-content.json",
     "demo:data": "node ../scripts/generate-demo-data.mjs",
     "demo:images": "node ../scripts/generate-demo-images.mjs",
     "demo:zip": "node ../scripts/build-demo-zip.mjs",
