@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lab alarm, BeakerBot rings the bell</title>
+<style>
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#dfe6ee;padding:26px 18px 60px;color:#1f2937}
+  .head{max-width:760px;margin:0 auto 16px}
+  h1{font-size:20px;margin:0 0 6px}
+  .intro{color:#5b6573;font-size:13.5px;line-height:1.5;max-width:680px}
+  .stage{display:flex;justify-content:center}
+  .phone{width:320px;height:680px;border-radius:44px;background:#E6F4FE;position:relative;overflow:hidden;border:9px solid #0c0d10;box-shadow:0 18px 40px rgba(16,24,40,.25)}
+  /* a hint of the app underneath, then the dim takeover */
+  .app{position:absolute;inset:0;padding:54px 20px}
+  .app .lt{font-size:30px;font-weight:800;color:#0c1830;opacity:.5}
+  .app .card{height:70px;background:#fff;border-radius:16px;margin-top:14px;opacity:.5}
+  .dim{position:absolute;inset:0;background:rgba(8,12,24,.62)}
+  svg{position:absolute;inset:0;width:100%;height:100%}
+  .txt{position:absolute;left:0;right:0;top:430px;text-align:center;padding:0 28px}
+  .kick{color:#F59E0B;font-size:13px;font-weight:800;letter-spacing:2px}
+  .title{color:#fff;font-size:26px;font-weight:800;margin-top:8px;letter-spacing:-.3px}
+  .sub{color:rgba(255,255,255,.7);font-size:14px;margin-top:6px}
+  .stop{display:inline-block;margin-top:24px;background:#fff;color:#0c1830;font-size:17px;font-weight:800;padding:14px 56px;border-radius:16px}
+  .rainbow{position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#FFD2B0,#FFF1A8,#B7EBB1,#A6D2F4,#D6B5F0);z-index:5}
+</style>
+</head>
+<body>
+<div class="head">
+  <h1>Lab alarm, BeakerBot rings the bell</h1>
+  <p class="intro">Full-screen takeover when a timer runs out, on any screen. The amber bell swings and rings (sound-wave lines pulse out) while BeakerBot bounces and blinks below it. The timer name, a TIME'S UP kicker, and a Stop button sit underneath, with a gentle repeating haptic until you stop it. This is a still; on device the bell swings, the waves pulse, and he hops.</p>
+</div>
+<div class="stage">
+  <div class="phone">
+    <div class="rainbow"></div>
+    <div class="app"><div class="lt">Notebook</div><div class="card"></div><div class="card"></div></div>
+    <div class="dim"></div>
+    <svg viewBox="0 0 320 680">
+      <!-- sound waves -->
+      <g transform="translate(160,180) scale(2.7)" stroke="#F59E0B" fill="none" stroke-linecap="round">
+        <path d="M-15 9 Q -19 15, -15 21" stroke-width="1.6" opacity="0.9"/>
+        <path d="M15 9 Q 19 15, 15 21" stroke-width="1.6" opacity="0.9"/>
+        <path d="M-19 6 Q -25 15, -19 24" stroke-width="1.4" opacity="0.55"/>
+        <path d="M19 6 Q 25 15, 19 24" stroke-width="1.4" opacity="0.55"/>
+      </g>
+      <!-- bell, swung a touch for life -->
+      <g transform="translate(160,180) scale(2.7) rotate(-9)">
+        <circle cx="0" cy="-4" r="3" fill="none" stroke="#C97A0A" stroke-width="1.6"/>
+        <path d="M0 2 C -7.5 2, -10.5 10, -10.5 19 L -12.5 23 L 12.5 23 L 10.5 19 C 10.5 10, 7.5 2, 0 2 Z" fill="#F59E0B" stroke="#C97A0A" stroke-width="1.4" stroke-linejoin="round"/>
+        <path d="M-12.5 23 L 12.5 23" stroke="#C97A0A" stroke-width="1.6" stroke-linecap="round"/>
+        <circle cx="0" cy="26" r="2.6" fill="#92400E"/>
+      </g>
+      <!-- BeakerBot -->
+      <g transform="translate(160,322) scale(4.0) translate(-20,-18)">
+        <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="#fff"/>
+        <clipPath id="glass"><path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z"/></clipPath>
+        <g clip-path="url(#glass)">
+          <rect x="11" y="12" width="18" height="20" fill="url(#liq)"/>
+          <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 12 L 12 12 Z" fill="#E6F4FE"/>
+        </g>
+        <defs><linearGradient id="liq" x1="0" y1="12" x2="0" y2="32" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#FFD2B0"/><stop offset="0.25" stop-color="#FFF1A8"/><stop offset="0.5" stop-color="#B7EBB1"/><stop offset="0.75" stop-color="#A6D2F4"/><stop offset="1" stop-color="#D6B5F0"/>
+        </linearGradient></defs>
+        <path d="M22 8 C 22 6, 24 4, 26 6" stroke="#1AA0E6" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" stroke="#1AA0E6" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <path d="M11 12 L29 12" stroke="#1AA0E6" stroke-width="2" stroke-linecap="round"/>
+        <path d="M14 26 L15.5 26" stroke="#1AA0E6" stroke-width="2" stroke-linecap="round"/>
+        <path d="M24.5 26 L26 26" stroke="#1AA0E6" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="17" cy="18" r="1.2" fill="#1AA0E6"/>
+        <circle cx="23" cy="18" r="1.2" fill="#1AA0E6"/>
+        <path d="M18 22 Q 20 24, 22 22" stroke="#1AA0E6" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </g>
+    </svg>
+    <div class="txt">
+      <div class="kick">TIME'S UP</div>
+      <div class="title">Trypsin incubation</div>
+      <div class="sub">30 min timer</div>
+      <div class="stop">Stop</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

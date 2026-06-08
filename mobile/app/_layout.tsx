@@ -12,6 +12,7 @@ import { AppSplash } from '@/components/AppSplash';
 import { RainbowBar } from '@/components/ui/RainbowBar';
 import { SuccessBurst } from '@/components/SuccessBurst';
 import { HeaderMascot } from '@/components/HeaderMascot';
+import { LabAlarm, LabAlarmWatcher } from '@/components/LabAlarm';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 // Keep the native splash up until JS is ready so there is no white flash before
@@ -111,6 +112,10 @@ export default function RootLayout() {
             blink, tap him for a heart burst. Small absolute Pressable, so taps
             elsewhere pass through. */}
         {Platform.OS !== 'web' ? <HeaderMascot /> : null}
+        {/* Lab alarm: watcher raises it when a timer finishes, overlay takes
+            over the screen. Native only (Skia). */}
+        {Platform.OS !== 'web' ? <LabAlarmWatcher /> : null}
+        {Platform.OS !== 'web' ? <LabAlarm /> : null}
       </View>
       {splashVisible && Platform.OS !== 'web' ? <AppSplash onFinish={handleSplashFinish} /> : null}
       <StatusBar style="auto" />
