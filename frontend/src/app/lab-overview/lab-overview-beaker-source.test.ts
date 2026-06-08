@@ -330,7 +330,14 @@ describe("buildLabOverviewSource nav groups", () => {
     expect(memberGroup.items[0].detail).toBe("6 open, 2 overdue");
     const approvalGroup = groups.find((g) => g.title === "Pending approvals")!;
     expect(approvalGroup.items[0].tone).toBe("task");
-    expect(approvalGroup.items[0].detail).toBe("alex, $89.00");
+    // The detail names the owner, the price, and the pending state (v2 2.4).
+    expect(approvalGroup.items[0].detail).toBe("alex, $89.00, pending");
+    expect(approvalGroup.items[0].label).toBe("Pipette tips x10");
+  });
+
+  it("leads with Pending approvals so the actionable entities come first", () => {
+    const groups = buildLabOverviewSource(makeData(), noopHandlers).navGroups!;
+    expect(groups[0].title).toBe("Pending approvals");
   });
 
   it("reads on track for a member with no overdue tasks", () => {
@@ -451,6 +458,71 @@ describe("buildLabOverviewSource selection wiring", () => {
     memberGroup.items[0].onRun();
     expect(picked).not.toBeNull();
     expect(picked!.username).toBe("alex");
+  });
+});
+
+// ── BeakerSearch v2 chunk 3, Lab Overview pending approvals as palette entities ─
+// Each pending purchase approval is a Pending approvals nav entity. Selecting one
+// drills it into the approval SELECTED state, which re-drives the existing
+// per-approval Suggested (approve / decline / flag / open). Those rows are wired
+// to the real approve / decline / flag handlers (which mark the per-record PI
+// edit-confirm before the write). The /purchases route stays as the escape hatch.
+
+describe("buildLabOverviewSource pending-approval entities (v2 chunk 3)", () => {
+  it("lists each pending item as a Pending approvals nav entity that selects it", () => {
+    let picked: LabOverviewApproval | null = null;
+    const handlers: LabOverviewSourceHandlers = {
+      ...noopHandlers,
+      selectApproval: (a) => {
+        picked = a;
+      },
+    };
+    const groups = buildLabOverviewSource(makeData(), handlers).navGroups!;
+    const approvalGroup = groups.find((g) => g.title === "Pending approvals")!;
+    expect(approvalGroup.items.map((i) => i.label)).toEqual([
+      "Pipette tips x10",
+      "Antibody, anti-TRAP1",
+    ]);
+    // Selecting the second item drills THAT specific approval into selection.
+    approvalGroup.items[1].onRun();
+    expect(picked).not.toBeNull();
+    expect(picked!.id).toBe(2);
+    expect(picked!.owner).toBe("morgan");
+  });
+
+  it("a selected pending approval drives approve/decline/flag/open wired to the real handlers", () => {
+    const calls: string[] = [];
+    const handlers: LabOverviewSourceHandlers = {
+      ...noopHandlers,
+      approveApproval: (a) => calls.push(`approve:${a.id}`),
+      declineApproval: (a) => calls.push(`decline:${a.id}`),
+      flagApproval: (a) => calls.push(`flag:${a.id}`),
+      openApprovalOnPurchases: (a) => calls.push(`open:${a.id}`),
+    };
+    const approval = makeApproval({ id: 7, itemName: "Falcon tubes", owner: "morgan" });
+    const src = buildLabOverviewSource(
+      makeData({ selected: { kind: "approval", approval } }),
+      handlers,
+    );
+    // The selected-approval Suggested is the per-item action set, in order.
+    expect(src.suggestedIds).toEqual([
+      "lab-overview-approval-approve",
+      "lab-overview-approval-decline",
+      "lab-overview-approval-flag",
+      "lab-overview-approval-open",
+    ]);
+    // Each Suggested row runs the real owner-routed handler for THIS approval.
+    for (const id of src.suggestedIds!) {
+      src.commands.find((c) => c.id === id)!.run();
+    }
+    expect(calls).toEqual(["approve:7", "decline:7", "flag:7", "open:7"]);
+  });
+
+  it("keeps the Review pending approvals route command as the escape hatch", () => {
+    const cmds = buildLabOverviewSource(makeData(), noopHandlers).commands;
+    const review = cmds.find((c) => c.id === "lab-overview-review-on-purchases")!;
+    expect(review.group).toBe(LAB_OVERVIEW_GROUP_APPROVALS);
+    expect(review.label).toBe("Review pending approvals on Purchases");
   });
 });
 

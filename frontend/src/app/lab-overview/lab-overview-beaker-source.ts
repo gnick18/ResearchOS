@@ -877,7 +877,10 @@ function memberNavItem(
   };
 }
 
-/** Jump to a pending approval (drills into the approval selection). */
+/** Jump to a pending approval (drills into the approval selection, which
+ *  re-drives the selected-approval Suggested, approve / decline / flag / open).
+ *  The detail names the owner, the price, and "pending" so the row reads as
+ *  what needs the PI (v2 proposal 2.4, "Pipette tips x10, alex, $89, pending"). */
 function approvalNavItem(
   approval: LabOverviewApproval,
   handlers: LabOverviewSourceHandlers,
@@ -885,7 +888,7 @@ function approvalNavItem(
   return {
     id: `lab-approval-${approval.owner}-${approval.id}`,
     label: approval.itemName,
-    detail: `${approval.owner}, ${approval.priceLabel}`,
+    detail: `${approval.owner}, ${approval.priceLabel}, pending`,
     keywords: `${approval.owner} purchase approval pending`,
     iconName: ICON_APPROVAL_ITEM,
     tone: "task",
@@ -893,9 +896,13 @@ function approvalNavItem(
   };
 }
 
-/** Build the nav groups (the mockup's groups). Jump to a member (person tone),
- *  Pending approvals (task tone), Jump to a section (neutral route-outs), then
- *  the Recent actions MRU when non-empty. */
+/** Build the nav groups (the mockup's groups). Pending approvals lead (task
+ *  tone, these are what needs the PI, v2 proposal 2.4), then Jump to a member
+ *  (person tone), Jump to a section (neutral route-outs), then the Recent
+ *  actions MRU when non-empty. Selecting a pending approval drills it into the
+ *  approval SELECTED state, which re-drives the existing per-approval Suggested
+ *  (approve / decline / flag / open), so the PI acts on a SPECIFIC pending item
+ *  inline without leaving for /purchases. */
 function buildNavGroups(
   data: LabOverviewSourceData,
   handlers: LabOverviewSourceHandlers,
@@ -903,17 +910,10 @@ function buildNavGroups(
 ): PaletteNavGroup[] {
   const groups: PaletteNavGroup[] = [];
 
-  // Jump to a member (active members; person tone, pink).
-  const memberItems = data.members.map((m) => memberNavItem(m, handlers));
-  if (memberItems.length > 0) {
-    groups.push({
-      title: "Jump to a member",
-      hint: `${memberItems.length} member${memberItems.length === 1 ? "" : "s"}`,
-      items: memberItems,
-    });
-  }
-
-  // Pending approvals (task tone, amber).
+  // Pending approvals (task tone, amber). These lead, they are what needs the
+  // PI. Each row drills into the approval SELECTED state via selectApproval,
+  // re-driving the approve / decline / flag / open Suggested (the inline path,
+  // the /purchases route command below stays as the escape hatch).
   const approvalItems = data.pendingApprovals.map((a) =>
     approvalNavItem(a, handlers),
   );
@@ -922,6 +922,16 @@ function buildNavGroups(
       title: "Pending approvals",
       hint: `${approvalItems.length}`,
       items: approvalItems,
+    });
+  }
+
+  // Jump to a member (active members; person tone, pink).
+  const memberItems = data.members.map((m) => memberNavItem(m, handlers));
+  if (memberItems.length > 0) {
+    groups.push({
+      title: "Jump to a member",
+      hint: `${memberItems.length} member${memberItems.length === 1 ? "" : "s"}`,
+      items: memberItems,
     });
   }
 
