@@ -25,6 +25,7 @@ import {
 import { sendReminderEmail } from "@/lib/business/mailer";
 import {
   dueForReminder,
+  reminderHtml,
   reminderSubject,
   reminderText,
 } from "@/lib/business/reminders";
@@ -56,9 +57,10 @@ export async function GET(request: Request): Promise<Response> {
   for (const { deadline } of due) {
     const subject = reminderSubject(deadline);
     const text = reminderText(deadline);
+    const html = reminderHtml(deadline);
     for (const to of recipients) {
       try {
-        await sendReminderEmail(to, subject, text);
+        await sendReminderEmail(to, subject, text, html);
         sent += 1;
         // Archive as an LLC record. A failed archive must never fail a
         // delivered email, so it is swallowed.

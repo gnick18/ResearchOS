@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS transactional email mockups</title>
+<style>
+  :root {
+    --sky: #1AA0E6;        /* BeakerBot / identity blue */
+    --action: #1283C9;     /* action blue (buttons/links) */
+    --ink: #111827;
+    --muted: #6b7280;
+    --faint: #9ca3af;
+    --line: #e5e7eb;
+    --page: #eef1f5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--page);
+    color: var(--ink);
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 40px 24px 80px; }
+  h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.02em; }
+  .sub { color: var(--muted); font-size: 15px; margin: 0 0 28px; max-width: 760px; }
+  .legend {
+    display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; color: var(--muted);
+    margin: 0 0 30px;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+  .dot.cur { background: #d1d5db; }
+  .dot.prop { background: linear-gradient(90deg,#FFD2B0,#FFF1A8,#B7EBB1,#A6D2F4,#D6B5F0); }
+  .dot.new { background: var(--sky); }
+
+  /* audit table */
+  table.audit { width: 100%; border-collapse: collapse; margin: 0 0 44px; font-size: 14px; background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  table.audit th, table.audit td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+  table.audit th { background: #f8fafc; font-weight: 600; }
+  table.audit tr:last-child td { border-bottom: 0; }
+  .tag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+  .tag.yes { background: #dcfce7; color: #166534; }
+  .tag.no { background: #fee2e2; color: #991b1b; }
+  .tag.none { background: #e5e7eb; color: #374151; }
+
+  /* email section */
+  .email { margin: 0 0 52px; }
+  .email > h2 { font-size: 20px; margin: 0 0 2px; }
+  .email > .meta { font-size: 13px; color: var(--muted); margin: 0 0 16px; }
+  .email > .meta code { background:#fff; border:1px solid var(--line); border-radius:5px; padding:1px 6px; font-size:12px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; }
+  @media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
+  .pane { }
+  .pane > .label {
+    font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--muted); margin: 0 0 8px; display:flex; align-items:center; gap:8px;
+  }
+  .pane.proposed > .label { color: var(--action); }
+
+  /* email client chrome */
+  .client { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+  .client .hdr { padding: 12px 16px; border-bottom: 1px solid var(--line); font-size: 13px; background:#fafbfc; }
+  .client .hdr .subj { font-weight: 600; color: var(--ink); margin-bottom: 3px; }
+  .client .hdr .frm { color: var(--faint); font-size: 12px; }
+  .client .body { background: #f3f4f6; }
+  .plain { white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: #374151; padding: 22px; background:#fff; }
+
+  /* shared bits used by rendered emails */
+  .em-card { max-width: 520px; margin: 0 auto; padding: 28px 20px; }
+  .footer-note { margin-top: 16px; text-align: center; font-size: 11px; line-height: 1.6; color: var(--faint); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ResearchOS transactional emails</h1>
+  <p class="sub">Every automated email we send, rendered as it lands in an inbox. Left is what ships today, right is a proposed on-brand version using the real BeakerBot mascot, the brand sky-blue, and a thin rainbow band so the whole set reads as one family. Provider is Resend, from <code>noreply@research-os.app</code> / <code>share@research-os.app</code>.</p>
+
+  <div class="legend">
+    <span><i class="dot cur"></i> Current (ships today)</span>
+    <span><i class="dot prop"></i> Proposed (on-brand redesign)</span>
+    <span><i class="dot new"></i> New (we do not send this today)</span>
+  </div>
+
+  <table class="audit">
+    <tr><th>Email</th><th>Trigger</th><th>Today</th><th>Format</th></tr>
+    <tr><td>Email verification code (OTP)</td><td>New user signs up</td><td><span class="tag no">unbranded</span></td><td>plain text</td></tr>
+    <tr><td>Cross-lab share invite</td><td>Send a note/task/method to a non-user</td><td><span class="tag yes">branded</span></td><td>HTML + text</td></tr>
+    <tr><td>Collaboration invite nudge</td><td>Grant external-collab to an existing user</td><td><span class="tag yes">branded</span></td><td>HTML + text</td></tr>
+    <tr><td>LLC business reminder</td><td>Daily cron, deadline thresholds</td><td><span class="tag no">unbranded</span></td><td>plain text (admin)</td></tr>
+    <tr><td>Join a lab invite</td><td>Lab head invites a member</td><td><span class="tag none">not emailed</span></td><td>copy-paste link only</td></tr>
+  </table>
+
+  <!-- ============ 1. OTP ============ -->
+  <section class="email">
+    <h2>1. Email verification code (OTP)</h2>
+    <p class="meta">Trigger: new-user signup &middot; Source: <code>lib/sharing/directory/mailer.ts</code> &middot; This is the first email most users ever get from us, and today it is plain text.</p>
+    <div class="cols">
+      <div class="pane">
+        <div class="label"><i class="dot cur"></i> Current</div>
+        <div class="client">
+          <div class="hdr"><div class="subj">Your ResearchOS verification code</div><div class="frm">ResearchOS &lt;noreply@research-os.app&gt;</div></div>
+          <div class="body"><div class="plain">Your ResearchOS verification code is 482915. It expires in 15 minutes. If you did not request this, you can ignore this email.</div></div>
+        </div>
+      </div>
+      <div class="pane proposed">
+        <div class="label"><i class="dot prop"></i> Proposed</div>
+        <div class="client">
+          <div class="hdr"><div class="subj">Your ResearchOS verification code</div><div class="frm">ResearchOS &lt;noreply@research-os.app&gt;</div></div>
+          <div class="body">
+            <div style="height:4px;background:linear-gradient(90deg,#FFD2B0,#FFF1A8,#B7EBB1,#A6D2F4,#D6B5F0);"></div>
+            <div class="em-card">
+              <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:28px;text-align:center;">
+                <table role="presentation" align="center" style="margin:0 auto 16px;"><tr>
+                  <td style="padding-right:10px;vertical-align:middle;"><img src="./beakerbot.png" width="44" height="44" alt="ResearchOS" style="display:block;border:0;border-radius:8px;"/></td>
+                  <td style="vertical-align:middle;"><span style="font-size:21px;font-weight:700;color:#1AA0E6;letter-spacing:-0.01em;">ResearchOS</span></td>
+                </tr></table>
+                <p style="font-size:14px;color:#4b5563;margin:0 0 16px;">Enter this code to verify your email. It expires in 15 minutes.</p>
+                <div style="font-size:34px;font-weight:700;letter-spacing:.22em;color:#111827;background:#f1f7fb;border:1px solid #d6e8f4;border-radius:10px;padding:14px 0;margin:0 0 14px;">482915</div>
+                <p style="font-size:12px;color:#9ca3af;margin:0;">If you did not request this, you can ignore this email.</p>
+              </div>
+              <div class="footer-note">ResearchOS is a free, open electronic lab notebook.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 2. Share invite ============ -->
+  <section class="email">
+    <h2>2. Cross-lab share invite (to a non-user)</h2>
+    <p class="meta">Trigger: "Send outside" sharing of a note/task/method &middot; Source: <code>lib/sharing/relay/mailer.ts</code> &middot; Already branded, but on generic blue (#2563eb) and a flat wordmark.</p>
+    <div class="cols">
+      <div class="pane">
+        <div class="label"><i class="dot cur"></i> Current</div>
+        <div class="client">
+          <div class="hdr"><div class="subj">Alex Rivera shared a research note with you on ResearchOS</div><div class="frm">ResearchOS &lt;share@research-os.app&gt;</div></div>
+          <div class="body">
+            <div class="em-card" style="padding-top:28px;">
+              <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:28px;">
+                <table role="presentation" align="center" style="margin:0 auto 12px;"><tr>
+                  <td style="padding-right:10px;vertical-align:middle;"><img src="./beakerbot.png" width="48" height="48" alt="ResearchOS" style="display:block;border:0;"/></td>
+                  <td style="vertical-align:middle;"><span style="font-size:22px;font-weight:700;color:#2563eb;letter-spacing:-0.01em;">ResearchOS</span></td>
+                </tr></table>
+                <h1 style="font-size:18px;font-weight:600;text-align:center;margin:8px 0 4px;">Alex Rivera shared a research note with you</h1>
+                <p style="font-size:14px;line-height:1.6;color:#4b5563;text-align:center;margin:0 0 20px;">They used ResearchOS to send you an encrypted copy of <strong style="color:#111827;">&ldquo;CRISPR knock-in protocol v3&rdquo;</strong>. Create your free account here, then Alex will send you a separate private link or unlock code to open it. The note stays sealed until you have that.</p>
+                <div style="text-align:center;margin:0 0 20px;"><a href="#" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 22px;border-radius:9px;">Create your free account</a></div>
+                <p style="font-size:13px;line-height:1.6;color:#6b7280;text-align:center;margin:0;">ResearchOS is a free, open electronic lab notebook. Notes, methods, and data stay in your own folder, and sharing across labs is end-to-end encrypted.</p>
+              </div>
+              <div class="footer-note">
+                <p style="margin:0 0 4px;">You received this because Alex Rivera chose to share a specific item with this address.</p>
+                <p style="margin:0 0 4px;">ResearchOS, University of Wisconsin-Madison, Madison, WI 53706, USA</p>
+                <p style="margin:0;"><a href="#" style="color:#9ca3af;">Do not invite me again</a> &middot; <a href="#" style="color:#9ca3af;">Report abuse</a></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pane proposed">
+        <div class="label"><i class="dot prop"></i> Proposed</div>
+        <div class="client">
+          <div class="hdr"><div class="subj">Alex Rivera shared a research note with you on ResearchOS</div><div class="frm">ResearchOS &lt;share@research-os.app&gt;</div></div>
+          <div class="body">
+            <div style="height:4px;background:linear-gradient(90deg,#FFD2B0,#FFF1A8,#B7EBB1,#A6D2F4,#D6B5F0);"></div>
+            <div class="em-card" style="padding-top:28px;">
+              <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:28px;">
+                <table role="presentation" align="center" style="margin:0 auto 14px;"><tr>
+                  <td style="padding-right:10px;vertical-align:middle;"><img src="./beakerbot.png" width="48" height="48" alt="ResearchOS" style="display:block;border:0;border-radius:9px;"/></td>
+                  <td style="vertical-align:middle;"><span style="font-size:22px;font-weight:700;color:#1AA0E6;letter-spacing:-0.01em;">ResearchOS</span></td>
+                </tr></table>
+                <h1 style="font-size:18px;font-weight:600;text-align:center;margin:8px 0 6px;">Alex Rivera shared a research note with you</h1>
+                <p style="font-size:14px;line-height:1.6;color:#4b5563;text-align:center;margin:0 0 20px;">They used ResearchOS to send you an encrypted copy of <strong style="color:#111827;">&ldquo;CRISPR knock-in protocol v3&rdquo;</strong>. Create your free account, then Alex will send you a separate private link or unlock code to open it. The note stays sealed until you have that.</p>
+                <div style="text-align:center;margin:0 0 22px;"><a href="#" style="display:inline-block;background:#1283C9;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 24px;border-radius:10px;">Create your free account</a></div>
+                <div style="border-top:1px solid #eef2f6;padding-top:16px;"><p style="font-size:13px;line-height:1.6;color:#6b7280;text-align:center;margin:0;">ResearchOS is a free, open electronic lab notebook. Notes, methods, and data stay in your own folder, and sharing across labs is end-to-end encrypted.</p></div>
+              </div>
+              <div class="footer-note">
+                <p style="margin:0 0 4px;">You received this because Alex Rivera chose to share a specific item with this address.</p>
+                <p style="margin:0 0 4px;">ResearchOS, University of Wisconsin-Madison, Madison, WI 53706, USA</p>
+                <p style="margin:0;"><a href="#" style="color:#9ca3af;">Do not invite me again</a> &middot; <a href="#" style="color:#9ca3af;">Report abuse</a></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 3. Collab nudge ============ -->
+  <section class="email">
+    <h2>3. Collaboration invite nudge (to an existing user)</h2>
+    <p class="meta">Trigger: owner grants external-collab to a registered user who opted into nudges &middot; Source: <code>lib/sharing/relay/mailer.ts</code> &middot; No link with a secret, they accept in-app under "Shared with me".</p>
+    <div class="cols">
+      <div class="pane">
+        <div class="label"><i class="dot cur"></i> Current</div>
+        <div class="client">
+          <div class="hdr"><div class="subj">Morgan Lee invited you to collaborate on ResearchOS</div><div class="frm">ResearchOS &lt;share@research-os.app&gt;</div></div>
+          <div class="body">
+            <div class="em-card" style="padding-top:28px;">
+              <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:28px;">
+                <table role="presentation" align="center" style="margin:0 auto 12px;"><tr>
+                  <td style="padding-right:10px;vertical-align:middle;"><img src="./beakerbot.png" width="48" height="48" alt="ResearchOS" style="display:block;border:0;"/></td>
+                  <td style="vertical-align:middle;"><span style="font-size:22px;font-weight:700;color:#2563eb;letter-spacing:-0.01em;">ResearchOS</span></td>
+                </tr></table>
+                <h1 style="font-size:18px;font-weight:600;text-align:center;margin:8px 0 4px;">Morgan Lee invited you to collaborate</h1>
+                <p style="font-size:14px;line-height:1.6;color:#4b5563;text-align:center;margin:0 0 20px;">Open ResearchOS and look under <strong style="color:#111827;">Shared with me</strong> to accept. Nothing is attached to this email.</p>
+                <div style="text-align:center;margin:0 0 20px;"><a href="#" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 22px;border-radius:9px;">Open ResearchOS</a></div>
+              </div>
+              <div class="footer-note"><p style="margin:0 0 4px;">You opted in to collaboration nudges. ResearchOS, University of Wisconsin-Madison, Madison, WI 53706, USA</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pane proposed">
+        <div class="label"><i class="dot prop"></i> Proposed</div>
+        <div class="client">
+          <div class="hdr"><div class="subj">Morgan Lee invited you to collaborate on ResearchOS</div><div class="frm">ResearchOS &lt;share@research-os.app&gt;</div></div>
+          <div class="body">
+            <div style="height:4px;background:linear-gradient(90deg,#FFD2B0,#FFF1A8,#B7EBB1,#A6D2F4,#D6B5F0);"></div>
+            <div class="em-card" style="padding-top:28px;">
+              <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:28px;">
+                <table role="presentation" align="center" style="margin:0 auto 14px;"><tr>
+                  <td style="padding-right:10px;vertical-align:middle;"><img src="./beakerbot.png" width="48" height="48" alt="ResearchOS" style="display:block;border:0;border-radius:9px;"/></td>
+                  <td style="vertical-align:middle;"><span style="font-size:22px;font-weight:700;color:#1AA0E6;letter-spacing:-0.01em;">ResearchOS</span></td>
+                </tr></table>
+                <h1 style="font-size:18px;font-weight:600;text-align:center;margin:8px 0 6px;">Morgan Lee invited you to collaborate</h1>
+                <p style="font-size:14px;line-height:1.6;color:#4b5563;text-align:center;margin:0 0 22px;">Open ResearchOS and look under <strong style="color:#111827;">Shared with me</strong> to accept. Nothing is attached to this email.</p>
+                <div style="text-align:center;margin:0;"><a href="#" style="display:inline-block;background:#1283C9;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 24px;border-radius:10px;">Open ResearchOS</a></div>
+              </div>
+              <div class="footer-note"><p style="margin:0 0 4px;">You opted in to collaboration nudges.</p><p style="margin:0;">ResearchOS, University of Wisconsin-Madison, Madison, WI 53706, USA</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 4. Business reminder ============ -->
+  <section class="email">
+    <h2>4. LLC business reminder (admin only)</h2>
+    <p class="meta">Trigger: daily cron at deadline thresholds &middot; Source: <code>lib/business/reminders.ts</code> &middot; Internal operations email to ADMIN_EMAILS. A light brand touch is enough here, it is not customer-facing.</p>
+    <div class="cols">
+      <div class="pane">
+        <div class="label"><i class="dot cur"></i> Current</div>
+        <div class="client">
+          <div class="hdr"><div class="subj">Reminder: Annual LLC report due in 3 days (2026-06-11)</div><div class="frm">ResearchOS &lt;noreply@research-os.app&gt;</div></div>
+          <div class="body"><div class="plain">Annual LLC report is due in 3 days, on 2026-06-11.
+
+File with the Wisconsin DFI. Fee is $25.
+
+From the ResearchOS LLC business tracker (/admin/business).</div></div>
+        </div>
+      </div>
+      <div class="pane proposed">
+        <div class="label"><i class="dot prop"></i> Proposed</div>
+        <div class="client">
+          <div class="hdr"><div class="subj">Reminder: Annual LLC report due in 3 days (2026-06-11)</div><div class="frm">ResearchOS &lt;noreply@research-os.app&gt;</div></div>
+          <div class="body">
+            <div style="height:4px;background:linear-gradient(90deg,#FFD2B0,#FFF1A8,#B7EBB1,#A6D2F4,#D6B5F0);"></div>
+            <div class="em-card">
+              <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:24px;">
+                <table role="presentation" style="margin:0 0 14px;"><tr>
+                  <td style="padding-right:9px;vertical-align:middle;"><img src="./beakerbot.png" width="34" height="34" alt="ResearchOS" style="display:block;border:0;border-radius:7px;"/></td>
+                  <td style="vertical-align:middle;"><span style="font-size:15px;font-weight:700;color:#1AA0E6;">ResearchOS</span><span style="font-size:12px;color:#9ca3af;"> &middot; business tracker</span></td>
+                </tr></table>
+                <p style="font-size:15px;font-weight:600;margin:0 0 6px;color:#111827;">Annual LLC report is due in 3 days, on 2026-06-11.</p>
+                <p style="font-size:14px;color:#4b5563;margin:0 0 16px;">File with the Wisconsin DFI. Fee is $25.</p>
+                <a href="#" style="display:inline-block;background:#1283C9;color:#fff;text-decoration:none;font-size:13px;font-weight:600;padding:9px 18px;border-radius:8px;">Open business tracker</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 5. Lab invite (NEW) ============ -->
+  <section class="email">
+    <h2>5. Join a lab invite <span style="font-size:13px;font-weight:600;color:#1AA0E6;">(new, not sent today)</span></h2>
+    <p class="meta">Today the lab head copies an invite link and sends it themselves. If we want a real email here, this is what it could look like. The invite still rides in the link, we would just deliver it for them.</p>
+    <div class="cols">
+      <div class="pane">
+        <div class="label"><i class="dot cur"></i> Current</div>
+        <div class="client">
+          <div class="hdr"><div class="subj">(no email)</div><div class="frm">Lab head pastes a link into their own email / Slack / Teams</div></div>
+          <div class="body"><div class="plain">https://research-os.app/lab/join#inv=eyJhbGciOi...&lt;long invite blob&gt;
+
+The lab head copies this link from Settings and sends it however they like. ResearchOS sends nothing.</div></div>
+        </div>
+      </div>
+      <div class="pane proposed">
+        <div class="label"><i class="dot new"></i> Proposed (new)</div>
+        <div class="client">
+          <div class="hdr"><div class="subj">Dr. Grant Nickles invited you to join the Nickles Lab on ResearchOS</div><div class="frm">ResearchOS &lt;share@research-os.app&gt;</div></div>
+          <div class="body">
+            <div style="height:4px;background:linear-gradient(90deg,#FFD2B0,#FFF1A8,#B7EBB1,#A6D2F4,#D6B5F0);"></div>
+            <div class="em-card" style="padding-top:28px;">
+              <div style="background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:28px;">
+                <table role="presentation" align="center" style="margin:0 auto 14px;"><tr>
+                  <td style="padding-right:10px;vertical-align:middle;"><img src="./beakerbot.png" width="48" height="48" alt="ResearchOS" style="display:block;border:0;border-radius:9px;"/></td>
+                  <td style="vertical-align:middle;"><span style="font-size:22px;font-weight:700;color:#1AA0E6;letter-spacing:-0.01em;">ResearchOS</span></td>
+                </tr></table>
+                <h1 style="font-size:18px;font-weight:600;text-align:center;margin:8px 0 6px;">You have been invited to join the Nickles Lab</h1>
+                <p style="font-size:14px;line-height:1.6;color:#4b5563;text-align:center;margin:0 0 20px;">Dr. Grant Nickles invited you to join their lab on ResearchOS, the free, open electronic lab notebook. Accept to set up your own account and connect your data folder. Your notebook stays in your own folder, you just share a workspace.</p>
+                <div style="text-align:center;margin:0 0 22px;"><a href="#" style="display:inline-block;background:#1283C9;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 24px;border-radius:10px;">Join the lab</a></div>
+                <div style="border-top:1px solid #eef2f6;padding-top:16px;"><p style="font-size:13px;line-height:1.6;color:#6b7280;text-align:center;margin:0;">New to ResearchOS? Joining creates your free account. Notes, methods, and data stay local in your own folder.</p></div>
+              </div>
+              <div class="footer-note">
+                <p style="margin:0 0 4px;">You received this because Dr. Grant Nickles invited this address to their lab.</p>
+                <p style="margin:0 0 4px;">ResearchOS, University of Wisconsin-Madison, Madison, WI 53706, USA</p>
+                <p style="margin:0;"><a href="#" style="color:#9ca3af;">Do not invite me again</a> &middot; <a href="#" style="color:#9ca3af;">Report abuse</a></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

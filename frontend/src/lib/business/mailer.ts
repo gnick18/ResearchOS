@@ -28,11 +28,15 @@ function getResend(): Resend {
   return resendSingleton;
 }
 
-/** Sends one plain-text deadline reminder to an operator address. */
+/**
+ * Sends one deadline reminder to an operator address. Branded HTML when `html`
+ * is supplied, with the plaintext `text` always set as the fallback.
+ */
 export async function sendReminderEmail(
   toEmail: string,
   subject: string,
   text: string,
+  html?: string,
 ): Promise<void> {
   const resend = getResend();
   const { error } = await resend.emails.send({
@@ -40,6 +44,7 @@ export async function sendReminderEmail(
     to: toEmail,
     subject,
     text,
+    ...(html ? { html } : {}),
   });
   if (error) {
     throw new Error(`Resend failed to send the reminder email: ${error.message}`);

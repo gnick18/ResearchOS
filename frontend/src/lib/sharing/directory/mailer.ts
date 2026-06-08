@@ -8,6 +8,7 @@
 import { Resend } from "resend";
 
 import { recordEmailSent } from "./db";
+import { EMAIL_COLORS, escapeHtml, renderEmailLayout } from "@/lib/email/layout";
 
 let resendSingleton: Resend | null = null;
 
@@ -31,11 +32,37 @@ function getResend(): Resend {
   return resendSingleton;
 }
 
+/** Plaintext OTP body (fallback for clients that do not render HTML). */
+export function buildOtpText(code: string): string {
+  return `Your ResearchOS verification code is ${code}. It expires in 15 minutes. If you did not request this, you can ignore this email.`;
+}
+
 /**
- * Sends the signup OTP to the user's email. Plain subject and body with the
- * 6-digit code, no HTML or branding for the beta. Throws if Resend reports an
- * error so the route can return a generic failure rather than claim success on a
- * dropped send.
+ * Branded HTML OTP body. Pure (no I/O), unit-testable. The code is the only
+ * interpolation, escaped defensively even though it is a generated 6-digit
+ * string. This is the first email most users ever get from us, so it carries the
+ * brand wrapper (mascot, sky wordmark, rainbow band) like every other email.
+ */
+export function buildOtpHtml(code: string): string {
+  const { ink, muted, faint, action } = EMAIL_COLORS;
+  const safe = escapeHtml(code);
+  return renderEmailLayout({
+    preheader: "Your ResearchOS verification code (expires in 15 minutes).",
+    bodyHtml: `<p style="font-size:14px;line-height:1.6;color:${muted};text-align:center;margin:0 0 16px;">
+        Enter this code to verify your email. It expires in 15 minutes.
+      </p>
+      <div style="font-size:32px;font-weight:700;letter-spacing:0.22em;color:${ink};background:#f1f7fb;border:1px solid #d6e8f4;border-radius:10px;padding:14px 0;margin:0 0 14px;text-align:center;">${safe}</div>
+      <p style="font-size:12px;line-height:1.6;color:${faint};text-align:center;margin:0;">
+        If you did not request this, you can ignore this email.
+      </p>`,
+    footerNoteHtml: `<p style="margin:0;color:${faint};">ResearchOS is a free, open electronic lab notebook. <a href="https://research-os.app" style="color:${action};text-decoration:underline;">research-os.app</a></p>`,
+  });
+}
+
+/**
+ * Sends the signup OTP to the user's email, branded HTML plus a plaintext
+ * fallback. Throws if Resend reports an error so the route can return a generic
+ * failure rather than claim success on a dropped send.
  */
 export async function sendOtpEmail(toEmail: string, code: string): Promise<void> {
   const resend = getResend();
@@ -43,7 +70,8 @@ export async function sendOtpEmail(toEmail: string, code: string): Promise<void>
     from: FROM_ADDRESS,
     to: toEmail,
     subject: "Your ResearchOS verification code",
-    text: `Your ResearchOS verification code is ${code}. It expires in 15 minutes. If you did not request this, you can ignore this email.`,
+    html: buildOtpHtml(code),
+    text: buildOtpText(code),
   });
   if (error) {
     throw new Error(`Resend failed to send the OTP email: ${error.message}`);
