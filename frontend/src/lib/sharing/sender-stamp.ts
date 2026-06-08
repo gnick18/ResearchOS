@@ -77,7 +77,15 @@ export async function stampExperimentSender(
   if (!entry) return bytes;
 
   const raw = await entry.async("string");
-  const manifest = JSON.parse(raw) as RawManifest;
+  let manifest: RawManifest;
+  try {
+    manifest = JSON.parse(raw) as RawManifest;
+  } catch {
+    // Malformed manifest: ship the bundle unstamped rather than aborting the
+    // whole send (the recipient falls back to the relay hash), honoring this
+    // function's graceful-degradation contract.
+    return bytes;
+  }
   manifest.sender = sender;
   zip.file("_export-manifest.json", JSON.stringify(manifest, null, 2));
 
@@ -173,7 +181,14 @@ export async function stampProjectSender(
   if (!entry) return bytes;
 
   const raw = await entry.async("string");
-  const manifest = JSON.parse(raw) as ProjectBundleManifest;
+  let manifest: ProjectBundleManifest;
+  try {
+    manifest = JSON.parse(raw) as ProjectBundleManifest;
+  } catch {
+    // Malformed manifest: ship the bundle unstamped rather than aborting the
+    // whole send, honoring this function's graceful-degradation contract.
+    return bytes;
+  }
   manifest.sender = sender;
   zip.file(PROJECT_MANIFEST_FILE, JSON.stringify(manifest, null, 2));
 

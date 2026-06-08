@@ -475,7 +475,9 @@ export async function listInbox(
     "/api/relay/inbox",
     body,
   );
-  return res.items;
+  // Tolerate a server shape that omits items so `.length` callers
+  // (SharedWithMeTab, InboxBadge) never crash on undefined.
+  return res.items ?? [];
 }
 
 // ---------------------------------------------------------------------------

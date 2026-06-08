@@ -52,7 +52,7 @@ export async function fetchSnapshot(
   name: string,
   pairing: Pairing,
   deviceSign: (message: string) => Promise<string>,
-): Promise<any | null> {
+): Promise<unknown | null> {
   const ts = new Date().toISOString();
   const device = pairing.devicePubkey;
   const sig = await deviceSign(
@@ -89,7 +89,10 @@ export async function fetchSnapshot(
   try {
     return JSON.parse(new TextDecoder().decode(opened));
   } catch (e) {
+    // The bytes unsealed fine but are not valid JSON (truncated or wrong-shape
+    // publish). Surface a clear format error instead of the raw SyntaxError, so
+    // the caller does not show this as a generic network failure.
     console.warn(`[snapshot] JSON parse failed for "${name}"`, e);
-    throw e;
+    throw new Error(`snapshot format error for "${name}"`);
   }
 }

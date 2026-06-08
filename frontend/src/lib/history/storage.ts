@@ -76,14 +76,25 @@ export function rowsToJsonl(rows: unknown[]): string {
   return rows.map((r) => JSON.stringify(r)).join("\n") + "\n";
 }
 
-/** Parse jsonl text into rows. Blank lines are skipped. */
+/**
+ * Parse jsonl text into rows. Blank lines are skipped. A single corrupt line is
+ * skipped rather than thrown, so one bad line in a history file cannot wedge the
+ * whole engine. appendEdit reads history internally before every write, so an
+ * unguarded throw here would silently stop ALL new history writes for that note.
+ */
 export function jsonlToRows<T>(raw: string | null): T[] {
   if (!raw) return [];
   const out: T[] = [];
   for (const line of raw.split("\n")) {
     const trimmed = line.trim();
     if (trimmed.length === 0) continue;
-    out.push(JSON.parse(trimmed) as T);
+    try {
+      out.push(JSON.parse(trimmed) as T);
+    } catch {
+      // Corrupt/partial line (e.g. a torn final write): skip it and keep the
+      // rest of the file readable instead of throwing the whole parse away.
+      continue;
+    }
   }
   return out;
 }

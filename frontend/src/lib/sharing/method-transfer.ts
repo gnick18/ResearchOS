@@ -203,7 +203,15 @@ async function stampMethodKind(
     return bytes;
   }
   const raw = await entry.async("string");
-  const manifest = JSON.parse(raw) as RawManifest;
+  let manifest: RawManifest;
+  try {
+    manifest = JSON.parse(raw) as RawManifest;
+  } catch {
+    // Malformed manifest: ship the unmarked bytes rather than aborting the
+    // send; the recipient's import sniff falls back. Matches the missing-marker
+    // degradation above.
+    return bytes;
+  }
   manifest.kind = "method";
   manifest.source_instance = buildSourceInstance(ctx.ownerLabel, ctx.exportedAt);
   // Additive, omitted when the sender has no claimed identity (backward-compatible).

@@ -40,6 +40,31 @@ const MSG_EPHEMERAL = 0x02;
 /** How often the DO backs its snapshot up to R2 (disaster-recovery net). */
 const BACKUP_INTERVAL_MS = 5 * 60 * 1000;
 
+/**
+ * Hard cap on a single inbound WebSocket frame (2 MB). A real collab update or
+ * an ephemeral cursor frame is kilobytes; a multi-MB frame is malformed or
+ * hostile. A peer on an open pre-grant doc is unauthenticated, so without this
+ * a single huge frame would be imported + snapshotted and could pressure the DO
+ * isolate. Oversize frames close the socket with 1009 (message too big).
+ */
+const MAX_FRAME_BYTES = 2 * 1024 * 1024;
+
+/**
+ * Server-side caps on recipient-inbox / capture metadata strings. The client
+ * calls /inbox/push and /capture/upload directly, bypassing any caller-side
+ * limit (e.g. the notify-invite route's 300-char title cap), so the relay
+ * enforces these itself before persisting.
+ */
+const MAX_TITLE_LEN = 300;
+const MAX_EMAIL_LEN = 254;
+const MAX_NAME_LEN = 100;
+const MAX_CAPTION_LEN = 300;
+
+/** Truncate to a max length, returning null for any non-string value. */
+function capStr(v: unknown, max: number): string | null {
+  return typeof v === "string" ? v.slice(0, max) : null;
+}
+
 export interface Env {
   COLLAB_ROOM: DurableObjectNamespace;
   /** R2 bucket for periodic per-doc snapshot backups (disaster recovery). */
@@ -66,8 +91,21 @@ export interface Env {
   LAB_DATA: R2Bucket;
 }
 
-/** Permissive CORS for the cross-origin /snapshot fetch from the app. The
- *  session id is the capability; the response carries only that doc's bytes. */
+/**
+ * Permissive CORS (`*`) on every route. This is a deliberate, accepted posture,
+ * not an oversight:
+ *   - Write routes (/inbox/*, /capture/*, /lab/*, /access/*) authenticate with
+ *     Ed25519 signatures over a canonical message plus a replay window. Origin
+ *     is not part of that trust model, so allowing any origin grants no write
+ *     capability a forged Origin header would not already grant.
+ *   - The open-doc /snapshot read is capability-gated by the unguessable session
+ *     id and returns only that one doc's bytes. It is therefore probe-able from
+ *     any origin by anyone who already holds the session id, which is the same
+ *     party allowed to read it.
+ * If we ever want to additionally lock reads to the known frontend origin(s),
+ * thread an ALLOWED_ORIGIN wrangler var through here; until then `*` is correct
+ * for a relay whose security rests on signatures and capabilities, not origins.
+ */
 const CORS_HEADERS = { "Access-Control-Allow-Origin": "*" };
 
 export default {
@@ -830,6 +868,17 @@ export class CollabRoom {
     if (typeof data === "string") return;
     const bytes = new Uint8Array(data);
     if (bytes.byteLength === 0) return;
+    // Reject oversize frames before any import/snapshot work. On an open
+    // pre-grant doc the sender is unauthenticated, so this is the only guard
+    // against a single multi-MB frame pressuring the isolate.
+    if (bytes.byteLength > MAX_FRAME_BYTES) {
+      try {
+        ws.close(1009, "message too large");
+      } catch {
+        // Socket already gone; nothing to do.
+      }
+      return;
+    }
 
     const type = bytes[0];
     if (type === MSG_DOC_UPDATE) {
@@ -1029,10 +1078,12 @@ export class RecipientInbox {
       "INSERT INTO invites (doc_id, session_id, title, kind, from_email, from_name, from_pubkey, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(doc_id) DO UPDATE SET session_id = excluded.session_id, title = excluded.title, kind = excluded.kind, from_email = excluded.from_email, from_name = excluded.from_name, from_pubkey = excluded.from_pubkey, created_at = excluded.created_at",
       invite.collabDocId,
       invite.sessionId,
-      typeof invite.title === "string" ? invite.title : null,
+      // The client posts straight to /inbox/push, so cap these here rather than
+      // trusting any caller-side limit.
+      capStr(invite.title, MAX_TITLE_LEN),
       typeof invite.kind === "string" ? invite.kind : null,
-      from.email,
-      typeof from.name === "string" ? from.name : null,
+      capStr(from.email, MAX_EMAIL_LEN),
+      capStr(from.name, MAX_NAME_LEN),
       // from.pubkey is already validated above and is the SAME key that signed
       // this push (verifySig used from.pubkey), so persisting it records the key
       // that the recipient will later confirm against the directory binding.
@@ -1479,7 +1530,7 @@ export class CaptureInbox {
     this.sql().exec(
       "INSERT INTO captures (capture_id, caption, created_at, content_type, blob_key, uploaded_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(capture_id) DO UPDATE SET caption = excluded.caption, created_at = excluded.created_at, content_type = excluded.content_type, blob_key = excluded.blob_key, uploaded_at = excluded.uploaded_at",
       captureId,
-      typeof meta.caption === "string" ? meta.caption : null,
+      capStr(meta.caption, MAX_CAPTION_LEN),
       createdAt,
       contentType,
       blobKey,
