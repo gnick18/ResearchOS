@@ -652,18 +652,21 @@ function buildCommands(
     iconName: "users",
     run: () => handlers.setShowShared(!data.showShared),
   });
-  out.push({
-    id: "gantt-clear-filters",
-    label: "Clear all filters",
-    group: GANTT_GROUP_FILTER,
-    iconName: "refresh",
-    enabled: anyFilterActive(data),
-    run: () => {
-      handlers.setProjectFilterMode("all");
-      for (const tag of data.selectedTags) handlers.toggleTag(tag);
-      handlers.setShowShared(true);
-    },
-  });
+  // Only offer "Clear all filters" when at least one filter is active; with a
+  // clean slate there is nothing to clear, so suppress the dead row.
+  if (anyFilterActive(data)) {
+    out.push({
+      id: "gantt-clear-filters",
+      label: "Clear all filters",
+      group: GANTT_GROUP_FILTER,
+      iconName: "refresh",
+      run: () => {
+        handlers.setProjectFilterMode("all");
+        for (const tag of data.selectedTags) handlers.toggleTag(tag);
+        handlers.setShowShared(true);
+      },
+    });
+  }
 
   // ── Timeline view (spec 6). ───────────────────────────────────────────────
   for (const vm of GANTT_VIEW_MODES) {

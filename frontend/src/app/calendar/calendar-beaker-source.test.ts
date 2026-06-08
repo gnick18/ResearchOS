@@ -221,8 +221,9 @@ describe("buildCalendarSource commands", () => {
     expect(byId.get("calendar-view-week")?.group).toBe("View");
     expect(byId.get("calendar-add-feed")?.group).toBe("Feeds");
     expect(byId.get("calendar-manage-feeds")?.group).toBe("Feeds");
-    // Three view-switch rows, one per view.
-    expect(cmds.filter((c) => c.id.startsWith("calendar-view-")).length).toBe(3);
+    // Two view-switch rows, one per view you are NOT on (default frame is
+    // month, so the month row is suppressed as a no-op).
+    expect(cmds.filter((c) => c.id.startsWith("calendar-view-")).length).toBe(2);
   });
 
   it("labels Previous / Next with the frame unit noun", () => {
@@ -235,16 +236,17 @@ describe("buildCalendarSource commands", () => {
     expect(byId.get("calendar-next")?.label).toBe("Next week");
   });
 
-  it("disables the view switch for the view you are on, enables the others", () => {
+  it("suppresses the view switch for the view you are on, keeps the others", () => {
     const byId = new Map(
       buildCalendarSource(
         makeData({ frame: monthFrame({ view: "month" }) }),
         noopHandlers,
       ).commands.map((c) => [c.id, c]),
     );
-    expect(byId.get("calendar-view-month")?.enabled).toBe(false);
-    expect(byId.get("calendar-view-week")?.enabled).toBe(true);
-    expect(byId.get("calendar-view-day")?.enabled).toBe(true);
+    // The current view is a no-op switch, so its row is dropped entirely.
+    expect(byId.has("calendar-view-month")).toBe(false);
+    expect(byId.has("calendar-view-week")).toBe(true);
+    expect(byId.has("calendar-view-day")).toBe(true);
   });
 
   it("disables Go to today only when already on today", () => {

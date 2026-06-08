@@ -30,7 +30,7 @@
 // mid-sentence colons.
 
 import { useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import type { EditorCommand } from "@/components/sequences/editor-commands";
 import type { IconName } from "@/components/icons";
 import { NAV_ITEMS } from "@/lib/nav";
@@ -70,6 +70,7 @@ function titleCaseLabel(label: string): string {
  *  across renders (the registry effect is keyed on the source value). */
 export function useGlobalCommands(): EditorCommand[] {
   const router = useRouter();
+  const pathname = usePathname();
   const { resolved, setTheme } = useTheme();
 
   return useMemo<EditorCommand[]>(() => {
@@ -78,6 +79,9 @@ export function useGlobalCommands(): EditorCommand[] {
       // palette in lockstep so "Go to Inventory" does not surface a route the
       // visible nav suppresses.
       if (item.href === "/inventory" && !INVENTORY_ENABLED) return false;
+      // Drop the route you are already on. "Go to Workbench" while on
+      // /workbench is a no-op row, so suppress it rather than show a dead entry.
+      if (item.href === pathname) return false;
       return true;
     }).map((item) => ({
       id: `goto-${item.href}`,
@@ -112,5 +116,5 @@ export function useGlobalCommands(): EditorCommand[] {
     ];
 
     return [...goTo, ...app];
-  }, [router, resolved, setTheme]);
+  }, [router, pathname, resolved, setTheme]);
 }

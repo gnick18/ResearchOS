@@ -558,7 +558,10 @@ function buildCommands(
   });
 
   // ── View (spec 6). Each switch shown only for the views you are NOT on. ────
+  // Skip the view you are already on; "Switch to month view" while in month
+  // view is a no-op, so suppress the row rather than show a dead entry.
   for (const v of CALENDAR_VIEWS) {
+    if (frame.view === v.value) continue;
     out.push({
       id: `calendar-view-${v.value}`,
       label: `Switch to ${v.label} view`,
@@ -566,7 +569,6 @@ function buildCommands(
       keywords: "zoom layout",
       group: CALENDAR_GROUP_VIEW,
       iconName: "layer",
-      enabled: frame.view !== v.value,
       run: () => handlers.setView(v.value),
     });
   }

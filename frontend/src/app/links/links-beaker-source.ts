@@ -464,15 +464,18 @@ function buildCommands(
       run: () => handlers.setActiveCategory(cat),
     });
   }
-  out.push({
-    id: "links-clear-filter",
-    label: "Clear category filter",
-    detail: data.activeCategory ?? "no filter set",
-    group: LINKS_GROUP_FILTER,
-    iconName: "refresh",
-    enabled: data.activeCategory !== null,
-    run: () => handlers.setActiveCategory(null),
-  });
+  // Only offer "Clear category filter" when a filter is actually set; with no
+  // active category there is nothing to clear, so suppress the dead row.
+  if (data.activeCategory !== null) {
+    out.push({
+      id: "links-clear-filter",
+      label: "Clear category filter",
+      detail: data.activeCategory,
+      group: LINKS_GROUP_FILTER,
+      iconName: "refresh",
+      run: () => handlers.setActiveCategory(null),
+    });
+  }
   for (const cat of categories) {
     out.push({
       id: `links-jump-cat-${cat}`,

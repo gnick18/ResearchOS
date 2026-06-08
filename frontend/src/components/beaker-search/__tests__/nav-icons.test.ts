@@ -19,6 +19,9 @@ import { INVENTORY_ENABLED } from "@/lib/inventory/config";
 // the hook renders in isolation, no provider tree needed.
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
+  // Return a path that matches no NAV_ITEMS route so no "Go to" row is
+  // suppressed during the icon-coverage check.
+  usePathname: () => "/settings",
 }));
 vi.mock("@/lib/theme/use-theme", () => ({
   useTheme: () => ({ resolved: "light", setTheme: vi.fn() }),

@@ -295,7 +295,9 @@ describe("buildLinksSource commands", () => {
     );
     expect(byId.get("links-new-in-category")?.label).toBe("New link in Database");
     expect(byId.get("links-open-all-in-category")?.enabled).toBe(true);
-    expect(byId.get("links-clear-filter")?.enabled).toBe(true);
+    // The row exists and enabled is absent (absent means runnable).
+    expect(byId.has("links-clear-filter")).toBe(true);
+    expect(byId.get("links-clear-filter")?.enabled).toBeUndefined();
   });
 
   it("the filter command drives the page-lifted setActiveCategory (board filter)", () => {
