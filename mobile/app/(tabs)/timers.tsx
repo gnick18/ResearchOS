@@ -36,6 +36,15 @@ import {
 // Keypad layout, read right-to-left as HHMMSS like a bench timer.
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0', 'back'];
 
+// One-tap quick-start presets (the common bench durations).
+const PRESETS = [
+  { label: '1 min', sec: 60 },
+  { label: '5 min', sec: 300 },
+  { label: '10 min', sec: 600 },
+  { label: '30 min', sec: 1800 },
+  { label: '1 hr', sec: 3600 },
+];
+
 export default function TimersScreen() {
   const { timers, refresh } = useTimers();
   const { surface, spacing, radii } = useTheme();
@@ -90,6 +99,18 @@ export default function TimersScreen() {
     await refresh();
   }, [label, duration, refresh]);
 
+  // One-tap preset: start a timer immediately at the chosen duration.
+  const startPreset = useCallback(
+    async (sec: number) => {
+      await addTimer({ label, durationSec: sec });
+      setLabel('');
+      setDigits('');
+      setNotifyGranted(await ensureNotificationPermission());
+      await refresh();
+    },
+    [label, refresh],
+  );
+
   const onCancel = useCallback(
     async (id: string) => {
       await cancelTimer(id);
@@ -136,6 +157,29 @@ export default function TimersScreen() {
                 },
               ]}
             />
+
+            <View>
+              <ThemedText style={[styles.subLabel, { color: surface.muted }]}>
+                QUICK START
+              </ThemedText>
+              <View style={styles.presetRow}>
+                {PRESETS.map((p) => (
+                  <Pressable
+                    key={p.sec}
+                    style={[styles.preset, { backgroundColor: palette.skyDim, borderRadius: radii.pill }]}
+                    onPress={() => startPreset(p.sec)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Start ${p.label} timer`}
+                  >
+                    <ThemedText style={[styles.presetText, { color: palette.sky }]}>{p.label}</ThemedText>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+
+            <ThemedText style={[styles.subLabel, { color: surface.muted }]}>
+              OR SET A CUSTOM TIME
+            </ThemedText>
 
             <View style={styles.displayWrap}>
               <ThemedText
@@ -309,6 +353,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     lineHeight: 22,
+  },
+  subLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    marginBottom: 8,
+  },
+  presetRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  preset: {
+    paddingHorizontal: 15,
+    paddingVertical: 9,
+  },
+  presetText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
   input: {
     borderWidth: 1,
