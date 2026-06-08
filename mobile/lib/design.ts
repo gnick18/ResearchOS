@@ -90,7 +90,9 @@ const lightSurface: SurfaceTokens = {
 };
 
 const darkSurface: SurfaceTokens = {
-  bg: '#0c0e11',
+  // Navy off-black, matched to the website dark-mode --background (#0a0e1a), so
+  // dark mode is on-brand rather than flat pure black. Cards lift above it.
+  bg: '#0a0e1a',
   surface: '#161b22',
   sunken: '#0d1117',
   pressed: 'rgba(255,255,255,0.06)',
