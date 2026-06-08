@@ -5,7 +5,16 @@ const DIRECTORY_HANDLE_KEY = "research-os-directory-handle";
 const CURRENT_USER_KEY = "research-os-current-user";
 const MAIN_USER_KEY = "research-os-main-user";
 const STORE_NAME = "handles";
+const CACHE_STORE_NAME = "file-cache";
 const DB_NAME = "research-os-fsa";
+const DB_VERSION = 2;
+
+export interface CacheEntry {
+  key: string;          // `${folderName}::${path}`
+  lastModified: number; // File.lastModified at cache time
+  data: unknown;        // parsed JSON object or string
+  kind: "json" | "text";
+}
 
 // Pre-demo backup keys: written by `installWikiCaptureFixture` BEFORE it
 // overwrites the main keys with the fake fixture handle + "alex" user, so
@@ -128,7 +137,7 @@ async function initDB(): Promise<IDBDatabase | null> {
   if (dbInitialized) {
     try {
       return await new Promise<IDBDatabase>((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, 1);
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
       });
@@ -139,11 +148,14 @@ async function initDB(): Promise<IDBDatabase | null> {
 
   return new Promise<IDBDatabase | null>((resolve) => {
     try {
-      const request = indexedDB.open(DB_NAME, 1);
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
       request.onupgradeneeded = () => {
         const db = request.result;
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           db.createObjectStore(STORE_NAME);
+        }
+        if (!db.objectStoreNames.contains(CACHE_STORE_NAME)) {
+          db.createObjectStore(CACHE_STORE_NAME, { keyPath: "key" });
         }
       };
       request.onsuccess = () => {
@@ -160,6 +172,63 @@ async function initDB(): Promise<IDBDatabase | null> {
       resolve(null);
     }
   });
+}
+
+export async function getCacheEntry(key: string): Promise<CacheEntry | null> {
+  if (isDemoTab()) return null;
+  const db = await initDB();
+  if (!db) return null;
+  try {
+    return await new Promise<CacheEntry | null>((resolve, reject) => {
+      const tx = db.transaction(CACHE_STORE_NAME, "readonly");
+      const store = tx.objectStore(CACHE_STORE_NAME);
+      const request = store.get(key);
+      request.onsuccess = () => resolve((request.result as CacheEntry) || null);
+      request.onerror = () => reject(request.error);
+    });
+  } catch {
+    return null;
+  } finally {
+    db.close();
+  }
+}
+
+export async function putCacheEntry(entry: CacheEntry): Promise<void> {
+  if (isDemoTab()) return;
+  const db = await initDB();
+  if (!db) return;
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(CACHE_STORE_NAME, "readwrite");
+      const store = tx.objectStore(CACHE_STORE_NAME);
+      store.put(entry);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // best-effort
+  } finally {
+    db.close();
+  }
+}
+
+export async function deleteCacheEntry(key: string): Promise<void> {
+  if (isDemoTab()) return;
+  const db = await initDB();
+  if (!db) return;
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(CACHE_STORE_NAME, "readwrite");
+      const store = tx.objectStore(CACHE_STORE_NAME);
+      store.delete(key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // best-effort
+  } finally {
+    db.close();
+  }
 }
 
 export async function storeDirectoryHandle(

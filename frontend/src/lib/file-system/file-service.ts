@@ -1,4 +1,5 @@
 import { notifyFileWritten } from "./file-write-hooks";
+import { getCacheEntry, putCacheEntry } from "./indexeddb-store";
 
 export interface FileServiceConfig {
   directoryHandle: FileSystemDirectoryHandle;
@@ -50,6 +51,10 @@ export class FileService {
 
   private bumpReadCount(): void {
     this.readCount += 1;
+  }
+
+  private getFolderName(): string {
+    return this.directoryHandle?.name ?? "unknown";
   }
 
   async verifyPermission(requestWrite: boolean = true): Promise<boolean> {
@@ -203,12 +208,25 @@ export class FileService {
     try {
       const fileHandle = handle as FileSystemFileHandle;
       const file = await fileHandle.getFile();
+      const key = `${this.getFolderName()}::${path}`;
+      const cached = await getCacheEntry(key);
+      if (cached && cached.lastModified === file.lastModified && cached.kind === "json") {
+        if (process.env.NEXT_PUBLIC_DEBUG_FILE_CACHE === "1") {
+          console.log(`[file-cache] HIT ${path}`);
+        }
+        this.bumpReadCount();
+        return cached.data as T;
+      }
+      if (process.env.NEXT_PUBLIC_DEBUG_FILE_CACHE === "1") {
+        console.log(`[file-cache] MISS ${path}`);
+      }
       const text = await file.text();
       if (text.trim().length === 0) {
         this.bumpReadCount();
         return null;
       }
       const result = JSON.parse(text) as T;
+      await putCacheEntry({ key, lastModified: file.lastModified, data: result, kind: "json" });
       this.bumpReadCount();
       console.log(`[fileService.readJson] Successfully read: ${path}`);
       return result;
@@ -235,7 +253,20 @@ export class FileService {
     try {
       const fileHandle = handle as FileSystemFileHandle;
       const file = await fileHandle.getFile();
+      const key = `${this.getFolderName()}::${path}`;
+      const cached = await getCacheEntry(key);
+      if (cached && cached.lastModified === file.lastModified && cached.kind === "text") {
+        if (process.env.NEXT_PUBLIC_DEBUG_FILE_CACHE === "1") {
+          console.log(`[file-cache] HIT ${path}`);
+        }
+        this.bumpReadCount();
+        return cached.data as string;
+      }
+      if (process.env.NEXT_PUBLIC_DEBUG_FILE_CACHE === "1") {
+        console.log(`[file-cache] MISS ${path}`);
+      }
       const text = await file.text();
+      await putCacheEntry({ key, lastModified: file.lastModified, data: text, kind: "text" });
       this.bumpReadCount();
       return text;
     } catch (err) {
@@ -460,6 +491,28 @@ export class FileService {
         // intact) and the next successful write rotates it out.
       }
       throw err;
+    }
+
+    // Write-through cache update. Re-read lastModified from the final file
+    // so the next readJson/readText skips the FSA byte read entirely.
+    if (typeof payload === "string") {
+      try {
+        const finalHandle = await currentHandle.getFileHandle(fileName);
+        const finalFile = await finalHandle.getFile();
+        const key = `${this.getFolderName()}::${path}`;
+        let data: unknown;
+        let kind: "json" | "text";
+        try {
+          data = JSON.parse(payload);
+          kind = "json";
+        } catch {
+          data = payload;
+          kind = "text";
+        }
+        await putCacheEntry({ key, lastModified: finalFile.lastModified, data, kind });
+      } catch {
+        // best-effort; a cache miss on the next read is not a correctness bug
+      }
     }
 
     // Notify any registered observers (e.g. the S1 streak activity
