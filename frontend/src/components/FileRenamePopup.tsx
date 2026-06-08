@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { ImageIcon, PaperclipIcon } from "@/lib/utils/icons";
 import { usePopupLayer } from "@/lib/ui/popup-stack";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 
 interface FileRenamePopupProps {
   file: File;
@@ -21,6 +22,10 @@ export default function FileRenamePopup({
   const inputRef = useRef<HTMLInputElement>(null);
   // Opens during upload over the editor popups, so blur only when bottom-most.
   const { shouldBlur } = usePopupLayer(true, true);
+
+  // Robust Escape: the input's onKeyDown only fires while it has focus, so bind
+  // a window-level handler too in case focus ever leaves the input.
+  useEscapeToClose(onCancel);
 
   // Extract file extension and base name
   const lastDotIndex = file.name.lastIndexOf(".");

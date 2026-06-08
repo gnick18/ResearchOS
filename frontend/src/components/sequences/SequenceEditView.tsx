@@ -84,6 +84,7 @@ import { useTaxonomyClipboard } from "@/lib/sequences/taxonomy-clipboard";
 import { type SequenceTaxonomy } from "@/lib/sequences/apply-taxonomy";
 import { useSequenceEditor } from "@/lib/sequences/use-sequence-editor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { useStaleGuardedValue } from "@/hooks/useDebouncedValue";
 import {
   historyEngine,
@@ -3618,6 +3619,10 @@ export default function SequenceEditView({
       setTaxStatus(`Pasted the taxonomy of ${taxonomy.organism}.`);
     }
   }, [pasteTaxConfirm, onApplyTaxonomy]);
+
+  // sequence editor master. Escape dismisses the paste-taxonomy confirm (the
+  // inline overlay otherwise only has scrim-click dismiss).
+  useEscapeToClose(() => setPasteTaxConfirm(null), pasteTaxConfirm !== null);
 
   // sequence editor master — build the PRIMER right-click menu for a GIVEN feature
   // index. Like buildFeatureMenu, a builder so the router can pass the HIT index
