@@ -35,6 +35,7 @@ import WhatsNewManager from "@/components/WhatsNewManager";
 import WikiCaptureBodyClass from "@/components/WikiCaptureBodyClass";
 import SharedFolderAutoRefresh from "@/components/SharedFolderAutoRefresh";
 import CaptureInboxPoller from "@/components/CaptureInboxPoller";
+import TodaySnapshotPublisher from "@/components/TodaySnapshotPublisher";
 import DataMigrationRunner from "@/components/DataMigrationRunner";
 import MigrationToast from "@/components/MigrationToast";
 import { ContextMenuProvider } from "@/components/context-menu/ContextMenuProvider";
@@ -415,6 +416,11 @@ function AppContent({ children }: { children: ReactNode }) {
           pulls phone-sent bench photos from the relay into the inbox, then
           acks them. Headless, no-op when no identity is on hand. */}
       <CaptureInboxPoller />
+      {/* Mobile DOWNLOAD path (docs/proposals/MOBILE_DOWNLOAD_PATH.md, piece C):
+          when a folder is connected and the identity is unlocked, seals a small
+          "today" task snapshot to each paired phone and publishes it to the
+          relay. Headless, no-op when no identity is on hand. */}
+      <TodaySnapshotPublisher />
       {/* Auto on-disk data migrations (docs/proposals/AUTO_DATA_MIGRATIONS.md):
           runs pending idempotent format upgrades once per connected user folder,
           in the background, and shows a quiet "Updated N files" toast on change.

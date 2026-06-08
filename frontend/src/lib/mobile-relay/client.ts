@@ -39,9 +39,18 @@ function captureReadMessage(action: string, u: string, ts: string, extra?: strin
   const base = `researchos-capture-${action}\nu=${u}\nts=${ts}`;
   return extra ? `${base}\n${extra}` : base;
 }
+function snapshotPublishMessage(
+  u: string,
+  name: string,
+  device: string,
+  ts: string,
+  sha256hex: string,
+): string {
+  return `researchos-snapshot-publish\nu=${u}\nname=${name}\ndevice=${device}\nts=${ts}\nsha256=${sha256hex}`;
+}
 
 // Exported for the round-trip contract test.
-export const _canonical = { capturePairGrantMessage, captureReadMessage };
+export const _canonical = { capturePairGrantMessage, captureReadMessage, snapshotPublishMessage };
 
 // ---- Keys --------------------------------------------------------------
 
@@ -112,6 +121,9 @@ export interface BoundDevice {
   devicePubkey: string;
   label: string | null;
   boundAt: string | null;
+  /** Hex-encoded device X25519 public key, used to seal snapshots to this phone.
+   *  Null for devices registered before the DOWNLOAD path landed (no seal key). */
+  x25519Pubkey: string | null;
 }
 
 /** GET /capture/devices. Lists the phones currently bound to this identity. */
@@ -126,8 +138,16 @@ export async function listDevices(
     `${relayUrl}/capture/devices?u=${u}&ts=${encodeURIComponent(ts)}&sig=${sig}`,
   );
   if (!res.ok) throw new Error(`listDevices failed: ${res.status}`);
-  const body = (await res.json()) as { devices?: BoundDevice[] };
-  return Array.isArray(body.devices) ? body.devices : [];
+  const body = (await res.json()) as {
+    devices?: Array<Partial<BoundDevice> & { devicePubkey: string }>;
+  };
+  if (!Array.isArray(body.devices)) return [];
+  return body.devices.map((d) => ({
+    devicePubkey: d.devicePubkey,
+    label: d.label ?? null,
+    boundAt: d.boundAt ?? null,
+    x25519Pubkey: d.x25519Pubkey ?? null,
+  }));
 }
 
 /** POST /capture/devices/revoke. Unbinds one phone. */
@@ -221,4 +241,53 @@ export async function ackCaptures(
   if (!res.ok) throw new Error(`ackCaptures failed: ${res.status}`);
   const body = (await res.json()) as { deleted?: number };
   return typeof body.deleted === "number" ? body.deleted : 0;
+}
+
+// ---- Snapshots (DOWNLOAD path) --------------------------------------------
+
+/** Lowercase hex SHA-256 of a byte buffer, computed via WebCrypto exactly the
+ *  way the smoke test (relay/scripts/smoke-snapshot.mjs) does so the publish
+ *  signature's sha256 field matches what the relay recomputes over the blob. */
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  // Copy into a standalone ArrayBuffer so subtle.digest gets a clean BufferSource
+  // regardless of how the input view is backed.
+  const copy = bytes.slice();
+  const digest = await crypto.subtle.digest("SHA-256", copy);
+  return bytesToHex(new Uint8Array(digest));
+}
+
+/**
+ * POST /capture/snapshot/publish. Uploads one sealed snapshot blob for a single
+ * target device. The blob is already sealed to that device's X25519 key
+ * (sealToRecipient), so the relay never sees plaintext. The publish itself is
+ * gated by the USER'S Ed25519 signature over the canonical publish string whose
+ * sha256 field is the lowercase hex digest of the sealed bytes. Throws on
+ * non-200.
+ */
+export async function publishSnapshot(
+  keys: UserCaptureKeys,
+  name: string,
+  deviceEdPubkey: string,
+  sealed: Uint8Array,
+  relayUrl = captureRelayUrl(),
+): Promise<void> {
+  const u = keys.ed25519PublicKeyHex;
+  const ts = nowIso();
+  const sha = await sha256Hex(sealed);
+  const sig = sign(
+    snapshotPublishMessage(u, name, deviceEdPubkey, ts, sha),
+    keys.ed25519PrivateKey,
+  );
+  const form = new FormData();
+  form.set(
+    "blob",
+    new Blob([sealed as BlobPart], { type: "application/octet-stream" }),
+    "snapshot.bin",
+  );
+  form.set("meta", JSON.stringify({ u, name, device: deviceEdPubkey, ts, sig }));
+  const res = await fetch(`${relayUrl}/capture/snapshot/publish`, {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) throw new Error(`publishSnapshot failed: ${res.status}`);
 }
