@@ -77,14 +77,14 @@ export default function RootLayout() {
       <View style={styles.root}>
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="pair" options={{ title: 'Pair' }} />
-          <Stack.Screen name="note" options={{ title: 'Quick note' }} />
-          <Stack.Screen name="reorder" options={{ title: 'Scan to reorder' }} />
+          <Stack.Screen name="pair" options={{ headerShown: false }} />
+          <Stack.Screen name="note" options={{ headerShown: false }} />
+          <Stack.Screen name="reorder" options={{ headerShown: false }} />
           <Stack.Screen name="scan" options={{ headerShown: false }} />
-          <Stack.Screen name="bulk" options={{ title: 'Label photos' }} />
-          <Stack.Screen name="annotate" options={{ title: 'Annotate' }} />
+          <Stack.Screen name="bulk" options={{ headerShown: false }} />
+          <Stack.Screen name="annotate" options={{ headerShown: false }} />
           <Stack.Screen name="add-purchase" options={{ headerShown: false }} />
-          <Stack.Screen name="wiki/[slug]" options={{ title: '' }} />
+          <Stack.Screen name="wiki/[slug]" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>
         {/* The signature rainbow lives at the true top and bottom EDGES of the

@@ -99,12 +99,13 @@ export default function AddPurchaseScreen() {
 
   return (
     <ScreenFrame>
-      <ScreenHeader title="Add purchase" />
+      <ScreenHeader />
       <ScrollView
         style={styles.fill}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
+        <ThemedText type="title">Add purchase</ThemedText>
         {!pairing ? (
           <Card style={{ gap: spacing.sm }}>
             <ThemedText style={[styles.fieldLabel, { color: surface.text }]}>

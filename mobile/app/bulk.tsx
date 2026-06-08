@@ -25,6 +25,7 @@ import { AnnotationOverlay } from '@/components/AnnotationOverlay';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { useTheme, palette } from '@/lib/design';
 import { addCapture, sendCapture } from '@/lib/captures';
 import { takePendingBatch } from '@/lib/bulk-batch';
@@ -129,7 +130,8 @@ export default function BulkScreen() {
   );
 
   return (
-    <ScreenFrame edges={['bottom']}>
+    <ScreenFrame>
+      <ScreenHeader />
       <ScrollView style={styles.fill} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <ThemedText type="title">Label {uris.length} photo{uris.length === 1 ? '' : 's'}</ThemedText>
         <ThemedText style={[styles.sub, { color: surface.muted }]}>

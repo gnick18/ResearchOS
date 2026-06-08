@@ -16,7 +16,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   CameraView,
   useCameraPermissions,
@@ -24,8 +23,8 @@ import {
 } from 'expo-camera';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -205,12 +204,14 @@ export default function ReorderScreen() {
   const cameraReady = paired && permission?.granted === true && !handled;
 
   return (
-    <ScreenFrame edges={['bottom']}>
+    <ScreenFrame>
+      <ScreenHeader />
       <ScrollView
         style={styles.fill}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
+          <ThemedText type="title">Scan to reorder</ThemedText>
           <ThemedText style={[styles.tagline, { color: surface.muted }]}>
             Point the camera at a reagent box barcode to add it to your lab
             reorder list.

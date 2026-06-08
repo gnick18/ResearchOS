@@ -34,6 +34,7 @@ import { ThemedText } from '@/components/themed-text';
 import { renderSpec } from '@/components/AnnotationOverlay';
 import { Button } from '@/components/ui/Button';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { useTheme, palette } from '@/lib/design';
 import {
   ANNOTATION_SCHEMA_VERSION,
@@ -297,7 +298,8 @@ export default function AnnotateScreen() {
 
   if (!uri) {
     return (
-      <ScreenFrame edges={['bottom']}>
+      <ScreenFrame>
+        <ScreenHeader />
         <View style={styles.centered}>
           <ThemedText style={[styles.sub, { color: surface.muted }]}>
             No photo to annotate. Go back and pick a photo first.
@@ -309,7 +311,8 @@ export default function AnnotateScreen() {
   }
 
   return (
-    <ScreenFrame edges={['bottom']}>
+    <ScreenFrame>
+      <ScreenHeader />
       <View style={styles.fill}>
         <ScrollView
           style={styles.fill}

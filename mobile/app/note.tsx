@@ -6,16 +6,14 @@
 // no mid-sentence colons.
 import { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
   ScrollView,
   StyleSheet,
   TextInput,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useTheme, palette } from '@/lib/design';
@@ -64,12 +62,14 @@ export default function NoteScreen() {
   }, []);
 
   return (
-    <ScreenFrame edges={['bottom']}>
+    <ScreenFrame>
+      <ScreenHeader />
       <ScrollView
         style={styles.fill}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
+          <ThemedText type="title">Quick note</ThemedText>
           <ThemedText style={[styles.tagline, { color: surface.muted }]}>
             Jot a quick note and send it to your lab inbox.
           </ThemedText>

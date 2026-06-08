@@ -13,7 +13,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
   CameraView,
@@ -25,8 +24,8 @@ import { ed25519 } from '@noble/curves/ed25519.js';
 import { hexToBytes } from '@noble/curves/utils.js';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useTheme, palette } from '@/lib/design';
@@ -190,7 +189,8 @@ export default function PairScreen() {
   // Permission still loading from the OS.
   if (!permission) {
     return (
-      <ScreenFrame edges={['bottom']}>
+      <ScreenFrame>
+        <ScreenHeader />
         <View style={styles.centered}>
           <ActivityIndicator color={palette.sky} />
         </View>
@@ -202,7 +202,8 @@ export default function PairScreen() {
   // fallback stays available so pairing works even without the camera.
   if (!permission.granted) {
     return (
-      <ScreenFrame edges={['bottom']}>
+      <ScreenFrame>
+        <ScreenHeader />
         <View style={[styles.permissionWrap, { gap: spacing.lg }]}>
           <ThemedText type="title" style={styles.center}>
             Pair your phone
@@ -232,7 +233,8 @@ export default function PairScreen() {
 
   // Permission granted: live scanner plus the manual fallback below it.
   return (
-    <ScreenFrame edges={['bottom']}>
+    <ScreenFrame>
+      <ScreenHeader />
       <View style={[styles.scannerWrap, { gap: spacing.md }]}>
         <ThemedText type="title" style={styles.center}>
           Scan to pair

@@ -21,6 +21,7 @@ import { useLocalSearchParams } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { useTheme, palette } from '@/lib/design';
 import {
   getBundledContent,
@@ -47,7 +48,8 @@ export default function WikiReaderScreen() {
 
   if (!entry) {
     return (
-      <ScreenFrame edges={['bottom']}>
+      <ScreenFrame>
+        <ScreenHeader />
         <View style={[styles.notFound, { paddingTop: spacing['3xl'] }]}>
           <ThemedText style={[styles.notFoundText, { color: surface.muted }]}>
             Page not found.
@@ -58,7 +60,8 @@ export default function WikiReaderScreen() {
   }
 
   return (
-    <ScreenFrame edges={['bottom']}>
+    <ScreenFrame>
+      <ScreenHeader />
       <ScrollView
         style={styles.fill}
         contentContainerStyle={[styles.scroll, { paddingBottom: spacing['4xl'] }]}
