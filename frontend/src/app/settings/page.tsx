@@ -108,10 +108,24 @@ const TIME_FORMAT_OPTIONS: { value: TimeFormat; label: string }[] = [
 export default function SettingsPage() {
   return (
     <AppShell>
-      <SettingsSearchProvider>
-        <SettingsBody />
-      </SettingsSearchProvider>
+      <SettingsBody />
     </AppShell>
+  );
+}
+
+/**
+ * Public settings body. Wraps the real body in its own
+ * `SettingsSearchProvider` so the inline filter bar works no matter how
+ * the body is mounted, the `/settings` route OR the in-app SettingsModal
+ * (which renders `SettingsBody` directly inside a LivingPopup). Without
+ * the provider here, the modal mount fell back to the context default
+ * whose `setQuery` is a no-op, so typing in the search bar did nothing.
+ */
+export function SettingsBody() {
+  return (
+    <SettingsSearchProvider>
+      <SettingsBodyInner />
+    </SettingsSearchProvider>
   );
 }
 
@@ -146,7 +160,7 @@ function normalizeSettingsTab(
 // Exported so the SettingsModal (avatar-menu "Settings") can render the exact
 // same body inside a popup. The modal lazy-imports this via next/dynamic to
 // avoid a circular import (this page imports AppShell, which mounts the modal).
-export function SettingsBody() {
+function SettingsBodyInner() {
   const { currentUser, isConnected, directoryName } = useFileSystem();
   const hydrateFromSettings = useAppStore((s) => s.hydrateFromSettings);
   const queryClient = useQueryClient();
