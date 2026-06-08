@@ -29,6 +29,23 @@
 //   application/x-researchos-deduct  (W3)
 //                 deducts `amount` from units_remaining on a stock. Payload:
 //                 { stockId?: number, productBarcode?: string, amount: number }.
+//   application/x-researchos-create-purchase  (W3 round 2, scan-manager web sub-bot, 2026-06-08)
+//                 creates a STANDALONE (task-less) purchase in "received" status
+//                 for a package that just arrived and was not previously ordered
+//                 through the app. Payload:
+//                 { name, vendor?, catalog?, productBarcode?,
+//                   quantity?, unitsPerScan?, totalUnits?, unitLabel? }.
+//                 Reuses the addReorderQueueItem sentinel-task mechanism (no
+//                 task_id optionality needed on PurchaseItem). Also creates an
+//                 InventoryItem + InventoryStock linked to the purchase. If
+//                 unitsPerScan + totalUnits are present, registers the tracker
+//                 in the same action.
+//   application/x-researchos-create-inventory  (W3 round 2)
+//                 creates an InventoryItem + InventoryStock with no purchase
+//                 record. Payload: { name, vendor?, catalog?, productBarcode?,
+//                   unitsPerScan?, totalUnits?, unitLabel? }.
+//                 If unitsPerScan + totalUnits are present, registers the
+//                 tracker in the same action.
 //   anything else logged and SKIPPED (not acked, so nothing is lost, the relay
 //                 keeps it and a future build can handle it).
 //
@@ -79,6 +96,8 @@ export type CaptureKind =
   | "mark-arrived"
   | "register-tracker"
   | "deduct"
+  | "create-purchase"
+  | "create-inventory"
   | "other";
 
 /** The barcode-reorder content type the phone sends a reorder request as. */
@@ -88,6 +107,10 @@ const REORDER_CONTENT_TYPE = "application/x-researchos-reorder";
 const MARK_ARRIVED_CONTENT_TYPE = "application/x-researchos-mark-arrived";
 const REGISTER_TRACKER_CONTENT_TYPE = "application/x-researchos-register-tracker";
 const DEDUCT_CONTENT_TYPE = "application/x-researchos-deduct";
+
+// W3 round-2 create action content types (scan-manager web sub-bot, 2026-06-08).
+const CREATE_PURCHASE_CONTENT_TYPE = "application/x-researchos-create-purchase";
+const CREATE_INVENTORY_CONTENT_TYPE = "application/x-researchos-create-inventory";
 
 /** Decoded reorder request payload. Every field is optional (the phone may
  *  only know a scanned barcode and nothing else), so consumers must tolerate
@@ -127,6 +150,40 @@ interface DeductPayload {
   amount?: number | string;
 }
 
+// W3 round-2 create payloads (scan-manager web sub-bot, 2026-06-08).
+// Tracking fields are bundled here because the phone has no new record id to
+// chain a separate register-tracker call after the create resolves.
+
+/**
+ * create-purchase: a package arrived that was not previously ordered in the
+ * app. Creates a standalone "received" purchase via the sentinel-task queue
+ * plus a linked InventoryStock (and optional tracker registration).
+ */
+interface CreatePurchasePayload {
+  name?: string;
+  vendor?: string;
+  catalog?: string;
+  productBarcode?: string;
+  quantity?: number | string;
+  unitsPerScan?: number | string;
+  totalUnits?: number | string;
+  unitLabel?: string;
+}
+
+/**
+ * create-inventory: a plain stock add with no purchase record. Creates an
+ * InventoryItem + InventoryStock (and optional tracker registration).
+ */
+interface CreateInventoryPayload {
+  name?: string;
+  vendor?: string;
+  catalog?: string;
+  productBarcode?: string;
+  unitsPerScan?: number | string;
+  totalUnits?: number | string;
+  unitLabel?: string;
+}
+
 /**
  * Classify a capture content type into the branch that handles it. Pure +
  * exported so the routing can be unit tested without any relay / file mocking.
@@ -140,6 +197,8 @@ export function classifyCapture(contentType: string | null | undefined): Capture
   if (ct.startsWith(MARK_ARRIVED_CONTENT_TYPE)) return "mark-arrived";
   if (ct.startsWith(REGISTER_TRACKER_CONTENT_TYPE)) return "register-tracker";
   if (ct.startsWith(DEDUCT_CONTENT_TYPE)) return "deduct";
+  if (ct.startsWith(CREATE_PURCHASE_CONTENT_TYPE)) return "create-purchase";
+  if (ct.startsWith(CREATE_INVENTORY_CONTENT_TYPE)) return "create-inventory";
   if (ct.startsWith(REORDER_CONTENT_TYPE)) return "reorder";
   if (ct.startsWith("text/")) return "text";
   return "other";
@@ -383,6 +442,172 @@ async function applyDeduct(
   );
 }
 
+
+/**
+ * create-purchase (W3 round 2, scan-manager web sub-bot, 2026-06-08):
+ * create a STANDALONE "received" purchase (no prior ordering step) plus a
+ * linked InventoryItem and InventoryStock. Optionally register the tracker.
+ *
+ * Reuses the addReorderQueueItem sentinel-task mechanism with
+ * order_status="received" so the purchase lands on the Purchases tab under
+ * the _reorder_queue sentinel alongside other mobile-sourced items, with no
+ * change to the PurchaseItem data shape (task_id remains required; the
+ * sentinel task is the container).
+ *
+ * Best-effort: missing name logs + returns (no name = nothing to create).
+ */
+async function applyCreatePurchase(
+  payload: CreatePurchasePayload,
+  currentUser: string,
+  logPrefix: string,
+): Promise<void> {
+  const name = (payload.name ?? "").trim();
+  if (!name) {
+    console.warn(`${logPrefix} create-purchase: missing name, skipping`);
+    return;
+  }
+
+  // Land the purchase into the reorder-queue sentinel task with "received"
+  // status. This is the minimal-change reuse of the existing task-less path
+  // (the sentinel provides the required task_id without touching the schema).
+  const { item: purchaseItem, taskId } = await addReorderQueueItem(
+    currentUser,
+    {
+      item_name: name,
+      vendor: payload.vendor ?? null,
+      catalog_number: payload.catalog ?? null,
+      product_barcode: payload.productBarcode ?? null,
+    },
+    "received",
+  );
+  console.info(
+    `${logPrefix} create-purchase: purchase item ${purchaseItem.id} created (received) under sentinel task ${taskId}`,
+  );
+
+  // Create an InventoryItem from the incoming fields.
+  const invItem = await inventoryItemsApi.create({
+    name,
+    category: "reagent",
+    vendor: payload.vendor ?? undefined,
+    catalog_number: payload.catalog ?? undefined,
+    product_barcode: payload.productBarcode ?? undefined,
+  });
+
+  // Create a stock linked to the purchase item.
+  const quantity = toNumber(payload.quantity);
+  const today = new Date().toISOString();
+  const stock = await inventoryStocksApi.create({
+    item_id: invItem.id,
+    purchase_item_id: purchaseItem.id,
+    received_date: today,
+    container_count: quantity != null && quantity >= 1 ? Math.floor(quantity) : 1,
+    status: "in_stock",
+  });
+  console.info(
+    `${logPrefix} create-purchase: inventory item ${invItem.id} + stock ${stock.id} created`,
+  );
+
+  // Register the tracker when tracking fields are present.
+  await maybeRegisterTrackerOnStock(
+    stock.id,
+    invItem.id,
+    payload.unitsPerScan,
+    payload.totalUnits,
+    payload.productBarcode,
+    payload.unitLabel,
+    logPrefix,
+  );
+}
+
+/**
+ * create-inventory (W3 round 2, scan-manager web sub-bot, 2026-06-08):
+ * create an InventoryItem + InventoryStock with no purchase record. Optionally
+ * register the tracker.
+ *
+ * Best-effort: missing name logs + returns.
+ */
+async function applyCreateInventory(
+  payload: CreateInventoryPayload,
+  logPrefix: string,
+): Promise<void> {
+  const name = (payload.name ?? "").trim();
+  if (!name) {
+    console.warn(`${logPrefix} create-inventory: missing name, skipping`);
+    return;
+  }
+
+  const invItem = await inventoryItemsApi.create({
+    name,
+    category: "reagent",
+    vendor: payload.vendor ?? undefined,
+    catalog_number: payload.catalog ?? undefined,
+    product_barcode: payload.productBarcode ?? undefined,
+  });
+
+  const today = new Date().toISOString();
+  const stock = await inventoryStocksApi.create({
+    item_id: invItem.id,
+    received_date: today,
+    container_count: 1,
+    status: "in_stock",
+  });
+  console.info(
+    `${logPrefix} create-inventory: item ${invItem.id} + stock ${stock.id} created`,
+  );
+
+  // Register the tracker when tracking fields are present.
+  await maybeRegisterTrackerOnStock(
+    stock.id,
+    invItem.id,
+    payload.unitsPerScan,
+    payload.totalUnits,
+    payload.productBarcode,
+    payload.unitLabel,
+    logPrefix,
+  );
+}
+
+/**
+ * Register a stock for tracked scanning when tracking fields are present.
+ * Shared by both create-purchase and create-inventory. No-op when
+ * unitsPerScan or totalUnits is absent/invalid.
+ */
+async function maybeRegisterTrackerOnStock(
+  stockId: number,
+  itemId: number,
+  unitsPerScanRaw: number | string | undefined,
+  totalUnitsRaw: number | string | undefined,
+  productBarcode: string | undefined,
+  unitLabel: string | undefined,
+  logPrefix: string,
+): Promise<void> {
+  const unitsPerScan = toNumber(unitsPerScanRaw);
+  const totalUnits = toNumber(totalUnitsRaw);
+  if (!unitsPerScan || unitsPerScan <= 0 || totalUnits == null || totalUnits < 0) {
+    // Tracking fields absent or invalid; no tracker to register.
+    return;
+  }
+  const stock = await inventoryStocksApi.get(stockId);
+  const item = await inventoryItemsApi.get(itemId);
+  if (!stock || !item) {
+    console.warn(
+      `${logPrefix} maybeRegisterTrackerOnStock: could not reload stock ${stockId} or item ${itemId}, skipping tracker`,
+    );
+    return;
+  }
+  await registerTrackedBarcode(stock, item, {
+    totalUnits,
+    unitsPerScan,
+    productBarcode: productBarcode ?? null,
+  });
+  if (unitLabel) {
+    await inventoryStocksApi.update(stockId, { scan_unit_label: unitLabel });
+  }
+  console.info(
+    `${logPrefix} tracker registered on stock ${stockId} (ups=${unitsPerScan}, total=${totalUnits})`,
+  );
+}
+
 /** Write/merge a capture sidecar (same shape Telegram routing uses). */
 async function writeCaptureSidecar(
   basePath: string,
@@ -556,6 +781,35 @@ export async function runCaptureInboxPoll(
           );
         }
         await applyDeduct(deductPayload, LOG_PREFIX);
+
+      } else if (kind === "create-purchase") {
+        // W3 round 2 (scan-manager web sub-bot, 2026-06-08): create a standalone
+        // "received" purchase + linked InventoryItem + stock. Optionally registers
+        // the tracker when tracking fields are present.
+        let createPurchasePayload: CreatePurchasePayload = {};
+        try {
+          createPurchasePayload = JSON.parse(await blob.text()) as CreatePurchasePayload;
+        } catch (parseErr) {
+          console.warn(
+            `${LOG_PREFIX} create-purchase ${capture.captureId} has unparseable body`,
+            parseErr instanceof Error ? parseErr.message : String(parseErr),
+          );
+        }
+        await applyCreatePurchase(createPurchasePayload, currentUser, LOG_PREFIX);
+
+      } else if (kind === "create-inventory") {
+        // W3 round 2: create an InventoryItem + stock with no purchase record.
+        // Optionally registers the tracker when tracking fields are present.
+        let createInventoryPayload: CreateInventoryPayload = {};
+        try {
+          createInventoryPayload = JSON.parse(await blob.text()) as CreateInventoryPayload;
+        } catch (parseErr) {
+          console.warn(
+            `${LOG_PREFIX} create-inventory ${capture.captureId} has unparseable body`,
+            parseErr instanceof Error ? parseErr.message : String(parseErr),
+          );
+        }
+        await applyCreateInventory(createInventoryPayload, LOG_PREFIX);
 
       } else {
         // text/*. Land a real Note so it is visible in the Notes UI. The body is

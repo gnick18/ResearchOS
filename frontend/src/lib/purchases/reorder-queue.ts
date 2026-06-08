@@ -19,7 +19,7 @@
  *   - task    : a `task_type: "purchase"` task named `_reorder_queue` inside
  *               that project, find-or-created by name (the sentinel);
  *   - items   : one PurchaseItem per scan, category = "Miscellaneous", in
- *               `order_status: "needs_ordering"`.
+ *               `order_status: "needs_ordering"` by default.
  *
  * On disk this is `users/<user>/tasks/<id>.json` (the sentinel task) plus the
  * usual `purchase_items` records under it. No new fields, no new entity types,
@@ -33,6 +33,7 @@ import { ensureMiscProject, MISC_CATEGORY_LABEL } from "@/lib/purchases/misc-pro
 import {
   DEFAULT_PURCHASE_ORDER_STATUS,
   type PurchaseItem,
+  type PurchaseOrderStatus,
   type Task,
 } from "@/lib/types";
 
@@ -123,12 +124,19 @@ export function buildReorderNotes(seed: ReorderQueueSeed): string | null {
 
 /**
  * Land a scanned reorder as a real purchase line item in the reorder queue.
- * Find-or-creates the sentinel task, then creates one `needs_ordering`
- * PurchaseItem under it. Returns the queue task id + created item.
+ * Find-or-creates the sentinel task, then creates one PurchaseItem under it.
+ * Returns the queue task id + created item.
+ *
+ * `orderStatus` overrides the default "needs_ordering" status. Pass "received"
+ * for the create-purchase action (phone scanned a package that arrived
+ * immediately; no ordering step needed). The item still lands under the same
+ * sentinel task so all mobile-sourced purchases appear together on the
+ * Purchases tab.
  */
 export async function addReorderQueueItem(
   currentUser: string,
   seed: ReorderQueueSeed,
+  orderStatus: PurchaseOrderStatus = DEFAULT_PURCHASE_ORDER_STATUS,
 ): Promise<{ taskId: number; item: PurchaseItem }> {
   const name = seed.item_name.trim() || "item";
   const task = await ensureReorderQueueTask(currentUser);
@@ -141,7 +149,7 @@ export async function addReorderQueueItem(
     catalog_number: seed.catalog_number ?? null,
     category: MISC_CATEGORY_LABEL,
     notes: buildReorderNotes(seed),
-    order_status: DEFAULT_PURCHASE_ORDER_STATUS,
+    order_status: orderStatus,
   });
   return { taskId: task.id, item };
 }

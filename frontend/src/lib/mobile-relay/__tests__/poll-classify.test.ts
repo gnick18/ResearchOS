@@ -455,3 +455,214 @@ describe("runCaptureInboxPoll W3 deduct", () => {
     expect(result.errors).toBe(0);
   });
 });
+
+// ── W3 round-2 create action handler routing ──────────────────────────────────
+// (scan-manager web sub-bot round 2, 2026-06-08)
+
+const CREATE_PURCHASE_CT = "application/x-researchos-create-purchase";
+const CREATE_INVENTORY_CT = "application/x-researchos-create-inventory";
+
+describe("classifyCapture round-2 create types", () => {
+  it("routes create-purchase content type", () => {
+    expect(classifyCapture(CREATE_PURCHASE_CT)).toBe("create-purchase");
+    expect(classifyCapture("APPLICATION/X-RESEARCHOS-CREATE-PURCHASE")).toBe("create-purchase");
+    expect(classifyCapture(`${CREATE_PURCHASE_CT}; charset=utf-8`)).toBe("create-purchase");
+  });
+
+  it("routes create-inventory content type", () => {
+    expect(classifyCapture(CREATE_INVENTORY_CT)).toBe("create-inventory");
+    expect(classifyCapture("APPLICATION/X-RESEARCHOS-CREATE-INVENTORY")).toBe("create-inventory");
+    expect(classifyCapture(`${CREATE_INVENTORY_CT}; charset=utf-8`)).toBe("create-inventory");
+  });
+
+  it("does not confuse create types with each other or with older types", () => {
+    expect(classifyCapture(CREATE_PURCHASE_CT)).toBe("create-purchase");
+    expect(classifyCapture(CREATE_INVENTORY_CT)).toBe("create-inventory");
+    expect(classifyCapture(REORDER_CT)).toBe("reorder");
+    expect(classifyCapture(MARK_ARRIVED_CT)).toBe("mark-arrived");
+    expect(classifyCapture(REGISTER_TRACKER_CT)).toBe("register-tracker");
+    expect(classifyCapture(DEDUCT_CT)).toBe("deduct");
+  });
+});
+
+describe("runCaptureInboxPoll create-purchase", () => {
+  it("creates a received purchase + linked item + stock when tracking absent", async () => {
+    vi.mocked(fetchInbox).mockResolvedValue([actionCapture(CREATE_PURCHASE_CT, "cp-1")]);
+    vi.mocked(fetchObject).mockResolvedValue(
+      actionBlob(CREATE_PURCHASE_CT, {
+        name: "Agarose",
+        vendor: "Sigma",
+        catalog: "A9539",
+        productBarcode: "BAR001",
+        quantity: 3,
+      }) as never,
+    );
+
+    const result = await runCaptureInboxPoll(KEYS, "alex");
+    expect(result.pulled).toBe(1);
+    expect(result.errors).toBe(0);
+
+    // A purchase item should exist with status "received".
+    const purchases = await purchasesApi.listAll();
+    const purchase = purchases.find((p) => p.item_name === "Agarose");
+    expect(purchase).toBeDefined();
+    expect(purchase?.order_status).toBe("received");
+    expect(purchase?.vendor).toBe("Sigma");
+    expect(purchase?.catalog_number).toBe("A9539");
+
+    // An InventoryItem + linked stock should have been created.
+    const items = await inventoryItemsApi.list();
+    const invItem = items.find((i) => i.name === "Agarose");
+    expect(invItem).toBeDefined();
+    expect(invItem?.product_barcode).toBe("BAR001");
+    expect(invItem?.vendor).toBe("Sigma");
+
+    const stocks = await inventoryStocksApi.list();
+    const stock = stocks.find((s) => s.item_id === invItem!.id);
+    expect(stock).toBeDefined();
+    expect(stock?.purchase_item_id).toBe(purchase!.id);
+    expect(stock?.container_count).toBe(3);
+
+    // No tracking registered (unitsPerScan / totalUnits not sent).
+    expect(stock?.units_per_scan).toBeUndefined();
+
+    expect(vi.mocked(ackCaptures)).toHaveBeenCalledWith(KEYS, ["cp-1"]);
+  });
+
+  it("creates purchase + stock + tracker when tracking fields are present", async () => {
+    vi.mocked(fetchInbox).mockResolvedValue([actionCapture(CREATE_PURCHASE_CT, "cp-2")]);
+    vi.mocked(fetchObject).mockResolvedValue(
+      actionBlob(CREATE_PURCHASE_CT, {
+        name: "PCR Tips",
+        vendor: "Eppendorf",
+        productBarcode: "TIPBAR",
+        quantity: 1,
+        unitsPerScan: 1,
+        totalUnits: 96,
+        unitLabel: "tip",
+      }) as never,
+    );
+
+    const result = await runCaptureInboxPoll(KEYS, "alex");
+    expect(result.pulled).toBe(1);
+    expect(result.errors).toBe(0);
+
+    // Purchase created with "received" status.
+    const purchases = await purchasesApi.listAll();
+    const purchase = purchases.find((p) => p.item_name === "PCR Tips");
+    expect(purchase?.order_status).toBe("received");
+
+    // Stock should be tracked.
+    const stocks = await inventoryStocksApi.list();
+    const items = await inventoryItemsApi.list();
+    const invItem = items.find((i) => i.name === "PCR Tips");
+    const stock = stocks.find((s) => s.item_id === invItem!.id);
+    expect(stock?.units_per_scan).toBe(1);
+    expect(stock?.units_remaining).toBe(96);
+    expect(stock?.scan_unit_label).toBe("tip");
+    // Barcode registered on the item.
+    expect(invItem?.product_barcode).toBe("TIPBAR");
+  });
+
+  it("skips gracefully when name is missing", async () => {
+    vi.mocked(fetchInbox).mockResolvedValue([actionCapture(CREATE_PURCHASE_CT, "cp-bad")]);
+    vi.mocked(fetchObject).mockResolvedValue(
+      actionBlob(CREATE_PURCHASE_CT, { vendor: "Sigma" }) as never, // no name
+    );
+
+    const result = await runCaptureInboxPoll(KEYS, "alex");
+    expect(result.pulled).toBe(1);
+    expect(result.errors).toBe(0);
+
+    // Nothing should have been created.
+    const purchases = await purchasesApi.listAll();
+    expect(purchases).toHaveLength(0);
+    const items = await inventoryItemsApi.list();
+    expect(items).toHaveLength(0);
+  });
+});
+
+describe("runCaptureInboxPoll create-inventory", () => {
+  it("creates an item + stock with no purchase record when tracking absent", async () => {
+    vi.mocked(fetchInbox).mockResolvedValue([actionCapture(CREATE_INVENTORY_CT, "ci-1")]);
+    vi.mocked(fetchObject).mockResolvedValue(
+      actionBlob(CREATE_INVENTORY_CT, {
+        name: "Ethanol",
+        vendor: "Sigma",
+        catalog: "E7023",
+        productBarcode: "ETOH001",
+      }) as never,
+    );
+
+    const result = await runCaptureInboxPoll(KEYS, "alex");
+    expect(result.pulled).toBe(1);
+    expect(result.errors).toBe(0);
+
+    // An InventoryItem should exist; no purchase should.
+    const items = await inventoryItemsApi.list();
+    const invItem = items.find((i) => i.name === "Ethanol");
+    expect(invItem).toBeDefined();
+    expect(invItem?.vendor).toBe("Sigma");
+    expect(invItem?.product_barcode).toBe("ETOH001");
+
+    const stocks = await inventoryStocksApi.list();
+    const stock = stocks.find((s) => s.item_id === invItem!.id);
+    expect(stock).toBeDefined();
+    // No purchase link.
+    expect(stock?.purchase_item_id).toBeNull();
+    // No tracker.
+    expect(stock?.units_per_scan).toBeUndefined();
+
+    const purchases = await purchasesApi.listAll();
+    expect(purchases).toHaveLength(0);
+
+    expect(vi.mocked(ackCaptures)).toHaveBeenCalledWith(KEYS, ["ci-1"]);
+  });
+
+  it("creates item + stock + tracker when tracking fields are present", async () => {
+    vi.mocked(fetchInbox).mockResolvedValue([actionCapture(CREATE_INVENTORY_CT, "ci-2")]);
+    vi.mocked(fetchObject).mockResolvedValue(
+      actionBlob(CREATE_INVENTORY_CT, {
+        name: "Restriction Enzyme Kit",
+        vendor: "NEB",
+        productBarcode: "REBAR",
+        unitsPerScan: 2,
+        totalUnits: 50,
+        unitLabel: "rxn",
+      }) as never,
+    );
+
+    const result = await runCaptureInboxPoll(KEYS, "alex");
+    expect(result.pulled).toBe(1);
+    expect(result.errors).toBe(0);
+
+    const items = await inventoryItemsApi.list();
+    const invItem = items.find((i) => i.name === "Restriction Enzyme Kit");
+    expect(invItem).toBeDefined();
+
+    const stocks = await inventoryStocksApi.list();
+    const stock = stocks.find((s) => s.item_id === invItem!.id);
+    expect(stock?.units_per_scan).toBe(2);
+    expect(stock?.units_remaining).toBe(50);
+    expect(stock?.scan_unit_label).toBe("rxn");
+    expect(invItem?.product_barcode).toBe("REBAR");
+
+    // Still no purchase.
+    const purchases = await purchasesApi.listAll();
+    expect(purchases).toHaveLength(0);
+  });
+
+  it("skips gracefully when name is missing", async () => {
+    vi.mocked(fetchInbox).mockResolvedValue([actionCapture(CREATE_INVENTORY_CT, "ci-bad")]);
+    vi.mocked(fetchObject).mockResolvedValue(
+      actionBlob(CREATE_INVENTORY_CT, { productBarcode: "NONAME" }) as never,
+    );
+
+    const result = await runCaptureInboxPoll(KEYS, "alex");
+    expect(result.pulled).toBe(1);
+    expect(result.errors).toBe(0);
+
+    const items = await inventoryItemsApi.list();
+    expect(items).toHaveLength(0);
+  });
+});
