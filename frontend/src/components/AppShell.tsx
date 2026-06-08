@@ -44,6 +44,7 @@ import ResearcherProfileModal from "@/components/researchers/ResearcherProfileMo
 import ProfileSettingsModal from "@/components/profile/ProfileSettingsModal";
 import SettingsModal from "@/components/settings/SettingsModal";
 import SharingClaimResume from "@/components/sharing/SharingClaimResume";
+import LabInviteResume from "@/components/lab/LabInviteResume";
 // BeakerSearch step 2a, the app-chrome front-door pill. Visible on every app
 // page, opens the always-present global Cmd-K palette.
 import BeakerSearchPill from "@/components/beaker-search/BeakerSearchPill";
@@ -613,6 +614,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
        *  the URL flag + a connected user + non-capture mode, so it is inert on
        *  every normal page load. */}
       <SharingClaimResume />
+      <LabInviteResume />
       <ReminderRunner />
 
       {/* Universal floating utility cluster — a single fixed flex row at
