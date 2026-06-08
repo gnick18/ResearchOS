@@ -39,6 +39,8 @@ import { ANIMATION_METADATA, renderAnimationIcon, type AnimationType, type RealA
 import DynamicAnimation from "@/components/DynamicAnimation";
 import { hasLocalAccount } from "@/lib/auth/account-store";
 import LabRoster from "@/components/lab-head/LabRoster";
+import LabMembershipPanel from "@/components/lab-head/LabMembershipPanel";
+import { LAB_TIER_ENABLED } from "@/lib/lab/config";
 import AuditTrailViewer from "@/components/lab-head/AuditTrailViewer";
 import { loadIdentity } from "@/lib/sharing/identity/storage";
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
@@ -1116,6 +1118,24 @@ export function shouldShowLabHeadAuditTrail(
   return settings?.account_type === "lab_head";
 }
 
+/**
+ * Lab tier Phase 8d: the relay-based lab-membership controls (invite link +
+ * pending join requests). Lab-head only, and only when the lab tier is on.
+ * Distinct from the folder-based LabRoster above it on the same tab.
+ */
+function LabMembershipSection() {
+  return (
+    <SectionShell
+      id="lab-membership"
+      title="Lab membership"
+      description="Invite members with a one-time link and add them when they request to join."
+      searchKeywords="invite member join link lab tier add request"
+    >
+      <LabMembershipPanel />
+    </SectionShell>
+  );
+}
+
 function LabAuditTrailSection() {
   const [viewerOpen, setViewerOpen] = useState(false);
   return (
@@ -1229,6 +1249,9 @@ function LabModeTabContent({
   return (
     <>
       <AccountTypeSection settings={settings} update={update} />
+      {LAB_TIER_ENABLED && shouldShowLabHeadAuditTrail(settings) && (
+        <LabMembershipSection />
+      )}
       {shouldShowLabHeadAuditTrail(settings) && <LabAuditTrailSection />}
       <LabRosterSection />
     </>

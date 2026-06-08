@@ -3,227 +3,199 @@ import WikiPage from "@/components/wiki/WikiPage";
 import Callout from "@/components/wiki/Callout";
 
 export const metadata = {
-  title: "Start Here · ResearchOS Wiki",
+  title: "Read this first · ResearchOS Wiki",
   description:
-    "The one page to read if you only read one. What ResearchOS is, the handful of things that make the difference between bouncing and being fluent, and how to actually use this wiki.",
+    "If you read one wiki page, read this one. What ResearchOS is, the few things worth knowing before you start, and how to find the rest of the wiki when you need it.",
 };
 
 export default function StartHerePage() {
   return (
     <WikiPage
-      title="Oh god, another massive docs site"
+      title="Read this first"
       intro={
         <>
-          Yeah, fair. There are a lot of pages in here. Good news: this is an
-          encyclopedia, not a textbook. You are not supposed to read it cover
-          to cover. You are supposed to land back here whenever you want to
-          know how some specific thing works, find the page for it, skim, and
-          leave.
+          Yes, there are a lot of pages in here. Don&apos;t panic. Think of the
+          wiki as a reference you dip into, not a book you read front to back.
+          Come back here whenever you are stuck on something, find the page for
+          it, skim, and get on with your day. This is the one page actually
+          worth reading top to bottom.
         </>
       }
     >
       <p>
-        If you only read one wiki page, read this one. It covers the small
-        handful of things that make the difference between &quot;I tried it
-        once and bounced&quot; and &quot;I am fluent in this app.&quot; Then
-        it tells you how to find the rest of the wiki when you actually need
-        it.
+        It is short. It covers what ResearchOS is, the few things that will save
+        you a headache later, and how to find everything else when you need it.
       </p>
 
       <h2>What ResearchOS is, in one paragraph</h2>
       <p>
-        A research project management app that runs entirely in your browser
-        and reads / writes a folder on your own computer. No accounts, no
-        sign-up, no upload. You point it at a folder, pick a username, and it
-        stores everything (projects, tasks, lab notes, methods, PCR protocols,
-        purchases, attachments) as plain JSON and image files inside that
-        folder. If you put the folder inside OneDrive or Dropbox or iCloud,
-        your whole lab can work out of the same one.
+        It is a research project manager that runs entirely in your browser and
+        reads and writes a folder on your own computer. No account, no sign-up,
+        no upload. You point it at a folder, pick a username, and everything you
+        make (projects, tasks, lab notes, methods, protocols, purchases,
+        attachments) gets saved as plain JSON and image files inside that
+        folder. Put the folder in OneDrive, Dropbox, or iCloud and your whole
+        lab can work out of the same one.
       </p>
 
-      <h2>The 7 things worth knowing up front</h2>
+      <h2>A few things worth knowing up front</h2>
       <p>
-        The facts that matter most. Absorb these and you can pick up the rest
-        as you go.
+        Get these and you can pick up the rest as you go.
       </p>
 
-      <Callout variant="tip" title="1. Your data is yours, on your machine">
-        Everything you do writes to the folder you connected. Nothing uploads.
-        There is no ResearchOS server holding your research. If you want to
-        back it up, copy the folder. If you want to walk away, delete it. The
-        only network calls the app makes are to fetch your own calendar
-        feed URLs, opt-in. See{" "}
-        <Link href="/wiki/security">Security</Link> for the full story.
+      <Callout variant="tip" title="1. Your data stays on your machine">
+        Everything you do writes to the folder you connected. Nothing is
+        uploaded, and there is no ResearchOS server holding your research. Want
+        a backup? Copy the folder. Want to leave? Delete it. The only network
+        calls the app makes are to fetch calendar feeds you opted into. The full
+        story is on <Link href="/wiki/security">Security</Link>.
       </Callout>
 
       <Callout
         variant="tip"
-        title="2. The “?” button is your shortcut into this wiki"
+        title="2. The “?” button jumps you into this wiki"
       >
-        Top-right of every page in the app. Click it and it opens the wiki
-        page for whatever surface you were just looking at. Confused about a
-        colored bar on the Gantt? Hit &quot;?&quot; and you land on the Gantt
-        wiki page.
+        It is in the top-right of every page in the app. Click it and you land
+        on the wiki page for whatever you were just looking at. Confused by a
+        colored bar on the Gantt chart? Hit &quot;?&quot; and you are on the
+        Gantt page.
       </Callout>
 
       <Callout
         variant="tip"
-        title="3. BeakerBot will walk you through the app on first login"
+        title="3. Home is for status, the Workbench is for doing the work"
       >
-        A guided tour auto-starts the first time you sign in. It is roughly
-        20 minutes, hands-on, in your actual account. You can skip it any
-        time and re-run it later from <strong>Settings → Walkthrough</strong>.
-        (Separate thing:
-        the folder-picker screen also has a small <strong>Take the 3-minute
-        walkthrough</strong> button next to BeakerBot in the upper-right.
-        That one is a 4-beat intro modal that runs <em>before</em> you link a
-        folder; the in-product tour is what fires <em>after</em> you sign
-        in.)
-      </Callout>
-
-      <Callout
-        variant="tip"
-        title="4. Home is for status. The Workbench is for doing experiments."
-      >
-        Two surfaces, two purposes.{" "}
-        <Link href="/wiki/features/home">Home</Link> is the dashboard you
-        glance at each morning: today&apos;s tasks, upcoming deadlines,
-        recent activity. The{" "}
+        Two surfaces, two jobs.{" "}
+        <Link href="/wiki/features/home">Home</Link> is the dashboard you glance
+        at each morning, with today&apos;s tasks, upcoming deadlines, and recent
+        activity. The{" "}
         <Link href="/wiki/features/experiments">Workbench</Link> is where you
-        actually run experiments: three tabs (Experiments, Notes, Lists), a
-        project filter that sticks across tabs, and a popup with details,
-        lab notes, method, and results. If you find yourself working out of
-        Home for hours, you probably want the Workbench.
+        actually run experiments, with its Experiments, Notes, and Lists tabs, a
+        project filter that sticks as you move between them, and a popup holding
+        the details, lab notes, method, and results. If you are spending hours
+        on Home, you probably want the Workbench.
       </Callout>
 
       <Callout
         variant="tip"
-        title="5. Tasks live in projects, projects live in your account"
+        title="4. Tasks live in projects, projects live in your account"
       >
-        Hierarchy: account → projects → tasks. Sharing happens at the task
-        level (or implicitly through shared methods). When you share a task
-        with a labmate, they see it in their own Workbench under the
-        project, with editing rights if you grant them. The unit of
-        collaboration is the task, not the whole project. See{" "}
+        The shape is account, then projects, then tasks. Sharing happens at the
+        task level (or through a shared method). When you share a task with a
+        labmate, it shows up in their Workbench under the project, editable if
+        you let them. The unit you share is the task, not the whole project. The
+        rules are on{" "}
         <Link href="/wiki/features/sharing-and-permissions">
           Sharing and permissions
-        </Link>{" "}
-        for the rules.
+        </Link>
+        .
       </Callout>
 
       <Callout
         variant="tip"
-        title="6. PIs (Principal Investigators) get a Lab Overview surface"
+        title="5. PIs get a Lab Overview surface"
       >
-        If your account is flagged as a <strong>PI</strong>, you
-        unlock <Link href="/wiki/features/lab-overview">Lab Overview</Link>,
-        a fixed, curated page with cross-member views (member workload,
-        recent activity, purchase queue, audit log). It is not visible to
-        regular members. Set the PI flag on your account to get the
-        bird&apos;s-eye view. See{" "}
+        If your account is marked as a <strong>PI</strong> (Principal
+        Investigator), you get{" "}
+        <Link href="/wiki/features/lab-overview">Lab Overview</Link>, a curated
+        page with cross-member views like member workload, recent activity, the
+        purchase queue, and an audit log. Regular members never see it. Flip the
+        PI flag on your account to get the bird&apos;s-eye view. More on{" "}
         <Link href="/wiki/features/lab-head">PI</Link>.
       </Callout>
 
       <Callout
         variant="tip"
-        title="7. Integrations (calendar, AI Helper) are all opt-in"
+        title="6. Calendar and the AI Helper are opt-in"
       >
-        ResearchOS works completely standalone. The{" "}
+        ResearchOS works fine on its own. The{" "}
         <Link href="/wiki/integrations/calendar-feeds">calendar feeds</Link>{" "}
-        (subscribe to a Google / Outlook / iCloud calendar) and the AI
-        Helper are all in Settings, off by default, and separately
-        switchable. Connect them when you want them.
+        (subscribe to a Google, Outlook, or iCloud calendar) and the AI Helper
+        live in Settings, off by default, and switch on independently. Turn them
+        on if and when you want them.
       </Callout>
 
-      <h2>How to use this wiki</h2>
+      <h2>How to find the rest of the wiki</h2>
       <p>
-        The wiki has dozens of pages because the app has dozens of features.
-        Three ways to navigate it, in order of speed:
+        There are a lot of pages because the app does a lot. Three ways to get
+        around, fastest first.
       </p>
       <ul>
         <li>
-          <strong>Type a phrase in the search bar at the top of the
-          sidebar.</strong> Fastest. If you know the word for the thing you
-          want (&quot;gradient,&quot; &quot;calendar,&quot; &quot;edit
-          session&quot;), search beats browsing every time.
+          <strong>Search the bar at the top of the sidebar.</strong> If you know
+          the word for the thing you want (&quot;gradient,&quot;
+          &quot;calendar,&quot; &quot;edit session&quot;), this beats browsing
+          every time.
         </li>
         <li>
-          <strong>Browse by category in the sidebar on the left.</strong>{" "}
-          Pages are grouped under Getting Started, Shared Lab Accounts,
-          Features, Integrations, and Security. If you know roughly what
-          area you are in, this works well.
+          <strong>Browse the sidebar categories.</strong> Pages are grouped
+          under Getting Started, Shared Lab Accounts, Features, Integrations, and
+          Security. Good when you know roughly what area you are in.
         </li>
         <li>
-          <strong>Hit the &quot;?&quot; button inside the app.</strong> Bounces
-          you straight to the wiki page for whatever surface you were just
-          looking at. This is the right move when you are mid-task and want
-          context, not when you are exploring.
+          <strong>Hit the &quot;?&quot; button in the app.</strong> Drops you on
+          the page for whatever you were just looking at. Best when you are
+          mid-task and want context, not when you are browsing.
         </li>
       </ul>
       <p>
-        Each page is built concept-first. The top of the page explains what
-        the feature actually is and why it exists. Below that are screenshots
-        and procedural steps. You can usually skim to the screenshot of the
-        thing you need and stop there.
+        Every page leads with the concept. The top explains what the feature is
+        and why it exists, and the screenshots and steps come after. Usually you
+        can skim to the screenshot of the thing you need and stop there.
       </p>
 
-      <h2>If you are brand new, start here</h2>
+      <h2>Brand new? Start here</h2>
       <p>
-        Walk these in order (each is short):
+        Walk these in order. Each one is short.
       </p>
       <ol>
         <li>
           <Link href="/wiki/getting-started/browser-requirements">
             Browser requirements
           </Link>
-          . Chrome or Edge. The folder API does not work in Safari, Firefox,
-          or Brave.
+          . Chrome or Edge. The folder API does not work in Safari, Firefox, or
+          Brave.
         </li>
         <li>
           <Link href="/wiki/getting-started/connecting-your-folder">
             Connecting your folder
           </Link>
-          . Picking the folder ResearchOS reads and writes.
+          . Pick the folder ResearchOS reads and writes.
         </li>
         <li>
           <Link href="/wiki/getting-started/creating-a-user">
             Creating a user
           </Link>
-          . Username, optional password.
+          . A username, and an optional password.
         </li>
         <li>
-          <Link href="/wiki/getting-started/welcome-wizard">
-            Welcome tour (BeakerBot)
-          </Link>
-          . What the guided walkthrough covers.
-        </li>
-        <li>
-          If you want a sandbox first,{" "}
-          <Link href="/wiki/getting-started/demo-mode">try the demo</Link>{" "}
-          (in-browser, fake yeast lab, edits vanish on reload).
+          Want a sandbox first?{" "}
+          <Link href="/wiki/getting-started/demo-mode">Try the demo</Link>. It
+          runs in your browser on a fake yeast lab, and your edits vanish on
+          reload.
         </li>
       </ol>
 
-      <h2>If you are setting up a shared lab folder</h2>
+      <h2>Setting up a shared lab folder?</h2>
       <p>
         Read{" "}
-        <Link href="/wiki/shared-lab-accounts">Shared Lab Accounts</Link>{" "}
-        first. Putting the ResearchOS folder inside OneDrive, Google Drive,
-        Dropbox, Box, or iCloud lets your whole lab work out of one folder.
-        The catch: you have to configure the sync client to keep the folder
-        downloaded locally rather than on-demand. If you skip that, the app
-        will fail to read or write at random and the experience will be
-        miserable. The per-provider pages walk you through the exact setting.
+        <Link href="/wiki/shared-lab-accounts">Shared Lab Accounts</Link> first.
+        Putting the ResearchOS folder inside OneDrive, Google Drive, Dropbox,
+        Box, or iCloud lets your whole lab work out of one folder. The catch is
+        that you have to set the sync client to keep the folder downloaded
+        locally instead of on-demand. Skip that and the app will fail to read or
+        write at random, and you will hate it. The per-provider pages walk you
+        through the exact setting.
       </p>
 
       <h2>One last thing</h2>
       <p>
-        This app is local-first and single-developer, and the wiki tries to be
-        honest about what works and what does not yet. If something is
-        broken or confusing, the{" "}
+        This is a local-first app built by one person, and the wiki tries to be
+        honest about what works and what does not yet. If something is broken or
+        confusing, the{" "}
         <Link href="/wiki/features/feedback">Feedback</Link> page in the app
-        files a GitHub issue with the context pre-filled. It's the fastest way
-        to get things fixed.
+        files a GitHub issue with the context already filled in. It is the
+        fastest way to get it fixed.
       </p>
     </WikiPage>
   );

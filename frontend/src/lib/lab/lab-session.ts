@@ -247,6 +247,16 @@ export interface LabSessionEffects {
   authenticate: (provider: string) => Promise<{ email: string }>;
 
   /**
+   * SILENT resume probe: return the verified email IF an OAuth session already
+   * exists (cookie still valid), or null otherwise. Unlike authenticate, this
+   * NEVER triggers a sign-in or a redirect. resume() uses it on boot so a
+   * returning user with a live cookie goes straight to "live" without re-doing
+   * the sign-in every refresh. Optional so existing fakes/tests stay valid;
+   * resume() no-ops (stays locked) when it is absent.
+   */
+  peekSession?: () => Promise<{ email: string } | null>;
+
+  /**
    * Unlock the member's keypair private key for this session (passkey-PRF or
    * recovery-code fallback). Resolves when the identity is parked in
    * session-key.ts; rejects on failure or user cancellation.
@@ -310,6 +320,15 @@ export interface LabSessionController {
   signIn(provider: string): Promise<void>;
 
   /**
+   * SILENT resume on boot. If an OAuth session already exists (peekSession
+   * returns an email) AND the keypair restores, walks locked -> live with NO
+   * sign-in prompt or redirect, so a refresh keeps the user logged in. If there
+   * is no session (or peekSession is absent), it leaves the state at "locked" so
+   * the gate shows the sign-in buttons. Safe to call once on gate mount.
+   */
+  resume(): Promise<void>;
+
+  /**
    * Signal that the OAuth session has lapsed. Sets graceUntil on the "live"
    * state (the session remains usable for graceMs). A timer or NextAuth
    * session-watch should call this. Has no effect in non-live states.
@@ -357,7 +376,7 @@ function zeroBytes(...arrays: Uint8Array[]): void {
 export function createLabSessionController(
   effects: LabSessionEffects,
 ): LabSessionController {
-  const { authenticate, unlockKeypair, openLabKey, now } = effects;
+  const { authenticate, peekSession, unlockKeypair, openLabKey, now } = effects;
   const graceMs = effects.graceMs ?? DEFAULT_GRACE_MS;
 
   let state: LabSessionState = { kind: "locked" };
@@ -402,6 +421,45 @@ export function createLabSessionController(
     }
   }
 
+  /**
+   * Shared tail of signIn() and resume(): from "authenticating" (AUTH_BEGIN
+   * already dispatched, auth confirmed), unlock the keypair then open the lab
+   * key, landing in "live". Any rejection resets to "locked" with the error.
+   */
+  async function unlockAndOpen(): Promise<void> {
+    dispatch({ type: "AUTH_DONE" });
+
+    try {
+      await unlockKeypair();
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      dispatch({ type: "RESET" });
+      return;
+    }
+
+    let payload: {
+      labId: string;
+      labKey: Uint8Array;
+      signingKeyPair: LabSigningKeyPair;
+      member: LabSessionMember;
+    };
+    try {
+      payload = await openLabKey();
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      dispatch({ type: "RESET" });
+      return;
+    }
+
+    dispatch({
+      type: "UNLOCK_DONE",
+      labId: payload.labId,
+      labKey: payload.labKey,
+      signingKeyPair: payload.signingKeyPair,
+      member: payload.member,
+    });
+  }
+
   return {
     getState() {
       return state;
@@ -429,7 +487,6 @@ export function createLabSessionController(
       lastError = null;
 
       dispatch({ type: "AUTH_BEGIN" });
-
       try {
         await authenticate(provider);
       } catch (err) {
@@ -437,38 +494,24 @@ export function createLabSessionController(
         dispatch({ type: "RESET" });
         return;
       }
+      await unlockAndOpen();
+    },
 
-      dispatch({ type: "AUTH_DONE" });
-
+    async resume() {
+      // Silent boot resume: only from "locked", only if a session already
+      // exists. Never prompts or redirects.
+      if (state.kind !== "locked") return;
+      if (!peekSession) return;
+      let session: { email: string } | null;
       try {
-        await unlockKeypair();
-      } catch (err) {
-        lastError = err instanceof Error ? err : new Error(String(err));
-        dispatch({ type: "RESET" });
-        return;
+        session = await peekSession();
+      } catch {
+        session = null;
       }
-
-      let payload: {
-        labId: string;
-        labKey: Uint8Array;
-        signingKeyPair: LabSigningKeyPair;
-        member: LabSessionMember;
-      };
-      try {
-        payload = await openLabKey();
-      } catch (err) {
-        lastError = err instanceof Error ? err : new Error(String(err));
-        dispatch({ type: "RESET" });
-        return;
-      }
-
-      dispatch({
-        type: "UNLOCK_DONE",
-        labId: payload.labId,
-        labKey: payload.labKey,
-        signingKeyPair: payload.signingKeyPair,
-        member: payload.member,
-      });
+      if (!session) return; // no live cookie: stay locked, gate shows buttons
+      lastError = null;
+      dispatch({ type: "AUTH_BEGIN" });
+      await unlockAndOpen();
     },
 
     signalExpiry() {

@@ -31,8 +31,8 @@ export default function WikiLandingPage() {
         <Link href="/wiki/start-here">
           <strong>Start Here</strong>
         </Link>{" "}
-        covers the 7 things worth knowing up front and how to navigate the
-        rest of the wiki.
+        covers what the app is, the few things worth knowing up front, and how
+        to find your way around the rest of the wiki.
       </Callout>
 
       <h2>60-second tour</h2>

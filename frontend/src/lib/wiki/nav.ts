@@ -85,7 +85,7 @@ export const WIKI_NAV: WikiNode[] = [
   {
     href: "/wiki/start-here",
     label: "Start Here",
-    blurb: "If you only read one wiki page, read this one. The 7 things worth knowing up front.",
+    blurb: "If you read one wiki page, read this one. What the app is, and the few things worth knowing before you start.",
   },
   {
     href: "/wiki",
