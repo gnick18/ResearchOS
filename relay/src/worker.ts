@@ -211,7 +211,10 @@ export default {
     if (
       url.pathname === "/lab/create" ||
       url.pathname === "/lab/append" ||
-      url.pathname === "/lab/get"
+      url.pathname === "/lab/get" ||
+      url.pathname === "/lab/accept" ||
+      url.pathname === "/lab/accept/list" ||
+      url.pathname === "/lab/accept/dismiss"
     ) {
       if (request.method !== "POST") {
         return new Response("Method not allowed", {
@@ -2367,6 +2370,14 @@ export class LabRecordDO {
     this.sql().exec(
       "CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)",
     );
+    // Pending join ACCEPTS (lab tier Phase 8c), one row per invite nonce. A
+    // member who opened a head-minted invite link posts a signed accept here
+    // (the member email is SEALED to the head, so this row leaks no email). The
+    // head reads them (head-signed /lab/accept/list), verifies + finalizes
+    // (addMember), then dismisses. Keyed by nonce so one invite yields one slot.
+    this.sql().exec(
+      "CREATE TABLE IF NOT EXISTS accepts (nonce TEXT PRIMARY KEY, accept TEXT, created_at INTEGER)",
+    );
   }
 
   private sql(): SqlStorage {
@@ -2730,12 +2741,118 @@ export class LabRecordDO {
     return this.json({ record, envelopes }, 200);
   }
 
+  /** POST /lab/accept?lab=<labId>. A member posts a signed join accept. Open
+   *  write (the member may not be in any roster yet); the head is the real
+   *  verifier at finalize. We do light shape validation, require the lab to
+   *  exist, and store ONE row per nonce (a re-post for the same nonce replaces
+   *  the prior pending accept). The member email inside is sealed to the head, so
+   *  this row leaks no email. */
+  private async handleAcceptPush(request: Request, labId: string): Promise<Response> {
+    if (this.metaGet("head_pubkey") === null) {
+      return this.json({ error: "lab does not exist" }, 404);
+    }
+    let body: { accept?: unknown };
+    try {
+      body = await request.json();
+    } catch {
+      return this.json({ error: "invalid JSON body" }, 400);
+    }
+    const a = body.accept as Record<string, unknown> | undefined;
+    if (
+      !a ||
+      typeof a !== "object" ||
+      a.labId !== labId ||
+      typeof a.nonce !== "string" ||
+      typeof a.memberX25519Pub !== "string" ||
+      typeof a.memberEd25519Pub !== "string" ||
+      typeof a.sealedEmail !== "string" ||
+      typeof a.memberSig !== "string" ||
+      typeof a.invite !== "object"
+    ) {
+      return this.json({ error: "malformed accept" }, 400);
+    }
+    this.sql().exec(
+      "INSERT INTO accepts (nonce, accept, created_at) VALUES (?, ?, ?) ON CONFLICT(nonce) DO UPDATE SET accept = excluded.accept, created_at = excluded.created_at",
+      a.nonce,
+      JSON.stringify(a),
+      Date.now(),
+    );
+    return this.json({ ok: true }, 200);
+  }
+
+  /** Verifies a head-signed control request (list/dismiss) against the stored
+   *  head_pubkey over the given canonical message, within a freshness window so a
+   *  captured request cannot be replayed indefinitely. Returns null on success
+   *  or a Response to reject. */
+  private requireHeadSig(
+    message: string,
+    sigHex: string,
+    issuedAt: number,
+  ): Response | null {
+    const headPubkey = this.metaGet("head_pubkey");
+    if (headPubkey === null) return this.json({ error: "lab does not exist" }, 404);
+    if (typeof issuedAt !== "number" || Math.abs(Date.now() - issuedAt) > 5 * 60 * 1000) {
+      return this.json({ error: "stale or missing issuedAt" }, 401);
+    }
+    if (!this.verifySig(sigHex, message, headPubkey)) {
+      return this.json({ error: "bad head signature" }, 401);
+    }
+    return null;
+  }
+
+  /** POST /lab/accept/list?lab=<labId>. Head-signed read of pending accepts.
+   *  Body: { issuedAt, signature } over "lab-accept-list\n<labId>\n<issuedAt>". */
+  private async handleAcceptList(request: Request, labId: string): Promise<Response> {
+    let body: { issuedAt?: number; signature?: string };
+    try {
+      body = await request.json();
+    } catch {
+      return this.json({ error: "invalid JSON body" }, 400);
+    }
+    const message = `lab-accept-list\n${labId}\n${body.issuedAt}`;
+    const rej = this.requireHeadSig(message, body.signature ?? "", body.issuedAt ?? 0);
+    if (rej) return rej;
+    const rows = this.sql()
+      .exec<{ accept: string; created_at: number }>(
+        "SELECT accept, created_at FROM accepts ORDER BY created_at ASC",
+      )
+      .toArray();
+    const accepts = rows.map((r) => ({
+      ...JSON.parse(r.accept),
+      createdAt: r.created_at,
+    }));
+    return this.json({ accepts }, 200);
+  }
+
+  /** POST /lab/accept/dismiss?lab=<labId>. Head-signed removal of one accept.
+   *  Body: { nonce, issuedAt, signature } over
+   *  "lab-accept-dismiss\n<labId>\n<nonce>\n<issuedAt>". */
+  private async handleAcceptDismiss(request: Request, labId: string): Promise<Response> {
+    let body: { nonce?: string; issuedAt?: number; signature?: string };
+    try {
+      body = await request.json();
+    } catch {
+      return this.json({ error: "invalid JSON body" }, 400);
+    }
+    if (typeof body.nonce !== "string") {
+      return this.json({ error: "missing nonce" }, 400);
+    }
+    const message = `lab-accept-dismiss\n${labId}\n${body.nonce}\n${body.issuedAt}`;
+    const rej = this.requireHeadSig(message, body.signature ?? "", body.issuedAt ?? 0);
+    if (rej) return rej;
+    this.sql().exec("DELETE FROM accepts WHERE nonce = ?", body.nonce);
+    return this.json({ ok: true }, 200);
+  }
+
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const labId = url.searchParams.get("lab") ?? "";
     if (url.pathname === "/lab/create") return this.handleCreate(request, labId);
     if (url.pathname === "/lab/append") return this.handleAppend(request);
     if (url.pathname === "/lab/get") return this.handleGet();
+    if (url.pathname === "/lab/accept") return this.handleAcceptPush(request, labId);
+    if (url.pathname === "/lab/accept/list") return this.handleAcceptList(request, labId);
+    if (url.pathname === "/lab/accept/dismiss") return this.handleAcceptDismiss(request, labId);
     return this.json({ error: "not found" }, 404);
   }
 }

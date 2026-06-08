@@ -45,6 +45,13 @@ vi.mock("@/lib/lab/lab-key", () => ({
   openLabKeyCopy: vi.fn(),
 }));
 
+// The OAuth-email binding (Phase 8a) has its own unit tests (lab-binding.test.ts);
+// here it is mocked so openLabKey's envelope/payload logic is tested in isolation
+// and the binding's accept/reject can be driven per case.
+vi.mock("@/lib/lab/lab-binding", () => ({
+  verifyMemberEmailBinding: vi.fn(() => ({ ok: true, reason: "" })),
+}));
+
 // ---------------------------------------------------------------------------
 // Typed imports of mocked modules so vi can control their return values.
 // ---------------------------------------------------------------------------
@@ -57,6 +64,24 @@ import {
 import { getLabRemote } from "@/lib/lab/lab-do-client";
 import { openLabKeyCopy } from "@/lib/lab/lab-key";
 import type { LabKeyEnvelope } from "@/lib/lab/lab-key";
+import { verifyMemberEmailBinding } from "@/lib/lab/lab-binding";
+
+/** A record whose head is USERNAME, so the binding step finds a roster entry. */
+function recordWithHead() {
+  return {
+    labId: LAB_ID,
+    head: {
+      username: USERNAME,
+      x25519PublicKey: "ab".repeat(32),
+      ed25519PublicKey: "cd".repeat(32),
+      role: "head" as const,
+      emailHashEnc: "deadbeef",
+    },
+    members: [],
+    keyGeneration: 0,
+    log: [],
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -217,9 +242,13 @@ describe("openLabKey", () => {
 
     const envelopes = [makeEnvelope(0), makeEnvelope(2), makeEnvelope(1)];
     vi.mocked(getLabRemote).mockResolvedValueOnce({
-      record: {} as never,
+      record: recordWithHead() as never,
       envelopes,
     });
+    vi.mocked(getSession).mockResolvedValueOnce({
+      user: { email: "alice@example.com" },
+      expires: "2099-01-01",
+    } as Awaited<ReturnType<typeof getSession>>);
 
     const fakeLabKey = new Uint8Array(32).fill(0x55);
     vi.mocked(openLabKeyCopy).mockReturnValueOnce(fakeLabKey);
@@ -245,5 +274,50 @@ describe("openLabKey", () => {
     );
     expect(result.member.username).toBe(USERNAME);
     expect(result.member.labId).toBe(LAB_ID);
+  });
+
+  it("hard-rejects the login when the OAuth-email binding fails (Phase 8a)", async () => {
+    const fakeId = makeFakeIdentity();
+    vi.mocked(getSessionIdentity).mockReturnValueOnce(
+      fakeId as ReturnType<typeof getSessionIdentity>,
+    );
+    vi.mocked(getLabRemote).mockResolvedValueOnce({
+      record: recordWithHead() as never,
+      envelopes: [makeEnvelope(0)],
+    });
+    vi.mocked(getSession).mockResolvedValueOnce({
+      user: { email: "imposter@evil.com" },
+      expires: "2099-01-01",
+    } as Awaited<ReturnType<typeof getSession>>);
+    vi.mocked(openLabKeyCopy).mockReturnValueOnce(new Uint8Array(32).fill(0x55));
+    vi.mocked(verifyMemberEmailBinding).mockReturnValueOnce({
+      ok: false,
+      reason: "OAuth email does not match this membership",
+    });
+
+    const effects = makeEffects();
+    await expect(effects.openLabKey()).rejects.toThrow(
+      /OAuth email does not match this lab membership/,
+    );
+  });
+
+  it("rejects when the user has no roster entry in this lab", async () => {
+    const fakeId = makeFakeIdentity();
+    vi.mocked(getSessionIdentity).mockReturnValueOnce(
+      fakeId as ReturnType<typeof getSessionIdentity>,
+    );
+    // head is someone else and members is empty -> no entry for USERNAME.
+    const foreign = recordWithHead();
+    foreign.head.username = "someone-else";
+    vi.mocked(getLabRemote).mockResolvedValueOnce({
+      record: foreign as never,
+      envelopes: [makeEnvelope(0)],
+    });
+    vi.mocked(openLabKeyCopy).mockReturnValueOnce(new Uint8Array(32).fill(0x55));
+
+    const effects = makeEffects();
+    await expect(effects.openLabKey()).rejects.toThrow(
+      /no roster entry for this user/,
+    );
   });
 });
