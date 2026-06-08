@@ -9,10 +9,9 @@
 //
 // SECURITY (updated 2026-06-06, Grant-approved Option A in IDENTITY_OAUTH_ONLY.md):
 // the public fields are still public, but this file now ALSO carries the device
-// keypair WRAPPED at rest (recoveryBlob + optional passkeyBlob). Those are
-// ciphertext, sealed under the 128-bit recovery code (Argon2id) and a
-// device-bound passkey PRF, the same posture the directory already uses for the
-// backup blob. This makes the folder a self-contained identity, a new device
+// keypair WRAPPED at rest (recoveryBlob). The blob is ciphertext sealed under the
+// 128-bit recovery code (Argon2id), the same posture the directory uses for the
+// backup blob. This makes the folder a self-contained identity -- a new device
 // opening the same folder unlocks offline with the recovery code, no directory
 // needed. Anyone who can read the folder can copy the ciphertext, but offline
 // brute force is infeasible at 128 bits. The raw private key NEVER lands here, it
@@ -22,17 +21,16 @@
 
 import { fileService } from "../../file-system/file-service";
 import type { BackupBlob } from "./backup";
-import type { PrfBackupBlob } from "./passkey";
 
 /**
  * The per-user identity link. Public fields only, never a private key.
  *
  * MODEL (IDENTITY_OAUTH_ONLY.md, revised 2026-06-06): the ACCOUNT is a LOCAL
  * keypair, created offline with no OAuth. A LOCAL-ONLY identity carries the
- * public keys + fingerprint + recoveryBlob (+ optional passkeyBlob) and NO
- * email. Publishing a findable directory profile (OAuth) is optional and is what
- * adds the email + claimedAt. So `email` and `claimedAt` are OPTIONAL, present
- * only once the identity has been PUBLISHED.
+ * public keys + fingerprint + recoveryBlob and NO email. Publishing a findable
+ * directory profile (OAuth) is optional and is what adds the email + claimedAt.
+ * So `email` and `claimedAt` are OPTIONAL, present only once the identity has
+ * been PUBLISHED.
  *
  * - email, the canonical address this identity was PUBLISHED under (lowercased,
  *   trimmed, see canonicalizeEmail). Stored so the UI can show which address an
@@ -47,9 +45,6 @@ import type { PrfBackupBlob } from "./passkey";
  *   Optional so pre-cutover sidecars (which only carried claimedAt) still parse.
  * - recoveryConfirmedAt, ISO-8601 timestamp the user confirmed they saved their
  *   Recovery Words, or null if they have not confirmed yet.
- * - passkeyEnrolledAt, ISO-8601 timestamp a passkey was enrolled to unlock this
- *   identity, or null/absent when none is enrolled. PUBLIC "yes a passkey exists"
- *   flag, no credential or key material. Optional so older sidecars stay valid.
  *
  * The wrapped device key (Option A, 2026-06-06). These are CIPHERTEXT, the device
  * keypair sealed at rest so the folder is a self-contained identity:
@@ -57,9 +52,6 @@ import type { PrfBackupBlob } from "./passkey";
  *   Present once the account is set up (local-only or published). Optional so
  *   pre-cutover sidecars (public-only) still parse. Its presence is the canonical
  *   "an account exists here" signal.
- * - passkeyBlob, the keypair sealed under this device's passkey PRF, present once
- *   a passkey is enrolled on this device. Device-specific.
- * - passkeyCredentialId, which passkey to ask for at unlock.
  * Never store the raw (unwrapped) private key here, see the SECURITY note above.
  */
 export interface SharingIdentitySidecar {
@@ -71,10 +63,7 @@ export interface SharingIdentitySidecar {
   claimedAt?: string;
   createdAt?: string;
   recoveryConfirmedAt: string | null;
-  passkeyEnrolledAt?: string | null;
   recoveryBlob?: BackupBlob;
-  passkeyBlob?: PrfBackupBlob;
-  passkeyCredentialId?: string;
 }
 
 function sidecarPath(username: string): string {

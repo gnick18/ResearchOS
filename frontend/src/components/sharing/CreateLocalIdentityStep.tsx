@@ -3,9 +3,9 @@
 // Account creation, the LOCAL-identity path (IDENTITY_OAUTH_ONLY.md, revised
 // 2026-06-06). The ACCOUNT is a local keypair, created fully OFFLINE with NO
 // OAuth and NO network: mint a keypair, write+seal the sidecar under a fresh
-// recovery code (createLocalIdentity), offer an optional passkey for everyday
-// unlock, and ALWAYS show the recovery code once. Publishing a findable profile
-// (OAuth) is a separate optional step the caller can offer afterwards.
+// recovery code (createLocalIdentity), and show the recovery code once so the
+// user can save it. Publishing a findable profile (OAuth) is a separate optional
+// step the caller can offer afterwards.
 //
 // This replaces the SharingSetupWizard as the account-creation surface in the
 // shared-folder gate and the create-user paths, which previously forced OAuth
@@ -19,18 +19,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { usePopupLayer } from "@/lib/ui/popup-stack";
 
-import { decodePublicKey } from "@/lib/sharing/identity/keys";
-import {
-  createLocalIdentity,
-  enrollPasskeyIntoSidecar,
-} from "@/lib/sharing/identity/storage";
-import {
-  enrollPasskey,
-  isPasskeySupported,
-  PasskeyCancelledError,
-  PasskeyPrfUnavailableError,
-} from "@/lib/sharing/identity/webauthn";
-import { readSharingIdentity } from "@/lib/sharing/identity/sidecar";
+import { createLocalIdentity } from "@/lib/sharing/identity/storage";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import Tooltip from "@/components/Tooltip";
 import {
@@ -79,12 +68,6 @@ export default function CreateLocalIdentityStep({
   const [copied, setCopied] = useState(false);
   const [recoverySaved, setRecoverySaved] = useState(false);
 
-  // Passkey enrollment, the everyday unlock. Optional, the recovery code is the
-  // backstop and the account works without one.
-  const [passkeyEnrolled, setPasskeyEnrolled] = useState(false);
-  const [passkeyEnrolling, setPasskeyEnrolling] = useState(false);
-  const [passkeyError, setPasskeyError] = useState<string | null>(null);
-
   // Mint the identity once, deferred a frame so the CSS spinner paints before
   // Argon2id locks the main thread. StrictMode-safe: a LOCAL cancelled flag, not
   // a persistent ref. Under React Strict Mode the first mount's cleanup cancels
@@ -123,50 +106,6 @@ export default function CreateLocalIdentityStep({
       setCopied(false);
     }
   }, [recoveryCode]);
-
-  // Add a passkey for everyday unlock. The session key is already parked by
-  // createLocalIdentity, so enrollPasskeyIntoSidecar can wrap it directly. We
-  // read the sidecar's ed25519 public key to seed the WebAuthn user id.
-  const enrollPasskeyForIdentity = useCallback(async () => {
-    setPasskeyError(null);
-    setPasskeyEnrolling(true);
-    try {
-      const sidecar = await readSharingIdentity(username);
-      if (!sidecar) {
-        setPasskeyError("Could not read your account. Try again.");
-        return;
-      }
-      const { prfOutput, credentialId } = await enrollPasskey({
-        userId: decodePublicKey(sidecar.ed25519PublicKey),
-        userName: username,
-        userDisplayName: username,
-      });
-      const ok = await enrollPasskeyIntoSidecar(
-        username,
-        prfOutput,
-        credentialId,
-      );
-      if (!ok) {
-        setPasskeyError("Could not save your passkey. Use your recovery code instead.");
-        return;
-      }
-      setPasskeyEnrolled(true);
-    } catch (err) {
-      if (err instanceof PasskeyCancelledError) {
-        setPasskeyError("Passkey setup was cancelled. You can try again.");
-      } else if (err instanceof PasskeyPrfUnavailableError) {
-        setPasskeyError(
-          "This passkey cannot unlock your key. Use your recovery code instead.",
-        );
-      } else {
-        setPasskeyError(
-          "Could not set up a passkey. Use your recovery code instead.",
-        );
-      }
-    } finally {
-      setPasskeyEnrolling(false);
-    }
-  }, [username]);
 
   return (
     <div
@@ -219,99 +158,44 @@ export default function CreateLocalIdentityStep({
             <div className="space-y-5">
               <p className="text-body text-foreground-muted leading-relaxed">
                 Your account is a keypair on this device. It works offline, with
-                no password and no sign-in. Set up a one-tap unlock and save your
-                recovery code.
+                no password and no sign-in. Save your recovery code -- it is the
+                only way to restore your account on another device.
               </p>
 
-              {/* Two columns side by side so the modal uses the screen width
-                  instead of one tall scroll: passkey (everyday unlock) on the
-                  left, recovery code (backstop) on the right. */}
-              <div className="grid gap-4 sm:grid-cols-2">
-                {/* Passkey, the everyday unlock. Optional, the recovery code is
-                    the backstop and the account works without one. */}
-                <div className="rounded-lg border border-border bg-surface-sunken p-4 space-y-2">
-                  <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                    <KeyIcon className="w-5 h-5" />
-                    <p className="text-body font-medium text-foreground">
-                      One-tap unlock
-                    </p>
-                  </div>
-                  {isPasskeySupported() ? (
-                    passkeyEnrolled ? (
-                      <div className="flex items-start gap-2">
-                        <span className="text-emerald-600 dark:text-emerald-400 mt-0.5">
-                          <CheckIcon className="w-4 h-4" />
-                        </span>
-                        <p className="text-meta text-foreground-muted leading-relaxed">
-                          Passkey ready. You can unlock on this device, and your
-                          synced devices, with no code to type.
-                        </p>
-                      </div>
-                    ) : (
-                      <>
-                        <p className="text-meta text-foreground-muted leading-relaxed">
-                          Add a passkey so you can unlock with your fingerprint,
-                          face, or device PIN. It syncs through your Google or
-                          Apple keychain, so a new device just works.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={enrollPasskeyForIdentity}
-                          disabled={passkeyEnrolling}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
-                        >
-                          <KeyIcon className="w-3.5 h-3.5" />
-                          {passkeyEnrolling
-                            ? "Waiting for your passkey…"
-                            : "Set up a passkey"}
-                        </button>
-                      </>
-                    )
-                  ) : (
-                    <p className="text-meta text-foreground-muted leading-relaxed">
-                      Passkeys are not available in this browser. Your recovery
-                      code is how you unlock on another device.
-                    </p>
-                  )}
-                  {passkeyError && <ErrorNotice message={passkeyError} />}
-                </div>
-
-                {/* Recovery code, the backstop. */}
-                <div className="rounded-lg border border-border bg-surface-sunken p-4 space-y-2">
-                  <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                    <KeyIcon className="w-5 h-5" />
-                    <p className="text-body font-medium text-foreground">
-                      Your recovery code
-                    </p>
-                  </div>
-                  <p className="text-meta text-foreground-muted leading-relaxed">
-                    Save this somewhere safe. It is your backstop if you lose your
-                    passkey and this device, and the only way to restore your
-                    account. If you lose it, it cannot be recovered.
+              <div className="rounded-lg border border-border bg-surface-sunken p-4 space-y-2">
+                <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                  <KeyIcon className="w-5 h-5" />
+                  <p className="text-body font-medium text-foreground">
+                    Your recovery code
                   </p>
-                  <div className="p-3 bg-surface border border-border rounded-lg">
-                    <p className="font-mono text-body text-foreground tracking-wide break-all text-center">
-                      {recoveryCode}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={copyCode}
-                    className="flex items-center gap-1.5 text-meta text-blue-600 dark:text-blue-400 hover:underline"
-                  >
-                    {copied ? (
-                      <>
-                        <CheckIcon className="w-3.5 h-3.5" />
-                        Copied
-                      </>
-                    ) : (
-                      <>
-                        <CopyIcon className="w-3.5 h-3.5" />
-                        Copy code
-                      </>
-                    )}
-                  </button>
                 </div>
+                <p className="text-meta text-foreground-muted leading-relaxed">
+                  Save this somewhere safe. It is the only way to restore your
+                  account on another device. If you lose it, it cannot be
+                  recovered.
+                </p>
+                <div className="p-3 bg-surface border border-border rounded-lg">
+                  <p className="font-mono text-body text-foreground tracking-wide break-all text-center">
+                    {recoveryCode}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={copyCode}
+                  className="flex items-center gap-1.5 text-meta text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  {copied ? (
+                    <>
+                      <CheckIcon className="w-3.5 h-3.5" />
+                      Copied
+                    </>
+                  ) : (
+                    <>
+                      <CopyIcon className="w-3.5 h-3.5" />
+                      Copy code
+                    </>
+                  )}
+                </button>
               </div>
 
               <label className="flex items-start gap-2 cursor-pointer select-none">

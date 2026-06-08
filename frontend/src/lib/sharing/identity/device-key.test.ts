@@ -3,12 +3,9 @@ import { describe, expect, it } from "vitest";
 import { generateIdentityKeys, type IdentityKeys } from "./keys";
 import { type KdfParams } from "./backup";
 import {
-  addPasskeyToDeviceKey,
-  hasPasskeyDoor,
-  removePasskeyFromDeviceKey,
-  unlockDeviceKeyWithPasskey,
   unlockDeviceKeyWithRecovery,
   wrapDeviceKey,
+  type WrappedDeviceKey,
 } from "./device-key";
 
 // Fast Argon2id params so the recovery-wrap path is quick in tests.
@@ -33,7 +30,6 @@ describe("device-key at-rest envelope", () => {
     // No plaintext bundle on the wrapped record.
     expect(wrapped).not.toHaveProperty("privateKey");
     expect(wrapped.recoveryBlob).toBeTruthy();
-    expect(hasPasskeyDoor(wrapped)).toBe(false);
 
     const byCode = unlockDeviceKeyWithRecovery(wrapped, recoveryCode);
     const byWords = unlockDeviceKeyWithRecovery(wrapped, recoveryWords);
@@ -54,48 +50,24 @@ describe("device-key at-rest envelope", () => {
     ).toBeNull();
   });
 
-  it("adds a passkey door and unlocks with the PRF output", () => {
-    const keys = generateIdentityKeys();
-    const { wrapped } = wrapDeviceKey(keys, FAST);
-    const prf = new Uint8Array(32).fill(7);
-
-    const withPasskey = addPasskeyToDeviceKey(wrapped, keys, prf, "cred-1");
-    expect(hasPasskeyDoor(withPasskey)).toBe(true);
-    expect(withPasskey.passkeyCredentialId).toBe("cred-1");
-
-    const unlocked = unlockDeviceKeyWithPasskey(withPasskey, prf);
-    expect(unlocked).not.toBeNull();
-    expect(sameKeys(unlocked as IdentityKeys, keys)).toBe(true);
-  });
-
-  it("rejects a wrong PRF output and a missing passkey door", () => {
-    const keys = generateIdentityKeys();
-    const { wrapped } = wrapDeviceKey(keys, FAST);
-    // No passkey door yet.
-    expect(unlockDeviceKeyWithPasskey(wrapped, new Uint8Array(32))).toBeNull();
-
-    const withPasskey = addPasskeyToDeviceKey(
-      wrapped,
-      keys,
-      new Uint8Array(32).fill(1),
-      "cred-1",
-    );
-    expect(
-      unlockDeviceKeyWithPasskey(withPasskey, new Uint8Array(32).fill(2)),
-    ).toBeNull();
-  });
-
-  it("removes the passkey door but keeps recovery working", () => {
+  it("migration: old JSON with extra passkey fields still unlocks via recovery (P3b)", () => {
+    // Simulate a pre-P3b sidecar that was serialised with passkeyBlob and
+    // passkeyCredentialId. Those fields are now absent from the type but may
+    // exist at runtime on JSON that was written before the upgrade. The recovery
+    // path must be completely unaffected.
     const keys = generateIdentityKeys();
     const { wrapped, recoveryCode } = wrapDeviceKey(keys, FAST);
-    const prf = new Uint8Array(32).fill(9);
-    const withPasskey = addPasskeyToDeviceKey(wrapped, keys, prf, "cred-1");
 
-    const stripped = removePasskeyFromDeviceKey(withPasskey);
-    expect(hasPasskeyDoor(stripped)).toBe(false);
-    expect(unlockDeviceKeyWithPasskey(stripped, prf)).toBeNull();
-    // Recovery still unlocks.
-    const byCode = unlockDeviceKeyWithRecovery(stripped, recoveryCode);
-    expect(sameKeys(byCode as IdentityKeys, keys)).toBe(true);
+    // Cast through unknown to inject the legacy runtime-only fields.
+    const legacyWrapped = {
+      ...wrapped,
+      passkeyBlob: { ct: new Uint8Array(48), nonce: new Uint8Array(12) },
+      passkeyCredentialId: "legacy-cred-id",
+    } as unknown as WrappedDeviceKey;
+
+    // The recovery unlock reads only recoveryBlob; the extra fields are ignored.
+    const recovered = unlockDeviceKeyWithRecovery(legacyWrapped, recoveryCode);
+    expect(recovered).not.toBeNull();
+    expect(sameKeys(recovered as IdentityKeys, keys)).toBe(true);
   });
 });
