@@ -32,7 +32,13 @@ import {
   json,
 } from "@/lib/sharing/directory/guard";
 import { verifyRelayRequest } from "@/lib/sharing/relay/auth";
-import { ensureInviteSchema, markInviteReady } from "@/lib/sharing/relay/db";
+import {
+  deleteInviteEntry,
+  ensureInviteSchema,
+  markInviteReady,
+  updateInviteSize,
+} from "@/lib/sharing/relay/db";
+import { headObjectSize } from "@/lib/sharing/relay/storage";
 import { sendInviteEmail, type InviteItemKind } from "@/lib/sharing/relay/mailer";
 
 export const runtime = "nodejs";
@@ -136,6 +142,33 @@ export async function POST(request: Request): Promise<Response> {
   );
   if (!flipped) {
     return json(400, GENERIC_FAILURE);
+  }
+
+  // AUTHORITATIVE SIZE RECONCILE. The invite-send route stored the sender's SIGNED
+  // size claim and bound the presigned PUT to it. Read the true object size back
+  // from R2 and reconcile before emailing the accept link, both to keep the stored
+  // figure honest (R2 cost accounting, no per-recipient budget on the invite path)
+  // and, more importantly, to refuse to email a deep link to a bundle that was
+  // never actually uploaded.
+  let trueSize: number | null = null;
+  let headFailed = false;
+  try {
+    trueSize = await headObjectSize(flipped.inviteId);
+  } catch {
+    // R2 HEAD transiently unavailable. The size-bound presign already forced the
+    // upload to match the declared size, so proceed with the email rather than
+    // failing a legitimate invite on a storage blip, the stored size stays as the
+    // (now upload-bound) claim.
+    headFailed = true;
+  }
+  if (!headFailed) {
+    if (trueSize === null) {
+      // No object was ever uploaded for this invite. Do not email an accept link
+      // that would 404 / 410 on open, drop the row and fail the confirm.
+      await deleteInviteEntry(flipped.inviteId);
+      return json(400, GENERIC_FAILURE);
+    }
+    await updateInviteSize(flipped.inviteId, trueSize);
   }
 
   // Send the branded email LAST, after the row is ready and fetchable. If the

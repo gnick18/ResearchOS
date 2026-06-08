@@ -121,13 +121,25 @@ export async function POST(request: Request): Promise<Response> {
     return json(429, { error: "recipient mailbox is full" });
   }
 
+  // The signed size must be a real, positive byte count. auth.parseRelayBody
+  // already rejects negatives / fractions / non-integers, but it permits zero,
+  // and a declared zero would both pass the byte budget unconditionally AND, via
+  // the size-bound presign below, would otherwise be the "no size claimed" case.
+  // A genuine sealed bundle is always at least a few bytes, so a sub-1 size is
+  // either malformed or a deliberate budget-dodge, reject it as a generic failure.
+  const incomingBytes = verified.parsed.sizeBytes ?? 0;
+  if (incomingBytes < 1) {
+    return json(400, GENERIC_FAILURE);
+  }
+
   // Per-recipient BYTE budget. The count cap and the byte budget are two
   // independent ceilings, whichever fills first stops new shares to a recipient.
   // Reject when the recipient's existing non-expired bytes plus this incoming
   // bundle would exceed the free budget. The size is the sender-reported sealed
   // size, the same value stored on the row, so the running sum and this check use
-  // the same number. A null or absent size is treated as zero here.
-  const incomingBytes = verified.parsed.sizeBytes ?? 0;
+  // the same number. The presign below binds the upload to exactly this many
+  // bytes, and the confirm route re-reads the true object size from R2 and
+  // re-checks this budget, so a false claim cannot stick.
   const existingBytes = await sumPendingBytesByRecipient(recipientHash);
   if (existingBytes + incomingBytes > FREE_STORAGE_BYTES) {
     return json(429, { error: "recipient mailbox is full" });
@@ -146,7 +158,9 @@ export async function POST(request: Request): Promise<Response> {
     expiresAt,
   });
 
-  const uploadUrl = await presignUpload(bundleId);
+  // Bind the presigned PUT to exactly the declared size so the real upload cannot
+  // exceed (or fall short of) what was budgeted above. See presignUpload.
+  const uploadUrl = await presignUpload(bundleId, incomingBytes);
 
   return json(200, { bundleId, uploadUrl, expiresAt });
 }

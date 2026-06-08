@@ -71,8 +71,12 @@ vi.mock("@/lib/sharing/relay/db", () => ({
   insertInboxEntry: (entry: unknown) => insertSpy(entry),
 }));
 
+const presignSpy = vi.fn(
+  async (_key: string, _contentLength?: number) => "https://r2.example/upload",
+);
 vi.mock("@/lib/sharing/relay/storage", () => ({
-  presignUpload: async () => "https://r2.example/upload",
+  presignUpload: (key: string, contentLength?: number) =>
+    presignSpy(key, contentLength),
 }));
 
 import { POST } from "../route";
@@ -107,6 +111,7 @@ beforeEach(() => {
   relayState.bytes = 0;
   verifyState.result = freshParsed(100);
   insertSpy.mockClear();
+  presignSpy.mockClear();
 });
 
 describe("relay send route, count cap", () => {
@@ -150,6 +155,28 @@ describe("relay send route, byte budget", () => {
     const res = await POST(makeRequest());
     expect(res.status).toBe(429);
     expect(insertSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejects a declared size of zero (the budget-dodge claim) with 400", async () => {
+    // A zero size would otherwise pass the byte budget unconditionally and leave
+    // the presign unbound, the P1-B storage-budget bypass. It must be refused.
+    relayState.bytes = 0;
+    verifyState.result = freshParsed(0);
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(400);
+    expect(insertSpy).not.toHaveBeenCalled();
+    expect(presignSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("relay send route, size-bound presign", () => {
+  it("binds the presigned PUT to exactly the declared size", async () => {
+    verifyState.result = freshParsed(4096);
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    expect(presignSpy).toHaveBeenCalledTimes(1);
+    // presignUpload(bundleId, contentLength) — the 2nd arg is the binding.
+    expect(presignSpy.mock.calls[0][1]).toBe(4096);
   });
 });
 

@@ -88,6 +88,16 @@ export async function POST(request: Request): Promise<Response> {
     return json(400, GENERIC_FAILURE);
   }
 
+  // The signed size must be a real, positive byte count. auth.parseRelayBody
+  // already rejects negatives / fractions / non-integers but permits zero, and a
+  // declared zero is both meaningless for a sealed payload and the "no size
+  // claimed" sentinel for the size-bound presign below. A genuine sealed invite is
+  // always at least a few bytes, so reject a sub-1 size as a generic failure.
+  const declaredBytes = verified.parsed.sizeBytes;
+  if (declaredBytes < 1) {
+    return json(400, GENERIC_FAILURE);
+  }
+
   // PRIMARY per-request rate limit, keyed by the verified SENDER identity (email
   // hash), not the IP, so legitimate signed callers behind one shared NAT do not
   // collide. This is the high-volume per-minute gate. The per-day invite limiter
@@ -136,7 +146,12 @@ export async function POST(request: Request): Promise<Response> {
     expiresAt,
   });
 
-  const uploadUrl = await presignUpload(inviteId);
+  // Bind the presigned PUT to exactly the declared size so the real upload cannot
+  // exceed what was claimed. The invite path has no per-recipient byte budget (it
+  // is gated by the per-sender invite rate limit and PENDING_INVITE_CAP instead),
+  // so this size binding plus the confirm-time true-size correction are what keep
+  // a 0-claim-then-upload-huge from quietly parking unbounded bytes on R2.
+  const uploadUrl = await presignUpload(inviteId, declaredBytes);
 
   return json(200, { inviteId, uploadUrl, expiresAt });
 }

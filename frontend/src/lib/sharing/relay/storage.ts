@@ -17,6 +17,7 @@
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
@@ -98,13 +99,59 @@ export async function getBucketUsage(): Promise<{
  * Presigns a one-shot PUT URL the client uses to upload the sealed bundle bytes
  * for the given object key. The URL expires after ttlSeconds. The relay never
  * sees the bytes, only the key.
+ *
+ * SIZE BINDING. When contentLengthBytes is given, it is baked into the signed
+ * request as a required Content-Length, so the upload MUST present exactly that
+ * many bytes or R2 rejects it (signature mismatch / wrong length). This is what
+ * stops a sender from under-declaring a size to dodge the per-recipient byte
+ * budget and then PUTting a far larger object, or over-declaring to inflate the
+ * stored figure, the declared size and the real object size are forced equal at
+ * the storage layer. The browser sets Content-Length automatically from the body
+ * (it is a forbidden header it computes), so a legitimate upload of the sealed
+ * bytes whose length equals the declared size always matches. Callers that have
+ * no trustworthy size (there are none on the relay paths) may omit it.
  */
 export async function presignUpload(
   key: string,
+  contentLengthBytes?: number,
   ttlSeconds: number = DEFAULT_PRESIGN_TTL_SECONDS,
 ): Promise<string> {
-  const command = new PutObjectCommand({ Bucket: getBucket(), Key: key });
+  const command = new PutObjectCommand({
+    Bucket: getBucket(),
+    Key: key,
+    ...(contentLengthBytes !== undefined
+      ? { ContentLength: contentLengthBytes }
+      : {}),
+  });
   return getSignedUrl(getS3(), command, { expiresIn: ttlSeconds });
+}
+
+/**
+ * Returns the true byte size of the stored object for the given key, or null if
+ * the object does not exist (no upload landed). This is the authoritative size
+ * the relay reads back from R2 after an upload, so the metadata row and the
+ * budget accounting can be corrected to the REAL size rather than trusting the
+ * sender's signed claim. The relay still never reads the object bytes, only its
+ * length from the HEAD metadata. A missing object (404 / NotFound) is returned as
+ * null rather than thrown so a confirm can treat "nothing was uploaded" cleanly.
+ */
+export async function headObjectSize(key: string): Promise<number | null> {
+  try {
+    const out = await getS3().send(
+      new HeadObjectCommand({ Bucket: getBucket(), Key: key }),
+    );
+    return out.ContentLength ?? null;
+  } catch (err) {
+    // A missing object is the expected "never uploaded" case, surface it as null.
+    // Anything else (credentials, network) is a real fault, rethrow it.
+    const name = (err as { name?: string } | null)?.name;
+    const status = (err as { $metadata?: { httpStatusCode?: number } } | null)
+      ?.$metadata?.httpStatusCode;
+    if (name === "NotFound" || name === "NoSuchKey" || status === 404) {
+      return null;
+    }
+    throw err;
+  }
 }
 
 /**

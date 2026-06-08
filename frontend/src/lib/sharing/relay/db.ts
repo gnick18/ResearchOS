@@ -143,6 +143,26 @@ export async function markInboxEntryReady(
 }
 
 /**
+ * Overwrites a mailbox row's stored size with the authoritative byte size the
+ * relay read back from R2 after the upload (see headObjectSize). The send route
+ * stores the sender's SIGNED size claim at reservation time, this corrects it to
+ * the real object size at confirm so the per-recipient byte budget can never be
+ * gamed by a false claim. Scoped to the bundle id only, the confirm route already
+ * proved sender ownership via markInboxEntryReady before calling this.
+ */
+export async function updateInboxSize(
+  bundleId: string,
+  sizeBytes: number,
+): Promise<void> {
+  const sql = getSql();
+  await sql`
+    UPDATE relay_inbox
+       SET size_bytes = ${sizeBytes}
+     WHERE bundle_id = ${bundleId}
+  `;
+}
+
+/**
  * Deletes pending rows for a recipient that were never confirmed within the
  * grace window (seconds), so an abandoned upload self-cleans rather than holding
  * a mailbox slot forever. The grace window is set well beyond the presigned-URL
@@ -427,6 +447,25 @@ export async function getInviteEntry(
   }>;
   if (rows.length === 0) return null;
   return mapInviteRow(rows[0]);
+}
+
+/**
+ * Overwrites a pending-invite row's stored size with the authoritative byte size
+ * read back from R2 after the upload (see headObjectSize). Mirrors
+ * updateInboxSize for the invite path so the stored figure reflects the real
+ * object rather than the sender's signed claim. Scoped to the invite id only, the
+ * confirm route already proved sender ownership via markInviteReady first.
+ */
+export async function updateInviteSize(
+  inviteId: string,
+  sizeBytes: number,
+): Promise<void> {
+  const sql = getSql();
+  await sql`
+    UPDATE relay_invite
+       SET size_bytes = ${sizeBytes}
+     WHERE invite_id = ${inviteId}
+  `;
 }
 
 /**
