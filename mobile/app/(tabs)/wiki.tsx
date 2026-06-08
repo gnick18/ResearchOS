@@ -63,7 +63,11 @@ export default function WikiBrowseScreen() {
   const { surface } = useTheme();
   const router = useRouter();
   const [query, setQuery] = useState('');
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  // Sections start expanded so the browse list reads like the ideal: grouped
+  // white cards with their pages visible, not a wall of collapsed headers.
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(
+    () => new Set(SECTION_ROWS.map((r) => r.section.id)),
+  );
   const inputRef = useRef<TextInput>(null);
 
   const hits = useMemo(() => {
