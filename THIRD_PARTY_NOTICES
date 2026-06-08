@@ -177,6 +177,10 @@ next-auth@5.0.0-beta.31
   License: ISC
   Source:  https://github.com/nextauthjs/next-auth
 
+qrcode@1.5.4
+  License: MIT
+  Source:  https://github.com/soldair/node-qrcode
+
 react@19.2.3
   License: MIT
   Source:  https://github.com/facebook/react
