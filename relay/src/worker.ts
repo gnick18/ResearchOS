@@ -46,6 +46,13 @@ export interface Env {
   COLLAB_BACKUPS: R2Bucket;
   /** Per-recipient inbox (external-collab chunk 3), addressed by emailHash. */
   RECIPIENT_INBOX: DurableObjectNamespace;
+  /** Per-user capture inbox (mobile capture relay, piece A), addressed by the
+   *  user's identity pubkey hex. Holds device bindings + the pending capture
+   *  index in SQLite. */
+  CAPTURE_INBOX: DurableObjectNamespace;
+  /** R2 bucket for transient bench-capture blobs. Deleted on ack (the laptop
+   *  pulls them into the data folder, then the relay drops them). */
+  CAPTURES: R2Bucket;
 }
 
 /** Permissive CORS for the cross-origin /snapshot fetch from the app. The
@@ -150,6 +157,59 @@ export default {
       }
       const stub = env.RECIPIENT_INBOX.get(
         env.RECIPIENT_INBOX.idFromName(inboxKey),
+      );
+      return stub.fetch(request);
+    }
+
+    // CORS preflight for the cross-origin capture POSTs/GETs from the app (the
+    // JSON body / custom handling makes these non-simple requests). Handled
+    // before the dispatch below so an OPTIONS never tries to parse a body.
+    if (request.method === "OPTIONS" && url.pathname.startsWith("/capture/")) {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        },
+      });
+    }
+
+    // Mobile capture relay (piece A). Accountless, pubkey-keyed transient relay.
+    // Every /capture/* route is addressed by the user identity pubkey hex (the
+    // ?u query param, or meta.u on the multipart upload), so each user has their
+    // own CaptureInbox DO. The DO does its own Ed25519 signature + replay checks;
+    // an attacker can only ever touch a bucket under their own pubkey. Blobs live
+    // in the CAPTURES R2 bucket until the laptop acks them.
+    if (url.pathname.startsWith("/capture/")) {
+      // The upload is multipart/form-data with u inside the `meta` JSON field, so
+      // it cannot be read from the query string. Every other capture route
+      // carries u in the query (?u=). The DO is named by u in both cases; the
+      // upload handler re-reads u from the parsed meta and the worker forwards by
+      // a header so the DO is addressed consistently.
+      let userPubkey = url.searchParams.get("u");
+      if (url.pathname === "/capture/upload") {
+        // Clone so the DO can still read the multipart body. We only need the u
+        // routing key here; pull it from a lightweight form parse.
+        try {
+          const form = await request.clone().formData();
+          const metaRaw = form.get("meta");
+          if (typeof metaRaw === "string") {
+            const meta = JSON.parse(metaRaw) as { u?: unknown };
+            if (typeof meta.u === "string") userPubkey = meta.u;
+          }
+        } catch {
+          // Fall through to the missing-u guard below.
+        }
+      }
+      if (!userPubkey || userPubkey.trim() === "") {
+        return new Response("Missing required parameter: u", {
+          status: 400,
+          headers: CORS_HEADERS,
+        });
+      }
+      const stub = env.CAPTURE_INBOX.get(
+        env.CAPTURE_INBOX.idFromName(userPubkey),
       );
       return stub.fetch(request);
     }
@@ -1070,10 +1130,581 @@ export class RecipientInbox {
   }
 }
 
+/**
+ * Per-user capture inbox (mobile capture relay, piece A). One DO instance per
+ * user identity pubkey hex (idFromName(userPubkeyHex)). It holds that user's
+ * bound devices and the index of pending bench captures, and nothing else. The
+ * blobs themselves live in the CAPTURES R2 bucket at key `<u>/<captureId>` and
+ * are deleted on ack.
+ *
+ * TRUST MODEL (accountless, pubkey-keyed; mirrors the cross-boundary relay).
+ *   - To WRITE to bucket U you must hold a device key that was bound to U by a
+ *     grant signed with U's identity private key (POST /capture/register), and
+ *     each upload is signed by that device key.
+ *   - To READ or DELETE from bucket U you must sign the challenge with U's
+ *     identity private key (inbox, object, ack, devices, devices/revoke).
+ *   - An attacker can only ever create + touch a bucket under their own pubkey;
+ *     they can never reach U's, because the DO is addressed by U and every write
+ *     is gated on a device binding U authorized.
+ *
+ * CANONICAL SIGNED-BYTE STRINGS (the contract; the phone + desktop sign these
+ * exact UTF-8 strings, then ed25519 verify). See capturePairGrantMessage,
+ * captureUploadMessage and captureReadMessage below.
+ *
+ * REPLAY GUARD. User-key-signed reads carry an ISO `ts`; it must be within 120s
+ * of server time. Pairing grants carry an ISO `exp`; a grant past `exp` is
+ * rejected.
+ */
+export class CaptureInbox {
+  readonly state: DurableObjectState;
+  readonly env: Env;
+
+  constructor(state: DurableObjectState, env: Env) {
+    this.state = state;
+    this.env = env;
+    // Devices bound to this user. device_pubkey is the hex Ed25519 key the
+    // phone generated at pairing; uploads are verified against it.
+    this.sql().exec(
+      "CREATE TABLE IF NOT EXISTS devices (device_pubkey TEXT PRIMARY KEY, label TEXT, bound_at TEXT)",
+    );
+    // The index of pending captures. blob_key is the R2 key (`<u>/<captureId>`);
+    // the blob is deleted from R2 on ack alongside the row.
+    this.sql().exec(
+      "CREATE TABLE IF NOT EXISTS captures (capture_id TEXT PRIMARY KEY, caption TEXT, created_at TEXT, content_type TEXT, blob_key TEXT, uploaded_at TEXT)",
+    );
+  }
+
+  private sql(): SqlStorage {
+    return this.state.storage.sql;
+  }
+
+  /** Verifies a hex Ed25519 signature over a UTF-8 message under a hex pubkey.
+   *  Pure JS (@noble/curves), so it runs in workerd. Any malformed input is a
+   *  verification failure, never a throw. (Mirrors CollabRoom.verifySig.) */
+  private verifySig(sigHex: string, message: string, pubkeyHex: string): boolean {
+    try {
+      const sig = hexToBytes(sigHex);
+      const pub = hexToBytes(pubkeyHex);
+      const msg = new TextEncoder().encode(message);
+      return ed25519.verify(sig, msg, pub);
+    } catch {
+      return false;
+    }
+  }
+
+  /** An ISO timestamp is fresh when it is within +/- 120s of now (the brief's
+   *  replay window for user-key-signed reads). Unparseable input is stale. */
+  private isFreshIso(iso: string): boolean {
+    const t = Date.parse(iso);
+    if (!Number.isFinite(t)) return false;
+    return Math.abs(Date.now() - t) <= 120 * 1000;
+  }
+
+  /** True when the ISO `exp` is in the future (grant still valid). */
+  private notExpired(expIso: string): boolean {
+    const t = Date.parse(expIso);
+    if (!Number.isFinite(t)) return false;
+    return t > Date.now();
+  }
+
+  private json(body: unknown, status: number): Response {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
+  }
+
+  /** True when device_pubkey is currently bound to this user. */
+  private isBoundDevice(devicePubkey: string): boolean {
+    const rows = this.sql()
+      .exec<{ n: number }>(
+        "SELECT COUNT(*) AS n FROM devices WHERE device_pubkey = ?",
+        devicePubkey,
+      )
+      .toArray();
+    return rows.length > 0 && rows[0].n > 0;
+  }
+
+  // ---- Read auth (user-key signed challenge) ---------------------------
+
+  /** Shared gate for the user-key-signed read/mutate routes (inbox, object,
+   *  ack, devices, devices/revoke). Verifies the ts freshness and the user's
+   *  signature over the action-bound canonical message. Returns null on success
+   *  or a Response to reject. The caller passes the exact canonical message the
+   *  user should have signed. */
+  private userGate(
+    u: string,
+    ts: string,
+    sig: string,
+    message: string,
+  ): Response | null {
+    if (!this.isFreshIso(ts)) {
+      return this.json({ error: "stale ts" }, 401);
+    }
+    if (!this.verifySig(sig, message, u)) {
+      return this.json({ error: "bad signature" }, 401);
+    }
+    return null;
+  }
+
+  // ---- Routes -----------------------------------------------------------
+
+  /** POST /capture/register. Binds a device. The user-signed grant is the
+   *  capability; we verify it against grant.u and check it is unexpired, then
+   *  upsert the device binding. */
+  private async handleRegister(request: Request): Promise<Response> {
+    let body: {
+      grant?: { u?: unknown; pid?: unknown; exp?: unknown; url?: unknown };
+      sig?: unknown;
+      devicePubkey?: unknown;
+      label?: unknown;
+    };
+    try {
+      body = await request.json();
+    } catch {
+      return this.json({ error: "invalid JSON body" }, 400);
+    }
+
+    const grant = body.grant;
+    const sig = body.sig;
+    const devicePubkey = body.devicePubkey;
+    const label = body.label;
+    if (
+      !grant ||
+      typeof grant.u !== "string" ||
+      typeof grant.pid !== "string" ||
+      typeof grant.exp !== "string" ||
+      typeof grant.url !== "string" ||
+      typeof sig !== "string" ||
+      typeof devicePubkey !== "string"
+    ) {
+      return this.json({ error: "malformed register" }, 400);
+    }
+
+    if (!this.notExpired(grant.exp)) {
+      return this.json({ error: "expired grant" }, 401);
+    }
+
+    const message = capturePairGrantMessage(
+      grant.u,
+      grant.pid,
+      grant.exp,
+      grant.url,
+    );
+    if (!this.verifySig(sig, message, grant.u)) {
+      return this.json({ error: "bad grant signature" }, 401);
+    }
+
+    this.sql().exec(
+      "INSERT INTO devices (device_pubkey, label, bound_at) VALUES (?, ?, ?) ON CONFLICT(device_pubkey) DO UPDATE SET label = excluded.label, bound_at = excluded.bound_at",
+      devicePubkey,
+      typeof label === "string" ? label : null,
+      new Date().toISOString(),
+    );
+
+    return this.json({ ok: true }, 200);
+  }
+
+  /** POST /capture/upload. multipart/form-data: a `blob` file field + a text
+   *  `meta` JSON field. The bound device key signs over u + captureId +
+   *  createdAt + sha256(blob). We verify the device is bound, recompute the
+   *  blob's sha256 and verify the upload signature, store the blob in R2, then
+   *  index it. */
+  private async handleUpload(request: Request): Promise<Response> {
+    let form: FormData;
+    try {
+      form = await request.formData();
+    } catch {
+      return this.json({ error: "invalid multipart body" }, 400);
+    }
+
+    const blob = form.get("blob");
+    const metaRaw = form.get("meta");
+    if (!(blob instanceof File) && !(blob instanceof Blob)) {
+      return this.json({ error: "missing blob field" }, 400);
+    }
+    if (typeof metaRaw !== "string") {
+      return this.json({ error: "missing meta field" }, 400);
+    }
+
+    let meta: {
+      u?: unknown;
+      devicePubkey?: unknown;
+      captureId?: unknown;
+      caption?: unknown;
+      createdAt?: unknown;
+      contentType?: unknown;
+      sig?: unknown;
+    };
+    try {
+      meta = JSON.parse(metaRaw);
+    } catch {
+      return this.json({ error: "invalid meta JSON" }, 400);
+    }
+
+    const u = meta.u;
+    const devicePubkey = meta.devicePubkey;
+    const captureId = meta.captureId;
+    const createdAt = meta.createdAt;
+    const contentType = meta.contentType;
+    const sig = meta.sig;
+    if (
+      typeof u !== "string" ||
+      typeof devicePubkey !== "string" ||
+      typeof captureId !== "string" ||
+      typeof createdAt !== "string" ||
+      typeof contentType !== "string" ||
+      typeof sig !== "string"
+    ) {
+      return this.json({ error: "malformed meta" }, 400);
+    }
+
+    if (!this.isBoundDevice(devicePubkey)) {
+      return this.json({ error: "device not bound" }, 403);
+    }
+
+    // Recompute the blob's sha256 so the signature binds the exact bytes we
+    // store (a tampered blob or mismatched meta fails verification).
+    const blobBytes = new Uint8Array(await blob.arrayBuffer());
+    const sha256 = await sha256Hex(blobBytes);
+    const message = captureUploadMessage(u, captureId, createdAt, sha256);
+    if (!this.verifySig(sig, message, devicePubkey)) {
+      return this.json({ error: "bad upload signature" }, 401);
+    }
+
+    const blobKey = `${u}/${captureId}`;
+    try {
+      await this.env.CAPTURES.put(blobKey, blobBytes, {
+        httpMetadata: { contentType },
+      });
+    } catch {
+      return this.json({ error: "storage write failed" }, 500);
+    }
+
+    this.sql().exec(
+      "INSERT INTO captures (capture_id, caption, created_at, content_type, blob_key, uploaded_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(capture_id) DO UPDATE SET caption = excluded.caption, created_at = excluded.created_at, content_type = excluded.content_type, blob_key = excluded.blob_key, uploaded_at = excluded.uploaded_at",
+      captureId,
+      typeof meta.caption === "string" ? meta.caption : null,
+      createdAt,
+      contentType,
+      blobKey,
+      new Date().toISOString(),
+    );
+
+    return this.json({ ok: true, captureId }, 200);
+  }
+
+  /** GET /capture/inbox?u=&ts=&sig=. User-key signed. Lists pending captures,
+   *  newest-first. */
+  private handleInbox(u: string, url: URL): Response {
+    const ts = url.searchParams.get("ts") ?? "";
+    const sig = url.searchParams.get("sig") ?? "";
+    const denied = this.userGate(u, ts, sig, captureReadMessage("inbox", u, ts));
+    if (denied) return denied;
+
+    const rows = this.sql()
+      .exec<{
+        capture_id: string;
+        caption: string | null;
+        created_at: string;
+        content_type: string;
+      }>(
+        "SELECT capture_id, caption, created_at, content_type FROM captures ORDER BY created_at DESC",
+      )
+      .toArray();
+
+    const captures = rows.map((r) => ({
+      captureId: r.capture_id,
+      caption: r.caption,
+      createdAt: r.created_at,
+      contentType: r.content_type,
+    }));
+
+    return this.json({ captures }, 200);
+  }
+
+  /** GET /capture/object?u=&id=&ts=&sig=. User-key signed. Streams one blob. */
+  private async handleObject(u: string, url: URL): Promise<Response> {
+    const id = url.searchParams.get("id") ?? "";
+    const ts = url.searchParams.get("ts") ?? "";
+    const sig = url.searchParams.get("sig") ?? "";
+    if (id.trim() === "") {
+      return this.json({ error: "missing id" }, 400);
+    }
+    const denied = this.userGate(
+      u,
+      ts,
+      sig,
+      captureReadMessage("object", u, ts, `id=${id}`),
+    );
+    if (denied) return denied;
+
+    const rows = this.sql()
+      .exec<{ blob_key: string; content_type: string }>(
+        "SELECT blob_key, content_type FROM captures WHERE capture_id = ?",
+        id,
+      )
+      .toArray();
+    if (rows.length === 0) {
+      return this.json({ error: "not found" }, 404);
+    }
+
+    const obj = await this.env.CAPTURES.get(rows[0].blob_key);
+    if (!obj) {
+      return this.json({ error: "not found" }, 404);
+    }
+
+    return new Response(obj.body, {
+      status: 200,
+      headers: {
+        ...CORS_HEADERS,
+        "Content-Type":
+          obj.httpMetadata?.contentType ?? rows[0].content_type ?? "application/octet-stream",
+        "Cache-Control": "no-store",
+      },
+    });
+  }
+
+  /** POST /capture/ack. User-key signed. Deletes the acked blobs + index rows.
+   *  The signed `ids` are the sorted, comma-joined capture ids. */
+  private async handleAck(u: string, request: Request): Promise<Response> {
+    let body: { u?: unknown; ids?: unknown; ts?: unknown; sig?: unknown };
+    try {
+      body = await request.json();
+    } catch {
+      return this.json({ error: "invalid JSON body" }, 400);
+    }
+
+    const ids = body.ids;
+    const ts = body.ts;
+    const sig = body.sig;
+    if (
+      typeof body.u !== "string" ||
+      !Array.isArray(ids) ||
+      typeof ts !== "string" ||
+      typeof sig !== "string"
+    ) {
+      return this.json({ error: "malformed ack" }, 400);
+    }
+    for (const id of ids) {
+      if (typeof id !== "string") {
+        return this.json({ error: "malformed ack ids" }, 400);
+      }
+    }
+
+    // The signed ids list is canonicalized to sorted + comma-joined so the
+    // client and worker agree regardless of request order.
+    const sortedIds = [...(ids as string[])].sort();
+    const denied = this.userGate(
+      u,
+      ts,
+      sig,
+      captureReadMessage("ack", u, ts, `ids=${sortedIds.join(",")}`),
+    );
+    if (denied) return denied;
+
+    let deleted = 0;
+    for (const id of sortedIds) {
+      const rows = this.sql()
+        .exec<{ blob_key: string }>(
+          "SELECT blob_key FROM captures WHERE capture_id = ?",
+          id,
+        )
+        .toArray();
+      if (rows.length === 0) continue;
+      try {
+        await this.env.CAPTURES.delete(rows[0].blob_key);
+      } catch {
+        // Best-effort blob delete; still drop the index row so the capture
+        // stops being listed (a stray R2 object is harmless + lifecycle-cleaned).
+      }
+      this.sql().exec("DELETE FROM captures WHERE capture_id = ?", id);
+      deleted += 1;
+    }
+
+    return this.json({ ok: true, deleted }, 200);
+  }
+
+  /** GET /capture/devices?u=&ts=&sig=. User-key signed. Lists bound devices. */
+  private handleDevices(u: string, url: URL): Response {
+    const ts = url.searchParams.get("ts") ?? "";
+    const sig = url.searchParams.get("sig") ?? "";
+    const denied = this.userGate(
+      u,
+      ts,
+      sig,
+      captureReadMessage("devices", u, ts),
+    );
+    if (denied) return denied;
+
+    const rows = this.sql()
+      .exec<{ device_pubkey: string; label: string | null; bound_at: string | null }>(
+        "SELECT device_pubkey, label, bound_at FROM devices ORDER BY bound_at ASC",
+      )
+      .toArray();
+
+    const devices = rows.map((r) => ({
+      devicePubkey: r.device_pubkey,
+      label: r.label,
+      boundAt: r.bound_at,
+    }));
+
+    return this.json({ devices }, 200);
+  }
+
+  /** POST /capture/devices/revoke. User-key signed. Deletes one binding. */
+  private async handleRevoke(u: string, request: Request): Promise<Response> {
+    let body: { u?: unknown; device?: unknown; ts?: unknown; sig?: unknown };
+    try {
+      body = await request.json();
+    } catch {
+      return this.json({ error: "invalid JSON body" }, 400);
+    }
+
+    const device = body.device;
+    const ts = body.ts;
+    const sig = body.sig;
+    if (
+      typeof body.u !== "string" ||
+      typeof device !== "string" ||
+      typeof ts !== "string" ||
+      typeof sig !== "string"
+    ) {
+      return this.json({ error: "malformed revoke" }, 400);
+    }
+
+    const denied = this.userGate(
+      u,
+      ts,
+      sig,
+      captureReadMessage("revoke", u, ts, `device=${device}`),
+    );
+    if (denied) return denied;
+
+    this.sql().exec("DELETE FROM devices WHERE device_pubkey = ?", device);
+    return this.json({ ok: true }, 200);
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+
+    // POST routes carry u in the body (register) or are addressed by the worker
+    // via the meta.u routing (upload); ack + devices/revoke carry u in the body.
+    if (url.pathname === "/capture/register") {
+      if (request.method !== "POST") return this.json({ error: "method not allowed" }, 405);
+      return this.handleRegister(request);
+    }
+    if (url.pathname === "/capture/upload") {
+      if (request.method !== "POST") return this.json({ error: "method not allowed" }, 405);
+      return this.handleUpload(request);
+    }
+
+    // The remaining routes are user-key-signed and carry u in ?u (GET) or the
+    // body (POST). The worker already routed to this DO by that same u.
+    const uBody =
+      request.method === "POST"
+        ? await this.peekBodyU(request)
+        : { u: url.searchParams.get("u") ?? "", request };
+
+    if (url.pathname === "/capture/ack") {
+      if (request.method !== "POST") return this.json({ error: "method not allowed" }, 405);
+      return this.handleAck(uBody.u, uBody.request);
+    }
+    if (url.pathname === "/capture/devices/revoke") {
+      if (request.method !== "POST") return this.json({ error: "method not allowed" }, 405);
+      return this.handleRevoke(uBody.u, uBody.request);
+    }
+    if (url.pathname === "/capture/inbox") {
+      if (request.method !== "GET") return this.json({ error: "method not allowed" }, 405);
+      return this.handleInbox(url.searchParams.get("u") ?? "", url);
+    }
+    if (url.pathname === "/capture/object") {
+      if (request.method !== "GET") return this.json({ error: "method not allowed" }, 405);
+      return this.handleObject(url.searchParams.get("u") ?? "", url);
+    }
+    if (url.pathname === "/capture/devices") {
+      if (request.method !== "GET") return this.json({ error: "method not allowed" }, 405);
+      return this.handleDevices(url.searchParams.get("u") ?? "", url);
+    }
+
+    return this.json({ error: "not found" }, 404);
+  }
+
+  /** Reads u from a JSON POST body without consuming the original stream, and
+   *  hands back a fresh Request the handler can re-parse. The body is only ever
+   *  read once per handler, so the clone is cheap. */
+  private async peekBodyU(
+    request: Request,
+  ): Promise<{ u: string; request: Request }> {
+    const cloned = request.clone();
+    let u = "";
+    try {
+      const body = (await cloned.json()) as { u?: unknown };
+      if (typeof body.u === "string") u = body.u;
+    } catch {
+      // Leave u empty; the handler re-parses and returns the malformed error.
+    }
+    return { u, request };
+  }
+}
+
 /** Prepends the one-byte type tag to a payload. */
 function frame(type: number, payload: Uint8Array): Uint8Array {
   const out = new Uint8Array(payload.byteLength + 1);
   out[0] = type;
   out.set(payload, 1);
   return out;
+}
+
+// ---- Mobile capture relay canonical signed-byte strings -----------------
+// THE CONTRACT. The phone + desktop sign the UTF-8 of these exact strings, then
+// ed25519 verify. The smoke-test script (relay/scripts/smoke-capture.mjs) keeps
+// byte-identical copies; if you change one, change all three.
+
+/** Pairing grant, signed by the USER identity key. */
+export function capturePairGrantMessage(
+  userPubkeyHex: string,
+  pairingId: string,
+  expIso: string,
+  relayUrl: string,
+): string {
+  return `researchos-pair-grant\nu=${userPubkeyHex}\npid=${pairingId}\nexp=${expIso}\nurl=${relayUrl}`;
+}
+
+/** Capture upload, signed by the bound DEVICE key. sha256Hex is the lowercase
+ *  hex sha256 of the blob bytes. */
+export function captureUploadMessage(
+  userPubkeyHex: string,
+  captureId: string,
+  createdAtIso: string,
+  sha256Hex: string,
+): string {
+  return `researchos-capture-upload\nu=${userPubkeyHex}\ncid=${captureId}\ncreatedAt=${createdAtIso}\nsha256=${sha256Hex}`;
+}
+
+/** Read/list/object/ack/devices/revoke challenge, signed by the USER identity
+ *  key. action is one of inbox|object|ack|devices|revoke. extra lines (already
+ *  formatted as `key=value`) are appended verbatim, e.g. `id=<captureId>` for
+ *  object, `ids=<comma-joined-sorted-ids>` for ack, `device=<pubkey>` for
+ *  revoke. */
+export function captureReadMessage(
+  action: "inbox" | "object" | "ack" | "devices" | "revoke",
+  userPubkeyHex: string,
+  tsIso: string,
+  extra?: string,
+): string {
+  const base = `researchos-capture-${action}\nu=${userPubkeyHex}\nts=${tsIso}`;
+  return extra ? `${base}\n${extra}` : base;
+}
+
+/** Lowercase hex sha256 of the given bytes, via WebCrypto (available in
+ *  workerd). */
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const view = new Uint8Array(digest);
+  let hex = "";
+  for (let i = 0; i < view.length; i++) {
+    hex += view[i].toString(16).padStart(2, "0");
+  }
+  return hex;
 }

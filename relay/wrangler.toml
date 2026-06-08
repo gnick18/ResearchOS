@@ -17,12 +17,26 @@ class_name = "CollabRoom"
 name = "RECIPIENT_INBOX"
 class_name = "RecipientInbox"
 
+# Per-user capture inbox (mobile capture relay, piece A). One DO instance per
+# user identity pubkey hex holds that user's bound devices + the index of pending
+# bench captures. The blobs live in the CAPTURES R2 bucket and are deleted on ack.
+[[durable_objects.bindings]]
+name = "CAPTURE_INBOX"
+class_name = "CaptureInbox"
+
 # R2 bucket for periodic per-doc snapshot backups (disaster-recovery net for the
 # DO SQLite store, storage-migration phase 1 chunk 4). The DO writes its current
 # compacted snapshot here on a throttled alarm cadence.
 [[r2_buckets]]
 binding = "COLLAB_BACKUPS"
 bucket_name = "researchos-collab-backups"
+
+# R2 bucket for transient bench-capture blobs (mobile capture relay, piece A).
+# The phone uploads a capture at `<userPubkey>/<captureId>`; the laptop pulls it
+# into the data folder, then acks, which deletes the blob. Never a permanent store.
+[[r2_buckets]]
+binding = "CAPTURES"
+bucket_name = "researchos-captures"
 
 # new_sqlite_classes is required for the WebSocket Hibernation API on a fresh
 # DO class (SQLite-backed DOs are the current default storage backend).
@@ -34,3 +48,8 @@ new_sqlite_classes = ["CollabRoom"]
 [[migrations]]
 tag = "v2"
 new_sqlite_classes = ["RecipientInbox"]
+
+# mobile capture relay piece A: the per-user capture inbox DO.
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["CaptureInbox"]
