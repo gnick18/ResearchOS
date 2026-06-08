@@ -7,7 +7,7 @@
 // + cap), all without a DOM or a store, mirroring gantt-beaker-source.test.ts.
 
 import { describe, it, expect } from "vitest";
-import type { CalendarFeed, Event, ExternalEvent } from "@/lib/types";
+import type { CalendarFeed, Event, ExternalEvent, Task } from "@/lib/types";
 import {
   buildCalendarSource,
   parseCalendarDate,
@@ -57,6 +57,23 @@ function makeExternal(over: Partial<ExternalEvent> = {}): ExternalEvent {
   } as ExternalEvent;
 }
 
+function makeTask(over: Partial<Task> = {}): Task {
+  return {
+    id: 7,
+    project_id: 10,
+    owner: "self",
+    name: "PCR optimization",
+    start_date: "2026-06-12",
+    duration_days: 7,
+    end_date: "2026-06-19",
+    is_high_level: false,
+    is_complete: false,
+    task_type: "experiment",
+    tags: ["PCR"],
+    ...over,
+  } as Task;
+}
+
 function makeFeed(over: Partial<CalendarFeed> = {}): CalendarFeed {
   return {
     id: 1,
@@ -78,6 +95,9 @@ const noopHandlers: CalendarSourceHandlers = {
   setDeleteConfirmEvent: () => {},
   duplicateEvent: () => {},
   markEventPto: () => {},
+  linkEventToTask: () => {},
+  unlinkEventTask: () => {},
+  openLinkedTask: () => {},
   openCreate: () => {},
   openCreateAt: () => {},
   goToToday: () => {},
@@ -121,12 +141,20 @@ function makeData(over: Partial<CalendarSourceData> = {}): CalendarSourceData {
     selectedExternal: null,
     hovered: null,
     upcomingEvents: [],
+    tasks: over.tasks ?? [makeTask()],
     eventDateLine: (e) =>
       e.end_date && e.end_date !== e.start_date
         ? `${e.start_date} to ${e.end_date}`
         : e.start_date,
     upcomingDetail: (item) => `soon, ${item.event.start_date}`,
     feedOfExternal: (e) => feeds.find((f) => f.id === e.feedId) ?? null,
+    taskKeyOf: (t) => `${t.is_shared_with_me ? t.owner : "self"}:${t.id}`,
+    taskProjectLabel: (t) =>
+      t.is_shared_with_me ? `shared by ${t.owner}` : "Mitochondria QC",
+    linkedTaskOf: (e) =>
+      e.task_id == null
+        ? null
+        : (over.tasks ?? [makeTask()]).find((t) => t.id === e.task_id) ?? null,
     ...over,
   };
 }
@@ -270,6 +298,7 @@ describe("buildCalendarSource commands", () => {
       "calendar-event-duplicate",
       "calendar-event-mark-pto",
       "calendar-event-open",
+      "calendar-event-link-task",
     ]);
 
     const isPto = buildCalendarSource(
@@ -320,6 +349,7 @@ describe("buildCalendarSource suggested ordering", () => {
       "calendar-event-duplicate",
       "calendar-event-mark-pto",
       "calendar-event-open",
+      "calendar-event-link-task",
     ]);
     expect(src.suggestedHint).toBe("for the selected event");
     // Every suggested id must exist in commands.
@@ -396,6 +426,7 @@ describe("buildCalendarSource hovered path", () => {
       "calendar-event-duplicate",
       "calendar-event-mark-pto",
       "calendar-event-open",
+      "calendar-event-link-task",
     ]);
     expect(src.suggestedHint).toBe("for the event you were pointing at");
     // The same rows show up under Selected event, driven by the hover.
@@ -406,6 +437,7 @@ describe("buildCalendarSource hovered path", () => {
       "calendar-event-duplicate",
       "calendar-event-mark-pto",
       "calendar-event-open",
+      "calendar-event-link-task",
     ]);
   });
 
@@ -513,6 +545,163 @@ describe("buildCalendarSource nav groups", () => {
     expect(next.items[0].detail).toBe("soon, 2026-06-16");
     expect(next.items[0].tone).toBe("event");
     expect(next.items[1].tone).toBe("feed");
+  });
+});
+
+// ── Event-to-task linking (the inline link sub-flow + the linked-state flip) ──
+
+describe("buildCalendarSource event-to-task link sub-flow", () => {
+  it("an unlinked native event carries the link command with an INLINE sub-flow", () => {
+    const cmds = buildCalendarSource(
+      makeData({ selectedEvent: makeEvent({ task_id: null }) }),
+      noopHandlers,
+    ).commands;
+    const link = cmds.find((c) => c.id === "calendar-event-link-task")!;
+    expect(link).toBeDefined();
+    expect(link.group).toBe("Selected event");
+    expect(link.subflow).toBeDefined();
+    const sf = link.subflow!();
+    // Single stage, no explicit presentation (renders inline by inference).
+    expect(sf.presentation).toBeUndefined();
+    expect(sf.title).toBe('Link "ACS National Meeting" to a task');
+  });
+
+  it("the picker lists the user's tasks (name, project detail, task tone)", () => {
+    const tasks = [
+      makeTask({ id: 7, name: "PCR optimization" }),
+      makeTask({ id: 8, name: "Cloning run" }),
+    ];
+    const cmds = buildCalendarSource(
+      makeData({ selectedEvent: makeEvent({ task_id: null }), tasks }),
+      noopHandlers,
+    ).commands;
+    const sf = cmds.find((c) => c.id === "calendar-event-link-task")!.subflow!();
+    expect(sf.items.map((i) => i.label)).toEqual(["PCR optimization", "Cloning run"]);
+    expect(sf.items[0].id).toBe("self:7");
+    expect(sf.items[0].tone).toBe("task");
+    expect(sf.items[0].detail).toContain("Mitochondria QC");
+  });
+
+  it("picking a task calls eventsApi.update with task_id + the composite owner then completes", () => {
+    const linked: Array<[number, number, string | undefined]> = [];
+    const handlers: CalendarSourceHandlers = {
+      ...noopHandlers,
+      linkEventToTask: (event, task) => {
+        linked.push([event.id, task.id, task.is_shared_with_me ? task.owner : "self"]);
+      },
+    };
+    const shared = makeTask({
+      id: 9,
+      owner: "alex",
+      is_shared_with_me: true,
+      name: "Shared run",
+    });
+    const cmds = buildCalendarSource(
+      makeData({
+        selectedEvent: makeEvent({ id: 1, task_id: null }),
+        tasks: [shared],
+      }),
+      handlers,
+    ).commands;
+    const sf = cmds.find((c) => c.id === "calendar-event-link-task")!.subflow!();
+    // The picked item id is the composite owner key for the shared task.
+    expect(sf.items[0].id).toBe("alex:9");
+    const next = sf.onPick(sf.items[0]);
+    expect(next).toBeUndefined();
+    // Carries the composite owner (alex) so the shared task links correctly.
+    expect(linked).toEqual([[1, 9, "alex"]]);
+  });
+
+  it("disables the link row when there is no task to link to", () => {
+    const cmds = buildCalendarSource(
+      makeData({ selectedEvent: makeEvent({ task_id: null }), tasks: [] }),
+      noopHandlers,
+    ).commands;
+    expect(cmds.find((c) => c.id === "calendar-event-link-task")?.enabled).toBe(false);
+  });
+
+  it("a linked native event flips to a Jump (navigate, no sub-flow) plus an Unlink", () => {
+    const linkedTask = makeTask({ id: 7, name: "PCR optimization" });
+    const cmds = buildCalendarSource(
+      makeData({
+        selectedEvent: makeEvent({ task_id: 7, task_owner: "self" }),
+        tasks: [linkedTask],
+      }),
+      noopHandlers,
+    ).commands;
+    const ids = cmds.filter((c) => c.group === "Selected event").map((c) => c.id);
+    // The link row is gone, replaced by jump + unlink.
+    expect(ids).not.toContain("calendar-event-link-task");
+    expect(ids).toContain("calendar-event-jump-task");
+    expect(ids).toContain("calendar-event-unlink-task");
+
+    const jump = cmds.find((c) => c.id === "calendar-event-jump-task")!;
+    // Jump is a plain NAVIGATE, no sub-flow.
+    expect(jump.subflow).toBeUndefined();
+    expect(jump.label).toBe('Jump to linked task "PCR optimization"');
+  });
+
+  it("the Jump row opens the linked task via the openTask key", () => {
+    const opened: string[] = [];
+    const handlers: CalendarSourceHandlers = {
+      ...noopHandlers,
+      openLinkedTask: (key) => {
+        opened.push(key);
+      },
+    };
+    const linkedTask = makeTask({ id: 7 });
+    const cmds = buildCalendarSource(
+      makeData({
+        selectedEvent: makeEvent({ task_id: 7, task_owner: "self" }),
+        tasks: [linkedTask],
+      }),
+      handlers,
+    ).commands;
+    cmds.find((c) => c.id === "calendar-event-jump-task")!.run();
+    expect(opened).toEqual(["self:7"]);
+  });
+
+  it("the Unlink row clears the link via eventsApi.update(null)", () => {
+    const unlinked: number[] = [];
+    const handlers: CalendarSourceHandlers = {
+      ...noopHandlers,
+      unlinkEventTask: (e) => {
+        unlinked.push(e.id);
+      },
+    };
+    const cmds = buildCalendarSource(
+      makeData({ selectedEvent: makeEvent({ id: 3, task_id: 7, task_owner: "self" }) }),
+      handlers,
+    ).commands;
+    cmds.find((c) => c.id === "calendar-event-unlink-task")!.run();
+    expect(unlinked).toEqual([3]);
+  });
+
+  it("suggests jump + unlink for a linked event and the link row for an unlinked one", () => {
+    const linkedSrc = buildCalendarSource(
+      makeData({ selectedEvent: makeEvent({ task_id: 7, task_owner: "self" }) }),
+      noopHandlers,
+    );
+    expect(linkedSrc.suggestedIds).toContain("calendar-event-jump-task");
+    expect(linkedSrc.suggestedIds).toContain("calendar-event-unlink-task");
+    expect(linkedSrc.suggestedIds).not.toContain("calendar-event-link-task");
+
+    const unlinkedSrc = buildCalendarSource(
+      makeData({ selectedEvent: makeEvent({ task_id: null }) }),
+      noopHandlers,
+    );
+    expect(unlinkedSrc.suggestedIds).toContain("calendar-event-link-task");
+    expect(unlinkedSrc.suggestedIds).not.toContain("calendar-event-jump-task");
+  });
+
+  it("offers no link row for an external (read-only) event", () => {
+    const cmds = buildCalendarSource(
+      makeData({ selectedExternal: makeExternal() }),
+      noopHandlers,
+    ).commands;
+    const ids = cmds.filter((c) => c.group === "Selected event").map((c) => c.id);
+    expect(ids).not.toContain("calendar-event-link-task");
+    expect(ids).not.toContain("calendar-event-jump-task");
   });
 });
 

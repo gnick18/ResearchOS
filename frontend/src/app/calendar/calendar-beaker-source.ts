@@ -27,9 +27,10 @@ import type {
   PaletteContextCard,
   PaletteNavGroup,
   PaletteNavItem,
+  PaletteSubflow,
 } from "@/components/sequences/editor-commands";
 import type { CalendarView } from "@/components/calendar/utils";
-import type { CalendarFeed, Event, ExternalEvent } from "@/lib/types";
+import type { CalendarFeed, Event, ExternalEvent, Task } from "@/lib/types";
 
 // ── Page-defined command groups ────────────────────────────────────────────
 // These print between the page's nav groups and the global "Go to" / "App"
@@ -115,6 +116,12 @@ export interface CalendarSourceData {
    *  the caller, for the "Next up" nav group (spec 5). Native + external. */
   upcomingEvents: CalendarUpcomingItem[];
 
+  // Event-to-task linking (spec 3.2). The user's own + shared-with-me tasks, the
+  // items the "Link this event to a task" inline sub-flow lists. Resolved by the
+  // hook from fetchAllTasksIncludingShared. Empty disables the link row (nothing
+  // to link to).
+  tasks: Task[];
+
   // Pre-computed helpers the builder needs but must not derive itself (keeps
   // the builder pure and the formatting identical to the page's modals).
   /** The detail-modal date line for a native / external event, e.g. "Jun 9 to
@@ -125,6 +132,17 @@ export interface CalendarSourceData {
   upcomingDetail: (item: CalendarUpcomingItem) => string;
   /** The feed that owns an external event (for "Show this event's feed"). */
   feedOfExternal: (e: ExternalEvent) => CalendarFeed | null;
+  /** taskKey(task), the composite "<ns>:<id>" the openTask deep-link uses (same
+   *  key the global object source jumps with). Injected so the builder stays pure
+   *  and the keying is identical to the page's. */
+  taskKeyOf: (task: Task) => string;
+  /** The project name (or a shared / standalone fallback) for a task, for the
+   *  link-picker row detail. Injected so the builder never resolves projects. */
+  taskProjectLabel: (task: Task) => string;
+  /** The task a linked event points at (matched on task_id + task_owner), for the
+   *  "Jump to linked task" row label + detail. Null when the linked task is not in
+   *  the loaded set (deleted / not shared anymore). */
+  linkedTaskOf: (e: Event) => Task | null;
 }
 
 /** One row in the "Next up" group. The discriminant lets the jump handler pick
@@ -145,6 +163,19 @@ export interface CalendarSourceHandlers {
   /** eventsApi.update is_pto + syncEventPtoChange then invalidate (thin page
    *  helper, gates on currentUser, NEVER writes pto_dates directly). */
   markEventPto: (e: Event, on: boolean) => void | Promise<void>;
+
+  // Event-to-task linking (spec 3.2). The inline link sub-flow's pick, the
+  // unlink terminal, and the jump-to-linked navigate, all reusing the page's
+  // real eventsApi.update + openTask deep-link.
+  /** eventsApi.update(e.id, { task_id, task_owner }) then invalidate ["events"].
+   *  Carries the composite owner so a shared task links correctly. */
+  linkEventToTask: (e: Event, task: Task) => void | Promise<void>;
+  /** eventsApi.update(e.id, { task_id: null, task_owner: null }) then invalidate
+   *  ["events"]. Clears an event's task link. */
+  unlinkEventTask: (e: Event) => void | Promise<void>;
+  /** Open the linked task via the global "/?openTask=<key>" deep-link convention
+   *  (the same opener the global object source uses), keyed by taskKey. */
+  openLinkedTask: (taskKey: string) => void;
 
   // Create (the page's create flows).
   openCreate: () => void; // setCreating(true)
@@ -259,6 +290,40 @@ function buildContextCard(data: CalendarSourceData): PaletteContextCard {
   };
 }
 
+/** Event-to-task linking (spec 3.2). The INLINE single-stage link sub-flow,
+ *  mirroring the Gantt assign proof. Items are the user's tasks; picking one
+ *  calls the real eventsApi.update (carrying the composite task_owner so a shared
+ *  task links correctly) then COMPLETES (onPick returns void). Single stage, so
+ *  the framework renders it inline under the command row. */
+function buildLinkTaskSubflow(
+  event: Event,
+  data: CalendarSourceData,
+  handlers: CalendarSourceHandlers,
+): PaletteSubflow {
+  return {
+    title: `Link "${event.title}" to a task`,
+    placeholder: "Pick a task to link",
+    items: data.tasks.map((t) => ({
+      id: data.taskKeyOf(t),
+      label: t.name,
+      detail: `${data.taskProjectLabel(t)}, ${t.start_date} to ${t.end_date}`,
+      keywords: [
+        data.taskProjectLabel(t),
+        t.is_shared_with_me ? t.owner : "",
+      ]
+        .filter(Boolean)
+        .join(" "),
+      iconName: "list",
+      tone: "task",
+      onRun: () => {},
+    })),
+    onPick: (item) => {
+      const task = data.tasks.find((t) => data.taskKeyOf(t) === item.id);
+      if (task) void handlers.linkEventToTask(event, task);
+    },
+  };
+}
+
 /** Build the full command set with stable ids + page-defined groups (spec 3 +
  *  6). The selection-specific rows carry stable ids the Suggested rule names. */
 function buildCommands(
@@ -332,6 +397,56 @@ function buildCommands(
       iconName: "eye",
       run: () => handlers.setSelectedEvent(e),
     });
+
+    // Event-to-task linking (spec 3.2). When the event is NOT yet linked, one
+    // row opens the INLINE pick-a-task sub-flow (gated to when at least one task
+    // exists to link to). When it IS linked, the row flips to a plain NAVIGATE
+    // that jumps to the linked task, plus an "Unlink" terminal. The link sub-flow
+    // run stays terminal-safe (opens the detail popup) for any caller without the
+    // framework.
+    const linkedTask = e.task_id != null ? data.linkedTaskOf(e) : null;
+    if (e.task_id == null) {
+      out.push({
+        id: "calendar-event-link-task",
+        label: `Link "${e.title}" to a task`,
+        detail: "connect this event to an experiment",
+        keywords: "task experiment connect",
+        group: CALENDAR_GROUP_SELECTED_EVENT,
+        iconName: "share",
+        enabled: data.tasks.length > 0,
+        run: () => handlers.setSelectedEvent(e),
+        subflow: () => buildLinkTaskSubflow(e, data, handlers),
+      });
+    } else {
+      out.push({
+        id: "calendar-event-jump-task",
+        label: linkedTask
+          ? `Jump to linked task "${linkedTask.name}"`
+          : "Jump to linked task",
+        detail: linkedTask
+          ? `${linkedTask.start_date} to ${linkedTask.end_date}`
+          : "open the connected task",
+        keywords: "task experiment linked open",
+        group: CALENDAR_GROUP_SELECTED_EVENT,
+        iconName: "eye",
+        run: () => {
+          const key =
+            linkedTask != null
+              ? data.taskKeyOf(linkedTask)
+              : `${e.task_owner ?? "self"}:${e.task_id}`;
+          handlers.openLinkedTask(key);
+        },
+      });
+      out.push({
+        id: "calendar-event-unlink-task",
+        label: "Unlink the task",
+        detail: "remove this event's task link",
+        keywords: "task experiment disconnect remove",
+        group: CALENDAR_GROUP_SELECTED_EVENT,
+        iconName: "close",
+        run: () => void handlers.unlinkEventTask(e),
+      });
+    }
   }
 
   // ── Selected / hovered external (read-only) event actions (spec 3.B). ─────
@@ -507,6 +622,14 @@ function buildSuggestedIds(data: CalendarSourceData): string[] {
       isPto ? "calendar-event-clear-pto" : "calendar-event-mark-pto",
       "calendar-event-open",
     );
+    // Event-to-task linking (spec 3.2). A linked event leads with the jump +
+    // unlink rows; an unlinked one offers the link sub-flow. Ids absent from the
+    // live command list (the unlinked event has no jump row, etc.) are skipped.
+    if (ctx.event.task_id != null) {
+      ids.push("calendar-event-jump-task", "calendar-event-unlink-task");
+    } else {
+      ids.push("calendar-event-link-task");
+    }
     return ids;
   }
 

@@ -27,8 +27,14 @@
 // mid-sentence colons.
 
 import { useCallback, useMemo, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { eventsApi } from "@/lib/local-api";
+import {
+  eventsApi,
+  fetchAllTasksIncludingShared,
+  fetchAllProjectsIncludingShared,
+} from "@/lib/local-api";
+import { taskKey } from "@/lib/types";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAppStore } from "@/lib/store";
 import { useBeakerSearchSource } from "@/components/beaker-search/useBeakerSearchSource";
@@ -49,7 +55,7 @@ import {
   expandDateRange,
   syncEventPtoChange,
 } from "@/lib/streak/calendar-pto-sync";
-import type { CalendarFeed, Event, ExternalEvent } from "@/lib/types";
+import type { CalendarFeed, Event, ExternalEvent, Task } from "@/lib/types";
 import {
   buildCalendarSource,
   type CalendarFrame,
@@ -223,6 +229,7 @@ function buildFrame(
  *  page's live state + handlers. */
 export function useCalendarBeakerSource(deps: CalendarBeakerPageDeps): void {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const { currentUser: providerCurrentUser } = useCurrentUser();
   const currentUser = providerCurrentUser ?? "";
 
@@ -234,6 +241,18 @@ export function useCalendarBeakerSource(deps: CalendarBeakerPageDeps): void {
     queryFn: eventsApi.list,
   });
   const { data: feeds = [] } = useCalendarFeeds();
+
+  // Event-to-task linking (spec 3.2). Own + shared-with-me tasks (the link
+  // picker's items) and projects (for the per-task project label), sharing the
+  // same query keys the Gantt / Workbench read so no extra fetch.
+  const { data: tasks = [] } = useQuery({
+    queryKey: ["tasks", "with-shared", currentUser],
+    queryFn: fetchAllTasksIncludingShared,
+  });
+  const { data: projects = [] } = useQuery({
+    queryKey: ["projects", currentUser],
+    queryFn: fetchAllProjectsIncludingShared,
+  });
   const {
     events: externalEvents,
     errorsByFeedId: externalErrors,
@@ -322,6 +341,38 @@ export function useCalendarBeakerSource(deps: CalendarBeakerPageDeps): void {
     [queryClient, currentUser],
   );
 
+  // Event-to-task linking (spec 3.2). Link / unlink ride the same eventsApi.update
+  // passthrough the page's onSave does (the field already exists), then invalidate
+  // ["events"] so the linked state refreshes. Link carries the composite owner
+  // (taskKey resolves to the owner namespace) so a shared task links correctly.
+  const linkEventToTask = useCallback(
+    async (e: Event, task: Task) => {
+      await eventsApi.update(e.id, {
+        task_id: task.id,
+        task_owner: task.is_shared_with_me ? task.owner : currentUser,
+      });
+      await queryClient.refetchQueries({ queryKey: ["events"] });
+    },
+    [queryClient, currentUser],
+  );
+
+  const unlinkEventTask = useCallback(
+    async (e: Event) => {
+      await eventsApi.update(e.id, { task_id: null, task_owner: null });
+      await queryClient.refetchQueries({ queryKey: ["events"] });
+    },
+    [queryClient],
+  );
+
+  // Jump to the linked task via the global "/?openTask=<key>" deep-link the
+  // global object source uses (TaskDetailPopup loads it for any task on /).
+  const openLinkedTask = useCallback(
+    (key: string) => {
+      router.push(`/?openTask=${encodeURIComponent(key)}`);
+    },
+    [router],
+  );
+
   const handlers = useMemo<CalendarSourceHandlers>(
     () => ({
       setEditingEvent,
@@ -330,6 +381,9 @@ export function useCalendarBeakerSource(deps: CalendarBeakerPageDeps): void {
       setDeleteConfirmEvent,
       duplicateEvent,
       markEventPto,
+      linkEventToTask,
+      unlinkEventTask,
+      openLinkedTask,
       openCreate,
       openCreateAt,
       goToToday,
@@ -349,6 +403,9 @@ export function useCalendarBeakerSource(deps: CalendarBeakerPageDeps): void {
       setDeleteConfirmEvent,
       duplicateEvent,
       markEventPto,
+      linkEventToTask,
+      unlinkEventTask,
+      openLinkedTask,
       openCreate,
       openCreateAt,
       goToToday,
@@ -369,6 +426,35 @@ export function useCalendarBeakerSource(deps: CalendarBeakerPageDeps): void {
     for (const f of feeds) map.set(f.id, f);
     return map;
   }, [feeds]);
+
+  // Event-to-task linking (spec 3.2). The per-task project label (mirrors the
+  // Gantt source's projectLabelForTask), and the linked-task lookup that resolves
+  // an event's task_id + task_owner pair to a live task for the jump row.
+  const taskProjectLabel = useCallback(
+    (task: Task): string => {
+      if (task.is_shared_with_me) {
+        return task.owner ? `shared by ${task.owner}` : "shared";
+      }
+      const proj = projects.find(
+        (p) => p.id === task.project_id && p.owner === task.owner,
+      );
+      return proj ? proj.name : "Standalone";
+    },
+    [projects],
+  );
+
+  const linkedTaskOf = useCallback(
+    (e: Event): Task | null => {
+      if (e.task_id == null) return null;
+      const owner = e.task_owner ?? currentUser;
+      return (
+        tasks.find(
+          (t) => t.id === e.task_id && (t.owner === owner || t.owner === e.task_owner),
+        ) ?? null
+      );
+    },
+    [tasks, currentUser],
+  );
 
   // On-screen events (native + external), filtered to the visible frame, the
   // same eventCoversDate test the views and the day drawer use.
@@ -445,9 +531,13 @@ export function useCalendarBeakerSource(deps: CalendarBeakerPageDeps): void {
       selectedExternal: lastSelectedExternalRef.current,
       hovered,
       upcomingEvents,
+      tasks,
       eventDateLine,
       upcomingDetail: (item) => upcomingDetail(frame.todayStr, item),
       feedOfExternal: (e) => feedById.get(e.feedId) ?? null,
+      taskKeyOf: (task) => taskKey(task),
+      taskProjectLabel,
+      linkedTaskOf,
     };
     return buildCalendarSource(data, handlers);
   }, [
@@ -461,7 +551,10 @@ export function useCalendarBeakerSource(deps: CalendarBeakerPageDeps): void {
     onScreenExternalEvents,
     hovered,
     upcomingEvents,
+    tasks,
     feedById,
+    taskProjectLabel,
+    linkedTaskOf,
     handlers,
     // The live selection drives the context card + Suggested set; recompute the
     // source whenever it changes (the refs are updated above from these).
