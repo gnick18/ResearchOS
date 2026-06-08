@@ -377,7 +377,7 @@ export default function RoadmapModal({ open, onClose }: RoadmapModalProps) {
       card={false}
     >
       {/* This marketing card brings its own white chrome (card=false above). */}
-      <div className="relative w-full overflow-hidden rounded-2xl bg-surface-raised shadow-[0_24px_64px_rgba(0,0,0,0.18)] ring-1 ring-black/5">
+      <div className="relative w-full overflow-hidden rounded-2xl bg-surface-overlay border border-border shadow-[0_24px_64px_rgba(0,0,0,0.18)] ring-1 ring-black/5">
         {/* ── Header ────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between border-b border-[#e8f0f8] px-6 py-4">
           <div>
