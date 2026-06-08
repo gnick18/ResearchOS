@@ -219,6 +219,7 @@ export default function NotificationPopup({
   return (
     <div
       ref={popupRef}
+      role="menu"
       className="absolute right-0 top-full mt-2 w-96 bg-surface-raised rounded-xl shadow-xl border border-border z-50 overflow-hidden"
     >
       {/* Header */}
