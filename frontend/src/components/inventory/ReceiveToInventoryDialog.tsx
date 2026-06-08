@@ -34,6 +34,7 @@ import type {
   PurchaseItem,
 } from "@/lib/types";
 import { dateInputToIso, isoToDateInput } from "./inventory-ui";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 // ── shared form helpers ──────────────────────────────────────────────────────
 
@@ -253,7 +254,9 @@ function CreateNewStep({
       const stockPayload: InventoryStockCreate = {
         item_id: newItem.id,
         purchase_item_id: purchaseItem.id,
-        received_date: today,
+        // Store the full UTC-midnight ISO (same as StockFormDialog) so the
+        // received/expiry dates share one shape on disk.
+        received_date: dateInputToIso(today),
         container_count:
           typeof purchaseItem.quantity === "number" &&
           purchaseItem.quantity >= 1
@@ -390,6 +393,7 @@ function AddToExistingStep({
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
+  const { currentUser } = useCurrentUser();
   const [search, setSearch] = useState("");
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -397,8 +401,11 @@ function AddToExistingStep({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Same key the inventory page and global search use, so this list reads the
+  // shared cache (and the page's invalidateQueries refreshes it) instead of
+  // forking a second, never-invalidated entry.
   const { data: allItems = [] } = useQuery({
-    queryKey: ["inventory-items"],
+    queryKey: ["inventory-items", currentUser],
     queryFn: fetchAllInventoryItemsIncludingShared,
   });
 
@@ -463,7 +470,7 @@ function AddToExistingStep({
         const stockPayload: InventoryStockCreate = {
           item_id: selectedItem.id,
           purchase_item_id: purchaseItem.id,
-          received_date: today,
+          received_date: dateInputToIso(today),
           container_count: newCount,
           status: "in_stock",
           expiration_date: expirationDate,

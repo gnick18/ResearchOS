@@ -64,7 +64,7 @@ export function useGlobalObjectIndex(): GlobalIndexEntry[] {
   });
 
   const { data: inventoryItems = [] } = useQuery({
-    queryKey: ["inventory_items", user],
+    queryKey: ["inventory-items", user],
     queryFn: fetchAllInventoryItemsIncludingShared,
     enabled: INVENTORY_ENABLED && !!user,
   });
@@ -85,7 +85,7 @@ export function useGlobalObjectIndex(): GlobalIndexEntry[] {
     void queryClient.prefetchQuery({ queryKey: ["sequences"], queryFn: () => sequencesApi.list() });
     if (INVENTORY_ENABLED && user) {
       void queryClient.prefetchQuery({
-        queryKey: ["inventory_items", user],
+        queryKey: ["inventory-items", user],
         queryFn: fetchAllInventoryItemsIncludingShared,
       });
     }

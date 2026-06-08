@@ -113,7 +113,23 @@ const nodesById = new Map<number, StorageNode>(
 );
 
 describe("buildBoxOccupancy", () => {
-  const items = new Map<number, InventoryItem>([[1, makeItem()]]);
+  // Keyed `${owner}:${item_id}` (default owner "me", id 1 -> "me:1") so a
+  // shared-in stock cannot collide with a local item of the same numeric id.
+  const items = new Map<string, InventoryItem>([["me:1", makeItem()]]);
+
+  it("resolves each occupant to its own owner's item by composite key", () => {
+    const mixed = new Map<string, InventoryItem>([
+      ["alex:1", makeItem({ id: 1, owner: "alex", name: "Alex enzyme" })],
+      ["mira:1", makeItem({ id: 1, owner: "mira", name: "Mira enzyme" })],
+    ]);
+    const stocks = [
+      makeStock({ id: 1, owner: "alex", item_id: 1, location_node_id: 12, position: "A1" }),
+      makeStock({ id: 2, owner: "mira", item_id: 1, location_node_id: 12, position: "A2" }),
+    ];
+    const occ = buildBoxOccupancy(12, stocks, mixed, NOW);
+    expect(occ.get("A1")?.item?.name).toBe("Alex enzyme");
+    expect(occ.get("A2")?.item?.name).toBe("Mira enzyme");
+  });
 
   it("maps stocks to cells by (location_node_id, position)", () => {
     const stocks = [

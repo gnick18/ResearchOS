@@ -273,6 +273,33 @@ describe("deriveInventoryStatus — pure helper", () => {
       ),
     ).toBe("in_stock");
   });
+
+  // Day-level UTC expiry. Dates are stored at UTC midnight; comparing raw
+  // timestamps would flip "expired" at midnight UTC (the previous evening in a
+  // US timezone) even while the signal helpers still say "Expires today". The
+  // comparison must be whole-UTC-day, so a stock is expired only once its stored
+  // day has fully passed.
+  it("is NOT expired during its own expiry day (later UTC instant, same day)", () => {
+    const midDay = new Date("2026-06-07T18:00:00.000Z");
+    expect(
+      deriveInventoryStatus(
+        { container_count: 5, expiration_date: "2026-06-07T00:00:00.000Z" },
+        { low_at_count: null },
+        { now: midDay },
+      ),
+    ).toBe("in_stock");
+  });
+
+  it("is expired once the stored expiry day has fully passed", () => {
+    const midDay = new Date("2026-06-07T18:00:00.000Z");
+    expect(
+      deriveInventoryStatus(
+        { container_count: 5, expiration_date: "2026-06-06T00:00:00.000Z" },
+        { low_at_count: null },
+        { now: midDay },
+      ),
+    ).toBe("expired");
+  });
 });
 
 describe("cross-user routing", () => {

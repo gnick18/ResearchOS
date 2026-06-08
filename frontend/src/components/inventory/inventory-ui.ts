@@ -223,12 +223,16 @@ export function summarizeStocks(stocks: InventoryStock[]): StockSummary {
   };
 }
 
-/** Format an ISO date for display ("Jun 7, 2026"). Returns "" for null/bad. */
+/** Format an ISO date for display ("Jun 7, 2026"). Returns "" for null/bad.
+ *  Dates are stored at UTC midnight (see `dateInputToIso`), so we render in UTC
+ *  too. Without `timeZone: "UTC"` a US (UTC-negative) machine shows the day
+ *  before, so a stored "Jun 7" reads as "Jun 6". */
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleDateString(undefined, {
+    timeZone: "UTC",
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -343,7 +347,12 @@ export function computeExpiringSignals(
   stocks: InventoryStock[],
   now: Date,
 ): ExpiringSignal[] {
-  const itemById = new Map(items.map((it) => [it.id, it] as const));
+  // Keyed on `${owner}:${item_id}`, not the bare integer id, so two users who
+  // each have an item with the same numeric id (every counter starts at 1) do
+  // not collide once shared inventory is merged (matches the page's keying).
+  const itemById = new Map(
+    items.map((it) => [`${it.owner}:${it.id}`, it] as const),
+  );
   const out: ExpiringSignal[] = [];
   for (const stock of stocks) {
     if (!stock.expiration_date) continue;
@@ -351,7 +360,7 @@ export function computeExpiringSignals(
     if (Number.isNaN(exp.getTime())) continue;
     const daysToExpiry = wholeDaysBetween(now, exp);
     if (daysToExpiry > EXPIRING_SOON_DAYS) continue;
-    const item = itemById.get(stock.item_id);
+    const item = itemById.get(`${stock.owner}:${stock.item_id}`);
     if (!item) continue;
     out.push({
       item,
@@ -386,7 +395,11 @@ export function computeStaleSignals(
   stocks: InventoryStock[],
   now: Date,
 ): StaleSignal[] {
-  const itemById = new Map(items.map((it) => [it.id, it] as const));
+  // Composite `${owner}:${item_id}` key (see computeExpiringSignals) so a
+  // shared-in item never resolves to the wrong owner's record.
+  const itemById = new Map(
+    items.map((it) => [`${it.owner}:${it.id}`, it] as const),
+  );
   const cutoff = subtractMonths(now, STALE_AFTER_MONTHS);
   const out: StaleSignal[] = [];
   for (const stock of stocks) {
@@ -407,21 +420,30 @@ export function computeStaleSignals(
     }
     if (mostRecent === null) continue;
     if (mostRecent.getTime() >= cutoff.getTime()) continue;
-    const item = itemById.get(stock.item_id);
+    const item = itemById.get(`${stock.owner}:${stock.item_id}`);
     if (!item) continue;
+    // `months` is the gap from the most-recent touch (the reference we actually
+    // aged from), so the wording must cite that same date. Leading with
+    // received_date while measuring "N months" from a more-recent
+    // last_touched_at read as an off-by-a-lot, so when last_touched_at is the
+    // reference we name both dates and pin "N months ago" to the touch.
     const months = wholeMonthsBetween(mostRecent, now);
-    // Lead with received_date when we have it (matches the mockup phrasing),
-    // otherwise lead with the last-touched stamp.
-    const lead = stock.received_date
-      ? `Received ${formatDate(stock.received_date)}`
-      : `Last touched ${formatDate(stock.last_touched_at)}`;
+    const suffix = `${months} month${months === 1 ? "" : "s"}`;
+    let annotation: string;
+    if (stock.last_touched_at && mostRecentIso === stock.last_touched_at) {
+      const touched = formatDate(stock.last_touched_at);
+      annotation = stock.received_date
+        ? `Received ${formatDate(stock.received_date)}, last touched ${touched} (${suffix} ago)`
+        : `Last touched ${touched}, ${suffix} ago`;
+    } else {
+      // received_date is the reference (no last_touched_at, or it is older).
+      annotation = `Received ${formatDate(stock.received_date)}, not touched in ${suffix}`;
+    }
     out.push({
       item,
       stock,
       referenceDate: mostRecentIso,
-      annotation: `${lead}, not touched in ${months} month${
-        months === 1 ? "" : "s"
-      }`,
+      annotation,
     });
   }
   out.sort(
@@ -442,15 +464,18 @@ export function computeLowSignals(
   items: InventoryItem[],
   stocks: InventoryStock[],
 ): LowSignal[] {
-  const stocksByItem = new Map<number, InventoryStock[]>();
+  // Keyed on `${owner}:${item_id}` so a low-stock total never mixes two users'
+  // stocks that happen to share a numeric item_id (see computeExpiringSignals).
+  const stocksByItem = new Map<string, InventoryStock[]>();
   for (const s of stocks) {
-    const arr = stocksByItem.get(s.item_id) ?? [];
+    const k = `${s.owner}:${s.item_id}`;
+    const arr = stocksByItem.get(k) ?? [];
     arr.push(s);
-    stocksByItem.set(s.item_id, arr);
+    stocksByItem.set(k, arr);
   }
   const out: LowSignal[] = [];
   for (const item of items) {
-    const itemStocks = stocksByItem.get(item.id) ?? [];
+    const itemStocks = stocksByItem.get(`${item.owner}:${item.id}`) ?? [];
     let total = 0;
     let manualLowOrEmpty = false;
     for (const s of itemStocks) {
@@ -610,11 +635,15 @@ export interface BoxCellOccupant {
  * excluded. When two stocks claim the same cell (should not happen, but the
  * data layer does not enforce it), the FIRST wins and the rest are ignored so
  * the grid stays deterministic.
+ *
+ * `itemsById` is keyed on `${owner}:${item_id}`, not the bare integer id, so a
+ * shared-in stock resolves to its own owner's item rather than colliding with a
+ * local item that happens to share a numeric id.
  */
 export function buildBoxOccupancy(
   boxId: number,
   stocks: InventoryStock[],
-  itemsById: Map<number, InventoryItem>,
+  itemsById: Map<string, InventoryItem>,
   now: Date,
 ): Map<string, BoxCellOccupant> {
   const map = new Map<string, BoxCellOccupant>();
@@ -625,7 +654,7 @@ export function buildBoxOccupancy(
     map.set(stock.position, {
       position: stock.position,
       stock,
-      item: itemsById.get(stock.item_id) ?? null,
+      item: itemsById.get(`${stock.owner}:${stock.item_id}`) ?? null,
       tone: boxCellToneForStock(stock, now),
     });
   }

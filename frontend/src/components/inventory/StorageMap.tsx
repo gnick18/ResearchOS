@@ -105,9 +105,11 @@ export default function StorageMap({
     return m;
   }, [nodes]);
 
+  // Keyed on `${owner}:${item_id}` so a shared-in stock never resolves to a
+  // local item with the same numeric id (every user's counter starts at 1).
   const itemsById = useMemo(() => {
-    const m = new Map<number, InventoryItem>();
-    for (const it of items) m.set(it.id, it);
+    const m = new Map<string, InventoryItem>();
+    for (const it of items) m.set(`${it.owner}:${it.id}`, it);
     return m;
   }, [items]);
 
@@ -189,7 +191,10 @@ export default function StorageMap({
     () =>
       stocks
         .filter((s) => s.location_node_id == null)
-        .map((s) => ({ stock: s, item: itemsById.get(s.item_id) ?? null })),
+        .map((s) => ({
+          stock: s,
+          item: itemsById.get(`${s.owner}:${s.item_id}`) ?? null,
+        })),
     [stocks, itemsById],
   );
 
