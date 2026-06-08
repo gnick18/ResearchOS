@@ -253,7 +253,7 @@ export default function ImageStrip({
     return (
       <div className={wrapperClass} data-tour-target="hybrid-editor-image-strip">
         <p className="text-meta text-foreground-muted italic px-3 py-2 bg-surface-sunken border-t border-border">
-          No images linked to this {recordType} yet. Send one via Telegram or drag a file in.
+          No images linked to this {recordType} yet. Snap one with the phone companion or drag a file in.
         </p>
       </div>
     );

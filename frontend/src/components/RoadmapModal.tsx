@@ -247,7 +247,7 @@ const FEATURES: Feature[] = [
     title: "Mobile app",
     status: "on-the-horizon",
     description:
-      "A full ResearchOS experience on iOS and Android, beyond the current Telegram bench-capture inbox.",
+      "A full ResearchOS experience on iOS and Android. The phone companion app (bench capture, quick notes, today glance) is the first step.",
     icon: <PhoneIcon />,
   },
 ];
