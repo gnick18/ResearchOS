@@ -45,6 +45,8 @@ import {
   piEditKey,
 } from "@/lib/lab/pi-edit-guard";
 import { useBeakerSearchSource } from "@/components/beaker-search/useBeakerSearchSource";
+import { useBeakerHoveredKey } from "@/components/beaker-search/BeakerSearchProvider";
+import { parseBeakerTargetKey } from "@/components/beaker-search/beaker-hover";
 import { isMiscProject, MISC_CATEGORY_LABEL } from "@/lib/purchases/misc-project";
 import {
   isPurchasePending,
@@ -74,6 +76,12 @@ export const PURCHASES_FOCUS_DASHBOARD_EVENT = "purchases:focus-dashboard";
 
 // How many recent spending-export descriptors the session-local list keeps.
 const RECENT_EXPORTS_CAP = 4;
+
+// The `data-beaker-target` kind prefix the order cards carry (page.tsx tags each
+// card `purchase:${taskKey(task)}`). The hook parses the provider's last-hovered
+// key, matches this kind, and resolves the rest (a composite "{self|owner}:{id}"
+// taskKey) back to the order. Keep in lockstep with the page's attribute.
+const PURCHASE_HOVER_KIND = "purchase";
 
 /** The human label for the dashboard's time-range option, for the export
  *  descriptor row (spec 5). Defaults to the dashboard's own default. */
@@ -119,14 +127,12 @@ export function usePurchasesBeakerSource(args: UsePurchasesBeakerSourceArgs): vo
   const accountType = useAccountType(currentUser || null);
   const isLabHead = accountType === "lab_head";
 
-  // HOVERED context (spec 2.3) is a documented later-prototype item. The shared
-  // BeakerSearchProvider does not track a last-hovered [data-beaker-target] key
-  // on this worktree (the brief's own open question 3 flags hover as "prototype
-  // on the order cards later"), and tagging the cards + adding provider hover
-  // tracking is out of this purchases-only scope. So hoveredTask stays null
-  // here; the pure builder fully supports + tests the hovered path, so it lights
-  // up for free the moment the provider gains hover tracking.
-  const hoveredKey: string | null = null;
+  // HOVERED context (spec 2.3). The shared BeakerSearchProvider snapshots the
+  // `data-beaker-target` key of the last tagged element hovered before the
+  // palette opened. The order cards tag themselves `purchase:${taskKey}`, so we
+  // read that snapshot here and resolve it below (SELECTED still outranks
+  // HOVERED, enforced in hoveredTask + the pure builder's resolveFocus).
+  const hoveredKey = useBeakerHoveredKey();
 
   // ── Queries, mirroring the page's keys so the cache is shared (no refetch). ─
   const { data: projects = [] } = useQuery({
@@ -224,17 +230,17 @@ export function usePurchasesBeakerSource(args: UsePurchasesBeakerSourceArgs): vo
     return sum;
   }, [sortedTasks, purchasesByTask]);
 
-  // The hovered order, resolved from a provider key `purchase:${taskKey}` when
-  // the provider exposes one (see the hoveredKey note above). A live selection
-  // always wins, so this is null when an order is selected. Today hoveredKey is
-  // always null, so hoveredTask is null; the wiring is here for when the
-  // provider gains hover tracking.
+  // The hovered order, resolved from the provider key `purchase:${taskKey}`. A
+  // live selection always wins, so this is null when an order is selected. The
+  // key is parsed into its kind + composite "{self|owner}:{id}" taskKey, the
+  // kind is matched, and the taskKey resolves the order from the same purchase
+  // tasks the page renders.
   const hoveredTask = useMemo<Task | null>(() => {
-    if (args.selectedTask || hoveredKey === null) return null;
-    const key: string = hoveredKey;
-    if (!key.startsWith("purchase:")) return null;
-    return purchaseTasks.find((t) => `purchase:${taskKey(t)}` === key) ?? null;
-  }, [args.selectedTask, purchaseTasks]);
+    if (args.selectedTask) return null;
+    const parsed = parseBeakerTargetKey(hoveredKey);
+    if (!parsed || parsed.kind !== PURCHASE_HOVER_KIND) return null;
+    return purchaseTasks.find((t) => taskKey(t) === parsed.key) ?? null;
+  }, [args.selectedTask, hoveredKey, purchaseTasks]);
 
   // The focused order's owner + first pending item drive the PI edit-confirm
   // gate (the session substitution). hasLiveSession = already confirmed for this

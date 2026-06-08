@@ -649,6 +649,13 @@ export default function PurchasesPage() {
             return (
               <div
                 key={tkey}
+                // BeakerSearch hover-as-context (step 4). Tagging the order card
+                // lets the palette resolve "the order under your cursor" when it
+                // opens, biasing Suggested + the context card. The kind is
+                // "purchase" and the key is taskKey(task), the SAME composite the
+                // hook parses (purchases-beaker-source resolveFocus, where SELECTED
+                // still outranks HOVERED).
+                data-beaker-target={`purchase:${tkey}`}
                 className="bg-surface-raised border border-border rounded-xl overflow-hidden"
               >
                 {/* Task header */}
