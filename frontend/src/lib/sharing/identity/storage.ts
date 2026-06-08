@@ -249,7 +249,12 @@ export async function unlockIdentityWithRecovery(
   const keys = unlockDeviceKeyWithRecovery(wrapped, codeOrWords);
   if (!keys) return null;
   const identity = toStored(keys);
-  setSessionIdentity(identity);
+  // Persist to IndexedDB too, not just the session, so the legacy fallback in
+  // loadIdentity() returns THIS identity after a reload instead of a stale older
+  // record. A session/IndexedDB mismatch otherwise makes different callers read
+  // different identities (broke mobile pairing: QR signed one key, poller read
+  // another).
+  await saveIdentity(identity);
   return identity;
 }
 
@@ -265,7 +270,9 @@ export async function unlockIdentityWithPasskey(
   const keys = unlockDeviceKeyWithPasskey(wrapped, prfOutput);
   if (!keys) return null;
   const identity = toStored(keys);
-  setSessionIdentity(identity);
+  // Persist (session + IndexedDB) so a later reload's loadIdentity fallback
+  // returns this identity, not a stale one. See unlockIdentityWithRecovery.
+  await saveIdentity(identity);
   return identity;
 }
 
@@ -301,7 +308,9 @@ export async function sealIdentityIntoSidecar(
   } catch {
     // best-effort, the sidecar still works if the append fails
   }
-  setSessionIdentity(toStored(keys));
+  // Persist (session + IndexedDB) so the freshly created identity is also the
+  // one loadIdentity returns after a reload. See unlockIdentityWithRecovery.
+  await saveIdentity(toStored(keys));
   return { recoveryCode, recoveryWords };
 }
 
