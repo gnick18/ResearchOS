@@ -87,9 +87,14 @@ function isAppShellMounted(): boolean {
  * bypasses it entirely so QA can still drive the tour while it is
  * disabled for real users.
  */
-const V4_TOUR_KILLED =
-  process.env.NEXT_PUBLIC_DISABLE_V4_TOUR === "1" ||
-  process.env.NEXT_PUBLIC_DISABLE_V4_TOUR === "true";
+// RETIRED (Grant 2026-06-07): the hands-on onboarding tour is being removed.
+// It was a soft-lock magnet and a maintenance sink, and a good tool should not
+// need that much hand-holding. Hardcoded ON so the tour never auto-fires in any
+// environment (resolves the walkthrough bug reports). The engine code is being
+// deleted in a follow-up cleanup; this is the immediate kill so prod is fixed on
+// the next deploy without a Vercel env change. A future, much simpler walkthrough
+// (feature awareness + interest-based screen setup) will replace it.
+const V4_TOUR_KILLED = true;
 
 /** Resolve the expected route for a step id, falling back to "/" when
  *  the step body has no fixed route (dynamic-route steps) or the id
