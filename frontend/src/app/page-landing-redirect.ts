@@ -14,8 +14,6 @@
 // deep-link handlers (?openTask= / ?openProject=) run on "/" before the
 // bounce, and the `?from=` sentinel + tour-active guard are preserved.
 
-import type { AccountType } from "@/lib/settings/user-settings";
-
 /** Inputs to the landing-redirect decision, sampled at effect time. */
 export interface LandingRedirectInput {
   /** Suppress the bounce: a deep-link (?openTask= / ?openProject=) is being
@@ -25,8 +23,9 @@ export interface LandingRedirectInput {
   suppress: boolean;
   /** Active username ("" / falsy when signed out or pre-data-setup). */
   currentUser: string;
-  /** `undefined` while the account-type settings read is in flight. */
-  accountType: AccountType | null | undefined;
+  /** Whether the active user is a lab head (PI). `undefined` while the role
+   *  read is in flight (the decision short-circuits until it resolves). */
+  isLabHead: boolean | null | undefined;
   /** The user's configured default landing tab (store value). */
   defaultLandingTab: string | null | undefined;
   /** `?from=` sentinel value (set when another surface bounced us to
@@ -54,7 +53,7 @@ export type LandingRedirectDecision =
  *
  * Order of precedence:
  *
- *   0. Already redirected this session, or no user yet, or account-type
+ *   0. Already redirected this session, or no user yet, or lab-head
  *      read still in flight → do nothing (don't mark the one-shot flag;
  *      a later pass will decide once inputs settle).
  *   0b. v4 walkthrough / preview active → do nothing AND do NOT mark the
@@ -79,10 +78,10 @@ export function decideLandingRedirect(
 ): LandingRedirectDecision {
   if (input.suppress) return { kind: "none", markOneShot: false };
   if (!input.currentUser) return { kind: "none", markOneShot: false };
-  // Wait for the account-type read to resolve before deciding so the
+  // Wait for the lab-head read to resolve before deciding so the
   // one-shot timing stays stable across the async settle (a later pass
   // decides once inputs settle).
-  if (input.accountType === undefined) {
+  if (input.isLabHead === undefined) {
     return { kind: "none", markOneShot: false };
   }
 
@@ -113,7 +112,7 @@ export function decideLandingRedirect(
   // off /lab-overview lands on /workbench (the role default already differs
   // from /lab-overview, so there is no ping-pong).
   const roleDefault =
-    input.accountType === "lab_head" ? "/lab-overview" : "/workbench";
+    input.isLabHead ? "/lab-overview" : "/workbench";
   if (input.fromRedirect && `/${input.fromRedirect}` === roleDefault) {
     // Defensive: the bounce-source equals our role default. Stay on "/"
     // to break the loop (no current caller hits this, but it keeps the

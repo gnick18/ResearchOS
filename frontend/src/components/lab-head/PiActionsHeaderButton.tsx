@@ -25,13 +25,12 @@ import type {
   PiMenuRecord,
   PiMenuRecordType,
 } from "@/lib/lab/pi-record-menu";
-import type { AccountType } from "@/lib/settings/user-settings";
 
 export default function PiActionsHeaderButton({
   recordType,
   record,
   viewerUsername,
-  accountType,
+  isLabHead,
   onEditAsPi,
   className,
 }: {
@@ -39,8 +38,9 @@ export default function PiActionsHeaderButton({
   record: PiMenuRecord;
   /** The active user. */
   viewerUsername: string | null | undefined;
-  /** The active user's account type. */
-  accountType: AccountType | null | undefined;
+  /** Whether the active user is a lab head (PI). `undefined`/`null` while the
+   *  role read is in flight, which renders nothing (like a non-PI). */
+  isLabHead: boolean | null | undefined;
   /** Open / focus the record for editing. Kept for parity with the list-row
    *  callers even though the popup menu omits the "Edit as lab head" row, so the
    *  hook's callback contract stays satisfied. */
@@ -51,7 +51,7 @@ export default function PiActionsHeaderButton({
 
   // Non-PI, or a lab head on their OWN record: render nothing. Byte-identical
   // for everyone who is not a PI on a member's record.
-  if (!isPiViewingMemberRecord(accountType, viewerUsername, record.owner)) {
+  if (!isPiViewingMemberRecord(isLabHead, viewerUsername, record.owner)) {
     return null;
   }
 

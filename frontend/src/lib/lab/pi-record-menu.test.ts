@@ -26,21 +26,21 @@ function callbacks(overrides: Partial<PiMenuCallbacks> = {}): PiMenuCallbacks {
 
 describe("isPiViewingMemberRecord", () => {
   it("true only for a lab head looking at someone else's record", () => {
-    expect(isPiViewingMemberRecord("lab_head", "mira", "alex")).toBe(true);
+    expect(isPiViewingMemberRecord(true, "mira", "alex")).toBe(true);
   });
   it("false for a member", () => {
-    expect(isPiViewingMemberRecord("member", "mira", "alex")).toBe(false);
+    expect(isPiViewingMemberRecord(false, "mira", "alex")).toBe(false);
   });
   it("false for a lab head on their OWN record", () => {
-    expect(isPiViewingMemberRecord("lab_head", "mira", "mira")).toBe(false);
+    expect(isPiViewingMemberRecord(true, "mira", "mira")).toBe(false);
   });
-  it("false when account type unknown / loading", () => {
+  it("false when lab-head state unknown / loading", () => {
     expect(isPiViewingMemberRecord(undefined, "mira", "alex")).toBe(false);
     expect(isPiViewingMemberRecord(null, "mira", "alex")).toBe(false);
   });
   it("false when no viewer or no owner", () => {
-    expect(isPiViewingMemberRecord("lab_head", null, "alex")).toBe(false);
-    expect(isPiViewingMemberRecord("lab_head", "mira", null)).toBe(false);
+    expect(isPiViewingMemberRecord(true, null, "alex")).toBe(false);
+    expect(isPiViewingMemberRecord(true, "mira", null)).toBe(false);
   });
 });
 
@@ -50,7 +50,7 @@ describe("buildPiRecordMenuItems gating", () => {
       recordType: "task",
       record: { owner: "alex", id: 1, flagged: false },
       viewerUsername: "mira",
-      accountType: "member",
+      isLabHead: false,
       callbacks: callbacks(),
     });
     expect(items).toEqual([]);
@@ -61,7 +61,7 @@ describe("buildPiRecordMenuItems gating", () => {
       recordType: "note",
       record: { owner: "mira", id: 1, flagged: false },
       viewerUsername: "mira",
-      accountType: "lab_head",
+      isLabHead: true,
       callbacks: callbacks(),
     });
     expect(items).toEqual([]);
@@ -72,7 +72,7 @@ describe("buildPiRecordMenuItems task items", () => {
   const base = {
     recordType: "task" as const,
     viewerUsername: "mira",
-    accountType: "lab_head" as const,
+    isLabHead: true,
   };
 
   it("emits edit + flag + assign when unflagged", () => {
@@ -136,7 +136,7 @@ describe("buildPiRecordMenuItems includeEditAsPi", () => {
   const base = {
     recordType: "task" as const,
     viewerUsername: "mira",
-    accountType: "lab_head" as const,
+    isLabHead: true,
     record: { owner: "alex", id: 7, flagged: false },
   };
 
@@ -165,7 +165,7 @@ describe("buildPiRecordMenuItems includeEditAsPi", () => {
     const items = buildPiRecordMenuItems({
       recordType: "purchase",
       viewerUsername: "mira",
-      accountType: "lab_head",
+      isLabHead: true,
       record: { owner: "alex", id: 5, flagged: false, approved: false },
       includeEditAsPi: false,
       callbacks: callbacks(),
@@ -184,7 +184,7 @@ describe("buildPiRecordMenuItems note items", () => {
       recordType: "note",
       record: { owner: "alex", id: 3, flagged: false },
       viewerUsername: "mira",
-      accountType: "lab_head",
+      isLabHead: true,
       callbacks: callbacks(),
     });
     expect(items.map((i) => i.id)).toEqual([
@@ -199,7 +199,7 @@ describe("buildPiRecordMenuItems purchase items", () => {
   const base = {
     recordType: "purchase" as const,
     viewerUsername: "mira",
-    accountType: "lab_head" as const,
+    isLabHead: true,
   };
 
   it("shows Approve + Decline when pending", () => {
@@ -260,7 +260,7 @@ describe("auditRecordTypeFor", () => {
 describe("buildPiRecordMenuItems View audit trail", () => {
   const base = {
     viewerUsername: "mira",
-    accountType: "lab_head" as const,
+    isLabHead: true,
   };
 
   it("appends View audit trail last, in its own group, when onViewAudit is supplied", () => {
@@ -325,7 +325,7 @@ describe("buildPiRecordMenuItems View audit trail", () => {
         recordType: "task",
         record: { owner: "alex", id: 7, flagged: false },
         viewerUsername: "mira",
-        accountType: "member",
+        isLabHead: false,
         callbacks: callbacks(),
       }),
     ).toEqual([]);
@@ -334,7 +334,7 @@ describe("buildPiRecordMenuItems View audit trail", () => {
         recordType: "task",
         record: { owner: "mira", id: 7, flagged: false },
         viewerUsername: "mira",
-        accountType: "lab_head",
+        isLabHead: true,
         callbacks: callbacks(),
       }),
     ).toEqual([]);

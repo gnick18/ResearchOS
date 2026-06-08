@@ -6,7 +6,7 @@ import { labApi, projectsApi as rawProjectsApi, tasksApi, purchasesApi } from "@
 import { defaultFundingStringForProject } from "@/lib/funding/prefill";
 import SharingChips from "@/components/sharing/SharingChips";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useAccountType } from "@/hooks/useAccountType";
+import { useIsLabHead } from "@/hooks/useIsLabHead";
 import { PURCHASE_LORO_ENABLED } from "@/lib/loro/config";
 import { usePurchaseRowLoro } from "@/lib/loro/use-purchase-row-loro";
 import { usePurchasePresence } from "@/lib/loro/use-purchase-presence";
@@ -115,8 +115,7 @@ export default function PurchaseEditor({
   // viewing a MEMBER's purchase order can still approve / flag line items via
   // the actions below — those are role privileges, not record writes.
   const { currentUser: gateCurrentUser } = useCurrentUser();
-  const accountType = useAccountType(gateCurrentUser);
-  const isLabHead = accountType === "lab_head";
+  const isLabHead = useIsLabHead(gateCurrentUser);
   const isOtherUserRecord =
     !!username && !!gateCurrentUser && username !== gateCurrentUser;
   const canActAsLabHead = propReadOnly && isLabHead && isOtherUserRecord;
