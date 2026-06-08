@@ -1,5 +1,5 @@
 import { notifyFileWritten } from "./file-write-hooks";
-import { getCacheEntry, putCacheEntry, deleteCacheEntry, getManifestMtime, setManifestMtime } from "./indexeddb-store";
+import { getCacheEntry, putCacheEntry, deleteCacheEntry, getManifestMtime, setManifestMtime, getBlobCacheEntry, putBlobCacheEntry, getBlobCacheBudget, setBlobCacheBudget, evictBlobCacheUntil } from "./indexeddb-store";
 
 export interface FileServiceConfig {
   directoryHandle: FileSystemDirectoryHandle;
@@ -356,15 +356,75 @@ export class FileService {
     try {
       const fileHandle = handle as FileSystemFileHandle;
       const file = await fileHandle.getFile();
+      const key = `${this.getFolderName()}::${path}`;
+      const cached = await getBlobCacheEntry(key);
+
+      if (cached && cached.lastModified === file.lastModified) {
+        if (process.env.NEXT_PUBLIC_DEBUG_FILE_CACHE === "1") {
+          console.log(`[file-cache] BLOB HIT ${path}`);
+        }
+        this.bumpReadCount();
+        return cached.blob;
+      }
+
+      if (process.env.NEXT_PUBLIC_DEBUG_FILE_CACHE === "1") {
+        console.log(`[file-cache] BLOB MISS ${path}`);
+      }
+
+      const blob = new Blob([await file.arrayBuffer()], { type: file.type });
       this.bumpReadCount();
-      return file;
+
+      const MAX_SINGLE_BLOB = 30 * 1024 * 1024;
+      if (blob.size <= MAX_SINGLE_BLOB) {
+        await this.storeBlobInCache(key, file.lastModified, blob);
+      }
+
+      return blob;
     } catch {
       return null;
     }
   }
 
+  private async storeBlobInCache(key: string, lastModified: number, blob: Blob): Promise<void> {
+    const MAX_TOTAL = 150 * 1024 * 1024;
+    const folderName = this.getFolderName();
+    const current = await getBlobCacheBudget(folderName);
+    const needed = current + blob.size;
+
+    if (needed > MAX_TOTAL) {
+      await evictBlobCacheUntil(folderName, needed - MAX_TOTAL);
+    }
+
+    await putBlobCacheEntry({
+      key,
+      lastModified,
+      blob,
+      size: blob.size,
+      cachedAt: Date.now(),
+    });
+    await setBlobCacheBudget(folderName, Math.min(needed, MAX_TOTAL));
+  }
+
   async writeFileFromBlob(path: string, blob: Blob): Promise<void> {
     await this.atomicWrite(path, blob);
+
+    const MAX_SINGLE_BLOB = 30 * 1024 * 1024;
+    if (blob.size <= MAX_SINGLE_BLOB) {
+      try {
+        const parts = path.split("/").filter(Boolean);
+        const fileName = parts[parts.length - 1];
+        const parentPath = parts.slice(0, -1).join("/");
+        const parentHandle = await this.getDirectory(parentPath);
+        if (parentHandle) {
+          const finalHandle = await parentHandle.getFileHandle(fileName);
+          const finalFile = await finalHandle.getFile();
+          const key = `${this.getFolderName()}::${path}`;
+          await this.storeBlobInCache(key, finalFile.lastModified, blob);
+        }
+      } catch {
+        // best-effort
+      }
+    }
   }
 
   private scheduleManifestTouch(): void {

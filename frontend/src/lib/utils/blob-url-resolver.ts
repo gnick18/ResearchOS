@@ -1,4 +1,5 @@
 import { fileService } from "../file-system/file-service";
+import { deleteBlobCacheEntry, getBlobCacheBudget, setBlobCacheBudget, getBlobCacheEntry } from "../file-system/indexeddb-store";
 
 interface BlobUrlCache {
   [path: string]: string;
@@ -80,11 +81,23 @@ export class BlobUrlResolver {
     this.cache = {};
   }
 
-  revokePath(path: string): void {
+  async revokePath(path: string): Promise<void> {
     const url = this.cache[path];
     if (url) {
       URL.revokeObjectURL(url);
       delete this.cache[path];
+    }
+    const folderName = fileService.getDirectoryHandle()?.name ?? "unknown";
+    const key = `${folderName}::${path}`;
+    try {
+      const entry = await getBlobCacheEntry(key);
+      if (entry) {
+        await deleteBlobCacheEntry(key);
+        const current = await getBlobCacheBudget(folderName);
+        await setBlobCacheBudget(folderName, Math.max(0, current - entry.size));
+      }
+    } catch {
+      // best-effort
     }
   }
 
