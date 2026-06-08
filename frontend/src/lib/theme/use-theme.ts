@@ -12,7 +12,7 @@
 // Future: mirror the resolved choice into users/<u>/settings.json when a folder
 // is open, as a cross-device convenience (localStorage stays authoritative).
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export type ThemeChoice = "light" | "dark" | "system";
 
@@ -48,29 +48,30 @@ function readStored(): ThemeChoice {
 
 export function useTheme() {
   const [choice, setChoice] = useState<ThemeChoice>("light");
+  // Hydration is tracked as STATE (not a ref) so the apply effect below is gated
+  // correctly even under React StrictMode, which double-invokes mount effects in
+  // dev. A ref-based "skip first run" guard gets defeated by that double-invoke
+  // (the second invoke sees the ref already flipped and runs apply("light")),
+  // which is exactly the "first time you open Settings the whole site blinks to
+  // light" flash: a freshly-mounted useTheme (the lazy Settings chunk) momentarily
+  // strips data-theme before hydration. Gating on `hydrated` state means apply()
+  // never runs until the stored choice is loaded, in dev or prod.
+  const [hydrated, setHydrated] = useState(false);
 
   // Hydrate from storage on mount (server render is always the default).
   useEffect(() => {
     setChoice(readStored());
+    setHydrated(true);
   }, []);
 
-  // Persist + apply only on REAL changes, never on the initial default-"light"
-  // mount. The mount run would otherwise write "light" to localStorage and strip
-  // data-theme BEFORE hydration reads the stored value, flipping the whole app to
-  // light and clobbering the saved preference. This bit hard when a SECOND
-  // useTheme mounts (e.g. the Settings modal): its mount-time "light" write raced
-  // the live theme and flipped everything to light. Skipping the first run leaves
-  // the no-FOUC-applied theme intact and only repaints on an actual choice change.
-  const isFirstRun = useRef(true);
+  // Persist + apply only AFTER hydration, so the initial default-"light" render
+  // never writes "light" or strips data-theme. The no-FOUC script in layout.tsx
+  // owns the first paint; this only repaints on a real choice change.
   useEffect(() => {
-    if (isFirstRun.current) {
-      isFirstRun.current = false;
-      return;
-    }
-    if (typeof window === "undefined") return;
+    if (!hydrated || typeof window === "undefined") return;
     window.localStorage.setItem(STORAGE_KEY, choice);
     apply(resolve(choice));
-  }, [choice]);
+  }, [choice, hydrated]);
 
   // When following the system, repaint live if the OS theme flips.
   useEffect(() => {
