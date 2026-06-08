@@ -1,6 +1,12 @@
 # Hover-prefetch layer (intent-scoped data warming)
 
-Status: proposal, not built. Author: perf manager, 2026-06-08.
+Status: Phase 1 BUILT (flag-gated, default off), 2026-06-08. Phase 2 deferred to
+the FSA read cache. Author: perf manager.
+
+Phase 1 ships as `usePrefetchOnHover` (`frontend/src/lib/perf/use-prefetch-on-hover.ts`),
+mounted once in AppShell, gated by `HOVER_PREFETCH_ENABLED`
+(`frontend/src/lib/perf/config.ts`, set `NEXT_PUBLIC_HOVER_PREFETCH=1` in
+`.env.local` to dogfood). Notes + experiments only.
 
 ## What this is
 
@@ -79,12 +85,13 @@ debounces, dedupes, and routes.
 
 ### Guards (so warming stays cheap and safe)
 
-- **Dwell debounce.** Only warm after the pointer rests ~120ms on a row, so a
-  fast scan across a long list does not fire dozens of loads.
-- **Once per key per session.** Keep an in-memory `Set` of warmed `kind:owner:id`
-  keys; skip repeats. A hover after the popup has been opened is also a no-op.
-- **Concurrency cap.** At most ~2 warms in flight; queue the rest. Hovering should
-  never contend with a load the user actually triggered.
+- **Dwell debounce.** Only warm after the pointer rests `DWELL_MS` (120ms) on a
+  row, so a fast scan across a long list does not fire dozens of loads.
+- **Once per key per session, capped.** An in-memory `Set` of warmed
+  `kind:owner:id` keys skips repeats, and `SESSION_CAP` (30) bounds total distinct
+  warms so resident handles stay bounded.
+- **Concurrency cap.** At most `MAX_IN_FLIGHT` (2) warms in flight; further ones
+  skip rather than queue, so hovering never contends with a real open.
 - **Best-effort.** Swallow errors. A failed warm just means the real open loads
   it, same as today.
 - **Respect Save-Data / coarse pointer.** Skip entirely when
@@ -98,16 +105,24 @@ debounces, dedupes, and routes.
 `openNote` / `openTaskDoc` return a **stable, idempotent, one-per-record handle**
 keyed on id+owner. Calling it on hover loads the doc from disk; the later real
 open reuses the exact same handle, so the doc is already resident. Important
-detail confirmed in the code: the collab relay auto-connect lives in the popup
-effect (`NoteDetailPopup.tsx:434`), not inside `openNote`, so **warming a handle
-does not open a network connection**. We get the expensive disk + parse work for
-free without any premature relay traffic. That keeps hover-warming local-first and
-side-effect-free.
+detail confirmed in the code: the live collab relay websocket auto-connect lives
+in the popup effect (`NoteDetailPopup.tsx:434`), not inside `openNote`, so warming
+a handle never opens a live connection.
 
-Memory note. Each warmed handle holds a Loro doc in memory. Hovering hundreds of
-rows in one session could accumulate. Mitigation: an LRU that `close()`s the
-least-recently-warmed handle once more than N (say 8) are warmed-but-never-opened.
-A handle the user actually opened is owned by the popup and excluded from the LRU.
+One correction from the first draft. `openNote` / `openTaskDoc` DO perform a
+one-shot relay snapshot GET for a *collaborative* doc (`buildCollabBaseDoc`,
+`store.ts:450`) to adopt the canonical history. That is a network call, so to keep
+hover strictly local-first the implementation **skips collab records** (those with
+a `collab_doc_id`) and lets them load normally on real open. Local notes and
+experiments, the overwhelming majority (sharing is dark in prod), warm with pure
+local disk work and zero network.
+
+Memory note. Each warmed handle holds a Loro doc in memory. To avoid the only
+risky lifecycle path (an LRU `close()` racing a popup that is mid-open on the same
+cached handle), Phase 1 does NOT actively close warmed handles. Instead it bounds
+the work with a hard **per-session cap** (`SESSION_CAP = 30` distinct records) plus
+a per-record dedup set, so resident warmed docs stay bounded without any close
+race. If dogfooding shows memory pressure, a safe handle-claim LRU is the follow-up.
 
 This path needs no new infrastructure and is the recommended **Phase 1**.
 
@@ -164,10 +179,18 @@ Out (explicitly):
    real open) and that the handle LRU caps memory.
 4. Phase 2 (methods) only after FSA_READ_CACHE merges.
 
-## Open questions for sign-off
+## Decisions (signed off 2026-06-08)
 
-1. Mount as a hook in AppShell, or as a `<PrefetchScope>` wrapper? (Hook is less
-   markup; wrapper is more explicit about the boundary.)
-2. LRU size for warmed-but-unopened Loro handles. 8 is a guess; happy to tune.
-3. Phase 2 ordering. Wait for FSA_READ_CACHE, or pull that proposal forward so the
-   method surfaces get the same treatment sooner?
+1. Mount as a hook in AppShell (`usePrefetchOnHover`), not a wrapper component.
+2. Bound with a per-session cap (no close-based LRU) to avoid the handle-close
+   race; revisit only if dogfooding shows memory pressure.
+3. Phase 2 (method file reads) waits for the FSA read cache to merge, then routes
+   through it. The `fsa-read-cache` work is in flight on side branches.
+
+## Dogfood checklist
+
+- Set `NEXT_PUBLIC_HOVER_PREFETCH=1` in `frontend/.env.local`, restart dev.
+- Hover note + experiment rows; confirm the detail popup opens with no content
+  spinner, and that the network tab stays quiet on hover (collab skipped, live
+  relay only connects on real open).
+- Watch memory across a long hovering session; the session cap should hold it.
