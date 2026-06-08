@@ -260,6 +260,12 @@ export function CompoundMethodBuilder({
       label="Edit kit"
       widthClassName="max-w-3xl"
       card={false}
+      // While the "Add component" sub-modal is open it owns Escape (its own
+      // window handler closes just the picker), so we stand the builder's Escape
+      // down. LivingPopup's stack-based isTop guard would also defer to the
+      // picker (it registers in the popup stack on top), but gating here makes
+      // the precedence explicit at the call site.
+      closeOnEscape={!showPicker}
     >
       <div className="bg-surface-raised rounded-xl shadow-2xl max-w-3xl w-full mx-4 max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
@@ -399,14 +405,16 @@ export function CompoundMethodBuilder({
     </LivingPopup>
     {/* The "Add component" sub-modal stays on its OWN bespoke fixed-inset-0
         overlay (NOT migrated to LivingPopup) and renders as a SIBLING of the
-        builder popup, outside its transformed card. Two reasons it is left
-        unmigrated (popup-migration batch 5 decision):
-          1. A nested LivingPopup would render inside the builder card's
-             transform, which clips a fixed-inset-0 overlay (recipe rule 8).
-          2. LivingPopup has no "innermost-only" Escape guard, so a single
-             Escape would close BOTH the picker AND the builder (the recipe's
-             "Escape closes the wrong one" failure mode). The picker's own
-             window-level Escape handler closes just the picker.
+        builder popup, outside its transformed card. Reason it is left unmigrated
+        (popup-migration batch 5 decision): a nested LivingPopup would render
+        inside the builder card's transform, which clips a fixed-inset-0 overlay
+        (recipe rule 8).
+        Escape coordination: a single Escape closes JUST the picker, not the
+        builder underneath. The builder passes closeOnEscape={!showPicker} above,
+        standing its handler down while the picker is open, and the picker's own
+        window handler (hardened to preventDefault + stopPropagation) closes just
+        the picker. LivingPopup's stack-based isTop guard reinforces this, the
+        picker registers in the popup stack on top, so the builder defers to it.
         Rendering it as a fragment sibling keeps it above the builder's z-[400]
         scrim (its own z-[65]) while the builder's blurred scrim shows through
         behind it. Master to decide if a stacked-popup primitive is wanted. */}
@@ -596,10 +604,15 @@ function ComponentPicker({
       .slice(0, 100); // cap to keep the list scannable
   }, [allMethods, query, typeFilter, editingCompoundId]);
 
-  // Esc closes the picker
+  // Esc closes the picker. Mirrors useEscapeToClose: bail if already handled
+  // (e.g. an overlay nested inside the picker), and mark it handled when we act
+  // so the builder underneath does not also react to the same press.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCancel();
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      e.preventDefault();
+      e.stopPropagation();
+      onCancel();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);

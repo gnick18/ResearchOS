@@ -77,6 +77,12 @@ export interface BackupBlob {
   salt: string; // base64, the KDF salt actually used (device salt NOT mixed in here)
   nonce: string; // base64
   ciphertext: string; // base64
+  // The derived-key length the blob was sealed under. Optional because blobs
+  // written before this field existed omit it; openBackupBlob falls back to
+  // KEY_BYTES (32, the XChaCha20-Poly1305 key size) for those. Persisting it
+  // means a future dkLen change round-trips instead of silently mis-deriving
+  // old blobs against a hardcoded 32.
+  dkLen?: number;
 }
 
 /**
@@ -242,6 +248,7 @@ export function makeBackupBlob(
     salt: bytesToBase64(salt),
     nonce: bytesToBase64(wrapped.nonce),
     ciphertext: bytesToBase64(wrapped.ciphertext),
+    dkLen: params.dkLen,
   };
 }
 
@@ -273,6 +280,10 @@ export function openBackupBlob(blob: BackupBlob): OpenedBackupBlob {
     salt: base64ToBytes(blob.salt),
     nonce: base64ToBytes(blob.nonce),
     ciphertext: base64ToBytes(blob.ciphertext),
-    params: { t: blob.t, m: blob.m, p: blob.p, dkLen: KEY_BYTES },
+    // Round-trip the persisted dkLen so a future change derives correctly.
+    // Legacy blobs that predate the field fall back to KEY_BYTES (32), the
+    // value they were necessarily sealed under (wrapKeys requires a 32-byte
+    // key, so no older blob could have used anything else).
+    params: { t: blob.t, m: blob.m, p: blob.p, dkLen: blob.dkLen ?? KEY_BYTES },
   };
 }

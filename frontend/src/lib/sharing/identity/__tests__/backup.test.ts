@@ -164,4 +164,26 @@ describe("backup blob serialization", () => {
     const bad = { ...blob, v: 2 as unknown as 1 };
     expect(() => openBackupBlob(bad)).toThrow();
   });
+
+  it("persists dkLen and round-trips it instead of hardcoding 32", () => {
+    const bundle = privateBundle();
+    const salt = generateSalt();
+    const key = deriveWrappingKey("pp", salt, null, FAST);
+    const blob = makeBackupBlob(wrapKeys(bundle, key), salt, FAST);
+    // The blob now carries the dkLen it was sealed under...
+    expect(blob.dkLen).toBe(FAST.dkLen);
+    // ...and openBackupBlob round-trips it (not a hardcoded constant).
+    expect(openBackupBlob(blob).params.dkLen).toBe(FAST.dkLen);
+  });
+
+  it("falls back to 32 for a legacy blob that predates the dkLen field", () => {
+    const bundle = privateBundle();
+    const salt = generateSalt();
+    const key = deriveWrappingKey("pp", salt, null, FAST);
+    const blob = makeBackupBlob(wrapKeys(bundle, key), salt, FAST);
+    // Simulate an older on-disk blob with no dkLen (the field did not exist).
+    const legacy = { ...blob };
+    delete (legacy as { dkLen?: number }).dkLen;
+    expect(openBackupBlob(legacy).params.dkLen).toBe(32);
+  });
 });

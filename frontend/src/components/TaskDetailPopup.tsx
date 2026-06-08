@@ -666,7 +666,11 @@ export default function TaskDetailPopup({
       return false;
     };
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
+      // Bail when a nested overlay (UnifiedShareDialog, ExportFormatDialog,
+      // DepositDialog, PiEditConfirmDialog) already handled this Escape, so
+      // dismissing it does not also advance this popup's state machine on the
+      // same press.
+      if (e.key !== "Escape" || e.defaultPrevented) return;
       const active = typeof document !== "undefined"
         ? document.activeElement
         : null;
@@ -676,8 +680,13 @@ export default function TaskDetailPopup({
         // and calling stopPropagation. If the field doesn't stop the
         // event we still don't close: dropping out of edit mode is
         // enough, and Grant's tour scripts rely on the popup surviving.
+        // We do NOT mark the event handled here, so the field keeps control.
         return;
       }
+      // From here every branch acts on the Escape, so mark it handled (mirrors
+      // useEscapeToClose) before dispatching.
+      e.preventDefault();
+      e.stopPropagation();
       if (historyOpen) {
         // Branch 1.5 (VC Phase 3): when the version-history sidebar is open,
         // Esc exits HISTORY first and returns to the live record, rather than

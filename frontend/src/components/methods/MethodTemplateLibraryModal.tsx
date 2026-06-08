@@ -9,7 +9,6 @@ import {
   type ReactNode,
 } from "react";
 import Tooltip from "@/components/Tooltip";
-import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { StoreShell } from "@/components/store/StoreShell";
 import { StoreSegment } from "@/components/store/StoreSegment";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -106,8 +105,9 @@ export function MethodTemplateLibraryModal({
   );
   const curating = currentUser !== null;
 
-  // Escape closes this modal (app-wide convention).
-  useEscapeToClose(onClose);
+  // Escape close is owned by the StoreShell below (its handler also backs out of
+  // the mobile detail overlay first). Binding it here too would fire onClose
+  // twice on one Escape, so this modal does NOT call useEscapeToClose.
 
   const modules = useMemo(() => listMethodModules(), []);
 

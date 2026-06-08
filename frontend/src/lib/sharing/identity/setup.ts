@@ -255,9 +255,9 @@ export function buildRotateRequest(
  * key-backup envelope. parseKeyBackupField also accepts a legacy bare BackupBlob,
  * so identities created before the envelope existed still restore. Params default
  * to PROD_KDF_PARAMS but are an argument so tests pass fast values. The params
- * baked into the blob (t, m, p) are what actually drive the derive, the argument
- * only fills dkLen via openBackupBlob, so the supplied params must still match
- * what the blob was created under in production.
+ * baked into the blob (t, m, p, and dkLen) are what actually drive the derive,
+ * so the supplied params argument is effectively unused for an existing blob and
+ * the blob must already carry the production cost params.
  */
 export function restoreFromRecoveryWords(
   recoveryWords: string,

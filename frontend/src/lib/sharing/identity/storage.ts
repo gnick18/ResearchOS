@@ -268,21 +268,45 @@ export async function createLocalIdentity(
   params?: KdfParams,
 ): Promise<{ recoveryCode: string; recoveryWords: string }> {
   const keys = generateIdentityKeys();
-  // Public-only sidecar first, so sealIdentityIntoSidecar has a file to attach
-  // the wrapped key to. No email (local-only) and no claimedAt (not published);
+  // Wrap in memory FIRST, so the single sidecar write below already carries the
+  // recoveryBlob. No email (local-only) and no claimedAt (not published);
   // createdAt records when the account was made on this folder.
-  const publicSidecar: SharingIdentitySidecar = {
+  //
+  // ATOMICITY: the keypair-bearing recoveryBlob is computed before any disk
+  // write and the sidecar is written in ONE writeSharingIdentity call. The
+  // earlier two-write sequence (public-only sidecar, then a second write to
+  // attach the recoveryBlob) could leave a sidecar with NO recoveryBlob if the
+  // second write failed mid-op (disk full, FSA permission revoked), stranding an
+  // unrecoverable keypair that the next createLocalIdentity would silently
+  // overwrite. With one write, a failed write leaves either the prior file
+  // untouched or no file at all, so a retry is clean and never half-writes an
+  // account. Argon2id runs in wrapDeviceKey (heavy under PROD params), so call
+  // this off the critical paint path the same way the wizard does.
+  const { wrapped, recoveryCode, recoveryWords } = params
+    ? wrapDeviceKey(keys, params)
+    : wrapDeviceKey(keys);
+  const sidecar: SharingIdentitySidecar = {
     version: 1,
     x25519PublicKey: encodePublicKey(keys.encryption.publicKey),
     ed25519PublicKey: encodePublicKey(keys.signing.publicKey),
     fingerprint: computeFingerprint(keys.signing.publicKey),
     createdAt: new Date().toISOString(),
     recoveryConfirmedAt: null,
+    recoveryBlob: wrapped.recoveryBlob,
   };
-  await writeSharingIdentity(username, publicSidecar);
-  // Seals the keypair under a fresh recovery code, writes the recoveryBlob onto
-  // the sidecar, parks the unlocked key in the session, and gitignores the file.
-  return sealIdentityIntoSidecar(username, keys, params);
+  await writeSharingIdentity(username, sidecar);
+  try {
+    await ensureGitignoreEntries([
+      "_sharing_identity.json",
+      "users/*/_sharing_identity.json",
+    ]);
+  } catch {
+    // best-effort, the sidecar still works if the append fails
+  }
+  // Park the unlocked key in the session (+ IndexedDB fallback) only after the
+  // key-bearing sidecar is safely on disk.
+  await saveIdentity(toStored(keys));
+  return { recoveryCode, recoveryWords };
 }
 
 /** The passkey credential id to ask for at unlock, or null when none enrolled. */

@@ -118,6 +118,13 @@ export interface LivingPopupProps {
    *  at z-[420]). Default false. The shared popup stack (dim/blur) is mount-order
    *  based, so elevating only changes paint order, not the dim logic. */
   elevated?: boolean;
+  /** Keep Tab / Shift+Tab focus cycling INSIDE the popup (WCAG 2.4.3), so
+   *  keyboard focus cannot wander into the page behind the scrim. Default true.
+   *  Set false for an intentionally NON-MODAL surface (e.g. a command-palette
+   *  dock that must let focus flow to the page). The trap is also auto-skipped
+   *  for `selfSize` popups, which are big editors / pickers that own their own
+   *  focus management. */
+  trapFocus?: boolean;
   children: React.ReactNode;
 }
 
@@ -137,12 +144,15 @@ export default function LivingPopup({
   showClose = true,
   align = "center",
   elevated = false,
+  trapFocus = true,
   children,
 }: LivingPopupProps) {
   // mounted: in the DOM (stays true through the exit animation).
   // shown: animated to the expanded/visible state.
   const [mounted, setMounted] = useState(false);
   const [shown, setShown] = useState(false);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const [activeOrigin, setActiveOrigin] = useState<OpenOrigin | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -173,15 +183,34 @@ export default function LivingPopup({
   }, [open]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
+  // Register in the shared popup stack while mounted. This drives blur/dim (see
+  // below) AND `isTop`, which the Escape handler uses to coordinate stacked
+  // overlays. Called here, above the Escape effect, so isTop is available to it.
+  const { shouldBlur, shouldDim, isTop } = usePopupLayer(mounted, blur);
+
   // Escape closes, unless the child owns Escape (closeOnEscape=false).
+  //
+  // NESTING: only the TOP-most popup in the shared stack acts on a press, so one
+  // Escape closes exactly one layer (the innermost / last-opened), then the next
+  // press closes the one below. We gate on `isTop` (mount-order state) rather
+  // than event/effect order, because the popup's two-phase mount means listener
+  // registration order is not reliably innermost-first. When we DO act we also
+  // mirror useEscapeToClose, mark the event handled (preventDefault +
+  // stopPropagation) so a parent that listens on window (e.g. NoteDetailPopup,
+  // TaskDetailPopup) does not also advance its own state machine on the same
+  // press. isTop is in the deps so the listener re-binds with a fresh value when
+  // a popup opens or closes above this one.
   useEffect(() => {
-    if (!mounted || !closeOnEscape) return;
+    if (!mounted || !closeOnEscape || !isTop) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      onClose();
+      e.preventDefault();
+      e.stopPropagation();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [mounted, onClose, closeOnEscape]);
+  }, [mounted, onClose, closeOnEscape, isTop]);
 
   useEffect(() => {
     return () => {
@@ -189,11 +218,70 @@ export default function LivingPopup({
     };
   }, []);
 
-  // Register in the shared popup stack while mounted. Blur is reserved for big
-  // attention-demanding popups (the `blur` prop); little popups never blur. And
-  // even among blurring popups only the bottom-most blurs, so blur never
-  // compounds (Grant 2026-06-06).
-  const { shouldBlur, shouldDim } = usePopupLayer(mounted, blur);
+  // Focus trap (a11y, WCAG 2.4.3): keep Tab / Shift+Tab cycling within the popup
+  // so keyboard focus cannot wander into the live page behind the scrim. Scoped
+  // to the OVERLAY root, so the scrim/close-X (siblings of the card) are part of
+  // the cycle too. Skipped for `selfSize` popups (big editors / command-palette
+  // pickers that own their own focus management) and when `trapFocus` is off
+  // (intentionally non-modal surfaces). Cooperates with the Escape/scrim logic,
+  // it only handles the Tab key and never calls onClose.
+  // A popup is "modal" when it confines focus: standard sized, not opted out.
+  // selfSize popups (big editors / command-palette pickers) and trapFocus=false
+  // surfaces are non-modal and neither trap focus nor claim aria-modal.
+  const isModal = trapFocus && !selfSize;
+  useEffect(() => {
+    if (!mounted || !isModal) return;
+    const overlay = overlayRef.current;
+    if (!overlay) return;
+    const getFocusables = (): HTMLElement[] =>
+      Array.from(
+        overlay.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => el.offsetParent !== null);
+    // Land focus inside the popup on open, UNLESS a child already grabbed it
+    // (e.g. an autofocused input). Prefer the card so the first Tab starts in
+    // the content, not on the scrim/close control. Children that autofocus via
+    // their own effect run first (child effects precede parent effects), so this
+    // never overrides an intentional initial focus; setTimeout-based autofocus
+    // lands a tick later and still wins.
+    if (!overlay.contains(document.activeElement)) {
+      try {
+        (cardRef.current ?? overlay).focus();
+      } catch {
+        // ignore in non-DOM test environments
+      }
+    }
+    const onTrapKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const focusables = getFocusables();
+      if (focusables.length === 0) {
+        // Nothing tabbable inside: pin focus on the card so Tab can't escape.
+        e.preventDefault();
+        cardRef.current?.focus();
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const activeEl = document.activeElement as HTMLElement | null;
+      if (e.shiftKey) {
+        if (activeEl === first || !overlay.contains(activeEl)) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else if (activeEl === last || !overlay.contains(activeEl)) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    overlay.addEventListener("keydown", onTrapKeyDown);
+    return () => overlay.removeEventListener("keydown", onTrapKeyDown);
+  }, [mounted, isModal]);
+
+  // (Stack membership is registered above, where isTop is also read. Blur is
+  // reserved for big attention-demanding popups via the `blur` prop; little
+  // popups never blur, and even among blurring popups only the bottom-most blurs
+  // so blur never compounds (Grant 2026-06-06).)
 
   if (!mounted) return null;
 
@@ -231,13 +319,22 @@ export default function LivingPopup({
         .join(" ");
 
   const cardEl = (
-    <div className={cardClass} style={cardStyle} role="dialog" aria-label={label}>
+    <div
+      ref={cardRef}
+      tabIndex={-1}
+      className={cardClass}
+      style={cardStyle}
+      role="dialog"
+      aria-modal={isModal ? "true" : undefined}
+      aria-label={label}
+    >
       {children}
     </div>
   );
 
   return (
     <div
+      ref={overlayRef}
       className={`fixed inset-0 ${elevated ? "z-[440]" : "z-[400]"}`}
       // Tour-occlusion marker (TourSpotlight convention). While any living
       // popup is mounted the v4 walkthrough ring drops, unless the spotlight

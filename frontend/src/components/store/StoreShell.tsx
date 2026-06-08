@@ -149,18 +149,26 @@ export function StoreShell<T>({
 }: StoreShellProps<T>) {
   // Close on Escape, matching the project's modal convention. When a mobile
   // detail overlay is open, Escape backs out of it first so the user is not
-  // yanked all the way out of the store.
+  // yanked all the way out of the store. This is the ONE Escape binding for the
+  // store shell, so callers (e.g. MethodTemplateLibraryModal) must NOT also call
+  // useEscapeToClose, or one Escape would fire twice. Mirrors useEscapeToClose:
+  // bail when a nested overlay already handled the event, and mark it handled
+  // when we act.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
+      if (e.key !== "Escape" || e.defaultPrevented) return;
       if (
         selectedItem !== null &&
         typeof window !== "undefined" &&
         window.innerWidth < 1024
       ) {
+        e.preventDefault();
+        e.stopPropagation();
         onSelectItem(null);
         return;
       }
+      e.preventDefault();
+      e.stopPropagation();
       onClose();
     };
     window.addEventListener("keydown", onKey);

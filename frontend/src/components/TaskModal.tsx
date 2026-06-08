@@ -221,8 +221,10 @@ export default function TaskModal({ projects }: TaskModalProps) {
     return startDate;
   }, [selectedParentTask, depType, durationDays, startDate]);
 
-  // Escape close is owned by LivingPopup (closeOnEscape default) for both the
-  // form and the nested dialogs, so no manual keydown handler here.
+  // Escape close is owned by LivingPopup, so no manual keydown handler here. The
+  // create form stands its Escape down while the duplicate-name warning is open
+  // (closeOnEscape={!duplicateWarning} below) so the warning, layered on top,
+  // gets the press first.
 
   // Reset form when modal opens. Mirrors the NewPurchaseModal draft-race
   // fix: when the form already carries meaningful content (either restored
@@ -511,6 +513,11 @@ export default function TaskModal({ projects }: TaskModalProps) {
         widthClassName="max-w-lg"
         card={false}
         closeOnScrimClick={false}
+        // While the duplicate-name warning is layered on top, it owns Escape so
+        // one press dismisses just the warning (back to the form), not the whole
+        // create modal. LivingPopup's stack-based isTop guard already defers to
+        // the warning (it opens on top); gating here makes that explicit.
+        closeOnEscape={!duplicateWarning}
       >
       <form
         onSubmit={handleSubmit}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
@@ -18,6 +18,7 @@ import PickerWalkthroughModal from "@/components/picker-walkthrough/PickerWalkth
 import RiseCredentialsStamp from "@/components/RiseCredentialsStamp";
 import VersionBadge from "@/components/VersionBadge";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import {
   extractDirectoryHandleFromDrop,
   describeDropExtractionError,
@@ -141,6 +142,15 @@ export default function ResearchFolderSetup({ onComplete }: ResearchFolderSetupP
   // their mind. The hint is dismissable so it never feels nagging.
   const [showSystemFolderHint, setShowSystemFolderHint] = useState(false);
   const [systemFolderHintDismissed, setSystemFolderHintDismissed] = useState(false);
+  // Escape dismisses the system-folder recovery modal (keyboard parity with its
+  // "Got it" button). Gated on the modal actually being visible.
+  useEscapeToClose(
+    useCallback(() => {
+      setShowSystemFolderHint(false);
+      setSystemFolderHintDismissed(true);
+    }, []),
+    showSystemFolderHint && !systemFolderHintDismissed,
+  );
 
   console.log("ResearchFolderSetupNew render:", { 
     isConnected, 

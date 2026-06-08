@@ -814,7 +814,14 @@ export default function NoteDetailPopup({
   // sidebar's focus-trap Esc and this window handler agree on one action.
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
+      // Bail when a nested overlay (UnifiedShareDialog, ExportFormatDialog, a
+      // confirm) already handled this Escape, so dismissing it does not also
+      // advance this popup's state machine (back out of history/comments/
+      // fullscreen, or close the record) on the same press.
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      // Every branch below acts on the Escape, so mark it handled.
+      e.preventDefault();
+      e.stopPropagation();
       if (historyOpen) {
         setHistoryOpen(false);
         setVersionPreview(null);

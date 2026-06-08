@@ -45,14 +45,25 @@ const usePopupStackStore = create<PopupStackState>((set) => ({
 
 /**
  * Register this popup as a layer while `active`, declaring whether it is a big
- * attention-demanding popup that wants to blur (`wantsBlur`). Returns
- * `shouldBlur`, true only when this popup wants blur and is the bottom-most
- * blur-wanting popup open, so little popups never blur and blur never compounds.
+ * attention-demanding popup that wants to blur (`wantsBlur`).
+ *
+ * Returns:
+ *   shouldBlur  true only when this popup wants blur and is the bottom-most
+ *               blur-wanting popup open, so little popups never blur and blur
+ *               never compounds.
+ *   shouldDim   true only for the bottom-most layer of any kind, so a stacked
+ *               popup never re-dims the page below it.
+ *   isTop       true when this is the TOP-most (last-opened) layer of any kind.
+ *               Escape coordination uses this so only the top-most popup acts on
+ *               a press, which is robust to React effect / listener ordering (a
+ *               nested or sibling popup that opened later is the top, so the one
+ *               below it stands down). This is state-derived (mount order),
+ *               not event-order based.
  */
 export function usePopupLayer(
   active: boolean,
   wantsBlur: boolean,
-): { shouldBlur: boolean; shouldDim: boolean } {
+): { shouldBlur: boolean; shouldDim: boolean; isTop: boolean } {
   const id = useId();
   const push = usePopupStackStore((s) => s.push);
   const remove = usePopupStackStore((s) => s.remove);
@@ -75,11 +86,18 @@ export function usePopupLayer(
     return bottom ? bottom.id === id : true;
   });
 
+  // The TOP-most layer (last opened). Before our effect registers us, an empty
+  // stack means a lone popup is the top so Escape works on first paint.
+  const isTop = usePopupStackStore((s) => {
+    const top = s.stack[s.stack.length - 1];
+    return top ? top.id === id : true;
+  });
+
   useEffect(() => {
     if (!active) return;
     push({ id, wantsBlur });
     return () => remove(id);
   }, [active, id, wantsBlur, push, remove]);
 
-  return { shouldBlur, shouldDim };
+  return { shouldBlur, shouldDim, isTop };
 }
