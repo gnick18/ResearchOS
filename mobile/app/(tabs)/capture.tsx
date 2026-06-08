@@ -37,6 +37,7 @@ import {
   type CaptureStatus,
 } from '@/lib/captures';
 import { usePairing, clearPairing } from '@/lib/pairing';
+import { setPendingBatch } from '@/lib/bulk-batch';
 import { signWithDevice } from '@/lib/device-identity';
 
 export default function CaptureScreen() {
@@ -134,6 +135,37 @@ export default function CaptureScreen() {
     setPreviewUri(asset.uri);
     setCaption('');
   }, []);
+
+  // Pick one or many photos from the camera roll. A single pick drops into the
+  // same caption preview a snap uses. A multi-pick hands off to the bulk label
+  // screen so the whole batch gets one caption and one send.
+  const onUploadFromLibrary = useCallback(async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert(
+        'Photos access needed',
+        'Allow photo library access to upload from your camera roll. You can turn it on in Settings.',
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsMultipleSelection: true,
+      quality: 0.7,
+    });
+
+    if (result.canceled) return;
+    const picked = (result.assets ?? []).map((a) => a.uri).filter(Boolean);
+    if (picked.length === 0) return;
+    if (picked.length === 1) {
+      setPreviewUri(picked[0]);
+      setCaption('');
+      return;
+    }
+    setPendingBatch(picked);
+    router.push('/bulk');
+  }, [router]);
 
   const onAddToOutbox = useCallback(async () => {
     if (!previewUri) return;
@@ -241,11 +273,18 @@ export default function CaptureScreen() {
               />
             </Card>
           ) : (
-            <Button
-              variant="primary"
-              label="Take a bench photo"
-              onPress={onTakePhoto}
-            />
+            <>
+              <Button
+                variant="primary"
+                label="Take a bench photo"
+                onPress={onTakePhoto}
+              />
+              <Button
+                variant="secondary"
+                label="Upload from camera roll"
+                onPress={onUploadFromLibrary}
+              />
+            </>
           )}
 
           <Button
