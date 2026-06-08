@@ -179,6 +179,21 @@ export default {
     // open at the transport (the blob is useless without the lab key). ADDITIVE
     // and dormant (client gate is LAB_TIER_ENABLED). Dispatched BEFORE the
     // /lab/create|append|get block so it matches first.
+    // CORS preflight for ALL cross-origin /lab/* requests (the JSON Content-Type
+    // on the lab-record POSTs + the lab-data GETs make these non-simple). MUST
+    // run BEFORE the method-specific /lab blocks below, which 405 a non-POST and
+    // would otherwise turn the preflight into a 405 that the browser rejects.
+    if (request.method === "OPTIONS" && url.pathname.startsWith("/lab/")) {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        },
+      });
+    }
+
     if (url.pathname.startsWith("/lab/data/")) {
       return handleLabData(url, request, env);
     }
@@ -213,21 +228,6 @@ export default {
       }
       const stub = env.LAB_RECORD.get(env.LAB_RECORD.idFromName(labId));
       return stub.fetch(request);
-    }
-
-    // CORS preflight for the cross-origin lab-record POSTs and lab-data GETs
-    // from the app (the JSON Content-Type + GET /lab/data/get make these
-    // non-simple requests). Handled before the capture dispatch so an OPTIONS
-    // never tries to parse a body.
-    if (request.method === "OPTIONS" && url.pathname.startsWith("/lab/")) {
-      return new Response(null, {
-        status: 204,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
-        },
-      });
     }
 
     // CORS preflight for the cross-origin capture POSTs/GETs from the app (the
