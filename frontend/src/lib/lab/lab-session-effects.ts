@@ -48,6 +48,7 @@ import {
   isSessionUnlocked,
   getSessionIdentity,
 } from "@/lib/sharing/identity/session-key";
+import { restoreSessionFromStore } from "@/lib/sharing/identity/storage";
 import { getLabRemote } from "./lab-do-client";
 import { openLabKeyCopy } from "./lab-key";
 import { verifyMemberEmailBinding } from "./lab-binding";
@@ -97,6 +98,19 @@ export function createLabSessionEffects(params: {
     //
     // Three-branch logic described in the module header above.
     // -----------------------------------------------------------------
+    // -----------------------------------------------------------------
+    // peekSession()
+    //
+    // Silent resume probe used by controller.resume() on boot. Reads the
+    // existing NextAuth session (a persisted cookie survives refresh) WITHOUT
+    // ever calling signIn or redirecting. Returns the email if a session is
+    // live, or null so the gate falls back to showing the sign-in buttons.
+    // -----------------------------------------------------------------
+    async peekSession(): Promise<{ email: string } | null> {
+      const existing = await getSession();
+      return existing?.user?.email ? { email: existing.user.email } : null;
+    },
+
     async authenticate(provider: string): Promise<{ email: string }> {
       // Branch 1: already signed in, no-op.
       const existing = await getSession();
@@ -138,6 +152,14 @@ export function createLabSessionEffects(params: {
     // UserLoginScreen) rather than re-implementing the passkey/recovery flow.
     // -----------------------------------------------------------------
     async unlockKeypair(): Promise<void> {
+      if (isSessionUnlocked()) return;
+      // The keypair persists in IndexedDB and auto-restores on boot, but that
+      // restore is async (IdentitySessionRestorer). On a refresh the gate can
+      // reach here before it finishes, so drive the restore ourselves rather
+      // than failing the race. restoreSessionFromStore is idempotent and reads
+      // the same persisted record. Only after that do we treat a still-locked
+      // identity as a real "needs the login UI" failure.
+      await restoreSessionFromStore();
       if (isSessionUnlocked()) return;
       throw new Error(
         "lab session: identity is locked; unlock via the existing login " +

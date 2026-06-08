@@ -240,6 +240,63 @@ describe("createLabSessionController: happy path", () => {
     expect(ctrl.getError()).toBeNull();
   });
 
+  it("resume() with a live session goes straight to live WITHOUT authenticate", async () => {
+    const effects = {
+      ...makeEffects(),
+      peekSession: vi.fn(async () => ({ email: "alice@example.com" })),
+    };
+    const ctrl = createLabSessionController(effects);
+    ctrl.start("lab");
+
+    const states: string[] = [];
+    ctrl.subscribe(() => states.push(ctrl.getState().kind));
+
+    await ctrl.resume();
+
+    expect(states).toEqual(["authenticating", "unlocking", "live"]);
+    expect(ctrl.getState().kind).toBe("live");
+    expect(effects.peekSession).toHaveBeenCalledOnce();
+    // The silent path must NOT call authenticate (no redirect / no prompt).
+    expect(effects.authenticate).not.toHaveBeenCalled();
+    expect(effects.unlockKeypair).toHaveBeenCalledOnce();
+    expect(effects.openLabKey).toHaveBeenCalledOnce();
+  });
+
+  it("resume() with NO live session stays locked (shows the buttons)", async () => {
+    const effects = {
+      ...makeEffects(),
+      peekSession: vi.fn(async () => null),
+    };
+    const ctrl = createLabSessionController(effects);
+    ctrl.start("lab");
+    await ctrl.resume();
+    expect(ctrl.getState().kind).toBe("locked");
+    expect(effects.unlockKeypair).not.toHaveBeenCalled();
+    expect(effects.openLabKey).not.toHaveBeenCalled();
+  });
+
+  it("resume() is a no-op when peekSession is absent", async () => {
+    const ctrl = createLabSessionController(makeEffects());
+    ctrl.start("lab");
+    await ctrl.resume();
+    expect(ctrl.getState().kind).toBe("locked");
+  });
+
+  it("resume() with a live session but a failing openLabKey falls back to locked", async () => {
+    const effects = {
+      ...makeEffects(),
+      peekSession: vi.fn(async () => ({ email: "alice@example.com" })),
+      openLabKey: vi.fn(async () => {
+        throw new Error("not a member yet");
+      }),
+    };
+    const ctrl = createLabSessionController(effects);
+    ctrl.start("lab");
+    await ctrl.resume();
+    expect(ctrl.getState().kind).toBe("locked");
+    expect(ctrl.getError()?.message).toContain("not a member yet");
+  });
+
   it("live state carries the injected labKey and member", async () => {
     const ctrl = createLabSessionController(makeEffects());
     ctrl.start("lab");

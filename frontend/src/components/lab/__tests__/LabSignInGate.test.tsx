@@ -53,6 +53,7 @@ function makeFakeController(
     getError: () => error,
     start: vi.fn(),
     signIn: vi.fn(),
+    resume: vi.fn().mockResolvedValue(undefined),
     signalExpiry: vi.fn(),
     tickExpiry: vi.fn(),
     logout: vi.fn(),

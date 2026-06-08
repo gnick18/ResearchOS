@@ -32,10 +32,14 @@ export function LabSignInGate({
     () => controller.getState(),
   );
 
-  // Boot the controller for a lab account. The reducer is a no-op if already
-  // started, so calling this on every mount is safe.
+  // Boot the controller for a lab account, then attempt a SILENT resume so a
+  // returning user with a live OAuth cookie + persisted keypair goes straight to
+  // "live" without re-clicking sign-in every refresh. resume() stays "locked"
+  // (showing the buttons) when there is no live session, so it is safe to always
+  // call. The reducer no-ops if already started.
   useEffect(() => {
     controller.start("lab");
+    void controller.resume();
   }, [controller]);
 
   // Session live (or defensive solo pass-through): reveal the app.
