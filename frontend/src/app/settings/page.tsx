@@ -461,9 +461,9 @@ function SettingsBodyInner() {
             <LabArchivesSection />
             <SectionShell
               id="devices"
-              title="Devices"
-              description="Pair a phone to send bench photos straight to your inbox. Photos route through an encrypted relay that holds them only until your laptop pulls them in."
-              searchKeywords="devices phone pair pairing mobile capture photo qr relay inbox camera"
+              title="Companion"
+              description="Pair your phone to the ResearchOS Companion app. Capture at the bench, glance at today, and have everything sync back to your folder automatically."
+              searchKeywords="companion phone pair pairing mobile capture photo qr relay inbox camera bench notes scan today glance devices"
             >
               <DevicesSection ready={sharing.isReady} />
             </SectionShell>

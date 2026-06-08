@@ -1,13 +1,17 @@
 "use client";
 
-// Mobile capture relay, the Settings "Devices" pairing UI (piece B).
+// Settings "Companion" section — pair a phone to capture at the bench.
 //
-// Pair a phone to send bench photos straight to your inbox. "Pair a phone"
-// mints a short-lived signed grant, renders it as a QR the phone scans, and
-// polls the relay every couple seconds until the phone binds. Bound phones are
-// listed below with an Unpair button. See docs/proposals/MOBILE_CAPTURE_RELAY.md.
+// Approved redesign 2026-06-08 (see docs/mockups/2026-06-08-settings-devices-redesign.html).
+// Three states: not paired -> pair CTA + feature chips; pairing -> QR card with countdown;
+// paired -> device list + auto-sync status + collapsed Advanced disclosure.
 //
-// House style: Tooltip for icon buttons, no emojis, no em-dashes, no
+// All existing wiring is preserved: makePairingGrant / listDevices / revokeDevice /
+// runCaptureInboxPoll from @/lib/mobile-relay/client; poll + loadUserCaptureKeys from
+// @/lib/mobile-relay/keys; QRCode.toDataURL; the device-binding poll-to-detect-pairing;
+// the `ready` prop (= sharing.isReady).
+//
+// House style: Tooltip for icon-only buttons, no emojis, no em-dashes, no
 // mid-sentence colons, dark-mode tokens (bg-surface / text-foreground /
 // border-border).
 
@@ -25,47 +29,251 @@ import {
 } from "@/lib/mobile-relay/client";
 import { loadUserCaptureKeys } from "@/lib/mobile-relay/keys";
 import { runCaptureInboxPoll } from "@/lib/mobile-relay/poll";
+import { publishTodayToAllDevices } from "@/lib/mobile-relay/today-snapshot";
+import { publishInventoryToAllDevices } from "@/lib/mobile-relay/inventory-snapshot";
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatBoundAt(iso: string | null): string {
   if (!iso) return "unknown";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "unknown";
-  return d.toLocaleString();
+  // Short date like "Jun 7"
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function formatRelative(iso: string | null): string {
+  if (!iso) return "unknown";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "unknown";
+  const diffMs = Date.now() - d.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 2) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `${diffH}h ago`;
+  const diffD = Math.floor(diffH / 24);
+  return `${diffD}d ago`;
 }
 
 function secondsUntil(iso: string): number {
   return Math.max(0, Math.round((new Date(iso).getTime() - Date.now()) / 1000));
 }
 
-interface DevicesSectionInnerProps {
-  /** True when the current user's identity is unlocked here. */
+function formatCountdown(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+// ── Inline SVGs ───────────────────────────────────────────────────────────────
+
+/** BeakerBot tile: sky-to-purple gradient rounded square with the bot icon. */
+function BotTile() {
+  return (
+    <span
+      aria-hidden="true"
+      className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-[9px]"
+      style={{ background: "linear-gradient(135deg,#1AA0E6,#5B47D6)" }}
+    >
+      <svg
+        viewBox="0 0 24 24"
+        width="20"
+        height="20"
+        fill="none"
+        stroke="#fff"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="4" y="8" width="16" height="11" rx="3" />
+        <path d="M12 8V4M9 4h6" />
+        <circle cx="9.5" cy="13" r="1.2" fill="#fff" stroke="none" />
+        <circle cx="14.5" cy="13" r="1.2" fill="#fff" stroke="none" />
+      </svg>
+    </span>
+  );
+}
+
+function PhoneIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="6" y="3" width="12" height="18" rx="3" />
+      <path d="M11 18h2" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    >
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+function SyncIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="13"
+      height="13"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="flex-shrink-0"
+    >
+      <path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-7.5-4M3 12a9 9 0 0 1 9-9 9 9 0 0 1 7.5 4" />
+      <path d="M21 3v4h-4M3 21v-4h4" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="flex-shrink-0 mt-0.5"
+    >
+      <rect x="5" y="11" width="14" height="9" rx="2" />
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+    </svg>
+  );
+}
+
+// ── Feature chips (shown only when not yet paired) ────────────────────────────
+
+const FEATURE_CHIPS = [
+  {
+    label: "Bench photos",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        width="13"
+        height="13"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L19 6h0a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        <circle cx="12" cy="13" r="3.2" />
+      </svg>
+    ),
+  },
+  {
+    label: "Quick notes",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        width="13"
+        height="13"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M5 3h11l3 3v15H5z" />
+        <path d="M8 9h8M8 13h8M8 17h5" />
+      </svg>
+    ),
+  },
+  {
+    label: "Scan to reorder",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        width="13"
+        height="13"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M4 12h16" />
+      </svg>
+    ),
+  },
+  {
+    label: "Today glance",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        width="13"
+        height="13"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19" />
+      </svg>
+    ),
+  },
+] as const;
+
+// ── Props / component ─────────────────────────────────────────────────────────
+
+interface DevicesSectionProps {
+  /** True when the current user's identity is unlocked (Ed25519 key available). */
   ready: boolean;
 }
 
-/**
- * The body of the Devices section. The parent gates on whether the identity is
- * unlocked (an unlocked Ed25519 key is required to sign the grant + the device
- * reads), and renders the "set up your account" hint otherwise.
- */
-export default function DevicesSection({ ready }: DevicesSectionInnerProps) {
+export default function DevicesSection({ ready }: DevicesSectionProps) {
   const { currentUser } = useCurrentUser();
   const [devices, setDevices] = useState<BoundDevice[] | null>(null);
-  // Manual "Check for new captures" state, the same single-poll the background
-  // CaptureInboxPoller runs, surfaced as a button so a paired user can pull on
-  // demand and read the result inline.
-  const [checking, setChecking] = useState(false);
-  const [checkResult, setCheckResult] = useState<string | null>(null);
+
+  // Pairing state
   const [grant, setGrant] = useState<PairingGrant | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(0);
   const [paired, setPaired] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Snapshot of the device pubkeys present when pairing started, so we can
-  // detect the phone binding (a NEW key appears) rather than just a non-empty
-  // list.
+  // Advanced: manual check-for-captures
+  const [checking, setChecking] = useState(false);
+  const [checkResult, setCheckResult] = useState<string | null>(null);
+
+  // Advanced: re-publish snapshots
+  const [publishing, setPublishing] = useState(false);
+  const [publishResult, setPublishResult] = useState<string | null>(null);
+
+  // Snapshot of device pubkeys when pairing started — used to detect the new binding.
   const baselineKeysRef = useRef<Set<string>>(new Set());
+
+  // ── Device list ────────────────────────────────────────────────────────────
 
   const refreshDevices = useCallback(async () => {
     if (!ready) return;
@@ -81,12 +289,12 @@ export default function DevicesSection({ ready }: DevicesSectionInnerProps) {
     }
   }, [ready]);
 
-  // Initial + on-mount device load.
   useEffect(() => {
     if (ready) void refreshDevices();
   }, [ready, refreshDevices]);
 
-  // Render the grant payload to a QR data URL whenever a new grant is minted.
+  // ── QR render ──────────────────────────────────────────────────────────────
+
   useEffect(() => {
     if (!grant) {
       setQrDataUrl(null);
@@ -105,7 +313,8 @@ export default function DevicesSection({ ready }: DevicesSectionInnerProps) {
     };
   }, [grant]);
 
-  // Countdown + poll for the phone binding while a grant is live.
+  // ── Countdown + poll for phone binding ────────────────────────────────────
+
   useEffect(() => {
     if (!grant || paired) return;
     let cancelled = false;
@@ -114,7 +323,6 @@ export default function DevicesSection({ ready }: DevicesSectionInnerProps) {
       const left = secondsUntil(grant.exp);
       setCountdown(left);
       if (left <= 0) {
-        // Grant expired; clear it so the user can mint a fresh one.
         setGrant(null);
       }
     };
@@ -137,6 +345,8 @@ export default function DevicesSection({ ready }: DevicesSectionInnerProps) {
       clearInterval(pollTimer);
     };
   }, [grant, paired, refreshDevices]);
+
+  // ── Actions ────────────────────────────────────────────────────────────────
 
   const startPairing = useCallback(async () => {
     setError(null);
@@ -207,117 +417,164 @@ export default function DevicesSection({ ready }: DevicesSectionInnerProps) {
     }
   }, [currentUser]);
 
+  const republishSnapshots = useCallback(async () => {
+    setPublishResult(null);
+    setPublishing(true);
+    try {
+      const keys = await loadUserCaptureKeys();
+      if (!keys) {
+        setPublishResult("Your identity is locked. Set up or restore your account first.");
+        return;
+      }
+      const [today, inventory] = await Promise.all([
+        publishTodayToAllDevices(keys),
+        publishInventoryToAllDevices(keys),
+      ]);
+      const total = today.published + inventory.published;
+      if (total === 0) {
+        setPublishResult("No devices with a seal key — pair a fresh device to receive snapshots.");
+      } else {
+        setPublishResult(`Published to ${total} device${total === 1 ? "" : "s"}.`);
+      }
+    } catch {
+      setPublishResult("Could not publish snapshots. Check your connection.");
+    } finally {
+      setPublishing(false);
+    }
+  }, []);
+
+  // ── Identity locked gate ───────────────────────────────────────────────────
+
   if (!ready) {
     return (
-      <p className="text-body text-foreground-muted">
-        Set up your account (the sharing identity) to pair a phone. Devices are
-        authorized with your identity key.
-      </p>
+      <div className="flex gap-3 items-start rounded-xl border border-dashed border-border bg-surface-sunken p-4 text-body text-foreground-muted leading-relaxed">
+        <LockIcon />
+        <span>
+          Your account keypair is what authorizes a phone. It now stays unlocked across refreshes. If it
+          ever locks, you will see &ldquo;Unlock with your recovery code or passkey&rdquo; right here instead of
+          the pair button.
+        </span>
+      </div>
     );
   }
 
-  return (
-    <div className="space-y-5">
-      <div className="flex items-start justify-between gap-4">
-        <p className="text-body text-foreground-muted">
-          Pair a phone to send bench photos straight to your inbox. Scan the code
-          with your phone's camera, snap a photo, and it lands here.
-        </p>
-        {!grant && (
-          <div className="flex items-center gap-2">
-            <Tooltip label="Pull any captures waiting on the relay right now">
-              <button
-                type="button"
-                onClick={() => void checkForCaptures()}
-                disabled={checking}
-                className="px-3 py-2 text-body border border-border text-foreground hover:bg-surface-sunken disabled:opacity-50 rounded-lg whitespace-nowrap"
-              >
-                {checking ? "Checking..." : "Check for new captures"}
-              </button>
-            </Tooltip>
-            <button
-              type="button"
-              onClick={() => void startPairing()}
-              disabled={busy}
-              className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg whitespace-nowrap"
-            >
-              Pair a phone
-            </button>
+  // ── Pairing state (QR shown) ───────────────────────────────────────────────
+
+  if (grant) {
+    return (
+      <div className="space-y-4">
+        <div className="scard-head flex items-center gap-3">
+          <BotTile />
+          <div>
+            <h3 className="text-title font-semibold text-foreground">Pair a phone</h3>
+            <p className="text-meta text-foreground-muted mt-0.5">
+              Open ResearchOS on your phone and scan this.
+            </p>
           </div>
-        )}
-      </div>
-
-      {checkResult && (
-        <p className="text-meta text-foreground-muted">{checkResult}</p>
-      )}
-
-      {error && (
-        <p className="text-meta text-red-600 dark:text-red-400">{error}</p>
-      )}
-
-      {paired && (
-        <div className="rounded-lg border border-green-500/40 bg-green-500/10 px-4 py-3 text-body text-foreground">
-          Phone paired. It can now send photos to your inbox.
         </div>
-      )}
 
-      {grant && (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-surface-sunken p-5">
+        <div className="flex gap-5 items-center flex-wrap rounded-xl border border-border bg-surface-sunken p-4">
           {qrDataUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={qrDataUrl}
               alt="Pairing QR code"
-              width={240}
-              height={240}
-              className="rounded-lg bg-white p-2"
+              width={150}
+              height={150}
+              className="rounded-lg bg-white p-2 flex-shrink-0"
             />
           ) : (
-            <div className="h-[240px] w-[240px] animate-pulse rounded-lg bg-surface" />
+            <div className="w-[150px] h-[150px] animate-pulse rounded-lg bg-surface flex-shrink-0" />
           )}
-          <p className="text-meta text-foreground-muted">
-            Scan with your phone. Expires in {countdown}s.
-          </p>
-          <button
-            type="button"
-            onClick={cancelPairing}
-            className="text-meta text-foreground-muted underline hover:text-foreground"
-          >
-            Cancel
-          </button>
+          <div className="min-w-0">
+            <p className="text-body font-semibold text-foreground">Scan with the companion app</p>
+            <p className="text-meta text-foreground-muted mt-1 leading-relaxed">
+              On your phone, open ResearchOS, tap Pair, and point the camera here.
+            </p>
+            <div className="flex items-center gap-2 text-meta text-foreground-muted mt-2">
+              <span className="inline-block w-2.5 h-2.5 rounded-full bg-sky-400 animate-pulse flex-shrink-0" />
+              Waiting for your phone &middot; expires in {formatCountdown(countdown)}
+            </div>
+            <button
+              type="button"
+              onClick={cancelPairing}
+              className="mt-3 px-3 py-1.5 text-meta border border-border rounded-lg text-foreground hover:bg-surface-sunken"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
-      )}
 
-      <div>
-        <h3 className="text-body font-medium text-foreground mb-2">
-          Paired devices
-        </h3>
-        {devices === null ? (
-          <p className="text-meta text-foreground-muted">Loading...</p>
-        ) : devices.length === 0 ? (
-          <p className="text-meta text-foreground-muted">
-            No phones paired yet.
+        {error && (
+          <p className="text-meta text-red-600 dark:text-red-400">{error}</p>
+        )}
+      </div>
+    );
+  }
+
+  // ── Paired state ───────────────────────────────────────────────────────────
+
+  const hasPairedDevices = devices !== null && devices.length > 0;
+
+  if (hasPairedDevices) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <BotTile />
+          <div>
+            <h3 className="text-title font-semibold text-foreground">ResearchOS Companion</h3>
+            <p className="text-meta text-foreground-muted mt-0.5">
+              {devices.length} {devices.length === 1 ? "phone" : "phones"} paired.
+            </p>
+          </div>
+        </div>
+
+        {paired && (
+          <div className="rounded-lg border border-green-500/40 bg-green-500/10 px-4 py-3 text-body text-foreground">
+            Phone paired. It can now send photos to your inbox.
+          </div>
+        )}
+
+        {error && (
+          <p className="text-meta text-red-600 dark:text-red-400">{error}</p>
+        )}
+
+        <div>
+          <p className="text-meta font-bold text-foreground-muted uppercase tracking-wide mb-2">
+            Paired phones
           </p>
-        ) : (
-          <ul className="divide-y divide-border rounded-lg border border-border">
+          <ul className="space-y-2">
             {devices.map((d) => (
               <li
                 key={d.devicePubkey}
-                className="flex items-center justify-between gap-3 px-4 py-3"
+                className="flex items-center gap-3 rounded-xl border border-border bg-surface px-3.5 py-3"
               >
-                <div className="min-w-0">
-                  <p className="text-body text-foreground truncate">
-                    {d.label || "Phone"}
+                <span className="w-8 h-8 rounded-lg bg-surface-sunken flex items-center justify-center text-foreground-muted flex-shrink-0">
+                  <PhoneIcon size={16} />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-body font-semibold text-foreground truncate">
+                    {d.label ?? "Phone"}
                   </p>
-                  <p className="text-meta text-foreground-muted">
-                    Paired {formatBoundAt(d.boundAt)}
+                  <p className="text-meta text-foreground-muted mt-0.5">
+                    Paired {formatBoundAt(d.boundAt)} &middot; last active {formatRelative(d.boundAt)}
                   </p>
                 </div>
+                {/* Active/Idle pill: treat devices bound within the last 30m as Active */}
+                {d.boundAt && Date.now() - new Date(d.boundAt).getTime() < 30 * 60 * 1000 ? (
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300">
+                    Active
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-surface-sunken text-foreground-muted">
+                    Idle
+                  </span>
+                )}
                 <Tooltip label="Unpair this device">
                   <button
                     type="button"
                     onClick={() => void unpair(d.devicePubkey)}
-                    className="px-3 py-1.5 text-meta border border-border rounded-lg text-foreground hover:bg-surface-sunken whitespace-nowrap"
+                    className="px-3 py-1.5 text-meta border rounded-lg text-red-600 dark:text-red-400 border-red-300/60 dark:border-red-700/50 hover:bg-red-50 dark:hover:bg-red-900/20 whitespace-nowrap"
                   >
                     Unpair
                   </button>
@@ -325,7 +582,134 @@ export default function DevicesSection({ ready }: DevicesSectionInnerProps) {
               </li>
             ))}
           </ul>
-        )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => void startPairing()}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-body border border-border rounded-lg text-foreground hover:bg-surface-sunken disabled:opacity-50"
+          >
+            <PlusIcon />
+            Pair another phone
+          </button>
+          <span className="flex items-center gap-1.5 text-meta text-foreground-muted">
+            <SyncIcon />
+            Auto-syncing &middot; captures land in your inbox on their own
+          </span>
+        </div>
+
+        <details className="group">
+          <summary className="cursor-pointer text-meta text-foreground-muted select-none list-none flex items-center gap-1">
+            <svg
+              viewBox="0 0 24 24"
+              width="12"
+              height="12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              className="transition-transform group-open:rotate-90"
+            >
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+            Advanced
+          </summary>
+          <div className="mt-3 flex flex-wrap gap-2 items-start">
+            <div className="flex flex-col gap-1">
+              <button
+                type="button"
+                onClick={() => void checkForCaptures()}
+                disabled={checking}
+                className="px-3 py-2 text-body border border-border rounded-lg text-foreground hover:bg-surface-sunken disabled:opacity-50"
+              >
+                {checking ? "Checking..." : "Check for new captures now"}
+              </button>
+              {checkResult && (
+                <p className="text-meta text-foreground-muted">{checkResult}</p>
+              )}
+            </div>
+            <div className="flex flex-col gap-1">
+              <button
+                type="button"
+                onClick={() => void republishSnapshots()}
+                disabled={publishing}
+                className="px-3 py-2 text-body border border-border rounded-lg text-foreground hover:bg-surface-sunken disabled:opacity-50"
+              >
+                {publishing ? "Publishing..." : "Re-publish snapshots"}
+              </button>
+              {publishResult && (
+                <p className="text-meta text-foreground-muted">{publishResult}</p>
+              )}
+            </div>
+          </div>
+        </details>
+      </div>
+    );
+  }
+
+  // ── Not-paired state (default CTA) ────────────────────────────────────────
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <BotTile />
+        <div>
+          <h3 className="text-title font-semibold text-foreground">ResearchOS Companion</h3>
+          <p className="text-meta text-foreground-muted mt-0.5">
+            Pair your phone to capture at the bench and glance at today.
+          </p>
+        </div>
+      </div>
+
+      <p className="text-body text-foreground-muted leading-relaxed">
+        Snap bench photos, jot quick notes, scan to reorder, and see today&apos;s tasks, all synced to your
+        folder through an encrypted relay that only ever holds data in transit. Your phone is authorized
+        with your identity key.
+      </p>
+
+      <div className="flex flex-wrap gap-2">
+        {FEATURE_CHIPS.map((chip) => (
+          <span
+            key={chip.label}
+            className="inline-flex items-center gap-1.5 text-[11.5px] border border-border rounded-full px-2.5 py-1 text-foreground-muted bg-surface-sunken"
+          >
+            {chip.icon}
+            {chip.label}
+          </span>
+        ))}
+      </div>
+
+      {paired && (
+        <div className="rounded-lg border border-green-500/40 bg-green-500/10 px-4 py-3 text-body text-foreground">
+          Phone paired. It can now send photos to your inbox.
+        </div>
+      )}
+
+      {error && (
+        <p className="text-meta text-red-600 dark:text-red-400">{error}</p>
+      )}
+
+      <div className="flex flex-wrap gap-3 pt-1">
+        <button
+          type="button"
+          onClick={() => void startPairing()}
+          disabled={busy}
+          className="inline-flex items-center gap-2 px-4 py-2.5 text-body font-semibold text-white rounded-xl disabled:opacity-50"
+          style={{ background: "linear-gradient(135deg,#1AA0E6,#5B47D6)" }}
+        >
+          <PhoneIcon size={16} />
+          Pair a phone
+        </button>
+        {/* TODO: link to the companion app store listing once published */}
+        <button
+          type="button"
+          disabled
+          className="px-3 py-2 text-body border border-border rounded-lg text-foreground opacity-60 cursor-not-allowed"
+        >
+          Get the app
+        </button>
       </div>
     </div>
   );
