@@ -19,7 +19,8 @@ truth, NOT paid. Keep all copy inside that scope. Do not claim desktop features
 ## App identity
 
 - **Display name:** ResearchOS
-- **Subtitle / tagline:** Your lab bench companion
+- **Headline (feature graphic / hero):** Snap it at the bench, file it from your desk.
+- **Subtitle / tagline:** Bench photos to your notebook
 - **Bundle identifier (iOS):** `app.researchos.companion` (NOT yet set in app.json,
   add `ios.bundleIdentifier`). Use the same string for Android `android.package`
   so they match. Android package rules forbid hyphens, so do not use
@@ -37,10 +38,10 @@ truth, NOT paid. Keep all copy inside that scope. Do not claim desktop features
 ## App Store copy (App Store Connect)
 
 - **Name (30 char max):** `ResearchOS`
-- **Subtitle (30 char max):** `Your lab bench companion`
+- **Subtitle (30 char max):** `Bench photos to your notebook`
 - **Promotional text (170 char max):**
   ```
-  Snap a photo at the bench and it lands in your ResearchOS inbox. Get a push when something needs you. Glance at today's tasks and calendar. The desktop does the deep work.
+  Photograph a gel or plate at the bench and it lands in your ResearchOS inbox to file later. See today's tasks and lab calendar. Get a push when a labmate shares or mentions you.
   ```
 - **Keywords (100 char max, comma-separated, no spaces):**
   ```
@@ -53,7 +54,7 @@ truth, NOT paid. Keep all copy inside that scope. Do not claim desktop features
 - **App name (30 char max):** `ResearchOS`
 - **Short description (80 char max):**
   ```
-  Snap bench photos into ResearchOS, get pushes, and see today at a glance.
+  Photograph the bench into your ResearchOS inbox, then file it from your computer.
   ```
 - **Full description (4000 char max):** see "Full description" below.
 
@@ -62,12 +63,12 @@ truth, NOT paid. Keep all copy inside that scope. Do not claim desktop features
 ```
 ResearchOS is a free, open, local-first research workspace. Your experiments, lab notes, methods, and schedule live in a folder you own on your own computer, not on someone else's server.
 
-This is the mobile companion. The laptop stays your main workspace. The phone does the few things a phone is genuinely better at.
+This is the mobile companion. The laptop stays your main workspace. The phone handles the bench.
 
 What the app does:
-- Snap a photo at the bench and it lands in your ResearchOS inbox, ready to file from your computer later.
-- Get a push when something needs you.
-- Glance at today's tasks and your calendar without opening the laptop.
+- Photograph a gel, plate, or whiteboard at the bench. It lands in your ResearchOS inbox, ready to file into the right experiment from your computer.
+- See today's tasks and your lab calendar without opening the laptop.
+- Get a push when a labmate shares a note with you, mentions you, or a task comes due.
 
 What it is not:
 - It is not a port of the desktop app. The deep work, the editors, the planning, the sequence tools, stays on the desktop.
@@ -112,10 +113,13 @@ Use the wiki-capture / fixture data conventions, never real research data.
 - Suggested shots: the capture-a-bench-photo flow, the today/tasks glance, a push
   notification example, the pairing-to-desktop screen.
 
-### Play feature graphic
+### Play feature graphic (DONE)
 
-1024x500 PNG, BeakerBot + the "Your lab bench companion" line on a sky/rainbow
-treatment. Build from `brand/src/` like the other banners. To do.
+1024x500. Generated at `brand/png/researchos-play-feature.png` from the generator
+`brand/src/play-feature-graphic.html` (BeakerBot mark + Geist wordmark + the rainbow
+rail and glow, matching og.html). Headline "Snap it at the bench, file it from your
+desk." Re-render with the same Playwright pattern as the other brand assets if the
+copy changes.
 
 ## Data safety / App privacy (DRAFT, verify against the final relay + push code)
 
