@@ -52,6 +52,7 @@ import { restoreSessionFromStore } from "@/lib/sharing/identity/storage";
 import { getLabRemote } from "./lab-do-client";
 import { openLabKeyCopy } from "./lab-key";
 import { verifyMemberEmailBinding } from "./lab-binding";
+import { autoBindLabProfile } from "./lab-profile-auto-bind";
 import type {
   LabSessionEffects,
   LabSigningKeyPair,
@@ -238,7 +239,20 @@ export function createLabSessionEffects(params: {
         );
       }
 
-      // Step 5: assemble and return the live-session payload.
+      // Step 5: auto-bind the directory profile on the first login (P3a).
+      // Best-effort: a failure here must never block the lab login.
+      try {
+        await autoBindLabProfile({
+          oauthEmail,
+          oauthName: session?.user?.name ?? null,
+          username,
+          identity: id,
+        });
+      } catch {
+        // best-effort profile bind, swallow all errors
+      }
+
+      // Step 6: assemble and return the live-session payload.
       const signingKeyPair: LabSigningKeyPair = {
         ed25519Priv: id.keys.signing.privateKey,
         ed25519Pub: id.keys.signing.publicKey,
