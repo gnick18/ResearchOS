@@ -1,20 +1,48 @@
 # Mobile dev accounts setup (operator checklist)
 
-For the iOS + Android apps. Start NOW even though the apps are still being built,
-because enrollment has real lead time (the D-U-N-S number below can take 1-2
-weeks, and store identity review takes days). The apps build + run in simulators
-without these; the accounts gate REAL-DEVICE testing, TestFlight, and store
-submission.
+For the iOS + Android apps.
 
-Costs: Apple Developer Program $99/year (recurring). Google Play Console $25 one
-time. Pay both from the LLC card (Mercury), not a personal card.
+## STATUS (2026-06-07): both accounts enrolled, PERSONAL
 
-Enroll as the ORGANIZATION (ResearchOS LLC), not an individual. The LLC becomes
-the seller of record (more professional, easier to transfer/manage), but Apple
-org enrollment REQUIRES a D-U-N-S number, which is why step 0 comes first.
+Decision was made to launch under PERSONAL accounts, not the LLC org, to skip the
+D-U-N-S wait. Both are done:
+- **Apple Developer Program: enrolled as Individual, paid ($99/yr).** Seller name
+  shows as Grant personally.
+- **Google Play Console: registered as a personal account.**
 
-Use a ROLE email you control for the LLC (not a throwaway), and store every
-credential in the LLC vault (~/Documents/ResearchOS_LLC), not a personal store.
+Transfer to the ResearchOS LLC org later (Apple App Transfer; Google account
+transfer, which Google charges a fee for). The D-U-N-S (still being obtained) is
+what an org transfer will need; it is no longer blocking launch.
+
+### GOOGLE: the personal-account closed-testing requirement (the real bottleneck)
+
+New Google Play PERSONAL developer accounts (created after Nov 2023) must run a
+closed test with at least 12 testers opted in for 14 continuous days BEFORE they
+can apply for production access. Org accounts are exempt; personal accounts are not.
+
+Implication: the 14-day clock, not the build, is the gate to a public Android
+launch. Start it as EARLY as there is an installable build:
+1. Build an `.aab` (even a near-final one) and upload it to a Closed testing track.
+2. Recruit at least 12 testers (labmates, friends) and have them OPT IN via the
+   testing link and keep the app installed.
+3. Let it run 14 continuous days, then apply for production access.
+4. Keep iterating builds during the 14 days; the clock keeps running.
+
+Recording the costs: log both in `/admin/business` as money OUT, category "Dev
+accounts" (Apple $99 recurring yearly, Google $25 one time). Add the Apple renewal
+date to the deadline strip so the membership does not lapse.
+
+The original org-enrollment plan and the D-U-N-S step below are kept for the future
+LLC transfer, they are no longer the launch path.
+
+---
+
+(Original org-enrollment guidance, retained for the eventual LLC transfer.)
+
+Enroll-as-ORG notes: the LLC becomes the seller of record (more professional,
+easier to transfer/manage), but Apple org enrollment REQUIRES a D-U-N-S number,
+which is why the D-U-N-S step comes first. Use a ROLE email you control for the
+LLC, and store every credential in the LLC vault (~/Documents/ResearchOS_LLC).
 
 ---
 
