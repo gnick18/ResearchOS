@@ -297,7 +297,23 @@ All decisions are now LOCKED.
   <task>" (STACK multi-stage, pick experiment -> pick FS/SS/SF -> dependenciesApi
   .create). Additive, any command without `subflow` is unchanged. 21 new tests, tsc
   clean, 98 palette + gantt tests green.
-- NEXT, CHUNK 2 (the picker debts), wire the rest of the deferred pickers onto the
-  framework, one page at a time, reusing v1's handlers, assign / flag / change-
-  project / set-funding / add-dependency (done on Gantt) / move-note / move-method-
-  category / link-event-to-task. Then CHUNK 3 (the three lifts).
+- CHUNK 2 DONE + on `main` (cherry-picked across two waves): every deferred picker
+  is now an in-palette sub-flow, reusing v1's real handlers.
+  - Gantt, change-project (inline) [assign + add-dependency landed in chunk 1].
+  - Purchases, change-project + set-funding (inline, own-orders gated).
+  - Calendar, link-event-to-task (inline) -> eventsApi.update with the composite
+    task_owner, plus a linked-state flip to "Jump to linked task" + "Unlink". This
+    also CLOSES the long-deferred event-to-task UI.
+  - Methods, move-to-category (inline) with onSubmitRaw to create a NEW category.
+  - Workbench, move-note-to-notebook (inline, own-note gated) -> the real
+    notebooksApi move.
+  - Lab Overview, assign-task and flag-a-record (both MULTI-STAGE stacks, pick
+    task/record -> pick member/flag) -> the real pi-actions through the per-record
+    PI edit confirm.
+  All additive (a command without `subflow` is unchanged). 354 beaker tests green.
+- NEXT, CHUNK 3 (the three lifts), Workbench live selection (a per-panel reporter
+  so the clicked card drives context, not the last-opened proxy), Links board
+  filter (lift activeCategory so it filters the visible board) + client-side link
+  preview (favicon + hostname), Lab Overview pending approvals surfaced as
+  NAVIGATE entities (approve/decline/flag a specific item inline, not just route
+  to /purchases). That completes the locked debt-only v2 scope.
