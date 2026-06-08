@@ -25,7 +25,8 @@
    * docs/proposals/dark-mode-foundation.md). Nothing references these yet, so
    * adoption is opt-in and additive, surface by surface. */
   --surface: #ffffff; /* page background */
-  --surface-raised: #ffffff; /* cards, popups, modals */
+  --surface-raised: #ffffff; /* cards */
+  --surface-overlay: #ffffff; /* popups, modals (top elevation; lighter than cards in dark) */
   --surface-sunken: #f8fafc; /* subtle insets, gray-50 wells */
   --foreground-muted: #6b7280; /* secondary text, gray-500 */
   --border-subtle: #e5e7eb; /* hairlines, gray-200 */
@@ -135,11 +136,12 @@
   --background: #0a0e1a;
   --foreground: #f1f5f9;
 
-  --surface: #0a0e1a;
-  --surface-raised: #131c2e;
+  --surface: #0a0e1a; /* page background (darkest) */
+  --surface-raised: #131c2e; /* cards (lifts off the page) */
+  --surface-overlay: #1d2942; /* popups, modals (top elevation; lighter than cards so a popup is never the same color as the page and inner cards read as nested) */
   --surface-sunken: #0d1424;
   --foreground-muted: #b4bfd0; /* slate-350, lighter than the old #94a3b8 so secondary text reads brighter on dark (Grant 2026-06-06) */
-  --border-subtle: rgba(255, 255, 255, 0.22);
+  --border-subtle: rgba(255, 255, 255, 0.3); /* hairline; strong enough to delineate same-color cards (Grant 2026-06-08) */
 
   /* Brighter accent + a translucent soft fill that reads as "selected" on dark. */
   --accent: #38bdf8; /* sky-400, legible on near-black */
@@ -210,6 +212,7 @@
   --foreground: #171717;
   --surface: #ffffff;
   --surface-raised: #ffffff;
+  --surface-overlay: #ffffff;
   --surface-sunken: #f8fafc;
   --foreground-muted: #6b7280;
   --border-subtle: #e5e7eb;
@@ -285,6 +288,26 @@
   color: inherit;
 }
 
+/* Popout menus and dialogs that live in the DOM *under* a .light-scope (e.g. the
+ * avatar dropdown, a child of the light-scoped tinted header) should still follow
+ * the REAL theme, not the forced-light header. Re-assert the dark tokens for
+ * [role="menu"] / [role="dialog"] inside a light-scope under dark, so a popout
+ * opened from a light-scoped region paints in the active theme. */
+[data-theme="dark"] .light-scope [role="menu"],
+[data-theme="dark"] .light-scope [role="dialog"] {
+  color-scheme: dark;
+  --background: #0a0e1a;
+  --foreground: #f1f5f9;
+  --surface: #0a0e1a;
+  --surface-raised: #131c2e;
+  --surface-overlay: #1d2942;
+  --surface-sunken: #0d1424;
+  --foreground-muted: #b4bfd0;
+  --border-subtle: rgba(255, 255, 255, 0.3);
+  --accent: #38bdf8;
+  --accent-soft: rgba(56, 189, 248, 0.14);
+}
+
 @layer utilities {
   /* Paint the brand rainbow as a background fill (ribbons, dividers, bands). */
   .brand-rainbow-bg {
@@ -344,6 +367,7 @@
    * default hairline. */
   --color-surface: var(--surface);
   --color-surface-raised: var(--surface-raised);
+  --color-surface-overlay: var(--surface-overlay);
   --color-surface-sunken: var(--surface-sunken);
   --color-foreground-muted: var(--foreground-muted);
   --color-border: var(--border-subtle);

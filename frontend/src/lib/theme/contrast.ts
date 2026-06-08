@@ -129,7 +129,7 @@ const MIN = { text: 4.5, ui: 3 } as const;
 // surface it can sit on; the accent (used for active nav labels + icons, which
 // are large/semibold) must clear AA large/UI.
 const TEXT_FG = ["--foreground", "--foreground-muted"];
-const SURFACES = ["--surface", "--surface-raised", "--surface-sunken"];
+const SURFACES = ["--surface", "--surface-raised", "--surface-overlay", "--surface-sunken"];
 const UI_FG = ["--accent"];
 
 // Sequence-editor canvas legibility. The base letters and the translation

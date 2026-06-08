@@ -311,7 +311,14 @@ export default function LivingPopup({
     : [
         "pointer-events-auto w-full",
         widthClassName,
-        card ? "rounded-2xl bg-surface-raised shadow-2xl ring-1 ring-black/5" : "",
+        // A popup must always read as a contained surface. It sits on the top
+        // elevation (bg-surface-overlay, lighter than the page and than inner
+        // cards in dark mode) AND carries a real border, because the shadow/ring
+        // are black and invisible on a dark background. Without this a popup is
+        // the same near-black as the page and disappears (Grant 2026-06-08).
+        card
+          ? "rounded-2xl bg-surface-overlay border border-border shadow-2xl ring-1 ring-black/5"
+          : "",
         padded ? "p-6 sm:p-8" : "",
         fillHeight ? "max-h-[88vh] flex flex-col overflow-hidden" : "",
       ]
