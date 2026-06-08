@@ -70,13 +70,14 @@ local on each device; only create / done / dismiss events sync.
 ## Feature 1: context-aware capture routing (the Telegram behaviour)
 
 When the phone sends a photo / note / scan, it checks the focus context:
-- Experiment open -> suggest "Send to <experiment name>" as the primary
-  action, with "Send to inbox instead" as the secondary.
+- Experiment open -> ask "Lab notes or Results?", the user picks; the laptop
+  auto-switches to that tab and places the item there (per locked decision B).
+  "Send to inbox instead" is always one tap away.
 - Nothing open -> send to the inbox (today's behaviour), no prompt.
-- Always allow overriding to the inbox.
 
-This is the smallest feature and the natural first milestone, since it only
-adds a suggestion on top of the existing capture send.
+This is the smallest feature and the natural first milestone, since it adds the
+Notes/Results pick + targeted routing on top of the existing capture send and
+reuses SendToTaskPicker's existing choice UI.
 
 ## Feature 2: calculator -> notebook export
 
@@ -107,8 +108,10 @@ sound/vibration toggles, animation always; default sound+vibration+animation):
 - Laptop: option to never play sound, only show the visual; or sound + visual.
 - Default everywhere: the full experience with the musical (Chime) sound.
 
-Needs: timers become a synced entity through the relay (create / tick is local,
-but create + done + dismiss events sync), plus the laptop-side timer UI + alarm.
+Needs: timers become a synced entity through the relay (tick is local on each
+device, but create / done / dismiss events sync), plus a full laptop-side timers
+panel (create / list / cancel, two-way per locked decision C) and the laptop
+alarm. No laptop timer exists today, so this is the most net-new of the three.
 
 ## Suggested phasing (each is its own sign-off + build)
 
@@ -152,14 +155,15 @@ sets the (newly lifted) store tab state.
 3. Transport: relay-DO lanes (the phone is not a collab peer). Timer ticks are
    local; only create/done/dismiss sync. No need for the collab DO here.
 
-## Remaining decisions for you
+## Locked decisions (2026-06-08)
 
-- A. Do you want the laptop to AUTO-SWITCH its visible tab when the phone
-  exports to the non-active doc, or just append silently and show a toast? (I
-  lean auto-switch, since you described it that way.)
-- B. For capture routing, when an experiment is open, should "Send to <exp>" be
-  the default with inbox as one tap away, or always ask? (I lean default-to-open
-  with an easy inbox override.)
-- C. Timer sync needs a laptop timer UI built from scratch. Is a small timers
-  panel on the laptop in scope, or is the laptop side just the alarm (fires +
-  dismiss) with creation staying phone-only for v1?
+- A. Auto-switch + append. When the phone exports to a doc that is not the
+  visible tab, the laptop auto-switches to Lab Notes or Results and appends the
+  line at the correct new-line position.
+- B. Captures to an open experiment ASK Notes vs Results (let the user pick),
+  then auto-switch the laptop to that tab and place the item there. When nothing
+  is open, route to the inbox; inbox override always available. So captures and
+  calc export share one "pick Notes/Results -> auto-switch -> place correctly"
+  behavior.
+- C. Full laptop timers panel. The laptop gets a real two-way timers panel
+  (create / list / cancel), not just a fire-and-dismiss alarm.
