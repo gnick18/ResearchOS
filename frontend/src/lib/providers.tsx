@@ -45,6 +45,7 @@ import SharedFolderAutoRefresh from "@/components/SharedFolderAutoRefresh";
 import CaptureInboxPoller from "@/components/CaptureInboxPoller";
 import FocusContextPublisher from "@/components/FocusContextPublisher";
 import DevEphemeralSessionButton from "@/components/DevEphemeralSessionButton";
+import DevRestartServerButton from "@/components/DevRestartServerButton";
 import IdentitySessionRestorer from "@/components/IdentitySessionRestorer";
 import TodaySnapshotPublisher from "@/components/TodaySnapshotPublisher";
 import DataMigrationRunner from "@/components/DataMigrationRunner";
@@ -674,6 +675,9 @@ export function Providers({ children }: { children: ReactNode }) {
             an identity, and signs in with no folder picker. Renders nothing in
             production or once a user is signed in. (mobile manager) */}
         <DevEphemeralSessionButton />
+        {/* Dev-only: rerun ./start.sh to restart the dev server without the
+            terminal. Mounted here so it floats on every surface in dev. */}
+        <DevRestartServerButton />
         <OpenDocsButton />
         {/* Global host for fire-and-forget easter-egg scenes (BugStomp,
             etc.). Mounted at this level — above AppContent — so the
