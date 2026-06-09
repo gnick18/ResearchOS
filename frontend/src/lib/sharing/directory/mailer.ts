@@ -13,7 +13,7 @@ import { EMAIL_COLORS, escapeHtml, renderEmailLayout } from "@/lib/email/layout"
 let resendSingleton: Resend | null = null;
 
 const FROM_ADDRESS =
-  process.env.EMAIL_FROM_ADDRESS ?? "ResearchOS <noreply@research-os.app>";
+  process.env.EMAIL_FROM_ADDRESS ?? "ResearchOS <support@research-os.app>";
 
 /**
  * Lazily constructs the Resend client from RESEND_API_KEY. Throws a clear error

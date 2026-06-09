@@ -14,7 +14,7 @@ import { recordEmailSent } from "@/lib/sharing/directory/db";
 let resendSingleton: Resend | null = null;
 
 const FROM_ADDRESS =
-  process.env.EMAIL_FROM_ADDRESS ?? "ResearchOS <noreply@research-os.app>";
+  process.env.EMAIL_FROM_ADDRESS ?? "ResearchOS <support@research-os.app>";
 
 function getResend(): Resend {
   if (resendSingleton) return resendSingleton;

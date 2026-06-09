@@ -23,7 +23,7 @@ let resendSingleton: Resend | null = null;
 
 /** Branded invite from-address, shared with the cross-lab invite sender. */
 const INVITE_FROM_ADDRESS =
-  process.env.RESEND_INVITE_FROM ?? "ResearchOS <share@research-os.app>";
+  process.env.RESEND_INVITE_FROM ?? "ResearchOS <support@research-os.app>";
 
 function getResend(): Resend {
   if (resendSingleton) return resendSingleton;

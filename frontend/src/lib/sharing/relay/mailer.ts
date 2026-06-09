@@ -42,7 +42,7 @@ let resendSingleton: Resend | null = null;
  * domain verified in Resend first.
  */
 const INVITE_FROM_ADDRESS =
-  process.env.RESEND_INVITE_FROM ?? "ResearchOS <share@research-os.app>";
+  process.env.RESEND_INVITE_FROM ?? "ResearchOS <support@research-os.app>";
 
 /**
  * Lazily constructs the Resend client from RESEND_API_KEY. Throws a clear error
