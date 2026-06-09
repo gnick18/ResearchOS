@@ -7,11 +7,16 @@
 // language. Local only here; cross-device sync + the alarm overlay land in later
 // chunks. House style: no em-dashes, no emojis, no mid-sentence colons.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import LivingPopup from "@/components/ui/LivingPopup";
 import { Icon } from "@/components/icons";
 import { useTimersPopup } from "@/lib/ui/timers-popup-store";
+import { useFileSystem } from "@/lib/file-system/file-system-context";
+import {
+  readUserSettings,
+  patchUserSettings,
+} from "@/lib/settings/user-settings";
 import {
   useLaptopTimerStore,
   remainingSec,
@@ -159,6 +164,69 @@ function NewTimer() {
   );
 }
 
+// Per-device laptop alarm setting (Phase 3 chunk 6). Reads + writes
+// laptopAlarmMode. The phone keeps its own sound/vibration settings.
+function AlarmModeSetting() {
+  const { currentUser } = useFileSystem();
+  const [mode, setMode] = useState<"sound-visual" | "visual-only">(
+    "sound-visual",
+  );
+
+  useEffect(() => {
+    let active = true;
+    if (!currentUser) return;
+    void readUserSettings(currentUser).then((s) => {
+      if (active) setMode(s.laptopAlarmMode);
+    });
+    return () => {
+      active = false;
+    };
+  }, [currentUser]);
+
+  const choose = (next: "sound-visual" | "visual-only") => {
+    setMode(next);
+    if (currentUser) {
+      void patchUserSettings(currentUser, { laptopAlarmMode: next });
+    }
+  };
+
+  const opt = (
+    value: "sound-visual" | "visual-only",
+    icon: "alarmClock" | "eye",
+    label: string,
+  ) => {
+    const on = mode === value;
+    return (
+      <button
+        type="button"
+        onClick={() => choose(value)}
+        className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-meta font-semibold transition-colors ${
+          on
+            ? "bg-sky-500 text-white"
+            : "bg-surface-raised text-foreground-muted hover:text-foreground"
+        }`}
+      >
+        <Icon name={icon} className="h-3.5 w-3.5" />
+        {label}
+      </button>
+    );
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-surface-sunken p-3.5">
+      <div className="text-body font-semibold text-foreground">Laptop alarm</div>
+      <div className="text-meta text-foreground-muted mb-2.5">
+        How this laptop alerts when a timer finishes. Your phone keeps its own
+        sound settings.
+      </div>
+      <div className="flex gap-2">
+        {opt("sound-visual", "alarmClock", "Sound + visual")}
+        {opt("visual-only", "eye", "Visual only")}
+      </div>
+    </div>
+  );
+}
+
 export default function TimersPopup() {
   const isOpen = useTimersPopup((s) => s.isOpen);
   const origin = useTimersPopup((s) => s.origin);
@@ -231,6 +299,8 @@ export default function TimersPopup() {
               ))}
             </>
           ) : null}
+
+          <AlarmModeSetting />
         </div>
       </div>
     </LivingPopup>
