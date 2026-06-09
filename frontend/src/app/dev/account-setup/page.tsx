@@ -1,19 +1,20 @@
 "use client";
 
-// Dev preview for the account-setup revamp (Phase A + C). Renders the opening
-// Splash and the AccountTierChooser in isolation so they can be reviewed and
-// verified live WITHOUT touching the real entry gate (providers.tsx /
-// ResearchFolderSetupNew). The real wiring is Phase B. This route is dev-only.
+// Dev preview for the account-setup revamp. Renders the opening Splash, the
+// StartScreen front door, the AccountTierChooser, and the SuccessTransition in
+// isolation so the full flow can be reviewed and verified live WITHOUT a fresh
+// folder and without touching the real entry gate. This route is dev-only.
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import { useState } from "react";
 
 import { AccountTierChooser, type AccountTier } from "@/components/onboarding/AccountTierChooser";
+import { StartScreen } from "@/components/onboarding/StartScreen";
 import { Splash } from "@/components/onboarding/Splash";
 import { SuccessTransition } from "@/components/onboarding/SuccessTransition";
 
-type Stage = "splash" | "chooser" | "success";
+type Stage = "splash" | "start" | "start-returning" | "chooser" | "success";
 
 export default function AccountSetupPreviewPage() {
   const [stage, setStage] = useState<Stage>("splash");
@@ -21,7 +22,15 @@ export default function AccountSetupPreviewPage() {
 
   return (
     <main className="min-h-screen bg-surface">
-      {stage === "splash" && <Splash onComplete={() => setStage("chooser")} />}
+      {stage === "splash" && <Splash onComplete={() => setStage("start")} />}
+
+      {(stage === "start" || stage === "start-returning") && (
+        <StartScreen
+          returning={stage === "start-returning"}
+          onOpenFolder={() => setStage("success")}
+          onCreateAccount={() => setStage("chooser")}
+        />
+      )}
 
       {stage === "chooser" && (
         <div className="py-10">
@@ -43,6 +52,12 @@ export default function AccountSetupPreviewPage() {
         <span className="text-foreground-muted">preview:</span>
         <button className="font-semibold text-brand-action" onClick={() => setStage("splash")}>
           Replay splash
+        </button>
+        <button className="font-semibold text-brand-action" onClick={() => setStage("start")}>
+          Start (fresh)
+        </button>
+        <button className="font-semibold text-brand-action" onClick={() => setStage("start-returning")}>
+          Start (returning)
         </button>
         <button className="font-semibold text-brand-action" onClick={() => setStage("chooser")}>
           Chooser
