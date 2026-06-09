@@ -101,6 +101,10 @@ function parseEntity(raw: unknown): EntityConfig | null {
     typeof o.appleEnrollmentDate === "string" && ISO_DATE.test(o.appleEnrollmentDate)
       ? o.appleEnrollmentDate
       : null;
+  const googleEnrollmentDate =
+    typeof o.googleEnrollmentDate === "string" && ISO_DATE.test(o.googleEnrollmentDate)
+      ? o.googleEnrollmentDate
+      : null;
   const reservePctRaw = Number(o.reservePct);
   const reservePct = Number.isFinite(reservePctRaw)
     ? Math.min(Math.max(reservePctRaw, 0), 100)
@@ -120,6 +124,7 @@ function parseEntity(raw: unknown): EntityConfig | null {
     appleEnrollmentDate,
     googlePlayAccount:
       o.googlePlayAccount == null ? null : asString(o.googlePlayAccount),
+    googleEnrollmentDate,
     bankLabel: o.bankLabel == null ? null : asString(o.bankLabel),
     docsFolder: o.docsFolder == null ? null : asString(o.docsFolder),
     salesTaxStatus,

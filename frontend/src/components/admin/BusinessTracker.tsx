@@ -258,23 +258,45 @@ function EntityCard({
         )}
         {field(
           "Apple enrollment date (renews yearly)",
-          <input
-            type="date"
-            className={input}
-            value={form.appleEnrollmentDate ?? ""}
-            onChange={(e) =>
-              setForm({ ...form, appleEnrollmentDate: e.target.value || null })
-            }
-          />,
+          <>
+            <input
+              type="date"
+              className={input}
+              value={form.appleEnrollmentDate ?? ""}
+              onChange={(e) =>
+                setForm({ ...form, appleEnrollmentDate: e.target.value || null })
+              }
+            />
+            <p className="mt-1 text-meta text-foreground-muted">
+              $99/year membership. Auto-logged to the ledger once a date is set.
+            </p>
+          </>,
         )}
         {field(
           "Google Play account",
+          <>
+            <input
+              className={input}
+              placeholder="gnick317@gmail.com / dev account ID"
+              value={form.googlePlayAccount ?? ""}
+              onChange={(e) =>
+                setForm({ ...form, googlePlayAccount: e.target.value || null })
+              }
+            />
+            <p className="mt-1 text-meta text-foreground-muted">
+              $25 one-time registration fee. Auto-logged to the ledger once the
+              account is filled in.
+            </p>
+          </>,
+        )}
+        {field(
+          "Google Play registration date",
           <input
+            type="date"
             className={input}
-            placeholder="gnick317@gmail.com / dev account ID"
-            value={form.googlePlayAccount ?? ""}
+            value={form.googleEnrollmentDate ?? ""}
             onChange={(e) =>
-              setForm({ ...form, googlePlayAccount: e.target.value || null })
+              setForm({ ...form, googleEnrollmentDate: e.target.value || null })
             }
           />,
         )}

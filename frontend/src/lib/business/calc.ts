@@ -24,6 +24,9 @@ export interface EntityConfig {
   appleEnrollmentDate: string | null;
   /** Google Play developer account (email and/or developer account ID). */
   googlePlayAccount: string | null;
+  /** ISO date the Google Play developer account was registered. Dates the $25
+   *  one-time registration fee in the ledger. Null until set. */
+  googleEnrollmentDate: string | null;
   /** A label for the business bank account, never the account number. */
   bankLabel: string | null;
   /** Where the actual filed documents live on disk (the ResearchOS_LLC folder). */
@@ -150,6 +153,7 @@ export const DEFAULT_ENTITY: EntityConfig = {
   appleEnrollmentId: null,
   appleEnrollmentDate: null,
   googlePlayAccount: null,
+  googleEnrollmentDate: null,
   bankLabel: null,
   docsFolder: null,
   salesTaxStatus: "pending",
@@ -330,6 +334,61 @@ export function nextAppleRenewal(
     daysUntil: daysUntil(due, now),
     note: "$99/year, auto-renews. Cancel at least a day before if not continuing the iOS app.",
   };
+}
+
+// --- dev-account fees (auto-seeded into the ledger) ---
+
+/** The Apple Developer Program membership, $99/year. */
+export const APPLE_DEV_FEE_CENTS = 9900;
+/** The Google Play developer registration, $25 one-time. */
+export const GOOGLE_DEV_FEE_CENTS = 2500;
+/** Ledger source tags for the auto-seeded dev-account fees. db.ts reconciles
+ *  one ledger row per source, so these stay idempotent across re-saves. */
+export const APPLE_DEV_FEE_SOURCE = "apple-dev-fee";
+export const GOOGLE_DEV_FEE_SOURCE = "google-dev-fee";
+
+/** One auto-seeded dev-account fee, ready to reconcile into business_ledger. */
+export interface DevFeeSeed {
+  source: string;
+  /** ISO date "YYYY-MM-DD". */
+  date: string;
+  amountCents: number;
+  category: string;
+  note: string;
+}
+
+/**
+ * The dev-account fees that should appear in the ledger for this entity config.
+ * Pure. db.ts reconciles each into business_ledger idempotently by source, so a
+ * fee is logged once and its date stays in sync with the enrollment date. The
+ * Apple fee is dated at the enrollment date; the Google fee at its enrollment
+ * date, falling back to todayISO (a one-time fee still needs a date for the
+ * books). A fee is only seeded once its account / enrollment is filled in.
+ */
+export function devAccountFeeSeeds(
+  config: EntityConfig,
+  todayISO: string,
+): DevFeeSeed[] {
+  const out: DevFeeSeed[] = [];
+  if (config.appleEnrollmentDate) {
+    out.push({
+      source: APPLE_DEV_FEE_SOURCE,
+      date: config.appleEnrollmentDate,
+      amountCents: APPLE_DEV_FEE_CENTS,
+      category: "Dev accounts",
+      note: "Apple Developer Program enrollment ($99/year)",
+    });
+  }
+  if (config.googlePlayAccount) {
+    out.push({
+      source: GOOGLE_DEV_FEE_SOURCE,
+      date: config.googleEnrollmentDate ?? todayISO,
+      amountCents: GOOGLE_DEV_FEE_CENTS,
+      category: "Dev accounts",
+      note: "Google Play developer registration ($25 one-time)",
+    });
+  }
+  return out;
 }
 
 export function upcomingDeadlines(

@@ -3,7 +3,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  APPLE_DEV_FEE_CENTS,
+  APPLE_DEV_FEE_SOURCE,
+  DEFAULT_ENTITY,
+  GOOGLE_DEV_FEE_CENTS,
+  GOOGLE_DEV_FEE_SOURCE,
   computeSummary,
+  devAccountFeeSeeds,
   emailArchiveMarkdown,
   formatUSD,
   nextFederalEstimate,
@@ -103,6 +109,7 @@ describe("upcomingDeadlines", () => {
       appleEnrollmentId: null,
       appleEnrollmentDate: null,
       googlePlayAccount: null,
+      googleEnrollmentDate: null,
       bankLabel: null,
       docsFolder: null,
       salesTaxStatus: "pending",
@@ -117,6 +124,62 @@ describe("upcomingDeadlines", () => {
     const noDate = { ...withDate, formationDate: null };
     const list2 = upcomingDeadlines(noDate, new Date("2026-05-01T00:00:00Z"));
     expect(list2.map((d) => d.key)).toEqual(["fed-estimate"]);
+  });
+});
+
+describe("devAccountFeeSeeds", () => {
+  const today = "2026-06-09";
+
+  it("seeds nothing when neither dev account is filled in", () => {
+    expect(devAccountFeeSeeds(DEFAULT_ENTITY, today)).toEqual([]);
+  });
+
+  it("seeds the Apple $99 fee dated at the enrollment date", () => {
+    const config: EntityConfig = {
+      ...DEFAULT_ENTITY,
+      appleEnrollmentDate: "2026-06-01",
+    };
+    const seeds = devAccountFeeSeeds(config, today);
+    expect(seeds).toHaveLength(1);
+    expect(seeds[0].source).toBe(APPLE_DEV_FEE_SOURCE);
+    expect(seeds[0].amountCents).toBe(APPLE_DEV_FEE_CENTS);
+    expect(seeds[0].date).toBe("2026-06-01");
+  });
+
+  it("seeds the Google $25 fee dated at its enrollment date when set", () => {
+    const config: EntityConfig = {
+      ...DEFAULT_ENTITY,
+      googlePlayAccount: "gnick317@gmail.com",
+      googleEnrollmentDate: "2026-06-05",
+    };
+    const seeds = devAccountFeeSeeds(config, today);
+    expect(seeds).toHaveLength(1);
+    expect(seeds[0].source).toBe(GOOGLE_DEV_FEE_SOURCE);
+    expect(seeds[0].amountCents).toBe(GOOGLE_DEV_FEE_CENTS);
+    expect(seeds[0].date).toBe("2026-06-05");
+  });
+
+  it("falls back to today for the Google fee when no registration date is set", () => {
+    const config: EntityConfig = {
+      ...DEFAULT_ENTITY,
+      googlePlayAccount: "gnick317@gmail.com",
+    };
+    const seeds = devAccountFeeSeeds(config, today);
+    expect(seeds[0].date).toBe(today);
+  });
+
+  it("seeds both fees when both accounts are filled in", () => {
+    const config: EntityConfig = {
+      ...DEFAULT_ENTITY,
+      appleEnrollmentDate: "2026-06-01",
+      googlePlayAccount: "gnick317@gmail.com",
+      googleEnrollmentDate: "2026-06-05",
+    };
+    const seeds = devAccountFeeSeeds(config, today);
+    expect(seeds.map((s) => s.source)).toEqual([
+      APPLE_DEV_FEE_SOURCE,
+      GOOGLE_DEV_FEE_SOURCE,
+    ]);
   });
 });
 

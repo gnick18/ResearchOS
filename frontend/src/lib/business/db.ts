@@ -15,6 +15,7 @@ import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 
 import {
   DEFAULT_ENTITY,
+  devAccountFeeSeeds,
   type BusinessEmail,
   type BusinessTask,
   type EntityConfig,
@@ -75,6 +76,7 @@ export async function ensureBusinessSchema(): Promise<void> {
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS apple_enrollment_id text`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS apple_enrollment_date date`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS google_play_account text`;
+  await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS google_enrollment_date date`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS bank_label text`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS docs_folder text`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS sales_tax_status text`;
@@ -201,6 +203,7 @@ type EntityRow = {
   apple_enrollment_id: string | null;
   apple_enrollment_date: string | null;
   google_play_account: string | null;
+  google_enrollment_date: string | null;
   bank_label: string | null;
   docs_folder: string | null;
   sales_tax_status: string | null;
@@ -233,6 +236,7 @@ function rowToEntity(r: EntityRow): EntityConfig {
     appleEnrollmentId: r.apple_enrollment_id ?? null,
     appleEnrollmentDate: toIsoDateString(r.apple_enrollment_date),
     googlePlayAccount: r.google_play_account ?? null,
+    googleEnrollmentDate: toIsoDateString(r.google_enrollment_date),
     bankLabel: r.bank_label ?? null,
     docsFolder: r.docs_folder ?? null,
     salesTaxStatus: normalizeSalesTaxStatus(r.sales_tax_status),
@@ -247,7 +251,8 @@ export async function getEntity(): Promise<EntityConfig> {
   const rows = (await sql`
     SELECT legal_name, state, entity_id, formation_date, ein, registered_agent,
            apple_enrollment_id, apple_enrollment_date, google_play_account,
-           bank_label, docs_folder, sales_tax_status, sales_tax_note, reserve_pct
+           google_enrollment_date, bank_label, docs_folder, sales_tax_status,
+           sales_tax_note, reserve_pct
     FROM business_entity WHERE id = 1
   `) as EntityRow[];
   if (!rows.length) return { ...DEFAULT_ENTITY };
@@ -260,13 +265,15 @@ export async function upsertEntity(config: EntityConfig): Promise<EntityConfig> 
   await sql`
     INSERT INTO business_entity
       (id, legal_name, state, entity_id, formation_date, ein, registered_agent,
-       apple_enrollment_id, apple_enrollment_date, google_play_account, bank_label,
+       apple_enrollment_id, apple_enrollment_date, google_play_account,
+       google_enrollment_date, bank_label,
        docs_folder, sales_tax_status, sales_tax_note, reserve_pct, updated_at)
     VALUES
       (1, ${config.legalName}, ${config.state}, ${config.entityId},
        ${config.formationDate}, ${config.ein}, ${config.registeredAgent},
        ${config.appleEnrollmentId}, ${config.appleEnrollmentDate},
-       ${config.googlePlayAccount}, ${config.bankLabel}, ${config.docsFolder},
+       ${config.googlePlayAccount}, ${config.googleEnrollmentDate},
+       ${config.bankLabel}, ${config.docsFolder},
        ${config.salesTaxStatus}, ${config.salesTaxNote}, ${config.reservePct}, now())
     ON CONFLICT (id) DO UPDATE SET
       legal_name = EXCLUDED.legal_name,
@@ -278,6 +285,7 @@ export async function upsertEntity(config: EntityConfig): Promise<EntityConfig> 
       apple_enrollment_id = EXCLUDED.apple_enrollment_id,
       apple_enrollment_date = EXCLUDED.apple_enrollment_date,
       google_play_account = EXCLUDED.google_play_account,
+      google_enrollment_date = EXCLUDED.google_enrollment_date,
       bank_label = EXCLUDED.bank_label,
       docs_folder = EXCLUDED.docs_folder,
       sales_tax_status = EXCLUDED.sales_tax_status,
@@ -285,7 +293,41 @@ export async function upsertEntity(config: EntityConfig): Promise<EntityConfig> 
       reserve_pct = EXCLUDED.reserve_pct,
       updated_at = now()
   `;
+  await reconcileDevAccountFees(sql, config);
   return getEntity();
+}
+
+/**
+ * Auto-seeds the dev-account fees (Apple $99/year, Google Play $25 one-time) into
+ * the ledger so they flow into the books without manual entry. Idempotent by the
+ * ledger `source` tag: one row per fee, inserted the first time the enrollment is
+ * filled in, and its date re-synced to the enrollment date on later saves. The
+ * amount, category, and note are left untouched on an existing row, so any manual
+ * edit to the entry survives. Deleting the row and re-saving re-seeds it, by
+ * design (the fee is a real, recurring fact of the books).
+ */
+async function reconcileDevAccountFees(
+  sql: NeonQueryFunction<false, false>,
+  config: EntityConfig,
+): Promise<void> {
+  const todayISO = new Date().toISOString().slice(0, 10);
+  for (const seed of devAccountFeeSeeds(config, todayISO)) {
+    const existing = (await sql`
+      SELECT id FROM business_ledger WHERE source = ${seed.source} LIMIT 1
+    `) as unknown[];
+    if (existing.length === 0) {
+      await sql`
+        INSERT INTO business_ledger
+          (entry_date, direction, category, amount_cents, note, source)
+        VALUES
+          (${seed.date}, 'out', ${seed.category}, ${seed.amountCents}, ${seed.note}, ${seed.source})
+      `;
+    } else {
+      await sql`
+        UPDATE business_ledger SET entry_date = ${seed.date} WHERE source = ${seed.source}
+      `;
+    }
+  }
 }
 
 type TaskRow = {
