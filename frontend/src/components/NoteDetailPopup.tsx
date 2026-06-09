@@ -33,6 +33,7 @@ import CommentsSidebar from "./CommentsSidebar";
 import ReceivedFromBadge from "./ReceivedFromBadge";
 import Tooltip from "./Tooltip";
 import { focusWithoutTooltip } from "./tooltip-focus";
+import { usePhonePaired } from "@/hooks/usePhonePaired";
 import { useFileRenamePopup } from "./FileRenamePopup";
 import { useDuplicateResolver } from "./DuplicateUploadDialog";
 import { fileService } from "@/lib/file-system/file-service";
@@ -230,6 +231,8 @@ export default function NoteDetailPopup({
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
   const [title, setTitle] = useState(note.title);
+  // True when a phone is companion-paired, so the header can show the link.
+  const phonePaired = usePhonePaired();
   const [description, setDescription] = useState(note.description);
   const [entries, setEntries] = useState<NoteEntry[]>(note.entries);
   const [saving, setSaving] = useState(false);
@@ -1459,6 +1462,22 @@ export default function NoteDetailPopup({
                 >
                   {title}
                 </h2>
+              )}
+
+              {/* Phone-paired indicator. Mirrors the experiment popup so the
+                  user can see a phone companion is linked. Hidden when no phone
+                  is paired. */}
+              {phonePaired && (
+                <Tooltip label="Phone companion is paired" placement="bottom">
+                  <span className="mt-1 inline-flex w-fit items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-meta font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                    <Icon name="phone" className="h-3.5 w-3.5" />
+                    <span>Phone linked</span>
+                    <span
+                      aria-hidden
+                      className="h-1.5 w-1.5 rounded-full bg-emerald-500"
+                    />
+                  </span>
+                </Tooltip>
               )}
 
               {/* Description */}

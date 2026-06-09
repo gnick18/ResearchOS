@@ -23,6 +23,8 @@ import CommentsThread from "./CommentsThread";
 import CommentsSidebar from "./CommentsSidebar";
 import ReceivedFromBadge from "./ReceivedFromBadge";
 import Tooltip from "./Tooltip";
+import { Icon } from "@/components/icons";
+import { usePhonePaired } from "@/hooks/usePhonePaired";
 import { focusWithoutTooltip } from "./tooltip-focus";
 import LivingPopup from "@/components/ui/LivingPopup";
 import { useAppStore } from "@/lib/store";
@@ -193,6 +195,9 @@ export default function TaskDetailPopup({
   // first then the pending flag fires the edit-mode transition.
   const [pendingEnterEdit, setPendingEnterEdit] = useState(false);
   const { currentUser } = useCurrentUser();
+  // True when a phone is paired, so the tab bar can show that a snapped photo
+  // will route to the open experiment (and which tab) rather than the inbox.
+  const phonePaired = usePhonePaired();
   const accountType = useAccountType(currentUser);
   // The PI-role boolean for the header button, derived from accountType so the
   // loading `undefined` is preserved (matching useIsLabHead). accountType is
@@ -1585,6 +1590,29 @@ export default function TaskDetailPopup({
               </button>
             );
           })}
+          {/* Phone-paired indicator. When a phone is companion-paired, show that
+              a snapped photo will route to this open experiment, and name the
+              tab it lands on (the phone asks Lab Notes vs Results, defaulting to
+              whichever editor tab is in view). Hidden when no phone is paired. */}
+          {phonePaired && !isPurchase && (
+            <div className="ml-auto flex items-center pr-1">
+              <Tooltip
+                label={`Paired phone will send photos to ${
+                  activeTab === "results" ? "Results" : "Lab Notes"
+                }`}
+                placement="bottom"
+              >
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1 text-meta font-medium text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">
+                  <Icon name="phone" className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Phone linked</span>
+                  <span
+                    aria-hidden
+                    className="h-1.5 w-1.5 rounded-full bg-emerald-500"
+                  />
+                </span>
+              </Tooltip>
+            </div>
+          )}
         </div>
 
         {/* VC Phase 3 (Task): restore / undo-restore error + Case-C fallback
