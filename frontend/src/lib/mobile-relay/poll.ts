@@ -72,11 +72,20 @@ import { imageEvents } from "@/lib/attachments/image-events";
 import { sidecarPath, type ImageSidecar } from "@/lib/attachments/image-folder";
 import {
   ackCaptures,
+  ackCommands,
   fetchInbox,
   fetchObject,
+  pollCommands,
   type PendingCapture,
   type UserCaptureKeys,
 } from "@/lib/mobile-relay/client";
+import { openSealed } from "@/lib/sharing/encryption";
+import { hexToBytes } from "@noble/hashes/utils.js";
+import { loadIdentity } from "@/lib/sharing/identity/storage";
+import {
+  taskNotesBase,
+  taskResultsTabBase,
+} from "@/lib/tasks/results-paths";
 import { addReorderQueueItem } from "@/lib/purchases/reorder-queue";
 import {
   loadSeenCaptures,
@@ -183,6 +192,30 @@ interface CreateInventoryPayload {
   unitsPerScan?: number | string;
   totalUnits?: number | string;
   unitLabel?: string;
+}
+
+// ── Phase 1 command channel ─────────────────────────────────────────────────
+
+/**
+ * A route-capture command, sealed by the phone and polled by the laptop.
+ * The phone seals this JSON to the user's X25519 public key and POSTs it via
+ * postCommand. The laptop's runCaptureInboxPoll unseals it, maps the captureId
+ * to a task folder, and routes the matching inbox image there instead of to the
+ * default inbox path.
+ *
+ * Phase 2 will add append-line, switch-tab, and timer commands. Unknown types
+ * are intentionally left un-acked (a TTL on the relay handles eventual cleanup).
+ */
+interface RouteCaptureCommand {
+  type: "route-capture";
+  /** The captureId of the relay inbox item to route. */
+  captureId: string;
+  /** Numeric task id (matches ActiveTask.id in the store). */
+  taskId: number;
+  /** Owner username (matches ActiveTask.owner). */
+  owner: string;
+  /** Which editor tab the image should land in. */
+  tab: "notes" | "results";
 }
 
 /**
@@ -641,6 +674,79 @@ export async function runCaptureInboxPoll(
 ): Promise<PollResult> {
   console.info(`${LOG_PREFIX} poll start for ${currentUser}`);
 
+  // ── Phase 1 command poll ────────────────────────────────────────────────
+  // Poll any pending commands from paired phones before pulling the inbox so
+  // the route map is ready before we process images.
+  //
+  // Only route-capture commands are handled here. Unknown types (append-line,
+  // switch-tab, timer, etc. from future phases) are NOT acked so they are not
+  // lost before their handler lands. A brief comment acknowledges the
+  // un-bounded growth risk; the relay TTL (set by the worker) is the guard.
+  const routeMap = new Map<string, { taskId: number; owner: string; tab: "notes" | "results"; commandId: string }>();
+
+  // Load the user's X25519 private key for unsealing commands. The relay
+  // seals each command to the user's identity encryption key, which is
+  // identity.keys.encryption.privateKey. loadIdentity() returns the same
+  // unlocked record that loadUserCaptureKeys reads signing from.
+  let x25519PrivateKey: Uint8Array | null = null;
+  try {
+    const identity = await loadIdentity();
+    if (identity) {
+      x25519PrivateKey = identity.keys.encryption.privateKey;
+    }
+  } catch (err) {
+    console.warn(`${LOG_PREFIX} could not load identity for command unsealing`, err instanceof Error ? err.message : String(err));
+  }
+
+  if (x25519PrivateKey !== null) {
+    try {
+      const commands = await pollCommands(keys);
+      if (commands.length > 0) {
+        console.info(`${LOG_PREFIX} ${commands.length} pending command(s)`);
+      }
+      for (const cmd of commands) {
+        try {
+          const sealedBytes = hexToBytes(cmd.sealed);
+          const plaintext = openSealed(sealedBytes, x25519PrivateKey);
+          const parsed = JSON.parse(new TextDecoder().decode(plaintext)) as { type?: string };
+
+          if (parsed.type === "route-capture") {
+            const rc = parsed as RouteCaptureCommand;
+            if (rc.captureId && typeof rc.taskId === "number" && rc.owner && (rc.tab === "notes" || rc.tab === "results")) {
+              routeMap.set(rc.captureId, {
+                taskId: rc.taskId,
+                owner: rc.owner,
+                tab: rc.tab,
+                commandId: cmd.commandId,
+              });
+              console.info(
+                `${LOG_PREFIX} route-capture command: captureId=${rc.captureId} -> task ${rc.owner}/${rc.taskId} tab=${rc.tab}`,
+              );
+            } else {
+              console.warn(`${LOG_PREFIX} route-capture command ${cmd.commandId} has invalid fields, skipping`);
+            }
+          } else {
+            // Unknown command type. Do NOT ack so a later phase can handle it.
+            // The relay TTL (configured on the worker) handles eventual cleanup
+            // so un-acked unknown commands do not accumulate unboundedly.
+            console.info(
+              `${LOG_PREFIX} unhandled command type ${String(parsed.type)}, leaving for a later phase`,
+            );
+          }
+        } catch (cmdErr) {
+          console.warn(
+            `${LOG_PREFIX} failed to unseal/parse command ${cmd.commandId}`,
+            cmdErr instanceof Error ? cmdErr.message : String(cmdErr),
+          );
+        }
+      }
+    } catch (pollErr) {
+      // Command poll is best-effort; a relay error must not block the inbox pull.
+      console.warn(`${LOG_PREFIX} pollCommands failed (continuing without route map)`, pollErr instanceof Error ? pollErr.message : String(pollErr));
+    }
+  }
+  // ── end command poll ────────────────────────────────────────────────────
+
   let pending: PendingCapture[];
   try {
     pending = await fetchInbox(keys);
@@ -700,22 +806,59 @@ export async function runCaptureInboxPoll(
       const caption = capture.caption ?? undefined;
 
       if (kind === "image") {
+        // Phase 1 route-capture: if a route-capture command maps this captureId
+        // to a specific task tab, land it there instead of the inbox.
+        const route = routeMap.get(capture.captureId);
+        let imageLandingPath: string;
+        let imageLandingTaskId: number;
+        let imageLandingOwner: string;
+        let routeCommandId: string | null = null;
+
+        if (route) {
+          try {
+            imageLandingPath =
+              route.tab === "results"
+                ? taskResultsTabBase({ id: route.taskId, owner: route.owner })
+                : taskNotesBase({ id: route.taskId, owner: route.owner });
+            imageLandingTaskId = route.taskId;
+            imageLandingOwner = route.owner;
+            routeCommandId = route.commandId;
+            console.info(
+              `${LOG_PREFIX} routing ${capture.captureId} -> ${imageLandingPath} (tab=${route.tab})`,
+            );
+          } catch (routeErr) {
+            // Path helpers failed unexpectedly; fall back to inbox.
+            console.warn(
+              `${LOG_PREFIX} route path build failed for ${capture.captureId}, falling back to inbox`,
+              routeErr instanceof Error ? routeErr.message : String(routeErr),
+            );
+            imageLandingPath = basePath;
+            imageLandingTaskId = 0;
+            imageLandingOwner = currentUser;
+          }
+        } else {
+          imageLandingPath = basePath;
+          imageLandingTaskId = 0;
+          imageLandingOwner = currentUser;
+        }
+
         const result = await attachImageToTask({
-          ownerUsername: currentUser,
-          taskId: 0,
-          basePath,
+          ownerUsername: imageLandingOwner,
+          taskId: imageLandingTaskId,
+          basePath: imageLandingPath,
           blob,
           suggestedFilename: suggestedImageFilename(capture),
           altText: caption,
         });
-        await writeCaptureSidecar(basePath, result.finalFilename, {
+        await writeCaptureSidecar(imageLandingPath, result.finalFilename, {
           source: "relay",
           caption,
           receivedAt: new Date().toISOString(),
         });
         console.info(
-          `${LOG_PREFIX} wrote ${basePath}/Images/${result.finalFilename}`,
+          `${LOG_PREFIX} wrote ${imageLandingPath}/Images/${result.finalFilename}`,
         );
+
         // Photo markup from the phone, written as the non-destructive
         // {imageName}.annot.json sidecar the web AnnotatedImage renderer reads,
         // so markup is editable across phone and laptop. Defensive: a malformed
@@ -724,15 +867,32 @@ export async function runCaptureInboxPoll(
           try {
             const doc = JSON.parse(capture.annotation) as AnnotationDoc;
             if (doc && Array.isArray(doc.shapes)) {
-              await writeAnnotations(basePath, result.finalFilename, doc);
+              await writeAnnotations(imageLandingPath, result.finalFilename, doc);
               console.info(
-                `${LOG_PREFIX} wrote ${basePath}/Images/${result.finalFilename}.annot.json`,
+                `${LOG_PREFIX} wrote ${imageLandingPath}/Images/${result.finalFilename}.annot.json`,
               );
             }
           } catch (err) {
             console.warn(
               `${LOG_PREFIX} skipped malformed annotation for ${result.finalFilename}`,
               err,
+            );
+          }
+        }
+
+        // After the capture is on disk, ack the route-capture command that
+        // directed it here (only if one existed). Acked here, after the write,
+        // so the command is not consumed if the image write fails.
+        if (routeCommandId) {
+          try {
+            await ackCommands(keys, [routeCommandId]);
+            console.info(`${LOG_PREFIX} acked route-capture command ${routeCommandId}`);
+          } catch (ackCmdErr) {
+            // Best-effort. The command will re-appear next poll; the capture is
+            // already in `seen`, so the image will not be written twice.
+            console.warn(
+              `${LOG_PREFIX} failed to ack route-capture command ${routeCommandId}`,
+              ackCmdErr instanceof Error ? ackCmdErr.message : String(ackCmdErr),
             );
           }
         }

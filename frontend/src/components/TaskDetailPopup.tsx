@@ -572,6 +572,19 @@ export default function TaskDetailPopup({
     return () => setActiveTask(null);
   }, [setActiveTask, task.id, task.owner, task.name]);
 
+  // Mirror the visible editor tab into the store so FocusContextPublisher can
+  // include the correct tab in the sealed focus context it sends to paired phones.
+  // Mapping: "notes" -> "notes", "results" -> "results", any other tab -> "other".
+  const setActiveTaskTab = useAppStore((s) => s.setActiveTaskTab);
+  useEffect(() => {
+    const mapped: "notes" | "results" | "other" =
+      activeTab === "notes" ? "notes"
+      : activeTab === "results" ? "results"
+      : "other";
+    setActiveTaskTab(mapped);
+    return () => setActiveTaskTab(null);
+  }, [setActiveTaskTab, activeTab]);
+
   // Onboarding v4 §6.6 `experiment-attach-method-open` sub-step advances
   // on this event so the follow-up sub-step's cursor script runs against
   // the now-mounted popup DOM. Only fires for experiment tasks (the §6.6

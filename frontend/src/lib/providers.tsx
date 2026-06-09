@@ -35,6 +35,7 @@ import WhatsNewManager from "@/components/WhatsNewManager";
 import WikiCaptureBodyClass from "@/components/WikiCaptureBodyClass";
 import SharedFolderAutoRefresh from "@/components/SharedFolderAutoRefresh";
 import CaptureInboxPoller from "@/components/CaptureInboxPoller";
+import FocusContextPublisher from "@/components/FocusContextPublisher";
 import IdentitySessionRestorer from "@/components/IdentitySessionRestorer";
 import TodaySnapshotPublisher from "@/components/TodaySnapshotPublisher";
 import DataMigrationRunner from "@/components/DataMigrationRunner";
@@ -427,6 +428,12 @@ function AppContent({ children }: { children: ReactNode }) {
           "today" task snapshot to each paired phone and publishes it to the
           relay. Headless, no-op when no identity is on hand. */}
       <TodaySnapshotPublisher />
+      {/* Mobile notebook integrations, Phase 1 (focus context): publishes the
+          open experiment + active tab to paired phones on a ~10-second interval
+          so the phone can route a bench photo directly to the open experiment's
+          Notes or Results tab instead of the inbox. Headless, no-op when no
+          identity is on hand or no experiment popup is open. */}
+      <FocusContextPublisher />
       {/* Auto on-disk data migrations (docs/proposals/AUTO_DATA_MIGRATIONS.md):
           runs pending idempotent format upgrades once per connected user folder,
           in the background, and shows a quiet "Updated N files" toast on change.

@@ -65,6 +65,12 @@ export interface ActiveNote {
 interface AppState extends ConnectionState {
   activeTask: ActiveTask | null;
   setActiveTask: (task: ActiveTask | null) => void;
+  /** Which editor tab is visible in the open TaskDetailPopup. Null when no
+   *  experiment popup is open. Written by TaskDetailPopup, read by
+   *  FocusContextPublisher to include the correct tab in the sealed focus
+   *  context it sends to paired phones. */
+  activeTaskTab: "notes" | "results" | "other" | null;
+  setActiveTaskTab: (tab: "notes" | "results" | "other" | null) => void;
   activeNote: ActiveNote | null;
   setActiveNote: (note: ActiveNote | null) => void;
 
@@ -190,6 +196,8 @@ export const useAppStore = create<AppState>()((set) => ({
 
   activeTask: null,
   setActiveTask: (task) => set({ activeTask: task }),
+  activeTaskTab: null,
+  setActiveTaskTab: (tab) => set({ activeTaskTab: tab }),
   activeNote: null,
   setActiveNote: (note) => set({ activeNote: note }),
 
