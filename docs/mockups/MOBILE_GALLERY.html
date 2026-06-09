@@ -1,0 +1,1487 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ResearchOS Mobile, current approved mockups</title>
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:#eef3f9; color:#111827; }
+  header.top { padding:26px 24px 18px; background-image:linear-gradient(90deg,#FFD2B0,#FFF1A8,#B7EBB1,#A6D2F4,#D6B5F0); }
+  header.top h1 { margin:0; font-size:25px; font-weight:800; color:#0e1525; }
+  header.top p { margin:6px 0 0; font-size:13.5px; color:#1f2937; max-width:780px; }
+  nav.toc { position:sticky; top:0; z-index:10; background:#ffffffee; backdrop-filter:blur(8px);
+    border-bottom:1px solid #e5e7eb; padding:10px 16px; display:flex; gap:8px; overflow-x:auto; white-space:nowrap; }
+  .chip { flex:0 0 auto; font:inherit; font-size:12.5px; font-weight:600; cursor:pointer; color:#374151;
+    background:#f1f5f9; border:1px solid #e5e7eb; border-radius:999px; padding:7px 12px; display:flex; gap:6px; align-items:center; }
+  .chip .tag { font-size:10px; font-weight:600; color:#94a3b8; }
+  .chip:hover { background:#e0eefb; color:#0c4a6e; }
+  .chip.active { background:#1AA0E6; border-color:#1AA0E6; color:#fff; }
+  .chip.active .tag { color:#d6ecfb; }
+  main { max-width:1120px; margin:0 auto; padding:14px 16px 70px; }
+  .panel { display:none; }
+  .panel.active { display:block; }
+  .label h2 { display:flex; align-items:center; gap:10px; margin:0; font-size:19px; font-weight:700; }
+  .num { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:7px; background:#1AA0E6; color:#fff; font-size:13px; font-weight:700; }
+  .meta { margin:5px 0 12px 34px; font-size:13px; color:#6b7280; }
+  .meta code { background:#eef2f7; padding:1px 6px; border-radius:5px; font-size:12px; color:#334155; }
+  .frame { background:#fff; border:1px solid #e5e7eb; border-radius:16px; overflow:hidden; box-shadow:0 1px 3px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.05); }
+  iframe { width:100%; border:0; display:block; height:1400px; background:#fff; }
+  footer { text-align:center; color:#9ca3af; font-size:12px; padding:26px; }
+</style></head>
+<body id="top">
+  <header class="top"><h1>ResearchOS Mobile</h1>
+    <p>Current approved mockups, every phone screen, popup, and flow. Pick a screen from the bar. Each panel is the live source mockup, embedded and style-isolated. Generated 2026-06-09.</p></header>
+  <nav class="toc"><button class="chip active" data-i="0">App master<span class="tag">Apple polish v2</span></button><button class="chip" data-i="1">Notebook chooser<span class="tag">Jun 9</span></button><button class="chip" data-i="2">Send destination<span class="tag">Jun 9</span></button><button class="chip" data-i="3">Inventory scan flow<span class="tag">Jun 8</span></button><button class="chip" data-i="4">Settings sheet<span class="tag">Jun 8</span></button><button class="chip" data-i="5">Lab alarm<span class="tag">overlay</span></button><button class="chip" data-i="6">Splash animation<span class="tag">Jun 8</span></button><button class="chip" data-i="7">Success burst<span class="tag">overlay</span></button><button class="chip" data-i="8">Calculator<span class="tag">display options</span></button></nav>
+  <main>
+    <section class="panel active" data-i="0">
+      <div class="label"><h2><span class="num">1</span>App master</h2>
+        <p class="meta"><code>2026-06-08-mobile-apple-polish-v2.html</code> &middot; splash, connect, pairing, today, send/capture, bulk label, calc, wiki, timers + the 5-tab bar</p></div>
+      <div class="frame"><iframe title="App master" srcdoc="<!doctype html>
+<html lang=&quot;en&quot; data-theme=&quot;light&quot;>
+<head>
+<meta charset=&quot;utf-8&quot; />
+<meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot; />
+<title>ResearchOS companion v2 - restructured (Connect + 5 tabs)</title>
+<style>
+  :root{
+    --sky:#1AA0E6; --purple:#5B47D6; --ink:#0b1320; --ink-2:#3c4656; --ink-3:#8a93a3;
+    --bg:#f2f3f7; --group:#ffffff; --sep:rgba(60,67,86,.10);
+    --card-shadow:0 1px 2px rgba(16,24,40,.05), 0 8px 24px rgba(16,24,40,.06);
+    --tabbar:rgba(248,249,252,.72);
+    --ok:#1a9c5b; --ok-bg:#e4f7ec; --danger:#e5484d; --danger-bg:#fdecec; --warn:#d98a0b; --warn-bg:#fdf3e2;
+    --r1:#FFD2B0; --r2:#FFF1A8; --r3:#B7EBB1; --r4:#A6D2F4; --r5:#D6B5F0;
+    --radius:18px; --page:#e9ebf1;
+  }
+  [data-theme=&quot;dark&quot;]{
+    --sky:#3aa6e8; --purple:#8170e6; --ink:#f5f7fb; --ink-2:#c3ccda; --ink-3:#7e8696;
+    --bg:#000000; --group:#15171c; --sep:rgba(255,255,255,.10);
+    --card-shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.5);
+    --tabbar:rgba(22,24,30,.66);
+    --ok:#3ddc8c; --ok-bg:rgba(45,160,100,.18); --danger:#ff6b6f; --danger-bg:rgba(229,72,77,.16); --warn:#f4b740; --warn-bg:rgba(217,138,11,.18);
+    --r1:#F97316; --r2:#E8920B; --r3:#16A34A; --r4:#0284C7; --r5:#9333EA; --page:#0a0b0e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--page);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,&quot;SF Pro Display&quot;,&quot;Segoe UI&quot;,Roboto,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .top{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--page) 88%,transparent);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--sep);padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .top h1{font-size:17px;margin:0;font-weight:700;letter-spacing:-.02em}.top .sub{font-size:12.5px;color:var(--ink-3)}
+  .spacer{flex:1}
+  .tbtn{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--sep);background:var(--group);color:var(--ink);border-radius:980px;padding:8px 15px;cursor:pointer}
+  .tbtn.brand{background:linear-gradient(135deg,var(--sky),var(--purple));color:#fff;border:none}
+  .legend{display:flex;gap:12px;font-size:12px;color:var(--ink-3);align-items:center;flex-wrap:wrap}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px}.dot.ok{background:#1a9c5b}.dot.warn{background:#d98a0b}.dot.none{background:#c4ccd6}
+  .wrap{max-width:1200px;margin:0 auto;padding:20px 20px 120px}
+  .intro{font-size:13px;color:var(--ink-2);max-width:900px;line-height:1.6;margin:8px 0 6px}
+  .grid{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start;margin-top:16px;justify-content:center}
+  .cell{width:330px}
+  .cap{display:flex;align-items:baseline;gap:8px;margin:0 2px 9px}.cap .n{font-size:14px;font-weight:700}.cap .d{font-size:12px;color:var(--ink-3)}
+  .badge{font-size:10.5px;font-weight:700;border-radius:980px;padding:2px 8px}
+  .badge.new{background:color-mix(in srgb,var(--purple) 16%,transparent);color:var(--purple)}
+  .badge.chg{background:var(--warn-bg);color:var(--warn)}
+  .badge.ok{background:var(--ok-bg);color:var(--ok)}
+  .phone{width:330px;height:680px;border-radius:46px;background:var(--bg);position:relative;overflow:hidden;border:10px solid #0c0d10;box-shadow:0 30px 60px rgba(16,24,40,.22),0 6px 16px rgba(16,24,40,.12)}
+  [data-theme=&quot;dark&quot;] .phone{border-color:#23262d}
+  .phone::after{content:&quot;&quot;;position:absolute;left:0;right:0;bottom:0;height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5));z-index:20}
+  .scr{position:absolute;inset:0;display:flex;flex-direction:column}
+  .statusbar{height:46px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 7px;font-size:13px;font-weight:600}
+  .statusbar .r{display:flex;gap:6px;align-items:center}
+  .content{flex:1;overflow:hidden;position:relative}
+  .scroll{position:absolute;inset:0;overflow:auto;padding:0 18px 96px}.scroll::-webkit-scrollbar{display:none}
+  .rainbow{height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5))}
+  .largetitle{font-size:32px;font-weight:800;letter-spacing:-.03em;margin:6px 2px 4px}
+  .subtitle{font-size:14px;color:var(--ink-3);margin:0 2px 16px;line-height:1.45}
+  .group{background:var(--group);border-radius:var(--radius);box-shadow:var(--card-shadow);overflow:hidden;margin-bottom:16px}
+  .row{display:flex;align-items:center;gap:13px;padding:14px 16px;position:relative}
+  .row + .row::before{content:&quot;&quot;;position:absolute;top:0;left:52px;right:0;height:1px;background:var(--sep)}
+  .row .ico{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff}
+  .row .tx{flex:1;min-width:0}.row .t{font-size:15px;font-weight:600;letter-spacing:-.01em}.row .s{font-size:12.5px;color:var(--ink-3);margin-top:1px}
+  .chev{color:var(--ink-3);opacity:.5}
+  .pill{font-size:11px;font-weight:700;padding:3px 9px;border-radius:980px}.pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.muted{background:var(--sep);color:var(--ink-3)}.pill.danger{background:var(--danger-bg);color:var(--danger)}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;border-radius:15px;padding:15px;font:inherit;font-size:16px;font-weight:650;cursor:pointer;transition:transform .12s}
+  .btn:active{transform:scale(.97)}.btn.primary{background:var(--sky);color:#fff}.btn.secondary{background:var(--group);color:var(--sky);box-shadow:var(--card-shadow)}.btn.tinted{background:color-mix(in srgb,var(--sky) 14%,transparent);color:var(--sky)}
+  .sec-h{font-size:13px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.03em;margin:6px 8px 8px}
+  .tabbar{position:absolute;left:0;right:0;bottom:0;height:84px;background:var(--tabbar);backdrop-filter:saturate(180%) blur(22px);border-top:1px solid var(--sep);display:flex;padding:8px 2px 26px}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--ink-3);font-size:10px;font-weight:600}.tab.active{color:var(--sky)}.tab svg{width:24px;height:24px}
+  .bot .eye{transform-box:fill-box;transform-origin:center;animation:blink 5.2s infinite}@keyframes blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
+  .botwrap{animation:sway 6.5s ease-in-out infinite;transform-origin:50% 90%}@keyframes sway{0%,100%{transform:translateY(0) rotate(-1.6deg)}50%{transform:translateY(-1.5%) rotate(1.6deg)}}
+  .splash{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+  .rainbowbg{position:absolute;inset:0;background:linear-gradient(100deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5));opacity:.9}
+  .lockup{position:relative;display:flex;align-items:center;gap:16px;z-index:2}.lockup .wm{font-size:34px;font-weight:800;letter-spacing:-.03em;color:#0b1320}
+  /* hub tabs */
+  .display{font-size:52px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;text-align:center;color:var(--sky)}.display .hint{display:block;font-size:11px;font-weight:600;color:var(--ink-3);letter-spacing:.08em;margin-top:2px}
+  .keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-top:8px}.key{aspect-ratio:1.7;border:1px solid var(--sep);background:var(--group);border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:600;font-variant-numeric:tabular-nums}
+  .qr{width:168px;height:168px;display:grid;grid-template-columns:repeat(13,1fr);gap:2px;background:#fff;padding:11px;border-radius:16px;margin:0 auto}.qr i{background:#0b1320;border-radius:1px}.qr i.off{background:transparent}
+  .chiprow{display:flex;gap:8px;flex-wrap:wrap;margin:2px 2px 16px}.chip{font-size:12px;font-weight:600;color:var(--ink-2);background:var(--group);box-shadow:var(--card-shadow);border-radius:980px;padding:7px 12px;display:flex;align-items:center;gap:6px}
+  .thumb{width:46px;height:46px;border-radius:10px;background:linear-gradient(135deg,#23304a,#0e1626);flex-shrink:0}
+  /* calc tabs */
+  .ctabs{display:flex;gap:7px;overflow:auto;padding:2px 2px 12px}.ctabs::-webkit-scrollbar{display:none}
+  .ctab{flex:0 0 auto;font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:980px;background:var(--group);box-shadow:var(--card-shadow);color:var(--ink-2);white-space:nowrap}
+  .ctab.on{background:var(--sky);color:#fff;box-shadow:none}
+  .field{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;position:relative}.field+.field::before{content:&quot;&quot;;position:absolute;top:0;left:16px;right:0;height:1px;background:var(--sep)}
+  .field .l{font-size:14px;font-weight:500}.field .v{font-size:15px;font-weight:600;color:var(--ink-2);display:flex;align-items:center;gap:6px}
+  .field .u{font-size:11px;font-weight:700;color:var(--sky);background:color-mix(in srgb,var(--sky) 12%,transparent);border-radius:7px;padding:3px 7px}
+  .result{background:linear-gradient(135deg,color-mix(in srgb,var(--sky) 12%,transparent),color-mix(in srgb,var(--purple) 10%,transparent));border-radius:var(--radius);padding:18px;text-align:center;margin-bottom:14px}
+  .result .big{font-size:30px;font-weight:800;letter-spacing:-.02em}.result .lab{font-size:12px;color:var(--ink-3);margin-top:2px}
+  .validated{font-size:11.5px;color:var(--ok);display:flex;align-items:center;gap:6px;justify-content:center;margin-bottom:14px}
+  /* wiki */
+  .search{display:flex;align-items:center;gap:9px;background:var(--group);box-shadow:var(--card-shadow);border-radius:13px;padding:11px 14px;margin-bottom:6px;color:var(--ink-3);font-size:15px}
+  .ask{display:flex;align-items:center;gap:8px;border-radius:13px;padding:12px 14px;margin:8px 2px 16px;background:linear-gradient(135deg,color-mix(in srgb,var(--sky) 14%,transparent),color-mix(in srgb,var(--purple) 12%,transparent));font-size:13.5px;font-weight:600}
+  /* bulk */
+  .selgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:14px}
+  .selcell{aspect-ratio:1;border-radius:12px;background:linear-gradient(135deg,#23304a,#0e1626);position:relative;overflow:hidden}
+  .selcell .ck{position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:50%;background:var(--sky);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;box-shadow:0 0 0 2px #fff}
+  .selcell.off .ck{background:rgba(255,255,255,.5);box-shadow:0 0 0 2px rgba(255,255,255,.7)}
+  .review{margin-top:12px;display:flex;gap:7px;flex-wrap:wrap}
+  .seg{display:inline-flex;border:1px solid var(--sep);border-radius:9px;overflow:hidden}.seg button{font:inherit;font-size:12px;padding:6px 11px;border:none;background:var(--group);color:var(--ink-3);cursor:pointer}.seg button.on.ok{background:#1a9c5b;color:#fff}.seg button.on.warn{background:#d98a0b;color:#fff}.seg button.on.none{background:#64748b;color:#fff}
+  .cmt{width:100%;margin-top:8px;font:inherit;font-size:12.5px;border:1px dashed var(--sep);border-radius:9px;background:var(--group);color:var(--ink);padding:8px 10px;resize:vertical;min-height:30px}
+  .why{font-size:12px;color:var(--ink-2);line-height:1.5;margin:8px 2px 0;border-left:2px solid var(--sky);padding-left:10px}
+  svg{display:block}
+  #exm{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}#exm .box{background:var(--group);border-radius:16px;max-width:680px;width:100%;padding:18px;border:1px solid var(--sep)}#exm textarea{width:100%;min-height:240px;font-family:ui-monospace,Menlo,monospace;font-size:12px;border:1px solid var(--sep);border-radius:8px;background:var(--bg);color:var(--ink);padding:10px}
+</style>
+</head>
+<body>
+<div class=&quot;top&quot;>
+  <div><h1>ResearchOS companion v2</h1><div class=&quot;sub&quot;>Restructured per your notes: Connect screen + a 5-tab app (Today / Send / Calc / Timer / Wiki). No Home.</div></div>
+  <div class=&quot;spacer&quot;></div>
+  <div class=&quot;legend&quot;><span><span class=&quot;dot ok&quot;></span>Approve</span><span><span class=&quot;dot warn&quot;></span>Change</span><span><span class=&quot;dot none&quot;></span>?</span></div>
+  <button class=&quot;tbtn&quot; id=&quot;theme&quot;>Dark</button>
+  <button class=&quot;tbtn brand&quot; id=&quot;export&quot;>Export</button>
+</div>
+<div class=&quot;wrap&quot;>
+  <p class=&quot;intro&quot;>Reworked to your direction. Home is gone. When disconnected you get a single Connect screen. Once connected the app is a clean 5-tab bar, Today / Send / Calc / Timer / Wiki, no launcher to drill through, the five are always one tap away (the Apple pattern for up to five destinations). Calc ports the website calculator (all 8 tabs, same validated math). Wiki ports the full wiki with a search-first, ask-style navigator. Send adds camera-roll upload + bulk label/annotate. Rainbow tweaks applied. Toggle Dark. Mark each + Export.</p>
+
+  <div class=&quot;grid&quot; id=&quot;grid&quot;></div>
+</div>
+
+<div id=&quot;exm&quot;><div class=&quot;box&quot;><div style=&quot;display:flex;gap:10px;margin-bottom:10px;align-items:center&quot;><strong style=&quot;font-size:14px&quot;>Feedback</strong><span class=&quot;spacer&quot; style=&quot;flex:1&quot;></span><button class=&quot;tbtn&quot; onclick=&quot;navigator.clipboard.writeText(exT.value)&quot;>Copy</button><button class=&quot;tbtn&quot; onclick=&quot;exm.style.display='none'&quot;>Close</button></div><textarea id=&quot;exT&quot; readonly></textarea></div></div>
+
+<script>
+function bot(size){return `<span class=&quot;bot botwrap&quot; style=&quot;width:${size*0.78}px;height:${size}px&quot;><svg viewBox=&quot;8 0 24 34&quot; width=&quot;${size*0.78}&quot; height=&quot;${size}&quot; fill=&quot;none&quot;><defs><linearGradient id=&quot;liq&quot; x1=&quot;0&quot; y1=&quot;0&quot; x2=&quot;0&quot; y2=&quot;1&quot;><stop offset=&quot;0&quot; stop-color=&quot;var(--r1)&quot;/><stop offset=&quot;.25&quot; stop-color=&quot;var(--r2)&quot;/><stop offset=&quot;.5&quot; stop-color=&quot;var(--r3)&quot;/><stop offset=&quot;.75&quot; stop-color=&quot;var(--r4)&quot;/><stop offset=&quot;1&quot; stop-color=&quot;var(--r5)&quot;/></linearGradient></defs><path d=&quot;M13 12 L13 27 Q13 31 17 31 L23 31 Q27 31 27 27 L27 12 Z&quot; fill=&quot;#fff&quot;/><path d=&quot;M13 21 L13 27 Q13 31 17 31 L23 31 Q27 31 27 27 L27 21 Z&quot; fill=&quot;url(#liq)&quot;/><path d=&quot;M11 12 L29 12&quot; stroke=&quot;var(--sky)&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot;/><path d=&quot;M13 12 L13 27 Q13 31 17 31 L23 31 Q27 31 27 27 L27 12&quot; stroke=&quot;var(--sky)&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;/><path d=&quot;M22 8 C 22 5, 25 3, 27 6&quot; stroke=&quot;var(--sky)&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot;/><circle class=&quot;eye&quot; cx=&quot;17.5&quot; cy=&quot;18&quot; r=&quot;1.25&quot; fill=&quot;var(--sky)&quot;/><circle class=&quot;eye&quot; cx=&quot;22.5&quot; cy=&quot;18&quot; r=&quot;1.25&quot; fill=&quot;var(--sky)&quot;/><path d=&quot;M17.5 22 Q20 24.5 22.5 22&quot; stroke=&quot;var(--sky)&quot; stroke-width=&quot;1.6&quot; stroke-linecap=&quot;round&quot; fill=&quot;none&quot;/></svg></span>`;}
+const I={
+ cam:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;17&quot; height=&quot;17&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M3 8a2 2 0 0 1 2-2h2l1.5-2h7L19 6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z&quot;/><circle cx=&quot;12&quot; cy=&quot;13&quot; r=&quot;3.3&quot;/></svg>',
+ lib:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;17&quot; height=&quot;17&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><rect x=&quot;3&quot; y=&quot;3&quot; width=&quot;18&quot; height=&quot;18&quot; rx=&quot;3&quot;/><circle cx=&quot;9&quot; cy=&quot;9&quot; r=&quot;2&quot;/><path d=&quot;M21 15l-5-5L5 21&quot;/></svg>',
+ chev:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;17&quot; height=&quot;17&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.4&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M9 6l6 6-6 6&quot;/></svg>',
+ sun:'<svg viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;4&quot;/><path d=&quot;M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.4 1.4M17.6 17.6L19 19M19 5l-1.4 1.4M6.4 17.6L5 19&quot;/></svg>',
+ send:'<svg viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M22 2L11 13M22 2l-7 20-4-9-9-4z&quot;/></svg>',
+ calc:'<svg viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><rect x=&quot;5&quot; y=&quot;3&quot; width=&quot;14&quot; height=&quot;18&quot; rx=&quot;2&quot;/><path d=&quot;M9 7h6M8 11h0M12 11h0M16 11h0M8 15h0M12 15h0M16 15v2&quot;/></svg>',
+ timer:'<svg viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><circle cx=&quot;12&quot; cy=&quot;13&quot; r=&quot;8&quot;/><path d=&quot;M12 13V9M9 2h6&quot;/></svg>',
+ book:'<svg viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z&quot;/><path d=&quot;M19 19v2&quot;/></svg>',
+ srch:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><circle cx=&quot;11&quot; cy=&quot;11&quot; r=&quot;7&quot;/><path d=&quot;M21 21l-4-4&quot;/></svg>',
+ spark:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;16&quot; height=&quot;16&quot; fill=&quot;currentColor&quot; stroke=&quot;none&quot;><path d=&quot;M12 2l1.6 5.4L19 9l-5.4 1.6L12 16l-1.6-5.4L5 9l5.4-1.6z&quot;/></svg>',
+ check:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;12&quot; height=&quot;12&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;3&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M20 6L9 17l-5-5&quot;/></svg>',
+ ok:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;13&quot; height=&quot;13&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.5&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M20 6L9 17l-5-5&quot;/></svg>',
+ bolt:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;14&quot; height=&quot;14&quot; fill=&quot;currentColor&quot;><path d=&quot;M13 2L4 14h6l-1 8 9-12h-6z&quot;/></svg>',
+};
+function tabbar(active){const t=[['today','Today',I.sun],['send','Send',I.send],['calc','Calc',I.calc],['timer','Timer',I.timer],['wiki','Wiki',I.book]];return `<div class=&quot;tabbar&quot;>${t.map(x=>`<div class=&quot;tab ${x[0]===active?'active':''}&quot;>${x[2]}<span>${x[1]}</span></div>`).join('')}</div>`;}
+function sb(){return `<div class=&quot;statusbar&quot;><span>9:41</span><span class=&quot;r&quot;>${I.bolt}<svg width=&quot;17&quot; height=&quot;12&quot; viewBox=&quot;0 0 24 16&quot; fill=&quot;currentColor&quot;><rect x=&quot;0&quot; y=&quot;6&quot; width=&quot;4&quot; height=&quot;10&quot; rx=&quot;1&quot;/><rect x=&quot;6&quot; y=&quot;3&quot; width=&quot;4&quot; height=&quot;13&quot; rx=&quot;1&quot;/><rect x=&quot;12&quot; y=&quot;0&quot; width=&quot;4&quot; height=&quot;16&quot; rx=&quot;1&quot;/></svg></span></div>`;}
+
+const screens=[
+ {id:'launch',n:'Launch',b:'ok',d:'approved, unchanged',
+  why:'Locked. Branded rainbow lockup, shrinks out to reveal the app.',
+  html:`<div class=&quot;scr&quot;><div class=&quot;splash&quot;><div class=&quot;rainbowbg&quot;></div><div class=&quot;lockup&quot;>${bot(76)}<span class=&quot;wm&quot;>ResearchOS</span></div></div></div>`},
+
+ {id:'connect',n:'Connect',b:'chg',d:'disconnected state + rainbow top',
+  why:'The only screen when not paired. Thin rainbow on top (your note). One job: connect to your laptop. Calm, centered, BeakerBot for warmth. No tabs until connected.',
+  html:`<div class=&quot;scr&quot;><div class=&quot;rainbow&quot;></div>${sb()}<div class=&quot;content&quot;><div class=&quot;scroll&quot; style=&quot;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding-bottom:40px&quot;>
+   ${bot(104)}
+   <div class=&quot;largetitle&quot; style=&quot;margin-top:8px&quot;>Connect</div>
+   <div class=&quot;subtitle&quot; style=&quot;max-width:250px&quot;>Pair with ResearchOS on your laptop to capture, glance, and sync at the bench.</div>
+   <button class=&quot;btn primary&quot; style=&quot;width:240px;margin-bottom:10px&quot;>Connect to your laptop</button>
+   <button class=&quot;btn secondary&quot; style=&quot;width:240px&quot;>Enter a code</button>
+  </div></div></div>`},
+
+ {id:'pairing',n:'Pairing',b:'chg',d:'rainbow top + bottom',
+  why:'You said amazing, just branded. Thin rainbow on top AND bottom. Focused single-job sheet with the QR + calm waiting state.',
+  html:`<div class=&quot;scr&quot;><div class=&quot;rainbow&quot;></div>${sb()}<div class=&quot;content&quot;><div class=&quot;scroll&quot; style=&quot;padding-top:8px&quot;>
+   <div class=&quot;largetitle&quot;>Pair a phone</div><div class=&quot;subtitle&quot;>Open ResearchOS on your computer, choose Pair, and scan.</div>
+   <div class=&quot;group&quot; style=&quot;padding:20px;text-align:center&quot;><div class=&quot;qr&quot; id=&quot;qr&quot;></div><div style=&quot;font-size:13px;color:var(--ink-3);margin-top:14px;display:flex;align-items:center;justify-content:center;gap:7px&quot;><span style=&quot;width:8px;height:8px;border-radius:50%;background:var(--sky);display:inline-block&quot;></span> Waiting for your phone &amp;middot; 1:48</div></div>
+   <button class=&quot;btn secondary&quot;>Enter a code instead</button>
+  </div></div><div class=&quot;rainbow&quot;></div></div>`},
+
+ {id:'today',n:'Today',b:'ok',d:'approved (tab 1)',
+  why:'Locked. Apple list craft. Now tab 1 of the 5-tab app, where you land when connected.',
+  html:`<div class=&quot;scr&quot;>${sb()}<div class=&quot;content&quot;><div class=&quot;scroll&quot; style=&quot;padding-top:8px&quot;>
+   <div class=&quot;largetitle&quot;>Today</div><div class=&quot;subtitle&quot;>Synced from your laptop.</div>
+   <div class=&quot;sec-h&quot;>Today</div><div class=&quot;group&quot;><div class=&quot;row&quot;><span class=&quot;ico&quot; style=&quot;background:var(--sky)&quot;>${I.lib}</span><div class=&quot;tx&quot;><div class=&quot;t&quot;>Passage HEK293 cells</div><div class=&quot;s&quot;>Experiment</div></div></div></div>
+   <div class=&quot;sec-h&quot; style=&quot;color:var(--danger)&quot;>Overdue (3)</div><div class=&quot;group&quot;><div class=&quot;row&quot;><div class=&quot;tx&quot;><div class=&quot;t&quot; style=&quot;color:var(--danger)&quot;>Find A. nidulans plates</div><div class=&quot;s&quot;>Due May 19</div></div></div><div class=&quot;row&quot;><div class=&quot;tx&quot;><div class=&quot;t&quot; style=&quot;color:var(--danger)&quot;>Aspergillus seq init</div><div class=&quot;s&quot;>Due Jun 3</div></div></div></div>
+  </div></div>${tabbar('today')}</div>`},
+
+ {id:'send',n:'Send',b:'chg',d:'camera roll upload + bulk',
+  why:'Was Capture. Now two ways in, take a photo OR upload from your camera roll (enables bulk). A Select control turns the outbox into multi-select for bulk actions. This is the &quot;Send&quot; tab in your 5.',
+  html:`<div class=&quot;scr&quot;>${sb()}<div class=&quot;content&quot;><div class=&quot;scroll&quot; style=&quot;padding-top:8px&quot;>
+   <div class=&quot;largetitle&quot;>Send</div><div class=&quot;subtitle&quot;>Snap or upload, it lands in your lab inbox.</div>
+   <button class=&quot;btn primary&quot; style=&quot;margin-bottom:10px&quot;>${I.cam} Take a bench photo</button>
+   <button class=&quot;btn tinted&quot; style=&quot;margin-bottom:18px&quot;>${I.lib} Upload from camera roll</button>
+   <div class=&quot;sec-h&quot; style=&quot;display:flex;justify-content:space-between&quot;><span>Outbox</span><span style=&quot;color:var(--sky)&quot;>Select</span></div>
+   <div class=&quot;group&quot;><div class=&quot;row&quot;><span class=&quot;thumb&quot;></span><div class=&quot;tx&quot;><div class=&quot;t&quot;>Gel image</div><div class=&quot;s&quot;>9:31 AM</div></div><span class=&quot;pill ok&quot;>Sent</span></div><div class=&quot;row&quot;><span class=&quot;thumb&quot;></span><div class=&quot;tx&quot;><div class=&quot;t&quot;>Plate count</div><div class=&quot;s&quot;>9:29 AM</div></div><span class=&quot;pill muted&quot;>Sending</span></div></div>
+  </div></div>${tabbar('send')}</div>`},
+
+ {id:'bulk',n:'Bulk label + annotate',b:'new',d:'after a camera-roll bulk upload',
+  why:'New. After picking many photos, label + annotate them together: a shared caption/tags applied to all, per-photo selection, and an Annotate entry (draw/markup) per image. Apple multi-select pattern (checkable grid + a bottom action).',
+  html:`<div class=&quot;scr&quot;>${sb()}<div class=&quot;content&quot;><div class=&quot;scroll&quot; style=&quot;padding-top:8px&quot;>
+   <div class=&quot;largetitle&quot;>Label 6 photos</div><div class=&quot;subtitle&quot;>Apply to all, or tap one to annotate.</div>
+   <div class=&quot;selgrid&quot;>${[1,1,1,1,0,1].map(on=>`<div class=&quot;selcell ${on?'':'off'}&quot;><span class=&quot;ck&quot;>${I.check}</span></div>`).join('')}</div>
+   <div class=&quot;sec-h&quot;>Apply to all</div>
+   <div class=&quot;group&quot;><div class=&quot;field&quot;><span class=&quot;l&quot;>Caption</span><span class=&quot;v&quot;>Gibson pilot gels</span></div><div class=&quot;field&quot;><span class=&quot;l&quot;>Tags</span><span class=&quot;v&quot; style=&quot;color:var(--sky)&quot;>+ cloning</span></div><div class=&quot;field&quot;><span class=&quot;l&quot;>Send to</span><span class=&quot;v&quot;>Inbox ${I.chev}</span></div></div>
+   <button class=&quot;btn secondary&quot; style=&quot;margin-bottom:10px&quot;>${I.lib} Annotate selected</button>
+   <button class=&quot;btn primary&quot;>Send 6 to lab</button>
+  </div></div></div>`},
+
+ {id:'calc',n:'Calc',b:'new',d:'port of the website calculator',
+  why:'New tab, the website calculator ported exactly (same validated math, lib/calculators). Scrollable tab strip for all 8 modes, Apple grouped inputs, a hero result card, and the validated-against-Biopython trust mark. Shown: Dilution.',
+  html:`<div class=&quot;scr&quot;>${sb()}<div class=&quot;content&quot;><div class=&quot;scroll&quot; style=&quot;padding-top:8px&quot;>
+   <div class=&quot;largetitle&quot;>Calc</div>
+   <div class=&quot;ctabs&quot;>${['Scientific','Molarity','Dilution','Serial','Primer Tm','DNA/RNA','Protein','Buffer'].map((t,i)=>`<div class=&quot;ctab ${i===2?'on':''}&quot;>${t}</div>`).join('')}</div>
+   <div class=&quot;result&quot;><div class=&quot;big&quot;>8.0 uL</div><div class=&quot;lab&quot;>stock to add &amp;middot; top up to 200 uL</div></div>
+   <div class=&quot;validated&quot;>${I.ok} Validated against Biopython + primer3</div>
+   <div class=&quot;group&quot;><div class=&quot;field&quot;><span class=&quot;l&quot;>Stock (C1)</span><span class=&quot;v&quot;>25 <span class=&quot;u&quot;>uM</span></span></div><div class=&quot;field&quot;><span class=&quot;l&quot;>Final (C2)</span><span class=&quot;v&quot;>1 <span class=&quot;u&quot;>uM</span></span></div><div class=&quot;field&quot;><span class=&quot;l&quot;>Final volume</span><span class=&quot;v&quot;>200 <span class=&quot;u&quot;>uL</span></span></div></div>
+  </div></div>${tabbar('calc')}</div>`},
+
+ {id:'wiki',n:'Wiki',b:'new',d:'full wiki + search-first navigator',
+  why:'New tab, the whole website wiki on mobile. Search-first (your &quot;special navigate feature&quot;): a prominent search + an Ask-style answer bar that jumps you to the right page, then the 8 sections as grouped rows. Same 66 pages, mobile reader.',
+  html:`<div class=&quot;scr&quot;>${sb()}<div class=&quot;content&quot;><div class=&quot;scroll&quot; style=&quot;padding-top:8px&quot;>
+   <div class=&quot;largetitle&quot;>Wiki</div>
+   <div class=&quot;search&quot;>${I.srch} Search the wiki</div>
+   <div class=&quot;ask&quot;>${I.spark} Ask: how do I pair my phone?</div>
+   <div class=&quot;sec-h&quot;>Browse</div>
+   <div class=&quot;group&quot;>
+     <div class=&quot;row&quot;><span class=&quot;ico&quot; style=&quot;background:var(--sky)&quot;>${I.sun}</span><div class=&quot;tx&quot;><div class=&quot;t&quot;>Getting started</div><div class=&quot;s&quot;>6 pages</div></div><span class=&quot;chev&quot;>${I.chev}</span></div>
+     <div class=&quot;row&quot;><span class=&quot;ico&quot; style=&quot;background:var(--purple)&quot;>${I.lib}</span><div class=&quot;tx&quot;><div class=&quot;t&quot;>Features</div><div class=&quot;s&quot;>35 pages</div></div><span class=&quot;chev&quot;>${I.chev}</span></div>
+     <div class=&quot;row&quot;><span class=&quot;ico&quot; style=&quot;background:#1a9c5b&quot;>${I.calc}</span><div class=&quot;tx&quot;><div class=&quot;t&quot;>Calculators</div><div class=&quot;s&quot;>how the math works</div></div><span class=&quot;chev&quot;>${I.chev}</span></div>
+     <div class=&quot;row&quot;><span class=&quot;ico&quot; style=&quot;background:#d98a0b&quot;>${I.book}</span><div class=&quot;tx&quot;><div class=&quot;t&quot;>Compliance + trust</div><div class=&quot;s&quot;>6 pages</div></div><span class=&quot;chev&quot;>${I.chev}</span></div>
+   </div>
+  </div></div>${tabbar('wiki')}</div>`},
+
+ {id:'timer',n:'Timers',b:'ok',d:'approved (tab 4)',
+  why:'Locked. Tactile keypad + haptics, tabular display. Tab 4.',
+  html:`<div class=&quot;scr&quot;>${sb()}<div class=&quot;content&quot;><div class=&quot;scroll&quot; style=&quot;padding-top:8px&quot;>
+   <div class=&quot;largetitle&quot;>Timers</div>
+   <div class=&quot;group&quot; style=&quot;padding:16px&quot;><div class=&quot;display&quot;>00:13:00<span class=&quot;hint&quot;>HOURS &amp;middot; MIN &amp;middot; SEC</span></div><div class=&quot;keypad&quot;>${['1','2','3','4','5','6','7','8','9','00','0','del'].map(k=>`<div class=&quot;key&quot;>${k}</div>`).join('')}</div><button class=&quot;btn primary&quot; style=&quot;margin-top:14px&quot;>Start timer</button></div>
+  </div></div>${tabbar('timer')}</div>`},
+];
+
+const grid=document.getElementById('grid');
+const KEY='mobile-apple-polish-v2-2026-06-08';const store=JSON.parse(localStorage.getItem(KEY)||'{}');function save(){localStorage.setItem(KEY,JSON.stringify(store));}
+screens.forEach(s=>{const cell=document.createElement('div');cell.className='cell';
+ cell.innerHTML=`<div class=&quot;cap&quot;><span class=&quot;n&quot;>${s.n}</span><span class=&quot;badge ${s.b}&quot;>${s.b==='new'?'NEW':s.b==='chg'?'CHANGED':'APPROVED'}</span><span class=&quot;d&quot;>${s.d}</span></div><div class=&quot;phone&quot;>${s.html}</div><div class=&quot;why&quot;>${s.why}</div><div class=&quot;review&quot; data-id=&quot;${s.id}&quot;></div>`;
+ grid.appendChild(cell);});
+(function(){document.querySelectorAll('.qr').forEach(q=>{let h='';for(let i=0;i<169;i++)h+=`<i class=&quot;${Math.random()>.5?'':'off'}&quot;></i>`;q.innerHTML=h;});})();
+document.querySelectorAll('.review').forEach(r=>{const id=r.dataset.id;const cur=store[id]||{};const seg=document.createElement('div');seg.className='seg';[['ok','Approve'],['warn','Change'],['none','?']].forEach(([v,l])=>{const b=document.createElement('button');b.textContent=l;b.onclick=()=>{store[id]={...(store[id]||{}),v};save();paint();};seg.appendChild(b);});r.appendChild(seg);const ta=document.createElement('textarea');ta.className='cmt';ta.placeholder='Comment';ta.value=cur.c||'';ta.oninput=()=>{store[id]={...(store[id]||{}),c:ta.value};save();};r.parentElement.appendChild(ta);});
+function paint(){document.querySelectorAll('.review').forEach(r=>{const c=store[r.dataset.id]||{};r.querySelectorAll('.seg button').forEach(b=>{const v=b.textContent==='Approve'?'ok':b.textContent==='Change'?'warn':'none';b.className=(c.v===v?'on '+v:'');});});}
+paint();
+document.getElementById('theme').onclick=function(){const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');this.textContent=d?'Dark':'Light';};
+document.getElementById('export').onclick=function(){let o='RESEARCHOS COMPANION v2 - '+new Date().toString().slice(0,21)+'\n'+'='.repeat(40)+'\n\n';screens.forEach(s=>{const c=store[s.id]||{};const v=c.v==='ok'?'APPROVE':c.v==='warn'?'CHANGE':c.v==='none'?'undecided':'(unmarked)';o+='['+v+'] '+s.n+'\n';if(c.c&amp;&amp;c.c.trim())o+='   note: '+c.c.trim()+'\n';});document.getElementById('exT').value=o;document.getElementById('exm').style.display='flex';};
+</script>
+</body>
+</html>
+"></iframe></div>
+    </section>
+    <section class="panel" data-i="1">
+      <div class="label"><h2><span class="num">2</span>Notebook chooser</h2>
+        <p class="meta"><code>2026-06-09-mobile-notebook-chooser.html</code> &middot; where a note or photo files: chooser, entry picker, filed confirmation</p></div>
+      <div class="frame"><iframe title="Notebook chooser" srcdoc="<!doctype html>
+<html lang=&quot;en&quot; data-theme=&quot;light&quot;>
+<head>
+<meta charset=&quot;utf-8&quot;/><meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;/>
+<title>ResearchOS - mobile notebook chooser (pick any notebook, or unsorted)</title>
+<style>
+  :root{--sky:#1AA0E6;--purple:#5B47D6;--ink:#0b1320;--ink-2:#3c4656;--ink-3:#8a93a3;--bg:#f2f3f7;--group:#fff;--sep:rgba(60,67,86,.10);--card-shadow:0 1px 2px rgba(16,24,40,.05),0 8px 24px rgba(16,24,40,.06);--ok:#1a9c5b;--ok-bg:#e4f7ec;--warn:#d98a0b;--warn-bg:#fdf3e2;--r1:#FFD2B0;--r2:#FFF1A8;--r3:#B7EBB1;--r4:#A6D2F4;--r5:#D6B5F0;--radius:18px;--page:#e9ebf1;--amber:#E8920B;--green:#16A34A;--violet:#9333EA}
+  *{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,&quot;SF Pro Display&quot;,&quot;Segoe UI&quot;,Roboto,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .top{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--page) 88%,transparent);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--sep);padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .top h1{font-size:17px;margin:0;font-weight:700;letter-spacing:-.02em}.top .sub{font-size:12.5px;color:var(--ink-3)}.spacer{flex:1}
+  .tbtn{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--sep);background:var(--group);color:var(--ink);border-radius:980px;padding:8px 15px;cursor:pointer}.tbtn.brand{background:linear-gradient(135deg,var(--sky),var(--purple));color:#fff;border:none}
+  .legend{display:flex;gap:12px;font-size:12px;color:var(--ink-3);align-items:center;flex-wrap:wrap}.dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px}.dot.ok{background:#1a9c5b}.dot.warn{background:#d98a0b}.dot.none{background:#c4ccd6}
+  .wrap{max-width:1240px;margin:0 auto;padding:20px 20px 120px}.intro{font-size:13px;color:var(--ink-2);max-width:980px;line-height:1.6;margin:8px 0}
+  .grid{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start;margin-top:16px;justify-content:center}.cell{width:330px}
+  .cap{display:flex;align-items:baseline;gap:8px;margin:0 2px 9px}.cap .step{min-width:22px;height:22px;border-radius:50%;background:var(--sky);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 7px}.cap .n{font-size:14px;font-weight:700}.cap .d{font-size:12px;color:var(--ink-3)}
+  .phone{width:330px;height:700px;border-radius:46px;background:var(--bg);position:relative;overflow:hidden;border:10px solid #0c0d10;box-shadow:0 30px 60px rgba(16,24,40,.22)}
+  .phone::after{content:&quot;&quot;;position:absolute;left:0;right:0;bottom:0;height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5));z-index:40}
+  .scr{position:absolute;inset:0;display:flex;flex-direction:column}
+  .rainbow{height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5))}
+  .statusbar{height:44px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 7px;font-size:13px;font-weight:600}
+  .preview{display:flex;gap:12px;align-items:center;background:var(--group);border-radius:14px;box-shadow:var(--card-shadow);padding:11px;margin:2px 16px 0}
+  .thumb{width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,#cfe6f7,#a6d2f4);flex-shrink:0}
+  .preview .pt{font-size:14px;font-weight:700}.preview .ps{font-size:12px;color:var(--ink-3);margin-top:2px}
+  .sheet{position:absolute;left:0;right:0;bottom:0;top:96px;z-index:35;background:var(--bg);border-radius:24px 24px 0 0;padding:10px 16px 16px;box-shadow:0 -12px 40px rgba(0,0,0,.16);display:flex;flex-direction:column}
+  .grab{width:38px;height:5px;border-radius:980px;background:var(--sep);margin:4px auto 10px}
+  .sheet-h{font-size:19px;font-weight:800;letter-spacing:-.02em;margin:0 4px 3px}
+  .sheet-sub{font-size:12.5px;color:var(--ink-3);margin:0 4px 12px;line-height:1.4}
+  .sheet-scroll{overflow:auto;margin:0 -4px;padding:0 4px}.sheet-scroll::-webkit-scrollbar{display:none}
+  .sec-h{font-size:11.5px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;margin:12px 6px 7px}
+  .opt{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:1.5px solid var(--sep);background:var(--group);border-radius:14px;padding:12px 13px;margin-bottom:9px;cursor:pointer;position:relative}
+  .opt.rec{border-color:var(--sky);box-shadow:0 0 0 3px color-mix(in srgb,var(--sky) 16%,transparent)}
+  .opt .ico{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:color-mix(in srgb,var(--amber) 14%,transparent);color:var(--amber)}
+  .opt .ico.sky{background:color-mix(in srgb,var(--sky) 13%,transparent);color:var(--sky)}.opt .ico.green{background:color-mix(in srgb,var(--green) 14%,transparent);color:var(--green)}.opt .ico.violet{background:color-mix(in srgb,var(--violet) 14%,transparent);color:var(--violet)}.opt .ico.gray{background:color-mix(in srgb,var(--ink-3) 16%,transparent);color:var(--ink-2)}
+  .opt .ox{flex:1;min-width:0}.opt .ot{font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.opt .os{font-size:12px;color:var(--ink-3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .opt.locked{opacity:.55;cursor:default}.opt.locked .lock{margin-left:auto;color:var(--ink-3)}
+  .pill{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:980px;white-space:nowrap}.pill.sky{background:color-mix(in srgb,var(--sky) 14%,transparent);color:var(--sky)}.pill.violet{background:color-mix(in srgb,var(--violet) 14%,transparent);color:var(--violet)}.pill.warn{background:var(--warn-bg);color:var(--warn)}
+  .chev{color:var(--ink-3);opacity:.5;flex-shrink:0}
+  .entry{display:flex;align-items:center;gap:11px;width:100%;text-align:left;border:none;background:transparent;border-radius:12px;padding:10px 11px;cursor:pointer;position:relative}.entry+.entry::before{content:&quot;&quot;;position:absolute;top:0;left:11px;right:11px;height:1px;background:var(--sep)}
+  .entry .dt{width:32px;text-align:center;flex-shrink:0}.entry .dt .dd{font-size:15px;font-weight:800;line-height:1}.entry .dt .mm{font-size:9.5px;font-weight:700;color:var(--ink-3);text-transform:uppercase}
+  .entry .et{font-size:14px;font-weight:600}.entry .es{font-size:11.5px;color:var(--ink-3);margin-top:1px}
+  .group{background:var(--group);border-radius:14px;box-shadow:var(--card-shadow);overflow:hidden;margin-bottom:9px}
+  .ghost{background:transparent;border:none;color:var(--ink-3);font-weight:600;font-size:14px;width:100%;padding:12px;cursor:pointer}
+  .toast{position:absolute;left:16px;right:16px;bottom:20px;z-index:36;background:var(--ink);color:#fff;border-radius:14px;padding:13px 15px;display:flex;align-items:center;gap:11px;box-shadow:0 12px 30px rgba(0,0,0,.3)}
+  .toast .tk{width:26px;height:26px;border-radius:50%;background:var(--ok);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}.toast .tt{font-size:13.5px;font-weight:650}.toast .ts{font-size:11.5px;opacity:.75}
+  .why{font-size:12px;color:var(--ink-2);line-height:1.55;margin:10px 2px 0;border-left:2px solid var(--sky);padding-left:11px}
+  .review{margin-top:12px;display:flex;gap:7px;flex-wrap:wrap}.seg{display:inline-flex;border:1px solid var(--sep);border-radius:9px;overflow:hidden}.seg button{font:inherit;font-size:12px;padding:6px 11px;border:none;background:var(--group);color:var(--ink-3);cursor:pointer}.seg button.on.ok{background:#1a9c5b;color:#fff}.seg button.on.warn{background:#d98a0b;color:#fff}.seg button.on.none{background:#64748b;color:#fff}
+  .cmt{width:100%;margin-top:8px;font:inherit;font-size:12.5px;border:1px dashed var(--sep);border-radius:9px;background:var(--group);color:var(--ink);padding:8px 10px;resize:vertical;min-height:30px}
+  svg{display:block}
+  #exm{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}#exm .box{background:var(--group);border-radius:16px;max-width:680px;width:100%;padding:18px;border:1px solid var(--sep)}#exm textarea{width:100%;min-height:220px;font-family:ui-monospace,Menlo,monospace;font-size:12px;border:1px solid var(--sep);border-radius:8px;background:var(--bg);color:var(--ink);padding:10px}
+</style>
+</head>
+<body>
+<div class=&quot;top&quot;>
+  <div><h1>Mobile notebook chooser</h1><div class=&quot;sub&quot;>Capture a note, pick ANY notebook to file it in (yours, shared, 1:1), or leave it unsorted.</div></div>
+  <div class=&quot;spacer&quot;></div>
+  <div class=&quot;legend&quot;><span><span class=&quot;dot ok&quot;></span>Approve</span><span><span class=&quot;dot warn&quot;></span>Change</span><span><span class=&quot;dot none&quot;></span>?</span></div>
+  <button class=&quot;tbtn brand&quot; id=&quot;export&quot;>Export</button>
+</div>
+<div class=&quot;wrap&quot;>
+  <p class=&quot;intro&quot;>The reframe. Instead of only routing to whatever is open on the laptop, the phone shows a chooser of every notebook you can write to, so the companion is a real capture tool, not just a remote. The chooser leads with a recommended row (what is open on your laptop, if anything), then your own notebooks, notebooks shared with you (edit access only, view-only ones are shown locked), and your 1:1 notebooks with your PI or students. &quot;Unsorted note&quot; always sits at the bottom for a quick capture that is not filed (it lands in the inbox). Picking a multi-entry running notebook then asks which entry (the recommended-entry picker we already mocked). The laptop does the write, with the edit-permission gate and correct attribution.</p>
+  <div class=&quot;grid&quot; id=&quot;grid&quot;></div>
+</div>
+<div id=&quot;exm&quot;><div class=&quot;box&quot;><div style=&quot;display:flex;gap:10px;margin-bottom:10px;align-items:center&quot;><strong style=&quot;font-size:14px&quot;>Feedback</strong><span class=&quot;spacer&quot; style=&quot;flex:1&quot;></span><button class=&quot;tbtn&quot; onclick=&quot;navigator.clipboard.writeText(exT.value)&quot;>Copy</button><button class=&quot;tbtn&quot; onclick=&quot;exm.style.display='none'&quot;>Close</button></div><textarea id=&quot;exT&quot; readonly></textarea></div></div>
+<script>
+const I={
+ chev:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;16&quot; height=&quot;16&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.4&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M9 6l6 6-6 6&quot;/></svg>',
+ check:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;15&quot; height=&quot;15&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;3&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M20 6L9 17l-5-5&quot;/></svg>',
+ note:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;20&quot; height=&quot;20&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M4 4h16v16H4z&quot;/><path d=&quot;M8 9h8M8 13h6&quot;/></svg>',
+ exp:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;20&quot; height=&quot;20&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M9 3v6l-5 9a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3l-5-9V3&quot;/><path d=&quot;M8 3h8&quot;/></svg>',
+ people:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;20&quot; height=&quot;20&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2&quot;/><circle cx=&quot;9&quot; cy=&quot;7&quot; r=&quot;4&quot;/><path d=&quot;M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75&quot;/></svg>',
+ lock:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;15&quot; height=&quot;15&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><rect x=&quot;3&quot; y=&quot;11&quot; width=&quot;18&quot; height=&quot;11&quot; rx=&quot;2&quot;/><path d=&quot;M7 11V7a5 5 0 0 1 10 0v4&quot;/></svg>',
+ inbox:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;19&quot; height=&quot;19&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M22 12h-6l-2 3h-4l-2-3H2&quot;/><path d=&quot;M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z&quot;/></svg>',
+};
+const sb='<div class=&quot;statusbar&quot;><span>9:41</span><span>5G</span></div>';
+const preview='<div class=&quot;preview&quot;><div class=&quot;thumb&quot;></div><div><div class=&quot;pt&quot;>Quick note</div><div class=&quot;ps&quot;>Just now</div></div></div>';
+
+const screens=[
+ {id:'chooser',n:'Notebook chooser',d:'pick any notebook, or unsorted',
+  why:'THE NEW SURFACE. Leads with a RECOMMENDED row = what is open on your laptop right now (here the Cloning log, reusing the focus context). Then YOUR NOTEBOOKS, SHARED WITH YOU (edit access only, DECIDED 2026-06-09 to hide view-only shares entirely since you cannot file there), and 1:1 NOTEBOOKS with your PI / students. &quot;Unsorted note&quot; always at the bottom = a quick capture that lands in the inbox, unfiled. Applies to BOTH photos and quick notes; the experiment Notes/Results auto-route stays the smart default when an experiment is open.',
+  html:`<div class=&quot;scr&quot;><div class=&quot;rainbow&quot;></div>${sb}${preview}
+   <div class=&quot;sheet&quot;>
+     <div class=&quot;grab&quot;></div>
+     <div class=&quot;sheet-h&quot;>Where should this go?</div>
+     <div class=&quot;sheet-sub&quot;>Pick a notebook, or leave it unsorted.</div>
+     <div class=&quot;sheet-scroll&quot;>
+       <div class=&quot;sec-h&quot; style=&quot;margin-top:2px&quot;>Open on your laptop</div>
+       <button class=&quot;opt rec&quot;><div class=&quot;ico&quot;>${I.note}</div><div class=&quot;ox&quot;><div class=&quot;ot&quot;>Cloning log, pENTR-GFP <span class=&quot;pill sky&quot;>open</span></div><div class=&quot;os&quot;>Recommended, you have it open</div></div><div class=&quot;chev&quot;>${I.chev}</div></button>
+       <div class=&quot;sec-h&quot;>Your notebooks</div>
+       <div class=&quot;group&quot;>
+         <button class=&quot;opt&quot; style=&quot;border:none;border-radius:0;margin:0&quot;><div class=&quot;ico&quot;>${I.note}</div><div class=&quot;ox&quot;><div class=&quot;ot&quot;>Antibody titration plan</div><div class=&quot;os&quot;>3 entries</div></div><div class=&quot;chev&quot;>${I.chev}</div></button>
+         <button class=&quot;opt&quot; style=&quot;border:none;border-radius:0;margin:0;border-top:1px solid var(--sep)&quot;><div class=&quot;ico&quot;>${I.note}</div><div class=&quot;ox&quot;><div class=&quot;ot&quot;>Reagent prep log</div><div class=&quot;os&quot;>12 entries</div></div><div class=&quot;chev&quot;>${I.chev}</div></button>
+       </div>
+       <div class=&quot;sec-h&quot;>Shared with you</div>
+       <div class=&quot;group&quot;>
+         <button class=&quot;opt&quot; style=&quot;border:none;border-radius:0;margin:0&quot;><div class=&quot;ico green&quot;>${I.people}</div><div class=&quot;ox&quot;><div class=&quot;ot&quot;>Lab freezer inventory</div><div class=&quot;os&quot;>from Priya &amp;middot; can edit</div></div><div class=&quot;chev&quot;>${I.chev}</div></button>
+       </div>
+       <div class=&quot;sec-h&quot;>1:1 notebooks</div>
+       <div class=&quot;group&quot;>
+         <button class=&quot;opt&quot; style=&quot;border:none;border-radius:0;margin:0&quot;><div class=&quot;ico violet&quot;>${I.people}</div><div class=&quot;ox&quot;><div class=&quot;ot&quot;>1:1 with Dr. Okafor <span class=&quot;pill violet&quot;>PI</span></div><div class=&quot;os&quot;>your mentoring notebook</div></div><div class=&quot;chev&quot;>${I.chev}</div></button>
+         <button class=&quot;opt&quot; style=&quot;border:none;border-radius:0;margin:0;border-top:1px solid var(--sep)&quot;><div class=&quot;ico violet&quot;>${I.people}</div><div class=&quot;ox&quot;><div class=&quot;ot&quot;>1:1 with Sam (student)</div><div class=&quot;os&quot;>your mentoring notebook</div></div><div class=&quot;chev&quot;>${I.chev}</div></button>
+       </div>
+       <button class=&quot;ghost&quot; style=&quot;margin-top:6px;display:flex;align-items:center;justify-content:center;gap:8px&quot;>${I.inbox} Unsorted note (inbox)</button>
+     </div>
+   </div></div>`},
+
+ {id:'entry',n:'Which entry',d:'after picking a running notebook',
+  why:'Picking a multi-entry running notebook drops into the recommended-entry picker we already mocked and built (recommended = the open entry, else the last edited, then all entries). A single-entry or non-running notebook skips this and files straight in.',
+  html:`<div class=&quot;scr&quot;><div class=&quot;rainbow&quot;></div>${sb}${preview}
+   <div class=&quot;sheet&quot;>
+     <div class=&quot;grab&quot;></div>
+     <div class=&quot;sheet-h&quot;>Which entry?</div>
+     <div class=&quot;sheet-sub&quot;>Cloning log, pENTR-GFP</div>
+     <div class=&quot;sheet-scroll&quot;>
+       <div class=&quot;sec-h&quot; style=&quot;margin-top:2px&quot;>Recommended</div>
+       <button class=&quot;opt rec&quot;><div class=&quot;ico&quot;>${I.note}</div><div class=&quot;ox&quot;><div class=&quot;ot&quot;>Colony PCR screen <span class=&quot;pill sky&quot;>open</span></div><div class=&quot;os&quot;>Jun 9 &amp;middot; the entry you have open</div></div><div style=&quot;width:22px;height:22px;border-radius:50%;background:var(--sky);color:#fff;display:flex;align-items:center;justify-content:center&quot;>${I.check}</div></button>
+       <div class=&quot;sec-h&quot;>All entries</div>
+       <div class=&quot;group&quot;>
+         <button class=&quot;entry&quot;><div class=&quot;dt&quot;><div class=&quot;dd&quot;>7</div><div class=&quot;mm&quot;>Jun</div></div><div class=&quot;ox&quot;><div class=&quot;et&quot;>Ligation + transformation</div><div class=&quot;es&quot;>edited Jun 7</div></div><div class=&quot;chev&quot;>${I.chev}</div></button>
+         <button class=&quot;entry&quot;><div class=&quot;dt&quot;><div class=&quot;dd&quot;>5</div><div class=&quot;mm&quot;>Jun</div></div><div class=&quot;ox&quot;><div class=&quot;et&quot;>Restriction digest</div><div class=&quot;es&quot;>edited Jun 5</div></div><div class=&quot;chev&quot;>${I.chev}</div></button>
+       </div>
+       <button class=&quot;ghost&quot; style=&quot;margin-top:4px&quot;>Back to notebooks</button>
+     </div>
+   </div></div>`},
+
+ {id:'done',n:'Filed',d:'confirmation',
+  why:'After you pick, the phone uploads and posts the route command; the laptop writes it into that notebook entry (edit-permission checked, attributed to you), and confirms. An unsorted note instead lands in the inbox with the same gentle &quot;appears on your laptop in a few seconds&quot; line.',
+  html:`<div class=&quot;scr&quot;><div class=&quot;rainbow&quot;></div>${sb}
+   <div style=&quot;padding:18px 18px 0&quot;><div style=&quot;font-size:26px;font-weight:800;letter-spacing:-.03em&quot;>Notebook</div></div>
+   <div style=&quot;padding:14px 18px&quot;>
+     <div class=&quot;sec-h&quot; style=&quot;margin:6px 6px&quot;>Recently sent</div>
+     <div class=&quot;group&quot;><button class=&quot;opt&quot; style=&quot;border:none;border-radius:0;margin:0&quot;><div class=&quot;ico&quot;>${I.note}</div><div class=&quot;ox&quot;><div class=&quot;ot&quot;>Quick note</div><div class=&quot;os&quot;>Cloning log &amp;middot; Colony PCR screen</div></div><span class=&quot;pill&quot; style=&quot;background:var(--ok-bg);color:var(--ok)&quot;>filed</span></button></div>
+   </div>
+   <div class=&quot;toast&quot;><div class=&quot;tk&quot;>${I.check}</div><div><div class=&quot;tt&quot;>Filed in Colony PCR screen</div><div class=&quot;ts&quot;>Cloning log, pENTR-GFP &amp;middot; appears on your laptop shortly</div></div></div>
+  </div>`},
+];
+
+const grid=document.getElementById('grid');
+screens.forEach((s,i)=>{
+  const cell=document.createElement('div');cell.className='cell';
+  cell.innerHTML=`<div class=&quot;cap&quot;><span class=&quot;step&quot;>${i+1}</span><span class=&quot;n&quot;>${s.n}</span><span class=&quot;d&quot;>${s.d}</span></div><div class=&quot;phone&quot;>${s.html}</div><div class=&quot;why&quot;>${s.why}</div><div class=&quot;review&quot;><div class=&quot;seg&quot; data-k=&quot;${s.id}&quot;><button data-v=&quot;ok&quot; class=&quot;ok&quot;>Approve</button><button data-v=&quot;warn&quot; class=&quot;warn&quot;>Change</button><button data-v=&quot;none&quot; class=&quot;none&quot;>?</button></div></div><textarea class=&quot;cmt&quot; data-c=&quot;${s.id}&quot; placeholder=&quot;Notes on this screen...&quot;></textarea>`;
+  grid.appendChild(cell);
+});
+const verdicts={},comments={};
+document.querySelectorAll('.seg').forEach(seg=>{const k=seg.dataset.k;seg.querySelectorAll('button').forEach(b=>{b.onclick=()=>{seg.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');verdicts[k]=b.dataset.v;};});});
+document.querySelectorAll('.cmt').forEach(t=>{t.oninput=()=>comments[t.dataset.c]=t.value;});
+document.getElementById('export').onclick=()=>{let out='MOBILE NOTEBOOK CHOOSER - review
+
+';screens.forEach((s,i)=>{out+=`${i+1}. ${s.n} (${s.id}): ${(verdicts[s.id]||'-').toUpperCase()}
+`;if(comments[s.id])out+=`   note: ${comments[s.id]}
+`;});document.getElementById('exT').value=out;document.getElementById('exm').style.display='flex';};
+</script>
+</body>
+</html>
+"></iframe></div>
+    </section>
+    <section class="panel" data-i="2">
+      <div class="label"><h2><span class="num">3</span>Send destination</h2>
+        <p class="meta"><code>2026-06-09-mobile-send-destination.html</code> &middot; capture routing by laptop focus: nothing open, experiment choice, single/multi-entry, placed + auto-switch</p></div>
+      <div class="frame"><iframe title="Send destination" srcdoc="<!doctype html>
+<html lang=&quot;en&quot; data-theme=&quot;light&quot;>
+<head>
+<meta charset=&quot;utf-8&quot;/><meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;/>
+<title>ResearchOS - send destination picker (inbox / experiment / note entry)</title>
+<style>
+  :root{--sky:#1AA0E6;--purple:#5B47D6;--ink:#0b1320;--ink-2:#3c4656;--ink-3:#8a93a3;--bg:#f2f3f7;--group:#fff;--sep:rgba(60,67,86,.10);--card-shadow:0 1px 2px rgba(16,24,40,.05),0 8px 24px rgba(16,24,40,.06);--ok:#1a9c5b;--ok-bg:#e4f7ec;--danger:#e5484d;--danger-bg:#fdecec;--warn:#d98a0b;--warn-bg:#fdf3e2;--r1:#FFD2B0;--r2:#FFF1A8;--r3:#B7EBB1;--r4:#A6D2F4;--r5:#D6B5F0;--radius:18px;--page:#e9ebf1}
+  [data-theme=&quot;dark&quot;]{--sky:#3aa6e8;--purple:#8170e6;--ink:#f5f7fb;--ink-2:#c3ccda;--ink-3:#7e8696;--bg:#0a0e1a;--group:#15171c;--sep:rgba(255,255,255,.10);--card-shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.5);--ok:#3ddc8c;--ok-bg:rgba(45,160,100,.18);--danger:#ff6b6f;--danger-bg:rgba(229,72,77,.16);--warn:#f4b740;--warn-bg:rgba(217,138,11,.18);--r1:#F97316;--r2:#E8920B;--r3:#16A34A;--r4:#0284C7;--r5:#9333EA;--page:#0a0b0e}
+  *{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,&quot;SF Pro Display&quot;,&quot;Segoe UI&quot;,Roboto,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .top{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--page) 88%,transparent);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--sep);padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .top h1{font-size:17px;margin:0;font-weight:700;letter-spacing:-.02em}.top .sub{font-size:12.5px;color:var(--ink-3)}.spacer{flex:1}
+  .tbtn{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--sep);background:var(--group);color:var(--ink);border-radius:980px;padding:8px 15px;cursor:pointer}.tbtn.brand{background:linear-gradient(135deg,var(--sky),var(--purple));color:#fff;border:none}
+  .legend{display:flex;gap:12px;font-size:12px;color:var(--ink-3);align-items:center;flex-wrap:wrap}.dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px}.dot.ok{background:#1a9c5b}.dot.warn{background:#d98a0b}.dot.none{background:#c4ccd6}
+  .wrap{max-width:1240px;margin:0 auto;padding:20px 20px 120px}.intro{font-size:13px;color:var(--ink-2);max-width:980px;line-height:1.6;margin:8px 0}
+  .flow{font-size:12.5px;color:var(--ink-2);margin:6px 0 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .flow b{background:var(--group);border:1px solid var(--sep);border-radius:980px;padding:5px 11px;font-weight:600}
+  .grid{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start;margin-top:16px;justify-content:center}.cell{width:330px}
+  .cap{display:flex;align-items:baseline;gap:8px;margin:0 2px 9px}.cap .step{min-width:22px;height:22px;border-radius:50%;background:var(--sky);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 7px}.cap .n{font-size:14px;font-weight:700}.cap .d{font-size:12px;color:var(--ink-3)}
+  .phone{width:330px;height:700px;border-radius:46px;background:var(--bg);position:relative;overflow:hidden;border:10px solid #0c0d10;box-shadow:0 30px 60px rgba(16,24,40,.22)}[data-theme=&quot;dark&quot;] .phone{border-color:#23262d}
+  .phone::after{content:&quot;&quot;;position:absolute;left:0;right:0;bottom:0;height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5));z-index:40}
+  .scr{position:absolute;inset:0;display:flex;flex-direction:column}
+  .rainbow{height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5))}
+  .statusbar{height:44px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 7px;font-size:13px;font-weight:600}
+  .content{flex:1;overflow:hidden;position:relative}.scroll{position:absolute;inset:0;overflow:auto;padding:0 18px 24px}.scroll::-webkit-scrollbar{display:none}
+  .largetitle{font-size:26px;font-weight:800;letter-spacing:-.03em;margin:4px 2px 4px}.subtitle{font-size:14px;color:var(--ink-3);margin:0 2px 14px;line-height:1.45}
+  .group{background:var(--group);border-radius:var(--radius);box-shadow:var(--card-shadow);overflow:hidden;margin-bottom:14px}
+  .row{display:flex;align-items:center;gap:13px;padding:13px 16px;position:relative}.row+.row::before{content:&quot;&quot;;position:absolute;top:0;left:16px;right:0;height:1px;background:var(--sep)}
+  .row .tx{flex:1;min-width:0}.row .t{font-size:15px;font-weight:600}.row .s{font-size:12.5px;color:var(--ink-3);margin-top:1px}
+  .chev{color:var(--ink-3);opacity:.5}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;border-radius:15px;padding:15px;font:inherit;font-size:16px;font-weight:650;cursor:pointer}.btn.primary{background:var(--sky);color:#fff}.btn.secondary{background:var(--group);color:var(--sky);box-shadow:var(--card-shadow)}.btn.tinted{background:color-mix(in srgb,var(--sky) 14%,transparent);color:var(--sky)}.btn.ghost{background:transparent;color:var(--ink-3);font-weight:600;font-size:15px}
+  .sec-h{font-size:12px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;margin:8px 6px 8px}
+  .pill{font-size:11px;font-weight:700;padding:3px 9px;border-radius:980px;white-space:nowrap}.pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.warn{background:var(--warn-bg);color:var(--warn)}.pill.sky{background:color-mix(in srgb,var(--sky) 14%,transparent);color:var(--sky)}
+  /* preview card */
+  .preview{display:flex;gap:12px;align-items:center;background:var(--group);border-radius:14px;box-shadow:var(--card-shadow);padding:11px;margin:2px 0 14px}
+  .thumb{width:54px;height:54px;border-radius:10px;background:linear-gradient(135deg,#cfe6f7,#a6d2f4);flex-shrink:0;position:relative;overflow:hidden}[data-theme=&quot;dark&quot;] .thumb{background:linear-gradient(135deg,#1d3550,#244a73)}
+  .thumb svg{position:absolute;inset:0;margin:auto;opacity:.7;color:#fff}
+  .preview .pt{font-size:14px;font-weight:700}.preview .ps{font-size:12px;color:var(--ink-3);margin-top:2px}
+  /* destination sheet */
+  .dim{position:absolute;inset:0;background:rgba(8,12,20,.42);z-index:30}
+  .sheet{position:absolute;left:0;right:0;bottom:0;z-index:35;background:var(--bg);border-radius:24px 24px 0 0;padding:10px 16px calc(16px + 6px);box-shadow:0 -12px 40px rgba(0,0,0,.22);max-height:88%;display:flex;flex-direction:column}
+  [data-theme=&quot;dark&quot;] .sheet{background:#10141f}
+  .grab{width:38px;height:5px;border-radius:980px;background:var(--sep);margin:4px auto 12px}
+  .sheet-h{font-size:19px;font-weight:800;letter-spacing:-.02em;margin:0 4px 3px}
+  .sheet-sub{font-size:13px;color:var(--ink-3);margin:0 4px 14px;line-height:1.4}
+  .sheet-scroll{overflow:auto;margin:0 -4px;padding:0 4px}.sheet-scroll::-webkit-scrollbar{display:none}
+  /* destination option card */
+  .opt{display:flex;align-items:center;gap:13px;width:100%;text-align:left;border:1.5px solid var(--sep);background:var(--group);border-radius:15px;padding:14px 15px;margin-bottom:10px;cursor:pointer;position:relative}
+  .opt.rec{border-color:var(--sky);box-shadow:0 0 0 3px color-mix(in srgb,var(--sky) 16%,transparent)}
+  .opt .ico{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:color-mix(in srgb,var(--sky) 13%,transparent);color:var(--sky)}
+  .opt .ico.notes{background:color-mix(in srgb,#16A34A 14%,transparent);color:#16A34A}.opt .ico.results{background:color-mix(in srgb,#9333EA 14%,transparent);color:#9333EA}.opt .ico.note{background:color-mix(in srgb,#E8920B 16%,transparent);color:#E8920B}
+  .opt .ox{flex:1;min-width:0}.opt .ot{font-size:15.5px;font-weight:700;display:flex;align-items:center;gap:8px}.opt .os{font-size:12.5px;color:var(--ink-3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .opt .check{width:24px;height:24px;border-radius:50%;background:var(--sky);color:#fff;display:none;align-items:center;justify-content:center;flex-shrink:0}
+  .opt.sel .check{display:flex}.opt.sel{border-color:var(--sky)}
+  .entry{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:none;background:transparent;border-radius:12px;padding:11px 12px;cursor:pointer;position:relative}
+  .entry+.entry::before{content:&quot;&quot;;position:absolute;top:0;left:12px;right:12px;height:1px;background:var(--sep)}
+  .entry .dt{width:34px;text-align:center;flex-shrink:0}.entry .dt .dd{font-size:16px;font-weight:800;line-height:1}.entry .dt .mm{font-size:10px;font-weight:700;color:var(--ink-3);text-transform:uppercase}
+  .entry .ex{flex:1;min-width:0}.entry .et{font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.entry .es{font-size:12px;color:var(--ink-3);margin-top:1px}
+  .entry .chev{flex-shrink:0}
+  .sheet-foot{padding-top:8px;margin-top:2px}
+  .toast{position:absolute;left:16px;right:16px;bottom:20px;z-index:36;background:var(--ink);color:var(--bg);border-radius:14px;padding:13px 15px;display:flex;align-items:center;gap:11px;box-shadow:0 12px 30px rgba(0,0,0,.3)}
+  [data-theme=&quot;dark&quot;] .toast{background:#e7ecf3;color:#0a0e1a}
+  .toast .tk{width:26px;height:26px;border-radius:50%;background:var(--ok);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .toast .tt{font-size:13.5px;font-weight:650;line-height:1.3}.toast .ts{font-size:11.5px;opacity:.7}
+  .why{font-size:12px;color:var(--ink-2);line-height:1.55;margin:10px 2px 0;border-left:2px solid var(--sky);padding-left:11px}
+  .review{margin-top:12px;display:flex;gap:7px;flex-wrap:wrap}.seg{display:inline-flex;border:1px solid var(--sep);border-radius:9px;overflow:hidden}.seg button{font:inherit;font-size:12px;padding:6px 11px;border:none;background:var(--group);color:var(--ink-3);cursor:pointer}.seg button.on.ok{background:#1a9c5b;color:#fff}.seg button.on.warn{background:#d98a0b;color:#fff}.seg button.on.none{background:#64748b;color:#fff}
+  .cmt{width:100%;margin-top:8px;font:inherit;font-size:12.5px;border:1px dashed var(--sep);border-radius:9px;background:var(--group);color:var(--ink);padding:8px 10px;resize:vertical;min-height:30px}
+  svg{display:block}
+  #exm{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}#exm .box{background:var(--group);border-radius:16px;max-width:680px;width:100%;padding:18px;border:1px solid var(--sep)}#exm textarea{width:100%;min-height:220px;font-family:ui-monospace,Menlo,monospace;font-size:12px;border:1px solid var(--sep);border-radius:8px;background:var(--bg);color:var(--ink);padding:10px}
+</style>
+</head>
+<body>
+<div class=&quot;top&quot;>
+  <div><h1>Send destination picker</h1><div class=&quot;sub&quot;>When the phone sends a capture, route it to where you are working on the laptop. Inbox, experiment tab, or a specific note entry.</div></div>
+  <div class=&quot;spacer&quot;></div>
+  <div class=&quot;legend&quot;><span><span class=&quot;dot ok&quot;></span>Approve</span><span><span class=&quot;dot warn&quot;></span>Change</span><span><span class=&quot;dot none&quot;></span>?</span></div>
+  <button class=&quot;tbtn brand&quot; id=&quot;export&quot;>Export</button>
+</div>
+<div class=&quot;wrap&quot;>
+  <p class=&quot;intro&quot;>The phone reads the laptop focus context (what is pulled up right now) just before a capture sends, then offers the right destination. Three cases: nothing open goes straight to the inbox (no prompt), an open experiment asks Lab Notes vs Results, and an open note offers its entries. For a multi-entry running note the picker leads with a recommended entry (the one open on the laptop, else the last-edited) and lists all entries beneath it. The laptop does the actual write (it owns the data folder) and auto-switches to where the item landed. &quot;Send to inbox instead&quot; is always one tap away.</p>
+  <div class=&quot;flow&quot;><b>take/pick photo</b> &amp;rarr; <b>read focus context</b> &amp;rarr; <b>pick destination</b> &amp;rarr; <b>upload + route command</b> &amp;rarr; <b>laptop places it + switches</b></div>
+  <div class=&quot;grid&quot; id=&quot;grid&quot;></div>
+</div>
+<div id=&quot;exm&quot;><div class=&quot;box&quot;><div style=&quot;display:flex;gap:10px;margin-bottom:10px;align-items:center&quot;><strong style=&quot;font-size:14px&quot;>Feedback</strong><span class=&quot;spacer&quot; style=&quot;flex:1&quot;></span><button class=&quot;tbtn&quot; onclick=&quot;navigator.clipboard.writeText(exT.value)&quot;>Copy</button><button class=&quot;tbtn&quot; onclick=&quot;exm.style.display='none'&quot;>Close</button></div><textarea id=&quot;exT&quot; readonly></textarea></div></div>
+<script>
+const I={
+ chev:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;17&quot; height=&quot;17&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.4&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M9 6l6 6-6 6&quot;/></svg>',
+ check:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;15&quot; height=&quot;15&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;3&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M20 6L9 17l-5-5&quot;/></svg>',
+ cam:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;22&quot; height=&quot;22&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z&quot;/><circle cx=&quot;12&quot; cy=&quot;13&quot; r=&quot;4&quot;/></svg>',
+ notes:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;21&quot; height=&quot;21&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M12 20h9&quot;/><path d=&quot;M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z&quot;/></svg>',
+ results:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;21&quot; height=&quot;21&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M3 3v18h18&quot;/><path d=&quot;M7 14l3-3 3 3 5-6&quot;/></svg>',
+ note:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;21&quot; height=&quot;21&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M4 4h16v16H4z&quot;/><path d=&quot;M8 9h8M8 13h6&quot;/></svg>',
+ inbox:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;20&quot; height=&quot;20&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M22 12h-6l-2 3h-4l-2-3H2&quot;/><path d=&quot;M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z&quot;/></svg>',
+};
+const sb='<div class=&quot;statusbar&quot;><span>9:41</span><span>5G</span></div>';
+const preview='<div class=&quot;preview&quot;><div class=&quot;thumb&quot;>'+I.cam+'</div><div><div class=&quot;pt&quot;>Gel image</div><div class=&quot;ps&quot;>Photo &amp;middot; just now</div></div></div>';
+
+const screens=[
+ {id:'none',n:'Nothing open',d:'straight to inbox, no prompt',
+  why:'When the laptop has no experiment or note pulled up (or the context is stale, older than ~20s), the capture goes to the inbox exactly like today. No interruption. This is the common quick-snap path, so it stays one tap.',
+  html:`<div class=&quot;scr&quot;><div class=&quot;rainbow&quot;></div>${sb}<div class=&quot;content&quot;><div class=&quot;scroll&quot; style=&quot;padding-top:8px&quot;>
+   <div class=&quot;largetitle&quot;>Notebook</div>
+   ${preview}
+   <button class=&quot;btn primary&quot; style=&quot;margin-bottom:10px&quot;>Send to lab</button>
+   <div class=&quot;sec-h&quot;>Destination</div>
+   <div class=&quot;group&quot;><div class=&quot;row&quot;><div style=&quot;width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--sky) 12%,transparent);color:var(--sky)&quot;>${I.inbox}</div><div class=&quot;tx&quot;><div class=&quot;t&quot;>Lab inbox</div><div class=&quot;s&quot;>Nothing open on your laptop right now</div></div></div></div>
+   <div class=&quot;why&quot; style=&quot;border-color:var(--ink-3)&quot;>Tip, open an experiment or note on the laptop and the picker appears here instead.</div>
+  </div></div></div>`},
+
+ {id:'exp',n:'Experiment open',d:'Lab Notes vs Results',
+  why:'Locked decision B. An open experiment asks Lab Notes vs Results, you pick, the laptop auto-switches to that tab and drops the photo into that tab Images folder. This is the Phase 1 slice already in build. The two tabs are colored to match their tabs on the laptop (Notes green, Results purple).',
+  html:`<div class=&quot;scr&quot;><div class=&quot;rainbow&quot;></div>${sb}<div class=&quot;content&quot;><div class=&quot;scroll&quot; style=&quot;padding-top:8px&quot;><div class=&quot;largetitle&quot;>Notebook</div>${preview}<div style=&quot;height:200px&quot;></div></div>
+   <div class=&quot;dim&quot;></div>
+   <div class=&quot;sheet&quot;>
+     <div class=&quot;grab&quot;></div>
+     <div class=&quot;sheet-h&quot;>Add to this experiment?</div>
+     <div class=&quot;sheet-sub&quot;>Open on your laptop &amp;middot; <b>HEK293 transfection</b></div>
+     <div class=&quot;sheet-scroll&quot;>
+       <button class=&quot;opt rec&quot;><div class=&quot;ico notes&quot;>${I.notes}</div><div class=&quot;ox&quot;><div class=&quot;ot&quot;>Lab Notes <span class=&quot;pill sky&quot;>open tab</span></div><div class=&quot;os&quot;>Drops into the Lab Notes images</div></div><div class=&quot;chev&quot;>${I.chev}</div></button>
+       <button class=&quot;opt&quot;><div class=&quot;ico results&quot;>${I.results}</div><div class=&quot;ox&quot;><div class=&quot;ot&quot;>Results</div><div class=&quot;os&quot;>Drops into the Results images</div></div><div class=&quot;chev&quot;>${I.chev}</div></button>
+     </div>
+     <div class=&quot;sheet-foot&quot;><button class=&quot;btn ghost&quot;>Send to inbox instead</button></div>
+   </div></div></div>`},
+
+ {id:'note1',n:'Single-entry note',d:'no entry picker needed',
+  why:'A note with one entry (or a non-running-log note) needs no entry choice. The sheet just confirms the destination and routes straight to that entry. Same one-tap weight as the experiment case.',
+  html:`<div class=&quot;scr&quot;><div class=&quot;rainbow&quot;></div>${sb}<div class=&quot;content&quot;><div class=&quot;scroll&quot; style=&quot;padding-top:8px&quot;><div class=&quot;largetitle&quot;>Notebook</div>${preview}<div style=&quot;height:200px&quot;></div></div>
+   <div class=&quot;dim&quot;></div>
+   <div class=&quot;sheet&quot;>
+     <div class=&quot;grab&quot;></div>
+     <div class=&quot;sheet-h&quot;>Add to this note?</div>
+     <div class=&quot;sheet-sub&quot;>Open on your laptop &amp;middot; <b>Antibody titration plan</b></div>
+     <div class=&quot;sheet-scroll&quot;>
+       <button class=&quot;opt rec&quot;><div class=&quot;ico note&quot;>${I.note}</div><div class=&quot;ox&quot;><div class=&quot;ot&quot;>Add to note</div><div class=&quot;os&quot;>Appends the photo to the note</div></div><div class=&quot;chev&quot;>${I.chev}</div></button>
+     </div>
+     <div class=&quot;sheet-foot&quot;><button class=&quot;btn ghost&quot;>Send to inbox instead</button></div>
+   </div></div></div>`},
+
+ {id:'note-multi',n:'Running note, many entries',d:'recommended first, all entries below',
+  why:'THE NEW CASE. A multi-entry running note asks which entry, the same way an experiment asks which tab. The picker leads with a RECOMMENDED entry: the entry currently open on the laptop if there is one, otherwise the last-edited entry (badged so you know why it is recommended). Beneath it, ALL entries, newest first, each with its date so you can aim at any of them. One tap on the recommended row is the fast path.',
+  html:`<div class=&quot;scr&quot;><div class=&quot;rainbow&quot;></div>${sb}<div class=&quot;content&quot;><div class=&quot;scroll&quot; style=&quot;padding-top:8px&quot;><div class=&quot;largetitle&quot;>Notebook</div>${preview}<div style=&quot;height:120px&quot;></div></div>
+   <div class=&quot;dim&quot;></div>
+   <div class=&quot;sheet&quot; style=&quot;max-height:90%&quot;>
+     <div class=&quot;grab&quot;></div>
+     <div class=&quot;sheet-h&quot;>Which entry?</div>
+     <div class=&quot;sheet-sub&quot;>Open on your laptop &amp;middot; <b>Cloning log, pENTR-GFP</b></div>
+     <div class=&quot;sheet-scroll&quot;>
+       <div class=&quot;sec-h&quot; style=&quot;margin-top:0&quot;>Recommended</div>
+       <button class=&quot;opt rec sel&quot;><div class=&quot;ico note&quot;>${I.note}</div><div class=&quot;ox&quot;><div class=&quot;ot&quot;>Colony PCR screen <span class=&quot;pill sky&quot;>open now</span></div><div class=&quot;os&quot;>Jun 9 &amp;middot; the entry you have open</div></div><div class=&quot;check&quot;>${I.check}</div></button>
+       <div class=&quot;sec-h&quot;>All entries</div>
+       <div class=&quot;group&quot; style=&quot;margin-bottom:10px&quot;>
+         <button class=&quot;entry&quot;><div class=&quot;dt&quot;><div class=&quot;dd&quot;>9</div><div class=&quot;mm&quot;>Jun</div></div><div class=&quot;ex&quot;><div class=&quot;et&quot;>Colony PCR screen</div><div class=&quot;es&quot;>edited 10 min ago</div></div><div class=&quot;chev&quot;>${I.chev}</div></button>
+         <button class=&quot;entry&quot;><div class=&quot;dt&quot;><div class=&quot;dd&quot;>7</div><div class=&quot;mm&quot;>Jun</div></div><div class=&quot;ex&quot;><div class=&quot;et&quot;>Ligation + transformation</div><div class=&quot;es&quot;>edited Jun 7</div></div><div class=&quot;chev&quot;>${I.chev}</div></button>
+         <button class=&quot;entry&quot;><div class=&quot;dt&quot;><div class=&quot;dd&quot;>5</div><div class=&quot;mm&quot;>Jun</div></div><div class=&quot;ex&quot;><div class=&quot;et&quot;>Restriction digest</div><div class=&quot;es&quot;>edited Jun 5</div></div><div class=&quot;chev&quot;>${I.chev}</div></button>
+         <button class=&quot;entry&quot;><div class=&quot;dt&quot;><div class=&quot;dd&quot;>3</div><div class=&quot;mm&quot;>Jun</div></div><div class=&quot;ex&quot;><div class=&quot;et&quot;>Primer design + order</div><div class=&quot;es&quot;>edited Jun 3</div></div><div class=&quot;chev&quot;>${I.chev}</div></button>
+       </div>
+     </div>
+     <div class=&quot;sheet-foot&quot;><button class=&quot;btn ghost&quot;>Send to inbox instead</button></div>
+   </div></div></div>`},
+
+ {id:'done',n:'Placed + auto-switch',d:'confirmation, laptop follows',
+  why:'After you pick, the phone uploads the photo and posts a route command. The laptop opens that note (and that entry) if it is not already, appends the photo there, and shows it. The phone confirms where it landed. If the laptop is asleep the upload still queues and the command applies on the next poll.',
+  html:`<div class=&quot;scr&quot;><div class=&quot;rainbow&quot;></div>${sb}<div class=&quot;content&quot;><div class=&quot;scroll&quot; style=&quot;padding-top:8px&quot;>
+   <div class=&quot;largetitle&quot;>Notebook</div>
+   <div class=&quot;sec-h&quot; style=&quot;margin-top:6px&quot;>Recently sent</div>
+   <div class=&quot;group&quot;><div class=&quot;row&quot;><div class=&quot;thumb&quot; style=&quot;width:42px;height:42px;border-radius:9px&quot;>${I.cam}</div><div class=&quot;tx&quot;><div class=&quot;t&quot;>Gel image</div><div class=&quot;s&quot;>Cloning log &amp;middot; Colony PCR screen</div></div><span class=&quot;pill ok&quot;>placed</span></div></div>
+   <div class=&quot;sec-h&quot;>Today</div>
+   <div class=&quot;group&quot;><div class=&quot;row&quot;><div class=&quot;tx&quot;><div class=&quot;t&quot;>Colony PCR screen</div><div class=&quot;s&quot;>3 colonies positive</div></div></div></div>
+   </div></div>
+   <div class=&quot;toast&quot;><div class=&quot;tk&quot;>${I.check}</div><div><div class=&quot;tt&quot;>Added to Colony PCR screen</div><div class=&quot;ts&quot;>in Cloning log, pENTR-GFP &amp;middot; laptop switched to it</div></div></div>
+  </div>`},
+];
+
+const why_block=(s)=>`<div class=&quot;why&quot;>${s.why}</div>`;
+const review=(id)=>`<div class=&quot;review&quot;><div class=&quot;seg&quot; data-k=&quot;${id}&quot;><button data-v=&quot;ok&quot; class=&quot;ok&quot;>Approve</button><button data-v=&quot;warn&quot; class=&quot;warn&quot;>Change</button><button data-v=&quot;none&quot; class=&quot;none&quot;>?</button></div></div><textarea class=&quot;cmt&quot; data-c=&quot;${id}&quot; placeholder=&quot;Notes on this screen...&quot;></textarea>`;
+
+const grid=document.getElementById('grid');
+screens.forEach((s,i)=>{
+  const cell=document.createElement('div');cell.className='cell';
+  cell.innerHTML=`<div class=&quot;cap&quot;><span class=&quot;step&quot;>${i+1}</span><span class=&quot;n&quot;>${s.n}</span><span class=&quot;d&quot;>${s.d}</span></div><div class=&quot;phone&quot;>${s.html}</div>${why_block(s)}${review(s.id)}`;
+  grid.appendChild(cell);
+});
+
+// review state
+const verdicts={},comments={};
+document.querySelectorAll('.seg').forEach(seg=>{const k=seg.dataset.k;seg.querySelectorAll('button').forEach(b=>{b.onclick=()=>{seg.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');verdicts[k]=b.dataset.v;};});});
+document.querySelectorAll('.cmt').forEach(t=>{t.oninput=()=>comments[t.dataset.c]=t.value;});
+// export
+document.getElementById('export').onclick=()=>{
+  let out='SEND DESTINATION PICKER - review
+
+';
+  screens.forEach((s,i)=>{out+=`${i+1}. ${s.n} (${s.id}): ${(verdicts[s.id]||'-').toUpperCase()}
+`;if(comments[s.id])out+=`   note: ${comments[s.id]}
+`;});
+  document.getElementById('exT').value=out;document.getElementById('exm').style.display='flex';
+};
+</script>
+</body>
+</html>
+"></iframe></div>
+    </section>
+    <section class="panel" data-i="3">
+      <div class="label"><h2><span class="num">4</span>Inventory scan flow</h2>
+        <p class="meta"><code>2026-06-08-mobile-scan-flow.html</code> &middot; barcode receive: scan, match, confirm, track, deduct, reorder</p></div>
+      <div class="frame"><iframe title="Inventory scan flow" srcdoc="<!doctype html>
+<html lang=&quot;en&quot; data-theme=&quot;light&quot;>
+<head>
+<meta charset=&quot;utf-8&quot;/><meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;/>
+<title>ResearchOS - barcode scan workflow (receive -> track -> reorder)</title>
+<style>
+  :root{--sky:#1AA0E6;--purple:#5B47D6;--ink:#0b1320;--ink-2:#3c4656;--ink-3:#8a93a3;--bg:#f2f3f7;--group:#fff;--sep:rgba(60,67,86,.10);--card-shadow:0 1px 2px rgba(16,24,40,.05),0 8px 24px rgba(16,24,40,.06);--ok:#1a9c5b;--ok-bg:#e4f7ec;--danger:#e5484d;--danger-bg:#fdecec;--warn:#d98a0b;--warn-bg:#fdf3e2;--r1:#FFD2B0;--r2:#FFF1A8;--r3:#B7EBB1;--r4:#A6D2F4;--r5:#D6B5F0;--radius:18px;--page:#e9ebf1}
+  [data-theme=&quot;dark&quot;]{--sky:#3aa6e8;--purple:#8170e6;--ink:#f5f7fb;--ink-2:#c3ccda;--ink-3:#7e8696;--bg:#000;--group:#15171c;--sep:rgba(255,255,255,.10);--card-shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.5);--ok:#3ddc8c;--ok-bg:rgba(45,160,100,.18);--danger:#ff6b6f;--danger-bg:rgba(229,72,77,.16);--warn:#f4b740;--warn-bg:rgba(217,138,11,.18);--r1:#F97316;--r2:#E8920B;--r3:#16A34A;--r4:#0284C7;--r5:#9333EA;--page:#0a0b0e}
+  *{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,&quot;SF Pro Display&quot;,&quot;Segoe UI&quot;,Roboto,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .top{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--page) 88%,transparent);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--sep);padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .top h1{font-size:17px;margin:0;font-weight:700;letter-spacing:-.02em}.top .sub{font-size:12.5px;color:var(--ink-3)}.spacer{flex:1}
+  .tbtn{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--sep);background:var(--group);color:var(--ink);border-radius:980px;padding:8px 15px;cursor:pointer}.tbtn.brand{background:linear-gradient(135deg,var(--sky),var(--purple));color:#fff;border:none}
+  .legend{display:flex;gap:12px;font-size:12px;color:var(--ink-3);align-items:center;flex-wrap:wrap}.dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px}.dot.ok{background:#1a9c5b}.dot.warn{background:#d98a0b}.dot.none{background:#c4ccd6}
+  .wrap{max-width:1200px;margin:0 auto;padding:20px 20px 120px}.intro{font-size:13px;color:var(--ink-2);max-width:900px;line-height:1.6;margin:8px 0}
+  .flow{font-size:12.5px;color:var(--ink-2);margin:6px 0 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .flow b{background:var(--group);border:1px solid var(--sep);border-radius:980px;padding:5px 11px;font-weight:600}
+  .grid{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start;margin-top:16px;justify-content:center}.cell{width:330px}
+  .cap{display:flex;align-items:baseline;gap:8px;margin:0 2px 9px}.cap .step{width:22px;height:22px;border-radius:50%;background:var(--sky);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}.cap .n{font-size:14px;font-weight:700}.cap .d{font-size:12px;color:var(--ink-3)}
+  .phone{width:330px;height:690px;border-radius:46px;background:var(--bg);position:relative;overflow:hidden;border:10px solid #0c0d10;box-shadow:0 30px 60px rgba(16,24,40,.22)}[data-theme=&quot;dark&quot;] .phone{border-color:#23262d}
+  .phone::after{content:&quot;&quot;;position:absolute;left:0;right:0;bottom:0;height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5));z-index:20}
+  .scr{position:absolute;inset:0;display:flex;flex-direction:column}
+  .rainbow{height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5))}
+  .statusbar{height:46px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 7px;font-size:13px;font-weight:600}
+  .content{flex:1;overflow:hidden;position:relative}.scroll{position:absolute;inset:0;overflow:auto;padding:0 18px 24px}.scroll::-webkit-scrollbar{display:none}
+  .largetitle{font-size:28px;font-weight:800;letter-spacing:-.03em;margin:4px 2px 4px}.subtitle{font-size:14px;color:var(--ink-3);margin:0 2px 16px;line-height:1.45}
+  .group{background:var(--group);border-radius:var(--radius);box-shadow:var(--card-shadow);overflow:hidden;margin-bottom:14px}
+  .row{display:flex;align-items:center;gap:13px;padding:13px 16px;position:relative}.row+.row::before{content:&quot;&quot;;position:absolute;top:0;left:16px;right:0;height:1px;background:var(--sep)}
+  .row .tx{flex:1;min-width:0}.row .t{font-size:15px;font-weight:600}.row .s{font-size:12.5px;color:var(--ink-3);margin-top:1px}
+  .chev{color:var(--ink-3);opacity:.5}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;border-radius:15px;padding:15px;font:inherit;font-size:16px;font-weight:650;cursor:pointer}.btn.primary{background:var(--sky);color:#fff}.btn.secondary{background:var(--group);color:var(--sky);box-shadow:var(--card-shadow)}.btn.tinted{background:color-mix(in srgb,var(--sky) 14%,transparent);color:var(--sky)}.btn.danger{background:var(--danger-bg);color:var(--danger)}
+  .sec-h{font-size:13px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.03em;margin:6px 8px 8px}
+  .pill{font-size:11px;font-weight:700;padding:3px 9px;border-radius:980px}.pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.warn{background:var(--warn-bg);color:var(--warn)}
+  .viewfinder{flex:1;background:#0b1220;display:flex;align-items:center;justify-content:center;position:relative}
+  .reticle{width:64%;height:34%;border-radius:14px;position:relative}
+  .reticle .c{position:absolute;width:24px;height:24px;border:3px solid #fff}
+  .c1{top:0;left:0;border-right:none;border-bottom:none;border-radius:10px 0 0 0}.c2{top:0;right:0;border-left:none;border-bottom:none;border-radius:0 10px 0 0}.c3{bottom:0;left:0;border-right:none;border-top:none;border-radius:0 0 0 10px}.c4{bottom:0;right:0;border-left:none;border-top:none;border-radius:0 0 10px 0}
+  .scanline{position:absolute;left:8%;right:8%;height:2px;background:linear-gradient(90deg,transparent,var(--sky),transparent);top:50%;box-shadow:0 0 8px var(--sky)}
+  .vf-hint{position:absolute;bottom:30px;left:0;right:0;text-align:center;color:#fff;font-size:14px;font-weight:600;opacity:.9}
+  .field{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;position:relative}.field+.field::before{content:&quot;&quot;;position:absolute;top:0;left:16px;right:0;height:1px;background:var(--sep)}.field .l{font-size:15px;font-weight:500}.field .v{font-size:15px;font-weight:600;color:var(--ink-2);display:flex;align-items:center;gap:7px}.field .u{font-size:12px;font-weight:700;color:var(--sky);background:color-mix(in srgb,var(--sky) 12%,transparent);border-radius:7px;padding:4px 9px}
+  .stepper{display:flex;align-items:center;gap:0;border:1px solid var(--sep);border-radius:10px;overflow:hidden}.stepper b{width:32px;text-align:center;font-size:16px;font-weight:700;color:var(--ink-3);padding:6px 0}.stepper .v{padding:0 10px;font-weight:700;color:var(--ink)}
+  .hero{background:linear-gradient(135deg,color-mix(in srgb,var(--sky) 14%,transparent),color-mix(in srgb,var(--purple) 10%,transparent));border-radius:var(--radius);padding:20px;text-align:center;margin-bottom:14px}
+  .hero .big{font-size:34px;font-weight:800;letter-spacing:-.02em}.hero .lab{font-size:13px;color:var(--ink-3);margin-top:3px}
+  .guess{background:linear-gradient(135deg,color-mix(in srgb,var(--sky) 13%,transparent),color-mix(in srgb,var(--purple) 9%,transparent));border-radius:14px;padding:12px 14px;margin:4px 0 16px}.guess .gl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--sky)}.guess .gt{font-size:15px;font-weight:700;margin-top:2px}.guess .gs{font-size:12px;color:var(--ink-3);margin-top:2px}
+  .qbtn{width:46px;height:46px;border-radius:50%;background:var(--group);box-shadow:var(--card-shadow);display:flex;align-items:center;justify-content:center;color:var(--sky)}
+  .chips{display:flex;gap:8px;justify-content:center;margin-top:12px}.chip{min-width:40px;padding:8px 0;text-align:center;border-radius:11px;background:var(--group);box-shadow:var(--card-shadow);font-size:15px;font-weight:700;color:var(--ink-2)}.chip.on{background:var(--sky);color:#fff;box-shadow:none}
+  .ok-badge{width:64px;height:64px;border-radius:50%;background:var(--ok-bg);color:var(--ok);display:flex;align-items:center;justify-content:center;margin:6px auto 12px}
+  .why{font-size:12px;color:var(--ink-2);line-height:1.5;margin:8px 2px 0;border-left:2px solid var(--sky);padding-left:10px}
+  .review{margin-top:12px;display:flex;gap:7px;flex-wrap:wrap}.seg{display:inline-flex;border:1px solid var(--sep);border-radius:9px;overflow:hidden}.seg button{font:inherit;font-size:12px;padding:6px 11px;border:none;background:var(--group);color:var(--ink-3);cursor:pointer}.seg button.on.ok{background:#1a9c5b;color:#fff}.seg button.on.warn{background:#d98a0b;color:#fff}.seg button.on.none{background:#64748b;color:#fff}
+  .cmt{width:100%;margin-top:8px;font:inherit;font-size:12.5px;border:1px dashed var(--sep);border-radius:9px;background:var(--group);color:var(--ink);padding:8px 10px;resize:vertical;min-height:30px}
+  svg{display:block}
+  #exm{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}#exm .box{background:var(--group);border-radius:16px;max-width:680px;width:100%;padding:18px;border:1px solid var(--sep)}#exm textarea{width:100%;min-height:220px;font-family:ui-monospace,Menlo,monospace;font-size:12px;border:1px solid var(--sep);border-radius:8px;background:var(--bg);color:var(--ink);padding:10px}
+</style>
+</head>
+<body>
+<div class=&quot;top&quot;>
+  <div><h1>Barcode scan workflow</h1><div class=&quot;sub&quot;>Receive a package -> match to purchase -> track as inventory -> scan-to-deduct -> low/reorder.</div></div>
+  <div class=&quot;spacer&quot;></div>
+  <div class=&quot;legend&quot;><span><span class=&quot;dot ok&quot;></span>Approve</span><span><span class=&quot;dot warn&quot;></span>Change</span><span><span class=&quot;dot none&quot;></span>?</span></div>
+  <button class=&quot;tbtn&quot; id=&quot;theme&quot;>Dark</button><button class=&quot;tbtn brand&quot; id=&quot;export&quot;>Export</button>
+</div>
+<div class=&quot;wrap&quot;>
+  <p class=&quot;intro&quot;>Your barcode loop, mocked. The desktop already has the resolver, mark-arrived, the purchase->inventory link, and one-tap reorder, so this is mostly mobile UI over proven logic, plus one new field (units-per-scan). Two flows shown: receiving a NEW package (steps 1-3), and a later scan of a TRACKED item (steps 4-5). Toggle Dark. Mark each + Export.</p>
+  <div class=&quot;flow&quot;><b>Scan</b> &amp;rarr; <b>match purchase + arrived</b> &amp;rarr; <b>track? set units</b> &amp;rarr; <b>later scan = deduct</b> &amp;rarr; <b>low? reorder</b></div>
+  <div class=&quot;grid&quot; id=&quot;grid&quot;></div>
+</div>
+<div id=&quot;exm&quot;><div class=&quot;box&quot;><div style=&quot;display:flex;gap:10px;margin-bottom:10px;align-items:center&quot;><strong style=&quot;font-size:14px&quot;>Feedback</strong><span class=&quot;spacer&quot; style=&quot;flex:1&quot;></span><button class=&quot;tbtn&quot; onclick=&quot;navigator.clipboard.writeText(exT.value)&quot;>Copy</button><button class=&quot;tbtn&quot; onclick=&quot;exm.style.display='none'&quot;>Close</button></div><textarea id=&quot;exT&quot; readonly></textarea></div></div>
+<script>
+const I={
+ chev:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;17&quot; height=&quot;17&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.4&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M9 6l6 6-6 6&quot;/></svg>',
+ check:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;32&quot; height=&quot;32&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.6&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M20 6L9 17l-5-5&quot;/></svg>',
+ minus:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;16&quot; height=&quot;16&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.5&quot; stroke-linecap=&quot;round&quot;><path d=&quot;M5 12h14&quot;/></svg>',
+ plus:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;16&quot; height=&quot;16&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.5&quot; stroke-linecap=&quot;round&quot;><path d=&quot;M12 5v14M5 12h14&quot;/></svg>',
+};
+const screens=[
+ {id:'entry',step:0,n:'Entry point, Today',d:'hero Scan card (no 6th tab)',
+  why:'DECIDED: keep the 5 approved tabs, put a hero Scan card at the top of Today (the default landing screen). &quot;I just got a package&quot; is the moment you open the app, so scan lives where intent starts. Mirrored by a smaller scan affordance inside Send. No 6th tab (crowds the bar), no FAB (Android idiom).',
+  html:`<div class=&quot;scr&quot;><div class=&quot;rainbow&quot;></div><div class=&quot;statusbar&quot;><span>9:41</span><span>WiFi</span></div><div class=&quot;content&quot;><div class=&quot;scroll&quot; style=&quot;padding-top:8px&quot;>
+   <div class=&quot;largetitle&quot;>Today</div>
+   <button class=&quot;btn primary&quot; style=&quot;padding:18px;font-size:17px;margin:4px 0 16px;justify-content:flex-start;gap:12px&quot;><svg viewBox=&quot;0 0 24 24&quot; width=&quot;24&quot; height=&quot;24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2&quot;/><path d=&quot;M7 12h10&quot;/></svg>Scan a package</button>
+   <div class=&quot;sec-h&quot;>Up next</div>
+   <div class=&quot;group&quot;><div class=&quot;row&quot;><div class=&quot;tx&quot;><div class=&quot;t&quot;>Split HEK293 cells</div><div class=&quot;s&quot;>overdue &amp;middot; yesterday</div></div><span class=&quot;pill warn&quot;>due</span></div><div class=&quot;row&quot;><div class=&quot;tx&quot;><div class=&quot;t&quot;>Image plate 4</div><div class=&quot;s&quot;>today 2:00 PM</div></div></div></div>
+   <div class=&quot;sec-h&quot;>Running</div>
+   <div class=&quot;group&quot;><div class=&quot;row&quot;><div class=&quot;tx&quot;><div class=&quot;t&quot;>Trypsin incubation</div><div class=&quot;s&quot;>4:12 left</div></div><span class=&quot;pill ok&quot;>timer</span></div></div>
+  </div></div></div>`},
+ {id:'scan',step:1,n:'Scan',d:'multi-format viewfinder',
+  why:'Reuses the multi-format scanner (UPC/EAN/Code128/DataMatrix/QR). One job, clean reticle + scan line, manual entry fallback. Opened from the Today hero card (or the Send scan affordance).',
+  html:`<div class=&quot;scr&quot;><div class=&quot;rainbow&quot;></div><div class=&quot;statusbar&quot;><span>9:41</span><span>WiFi</span></div>
+   <div style=&quot;padding:8px 18px 4px&quot;><div class=&quot;largetitle&quot;>Scan a package</div></div>
+   <div class=&quot;viewfinder&quot;><div class=&quot;reticle&quot;><span class=&quot;c c1&quot;></span><span class=&quot;c c2&quot;></span><span class=&quot;c c3&quot;></span><span class=&quot;c c4&quot;></span><span class=&quot;scanline&quot;></span></div><div class=&quot;vf-hint&quot;>Point at the barcode</div></div>
+   <div style=&quot;padding:14px 18px&quot;><button class=&quot;btn secondary&quot;>Enter code by hand</button></div></div>`},
+
+ {id:'match',step:2,n:'New package, match purchase',d:'autopopulate + match / add PO / inventory',
+  why:'Unknown barcode. Best-effort lookup (your past purchases by this barcode first, then an optional UPC database) surfaces a product guess up top and pre-highlights the likely order. Three paths: match a recent order, add a NEW purchase order inline, or add as plain inventory. Net-new vs desktop: the inline &quot;add a purchase order&quot; + the barcode autopopulate (Grant 2026-06-08).',
+  html:`<div class=&quot;scr&quot;><div class=&quot;rainbow&quot;></div><div class=&quot;statusbar&quot;><span>9:41</span><span>WiFi</span></div><div class=&quot;content&quot;><div class=&quot;scroll&quot; style=&quot;padding-top:8px&quot;>
+   <div class=&quot;largetitle&quot;>New package</div>
+   <div class=&quot;guess&quot;><div class=&quot;gl&quot;>From this barcode</div><div class=&quot;gt&quot;>Q5 High-Fidelity Polymerase &amp;middot; Thermo</div><div class=&quot;gs&quot;>we'll prefill the details, you confirm</div></div>
+   <div class=&quot;sec-h&quot;>Match to a recent order</div>
+   <div class=&quot;group&quot;>
+     <div class=&quot;row&quot;><div class=&quot;tx&quot;><div class=&quot;t&quot;>Q5 High-Fidelity Polymerase</div><div class=&quot;s&quot;>Thermo &amp;middot; ordered Jun 4</div></div><span class=&quot;pill ok&quot;>likely</span></div>
+     <div class=&quot;row&quot;><div class=&quot;tx&quot;><div class=&quot;t&quot;>DMEM, high glucose</div><div class=&quot;s&quot;>Gibco &amp;middot; ordered Jun 2</div></div><span class=&quot;chev&quot;>${I.chev}</span></div>
+     <div class=&quot;row&quot;><div class=&quot;tx&quot;><div class=&quot;t&quot;>96-well PCR plates</div><div class=&quot;s&quot;>Bio-Rad &amp;middot; ordered May 30</div></div><span class=&quot;chev&quot;>${I.chev}</span></div>
+   </div>
+   <button class=&quot;btn secondary&quot; style=&quot;margin-bottom:10px&quot;>Add a new purchase order</button>
+   <button class=&quot;btn secondary&quot;>Not a purchase, just add to inventory</button>
+  </div></div></div>`},
+ {id:'confirm',step:2,n:'Autopopulate, confirm',d:'barcode prefilled, edit before save',
+  why:'Chose &quot;add a new purchase order&quot; (or new inventory). The barcode prefilled name / vendor / catalog so the user confirms instead of typing; every field is editable. Best-effort, if the lookup misses, fields are blank and it is a normal quick add. The confirm-before-fill that Grant asked for.',
+  html:`<div class=&quot;scr&quot;><div class=&quot;rainbow&quot;></div><div class=&quot;statusbar&quot;><span>9:41</span><span>WiFi</span></div><div class=&quot;content&quot;><div class=&quot;scroll&quot; style=&quot;padding-top:8px&quot;>
+   <div class=&quot;largetitle&quot;>New order</div><div class=&quot;subtitle&quot;>Prefilled from the barcode. Tap any field to fix it.</div>
+   <div class=&quot;group&quot;>
+     <div class=&quot;field&quot;><span class=&quot;l&quot;>Product</span><span class=&quot;v&quot;>Q5 HF Polymerase <span class=&quot;u&quot;>edit</span></span></div>
+     <div class=&quot;field&quot;><span class=&quot;l&quot;>Vendor</span><span class=&quot;v&quot;>Thermo <span class=&quot;u&quot;>edit</span></span></div>
+     <div class=&quot;field&quot;><span class=&quot;l&quot;>Catalog</span><span class=&quot;v&quot;>M0491 <span class=&quot;u&quot;>edit</span></span></div>
+     <div class=&quot;field&quot;><span class=&quot;l&quot;>Quantity</span><span class=&quot;v&quot;><span class=&quot;stepper&quot;><b>${I.minus}</b><span class=&quot;v&quot;>1</span><b>${I.plus}</b></span></span></div>
+   </div>
+   <button class=&quot;btn primary&quot; style=&quot;margin-bottom:10px&quot;>Looks right, save order</button>
+   <button class=&quot;btn secondary&quot;>Edit all fields</button>
+  </div></div></div>`},
+
+ {id:'track',step:3,n:'Arrived, track as inventory',d:'set units-per-scan + total',
+  why:'Tapping a purchase marks it arrived (order_status=received) and links it to inventory. Then the new part: track this barcode? Set what one scan uses + how many are in the box. This is the one new data field (units_per_scan). Skippable.',
+  html:`<div class=&quot;scr&quot;><div class=&quot;rainbow&quot;></div><div class=&quot;statusbar&quot;><span>9:41</span><span>WiFi</span></div><div class=&quot;content&quot;><div class=&quot;scroll&quot; style=&quot;padding-top:14px&quot;>
+   <div class=&quot;ok-badge&quot;>${I.check}</div>
+   <div class=&quot;largetitle&quot; style=&quot;text-align:center&quot;>Marked arrived</div>
+   <div class=&quot;subtitle&quot; style=&quot;text-align:center&quot;>Q5 Polymerase &amp;middot; added to inventory</div>
+   <div class=&quot;sec-h&quot;>Track this barcode?</div>
+   <div class=&quot;group&quot;>
+     <div class=&quot;field&quot;><span class=&quot;l&quot;>One scan uses</span><span class=&quot;v&quot;><span class=&quot;stepper&quot;><b>${I.minus}</b><span class=&quot;v&quot;>1</span><b>${I.plus}</b></span><span class=&quot;u&quot;>reaction &amp;#9662;</span></span></div>
+     <div class=&quot;field&quot;><span class=&quot;l&quot;>Total in box</span><span class=&quot;v&quot;>50 <span class=&quot;u&quot;>reactions</span></span></div>
+   </div>
+   <button class=&quot;btn primary&quot; style=&quot;margin-bottom:10px&quot;>Start tracking</button>
+   <button class=&quot;btn secondary&quot;>No thanks</button>
+  </div></div></div>`},
+
+ {id:'deduct',step:4,n:'Later scan, deduct',d:'big 1 default, quick multi-use',
+  why:'Scan = boom. The amount defaults to a big 1, just tap Deduct and go. For the use-3-at-once case the +/- and quick chips set the amount without a keyboard (the Deduct button label tracks it). Deducts amount x units_per_scan from units_remaining; always-present low/reorder. Build note: the foundation deductUnitsFromScan takes a multiplier for this.',
+  html:`<div class=&quot;scr&quot;><div class=&quot;rainbow&quot;></div><div class=&quot;statusbar&quot;><span>9:41</span><span>WiFi</span></div><div class=&quot;content&quot;><div class=&quot;scroll&quot; style=&quot;padding-top:8px&quot;>
+   <div class=&quot;largetitle&quot;>Q5 Polymerase</div><div class=&quot;subtitle&quot;>47 of 50 reactions left</div>
+   <div class=&quot;hero&quot; style=&quot;padding:18px 16px&quot;>
+     <div style=&quot;font-size:13px;color:var(--ink-3);font-weight:600&quot;>Use how many?</div>
+     <div style=&quot;display:flex;align-items:center;justify-content:center;gap:24px;margin:4px 0 2px&quot;><span class=&quot;qbtn&quot;>${I.minus}</span><div class=&quot;big&quot; style=&quot;font-size:72px;line-height:1&quot;>1</div><span class=&quot;qbtn&quot;>${I.plus}</span></div>
+     <div class=&quot;lab&quot;>reactions</div>
+     <div class=&quot;chips&quot;><span class=&quot;chip on&quot;>1</span><span class=&quot;chip&quot;>2</span><span class=&quot;chip&quot;>3</span><span class=&quot;chip&quot;>5</span></div>
+   </div>
+   <button class=&quot;btn primary&quot; style=&quot;margin-bottom:10px&quot;>Deduct 1 reaction</button>
+   <button class=&quot;btn danger&quot;>Low, reorder ASAP</button>
+   <div class=&quot;sec-h&quot;>History</div>
+   <div class=&quot;group&quot;><div class=&quot;row&quot;><div class=&quot;tx&quot;><div class=&quot;t&quot;>Used 3 reactions</div><div class=&quot;s&quot;>Today 9:30 AM &amp;middot; you</div></div></div><div class=&quot;row&quot;><div class=&quot;tx&quot;><div class=&quot;t&quot;>Used 1 reaction</div><div class=&quot;s&quot;>Yesterday &amp;middot; Emile</div></div></div></div>
+  </div></div></div>`},
+
+ {id:'reorder',step:5,n:'Low -> reorder',d:'one tap from the linked order',
+  why:'Because the barcode is linked to the original purchase, reorder copies vendor/catalog/qty into a new needs-ordering purchase (createReorderPurchase). One tap, no retyping. Confirms back.',
+  html:`<div class=&quot;scr&quot;><div class=&quot;rainbow&quot;></div><div class=&quot;statusbar&quot;><span>9:41</span><span>WiFi</span></div><div class=&quot;content&quot;><div class=&quot;scroll&quot; style=&quot;padding-top:14px&quot;>
+   <div class=&quot;largetitle&quot;>Reorder</div><div class=&quot;subtitle&quot;>From your last order, nothing to retype.</div>
+   <div class=&quot;group&quot;><div class=&quot;row&quot;><div class=&quot;tx&quot;><div class=&quot;t&quot;>Q5 High-Fidelity Polymerase</div><div class=&quot;s&quot;>Thermo &amp;middot; cat M0491 &amp;middot; qty 1</div></div></div>
+     <div class=&quot;field&quot;><span class=&quot;l&quot;>Add to</span><span class=&quot;v&quot;>Purchasing ${I.chev}</span></div></div>
+   <button class=&quot;btn primary&quot; style=&quot;margin-bottom:10px&quot;>Reorder now</button>
+   <div style=&quot;display:flex;align-items:center;gap:8px;justify-content:center;color:var(--ok);font-size:13px;font-weight:600;margin-top:6px&quot;><span class=&quot;pill ok&quot;>Queued</span> Added to purchasing for your lab manager</div>
+  </div></div></div>`},
+];
+const grid=document.getElementById('grid');const KEY='mobile-scan-flow-2026-06-08';const store=JSON.parse(localStorage.getItem(KEY)||'{}');function save(){localStorage.setItem(KEY,JSON.stringify(store));}
+screens.forEach(s=>{const c=document.createElement('div');c.className='cell';c.innerHTML=`<div class=&quot;cap&quot;><span class=&quot;step&quot;>${s.step}</span><span class=&quot;n&quot;>${s.n}</span><span class=&quot;d&quot;>${s.d}</span></div><div class=&quot;phone&quot;>${s.html}</div><div class=&quot;why&quot;>${s.why}</div><div class=&quot;review&quot; data-id=&quot;${s.id}&quot;></div>`;grid.appendChild(c);});
+document.querySelectorAll('.review').forEach(r=>{const id=r.dataset.id;const cur=store[id]||{};const seg=document.createElement('div');seg.className='seg';[['ok','Approve'],['warn','Change'],['none','?']].forEach(([v,l])=>{const b=document.createElement('button');b.textContent=l;b.onclick=()=>{store[id]={...(store[id]||{}),v};save();paint();};seg.appendChild(b);});r.appendChild(seg);const ta=document.createElement('textarea');ta.className='cmt';ta.placeholder='Comment';ta.value=cur.c||'';ta.oninput=()=>{store[id]={...(store[id]||{}),c:ta.value};save();};r.parentElement.appendChild(ta);});
+function paint(){document.querySelectorAll('.review').forEach(r=>{const c=store[r.dataset.id]||{};r.querySelectorAll('.seg button').forEach(b=>{const v=b.textContent==='Approve'?'ok':b.textContent==='Change'?'warn':'none';b.className=(c.v===v?'on '+v:'');});});}paint();
+document.getElementById('theme').onclick=function(){const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');this.textContent=d?'Dark':'Light';};
+document.getElementById('export').onclick=function(){let o='SCAN WORKFLOW - '+new Date().toString().slice(0,21)+'\n'+'='.repeat(30)+'\n\n';screens.forEach(s=>{const c=store[s.id]||{};const v=c.v==='ok'?'APPROVE':c.v==='warn'?'CHANGE':c.v==='none'?'undecided':'(unmarked)';o+='['+v+'] '+s.step+'. '+s.n+'\n';if(c.c&amp;&amp;c.c.trim())o+='   note: '+c.c.trim()+'\n';});exT.value=o;exm.style.display='flex';};
+</script>
+</body>
+</html>
+"></iframe></div>
+    </section>
+    <section class="panel" data-i="4">
+      <div class="label"><h2><span class="num">5</span>Settings sheet</h2>
+        <p class="meta"><code>2026-06-08-mobile-settings.html</code> &middot; today + settings: identity, usage, theme, device pairing, privacy</p></div>
+      <div class="frame"><iframe title="Settings sheet" srcdoc="<!doctype html>
+<html lang=&quot;en&quot; data-theme=&quot;light&quot;>
+<head>
+<meta charset=&quot;utf-8&quot; />
+<meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot; />
+<title>ResearchOS companion - Settings sheet + global rainbow</title>
+<style>
+  :root{--sky:#1AA0E6;--purple:#5B47D6;--ink:#0b1320;--ink-2:#3c4656;--ink-3:#8a93a3;--bg:#f2f3f7;--group:#fff;--sep:rgba(60,67,86,.10);--card-shadow:0 1px 2px rgba(16,24,40,.05),0 8px 24px rgba(16,24,40,.06);--ok:#1a9c5b;--ok-bg:#e4f7ec;--danger:#e5484d;--r1:#FFD2B0;--r2:#FFF1A8;--r3:#B7EBB1;--r4:#A6D2F4;--r5:#D6B5F0;--radius:18px;--page:#e9ebf1}
+  [data-theme=&quot;dark&quot;]{--sky:#3aa6e8;--purple:#8170e6;--ink:#f5f7fb;--ink-2:#c3ccda;--ink-3:#7e8696;--bg:#000;--group:#15171c;--sep:rgba(255,255,255,.10);--card-shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.5);--ok:#3ddc8c;--ok-bg:rgba(45,160,100,.18);--danger:#ff6b6f;--r1:#F97316;--r2:#E8920B;--r3:#16A34A;--r4:#0284C7;--r5:#9333EA;--page:#0a0b0e}
+  *{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,&quot;SF Pro Display&quot;,&quot;Segoe UI&quot;,Roboto,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .top{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--page) 88%,transparent);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--sep);padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .top h1{font-size:17px;margin:0;font-weight:700;letter-spacing:-.02em}.top .sub{font-size:12.5px;color:var(--ink-3)}.spacer{flex:1}
+  .tbtn{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--sep);background:var(--group);color:var(--ink);border-radius:980px;padding:8px 15px;cursor:pointer}.tbtn.brand{background:linear-gradient(135deg,var(--sky),var(--purple));color:#fff;border:none}
+  .legend{display:flex;gap:12px;font-size:12px;color:var(--ink-3);align-items:center;flex-wrap:wrap}.dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px}.dot.ok{background:#1a9c5b}.dot.warn{background:#d98a0b}.dot.none{background:#c4ccd6}
+  .wrap{max-width:760px;margin:0 auto;padding:20px 20px 120px}.intro{font-size:13px;color:var(--ink-2);max-width:640px;line-height:1.6;margin:8px 0}
+  .grid{display:flex;gap:36px;flex-wrap:wrap;align-items:flex-start;margin-top:14px;justify-content:center}.cell{width:330px}
+  .cap{display:flex;align-items:baseline;gap:8px;margin:0 2px 9px}.cap .n{font-size:14px;font-weight:700}.cap .d{font-size:12px;color:var(--ink-3)}
+  .phone{width:330px;height:710px;border-radius:46px;background:var(--bg);position:relative;overflow:hidden;border:10px solid #0c0d10;box-shadow:0 30px 60px rgba(16,24,40,.22)}
+  [data-theme=&quot;dark&quot;] .phone{border-color:#23262d}
+  .phone::after{content:&quot;&quot;;position:absolute;left:0;right:0;bottom:0;height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5));z-index:20}
+  .scr{position:absolute;inset:0;display:flex;flex-direction:column}
+  .rainbow{height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5))}
+  .statusbar{height:46px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 7px;font-size:13px;font-weight:600}
+  .navbar{display:flex;align-items:center;justify-content:space-between;padding:4px 18px 2px}
+  .navbar .lt{font-size:20px;font-weight:800;letter-spacing:-.02em}
+  .gear{width:32px;height:32px;border-radius:50%;background:var(--group);box-shadow:var(--card-shadow);display:flex;align-items:center;justify-content:center;color:var(--ink-2)}
+  .content{flex:1;overflow:hidden;position:relative}.scroll{position:absolute;inset:0;overflow:auto;padding:0 18px 30px}.scroll::-webkit-scrollbar{display:none}
+  .sheetgrip{width:38px;height:5px;border-radius:3px;background:var(--sep);margin:8px auto 6px}
+  .largetitle{font-size:30px;font-weight:800;letter-spacing:-.03em;margin:4px 2px 14px}
+  .group{background:var(--group);border-radius:var(--radius);box-shadow:var(--card-shadow);overflow:hidden;margin-bottom:16px}
+  .row{display:flex;align-items:center;gap:13px;padding:13px 16px;position:relative}.row+.row::before{content:&quot;&quot;;position:absolute;top:0;left:52px;right:0;height:1px;background:var(--sep)}
+  .row .ico{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff}
+  .row .tx{flex:1;min-width:0}.row .t{font-size:15px;font-weight:550}.row .s{font-size:12.5px;color:var(--ink-3);margin-top:1px}
+  .chev{color:var(--ink-3);opacity:.5}.val{font-size:14px;color:var(--ink-3)}
+  .sec-h{font-size:13px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.03em;margin:6px 8px 8px}
+  .pill{font-size:11px;font-weight:700;padding:3px 9px;border-radius:980px}.pill.ok{background:var(--ok-bg);color:var(--ok)}
+  /* identity */
+  .idcard{display:flex;align-items:center;gap:14px;padding:18px 16px}
+  .orb{width:54px;height:54px;border-radius:50%;background:conic-gradient(from 30deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5),var(--r1));flex-shrink:0;box-shadow:0 2px 10px rgba(0,0,0,.12)}
+  .idcard .nm{font-size:18px;font-weight:700;letter-spacing:-.01em}.idcard .em{font-size:13px;color:var(--ink-3);margin-top:1px}
+  /* usage */
+  .usage{display:flex;align-items:center;gap:18px;padding:18px 16px}
+  .ring{width:84px;height:84px;flex-shrink:0;position:relative}
+  .ring .lab{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .ring .lab b{font-size:16px;font-weight:800}.ring .lab span{font-size:9px;color:var(--ink-3)}
+  .usage .meta .b{font-size:15px;font-weight:650}.usage .meta .s{font-size:12.5px;color:var(--ink-3);margin-top:3px;line-height:1.45}
+  .seg3{display:flex;background:var(--sep);border-radius:11px;padding:3px;margin:0}
+  .seg3 div{flex:1;text-align:center;font-size:13px;font-weight:600;padding:7px;border-radius:8px;color:var(--ink-2)}
+  .seg3 div.on{background:var(--group);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  .toggle{width:46px;height:28px;border-radius:980px;background:var(--ok);position:relative;flex-shrink:0}.toggle::after{content:&quot;&quot;;position:absolute;top:2px;right:2px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+  .toggle.off{background:var(--sep)}.toggle.off::after{right:auto;left:2px}
+  .danger{color:var(--danger)}
+  .why{font-size:12px;color:var(--ink-2);line-height:1.5;margin:8px 2px 0;border-left:2px solid var(--sky);padding-left:10px}
+  .review{margin-top:12px;display:flex;gap:7px;flex-wrap:wrap}.seg{display:inline-flex;border:1px solid var(--sep);border-radius:9px;overflow:hidden}.seg button{font:inherit;font-size:12px;padding:6px 11px;border:none;background:var(--group);color:var(--ink-3);cursor:pointer}.seg button.on.ok{background:#1a9c5b;color:#fff}.seg button.on.warn{background:#d98a0b;color:#fff}.seg button.on.none{background:#64748b;color:#fff}
+  .cmt{width:100%;margin-top:8px;font:inherit;font-size:12.5px;border:1px dashed var(--sep);border-radius:9px;background:var(--group);color:var(--ink);padding:8px 10px;resize:vertical;min-height:30px}
+  svg{display:block}
+  #exm{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}#exm .box{background:var(--group);border-radius:16px;max-width:680px;width:100%;padding:18px;border:1px solid var(--sep)}#exm textarea{width:100%;min-height:200px;font-family:ui-monospace,Menlo,monospace;font-size:12px;border:1px solid var(--sep);border-radius:8px;background:var(--bg);color:var(--ink);padding:10px}
+</style>
+</head>
+<body>
+<div class=&quot;top&quot;>
+  <div><h1>Settings sheet + global rainbow</h1><div class=&quot;sub&quot;>Gear on Today (top-right) opens this. Thin rainbow now tops every page.</div></div>
+  <div class=&quot;spacer&quot;></div>
+  <div class=&quot;legend&quot;><span><span class=&quot;dot ok&quot;></span>Approve</span><span><span class=&quot;dot warn&quot;></span>Change</span><span><span class=&quot;dot none&quot;></span>?</span></div>
+  <button class=&quot;tbtn&quot; id=&quot;theme&quot;>Dark</button><button class=&quot;tbtn brand&quot; id=&quot;export&quot;>Export</button>
+</div>
+<div class=&quot;wrap&quot;>
+  <p class=&quot;intro&quot;>The gear lives in the top-right of Today. Tapping it opens this Settings sheet (the Apple bottom-sheet pattern). Theme defaults to following your phone; the toggle is here. Your usage graphic is the storage ring up top. Mark each + Export.</p>
+  <div class=&quot;grid&quot; id=&quot;grid&quot;></div>
+</div>
+<div id=&quot;exm&quot;><div class=&quot;box&quot;><div style=&quot;display:flex;gap:10px;margin-bottom:10px;align-items:center&quot;><strong style=&quot;font-size:14px&quot;>Feedback</strong><span class=&quot;spacer&quot; style=&quot;flex:1&quot;></span><button class=&quot;tbtn&quot; onclick=&quot;navigator.clipboard.writeText(exT.value)&quot;>Copy</button><button class=&quot;tbtn&quot; onclick=&quot;exm.style.display='none'&quot;>Close</button></div><textarea id=&quot;exT&quot; readonly></textarea></div></div>
+<script>
+const I={
+ gear:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;19&quot; height=&quot;19&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;3&quot;/><path d=&quot;M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H1a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 2.6 7a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H7a1.6 1.6 0 0 0 1-1.5V1a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V7a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z&quot;/></svg>',
+ chev:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;17&quot; height=&quot;17&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2.4&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M9 6l6 6-6 6&quot;/></svg>',
+ phone:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;16&quot; height=&quot;16&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><rect x=&quot;6&quot; y=&quot;3&quot; width=&quot;12&quot; height=&quot;18&quot; rx=&quot;3&quot;/><path d=&quot;M11 18h2&quot;/></svg>',
+ bell:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;16&quot; height=&quot;16&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9&quot;/><path d=&quot;M13.7 21a2 2 0 0 1-3.4 0&quot;/></svg>',
+ lock:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;16&quot; height=&quot;16&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><rect x=&quot;5&quot; y=&quot;11&quot; width=&quot;14&quot; height=&quot;9&quot; rx=&quot;2&quot;/><path d=&quot;M8 11V8a4 4 0 0 1 8 0v3&quot;/></svg>',
+ shield:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;16&quot; height=&quot;16&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z&quot;/></svg>',
+ info:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;16&quot; height=&quot;16&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;9&quot;/><path d=&quot;M12 11v5M12 8h0&quot;/></svg>',
+ heart:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;16&quot; height=&quot;16&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M20.8 6.6a5 5 0 0 0-7.1 0L12 8.3l-1.7-1.7a5 5 0 1 0-7.1 7.1L12 22l8.8-8.3a5 5 0 0 0 0-7.1z&quot;/></svg>',
+ chat:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;16&quot; height=&quot;16&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><path d=&quot;M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z&quot;/></svg>',
+ sun:'<svg viewBox=&quot;0 0 24 24&quot; width=&quot;24&quot; height=&quot;24&quot; fill=&quot;none&quot; stroke=&quot;currentColor&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;><circle cx=&quot;12&quot; cy=&quot;12&quot; r=&quot;4&quot;/><path d=&quot;M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.4 1.4M17.6 17.6L19 19M19 5l-1.4 1.4M6.4 17.6L5 19&quot;/></svg>',
+};
+function ring(pct){const r=34,c=2*Math.PI*r,off=c*(1-pct);return `<svg viewBox=&quot;0 0 84 84&quot; width=&quot;84&quot; height=&quot;84&quot;><defs><linearGradient id=&quot;rg&quot; x1=&quot;0&quot; y1=&quot;0&quot; x2=&quot;1&quot; y2=&quot;1&quot;><stop offset=&quot;0&quot; stop-color=&quot;var(--r1)&quot;/><stop offset=&quot;.5&quot; stop-color=&quot;var(--r3)&quot;/><stop offset=&quot;1&quot; stop-color=&quot;var(--r5)&quot;/></linearGradient></defs><circle cx=&quot;42&quot; cy=&quot;42&quot; r=&quot;${r}&quot; fill=&quot;none&quot; stroke=&quot;var(--sep)&quot; stroke-width=&quot;9&quot;/><circle cx=&quot;42&quot; cy=&quot;42&quot; r=&quot;${r}&quot; fill=&quot;none&quot; stroke=&quot;url(#rg)&quot; stroke-width=&quot;9&quot; stroke-linecap=&quot;round&quot; stroke-dasharray=&quot;${c}&quot; stroke-dashoffset=&quot;${off}&quot; transform=&quot;rotate(-90 42 42)&quot;/></svg>`;}
+
+const screens=[
+ {id:'today-gear',n:'Today, with the gear',d:'rainbow top + gear top-right',
+  why:'The rainbow now tops every page (your note). The gear sits in the top-right of Today, the one settings entry, keeping the 5 tabs uncluttered.',
+  html:`<div class=&quot;scr&quot;><div class=&quot;rainbow&quot;></div><div class=&quot;statusbar&quot;><span>9:41</span><span>WiFi</span></div>
+   <div class=&quot;navbar&quot;><span class=&quot;lt&quot;>Today</span><span class=&quot;gear&quot;>${I.gear}</span></div>
+   <div class=&quot;content&quot;><div class=&quot;scroll&quot; style=&quot;padding-top:6px&quot;>
+     <div class=&quot;sec-h&quot;>Today</div><div class=&quot;group&quot;><div class=&quot;row&quot;><div class=&quot;tx&quot;><div class=&quot;t&quot;>Passage HEK293 cells</div><div class=&quot;s&quot;>Experiment</div></div></div></div>
+     <div class=&quot;sec-h&quot; style=&quot;color:var(--danger)&quot;>Overdue (3)</div><div class=&quot;group&quot;><div class=&quot;row&quot;><div class=&quot;tx&quot;><div class=&quot;t danger&quot;>Find A. nidulans plates</div><div class=&quot;s&quot;>Due May 19</div></div></div></div>
+   </div></div></div>`},
+
+ {id:'settings',n:'Settings sheet',d:'opened from the gear',
+  why:'Apple bottom-sheet. Top: your identity (rainbow orb). Then the usage graphic, a rainbow storage ring + a plain-language local-first note. Theme segmented (System default). Connection (device/unpair/sync). Notifications. Privacy + About round it out. Everything a simple companion needs, nothing it does not.',
+  html:`<div class=&quot;scr&quot;><div class=&quot;rainbow&quot;></div><div class=&quot;content&quot;><div class=&quot;scroll&quot;>
+   <div class=&quot;sheetgrip&quot;></div>
+   <div class=&quot;largetitle&quot;>Settings</div>
+   <div class=&quot;group&quot;><div class=&quot;idcard&quot;><span class=&quot;orb&quot;></span><div><div class=&quot;nm&quot;>Grant Nickles</div><div class=&quot;em&quot;>Fungal Interactions Lab</div></div><span class=&quot;chev&quot;>${I.chev}</span></div></div>
+   <div class=&quot;sec-h&quot;>Usage</div>
+   <div class=&quot;group&quot;><div class=&quot;usage&quot;><div class=&quot;ring&quot;>${ring(.12)}<div class=&quot;lab&quot;><b>12%</b><span>used</span></div></div><div class=&quot;meta&quot;><div class=&quot;b&quot;>240 MB of 2 GB</div><div class=&quot;s&quot;>Cloud transfer + sharing. Your research lives in your folder, the cloud only holds what is in transit.</div></div></div>
+     <div class=&quot;row&quot;><div class=&quot;tx&quot;><div class=&quot;t&quot;>This week</div><div class=&quot;s&quot;>18 captures, 4 notes synced</div></div></div></div>
+   <div class=&quot;sec-h&quot;>Appearance</div>
+   <div class=&quot;group&quot; style=&quot;padding:12px 14px&quot;><div class=&quot;seg3&quot;><div>System</div><div class=&quot;on&quot;>Light</div><div>Dark</div></div></div>
+   <div class=&quot;sec-h&quot;>Connection</div>
+   <div class=&quot;group&quot;>
+     <div class=&quot;row&quot;><span class=&quot;ico&quot; style=&quot;background:var(--sky)&quot;>${I.phone}</span><div class=&quot;tx&quot;><div class=&quot;t&quot;>Paired with your laptop</div><div class=&quot;s&quot;>Synced just now</div></div><span class=&quot;pill ok&quot;>Live</span></div>
+     <div class=&quot;row&quot;><div class=&quot;tx&quot;><div class=&quot;t danger&quot;>Unpair this phone</div></div></div>
+   </div>
+   <div class=&quot;sec-h&quot;>Preferences</div>
+   <div class=&quot;group&quot;><div class=&quot;row&quot;><span class=&quot;ico&quot; style=&quot;background:#d98a0b&quot;>${I.bell}</span><div class=&quot;tx&quot;><div class=&quot;t&quot;>Notifications</div><div class=&quot;s&quot;>Timer + capture alerts</div></div><span class=&quot;toggle&quot;></span></div></div>
+   <div class=&quot;sec-h&quot;>Privacy</div>
+   <div class=&quot;group&quot;><div class=&quot;row&quot;><span class=&quot;ico&quot; style=&quot;background:#1a9c5b&quot;>${I.shield}</span><div class=&quot;tx&quot;><div class=&quot;t&quot;>What stays on your device</div></div><span class=&quot;chev&quot;>${I.chev}</span></div>
+     <div class=&quot;row&quot;><span class=&quot;ico&quot; style=&quot;background:var(--ink-2)&quot;>${I.lock}</span><div class=&quot;tx&quot;><div class=&quot;t&quot;>Lock identity</div></div><span class=&quot;chev&quot;>${I.chev}</span></div></div>
+   <div class=&quot;sec-h&quot;>About</div>
+   <div class=&quot;group&quot;><div class=&quot;row&quot;><span class=&quot;ico&quot; style=&quot;background:var(--purple)&quot;>${I.info}</span><div class=&quot;tx&quot;><div class=&quot;t&quot;>Version</div></div><span class=&quot;val&quot;>2.0 (build 14)</span></div>
+     <div class=&quot;row&quot;><span class=&quot;ico&quot; style=&quot;background:var(--ink-2)&quot;>${I.heart}</span><div class=&quot;tx&quot;><div class=&quot;t&quot;>Open source + credits</div><div class=&quot;s&quot;>AGPLv3</div></div><span class=&quot;chev&quot;>${I.chev}</span></div>
+     <div class=&quot;row&quot;><span class=&quot;ico&quot; style=&quot;background:var(--sky)&quot;>${I.chat}</span><div class=&quot;tx&quot;><div class=&quot;t&quot;>Send feedback</div></div><span class=&quot;chev&quot;>${I.chev}</span></div></div>
+  </div></div></div>`},
+];
+const grid=document.getElementById('grid');const KEY='mobile-settings-2026-06-08';const store=JSON.parse(localStorage.getItem(KEY)||'{}');function save(){localStorage.setItem(KEY,JSON.stringify(store));}
+screens.forEach(s=>{const c=document.createElement('div');c.className='cell';c.innerHTML=`<div class=&quot;cap&quot;><span class=&quot;n&quot;>${s.n}</span><span class=&quot;d&quot;>${s.d}</span></div><div class=&quot;phone&quot;>${s.html}</div><div class=&quot;why&quot;>${s.why}</div><div class=&quot;review&quot; data-id=&quot;${s.id}&quot;></div>`;grid.appendChild(c);});
+document.querySelectorAll('.review').forEach(r=>{const id=r.dataset.id;const cur=store[id]||{};const seg=document.createElement('div');seg.className='seg';[['ok','Approve'],['warn','Change'],['none','?']].forEach(([v,l])=>{const b=document.createElement('button');b.textContent=l;b.onclick=()=>{store[id]={...(store[id]||{}),v};save();paint();};seg.appendChild(b);});r.appendChild(seg);const ta=document.createElement('textarea');ta.className='cmt';ta.placeholder='Comment';ta.value=cur.c||'';ta.oninput=()=>{store[id]={...(store[id]||{}),c:ta.value};save();};r.parentElement.appendChild(ta);});
+function paint(){document.querySelectorAll('.review').forEach(r=>{const c=store[r.dataset.id]||{};r.querySelectorAll('.seg button').forEach(b=>{const v=b.textContent==='Approve'?'ok':b.textContent==='Change'?'warn':'none';b.className=(c.v===v?'on '+v:'');});});}paint();
+document.getElementById('theme').onclick=function(){const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');this.textContent=d?'Dark':'Light';};
+document.getElementById('export').onclick=function(){let o='SETTINGS SHEET - '+new Date().toString().slice(0,21)+'\n'+'='.repeat(30)+'\n\n';screens.forEach(s=>{const c=store[s.id]||{};const v=c.v==='ok'?'APPROVE':c.v==='warn'?'CHANGE':c.v==='none'?'undecided':'(unmarked)';o+='['+v+'] '+s.n+'\n';if(c.c&amp;&amp;c.c.trim())o+='   note: '+c.c.trim()+'\n';});exT.value=o;exm.style.display='flex';};
+</script>
+</body>
+</html>
+"></iframe></div>
+    </section>
+    <section class="panel" data-i="5">
+      <div class="label"><h2><span class="num">6</span>Lab alarm</h2>
+        <p class="meta"><code>2026-06-08-lab-alarm.html</code> &middot; timer complete overlay: bell + BeakerBot</p></div>
+      <div class="frame"><iframe title="Lab alarm" srcdoc="<!doctype html>
+<html lang=&quot;en&quot;>
+<head>
+<meta charset=&quot;utf-8&quot; />
+<meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot; />
+<title>Lab alarm, BeakerBot rings the bell</title>
+<style>
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe UI&quot;,Roboto,sans-serif;background:#dfe6ee;padding:26px 18px 60px;color:#1f2937}
+  .head{max-width:760px;margin:0 auto 16px}
+  h1{font-size:20px;margin:0 0 6px}
+  .intro{color:#5b6573;font-size:13.5px;line-height:1.5;max-width:680px}
+  .stage{display:flex;justify-content:center}
+  .phone{width:320px;height:680px;border-radius:44px;background:#E6F4FE;position:relative;overflow:hidden;border:9px solid #0c0d10;box-shadow:0 18px 40px rgba(16,24,40,.25)}
+  /* a hint of the app underneath, then the dim takeover */
+  .app{position:absolute;inset:0;padding:54px 20px}
+  .app .lt{font-size:30px;font-weight:800;color:#0c1830;opacity:.5}
+  .app .card{height:70px;background:#fff;border-radius:16px;margin-top:14px;opacity:.5}
+  .dim{position:absolute;inset:0;background:rgba(8,12,24,.62)}
+  svg{position:absolute;inset:0;width:100%;height:100%}
+  .txt{position:absolute;left:0;right:0;top:430px;text-align:center;padding:0 28px}
+  .kick{color:#F59E0B;font-size:13px;font-weight:800;letter-spacing:2px}
+  .title{color:#fff;font-size:26px;font-weight:800;margin-top:8px;letter-spacing:-.3px}
+  .sub{color:rgba(255,255,255,.7);font-size:14px;margin-top:6px}
+  .stop{display:inline-block;margin-top:24px;background:#fff;color:#0c1830;font-size:17px;font-weight:800;padding:14px 56px;border-radius:16px}
+  .rainbow{position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#FFD2B0,#FFF1A8,#B7EBB1,#A6D2F4,#D6B5F0);z-index:5}
+</style>
+</head>
+<body>
+<div class=&quot;head&quot;>
+  <h1>Lab alarm, BeakerBot rings the bell</h1>
+  <p class=&quot;intro&quot;>Full-screen takeover when a timer runs out, on any screen. The amber bell swings and rings (sound-wave lines pulse out) while BeakerBot bounces and blinks below it. The timer name, a TIME'S UP kicker, and a Stop button sit underneath, with a gentle repeating haptic until you stop it. This is a still; on device the bell swings, the waves pulse, and he hops.</p>
+</div>
+<div class=&quot;stage&quot;>
+  <div class=&quot;phone&quot;>
+    <div class=&quot;rainbow&quot;></div>
+    <div class=&quot;app&quot;><div class=&quot;lt&quot;>Notebook</div><div class=&quot;card&quot;></div><div class=&quot;card&quot;></div></div>
+    <div class=&quot;dim&quot;></div>
+    <svg viewBox=&quot;0 0 320 680&quot;>
+      <!-- sound waves -->
+      <g transform=&quot;translate(160,180) scale(2.7)&quot; stroke=&quot;#F59E0B&quot; fill=&quot;none&quot; stroke-linecap=&quot;round&quot;>
+        <path d=&quot;M-15 9 Q -19 15, -15 21&quot; stroke-width=&quot;1.6&quot; opacity=&quot;0.9&quot;/>
+        <path d=&quot;M15 9 Q 19 15, 15 21&quot; stroke-width=&quot;1.6&quot; opacity=&quot;0.9&quot;/>
+        <path d=&quot;M-19 6 Q -25 15, -19 24&quot; stroke-width=&quot;1.4&quot; opacity=&quot;0.55&quot;/>
+        <path d=&quot;M19 6 Q 25 15, 19 24&quot; stroke-width=&quot;1.4&quot; opacity=&quot;0.55&quot;/>
+      </g>
+      <!-- bell, swung a touch for life -->
+      <g transform=&quot;translate(160,180) scale(2.7) rotate(-9)&quot;>
+        <circle cx=&quot;0&quot; cy=&quot;-4&quot; r=&quot;3&quot; fill=&quot;none&quot; stroke=&quot;#C97A0A&quot; stroke-width=&quot;1.6&quot;/>
+        <path d=&quot;M0 2 C -7.5 2, -10.5 10, -10.5 19 L -12.5 23 L 12.5 23 L 10.5 19 C 10.5 10, 7.5 2, 0 2 Z&quot; fill=&quot;#F59E0B&quot; stroke=&quot;#C97A0A&quot; stroke-width=&quot;1.4&quot; stroke-linejoin=&quot;round&quot;/>
+        <path d=&quot;M-12.5 23 L 12.5 23&quot; stroke=&quot;#C97A0A&quot; stroke-width=&quot;1.6&quot; stroke-linecap=&quot;round&quot;/>
+        <circle cx=&quot;0&quot; cy=&quot;26&quot; r=&quot;2.6&quot; fill=&quot;#92400E&quot;/>
+      </g>
+      <!-- BeakerBot -->
+      <g transform=&quot;translate(160,322) scale(4.0) translate(-20,-18)&quot;>
+        <path d=&quot;M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z&quot; fill=&quot;#fff&quot;/>
+        <clipPath id=&quot;glass&quot;><path d=&quot;M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z&quot;/></clipPath>
+        <g clip-path=&quot;url(#glass)&quot;>
+          <rect x=&quot;11&quot; y=&quot;12&quot; width=&quot;18&quot; height=&quot;20&quot; fill=&quot;url(#liq)&quot;/>
+          <path d=&quot;M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 12 L 12 12 Z&quot; fill=&quot;#E6F4FE&quot;/>
+        </g>
+        <defs><linearGradient id=&quot;liq&quot; x1=&quot;0&quot; y1=&quot;12&quot; x2=&quot;0&quot; y2=&quot;32&quot; gradientUnits=&quot;userSpaceOnUse&quot;>
+          <stop offset=&quot;0&quot; stop-color=&quot;#FFD2B0&quot;/><stop offset=&quot;0.25&quot; stop-color=&quot;#FFF1A8&quot;/><stop offset=&quot;0.5&quot; stop-color=&quot;#B7EBB1&quot;/><stop offset=&quot;0.75&quot; stop-color=&quot;#A6D2F4&quot;/><stop offset=&quot;1&quot; stop-color=&quot;#D6B5F0&quot;/>
+        </linearGradient></defs>
+        <path d=&quot;M22 8 C 22 6, 24 4, 26 6&quot; stroke=&quot;#1AA0E6&quot; stroke-width=&quot;2&quot; fill=&quot;none&quot; stroke-linecap=&quot;round&quot;/>
+        <path d=&quot;M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12&quot; stroke=&quot;#1AA0E6&quot; stroke-width=&quot;2&quot; fill=&quot;none&quot; stroke-linecap=&quot;round&quot;/>
+        <path d=&quot;M11 12 L29 12&quot; stroke=&quot;#1AA0E6&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot;/>
+        <path d=&quot;M14 26 L15.5 26&quot; stroke=&quot;#1AA0E6&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot;/>
+        <path d=&quot;M24.5 26 L26 26&quot; stroke=&quot;#1AA0E6&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot;/>
+        <circle cx=&quot;17&quot; cy=&quot;18&quot; r=&quot;1.2&quot; fill=&quot;#1AA0E6&quot;/>
+        <circle cx=&quot;23&quot; cy=&quot;18&quot; r=&quot;1.2&quot; fill=&quot;#1AA0E6&quot;/>
+        <path d=&quot;M18 22 Q 20 24, 22 22&quot; stroke=&quot;#1AA0E6&quot; stroke-width=&quot;2&quot; fill=&quot;none&quot; stroke-linecap=&quot;round&quot;/>
+      </g>
+    </svg>
+    <div class=&quot;txt&quot;>
+      <div class=&quot;kick&quot;>TIME'S UP</div>
+      <div class=&quot;title&quot;>Trypsin incubation</div>
+      <div class=&quot;sub&quot;>30 min timer</div>
+      <div class=&quot;stop&quot;>Stop</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
+"></iframe></div>
+    </section>
+    <section class="panel" data-i="6">
+      <div class="label"><h2><span class="num">7</span>Splash animation</h2>
+        <p class="meta"><code>2026-06-08-splash-animation.html</code> &middot; launch: BeakerBot wakes, rainbow liquid rise, wordmark</p></div>
+      <div class="frame"><iframe title="Splash animation" srcdoc="<!doctype html>
+<html lang=&quot;en&quot;>
+<head>
+<meta charset=&quot;utf-8&quot; />
+<meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot; />
+<title>ResearchOS splash animation prototype, &quot;BeakerBot wakes up&quot;</title>
+<style>
+  :root{
+    --r1:#FFD2B0;--r2:#FFF1A8;--r3:#B7EBB1;--r4:#A6D2F4;--r5:#D6B5F0;
+    --sky:#1AA0E6;--bg:#E6F4FE;--ink:#0c1830;--word:#0c1830;--shadow:rgba(26,160,230,.20);
+  }
+  [data-theme=&quot;dark&quot;]{
+    --r1:#F97316;--r2:#E8920B;--r3:#16A34A;--r4:#0284C7;--r5:#9333EA;
+    --bg:#0a0e1a;--ink:#e6edf3;--word:#ffffff;--shadow:rgba(0,0,0,.5);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe UI&quot;,Roboto,sans-serif;background:#dfe5ec;color:#1f2937;padding:26px 16px 70px;text-align:center}
+  [data-theme=&quot;dark&quot;] body{background:#05070a;color:#cbd5e1}
+  h1{font-size:19px;margin:0 0 6px}
+  .intro{max-width:760px;margin:0 auto 18px;color:#5b6573;font-size:13.5px;line-height:1.55}
+  [data-theme=&quot;dark&quot;] .intro{color:#8b949e}
+  .controls{display:flex;gap:10px;justify-content:center;margin-bottom:20px}
+  .controls button{background:var(--sky);color:#fff;border:none;border-radius:9px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer}
+  .controls button.ghost{background:transparent;border:1px solid #9aa6b2;color:#5b6573}
+  [data-theme=&quot;dark&quot;] .controls button.ghost{color:#8b949e;border-color:#39424d}
+  .phone{width:300px;height:640px;border-radius:44px;border:10px solid #0c0d10;margin:0 auto;position:relative;overflow:hidden;background:var(--bg);box-shadow:0 30px 60px rgba(16,24,40,.28)}
+  [data-theme=&quot;dark&quot;] .phone{border-color:#23262d}
+  .edge{position:absolute;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5));z-index:8}
+  .edge.top{top:0}.edge.bot{bottom:0}
+  .stage{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+  .lockup{display:flex;flex-direction:column;align-items:center;gap:18px}
+  .markwrap{position:relative;width:188px;height:188px;display:flex;align-items:center;justify-content:center}
+  .shadow{position:absolute;bottom:14px;width:120px;height:20px;border-radius:50%;background:var(--shadow);filter:blur(9px);opacity:0;transform:scale(.6)}
+  svg{width:188px;height:188px;overflow:visible}
+  .stroke{stroke:var(--sky);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+  .wordmark{font-size:30px;font-weight:800;letter-spacing:-.5px;color:var(--word);display:flex}
+  .wordmark span{opacity:0;transform:translateY(8px);display:inline-block}
+  .spark{position:absolute;top:24px;left:118px;font-size:18px;opacity:0;color:var(--sky)}
+
+  /* ---- animation, applied when .play is on the stage ---- */
+  .play .shadow{animation:shadowIn .5s ease-out .25s forwards}
+  .play .glass{stroke-dasharray:120;stroke-dashoffset:120;animation:draw .55s ease-out forwards}
+  .play .rim{stroke-dasharray:20;stroke-dashoffset:20;animation:draw .3s ease-out .15s forwards}
+  .play .spout{stroke-dasharray:14;stroke-dashoffset:14;animation:draw .35s ease-out .35s forwards}
+  .play .liquid{transform:translateY(15px);animation:rise .8s cubic-bezier(.22,1,.36,1) .5s forwards}
+  .play .bub{opacity:0;animation:bubble 1s ease-in .9s forwards}
+  .play .bub.b2{animation-delay:1.15s}
+  .play .foot{stroke-dasharray:3;stroke-dashoffset:3;animation:draw .25s ease-out .9s forwards}
+  .play .eye{transform:scale(0);transform-origin:center;animation:pop .4s cubic-bezier(.34,1.56,.64,1) 1.0s forwards,blink .25s ease 1.7s 1}
+  .play .eye.e2{animation-delay:1.08s,1.7s}
+  .play .smile{stroke-dasharray:8;stroke-dashoffset:8;animation:draw .35s ease-out 1.25s forwards}
+  .play .spark{animation:twinkle .7s ease-out 1.45s forwards}
+  .play .wordmark span{animation:letterIn .45s cubic-bezier(.22,1,.36,1) forwards}
+  .play .lockup{animation:breathe 2.2s ease-in-out 1.9s 1}
+
+  @keyframes draw{to{stroke-dashoffset:0}}
+  @keyframes shadowIn{to{opacity:1;transform:scale(1)}}
+  @keyframes rise{to{transform:translateY(0)}}
+  @keyframes bubble{0%{opacity:0;transform:translateY(0)}30%{opacity:.9}100%{opacity:0;transform:translateY(-9px)}}
+  @keyframes pop{to{transform:scale(1)}}
+  @keyframes blink{50%{transform:scaleY(.1)}}
+  @keyframes twinkle{0%{opacity:0;transform:scale(.4) rotate(0)}40%{opacity:1;transform:scale(1.1) rotate(20deg)}100%{opacity:0;transform:scale(.7) rotate(40deg)}}
+  @keyframes letterIn{to{opacity:1;transform:translateY(0)}}
+  @keyframes breathe{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+  /* the handoff to the app: shrink + fade (toggled separately) */
+  .stage.exit .lockup{animation:exit .5s ease-in .1s forwards}
+  @keyframes exit{to{transform:scale(.88);opacity:0}}
+</style>
+</head>
+<body>
+  <h1>ResearchOS splash, &quot;BeakerBot wakes up&quot; (prototype)</h1>
+  <p class=&quot;intro&quot;>Hand-built reveal using our real BeakerBot geometry + signature rainbow. Beats: the beaker draws on, the rainbow liquid rises with bubbles, BeakerBot wakes (eyes pop, blink, smile), a spout sparkle, the wordmark settles in letter by letter, one breathe, then it shrinks out to the app. Roughly 2.4s. Replay to rewatch; toggle dark.</p>
+  <div class=&quot;controls&quot;>
+    <button onclick=&quot;play()&quot;>Replay</button>
+    <button class=&quot;ghost&quot; onclick=&quot;exitDemo()&quot;>Show app handoff (shrink out)</button>
+    <button class=&quot;ghost&quot; onclick=&quot;toggleTheme()&quot;>Toggle dark</button>
+  </div>
+
+  <div class=&quot;phone&quot;>
+    <div class=&quot;edge top&quot;></div>
+    <div class=&quot;stage&quot; id=&quot;stage&quot;>
+      <div class=&quot;lockup&quot;>
+        <div class=&quot;markwrap&quot;>
+          <div class=&quot;shadow&quot;></div>
+          <svg viewBox=&quot;8 3 24 31&quot; id=&quot;mark&quot;>
+            <defs>
+              <linearGradient id=&quot;liq&quot; x1=&quot;0&quot; y1=&quot;0&quot; x2=&quot;0&quot; y2=&quot;1&quot;>
+                <stop offset=&quot;0%&quot; stop-color=&quot;#FFD2B0&quot;/><stop offset=&quot;25%&quot; stop-color=&quot;#FFF1A8&quot;/>
+                <stop offset=&quot;50%&quot; stop-color=&quot;#B7EBB1&quot;/><stop offset=&quot;75%&quot; stop-color=&quot;#A6D2F4&quot;/>
+                <stop offset=&quot;100%&quot; stop-color=&quot;#D6B5F0&quot;/>
+              </linearGradient>
+              <clipPath id=&quot;bk&quot;><path d=&quot;M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z&quot;/></clipPath>
+            </defs>
+            <!-- white glass fill (so the liquid reads on a clean beaker) -->
+            <path d=&quot;M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z&quot; fill=&quot;white&quot; stroke=&quot;none&quot;/>
+            <!-- rising rainbow liquid, clipped to the beaker -->
+            <g clip-path=&quot;url(#bk)&quot;>
+              <g class=&quot;liquid&quot;>
+                <path d=&quot;M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z&quot; fill=&quot;url(#liq)&quot; stroke=&quot;none&quot;/>
+                <circle class=&quot;bub&quot; cx=&quot;17&quot; cy=&quot;29&quot; r=&quot;0.7&quot; fill=&quot;rgba(255,255,255,.8)&quot;/>
+                <circle class=&quot;bub b2&quot; cx=&quot;22&quot; cy=&quot;30&quot; r=&quot;0.6&quot; fill=&quot;rgba(255,255,255,.7)&quot;/>
+              </g>
+            </g>
+            <!-- spout curl -->
+            <path class=&quot;stroke spout&quot; d=&quot;M22 8 C 22 6, 24 4, 26 6&quot;/>
+            <!-- beaker outline + rim -->
+            <path class=&quot;stroke glass&quot; d=&quot;M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12&quot;/>
+            <path class=&quot;stroke rim&quot; d=&quot;M11 12 L29 12&quot;/>
+            <!-- face -->
+            <circle class=&quot;eye&quot; cx=&quot;17&quot; cy=&quot;18&quot; r=&quot;1.2&quot; fill=&quot;#1AA0E6&quot; stroke=&quot;none&quot;/>
+            <circle class=&quot;eye e2&quot; cx=&quot;23&quot; cy=&quot;18&quot; r=&quot;1.2&quot; fill=&quot;#1AA0E6&quot; stroke=&quot;none&quot;/>
+            <path class=&quot;stroke smile&quot; d=&quot;M18 22 Q 20 24, 22 22&quot;/>
+            <!-- feet -->
+            <path class=&quot;stroke foot&quot; d=&quot;M14 26 L15.5 26&quot;/><path class=&quot;stroke foot&quot; d=&quot;M24.5 26 L26 26&quot;/>
+          </svg>
+          <div class=&quot;spark&quot;>&amp;#10022;</div>
+        </div>
+        <div class=&quot;wordmark&quot; id=&quot;word&quot;></div>
+      </div>
+    </div>
+    <div class=&quot;edge bot&quot;></div>
+  </div>
+
+<script>
+  // Build the wordmark as staggered letters (ref-3 nod, but subtle).
+  const word=&quot;ResearchOS&quot;;
+  const wEl=document.getElementById(&quot;word&quot;);
+  wEl.innerHTML=[...word].map((c,i)=>`<span style=&quot;animation-delay:${1.5+i*0.045}s&quot;>${c}</span>`).join(&quot;&quot;);
+  const stage=document.getElementById(&quot;stage&quot;);
+  function play(){
+    stage.classList.remove(&quot;play&quot;,&quot;exit&quot;);
+    void stage.offsetWidth; // reflow to restart animations
+    stage.classList.add(&quot;play&quot;);
+  }
+  function exitDemo(){ stage.classList.add(&quot;exit&quot;); setTimeout(play, 900); }
+  function toggleTheme(){const d=document.documentElement;d.setAttribute(&quot;data-theme&quot;,d.getAttribute(&quot;data-theme&quot;)===&quot;dark&quot;?&quot;&quot;:&quot;dark&quot;);}
+  play();
+</script>
+</body>
+</html>
+"></iframe></div>
+    </section>
+    <section class="panel" data-i="7">
+      <div class="label"><h2><span class="num">8</span>Success burst</h2>
+        <p class="meta"><code>2026-06-08-success-burst.html</code> &middot; sent-to-your-lab celebration: rainbow arc + confetti</p></div>
+      <div class="frame"><iframe title="Success burst" srcdoc="<!doctype html>
+<html lang=&quot;en&quot;>
+<head>
+<meta charset=&quot;utf-8&quot; />
+<meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot; />
+<title>ResearchOS success burst, rainbow arc + confetti</title>
+<style>
+  :root{
+    --o:#FFD2B0;--a:#FFF1A8;--g:#B7EBB1;--b:#A6D2F4;--p:#D6B5F0;
+    --sky:#1AA0E6;--bg:#E6F4FE;--card:#fff;--ink:#0c1830;--sub:#6b7280;
+  }
+  [data-theme=&quot;dark&quot;]{--bg:#0a0e1a;--card:#161b22;--ink:#e6edf3;--sub:#8b949e;--o:#F97316;--a:#E8920B;--g:#16A34A;--b:#0284C7;--p:#9333EA}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe UI&quot;,Roboto,sans-serif;background:#dfe5ec;color:#1f2937;padding:26px 16px 70px;text-align:center}
+  [data-theme=&quot;dark&quot;] body{background:#05070a;color:#cbd5e1}
+  h1{font-size:19px;margin:0 0 6px}
+  .intro{max-width:760px;margin:0 auto 18px;color:#5b6573;font-size:13.5px;line-height:1.55}
+  [data-theme=&quot;dark&quot;] .intro{color:#8b949e}
+  .controls{display:flex;gap:10px;justify-content:center;margin-bottom:20px}
+  .controls button{background:var(--sky);color:#fff;border:none;border-radius:9px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer}
+  .controls button.ghost{background:transparent;border:1px solid #9aa6b2;color:#5b6573}
+  [data-theme=&quot;dark&quot;] .controls button.ghost{color:#8b949e;border-color:#39424d}
+  .phone{width:300px;height:640px;border-radius:44px;border:10px solid #0c0d10;margin:0 auto;position:relative;overflow:hidden;background:var(--bg);box-shadow:0 30px 60px rgba(16,24,40,.28)}
+  [data-theme=&quot;dark&quot;] .phone{border-color:#23262d}
+  .edge{position:absolute;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--o),var(--a),var(--g),var(--b),var(--p));z-index:8}
+  .edge.top{top:0}.edge.bot{bottom:0}
+  .appbg{position:absolute;inset:0;padding:50px 22px;text-align:left;opacity:.4}
+  .appbg .t{font-size:26px;font-weight:800;color:var(--ink)}
+  .appbg .card{background:var(--card);border-radius:14px;height:54px;margin-top:14px;box-shadow:0 1px 3px rgba(16,24,40,.06)}
+  .layer{position:absolute;inset:0;z-index:20;pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+  .burst{width:250px;height:170px;position:relative}
+  .burst svg{width:100%;height:100%;overflow:visible}
+  /* arcs: pathLength=1 so one dasharray works at any radius */
+  .arc{fill:none;stroke-width:12;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1}
+  .conf{opacity:0;transform-box:fill-box;transform-origin:center}
+  .label{opacity:0}
+  .label .l{font-size:17px;font-weight:800;color:var(--ink)}
+  .label .s{font-size:12.5px;color:var(--sub);margin-top:2px}
+
+  .go .arc{animation:draw .62s cubic-bezier(.3,0,.2,1) forwards}
+  .go .a1{animation-delay:.00s}.go .a2{animation-delay:.09s}.go .a3{animation-delay:.18s}
+  .go .a4{animation-delay:.27s}.go .a5{animation-delay:.36s}
+  .go .conf{animation:pop .5s cubic-bezier(.34,1.56,.64,1) forwards}
+  .go .label{animation:lab 1.7s ease forwards}
+  .go .burst{animation:out 1.9s ease forwards}
+
+  @keyframes draw{to{stroke-dashoffset:0}}
+  @keyframes pop{0%{opacity:0;transform:scale(0) translateY(4px)}60%{opacity:1;transform:scale(1.15) translateY(0)}100%{opacity:1;transform:scale(1)}}
+  @keyframes lab{0%{opacity:0}30%{opacity:1}72%{opacity:1}100%{opacity:0}}
+  @keyframes out{0%,78%{opacity:1}100%{opacity:0;transform:scale(1.04)}}
+</style>
+</head>
+<body>
+  <h1>Success burst, rainbow arc + confetti (matching your reference)</h1>
+  <p class=&quot;intro&quot;>A celebratory rainbow ARC in our brand colors draws on sweeping around, with confetti (dots, triangles, bars) popping in the gaps, and &quot;Sent to your lab&quot; fading through. No character (BeakerBot stays the splash moment). About 1.6s, no dim, never blocks taps, with a success haptic. Plays on every successful phone-to-laptop push. Tap &quot;Trigger a send&quot;.</p>
+  <div class=&quot;controls&quot;>
+    <button onclick=&quot;fire()&quot;>Trigger a send</button>
+    <button class=&quot;ghost&quot; onclick=&quot;toggleTheme()&quot;>Toggle dark</button>
+  </div>
+
+  <div class=&quot;phone&quot;>
+    <div class=&quot;edge top&quot;></div>
+    <div class=&quot;appbg&quot;><div class=&quot;t&quot;>Notebook</div><div class=&quot;card&quot;></div><div class=&quot;card&quot; style=&quot;height:120px&quot;></div></div>
+    <div class=&quot;layer&quot; id=&quot;layer&quot;>
+      <div class=&quot;burst&quot;>
+        <svg viewBox=&quot;0 0 250 170&quot;>
+          <!-- 5 concentric brand-rainbow arcs, outer to inner, drawing on -->
+          <path class=&quot;arc a1&quot; pathLength=&quot;1&quot; stroke=&quot;var(--o)&quot; d=&quot;M 15 150 A 110 110 0 0 1 235 150&quot;/>
+          <path class=&quot;arc a2&quot; pathLength=&quot;1&quot; stroke=&quot;var(--a)&quot; d=&quot;M 41 150 A 84 84 0 0 1 209 150&quot;/>
+          <path class=&quot;arc a3&quot; pathLength=&quot;1&quot; stroke=&quot;var(--g)&quot; d=&quot;M 67 150 A 58 58 0 0 1 183 150&quot;/>
+          <path class=&quot;arc a4&quot; pathLength=&quot;1&quot; stroke=&quot;var(--b)&quot; d=&quot;M 93 150 A 32 32 0 0 1 157 150&quot;/>
+          <path class=&quot;arc a5&quot; pathLength=&quot;1&quot; stroke=&quot;var(--p)&quot; d=&quot;M 113 150 A 12 12 0 0 1 137 150&quot;/>
+
+          <!-- confetti, brand colors, popping in the gaps -->
+          <g id=&quot;confetti&quot;></g>
+        </svg>
+      </div>
+      <div class=&quot;label&quot;><div class=&quot;l&quot;>Sent to your lab</div><div class=&quot;s&quot;>Gel image &amp;middot; Notebook</div></div>
+    </div>
+    <div class=&quot;edge bot&quot;></div>
+  </div>
+
+<script>
+  // Scatter confetti in the arc band region (brand colors, dots/triangles/bars).
+  const cols=[&quot;#FFD2B0&quot;,&quot;#FFF1A8&quot;,&quot;#B7EBB1&quot;,&quot;#A6D2F4&quot;,&quot;#D6B5F0&quot;];
+  const conf=document.getElementById(&quot;confetti&quot;);
+  const pieces=[];
+  // place along arcs at varied angles/radii so they sit in the gaps
+  for(let i=0;i<22;i++){
+    const ang=Math.PI*(0.08+0.84*Math.random());           // along the arc
+    const rad=40+90*Math.random();                          // radius spread
+    const cx=125-Math.cos(ang)*rad, cy=150-Math.sin(ang)*rad;
+    const c=cols[i%cols.length];
+    const kind=i%3;
+    let el;
+    if(kind===0){el=`<circle cx=&quot;${cx.toFixed(1)}&quot; cy=&quot;${cy.toFixed(1)}&quot; r=&quot;${(2+Math.random()*3).toFixed(1)}&quot; fill=&quot;${c}&quot;/>`;}
+    else if(kind===1){const s=4+Math.random()*3;el=`<polygon points=&quot;${cx.toFixed(1)},${(cy-s).toFixed(1)} ${(cx-s).toFixed(1)},${(cy+s*0.7).toFixed(1)} ${(cx+s).toFixed(1)},${(cy+s*0.7).toFixed(1)}&quot; fill=&quot;${c}&quot;/>`;}
+    else{el=`<rect x=&quot;${(cx-2).toFixed(1)}&quot; y=&quot;${(cy-4).toFixed(1)}&quot; width=&quot;4&quot; height=&quot;8&quot; rx=&quot;1.5&quot; transform=&quot;rotate(${(Math.random()*60-30).toFixed(0)} ${cx.toFixed(1)} ${cy.toFixed(1)})&quot; fill=&quot;${c}&quot;/>`;}
+    pieces.push(`<g class=&quot;conf&quot; style=&quot;animation-delay:${(0.3+Math.random()*0.5).toFixed(2)}s&quot;>${el}</g>`);
+  }
+  conf.innerHTML=pieces.join(&quot;&quot;);
+  const layer=document.getElementById(&quot;layer&quot;);
+  function fire(){layer.classList.remove(&quot;go&quot;);void layer.offsetWidth;layer.classList.add(&quot;go&quot;);}
+  function toggleTheme(){const d=document.documentElement;d.setAttribute(&quot;data-theme&quot;,d.getAttribute(&quot;data-theme&quot;)===&quot;dark&quot;?&quot;&quot;:&quot;dark&quot;);}
+  fire();
+</script>
+</body>
+</html>
+"></iframe></div>
+    </section>
+    <section class="panel" data-i="8">
+      <div class="label"><h2><span class="num">9</span>Calculator</h2>
+        <p class="meta"><code>2026-06-08-calc-redesign.html</code> &middot; Calc tab display: dark, light, switcher</p></div>
+      <div class="frame"><iframe title="Calculator" srcdoc="<!doctype html>
+<html lang=&quot;en&quot;>
+<head>
+<meta charset=&quot;utf-8&quot; />
+<meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot; />
+<title>ResearchOS mobile, Calculator redesign</title>
+<style>
+  :root{
+    --r1:#FFD2B0;--r2:#FFF1A8;--r3:#B7EBB1;--r4:#A6D2F4;--r5:#D6B5F0;
+    --sky:#1AA0E6;--bg:#E6F4FE;--card:#fff;--ink:#0c1830;--ink2:#374151;--ink3:#6b7280;--border:rgba(0,0,0,.08);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe UI&quot;,Roboto,sans-serif;background:#e9edf1;color:#1f2937;padding:24px 18px 90px}
+  .head{max-width:1180px;margin:0 auto 20px}
+  h1{font-size:21px;margin:0 0 6px}
+  .intro{color:#5b6573;font-size:14px;line-height:1.55;max-width:900px}
+  h2.section{max-width:1180px;margin:26px auto 12px;font-size:15px;color:#334155;border-top:1px solid #d7dde4;padding-top:18px}
+  .rowwrap{max-width:1180px;margin:0 auto;display:flex;gap:26px;align-items:flex-start;flex-wrap:wrap}
+  .col{display:flex;flex-direction:column;align-items:center;gap:10px}
+  .cap{font-size:12.5px;font-weight:700;color:#7a8694;text-transform:uppercase;letter-spacing:.04em}
+  .note{font-size:12px;color:#6b7280;max-width:300px;text-align:center;line-height:1.45}
+
+  /* phone */
+  .phone{width:300px;height:640px;border-radius:42px;background:var(--bg);position:relative;overflow:hidden;border:9px solid #0c0d10;box-shadow:0 18px 40px rgba(16,24,40,.20)}
+  .phone.sm{width:230px;height:150px;border-radius:30px}
+  .rainbow{height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5));position:absolute;top:0;left:0;right:0;z-index:30}
+  .phone::after{content:&quot;&quot;;position:absolute;left:0;right:0;bottom:0;height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5));z-index:30}
+  .statusbar{position:absolute;top:5px;left:0;right:0;height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;font-size:12.5px;font-weight:600;color:var(--ink);z-index:20}
+  .content{position:absolute;top:40px;left:0;right:0;bottom:14px;overflow:hidden;padding:6px 14px 0}
+  .mascot{position:absolute;top:42px;right:14px;width:26px;height:34px;z-index:25}
+  .mascot svg{width:100%;height:100%}
+
+  /* switcher: dropdown header */
+  .calcsel{display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--border);border-radius:13px;padding:11px 14px;box-shadow:0 1px 3px rgba(16,24,40,.06);margin-bottom:12px}
+  .calcsel .t{font-size:17px;font-weight:800;letter-spacing:-.01em}
+  .calcsel .cu{font-size:12px;color:var(--ink3);margin-top:1px}
+  .calcsel .chev{color:var(--sky);font-size:18px;font-weight:700}
+
+  /* display */
+  .disp{background:#0c1422;border-radius:16px;padding:14px 16px;margin-bottom:12px}
+  .disp .expr{color:#9fb6cc;font-family:ui-monospace,Menlo,monospace;font-size:14px;min-height:18px;text-align:right}
+  .disp .res{color:#fff;font-size:34px;font-weight:700;text-align:right;letter-spacing:-.5px;margin-top:6px}
+  .disp.light{background:#fff;border:1px solid var(--border);box-shadow:0 1px 3px rgba(16,24,40,.06)}
+  .disp.light .expr{color:#94a3b8}.disp.light .res{color:var(--ink)}
+
+  /* function strip */
+  .fnstrip{display:flex;gap:7px;overflow:auto;padding-bottom:9px;margin-bottom:4px}
+  .fnchip{flex:none;background:color-mix(in srgb,var(--sky) 12%,transparent);color:var(--sky);border-radius:10px;padding:9px 12px;font-size:13px;font-weight:700;white-space:nowrap;font-family:ui-monospace,Menlo,monospace}
+  .rdpill{flex:none;display:flex;background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  .rdpill span{padding:9px 11px;font-size:12px;font-weight:700;color:var(--ink3)}
+  .rdpill span.on{background:var(--sky);color:#fff}
+
+  /* number pad */
+  .pad{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+  .key{border-radius:16px;padding:15px 0;text-align:center;font-size:21px;font-weight:600;background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(16,24,40,.06)}
+  .key.op{background:color-mix(in srgb,var(--sky) 12%,transparent);color:var(--sky);font-weight:700}
+  .key.fnk{background:#eef2f6;color:var(--ink2);font-size:16px}
+  .key.eq{background:var(--sky);color:#fff;font-weight:800}
+  .key.span2{grid-column:span 2}
+
+  /* bottom switcher bar */
+  .botbar{position:absolute;left:0;right:0;bottom:10px;display:flex;gap:6px;padding:9px 12px;overflow:auto;background:color-mix(in srgb,#fff 90%,transparent);backdrop-filter:blur(10px);border-top:1px solid var(--border)}
+  .botchip{flex:none;border-radius:999px;padding:7px 13px;font-size:12.5px;font-weight:700;background:#eef2f6;color:var(--ink3)}
+  .botchip.on{background:var(--sky);color:#fff}
+
+  /* top chip row (restyled) */
+  .toprow{display:flex;gap:7px;overflow:auto;padding-bottom:10px}
+  .topchip{flex:none;border-radius:999px;padding:8px 14px;font-size:13px;font-weight:700;background:#fff;color:var(--ink3);box-shadow:0 1px 3px rgba(16,24,40,.06)}
+  .topchip.on{background:var(--sky);color:#fff;box-shadow:none}
+</style>
+</head>
+<body>
+<div class=&quot;head&quot;>
+  <h1>Calculator redesign, for review</h1>
+  <p class=&quot;intro&quot;>The Scientific tab gets a clean phone-calculator layout: a dark result display, the scientific functions as a single scrollable strip (no more cramped twin grid), and a roomy four-column pad with sky operators. Below that, three options for where the calculator-switcher (Scientific / Molarity / Dilution / Serial / Buffer) lives, since the current top chip row felt off. Tell me which switcher you want and whether the keypad direction is right.</p>
+</div>
+
+<h2 class=&quot;section&quot;>1. Scientific calculator, redesigned (switcher shown as a tap-to-change header)</h2>
+<div class=&quot;rowwrap&quot;>
+  <div class=&quot;col&quot;>
+    <span class=&quot;cap&quot;>Proposed, dark display</span>
+    <div class=&quot;phone&quot;>
+      <div class=&quot;rainbow&quot;></div>
+      <div class=&quot;statusbar&quot;><span>9:41</span><span>WiFi</span></div>
+      <div class=&quot;mascot&quot;>${''}<svg viewBox=&quot;8 3 24 31&quot;><path d=&quot;M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z&quot; fill=&quot;#fff&quot;/><path d=&quot;M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z&quot; fill=&quot;#A6D2F4&quot;/><path d=&quot;M22 8 C 22 6, 24 4, 26 6&quot; stroke=&quot;#1AA0E6&quot; stroke-width=&quot;2&quot; fill=&quot;none&quot; stroke-linecap=&quot;round&quot;/><path d=&quot;M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12&quot; stroke=&quot;#1AA0E6&quot; stroke-width=&quot;2&quot; fill=&quot;none&quot; stroke-linecap=&quot;round&quot;/><path d=&quot;M11 12 L29 12&quot; stroke=&quot;#1AA0E6&quot; stroke-width=&quot;2&quot; stroke-linecap=&quot;round&quot;/><circle cx=&quot;17&quot; cy=&quot;18&quot; r=&quot;1.2&quot; fill=&quot;#1AA0E6&quot;/><circle cx=&quot;23&quot; cy=&quot;18&quot; r=&quot;1.2&quot; fill=&quot;#1AA0E6&quot;/><path d=&quot;M18 22 Q 20 24, 22 22&quot; stroke=&quot;#1AA0E6&quot; stroke-width=&quot;2&quot; fill=&quot;none&quot; stroke-linecap=&quot;round&quot;/></svg></div>
+      <div class=&quot;content&quot;>
+        <div class=&quot;calcsel&quot;><div><div class=&quot;t&quot;>Scientific</div><div class=&quot;cu&quot;>tap to switch calculator</div></div><span class=&quot;chev&quot;>&amp;#9662;</span></div>
+        <div class=&quot;disp&quot;><div class=&quot;expr&quot;>sqrt(2) * sin(45)</div><div class=&quot;res&quot;>1.000</div></div>
+        <div class=&quot;fnstrip&quot;>
+          <div class=&quot;rdpill&quot;><span class=&quot;on&quot;>RAD</span><span>DEG</span></div>
+          <div class=&quot;fnchip&quot;>sin</div><div class=&quot;fnchip&quot;>cos</div><div class=&quot;fnchip&quot;>tan</div><div class=&quot;fnchip&quot;>ln</div><div class=&quot;fnchip&quot;>log</div><div class=&quot;fnchip&quot;>&amp;radic;</div><div class=&quot;fnchip&quot;>x&amp;#8319;</div><div class=&quot;fnchip&quot;>&amp;pi;</div><div class=&quot;fnchip&quot;>e</div><div class=&quot;fnchip&quot;>n!</div>
+        </div>
+        <div class=&quot;pad&quot;>
+          <div class=&quot;key fnk&quot;>AC</div><div class=&quot;key fnk&quot;>(</div><div class=&quot;key fnk&quot;>)</div><div class=&quot;key op&quot;>&amp;divide;</div>
+          <div class=&quot;key&quot;>7</div><div class=&quot;key&quot;>8</div><div class=&quot;key&quot;>9</div><div class=&quot;key op&quot;>&amp;times;</div>
+          <div class=&quot;key&quot;>4</div><div class=&quot;key&quot;>5</div><div class=&quot;key&quot;>6</div><div class=&quot;key op&quot;>&amp;minus;</div>
+          <div class=&quot;key&quot;>1</div><div class=&quot;key&quot;>2</div><div class=&quot;key&quot;>3</div><div class=&quot;key op&quot;>+</div>
+          <div class=&quot;key span2&quot;>0</div><div class=&quot;key&quot;>.</div><div class=&quot;key eq&quot;>=</div>
+        </div>
+      </div>
+    </div>
+    <div class=&quot;note&quot;>Dark display reads like a real calculator and makes the answer pop. Functions scroll in one tidy strip.</div>
+  </div>
+
+  <div class=&quot;col&quot;>
+    <span class=&quot;cap&quot;>Alt, light display</span>
+    <div class=&quot;phone&quot;>
+      <div class=&quot;rainbow&quot;></div>
+      <div class=&quot;statusbar&quot;><span>9:41</span><span>WiFi</span></div>
+      <div class=&quot;content&quot;>
+        <div class=&quot;calcsel&quot;><div><div class=&quot;t&quot;>Scientific</div><div class=&quot;cu&quot;>tap to switch calculator</div></div><span class=&quot;chev&quot;>&amp;#9662;</span></div>
+        <div class=&quot;disp light&quot;><div class=&quot;expr&quot;>12 ^ 2 + 5</div><div class=&quot;res&quot;>149</div></div>
+        <div class=&quot;fnstrip&quot;>
+          <div class=&quot;rdpill&quot;><span class=&quot;on&quot;>RAD</span><span>DEG</span></div>
+          <div class=&quot;fnchip&quot;>sin</div><div class=&quot;fnchip&quot;>cos</div><div class=&quot;fnchip&quot;>tan</div><div class=&quot;fnchip&quot;>ln</div><div class=&quot;fnchip&quot;>log</div><div class=&quot;fnchip&quot;>&amp;radic;</div><div class=&quot;fnchip&quot;>x&amp;#8319;</div><div class=&quot;fnchip&quot;>&amp;pi;</div><div class=&quot;fnchip&quot;>e</div><div class=&quot;fnchip&quot;>n!</div>
+        </div>
+        <div class=&quot;pad&quot;>
+          <div class=&quot;key fnk&quot;>AC</div><div class=&quot;key fnk&quot;>(</div><div class=&quot;key fnk&quot;>)</div><div class=&quot;key op&quot;>&amp;divide;</div>
+          <div class=&quot;key&quot;>7</div><div class=&quot;key&quot;>8</div><div class=&quot;key&quot;>9</div><div class=&quot;key op&quot;>&amp;times;</div>
+          <div class=&quot;key&quot;>4</div><div class=&quot;key&quot;>5</div><div class=&quot;key&quot;>6</div><div class=&quot;key op&quot;>&amp;minus;</div>
+          <div class=&quot;key&quot;>1</div><div class=&quot;key&quot;>2</div><div class=&quot;key&quot;>3</div><div class=&quot;key op&quot;>+</div>
+          <div class=&quot;key span2&quot;>0</div><div class=&quot;key&quot;>.</div><div class=&quot;key eq&quot;>=</div>
+        </div>
+      </div>
+    </div>
+    <div class=&quot;note&quot;>Same layout with a white display, if you would rather keep everything light to match the rest of the app.</div>
+  </div>
+</div>
+
+<h2 class=&quot;section&quot;>2. Where the calculator-switcher lives, three options</h2>
+<div class=&quot;rowwrap&quot;>
+  <div class=&quot;col&quot;>
+    <span class=&quot;cap&quot;>Option A, dropdown header</span>
+    <div class=&quot;phone sm&quot;>
+      <div class=&quot;rainbow&quot;></div>
+      <div class=&quot;content&quot; style=&quot;top:14px&quot;>
+        <div class=&quot;calcsel&quot;><div><div class=&quot;t&quot;>Molarity</div><div class=&quot;cu&quot;>tap to switch calculator</div></div><span class=&quot;chev&quot;>&amp;#9662;</span></div>
+        <div style=&quot;font-size:12px;color:var(--ink3);text-align:center;margin-top:6px&quot;>Tapping opens a list of all 5 calculators</div>
+      </div>
+    </div>
+    <div class=&quot;note&quot;>One compact header that doubles as the title. Cleanest, most space for the calc itself. My recommendation.</div>
+  </div>
+  <div class=&quot;col&quot;>
+    <span class=&quot;cap&quot;>Option B, bottom bar</span>
+    <div class=&quot;phone sm&quot;>
+      <div class=&quot;rainbow&quot;></div>
+      <div class=&quot;content&quot; style=&quot;top:14px;bottom:40px&quot;><div style=&quot;font-size:12px;color:var(--ink3);text-align:center;margin-top:30px&quot;>calculator content</div></div>
+      <div class=&quot;botbar&quot;><span class=&quot;botchip&quot;>Sci</span><span class=&quot;botchip on&quot;>Molarity</span><span class=&quot;botchip&quot;>Dilution</span><span class=&quot;botchip&quot;>Serial</span><span class=&quot;botchip&quot;>Buffer</span></div>
+    </div>
+    <div class=&quot;note&quot;>Switcher pinned to the bottom, thumb-reachable, content fills the top.</div>
+  </div>
+  <div class=&quot;col&quot;>
+    <span class=&quot;cap&quot;>Option C, restyled top chips</span>
+    <div class=&quot;phone sm&quot;>
+      <div class=&quot;rainbow&quot;></div>
+      <div class=&quot;content&quot; style=&quot;top:14px&quot;>
+        <div class=&quot;toprow&quot;><span class=&quot;topchip on&quot;>Scientific</span><span class=&quot;topchip&quot;>Molarity</span><span class=&quot;topchip&quot;>Dilution</span><span class=&quot;topchip&quot;>Serial</span></div>
+        <div style=&quot;font-size:12px;color:var(--ink3);text-align:center;margin-top:6px&quot;>same place, cleaner pills</div>
+      </div>
+    </div>
+    <div class=&quot;note&quot;>Keeps today's top row but as cleaner white pills with a clear active state.</div>
+  </div>
+</div>
+
+</body>
+</html>
+"></iframe></div>
+    </section></main>
+  <footer>Generated from docs/mockups/ &middot; apple-polish-v2 is the master; tab-restructure and apple-polish v1 are superseded and omitted.</footer>
+  <script>
+    var chips = Array.prototype.slice.call(document.querySelectorAll(".chip"));
+    var panels = Array.prototype.slice.call(document.querySelectorAll(".panel"));
+    function fit(p) { var f=p.querySelector("iframe"); if(!f) return;
+      try { var d=f.contentDocument||(f.contentWindow&&f.contentWindow.document); if(!d) return;
+        var h=Math.max(d.documentElement.scrollHeight, d.body?d.body.scrollHeight:0); if(h>0) f.style.height=(h+8)+"px"; } catch(e){} }
+    function show(i) {
+      chips.forEach(function(c){ c.classList.toggle("active", +c.dataset.i===i); });
+      panels.forEach(function(p){ p.classList.toggle("active", +p.dataset.i===i); });
+      var active = panels.filter(function(p){ return +p.dataset.i===i; })[0];
+      window.scrollTo(0,0);
+      // fit after the panel is shown + laid out (hidden iframes report 0 height)
+      [0,60,250,600].forEach(function(ms){ setTimeout(function(){ fit(active); }, ms); });
+    }
+    chips.forEach(function(c){ c.addEventListener("click", function(){ show(+c.dataset.i); }); });
+    window.addEventListener("load", function(){ [50,300,700].forEach(function(ms){ setTimeout(function(){ fit(panels[0]); }, ms); }); });
+    var t; window.addEventListener("resize", function(){ clearTimeout(t); t=setTimeout(function(){
+      var a=panels.filter(function(p){return p.classList.contains("active");})[0]; if(a) fit(a); },150); });
+  </script>
+</body></html>
