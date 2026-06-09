@@ -435,12 +435,6 @@ function AppContent({ children }: { children: ReactNode }) {
           Notes or Results tab instead of the inbox. Headless, no-op when no
           identity is on hand or no experiment popup is open. */}
       <FocusContextPublisher />
-      {/* Dev-only one-click clean-slate session (bottom-left): spins up a
-          throwaway in-browser (OPFS) data folder, mints an identity, and signs
-          in with no folder picker, so a phone can pair against a guaranteed
-          fresh session every time. Renders nothing in production or once a user
-          is signed in. (mobile manager) */}
-      <DevEphemeralSessionButton />
       {/* Auto on-disk data migrations (docs/proposals/AUTO_DATA_MIGRATIONS.md):
           runs pending idempotent format upgrades once per connected user folder,
           in the background, and shows a quiet "Updated N files" toast on change.
@@ -508,6 +502,13 @@ export function Providers({ children }: { children: ReactNode }) {
             inside it. No-op in normal use / true fixtures / demo. */}
         <WikiCaptureRefusedBanner />
         <FloatingLeaveDemoButton />
+        {/* Dev-only one-click clean-slate session. Mounted here (Providers
+            level, above AppContent) like FloatingLeaveDemoButton so it shows on
+            the pre-login connect / picker / login surfaces, not just the
+            signed-in app. Spins up a throwaway in-browser (OPFS) folder, mints
+            an identity, and signs in with no folder picker. Renders nothing in
+            production or once a user is signed in. (mobile manager) */}
+        <DevEphemeralSessionButton />
         <OpenDocsButton />
         {/* Global host for fire-and-forget easter-egg scenes (BugStomp,
             etc.). Mounted at this level — above AppContent — so the
