@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { usersApi } from "@/lib/local-api";
 import { createLocalIdentity } from "@/lib/sharing/identity/storage";
@@ -24,6 +25,7 @@ export default function DevEphemeralSessionButton() {
 }
 
 function DevEphemeralSessionInner() {
+  const router = useRouter();
   const { connectEphemeralDev, setCurrentUser, currentUser } = useFileSystem();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -49,6 +51,12 @@ function DevEphemeralSessionInner() {
       await createLocalIdentity(username);
       await usersApi.login(username);
       await setCurrentUser(username);
+      // Land in the app. A fresh Incognito briefly looks like a "new visitor"
+      // and the gate can redirect to the sticky /welcome route mid-flow; now
+      // that a user is signed in, "/" renders the app home. Client-side nav
+      // (not a reload) so the in-memory OPFS connection is preserved (the
+      // ephemeral handle is intentionally not persisted).
+      router.replace("/");
     } catch (err) {
       setMsg(err instanceof Error ? err.message : "Ephemeral dev sign-in failed.");
       setBusy(false);
