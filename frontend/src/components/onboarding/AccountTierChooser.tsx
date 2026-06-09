@@ -3,30 +3,54 @@
 // The 3-tier account chooser. Rendered as the first beat for a fresh user
 // (no currentUser, fresh folder) before ResearchFolderSetupNew.
 //
-// Copy, tile layout, comparison table, and guide are lifted verbatim from
-// docs/mockups/account-setup-revamp.html and docs/mockups/beakerbot-tier-icons.html.
+// Phase B2: the chooser is now a state machine.
+//
+//   Local tile   -> onLocal() (falls through to ResearchFolderSetupNew as before)
+//   Free tile    -> provider sub-step -> router.push("/?connect=1&signIn=<p>")
+//   Lab tile     -> create-or-join sub-step:
+//                     Create -> provider sub-step -> sets lab-create marker, router.push
+//                     Join   -> invite-link sub-step -> router.push to accept path
 //
 // Flag gating:
 //   Local tile  -- ALWAYS shown.
 //   Free tile   -- shown when isOAuthPublishAvailable() (NEXT_PUBLIC_SHARING_ENABLED).
 //   Lab tile    -- shown when LAB_TIER_ENABLED.
 //
-// This component is purely presentational + the onChoose callback.
-// It does NOT create accounts or touch OAuth (Phase B).
-//
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { BeakerBotScene } from "@/components/onboarding/BeakerBotScene";
 import { LAB_TIER_ENABLED } from "@/lib/lab/config";
 import { isOAuthPublishAvailable } from "@/lib/sharing/oauth-availability";
+import { markLandingSeen } from "@/lib/landing/landing-gate";
+import SharingProviderButtons from "@/components/sharing/SharingProviderButtons";
+import type { SharingProvider } from "@/components/sharing/SharingProviderButtons";
 
 export type AccountTier = "local" | "free" | "lab";
 
 export interface AccountTierChooserProps {
-  /** Called when the user clicks a tier's primary button. */
-  onChoose: (tier: AccountTier) => void;
+  /**
+   * Called when the user picks Local (fall-through to folder setup).
+   * Either onLocal or onChoose must be supplied; prefer onLocal.
+   */
+  onLocal?: () => void;
+  /**
+   * Legacy compat: previously the prop was onChoose(tier). Callers that still
+   * pass onChoose get the Local path wired automatically; Free + Lab are handled
+   * internally via router.push so they never call back.
+   * @deprecated prefer onLocal
+   */
+  onChoose?: (tier: AccountTier) => void;
 }
+
+// Internal navigation state for the sub-steps
+type ChooserStep =
+  | { view: "tiles" }
+  | { view: "free-provider" }
+  | { view: "lab-choice" }
+  | { view: "lab-create-provider" }
+  | { view: "lab-join" };
 
 // ---- Feature comparison table data (verbatim from beakerbot-tier-icons.html FEAT array) ----
 type CellValue = boolean | string;
@@ -49,16 +73,16 @@ const FEAT: [string, CellValue, CellValue, CellValue][] = [
   ["Works fully offline", true, true, "Local-first; collab needs internet"],
   ["Findable in the researcher directory", false, true, true],
   [
-    "Send & receive notes / methods / files with outside researchers",
+    "Send and receive notes, methods, and files with outside researchers",
     false,
     true,
     true,
   ],
   ["Real-time co-editing inside a lab", false, false, true],
-  ["Shared lab workspace + PI oversight", false, false, true],
-  ["Sign in & restore on a new device", false, true, true],
+  ["Shared lab workspace and PI oversight", false, false, true],
+  ["Sign in and restore on a new device", false, true, true],
   [
-    "Free cloud (sharing + collab)",
+    "Free cloud (sharing and collab)",
     "—",
     "1 GB",
     "1 GB per member (pooled)",
@@ -223,152 +247,403 @@ function CompareTiers({
   );
 }
 
+// ---- Sub-step: provider picker with a Back button ----
+function ProviderSubStep({
+  heading,
+  subheading,
+  onProvider,
+  onBack,
+}: {
+  heading: string;
+  subheading: string;
+  onProvider: (p: SharingProvider) => void;
+  onBack: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center w-full px-6 py-10 min-h-screen bg-surface text-foreground">
+      <div className="w-16 h-20 mb-3 flex-none">
+        <BeakerBotScene name="computer" className="w-full h-full" />
+      </div>
+      <h1 className="text-2xl font-extrabold tracking-tight text-foreground text-center mt-1">
+        {heading}
+      </h1>
+      <p className="text-sm text-foreground-muted text-center mt-2 mb-8 max-w-sm">
+        {subheading}
+      </p>
+      <div className="w-full max-w-xs">
+        <SharingProviderButtons onProvider={onProvider} />
+      </div>
+      <button
+        type="button"
+        className="mt-6 text-sm text-foreground-muted hover:text-foreground underline hover:no-underline transition-colors"
+        onClick={onBack}
+      >
+        Back
+      </button>
+    </div>
+  );
+}
+
+// ---- Sub-step: create or join a lab ----
+function LabChoiceSubStep({
+  onCreate,
+  onJoin,
+  onBack,
+}: {
+  onCreate: () => void;
+  onJoin: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center w-full px-6 py-10 min-h-screen bg-surface text-foreground">
+      <div className="w-16 h-20 mb-3 flex-none">
+        <BeakerBotScene name="lab" className="w-full h-full" />
+      </div>
+      <h1 className="text-2xl font-extrabold tracking-tight text-foreground text-center mt-1">
+        Set up a lab
+      </h1>
+      <p className="text-sm text-foreground-muted text-center mt-2 mb-8 max-w-sm">
+        You can create a new lab or join one you have been invited to.
+      </p>
+      <div className="w-full max-w-xs space-y-3">
+        <button
+          type="button"
+          className="w-full py-3 px-4 rounded-xl bg-[#1283c9] hover:bg-[#0f6fa8] text-white font-semibold text-sm transition-colors"
+          onClick={onCreate}
+        >
+          Create a lab
+        </button>
+        <button
+          type="button"
+          className="w-full py-3 px-4 rounded-xl border border-border bg-surface-raised hover:border-[#1283c9] text-foreground font-semibold text-sm transition-colors"
+          onClick={onJoin}
+        >
+          Join a lab
+        </button>
+      </div>
+      <button
+        type="button"
+        className="mt-6 text-sm text-foreground-muted hover:text-foreground underline hover:no-underline transition-colors"
+        onClick={onBack}
+      >
+        Back
+      </button>
+    </div>
+  );
+}
+
+// ---- Sub-step: join via invite link ----
+function LabJoinSubStep({
+  onBack,
+}: {
+  onBack: () => void;
+}) {
+  const router = useRouter();
+  const [inviteLink, setInviteLink] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  function handleJoin() {
+    setError(null);
+    const trimmed = inviteLink.trim();
+    if (!trimmed) {
+      setError("Paste an invite link to continue.");
+      return;
+    }
+    // Accept full URLs (https://research-os.app/accept/<id>#k=<hex>) or bare paths
+    try {
+      const url = new URL(trimmed);
+      // Navigate to the path + fragment so the existing LabInviteResume
+      // and /accept/[inviteId] route can handle the accept handshake.
+      router.push(url.pathname + url.search + url.hash);
+    } catch {
+      // Not a full URL: try to treat it as a relative path
+      if (trimmed.startsWith("/accept/")) {
+        router.push(trimmed);
+      } else {
+        setError("That does not look like a valid invite link. Paste the full URL from your invitation.");
+      }
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-center w-full px-6 py-10 min-h-screen bg-surface text-foreground">
+      <div className="w-16 h-20 mb-3 flex-none">
+        <BeakerBotScene name="lab" className="w-full h-full" />
+      </div>
+      <h1 className="text-2xl font-extrabold tracking-tight text-foreground text-center mt-1">
+        Join a lab
+      </h1>
+      <p className="text-sm text-foreground-muted text-center mt-2 mb-8 max-w-sm">
+        Paste the invite link your PI or lab head sent you.
+      </p>
+      <div className="w-full max-w-sm space-y-3">
+        <input
+          type="url"
+          placeholder="https://research-os.app/accept/..."
+          value={inviteLink}
+          onChange={(e) => {
+            setInviteLink(e.target.value);
+            if (error) setError(null);
+          }}
+          className="w-full px-3 py-2.5 rounded-xl border border-border bg-surface-raised text-foreground text-sm placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-[#1283c9] focus:border-transparent"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleJoin();
+          }}
+        />
+        {error && (
+          <p className="text-xs text-red-600">{error}</p>
+        )}
+        <button
+          type="button"
+          className="w-full py-3 px-4 rounded-xl bg-[#1283c9] hover:bg-[#0f6fa8] text-white font-semibold text-sm transition-colors disabled:opacity-50"
+          onClick={handleJoin}
+          disabled={!inviteLink.trim()}
+        >
+          Join
+        </button>
+        <p className="text-xs text-foreground-muted text-center">
+          Or browse the lab directory (coming soon)
+        </p>
+      </div>
+      <button
+        type="button"
+        className="mt-6 text-sm text-foreground-muted hover:text-foreground underline hover:no-underline transition-colors"
+        onClick={onBack}
+      >
+        Back
+      </button>
+    </div>
+  );
+}
+
 // ---- Main component ----
-export function AccountTierChooser({ onChoose }: AccountTierChooserProps) {
+export function AccountTierChooser({ onLocal, onChoose }: AccountTierChooserProps) {
+  const router = useRouter();
+  const [step, setStep] = useState<ChooserStep>({ view: "tiles" });
   const [compareOpen, setCompareOpen] = useState(false);
 
   // Flag gating: evaluate once at render time (these are env-var reads, stable)
   const showFree = isOAuthPublishAvailable();
   const showLab = LAB_TIER_ENABLED;
 
-  return (
-    <div className="flex flex-col items-center w-full px-6 py-10 min-h-screen bg-surface text-foreground">
-      {/* header BeakerBot + wordmark */}
-      <div className="w-16 h-20 mb-3 flex-none">
-        <BeakerBotScene name="solo" className="w-full h-full" />
-      </div>
+  // Resolve the local callback: prefer the explicit onLocal; fall back to the
+  // legacy onChoose("local") if a caller hasn't migrated yet.
+  function handleLocal() {
+    if (onLocal) {
+      onLocal();
+    } else if (onChoose) {
+      onChoose("local");
+    }
+  }
 
-      <h1 className="text-2xl font-extrabold tracking-tight text-foreground text-center mt-1">
-        How will you use ResearchOS?
-      </h1>
-      <p className="text-sm text-foreground-muted text-center mt-2 mb-0">
-        Pick one. You can change later, nothing is locked in.
-      </p>
+  // -- Free flow: provider sub-step -> navigate --
+  function handleFreeProvider(provider: SharingProvider) {
+    markLandingSeen();
+    router.push("/?connect=1&signIn=" + provider);
+  }
 
-      {/* tiles */}
-      <div
-        className={[
-          "grid gap-4 w-full max-w-3xl mt-8",
-          showFree || showLab ? "sm:grid-cols-3" : "sm:grid-cols-1 max-w-xs",
-        ].join(" ")}
-      >
-        {/* Local-only tile — ALWAYS shown */}
-        <div className="flex flex-col text-left border border-border rounded-2xl p-5 bg-surface-raised cursor-pointer transition-transform hover:-translate-y-0.5 hover:border-[#1283c9] hover:shadow-lg min-h-[230px]">
-          <BeakerBotScene name="solo" className="w-20 h-20 mb-2 flex-none" />
-          <span className="inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full mb-1.5 bg-green-100 text-green-700 self-start">
-            Free
-          </span>
-          <h3 className="font-extrabold text-lg text-foreground mb-1">Just me, local</h3>
-          <p className="text-xs text-foreground-muted mt-1">
-            Everything stays on your computer. No account, no login, nothing
-            leaves your disk.
-          </p>
-          <ul className="mt-3 pl-4 text-xs text-foreground-muted space-y-1 list-disc">
-            <li>Full app, offline</li>
-            <li>No sign-in ever</li>
-            <li>Most private</li>
-          </ul>
-          <div className="mt-auto pt-4">
-            <button
-              className="w-full py-2 px-4 rounded-xl bg-[#1283c9] hover:bg-[#0f6fa8] text-white font-semibold text-sm transition-colors"
-              onClick={() => onChoose("local")}
-            >
-              Start local
-            </button>
-          </div>
+  // -- Lab Create flow: provider sub-step -> set marker -> navigate --
+  function handleLabCreateProvider(provider: SharingProvider) {
+    markLandingSeen();
+    try {
+      sessionStorage.setItem("researchos:lab-create", "1");
+    } catch {
+      // sessionStorage unavailable (private mode); the navigation still fires
+    }
+    router.push("/?connect=1&signIn=" + provider);
+  }
+
+  // ---- Step: tiles ----
+  if (step.view === "tiles") {
+    return (
+      <div className="flex flex-col items-center w-full px-6 py-10 min-h-screen bg-surface text-foreground">
+        {/* header BeakerBot + wordmark */}
+        <div className="w-16 h-20 mb-3 flex-none">
+          <BeakerBotScene name="solo" className="w-full h-full" />
         </div>
 
-        {/* Free account tile — shown when SHARING_ENABLED */}
-        {showFree && (
+        <h1 className="text-2xl font-extrabold tracking-tight text-foreground text-center mt-1">
+          How will you use ResearchOS?
+        </h1>
+        <p className="text-sm text-foreground-muted text-center mt-2 mb-0">
+          Pick one. You can change later, nothing is locked in.
+        </p>
+
+        {/* tiles */}
+        <div
+          className={[
+            "grid gap-4 w-full max-w-3xl mt-8",
+            showFree || showLab ? "sm:grid-cols-3" : "sm:grid-cols-1 max-w-xs",
+          ].join(" ")}
+        >
+          {/* Local-only tile — ALWAYS shown */}
           <div className="flex flex-col text-left border border-border rounded-2xl p-5 bg-surface-raised cursor-pointer transition-transform hover:-translate-y-0.5 hover:border-[#1283c9] hover:shadow-lg min-h-[230px]">
-            <BeakerBotScene name="computer" className="w-20 h-20 mb-2 flex-none" />
+            <BeakerBotScene name="solo" className="w-20 h-20 mb-2 flex-none" />
             <span className="inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full mb-1.5 bg-green-100 text-green-700 self-start">
               Free
             </span>
-            <h3 className="font-extrabold text-lg text-foreground mb-1">Free account</h3>
+            <h3 className="font-extrabold text-lg text-foreground mb-1">Just me, local</h3>
             <p className="text-xs text-foreground-muted mt-1">
-              Local like above, plus a sign-in so you can share notes, methods
-              and files with researchers outside your folder.
+              Everything stays on your computer. No account, no login, nothing
+              leaves your disk.
             </p>
             <ul className="mt-3 pl-4 text-xs text-foreground-muted space-y-1 list-disc">
-              <li>Data still on your disk</li>
-              <li>Findable in the directory</li>
-              <li>Send + receive externally</li>
+              <li>Full app, offline</li>
+              <li>No sign-in ever</li>
+              <li>Most private</li>
             </ul>
             <div className="mt-auto pt-4">
               <button
+                type="button"
                 className="w-full py-2 px-4 rounded-xl bg-[#1283c9] hover:bg-[#0f6fa8] text-white font-semibold text-sm transition-colors"
-                onClick={() => onChoose("free")}
+                onClick={handleLocal}
               >
-                Create free account
+                Start local
               </button>
             </div>
           </div>
-        )}
 
-        {/* Lab tile — shown when LAB_TIER_ENABLED */}
-        {showLab && (
-          <div className="flex flex-col text-left border border-border rounded-2xl p-5 bg-surface-raised cursor-pointer transition-transform hover:-translate-y-0.5 hover:border-[#1283c9] hover:shadow-lg min-h-[230px]">
-            <BeakerBotScene name="lab" className="w-20 h-20 mb-2 flex-none" />
-            <span className="inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full mb-1.5 bg-purple-100 text-[#5B47D6] self-start">
-              Paid
-            </span>
-            <h3 className="font-extrabold text-lg text-foreground mb-1">Lab</h3>
-            <p className="text-xs text-foreground-muted mt-1">
-              Run or join a lab. Real-time collaboration, PI oversight,
-              cloud-backed so your team works together.
-            </p>
-            <ul className="mt-3 pl-4 text-xs text-foreground-muted space-y-1 list-disc">
-              <li>Create a lab or join one</li>
-              <li>Cloud sync (server-blind)</li>
-              <li>Everything in Free, too</li>
-            </ul>
-            <div className="mt-auto pt-4">
-              <button
-                className="w-full py-2 px-4 rounded-xl bg-[#1283c9] hover:bg-[#0f6fa8] text-white font-semibold text-sm transition-colors"
-                onClick={() => onChoose("lab")}
-              >
-                Set up a lab
-              </button>
+          {/* Free account tile — shown when SHARING_ENABLED */}
+          {showFree && (
+            <div className="flex flex-col text-left border border-border rounded-2xl p-5 bg-surface-raised cursor-pointer transition-transform hover:-translate-y-0.5 hover:border-[#1283c9] hover:shadow-lg min-h-[230px]">
+              <BeakerBotScene name="computer" className="w-20 h-20 mb-2 flex-none" />
+              <span className="inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full mb-1.5 bg-green-100 text-green-700 self-start">
+                Free
+              </span>
+              <h3 className="font-extrabold text-lg text-foreground mb-1">Free account</h3>
+              <p className="text-xs text-foreground-muted mt-1">
+                Local like above, plus a sign-in so you can share notes, methods
+                and files with researchers outside your folder.
+              </p>
+              <ul className="mt-3 pl-4 text-xs text-foreground-muted space-y-1 list-disc">
+                <li>Data still on your disk</li>
+                <li>Findable in the directory</li>
+                <li>Send and receive externally</li>
+              </ul>
+              <div className="mt-auto pt-4">
+                <button
+                  type="button"
+                  className="w-full py-2 px-4 rounded-xl bg-[#1283c9] hover:bg-[#0f6fa8] text-white font-semibold text-sm transition-colors"
+                  onClick={() => setStep({ view: "free-provider" })}
+                >
+                  Create free account
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
 
-      {/* solo escape hatch */}
-      <p className="mt-5 text-sm text-foreground-muted text-center">
-        Not sure?{" "}
-        <button
-          className="text-brand-action font-semibold underline hover:no-underline"
-          onClick={() => onChoose("local")}
-        >
-          Start local for now
-        </button>
-        , you can upgrade to an account or a lab any time.
-      </p>
+          {/* Lab tile — shown when LAB_TIER_ENABLED */}
+          {showLab && (
+            <div className="flex flex-col text-left border border-border rounded-2xl p-5 bg-surface-raised cursor-pointer transition-transform hover:-translate-y-0.5 hover:border-[#1283c9] hover:shadow-lg min-h-[230px]">
+              <BeakerBotScene name="lab" className="w-20 h-20 mb-2 flex-none" />
+              <span className="inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full mb-1.5 bg-purple-100 text-[#5B47D6] self-start">
+                Paid
+              </span>
+              <h3 className="font-extrabold text-lg text-foreground mb-1">Lab</h3>
+              <p className="text-xs text-foreground-muted mt-1">
+                Run or join a lab. Real-time collaboration, PI oversight,
+                cloud-backed so your team works together.
+              </p>
+              <ul className="mt-3 pl-4 text-xs text-foreground-muted space-y-1 list-disc">
+                <li>Create a lab or join one</li>
+                <li>Cloud sync (server-blind)</li>
+                <li>Everything in Free, too</li>
+              </ul>
+              <div className="mt-auto pt-4">
+                <button
+                  type="button"
+                  className="w-full py-2 px-4 rounded-xl bg-[#1283c9] hover:bg-[#0f6fa8] text-white font-semibold text-sm transition-colors"
+                  onClick={() => setStep({ view: "lab-choice" })}
+                >
+                  Set up a lab
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
-      {/* compare the tiers expandable */}
-      <div className="w-full max-w-4xl mt-8">
-        <button
-          className="flex items-center gap-2 text-sm font-semibold text-[#1283c9] hover:text-[#0f6fa8] transition-colors mx-auto"
-          onClick={() => setCompareOpen((o) => !o)}
-          aria-expanded={compareOpen}
-        >
-          <span
-            aria-hidden="true"
-            className={`inline-block text-xs leading-none transition-transform ${compareOpen ? "rotate-180" : ""}`}
+        {/* solo escape hatch */}
+        <p className="mt-5 text-sm text-foreground-muted text-center">
+          Not sure?{" "}
+          <button
+            type="button"
+            className="text-brand-action font-semibold underline hover:no-underline"
+            onClick={handleLocal}
           >
-            &#9662;
-          </span>
-          {compareOpen ? "Hide comparison" : "Compare the tiers"}
-        </button>
+            Start local for now
+          </button>
+          , you can upgrade to an account or a lab any time.
+        </p>
 
-        {compareOpen && (
-          <CompareTiers showFree={showFree} showLab={showLab} />
-        )}
+        {/* compare the tiers expandable */}
+        <div className="w-full max-w-4xl mt-8">
+          <button
+            type="button"
+            className="flex items-center gap-2 text-sm font-semibold text-[#1283c9] hover:text-[#0f6fa8] transition-colors mx-auto"
+            onClick={() => setCompareOpen((o) => !o)}
+            aria-expanded={compareOpen}
+          >
+            <span
+              aria-hidden="true"
+              className={`inline-block text-xs leading-none transition-transform ${compareOpen ? "rotate-180" : ""}`}
+            >
+              &#9662;
+            </span>
+            {compareOpen ? "Hide comparison" : "Compare the tiers"}
+          </button>
+
+          {compareOpen && (
+            <CompareTiers showFree={showFree} showLab={showLab} />
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  // ---- Step: Free provider picker ----
+  if (step.view === "free-provider") {
+    return (
+      <ProviderSubStep
+        heading="Create your free account"
+        subheading="Pick a sign-in provider. Your data stays on your disk; the account is free and only used for sharing and the researcher directory."
+        onProvider={handleFreeProvider}
+        onBack={() => setStep({ view: "tiles" })}
+      />
+    );
+  }
+
+  // ---- Step: Lab create or join ----
+  if (step.view === "lab-choice") {
+    return (
+      <LabChoiceSubStep
+        onCreate={() => setStep({ view: "lab-create-provider" })}
+        onJoin={() => setStep({ view: "lab-join" })}
+        onBack={() => setStep({ view: "tiles" })}
+      />
+    );
+  }
+
+  // ---- Step: Lab create provider picker ----
+  if (step.view === "lab-create-provider") {
+    return (
+      <ProviderSubStep
+        heading="Create a lab"
+        subheading="Sign in with a provider to anchor your lab identity. Your data stays on your disk; the sign-in only binds the lab to your OAuth email."
+        onProvider={handleLabCreateProvider}
+        onBack={() => setStep({ view: "lab-choice" })}
+      />
+    );
+  }
+
+  // ---- Step: Lab join via invite link ----
+  if (step.view === "lab-join") {
+    return (
+      <LabJoinSubStep onBack={() => setStep({ view: "lab-choice" })} />
+    );
+  }
+
+  // Exhaustive: should never reach here
+  return null;
 }
 
 export default AccountTierChooser;

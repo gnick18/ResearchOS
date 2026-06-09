@@ -3,7 +3,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import { appQueryClient } from "@/lib/query-client";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { FileSystemProvider, useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/file-system-context";
 import {
   isDemoOrWikiCapture,
@@ -189,6 +189,7 @@ function AppContent({ children }: { children: ReactNode }) {
     disconnect,
   } = useFileSystem();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [splashSeen, setSplashSeen] = useState(splashPlayedThisLoad);
   const [tierChosen, setTierChosen] = useState(chosenTierThisLoad !== null);
   const [showSetup, setShowSetup] = useState(false);
@@ -380,23 +381,44 @@ function AppContent({ children }: { children: ReactNode }) {
   // recorded for Phase B2 (Free / Lab branches); Local falls through to the
   // normal folder-connect + create-user flow below (absent account_type
   // normalizes to solo). Skipped in fixture modes.
+  //
+  // Phase B2: yield the chooser gate when a signIn intent is already in flight
+  // (the ?signIn param is present on the URL) so the OAuth redirect lands on
+  // ResearchFolderSetupNew rather than the chooser. Without this guard the user
+  // would see the chooser again after the provider callback.
   if (
     (showSetup || !isConnected) &&
     !tierChosen &&
     !isDemoOrWikiCapture() &&
     !lastConnectedFolder &&
-    availableUsers.length === 0
+    availableUsers.length === 0 &&
+    !searchParams?.get("signIn")
   ) {
     return (
       <QueryClientProvider client={queryClient}>
         <AccountTierChooser
+          onLocal={() => {
+            // Local: record the solo tier + proceed to folder setup.
+            chosenTierThisLoad = "local";
+            try {
+              sessionStorage.setItem("researchos:account-tier", "local");
+            } catch {
+              // sessionStorage unavailable (private mode edge); the in-memory
+              // chosenTierThisLoad still carries the choice for this load.
+            }
+            setTierChosen(true);
+          }}
+          // Legacy compat: onChoose is no longer called by the chooser for
+          // Free/Lab (those drive router.push internally), but keep the
+          // prop wired so any external harness that passes onChoose still
+          // receives the Local path.
           onChoose={(tier) => {
+            if (tier !== "local") return; // Free/Lab handled inside the chooser
             chosenTierThisLoad = tier;
             try {
               sessionStorage.setItem("researchos:account-tier", tier);
             } catch {
-              // sessionStorage unavailable (private mode edge); the in-memory
-              // chosenTierThisLoad still carries the choice for this load.
+              // best-effort
             }
             setTierChosen(true);
           }}

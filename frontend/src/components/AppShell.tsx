@@ -45,6 +45,7 @@ import ProfileSettingsModal from "@/components/profile/ProfileSettingsModal";
 import SettingsModal from "@/components/settings/SettingsModal";
 import SharingClaimResume from "@/components/sharing/SharingClaimResume";
 import LabInviteResume from "@/components/lab/LabInviteResume";
+import LabCreateResume from "@/components/lab/LabCreateResume";
 import { LabSessionMount } from "@/components/lab/LabSessionMount";
 // BeakerSearch step 2a, the app-chrome front-door pill. Visible on every app
 // page, opens the always-present global Cmd-K palette.
@@ -619,6 +620,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
        *  the URL flag + a connected user + non-capture mode, so it is inert on
        *  every normal page load. */}
       <SharingClaimResume />
+      {/* Phase B2: after a lab-create OAuth round-trip, creates the lab and
+          promotes the user to lab_head, then lets LabSessionMount engage.
+          Self-gates on sessionStorage "researchos:lab-create" + live session
+          + connected user + unlocked identity. Inert otherwise. */}
+      <LabCreateResume />
       <LabInviteResume />
       <ReminderRunner />
 
