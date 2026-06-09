@@ -36,6 +36,11 @@ import { LoroDoc, EphemeralStore } from "loro-crdt";
 
 const MSG_DOC_UPDATE = 0x01;
 const MSG_EPHEMERAL = 0x02;
+// DO -> client: durable persistence is paused (cost breaker tripped, the per-doc
+// write throttle was hit, or the doc is at its size cap). Live fan-out continues
+// and every edit stays safe in the local Loro doc, so this is a soft, transient
+// state. Payload is a short ASCII reason ("paused" | "throttled" | "full").
+const MSG_SYNC_BLOCKED = 0x03;
 
 /** Prepend the one-byte type tag to a payload. */
 function frame(type: number, payload: Uint8Array): Uint8Array {
@@ -183,6 +188,18 @@ export function createCollabProvider(opts: CollabProviderOptions): CollabProvide
       } catch {
         // Drop the bad ephemeral frame.
       }
+    } else if (type === MSG_SYNC_BLOCKED) {
+      // Durable persistence is paused server-side (breaker / throttle / doc cap).
+      // The edit is safe in the local Loro doc and live fan-out still works, so
+      // this is informational only. TODO(account-setup-revamp): surface a quiet
+      // "sync paused" indicator. For now, log it so the state is observable.
+      let reason = "blocked";
+      try {
+        reason = new TextDecoder().decode(payload) || reason;
+      } catch {
+        // keep the default
+      }
+      console.info(`[relay-provider] durable sync paused (${reason})`);
     }
     // Unknown type tags are ignored (forward-compatibility).
   });

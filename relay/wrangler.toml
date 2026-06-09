@@ -6,6 +6,16 @@ main = "src/worker.ts"
 # 2024-12-01 enables the WebSocket Hibernation API + SQLite-backed DOs.
 compatibility_date = "2024-12-01"
 
+# Cost-enforcement gate: the collab DO reads the Vercel cost-breaker state from
+# ${APP_BASE_URL}/api/billing/breaker-state to pause durable persistence when the
+# breaker trips (Cloudflare has no hard spend cap, so this is the backstop). Set
+# the prod value before flipping LAB_TIER_ENABLED. Unset (local dev) = fail open.
+# The matching shared secret is a SECRET, set with:
+#   wrangler secret put RELAY_BREAKER_SECRET
+# (and RELAY_BREAKER_SECRET in the Vercel env). Leave both unset for local dev.
+[vars]
+APP_BASE_URL = "https://research-os-xi.vercel.app"
+
 [[durable_objects.bindings]]
 name = "COLLAB_ROOM"
 class_name = "CollabRoom"

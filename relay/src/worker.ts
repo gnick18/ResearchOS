@@ -36,9 +36,36 @@ initSync({ module: wasm });
 /** Frame type tags (first byte of every binary message). */
 const MSG_DOC_UPDATE = 0x01;
 const MSG_EPHEMERAL = 0x02;
+/** DO -> client: durable persistence is paused (cost breaker tripped, write
+ *  throttle hit, or the doc is at its size cap). Payload is a short ASCII reason
+ *  ("paused" | "throttled" | "full"). Live fan-out continues, so collaborators
+ *  keep seeing edits; only the durable write is deferred. The client surfaces a
+ *  quiet "sync paused" and the edit stays safe in the local Loro doc. */
+const MSG_SYNC_BLOCKED = 0x03;
 
 /** How often the DO backs its snapshot up to R2 (disaster-recovery net). */
 const BACKUP_INTERVAL_MS = 5 * 60 * 1000;
+
+// ---- Cost-enforcement carry-over (lab-tier launch gate) ---------------------
+// The old Vercel /api/collab/push route enforced a cost breaker + write limits
+// before persisting; the DO is the canonical store now, so it must enforce them
+// itself or lab collab can leak Cloudflare cost (no hard spend cap there). These
+// are GLOBAL + per-DOC guards; precise per-owner metering lands with billing.
+
+/** Per-doc durable snapshot ceiling. A single note/experiment doc is KB-MB; a
+ *  snapshot past this is not persisted (live fan-out still happens), so one doc
+ *  cannot grow DO storage without bound. Tunable. */
+const MAX_DOC_BYTES = 8 * 1024 * 1024;
+/** Per-doc write throttle (token bucket): sustained persists/sec and the burst
+ *  ceiling. Normal editing is a few/sec; this bounds a runaway single doc. The
+ *  global breaker is the aggregate backstop. */
+const WRITE_RATE_PER_SEC = 10;
+const WRITE_BURST = 40;
+/** How long the DO caches the breaker pause state between reads (fail-open). */
+const BREAKER_TTL_MS = 60 * 1000;
+/** Debounce on the MSG_SYNC_BLOCKED signal so a paused doc does not spam the
+ *  client on every keystroke. */
+const BLOCK_SIGNAL_DEBOUNCE_MS = 5 * 1000;
 
 /**
  * Hard cap on a single inbound WebSocket frame (2 MB). A real collab update or
@@ -89,6 +116,15 @@ export interface Env {
    *  `${labId}/${owner}/${recordType}/${recordId}`. Dormant until the client
    *  calls the /lab/data/* routes. */
   LAB_DATA: R2Bucket;
+  /** Base URL of the Vercel app (e.g. https://research-os-xi.vercel.app). The
+   *  collab DO fetches `${APP_BASE_URL}/api/billing/breaker-state` to learn if
+   *  the cost breaker has paused cloud writes. Unset (local dev) = fail open
+   *  (never paused), so collab works with no config. */
+  APP_BASE_URL?: string;
+  /** Optional shared secret sent as a Bearer token when reading the breaker
+   *  state, matching RELAY_BREAKER_SECRET on the Vercel side. Unset = the
+   *  endpoint is read without auth (dev). */
+  RELAY_BREAKER_SECRET?: string;
 }
 
 /**
@@ -361,6 +397,17 @@ export class CollabRoom {
   /** Whether a snapshot has ever been stored for this room (so a brand-new
    *  empty room does not send a pointless catch-up frame). */
   private hasStored = false;
+
+  // ---- cost-enforcement state (launch gate) ----
+  /** Cached cost-breaker pause state, refreshed async + fail-open. */
+  private breakerCache: { paused: boolean; exp: number } | null = null;
+  private breakerRefreshing = false;
+  /** Per-doc write throttle (token bucket). In-memory per DO instance; resets on
+   *  eviction, which is lenient and acceptable for a rate guard. */
+  private writeTokens = WRITE_BURST;
+  private lastRefill = Date.now();
+  /** Last time we signalled the client that persistence is blocked (debounce). */
+  private lastBlockSignal = 0;
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -707,23 +754,114 @@ export class CollabRoom {
     return d;
   }
 
-  /** Imports an incoming update into the canonical doc and re-persists. */
-  private persistUpdate(update: Uint8Array): void {
+  // ---- cost enforcement (launch gate) ----------------------------------
+
+  /**
+   * Whether the cost breaker has paused cloud writes. Reads a per-instance cache
+   * synchronously (so the hot path never awaits) and kicks an async refresh when
+   * the cache is stale. Fails OPEN: with no cache yet, or no APP_BASE_URL, or a
+   * fetch error, this returns false (not paused) so collab is never wedged by a
+   * billing-side hiccup. The breaker is a backstop, not a correctness gate.
+   */
+  private isCloudPausedCached(): boolean {
+    const now = Date.now();
+    if (!this.breakerCache || this.breakerCache.exp <= now) {
+      void this.refreshBreaker();
+      if (!this.breakerCache) return false; // first read, fail open
+    }
+    return this.breakerCache.paused;
+  }
+
+  private async refreshBreaker(): Promise<void> {
+    if (this.breakerRefreshing) return;
+    this.breakerRefreshing = true;
+    let paused = false;
+    const base = this.env.APP_BASE_URL;
+    if (base) {
+      try {
+        const headers: Record<string, string> = {};
+        if (this.env.RELAY_BREAKER_SECRET) {
+          headers.authorization = `Bearer ${this.env.RELAY_BREAKER_SECRET}`;
+        }
+        const res = await fetch(`${base}/api/billing/breaker-state`, {
+          headers,
+        });
+        if (res.ok) {
+          const j = (await res.json()) as { paused?: boolean };
+          paused = !!j.paused;
+        }
+      } catch {
+        paused = false; // fail open
+      }
+    }
+    this.breakerCache = { paused, exp: Date.now() + BREAKER_TTL_MS };
+    this.breakerRefreshing = false;
+  }
+
+  /** Per-doc write-rate token bucket. Returns false when over the rate. */
+  private allowWriteRate(): boolean {
+    const now = Date.now();
+    const refill = ((now - this.lastRefill) / 1000) * WRITE_RATE_PER_SEC;
+    this.writeTokens = Math.min(WRITE_BURST, this.writeTokens + refill);
+    this.lastRefill = now;
+    if (this.writeTokens >= 1) {
+      this.writeTokens -= 1;
+      return true;
+    }
+    return false;
+  }
+
+  /** Reason this write must not be durably persisted, or null when it may. */
+  private writeBlockReason(): "paused" | "throttled" | null {
+    if (this.isCloudPausedCached()) return "paused";
+    if (!this.allowWriteRate()) return "throttled";
+    return null;
+  }
+
+  /** Tell the sender that durable persistence is paused (debounced). */
+  private signalBlocked(ws: WebSocket, reason: string): void {
+    const now = Date.now();
+    if (now - this.lastBlockSignal < BLOCK_SIGNAL_DEBOUNCE_MS) return;
+    this.lastBlockSignal = now;
+    try {
+      const body = new TextEncoder().encode(reason);
+      const f = new Uint8Array(1 + body.byteLength);
+      f[0] = MSG_SYNC_BLOCKED;
+      f.set(body, 1);
+      ws.send(f);
+    } catch {
+      // Socket gone; nothing to do.
+    }
+  }
+
+  /**
+   * Imports an incoming update into the canonical doc and re-persists. Returns
+   * false WITHOUT persisting when the resulting snapshot would exceed the per-doc
+   * cap (the import still applied to the in-memory doc for live fan-out, but the
+   * durable store stays at the last under-cap snapshot, so storage cannot grow
+   * without bound). Returns true on a successful persist or a malformed update.
+   */
+  private persistUpdate(update: Uint8Array): boolean {
     const d = this.ensureDoc();
     try {
       d.import(update);
     } catch {
       // Malformed update: skip persistence. Live fan-out still happens so a
       // transient bad frame never blocks the session.
-      return;
+      return true;
     }
     const snapshot = d.export({ mode: "snapshot" });
+    if (snapshot.byteLength > MAX_DOC_BYTES) {
+      // Doc is at its ceiling. Do not persist the over-cap snapshot.
+      return false;
+    }
     this.sql().exec(
       "INSERT INTO doc (k, snapshot) VALUES ('doc', ?) ON CONFLICT(k) DO UPDATE SET snapshot = excluded.snapshot",
       snapshot,
     );
     this.hasStored = true;
     this.markDirtyAndArm();
+    return true;
   }
 
   /**
@@ -882,7 +1020,18 @@ export class CollabRoom {
 
     const type = bytes[0];
     if (type === MSG_DOC_UPDATE) {
-      this.persistUpdate(bytes.subarray(1));
+      // Cost-enforcement gate: when the breaker is paused or the per-doc write
+      // throttle is hit, skip the DURABLE persist (the cost driver) but still
+      // fan out live below, so collaborators keep seeing edits and the local
+      // Loro doc keeps every edit safe. Signal the sender so it can surface a
+      // quiet "sync paused". When allowed, persistUpdate returns false if the
+      // doc is at its size cap, which is the same deal (signal "full").
+      const blocked = this.writeBlockReason();
+      if (blocked) {
+        this.signalBlocked(ws, blocked);
+      } else if (!this.persistUpdate(bytes.subarray(1))) {
+        this.signalBlocked(ws, "full");
+      }
     }
     // MSG_EPHEMERAL and any unknown type are fanned out but never persisted.
 
