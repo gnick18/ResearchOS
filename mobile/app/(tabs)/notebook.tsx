@@ -49,6 +49,8 @@ import {
   type TodaySnapshot,
   type SnapshotTask,
 } from '@/lib/snapshots';
+import { getFocusContext, type FocusContext } from '@/lib/focus-context';
+import { postRouteCapture } from '@/lib/route-capture';
 
 export default function NotebookScreen() {
   const router = useRouter();
@@ -215,6 +217,85 @@ export default function NotebookScreen() {
     router.push('/bulk');
   }, [router]);
 
+  // Upload a queued capture and, when a fresh experiment context is available,
+  // post a route-capture command so the laptop places it in the right tab.
+  // The context fetch and upload run concurrently; the command is posted only
+  // after the upload succeeds so the relay holds the image when the laptop
+  // processes the command.
+  const sendWithRouting = useCallback(
+    async (queued: import('@/lib/captures').Capture) => {
+      if (!pairing) return;
+
+      // Fetch the focus context in parallel with the upload start. We start the
+      // context fetch here so the round-trip overlaps with the upload, but we
+      // only act on it after the upload succeeds.
+      const contextPromise = getFocusContext(pairing.relayUrl).catch(() => null);
+
+      await sendOne(queued);
+
+      // After the upload succeeds, check whether an experiment is open and the
+      // user has a X25519 pubkey stored (i.e. the pairing data-shape gap is
+      // closed). If not, fall through silently (inbox routing is the default).
+      const userX25519PubHex = pairing.userX25519PubHex ?? '';
+      if (!userX25519PubHex) return;
+
+      let ctx: FocusContext | null;
+      try {
+        ctx = await contextPromise;
+      } catch {
+        return;
+      }
+      if (!ctx || ctx.kind !== 'experiment') return;
+
+      const { taskId, owner, name } = ctx;
+
+      // Show a non-blocking chooser: "Lab Notes", "Results", or inbox escape.
+      // Alert.alert is used here (v1) because it matches the existing Alert
+      // usage in this file and is sufficient for a two-option prompt.
+      await new Promise<void>((resolve) => {
+        Alert.alert(
+          `Send to ${name}?`,
+          'Choose where this photo should appear in your lab notebook.',
+          [
+            {
+              text: 'Lab Notes',
+              onPress: () => {
+                void postRouteCapture(
+                  queued.id,
+                  taskId,
+                  owner,
+                  'notes',
+                  userX25519PubHex,
+                  pairing.relayUrl,
+                ).finally(resolve);
+              },
+            },
+            {
+              text: 'Results',
+              onPress: () => {
+                void postRouteCapture(
+                  queued.id,
+                  taskId,
+                  owner,
+                  'results',
+                  userX25519PubHex,
+                  pairing.relayUrl,
+                ).finally(resolve);
+              },
+            },
+            {
+              text: 'Send to inbox instead',
+              style: 'cancel',
+              onPress: () => resolve(),
+            },
+          ],
+          { cancelable: true, onDismiss: () => resolve() },
+        );
+      });
+    },
+    [pairing, sendOne],
+  );
+
   const onAddToOutbox = useCallback(async () => {
     if (!previewUri) return;
     setSaving(true);
@@ -230,12 +311,12 @@ export default function NotebookScreen() {
       setCaption('');
       await refreshCaptures();
       if (pairing) {
-        await sendOne(queued);
+        await sendWithRouting(queued);
       }
     } finally {
       setSaving(false);
     }
-  }, [previewUri, previewDoc, caption, refreshCaptures, pairing, sendOne]);
+  }, [previewUri, previewDoc, caption, refreshCaptures, pairing, sendWithRouting]);
 
   // Stash the preview photo and open the annotation editor. The doc comes back
   // on focus return (see useFocusEffect above).

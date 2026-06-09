@@ -170,6 +170,41 @@ function deriveKey(
   return hkdf(sha256, shared, salt, SEAL_INFO, DERIVED_KEY_LENGTH);
 }
 
+// Seal a plaintext blob to an arbitrary recipient X25519 public key (hex).
+// This is the SEAL counterpart of unsealSnapshot and is the exact mirror of
+// frontend/src/lib/sharing/encryption.ts sealToRecipient. Construction:
+//   epk(32) || nonce(24) || ct = XChaCha20-Poly1305
+// HKDF-SHA256 with salt = epk || rpk, info = "researchos.sharing.seal.v1".
+// The ephemeral keypair is generated from 32 CSPRNG bytes (expo-crypto
+// Crypto.getRandomBytes) rather than randomBytes from @noble/hashes so we stay
+// on the expo-crypto CSPRNG path that the rest of device-identity.ts uses.
+// Returns raw bytes; the caller hex-encodes before passing to postCommand.
+export async function sealToUser(
+  plaintext: Uint8Array,
+  recipientX25519PubHex: string,
+): Promise<Uint8Array> {
+  const recipientPublicKey = hexToBytes(recipientX25519PubHex);
+  if (recipientPublicKey.length !== X25519_KEY_LENGTH) {
+    throw new Error(
+      `sealToUser: recipient public key must be ${X25519_KEY_LENGTH} bytes, got ${recipientPublicKey.length}`,
+    );
+  }
+
+  // Generate fresh ephemeral X25519 keypair from the native CSPRNG.
+  const ephemeralSk = Crypto.getRandomBytes(32);
+  const ephemeralPublicKey = x25519.getPublicKey(ephemeralSk);
+
+  const shared = x25519.getSharedSecret(ephemeralSk, recipientPublicKey);
+  const derived = deriveKey(shared, ephemeralPublicKey, recipientPublicKey);
+
+  // 24-byte nonce from the native CSPRNG, matching the seal-side nonce length.
+  const nonceBytes = Crypto.getRandomBytes(NONCE_LENGTH);
+  const nonce = new Uint8Array(nonceBytes);
+  const ciphertext = xchacha20poly1305(derived, nonce).encrypt(plaintext);
+
+  return concatBytes(ephemeralPublicKey, nonce, ciphertext);
+}
+
 // Open a sealed snapshot blob with this phone's X25519 private key. Parses
 // epk(32) || nonce(24) || ct, rebuilds the recipient public key to reconstruct
 // the HKDF salt, redoes the ECDH, and decrypts. The AEAD verifies the tag, so a
