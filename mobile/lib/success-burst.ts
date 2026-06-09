@@ -5,7 +5,7 @@
 // uploads shows ONE burst, not one per photo. A success haptic plays when a
 // burst actually starts. House style: no em-dashes, no emojis, no mid-sentence
 // colons.
-import * as Haptics from 'expo-haptics';
+import { hapticNotify, NotifyType } from '@/lib/interaction-prefs';
 
 export interface SuccessPayload {
   title: string;
@@ -37,11 +37,7 @@ export function fireSuccess(opts?: { title?: string; subtitle?: string }): void 
   lastFireAt = now;
   counter += 1;
 
-  try {
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  } catch {
-    // Haptics unavailable in this runtime, ignore.
-  }
+  hapticNotify(NotifyType.Success);
 
   const payload: SuccessPayload = {
     title: opts?.title ?? 'Sent to your lab',

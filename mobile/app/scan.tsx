@@ -25,6 +25,7 @@ import {
 } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 
+import { hapticImpact } from '@/lib/interaction-prefs';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -81,7 +82,7 @@ type TrackContext =
   | { kind: 'create'; mode: CreateMode; name: string; vendor?: string | null; catalog?: string | null; quantity: number };
 
 function buzz(style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) {
-  Haptics.impactAsync(style).catch(() => {});
+  hapticImpact(style);
 }
 
 export default function ScanScreen() {

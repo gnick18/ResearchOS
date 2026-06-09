@@ -30,8 +30,9 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Pressable } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { Pressable } from 'react-native';
+
+import { hapticImpact, useReduceMotion } from '@/lib/interaction-prefs';
 import Svg, {
   Circle,
   Defs,
@@ -229,23 +230,7 @@ export function BeakerBot({
   // Reduce-motion gate. Start permissive, flip to true if the OS asks for less
   // motion. A living instance that learns reduce-motion is on cancels its loops
   // and falls back to the static silhouette.
-  const [reduceMotion, setReduceMotion] = useState(false);
-  useEffect(() => {
-    let active = true;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((on) => {
-        if (active) setReduceMotion(on);
-      })
-      .catch(() => {});
-    const sub = AccessibilityInfo.addEventListener(
-      'reduceMotionChanged',
-      (on) => setReduceMotion(on),
-    );
-    return () => {
-      active = false;
-      sub?.remove?.();
-    };
-  }, []);
+  const reduceMotion = useReduceMotion();
 
   const animate = alive && !reduceMotion;
 
@@ -269,7 +254,7 @@ export function BeakerBot({
     if (!eggActive) return;
     // One clean light-impact cue per tap. A single haptic stays pleasant under a
     // rapid spam-tap (stacking a success notification on top read as buzzy).
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    hapticImpact();
 
     const id = heartCounterRef.current++;
     const driftX =

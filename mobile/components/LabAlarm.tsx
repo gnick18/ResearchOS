@@ -20,7 +20,6 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  AccessibilityInfo,
   AppState,
   Pressable,
   StyleSheet,
@@ -28,8 +27,9 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
 import { useAudioPlayer, setAudioModeAsync } from 'expo-audio';
+
+import { hapticNotify, NotifyType, useReduceMotion } from '@/lib/interaction-prefs';
 import {
   Canvas,
   Circle,
@@ -190,16 +190,7 @@ function LabAlarmOverlay({ alarm, onStop }: { alarm: ActiveAlarm; onStop: () => 
   const prefs = useMemo(() => getAlarmPrefs(), []);
   const player = useAudioPlayer(ALARM_SOURCES[prefs.sound]);
 
-  const [reduceMotion, setReduceMotion] = useState(false);
-  useEffect(() => {
-    let active = true;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((on) => active && setReduceMotion(on))
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, []);
+  const reduceMotion = useReduceMotion();
 
   // Loop the chosen sound until stopped (plays even on silent), if enabled.
   useEffect(() => {
@@ -220,9 +211,9 @@ function LabAlarmOverlay({ alarm, onStop }: { alarm: ActiveAlarm; onStop: () => 
   // Repeating haptic + one immediate buzz, until the overlay unmounts (stopped).
   useEffect(() => {
     if (!prefs.vibrateOn) return;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    hapticNotify(NotifyType.Warning);
     const id = setInterval(() => {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      hapticNotify(NotifyType.Warning);
     }, 850);
     return () => clearInterval(id);
   }, []);

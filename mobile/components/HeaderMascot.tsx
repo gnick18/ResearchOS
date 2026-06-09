@@ -30,18 +30,15 @@ import React, {
   useEffect,
   useMemo,
   useRef,
-  useState,
   useSyncExternalStore,
 } from 'react';
 import {
-  AccessibilityInfo,
   Platform,
   Pressable,
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
 import {
   Canvas,
   Circle,
@@ -63,6 +60,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { hapticImpact, useReduceMotion } from '@/lib/interaction-prefs';
 import {
   getKeepOutRects,
   getKeepOutVersion,
@@ -194,16 +192,7 @@ export function HeaderMascot() {
   const glassFill = dark ? GLASS_DARK : GLASS_LIGHT;
   const ramp = dark ? RAINBOW_DARK : RAINBOW_LIGHT;
 
-  const [reduceMotion, setReduceMotion] = useState(false);
-  useEffect(() => {
-    let active = true;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((on) => active && setReduceMotion(on))
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, []);
+  const reduceMotion = useReduceMotion();
 
   // Pick a clear corner. Recompute when the window, the top inset, or the set
   // of registered buttons changes (the version bumps on every register change).
@@ -305,7 +294,7 @@ export function HeaderMascot() {
   );
 
   const onPress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    hapticImpact();
     burst.value = 0;
     burst.value = withTiming(1, { duration: 1100, easing: Easing.out(Easing.quad) });
     squish.value = withSequence(

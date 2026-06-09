@@ -13,12 +13,14 @@ import { AlarmSettingsCard } from '@/components/AlarmSettingsCard';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme, palette, spacing } from '@/lib/design';
 import { useMascotPrefs } from '@/lib/mascot-prefs';
+import { useInteractionPrefs } from '@/lib/interaction-prefs';
 
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
 export default function SettingsScreen() {
   const { surface } = useTheme();
   const [mascot, setMascot] = useMascotPrefs();
+  const [interaction, setInteraction] = useInteractionPrefs();
 
   return (
     <ScreenFrame>
@@ -44,6 +46,42 @@ export default function SettingsScreen() {
               onValueChange={(on) => setMascot({ visible: on })}
               trackColor={{ true: palette.sky, false: surface.border }}
               accessibilityLabel="Show floating mascot"
+            />
+          </View>
+        </Card>
+
+        <SectionHeader title="Interaction" />
+        <Card>
+          <View style={styles.row}>
+            <View style={styles.rowText}>
+              <ThemedText style={[styles.rowTitle, { color: surface.text }]}>
+                Haptics
+              </ThemedText>
+              <ThemedText style={[styles.rowSub, { color: surface.muted }]}>
+                Subtle vibration feedback on taps and alerts.
+              </ThemedText>
+            </View>
+            <Switch
+              value={interaction.haptics}
+              onValueChange={(on) => setInteraction({ haptics: on })}
+              trackColor={{ true: palette.sky, false: surface.border }}
+              accessibilityLabel="Haptics"
+            />
+          </View>
+          <View style={[styles.row, styles.rowDivider]}>
+            <View style={styles.rowText}>
+              <ThemedText style={[styles.rowTitle, { color: surface.text }]}>
+                Reduce motion
+              </ThemedText>
+              <ThemedText style={[styles.rowSub, { color: surface.muted }]}>
+                Calm the animations. Always on when your device has Reduce Motion enabled.
+              </ThemedText>
+            </View>
+            <Switch
+              value={interaction.reduceMotion}
+              onValueChange={(on) => setInteraction({ reduceMotion: on })}
+              trackColor={{ true: palette.sky, false: surface.border }}
+              accessibilityLabel="Reduce motion"
             />
           </View>
         </Card>
@@ -83,6 +121,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.md,
+  },
+  rowDivider: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(0,0,0,0.08)',
   },
   rowText: { flex: 1, gap: 2 },
   rowTitle: { fontSize: 16, fontWeight: '600' },

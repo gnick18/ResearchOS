@@ -18,7 +18,6 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  AccessibilityInfo,
   StyleSheet,
   useWindowDimensions,
   View,
@@ -44,6 +43,7 @@ import Animated, {
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { subscribeSuccess, type SuccessPayload } from '@/lib/success-burst';
+import { useReduceMotion } from '@/lib/interaction-prefs';
 
 const RAMP = ['#F97316', '#E8920B', '#16A34A', '#0284C7', '#9333EA'];
 const BURST_MS = 1600;
@@ -144,19 +144,8 @@ export function SuccessBurst() {
   const { width, height } = useWindowDimensions();
 
   const [payload, setPayload] = useState<SuccessPayload | null>(null);
-  const [reduce, setReduce] = useState(false);
+  const reduce = useReduceMotion();
   const progress = useSharedValue(0);
-
-  // Resolve reduce-motion once.
-  useEffect(() => {
-    let active = true;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((on) => active && setReduce(on))
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, []);
 
   // Subscribe to the global success hub.
   useEffect(() => subscribeSuccess((p) => setPayload(p)), []);
