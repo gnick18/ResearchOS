@@ -51,15 +51,33 @@ export interface ActiveTask {
   name: string;
 }
 
+/** One entry in an open running-log note. Carried in ActiveNote so the phone's
+ *  focus context can display an entry picker when the note has multiple entries. */
+export interface ActiveNoteEntry {
+  id: string;
+  title: string;
+  date: string;
+}
+
 /** The note whose detail popup is currently open. Mirrors `ActiveTask` so the
  *  Telegram image router can see "a note is open right now" the same way it
  *  sees "an experiment is open right now". Both can be set simultaneously when
  *  the user has a note popped over a task popup; the bot's first prompt
- *  disambiguates with an A/B picker in that case. */
+ *  disambiguates with an A/B picker in that case.
+ *
+ *  The extra fields (isRunningLog, entries, openEntryId, lastEditedEntryId) are
+ *  needed for the Phase 1.5 note-routing picker. They default to safe values so
+ *  old callers that only set id/owner/title continue to work. */
 export interface ActiveNote {
   id: number;
   owner: string;
   title: string;
+  isRunningLog: boolean;
+  entries: ActiveNoteEntry[];
+  /** The entry whose tab is currently visible in the note popup. */
+  openEntryId: string | null;
+  /** The entry with the most recent updated_at, used as a fallback recommended entry. */
+  lastEditedEntryId: string | null;
 }
 
 interface AppState extends ConnectionState {

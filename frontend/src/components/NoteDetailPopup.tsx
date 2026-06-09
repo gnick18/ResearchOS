@@ -332,6 +332,10 @@ export default function NoteDetailPopup({
   // `setActiveTask` wiring in TaskDetailPopup. Both can be set at once when
   // a note popup is layered over an experiment popup; the bot's prompt
   // builder disambiguates with an A/B picker in that case.
+  //
+  // Phase 1.5 extends this with running-log metadata (isRunningLog, entries,
+  // openEntryId, lastEditedEntryId) so the phone's focus-context picker can
+  // show the right set of entries and pre-select the recommended one.
   const setActiveNote = useAppStore((s) => s.setActiveNote);
   useEffect(() => {
     // Owner for the attachment write path. Mirror `basePath` above:
@@ -344,9 +348,42 @@ export default function NoteDetailPopup({
     // folder, which is what the popup's reader resolves against. See
     // attach-image-to-note.test.ts for the explicit empty-owner guard.
     const owner = note.username || currentUser || "";
-    setActiveNote({ id: note.id, owner, title: note.title });
+    const entryList = entries.map((e) => ({ id: e.id, title: e.title, date: e.date }));
+    const lastEditedEntry = entries.reduce<typeof entries[0] | null>((best, e) => {
+      if (!best) return e;
+      return new Date(e.updated_at).getTime() > new Date(best.updated_at).getTime() ? e : best;
+    }, null);
+    setActiveNote({
+      id: note.id,
+      owner,
+      title: note.title,
+      isRunningLog: note.is_running_log,
+      entries: entryList,
+      openEntryId: activeTab,
+      lastEditedEntryId: lastEditedEntry?.id ?? null,
+    });
     return () => setActiveNote(null);
-  }, [setActiveNote, note.id, note.username, note.title, currentUser]);
+  }, [setActiveNote, note.id, note.username, note.title, note.is_running_log, currentUser, entries, activeTab]);
+
+  // Phase 1.5: when the laptop receives a note:routed event (the phone placed a
+  // photo into a specific entry), switch to that entry so the user sees where
+  // the image landed. Mirrors the capture:routed listener in TaskDetailPopup.
+  useEffect(() => {
+    function onNoteRouted(ev: Event) {
+      const detail = (ev as CustomEvent<{ noteId: number; owner: string; entryId: string | null }>).detail;
+      if (detail.noteId !== note.id) return;
+      const owner = note.username || currentUser || "";
+      if (detail.owner !== owner) return;
+      if (detail.entryId && detail.entryId !== activeTab) {
+        setActiveTab(detail.entryId);
+      }
+    }
+    window.addEventListener("note:routed", onNoteRouted);
+    return () => window.removeEventListener("note:routed", onNoteRouted);
+    // activeTab intentionally NOT in deps: the listener reads the latest value
+    // via closure and we want only one registration per popup lifetime.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [note.id, note.username, currentUser]);
 
   // Loro pilot: open / close the handle when note identity changes.
   // When the flag is off this effect is a no-op (all branches return early).

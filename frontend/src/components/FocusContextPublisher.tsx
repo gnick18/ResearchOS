@@ -36,9 +36,10 @@ const LOG_PREFIX = "[focus-publisher]";
 export default function FocusContextPublisher() {
   const activeTask = useAppStore((s) => s.activeTask);
   const activeTaskTab = useAppStore((s) => s.activeTaskTab);
+  const activeNote = useAppStore((s) => s.activeNote);
 
-  // Track whether the previous publish had an open experiment so we can send
-  // exactly one { kind: "none" } transition when the popup closes.
+  // Track whether the previous publish had an open context so we can send
+  // exactly one { kind: "none" } transition when both popups close.
   const wasOpenRef = useRef(false);
 
   // A run-lock so overlapping triggers (interval + tab change) don't double-publish.
@@ -91,8 +92,33 @@ export default function FocusContextPublisher() {
       }
     };
 
-    if (activeTask !== null) {
-      // An experiment is open. Publish on interval and immediately.
+    // Precedence: note wins over experiment when both are open (note popup is
+    // the top-most surface). The kind:"none" transition fires only when both
+    // are null.
+    if (activeNote !== null) {
+      wasOpenRef.current = true;
+
+      const buildCtx = (): FocusContext => ({
+        kind: "note",
+        noteId: activeNote.id,
+        owner: activeNote.owner,
+        title: activeNote.title,
+        isRunningLog: activeNote.isRunningLog,
+        entries: activeNote.entries,
+        openEntryId: activeNote.openEntryId,
+        lastEditedEntryId: activeNote.lastEditedEntryId,
+        at: new Date().toISOString(),
+      });
+
+      void publish(buildCtx());
+      const timer = setInterval(() => void publish(buildCtx()), PUBLISH_INTERVAL_MS);
+
+      return () => {
+        cancelled = true;
+        clearInterval(timer);
+      };
+    } else if (activeTask !== null) {
+      // An experiment is open (no note overlay). Publish on interval and immediately.
       wasOpenRef.current = true;
 
       const buildCtx = (): FocusContext => ({
@@ -115,7 +141,7 @@ export default function FocusContextPublisher() {
         clearInterval(timer);
       };
     } else {
-      // No experiment is open. If we just transitioned from open -> closed,
+      // Nothing is open. If we just transitioned from open -> closed,
       // send one none-context and reset the flag.
       if (wasOpenRef.current) {
         wasOpenRef.current = false;
@@ -127,9 +153,9 @@ export default function FocusContextPublisher() {
         cancelled = true;
       };
     }
-    // Re-run whenever the task or the visible tab changes so a tab switch
-    // cancels the old interval and starts a fresh one that encodes the new tab.
-  }, [activeTask, activeTaskTab]);
+    // Re-run whenever the note, task, or visible task-tab changes so a tab switch
+    // cancels the old interval and starts a fresh one that encodes the new state.
+  }, [activeNote, activeTask, activeTaskTab]);
 
   return null;
 }

@@ -66,7 +66,7 @@
 import { fileService } from "@/lib/file-system/file-service";
 import { appQueryClient } from "@/lib/query-client";
 import { filesApi, notesApi, inventoryItemsApi, inventoryStocksApi, purchasesApi } from "@/lib/local-api";
-import { attachImageToTask } from "@/lib/attachments/attach-image";
+import { attachImageToTask, attachImageToNote } from "@/lib/attachments/attach-image";
 import { writeAnnotations, type AnnotationDoc } from "@/lib/attachments/annotations";
 import { imageEvents } from "@/lib/attachments/image-events";
 import { sidecarPath, type ImageSidecar } from "@/lib/attachments/image-folder";
@@ -237,6 +237,24 @@ interface AppendLineCommand {
   tab: "notes" | "results";
   /** Plain markdown line: "<expr> = <value with units>", no bullet/label. */
   text: string;
+}
+
+/**
+ * A route-capture-note command (Phase 1.5). The phone seals this JSON to the
+ * user's X25519 public key. The laptop unseals it and routes the uploaded
+ * capture to the specified note entry via attachImageToNote, then dispatches
+ * a note:routed window event so the open popup auto-switches to that entry.
+ */
+interface RouteCaptureNoteCommand {
+  type: "route-capture-note";
+  /** The captureId of the relay inbox item to route. */
+  captureId: string;
+  /** Numeric note id. */
+  noteId: number;
+  /** Owner username. */
+  owner: string;
+  /** Entry id to append the image to. Null means use the latest entry (fallback). */
+  entryId: string | null;
 }
 
 /**
@@ -704,6 +722,8 @@ export async function runCaptureInboxPoll(
   // handler lands. A brief comment acknowledges the un-bounded growth risk;
   // the relay TTL (set by the worker) is the guard.
   const routeMap = new Map<string, { taskId: number; owner: string; tab: "notes" | "results"; commandId: string }>();
+  // Note route map: captureId -> note destination + commandId (Phase 1.5).
+  const noteRouteMap = new Map<string, { noteId: number; owner: string; entryId: string | null; commandId: string }>();
   // Append-line commands to apply after the route-map pass. Accumulated here so
   // we process captures first (route-map must be complete), then apply appends.
   const appendLineQueue: Array<{ cmd: AppendLineCommand; commandId: string }> = [];
@@ -748,6 +768,22 @@ export async function runCaptureInboxPoll(
               );
             } else {
               console.warn(`${LOG_PREFIX} route-capture command ${cmd.commandId} has invalid fields, skipping`);
+            }
+          } else if (parsed.type === "route-capture-note") {
+            // Phase 1.5: route a capture into a specific note entry.
+            const rcn = parsed as RouteCaptureNoteCommand;
+            if (rcn.captureId && typeof rcn.noteId === "number" && rcn.owner) {
+              noteRouteMap.set(rcn.captureId, {
+                noteId: rcn.noteId,
+                owner: rcn.owner,
+                entryId: rcn.entryId ?? null,
+                commandId: cmd.commandId,
+              });
+              console.info(
+                `${LOG_PREFIX} route-capture-note command: captureId=${rcn.captureId} -> note ${rcn.owner}/${rcn.noteId} entryId=${rcn.entryId ?? "latest"}`,
+              );
+            } else {
+              console.warn(`${LOG_PREFIX} route-capture-note command ${cmd.commandId} has invalid fields, skipping`);
             }
           } else if (parsed.type === "append-line") {
             // Phase 2: append a calc result line to a task doc. Defer to after
@@ -844,6 +880,58 @@ export async function runCaptureInboxPoll(
       const caption = capture.caption ?? undefined;
 
       if (kind === "image") {
+        // Phase 1.5: note routing takes precedence over experiment routing when
+        // a route-capture-note command is present for this captureId.
+        const noteRoute = noteRouteMap.get(capture.captureId);
+
+        if (noteRoute) {
+          console.info(
+            `${LOG_PREFIX} routing ${capture.captureId} -> note ${noteRoute.owner}/${noteRoute.noteId} entryId=${noteRoute.entryId ?? "latest"}`,
+          );
+          const noteResult = await attachImageToNote({
+            ownerUsername: noteRoute.owner,
+            noteId: noteRoute.noteId,
+            blob,
+            suggestedFilename: suggestedImageFilename(capture),
+            altText: caption,
+            entryId: noteRoute.entryId ?? undefined,
+          });
+          console.info(
+            `${LOG_PREFIX} wrote note ${noteRoute.noteId}/Images/${noteResult.finalFilename}`,
+          );
+
+          // Dispatch note:routed so the open note popup auto-switches to the entry.
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(
+              new CustomEvent("note:routed", {
+                detail: {
+                  noteId: noteRoute.noteId,
+                  owner: noteRoute.owner,
+                  entryId: noteResult.appendedToEntryId ?? noteRoute.entryId,
+                },
+              }),
+            );
+          }
+
+          // Ack the note route command after the write succeeds.
+          try {
+            await ackCommands(keys, [noteRoute.commandId]);
+            console.info(`${LOG_PREFIX} acked route-capture-note command ${noteRoute.commandId}`);
+          } catch (ackCmdErr) {
+            console.warn(
+              `${LOG_PREFIX} failed to ack route-capture-note command ${noteRoute.commandId}`,
+              ackCmdErr instanceof Error ? ackCmdErr.message : String(ackCmdErr),
+            );
+          }
+
+          // Record + ack the capture itself.
+          await markCaptureSeen(currentUser, seen, capture.captureId);
+          await ackCaptures(keys, [capture.captureId]);
+          console.info(`${LOG_PREFIX} acked ${capture.captureId} (note route)`);
+          pulled += 1;
+          continue;
+        }
+
         // Phase 1 route-capture: if a route-capture command maps this captureId
         // to a specific task tab, land it there instead of the inbox.
         const route = routeMap.get(capture.captureId);

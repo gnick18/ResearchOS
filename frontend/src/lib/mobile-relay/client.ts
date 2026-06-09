@@ -74,6 +74,17 @@ function commandsAckMessage(u: string, ids: string[], ts: string): string {
 /** A focus context as published by the laptop. */
 export type FocusContext =
   | { kind: "experiment"; taskId: number; owner: string; name: string; activeTab: "notes" | "results" | "other"; at: string }
+  | {
+      kind: "note";
+      noteId: number;
+      owner: string;
+      title: string;
+      isRunningLog: boolean;
+      entries: { id: string; title: string; date: string }[];
+      openEntryId: string | null;
+      lastEditedEntryId: string | null;
+      at: string;
+    }
   | { kind: "none"; at: string };
 
 /** A pending command polled by the laptop from the relay. */

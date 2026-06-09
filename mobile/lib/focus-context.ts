@@ -82,6 +82,17 @@ function commandPostMessage(u: string, device: string, commandId: string, ts: st
 
 export type FocusContext =
   | { kind: 'experiment'; taskId: number; owner: string; name: string; activeTab: 'notes' | 'results' | 'other'; at: string }
+  | {
+      kind: 'note';
+      noteId: number;
+      owner: string;
+      title: string;
+      isRunningLog: boolean;
+      entries: { id: string; title: string; date: string }[];
+      openEntryId: string | null;
+      lastEditedEntryId: string | null;
+      at: string;
+    }
   | { kind: 'none'; at: string };
 
 // How stale a context can be before we treat it as kind:'none'.
