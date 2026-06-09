@@ -195,9 +195,19 @@ export default function TaskDetailPopup({
   // first then the pending flag fires the edit-mode transition.
   const [pendingEnterEdit, setPendingEnterEdit] = useState(false);
   const { currentUser } = useCurrentUser();
-  // True when a phone is paired, so the tab bar can show that a snapped photo
+  // True when a phone is paired, so the header can show that a snapped photo
   // will route to the open experiment (and which tab) rather than the inbox.
   const phonePaired = usePhonePaired();
+  // Imperative flush+save handle the active editor tab registers, so an
+  // auto-switch (a phone capture routed to a non-visible tab) can persist
+  // unsaved work before switching. Null when the active tab is not an editor.
+  const activeTabFlushSaveRef = useRef<(() => Promise<void>) | null>(null);
+  const registerActiveTabFlushSave = useCallback(
+    (fn: (() => Promise<void>) | null) => {
+      activeTabFlushSaveRef.current = fn;
+    },
+    [],
+  );
   const accountType = useAccountType(currentUser);
   // The PI-role boolean for the header button, derived from accountType so the
   // loading `undefined` is preserved (matching useIsLabHead). accountType is
@@ -589,6 +599,33 @@ export default function TaskDetailPopup({
     setActiveTaskTab(mapped);
     return () => setActiveTaskTab(null);
   }, [setActiveTaskTab, activeTab]);
+
+  // Auto-switch on an incoming routed capture (locked decision A/B). poll.ts
+  // dispatches `capture:routed` after landing a phone photo in a task tab; if it
+  // targets THIS experiment, save any unsaved editor work first, then switch to
+  // that tab so the user sees the photo land where the phone sent it.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as
+        | { taskId?: number; owner?: string; tab?: "notes" | "results" }
+        | undefined;
+      if (!detail || detail.taskId !== task.id || detail.owner !== task.owner) {
+        return;
+      }
+      const targetTab: Tab = detail.tab === "results" ? "results" : "notes";
+      void (async () => {
+        try {
+          // Persist the current editor before yanking the user to another tab.
+          await activeTabFlushSaveRef.current?.();
+        } catch {
+          // Best-effort, draft persistence still holds the unsaved text.
+        }
+        selectTab(targetTab);
+      })();
+    };
+    window.addEventListener("capture:routed", handler);
+    return () => window.removeEventListener("capture:routed", handler);
+  }, [task.id, task.owner, selectTab]);
 
   // Onboarding v4 §6.6 `experiment-attach-method-open` sub-step advances
   // on this event so the follow-up sub-step's cursor script runs against
@@ -1189,6 +1226,24 @@ export default function TaskDetailPopup({
                 />
               </>
             )}
+            {/* Phone-paired indicator. When a phone companion is linked, show
+                in the header that a snapped photo routes to this open experiment
+                and which tab it lands on (follows the active editor tab). Hidden
+                when no phone is paired. */}
+            {phonePaired && !isPurchase && (
+              <Tooltip
+                label={`Paired phone will send photos to ${
+                  activeTab === "results" ? "Results" : "Lab Notes"
+                }`}
+                placement="bottom"
+              >
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-meta font-medium bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300 ring-1 ring-sky-200 dark:ring-sky-500/30">
+                  <Icon name="phone" className="h-3.5 w-3.5" />
+                  <span>Phone linked</span>
+                  <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                </span>
+              </Tooltip>
+            )}
             {/* Completion pill — single combined affordance that doubles as
                 status + toggle. Replaces the old "Mark as complete →" hint
                 + raw checkmark icon (chief offender on the "looks janky"
@@ -1590,29 +1645,6 @@ export default function TaskDetailPopup({
               </button>
             );
           })}
-          {/* Phone-paired indicator. When a phone is companion-paired, show that
-              a snapped photo will route to this open experiment, and name the
-              tab it lands on (the phone asks Lab Notes vs Results, defaulting to
-              whichever editor tab is in view). Hidden when no phone is paired. */}
-          {phonePaired && !isPurchase && (
-            <div className="ml-auto flex items-center pr-1">
-              <Tooltip
-                label={`Paired phone will send photos to ${
-                  activeTab === "results" ? "Results" : "Lab Notes"
-                }`}
-                placement="bottom"
-              >
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1 text-meta font-medium text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">
-                  <Icon name="phone" className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Phone linked</span>
-                  <span
-                    aria-hidden
-                    className="h-1.5 w-1.5 rounded-full bg-emerald-500"
-                  />
-                </span>
-              </Tooltip>
-            </div>
-          )}
         </div>
 
         {/* VC Phase 3 (Task): restore / undo-restore error + Case-C fallback
@@ -1702,7 +1734,7 @@ export default function TaskDetailPopup({
                     editable too. LabNotes/Results route to the member via their
                     Loro doc owner (task.owner) + the legacyOwner fallback, and
                     MethodTabs routes + audits via piActor. */}
-                {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} />}
+                {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} />}
                 {activeTab === "method" && (
                   <MethodTabs
                     task={task}
@@ -1711,7 +1743,7 @@ export default function TaskDetailPopup({
                     piActor={piActive && currentUser ? currentUser : undefined}
                   />
                 )}
-                {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} />}
+                {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} />}
                 {activeTab === "purchases" && (
                   <PurchaseEditor
                     taskId={task.id}
@@ -3816,7 +3848,7 @@ function DetailsTab({
 
 // ── Lab Notes Tab (with LiveMarkdownEditor) ──────────────────────────────────
 
-function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; readOnly?: boolean; ownerUsername?: string }) {
+function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void }) {
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
   const [saving, setSaving] = useState(false);
@@ -4460,6 +4492,22 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
     }
   }, [content, ensureAttachmentsSplit, notesPath, task.name, task.id, task.owner, currentUser, clearNotesDraft]);
 
+  // Register a flush+save handle so the parent can persist this tab before an
+  // auto-switch (a phone capture routed to the other tab). Flushes the editor's
+  // in-flight buffer first, then writes to disk only when the doc changed. A
+  // read-only viewer registers nothing (there is nothing to save).
+  useEffect(() => {
+    if (readOnly || !onRegisterFlushSave) return;
+    onRegisterFlushSave(async () => {
+      const fresh = editorSaveRef.current?.();
+      const latest = typeof fresh === "string" ? fresh : content;
+      if (latest !== originalContent) {
+        await handleSave(latest);
+      }
+    });
+    return () => onRegisterFlushSave(null);
+  }, [readOnly, onRegisterFlushSave, content, originalContent, handleSave]);
+
   // save-checkpoint bot: version-history controller for the Lab Notes document.
   // `writeRestored` writes the reconstructed markdown back to notes.md + reflects
   // it into the editor, then the controller records the "revert" version.
@@ -4739,7 +4787,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername }: { task: Task; re
 
 // ── Results Tab ──────────────────────────────────────────────────────────────
 
-function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; readOnly?: boolean; ownerUsername?: string }) {
+function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void }) {
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
   const [saving, setSaving] = useState(false);
@@ -5284,6 +5332,20 @@ function ResultsTab({ task, readOnly = false, ownerUsername }: { task: Task; rea
       setSaving(false);
     }
   }, [content, ensureAttachmentsSplit, resultsPath, task.name, task.id, task.owner, currentUser, clearResultsDraft]);
+
+  // Register a flush+save handle so the parent can persist this tab before an
+  // auto-switch (a phone capture routed to the other tab). Mirrors LabNotesTab.
+  useEffect(() => {
+    if (readOnly || !onRegisterFlushSave) return;
+    onRegisterFlushSave(async () => {
+      const fresh = editorSaveRef.current?.();
+      const latest = typeof fresh === "string" ? fresh : content;
+      if (latest !== originalContent) {
+        await handleSave(latest);
+      }
+    });
+    return () => onRegisterFlushSave(null);
+  }, [readOnly, onRegisterFlushSave, content, originalContent, handleSave]);
 
   // save-checkpoint bot: version-history controller for the Results document.
   const docHistory = useTaskDocHistory({

@@ -859,6 +859,23 @@ export async function runCaptureInboxPoll(
           `${LOG_PREFIX} wrote ${imageLandingPath}/Images/${result.finalFilename}`,
         );
 
+        // Auto-switch the open experiment popup to the tab the photo landed in
+        // (locked decision A/B). The popup saves any unsaved editor changes
+        // first, then switches and shows the new image. A window CustomEvent
+        // keeps poll.ts decoupled from the popup internals (same pattern the
+        // tour uses). Only fires for a routed (non-inbox) capture.
+        if (route && typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("capture:routed", {
+              detail: {
+                taskId: route.taskId,
+                owner: route.owner,
+                tab: route.tab,
+              },
+            }),
+          );
+        }
+
         // Photo markup from the phone, written as the non-destructive
         // {imageName}.annot.json sidecar the web AnnotatedImage renderer reads,
         // so markup is editable across phone and laptop. Defensive: a malformed
