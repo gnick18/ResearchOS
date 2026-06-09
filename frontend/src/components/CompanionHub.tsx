@@ -37,6 +37,13 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "settings", label: "Settings" },
 ];
 
+// Launch-day fill: replace with the live App Store listing URL when the app ships.
+const APP_STORE_URL = "https://apps.apple.com/app/researchos-companion/idPLACEHOLDER";
+
+// Flag: set NEXT_PUBLIC_COMPANION_APP_LIVE=1 in Vercel env at launch to swap
+// the placeholder copy for the real App Store badge.
+const COMPANION_APP_LIVE = process.env.NEXT_PUBLIC_COMPANION_APP_LIVE === "1";
+
 
 // Feature rows shown in the Info tab.
 const INFO_FEATURES: {
@@ -105,13 +112,38 @@ function InfoPanel() {
         ))}
       </div>
 
-      {/* Get-the-app box (Task 4 will gate this on a flag). */}
+      {/* Get-the-app box, gated on NEXT_PUBLIC_COMPANION_APP_LIVE. */}
       <div className="rounded-xl border border-dashed border-border bg-surface-sunken p-4">
         <p className="text-body text-foreground font-medium">Get the app</p>
-        <p className="text-meta text-foreground-muted mt-1 leading-relaxed">
-          Coming soon to the App Store. For now, open the Connect tab and pair
-          your phone with the QR code to start capturing.
-        </p>
+        {COMPANION_APP_LIVE ? (
+          <div className="mt-3">
+            {/*
+              Apple "Download on the App Store" badge.
+              Asset path: frontend/public/app-store-badge.svg (launch-day fill).
+              Use <img> (not inline svg) to comply with Apple brand rules and
+              to pass the icon-guard pre-commit hook.
+            */}
+            <a
+              href={APP_STORE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Download on the App Store"
+            >
+              <img
+                src="/app-store-badge.svg"
+                alt="Download on the App Store"
+                width={135}
+                height={40}
+                className="h-10 w-auto"
+              />
+            </a>
+          </div>
+        ) : (
+          <p className="text-meta text-foreground-muted mt-1 leading-relaxed">
+            Coming soon to the App Store. For now, open the Connect tab and pair
+            your phone with the QR code to start capturing.
+          </p>
+        )}
       </div>
     </div>
   );
