@@ -539,17 +539,18 @@ export default function NotebookScreen() {
         setPendingContext(null);
 
         if (chosen) {
-          // Send the note then post the routing command. Suppress sendTextNote's
-          // own burst so we fire exactly one, naming the destination, AFTER the
-          // notebook is chosen.
+          // KNOWN GAP (mobile manager 2026-06-09): routing a TEXT note into a
+          // chosen notebook entry is NOT yet built. Unlike a photo (which the
+          // laptop attaches into the entry via attachImageToNote), a text note
+          // needs an append-to-entry write, a separate command. So for now the
+          // quick note lands in the inbox honestly and the burst says so, rather
+          // than claiming "Filed in X". The user's pick is currently ignored.
           const result = await sendTextNote(
             { title: quickNoteTitle, body: quickNoteBody.trim() },
             pairing,
             signWithDevice,
-            { suppressBurst: true },
           );
           if (result.ok) {
-            fireSuccess({ subtitle: `Filed in ${chosen.notebook.title}` });
             setQuickNoteOpen(false);
             setQuickNoteTitle('');
             setQuickNoteBody('');
