@@ -1,32 +1,28 @@
 // Cross-boundary sharing, the directory key-backup envelope.
-// Passkey identity unlock, chunk 1 (crypto core).
 //
-// Today the directory stores ONE opaque key_backup_blob, the mnemonic-wrapped
-// BackupBlob. Passkey adds a second wrapped blob, so the field becomes a small
-// versioned envelope carrying both. This module is the pure parse and serialize
-// for that envelope, with backward compatibility. A legacy bare BackupBlob (the
-// v1 shape, alg "argon2id") parses as an envelope with only the mnemonic blob,
-// and we serialize the v2 envelope going forward (a lazy upgrade on the next
-// write). No network here, the directory wiring is chunk 2.
+// The directory stores ONE opaque key_backup_blob carrying the mnemonic-wrapped
+// BackupBlob (the recovery-code / 12-words backup). This module is the pure
+// parse + serialize for that small versioned envelope, with backward
+// compatibility for a legacy bare BackupBlob (v1). No network here.
+//
+// Historical note: a v2 "passkeyPrf" door once rode in this envelope. The
+// passkey was removed (IDENTITY_OAUTH_ONLY P3b), so a stray passkeyPrf on an
+// older directory row is simply ignored on parse; the recovery code is the
+// single at-rest unlock now.
 
 import { type BackupBlob } from "./backup";
-import { type PrfBackupBlob } from "./passkey";
 
-/**
- * The parsed key-backup field. mnemonic is always present (the recovery-code or
- * Recovery-Words blob). passkeyPrf is present once the user has enrolled a
- * passkey.
- */
+/** The parsed key-backup field. mnemonic is the recovery-code / 12-words blob. */
 export interface KeyBackupEnvelope {
   v: 2;
   mnemonic: BackupBlob;
-  passkeyPrf?: PrfBackupBlob;
 }
 
 /**
  * Parses the stored key_backup_blob string into an envelope. Accepts both the
- * new v2 envelope and a legacy bare BackupBlob (v1), so existing directory rows
- * keep working untouched. Returns null when the string is absent or unparseable.
+ * v2 envelope and a legacy bare BackupBlob (v1), so existing directory rows keep
+ * working untouched. A legacy passkeyPrf field on a v2 row is ignored. Returns
+ * null when the string is absent or unparseable.
  */
 export function parseKeyBackupField(
   raw: string | null | undefined,
@@ -41,16 +37,9 @@ export function parseKeyBackupField(
   if (!parsed || typeof parsed !== "object") return null;
   const obj = parsed as Record<string, unknown>;
 
-  // v2 envelope.
+  // v2 envelope (a legacy passkeyPrf field, if present, is ignored).
   if (obj.v === 2 && obj.mnemonic && typeof obj.mnemonic === "object") {
-    const env: KeyBackupEnvelope = {
-      v: 2,
-      mnemonic: obj.mnemonic as BackupBlob,
-    };
-    if (obj.passkeyPrf && typeof obj.passkeyPrf === "object") {
-      env.passkeyPrf = obj.passkeyPrf as PrfBackupBlob;
-    }
-    return env;
+    return { v: 2, mnemonic: obj.mnemonic as BackupBlob };
   }
 
   // Legacy bare BackupBlob (v1, alg argon2id). Treat it as the mnemonic blob.
@@ -66,31 +55,7 @@ export function serializeKeyBackupEnvelope(env: KeyBackupEnvelope): string {
   return JSON.stringify(env);
 }
 
-/**
- * Builds an envelope from its parts. A convenience used by the enrollment and
- * setup flows in later chunks.
- */
-export function buildKeyBackupEnvelope(
-  mnemonic: BackupBlob,
-  passkeyPrf?: PrfBackupBlob,
-): KeyBackupEnvelope {
-  return passkeyPrf ? { v: 2, mnemonic, passkeyPrf } : { v: 2, mnemonic };
-}
-
-/**
- * Returns the stored key-backup string with a passkey blob attached, keeping the
- * existing mnemonic blob. Accepts either a v2 envelope or a legacy bare blob as
- * the input string, so enrolling a passkey on an older identity upgrades it to a
- * v2 envelope in place. Returns null when the input does not parse, the caller
- * then knows not to publish.
- */
-export function addPasskeyToEnvelope(
-  raw: string,
-  passkeyPrf: PrfBackupBlob,
-): string | null {
-  const envelope = parseKeyBackupField(raw);
-  if (!envelope) return null;
-  return serializeKeyBackupEnvelope(
-    buildKeyBackupEnvelope(envelope.mnemonic, passkeyPrf),
-  );
+/** Builds an envelope from the mnemonic backup blob. */
+export function buildKeyBackupEnvelope(mnemonic: BackupBlob): KeyBackupEnvelope {
+  return { v: 2, mnemonic };
 }
