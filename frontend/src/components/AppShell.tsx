@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import DailyTasksSidebar from "./DailyTasksSidebar";
 import CalendarSidebar from "./CalendarSidebar";
+import CollapsibleSidebar from "./CollapsibleSidebar";
 import InboxBadge from "./InboxBadge";
 import InboxToast from "./InboxToast";
 import NoteDeleteUndoToast from "./NoteDeleteUndoToast";
@@ -44,8 +45,11 @@ import ResearcherProfileModal from "@/components/researchers/ResearcherProfileMo
 import ProfileSettingsModal from "@/components/profile/ProfileSettingsModal";
 import SettingsModal from "@/components/settings/SettingsModal";
 import CompanionHub from "@/components/CompanionHub";
+import TimersPopup from "@/components/TimersPopup";
 import { Icon } from "@/components/icons";
 import { useCompanionHub } from "@/lib/ui/companion-hub-store";
+import { useTimersPopup } from "@/lib/ui/timers-popup-store";
+import { useRunningTimerCount } from "@/lib/timers/laptop-timers";
 import { usePhonePaired } from "@/hooks/usePhonePaired";
 import SharingClaimResume from "@/components/sharing/SharingClaimResume";
 import LabInviteResume from "@/components/lab/LabInviteResume";
@@ -66,6 +70,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const coloredHeader = useAppStore((s) => s.coloredHeader);
   const showCompanionButton = useAppStore((s) => s.showCompanionButton);
   const openCompanion = useCompanionHub((s) => s.open);
+  const openTimers = useTimersPopup((s) => s.open);
+  const runningTimers = useRunningTimerCount();
   const phonePaired = usePhonePaired();
   const { currentUser } = useFileSystem();
   const userColors = useUserColors(currentUser ?? "");
@@ -470,6 +476,27 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <BeakerSearchPill />
           <NotificationBadge pill={tinted} />
           <InboxBadge />
+          {/* Timers button. Opens the Timers popup (running countdowns + new
+              timer). A count badge shows how many are running, hidden at zero. */}
+          <Tooltip label="Timers" placement="bottom">
+            <button
+              type="button"
+              aria-label="Open Timers"
+              onClick={(e) => openTimers({ x: e.clientX, y: e.clientY })}
+              className={`relative p-1.5 rounded-full transition-colors ${
+                tinted
+                  ? "bg-white/75 text-gray-700 hover:bg-white shadow-sm"
+                  : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
+              }`}
+            >
+              <Icon name="alarmClock" className="w-[18px] h-[18px]" />
+              {runningTimers > 0 ? (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-sky-500 text-white text-[10px] font-extrabold flex items-center justify-center ring-2 ring-surface-raised">
+                  {runningTimers}
+                </span>
+              ) : null}
+            </button>
+          </Tooltip>
           {/* Companion button. Opens the Companion hub (Connect / Info /
               Settings). The status dot is green when a phone is paired, gray
               otherwise. Hidden when the "Show Companion button on Home" pref is
@@ -608,11 +635,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
            *  PRESERVE this carve-out when simplifying the sidebar. */
           null
         ) : pathname === "/calendar" ? (
-          <CalendarSidebar />
+          <CollapsibleSidebar>
+            <CalendarSidebar />
+          </CollapsibleSidebar>
         ) : pathname === "/lab-overview" ? (
           null
         ) : (
-          <DailyTasksSidebar />
+          <CollapsibleSidebar>
+            <DailyTasksSidebar />
+          </CollapsibleSidebar>
         )}
         <main className="flex-1 flex flex-col overflow-hidden">
           <LabSessionMount>{children}</LabSessionMount>
@@ -645,6 +676,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
        *  popups above. SettingsBody is lazy-imported inside to avoid a cycle. */}
       <SettingsModal />
       <CompanionHub />
+      <TimersPopup />
       {/* Global OAuth-claim resume (account-creation-flow bot, 2026-06-05):
        *  finishes sharing-account creation when the user returns from the
        *  provider redirect with ?sharingClaim=1. Mounts SharingSetupWizard for
