@@ -279,7 +279,7 @@ export default {
         status: 204,
         headers: {
           "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
           "Access-Control-Allow-Headers": "Content-Type",
         },
       });
@@ -1311,6 +1311,18 @@ export class CaptureInbox {
     this.sql().exec(
       "CREATE TABLE IF NOT EXISTS captures (capture_id TEXT PRIMARY KEY, caption TEXT, created_at TEXT, content_type TEXT, blob_key TEXT, uploaded_at TEXT)",
     );
+    // Focus context channel (notebook integrations Phase 0). One row per bound
+    // device; the laptop seals the current focus context to each device's X25519
+    // key and writes it here. The phone polls for its own row.
+    this.sql().exec(
+      "CREATE TABLE IF NOT EXISTS context (device_pubkey TEXT PRIMARY KEY, sealed TEXT, updated_at TEXT)",
+    );
+    // Command channel (notebook integrations Phase 0). The phone posts sealed
+    // commands (append-line, switch-tab, route-capture, timer events); the laptop
+    // polls + acks them. Deleted on ack.
+    this.sql().exec(
+      "CREATE TABLE IF NOT EXISTS commands (command_id TEXT PRIMARY KEY, sealed TEXT, created_at TEXT)",
+    );
   }
 
   private sql(): SqlStorage {
@@ -1381,6 +1393,27 @@ export class CaptureInbox {
       return this.json({ error: "stale ts" }, 401);
     }
     if (!this.verifySig(sig, message, u)) {
+      return this.json({ error: "bad signature" }, 401);
+    }
+    return null;
+  }
+
+  /** Shared gate for device-key-signed routes. Verifies the ts freshness, that
+   *  the device is bound to this user, and the device's signature over the
+   *  canonical message. Returns null on success or a Response to reject. */
+  private deviceGate(
+    devicePubkey: string,
+    ts: string,
+    sig: string,
+    message: string,
+  ): Response | null {
+    if (!this.isFreshIso(ts)) {
+      return this.json({ error: "stale ts" }, 401);
+    }
+    if (!this.isBoundDevice(devicePubkey)) {
+      return this.json({ error: "device not bound" }, 403);
+    }
+    if (!this.verifySig(sig, message, devicePubkey)) {
       return this.json({ error: "bad signature" }, 401);
     }
     return null;
@@ -1887,6 +1920,171 @@ export class CaptureInbox {
     });
   }
 
+  /** PUT /capture/context/publish. USER-signed. Stores the sealed focus context
+   *  for one bound device. The laptop seals the same plaintext context to each
+   *  device's X25519 key and calls this once per device. */
+  private async handleContextPublish(u: string, request: Request): Promise<Response> {
+    let body: { u?: unknown; device?: unknown; ts?: unknown; sig?: unknown; sealed?: unknown };
+    try {
+      body = await request.json();
+    } catch {
+      return this.json({ error: "invalid JSON body" }, 400);
+    }
+
+    const device = body.device;
+    const ts = body.ts;
+    const sig = body.sig;
+    const sealed = body.sealed;
+    if (
+      typeof device !== "string" ||
+      typeof ts !== "string" ||
+      typeof sig !== "string" ||
+      typeof sealed !== "string"
+    ) {
+      return this.json({ error: "malformed context publish" }, 400);
+    }
+    if (!this.isBoundDevice(device)) {
+      return this.json({ error: "device not bound" }, 403);
+    }
+
+    const enc = new TextEncoder();
+    const sealedBytes = enc.encode(sealed);
+    const sha = await sha256Hex(sealedBytes);
+    const denied = this.userGate(u, ts, sig, contextPublishMessage(u, device, ts, sha));
+    if (denied) return denied;
+
+    this.sql().exec(
+      "INSERT INTO context (device_pubkey, sealed, updated_at) VALUES (?, ?, ?) ON CONFLICT(device_pubkey) DO UPDATE SET sealed = excluded.sealed, updated_at = excluded.updated_at",
+      device,
+      sealed,
+      new Date().toISOString(),
+    );
+    return this.json({ ok: true }, 200);
+  }
+
+  /** GET /capture/context?u=&device=&ts=&sig=. DEVICE-signed. Returns the
+   *  sealed focus context for the requesting device, or null if none published. */
+  private handleContextGet(url: URL): Response {
+    const u = url.searchParams.get("u") ?? "";
+    const device = url.searchParams.get("device") ?? "";
+    const ts = url.searchParams.get("ts") ?? "";
+    const sig = url.searchParams.get("sig") ?? "";
+
+    const denied = this.deviceGate(device, ts, sig, contextGetMessage(u, device, ts));
+    if (denied) return denied;
+
+    const rows = this.sql()
+      .exec<{ sealed: string; updated_at: string }>(
+        "SELECT sealed, updated_at FROM context WHERE device_pubkey = ?",
+        device,
+      )
+      .toArray();
+
+    if (rows.length === 0) {
+      return this.json({ sealed: null }, 200);
+    }
+    return this.json({ sealed: rows[0].sealed, updatedAt: rows[0].updated_at }, 200);
+  }
+
+  /** POST /capture/command. DEVICE-signed. The phone posts one sealed command;
+   *  the laptop polls and acks it. */
+  private async handleCommandPost(request: Request): Promise<Response> {
+    let body: {
+      u?: unknown;
+      device?: unknown;
+      commandId?: unknown;
+      ts?: unknown;
+      sig?: unknown;
+      sealed?: unknown;
+    };
+    try {
+      body = await request.json();
+    } catch {
+      return this.json({ error: "invalid JSON body" }, 400);
+    }
+
+    const u = body.u;
+    const device = body.device;
+    const commandId = body.commandId;
+    const ts = body.ts;
+    const sig = body.sig;
+    const sealed = body.sealed;
+    if (
+      typeof u !== "string" ||
+      typeof device !== "string" ||
+      typeof commandId !== "string" ||
+      typeof ts !== "string" ||
+      typeof sig !== "string" ||
+      typeof sealed !== "string"
+    ) {
+      return this.json({ error: "malformed command post" }, 400);
+    }
+
+    const enc = new TextEncoder();
+    const sealedBytes = enc.encode(sealed);
+    const sha = await sha256Hex(sealedBytes);
+    const denied = this.deviceGate(device, ts, sig, commandPostMessage(u, device, commandId, ts, sha));
+    if (denied) return denied;
+
+    this.sql().exec(
+      "INSERT INTO commands (command_id, sealed, created_at) VALUES (?, ?, ?) ON CONFLICT(command_id) DO NOTHING",
+      commandId,
+      sealed,
+      new Date().toISOString(),
+    );
+    return this.json({ ok: true, commandId }, 200);
+  }
+
+  /** GET /capture/commands/poll?u=&ts=&sig=. USER-signed. Returns all pending
+   *  commands, oldest-first (FIFO). */
+  private handleCommandsPoll(u: string, url: URL): Response {
+    const ts = url.searchParams.get("ts") ?? "";
+    const sig = url.searchParams.get("sig") ?? "";
+    const denied = this.userGate(u, ts, sig, commandsPollMessage(u, ts));
+    if (denied) return denied;
+
+    const rows = this.sql()
+      .exec<{ command_id: string; sealed: string; created_at: string }>(
+        "SELECT command_id, sealed, created_at FROM commands ORDER BY created_at ASC",
+      )
+      .toArray();
+
+    const commands = rows.map((r) => ({
+      commandId: r.command_id,
+      sealed: r.sealed,
+      createdAt: r.created_at,
+    }));
+    return this.json({ commands }, 200);
+  }
+
+  /** POST /capture/commands/ack. USER-signed. Deletes the acked command rows.
+   *  The signed ids are sorted + comma-joined so client and worker agree on bytes. */
+  private async handleCommandsAck(u: string, request: Request): Promise<Response> {
+    let body: { u?: unknown; ids?: unknown; ts?: unknown; sig?: unknown };
+    try {
+      body = await request.json();
+    } catch {
+      return this.json({ error: "invalid JSON body" }, 400);
+    }
+    const ids = body.ids;
+    const ts = body.ts;
+    const sig = body.sig;
+    if (!Array.isArray(ids) || typeof ts !== "string" || typeof sig !== "string") {
+      return this.json({ error: "malformed ack" }, 400);
+    }
+    const stringIds = ids.filter((id): id is string => typeof id === "string");
+    if (stringIds.length === 0) {
+      return this.json({ deleted: 0 }, 200);
+    }
+    const denied = this.userGate(u, ts, sig, commandsAckMessage(u, stringIds, ts));
+    if (denied) return denied;
+
+    for (const id of stringIds) {
+      this.sql().exec("DELETE FROM commands WHERE command_id = ?", id);
+    }
+    return this.json({ deleted: stringIds.length }, 200);
+  }
+
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
 
@@ -1909,6 +2107,20 @@ export class CaptureInbox {
     if (url.pathname === "/capture/snapshot/get") {
       if (request.method !== "GET") return this.json({ error: "method not allowed" }, 405);
       return this.handleSnapshotGet(url.searchParams.get("u") ?? "", url);
+    }
+    // Context publish is a PUT with u in the query string (not in the body), so
+    // it is handled before the peekBodyU block below.
+    if (url.pathname === "/capture/context/publish") {
+      if (request.method !== "PUT") return this.json({ error: "method not allowed" }, 405);
+      return this.handleContextPublish(url.searchParams.get("u") ?? "", request);
+    }
+    if (url.pathname === "/capture/context") {
+      if (request.method !== "GET") return this.json({ error: "method not allowed" }, 405);
+      return this.handleContextGet(url);
+    }
+    if (url.pathname === "/capture/commands/poll") {
+      if (request.method !== "GET") return this.json({ error: "method not allowed" }, 405);
+      return this.handleCommandsPoll(url.searchParams.get("u") ?? "", url);
     }
 
     // The remaining routes are user-key-signed and carry u in ?u (GET) or the
@@ -1937,6 +2149,14 @@ export class CaptureInbox {
     if (url.pathname === "/capture/devices") {
       if (request.method !== "GET") return this.json({ error: "method not allowed" }, 405);
       return this.handleDevices(url.searchParams.get("u") ?? "", url);
+    }
+    if (url.pathname === "/capture/command") {
+      if (request.method !== "POST") return this.json({ error: "method not allowed" }, 405);
+      return this.handleCommandPost(uBody.request);
+    }
+    if (url.pathname === "/capture/commands/ack") {
+      if (request.method !== "POST") return this.json({ error: "method not allowed" }, 405);
+      return this.handleCommandsAck(uBody.u, uBody.request);
     }
 
     return this.json({ error: "not found" }, 404);
@@ -2979,6 +3199,53 @@ export function snapshotGetMessage(
   tsIso: string,
 ): string {
   return `researchos-snapshot-get\nu=${userPubkeyHex}\nname=${name}\ndevice=${devicePubkeyHex}\nts=${tsIso}`;
+}
+
+/** PUT /capture/context/publish. USER-signed. sha256Hex is over the sealed bytes. */
+export function contextPublishMessage(
+  userPubkeyHex: string,
+  devicePubkeyHex: string,
+  tsIso: string,
+  sha256Hex: string,
+): string {
+  return `researchos-context-publish\nu=${userPubkeyHex}\ndevice=${devicePubkeyHex}\nts=${tsIso}\nsha256=${sha256Hex}`;
+}
+
+/** GET /capture/context. DEVICE-signed. */
+export function contextGetMessage(
+  userPubkeyHex: string,
+  devicePubkeyHex: string,
+  tsIso: string,
+): string {
+  return `researchos-context-get\nu=${userPubkeyHex}\ndevice=${devicePubkeyHex}\nts=${tsIso}`;
+}
+
+/** POST /capture/command. DEVICE-signed. sha256Hex is over the sealed bytes. */
+export function commandPostMessage(
+  userPubkeyHex: string,
+  devicePubkeyHex: string,
+  commandId: string,
+  tsIso: string,
+  sha256Hex: string,
+): string {
+  return `researchos-command-post\nu=${userPubkeyHex}\ndevice=${devicePubkeyHex}\ncommandId=${commandId}\nts=${tsIso}\nsha256=${sha256Hex}`;
+}
+
+/** GET /capture/commands/poll. USER-signed. */
+export function commandsPollMessage(
+  userPubkeyHex: string,
+  tsIso: string,
+): string {
+  return `researchos-command-poll\nu=${userPubkeyHex}\nts=${tsIso}`;
+}
+
+/** POST /capture/commands/ack. USER-signed. ids are sorted + comma-joined. */
+export function commandsAckMessage(
+  userPubkeyHex: string,
+  ids: string[],
+  tsIso: string,
+): string {
+  return `researchos-command-ack\nu=${userPubkeyHex}\nids=${[...ids].sort().join(",")}\nts=${tsIso}`;
 }
 
 /** Lowercase hex sha256 of the given bytes, via WebCrypto (available in

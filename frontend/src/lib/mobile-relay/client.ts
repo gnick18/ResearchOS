@@ -52,6 +52,37 @@ function snapshotPublishMessage(
 // Exported for the round-trip contract test.
 export const _canonical = { capturePairGrantMessage, captureReadMessage, snapshotPublishMessage };
 
+// ---- Notebook integrations: context + command channel (Phase 0) ------
+// Canonical signed-byte strings MUST match worker.ts exactly.
+
+function contextPublishMessage(u: string, device: string, ts: string, sha256hex: string): string {
+  return `researchos-context-publish\nu=${u}\ndevice=${device}\nts=${ts}\nsha256=${sha256hex}`;
+}
+function contextGetMessage(u: string, device: string, ts: string): string {
+  return `researchos-context-get\nu=${u}\ndevice=${device}\nts=${ts}`;
+}
+function commandPostMessage(u: string, device: string, commandId: string, ts: string, sha256hex: string): string {
+  return `researchos-command-post\nu=${u}\ndevice=${device}\ncommandId=${commandId}\nts=${ts}\nsha256=${sha256hex}`;
+}
+function commandsPollMessage(u: string, ts: string): string {
+  return `researchos-command-poll\nu=${u}\nts=${ts}`;
+}
+function commandsAckMessage(u: string, ids: string[], ts: string): string {
+  return `researchos-command-ack\nu=${u}\nids=${[...ids].sort().join(",")}\nts=${ts}`;
+}
+
+/** A focus context as published by the laptop. */
+export type FocusContext =
+  | { kind: "experiment"; taskId: number; owner: string; name: string; activeTab: "notes" | "results" | "other"; at: string }
+  | { kind: "none"; at: string };
+
+/** A pending command polled by the laptop from the relay. */
+export interface PendingCommand {
+  commandId: string;
+  sealed: string;
+  createdAt: string;
+}
+
 // ---- Keys --------------------------------------------------------------
 
 /**
@@ -293,4 +324,114 @@ export async function publishSnapshot(
     body: form,
   });
   if (!res.ok) throw new Error(`publishSnapshot failed: ${res.status}`);
+}
+
+// ---- Context + command channel (Phase 0) ---------------------------------
+
+/** PUT /capture/context/publish. Stores a sealed focus context for one device.
+ *  The caller seals the context to the device's X25519 key before calling this.
+ *  `sealed` is a base64-url or hex-encoded sealed blob (whatever sealToRecipient produces). */
+export async function publishFocusContext(
+  keys: UserCaptureKeys,
+  devicePubkey: string,
+  sealed: string,
+  relayUrl = captureRelayUrl(),
+): Promise<void> {
+  const u = keys.ed25519PublicKeyHex;
+  const ts = nowIso();
+
+  const enc2 = new TextEncoder();
+  const sealedBytes = enc2.encode(sealed);
+  const digest = await crypto.subtle.digest("SHA-256", sealedBytes);
+  const sha = bytesToHex(new Uint8Array(digest));
+
+  const sig = sign(contextPublishMessage(u, devicePubkey, ts, sha), keys.ed25519PrivateKey);
+  const res = await fetch(`${relayUrl}/capture/context/publish?u=${u}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ u, device: devicePubkey, ts, sig, sealed }),
+  });
+  if (!res.ok) throw new Error(`publishFocusContext failed: ${res.status}`);
+}
+
+/** GET /capture/context. Phone-side: fetches the sealed context for this device.
+ *  Uses the DEVICE's Ed25519 key to sign the request. Returns null if no context published. */
+export async function fetchFocusContext(
+  userPubkeyHex: string,
+  deviceEd25519PrivateKey: Uint8Array,
+  devicePubkeyHex: string,
+  relayUrl = captureRelayUrl(),
+): Promise<string | null> {
+  const ts = nowIso();
+  const sig = sign(contextGetMessage(userPubkeyHex, devicePubkeyHex, ts), deviceEd25519PrivateKey);
+  const res = await fetch(
+    `${relayUrl}/capture/context?u=${userPubkeyHex}&device=${devicePubkeyHex}&ts=${encodeURIComponent(ts)}&sig=${sig}`,
+  );
+  if (!res.ok) throw new Error(`fetchFocusContext failed: ${res.status}`);
+  const body = (await res.json()) as { sealed?: string | null };
+  return body.sealed ?? null;
+}
+
+/** POST /capture/command. Phone-side: posts one sealed command to the laptop.
+ *  `commandId` must be unique (use a random UUID). `sealed` is pre-sealed by caller.
+ *  Uses the DEVICE's Ed25519 key to sign the request. */
+export async function postCommand(
+  userPubkeyHex: string,
+  deviceEd25519PrivateKey: Uint8Array,
+  devicePubkeyHex: string,
+  commandId: string,
+  sealed: string,
+  relayUrl = captureRelayUrl(),
+): Promise<void> {
+  const ts = nowIso();
+
+  const enc2 = new TextEncoder();
+  const sealedBytes = enc2.encode(sealed);
+  const digest = await crypto.subtle.digest("SHA-256", sealedBytes);
+  const sha = bytesToHex(new Uint8Array(digest));
+
+  const sig = sign(commandPostMessage(userPubkeyHex, devicePubkeyHex, commandId, ts, sha), deviceEd25519PrivateKey);
+  const res = await fetch(`${relayUrl}/capture/command?u=${userPubkeyHex}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ u: userPubkeyHex, device: devicePubkeyHex, commandId, ts, sig, sealed }),
+  });
+  if (!res.ok) throw new Error(`postCommand failed: ${res.status}`);
+}
+
+/** GET /capture/commands/poll. Laptop-side: poll pending commands (user-signed). */
+export async function pollCommands(
+  keys: UserCaptureKeys,
+  relayUrl = captureRelayUrl(),
+): Promise<PendingCommand[]> {
+  const u = keys.ed25519PublicKeyHex;
+  const ts = nowIso();
+  const sig = sign(commandsPollMessage(u, ts), keys.ed25519PrivateKey);
+  const res = await fetch(
+    `${relayUrl}/capture/commands/poll?u=${u}&ts=${encodeURIComponent(ts)}&sig=${sig}`,
+  );
+  if (!res.ok) throw new Error(`pollCommands failed: ${res.status}`);
+  const body = (await res.json()) as { commands?: PendingCommand[] };
+  return Array.isArray(body.commands) ? body.commands : [];
+}
+
+/** POST /capture/commands/ack. Laptop-side: ack and delete commands (user-signed). */
+export async function ackCommands(
+  keys: UserCaptureKeys,
+  ids: string[],
+  relayUrl = captureRelayUrl(),
+): Promise<number> {
+  if (ids.length === 0) return 0;
+  const u = keys.ed25519PublicKeyHex;
+  const ts = nowIso();
+  const sortedIds = [...ids].sort();
+  const sig = sign(commandsAckMessage(u, sortedIds, ts), keys.ed25519PrivateKey);
+  const res = await fetch(`${relayUrl}/capture/commands/ack?u=${u}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ u, ids: sortedIds, ts, sig }),
+  });
+  if (!res.ok) throw new Error(`ackCommands failed: ${res.status}`);
+  const body = (await res.json()) as { deleted?: number };
+  return typeof body.deleted === "number" ? body.deleted : 0;
 }
