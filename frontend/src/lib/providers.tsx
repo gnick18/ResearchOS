@@ -30,6 +30,7 @@ import AutoErrorConfirmHost from "@/components/AutoErrorConfirmHost";
 import V4MountForUser from "@/components/onboarding/v4/V4MountForUser";
 import { Splash } from "@/components/onboarding/Splash";
 import { EntrySnapSurface } from "@/components/onboarding/EntrySnapSurface";
+import { SuccessTransition } from "@/components/onboarding/SuccessTransition";
 import {
   AccountTierChooser,
   type AccountTier,
@@ -145,6 +146,13 @@ function PendingELNImportMount() {
 }
 
 const SPLASH_SEEN_KEY = "researchos:splash-seen";
+// Set when a visitor actively enters via the start screen (open folder / create
+// account); consumed once when they first reach the app to play the celebratory
+// SuccessTransition. sessionStorage so it survives the OAuth full-page redirect
+// on the Free / Lab paths. Returning users who reconnect silently never set it,
+// so they do not get the celebration on every open.
+const ENTERED_KEY = "researchos:entered";
+let successShownThisLoad = false;
 
 // The account-tier choice for a fresh visitor, recorded for this page load so a
 // remount of AppContent during setup does not re-show the chooser. Phase B2
@@ -203,6 +211,7 @@ function AppContent({ children }: { children: ReactNode }) {
   const [entryAction, setEntryAction] = useState<"open" | "create" | null>(
     entryActionThisLoad,
   );
+  const [successShown, setSuccessShown] = useState(successShownThisLoad);
   const [showSetup, setShowSetup] = useState(false);
   // Belt-and-suspenders: if the router.replace("/welcome") fires but the gate
   // is somehow re-evaluated before navigation completes, this prevents a
@@ -412,10 +421,20 @@ function AppContent({ children }: { children: ReactNode }) {
           returning={!!lastConnectedFolder || availableUsers.length > 0}
           onOpenFolder={() => {
             entryActionThisLoad = "open";
+            try {
+              sessionStorage.setItem(ENTERED_KEY, "1");
+            } catch {
+              // best-effort; the celebration is non-essential
+            }
             setEntryAction("open");
           }}
           onCreateAccount={() => {
             entryActionThisLoad = "create";
+            try {
+              sessionStorage.setItem(ENTERED_KEY, "1");
+            } catch {
+              // best-effort
+            }
             setEntryAction("create");
           }}
         />
@@ -505,6 +524,31 @@ function AppContent({ children }: { children: ReactNode }) {
           }}
         />
       </QueryClientProvider>
+    );
+  }
+
+  // Celebratory hand-off: when a visitor who actively entered this session
+  // (start screen -> setup/sign-in) first reaches the app, play the
+  // SuccessTransition once, then render the app underneath. Returning users who
+  // reconnect silently never set ENTERED_KEY, so they skip straight to the app.
+  // Skipped in fixture modes (which returned above anyway).
+  if (
+    !successShown &&
+    typeof window !== "undefined" &&
+    sessionStorage.getItem(ENTERED_KEY) === "1"
+  ) {
+    return (
+      <SuccessTransition
+        onComplete={() => {
+          try {
+            sessionStorage.removeItem(ENTERED_KEY);
+          } catch {
+            // best-effort
+          }
+          successShownThisLoad = true;
+          setSuccessShown(true);
+        }}
+      />
     );
   }
 
