@@ -16,6 +16,7 @@
 import { useEffect, useState } from "react";
 
 import LivingPopup from "@/components/ui/LivingPopup";
+import Toggle from "@/components/ui/Toggle";
 import { Icon } from "@/components/icons";
 import DevicesSection from "@/components/settings/DevicesSection";
 import { useCompanionHub } from "@/lib/ui/companion-hub-store";
@@ -36,37 +37,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "settings", label: "Settings" },
 ];
 
-// Local toggle, mirrors the one in AppearanceCard (which is not exported).
-function Toggle({
-  label,
-  description,
-  checked,
-  onChange,
-}: {
-  label: string;
-  description?: string;
-  checked: boolean;
-  onChange: (next: boolean) => void;
-}) {
-  return (
-    <label className="flex items-start justify-between gap-4 cursor-pointer select-none">
-      <span className="flex flex-col gap-0.5">
-        <span className="text-body text-foreground">{label}</span>
-        {description ? (
-          <span className="text-meta text-foreground-muted leading-relaxed">
-            {description}
-          </span>
-        ) : null}
-      </span>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="mt-1 accent-sky-500 w-4 h-4 flex-shrink-0"
-      />
-    </label>
-  );
-}
 
 // Feature rows shown in the Info tab.
 const INFO_FEATURES: {
