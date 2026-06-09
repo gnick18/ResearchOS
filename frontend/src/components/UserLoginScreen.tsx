@@ -52,6 +52,7 @@ import BeakerBot from "@/components/BeakerBot";
 import VersionBadge from "@/components/VersionBadge";
 import DevForceWalkthroughButton from "@/components/DevForceWalkthroughButton";
 import DevForceLandingButton from "@/components/DevForceLandingButton";
+import DevPairBypassButton from "@/components/DevPairBypassButton";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
 import RoadmapModal from "@/components/RoadmapModal";
 
@@ -2082,6 +2083,11 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
           preview the first-time landing ("sell") page via /welcome. Renders
           nothing in production. (landing-page manager) */}
       <DevForceLandingButton />
+
+      {/* Dev-only one-click sign-in (bottom-left): mints a local identity and
+          enters the app so a phone can pair without the OAuth/recovery
+          ceremony. Renders nothing in production. (mobile manager) */}
+      <DevPairBypassButton />
 
     </div>
   );
