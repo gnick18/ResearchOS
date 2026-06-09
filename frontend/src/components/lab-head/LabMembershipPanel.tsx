@@ -33,6 +33,16 @@ const primaryBtn =
 const secondaryBtn =
   "rounded-md border border-border bg-surface px-3 py-2 text-meta font-medium text-foreground hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed";
 
+/** A directory "request to join" row, as returned by the request endpoint. */
+interface DirJoinRequest {
+  labId: string;
+  requesterEmailHash: string;
+  requesterPubkey: string;
+  requesterName: string;
+  status: string;
+  createdAt: string;
+}
+
 export default function LabMembershipPanel() {
   const { currentUser } = useCurrentUser();
   const session = useLabSession();
@@ -49,6 +59,13 @@ export default function LabMembershipPanel() {
   const [listed, setListed] = useState<boolean | null>(null);
   const [listToggleBusy, setListToggleBusy] = useState(false);
   const [listToggleError, setListToggleError] = useState<string | null>(null);
+
+  // Directory join requests (researchers who found the lab in the directory and
+  // asked to join). Separate queue from the invite-link accepts above.
+  const [dirRequests, setDirRequests] = useState<DirJoinRequest[] | null>(null);
+  // emailHash -> minted invite link, shown after approving so the PI can deliver
+  // it to the approved researcher (auto-delivery to their inbox is a follow-up).
+  const [approvedLinks, setApprovedLinks] = useState<Record<string, string>>({});
 
   if (!labId || !currentUser) {
     return (
@@ -106,6 +123,48 @@ export default function LabMembershipPanel() {
     run("refresh", async () => {
       setOutcomes(null);
       setPending(await loadPendingAccepts(labId, requireIdentity()));
+    });
+
+  const loadDirRequests = () =>
+    run("dir-load", async () => {
+      const res = await fetch(
+        `/api/directory/labs/request?labId=${encodeURIComponent(labId)}`,
+        { credentials: "include" },
+      );
+      if (!res.ok) throw new Error("Could not load directory requests.");
+      const j = (await res.json()) as { requests?: DirJoinRequest[] };
+      setDirRequests(j.requests ?? []);
+    });
+
+  const resolveDir = (req: DirJoinRequest, action: "approve" | "decline") =>
+    run(`dir-${req.requesterEmailHash}`, async () => {
+      const res = await fetch("/api/directory/labs/request/resolve", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          labId,
+          requesterEmailHash: req.requesterEmailHash,
+          action,
+        }),
+      });
+      if (!res.ok) throw new Error(`Could not ${action} the request.`);
+      if (action === "approve") {
+        // Mint a join link for the approved researcher to come in with. The
+        // invite carries the lab id + head keys; they open it to join.
+        const { link: l } = mintInviteForHead({
+          labId,
+          username: currentUser,
+          identity: requireIdentity(),
+          origin: window.location.origin,
+        });
+        setApprovedLinks((cur) => ({ ...cur, [req.requesterEmailHash]: l }));
+      }
+      setDirRequests((cur) =>
+        (cur ?? []).filter(
+          (r) => r.requesterEmailHash !== req.requesterEmailHash,
+        ),
+      );
     });
 
   const addAll = () =>
@@ -313,6 +372,96 @@ export default function LabMembershipPanel() {
             The current listing state will load once you toggle it for the first time.
             Your lab starts unlisted.
           </p>
+        )}
+      </div>
+
+      <hr className="border-border" />
+
+      {/* Requests from the directory: researchers who found the lab and asked to
+          join (a separate queue from the invite-link accepts above). */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h4 className="text-body font-medium text-foreground">
+            Requests from the directory
+          </h4>
+          <button
+            type="button"
+            onClick={loadDirRequests}
+            disabled={busy !== null}
+            className={secondaryBtn}
+          >
+            {busy === "dir-load" ? "Loading..." : "Load requests"}
+          </button>
+        </div>
+
+        {dirRequests === null && (
+          <p className="text-meta text-foreground-muted leading-relaxed">
+            Researchers who find your lab in the directory and ask to join show
+            up here.
+          </p>
+        )}
+        {dirRequests !== null && dirRequests.length === 0 && (
+          <p className="text-meta text-foreground-muted leading-relaxed">
+            No directory join requests right now.
+          </p>
+        )}
+        {dirRequests !== null && dirRequests.length > 0 && (
+          <ul className="divide-y divide-border rounded-md border border-border">
+            {dirRequests.map((req) => (
+              <li
+                key={req.requesterEmailHash}
+                className="flex items-center justify-between gap-3 px-3 py-2"
+              >
+                <span className="text-meta text-foreground">
+                  <span className="font-medium">{req.requesterName}</span>
+                  <span className="text-foreground-subtle"> wants to join</span>
+                </span>
+                <span className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => resolveDir(req, "approve")}
+                    disabled={busy !== null}
+                    className={primaryBtn}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => resolveDir(req, "decline")}
+                    disabled={busy !== null}
+                    className={secondaryBtn}
+                  >
+                    Decline
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {Object.keys(approvedLinks).length > 0 && (
+          <div className="space-y-2 rounded-md border border-border bg-surface-sunken p-3">
+            <p className="text-meta text-foreground leading-relaxed">
+              Approved. Send each researcher their join link so they can come in
+              (auto-delivery is coming).
+            </p>
+            {Object.entries(approvedLinks).map(([hash, l]) => (
+              <div key={hash} className="flex items-center gap-2">
+                <input
+                  readOnly
+                  value={l}
+                  className="flex-1 truncate rounded border border-border bg-surface px-2 py-1 text-meta text-foreground-muted"
+                />
+                <button
+                  type="button"
+                  onClick={() => void navigator.clipboard.writeText(l)}
+                  className={secondaryBtn}
+                >
+                  Copy
+                </button>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
