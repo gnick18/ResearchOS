@@ -10,7 +10,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node ../scripts/check-wiki-coverage.mjs --ci && node ../scripts/build-wiki-search-index.mjs --quiet && node ../scripts/build-demo-zip.mjs && node ../scripts/build-ai-helper.mjs && node ../scripts/check-ai-helper.mjs && node ../scripts/build-open-source-credits.mjs",
+    "prebuild": "node ../scripts/check-wiki-coverage.mjs --ci && node ../scripts/build-wiki-content.mjs && node ../scripts/build-wiki-search-index.mjs --quiet && node ../scripts/build-demo-zip.mjs && node ../scripts/build-ai-helper.mjs && node ../scripts/check-ai-helper.mjs && node ../scripts/build-open-source-credits.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
