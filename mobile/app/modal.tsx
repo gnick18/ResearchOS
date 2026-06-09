@@ -2,25 +2,68 @@
 // device-local app preferences. First control is the floating mascot toggle
 // (off by default). House style: no em-dashes, no emojis, no mid-sentence colons.
 
-import { ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import Constants from 'expo-constants';
 
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { AlarmSettingsCard } from '@/components/AlarmSettingsCard';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme, palette, spacing } from '@/lib/design';
 import { useMascotPrefs } from '@/lib/mascot-prefs';
 import { useInteractionPrefs } from '@/lib/interaction-prefs';
+import { usePairing, clearPairing } from '@/lib/pairing';
+import { getDevicePubHex } from '@/lib/device-identity';
 
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
+
+// Short, human-comparable form of the device public key, for the laptop-side
+// approve-device flow. Full hex stays internal.
+function deviceFingerprint(hex: string | null): string {
+  if (!hex) return 'Loading...';
+  if (hex.length <= 12) return hex;
+  return `${hex.slice(0, 6)}...${hex.slice(-4)}`;
+}
 
 export default function SettingsScreen() {
   const { surface } = useTheme();
   const [mascot, setMascot] = useMascotPrefs();
   const [interaction, setInteraction] = useInteractionPrefs();
+  const { pairing, refresh } = usePairing();
+
+  const [deviceId, setDeviceId] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    getDevicePubHex()
+      .then((hex) => {
+        if (active) setDeviceId(hex);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const onUnpair = () => {
+    Alert.alert(
+      'Unpair this phone?',
+      'This phone will stop sending captures and notes to your lab. You can pair again anytime from the Notebook screen.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unpair',
+          style: 'destructive',
+          onPress: () => {
+            void clearPairing().then(refresh);
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <ScreenFrame>
@@ -89,6 +132,41 @@ export default function SettingsScreen() {
         <SectionHeader title="Alerts" />
         <AlarmSettingsCard />
 
+        <SectionHeader title="Device and lab" />
+        <Card>
+          <View style={styles.row}>
+            <View style={styles.rowText}>
+              <ThemedText style={[styles.rowTitle, { color: surface.text }]}>
+                Lab
+              </ThemedText>
+              <ThemedText style={[styles.rowSub, { color: surface.muted }]}>
+                {pairing
+                  ? pairing.labName ?? 'Paired to your lab'
+                  : 'Not paired. Pair from the Notebook screen to send captures.'}
+              </ThemedText>
+            </View>
+          </View>
+          <View style={[styles.row, styles.rowDivider]}>
+            <View style={styles.rowText}>
+              <ThemedText style={[styles.rowTitle, { color: surface.text }]}>
+                This device
+              </ThemedText>
+              <ThemedText style={[styles.rowSub, { color: surface.muted }]}>
+                {deviceFingerprint(deviceId)}
+              </ThemedText>
+            </View>
+          </View>
+        </Card>
+        {pairing ? (
+          <Button
+            variant="secondary"
+            accent="coral"
+            label="Unpair this phone"
+            onPress={onUnpair}
+            style={styles.unpairBtn}
+          />
+        ) : null}
+
         <SectionHeader title="About" />
         <Card>
           <View style={styles.row}>
@@ -133,4 +211,5 @@ const styles = StyleSheet.create({
   rowSub: { fontSize: 13, lineHeight: 18 },
   rowValue: { fontSize: 15 },
   aboutNote: { fontSize: 13, lineHeight: 18, marginTop: spacing.sm },
+  unpairBtn: { marginTop: spacing.sm },
 });
