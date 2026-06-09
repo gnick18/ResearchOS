@@ -269,6 +269,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         sidebarShowCalendarEvents: settings.sidebarShowCalendarEvents,
         sidebarEventsHorizonDays: settings.sidebarEventsHorizonDays,
         coloredHeader: settings.coloredHeader,
+        showCompanionButton: settings.showCompanionButton,
         offlineMode: settings.offlineMode,
       });
     } catch (err) {
@@ -284,6 +285,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         sidebarShowCalendarEvents: DEFAULT_SETTINGS.sidebarShowCalendarEvents,
         sidebarEventsHorizonDays: DEFAULT_SETTINGS.sidebarEventsHorizonDays,
         coloredHeader: DEFAULT_SETTINGS.coloredHeader,
+        showCompanionButton: DEFAULT_SETTINGS.showCompanionButton,
         offlineMode: DEFAULT_SETTINGS.offlineMode,
       });
     }

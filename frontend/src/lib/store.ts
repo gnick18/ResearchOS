@@ -33,6 +33,7 @@ export interface SettingsHydration {
   sidebarShowCalendarEvents: boolean;
   sidebarEventsHorizonDays: number;
   coloredHeader: boolean;
+  showCompanionButton: boolean;
   offlineMode: boolean;
 }
 
@@ -177,6 +178,11 @@ interface AppState extends ConnectionState {
 
   coloredHeader: boolean;
   setColoredHeader: (v: boolean) => void;
+
+  // Whether the Companion button shows in the app header. Settings-derived so
+  // the header reacts instantly when the hub Settings toggle flips it.
+  showCompanionButton: boolean;
+  setShowCompanionButton: (v: boolean) => void;
 
   offlineMode: boolean;
   setOfflineMode: (v: boolean) => void;
@@ -334,6 +340,9 @@ export const useAppStore = create<AppState>()((set) => ({
   coloredHeader: true,
   setColoredHeader: (v) => set({ coloredHeader: v }),
 
+  showCompanionButton: true,
+  setShowCompanionButton: (v) => set({ showCompanionButton: v }),
+
   offlineMode: false,
   setOfflineMode: (v) => set({ offlineMode: v }),
 
@@ -352,6 +361,7 @@ export const useAppStore = create<AppState>()((set) => ({
       sidebarShowCalendarEvents: s.sidebarShowCalendarEvents,
       sidebarEventsHorizonDays: s.sidebarEventsHorizonDays,
       coloredHeader: s.coloredHeader,
+      showCompanionButton: s.showCompanionButton,
       offlineMode: s.offlineMode,
     }),
 
@@ -367,6 +377,7 @@ export const useAppStore = create<AppState>()((set) => ({
       sidebarShowCalendarEvents: false,
       sidebarEventsHorizonDays: 7,
       coloredHeader: true,
+      showCompanionButton: true,
       offlineMode: false,
     }),
 

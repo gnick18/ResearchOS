@@ -342,6 +342,7 @@ function SettingsBodyInner() {
           sidebarShowCalendarEvents: saved.sidebarShowCalendarEvents,
           sidebarEventsHorizonDays: saved.sidebarEventsHorizonDays,
           coloredHeader: saved.coloredHeader,
+          showCompanionButton: saved.showCompanionButton,
           offlineMode: saved.offlineMode,
         });
         // If either color field changed, invalidate the user-color map so

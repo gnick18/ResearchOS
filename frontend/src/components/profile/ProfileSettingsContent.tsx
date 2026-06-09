@@ -115,6 +115,7 @@ export default function ProfileSettingsContent() {
         sidebarShowCalendarEvents: saved.sidebarShowCalendarEvents,
         sidebarEventsHorizonDays: saved.sidebarEventsHorizonDays,
         coloredHeader: saved.coloredHeader,
+        showCompanionButton: saved.showCompanionButton,
         offlineMode: saved.offlineMode,
       });
       if (patch.color !== undefined || patch.colorSecondary !== undefined) {

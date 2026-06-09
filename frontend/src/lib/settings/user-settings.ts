@@ -189,6 +189,12 @@ export interface UserSettings {
    *  default). Mirrored to `_user_metadata.json:color_secondary`. */
   colorSecondary: string | null;
   coloredHeader: boolean;         // false → keep header white instead of tinting with `color`
+  /** Show the Companion button in the app header. Off hides it; the hub stays
+   *  reachable from Settings. */
+  showCompanionButton: boolean;
+  /** Auto-publish today/inventory/notebook snapshots to paired phones. Off is
+   *  the kill switch; the laptop stops pushing snapshots to the companion. */
+  autoPublishSnapshotsToPhones: boolean;
   animationType: AnimationType;
   /** When off, suppresses the BeakerBot streak-celebration scenes
    *  (mouseWave / eureka / ladder / skateboard, etc.). Default true
@@ -367,6 +373,8 @@ export const DEFAULT_SETTINGS: UserSettings = {
   color: "#3b82f6",
   colorSecondary: null,
   coloredHeader: true,
+  showCompanionButton: true,
+  autoPublishSnapshotsToPhones: true,
   animationType: "rock",
   beakerBotAnimations: true,
   professionalMode: false,
