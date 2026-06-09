@@ -66,7 +66,7 @@ function DevPairBypassInner() {
   }, [setCurrentUser]);
 
   return (
-    <div className="fixed bottom-4 left-4 z-50 flex max-w-xs flex-col items-start gap-1.5">
+    <div className="fixed bottom-20 left-4 z-50 flex max-w-xs flex-col items-start gap-1.5">
       {msg && (
         <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-meta text-amber-800 shadow-lg">
           {msg}

@@ -36,6 +36,7 @@ import WikiCaptureBodyClass from "@/components/WikiCaptureBodyClass";
 import SharedFolderAutoRefresh from "@/components/SharedFolderAutoRefresh";
 import CaptureInboxPoller from "@/components/CaptureInboxPoller";
 import FocusContextPublisher from "@/components/FocusContextPublisher";
+import DevEphemeralSessionButton from "@/components/DevEphemeralSessionButton";
 import IdentitySessionRestorer from "@/components/IdentitySessionRestorer";
 import TodaySnapshotPublisher from "@/components/TodaySnapshotPublisher";
 import DataMigrationRunner from "@/components/DataMigrationRunner";
@@ -434,6 +435,12 @@ function AppContent({ children }: { children: ReactNode }) {
           Notes or Results tab instead of the inbox. Headless, no-op when no
           identity is on hand or no experiment popup is open. */}
       <FocusContextPublisher />
+      {/* Dev-only one-click clean-slate session (bottom-left): spins up a
+          throwaway in-browser (OPFS) data folder, mints an identity, and signs
+          in with no folder picker, so a phone can pair against a guaranteed
+          fresh session every time. Renders nothing in production or once a user
+          is signed in. (mobile manager) */}
+      <DevEphemeralSessionButton />
       {/* Auto on-disk data migrations (docs/proposals/AUTO_DATA_MIGRATIONS.md):
           runs pending idempotent format upgrades once per connected user folder,
           in the background, and shows a quiet "Updated N files" toast on change.

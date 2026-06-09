@@ -93,7 +93,19 @@ interface FileSystemContextValue extends FileSystemState {
   reverifyPermission: () => Promise<boolean>;
   initializeFolder: () => Promise<boolean>;
   createNewFolder: (folderName: string) => Promise<boolean>;
+  /**
+   * DEV ONLY. Connect to a throwaway in-browser (OPFS) data folder instead of
+   * an OS-picked disk folder, so a clean-slate session is one click with no
+   * picker and nothing to reconnect to. Recreated empty on every call and
+   * never persisted, so a reload lands on the login screen. `disconnect()`
+   * removes the OPFS folder. No-op (returns false) in production or where OPFS
+   * is unavailable.
+   */
+  connectEphemeralDev: () => Promise<boolean>;
 }
+
+/** DEV ONLY. Name of the throwaway OPFS folder backing an ephemeral session. */
+const EPHEMERAL_DEV_DIR = "researchos-dev-ephemeral";
 
 interface PermissionableHandle extends FileSystemDirectoryHandle {
   queryPermission?: (opts: { mode: "read" | "readwrite" }) => Promise<PermissionState>;
@@ -944,6 +956,76 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     }
   }, []);
 
+  const connectEphemeralDev = useCallback(async (): Promise<boolean> => {
+    if (process.env.NODE_ENV !== "development") return false;
+    const storage = (typeof navigator !== "undefined" ? navigator.storage : undefined) as
+      | { getDirectory?: () => Promise<FileSystemDirectoryHandle> }
+      | undefined;
+    if (!storage?.getDirectory) {
+      setState((prev) => ({
+        ...prev,
+        error: "This browser has no OPFS, so an ephemeral dev session is not available.",
+      }));
+      return false;
+    }
+    setState((prev) => ({
+      ...prev,
+      isLoading: true,
+      error: null,
+      loadingStage: "validating-folder",
+    }));
+    try {
+      const root = await storage.getDirectory();
+      const rootEntry = root as unknown as {
+        removeEntry: (name: string, opts?: { recursive?: boolean }) => Promise<void>;
+      };
+      // Fresh slate: drop any prior ephemeral folder, then recreate it empty so
+      // a re-click never carries old state forward.
+      try {
+        await rootEntry.removeEntry(EPHEMERAL_DEV_DIR, { recursive: true });
+      } catch {
+        // No prior folder, or it was already gone. Both are fine.
+      }
+      const handle = await root.getDirectoryHandle(EPHEMERAL_DEV_DIR, { create: true });
+      fileService.setDirectoryHandle(handle);
+      const ok = await ensureFolderStructure();
+      if (!ok) {
+        fileService.clearDirectoryHandle();
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          loadingStage: null,
+          error: "Could not create the ephemeral dev folder.",
+        }));
+        return false;
+      }
+      // Deliberately NOT storeDirectoryHandle: there is nothing to silently
+      // reconnect to on the next load, which is the whole point.
+      setState((prev) => ({
+        ...prev,
+        isConnected: true,
+        isLoading: false,
+        loadingStage: null,
+        error: null,
+        directoryName: "Dev ephemeral",
+        availableUsers: [],
+        needsInitialization: false,
+        lastConnectedFolder: null,
+        captureRefused: false,
+      }));
+      return true;
+    } catch (err) {
+      fileService.clearDirectoryHandle();
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        loadingStage: null,
+        error: err instanceof Error ? err.message : "Ephemeral dev connect failed.",
+      }));
+      return false;
+    }
+  }, []);
+
   const createNewFolder = useCallback(async (folderName: string): Promise<boolean> => {
     const showDirectoryPicker = (window as unknown as { showDirectoryPicker?: (options?: { mode?: string; startIn?: string }) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker;
     if (!showDirectoryPicker) {
@@ -1053,6 +1135,23 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
   const disconnect = useCallback(async () => {
     fileService.clearDirectoryHandle();
     await clearDirectoryHandle();
+    // Dev: drop the throwaway OPFS folder so a closed ephemeral session leaves
+    // nothing behind. A no-op for real disk folders (the entry is absent).
+    if (process.env.NODE_ENV === "development") {
+      try {
+        const storage = (typeof navigator !== "undefined" ? navigator.storage : undefined) as
+          | { getDirectory?: () => Promise<FileSystemDirectoryHandle> }
+          | undefined;
+        if (storage?.getDirectory) {
+          const root = (await storage.getDirectory()) as unknown as {
+            removeEntry: (name: string, opts?: { recursive?: boolean }) => Promise<void>;
+          };
+          await root.removeEntry(EPHEMERAL_DEV_DIR, { recursive: true });
+        }
+      } catch {
+        // Not an ephemeral session, or nothing to remove.
+      }
+    }
     await clearCurrentUser();
     // Bug 2 fix 2026-05-23: clear the legacy per-machine Main IDB key
     // on disconnect. With Main now stored per-folder in
@@ -1174,6 +1273,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     reverifyPermission,
     initializeFolder,
     createNewFolder,
+    connectEphemeralDev,
   };
 
   return (
