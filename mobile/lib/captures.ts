@@ -136,6 +136,13 @@ export async function removeCapture(id: string): Promise<void> {
   await writeAll(next);
 }
 
+// Wipe the whole outbox. Called when the phone pairs to a DIFFERENT lab (a new
+// pairing u), so captures sent to a previous lab / dev server never leak into a
+// fresh connection's "recently sent".
+export async function clearAllCaptures(): Promise<void> {
+  await AsyncStorage.removeItem(CAPTURES_KEY);
+}
+
 // Flip a single capture's status in place. Returns the updated list.
 export async function setCaptureStatus(
   id: string,
@@ -183,10 +190,13 @@ export async function sendCapture(
   capture: Capture,
   pairing: Pairing,
   deviceSign: (message: string) => Promise<string>,
+  opts: { suppressBurst?: boolean } = {},
 ): Promise<void> {
   if (pairing.demo) {
     await setCaptureStatus(capture.id, 'sent');
-    fireSuccess({ subtitle: (capture.caption || 'Photo').slice(0, 60) });
+    if (!opts.suppressBurst) {
+      fireSuccess({ subtitle: (capture.caption || 'Photo').slice(0, 60) });
+    }
     return;
   }
 
@@ -250,7 +260,12 @@ export async function sendCapture(
     }
 
     await setCaptureStatus(capture.id, 'sent');
-    fireSuccess({ subtitle: (capture.caption || 'Photo').slice(0, 60) });
+    // The routing flow fires its own "Filed in X" / "Sent to inbox" burst AFTER
+    // the destination is chosen, so it suppresses this upload-time burst to
+    // avoid celebrating before the user has picked where the capture goes.
+    if (!opts.suppressBurst) {
+      fireSuccess({ subtitle: (capture.caption || 'Photo').slice(0, 60) });
+    }
   } catch (err) {
     await setCaptureStatus(capture.id, 'failed');
     throw err;

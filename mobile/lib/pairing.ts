@@ -6,6 +6,7 @@
 // colons.
 import { useCallback, useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import { clearAllCaptures } from '@/lib/captures';
 
 const PAIRING_KEY = 'researchos.pairing.v1';
 
@@ -77,6 +78,17 @@ export async function setPairing(p: {
   userX25519PubHex?: string;
   demo?: boolean;
 }): Promise<Pairing> {
+  // Switching to a DIFFERENT lab (a new u) wipes the outbox so captures sent to
+  // a previous lab / dev server never leak into the new connection's "recently
+  // sent". A same-lab re-pair (same u) keeps any queued captures.
+  try {
+    const prev = await getPairing();
+    if (prev && prev.u !== p.u) {
+      await clearAllCaptures();
+    }
+  } catch {
+    // Best-effort; a read failure should never block pairing.
+  }
   const pairing: Pairing = {
     u: p.u,
     relayUrl: p.relayUrl,

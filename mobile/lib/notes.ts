@@ -55,6 +55,7 @@ export async function sendTextNote(
   note: { title?: string; body: string },
   pairing: Pairing,
   deviceSign: (message: string) => Promise<string>,
+  opts: { suppressBurst?: boolean } = {},
 ): Promise<SendNoteResult> {
   try {
     const body = note.body;
@@ -114,7 +115,9 @@ export async function sendTextNote(
         error: `Send failed (status ${res.status})${resBody.error ? ` ${resBody.error}` : ''}`,
       };
     }
-    fireSuccess({ subtitle: 'Quick note' });
+    if (!opts.suppressBurst) {
+      fireSuccess({ subtitle: 'Quick note' });
+    }
     return { ok: true };
   } catch (err) {
     return {

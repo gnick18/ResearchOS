@@ -242,10 +242,10 @@ export default function NotebookScreen() {
   );
 
   const sendOne = useCallback(
-    async (capture: Capture) => {
+    async (capture: Capture, opts?: { suppressBurst?: boolean }) => {
       if (!pairing) return;
       try {
-        await sendCapture(capture, pairing, signWithDevice);
+        await sendCapture(capture, pairing, signWithDevice, opts);
       } catch (err) {
         Alert.alert(
           'Upload failed',
@@ -355,16 +355,24 @@ export default function NotebookScreen() {
       const contextPromise = getFocusContext(pairing.relayUrl).catch(() => null);
       const notebooksPromise = fetchNotebooksCached();
 
-      await sendOne(queued);
+      // Suppress the upload-time burst, the celebration fires AFTER the user
+      // picks a destination below (so we never animate "sent" before the
+      // notebook is chosen).
+      await sendOne(queued, { suppressBurst: true });
 
-      // Guard: no routing without an X25519 pubkey (old pairing shape).
+      // Guard: no routing without an X25519 pubkey (old pairing shape). The
+      // capture already landed in the inbox, so confirm that.
       const userX25519PubHex = pairing.userX25519PubHex ?? '';
-      if (!userX25519PubHex) return;
+      if (!userX25519PubHex) {
+        fireSuccess({ subtitle: 'Sent to inbox' });
+        return;
+      }
 
       let ctx: FocusContext | null;
       try {
         ctx = await contextPromise;
       } catch {
+        fireSuccess({ subtitle: 'Sent to inbox' });
         return;
       }
 
@@ -385,6 +393,7 @@ export default function NotebookScreen() {
                 text: 'Lab Notes',
                 onPress: () => {
                   routedViaAlert = true;
+                  fireSuccess({ subtitle: `Sent to ${name} Lab Notes` });
                   void postRouteCapture(
                     queued.id,
                     taskId,
@@ -399,6 +408,7 @@ export default function NotebookScreen() {
                 text: 'Results',
                 onPress: () => {
                   routedViaAlert = true;
+                  fireSuccess({ subtitle: `Sent to ${name} Results` });
                   void postRouteCapture(
                     queued.id,
                     taskId,
@@ -412,17 +422,28 @@ export default function NotebookScreen() {
               {
                 text: 'More notebooks...',
                 onPress: () => {
-                  // Fall through to the full chooser below.
+                  // Fall through to the full chooser below (it fires its own burst).
                   resolve();
                 },
               },
               {
                 text: 'Send to inbox instead',
                 style: 'cancel',
-                onPress: () => { routedViaAlert = true; resolve(); },
+                onPress: () => {
+                  routedViaAlert = true;
+                  fireSuccess({ subtitle: 'Sent to inbox' });
+                  resolve();
+                },
               },
             ],
-            { cancelable: true, onDismiss: () => { routedViaAlert = true; resolve(); } },
+            {
+              cancelable: true,
+              onDismiss: () => {
+                routedViaAlert = true;
+                fireSuccess({ subtitle: 'Sent to inbox' });
+                resolve();
+              },
+            },
           );
         });
         if (routedViaAlert) return;
@@ -470,7 +491,9 @@ export default function NotebookScreen() {
     setChooserVisible(false);
     setPendingCapture(null);
     setPendingContext(null);
-    // No routing command; capture stays in the inbox.
+    // No routing command; capture stays in the inbox. Fire the burst now that
+    // the destination (inbox) is chosen.
+    fireSuccess({ subtitle: 'Sent to inbox' });
   }, []);
 
   const onChooserClose = useCallback(() => {
@@ -516,15 +539,16 @@ export default function NotebookScreen() {
         setPendingContext(null);
 
         if (chosen) {
-          // Send the note then post the routing command.
+          // Send the note then post the routing command. Suppress sendTextNote's
+          // own burst so we fire exactly one, naming the destination, AFTER the
+          // notebook is chosen.
           const result = await sendTextNote(
             { title: quickNoteTitle, body: quickNoteBody.trim() },
             pairing,
             signWithDevice,
+            { suppressBurst: true },
           );
           if (result.ok) {
-            // sendTextNote fires its own success burst. We fire a second one
-            // naming the destination notebook.
             fireSuccess({ subtitle: `Filed in ${chosen.notebook.title}` });
             setQuickNoteOpen(false);
             setQuickNoteTitle('');
