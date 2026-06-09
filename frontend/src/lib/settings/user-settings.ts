@@ -195,6 +195,10 @@ export interface UserSettings {
   /** Auto-publish today/inventory/notebook snapshots to paired phones. Off is
    *  the kill switch; the laptop stops pushing snapshots to the companion. */
   autoPublishSnapshotsToPhones: boolean;
+  /** How this laptop alerts when a timer finishes (Phase 3). "sound-visual"
+   *  plays the Chime + the BeakerBot celebration; "visual-only" stays silent.
+   *  Per-device; the phone keeps its own sound/vibration settings. */
+  laptopAlarmMode: "sound-visual" | "visual-only";
   animationType: AnimationType;
   /** When off, suppresses the BeakerBot streak-celebration scenes
    *  (mouseWave / eureka / ladder / skateboard, etc.). Default true
@@ -375,6 +379,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   coloredHeader: true,
   showCompanionButton: true,
   autoPublishSnapshotsToPhones: true,
+  laptopAlarmMode: "sound-visual",
   animationType: "rock",
   beakerBotAnimations: true,
   professionalMode: false,

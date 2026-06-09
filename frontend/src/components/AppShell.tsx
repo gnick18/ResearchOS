@@ -46,6 +46,7 @@ import ProfileSettingsModal from "@/components/profile/ProfileSettingsModal";
 import SettingsModal from "@/components/settings/SettingsModal";
 import CompanionHub from "@/components/CompanionHub";
 import TimersPopup from "@/components/TimersPopup";
+import TimerAlarm from "@/components/TimerAlarm";
 import { Icon } from "@/components/icons";
 import { useCompanionHub } from "@/lib/ui/companion-hub-store";
 import { useTimersPopup } from "@/lib/ui/timers-popup-store";
@@ -677,6 +678,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <SettingsModal />
       <CompanionHub />
       <TimersPopup />
+      <TimerAlarm />
       {/* Global OAuth-claim resume (account-creation-flow bot, 2026-06-05):
        *  finishes sharing-account creation when the user returns from the
        *  provider redirect with ?sharingClaim=1. Mounts SharingSetupWizard for
