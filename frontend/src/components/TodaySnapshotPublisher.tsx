@@ -23,6 +23,8 @@ import { loadUserCaptureKeys } from "@/lib/mobile-relay/keys";
 import { publishTodayToAllDevices } from "@/lib/mobile-relay/today-snapshot";
 import { publishInventoryToAllDevices } from "@/lib/mobile-relay/inventory-snapshot";
 import { publishNotebooksToAllDevices } from "@/lib/mobile-relay/notebooks-snapshot";
+import { publishTimersToAllDevices } from "@/lib/mobile-relay/timers-snapshot";
+import { useLaptopTimerStore } from "@/lib/timers/laptop-timers";
 
 const PUBLISH_INTERVAL_MS = 60_000;
 // Throttle so a focus event landing on top of the interval (or vice versa) does
@@ -82,6 +84,12 @@ export default function TodaySnapshotPublisher() {
             `[notebooks-publisher] published to ${nb.published} device(s), skipped ${nb.skipped}`,
           );
         }
+        // Timers snapshot: the laptop's own running timers so they mirror onto
+        // the phone. Also published on change (the effect below) for near-instant
+        // propagation; this periodic pass is the fallback + re-seal for late
+        // device pairings.
+        if (cancelled) return;
+        await publishTimersToAllDevices(keys);
       } catch (err) {
         console.warn("[today-publisher] publish failed (will retry)", err);
       } finally {
@@ -104,6 +112,54 @@ export default function TodaySnapshotPublisher() {
       clearInterval(timer);
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [currentUser, isConnected]);
+
+  // Event-driven timers publish. A timer started or cancelled on the laptop
+  // should reach the phone in a second or two, not wait for the 60s snapshot
+  // cadence. Subscribe to the laptop timer store and publish on change, keyed by
+  // the running-timer id set so the per-second `now` ticks do NOT trigger a
+  // publish. Debounced + kill-switch gated, same as the periodic pass.
+  useEffect(() => {
+    if (!isConnected || !currentUser) return;
+
+    let lastSig = "";
+    let debounce: ReturnType<typeof setTimeout> | null = null;
+
+    const publishTimers = async () => {
+      try {
+        const keys = await loadUserCaptureKeys();
+        if (!keys) return;
+        const settings = await readUserSettings(currentUser);
+        if (!settings.autoPublishSnapshotsToPhones) return;
+        await publishTimersToAllDevices(keys);
+      } catch (err) {
+        console.warn("[timers-publisher] change publish failed", err);
+      }
+    };
+
+    const signature = (
+      timers: ReturnType<typeof useLaptopTimerStore.getState>["timers"],
+    ) =>
+      timers
+        .filter((t) => t.origin === "laptop" && t.status === "running")
+        .map((t) => t.id)
+        .sort()
+        .join(",");
+
+    lastSig = signature(useLaptopTimerStore.getState().timers);
+
+    const unsub = useLaptopTimerStore.subscribe((state) => {
+      const sig = signature(state.timers);
+      if (sig === lastSig) return;
+      lastSig = sig;
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(() => void publishTimers(), 400);
+    });
+
+    return () => {
+      unsub();
+      if (debounce) clearTimeout(debounce);
     };
   }, [currentUser, isConnected]);
 
