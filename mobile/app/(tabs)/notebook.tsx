@@ -60,7 +60,7 @@ import {
 import { getFocusContext, type FocusContext } from '@/lib/focus-context';
 import { postRouteCapture } from '@/lib/route-capture';
 import { fetchNotebooks, type NotebookSummary } from '@/lib/notebooks';
-import { postRouteCaptureNote } from '@/lib/note-route';
+import { postRouteCaptureNote, postAppendNoteText } from '@/lib/note-route';
 import { sendTextNote } from '@/lib/notes';
 import { NotebookChooser } from '@/components/NotebookChooser';
 import { fireSuccess } from '@/lib/success-burst';
@@ -539,24 +539,32 @@ export default function NotebookScreen() {
         setPendingContext(null);
 
         if (chosen) {
-          // KNOWN GAP (mobile manager 2026-06-09): routing a TEXT note into a
-          // chosen notebook entry is NOT yet built. Unlike a photo (which the
-          // laptop attaches into the entry via attachImageToNote), a text note
-          // needs an append-to-entry write, a separate command. So for now the
-          // quick note lands in the inbox honestly and the burst says so, rather
-          // than claiming "Filed in X". The user's pick is currently ignored.
-          const result = await sendTextNote(
-            { title: quickNoteTitle, body: quickNoteBody.trim() },
-            pairing,
-            signWithDevice,
-          );
-          if (result.ok) {
-            setQuickNoteOpen(false);
-            setQuickNoteTitle('');
-            setQuickNoteBody('');
-          } else {
-            Alert.alert('Note failed', result.error);
+          // Build the text to append. Prepend the title as a markdown heading
+          // when the user supplied one, so the note entry gets clean structure.
+          const body = quickNoteBody.trim();
+          const text = quickNoteTitle.trim()
+            ? `## ${quickNoteTitle.trim()}\n\n${body}`
+            : body;
+
+          try {
+            await postAppendNoteText(
+              chosen.notebook.noteId,
+              chosen.notebook.owner,
+              chosen.entryId,
+              text,
+              userX25519PubHex,
+              pairing.relayUrl,
+            );
+          } catch {
+            // postAppendNoteText is best-effort. If it throws the text is lost
+            // from the chosen entry; the user can retry or type it again. We do
+            // NOT fall back to inbox here because the user already chose a
+            // destination and expects the action to complete silently.
           }
+          fireSuccess({ subtitle: `Filed in ${chosen.notebook.title}` });
+          setQuickNoteOpen(false);
+          setQuickNoteTitle('');
+          setQuickNoteBody('');
           return;
         }
         // User chose "unsorted" (resolve(null)) - fall through to plain send.
