@@ -259,6 +259,25 @@ interface RouteCaptureNoteCommand {
 }
 
 /**
+ * An append-note-text command (text routing). The phone seals this JSON to the
+ * user's X25519 public key. The laptop unseals it and appends text into the
+ * given note entry. The text rides inside the sealed command (no relay object
+ * upload). When entryId is null the laptop uses the latest entry, or creates
+ * one if the note has no entries.
+ */
+interface AppendNoteTextCommand {
+  type: "append-note-text";
+  /** Numeric note id. */
+  noteId: number;
+  /** Owner username. */
+  owner: string;
+  /** Entry id to append to. Null means use the latest entry (or create one). */
+  entryId: string | null;
+  /** Markdown text to append. */
+  text: string;
+}
+
+/**
  * Classify a capture content type into the branch that handles it. Pure +
  * exported so the routing can be unit tested without any relay / file mocking.
  * Matching is case-insensitive and tolerant of charset suffixes
@@ -728,6 +747,9 @@ export async function runCaptureInboxPoll(
   // Append-line commands to apply after the route-map pass. Accumulated here so
   // we process captures first (route-map must be complete), then apply appends.
   const appendLineQueue: Array<{ cmd: AppendLineCommand; commandId: string }> = [];
+  // Append-note-text commands (text routing). Applied after captures for the
+  // same ordering reason as appendLineQueue.
+  const appendNoteTextQueue: Array<{ cmd: AppendNoteTextCommand; commandId: string }> = [];
 
   // Load the user's X25519 private key for unsealing commands. The relay
   // seals each command to the user's identity encryption key, which is
@@ -799,6 +821,17 @@ export async function runCaptureInboxPoll(
               );
             } else {
               console.warn(`${LOG_PREFIX} append-line command ${cmd.commandId} has invalid fields, skipping`);
+            }
+          } else if (parsed.type === "append-note-text") {
+            // Text routing: append markdown text into a note entry.
+            const ant = parsed as AppendNoteTextCommand;
+            if (typeof ant.noteId === "number" && ant.owner && typeof ant.text === "string") {
+              appendNoteTextQueue.push({ cmd: ant, commandId: cmd.commandId });
+              console.info(
+                `${LOG_PREFIX} append-note-text command queued: note ${ant.owner}/${ant.noteId} entryId=${ant.entryId ?? "latest"} text="${ant.text.slice(0, 60)}"`,
+              );
+            } else {
+              console.warn(`${LOG_PREFIX} append-note-text command ${cmd.commandId} has invalid fields, skipping`);
             }
           } else {
             // Unknown command type. Do NOT ack so a later phase can handle it.
@@ -1345,6 +1378,162 @@ export async function runCaptureInboxPoll(
     }
   }
   // ── end append-line processing ──────────────────────────────────────────
+
+  // ── append-note-text processing ─────────────────────────────────────────
+  // Apply any append-note-text commands that arrived this poll. Each is handled
+  // independently so one failure does not block the rest.
+  for (const { cmd, commandId } of appendNoteTextQueue) {
+    try {
+      // Permission gate: same pattern as the route-capture-note handler above.
+      // buildCurrentViewer + canWriteIgnoringPiRole covers own / shared-edit /
+      // 1:1 notebook. PI implicit-write-all excluded (no UI here for confirmation).
+      let noteWritable = false;
+      let noteRecord = null;
+      try {
+        noteRecord = await notesApi.get(cmd.noteId, cmd.owner);
+        if (noteRecord) {
+          const viewer = await buildCurrentViewer();
+          const shareableNote = {
+            owner: cmd.owner,
+            shared_with: noteRecord.shared_with ?? [],
+          };
+          noteWritable = canWriteIgnoringPiRole(shareableNote, viewer);
+        } else {
+          console.warn(
+            `${LOG_PREFIX} append-note-text: note ${cmd.owner}/${cmd.noteId} not found, falling back to inbox note`,
+          );
+        }
+      } catch (permErr) {
+        console.warn(
+          `${LOG_PREFIX} append-note-text: permission check failed for note ${cmd.owner}/${cmd.noteId}, falling back to inbox note`,
+          permErr instanceof Error ? permErr.message : String(permErr),
+        );
+      }
+
+      if (!noteWritable || !noteRecord) {
+        // Not writable or not found: land as a plain inbox Note so text is not lost.
+        console.warn(
+          `${LOG_PREFIX} append-note-text: no write access to note ${cmd.owner}/${cmd.noteId}, landing as inbox note`,
+        );
+        const now = new Date().toISOString();
+        await notesApi.create({
+          title: now.slice(0, 10) + " (mobile note)",
+          entries: [
+            {
+              title: now.slice(0, 10),
+              date: now.slice(0, 10),
+              content: cmd.text,
+            },
+          ],
+        });
+        console.info(`${LOG_PREFIX} append-note-text: created inbox fallback note`);
+        // Ack so the command does not loop (permission is authoritative).
+        try {
+          await ackCommands(keys, [commandId]);
+          console.info(`${LOG_PREFIX} acked append-note-text command ${commandId} (inbox fallback)`);
+        } catch {
+          // best-effort
+        }
+        pulled += 1;
+        continue;
+      }
+
+      // Resolve the target entry.
+      // Priority: given entryId -> latest entry by updated_at -> create new.
+      let targetEntryId: string;
+      const entries = noteRecord.entries ?? [];
+
+      if (cmd.entryId && entries.some((e) => e.id === cmd.entryId)) {
+        // Caller supplied a specific entry id and it exists in the note.
+        targetEntryId = cmd.entryId;
+        console.info(
+          `${LOG_PREFIX} append-note-text: using given entryId=${targetEntryId}`,
+        );
+      } else if (entries.length > 0) {
+        // Use the latest entry by updated_at.
+        const latest = entries.reduce((a, b) =>
+          (a.updated_at ?? "") >= (b.updated_at ?? "") ? a : b,
+        );
+        targetEntryId = latest.id;
+        console.info(
+          `${LOG_PREFIX} append-note-text: using latest entryId=${targetEntryId}`,
+        );
+      } else {
+        // Note has no entries: create one now, then use it.
+        const now = new Date().toISOString();
+        const created = await notesApi.addEntry(
+          cmd.noteId,
+          { title: now.slice(0, 10), date: now.slice(0, 10), content: "" },
+          cmd.owner,
+        );
+        const newEntries = created?.entries ?? [];
+        if (newEntries.length === 0) {
+          throw new Error("addEntry returned no entries");
+        }
+        targetEntryId = newEntries[newEntries.length - 1].id;
+        console.info(
+          `${LOG_PREFIX} append-note-text: created new entry ${targetEntryId}`,
+        );
+        // Re-read the record so existingContent is current after addEntry.
+        noteRecord = created;
+      }
+
+      // Append the text.
+      // Attribution: updateEntry calls recordEntryHistory, which calls
+      // resolveAttributionActor(null) -> getCurrentUserCached() -> the current
+      // signed-in user (the writer). Same attribution path as route-capture-note.
+      const existingEntry = (noteRecord?.entries ?? []).find(
+        (e) => e.id === targetEntryId,
+      );
+      const existingContent = existingEntry?.content ?? "";
+      const newContent = existingContent.replace(/\s+$/, "")
+        ? existingContent.replace(/\s+$/, "") + "\n\n" + cmd.text
+        : cmd.text;
+
+      await notesApi.updateEntry(
+        cmd.noteId,
+        targetEntryId,
+        { content: newContent },
+        cmd.owner,
+      );
+      console.info(
+        `${LOG_PREFIX} append-note-text: appended to note ${cmd.owner}/${cmd.noteId} entry ${targetEntryId}`,
+      );
+
+      // Dispatch note:routed so an open NoteDetailPopup refreshes to this entry.
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("note:routed", {
+            detail: {
+              noteId: cmd.noteId,
+              owner: cmd.owner,
+              entryId: targetEntryId,
+            },
+          }),
+        );
+      }
+
+      // Ack the command after the write succeeds.
+      try {
+        await ackCommands(keys, [commandId]);
+        console.info(`${LOG_PREFIX} acked append-note-text command ${commandId}`);
+      } catch (ackErr) {
+        console.warn(
+          `${LOG_PREFIX} failed to ack append-note-text command ${commandId}`,
+          ackErr instanceof Error ? ackErr.message : String(ackErr),
+        );
+      }
+
+      pulled += 1;
+    } catch (appendTextErr) {
+      errors += 1;
+      console.warn(
+        `${LOG_PREFIX} failed to apply append-note-text command ${commandId}`,
+        appendTextErr instanceof Error ? appendTextErr.message : String(appendTextErr),
+      );
+    }
+  }
+  // ── end append-note-text processing ─────────────────────────────────────
 
   // The poller writes notes/images straight through the API + file-service layer,
   // which does NOT run the React Query mutation hooks that normally refresh open
