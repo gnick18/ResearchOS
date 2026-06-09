@@ -20,6 +20,24 @@ function isDev(): boolean {
   return process.env.NODE_ENV !== "production";
 }
 
+/**
+ * Find start.sh by walking up from the server's cwd. start.sh lives at the
+ * ResearchOS repo root, and the dev server can be launched with its cwd at the
+ * repo root OR at frontend/ (next dev), so we check the cwd and a few parents
+ * rather than assuming one layout. Returns the absolute path or null.
+ */
+function findStartScript(): string | null {
+  let dir = process.cwd();
+  for (let i = 0; i < 5; i += 1) {
+    const candidate = path.join(dir, "start.sh");
+    if (existsSync(candidate)) return candidate;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+}
+
 /** Lightweight ping. The restart button polls this until the fresh server
  *  answers, then reloads the page. */
 export async function GET(): Promise<Response> {
@@ -30,15 +48,16 @@ export async function GET(): Promise<Response> {
 export async function POST(): Promise<Response> {
   if (!isDev()) return new Response("not found", { status: 404 });
 
-  // next dev runs with cwd = frontend/; start.sh sits at the repo root.
-  const repoRoot = path.join(process.cwd(), "..");
-  const startScript = path.join(repoRoot, "start.sh");
-  if (!existsSync(startScript)) {
+  const startScript = findStartScript();
+  if (!startScript) {
     return Response.json(
-      { error: `start.sh not found at ${startScript}` },
+      { error: `start.sh not found walking up from ${process.cwd()}` },
       { status: 500 },
     );
   }
+  // Run start.sh from the repo root (the dir it lives in), so its internal
+  // `cd "$DIR/frontend"` and port handling resolve correctly.
+  const repoRoot = path.dirname(startScript);
 
   // The short sleep lets this response flush to the browser before start.sh
   // kills port 3000 (us). detached + ignored stdio + unref fully cut the child
