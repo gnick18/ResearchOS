@@ -140,8 +140,10 @@ export function Splash({ onComplete }: SplashProps) {
 
     rafHandle = requestAnimationFrame(waveLoop);
 
-    // Fill + percentage counter (starts 450 ms, runs 1700 ms).
-    const fillDur = 1700;
+    // Fill + percentage counter (overfills to the lip; the tip below spills the
+    // excess back down to the natural liquid line).
+    const fillStart = 450;
+    const fillDur = 1400;
     T(() => {
       const start = performance.now();
       function fill(now: number) {
@@ -159,10 +161,52 @@ export function Splash({ onComplete }: SplashProps) {
         }
       }
       requestAnimationFrame(fill);
-    }, 450);
+    }, fillStart);
 
-    // Exit rainbow flood after wordmark settles (2550 ms).
-    const exitAt = 2550;
+    // Tip + settle: once full, BeakerBot tips to "spill" the excess rainbow
+    // down to his natural liquid line (NORMAL), as the wordmark comes in. The
+    // whole bot rotates around its base (20,31); a few droplets fall from the
+    // lip. NORMAL (water-group translate) puts the surface at the mark's y19.
+    const NORMAL = 16;
+    T(() => {
+      const botEl = container.querySelector<SVGGElement>("#splash-bot");
+      const spillEl = container.querySelector<SVGGElement>("#splash-spill");
+      const tipStart = performance.now();
+      const tipDur = 560;
+      const MAX_ANGLE = 13;
+      function tip(now: number) {
+        const k = Math.min(1, (now - tipStart) / tipDur);
+        // Rotate out to MAX_ANGLE by k=0.3, then ease back to level by k=1.
+        const angle =
+          k < 0.3 ? (k / 0.3) * MAX_ANGLE : MAX_ANGLE * (1 - (k - 0.3) / 0.7);
+        botEl?.setAttribute("transform", `rotate(${angle.toFixed(2)}, 20, 31)`);
+        // Water settles 0 -> NORMAL (eased) once the tip begins.
+        const wk = Math.max(0, Math.min(1, (k - 0.15) / 0.6));
+        level(NORMAL * (1 - Math.pow(1 - wk, 2)));
+        // Droplets fall from the lip and fade while the bot is tipped.
+        if (spillEl) {
+          spillEl.setAttribute(
+            "transform",
+            `translate(${(2 + k * 3).toFixed(2)}, ${(k * 16).toFixed(2)})`,
+          );
+          spillEl.style.opacity = String(
+            k < 0.12 ? k / 0.12 : k > 0.75 ? Math.max(0, (1 - k) / 0.25) : 1,
+          );
+        }
+        if (k < 1) {
+          const id = requestAnimationFrame(tip);
+          timers.push(id);
+        } else {
+          botEl?.setAttribute("transform", "rotate(0, 20, 31)");
+          level(NORMAL);
+          if (spillEl) spillEl.style.opacity = "0";
+        }
+      }
+      requestAnimationFrame(tip);
+    }, fillStart + fillDur);
+
+    // Exit rainbow flood after the tip + wordmark settle.
+    const exitAt = 3100;
     T(() => {
       pctEl.style.opacity = "0";
       revealEl.style.transition = "opacity 550ms ease 200ms";
@@ -230,12 +274,13 @@ export function Splash({ onComplete }: SplashProps) {
           opacity: 0;
           transform: translateY(16px);
           animation: splashRise 0.7s cubic-bezier(.16,.84,.24,1) forwards;
-          animation-delay: 1.75s;
+          /* Comes in as BeakerBot tips and settles (fill ends ~1.85s). */
+          animation-delay: 2s;
         }
         .splash-tag {
           opacity: 0;
           animation: splashRise 0.7s ease forwards;
-          animation-delay: 1.95s;
+          animation-delay: 2.25s;
         }
         @keyframes splashRise {
           to { opacity: 1; transform: none; }
@@ -312,6 +357,9 @@ export function Splash({ onComplete }: SplashProps) {
               </clipPath>
             </defs>
 
+            {/* All bot geometry in one group so the tip-and-settle can rotate
+                body + liquid + clip + face together around the base (20,31). */}
+            <g id="splash-bot" transform="rotate(0, 20, 31)">
             {/* White beaker body so it reads on the light canvas */}
             <path
               d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z"
@@ -390,6 +438,14 @@ export function Splash({ onComplete }: SplashProps) {
                 fill="none"
                 strokeLinecap="round"
               />
+            </g>
+            </g>
+            {/* Spill droplets: fall from the lip during the tip (outside the
+                bot group so they fall straight, not with the rotation). */}
+            <g id="splash-spill" opacity="0">
+              <circle cx="26.5" cy="12.5" r="0.7" fill="url(#splashLiq)" />
+              <circle cx="28" cy="12" r="0.5" fill="url(#splashLiq)" />
+              <circle cx="27.2" cy="13" r="0.45" fill="url(#splashLiq)" />
             </g>
           </svg>
 
