@@ -97,6 +97,14 @@ Investigated 2026-06-09. Today every collab write goes client -> Vercel `/api/co
 
 Provider hard caps are SET (docs/ops/cost-guardrails-setup.md: Vercel $25 hard pause, in-app breaker $20 variable). The migration's dual-write / read-from-old posture keeps the OLD enforced Vercel path live, so we are safe UNTIL chunk 5 flips reads/writes to the DO. These gates are the condition for that flip.
 
+STATUS 2026-06-09 (Grant scoped: global breaker + per-DOC caps now, precise per-OWNER metering with billing-go-live). BUILT + verified against wrangler dev (commit dabe75d86):
+- Item 2 (breaker) DONE. The collab DO (relay/src/worker.ts CollabRoom) reads the cost breaker via a new Vercel endpoint `frontend/src/app/api/billing/breaker-state` (returns `{paused}`, isCloudPaused cached + fail-open), caches it per-instance (~60s, fail-open), and skips the DURABLE persist while paused. APP_BASE_URL var + RELAY_BREAKER_SECRET secret (unset = fail-open for local dev). This is the catastrophic-loss backstop on the Cloudflare side (which Vercel's $25 pause does not reach).
+- Per-DOC throttle DONE (token bucket, 10/s burst 40) + per-DOC storage cap DONE (8 MB snapshot ceiling, over-cap snapshot not persisted). Both bound a single runaway doc; the global breaker is the aggregate backstop.
+- A blocked write still FANS OUT live and stays in the local Loro doc; the DO sends MSG_SYNC_BLOCKED (0x03), the client logs it (a UI "sync paused" indicator is a follow-up; unknown frames were already ignored so no breakage).
+- Item 1 (precise per-OWNER activity throttle) + Item 3 (precise per-OWNER storage cap) DEFERRED to billing-go-live: each doc is its own DO with no cross-doc owner view, so per-owner aggregate needs a central D1 owner-tally, which lands with the metered-billing wiring (itself config-gated). The global breaker + per-doc caps + the Vercel $25 pause close the catastrophic-loss risk for the LAB_TIER_ENABLED flip; precise per-owner metering is a billing-accuracy concern, not a catastrophic-loss one.
+- Item 4 (feed DO activity into the cost estimate) NOT built (optional; the per-doc throttle + global breaker bound activity).
+REMAINING before flipping LAB_TIER_ENABLED on the cost side: set APP_BASE_URL + RELAY_BREAKER_SECRET in the relay + Vercel prod envs, and (with billing-go-live) the per-owner D1 tally.
+
 ## Phase 2: directory -> D1
 
 Move the directory tables to D1. Dual-read (D1 with Neon fallback) first; this is auth-critical and holds Grant's live identities, so it is the most careful phase. Add the cross-doc registry + search index tables here (built with, not ahead of, the search/AI feature).
