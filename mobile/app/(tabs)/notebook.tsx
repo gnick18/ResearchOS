@@ -437,7 +437,18 @@ export default function NotebookScreen() {
           />
         }
       >
-        <ThemedText type="title">Notebook</ThemedText>
+        <View style={styles.titleRow}>
+          <ThemedText type="title">Notebook</ThemedText>
+          <Pressable
+            onPress={() => router.push('/modal')}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Settings"
+            style={styles.settingsBtn}
+          >
+            <Ionicons name="settings-outline" size={24} color={palette.sky} />
+          </Pressable>
+        </View>
         <ThemedText style={[styles.tagline, { color: surface.muted }]}>
           Capture the bench into your lab notebook, and see what is on today.
         </ThemedText>
@@ -880,6 +891,18 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   tagline: { lineHeight: 22 },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  settingsBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: -6,
+  },
   cardTitle: { fontSize: 16, fontWeight: '700', lineHeight: 22 },
 
   // Connection card (compact pill matching the mockup).

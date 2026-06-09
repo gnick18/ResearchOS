@@ -14,6 +14,7 @@ import { SuccessBurst } from '@/components/SuccessBurst';
 import { HeaderMascot } from '@/components/HeaderMascot';
 import { LabAlarm, LabAlarmWatcher } from '@/components/LabAlarm';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useMascotPrefs } from '@/lib/mascot-prefs';
 
 // Keep the native splash up until JS is ready so there is no white flash before
 // the branded AppSplash overlay takes over. Called at module load, before render.
@@ -46,6 +47,9 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  // Floating mascot is opt-in (default off). The code stays mounted-capable;
+  // this just gates whether it renders. Toggle lives on the Settings screen.
+  const [mascotPrefs] = useMascotPrefs();
 
   // Branded launch handoff. We hide the native splash once the first frame is
   // ready and mount AppSplash over the app. The app renders underneath the whole
@@ -90,7 +94,7 @@ export default function RootLayout() {
           <Stack.Screen name="annotate" options={{ headerShown: false }} />
           <Stack.Screen name="add-purchase" options={{ headerShown: false }} />
           <Stack.Screen name="wiki/[slug]" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+          <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: false }} />
         </Stack>
         {/* The signature rainbow lives at the true top and bottom EDGES of the
             screen (over the status-bar zone and below the tab bar), as fixed
@@ -108,10 +112,10 @@ export default function RootLayout() {
             design-preview of the real screens) they are skipped, since Skia
             needs a CanvasKit shim there. They render normally on iOS/Android. */}
         {Platform.OS !== 'web' ? <SuccessBurst /> : null}
-        {/* Live BeakerBot mascot, top-right on every screen. Idle breathe +
-            blink, tap him for a heart burst. Small absolute Pressable, so taps
-            elsewhere pass through. */}
-        {Platform.OS !== 'web' ? <HeaderMascot /> : null}
+        {/* Live BeakerBot mascot, floats in a corner and dodges buttons. Idle
+            breathe + blink, tap him for a heart burst. Opt-in (default off),
+            toggled on the Settings screen. */}
+        {Platform.OS !== 'web' && mascotPrefs.visible ? <HeaderMascot /> : null}
         {/* Lab alarm: watcher raises it when a timer finishes, overlay takes
             over the screen. Native only (Skia). */}
         {Platform.OS !== 'web' ? <LabAlarmWatcher /> : null}
