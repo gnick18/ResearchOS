@@ -64,6 +64,14 @@ function makeId(): string {
   return `cap_${Date.now().toString(36)}_${idCounter}`;
 }
 
+// On the first read of an app run, already-SENT captures are dropped so a
+// previous session's "recently sent" never lingers across an app restart (they
+// are delivered, the laptop has them). Queued / failed (unsent) captures are
+// kept so no in-progress work is lost. Demo-seeded captures are kept too so the
+// reviewer demo survives a restart. Module-scoped so it only runs once per
+// launch, within a session new sends still show as "Sent".
+let prunedSentThisRun = false;
+
 // Read the queue back, newest first. Tolerates a missing or corrupt record by
 // returning an empty list rather than throwing.
 export async function listCaptures(): Promise<Capture[]> {
@@ -72,7 +80,18 @@ export async function listCaptures(): Promise<Capture[]> {
   try {
     const parsed = JSON.parse(stored);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isCapture);
+    let valid = parsed.filter(isCapture);
+    if (!prunedSentThisRun) {
+      prunedSentThisRun = true;
+      const kept = valid.filter(
+        (c) => c.status !== 'sent' || c.caption.startsWith('Demo:'),
+      );
+      if (kept.length !== valid.length) {
+        await writeAll(kept);
+        valid = kept;
+      }
+    }
+    return valid;
   } catch {
     // Corrupt record, treat as an empty queue.
     return [];
