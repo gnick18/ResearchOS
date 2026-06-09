@@ -1,0 +1,24 @@
+# Keep the deploy upload lean. The Next app lives in frontend/; none of these
+# repo-root dirs are part of the build, and large untracked assets in them
+# (docs/parity screenshots, scripts data, brand hi-res PNGs) were pushing the
+# CLI upload past Vercel's 10mb body limit. The Cloudflare relay deploys
+# separately via wrangler, so it is excluded here too.
+# NOTE: keep scripts/ itself -- frontend's prebuild runs six ../scripts/*.mjs
+# (wiki coverage/search-index, demo zip, ai-helper, credits). Only its heavy
+# data subdir is excluded.
+# Anchored with a leading slash to the repo root: an unanchored "relay/" also
+# matches frontend/src/lib/sharing/relay/ (the limits/storage/ratelimit lib the
+# app imports), which breaks the build. Leading slash = top-level only.
+/docs/
+/scripts/activity-report/
+/tools/
+/brand/
+/relay/
+/.claude/
+*.log
+
+# Local-only dev test harnesses (each header says "NOT committed"). Keep them out
+# of the prod upload so they never ship and don't trip the wiki-coverage gate.
+frontend/src/app/dev-gate/
+frontend/src/app/dev-join/
+frontend/src/app/dev-lab/
