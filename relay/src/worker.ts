@@ -63,6 +63,10 @@ const WRITE_RATE_PER_SEC = 10;
 const WRITE_BURST = 40;
 /** How long the DO caches the breaker pause state between reads (fail-open). */
 const BREAKER_TTL_MS = 60 * 1000;
+/** How long the DO caches the per-owner over-cap state. Usage only changes on
+ *  the ~5 min backup tally, and the endpoint is dormant until BILLING_ENABLED,
+ *  so a minute of staleness is harmless and fail-open. */
+const OWNER_CAP_TTL_MS = 60 * 1000;
 /** Debounce on the MSG_SYNC_BLOCKED signal so a paused doc does not spam the
  *  client on every keystroke. */
 const BLOCK_SIGNAL_DEBOUNCE_MS = 5 * 1000;
@@ -402,6 +406,10 @@ export class CollabRoom {
   /** Cached cost-breaker pause state, refreshed async + fail-open. */
   private breakerCache: { paused: boolean; exp: number } | null = null;
   private breakerRefreshing = false;
+  /** Cached per-owner over-cap state for this doc's owner, refreshed async +
+   *  fail-open. Dormant unless BILLING_ENABLED (the endpoint returns false). */
+  private ownerCapCache: { over: boolean; exp: number } | null = null;
+  private ownerCapRefreshing = false;
   /** Per-doc write throttle (token bucket). In-memory per DO instance; resets on
    *  eviction, which is lenient and acceptable for a rate guard. */
   private writeTokens = WRITE_BURST;
@@ -798,6 +806,53 @@ export class CollabRoom {
     this.breakerRefreshing = false;
   }
 
+  /**
+   * Whether this doc's owner is over their storage cap. Per-instance cache read
+   * synchronously (hot path never awaits) with an async refresh when stale.
+   * Fails OPEN: no owner_pubkey yet (an open in-lab doc with no grant has no
+   * billable owner), no cache, no APP_BASE_URL, or a fetch error all read as
+   * not-over. The endpoint is itself dormant unless BILLING_ENABLED, so this
+   * whole layer is inert until billing launch.
+   */
+  private isOwnerOverCapCached(): boolean {
+    // No grant yet means no billable owner; never enforce a cap.
+    if (!this.metaGet("owner_pubkey")) return false;
+    const now = Date.now();
+    if (!this.ownerCapCache || this.ownerCapCache.exp <= now) {
+      void this.refreshOwnerCap();
+      if (!this.ownerCapCache) return false; // first read, fail open
+    }
+    return this.ownerCapCache.over;
+  }
+
+  private async refreshOwnerCap(): Promise<void> {
+    if (this.ownerCapRefreshing) return;
+    this.ownerCapRefreshing = true;
+    let over = false;
+    const base = this.env.APP_BASE_URL;
+    const ownerPubkey = this.metaGet("owner_pubkey");
+    if (base && ownerPubkey) {
+      try {
+        const headers: Record<string, string> = {};
+        if (this.env.RELAY_BREAKER_SECRET) {
+          headers.authorization = `Bearer ${this.env.RELAY_BREAKER_SECRET}`;
+        }
+        const res = await fetch(
+          `${base}/api/billing/owner-state?ownerPubkey=${encodeURIComponent(ownerPubkey)}`,
+          { headers },
+        );
+        if (res.ok) {
+          const j = (await res.json()) as { over?: boolean };
+          over = !!j.over;
+        }
+      } catch {
+        over = false; // fail open
+      }
+    }
+    this.ownerCapCache = { over, exp: Date.now() + OWNER_CAP_TTL_MS };
+    this.ownerCapRefreshing = false;
+  }
+
   /** Per-doc write-rate token bucket. Returns false when over the rate. */
   private allowWriteRate(): boolean {
     const now = Date.now();
@@ -812,8 +867,9 @@ export class CollabRoom {
   }
 
   /** Reason this write must not be durably persisted, or null when it may. */
-  private writeBlockReason(): "paused" | "throttled" | null {
+  private writeBlockReason(): "paused" | "quota" | "throttled" | null {
     if (this.isCloudPausedCached()) return "paused";
+    if (this.isOwnerOverCapCached()) return "quota";
     if (!this.allowWriteRate()) return "throttled";
     return null;
   }

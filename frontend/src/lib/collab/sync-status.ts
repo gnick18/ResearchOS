@@ -1,8 +1,9 @@
 // Live collab sync status, for a quiet "sync paused" indicator.
 //
 // The collab Durable Object sends MSG_SYNC_BLOCKED when durable persistence is
-// paused server-side (cost breaker tripped, the per-doc write throttle was hit,
-// or the doc is at its size cap). Live fan-out continues and every edit stays
+// paused server-side (cost breaker tripped, the owner is over their storage cap,
+// the per-doc write throttle was hit, or the doc is at its size cap). Live
+// fan-out continues and every edit stays
 // safe in the local Loro doc, so this is a soft, transient state. The relay
 // provider calls notifySyncBlocked() and a global indicator surfaces it, then it
 // auto-clears (the DO does not signal a resume; the next successful sync simply
@@ -49,6 +50,8 @@ export function syncPausedLabel(reason: string | null): string {
       return "Cloud sync paused";
     case "throttled":
       return "Syncing slowly";
+    case "quota":
+      return "Storage limit reached";
     case "full":
       return "This document is full";
     default:
