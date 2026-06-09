@@ -3,6 +3,7 @@ import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 import { imageEvents } from "./image-events";
 import { sidecarPath, type ImageSidecar } from "./image-folder";
 import { annotPath } from "./annotations";
+import { ocrPath } from "./ocr";
 
 /**
  * Move an image (and its sidecar, if present) from one base path's
@@ -53,9 +54,19 @@ export async function renameImageInPlace(
     await fileService.writeJson(annotPath(basePath, newFilename), annot);
   }
 
+  // Carry the OCR sidecar to the new name. Bbox coords are relative to the
+  // (unchanged) image, so a verbatim copy is correct — the rename must not
+  // silently break the searchable / agent-readable text layer.
+  const oldOcr = ocrPath(basePath, oldFilename);
+  const ocr = await fileService.readJson(oldOcr);
+  if (ocr) {
+    await fileService.writeJson(ocrPath(basePath, newFilename), ocr);
+  }
+
   await fileService.deleteFile(oldImage);
   await fileService.deleteFile(oldSidecar);
   await fileService.deleteFile(oldAnnot);
+  await fileService.deleteFile(oldOcr);
   blobUrlResolver.revokePath(oldImage);
 
   imageEvents.emitAttached({ basePath, relativePath: `Images/${newFilename}` });
@@ -76,6 +87,9 @@ export async function deleteImageFromBase(
   // Also remove the photo-annotation overlay sidecar (annotation arc) so it
   // doesn't orphan once its underlying image is gone.
   await fileService.deleteFile(annotPath(basePath, filename));
+  // Also remove the OCR sidecar (handwriting layer) so it doesn't orphan once
+  // its underlying image is gone.
+  await fileService.deleteFile(ocrPath(basePath, filename));
   blobUrlResolver.revokePath(`${basePath}/Images/${filename}`);
   imageEvents.emitDeleted({ basePath, filename });
 }
@@ -102,8 +116,17 @@ export async function moveImageBetweenBases(
     await fileService.writeJson(destSidecar, sidecar);
   }
 
+  // Carry the OCR sidecar to the destination. Bbox coords are relative to
+  // the image, so a verbatim copy is correct on a cross-base move.
+  const srcOcr = ocrPath(fromBase, filename);
+  const ocr = await fileService.readJson(srcOcr);
+  if (ocr) {
+    await fileService.writeJson(ocrPath(toBase, filename), ocr);
+  }
+
   await fileService.deleteFile(srcImage);
   await fileService.deleteFile(srcSidecar);
+  await fileService.deleteFile(srcOcr);
   blobUrlResolver.revokePath(srcImage);
 
   imageEvents.emitAttached({ basePath: toBase, relativePath: `Images/${filename}` });
@@ -156,8 +179,18 @@ export async function moveImageBetweenBasesUnique(
     await fileService.writeJson(destSidecar, sidecar);
   }
 
+  // Carry the OCR sidecar to the (possibly renamed) destination. Bbox coords
+  // are relative to the image, so a verbatim copy is correct even when the
+  // filename changes to avoid a collision.
+  const srcOcr = ocrPath(fromBase, filename);
+  const ocr = await fileService.readJson(srcOcr);
+  if (ocr) {
+    await fileService.writeJson(ocrPath(toBase, finalName), ocr);
+  }
+
   await fileService.deleteFile(srcImage);
   await fileService.deleteFile(srcSidecar);
+  await fileService.deleteFile(srcOcr);
   blobUrlResolver.revokePath(srcImage);
 
   imageEvents.emitAttached({ basePath: toBase, relativePath: `Images/${finalName}` });
