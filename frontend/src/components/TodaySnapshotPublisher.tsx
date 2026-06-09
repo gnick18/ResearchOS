@@ -18,6 +18,7 @@
 import { useEffect, useRef } from "react";
 
 import { useFileSystem } from "@/lib/file-system/file-system-context";
+import { readUserSettings } from "@/lib/settings/user-settings";
 import { loadUserCaptureKeys } from "@/lib/mobile-relay/keys";
 import { publishTodayToAllDevices } from "@/lib/mobile-relay/today-snapshot";
 import { publishInventoryToAllDevices } from "@/lib/mobile-relay/inventory-snapshot";
@@ -50,6 +51,13 @@ export default function TodaySnapshotPublisher() {
         const keys = await loadUserCaptureKeys();
         // No unlocked identity on hand here (needs-restore state): stay dark.
         if (!keys || cancelled) return;
+        // Kill switch (hub Settings -> "Auto-publish snapshots to paired
+        // phones"). Off stops the laptop from pushing today/inventory/notebook
+        // snapshots; read each run so a flip takes effect by the next tick.
+        // Focus context (the live routing channel) stays up so capture routing
+        // still resolves; this gate is the data snapshots only.
+        const settings = await readUserSettings(currentUser);
+        if (cancelled || !settings.autoPublishSnapshotsToPhones) return;
         const { published, skipped } = await publishTodayToAllDevices(keys);
         if (published > 0 || skipped > 0) {
           console.info(
