@@ -106,6 +106,12 @@ interface FileSystemContextValue extends FileSystemState {
 
 /** DEV ONLY. Name of the throwaway OPFS folder backing an ephemeral session. */
 const EPHEMERAL_DEV_DIR = "researchos-dev-ephemeral";
+// Per-TAB marker that an ephemeral dev session is live. sessionStorage survives a
+// refresh but is cleared when the tab closes, which is exactly the lifetime we
+// want: the session persists across reloads and vanishes on close. The OPFS data
+// folder itself is durable; this flag is what tells a reload to reconnect to it
+// instead of forgetting it (and a fresh tab, with no flag, starts clean).
+const EPHEMERAL_DEV_SESSION_FLAG = "researchos:ephemeral-dev-active";
 
 interface PermissionableHandle extends FileSystemDirectoryHandle {
   queryPermission?: (opts: { mode: "read" | "readwrite" }) => Promise<PermissionState>;
@@ -673,6 +679,52 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         }
       }
 
+      // Dev ephemeral session restore (survives refresh, dies on tab close).
+      // The "start ephemeral session" button keeps its data in OPFS (durable)
+      // but does not persist the handle, so a normal load forgets it. When the
+      // per-tab sessionStorage flag is set, this was a refresh of a live
+      // session: re-acquire the OPFS folder (without wiping it) and reconnect.
+      // A fresh tab has no flag, so we fall through and the next button click
+      // starts clean. Dev-only and gated, so it never runs in production.
+      if (
+        process.env.NODE_ENV === "development" &&
+        typeof sessionStorage !== "undefined" &&
+        sessionStorage.getItem(EPHEMERAL_DEV_SESSION_FLAG) === "1"
+      ) {
+        try {
+          const storage = (typeof navigator !== "undefined" ? navigator.storage : undefined) as
+            | { getDirectory?: () => Promise<FileSystemDirectoryHandle> }
+            | undefined;
+          const root = storage?.getDirectory ? await storage.getDirectory() : null;
+          // No { create: true }: reconnect to the existing folder only, never
+          // recreate. If it's gone, the session can't be restored.
+          const handle = root
+            ? await root.getDirectoryHandle(EPHEMERAL_DEV_DIR).catch(() => null)
+            : null;
+          if (handle) {
+            fileService.setDirectoryHandle(handle);
+            fileService.resetReadCount();
+            setState((prev) => ({
+              ...prev,
+              isLoading: true,
+              loadingStage: "connecting",
+              error: null,
+            }));
+            const ok = await finishConnect(handle);
+            if (ok) return;
+          }
+          // Folder gone or reconnect failed: drop the stale flag and fall
+          // through to the normal path (which lands on the welcome/setup screen).
+          sessionStorage.removeItem(EPHEMERAL_DEV_SESSION_FLAG);
+        } catch {
+          try {
+            sessionStorage.removeItem(EPHEMERAL_DEV_SESSION_FLAG);
+          } catch {
+            // ignore
+          }
+        }
+      }
+
       try {
         // `let` so the stale-fixture-handle restore branch below can
         // re-read after `restorePreDemoStateOrClear` swaps the live IDB
@@ -999,8 +1051,16 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         }));
         return false;
       }
-      // Deliberately NOT storeDirectoryHandle: there is nothing to silently
-      // reconnect to on the next load, which is the whole point.
+      // Deliberately NOT storeDirectoryHandle (IndexedDB persists across tab
+      // close): we don't want a silent reconnect on a fresh tab. Instead mark
+      // the session in sessionStorage, which a reload reads to reconnect to the
+      // still-present OPFS folder, and which clears itself on tab close.
+      try {
+        sessionStorage.setItem(EPHEMERAL_DEV_SESSION_FLAG, "1");
+      } catch {
+        // sessionStorage unavailable (private mode edge); the session just
+        // won't survive a refresh, which is the old behavior. No-op.
+      }
       setState((prev) => ({
         ...prev,
         isConnected: true,
@@ -1138,6 +1198,13 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     // Dev: drop the throwaway OPFS folder so a closed ephemeral session leaves
     // nothing behind. A no-op for real disk folders (the entry is absent).
     if (process.env.NODE_ENV === "development") {
+      // Clear the per-tab session marker first so a refresh after an explicit
+      // disconnect does not try to resurrect the (now removed) session.
+      try {
+        sessionStorage.removeItem(EPHEMERAL_DEV_SESSION_FLAG);
+      } catch {
+        // ignore
+      }
       try {
         const storage = (typeof navigator !== "undefined" ? navigator.storage : undefined) as
           | { getDirectory?: () => Promise<FileSystemDirectoryHandle> }
