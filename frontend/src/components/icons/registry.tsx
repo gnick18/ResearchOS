@@ -665,6 +665,24 @@ const ICONS_RAW = {
       </>
     ),
   },
+  today: {
+    concept: "Calendar / today",
+    body: (
+      <>
+        <rect x="3" y="5" width="18" height="16" rx="2" />
+        <path d="M3 10h18M8 3v4M16 3v4" />
+        <rect
+          x="7"
+          y="14"
+          width="3.5"
+          height="3.5"
+          rx="0.5"
+          fill="currentColor"
+          stroke="none"
+        />
+      </>
+    ),
+  },
 } satisfies Record<string, IconEntry>;
 
 export type IconName = keyof typeof ICONS_RAW;

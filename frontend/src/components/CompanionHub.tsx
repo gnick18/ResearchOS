@@ -23,7 +23,7 @@ import { useCompanionHub } from "@/lib/ui/companion-hub-store";
 import { useAppStore } from "@/lib/store";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
-import { usePhonePaired } from "@/hooks/usePhonePaired";
+import { usePairedDevices } from "@/hooks/usePhonePaired";
 import {
   readUserSettings,
   patchUserSettings,
@@ -47,7 +47,7 @@ const COMPANION_APP_LIVE = process.env.NEXT_PUBLIC_COMPANION_APP_LIVE === "1";
 
 // Feature rows shown in the Info tab.
 const INFO_FEATURES: {
-  icon: "camera" | "pencil" | "scan" | "sun";
+  icon: "camera" | "pencil" | "scan" | "today";
   label: string;
   description: string;
 }[] = [
@@ -70,7 +70,7 @@ const INFO_FEATURES: {
       "Scan a reagent or supply barcode and log it against your inventory without hunting for the laptop.",
   },
   {
-    icon: "sun",
+    icon: "today",
     label: "Glance at today",
     description:
       "See your tasks and reminders for the day at a glance so nothing falls through the cracks.",
@@ -205,7 +205,16 @@ export default function CompanionHub() {
   const close = useCompanionHub((s) => s.close);
   const [tab, setTab] = useState<Tab>("connect");
   const sharing = useSharingIdentity();
-  const paired = usePhonePaired();
+  const devices = usePairedDevices();
+  const isPaired = devices.count > 0;
+  const pairedLabel =
+    devices.count === 0
+      ? "Not paired"
+      : devices.count === 1
+        ? devices.firstLabel
+          ? `Paired to ${devices.firstLabel}`
+          : "Paired"
+        : `${devices.count} phones paired`;
 
   return (
     <LivingPopup
@@ -226,10 +235,10 @@ export default function CompanionHub() {
             <span
               className={
                 "inline-block w-2 h-2 rounded-full flex-shrink-0 " +
-                (paired ? "bg-green-500" : "bg-foreground-muted/40")
+                (isPaired ? "bg-green-500" : "bg-foreground-muted/40")
               }
             />
-            {paired ? "Paired" : "Not paired"}
+            {pairedLabel}
           </span>
         </div>
         <div
