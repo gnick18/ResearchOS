@@ -6,6 +6,8 @@
 import { unsealSnapshot } from '@/lib/device-identity';
 import type { Pairing } from '@/lib/pairing';
 
+import { DEMO_TODAY_SNAPSHOT, DEMO_INVENTORY_SNAPSHOT } from '@/lib/demo-fixtures';
+
 // ---- Canonical signed-byte string (MUST match relay/scripts/smoke-snapshot.mjs
 // and relay/src/worker.ts verbatim). The DEVICE Ed25519 key signs this; "device"
 // is the device's Ed25519 pubkey hex. Copied verbatim from the contract. ------
@@ -48,11 +50,21 @@ export type TodaySnapshot = {
 // phone's X25519 key, and JSON-parses the plaintext. Returns null on 404, which
 // is the "laptop has not published yet" case. Any other non-200 throws so the
 // caller can surface it.
+//
+// When pairing.demo is true the relay is never touched; a matching fixture is
+// returned immediately so the placeholder keys never reach the network.
 export async function fetchSnapshot(
   name: string,
   pairing: Pairing,
   deviceSign: (message: string) => Promise<string>,
 ): Promise<unknown | null> {
+  if (pairing.demo) {
+    // Return the appropriate fixture without signing or fetching anything.
+    if (name === 'inventory') return DEMO_INVENTORY_SNAPSHOT;
+    // Default: "today" and any other name fall back to the today fixture.
+    return DEMO_TODAY_SNAPSHOT;
+  }
+
   const ts = new Date().toISOString();
   const device = pairing.devicePubkey;
   const sig = await deviceSign(

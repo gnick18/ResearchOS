@@ -29,7 +29,7 @@ import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useTheme, palette } from '@/lib/design';
-import { setPairing } from '@/lib/pairing';
+import { setPairing, setDemoPairing } from '@/lib/pairing';
 import {
   getOrCreateDeviceKey,
   getDeviceX25519PubHex,
@@ -90,6 +90,7 @@ export default function PairScreen() {
   const [error, setError] = useState<string | null>(null);
   // Latch so a held QR code does not run the flow dozens of times.
   const handledRef = useRef(false);
+  const [demoSaving, setDemoSaving] = useState(false);
 
   const finishPairing = useCallback(
     async (raw: string) => {
@@ -190,6 +191,19 @@ export default function PairScreen() {
     [router],
   );
 
+  // Write a demo pairing record and navigate directly into the Notebook tab.
+  // No keys are generated, no relay is called; the demo guard handles the rest.
+  const onTryDemo = useCallback(async () => {
+    if (demoSaving) return;
+    setDemoSaving(true);
+    try {
+      await setDemoPairing();
+      router.replace('/(tabs)/notebook');
+    } finally {
+      setDemoSaving(false);
+    }
+  }, [demoSaving, router]);
+
   const onBarcodeScanned = useCallback(
     (result: BarcodeScanningResult) => {
       if (!result?.data) return;
@@ -244,6 +258,8 @@ export default function PairScreen() {
             onSubmit={onSubmitManual}
             saving={saving}
           />
+
+          <DemoButton onPress={onTryDemo} saving={demoSaving} />
         </View>
       </ScreenFrame>
     );
@@ -289,8 +305,35 @@ export default function PairScreen() {
           onSubmit={onSubmitManual}
           saving={saving}
         />
+
+        <DemoButton onPress={onTryDemo} saving={demoSaving} />
       </View>
     </ScreenFrame>
+  );
+}
+
+// A clearly separated "Try the demo" entry point for reviewers and curious
+// users. Placed after the primary pairing paths so it does not compete with
+// the real flow visually, but is easy to find when there is no desktop handy.
+function DemoButton({ onPress, saving }: { onPress: () => void; saving: boolean }) {
+  const { surface } = useTheme();
+  return (
+    <View style={styles.demoWrap}>
+      <View style={styles.dividerRow}>
+        <View style={[styles.dividerLine, { backgroundColor: surface.border }]} />
+        <ThemedText style={[styles.dividerLabel, { color: surface.muted }]}>
+          No desktop? Try the demo.
+        </ThemedText>
+        <View style={[styles.dividerLine, { backgroundColor: surface.border }]} />
+      </View>
+      <Button
+        variant="secondary"
+        label="Try the demo"
+        loading={saving}
+        onPress={onPress}
+        disabled={saving}
+      />
+    </View>
   );
 }
 
@@ -412,5 +455,23 @@ const styles = StyleSheet.create({
   },
   errorText: {
     lineHeight: 20,
+  },
+
+  // Demo entry point
+  demoWrap: {
+    gap: 10,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerLabel: {
+    fontSize: 12,
+    lineHeight: 18,
   },
 });

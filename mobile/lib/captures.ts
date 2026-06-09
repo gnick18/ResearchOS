@@ -167,11 +167,21 @@ function fileNameForUri(uri: string, contentType: string): string {
 // ${relayUrl}/capture/upload with a file field "blob" and a JSON "meta" field.
 // On success the capture is marked sent. On any failure it is marked failed and
 // the error is rethrown so the caller can surface it.
+//
+// When pairing.demo is true the upload is skipped entirely: the capture is
+// marked sent immediately and the success burst fires so the reviewer sees the
+// celebration without any real network traffic going out.
 export async function sendCapture(
   capture: Capture,
   pairing: Pairing,
   deviceSign: (message: string) => Promise<string>,
 ): Promise<void> {
+  if (pairing.demo) {
+    await setCaptureStatus(capture.id, 'sent');
+    fireSuccess({ subtitle: (capture.caption || 'Photo').slice(0, 60) });
+    return;
+  }
+
   await setCaptureStatus(capture.id, 'sending');
   try {
     const bytes = await readImageBytes(capture.uri);

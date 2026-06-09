@@ -51,6 +51,15 @@ import {
 } from '@/lib/snapshots';
 import { getFocusContext, type FocusContext } from '@/lib/focus-context';
 import { postRouteCapture } from '@/lib/route-capture';
+import {
+  DEMO_IMAGE_URI,
+  DEMO_SEED_KEY,
+  DEMO_NOTIFICATION_TITLE,
+  DEMO_NOTIFICATION_BODY,
+  DEMO_NOTIF_FIRED_KEY,
+} from '@/lib/demo-fixtures';
+import { ensureNotificationPermission } from '@/lib/notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function NotebookScreen() {
   const router = useRouter();
@@ -59,11 +68,6 @@ export default function NotebookScreen() {
   // ---- Pairing ----
   const { pairing, refresh: refreshPairing } = usePairing();
   const paired = !!pairing;
-
-  const onUnpair = useCallback(async () => {
-    await clearPairing();
-    refreshPairing();
-  }, [refreshPairing]);
 
   // Keep the connection card current when returning from the pair screen.
   useFocusEffect(
@@ -77,6 +81,71 @@ export default function NotebookScreen() {
   const [snapshotLoaded, setSnapshotLoaded] = useState(false);
   const [snapshotLoading, setSnapshotLoading] = useState(false);
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
+
+  // ---- Demo mode side-effects (seeding captures + one-time notification) ----
+  // These run once when we first land in demo mode. Guards in AsyncStorage
+  // prevent re-seeding or re-firing on repeated tab visits within the same session.
+  useEffect(() => {
+    if (!pairing?.demo) return;
+
+    // Seed two sample captures into the outbox (idempotent via the seed key).
+    void (async () => {
+      try {
+        const alreadySeeded = await AsyncStorage.getItem(DEMO_SEED_KEY);
+        if (!alreadySeeded) {
+          await addCapture({ uri: DEMO_IMAGE_URI, caption: 'Demo: Plate 4 brightfield overview (GFP channel)' });
+          await addCapture({ uri: DEMO_IMAGE_URI, caption: 'Demo: Post-trypsin cell suspension check' });
+          await AsyncStorage.setItem(DEMO_SEED_KEY, '1');
+          await refreshCaptures();
+        }
+      } catch {
+        // Seeding is best-effort; the demo still works without it.
+      }
+    })();
+
+    // Fire one sample local notification (at most once per demo session).
+    void (async () => {
+      try {
+        const alreadyFired = await AsyncStorage.getItem(DEMO_NOTIF_FIRED_KEY);
+        if (alreadyFired) return;
+        const granted = await ensureNotificationPermission();
+        if (!granted) return;
+        // Lazy-require matches the pattern in notifications.ts (avoids a hard
+        // crash when the module is unavailable, e.g. on web/Expo Go edge).
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const Notifications = require('expo-notifications') as typeof import('expo-notifications') | null;
+        if (!Notifications) return;
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: DEMO_NOTIFICATION_TITLE,
+            body: DEMO_NOTIFICATION_BODY,
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+            seconds: 4,
+            repeats: false,
+          },
+        });
+        await AsyncStorage.setItem(DEMO_NOTIF_FIRED_KEY, '1');
+      } catch {
+        // Notification is best-effort; demo works without it.
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pairing?.demo]);
+
+  // Clear demo AsyncStorage flags when unpairing so a fresh demo entry re-seeds.
+  const onUnpair = useCallback(async () => {
+    await clearPairing();
+    // Remove the demo seed + notification guards so they re-arm if the user
+    // tries demo again after re-entering the pair screen.
+    try {
+      await AsyncStorage.multiRemove([DEMO_SEED_KEY, DEMO_NOTIF_FIRED_KEY]);
+    } catch {
+      // Best-effort cleanup.
+    }
+    refreshPairing();
+  }, [refreshPairing]);
 
   const loadSnapshot = useCallback(async () => {
     if (!pairing) {
@@ -372,6 +441,25 @@ export default function NotebookScreen() {
         <ThemedText style={[styles.tagline, { color: surface.muted }]}>
           Capture the bench into your lab notebook, and see what is on today.
         </ThemedText>
+
+        {/* Demo mode pill: persistent sky-accent banner so sample data is
+            obvious. Only shown when the demo pairing is active. Unpair exits. */}
+        {pairing?.demo ? (
+          <View
+            style={[
+              styles.demoPill,
+              { backgroundColor: palette.skyDim, borderColor: palette.skyBorder },
+            ]}
+          >
+            <View style={styles.demoPillDot} />
+            <ThemedText style={[styles.demoPillText, { color: palette.sky }]}>
+              Demo mode
+            </ThemedText>
+            <ThemedText style={[styles.demoPillSub, { color: palette.sky }]}>
+              Sample data only. Tap Unpair to exit.
+            </ThemedText>
+          </View>
+        ) : null}
 
         {/* Connection card */}
         {paired ? (
@@ -884,4 +972,33 @@ const styles = StyleSheet.create({
   synced: { fontSize: 12, marginTop: 4 },
   errorBanner: { borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12 },
   errorText: { lineHeight: 20 },
+
+  // Demo mode pill
+  demoPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  demoPillDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 999,
+    backgroundColor: palette.sky,
+  },
+  demoPillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
+  },
+  demoPillSub: {
+    fontSize: 12,
+    fontWeight: '400',
+    lineHeight: 18,
+    flex: 1,
+    opacity: 0.85,
+  },
 });

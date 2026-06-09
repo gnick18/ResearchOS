@@ -25,6 +25,11 @@ export type Pairing = {
   // can open them. Optional so pairings made before this field existed still
   // load; when absent the phone falls back to inbox routing.
   userX25519PubHex?: string;
+  // Set to true for the reviewer demo pairing. When present, all relay calls
+  // are short-circuited to fixtures so no real network traffic ever goes out
+  // against the placeholder keys. Optional + back-compatible: all real pairings
+  // omit this field entirely.
+  demo?: boolean;
 };
 
 function isPairing(value: unknown): value is Pairing {
@@ -54,6 +59,7 @@ export async function getPairing(): Promise<Pairing | null> {
           typeof parsed.userX25519PubHex === 'string'
             ? parsed.userX25519PubHex
             : undefined,
+        demo: parsed.demo === true ? true : undefined,
       };
     }
   } catch {
@@ -69,6 +75,7 @@ export async function setPairing(p: {
   pairedAt?: string;
   labName?: string;
   userX25519PubHex?: string;
+  demo?: boolean;
 }): Promise<Pairing> {
   const pairing: Pairing = {
     u: p.u,
@@ -77,9 +84,24 @@ export async function setPairing(p: {
     pairedAt: p.pairedAt ?? new Date().toISOString(),
     labName: p.labName,
     userX25519PubHex: p.userX25519PubHex,
+    demo: p.demo === true ? true : undefined,
   };
   await SecureStore.setItemAsync(PAIRING_KEY, JSON.stringify(pairing));
   return pairing;
+}
+
+// Write a fake pairing record so the reviewer demo mode can exercise the full
+// app without a real laptop or relay. The placeholder keys are intentionally
+// non-functional; the demo guard in fetchSnapshot and sendCapture ensures they
+// never reach the network.
+export async function setDemoPairing(): Promise<Pairing> {
+  return setPairing({
+    u: 'demo0000000000000000000000000000000000000000000000000000000000000000',
+    relayUrl: 'https://demo.researchos.app',
+    devicePubkey: 'demo0000000000000000000000000000000000000000000000000000000000000000',
+    labName: 'Demo Lab',
+    demo: true,
+  });
 }
 
 export async function clearPairing(): Promise<void> {
