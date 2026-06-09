@@ -53,7 +53,7 @@ const enc = new TextEncoder();
 
 function parseGrantPayload(
   raw: string,
-): { grant: Grant; sig: string } | null {
+): { grant: Grant; sig: string; userX25519PubHex?: string } | null {
   try {
     const parsed = JSON.parse(raw);
     const grant = parsed?.grant;
@@ -66,7 +66,14 @@ function parseGrantPayload(
       typeof grant.url === 'string' &&
       typeof sig === 'string'
     ) {
-      return { grant, sig };
+      // Optional top-level field: the user's X25519 sealing key, carried so the
+      // phone can seal route-capture commands to the laptop. Absent on grants
+      // built before this field existed.
+      const userX25519PubHex =
+        typeof parsed.userX25519PubHex === 'string'
+          ? parsed.userX25519PubHex
+          : undefined;
+      return { grant, sig, userX25519PubHex };
     }
   } catch {
     // Not a JSON grant payload.
@@ -103,7 +110,7 @@ export default function PairScreen() {
         fail('That code is not a ResearchOS pairing grant. Scan the QR shown under Settings to Devices on your desktop.');
         return;
       }
-      const { grant, sig } = parsed;
+      const { grant, sig, userX25519PubHex } = parsed;
 
       // Reject an expired grant before touching the network.
       const expMs = Date.parse(grant.exp);
@@ -141,11 +148,13 @@ export default function PairScreen() {
             devicePubkey: device.devicePubHex,
             devX25519,
             label,
+            userX25519PubHex,
           }),
         });
         const body = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           error?: string;
+          userX25519PubHex?: string;
         };
         if (!res.ok || body.ok !== true) {
           fail(
@@ -158,11 +167,20 @@ export default function PairScreen() {
           typeof (grant as { labName?: unknown }).labName === 'string'
             ? (grant as unknown as { labName: string }).labName
             : undefined;
+        // Prefer the key echoed by the relay register response; fall back to
+        // the value carried in the scanned grant so pairing still records the
+        // sealing key if the relay omits it. Without this key the phone falls
+        // back to inbox routing for route-capture commands.
+        const userX25519FromResponse =
+          typeof body.userX25519PubHex === 'string'
+            ? body.userX25519PubHex
+            : userX25519PubHex;
         await setPairing({
           u: grant.u,
           relayUrl: base,
           devicePubkey: device.devicePubHex,
           labName,
+          userX25519PubHex: userX25519FromResponse,
         });
         router.back();
       } catch {

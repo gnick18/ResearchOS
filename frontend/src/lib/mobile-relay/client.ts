@@ -96,6 +96,10 @@ export interface UserCaptureKeys {
   ed25519PublicKeyHex: string;
   /** Raw 32-byte Ed25519 private key. */
   ed25519PrivateKey: Uint8Array;
+  /** Hex-encoded X25519 encryption public key (the identity sealing key). The
+   *  pairing grant carries it to the phone so route-capture commands can be
+   *  sealed to the laptop. Optional so callers that only sign (no sealing) work. */
+  x25519PublicKeyHex?: string;
 }
 
 const enc = new TextEncoder();
@@ -125,6 +129,11 @@ const GRANT_TTL_MS = 5 * 60 * 1000; // five minutes, generous for a scan.
  * Builds and signs a pairing grant. The returned `qrPayload` is the exact
  * string the phone scans. Grant shape matches smoke-capture.mjs:
  *   {"grant":{"u","pid","exp","url"},"sig"}
+ * When the session identity exposes its X25519 sealing key we add an optional
+ * top-level `userX25519PubHex` so the phone can seal route-capture commands to
+ * the laptop. It rides alongside the signed grant (the sealing key is public,
+ * so it needs no separate signature) and the signed message is unchanged, so
+ * older phones that ignore the field still verify the grant byte-for-byte.
  */
 export function makePairingGrant(keys: UserCaptureKeys, relayUrl = captureRelayUrl()): PairingGrant {
   const u = keys.ed25519PublicKeyHex;
@@ -132,7 +141,9 @@ export function makePairingGrant(keys: UserCaptureKeys, relayUrl = captureRelayU
   const exp = new Date(Date.now() + GRANT_TTL_MS).toISOString();
   const grant = { u, pid: pairingId, exp, url: relayUrl };
   const sig = sign(capturePairGrantMessage(u, pairingId, exp, relayUrl), keys.ed25519PrivateKey);
-  const qrPayload = JSON.stringify({ grant, sig });
+  const payload: { grant: typeof grant; sig: string; userX25519PubHex?: string } = { grant, sig };
+  if (keys.x25519PublicKeyHex) payload.userX25519PubHex = keys.x25519PublicKeyHex;
+  const qrPayload = JSON.stringify(payload);
   return { pairingId, exp, qrPayload };
 }
 

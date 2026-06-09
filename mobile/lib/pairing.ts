@@ -20,6 +20,11 @@ export type Pairing = {
   pairedAt: string;
   // Optional human label carried by the grant, shown on the home tab.
   labName?: string;
+  // The lab user's X25519 encryption public key (hex), their identity sealing
+  // key. The phone seals route-capture commands to this key so only the laptop
+  // can open them. Optional so pairings made before this field existed still
+  // load; when absent the phone falls back to inbox routing.
+  userX25519PubHex?: string;
 };
 
 function isPairing(value: unknown): value is Pairing {
@@ -45,6 +50,10 @@ export async function getPairing(): Promise<Pairing | null> {
         devicePubkey: parsed.devicePubkey,
         pairedAt: parsed.pairedAt,
         labName: typeof parsed.labName === 'string' ? parsed.labName : undefined,
+        userX25519PubHex:
+          typeof parsed.userX25519PubHex === 'string'
+            ? parsed.userX25519PubHex
+            : undefined,
       };
     }
   } catch {
@@ -59,6 +68,7 @@ export async function setPairing(p: {
   devicePubkey: string;
   pairedAt?: string;
   labName?: string;
+  userX25519PubHex?: string;
 }): Promise<Pairing> {
   const pairing: Pairing = {
     u: p.u,
@@ -66,6 +76,7 @@ export async function setPairing(p: {
     devicePubkey: p.devicePubkey,
     pairedAt: p.pairedAt ?? new Date().toISOString(),
     labName: p.labName,
+    userX25519PubHex: p.userX25519PubHex,
   };
   await SecureStore.setItemAsync(PAIRING_KEY, JSON.stringify(pairing));
   return pairing;

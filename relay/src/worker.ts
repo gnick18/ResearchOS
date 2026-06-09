@@ -1431,6 +1431,7 @@ export class CaptureInbox {
       devicePubkey?: unknown;
       label?: unknown;
       devX25519?: unknown;
+      userX25519PubHex?: unknown;
     };
     try {
       body = await request.json();
@@ -1481,7 +1482,22 @@ export class CaptureInbox {
       typeof devX25519 === "string" ? devX25519 : null,
     );
 
-    return this.json({ ok: true }, 200);
+    // Echo back the user's X25519 sealing public key (Phase 1 route-capture).
+    // The phone stores this on its pairing record and seals route-capture
+    // commands to it so only the laptop holding the matching private key can
+    // open them. It rides in on the register body (carried by the signed grant
+    // payload, sealing key is public so it needs no separate signature) and is
+    // OPTIONAL: an older app that does not send it just gets it back absent and
+    // falls back to inbox routing.
+    const userX25519PubHex = body.userX25519PubHex;
+    return this.json(
+      {
+        ok: true,
+        userX25519PubHex:
+          typeof userX25519PubHex === "string" ? userX25519PubHex : undefined,
+      },
+      200,
+    );
   }
 
   /** POST /capture/upload. multipart/form-data: a `blob` file field + a text

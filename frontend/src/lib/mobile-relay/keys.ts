@@ -19,5 +19,9 @@ export async function loadUserCaptureKeys(): Promise<UserCaptureKeys | null> {
   return {
     ed25519PublicKeyHex: encodePublicKey(identity.keys.signing.publicKey),
     ed25519PrivateKey: identity.keys.signing.privateKey,
+    // The X25519 encryption public key is the identity sealing key (what bundles
+    // are sealed to). The pairing grant carries it so the phone can seal
+    // route-capture commands back to this laptop.
+    x25519PublicKeyHex: encodePublicKey(identity.keys.encryption.publicKey),
   };
 }
