@@ -14,6 +14,31 @@ Transfer to the ResearchOS LLC org later (Apple App Transfer; Google account
 transfer, which Google charges a fee for). The D-U-N-S (still being obtained) is
 what an org transfer will need; it is no longer blocking launch.
 
+## UPDATE (2026-06-09): Android moves to the LLC org Play account, iOS stays individual-now
+
+Sequencing decided 2026-06-09 (supersedes the "launch under personal" call above for ANDROID):
+- iOS ships FIRST on the individual Apple account (works now, no D-U-N-S). The only
+  gate is reviewer demo mode (`docs/proposals/MOBILE_REVIEWER_DEMO.md`).
+- Android does NOT launch on the personal Play account. Wait for the D-U-N-S plus an
+  LLC ORG Play account and build Android there, which skips the closed test entirely.
+  Burning the 14-day clock on the personal account is exactly what we are avoiding.
+
+Policy verified against the live Google page on 2026-06-09
+(support.google.com/googleplay/android-developer/answer/14151465): the closed test is
+"at least 12 opted-in testers for 14" CONSECUTIVE days, and it applies to "personal
+accounts created after November 13, 2023" only. Organization accounts are not subject
+to it. RE-VERIFY at submission time, store policies shift (there is an April 15, 2026
+Google policy-announcement page worth re-reading then).
+
+Transfer caveat (verify before relying on it): the account type cannot be converted
+personal to org. You create a NEW org account (US$25, refundable once you close the
+personal one) and transfer apps into it. Community reports indicate an app that STARTED
+on a personal account can still be held to the closed-test requirement after a transfer
+(the requirement attaches to the app, not only the account), so the clean exempt path is
+to build and submit the Android app FRESH on the org account, NOT to transfer a
+personal-account app. Nothing has shipped on Android yet, so there is nothing to
+transfer, just build on the org account once it exists.
+
 ### GOOGLE: the personal-account closed-testing requirement (the real bottleneck)
 
 New Google Play PERSONAL developer accounts (created after Nov 2023) must run a

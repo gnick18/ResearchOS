@@ -33,10 +33,16 @@ is fine.
   `mobile-dev-accounts-setup.md`). *Organization* accounts are exempt. So rather than
   burn the 14-day clock on the personal account, wait for the D-U-N-S, stand up (or
   transfer to) the ResearchOS LLC org Play account, and skip the closed-test entirely.
-- **Confirm before relying on it:** that the org-account closed-test exemption is still
-  current Google policy when you act, and whether a personal-to-org transfer preserves
-  it or needs a fresh org account (Google charges a transfer fee). Store policies shift,
-  verify against the live policy pages.
+- **Verified 2026-06-09** (against support.google.com/googleplay/android-developer/answer/14151465):
+  the closed test (at least 12 opted-in testers, 14 CONSECUTIVE days) applies to
+  *personal accounts created after Nov 13, 2023* only; organization accounts are not
+  subject to it. So a fresh LLC org Play account skips it. Transfer caveat: the account
+  type cannot be converted (create a NEW org account, US$25, refundable on closing the
+  personal one), and community reports say an app that STARTED on a personal account may
+  still be held to the test after a transfer, so build Android FRESH on the org account
+  rather than transferring the personal-account app. Nothing has shipped on Android yet,
+  so there is nothing to transfer. RE-VERIFY against the live pages at submission time,
+  store policies shift.
 
 ## Prerequisites
 
