@@ -77,6 +77,20 @@ export function setTaskContentText(doc: LoroDoc, text: string): void {
   if (text) content.insert(0, text);
 }
 
+/**
+ * Append a single line at the end of the doc as ONE CRDT insert (never a
+ * delete+reinsert). Unlike setTaskContentText this is safe under live editing,
+ * a concurrent collaborator's edits are not clobbered, so it is the right
+ * primitive for a phone-driven "append this calc result" command landing while
+ * the editor is open. Inserts a leading newline only when the doc is non-empty
+ * so the first line does not start with a blank line.
+ */
+export function appendTaskLine(doc: LoroDoc, line: string): void {
+  const content = doc.getText(CONTENT_KEY);
+  const prefix = content.length > 0 ? "\n" : "";
+  content.insert(content.length, prefix + line);
+}
+
 /** The task surface meta map. */
 export function getTaskMeta(doc: LoroDoc): LoroMap {
   return doc.getMap(META_KEY);
