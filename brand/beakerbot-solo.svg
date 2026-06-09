@@ -1,0 +1,34 @@
+<svg viewBox="-24 -22 48 46" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="liq-solo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFD2B0"/>
+      <stop offset="25%" stop-color="#FFF1A8"/>
+      <stop offset="50%" stop-color="#B7EBB1"/>
+      <stop offset="75%" stop-color="#A6D2F4"/>
+      <stop offset="100%" stop-color="#D6B5F0"/>
+    </linearGradient>
+  </defs>
+  <!-- shadow ellipse -->
+  <ellipse cx="0" cy="16" rx="11" ry="2.2" fill="#1AA0E6" opacity=".10"/>
+  <!-- BeakerBot body (centered at 0,0) -->
+  <g stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- white body fill -->
+    <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6 Z" fill="white" stroke="none"/>
+    <!-- rainbow liquid -->
+    <path d="M -8 1 Q -6 -0.2, -4 1 T 0 1 T 4 1 T 8 1 L 8 6 C 8 12, 4 14, 0 14 C -4 14, -8 12, -8 6 L -8 1 Z" fill="url(#liq-solo)" stroke="none"/>
+    <!-- antenna -->
+    <path d="M 2 -10 C 2 -12, 4 -14, 6 -12"/>
+    <!-- outline -->
+    <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6"/>
+    <!-- shoulder line -->
+    <path d="M -9 -6 L 9 -6"/>
+    <!-- eyes -->
+    <circle cx="-3" cy="0" r="1.2" fill="#1AA0E6" stroke="none"/>
+    <circle cx="3" cy="0" r="1.2" fill="#1AA0E6" stroke="none"/>
+    <!-- smile -->
+    <path d="M -2 4 Q 0 6, 2 4"/>
+    <!-- side vents -->
+    <path d="M -6 8 L -4.5 8"/>
+    <path d="M 4.5 8 L 6 8"/>
+  </g>
+</svg>

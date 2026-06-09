@@ -58,6 +58,22 @@ Read `brand/README.md` first for the raw color/type spec. This file is the
   - Write what the thing does, in concrete terms, for a working scientist. If you
     cannot say it plainly, you do not understand it yet.
 
+## Tier illustration SVGs (mascot scenes, not icon-registry glyphs)
+
+Three BeakerBot scene illustrations, one per account tier. Generated from the
+exact geometry in `docs/mockups/beakerbot-tier-icons.html` (the `solo()`,
+`comp()`, `lab()` scene functions). Grant sign-off: mockup review 2026-06-09.
+
+- `brand/beakerbot-solo.svg` — plain BeakerBot alone with shadow ellipse. Local-only tier.
+- `brand/beakerbot-computer.svg` — BeakerBot at a laptop; girl beaker (lips + lashes) shown on the screen. Free-account tier.
+- `brand/beakerbot-lab.svg` — PI BeakerBot (larger, front-center) with two teammates (left one has glasses). Lab tier.
+
+React component: `frontend/src/components/onboarding/BeakerBotScene.tsx`
+renders `<BeakerBotScene name="solo"|"computer"|"lab" className=... />` as inline
+JSX ported from the brand SVGs. Mascot illustrations are exempt from the
+icon-guard rule (they are not icon-registry glyphs), but do not add new unrelated
+inline SVGs elsewhere.
+
 ## Asset library + how to make assets
 
 Everything is generated from the real BeakerBot geometry so it stays on-brand.
