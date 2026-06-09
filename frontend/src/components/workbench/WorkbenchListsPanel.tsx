@@ -349,15 +349,19 @@ export default function WorkbenchListsPanel({
 
   return (
     <div data-current-tab="lists">
-      <div className="flex justify-end mb-4">
-        <button
-          onClick={handleCreateListTask}
-          data-tour-target="workbench-new-list-button"
-          className="px-3 py-1.5 text-body bg-violet-600 text-white rounded-lg hover:bg-violet-700"
-        >
-          + New List Task
-        </button>
-      </div>
+      {/* Top-right action only when there is content; the empty state below
+          carries the single big primary action (Grant 2026-06-09). */}
+      {!isEmpty && (
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={handleCreateListTask}
+            data-tour-target="workbench-new-list-button"
+            className="px-3 py-1.5 text-body bg-violet-600 text-white rounded-lg hover:bg-violet-700"
+          >
+            + New List Task
+          </button>
+        </div>
+      )}
 
       {isEmpty ? (
         <div className="text-center py-16">

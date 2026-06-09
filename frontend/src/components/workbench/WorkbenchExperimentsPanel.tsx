@@ -598,30 +598,21 @@ export default function WorkbenchExperimentsPanel({
   return (
     <div data-current-tab="experiments" data-tour-target="workbench-shared-experiments">
       {totalCount === 0 ? (
-        <>
-          <div className="flex justify-end mb-4">
-            <button
-              onClick={handleCreateExperiment}
-              data-tour-target="workbench-new-experiment"
-              className="px-3 py-1.5 text-body bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              + New Experiment
-            </button>
-          </div>
-          <div className="text-center py-12 rounded-xl border border-border bg-surface-sunken">
-            <p className="text-title text-foreground mb-2">No experiments yet</p>
-            <p className="text-body text-foreground-muted mb-6">
-              Create an experiment task to see it here
-            </p>
-            <button
-              onClick={handleCreateExperiment}
-              data-tour-target="workbench-new-experiment"
-              className="px-6 py-3 text-body bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              + New Experiment
-            </button>
-          </div>
-        </>
+        // Empty state: one big primary action in the middle, no redundant
+        // top-right button (Grant 2026-06-09).
+        <div className="text-center py-12 rounded-xl border border-border bg-surface-sunken">
+          <p className="text-title text-foreground mb-2">No experiments yet</p>
+          <p className="text-body text-foreground-muted mb-6">
+            Create an experiment task to see it here
+          </p>
+          <button
+            onClick={handleCreateExperiment}
+            data-tour-target="workbench-new-experiment"
+            className="px-6 py-3 text-body bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            + New Experiment
+          </button>
+        </div>
       ) : (
         <div className="space-y-8">
           {/* Pipeline board: the four in-flight stages as a side-by-side
