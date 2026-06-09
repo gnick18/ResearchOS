@@ -10,6 +10,7 @@ import { bytesToHex } from '@noble/curves/utils.js';
 
 import type { Pairing } from '@/lib/pairing';
 import type { AnnotationDoc } from '@/lib/annotations';
+import type { OcrResult } from '@/lib/ocr';
 import { fireSuccess } from '@/lib/success-burst';
 
 const CAPTURES_KEY = 'researchos.captures.v1';
@@ -34,6 +35,11 @@ export type Capture = {
   // the upload (sendCapture) and the laptop poller do NOT yet ship this field;
   // the orchestrator wires it from this exact spot. See sendCapture below.
   annotation?: AnnotationDoc;
+  // Optional handwriting OCR result (on-device Apple Vision / ML Kit output),
+  // the EXACT same schema the laptop writes to {imageName}.ocr.json. Carried
+  // conditionally so plain (non-OCR) captures stay byte-clean. The laptop
+  // poller reads the relay meta field "ocr" and writes the sidecar.
+  ocr?: OcrResult;
 };
 
 // ---- Canonical signed-byte string (MUST match relay/scripts/smoke-capture.mjs
@@ -105,6 +111,7 @@ export async function addCapture(input: {
   uri: string;
   caption?: string;
   annotation?: AnnotationDoc;
+  ocr?: OcrResult;
 }): Promise<Capture> {
   const capture: Capture = {
     id: makeId(),
@@ -112,8 +119,9 @@ export async function addCapture(input: {
     caption: (input.caption ?? '').trim(),
     createdAt: new Date().toISOString(),
     status: 'queued',
-    // Only carry the field when present so plain captures stay byte-clean.
+    // Only carry the fields when present so plain captures stay byte-clean.
     ...(input.annotation ? { annotation: input.annotation } : {}),
+    ...(input.ocr ? { ocr: input.ocr } : {}),
   };
   const current = await listCaptures();
   // Newest first so the freshest snap sits at the top of the outbox.
@@ -219,6 +227,9 @@ export async function sendCapture(
         sig,
         ...(capture.annotation
           ? { annotation: JSON.stringify(capture.annotation) }
+          : {}),
+        ...(capture.ocr
+          ? { ocr: JSON.stringify(capture.ocr) }
           : {}),
       }),
     );
