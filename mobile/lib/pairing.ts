@@ -78,16 +78,21 @@ export async function setPairing(p: {
   userX25519PubHex?: string;
   demo?: boolean;
 }): Promise<Pairing> {
-  // Switching to a DIFFERENT lab (a new u) wipes the outbox so captures sent to
-  // a previous lab / dev server never leak into the new connection's "recently
-  // sent". A same-lab re-pair (same u) keeps any queued captures.
-  try {
-    const prev = await getPairing();
-    if (prev && prev.u !== p.u) {
+  // A deliberate (re-)pair starts with a clean outbox, so captures sent to a
+  // previous lab / dev server / folder never leak into the new connection's
+  // "recently sent". This clears on the IDENTITY of the pairing action, not the
+  // u: a fresh dev server can hand the phone the same u while pointing at a
+  // brand-new (empty) folder, and the phone cannot see that, so keying off u was
+  // too narrow. setPairing is the only path a deliberate QR scan takes (auto
+  // reconnect just reads the stored record and does NOT call this), so normal
+  // use keeps the outbox and only a fresh pair clears it. Demo seeds + manages
+  // its own captures, so it is exempt.
+  if (!p.demo) {
+    try {
       await clearAllCaptures();
+    } catch {
+      // Best-effort; a clear failure should never block pairing.
     }
-  } catch {
-    // Best-effort; a read failure should never block pairing.
   }
   const pairing: Pairing = {
     u: p.u,
