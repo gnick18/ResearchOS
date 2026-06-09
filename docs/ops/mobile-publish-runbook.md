@@ -23,6 +23,21 @@ same bundle id is kept). Google supports app transfer between Play Console accou
 Do the transfer after the LLC org accounts are fully enrolled. Until then, personal
 is fine.
 
+### Launch sequencing (decided 2026-06-09): Apple first, Android on the org account
+
+- **Ship iOS first.** The individual Apple account works now (no D-U-N-S needed). The
+  only remaining gate is the reviewer demo mode (scope:
+  `docs/proposals/MOBILE_REVIEWER_DEMO.md`). Once that lands, iOS is submittable.
+- **Do Android after the D-U-N-S + LLC org Play account.** New *personal* Play accounts
+  must run a 12-tester / 14-day closed test before production (see
+  `mobile-dev-accounts-setup.md`). *Organization* accounts are exempt. So rather than
+  burn the 14-day clock on the personal account, wait for the D-U-N-S, stand up (or
+  transfer to) the ResearchOS LLC org Play account, and skip the closed-test entirely.
+- **Confirm before relying on it:** that the org-account closed-test exemption is still
+  current Google policy when you act, and whether a personal-to-org transfer preserves
+  it or needs a fresh org account (Google charges a transfer fee). Store policies shift,
+  verify against the live policy pages.
+
 ## Prerequisites
 
 - **[YOU]** Apple Developer Program active ($99/yr) and Google Play Console active
