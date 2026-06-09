@@ -1726,13 +1726,13 @@ function AnimationSection({ settings, update }: SectionProps) {
         />
       )}
       {/* BeakerBot animations toggle (beakerbot-joy manager). Distinct
-          from the task-completion picker above: this controls BeakerBot's
-          daily hello wave + the BeakerBot streak-celebration scenes. The
-          per-task picker (and its "none" option) stays its own control. */}
+          from the task-completion picker above: this controls the BeakerBot
+          streak-celebration scenes. The per-task picker (and its "none"
+          option) stays its own control. */}
       <div className="mt-4 pt-4 border-t border-border">
         <ToggleRow
           label="BeakerBot animations"
-          description="BeakerBot's daily hello wave and streak celebrations. Turn off for a quieter experience."
+          description="BeakerBot's streak and milestone celebrations. Turn off for a quieter experience."
           checked={settings.beakerBotAnimations}
           onChange={(v) => void update({ beakerBotAnimations: v })}
         />

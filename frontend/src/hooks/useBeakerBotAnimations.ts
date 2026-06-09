@@ -22,8 +22,8 @@ import {
  *     user — see DEFAULT_SETTINGS; this is an opt-OUT setting).
  *   - `false` once a read resolves to a user who turned the toggle off.
  *
- * Used by CelebrationManager to suppress BOTH the daily hello wave and
- * the BeakerBot streak-celebration scenes when the user opts out.
+ * Used by CelebrationManager to suppress the BeakerBot streak-celebration
+ * scenes when the user opts out.
  */
 export function useBeakerBotAnimations(
   username: string | null,

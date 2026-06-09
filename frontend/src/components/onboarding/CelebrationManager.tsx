@@ -47,24 +47,15 @@ import BeakerBotPoseCelebrationScene from "./BeakerBotPoseCelebrationScene";
  *     the manager whenever the context value changes), so no polling
  *     is needed.
  *
- * Daily hello (beakerbot-joy manager): on top of the rare milestone /
- * anniversary celebrations, the manager greets EVERY real user with a
- * light mouseWave "Hi!" once on their first load of the day. Real
- * milestones take priority; the hello fires only when the milestone
- * queue is empty. dedup is per-user per-day in localStorage (NOT the
- * streak sidecar). The hello respects the same tour / capture deferrals
- * as milestones and is suppressed alongside them by the per-user
- * `beakerBotAnimations` opt-out (Settings → Animation).
- *
  * No props beyond `username`: the active username is the source of
  * truth for which sidecar to read, and the username can change
  * mid-app-lifetime (sign out, switch user).
  *
  * When username is null (no signed-in user yet, demo / wiki-capture
  * mode, picker screen), the manager renders nothing and does nothing.
- * The daily hello is additionally guarded against capture / demo
- * fixture mode (the v4 preview screenshot path mounts the full tree
- * inside demo mode) and never fires during the v4 onboarding tour.
+ * Celebrations are additionally guarded against capture / demo fixture
+ * mode (the v4 preview screenshot path mounts the full tree inside demo
+ * mode) and never fire during the v4 onboarding tour.
  */
 
 // --------------------------------------------------------------------
@@ -145,70 +136,6 @@ export function pickRandomCelebration(
 }
 
 // --------------------------------------------------------------------
-// Daily hello (beakerbot-joy manager)
-// --------------------------------------------------------------------
-//
-// Grant's brief: "BeakerBot saying hi and waving on first load in for a
-// day is super cute and should happen for everyone." The pre-existing
-// celebration system only fired on rare numeric milestones (3d / 7d
-// streaks) or account anniversaries (1w / 1mo / ...). The mouseWave
-// "Hi!" scene was just one of eight random pool members, so a typical
-// user almost never saw BeakerBot wave. This adds a light once-per-day
-// greeting that forces the mouseWave scene for EVERY real user on their
-// first load of the day.
-//
-// Dedup is per-user, per-day in localStorage (NOT the streak sidecar):
-// the brief explicitly forbids a new data-shape, and flavor-only
-// once-per-X locks already follow the localStorage/sessionStorage
-// `researchOS.*` convention (see IdleAnimationManager's
-// IDLE_FIRED_SESSION_KEY). localStorage (not session) so a reload later
-// the same day does not re-fire, but a fresh calendar day does.
-
-/** localStorage key holding the ISO date (YYYY-MM-DD) of the last day
- *  the daily hello fired for this user. Per-user so a shared browser
- *  with two accounts greets each account once on their respective
- *  first load of the day. */
-function helloDateKey(username: string): string {
-  return `researchOS.beakerHello.${username}.lastDate`;
-}
-
-/** Today's local-time date as ISO YYYY-MM-DD. Matches the streak
- *  system's day-boundary convention (local midnight). */
-function todayIso(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-/** True if the daily hello has NOT yet fired for `username` today.
- *  SSR-safe + try/catch for private-mode/quota: on any storage error
- *  we return false (skip the hello) so a broken storage layer can never
- *  spam the wave on every reload. */
-function helloPendingToday(username: string): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return window.localStorage.getItem(helloDateKey(username)) !== todayIso();
-  } catch {
-    return false;
-  }
-}
-
-/** Record that the daily hello fired for `username` today. Best-effort:
- *  a storage failure just means the in-memory session lock still blocks
- *  a repeat fire this mount. */
-function markHelloFiredToday(username: string): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(helloDateKey(username), todayIso());
-  } catch {
-    // Quota exceeded / private mode: the sessionLocked flag below still
-    // prevents a second fire for the lifetime of this mount.
-  }
-}
-
-// --------------------------------------------------------------------
 // Component
 // --------------------------------------------------------------------
 
@@ -217,23 +144,18 @@ interface CelebrationManagerProps {
 }
 
 /**
- * The active slot is a discriminated union: a sidecar-backed milestone /
- * anniversary celebration (which persists a seen-tag on completion via
- * markCelebrationSeen) OR the daily hello (a flavor-only mouseWave whose
- * dedup lives in localStorage, never the streak sidecar — see the
- * daily-hello section above and the "no new data-shape" brief constraint).
+ * The active slot is a sidecar-backed milestone / anniversary celebration,
+ * which persists a seen-tag on completion via markCelebrationSeen.
  */
-type ActiveCelebration =
-  | { kind: "milestone"; celebration: PendingCelebration; scene: CelebrationScene }
-  | { kind: "hello" };
+type ActiveCelebration = {
+  kind: "milestone";
+  celebration: PendingCelebration;
+  scene: CelebrationScene;
+};
 
 export default function CelebrationManager({ username }: CelebrationManagerProps) {
   const [queue, setQueue] = useState<PendingCelebration[]>([]);
   const [active, setActive] = useState<ActiveCelebration | null>(null);
-  // Whether the once-per-day hello is still pending for this user. Seeded
-  // false; the mount effect flips it true when localStorage says the
-  // hello has not yet fired today (and the user / context allows it).
-  const [helloPending, setHelloPending] = useState(false);
   // One-per-session lock. Flips to true the moment a celebration
   // begins rendering, and stays true for the lifetime of the
   // component mount. Re-mounts (next app load) reset it.
@@ -310,60 +232,28 @@ export default function CelebrationManager({ username }: CelebrationManagerProps
     return unsubscribe;
   }, [username]);
 
-  // ------- Daily hello seed (beakerbot-joy manager) -----------------
-  //
-  // On mount / username change, decide whether to greet the user with
-  // the once-per-day hello wave. Fires for EVERY real user on their
-  // first load of the day, gated only by:
-  //   - a real signed-in user (username present),
-  //   - NOT capture / demo fixture mode,
-  //   - the BeakerBot-animations opt-out being ON (true, not false; we
-  //     also wait for the read to resolve, so `undefined` defers),
-  //   - localStorage saying the hello has not already fired today.
-  // The tour deferral is handled in the drain effect (the hello waits
-  // for the corner just like a milestone does). dedup is localStorage,
-  // never the sidecar.
-  useEffect(() => {
-    if (!username) return;
-    if (captureMode) return;
-    if (beakerBotAnimations !== true) return;
-    if (!helloPendingToday(username)) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot gate flip from a pure localStorage read; no I/O, mirrors the IdleAnimationManager fired-lock seed pattern.
-    setHelloPending(true);
-  }, [username, captureMode, beakerBotAnimations]);
-
   // ------- Steps 3 + 5 + 6: drain the queue (one per session) -------
   //
   // When (a) there is no active celebration, (b) we haven't already
   // burned this session's one celebration, (c) no tour is fighting for
   // the corner, and (d) BeakerBot animations are enabled (resolved to
-  // true), fire the next celebration. Real milestones / anniversaries
-  // take priority over the daily hello; the hello fires only when the
-  // milestone queue is empty.
+  // true), fire the next milestone / anniversary celebration.
   useEffect(() => {
     if (active !== null) return;
     if (sessionLocked) return;
     if (tourActive) return;
     if (captureMode) return;
-    // Opt-out gate: suppress BOTH the daily hello and the streak
-    // celebration scenes when the user turned BeakerBot animations off.
-    // `undefined` (read in flight) also defers so we never flash-fire.
+    // Opt-out gate: suppress the streak celebration scenes when the user
+    // turned BeakerBot animations off. `undefined` (read in flight) also
+    // defers so we never flash-fire.
     if (beakerBotAnimations !== true) return;
 
     if (queue.length > 0) {
       const [next, ...rest] = queue;
       const scene = pickRandomCelebration();
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot queue drain, guarded by `active !== null` + sessionLocked so it fires at most once per session; mirrors the IdleAnimationManager fired-lock pattern.
       setActive({ kind: "milestone", celebration: next, scene });
       setQueue(rest);
-      setSessionLocked(true);
-      return;
-    }
-    if (helloPending && username) {
-      // Burn the per-day localStorage lock up front so a fast remount
-      // (StrictMode double-invoke, hot reload) can't double-greet.
-      markHelloFiredToday(username);
-      setActive({ kind: "hello" });
-      setHelloPending(false);
       setSessionLocked(true);
     }
   }, [
@@ -373,21 +263,17 @@ export default function CelebrationManager({ username }: CelebrationManagerProps
     captureMode,
     beakerBotAnimations,
     queue,
-    helloPending,
-    username,
   ]);
 
   // ------- Step 4: scene onComplete persists + clears active --------
   //
-  // The scene fires onComplete when its animation finishes. For a
-  // milestone we persist the seen tag (best-effort: log and continue on
-  // failure). The daily hello persists nothing to the sidecar (its dedup
-  // already landed in localStorage when it fired). Because sessionLocked
-  // is still true, no further celebrations fire this session.
+  // The scene fires onComplete when its animation finishes. We persist
+  // the seen tag (best-effort: log and continue on failure). Because
+  // sessionLocked is still true, no further celebrations fire this session.
   const onSceneComplete = useCallback(async () => {
     const cur = active;
     setActive(null);
-    if (!cur || cur.kind !== "milestone" || !username) return;
+    if (!cur || !username) return;
     try {
       await markCelebrationSeen(username, cur.celebration);
     } catch (err) {
@@ -401,12 +287,6 @@ export default function CelebrationManager({ username }: CelebrationManagerProps
 
   if (!username) return null;
   if (!active) return null;
-
-  // The daily hello forces the mouseWave "Hi!" scene (BeakerBot waves
-  // from the corner with its default "Hi!" speech bubble).
-  if (active.kind === "hello") {
-    return <BeakerBotMouseWaveScene active onComplete={onSceneComplete} />;
-  }
 
   // First-ever 7-day streak: render the celebratory twirl (twirl-
   // milestones bot) instead of a random pool scene. This is the SINGLE

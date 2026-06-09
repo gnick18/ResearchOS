@@ -190,9 +190,9 @@ export interface UserSettings {
   colorSecondary: string | null;
   coloredHeader: boolean;         // false → keep header white instead of tinting with `color`
   animationType: AnimationType;
-  /** When off, suppresses the BeakerBot daily hello wave AND the BeakerBot
-   *  streak-celebration scenes (mouseWave / eureka / ladder / skateboard,
-   *  etc.). Default true (opt-out). This is distinct from `animationType`
+  /** When off, suppresses the BeakerBot streak-celebration scenes
+   *  (mouseWave / eureka / ladder / skateboard, etc.). Default true
+   *  (opt-out). This is distinct from `animationType`
    *  above (the per-task-completion celebration the user picks) and from
    *  the v4 onboarding tour's guided BeakerBot cursor, neither of which
    *  this flag touches. Read by CelebrationManager. */

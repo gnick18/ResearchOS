@@ -38,7 +38,6 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import BeakerBot from "@/components/BeakerBot";
 import SponsorStrip from "@/components/SponsorStrip";
-import BeakerBotSpeechBubble from "@/components/beakerbot/SpeechBubble";
 import BeakerBotPeek from "@/components/welcome/BeakerBotPeek";
 import Wordmark from "@/components/Wordmark";
 import DemoLoop, { DemoLoopPlaceholder } from "@/components/welcome/DemoLoop";
@@ -457,22 +456,6 @@ export default function WelcomePage() {
   // this page, so it should be ready before the visitor scrolls to it.
   usePreloadOnIdle(() => import("@/components/sequences/TaxonomyTreeView"));
 
-  // Hi-wave greeting: BeakerBot waves on land then settles into the living
-  // idle. Start false so the first server/client render is idle (avoids any
-  // hydration flicker), then flip to waving immediately on mount and settle
-  // after ~3s. The alive idle keeps him blinking and glancing afterward.
-  const [waveActive, setWaveActive] = useState(false);
-  useEffect(() => {
-    // Small leading delay so the wave starts after the page paints and the
-    // visitor's eye is on it, not before.
-    const start = setTimeout(() => setWaveActive(true), 120);
-    const stop = setTimeout(() => setWaveActive(false), 3200);
-    return () => {
-      clearTimeout(start);
-      clearTimeout(stop);
-    };
-  }, []);
-
   // Roadmap modal state.
   const [roadmapOpen, setRoadmapOpen] = useState(false);
 
@@ -579,24 +562,10 @@ export default function WelcomePage() {
               aria-hidden
               className="relative drop-shadow-[0_14px_30px_rgba(26,160,230,0.34)]"
             >
-              {/* "Hi!" greeting bubble, the same primitive BeakerBot uses for
-                  its daily hello + the What's New corner wave. Pops in above
-                  the bot during the on-load wave, then unmounts when the wave
-                  settles. */}
-              {waveActive && (
-                <BeakerBotSpeechBubble
-                  tone="default"
-                  direction="down"
-                  position={{ bottom: "calc(100% + 10px)", left: "50%" }}
-                  style={{
-                    animation: "brand-bubble-in 260ms ease-out forwards",
-                  }}
-                >
-                  Hi!
-                </BeakerBotSpeechBubble>
-              )}
+              {/* Static hero mascot: the living idle (subtle breathe / blink /
+                  gaze) without the on-load wave or greeting bubble. */}
               <BeakerBot
-                pose={waveActive ? "waving" : "idle"}
+                pose="idle"
                 alive
                 className="h-28 w-28 text-brand-sky md:h-32 md:w-32"
               />
