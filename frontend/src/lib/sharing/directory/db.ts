@@ -518,6 +518,290 @@ export async function getDirectoryMetrics(): Promise<DirectoryMetrics> {
 }
 
 // ---------------------------------------------------------------------------
+// Lab directory (lab-search-bot, 2026-06-09)
+//
+// Two new tables:
+//   directory_labs         -- one row per lab, PI opts into listed=true
+//   directory_lab_requests -- pending join requests from researchers
+//
+// Both tables are additive (CREATE TABLE IF NOT EXISTS). No ALTER on existing
+// tables. All writes are best-effort at the call site (a failure here must
+// not block lab creation or the join request UX).
+// ---------------------------------------------------------------------------
+
+/** A lab directory listing row, as stored. */
+export interface LabListing {
+  labId: string;
+  name: string;
+  institution: string | null;
+  piEmailHash: string;
+  piDisplayName: string;
+  memberCount: number;
+  listed: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** The public shape returned to a browser searching the directory. */
+export interface LabListingPublic {
+  labId: string;
+  name: string;
+  institution: string | null;
+  piName: string;
+  memberCount: number;
+}
+
+/** A join request row, as stored. */
+export interface LabJoinRequest {
+  labId: string;
+  requesterEmailHash: string;
+  requesterPubkey: string;
+  requesterName: string;
+  status: "pending" | "approved" | "declined";
+  createdAt: string;
+}
+
+/**
+ * Creates the directory_labs and directory_lab_requests tables if they do
+ * not already exist. Idempotent; every route handler calls this on entry.
+ */
+export async function ensureLabsSchema(): Promise<void> {
+  const sql = getSql();
+  await sql`
+    CREATE TABLE IF NOT EXISTS directory_labs (
+      lab_id           text primary key,
+      name             text not null,
+      institution      text,
+      pi_email_hash    text not null,
+      pi_display_name  text not null,
+      member_count     int  not null default 1,
+      listed           bool not null default false,
+      created_at       timestamptz default now(),
+      updated_at       timestamptz default now()
+    )
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_labs_pi_email_hash
+      ON directory_labs(pi_email_hash)
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS directory_lab_requests (
+      id                    bigserial primary key,
+      lab_id                text not null,
+      requester_email_hash  text not null,
+      requester_pubkey      text not null,
+      requester_name        text not null,
+      status                text not null default 'pending',
+      created_at            timestamptz default now(),
+      UNIQUE (lab_id, requester_email_hash)
+    )
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_lab_requests_lab_id
+      ON directory_lab_requests(lab_id)
+  `;
+}
+
+/**
+ * Inserts or updates the directory row for a lab. Safe to call on lab
+ * creation (listed=false by default) or on any metadata update. Does NOT
+ * flip the listed flag; that is done by setLabListed.
+ */
+export async function upsertLabListing(params: {
+  labId: string;
+  name: string;
+  institution: string | null;
+  piEmailHash: string;
+  piDisplayName: string;
+  memberCount: number;
+}): Promise<void> {
+  const sql = getSql();
+  await sql`
+    INSERT INTO directory_labs
+      (lab_id, name, institution, pi_email_hash, pi_display_name, member_count,
+       listed, updated_at)
+    VALUES
+      (${params.labId}, ${params.name}, ${params.institution},
+       ${params.piEmailHash}, ${params.piDisplayName}, ${params.memberCount},
+       false, now())
+    ON CONFLICT (lab_id) DO UPDATE SET
+      name             = EXCLUDED.name,
+      institution      = EXCLUDED.institution,
+      pi_email_hash    = EXCLUDED.pi_email_hash,
+      pi_display_name  = EXCLUDED.pi_display_name,
+      member_count     = EXCLUDED.member_count,
+      updated_at       = now()
+  `;
+}
+
+/**
+ * Sets the listed flag for a lab. The PI explicitly opts in (listed=true)
+ * or out (listed=false); the default at creation time is false.
+ */
+export async function setLabListed(
+  labId: string,
+  listed: boolean,
+): Promise<void> {
+  const sql = getSql();
+  await sql`
+    UPDATE directory_labs
+    SET listed = ${listed}, updated_at = now()
+    WHERE lab_id = ${labId}
+  `;
+}
+
+/**
+ * Returns the directory row for a single lab, or null when none exists.
+ */
+export async function getLabListing(
+  labId: string,
+): Promise<LabListing | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT lab_id, name, institution, pi_email_hash, pi_display_name,
+           member_count, listed, created_at, updated_at
+    FROM directory_labs
+    WHERE lab_id = ${labId}
+    LIMIT 1
+  `) as Array<{
+    lab_id: string;
+    name: string;
+    institution: string | null;
+    pi_email_hash: string;
+    pi_display_name: string;
+    member_count: number;
+    listed: boolean;
+    created_at: string;
+    updated_at: string;
+  }>;
+  if (rows.length === 0) return null;
+  const r = rows[0];
+  return {
+    labId: r.lab_id,
+    name: r.name,
+    institution: r.institution,
+    piEmailHash: r.pi_email_hash,
+    piDisplayName: r.pi_display_name,
+    memberCount: r.member_count,
+    listed: r.listed,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+/**
+ * Searches listed labs by name or institution. Query is a LIKE search over
+ * both columns (case-insensitive). Returns at most limit results.
+ * Only rows with listed=true are returned; unlisted labs are invisible.
+ */
+export async function searchListedLabs(
+  query: string,
+  limit: number = 20,
+): Promise<LabListingPublic[]> {
+  const sql = getSql();
+  const pattern = `%${query.replace(/[%_\\]/g, "\\$&")}%`;
+  const rows = (await sql`
+    SELECT lab_id, name, institution, pi_display_name, member_count
+    FROM directory_labs
+    WHERE listed = true
+      AND (lower(name) LIKE lower(${pattern})
+           OR lower(coalesce(institution, '')) LIKE lower(${pattern}))
+    ORDER BY name ASC
+    LIMIT ${limit}
+  `) as Array<{
+    lab_id: string;
+    name: string;
+    institution: string | null;
+    pi_display_name: string;
+    member_count: number;
+  }>;
+  return rows.map((r) => ({
+    labId: r.lab_id,
+    name: r.name,
+    institution: r.institution,
+    piName: r.pi_display_name,
+    memberCount: r.member_count,
+  }));
+}
+
+/**
+ * Records a join request for a lab. Idempotent per (labId, requesterEmailHash):
+ * a second request from the same requester resets status to 'pending' so a
+ * declined researcher can re-apply.
+ */
+export async function upsertLabJoinRequest(params: {
+  labId: string;
+  requesterEmailHash: string;
+  requesterPubkey: string;
+  requesterName: string;
+}): Promise<void> {
+  const sql = getSql();
+  await sql`
+    INSERT INTO directory_lab_requests
+      (lab_id, requester_email_hash, requester_pubkey, requester_name, status)
+    VALUES
+      (${params.labId}, ${params.requesterEmailHash},
+       ${params.requesterPubkey}, ${params.requesterName}, 'pending')
+    ON CONFLICT (lab_id, requester_email_hash) DO UPDATE SET
+      requester_pubkey = EXCLUDED.requester_pubkey,
+      requester_name   = EXCLUDED.requester_name,
+      status           = 'pending'
+  `;
+}
+
+/**
+ * Returns all pending join requests for a given lab. The PI endpoint uses
+ * this; only pending rows are returned (approved/declined are already done).
+ */
+export async function getPendingJoinRequests(
+  labId: string,
+): Promise<LabJoinRequest[]> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT lab_id, requester_email_hash, requester_pubkey, requester_name,
+           status, created_at
+    FROM directory_lab_requests
+    WHERE lab_id = ${labId} AND status = 'pending'
+    ORDER BY created_at ASC
+  `) as Array<{
+    lab_id: string;
+    requester_email_hash: string;
+    requester_pubkey: string;
+    requester_name: string;
+    status: string;
+    created_at: string;
+  }>;
+  return rows.map((r) => ({
+    labId: r.lab_id,
+    requesterEmailHash: r.requester_email_hash,
+    requesterPubkey: r.requester_pubkey,
+    requesterName: r.requester_name,
+    status: r.status as "pending",
+    createdAt: r.created_at,
+  }));
+}
+
+/**
+ * Resolves a join request to approved or declined. Called by the PI after
+ * reviewing. The caller is responsible for issuing an invite link when
+ * action is 'approve'.
+ */
+export async function resolveLabJoinRequest(
+  labId: string,
+  requesterEmailHash: string,
+  action: "approve" | "decline",
+): Promise<void> {
+  const sql = getSql();
+  const newStatus = action === "approve" ? "approved" : "declined";
+  await sql`
+    UPDATE directory_lab_requests
+    SET status = ${newStatus}
+    WHERE lab_id = ${labId}
+      AND requester_email_hash = ${requesterEmailHash}
+  `;
+}
+
+// ---------------------------------------------------------------------------
 // Capacity / cost planning (powers the /admin "Infrastructure" panel)
 // ---------------------------------------------------------------------------
 
@@ -716,4 +1000,69 @@ export async function getEventMetrics(): Promise<EventMetrics> {
     },
     identityCreated: identityRows[0]?.n ?? 0,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Beta-tester broadcast list (admin broadcast feature)
+// ---------------------------------------------------------------------------
+
+export async function ensureBetaTestersSchema(): Promise<void> {
+  const sql = getSql();
+  await sql`
+    CREATE TABLE IF NOT EXISTS beta_testers (
+      id BIGSERIAL PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      name TEXT,
+      added_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `;
+}
+
+export interface BetaTester {
+  id: number;
+  email: string;
+  name: string | null;
+  addedAt: string;
+}
+
+export async function listBetaTesters(): Promise<BetaTester[]> {
+  const sql = getSql();
+  await ensureBetaTestersSchema();
+  const rows = (await sql`
+    SELECT id, email, name, added_at
+    FROM beta_testers
+    ORDER BY added_at DESC
+  `) as Array<{ id: number; email: string; name: string | null; added_at: string }>;
+  return rows.map((r) => ({
+    id: r.id,
+    email: r.email,
+    name: r.name,
+    addedAt: r.added_at,
+  }));
+}
+
+export async function addBetaTester(
+  email: string,
+  name?: string,
+): Promise<BetaTester> {
+  const sql = getSql();
+  await ensureBetaTestersSchema();
+  const rows = (await sql`
+    INSERT INTO beta_testers (email, name)
+    VALUES (${email.trim().toLowerCase()}, ${name?.trim() || null})
+    ON CONFLICT (email) DO UPDATE SET name = COALESCE(EXCLUDED.name, beta_testers.name)
+    RETURNING id, email, name, added_at
+  `) as Array<{ id: number; email: string; name: string | null; added_at: string }>;
+  return {
+    id: rows[0].id,
+    email: rows[0].email,
+    name: rows[0].name,
+    addedAt: rows[0].added_at,
+  };
+}
+
+export async function removeBetaTester(id: number): Promise<void> {
+  const sql = getSql();
+  await ensureBetaTestersSchema();
+  await sql`DELETE FROM beta_testers WHERE id = ${id}`;
 }
