@@ -3,10 +3,9 @@
 // The Neon-backed collab persistence tables (collab_docs, collab_doc_updates,
 // collab_doc_members) and all write/read helpers have been removed now that the
 // Cloudflare Durable Object owns collab persistence. What remains here are the
-// read-only storage-measurement functions consumed by the billing routes and the
-// /admin capacity gauge. They measure logical byte usage via octet_length against
-// the same Neon tables (if they exist) and fall back gracefully when the tables
-// are absent or empty.
+// storage-measurement functions consumed by the billing routes and the /admin
+// capacity gauge. The canonical per-owner tally is now in collab_doc_sizes,
+// populated by the DO backup alarm via POST /api/collab/doc-size.
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
@@ -52,12 +51,64 @@ export function _testSetSql(
 }
 
 // ---------------------------------------------------------------------------
+// collab_doc_sizes table (DO-era per-owner tally)
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates the collab_doc_sizes table and its owner_hash index if they do not
+ * already exist. Idempotent, safe to call on every route entry. The DO backup
+ * alarm populates this table via POST /api/collab/doc-size; the billing routes
+ * read from it via getOwnerUsage.
+ *
+ * doc_id is the stable session id the DO is addressed by (idFromName key).
+ * owner_hash is the peppered email hash from lib/billing/owner.ts, matching the
+ * key the billing layer uses everywhere.
+ * bytes is the raw byteLength of the latest Loro snapshot from the DO alarm.
+ */
+export async function ensureDocSizesSchema(): Promise<void> {
+  const sql = getSql();
+  await sql`
+    CREATE TABLE IF NOT EXISTS collab_doc_sizes (
+      doc_id     TEXT PRIMARY KEY,
+      owner_hash TEXT NOT NULL,
+      bytes      BIGINT NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_collab_doc_sizes_owner_hash
+      ON collab_doc_sizes (owner_hash)
+  `;
+}
+
+/**
+ * Inserts or updates the size record for one doc. Called by the
+ * /api/collab/doc-size route on each DO backup alarm tick. On conflict the
+ * bytes and updated_at are overwritten; doc_id is stable.
+ */
+export async function upsertDocSize(params: {
+  docId: string;
+  ownerHash: string;
+  bytes: number;
+}): Promise<void> {
+  const sql = getSql();
+  await sql`
+    INSERT INTO collab_doc_sizes (doc_id, owner_hash, bytes, updated_at)
+    VALUES (${params.docId}, ${params.ownerHash}, ${params.bytes}, now())
+    ON CONFLICT (doc_id) DO UPDATE SET
+      owner_hash = EXCLUDED.owner_hash,
+      bytes      = EXCLUDED.bytes,
+      updated_at = now()
+  `;
+}
+
+// ---------------------------------------------------------------------------
 // Storage-measurement helpers (used by billing routes and /admin gauge)
 // ---------------------------------------------------------------------------
 
 /**
  * The per-owner storage ceiling, in bytes, for the owner identified by the
- * peppered email hash stored in collab_docs.owner_email_hash.
+ * peppered email hash stored in collab_doc_sizes.owner_hash.
  *
  * When billing is on, the quota is owned by the billing layer: the free
  * allowance plus whatever blocks the owner has purchased, so buying a block
@@ -77,40 +128,31 @@ export async function getOwnerQuotaBytes(ownerHash: string): Promise<number> {
 }
 
 /**
- * Total logical byte usage across every doc a given owner owns, snapshots plus
- * outstanding update logs. Same octet_length basis as the historical per-doc
- * gate so the per-owner gate and the per-doc gate measure the same way.
+ * Total bytes owned by the given owner, summed from the DO-populated
+ * collab_doc_sizes table. This replaces the old octet_length scan of the
+ * stale Neon collab_docs / collab_doc_updates tables; the DO backup alarm
+ * keeps the sizes current.
  */
 export async function getOwnerUsage(ownerHash: string): Promise<number> {
   const sql = getSql();
+  await ensureDocSizesSchema();
   const rows = (await sql`
-    SELECT
-      (SELECT COALESCE(SUM(octet_length(latest_snapshot)), 0)
-         FROM collab_docs
-        WHERE owner_email_hash = ${ownerHash})
-      +
-      (SELECT COALESCE(SUM(octet_length(u.update_bytes)), 0)
-         FROM collab_doc_updates u
-         JOIN collab_docs d ON d.doc_id = u.doc_id
-        WHERE d.owner_email_hash = ${ownerHash}) AS owner_bytes
+    SELECT COALESCE(SUM(bytes), 0) AS owner_bytes
+    FROM collab_doc_sizes
+    WHERE owner_hash = ${ownerHash}
   `) as Array<{ owner_bytes: string | number }>;
   return Number(rows[0]?.owner_bytes ?? 0);
 }
 
 /**
- * On-disk footprint of the two collab content tables in bytes, for the operator
- * dashboard. Uses pg_total_relation_size (table + indexes + TOAST) because that
- * is what actually counts against the Neon 0.5 GB tier, unlike the octet_length
- * basis the budget gate uses. The two numbers differ (disk is compressed and
- * carries overhead), which is expected, the gauge reports true cost and the gate
- * enforces a deterministic logical size.
+ * On-disk footprint of the collab_doc_sizes table in bytes, for the operator
+ * dashboard. Uses pg_total_relation_size (table + indexes + TOAST) so the
+ * gauge reflects true Neon storage cost, not logical row bytes.
  */
 export async function getCollabStorageBytes(): Promise<number> {
   const sql = getSql();
   const rows = (await sql`
-    SELECT
-      pg_total_relation_size('collab_docs')
-      + pg_total_relation_size('collab_doc_updates') AS bytes
+    SELECT pg_total_relation_size('collab_doc_sizes') AS bytes
   `) as Array<{ bytes: string | number }>;
   return Number(rows[0]?.bytes ?? 0);
 }

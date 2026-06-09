@@ -899,6 +899,10 @@ export class CollabRoom {
    * the room is dirty, clears the flag, and schedules one more tick to batch
    * imminent writes; if still clean on the next tick it returns early and the
    * alarm goes idle (a new write re-arms it).
+   *
+   * Also reports the current snapshot byteLength to Vercel so the per-owner
+   * billing tally (collab_doc_sizes) stays current. Best-effort, fail-silent:
+   * a metering failure never blocks the backup path.
    */
   async alarm(): Promise<void> {
     const dirtyRows = this.sql()
@@ -922,6 +926,42 @@ export class CollabRoom {
     }
     this.sql().exec("UPDATE meta SET v = '0' WHERE k = 'dirty'");
     await this.state.storage.setAlarm(Date.now() + BACKUP_INTERVAL_MS);
+
+    // Report snapshot size to the Vercel billing tally. Only when owner_pubkey
+    // is set (an enforced doc; open docs have no billable owner yet). Runs after
+    // the R2 write so a metering hiccup never delays the backup.
+    void this.reportDocSize(stored ? stored.byteLength : 0);
+  }
+
+  /**
+   * Best-effort POST of the current doc size to the Vercel metering endpoint.
+   * Fail-silent: any error is swallowed so the backup alarm is never affected.
+   */
+  private async reportDocSize(byteLength: number): Promise<void> {
+    const base = this.env.APP_BASE_URL;
+    if (!base) return; // local dev with no APP_BASE_URL; no-op
+    const ownerPubkey = this.metaGet("owner_pubkey");
+    if (!ownerPubkey) return; // open doc with no grant yet; nothing to bill
+    const sessionIdRows = this.sql()
+      .exec<{ v: string }>("SELECT v FROM meta WHERE k = 'session_id'")
+      .toArray();
+    const docId =
+      sessionIdRows.length > 0 ? sessionIdRows[0].v : this.state.id.toString();
+    try {
+      const headers: Record<string, string> = {
+        "content-type": "application/json",
+      };
+      if (this.env.RELAY_BREAKER_SECRET) {
+        headers.authorization = `Bearer ${this.env.RELAY_BREAKER_SECRET}`;
+      }
+      await fetch(`${base}/api/collab/doc-size`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ docId, ownerPubkey, bytes: byteLength }),
+      });
+    } catch {
+      // Fail silent; metering is best-effort.
+    }
   }
 
   async fetch(request: Request): Promise<Response> {

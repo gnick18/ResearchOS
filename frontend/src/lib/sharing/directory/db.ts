@@ -133,6 +133,40 @@ export async function getBindingByHash(
 }
 
 /**
+ * Fetches the current binding for an Ed25519 public key (hex), or null if none.
+ * This is the reverse of getBindingByHash: the DO stores only the owner_pubkey
+ * (the Ed25519 signing key), so the /api/collab/doc-size route uses this to
+ * resolve a pubkey to the email_hash that the billing layer keys by. Exact
+ * column match only, the table is not enumerable via a prefix query.
+ */
+export async function getBindingByPubkey(
+  pubkeyHex: string,
+): Promise<DirectoryBinding | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT email_hash, x25519_pub, ed25519_pub, fingerprint, key_backup_blob
+    FROM directory_identities
+    WHERE ed25519_pub = ${pubkeyHex}
+    LIMIT 1
+  `) as Array<{
+    email_hash: string;
+    x25519_pub: string;
+    ed25519_pub: string;
+    fingerprint: string;
+    key_backup_blob: string | null;
+  }>;
+  if (rows.length === 0) return null;
+  const r = rows[0];
+  return {
+    emailHash: r.email_hash,
+    x25519PublicKey: r.x25519_pub,
+    ed25519PublicKey: r.ed25519_pub,
+    fingerprint: r.fingerprint,
+    keyBackupBlob: r.key_backup_blob,
+  };
+}
+
+/**
  * Fetches just the encrypted key-backup blob for an email hash, or null if there
  * is no binding or the binding stored no blob. The recovery route needs only the
  * blob, not the key material, so this selects a single column and keeps the two
