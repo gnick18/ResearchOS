@@ -17,6 +17,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { useTheme, palette, radii as globalRadii, spacing as globalSpacing } from '@/lib/design';
+import { useMascotKeepOut } from '@/lib/mascot-avoid';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost';
 export type ButtonAccent = 'sky' | 'coral' | 'amber';
@@ -51,9 +52,14 @@ export function Button({
 }: ButtonProps) {
   const { surface } = useTheme();
   const isDisabled = disabled || loading;
+  // Register this button as a keep-out zone so the floating BeakerBot never
+  // parks on top of it. Automatic for every Button, no per-screen wiring.
+  const keepOut = useMascotKeepOut();
 
   return (
     <Pressable
+      ref={keepOut.ref}
+      onLayout={keepOut.onLayout}
       style={({ pressed }) => [
         styles.base,
         variant === 'primary' && {

@@ -1,16 +1,24 @@
 /**
- * HeaderMascot. A tiny live BeakerBot that floats in the top-right corner of
- * every screen. He is already "awake" (full lockup), breathes and sways a hair,
- * and blinks on a gentle cadence. Tapping him pops a little burst of hearts,
- * gives a soft squish, and fires a light haptic.
+ * HeaderMascot. A tiny live BeakerBot that floats in a corner of every screen.
+ * He rests in the bottom-right gutter just above the tab bar by default, and is
+ * collision-aware, if a real button sits where he would land he springs to the
+ * next clear corner instead, so he never parks on top of an action. He is
+ * already "awake" (full lockup), breathes and sways a hair, and blinks on a
+ * gentle cadence. Tapping him pops a little burst of hearts, gives a soft
+ * squish, and fires a light haptic.
  *
  * Drawn with @shopify/react-native-skia using the verbatim brand geometry
  * (viewBox "8 3 24 31"), the same paths the splash uses. One useClock() drives
  * the idle breathe + blink; a Reanimated `burst` shared value drives the hearts.
  *
+ * Collision avoidance: the shared Button primitive registers its window rect in
+ * lib/mascot-avoid; this overlay reads those rects and chooses the first corner
+ * (bottom-right, bottom-left, top-right, top-left) whose footprint stays clear.
+ *
  * Mounted once in app/_layout.tsx as a fixed overlay, so it rides above every
- * route without each screen having to place it. It is a small absolutely
- * positioned Pressable, so taps anywhere else pass straight through.
+ * route without each screen having to place it. The animated container is
+ * pointer-transparent and only the inner Pressable catches taps, so touches
+ * anywhere else pass straight through.
  *
  * Reduce-motion: idle breathe/blink freeze to a static awake mark; the tap
  * burst still plays since it is user-initiated.
@@ -18,8 +26,20 @@
  * House style: no em-dashes, no emojis, no mid-sentence colons.
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { AccessibilityInfo, Pressable, StyleSheet } from 'react-native';
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
+import {
+  AccessibilityInfo,
+  Platform,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import {
@@ -32,15 +52,23 @@ import {
   useClock,
   vec,
 } from '@shopify/react-native-skia';
-import {
+import Animated, {
   Easing,
+  useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
   withSequence,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import {
+  getKeepOutRects,
+  getKeepOutVersion,
+  subscribeKeepOut,
+  type KeepOutRect,
+} from '@/lib/mascot-avoid';
 
 // ---- Brand geometry (verbatim, viewBox "8 3 24 31") -----------------------
 const D_GLASS_FILL =
@@ -84,6 +112,66 @@ const MARK_PX = 38; // beaker height in pixels
 const MARK_CX = BOX_W / 2;
 const MARK_CY = BOX_H - 30; // beaker sits low; hearts rise into the top space
 
+// ---- Corner placement + collision avoidance -------------------------------
+// Tab bar height mirrors app/(tabs)/_layout.tsx so the bottom corners rest just
+// above the tab buttons.
+const TAB_BAR_H = Platform.OS === 'ios' ? 84 : 68;
+const FOOT = 54; // mascot footprint diameter used for the overlap tests
+const EDGE = 14; // gap from the screen side edge to the footprint center
+const KO_PAD = 8; // inflate registered buttons a touch so the bot keeps clear
+
+type Anchor = { key: string; cx: number; cy: number };
+
+function rectsOverlap(a: KeepOutRect, b: KeepOutRect): boolean {
+  return (
+    a.x < b.x + b.width &&
+    a.x + a.width > b.x &&
+    a.y < b.y + b.height &&
+    a.y + a.height > b.y
+  );
+}
+
+// Candidate beaker-center positions in priority order, bottom-right first.
+function cornerAnchors(W: number, H: number, insetTop: number): Anchor[] {
+  const r = FOOT / 2;
+  const right = W - EDGE - r;
+  const left = EDGE + r;
+  const bottom = H - TAB_BAR_H - 8 - r;
+  const top = insetTop + 8 + r;
+  return [
+    { key: 'br', cx: right, cy: bottom },
+    { key: 'bl', cx: left, cy: bottom },
+    { key: 'tr', cx: right, cy: top },
+    { key: 'tl', cx: left, cy: top },
+  ];
+}
+
+// First corner whose footprint clears every registered button; falls back to
+// bottom-right when every corner is occupied.
+function chooseAnchor(
+  W: number,
+  H: number,
+  insetTop: number,
+  occupied: KeepOutRect[],
+): Anchor {
+  const r = FOOT / 2;
+  const candidates = cornerAnchors(W, H, insetTop);
+  for (const c of candidates) {
+    const foot: KeepOutRect = { x: c.cx - r, y: c.cy - r, width: FOOT, height: FOOT };
+    const clear = occupied.every(
+      (o) =>
+        !rectsOverlap(foot, {
+          x: o.x - KO_PAD,
+          y: o.y - KO_PAD,
+          width: o.width + KO_PAD * 2,
+          height: o.height + KO_PAD * 2,
+        }),
+    );
+    if (clear) return c;
+  }
+  return candidates[0];
+}
+
 // Heart centered roughly on (0,0), spans about x[-5,5] y[-3.5,4].
 const D_HEART =
   'M0 4 C -3 1, -5 -1, -2.6 -2.6 C -1.1 -3.4, 0 -2.1, 0 -1 C 0 -2.1, 1.1 -3.4, 2.6 -2.6 C 5 -1, 3 1, 0 4 Z';
@@ -116,6 +204,42 @@ export function HeaderMascot() {
       active = false;
     };
   }, []);
+
+  // Pick a clear corner. Recompute when the window, the top inset, or the set
+  // of registered buttons changes (the version bumps on every register change).
+  const { width: winW, height: winH } = useWindowDimensions();
+  const koVersion = useSyncExternalStore(subscribeKeepOut, getKeepOutVersion);
+  const anchor = useMemo(
+    () => chooseAnchor(winW, winH, insets.top, getKeepOutRects()),
+    // koVersion is the recompute trigger; getKeepOutRects() reads it under the hood.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [winW, winH, insets.top, koVersion],
+  );
+  const targetLeft = anchor.cx - MARK_CX;
+  const targetTop = anchor.cy - MARK_CY;
+
+  // Spring the container to the chosen corner. First placement is instant so he
+  // does not slide in from the origin on mount.
+  const px = useSharedValue(targetLeft);
+  const py = useSharedValue(targetTop);
+  const placed = useRef(false);
+  useEffect(() => {
+    if (!placed.current) {
+      placed.current = true;
+      px.value = targetLeft;
+      py.value = targetTop;
+      return;
+    }
+    if (reduceMotion) {
+      px.value = targetLeft;
+      py.value = targetTop;
+    } else {
+      px.value = withSpring(targetLeft, { damping: 18, stiffness: 150, mass: 0.8 });
+      py.value = withSpring(targetTop, { damping: 18, stiffness: 150, mass: 0.8 });
+    }
+  }, [targetLeft, targetTop, reduceMotion, px, py]);
+
+  const posStyle = useAnimatedStyle(() => ({ left: px.value, top: py.value }));
 
   const clock = useClock();
   const burst = useSharedValue(0); // 0..1 heart burst progress, 0 at rest
@@ -191,14 +315,18 @@ export function HeaderMascot() {
   };
 
   return (
-    <Pressable
-      onPress={onPress}
-      hitSlop={8}
-      accessibilityRole="button"
-      accessibilityLabel="BeakerBot"
-      style={[styles.wrap, { top: insets.top + 2, width: BOX_W, height: BOX_H }]}
+    <Animated.View
+      pointerEvents="box-none"
+      style={[styles.wrap, posStyle, { width: BOX_W, height: BOX_H }]}
     >
-      <Canvas style={StyleSheet.absoluteFill}>
+      <Pressable
+        onPress={onPress}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="BeakerBot"
+        style={StyleSheet.absoluteFill}
+      >
+        <Canvas style={StyleSheet.absoluteFill}>
         {/* Hearts (behind/around the beaker, rising up) */}
         {HEARTS.map((h, i) => (
           <Group key={i} transform={heartTransform[i]} opacity={heartOpacity[i]}>
@@ -225,17 +353,18 @@ export function HeaderMascot() {
               <Circle cx={EYE_R.cx} cy={EYE_R.cy} r={EYE_R.r} color={SKY} />
             </Group>
             <Path path={D_SMILE} color={SKY} style="stroke" strokeWidth={STROKE} strokeCap="round" strokeJoin="round" />
+            </Group>
           </Group>
-        </Group>
-      </Canvas>
-    </Pressable>
+        </Canvas>
+      </Pressable>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: {
+    // left/top come from the animated position style (posStyle).
     position: 'absolute',
-    right: 10,
     zIndex: 60,
   },
 });
