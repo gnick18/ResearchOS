@@ -24,6 +24,7 @@ import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import { useIsLabMode } from "@/hooks/useIsLabMode";
 import { useAppStore } from "@/lib/store";
+import { useCompanionHub } from "@/lib/ui/companion-hub-store";
 import { fileService } from "@/lib/file-system/file-service";
 import {
   patchUserSettings,
@@ -466,8 +467,9 @@ function SettingsBodyInner() {
               id="devices"
               title="Companion"
               description="Pair your phone to the ResearchOS Companion app. Capture at the bench, glance at today, and have everything sync back to your folder automatically."
-              searchKeywords="companion phone pair pairing mobile capture photo qr relay inbox camera bench notes scan today glance devices"
+              searchKeywords="companion phone pair pairing mobile capture photo qr relay inbox camera bench notes scan today glance devices hub open"
             >
+              <OpenCompanionHubButton />
               <DevicesSection ready={sharing.isReady} />
             </SectionShell>
             <AIHelperSection />
@@ -681,6 +683,25 @@ function SettingsSearchEmptyState() {
 interface SectionProps {
   settings: UserSettings;
   update: (patch: Partial<UserSettings>) => Promise<void>;
+}
+
+// Opens the Companion hub popup (Connect / Info / Settings tabs) from inside the
+// Settings Companion section. This is the escape hatch when the header Companion
+// button is hidden (hub Settings -> "Show Companion button on Home" off): the
+// inline DevicesSection below only covers Connect, so without this the show-button
+// toggle in the hub's Settings tab would be unreachable.
+function OpenCompanionHubButton() {
+  const open = useCompanionHub((s) => s.open);
+  return (
+    <button
+      type="button"
+      onClick={(e) => open({ x: e.clientX, y: e.clientY })}
+      className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface-raised px-3.5 py-2 text-body font-medium text-foreground shadow-sm hover:bg-surface-sunken"
+    >
+      <Icon name="phone" className="h-4 w-4" />
+      Open Companion hub
+    </button>
+  );
 }
 
 function SectionShell({

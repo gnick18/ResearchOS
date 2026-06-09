@@ -332,7 +332,16 @@ function LabChoiceSubStep({
   );
 }
 
-// ---- Sub-step: join via invite link ----
+// ---- Lab directory search result shape ----
+interface LabSearchResult {
+  labId: string;
+  name: string;
+  institution: string | null;
+  piName: string;
+  memberCount: number;
+}
+
+// ---- Sub-step: join via invite link or browse the directory ----
 function LabJoinSubStep({
   onBack,
 }: {
@@ -340,28 +349,79 @@ function LabJoinSubStep({
 }) {
   const router = useRouter();
   const [inviteLink, setInviteLink] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [joinError, setJoinError] = useState<string | null>(null);
+
+  // Directory search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<LabSearchResult[] | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
+  // { labId -> 'idle' | 'pending' | 'sent' | 'error' }
+  const [requestState, setRequestState] = useState<Record<string, string>>({});
 
   function handleJoin() {
-    setError(null);
+    setJoinError(null);
     const trimmed = inviteLink.trim();
     if (!trimmed) {
-      setError("Paste an invite link to continue.");
+      setJoinError("Paste an invite link to continue.");
       return;
     }
-    // Accept full URLs (https://research-os.app/accept/<id>#k=<hex>) or bare paths
     try {
       const url = new URL(trimmed);
-      // Navigate to the path + fragment so the existing LabInviteResume
-      // and /accept/[inviteId] route can handle the accept handshake.
       router.push(url.pathname + url.search + url.hash);
     } catch {
-      // Not a full URL: try to treat it as a relative path
       if (trimmed.startsWith("/accept/")) {
         router.push(trimmed);
       } else {
-        setError("That does not look like a valid invite link. Paste the full URL from your invitation.");
+        setJoinError("That does not look like a valid invite link. Paste the full URL from your invitation.");
       }
+    }
+  }
+
+  async function handleSearch() {
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setSearchError("Enter at least 2 characters.");
+      return;
+    }
+    setSearchError(null);
+    setSearchResults(null);
+    setSearching(true);
+    try {
+      const res = await fetch(
+        `/api/directory/labs?q=${encodeURIComponent(q)}`,
+      );
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+        setSearchError(
+          typeof data.error === "string" ? data.error : "Search failed.",
+        );
+        return;
+      }
+      const data = (await res.json()) as { labs: LabSearchResult[] };
+      setSearchResults(data.labs ?? []);
+    } catch {
+      setSearchError("Search failed. Check your connection and try again.");
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  async function handleRequestJoin(labId: string) {
+    setRequestState((s) => ({ ...s, [labId]: "pending" }));
+    try {
+      const res = await fetch("/api/directory/labs/request", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ labId }),
+      });
+      if (!res.ok) {
+        setRequestState((s) => ({ ...s, [labId]: "error" }));
+        return;
+      }
+      setRequestState((s) => ({ ...s, [labId]: "sent" }));
+    } catch {
+      setRequestState((s) => ({ ...s, [labId]: "error" }));
     }
   }
 
@@ -374,24 +434,30 @@ function LabJoinSubStep({
         Join a lab
       </h1>
       <p className="text-sm text-foreground-muted text-center mt-2 mb-8 max-w-sm">
-        Paste the invite link your PI or lab head sent you.
+        Paste the invite link your PI sent you, or search the lab directory and
+        request to join.
       </p>
+
+      {/* Invite link section */}
       <div className="w-full max-w-sm space-y-3">
+        <p className="text-xs font-semibold text-foreground-muted uppercase tracking-wide">
+          Have an invite link?
+        </p>
         <input
           type="url"
           placeholder="https://research-os.app/accept/..."
           value={inviteLink}
           onChange={(e) => {
             setInviteLink(e.target.value);
-            if (error) setError(null);
+            if (joinError) setJoinError(null);
           }}
           className="w-full px-3 py-2.5 rounded-xl border border-border bg-surface-raised text-foreground text-sm placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-[#1283c9] focus:border-transparent"
           onKeyDown={(e) => {
             if (e.key === "Enter") handleJoin();
           }}
         />
-        {error && (
-          <p className="text-xs text-red-600">{error}</p>
+        {joinError && (
+          <p className="text-xs text-red-600">{joinError}</p>
         )}
         <button
           type="button"
@@ -399,15 +465,118 @@ function LabJoinSubStep({
           onClick={handleJoin}
           disabled={!inviteLink.trim()}
         >
-          Join
+          Join via link
         </button>
-        <p className="text-xs text-foreground-muted text-center">
-          Or browse the lab directory (coming soon)
-        </p>
       </div>
+
+      {/* Directory search section */}
+      <div className="w-full max-w-sm mt-8 space-y-3">
+        <p className="text-xs font-semibold text-foreground-muted uppercase tracking-wide">
+          Or browse the lab directory
+        </p>
+        <div className="flex gap-2">
+          <input
+            type="search"
+            placeholder="Search by lab name or institution..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              if (searchError) setSearchError(null);
+            }}
+            className="flex-1 px-3 py-2.5 rounded-xl border border-border bg-surface-raised text-foreground text-sm placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-[#1283c9] focus:border-transparent"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSearch();
+            }}
+          />
+          <button
+            type="button"
+            className="px-4 py-2.5 rounded-xl bg-[#1283c9] hover:bg-[#0f6fa8] text-white font-semibold text-sm transition-colors disabled:opacity-50"
+            onClick={handleSearch}
+            disabled={searching || searchQuery.trim().length < 2}
+          >
+            {searching ? "..." : "Search"}
+          </button>
+        </div>
+        {searchError && (
+          <p className="text-xs text-red-600">{searchError}</p>
+        )}
+
+        {/* Search results */}
+        {searchResults !== null && (
+          <div className="space-y-2 mt-1">
+            {searchResults.length === 0 ? (
+              <p className="text-xs text-foreground-muted text-center py-4">
+                No listed labs matched that search.
+              </p>
+            ) : (
+              searchResults.map((lab) => {
+                const reqStatus = requestState[lab.labId] ?? "idle";
+                return (
+                  <div
+                    key={lab.labId}
+                    className="flex items-start justify-between gap-3 rounded-xl border border-border bg-surface-raised px-4 py-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">
+                        {lab.name}
+                      </p>
+                      {lab.institution && (
+                        <p className="text-xs text-foreground-muted truncate">
+                          {lab.institution}
+                        </p>
+                      )}
+                      <p className="text-xs text-foreground-muted">
+                        PI: {lab.piName}
+                        {" "}
+                        <span className="text-foreground-muted opacity-60">
+                          ({lab.memberCount}{" "}
+                          {lab.memberCount === 1 ? "member" : "members"})
+                        </span>
+                      </p>
+                    </div>
+                    <div className="flex-none">
+                      {reqStatus === "sent" ? (
+                        <p className="text-xs text-green-600 font-semibold whitespace-nowrap">
+                          Request sent
+                        </p>
+                      ) : reqStatus === "error" ? (
+                        <button
+                          type="button"
+                          className="text-xs text-red-600 underline whitespace-nowrap"
+                          onClick={() => handleRequestJoin(lab.labId)}
+                        >
+                          Retry
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="px-3 py-1.5 rounded-lg bg-[#1283c9] hover:bg-[#0f6fa8] text-white font-semibold text-xs transition-colors disabled:opacity-50 whitespace-nowrap"
+                          onClick={() => handleRequestJoin(lab.labId)}
+                          disabled={reqStatus === "pending"}
+                        >
+                          {reqStatus === "pending" ? "Sending..." : "Request to join"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+
+        {/* Sent confirmation note */}
+        {Object.values(requestState).some((s) => s === "sent") && (
+          <p className="text-xs text-foreground-muted text-center pt-2">
+            Your request has been sent. The PI will approve it and share an
+            invite link with you directly.
+          </p>
+        )}
+      </div>
+
       <button
         type="button"
-        className="mt-6 text-sm text-foreground-muted hover:text-foreground underline hover:no-underline transition-colors"
+        className="mt-8 text-sm text-foreground-muted hover:text-foreground underline hover:no-underline transition-colors"
         onClick={onBack}
       >
         Back

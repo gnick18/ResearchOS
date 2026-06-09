@@ -45,6 +45,11 @@ export default function LabMembershipPanel() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Directory listing toggle state
+  const [listed, setListed] = useState<boolean | null>(null);
+  const [listToggleBusy, setListToggleBusy] = useState(false);
+  const [listToggleError, setListToggleError] = useState<string | null>(null);
+
   if (!labId || !currentUser) {
     return (
       <p className="text-meta text-foreground-muted leading-relaxed">
@@ -238,6 +243,78 @@ export default function LabMembershipPanel() {
           {error}
         </p>
       )}
+
+      <hr className="border-border" />
+
+      {/* Directory listing toggle */}
+      <div className="space-y-3">
+        <h4 className="text-body font-medium text-foreground">
+          Lab directory listing
+        </h4>
+        <p className="text-meta text-foreground-muted leading-relaxed">
+          Your lab is unlisted by default. Turn this on to appear in the
+          researcher directory so members can find and request to join you.
+        </p>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={listed === true}
+            disabled={listToggleBusy || !labId}
+            className={[
+              "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+              listed === true ? "bg-sky-600" : "bg-border",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+            ].join(" ")}
+            onClick={async () => {
+              if (!labId) return;
+              const next = !(listed === true);
+              setListToggleBusy(true);
+              setListToggleError(null);
+              try {
+                const res = await fetch("/api/directory/labs/publish", {
+                  method: "PATCH",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ labId, listed: next }),
+                });
+                if (!res.ok) {
+                  setListToggleError("Failed to update listing. Try again.");
+                } else {
+                  setListed(next);
+                }
+              } catch {
+                setListToggleError("Failed to update listing. Try again.");
+              } finally {
+                setListToggleBusy(false);
+              }
+            }}
+          >
+            <span
+              className={[
+                "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                listed === true ? "translate-x-6" : "translate-x-1",
+              ].join(" ")}
+            />
+          </button>
+          <span className="text-meta text-foreground">
+            {listed === true ? "Listed in the directory" : "Unlisted (private)"}
+          </span>
+          {listToggleBusy && (
+            <span className="text-meta text-foreground-muted">Saving...</span>
+          )}
+        </div>
+        {listToggleError && (
+          <p className="text-meta text-red-500" role="alert">
+            {listToggleError}
+          </p>
+        )}
+        {listed === null && (
+          <p className="text-meta text-foreground-subtle">
+            The current listing state will load once you toggle it for the first time.
+            Your lab starts unlisted.
+          </p>
+        )}
+      </div>
     </div>
   );
 }

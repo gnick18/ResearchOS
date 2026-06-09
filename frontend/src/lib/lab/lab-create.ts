@@ -46,6 +46,16 @@ export interface CreateLabParams {
    */
   oauthEmail: string;
   /**
+   * Optional lab display name. When provided, a directory row is created
+   * (listed=false by default) via the /api/directory/labs/publish endpoint.
+   * The publish is best-effort: a failure does NOT block lab creation.
+   */
+  labName?: string;
+  /**
+   * Optional institution name surfaced in the lab directory listing.
+   */
+  institution?: string | null;
+  /**
    * Override for the lab-id generator. Defaults to crypto.randomUUID. Injected
    * in tests to produce a deterministic id.
    */
@@ -113,6 +123,26 @@ export async function createLabForCurrentUser(
     throw new Error(
       `createLabForCurrentUser: relay rejected lab create (HTTP ${res.status})`,
     );
+  }
+
+  // Best-effort: publish a directory row (listed=false) so the lab can later
+  // be opted into the listing by the PI. A failure here must never block lab
+  // creation -- we simply skip the upsert and the PI can trigger it later.
+  if (params.labName?.trim()) {
+    try {
+      await fetch("/api/directory/labs/publish", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          labId,
+          name: params.labName.trim(),
+          institution: params.institution ?? null,
+          piDisplayName: username,
+        }),
+      });
+    } catch {
+      // Intentionally swallowed: directory upsert is best-effort.
+    }
   }
 
   return { labId, labKey: created.labKey };
