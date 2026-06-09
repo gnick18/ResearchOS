@@ -423,6 +423,55 @@ export default function NotebookScreen() {
     ? snapshot!.upcomingTasks!
     : [];
 
+  // Connection gate: until the phone is paired, the Notebook does real work only
+  // through the laptop, so it shows nothing but the pair CTA (capture now
+  // requires pairing first). Calc / Timers / Wiki stay usable offline. Demo
+  // writes a pairing record, so demo users pass straight through. A queued-count
+  // line surfaces any captures stranded from before this shipped, so nothing is
+  // silently lost.
+  if (!paired) {
+    const pendingCount = captures.filter(
+      (c) => c.status === 'queued' || c.status === 'failed',
+    ).length;
+    return (
+      <ScreenFrame>
+        <View style={styles.scrollContent}>
+          <View style={styles.titleRow}>
+            <ThemedText type="title">Notebook</ThemedText>
+            <Pressable
+              onPress={() => router.push('/modal')}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Settings"
+              style={styles.settingsBtn}
+            >
+              <Ionicons name="settings-outline" size={24} color={palette.sky} />
+            </Pressable>
+          </View>
+          <Card style={{ gap: spacing.sm, marginTop: spacing.lg }}>
+            <ThemedText style={[styles.cardTitle, { color: surface.text }]}>
+              Pair this phone
+            </ThemedText>
+            <ThemedText style={[styles.tagline, { color: surface.muted }]}>
+              Pair this phone with your laptop to send captures and notes to your lab.
+            </ThemedText>
+            <Button
+              variant="primary"
+              label="Pair this phone"
+              onPress={() => router.push('/pair')}
+            />
+            {pendingCount > 0 ? (
+              <ThemedText style={[styles.tagline, { color: surface.muted }]}>
+                {pendingCount} capture{pendingCount === 1 ? '' : 's'} queued. Pair to
+                send {pendingCount === 1 ? 'it' : 'them'}.
+              </ThemedText>
+            ) : null}
+          </Card>
+        </View>
+      </ScreenFrame>
+    );
+  }
+
   return (
     <ScreenFrame>
       <ScrollView
@@ -472,27 +521,11 @@ export default function NotebookScreen() {
           </View>
         ) : null}
 
-        {/* Connection card */}
-        {paired ? (
-          <ConnectionCard
-            labName={pairing?.labName ?? 'Paired with your lab'}
-            onUnpair={onUnpair}
-          />
-        ) : (
-          <Card style={{ gap: spacing.sm }}>
-            <ThemedText style={[styles.cardTitle, { color: surface.text }]}>
-              Not paired
-            </ThemedText>
-            <ThemedText style={[styles.tagline, { color: surface.muted }]}>
-              Pair this phone with your laptop to send captures and notes to your lab.
-            </ThemedText>
-            <Button
-              variant="primary"
-              label="Pair this phone"
-              onPress={() => router.push('/pair')}
-            />
-          </Card>
-        )}
+        {/* Connection card (always paired here, the gate above handles unpaired) */}
+        <ConnectionCard
+          labName={pairing?.labName ?? 'Paired with your lab'}
+          onUnpair={onUnpair}
+        />
 
         {/* Quick-capture action row (per mockup: side-by-side icon-over-label cards) */}
         {!previewUri ? (

@@ -110,10 +110,10 @@ export default function InventoryScreen() {
         {!pairing && loaded ? (
           <Card style={{ gap: spacing.sm }}>
             <ThemedText style={[styles.cardTitle, { color: surface.text }]}>
-              This phone is not paired
+              Pair this phone
             </ThemedText>
             <ThemedText style={[styles.tagline, { color: surface.muted }]}>
-              Pair with your desktop to sync inventory.
+              Pair this phone with your laptop to see your lab inventory.
             </ThemedText>
             <Button
               variant="primary"
