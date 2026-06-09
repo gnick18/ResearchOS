@@ -120,10 +120,6 @@ interface SharingSectionProps {
   onSetUp: () => void;
   onRotate: () => void;
   onRestore: () => void;
-  /** Optional passkey unlock for the "key not in this browser" state. When
-   *  present (and the sidecar has a passkey), the locked panel offers a
-   *  one-tap unlock instead of forcing the recovery-words path. */
-  onUnlockPasskey?: () => void;
   onDisconnect: () => void;
   onReset: () => void;
 }
@@ -142,7 +138,6 @@ export default function SharingSection({
   onSetUp,
   onRotate,
   onRestore,
-  onUnlockPasskey,
   onDisconnect,
   onReset,
 }: SharingSectionProps) {
@@ -156,7 +151,6 @@ export default function SharingSection({
         onSetUp={onSetUp}
         onRotate={onRotate}
         onRestore={onRestore}
-        onUnlockPasskey={onUnlockPasskey}
         onDisconnect={onDisconnect}
         onReset={onReset}
       />
@@ -212,7 +206,6 @@ function SharingIdentitySection({
   onSetUp,
   onRotate,
   onRestore,
-  onUnlockPasskey,
   onDisconnect,
   onReset,
 }: {
@@ -220,7 +213,6 @@ function SharingIdentitySection({
   onSetUp: () => void;
   onRotate: () => void;
   onRestore: () => void;
-  onUnlockPasskey?: () => void;
   onDisconnect: () => void;
   onReset: () => void;
 }) {
@@ -265,7 +257,6 @@ function SharingIdentitySection({
         <NeedsRestoreIdentity
           sidecar={sidecar}
           onRestore={onRestore}
-          onUnlockPasskey={onUnlockPasskey}
           onReset={onReset}
         />
       )}
@@ -457,17 +448,12 @@ function ReadyIdentity({
 function NeedsRestoreIdentity({
   sidecar,
   onRestore,
-  onUnlockPasskey,
   onReset,
 }: {
   sidecar: SharingIdentitySidecar;
   onRestore: () => void;
-  onUnlockPasskey?: () => void;
   onReset: () => void;
 }) {
-  // A passkey enrolled on this device can unlock the key with one tap, no
-  // recovery words needed. Offer it as the primary door when present.
-  const hasPasskey = !!onUnlockPasskey && !!sidecar.passkeyBlob;
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
@@ -475,7 +461,7 @@ function NeedsRestoreIdentity({
         <Pill
           tone="amber"
           label="Key not in this browser"
-          tip="Your account is set up; the private key that signs your shares just is not in this browser yet. Unlock it with your passkey, or restore with your recovery words."
+          tip="Your account is set up; the private key that signs your shares just is not in this browser yet. Restore it with your recovery words."
         />
       </div>
 
@@ -501,29 +487,14 @@ function NeedsRestoreIdentity({
 
       <p className="text-body text-foreground leading-relaxed max-w-prose pt-1">
         Your account is set up. The private key that signs your shares just is
-        not in this browser yet.{" "}
-        {hasPasskey
-          ? "Unlock it with your passkey, or restore with your recovery words."
-          : "Restore it with your recovery words to send and open shares from here."}
+        not in this browser yet. Restore it with your recovery words to send
+        and open shares from here.
       </p>
       <div className="flex flex-wrap items-center gap-3">
-        {hasPasskey && (
-          <button
-            type="button"
-            onClick={onUnlockPasskey}
-            className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-          >
-            Unlock with passkey
-          </button>
-        )}
         <button
           type="button"
           onClick={onRestore}
-          className={
-            hasPasskey
-              ? "px-3 py-2 text-body border border-border bg-surface-sunken hover:bg-border text-foreground rounded-lg"
-              : "px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-          }
+          className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
         >
           Restore with recovery words
         </button>

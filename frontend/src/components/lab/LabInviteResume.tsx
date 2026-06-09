@@ -47,12 +47,13 @@ export default function LabInviteResume() {
       return;
     }
     // Already in this lab: nothing to resume.
-    if (session?.labId === decoded.labId) {
+    const resolvedLabId = session && !session.loading ? session.labId : null;
+    if (resolvedLabId === decoded.labId) {
       clearStashedInvite();
       return;
     }
     setInvite(decoded);
-  }, [currentUser, session?.labId]);
+  }, [currentUser, session]);
 
   if (!invite) return null;
 

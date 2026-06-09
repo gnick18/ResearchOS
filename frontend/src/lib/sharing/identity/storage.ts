@@ -25,9 +25,6 @@ import {
 } from "./session-key";
 import {
   type WrappedDeviceKey,
-  addPasskeyToDeviceKey,
-  removePasskeyFromDeviceKey,
-  unlockDeviceKeyWithPasskey,
   unlockDeviceKeyWithRecovery,
   wrapDeviceKey,
 } from "./device-key";
@@ -232,8 +229,6 @@ function sidecarToWrapped(
     ed25519PublicKey: sc.ed25519PublicKey,
     fingerprint: sc.fingerprint,
     recoveryBlob: sc.recoveryBlob,
-    passkeyBlob: sc.passkeyBlob,
-    passkeyCredentialId: sc.passkeyCredentialId,
   };
 }
 
@@ -258,7 +253,7 @@ function toStored(keys: IdentityKeys): StoredIdentity {
  *      sidecar).
  *
  * Returns the one-time recovery code (and the equivalent 12 words) to show the
- * user once. A passkey can be enrolled afterwards via enrollPasskeyIntoSidecar.
+ * user once.
  *
  * Argon2id runs inside sealIdentityIntoSidecar (heavy, blocking under PROD
  * params), so call this off the critical paint path the same way the wizard does.
@@ -309,20 +304,6 @@ export async function createLocalIdentity(
   return { recoveryCode, recoveryWords };
 }
 
-/** The passkey credential id to ask for at unlock, or null when none enrolled. */
-export async function getPasskeyCredentialId(
-  username: string,
-): Promise<string | null> {
-  const sc = await readSharingIdentity(username);
-  return sc?.passkeyCredentialId ?? null;
-}
-
-/** Whether this user's folder identity has a passkey door on this device. */
-export async function sidecarHasPasskey(username: string): Promise<boolean> {
-  const sc = await readSharingIdentity(username);
-  return !!sc?.passkeyBlob;
-}
-
 /** Unlocks the folder identity with the recovery code or 12 words. */
 export async function unlockIdentityWithRecovery(
   username: string,
@@ -340,24 +321,6 @@ export async function unlockIdentityWithRecovery(
   // record. A session/IndexedDB mismatch otherwise makes different callers read
   // different identities (broke mobile pairing: QR signed one key, poller read
   // another).
-  await saveIdentity(identity);
-  return identity;
-}
-
-/** Unlocks the folder identity with a passkey PRF output (from webauthn.ts). */
-export async function unlockIdentityWithPasskey(
-  username: string,
-  prfOutput: Uint8Array,
-): Promise<StoredIdentity | null> {
-  const sc = await readSharingIdentity(username);
-  if (!sc) return null;
-  const wrapped = sidecarToWrapped(sc);
-  if (!wrapped) return null;
-  const keys = unlockDeviceKeyWithPasskey(wrapped, prfOutput);
-  if (!keys) return null;
-  const identity = toStored(keys);
-  // Persist (session + IndexedDB) so a later reload's loadIdentity fallback
-  // returns this identity, not a stale one. See unlockIdentityWithRecovery.
   await saveIdentity(identity);
   return identity;
 }
@@ -401,44 +364,16 @@ export async function sealIdentityIntoSidecar(
 }
 
 /**
- * Adds (or replaces) the passkey door on the user's sidecar, using the current
- * session key plus a fresh PRF output from an enrollment ceremony.
+ * Stamps recoveryConfirmedAt on the user's sidecar, marking that they saved
+ * their recovery words. Called when the user ticks the confirmation checkbox and
+ * completes CreateLocalIdentityStep. No-op if the sidecar is absent.
  */
-export async function enrollPasskeyIntoSidecar(
-  username: string,
-  prfOutput: Uint8Array,
-  credentialId: string,
-): Promise<boolean> {
+export async function confirmRecoveryInSidecar(username: string): Promise<void> {
   const sc = await readSharingIdentity(username);
-  const session = getSessionIdentity();
-  if (!sc || !sc.recoveryBlob || !session) return false;
-  const wrapped = addPasskeyToDeviceKey(
-    sidecarToWrapped(sc) as WrappedDeviceKey,
-    session.keys,
-    prfOutput,
-    credentialId,
-  );
+  if (!sc) return;
   await writeSharingIdentity(username, {
     ...sc,
-    passkeyBlob: wrapped.passkeyBlob,
-    passkeyCredentialId: wrapped.passkeyCredentialId,
-    passkeyEnrolledAt: new Date().toISOString(),
+    recoveryConfirmedAt: new Date().toISOString(),
   });
-  return true;
 }
 
-/** Removes the passkey door, leaving recovery-only unlock. */
-export async function removePasskeyFromSidecar(
-  username: string,
-): Promise<boolean> {
-  const sc = await readSharingIdentity(username);
-  if (!sc || !sc.recoveryBlob) return false;
-  const stripped = removePasskeyFromDeviceKey(sidecarToWrapped(sc) as WrappedDeviceKey);
-  await writeSharingIdentity(username, {
-    ...sc,
-    passkeyBlob: stripped.passkeyBlob,
-    passkeyCredentialId: stripped.passkeyCredentialId,
-    passkeyEnrolledAt: null,
-  });
-  return true;
-}

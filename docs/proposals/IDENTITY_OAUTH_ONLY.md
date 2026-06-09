@@ -1,9 +1,101 @@
 # Identity, simplified: a local keypair is your account, OAuth is optional
 
-Status: decisions locked 2026-06-06; P1 + P2 built; MAJOR REVISION 2026-06-06
-(see below) after the OAuth-required model dead-ended in dev.
+Status: MAJOR REVISION 2 locked 2026-06-08 (OAuth-only login for lab accounts,
+passkey removed, keypair auto-unwraps via device key). Prior P1+P2 (local keypair
++ passkey) built and live; this revision supersedes the passkey-everyday-unlock
+parts. See "MAJOR REVISION 2" immediately below.
 Author: HR (orchestrator)
-Date: 2026-06-06
+Date: 2026-06-06 (rev 2026-06-08)
+
+## MAJOR REVISION 2 (2026-06-08): OAuth IS the login for lab accounts; kill the passkey
+
+Context. The original 2026-06-06 cut (just below) made OAuth-the-login for
+EVERYONE and dead-ended, because OAuth was required even for pure local-first
+users and was not configured in dev/prod, so no account could be created. The
+fix was the current model: a local keypair unlocked everyday by a passkey, OAuth
+optional. That works but leaves two long-standing annoyances Grant called out
+2026-06-08:
+  1. "Logging in" is really a PASSKEY ceremony, never a third-party login, which
+     is confusing (e.g. linking a phone first makes you "log in" = save a passkey).
+  2. The keypair unlock is in-memory and is redone EVERY REFRESH (only the OAuth
+     cookie persists), so the session feels like it keeps logging you out.
+
+Why OAuth-only is viable NOW (and was not on 2026-06-06). The lab-tier pivot
+split SOLO (free, local-first, no login) from LAB (paid, cloud, online). That
+dissolves the old dead-end: OAuth is required ONLY for lab accounts, which are
+online by definition, while solo stays pure local-first with no OAuth at all.
+Phase 8 also made OAuth actually work end to end (devmock in dev, real providers).
+
+The locked model (Grant 2026-06-08):
+  - SOLO account = no login, ever. Pure local-first. Unchanged.
+  - LAB account = third-party OAuth (Google/GitHub/LinkedIn/ORCID) is THE login.
+    It is REQUIRED before the home/launch page renders (gate in front of the app,
+    not after). The NextAuth JWT cookie persists it across refreshes like any
+    normal website.
+  - THE KEYPAIR STILL EXISTS and still does all decryption (the lab key is sealed
+    to the member's X25519 pubkey; OAuth cannot decrypt). "Remove the passkey"
+    does NOT mean remove the keypair. It means the keypair stops being a passkey
+    ceremony and AUTO-LOADS.
+  - KEYPAIR AT REST = auto-unwrap via a per-device key (DECISION 2026-06-08,
+    option "device key"). The keypair stays encrypted in the folder sidecar, but
+    is wrapped under a random DEVICE KEY stored in this browser's IndexedDB. On
+    boot the device key auto-unwraps the keypair into the in-memory session, no
+    gesture, and it survives refresh. A raw folder copy alone cannot read it
+    (the device key is not in the folder). 
+  - RECOVERY CODE stays, but only as the NEW-DEVICE / new-browser bootstrap:
+    where there is no device key yet, the recovery code unwraps the folder
+    sidecar once, then a fresh device key is minted + the keypair re-wrapped for
+    auto-load thereafter.
+  - PASSKEY is REMOVED everywhere (the passkey door at unlock + the enrollment
+    step + passkeyBlob handling). One fewer ceremony, one fewer concept.
+
+Boot flow, target:
+  SOLO:  connect folder -> (keypair auto-loads via device key if one exists) -> home.
+  LAB:   connect folder -> detect lab account (settings.lab_id / account_type)
+         -> OAUTH GATE (sign in with provider; cookie persists) -> keypair
+         auto-loads via device key (or recovery on a new device) -> lab session
+         opens (existing Phase 8 openLabKey + binding) -> home. OAuth gate is in
+         FRONT; the app shell never renders for a lab account until OAuth is live.
+
+What this simplifies:
+  - The lab email binding (Phase 8a) gets its email straight from the OAuth login
+    that already happened, no separate publish step.
+  - Telegram/phone linking just works post-login (keypair already auto-loaded),
+    no passkey ceremony.
+  - One login concept for lab (OAuth), one secret concept (the auto-loaded
+    keypair), one bootstrap (recovery code).
+
+Migration (existing users):
+  - Existing accounts have recoveryBlob (+ maybe passkeyBlob) in the sidecar but
+    no device key. On their next unlock (recovery, or passkey while it still
+    exists), mint a device key, re-wrap the keypair under it (IndexedDB), and from
+    then on they auto-load. The passkeyBlob is dropped. recoveryBlob is kept.
+  - Removing the passkey UI must not strip recovery (the new-device path).
+
+Phased build plan (proposed):
+  P1. Device-key auto-unwrap: add a device-key store (IndexedDB) + wrap/unwrap of
+      the keypair under it; on boot, auto-load the keypair from it (extend
+      IdentitySessionRestorer). Recovery path mints the device key on success.
+      RESULT: no more re-unlock every refresh. (Self-contained, testable.)
+  P2. OAuth-front-gate for lab accounts: on folder-connect, if the user is a lab
+      account, require an OAuth session BEFORE the app shell renders; reuse the
+      Phase 8 LabSessionController. Solo unchanged.
+  P3. Remove the passkey door + enrollment + passkeyBlob; collapse the login
+      screen to "auto-load, else recovery code" for the keypair, OAuth for lab.
+  P4. Migration sweep + cleanup of the old passkey-first UserLoginScreen branches.
+
+OPEN ITEMS to confirm before building:
+  - Multi-device for lab without re-entering recovery each new device: option
+    "escrow keypair in cloud under OAuth" was DECLINED for now (kept device-key +
+    recovery). Revisit only if cross-device friction is a real complaint.
+  - Security posture: device-key-in-IndexedDB is defense-in-depth only (a full
+    device compromise reads it). Accepted as the local-first trust boundary.
+
+Everything below is the prior (2026-06-06) framing, kept for history. Where the
+2026-06-06 revision says "passkey everyday unlock", read "device-key auto-unwrap;
+passkey removed" per this revision.
+
+
 
 ## MAJOR REVISION 2026-06-06: local keypair = account, OAuth optional
 

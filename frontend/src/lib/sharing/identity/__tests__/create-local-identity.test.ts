@@ -69,8 +69,6 @@ describe("createLocalIdentity", () => {
     expect(typeof sidecar!.fingerprint).toBe("string");
     // The keypair is sealed at rest (this is the "an account exists" signal).
     expect(sidecar!.recoveryBlob).toBeTruthy();
-    // No passkey door yet, that is an optional later step.
-    expect(sidecar!.passkeyBlob).toBeUndefined();
 
     // A real recovery code is handed back exactly once.
     expect(typeof recoveryCode).toBe("string");

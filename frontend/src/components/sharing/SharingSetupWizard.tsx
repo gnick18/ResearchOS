@@ -32,20 +32,11 @@ import { isOAuthPublishAvailable, isDevMockAuth } from "@/lib/sharing/oauth-avai
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
 import { downloadRecoveryKit } from "@/lib/sharing/identity/recovery-kit";
 import { generateDeviceSalt } from "@/lib/sharing/identity/backup";
-import { wrapKeysWithPrf, type PrfBackupBlob } from "@/lib/sharing/identity/passkey";
 import {
-  addPasskeyToEnvelope,
   buildKeyBackupEnvelope,
   serializeKeyBackupEnvelope,
 } from "@/lib/sharing/identity/key-backup-envelope";
 import { mnemonicToRecoveryCode } from "@/lib/sharing/identity/recovery-code";
-import {
-  enrollPasskey,
-  isPasskeySupported,
-  PasskeyCancelledError,
-  PasskeyPrfUnavailableError,
-} from "@/lib/sharing/identity/webauthn";
-import { concatBytes } from "@noble/hashes/utils.js";
 import { loadIdentity, saveIdentity } from "@/lib/sharing/identity/storage";
 import {
   readSharingIdentity,
@@ -149,8 +140,8 @@ export default function SharingSetupWizard({
   // offline before this wizard ever runs. When one is present, publishing must
   // BIND THE EXISTING keypair to the verified email, NOT mint a fresh one (the
   // old two-keypair bug). We capture the existing keys (from the unlocked
-  // session) plus the existing sidecar (for its recoveryBlob/passkeyBlob, which
-  // become the directory backup blob without ever needing the recovery words).
+  // session) plus the existing sidecar (for its recoveryBlob, which becomes the
+  // directory backup blob without ever needing the recovery words).
   // null = none found yet, so the wizard falls back to create-then-publish.
   const [existing, setExisting] = useState<{
     keys: IdentityKeys;
@@ -159,18 +150,6 @@ export default function SharingSetupWizard({
   // Whether the existing-identity probe has finished, so the generate step does
   // not flash the (wrong) "minting a fresh keypair" UI before we know.
   const [existingResolved, setExistingResolved] = useState(false);
-
-  // Passkey enrollment, the everyday unlock. Optional, the recovery code is the
-  // backstop and the flow completes without a passkey (unsupported browser or a
-  // user who skips). The PRF-wrapped blob, when present, is folded into the
-  // backup envelope at publish so it ships in the same directory write.
-  const [passkeyBlob, setPasskeyBlob] = useState<PrfBackupBlob | null>(null);
-  // Which passkey to ask for at unlock (Option A sidecar). Captured at enroll.
-  const [passkeyCredentialId, setPasskeyCredentialId] = useState<string | null>(
-    null,
-  );
-  const [passkeyEnrolling, setPasskeyEnrolling] = useState(false);
-  const [passkeyError, setPasskeyError] = useState<string | null>(null);
 
   // True when the user signed in via ORCID (which returns no email) and has
   // been routed to the email-enter step to prove an email via OTP.
@@ -380,41 +359,6 @@ export default function SharingSetupWizard({
     }
   }, [recoveryCode]);
 
-  // Enroll a passkey for this identity. Wraps the freshly generated private
-  // bundle under the passkey's PRF output and stashes the resulting blob, which
-  // publish folds into the backup envelope. Failures are non-fatal, the user can
-  // still finish on the recovery code alone.
-  const enrollPasskeyForIdentity = useCallback(async () => {
-    if (!material) return;
-    setPasskeyError(null);
-    setPasskeyEnrolling(true);
-    try {
-      const { prfOutput, credentialId } = await enrollPasskey({
-        userId: decodePublicKey(material.ed25519PublicKey),
-        userName: email || username,
-        userDisplayName: displayName.trim() || email || username,
-      });
-      const privateBundle = concatBytes(
-        material.x25519PrivateKey,
-        material.ed25519PrivateKey,
-      );
-      setPasskeyBlob(wrapKeysWithPrf(privateBundle, prfOutput));
-      setPasskeyCredentialId(credentialId);
-    } catch (err) {
-      if (err instanceof PasskeyCancelledError) {
-        setPasskeyError("Passkey setup was cancelled. You can try again.");
-      } else if (err instanceof PasskeyPrfUnavailableError) {
-        setPasskeyError(
-          "This passkey cannot unlock your key. Use your recovery code instead.",
-        );
-      } else {
-        setPasskeyError("Could not set up a passkey. Use your recovery code instead.");
-      }
-    } finally {
-      setPasskeyEnrolling(false);
-    }
-  }, [material, email, username, displayName]);
-
   // Step 4, publish to the directory then save locally.
   const publish = useCallback(async () => {
     // Two sourcing paths for the keypair we bind:
@@ -449,25 +393,14 @@ export default function SharingSetupWizard({
       : material!.fingerprint;
 
     // The directory backup blob (the recovery-words-wrapped key envelope). On
-    // the existing path we rebuild it from the sidecar's stored recoveryBlob,
-    // folding in the existing passkey blob if any, so the directory copy matches
-    // the local one without ever needing the recovery words in memory. On the
-    // create path it is the freshly minted blob plus any just-enrolled passkey.
-    const baseBackupBlob = existing
+    // the existing path we rebuild it from the sidecar's stored recoveryBlob so
+    // the directory copy matches the local one without ever needing the recovery
+    // words in memory. On the create path it is the freshly minted blob.
+    const backupBlob = existing
       ? serializeKeyBackupEnvelope(
-          buildKeyBackupEnvelope(
-            existing.sidecar.recoveryBlob!,
-            existing.sidecar.passkeyBlob,
-          ),
+          buildKeyBackupEnvelope(existing.sidecar.recoveryBlob!),
         )
       : material!.backupBlob;
-    // On the create path, when a passkey was enrolled in THIS wizard run, fold
-    // its blob into the envelope. (The existing path already carries any passkey
-    // via the sidecar blob above.)
-    const backupBlob =
-      !existing && passkeyBlob
-        ? addPasskeyToEnvelope(baseBackupBlob, passkeyBlob) ?? baseBackupBlob
-        : baseBackupBlob;
     const bind: BindRequestBody = buildBindRequest({
       email: canonical,
       x25519PublicKey: x25519PublicKeyHex,
@@ -556,9 +489,9 @@ export default function SharingSetupWizard({
     try {
       if (existing) {
         // EXISTING path: bind only ADDS the email + claimedAt to the existing
-        // sidecar. The recoveryBlob / passkeyBlob / public keys / fingerprint
-        // are kept EXACTLY as they were, so the one local keypair stays the one
-        // identity (this is the unification, no fresh keypair, no second blob).
+        // sidecar. The recoveryBlob, public keys, and fingerprint are kept
+        // EXACTLY as they were, so the one local keypair stays the one identity
+        // (this is the unification, no fresh keypair, no second blob).
         const updated: SharingIdentitySidecar = {
           ...existing.sidecar,
           email: canonical,
@@ -568,8 +501,7 @@ export default function SharingSetupWizard({
       } else {
         // CREATE path: seal the SAME freshly minted keypair into the sidecar
         // under the SAME recovery words the directory blob used, so the folder
-        // is a self-contained identity with one recovery secret. The passkey
-        // blob + credential id ride along when a passkey was enrolled.
+        // is a self-contained identity with one recovery secret.
         const recoveryBlob = wrapDeviceKeyWithWords(
           {
             encryption: {
@@ -591,10 +523,7 @@ export default function SharingSetupWizard({
           fingerprint: publishedFingerprint,
           claimedAt: new Date().toISOString(),
           recoveryConfirmedAt: recoverySaved ? new Date().toISOString() : null,
-          passkeyEnrolledAt: passkeyBlob ? new Date().toISOString() : null,
           recoveryBlob,
-          ...(passkeyBlob ? { passkeyBlob } : {}),
-          ...(passkeyCredentialId ? { passkeyCredentialId } : {}),
         };
         await writeSharingIdentity(username, sidecar);
       }
@@ -625,8 +554,6 @@ export default function SharingSetupWizard({
     otp,
     displayName,
     recoverySaved,
-    passkeyBlob,
-    passkeyCredentialId,
     username,
     onComplete,
   ]);
@@ -726,11 +653,6 @@ export default function SharingSetupWizard({
               onCopy={copyCode}
               onContinue={publish}
               recoveryCode={recoveryCode}
-              passkeySupported={isPasskeySupported()}
-              passkeyEnrolled={!!passkeyBlob}
-              passkeyEnrolling={passkeyEnrolling}
-              passkeyError={passkeyError}
-              onEnrollPasskey={enrollPasskeyForIdentity}
             />
           )}
 
@@ -1011,11 +933,6 @@ function GenerateStep({
   onCopy,
   onContinue,
   recoveryCode,
-  passkeySupported,
-  passkeyEnrolled,
-  passkeyEnrolling,
-  passkeyError,
-  onEnrollPasskey,
 }: {
   material: IdentityMaterial | null;
   email: string;
@@ -1028,11 +945,6 @@ function GenerateStep({
   onCopy: () => void;
   onContinue: () => void;
   recoveryCode: string;
-  passkeySupported: boolean;
-  passkeyEnrolled: boolean;
-  passkeyEnrolling: boolean;
-  passkeyError: string | null;
-  onEnrollPasskey: () => void;
 }) {
   // Loading state while Argon2id runs. The animation is pure CSS
   // (animate-pulse / a CSS-keyframe spinner) because the main thread is blocked
@@ -1083,51 +995,6 @@ function GenerateStep({
           Other ResearchOS users can find you by this name. You can change it
           anytime in Settings.
         </p>
-      </div>
-
-      {/* Passkey, the everyday unlock. Optional, the recovery code below is the
-          backstop and publishing works without a passkey. */}
-      <div className="rounded-lg border border-border bg-surface-sunken p-3 space-y-2">
-        <div className="flex items-center gap-2 text-blue-600 dark:text-blue-300">
-          <KeyIcon className="w-5 h-5" />
-          <p className="text-body font-medium text-foreground">One-tap unlock</p>
-        </div>
-        {passkeySupported ? (
-          passkeyEnrolled ? (
-            <div className="flex items-start gap-2 text-emerald-700 dark:text-emerald-200">
-              <span className="text-emerald-700 dark:text-emerald-300 mt-0.5">
-                <CheckIcon className="w-4 h-4" />
-              </span>
-              <p className="text-meta leading-relaxed">
-                Passkey ready. You can unlock sharing on this device and your
-                synced devices with no code to type.
-              </p>
-            </div>
-          ) : (
-            <>
-              <p className="text-meta text-foreground-muted leading-relaxed">
-                Add a passkey so you can unlock sharing with your fingerprint,
-                face, or device PIN. It syncs through your Google or Apple
-                keychain, so a new device just works.
-              </p>
-              <button
-                type="button"
-                onClick={onEnrollPasskey}
-                disabled={passkeyEnrolling}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
-              >
-                <KeyIcon className="w-3.5 h-3.5" />
-                {passkeyEnrolling ? "Waiting for your passkey…" : "Set up a passkey"}
-              </button>
-            </>
-          )
-        ) : (
-          <p className="text-meta text-foreground-muted leading-relaxed">
-            Passkeys are not available in this browser. Your recovery code below
-            is how you unlock on another device.
-          </p>
-        )}
-        {passkeyError && <ErrorNotice message={passkeyError} />}
       </div>
 
       <div className="flex items-center gap-2 text-blue-600 dark:text-blue-300">

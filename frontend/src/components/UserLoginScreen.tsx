@@ -16,20 +16,10 @@ import { type UnlockedKeys } from "@/lib/auth/local-identity";
 import {
   saveIdentity,
   unlockIdentityWithRecovery,
-  unlockIdentityWithPasskey,
-  getPasskeyCredentialId,
-  sidecarHasPasskey,
 } from "@/lib/sharing/identity/storage";
 import { decodePublicKey } from "@/lib/sharing/identity/keys";
 import { generateDeviceSalt } from "@/lib/sharing/identity/backup";
 import { deleteSharingIdentity } from "@/lib/sharing/identity/sidecar";
-import {
-  getPasskeyPrf,
-  isPasskeySupported,
-  PasskeyUnsupportedError,
-  PasskeyPrfUnavailableError,
-  PasskeyCancelledError,
-} from "@/lib/sharing/identity/webauthn";
 import { performUserDelete } from "@/lib/users/perform-delete";
 import { readUserSettings } from "@/lib/settings/user-settings";
 import { readArchivedSet } from "@/lib/lab/user-archive";
@@ -163,10 +153,6 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [recoveryInput, setRecoveryInput] = useState("");
   const recoveryInputRef = useRef<HTMLInputElement>(null);
-
-  // Whether this user has a passkey door enrolled, read when the gate opens so
-  // the "Unlock with passkey" button only shows when there is one to use.
-  const [gateHasPasskey, setGateHasPasskey] = useState(false);
 
   // D1 (cross-boundary sharing): provider-unlock as an online convenience.
   // For an account that has CLAIMED a global sharing identity (a
@@ -575,20 +561,12 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     try {
       // A profile identity exists when this user's sidecar carries a wrapped
       // device key (recoveryBlob). That is the OAuth-only "account", so open the
-      // unlock gate (passkey + recovery code) to unwrap the on-device key.
+      // unlock gate (recovery code + optional OAuth) to unwrap the on-device key.
       const sidecar = await readSharingIdentity(username);
       if (sidecar?.recoveryBlob) {
-        const hasPasskey = await sidecarHasPasskey(username);
-        setGateHasPasskey(hasPasskey);
-        // With a usable passkey, the gate leads with the passkey door. Without
-        // one (and without the online OAuth option), the recovery code is the
-        // only way in, so open straight into that input rather than a near-empty
-        // gate. The claimed + online case still surfaces OAuth in the default
-        // (non-recovery) view, so only fall to recovery when there is no passkey
-        // AND no online OAuth path.
-        const canPasskey = hasPasskey && isPasskeySupported();
         const canOAuth = claimedUsers.has(username) && isOnline;
-        setRecoveryMode(!canPasskey && !canOAuth);
+        // Default to recovery-code input when no online OAuth option is available.
+        setRecoveryMode(!canOAuth);
         setRecoveryInput("");
         setUnlockGate({ username });
         return;
@@ -623,69 +601,11 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     await performLogin(username);
   };
 
-  // Everyday unlock door, the passkey. Runs the WebAuthn PRF ceremony, unwraps
-  // the on-device key into the session, then signs in. Degrades to the recovery
-  // code on the typed passkey errors so a missing or cancelled passkey is never
-  // a dead end.
-  const handleUnlockWithPasskey = async () => {
-    if (!unlockGate) return;
-    const { username } = unlockGate;
-    setError(null);
-    setUnlocking(true);
-    try {
-      const credentialId = await getPasskeyCredentialId(username);
-      if (!credentialId) {
-        // No passkey on this device, point the user at the recovery code.
-        setGateHasPasskey(false);
-        setRecoveryMode(true);
-        setError("No passkey is set up here. Use your recovery code instead.");
-        setUnlocking(false);
-        return;
-      }
-      const prf = await getPasskeyPrf(credentialId);
-      const identity = await unlockIdentityWithPasskey(username, prf);
-      if (!identity) {
-        setError(
-          "That passkey could not unlock this account. Use your recovery code instead.",
-        );
-        setRecoveryMode(true);
-        setUnlocking(false);
-        return;
-      }
-      setUnlockGate(null);
-      setUnlocking(false);
-      await performLogin(username);
-    } catch (err) {
-      // Typed passkey failures all degrade to the recovery-code path rather than
-      // hard-stopping. Cancellation is benign (the user can retry or switch).
-      if (err instanceof PasskeyCancelledError) {
-        setError("Passkey prompt cancelled. Try again or use your recovery code.");
-      } else if (err instanceof PasskeyUnsupportedError) {
-        setError(
-          "Passkeys are not available in this browser. Use your recovery code.",
-        );
-        setRecoveryMode(true);
-      } else if (err instanceof PasskeyPrfUnavailableError) {
-        setError(
-          "This passkey can't unlock your key. Use your recovery code instead.",
-        );
-        setRecoveryMode(true);
-      } else {
-        setError(
-          "Could not unlock with your passkey. Use your recovery code instead.",
-        );
-        setRecoveryMode(true);
-      }
-      setUnlocking(false);
-    }
-  };
-
   const cancelUnlockGate = () => {
     setUnlockGate(null);
     setUnlocking(false);
     setRecoveryMode(false);
     setRecoveryInput("");
-    setGateHasPasskey(false);
     setUnlockingViaProvider(false);
     setLoggingIn(null);
     setError(null);
@@ -1787,36 +1707,11 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 </>
               ) : (
                 <>
-                  {/* Everyday door, the passkey. Only shown when one is enrolled
-                      on this device; otherwise the recovery code stands alone. */}
-                  {gateHasPasskey && isPasskeySupported() && (
-                    <button
-                      type="button"
-                      onClick={handleUnlockWithPasskey}
-                      disabled={unlocking}
-                      className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors disabled:opacity-50"
-                      data-testid="unlock-passkey-button"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 11v10m0-3l2 2m-2-5l2 2" />
-                      </svg>
-                      {unlocking ? "Unlocking…" : "Unlock with passkey"}
-                    </button>
-                  )}
-
                   {/* Optional online convenience, an OAuth re-login. Shown only
                       for a claimed account and only when online. The verified
                       provider email must match the identity's email. */}
                   {claimedUsers.has(unlockGate.username) && isOnline && (
                     <>
-                      {gateHasPasskey && (
-                        <div className="flex items-center gap-3 pt-1">
-                          <div className="h-px flex-1 bg-border" />
-                          <span className="text-meta text-foreground-muted">or</span>
-                          <div className="h-px flex-1 bg-border" />
-                        </div>
-                      )}
                       <p className="text-meta text-foreground-muted">
                         Sign in online to unlock
                       </p>
@@ -1879,15 +1774,12 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 )}
               </div>
 
-              {/* Toggle between the everyday doors and the recovery-code
-                  fallback. Hidden while an OAuth resume is confirming, and hidden
-                  in recovery mode when there is no other door to go back to (no
-                  passkey and no online OAuth), since recovery is then the only
-                  way in. */}
+              {/* Toggle between the OAuth door and the recovery-code
+                  input. Hidden while an OAuth resume is confirming, and hidden
+                  in recovery mode when there is no OAuth option to go back to. */}
               {!unlockingViaProvider &&
                 !(
                   recoveryMode &&
-                  !(gateHasPasskey && isPasskeySupported()) &&
                   !(claimedUsers.has(unlockGate.username) && isOnline)
                 ) && (
                   <button
@@ -1902,7 +1794,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   >
                     {recoveryMode
                       ? "Back to other unlock options"
-                      : "Can't use your passkey? Use your recovery code"}
+                      : "Use your recovery code instead"}
                   </button>
                 )}
             </div>
@@ -1922,6 +1814,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       {forceProfileFor && (
         <CreateLocalIdentityStep
           username={forceProfileFor.username}
+          required
           onComplete={() => {
             const u = forceProfileFor.username;
             setForceProfileFor(null);

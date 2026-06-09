@@ -36,7 +36,7 @@ const secondaryBtn =
 export default function LabMembershipPanel() {
   const { currentUser } = useCurrentUser();
   const session = useLabSession();
-  const labId = session?.labId ?? null;
+  const labId = (session && !session.loading ? session.labId : null) ?? null;
 
   const [link, setLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);

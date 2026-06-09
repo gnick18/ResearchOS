@@ -3,9 +3,9 @@
 // Account creation, the LOCAL-identity path (IDENTITY_OAUTH_ONLY.md, revised
 // 2026-06-06). The ACCOUNT is a local keypair, created fully OFFLINE with NO
 // OAuth and NO network: mint a keypair, write+seal the sidecar under a fresh
-// recovery code (createLocalIdentity), offer an optional passkey for everyday
-// unlock, and ALWAYS show the recovery code once. Publishing a findable profile
-// (OAuth) is a separate optional step the caller can offer afterwards.
+// recovery code (createLocalIdentity), and show the recovery code once so the
+// user can save it. Publishing a findable profile (OAuth) is a separate optional
+// step the caller can offer afterwards.
 //
 // This replaces the SharingSetupWizard as the account-creation surface in the
 // shared-folder gate and the create-user paths, which previously forced OAuth
@@ -15,22 +15,14 @@
 // so the spinner shown while it runs MUST be CSS-animated and we defer one frame
 // before kicking it off so the loading state actually paints.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { usePopupLayer } from "@/lib/ui/popup-stack";
 
-import { decodePublicKey } from "@/lib/sharing/identity/keys";
 import {
+  confirmRecoveryInSidecar,
   createLocalIdentity,
-  enrollPasskeyIntoSidecar,
 } from "@/lib/sharing/identity/storage";
-import {
-  enrollPasskey,
-  isPasskeySupported,
-  PasskeyCancelledError,
-  PasskeyPrfUnavailableError,
-} from "@/lib/sharing/identity/webauthn";
-import { readSharingIdentity } from "@/lib/sharing/identity/sidecar";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import Tooltip from "@/components/Tooltip";
 import {
@@ -57,14 +49,22 @@ interface CreateLocalIdentityStepProps {
    * (the keypair is minted and sealed); closing does not undo that.
    */
   onClose: () => void;
+  /**
+   * When true the close button and backdrop dismissal are hidden and Escape is
+   * suppressed, forcing the user to confirm they saved their recovery code before
+   * continuing. Use in contexts where the account is mandatory (shared/lab folders)
+   * so the user cannot skip seeing the recovery code.
+   */
+  required?: boolean;
 }
 
 export default function CreateLocalIdentityStep({
   username,
   onComplete,
   onClose,
+  required = false,
 }: CreateLocalIdentityStepProps) {
-  useEscapeToClose(onClose);
+  useEscapeToClose(onClose, !required);
 
   // Account creation is a big, attention-demanding step, so it wants blur. But
   // it frequently opens ON TOP of another popup (the profile modal, the sharing
@@ -78,12 +78,6 @@ export default function CreateLocalIdentityStep({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [recoverySaved, setRecoverySaved] = useState(false);
-
-  // Passkey enrollment, the everyday unlock. Optional, the recovery code is the
-  // backstop and the account works without one.
-  const [passkeyEnrolled, setPasskeyEnrolled] = useState(false);
-  const [passkeyEnrolling, setPasskeyEnrolling] = useState(false);
-  const [passkeyError, setPasskeyError] = useState<string | null>(null);
 
   // Mint the identity once, deferred a frame so the CSS spinner paints before
   // Argon2id locks the main thread. StrictMode-safe: a LOCAL cancelled flag, not
@@ -124,56 +118,26 @@ export default function CreateLocalIdentityStep({
     }
   }, [recoveryCode]);
 
-  // Add a passkey for everyday unlock. The session key is already parked by
-  // createLocalIdentity, so enrollPasskeyIntoSidecar can wrap it directly. We
-  // read the sidecar's ed25519 public key to seed the WebAuthn user id.
-  const enrollPasskeyForIdentity = useCallback(async () => {
-    setPasskeyError(null);
-    setPasskeyEnrolling(true);
+  // Stamp recoveryConfirmedAt in the sidecar before handing off to the caller,
+  // so SharingSection and any lab gate can trust the field is set.
+  const completing = useRef(false);
+  const handleComplete = useCallback(async () => {
+    if (completing.current) return;
+    completing.current = true;
     try {
-      const sidecar = await readSharingIdentity(username);
-      if (!sidecar) {
-        setPasskeyError("Could not read your account. Try again.");
-        return;
-      }
-      const { prfOutput, credentialId } = await enrollPasskey({
-        userId: decodePublicKey(sidecar.ed25519PublicKey),
-        userName: username,
-        userDisplayName: username,
-      });
-      const ok = await enrollPasskeyIntoSidecar(
-        username,
-        prfOutput,
-        credentialId,
-      );
-      if (!ok) {
-        setPasskeyError("Could not save your passkey. Use your recovery code instead.");
-        return;
-      }
-      setPasskeyEnrolled(true);
-    } catch (err) {
-      if (err instanceof PasskeyCancelledError) {
-        setPasskeyError("Passkey setup was cancelled. You can try again.");
-      } else if (err instanceof PasskeyPrfUnavailableError) {
-        setPasskeyError(
-          "This passkey cannot unlock your key. Use your recovery code instead.",
-        );
-      } else {
-        setPasskeyError(
-          "Could not set up a passkey. Use your recovery code instead.",
-        );
-      }
-    } finally {
-      setPasskeyEnrolling(false);
+      await confirmRecoveryInSidecar(username);
+    } catch {
+      // best-effort: sidecar stamp failure must not block entry
     }
-  }, [username]);
+    onComplete();
+  }, [username, onComplete]);
 
   return (
     <div
       className={`fixed inset-0 z-[200] flex items-center justify-center ${
         shouldDim ? "bg-black/50" : ""
       } ${shouldBlur ? "backdrop-blur-sm" : ""}`}
-      onClick={onClose}
+      onClick={required ? undefined : onClose}
     >
       <div
         className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-3xl w-full mx-4 max-h-[90vh] flex flex-col overflow-hidden"
@@ -187,15 +151,17 @@ export default function CreateLocalIdentityStep({
             </h3>
             <p className="text-meta text-foreground-muted mt-0.5">for {username}</p>
           </div>
-          <Tooltip label="Close" placement="bottom">
-            <button
-              onClick={onClose}
-              className="text-foreground-muted hover:text-foreground"
-              aria-label="Close"
-            >
-              <CloseIcon className="w-5 h-5" />
-            </button>
-          </Tooltip>
+          {!required && (
+            <Tooltip label="Close" placement="bottom">
+              <button
+                onClick={onClose}
+                className="text-foreground-muted hover:text-foreground"
+                aria-label="Close"
+              >
+                <CloseIcon className="w-5 h-5" />
+              </button>
+            </Tooltip>
+          )}
         </div>
 
         <div className="px-6 py-5 flex-1 overflow-y-auto">
@@ -219,99 +185,44 @@ export default function CreateLocalIdentityStep({
             <div className="space-y-5">
               <p className="text-body text-foreground-muted leading-relaxed">
                 Your account is a keypair on this device. It works offline, with
-                no password and no sign-in. Set up a one-tap unlock and save your
-                recovery code.
+                no password and no sign-in. Save your recovery code -- it is the
+                only way to restore your account on another device.
               </p>
 
-              {/* Two columns side by side so the modal uses the screen width
-                  instead of one tall scroll: passkey (everyday unlock) on the
-                  left, recovery code (backstop) on the right. */}
-              <div className="grid gap-4 sm:grid-cols-2">
-                {/* Passkey, the everyday unlock. Optional, the recovery code is
-                    the backstop and the account works without one. */}
-                <div className="rounded-lg border border-border bg-surface-sunken p-4 space-y-2">
-                  <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                    <KeyIcon className="w-5 h-5" />
-                    <p className="text-body font-medium text-foreground">
-                      One-tap unlock
-                    </p>
-                  </div>
-                  {isPasskeySupported() ? (
-                    passkeyEnrolled ? (
-                      <div className="flex items-start gap-2">
-                        <span className="text-emerald-600 dark:text-emerald-400 mt-0.5">
-                          <CheckIcon className="w-4 h-4" />
-                        </span>
-                        <p className="text-meta text-foreground-muted leading-relaxed">
-                          Passkey ready. You can unlock on this device, and your
-                          synced devices, with no code to type.
-                        </p>
-                      </div>
-                    ) : (
-                      <>
-                        <p className="text-meta text-foreground-muted leading-relaxed">
-                          Add a passkey so you can unlock with your fingerprint,
-                          face, or device PIN. It syncs through your Google or
-                          Apple keychain, so a new device just works.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={enrollPasskeyForIdentity}
-                          disabled={passkeyEnrolling}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-meta font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
-                        >
-                          <KeyIcon className="w-3.5 h-3.5" />
-                          {passkeyEnrolling
-                            ? "Waiting for your passkey…"
-                            : "Set up a passkey"}
-                        </button>
-                      </>
-                    )
-                  ) : (
-                    <p className="text-meta text-foreground-muted leading-relaxed">
-                      Passkeys are not available in this browser. Your recovery
-                      code is how you unlock on another device.
-                    </p>
-                  )}
-                  {passkeyError && <ErrorNotice message={passkeyError} />}
-                </div>
-
-                {/* Recovery code, the backstop. */}
-                <div className="rounded-lg border border-border bg-surface-sunken p-4 space-y-2">
-                  <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                    <KeyIcon className="w-5 h-5" />
-                    <p className="text-body font-medium text-foreground">
-                      Your recovery code
-                    </p>
-                  </div>
-                  <p className="text-meta text-foreground-muted leading-relaxed">
-                    Save this somewhere safe. It is your backstop if you lose your
-                    passkey and this device, and the only way to restore your
-                    account. If you lose it, it cannot be recovered.
+              <div className="rounded-lg border border-border bg-surface-sunken p-4 space-y-2">
+                <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                  <KeyIcon className="w-5 h-5" />
+                  <p className="text-body font-medium text-foreground">
+                    Your recovery code
                   </p>
-                  <div className="p-3 bg-surface border border-border rounded-lg">
-                    <p className="font-mono text-body text-foreground tracking-wide break-all text-center">
-                      {recoveryCode}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={copyCode}
-                    className="flex items-center gap-1.5 text-meta text-blue-600 dark:text-blue-400 hover:underline"
-                  >
-                    {copied ? (
-                      <>
-                        <CheckIcon className="w-3.5 h-3.5" />
-                        Copied
-                      </>
-                    ) : (
-                      <>
-                        <CopyIcon className="w-3.5 h-3.5" />
-                        Copy code
-                      </>
-                    )}
-                  </button>
                 </div>
+                <p className="text-meta text-foreground-muted leading-relaxed">
+                  Save this somewhere safe. It is the only way to restore your
+                  account on another device. If you lose it, it cannot be
+                  recovered.
+                </p>
+                <div className="p-3 bg-surface border border-border rounded-lg">
+                  <p className="font-mono text-body text-foreground tracking-wide break-all text-center">
+                    {recoveryCode}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={copyCode}
+                  className="flex items-center gap-1.5 text-meta text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  {copied ? (
+                    <>
+                      <CheckIcon className="w-3.5 h-3.5" />
+                      Copied
+                    </>
+                  ) : (
+                    <>
+                      <CopyIcon className="w-3.5 h-3.5" />
+                      Copy code
+                    </>
+                  )}
+                </button>
               </div>
 
               <label className="flex items-start gap-2 cursor-pointer select-none">
@@ -331,7 +242,7 @@ export default function CreateLocalIdentityStep({
 
               <button
                 type="button"
-                onClick={onComplete}
+                onClick={() => void handleComplete()}
                 disabled={!recoverySaved}
                 className="w-full py-2.5 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
                 data-testid="create-local-identity-continue"
