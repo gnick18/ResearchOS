@@ -59,6 +59,10 @@ export default function LabCreateResume() {
   const [markerPresent, setMarkerPresent] = useState(false);
   // Whether the creation flow is complete (success or skipped).
   const [done, setDone] = useState(false);
+  // Bumped to re-run the effect when a prerequisite (unlocked identity / live
+  // OAuth session) is not ready yet at the moment the effect first fires, so
+  // creation self-heals without needing a manual page reload.
+  const [retry, setRetry] = useState(0);
   // Human-readable status for dev visibility (not shown in UI).
   const ran = useRef(false);
 
@@ -80,14 +84,28 @@ export default function LabCreateResume() {
     if (!currentUser) return;
     if (ran.current) return;
 
+    // Bounded retry: the identity unlock and the OAuth session can land a
+    // moment after currentUser is set. Rather than bail forever (the deps would
+    // not change again), re-check a few times before giving up. A reload still
+    // retries via the marker as the final fallback.
+    const MAX_RETRIES = 20; // ~10s at 500ms
+
     void (async () => {
       // Check identity + session are ready before attempting creation.
       const identity = getSessionIdentity();
-      if (!identity) return;
-
       const session = await getSession();
       const oauthEmail = session?.user?.email ?? "";
-      if (!oauthEmail) return;
+
+      if (!identity || !oauthEmail) {
+        if (retry < MAX_RETRIES) {
+          window.setTimeout(() => setRetry((r) => r + 1), 500);
+        } else {
+          console.warn(
+            "[LabCreateResume] identity/session not ready after retries; will retry on next load",
+          );
+        }
+        return;
+      }
 
       // Idempotency: if the user already has a lab_id, do not create a second
       // lab. Just ensure account_type reflects lab_head and finish.
@@ -137,7 +155,7 @@ export default function LabCreateResume() {
       consumeLabCreateMarker();
       setDone(true);
     })();
-  }, [markerPresent, currentUser, done]);
+  }, [markerPresent, currentUser, done, retry]);
 
   // This component is headless; it never renders anything visible.
   return null;
