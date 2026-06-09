@@ -143,11 +143,7 @@ function PendingELNImportMount() {
   return <ImportELNDialog isOpen={open} onClose={() => setOpen(false)} />;
 }
 
-// Branded opening splash plays once per full page load (resets on reload / new
-// tab, persists across soft client navigations because this module stays
-// resident). Module-scoped, not state, so it is not re-shown when AppContent
-// remounts during an in-app route change.
-let splashPlayedThisLoad = false;
+const SPLASH_SEEN_KEY = "researchos:splash-seen";
 
 // The account-tier choice for a fresh visitor, recorded for this page load so a
 // remount of AppContent during setup does not re-show the chooser. Phase B2
@@ -190,7 +186,13 @@ function AppContent({ children }: { children: ReactNode }) {
   } = useFileSystem();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [splashSeen, setSplashSeen] = useState(splashPlayedThisLoad);
+  // Splash plays once per tab session (survives reloads, so dev reloads and
+  // returning users do not replay it; a brand-new tab plays it). Skippable.
+  const [splashSeen, setSplashSeen] = useState<boolean>(
+    () =>
+      typeof window !== "undefined" &&
+      sessionStorage.getItem(SPLASH_SEEN_KEY) === "1",
+  );
   const [tierChosen, setTierChosen] = useState(chosenTierThisLoad !== null);
   const [showSetup, setShowSetup] = useState(false);
   // Belt-and-suspenders: if the router.replace("/welcome") fires but the gate
@@ -365,7 +367,12 @@ function AppContent({ children }: { children: ReactNode }) {
     return (
       <Splash
         onComplete={() => {
-          splashPlayedThisLoad = true;
+          try {
+            sessionStorage.setItem(SPLASH_SEEN_KEY, "1");
+          } catch {
+            // sessionStorage unavailable (private mode edge); the splash just
+            // plays again next render, harmless.
+          }
           setSplashSeen(true);
         }}
       />

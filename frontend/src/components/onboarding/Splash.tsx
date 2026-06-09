@@ -17,7 +17,7 @@
 
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 export interface SplashProps {
   /** Called when the flood-reveal animation finishes and the caller should
@@ -35,6 +35,24 @@ export function Splash({ onComplete }: SplashProps) {
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
 
+  // Fire onComplete at most once (timer end OR a user skip). Unmount clears the
+  // remaining timers via the effect cleanup, so skipping is clean.
+  const firedRef = useRef(false);
+  const finish = useCallback(() => {
+    if (firedRef.current) return;
+    firedRef.current = true;
+    onCompleteRef.current();
+  }, []);
+
+  // Skip on Escape. The Skip button (rendered below) calls finish() too.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") finish();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [finish]);
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -44,7 +62,7 @@ export function Splash({ onComplete }: SplashProps) {
       "(prefers-reduced-motion: reduce)",
     ).matches;
     if (reducedMotion) {
-      const t = window.setTimeout(() => onCompleteRef.current(), 600);
+      const t = window.setTimeout(() => finish(), 600);
       return () => window.clearTimeout(t);
     }
 
@@ -160,13 +178,13 @@ export function Splash({ onComplete }: SplashProps) {
 
     // Fire onComplete after flood has had time to fade (exitAt + flood + fade).
     T(() => {
-      onCompleteRef.current();
+      finish();
     }, exitAt + 1050 + 500);
 
     return () => {
       clearAll();
     };
-  }, []);
+  }, [finish]);
 
   // Whether to render in reduced-motion static mode. We detect via CSS so the
   // server render is consistent with the client (the effect handles the timer).
@@ -254,6 +272,16 @@ export function Splash({ onComplete }: SplashProps) {
             backgroundSize: "30px 30px",
           }}
         />
+
+        {/* Skip affordance (also fires on Escape). Quiet, corner-placed. */}
+        <button
+          type="button"
+          onClick={finish}
+          className="absolute top-5 right-6 text-sm font-medium text-[#6b7280] hover:text-[#1283c9] transition-colors"
+          style={{ zIndex: 10001 }}
+        >
+          Skip
+        </button>
 
         {/* Center column: bot + wordmark + tagline */}
         <div
