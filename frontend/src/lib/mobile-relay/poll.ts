@@ -65,7 +65,8 @@
 
 import { fileService } from "@/lib/file-system/file-service";
 import { appQueryClient } from "@/lib/query-client";
-import { filesApi, notesApi, inventoryItemsApi, inventoryStocksApi, purchasesApi } from "@/lib/local-api";
+import { filesApi, notesApi, inventoryItemsApi, inventoryStocksApi, purchasesApi, buildCurrentViewer } from "@/lib/local-api";
+import { canWriteIgnoringPiRole } from "@/lib/sharing/unified";
 import { attachImageToTask, attachImageToNote } from "@/lib/attachments/attach-image";
 import { writeAnnotations, type AnnotationDoc } from "@/lib/attachments/annotations";
 import { imageEvents } from "@/lib/attachments/image-events";
@@ -885,9 +886,95 @@ export async function runCaptureInboxPoll(
         const noteRoute = noteRouteMap.get(capture.captureId);
 
         if (noteRoute) {
+          // Permission gate (chooser-perm bot, 2026-06-09): before writing into
+          // a note that may be owned by another user, confirm the current user
+          // has edit access. Three cases grant write:
+          //   1. Own note: noteRoute.owner === currentUser (owner always writes).
+          //   2. Explicitly shared at edit level: the note's `shared_with` array
+          //      contains the current user (or "*") with level "edit".
+          //   3. 1:1 notebook note: same as (2) because the note is created with
+          //      both members at "edit" in shared_with via pairingSharedWith.
+          // canWriteIgnoringPiRole covers all three with one call: it returns true
+          // for the note owner AND for any explicit edit-share recipient. The PI
+          // implicit-write-all is intentionally excluded (that path requires a
+          // once-per-session confirm in the popup UI; the poller has no UI, so we
+          // gate to explicit-edit only). If the note is not found or the user only
+          // has view access, fall back to the inbox image path instead of writing
+          // into a note they cannot edit.
+          let noteWritable = false;
+          try {
+            const noteRecord = await notesApi.get(noteRoute.noteId, noteRoute.owner);
+            if (noteRecord) {
+              const viewer = await buildCurrentViewer();
+              // Build a minimal ShareableRecord from the note. The note's owner
+              // field is the ownerUsername from the command (source of truth for
+              // the folder path); shared_with carries the edit grants.
+              const shareableNote = {
+                owner: noteRoute.owner,
+                shared_with: noteRecord.shared_with ?? [],
+              };
+              noteWritable = canWriteIgnoringPiRole(shareableNote, viewer);
+            } else {
+              console.warn(
+                `${LOG_PREFIX} route-capture-note: note ${noteRoute.owner}/${noteRoute.noteId} not found, falling back to inbox`,
+              );
+            }
+          } catch (permErr) {
+            console.warn(
+              `${LOG_PREFIX} route-capture-note: permission check failed for note ${noteRoute.owner}/${noteRoute.noteId}, falling back to inbox`,
+              permErr instanceof Error ? permErr.message : String(permErr),
+            );
+          }
+
+          if (!noteWritable) {
+            // Not writable: route to the inbox so the image is not lost.
+            console.warn(
+              `${LOG_PREFIX} route-capture-note: ${currentUser} does not have edit access to note ${noteRoute.owner}/${noteRoute.noteId}, routing to inbox instead`,
+            );
+            // Ack the command so it doesn't loop (the permission is authoritative;
+            // retrying will produce the same result). The capture itself continues
+            // below to the standard inbox landing path.
+            try {
+              await ackCommands(keys, [noteRoute.commandId]);
+            } catch {
+              // best-effort
+            }
+            // Fall through to the standard inbox path by letting noteRoute remain
+            // set but overriding the destination. We do this by jumping to the
+            // regular attachImageToTask inbox path: clear noteRoute in the local
+            // scope by reusing the imageLanding block below.
+            // Simplest approach: write directly to the inbox here and continue.
+            const inboxResult = await attachImageToTask({
+              ownerUsername: currentUser,
+              taskId: 0,
+              basePath,
+              blob,
+              suggestedFilename: suggestedImageFilename(capture),
+              altText: caption,
+            });
+            await writeCaptureSidecar(basePath, inboxResult.finalFilename, {
+              source: "relay",
+              caption,
+              receivedAt: new Date().toISOString(),
+            });
+            console.info(
+              `${LOG_PREFIX} wrote inbox fallback ${basePath}/Images/${inboxResult.finalFilename} (note not writable)`,
+            );
+            await markCaptureSeen(currentUser, seen, capture.captureId);
+            await ackCaptures(keys, [capture.captureId]);
+            console.info(`${LOG_PREFIX} acked ${capture.captureId} (note-perm inbox fallback)`);
+            pulled += 1;
+            continue;
+          }
+
           console.info(
             `${LOG_PREFIX} routing ${capture.captureId} -> note ${noteRoute.owner}/${noteRoute.noteId} entryId=${noteRoute.entryId ?? "latest"}`,
           );
+          // Attribution: attachImageToNote calls notesApi.updateEntry(noteId, entryId,
+          // data, ownerUsername). updateEntry triggers recordEntryHistory, which calls
+          // resolveAttributionActor(null) -> getCurrentUserCached() -> the current
+          // signed-in user (the writer, not the note owner). So last_edited_by on the
+          // history row is stamped to currentUser automatically; no extra threading needed.
           const noteResult = await attachImageToNote({
             ownerUsername: noteRoute.owner,
             noteId: noteRoute.noteId,
