@@ -82,9 +82,20 @@ Chunks:
 
    SEQUENCING CONSTRAINT for the later grant-UI chunk: the moment the grant flow sets `enforced='1'` on a doc, the client connect path (`sync-hooks.ts`) MUST start appending `authEmail`/`authTs`/`authSig` to its `/ws` and `/snapshot` URLs in the SAME change, or in-lab members get locked out of an enforced doc.
 4. **R2 snapshot backup.** Periodic per-doc snapshot to R2 (the locked safety net).
-5. **Cutover + cleanup.** Reads fully from the DO; stop writing collab to Neon; delete `/api/collab/{open,push,grant,revoke}`, the `collab_docs`/`collab_doc_updates`/`collab_doc_members` tables in `server/db.ts`, and `limits.ts`. Verify on prod (the Manny + Sharron flow), including close/reopen durability and offline reconcile.
+5. **Cutover + cleanup.** Reads fully from the DO; stop writing collab to Neon; delete `/api/collab/{open,push,grant,revoke}`, the `collab_docs`/`collab_doc_updates`/`collab_doc_members` tables in `server/db.ts`, and `limits.ts`. Verify on prod (the Manny + Sharron flow), including close/reopen durability and offline reconcile. GATED: deleting `/api/collab/push` + `limits.ts` removes the activity throttle + breaker enforcement, so the "Cost-enforcement carry-over" section below MUST land in this same chunk (the DO has to enforce them before the old path is removed).
 
 After phase 1: Neon no longer touches collab; the relay is the full collab backend.
+
+## Cost-enforcement carry-over (LAUNCH GATE, blocks LAB_TIER_ENABLED)
+
+Investigated 2026-06-09. Today every collab write goes client -> Vercel `/api/collab/push`, which enforces the per-owner ACTIVITY THROTTLE (HTTP 429) and the cost-breaker PAUSE (HTTP 503). Phase 1 chunk 5 DELETES that route and `limits.ts` and moves canonical persistence onto the DO. The DO (`relay/src/worker.ts`) currently has NO throttle / breaker / per-owner-cap code. Cloudflare has no hard spend cap, and the Vercel $25 hard pause does NOT reach the separate Cloudflare deployment, so after cutover the in-app breaker + these DO checks are the ONLY thing bounding Cloudflare cost. Activity (writes/compute), not storage, is the real cost driver (PRICING_COST_MODEL.md). Therefore chunk 5 (and the grant-UI chunk) MUST carry the enforcement over, not just the storage. Do NOT flip `LAB_TIER_ENABLED` until all four land:
+
+1. **Per-owner ACTIVITY THROTTLE in the DO write path.** Port the 429 throttle (today on `/api/collab/push`) into the DO `{kind:"update"}` handler so an over-allowance owner is spaced out at the DO. This is the load-bearing guard.
+2. **BREAKER-PAUSE check in the DO write path.** The DO reads breaker state (cache it; fail-OPEN like the Vercel side so a read hiccup never wedges writes) and refuses cost-driving writes when tripped. Until billing moves to D1 (phase 3) the breaker flag lives in Neon, so the DO reads it cross-provider or via a tiny cached fetch.
+3. **Per-owner STORAGE cap re-homed.** `getOwnerQuotaBytes` / the 1 GB free tier + opt-in raised cap must be enforced in the new architecture (each doc is its own DO, so the per-OWNER aggregate needs a home, e.g. a D1 owner-index sum or a billing-side rollup) so "hit the cap -> writes pause, never billed" still holds.
+4. **Feed real DO ACTIVITY into the cost estimate** (recommended). `capacity-shared.ts estimateMonthlyInfraCostCents` is storage + fixed-base only today; activity is not measured into the breaker's auto-trip. Wire DO write/duration counts in so the breaker auto-trips on activity too, not only via the per-owner throttle.
+
+Provider hard caps are SET (docs/ops/cost-guardrails-setup.md: Vercel $25 hard pause, in-app breaker $20 variable). The migration's dual-write / read-from-old posture keeps the OLD enforced Vercel path live, so we are safe UNTIL chunk 5 flips reads/writes to the DO. These gates are the condition for that flip.
 
 ## Phase 2: directory -> D1
 

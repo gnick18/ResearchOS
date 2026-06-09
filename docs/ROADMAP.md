@@ -6,6 +6,17 @@ Status legend, `idea` (captured, unscoped), `scoping` (proposal being written), 
 
 ---
 
+## Account setup revamp + lab-tier launch (with cost-enforcement gate)
+
+Status, `scoping` (interactive mockups in review 2026-06-09)
+Raised by, Grant (2026-06-09)
+
+Rebuild the entry experience into a real start screen. A splash animation on open, a 3-tier account chooser (Local-only, Free account, Lab), OAuth-at-creation for the account tiers with a solo escape hatch, lab create-or-join (invite link plus a searchable lab directory with request-to-join and PI approval), and a celebratory hand-off into Workbench. Everything stays local-first, the cloud is only a sync and sharing intermediary, and pricing is cost-recovery with a cap-blocks model (1 GB free, opt-in metered above, hitting the cap pauses rather than bills). Mockups live in docs/mockups/{account-setup-revamp, account-splash, beakerbot-tier-icons}.html. Design context in docs/proposals/{IDENTITY_LAB_LOGIN, IDENTITY_OAUTH_ONLY, LAB_TIER_REDESIGN, METERED_STORAGE_PRICING, PRICING_COST_MODEL}.md.
+
+HARD LAUNCH GATE before flipping LAB_TIER_ENABLED, do not skip. The storage-migration cutover (phase 1 chunk 5 in COLLAB_STORAGE_D1_DO_MIGRATION.md) deletes the Vercel /api/collab/push route and limits.ts, which today carry the per-owner activity throttle (429) and the cost-breaker pause (503). Those must be re-implemented in the Cloudflare Durable Object write path first, because Cloudflare has no hard spend cap and the Vercel hard pause does not reach it. See that doc's "Cost-enforcement carry-over (LAUNCH GATE)" section for the four required items.
+
+---
+
 ## Reference and citation management
 
 Status, `idea`
