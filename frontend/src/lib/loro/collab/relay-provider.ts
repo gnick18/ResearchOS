@@ -98,6 +98,14 @@ export interface CollabProviderOptions {
    * context (the invited collaborator's username) or falls back to the peer id.
    */
   onFirstRemotePeer?: (peerId: string) => void;
+  /**
+   * Called when the relay reports durable persistence is paused (cost breaker,
+   * the per-doc write throttle, or the doc size cap). The reason is a short
+   * ASCII code ("paused" | "throttled" | "full"). Live fan-out continues and the
+   * edit stays in the local doc, so this is informational; the caller surfaces a
+   * quiet indicator. React-land wires this to the sync-status store.
+   */
+  onSyncBlocked?: (reason: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -121,7 +129,7 @@ export interface CollabProvider {
  * transport. Call destroy() when the collab session ends.
  */
 export function createCollabProvider(opts: CollabProviderOptions): CollabProvider {
-  const { doc, ephemeral, transport, onFirstRemotePeer } = opts;
+  const { doc, ephemeral, transport, onFirstRemotePeer, onSyncBlocked } = opts;
 
   // Track which remote peer IDs we have already reported so the callback fires
   // at most once per peer per provider instance.
@@ -199,7 +207,11 @@ export function createCollabProvider(opts: CollabProviderOptions): CollabProvide
       } catch {
         // keep the default
       }
-      console.info(`[relay-provider] durable sync paused (${reason})`);
+      try {
+        onSyncBlocked?.(reason);
+      } catch {
+        // a misbehaving callback must never break the message loop
+      }
     }
     // Unknown type tags are ignored (forward-compatibility).
   });

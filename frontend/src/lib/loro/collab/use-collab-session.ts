@@ -49,6 +49,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LoroDoc, EphemeralStore } from "loro-crdt";
+import { notifySyncBlocked } from "@/lib/collab/sync-status";
 import type { EphemeralState } from "loro-codemirror";
 import { randomBytes } from "@noble/hashes/utils.js";
 import { collabSessionFromDocId } from "./doc-id-session";
@@ -248,6 +249,10 @@ export function useCollabSession(args: {
             collaboratorUsernameRef.current ?? `peer-${peerId.slice(0, 6)}`;
           void recordActor(recordOwner, BigInt(peerId), username);
         },
+        // Surface a quiet "sync paused" indicator when the relay reports durable
+        // persistence is paused (cost breaker / write throttle / doc cap). Live
+        // editing keeps working; this is informational. It auto-clears.
+        onSyncBlocked: (reason: string) => notifySyncBlocked(reason),
       });
 
       providerRef.current = provider;

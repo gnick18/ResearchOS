@@ -31,6 +31,7 @@ import V4MountForUser from "@/components/onboarding/v4/V4MountForUser";
 import { Splash } from "@/components/onboarding/Splash";
 import { EntrySnapSurface } from "@/components/onboarding/EntrySnapSurface";
 import { SuccessTransition } from "@/components/onboarding/SuccessTransition";
+import SyncPausedIndicator from "@/components/SyncPausedIndicator";
 import {
   AccountTierChooser,
   type AccountTier,
@@ -569,6 +570,9 @@ function AppContent({ children }: { children: ReactNode }) {
           V4MountForUser so it runs whether the user lands on /home,
           /workbench, or any other route on their first paint. */}
       <OrphanProjectSweep currentUser={currentUser} />
+      {/* Quiet "sync paused" pill when the collab relay reports durable
+          persistence is paused (cost breaker / write throttle / doc cap). */}
+      <SyncPausedIndicator />
       {/* Auto-refresh the app when the shared data folder changes on disk
           (a collaborator's new note / task / project), so other lab members
           see it without a manual refresh. Local-first equivalent of a server
