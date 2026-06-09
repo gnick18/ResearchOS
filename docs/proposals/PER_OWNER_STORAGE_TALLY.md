@@ -45,15 +45,22 @@ accurate PER-OWNER usage so billing can be correct and (later) enforced.
    doc has it; an open in-lab doc with no grant has no billable owner yet). Reuse
    the APP_BASE_URL + RELAY_BREAKER_SECRET env already added for the breaker.
 
-## Out of scope (follow-up: enforcement, gated on BILLING_ENABLED)
+## Enforcement (DONE 2026-06-09, commit 300407031)
 
-Per-owner CAP enforcement in the DO (block persist when an owner is over their
-cap) is the next layer: the DO reads the owner's cap/usage (a Vercel endpoint,
-cached + fail-open like the breaker) and signals MSG_SYNC_BLOCKED "quota" when
-over. It activates with BILLING_ENABLED; until then the per-doc cap + global
-breaker + Vercel pause are the backstop, so this is NOT needed for the
-LAB_TIER_ENABLED flip. Also out of scope: payer-resolution (lab-sponsored vs
-individual) which is a billing-layer concern downstream of this owner-keyed tally.
+Per-owner CAP enforcement in the DO now LANDED. The DO reads the owner's
+over-cap state from `GET /api/billing/owner-state?ownerPubkey=<hex>` (cached +
+fail-open, mirroring the breaker) and signals MSG_SYNC_BLOCKED "quota" when
+over, blocking durable persistence while live fan-out continues. The endpoint
+resolves the pubkey via getBindingByPubkey then compares getOwnerUsage vs
+quotaBytesForOwner. It is DORMANT (returns over:false) whenever BILLING_ENABLED
+is off, so the per-doc cap + global breaker + Vercel pause remain the only
+backstop until launch and the LAB_TIER_ENABLED flip does not depend on it.
+Verified fail-open live against the down prod site. The positive over=true
+block path is a BILLING_ENABLED launch-time test (mock owner-state + a grant).
+
+Still out of scope: payer-resolution edge cases (lab-sponsored vs individual)
+beyond what quotaBytesForOwner already derives from the plan, a billing-layer
+concern downstream of this owner-keyed tally.
 
 ## Verification
 
