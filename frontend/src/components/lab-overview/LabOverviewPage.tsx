@@ -626,13 +626,11 @@ export default function LabOverviewPage() {
         <ProjectCreateModal
           username={currentUser}
           onClose={() => setShowProjectCreate(false)}
-          onCreated={(project) => {
+          onCreated={() => {
+            // Do NOT navigate into the new project on create (felt intrusive,
+            // Grant 2026-06-09). The modal self-closes + invalidates the
+            // ["projects"] query, so the new card just appears in the list.
             setShowProjectCreate(false);
-            const ownerSuffix =
-              project.owner && project.owner !== currentUser
-                ? `?owner=${encodeURIComponent(project.owner)}`
-                : "";
-            router.push(`/workbench/projects/${project.id}${ownerSuffix}`);
           }}
         />
       )}

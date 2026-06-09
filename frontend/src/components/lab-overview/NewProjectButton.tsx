@@ -1,10 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Tooltip from "@/components/Tooltip";
 import ProjectCreateModal from "./ProjectCreateModal";
-import type { Project } from "@/lib/types";
 
 /**
  * Shared "+ New Project" button (widget-framework teardown v2, 2026-06-02).
@@ -63,7 +61,6 @@ export default function NewProjectButton({
   className,
   tourTarget = "home-new-project",
 }: NewProjectButtonProps) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
 
   const openModal = () => {
@@ -77,15 +74,11 @@ export default function NewProjectButton({
     }
   };
 
-  const handleCreated = (project: Project) => {
-    // Land the user on the project they just made. Shared projects route with
-    // an owner suffix; an own project routes plainly. This replaces the old
-    // §6.2 NAV beat that clicked the auto-pinned Single Project canvas tile.
-    const ownerSuffix =
-      project.owner && project.owner !== username
-        ? `?owner=${encodeURIComponent(project.owner)}`
-        : "";
-    router.push(`/workbench/projects/${project.id}${ownerSuffix}`);
+  const handleCreated = () => {
+    // Intentionally do NOT navigate into the new project. Auto-opening it on
+    // create felt intrusive (Grant 2026-06-09). The create modal already
+    // invalidates the ["projects"] query and closes itself, so the new card
+    // simply appears in the list and the user stays where they are.
   };
 
   return (
