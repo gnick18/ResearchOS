@@ -45,7 +45,12 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { subscribeSuccess, type SuccessPayload } from '@/lib/success-burst';
 import { useReduceMotion } from '@/lib/interaction-prefs';
 
-const RAMP = ['#F97316', '#E8920B', '#16A34A', '#0284C7', '#9333EA'];
+// Signature rainbow, theme-aware to match RainbowBar (the top/bottom edges) and
+// the mascot. Light uses the pastel set; dark uses the saturated set. The burst
+// previously hardcoded the dark set, so on the light-only app it clashed with
+// the pastel edges.
+const LIGHT_RAMP = ['#FFD2B0', '#FFF1A8', '#B7EBB1', '#A6D2F4', '#D6B5F0'];
+const DARK_RAMP = ['#F97316', '#E8920B', '#16A34A', '#0284C7', '#9333EA'];
 const BURST_MS = 1600;
 
 // beatOf maps global progress (0..1) to a per-element 0..1, eased (cubic ease-out).
@@ -141,6 +146,7 @@ function ConfettiPiece({
 export function SuccessBurst() {
   const scheme = useColorScheme() ?? 'light';
   const dark = scheme === 'dark';
+  const RAMP = dark ? DARK_RAMP : LIGHT_RAMP;
   const { width, height } = useWindowDimensions();
 
   const [payload, setPayload] = useState<SuccessPayload | null>(null);
@@ -179,7 +185,7 @@ export function SuccessBurst() {
       return { d, color: RAMP[i], win, r };
     });
     return { cx, baseY, outerR, arcs };
-  }, [width, height]);
+  }, [width, height, RAMP]);
 
   // Confetti scattered in the arc region (fixed layout, stable hook count).
   const confetti = useMemo<ConfettiSpec[]>(() => {
