@@ -32,6 +32,10 @@ export type Timer = {
   // (permission denied or module unavailable). Cleared on cancel.
   notificationId?: string | null;
   status: TimerStatus;
+  // Which device created the timer. Absent on legacy rows (treat as 'phone').
+  // 'laptop' timers are mirrored in from the laptop "timers" snapshot (Phase 3);
+  // they are read-only here and dismissing one tells the laptop to remove it.
+  origin?: 'laptop' | 'phone';
 };
 
 // Per-process counter so two timers made in the same millisecond still get
@@ -104,6 +108,7 @@ export async function addTimer(input: {
     endsAt,
     notificationId,
     status: 'running',
+    origin: 'phone',
   };
   const current = await listTimers();
   // Newest first so the freshest timer sits at the top of the list.
@@ -132,6 +137,80 @@ export async function clearFinished(): Promise<Timer[]> {
   const next = current.filter((t) => t.status === 'running');
   await writeAll(next);
   return next;
+}
+
+// One laptop timer as it arrives in the "timers" snapshot (Phase 3). Mirrors the
+// laptop's TimerWire shape.
+export type LaptopTimerWire = {
+  id: string;
+  label: string;
+  durationSec: number;
+  endsAt: number;
+  startedAt: number;
+};
+
+// Merge the laptop "timers" snapshot into the phone list so a timer started on
+// the laptop appears and counts down here too. running[] = the laptop's own
+// running timers; dismissed[] = ids the laptop dismissed (unified dismiss).
+//
+// Rules, all keyed on the absolute endsAt so no clock sync is needed:
+//   - Drop any local timer in dismissed[] (the laptop dismissed it).
+//   - Drop a mirrored laptop timer that vanished from running[] while its endsAt
+//     is still in the future (it was cancelled on the laptop). One whose endsAt
+//     has passed stays as a finished row.
+//   - Add laptop running timers we do not have yet, scheduling a phone
+//     notification so a laptop timer fires on this device too.
+//   - Own ('phone') timers are never touched here.
+// Notifications for removed timers are cancelled so a dismissed timer never rings.
+export async function mergeLaptopTimers(
+  running: LaptopTimerWire[],
+  dismissed: string[],
+): Promise<Timer[]> {
+  const current = await listTimers();
+  const now = Date.now();
+  const dismissedSet = new Set(dismissed);
+  const runningIds = new Set(running.map((w) => w.id));
+
+  const toRemove: Timer[] = [];
+  const kept = current.filter((t) => {
+    if (dismissedSet.has(t.id)) {
+      toRemove.push(t);
+      return false;
+    }
+    // A mirrored laptop timer gone from running[] with time left was cancelled.
+    if (t.origin === 'laptop' && !runningIds.has(t.id) && now < t.endsAt) {
+      toRemove.push(t);
+      return false;
+    }
+    return true;
+  });
+
+  // Cancel notifications for the timers we just removed so none rings.
+  for (const t of toRemove) {
+    await cancelTimerNotification(t.notificationId);
+  }
+
+  // Add laptop running timers we do not have yet, scheduling a local alert.
+  for (const w of running) {
+    if (dismissedSet.has(w.id)) continue;
+    if (kept.some((t) => t.id === w.id)) continue;
+    const remaining = Math.round((w.endsAt - now) / 1000);
+    const notificationId =
+      remaining > 0 ? await scheduleTimerNotification(w.label, remaining) : null;
+    kept.push({
+      id: w.id,
+      label: w.label,
+      durationSec: w.durationSec,
+      startedAt: w.startedAt,
+      endsAt: w.endsAt,
+      status: now >= w.endsAt ? 'done' : 'running',
+      origin: 'laptop',
+      notificationId,
+    });
+  }
+
+  await writeAll(kept);
+  return kept;
 }
 
 // Walk the list and flip any running timer whose endsAt has passed to done.

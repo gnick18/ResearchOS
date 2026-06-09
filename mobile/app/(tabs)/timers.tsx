@@ -23,9 +23,17 @@ import {
   addTimer,
   deleteTimer,
   clearFinished,
+  mergeLaptopTimers,
   useTimers,
   type Timer,
 } from '@/lib/timers';
+import { usePairing } from '@/lib/pairing';
+import { signWithDevice } from '@/lib/device-identity';
+import {
+  postTimerCreate,
+  postTimerDismiss,
+  fetchLaptopTimers,
+} from '@/lib/timer-sync';
 
 // Keypad layout, read right-to-left as HHMMSS like a bench timer.
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0', 'back'];
@@ -41,6 +49,7 @@ const PRESETS = [
 
 export default function TimersScreen() {
   const { timers, refresh } = useTimers();
+  const { pairing } = usePairing();
   const { surface, spacing, radii } = useTheme();
   // Up to six entered digits, read right-to-left as HHMMSS.
   const [digits, setDigits] = useState('');
@@ -65,6 +74,32 @@ export default function TimersScreen() {
     }, [refresh]),
   );
 
+  // Pull the laptop "timers" snapshot so laptop-started timers mirror here and
+  // unified dismisses land. Polls every 10s while the screen is focused. The
+  // local 1s tick (useTimers) counts the mirrored timers down independently.
+  useFocusEffect(
+    useCallback(() => {
+      if (!pairing || pairing.demo) return;
+      let active = true;
+      const sync = async () => {
+        try {
+          const snap = await fetchLaptopTimers(pairing, signWithDevice);
+          if (!active) return;
+          await mergeLaptopTimers(snap.running, snap.dismissed);
+          await refresh();
+        } catch {
+          // Best-effort, retry next tick.
+        }
+      };
+      void sync();
+      const id = setInterval(() => void sync(), 10000);
+      return () => {
+        active = false;
+        clearInterval(id);
+      };
+    }, [pairing, refresh]),
+  );
+
   // Read the entered digits right-to-left as HH:MM:SS, the way a bench timer
   // keypad works (type 1 3 0 0 -> 13 min 00 sec).
   const padded = digits.padStart(6, '0');
@@ -82,32 +117,54 @@ export default function TimersScreen() {
     });
   }, []);
 
+  // Tell the laptop a timer started, so it mirrors there. No-op when unpaired or
+  // in demo mode, or when the pairing predates the user X25519 carry.
+  const syncCreate = useCallback(
+    (timer: Timer) => {
+      if (pairing && !pairing.demo) {
+        void postTimerCreate(
+          timer,
+          pairing.userX25519PubHex ?? '',
+          pairing.relayUrl,
+        );
+      }
+    },
+    [pairing],
+  );
+
   const onStart = useCallback(async () => {
     if (duration <= 0) return;
-    await addTimer({ label: '', durationSec: duration });
+    const timer = await addTimer({ label: '', durationSec: duration });
+    syncCreate(timer);
     setDigits('');
     // Re-check the grant, a first start may have triggered the OS prompt.
     setNotifyGranted(await ensureNotificationPermission());
     await refresh();
-  }, [duration, refresh]);
+  }, [duration, syncCreate, refresh]);
 
   // One-tap preset: start a timer immediately at the chosen duration.
   const startPreset = useCallback(
     async (sec: number) => {
-      await addTimer({ label: '', durationSec: sec });
+      const timer = await addTimer({ label: '', durationSec: sec });
+      syncCreate(timer);
       setDigits('');
       setNotifyGranted(await ensureNotificationPermission());
       await refresh();
     },
-    [refresh],
+    [syncCreate, refresh],
   );
 
   const onCancel = useCallback(
     async (id: string) => {
       await deleteTimer(id);
+      // Unified dismiss: tell the laptop to drop its copy too (works for a phone
+      // timer or a mirrored laptop one).
+      if (pairing && !pairing.demo) {
+        void postTimerDismiss(id, pairing.userX25519PubHex ?? '', pairing.relayUrl);
+      }
       await refresh();
     },
-    [refresh],
+    [pairing, refresh],
   );
 
   const onClearFinished = useCallback(async () => {
@@ -294,6 +351,11 @@ function TimerRow({
             {formatClock(timer.durationSec)} total
           </ThemedText>
         )}
+        {timer.origin === 'laptop' ? (
+          <ThemedText style={[styles.rowMeta, { color: surface.muted }]}>
+            from laptop
+          </ThemedText>
+        ) : null}
       </View>
       <View style={styles.rowActions}>
         {isRunning ? (
