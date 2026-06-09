@@ -887,11 +887,14 @@ function SerialTab() {
     }
   }, [startN, foldN, stepsN, volN]);
 
-  // Export line: "Serial <start> <su> / <fold>x / <steps> steps: t1=<c1>, t2=<c2>, ..."
-  // Concentrations are listed in the input unit (startU) for readability.
+  // Export line: "Serial <start> <su> / <fold>x / <steps> steps: t1=<c1> <su>, ..."
+  // Each tube carries its unit (startU) so a tube value is never ambiguous out
+  // of context (Grant 2026-06-09).
   const serialExportLine = useMemo<string | null>(() => {
     if (rows.length === 0 || startN === null || foldN === null) return null;
-    const tubeList = rows.map((r) => `t${r.step}=${formatNum(r.concentration)}`).join(', ');
+    const tubeList = rows
+      .map((r) => `t${r.step}=${formatNum(r.concentration)} ${startU}`)
+      .join(', ');
     return `Serial ${formatNum(startN)} ${startU} / ${formatNum(foldN)}x / ${rows.length} steps: ${tubeList}`;
   }, [rows, startN, foldN, startU]);
 
