@@ -224,7 +224,6 @@ export default function NotebookScreen() {
   // processes the command.
   const sendWithRouting = useCallback(
     async (queued: import('@/lib/captures').Capture) => {
-      console.log('[route-capture] sendWithRouting start; paired?', !!pairing);
       if (!pairing) return;
 
       // Fetch the focus context in parallel with the upload start. We start the
@@ -238,30 +237,15 @@ export default function NotebookScreen() {
       // user has a X25519 pubkey stored (i.e. the pairing data-shape gap is
       // closed). If not, fall through silently (inbox routing is the default).
       const userX25519PubHex = pairing.userX25519PubHex ?? '';
-      console.log('[route-capture] userX25519PubHex present?', !!userX25519PubHex);
-      if (!userX25519PubHex) {
-        console.warn(
-          '[route-capture] pairing has no userX25519PubHex -> inbox only. Re-pair from the current laptop QR.',
-        );
-        return;
-      }
+      if (!userX25519PubHex) return;
 
       let ctx: FocusContext | null;
       try {
         ctx = await contextPromise;
-      } catch (err) {
-        console.warn('[route-capture] getFocusContext threw', err);
+      } catch {
         return;
       }
-      console.log('[route-capture] focus context:', JSON.stringify(ctx));
-      if (!ctx || ctx.kind !== 'experiment') {
-        console.warn(
-          '[route-capture] no fresh experiment context -> inbox (kind=',
-          ctx?.kind ?? 'null',
-          ')',
-        );
-        return;
-      }
+      if (!ctx || ctx.kind !== 'experiment') return;
 
       const { taskId, owner, name } = ctx;
 
@@ -754,6 +738,11 @@ function CaptureRow({
               </Pressable>
             </View>
           </View>
+          {capture.status === 'sent' ? (
+            <ThemedText style={[styles.rowMeta, { color: surface.muted, marginTop: 4 }]}>
+              Appears on your laptop in a few seconds.
+            </ThemedText>
+          ) : null}
         </View>
       </View>
     </Card>
