@@ -24,10 +24,10 @@
    * dark palette matches the dark-rainbow loader mockup (see
    * docs/proposals/dark-mode-foundation.md). Nothing references these yet, so
    * adoption is opt-in and additive, surface by surface. */
-  --surface: #ffffff; /* page background */
-  --surface-raised: #ffffff; /* cards */
-  --surface-overlay: #ffffff; /* popups, modals (top elevation; lighter than cards in dark) */
-  --surface-sunken: #f8fafc; /* subtle insets, gray-50 wells */
+  --surface: #f8fafc; /* page / canvas background (slate-50) */
+  --surface-raised: #ffffff; /* cards, panels */
+  --surface-overlay: #ffffff; /* popups, modals */
+  --surface-sunken: #f1f5f9; /* input wells, insets (slate-100) */
   --foreground-muted: #6b7280; /* secondary text, gray-500 */
   --border-subtle: #e5e7eb; /* hairlines, gray-200 */
 
