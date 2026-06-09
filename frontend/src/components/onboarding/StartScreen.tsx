@@ -1,0 +1,131 @@
+"use client";
+
+// The start screen: the top-level front door shown when a visitor is NOT
+// auto-reconnected (no live session). It routes intent so a returning user is
+// never dropped onto the generic folder-picker as if we have nothing saved:
+//
+//   Sign in        -> provider OAuth (returning Free / Lab account, or a new device)
+//   Open a folder  -> connect a local folder directly (solo, or any returning user)
+//   Create account -> the 3-tier AccountTierChooser (the new-account flow)
+//
+// Copy adapts for a returning visitor (a previously-connected folder is known):
+// it leads with "Open your folder" and "Sign in" rather than "create".
+//
+// No em-dashes, no emojis, no mid-sentence colons.
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+
+import { BeakerBotScene } from "@/components/onboarding/BeakerBotScene";
+import { markLandingSeen } from "@/lib/landing/landing-gate";
+import SharingProviderButtons, {
+  type SharingProvider,
+} from "@/components/sharing/SharingProviderButtons";
+
+export interface StartScreenProps {
+  /** True when a previously-connected folder is known (returning visitor). */
+  returning: boolean;
+  /** Connect / reconnect a local folder directly (solo + returning paths). */
+  onOpenFolder: () => void;
+  /** Start the new-account flow (the 3-tier chooser). */
+  onCreateAccount: () => void;
+}
+
+export function StartScreen({
+  returning,
+  onOpenFolder,
+  onCreateAccount,
+}: StartScreenProps) {
+  const router = useRouter();
+  const [showSignIn, setShowSignIn] = useState(false);
+
+  const signIn = (provider: SharingProvider) => {
+    markLandingSeen();
+    router.push("/?connect=1&signIn=" + provider);
+  };
+
+  return (
+    <div className="min-h-screen w-full bg-surface flex flex-col items-center justify-center px-6 py-12">
+      <div className="w-full max-w-md flex flex-col items-center text-center">
+        <BeakerBotScene name="solo" className="w-20 h-20 mb-3" />
+        <h1 className="text-2xl font-extrabold text-foreground">
+          {returning ? "Welcome back" : "Welcome to ResearchOS"}
+        </h1>
+        <p className="mt-2 text-sm text-foreground-muted">
+          {returning
+            ? "Open your folder to pick up where you left off, or sign in to your account."
+            : "Your lab, your data, your machine. How would you like to start?"}
+        </p>
+
+        {!showSignIn ? (
+          <div className="mt-8 w-full flex flex-col gap-3">
+            {/* Returning users lead with Open your folder; fresh users see it
+                lower, after sign-in. */}
+            {returning && (
+              <button
+                type="button"
+                onClick={onOpenFolder}
+                className="w-full btn-brand py-3 rounded-xl font-semibold text-sm"
+              >
+                Open your folder
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowSignIn(true)}
+              className={`w-full py-3 rounded-xl font-semibold text-sm border ${
+                returning
+                  ? "border-border bg-surface-raised text-foreground hover:border-brand-action"
+                  : "btn-brand"
+              }`}
+            >
+              Sign in
+            </button>
+
+            {!returning && (
+              <button
+                type="button"
+                onClick={onOpenFolder}
+                className="w-full py-3 rounded-xl font-semibold text-sm border border-border bg-surface-raised text-foreground hover:border-brand-action"
+              >
+                Open a folder
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={onCreateAccount}
+              className="w-full py-3 rounded-xl font-semibold text-sm border border-border bg-surface-raised text-foreground hover:border-brand-action"
+            >
+              Create a new account
+            </button>
+          </div>
+        ) : (
+          <div className="mt-8 w-full flex flex-col items-center">
+            <button
+              type="button"
+              onClick={() => setShowSignIn(false)}
+              className="self-start text-sm font-semibold text-foreground-muted hover:text-brand-action mb-3"
+            >
+              &larr; Back
+            </button>
+            <p className="text-sm text-foreground-muted mb-4">
+              Sign in to your ResearchOS account.
+            </p>
+            <SharingProviderButtons onProvider={signIn} />
+          </div>
+        )}
+      </div>
+
+      {!showSignIn && (
+        <p className="mt-8 text-xs text-foreground-muted max-w-sm text-center">
+          Everything is local-first. Your files always live on your own disk; an
+          account only adds sharing and team sync.
+        </p>
+      )}
+    </div>
+  );
+}
+
+export default StartScreen;

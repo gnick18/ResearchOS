@@ -29,6 +29,7 @@ import SceneTriggerHost from "@/components/SceneTriggerHost";
 import AutoErrorConfirmHost from "@/components/AutoErrorConfirmHost";
 import V4MountForUser from "@/components/onboarding/v4/V4MountForUser";
 import { Splash } from "@/components/onboarding/Splash";
+import { StartScreen } from "@/components/onboarding/StartScreen";
 import {
   AccountTierChooser,
   type AccountTier,
@@ -151,6 +152,12 @@ const SPLASH_SEEN_KEY = "researchos:splash-seen";
 // branches; Local needs no extra wiring (absent account_type normalizes to solo).
 let chosenTierThisLoad: AccountTier | null = null;
 
+// The start-screen action a not-auto-reconnected visitor picked this load:
+// "open" -> connect/reconnect a folder (ResearchFolderSetupNew); "create" ->
+// the new-account chooser. Module-scoped so a remount during setup does not
+// bounce the user back to the start screen. null = show the start screen.
+let entryActionThisLoad: "open" | "create" | null = null;
+
 function AppContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   // The wiki must render before sign-in so new users can read the setup
@@ -193,7 +200,9 @@ function AppContent({ children }: { children: ReactNode }) {
       typeof window !== "undefined" &&
       sessionStorage.getItem(SPLASH_SEEN_KEY) === "1",
   );
-  const [tierChosen, setTierChosen] = useState(chosenTierThisLoad !== null);
+  const [entryAction, setEntryAction] = useState<"open" | "create" | null>(
+    entryActionThisLoad,
+  );
   const [showSetup, setShowSetup] = useState(false);
   // Belt-and-suspenders: if the router.replace("/welcome") fires but the gate
   // is somehow re-evaluated before navigation completes, this prevents a
@@ -379,26 +388,50 @@ function AppContent({ children }: { children: ReactNode }) {
     );
   }
 
-  // Account-tier chooser, the new front door (account-setup revamp). Shown
-  // ONLY to a genuinely-fresh visitor (needs setup or not connected, AND no
-  // previously-connected folder, AND no discovered users) who has not yet
-  // chosen a tier this load. A returning user whose handle just needs a
-  // permission re-grant has `lastConnectedFolder` set, so they skip straight
-  // to ResearchFolderSetupNew's reconnect, never the chooser. The choice is
-  // recorded for Phase B2 (Free / Lab branches); Local falls through to the
-  // normal folder-connect + create-user flow below (absent account_type
-  // normalizes to solo). Skipped in fixture modes.
-  //
-  // Phase B2: yield the chooser gate when a signIn intent is already in flight
-  // (the ?signIn param is present on the URL) so the OAuth redirect lands on
-  // ResearchFolderSetupNew rather than the chooser. Without this guard the user
-  // would see the chooser again after the provider callback.
+  // Start screen, the top-level front door (account-setup revamp). Shown to a
+  // visitor who is NOT auto-reconnected (no live session: not connected, no
+  // current user) and has not yet picked an entry action this load. It routes
+  // intent: Sign in (provider OAuth, handled internally via ?signIn), Open a
+  // folder (connect/reconnect, "open"), or Create a new account ("create" ->
+  // the chooser). It adapts copy for a returning visitor (a known folder or
+  // discovered users), so a returning user is never dropped onto the generic
+  // picker as if nothing is saved. Yields when a signIn intent is already in
+  // flight (the ?signIn param), so the OAuth callback lands on the setup screen.
+  // Skipped in fixture modes. Same-device returning users with a live handle
+  // never reach here; they reconnect silently above (isLoading branch).
   if (
-    (showSetup || !isConnected) &&
-    !tierChosen &&
+    !isConnected &&
+    !currentUser &&
+    entryAction === null &&
     !isDemoOrWikiCapture() &&
-    !lastConnectedFolder &&
-    availableUsers.length === 0 &&
+    !searchParams?.get("signIn")
+  ) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <StartScreen
+          returning={!!lastConnectedFolder || availableUsers.length > 0}
+          onOpenFolder={() => {
+            entryActionThisLoad = "open";
+            setEntryAction("open");
+          }}
+          onCreateAccount={() => {
+            entryActionThisLoad = "create";
+            setEntryAction("create");
+          }}
+        />
+      </QueryClientProvider>
+    );
+  }
+
+  // Account-tier chooser, reached via the start screen's "Create a new account".
+  // Local falls through to the normal folder-connect + create-user flow below
+  // (absent account_type normalizes to solo); Free / Lab drive their OAuth
+  // redirect internally (router.push to ?signIn, which yields the gate above).
+  // Skipped in fixture modes and once a signIn intent is in flight.
+  if (
+    entryAction === "create" &&
+    (showSetup || !isConnected) &&
+    !isDemoOrWikiCapture() &&
     !searchParams?.get("signIn")
   ) {
     return (
@@ -413,21 +446,8 @@ function AppContent({ children }: { children: ReactNode }) {
               // sessionStorage unavailable (private mode edge); the in-memory
               // chosenTierThisLoad still carries the choice for this load.
             }
-            setTierChosen(true);
-          }}
-          // Legacy compat: onChoose is no longer called by the chooser for
-          // Free/Lab (those drive router.push internally), but keep the
-          // prop wired so any external harness that passes onChoose still
-          // receives the Local path.
-          onChoose={(tier) => {
-            if (tier !== "local") return; // Free/Lab handled inside the chooser
-            chosenTierThisLoad = tier;
-            try {
-              sessionStorage.setItem("researchos:account-tier", tier);
-            } catch {
-              // best-effort
-            }
-            setTierChosen(true);
+            entryActionThisLoad = "open";
+            setEntryAction("open");
           }}
         />
       </QueryClientProvider>
