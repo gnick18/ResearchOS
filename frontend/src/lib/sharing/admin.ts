@@ -20,11 +20,27 @@ export function isAdminEmail(email: string | null | undefined): boolean {
 
 /**
  * The ADMIN_EMAILS list, trimmed, in original case for delivery. Empty when
- * unset. Used by the deadline-reminder cron to know who to email.
+ * unset. This is the OPERATOR ACCESS list (who can open /admin + /admin/business).
  */
 export function adminEmails(): string[] {
   const raw = process.env.ADMIN_EMAILS;
   if (!raw) return [];
+  return raw
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Who the deadline-reminder cron emails. Separate from ADMIN_EMAILS so the
+ * access list (every operator who can open the page) can differ from the inbox
+ * the reminders land in (e.g. just the LLC address). Reads BUSINESS_REMINDER_EMAILS
+ * (comma-separated); falls back to the full admin list when unset, so an existing
+ * deployment with only ADMIN_EMAILS keeps sending exactly as before.
+ */
+export function reminderRecipients(): string[] {
+  const raw = process.env.BUSINESS_REMINDER_EMAILS;
+  if (!raw) return adminEmails();
   return raw
     .split(",")
     .map((e) => e.trim())

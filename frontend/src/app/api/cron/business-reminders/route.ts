@@ -14,7 +14,7 @@
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
-import { adminEmails } from "@/lib/sharing/admin";
+import { reminderRecipients } from "@/lib/sharing/admin";
 import { isSharingEnabled } from "@/lib/sharing/directory/guard";
 import { upcomingDeadlines } from "@/lib/business/calc";
 import {
@@ -44,9 +44,9 @@ export async function GET(request: Request): Promise<Response> {
   if (!isSharingEnabled()) {
     return Response.json({ ok: true, skipped: "sharing disabled" });
   }
-  const recipients = adminEmails();
+  const recipients = reminderRecipients();
   if (recipients.length === 0) {
-    return Response.json({ ok: true, skipped: "no admin recipients" });
+    return Response.json({ ok: true, skipped: "no reminder recipients" });
   }
 
   await ensureBusinessSchema();
