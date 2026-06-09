@@ -10,7 +10,7 @@
 import { useState } from "react";
 
 import { AccountTierChooser, type AccountTier } from "@/components/onboarding/AccountTierChooser";
-import { StartScreen } from "@/components/onboarding/StartScreen";
+import { EntrySnapSurface } from "@/components/onboarding/EntrySnapSurface";
 import { Splash } from "@/components/onboarding/Splash";
 import { SuccessTransition } from "@/components/onboarding/SuccessTransition";
 
@@ -25,7 +25,7 @@ export default function AccountSetupPreviewPage() {
       {stage === "splash" && <Splash onComplete={() => setStage("start")} />}
 
       {(stage === "start" || stage === "start-returning") && (
-        <StartScreen
+        <EntrySnapSurface
           returning={stage === "start-returning"}
           onOpenFolder={() => setStage("success")}
           onCreateAccount={() => setStage("chooser")}

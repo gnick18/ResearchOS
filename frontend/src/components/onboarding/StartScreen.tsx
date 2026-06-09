@@ -29,12 +29,19 @@ export interface StartScreenProps {
   onOpenFolder: () => void;
   /** Start the new-account flow (the 3-tier chooser). */
   onCreateAccount: () => void;
+  /**
+   * When provided, a bouncing "What is ResearchOS?" scroll-down affordance is
+   * shown at the bottom; clicking it snaps down to the welcome section. Supplied
+   * by EntrySnapSurface; omitted when the StartScreen renders standalone.
+   */
+  onScrollDown?: () => void;
 }
 
 export function StartScreen({
   returning,
   onOpenFolder,
   onCreateAccount,
+  onScrollDown,
 }: StartScreenProps) {
   const router = useRouter();
   const [showSignIn, setShowSignIn] = useState(false);
@@ -45,7 +52,7 @@ export function StartScreen({
   };
 
   return (
-    <div className="min-h-screen w-full bg-surface flex flex-col items-center justify-center px-6 py-12">
+    <div className="relative min-h-screen w-full bg-surface flex flex-col items-center justify-center px-6 py-12">
       <div className="w-full max-w-md flex flex-col items-center text-center">
         <BeakerBotScene name="solo" className="w-20 h-20 mb-3" />
         <h1 className="text-2xl font-extrabold text-foreground">
@@ -123,6 +130,19 @@ export function StartScreen({
           Everything is local-first. Your files always live on your own disk; an
           account only adds sharing and team sync.
         </p>
+      )}
+
+      {/* Bouncing scroll-down affordance: snaps to the welcome section below. */}
+      {onScrollDown && !showSignIn && (
+        <button
+          type="button"
+          onClick={onScrollDown}
+          aria-label="Learn what ResearchOS is"
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 text-foreground-muted hover:text-brand-action transition-colors animate-bounce"
+        >
+          <span className="text-xs font-medium">What is ResearchOS?</span>
+          <span className="block w-3 h-3 border-b-2 border-r-2 border-current rotate-45" />
+        </button>
       )}
     </div>
   );

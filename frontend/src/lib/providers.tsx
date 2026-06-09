@@ -29,7 +29,7 @@ import SceneTriggerHost from "@/components/SceneTriggerHost";
 import AutoErrorConfirmHost from "@/components/AutoErrorConfirmHost";
 import V4MountForUser from "@/components/onboarding/v4/V4MountForUser";
 import { Splash } from "@/components/onboarding/Splash";
-import { StartScreen } from "@/components/onboarding/StartScreen";
+import { EntrySnapSurface } from "@/components/onboarding/EntrySnapSurface";
 import {
   AccountTierChooser,
   type AccountTier,
@@ -408,7 +408,7 @@ function AppContent({ children }: { children: ReactNode }) {
   ) {
     return (
       <QueryClientProvider client={queryClient}>
-        <StartScreen
+        <EntrySnapSurface
           returning={!!lastConnectedFolder || availableUsers.length > 0}
           onOpenFolder={() => {
             entryActionThisLoad = "open";
