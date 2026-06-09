@@ -23,6 +23,7 @@ import ProjectDepositDialog from "@/components/ProjectDepositDialog";
 import Tooltip from "@/components/Tooltip";
 import { focusWithoutTooltip } from "@/components/tooltip-focus";
 import ProjectFundingSection from "@/components/project-surface/ProjectFundingSection";
+import OverviewSection from "@/components/project-surface/OverviewSection";
 import ResultsGallery from "@/components/project-surface/ResultsGallery";
 import MethodsInventory from "@/components/project-surface/MethodsInventory";
 import SequencesInventory from "@/components/project-surface/SequencesInventory";
@@ -30,7 +31,6 @@ import GoalsSection from "@/components/project-surface/GoalsSection";
 import ActivityFeed from "@/components/project-surface/ActivityFeed";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useFeaturePicks } from "@/hooks/useFeaturePicks";
-import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { useAccountType } from "@/hooks/useAccountType";
 import type { Project, ProjectRestorePayload } from "@/lib/types";
 // VC Phase 3 (VC-Phase3-Project sub-bot of HR, 2026-05-31): version-history +
@@ -1044,177 +1044,6 @@ export default function ProjectRoute({ projectId, ownerHint }: ProjectRouteProps
         </div>
       )}
     </div>
-  );
-}
-
-// Autosave debounce for overview prose. Matches NoteDetailPopup's
-// running-log entry autosave (1500ms after the last keystroke) so the
-// UX stays consistent across long-form markdown surfaces.
-const OVERVIEW_AUTOSAVE_DELAY_MS = 1500;
-
-interface OverviewSectionProps {
-  project: Project;
-  // The URL `?owner=` hint used for READS. When present, the overview is
-  // loaded from that user's directory. View-only receivers and edit-permission
-  // receivers both pass the same hint here.
-  ownerHint: string | null;
-  // The owner-routing target for WRITES. Set only for edit-permission
-  // receivers (the shared project's actual owner); undefined for own
-  // projects (writes go to the current user). View-only receivers never
-  // reach the write path because `readOnly` short-circuits autosave.
-  editOwner: string | undefined;
-  readOnly: boolean;
-}
-
-function OverviewSection({ project, ownerHint, editOwner, readOnly }: OverviewSectionProps) {
-  const queryClient = useQueryClient();
-  const projectId = project.id;
-
-  const queryKey = useMemo(
-    () => ["projects", ownerHint ?? "self", projectId, "overview"] as const,
-    [projectId, ownerHint]
-  );
-
-  const {
-    data: serverValue,
-    isLoading,
-    isError,
-  } = useQuery<string>({
-    queryKey,
-    queryFn: () => rawProjectsApi.getOverview(projectId, ownerHint ?? undefined),
-  });
-
-  // Local-first edit buffer: typing updates this immediately, the debounced
-  // save flushes to disk. Without a local mirror, every keystroke would
-  // round-trip through React Query refetch and the cursor would jump.
-  //
-  // The "store information from previous renders" pattern (React docs) is
-  // used here in place of a useEffect that calls setState — that latter
-  // shape triggers a cascading-render lint error and is discouraged.
-  // React bails out of the current render and re-renders cleanly when
-  // setState is called during render with a different value.
-  const [draft, setDraft] = useState<string>("");
-  const [lastSyncedServer, setLastSyncedServer] = useState<string | null>(null);
-  if (serverValue !== undefined && lastSyncedServer !== serverValue) {
-    setLastSyncedServer(serverValue);
-    setDraft(serverValue);
-  }
-
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const savedFlashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Keep a ref to the latest draft so the flush function can write it without
-  // a stale closure. Updated synchronously whenever draft changes.
-  const draftRef = useRef<string>("");
-  draftRef.current = draft;
-
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-      if (savedFlashTimeoutRef.current) clearTimeout(savedFlashTimeoutRef.current);
-    };
-  }, []);
-
-  // Flush the pending autosave timer immediately (used by beforeunload).
-  const flushOverviewSave = useCallback(() => {
-    if (!saveTimeoutRef.current) return;
-    clearTimeout(saveTimeoutRef.current);
-    saveTimeoutRef.current = null;
-    // Fire-and-forget: we can't await in beforeunload. The write is
-    // best-effort; for tab-close scenarios the browser sometimes allows a
-    // brief async operation to complete before the process exits.
-    rawProjectsApi.setOverview(projectId, draftRef.current, editOwner).catch(() => {});
-  }, [projectId, editOwner]);
-
-  // Guard against navigating away with a pending autosave debounce window.
-  const hasOverviewUnsavedChanges = saveStatus === "saving" && !readOnly;
-  useUnsavedChangesGuard(hasOverviewUnsavedChanges, { onFlush: flushOverviewSave });
-
-  const handleChange = useCallback(
-    (next: string) => {
-      if (readOnly) return;
-      setDraft(next);
-      setSaveStatus("saving");
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-      saveTimeoutRef.current = setTimeout(async () => {
-        try {
-          await rawProjectsApi.setOverview(projectId, next, editOwner);
-          // Mirror the write back into React Query AND advance the
-          // "last synced from server" cursor in lockstep — otherwise the
-          // render-time prop-sync check above would see the new server
-          // value and overwrite the user's freshly-typed draft.
-          queryClient.setQueryData(queryKey, next);
-          setLastSyncedServer(next);
-          setSaveStatus("saved");
-          if (savedFlashTimeoutRef.current) clearTimeout(savedFlashTimeoutRef.current);
-          savedFlashTimeoutRef.current = setTimeout(() => setSaveStatus("idle"), 1500);
-        } catch (err) {
-          console.error("[ProjectRoute] Failed to save overview:", err);
-          setSaveStatus("error");
-        }
-      }, OVERVIEW_AUTOSAVE_DELAY_MS);
-    },
-    [readOnly, projectId, editOwner, queryClient, queryKey]
-  );
-
-  return (
-    <section id="overview" className="scroll-mt-32">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-title font-semibold text-foreground">Overview</h2>
-        {!readOnly && saveStatus !== "idle" && (
-          <span
-            className={`text-meta ${
-              saveStatus === "error"
-                ? "text-red-500"
-                : saveStatus === "saving"
-                  ? "text-foreground-muted"
-                  : "text-foreground-muted"
-            }`}
-            aria-live="polite"
-          >
-            {saveStatus === "saving" && "Saving…"}
-            {saveStatus === "saved" && "Saved"}
-            {saveStatus === "error" && "Couldn't save"}
-          </span>
-        )}
-      </div>
-      {isError ? (
-        <p className="text-body text-red-500">Couldn&apos;t load this project&apos;s overview.</p>
-      ) : (
-        // Bug-squad fix bot 2026-05-26 (Bugs 1 + 4): always render the
-        // textarea so the §6.2 spotlight selector + cursor type action
-        // can resolve immediately on project-route entry. Previously the
-        // isLoading branch swapped in a "Loading overview…" paragraph
-        // and the textarea didn't exist until the local file read
-        // resolved. The React commit ordering meant the spotlight could
-        // fire BEFORE the textarea mounted, log "selector did not
-        // resolve to an element", and the cursor-script's promised
-        // placeholder hypothesis would never get typed (the type action
-        // also depends on the same selector). Now the textarea is
-        // always mounted; during the brief loading window the value is
-        // empty and the placeholder reads as a loading hint. The
-        // existing render-time setDraft(serverValue) sync (around line
-        // 532) backfills the value when the read resolves.
-        <textarea
-          value={draft}
-          onChange={(e) => handleChange(e.target.value)}
-          placeholder={
-            isLoading
-              ? "Loading overview…"
-              : readOnly
-                ? "No overview yet."
-                : "Capture the hypothesis, motivation, and big-picture context for this project…"
-          }
-          disabled={readOnly}
-          // Onboarding v4 §6.2 spotlight + typewriter anchor. The
-          // walkthrough's project-overview-typing-demo beat types a
-          // placeholder hypothesis here via the cursor script (see
-          // steps/walkthrough/lib/targets.ts -> projectOverviewTextarea).
-          data-tour-target="project-overview-textarea"
-          className="w-full min-h-[180px] p-3 text-body text-foreground border border-border rounded-md resize-y focus:outline-none focus:ring-1 focus:ring-blue-300"
-        />
-      )}
-    </section>
   );
 }
 

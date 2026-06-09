@@ -1,7 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import {
   fetchAllProjectsIncludingShared,
@@ -11,6 +10,8 @@ import {
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import NewProjectButton from "@/components/lab-overview/NewProjectButton";
 import SharedFromPill from "@/components/workbench/SharedFromPill";
+import ProjectDetailPopup from "@/components/project-surface/ProjectDetailPopup";
+import type { OpenOrigin } from "@/lib/ui/create-popup-store";
 import type { Project, Task } from "@/lib/types";
 
 const DEFAULT_COLORS = [
@@ -120,7 +121,7 @@ interface ProjectCardProps {
   color: string;
   counts: ProjectCounts;
   sequenceCount: number;
-  onOpen: () => void;
+  onOpen: (origin: OpenOrigin) => void;
 }
 
 function ProjectCard({ project, color, counts, sequenceCount, onOpen }: ProjectCardProps) {
@@ -132,7 +133,7 @@ function ProjectCard({ project, color, counts, sequenceCount, onOpen }: ProjectC
   return (
     <button
       type="button"
-      onClick={onOpen}
+      onClick={(e) => onOpen({ x: e.clientX, y: e.clientY })}
       data-beaker-target={`project:${project.owner}:${project.id}`}
       className="relative flex flex-col text-left rounded-xl border border-border bg-surface-raised p-4 shadow-sm transition-all hover:shadow-md hover:border-foreground-muted/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
     >
@@ -186,12 +187,32 @@ interface Props {
   /** Projects come from the page-level query so the grid stays in sync with the
    *  filter pills' source. Optional — falls back to its own fetch when absent. */
   projects?: Project[];
+  /** Deep-link auto-open (the /workbench/projects/[id] route). When set, the
+   *  panel opens the matching project's ProjectDetailPopup on mount so every
+   *  entry point (BeakerSearch hrefs, ?openProject=, shared links) lands on the
+   *  same popup experience. `owner` preserves the ?owner= suffix for shared
+   *  projects. Cleared via onAutoOpenConsumed once the popup is opened. */
+  autoOpenProjectId?: number | null;
+  autoOpenOwner?: string | null;
+  onAutoOpenConsumed?: () => void;
 }
 
-export default function WorkbenchProjectsPanel({ projects: projectsProp }: Props) {
-  const router = useRouter();
+export default function WorkbenchProjectsPanel({
+  projects: projectsProp,
+  autoOpenProjectId = null,
+  autoOpenOwner = null,
+  onAutoOpenConsumed,
+}: Props) {
   const { currentUser: providerCurrentUser } = useCurrentUser();
   const currentUser = providerCurrentUser ?? "";
+
+  // The open project + the click origin for the zoom animation. Lifting this
+  // here (a state-lift, not a route push) is the core of the popup redesign:
+  // a card click opens the popup over the Workbench, no navigation.
+  const [openProjectState, setOpenProjectState] = useState<{
+    project: Project;
+    origin: OpenOrigin | null;
+  } | null>(null);
 
   const { data: fetchedProjects = [] } = useQuery({
     queryKey: ["projects", currentUser],
@@ -241,13 +262,33 @@ export default function WorkbenchProjectsPanel({ projects: projectsProp }: Props
     return map;
   }, [projects, sequenceQueries]);
 
-  const openProject = (project: Project) => {
-    const ownerSuffix =
-      project.is_shared_with_me && project.owner && project.owner !== currentUser
-        ? `?owner=${encodeURIComponent(project.owner)}`
-        : "";
-    router.push(`/workbench/projects/${project.id}${ownerSuffix}`);
+  const openProject = (project: Project, origin: OpenOrigin | null) => {
+    setOpenProjectState({ project, origin });
   };
+
+  // Deep-link auto-open: when the route page hands a project id (+ optional
+  // owner) from the URL, open that project's popup once the project list has
+  // resolved. Matches on the canonical (id, owner) pair so a shared project and
+  // an own project with the same id stay distinct. This effect deliberately
+  // syncs a prop-derived intent into local open state (the supported "open this
+  // on a deep link" shape), so the setState here is intentional, not a
+  // cascading-render smell.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (autoOpenProjectId == null) return;
+    const match = projects.find(
+      (p) =>
+        p.id === autoOpenProjectId &&
+        (autoOpenOwner ? p.owner === autoOpenOwner : true),
+    );
+    if (match) {
+      setOpenProjectState((prev) =>
+        prev?.project.id === autoOpenProjectId ? prev : { project: match, origin: null },
+      );
+      onAutoOpenConsumed?.();
+    }
+  }, [autoOpenProjectId, autoOpenOwner, projects, onAutoOpenConsumed]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (projects.length === 0) {
     return (
@@ -289,11 +330,20 @@ export default function WorkbenchProjectsPanel({ projects: projectsProp }: Props
               color={projectColors[key]}
               counts={countsByKey[key]}
               sequenceCount={sequenceCountByKey[key] ?? 0}
-              onOpen={() => openProject(p)}
+              onOpen={(origin) => openProject(p, origin)}
             />
           );
         })}
       </div>
+
+      {openProjectState && (
+        <ProjectDetailPopup
+          project={openProjectState.project}
+          origin={openProjectState.origin}
+          open
+          onClose={() => setOpenProjectState(null)}
+        />
+      )}
     </div>
   );
 }

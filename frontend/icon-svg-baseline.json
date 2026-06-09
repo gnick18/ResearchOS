@@ -143,6 +143,7 @@
   "components/open-source/OpenSourceCredits.tsx": 2,
   "components/picker-walkthrough/CloudProviderBeat.tsx": 1,
   "components/project-surface/ProjectCardKebab.tsx": 1,
+  "components/project-surface/ProjectDetailPopup.tsx": 5,
   "components/project-surface/ProjectFundingSection.tsx": 2,
   "components/project-surface/ProjectRoute.tsx": 7,
   "components/researchers/OrcidPublications.tsx": 1,
