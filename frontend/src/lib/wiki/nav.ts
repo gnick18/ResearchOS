@@ -97,6 +97,11 @@ export const WIKI_NAV: WikiNode[] = [
     label: "Getting Started",
     children: [
       {
+        href: "/wiki/getting-started/accounts",
+        label: "Account tiers",
+        blurb: "Local-only, Free account, and Lab: what each unlocks, how to create one, how to join a lab.",
+      },
+      {
         href: "/wiki/getting-started/browser-requirements",
         label: "Browser Requirements",
         blurb: "Why ResearchOS needs Chrome or Edge.",
