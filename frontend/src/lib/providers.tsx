@@ -28,6 +28,11 @@ import OpenDocsButton from "@/components/OpenDocsButton";
 import SceneTriggerHost from "@/components/SceneTriggerHost";
 import AutoErrorConfirmHost from "@/components/AutoErrorConfirmHost";
 import V4MountForUser from "@/components/onboarding/v4/V4MountForUser";
+import { Splash } from "@/components/onboarding/Splash";
+import {
+  AccountTierChooser,
+  type AccountTier,
+} from "@/components/onboarding/AccountTierChooser";
 import CelebrationManager from "@/components/onboarding/CelebrationManager";
 import MilestoneTwirlMount from "@/components/onboarding/MilestoneTwirlMount";
 import IdleAnimationManager from "@/components/onboarding/IdleAnimationManager";
@@ -138,6 +143,18 @@ function PendingELNImportMount() {
   return <ImportELNDialog isOpen={open} onClose={() => setOpen(false)} />;
 }
 
+// Branded opening splash plays once per full page load (resets on reload / new
+// tab, persists across soft client navigations because this module stays
+// resident). Module-scoped, not state, so it is not re-shown when AppContent
+// remounts during an in-app route change.
+let splashPlayedThisLoad = false;
+
+// The account-tier choice for a fresh visitor, recorded for this page load so a
+// remount of AppContent during setup does not re-show the chooser. Phase B2
+// reads `researchos:account-tier` (sessionStorage) to drive the Free / Lab
+// branches; Local needs no extra wiring (absent account_type normalizes to solo).
+let chosenTierThisLoad: AccountTier | null = null;
+
 function AppContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   // The wiki must render before sign-in so new users can read the setup
@@ -172,6 +189,8 @@ function AppContent({ children }: { children: ReactNode }) {
     disconnect,
   } = useFileSystem();
   const router = useRouter();
+  const [splashSeen, setSplashSeen] = useState(splashPlayedThisLoad);
+  const [tierChosen, setTierChosen] = useState(chosenTierThisLoad !== null);
   const [showSetup, setShowSetup] = useState(false);
   // Belt-and-suspenders: if the router.replace("/welcome") fires but the gate
   // is somehow re-evaluated before navigation completes, this prevents a
@@ -335,6 +354,55 @@ function AppContent({ children }: { children: ReactNode }) {
   // router.replace lives in the effect, never in render.
   if (wantsLandingRedirect) {
     return null;
+  }
+
+  // Branded opening splash, once per full page load. The wiki / welcome / demo
+  // and wiki-capture surfaces already returned above; this only precedes the
+  // real app entry (setup / login / app). It plays over the brief gate
+  // resolution, then proceeds underneath. Skipped in fixture modes.
+  if (!splashSeen && !isDemoOrWikiCapture()) {
+    return (
+      <Splash
+        onComplete={() => {
+          splashPlayedThisLoad = true;
+          setSplashSeen(true);
+        }}
+      />
+    );
+  }
+
+  // Account-tier chooser, the new front door (account-setup revamp). Shown
+  // ONLY to a genuinely-fresh visitor (needs setup or not connected, AND no
+  // previously-connected folder, AND no discovered users) who has not yet
+  // chosen a tier this load. A returning user whose handle just needs a
+  // permission re-grant has `lastConnectedFolder` set, so they skip straight
+  // to ResearchFolderSetupNew's reconnect, never the chooser. The choice is
+  // recorded for Phase B2 (Free / Lab branches); Local falls through to the
+  // normal folder-connect + create-user flow below (absent account_type
+  // normalizes to solo). Skipped in fixture modes.
+  if (
+    (showSetup || !isConnected) &&
+    !tierChosen &&
+    !isDemoOrWikiCapture() &&
+    !lastConnectedFolder &&
+    availableUsers.length === 0
+  ) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <AccountTierChooser
+          onChoose={(tier) => {
+            chosenTierThisLoad = tier;
+            try {
+              sessionStorage.setItem("researchos:account-tier", tier);
+            } catch {
+              // sessionStorage unavailable (private mode edge); the in-memory
+              // chosenTierThisLoad still carries the choice for this load.
+            }
+            setTierChosen(true);
+          }}
+        />
+      </QueryClientProvider>
+    );
   }
 
   // Folder-picker IS the entry surface (rehome 2026-05-25). The retired
