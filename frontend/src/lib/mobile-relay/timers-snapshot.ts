@@ -48,7 +48,7 @@ export interface TimersSnapshot {
 // ── Snapshot builder ─────────────────────────────────────────────────────────
 
 export function buildTimersSnapshot(): TimersSnapshot {
-  const { timers } = useLaptopTimerStore.getState();
+  const { timers, dismissed } = useLaptopTimerStore.getState();
   const running: TimerWire[] = timers
     .filter((t) => t.origin === "laptop" && t.status === "running")
     .map((t) => ({
@@ -61,7 +61,8 @@ export function buildTimersSnapshot(): TimersSnapshot {
   return {
     generatedAt: new Date().toISOString(),
     running,
-    dismissed: [],
+    // Phone-origin timers the laptop dismissed, so the phone removes its copy.
+    dismissed,
   };
 }
 

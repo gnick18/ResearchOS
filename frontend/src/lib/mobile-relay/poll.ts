@@ -89,6 +89,7 @@ import {
   taskResultsTabBase,
 } from "@/lib/tasks/results-paths";
 import { useAppStore } from "@/lib/store";
+import { useLaptopTimerStore } from "@/lib/timers/laptop-timers";
 import { addReorderQueueItem } from "@/lib/purchases/reorder-queue";
 import {
   loadSeenCaptures,
@@ -275,6 +276,24 @@ interface AppendNoteTextCommand {
   entryId: string | null;
   /** Markdown text to append. */
   text: string;
+}
+
+/**
+ * A timer command (Phase 3). The phone seals this when it starts or dismisses a
+ * timer so the laptop mirrors it. op "create" carries the full timer; op
+ * "dismiss" carries only the id. "done" is never sent (each device flips to done
+ * locally from the absolute endsAt). Applied to the laptop timer store + acked
+ * immediately, since timers have no dependency on the capture route map.
+ */
+interface TimerCommand {
+  type: "timer";
+  op: "create" | "dismiss";
+  /** Origin-prefixed id (phn_...), the cross-device dedupe + dismiss key. */
+  timerId: string;
+  label?: string;
+  durationSec?: number;
+  startedAt?: number;
+  endsAt?: number;
 }
 
 /**
@@ -832,6 +851,46 @@ export async function runCaptureInboxPoll(
               );
             } else {
               console.warn(`${LOG_PREFIX} append-note-text command ${cmd.commandId} has invalid fields, skipping`);
+            }
+          } else if (parsed.type === "timer") {
+            // Phase 3: a timer started or dismissed on the phone. No dependency
+            // on the capture route map, so apply to the laptop timer store and
+            // ack right away. The store update re-renders the open Timers panel.
+            const tc = parsed as TimerCommand;
+            const store = useLaptopTimerStore.getState();
+            let applied = false;
+            if (
+              tc.op === "create" &&
+              tc.timerId &&
+              typeof tc.durationSec === "number" &&
+              typeof tc.startedAt === "number" &&
+              typeof tc.endsAt === "number"
+            ) {
+              store.ingestPhoneTimer({
+                id: tc.timerId,
+                label: typeof tc.label === "string" ? tc.label : "",
+                durationSec: tc.durationSec,
+                startedAt: tc.startedAt,
+                endsAt: tc.endsAt,
+              });
+              applied = true;
+              console.info(`${LOG_PREFIX} timer create: ${tc.timerId}`);
+            } else if (tc.op === "dismiss" && tc.timerId) {
+              store.applyPhoneDismiss(tc.timerId);
+              applied = true;
+              console.info(`${LOG_PREFIX} timer dismiss: ${tc.timerId}`);
+            } else {
+              console.warn(`${LOG_PREFIX} timer command ${cmd.commandId} has invalid fields, skipping`);
+            }
+            if (applied) {
+              try {
+                await ackCommands(keys, [cmd.commandId]);
+              } catch (ackErr) {
+                console.warn(
+                  `${LOG_PREFIX} failed to ack timer command ${cmd.commandId}`,
+                  ackErr instanceof Error ? ackErr.message : String(ackErr),
+                );
+              }
             }
           } else {
             // Unknown command type. Do NOT ack so a later phase can handle it.

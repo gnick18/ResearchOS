@@ -90,6 +90,46 @@ function save(timers: LabTimer[]): void {
   }
 }
 
+// Tombstones for timers the laptop dismissed (phone-origin ones), so the "timers"
+// snapshot can tell the phone to remove its copy. Bounded; the phone removal is
+// idempotent so an evicted old id is harmless. Laptop-origin cancels need no
+// tombstone (they just drop out of running[] and the phone disambiguates
+// cancel-vs-done from the absolute endsAt).
+const DISMISSED_KEY = "researchos.laptop-timers-dismissed.v1";
+const DISMISSED_CAP = 200;
+
+function loadDismissed(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(DISMISSED_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed.filter((x): x is string => typeof x === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveDismissed(ids: string[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(DISMISSED_KEY, JSON.stringify(ids));
+  } catch {
+    // Best-effort.
+  }
+}
+
+/** Shape the sync ingests for a phone-created timer (TimerWire from the relay). */
+export interface PhoneTimerInput {
+  id: string;
+  label: string;
+  durationSec: number;
+  startedAt: number;
+  endsAt: number;
+}
+
 // Flip any running timer whose endsAt has passed to done. Returns the next list
 // plus whether anything changed, so the tick can skip a needless write.
 function reconcile(
@@ -109,20 +149,28 @@ function reconcile(
 
 interface TimerState {
   timers: LabTimer[];
+  /** Ids the laptop dismissed (phone-origin), carried in the timers snapshot. */
+  dismissed: string[];
   /** Bumped every second by the tick so live countdowns re-render. */
   now: number;
   /** Start a laptop timer. Returns the created row. */
   add: (label: string, durationSec: number) => LabTimer;
-  /** Cancel (remove) a timer by id. A no-op if it is already gone. */
+  /** Cancel (remove) a timer by id. A no-op if it is already gone. A
+   *  phone-origin cancel records a tombstone so the phone removes its copy. */
   cancel: (id: string) => void;
   /** Drop every finished timer, keeping the running ones. */
   clearFinished: () => void;
+  /** Mirror a phone-created timer into the laptop list (idempotent by id). */
+  ingestPhoneTimer: (wire: PhoneTimerInput) => void;
+  /** Remove a timer the phone dismissed. No tombstone (the phone already knows). */
+  applyPhoneDismiss: (id: string) => void;
   /** Internal 1s tick. Updates now + flips elapsed timers to done. */
   _tick: () => void;
 }
 
 export const useLaptopTimerStore = create<TimerState>((set, get) => ({
   timers: load(),
+  dismissed: loadDismissed(),
   now: typeof window === "undefined" ? 0 : Date.now(),
 
   add: (label, durationSec) => {
@@ -145,13 +193,53 @@ export const useLaptopTimerStore = create<TimerState>((set, get) => ({
   },
 
   cancel: (id) => {
-    const next = get().timers.filter((t) => t.id !== id);
+    const { timers, dismissed } = get();
+    const target = timers.find((t) => t.id === id);
+    const next = timers.filter((t) => t.id !== id);
     save(next);
-    set({ timers: next });
+    // Dismissing a phone-origin timer is a laptop-initiated unified dismiss, so
+    // record a tombstone the snapshot carries to the phone. Laptop-origin
+    // cancels need none (the phone resolves cancel-vs-done from endsAt).
+    if (target?.origin === "phone") {
+      const nextDismissed = [...dismissed, id].slice(-DISMISSED_CAP);
+      saveDismissed(nextDismissed);
+      set({ timers: next, dismissed: nextDismissed });
+    } else {
+      set({ timers: next });
+    }
   },
 
   clearFinished: () => {
     const next = get().timers.filter((t) => t.status === "running");
+    save(next);
+    set({ timers: next });
+  },
+
+  ingestPhoneTimer: (wire) => {
+    const { timers, dismissed } = get();
+    // A create that arrives after the laptop already dismissed it, or a
+    // duplicate, is a no-op.
+    if (dismissed.includes(wire.id)) return;
+    if (timers.some((t) => t.id === wire.id)) return;
+    const now = Date.now();
+    const timer: LabTimer = {
+      id: wire.id,
+      label: wire.label,
+      durationSec: wire.durationSec,
+      startedAt: wire.startedAt,
+      endsAt: wire.endsAt,
+      status: now >= wire.endsAt ? "done" : "running",
+      origin: "phone",
+    };
+    const next = [timer, ...timers];
+    save(next);
+    set({ timers: next });
+  },
+
+  applyPhoneDismiss: (id) => {
+    const { timers } = get();
+    if (!timers.some((t) => t.id === id)) return;
+    const next = timers.filter((t) => t.id !== id);
     save(next);
     set({ timers: next });
   },
