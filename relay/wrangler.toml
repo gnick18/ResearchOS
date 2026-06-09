@@ -14,7 +14,9 @@ compatibility_date = "2024-12-01"
 #   wrangler secret put RELAY_BREAKER_SECRET
 # (and RELAY_BREAKER_SECRET in the Vercel env). Leave both unset for local dev.
 [vars]
-APP_BASE_URL = "https://research-os-xi.vercel.app"
+# Stable custom domain, so the breaker/owner-state reads survive deploy-alias
+# churn (a per-deploy *.vercel.app URL would go stale on the next push).
+APP_BASE_URL = "https://research-os.app"
 
 [[durable_objects.bindings]]
 name = "COLLAB_ROOM"
