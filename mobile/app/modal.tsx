@@ -3,14 +3,18 @@
 // (off by default). House style: no em-dashes, no emojis, no mid-sentence colons.
 
 import { ScrollView, StyleSheet, Switch, View } from 'react-native';
+import Constants from 'expo-constants';
 
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { Card } from '@/components/ui/Card';
 import { SectionHeader } from '@/components/ui/SectionHeader';
+import { AlarmSettingsCard } from '@/components/AlarmSettingsCard';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme, palette, spacing } from '@/lib/design';
 import { useMascotPrefs } from '@/lib/mascot-prefs';
+
+const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
 export default function SettingsScreen() {
   const { surface } = useTheme();
@@ -43,6 +47,24 @@ export default function SettingsScreen() {
             />
           </View>
         </Card>
+
+        <SectionHeader title="Alerts" />
+        <AlarmSettingsCard />
+
+        <SectionHeader title="About" />
+        <Card>
+          <View style={styles.row}>
+            <ThemedText style={[styles.rowTitle, { color: surface.text }]}>
+              ResearchOS
+            </ThemedText>
+            <ThemedText style={[styles.rowValue, { color: surface.muted }]}>
+              Version {APP_VERSION}
+            </ThemedText>
+          </View>
+          <ThemedText style={[styles.aboutNote, { color: surface.muted }]}>
+            Your bench companion. Captures and notes stay on your device until you send them to your lab.
+          </ThemedText>
+        </Card>
       </ScrollView>
     </ScreenFrame>
   );
@@ -65,4 +87,6 @@ const styles = StyleSheet.create({
   rowText: { flex: 1, gap: 2 },
   rowTitle: { fontSize: 16, fontWeight: '600' },
   rowSub: { fontSize: 13, lineHeight: 18 },
+  rowValue: { fontSize: 15 },
+  aboutNote: { fontSize: 13, lineHeight: 18, marginTop: spacing.sm },
 });
