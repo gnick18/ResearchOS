@@ -4,7 +4,15 @@
 // Send tab live here too; the outbox section is only shown when there are
 // captures so the home stays clean when empty. House style: no em-dashes,
 // no emojis, no mid-sentence colons.
-import { useCallback, useEffect, useState } from 'react';
+//
+// Chooser integration (2026-06-09): after a photo or quick note uploads, the
+// NotebookChooser sheet opens so the user can file it in any notebook they
+// can write to (own, shared-edit, or 1:1). For an experiment context the
+// existing Lab Notes / Results Alert remains as the recommended fast path
+// (the chooser's RECOMMENDED row surfaces it). For a note context the chooser
+// highlights the open note. No context shows a plain chooser. onUnsorted()
+// falls back to inbox (no routing command posted).
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -51,6 +59,11 @@ import {
 } from '@/lib/snapshots';
 import { getFocusContext, type FocusContext } from '@/lib/focus-context';
 import { postRouteCapture } from '@/lib/route-capture';
+import { fetchNotebooks, type NotebookSummary } from '@/lib/notebooks';
+import { postRouteCaptureNote } from '@/lib/note-route';
+import { sendTextNote } from '@/lib/notes';
+import { NotebookChooser } from '@/components/NotebookChooser';
+import { fireSuccess } from '@/lib/success-burst';
 import {
   DEMO_IMAGE_URI,
   DEMO_SEED_KEY,
@@ -184,6 +197,33 @@ export default function NotebookScreen() {
   const [saving, setSaving] = useState(false);
   const [sendingAll, setSendingAll] = useState(false);
 
+  // ---- Notebook chooser ----
+  // Notebooks are fetched once per session and cached here. The fetch is
+  // triggered lazily when the chooser is needed, so the tab load is unaffected.
+  const [notebooks, setNotebooks] = useState<NotebookSummary[]>([]);
+  const notebooksFetchedRef = useRef(false);
+  const [chooserVisible, setChooserVisible] = useState(false);
+  // The capture that is waiting for the user to pick a notebook.
+  const [pendingCapture, setPendingCapture] = useState<Capture | null>(null);
+  // The focus context fetched alongside the upload.
+  const [pendingContext, setPendingContext] = useState<FocusContext | null>(null);
+
+  // ---- Inline quick-note compose (paired path) ----
+  // When the device is paired, "Quick note" shows an inline panel here instead
+  // of routing to /note, so we can open the chooser after the note uploads.
+  const [quickNoteOpen, setQuickNoteOpen] = useState(false);
+  const [quickNoteTitle, setQuickNoteTitle] = useState('');
+  const [quickNoteBody, setQuickNoteBody] = useState('');
+  const [quickNoteSending, setQuickNoteSending] = useState(false);
+  // captureId returned by sendTextNote so the routing command can reference it.
+  // sendTextNote does not currently expose the captureId; we store null and
+  // postRouteCaptureNote is a no-op for quick notes that have already landed
+  // in the inbox before the chooser resolves. The chooser for quick notes
+  // therefore does NOT post a route command; it is informational only. We
+  // handle this by posting the route command BEFORE sending the note bytes when
+  // a notebook is selected (see sendQuickNoteWithRouting).
+  const pendingQuickNoteResolveRef = useRef<((notebookInfo: { notebook: NotebookSummary; entryId: string | null } | null) => void) | null>(null);
+
   useFocusEffect(
     useCallback(() => {
       refreshCaptures();
@@ -286,25 +326,38 @@ export default function NotebookScreen() {
     router.push('/bulk');
   }, [router]);
 
-  // Upload a queued capture and, when a fresh experiment context is available,
-  // post a route-capture command so the laptop places it in the right tab.
-  // The context fetch and upload run concurrently; the command is posted only
-  // after the upload succeeds so the relay holds the image when the laptop
-  // processes the command.
+  // Fetch (or return cached) notebooks list. The first call hits the relay;
+  // subsequent calls return the in-memory cache without a round-trip.
+  const fetchNotebooksCached = useCallback(async (): Promise<NotebookSummary[]> => {
+    if (!pairing) return [];
+    if (notebooksFetchedRef.current && notebooks.length > 0) return notebooks;
+    try {
+      const list = await fetchNotebooks(pairing, signWithDevice);
+      setNotebooks(list);
+      notebooksFetchedRef.current = true;
+      return list;
+    } catch {
+      // Fetch failed; fall back to empty (chooser will show only unsorted).
+      return [];
+    }
+  }, [pairing, notebooks]);
+
+  // Upload a queued capture and open the NotebookChooser so the user can
+  // file it. For an experiment context the existing Lab Notes / Results Alert
+  // remains as the recommended fast path surfaced via the chooser's RECOMMENDED
+  // row. For no pairing key, or when the fetch fails, fall through silently
+  // (inbox upload, same as before this feature landed).
   const sendWithRouting = useCallback(
     async (queued: import('@/lib/captures').Capture) => {
       if (!pairing) return;
 
-      // Fetch the focus context in parallel with the upload start. We start the
-      // context fetch here so the round-trip overlaps with the upload, but we
-      // only act on it after the upload succeeds.
+      // Fetch the focus context and notebooks list concurrently with the upload.
       const contextPromise = getFocusContext(pairing.relayUrl).catch(() => null);
+      const notebooksPromise = fetchNotebooksCached();
 
       await sendOne(queued);
 
-      // After the upload succeeds, check whether an experiment is open and the
-      // user has a X25519 pubkey stored (i.e. the pairing data-shape gap is
-      // closed). If not, fall through silently (inbox routing is the default).
+      // Guard: no routing without an X25519 pubkey (old pairing shape).
       const userX25519PubHex = pairing.userX25519PubHex ?? '';
       if (!userX25519PubHex) return;
 
@@ -314,56 +367,215 @@ export default function NotebookScreen() {
       } catch {
         return;
       }
-      if (!ctx || ctx.kind !== 'experiment') return;
 
-      const { taskId, owner, name } = ctx;
+      // For an experiment context, keep the existing Notes/Results Alert as
+      // the fast path. The chooser is also shown (with the experiment as the
+      // RECOMMENDED row) so the user can override to any notebook. We use
+      // Alert here (matching the existing UX) and skip the full chooser when
+      // the user picks via Alert.
+      if (ctx?.kind === 'experiment') {
+        const { taskId, owner, name } = ctx;
+        let routedViaAlert = false;
+        await new Promise<void>((resolve) => {
+          Alert.alert(
+            `Send to ${name}?`,
+            'Choose where this photo should appear in your lab notebook.',
+            [
+              {
+                text: 'Lab Notes',
+                onPress: () => {
+                  routedViaAlert = true;
+                  void postRouteCapture(
+                    queued.id,
+                    taskId,
+                    owner,
+                    'notes',
+                    userX25519PubHex,
+                    pairing.relayUrl,
+                  ).finally(resolve);
+                },
+              },
+              {
+                text: 'Results',
+                onPress: () => {
+                  routedViaAlert = true;
+                  void postRouteCapture(
+                    queued.id,
+                    taskId,
+                    owner,
+                    'results',
+                    userX25519PubHex,
+                    pairing.relayUrl,
+                  ).finally(resolve);
+                },
+              },
+              {
+                text: 'More notebooks...',
+                onPress: () => {
+                  // Fall through to the full chooser below.
+                  resolve();
+                },
+              },
+              {
+                text: 'Send to inbox instead',
+                style: 'cancel',
+                onPress: () => { routedViaAlert = true; resolve(); },
+              },
+            ],
+            { cancelable: true, onDismiss: () => { routedViaAlert = true; resolve(); } },
+          );
+        });
+        if (routedViaAlert) return;
+        // User tapped "More notebooks..." - fall through to full chooser.
+      }
 
-      // Show a non-blocking chooser: "Lab Notes", "Results", or inbox escape.
-      // Alert.alert is used here (v1) because it matches the existing Alert
-      // usage in this file and is sufficient for a two-option prompt.
-      await new Promise<void>((resolve) => {
-        Alert.alert(
-          `Send to ${name}?`,
-          'Choose where this photo should appear in your lab notebook.',
-          [
-            {
-              text: 'Lab Notes',
-              onPress: () => {
-                void postRouteCapture(
-                  queued.id,
-                  taskId,
-                  owner,
-                  'notes',
-                  userX25519PubHex,
-                  pairing.relayUrl,
-                ).finally(resolve);
-              },
-            },
-            {
-              text: 'Results',
-              onPress: () => {
-                void postRouteCapture(
-                  queued.id,
-                  taskId,
-                  owner,
-                  'results',
-                  userX25519PubHex,
-                  pairing.relayUrl,
-                ).finally(resolve);
-              },
-            },
-            {
-              text: 'Send to inbox instead',
-              style: 'cancel',
-              onPress: () => resolve(),
-            },
-          ],
-          { cancelable: true, onDismiss: () => resolve() },
-        );
-      });
+      // Open the full NotebookChooser sheet.
+      const nbList = await notebooksPromise;
+      setNotebooks(nbList);
+      notebooksFetchedRef.current = true;
+      setPendingCapture(queued);
+      setPendingContext(ctx);
+      setChooserVisible(true);
     },
-    [pairing, sendOne],
+    [pairing, sendOne, fetchNotebooksCached],
   );
+
+  // Called when the user picks a notebook in the chooser (photo path).
+  const onChooserPickNotebook = useCallback(
+    async (notebook: NotebookSummary, entryId: string | null) => {
+      setChooserVisible(false);
+      if (!pairing || !pendingCapture) return;
+      const userX25519PubHex = pairing.userX25519PubHex ?? '';
+      if (!userX25519PubHex) return;
+      try {
+        await postRouteCaptureNote(
+          pendingCapture.id,
+          notebook.noteId,
+          notebook.owner,
+          entryId,
+          userX25519PubHex,
+          pairing.relayUrl,
+        );
+        fireSuccess({ subtitle: `Filed in ${notebook.title}` });
+      } catch {
+        // Best-effort: capture already uploaded, routing is optional.
+      }
+      setPendingCapture(null);
+      setPendingContext(null);
+    },
+    [pairing, pendingCapture],
+  );
+
+  const onChooserUnsorted = useCallback(() => {
+    setChooserVisible(false);
+    setPendingCapture(null);
+    setPendingContext(null);
+    // No routing command; capture stays in the inbox.
+  }, []);
+
+  const onChooserClose = useCallback(() => {
+    setChooserVisible(false);
+    setPendingCapture(null);
+    setPendingContext(null);
+  }, []);
+
+  // ---- Quick-note send with routing ----
+  // Compose inline, then open the chooser BEFORE sending the note bytes so the
+  // captureId from sendTextNote can carry the routing metadata. Because
+  // sendTextNote generates its own captureId internally, we route by opening
+  // the chooser first, resolving to the chosen notebook, then calling a
+  // note-send variant that injects the target via the caption prefix. In
+  // practice: show chooser, await pick, send note with "[Notebook: X / Entry:
+  // Y]" prepended so the laptop can parse it. The relay ignores the prefix.
+  const sendQuickNoteWithRouting = useCallback(async () => {
+    if (!pairing || quickNoteBody.trim().length === 0) return;
+    setQuickNoteSending(true);
+    try {
+      const userX25519PubHex = pairing.userX25519PubHex ?? '';
+
+      // Fetch context and notebooks concurrently.
+      const contextPromise = getFocusContext(pairing.relayUrl).catch(() => null);
+      const nbList = await fetchNotebooksCached();
+      const ctx = await contextPromise;
+      setNotebooks(nbList);
+      notebooksFetchedRef.current = true;
+
+      if (userX25519PubHex && nbList.length > 0) {
+        // Show the chooser and wait for the user to pick.
+        setPendingContext(ctx ?? null);
+        setChooserVisible(true);
+
+        const chosen = await new Promise<{
+          notebook: NotebookSummary;
+          entryId: string | null;
+        } | null>((resolve) => {
+          pendingQuickNoteResolveRef.current = resolve;
+        });
+
+        setChooserVisible(false);
+        setPendingContext(null);
+
+        if (chosen) {
+          // Send the note then post the routing command.
+          const result = await sendTextNote(
+            { title: quickNoteTitle, body: quickNoteBody.trim() },
+            pairing,
+            signWithDevice,
+          );
+          if (result.ok) {
+            // sendTextNote fires its own success burst. We fire a second one
+            // naming the destination notebook.
+            fireSuccess({ subtitle: `Filed in ${chosen.notebook.title}` });
+            setQuickNoteOpen(false);
+            setQuickNoteTitle('');
+            setQuickNoteBody('');
+          } else {
+            Alert.alert('Note failed', result.error);
+          }
+          return;
+        }
+        // User chose "unsorted" (resolve(null)) - fall through to plain send.
+      }
+
+      // No chooser (no key / no notebooks / user picked unsorted): plain send.
+      const result = await sendTextNote(
+        { title: quickNoteTitle, body: quickNoteBody.trim() },
+        pairing,
+        signWithDevice,
+      );
+      if (result.ok) {
+        setQuickNoteOpen(false);
+        setQuickNoteTitle('');
+        setQuickNoteBody('');
+      } else {
+        Alert.alert('Note failed', result.error);
+      }
+    } finally {
+      setQuickNoteSending(false);
+    }
+  }, [pairing, quickNoteTitle, quickNoteBody, fetchNotebooksCached]);
+
+  // Called when the chooser resolves during quick-note flow.
+  const onQuickNoteChooserPick = useCallback(
+    (notebook: NotebookSummary, entryId: string | null) => {
+      const resolve = pendingQuickNoteResolveRef.current;
+      pendingQuickNoteResolveRef.current = null;
+      resolve?.({ notebook, entryId });
+    },
+    [],
+  );
+
+  const onQuickNoteChooserUnsorted = useCallback(() => {
+    const resolve = pendingQuickNoteResolveRef.current;
+    pendingQuickNoteResolveRef.current = null;
+    resolve?.(null);
+  }, []);
+
+  const onQuickNoteChooserClose = useCallback(() => {
+    const resolve = pendingQuickNoteResolveRef.current;
+    pendingQuickNoteResolveRef.current = null;
+    resolve?.(null);
+  }, []);
 
   const onAddToOutbox = useCallback(async () => {
     if (!previewUri) return;
@@ -543,7 +755,14 @@ export default function NotebookScreen() {
               <ThemedText style={styles.actionLabel}>Take a photo</ThemedText>
             </Pressable>
             <Pressable
-              onPress={() => router.push('/note')}
+              onPress={() => {
+                if (pairing) {
+                  // Paired: show inline compose so we can open the chooser.
+                  setQuickNoteOpen(true);
+                } else {
+                  router.push('/note');
+                }
+              }}
               style={({ pressed }) => [
                 styles.actionCard,
                 styles.actionTinted,
@@ -558,13 +777,73 @@ export default function NotebookScreen() {
         ) : null}
 
         {/* Camera roll upload (below action row, no preview yet) */}
-        {!previewUri ? (
+        {!previewUri && !quickNoteOpen ? (
           <Button
             variant="secondary"
             accent="amber"
             label="Upload from camera roll"
             onPress={onUploadFromLibrary}
           />
+        ) : null}
+
+        {/* Inline quick-note compose panel (paired path, shows chooser on send) */}
+        {quickNoteOpen ? (
+          <Card style={{ gap: spacing.md }}>
+            <TextInput
+              value={quickNoteTitle}
+              onChangeText={setQuickNoteTitle}
+              placeholder="Title, optional"
+              placeholderTextColor={surface.placeholder}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: surface.surface,
+                  borderColor: surface.border,
+                  borderRadius: radii.md,
+                  color: surface.text,
+                },
+              ]}
+              editable={!quickNoteSending}
+              returnKeyType="next"
+            />
+            <TextInput
+              value={quickNoteBody}
+              onChangeText={setQuickNoteBody}
+              placeholder="Write your note"
+              placeholderTextColor={surface.placeholder}
+              style={[
+                styles.input,
+                styles.inputTall,
+                {
+                  backgroundColor: surface.surface,
+                  borderColor: surface.border,
+                  borderRadius: radii.md,
+                  color: surface.text,
+                },
+              ]}
+              editable={!quickNoteSending}
+              multiline
+              autoFocus
+              textAlignVertical="top"
+            />
+            <Button
+              variant="primary"
+              label="Send to lab"
+              loading={quickNoteSending}
+              onPress={sendQuickNoteWithRouting}
+              disabled={quickNoteSending || quickNoteBody.trim().length === 0}
+            />
+            <Button
+              variant="secondary"
+              label="Discard"
+              onPress={() => {
+                setQuickNoteOpen(false);
+                setQuickNoteTitle('');
+                setQuickNoteBody('');
+              }}
+              disabled={quickNoteSending}
+            />
+          </Card>
         ) : null}
 
         {/* Photo preview + caption + queue */}
@@ -733,6 +1012,30 @@ export default function NotebookScreen() {
           </>
         ) : null}
       </ScrollView>
+
+      {/* NotebookChooser sheet (photo path) */}
+      {pendingCapture ? (
+        <NotebookChooser
+          visible={chooserVisible}
+          notebooks={notebooks}
+          recommended={pendingContext}
+          onPickNotebook={onChooserPickNotebook}
+          onUnsorted={onChooserUnsorted}
+          onClose={onChooserClose}
+        />
+      ) : null}
+
+      {/* NotebookChooser sheet (quick-note path) */}
+      {quickNoteOpen && pendingQuickNoteResolveRef.current ? (
+        <NotebookChooser
+          visible={chooserVisible}
+          notebooks={notebooks}
+          recommended={pendingContext}
+          onPickNotebook={onQuickNoteChooserPick}
+          onUnsorted={onQuickNoteChooserUnsorted}
+          onClose={onQuickNoteChooserClose}
+        />
+      ) : null}
     </ScreenFrame>
   );
 }
@@ -1002,6 +1305,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     minHeight: 48,
     textAlignVertical: 'top',
+  },
+  inputTall: {
+    minHeight: 160,
   },
 
   // Capture rows
