@@ -21,6 +21,7 @@ import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { loadUserCaptureKeys } from "@/lib/mobile-relay/keys";
 import { publishTodayToAllDevices } from "@/lib/mobile-relay/today-snapshot";
 import { publishInventoryToAllDevices } from "@/lib/mobile-relay/inventory-snapshot";
+import { publishNotebooksToAllDevices } from "@/lib/mobile-relay/notebooks-snapshot";
 
 const PUBLISH_INTERVAL_MS = 60_000;
 // Throttle so a focus event landing on top of the interval (or vice versa) does
@@ -62,6 +63,15 @@ export default function TodaySnapshotPublisher() {
         if (inv.published > 0 || inv.skipped > 0) {
           console.info(
             `[inventory-publisher] published to ${inv.published} device(s), skipped ${inv.skipped}`,
+          );
+        }
+        // Notebooks snapshot: the list of notebooks the user can file into,
+        // used by the NotebookChooser on the phone (chooser bot, 2026-06-09).
+        if (cancelled) return;
+        const nb = await publishNotebooksToAllDevices(keys);
+        if (nb.published > 0 || nb.skipped > 0) {
+          console.info(
+            `[notebooks-publisher] published to ${nb.published} device(s), skipped ${nb.skipped}`,
           );
         }
       } catch (err) {
