@@ -18,10 +18,9 @@
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import { bytesToHex } from '@noble/curves/utils.js';
+import { utf8ToBytes } from '@noble/hashes/utils.js';
 import { sealToUser } from '@/lib/device-identity';
 import { postCommand } from '@/lib/focus-context';
-
-const enc = new TextEncoder();
 
 /** The tab a capture should be routed into. */
 export type RouteTab = 'notes' | 'results';
@@ -49,7 +48,7 @@ export async function postRouteCapture(
   if (!userX25519PubHex) return;
 
   const command = { type: 'route-capture', captureId, taskId, owner, tab };
-  const plaintext = enc.encode(JSON.stringify(command));
+  const plaintext = utf8ToBytes(JSON.stringify(command));
 
   let sealed: Uint8Array;
   try {

@@ -10,23 +10,62 @@
 
 import { ed25519 } from '@noble/curves/ed25519.js';
 import { bytesToHex, hexToBytes } from '@noble/curves/utils.js';
+import { utf8ToBytes } from '@noble/hashes/utils.js';
+import { sha256 } from '@noble/hashes/sha2.js';
 import { getPairing } from '@/lib/pairing';
 import { unsealSnapshot, getOrCreateDeviceKey, getOrCreateDeviceX25519Key } from '@/lib/device-identity';
 
-const enc = new TextEncoder();
+// React Native (Hermes) has no Web Crypto (`crypto.subtle`, `crypto.randomUUID`)
+// and no reliable global TextEncoder/TextDecoder, so this module uses the same
+// @noble primitives the rest of the mobile crypto code already depends on.
 
 function sign(message: string, secretKey: Uint8Array): string {
-  return bytesToHex(ed25519.sign(enc.encode(message), secretKey));
+  return bytesToHex(ed25519.sign(utf8ToBytes(message), secretKey));
 }
 
 function nowIso(): string {
   return new Date().toISOString();
 }
 
-async function sha256Hex(str: string): Promise<string> {
-  const bytes = enc.encode(str);
-  const buf = await crypto.subtle.digest('SHA-256', bytes);
-  return bytesToHex(new Uint8Array(buf));
+function sha256Hex(str: string): string {
+  return bytesToHex(sha256(utf8ToBytes(str)));
+}
+
+// Per-process counter so two commands posted in the same millisecond still get
+// distinct ids. Uniqueness only needs to hold within a single app run; the
+// timestamp prefix covers uniqueness across runs.
+let commandCounter = 0;
+function makeCommandId(): string {
+  commandCounter += 1;
+  return `cmd_${Date.now().toString(36)}_${commandCounter}`;
+}
+
+function utf8Decode(bytes: Uint8Array): string {
+  // Minimal UTF-8 decode (no global TextDecoder in Hermes). The payload is the
+  // small JSON focus-context string the laptop sealed.
+  let out = '';
+  let i = 0;
+  while (i < bytes.length) {
+    const b = bytes[i++];
+    if (b < 0x80) {
+      out += String.fromCharCode(b);
+    } else if (b < 0xe0) {
+      out += String.fromCharCode(((b & 0x1f) << 6) | (bytes[i++] & 0x3f));
+    } else if (b < 0xf0) {
+      out += String.fromCharCode(
+        ((b & 0x0f) << 12) | ((bytes[i++] & 0x3f) << 6) | (bytes[i++] & 0x3f),
+      );
+    } else {
+      const cp =
+        ((b & 0x07) << 18) |
+        ((bytes[i++] & 0x3f) << 12) |
+        ((bytes[i++] & 0x3f) << 6) |
+        (bytes[i++] & 0x3f);
+      const c = cp - 0x10000;
+      out += String.fromCharCode(0xd800 + (c >> 10), 0xdc00 + (c & 0x3ff));
+    }
+  }
+  return out;
 }
 
 // ---- Canonical signed-byte strings (MUST match worker.ts verbatim) ----
@@ -95,7 +134,7 @@ export async function getFocusContext(
   } catch {
     return null; // wrong key or corrupted
   }
-  const json = new TextDecoder().decode(plaintext);
+  const json = utf8Decode(plaintext);
   try {
     return JSON.parse(json) as FocusContext;
   } catch {
@@ -121,8 +160,8 @@ export async function postCommand(
   const deviceEdPrivateKey = hexToBytes(deviceKey.devicePrivHex);
 
   const ts = nowIso();
-  const commandId = `cmd-${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
-  const sha = await sha256Hex(sealedCommand);
+  const commandId = makeCommandId();
+  const sha = sha256Hex(sealedCommand);
   const sig = sign(
     commandPostMessage(u, devicePubkey, commandId, ts, sha),
     deviceEdPrivateKey,
