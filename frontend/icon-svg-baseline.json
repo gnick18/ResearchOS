@@ -26,6 +26,8 @@
   "components/BeakerBotSkateboardScene.tsx": 1,
   "components/BeakerBotTooManyBeakersScene.tsx": 4,
   "components/BetaDonationButton.tsx": 1,
+  "components/onboarding/Splash.tsx": 2,
+  "components/onboarding/SuccessTransition.tsx": 2,
   "components/BuyAgainButton.tsx": 2,
   "components/CalculatorsButton.tsx": 4,
   "components/CalendarFeedsButton.tsx": 1,
