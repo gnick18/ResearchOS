@@ -229,6 +229,23 @@ function AppContent({ children }: { children: ReactNode }) {
     }
   }, [isLoading, isConnected, currentUser]);
 
+  // When the rainbow loading screen plays (a real connect / reconnect), treat
+  // IT as the branded opening moment and consume the one-shot BeakerBot Splash,
+  // so a returning user does not see a rainbow-loading then BeakerBot-splash
+  // then home double-flash (Grant 2026-06-09). A fast load with no loading
+  // screen still gets the Splash as the opening brand moment.
+  useEffect(() => {
+    if (isLoading && !splashSeen) {
+      try {
+        sessionStorage.setItem(SPLASH_SEEN_KEY, "1");
+      } catch {
+        // sessionStorage unavailable (private mode edge); harmless.
+      }
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- consumes the one-shot splash gate when the loading screen takes over as the brand moment
+      setSplashSeen(true);
+    }
+  }, [isLoading, splashSeen]);
+
   useEffect(() => {
     if (currentUser) {
       queryClient.invalidateQueries();
