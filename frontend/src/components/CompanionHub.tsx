@@ -68,9 +68,42 @@ function Toggle({
   );
 }
 
+// Feature rows shown in the Info tab.
+const INFO_FEATURES: {
+  icon: "camera" | "pencil" | "scan" | "sun";
+  label: string;
+  description: string;
+}[] = [
+  {
+    icon: "camera",
+    label: "Capture a bench photo",
+    description:
+      "Point your phone at any gel, plate, or setup and the image routes straight into your open experiment.",
+  },
+  {
+    icon: "pencil",
+    label: "Jot a quick note",
+    description:
+      "Fire off a one-liner observation from the bench without breaking your workflow at the laptop.",
+  },
+  {
+    icon: "scan",
+    label: "Scan a barcode for inventory",
+    description:
+      "Scan a reagent or supply barcode and log it against your inventory without hunting for the laptop.",
+  },
+  {
+    icon: "sun",
+    label: "Glance at today",
+    description:
+      "See your tasks and reminders for the day at a glance so nothing falls through the cracks.",
+  },
+];
+
 function InfoPanel() {
   return (
     <div className="space-y-4">
+      {/* Intro header */}
       <div className="flex items-center gap-3">
         <span className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-sky-500/10">
           <Icon name="phone" className="w-5 h-5 text-sky-500" />
@@ -84,11 +117,25 @@ function InfoPanel() {
           </p>
         </div>
       </div>
-      <p className="text-body text-foreground-muted leading-relaxed">
-        Snap a photo or jot a quick note on your phone and it routes straight
-        into your lab folder. Glance at today, check inventory, and keep capturing
-        away from the laptop.
-      </p>
+
+      {/* What you can do */}
+      <div className="rounded-xl border border-border bg-surface-sunken divide-y divide-border">
+        {INFO_FEATURES.map((feat) => (
+          <div key={feat.icon} className="flex items-start gap-3 px-4 py-3">
+            <span className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-surface-raised mt-0.5">
+              <Icon name={feat.icon} className="w-4 h-4 text-foreground-muted" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-body font-medium text-foreground">{feat.label}</p>
+              <p className="text-meta text-foreground-muted leading-relaxed mt-0.5">
+                {feat.description}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Get-the-app box (Task 4 will gate this on a flag). */}
       <div className="rounded-xl border border-dashed border-border bg-surface-sunken p-4">
         <p className="text-body text-foreground font-medium">Get the app</p>
         <p className="text-meta text-foreground-muted mt-1 leading-relaxed">
