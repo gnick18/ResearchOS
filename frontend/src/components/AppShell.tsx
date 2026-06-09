@@ -43,6 +43,10 @@ import UserAvatarMenu from "@/components/UserAvatarMenu";
 import ResearcherProfileModal from "@/components/researchers/ResearcherProfileModal";
 import ProfileSettingsModal from "@/components/profile/ProfileSettingsModal";
 import SettingsModal from "@/components/settings/SettingsModal";
+import CompanionHub from "@/components/CompanionHub";
+import { Icon } from "@/components/icons";
+import { useCompanionHub } from "@/lib/ui/companion-hub-store";
+import { usePhonePaired } from "@/hooks/usePhonePaired";
 import SharingClaimResume from "@/components/sharing/SharingClaimResume";
 import LabInviteResume from "@/components/lab/LabInviteResume";
 import LabCreateResume from "@/components/lab/LabCreateResume";
@@ -60,6 +64,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const onSequences = !!pathname?.startsWith("/sequences");
   const visibleTabs = useAppStore((s) => s.visibleTabs);
   const coloredHeader = useAppStore((s) => s.coloredHeader);
+  const showCompanionButton = useAppStore((s) => s.showCompanionButton);
+  const openCompanion = useCompanionHub((s) => s.open);
+  const phonePaired = usePhonePaired();
   const { currentUser } = useFileSystem();
   const userColors = useUserColors(currentUser ?? "");
   const baseColor = userColors.primary;
@@ -463,6 +470,31 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <BeakerSearchPill />
           <NotificationBadge pill={tinted} />
           <InboxBadge />
+          {/* Companion button. Opens the Companion hub (Connect / Info /
+              Settings). The status dot is green when a phone is paired, gray
+              otherwise. Hidden when the "Show Companion button on Home" pref is
+              off (still reachable from Settings). */}
+          {showCompanionButton ? (
+            <Tooltip label="Companion" placement="bottom">
+              <button
+                type="button"
+                aria-label="Open Companion"
+                onClick={(e) => openCompanion({ x: e.clientX, y: e.clientY })}
+                className={`relative p-1.5 rounded-full transition-colors ${
+                  tinted
+                    ? "bg-white/75 text-gray-700 hover:bg-white shadow-sm"
+                    : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
+                }`}
+              >
+                <Icon name="phone" className="w-[18px] h-[18px]" />
+                <span
+                  className={`absolute top-0.5 right-0.5 w-2 h-2 rounded-full ring-2 ring-surface-raised ${
+                    phonePaired ? "bg-green-500" : "bg-gray-400"
+                  }`}
+                />
+              </button>
+            </Tooltip>
+          ) : null}
           <Tooltip label="Help & documentation" placement="bottom">
           <Link
             href={helpHref}
@@ -612,6 +644,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
        *  page instead of navigating to /settings, same treatment as the profile
        *  popups above. SettingsBody is lazy-imported inside to avoid a cycle. */}
       <SettingsModal />
+      <CompanionHub />
       {/* Global OAuth-claim resume (account-creation-flow bot, 2026-06-05):
        *  finishes sharing-account creation when the user returns from the
        *  provider redirect with ?sharingClaim=1. Mounts SharingSetupWizard for
