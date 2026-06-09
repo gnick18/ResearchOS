@@ -3,9 +3,14 @@
 // the capture into. The laptop's Phase 1.5 worker unseals this command and
 // writes the photo to the chosen note entry via attachImageToNote.
 //
-// Command JSON shape (MUST match the laptop's openSealed consumer exactly):
+// Command JSON shapes (MUST match the laptop's openSealed consumer exactly):
 //   { type: "route-capture-note", captureId: string, noteId: number,
 //     owner: string, entryId: string | null }
+//   { type: "append-note-text", noteId: number, owner: string,
+//     entryId: string | null, text: string }
+//
+// For append-note-text the note body rides INSIDE the sealed command (E2E
+// sealed to the user X25519), so there is no separate relay upload.
 //
 // The blob is sealed to the USER's X25519 public key so only the laptop can
 // open it (the relay stores only ciphertext). The sealed hex string is passed
@@ -55,6 +60,41 @@ export async function postRouteCaptureNote(
   } catch {
     // Sealing failed (bad key format, etc.). Fail silently so the upload is not
     // affected.
+    return;
+  }
+
+  await postCommand(bytesToHex(sealed), relayUrl);
+}
+
+/**
+ * Builds, seals, and posts an append-note-text command to the relay.
+ *
+ * Tells the laptop to append `text` into the given note entry. Unlike the
+ * photo path, the text rides INSIDE the sealed command (no separate relay
+ * upload). When entryId is null the laptop uses the latest entry, or creates
+ * one if the note has no entries. If userX25519PubHex is absent or empty the
+ * function returns without posting (graceful no-op; caller falls back to inbox).
+ */
+export async function postAppendNoteText(
+  noteId: number,
+  owner: string,
+  entryId: string | null,
+  text: string,
+  userX25519PubHex: string,
+  relayUrl?: string,
+): Promise<void> {
+  // Guard: no-op when the user X25519 pubkey is not yet available (pairing gap).
+  if (!userX25519PubHex) return;
+
+  const command = { type: 'append-note-text', noteId, owner, entryId, text };
+  const plaintext = utf8ToBytes(JSON.stringify(command));
+
+  let sealed: Uint8Array;
+  try {
+    sealed = await sealToUser(plaintext, userX25519PubHex);
+  } catch {
+    // Sealing failed (bad key format, etc.). Fail silently so the caller can
+    // fall back to the inbox path.
     return;
   }
 
