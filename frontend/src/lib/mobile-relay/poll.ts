@@ -65,7 +65,7 @@
 
 import { fileService } from "@/lib/file-system/file-service";
 import { appQueryClient } from "@/lib/query-client";
-import { notesApi, inventoryItemsApi, inventoryStocksApi, purchasesApi } from "@/lib/local-api";
+import { filesApi, notesApi, inventoryItemsApi, inventoryStocksApi, purchasesApi } from "@/lib/local-api";
 import { attachImageToTask } from "@/lib/attachments/attach-image";
 import { writeAnnotations, type AnnotationDoc } from "@/lib/attachments/annotations";
 import { imageEvents } from "@/lib/attachments/image-events";
@@ -84,8 +84,10 @@ import { hexToBytes } from "@noble/hashes/utils.js";
 import { loadIdentity } from "@/lib/sharing/identity/storage";
 import {
   taskNotesBase,
+  taskResultsBase,
   taskResultsTabBase,
 } from "@/lib/tasks/results-paths";
+import { useAppStore } from "@/lib/store";
 import { addReorderQueueItem } from "@/lib/purchases/reorder-queue";
 import {
   loadSeenCaptures,
@@ -203,8 +205,8 @@ interface CreateInventoryPayload {
  * to a task folder, and routes the matching inbox image there instead of to the
  * default inbox path.
  *
- * Phase 2 will add append-line, switch-tab, and timer commands. Unknown types
- * are intentionally left un-acked (a TTL on the relay handles eventual cleanup).
+ * Phase 2 added append-line. Unknown types are intentionally left un-acked
+ * (a TTL on the relay handles eventual cleanup).
  */
 interface RouteCaptureCommand {
   type: "route-capture";
@@ -216,6 +218,25 @@ interface RouteCaptureCommand {
   owner: string;
   /** Which editor tab the image should land in. */
   tab: "notes" | "results";
+}
+
+/**
+ * An append-line command, sealed by the phone (Phase 2). The phone seals this
+ * JSON to the user's X25519 public key and POSTs it via postCommand. The
+ * laptop unseals it and appends `text` as a new line at the end of the chosen
+ * tab's markdown doc, either live (via a window event to the open popup) or
+ * directly to the on-disk .md file when the experiment is not open.
+ */
+interface AppendLineCommand {
+  type: "append-line";
+  /** Numeric task id (matches ActiveTask.id in the store). */
+  taskId: number;
+  /** Owner username (matches ActiveTask.owner). */
+  owner: string;
+  /** Which doc tab the line should be appended to. */
+  tab: "notes" | "results";
+  /** Plain markdown line: "<expr> = <value with units>", no bullet/label. */
+  text: string;
 }
 
 /**
@@ -674,15 +695,18 @@ export async function runCaptureInboxPoll(
 ): Promise<PollResult> {
   console.info(`${LOG_PREFIX} poll start for ${currentUser}`);
 
-  // ── Phase 1 command poll ────────────────────────────────────────────────
+  // ── Phase 1+2 command poll ──────────────────────────────────────────────
   // Poll any pending commands from paired phones before pulling the inbox so
   // the route map is ready before we process images.
   //
-  // Only route-capture commands are handled here. Unknown types (append-line,
-  // switch-tab, timer, etc. from future phases) are NOT acked so they are not
-  // lost before their handler lands. A brief comment acknowledges the
-  // un-bounded growth risk; the relay TTL (set by the worker) is the guard.
+  // Handled: route-capture (Phase 1), append-line (Phase 2). Unknown types
+  // (switch-tab, timer, etc.) are NOT acked so they are not lost before their
+  // handler lands. A brief comment acknowledges the un-bounded growth risk;
+  // the relay TTL (set by the worker) is the guard.
   const routeMap = new Map<string, { taskId: number; owner: string; tab: "notes" | "results"; commandId: string }>();
+  // Append-line commands to apply after the route-map pass. Accumulated here so
+  // we process captures first (route-map must be complete), then apply appends.
+  const appendLineQueue: Array<{ cmd: AppendLineCommand; commandId: string }> = [];
 
   // Load the user's X25519 private key for unsealing commands. The relay
   // seals each command to the user's identity encryption key, which is
@@ -724,6 +748,20 @@ export async function runCaptureInboxPoll(
               );
             } else {
               console.warn(`${LOG_PREFIX} route-capture command ${cmd.commandId} has invalid fields, skipping`);
+            }
+          } else if (parsed.type === "append-line") {
+            // Phase 2: append a calc result line to a task doc. Defer to after
+            // captures are processed (image routing has no dependency here, but
+            // appends are user-visible writes and should not race route-map
+            // construction).
+            const al = parsed as AppendLineCommand;
+            if (typeof al.taskId === "number" && al.owner && (al.tab === "notes" || al.tab === "results") && typeof al.text === "string") {
+              appendLineQueue.push({ cmd: al, commandId: cmd.commandId });
+              console.info(
+                `${LOG_PREFIX} append-line command queued: task ${al.owner}/${al.taskId} tab=${al.tab} text="${al.text.slice(0, 60)}"`,
+              );
+            } else {
+              console.warn(`${LOG_PREFIX} append-line command ${cmd.commandId} has invalid fields, skipping`);
             }
           } else {
             // Unknown command type. Do NOT ack so a later phase can handle it.
@@ -1049,6 +1087,89 @@ export async function runCaptureInboxPoll(
       );
     }
   }
+
+  // ── Phase 2 append-line processing ─────────────────────────────────────
+  // Apply any append-line commands that arrived this poll. Each is handled
+  // independently so a bad text does not block the rest.
+  for (const { cmd, commandId } of appendLineQueue) {
+    try {
+      // Check whether the target experiment is currently open in the popup.
+      const active = useAppStore.getState().activeTask;
+      if (active && active.id === cmd.taskId && active.owner === cmd.owner) {
+        // The popup is open: dispatch a window event so the live editor can
+        // apply the line via its Loro insert (or legacy state update). The
+        // popup's useEffect listener does the actual append and persist.
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("notebook:append-line", {
+              detail: {
+                taskId: cmd.taskId,
+                owner: cmd.owner,
+                tab: cmd.tab,
+                text: cmd.text,
+              },
+            }),
+          );
+          console.info(
+            `${LOG_PREFIX} append-line dispatched to open popup: task ${cmd.owner}/${cmd.taskId} tab=${cmd.tab}`,
+          );
+        }
+      } else {
+        // The experiment is not open: write directly to the .md file on disk.
+        // taskResultsBase gives the outer folder; the .md files live at
+        // notes.md / results.md within that folder (not under the per-tab
+        // attachment subdirs).
+        const base = taskResultsBase({ id: cmd.taskId, owner: cmd.owner });
+        const filePath = cmd.tab === "results"
+          ? `${base}/results.md`
+          : `${base}/notes.md`;
+
+        let existing = "";
+        try {
+          const read = await filesApi.readFile(filePath);
+          existing = read.content;
+        } catch {
+          // File does not exist yet (fresh experiment). Start with an empty doc.
+        }
+
+        // Append: trim trailing whitespace, add newline separator if non-empty,
+        // then the line. Matches appendTaskLine semantics in task-doc.ts.
+        const base64Content = existing.replace(/\s+$/, "");
+        const next = base64Content ? base64Content + "\n" + cmd.text : cmd.text;
+        await filesApi.writeFile(
+          filePath,
+          next,
+          `Append calc result to task ${cmd.taskId}`,
+        );
+        console.info(
+          `${LOG_PREFIX} append-line wrote to disk: ${filePath}`,
+        );
+      }
+
+      // Ack the command after a successful apply.
+      try {
+        await ackCommands(keys, [commandId]);
+        console.info(`${LOG_PREFIX} acked append-line command ${commandId}`);
+      } catch (ackErr) {
+        // Best-effort ack. The command will re-appear next poll; the append is
+        // idempotent at the Loro layer and a duplicate disk write is a no-op
+        // when the text is already present at the tail.
+        console.warn(
+          `${LOG_PREFIX} failed to ack append-line command ${commandId}`,
+          ackErr instanceof Error ? ackErr.message : String(ackErr),
+        );
+      }
+
+      pulled += 1;
+    } catch (appendErr) {
+      errors += 1;
+      console.warn(
+        `${LOG_PREFIX} failed to apply append-line command ${commandId}`,
+        appendErr instanceof Error ? appendErr.message : String(appendErr),
+      );
+    }
+  }
+  // ── end append-line processing ──────────────────────────────────────────
 
   // The poller writes notes/images straight through the API + file-service layer,
   // which does NOT run the React Query mutation hooks that normally refresh open

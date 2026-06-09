@@ -6,14 +6,23 @@
  * Card. A horizontal chip row at the top switches tabs. Sequence and
  * nucleic-acid tools (Primer Tm, Protein, DNA/RNA) live on the laptop, not here.
  *
+ * Phase 2 calc export: each tab has an "Export to notebook" button that, when
+ * an experiment is open on the laptop, appends the formula + result as a plain
+ * line to the chosen doc tab (Lab Notes or Results). The line format is:
+ *   Scientific:      <expr> = <result>          e.g. "5 * 2 + 7 = 17"
+ *   Molarity:        MW <mw> g/mol, <conc><cu> in <vol><vu> = <mass>
+ *   Dilution:        C1 <c1><c1u> -> C2 <c2><c2u>, V2 <v2><v2u> = V1 <v1>
+ *   Serial dilution: <start><su> / <fold>x / <steps> steps = [t1: c1, ...]
+ *   Buffer:          Buffer <total><tu>: <comp1>=<vol1>, ...
+ *
  * Pure functions come from mobile/lib/calculators/ which are already on main.
- * No writes, no network, no storage.
  *
  * House style: no em-dashes, no emojis, no mid-sentence colons.
  */
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -23,6 +32,11 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+
+import { getFocusContext } from '@/lib/focus-context';
+import { usePairing } from '@/lib/pairing';
+import { postAppendLine } from '@/lib/calc-export';
+import { fireSuccess } from '@/lib/success-burst';
 
 import { Card } from '@/components/ui/Card';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
@@ -362,6 +376,142 @@ function describeConc(baseM: number): string {
 }
 
 // ---------------------------------------------------------------------------
+// Export to notebook
+// ---------------------------------------------------------------------------
+
+/**
+ * Hook that builds and posts an append-line command to the relay. Returns a
+ * stable `exportLine` callback that fires the Notes/Results picker (or a
+ * gentle prompt when no experiment is open) and sends the command on confirm.
+ *
+ * `lineText` is the fully-formatted "<expr> = <value>" string the caller
+ * builds from its local state. Pass null when there is no result to export
+ * (the button is disabled in that case).
+ */
+function useExport(lineText: string | null) {
+  const { pairing } = usePairing();
+
+  const exportLine = useCallback(async () => {
+    if (!lineText) return;
+
+    const userX25519PubHex = pairing?.userX25519PubHex ?? '';
+    if (!pairing || !userX25519PubHex) {
+      Alert.alert(
+        'Not paired',
+        'Pair your phone with a laptop running ResearchOS to export calc results to your notebook.',
+        [{ text: 'OK' }],
+      );
+      return;
+    }
+
+    // Fetch focus context (what experiment is open on the laptop right now).
+    let ctx: Awaited<ReturnType<typeof getFocusContext>> = null;
+    try {
+      ctx = await getFocusContext(pairing.relayUrl);
+    } catch {
+      ctx = null;
+    }
+
+    if (!ctx || ctx.kind !== 'experiment') {
+      Alert.alert(
+        'No experiment open',
+        'Open an experiment on your laptop to export the result there.',
+        [{ text: 'OK' }],
+      );
+      return;
+    }
+
+    const { taskId, owner, name, activeTab } = ctx;
+
+    // When the laptop already has a specific doc tab visible (notes or results),
+    // skip the picker and send directly there (locked decision A: auto-switch
+    // + append). When the active tab is something else (e.g. Methods), ask.
+    if (activeTab === 'notes' || activeTab === 'results') {
+      try {
+        await postAppendLine(taskId, owner, activeTab, lineText, userX25519PubHex, pairing.relayUrl);
+        fireSuccess({ subtitle: `Appended to ${activeTab === 'results' ? 'Results' : 'Lab Notes'}` });
+      } catch {
+        // Best-effort. The relay is unreachable or the command post failed;
+        // the user sees no crash but the line is not delivered.
+      }
+      return;
+    }
+
+    // Ambiguous tab: show the Notes / Results picker (same Alert pattern as
+    // notebook.tsx sendWithRouting).
+    await new Promise<void>((resolve) => {
+      Alert.alert(
+        `Export to ${name}?`,
+        'Choose where this result should appear.',
+        [
+          {
+            text: 'Lab Notes',
+            onPress: () => {
+              void postAppendLine(taskId, owner, 'notes', lineText, userX25519PubHex, pairing.relayUrl)
+                .then(() => { fireSuccess({ subtitle: 'Appended to Lab Notes' }); })
+                .catch(() => {})
+                .finally(resolve);
+            },
+          },
+          {
+            text: 'Results',
+            onPress: () => {
+              void postAppendLine(taskId, owner, 'results', lineText, userX25519PubHex, pairing.relayUrl)
+                .then(() => { fireSuccess({ subtitle: 'Appended to Results' }); })
+                .catch(() => {})
+                .finally(resolve);
+            },
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+            onPress: () => resolve(),
+          },
+        ],
+        { cancelable: true, onDismiss: () => resolve() },
+      );
+    });
+  }, [lineText, pairing]);
+
+  return exportLine;
+}
+
+/**
+ * A small "Export" button rendered below the result card when there is a
+ * result to export. Disabled (greyed) when `lineText` is null.
+ */
+function ExportButton({ lineText }: { lineText: string | null }) {
+  const { surface } = useTheme();
+  const exportLine = useExport(lineText);
+  const enabled = !!lineText;
+
+  return (
+    <Pressable
+      onPress={() => { void exportLine(); }}
+      disabled={!enabled}
+      style={({ pressed }) => [
+        styles.exportBtn,
+        {
+          backgroundColor: enabled
+            ? pressed ? palette.skyBorder : palette.skyDim
+            : surface.sunken,
+          borderColor: enabled ? palette.skyBorder : surface.border,
+          borderRadius: radii.md,
+          opacity: enabled ? 1 : 0.5,
+        },
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel="Export to notebook"
+      accessibilityHint="Appends this result to the experiment open on your laptop."
+    >
+      <Text style={[styles.exportBtnLabel, { color: enabled ? palette.sky : surface.muted }]}>
+        Export to notebook
+      </Text>
+    </Pressable>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Tab 0: Scientific calculator
 // ---------------------------------------------------------------------------
 
@@ -463,6 +613,14 @@ function ScientificTab() {
 
   const shown = result.ok ? result.display : expr.trim() === '' ? '0' : '…';
 
+  // Export line: "<trimmed expr> = <display result>".
+  // Only populated when there is a non-trivial expression and a valid result.
+  const exportLine = useMemo<string | null>(() => {
+    const trimmed = expr.trim();
+    if (!trimmed || !result.ok) return null;
+    return `${trimmed} = ${result.display}`;
+  }, [expr, result]);
+
   return (
     <View style={styles.tabGap}>
       {/* Dark calculator display */}
@@ -549,6 +707,7 @@ function ScientificTab() {
       <HintText>
         Computed live as you type. Functions in the strip, nothing is saved.
       </HintText>
+      <ExportButton lineText={exportLine} />
     </View>
   );
 }
@@ -591,6 +750,21 @@ function MolarityTab() {
 
   const hasResult = weighOutG !== null || molesFromMassN !== null;
 
+  // Export line. Weigh-out direction: "MW <mw> g/mol, <conc><cu> in <vol><vu> = <mass>".
+  // Reverse (mass -> moles) direction: "MW <mw> g/mol, <mass><mu> = <moles> (<conc>)".
+  // When both are active (mass + conc + vol all filled), prefer weigh-out.
+  const molarityExportLine = useMemo<string | null>(() => {
+    if (!hasResult || mwN === null) return null;
+    if (weighOutG !== null && concN !== null && volN !== null) {
+      return `MW ${formatNum(mwN)} g/mol, ${formatNum(concN)} ${concU} in ${formatNum(volN)} ${volU} = ${describeMass(weighOutG)}`;
+    }
+    if (molesFromMassN !== null && massN !== null) {
+      const concPart = concFromMassN !== null ? ` (${describeConc(concFromMassN)})` : '';
+      return `MW ${formatNum(mwN)} g/mol, ${formatNum(massN)} ${massU} = ${describeMoles(molesFromMassN)}${concPart}`;
+    }
+    return null;
+  }, [hasResult, mwN, weighOutG, concN, volN, concU, volU, massN, massU, molesFromMassN, concFromMassN]);
+
   return (
     <View style={styles.tabGap}>
       <HintText>
@@ -612,6 +786,7 @@ function MolarityTab() {
           <ResultRow label="Resulting concentration" value={describeConc(concFromMassN)} />
         ) : null}
       </ResultCard>
+      <ExportButton lineText={molarityExportLine} />
     </View>
   );
 }
@@ -649,6 +824,13 @@ function DilutionTab() {
     // partial input
   }
 
+  // Export line: "C1 <c1><c1u> -> C2 <c2><c2u>, V2 <v2><v2u> = V1 <v1>, diluent <dil>"
+  const dilutionExportLine = useMemo<string | null>(() => {
+    if (v1L === null || overflow || c1n === null || c2n === null || v2n === null) return null;
+    const base = `C1 ${formatNum(c1n)} ${c1u} -> C2 ${formatNum(c2n)} ${c2u}, V2 ${formatNum(v2n)} ${v2u} = V1 ${describeVol(v1L)}`;
+    return diluentL !== null ? `${base}, diluent ${describeVol(diluentL)}` : base;
+  }, [v1L, overflow, c1n, c2n, v2n, c1u, c2u, v2u, diluentL]);
+
   return (
     <View style={styles.tabGap}>
       <HintText>
@@ -673,6 +855,7 @@ function DilutionTab() {
           </>
         ) : null}
       </ResultCard>
+      <ExportButton lineText={dilutionExportLine} />
     </View>
   );
 }
@@ -703,6 +886,14 @@ function SerialTab() {
       return [];
     }
   }, [startN, foldN, stepsN, volN]);
+
+  // Export line: "Serial <start> <su> / <fold>x / <steps> steps: t1=<c1>, t2=<c2>, ..."
+  // Concentrations are listed in the input unit (startU) for readability.
+  const serialExportLine = useMemo<string | null>(() => {
+    if (rows.length === 0 || startN === null || foldN === null) return null;
+    const tubeList = rows.map((r) => `t${r.step}=${formatNum(r.concentration)}`).join(', ');
+    return `Serial ${formatNum(startN)} ${startU} / ${formatNum(foldN)}x / ${rows.length} steps: ${tubeList}`;
+  }, [rows, startN, foldN, startU]);
 
   return (
     <View style={styles.tabGap}>
@@ -740,6 +931,7 @@ function SerialTab() {
           ))}
         </View>
       )}
+      <ExportButton lineText={serialExportLine} />
     </View>
   );
 }
@@ -795,6 +987,18 @@ function BufferTab() {
 
   const remove = (id: number) =>
     setRows((prev) => (prev.length > 1 ? prev.filter((r) => r.id !== id) : prev));
+
+  // Export line: "Buffer <total><tu>: <comp>=<vol>, ..., diluent <dil>"
+  const bufferExportLine = useMemo<string | null>(() => {
+    if (result === null || result.overflows || totalN === null) return null;
+    const compParts = result.components
+      .filter((c) => c.volumeL !== null)
+      .map((c) => `${c.name}=${describeVol(c.volumeL!)}`)
+      .join(', ');
+    if (!compParts) return null;
+    const dilPart = result.diluentL !== null ? `, diluent ${describeVol(result.diluentL)}` : '';
+    return `Buffer ${formatNum(totalN)} ${totalU}: ${compParts}${dilPart}`;
+  }, [result, totalN, totalU]);
 
   return (
     <View style={styles.tabGap}>
@@ -872,6 +1076,7 @@ function BufferTab() {
           ) : null}
         </ResultCard>
       )}
+      <ExportButton lineText={bufferExportLine} />
     </View>
   );
 }
@@ -993,6 +1198,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   addBtnLabel: { fontSize: 15, fontWeight: '600' },
+  // Phase 2: Export to notebook button
+  exportBtn: {
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    borderWidth: 1,
+    marginTop: 2,
+  },
+  exportBtnLabel: { fontSize: 15, fontWeight: '600' },
   removeBtn: {
     width: 32,
     height: 32,

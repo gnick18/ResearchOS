@@ -99,6 +99,7 @@ import type { TaskRestorePayload } from "@/lib/types";
 // editor binds the task's single "content" text, and grant-on-share reuses the
 // same docId-keyed server grant notes use (no task-specific server route).
 import { LORO_PILOT_ENABLED } from "@/lib/loro/config";
+import { appendTaskLine } from "@/lib/loro/task-doc";
 import { openTaskDoc, type TaskDocHandle } from "@/lib/loro/task-store";
 import { useCollabSession } from "@/lib/loro/collab/use-collab-session";
 import { peerColorClass } from "@/lib/loro/collab/safe-ephemeral-plugin";
@@ -205,6 +206,16 @@ export default function TaskDetailPopup({
   const registerActiveTabFlushSave = useCallback(
     (fn: (() => Promise<void>) | null) => {
       activeTabFlushSaveRef.current = fn;
+    },
+    [],
+  );
+  // Phase 2: append-line handle. The active tab (LabNotesTab or ResultsTab)
+  // registers a function that appends a plain text line via Loro (pilot) or
+  // via legacy state + handleSave. Null when no editor tab is mounted.
+  const activeTabAppendLineRef = useRef<((line: string) => void) | null>(null);
+  const registerActiveTabAppendLine = useCallback(
+    (fn: ((line: string) => void) | null) => {
+      activeTabAppendLineRef.current = fn;
     },
     [],
   );
@@ -625,6 +636,39 @@ export default function TaskDetailPopup({
     };
     window.addEventListener("capture:routed", handler);
     return () => window.removeEventListener("capture:routed", handler);
+  }, [task.id, task.owner, selectTab]);
+
+  // Phase 2: receive an append-line event from the poll loop. When the target
+  // matches this popup's experiment, switch to the right tab (flushing unsaved
+  // work first as with capture:routed) and then call the active tab's
+  // appendLine handle so the line lands live in the editor.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as
+        | { taskId?: number; owner?: string; tab?: "notes" | "results"; text?: string }
+        | undefined;
+      if (!detail || detail.taskId !== task.id || detail.owner !== task.owner) {
+        return;
+      }
+      const targetTab: Tab = detail.tab === "results" ? "results" : "notes";
+      const text = detail.text ?? "";
+      void (async () => {
+        try {
+          await activeTabFlushSaveRef.current?.();
+        } catch {
+          // Best-effort flush.
+        }
+        selectTab(targetTab);
+        // The tab switch is synchronous in state but the tab component may need
+        // one render tick to re-register its appendLine handle. Defer the append
+        // slightly so the newly-visible tab's effect fires first.
+        setTimeout(() => {
+          activeTabAppendLineRef.current?.(text);
+        }, 80);
+      })();
+    };
+    window.addEventListener("notebook:append-line", handler);
+    return () => window.removeEventListener("notebook:append-line", handler);
   }, [task.id, task.owner, selectTab]);
 
   // Onboarding v4 §6.6 `experiment-attach-method-open` sub-step advances
@@ -1734,7 +1778,7 @@ export default function TaskDetailPopup({
                     editable too. LabNotes/Results route to the member via their
                     Loro doc owner (task.owner) + the legacyOwner fallback, and
                     MethodTabs routes + audits via piActor. */}
-                {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} />}
+                {activeTab === "notes" && <LabNotesTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} onRegisterAppendLine={registerActiveTabAppendLine} />}
                 {activeTab === "method" && (
                   <MethodTabs
                     task={task}
@@ -1743,7 +1787,7 @@ export default function TaskDetailPopup({
                     piActor={piActive && currentUser ? currentUser : undefined}
                   />
                 )}
-                {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} />}
+                {activeTab === "results" && <ResultsTab task={task} readOnly={readOnly || (task.is_shared_with_me === true && task.shared_permission === "view")} ownerUsername={username} onRegisterFlushSave={registerActiveTabFlushSave} onRegisterAppendLine={registerActiveTabAppendLine} />}
                 {activeTab === "purchases" && (
                   <PurchaseEditor
                     taskId={task.id}
@@ -3848,7 +3892,7 @@ function DetailsTab({
 
 // ── Lab Notes Tab (with LiveMarkdownEditor) ──────────────────────────────────
 
-function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void }) {
+function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave, onRegisterAppendLine }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void; onRegisterAppendLine?: (fn: ((line: string) => void) | null) => void }) {
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
   const [saving, setSaving] = useState(false);
@@ -4508,6 +4552,37 @@ function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSav
     return () => onRegisterFlushSave(null);
   }, [readOnly, onRegisterFlushSave, content, originalContent, handleSave]);
 
+  // Phase 2: register an append-line handle so the parent can append a calc
+  // result from the phone into this doc without replacing it (safe under live
+  // editing). Loro pilot path inserts via CRDT; legacy path updates state and
+  // calls handleSave. Read-only tabs register nothing.
+  useEffect(() => {
+    if (readOnly || !onRegisterAppendLine) return;
+    onRegisterAppendLine((line: string) => {
+      if (LORO_PILOT_ENABLED && loroHandle) {
+        // Loro path: single CRDT insert at the end, streams into CM6 via the
+        // sync plugin. Commit so the autosave path persists it to disk.
+        appendTaskLine(loroHandle.doc, line);
+        loroHandle.doc.commit({ message: "phone:append-calc-line" });
+      } else {
+        // Legacy path: update React state and trigger a save.
+        setContent((c) => {
+          const base = c.replace(/\s+$/, "");
+          return base ? base + "\n" + line : line;
+        });
+        // handleSave runs asynchronously; we pass the new value explicitly so
+        // it does not race against the async state update.
+        const base = content.replace(/\s+$/, "");
+        const next = base ? base + "\n" + line : line;
+        void handleSave(next);
+      }
+    });
+    return () => onRegisterAppendLine(null);
+  // loroHandle is the key dependency: when it changes (opens or closes) we
+  // must re-register so the handle body captures the current doc reference.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readOnly, onRegisterAppendLine, loroHandle, content, handleSave]);
+
   // save-checkpoint bot: version-history controller for the Lab Notes document.
   // `writeRestored` writes the reconstructed markdown back to notes.md + reflects
   // it into the editor, then the controller records the "revert" version.
@@ -4787,7 +4862,7 @@ function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSav
 
 // ── Results Tab ──────────────────────────────────────────────────────────────
 
-function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void }) {
+function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave, onRegisterAppendLine }: { task: Task; readOnly?: boolean; ownerUsername?: string; onRegisterFlushSave?: (fn: (() => Promise<void>) | null) => void; onRegisterAppendLine?: (fn: ((line: string) => void) | null) => void }) {
   const [content, setContent] = useState("");
   const [originalContent, setOriginalContent] = useState("");
   const [saving, setSaving] = useState(false);
@@ -5346,6 +5421,28 @@ function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave
     });
     return () => onRegisterFlushSave(null);
   }, [readOnly, onRegisterFlushSave, content, originalContent, handleSave]);
+
+  // Phase 2: register an append-line handle. Mirrors LabNotesTab exactly but
+  // operates on the Results doc and its loroHandle. Read-only tabs register nothing.
+  useEffect(() => {
+    if (readOnly || !onRegisterAppendLine) return;
+    onRegisterAppendLine((line: string) => {
+      if (LORO_PILOT_ENABLED && loroHandle) {
+        appendTaskLine(loroHandle.doc, line);
+        loroHandle.doc.commit({ message: "phone:append-calc-line" });
+      } else {
+        setContent((c) => {
+          const base = c.replace(/\s+$/, "");
+          return base ? base + "\n" + line : line;
+        });
+        const base = content.replace(/\s+$/, "");
+        const next = base ? base + "\n" + line : line;
+        void handleSave(next);
+      }
+    });
+    return () => onRegisterAppendLine(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readOnly, onRegisterAppendLine, loroHandle, content, handleSave]);
 
   // save-checkpoint bot: version-history controller for the Results document.
   const docHistory = useTaskDocHistory({
