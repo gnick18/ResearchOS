@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>ResearchOS - laptop timers panel (Phase 3, cross-device timer sync)</title>
+<style>
+  :root{--sky:#1AA0E6;--sky-d:#1485c0;--purple:#5B47D6;--ink:#0b1320;--ink-2:#3c4656;--ink-3:#8a93a3;--bg:#f2f3f7;--group:#fff;--sep:rgba(60,67,86,.10);--card-shadow:0 1px 2px rgba(16,24,40,.05),0 8px 24px rgba(16,24,40,.06);--ok:#1a9c5b;--ok-bg:#e4f7ec;--warn:#d98a0b;--warn-bg:#fdf3e2;--r1:#FFD2B0;--r2:#FFF1A8;--r3:#B7EBB1;--r4:#A6D2F4;--r5:#D6B5F0;--radius:18px;--page:#e9ebf1;--amber:#E8920B;--green:#16A34A;--violet:#9333EA}
+  *{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .top{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--page) 88%,transparent);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--sep);padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .top h1{font-size:17px;margin:0;font-weight:700;letter-spacing:-.02em}.top .sub{font-size:12.5px;color:var(--ink-3)}.spacer{flex:1}
+  .tbtn{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--sep);background:var(--group);color:var(--ink);border-radius:980px;padding:8px 15px;cursor:pointer}.tbtn.brand{background:linear-gradient(135deg,var(--sky),var(--purple));color:#fff;border:none}
+  .legend{display:flex;gap:12px;font-size:12px;color:var(--ink-3);align-items:center;flex-wrap:wrap}.dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px}.dot.ok{background:#1a9c5b}.dot.warn{background:#d98a0b}.dot.none{background:#c4ccd6}
+  .wrap{max-width:1640px;margin:0 auto;padding:20px 20px 120px}.intro{font-size:13px;color:var(--ink-2);max-width:1040px;line-height:1.6;margin:8px 0}
+  .grid{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start;margin-top:16px;justify-content:center}.cell{width:720px;max-width:100%}
+  .cap{display:flex;align-items:baseline;gap:8px;margin:0 2px 9px}.cap .step{min-width:22px;height:22px;border-radius:50%;background:var(--sky);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 7px}.cap .n{font-size:14px;font-weight:700}.cap .d{font-size:12px;color:var(--ink-3)}
+  /* browser window */
+  .win{width:720px;max-width:100%;height:560px;border-radius:14px;background:var(--bg);position:relative;overflow:hidden;border:1px solid rgba(16,24,40,.12);box-shadow:0 30px 60px rgba(16,24,40,.20)}
+  .chrome{height:38px;background:#e4e7ee;border-bottom:1px solid var(--sep);display:flex;align-items:center;gap:7px;padding:0 14px}
+  .light{width:11px;height:11px;border-radius:50%}.light.r{background:#ff5f57}.light.y{background:#febc2e}.light.g{background:#28c840}
+  .url{flex:1;margin-left:10px;height:22px;border-radius:7px;background:#f4f5f8;border:1px solid var(--sep);display:flex;align-items:center;padding:0 10px;font-size:11px;color:var(--ink-3);max-width:340px}
+  .appbar{height:52px;background:var(--group);border-bottom:1px solid var(--sep);display:flex;align-items:center;padding:0 16px;gap:10px}
+  .brandmark{display:flex;align-items:center;gap:8px;font-weight:800;letter-spacing:-.02em;font-size:15px}.beak{width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,var(--sky),var(--sky-d));display:flex;align-items:center;justify-content:center;color:#fff}
+  .cluster{margin-left:auto;display:flex;align-items:center;gap:6px}
+  .ibtn{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--ink-2);position:relative;cursor:pointer;border:1px solid transparent}
+  .ibtn:hover{background:var(--bg)}.ibtn.active{background:color-mix(in srgb,var(--sky) 13%,transparent);color:var(--sky);border-color:color-mix(in srgb,var(--sky) 30%,transparent)}
+  .badge{position:absolute;top:-3px;right:-3px;min-width:16px;height:16px;border-radius:980px;background:var(--sky);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid var(--group)}
+  .ava{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#A6D2F4,#5B47D6);margin-left:4px}
+  .stage{position:absolute;inset:90px 0 0 0;background:rgba(11,19,32,.18);display:flex;justify-content:flex-end}
+  .stage.center{align-items:center;justify-content:center}
+  /* popup panel */
+  .panel{width:392px;height:100%;background:var(--group);box-shadow:-12px 0 40px rgba(0,0,0,.14);display:flex;flex-direction:column;border-left:1px solid var(--sep)}
+  .panel-h{display:flex;align-items:center;gap:9px;padding:15px 16px 11px}
+  .panel-h .pi{width:30px;height:30px;border-radius:9px;background:color-mix(in srgb,var(--sky) 13%,transparent);color:var(--sky);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .panel-h .pt{font-size:16px;font-weight:800;letter-spacing:-.02em}
+  .panel-h .psync{font-size:11px;color:var(--ink-3);display:flex;align-items:center;gap:4px;margin-top:1px}
+  .panel-h .x{margin-left:auto;color:var(--ink-3);cursor:pointer;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center}
+  .pbody{flex:1;overflow:auto;padding:0 16px 16px}.pbody::-webkit-scrollbar{display:none}
+  .sec-h{font-size:11px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em;margin:14px 2px 8px;display:flex;align-items:center}
+  .sec-h .act{margin-left:auto;color:var(--sky);font-weight:700;cursor:pointer;text-transform:none;letter-spacing:0}
+  .tcard{background:var(--group);border:1px solid var(--sep);border-radius:13px;box-shadow:var(--card-shadow);padding:12px 13px;margin-bottom:9px;display:flex;align-items:center;gap:12px}
+  .tcard .tx{flex:1;min-width:0}
+  .tcard .tl{font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tcard .count{font-size:30px;font-weight:800;color:var(--sky);font-variant-numeric:tabular-nums;line-height:1.15;letter-spacing:-.01em}
+  .tcard .origin{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--ink-3);margin-top:3px}
+  .tcard .cancel{color:var(--sky);font-weight:700;font-size:13px;cursor:pointer;flex-shrink:0}
+  .tcard.done .count{color:var(--ink-3);font-size:15px;font-weight:700}
+  .donepill{font-size:11px;font-weight:700;padding:3px 9px;border-radius:980px;background:var(--ok-bg);color:var(--ok);flex-shrink:0}
+  .newcard{background:var(--bg);border:1px solid var(--sep);border-radius:14px;padding:13px;margin-top:4px}
+  .newcard .nt{font-size:14px;font-weight:800;margin-bottom:11px}
+  .sub-l{font-size:10.5px;font-weight:700;color:var(--ink-3);letter-spacing:.04em;margin:0 0 7px}
+  .presets{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:13px}
+  .preset{font-size:13px;font-weight:700;color:var(--sky);background:var(--group);border:1px solid var(--sep);border-radius:980px;padding:7px 13px;cursor:pointer}.preset:hover{background:color-mix(in srgb,var(--sky) 10%,transparent)}
+  .customrow{display:flex;gap:8px;align-items:stretch}
+  .clock{flex:1;background:var(--group);border:1px solid var(--sep);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:var(--sky);font-variant-numeric:tabular-nums;letter-spacing:.02em;padding:9px 0}
+  .startbtn{background:linear-gradient(135deg,var(--sky),var(--purple));color:#fff;border:none;border-radius:10px;font:inherit;font-size:13.5px;font-weight:800;padding:0 18px;cursor:pointer}
+  .synctoast{margin:9px 0 0;display:flex;align-items:center;gap:9px;background:color-mix(in srgb,var(--sky) 9%,transparent);border:1px solid color-mix(in srgb,var(--sky) 24%,transparent);border-radius:12px;padding:10px 12px}
+  .synctoast .si{color:var(--sky);flex-shrink:0}.synctoast .st{font-size:12.5px;font-weight:650}.synctoast .ss{font-size:11px;color:var(--ink-3)}
+  /* small phone mirror */
+  .mirror{width:150px;flex-shrink:0;border-radius:26px;background:#0c0d10;padding:7px;align-self:center;box-shadow:0 18px 40px rgba(16,24,40,.22)}
+  .mscr{background:var(--bg);border-radius:20px;overflow:hidden;height:300px;display:flex;flex-direction:column;position:relative}
+  .mscr::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5))}
+  .mscr .mh{font-size:14px;font-weight:800;padding:12px 12px 6px}
+  .syncwrap{display:flex;gap:22px;align-items:center;justify-content:center;padding:18px}
+  .arrows{display:flex;flex-direction:column;align-items:center;gap:5px;color:var(--sky)}
+  .arrows .lab{font-size:10px;font-weight:700;color:var(--ink-3)}
+  /* alarm overlay */
+  .alarm{width:430px;background:var(--group);border-radius:22px;box-shadow:0 30px 70px rgba(0,0,0,.3);padding:30px 28px 24px;text-align:center;position:relative;overflow:hidden}
+  .alarm::before{content:"";position:absolute;left:0;right:0;top:0;height:5px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5))}
+  .alarm .ring{width:110px;height:110px;border-radius:50%;margin:6px auto 14px;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,color-mix(in srgb,var(--sky) 16%,transparent),transparent 70%)}
+  .alarm .at{font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--sky)}
+  .alarm .al{font-size:21px;font-weight:800;letter-spacing:-.02em;margin:5px 0 2px}
+  .alarm .ad{font-size:12.5px;color:var(--ink-3);margin-bottom:18px}
+  .dismiss{background:linear-gradient(135deg,var(--sky),var(--purple));color:#fff;border:none;border-radius:13px;font:inherit;font-size:15px;font-weight:800;padding:13px 0;width:100%;cursor:pointer}
+  .unified{font-size:11.5px;color:var(--ink-3);margin-top:11px;display:flex;align-items:center;justify-content:center;gap:6px}
+  /* settings */
+  .setcard{width:430px;background:var(--group);border-radius:18px;box-shadow:var(--card-shadow);border:1px solid var(--sep);padding:18px}
+  .setcard .sh{font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px;margin-bottom:3px}
+  .setcard .sd{font-size:12px;color:var(--ink-3);margin-bottom:14px;line-height:1.5}
+  .opt{display:flex;align-items:center;gap:12px;border:1.5px solid var(--sep);border-radius:13px;padding:12px 13px;margin-bottom:9px;cursor:pointer}
+  .opt.on{border-color:var(--sky);box-shadow:0 0 0 3px color-mix(in srgb,var(--sky) 15%,transparent)}
+  .opt .oi{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:color-mix(in srgb,var(--sky) 12%,transparent);color:var(--sky)}
+  .opt.gray .oi{background:color-mix(in srgb,var(--ink-3) 14%,transparent);color:var(--ink-2)}
+  .opt .ot{font-size:14px;font-weight:700}.opt .os{font-size:11.5px;color:var(--ink-3);margin-top:1px}
+  .opt .rad{margin-left:auto;width:20px;height:20px;border-radius:50%;border:2px solid var(--sep);flex-shrink:0}.opt.on .rad{border-color:var(--sky);background:var(--sky);box-shadow:inset 0 0 0 3px var(--group)}
+  .sound{display:flex;align-items:center;gap:9px;margin-top:6px;padding:11px 13px;background:var(--bg);border-radius:12px;font-size:13px;font-weight:650}.sound .pillc{margin-left:auto;font-size:12px;font-weight:700;color:var(--sky)}
+  .why{font-size:12px;color:var(--ink-2);line-height:1.55;margin:10px 2px 0;border-left:2px solid var(--sky);padding-left:11px}
+  .review{margin-top:12px;display:flex;gap:7px;flex-wrap:wrap}.seg{display:inline-flex;border:1px solid var(--sep);border-radius:9px;overflow:hidden}.seg button{font:inherit;font-size:12px;padding:6px 11px;border:none;background:var(--group);color:var(--ink-3);cursor:pointer}.seg button.on.ok{background:#1a9c5b;color:#fff}.seg button.on.warn{background:#d98a0b;color:#fff}.seg button.on.none{background:#64748b;color:#fff}
+  .cmt{width:100%;margin-top:8px;font:inherit;font-size:12.5px;border:1px dashed var(--sep);border-radius:9px;background:var(--group);color:var(--ink);padding:8px 10px;resize:vertical;min-height:30px}
+  svg{display:block}
+  #exm{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}#exm .box{background:var(--group);border-radius:16px;max-width:680px;width:100%;padding:18px;border:1px solid var(--sep)}#exm textarea{width:100%;min-height:220px;font-family:ui-monospace,Menlo,monospace;font-size:12px;border:1px solid var(--sep);border-radius:8px;background:var(--bg);color:var(--ink);padding:10px}
+</style>
+</head>
+<body>
+<div class="top">
+  <div><h1>Laptop timers panel</h1><div class="sub">Phase 3, cross-device timer sync. The laptop gets a real two-way timers panel that stays in lockstep with the phone.</div></div>
+  <div class="spacer"></div>
+  <div class="legend"><span><span class="dot ok"></span>Approve</span><span><span class="dot warn"></span>Change</span><span><span class="dot none"></span>?</span></div>
+  <button class="tbtn brand" id="export">Export</button>
+</div>
+<div class="wrap">
+  <p class="intro">No laptop timer exists today, so this is the net-new half of the integrations work (the phone timers + alarm already shipped). The design mirrors the phone screen in the web app's language and adds the cross-device sync the whole feature is about. A timer set on either device exists on both, ticks locally on each (no network per second, just an absolute end time), and syncs only its create / done / dismiss events through the relay. Silencing on either device silences both. Per the locked decisions, the laptop gets a full create / list / cancel panel (not a fire-and-dismiss-only alarm), and each device keeps its own alarm settings with the full Chime experience as the default everywhere.</p>
+  <div class="grid" id="grid"></div>
+</div>
+<div id="exm"><div class="box"><div style="display:flex;gap:10px;margin-bottom:10px;align-items:center"><strong style="font-size:14px">Feedback</strong><span class="spacer" style="flex:1"></span><button class="tbtn" onclick="navigator.clipboard.writeText(exT.value)">Copy</button><button class="tbtn" onclick="exm.style.display='none'">Close</button></div><textarea id="exT" readonly></textarea></div></div>
+<script>
+const I={
+ clock:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>',
+ clockSm:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>',
+ phone:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/></svg>',
+ laptop:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M2 21h20"/></svg>',
+ inbox:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>',
+ phoneBtn:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M10 18h4"/></svg>',
+ x:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+ sync:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>',
+ bell:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>',
+ bellOff:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.7 21a2 2 0 0 1-3.4 0"/><path d="M18.6 13A14 14 0 0 0 18 8M6 8c0 7-3 9-3 9h13"/><path d="M2 2l20 20"/></svg>',
+ eye:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+ dArrow:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+ uArrow:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>',
+};
+// A simple stand-in BeakerBot for the alarm. The real overlay reuses the actual
+// BeakerBot eureka scene; this is just a recognizable sky beaker for the mock.
+const BOT='<svg viewBox="0 0 100 100" width="78" height="78"><rect x="34" y="12" width="32" height="9" rx="4.5" fill="#1485c0"/><path d="M38 21 h24 v21 l15 28 a11 11 0 0 1 -10 16 H33 a11 11 0 0 1 -10 -16 l15 -28 z" fill="#1AA0E6"/><circle cx="43" cy="54" r="6" fill="#fff"/><circle cx="61" cy="54" r="6" fill="#fff"/><circle cx="44.5" cy="55.5" r="2.7" fill="#0b1320"/><circle cx="62.5" cy="55.5" r="2.7" fill="#0b1320"/><path d="M43 66 q9 7 18 0" stroke="#fff" stroke-width="3.2" fill="none" stroke-linecap="round"/><path d="M70 24 l3 6 6 3 -6 3 -3 6 -3 -6 -6 -3 6 -3 z" fill="#FFF1A8" stroke="#E8920B" stroke-width="1.4" stroke-linejoin="round"/></svg>';
+
+function appbar(){return `<div class="appbar"><div class="brandmark"><span class="beak">${I.clockSm}</span>ResearchOS</div><div class="cluster">
+  <div class="ibtn">${I.inbox}</div>
+  <div class="ibtn active">${I.clock}<span class="badge">2</span></div>
+  <div class="ibtn">${I.phoneBtn}</div>
+  <div class="ava"></div></div></div>`;}
+function chrome(){return `<div class="chrome"><span class="light r"></span><span class="light y"></span><span class="light g"></span><div class="url">${I.clockSm}&nbsp;&nbsp;researchos.app</div></div>`;}
+
+const PRESETS=['1 min','5 min','10 min','30 min','1 hr'];
+function presetRow(){return PRESETS.map(p=>`<span class="preset">${p}</span>`).join('');}
+function newcard(){return `<div class="newcard"><div class="nt">New timer</div>
+  <div class="sub-l">QUICK START</div>
+  <div class="presets">${presetRow()}</div>
+  <div class="sub-l">OR SET A CUSTOM TIME</div>
+  <div class="customrow"><div class="clock">00 : 05 : 00</div><button class="startbtn">Start</button></div>
+ </div>`;}
+
+const screens=[
+ {id:'panel',n:'The timers panel',d:'header clock button + popup',
+  why:'WHERE IT LIVES. A clock button joins the header right cluster (next to the companion phone button) with a small count badge of running timers, so you can glance at "2 running" without opening anything. Clicking opens a Timers popup, the same LivingPopup the companion hub uses. The panel is a full two-way create / list / cancel surface (locked decision C), not just an alarm. RUNNING timers float to the top with a big sky countdown and Cancel, each tagged with where it came from (this laptop, or from iPhone) since timers now sync. NEW TIMER mirrors the phone exactly, the same quick-start presets (1 / 5 / 10 / 30 min / 1 hr) and a custom HH:MM:SS entry. Finished timers collapse below with a Clear action.',
+  html:`${chrome()}${appbar()}
+   <div class="stage"><div class="panel">
+     <div class="panel-h"><div class="pi">${I.clock}</div><div><div class="pt">Timers</div><div class="psync">${I.sync} Synced with your phone</div></div><div class="x">${I.x}</div></div>
+     <div class="pbody">
+       <div class="sec-h">Running</div>
+       <div class="tcard"><div class="tx"><div class="tl">Colony PCR, 72C extension</div><div class="count">04:12</div><div class="origin">${I.phone} from iPhone</div></div><div class="cancel">Cancel</div></div>
+       <div class="tcard"><div class="tx"><div class="tl">Gel running</div><div class="count">18:45</div><div class="origin">${I.laptop} this laptop</div></div><div class="cancel">Cancel</div></div>
+       ${newcard()}
+       <div class="sec-h">Finished <span class="act">Clear</span></div>
+       <div class="tcard done"><div class="tx"><div class="tl">Trypsin incubation</div><div class="count">5:00 total</div></div><span class="donepill">Done</span></div>
+     </div>
+   </div></div>`},
+
+ {id:'sync',n:'Cross-device sync',d:'start on one device, it shows on both',
+  why:'THE POINT OF THE FEATURE. Start a timer on the laptop and it appears and counts down on the phone too, and vice versa. Only the create / done / dismiss events travel through the relay, the per-second tick is local on each device, and every timer carries an absolute end time so both stay in lockstep with no drift even if a device sleeps. The freshly started timer here shows a brief "now on your phone too" confirmation; the phone mirror on the right shows the same timer already ticking. Transport is the relay-DO command lane the routing already uses, not the collab engine (the phone is not a collab peer).',
+  html:`${chrome()}${appbar()}
+   <div class="stage center" style="background:rgba(11,19,32,.10)">
+     <div class="syncwrap">
+       <div class="panel" style="width:340px;height:420px;border-radius:16px;border:1px solid var(--sep);box-shadow:var(--card-shadow)">
+         <div class="panel-h"><div class="pi">${I.clock}</div><div><div class="pt">Timers</div><div class="psync">${I.sync} Synced with your phone</div></div></div>
+         <div class="pbody">
+           <div class="sec-h">Running</div>
+           <div class="tcard" style="border-color:color-mix(in srgb,var(--sky) 35%,transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--sky) 13%,transparent)"><div class="tx"><div class="tl">DNA precipitation</div><div class="count">29:58</div><div class="origin">${I.laptop} this laptop</div></div></div>
+           <div class="synctoast"><span class="si">${I.sync}</span><div><div class="st">Now on your phone too</div><div class="ss">started here, synced just now</div></div></div>
+         </div>
+       </div>
+       <div class="arrows"><span class="lab">create / done / dismiss</span>${I.dArrow}${I.uArrow}<span class="lab">relay sync</span></div>
+       <div class="mirror"><div class="mscr"><div class="mh">Timers</div>
+         <div style="padding:0 10px"><div class="sub-l" style="margin:4px 2px 6px">RUNNING</div>
+           <div style="background:#fff;border:1px solid var(--sep);border-radius:11px;padding:9px 10px;box-shadow:var(--card-shadow)"><div style="font-size:11.5px;font-weight:700">DNA precipitation</div><div style="font-size:22px;font-weight:800;color:var(--sky);font-variant-numeric:tabular-nums">29:57</div><div class="origin" style="font-size:10px">${I.laptop} from laptop</div></div>
+         </div>
+       </div></div>
+     </div>
+   </div>`},
+
+ {id:'alarm',n:'It fires, unified dismiss',d:'silence on either device silences both',
+  why:'When a timer runs out it fires on BOTH devices at once, each with its own sound + visual per that device on-screen, the laptop shows this alarm overlay with the BeakerBot celebration (the real one reuses the actual eureka scene). Dismiss is a single unified event keyed by the timer id, so silencing here clears the alarm on your phone too, and the other way around. It is idempotent, so a double-tap or a flaky network never double-fires or leaves a ghost ringing. No snooze, a finished bench step is finished.',
+  html:`${chrome()}${appbar()}
+   <div class="stage center">
+     <div class="alarm">
+       <div class="ring">${BOT}</div>
+       <div class="at">Time is up</div>
+       <div class="al">Colony PCR, 72C extension</div>
+       <div class="ad">5:00 timer, started on your iPhone</div>
+       <button class="dismiss">Dismiss</button>
+       <div class="unified">${I.phone} Silencing here silences your phone too</div>
+     </div>
+   </div>`},
+
+ {id:'settings',n:'Per-device alarm settings',d:'laptop keeps its own preference',
+  why:'Each device keeps its OWN alarm settings (the phone half already shipped with sound choice + sound / vibration toggles). The laptop adds one choice, the full sound + visual Chime, or visual only for a quiet shared bench or an open-plan room. The default everywhere is the full experience with the musical Chime. This lives in the panel footer and in Settings. The visual celebration always plays regardless, only the sound is gated, matching the phone.',
+  html:`${chrome()}${appbar()}
+   <div class="stage center">
+     <div class="setcard">
+       <div class="sh">${I.bell} Laptop alarm</div>
+       <div class="sd">How this laptop alerts you when a timer finishes. Your phone keeps its own sound and vibration settings.</div>
+       <div class="opt on"><div class="oi">${I.bell}</div><div><div class="ot">Sound and visual</div><div class="os">The full alert with the Chime sound. Default.</div></div><div class="rad"></div></div>
+       <div class="opt gray"><div class="oi">${I.eye}</div><div><div class="ot">Visual only</div><div class="os">Show the celebration, stay silent. Good for a shared bench.</div></div><div class="rad"></div></div>
+       <div class="sound">${I.clockSm} Alert sound<span class="pillc">Chime &middot; change</span></div>
+     </div>
+   </div>`},
+];
+
+const grid=document.getElementById('grid');
+screens.forEach((s,i)=>{
+  const cell=document.createElement('div');cell.className='cell';
+  cell.innerHTML=`<div class="cap"><span class="step">${i+1}</span><span class="n">${s.n}</span><span class="d">${s.d}</span></div><div class="win">${s.html}</div><div class="why">${s.why}</div><div class="review"><div class="seg" data-k="${s.id}"><button data-v="ok" class="ok">Approve</button><button data-v="warn" class="warn">Change</button><button data-v="none" class="none">?</button></div></div><textarea class="cmt" data-c="${s.id}" placeholder="Notes on this screen..."></textarea>`;
+  grid.appendChild(cell);
+});
+const verdicts={},comments={};
+document.querySelectorAll('.seg').forEach(seg=>{const k=seg.dataset.k;seg.querySelectorAll('button').forEach(b=>{b.onclick=()=>{seg.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');verdicts[k]=b.dataset.v;};});});
+document.querySelectorAll('.cmt').forEach(t=>{t.oninput=()=>comments[t.dataset.c]=t.value;});
+document.getElementById('export').onclick=()=>{let out='LAPTOP TIMERS PANEL - review\n\n';screens.forEach((s,i)=>{out+=`${i+1}. ${s.n} (${s.id}): ${(verdicts[s.id]||'-').toUpperCase()}\n`;if(comments[s.id])out+=`   note: ${comments[s.id]}\n`;});document.getElementById('exT').value=out;document.getElementById('exm').style.display='flex';};
+</script>
+</body>
+</html>
