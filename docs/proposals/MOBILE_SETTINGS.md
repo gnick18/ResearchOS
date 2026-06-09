@@ -71,21 +71,63 @@ session does not own:
 - A way for the phone to know the account. Today the phone pairs to a laptop, it does not sign in.
 - A usage or quota signal. The metered-storage numbers, lab tier, and the cost circuit breaker live in the web and backend systems (Neon metered storage, the business tracker, lab-tier billing).
 
-Two implementation routes:
+Decision (locked, Grant 2026-06-09): Route A. Surface usage through the paired
+laptop over the existing relay. No new auth surface on mobile, reuses pairing.
+Route B (full OAuth or ORCID or Google directly on the phone plus a
+mobile-reachable usage endpoint) is heavier and is deferred, it only matters if
+the phone ever needs usage with no paired laptop.
 
-- Route A, surface usage through the paired laptop (recommended first). The laptop already knows the signed-in account and its usage. The phone fetches a small usage summary over the existing relay or pairing channel and renders it. No new auth surface on mobile, reuses the pairing model that already exists.
-- Route B, direct mobile sign-in. Full OAuth or ORCID or Google on the phone, plus a mobile-reachable usage endpoint. Heavier, but works with no paired laptop.
+### Route A contract, usage summary over the relay
 
-What this section would show once the data is available:
+Grounded in how the relay already works. The relay is store-and-forward and
+E2E-blind, the laptop polls it rather than serving requests, and the phone
+already downloads sealed snapshots from it (`lib/relay-fetch.ts`,
+`unsealSnapshot`). So usage is not a direct phone-to-laptop GET. It is a small
+sealed blob the laptop publishes and the phone pulls, mirroring the snapshot
+path.
 
-- Signed-in identity (name, ORCID, or email) or a "sign in" entry point.
-- Plan or tier (free, lab, etc.).
+Flow:
+
+- Laptop side (orchestrator owns). On a cadence and on usage change, the
+  signed-in laptop publishes a small usage summary to the relay under the paired
+  user, sealed to the phone's device X25519 key (the same `sealToUser` path
+  captures already use), so the relay stays blind to account data.
+- Phone side (mobile, when unblocked). Download the latest sealed usage summary
+  from the relay and unseal it with the device key (mirrors snapshot download +
+  `unsealSnapshot`), then render it read-only in this section. Cache the last
+  value so the section shows the last-known usage offline, stamped with its
+  `asOf` time.
+
+Proposed summary shape (small, read-only, sealed):
+
+```json
+{
+  "asOf": "2026-06-09T18:00:00Z",
+  "identity": { "displayName": "...", "orcid": "0000-...", "tier": "lab" },
+  "storage": { "usedBytes": 0, "includedBytes": 0, "overageBytes": 0 },
+  "status": { "circuitBreaker": "ok", "reason": "" },
+  "manageBillingUrl": "https://..."
+}
+```
+
+What the section renders once the data is present:
+
+- Signed-in identity (name, ORCID, or email) as reported by the laptop, or a
+  "pair a laptop to see usage" prompt when unpaired.
+- Plan or tier.
 - Storage used vs the included allowance, as a simple meter bar with a number.
-- Cost circuit-breaker status when it is tripped (cloud writes paused, local-first still working), so a bench user understands why a sync is held.
-- A link out to manage billing on the web (mobile does not need its own billing UI).
+- Cost circuit-breaker status when tripped (cloud writes paused, local-first
+  still working), so a bench user understands why a sync is held.
+- A link out to manage billing on the web. Mobile shows usage only, it never
+  takes a billing action.
 
-Recommendation: design this with the orchestrator as a thin read-only usage
-summary over the relay (Route A) before considering full mobile sign-in.
+Dependency split:
+
+- Orchestrator, the laptop publisher plus the metered-storage to summary
+  mapping, and confirming the relay has a slot for this blob (the snapshot
+  mechanism may already cover it).
+- Mobile (cosmetics or a later session), the download, unseal, cache, and the
+  read-only render in this section.
 
 ### About and support (buildable now)
 
@@ -115,5 +157,5 @@ not clutter normal use.
 
 - Settings reachability. Today the gear is only on the Notebook header. If Settings should open from every tab, the clean fix is a shared title-header component (each tab currently renders its own inline title). Worth doing before adding many items.
 - Alarm prefs. Move them into Settings, keep them on the Timers tab, or show in both.
-- Account and usage route. Route A (relay summary) vs Route B (direct mobile sign-in). Recommend A first.
+- Account and usage route. LOCKED to Route A (sealed usage summary over the relay). Remaining open piece is the laptop-side publish cadence and the exact metered-storage to summary mapping, which the orchestrator owns.
 - How much of Diagnostics to expose, and whether it ships at all in the beta.
