@@ -22,6 +22,7 @@ import { useCompanionHub } from "@/lib/ui/companion-hub-store";
 import { useAppStore } from "@/lib/store";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
+import { usePhonePaired } from "@/hooks/usePhonePaired";
 import {
   readUserSettings,
   patchUserSettings,
@@ -155,6 +156,7 @@ export default function CompanionHub() {
   const close = useCompanionHub((s) => s.close);
   const [tab, setTab] = useState<Tab>("connect");
   const sharing = useSharingIdentity();
+  const paired = usePhonePaired();
 
   return (
     <LivingPopup
@@ -167,9 +169,19 @@ export default function CompanionHub() {
       blur
     >
       <div className="flex flex-col h-full min-h-0">
+        {/* Header row: icon + title on the left, paired-status pill on the right. */}
         <div className="flex items-center gap-2 px-5 pt-5 pb-3">
           <Icon name="phone" className="w-5 h-5 text-sky-500" />
           <h2 className="text-title font-semibold text-foreground">Companion</h2>
+          <span className="ml-auto flex items-center gap-1.5 text-meta text-foreground-muted">
+            <span
+              className={
+                "inline-block w-2 h-2 rounded-full flex-shrink-0 " +
+                (paired ? "bg-green-500" : "bg-foreground-muted/40")
+              }
+            />
+            {paired ? "Paired" : "Not paired"}
+          </span>
         </div>
         <div
           role="tablist"
