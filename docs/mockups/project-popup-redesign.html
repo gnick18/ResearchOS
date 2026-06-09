@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Project surface redesign — before / after</title>
+<style>
+  :root {
+    --surface: #f8fafc;
+    --surface-raised: #ffffff;
+    --surface-overlay: #ffffff;
+    --surface-sunken: #f1f5f9;
+    --foreground: #111827;
+    --foreground-muted: #6b7280;
+    --border: #e5e7eb;
+    --action: #1283c9;
+    --sky: #1aa0e6;
+    --purple: #5b47d6;
+    --accent-soft: #eff6ff;
+    --good: #059669;
+    --bad: #e11d48;
+    --shadow: 0 10px 40px rgba(15, 23, 42, 0.18);
+  }
+  [data-theme="dark"] {
+    --surface: #0a0e1a;
+    --surface-raised: #1c2638;
+    --surface-overlay: #28344c;
+    --surface-sunken: #0d1424;
+    --foreground: #f1f5f9;
+    --foreground-muted: #b4bfd0;
+    --border: rgba(255, 255, 255, 0.16);
+    --action: #38bdf8;
+    --sky: #38bdf8;
+    --purple: #a78bfa;
+    --accent-soft: rgba(56, 189, 248, 0.14);
+    --shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--surface);
+    color: var(--foreground);
+    padding: 0 0 80px;
+    transition: background 0.2s, color 0.2s;
+  }
+
+  /* Top bar */
+  .topbar {
+    position: sticky; top: 0; z-index: 60;
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 24px;
+    background: var(--surface-raised);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar h1 { font-size: 15px; font-weight: 700; margin: 0; flex: 1; }
+  .topbar .sub { font-size: 12px; color: var(--foreground-muted); font-weight: 400; }
+  .btn {
+    font-size: 12px; font-weight: 600; padding: 7px 13px;
+    border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--foreground); cursor: pointer;
+  }
+  .btn:hover { background: var(--surface-sunken); }
+  .btn.primary { background: linear-gradient(135deg, var(--action), var(--purple)); color: #fff; border: none; }
+  .btn.on { background: var(--accent-soft); border-color: var(--action); color: var(--action); }
+
+  .intro { max-width: 1280px; margin: 22px auto 6px; padding: 0 24px; }
+  .intro h2 { font-size: 19px; margin: 0 0 6px; }
+  .intro p { font-size: 13.5px; line-height: 1.6; color: var(--foreground-muted); margin: 0 0 4px; max-width: 80ch; }
+  .intro .purpose {
+    margin-top: 12px; padding: 12px 16px; border-left: 3px solid var(--action);
+    background: var(--accent-soft); border-radius: 0 8px 8px 0; color: var(--foreground);
+    font-size: 13.5px; line-height: 1.6;
+  }
+
+  /* Layout: changes rail + compare grid */
+  .wrap { max-width: 1280px; margin: 18px auto; padding: 0 24px; display: grid; grid-template-columns: 300px 1fr; gap: 22px; align-items: start; }
+  @media (max-width: 1080px) { .wrap { grid-template-columns: 1fr; } }
+
+  .rail { position: sticky; top: 70px; }
+  .rail h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--foreground-muted); margin: 0 0 10px; }
+  .change {
+    border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px;
+    background: var(--surface-raised);
+  }
+  .change .ct { font-size: 12.5px; font-weight: 700; margin-bottom: 3px; display: flex; gap: 6px; }
+  .change .ct .num { color: var(--action); }
+  .change .cd { font-size: 11.5px; color: var(--foreground-muted); line-height: 1.5; margin-bottom: 8px; }
+  .verdict { display: flex; gap: 6px; }
+  .verdict button {
+    flex: 1; font-size: 11px; font-weight: 600; padding: 5px 0; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--foreground-muted); cursor: pointer;
+  }
+  .verdict button.agree.sel { background: rgba(5,150,105,0.14); border-color: var(--good); color: var(--good); }
+  .verdict button.deny.sel { background: rgba(225,29,72,0.12); border-color: var(--bad); color: var(--bad); }
+  .change.tagged-agree { border-color: var(--good); }
+  .change.tagged-deny { border-color: var(--bad); }
+
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 860px) { .compare { grid-template-columns: 1fr; } }
+  .col h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 8px; }
+  .col.before h3 { color: var(--foreground-muted); }
+  .col.after h3 { color: var(--action); }
+  .stage {
+    background: var(--surface-sunken); border: 1px solid var(--border); border-radius: 14px;
+    padding: 16px; min-height: 540px; position: relative; overflow: hidden;
+  }
+
+  /* ---- BEFORE: full-page project detail repro ---- */
+  .page { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .colorbar { height: 8px; background: linear-gradient(90deg, var(--sky), var(--purple)); }
+  .page-top { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .page-title { font-size: 16px; font-weight: 800; margin: 0 0 8px; }
+  .page-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pill { font-size: 10.5px; font-weight: 600; padding: 4px 9px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface); color: var(--foreground-muted); }
+  .pill.redund { border-style: dashed; color: var(--bad); }
+  .tabs { display: flex; gap: 2px; padding: 8px 10px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .tab { font-size: 11.5px; font-weight: 600; padding: 6px 10px; border-radius: 7px 7px 0 0; color: var(--foreground-muted); }
+  .tab.active { background: var(--surface-sunken); color: var(--action); }
+  .page-body { padding: 14px; font-size: 12px; color: var(--foreground-muted); line-height: 1.7; }
+  .skeleton { height: 9px; border-radius: 5px; background: var(--surface-sunken); margin: 7px 0; }
+  .skeleton.s1 { width: 92%; } .skeleton.s2 { width: 78%; } .skeleton.s3 { width: 85%; }
+  .note-bad { margin-top: 10px; font-size: 11px; color: var(--bad); }
+
+  /* ---- AFTER: focused project popup over a dimmed workbench ---- */
+  .backdrop {
+    position: absolute; inset: 0; border-radius: 14px;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 22px, rgba(127,127,127,0.06) 22px 23px),
+      var(--surface);
+  }
+  .backdrop::after {
+    content: "Workbench (stays put behind the popup)";
+    position: absolute; top: 10px; left: 14px; font-size: 10.5px; color: var(--foreground-muted);
+  }
+  .dim { position: absolute; inset: 0; background: rgba(15,23,42,0.32); border-radius: 14px; }
+  .popup {
+    position: absolute; left: 50%; top: 26px; transform: translateX(-50%);
+    width: 90%; max-width: 360px; background: var(--surface-overlay);
+    border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden;
+  }
+  .pop-color { height: 6px; background: linear-gradient(90deg, var(--sky), var(--purple)); }
+  .pop-head { padding: 12px 14px 10px; display: flex; align-items: flex-start; gap: 8px; }
+  .pop-title { font-size: 15px; font-weight: 800; margin: 0; flex: 1; }
+  .pop-title .edit-hint { font-weight: 400; font-size: 10px; color: var(--foreground-muted); margin-left: 6px; }
+  .kebab { font-size: 16px; line-height: 1; color: var(--foreground-muted); cursor: pointer; padding: 0 4px; }
+  .tagrow { display: flex; gap: 5px; padding: 0 14px 8px; flex-wrap: wrap; }
+  .tag { font-size: 10px; padding: 2px 8px; border-radius: 20px; background: var(--accent-soft); color: var(--action); font-weight: 600; }
+  .glance { margin: 0 14px 10px; padding: 9px 11px; background: var(--surface-sunken); border-radius: 9px; }
+  .glance .bar { height: 6px; border-radius: 4px; background: var(--border); overflow: hidden; margin-bottom: 7px; }
+  .glance .bar > i { display: block; height: 100%; width: 64%; background: linear-gradient(90deg, var(--sky), var(--purple)); }
+  .glance .row { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--foreground-muted); }
+  .sec { padding: 0 14px 10px; }
+  .sec-label { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--foreground-muted); margin-bottom: 5px; }
+  .about { font-size: 11.5px; color: var(--foreground); line-height: 1.6; background: var(--surface-sunken); border: 1px dashed var(--border); border-radius: 8px; padding: 8px 10px; }
+  .funding { display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; padding: 4px 9px; border-radius: 7px; background: var(--accent-soft); color: var(--action); font-weight: 600; }
+  .doorways { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .doorway { font-size: 11px; font-weight: 600; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-raised); color: var(--foreground); display: flex; align-items: center; gap: 6px; }
+  .doorway .arr { margin-left: auto; color: var(--foreground-muted); }
+  .actions-unique { display: flex; gap: 6px; flex-wrap: wrap; }
+  .uaction { font-size: 11px; font-weight: 600; padding: 7px 11px; border-radius: 8px; background: var(--surface-sunken); color: var(--foreground); border: 1px solid var(--border); }
+  .uaction.primary { background: linear-gradient(135deg, var(--action), var(--purple)); color: #fff; border: none; }
+  .activity { font-size: 10.5px; color: var(--foreground-muted); line-height: 1.7; }
+  .activity .seeall { color: var(--action); font-weight: 600; }
+  .pop-foot { padding: 8px 14px 12px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; }
+
+  /* Comment pins */
+  body.commenting .stage { cursor: crosshair; }
+  .pin {
+    position: absolute; width: 22px; height: 22px; border-radius: 50% 50% 50% 2px;
+    background: var(--purple); color: #fff; font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; transform: translate(-50%, -100%);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3); cursor: pointer; z-index: 40;
+  }
+  .comments-panel {
+    max-width: 1280px; margin: 8px auto 0; padding: 0 24px;
+  }
+  .comments-panel .cwrap { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-raised); padding: 12px 14px; }
+  .comments-panel h3 { font-size: 12px; margin: 0 0 8px; }
+  .cmt { font-size: 12px; padding: 6px 0; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+  .cmt .cn { color: var(--purple); font-weight: 700; }
+  .cmt button { margin-left: auto; font-size: 10px; border: none; background: none; color: var(--bad); cursor: pointer; }
+
+  dialog { border: none; border-radius: 12px; padding: 0; box-shadow: var(--shadow); max-width: 560px; width: 92%; background: var(--surface-overlay); color: var(--foreground); }
+  dialog .dh { padding: 14px 16px; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 14px; }
+  dialog textarea { width: 100%; min-height: 280px; border: none; padding: 14px 16px; font-family: ui-monospace, monospace; font-size: 12px; background: var(--surface-overlay); color: var(--foreground); resize: vertical; }
+  dialog .df { padding: 10px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+  .hint { font-size: 11px; color: var(--foreground-muted); }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>Project surface redesign <span class="sub">— full-page route → focused popup</span></h1>
+    <button class="btn" id="comment-toggle">Comment mode: off</button>
+    <button class="btn" id="theme-toggle">Dark</button>
+    <button class="btn primary" id="export-btn">Export decisions</button>
+  </div>
+
+  <div class="intro">
+    <h2>What is a project surface FOR?</h2>
+    <p>The test: what can a user do here that they can't do anywhere else? Today this surface is a full-page route with six tabs, and a third of its top actions (Edit, Archive, Delete) are already on the project card's kebab menu. The genuinely unique value is the project's identity and its launchpad.</p>
+    <div class="purpose"><strong>Proposed purpose.</strong> The project popup is the project's home base. It answers "what is this, how's it going, and where do I go next." It owns only what is project-level-unique (the About overview, funding, share, deposit, version history) plus a compact status glance, and it launches into the heavy views (Gantt, results, methods) rather than embedding all of them. It opens over the Workbench so you never navigate away.</p>
+  </div>
+
+  <div class="wrap">
+    <div class="rail" id="rail">
+      <h3>Proposed changes — mark each</h3>
+      <div id="changes"></div>
+    </div>
+
+    <div>
+      <div class="compare">
+        <div class="col before">
+          <h3>Before — current full page</h3>
+          <div class="stage" data-stage="before">
+            <div class="page">
+              <div class="colorbar"></div>
+              <div class="page-top">
+                <p class="page-title">DEMO: Engineer FakeYeast for biofuel</p>
+                <div class="page-actions">
+                  <span class="pill">View Timeline</span>
+                  <span class="pill">Version History</span>
+                  <span class="pill redund">Edit</span>
+                  <span class="pill">Share</span>
+                  <span class="pill">Deposit</span>
+                  <span class="pill redund">Archive</span>
+                  <span class="pill redund">Delete</span>
+                </div>
+              </div>
+              <div class="tabs">
+                <span class="tab active">Overview</span>
+                <span class="tab">Results</span>
+                <span class="tab">Methods</span>
+                <span class="tab">Sequences</span>
+                <span class="tab">Goals</span>
+                <span class="tab">Activity</span>
+              </div>
+              <div class="page-body">
+                <div class="skeleton s1"></div>
+                <div class="skeleton s2"></div>
+                <div class="skeleton s3"></div>
+                <div class="skeleton s1"></div>
+                <div class="skeleton s2"></div>
+                <div class="note-bad">Full-page route: navigates you away from the Workbench. Six tabs of dense content. Edit / Archive / Delete duplicate the card kebab.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col after">
+          <h3>After — focused popup over the Workbench</h3>
+          <div class="stage" data-stage="after">
+            <div class="backdrop"></div>
+            <div class="dim"></div>
+            <div class="popup">
+              <div class="pop-color"></div>
+              <div class="pop-head">
+                <p class="pop-title">DEMO: Engineer FakeYeast for biofuel<span class="edit-hint">click to rename</span></p>
+                <span class="kebab" title="Edit / Archive / Delete">⋯</span>
+              </div>
+              <div class="tagrow">
+                <span class="tag">biofuel</span>
+                <span class="tag">yeast</span>
+              </div>
+              <div class="glance">
+                <div class="bar"><i></i></div>
+                <div class="row"><span>7 of 11 experiments</span><span>2 sequences · last active 2d ago</span></div>
+              </div>
+              <div class="sec">
+                <div class="sec-label">About</div>
+                <div class="about">Engineering a fatty-acid pathway in fake yeast for higher biofuel yield. Click to edit this overview.</div>
+              </div>
+              <div class="sec">
+                <span class="funding">◆ NIH R01 · grant linked</span>
+              </div>
+              <div class="sec">
+                <div class="sec-label">Open</div>
+                <div class="doorways">
+                  <span class="doorway">Timeline<span class="arr">→</span></span>
+                  <span class="doorway">Results<span class="arr">→</span></span>
+                  <span class="doorway">Methods<span class="arr">→</span></span>
+                  <span class="doorway">Sequences<span class="arr">→</span></span>
+                </div>
+              </div>
+              <div class="sec">
+                <div class="sec-label">Project actions</div>
+                <div class="actions-unique">
+                  <span class="uaction primary">Share</span>
+                  <span class="uaction">Deposit to repo</span>
+                  <span class="uaction">Version history</span>
+                </div>
+              </div>
+              <div class="sec">
+                <div class="sec-label">Recent activity</div>
+                <div class="activity">Morgan added 3 results · You renamed a task · <span class="seeall">See all →</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="comments-panel">
+    <div class="cwrap">
+      <h3>Comments <span class="hint" id="cmt-hint">— turn on Comment mode, then click anywhere on a mockup to drop a pin</span></h3>
+      <div id="comments"></div>
+    </div>
+  </div>
+
+  <dialog id="export-dialog">
+    <div class="dh">Decisions + comments</div>
+    <textarea id="export-text" readonly></textarea>
+    <div class="df">
+      <button class="btn" id="copy-btn">Copy</button>
+      <button class="btn" id="download-btn">Download .md</button>
+      <button class="btn primary" id="close-export">Close</button>
+    </div>
+  </dialog>
+
+<script>
+const CHANGES = [
+  { id: "popup", t: "Make it a popup, not a page", d: "Open the project over the Workbench instead of routing to a full page, so you never navigate away to glance at a project." },
+  { id: "kebab", t: "Fold Edit / Archive / Delete into one kebab", d: "These already live on the project card kebab. Remove the duplicate top-bar buttons; keep them in a single ⋯ menu." },
+  { id: "glance", t: "Status glance at the top", d: "Progress bar + experiment/task counts + last-active, so 'how's it going' is answered in one line." },
+  { id: "about", t: "About overview as the centerpiece", d: "The project's prose 'about', editable inline. This is the most project-unique content, so it leads." },
+  { id: "doorways", t: "Timeline / Results / Methods / Sequences become launch buttons", d: "Not embedded tabs. The heavy browsing opens in its own full view; the popup stays focused and fast." },
+  { id: "actions", t: "Group the project-unique actions", d: "Share, Deposit to repo, and Version history are things you can ONLY do at the project level. Group them clearly." },
+  { id: "activity", t: "Compact recent activity + 'see all'", d: "Show the last couple of events inline; the full activity feed opens on demand rather than as a permanent tab." },
+  { id: "funding", t: "Funding shown as an inline chip", d: "The linked grant is surfaced as a small chip rather than its own section." },
+];
+
+const LS_VERDICT = "rosProjPopup.verdicts";
+const LS_COMMENTS = "rosProjPopup.comments";
+const load = (k) => { try { return JSON.parse(localStorage.getItem(k) || "{}"); } catch { return {}; } };
+const loadArr = (k) => { try { return JSON.parse(localStorage.getItem(k) || "[]"); } catch { return []; } };
+const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+let verdicts = load(LS_VERDICT);
+let comments = loadArr(LS_COMMENTS);
+
+// Render changes
+const changesEl = document.getElementById("changes");
+CHANGES.forEach((c, i) => {
+  const div = document.createElement("div");
+  div.className = "change";
+  div.dataset.id = c.id;
+  div.innerHTML = `
+    <div class="ct"><span class="num">${i + 1}.</span><span>${c.t}</span></div>
+    <div class="cd">${c.d}</div>
+    <div class="verdict">
+      <button class="agree" data-v="agree">Agree</button>
+      <button class="deny" data-v="deny">Disagree</button>
+    </div>`;
+  changesEl.appendChild(div);
+  const apply = () => {
+    const v = verdicts[c.id];
+    div.classList.toggle("tagged-agree", v === "agree");
+    div.classList.toggle("tagged-deny", v === "deny");
+    div.querySelector(".agree").classList.toggle("sel", v === "agree");
+    div.querySelector(".deny").classList.toggle("sel", v === "deny");
+  };
+  div.querySelectorAll(".verdict button").forEach((b) => {
+    b.addEventListener("click", () => {
+      verdicts[c.id] = verdicts[c.id] === b.dataset.v ? undefined : b.dataset.v;
+      save(LS_VERDICT, verdicts);
+      apply();
+    });
+  });
+  apply();
+});
+
+// Theme toggle
+const themeBtn = document.getElementById("theme-toggle");
+themeBtn.addEventListener("click", () => {
+  const dark = document.documentElement.getAttribute("data-theme") === "dark";
+  document.documentElement.setAttribute("data-theme", dark ? "light" : "dark");
+  themeBtn.textContent = dark ? "Dark" : "Light";
+});
+
+// Comment mode
+let commenting = false;
+const cToggle = document.getElementById("comment-toggle");
+cToggle.addEventListener("click", () => {
+  commenting = !commenting;
+  document.body.classList.toggle("commenting", commenting);
+  cToggle.classList.toggle("on", commenting);
+  cToggle.textContent = "Comment mode: " + (commenting ? "on" : "off");
+});
+
+document.querySelectorAll(".stage").forEach((stage) => {
+  stage.addEventListener("click", (e) => {
+    if (!commenting) return;
+    const rect = stage.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    const note = prompt("Comment on this spot:");
+    if (!note) return;
+    comments.push({ id: Date.now(), stage: stage.dataset.stage, x, y, note });
+    save(LS_COMMENTS, comments);
+    renderPins(); renderComments();
+  });
+});
+
+function renderPins() {
+  document.querySelectorAll(".pin").forEach((p) => p.remove());
+  document.querySelectorAll(".stage").forEach((stage) => {
+    comments.filter((c) => c.stage === stage.dataset.stage).forEach((c) => {
+      const idx = comments.indexOf(c) + 1;
+      const pin = document.createElement("div");
+      pin.className = "pin";
+      pin.style.left = c.x + "%";
+      pin.style.top = c.y + "%";
+      pin.textContent = idx;
+      pin.title = c.note;
+      stage.appendChild(pin);
+    });
+  });
+}
+function renderComments() {
+  const el = document.getElementById("comments");
+  el.innerHTML = "";
+  if (!comments.length) { document.getElementById("cmt-hint").style.display = "inline"; return; }
+  document.getElementById("cmt-hint").style.display = "none";
+  comments.forEach((c, i) => {
+    const div = document.createElement("div");
+    div.className = "cmt";
+    div.innerHTML = `<span class="cn">${i + 1}</span><span>[${c.stage}] ${c.note}</span><button data-id="${c.id}">remove</button>`;
+    div.querySelector("button").addEventListener("click", () => {
+      comments = comments.filter((x) => x.id !== c.id);
+      save(LS_COMMENTS, comments); renderPins(); renderComments();
+    });
+    el.appendChild(div);
+  });
+}
+renderPins(); renderComments();
+
+// Export
+function buildExport() {
+  const lines = ["# Project surface redesign — decisions", ""];
+  CHANGES.forEach((c, i) => {
+    const v = verdicts[c.id];
+    const mark = v === "agree" ? "AGREE" : v === "deny" ? "DISAGREE" : "(no decision)";
+    lines.push(`${i + 1}. [${mark}] ${c.t}`);
+  });
+  lines.push("", "## Comments", "");
+  if (!comments.length) lines.push("(none)");
+  comments.forEach((c, i) => lines.push(`${i + 1}. [${c.stage}] ${c.note}`));
+  return lines.join("\n");
+}
+const dlg = document.getElementById("export-dialog");
+document.getElementById("export-btn").addEventListener("click", () => {
+  document.getElementById("export-text").value = buildExport();
+  dlg.showModal();
+});
+document.getElementById("close-export").addEventListener("click", () => dlg.close());
+document.getElementById("copy-btn").addEventListener("click", () => {
+  navigator.clipboard.writeText(document.getElementById("export-text").value);
+});
+document.getElementById("download-btn").addEventListener("click", () => {
+  const blob = new Blob([buildExport()], { type: "text/markdown" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "project-popup-decisions.md";
+  a.click();
+});
+</script>
+</body>
+</html>
