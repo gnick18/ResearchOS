@@ -333,6 +333,47 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
 - Remaining before submit: app feature-complete + a reviewer demo mode, device
   screenshots, then `eas build`.
 
+### Mobile cosmetic convergence (2026-06-11, 13 of 14 screens locked)
+The mobile app was driven to the signature standard (sky #1AA0E6 primary, coral
+#FF6F61, amber #F59E0B, near-white grey #f2f3f7 canvas, 34px/800 large titles,
+grouped containers with hairlines) via an ideal-vs-live convergence.
+- **The artifact + loop.** `docs/mockups/ideal-vs-current.html` is the bar, a
+  side-by-side of an authored ideal frame (left) vs a live dev-client screenshot
+  (right) for every tab, popup, and sub-screen; an entry carries `final:true` for a
+  green Locked badge. It is also served from `/private/tmp/ros-cmp/docs/mockups` on
+  :8100, so MIRROR any edit there. Rubric is `docs/mockups/CONVERGENCE_RUBRIC.md`;
+  section 0 is the bidirectional prime directive (the live app is sometimes RIGHT,
+  so the stale ideal gets regenerated, not the reverse, e.g. the chooser's semantic
+  amber/green/violet icons and clearer section labels beat the old sky/coral ideal).
+  The loop, audit a screen vs its ideal, author a one-screen fix branch off
+  `origin/main`, the mobile master clean-merges + tsc-checks + device-verifies, then
+  re-capture and set `final:true`. Grant is the lock gate (he reviews redesigns as
+  an options mockup first, e.g. `docs/mockups/popup-decisions-options.html`).
+- **Locked (13):** Notebook, Inventory, Timer, Calc x5 (Scientific/Molarity/
+  Dilution/Serial/Buffer), Settings, Send/Inbox, Connect, Quick note, Wiki rendered
+  article. Branches landed + merged: connect-convergence, calc-accent-callouts,
+  settings-toggle-color, quicknote-inbox-discard, wiki-article-card,
+  chooser-bigger-icons-inbox.
+- **The only open item:** the chooser sheet re-shoot + a footer-button-height
+  judgement (the reused gray square icon may read too tall in its new dashed
+  button), both on Grant's iPhone pass. The chooser app change is already merged; it
+  CANNOT be captured on the emulator because `NotebookChooser` only opens with a real
+  paired session that has notebooks (`userX25519PubHex && nbList.length > 0`), and
+  demo mode has neither, so captures route straight to the Inbox and the sheet never
+  opens. Wiki base stays unlocked pending the post-launch Ask AI chip.
+- **Emulator gotchas worth inheriting.** (1) Drive one emulator with
+  `adb -s emulator-5554`; a physical phone can share the bus. (2) The dev-client runs
+  main over Metro 8081, so this is land-then-verify, do not preview an unmerged
+  branch. (3) The doc renders the live screenshot downscaled ~3.6x into the same
+  300px frame, so a live element ALWAYS looks smaller than the native-rendered ideal,
+  judge on-device sizing on the device, never off the side-by-side. (4) Emulator taps
+  can queue and fire on a stale screen (this once tripped the camera flow), so prefer
+  deep-links, `researchos://note` and `researchos://wiki/<leaf-slug>` work but a wiki
+  section slug or two-segment path bounces to the default tab. (5) Run on a device
+  with `cd mobile && npx expo start --dev-client` (expo-dev-client is a dep so the QR
+  targets the dev build, not Expo Go); mirror an Android screen for a demo with
+  scrcpy (`brew install scrcpy`, then `scrcpy`).
+
 ### Telegram (live)
 - One bot per user. Token paired via `TelegramPairingModal`, written to `users/<u>/_telegram.json` with an auto-appended `.gitignore` rule so it doesn't get committed.
 - `lib/telegram/use-telegram-polling.ts` polls `getUpdates`. New photos land in `users/{user}/inbox/Images/` with `.json` sidecar containing caption / sender / received_at.
