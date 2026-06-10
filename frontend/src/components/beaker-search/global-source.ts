@@ -22,6 +22,7 @@
 // Voice in comments and copy, no em-dashes, no en-dashes, no emojis, no
 // mid-sentence colons.
 
+import MiniSearch from "minisearch";
 import { fuzzyScore } from "@/components/sequences/editor-commands";
 import type { GlobalIndexEntry } from "./global-index";
 
@@ -112,6 +113,61 @@ function recencyBoost(recencyAt: number, now: number): number {
   return Math.min(4, weeksFreshness);
 }
 
+/** A globally-unique index id for an entry. The entry `key` is unique only
+ *  within a type (a task and a method could share an "{owner}:{id}" key), so the
+ *  MiniSearch id folds the type in. */
+function iidOf(entry: GlobalIndexEntry): string {
+  return `${entry.type}::${entry.key}`;
+}
+
+// ── Additive fuzzy pass (typo + OCR tolerance) ───────────────────────────────
+// A MiniSearch inverted index gives genuine edit-distance + prefix matching the
+// strict subsequence pass cannot. It runs as a SECOND tier ranked below every
+// strict hit (see rankGlobalEntries), so existing results never move, only extra
+// typo/OCR matches are appended. The index is memoized by the entries array
+// identity, so it rebuilds on a data change, not per keystroke. Module-level
+// cache in an otherwise-pure file, a deterministic perf cache keyed by identity.
+let cachedEntries: GlobalIndexEntry[] | null = null;
+let cachedIndex: MiniSearch | null = null;
+let cachedByIid: Map<string, GlobalIndexEntry> | null = null;
+
+function getFuzzyIndex(entries: GlobalIndexEntry[]): MiniSearch | null {
+  if (cachedEntries === entries && cachedIndex) return cachedIndex;
+  try {
+    const byIid = new Map<string, GlobalIndexEntry>();
+    const docs = entries.map((e) => {
+      const iid = iidOf(e);
+      byIid.set(iid, e);
+      // `ocr` is the scanned-handwriting text (present once notes join the
+      // index); absent on the core record types, indexed as empty.
+      return {
+        iid,
+        label: e.label,
+        haystack: e.haystack,
+        ocr: (e as { ocr?: string }).ocr ?? "",
+      };
+    });
+    const ms = new MiniSearch({
+      idField: "iid",
+      fields: ["label", "haystack", "ocr"],
+      // fuzzy 0.3 catches ~2-edit OCR garble (cyels -> cycles) without flagging
+      // short words; prefix matches partial typing; the name field is boosted so
+      // a name hit outranks a body/ocr hit within the fuzzy tier.
+      searchOptions: { fuzzy: 0.3, prefix: true, boost: { label: 3, haystack: 1, ocr: 1 } },
+    });
+    ms.addAll(docs);
+    cachedEntries = entries;
+    cachedIndex = ms;
+    cachedByIid = byIid;
+    return ms;
+  } catch {
+    cachedEntries = null;
+    cachedIndex = null;
+    cachedByIid = null;
+    return null;
+  }
+}
+
 /** The full ranked score for one entry against the query at time `now`. The raw
  *  fuzzy score over the precomputed haystack, plus the type nudge, plus the
  *  recency boost. Returns null when fuzzyScore returns null (no match), so the
@@ -163,16 +219,48 @@ export function rankGlobalEntries(
 
   const { now, activePageType } = options;
 
-  // 1. Score + drop non-matches + drop the active page's own type.
-  const scored: Array<{ entry: GlobalIndexEntry; score: number }> = [];
+  // 1. Score + drop non-matches + drop the active page's own type. These are the
+  //    STRICT (subsequence) matches, the exact behavior as before.
+  const scored: Array<{ entry: GlobalIndexEntry; score: number; strict: boolean }> = [];
+  const seen = new Set<string>();
   for (const entry of entries) {
     if (activePageType != null && entry.type === activePageType) continue;
     const score = scoreGlobalEntry(trimmed, entry, now);
-    if (score != null) scored.push({ entry, score });
+    if (score != null) {
+      scored.push({ entry, score, strict: true });
+      seen.add(iidOf(entry));
+    }
   }
 
-  // 2. Sort best-first globally so both caps keep the strongest entries.
-  scored.sort((a, b) => b.score - a.score);
+  // 1b. Additive fuzzy pass. MiniSearch contributes the edit-distance / prefix
+  //     matches the strict pass missed (typos, OCR garble), each only if not
+  //     already a strict hit and not the active page's own type. Tagged
+  //     strict:false so they rank as a tier BELOW every strict hit. Wrapped so a
+  //     failure leaves the strict-only result exactly as before.
+  const fuzzy = getFuzzyIndex(entries);
+  if (fuzzy && cachedByIid) {
+    try {
+      for (const hit of fuzzy.search(trimmed)) {
+        const entry = cachedByIid.get(hit.id as string);
+        if (!entry) continue;
+        if (activePageType != null && entry.type === activePageType) continue;
+        const iid = iidOf(entry);
+        if (seen.has(iid)) continue;
+        scored.push({ entry, score: hit.score, strict: false });
+        seen.add(iid);
+      }
+    } catch {
+      // keep the strict-only result
+    }
+  }
+
+  // 2. Sort: strict tier first (existing best-first order preserved exactly),
+  //    fuzzy tier below it (best-first by MiniSearch score). Keeping the tiers
+  //    separate means a typo match can never outrank an exact match.
+  scored.sort((a, b) => {
+    if (a.strict !== b.strict) return a.strict ? -1 : 1;
+    return b.score - a.score;
+  });
 
   // 3. Per-type cap (at most 5 of any one type) AND overall cap (at most 12),
   //    walking the globally-sorted list so the survivors are the top-scored set

@@ -259,3 +259,38 @@ describe("activePageTypeForPath", () => {
     expect(activePageTypeForPath("/methods/")).toBe("method");
   });
 });
+
+describe("additive fuzzy pass (MiniSearch typo + OCR tolerance)", () => {
+  it("finds a record by a typo'd query the strict subsequence pass misses", () => {
+    const entries = [
+      entry({ type: "task", key: "self:10", label: "PCR 30 cycles", haystack: "pcr 30 cycles 72c" }),
+      entry({ type: "project", key: "self:11", label: "Plasmid prep", haystack: "plasmid prep" }),
+    ];
+    // "cyels" is NOT a subsequence of "cycles" (the l/e are out of order), so the
+    // strict pass returns null; only an edit-distance pass can match it. This is
+    // exactly the OCR-garble case (cycles -> cyels).
+    const strict = scoreGlobalEntry("cyels", entries[0], NOW);
+    expect(strict).toBeNull();
+    const groups = rankGlobalEntries(entries, "cyels", { now: NOW, activePageType: null });
+    const found = allEntries(groups);
+    expect(found.map((e) => e.key)).toContain("self:10");
+  });
+
+  it("ranks an exact strict match above a fuzzy-only match", () => {
+    const entries = [
+      entry({ type: "method", key: "self:20", label: "protocol", haystack: "protocol" }),
+      entry({ type: "method", key: "self:21", label: "protacol typo doc", haystack: "protacol typo doc" }),
+    ];
+    const groups = rankGlobalEntries(entries, "protocol", { now: NOW, activePageType: null });
+    const found = allEntries(groups);
+    // Both surface (exact + fuzzy), but the exact strict match leads.
+    expect(found[0].key).toBe("self:20");
+    expect(found.map((e) => e.key)).toContain("self:21");
+  });
+
+  it("matches a partial prefix the strict pass would also catch, without regressing", () => {
+    const entries = [entry({ type: "task", key: "self:30", label: "Miniprep batch", haystack: "miniprep batch" })];
+    const groups = rankGlobalEntries(entries, "minip", { now: NOW, activePageType: null });
+    expect(allEntries(groups).map((e) => e.key)).toContain("self:30");
+  });
+});

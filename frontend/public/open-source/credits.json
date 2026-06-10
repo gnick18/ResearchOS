@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-06-10T04:45:38.627Z",
+  "generatedAt": "2026-06-10T04:58:07.904Z",
   "appVersion": "3.5.0",
-  "dependencyCount": 61,
+  "dependencyCount": 63,
   "licenseCounts": {
     "Apache-2.0": 3,
-    "MIT": 46,
+    "MIT": 48,
     "ISC": 8,
     "(MIT AND BSD)": 1,
     "BSD-3-Clause": 1,
@@ -436,6 +436,12 @@
       "repo": "https://github.com/jorenbroekema/expr-eval"
     },
     {
+      "name": "fastest-levenshtein",
+      "version": "1.0.16",
+      "license": "MIT",
+      "repo": "https://github.com/ka-weihe/fastest-levenshtein"
+    },
+    {
       "name": "fflate",
       "version": "0.8.3",
       "license": "MIT",
@@ -488,6 +494,12 @@
       "version": "18.0.4",
       "license": "MIT",
       "repo": "https://github.com/markedjs/marked"
+    },
+    {
+      "name": "minisearch",
+      "version": "7.2.0",
+      "license": "MIT",
+      "repo": "https://github.com/lucaong/minisearch"
     },
     {
       "name": "next",
