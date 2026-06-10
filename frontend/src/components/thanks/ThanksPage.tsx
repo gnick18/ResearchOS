@@ -56,10 +56,15 @@ interface Tier {
   featured?: boolean;
 }
 
+// Recognition tiers for supporting the open-source PROJECT through GitHub
+// Sponsors. Deliberately named in a patron space (Backer / Patron / Benefactor),
+// NOT after lab or org sizes, so they are never confused with the in-app storage
+// tiers (Lab / Research / Department), which are a separate Stripe purchase and
+// the only thing that grants cloud storage. These perks are recognition only.
 const TIERS: Tier[] = [
   {
-    id: "bench",
-    name: "Bench",
+    id: "backer",
+    name: "Backer",
     price: "5",
     perks: [
       "The GitHub Sponsor badge on your profile",
@@ -67,38 +72,38 @@ const TIERS: Tier[] = [
     ],
   },
   {
-    id: "lab",
-    name: "Lab",
+    id: "patron",
+    name: "Patron",
     price: "25",
     featured: true,
     perks: [
-      "Everything in Bench",
+      "Everything in Backer",
       "Your name or handle in the repo's SPONSORS.md, where contributors see it",
-      "Your lab's logo and link on the welcome page and wiki, if you want it shown",
+      "Your logo and link on the welcome page and wiki, if you want it shown",
     ],
   },
   {
-    id: "institute",
-    name: "Institute",
+    id: "benefactor",
+    name: "Benefactor",
     price: "100",
     perks: [
-      "Everything in Lab",
-      "Your lab's logo featured first and larger across the welcome page and wiki, if you want it shown",
+      "Everything in Patron",
+      "Your logo featured first and larger across the welcome page and wiki, if you want it shown",
     ],
   },
 ];
 
 function TierBeaker({ id }: { id: string }) {
   // Each tier is continuously lively (no jumpy one-shot replays). Excitement
-  // escalates through the motion itself: Bench is the calm alive idle (sway,
-  // blink, gaze drift), Lab waves both arms in the air, Institute twirls. The
+  // escalates through the motion itself, Backer is the calm alive idle (sway,
+  // blink, gaze drift), Patron waves both arms in the air, Benefactor twirls. The
   // double-wave and twirl poses are infinite loops added to the official
   // BeakerBot, and all three honor prefers-reduced-motion via the component's
   // own animation gate.
-  if (id === "lab") {
+  if (id === "patron") {
     return <BeakerBot pose="double-wave" animated className="h-24 w-auto" ariaLabel="" />;
   }
-  if (id === "institute") {
+  if (id === "benefactor") {
     return <BeakerBot pose="twirl" animated className="h-24 w-auto" ariaLabel="" />;
   }
   return <BeakerBot pose="idle" alive animated className="h-24 w-auto" ariaLabel="" />;
@@ -112,7 +117,7 @@ function TierCard({ tier }: { tier: Tier }) {
         featured ? "border-brand-sky ring-1 ring-brand-sky" : "border-border"
       }`}
     >
-      {tier.id === "institute" ? <ConfettiLayer /> : null}
+      {tier.id === "benefactor" ? <ConfettiLayer /> : null}
       {featured ? (
         <span className="relative mx-auto mb-2.5 inline-block rounded-full bg-brand-sky/10 px-2.5 py-1 text-meta font-bold uppercase tracking-wider text-brand-sky">
           Most chosen
@@ -338,9 +343,11 @@ export default function ThanksPage() {
             Fund the science you want to exist
           </h2>
           <p className="mb-7 max-w-2xl text-title text-foreground-muted">
-            ResearchOS has no paid tier and no investors deciding its direction.
-            Sponsorship covers hosting and development so it stays free and open.
-            GitHub handles the rest.
+            ResearchOS is free and open source, with no investors steering it.
+            Sponsoring here is a thank-you to the project that helps cover hosting
+            and keeps the tool free for labs that cannot pay. It is separate from
+            the optional cloud storage a lab can add in-app, and it grants
+            recognition, not storage. GitHub handles the checkout.
           </p>
           <div className="grid gap-5 md:grid-cols-3">
             {TIERS.map((tier) => (

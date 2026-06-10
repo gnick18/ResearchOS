@@ -34,16 +34,16 @@ beforeEach(async () => {
 });
 
 describe("SponsorStrip", () => {
-  it("renders nothing when there are no lab or institute sponsors", () => {
-    setSponsors([{ name: "Tiny Lab", tier: "bench" }]);
+  it("renders nothing when there are no patron or benefactor sponsors", () => {
+    setSponsors([{ name: "Tiny Lab", tier: "backer" }]);
     const { container } = render(<SponsorStrip variant="welcome" />);
     expect(container.firstChild).toBeNull();
     expect(screen.queryByText(/supported by/i)).toBeNull();
   });
 
-  it("renders an institute logo wrapped in a link", () => {
+  it("renders a benefactor logo wrapped in a link", () => {
     setSponsors([
-      { name: "Big Institute", tier: "institute", logo: "/big.svg", url: "https://example.org" },
+      { name: "Big Institute", tier: "benefactor", logo: "/big.svg", url: "https://example.org" },
     ]);
     render(<SponsorStrip variant="welcome" />);
     const link = screen.getByRole("link");
@@ -54,11 +54,11 @@ describe("SponsorStrip", () => {
     expect(logo).toHaveAttribute("src", "/big.svg");
   });
 
-  it("sorts institute before lab and drops bench", () => {
+  it("sorts benefactor before patron and drops backer", () => {
     setSponsors([
-      { name: "A Lab", tier: "lab" },
-      { name: "Bench Backer", tier: "bench" },
-      { name: "Z Institute", tier: "institute" },
+      { name: "A Lab", tier: "patron" },
+      { name: "Bench Backer", tier: "backer" },
+      { name: "Z Institute", tier: "benefactor" },
     ]);
     const ordered = featuredSponsors();
     expect(ordered.map((s) => s.name)).toEqual(["Z Institute", "A Lab"]);

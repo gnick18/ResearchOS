@@ -17,7 +17,7 @@ export interface Sponsor {
   name: string;
   url?: string;
   logo?: string;
-  tier: "bench" | "lab" | "institute";
+  tier: "backer" | "patron" | "benefactor";
 }
 
 export const sponsors = sponsorsData as Sponsor[];

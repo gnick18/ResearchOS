@@ -16,7 +16,7 @@ describe("sponsors.json shape", () => {
   });
 
   it("every entry has a name and a valid tier", () => {
-    const valid = new Set(["bench", "lab", "institute"]);
+    const valid = new Set(["backer", "patron", "benefactor"]);
     for (const raw of sponsorsData as Sponsor[]) {
       expect(typeof raw.name).toBe("string");
       expect(raw.name.length).toBeGreaterThan(0);

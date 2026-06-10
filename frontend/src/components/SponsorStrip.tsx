@@ -16,11 +16,11 @@ import { sponsors, type Sponsor } from "@/data/sponsors";
 
 type Variant = "welcome" | "wiki-footer";
 
-/** Institute first, then Lab. Bench is dropped entirely. */
+/** Benefactor first, then Patron. Backer is dropped entirely. */
 function featuredSponsors(): Sponsor[] {
-  const order: Record<string, number> = { institute: 0, lab: 1 };
+  const order: Record<string, number> = { benefactor: 0, patron: 1 };
   return sponsors
-    .filter((s) => s.tier === "lab" || s.tier === "institute")
+    .filter((s) => s.tier === "patron" || s.tier === "benefactor")
     .sort((a, b) => order[a.tier] - order[b.tier]);
 }
 
@@ -31,15 +31,15 @@ function SponsorItem({
   sponsor: Sponsor;
   variant: Variant;
 }) {
-  const isInstitute = sponsor.tier === "institute";
+  const isBenefactor = sponsor.tier === "benefactor";
 
-  // Institute renders larger than Lab; the whole strip is more compact in the
-  // wiki footer than on the welcome page.
+  // Benefactor renders larger than Patron; the whole strip is more compact in
+  // the wiki footer than on the welcome page.
   let logoHeight: string;
   if (variant === "wiki-footer") {
-    logoHeight = isInstitute ? "h-8" : "h-6";
+    logoHeight = isBenefactor ? "h-8" : "h-6";
   } else {
-    logoHeight = isInstitute ? "h-12" : "h-8";
+    logoHeight = isBenefactor ? "h-12" : "h-8";
   }
 
   const inner = sponsor.logo ? (
@@ -51,7 +51,7 @@ function SponsorItem({
   ) : (
     <span
       className={`font-semibold text-foreground ${
-        isInstitute ? "text-title" : "text-body"
+        isBenefactor ? "text-title" : "text-body"
       }`}
     >
       {sponsor.name}
