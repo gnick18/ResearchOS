@@ -1,7 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { retentionApi } from "@/lib/local-api";
+import {
+  DEFAULT_RETENTION_YEARS,
+  RETENTION_TARGETS,
+  retentionTargetLabel,
+  targetHoldsBytes,
+  disposalEligibleDate,
+  type RetentionTarget,
+} from "@/lib/lab/retention";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/AppShell";
@@ -1412,6 +1421,177 @@ function PurchaseRoutingSection({ settings, update }: SectionProps) {
 }
 
 /**
+ * Retention registry (LAB_ARCHIVE_CONTINUITY.md phase 1a). The PI's compliance
+ * dashboard: one row per retained unit recording where a member's data lives
+ * (R2 / hard drive / institutional drive), for how long, and when it becomes
+ * eligible for disposition. Phase 1a moves no bytes, the PI records entries by
+ * hand; the export that fills the manifest comes in phase 2. Lab-head only.
+ */
+function RetentionRegistrySection({ currentUser }: { currentUser: string }) {
+  const queryClient = useQueryClient();
+  const { data: entries = [] } = useQuery({
+    queryKey: ["lab-retention"],
+    queryFn: () => retentionApi.list(),
+  });
+
+  const EMPTY = {
+    member: "",
+    unit: "All data",
+    target: "r2" as RetentionTarget,
+    location: "",
+    retention_years: String(DEFAULT_RETENTION_YEARS),
+    note: "",
+  };
+  const [form, setForm] = useState({ ...EMPTY });
+  const [busy, setBusy] = useState(false);
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["lab-retention"] });
+
+  const add = async () => {
+    if (!form.member.trim()) return;
+    setBusy(true);
+    try {
+      const years = parseInt(form.retention_years, 10);
+      await retentionApi.create({
+        member: form.member.trim(),
+        unit: form.unit.trim() || "All data",
+        target: form.target,
+        location: form.location.trim() || retentionTargetLabel(form.target),
+        archived_at: new Date().toISOString(),
+        archived_by: currentUser,
+        retention_years: Number.isFinite(years) ? years : DEFAULT_RETENTION_YEARS,
+        manifest_sha256: null,
+        note: form.note.trim() || null,
+      });
+      await invalidate();
+      setForm({ ...EMPTY });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (id: number) => {
+    await retentionApi.delete(id);
+    await invalidate();
+  };
+
+  const input = "rounded-lg border border-border bg-surface px-2 py-1.5 text-meta";
+
+  return (
+    <SectionShell
+      title="Data retention"
+      description="Record where each member's lab data is retained for NIH and institutional compliance, wherever the bytes live. ResearchOS tracks the retention, it does not have to hold the data."
+      searchKeywords="retention archive NIH compliance grant data member hard drive institutional disposition audit"
+    >
+      {entries.length === 0 ? (
+        <p className="text-meta text-foreground-muted">
+          No retention records yet. Add one below as members finish or leave.
+        </p>
+      ) : (
+        <table className="w-full text-left text-meta">
+          <thead>
+            <tr className="border-b border-border text-foreground-muted">
+              <th className="px-2 py-2 font-semibold">Member</th>
+              <th className="px-2 py-2 font-semibold">Unit</th>
+              <th className="px-2 py-2 font-semibold">Retained at</th>
+              <th className="px-2 py-2 font-semibold">Recorded</th>
+              <th className="px-2 py-2 font-semibold">Keep until</th>
+              <th className="px-2 py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map((e) => (
+              <tr key={e.id} className="border-b border-border last:border-0">
+                <td className="px-2 py-2 text-foreground">{e.member}</td>
+                <td className="px-2 py-2 text-foreground-muted">{e.unit}</td>
+                <td className="px-2 py-2 text-foreground-muted">
+                  {retentionTargetLabel(e.target)}
+                  {e.location && !targetHoldsBytes(e.target) ? ` — ${e.location}` : ""}
+                </td>
+                <td className="px-2 py-2 text-foreground-muted">
+                  {e.archived_at.slice(0, 10)}
+                </td>
+                <td className="px-2 py-2 text-foreground-muted">
+                  {disposalEligibleDate(e.archived_at, e.retention_years)}
+                </td>
+                <td className="px-2 py-2 text-right">
+                  <button
+                    type="button"
+                    onClick={() => remove(e.id)}
+                    className="text-meta text-foreground-muted hover:text-rose-600"
+                  >
+                    Remove
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <input
+          className={input}
+          placeholder="Member"
+          value={form.member}
+          onChange={(e) => setForm((f) => ({ ...f, member: e.target.value }))}
+        />
+        <input
+          className={input}
+          placeholder="Unit (e.g. All data)"
+          value={form.unit}
+          onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
+        />
+        <select
+          className={input}
+          value={form.target}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, target: e.target.value as RetentionTarget }))
+          }
+        >
+          {RETENTION_TARGETS.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
+        </select>
+        <input
+          className={input}
+          placeholder={targetHoldsBytes(form.target) ? "ResearchOS R2" : "Location / drive"}
+          value={form.location}
+          onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
+        />
+        <input
+          className={input}
+          type="number"
+          min={0}
+          placeholder="Keep (years)"
+          value={form.retention_years}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, retention_years: e.target.value }))
+          }
+        />
+        <input
+          className={input}
+          placeholder="Note (custodian, box...)"
+          value={form.note}
+          onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
+        />
+      </div>
+      <button
+        type="button"
+        onClick={add}
+        disabled={busy || !form.member.trim()}
+        className="mt-3 rounded-lg bg-blue-600 px-3 py-1.5 text-body font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+      >
+        {busy ? "Recording..." : "Record retention"}
+      </button>
+    </SectionShell>
+  );
+}
+
+/**
  * Lab Head hub Phase 1 (LAB_HEAD_HUB.md, 2026-06-10): a small uppercase label
  * that visually clusters the Lab Mode cards into groups (People / Oversight /
  * Account) instead of a flat stack. It hides itself while a settings search is
@@ -1453,6 +1633,7 @@ function HubGroupHeading({ children }: { children: React.ReactNode }) {
 function LabModeTabContent({
   settings,
   update,
+  currentUser,
 }: {
   settings: UserSettings;
   update: (patch: Partial<UserSettings>) => Promise<void>;
@@ -1479,11 +1660,20 @@ function LabModeTabContent({
         </div>
       )}
 
+      {/* Data & retention: the lab-archive registry module (lab-head only). The
+          PI's compliance dashboard recording where each member's data is
+          retained. LAB_ARCHIVE_CONTINUITY.md. */}
+      {isLabHead && (
+        <div className="space-y-4">
+          <HubGroupHeading>Data &amp; retention</HubGroupHeading>
+          <RetentionRegistrySection currentUser={currentUser} />
+        </div>
+      )}
+
       {/* Purchasing: the department-routing module (lab-head only). The card
           itself is how a PI enables/configures routing, so it shows whenever the
           viewer is a lab head; the "Send to department" affordance on purchases
-          stays hidden until routing.enabled is true. Reserved slot for the Data &
-          retention module (LAB_ARCHIVE_CONTINUITY.md) still to come. */}
+          stays hidden until routing.enabled is true. */}
       {isLabHead && (
         <div className="space-y-4">
           <HubGroupHeading>Purchasing</HubGroupHeading>
