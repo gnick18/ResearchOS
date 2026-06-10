@@ -252,6 +252,38 @@ function EntityCard({
           />,
         )}
         {field(
+          "D-U-N-S number",
+          <>
+            <input
+              className={input}
+              placeholder="9-digit Dun & Bradstreet ID"
+              value={form.duns ?? ""}
+              onChange={(e) => setForm({ ...form, duns: e.target.value || null })}
+            />
+            <p className="mt-1 text-meta text-foreground-muted">
+              Required to enroll the Apple and Google Play accounts under the LLC
+              as an organization.
+            </p>
+          </>,
+        )}
+        {field(
+          "Business phone",
+          <>
+            <input
+              className={input}
+              placeholder="+1 (608) 895-6655"
+              value={form.businessPhone ?? ""}
+              onChange={(e) =>
+                setForm({ ...form, businessPhone: e.target.value || null })
+              }
+            />
+            <p className="mt-1 text-meta text-foreground-muted">
+              The LLC public line (Tello prepaid eSIM), the verified contact for
+              the Apple and Google Play developer accounts.
+            </p>
+          </>,
+        )}
+        {field(
           "Apple enrollment ID",
           <input
             className={input}

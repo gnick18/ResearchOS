@@ -17,6 +17,14 @@ export interface EntityConfig {
   formationDate: string | null;
   ein: string | null;
   registeredAgent: string | null;
+  /** Dun & Bradstreet D-U-N-S number, the 9-digit business identifier. Required
+   *  to enroll the Apple Developer Program and Google Play accounts under the LLC
+   *  as an organization. Null until obtained. */
+  duns: string | null;
+  /** The LLC business phone number (the Tello prepaid line). Public, it shows on
+   *  the app store listings and is the verified contact for the Apple and Google
+   *  Play developer accounts. Null until set. */
+  businessPhone: string | null;
   /** Apple Developer Program enrollment ID (e.g. "PTR262UUT9"), for the iOS app. */
   appleEnrollmentId: string | null;
   /** ISO date the Apple Developer Program was enrolled, anchors the $99/yr
@@ -153,6 +161,8 @@ export const DEFAULT_ENTITY: EntityConfig = {
   formationDate: null,
   ein: null,
   registeredAgent: null,
+  duns: null,
+  businessPhone: null,
   appleEnrollmentId: null,
   appleEnrollmentDate: null,
   googlePlayAccount: null,

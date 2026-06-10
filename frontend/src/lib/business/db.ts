@@ -73,6 +73,8 @@ export async function ensureBusinessSchema(): Promise<void> {
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS formation_date date`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS ein text`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS registered_agent text`;
+  await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS duns text`;
+  await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS business_phone text`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS apple_enrollment_id text`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS apple_enrollment_date date`;
   await sql`ALTER TABLE business_entity ADD COLUMN IF NOT EXISTS google_play_account text`;
@@ -120,6 +122,7 @@ export async function ensureBusinessSchema(): Promise<void> {
     )
   `;
   await seedDefaultsOnce(sql);
+  await seedKnownExpensesOnce();
 }
 
 // The known facts (from the filed Articles, entity ID R098462, and the
@@ -128,10 +131,12 @@ export async function ensureBusinessSchema(): Promise<void> {
 // entity row is created, so re-running the schema never overwrites edits and
 // deleting tasks never re-seeds them.
 // Only PUBLIC-record facts are seeded here (entity ID, formation date, agent
-// are all public in the WI DFI registry). Sensitive values like the EIN and
-// bank details are NOT hardcoded, this file is in the open-source repo. Enter
-// those in the /admin/business entity card; they live only in the private Neon
-// DB, never in source.
+// are all public in the WI DFI registry; the D-U-N-S is a public business
+// identifier, printed on credit reports and handed to vendors, so it is seeded
+// too, Grant's call 2026-06-10). Sensitive values like the EIN and bank details
+// are NOT hardcoded, this file is in the open-source repo. Enter those in the
+// /admin/business entity card; they live only in the private Neon DB, never in
+// source.
 const SEED_ENTITY = {
   legalName: "ResearchOS LLC",
   state: "Wisconsin",
@@ -139,6 +144,8 @@ const SEED_ENTITY = {
   formationDate: "2026-06-01",
   ein: null as string | null,
   registeredAgent: "Grant R. Nickles (self; WI Form 13 filed, Northwest cancelled)",
+  duns: "145038194",
+  businessPhone: "+1 (608) 895-6655",
   bankLabel: null as string | null,
   docsFolder: "~/Documents/ResearchOS_LLC/",
   salesTaxStatus: "pending",
@@ -172,6 +179,8 @@ async function seedDefaultsOnce(
                           THEN ${SEED_ENTITY.legalName} ELSE legal_name END,
         entity_id = COALESCE(entity_id, ${SEED_ENTITY.entityId}),
         ein = COALESCE(ein, ${SEED_ENTITY.ein}),
+        duns = COALESCE(duns, ${SEED_ENTITY.duns}),
+        business_phone = COALESCE(business_phone, ${SEED_ENTITY.businessPhone}),
         formation_date = COALESCE(formation_date, ${SEED_ENTITY.formationDate}::date),
         sales_tax_status = COALESCE(sales_tax_status, ${SEED_ENTITY.salesTaxStatus})
       WHERE id = 1
@@ -181,16 +190,41 @@ async function seedDefaultsOnce(
   await sql`
     INSERT INTO business_entity
       (id, legal_name, state, entity_id, formation_date, ein, registered_agent,
-       bank_label, docs_folder, sales_tax_status, sales_tax_note, reserve_pct)
+       duns, business_phone, bank_label, docs_folder, sales_tax_status, sales_tax_note, reserve_pct)
     VALUES
       (1, ${SEED_ENTITY.legalName}, ${SEED_ENTITY.state}, ${SEED_ENTITY.entityId},
        ${SEED_ENTITY.formationDate}, ${SEED_ENTITY.ein}, ${SEED_ENTITY.registeredAgent},
-       ${SEED_ENTITY.bankLabel}, ${SEED_ENTITY.docsFolder}, ${SEED_ENTITY.salesTaxStatus},
+       ${SEED_ENTITY.duns}, ${SEED_ENTITY.businessPhone}, ${SEED_ENTITY.bankLabel}, ${SEED_ENTITY.docsFolder}, ${SEED_ENTITY.salesTaxStatus},
        ${SEED_ENTITY.salesTaxNote}, ${SEED_ENTITY.reservePct})
     ON CONFLICT (id) DO NOTHING
   `;
   for (let i = 0; i < SEED_TASKS.length; i += 1) {
     await sql`INSERT INTO business_tasks (label, sort) VALUES (${SEED_TASKS[i]}, ${i})`;
+  }
+}
+
+// Known one-time / launch expenses that should always appear in the ledger,
+// seeded idempotently by source so a re-run or a page reload never duplicates
+// them. The Tello eSIM is the LLC prepaid mobile line bought 2026-06-10 for the
+// app-store developer accounts (Google Play and Apple both require a real,
+// verifiable mobile number, and VoIP numbers are rejected). amountCents is the
+// actual charged total including tax. Deleting the row and reloading re-seeds it,
+// by design, the same as the auto-seeded dev-account fees.
+const KNOWN_EXPENSE_SEEDS: NewLedgerEntry[] = [
+  {
+    date: "2026-06-10",
+    direction: "out",
+    category: "Dev accounts",
+    amountCents: 2468,
+    note: "Tello prepaid eSIM, the LLC business phone line for the Google Play and Apple developer accounts (Pay As You Go, no monthly fee)",
+    taxCategory: "office",
+    source: "tello-esim-2026-06-10",
+  },
+];
+
+async function seedKnownExpensesOnce(): Promise<void> {
+  for (const entry of KNOWN_EXPENSE_SEEDS) {
+    await addLedgerEntryBySource(entry);
   }
 }
 
@@ -201,6 +235,8 @@ type EntityRow = {
   formation_date: string | null;
   ein: string | null;
   registered_agent: string | null;
+  duns: string | null;
+  business_phone: string | null;
   apple_enrollment_id: string | null;
   apple_enrollment_date: string | null;
   google_play_account: string | null;
@@ -234,6 +270,8 @@ function rowToEntity(r: EntityRow): EntityConfig {
     formationDate: toIsoDateString(r.formation_date),
     ein: r.ein ?? null,
     registeredAgent: r.registered_agent ?? null,
+    duns: r.duns ?? null,
+    businessPhone: r.business_phone ?? null,
     appleEnrollmentId: r.apple_enrollment_id ?? null,
     appleEnrollmentDate: toIsoDateString(r.apple_enrollment_date),
     googlePlayAccount: r.google_play_account ?? null,
@@ -251,7 +289,7 @@ export async function getEntity(): Promise<EntityConfig> {
   const sql = getSql();
   const rows = (await sql`
     SELECT legal_name, state, entity_id, formation_date, ein, registered_agent,
-           apple_enrollment_id, apple_enrollment_date, google_play_account,
+           duns, business_phone, apple_enrollment_id, apple_enrollment_date, google_play_account,
            google_enrollment_date, bank_label, docs_folder, sales_tax_status,
            sales_tax_note, reserve_pct
     FROM business_entity WHERE id = 1
@@ -266,13 +304,13 @@ export async function upsertEntity(config: EntityConfig): Promise<EntityConfig> 
   await sql`
     INSERT INTO business_entity
       (id, legal_name, state, entity_id, formation_date, ein, registered_agent,
-       apple_enrollment_id, apple_enrollment_date, google_play_account,
+       duns, business_phone, apple_enrollment_id, apple_enrollment_date, google_play_account,
        google_enrollment_date, bank_label,
        docs_folder, sales_tax_status, sales_tax_note, reserve_pct, updated_at)
     VALUES
       (1, ${config.legalName}, ${config.state}, ${config.entityId},
        ${config.formationDate}, ${config.ein}, ${config.registeredAgent},
-       ${config.appleEnrollmentId}, ${config.appleEnrollmentDate},
+       ${config.duns}, ${config.businessPhone}, ${config.appleEnrollmentId}, ${config.appleEnrollmentDate},
        ${config.googlePlayAccount}, ${config.googleEnrollmentDate},
        ${config.bankLabel}, ${config.docsFolder},
        ${config.salesTaxStatus}, ${config.salesTaxNote}, ${config.reservePct}, now())
@@ -283,6 +321,8 @@ export async function upsertEntity(config: EntityConfig): Promise<EntityConfig> 
       formation_date = EXCLUDED.formation_date,
       ein = EXCLUDED.ein,
       registered_agent = EXCLUDED.registered_agent,
+      duns = EXCLUDED.duns,
+      business_phone = EXCLUDED.business_phone,
       apple_enrollment_id = EXCLUDED.apple_enrollment_id,
       apple_enrollment_date = EXCLUDED.apple_enrollment_date,
       google_play_account = EXCLUDED.google_play_account,

@@ -39,6 +39,67 @@ to build and submit the Android app FRESH on the org account, NOT to transfer a
 personal-account app. Nothing has shipped on Android yet, so there is nothing to
 transfer, just build on the org account once it exists.
 
+## UPDATE (2026-06-10): D-U-N-S obtained, the LLC org path is now unblocked
+
+The D-U-N-S number was ASSIGNED on 2026-06-10 (Dun & Bradstreet, 9 digits), only
+days after applying, well inside the "up to 30 days" SLA. The number is NOT
+printed in this open-source repo; it lives in the `/admin/business` entity card
+(the `duns` field, private Neon) and the LLC vault (`~/Documents/ResearchOS_LLC/`).
+This removes the only gate that was blocking org enrollment on both stores.
+
+What it changes, per store:
+
+- **Android (the planned org path, now do it).** Create the LLC ORGANIZATION Play
+  account ($25 one-time), verify the entity with the D-U-N-S, and build the
+  Android app FRESH there. Organization accounts are EXEMPT from the 12-tester /
+  14-consecutive-day closed test (re-verified against Google's live help page
+  2026-06-10), so this skips the bottleneck entirely. Do NOT ship Android on the
+  personal account, and do NOT transfer a personal-account app into the org (the
+  closed-test requirement can attach to the app, not just the account). Nothing
+  has shipped on Android yet, so there is nothing to transfer.
+
+- **iOS (a real decision, not forced).** The app is already enrolled on the
+  Individual Apple account ($99/yr paid) and iOS is shipping first from there; the
+  only iOS gate is reviewer demo mode (`docs/proposals/MOBILE_REVIEWER_DEMO.md`),
+  not the account type. The D-U-N-S now lets the LLC become the seller of record
+  if wanted. Apple does NOT convert an Individual membership to Organization, so
+  the two routes are:
+  - **A. Stay Individual for the first release, App-Transfer to the LLC org later.**
+    Lowest friction to launch. App Transfer keeps reviews, ratings, and users, and
+    runs while the app stays live. Criteria to meet before a transfer: the app must
+    not be pending validation/modification on either side, TestFlight beta testing
+    off for all versions, and (if it ever offers auto-renewable subscriptions) an
+    app-specific shared secret generated first. The receiving org's Apple ID must
+    exist. The transfer holds in "Pending App Transfer" until accepted (60-day
+    window).
+  - **B. Enroll the Apple org now and ship the first release under the LLC.** The
+    listing shows ResearchOS LLC as seller from day one, no later transfer. Cost is
+    a SECOND $99/yr membership during any overlap, plus an entity-verification step
+    Apple may do by phone. Org enrollment uses Apple's D-U-N-S lookup; allow up to
+    ~5 business days for the D&B record to propagate to Apple's tool.
+
+  DECISION (Grant, 2026-06-10): route A. Ship iOS now on the Individual account
+  (the reviewer-demo gate is the real blocker, not the account type), then
+  App-Transfer the app to the LLC org after it is live. Meet the transfer criteria
+  above before initiating. Add "App-Transfer iOS app to LLC org" as a tracked
+  /admin/business task once the app is live so it does not get forgotten.
+
+**Business phone line (bought 2026-06-10).** Both store signups require a real,
+verifiable mobile number that is also shown on the public developer profile, and
+VoIP / Google Voice numbers are rejected (Google runs live line-type checks). So
+the LLC got a dedicated **Tello Pay As You Go eSIM** ($24.68 charged, no monthly
+plan), installed as a second line on Grant's iPhone so his personal number stays
+private. Keep it alive with a small top-up at least once every 3 months, or the
+number lapses and the store listing contact goes dead. The $24.68 auto-logs to
+`/admin/business` (ledger source `tello-esim-2026-06-10`). Reuse the same number
+for Apple enrollment. The number is assigned at activation (pending the ZIP step
+at purchase time).
+
+Sources (verified 2026-06-10): Apple
+[D-U-N-S help](https://developer.apple.com/help/account/membership/D-U-N-S/),
+[App transfer overview](https://developer.apple.com/help/app-store-connect/transfer-an-app/overview-of-app-transfer/);
+Google [org-account testing rules](https://support.google.com/googleplay/android-developer/answer/14151465).
+
 ### GOOGLE: the personal-account closed-testing requirement (the real bottleneck)
 
 New Google Play PERSONAL developer accounts (created after Nov 2023) must run a
@@ -71,18 +132,15 @@ LLC, and store every credential in the LLC vault (~/Documents/ResearchOS_LLC).
 
 ---
 
-## 0. Get a D-U-N-S number for ResearchOS LLC (do this first, it gates Apple)
+## 0. Get a D-U-N-S number for ResearchOS LLC (DONE 2026-06-10)
 
-Free from Dun & Bradstreet, but can take 1-2 weeks, so request it immediately.
-
-1. Go to https://developer.apple.com/enroll/duns-lookup/ and search for
-   ResearchOS LLC. If it already has a D-U-N-S, note the number and skip ahead.
-2. If not found, request one (free) via the same lookup flow or
-   https://www.dnb.com/duns-number/lookup.html.
-3. The legal entity name + address you give MUST match exactly what you will use
-   in Apple/Google enrollment and what is on the LLC formation docs.
-
-Verify: you have a 9-digit D-U-N-S number for ResearchOS LLC.
+DONE. The 9-digit D-U-N-S was assigned 2026-06-10 and is stored in the
+`/admin/business` entity card + the LLC vault (not in this repo). Before
+enrolling, confirm Apple's lookup tool finds it
+(https://developer.apple.com/enroll/duns-lookup/, search "ResearchOS LLC"); allow
+up to ~5 business days after assignment for the D&B record to reach Apple. The
+legal entity name + address must match the LLC formation docs exactly across
+Apple and Google enrollment.
 
 ---
 

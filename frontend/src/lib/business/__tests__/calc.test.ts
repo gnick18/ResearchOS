@@ -106,6 +106,8 @@ describe("upcomingDeadlines", () => {
       formationDate: "2025-02-14",
       ein: null,
       registeredAgent: null,
+      duns: null,
+      businessPhone: null,
       appleEnrollmentId: null,
       appleEnrollmentDate: null,
       googlePlayAccount: null,
