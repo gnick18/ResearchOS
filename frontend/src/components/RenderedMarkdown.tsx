@@ -10,6 +10,7 @@ import { markdownSanitizeSchema } from "@/lib/markdown/sanitize-schema";
 import remarkUnderline from "@/lib/markdown/remark-underline";
 import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 import AnnotatedImage from "@/components/AnnotatedImage";
+import { OcrReveal } from "@/components/OcrImage";
 import { filenameFromMarkdownSrc } from "@/lib/attachments/annotations";
 import { parseObjectDeepLink } from "@/lib/references";
 import ObjectChip from "@/components/ObjectChip";
@@ -135,14 +136,19 @@ export default function RenderedMarkdown({
             const resolvedSrc = resolvedBlobUrls.get(originalSrc) ?? originalSrc;
             const annotFilename = filenameFromMarkdownSrc(originalSrc);
             return (
-              <AnnotatedImage
-                src={resolvedSrc}
-                alt={alt || ""}
-                basePath={basePath}
-                filename={annotFilename ?? undefined}
-                className="max-w-full rounded-lg"
-                {...props}
-              />
+              <>
+                <AnnotatedImage
+                  src={resolvedSrc}
+                  alt={alt || ""}
+                  basePath={basePath}
+                  filename={annotFilename ?? undefined}
+                  className="max-w-full rounded-lg"
+                  {...props}
+                />
+                {/* Scanned handwriting: hidden editable OCR text reveal under
+                    the enhanced image. Null for normal images. */}
+                <OcrReveal basePath={basePath} filename={annotFilename ?? undefined} />
+              </>
             );
           },
         }}

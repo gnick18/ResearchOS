@@ -21,6 +21,7 @@ import { blobUrlResolver, encodeAttachmentRefPath } from "@/lib/utils/blob-url-r
 import { fileService } from "@/lib/file-system/file-service";
 import ImageResizePopover from "./ImageResizePopover";
 import AnnotatedImage from "./AnnotatedImage";
+import { OcrReveal } from "./OcrImage";
 import { filenameFromMarkdownSrc } from "@/lib/attachments/annotations";
 import { rewriteImageBySrcAlt, parseWidthPercent } from "@/lib/image-resize-utils";
 
@@ -2261,6 +2262,7 @@ export default function LiveMarkdownEditor({
                         // those render as a bare img with no overlay.
                         const annotFilename = filenameFromMarkdownSrc(originalSrc);
                         return (
+                          <>
                           <AnnotatedImage
                             src={resolvedSrc}
                             alt={originalAlt}
@@ -2291,6 +2293,14 @@ export default function LiveMarkdownEditor({
                             title="Click to resize"
                             {...props}
                           />
+                          {/* Scanned handwriting: the hidden editable OCR text
+                              reveal under the enhanced image. Null for normal
+                              images (no .ocr.json sidecar). */}
+                          <OcrReveal
+                            basePath={imageBasePath}
+                            filename={annotFilename ?? undefined}
+                          />
+                          </>
                         );
                       },
                     }}
