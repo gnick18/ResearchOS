@@ -287,6 +287,25 @@ h2{font-weight:800;letter-spacing:-.025em;line-height:1.05;font-size:50px;color:
 .outro .wordmark{font-size:60px;font-weight:800;letter-spacing:-.04em;color:#fff;margin-top:18px}
 .outro .thanks{font-size:22px;color:#b4bfd0;margin-top:10px}
 
+/* ---- origin story ---- */
+.story{display:grid;grid-template-columns:1.3fr .7fr;gap:40px;height:100%;align-items:center}
+.story .prose p{font-size:22px;line-height:1.52;color:#374151;margin-bottom:20px;max-width:48ch}
+.story .prose p:last-child{margin-bottom:0}
+.story .prose b{color:var(--ink);font-weight:750}
+.story .prose .hl{color:var(--action);font-weight:800}
+.story .botbig{display:grid;place-items:center}
+.story .botbig img{width:100%;max-width:330px;height:auto}
+.cascade{display:flex;align-items:flex-start;flex:1;min-height:0;padding-top:10px}
+.beat{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;padding:0 4px}
+.beat:not(:last-child)::after{content:"";position:absolute;top:27px;left:50%;width:100%;height:2px;background:var(--border);z-index:0}
+.beat .node{width:56px;height:56px;border-radius:16px;display:grid;place-items:center;background:#fff;border:2px solid var(--c,#1AA0E6);position:relative;z-index:1}
+.beat .node svg{width:27px;height:27px;stroke:var(--c,#1AA0E6);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.beat .feat{font-size:16.5px;font-weight:750;color:var(--ink);margin-top:14px;line-height:1.2;min-height:40px}
+.beat .need{font-size:13px;color:var(--muted2);font-style:italic;line-height:1.35;margin-top:7px}
+.beat.sky{--c:var(--sky)} .beat.amber{--c:var(--amber)} .beat.coral{--c:var(--coral)}
+.cascade-punch{background:linear-gradient(100deg,#eef6ff,#fff4ec);border:1px solid var(--border);border-radius:16px;padding:18px 24px;text-align:center;font-size:21px;font-weight:750;color:var(--ink)}
+.cascade-punch span{background-image:var(--tri);-webkit-background-clip:text;background-clip:text;color:transparent}
+
 /* ---- data-driven charts ---- */
 .chartwrap{display:flex;flex-direction:column;gap:16px;justify-content:center}
 .chart{width:100%;height:auto;display:block}
@@ -397,8 +416,63 @@ body.idle .hud,body.idle .help{opacity:0;pointer-events:none}
   <section class="slide section">
     <div class="num">PART ONE</div>
     <div class="big">What we <span class="rainbow-text">built</span></div>
-    <div class="lead">From a simple notes prototype to a full research platform in about four months.</div>
+    <div class="lead">It started as a tool for one lab and grew, one feature at a time, into a full platform. Here is how that happened.</div>
     <div class="bar"></div>
+  </section>
+
+  <!-- ============================================================ 2b. ORIGIN STORY -->
+  <section class="slide">
+    <div class="head">
+      <div class="kicker"><span class="dot"></span> Where it came from</div>
+      <h2>How it started</h2>
+    </div>
+    <div class="body">
+      <div class="story">
+        <div class="prose">
+          <p>ResearchOS began as a tool for <b>one person</b>. I wanted my own lab notes in plain files on my own computer, not locked inside someone else's cloud.</p>
+          <p>Then a labmate wanted to use it. So I built the next thing we needed, and then the next. Every feature came from <b>a real problem in front of me</b>, never from a roadmap.</p>
+          <p>There was never a plan to build a platform. It grew one feature at a time, and four months later it had quietly replaced five separate tools. <span class="hl">That part was an accident.</span></p>
+        </div>
+        <div class="botbig"><img src="assets/brand/beakerbot-computer.svg" alt="BeakerBot at a laptop"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 2c. CASCADE -->
+  <section class="slide">
+    <div class="head">
+      <div class="kicker"><span class="dot"></span> Organic growth</div>
+      <h2>It grew one feature at a time</h2>
+    </div>
+    <div class="body" style="display:flex;flex-direction:column;gap:20px">
+      <div class="cascade">
+        <div class="beat sky">
+          <div class="node"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 3v18"/></svg></div>
+          <div class="feat">Local notebook</div><div class="need">"I wanted to own my notes"</div>
+        </div>
+        <div class="beat amber">
+          <div class="node"><svg viewBox="0 0 24 24"><path d="M16 11a4 4 0 10-8 0M4 20a8 8 0 0116 0"/></svg></div>
+          <div class="feat">Accounts and sharing</div><div class="need">"a labmate wanted in"</div>
+        </div>
+        <div class="beat coral">
+          <div class="node"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg></div>
+          <div class="feat">Experiments and Gantt</div><div class="need">"we kept losing the plan"</div>
+        </div>
+        <div class="beat sky">
+          <div class="node"><svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg></div>
+          <div class="feat">Methods library</div><div class="need">"protocols were everywhere"</div>
+        </div>
+        <div class="beat amber">
+          <div class="node"><svg viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5z"/><path d="M3 8l9 5 9-5"/></svg></div>
+          <div class="feat">Inventory and purchases</div><div class="need">"reagents ran out"</div>
+        </div>
+        <div class="beat coral">
+          <div class="node"><svg viewBox="0 0 24 24"><path d="M6 3c4 5 8 5 12 0M6 21c4-5 8-5 12 0M7 8h10M7 16h10"/></svg></div>
+          <div class="feat">Sequence editor</div><div class="need">"I clone constantly"</div>
+        </div>
+      </div>
+      <div class="cascade-punch">Six real problems, six features, and <span>a platform I never planned to build.</span></div>
+    </div>
   </section>
 
   <!-- ============================================================ 3. THE NUMBERS -->
