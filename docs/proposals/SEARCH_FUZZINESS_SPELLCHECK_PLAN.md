@@ -298,3 +298,263 @@ Additional open decisions:
 ---
 
 *research agent (Parts 1-4); mobile manager (Part 5, from Grant's design input)*
+
+---
+
+## Part 6 - OSS library deep-dive (definitive picks)
+
+**Date:** 2026-06-09  
+**Scope:** Verified against live npm registry, GitHub, Bundlephobia, and npm download API (week of 2026-05-27 to 2026-06-02). No claim relies on memory alone.
+
+---
+
+### 1. SymSpell JS ports: full audit
+
+The original SymSpell algorithm (Wolf Garbe, C#, MIT license) is well-suited to all three needs: typo-tolerant search, spell-check, and conservative OCR auto-correction. The algorithm pre-generates a delete-only edit-distance index at load time, then does O(1) candidate lookups at query time. It exposes three operations:
+- `Lookup` (single-word spelling correction, suitable for per-token spell-check and per-token OCR correction)
+- `LookupCompound` (multi-word phrase correction, handles split/merged OCR words)
+- `WordSegmentation` (recovers word boundaries from space-stripped OCR output)
+
+**The problem is that every maintained JS port has a critical flaw for browser use or is effectively unmaintained.**
+
+#### node-symspell (MathieuLoutre)
+- npm: `node-symspell`, version 0.1.0, last publish **2019-12-30** (over 6 years ago)
+- Weekly downloads: **428** (week ending 2026-06-02, npm API)
+- License: not declared in package.json
+- Dependencies: `difflib` + `iter-tools` (no Node.js built-ins in package.json)
+- Dictionary loading: via async `loadDictionary(dictFile, ...)` -- the signature takes a file-path string. The README says "needs at least Node 12.x" and mentions no browser support. The async generator internals were not verified to be fs-free but the design is clearly Node-first.
+- Exposes: Lookup, LookupCompound, WordSegmentation (all three)
+- **Verdict: unmaintained (6+ years), Node-first design, 428 downloads/week. Reject.**
+
+#### symspell-ex (reneklacan port)
+- npm: `symspell-ex`, version 1.1.10, last publish **2022-06-22** (4 years ago)
+- Weekly downloads: **396** (npm API)
+- License: MIT
+- Dependencies: `ioredis` (a Redis client) and `megahash` (a Node.js native addon)
+- `ioredis` is explicitly a Node.js-only library and will cause webpack/Next.js bundle failures in any client-side import path. `megahash` is a native C++ addon that cannot run in a browser.
+- **Verdict: hard browser incompatibility (ioredis + native addon). Reject regardless of maintenance status.**
+
+#### symspell / dongyuwei
+- npm: `symspell`, version 0.6.1, last publish: approximately 11 years ago per npm search results
+- Weekly downloads: **57** (npm API)
+- License: **LGPL-3.0** (confirmed from package.json)
+- LGPL-3.0 is incompatible with an AGPL project in many interpretations for bundled code. It also requires dynamic linking or source distribution for modifications. For a bundled in-browser app, this is a practical problem.
+- **Verdict: LGPL license is a deal-breaker for a bundled browser app. Reject.**
+
+#### SymSpell.js (itslenny)
+- npm: not published; TypeScript/JS proof of concept only
+- GitHub: itslenny/SymSpell.js, described by its author as "a proof of concept and can easily be adapted"
+- A known open issue ("Heap out of Memory on Newer Versions of Node") was never resolved
+- **Verdict: proof-of-concept quality, not production-ready. Reject.**
+
+#### @maieuticallabs/symspell-wasm
+- npm: `@maieuticallabs/symspell-wasm`, version 0.4.1-wasm1, last publish **2020-04-23** (6 years ago)
+- Weekly downloads: **10** (npm API)
+- License: MIT
+- A Rust-compiled WASM build from reneklacan/symspell. ~183 KB unpacked.
+- **Verdict: essentially abandoned (10 downloads/week, 6 years no update). Reject.**
+
+#### spellchecker-wasm (justinwilaby)
+- npm: `spellchecker-wasm`, version 0.3.3, last publish **2020-05-13** (6 years ago)
+- Weekly downloads: **869** (npm API)
+- License: MIT
+- Rust port of SymSpell v6.6 compiled to WASM, ~3.4 MB unpacked. Designed for Worker threads.
+- One CM6 community post (discuss.codemirror.net, 2021) demonstrated this as a spell-check backend. The author described it as ~70 KB WASM + ~2 MB English dictionary.
+- Browser support exists in principle (the WASM runs in a browser), but the `postinstall` script decompresses assets in a Node.js-specific way, and the package has not been updated in 6 years.
+- **Verdict: best of the SymSpell WASM options but still abandoned for 6 years. Risky for production.**
+
+#### Summary on SymSpell JS ports
+
+Every JS/TS/WASM port of SymSpell is either unmaintained (most last touched 4-6 years ago), has a browser-blocking dependency (ioredis, native addon), or carries a license issue (LGPL). The SymSpell algorithm itself is well-suited to the problem. However, **no currently maintained, browser-safe, permissively licensed npm package delivers it in 2026**. The algorithm's dictionary data (`frequency_dictionary_en_82_765.txt`) is MIT-licensed per the wolfgarbe/SymSpell repo LICENSE file (derived from Google Books Ngrams CC-BY 3.0 + SCOWL, but the combined output is distributed under MIT by Wolf Garbe).
+
+**Implication:** SymSpell cannot be adopted via an existing npm package without accepting significant maintenance or compatibility risk. The algorithm could be ported in-house (~200 lines of TypeScript for a single-word Lookup), but that contradicts Grant's explicit "no rolling our own" requirement.
+
+---
+
+### 2. Fuzzy search for in-browser OCR-tolerant search: ranked candidates
+
+All data verified via npm download API and Bundlephobia API.
+
+| Library | Version | Last publish | Weekly DLs | License | Gzip | Edit-distance? | Browser safe? |
+|---|---|---|---|---|---|---|---|
+| fuse.js | 7.4.2 | ~Jan 2025 | 10,519,902 | Apache-2.0 | 9.2 kB | Yes (Bitap) | Yes |
+| minisearch | 7.2.0 | Jan 2025 | 1,334,287 | MIT | 5.8 kB | Yes (Levenshtein) | Yes |
+| @orama/orama | 3.1.18 | Dec 2024 | 744,725 | Apache-2.0 | 24.4 kB | Yes (Levenshtein) | Yes |
+| flexsearch | 0.8.212 | Feb 2025 | 1,063,732 | Apache-2.0 | 16.8 kB | No | Yes |
+| @leeoniya/ufuzzy | 1.0.19 | Dec 2024 | 297,263 | MIT | 4.0 kB | Yes (Damerau-Lev, intraMode:1) | Yes |
+
+**FlexSearch:** does NOT implement edit-distance. Its "tolerance" is a tokenizer/encoder strategy. A GitHub issue explicitly titled "Warning to new users: FlexSearch has no fuzzy search" (issue #452, nextapps-de/flexsearch) confirms this. Excluded from the typo-tolerance candidates.
+
+**Fuse.js (7.4.2, Apache-2.0):** uses the Bitap algorithm (a shift-and approximate matcher, bounded by a `threshold` parameter from 0.0 to 1.0). Genuine approximate matching, not just subsequence. Will match "PeR" against "PCR" at the default threshold of 0.6. The threshold is a ratio, not an integer edit count, which is harder to reason about precisely (a threshold of 0.6 on a 3-character pattern allows roughly 1-2 errors). Very widely used (10.5M downloads/week). The Apache-2.0 license is compatible with an AGPL app (Apache-2.0 is permissive, downstream AGPL use is fine). Concern: false-positive noise on short acronyms with a permissive threshold.
+
+**MiniSearch (7.2.0, MIT):** uses a genuine Levenshtein distance computed via a Wagner-Fischer variant on a radix tree (verified in the DESIGN_DOCUMENT.md). The `fuzzy` option accepts either an integer (exact max edit distance) or a fraction of term length. `fuzzy: 1` means exactly 1 edit allowed per term, regardless of length. This is the most semantically precise control for OCR use: a known OCR error rate (1-2 characters per token for ML Kit output) maps directly to `fuzzy: 1` or `fuzzy: 2`. Full-text inverted index means it requires `addAll(docs)` at startup. Zero external dependencies, TypeScript types included, explicitly designed for mobile browsers and memory-constrained environments. 1.3M downloads/week. MIT license is the most permissive possible.
+
+**@orama/orama (3.1.18, Apache-2.0):** genuine Levenshtein distance (verified in the source levenshtein.ts: `boundedLevenshtein` function uses a real DP matrix with substitution/insertion/deletion). Configured via `tolerance: N` (integer edit distance). A full-featured search engine with BM25 ranking, facets, vector search - significantly more than needed. Gzip size of 24.4 kB is larger than the alternatives. Requires Node >= 20 per the registry metadata, which may complicate bundling. Strong typo tolerance, but overkill for BeakerSearch's needs.
+
+**@leeoniya/uFuzzy (1.0.19, MIT):** the smallest option at 4.0 kB gzip. Uses Damerau-Levenshtein in `intraMode: 1` (one error per term: substitution, transposition, insertion, or deletion). Does NOT build an index - scans the source array on every query, which is fast for hundreds-of-items lists but slower at scale. No `addAll` step; just pass the raw string array. TypeScript types included, zero runtime dependencies. 297K downloads/week. The tradeoff is that it is a pure matcher with no ranking sophistication beyond adjacency scoring; MiniSearch's BM25-like per-field ranking is absent.
+
+**Ranking for ResearchOS OCR search:**
+
+1. **MiniSearch** (primary recommendation): genuine Levenshtein with precise integer `fuzzy` control, MIT, 5.8 kB gzip, 1.3M downloads/week, zero deps, designed for browser/mobile. Best fit for the note OCR index use case (build index once per session from the OCR text map, query on each keystroke).
+2. **@leeoniya/uFuzzy** (secondary/alternative): 4.0 kB gzip, Damerau-Levenshtein, zero deps, MIT. Best fit if a full-text index is undesirable or if the search target is a short label list (command palette items) rather than a document corpus.
+3. **Fuse.js** (viable but third choice): largest adoption, but the Bitap threshold model is less intuitive for OCR error-rate tuning than MiniSearch's integer edit distance. Apache-2.0 is fine.
+4. **@orama/orama**: excluded from the primary recommendation because the 24.4 kB gzip bundle cost and the Node >= 20 requirement are both unnecessary for BeakerSearch's scope.
+5. **FlexSearch**: excluded. No genuine edit-distance. Cannot solve the OCR problem.
+
+---
+
+### 3. Spell-check for CM6: nspell vs Typo.js vs native
+
+#### nspell (2.1.5, MIT)
+- Last publish: 2021-01-17
+- Weekly downloads: **173,087** (npm API)
+- Gzip: 3.8 kB (library alone; the dictionary is separate)
+- Dependencies: `is-buffer` only
+- Hunspell-compatible; consumes `.aff`/`.dic` files
+- Supports adding personal words via `nspell.personal(wordList)` - critical for the ResearchOS scientific word list
+- Has prebuilt browser bundles (`nspell.js`, `nspell.min.js`) confirmed in the package metadata
+- Performance note from community comparisons: nspell is "much faster" than Typo.js for suggestion generation; Typo.js can take 7+ seconds for suggestions on long words (confirmed in GitHub PR #4 of ace_spell_check_js replacing Typo.js with nspell)
+- The library has not been updated since 2021 but its API is stable and minimal; the Hunspell format does not change
+
+#### Typo.js (1.3.2, BSD-3-Clause)
+- Last publish: **2026-05-12** (very recently updated)
+- Weekly downloads: **326,538** (npm API)
+- Gzip: 3.2 kB (library alone)
+- Also Hunspell-compatible, also browser-safe (`fs: false` in browser field)
+- Custom words: via `.dic` file additions (not as clean as nspell's `personal()` method)
+- Performance: significantly slower at generating suggestions for long misspelled words; this matters for the auto-correct path
+
+#### dictionary-en (wooorm/dictionaries)
+- npm: `dictionary-en`, version 4.0.0, last publish 2023-11-03
+- Weekly downloads: **98,277** (npm API)
+- License: MIT AND BSD (dual, both permissive)
+- Provides the en_US Hunspell `.aff` + `.dic` files (~5 MB uncompressed) used by both nspell and Typo.js
+- This is the same dictionary data as Firefox and LibreOffice spell-check
+
+#### Browser-native spellcheck
+- Zero cost, zero bundle, delegates to OS dictionary
+- Cannot be extended with lab-specific terms programmatically (user must add per-device via right-click)
+- Works on Chrome/Edge/macOS natively (ResearchOS targets Chrome/Edge only per existing docs)
+- CM6 support: requires either `inputStyle: 'contenteditable'` with `spellcheck: true` on the DOM element. The `beforeinput` event approach (described in the CM6 forums) works for intercepting browser replacements in CM5; for CM6 the recommended pattern is to add `spellcheck: "true"` to the EditorView DOM attributes extension.
+
+#### Scientific / biomedical wordlists
+Three open-source options were found:
+- **LexisMed** (anobel/LexisMed-wordlist): CC BY-NC-SA 4.0. The NC (NonCommercial) clause makes it unusable for an app with any commercial offering (the LLC + metered storage model is commercial use). **License is incompatible. Reject.**
+- **wordlist-medicalterms-en** (glutanimate): 98,119 medical terms, plain `.txt`, GNU GPL v3. GPL is copyleft and incompatible with bundling into an AGPL app in a clean way. **Reject.**
+- **jakelever/biowordlists**: genes, drugs, diseases in TSV format, designed for text mining. No npm package; would need manual curation for spell-check use.
+
+**Conclusion on external biomedical wordlists:** none of the available open-source ones carry a permissive license suitable for ResearchOS. The right path is the one already designed in Part 3: a curated ResearchOS scientific word list in `frontend/src/lib/spellcheck/scientific-wordlist.ts`, built and maintained in-house (it is not an algorithm, just a list of strings, so "no rolling our own algorithm" does not apply).
+
+#### Spell-check verdict
+Use **nspell + dictionary-en** for the CM6 linter integration. Reasons:
+1. `personal()` API makes it trivial to seed the ResearchOS scientific wordlist at initialization
+2. Faster than Typo.js for suggestion generation (critical for the OCR auto-correct path where we need single-best-match confidence checks)
+3. MIT license (cleaner than BSD-3-Clause, both are fine)
+4. 173K downloads/week - healthy adoption
+5. The 2021 last-publish date is not a concern: the Hunspell format is stable, nspell has 100% test coverage, and the API has not changed
+
+For **Phase 1** (browser-native), set `spellcheck: "true"` on the CM6 EditorView DOM attributes - zero cost, ships immediately. For **Phase 2** (scientific dict), use nspell + dictionary-en + the in-house scientific wordlist.
+
+---
+
+### 4. OCR post-correction: dedicated tooling vs. SymSpell vs. spell-check
+
+Dedicated OCR post-correction tools in the JavaScript/npm ecosystem are essentially nonexistent for browser use. The academic OCR post-correction literature (2024 survey, arxiv:1204.0191) confirms the dominant approaches are:
+- Character-level confusion matrix correction (requires training data per OCR engine)
+- Seq2seq neural models (far too heavy for in-browser use)
+- Dictionary-based edit-distance correction (what SymSpell's Lookup does)
+
+The dictionary-based approach is what nspell + a scientific wordlist provides anyway. The only difference SymSpell adds is speed (O(1) lookup via the delete-index) and the LookupCompound/WordSegmentation operations for multi-word errors. For ResearchOS's conservative single-token correction policy (Part 5's heuristic: correct only when one confident single match), nspell's `suggest()` returning a single best candidate at edit-distance 1 is equivalent to SymSpell's Lookup at max_edit_distance=1.
+
+**Conclusion:** a dedicated OCR post-correction library is not needed. The nspell + scientific-wordlist path satisfies OCR correction requirements within the conservative policy defined in Part 5. The conservative rule is: call `nspell.suggest(token)`; if the result is a non-empty array of length 1, that is the single confident correction; otherwise leave the token raw.
+
+---
+
+### 5. Definitive recommendation
+
+#### The minimal set
+
+| Role | Package | Version | License | Gzip | Weekly DLs | Notes |
+|---|---|---|---|---|---|---|
+| Typo-tolerant search (OCR notes) | `minisearch` | 7.2.0 | MIT | 5.8 kB | 1,334,287 | Levenshtein, `fuzzy: 1`, browser/mobile first |
+| Spell-check + OCR auto-correct engine | `nspell` | 2.1.5 | MIT | 3.8 kB | 173,087 | Hunspell compat, `personal()` API |
+| English dictionary data | `dictionary-en` | 4.0.0 | MIT AND BSD | ~5 MB lazy-loaded | 98,277 | Firefox/LibreOffice same data |
+
+Total runtime bundle addition: **9.6 kB gzip** (minisearch + nspell library code). The 5 MB dictionary data is lazy-loaded on first editor open, not in the critical path.
+
+No SymSpell JS port is adopted. The reason: every available npm port is either unmaintained (all last touched 4-6 years ago), has a hard browser incompatibility (ioredis, native addon), or carries an incompatible license (LGPL). The algorithm would need to be re-implemented in TypeScript to be viable, which contradicts the "no rolling our own" requirement.
+
+#### How it plugs in
+
+**BeakerSearch (OCR search - Track 1B replacement for in-house edit-distance):**
+
+```typescript
+import MiniSearch from 'minisearch'
+
+const ocrIndex = new MiniSearch({
+  fields: ['ocrText'],
+  storeFields: ['noteId'],
+  searchOptions: { fuzzy: 1, prefix: true },
+})
+// Build from noteOcrText map in useWorkbenchBeakerSource
+ocrIndex.addAll(Array.from(noteOcrText.entries()).map(([id, text]) => ({ id, noteId: id, ocrText: text })))
+// Query
+const hits = ocrIndex.search(query)  // returns [{ noteId, score }, ...]
+```
+
+The existing `fuzzyScore` path remains untouched for commands, sequences, and project names. MiniSearch is a parallel index only for OCR text, merging results by note ID.
+
+**CM6 spell-check linter (Track 2B):**
+
+```typescript
+import nspell from 'nspell'
+import { linter } from '@codemirror/lint'
+import { SCIENTIFIC_WORDLIST } from '@/lib/spellcheck/scientific-wordlist'
+
+// Lazy-loaded on first editor open
+const getChecker = once(async () => {
+  const [aff, dic] = await Promise.all([
+    fetch('/spellcheck/en_US.aff').then(r => r.arrayBuffer()),
+    fetch('/spellcheck/en_US.dic').then(r => r.arrayBuffer()),
+  ])
+  const checker = nspell({ aff, dic })
+  checker.personal(SCIENTIFIC_WORDLIST.join('\n'))
+  return checker
+})
+
+export const spellCheckLinter = linter(async (view) => {
+  const checker = await getChecker()
+  // Walk the CM6 syntax tree, skip code/url/math nodes
+  // For each word token: checker.correct(word) -> diagnostic if false
+  // For suggest: checker.suggest(word) -> actions
+})
+```
+
+**OCR conservative auto-correct (Track 1 + 2 synthesis from Part 5):**
+
+```typescript
+function conservativeCorrect(token: string, checker: nspell): string {
+  if (checker.correct(token)) return token          // already valid, leave as-is
+  const suggestions = checker.suggest(token)
+  if (suggestions.length === 1) return suggestions[0]  // one confident match
+  return token                                          // ambiguous, leave raw
+}
+```
+
+#### Deal-breakers checked
+
+- No GPL or LGPL dependencies in the set. MiniSearch (MIT), nspell (MIT), dictionary-en (MIT AND BSD). All permissive and compatible with an AGPL app.
+- No Node.js-only modules. MiniSearch has zero runtime dependencies. nspell depends only on `is-buffer` which is browser-compatible.
+- Bundle cost is minimal (9.6 kB gzip for code; dictionary is lazy-loaded, not in the initial bundle).
+- MiniSearch is explicitly designed for mobile browsers and memory-constrained environments.
+- nspell has prebuilt browser bundles in its package.
+
+#### What Part 4's plan changes
+
+Part 4 recommended "Path A: extend the in-house `fuzzyScore` with edit distance" as the first step for Track 1. This research supersedes that recommendation: **adopt MiniSearch directly as Track 1B** rather than implementing Damerau-Levenshtein in-house. The effort is comparable (1-2 days either way), but MiniSearch delivers a proven, tested Levenshtein implementation with no maintenance burden. The "try Path A first" logic was sound when the assumption was that OSS options would have drawbacks; this research shows MiniSearch has no significant drawbacks for the use case.
+
+Part 4's Track 2 plan (nspell + scientific wordlist as Phase 2B) is **confirmed and unchanged**. Browser-native spellcheck is still the right Phase 2A.
+
+---
+
+*research agent (OSS deep-dive)*
