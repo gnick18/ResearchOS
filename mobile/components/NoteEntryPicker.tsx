@@ -108,7 +108,7 @@ function RecommendedCard({
       style={({ pressed }) => [
         styles.optCard,
         styles.optCardRec,
-        { backgroundColor: surface.surface },
+        { backgroundColor: palette.skyDim },
         pressed && styles.pressed,
       ]}
       onPress={onPress}
@@ -217,7 +217,7 @@ export function NoteEntryPicker({
     >
       <Pressable style={styles.backdrop} onPress={onDismiss}>
         {/* Stop propagation on the sheet so tapping inside does not dismiss. */}
-        <Pressable style={[styles.sheet, { backgroundColor: surface.bg }]} onPress={() => {}}>
+        <Pressable style={[styles.sheet, { backgroundColor: surface.surface }]} onPress={() => {}}>
           {/* Grab handle */}
           <View style={[styles.grab, { backgroundColor: surface.border }]} />
 
@@ -245,7 +245,7 @@ export function NoteEntryPicker({
 
             {/* All entries section */}
             <Text style={[styles.sectionLabel, { color: surface.muted }]}>All entries</Text>
-            <View style={[styles.entriesGroup, { backgroundColor: surface.surface, borderColor: surface.border }]}>
+            <View style={[styles.entriesGroup, { backgroundColor: surface.sunken, borderColor: surface.border }]}>
               {allEntries.map((entry, idx) => (
                 <EntryRow
                   key={entry.id}

@@ -183,9 +183,9 @@ function NotebookRow({
         styles.optRow,
         inGroup && styles.optRowInGroup,
         showTopDivider && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: surface.border },
-        recommended && [styles.optRowRec, { shadowColor: palette.sky }],
-        !inGroup && !recommended && { borderColor: surface.border, backgroundColor: surface.surface },
-        inGroup && { backgroundColor: surface.surface },
+        recommended && [styles.optRowRec, { shadowColor: palette.sky, backgroundColor: palette.skyDim }],
+        !inGroup && !recommended && { borderColor: surface.border, backgroundColor: surface.sunken },
+        inGroup && { backgroundColor: 'transparent' },
         pressed && styles.pressed,
       ]}
       onPress={onPress}
@@ -344,7 +344,7 @@ export function NotebookChooser({
         onRequestClose={onClose}
       >
         <Pressable style={styles.backdrop} onPress={onClose}>
-          <Pressable style={[styles.sheet, { backgroundColor: surface.bg }]} onPress={() => {}}>
+          <Pressable style={[styles.sheet, { backgroundColor: surface.surface }]} onPress={() => {}}>
             {/* Grab handle */}
             <View style={[styles.grab, { backgroundColor: surface.border }]} />
 
@@ -394,7 +394,7 @@ export function NotebookChooser({
               {ownNbs.length > 0 ? (
                 <>
                   <SectionHeader label="Your notebooks" />
-                  <View style={[styles.group, { backgroundColor: surface.surface, borderColor: surface.border }]}>
+                  <View style={[styles.group, { backgroundColor: surface.sunken, borderColor: surface.border }]}>
                     {ownNbs.map((nb, idx) => (
                       <NotebookRow
                         key={nb.noteId}
@@ -414,7 +414,7 @@ export function NotebookChooser({
               {sharedNbs.length > 0 ? (
                 <>
                   <SectionHeader label="Shared with you" />
-                  <View style={[styles.group, { backgroundColor: surface.surface, borderColor: surface.border }]}>
+                  <View style={[styles.group, { backgroundColor: surface.sunken, borderColor: surface.border }]}>
                     {sharedNbs.map((nb, idx) => (
                       <NotebookRow
                         key={nb.noteId}
@@ -434,7 +434,7 @@ export function NotebookChooser({
               {oneOnOneNbs.length > 0 ? (
                 <>
                   <SectionHeader label="1:1 notebooks" />
-                  <View style={[styles.group, { backgroundColor: surface.surface, borderColor: surface.border }]}>
+                  <View style={[styles.group, { backgroundColor: surface.sunken, borderColor: surface.border }]}>
                     {oneOnOneNbs.map((nb, idx) => {
                       const pill = oneOnOnePill(nb);
                       const displayTitle = nb.partnerUsername
