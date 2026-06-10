@@ -21,8 +21,10 @@
 import { useState } from "react";
 import LivingPopup from "@/components/ui/LivingPopup";
 import { Icon } from "@/components/icons";
+import { usePathname } from "next/navigation";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useIsLabMode } from "@/hooks/useIsLabMode";
+import { isOperatorSurface } from "@/lib/routes/operator-surface";
 import MigrateToSoloModal from "./MigrateToSoloModal";
 import SelfExportModal from "./SelfExportModal";
 
@@ -40,6 +42,7 @@ function readDismissed(): boolean {
 export default function MigrationGate() {
   const { currentUser, mainUser } = useCurrentUser();
   const isLabMode = useIsLabMode() ?? false;
+  const pathname = usePathname();
   const [dismissed, setDismissed] = useState<boolean>(() => readDismissed());
   const [mode, setMode] = useState<"convert" | "selfexport" | null>(null);
 
@@ -55,6 +58,9 @@ export default function MigrationGate() {
     dismiss();
     setMode(null);
   };
+
+  // Operator surfaces (admin + LLC business) are carved out from every gate.
+  if (isOperatorSurface(pathname)) return null;
 
   // Only for a real, signed-in user in a multi-user folder.
   if (!currentUser || !isLabMode) return null;
