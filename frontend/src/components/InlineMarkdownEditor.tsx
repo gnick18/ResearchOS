@@ -7,6 +7,12 @@ import type { Note } from "@/lib/types";
 import type { EphemeralStore } from "loro-crdt";
 import type { UserState, EphemeralState } from "loro-codemirror";
 import { getEntryContentText } from "@/lib/loro/note-doc";
+import CodeLanguagePicker from "./CodeLanguagePicker";
+import {
+  buildFencedCodeInsertion,
+  isCodeBlockInsertSyntax,
+} from "@/lib/markdown/cm-inline-reveal/code-languages";
+import { detectUnfence } from "@/lib/markdown/cm-inline-reveal/markdown-keymap";
 
 /**
  * Read the seed markdown for a Loro-bound surface. A task surface exposes its
@@ -45,6 +51,10 @@ function seedTextForHandle(handle: EditorLoroHandle, activeIndex: number): strin
 type CMModules = {
   EditorState: typeof import("@codemirror/state").EditorState;
   EditorView: typeof import("@codemirror/view").EditorView;
+  // Prec.highest is used to register the code-block override keymap ABOVE the
+  // inline-reveal markdown keymap (Prec.high), so Mod-Shift-c opens the language
+  // picker instead of inserting a bare fence.
+  Prec: typeof import("@codemirror/state").Prec;
   keymap: typeof import("@codemirror/view").keymap;
   drawSelection: typeof import("@codemirror/view").drawSelection;
   highlightActiveLine: typeof import("@codemirror/view").highlightActiveLine;
@@ -177,6 +187,12 @@ function buildExtensions(
   mods: CMModules,
   editable: boolean,
   imageBasePath: string | undefined,
+  // Called when the user triggers "insert code block" (Mod-Shift-c) on a range
+  // that is NOT already inside a fence. The editor opens the language picker
+  // instead of inserting a bare fence. Read from a ref so the once-built keymap
+  // always sees the live handler. When omitted (preview / no-React host) the
+  // override is not installed and the base keymap inserts a bare fence.
+  onRequestCodeBlock?: (view: import("@codemirror/view").EditorView) => boolean,
   // When true, omit history() + historyKeymap because LoroUndoPlugin (bundled
   // inside bindEditorExtension) owns undo. Running both double-applies undo.
   omitHistory = false,
@@ -184,6 +200,7 @@ function buildExtensions(
   const {
     EditorState,
     EditorView,
+    Prec,
     keymap,
     drawSelection,
     highlightActiveLine,
@@ -266,6 +283,14 @@ function buildExtensions(
     // AFTER the markdown language so the keymap (Prec.high) wins. The
     // image-base-path facet configures the image widget's blob resolution.
     imageBasePathExt(imageBasePath),
+    // Code-block language picker override. Registered at Prec.highest so it wins
+    // over the inline-reveal markdown keymap's own Mod-Shift-c binding (Prec.high)
+    // and opens the searchable language picker instead of inserting a bare fence.
+    // The handler returns false when the caret is already inside a fenced block,
+    // letting the toggle/unfence path below run as before.
+    ...(editable && onRequestCodeBlock
+      ? [Prec.highest(keymap.of([{ key: "Mod-Shift-c", run: onRequestCodeBlock }]))]
+      : []),
     inlineRevealExtension,
     // Spell-check (optional): only when the user enabled it AND the surface is
     // editable (no point underlining words you can't fix). Additive and fully
@@ -307,6 +332,17 @@ export default function InlineMarkdownEditor({
   const viewRef = useRef<import("@codemirror/view").EditorView | null>(null);
   const modsRef = useRef<CMModules | null>(null);
   const [loaded, setLoaded] = useState(false);
+
+  // Code-block language picker. Open when the user triggers "insert code block"
+  // on a range that is NOT already inside a fence (Mod-Shift-c, or the Style
+  // Guide "Code block" entry). The picker is anchored near the caret; on select
+  // we splice the fenced block with the chosen language onto the opening fence
+  // so the preview colorizes it. selFrom/selTo capture the range the fence will
+  // wrap (the caret's selection at trigger time) since the editor may blur while
+  // the picker holds focus.
+  const [codeBlockPicker, setCodeBlockPicker] = useState<
+    { top: number; left: number; from: number; to: number } | null
+  >(null);
 
   // Mirror the callback props into refs so the CM6 update listener (created
   // once at mount) always sees the latest callbacks without re-binding the
@@ -389,6 +425,76 @@ export default function InlineMarkdownEditor({
     }
   }, []);
 
+  // Open the code-block language picker for a CM6 view. Returns true (key
+  // handled) when it opens the picker, false to let the base keymap's
+  // toggle/unfence path run instead. We open the picker only on the FENCE half
+  // of the toggle (the caret is NOT inside an existing fenced block) and only
+  // for a single selection range, since a picker is one language decision; a
+  // multi-cursor selection or an in-fence caret falls through to the base
+  // fencedCodeCommand (unchanged). The caret's viewport coords anchor the popup.
+  const openCodeBlockPicker = useCallback(
+    (view: import("@codemirror/view").EditorView): boolean => {
+      const sel = view.state.selection;
+      if (sel.ranges.length !== 1) return false;
+      const range = sel.main;
+      // Inside an existing fence -> let the base command UNFENCE (the toggle).
+      if (detectUnfence(view.state, range)) return false;
+      const coords = view.coordsAtPos(range.head);
+      // Anchor just below the caret; fall back to the editor's top-left when CM6
+      // cannot resolve coords (e.g. the position is scrolled out of view).
+      const hostRect = hostRef.current?.getBoundingClientRect();
+      const top = coords ? coords.bottom + 4 : (hostRect?.top ?? 0) + 24;
+      const left = coords ? coords.left : (hostRect?.left ?? 0) + 24;
+      // Keep the popup on-screen near the right edge (its width is 16rem = 256px).
+      const maxLeft = Math.max(8, window.innerWidth - 256 - 8);
+      setCodeBlockPicker({
+        top,
+        left: Math.min(left, maxLeft),
+        from: range.from,
+        to: range.to,
+      });
+      return true;
+    },
+    [],
+  );
+  // The keymap is built once inside makeState; it reads the live picker-open
+  // handler through this ref so the binding never needs rebinding.
+  const openCodeBlockPickerRef = useRef(openCodeBlockPicker);
+  openCodeBlockPickerRef.current = openCodeBlockPicker;
+
+  // Splice the fenced block with the chosen language onto the captured range,
+  // then close the picker and refocus the editor with the caret inside the
+  // block. The language is written onto the opening fence (```<lang>) so the
+  // rehypeHighlight preview colorizes it; PLAIN_TEXT_CODE yields a bare ```
+  // fence. Flows through the same updateListener as any edit (onChange + dirty).
+  const insertFencedCode = useCallback(
+    (code: string) => {
+      const view = viewRef.current;
+      const picker = codeBlockPicker;
+      setCodeBlockPicker(null);
+      if (!view || !picker) return;
+      const selectedText = view.state.sliceDoc(picker.from, picker.to);
+      const { insert, selFrom, selTo } = buildFencedCodeInsertion(selectedText, code);
+      view.dispatch({
+        changes: { from: picker.from, to: picker.to, insert },
+        selection:
+          selFrom === selTo
+            ? { anchor: picker.from + selFrom }
+            : { anchor: picker.from + selFrom, head: picker.from + selTo },
+        scrollIntoView: true,
+        userEvent: "input.wrap",
+      });
+      view.focus();
+    },
+    [codeBlockPicker],
+  );
+
+  // Cancel the picker without inserting and return focus to the editor.
+  const cancelCodeBlockPicker = useCallback(() => {
+    setCodeBlockPicker(null);
+    viewRef.current?.focus();
+  }, []);
+
   // Build a fresh EditorState wired with the manual-save listeners + keymap +
   // syntax-highlight extension set. Shared by the initial mount AND the
   // `disabled` reconfigure so the two paths never drift. All closed-over
@@ -465,6 +571,12 @@ export default function InlineMarkdownEditor({
             )]
           : [];
 
+      // Mod-Shift-c override: open the language picker on the FENCE half of the
+      // toggle. Reads the live handler through the ref so the once-built keymap
+      // never needs rebinding.
+      const requestCodeBlock = (view: import("@codemirror/view").EditorView) =>
+        openCodeBlockPickerRef.current(view);
+
       return mods.EditorState.create({
         doc,
         extensions: [
@@ -472,7 +584,7 @@ export default function InlineMarkdownEditor({
           updateListener,
           // CM6 history() stays ON in Loro mode too: the Loro binding is
           // sync-only (no LoroUndoPlugin), so CodeMirror owns undo.
-          ...buildExtensions(mods, editable, imageBasePathRef.current),
+          ...buildExtensions(mods, editable, imageBasePathRef.current, requestCodeBlock),
           ...loroExtension,
         ],
       });
@@ -514,6 +626,7 @@ export default function InlineMarkdownEditor({
       const mods: CMModules = {
         EditorState: stateMod.EditorState,
         EditorView: viewMod.EditorView,
+        Prec: stateMod.Prec,
         keymap: viewMod.keymap,
         drawSelection: viewMod.drawSelection,
         highlightActiveLine: viewMod.highlightActiveLine,
@@ -606,6 +719,14 @@ export default function InlineMarkdownEditor({
     insertRef.current = (syntax: string) => {
       const view = viewRef.current;
       if (!view) return;
+      // The Style Guide "Code block" entry routes through here. Intercept it so
+      // the toolbar opens the SAME language picker the keyboard shortcut does
+      // instead of splicing a bare fence. If the picker cannot open (caret
+      // inside an existing fence, or a multi-cursor selection), fall through to
+      // the literal insert below so the click still does something sensible.
+      if (isCodeBlockInsertSyntax(syntax) && openCodeBlockPickerRef.current(view)) {
+        return;
+      }
       view.dispatch(view.state.replaceSelection(syntax));
       view.focus();
     };
@@ -729,6 +850,15 @@ export default function InlineMarkdownEditor({
           </p>
         )}
       </div>
+      {/* Code-block language picker (fixed-position overlay anchored at the
+          caret). Open only while inserting a fenced block. */}
+      {codeBlockPicker && (
+        <CodeLanguagePicker
+          position={{ top: codeBlockPicker.top, left: codeBlockPicker.left }}
+          onSelect={insertFencedCode}
+          onCancel={cancelCodeBlockPicker}
+        />
+      )}
     </div>
   );
 }

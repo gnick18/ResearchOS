@@ -193,7 +193,13 @@ const CLOSE_FENCE_LINE = /^```\s*$/;
  */
 type Unfence = { from: number; to: number; insert: string; selFrom: number; selTo: number };
 
-function detectUnfence(state: EditorState, range: { from: number; to: number }): Unfence | null {
+/**
+ * Exported for the React editor: it runs the UNFENCE half of the toggle
+ * directly (no language picker), and only opens the picker for the FENCE half.
+ * Returns the same enclosing-fence detection the command uses, or null when the
+ * range is not inside a fenced block (the FENCE-with-language case).
+ */
+export function detectUnfence(state: EditorState, range: { from: number; to: number }): Unfence | null {
   // Case (a): the selection itself is a whole fenced block.
   const sel = state.sliceDoc(range.from, range.to);
   const openMatch = sel.match(/^```[^\n]*\n/);
