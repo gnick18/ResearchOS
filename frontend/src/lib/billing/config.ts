@@ -20,11 +20,25 @@ export function isBillingEnabled(): boolean {
 export const BYTES_PER_GB = 1024 ** 3;
 
 /**
- * Free server-storage allowance per user, the storage the free plan grants. 1 GB
- * (Grant 2026-06-05), aligned with the relay inbox cap. An account stays on this
- * until the user chooses a paid plan.
+ * Free server-storage allowance per billing owner (a solo user, or a whole lab
+ * pool, since a lab resolves to the PI's key). 5 GB (Grant 2026-06-09), a real
+ * trial that bounds the free-tier cost. At R2 $0.015/GB-mo this is at most
+ * $0.075/owner-mo if completely full, usually far less, and the cost breaker
+ * caps the aggregate regardless. Sized for sustainability per
+ * scripts/capacity-model.mjs, raise it as paying + sponsoring labs offset the
+ * free cost. Separate from the relay inbox cap (FREE_STORAGE_BYTES, transient).
  */
-export const FREE_ALLOWANCE_BYTES = 1 * BYTES_PER_GB;
+export const FREE_ALLOWANCE_BYTES = 5 * BYTES_PER_GB;
+
+/**
+ * Metered storage price beyond the free allowance, in USD per GB-month. 3x our
+ * R2 cost of $0.015/GB-mo (Grant 2026-06-09). Still about one-twentieth of a
+ * per-seat ELN, funds free labs + a modest reinvestment surplus. Only heavy
+ * image/video/big-data labs ever reach it. Used by the (future) metered + tier
+ * pricing; the model is in scripts/capacity-model.mjs and
+ * docs/proposals/PRICING_TRANSPARENCY.md.
+ */
+export const METERED_STORAGE_USD_PER_GB_MONTH = 0.045;
 
 // --- operations cost (tracked, not billed; Grant 2026-06-07) ---
 //

@@ -125,6 +125,21 @@ show both messages at full volume:
 
 ## What "2x cost" actually produces (Grant, 2026-06-09, from scripts/capacity-model.mjs)
 
+LOCKED 2026-06-09 (supersedes the 2x / 25 GB exploration below). After running
+the sustainability projection, Grant set the launch defaults:
+- FREE TIER = 5 GB (not 25). Bounds the free cost (~$0.075/owner-mo if full),
+  still a real trial. FREE_ALLOWANCE_BYTES + the free plans now 5 GB.
+- STORAGE MARKUP = 3x R2 cost = $0.045/GB-month (METERED_STORAGE_USD_PER_GB_MONTH),
+  still ~1/20th of a per-seat ELN, funds free labs + a modest reinvestment
+  surplus. (2x was too thin once Grant wanted some reinvestment money.)
+- The business projection (capacity-model.mjs) at this config: never loses money,
+  ~$1.1k/mo surplus at 500 labs, ~$2.3k at 1000, with a 75/20/5 free/paid/sponsor
+  mix. The cost breaker caps total cost at Grant's set budget regardless.
+- Still TODO operationally: set the breaker budget in /admin/business to a number
+  Grant is comfortable being the hard ceiling.
+
+The exploration below kept for the reasoning.
+
 Grant's instinct, charge ~2x cost, not 1-for-1, not the 25x a naive markup would
 allow. Run against the real R2 rate it reshapes the whole ladder.
 

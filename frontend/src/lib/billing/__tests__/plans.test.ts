@@ -19,8 +19,8 @@ describe("plan catalog", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("the free plans are the 1 GB default for each audience", () => {
-    expect(freePlan("individual").storageBytes).toBe(1 * BYTES_PER_GB);
+  it("the free plans are the 5 GB default for each audience", () => {
+    expect(freePlan("individual").storageBytes).toBe(5 * BYTES_PER_GB);
     expect(freePlan("individual").priceCents).toBe(0);
     expect(freePlan("lab").priceCents).toBe(0);
   });

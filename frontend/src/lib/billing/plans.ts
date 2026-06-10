@@ -53,7 +53,7 @@ export const INDIVIDUAL_PLANS: Plan[] = [
     id: "free",
     name: "Free",
     audience: "individual",
-    storageBytes: 1 * GB,
+    storageBytes: 5 * GB, // matches FREE_ALLOWANCE_BYTES (Grant 2026-06-09)
     activityWritesPerMonth: 1 * M,
     priceCents: 0,
   },
@@ -84,8 +84,8 @@ export const LAB_PLANS: Plan[] = [
     id: "lab_free",
     name: "Lab Free",
     audience: "lab",
-    storageBytes: 1 * GB, // per member, pooled at resolution time
-    activityWritesPerMonth: 1 * M, // per member, pooled
+    storageBytes: 5 * GB, // one shared pool for the whole lab (Grant 2026-06-09)
+    activityWritesPerMonth: 1 * M,
     priceCents: 0,
   },
   {
