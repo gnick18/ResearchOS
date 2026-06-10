@@ -29,15 +29,15 @@ export default function AiHelperFeaturePage() {
       <p>You choose a size to fit the model you are using.</p>
       <ul>
         <li>
-          <strong>Lean</strong> (around 10k tokens) fits almost any chat window.
-        </li>
-        <li>
-          <strong>Full</strong> (around 22k tokens) is best for drafting on
-          big-context models like Claude, GPT-5, or Gemini 2.5 Pro.
-        </li>
-        <li>
-          <strong>Minimal</strong> (around 3k tokens) is for tiny windows or
+          <strong>Minimal</strong> (around 6k tokens) is for tiny windows or
           small local models.
+        </li>
+        <li>
+          <strong>Lean</strong> (around 21k tokens) fits most chat windows.
+        </li>
+        <li>
+          <strong>Full</strong> (around 42k tokens) is best for drafting on
+          big-context models like Claude, GPT-5, or Gemini 2.5 Pro.
         </li>
       </ul>
       <Screenshot

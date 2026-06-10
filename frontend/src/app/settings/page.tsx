@@ -2928,18 +2928,20 @@ const AI_HELPER_SIZE_OPTIONS: ReadonlyArray<{
   {
     value: "lean",
     label: "Lean",
-    blurb: "~10k tokens, fits everywhere",
+    // Token counts come from the live manifest (rendered alongside each option),
+    // so the blurb stays descriptive only, no hardcoded figure to drift.
+    blurb: "Fits most chat windows",
   },
   {
     value: "full",
     label: "Full (recommended)",
     blurb:
-      "~22k tokens, best for drafting on big-context models like Claude Sonnet, GPT-5, Gemini 2.5 Pro",
+      "Best for drafting on big-context models like Claude Sonnet, GPT-5, Gemini 2.5 Pro",
   },
   {
     value: "minimal",
     label: "Minimal",
-    blurb: "~3k tokens, for tiny windows or local models",
+    blurb: "For tiny windows or local models",
   },
 ];
 
