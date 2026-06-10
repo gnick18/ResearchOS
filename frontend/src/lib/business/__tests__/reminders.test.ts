@@ -2,7 +2,10 @@
 
 import { describe, expect, it } from "vitest";
 
-import { estimateMonthlyInfraCostCents } from "@/lib/sharing/capacity-shared";
+import {
+  AMORTIZED_ANNUAL_CENTS,
+  estimateMonthlyInfraCostCents,
+} from "@/lib/sharing/capacity-shared";
 
 import type { Deadline } from "../calc";
 import { dueForReminder, reminderSubject, reminderText } from "../reminders";
@@ -49,7 +52,7 @@ describe("estimateMonthlyInfraCostCents", () => {
     expect(est.doCents).toBe(40); // 2 GB * $0.20
     expect(est.r2Cents).toBe(3); // 2 GB * $0.015 = $0.03
     expect(est.fixedBaseCents).toBe(2500);
-    expect(est.totalCents).toBe(2543);
+    expect(est.totalCents).toBe(2543 + AMORTIZED_ANNUAL_CENTS);
   });
 
   it("reads only the fixed base while usage is inside the free tiers", () => {
@@ -57,13 +60,13 @@ describe("estimateMonthlyInfraCostCents", () => {
     const est = estimateMonthlyInfraCostCents(1 * GB, 5 * GB);
     expect(est.doCents).toBe(0);
     expect(est.r2Cents).toBe(0);
-    expect(est.totalCents).toBe(2500);
+    expect(est.totalCents).toBe(2500 + AMORTIZED_ANNUAL_CENTS);
   });
 
   it("treats a null (unavailable) measurement as zero storage", () => {
     const est = estimateMonthlyInfraCostCents(null, 12 * GB);
     expect(est.doCents).toBe(0);
     expect(est.r2Cents).toBe(3); // 2 GB over free * $0.015 = $0.03
-    expect(est.totalCents).toBe(2503);
+    expect(est.totalCents).toBe(2503 + AMORTIZED_ANNUAL_CENTS);
   });
 });
