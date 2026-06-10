@@ -62,6 +62,7 @@ import { getFocusContext, type FocusContext } from '@/lib/focus-context';
 import { postRouteCapture } from '@/lib/route-capture';
 import { fetchNotebooks, type NotebookSummary } from '@/lib/notebooks';
 import { postRouteCaptureNote, postAppendNoteText } from '@/lib/note-route';
+import { postOcrSidecar } from '@/lib/ocr-sidecar';
 import { sendTextNote } from '@/lib/notes';
 import { NotebookChooser } from '@/components/NotebookChooser';
 import { fireSuccess } from '@/lib/success-burst';
@@ -394,6 +395,20 @@ export default function NotebookScreen() {
         return;
       }
 
+      // Decoupled OCR. A scanned capture carries its OCR layer on its own sealed
+      // command keyed to the captureId, sent now regardless of where it routes,
+      // so the laptop writes {image}.ocr.json wherever the image lands (inbox,
+      // notebook, or experiment). Plain photos have no ocr, so this is a no-op
+      // for them.
+      if (queued.ocr) {
+        void postOcrSidecar(
+          queued.id,
+          queued.ocr,
+          userX25519PubHex,
+          pairing.relayUrl,
+        );
+      }
+
       let ctx: FocusContext | null;
       try {
         ctx = await contextPromise;
@@ -502,8 +517,8 @@ export default function NotebookScreen() {
           entryId,
           userX25519PubHex,
           pairing.relayUrl,
-          // Scanned notes carry their OCR layer in the sealed command.
-          pendingCapture.ocr,
+          // OCR no longer rides the route command; it travels on its own
+          // ocr-sidecar command (postOcrSidecar) keyed to the captureId.
         );
         fireSuccess({ subtitle: `Filed in ${notebook.title}` });
       } catch {
