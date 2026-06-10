@@ -279,7 +279,15 @@ function buildEntries() {
   out.push([
     "users/_user_metadata.json",
     {
-      alex: { color: ALEX_COLOR, created_at: "2026-01-15T00:00:00Z" },
+      // `orcid` on alex powers the Deposit dialog's metadata-review step
+      // (read via getUserMetadata in lib/deposit/prefill.ts). A checksum-
+      // valid demo iD keeps the soft-validation icon green in the
+      // deposit-metadata-review screenshot. Fictional, like everything here.
+      alex: {
+        color: ALEX_COLOR,
+        created_at: "2026-01-15T00:00:00Z",
+        orcid: "0000-0002-1825-0097",
+      },
       morgan: { color: MORGAN_COLOR, created_at: "2026-01-20T00:00:00Z" },
       // Demo PI (Dr. Mira Castellanos) — the lab's principal investigator
       // archetype. Created earliest so the metadata mirrors a real lab
@@ -484,6 +492,10 @@ function buildEntries() {
   out.push([
     "users/alex/settings.json",
     {
+      // Display name surfaces as the creator on the Deposit dialog's
+      // metadata-review step (resolveOwnerDisplayName in lib/deposit/prefill.ts),
+      // falling back to the username when absent. Fictional demo name.
+      displayName: "Alex Rivera",
       animationType: "celebration",
       defaultGanttViewMode: "3-months",
       defaultCalendarViewMode: "month",
@@ -537,7 +549,7 @@ function buildEntries() {
 
   // Projects
   out.push(...projects("alex", [
-    { id: 1, name: "DEMO: Engineer FakeYeast for biofuel", color: "#3b82f6", tags: ["demo", "strains"], sort_order: 0 },
+    { id: 1, name: "DEMO: Engineer FakeYeast for biofuel", color: "#3b82f6", tags: ["demo", "strains"], sort_order: 0, funding_account_id: 1 },
     { id: 2, name: "DEMO: Plasmid library construction", color: "#8b5cf6", tags: ["demo", "cloning"], sort_order: 1 },
     { id: 3, name: "DEMO: Stress tolerance screening", color: "#f59e0b", tags: ["demo", "screening"], sort_order: 2 },
     { id: 4, name: "DEMO: Lab admin & onboarding", color: "#ec4899", tags: ["demo", "admin"], sort_order: 3 },
@@ -1662,7 +1674,16 @@ function buildEntries() {
     "Timer reset at minute 38 of heat shock (someone bumped the heat block). Restarted immediately but only managed 38 min total. Logged in the task deviation log.\n\n" +
     "Plated 200 µL out of the 1 mL recovery; saving the rest at 4 °C in case efficiency tanks.\n\n" +
     "After 48 h: counted **40 colonies** on the experimental plate. WT control: 0 colonies (good). EV control: 38 colonies (expected).\n\n" +
-    "![Transformation plate — SD-Ura selection, 48 h](Images/transformation-plate.png)\n"]);
+    "![Transformation plate — SD-Ura selection, 48 h](Images/transformation-plate.png)\n\n" +
+    // A Files/ attachment alongside the inline image so the Lab Notes editor's
+    // attachment strip shows BOTH the Images tab (the plate thumbnail) and a
+    // populated Files tab (the colony-count CSV) for the editor-attachment-strip
+    // screenshot. FileStrip scans the body for [label](Files/<name>) refs.
+    "Raw colony counts: [colony-counts.csv](Files/colony-counts.csv)\n"]);
+  out.push([
+    "users/alex/results/task-2/Files/colony-counts.csv",
+    "plate,colonies,note\nexperimental,40,SD-Ura 48h\nWT_control,0,no DNA\nEV_control,38,pYES2 empty\n",
+  ]);
   out.push(["users/alex/results/task-2/results.md",
     DEMO_BANNER_MD +
     "## Yeast transformation — results\n\n" +
@@ -3255,6 +3276,28 @@ function buildEntries() {
       version: 1,
       notifications: [
         {
+          // Shift alert: alex pushed a shared experiment 3 days later, so
+          // morgan (a downstream collaborator) gets a bell row. Drives the
+          // notifications-shift-alert screenshot via ?fixtureUser=morgan.
+          // item_id / task_key point at a real alex experiment so "View task"
+          // resolves; item_name is the denormalized label the row renders.
+          id: "notif-morgan-shift-alert-1",
+          type: "shift_alert",
+          from_user: "alex",
+          item_id: 5,
+          task_key: "alex:5",
+          item_name: "PCR optimization",
+          source_alert_id: "demo-shift-alert-0001",
+          start_delta_days: 3,
+          end_delta_days: 3,
+          old_start: "2026-05-10",
+          old_end: "2026-05-10",
+          new_start: "2026-05-13",
+          new_end: "2026-05-13",
+          created_at: "2026-05-21T09:00:00Z",
+          read: false,
+        },
+        {
           id: "notif-morgan-announcement-welcome",
           type: "lab_announcement",
           from_user: "mira",
@@ -3589,6 +3632,133 @@ function buildEntries() {
     },
   ]);
 
+  // ── Trash (soft-delete) seed ────────────────────────────────────────────────
+  // Three mixed-type entries in alex's trash so the /trash page has rows to
+  // select and the bulk-action bar (Restore / Permanent delete / Clear
+  // selection) can be revealed for the trash-bulk-action-bar screenshot. Each
+  // record carries the `_trash` metadata block (see lib/trash/trash-types.ts)
+  // and is mirrored by a matching `_index.json` entry so the count agrees and
+  // the page reads the index directly (no rebuild). All fabricated demo data.
+  const TRASH_RECORDS = [
+    {
+      entity_type: "note",
+      dir: "notes",
+      id: 91,
+      slug: "Old-pYES-cloning-scratch-notes",
+      record: {
+        id: 91,
+        title: "Old pYES cloning scratch notes",
+        content:
+          "Superseded scratch notes from the first pYES cloning attempt. Replaced by the qPCR optimization log.",
+        project_id: 2,
+        owner: "alex",
+        created_at: "2026-03-02T00:00:00Z",
+        updated_at: "2026-03-10T00:00:00Z",
+      },
+      live: "users/alex/notes/91.json",
+      deleted_at: "2026-05-18T14:05:00Z",
+      auto_expires_at: "2026-06-17T14:05:00Z",
+      deleted_by: "alex",
+    },
+    {
+      entity_type: "task",
+      dir: "tasks",
+      id: 92,
+      slug: "Abandoned-restreak-plan",
+      record: {
+        id: 92,
+        project_id: 1,
+        name: "Abandoned restreak plan",
+        start_date: "2026-05-09",
+        duration_days: 1,
+        end_date: "2026-05-09",
+        is_complete: false,
+        task_type: "list",
+        owner: "alex",
+        sub_tasks: [],
+      },
+      live: "users/alex/tasks/92.json",
+      deleted_at: "2026-05-19T10:30:00Z",
+      auto_expires_at: "2026-06-18T10:30:00Z",
+      deleted_by: "alex",
+    },
+    {
+      entity_type: "purchase_item",
+      dir: "purchase_items",
+      id: 93,
+      slug: "Duplicate-Phusion-order",
+      record: {
+        id: 93,
+        item_name: "Duplicate Phusion order",
+        vendor: "NEB (demo)",
+        price_per_unit: 312,
+        quantity: 1,
+        project_id: 1,
+        owner: "alex",
+      },
+      live: "users/alex/purchase_items/93.json",
+      deleted_at: "2026-05-17T16:20:00Z",
+      auto_expires_at: "2026-06-16T16:20:00Z",
+      deleted_by: "alex",
+    },
+  ];
+  for (const t of TRASH_RECORDS) {
+    const trashPath = `_trash/${t.dir}/${t.id}-${t.slug}.json`;
+    out.push([
+      `users/alex/${trashPath}`,
+      {
+        ...t.record,
+        _trash: {
+          deleted_at: t.deleted_at,
+          deleted_by: t.deleted_by,
+          auto_expires_at: t.auto_expires_at,
+          original_path: t.live,
+        },
+      },
+    ]);
+  }
+  out.push([
+    "users/alex/_trash/_index.json",
+    {
+      version: 1,
+      entries: TRASH_RECORDS.map((t) => ({
+        id: t.id,
+        entity_type: t.entity_type,
+        trash_path: `_trash/${t.dir}/${t.id}-${t.slug}.json`,
+        original_path: t.live,
+        deleted_at: t.deleted_at,
+        deleted_by: t.deleted_by,
+        auto_expires_at: t.auto_expires_at,
+      })),
+      last_cleanup_at: null,
+    },
+  ]);
+
+  // ── Photo-annotation sidecar seed ───────────────────────────────────────────
+  // A saved vector overlay (ellipse + arrow + text labels) for alex's PCR-screen
+  // gel. Read by readAnnotations() via fileService.readJson at
+  // `${basePath}/Images/<file>.annot.json` (lib/attachments/annotations.ts), so
+  // both the inline <AnnotatedImage> overlay (image-annotation-in-note) and the
+  // full-screen ImageAnnotatorModal (image-annotation-gel) render the shapes
+  // without any live drawing. Coordinates are in the gel's natural pixel space
+  // (900x600). Fabricated demo annotations.
+  out.push([
+    "users/alex/results/task-5/Images/gel-pcr-screen.png.annot.json",
+    {
+      version: 1,
+      imageW: 900,
+      imageH: 600,
+      shapes: [
+        { id: "el1", type: "ellipse", x: 250, y: 300, w: 110, h: 44, color: "#e11d48", strokeWidth: 4 },
+        { id: "ar1", type: "arrow", x1: 470, y1: 150, x2: 330, y2: 300, color: "#2563eb", strokeWidth: 4 },
+        { id: "tx1", type: "text", x: 250, y: 110, text: "T1 positive", color: "#111827", fontSize: 26 },
+        { id: "tx2", type: "text", x: 470, y: 110, text: "~1.4 kb", color: "#111827", fontSize: 26 },
+      ],
+      updatedAt: "2026-05-13T18:00:00Z",
+      updatedBy: "alex",
+    },
+  ]);
+
   return out;
 }
 
@@ -3763,6 +3933,11 @@ function projects(owner, list) {
       archived_at: null,
       owner,
       shared_with: p.shared_with ?? [],
+      // Optional link to a lab funding account. Drives the Funding section of
+      // the Deposit dialog's metadata-review step (resolvePrimaryFundingAccount
+      // in lib/deposit/prefill.ts). Only set on the demo project that has a
+      // grant; everything else stays null.
+      funding_account_id: p.funding_account_id ?? null,
     },
   ]);
 }
