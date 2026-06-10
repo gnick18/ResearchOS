@@ -109,6 +109,9 @@ export interface LedgerEntry {
   category: string;
   amountCents: number;
   note: string;
+  /** Tax category id (see tax-categories.ts), "" when uncategorized. Drives the
+   *  year-end Schedule C summary. Empty for income and old rows. */
+  taxCategory: string;
   /** "manual" for hand entry; later "infra-estimate" / "storage-payment". */
   source: string;
 }

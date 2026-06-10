@@ -96,6 +96,7 @@ export async function ensureBusinessSchema(): Promise<void> {
     )
   `;
   await sql`ALTER TABLE business_ledger ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'manual'`;
+  await sql`ALTER TABLE business_ledger ADD COLUMN IF NOT EXISTS tax_category text NOT NULL DEFAULT ''`;
   await sql`
     CREATE TABLE IF NOT EXISTS business_tasks (
       id bigserial primary key,
@@ -436,6 +437,7 @@ type LedgerRow = {
   amount_cents: string | number;
   note: string | null;
   source: string | null;
+  tax_category: string | null;
 };
 
 function rowToEntry(r: LedgerRow): LedgerEntry {
@@ -446,6 +448,7 @@ function rowToEntry(r: LedgerRow): LedgerEntry {
     category: r.category ?? "",
     amountCents: Number(r.amount_cents),
     note: r.note ?? "",
+    taxCategory: r.tax_category ?? "",
     source: r.source ?? "manual",
   };
 }
@@ -454,7 +457,7 @@ function rowToEntry(r: LedgerRow): LedgerEntry {
 export async function listLedger(): Promise<LedgerEntry[]> {
   const sql = getSql();
   const rows = (await sql`
-    SELECT id, entry_date, direction, category, amount_cents, note, source
+    SELECT id, entry_date, direction, category, amount_cents, note, source, tax_category
     FROM business_ledger
     ORDER BY entry_date DESC, id DESC
   `) as LedgerRow[];
@@ -467,6 +470,7 @@ export interface NewLedgerEntry {
   category: string;
   amountCents: number;
   note: string;
+  taxCategory?: string;
   source?: string;
 }
 
@@ -474,9 +478,9 @@ export interface NewLedgerEntry {
 export async function addLedgerEntry(entry: NewLedgerEntry): Promise<LedgerEntry> {
   const sql = getSql();
   const rows = (await sql`
-    INSERT INTO business_ledger (entry_date, direction, category, amount_cents, note, source)
-    VALUES (${entry.date}, ${entry.direction}, ${entry.category}, ${entry.amountCents}, ${entry.note}, ${entry.source ?? "manual"})
-    RETURNING id, entry_date, direction, category, amount_cents, note, source
+    INSERT INTO business_ledger (entry_date, direction, category, amount_cents, note, source, tax_category)
+    VALUES (${entry.date}, ${entry.direction}, ${entry.category}, ${entry.amountCents}, ${entry.note}, ${entry.source ?? "manual"}, ${entry.taxCategory ?? ""})
+    RETURNING id, entry_date, direction, category, amount_cents, note, source, tax_category
   `) as LedgerRow[];
   return rowToEntry(rows[0]);
 }

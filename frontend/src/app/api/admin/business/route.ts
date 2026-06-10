@@ -33,6 +33,7 @@ import {
   setTaskDone,
   upsertEntity,
 } from "@/lib/business/db";
+import { isValidTaxCategory } from "@/lib/business/tax-categories";
 
 export const runtime = "nodejs";
 
@@ -167,12 +168,17 @@ export async function POST(request: Request): Promise<Response> {
       if (!Number.isFinite(amountCents) || amountCents <= 0) {
         return json(400, { error: "invalid amount" });
       }
+      const taxCategory = asString(e.taxCategory);
+      if (taxCategory && !isValidTaxCategory(taxCategory)) {
+        return json(400, { error: "invalid tax category" });
+      }
       const entry = await addLedgerEntry({
         date,
         direction,
         category: asString(e.category),
         amountCents,
         note: asString(e.note),
+        taxCategory,
         source: asString(e.source) || "manual",
       });
       return json(200, { entry });

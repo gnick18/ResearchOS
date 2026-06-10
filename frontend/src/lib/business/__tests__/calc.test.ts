@@ -26,7 +26,7 @@ function entry(
   direction: "in" | "out",
   amountCents: number,
 ): LedgerEntry {
-  return { id, date, direction, category: "", amountCents, note: "", source: "manual" };
+  return { id, date, direction, category: "", amountCents, note: "", taxCategory: "", source: "manual" };
 }
 
 describe("computeSummary", () => {
