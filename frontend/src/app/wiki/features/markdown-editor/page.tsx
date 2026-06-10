@@ -132,8 +132,8 @@ export default function MarkdownEditorPage() {
           record without re-uploading.
         </li>
         <li>
-          <strong>Strip</strong> to show or hide the bottom attachment strip
-          (see <a href="#attachments">Attachments</a>).
+          <strong>Attachments</strong> to show or hide the bottom attachment
+          strip (see <a href="#attachments">Attachments</a>).
         </li>
         <li>
           On surfaces that own their own save (the experiment popup&apos;s Lab
@@ -172,9 +172,9 @@ export default function MarkdownEditorPage() {
             <tr><td className="px-3 py-1.5">Strikethrough</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>Shift</Kbd>+<Kbd>X</Kbd></td></tr>
             <tr><td className="px-3 py-1.5">Link</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>K</Kbd></td></tr>
             <tr><td className="px-3 py-1.5">Headings 1 through 6</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>1</Kbd> through <Kbd>Cmd</Kbd>+<Kbd>6</Kbd></td></tr>
-            <tr><td className="px-3 py-1.5">Promote heading (e.g., H2 to H1)</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>Ctrl</Kbd>+<Kbd>+</Kbd></td></tr>
-            <tr><td className="px-3 py-1.5">Demote heading (e.g., H2 to H3)</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>Ctrl</Kbd>+<Kbd>-</Kbd></td></tr>
-            <tr><td className="px-3 py-1.5">Code block (with language prompt)</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>Ctrl</Kbd>+<Kbd>C</Kbd></td></tr>
+            <tr><td className="px-3 py-1.5">Promote heading (e.g., H2 to H1)</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>Alt</Kbd>+<Kbd>+</Kbd></td></tr>
+            <tr><td className="px-3 py-1.5">Demote heading (e.g., H2 to H3)</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>Alt</Kbd>+<Kbd>-</Kbd></td></tr>
+            <tr><td className="px-3 py-1.5">Code block (with language prompt)</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>Shift</Kbd>+<Kbd>C</Kbd></td></tr>
             <tr><td className="px-3 py-1.5">Blockquote</td><td className="px-3 py-1.5"><Kbd>Ctrl</Kbd>+<Kbd>Q</Kbd></td></tr>
             <tr><td className="px-3 py-1.5">Focus mode</td><td className="px-3 py-1.5"><Kbd>Cmd</Kbd>+<Kbd>Shift</Kbd>+<Kbd>F</Kbd></td></tr>
           </tbody>
@@ -189,7 +189,7 @@ export default function MarkdownEditorPage() {
       <p>
         Images and files live in one place, a single attachment strip along the
         bottom of the editor, toggled with the toolbar&apos;s{" "}
-        <strong>Strip</strong> button. A small <strong>Images / Files</strong>{" "}
+        <strong>Attachments</strong> button. A small <strong>Images / Files</strong>{" "}
         tab bar above the strip switches it between image thumbnails and file
         tiles. There&apos;s no separate Files panel and no top-of-editor{" "}
         Markdown / Files toggle anymore; everything funnels through this one
@@ -581,19 +581,23 @@ A3 looks suspect, repeat tomorrow morning.`}</code>
         </li>
         <li>
           <strong>Promote/demote a heading</strong> in place with{" "}
-          <Kbd>Cmd</Kbd>+<Kbd>Ctrl</Kbd>+<Kbd>+</Kbd> or{" "}
-          <Kbd>Cmd</Kbd>+<Kbd>Ctrl</Kbd>+<Kbd>-</Kbd>. You don&apos;t need to
+          <Kbd>Cmd</Kbd>+<Kbd>Alt</Kbd>+<Kbd>+</Kbd> or{" "}
+          <Kbd>Cmd</Kbd>+<Kbd>Alt</Kbd>+<Kbd>-</Kbd>. You don&apos;t need to
           retype the <code>#</code> marks.
         </li>
         <li>
           <strong>Focus mode</strong> (<Kbd>Cmd</Kbd>+<Kbd>Shift</Kbd>+<Kbd>F</Kbd>{" "}
           or the toolbar expand glyph) gives you a full-screen, distraction-free
-          writing view with a compact top bar. Exit returns you to the popup.
+          writing view with a compact top bar. That top bar carries a width
+          control with four presets (Narrow, Comfortable, Wide, Full-bleed) so
+          you can set how wide the text column runs, from a tight ~60-character
+          measure up to the full available width. Your choice is remembered.
+          Exit returns you to the popup.
         </li>
         <li>
-          <strong>The Strip button</strong> in the toolbar toggles the bottom
-          attachment strip (its Images and Files tabs) on and off. Click it again
-          to bring the strip back.
+          <strong>The Attachments button</strong> in the toolbar toggles the
+          bottom attachment strip (its Images and Files tabs) on and off. Click
+          it again to bring the strip back.
         </li>
         <li>
           <strong>Drag a thumbnail back into the editor</strong> to insert the
