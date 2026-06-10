@@ -74,7 +74,7 @@ const TIERS: Tier[] = [
   {
     id: "patron",
     name: "Patron",
-    price: "25",
+    price: "15",
     featured: true,
     perks: [
       "Everything in Backer",
@@ -85,7 +85,7 @@ const TIERS: Tier[] = [
   {
     id: "benefactor",
     name: "Benefactor",
-    price: "100",
+    price: "25",
     perks: [
       "Everything in Patron",
       "Your logo featured first and larger across the welcome page and wiki, if you want it shown",
