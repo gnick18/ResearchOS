@@ -1,39 +1,44 @@
 "use client";
 
 /**
- * The `/welcome` page: video-driven sell page (2026-06-04 rebuild).
+ * The `/welcome` page: video-driven sell page (2026-06-10 bold-rainbow rebuild).
  *
- * This is the modern rebuild of the welcome / sell page, built on a temporary
- * route so the live `/welcome` (LandingPage.tsx) stays untouched while we
- * iterate. The design is locked in docs/proposals/welcome-page-redesign.md.
- * The aesthetic is LIGHT (Grant 2026-06-04, reversed from the dark-first
- * build). Clean white and pale-blue panels, dark slate text, soft and clinical,
- * the trustworthy look for a non-design-savvy scientist. The hero keeps the
- * thin rainbow ribbon, the soft rainbow bloom behind BeakerBot, and the
- * rainbow-gradient headline word as the only saturated accents. It matches the
- * chosen mock at tools/welcome-mock/index.html (?v=light).
+ * This is the reimagined welcome / sell page. It is LIGHT-themed (Grant's rule,
+ * wrapped in LightOnly); the dark variant in the review mockup
+ * (docs/mockups/welcome-redesign-2026-06-10.html) is for review only and never
+ * ships. The aesthetic is clean white and pale-blue panels with a BOLD rainbow
+ * brand treatment: a thicker rainbow top bar, rainbow-gradient frames around the
+ * demo windows, and short rainbow rule lines under the section kickers and at
+ * the CTA. The rainbow comes from the brand tokens in globals.css
+ * (--brand-rainbow / .brand-rainbow-bg / .brand-rainbow-text) so the page paints
+ * the exact same ramps as the footer, the avatars, and the banner.
  *
- * The page sells the tools through silent, looping, real-UI demo videos
- * (DemoLoop) plus a few stand-in placeholders for clips not yet recorded. It
- * leads with the handful of features that make a researcher want to try it and
- * trusts them to discover the rest once they are in.
+ * Structure (mockup direction):
+ *   1. Hero: product headline + NIH Data Management and Sharing Plan compliance
+ *      as the CENTERPIECE card (the urgent broad hook for funded labs). The big
+ *      hero demo loop is gone; the real loops moved down into the feature
+ *      sections.
+ *   2. Flagship sequence editor, credibility pillars, the toolkit bento grid.
+ *   3. NEW "Start solo, grow into a lab, or split back out" section telling the
+ *      shipped 3-tier account story (local / free account / lab) plus
+ *      migrate-to-solo (one folder per person, recoverable, never locked in).
+ *   4. Own-your-data block, the tree-of-life explorer, a secondary-loops band,
+ *      the honest comparison table (now with a Quartzy column), and a final CTA.
  *
- * Sign-in: this app mounts NO SessionProvider, so we do NOT use useSession.
- * The two-path model is plain router.push, mirroring LandingPage:
- *   - Sign in with Google  -> /?connect=1&signIn=google
- *   - Sign in with GitHub  -> /?connect=1&signIn=github
- *   - Use locally          -> /?connect=1
- * The notebook needs no account; sign-in is only for sharing, inbox, and
- * collaboration, said wherever sign-in appears.
+ * Sign-in / open-folder live in the connect chooser ABOVE this page now
+ * (EntrySnapSurface embeds WelcomePage one scroll down), so there are NO sign-in
+ * cards on this sales page. Every "get started" CTA routes UP to that chooser:
+ * embedded, it scrolls the snap container back to the top; standalone (/welcome)
+ * it links to "/". The free / no-sign-up / sign-in-only-for-sharing message
+ * stays as plain copy.
  *
- * Voice rules: no em-dashes, no emojis (every glyph is an inline SVG), no
- * mid-sentence colons. Warm, concept-first, contractions OK. BeakerBot is the
- * only mascot and renders via the real <BeakerBot alive /> component, branding
- * untouched (blue eyes, sky-blue stroke, rainbow liquid) on the light hero.
+ * Voice rules: no em-dashes, no emojis (every glyph is an inline SVG kept within
+ * the icon-guard baseline), no mid-sentence colons. Warm, concept-first,
+ * contractions OK. BeakerBot is the only mascot and renders via the real
+ * <BeakerBot alive /> component (blue eyes, sky-blue stroke, rainbow liquid).
  */
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import BeakerBot from "@/components/BeakerBot";
@@ -42,16 +47,14 @@ import BeakerBotPeek from "@/components/welcome/BeakerBotPeek";
 import Wordmark from "@/components/Wordmark";
 import DemoLoop, { DemoLoopPlaceholder } from "@/components/welcome/DemoLoop";
 import { usePreloadOnIdle } from "@/lib/perf/use-preload-on-idle";
-import { GoogleIcon, GitHubIcon, LinkedInIcon, OrcidIcon } from "@/components/sharing/icons";
-import { FREE_STORAGE_BYTES, TTL_DAYS } from "@/lib/sharing/relay/limits";
 import RoadmapModal from "@/components/RoadmapModal";
 import { markLandingSeen } from "@/lib/landing/landing-gate";
 
-/** The rainbow ribbon gradient (pastel) and its deeper text variant both come
- *  from the brand tokens in globals.css, so the welcome page paints the exact
- *  same ramps as the footer, the avatars, and the banner. RAINBOW is the pastel
- *  fill (top ribbon + soft bloom); RAINBOW_TEXT is the saturated ramp clipped
- *  into the gradient headline word (the pastel washes out as type on white). */
+/** The rainbow ramps, pulled from the brand tokens in globals.css so the
+ *  welcome page never drifts from the footer / avatars / banner. RAINBOW is the
+ *  pastel fill used for the ribbon, the soft bloom, and the demo-frame borders;
+ *  RAINBOW_TEXT is the saturated ramp clipped into the gradient headline word
+ *  (the pastel washes out as type on white). */
 const RAINBOW = "var(--brand-rainbow)";
 const RAINBOW_TEXT = "var(--brand-rainbow-vivid)";
 
@@ -67,226 +70,8 @@ const TaxonomyTreeView = dynamic(
   { ssr: false },
 );
 
-/* ----------------------------------------------------------------------------
- * Sign-in row (two-path), reused at the hero and the final CTA. Both placements
- * are on a light surface now, so the local link reads dark-on-light everywhere.
- * The tone prop is kept for callers but no longer flips a dark variant.
- * -------------------------------------------------------------------------- */
-function SignInRow({
-  onOrcid,
-  onGoogle,
-  onGitHub,
-  onLinkedIn,
-  onEmail,
-  onLocal,
-}: {
-  onOrcid: () => void;
-  onGoogle: () => void;
-  onGitHub: () => void;
-  onLinkedIn: () => void;
-  onEmail: () => void;
-  onLocal: () => void;
-  tone?: "dark" | "light";
-}) {
-  // Two informed paths, side by side. NO account gives the full local notebook.
-  // A FREE account adds sharing, inbox, and collaboration. The storage + TTL
-  // numbers are imported from the relay limits so the page can never drift from
-  // what the server actually enforces.
-  const inboxGb = Math.round(FREE_STORAGE_BYTES / 1024 ** 3);
-  const oauthBtn =
-    "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-2.5 text-meta font-semibold transition-transform hover:scale-[1.03]";
-  return (
-    <div className="mx-auto w-full max-w-3xl">
-      <div className="grid gap-4 text-left md:grid-cols-2">
-      {/* Path A: no account, the full local notebook. */}
-      <div className="flex flex-col rounded-2xl border border-[#d3deec] bg-white p-6 shadow-[0_2px_12px_rgba(15,40,80,0.06)]">
-        <div className="font-mono text-meta font-semibold uppercase tracking-[0.1em] text-brand-action">
-          // free
-        </div>
-        <h3 className="mt-1.5 text-heading font-extrabold tracking-tight text-brand-ink">
-          Use it locally
-        </h3>
-        <ul className="mt-4 space-y-2.5">
-          <li className="flex items-start gap-2 text-body font-semibold leading-snug text-brand-ink">
-            <CheckGlyph /> 100% of the features, free. Solo users get the whole app, nothing held back.
-          </li>
-          <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
-            <CheckGlyph /> Works offline, private, on your own machine.
-          </li>
-          <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
-            <CheckGlyph /> Free, and yours to keep forever.
-          </li>
-        </ul>
-        {/* Finder showing the data folder (plain files) over the ResearchOS
-            home page: the most concrete proof that "use it locally" means your
-            data is just files on your own machine. Still + framed so it fills
-            the gap without competing with the CTA. */}
-        <div className="flex flex-1 items-center py-3">
-          <Image
-            src="/welcome/local-folder-home.png"
-            alt="Finder showing the ResearchOS data folder as plain files, next to the app, your data stays on your own machine"
-            width={3016}
-            height={1586}
-            unoptimized
-            className="w-full rounded-lg border border-[#e3ecf6] shadow-sm"
-          />
-        </div>
-        <button
-          type="button"
-          onClick={onLocal}
-          data-testid="welcome-signin-local"
-          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-ink px-5 py-3 text-body font-bold text-white shadow-[0_10px_26px_rgba(15,40,80,0.20)] transition-transform hover:scale-[1.01]"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-4 w-4 shrink-0"
-            aria-hidden
-          >
-            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
-          </svg>
-          Open your notebook
-        </button>
-        <p className="mt-2 text-center text-meta text-[#8593a8]">No sign-up, ever.</p>
-      </div>
-
-      {/* Path B: free account, adds sharing + inbox + collaboration. */}
-      <div className="flex flex-col rounded-2xl border border-[#cfe0f2] bg-[#f5faff] p-6 shadow-[0_2px_12px_rgba(15,40,80,0.06)]">
-        <div className="font-mono text-meta font-semibold uppercase tracking-[0.1em] text-brand-action">
-          // also free
-        </div>
-        <h3 className="mt-1.5 text-heading font-extrabold tracking-tight text-brand-ink">
-          Sign in to share
-        </h3>
-        <ul className="mt-4 flex-1 space-y-2.5">
-          <li className="flex items-start gap-2 text-body font-semibold leading-snug text-brand-ink">
-            <CheckGlyph /> + Use it locally. Your notebook still lives on your machine.
-          </li>
-          <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
-            <CheckGlyph /> Send notes, methods, and projects to anyone by email.
-          </li>
-          <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
-            <CheckGlyph /> A {inboxGb} GB encrypted inbox for work others send you, held {TTL_DAYS} days.
-          </li>
-          <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
-            <CheckGlyph /> Cross-lab sharing, no shared folder needed.
-          </li>
-          <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
-            <CheckGlyph /> Find other ResearchOS users to share with, coming soon.
-          </li>
-          <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
-            <CheckGlyph /> Live collaboration, coming soon.
-          </li>
-        </ul>
-        {/* Four identity providers, equal weight, in a 2x2 grid. ORCID sits
-            top-left for soft priority as the academic identity, on a WHITE
-            button so its green iD circle reads as the full official badge (a
-            green button hides the circle against itself). */}
-        <div className="mt-5 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={onOrcid}
-            data-testid="welcome-preview-signin-orcid"
-            className={`${oauthBtn} border-[#d7dde5] bg-white text-gray-800`}
-          >
-            <OrcidIcon className="h-4 w-4 shrink-0" />
-            ORCID
-          </button>
-          <button
-            type="button"
-            onClick={onGoogle}
-            data-testid="welcome-preview-signin-google"
-            className={`${oauthBtn} border-[#d7dde5] bg-white text-gray-800`}
-          >
-            <GoogleIcon className="h-4 w-4 shrink-0" />
-            Google
-          </button>
-          <button
-            type="button"
-            onClick={onGitHub}
-            data-testid="welcome-preview-signin-github"
-            className={`${oauthBtn} border-[#181717] bg-[#181717] text-white`}
-          >
-            <GitHubIcon className="h-4 w-4 shrink-0" />
-            GitHub
-          </button>
-          <button
-            type="button"
-            onClick={onLinkedIn}
-            data-testid="welcome-preview-signin-linkedin"
-            className={`${oauthBtn} border-[#0A66C2] bg-[#0A66C2] text-white hover:bg-[#004182]`}
-          >
-            <LinkedInIcon className="h-4 w-4 shrink-0" />
-            LinkedIn
-          </button>
-        </div>
-        <button
-          type="button"
-          onClick={onEmail}
-          data-testid="welcome-preview-signin-email"
-          className="mt-3 w-full text-center text-meta font-medium text-sky-600 transition-colors hover:text-sky-700 hover:underline"
-        >
-          or verify with email instead
-        </button>
-        <p className="mt-2 text-meta leading-snug text-[#8593a8]">
-          Sign-in only verifies your email. Your notebook still lives on your
-          machine. Inbox size and hold time may grow or change as funding and
-          demand allow.
-        </p>
-      </div>
-      </div>
-      {/* Third path: just look around. The interactive /demo unlocks a seeded
-          lab with no folder + no account, the lowest-friction way in. Plain
-          anchor (not router.push) so /demo gets a clean full mount. */}
-      <div className="mt-5 flex flex-col items-center gap-1.5">
-        <a
-          href="/demo"
-          data-testid="welcome-try-demo"
-          className="inline-flex items-center gap-2 rounded-xl border border-[#cfdcec] bg-white px-5 py-3 text-body font-semibold text-brand-action shadow-[0_2px_12px_rgba(15,40,80,0.06)] transition-transform hover:scale-[1.02]"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-4 w-4 shrink-0"
-            aria-hidden
-          >
-            <path d="M5 3l14 9-14 9V3z" />
-          </svg>
-          Or explore the live demo
-          <span aria-hidden>→</span>
-        </a>
-        <span className="text-meta text-[#8593a8]">
-          A seeded lab, no folder or account needed.
-        </span>
-        {/* Starter-folder download, rehomed here next to the live demo (its
-            conceptual sibling, the low-commitment "just look around" path) from
-            the retired ResearchFolderSetupNew landing card (onboarding
-            redundancy removal, 2026-06-10). Same fake yeast-lab dataset, but as
-            a folder you link so you can poke at the real on-disk layout. */}
-        <a
-          href="/demo-lab.zip"
-          data-testid="welcome-download-starter"
-          className="mt-2 text-meta text-[#8593a8] underline-offset-2 transition-colors hover:text-brand-action hover:underline"
-        >
-          Or download it as a starter folder to link
-        </a>
-        <span className="text-meta text-[#8593a8]">
-          An entirely fake yeast-lab dataset to explore the app with.
-        </span>
-      </div>
-    </div>
-  );
-}
-
-/** A check glyph for the trust-block list, sky-blue. */
+/** A check glyph for the trust-block lists, sky-blue. The single inline check
+ *  glyph in the file, reused everywhere a bullet needs a tick. */
 function CheckGlyph() {
   return (
     <svg
@@ -306,12 +91,39 @@ function CheckGlyph() {
   );
 }
 
-/** Section eyebrow kicker in the page's monospace accent style. Uses the
- *  brand-action blue (the accessible UI accent from the brand tokens). */
+/** Section eyebrow kicker in the page's monospace accent style, with a short
+ *  rainbow rule before the label (the bold-rainbow brand-up: every section
+ *  kicker carries the brand ramp as a quiet ornament). */
 function Kicker({ children }: { children: ReactNode }) {
   return (
-    <div className="font-mono text-meta font-semibold uppercase tracking-[0.12em] text-brand-action">
-      {children}
+    <div className="flex items-center gap-2.5">
+      <span
+        aria-hidden
+        className="brand-rainbow-bg h-[3px] w-6 flex-none rounded-full"
+      />
+      <span className="font-mono text-meta font-semibold uppercase tracking-[0.12em] text-brand-action">
+        {children}
+      </span>
+    </div>
+  );
+}
+
+/** A rainbow-gradient frame around a demo window. The mockup's bold-rainbow
+ *  treatment wraps the browser/demo chrome in a thin brand-ramp border by
+ *  painting the rainbow as the padded background behind a white inner card.
+ *  Children render inside the inner card. */
+function RainbowFrame({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`brand-rainbow-bg rounded-[20px] p-[3px] shadow-[0_24px_60px_rgba(15,40,80,0.12)] ${className ?? ""}`}
+    >
+      <div className="overflow-hidden rounded-[17px] bg-white">{children}</div>
     </div>
   );
 }
@@ -365,25 +177,27 @@ function TreeOfLifeShowcase() {
           bundled backbone, so it works offline with no account.
         </p>
 
-        {/* The interactive canvas. A rounded bordered card, full section width,
-            tall on desktop and a touch shorter on mobile. The embedded explorer
-            fills it. */}
-        <div
-          ref={sectionRef}
-          data-testid="welcome-tree-of-life"
-          className="mt-8 h-[26rem] w-full overflow-hidden rounded-2xl border border-[#d8e3f1] bg-white shadow-[0_24px_60px_rgba(15,40,80,0.10)] sm:h-[30rem]"
-        >
-          {inView ? (
-            <TaxonomyTreeView open embedded />
-          ) : (
-            <div
-              data-testid="welcome-tree-of-life-placeholder"
-              className="flex h-full w-full items-center justify-center bg-[#f5f9fd] text-meta text-[#64748b]"
-            >
-              Loading the tree of life...
-            </div>
-          )}
-        </div>
+        {/* The interactive canvas, wrapped in the rainbow frame so it matches
+            the bold-rainbow demo windows. A rounded bordered card, full section
+            width, tall on desktop and a touch shorter on mobile. */}
+        <RainbowFrame className="mt-8">
+          <div
+            ref={sectionRef}
+            data-testid="welcome-tree-of-life"
+            className="h-[26rem] w-full overflow-hidden bg-white sm:h-[30rem]"
+          >
+            {inView ? (
+              <TaxonomyTreeView open embedded />
+            ) : (
+              <div
+                data-testid="welcome-tree-of-life-placeholder"
+                className="flex h-full w-full items-center justify-center bg-[#f5f9fd] text-meta text-[#64748b]"
+              >
+                Loading the tree of life...
+              </div>
+            )}
+          </div>
+        </RainbowFrame>
       </div>
     </section>
   );
@@ -391,7 +205,7 @@ function TreeOfLifeShowcase() {
 
 /* ----------------------------------------------------------------------------
  * Comparison table, carried from LandingPage and restyled to the light
- * aesthetic. ResearchOS vs LabArchives vs SnapGene, honest three-way.
+ * aesthetic. ResearchOS vs LabArchives vs SnapGene vs Quartzy, honest four-way.
  * -------------------------------------------------------------------------- */
 type CellMark = "win" | "have" | "soon" | "none";
 interface Cell {
@@ -431,12 +245,22 @@ function ComparisonRow({
   us,
   labarchives,
   snapgene,
+  quartzy,
 }: {
   label: string;
   us: Cell;
   labarchives: Cell;
   snapgene: Cell;
+  quartzy: Cell;
 }) {
+  const other = (cell: Cell) => (
+    <td className="px-4 py-3 text-body text-[#64748b]">
+      <span className="flex items-start gap-2">
+        <MarkIcon mark={cell.mark} />
+        <span>{cell.text}</span>
+      </span>
+    </td>
+  );
   return (
     <tr className="border-b border-[#e3eaf3] align-top last:border-0">
       <td className="px-4 py-3 text-body font-medium text-brand-ink">{label}</td>
@@ -446,18 +270,9 @@ function ComparisonRow({
           <span>{us.text}</span>
         </span>
       </td>
-      <td className="px-4 py-3 text-body text-[#64748b]">
-        <span className="flex items-start gap-2">
-          <MarkIcon mark={labarchives.mark} />
-          <span>{labarchives.text}</span>
-        </span>
-      </td>
-      <td className="px-4 py-3 text-body text-[#64748b]">
-        <span className="flex items-start gap-2">
-          <MarkIcon mark={snapgene.mark} />
-          <span>{snapgene.text}</span>
-        </span>
-      </td>
+      {other(labarchives)}
+      {other(snapgene)}
+      {other(quartzy)}
     </tr>
   );
 }
@@ -474,32 +289,45 @@ export default function WelcomePage() {
   // Roadmap modal state.
   const [roadmapOpen, setRoadmapOpen] = useState(false);
 
-  // Multi-path sign-in, plain router.push (no SessionProvider in this app).
-  // ORCID rides the same OAuth-resume path as Google/GitHub/LinkedIn (the
-  // setup component reads ?signIn and fires signIn() after the folder is
-  // connected). Email is special: ?signIn=email opens the SharingSetupWizard
-  // straight on its email step instead of an OAuth redirect.
-  // Every CTA that enters the connect flow MUST mark the landing seen first.
-  // Without it, the first-visit redirect in providers.tsx re-fires during the
-  // connect transition (the moment ?connect=1 is dropped before isConnected has
-  // propagated) and bounces the visitor straight back to /welcome, a soft-lock.
-  // The seen flag makes shouldShowLanding return false for this browser, so the
-  // user can complete folder setup without being yanked back here.
-  const goConnect = (href: string) => {
+  // "Get started" routes UP to the connect chooser, which now lives ABOVE this
+  // page. When this component is embedded in EntrySnapSurface, the chooser is
+  // the previous scroll-snap section, so scrolling the surrounding scroll
+  // container to the top lands on it. When the page is standalone (/welcome),
+  // there is no chooser above, so we navigate to "/" where folder setup lives.
+  // markLandingSeen() keeps the first-visit redirect in providers.tsx from
+  // bouncing the visitor back to /welcome mid-transition.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const goGetStarted = () => {
     markLandingSeen();
-    router.push(href);
+    // Walk up from the page root to find the nearest scrollable ancestor (the
+    // EntrySnapSurface snap container). If found, this page is embedded one
+    // scroll below the chooser, so scroll that container to the top.
+    let node: HTMLElement | null = rootRef.current?.parentElement ?? null;
+    let scroller: HTMLElement | null = null;
+    while (node) {
+      const oy = window.getComputedStyle(node).overflowY;
+      if ((oy === "auto" || oy === "scroll") && node.scrollHeight > node.clientHeight) {
+        scroller = node;
+        break;
+      }
+      node = node.parentElement;
+    }
+    if (scroller) {
+      scroller.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    // Standalone: send them to the home route where the connect flow lives.
+    router.push("/");
   };
-  const handleOrcid = () => goConnect("/?connect=1&signIn=orcid");
-  const handleGoogle = () => goConnect("/?connect=1&signIn=google");
-  const handleGitHub = () => goConnect("/?connect=1&signIn=github");
-  const handleLinkedIn = () => goConnect("/?connect=1&signIn=linkedin");
-  const handleEmail = () => goConnect("/?connect=1&signIn=email");
-  const handleLocal = () => goConnect("/?connect=1");
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-[#fbfcfe] text-brand-ink">
-      {/* Thin rainbow ribbon pinned to the very top edge. */}
-      <div aria-hidden className="h-[5px] w-full" style={{ background: RAINBOW }} />
+    <div
+      ref={rootRef}
+      className="min-h-screen w-full overflow-x-hidden bg-[#fbfcfe] text-brand-ink"
+    >
+      {/* Thick rainbow ribbon pinned to the very top edge (bold-rainbow up from
+          the old 5px ribbon to an 8px band). */}
+      <div aria-hidden className="h-2 w-full" style={{ background: RAINBOW }} />
 
       {/* No max-width here: section backgrounds (the pale-blue bands, the hero
           gradient) must go full-bleed to the screen edges at any width. Each
@@ -534,34 +362,25 @@ export default function WelcomePage() {
               </svg>
               What we&apos;re building
             </button>
-            {/* UW-Madison affiliation badge (the W crest from the official RISE
-                lockup + a short label), linking to the RISE program that funds
-                the work. The full RISE logo lives in the footer; the nav uses
-                the compact crest so it reads at small size. */}
-            <a
-              href="https://rise.wisc.edu/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-full border border-[#d3deec] bg-white px-3 py-1 text-meta font-semibold text-brand-ink transition-colors hover:border-brand-action hover:bg-[#f5f9fd]"
+            {/* Get started: routes up to the connect chooser (embedded) or home
+                (standalone). The brand-gradient primary action. */}
+            <button
+              type="button"
+              onClick={goGetStarted}
+              data-testid="welcome-nav-get-started"
+              className="btn-brand inline-flex items-center gap-1.5 px-4 py-1.5 text-meta"
             >
-              <Image
-                src="/credentials/uw-crest.png"
-                alt="University of Wisconsin-Madison crest"
-                width={88}
-                height={132}
-                unoptimized
-                className="h-4 w-auto"
-              />
-              Backed by UW-Madison
-            </a>
+              Get started
+            </button>
           </div>
         </nav>
 
         {/* ── Hero ────────────────────────────────────────────────────── */}
         {/* Its own subtle band (white to pale blue) with a bottom edge, so the
             hero reads as a distinct chunk and does not bleed into the content
-            below. */}
-        <header className="relative isolate bg-gradient-to-b from-white to-[#eef4fb] px-6 pb-8 pt-2 text-center sm:px-12">
+            below. The big hero demo loop is gone; the NIH compliance card is the
+            centerpiece under the headline. */}
+        <header className="relative isolate bg-gradient-to-b from-white to-[#eef4fb] px-6 pb-12 pt-2 text-center sm:px-12">
           {/* Soft rainbow radial bloom behind BeakerBot. */}
           <div
             aria-hidden
@@ -614,26 +433,85 @@ export default function WelcomePage() {
               stays on your own machine.
             </p>
 
-            <div className="mt-8">
-              <SignInRow
-                onOrcid={handleOrcid}
-                onGoogle={handleGoogle}
-                onGitHub={handleGitHub}
-                onLinkedIn={handleLinkedIn}
-                onEmail={handleEmail}
-                onLocal={handleLocal}
-                tone="light"
-              />
+            {/* Primary CTAs. No sign-in cards here: those live in the chooser
+                above. "Start your notebook" routes up to it; "See it in action"
+                jumps to the toolkit section below. */}
+            <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={goGetStarted}
+                data-testid="welcome-hero-get-started"
+                className="btn-brand px-6 py-3 text-body"
+              >
+                Start your notebook
+              </button>
+              <a
+                href="#toolkit"
+                className="inline-flex items-center gap-2 rounded-xl border border-[#cfdcec] bg-white px-6 py-3 text-body font-semibold text-brand-action shadow-[0_2px_12px_rgba(15,40,80,0.06)] transition-transform hover:scale-[1.02]"
+              >
+                See it in action
+                <span aria-hidden>↓</span>
+              </a>
+            </div>
+            <p className="mt-3 text-meta text-[#8593a8]">
+              Free, no sign-up to begin. Sign-in is only for sharing, and lives
+              on the start screen above.
+            </p>
+
+            {/* Hero centerpiece: NIH Data Management and Sharing Plan
+                compliance, the urgent broad hook for funded labs (Grant
+                2026-06-10). A rainbow-framed card so it carries the bold-rainbow
+                treatment as the page's first focal point. */}
+            <div className="mt-9 w-full max-w-[780px]">
+              <RainbowFrame>
+                <div className="px-6 py-6 text-left sm:px-8">
+                  <div className="font-mono text-meta font-semibold uppercase tracking-[0.08em] text-brand-action">
+                    Built for grant-funded labs
+                  </div>
+                  <h2 className="mt-2 text-heading font-extrabold tracking-tight text-brand-ink md:text-2xl">
+                    Supports your NIH Data Management and Sharing Plan
+                  </h2>
+                  <p className="mt-2 text-body leading-relaxed text-[#475569]">
+                    The data management your mandate asks for, free. Records you
+                    own, with real version history, clean structured exports, and
+                    one-click Zenodo deposit carrying your ORCID and grant
+                    metadata. No enterprise compliance badge to buy.
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2.5">
+                    {[
+                      "Records you own",
+                      "Version history",
+                      "Zenodo deposit",
+                      "No enterprise markup",
+                    ].map((t) => (
+                      <span
+                        key={t}
+                        className="flex items-center gap-1.5 text-body font-semibold text-brand-ink"
+                      >
+                        <CheckGlyph />
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                  <a
+                    href="/wiki/compliance/nih-data-management"
+                    data-testid="welcome-hero-nih-compliance"
+                    className="mt-4 inline-flex items-center gap-1.5 text-body font-bold text-brand-action transition-colors hover:text-brand-ink"
+                  >
+                    Read the NIH compliance guide
+                    <span aria-hidden>→</span>
+                  </a>
+                </div>
+              </RainbowFrame>
             </div>
           </div>
         </header>
 
         {/* ── Flagship showcase ─────────────────────────────────────────
-            A tinted band that pairs the hero loop with real explanatory copy,
-            so the first thing under the hero is substance, not a bare video.
-            The band's tint + borders give the page visual rhythm against the
-            white sections. */}
-        <section className="border-b border-[#dbe6f3] bg-gradient-to-b from-[#eef4fb] to-[#f5f9fd] px-6 pb-20 pt-12 sm:px-12">
+            A tinted band that pairs the flagship cloning loop with real
+            explanatory copy, so the first thing under the hero is substance.
+            The demo window is rainbow-framed. */}
+        <section className="border-y border-[#dbe6f3] bg-gradient-to-b from-[#eef4fb] to-[#f5f9fd] px-6 pb-20 pt-16 sm:px-12">
           <div className="mx-auto grid max-w-[1180px] items-center gap-12 md:grid-cols-[0.92fr_1.08fr]">
             <div>
               <Kicker>// the flagship</Kicker>
@@ -665,21 +543,25 @@ export default function WelcomePage() {
               </ul>
             </div>
             {/* BeakerBot peeks over the top-right of the demo frame and watches
-                the cloning animation, amazed, then settles into a living idle. */}
+                the cloning animation, amazed, then settles into a living idle.
+                The DemoLoop is already framed (browser chrome), and the chrome
+                already carries a thin rainbow-adjacent treatment via the
+                ChromeFrame; we wrap it once more in the RainbowFrame for the
+                bold-rainbow border the mockup shows. */}
             <BeakerBotPeek
               anchor="top-right"
               reactionPose="amazed"
               bubble="whoa!"
               size="h-24 w-24"
             >
-              <DemoLoop
-                src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/sequence-editor-a.mp4"
-                poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/sequence-editor-a.poster.jpg"
-                label="A circular plasmid map rendering in the ResearchOS sequence editor, with annotated feature arcs"
-                framed
-                frameUrl="research-os.app/sequences"
-                preload="metadata"
-              />
+              <RainbowFrame>
+                <DemoLoop
+                  src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/sequence-editor-a.mp4"
+                  poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/sequence-editor-a.poster.jpg"
+                  label="A circular plasmid map rendering in the ResearchOS sequence editor, with annotated feature arcs"
+                  preload="metadata"
+                />
+              </RainbowFrame>
             </BeakerBotPeek>
           </div>
         </section>
@@ -762,8 +644,11 @@ export default function WelcomePage() {
 
         {/* ── Bento feature grid ──────────────────────────────────────── */}
         {/* Tinted band so the white cards read as cards, not a white-on-white
-            blur. */}
-        <section className="border-y border-[#dce6f3] bg-[#eef4fb] px-6 py-20 sm:px-12">
+            blur. Anchored for the hero "See it in action" jump. */}
+        <section
+          id="toolkit"
+          className="scroll-mt-6 border-y border-[#dce6f3] bg-[#eef4fb] px-6 py-20 sm:px-12"
+        >
           <div className="mx-auto mb-8 max-w-[1180px]">
             <Kicker>// the toolkit</Kicker>
             <h2 className="mt-2.5 max-w-[22ch] text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-[36px]">
@@ -771,10 +656,10 @@ export default function WelcomePage() {
             </h2>
           </div>
 
-          {/* The sequence-editor clip leads the HERO, and own-your-data has its
-              own trust block below, so neither repeats here. The grid carries
-              the remaining showcases at half / third width so no single loop
-              renders huge. */}
+          {/* The sequence-editor clip leads the flagship, and own-your-data has
+              its own trust block below, so neither repeats here. The grid
+              carries the remaining showcases at half / third width so no single
+              loop renders huge. */}
           <div className="mx-auto grid max-w-[1180px] grid-cols-1 gap-4 md:grid-cols-6">
             {/* 01: replaces 5 tools (real clip), half width. */}
             <BentoCell
@@ -843,56 +728,52 @@ export default function WelcomePage() {
                 className="mt-4 flex-1"
               />
             </BentoCell>
-
-            {/* 05: phone companion showcase — placeholder for a future
-                mobile-relay or phone-companion demo clip once that surface
-                ships. Telegram capture was here; removed 2026-06-08. */}
           </div>
         </section>
 
-        {/* ── Tree of life explorer (real, offline, interactive) ────────
-            A dedicated full-width section with the actual radial explorer
-            running inline in its offline embed. Sits among the feature
-            showcases, just after the bento grid, so a visitor can play with a
-            real piece of the product before the trust bands below. */}
-        <TreeOfLifeShowcase />
-
-        {/* ── NIH data-management compliance band ───────────────────────
-            Grant's pick: reuse the existing NIH banner from the live welcome
-            here instead of a demo video. Sky-gradient band, ported copy with
-            the mid-sentence colon recast to a period split. */}
-        <section className="bg-gradient-to-br from-sky-600 to-sky-700 py-20 text-white">
-          <div className="mx-auto max-w-4xl px-6 text-center">
-            <span className="text-body font-semibold uppercase tracking-wide text-sky-100">
-              Built for grant-funded labs
-            </span>
-            <h2 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">
-              Supports your NIH Data Management and Sharing Plan
+        {/* ── NEW: accounts, grow or split out ──────────────────────────
+            The shipped 3-tier account story (local / free account / lab) plus
+            migrate-to-solo. Real product, told plainly: start solo, grow into a
+            lab, or split back out, one folder per person, recoverable, never
+            locked in. */}
+        <section className="px-6 py-20 sm:px-12">
+          <div className="mx-auto max-w-[1180px]">
+            <Kicker>// your lab, your call</Kicker>
+            <h2 className="mt-2.5 max-w-[24ch] text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-[36px]">
+              Start solo, grow into a lab, or split back out
             </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-title leading-relaxed text-sky-50">
-              You are a research lab, not an enterprise. No electronic notebook
-              is &ldquo;NIH certified&rdquo; (there is no such thing), yet the
-              big cloud vendors charge enterprise prices for compliance badges
-              your grant never asked you to buy. ResearchOS is shaped around how
-              an academic lab actually works and gives you what the policy
-              really wants. Organized records you own, with real version history
-              and clean exports, without the enterprise price tag.
+            <p className="mt-3 max-w-[62ch] text-title leading-relaxed text-[#475569]">
+              Work alone on your own machine with the whole app. Add a free
+              account when you want to share across labs. Spin up a lab when your
+              team needs real-time sync. Leaving a shared folder later? Take just
+              your own data to your own folder in one move. One folder per person,
+              always recoverable, never locked in.
             </p>
-            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <a
-                href="/wiki/compliance/nih-data-management"
-                data-testid="welcome-preview-nih-compliance"
-                className="rounded-xl bg-white px-6 py-3 text-title font-semibold text-sky-700 shadow-lg transition-all hover:scale-[1.02] hover:bg-sky-50"
-              >
-                How ResearchOS supports NIH compliance
-              </a>
-              <a
-                href="/wiki/compliance/labarchives-comparison"
-                className="rounded-xl border border-white/40 px-6 py-3 text-title font-semibold text-white transition-all hover:bg-white/10"
-              >
-                Compare to LabArchives
-              </a>
+            <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+              <TierCard
+                tag="// just me, local"
+                price="Free"
+                title="On your own machine"
+                body="The full app, no account, most private. Your notebook is a plain folder on your disk."
+              />
+              <TierCard
+                tag="// free account"
+                price="Also free"
+                title="Share across labs"
+                body="Send notes, methods, and projects to anyone by email, with an encrypted inbox. Your data still lives on your disk."
+              />
+              <TierCard
+                tag="// lab"
+                price="For teams"
+                title="Sync the whole team"
+                body="Real-time collaboration and shared sync for the lab, coming as the collaboration layer lands. Members can always split back out to a solo folder."
+              />
             </div>
+            <p className="mt-5 max-w-[62ch] text-body leading-relaxed text-[#64748b]">
+              Switching tiers never traps your work. Moving from a shared lab
+              folder back to a solo one copies just your records into a folder you
+              own, and the originals stay put until you say otherwise.
+            </p>
           </div>
         </section>
 
@@ -926,92 +807,116 @@ export default function WelcomePage() {
                 </li>
               </ul>
             </div>
-            {/* The own-your-data clip, framed light to match this block. */}
-            <div className="overflow-hidden rounded-2xl border border-[#d8e3f1] bg-white shadow-[0_24px_60px_rgba(15,40,80,0.12)]">
-              <div className="flex items-center gap-2 border-b border-[#d8e3f1] bg-[#f3f7fc] px-3.5 py-3 font-mono text-meta text-[#64748b]">
-                <span className="flex gap-1.5" aria-hidden>
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
-                </span>
-                ~/Lab/crispr-screen/
+            {/* The own-your-data clip in a terminal-style block, the bold-rainbow
+                frame around it. */}
+            <RainbowFrame>
+              <div className="bg-white">
+                <div className="flex items-center gap-2 border-b border-[#d8e3f1] bg-[#f3f7fc] px-3.5 py-3 font-mono text-meta text-[#64748b]">
+                  <span className="flex gap-1.5" aria-hidden>
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
+                  </span>
+                  ~/Lab/crispr-screen/
+                </div>
+                <div className="relative aspect-[16/10] w-full overflow-hidden bg-[#eaf2fb]">
+                  <DemoLoop
+                    src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/own-your-data.mp4"
+                    poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/own-your-data.poster.jpg"
+                    label="The project as a plain folder of files sitting on disk in the file browser"
+                    className="h-full"
+                  />
+                </div>
               </div>
-              <div className="relative aspect-[16/10] w-full overflow-hidden bg-[#eaf2fb]">
-                <DemoLoop
-                  src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/own-your-data.mp4"
-                  poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/own-your-data.poster.jpg"
-                  label="The project as a plain folder of files sitting on disk in the file browser"
-                  className="h-full"
-                />
-              </div>
-            </div>
+            </RainbowFrame>
           </div>
         </section>
 
-        {/* ── Live collaboration coming-soon teaser ───────────────────── */}
-        <section className="px-6 py-16 sm:px-12">
-          {/* BeakerBot waves a friendly hello over the top-left of the collab
-              teaser, then settles into a living idle. */}
-          <BeakerBotPeek
-            anchor="top-left"
-            reactionPose="waving"
-            restPose="idle"
-            bubble="hi!"
-            size="h-24 w-24"
-          >
-            <div className="mx-auto max-w-[1320px] overflow-hidden rounded-2xl border border-[#e3eaf3] bg-white shadow-[0_1px_2px_rgba(15,40,80,0.04)]">
-              <div className="grid items-center gap-8 p-8 md:grid-cols-[1.1fr_1fr] md:p-12">
-              <div>
-                <span className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-meta font-semibold text-sky-700">
-                  On the roadmap
-                </span>
-                <h2 className="mt-4 max-w-[20ch] text-2xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-3xl">
-                  Live collaboration, coming soon
-                </h2>
-                <p className="mt-3 max-w-[52ch] text-title leading-relaxed text-[#475569]">
-                  Google-Docs-style real-time editing on the same notes, methods,
-                  and projects, so your whole lab can work a record together. It
-                  is in active development, not shipped yet, and it will stay free
-                  and local-first when it lands.
+        {/* ── Tree of life explorer (real, offline, interactive) ──────── */}
+        <TreeOfLifeShowcase />
+
+        {/* ── Secondary loops band ──────────────────────────────────────
+            Snap from the bench, NIH/Zenodo, and the live-collaboration teaser,
+            three across. Snap-from-bench and NIH/Zenodo clips are not recorded
+            yet, so they use the placeholder. The collab teaser carries
+            BeakerBot's hello. */}
+        <section className="px-6 py-20 sm:px-12">
+          <div className="mx-auto max-w-[1180px]">
+            <Kicker>// and a lot more</Kicker>
+            <h2 className="mt-2.5 max-w-[28ch] text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-[36px]">
+              Snap from the bench, deposit to Zenodo, collaborate live
+            </h2>
+            <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+              {/* Snap from the bench (placeholder until recorded). */}
+              <BentoCell num="snap from the bench" span="third" title="From your phone to your inbox">
+                <p className="text-body leading-relaxed text-[#475569]">
+                  Send a photo from the bench over Telegram and it lands in your
+                  notebook, ready to attach to the right experiment.
                 </p>
-              </div>
-              {/* A static, badged mock of two cursors on one note. No video. */}
-              <div className="relative aspect-[16/10] w-full overflow-hidden rounded-xl border border-[#e3eaf3] bg-gradient-to-br from-[#f5f9fe] to-[#eaf2fb] p-6">
-                <div className="flex h-full flex-col gap-2.5">
-                  <div className="h-2.5 w-2/3 rounded-full bg-[#dbe6f4]" />
-                  <div className="h-2.5 w-1/2 rounded-full bg-[#dbe6f4]" />
-                  <div className="relative h-2.5 w-3/4 rounded-full bg-[#dbe6f4]">
-                    {/* Cursor A */}
-                    <span
-                      aria-hidden
-                      className="absolute -right-1 -top-1 h-4 w-[2px] bg-sky-500"
-                    />
-                    <span
-                      aria-hidden
-                      className="absolute -right-1 -top-5 rounded bg-sky-500 px-1.5 py-0.5 font-mono text-meta font-semibold text-white"
-                    >
-                      Mira
-                    </span>
+                <DemoLoopPlaceholder
+                  tag="Snap from the bench"
+                  claim="A bench photo arriving in the inbox and being filed onto an experiment."
+                  className="mt-4 flex-1"
+                />
+              </BentoCell>
+
+              {/* NIH + Zenodo (placeholder until recorded). */}
+              <BentoCell num="NIH + Zenodo" span="third" title="Grant-ready deposits">
+                <p className="text-body leading-relaxed text-[#475569]">
+                  Data-management compliance plus a one-click Zenodo deposit that
+                  carries your ORCID and grant metadata.
+                </p>
+                <DemoLoopPlaceholder
+                  tag="NIH and Zenodo"
+                  claim="A Zenodo deposit assembling with ORCID and grant metadata attached."
+                  className="mt-4 flex-1"
+                />
+              </BentoCell>
+
+              {/* Live collaboration teaser, with BeakerBot's hello. */}
+              <BeakerBotPeek
+                anchor="top-right"
+                reactionPose="waving"
+                restPose="idle"
+                bubble="hi!"
+                size="h-20 w-20"
+              >
+                <BentoCell num="on the roadmap" span="third" title="Live collaboration, coming soon">
+                  <p className="text-body leading-relaxed text-[#475569]">
+                    Google-Docs-style real-time editing on the same notes,
+                    methods, and projects. In active development, local-first, and
+                    it stays free when it lands.
+                  </p>
+                  {/* A static, badged mock of two cursors on one note. No video. */}
+                  <div className="relative mt-4 flex-1 overflow-hidden rounded-xl border border-[#e3eaf3] bg-gradient-to-br from-[#f5f9fe] to-[#eaf2fb] p-6">
+                    <div className="flex h-full min-h-[7rem] flex-col gap-2.5">
+                      <div className="h-2.5 w-2/3 rounded-full bg-[#dbe6f4]" />
+                      <div className="h-2.5 w-1/2 rounded-full bg-[#dbe6f4]" />
+                      <div className="relative h-2.5 w-3/4 rounded-full bg-[#dbe6f4]">
+                        <span aria-hidden className="absolute -right-1 -top-1 h-4 w-[2px] bg-sky-500" />
+                        <span
+                          aria-hidden
+                          className="absolute -right-1 -top-5 rounded bg-sky-500 px-1.5 py-0.5 font-mono text-meta font-semibold text-white"
+                        >
+                          Mira
+                        </span>
+                      </div>
+                      <div className="relative h-2.5 w-2/5 rounded-full bg-[#dbe6f4]">
+                        <span aria-hidden className="absolute -right-1 -top-1 h-4 w-[2px] bg-purple-500" />
+                        <span
+                          aria-hidden
+                          className="absolute -right-1 -top-5 rounded bg-purple-500 px-1.5 py-0.5 font-mono text-meta font-semibold text-white"
+                        >
+                          Alex
+                        </span>
+                      </div>
+                      <div className="h-2.5 w-1/3 rounded-full bg-[#dbe6f4]" />
+                    </div>
                   </div>
-                  <div className="relative h-2.5 w-2/5 rounded-full bg-[#dbe6f4]">
-                    {/* Cursor B */}
-                    <span
-                      aria-hidden
-                      className="absolute -right-1 -top-1 h-4 w-[2px] bg-purple-500"
-                    />
-                    <span
-                      aria-hidden
-                      className="absolute -right-1 -top-5 rounded bg-purple-500 px-1.5 py-0.5 font-mono text-meta font-semibold text-white"
-                    >
-                      Alex
-                    </span>
-                  </div>
-                  <div className="h-2.5 w-1/3 rounded-full bg-[#dbe6f4]" />
-                </div>
-              </div>
+                </BentoCell>
+              </BeakerBotPeek>
             </div>
-            </div>
-          </BeakerBotPeek>
+          </div>
         </section>
 
         {/* ── What we're building chip (above comparison table) ───────── */}
@@ -1058,19 +963,20 @@ export default function WelcomePage() {
         <section className="px-6 py-16 sm:px-12">
           <div className="mx-auto mb-8 max-w-[1320px]">
             <Kicker>// a full lab suite vs the point tools</Kicker>
-            <h2 className="mt-2.5 max-w-[24ch] text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-[36px]">
-              How we compare to LabArchives and SnapGene
+            <h2 className="mt-2.5 max-w-[26ch] text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-[36px]">
+              Honest about where each one wins
             </h2>
-            <p className="mt-3 max-w-[60ch] text-title leading-relaxed text-[#475569]">
-              LabArchives is the notebook most labs are leaving and SnapGene is
-              the sequence tool many of them also pay for. Here is the honest
-              three-way on the things that matter most.
+            <p className="mt-3 max-w-[62ch] text-title leading-relaxed text-[#475569]">
+              LabArchives is the notebook many labs are leaving, SnapGene is the
+              sequence tool a lot of them also pay for, and Quartzy is where they
+              order reagents. ResearchOS replaces the notebook, the sequence
+              tool, and the inventory tool in one place. Here is the honest
+              four-way.
             </p>
           </div>
 
-          {/* BeakerBot peeks over the ResearchOS column and cheers (no bubble,
-              the cheer over our column says it), then settles into a living
-              idle. */}
+          {/* BeakerBot peeks over the ResearchOS column and cheers, then settles
+              into a living idle. */}
           <BeakerBotPeek
             anchor="top-left"
             edgeInset="33%"
@@ -1080,20 +986,23 @@ export default function WelcomePage() {
           >
             <div className="mx-auto max-w-[1320px] overflow-hidden rounded-2xl border border-[#e3eaf3] bg-white shadow-[0_1px_2px_rgba(15,40,80,0.04)]">
               <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] border-collapse text-left">
+              <table className="w-full min-w-[860px] border-collapse text-left">
                 <thead>
                   <tr className="border-b border-[#e3eaf3]">
-                    <th className="w-[24%] px-4 py-3 text-body font-semibold text-[#64748b]">
+                    <th className="w-[20%] px-4 py-3 text-body font-semibold text-[#64748b]">
                       <span className="sr-only">Capability</span>
                     </th>
-                    <th className="w-[28%] bg-sky-50 px-4 py-3 text-body font-bold text-sky-700">
+                    <th className="w-[24%] bg-sky-50 px-4 py-3 text-body font-bold text-sky-700">
                       ResearchOS
                     </th>
-                    <th className="w-[24%] px-4 py-3 text-body font-semibold text-[#334155]">
-                      LabArchives (Professional)
+                    <th className="w-[19%] px-4 py-3 text-body font-semibold text-[#334155]">
+                      LabArchives
                     </th>
-                    <th className="w-[24%] px-4 py-3 text-body font-semibold text-[#334155]">
+                    <th className="w-[19%] px-4 py-3 text-body font-semibold text-[#334155]">
                       SnapGene
+                    </th>
+                    <th className="w-[18%] px-4 py-3 text-body font-semibold text-[#334155]">
+                      Quartzy
                     </th>
                   </tr>
                 </thead>
@@ -1101,77 +1010,51 @@ export default function WelcomePage() {
                   <ComparisonRow
                     label="Price"
                     us={{ mark: "win", text: "Free and open source; hosted free too" }}
-                    labarchives={{
-                      mark: "none",
-                      text: "$330+ per user, per year; limited free tier",
-                    }}
-                    snapgene={{
-                      mark: "none",
-                      text: "Paid license per seat; free viewer only",
-                    }}
-                  />
-                  <ComparisonRow
-                    label="Per-seat fees"
-                    us={{ mark: "win", text: "No per-seat fees, ever" }}
-                    labarchives={{ mark: "none", text: "Charged per user, every year" }}
-                    snapgene={{ mark: "none", text: "Per-seat license to edit" }}
+                    labarchives={{ mark: "none", text: "$330+ per user, per year; limited free tier" }}
+                    snapgene={{ mark: "none", text: "Paid license per seat; free viewer only" }}
+                    quartzy={{ mark: "have", text: "Free core ordering; paid inventory tiers" }}
                   />
                   <ComparisonRow
                     label="Where your data lives"
                     us={{ mark: "win", text: "A folder on your own machine" }}
                     labarchives={{ mark: "none", text: "On LabArchives' cloud servers" }}
                     snapgene={{ mark: "have", text: "Files on your machine" }}
-                  />
-                  <ComparisonRow
-                    label="File formats"
-                    us={{ mark: "win", text: "Open Markdown and your original files" }}
-                    labarchives={{ mark: "none", text: "Proprietary cloud store" }}
-                    snapgene={{ mark: "have", text: "Reads .dna, GenBank, and FASTA" }}
+                    quartzy={{ mark: "none", text: "On Quartzy's cloud servers" }}
                   />
                   <ComparisonRow
                     label="A full lab suite"
-                    us={{
-                      mark: "win",
-                      text: "Notebook, planning, purchasing, sequences, all in one",
-                    }}
-                    labarchives={{
-                      mark: "have",
-                      text: "Notebook plus widgets and add-ons",
-                    }}
+                    us={{ mark: "win", text: "Notebook, planning, purchasing, sequences, all in one" }}
+                    labarchives={{ mark: "have", text: "Notebook plus widgets and add-ons" }}
                     snapgene={{ mark: "none", text: "Sequences only, not a notebook" }}
+                    quartzy={{ mark: "none", text: "Ordering and inventory only" }}
                   />
                   <ComparisonRow
-                    label="Sequence editing and annotation"
-                    us={{
-                      mark: "have",
-                      text: "Import, edit, annotate, find restriction sites",
-                    }}
+                    label="Sequence editing and cloning"
+                    us={{ mark: "have", text: "Import, edit, annotate, find sites, in-silico cloning" }}
                     labarchives={{ mark: "none", text: "No native sequence editor" }}
-                    snapgene={{
-                      mark: "win",
-                      text: "The deepest editor and visualization here",
-                    }}
+                    snapgene={{ mark: "win", text: "The deepest editor and visualization here" }}
+                    quartzy={{ mark: "none", text: "No sequence tools" }}
+                  />
+                  <ComparisonRow
+                    label="Inventory and ordering"
+                    us={{ mark: "have", text: "Track supplies and purchases inside the notebook" }}
+                    labarchives={{ mark: "none", text: "No native ordering" }}
+                    snapgene={{ mark: "none", text: "No inventory or ordering" }}
+                    quartzy={{ mark: "win", text: "The biggest vendor catalog and ordering workflow" }}
                   />
                   <ComparisonRow
                     label="Live collaboration"
                     us={{ mark: "soon", text: "Real-time co-editing, in development" }}
                     labarchives={{ mark: "have", text: "Shared cloud notebook" }}
                     snapgene={{ mark: "none", text: "Single-user desktop tool" }}
+                    quartzy={{ mark: "have", text: "Shared lab ordering workspace" }}
                   />
                   <ComparisonRow
                     label="Per-entry version history"
-                    us={{
-                      mark: "win",
-                      text: "Full history with one-click restore, built in",
-                    }}
+                    us={{ mark: "win", text: "Full history with one-click restore, built in" }}
                     labarchives={{ mark: "have", text: "Full revision history on every entry" }}
                     snapgene={{ mark: "none", text: "Per-file saves, no notebook history" }}
-                  />
-                  <ComparisonRow
-                    label="Move in from LabArchives"
-                    us={{ mark: "win", text: "Imports your Offline Notebook ZIP directly" }}
-                    labarchives={{ mark: "none", text: "Not applicable" }}
-                    snapgene={{ mark: "none", text: "Not applicable" }}
+                    quartzy={{ mark: "none", text: "Order logs, not record history" }}
                   />
                 </tbody>
               </table>
@@ -1179,17 +1062,19 @@ export default function WelcomePage() {
             </div>
           </BeakerBotPeek>
 
-          <p className="mx-auto mt-6 max-w-[60ch] text-center text-body leading-relaxed text-[#64748b]">
-            SnapGene genuinely leads on deep cloning and sequence visualization.
-            ResearchOS wins on price and ownership, and it folds sequence work
-            into a full lab suite instead of a separate tool.
+          <p className="mx-auto mt-6 max-w-[64ch] text-center text-body leading-relaxed text-[#64748b]">
+            SnapGene genuinely goes deeper on cloning and Quartzy has the bigger
+            vendor catalog. ResearchOS wins by folding the notebook, the sequence
+            tool, and inventory into one free suite with your data on your own
+            disk. Two-way Quartzy sync is on the roadmap, so you can keep the
+            ordering tools your lab already uses.
           </p>
         </section>
 
         {/* ── Final CTA (lighter treatment) ───────────────────────────── */}
         <section className="border-t border-[#d8e3f1] bg-[#f4f8fd] px-6 py-20 text-center sm:px-12">
           <div className="mx-auto flex max-w-2xl flex-col items-center">
-            {/* Rainbow rule, mirroring the trust-pillars ornament. */}
+            {/* Rainbow rule at the CTA, mirroring the trust-pillars ornament. */}
             <div
               aria-hidden
               className="brand-rainbow-bg mb-6 h-1 w-14 rounded-full"
@@ -1207,16 +1092,23 @@ export default function WelcomePage() {
               No sign-up to begin. Connect a folder and you are writing. Sign in
               only when you want to share with your lab.
             </p>
-            <div className="mt-7">
-              <SignInRow
-                onOrcid={handleOrcid}
-                onGoogle={handleGoogle}
-                onGitHub={handleGitHub}
-                onLinkedIn={handleLinkedIn}
-                onEmail={handleEmail}
-                onLocal={handleLocal}
-                tone="light"
-              />
+            <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={goGetStarted}
+                data-testid="welcome-cta-get-started"
+                className="btn-brand px-6 py-3 text-body"
+              >
+                Start your notebook
+              </button>
+              <a
+                href="/demo"
+                data-testid="welcome-cta-demo"
+                className="inline-flex items-center gap-2 rounded-xl border border-[#cfdcec] bg-white px-6 py-3 text-body font-semibold text-brand-action shadow-[0_2px_12px_rgba(15,40,80,0.06)] transition-transform hover:scale-[1.02]"
+              >
+                Explore the live demo
+                <span aria-hidden>→</span>
+              </a>
             </div>
             <p className="mt-4 text-meta text-[#94a3b8]">
               Free and open, funded by a university fellowship and donations.
@@ -1252,6 +1144,39 @@ export default function WelcomePage() {
 }
 
 /* ----------------------------------------------------------------------------
+ * Account-tier card for the "start solo, grow into a lab, or split back out"
+ * section. A plain white card with a monospace tag, a price-ish label, a title,
+ * and a one-line description. No CTA: the tiers are chosen in the connect
+ * chooser above, not here.
+ * -------------------------------------------------------------------------- */
+function TierCard({
+  tag,
+  price,
+  title,
+  body,
+}: {
+  tag: string;
+  price: string;
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="flex flex-col rounded-2xl border border-[#dbe6f3] bg-white p-6 shadow-[0_1px_3px_rgba(15,40,80,0.06)]">
+      <div className="font-mono text-meta font-semibold tracking-[0.04em] text-brand-action">
+        {tag}
+      </div>
+      <div className="mt-2 text-title font-extrabold tracking-tight text-brand-ink">
+        {price}
+      </div>
+      <h3 className="mt-1 text-heading font-bold leading-tight tracking-tight text-brand-ink">
+        {title}
+      </h3>
+      <p className="mt-2 text-body leading-relaxed text-[#475569]">{body}</p>
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------------------
  * Bento helpers.
  * -------------------------------------------------------------------------- */
 function BentoCell({
@@ -1261,19 +1186,22 @@ function BentoCell({
   children,
 }: {
   num: string;
-  span: "lead" | "wide" | "small";
+  span: "lead" | "wide" | "small" | "third";
   title: string;
   children: ReactNode;
 }) {
   // Column spans on the 6-col md grid: lead = 3 cols (two side by side),
-  // wide = full 6 cols, small = 2 cols (three across). All single-column on
-  // mobile.
+  // wide = full 6 cols, small = 2 cols (three across). third = full width on a
+  // local 3-col grid (the secondary band uses its own grid-cols-3, so cells
+  // there just fill their column). All single-column on mobile.
   const spanCls =
     span === "wide"
       ? "md:col-span-6"
       : span === "lead"
         ? "md:col-span-3"
-        : "md:col-span-2";
+        : span === "small"
+          ? "md:col-span-2"
+          : "";
   return (
     <div
       className={`flex flex-col overflow-hidden rounded-2xl border border-[#dbe6f3] bg-white p-6 shadow-[0_1px_3px_rgba(15,40,80,0.06),0_16px_36px_-14px_rgba(15,40,80,0.22)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#cdddee] hover:shadow-[0_2px_5px_rgba(15,40,80,0.08),0_26px_50px_-16px_rgba(15,40,80,0.28)] ${spanCls}`}
@@ -1283,7 +1211,7 @@ function BentoCell({
       </div>
       <h3
         className={`mt-2 font-bold leading-tight tracking-tight text-brand-ink ${
-          span === "small" ? "text-title" : "text-heading md:text-heading"
+          span === "small" || span === "third" ? "text-title" : "text-heading md:text-heading"
         }`}
       >
         {title}
