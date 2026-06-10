@@ -150,6 +150,45 @@ proposed default.
   DO signals MSG_SYNC_BLOCKED "quota") is a BILLING_ENABLED launch-time test with
   a mock owner-state + a grant, same as the existing cap enforcement.
 
+## As built (2026-06-09, dormant behind BILLING_ENABLED)
+
+Grant signed off (same 1 GB shared free pool, free labs auto-enroll, build it).
+Built with two refinements over the plan above:
+
+- **Tally stays keyed by the REAL doc owner** (not the resolved billing owner).
+  This preserves the PI's per-member usage breakdown (the usageVisible roster in
+  /api/billing/lab) and keeps that route's existing aggregate correct. The shared
+  pool is computed only at the enforcement layer.
+- **Pool via one SQL subquery, not an array param.** `getLabPoolUsage(ownerKey)`
+  (collab/server/db.ts) sums the owner's own docs OR any owner_hash that is an
+  active member of that owner's lab, in a single scalar-param query (the Neon HTTP
+  driver's array-parameter binding is unproven in this codebase). For a solo user
+  the member subquery is empty, so the pool is just their own usage.
+
+Files:
+- `resolveBillingOwner(ownerKey)` + `enrollMemberActive(lab, member, label)` in
+  `billing/lab.ts`.
+- `getLabPoolUsage(ownerKey)` in `collab/server/db.ts`.
+- `/api/billing/owner-state`: resolve the member to the billing owner, then
+  compare `getLabPoolUsage(billingKey)` vs `quotaBytesForOwner(billingKey)`.
+- `/api/directory/labs/request/resolve` (approve): best-effort
+  `enrollMemberActive(piEmailHash, requesterEmailHash, name)`, no paid sub
+  required.
+- `quotaBytesForOwner` left UNCHANGED: with the upstream resolution it is always
+  called on the PI/solo key, where it correctly returns one plan allowance or one
+  `FREE_ALLOWANCE_BYTES`; its internal sponsor branch is simply dead for a
+  resolved key.
+- Unit test `billing/__tests__/lab-resolution.test.ts` pins the resolve contract
+  (member -> lab, solo -> self, error -> self). SQL aggregation + enrollment
+  verify at the BILLING_ENABLED launch-time integration test.
+
+KNOWN GAP (follow-up): only the directory request -> approve flow auto-enrolls.
+A member who joins purely by a shared INVITE LINK (no directory request)
+finalizes membership in the LabRecordDO, which has no Neon touchpoint, so they
+are not enrolled and bill as solo until a directory action. Closing this needs a
+DO -> Vercel membership-report hook (mirroring the doc-size reporting hook), or a
+periodic reconcile from the lab's DO roster. Deferred; flagged to Grant.
+
 ## Out of scope
 
 - The per-owner ACTIVITY throttle in the DO write path itself (the 429-style

@@ -145,6 +145,34 @@ export async function getOwnerUsage(ownerHash: string): Promise<number> {
 }
 
 /**
+ * Total bytes in a billing owner's SHARED POOL = their own docs plus every
+ * active member's docs (the tally stays keyed by the real doc owner, so the
+ * membership sum happens here at read time). For a solo user the membership
+ * subquery is empty, so the pool collapses to just their own usage. This is what
+ * makes the free tier a per-lab shared resource rather than per-member. See
+ * docs/proposals/LAB_SHARED_BILLING_POOL.md.
+ *
+ * Cross-table note: this references billing_lab_members (the billing module's
+ * table) by a scalar subquery. Both live in the same Neon DB; the caller runs
+ * ensureLabSchema() first so the table exists. Kept as one query (scalar params
+ * only) to avoid passing an array parameter to the Neon HTTP driver.
+ */
+export async function getLabPoolUsage(billingOwnerKey: string): Promise<number> {
+  const sql = getSql();
+  await ensureDocSizesSchema();
+  const rows = (await sql`
+    SELECT COALESCE(SUM(bytes), 0) AS pool_bytes
+    FROM collab_doc_sizes
+    WHERE owner_hash = ${billingOwnerKey}
+       OR owner_hash IN (
+         SELECT member_owner_key FROM billing_lab_members
+         WHERE lab_owner_key = ${billingOwnerKey} AND status = 'active'
+       )
+  `) as Array<{ pool_bytes: string | number }>;
+  return Number(rows[0]?.pool_bytes ?? 0);
+}
+
+/**
  * On-disk footprint of the collab_doc_sizes table in bytes, for the operator
  * dashboard. Uses pg_total_relation_size (table + indexes + TOAST) so the
  * gauge reflects true Neon storage cost, not logical row bytes.

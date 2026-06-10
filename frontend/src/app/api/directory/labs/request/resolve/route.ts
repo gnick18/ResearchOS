@@ -31,6 +31,7 @@ import {
 } from "@/lib/sharing/directory/guard";
 import { canonicalizeEmail, hashEmail } from "@/lib/sharing/directory/email";
 import { LAB_TIER_ENABLED } from "@/lib/lab/config";
+import { ensureLabSchema, enrollMemberActive } from "@/lib/billing/lab";
 
 export const runtime = "nodejs";
 
@@ -107,6 +108,23 @@ export async function POST(request: Request): Promise<Response> {
 
     if (action === "decline") {
       return json(200, { ok: true });
+    }
+
+    // Auto-enroll the approved member into the lab's BILLING pool so their
+    // storage + activity aggregate against the PI's single shared allowance
+    // (the free tier is a per-lab shared resource, never per-member). The lab's
+    // pi_email_hash IS the billing lab_owner_key, and requesterEmailHash IS the
+    // member's owner key, both the same peppered hash the billing layer uses. No
+    // paid sub is required (a free lab is still a shared pool). Best-effort so a
+    // billing-DB hiccup never blocks the PI's approval; an unenrolled member just
+    // bills as solo (capped) until re-approved. The member's display name labels
+    // the PI's roster. See docs/proposals/LAB_SHARED_BILLING_POOL.md.
+    try {
+      await ensureLabSchema();
+      await enrollMemberActive(piEmailHash, requesterEmailHash, req.requesterName);
+    } catch {
+      // swallow: the sharing-side approval succeeded; billing enrollment is
+      // secondary and self-corrects on a later re-approve / reconcile.
     }
 
     // On approve: return the requester's pubkey + name so the PI's browser

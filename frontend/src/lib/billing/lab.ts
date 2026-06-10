@@ -238,3 +238,54 @@ export async function getSponsoringLab(
   return rows.length ? rows[0].lab_owner_key : null;
 }
 
+/**
+ * The billing owner a doc's usage and cap resolve to. A member of a lab resolves
+ * to their lab (the PI's owner key), so every member's storage and activity
+ * aggregate into ONE shared lab pool against the PI's single allowance; the PI
+ * and solo users resolve to themselves. This is the single rule that makes the
+ * lab a shared resource (only the PI pays, no per-member free bonus) while solo
+ * users keep their own free tier. See docs/proposals/LAB_SHARED_BILLING_POOL.md.
+ *
+ * FAIL-SAFE to the owner's own key on any error, so a directory hiccup bills a
+ * member as solo (subject to a cap) rather than escaping enforcement entirely.
+ */
+export async function resolveBillingOwner(ownerKey: string): Promise<string> {
+  try {
+    return (await getSponsoringLab(ownerKey)) ?? ownerKey;
+  } catch {
+    return ownerKey;
+  }
+}
+
+/**
+ * Enrolls a member as ACTIVE in a lab in one step, for the directory lab-join
+ * flow where the member already consented by REQUESTING to join and the PI
+ * approved (so there is no separate invite/accept handshake). Unlike inviteMember
+ * this needs no prior paid sub from the PI, because a free lab is still a shared
+ * pool. Declines the member's other active labs first (one lab per member), then
+ * upserts this row active. Idempotent.
+ */
+export async function enrollMemberActive(
+  labOwnerKey: string,
+  memberOwnerKey: string,
+  label: string | null = null,
+): Promise<void> {
+  if (labOwnerKey === memberOwnerKey) return; // a PI is not their own member
+  const sql = getSql();
+  // One active sponsor per member: drop any other lab's active/invited row.
+  await sql`
+    UPDATE billing_lab_members SET status = 'declined', updated_at = now()
+    WHERE member_owner_key = ${memberOwnerKey}
+      AND lab_owner_key <> ${labOwnerKey}
+      AND status <> 'declined'
+  `;
+  await sql`
+    INSERT INTO billing_lab_members (lab_owner_key, member_owner_key, status, label, updated_at)
+    VALUES (${labOwnerKey}, ${memberOwnerKey}, 'active', ${label}, now())
+    ON CONFLICT (lab_owner_key, member_owner_key) DO UPDATE SET
+      status = 'active',
+      label = COALESCE(${label}, billing_lab_members.label),
+      updated_at = now()
+  `;
+}
+

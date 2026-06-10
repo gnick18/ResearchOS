@@ -61,6 +61,11 @@ export async function POST(req: Request): Promise<Response> {
       return NextResponse.json({ ok: true });
     }
 
+    // Tally is keyed by the REAL doc owner (the member), so the PI's roster keeps
+    // its per-member usage breakdown. The lab-wide SHARED POOL is computed at the
+    // enforcement layer (owner-state) by summing the PI plus active members, so
+    // the free tier is still a per-lab shared resource. See
+    // docs/proposals/LAB_SHARED_BILLING_POOL.md.
     await ensureDocSizesSchema();
     await upsertDocSize({
       docId,

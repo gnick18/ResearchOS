@@ -27,7 +27,8 @@ import { NextResponse } from "next/server";
 
 import { isBillingEnabled } from "@/lib/billing/config";
 import { quotaBytesForOwner } from "@/lib/billing/db";
-import { getOwnerUsage } from "@/lib/collab/server/db";
+import { ensureLabSchema, resolveBillingOwner } from "@/lib/billing/lab";
+import { getLabPoolUsage } from "@/lib/collab/server/db";
 import { getBindingByPubkey } from "@/lib/sharing/directory/db";
 
 export const runtime = "nodejs";
@@ -59,9 +60,17 @@ export async function GET(req: Request) {
     const binding = await getBindingByPubkey(ownerPubkey);
     if (!binding) return notOver(); // no billable owner yet
 
-    const ownerKey = binding.emailHash;
+    // Resolve to the BILLING owner so the cap is checked against the lab-wide
+    // SHARED POOL, not the individual member. A lab member resolves to the PI's
+    // key (one allowance for the whole lab); a solo user resolves to themselves.
+    // The pool usage = the billing owner's own docs PLUS every active member's
+    // docs (the tally stays keyed by the real owner for the PI's roster, so the
+    // membership sum happens here). For a solo user there are no members, so the
+    // pool is just their own usage.
+    await ensureLabSchema();
+    const ownerKey = await resolveBillingOwner(binding.emailHash);
     const [usage, cap] = await Promise.all([
-      getOwnerUsage(ownerKey),
+      getLabPoolUsage(ownerKey),
       quotaBytesForOwner(ownerKey),
     ]);
 
