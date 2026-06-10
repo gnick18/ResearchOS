@@ -61,9 +61,10 @@ function DevEphemeralSessionInner() {
       await createLocalIdentity(username);
       await usersApi.login(username);
       await setCurrentUser(username);
-      // Preload a representative data set (project / experiment / list task /
-      // note / purchase items) so the fresh session is testable immediately.
-      await seedEphemeralWorkspace();
+      // Preload one of each thing (project / experiment with an image / list
+      // task / single note / multi-entry note / purchase items) so the fresh
+      // session is testable immediately.
+      await seedEphemeralWorkspace(username);
       // Land in the app. A fresh Incognito briefly looks like a "new visitor"
       // and the gate can redirect to the sticky /welcome route mid-flow; now
       // that a user is signed in, "/" renders the app home. Client-side nav
