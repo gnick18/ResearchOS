@@ -287,6 +287,37 @@ h2{font-weight:800;letter-spacing:-.025em;line-height:1.05;font-size:50px;color:
 .outro .wordmark{font-size:60px;font-weight:800;letter-spacing:-.04em;color:#fff;margin-top:18px}
 .outro .thanks{font-size:22px;color:#b4bfd0;margin-top:10px}
 
+/* ---- launch splash recreation (drawn live) ---- */
+.slide.splashslide{padding:0;background:radial-gradient(720px 480px at 50% 40%, #ffffff 0%, #f3f8ff 58%, #eaf1fb 100%)}
+.splashkicker{position:absolute;top:46px;left:84px;z-index:6}
+.splash{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px}
+.splashstage{display:flex;flex-direction:column;align-items:center;gap:20px;animation:spGroup 5s ease-in-out infinite}
+.splashbot{width:208px;height:auto;overflow:visible}
+.splashword{font-size:50px;font-weight:800;letter-spacing:-.04em;color:var(--ink);animation:spWord 5s ease-out infinite}
+.splashcap{font-size:16.5px;color:var(--muted);font-weight:500;text-align:center;max-width:58ch;line-height:1.5}
+.sp-draw,.sp-smile{stroke:#1AA0E6;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;fill:none;stroke-dasharray:1}
+.sp-draw.body{animation:spDrawA 5s ease-out infinite}
+.sp-draw.spout{animation:spDrawSpout 5s ease-out infinite}
+.sp-draw.rim{animation:spDrawRim 5s ease-out infinite}
+.sp-draw.feet{animation:spDrawFeet 5s ease-out infinite}
+.sp-smile{animation:spSmile 5s ease-out infinite}
+.sp-body{animation:spBodyFill 5s ease-out infinite}
+.sp-liquid{transform-box:fill-box;transform-origin:50% 100%;animation:spLiquid 5s ease-out infinite}
+.sp-eye{transform-box:fill-box;transform-origin:center;animation:spEyes 5s ease-out infinite}
+.sp-sparkle{transform-box:fill-box;transform-origin:center;animation:spSparkle 5s ease-out infinite}
+@keyframes spGroup{0%{opacity:0}6%{opacity:1}88%{opacity:1}97%{opacity:0}100%{opacity:0}}
+@keyframes spBodyFill{0%,8%{opacity:0}22%{opacity:1}100%{opacity:1}}
+@keyframes spDrawA{0%,6%{stroke-dashoffset:1}26%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
+@keyframes spDrawSpout{0%,12%{stroke-dashoffset:1}28%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
+@keyframes spDrawRim{0%,8%{stroke-dashoffset:1}22%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
+@keyframes spDrawFeet{0%,22%{stroke-dashoffset:1}32%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
+@keyframes spLiquid{0%,24%{transform:scaleY(0)}44%{transform:scaleY(1)}100%{transform:scaleY(1)}}
+@keyframes spEyes{0%,42%{transform:scale(0);opacity:0}48%{transform:scale(1.25);opacity:1}52%{transform:scale(1)}100%{transform:scale(1);opacity:1}}
+@keyframes spSmile{0%,48%{stroke-dashoffset:1}60%{stroke-dashoffset:0}100%{stroke-dashoffset:0}}
+@keyframes spSparkle{0%,52%{opacity:0;transform:scale(0)}58%{opacity:1;transform:scale(1)}66%{opacity:0;transform:scale(.3)}100%{opacity:0}}
+@keyframes spWord{0%,58%{opacity:0;transform:translateY(14px)}72%{opacity:1;transform:translateY(0)}100%{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.splashstage,.splashword,.sp-body,.sp-liquid,.sp-eye,.sp-sparkle,.sp-draw,.sp-smile{animation:none}.sp-draw,.sp-smile{stroke-dashoffset:0}.sp-liquid{transform:scaleY(1)}.sp-eye{transform:scale(1);opacity:1}.sp-body{opacity:1}}
+
 /* ---- AI agents contrast ---- */
 .aigrid{display:grid;grid-template-columns:1fr 1fr;gap:24px;flex:1;min-height:0}
 .aicol{border:1px solid var(--border);border-radius:20px;padding:22px 24px;display:flex;flex-direction:column;position:relative;overflow:hidden}
@@ -1098,6 +1129,38 @@ body.idle .hud,body.idle .help{opacity:0;pointer-events:none}
         <div class="card"><div class="ct"><span class="ci"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg></span><h3>NIH data deposit</h3></div><p>Guided Zenodo deposit with funder and ORCID metadata.</p></div>
         <div class="card"><div class="ct"><span class="ci"><svg viewBox="0 0 24 24"><path d="M21 21l-5-5M3 11a8 8 0 1016 0 8 8 0 00-16 0z"/></svg></span><h3>Import and search</h3></div><p>Bring in a LabArchives notebook, then search across everything.</p></div>
       </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 21a. LAUNCH SPLASH -->
+  <section class="slide splashslide">
+    <div class="kicker splashkicker"><span class="dot"></span> The launch screen</div>
+    <div class="splash">
+      <div class="splashstage">
+        <svg class="splashbot" viewBox="8 3 24 31">
+          <defs>
+            <linearGradient id="splashliq" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/>
+              <stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/>
+              <stop offset="100%" stop-color="#D6B5F0"/>
+            </linearGradient>
+            <clipPath id="splashclip"><path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z"/></clipPath>
+          </defs>
+          <path class="sp-body" d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white"/>
+          <g clip-path="url(#splashclip)"><path class="sp-liquid" d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#splashliq)"/></g>
+          <path class="sp-draw spout" d="M22 8 C 22 6, 24 4, 26 6" pathLength="1"/>
+          <path class="sp-draw body" d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" pathLength="1"/>
+          <path class="sp-draw rim" d="M11 12 L29 12" pathLength="1"/>
+          <path class="sp-draw feet" d="M14 26 L15.5 26" pathLength="1"/>
+          <path class="sp-draw feet" d="M24.5 26 L26 26" pathLength="1"/>
+          <circle class="sp-eye" cx="17" cy="18" r="1.2" fill="#1AA0E6"/>
+          <circle class="sp-eye" cx="23" cy="18" r="1.2" fill="#1AA0E6"/>
+          <path class="sp-smile" d="M18 22 Q 20 24, 22 22" pathLength="1"/>
+          <g class="sp-sparkle" stroke="#F59E0B" stroke-width="0.9" stroke-linecap="round"><path d="M26 6 v-2.6"/><path d="M26 6 v2.6"/><path d="M26 6 h-2.6"/><path d="M26 6 h2.6"/></g>
+        </svg>
+        <div class="splashword">ResearchOS</div>
+      </div>
+      <div class="splashcap">How ResearchOS wakes up, on your laptop and your phone. Drawn fresh in code on every launch, no video and no Lottie. This one is playing live.</div>
     </div>
   </section>
 
