@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>How ResearchOS storage works</title>
+<style>
+  :root {
+    --surface:#f8fafc; --raised:#ffffff; --sunken:#f1f5f9;
+    --fg:#111827; --muted:#6b7280; --border:#e5e7eb;
+    --sky:#1aa0e6; --action:#1283c9; --purple:#5b47d6;
+    --green:#059669; --amber:#d97706; --rose:#e11d48; --soft:#eff6ff;
+    --shadow:0 8px 30px rgba(15,23,42,0.10);
+  }
+  [data-theme="dark"]{
+    --surface:#0a0e1a; --raised:#1c2638; --sunken:#0d1424;
+    --fg:#f1f5f9; --muted:#b4bfd0; --border:rgba(255,255,255,0.16);
+    --sky:#38bdf8; --action:#38bdf8; --purple:#a78bfa; --soft:rgba(56,189,248,0.14);
+    --shadow:0 8px 30px rgba(0,0,0,0.5);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--surface);color:var(--fg);line-height:1.55;}
+  .wrap{max-width:980px;margin:0 auto;padding:0 24px 80px;}
+  .topbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:14px 24px;background:var(--raised);border-bottom:1px solid var(--border);}
+  .topbar h1{font-size:16px;margin:0;flex:1;font-weight:800;}
+  .topbar .tag{font-size:11px;color:var(--muted);font-weight:500;}
+  .btn{font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--fg);border-radius:8px;padding:6px 12px;cursor:pointer;}
+
+  h2{font-size:24px;margin:44px 0 6px;letter-spacing:-0.01em;}
+  h2 .n{color:var(--action);font-weight:800;margin-right:8px;}
+  .lede{font-size:15px;color:var(--muted);margin:0 0 18px;max-width:72ch;}
+  p{font-size:14.5px;}
+  .hero{text-align:center;padding:40px 0 8px;}
+  .hero h1{font-size:33px;margin:0 0 8px;letter-spacing:-0.02em;}
+  .hero p{font-size:16px;color:var(--muted);max-width:62ch;margin:0 auto;}
+
+  .card{background:var(--raised);border:1px solid var(--border);border-radius:16px;padding:22px;box-shadow:var(--shadow);margin:14px 0;}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;}
+  .pill.local{background:rgba(5,150,105,0.14);color:var(--green);}
+  .pill.cloud{background:var(--soft);color:var(--action);}
+
+  .arch{display:grid;grid-template-columns:1fr auto 1fr;align-items:stretch;margin-top:10px;}
+  @media (max-width:760px){.arch{grid-template-columns:1fr;}.arch .flow{transform:rotate(90deg);padding:10px 0;}}
+  .arch .col{background:var(--sunken);border:1px solid var(--border);border-radius:14px;padding:16px;}
+  .arch .col h3{margin:6px 0 4px;font-size:15px;}
+  .arch .col .sub{font-size:12px;color:var(--muted);margin-bottom:10px;}
+  .arch .col ul{margin:0;padding-left:16px;font-size:12.5px;}
+  .arch .col li{margin:3px 0;}
+  .arch .flow{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 14px;color:var(--muted);font-size:11px;text-align:center;gap:4px;}
+  .arch .flow .arrow{font-size:22px;color:var(--action);}
+  .glyph{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;}
+  .glyph.local{background:rgba(5,150,105,0.14);}
+  .glyph.cloud{background:var(--soft);}
+
+  .keyrow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px;}
+  @media (max-width:680px){.keyrow{grid-template-columns:1fr;}}
+  .key{background:var(--sunken);border:1px solid var(--border);border-radius:12px;padding:14px;}
+  .key b{display:block;font-size:13.5px;margin-bottom:3px;}
+  .key span{font-size:12.5px;color:var(--muted);}
+
+  /* Pool model */
+  .pools{display:grid;grid-template-columns:1.6fr 1fr;gap:14px;margin-top:6px;}
+  @media (max-width:680px){.pools{grid-template-columns:1fr;}}
+  .pool{background:var(--sunken);border:1px solid var(--border);border-radius:14px;padding:16px;}
+  .pool h3{margin:0 0 4px;font-size:15px;}
+  .pool .who{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;}
+  .chip{font-size:11px;font-weight:700;padding:4px 9px;border-radius:8px;}
+  .chip.pi{background:var(--soft);color:var(--action);}
+  .chip.mem{background:var(--sunken);border:1px solid var(--border);color:var(--muted);}
+  .poolbar{height:14px;border-radius:7px;background:var(--border);overflow:hidden;margin:6px 0 4px;}
+  .poolbar > i{display:block;height:100%;width:34%;background:linear-gradient(90deg,var(--sky),var(--purple));}
+  .pool .cap{font-size:12px;color:var(--muted);}
+  .facts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;}
+  @media (max-width:680px){.facts{grid-template-columns:1fr;}}
+  .fact{background:var(--sunken);border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
+  .fact b{display:block;font-size:13px;margin-bottom:2px;}
+  .fact span{font-size:12px;color:var(--muted);}
+
+  .bignote{font-size:14px;background:rgba(5,150,105,0.08);border:1px solid var(--green);border-radius:10px;padding:12px 14px;margin-top:14px;}
+  .bignote b{color:var(--green);}
+  .warnnote{font-size:13px;background:rgba(217,119,6,0.08);border:1px solid var(--amber);border-radius:10px;padding:12px 14px;margin-top:8px;}
+  .warnnote b{color:var(--amber);}
+
+  /* Cap demo */
+  .demo{margin-top:6px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;}
+  .readout{display:flex;justify-content:space-between;align-items:baseline;margin:0 0 6px;}
+  .readout .big{font-size:24px;font-weight:800;}
+  .readout .of{font-size:13px;color:var(--muted);}
+  .bar{height:24px;border-radius:8px;background:var(--border);overflow:hidden;position:relative;}
+  .bar > i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--sky),var(--purple));transition:width .25s,background .25s;}
+  .bar.full > i{background:linear-gradient(90deg,var(--amber),var(--rose));}
+  .demobtns{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+  .demobtns button{font-size:12.5px;font-weight:600;border-radius:8px;padding:8px 14px;cursor:pointer;border:1px solid var(--border);background:var(--raised);color:var(--fg);}
+  .demobtns button#add{background:linear-gradient(135deg,var(--sky),var(--purple));color:#fff;border:none;}
+  .demobtns button:disabled{opacity:.45;cursor:default;}
+  .status{margin-top:12px;font-size:13px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface);}
+  .status.paused{border-color:var(--amber);background:rgba(217,119,6,0.08);color:var(--amber);}
+
+  /* Calculator */
+  .calc{display:grid;grid-template-columns:1.1fr 1fr;gap:22px;}
+  @media (max-width:760px){.calc{grid-template-columns:1fr;}}
+  .types{display:flex;flex-direction:column;gap:8px;}
+  .type{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:10px;padding:10px 12px;cursor:pointer;background:var(--surface);transition:all .12s;}
+  .type:hover{background:var(--sunken);}
+  .type.sel{border-color:var(--action);background:var(--soft);}
+  .type .nm{font-size:13.5px;font-weight:600;flex:1;}
+  .type .sz{font-size:11.5px;color:var(--muted);}
+  .ctrl{margin-top:16px;}
+  .ctrl label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px;}
+  .ctrl input[type=range]{width:100%;}
+  .qtyrow{display:flex;align-items:baseline;gap:8px;margin-bottom:4px;}
+  .qtyrow .q{font-size:30px;font-weight:800;color:var(--action);}
+  .qtyrow .u{font-size:13px;color:var(--muted);}
+  .meter{background:var(--sunken);border:1px solid var(--border);border-radius:14px;padding:18px;}
+  .verdict{margin-top:12px;font-size:13px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface);}
+  .verdict.bytes{border-color:var(--amber);background:rgba(217,119,6,0.08);color:var(--amber);}
+  .verdict.fine{border-color:var(--green);background:rgba(5,150,105,0.08);color:var(--green);}
+
+  table.ex{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px;}
+  table.ex th,table.ex td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);}
+  table.ex th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);}
+  table.ex td.r{text-align:right;font-variant-numeric:tabular-nums;}
+  .note{font-size:12px;color:var(--muted);margin-top:8px;}
+  .foot{margin-top:40px;font-size:12.5px;color:var(--muted);border-top:1px solid var(--border);padding-top:16px;}
+  .foot b{color:var(--fg);}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>How ResearchOS storage works</h1>
+    <span class="tag">explainer draft for lab onboarding + wiki</span>
+    <button class="btn" id="theme">Dark</button>
+  </div>
+
+  <div class="wrap">
+    <div class="hero">
+      <h1>Your notebook is yours. The cloud is an optional, shared lab allowance.</h1>
+      <p>ResearchOS is local-first at every tier: your notebook runs on your own machine and your data lives in a folder you own. The cloud is only an optional layer for sync, sharing, and collaboration. A whole lab shares one allowance, and only the lab head ever pays.</p>
+    </div>
+
+    <!-- 1. local-first -->
+    <h2><span class="n">1</span>Your data lives on your computer</h2>
+    <p class="lede">Notes, experiments, methods, sequences, images, files, all of it is plain files in a folder you own. ResearchOS reads and writes that folder, and that folder is always the original. Private notes never upload. Only what you sync, share, or co-edit ever gets a cloud copy.</p>
+    <div class="card">
+      <div class="arch">
+        <div class="col">
+          <div class="glyph local"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--green)"><rect x="3" y="5" width="18" height="12" rx="1.5"/><path d="M2 20h20"/></svg></div>
+          <h3>Your computer <span class="pill local">FREE · UNLIMITED · PRIVATE</span></h3>
+          <div class="sub">A folder on your disk you fully own.</div>
+          <ul>
+            <li>Every note, experiment, method, sequence, image, file</li>
+            <li>Private by default, nothing uploads unless you share it</li>
+            <li>Ordinary files, no lock-in; works offline</li>
+            <li>No account or cloud needed to use the notebook</li>
+          </ul>
+        </div>
+        <div class="flow"><div class="arrow">⇄</div><div>optional<br/>sync</div></div>
+        <div class="col">
+          <div class="glyph cloud"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--action)"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
+          <h3>The cloud <span class="pill cloud">OPTIONAL · ENCRYPTED</span></h3>
+          <div class="sub">A thin layer for sync, sharing, and collaboration.</div>
+          <ul>
+            <li>Holds copies only of what you sync or share</li>
+            <li>Encrypted in transit and at rest; a one-time Send is also end-to-end</li>
+            <li>Your private, working data still lives on your disk</li>
+            <li>Turn it off and the notebook still works</li>
+          </ul>
+        </div>
+      </div>
+      <p class="note">Takeaway for the lab: the size limits below are NOT a limit on your research. They only apply to the optional cloud copies used for sync, sharing, and collaboration.</p>
+    </div>
+
+    <!-- 2. when cloud -->
+    <h2><span class="n">2</span>Three ways data can leave your machine</h2>
+    <p class="lede">Each path handles encryption differently, so it is worth being precise. Only the third, real-time collaboration, is what your storage allowance meters.</p>
+    <div class="keyrow">
+      <div class="key"><b><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--green);vertical-align:-3px;margin-right:6px"><rect x="3" y="5" width="18" height="12" rx="1.5"/><path d="M2 20h20"/></svg>Private, on your disk</b><span>Your own notes and files never leave your machine. Nothing uploads unless you choose one of the two paths below.</span></div>
+      <div class="key"><b><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--action);vertical-align:-3px;margin-right:6px"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M5 20h14"/></svg>A one-time Send</b><span>Send a note, method, project, or a phone photo to someone. End-to-end encrypted and transient, deleted the moment they pick it up. Does not count against the storage pool.</span></div>
+      <div class="key"><b><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--purple);vertical-align:-3px;margin-right:6px"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 5.5a3 3 0 0 1 0 6"/><path d="M21 20a6 6 0 0 0-5-5.9"/></svg>Real-time collaboration</b><span>So collaborators converge even when offline, the server holds the shared copy. Encrypted in transit and at rest, but not end-to-end. This is the copy the allowance meters.</span></div>
+    </div>
+
+    <!-- 3. the pool -->
+    <h2><span class="n">3</span>Your lab's shared storage allowance</h2>
+    <p class="lede">The cloud copies count against a free allowance. The key fact: a <b>lab shares one allowance</b>, no matter how many members join, and <b>only the lab head pays</b>. It is not per-person.</p>
+    <div class="card">
+      <div class="pools">
+        <div class="pool">
+          <h3>A lab</h3>
+          <div class="who"><span class="chip pi">Lab head (PI)</span><span class="chip mem">member</span><span class="chip mem">member</span><span class="chip mem">member</span><span class="chip mem">+ more</span></div>
+          <div class="poolbar"><i></i></div>
+          <div class="cap">One shared 1 GB free pool for the whole lab. Adding members does NOT add more free space.</div>
+        </div>
+        <div class="pool">
+          <h3>A solo user</h3>
+          <div class="who"><span class="chip pi">You</span></div>
+          <div class="poolbar"><i style="width:34%"></i></div>
+          <div class="cap">Your own 1 GB free tier, the free users the model exists to support.</div>
+        </div>
+      </div>
+      <div class="facts">
+        <div class="fact"><b>Only the PI ever pays</b><span>Members never pay and never see a bill. They inherit the lab's ceiling, so a capped-out lab is the PI's call, not theirs.</span></div>
+        <div class="fact"><b>One allowance per lab</b><span>A free lab shares a single 1 GB pool, the same size as a solo user's. Heavy labs pay or donate for more.</span></div>
+        <div class="fact"><b>Solo stays solo</b><span>Each solo user keeps their own 1 GB free tier, independent of any lab.</span></div>
+        <div class="fact"><b>No per-seat free bonus</b><span>Joiners do not each bring another free gigabyte. The pool is shared, by design.</span></div>
+      </div>
+    </div>
+
+    <!-- 4. at the cap -->
+    <h2><span class="n">4</span>What happens if a lab hits the cap?</h2>
+    <p class="lede">This is the part to reassure the lab about. Reaching the cap simply <b>pauses cloud sync until space is freed or the lab head adds storage</b>. It never surprise-bills, and it never loses data: your edits keep saving to your own disk the whole time.</p>
+    <div class="card">
+      <div class="demo">
+        <div class="readout"><span class="of">Your lab's shared pool</span><span class="big" id="dused">0 MB</span></div>
+        <div class="bar" id="dbar"><i id="dfill"></i></div>
+        <div class="demobtns">
+          <button id="add">A member syncs 200 MB of images</button>
+          <button id="free">Free up space (delete synced copies)</button>
+        </div>
+        <div class="status fine" id="status">Plenty of room in the shared pool.</div>
+      </div>
+      <div class="bignote"><b>Cap reached means paused, not charged.</b> Cloud sync stops; nobody is billed by surprise. There is no monthly meter, your footprint simply sits at the ceiling until it comes down. To resume, free up space or the PI adds storage. Your data is never at risk, it lives on your machine.</div>
+      <p class="note">Separate from the pool, a one-time Send to you lands in a small per-user inbox (not the shared allowance) and clears itself the moment you import it, or after 30 days, so transient transfers never pile up.</p>
+    </div>
+
+    <!-- 5. calculator -->
+    <h2><span class="n">5</span>What actually fills the pool? (try it)</h2>
+    <p class="lede">Pick what your lab is syncing to the cloud and how much. The math uses representative sizes (the photo figure is approximate, pending a measured sample). The headline holds either way: text is basically free; images and big files are the only things that move the needle.</p>
+    <div class="card">
+      <div class="calc">
+        <div>
+          <div class="types" id="types"></div>
+          <div class="ctrl">
+            <div class="qtyrow"><span class="q" id="qtyval">100</span><span class="u" id="qtyunit">notes</span></div>
+            <label id="qtyLabel">How many across the whole lab?</label>
+            <input type="range" id="qty" min="1" max="2000" value="100" />
+            <div class="note" id="fileNote" style="display:none"></div>
+          </div>
+        </div>
+        <div class="meter">
+          <div class="readout"><span class="big" id="used">1 MB</span><span class="of">of the 1 GB pool</span></div>
+          <div class="bar" id="bar"><i id="fill"></i></div>
+          <div class="readout" style="margin-top:10px"><span class="of" id="pctlabel">used</span><span class="of" id="pct">0.1%</span></div>
+          <div class="verdict fine" id="verdict">Plenty of room.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. reference -->
+    <h2><span class="n">6</span>The quick reference</h2>
+    <div class="card">
+      <table class="ex">
+        <thead><tr><th>Synced to the cloud</th><th class="r">Each</th><th class="r">To fill 1 GB</th></tr></thead>
+        <tbody id="reftable"></tbody>
+      </table>
+      <p class="note">Sizes are approximate and pending a measured sample. A 2-page note is its markdown plus its record (~10 KB). A phone photo is the app's compressed JPEG, roughly 1 to 3 MB depending on the device and scene (call it ~2 MB). A shared project varies a lot with its attachments, a few MB for a text-only project, hundreds of MB if it is photo-heavy. Files are whatever you attach, a few KB to about a gigabyte.</p>
+    </div>
+
+    <!-- 7. how it's paid for -->
+    <h2><span class="n">7</span>How it is paid for</h2>
+    <div class="card">
+      <p style="margin-top:0">The local-first core is <b>free and open source (AGPLv3) for every lab</b>. It is supported by a UW-Madison RISE fellowship and voluntary contributions. The optional cloud storage is <b>metered for cost recovery</b>, we pay our providers per gigabyte, it is not a profit center.</p>
+      <p>If a lab leans on the cloud heavily, the lab head can contribute toward that lab's storage. Solo users stay free, supported by the fellowship and by labs that choose to give back.</p>
+      <p class="note">Provider costs, for reference: storage runs from about $0.015 per gigabyte-month for the bulk pool up to about $0.35 for the small database tier, which is what the metered option recovers.</p>
+    </div>
+
+    <div class="foot">
+      Draft for review. Numbers from the live config (free allowance 1 GB shared per lab, per-lab billing pool resolving to the PI) and real entity sizes in the codebase. See <b>docs/proposals/LAB_SHARED_BILLING_POOL.md</b>. Reusable as a wiki page and as slide frames once approved.
+    </div>
+  </div>
+
+<script>
+  const MB = 1024*1024, GB = 1024*1024*1024;
+  const POOL = GB;
+  const svgIcon = (inner) => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--action);vertical-align:-4px;margin-right:4px">${inner}</svg>`;
+  const IC = {
+    note: svgIcon('<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/>'),
+    method: svgIcon('<path d="M9 3h6"/><path d="M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/>'),
+    photo: svgIcon('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="M21 16l-5-5-7 7"/>'),
+    project: svgIcon('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'),
+    file: svgIcon('<path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>'),
+  };
+  const TYPES = [
+    { id:"note",   ic:IC.note,    nm:"2-page text notes",   unit:"notes",   bytes:10*1024,  max:5000 },
+    { id:"method", ic:IC.method,  nm:"Methods / protocols",  unit:"methods", bytes:12*1024,  max:5000 },
+    { id:"photo",  ic:IC.photo,   nm:"Phone bench photos",    unit:"photos",  bytes:2*MB,     max:800 },
+    { id:"project",ic:IC.project, nm:"Shared projects (w/ images)", unit:"projects", bytes:40*MB, max:40 },
+    { id:"file",   ic:IC.file,    nm:"A big file",            unit:"file",    bytes:200*MB,   isFile:true },
+  ];
+  let cur = TYPES[0];
+
+  const typesEl = document.getElementById("types");
+  TYPES.forEach((t)=>{
+    const d = document.createElement("div");
+    d.className = "type" + (t===cur?" sel":"");
+    d.innerHTML = `<span class="ic">${t.ic}</span><span class="nm">${t.nm}</span><span class="sz">${t.isFile?"size varies":fmt(t.bytes)+" each"}</span>`;
+    d.onclick = () => { cur=t; document.querySelectorAll(".type").forEach(x=>x.classList.remove("sel")); d.classList.add("sel"); reconfigure(); };
+    typesEl.appendChild(d);
+  });
+
+  const qty = document.getElementById("qty");
+  const fileNote = document.getElementById("fileNote");
+  function fmt(b){
+    if (b>=GB) return (b/GB).toFixed(2)+" GB";
+    if (b>=MB) return (b/MB).toFixed(b/MB>=10?0:1)+" MB";
+    if (b>=1024) return (b/1024).toFixed(0)+" KB";
+    return b+" B";
+  }
+  function reconfigure(){
+    document.getElementById("qtyunit").textContent = cur.unit;
+    if (cur.isFile){
+      qty.min=1; qty.max=1024; qty.value=200;
+      document.getElementById("qtyLabel").textContent = "How big is the file?";
+      fileNote.style.display="block";
+      fileNote.textContent = "One file. Drag to set its size, a small attachment up to a full gigabyte.";
+    } else {
+      qty.min=1; qty.max=cur.max; qty.value=Math.min(Number(qty.value)||100, cur.max);
+      document.getElementById("qtyLabel").textContent = "How many across the whole lab?";
+      fileNote.style.display="none";
+    }
+    render();
+  }
+  function render(){
+    const v = Number(qty.value);
+    let totalBytes;
+    if (cur.isFile){
+      totalBytes = v*MB;
+      document.getElementById("qtyval").textContent = v>=1024?"1.0":v;
+      document.getElementById("qtyunit").textContent = v>=1024?"GB file":"MB file";
+    } else {
+      totalBytes = v*cur.bytes;
+      document.getElementById("qtyval").textContent = v;
+      document.getElementById("qtyunit").textContent = cur.unit;
+    }
+    const pct = Math.min(100, totalBytes/POOL*100);
+    document.getElementById("used").textContent = fmt(totalBytes);
+    document.getElementById("fill").style.width = pct+"%";
+    document.getElementById("pct").textContent = (pct<0.01?"<0.01":pct.toFixed(pct<1?2:1))+"%";
+    const bar = document.getElementById("bar"), verdict = document.getElementById("verdict");
+    const full = totalBytes>=POOL;
+    bar.classList.toggle("full", full);
+    verdict.className = "verdict " + (full?"bytes":"fine");
+    if (full){
+      verdict.textContent = "This fills the shared pool. At the cap, cloud sync pauses (no bill) until space is freed or the PI adds storage, and the data stays safe on your disks.";
+    } else if (!cur.isFile && cur.bytes < MB){
+      verdict.textContent = "Barely a dent: " + fmt(totalBytes) + ", about " + (pct<0.01?"<0.01":pct.toFixed(2)) + "% of 1 GB. Text never fills the pool, a lab would need ~100,000 notes to reach a gigabyte.";
+    } else {
+      verdict.textContent = fmt(totalBytes) + " used, " + (pct<0.01?"<0.01":pct.toFixed(2)) + "% of the shared 1 GB pool.";
+    }
+  }
+  qty.addEventListener("input", render);
+
+  // reference table
+  const ref = document.getElementById("reftable");
+  TYPES.filter(t=>!t.isFile).forEach((t)=>{
+    const n = Math.round(GB/t.bytes);
+    const napprox = n>=1000 ? Math.round(n/1000)+",000+" : n.toLocaleString();
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${t.ic} ${t.nm}</td><td class="r">${fmt(t.bytes)}</td><td class="r">~${napprox}</td>`;
+    ref.appendChild(tr);
+  });
+  {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${IC.file} A big file</td><td class="r">up to 1 GB</td><td class="r">1</td>`;
+    ref.appendChild(tr);
+  }
+
+  // cap demo
+  const ADD = 200*MB;
+  let used = 0;
+  function renderDemo(){
+    const pct = Math.min(100, used/POOL*100);
+    document.getElementById("dused").textContent = fmt(used);
+    document.getElementById("dfill").style.width = pct+"%";
+    document.getElementById("add").disabled = used + ADD > POOL;
+    document.getElementById("free").disabled = used === 0;
+    const bar = document.getElementById("dbar"), st = document.getElementById("status");
+    const full = used + ADD > POOL || used >= POOL;
+    bar.classList.toggle("full", used >= POOL || used + ADD > POOL);
+    if (used >= POOL){
+      st.className = "status paused";
+      st.textContent = "Cap reached. Cloud sync is paused until space is freed or the PI adds storage, no bill, no data lost. Everyone keeps working locally.";
+    } else if (used + ADD > POOL){
+      st.className = "status paused";
+      st.textContent = "Almost full (" + pct.toFixed(0) + "%). One more sync would reach the cap and pause cloud sync. Still no bill, and nothing is lost.";
+    } else {
+      st.className = "status fine";
+      st.textContent = used === 0 ? "Plenty of room in the shared pool." : fmt(used) + " of the lab's 1 GB used (" + pct.toFixed(0) + "%). Lots of headroom.";
+    }
+  }
+  document.getElementById("add").onclick = () => { if (used+ADD<=POOL) used+=ADD; renderDemo(); };
+  document.getElementById("free").onclick = () => { used = Math.max(0, used-ADD); renderDemo(); };
+  renderDemo();
+
+  document.getElementById("theme").onclick = () => {
+    const d = document.documentElement.getAttribute("data-theme")==="dark";
+    document.documentElement.setAttribute("data-theme", d?"light":"dark");
+    document.getElementById("theme").textContent = d?"Dark":"Light";
+  };
+
+  reconfigure();
+</script>
+</body>
+</html>
