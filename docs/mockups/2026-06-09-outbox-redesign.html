@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Outbox redesign — manual outbox → automatic sync</title>
+<style>
+  :root {
+    --surface: #f2f3f7;
+    --surface-raised: #ffffff;
+    --surface-sunken: #f1f5f9;
+    --foreground: #0b1320;
+    --foreground-muted: #6b7280;
+    --border: #e5e7eb;
+    --action: #1283c9;
+    --sky: #1aa0e6;
+    --coral: #ff6f61;
+    --amber: #f59e0b;
+    --purple: #5b47d6;
+    --accent-soft: #eaf6fd;
+    --good: #1a9c5b;
+    --good-bg: #e4f7ec;
+    --bad: #e11d48;
+    --bad-bg: #fdecec;
+    --shadow: 0 10px 40px rgba(15, 23, 42, 0.16);
+  }
+  [data-theme="dark"] {
+    --surface: #000; --surface-raised: #15171c; --surface-sunken: #0d1424;
+    --foreground: #f1f5f9; --foreground-muted: #b4bfd0; --border: rgba(255,255,255,0.16);
+    --action: #38bdf8; --sky: #38bdf8; --accent-soft: rgba(56,189,248,0.14);
+    --good: #3ddc8c; --good-bg: rgba(45,160,100,.18); --bad: #ff6b6f; --bad-bg: rgba(229,72,77,.16);
+    --shadow: 0 10px 40px rgba(0,0,0,0.55);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--surface); color: var(--foreground); padding: 0 0 80px; transition: background .2s, color .2s; }
+
+  .topbar { position: sticky; top: 0; z-index: 60; display: flex; align-items: center; gap: 14px; padding: 12px 24px; background: var(--surface-raised); border-bottom: 1px solid var(--border); }
+  .topbar h1 { font-size: 15px; font-weight: 700; margin: 0; flex: 1; }
+  .topbar .sub { font-size: 12px; color: var(--foreground-muted); font-weight: 400; }
+  .btn { font-size: 12px; font-weight: 600; padding: 7px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--foreground); cursor: pointer; }
+  .btn:hover { background: var(--surface-sunken); }
+  .btn.primary { background: linear-gradient(135deg, var(--action), var(--purple)); color: #fff; border: none; }
+  .btn.on { background: var(--accent-soft); border-color: var(--action); color: var(--action); }
+
+  .intro { max-width: 1280px; margin: 22px auto 6px; padding: 0 24px; }
+  .intro h2 { font-size: 19px; margin: 0 0 6px; }
+  .intro p { font-size: 13.5px; line-height: 1.6; color: var(--foreground-muted); margin: 0 0 4px; max-width: 84ch; }
+  .intro .purpose { margin-top: 12px; padding: 12px 16px; border-left: 3px solid var(--action); background: var(--accent-soft); border-radius: 0 8px 8px 0; color: var(--foreground); font-size: 13.5px; line-height: 1.6; }
+
+  .wrap { max-width: 1280px; margin: 18px auto; padding: 0 24px; display: grid; grid-template-columns: 300px 1fr; gap: 22px; align-items: start; }
+  @media (max-width: 1080px) { .wrap { grid-template-columns: 1fr; } }
+  .rail { position: sticky; top: 70px; }
+  .rail h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--foreground-muted); margin: 0 0 10px; }
+  .change { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; background: var(--surface-raised); }
+  .change .ct { font-size: 12.5px; font-weight: 700; margin-bottom: 3px; display: flex; gap: 6px; }
+  .change .ct .num { color: var(--action); }
+  .change .cd { font-size: 11.5px; color: var(--foreground-muted); line-height: 1.5; margin-bottom: 8px; }
+  .verdict { display: flex; gap: 6px; }
+  .verdict button { flex: 1; font-size: 11px; font-weight: 600; padding: 5px 0; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--foreground-muted); cursor: pointer; }
+  .verdict button.agree.sel { background: var(--good-bg); border-color: var(--good); color: var(--good); }
+  .verdict button.deny.sel { background: var(--bad-bg); border-color: var(--bad); color: var(--bad); }
+  .change.tagged-agree { border-color: var(--good); }
+  .change.tagged-deny { border-color: var(--bad); }
+
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 860px) { .compare { grid-template-columns: 1fr; } }
+  .col h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; margin: 0 0 8px; }
+  .col.before h3 { color: var(--foreground-muted); }
+  .col.after h3 { color: var(--action); }
+  .stage { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; min-height: 540px; position: relative; overflow: hidden; }
+
+  /* phone screen repro */
+  .screen { background: var(--surface); border-radius: 12px; }
+  .lt { font-size: 26px; font-weight: 800; letter-spacing: -.02em; margin: 2px 2px 12px; }
+  .sec-h { display: flex; align-items: center; justify-content: space-between; margin: 4px 6px 8px; }
+  .sec-h .lbl { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--foreground-muted); }
+  .sec-h .lbl.plain { text-transform: none; letter-spacing: 0; font-size: 17px; font-weight: 800; color: var(--foreground); }
+  .sec-h .act { font-size: 13px; font-weight: 600; color: var(--sky); }
+  .helper { font-size: 12px; color: var(--foreground-muted); margin: -4px 6px 12px; }
+
+  .card { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 13px 14px; margin-bottom: 11px; position: relative; }
+  .crow { display: flex; align-items: center; gap: 12px; }
+  .thumb { width: 46px; height: 46px; border-radius: 10px; background: linear-gradient(135deg, #23304a, #0e1626); flex-shrink: 0; }
+  .meta { flex: 1; min-width: 0; }
+  .meta .t { font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
+  .meta .s { font-size: 12px; color: var(--foreground-muted); margin-top: 1px; }
+  .pill { font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 980px; white-space: nowrap; }
+  .pill.queued { background: var(--accent-soft); color: var(--sky); }
+  .pill.sent { background: var(--good-bg); color: var(--good); }
+
+  /* before actions */
+  .actions { display: flex; gap: 16px; justify-content: flex-end; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .actions .a { font-size: 13px; font-weight: 600; color: var(--sky); }
+
+  /* after status lines */
+  .status { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; margin-top: 2px; }
+  .status.sending { color: var(--sky); }
+  .status.done { color: var(--good); }
+  .status.waiting { color: var(--amber); }
+  .status.failed { color: var(--bad); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .dot.sky { background: var(--sky); }
+  .spin { width: 13px; height: 13px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--sky) 30%, transparent); border-top-color: var(--sky); animation: sp .8s linear infinite; flex-shrink: 0; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  .check { width: 14px; height: 14px; color: var(--good); flex-shrink: 0; }
+  .retry { margin-left: auto; font-size: 12.5px; font-weight: 700; color: var(--sky); border: 1px solid color-mix(in srgb, var(--sky) 40%, transparent); border-radius: 8px; padding: 4px 12px; }
+
+  .syncbanner { display: flex; align-items: center; gap: 8px; background: var(--bad-bg); border-radius: 11px; padding: 9px 12px; margin: 0 2px 12px; font-size: 12.5px; font-weight: 600; color: var(--bad); }
+  .syncbanner .retryall { margin-left: auto; color: var(--sky); font-weight: 700; }
+
+  /* swipe-to-delete hint card */
+  .card.swiped { transform: translateX(-64px); }
+  .delreveal { position: absolute; top: 0; right: -64px; width: 64px; height: 100%; background: var(--bad); color: #fff; border-radius: 0 14px 14px 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+  .swipehint { font-size: 11px; color: var(--foreground-muted); text-align: center; margin: 4px 0 0; font-style: italic; }
+
+  .capbtn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; border-radius: 13px; padding: 13px; font-size: 14px; font-weight: 650; margin-top: 6px; }
+  .capbtn.before { background: var(--surface-raised); color: var(--sky); box-shadow: var(--shadow); }
+  .capbtn.after { background: var(--sky); color: #fff; }
+
+  .note-bad { margin-top: 12px; font-size: 11.5px; color: var(--bad); line-height: 1.5; }
+  .note-good { margin-top: 12px; font-size: 11.5px; color: var(--good); line-height: 1.5; }
+
+  /* comment pins */
+  body.commenting .stage { cursor: crosshair; }
+  .pin { position: absolute; width: 22px; height: 22px; border-radius: 50% 50% 50% 2px; background: var(--purple); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; transform: translate(-50%, -100%); box-shadow: 0 2px 6px rgba(0,0,0,0.3); cursor: pointer; z-index: 40; }
+  .comments-panel { max-width: 1280px; margin: 8px auto 0; padding: 0 24px; }
+  .comments-panel .cwrap { border: 1px solid var(--border); border-radius: 10px; background: var(--surface-raised); padding: 12px 14px; }
+  .comments-panel h3 { font-size: 12px; margin: 0 0 8px; }
+  .cmt { font-size: 12px; padding: 6px 0; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+  .cmt .cn { color: var(--purple); font-weight: 700; }
+  .cmt button { margin-left: auto; font-size: 10px; border: none; background: none; color: var(--bad); cursor: pointer; }
+
+  dialog { border: none; border-radius: 12px; padding: 0; box-shadow: var(--shadow); max-width: 560px; width: 92%; background: var(--surface-raised); color: var(--foreground); }
+  dialog .dh { padding: 14px 16px; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 14px; }
+  dialog textarea { width: 100%; min-height: 280px; border: none; padding: 14px 16px; font-family: ui-monospace, monospace; font-size: 12px; background: var(--surface-raised); color: var(--foreground); resize: vertical; }
+  dialog .df { padding: 10px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+  .hint { font-size: 11px; color: var(--foreground-muted); }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>Outbox redesign <span class="sub">— manual outbox → automatic sync</span></h1>
+    <button class="btn" id="comment-toggle">Comment mode: off</button>
+    <button class="btn" id="theme-toggle">Dark</button>
+    <button class="btn primary" id="export-btn">Export decisions</button>
+  </div>
+
+  <div class="intro">
+    <h2>What is the outbox FOR?</h2>
+    <p>When you snap a bench photo or jot a quick note, the app sends it to your lab the moment you confirm, then asks where to file it. It lands on your laptop within seconds. The list of recent captures is there to reassure you that it arrived, and to give you a way out if something fails.</p>
+    <p>But the current UI describes that automatic process with manual-process words. "Outbox" implies a staging area you flush yourself. "Queued" implies it is waiting on you. A blue "Send" button on every row implies you have to tap it, when sending already happened, that button is really a retry for the rare stuck item. The first-time read is "wait, do I need to press Send?"</p>
+    <div class="purpose"><strong>Proposed purpose.</strong> Make the surface honest about being automatic. Captures sync to your laptop on their own. Each row just shows where it is (Sending, On your laptop, Waiting for connection). No button appears unless a send actually fails, and then it is a single Retry. Removing a row is a swipe, not a permanent button competing with Send.</div>
+  </div>
+
+  <div class="wrap">
+    <div class="rail" id="rail">
+      <h3>Proposed changes — mark each</h3>
+      <div id="changes"></div>
+    </div>
+
+    <div>
+      <div class="compare">
+        <!-- BEFORE -->
+        <div class="col before">
+          <h3>Before — manual-sounding outbox</h3>
+          <div class="stage" data-stage="before">
+            <div class="screen">
+              <div class="sec-h">
+                <span class="lbl">Outbox</span>
+                <span class="act">Send all</span>
+              </div>
+
+              <div class="card">
+                <div class="crow">
+                  <span class="thumb"></span>
+                  <div class="meta"><div class="t">Post-trypsin cell suspension check</div><div class="s">6:42 PM</div></div>
+                  <span class="pill queued">Queued</span>
+                </div>
+                <div class="actions"><span class="a">Send</span><span class="a">Remove</span></div>
+              </div>
+
+              <div class="card">
+                <div class="crow">
+                  <span class="thumb"></span>
+                  <div class="meta"><div class="t">Plate 4 brightfield (GFP)</div><div class="s">6:42 PM</div></div>
+                  <span class="pill sent">Sent</span>
+                </div>
+                <div class="actions"><span class="a">Send</span><span class="a">Remove</span></div>
+              </div>
+
+              <div class="capbtn before">Add to outbox</div>
+              <div class="note-bad">"Queued" + a blue "Send" read as "you must tap Send", but it already auto-sent. "Send all" and the per-row "Send" are really retries for the rare failure. "Add to outbox" implies staging, when it sends immediately.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AFTER -->
+        <div class="col after">
+          <h3>After — automatic sync</h3>
+          <div class="stage" data-stage="after">
+            <div class="screen">
+              <div class="sec-h"><span class="lbl plain">Recent captures</span></div>
+              <div class="helper">Synced to your laptop automatically.</div>
+
+              <div class="syncbanner">1 capture couldn't sync<span class="retryall">Retry all</span></div>
+
+              <div class="card">
+                <div class="crow">
+                  <span class="thumb"></span>
+                  <div class="meta">
+                    <div class="t">Post-trypsin cell suspension check</div>
+                    <div class="status sending"><span class="spin"></span>Sending…</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="crow">
+                  <span class="thumb"></span>
+                  <div class="meta">
+                    <div class="t">Plate 4 brightfield (GFP)</div>
+                    <div class="status done"><svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>On your laptop</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card swiped">
+                <div class="crow">
+                  <span class="thumb"></span>
+                  <div class="meta">
+                    <div class="t">Gel image, lane 3 smear</div>
+                    <div class="status failed"><span class="dot" style="background:var(--bad)"></span>Couldn't send<span class="retry">Retry</span></div>
+                  </div>
+                </div>
+                <div class="delreveal">Delete</div>
+              </div>
+              <div class="swipehint">swipe a row left to delete</div>
+
+              <div class="capbtn after">Send to lab</div>
+              <div class="note-good">Every row just reports where it is. The only button in the normal flow is gone. Retry appears only on a real failure, and a swipe (not a permanent button) deletes a row. "Send to lab" matches what the button actually does.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="comments-panel">
+    <div class="cwrap">
+      <h3>Comments <span class="hint" id="cmt-hint">— turn on Comment mode, then click anywhere on a mockup to drop a pin</span></h3>
+      <div id="comments"></div>
+    </div>
+  </div>
+
+  <dialog id="export-dialog">
+    <div class="dh">Decisions + comments</div>
+    <textarea id="export-text" readonly></textarea>
+    <div class="df">
+      <button class="btn" id="copy-btn">Copy</button>
+      <button class="btn" id="download-btn">Download .md</button>
+      <button class="btn primary" id="close-export">Close</button>
+    </div>
+  </dialog>
+
+<script>
+const CHANGES = [
+  { id: "rename", t: "Rename \"Outbox\" to \"Recent captures\"", d: "Plus a one-line helper, Synced to your laptop automatically. Reframes the section from a staging area you flush into an automatic log." },
+  { id: "nosend", t: "Remove the per-row \"Send\" button", d: "Sending is automatic. A Send button on a row that already sent is the core confusion. It only ever meant retry." },
+  { id: "onlaptop", t: "Done state reads \"On your laptop\"", d: "A quiet green check plus plain-language proof it arrived where you care, instead of a Sent pill sitting next to action buttons." },
+  { id: "sending", t: "In-flight reads \"Sending…\" with a spinner", d: "Replaces \"Queued\". Queued implied it was waiting on you; Sending shows it is already moving on its own." },
+  { id: "waiting", t: "Offline reads \"Waiting for connection\"", d: "Amber, no button. It auto-resumes when the connection is back. Nothing for you to do." },
+  { id: "failonly", t: "An action appears only on real failure", d: "Failed sends auto-retry first. If one still fails it shows \"Couldn't send\" with a single Retry, the only button in the whole surface." },
+  { id: "banner", t: "Replace \"Send all\" with a conditional banner", d: "No permanent Send all. A small \"N couldn't sync · Retry all\" banner appears only when something is actually stuck, then disappears." },
+  { id: "swipe", t: "Swipe-left to delete a row", d: "Replaces the always-visible Remove button. Declutters every row and matches the iOS gesture people already expect." },
+  { id: "capbtn", t: "Relabel \"Add to outbox\" to \"Send to lab\"", d: "The button sends immediately, it does not stage. The label should say what it does." },
+];
+
+const LS_VERDICT = "rosOutbox.verdicts";
+const LS_COMMENTS = "rosOutbox.comments";
+const load = (k) => { try { return JSON.parse(localStorage.getItem(k) || "{}"); } catch { return {}; } };
+const loadArr = (k) => { try { return JSON.parse(localStorage.getItem(k) || "[]"); } catch { return []; } };
+const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+let verdicts = load(LS_VERDICT);
+let comments = loadArr(LS_COMMENTS);
+
+const changesEl = document.getElementById("changes");
+CHANGES.forEach((c, i) => {
+  const div = document.createElement("div");
+  div.className = "change";
+  div.dataset.id = c.id;
+  div.innerHTML = `
+    <div class="ct"><span class="num">${i + 1}.</span><span>${c.t}</span></div>
+    <div class="cd">${c.d}</div>
+    <div class="verdict">
+      <button class="agree" data-v="agree">Agree</button>
+      <button class="deny" data-v="deny">Disagree</button>
+    </div>`;
+  changesEl.appendChild(div);
+  const apply = () => {
+    const v = verdicts[c.id];
+    div.classList.toggle("tagged-agree", v === "agree");
+    div.classList.toggle("tagged-deny", v === "deny");
+    div.querySelector(".agree").classList.toggle("sel", v === "agree");
+    div.querySelector(".deny").classList.toggle("sel", v === "deny");
+  };
+  div.querySelectorAll(".verdict button").forEach((b) => {
+    b.addEventListener("click", () => {
+      verdicts[c.id] = verdicts[c.id] === b.dataset.v ? undefined : b.dataset.v;
+      save(LS_VERDICT, verdicts);
+      apply();
+    });
+  });
+  apply();
+});
+
+const themeBtn = document.getElementById("theme-toggle");
+themeBtn.addEventListener("click", () => {
+  const dark = document.documentElement.getAttribute("data-theme") === "dark";
+  document.documentElement.setAttribute("data-theme", dark ? "light" : "dark");
+  themeBtn.textContent = dark ? "Dark" : "Light";
+});
+
+let commenting = false;
+const cToggle = document.getElementById("comment-toggle");
+cToggle.addEventListener("click", () => {
+  commenting = !commenting;
+  document.body.classList.toggle("commenting", commenting);
+  cToggle.classList.toggle("on", commenting);
+  cToggle.textContent = "Comment mode: " + (commenting ? "on" : "off");
+});
+
+document.querySelectorAll(".stage").forEach((stage) => {
+  stage.addEventListener("click", (e) => {
+    if (!commenting) return;
+    const rect = stage.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    const note = prompt("Comment on this spot:");
+    if (!note) return;
+    comments.push({ id: Date.now(), stage: stage.dataset.stage, x, y, note });
+    save(LS_COMMENTS, comments);
+    renderPins(); renderComments();
+  });
+});
+
+function renderPins() {
+  document.querySelectorAll(".pin").forEach((p) => p.remove());
+  document.querySelectorAll(".stage").forEach((stage) => {
+    comments.filter((c) => c.stage === stage.dataset.stage).forEach((c) => {
+      const idx = comments.indexOf(c) + 1;
+      const pin = document.createElement("div");
+      pin.className = "pin";
+      pin.style.left = c.x + "%";
+      pin.style.top = c.y + "%";
+      pin.textContent = idx;
+      pin.title = c.note;
+      stage.appendChild(pin);
+    });
+  });
+}
+function renderComments() {
+  const el = document.getElementById("comments");
+  el.innerHTML = "";
+  if (!comments.length) { document.getElementById("cmt-hint").style.display = "inline"; return; }
+  document.getElementById("cmt-hint").style.display = "none";
+  comments.forEach((c, i) => {
+    const div = document.createElement("div");
+    div.className = "cmt";
+    div.innerHTML = `<span class="cn">${i + 1}</span><span>[${c.stage}] ${c.note}</span><button data-id="${c.id}">remove</button>`;
+    div.querySelector("button").addEventListener("click", () => {
+      comments = comments.filter((x) => x.id !== c.id);
+      save(LS_COMMENTS, comments); renderPins(); renderComments();
+    });
+    el.appendChild(div);
+  });
+}
+renderPins(); renderComments();
+
+function buildExport() {
+  const lines = ["# Outbox redesign — decisions", ""];
+  CHANGES.forEach((c, i) => {
+    const v = verdicts[c.id];
+    const mark = v === "agree" ? "AGREE" : v === "deny" ? "DISAGREE" : "(no decision)";
+    lines.push(`${i + 1}. [${mark}] ${c.t}`);
+  });
+  lines.push("", "## Comments", "");
+  if (!comments.length) lines.push("(none)");
+  comments.forEach((c, i) => lines.push(`${i + 1}. [${c.stage}] ${c.note}`));
+  return lines.join("\n");
+}
+const dlg = document.getElementById("export-dialog");
+document.getElementById("export-btn").addEventListener("click", () => {
+  document.getElementById("export-text").value = buildExport();
+  dlg.showModal();
+});
+document.getElementById("close-export").addEventListener("click", () => dlg.close());
+document.getElementById("copy-btn").addEventListener("click", () => {
+  navigator.clipboard.writeText(document.getElementById("export-text").value);
+});
+document.getElementById("download-btn").addEventListener("click", () => {
+  const blob = new Blob([buildExport()], { type: "text/markdown" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "outbox-redesign-decisions.md";
+  a.click();
+});
+</script>
+</body>
+</html>
