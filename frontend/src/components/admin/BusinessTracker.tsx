@@ -33,6 +33,11 @@ import {
   type LedgerEntry,
 } from "@/lib/business/calc";
 import { INFRA_TIERS, INFRA_TIERS_CHECKED, INFRA_TIERS_NOTE } from "@/lib/business/infra-tiers";
+import {
+  TAX_CATEGORIES,
+  taxCategoryLabel,
+  taxCategoryScheduleC,
+} from "@/lib/business/tax-categories";
 import type { InfraCostEstimate } from "@/lib/sharing/capacity-shared";
 
 interface BusinessData {
@@ -394,6 +399,7 @@ const EMPTY_ENTRY = {
   category: "",
   dollars: "",
   note: "",
+  taxCategory: "",
 };
 
 function Ledger({
@@ -408,6 +414,7 @@ function Ledger({
     category: string;
     amountCents: number;
     note: string;
+    taxCategory: string;
   }) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
 }) {
@@ -435,6 +442,7 @@ function Ledger({
         category: form.category.trim(),
         amountCents,
         note: form.note.trim(),
+        taxCategory: form.taxCategory,
       });
       setForm({ ...EMPTY_ENTRY, date: form.date });
     } finally {
@@ -477,6 +485,21 @@ function Ledger({
           />
         </label>
         <label className="flex flex-col">
+          <span className="text-meta text-foreground-muted">Tax category</span>
+          <select
+            className={`mt-1 ${input}`}
+            value={form.taxCategory}
+            onChange={(e) => setForm({ ...form, taxCategory: e.target.value })}
+          >
+            <option value="">Uncategorized</option>
+            {TAX_CATEGORIES.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col">
           <span className="text-meta text-foreground-muted">Amount (USD)</span>
           <input
             inputMode="decimal"
@@ -516,6 +539,7 @@ function Ledger({
               <tr className="border-b border-border text-foreground-muted">
                 <th className="px-2 py-2 font-semibold">Date</th>
                 <th className="px-2 py-2 font-semibold">Category</th>
+                <th className="px-2 py-2 font-semibold">Tax category</th>
                 <th className="px-2 py-2 font-semibold">Note</th>
                 <th className="px-2 py-2 text-right font-semibold">Amount</th>
                 <th className="px-2 py-2"></th>
@@ -526,6 +550,9 @@ function Ledger({
                 <tr key={e.id} className="border-b border-border last:border-0">
                   <td className="px-2 py-2 text-foreground-muted">{e.date}</td>
                   <td className="px-2 py-2 text-foreground">{e.category || "-"}</td>
+                  <td className="px-2 py-2 text-foreground-muted">
+                    {e.direction === "in" ? "-" : taxCategoryLabel(e.taxCategory)}
+                  </td>
                   <td className="px-2 py-2 text-foreground-muted">{e.note || "-"}</td>
                   <td
                     className={`px-2 py-2 text-right font-mono ${
@@ -749,6 +776,137 @@ function SalesTaxBanner({
   );
 }
 
+/** Year-end tax summary: expenses grouped by Schedule C category, plus a CSV
+ *  export of the year's ledger to hand to self-file tax software. */
+function TaxSummaryPanel({ ledger }: { ledger: LedgerEntry[] }) {
+  const years = Array.from(
+    new Set(ledger.map((e) => e.date.slice(0, 4)).filter(Boolean)),
+  ).sort((a, b) => b.localeCompare(a));
+  const [year, setYear] = useState(years[0] ?? new Date().toISOString().slice(0, 4));
+
+  const rows = ledger.filter((e) => e.date.startsWith(year));
+  const expenses = rows.filter((e) => e.direction === "out");
+  const income = rows.filter((e) => e.direction === "in");
+
+  const byCat = new Map<string, number>();
+  for (const e of expenses) {
+    byCat.set(e.taxCategory, (byCat.get(e.taxCategory) ?? 0) + e.amountCents);
+  }
+  const catRows = Array.from(byCat.entries()).sort((a, b) => b[1] - a[1]);
+  const totalExpense = expenses.reduce((s, e) => s + e.amountCents, 0);
+  const totalIncome = income.reduce((s, e) => s + e.amountCents, 0);
+  const uncategorized = expenses.filter((e) => !e.taxCategory).length;
+
+  const downloadCsv = () => {
+    const esc = (s: string) => `"${String(s).replace(/"/g, '""')}"`;
+    const header = ["Date", "Type", "Category", "Tax category", "Schedule C line", "Amount (USD)", "Note"];
+    const lines = [header.map(esc).join(",")];
+    for (const e of rows) {
+      const isIn = e.direction === "in";
+      lines.push(
+        [
+          e.date,
+          isIn ? "income" : "expense",
+          e.category,
+          isIn ? "" : taxCategoryLabel(e.taxCategory),
+          isIn ? "" : taxCategoryScheduleC(e.taxCategory),
+          (e.amountCents / 100).toFixed(2),
+          e.note,
+        ]
+          .map(esc)
+          .join(","),
+      );
+    }
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `researchos-llc-ledger-${year}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <section className="rounded-xl border border-border bg-surface-raised p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-title font-semibold text-foreground">Tax summary</h2>
+          <p className="mt-0.5 text-meta text-foreground-muted leading-relaxed">
+            Expenses grouped by IRS Schedule C line for self-filing. Export the CSV
+            and hand the category totals to your tax software, no accountant needed
+            if everything is categorized.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            value={year}
+            onChange={(e) => setYear(e.target.value)}
+            className="rounded-lg border border-border bg-surface-sunken px-3 py-2 text-body text-foreground"
+          >
+            {(years.length ? years : [year]).map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={downloadCsv}
+            className="rounded-lg bg-sky-600 px-4 py-2 text-meta font-semibold text-white hover:bg-sky-700"
+          >
+            Download CSV
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-x-8 gap-y-1 text-body">
+        <span className="text-foreground">
+          Income <b>{formatUSD(totalIncome)}</b>
+        </span>
+        <span className="text-foreground">
+          Expenses <b>{formatUSD(totalExpense)}</b>
+        </span>
+        <span className="text-foreground">
+          Net <b>{formatUSD(totalIncome - totalExpense)}</b>
+        </span>
+      </div>
+
+      {catRows.length === 0 ? (
+        <p className="mt-4 text-meta text-foreground-muted">No expenses recorded for {year}.</p>
+      ) : (
+        <table className="mt-4 w-full text-left text-meta">
+          <thead>
+            <tr className="border-b border-border text-foreground-muted">
+              <th className="px-2 py-2 font-semibold">Tax category</th>
+              <th className="px-2 py-2 font-semibold">Schedule C</th>
+              <th className="px-2 py-2 text-right font-semibold">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {catRows.map(([cat, cents]) => (
+              <tr key={cat || "none"} className="border-b border-border last:border-0">
+                <td className="px-2 py-2 text-foreground">{taxCategoryLabel(cat)}</td>
+                <td className="px-2 py-2 text-foreground-muted">
+                  {taxCategoryScheduleC(cat) || "-"}
+                </td>
+                <td className="px-2 py-2 text-right font-mono text-foreground">
+                  {formatUSD(cents)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {uncategorized > 0 ? (
+        <p className="mt-3 text-meta text-amber-700 dark:text-amber-300">
+          {uncategorized} expense{uncategorized === 1 ? "" : "s"} are uncategorized.
+          Set a tax category on each so the Schedule C totals are complete.
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 function SectionTitle({ children, sub }: { children: React.ReactNode; sub?: string }) {
   return (
     <div className="mb-3 mt-10 first:mt-0">
@@ -819,6 +977,7 @@ export default function BusinessTracker() {
     category: string;
     amountCents: number;
     note: string;
+    taxCategory: string;
   }) => {
     await fetch("/api/admin/business", {
       method: "POST",
@@ -844,6 +1003,7 @@ export default function BusinessTracker() {
       category: "Infrastructure (estimate)",
       amountCents: cents,
       note: "Auto-estimated storage cost from current usage",
+      taxCategory: "hosting",
     });
   };
 
@@ -1053,6 +1213,9 @@ export default function BusinessTracker() {
               Ledger
             </SectionTitle>
             <Ledger ledger={ledger} onAdd={addEntry} onDelete={deleteEntry} />
+            <div className="mt-6">
+              <TaxSummaryPanel ledger={ledger} />
+            </div>
           </div>
 
           <div>
