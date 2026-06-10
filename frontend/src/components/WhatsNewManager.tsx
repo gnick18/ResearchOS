@@ -148,7 +148,7 @@ export default function WhatsNewManager({ username }: Props) {
   // claim flow with ?sharingClaim=1 so the global SharingClaimResume mount
   // finishes real account creation when the user comes back.
   const handleStartAccount = useCallback(
-    async (provider: "orcid" | "google" | "github" | "linkedin") => {
+    async (provider: "orcid" | "google" | "microsoft-entra-id" | "github" | "linkedin") => {
       setPhase({ kind: "idle" });
       if (username) {
         const latest = latestReleaseVersion();

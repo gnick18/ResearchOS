@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { signIn, signOut } from "next-auth/react";
+import { isMicrosoftAuthEnabled } from "@/lib/sharing/oauth-availability";
 
 /**
  * Operator sign-in block for the /admin pages. The /api/admin/* endpoints gate
@@ -68,6 +69,15 @@ export default function OperatorSignIn() {
         >
           Sign in with Google
         </button>
+        {isMicrosoftAuthEnabled() && (
+          <button
+            type="button"
+            onClick={() => void signIn("microsoft-entra-id", { callbackUrl })}
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3.5 py-2 text-body font-medium text-foreground hover:bg-surface-sunken"
+          >
+            Sign in with Microsoft
+          </button>
+        )}
         <button
           type="button"
           onClick={() => void signIn("github", { callbackUrl })}

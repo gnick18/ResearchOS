@@ -28,7 +28,11 @@ import {
   type IdentityKeys,
 } from "@/lib/sharing/identity/keys";
 import { wrapDeviceKeyWithWords } from "@/lib/sharing/identity/device-key";
-import { isOAuthPublishAvailable, isDevMockAuth } from "@/lib/sharing/oauth-availability";
+import {
+  isOAuthPublishAvailable,
+  isDevMockAuth,
+  isMicrosoftAuthEnabled,
+} from "@/lib/sharing/oauth-availability";
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
 import { downloadRecoveryKit } from "@/lib/sharing/identity/recovery-kit";
 import { generateDeviceSalt } from "@/lib/sharing/identity/backup";
@@ -58,6 +62,7 @@ import {
   KeyIcon,
   LinkedInIcon,
   MailIcon,
+  MicrosoftIcon,
   OrcidIcon,
   WarningIcon,
 } from "./icons";
@@ -734,10 +739,20 @@ function ChooseStep({
               <GitHubIcon className="w-4 h-4" />
               Continue with GitHub
             </button>
-            {/* Microsoft button is deferred until the Entra app registration
-                exists. The provider is gated on AUTH_MICROSOFT_ENTRA_ID_ID in
-                @/lib/sharing/auth, so re-add this button (and MicrosoftIcon) once
-                those credentials are set. */}
+            {/* Microsoft needs its own Entra app registration. The server
+                provider is gated on AUTH_MICROSOFT_ENTRA_ID_ID in
+                @/lib/sharing/auth, and this button on NEXT_PUBLIC_AUTH_MICROSOFT_ENABLED,
+                so it only shows once the deployer has configured Microsoft. */}
+            {isMicrosoftAuthEnabled() && (
+              <button
+                type="button"
+                onClick={() => onOAuth("microsoft-entra-id")}
+                className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-white text-slate-800 hover:bg-slate-100 font-medium transition-colors border border-border"
+              >
+                <MicrosoftIcon className="w-4 h-4" />
+                Continue with Microsoft
+              </button>
+            )}
             <button
               type="button"
               onClick={() => onOAuth("linkedin")}
