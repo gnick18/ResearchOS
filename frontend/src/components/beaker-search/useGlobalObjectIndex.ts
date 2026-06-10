@@ -32,7 +32,9 @@ import {
   fetchAllMethodsIncludingShared,
   fetchAllInventoryItemsIncludingShared,
   sequencesApi,
+  notesApi,
 } from "@/lib/local-api";
+import { readBaseOcrText } from "@/lib/attachments/ocr";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { buildGlobalIndex, type GlobalIndexEntry } from "./global-index";
 import { INVENTORY_ENABLED } from "@/lib/inventory/config";
@@ -69,6 +71,41 @@ export function useGlobalObjectIndex(): GlobalIndexEntry[] {
     enabled: INVENTORY_ENABLED && !!user,
   });
 
+  // Notes, so a handwritten/scanned page is findable from any page (not just the
+  // workbench). Same ["notes"] cache the workbench source uses, so the two share
+  // one fetch. notesApi.list() returns personal + shared notes.
+  const { data: notes = [] } = useQuery({
+    queryKey: ["notes"],
+    queryFn: () => notesApi.list(),
+    enabled: !!user,
+  });
+
+  // Aggregated OCR text per note (the same ["note-ocr-text"] query the workbench
+  // source runs, so it is shared, not duplicated). poll.ts invalidates this key
+  // after writing a sidecar so a freshly scanned page refreshes the index.
+  const noteIdSig = useMemo(
+    () => notes.map((n) => n.id).sort((a, b) => a - b).join(","),
+    [notes],
+  );
+  const { data: noteOcrText } = useQuery({
+    queryKey: ["note-ocr-text", noteIdSig],
+    queryFn: async () => {
+      const map = new Map<number, string>();
+      for (const note of notes) {
+        if (!note.username) continue;
+        try {
+          const text = await readBaseOcrText(`users/${note.username}/notes/${note.id}`);
+          if (text) map.set(note.id, text);
+        } catch {
+          // A note whose folder is unreadable just gets no OCR text.
+        }
+      }
+      return map;
+    },
+    enabled: notes.length > 0,
+    staleTime: 5 * 60_000,
+  });
+
   // Eager-once prefetch (decision 2). Fire-and-forget the loaders once per
   // session so the cache is warm before the user visits each page. prefetchQuery
   // is a no-op when the cache is already fresh, so this never double-fetches a
@@ -92,7 +129,17 @@ export function useGlobalObjectIndex(): GlobalIndexEntry[] {
   }, [queryClient, user]);
 
   return useMemo(
-    () => buildGlobalIndex({ tasks, projects, methods, sequences, inventoryItems, currentUser: user }),
-    [tasks, projects, methods, sequences, inventoryItems, user],
+    () =>
+      buildGlobalIndex({
+        tasks,
+        projects,
+        methods,
+        sequences,
+        inventoryItems,
+        currentUser: user,
+        notes,
+        noteOcrText,
+      }),
+    [tasks, projects, methods, sequences, inventoryItems, user, notes, noteOcrText],
   );
 }

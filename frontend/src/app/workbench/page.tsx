@@ -118,6 +118,15 @@ export default function WorkbenchPage() {
     }
     const nb = params.get("notebook");
     if (nb) setInitialNotebookId(nb);
+    // Note deep-link (`?note=<note-owner:id>`), set by a BeakerSearch global note
+    // result so a handwritten/scanned page found from any page opens here. Land
+    // on the Notes tab and hand the key to the panel's open seam (same shape the
+    // in-page palette jump uses). Decoded already by URLSearchParams.
+    const noteKeyParam = params.get("note");
+    if (noteKeyParam) {
+      setActiveTab("notes");
+      setPendingOpen({ kind: "note", key: noteKeyParam });
+    }
   }, []);
 
   const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);

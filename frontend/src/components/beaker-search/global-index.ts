@@ -22,7 +22,7 @@
 // mid-sentence colons.
 
 import type { IconName } from "@/components/icons";
-import { taskKey, type Task, type Method, type Project, type SequenceRecord, type InventoryItem } from "@/lib/types";
+import { taskKey, type Task, type Method, type Project, type SequenceRecord, type InventoryItem, type Note } from "@/lib/types";
 import { getMethodTypeMeta } from "@/lib/methods/method-type-registry";
 import { INVENTORY_ENABLED } from "@/lib/inventory/config";
 import { supplyKeyFor } from "@/lib/supplies/supply-model";
@@ -31,7 +31,7 @@ import { supplyKeyFor } from "@/lib/supplies/supply-model";
  *  Ranking and rendering branch only on `type`, `iconName`, and `open`, never on
  *  the source record shape, so chunk 2 stays type-agnostic. */
 export interface GlobalIndexEntry {
-  type: "task" | "project" | "method" | "sequence" | "inventory";
+  type: "task" | "project" | "method" | "sequence" | "inventory" | "note";
   /** Composite identity, taskKey() / `${owner}:${id}` / the sequence id as a
    *  string. The dedup key AND the carrier of the owner into the jump. */
   key: string;
@@ -54,6 +54,11 @@ export interface GlobalIndexEntry {
    *  surfaced but that cannot be opened). Defensive, the merged loaders prune
    *  revoked/tombstoned shares before they reach the index. */
   enabled: boolean;
+  /** Scanned-handwriting OCR text, present only on note entries that carry a
+   *  scan. Indexed as its own MiniSearch field (so a page is findable by what it
+   *  says) and also folded into `haystack` so an exact OCR-word match still ranks
+   *  in the strict tier. Absent on the core record types. */
+  ocr?: string;
 }
 
 /** The five core record sets plus the active user, exactly the canonical
@@ -65,6 +70,14 @@ export interface GlobalIndexInput {
   sequences: SequenceRecord[];
   inventoryItems: InventoryItem[];
   currentUser: string;
+  /** Personal + shared notes, so a handwritten/scanned page is findable from any
+   *  page (not just the workbench). Optional so existing callers / tests that do
+   *  not pass notes keep building the same index. */
+  notes?: Note[];
+  /** Aggregated scanned-handwriting OCR text per note id (the
+   *  ["note-ocr-text"] query), folded into the note entry's haystack + ocr
+   *  field. A note with no scan simply has no entry here. */
+  noteOcrText?: Map<number, string>;
 }
 
 /** Parse an ISO stamp to epoch ms, 0 when absent or unparseable, so a missing
@@ -222,12 +235,43 @@ export function buildInventoryEntry(item: InventoryItem): GlobalIndexEntry {
   };
 }
 
-/** Map the five core record sets into one flat index. Pure and O(n) over the
- *  five arrays, the project-name lookup is built once so the task subline does
+/** Map one note to a GlobalIndexEntry. The OCR text (scanned handwriting) is
+ *  folded into the haystack AND carried in the `ocr` field, so an exact OCR-word
+ *  match ranks in the strict tier and the fuzzy pass can boost it separately.
+ *  The href deep-links the workbench Notes tab to this note (consumed into the
+ *  panel's open seam), so a found note opens from any page. Exported for tests. */
+export function buildNoteEntry(
+  note: Note,
+  ocrText: string,
+  currentUser: string,
+): GlobalIndexEntry {
+  // The note's composite, collision-safe key (mirrors workbench noteKey),
+  // `note-<owner>:<id>`; owner falls back to the current user for a personal note.
+  const owner = note.username || currentUser;
+  const key = `note-${owner}:${note.id}`;
+  const sharedIn = owner !== currentUser;
+  const base = note.is_running_log ? "Running log" : "Note";
+  const meta = sharedIn ? `${base}, shared by ${owner}` : base;
+  return {
+    type: "note",
+    key,
+    label: note.title || "Untitled note",
+    meta,
+    haystack: buildHaystack([note.title, note.description, ocrText || null]),
+    ocr: ocrText || undefined,
+    recencyAt: toEpoch(note.last_edited_at ?? note.updated_at),
+    iconName: "file",
+    href: `/workbench?tab=notes&note=${encodeURIComponent(key)}`,
+    enabled: true,
+  };
+}
+
+/** Map the core record sets into one flat index. Pure and O(n) over the
+ *  arrays, the project-name lookup is built once so the task subline does
  *  not re-scan. The merged loaders already dedup own vs shared by composite key,
  *  so this trusts their output and does not re-dedup. */
 export function buildGlobalIndex(input: GlobalIndexInput): GlobalIndexEntry[] {
-  const { tasks, projects, methods, sequences, inventoryItems, currentUser } = input;
+  const { tasks, projects, methods, sequences, inventoryItems, currentUser, notes = [], noteOcrText } = input;
 
   const projectNameByKey = new Map<string, string>();
   for (const p of projects) projectNameByKey.set(`${p.owner}:${p.id}`, p.name);
@@ -239,6 +283,9 @@ export function buildGlobalIndex(input: GlobalIndexInput): GlobalIndexEntry[] {
   for (const s of sequences) entries.push(buildSequenceEntry(s));
   if (INVENTORY_ENABLED) {
     for (const item of inventoryItems) entries.push(buildInventoryEntry(item));
+  }
+  for (const note of notes) {
+    entries.push(buildNoteEntry(note, noteOcrText?.get(note.id) ?? "", currentUser));
   }
   return entries;
 }

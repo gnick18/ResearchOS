@@ -238,6 +238,7 @@ export type PaletteGroupTitle =
   // BeakerSearch global object search, chunk 2, one heading per object type.
   | "Tasks"
   | "Projects"
+  | "Notes"
   | "Methods"
   | "Sequences"
   // chunk-5 bot (2026-06-07): inventory items are indexed alongside the four
@@ -940,6 +941,8 @@ export function objectGroupTitle(type: GlobalIndexEntry["type"]): PaletteGroupTi
       return "Tasks";
     case "project":
       return "Projects";
+    case "note":
+      return "Notes";
     case "method":
       return "Methods";
     case "sequence":

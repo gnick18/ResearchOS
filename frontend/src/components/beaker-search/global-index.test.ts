@@ -5,8 +5,8 @@
 // stamp, so the index brain is verified before any provider wiring.
 
 import { describe, it, expect } from "vitest";
-import { buildGlobalIndex, buildInventoryEntry, type GlobalIndexInput } from "./global-index";
-import type { Task, Method, Project, SequenceRecord, InventoryItem } from "@/lib/types";
+import { buildGlobalIndex, buildInventoryEntry, buildNoteEntry, type GlobalIndexInput } from "./global-index";
+import type { Task, Method, Project, SequenceRecord, InventoryItem, Note } from "@/lib/types";
 
 const CURRENT_USER = "morgan";
 
@@ -321,5 +321,51 @@ describe("buildGlobalIndex inventory gating", () => {
     // The config default is false; the index builder skips the inventory loop.
     const entries = build({ inventoryItems: [makeInventoryItem()] });
     expect(entries.filter((e) => e.type === "inventory")).toHaveLength(0);
+  });
+});
+
+describe("buildNoteEntry (pure note builder, with OCR)", () => {
+  function makeNote(over: Partial<Note> = {}): Note {
+    return {
+      id: 7,
+      title: "PCR optimization",
+      description: "gradient screen",
+      is_running_log: false,
+      is_shared: false,
+      entries: [],
+      updated_at: "2026-06-01T00:00:00.000Z",
+      username: CURRENT_USER,
+      ...over,
+    } as Note;
+  }
+
+  it("folds scanned OCR text into the haystack AND the ocr field", () => {
+    const entry = buildNoteEntry(makeNote(), "30 cycles 72c extension", CURRENT_USER);
+    expect(entry.type).toBe("note");
+    expect(entry.haystack).toContain("pcr optimization");
+    expect(entry.haystack).toContain("30 cycles 72c extension");
+    expect(entry.ocr).toBe("30 cycles 72c extension");
+  });
+
+  it("deep-links the workbench Notes tab to this note's key", () => {
+    const entry = buildNoteEntry(makeNote({ id: 12, username: "alex" }), "", CURRENT_USER);
+    expect(entry.key).toBe("note-alex:12");
+    expect(entry.href).toBe("/workbench?tab=notes&note=note-alex%3A12");
+  });
+
+  it("labels a note shared in from another owner", () => {
+    const entry = buildNoteEntry(makeNote({ username: "alex" }), "", CURRENT_USER);
+    expect(entry.meta).toContain("shared by alex");
+  });
+
+  it("buildGlobalIndex includes note entries with their OCR text", () => {
+    const ocr = new Map<number, string>([[7, "blot transfer overnight"]]);
+    const entries = buildGlobalIndex({
+      tasks: [], projects: [], methods: [], sequences: [], inventoryItems: [],
+      currentUser: CURRENT_USER, notes: [makeNote()], noteOcrText: ocr,
+    });
+    const noteEntry = entries.find((e) => e.type === "note");
+    expect(noteEntry).toBeDefined();
+    expect(noteEntry!.haystack).toContain("blot transfer overnight");
   });
 });

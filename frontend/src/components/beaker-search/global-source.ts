@@ -36,6 +36,7 @@ export type GlobalObjectType = GlobalIndexEntry["type"];
 const TYPE_WEIGHT: Record<GlobalObjectType, number> = {
   task: 3,
   project: 2,
+  note: 1,
   sequence: 1,
   method: 0,
   inventory: 0,
@@ -58,6 +59,7 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 export const GLOBAL_TYPE_ORDER: GlobalObjectType[] = [
   "task",
   "project",
+  "note",
   "sequence",
   "method",
   "inventory",
@@ -67,6 +69,7 @@ export const GLOBAL_TYPE_ORDER: GlobalObjectType[] = [
 export const GLOBAL_TYPE_TITLE: Record<GlobalObjectType, string> = {
   task: "Tasks",
   project: "Projects",
+  note: "Notes",
   sequence: "Sequences",
   method: "Methods",
   inventory: "Inventory",
