@@ -33,6 +33,7 @@ import WhatsNewModal from "@/components/WhatsNewModal";
 import { RELEASE_NOTES } from "@/lib/release-notes";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
+import { storePreDemoRoute } from "@/lib/file-system/pre-demo-route";
 import { useIsLabMode } from "@/hooks/useIsLabMode";
 import { useAppStore } from "@/lib/store";
 import { useCompanionHub } from "@/lib/ui/companion-hub-store";
@@ -3562,6 +3563,33 @@ function TipsSection() {
         >
           View welcome page
         </Link>
+      </div>
+
+      {/* Pop into the seeded demo lab and back. Entering hard-navigates to
+          /demo so FileSystemProvider remounts and installWikiCaptureFixture
+          backs up the real folder first; the always-visible Leave Demo button
+          restores it. We stash the current route so leaving returns here, not
+          the home page. (Grant 2026-06-10) */}
+      <div className="mt-4 flex items-start justify-between gap-4 border-t border-border pt-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-body text-foreground">Explore the demo lab</p>
+          <p className="text-meta text-foreground-muted mt-1">
+            Open a fully seeded fake lab to look around safely. Your real folder
+            is backed up while you browse, and Leave Demo brings you right back
+            here.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            storePreDemoRoute(window.location.pathname + window.location.search);
+            window.location.assign("/demo");
+          }}
+          data-testid="settings-explore-demo"
+          className="px-3 py-2 text-body border border-border text-foreground hover:bg-surface-sunken rounded-lg whitespace-nowrap"
+        >
+          Explore the demo
+        </button>
       </div>
       {process.env.NODE_ENV === "development" && (
         <div className="mt-4 border-t border-border pt-3 text-meta text-foreground-muted">

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import LivingPopup from "@/components/ui/LivingPopup";
 import { restorePreDemoStateOrClear } from "@/lib/file-system/indexeddb-store";
+import { consumePreDemoRoute } from "@/lib/file-system/pre-demo-route";
 import {
   clearAllStickyDemoFlags,
   isTutorialMode,
@@ -77,8 +78,9 @@ export default function LeaveDemoModal({ isOpen, onClose }: Props) {
       return;
     }
 
+    let restored = false;
     try {
-      await restorePreDemoStateOrClear();
+      restored = await restorePreDemoStateOrClear();
     } catch {
       // Best-effort cleanup; even if IndexedDB throws, the reload below
       // gives the user a way out via the folder picker.
@@ -86,9 +88,12 @@ export default function LeaveDemoModal({ isOpen, onClose }: Props) {
     // Public-demo Leave: clear every sticky sessionStorage flag (demo-
     // mode plus any future preview / fixture stickies) so a user who
     // confirmed leaving isn't still locked into fixture or preview mode
-    // when the post-reload `/` renders.
+    // when the post-reload page renders.
     clearAllStickyDemoFlags();
-    window.location.replace("/");
+    // When a real folder was restored AND the user jumped in from inside the
+    // app, return them to the exact page they left. Otherwise fall back home.
+    const back = (restored && consumePreDemoRoute()) || "/";
+    window.location.replace(back);
   }, []);
 
   const title = tutorial ? "End the tour?" : "Leave the demo?";

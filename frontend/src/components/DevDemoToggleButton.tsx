@@ -7,6 +7,10 @@ import {
   getDemoMode,
 } from "@/lib/file-system/wiki-capture-mock";
 import { restorePreDemoStateOrClear } from "@/lib/file-system/indexeddb-store";
+import {
+  storePreDemoRoute,
+  consumePreDemoRoute,
+} from "@/lib/file-system/pre-demo-route";
 import Tooltip from "./Tooltip";
 
 /**
@@ -39,16 +43,18 @@ export default function DevDemoToggleButton() {
     if (busy) return;
     if (inDemo) {
       setBusy(true);
+      let restored = false;
       try {
-        await restorePreDemoStateOrClear();
+        restored = await restorePreDemoStateOrClear();
       } catch {
         // best-effort; reload still gives a way out via the folder picker
       }
       clearDemoMode();
       // Full reload so the patched singleton `fileService` is dropped and the
       // real file-service remounts from the restored IDB handle (mirrors the
-      // LeaveDemoModal "Leave demo" path).
-      window.location.replace("/");
+      // LeaveDemoModal "Leave demo" path). Return to the page we jumped in from.
+      const back = (restored && consumePreDemoRoute()) || "/";
+      window.location.replace(back);
     } else {
       // Hard navigation so `FileSystemProvider` remounts and its
       // `initialize()` effect re-runs — that's the only caller of
@@ -58,6 +64,7 @@ export default function DevDemoToggleButton() {
       // backup keys empty, and made the next exit hit the no-backup branch
       // in `restorePreDemoStateOrClear` — wiping the real folder. Mirrors
       // the exit branch above, which is also a hard reload.
+      storePreDemoRoute(window.location.pathname + window.location.search);
       window.location.assign("/demo");
     }
   };
