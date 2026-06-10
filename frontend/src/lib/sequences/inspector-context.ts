@@ -63,7 +63,11 @@ export function deriveSelectionKind(input: SelectionKindInput): SelectionKind {
 export function autoOpenOpForKind(kind: SelectionKind): string | null {
   switch (kind) {
     case "region":
-      return "primers";
+      // A bare region highlight is something users do constantly while reading
+      // the map, so it must NOT yank the Primers panel open (it was annoying in
+      // the demo). Clicking an annotated feature below is a deliberate pick, so
+      // those still auto-open their tool.
+      return null;
     case "feature-cds":
       return "protein";
     case "feature-primer":

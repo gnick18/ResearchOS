@@ -77,11 +77,13 @@ function click(el: HTMLElement, text: string) {
 }
 
 describe("useAutoOpenInspector", () => {
-  it("a region selection auto-opens Primers", () => {
+  it("a bare region selection does NOT auto-open anything", () => {
+    // Highlighting a base range is constant while reading the map, so it must
+    // not yank the Primers panel open. Only a deliberate feature pick does.
     const setActiveOp = vi.fn();
     const { container } = render(<Harness setActiveOp={setActiveOp} />);
     click(container, "select-region");
-    expect(setActiveOp).toHaveBeenLastCalledWith("primers");
+    expect(setActiveOp).not.toHaveBeenCalled();
   });
 
   it("a CDS selection auto-opens Protein", () => {
@@ -101,7 +103,7 @@ describe("useAutoOpenInspector", () => {
   it("clearing the selection does NOT open / close / move the inspector", () => {
     const setActiveOp = vi.fn();
     const { container } = render(<Harness setActiveOp={setActiveOp} />);
-    click(container, "select-region");
+    click(container, "select-cds");
     setActiveOp.mockClear();
     click(container, "clear");
     expect(setActiveOp).not.toHaveBeenCalled();
@@ -121,7 +123,7 @@ describe("useAutoOpenInspector", () => {
   it("re-opens when the selection identity genuinely changes", () => {
     const setActiveOp = vi.fn();
     const { container } = render(<Harness setActiveOp={setActiveOp} />);
-    click(container, "select-region");
+    click(container, "select-primer");
     click(container, "select-cds");
     expect(setActiveOp).toHaveBeenCalledTimes(2);
     expect(setActiveOp).toHaveBeenNthCalledWith(1, "primers");
