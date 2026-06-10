@@ -158,6 +158,17 @@
   .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
   .secondary { display: flex; flex-direction: column; gap: 7px; position: relative; z-index: 1; }
   .ghostbtn { cursor: pointer; appearance: none; width: 100%; text-align: center; border: 1px dashed var(--border); background: transparent; color: var(--foreground-muted); border-radius: 9px; padding: 8px; font-size: 12px; font-weight: 600; }
+  .deckscreen .ghostbtn { border-color: rgba(255,255,255,0.22); color: #b4bfd0; }
+  /* three-tier chooser tiles (deck dark) */
+  .tiers { display: flex; flex-direction: column; gap: 9px; position: relative; z-index: 1; text-align: left; }
+  .tier { cursor: pointer; appearance: none; text-align: left; border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.05); color: #fff; border-radius: 12px; padding: 12px 14px; }
+  .tier:hover { background: rgba(255,255,255,0.10); border-color: var(--brand-sky); transform: translateY(-1px); }
+  .tier .th { font-weight: 700; font-size: 14px; margin-bottom: 3px; display: flex; align-items: center; gap: 8px; }
+  .tier .pill { font-size: 9.5px; font-weight: 800; border-radius: 999px; padding: 1px 7px; }
+  .tier .pill.solo { color: #6ee7b7; background: rgba(110,231,183,0.14); }
+  .tier .pill.acct { color: #8fd3ff; background: rgba(143,211,255,0.14); }
+  .tier .tp { font-size: 11.5px; color: #b4bfd0; line-height: 1.45; }
+  .folderbtn.ghost { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.22); }
 
   /* comment pins */
   .cmt { position: relative; }
@@ -301,8 +312,8 @@
             <div class="deckword">ResearchOS</div>
             <div class="deckthanks">Own your research. Try it today.</div>
             <div class="deckauth">
-              <button class="deckcta primary" data-go="picker">Create account</button>
-              <button class="deckcta" data-go="relogin">Sign in</button>
+              <button class="deckcta primary" data-go="tiers">Create account</button>
+              <button class="deckcta" data-go="signin">Sign in</button>
             </div>
             <div class="decklinks">
               <button class="linkchip">See the tour <code>/welcome</code></button>
@@ -313,10 +324,24 @@
 
           <div class="arrow">click Create account</div>
 
-          <div class="deckscreen cmt" data-clabel="After: pick a provider (OAuth-first)">
+          <div class="deckscreen cmt" data-clabel="After: three-tier chooser">
             <span class="tagstrip tag-new">change 2</span>
-            <div class="deckword sm">Create your free account</div>
-            <div class="decksub">Pick how to sign in. Your data stays on your disk, the account is free and only for sharing and the directory.</div>
+            <div class="deckword sm">How do you want to use ResearchOS?</div>
+            <div class="decksub">The same three tiers we built. Each tile explains what you get, so you pick with your eyes open.</div>
+            <div class="tiers">
+              <button class="tier" data-go="folderstep"><div class="th">Just me, local <span class="pill solo">no account</span></div><div class="tp">Work on your own, zero setup, everything stays on your computer. No internet required, the most private option.</div></button>
+              <button class="tier" data-go="picker"><div class="th">Free account <span class="pill acct">free</span></div><div class="tp">Solo but you want to share notes, methods or files with other labs, or be findable. Data still on your disk, 1 GB cloud free.</div></button>
+              <button class="tier" data-go="picker"><div class="th">Lab <span class="pill acct">free to start</span></div><div class="tp">Your whole team together, shared workspace, real-time co-editing, PI oversight. Local-first, the PI funds the sync.</div></button>
+            </div>
+            <div class="note">Just me, local goes straight to choosing a folder, no login. Free and Lab go to the provider picker next.</div>
+          </div>
+
+          <div class="arrow">pick Free or Lab, Just me skips to a folder</div>
+
+          <div class="deckscreen cmt" data-clabel="After: pick a provider (OAuth-first)">
+            <span class="tagstrip tag-new">change 3</span>
+            <div class="deckword sm">Pick how to sign in</div>
+            <div class="decksub">Your data stays on your disk, the account is free and only for sharing and the directory.</div>
             <div class="stack">
               <button class="prov" data-prov="orcid"><span class="ico"><svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="11" fill="#A6CE39"/><text x="12" y="16" font-size="11" fill="#fff" text-anchor="middle" font-weight="700">iD</text></svg></span>Continue with ORCID</button>
               <button class="prov" data-prov="google"><span class="ico"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="#4285F4" d="M22 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.6a4.8 4.8 0 0 1-2.1 3.1v2.6h3.4c2-1.8 3.1-4.5 3.1-7.5z"/><path fill="#34A853" d="M12 22c2.7 0 5-.9 6.6-2.4l-3.4-2.6c-.9.6-2 1-3.2 1-2.5 0-4.6-1.7-5.4-4H3.1v2.6A10 10 0 0 0 12 22z"/><path fill="#FBBC05" d="M6.6 14a6 6 0 0 1 0-3.8V7.6H3.1a10 10 0 0 0 0 8.9z"/><path fill="#EA4335" d="M12 6.2c1.5 0 2.8.5 3.8 1.5l2.9-2.9A10 10 0 0 0 3.1 7.6L6.6 10c.8-2.3 2.9-3.8 5.4-3.8z"/></svg></span>Continue with Google</button>
@@ -338,7 +363,7 @@
           <div class="arrow">signed in, back to ResearchOS</div>
 
           <div class="deckscreen cmt" data-clabel="After: save your account folder step">
-            <span class="tagstrip tag-new">change 3</span>
+            <span class="tagstrip tag-new">change 4</span>
             <div class="you">Signed in as <b id="signedAs">you@gmail.com</b></div>
             <div class="stitle" style="font-size:19px">Save your account on your disk</div>
             <div class="ssub">Pick a folder to keep your notebook and account. Everything stays local, this folder is your account.</div>
@@ -349,24 +374,23 @@
           <div class="arrow">into the app</div>
           <div class="deckscreen cmt" data-clabel="After: in the app"><span class="tagstrip tag-new">done</span><div class="stitle" style="font-size:16px">You are in</div><div class="ssub" style="margin-bottom:0">Workbench, or the lab overview for a lab head.</div></div>
 
-          <div class="arrow" style="padding-top:22px">separate path, returning and signed out</div>
+          <div class="arrow" style="padding-top:22px">separate path, click Sign in</div>
 
-          <div class="deckscreen cmt" data-clabel="After: re-login screen">
-            <span class="tagstrip tag-new">change 4 + 5</span>
-            <div class="deckbot" style="width:64px"><svg><use href="#bbot"/></svg></div>
-            <div class="deckword sm">Welcome back, Grant</div>
-            <div class="decksub">Your folder is connected. Sign back in to unlock sharing and the directory.</div>
+          <div class="deckscreen cmt" data-clabel="After: sign in (logins + choose folder)">
+            <span class="tagstrip tag-new">change 5</span>
+            <div class="deckbot" style="width:60px"><svg><use href="#bbot"/></svg></div>
+            <div class="deckword sm">Welcome back</div>
+            <div class="decksub">Sign in to unlock sharing, or just open your folder if you work solo with no account.</div>
             <div class="stack">
               <button class="prov lastused" data-prov="google"><span class="lubadge">Last used</span><span class="ico"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="#4285F4" d="M22 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.6a4.8 4.8 0 0 1-2.1 3.1v2.6h3.4c2-1.8 3.1-4.5 3.1-7.5z"/><path fill="#34A853" d="M12 22c2.7 0 5-.9 6.6-2.4l-3.4-2.6c-.9.6-2 1-3.2 1-2.5 0-4.6-1.7-5.4-4H3.1v2.6A10 10 0 0 0 12 22z"/><path fill="#FBBC05" d="M6.6 14a6 6 0 0 1 0-3.8V7.6H3.1a10 10 0 0 0 0 8.9z"/><path fill="#EA4335" d="M12 6.2c1.5 0 2.8.5 3.8 1.5l2.9-2.9A10 10 0 0 0 3.1 7.6L6.6 10c.8-2.3 2.9-3.8 5.4-3.8z"/></svg></span>Continue with Google</button>
+              <button class="prov" data-prov="microsoft"><span class="ico"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="#F25022" d="M1 1h10v10H1z"/><path fill="#7FBA00" d="M13 1h10v10H13z"/><path fill="#00A4EF" d="M1 13h10v10H1z"/><path fill="#FFB900" d="M13 13h10v10H13z"/></svg></span>Continue with Microsoft</button>
             </div>
-            <div class="divider">other ways</div>
-            <div class="secondary">
-              <button class="ghostbtn" data-prov="microsoft">Microsoft</button>
-              <button class="ghostbtn" data-prov="orcid">ORCID</button>
-              <button class="ghostbtn" data-prov="github">GitHub</button>
-              <button class="ghostbtn" data-prov="linkedin">LinkedIn</button>
+            <div class="secondary" style="margin-top:7px">
+              <button class="ghostbtn" data-prov="orcid">More sign-in options</button>
             </div>
-            <div class="note">The last provider you used floats to the top with the badge, the rest collapse into a quieter row. The pattern you said you loved on other sites.</div>
+            <div class="divider">or</div>
+            <button class="folderbtn ghost">Open a folder, no account</button>
+            <div class="note">The last provider you used floats to the top with the badge, the rest collapse. Solo users who do not want an account skip login entirely with Open a folder. The pattern you said you loved on other sites.</div>
           </div>
 
         </div>
@@ -415,11 +439,11 @@
   function renderAll() { renderPins(); renderPanel(); }
 
   const CHANGES = [
-    { id: "unified", tag: "1", title: "One unified landing, deck style", desc: "Replace the start screen plus create-account chooser with a single dark landing in the marketing-deck look, BeakerBot bubble, ResearchOS wordmark, the route-pill buttons (tour, demo, transparency), and Create account plus Sign in. Everyone who is not already signed in with a folder lands here." },
-    { id: "oauthfirst", tag: "2", title: "OAuth first", desc: "Create account opens a provider picker, and clicking a provider opens that provider immediately, no folder picker in between. This is the core fix for the Google bug you hit." },
-    { id: "folderstep", tag: "3", title: "Folder step after sign-in", desc: "Move the folder connect to after the provider returns, framed as where your account is saved on disk. Same connect, reads as expected instead of a surprise. If the folder already holds the account, just unlock." },
-    { id: "relogin", tag: "4", title: "Dedicated re-login screen", desc: "Sign in (folder already connected, session expired) goes to a clean Welcome back screen, not the general user picker." },
-    { id: "lastused", tag: "5", title: "Last used provider badge", desc: "Remember the provider you signed in with last and float it to the top of the re-login screen with a Last used badge, the rest collapse into a quiet row." },
+    { id: "unified", tag: "1", title: "One unified landing, deck style", desc: "Replace the start screen with a single dark landing in the marketing-deck look, BeakerBot bubble, ResearchOS wordmark, the route-pill buttons (tour, demo, transparency), and Create account plus Sign in. Everyone who is not already signed in with a folder lands here." },
+    { id: "tiers", tag: "2", title: "Create account shows the three tiers", desc: "Create account opens the three-tier chooser we already built (Just me local, Free account, Lab) so people pick with the differences explained. Just me goes straight to a folder, Free and Lab go to the provider picker." },
+    { id: "oauthfirst", tag: "3", title: "OAuth first", desc: "From Free or Lab, clicking a provider opens that provider immediately, no folder picker in between. This is the core fix for the Google bug you hit." },
+    { id: "folderstep", tag: "4", title: "Folder step after sign-in", desc: "Move the folder connect to after the provider returns, framed as where your account is saved on disk. Same connect, reads as expected instead of a surprise. If the folder already holds the account, just unlock." },
+    { id: "signin", tag: "5", title: "Sign in is logins plus choose a folder", desc: "Sign in shows the provider logins with the one you used last floated to the top and badged Last used, plus an Open a folder option so a solo user with no account skips login entirely." },
   ];
   const VSTORE = "ros-entry-flow-verdicts-v2";
   let verdicts = {};
@@ -474,9 +498,15 @@
 
   /* flow play, OAuth-first + last-used demo */
   function scrollToLabel(lbl) { const el = [...document.querySelectorAll(".cmt")].find(x => x.getAttribute("data-clabel") === lbl); if (el) el.scrollIntoView({ block: "center", behavior: "smooth" }); }
+  const GO_LABEL = {
+    tiers: "After: three-tier chooser",
+    picker: "After: pick a provider (OAuth-first)",
+    folderstep: "After: save your account folder step",
+    signin: "After: sign in (logins + choose folder)",
+  };
   document.querySelectorAll("[data-go]").forEach(b => b.addEventListener("click", () => {
     if (document.body.classList.contains("cmt-on")) return;
-    scrollToLabel(b.dataset.go === "picker" ? "After: pick a provider (OAuth-first)" : "After: re-login screen");
+    scrollToLabel(GO_LABEL[b.dataset.go] || b.dataset.go);
   }));
   document.querySelectorAll(".prov[data-prov], .ghostbtn[data-prov]").forEach(b => b.addEventListener("click", () => {
     if (document.body.classList.contains("cmt-on")) return;
