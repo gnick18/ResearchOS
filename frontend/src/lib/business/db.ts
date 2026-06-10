@@ -521,6 +521,17 @@ export async function setLedgerTaxCategory(
   return rows.length > 0 ? rowToEntry(rows[0]) : null;
 }
 
+/** Removes every ledger entry carrying this exact source tag. Returns the count
+ *  deleted. Used by the dev self-test to clean up its probe rows. */
+export async function deleteLedgerEntriesBySource(source: string): Promise<number> {
+  if (!source) return 0;
+  const sql = getSql();
+  const rows = (await sql`
+    DELETE FROM business_ledger WHERE source = ${source} RETURNING id
+  `) as { id: number }[];
+  return rows.length;
+}
+
 /** Removes one ledger entry by id. */
 export async function deleteLedgerEntry(id: number): Promise<void> {
   const sql = getSql();

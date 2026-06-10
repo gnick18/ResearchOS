@@ -938,6 +938,93 @@ function SectionTitle({ children, sub }: { children: React.ReactNode; sub?: stri
   );
 }
 
+/** DEV-ONLY convenience panel for the Accountant inbox bot. One click into the
+ *  business Gmail, plus a self-test that proves the booking path really works.
+ *  Renders nothing in production. */
+function DevAccountantPanel() {
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{
+    ok: boolean;
+    steps: { label: string; ok: boolean; detail?: string }[];
+    message?: string;
+    hint?: string;
+  } | null>(null);
+
+  if (process.env.NODE_ENV === "production") return null;
+
+  const GMAIL_URL = "https://mail.google.com/mail/u/?authuser=researchos.llc@gmail.com";
+
+  const runTest = async () => {
+    setBusy(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/dev/accountant-selftest", { method: "POST" });
+      setResult(await res.json());
+    } catch {
+      setResult({ ok: false, steps: [], message: "Could not reach the self-test endpoint." });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const btn =
+    "rounded-lg border border-border px-3 py-2 text-meta font-medium hover:bg-surface-sunken disabled:opacity-50";
+
+  return (
+    <div className="mt-10 rounded-2xl border border-dashed border-amber-400/60 bg-amber-50/40 p-4 dark:bg-amber-950/20">
+      <p className="text-meta font-semibold text-amber-800 dark:text-amber-300">
+        Dev tools, Accountant bot (development only)
+      </p>
+      <p className="mt-1 text-meta text-foreground-muted leading-relaxed">
+        The bot runs daily at 8:05 AM. It reads the business Gmail in Chrome and
+        books receipts to this ledger. Use these to set up and check it without
+        leaving the page.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <a className={btn} href={GMAIL_URL} target="_blank" rel="noopener noreferrer">
+          Open business Gmail
+        </a>
+        <button type="button" className={btn} onClick={runTest} disabled={busy}>
+          {busy ? "Testing booking path..." : "Test booking path"}
+        </button>
+      </div>
+
+      {result ? (
+        <div className="mt-3 rounded-xl border border-border bg-surface p-3">
+          <p
+            className={`text-meta font-semibold ${
+              result.ok ? "text-emerald-700 dark:text-emerald-300" : "text-rose-600 dark:text-rose-400"
+            }`}
+          >
+            {result.ok ? "Booking path healthy" : "Booking path needs attention"}
+          </p>
+          {result.steps.length > 0 ? (
+            <ul className="mt-2 space-y-1">
+              {result.steps.map((s, i) => (
+                <li key={i} className="flex items-center gap-2 text-meta text-foreground-muted">
+                  <span
+                    className={`inline-block h-2 w-2 shrink-0 rounded-full ${
+                      s.ok ? "bg-emerald-500" : "bg-rose-500"
+                    }`}
+                  />
+                  <span className="text-foreground">{s.label}</span>
+                  {s.detail ? <span className="text-foreground-muted">({s.detail})</span> : null}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {result.message ? (
+            <p className="mt-2 text-meta text-foreground-muted">{result.message}</p>
+          ) : null}
+          {result.hint ? (
+            <p className="mt-1 text-meta text-amber-700 dark:text-amber-300">{result.hint}</p>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 /** Fetches the business data and maps it to a State, never calling setState. */
 async function fetchBusiness(): Promise<State> {
   try {
@@ -1252,6 +1339,7 @@ export default function BusinessTracker() {
             <div className="mt-6">
               <TaxSummaryPanel ledger={ledger} />
             </div>
+            <DevAccountantPanel />
           </div>
 
           <div>
