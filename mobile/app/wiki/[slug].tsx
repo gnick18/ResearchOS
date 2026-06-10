@@ -61,7 +61,7 @@ export default function WikiReaderScreen() {
 
   return (
     <ScreenFrame>
-      <ScreenHeader />
+      <ScreenHeader title="Wiki" />
       <ScrollView
         style={styles.fill}
         contentContainerStyle={[styles.scroll, { paddingBottom: spacing['4xl'] }]}
@@ -73,15 +73,16 @@ export default function WikiReaderScreen() {
           </ThemedText>
         ) : null}
 
-        {/* Title */}
-        <ThemedText style={[styles.pageTitle, { color: surface.text }]}>
-          {entry.title}
-        </ThemedText>
-
-        {/* Blocks */}
-        {entry.blocks.map((block, idx) => (
-          <BlockView key={idx} block={block} />
-        ))}
+        {/* Article body in a white card on the grey canvas, matching the
+            notes/methods card look (Grant 2026-06-11). */}
+        <View style={[styles.articleCard, { backgroundColor: surface.surface, borderColor: surface.border }]}>
+          <ThemedText style={[styles.pageTitle, { color: surface.text }]}>
+            {entry.title}
+          </ThemedText>
+          {entry.blocks.map((block, idx) => (
+            <BlockView key={idx} block={block} />
+          ))}
+        </View>
       </ScrollView>
     </ScreenFrame>
   );
@@ -227,6 +228,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,
     gap: 14,
+  },
+  articleCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 18,
+    gap: 14,
+    shadowColor: '#101828',
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 1,
   },
 
   breadcrumb: { fontSize: 12, lineHeight: 16 },
