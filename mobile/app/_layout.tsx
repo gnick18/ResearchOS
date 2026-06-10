@@ -78,7 +78,7 @@ export default function RootLayout() {
   const navTheme =
     colorScheme === 'dark'
       ? { ...DarkTheme, colors: { ...DarkTheme.colors, background: '#0a0e1a' } }
-      : { ...DefaultTheme, colors: { ...DefaultTheme.colors, background: '#E6F4FE' } };
+      : { ...DefaultTheme, colors: { ...DefaultTheme.colors, background: '#f2f3f7' } };
 
   return (
     <SafeAreaProvider>

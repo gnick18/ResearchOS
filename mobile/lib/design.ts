@@ -87,9 +87,10 @@ export interface SurfaceTokens {
 }
 
 const lightSurface: SurfaceTokens = {
-  // Branded off-white canvas, the BeakerBot logo tint (palette.skyLight), so the
-  // app does not read as clinical pure white. White cards pop on top of it.
-  bg: '#E6F4FE',
+  // Near-white light-grey canvas (iOS-style). The brand lives in the accents
+  // (the blue/amber/coral trio, the rainbow edges, BeakerBot), not the page, so
+  // white cards and colored accents pop cleanly. skyLight stays for accent fills.
+  bg: '#f2f3f7',
   surface: '#ffffff',
   sunken: '#f3f4f6',
   pressed: 'rgba(0,0,0,0.04)',

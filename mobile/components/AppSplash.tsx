@@ -6,7 +6,7 @@
  * Flow: the native splash stays up via SplashScreen.preventAutoHideAsync until JS
  * is ready. The root layout (app/_layout.tsx) then hides the native splash and
  * mounts this overlay over the live app. The overlay background matches the theme
- * canvas (light #E6F4FE, dark #0a0e1a) so the swap is seamless. After the reveal
+ * canvas (light #f2f3f7, dark #0a0e1a) so the swap is seamless. After the reveal
  * the whole lockup shrinks (scale 1 -> 0.88) and fades out, then onFinish fires
  * and the layout unmounts the overlay, revealing the real UI. The onFinish exit
  * contract and the native handoff in _layout.tsx are unchanged.
@@ -71,9 +71,9 @@ import Animated, {
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 // ---- Theme colors ---------------------------------------------------------
-// Canvas matches lib/design (light skyLight, dark navy off-black) so the JS
-// overlay swaps in over the native splash without a flash.
-const CANVAS_LIGHT = '#E6F4FE';
+// Canvas matches the theme background (near-white light-grey, dark navy off-black)
+// so the JS overlay swaps in over the native splash without a flash.
+const CANVAS_LIGHT = '#f2f3f7';
 const CANVAS_DARK = '#0a0e1a';
 // Beaker glass fill behind the rising liquid (white in light, a deep card in dark).
 const GLASS_LIGHT = '#ffffff';
