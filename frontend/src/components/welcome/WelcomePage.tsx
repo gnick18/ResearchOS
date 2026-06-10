@@ -454,8 +454,8 @@ export default function WelcomePage() {
               </a>
             </div>
             <p className="mt-3 text-meta text-[#8593a8]">
-              Free, no sign-up to begin. Sign-in is only for sharing, and lives
-              on the start screen above.
+              Free, and no sign-up to start. You only sign in if you want to
+              share with your lab.
             </p>
 
             {/* Hero centerpiece: NIH Data Management and Sharing Plan
@@ -472,10 +472,10 @@ export default function WelcomePage() {
                     Supports your NIH Data Management and Sharing Plan
                   </h2>
                   <p className="mt-2 text-body leading-relaxed text-[#475569]">
-                    The data management your mandate asks for, free. Records you
-                    own, with real version history, clean structured exports, and
-                    one-click Zenodo deposit carrying your ORCID and grant
-                    metadata. No enterprise compliance badge to buy.
+                    Records you own, with real version history, clean structured
+                    exports, and one-click Zenodo deposit carrying your ORCID and
+                    grant metadata. That covers an NIH Data Management and Sharing
+                    Plan, free, with no enterprise license to buy.
                   </p>
                   <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2.5">
                     {[
@@ -719,7 +719,7 @@ export default function WelcomePage() {
             <BentoCell num="04" span="small" title="The PI sees the whole lab at a glance">
               <p className="text-body leading-relaxed text-[#475569]">
                 A live dashboard of every member&apos;s projects, funding, and
-                progress, configurable for the decision-maker.
+                progress, tuned to what a PI wants to see.
               </p>
               <DemoLoop
                 src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/pi-lab-overview.mp4"
@@ -766,7 +766,8 @@ export default function WelcomePage() {
                 tag="// lab"
                 price="For teams"
                 title="Sync the whole team"
-                body="Real-time collaboration and shared sync for the lab, coming as the collaboration layer lands. Members can always split back out to a solo folder."
+                body="When the collaboration layer lands, the whole lab gets real-time editing and shared sync. Members can always split back out to a solo folder."
+                comingSoon
               />
             </div>
             <p className="mt-5 max-w-[62ch] text-body leading-relaxed text-[#64748b]">
@@ -967,11 +968,10 @@ export default function WelcomePage() {
               Honest about where each one wins
             </h2>
             <p className="mt-3 max-w-[62ch] text-title leading-relaxed text-[#475569]">
-              LabArchives is the notebook many labs are leaving, SnapGene is the
-              sequence tool a lot of them also pay for, and Quartzy is where they
-              order reagents. ResearchOS replaces the notebook, the sequence
-              tool, and the inventory tool in one place. Here is the honest
-              four-way.
+              LabArchives is a common cloud notebook, SnapGene is the sequence
+              tool a lot of labs also pay for, and Quartzy is where many order
+              reagents. ResearchOS folds the notebook, the sequence tool, and the
+              inventory tool into one place. Here is the honest four-way.
             </p>
           </div>
 
@@ -1009,8 +1009,8 @@ export default function WelcomePage() {
                 <tbody>
                   <ComparisonRow
                     label="Price"
-                    us={{ mark: "win", text: "Free and open source; hosted free too" }}
-                    labarchives={{ mark: "none", text: "$330+ per user, per year; limited free tier" }}
+                    us={{ mark: "win", text: "Free and open source; the app never charges per seat" }}
+                    labarchives={{ mark: "none", text: "Paid, per-seat licensing; limited free tier" }}
                     snapgene={{ mark: "none", text: "Paid license per seat; free viewer only" }}
                     quartzy={{ mark: "have", text: "Free core ordering; paid inventory tiers" }}
                   />
@@ -1154,16 +1154,25 @@ function TierCard({
   price,
   title,
   body,
+  comingSoon = false,
 }: {
   tag: string;
   price: string;
   title: string;
   body: string;
+  comingSoon?: boolean;
 }) {
   return (
     <div className="flex flex-col rounded-2xl border border-[#dbe6f3] bg-white p-6 shadow-[0_1px_3px_rgba(15,40,80,0.06)]">
-      <div className="font-mono text-meta font-semibold tracking-[0.04em] text-brand-action">
-        {tag}
+      <div className="flex items-center justify-between gap-2">
+        <div className="font-mono text-meta font-semibold tracking-[0.04em] text-brand-action">
+          {tag}
+        </div>
+        {comingSoon ? (
+          <span className="rounded-full bg-[#eef2fb] px-2.5 py-0.5 text-meta font-semibold text-brand-action">
+            Coming soon
+          </span>
+        ) : null}
       </div>
       <div className="mt-2 text-title font-extrabold tracking-tight text-brand-ink">
         {price}
