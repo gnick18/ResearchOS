@@ -245,8 +245,9 @@ async function switchEditorMode(page, label) {
 //
 // The Notes pilot version-history sidebar + restore/undo affordances are
 // captured off the seeded note 5 ("qPCR optimization log") on /workbench.
-// installWikiCaptureFixture pre-seeds a real-engine-produced multi-version /
-// multi-editor / multi-day history (wiki-capture-vc-seed.ts) for this note plus
+// installWikiCaptureFixture pre-seeds a real multi-commit Loro document
+// (wiki-capture-loro-vc-seed.ts) for this note, giving a multi-version /
+// multi-editor / multi-day history, plus
 // a live 24h revert_undo_window, so the sidebar, the per-editor-tinted diff, the
 // compare toggle, the restore footer, and the "Undo restore" header all render.
 

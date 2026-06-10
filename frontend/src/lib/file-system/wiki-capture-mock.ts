@@ -26,12 +26,14 @@ import {
 } from "./indexeddb-store";
 import { buildWikiFixtures } from "./wiki-capture-fixture";
 import {
-  VC_SEED_HISTORY_PATH,
+  VC_SEED_SIDECAR_PATH,
+  VC_SEED_ACTORS_PATH,
+  VC_SEED_ACTORS,
   VC_SEED_NOTE_OWNER,
   VC_SEED_NOTE_ID,
-  buildSeedHistoryJsonl,
+  buildSeedLoroSidecarBytes,
   buildSeedUndoWindow,
-} from "./wiki-capture-vc-seed";
+} from "./wiki-capture-loro-vc-seed";
 import { rebaseDemoDates, isDemoLab } from "../demo/rebase";
 
 /** Watermarked fake PNGs that ship inside `frontend/public/demo-data/`.
@@ -540,24 +542,33 @@ export async function installWikiCaptureFixture(
     addParentDirs(norm, dirs);
   }
 
-  // ── Wiki version-history screenshot seed (wiki-vc-screenshots sub-bot of HR,
-  //    2026-05-31) ──────────────────────────────────────────────────────────
+  // ── Wiki version-history screenshot seed (loro-seed bot, 2026-06-10) ───────
   // The wiki version-history page needs screenshots of a populated Notes
   // history sidebar (multi-version, multi-editor, multi-day) + the restore /
   // undo affordances. ?wikiCapture=1 is READ-ONLY, so the history cannot be
-  // typed into existence; we pre-seed a real-engine-produced jsonl (see
-  // wiki-capture-vc-seed.ts) for note 5 into the in-memory _history text store,
-  // re-anchoring its timestamps to "now" so the day/session grouping is fresh,
-  // and stamp a live 24h revert_undo_window on note 5 so the "Undo restore"
-  // header renders. Both are screenshot-only and dev/localhost-gated by the
+  // typed into existence. Notes now read version history from the note's Loro
+  // sidecar (NOT the legacy _history/*.jsonl store), so we pre-build a REAL
+  // multi-commit Loro document for note 5 (see wiki-capture-loro-vc-seed.ts) and
+  // drop its snapshot bytes at the sidecar path the history engine and openNote
+  // both read. The actors map next to it resolves the alex / morgan peers to
+  // usernames. Commit timestamps are re-anchored to "now" so the day grouping is
+  // fresh. We also stamp a live 24h revert_undo_window on note 5 so the "Undo
+  // restore" header renders. All screenshot-only and dev/localhost-gated by the
   // wikiCapture flag itself.
   try {
     const now = new Date();
-    textFiles.set(
-      normalizePath(VC_SEED_HISTORY_PATH),
-      buildSeedHistoryJsonl(now),
+    const sidecarBytes = buildSeedLoroSidecarBytes(now);
+    const sidecarKey = normalizePath(VC_SEED_SIDECAR_PATH);
+    blobs.set(
+      sidecarKey,
+      new Blob([sidecarBytes.buffer as ArrayBuffer]),
     );
-    addParentDirs(normalizePath(VC_SEED_HISTORY_PATH), dirs);
+    addParentDirs(sidecarKey, dirs);
+
+    const actorsKey = normalizePath(VC_SEED_ACTORS_PATH);
+    files.set(actorsKey, VC_SEED_ACTORS);
+    addParentDirs(actorsKey, dirs);
+
     const noteKey = normalizePath(
       `users/${VC_SEED_NOTE_OWNER}/notes/${VC_SEED_NOTE_ID}.json`,
     );
