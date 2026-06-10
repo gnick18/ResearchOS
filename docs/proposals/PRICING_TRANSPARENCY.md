@@ -117,6 +117,45 @@ show both messages at full volume:
   honest message shown plainly. The two-lane model already drafted, just with the
   cost-recovery lane elevated as the recommended path.
 
+## What "2x cost" actually produces (Grant, 2026-06-09, from scripts/capacity-model.mjs)
+
+Grant's instinct, charge ~2x cost, not 1-for-1, not the 25x a naive markup would
+allow. Run against the real R2 rate it reshapes the whole ladder.
+
+- 2x cost = $0.03 per GB-month (R2 $0.015 x 2).
+- A small fixed-GB ladder priced at 2x cost is sub-billable. 5 GB = $0.15/mo,
+  60 GB = $1.80/mo, all under the ~$5 Stripe-fee floor. So the branding ladder's
+  5 to 60 GB cannot be priced at 2x cost, it would be pennies.
+- Round prices at 2x cost buy ENORMOUS pools. $5 = 167 GB, $25 = 833 GB, $50 =
+  1.6 TB. A typical 6-person lab uses ~11 GB/YEAR, so $5 covers a normal lab for
+  ~15 years.
+- Therefore a normal lab costs us pennies, and 2x-its-cost is unbillable.
+
+The honest shape this points to (recommended):
+1. GENEROUS FREE TIER, sized to cover a normal lab for a year or two. ~25 GB free
+   is ~2 years for a typical 6-person lab and costs us at most $0.38/lab/mo if
+   completely full (usually far less). This makes ResearchOS genuinely free for
+   nearly all normal labs. Tunable up/down with the paying-to-free ratio.
+2. 2x-COST METERED OVERAGE, $0.03/GB-month for storage beyond the free tier. This
+   is the calculated, non-round, honest number. It is what HEAVY image/video/big-
+   data labs pay, and only them. A heavy lab on 1 TB pays about $30/month, still a
+   fraction of a per-seat ELN.
+3. OPTIONAL preset packs for convenience (a +250 GB pack at $7.50, a +1 TB pack at
+   $30), all at the same $0.03/GB rate so the price visibly equals 2x cost.
+4. GitHub Sponsors for pure support, unchanged.
+
+Coverage line for the pricing page (assuming normal use):
+- "The free tier covers a typical 4 to 8 person lab for one to two years of normal
+  use. Past that, you pay about $0.03 per gigabyte-month, double what it costs us,
+  no more."
+- "Image, video, and big-data labs are the exception. A microscopy or imaging lab
+  can generate ten times the storage of a text-and-figures lab, so it will reach
+  the metered tier sooner. It still pays only 2x our actual cost."
+
+Implication for SPONSORSHIP_TIERS.md: the marked-up fixed-GB ladder is replaced by
+this free + 2x-metered structure. The "sponsorship" framing moves to the optional
+give-more lane (a lab can pay above its metered cost as support) and to GitHub.
+
 ## Where it lands (at billing launch, not before)
 
 The public site currently and honestly says there is no paid tier, and billing
