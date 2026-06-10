@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-06-10T11:19:53.601Z",
+  "generatedAt": "2026-06-10T22:23:04.929Z",
   "appVersion": "0.75.0",
-  "dependencyCount": 62,
+  "dependencyCount": 74,
   "licenseCounts": {
-    "Apache-2.0": 3,
-    "MIT": 47,
+    "Apache-2.0": 12,
+    "MIT": 50,
     "ISC": 8,
     "(MIT AND BSD)": 1,
     "BSD-3-Clause": 1,
@@ -346,6 +346,60 @@
       "repo": "https://github.com/paulmillr/scure-bip39"
     },
     {
+      "name": "@stdlib/stats-anova1",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "repo": "https://github.com/stdlib-js/stats-anova1"
+    },
+    {
+      "name": "@stdlib/stats-base-dists-chisquare",
+      "version": "0.3.1",
+      "license": "Apache-2.0",
+      "repo": "https://github.com/stdlib-js/stats-base-dists-chisquare"
+    },
+    {
+      "name": "@stdlib/stats-base-dists-f",
+      "version": "0.3.1",
+      "license": "Apache-2.0",
+      "repo": "https://github.com/stdlib-js/stats-base-dists-f"
+    },
+    {
+      "name": "@stdlib/stats-base-dists-normal",
+      "version": "0.3.1",
+      "license": "Apache-2.0",
+      "repo": "https://github.com/stdlib-js/stats-base-dists-normal"
+    },
+    {
+      "name": "@stdlib/stats-base-dists-t",
+      "version": "0.3.1",
+      "license": "Apache-2.0",
+      "repo": "https://github.com/stdlib-js/stats-base-dists-t"
+    },
+    {
+      "name": "@stdlib/stats-kruskal-test",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "repo": "https://github.com/stdlib-js/stats-kruskal-test"
+    },
+    {
+      "name": "@stdlib/stats-ttest",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "repo": "https://github.com/stdlib-js/stats-ttest"
+    },
+    {
+      "name": "@stdlib/stats-ttest2",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "repo": "https://github.com/stdlib-js/stats-ttest2"
+    },
+    {
+      "name": "@stdlib/stats-wilcoxon",
+      "version": "0.2.3",
+      "license": "Apache-2.0",
+      "repo": "https://github.com/stdlib-js/stats-wilcoxon"
+    },
+    {
       "name": "@tanstack/react-query",
       "version": "5.100.14",
       "license": "MIT",
@@ -460,6 +514,12 @@
       "repo": "https://github.com/jakearchibald/idb-keyval"
     },
     {
+      "name": "jstat",
+      "version": "1.9.6",
+      "license": "MIT",
+      "repo": "http://github.com/jstat/jstat"
+    },
+    {
       "name": "jszip",
       "version": "3.10.1",
       "license": "(MIT OR GPL-3.0-or-later)",
@@ -494,6 +554,18 @@
       "version": "7.2.0",
       "license": "MIT",
       "repo": "https://github.com/lucaong/minisearch"
+    },
+    {
+      "name": "ml-levenberg-marquardt",
+      "version": "5.0.1",
+      "license": "MIT",
+      "repo": "https://github.com/mljs/levenberg-marquardt"
+    },
+    {
+      "name": "ml-matrix",
+      "version": "6.12.2",
+      "license": "MIT",
+      "repo": "https://github.com/mljs/matrix"
     },
     {
       "name": "next",

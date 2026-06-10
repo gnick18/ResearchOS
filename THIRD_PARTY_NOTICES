@@ -82,6 +82,42 @@ RUNTIME DEPENDENCIES
   License: MIT
   Source:  https://github.com/paulmillr/scure-bip39
 
+@stdlib/stats-anova1@0.2.3
+  License: Apache-2.0
+  Source:  https://github.com/stdlib-js/stats-anova1
+
+@stdlib/stats-base-dists-chisquare@0.3.1
+  License: Apache-2.0
+  Source:  https://github.com/stdlib-js/stats-base-dists-chisquare
+
+@stdlib/stats-base-dists-f@0.3.1
+  License: Apache-2.0
+  Source:  https://github.com/stdlib-js/stats-base-dists-f
+
+@stdlib/stats-base-dists-normal@0.3.1
+  License: Apache-2.0
+  Source:  https://github.com/stdlib-js/stats-base-dists-normal
+
+@stdlib/stats-base-dists-t@0.3.1
+  License: Apache-2.0
+  Source:  https://github.com/stdlib-js/stats-base-dists-t
+
+@stdlib/stats-kruskal-test@0.2.3
+  License: Apache-2.0
+  Source:  https://github.com/stdlib-js/stats-kruskal-test
+
+@stdlib/stats-ttest@0.2.3
+  License: Apache-2.0
+  Source:  https://github.com/stdlib-js/stats-ttest
+
+@stdlib/stats-ttest2@0.2.3
+  License: Apache-2.0
+  Source:  https://github.com/stdlib-js/stats-ttest2
+
+@stdlib/stats-wilcoxon@0.2.3
+  License: Apache-2.0
+  Source:  https://github.com/stdlib-js/stats-wilcoxon
+
 @tanstack/react-query@5.100.14
   License: MIT
   Source:  https://github.com/TanStack/query
@@ -157,6 +193,10 @@ idb-keyval@6.2.4
   License: Apache-2.0
   Source:  https://github.com/jakearchibald/idb-keyval
 
+jstat@1.9.6
+  License: MIT
+  Source:  http://github.com/jstat/jstat
+
 jszip@3.10.1
   License: (MIT OR GPL-3.0-or-later)
   Source:  https://github.com/Stuk/jszip
@@ -180,6 +220,14 @@ marked@18.0.4
 minisearch@7.2.0
   License: MIT
   Source:  https://github.com/lucaong/minisearch
+
+ml-levenberg-marquardt@5.0.1
+  License: MIT
+  Source:  https://github.com/mljs/levenberg-marquardt
+
+ml-matrix@6.12.2
+  License: MIT
+  Source:  https://github.com/mljs/matrix
 
 next@16.1.6
   License: MIT
