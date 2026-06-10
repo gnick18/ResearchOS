@@ -90,6 +90,7 @@ export default function SettingsScreen() {
               value={mascot.visible}
               onValueChange={(on) => setMascot({ visible: on })}
               trackColor={{ true: palette.sky, false: surface.border }}
+              thumbColor={palette.white}
               accessibilityLabel="Show floating mascot"
             />
           </View>
@@ -106,6 +107,7 @@ export default function SettingsScreen() {
               value={today.showToday}
               onValueChange={(on) => setToday({ showToday: on })}
               trackColor={{ true: palette.sky, false: surface.border }}
+              thumbColor={palette.white}
               accessibilityLabel="Show Today"
             />
           </View>
@@ -126,6 +128,7 @@ export default function SettingsScreen() {
               value={interaction.haptics}
               onValueChange={(on) => setInteraction({ haptics: on })}
               trackColor={{ true: palette.sky, false: surface.border }}
+              thumbColor={palette.white}
               accessibilityLabel="Haptics"
             />
           </View>
@@ -142,6 +145,7 @@ export default function SettingsScreen() {
               value={interaction.reduceMotion}
               onValueChange={(on) => setInteraction({ reduceMotion: on })}
               trackColor={{ true: palette.sky, false: surface.border }}
+              thumbColor={palette.white}
               accessibilityLabel="Reduce motion"
             />
           </View>
