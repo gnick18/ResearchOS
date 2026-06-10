@@ -1249,6 +1249,12 @@ export async function runCaptureInboxPoll(
         let imageLandingTaskId: number;
         let imageLandingOwner: string;
         let routeCommandId: string | null = null;
+        // The destination to auto-switch the open popup to, for BOTH an explicit
+        // phone route command and an implicit "an experiment is open" auto-route.
+        // Null means the photo went to the inbox, so no popup gets switched.
+        let routedDetail:
+          | { taskId: number; owner: string; tab: "notes" | "results" }
+          | null = null;
 
         if (route) {
           try {
@@ -1259,6 +1265,7 @@ export async function runCaptureInboxPoll(
             imageLandingTaskId = route.taskId;
             imageLandingOwner = route.owner;
             routeCommandId = route.commandId;
+            routedDetail = { taskId: route.taskId, owner: route.owner, tab: route.tab };
             console.info(
               `${LOG_PREFIX} routing ${capture.captureId} -> ${imageLandingPath} (tab=${route.tab})`,
             );
@@ -1273,9 +1280,43 @@ export async function runCaptureInboxPoll(
             imageLandingOwner = currentUser;
           }
         } else {
-          imageLandingPath = basePath;
-          imageLandingTaskId = 0;
-          imageLandingOwner = currentUser;
+          // No explicit route command from the phone. Honor the promise the open
+          // experiment popup makes in its header ("Paired phone will send photos
+          // to Results / Lab Notes"): if an experiment popup is open, land the
+          // photo in its active tab (Results when the user is on Results,
+          // otherwise Lab Notes, matching that tooltip) instead of the inbox, and
+          // let the capture:routed dispatch below switch/refresh it. Falls back
+          // to the inbox when no experiment is open.
+          const openTask = useAppStore.getState().activeTask;
+          const openTab = useAppStore.getState().activeTaskTab;
+          if (openTask) {
+            const tab: "notes" | "results" =
+              openTab === "results" ? "results" : "notes";
+            try {
+              imageLandingPath =
+                tab === "results"
+                  ? taskResultsTabBase({ id: openTask.id, owner: openTask.owner })
+                  : taskNotesBase({ id: openTask.id, owner: openTask.owner });
+              imageLandingTaskId = openTask.id;
+              imageLandingOwner = openTask.owner;
+              routedDetail = { taskId: openTask.id, owner: openTask.owner, tab };
+              console.info(
+                `${LOG_PREFIX} auto-routing ${capture.captureId} -> open experiment ${openTask.owner}/${openTask.id} (tab=${tab})`,
+              );
+            } catch (autoErr) {
+              console.warn(
+                `${LOG_PREFIX} auto-route path build failed for ${capture.captureId}, falling back to inbox`,
+                autoErr instanceof Error ? autoErr.message : String(autoErr),
+              );
+              imageLandingPath = basePath;
+              imageLandingTaskId = 0;
+              imageLandingOwner = currentUser;
+            }
+          } else {
+            imageLandingPath = basePath;
+            imageLandingTaskId = 0;
+            imageLandingOwner = currentUser;
+          }
         }
 
         const result = await attachImageToTask({
@@ -1308,16 +1349,12 @@ export async function runCaptureInboxPoll(
         // (locked decision A/B). The popup saves any unsaved editor changes
         // first, then switches and shows the new image. A window CustomEvent
         // keeps poll.ts decoupled from the popup internals (same pattern the
-        // tour uses). Only fires for a routed (non-inbox) capture.
-        if (route && typeof window !== "undefined") {
+        // tour uses). Fires for a routed capture, whether the route was an
+        // explicit phone command or the open-experiment auto-route; stays silent
+        // for an inbox landing (routedDetail null).
+        if (routedDetail && typeof window !== "undefined") {
           window.dispatchEvent(
-            new CustomEvent("capture:routed", {
-              detail: {
-                taskId: route.taskId,
-                owner: route.owner,
-                tab: route.tab,
-              },
-            }),
+            new CustomEvent("capture:routed", { detail: routedDetail }),
           );
         }
 
