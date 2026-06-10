@@ -88,14 +88,36 @@ export async function seedWords(words: Iterable<string>): Promise<void> {
   if (checker) for (const w of seededExtra) checker.add(w);
 }
 
+// Pluggable persistence for "Add to dictionary". The app layer (SpellcheckAutoSeed)
+// registers a folder-writing persister scoped to the account (lab-wide for lab
+// accounts, per-user for solo). When none is registered (e.g. not signed in) we
+// fall back to localStorage so the action still does something. This keeps the
+// checker lib free of any file-system / account knowledge.
+let customWordPersister: ((word: string) => void) | null = null;
+
+/** Register (or clear with null) the durable persister for added words. */
+export function setCustomWordPersister(fn: ((word: string) => void) | null): void {
+  customWordPersister = fn;
+}
+
 /**
- * Add a word to the durable user dictionary (the editor's "Add to dictionary"
- * action). Persists to localStorage and applies to the live checker. Returns
- * true if the word was new. SSR/parse failures are swallowed.
+ * Add a word to the custom dictionary (the editor's "Add to dictionary" action).
+ * Always applies it to the live checker immediately, then persists it through the
+ * registered account-scoped persister (folder file), or localStorage as a
+ * fallback. Returns true unless the word was empty or a duplicate of a
+ * localStorage-fallback entry.
  */
 export function addUserWord(word: string): boolean {
   const w = word.trim();
   if (!w || typeof window === "undefined") return false;
+  // Live checker first so the re-lint clears the underline at once.
+  void seedWords([w]);
+  // Durable persistence. The folder persister handles its own union de-dupe.
+  if (customWordPersister) {
+    customWordPersister(w);
+    return true;
+  }
+  // Fallback: localStorage (no folder persister registered).
   const existing = readLocalUserWords();
   const key = w.toLowerCase();
   if (existing.some((e) => e.toLowerCase() === key)) return false;
@@ -104,7 +126,6 @@ export function addUserWord(word: string): boolean {
   } catch {
     // ignore quota / disabled storage
   }
-  void seedWords([w]);
   return true;
 }
 

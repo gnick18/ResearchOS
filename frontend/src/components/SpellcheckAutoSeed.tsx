@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   fetchAllInventoryItemsIncludingShared,
@@ -8,7 +8,9 @@ import {
   notesApi,
 } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { seedWords } from "@/lib/spellcheck/spellchecker";
+import { seedWords, setCustomWordPersister } from "@/lib/spellcheck/spellchecker";
+import { readCustomDictionary, addCustomWord } from "@/lib/spellcheck/custom-dictionary";
+import { readUserSettings } from "@/lib/settings/user-settings";
 import { INVENTORY_ENABLED } from "@/lib/inventory/config";
 
 /**
@@ -54,6 +56,46 @@ export default function SpellcheckAutoSeed() {
     queryFn: () => notesApi.list(),
     enabled: !!user,
   });
+
+  // Account settings, for the lab_id signal that scopes the custom dictionary
+  // (lab-wide vs per-user). Shares the cache the Settings page uses.
+  const { data: settings } = useQuery({
+    queryKey: ["user-settings", user],
+    queryFn: () => readUserSettings(user),
+    enabled: !!user,
+  });
+  const labId = settings?.lab_id ?? null;
+
+  // Latest user + labId in refs so the persister (registered once) always writes
+  // to the right scoped path without re-registering on every settings change.
+  const userRef = useRef(user);
+  userRef.current = user;
+  const labIdRef = useRef(labId);
+  labIdRef.current = labId;
+
+  // Register the durable "Add to dictionary" persister. Routes added words to the
+  // account-scoped folder file (lab-wide for labs, per-user for solo) instead of
+  // localStorage. Cleared on unmount so the lib falls back to localStorage when
+  // no signed-in surface is mounted.
+  useEffect(() => {
+    setCustomWordPersister((word) => {
+      if (userRef.current) void addCustomWord(userRef.current, labIdRef.current, word);
+    });
+    return () => setCustomWordPersister(null);
+  }, []);
+
+  // Load the persisted custom dictionary (the manually-added words) and seed the
+  // checker with them. Re-runs if the account or its lab scope changes.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    void readCustomDictionary(user, labId).then((words) => {
+      if (!cancelled && words.length > 0) void seedWords(words);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, labId]);
 
   useEffect(() => {
     const words = new Set<string>();
