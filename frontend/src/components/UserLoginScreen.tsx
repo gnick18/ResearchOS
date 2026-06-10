@@ -1588,7 +1588,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                           type="button"
                           onClick={() => void signIn("github", { callbackUrl: "/" })}
                           disabled={loggingIn !== null}
-                          className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-slate-800 px-4 py-2.5 text-meta font-semibold text-white shadow-sm transition-all hover:border-foreground-muted hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-border dark:border-slate-600 bg-slate-800 px-4 py-2.5 text-meta font-semibold text-white shadow-sm transition-all hover:border-foreground-muted hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <GitHubIcon className="w-4 h-4" />
                           Sign in with GitHub
@@ -1773,7 +1773,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                         type="button"
                         onClick={() => startUnlockOAuth("github", unlockGate.username)}
                         disabled={unlocking}
-                        className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-[#24292e] text-white hover:bg-[#2f363d] font-medium transition-colors disabled:opacity-50"
+                        className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg border border-transparent dark:border-white/20 bg-[#24292e] text-white hover:bg-[#2f363d] font-medium transition-colors disabled:opacity-50"
                       >
                         <GitHubIcon className="w-4 h-4" />
                         Continue with GitHub

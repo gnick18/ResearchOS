@@ -210,10 +210,10 @@
   color-scheme: light;
   --background: #ffffff;
   --foreground: #171717;
-  --surface: #ffffff;
+  --surface: #f8fafc; /* slate-50 page so white cards and popups lift off it (matches the main light theme depth) */
   --surface-raised: #ffffff;
   --surface-overlay: #ffffff;
-  --surface-sunken: #f8fafc;
+  --surface-sunken: #f1f5f9; /* slate-100 wells, distinct from the slate-50 page */
   --foreground-muted: #6b7280;
   --border-subtle: #e5e7eb;
   --accent: #1283c9;
