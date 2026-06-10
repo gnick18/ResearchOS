@@ -2695,7 +2695,14 @@ export default function LiveMarkdownEditor({
       tabIndex={focusModeActive ? -1 : undefined}
       className={
         focusModeActive
-          ? "fixed inset-0 z-50 flex flex-col bg-surface-raised outline-none"
+          // z-[410] sits ABOVE the LivingPopup band (z-[400]) so Focus Mode
+          // covers the task/note popup it launches from. It used to be z-50,
+          // fine when popups were also ~z-50, but the LivingPopup migration
+          // raised popups to z-[400] and stranded Focus Mode beneath them.
+          // Stays BELOW the v4 tour overlays (input lock z-[420], spotlight
+          // z-[440], speech z-[450]) so the tour still paints over Focus Mode
+          // exactly as before.
+          ? "fixed inset-0 z-[410] flex flex-col bg-surface-raised outline-none"
           : "contents"
       }
     >
