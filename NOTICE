@@ -1,0 +1,41 @@
+ResearchOS
+Copyright (c) Grant R. Nickles
+
+This product is licensed under the GNU Affero General Public License v3.0
+(see the LICENSE file). It is free and open source. The deployed service offers
+its complete source to its users at https://github.com/gnick18/ResearchOS, as
+the AGPL requires.
+
+This product includes software developed by third parties under their own
+licenses. The complete, generated dependency list with each component's license
+is published in the application at /open-source (the "Built on open source"
+page). The entries below satisfy the attribution-notice requirement of the
+Apache License 2.0 for the Apache-licensed components ResearchOS depends on.
+
+-------------------------------------------------------------------------------
+Apache License 2.0 components
+-------------------------------------------------------------------------------
+
+This software contains components licensed under the Apache License, Version 2.0.
+A copy of that license is available at https://www.apache.org/licenses/LICENSE-2.0
+Notable Apache-2.0 components used by ResearchOS:
+
+  - AWS SDK for JavaScript v3 (@aws-sdk/client-s3, @aws-sdk/s3-request-presigner)
+    Copyright Amazon.com, Inc. or its affiliates.
+  - idb-keyval
+    Copyright Jake Archibald and contributors.
+  - mathjs
+    Copyright Jos de Jong and contributors.
+  - TypeScript (build tooling)
+    Copyright Microsoft Corporation.
+  - Playwright (test tooling)
+    Copyright Microsoft Corporation.
+
+-------------------------------------------------------------------------------
+
+Other components are distributed under permissive licenses (MIT, BSD, ISC) and
+under copyleft licenses compatible with the AGPL. Their copyright notices and
+license texts are preserved in the published /open-source credits. Where a
+specific algorithm was ported (for example a melting-temperature routine adapted
+from Biopython, BSD-licensed), that attribution is recorded with the
+corresponding feature and on the /transparency page.
