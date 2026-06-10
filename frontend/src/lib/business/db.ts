@@ -143,7 +143,7 @@ const SEED_ENTITY = {
   docsFolder: "~/Documents/ResearchOS_LLC/",
   salesTaxStatus: "pending",
   salesTaxNote:
-    "WI DOR sales-tax inquiry filed 2026-06-05 (DORSalesandUse@wisconsin.gov), reply expected ~1 week. Do not bill a real customer until it lands.",
+    "WI DOR sales-tax question UNCONFIRMED. A 2026-06-10 search of all three mailboxes (gnick317, wisc.edu, researchos.llc) found no sent email, no confirmation, and no reply, so it is unclear the 2026-06-05 inquiry ever went through. Re-file via the WI DOR portal from researchos.llc and SAVE the confirmation. Do not bill a real customer until a real determination lands.",
   reservePct: 30,
 };
 
@@ -151,7 +151,7 @@ const SEED_ENTITY = {
 // registered-agent change, Mercury, and the Stripe account are done, so they
 // are not seeded as open tasks.
 const SEED_TASKS = [
-  "HARD GATE: wait for the WI DOR sales-tax reply (filed 2026-06-05) before billing any real customer",
+  "HARD GATE: re-file the WI DOR sales-tax question via the portal from researchos.llc + SAVE the confirmation (the 2026-06-05 filing left no trace in any mailbox); do not bill a real customer until a determination lands",
   "On the DOR reply, set the sales-tax status below and register with WI if taxable",
   "At go-live, put the live Stripe keys + hosted webhook + live price in Vercel Production and flip BILLING_ENABLED",
 ];
