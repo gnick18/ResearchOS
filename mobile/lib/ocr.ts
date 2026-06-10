@@ -21,7 +21,7 @@
  * House style: no em-dashes, no emojis, no mid-sentence colons.
  */
 
-import { Image } from 'react-native';
+import { Image, TurboModuleRegistry } from 'react-native';
 import DocumentScanner, {
   ResponseType,
 } from 'react-native-document-scanner-plugin';
@@ -72,6 +72,20 @@ export interface ScanNoteResult {
  * dev-client-only, this probe is belt-and-suspenders.
  */
 export function isScannerAvailable(): boolean {
+  // The JS wrappers (DocumentScanner.scanDocument, TextRecognition.recognize)
+  // ALWAYS exist once imported, so checking them is not a real availability test.
+  // We must probe the NATIVE module registration: on a dev build or emulator
+  // where the document-scanner native lib is not linked, the JS wrapper is still
+  // present, isScannerAvailable() used to return true, the Scan button showed,
+  // and the first scanDocument() call threw getEnforcing('DocumentScanner') and
+  // took the whole Notebook tab down. TurboModuleRegistry.get() returns null
+  // (never throws) when a module is not registered, so this hides the button on
+  // runtimes that cannot actually scan instead of crashing on tap.
+  try {
+    if (TurboModuleRegistry.get('DocumentScanner') == null) return false;
+  } catch {
+    return false;
+  }
   return (
     !!DocumentScanner &&
     typeof DocumentScanner.scanDocument === 'function' &&
