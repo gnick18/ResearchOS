@@ -571,7 +571,7 @@ export default function WorkbenchExperimentsPanel({
               e.stopPropagation();
               setSelectedTask(entry.nextInChain!);
             }}
-            className="text-meta text-gray-600 hover:text-gray-900 text-left bg-gray-50 border border-gray-200 rounded-md px-1.5 py-0.5 leading-snug flex items-center gap-1 min-w-0 cursor-pointer hover:bg-gray-100"
+            className="text-meta text-foreground-muted hover:text-foreground text-left bg-surface-raised border border-border rounded-md px-1.5 py-0.5 leading-snug flex items-center gap-1 min-w-0 cursor-pointer hover:bg-surface-sunken"
           >
             <span className="font-medium flex-shrink-0">Next:</span>
             <span className="flex-1 min-w-0 truncate">{entry.nextInChain.name}</span>
@@ -779,8 +779,8 @@ export default function WorkbenchExperimentsPanel({
                   onClick={() => setEarlierLayoutReset("flat")}
                   className={`px-2 py-1 rounded-md transition-colors ${
                     earlierLayout === "flat"
-                      ? "bg-gray-200 text-gray-900 font-medium"
-                      : "text-gray-500 hover:bg-gray-100"
+                      ? "bg-gray-200 dark:bg-surface-raised text-gray-900 dark:text-foreground font-medium"
+                      : "text-gray-500 dark:text-foreground-muted hover:bg-gray-100 dark:hover:bg-surface-sunken"
                   }`}
                 >
                   Flat
@@ -790,8 +790,8 @@ export default function WorkbenchExperimentsPanel({
                   onClick={() => setEarlierLayoutReset("grouped")}
                   className={`px-2 py-1 rounded-md transition-colors ${
                     earlierLayout === "grouped"
-                      ? "bg-gray-200 text-gray-900 font-medium"
-                      : "text-gray-500 hover:bg-gray-100"
+                      ? "bg-gray-200 dark:bg-surface-raised text-gray-900 dark:text-foreground font-medium"
+                      : "text-gray-500 dark:text-foreground-muted hover:bg-gray-100 dark:hover:bg-surface-sunken"
                   }`}
                 >
                   By project
@@ -856,7 +856,7 @@ export default function WorkbenchExperimentsPanel({
                               type="button"
                               onClick={() => toggleEarlierGroup(pk)}
                               aria-expanded={isExpanded}
-                              className="flex w-full items-center gap-2 px-1 py-1.5 rounded-md text-left hover:bg-gray-50 transition-colors"
+                              className="flex w-full items-center gap-2 px-1 py-1.5 rounded-md text-left hover:bg-gray-50 dark:hover:bg-surface-raised transition-colors"
                             >
                               <svg
                                 viewBox="0 0 12 12"

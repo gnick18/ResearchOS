@@ -285,7 +285,7 @@ export function MarkdownPreview({ content }: { content: string }) {
           ),
           li: ({ children }) => <li className="leading-snug">{children}</li>,
           a: ({ children }) => (
-            <span className="text-blue-600 underline">{children}</span>
+            <span className="text-blue-600 dark:text-blue-400 underline">{children}</span>
           ),
           code: ({ children }) => (
             <code className="font-mono text-[10px] bg-surface-sunken rounded px-0.5">
@@ -325,7 +325,7 @@ function HeroImage({ path, alt }: { path: string; alt: string }) {
   }, [path]);
 
   if (!url) {
-    return <div className="w-full h-full bg-gray-800" />;
+    return <div className="w-full h-full bg-surface-sunken" />;
   }
   return (
     <img
