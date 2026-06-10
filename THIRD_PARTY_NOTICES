@@ -141,10 +141,6 @@ expr-eval-fork@3.0.3
   License: MIT
   Source:  https://github.com/jorenbroekema/expr-eval
 
-fastest-levenshtein@1.0.16
-  License: MIT
-  Source:  https://github.com/ka-weihe/fastest-levenshtein
-
 fflate@0.8.3
   License: MIT
   Source:  https://github.com/101arrowz/fflate
