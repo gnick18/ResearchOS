@@ -20,7 +20,24 @@ import { useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import type { Project } from "@/lib/types";
-import type { DataHubDocument } from "@/lib/datahub/model/types";
+import type {
+  AnalysisSpec,
+  DataHubDocument,
+} from "@/lib/datahub/model/types";
+
+/** A short, human label for an analysis type (rail row text). */
+function analysisLabel(type: string): string {
+  switch (type) {
+    case "oneWayAnova":
+      return "One-way ANOVA";
+    case "unpairedTTest":
+      return "Unpaired t-test";
+    case "pairedTTest":
+      return "Paired t-test";
+    default:
+      return type;
+  }
+}
 
 // "all" | "unfiled" | a stringified project id.
 export type Collection = "all" | "unfiled" | string;
@@ -106,6 +123,11 @@ export default function DataHubRail({
   onNewTable,
   onNewFolder,
   counts,
+  analyses,
+  selectedAnalysisId,
+  onSelectAnalysis,
+  onNewAnalysis,
+  analysesEnabled,
 }: {
   projects: Project[];
   /** The tables visible under the active collection filter. */
@@ -118,6 +140,13 @@ export default function DataHubRail({
   onNewFolder: () => void;
   /** All / Unfiled / per-project counts for the selector labels. */
   counts: { all: number; unfiled: number; perProject: Map<string, number> };
+  /** The open table's stored analyses (empty until one is run). */
+  analyses: AnalysisSpec[];
+  selectedAnalysisId: string | null;
+  onSelectAnalysis: (id: string) => void;
+  onNewAnalysis: () => void;
+  /** True once a table is open so a new analysis can be added. */
+  analysesEnabled: boolean;
 }) {
   const groups = useMemo(() => groupByFolder(tables), [tables]);
   // Closed folders by name. Folders start open (the mockup's default).
@@ -247,14 +276,68 @@ export default function DataHubRail({
         )}
       </div>
 
-      {/* Results (empty-state placeholder; the analysis slice is next) */}
-      <EmptySection
-        title="Results"
-        icon="tree"
-        emptyLabel="No analyses yet"
-        actionLabel="New analysis"
-        testid="datahub-results-section"
-      />
+      {/* Results: the open table's analyses, plus a working New analysis. */}
+      <div className="border-t border-border pt-3" data-testid="datahub-results-section">
+        <div className="mb-1 flex items-center justify-between px-1">
+          <div className="flex items-center gap-1.5">
+            <Icon name="tree" className="h-3.5 w-3.5 text-foreground-muted" />
+            <span className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">
+              Results
+            </span>
+          </div>
+          <Tooltip label="New analysis">
+            <button
+              type="button"
+              onClick={onNewAnalysis}
+              disabled={!analysesEnabled}
+              aria-label="New analysis"
+              className="rounded p-1 text-foreground-muted transition-colors hover:bg-surface-raised hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Icon name="plus" className="h-3.5 w-3.5" />
+            </button>
+          </Tooltip>
+        </div>
+
+        {analyses.length === 0 ? (
+          <p className="px-1 text-meta text-foreground-muted">
+            No analyses yet. Run a t-test or ANOVA on this table.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-0.5">
+            {analyses.map((a) => {
+              const active = a.id === selectedAnalysisId;
+              return (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => onSelectAnalysis(a.id)}
+                  className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-body transition-colors ${
+                    active
+                      ? "bg-accent-soft font-medium text-accent"
+                      : "text-foreground hover:bg-surface-sunken"
+                  }`}
+                >
+                  <Icon
+                    name="list"
+                    className={`h-4 w-4 shrink-0 ${active ? "text-accent" : "text-foreground-muted"}`}
+                  />
+                  <span className="min-w-0 flex-1 truncate">
+                    {analysisLabel(a.type)}
+                  </span>
+                  {a.resultStale && (
+                    <span
+                      className="shrink-0 rounded border border-border px-1 text-[10px] font-medium uppercase text-foreground-muted"
+                      title="Re-runs on open"
+                    >
+                      stale
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Graphs (empty-state placeholder; the graphs slice is next) */}
       <EmptySection

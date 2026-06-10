@@ -1,0 +1,32 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`show-code > emits a Welch ttest_ind snippet for an unpaired t-test 1`] = `
+"from scipy import stats
+
+control = [98, 102, 95, 105, 100, 99]
+drug_a  = [78, 82, 75, 80, 85, 79]
+
+# Welch's unpaired t-test (does not assume equal variance)
+t, p = stats.ttest_ind(control, drug_a, equal_var=False)
+print(f"t = {t:.4g}, p = {p:.4g}")"
+`;
+
+exports[`show-code > emits reproducible scipy ANOVA + Tukey code with the real values 1`] = `
+"from scipy import stats
+import statsmodels.stats.multicomp as mc
+
+control = [98, 102, 95, 105, 100, 99]
+drug_a  = [78, 82, 75, 80, 85, 79]
+drug_b  = [55, 60, 52, 58, 50, 57]
+
+# Omnibus one-way ANOVA
+F, p = stats.f_oneway(control, drug_a, drug_b)
+print(f"F = {F:.4g}, p = {p:.4g}")
+
+# Tukey HSD pairwise comparisons (family-wise alpha = 0.05)
+tukey = mc.pairwise_tukeyhsd(
+    endog=control + drug_a + drug_b,
+    groups=["Control"] * 6 + ["Drug A"] * 6 + ["Drug B"] * 6,
+)
+print(tukey)"
+`;

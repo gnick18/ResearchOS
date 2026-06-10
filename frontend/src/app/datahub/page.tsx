@@ -36,17 +36,23 @@ import {
   addRow as addRowToDoc,
   addColumn as addColumnToDoc,
   getDataHubContent,
+  setAnalysis as setAnalysisInDoc,
   setCell,
 } from "@/lib/loro/datahub-doc";
 import {
   buildEmptyColumnTable,
   parseCellInput,
 } from "@/lib/datahub/column-table";
+import { runAnalysis } from "@/lib/datahub/run-analysis";
 import DataHubRail, { type Collection } from "@/components/datahub/DataHubRail";
 import DataTableGrid from "@/components/datahub/DataTableGrid";
 import NewTableDialog, {
   type NewTableSubmit,
 } from "@/components/datahub/NewTableDialog";
+import NewAnalysisDialog, {
+  type NewAnalysisSubmit,
+} from "@/components/datahub/NewAnalysisDialog";
+import ResultsSheet from "@/components/datahub/ResultsSheet";
 
 export default function DataHubPage() {
   const { currentUser } = useCurrentUser();
@@ -55,6 +61,12 @@ export default function DataHubPage() {
   const [collection, setCollection] = useState<Collection>("all");
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [newTableOpen, setNewTableOpen] = useState(false);
+  // The selected analysis in the Results section (null means the data grid is
+  // shown). New-analysis dialog open state.
+  const [selectedAnalysisId, setSelectedAnalysisId] = useState<string | null>(
+    null,
+  );
+  const [newAnalysisOpen, setNewAnalysisOpen] = useState(false);
 
   // The live projection of the open document's Loro doc. Cell edits write to the
   // doc, then reproject into this state so the grid + footer re-derive. Null
@@ -150,6 +162,12 @@ export default function DataHubPage() {
     };
   }, [currentUser, selectedTableId]);
 
+  // A table switch clears the analysis selection (back to the data grid). The
+  // dependency is intentionally only the table id.
+  useEffect(() => {
+    setSelectedAnalysisId(null);
+  }, [selectedTableId]);
+
   // Flush + drop the open handle on unmount so a pending commit is never lost.
   useEffect(() => {
     return () => {
@@ -243,6 +261,58 @@ export default function DataHubPage() {
     [collection, queryClient],
   );
 
+  // Run a new analysis: dispatch the chosen type + columns to the engine, store
+  // the spec plus its cached normalized result in the Loro doc (so it is
+  // version-controlled and re-runs), commit, reproject, and select it.
+  const handleNewAnalysis = useCallback(
+    (data: NewAnalysisSubmit) => {
+      setNewAnalysisOpen(false);
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      const id = `analysis-${Date.now()}`;
+      const spec = {
+        id,
+        type: data.type,
+        params: {},
+        inputs: { columnIds: data.columnIds },
+        resultCache: null as unknown,
+        resultStale: false,
+      };
+      const outcome = runAnalysis(spec, openContent);
+      spec.resultCache = outcome.ok ? outcome : null;
+      setAnalysisInDoc(handle.doc, spec);
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+      setSelectedAnalysisId(id);
+    },
+    [openContent],
+  );
+
+  // Re-run any stale analyses when the open content changes (a cell edit marks
+  // nothing stale on its own here, so this restamps the cache to the latest
+  // numbers and clears the stale flag for the open table's analyses). Kept cheap
+  // by only writing when a stored result actually differs is overkill for slice
+  // 2, so we restamp opportunistically when an analysis is selected and stale.
+  const selectedAnalysis = useMemo(
+    () =>
+      openContent?.analyses.find((a) => a.id === selectedAnalysisId) ?? null,
+    [openContent, selectedAnalysisId],
+  );
+
+  useEffect(() => {
+    const handle = handleRef.current;
+    if (!handle || !openContent || openIdRef.current == null) return;
+    if (!selectedAnalysis || !selectedAnalysis.resultStale) return;
+    const outcome = runAnalysis(selectedAnalysis, openContent);
+    setAnalysisInDoc(handle.doc, {
+      ...selectedAnalysis,
+      resultCache: outcome.ok ? outcome : null,
+      resultStale: false,
+    });
+    void handle.commit();
+    setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+  }, [selectedAnalysis, openContent]);
+
   // The active collection as the New-table dialog's default ("" for All/Unfiled).
   const dialogDefaultCollection =
     collection === "all" || collection === "unfiled" ? "" : collection;
@@ -280,6 +350,11 @@ export default function DataHubPage() {
           onNewTable={() => setNewTableOpen(true)}
           onNewFolder={() => setNewTableOpen(true)}
           counts={counts}
+          analyses={openContent?.analyses ?? []}
+          selectedAnalysisId={selectedAnalysisId}
+          onSelectAnalysis={setSelectedAnalysisId}
+          onNewAnalysis={() => setNewAnalysisOpen(true)}
+          analysesEnabled={!!openContent}
         />
 
         <section className="flex min-w-0 flex-1 flex-col overflow-auto rounded-lg border border-border bg-surface-raised p-5">
@@ -300,6 +375,12 @@ export default function DataHubPage() {
                 New table
               </button>
             </div>
+          ) : selectedMeta && openContent && selectedAnalysis ? (
+            <ResultsSheet
+              spec={selectedAnalysis}
+              content={openContent}
+              title={selectedMeta.name}
+            />
           ) : selectedMeta && openContent ? (
             <>
               <div className="mb-1 flex items-center gap-2">
@@ -332,6 +413,13 @@ export default function DataHubPage() {
         defaultCollectionId={dialogDefaultCollection}
         onCancel={() => setNewTableOpen(false)}
         onSubmit={handleNewTable}
+      />
+
+      <NewAnalysisDialog
+        open={newAnalysisOpen}
+        content={openContent}
+        onCancel={() => setNewAnalysisOpen(false)}
+        onSubmit={handleNewAnalysis}
       />
     </AppShell>
   );
