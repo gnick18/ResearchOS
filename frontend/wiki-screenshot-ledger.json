@@ -11,7 +11,7 @@
     "^one-on-ones",
     "^sharing-"
   ],
-  "capturedAtCommit": "ffb5fafb6",
+  "capturedAtCommit": "3ef6ece53",
   "capturedDate": "2026-06-10",
   "note": "Sources are intentionally coarse (route-level + recipe-cited components + the capture fixture). Re-capturing an unchanged shot is cheap; missing a changed one is the failure mode to avoid.",
   "entries": {
@@ -21,21 +21,17 @@
         "frontend/src/components/onboarding/StartScreen.tsx",
         "frontend/src/components/UserLoginScreen.tsx",
         "frontend/src/components/onboarding",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "landing.png": {
       "route": "/welcome",
       "sources": [
         "frontend/src/app/welcome",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "user-login.png": {
       "route": "/",
@@ -43,110 +39,90 @@
         "frontend/src/components/onboarding/StartScreen.tsx",
         "frontend/src/components/UserLoginScreen.tsx",
         "frontend/src/components/onboarding",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "projects-route-overview.png": {
       "route": "/workbench/projects/1",
       "sources": [
         "frontend/src/app/workbench",
         "frontend/src/components/workbench",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "projects-route-results.png": {
       "route": "/workbench/projects/1",
       "sources": [
         "frontend/src/app/workbench",
         "frontend/src/components/workbench",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "projects-route-methods.png": {
       "route": "/workbench/projects/1",
       "sources": [
         "frontend/src/app/workbench",
         "frontend/src/components/workbench",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "projects-route-activity.png": {
       "route": "/workbench/projects/1",
       "sources": [
         "frontend/src/app/workbench",
         "frontend/src/components/workbench",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "projects-sidebar-nav.png": {
       "route": "/workbench/projects/1",
       "sources": [
         "frontend/src/app/workbench",
         "frontend/src/components/workbench",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "gantt-overview.png": {
       "route": "/gantt",
       "sources": [
         "frontend/src/components/GanttChart.tsx",
         "frontend/src/app/gantt",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "gantt-zoom-controls.png": {
       "route": "/gantt",
       "sources": [
         "frontend/src/components/GanttChart.tsx",
         "frontend/src/app/gantt",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "gantt-task-popup.png": {
       "route": "/gantt",
       "sources": [
         "frontend/src/components/GanttChart.tsx",
         "frontend/src/app/gantt",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "gantt-overview-lab-head.png": {
       "route": "/gantt",
       "sources": [
         "frontend/src/components/GanttChart.tsx",
         "frontend/src/app/gantt",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "workbench-experiments.png": {
       "route": "/workbench",
@@ -157,11 +133,9 @@
         "frontend/src/components/TaskDetailPopup.tsx",
         "frontend/src/lib/loro",
         "frontend/src/app/workbench",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "workbench-experiments-sections.png": {
       "route": "/workbench",
@@ -172,22 +146,18 @@
         "frontend/src/components/TaskDetailPopup.tsx",
         "frontend/src/lib/loro",
         "frontend/src/app/workbench",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "transparency-method-validation.png": {
       "route": "/transparency",
       "sources": [
         "frontend/src/components/transparency",
         "frontend/src/lib/transparency",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "lab-calculators-modal.png": {
       "route": "/workbench",
@@ -198,11 +168,9 @@
         "frontend/src/components/TaskDetailPopup.tsx",
         "frontend/src/lib/loro",
         "frontend/src/app/workbench",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "lab-inbox-comments-rail.png": {
       "route": "/workbench",
@@ -213,11 +181,9 @@
         "frontend/src/components/TaskDetailPopup.tsx",
         "frontend/src/lib/loro",
         "frontend/src/app/workbench",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "workbench-notes.png": {
       "route": "/workbench",
@@ -228,11 +194,9 @@
         "frontend/src/components/TaskDetailPopup.tsx",
         "frontend/src/lib/loro",
         "frontend/src/app/workbench",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "one-on-ones-surface.png": {
       "route": "/workbench",
@@ -243,11 +207,9 @@
         "frontend/src/components/TaskDetailPopup.tsx",
         "frontend/src/lib/loro",
         "frontend/src/app/workbench",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "experiments-editor.png": {
       "route": "/workbench",
@@ -258,11 +220,9 @@
         "frontend/src/components/TaskDetailPopup.tsx",
         "frontend/src/lib/loro",
         "frontend/src/app/workbench",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "editor-hybrid-selected.png": {
       "route": "/experiments",
@@ -271,11 +231,9 @@
         "frontend/src/components/TaskDetailPopup.tsx",
         "frontend/src/components/LiveMarkdownEditor.tsx",
         "frontend/src/components/InlineMarkdownEditor.tsx",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "editor-image-resize.png": {
       "route": "/experiments",
@@ -284,11 +242,9 @@
         "frontend/src/components/TaskDetailPopup.tsx",
         "frontend/src/components/LiveMarkdownEditor.tsx",
         "frontend/src/components/InlineMarkdownEditor.tsx",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "editor-inline-mode.png": {
       "route": "/experiments",
@@ -297,11 +253,9 @@
         "frontend/src/components/TaskDetailPopup.tsx",
         "frontend/src/components/LiveMarkdownEditor.tsx",
         "frontend/src/components/InlineMarkdownEditor.tsx",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "editor-save-checkpoint.png": {
       "route": "/experiments",
@@ -310,49 +264,39 @@
         "frontend/src/components/TaskDetailPopup.tsx",
         "frontend/src/components/LiveMarkdownEditor.tsx",
         "frontend/src/components/InlineMarkdownEditor.tsx",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "methods-library.png": {
       "route": "/methods",
       "sources": [
         "frontend/src/components/methods",
         "frontend/src/app/methods",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "pcr-editor.png": {
       "route": "/pcr",
       "sources": [
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "pcr-step-edit.png": {
       "route": "/pcr",
       "sources": [
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "pcr-reagent-totals.png": {
       "route": "/pcr",
       "sources": [
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "purchases-unified-scroll.png": {
       "route": "/purchases",
@@ -360,11 +304,9 @@
         "frontend/src/app/purchases",
         "frontend/src/components/supplies",
         "frontend/src/components/NewPurchaseModal.tsx",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "purchases-new-purchase-modal.png": {
       "route": "/purchases",
@@ -372,11 +314,9 @@
         "frontend/src/app/purchases",
         "frontend/src/components/supplies",
         "frontend/src/components/NewPurchaseModal.tsx",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "purchases-expanded-order.png": {
       "route": "/purchases",
@@ -384,11 +324,9 @@
         "frontend/src/app/purchases",
         "frontend/src/components/supplies",
         "frontend/src/components/NewPurchaseModal.tsx",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "purchases-non-purchase-warning.png": {
       "route": "/experiments",
@@ -397,11 +335,9 @@
         "frontend/src/components/TaskDetailPopup.tsx",
         "frontend/src/components/LiveMarkdownEditor.tsx",
         "frontend/src/components/InlineMarkdownEditor.tsx",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "purchases-dashboard-funding-cards.png": {
       "route": "/purchases",
@@ -409,55 +345,45 @@
         "frontend/src/app/purchases",
         "frontend/src/components/supplies",
         "frontend/src/components/NewPurchaseModal.tsx",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "purchases-dashboard-spend-over-time.png": {
       "route": "/supplies",
       "sources": [
         "frontend/src/app/supplies",
         "frontend/src/components/supplies",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "purchases-dashboard-breakdown-project.png": {
       "route": "/supplies",
       "sources": [
         "frontend/src/app/supplies",
         "frontend/src/components/supplies",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "purchases-dashboard-breakdown-vendor.png": {
       "route": "/supplies",
       "sources": [
         "frontend/src/app/supplies",
         "frontend/src/components/supplies",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "purchases-dashboard-breakdown-category.png": {
       "route": "/supplies",
       "sources": [
         "frontend/src/app/supplies",
         "frontend/src/components/supplies",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "purchases-non-purchase-panel-expanded.png": {
       "route": "/purchases",
@@ -465,33 +391,27 @@
         "frontend/src/app/purchases",
         "frontend/src/components/supplies",
         "frontend/src/components/NewPurchaseModal.tsx",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "purchases-csv-export.png": {
       "route": "/supplies",
       "sources": [
         "frontend/src/app/supplies",
         "frontend/src/components/supplies",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "calendar-month.png": {
       "route": "/calendar",
       "sources": [
         "frontend/src/app/calendar",
         "frontend/src/components/CalendarRemindersModal.tsx",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "search-results.png": {
       "route": "/search",
@@ -499,21 +419,17 @@
         "frontend/src/app/search",
         "frontend/src/components/beaker-search",
         "frontend/src/components/ExportFormatDialog.tsx",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "links.png": {
       "route": "/links",
       "sources": [
         "frontend/src/app/links",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "workbench-earlier.png": {
       "route": "/workbench",
@@ -524,11 +440,9 @@
         "frontend/src/components/TaskDetailPopup.tsx",
         "frontend/src/lib/loro",
         "frontend/src/app/workbench",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "workbench-lists.png": {
       "route": "/workbench",
@@ -539,31 +453,25 @@
         "frontend/src/components/TaskDetailPopup.tsx",
         "frontend/src/lib/loro",
         "frontend/src/app/workbench",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "settings.png": {
       "route": "/settings",
       "sources": [
         "frontend/src/app/settings/page.tsx",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "user-archiving-roster.png": {
       "route": "/settings",
       "sources": [
         "frontend/src/app/settings/page.tsx",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "notifications.png": {
       "route": "/",
@@ -571,11 +479,9 @@
         "frontend/src/components/onboarding/StartScreen.tsx",
         "frontend/src/components/UserLoginScreen.tsx",
         "frontend/src/components/onboarding",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "telegram-inbox.png": {
       "route": "/",
@@ -583,41 +489,33 @@
         "frontend/src/components/onboarding/StartScreen.tsx",
         "frontend/src/components/UserLoginScreen.tsx",
         "frontend/src/components/onboarding",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "telegram-pairing.png": {
       "route": "/settings",
       "sources": [
         "frontend/src/app/settings/page.tsx",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "calendar-feeds-modal.png": {
       "route": "/calendar",
       "sources": [
         "frontend/src/app/calendar",
         "frontend/src/components/CalendarRemindersModal.tsx",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "demo-mode-leave.png": {
       "route": "/demo",
       "sources": [
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "experiments-export-dialog.png": {
       "route": "/experiments",
@@ -626,11 +524,9 @@
         "frontend/src/components/TaskDetailPopup.tsx",
         "frontend/src/components/LiveMarkdownEditor.tsx",
         "frontend/src/components/InlineMarkdownEditor.tsx",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "notifications-shift-alert.png": {
       "route": "/",
@@ -642,7 +538,78 @@
         "frontend/src/lib/file-system/wiki-capture-fixture.ts",
         "frontend/src/lib/file-system/wiki-capture-mock.ts"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
+    },
+    "trash-bulk-action-bar.png": {
+      "route": "/trash",
+      "sources": [
+        "frontend/src/app/trash",
+        "frontend/src/lib/trash",
+        "frontend/src/components/AppShell.tsx",
+        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
+        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+      ],
+      "capturedAtCommit": "3ef6ece53"
+    },
+    "deposit-metadata-review.png": {
+      "route": "/workbench",
+      "sources": [
+        "frontend/src/components/workbench",
+        "frontend/src/components/NoteDetailPopup.tsx",
+        "frontend/src/components/history",
+        "frontend/src/components/TaskDetailPopup.tsx",
+        "frontend/src/lib/loro",
+        "frontend/src/app/workbench",
+        "frontend/src/components/AppShell.tsx",
+        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
+        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+      ],
+      "capturedAtCommit": "3ef6ece53"
+    },
+    "editor-attachment-strip.png": {
+      "route": "/workbench",
+      "sources": [
+        "frontend/src/components/workbench",
+        "frontend/src/components/NoteDetailPopup.tsx",
+        "frontend/src/components/history",
+        "frontend/src/components/TaskDetailPopup.tsx",
+        "frontend/src/lib/loro",
+        "frontend/src/app/workbench",
+        "frontend/src/components/AppShell.tsx",
+        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
+        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+      ],
+      "capturedAtCommit": "3ef6ece53"
+    },
+    "image-annotation-in-note.png": {
+      "route": "/workbench",
+      "sources": [
+        "frontend/src/components/workbench",
+        "frontend/src/components/NoteDetailPopup.tsx",
+        "frontend/src/components/history",
+        "frontend/src/components/TaskDetailPopup.tsx",
+        "frontend/src/lib/loro",
+        "frontend/src/app/workbench",
+        "frontend/src/components/AppShell.tsx",
+        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
+        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+      ],
+      "capturedAtCommit": "3ef6ece53"
+    },
+    "image-annotation-gel.png": {
+      "route": "/workbench",
+      "sources": [
+        "frontend/src/components/workbench",
+        "frontend/src/components/NoteDetailPopup.tsx",
+        "frontend/src/components/history",
+        "frontend/src/components/TaskDetailPopup.tsx",
+        "frontend/src/lib/loro",
+        "frontend/src/app/workbench",
+        "frontend/src/components/AppShell.tsx",
+        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
+        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+      ],
+      "capturedAtCommit": "3ef6ece53"
     },
     "search-export-selected.png": {
       "route": "/search",
@@ -650,11 +617,9 @@
         "frontend/src/app/search",
         "frontend/src/components/beaker-search",
         "frontend/src/components/ExportFormatDialog.tsx",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "telegram-inbox-multiselect.png": {
       "route": "/",
@@ -662,21 +627,17 @@
         "frontend/src/components/onboarding/StartScreen.tsx",
         "frontend/src/components/UserLoginScreen.tsx",
         "frontend/src/components/onboarding",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "import-eln-format-pick.png": {
       "route": "/settings",
       "sources": [
         "frontend/src/app/settings/page.tsx",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "feedback-modal.png": {
       "route": "/",
@@ -684,11 +645,9 @@
         "frontend/src/components/onboarding/StartScreen.tsx",
         "frontend/src/components/UserLoginScreen.tsx",
         "frontend/src/components/onboarding",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "onboarding-welcome-step.png": {
       "route": "/",
@@ -696,11 +655,9 @@
         "frontend/src/components/onboarding/StartScreen.tsx",
         "frontend/src/components/UserLoginScreen.tsx",
         "frontend/src/components/onboarding",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "onboarding-q1-account-type.png": {
       "route": "/",
@@ -708,21 +665,17 @@
         "frontend/src/components/onboarding/StartScreen.tsx",
         "frontend/src/components/UserLoginScreen.tsx",
         "frontend/src/components/onboarding",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "onboarding-settings-rerun-button.png": {
       "route": "/settings",
       "sources": [
         "frontend/src/app/settings/page.tsx",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "onboarding-hybrid-bold.png": {
       "route": "/",
@@ -730,11 +683,9 @@
         "frontend/src/components/onboarding/StartScreen.tsx",
         "frontend/src/components/UserLoginScreen.tsx",
         "frontend/src/components/onboarding",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "onboarding-resume-modal.png": {
       "route": "/",
@@ -742,11 +693,9 @@
         "frontend/src/components/onboarding/StartScreen.tsx",
         "frontend/src/components/UserLoginScreen.tsx",
         "frontend/src/components/onboarding",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "version-history-sidebar.png": {
       "route": "/workbench",
@@ -761,7 +710,7 @@
         "frontend/src/lib/file-system/wiki-capture-fixture.ts",
         "frontend/src/lib/file-system/wiki-capture-mock.ts"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "version-history-diff.png": {
       "route": "/workbench",
@@ -776,7 +725,7 @@
         "frontend/src/lib/file-system/wiki-capture-fixture.ts",
         "frontend/src/lib/file-system/wiki-capture-mock.ts"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "version-history-compare-toggle.png": {
       "route": "/workbench",
@@ -791,7 +740,7 @@
         "frontend/src/lib/file-system/wiki-capture-fixture.ts",
         "frontend/src/lib/file-system/wiki-capture-mock.ts"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "version-history-restore.png": {
       "route": "/workbench",
@@ -806,7 +755,7 @@
         "frontend/src/lib/file-system/wiki-capture-fixture.ts",
         "frontend/src/lib/file-system/wiki-capture-mock.ts"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "version-history-undo.png": {
       "route": "/workbench",
@@ -821,71 +770,59 @@
         "frontend/src/lib/file-system/wiki-capture-fixture.ts",
         "frontend/src/lib/file-system/wiki-capture-mock.ts"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "method-catalog-source-pdf.png": {
       "route": "/methods",
       "sources": [
         "frontend/src/components/methods",
         "frontend/src/app/methods",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "method-catalog-library.png": {
       "route": "/methods",
       "sources": [
         "frontend/src/components/methods",
         "frontend/src/app/methods",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "method-catalog-template-detail.png": {
       "route": "/methods",
       "sources": [
         "frontend/src/components/methods",
         "frontend/src/app/methods",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "method-catalog-384-plate.png": {
       "route": "/methods",
       "sources": [
         "frontend/src/components/methods",
         "frontend/src/app/methods",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "lab-overview-pi-default.png": {
       "route": "/lab-overview",
       "sources": [
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "sharing-method-share-dialog.png": {
       "route": "/methods",
       "sources": [
         "frontend/src/components/methods",
         "frontend/src/app/methods",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "lab-inbox-comments-thread.png": {
       "route": "/workbench",
@@ -896,154 +833,126 @@
         "frontend/src/components/TaskDetailPopup.tsx",
         "frontend/src/lib/loro",
         "frontend/src/app/workbench",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "sequences-workbench-overview.png": {
       "route": "/sequences",
       "sources": [
         "frontend/src/components/sequences",
         "frontend/src/app/sequences",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "sequences-library-filter.png": {
       "route": "/sequences",
       "sources": [
         "frontend/src/components/sequences",
         "frontend/src/app/sequences",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "sequences-circular-map.png": {
       "route": "/sequences",
       "sources": [
         "frontend/src/components/sequences",
         "frontend/src/app/sequences",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "restriction-digest-map.png": {
       "route": "/sequences",
       "sources": [
         "frontend/src/components/sequences",
         "frontend/src/app/sequences",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "sequences-base-view.png": {
       "route": "/sequences",
       "sources": [
         "frontend/src/components/sequences",
         "frontend/src/app/sequences",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "sequences-view-rail.png": {
       "route": "/sequences",
       "sources": [
         "frontend/src/components/sequences",
         "frontend/src/app/sequences",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "sequences-feature-dialog.png": {
       "route": "/sequences",
       "sources": [
         "frontend/src/components/sequences",
         "frontend/src/app/sequences",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "sequences-selection-readout.png": {
       "route": "/sequences",
       "sources": [
         "frontend/src/components/sequences",
         "frontend/src/app/sequences",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "sequences-primer-design.png": {
       "route": "/sequences",
       "sources": [
         "frontend/src/components/sequences",
         "frontend/src/app/sequences",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "sequences-ncbi-specificity.png": {
       "route": "/sequences",
       "sources": [
         "frontend/src/components/sequences",
         "frontend/src/app/sequences",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "sequences-cloning-methods.png": {
       "route": "/sequences",
       "sources": [
         "frontend/src/components/sequences",
         "frontend/src/app/sequences",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "sequences-cloning-review.png": {
       "route": "/sequences",
       "sources": [
         "frontend/src/components/sequences",
         "frontend/src/app/sequences",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     },
     "sequences-compare.png": {
       "route": "/sequences",
       "sources": [
         "frontend/src/components/sequences",
         "frontend/src/app/sequences",
-        "frontend/src/components/AppShell.tsx",
-        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
-        "frontend/src/lib/file-system/wiki-capture-mock.ts"
+        "frontend/src/components/AppShell.tsx"
       ],
-      "capturedAtCommit": "ffb5fafb6"
+      "capturedAtCommit": "3ef6ece53"
     }
   }
 }

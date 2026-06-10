@@ -75,9 +75,14 @@ let mapped = 0, empty = 0;
 for (const [file, route] of Object.entries(shotRoute)) {
   if (/^companion-/.test(file)) continue;
   const src = new Set([...routeSources(route), ...COMMON, ...(recipeSources[file] || [])]);
-  // common fixture sources: a fixture/seed change can empty a data-driven shot
-  src.add("frontend/src/lib/file-system/wiki-capture-fixture.ts");
-  src.add("frontend/src/lib/file-system/wiki-capture-mock.ts");
+  // The capture fixture is a source ONLY for shots whose content comes from
+  // SEEDED data (they go empty/wrong if the seed changes). Attaching it to
+  // every shot over-flagged the whole set on any fixture tweak, so scope it to
+  // the data-driven shots; component-UI shots key off their component sources.
+  if (/^(notifications-|trash-|deposit-|version-history-|editor-attachment|image-annotation)/.test(file)) {
+    src.add("frontend/src/lib/file-system/wiki-capture-fixture.ts");
+    src.add("frontend/src/lib/file-system/wiki-capture-mock.ts");
+  }
   const filtered = [...src].filter((p) => exists(p));
   if (filtered.length) mapped++; else empty++;
   entries[file] = { route, sources: filtered, capturedAtCommit: HEAD };
