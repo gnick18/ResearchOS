@@ -1432,7 +1432,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                                 </svg>
                               </button>
-                              <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap px-2 py-1 text-meta font-medium rounded bg-slate-900/95 text-slate-100 border border-white/10 opacity-0 group-hover/icon:opacity-100 transition-opacity z-10">
+                              <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap px-2 py-1 text-meta font-medium rounded bg-surface-overlay text-foreground border border-border opacity-0 group-hover/icon:opacity-100 transition-opacity z-10">
                                 Set as main
                               </span>
                             </div>
@@ -1451,7 +1451,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                               </svg>
                             </button>
-                            <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap px-2 py-1 text-meta font-medium rounded bg-slate-900/95 text-slate-100 border border-white/10 opacity-0 group-hover/icon:opacity-100 transition-opacity z-10">
+                            <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap px-2 py-1 text-meta font-medium rounded bg-surface-overlay text-foreground border border-border opacity-0 group-hover/icon:opacity-100 transition-opacity z-10">
                               Rename
                             </span>
                           </div>
@@ -1469,7 +1469,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>
                             </button>
-                            <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap px-2 py-1 text-meta font-medium rounded bg-slate-900/95 text-slate-100 border border-white/10 opacity-0 group-hover/icon:opacity-100 transition-opacity z-10">
+                            <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1 whitespace-nowrap px-2 py-1 text-meta font-medium rounded bg-surface-overlay text-foreground border border-border opacity-0 group-hover/icon:opacity-100 transition-opacity z-10">
                               Delete user
                             </span>
                           </div>
@@ -1963,21 +1963,21 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       {createdRecovery && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div
-            className="bg-slate-800 rounded-2xl shadow-2xl border border-white/20 max-w-sm w-full mx-4 overflow-hidden"
+            className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-sm w-full mx-4 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-white/10">
-              <h3 className="text-title font-semibold text-white">
+            <div className="px-6 py-4 border-b border-border">
+              <h3 className="text-title font-semibold text-foreground">
                 Save your recovery code
               </h3>
-              <p className="text-meta text-slate-400 mt-0.5">
+              <p className="text-meta text-foreground-muted mt-0.5">
                 This is the only way back in if you forget your password. Write it
                 somewhere safe, it is not shown again.
               </p>
             </div>
             <div className="px-6 py-5 space-y-3">
-              <div className="p-3 bg-slate-900/60 border border-white/10 rounded-lg">
-                <p className="font-mono text-body text-slate-100 tracking-wide break-all text-center">
+              <div className="p-3 bg-surface-sunken border border-border rounded-lg">
+                <p className="font-mono text-body text-foreground tracking-wide break-all text-center">
                   {createdRecovery.code}
                 </p>
               </div>
@@ -1992,7 +1992,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                     // Clipboard can be blocked, the code is still visible to copy.
                   }
                 }}
-                className="text-meta text-blue-400 hover:text-blue-300"
+                className="text-meta text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
               >
                 {recoveryCopied ? "Copied" : "Copy code"}
               </button>
