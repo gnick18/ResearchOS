@@ -330,9 +330,8 @@ const IDEAL={
       <!-- YOUR NOTEBOOKS -->
       <div class="sec-h" style="margin-top:4px">Your notebooks</div>
       <div class="group">
-        <!-- recommended row: sky-tinted background -->
-        <div class="row" style="background:color-mix(in srgb,var(--sky) 8%,transparent)">
-          <span class="ico" style="background:var(--sky)">
+        <div class="row">
+          <span class="ico" style="background:color-mix(in srgb,var(--amber) 16%,transparent);color:var(--amber)">
             <!-- book / notebook icon -->
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M19 19v2"/></svg>
           </span>
@@ -340,13 +339,12 @@ const IDEAL={
             <div class="t">Running log</div>
             <div class="s">2 entries</div>
           </div>
-          <span class="pill" style="background:color-mix(in srgb,var(--sky) 14%,transparent);color:var(--sky)">Suggested</span>
           <span class="chev">
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
           </span>
         </div>
         <div class="row">
-          <span class="ico" style="background:var(--sky)">
+          <span class="ico" style="background:color-mix(in srgb,var(--amber) 16%,transparent);color:var(--amber)">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M19 19v2"/></svg>
           </span>
           <div class="tx">
@@ -360,10 +358,10 @@ const IDEAL={
       </div>
 
       <!-- SHARED -->
-      <div class="sec-h">Shared</div>
+      <div class="sec-h">Shared with you</div>
       <div class="group">
         <div class="row">
-          <span class="ico" style="background:var(--coral)">
+          <span class="ico" style="background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)">
             <!-- people / shared icon -->
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75M21 21v-2a4 4 0 0 0-3-3.87"/></svg>
           </span>
@@ -378,10 +376,10 @@ const IDEAL={
       </div>
 
       <!-- 1:1 -->
-      <div class="sec-h">1:1</div>
+      <div class="sec-h">1:1 notebooks</div>
       <div class="group">
         <div class="row">
-          <span class="ico" style="background:var(--sky)">
+          <span class="ico" style="background:rgba(147,51,234,.14);color:#9333EA">
             <!-- person icon -->
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg>
           </span>
@@ -389,7 +387,7 @@ const IDEAL={
             <div class="t">1:1 with morgan</div>
             <div class="s">your mentoring notebook</div>
           </div>
-          <span class="pill muted">PI</span>
+          <span class="pill" style="background:rgba(147,51,234,.12);color:#9333EA">PI</span>
           <span class="chev">
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
           </span>
@@ -751,7 +749,7 @@ const PAIRS=[
  {n:'Wiki, base page',tag:'shipped',note:'Search field, Ask callout, Start here and Getting started groups. The live page pulls real wiki content but keeps the ideal layout.',ideal:'wiki',shot:'13_wiki_base.png'},
  {n:'Connect, pre-pairing',tag:'shipped',final:true,note:'Verified live on the emulator by the mobile master. Connect leads with the camera path (Allow-camera-access primary), the manual code collapses behind a secondary Enter-a-code button that expands on tap, and the demo is a quiet No desktop? Try the demo tertiary link in both states. BeakerBot plus the top and bottom rainbow bars intact. Fresh collapsed-state shot captured by the master, now matching the ideal. Locked.',ideal:'connect',shot:'12b_pairing_after.png'},
  {n:'Send / Inbox',tag:'shipped',final:true,note:'Re-captured and verified live. The Inbox header (tray badge), Send all in sky and Remove all in coral, the Take-a-photo and Quick-note pair, and the auto-sync helper line all match the target. The earlier stale shot showed the old Outbox wording. Proposed for lock.',ideal:'send',shot:'10_send_sent_state.png'},
- {n:'Notebook chooser sheet',tag:'shipped',note:'White sheet over the dimmed page, grouped sections (own / shared / 1:1) with hairline rows, trio icons, sky recommended row.',ideal:'chooser',shot:'09b_chooser_white_after.png'},
+ {n:'Notebook chooser sheet',tag:'shipped',note:'Audited live. The app is right and the ideal was stale (bidirectional). The live uses semantic tinted icons (amber for your notebooks, green for shared, violet for 1:1) which beat the old sky/coral target, the section labels read clearer (Shared with you, 1:1 notebooks), and recommendation is a contextual row highlight (no always-on Suggested badge, so none shows in the demo state). Updated the ideal to match all three. No app change. Proposed for lock.',ideal:'chooser',shot:'09b_chooser_white_after.png'},
  {n:'Quick note compose',tag:'shipped',note:'Re-captured live. Clean grouped composer, 34px title, Title and Write-your-note cards, sky send button. Two deltas from this ideal, the live button reads Send to lab (not Send to Inbox) and there is no Discard (the back chevron cancels). Pending Grant\'s copy and Discard call before lock.',ideal:'quicknote',shot:'08_quicknote_compose.png'},
  {n:'Settings',tag:'shipped',final:true,note:'Re-captured and verified live. 34px title with sky back chevron, every section a grouped container with hairline rows, pill segmented control. The toggles now render sky after the thumbColor fix landed (they were defaulting to Android system green). All toggles consistent now. Proposed for lock.',ideal:'settings',shot:'06_settings.png'},
  {n:'Wiki rendered article',tag:'shipped',note:'Article body in a white card on grey, large h1, clear h2 sizing, comfortable body text, sky back chevron.',ideal:'wikiRendered',shot:'14_wiki_rendered.png'},
