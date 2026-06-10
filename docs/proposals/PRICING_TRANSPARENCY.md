@@ -93,9 +93,15 @@ Draft copy:
   with no markup, so you never pay for space you do not need. Most labs need very
   little, your notebook lives on your machine, so for most labs the free tier is
   the right answer."
-- "If you want to support the project beyond your own costs, the best way is
-  GitHub Sponsors, a direct donation to the open-source work, not a marked-up
-  bill."
+- "If you want to put money toward ResearchOS beyond what your own usage costs,
+  sponsor the project on GitHub instead of over-buying storage. It is genuinely
+  the better path for you, and here is the plain reason. Buying storage is a
+  sale, so it carries sales tax. A sponsorship is a donation to the open-source
+  work, so it does not, which means the full amount goes to keeping the tool
+  built and free for the labs that cannot afford it, rather than part of it going
+  to tax. You also are not paying for gigabytes you will never fill."
+  (Copy rule, Grant 2026-06-09: state the WHY, the no-sales-tax reason and where
+  the money goes, do not just assert "it is better". No em-dashes, no AI-speak.)
 
 This positions ResearchOS as the rare tool that tells you to pay less, a sharp
 contrast to per-seat ELNs built to maximize what you pay.
