@@ -358,6 +358,23 @@ export default function TaskModal({ projects }: TaskModalProps) {
         } catch {
           // Non-fatal - notes file can be created later
         }
+        // Scaffold results.md with its own "# Results: <name>" header at the
+        // same time as notes.md. Without this, the Results doc rebuilds from an
+        // empty mirror (the Loro seed reads results.md, which never existed) and
+        // shows no header, while Lab Notes does. This kept Results looking
+        // headerless next to Lab Notes (caught in the demo). Symmetric with the
+        // notes scaffold above so both tabs open with their title.
+        const resultsPath = `${taskResultsBase(task)}/results.md`;
+        const resultsTemplate = createNewFileContent(name.trim(), projectName, 'results');
+        try {
+          await filesApi.writeFile(
+            resultsPath,
+            resultsTemplate,
+            `Create results for: ${name.trim()}`
+          );
+        } catch {
+          // Non-fatal - results file can be created later
+        }
       }
 
       await queryClient.refetchQueries({ queryKey: ["tasks"] });
