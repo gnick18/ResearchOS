@@ -4881,6 +4881,8 @@ export const retentionApi = {
   list: (): Promise<RetentionEntry[]> => retentionStore.listAll(),
   create: (entry: RetentionEntryCreate): Promise<RetentionEntry> =>
     retentionStore.create(entry),
+  update: (id: number, patch: Partial<RetentionEntry>): Promise<RetentionEntry | null> =>
+    retentionStore.update(id, patch),
   delete: (id: number): Promise<boolean> => retentionStore.delete(id),
 };
 

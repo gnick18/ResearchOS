@@ -11,6 +11,7 @@ import {
   disposalEligibleDate,
   type RetentionTarget,
 } from "@/lib/lab/retention";
+import { computeFolderManifest } from "@/lib/lab/manifest";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/AppShell";
@@ -1574,6 +1575,23 @@ function RetentionRegistrySection({ currentUser }: { currentUser: string }) {
     await invalidate();
   };
 
+  // Compute the SHA-256 manifest of the member's folder and store the combined
+  // hash on the entry, the integrity anchor an auditor (or a later re-verify)
+  // checks against. FSA-heavy (reads every file), so it runs on demand per row.
+  const [manifestBusyId, setManifestBusyId] = useState<number | null>(null);
+  const computeManifest = async (id: number, member: string) => {
+    setManifestBusyId(id);
+    try {
+      const manifest = await computeFolderManifest(`users/${member}`);
+      await retentionApi.update(id, { manifest_sha256: manifest.combined });
+      await invalidate();
+    } catch {
+      alert("Could not read the member's folder to compute the manifest.");
+    } finally {
+      setManifestBusyId(null);
+    }
+  };
+
   const input = "rounded-lg border border-border bg-surface px-2 py-1.5 text-meta";
 
   return (
@@ -1595,6 +1613,7 @@ function RetentionRegistrySection({ currentUser }: { currentUser: string }) {
               <th className="px-2 py-2 font-semibold">Retained at</th>
               <th className="px-2 py-2 font-semibold">Recorded</th>
               <th className="px-2 py-2 font-semibold">Keep until</th>
+              <th className="px-2 py-2 font-semibold">Manifest</th>
               <th className="px-2 py-2"></th>
             </tr>
           </thead>
@@ -1612,6 +1631,33 @@ function RetentionRegistrySection({ currentUser }: { currentUser: string }) {
                 </td>
                 <td className="px-2 py-2 text-foreground-muted">
                   {disposalEligibleDate(e.archived_at, e.retention_years)}
+                </td>
+                <td className="px-2 py-2 text-foreground-muted">
+                  {manifestBusyId === e.id ? (
+                    <span>Hashing...</span>
+                  ) : e.manifest_sha256 ? (
+                    <span
+                      className="font-mono"
+                      title={`SHA-256 ${e.manifest_sha256}`}
+                    >
+                      {e.manifest_sha256.slice(0, 8)}
+                      <button
+                        type="button"
+                        onClick={() => computeManifest(e.id, e.member)}
+                        className="ml-2 text-blue-600 hover:underline dark:text-blue-400"
+                      >
+                        re-verify
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => computeManifest(e.id, e.member)}
+                      className="text-blue-600 hover:underline dark:text-blue-400"
+                    >
+                      Compute
+                    </button>
+                  )}
                 </td>
                 <td className="px-2 py-2 text-right">
                   <button
