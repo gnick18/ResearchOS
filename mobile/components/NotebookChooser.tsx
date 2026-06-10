@@ -633,9 +633,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 10,
     paddingVertical: 14,
-    marginTop: 6,
+    marginTop: 14,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(60,70,86,0.22)',
+    borderRadius: 14,
   },
   unsortedText: {
     fontSize: 14.5,
@@ -646,9 +650,9 @@ const styles = StyleSheet.create({
   },
   // Note icon internals
   iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 11,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -661,6 +665,7 @@ const styles = StyleSheet.create({
     padding: 3,
     gap: 3,
     alignItems: 'flex-start',
+    transform: [{ scale: 1.2 }],
   },
   noteLine: {
     height: 2,
@@ -672,6 +677,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 18,
     position: 'relative',
+    transform: [{ scale: 1.2 }],
   },
   peopleHeadBack: {
     position: 'absolute',
@@ -716,6 +722,7 @@ const styles = StyleSheet.create({
     width: 14,
     height: 18,
     alignItems: 'center',
+    transform: [{ scale: 1.2 }],
   },
   flaskNeck: {
     width: 5,
@@ -738,6 +745,7 @@ const styles = StyleSheet.create({
     paddingTop: 3,
     paddingHorizontal: 2,
     alignItems: 'center',
+    transform: [{ scale: 1.2 }],
   },
   inboxLip: {
     width: 8,
