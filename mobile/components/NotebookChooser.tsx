@@ -40,6 +40,7 @@ import {
   View,
 } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, palette } from '@/lib/design';
 import type { NotebookSummary } from '@/lib/notebooks';
 import type { FocusContext } from '@/lib/focus-context';
@@ -228,6 +229,9 @@ export function NotebookChooser({
 }: NotebookChooserProps) {
   const { surface } = useTheme();
   const reduceMotion = useReducedMotion();
+  // Lift the sheet above the device's bottom inset (Android gesture bar / iOS
+  // home indicator) so its last row is never tucked under the nav controls.
+  const insets = useSafeAreaInsets();
 
   // When the user taps a multi-entry running notebook we show the entry picker.
   const [entryPickerNotebook, setEntryPickerNotebook] = useState<NotebookSummary | null>(null);
@@ -344,7 +348,16 @@ export function NotebookChooser({
         onRequestClose={onClose}
       >
         <Pressable style={styles.backdrop} onPress={onClose}>
-          <Pressable style={[styles.sheet, { backgroundColor: surface.surface }]} onPress={() => {}}>
+          <Pressable
+            style={[
+              styles.sheet,
+              {
+                backgroundColor: surface.surface,
+                paddingBottom: Math.max(24, insets.bottom + 16),
+              },
+            ]}
+            onPress={() => {}}
+          >
             {/* Grab handle */}
             <View style={[styles.grab, { backgroundColor: surface.border }]} />
 

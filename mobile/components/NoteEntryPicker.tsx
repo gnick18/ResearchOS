@@ -28,6 +28,7 @@ import {
   View,
 } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, palette } from '@/lib/design';
 
 // ---------------------------------------------------------------------------
@@ -193,6 +194,8 @@ export function NoteEntryPicker({
 }: NoteEntryPickerProps) {
   const { surface } = useTheme();
   const reduceMotion = useReducedMotion();
+  // Lift the sheet above the device's bottom inset (gesture bar / home indicator).
+  const insets = useSafeAreaInsets();
 
   const recommended = recommendedEntryId
     ? entries.find((e) => e.id === recommendedEntryId) ?? null
@@ -217,7 +220,16 @@ export function NoteEntryPicker({
     >
       <Pressable style={styles.backdrop} onPress={onDismiss}>
         {/* Stop propagation on the sheet so tapping inside does not dismiss. */}
-        <Pressable style={[styles.sheet, { backgroundColor: surface.surface }]} onPress={() => {}}>
+        <Pressable
+          style={[
+            styles.sheet,
+            {
+              backgroundColor: surface.surface,
+              paddingBottom: Math.max(24, insets.bottom + 16),
+            },
+          ]}
+          onPress={() => {}}
+        >
           {/* Grab handle */}
           <View style={[styles.grab, { backgroundColor: surface.border }]} />
 
