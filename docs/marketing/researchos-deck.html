@@ -287,6 +287,15 @@ h2{font-weight:800;letter-spacing:-.025em;line-height:1.05;font-size:50px;color:
 .outro .wordmark{font-size:60px;font-weight:800;letter-spacing:-.04em;color:#fff;margin-top:18px}
 .outro .thanks{font-size:22px;color:#b4bfd0;margin-top:10px}
 
+/* ---- phone frames (companion app) ---- */
+.phones{display:flex;gap:20px;align-items:center;justify-content:center}
+.phone{width:148px;border-radius:24px;border:6px solid #111827;background:#111827;
+  box-shadow:0 24px 46px -22px rgba(17,24,39,.55);overflow:hidden;flex:0 0 auto;position:relative}
+.phone img{display:block;width:100%;height:auto}
+.phone .cap{position:absolute;left:0;right:0;bottom:0;padding:7px 6px 6px;text-align:center;
+  font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(to top,rgba(17,24,39,.86),rgba(17,24,39,0))}
+
 /* ---- origin story ---- */
 .story{display:grid;grid-template-columns:1.3fr .7fr;gap:40px;height:100%;align-items:center}
 .story .prose p{font-size:22px;line-height:1.52;color:#374151;margin-bottom:20px;max-width:48ch}
@@ -866,31 +875,28 @@ body.idle .hud,body.idle .help{opacity:0;pointer-events:none}
     </div>
   </section>
 
-  <!-- ============================================================ 18. PHOTO INBOX -->
+  <!-- ============================================================ 18. COMPANION APP -->
   <section class="slide">
     <div class="head">
       <div class="fhead"><span class="ix">FEATURE 06</span></div>
-      <h2>Capture from your phone at the bench</h2>
-      <div class="f-oneline">Pair a phone with a QR code, snap a photo or a handwritten page, and it lands in your inbox to file into an experiment in one tap.</div>
+      <h2>A companion app for your phone</h2>
+      <div class="f-oneline" style="max-width:none">A native iPhone and Android app that pairs to your laptop, so the bench becomes a real part of your notebook, not a camera roll you transcribe later.</div>
     </div>
-    <div class="body">
-      <div class="cols media-left">
-        <div class="shot">
-          <div class="bar"><i></i><i></i><i></i></div>
-          <img src="assets/shots/telegram-inbox.png" alt="Photo inbox">
-        </div>
-        <div>
-          <div class="tags">
-            <span class="tag">QR pairing in Settings</span>
-            <span class="tag">One-tap file to experiment</span>
-            <span class="tag">Handwriting becomes searchable text</span>
-            <span class="tag">Batch routing</span>
-          </div>
-          <a class="demo" href="#" data-demo="/demo" target="_blank" rel="noopener">
-            <span class="play"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg></span>
-            <span class="t"><b>Show it live</b><code>/demo → Inbox pill</code></span>
-          </a>
-        </div>
+    <div class="body" style="display:flex;flex-direction:column;gap:18px;justify-content:center">
+      <div class="phones">
+        <div class="phone"><img src="assets/shots/mobile/01_notebook_demo.png" alt="Notebook tab"><span class="cap">Capture</span></div>
+        <div class="phone"><img src="assets/shots/mobile/02_inventory.png" alt="Inventory tab"><span class="cap">Inventory</span></div>
+        <div class="phone"><img src="assets/shots/mobile/03_calc.png" alt="Calculators tab"><span class="cap">Calculators</span></div>
+        <div class="phone"><img src="assets/shots/mobile/04_timer.png" alt="Timers tab"><span class="cap">Timers</span></div>
+        <div class="phone"><img src="assets/shots/mobile/05_wiki.png" alt="Wiki tab"><span class="cap">Wiki</span></div>
+      </div>
+      <div class="tags" style="justify-content:center">
+        <span class="tag">Snap photos and handwritten pages</span>
+        <span class="tag">On-device OCR to searchable text</span>
+        <span class="tag">Scan barcodes to receive and reorder</span>
+        <span class="tag">Five lab calculators and bench timers</span>
+        <span class="tag">The full wiki, offline</span>
+        <span class="tag">Pairs by QR, end-to-end encrypted, works offline</span>
       </div>
     </div>
   </section>
