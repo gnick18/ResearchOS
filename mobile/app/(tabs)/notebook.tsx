@@ -1143,7 +1143,9 @@ function ConnectionCard({
   const { surface } = useTheme();
   return (
     <View style={styles.connCard}>
-      <View style={styles.connDot} />
+      <View style={styles.connBadge}>
+        <Ionicons name="checkmark" size={16} color={palette.white} />
+      </View>
       <View style={styles.connText}>
         <ThemedText style={[styles.connName, { color: surface.text }]}>
           {labName}
@@ -1347,11 +1349,13 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 1,
   },
-  connDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 999,
+  connBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
     backgroundColor: palette.success,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   connText: { flex: 1 },
   connName: { fontSize: 14, fontWeight: '600', lineHeight: 20 },
