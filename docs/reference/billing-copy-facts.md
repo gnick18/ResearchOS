@@ -74,9 +74,14 @@ Paid storage, when it turns on, is an accountable business.
 
 - The free allowance (5 GB) and plan shapes live in billing constants and `plans.ts`. Those are
   the billing manager's to set. Branding consumes them, it does not change them.
-- Items flagged for the billing manager to reconcile to this reference:
-  - The free allowance constant if it is still the old 1 GB value (this doc says 5 GB).
-  - `plans.ts` tier shapes for Free/Plus/Pro and Lab Free/Plus/Pro.
+- Confirmed already correct in code (no pending change): the storage-pool free tier is 5 GB.
+  `FREE_ALLOWANCE_BYTES = 5 * BYTES_PER_GB` in `frontend/src/lib/billing/config.ts`, and the
+  Free plan in `plans.ts` is `5 * GB` (Grant changed it to 5 GB after a detailed price analysis,
+  2026-06-09).
+- Do not conflate two separate budgets in copy. The persistent storage pool free tier is 5 GB
+  (`FREE_ALLOWANCE_BYTES`). The transient sharing inbox is a separate 1 GB cap
+  (`FREE_STORAGE_BYTES` in `relay/limits.ts`, delete-on-pickup), and that 1 GB is correct and
+  unrelated.
 
 ## What this supersedes
 
