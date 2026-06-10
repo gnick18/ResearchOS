@@ -223,6 +223,14 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   // Mirror of the lockedUsers pattern: fan-out read per user.
   const [labHeadUsers, setLabHeadUsers] = useState<Set<string>>(new Set());
 
+  // The lab membership agreement to present in the force-create gate when a new
+  // member joins a folder whose lab head has an enabled agreement
+  // (LAB_ARCHIVE_CONTINUITY.md). Computed from the lab head's settings when the
+  // gate opens; null means no agreement to show.
+  const [joinAgreement, setJoinAgreement] = useState<
+    { text: string; version: number; labHead: string } | null
+  >(null);
+
   // Per-user `archived` flag (Lab Head Phase 6). Drives the "hidden by
   // default" visibility of archived accounts; the Show archived toggle
   // below the user grid reveals them. Loaded alongside the lab_head
@@ -344,6 +352,42 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     );
     setLabHeadUsers(next);
   };
+
+  // When the force-create gate opens for a new member, compute the lab head's
+  // membership agreement (if enabled) so the account-creation modal can present
+  // it. A brand-new account has never accepted, so an enabled agreement always
+  // shows. Co-PI folders use the first lab head's agreement (the lab's text).
+  useEffect(() => {
+    if (!forceProfileFor) {
+      setJoinAgreement(null);
+      return;
+    }
+    const labHead = Array.from(labHeadUsers)[0];
+    if (!labHead) {
+      setJoinAgreement(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const s = await readUserSettings(labHead);
+        const ag = s.labMembershipAgreement;
+        if (!cancelled) {
+          setJoinAgreement(
+            ag && ag.enabled
+              ? { text: ag.text, version: ag.version, labHead }
+              : null,
+          );
+        }
+      } catch {
+        if (!cancelled) setJoinAgreement(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forceProfileFor, labHeadUsers]);
 
   // Lab Head Phase 6: fan-out read of every user's `_onboarding.json` to
   // find archived accounts. Mirrors the lab_head fan-out — a per-user
@@ -1816,6 +1860,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         <CreateLocalIdentityStep
           username={forceProfileFor.username}
           required
+          agreement={joinAgreement}
           onComplete={() => {
             const u = forceProfileFor.username;
             setForceProfileFor(null);
