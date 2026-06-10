@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Icon, type IconName } from "@/components/icons";
 import {
   readProjectActivity,
   type ProjectActivityEvent,
@@ -114,25 +115,23 @@ function summarize(event: ProjectActivityEvent): ReactNode {
   }
 }
 
-// Type-icon glyph. Tiny inline emoji keeps the component dependency-free;
-// a lucide-react icon set per type is deferred (L7 scope explicitly excludes
-// a new icon system).
-function eventGlyph(type: ProjectActivityEvent["type"]): string {
+// Per-event-type icon, drawn from the verified ICONS registry via <Icon>.
+function eventIcon(type: ProjectActivityEvent["type"]): IconName {
   switch (type) {
     case "task_completed":
-      return "✓";
+      return "check";
     case "image_added":
-      return "🖼";
+      return "camera";
     case "method_added":
-      return "+";
+      return "plus";
     case "method_removed":
-      return "−";
+      return "minus";
     case "prose_edited":
-      return "✎";
+      return "pencil";
     case "project_shared":
-      return "↗";
+      return "share";
     case "project_archived":
-      return "▦";
+      return "box";
   }
 }
 
@@ -184,10 +183,10 @@ export default function ActivityFeed({ project }: ActivityFeedProps) {
                 className="px-3 py-2 flex items-start gap-2 text-body"
               >
                 <span
-                  className="flex-shrink-0 w-5 h-5 inline-flex items-center justify-center text-foreground-muted text-body"
+                  className="flex-shrink-0 w-5 h-5 inline-flex items-center justify-center text-foreground-muted"
                   aria-hidden
                 >
-                  {eventGlyph(event.type)}
+                  <Icon name={eventIcon(event.type)} className="w-4 h-4" />
                 </span>
                 <div className="flex-1 min-w-0 text-foreground">
                   {showActor && (
