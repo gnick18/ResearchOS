@@ -50,7 +50,8 @@
         {
           "cameraPermission": "ResearchOS uses the camera to scan and clean up your handwritten notes."
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,
