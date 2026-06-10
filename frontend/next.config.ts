@@ -125,6 +125,26 @@ const CAPTURE_RELAY_ORIGIN =
  *     Defaults to the local wrangler dev origin ws://localhost:8787; a deployed
  *     wss:// relay is picked up from NEXT_PUBLIC_COLLAB_RELAY_URL. The relay
  *     fans only sealed ciphertext, so it never sees note plaintext.
+ *   connect-src https://pubchem.ncbi.nlm.nih.gov: the chemistry workbench calls
+ *     PubChem PUG-REST / PUG-View browser-direct (no proxy) for compound import
+ *     (name to CID to SMILES/InChI/SDF/2D) and the literature companion
+ *     (compound to linked PubMed papers + patents via xrefs, and substructure
+ *     search via fastsubstructure). CORS-open and read-only; only a typed name
+ *     or structure is sent, never the user's own data. Note this is a different
+ *     host than the api/eutils NCBI entries above (those serve sequences).
+ *   connect-src https://www.ebi.ac.uk: the chemistry literature companion calls
+ *     Europe PMC (search + the Annotations text-mining API) browser-direct for
+ *     full-text papers that mention a compound. CORS-open, no key, read-only.
+ *   connect-src https://www.surechembl.org: the chemistry literature companion
+ *     calls SureChEMBL (EMBL-EBI patent chemistry) browser-direct to find
+ *     patents containing a drawn substructure. CORS-open, no key, read-only;
+ *     only the query structure is sent.
+ *   worker-src 'self' blob:: Ketcher's standalone struct service runs Indigo
+ *     compiled to wasm inside a Web Worker that ketcher-standalone spawns from a
+ *     Blob URL (confirmed: new Worker + Blob + createObjectURL in its dist), so
+ *     the editor canvas needs blob: workers. Without it the in-browser engine is
+ *     CSP-blocked. Scoped to worker-src, the worker code is our own bundled
+ *     ketcher chunk, not remote.
  *   frame-src blob:: PDF previews render via <iframe src=blob:...>.
  *   frame-ancestors 'none': blocks clickjacking via third-party embedding.
  */
@@ -136,7 +156,8 @@ const CSP = [
   // Vercel Blob CDN for the welcome-page demo loop videos and their posters.
   "media-src 'self' https://*.public.blob.vercel-storage.com",
   "font-src 'self' data:",
-  `connect-src 'self' https://api.telegram.org https://vitals.vercel-insights.com https://*.r2.cloudflarestorage.com https://api.ncbi.nlm.nih.gov https://eutils.ncbi.nlm.nih.gov data: ${COLLAB_RELAY_ORIGIN} ${CAPTURE_RELAY_ORIGIN}`,
+  `connect-src 'self' https://api.telegram.org https://vitals.vercel-insights.com https://*.r2.cloudflarestorage.com https://api.ncbi.nlm.nih.gov https://eutils.ncbi.nlm.nih.gov https://pubchem.ncbi.nlm.nih.gov https://www.ebi.ac.uk https://www.surechembl.org data: ${COLLAB_RELAY_ORIGIN} ${CAPTURE_RELAY_ORIGIN}`,
+  "worker-src 'self' blob:",
   "frame-src 'self' blob:",
   "frame-ancestors 'none'",
   "object-src 'none'",
@@ -145,6 +166,13 @@ const CSP = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  // Ketcher (the chemistry workbench editor) ships ESM that Turbopack fails to
+  // bundle as-is: importing the ketcher-react canvas crashed the dev server with
+  // "RangeError: Maximum call stack size exceeded" (a known Next 16 Turbopack
+  // duplicate-package recursion class, vercel/next.js#56614). Transpiling the
+  // ketcher packages through Next's own pipeline resolves the recursion. Scoped
+  // to the three ketcher packages only; everything else bundles unchanged.
+  transpilePackages: ["ketcher-react", "ketcher-core", "ketcher-standalone"],
   env: {
     // Exposed to the browser as `process.env.NEXT_PUBLIC_RESEARCHOS_COMMIT`
     // and inlined at build time. Used by the AI Helper settings section to
