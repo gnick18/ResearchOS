@@ -35,6 +35,7 @@ import {
   type DateFormat,
   type TimeFormat,
 } from "@/lib/settings/user-settings";
+import { setSpellCheckEnabledLocal } from "@/lib/spellcheck/spellchecker";
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { ANIMATION_METADATA, renderAnimationIcon, type AnimationType, type RealAnimationType } from "@/components/animations";
 import DynamicAnimation from "@/components/DynamicAnimation";
@@ -307,6 +308,9 @@ function SettingsBodyInner() {
       const exists = await hasLocalAccount(currentUser);
       if (cancelled) return;
       setSettings(s);
+      // Mirror the spell-check pref to localStorage so the inline editor reads
+      // it synchronously at mount (same first-paint pattern as editorWidthPreset).
+      setSpellCheckEnabledLocal(s.spellCheckInEditor ?? false);
       setPwExists(exists);
       setLoading(false);
     })();
@@ -1768,14 +1772,25 @@ function BehaviorSection({ settings, update }: SectionProps) {
     <SectionShell
       id="behavior"
       title="Behavior"
-      description="Safety prompts for destructive actions."
-      searchKeywords="destructive confirm prompts safety behavior"
+      description="Safety prompts for destructive actions and editor helpers."
+      searchKeywords="destructive confirm prompts safety behavior spell check spelling dictionary editor"
     >
       <ToggleRow
         label="Confirm destructive actions"
         description='Show "Are you sure?" prompts before deleting tasks, projects, etc.'
         checked={settings.confirmDestructiveActions}
         onChange={(v) => void update({ confirmDestructiveActions: v })}
+      />
+      <ToggleRow
+        label="Spell-check in the editor"
+        description="Underline likely misspellings while you write notes, with click-to-fix suggestions. The dictionary already knows common lab terms, and you can add your own words. Off by default, bench shorthand can read as misspelled."
+        checked={settings.spellCheckInEditor ?? false}
+        onChange={(v) => {
+          // Mirror to localStorage first so the editor reads the new value on
+          // its next mount, then persist to settings.json.
+          setSpellCheckEnabledLocal(v);
+          void update({ spellCheckInEditor: v });
+        }}
       />
       {/* Lab Mode retirement R1b (R1b sharing completion manager, 2026-05-23):
           the global "Hide my goals from lab view" toggle is removed.

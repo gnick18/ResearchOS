@@ -67,7 +67,26 @@ type CMModules = {
   // Chip 2b: configures the image widget's relative-src -> blob-URL resolution
   // with the editor base path, matching the LiveMarkdownEditor preview.
   imageBasePathExt: typeof import("@/lib/markdown/cm-inline-reveal/inline-reveal").imageBasePathExt;
+  // Spell-check: an optional @codemirror/lint linter that underlines misspelled
+  // words with click-to-fix suggestions. Loaded with the editor chunk and only
+  // spread into the extension set when the user's pref is on (gate read below).
+  spellcheckExtension: typeof import("@/lib/markdown/cm-spellcheck/spellcheck").spellcheckExtension;
 };
+
+/**
+ * Read the spell-check pref synchronously from localStorage (mirrored from
+ * settings.json by the Settings UI, same first-paint pattern as the editor
+ * width preset). Kept inline so the editor module never statically pulls the
+ * spellcheck code; the linter itself rides the dynamic CM import below.
+ */
+function spellcheckEnabled(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem("ros.spellcheck.enabled") === "1";
+  } catch {
+    return false;
+  }
+}
 
 interface InlineMarkdownEditorProps {
   /** The markdown source. The CM6 document is seeded from this and reconciled
@@ -179,6 +198,7 @@ function buildExtensions(
     tags,
     inlineRevealExtension,
     imageBasePathExt,
+    spellcheckExtension,
   } = mods;
 
   const highlightStyle = HighlightStyle.define([
@@ -247,6 +267,10 @@ function buildExtensions(
     // image-base-path facet configures the image widget's blob resolution.
     imageBasePathExt(imageBasePath),
     inlineRevealExtension,
+    // Spell-check (optional): only when the user enabled it AND the surface is
+    // editable (no point underlining words you can't fix). Additive and fully
+    // self-contained; the linter is wrapped so it can never break typing.
+    ...(editable && spellcheckEnabled() ? [spellcheckExtension()] : []),
     EditorView.lineWrapping,
     theme,
     EditorState.readOnly.of(!editable),
@@ -474,6 +498,7 @@ export default function InlineMarkdownEditor({
         languageMod,
         highlightMod,
         inlineRevealMod,
+        spellcheckMod,
       ] = await Promise.all([
         import("@codemirror/state"),
         import("@codemirror/view"),
@@ -482,6 +507,7 @@ export default function InlineMarkdownEditor({
         import("@codemirror/language"),
         import("@lezer/highlight"),
         import("@/lib/markdown/cm-inline-reveal/inline-reveal"),
+        import("@/lib/markdown/cm-spellcheck/spellcheck"),
       ]);
       if (cancelled) return;
 
@@ -502,6 +528,7 @@ export default function InlineMarkdownEditor({
         tags: highlightMod.tags,
         inlineRevealExtension: inlineRevealMod.inlineRevealExtension,
         imageBasePathExt: inlineRevealMod.imageBasePathExt,
+        spellcheckExtension: spellcheckMod.spellcheckExtension,
       };
       modsRef.current = mods;
 

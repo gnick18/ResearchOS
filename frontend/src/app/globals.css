@@ -961,3 +961,19 @@ html[data-annotator-open] [data-floating-dock] {
   }
 }
 
+/* ── Spell-check underline (InlineMarkdownEditor) ────────────────────────────
+ * The @codemirror/lint spell-checker marks misspelled words with our
+ * `cm-spell-error` class (on top of the default lint range). We override the
+ * library's solid-underline image with the universally-recognized red wavy
+ * underline so the cue reads as "spelling", not "lint error". Scoped to the
+ * spell class only, so other lint sources (none today) keep their styling. */
+.cm-lintRange.cm-spell-error {
+  background-image: none;
+  text-decoration: underline wavy #dc2626;
+  text-decoration-skip-ink: none;
+  text-underline-offset: 2px;
+}
+[data-theme="dark"] .cm-lintRange.cm-spell-error {
+  text-decoration-color: #f87171;
+}
+

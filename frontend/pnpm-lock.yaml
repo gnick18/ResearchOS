@@ -23,6 +23,9 @@ importers:
       '@codemirror/language':
         specifier: 6.12.3
         version: 6.12.3
+      '@codemirror/lint':
+        specifier: ^6.9.6
+        version: 6.9.6
       '@codemirror/state':
         specifier: 6.6.0
         version: 6.6.0
@@ -92,6 +95,9 @@ importers:
       date-fns:
         specifier: ^4.1.0
         version: 4.3.0
+      dictionary-en:
+        specifier: ^4.0.0
+        version: 4.0.0
       diff:
         specifier: 9.0.0
         version: 9.0.0
@@ -131,6 +137,9 @@ importers:
       next-auth:
         specifier: 5.0.0-beta.31
         version: 5.0.0-beta.31(next@16.1.6(@babel/core@7.29.7)(@playwright/test@1.60.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)
+      nspell:
+        specifier: ^2.1.5
+        version: 2.1.5
       qrcode:
         specifier: ^1.5.4
         version: 1.5.4
@@ -2163,6 +2172,9 @@ packages:
   dfa@1.2.0:
     resolution: {integrity: sha512-ED3jP8saaweFTjeGX8HQPjeC1YYyZs98jGNZx6IiBvxW7JG5v492kamAQB3m2wop07CvU/RQmzcKr6bgcC5D/Q==}
 
+  dictionary-en@4.0.0:
+    resolution: {integrity: sha512-3NHnE1uq33ZE/CIwaZ6gqxa4BnglHnxeAcTM0GJ7cmtRGcvX9InMK/IqLtYcUMFCUpUNgybH+DzkqdgAo3F1zg==}
+
   diff@9.0.0:
     resolution: {integrity: sha512-svtcdpS8CgJyqAjEQIXdb3OjhFVVYjzGAPO8WGCmRbrml64SPw/jJD4GoE98aR7r25A0XcgrK3F02yw9R/vhQw==}
     engines: {node: '>=0.3.1'}
@@ -2744,6 +2756,10 @@ packages:
   is-boolean-object@1.2.2:
     resolution: {integrity: sha512-wa56o2/ElJMYqjCjGkXri7it5FbebW5usLw/nPmCMs5DeZ7eziSYZhSmPRn0txqeW4LnAmQQU7FgqLpsEFKM4A==}
     engines: {node: '>= 0.4'}
+
+  is-buffer@2.0.5:
+    resolution: {integrity: sha512-i2R6zNFDwgEHJyQUtJEk0XFi1i0dPFn/oqjK3/vPCcDeJvW5NQ83V8QbicfF1SupOaB0h8ntgBC2YiE7dfyctQ==}
+    engines: {node: '>=4'}
 
   is-bun-module@2.0.0:
     resolution: {integrity: sha512-gNCGbnnnnFAUGKeZ9PdbyeGYJqewpmc2aKHUEMO5nQPWU9lOmv7jcmQIv+qHD8fXW6W7qfuCwX4rY9LNRjXrkQ==}
@@ -3334,6 +3350,9 @@ packages:
 
   normalize-svg-path@1.1.0:
     resolution: {integrity: sha512-r9KHKG2UUeB5LoTouwDzBy2VxXlHsiM6fyLQvnJa0S5hrhzqElH/CH7TUGhT1fVvIYBIKf3OpY4YJ4CK+iaqHg==}
+
+  nspell@2.1.5:
+    resolution: {integrity: sha512-PSStyugKMiD9mHmqI/CR5xXrSIGejUXPlo88FBRq5Og1kO5QwQ5Ilu8D8O5I/SHpoS+mibpw6uKA8rd3vXd2Sg==}
 
   nth-check@2.1.1:
     resolution: {integrity: sha512-lqjrjmaOoAnWfMmBPL+XNnynZh2+swxiX3WUE0s4yEHI6m+AwrK2UZOimIRl3X/4QctVqS8AiZjFqyOGrMXb/w==}
@@ -6261,6 +6280,8 @@ snapshots:
 
   dfa@1.2.0: {}
 
+  dictionary-en@4.0.0: {}
+
   diff@9.0.0: {}
 
   dijkstrajs@1.0.3: {}
@@ -7047,6 +7068,8 @@ snapshots:
       call-bound: 1.0.4
       has-tostringtag: 1.0.2
 
+  is-buffer@2.0.5: {}
+
   is-bun-module@2.0.0:
     dependencies:
       semver: 7.8.1
@@ -7816,6 +7839,10 @@ snapshots:
   normalize-svg-path@1.1.0:
     dependencies:
       svg-arc-to-cubic-bezier: 3.2.0
+
+  nspell@2.1.5:
+    dependencies:
+      is-buffer: 2.0.5
 
   nth-check@2.1.1:
     dependencies:

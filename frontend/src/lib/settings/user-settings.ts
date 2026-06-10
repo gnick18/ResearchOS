@@ -291,6 +291,16 @@ export interface UserSettings {
   // garbage value falls back to the default at read time.
   editorWidthPreset?: EditorWidthPreset;
 
+  // Spell-check in the Markdown editor (spell-check build, 2026-06-09). DATA-
+  // SHAPE CHANGE: additive + optional. When on, the inline editor underlines
+  // misspelled words (an English dictionary seeded with a curated lab wordlist
+  // plus the user's "Add to dictionary" words) and offers click-to-fix
+  // suggestions. Default OFF: spell-check on bench shorthand is noisy, so it is
+  // opt-in. The Settings toggle mirrors this to localStorage
+  // (`ros.spellcheck.enabled`) so the editor reads it synchronously at mount,
+  // the same first-paint pattern as editorWidthPreset. Absent = off.
+  spellCheckInEditor?: boolean;
+
   // LEGACY (dashboard-unification build, 2026-05-29): superseded by
   // `dashboard_layout` above. Kept READABLE for one release so the
   // one-time migration can seed `dashboard_layout` from it for an
