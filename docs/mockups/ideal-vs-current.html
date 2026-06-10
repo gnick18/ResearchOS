@@ -1,0 +1,193 @@
+<!doctype html><html lang="en" data-theme="light"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ResearchOS mobile, ideal vs current app</title>
+<style>
+  :root{
+    --sky:#1AA0E6; --purple:#5B47D6; --ink:#0b1320; --ink-2:#3c4656; --ink-3:#8a93a3;
+    --bg:#f2f3f7; --group:#ffffff; --sep:rgba(60,67,86,.10);
+    --card-shadow:0 1px 2px rgba(16,24,40,.05), 0 8px 24px rgba(16,24,40,.06);
+    --tabbar:rgba(248,249,252,.72);
+    --ok:#1a9c5b; --ok-bg:#e4f7ec; --danger:#e5484d; --danger-bg:#fdecec; --warn:#d98a0b; --warn-bg:#fdf3e2;
+    --r1:#FFD2B0; --r2:#FFF1A8; --r3:#B7EBB1; --r4:#A6D2F4; --r5:#D6B5F0;
+    --radius:18px; --page:#e9ebf1; --coral:#FF6F61; --amber:#F59E0B;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--page);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+
+  /* ---- page chrome ---- */
+  .top{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--page) 90%,transparent);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--sep);padding:16px 24px}
+  .top h1{font-size:19px;margin:0 0 3px;font-weight:800;letter-spacing:-.02em}
+  .top p{font-size:13px;color:var(--ink-3);margin:0;max-width:760px;line-height:1.55}
+  .top .legend{display:flex;gap:18px;margin-top:10px;font-size:12.5px;color:var(--ink-2);flex-wrap:wrap}
+  .top .legend b{font-weight:700}
+  .swatch{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:5px}
+  .wrap{max-width:980px;margin:0 auto;padding:26px 20px 120px}
+  .sec-title{font-size:13px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em;margin:34px 4px 4px}
+  .sec-sub{font-size:13px;color:var(--ink-2);margin:0 4px 18px;max-width:760px;line-height:1.55}
+
+  .cmp{background:var(--group);border:1px solid var(--sep);border-radius:22px;box-shadow:var(--card-shadow);padding:20px 22px 24px;margin-bottom:22px}
+  .cmp-head{display:flex;align-items:baseline;gap:10px;margin-bottom:4px}
+  .cmp-head .n{font-size:17px;font-weight:800;letter-spacing:-.01em}
+  .cmp-head .tag{font-size:11px;font-weight:700;border-radius:980px;padding:2px 9px;background:var(--ok-bg);color:var(--ok)}
+  .cmp-head .tag.close{background:color-mix(in srgb,var(--sky) 14%,transparent);color:var(--sky)}
+  .cmp-note{font-size:12.5px;color:var(--ink-2);line-height:1.5;margin:0 0 16px;max-width:720px;border-left:2px solid var(--sky);padding-left:11px}
+  .pair{display:flex;gap:26px;justify-content:center;flex-wrap:wrap}
+  .col{display:flex;flex-direction:column;align-items:center;gap:9px}
+  .col .lbl{font-size:12px;font-weight:700;letter-spacing:.02em;display:flex;align-items:center;gap:6px}
+  .col .lbl.ideal{color:var(--purple)}
+  .col .lbl.live{color:var(--sky)}
+  .col .lbl .d{width:8px;height:8px;border-radius:50%}
+  .col .lbl.ideal .d{background:var(--purple)}
+  .col .lbl.live .d{background:var(--sky)}
+  .single .pair{justify-content:flex-start}
+
+  /* ---- phone bezel (shared) ---- */
+  .phone{width:300px;height:618px;border-radius:44px;background:var(--bg);position:relative;overflow:hidden;border:9px solid #0c0d10;box-shadow:0 24px 50px rgba(16,24,40,.20),0 5px 14px rgba(16,24,40,.10)}
+  .phone.ideal::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5));z-index:20}
+  .phone.shot img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
+
+  /* ---- ideal frame internals (from ideal-current-app) ---- */
+  .scr{position:absolute;inset:0;display:flex;flex-direction:column}
+  .statusbar{height:42px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 24px 6px;font-size:12px;font-weight:600}
+  .statusbar .r{display:flex;gap:6px;align-items:center}
+  .content{flex:1;overflow:hidden;position:relative}
+  .scroll{position:absolute;inset:0;overflow:auto;padding:0 16px 90px}.scroll::-webkit-scrollbar{display:none}
+  .rainbow{height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5))}
+  .largetitle{font-size:29px;font-weight:800;letter-spacing:-.03em;margin:6px 2px 4px}
+  .subtitle{font-size:13px;color:var(--ink-3);margin:0 2px 14px;line-height:1.45}
+  .group{background:var(--group);border-radius:var(--radius);box-shadow:var(--card-shadow);overflow:hidden;margin-bottom:14px}
+  .row{display:flex;align-items:center;gap:12px;padding:13px 15px;position:relative}
+  .row + .row::before{content:"";position:absolute;top:0;left:48px;right:0;height:1px;background:var(--sep)}
+  .row .ico{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff}
+  .row .tx{flex:1;min-width:0}.row .t{font-size:14px;font-weight:600;letter-spacing:-.01em}.row .s{font-size:12px;color:var(--ink-3);margin-top:1px}
+  .chev{color:var(--ink-3);opacity:.5}
+  .pill{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:980px}.pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.muted{background:var(--sep);color:var(--ink-3)}.pill.danger{background:var(--danger-bg);color:var(--danger)}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;border-radius:14px;padding:14px;font:inherit;font-size:15px;font-weight:650;cursor:pointer}
+  .btn.primary{background:var(--sky);color:#fff}.btn.secondary{background:var(--group);color:var(--sky);box-shadow:var(--card-shadow)}.btn.tinted{background:color-mix(in srgb,var(--sky) 14%,transparent);color:var(--sky)}
+  .sec-h{font-size:12px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.03em;margin:6px 8px 8px}
+  .tabbar{position:absolute;left:0;right:0;bottom:0;height:76px;background:var(--tabbar);backdrop-filter:saturate(180%) blur(22px);border-top:1px solid var(--sep);display:flex;padding:7px 2px 22px}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--ink-3);font-size:9.5px;font-weight:600}.tab.active{color:var(--sky)}.tab svg{width:22px;height:22px}
+  .bot .eye{transform-box:fill-box;transform-origin:center;animation:blink 5.2s infinite}@keyframes blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
+  .botwrap{animation:sway 6.5s ease-in-out infinite;transform-origin:50% 90%;display:inline-block}@keyframes sway{0%,100%{transform:translateY(0) rotate(-1.6deg)}50%{transform:translateY(-1.5%) rotate(1.6deg)}}
+  .display{font-size:40px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;text-align:center;color:var(--sky)}.display .hint{display:block;font-size:10px;font-weight:600;color:var(--ink-3);letter-spacing:.08em;margin-top:2px}
+  .keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}.key{aspect-ratio:1.7;border:1px solid var(--sep);background:var(--group);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:600;font-variant-numeric:tabular-nums}
+  .qr{width:150px;height:150px;display:grid;grid-template-columns:repeat(13,1fr);gap:2px;background:#fff;padding:10px;border-radius:14px;margin:0 auto}.qr i{background:#0b1320;border-radius:1px}.qr i.off{background:transparent}
+  .ctabs{display:flex;gap:7px;overflow:auto;padding:2px 2px 12px}.ctabs::-webkit-scrollbar{display:none}
+  .ctab{flex:0 0 auto;font-size:12px;font-weight:600;padding:6px 12px;border-radius:980px;background:var(--group);box-shadow:var(--card-shadow);color:var(--ink-2);white-space:nowrap}
+  .ctab.on{background:var(--sky);color:#fff;box-shadow:none}
+  .thumb{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#23304a,#0e1626);flex-shrink:0}
+  .search{display:flex;align-items:center;gap:9px;background:var(--group);box-shadow:var(--card-shadow);border-radius:12px;padding:10px 13px;margin-bottom:6px;color:var(--ink-3);font-size:14px}
+  .ask{display:flex;align-items:center;gap:8px;border-radius:12px;padding:11px 13px;margin:8px 2px 14px;background:linear-gradient(135deg,color-mix(in srgb,var(--sky) 14%,transparent),color-mix(in srgb,var(--purple) 12%,transparent));font-size:12.5px;font-weight:600}
+  svg{display:block}
+  footer{max-width:980px;margin:0 auto;padding:10px 24px 70px;color:var(--ink-3);font-size:12.5px;line-height:1.6}
+  footer a{color:var(--sky)}
+  @media(max-width:680px){.pair{gap:18px}.phone{width:264px;height:544px}}
+</style></head><body>
+
+<div class="top">
+  <h1>ResearchOS mobile, ideal vs current app</h1>
+  <p>Left is the authored ideal frame (the design target). Right is a live screenshot of the real Expo-Go app on the Pixel 7 emulator, demo mode, after the cosmetics pass landed. Eyeball how close the shipped app got to each target.</p>
+  <div class="legend">
+    <span><span class="swatch" style="background:#1AA0E6"></span><b>sky</b> #1AA0E6</span>
+    <span><span class="swatch" style="background:#FF6F61"></span><b>coral</b> #FF6F61</span>
+    <span><span class="swatch" style="background:#F59E0B"></span><b>amber</b> #F59E0B</span>
+    <span><span class="swatch" style="background:#f2f3f7;border:1px solid var(--sep)"></span><b>canvas</b> #f2f3f7</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="sec-title">Section 1 &middot; ideal vs live, the five tabs + connect</div>
+  <div class="sec-sub">These six screens have a faithful authored ideal. The shipped app adopted this exact structure (five tabs plus the connect screen), so each pair is a true target-vs-result.</div>
+  <div id="paired"></div>
+
+  <div class="sec-title">Section 2 &middot; live app, popups and sub-screens</div>
+  <div class="sec-sub">The rest of the app the cosmetics pass touched. No standalone ideal frame was authored for these popups, sheets, and inner pages, so they are shown as live captures for reference. Per request, only the base wiki page (above) plus one rendered wiki article are included, not every wiki page.</div>
+  <div id="solo"></div>
+
+</div>
+
+<footer>
+  Ideal frames rendered live from the same machinery as
+  <a href="ideal-current-app.html">ideal-current-app.html</a> and
+  <a href="2026-06-08-mobile-apple-polish-v2.html">2026-06-08-mobile-apple-polish-v2.html</a>.
+  Screenshots in <a href="emushots/">emushots/</a>, all demo-mode fixture data (no real research).
+  See also the change-focused <a href="mobile-cosmetics-comparison.html">mobile-cosmetics-comparison.html</a>.
+</footer>
+
+<script>
+function bot(size){return `<span class="bot botwrap" style="width:${size*0.78}px;height:${size}px"><svg viewBox="8 0 24 34" width="${size*0.78}" height="${size}" fill="none"><defs><linearGradient id="liq${size}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--r1)"/><stop offset=".25" stop-color="var(--r2)"/><stop offset=".5" stop-color="var(--r3)"/><stop offset=".75" stop-color="var(--r4)"/><stop offset="1" stop-color="var(--r5)"/></linearGradient></defs><path d="M13 12 L13 27 Q13 31 17 31 L23 31 Q27 31 27 27 L27 12 Z" fill="#fff"/><path d="M13 21 L13 27 Q13 31 17 31 L23 31 Q27 31 27 27 L27 21 Z" fill="url(#liq${size})"/><path d="M11 12 L29 12" stroke="var(--sky)" stroke-width="2" stroke-linecap="round"/><path d="M13 12 L13 27 Q13 31 17 31 L23 31 Q27 31 27 27 L27 12" stroke="var(--sky)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 8 C 22 5, 25 3, 27 6" stroke="var(--sky)" stroke-width="2" stroke-linecap="round"/><circle class="eye" cx="17.5" cy="18" r="1.25" fill="var(--sky)"/><circle class="eye" cx="22.5" cy="18" r="1.25" fill="var(--sky)"/><path d="M17.5 22 Q20 24.5 22.5 22" stroke="var(--sky)" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg></span>`;}
+const I={
+ cam:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L19 6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.3"/></svg>',
+ lib:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>',
+ chev:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+ send:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg>',
+ calc:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6M8 11h0M12 11h0M16 11h0M8 15h0M12 15h0M16 15v2"/></svg>',
+ timer:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 13V9M9 2h6"/></svg>',
+ book:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M19 19v2"/></svg>',
+ srch:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>',
+ spark:'<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none"><path d="M12 2l1.6 5.4L19 9l-5.4 1.6L12 16l-1.6-5.4L5 9l5.4-1.6z"/></svg>',
+ ok:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
+ bolt:'<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></svg>',
+ note:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4a2 2 0 0 1 2-2h8l4 4v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/><path d="M9 8h5M9 12h7M9 16h4"/></svg>',
+ box:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>',
+ edit:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+};
+function sb(){return `<div class="statusbar"><span>9:41</span><span class="r">${I.bolt}<svg width="16" height="11" viewBox="0 0 24 16" fill="currentColor"><rect x="0" y="6" width="4" height="10" rx="1"/><rect x="6" y="3" width="4" height="13" rx="1"/><rect x="12" y="0" width="4" height="16" rx="1"/></svg></span></div>`;}
+function tabbar5(active){const t=[['notebook','Notebook',I.note],['inventory','Inventory',I.box],['calc','Calc',I.calc],['timer','Timer',I.timer],['wiki','Wiki',I.book]];return `<div class="tabbar">${t.map(x=>`<div class="tab ${x[0]===active?'active':''}">${x[2]}<span>${x[1]}</span></div>`).join('')}</div>`;}
+function keycell(lab,bg,col,fs){return `<div style="aspect-ratio:1.35;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:${fs||19}px;font-weight:600;background:${bg};color:${col};box-shadow:var(--card-shadow)">${lab}</div>`;}
+
+// ---- ideal frames ----
+const IDEAL={
+ notebook:`<div class="scr">${sb()}<div class="content"><div class="scroll" style="padding-top:8px"><div class="largetitle">Notebook</div><div class="subtitle">Capture the bench into your lab notebook.</div><div class="group"><div class="row"><span class="ico" style="background:var(--ok)">${I.ok}</span><div class="tx"><div class="t">Tremblay Lab</div><div class="s">Connected</div></div><span style="color:var(--sky);font-size:13px;font-weight:600">Unpair</span></div></div><div style="display:flex;gap:11px;margin-bottom:11px"><button class="btn primary" style="flex:1;flex-direction:column;gap:6px;padding:18px 12px">${I.cam}<span style="font-size:14px">Take a photo</span></button><button class="btn" style="flex:1;flex-direction:column;gap:6px;padding:18px 12px;background:var(--coral);color:#fff">${I.edit}<span style="font-size:14px">Quick note</span></button></div><button class="btn secondary" style="margin-bottom:18px;color:var(--amber)">${I.lib} Upload from camera roll</button><div class="sec-h" style="display:flex;justify-content:space-between"><span>Outbox</span><span style="color:var(--sky)">Send all</span></div><div class="group"><div class="row"><span class="thumb"></span><div class="tx"><div class="t">Post-trypsin suspension</div><div class="s">6:42 PM</div></div><span class="pill muted">Queued</span></div><div class="row"><span class="thumb"></span><div class="tx"><div class="t">Plate 4 brightfield, GFP</div><div class="s">6:42 PM</div></div><span class="pill muted">Queued</span></div></div></div></div>${tabbar5('notebook')}</div>`,
+ inventory:`<div class="scr">${sb()}<div class="content"><div class="scroll" style="padding-top:8px"><div class="largetitle">Inventory</div><div class="subtitle">Track stock and reorder from the bench.</div><div class="sec-h" style="display:flex;justify-content:space-between"><span>Tracked items</span><span style="color:var(--amber)">Reorder low</span></div><div class="group"><div class="row"><span class="ico" style="background:var(--sky)">${I.box}</span><div class="tx"><div class="t">Q5 polymerase</div><div class="s">NEB &middot; 4 of 10 left</div></div><span class="pill danger">Low</span></div><div class="row"><span class="ico" style="background:var(--sky)">${I.box}</span><div class="tx"><div class="t">DPBS 1x</div><div class="s">Gibco &middot; 12 left</div></div><span class="pill ok">OK</span></div></div><div class="sec-h">Purchase orders</div><div class="group"><div class="row"><div class="tx"><div class="t">PO-2041 &middot; Sigma</div><div class="s">3 items &middot; ordered Jun 6</div></div><span class="pill muted">In transit</span></div></div><button class="btn primary">${I.cam} Scan a barcode</button></div></div>${tabbar5('inventory')}</div>`,
+ calc:`<div class="scr">${sb()}<div class="content"><div class="scroll" style="padding-top:8px"><div class="largetitle">Calc</div><div class="ctabs">${['Scientific','Molarity','Dilution','Serial','Primer Tm'].map((t,i)=>`<div class="ctab ${i===0?'on':''}">${t}</div>`).join('')}</div><div style="background:#0e1525;border-radius:16px;padding:16px 18px;margin-bottom:12px;display:flex;flex-direction:column;gap:4px;min-height:88px;justify-content:flex-end"><div style="text-align:right;color:#8a93a3;font-size:13px">2 × sin(45)</div><div style="text-align:right;color:#fff;font-size:32px;font-weight:700;font-variant-numeric:tabular-nums">1.4142</div></div><div style="display:flex;gap:7px;overflow:auto;padding-bottom:12px"><span style="flex:0 0 auto;display:inline-flex;border:1px solid var(--sep);border-radius:9px;overflow:hidden"><span style="padding:7px 12px;background:var(--sky);color:#fff;font-size:12px;font-weight:600">RAD</span><span style="padding:7px 12px;font-size:12px;font-weight:600;color:var(--ink-3)">DEG</span></span>${['sin','cos','tan','asin'].map((f,i)=>`<span style="flex:0 0 auto;padding:7px 13px;border-radius:980px;font-size:12px;font-weight:600;background:${i===0?'var(--amber)':'color-mix(in srgb,var(--sky) 12%,transparent)'};color:${i===0?'#fff':'var(--sky)'}">${f}</span>`).join('')}</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:9px">${keycell('AC','var(--coral)','#fff',17)}${keycell('del','var(--sky)','#fff',17)}${keycell('Ans','var(--sky)','#fff',17)}${keycell('÷','color-mix(in srgb,var(--sky) 12%,transparent)','var(--sky)')}${keycell('7','var(--group)','var(--ink)')}${keycell('8','var(--group)','var(--ink)')}${keycell('9','var(--group)','var(--ink)')}${keycell('×','color-mix(in srgb,var(--sky) 12%,transparent)','var(--sky)')}${keycell('4','var(--group)','var(--ink)')}${keycell('5','var(--group)','var(--ink)')}${keycell('6','var(--group)','var(--ink)')}${keycell('−','color-mix(in srgb,var(--sky) 12%,transparent)','var(--sky)')}${keycell('1','var(--group)','var(--ink)')}${keycell('2','var(--group)','var(--ink)')}${keycell('3','var(--group)','var(--ink)')}${keycell('+','color-mix(in srgb,var(--sky) 12%,transparent)','var(--sky)')}<div style="grid-column:span 2;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:600;background:var(--group);box-shadow:var(--card-shadow)">0</div>${keycell('.','var(--group)','var(--ink)')}${keycell('=','var(--amber)','#fff',21)}</div></div></div>${tabbar5('calc')}</div>`,
+ timer:`<div class="scr">${sb()}<div class="content"><div class="scroll" style="padding-top:8px"><div class="largetitle">Timers</div><div class="subtitle">Start a countdown and get an alert when it finishes.</div><div class="group" style="padding:15px 16px"><div style="display:flex;align-items:center;gap:13px"><span class="ico" style="background:var(--amber)">${I.timer}</span><div class="tx"><div class="t" style="font-size:21px;font-variant-numeric:tabular-nums">08:24</div><div class="s">Gel running</div></div><span style="color:var(--coral);font-size:13px;font-weight:600">Stop</span></div></div><div class="sec-h">Quick start</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 2px 16px">${['1 min','5 min','10 min','30 min','1 hr'].map(t=>`<span style="font-size:13px;font-weight:600;color:var(--sky);border:1px solid color-mix(in srgb,var(--sky) 38%,transparent);border-radius:980px;padding:8px 14px">${t}</span>`).join('')}</div><div class="display" style="font-size:38px">00:00:00<span class="hint">HOURS : MIN : SEC</span></div><div class="keypad" style="margin-top:12px">${['1','2','3','4','5','6','7','8','9','00','0','del'].map(k=>`<div class="key">${k}</div>`).join('')}</div></div></div>${tabbar5('timer')}</div>`,
+ wiki:`<div class="scr">${sb()}<div class="content"><div class="scroll" style="padding-top:8px"><div class="largetitle">Wiki</div><div class="subtitle">Guides and help, searchable across every page.</div><div class="search">${I.srch} Search the wiki...</div><div class="ask">${I.spark} Ask: how do I pair my phone?</div><div class="sec-h">Start here</div><div class="group"><div class="row"><span class="ico" style="background:var(--sky)">${I.book}</span><div class="tx"><div class="t">Read this one first</div><div class="s">The 7 things worth knowing up front</div></div>${I.chev}</div></div><div class="sec-h">Getting started</div><div class="group"><div class="row"><div class="tx"><div class="t">Overview</div></div>${I.chev}</div><div class="row"><div class="tx"><div class="t">Connecting your folder</div></div>${I.chev}</div><div class="row"><div class="tx"><div class="t">Creating a user</div></div>${I.chev}</div></div></div></div>${tabbar5('wiki')}</div>`,
+ connect:`<div class="scr"><div class="rainbow"></div>${sb()}<div class="content"><div class="scroll" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding-bottom:40px">${bot(104)}<div class="largetitle" style="margin-top:8px">Connect</div><div class="subtitle" style="max-width:250px">Pair with ResearchOS on your laptop to capture, glance, and sync at the bench.</div><button class="btn primary" style="width:230px;margin-bottom:10px">Connect to your laptop</button><button class="btn secondary" style="width:230px">Enter a code</button></div></div></div>`,
+};
+
+const PAIRS=[
+ {n:'Notebook',tag:'shipped',note:'The home tab. Blue Take a photo, coral Quick note, amber Upload from camera roll, the trio sprinkled exactly as drawn. Outbox below, all on the near-white grey canvas.',ideal:'notebook',shot:'01_notebook_demo.png'},
+ {n:'Inventory',tag:'shipped',note:'Tracked items with stock pills and a scan action. Same card-on-grey rhythm as the ideal.',ideal:'inventory',shot:'02_inventory.png'},
+ {n:'Calc',tag:'shipped',note:'Scientific keypad. Coral AC, blue operators and digits, amber equals. The dark result strip and function chips match the target.',ideal:'calc',shot:'03_calc.png'},
+ {n:'Timer',tag:'shipped',note:'Quick-start presets in blue, large HH:MM:SS entry, keypad below. The running-timer accent (amber countdown, coral cancel) is the one trio fix this pass added.',ideal:'timer',shot:'04_timer.png'},
+ {n:'Wiki, base page',tag:'shipped',note:'Search field, Ask callout, Start here and Getting started groups. The live page pulls real wiki content but keeps the ideal layout.',ideal:'wiki',shot:'13_wiki_base.png'},
+ {n:'Connect, pre-pairing',tag:'close',note:'The screen a brand-new user lands on. BeakerBot anchors it for warmth (the fix this pass added) with the rainbow bar on top, matching the Connect ideal. The live copy and button labels differ slightly from the target wording.',ideal:'connect',shot:'12b_pairing_after.png'},
+];
+
+const SOLO=[
+ {n:'Wiki, rendered article',note:'One rendered article (Read this one first), showing how a wiki page reads on the phone. Per request, only this one plus the base page above, not every wiki page.',shot:'14_wiki_rendered.png'},
+ {n:'Notebook chooser sheet',note:'The inverse-sheet polish, a pure-white sheet with grey-inset card groups so the popup pops off the grey page. Recommended row sky-tinted.',shot:'09b_chooser_white_after.png'},
+ {n:'Calc switcher dropdown',note:'Tap Scientific to switch calculators. White sheet, active row sky-tinted with a sky check.',shot:'11_calc_switcher.png'},
+ {n:'Quick note compose',note:'The coral Quick note action opens this compose sheet.',shot:'08_quicknote_compose.png'},
+ {n:'Send, sent state',note:'An outbox item after sending, green Sent pill, with the laptop-sync reassurance line.',shot:'10_send_sent_state.png'},
+ {n:'Settings',note:'Reached from the gear on the Notebook header.',shot:'06_settings.png'},
+];
+
+function phoneIdeal(key){return `<div class="phone ideal">${IDEAL[key]}</div>`;}
+function phoneShot(src){return `<div class="phone shot"><img src="emushots/${src}" alt=""></div>`;}
+
+document.getElementById('paired').innerHTML=PAIRS.map(p=>`
+ <div class="cmp">
+   <div class="cmp-head"><span class="n">${p.n}</span><span class="tag ${p.tag==='close'?'close':''}">${p.tag}</span></div>
+   <div class="cmp-note">${p.note}</div>
+   <div class="pair">
+     <div class="col"><span class="lbl ideal"><span class="d"></span>Ideal</span>${phoneIdeal(p.ideal)}</div>
+     <div class="col"><span class="lbl live"><span class="d"></span>Live app</span>${phoneShot(p.shot)}</div>
+   </div>
+ </div>`).join('');
+
+document.getElementById('solo').innerHTML=SOLO.map(p=>`
+ <div class="cmp single">
+   <div class="cmp-head"><span class="n">${p.n}</span></div>
+   <div class="cmp-note">${p.note}</div>
+   <div class="pair">
+     <div class="col"><span class="lbl live"><span class="d"></span>Live app</span>${phoneShot(p.shot)}</div>
+   </div>
+ </div>`).join('');
+
+// fill QR cells if any
+document.querySelectorAll('.qr').forEach(q=>{let h='';for(let i=0;i<169;i++)h+=`<i class="${(i*7+i%5)%3?'':'off'}"></i>`;q.innerHTML=h;});
+</script>
+</body></html>
