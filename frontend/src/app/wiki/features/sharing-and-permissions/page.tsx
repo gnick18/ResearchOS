@@ -226,6 +226,54 @@ shared_with: SharedUser[];`}</code>
         Inbox and its badge behave.
       </p>
 
+      <h2>Sharing outside your lab</h2>
+      <p>
+        Everything above is sharing inside one folder, where labmates already see
+        the same files. Sharing with a researcher who is not in your folder works
+        differently, because they have nothing of yours locally. The share dialog
+        handles this on its <strong>Outside your lab</strong> tab, and there are
+        two ways to do it.
+      </p>
+
+      <h3>A one-time encrypted send</h3>
+      <p>
+        Send a note, method, project, or file to someone as a frozen copy. You
+        pick the recipient by the email tied to their ResearchOS profile, and
+        ResearchOS encrypts the payload end to end before it leaves your machine.
+        The relay only ever holds ciphertext, never the readable content, and the
+        copy is transient. It is deleted the moment the recipient imports it, or
+        after thirty days if they never do. This is the right choice for handing
+        someone a snapshot you do not need to keep editing together.
+      </p>
+
+      <h3>Live collaboration with an outside researcher</h3>
+      <p>
+        Grant a researcher outside your folder live, editable access to a note,
+        the same real-time collaboration labmates get. The document stays live
+        until you revoke it. Because the outside person holds nothing of yours
+        locally yet, accepting the invite writes a real copy into their own
+        folder, so they keep a local-first, exportable copy rather than a
+        cloud-only document. From then on both sides edit the same live document.
+      </p>
+
+      <h3>How the recipient finds and accepts it</h3>
+      <p>
+        An outside recipient sees the invite in their own{" "}
+        <strong>Shared with me</strong> list, the same place in-lab shares appear.
+        Before anything materializes, ResearchOS checks that the sender&apos;s
+        identity matches their published directory key, so a spoofed email cannot
+        push a document into someone&apos;s folder. The recipient accepts on
+        purpose, the copy is written locally, and they can decline or block a
+        sender they do not want. Revoking later stops the live updates but leaves
+        the recipient their last copy, the same way an export does.
+      </p>
+
+      <Callout variant="info" title="Off by default in the hosted beta">
+        Outside-your-lab sharing relies on the directory and relay, which are
+        turned off in the hosted beta, so it is a laptop and self-host feature
+        for now. The in-lab sharing above does not depend on it.
+      </Callout>
+
       <h2>Hosting a labmate&apos;s task in your project</h2>
       <p>
         Sharing a task one way is read or edit access on that task. Hosting goes a

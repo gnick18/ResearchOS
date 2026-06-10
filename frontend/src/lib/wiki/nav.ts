@@ -289,6 +289,11 @@ export const WIKI_NAV: WikiNode[] = [
         blurb: "Track buys against lab-wide funding accounts.",
       },
       {
+        href: "/wiki/features/cloud-and-plans",
+        label: "Cloud storage & plans",
+        blurb: "Local-first by default, an optional 5 GB shared lab pool, flat-price plans for heavy use, and only the PI ever pays.",
+      },
+      {
         href: "/wiki/features/inventory",
         label: "Inventory",
         blurb: "The inventory you will actually keep: count containers not volumes, one-tap status, and expiry, stale, and low signals computed for free.",
