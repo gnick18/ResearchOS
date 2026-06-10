@@ -78,6 +78,10 @@ function main() {
 
   const ledger = JSON.parse(readFileSync(LEDGER_PATH, "utf8"));
   const entries = ledger.entries || {};
+  // Routes deliberately out of scope (mobile, sharing, lab, billing). These are
+  // not "never screened, go audit them", they are "we chose not to cover these
+  // yet". Kept separate so the actionable subset stays honest.
+  const excludedRoutes = new Set(ledger.excludedRoutes || []);
   const head = git(["rev-parse", "--short", "HEAD"]);
 
   const onDisk = new Set(discoverWikiPages());
@@ -85,12 +89,14 @@ function main() {
 
   const stale = []; // source changed since screened
   const fresh = []; // unchanged since screened
-  const neverScreened = []; // on disk, not in ledger
+  const neverScreened = []; // on disk, not in ledger, in scope
+  const excluded = []; // on disk, intentionally out of scope
   const ledgerOrphans = []; // in ledger, page gone from disk
 
   for (const route of onDisk) {
     if (!inLedger.has(route)) {
-      neverScreened.push(route);
+      if (excludedRoutes.has(route)) excluded.push(route);
+      else neverScreened.push(route);
       continue;
     }
     const e = entries[route];
@@ -110,11 +116,13 @@ function main() {
 
   const result = {
     head,
-    counts: { onDisk: onDisk.size, fresh: fresh.length, stale: stale.length, neverScreened: neverScreened.length, ledgerOrphans: ledgerOrphans.length },
+    counts: { onDisk: onDisk.size, fresh: fresh.length, stale: stale.length, neverScreened: neverScreened.length, excluded: excluded.length, ledgerOrphans: ledgerOrphans.length },
     stale,
     neverScreened,
+    excluded,
     ledgerOrphans,
     // The actionable subset: routes a future audit should re-run agents for.
+    // Excluded routes are intentionally NOT here.
     needsReaudit: [...stale.map((s) => s.route), ...neverScreened].sort(),
   };
 
@@ -125,7 +133,7 @@ function main() {
 
   console.log(`Wiki audit freshness (HEAD ${head})`);
   console.log("=".repeat(48));
-  console.log(`On disk: ${onDisk.size}   Fresh: ${fresh.length}   Stale: ${stale.length}   Never screened: ${neverScreened.length}`);
+  console.log(`On disk: ${onDisk.size}   Fresh: ${fresh.length}   Stale: ${stale.length}   Never screened: ${neverScreened.length}   Excluded: ${excluded.length}`);
   if (stale.length) {
     console.log(`\nSTALE (source changed since last screen, re-audit these):`);
     for (const s of stale) {
@@ -144,8 +152,11 @@ function main() {
     console.log(`\nLEDGER ORPHANS (in ledger, page deleted, prune these):`);
     for (const r of ledgerOrphans) console.log(`  - /wiki/${r}`);
   }
+  if (excluded.length) {
+    console.log(`\nEXCLUDED (intentionally out of scope, not actionable): ${excluded.length} page(s).`);
+  }
   if (!stale.length && !neverScreened.length) {
-    console.log(`\nAll screened pages are fresh. No re-audit needed.`);
+    console.log(`\nAll in-scope screened pages are fresh. No re-audit needed.`);
   }
   console.log(`\nActionable subset to re-audit: ${result.needsReaudit.length} page(s).`);
 }

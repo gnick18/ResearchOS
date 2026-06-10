@@ -1,0 +1,865 @@
+{
+  "schemaVersion": 1,
+  "description": "Wiki audit freshness ledger. Each page records the source files it documents and the commit at which it was last heavily screened. Run scripts/wiki-audit-check.mjs to find pages whose source moved since.",
+  "lastFullAudit": "2026-06-09",
+  "excludedReason": "mobile, sharing, lab, and billing surfaces are out of scope for this audit cycle (hot, handled elsewhere)",
+  "excludedRoutes": [
+    "features/lab-experiments",
+    "features/lab-head",
+    "features/lab-head/audit-log",
+    "features/lab-head/edit-session-and-password",
+    "features/lab-head/soft-write-actions",
+    "features/lab-inbox",
+    "features/lab-inbox/announcements",
+    "features/lab-inbox/comments",
+    "features/lab-notes",
+    "features/lab-overview",
+    "features/one-on-ones",
+    "features/sharing-and-permissions",
+    "shared-lab-accounts",
+    "shared-lab-accounts/box",
+    "shared-lab-accounts/dropbox",
+    "shared-lab-accounts/google-drive",
+    "shared-lab-accounts/icloud",
+    "shared-lab-accounts/onedrive",
+    "trust/how-we-fund-it"
+  ],
+  "entries": {
+    "": {
+      "page": "frontend/src/app/wiki/page.tsx",
+      "sourceFiles": [
+        "frontend/src/lib/wiki/nav.ts",
+        "frontend/src/components/wiki/WikiPage.tsx",
+        "frontend/src/components/wiki/WikiTopBar.tsx",
+        "frontend/src/components/wiki/TryInDemo.tsx",
+        "frontend/src/components/wiki/Callout.tsx",
+        "frontend/src/components/AppShell.tsx",
+        "frontend/src/components/ResearchFolderSetupNew.tsx"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "compliance": {
+      "page": "frontend/src/app/wiki/compliance/page.tsx",
+      "sourceFiles": [
+        "frontend/src/lib/lab/pi-audit.ts",
+        "frontend/src/lib/deposit/curation.ts",
+        "frontend/src/lib/deposit/datacite.ts",
+        "frontend/src/lib/deposit/bundle.ts",
+        "frontend/src/lib/deposit/prefill.ts",
+        "frontend/src/lib/deposit/project-prefill.ts",
+        "frontend/src/lib/deposit/repositories.ts",
+        "frontend/src/lib/export/types.ts",
+        "frontend/src/lib/export/extract.ts",
+        "frontend/src/lib/export/orchestrate.ts",
+        "frontend/src/lib/export/raw.ts",
+        "frontend/src/lib/export/html.ts",
+        "frontend/src/lib/export/pdf.ts",
+        "frontend/src/components/DepositDialog.tsx",
+        "frontend/src/components/ProjectDepositDialog.tsx",
+        "frontend/src/lib/sharing/unified.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "compliance/labarchives-comparison": {
+      "page": "frontend/src/app/wiki/compliance/labarchives-comparison/page.tsx",
+      "sourceFiles": [
+        "frontend/src/lib/sharing/unified.ts",
+        "frontend/src/lib/history/task-viewer.ts",
+        "frontend/src/lib/history/task-doc-history.ts",
+        "frontend/src/lib/lab/pi-audit.ts",
+        "frontend/src/lib/trash",
+        "frontend/src/lib/deposit/repositories.ts",
+        "frontend/src/lib/deposit/datacite.ts",
+        "frontend/src/lib/deposit/prefill.ts",
+        "frontend/src/lib/export/types.ts",
+        "frontend/src/lib/metadata/orcid.ts",
+        "frontend/src/components/import-eln"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "compliance/nih-data-management": {
+      "page": "frontend/src/app/wiki/compliance/nih-data-management/page.tsx",
+      "sourceFiles": [
+        "frontend/src/components/DepositDialog.tsx",
+        "frontend/src/components/ProjectDepositDialog.tsx",
+        "frontend/src/lib/lab/pi-audit.ts",
+        "frontend/src/lib/trash/trash-types.ts",
+        "frontend/src/lib/trash/trash-reader.ts",
+        "frontend/src/lib/trash/trash-writer.ts",
+        "frontend/src/lib/sharing/unified.ts",
+        "frontend/src/lib/sharing",
+        "frontend/src/lib/methods",
+        "frontend/src/lib/history",
+        "frontend/src/lib/deposit/repositories.ts",
+        "frontend/src/lib/deposit/curation.ts",
+        "frontend/src/lib/deposit/datacite.ts",
+        "frontend/src/lib/deposit/bundle.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "features": {
+      "page": "frontend/src/app/wiki/features/page.tsx",
+      "sourceFiles": [
+        "frontend/src/lib/wiki/nav.ts",
+        "frontend/src/components/wiki/WikiPage.tsx"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "needs-tightening"
+    },
+    "features/calendar": {
+      "page": "frontend/src/app/wiki/features/calendar/page.tsx",
+      "sourceFiles": [
+        "frontend/src/app/calendar/page.tsx",
+        "frontend/src/components/calendar/MonthView.tsx",
+        "frontend/src/components/calendar/WeekView.tsx",
+        "frontend/src/components/calendar/DayView.tsx",
+        "frontend/src/components/calendar/utils.ts",
+        "frontend/src/components/CalendarRemindersModal.tsx",
+        "frontend/src/components/CalendarSidebar.tsx",
+        "frontend/src/components/CalendarFeedsModal.tsx",
+        "frontend/src/components/CalendarFeedsButton.tsx",
+        "frontend/src/components/DayDetailDrawer.tsx",
+        "frontend/src/lib/calendar/use-external-events.ts",
+        "frontend/src/lib/calendar/calendar-colors.ts",
+        "frontend/src/lib/calendar/use-event-reminders.ts",
+        "frontend/src/lib/store.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "features/cloning": {
+      "page": "frontend/src/app/wiki/features/cloning/page.tsx",
+      "sourceFiles": [
+        "frontend/src/components/sequences/CloningWorkspace.tsx",
+        "frontend/src/components/sequences/CloningProductPreview.tsx",
+        "frontend/src/components/sequences/cloning-heroes/OverlapHomologyHero.tsx",
+        "frontend/src/components/sequences/cloning-heroes/StickyEndLadderHero.tsx",
+        "frontend/src/components/sequences/cloning-heroes/GoldenGateFingerprintHero.tsx",
+        "frontend/src/components/sequences/cloning-heroes/GatewayCrossoverHero.tsx",
+        "frontend/src/lib/sequences/cloning.ts",
+        "frontend/src/lib/sequences/cut-ligate.ts",
+        "frontend/src/lib/sequences/cloning-gateway.ts",
+        "frontend/src/lib/sequences/cloning-io.ts",
+        "frontend/src/lib/sequences/pick-readouts.ts",
+        "frontend/src/lib/sequences/library-filter.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "features/experiments": {
+      "page": "frontend/src/app/wiki/features/experiments/page.tsx",
+      "sourceFiles": [
+        "frontend/src/app/workbench/page.tsx",
+        "frontend/src/components/workbench/WorkbenchExperimentsPanel.tsx",
+        "frontend/src/components/workbench/WorkbenchListsPanel.tsx",
+        "frontend/src/components/workbench/ExpandableListCard.tsx",
+        "frontend/src/components/workbench/WorkbenchProjectFilterPills.tsx",
+        "frontend/src/components/workbench/WorkbenchOneOnOnePanel.tsx",
+        "frontend/src/components/workbench/WorkbenchProjectsPanel.tsx",
+        "frontend/src/components/TaskDetailPopup.tsx",
+        "frontend/src/components/NotesPanel.tsx",
+        "frontend/src/lib/workbench/sectionAssignment.ts",
+        "frontend/src/lib/workbench/listSectionAssignment.ts",
+        "frontend/src/lib/export/orchestrate.ts",
+        "frontend/src/lib/export/types.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "features/feedback": {
+      "page": "frontend/src/app/wiki/features/feedback/page.tsx",
+      "sourceFiles": [
+        "frontend/src/components/FeedbackButton.tsx",
+        "frontend/src/components/FeedbackModal.tsx",
+        "frontend/src/lib/error-reporting.ts",
+        "frontend/src/components/BeakerBotBugStompScene.tsx",
+        "frontend/src/hooks/useErrorReporting.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "needs-tightening"
+    },
+    "features/gantt": {
+      "page": "frontend/src/app/wiki/features/gantt/page.tsx",
+      "sourceFiles": [
+        "frontend/src/app/gantt/page.tsx",
+        "frontend/src/components/GanttChart.tsx",
+        "frontend/src/components/LabGanttChart.tsx",
+        "frontend/src/components/Toolbar.tsx",
+        "frontend/src/components/BulkMoveModal.tsx",
+        "frontend/src/components/HighLevelGoalModal.tsx",
+        "frontend/src/components/HighLevelGoalSidebar.tsx",
+        "frontend/src/components/TaskDetailPopup.tsx",
+        "frontend/src/lib/local-api.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "needs-tightening"
+    },
+    "features/home": {
+      "page": "frontend/src/app/wiki/features/home/page.tsx",
+      "sourceFiles": [
+        "frontend/src/app/page.tsx",
+        "frontend/src/app/page-landing-redirect.ts",
+        "frontend/src/app/workbench/page.tsx",
+        "frontend/src/app/lab-overview/page.tsx",
+        "frontend/src/components/workbench/WorkbenchProjectsPanel.tsx",
+        "frontend/src/components/lab-overview/NewProjectButton.tsx",
+        "frontend/src/components/lab-overview/ProjectCreateModal.tsx",
+        "frontend/src/lib/types.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "needs-tightening"
+    },
+    "features/image-annotation": {
+      "page": "frontend/src/app/wiki/features/image-annotation/page.tsx",
+      "sourceFiles": [
+        "frontend/src/components/ImageAnnotatorModal.tsx",
+        "frontend/src/components/AnnotatedImage.tsx",
+        "frontend/src/components/ImageMetadataPopup.tsx",
+        "frontend/src/components/ImageStrip.tsx",
+        "frontend/src/components/ImageResizePopover.tsx",
+        "frontend/src/lib/attachments/annotations.ts",
+        "frontend/src/lib/attachments/image-events.ts",
+        "frontend/src/lib/attachments/image-folder.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "needs-tightening"
+    },
+    "features/import-from-eln": {
+      "page": "frontend/src/app/wiki/features/import-from-eln/page.tsx",
+      "sourceFiles": [
+        "frontend/src/components/import-eln/ImportELNDialog.tsx",
+        "frontend/src/components/import-eln/BulkSortScreen.tsx",
+        "frontend/src/components/import-eln/steps/PickFormatStep.tsx",
+        "frontend/src/components/import-eln/steps/UploadStep.tsx",
+        "frontend/src/components/import-eln/steps/PreviewStep.tsx",
+        "frontend/src/components/import-eln/steps/ProjectMappingStep.tsx",
+        "frontend/src/components/import-eln/steps/LabArchivesSignInStep.tsx",
+        "frontend/src/components/import-eln/steps/DevToolsScriptPanel.tsx",
+        "frontend/src/components/import-eln/steps/ManualImageDropPanel.tsx",
+        "frontend/src/components/import-eln/steps/ApplyProgressStep.tsx",
+        "frontend/src/components/import-eln/steps/DoneStep.tsx",
+        "frontend/src/lib/import/eln/orchestrate.ts",
+        "frontend/src/lib/import/eln/types.ts",
+        "frontend/src/lib/import/eln/apply.ts",
+        "frontend/src/lib/import/eln/plan.ts",
+        "frontend/src/lib/import/eln/adapters/labarchives.ts",
+        "frontend/src/app/settings/page.tsx",
+        "frontend/src/components/ResearchFolderSetupNew.tsx"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "needs-tightening"
+    },
+    "features/inventory": {
+      "page": "frontend/src/app/wiki/features/inventory/page.tsx",
+      "sourceFiles": [],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "thin"
+    },
+    "features/lab-calculators": {
+      "page": "frontend/src/app/wiki/features/lab-calculators/page.tsx",
+      "sourceFiles": [
+        "frontend/src/components/CalculatorsButton.tsx",
+        "frontend/src/lib/calculators/calculators.ts",
+        "frontend/src/lib/calculators/scientific.ts",
+        "frontend/src/lib/calculators/units.ts",
+        "frontend/src/lib/calculators/tm-nn.ts",
+        "frontend/src/lib/calculators/protein.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "features/links": {
+      "page": "frontend/src/app/wiki/features/links/page.tsx",
+      "sourceFiles": [
+        "frontend/src/app/links/page.tsx",
+        "frontend/src/app/links/useLinksBeakerSource.ts",
+        "frontend/src/app/links/links-beaker-source.ts",
+        "frontend/src/lib/local-api.ts",
+        "frontend/src/lib/types.ts",
+        "frontend/src/lib/nav.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "needs-tightening"
+    },
+    "features/markdown-editor": {
+      "page": "frontend/src/app/wiki/features/markdown-editor/page.tsx",
+      "sourceFiles": [
+        "frontend/src/components/LiveMarkdownEditor.tsx",
+        "frontend/src/components/InlineMarkdownEditor.tsx",
+        "frontend/src/components/ImageStrip.tsx",
+        "frontend/src/components/FileStrip.tsx",
+        "frontend/src/components/MarkdownShortcutsSidebar.tsx",
+        "frontend/src/lib/markdown/cm-inline-reveal/markdown-keymap.ts",
+        "frontend/src/lib/markdown/editor-width-preset.ts",
+        "frontend/src/lib/markdown/remark-underline.ts",
+        "frontend/src/lib/markdown/sanitize-schema.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "needs-tightening"
+    },
+    "features/method-catalog": {
+      "page": "frontend/src/app/wiki/features/method-catalog/page.tsx",
+      "sourceFiles": [
+        "frontend/src/lib/methods/method-catalog.ts",
+        "frontend/src/components/methods/MethodTemplateLibraryModal.tsx",
+        "frontend/src/components/methods/MethodLibraryDetail.tsx",
+        "frontend/src/lib/methods/compound-template-detail.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "needs-tightening"
+    },
+    "features/methods": {
+      "page": "frontend/src/app/wiki/features/methods/page.tsx",
+      "sourceFiles": [
+        "frontend/src/lib/methods/method-type-registry.ts",
+        "frontend/src/app/methods/page.tsx",
+        "frontend/src/components/MethodTabs.tsx",
+        "frontend/src/components/methods/MethodTypePicker.tsx",
+        "frontend/src/components/methods/CreateMethodModal.tsx",
+        "frontend/src/components/methods/MarkdownMethodTabContent.tsx",
+        "frontend/src/components/methods/PcrMethodTabContent.tsx",
+        "frontend/src/components/methods/LcMethodTabContent.tsx",
+        "frontend/src/components/methods/PlateMethodTabContent.tsx",
+        "frontend/src/components/methods/CellCultureMethodTabContent.tsx",
+        "frontend/src/components/methods/MassSpecMethodTabContent.tsx",
+        "frontend/src/components/methods/CodingWorkflowMethodTabContent.tsx",
+        "frontend/src/components/methods/QpcrAnalysisMethodTabContent.tsx",
+        "frontend/src/components/methods/CompoundMethodTabContent.tsx",
+        "frontend/src/components/methods/PdfMethodTabContent.tsx",
+        "frontend/src/components/methods/VariationNotesPanel.tsx",
+        "frontend/src/lib/sharing/unified.ts",
+        "frontend/src/hooks/useMethodPermissions.ts",
+        "frontend/src/lib/types.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "needs-tightening"
+    },
+    "features/notifications": {
+      "page": "frontend/src/app/wiki/features/notifications/page.tsx",
+      "sourceFiles": [
+        "frontend/src/components/NotificationBadge.tsx",
+        "frontend/src/components/NotificationPopup.tsx",
+        "frontend/src/components/InboxPanel.tsx",
+        "frontend/src/components/InboxBadge.tsx",
+        "frontend/src/components/InboxToast.tsx",
+        "frontend/src/components/PhotosInboxTab.tsx",
+        "frontend/src/components/CalendarRemindersModal.tsx",
+        "frontend/src/components/ReminderRunner.tsx",
+        "frontend/src/lib/calendar/notification-prefs-store.ts",
+        "frontend/src/lib/local-api.ts",
+        "frontend/src/lib/types.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "features/pcr": {
+      "page": "frontend/src/app/wiki/features/pcr/page.tsx",
+      "sourceFiles": [],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "needs-tightening"
+    },
+    "features/projects": {
+      "page": "frontend/src/app/wiki/features/projects/page.tsx",
+      "sourceFiles": [
+        "frontend/src/components/project-surface/ProjectRoute.tsx",
+        "frontend/src/components/project-surface/ProjectDetailPopup.tsx",
+        "frontend/src/components/project-surface/OverviewSection.tsx",
+        "frontend/src/components/project-surface/ResultsGallery.tsx",
+        "frontend/src/components/project-surface/MethodsInventory.tsx",
+        "frontend/src/components/project-surface/SequencesInventory.tsx",
+        "frontend/src/components/project-surface/GoalsSection.tsx",
+        "frontend/src/components/project-surface/ActivityFeed.tsx",
+        "frontend/src/components/project-surface/ProjectFundingSection.tsx",
+        "frontend/src/components/workbench/WorkbenchProjectsPanel.tsx",
+        "frontend/src/lib/local-api.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "needs-tightening"
+    },
+    "features/purchases": {
+      "page": "frontend/src/app/wiki/features/purchases/page.tsx",
+      "sourceFiles": [
+        "frontend/src/app/purchases/page.tsx",
+        "frontend/src/components/NewPurchaseModal.tsx",
+        "frontend/src/components/PurchaseEditor.tsx",
+        "frontend/src/components/SpendingDashboard.tsx",
+        "frontend/src/components/BuyAgainButton.tsx",
+        "frontend/src/components/FundingAccountsManager.tsx",
+        "frontend/src/components/PurchaseOrderStatusControl.tsx",
+        "frontend/src/lib/purchases/misc-project.ts",
+        "frontend/src/lib/types.ts",
+        "frontend/src/lib/local-api.ts",
+        "frontend/src/lib/nav.ts",
+        "frontend/src/components/AppShell.tsx"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "needs-tightening"
+    },
+    "features/restriction-digest": {
+      "page": "frontend/src/app/wiki/features/restriction-digest/page.tsx",
+      "sourceFiles": [
+        "frontend/src/lib/sequences/enzyme-filters.ts",
+        "frontend/src/lib/sequences/enzyme-sets.ts",
+        "frontend/src/components/sequences/EnzymePickerDialog.tsx",
+        "frontend/src/components/sequences/SequenceEditView.tsx",
+        "frontend/src/components/sequences/SequenceDisplayStrip.tsx",
+        "frontend/src/vendor/seqviz/digest.ts",
+        "frontend/src/vendor/seqviz/enzymes.ts",
+        "frontend/src/lib/transparency/datasets/digest.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "features/results": {
+      "page": "frontend/src/app/wiki/features/results/page.tsx",
+      "sourceFiles": [
+        "frontend/src/app/results/page.tsx",
+        "frontend/src/components/workbench/WorkbenchExperimentsPanel.tsx",
+        "frontend/src/app/workbench/page.tsx",
+        "frontend/src/app/workbench/projects/[id]/page.tsx",
+        "frontend/src/components/project-surface/ProjectDetailPopup.tsx",
+        "frontend/src/components/project-surface/ResultsGallery.tsx",
+        "frontend/src/app/purchases/page.tsx",
+        "frontend/src/components/TaskDetailPopup.tsx"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "features/search": {
+      "page": "frontend/src/app/wiki/features/search/page.tsx",
+      "sourceFiles": [
+        "frontend/src/app/search/page.tsx",
+        "frontend/src/lib/search/filterKey.ts",
+        "frontend/src/components/ExportFormatDialog.tsx",
+        "frontend/src/lib/export/types.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "needs-tightening"
+    },
+    "features/sequences": {
+      "page": "frontend/src/app/wiki/features/sequences/page.tsx",
+      "sourceFiles": [
+        "frontend/src/app/sequences/page.tsx",
+        "frontend/src/components/sequences/SequenceEditView.tsx",
+        "frontend/src/components/sequences/SequenceTabBar.tsx",
+        "frontend/src/components/sequences/SequenceDisplayStrip.tsx",
+        "frontend/src/components/sequences/SequenceSelectionReadout.tsx",
+        "frontend/src/components/sequences/SequenceFindBox.tsx",
+        "frontend/src/components/sequences/PrimerDialog.tsx",
+        "frontend/src/components/sequences/FeatureEditorDialog.tsx",
+        "frontend/src/components/sequences/CloningWorkspace.tsx",
+        "frontend/src/components/sequences/CompareSequencesDialog.tsx",
+        "frontend/src/components/sequences/DetectFeaturesDialog.tsx",
+        "frontend/src/components/sequences/AnnotateFromReferenceDialog.tsx",
+        "frontend/src/components/sequences/SequenceHistoryPanel.tsx",
+        "frontend/src/lib/sequences/export.ts",
+        "frontend/src/lib/sequences/import.ts",
+        "frontend/src/lib/sequences/cloning.ts",
+        "frontend/src/lib/sequences/cut-ligate.ts",
+        "frontend/src/lib/sequences/cloning-gateway.ts",
+        "frontend/src/lib/sequences/primer.ts",
+        "frontend/src/lib/sequences/mutagenesis.ts",
+        "frontend/src/lib/sequences/find.ts",
+        "frontend/src/components/sequences/sequence-view-state.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "features/settings": {
+      "page": "frontend/src/app/wiki/features/settings/page.tsx",
+      "sourceFiles": [
+        "frontend/src/app/settings/page.tsx",
+        "frontend/src/app/settings/StreaksSection.tsx",
+        "frontend/src/app/settings/PtoEditor.tsx",
+        "frontend/src/lib/settings/user-settings.ts",
+        "frontend/src/components/settings/MigrationStatusRow.tsx",
+        "frontend/src/components/settings/DevicesSection.tsx",
+        "frontend/src/components/animations/index.tsx"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "thin"
+    },
+    "features/trash": {
+      "page": "frontend/src/app/wiki/features/trash/page.tsx",
+      "sourceFiles": [
+        "frontend/src/lib/trash",
+        "frontend/src/app/trash",
+        "frontend/src/components/trash",
+        "frontend/src/lib/local-api.ts",
+        "frontend/src/lib/file-system/file-system-context.tsx"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "features/version-history": {
+      "page": "frontend/src/app/wiki/features/version-history/page.tsx",
+      "sourceFiles": [
+        "frontend/src/components/history/NoteVersionHistorySidebar.tsx",
+        "frontend/src/components/history/EntityVersionHistorySidebar.tsx",
+        "frontend/src/components/history/VersionDiffView.tsx",
+        "frontend/src/components/history/TaskDocVersionHistory.tsx",
+        "frontend/src/components/sequences/SequenceHistoryPanel.tsx",
+        "frontend/src/lib/history/useVersionRestore.ts",
+        "frontend/src/lib/history/task-doc-history.ts",
+        "frontend/src/lib/history/sequences-history.ts",
+        "frontend/src/lib/history/engine.ts",
+        "frontend/src/lib/history/entity-viewer.ts",
+        "frontend/src/lib/history/notes-viewer.ts",
+        "frontend/src/lib/history/project-viewer.ts",
+        "frontend/src/lib/history/task-viewer.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "getting-started": {
+      "page": "frontend/src/app/wiki/getting-started/page.tsx",
+      "sourceFiles": [
+        "frontend/src/lib/wiki/nav.ts",
+        "frontend/src/components/wiki/WikiPage.tsx",
+        "frontend/src/components/wiki/Steps.tsx",
+        "frontend/src/components/wiki/Callout.tsx",
+        "frontend/src/components/wiki/Screenshot.tsx",
+        "frontend/src/lib/onboarding/feature-picks-tabs.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "getting-started/accounts": {
+      "page": "frontend/src/app/wiki/getting-started/accounts/page.tsx",
+      "sourceFiles": [
+        "frontend/src/components/onboarding/AccountTierChooser.tsx",
+        "frontend/src/lib/auth/account-store.ts",
+        "frontend/src/lib/auth/local-identity.ts",
+        "frontend/src/lib/lab/lab-account-type.ts",
+        "frontend/src/lib/lab/config.ts",
+        "frontend/src/lib/sharing/oauth-availability.ts",
+        "frontend/src/components/sharing/SharingProviderButtons.tsx",
+        "frontend/src/app/api/auth/[...nextauth]/route.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "getting-started/browser-requirements": {
+      "page": "frontend/src/app/wiki/getting-started/browser-requirements/page.tsx",
+      "sourceFiles": [
+        "frontend/src/lib/file-system/file-system-context.tsx",
+        "frontend/src/components/BrowserNotSupported.tsx",
+        "frontend/src/components/ResearchFolderSetupNew.tsx",
+        "frontend/src/lib/file-system/drop-folder.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "getting-started/connecting-your-folder": {
+      "page": "frontend/src/app/wiki/getting-started/connecting-your-folder/page.tsx",
+      "sourceFiles": [
+        "frontend/src/components/ResearchFolderSetupNew.tsx",
+        "frontend/src/components/picker-walkthrough/PickerWalkthroughModal.tsx",
+        "frontend/src/lib/file-system/file-system-context.tsx",
+        "frontend/src/lib/file-system/user-discovery.ts",
+        "frontend/src/lib/file-system/file-service.ts",
+        "frontend/src/lib/settings/user-settings.ts",
+        "frontend/src/lib/file-system/drop-folder.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "getting-started/creating-a-user": {
+      "page": "frontend/src/app/wiki/getting-started/creating-a-user/page.tsx",
+      "sourceFiles": [
+        "frontend/src/components/UserLoginScreen.tsx",
+        "frontend/src/lib/local-api.ts",
+        "frontend/src/lib/file-system/user-discovery.ts",
+        "frontend/src/lib/auth/account-store.ts",
+        "frontend/src/lib/auth/local-identity.ts",
+        "frontend/src/lib/auth/login-policy.ts",
+        "frontend/src/lib/migrations/cleanup-auth-json.ts",
+        "frontend/src/components/AccountPasswordPopup.tsx"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "needs-tightening"
+    },
+    "getting-started/demo-mode": {
+      "page": "frontend/src/app/wiki/getting-started/demo-mode/page.tsx",
+      "sourceFiles": [
+        "frontend/src/app/demo/[[...slug]]/page.tsx",
+        "frontend/src/lib/demo/lab-demo-data.ts",
+        "frontend/src/lib/demo/rebase.ts",
+        "frontend/src/lib/file-system/wiki-capture-fixture.ts",
+        "frontend/src/lib/file-system/wiki-capture-mock.ts",
+        "frontend/src/lib/file-system/file-system-context.tsx",
+        "frontend/src/components/FloatingLeaveDemoButton.tsx",
+        "frontend/src/components/LeaveDemoModal.tsx",
+        "frontend/src/components/OpenDocsButton.tsx",
+        "frontend/src/components/wiki/TryInDemo.tsx",
+        "frontend/src/lib/local-api.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "needs-tightening"
+    },
+    "getting-started/labarchives-export": {
+      "page": "frontend/src/app/wiki/getting-started/labarchives-export/page.tsx",
+      "sourceFiles": [
+        "frontend/src/lib/import/eln",
+        "frontend/src/lib/import/eln/adapters/labarchives.ts",
+        "frontend/src/lib/import/eln/apply.ts",
+        "frontend/src/lib/import/eln/plan.ts",
+        "frontend/src/lib/import/eln/types.ts",
+        "frontend/src/lib/import/eln/rehydrate.ts",
+        "frontend/src/lib/import/eln/orchestrate.ts",
+        "frontend/src/components/import-eln/ImportELNDialog.tsx",
+        "frontend/src/components/import-eln/steps",
+        "frontend/src/lib/tasks/results-paths.ts",
+        "frontend/src/app/settings/page.tsx"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "getting-started/user-archiving": {
+      "page": "frontend/src/app/wiki/getting-started/user-archiving/page.tsx",
+      "sourceFiles": [
+        "frontend/src/components/lab-head/LabRoster.tsx",
+        "frontend/src/lib/lab/user-archive.ts",
+        "frontend/src/components/UserLoginScreen.tsx",
+        "frontend/src/lib/onboarding/sidecar.ts",
+        "frontend/src/app/lab-overview/useLabOverviewBeakerSource.ts",
+        "frontend/src/components/lab-overview/widgets/MemberWorkloadWidget.tsx",
+        "frontend/src/components/CommentsThread.tsx",
+        "frontend/src/lib/lab/announcements.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "needs-tightening"
+    },
+    "getting-started/welcome-wizard": {
+      "page": "frontend/src/app/wiki/getting-started/welcome-wizard/page.tsx",
+      "sourceFiles": [
+        "frontend/src/components/onboarding/v4/TourBootstrap.tsx",
+        "frontend/src/components/onboarding/v4/TourController.tsx",
+        "frontend/src/components/onboarding/v4/step-machine.ts",
+        "frontend/src/components/onboarding/v4/step-registry.ts",
+        "frontend/src/components/onboarding/v4/steps/setup/index.ts",
+        "frontend/src/components/onboarding/v4/steps/walkthrough",
+        "frontend/src/components/onboarding/v4/steps/cleanup",
+        "frontend/src/components/onboarding/v4/steps/lab",
+        "frontend/src/lib/onboarding/sidecar.ts",
+        "frontend/src/lib/onboarding/feature-picks-tabs.ts",
+        "frontend/src/lib/onboarding/is-fresh-user.ts",
+        "frontend/src/lib/nav.ts",
+        "frontend/src/components/AppShell.tsx"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "stale"
+    },
+    "integrations": {
+      "page": "frontend/src/app/wiki/integrations/page.tsx",
+      "sourceFiles": [
+        "frontend/src/lib/calendar/external-feeds-store.ts",
+        "frontend/src/lib/calendar/use-external-events.ts",
+        "frontend/src/lib/calendar/ics-parser.ts",
+        "frontend/src/app/api/calendar-feed/route.ts",
+        "frontend/src/components/CalendarFeedsModal.tsx",
+        "frontend/src/components/import-eln/ImportELNDialog.tsx",
+        "frontend/src/components/labarchives/RehydrateMissingImagesPanel.tsx",
+        "frontend/src/lib/import/eln/adapters/labarchives.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "integrations/calendar-feeds": {
+      "page": "frontend/src/app/wiki/integrations/calendar-feeds/page.tsx",
+      "sourceFiles": [
+        "frontend/src/components/CalendarFeedsModal.tsx",
+        "frontend/src/components/CalendarFeedsButton.tsx",
+        "frontend/src/app/api/calendar-feed/route.ts",
+        "frontend/src/lib/calendar/external-feeds-store.ts",
+        "frontend/src/lib/calendar/use-external-events.ts",
+        "frontend/src/lib/calendar/ics-parser.ts",
+        "frontend/src/lib/calendar/calendar-colors.ts",
+        "frontend/src/app/calendar/page.tsx"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "integrations/labarchives": {
+      "page": "frontend/src/app/wiki/integrations/labarchives/page.tsx",
+      "sourceFiles": [
+        "frontend/src/lib/import/eln/adapters/labarchives.ts",
+        "frontend/src/lib/import/eln/apply.ts",
+        "frontend/src/lib/import/eln/rehydrate.ts",
+        "frontend/src/lib/import/eln/types.ts",
+        "frontend/src/components/import-eln/ImportELNDialog.tsx",
+        "frontend/src/components/import-eln/steps/LabArchivesSignInStep.tsx",
+        "frontend/src/components/import-eln/steps/PreviewStep.tsx",
+        "frontend/src/components/labarchives/RehydrateMissingImagesPanel.tsx",
+        "frontend/src/components/labarchives/RehydrateMissingImagesModal.tsx",
+        "frontend/src/lib/labarchives/devtools-script.ts",
+        "frontend/src/components/LiveMarkdownEditor.tsx",
+        "frontend/src/app/settings/page.tsx"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "needs-tightening"
+    },
+    "security": {
+      "page": "frontend/src/app/wiki/security/page.tsx",
+      "sourceFiles": [
+        "frontend/src/lib/api/url-guards.ts",
+        "frontend/src/lib/api/rate-limit.ts",
+        "frontend/src/lib/file-system/file-service.ts",
+        "frontend/src/lib/analytics/events.ts",
+        "frontend/src/lib/calendar/use-external-events.ts",
+        "frontend/src/components/OfflineGatedAnalytics.tsx",
+        "frontend/src/components/sharing/SharingServerCopyNotice.tsx",
+        "frontend/src/components/FeedbackModal.tsx",
+        "frontend/src/lib/error-reporting.ts",
+        "frontend/src/app/api/calendar-feed/route.ts",
+        "frontend/src/app/api/analytics/event/route.ts",
+        "frontend/src/app/api/orcid/works/route.ts",
+        "frontend/src/app/settings/page.tsx"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "start-here": {
+      "page": "frontend/src/app/wiki/start-here/page.tsx",
+      "sourceFiles": [
+        "frontend/src/components/AppShell.tsx",
+        "frontend/src/components/wiki/WikiPage.tsx",
+        "frontend/src/components/wiki/Callout.tsx",
+        "frontend/src/app/page.tsx",
+        "frontend/src/app/settings/page.tsx",
+        "frontend/src/app/experiments/page.tsx",
+        "frontend/src/lib/nav.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "trust": {
+      "page": "frontend/src/app/wiki/trust/page.tsx",
+      "sourceFiles": [
+        "frontend/src/lib/file-system/file-service.ts",
+        "frontend/src/lib/transparency/run.ts",
+        "frontend/src/lib/transparency/report.test.ts",
+        "frontend/src/lib/transparency/oracles.ts",
+        "frontend/src/lib/api/url-guards.ts",
+        "frontend/src/lib/api/rate-limit.ts",
+        "frontend/src/app/settings/page.tsx",
+        "frontend/src/app/transparency/page.tsx",
+        "frontend/src/app/open-source/page.tsx"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "trust/method-validation": {
+      "page": "frontend/src/app/wiki/trust/method-validation/page.tsx",
+      "sourceFiles": [
+        "frontend/src/lib/transparency/run.ts",
+        "frontend/src/lib/transparency/report.test.ts",
+        "frontend/src/lib/transparency/oracles.ts",
+        "frontend/src/lib/transparency/types.ts",
+        "frontend/src/lib/transparency/datasets/tm.ts",
+        "frontend/src/lib/transparency/datasets/alignment.ts",
+        "frontend/src/lib/transparency/datasets/digest.ts",
+        "frontend/src/lib/transparency/datasets/translation.ts",
+        "frontend/src/lib/transparency/datasets/protein.ts",
+        "frontend/src/lib/transparency/datasets/calculators.ts",
+        "frontend/src/lib/transparency/datasets/cloning.ts",
+        "frontend/src/lib/transparency/datasets/domains.ts",
+        "frontend/src/lib/calculators/tm-nn.ts",
+        "frontend/src/lib/align/core.ts",
+        "frontend/src/lib/align/local-homology.ts",
+        "frontend/src/lib/sequences/enzyme-filters.ts",
+        "frontend/src/lib/calculators/protein.ts",
+        "frontend/src/lib/calculators/calculators.ts",
+        "frontend/src/lib/sequences/cut-ligate.ts",
+        "frontend/src/lib/sequences/cloning-gateway.ts",
+        "frontend/src/lib/sequences/hmmer-domtbl.ts",
+        "frontend/src/app/transparency/page.tsx"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    },
+    "trust/open-source": {
+      "page": "frontend/src/app/wiki/trust/open-source/page.tsx",
+      "sourceFiles": [
+        "frontend/src/app/open-source/page.tsx",
+        "frontend/src/components/open-source/OpenSourceCredits.tsx",
+        "frontend/public/open-source/credits.json",
+        "frontend/src/vendor/seqviz",
+        "frontend/src/vendor/bio-parsers",
+        "frontend/src/lib/calculators/tm-nn.ts"
+      ],
+      "screenedAtCommit": "5e94c4de4",
+      "screenedDate": "2026-06-09",
+      "quality": "needs-tightening"
+    },
+    "compliance/depositing-to-a-repository": {
+      "page": "frontend/src/app/wiki/compliance/depositing-to-a-repository/page.tsx",
+      "sourceFiles": [
+        "frontend/src/lib/deposit/repositories.ts",
+        "frontend/src/lib/deposit/datacite.ts",
+        "frontend/src/lib/deposit/prefill.ts",
+        "frontend/src/lib/deposit/project-prefill.ts",
+        "frontend/src/lib/deposit/curation.ts",
+        "frontend/src/lib/deposit/bundle.ts",
+        "frontend/src/components/DepositDialog.tsx",
+        "frontend/src/components/ProjectDepositDialog.tsx",
+        "frontend/src/components/TaskDetailPopup.tsx",
+        "frontend/src/lib/deposit/datacite.test.ts",
+        "frontend/src/lib/metadata/orcid.ts"
+      ],
+      "screenedAtCommit": "1a1e35ed6",
+      "screenedDate": "2026-06-09",
+      "quality": "solid"
+    }
+  }
+}
