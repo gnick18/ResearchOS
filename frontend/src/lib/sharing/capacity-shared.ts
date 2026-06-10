@@ -91,8 +91,8 @@ export const FIXED_MONTHLY_BASE_CENTS = 2500;
  */
 export const ANNUAL_RECURRING_FEES_CENTS = {
   appleDeveloper: 9900, // $99/yr Apple Developer Program
-  wiAnnualReport: 2500, // ~$25/yr Wisconsin LLC annual report (verify exact fee)
-  domain: 1400, // ~$14/yr research-os.app (verify)
+  wiAnnualReport: 2500, // $25/yr Wisconsin LLC annual report, online filing (DFI, verified 2026-06; $40 only if filed on paper)
+  domain: 999, // $9.99/yr research-os.app (Grant's actual)
 };
 
 /** The annual recurring fees expressed as a monthly run-rate (sum / 12). */
