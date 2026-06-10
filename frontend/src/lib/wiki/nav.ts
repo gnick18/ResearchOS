@@ -210,6 +210,11 @@ export const WIKI_NAV: WikiNode[] = [
         blurb: "A timeline of every save, an in-place per-editor diff, and a default-off restore pilot. Notes pilot, rolling out.",
       },
       {
+        href: "/wiki/features/ai-helper",
+        label: "Use any AI with your data",
+        blurb: "Your notebook is plain files, so any AI can read it. The built-in AI Helper prompt plus the paste and agentic flows.",
+      },
+      {
         href: "/wiki/features/methods",
         label: "Methods Library",
         blurb: "Reusable protocols, with PCR programs as a specialized form.",

@@ -833,6 +833,83 @@ export default function WelcomePage() {
           </div>
         </section>
 
+        {/* ── Your data, your AI (the agent-ready differentiator) ───────── */}
+        <section className="px-6 py-20 sm:px-12">
+          <div className="mx-auto grid max-w-[1180px] items-center gap-12 md:grid-cols-[1fr_1.05fr]">
+            <RainbowFrame>
+              <div className="bg-white">
+                <div className="flex items-center gap-2 border-b border-[#d8e3f1] bg-[#f3f7fc] px-3.5 py-3 font-mono text-meta text-[#64748b]">
+                  AI Helper
+                </div>
+                <div className="space-y-4 px-5 py-6">
+                  <p className="text-meta font-medium text-[#64748b]">
+                    A schema-aware prompt that teaches any AI your notebook&apos;s
+                    structure. Pick a size, then open it in one click.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {["Lean", "Full", "Minimal"].map((s) => (
+                      <span
+                        key={s}
+                        className={`rounded-full border px-3 py-1 text-meta font-medium ${
+                          s === "Full"
+                            ? "border-brand-action bg-brand-action/10 text-brand-action"
+                            : "border-[#d8e3f1] text-[#475569]"
+                        }`}
+                      >
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {["Claude", "ChatGPT", "Gemini", "Copilot"].map((p) => (
+                      <span
+                        key={p}
+                        className="rounded-lg border border-[#d8e3f1] bg-[#f8fbff] px-3 py-2 text-center text-body font-medium text-[#0f1b2e]"
+                      >
+                        Open in {p}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </RainbowFrame>
+            <div>
+              <Kicker>// your data, your AI</Kicker>
+              <h2 className="mt-3 max-w-[18ch] text-3xl font-extrabold leading-[1.08] tracking-tight text-brand-ink md:text-[38px]">
+                Point any AI at your own data
+              </h2>
+              <p className="mt-4 max-w-[54ch] text-title leading-relaxed text-[#475569]">
+                Your notes, protocols, and projects are plain files on your disk,
+                so the AI you already use can read them. ResearchOS even ships a
+                built-in AI Helper, a prompt that teaches any model your
+                notebook&apos;s structure, so it is ready to draft an entry,
+                cross-reference a protocol, or answer a question about your own
+                work. A cloud notebook encrypts and locks your data on its
+                servers, so no outside AI can reach it and you are left with
+                whatever assistant the vendor bundles. Owning your files means
+                owning your choice of AI too.
+              </p>
+              <ul className="mt-6 grid gap-3">
+                <li className="flex items-start gap-2.5 text-body leading-snug text-[#0f1b2e]">
+                  <CheckGlyph />
+                  One-click AI Helper prompt, sized for any model, straight into
+                  Claude, ChatGPT, Gemini, or Copilot.
+                </li>
+                <li className="flex items-start gap-2.5 text-body leading-snug text-[#0f1b2e]">
+                  <CheckGlyph />
+                  Give an agentic model read access to your folder and it drafts
+                  the notebook alongside you.
+                </li>
+                <li className="flex items-start gap-2.5 text-body leading-snug text-[#0f1b2e]">
+                  <CheckGlyph />
+                  Works with local models too, so your data never has to leave
+                  your machine to use AI.
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
         {/* ── Tree of life explorer (real, offline, interactive) ──────── */}
         <TreeOfLifeShowcase />
 
