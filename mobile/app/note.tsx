@@ -5,6 +5,7 @@
 // along as the note title on the laptop. House style: no em-dashes, no emojis,
 // no mid-sentence colons.
 import { useCallback, useState } from 'react';
+import { useRouter } from 'expo-router';
 import {
   ScrollView,
   StyleSheet,
@@ -28,6 +29,7 @@ type SendState =
   | { kind: 'failed'; error: string };
 
 export default function NoteScreen() {
+  const router = useRouter();
   const { pairing } = usePairing();
   const { surface, spacing, radii } = useTheme();
   const [title, setTitle] = useState('');
@@ -60,6 +62,15 @@ export default function NoteScreen() {
     setBody('');
     setState({ kind: 'idle' });
   }, []);
+
+  // Throw the draft away and leave. The back chevron also cancels, but a
+  // visible coral Discard makes the destructive exit explicit (Grant 2026-06-11).
+  const onDiscard = useCallback(() => {
+    setTitle('');
+    setBody('');
+    setState({ kind: 'idle' });
+    router.back();
+  }, [router]);
 
   return (
     <ScreenFrame>
@@ -148,10 +159,17 @@ export default function NoteScreen() {
 
               <Button
                 variant="primary"
-                label={state.kind === 'failed' ? 'Retry' : 'Send to lab'}
+                label={state.kind === 'failed' ? 'Retry' : 'Send to Inbox'}
                 loading={sending}
                 onPress={onSend}
                 disabled={!canSend}
+              />
+              <Button
+                variant="secondary"
+                accent="coral"
+                label="Discard"
+                onPress={onDiscard}
+                disabled={sending}
               />
             </>
           )}
