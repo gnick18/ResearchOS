@@ -8,6 +8,7 @@ import {
   getPurchaseFields,
   setPurchaseField,
   setPurchaseFlagged,
+  setPurchaseAttachments,
   applyPurchaseUpdate,
   getPurchaseMeta,
   PURCHASE_FIELDS_CONTAINER,
@@ -41,6 +42,7 @@ function makeItem(over: Partial<PurchaseItem> = {}): PurchaseItem {
     declined_by: null,
     last_edited_by: "alex",
     last_edited_at: "2026-06-07T11:00:00Z",
+    attachments: [],
     ...over,
   };
 }
@@ -73,12 +75,58 @@ describe("purchase-doc model", () => {
     expect(projected.flagged).toBeNull();
     expect(projected.order_status).toBeUndefined();
     expect(projected.last_edited_by).toBeUndefined();
+    expect(projected.attachments).toEqual([]);
   });
 
   it("stores flagged as a serialized object that round-trips", () => {
     const flag = { by: "pi", at: "2026-06-07T00:00:00Z", reason: null };
     const doc = importSeed(makeItem({ flagged: flag }));
     expect(getPurchaseFields(doc).flagged).toEqual(flag);
+  });
+
+  it("stores attachments as a serialized array that round-trips", () => {
+    const attachments = [
+      {
+        id: "att-1",
+        filename: "invoice.pdf",
+        path: "users/alex/purchase_items/42/invoice.pdf",
+        kind: "invoice" as const,
+        uploaded_at: "2026-06-10T00:00:00Z",
+        file_size: 12345,
+      },
+      {
+        id: "att-2",
+        filename: "order.pdf",
+        path: "users/alex/purchase_items/42/order.pdf",
+        kind: "order_form" as const,
+        uploaded_at: "2026-06-10T01:00:00Z",
+        file_size: 6789,
+      },
+    ];
+    const doc = importSeed(makeItem({ attachments }));
+    expect(getPurchaseFields(doc).attachments).toEqual(attachments);
+  });
+
+  it("replaces attachments via setPurchaseAttachments and applyPurchaseUpdate", () => {
+    const doc = importSeed(makeItem());
+    const next = [
+      {
+        id: "att-x",
+        filename: "receipt.pdf",
+        path: "users/alex/purchase_items/42/receipt.pdf",
+        kind: "receipt" as const,
+        uploaded_at: "2026-06-10T02:00:00Z",
+        file_size: 4096,
+      },
+    ];
+    setPurchaseAttachments(doc, next);
+    doc.commit();
+    expect(getPurchaseFields(doc).attachments).toEqual(next);
+
+    // The partial-update path serializes attachments like flagged.
+    applyPurchaseUpdate(doc, { attachments: [] });
+    doc.commit();
+    expect(getPurchaseFields(doc).attachments).toEqual([]);
   });
 
   it("is deterministic: two seeds of the same item are byte-equal", () => {

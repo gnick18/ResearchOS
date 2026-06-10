@@ -38,7 +38,12 @@
  */
 
 import { LoroDoc, LoroMap } from "loro-crdt";
-import type { PurchaseItem, PiFlag, PurchaseOrderStatus } from "@/lib/types";
+import type {
+  PurchaseItem,
+  PiFlag,
+  PurchaseOrderStatus,
+  PurchaseAttachment,
+} from "@/lib/types";
 import { seedActorId } from "./seed";
 
 /** Root container names. "fields" holds the scalars; "meta" holds collab_doc_id. */
@@ -47,6 +52,15 @@ const META_KEY = "meta";
 
 /** The fields-map key under which the serialized PiFlag lives. */
 const FLAGGED_KEY = "flagged";
+
+/**
+ * The fields-map key under which the serialized attachments array lives. Like
+ * `flagged`, it is a non-scalar value (an array of small objects) stored as a
+ * JSON string, handled separately from SCALAR_FIELD_KEYS. Appended after
+ * `flagged` in the seed insertion order, so existing seeds keep their byte
+ * layout and only the tail grows.
+ */
+const ATTACHMENTS_KEY = "attachments";
 
 /**
  * The scalar PurchaseItem keys stored directly in the fields map, in a fixed
@@ -182,6 +196,10 @@ export function seedPurchaseDoc(item: PurchaseItem): Uint8Array {
   // `flagged` (a small object) is stored as a JSON-serialized string. null
   // serializes to "null" and round-trips back to null.
   fields.set(FLAGGED_KEY, JSON.stringify(item.flagged ?? null));
+  // `attachments` (an array of small objects) is likewise serialized. Absent /
+  // undefined seeds an empty array, so old records round-trip to []. Appended
+  // after flagged to keep the locked insertion order stable.
+  fields.set(ATTACHMENTS_KEY, JSON.stringify(item.attachments ?? []));
 
   doc.commit();
   return doc.export({ mode: "snapshot" });
@@ -219,6 +237,18 @@ function parseFlagged(raw: unknown): PiFlag | null {
   }
 }
 
+/** Parse the serialized attachments value back into an array (empty on absent
+ *  or malformed input, so old records and corrupt strings normalize cleanly). */
+function parseAttachments(raw: unknown): PurchaseAttachment[] {
+  if (typeof raw !== "string") return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as PurchaseAttachment[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Project the fields map back into a plain PurchaseItem-shaped object. The
  * inverse of seedPurchaseDoc: seeding from an item then projecting yields an
@@ -252,6 +282,7 @@ export function getPurchaseFields(doc: LoroDoc): PurchaseItem {
     approved_by: asString(get("approved_by")),
     approved_at: asString(get("approved_at")),
     flagged: parseFlagged(fields.get(FLAGGED_KEY)),
+    attachments: parseAttachments(fields.get(ATTACHMENTS_KEY)),
     declined_at: asString(get("declined_at")),
     declined_by: asString(get("declined_by")),
     last_edited_by: asString(get("last_edited_by")) ?? undefined,
@@ -280,6 +311,18 @@ export function setPurchaseFlagged(doc: LoroDoc, flagged: PiFlag | null): void {
   getPurchaseFieldsMap(doc).set(FLAGGED_KEY, JSON.stringify(flagged ?? null));
 }
 
+/** Write the attachments array (serialized) into the fields map. Does NOT
+ *  commit. Mirrors setPurchaseFlagged. */
+export function setPurchaseAttachments(
+  doc: LoroDoc,
+  attachments: PurchaseAttachment[],
+): void {
+  getPurchaseFieldsMap(doc).set(
+    ATTACHMENTS_KEY,
+    JSON.stringify(attachments ?? []),
+  );
+}
+
 /**
  * Apply a partial PurchaseItem update into the fields map, ignoring the
  * immutable identity keys. The `flagged` object is serialized; every other
@@ -296,6 +339,13 @@ export function applyPurchaseUpdate(
     if (IMMUTABLE_FIELD_KEYS.has(key)) continue;
     if (key === FLAGGED_KEY) {
       fields.set(FLAGGED_KEY, JSON.stringify((value as PiFlag | null) ?? null));
+      continue;
+    }
+    if (key === ATTACHMENTS_KEY) {
+      fields.set(
+        ATTACHMENTS_KEY,
+        JSON.stringify((value as PurchaseAttachment[]) ?? []),
+      );
       continue;
     }
     fields.set(key, value as FieldValue);

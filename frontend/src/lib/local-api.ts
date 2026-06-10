@@ -4536,6 +4536,9 @@ export const purchasesApi = {
       // Per-item ordering status (purchases-ordered-stage, 2026-05-29). New
       // line items start in "needs_ordering" unless the caller seeds one.
       order_status: data.order_status ?? DEFAULT_PURCHASE_ORDER_STATUS,
+      // Purchase documents (PURCHASE_DOCS_AND_ROUTING.md). Default to an empty
+      // array so every record carries a normalized attachments field.
+      attachments: data.attachments ?? [],
     };
     return owner
       ? purchaseItemsStore.createForUser(payload, owner)

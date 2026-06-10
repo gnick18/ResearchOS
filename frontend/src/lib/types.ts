@@ -2187,6 +2187,34 @@ export const PURCHASE_ORDER_STATUS_LABEL: Record<
   received: "Received",
 };
 
+// Purchase document attachments (PURCHASE_DOCS_AND_ROUTING.md, 2026-06-10). A
+// PDF (order form / invoice / receipt) attached to a purchase for grant-audit
+// documentation. The bytes live local-first as a real file in the connected
+// folder under `users/<owner>/purchase_items/<id>/`; this record is the on-record
+// reference. `kind` groups documents for the audit packet and the future
+// department-routing module.
+export type PurchaseAttachmentKind =
+  | "order_form"
+  | "invoice"
+  | "receipt"
+  | "quote"
+  | "other";
+
+export interface PurchaseAttachment {
+  /** Stable id for dedup + deletion, distinct from the file path. */
+  id: string;
+  /** Display name (the original uploaded filename). */
+  filename: string;
+  /** Relative path under the data folder where the file bytes live. */
+  path: string;
+  /** Document kind, for audit grouping + future routing. */
+  kind: PurchaseAttachmentKind;
+  /** ISO timestamp of when it was attached. */
+  uploaded_at: string;
+  /** File size in bytes, for display. */
+  file_size: number;
+}
+
 export interface PurchaseItem {
   id: number;
   task_id: number;
@@ -2272,6 +2300,11 @@ export interface PurchaseItem {
   // Optional on read for pre-R3 records; back-fills on next write.
   last_edited_by?: string;
   last_edited_at?: string;
+  // Purchase documents (PURCHASE_DOCS_AND_ROUTING.md, 2026-06-10). Attached PDFs
+  // (order form / invoice / receipt) for grant-audit documentation. Additive +
+  // optional: old records without it normalize to an empty array on read (the
+  // Loro field map + purchasesApi.create seed []).
+  attachments?: PurchaseAttachment[];
 }
 
 /** Pending = waiting for the lab head's approval. Approved and declined
@@ -2311,6 +2344,9 @@ export interface PurchaseItemCreate {
   // Per-item ordering status (purchases-ordered-stage, 2026-05-29). Omit to
   // let `purchasesApi.create` default it to "needs_ordering".
   order_status?: PurchaseOrderStatus;
+  // Purchase documents (PURCHASE_DOCS_AND_ROUTING.md). Optional; omitted records
+  // default to an empty array in purchasesApi.create.
+  attachments?: PurchaseAttachment[];
 }
 
 export interface PurchaseItemUpdate {
@@ -2355,6 +2391,9 @@ export interface PurchaseItemUpdate {
   // VCP R3 — optional; auto-stamped by `purchasesApi.update`.
   last_edited_by?: string;
   last_edited_at?: string;
+  // Purchase documents (PURCHASE_DOCS_AND_ROUTING.md). Set to replace the list,
+  // or omit to leave unchanged. Serialized into the Loro field map like flagged.
+  attachments?: PurchaseAttachment[];
 }
 
 export interface CatalogItem {
