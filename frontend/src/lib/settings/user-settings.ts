@@ -170,6 +170,41 @@ export type LabOverviewLayout = LabOverviewLayoutV2;
 // user's role *within* a lab and is meaningful only for lab accounts.
 export type AccountType = "member" | "lab_head";
 
+// Purchase department routing (PURCHASE_DOCS_AND_ROUTING.md). A PI-configured,
+// opt-in module: a lab head adds the department / HR contacts a purchase
+// document gets emailed to, plus the draft templates. Invisible everywhere until
+// `enabled` is true, so a lab that does not use it never sees the surface. Lives
+// in the lab head's own settings (the PI owns the lab config in a local folder).
+export interface PurchaseRoutingContact {
+  /** Stable id for editing / removal. */
+  id: string;
+  /** Display label, e.g. "Dept purchasing - Jane Doe". */
+  name: string;
+  /** Where the drafted email is addressed. */
+  email: string;
+}
+
+export interface PurchaseRoutingConfig {
+  /** The opt-in switch. False hides the whole routing surface. */
+  enabled: boolean;
+  /** Department / HR recipients the PI can pick when drafting. */
+  contacts: PurchaseRoutingContact[];
+  /** Draft subject template. Placeholders {item} {grant} {vendor} {total} {me}. */
+  subjectTemplate: string;
+  /** Draft body template. Same placeholders. */
+  bodyTemplate: string;
+}
+
+export const DEFAULT_PURCHASE_ROUTING: PurchaseRoutingConfig = {
+  enabled: false,
+  contacts: [],
+  subjectTemplate: "Purchase documentation for {grant}: {item}",
+  bodyTemplate:
+    "Hi,\n\nAttached is the order documentation for a purchase on {grant}.\n\n" +
+    "Item: {item}\nVendor: {vendor}\nTotal: {total}\n\n" +
+    "Please let me know if you need anything else.\n\nThank you,\n{me}",
+};
+
 export interface UserSettings {
   schemaVersion: 1;
 
@@ -261,6 +296,10 @@ export interface UserSettings {
 
   /** Lab-tier: the lab this user belongs to (head or member). Absent for solo users. */
   lab_id?: string;
+
+  /** Purchase department-routing config (lab-head only, opt-in). Defaults to a
+   *  disabled empty config; normalize() repairs a hand-edited bad shape. */
+  purchaseRouting: PurchaseRoutingConfig;
 
   // When on, the app makes zero calls to its own server proxy
   // (`/api/calendar-feed`).
@@ -402,6 +441,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   hideGoalsFromLab: false,
   offlineMode: false,
   account_type: "member",
+  purchaseRouting: DEFAULT_PURCHASE_ROUTING,
 };
 
 /** Horizon choices surfaced in the Settings → Sidebar selector. */
@@ -463,6 +503,33 @@ function normalize(raw: Partial<UserSettings> | null | undefined): UserSettings 
   if (merged.account_type !== "member" && merged.account_type !== "lab_head") {
     merged.account_type = "member";
   }
+
+  // Purchase routing: repair a missing / hand-edited bad shape so the UI always
+  // reads a well-formed config (disabled empty default when absent or garbage).
+  const pr = merged.purchaseRouting as Partial<PurchaseRoutingConfig> | undefined;
+  merged.purchaseRouting =
+    pr && typeof pr === "object"
+      ? {
+          enabled: pr.enabled === true,
+          contacts: Array.isArray(pr.contacts)
+            ? pr.contacts.filter(
+                (c): c is PurchaseRoutingContact =>
+                  !!c &&
+                  typeof c.id === "string" &&
+                  typeof c.name === "string" &&
+                  typeof c.email === "string",
+              )
+            : [],
+          subjectTemplate:
+            typeof pr.subjectTemplate === "string"
+              ? pr.subjectTemplate
+              : DEFAULT_PURCHASE_ROUTING.subjectTemplate,
+          bodyTemplate:
+            typeof pr.bodyTemplate === "string"
+              ? pr.bodyTemplate
+              : DEFAULT_PURCHASE_ROUTING.bodyTemplate,
+        }
+      : { ...DEFAULT_PURCHASE_ROUTING };
 
   // Editor width preset (Phase 1): drop a hand-edited garbage value so the
   // field reads as "unset" (= the default measure) rather than a class the
