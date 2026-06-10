@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS entry flow, before and after (OAuth-first)</title>
+<style>
+  /* Faithful to the live design tokens (frontend/src/app/globals.css). */
+  :root {
+    --surface: #f8fafc;
+    --surface-raised: #ffffff;
+    --surface-overlay: #ffffff;
+    --surface-sunken: #f1f5f9;
+    --foreground: #171717;
+    --foreground-muted: #6b7280;
+    --border: #e5e7eb;
+    --page-bg: #e2e8f0;
+    --brand-sky: #1AA0E6;
+    --brand-action: #1283C9;
+    --brand-ink: #111827;
+    --brand-purple: #5B47D6;
+    --ok: #16a34a;
+    --pin: #e11d48;
+    --amber: #f59e0b;
+    --scrim: rgba(15, 23, 42, 0.35);
+  }
+  html[data-theme="dark"] {
+    --surface: #0a0e1a;
+    --surface-raised: #1c2638;
+    --surface-overlay: #28344c;
+    --surface-sunken: #0d1424;
+    --foreground: #f1f5f9;
+    --foreground-muted: #b4bfd0;
+    --border: rgba(255, 255, 255, 0.16);
+    --page-bg: #060a13;
+    --brand-ink: #f1f5f9;
+    --pin: #fb7185;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--page-bg);
+    color: var(--foreground);
+    transition: background 0.2s;
+  }
+  .topbar {
+    position: sticky; top: 0; z-index: 30;
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 22px;
+    background: var(--surface-raised);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .topbar h1 { font-size: 15px; margin: 0; font-weight: 800; }
+  .topbar p { margin: 0; font-size: 12px; color: var(--foreground-muted); }
+  .spacer { flex: 1; }
+  .btn {
+    appearance: none; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface-sunken);
+    color: var(--foreground); border-radius: 8px;
+    padding: 7px 12px; font-size: 12.5px; font-weight: 600;
+  }
+  .btn:hover { border-color: var(--foreground-muted); }
+  .btn.on { background: var(--brand-action); border-color: var(--brand-action); color: #fff; }
+  .btn.danger { color: var(--pin); }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 22px; }
+  .lead { font-size: 13.5px; color: var(--foreground-muted); line-height: 1.6; max-width: 80ch; margin: 4px 0 18px; }
+  .lead b { color: var(--foreground); }
+
+  /* proposed-changes strip */
+  .changes { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 10px; margin-bottom: 24px; }
+  .change {
+    border: 1px solid var(--border); background: var(--surface-raised); border-radius: 12px;
+    padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .change.approved { border-color: var(--ok); box-shadow: inset 3px 0 0 var(--ok); }
+  .change.disapproved { border-color: var(--pin); box-shadow: inset 3px 0 0 var(--pin); }
+  .ctitle { font-weight: 700; font-size: 13px; }
+  .ctitle .tag { font-size: 10px; font-weight: 700; color: var(--brand-action); background: var(--surface-sunken); border-radius: 5px; padding: 1px 5px; margin-right: 6px; }
+  .cdesc { font-size: 12px; color: var(--foreground-muted); line-height: 1.55; }
+  .verdict { display: flex; align-items: center; gap: 8px; }
+  .vbtn { appearance: none; cursor: pointer; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground); border-radius: 7px; padding: 5px 10px; font-size: 11.5px; font-weight: 700; }
+  .vbtn.app.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .vbtn.dis.on { background: var(--pin); border-color: var(--pin); color: #fff; }
+  .vclear { appearance: none; cursor: pointer; border: none; background: none; color: var(--foreground-muted); font-size: 11px; text-decoration: underline; }
+
+  /* two-column before/after */
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; }
+  @media (max-width: 920px) { .cols { grid-template-columns: 1fr; } }
+  .col h2 { font-size: 13px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--foreground-muted); margin: 0 0 4px; }
+  .col .sub { font-size: 12px; color: var(--foreground-muted); margin: 0 0 14px; }
+  .flow { display: flex; flex-direction: column; gap: 0; }
+  .arrow { text-align: center; color: var(--foreground-muted); font-size: 11.5px; padding: 7px 0; position: relative; }
+  .arrow::before { content: ""; display: block; width: 1px; height: 12px; background: var(--border); margin: 0 auto 4px; }
+
+  /* a phone-like screen card */
+  .screen {
+    position: relative;
+    border: 1px solid var(--border); border-radius: 16px; background: var(--surface);
+    padding: 22px 20px 20px; overflow: hidden;
+  }
+  .screen.overlay { background: var(--surface-overlay); }
+  .screen .tagstrip { position: absolute; top: 10px; right: 10px; font-size: 10px; font-weight: 700; border-radius: 6px; padding: 2px 7px; }
+  .tag-old { color: var(--pin); background: color-mix(in srgb, var(--pin) 12%, transparent); }
+  .tag-new { color: var(--brand-action); background: color-mix(in srgb, var(--brand-action) 14%, transparent); }
+  .tag-ext { color: var(--foreground-muted); background: var(--surface-sunken); }
+  .bot { width: 46px; height: 46px; margin: 2px auto 10px; display: block; }
+  .stitle { text-align: center; font-weight: 800; font-size: 17px; color: var(--brand-ink); margin: 0 0 5px; }
+  .ssub { text-align: center; font-size: 12px; color: var(--foreground-muted); line-height: 1.5; margin: 0 auto 16px; max-width: 34ch; }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .prov, .plain {
+    cursor: pointer; appearance: none;
+    width: 100%; display: flex; align-items: center; justify-content: center; gap: 9px;
+    border-radius: 10px; padding: 10px 12px; font-size: 13px; font-weight: 600;
+    border: 1px solid var(--border); background: var(--surface-raised); color: var(--foreground);
+    transition: transform 0.08s, box-shadow 0.12s;
+  }
+  .prov:hover, .plain:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .prov.gh { background: #24292e; color: #fff; border-color: #24292e; }
+  .prov.li { background: #0A66C2; color: #fff; border-color: #0A66C2; }
+  .prov .ico { width: 16px; height: 16px; display: inline-flex; }
+  .prov.gh .ico, .prov.li .ico { color: #fff; }
+  .lastused { position: relative; box-shadow: 0 0 0 2px var(--brand-sky); }
+  .lubadge { position: absolute; top: -8px; right: 10px; font-size: 9.5px; font-weight: 800; letter-spacing: 0.03em; color: #fff; background: var(--brand-sky); border-radius: 999px; padding: 2px 7px; }
+  .divider { display: flex; align-items: center; gap: 8px; color: var(--foreground-muted); font-size: 11px; margin: 12px 0 10px; }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  .secondary { display: flex; flex-direction: column; gap: 7px; }
+  .ghostbtn { cursor: pointer; appearance: none; width: 100%; text-align: center; border: 1px dashed var(--border); background: transparent; color: var(--foreground-muted); border-radius: 9px; padding: 8px; font-size: 12px; font-weight: 600; }
+  .folderbtn { cursor: pointer; appearance: none; width: 100%; border: 1px solid var(--brand-action); background: var(--brand-action); color: #fff; border-radius: 10px; padding: 11px; font-size: 13.5px; font-weight: 700; }
+  .you { text-align: center; font-size: 12px; color: var(--foreground-muted); margin: 0 0 14px; }
+  .you b { color: var(--ok); }
+  .ext { text-align: center; padding: 16px 0; }
+  .ext .glyph { font-size: 22px; font-weight: 800; color: var(--foreground-muted); }
+  .note { margin-top: 12px; font-size: 11.5px; color: var(--foreground-muted); line-height: 1.5; border-top: 1px dashed var(--border); padding-top: 10px; }
+  .note.warn { color: var(--pin); }
+  .note.good { color: var(--ok); }
+  .play { min-height: 16px; text-align: center; font-size: 11.5px; font-weight: 700; color: var(--brand-action); margin-top: 8px; }
+
+  /* comment pins */
+  .cmt { position: relative; }
+  body.cmt-on .cmt { cursor: crosshair; }
+  body.cmt-on .cmt:hover { outline: 2px dashed var(--brand-sky); outline-offset: 2px; }
+  .pin { position: absolute; top: -9px; left: -9px; min-width: 19px; height: 19px; padding: 0 4px; border-radius: 999px; background: var(--pin); color: #fff; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; z-index: 6; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+  .pin.hl { animation: pop 0.6s ease; }
+  @keyframes pop { 0%,100% { transform: scale(1); } 40% { transform: scale(1.5); } }
+
+  /* side panel */
+  .panel { position: fixed; right: 16px; bottom: 16px; width: 300px; max-height: 70vh; background: var(--surface-overlay); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.28); z-index: 40; display: flex; flex-direction: column; }
+  .panel.collapsed .panelBody, .panel.collapsed .panelFoot { display: none; }
+  .panelHead { display: flex; align-items: center; gap: 8px; padding: 11px 13px; cursor: pointer; border-bottom: 1px solid var(--border); }
+  .panelHead b { font-size: 13px; } .panelHead .cnt { font-size: 11px; color: var(--foreground-muted); }
+  .panelBody { overflow: auto; padding: 6px; }
+  .empty { font-size: 12px; color: var(--foreground-muted); padding: 14px; line-height: 1.5; }
+  .citem { display: flex; gap: 8px; padding: 8px; border-radius: 9px; cursor: pointer; }
+  .citem:hover { background: var(--surface-sunken); }
+  .citem .num { flex: 0 0 20px; height: 20px; border-radius: 999px; background: var(--pin); color: #fff; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+  .citem .tgt { font-size: 11px; font-weight: 700; }
+  .citem .txt { font-size: 12px; color: var(--foreground-muted); }
+  .citem .x { margin-left: auto; border: none; background: none; color: var(--foreground-muted); cursor: pointer; font-size: 15px; }
+  .vbadge { font-size: 9.5px; font-weight: 800; }
+  .panelFoot { display: flex; gap: 6px; padding: 9px; border-top: 1px solid var(--border); }
+  .panelFoot .btn { flex: 1; text-align: center; }
+
+  /* comment editor popover */
+  .editor { position: fixed; z-index: 50; width: 280px; background: var(--surface-overlay); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 14px 44px rgba(0,0,0,0.3); padding: 11px; }
+  .editor .lbl { font-size: 11px; font-weight: 700; color: var(--foreground-muted); margin-bottom: 6px; }
+  .editor textarea { width: 100%; min-height: 64px; resize: vertical; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-sunken); color: var(--foreground); padding: 8px; font: inherit; font-size: 12.5px; }
+  .editor .vchoice { display: flex; gap: 6px; margin: 8px 0; }
+  .editor .acts { display: flex; gap: 6px; align-items: center; }
+  .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 22px; background: var(--brand-ink); color: #fff; padding: 9px 15px; border-radius: 10px; font-size: 12.5px; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 60; }
+  .toast.show { opacity: 1; }
+  html[data-theme="dark"] .toast { background: #28344c; border: 1px solid var(--border); }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <h1>ResearchOS entry flow, before and after</h1>
+      <p>OAuth-first redesign. Mark up anything, set a verdict per change, then Export and paste back.</p>
+    </div>
+    <span class="spacer"></span>
+    <button class="btn" id="themeToggle">Switch to dark</button>
+    <button class="btn" id="commentToggle">Comment mode: off</button>
+    <button class="btn" id="exportBtn">Export (copy)</button>
+    <button class="btn" id="downloadBtn">Download .md</button>
+    <button class="btn danger" id="clearBtn">Clear notes</button>
+  </div>
+
+  <div class="wrap">
+    <p class="lead">
+      The thing that makes Google feel like a bug, your account is a local keypair that lives in the folder, so today the folder picker has to come first and the provider only binds your email afterward. The fix you picked is <b>OAuth-first</b>, the provider opens immediately and the folder step moves to after you are signed in, framed as where your account is saved. Alongside that, one unified landing for everyone who is not already signed in with a folder, a dedicated re-login screen for folder-connected people who got signed out, and a <b>Last used</b> badge on the provider you picked before. Click the provider buttons in the AFTER column to feel the flow, the Last used badge updates live.
+    </p>
+
+    <div class="changes" id="changes"></div>
+
+    <div class="cols">
+      <div class="col">
+        <h2>Before, today on research-os.app</h2>
+        <p class="sub">Three or four screens, and clicking a provider drops you into a folder picker before the provider ever loads.</p>
+        <div class="flow">
+
+          <div class="screen cmt" data-clabel="Before: start screen">
+            <span class="tagstrip tag-old">current</span>
+            <svg class="bot" viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v5L5.5 17.5A2.5 2.5 0 0 0 7.8 21h8.4a2.5 2.5 0 0 0 2.3-3.5L14 8V3" stroke="var(--brand-sky)" stroke-width="1.6" stroke-linejoin="round"/><circle cx="10.5" cy="14" r="1" fill="var(--brand-sky)"/><circle cx="13.5" cy="16" r="1" fill="var(--brand-sky)"/></svg>
+            <div class="stitle">Welcome to ResearchOS</div>
+            <div class="ssub">Three side-by-side doors, the welcome and sell page sits one scroll below.</div>
+            <div class="stack">
+              <button class="plain">Open a folder</button>
+              <button class="plain">Sign in</button>
+              <button class="plain">Create account</button>
+            </div>
+          </div>
+
+          <div class="arrow">click Create account</div>
+
+          <div class="screen overlay cmt" data-clabel="Before: create free account">
+            <span class="tagstrip tag-old">current</span>
+            <div class="stitle">Create your free account</div>
+            <div class="ssub">Pick a sign-in provider. Your data stays on your disk, the account is free and only used for sharing and the directory.</div>
+            <div class="stack">
+              <button class="plain">Sign in with ORCID</button>
+              <button class="plain">Continue with Google</button>
+              <button class="prov gh">Continue with GitHub</button>
+              <button class="prov li">Continue with LinkedIn</button>
+            </div>
+          </div>
+
+          <div class="arrow">click Google</div>
+
+          <div class="screen cmt" data-clabel="Before: surprise folder picker">
+            <span class="tagstrip tag-old">the surprise</span>
+            <div class="stitle">Connect your folder to finish signing in</div>
+            <div class="ssub">A full folder-connect screen appears here, before Google ever opens.</div>
+            <button class="folderbtn">Choose a folder</button>
+            <div class="note warn">This is the screen that felt like a bug. You clicked Google and got a folder picker. It is the current FolderConnectGate, not a stale leftover.</div>
+          </div>
+
+          <div class="arrow">connect folder, then redirect</div>
+
+          <div class="screen cmt" data-clabel="Before: google then claim">
+            <span class="tagstrip tag-ext">external + wizard</span>
+            <div class="ext"><div class="glyph">Google sign-in</div></div>
+            <div class="ssub">Back to ResearchOS, then a sharing-setup wizard finishes the identity.</div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="col">
+        <h2>After, OAuth-first</h2>
+        <p class="sub">One landing. Click a provider and it opens immediately. The folder step moves to after sign-in, framed as where your account is saved.</p>
+        <div class="flow">
+
+          <div class="screen cmt" data-clabel="After: unified landing">
+            <span class="tagstrip tag-new">change 1 + 2</span>
+            <svg class="bot" viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v5L5.5 17.5A2.5 2.5 0 0 0 7.8 21h8.4a2.5 2.5 0 0 0 2.3-3.5L14 8V3" stroke="var(--brand-sky)" stroke-width="1.6" stroke-linejoin="round"/><circle cx="10.5" cy="14" r="1" fill="var(--brand-sky)"/><circle cx="13.5" cy="16" r="1" fill="var(--brand-sky)"/></svg>
+            <div class="stitle">Welcome to ResearchOS</div>
+            <div class="ssub">One screen for everyone who is not already signed in with a folder. Pick how you want to sign in.</div>
+            <div class="stack">
+              <button class="prov" data-prov="orcid"><span class="ico"><svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="11" fill="#A6CE39"/><text x="12" y="16" font-size="11" fill="#fff" text-anchor="middle" font-weight="700">iD</text></svg></span>Continue with ORCID</button>
+              <button class="prov" data-prov="google"><span class="ico"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="#4285F4" d="M22 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.6a4.8 4.8 0 0 1-2.1 3.1v2.6h3.4c2-1.8 3.1-4.5 3.1-7.5z"/><path fill="#34A853" d="M12 22c2.7 0 5-.9 6.6-2.4l-3.4-2.6c-.9.6-2 1-3.2 1-2.5 0-4.6-1.7-5.4-4H3.1v2.6A10 10 0 0 0 12 22z"/><path fill="#FBBC05" d="M6.6 14a6 6 0 0 1 0-3.8V7.6H3.1a10 10 0 0 0 0 8.9z"/><path fill="#EA4335" d="M12 6.2c1.5 0 2.8.5 3.8 1.5l2.9-2.9A10 10 0 0 0 3.1 7.6L6.6 10c.8-2.3 2.9-3.8 5.4-3.8z"/></svg></span>Continue with Google</button>
+              <button class="prov" data-prov="microsoft"><span class="ico"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="#F25022" d="M1 1h10v10H1z"/><path fill="#7FBA00" d="M13 1h10v10H13z"/><path fill="#00A4EF" d="M1 13h10v10H1z"/><path fill="#FFB900" d="M13 13h10v10H13z"/></svg></span>Continue with Microsoft</button>
+              <button class="prov gh" data-prov="github"><span class="ico"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.1-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.3 1.1 2.9.8 0-.6.3-1.1.6-1.3-2.2-.300-4.5-1.1-4.5-4.9 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.7 1a9.4 9.4 0 0 1 5 0c1.9-1.3 2.7-1 2.7-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.8-2.3 4.6-4.5 4.9.3.3.6.9.6 1.8v2.7c0 .3.2.6.7.5A10 10 0 0 0 12 2z"/></svg></span>Continue with GitHub</button>
+              <button class="prov li" data-prov="linkedin"><span class="ico"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM9 9h3.8v1.7h.1c.5-1 1.8-2 3.7-2 4 0 4.7 2.6 4.7 6V21h-4v-5.3c0-1.3 0-2.9-1.8-2.9s-2 1.4-2 2.8V21H9z"/></svg></span>Continue with LinkedIn</button>
+            </div>
+            <div class="divider">or</div>
+            <div class="secondary">
+              <button class="ghostbtn">Open a folder I already have</button>
+              <button class="ghostbtn">Use ResearchOS locally, no account</button>
+            </div>
+            <div class="play" id="playLanding"></div>
+          </div>
+
+          <div class="arrow">click a provider, it opens right away</div>
+
+          <div class="screen cmt" data-clabel="After: provider opens immediately">
+            <span class="tagstrip tag-ext">external</span>
+            <div class="ext"><div class="glyph" id="extGlyph">Provider sign-in</div></div>
+            <div class="ssub">No folder picker first. The provider you clicked opens immediately, the way you expected.</div>
+          </div>
+
+          <div class="arrow">signed in, back to ResearchOS</div>
+
+          <div class="screen cmt" data-clabel="After: save your account folder step">
+            <span class="tagstrip tag-new">change 3</span>
+            <div class="you">Signed in as <b id="signedAs">you@gmail.com</b></div>
+            <div class="stitle">Save your account on your disk</div>
+            <div class="ssub">Pick a folder to keep your notebook and account. Everything stays local, this folder is your account.</div>
+            <button class="folderbtn">Choose a folder</button>
+            <div class="note good">Same folder connect as before, but now it reads as the expected next step, not a surprise. If the folder already holds this account we just unlock it.</div>
+          </div>
+
+          <div class="arrow">into the app</div>
+          <div class="screen cmt" data-clabel="After: in the app"><span class="tagstrip tag-new">done</span><div class="stitle" style="font-size:15px">You are in</div><div class="ssub" style="margin-bottom:0">Workbench, or the lab overview for a lab head.</div></div>
+
+          <div class="arrow" style="padding-top:22px">separate path, returning + signed out</div>
+
+          <div class="screen overlay cmt" data-clabel="After: re-login screen">
+            <span class="tagstrip tag-new">change 4 + 5</span>
+            <svg class="bot" viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v5L5.5 17.5A2.5 2.5 0 0 0 7.8 21h8.4a2.5 2.5 0 0 0 2.3-3.5L14 8V3" stroke="var(--brand-sky)" stroke-width="1.6" stroke-linejoin="round"/></svg>
+            <div class="stitle">Welcome back, Grant</div>
+            <div class="ssub">Your folder is connected. Sign back in to unlock sharing and the directory.</div>
+            <div class="stack">
+              <button class="prov lastused" id="reGoogle" data-prov="google"><span class="lubadge" id="luBadge">Last used</span><span class="ico"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="#4285F4" d="M22 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.6a4.8 4.8 0 0 1-2.1 3.1v2.6h3.4c2-1.8 3.1-4.5 3.1-7.5z"/><path fill="#34A853" d="M12 22c2.7 0 5-.9 6.6-2.4l-3.4-2.6c-.9.6-2 1-3.2 1-2.5 0-4.6-1.7-5.4-4H3.1v2.6A10 10 0 0 0 12 22z"/><path fill="#FBBC05" d="M6.6 14a6 6 0 0 1 0-3.8V7.6H3.1a10 10 0 0 0 0 8.9z"/><path fill="#EA4335" d="M12 6.2c1.5 0 2.8.5 3.8 1.5l2.9-2.9A10 10 0 0 0 3.1 7.6L6.6 10c.8-2.3 2.9-3.8 5.4-3.8z"/></svg></span>Continue with Google</button>
+            </div>
+            <div class="divider">other ways</div>
+            <div class="secondary" id="reOthers">
+              <button class="ghostbtn" data-prov="microsoft">Microsoft</button>
+              <button class="ghostbtn" data-prov="orcid">ORCID</button>
+              <button class="ghostbtn" data-prov="github">GitHub</button>
+              <button class="ghostbtn" data-prov="linkedin">LinkedIn</button>
+            </div>
+            <div class="note">The last provider you used floats to the top with the badge. The rest collapse into a quieter row, the pattern you said you loved on other sites.</div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel">
+    <div class="panelHead" id="panelHead"><b>Notes</b><span class="cnt">(<span id="cCount">0</span>)</span><span class="spacer"></span><span class="cnt" id="chev">hide</span></div>
+    <div class="panelBody" id="panelBody"></div>
+    <div class="panelFoot"><button class="btn" id="exportBtn2">Copy</button><button class="btn" id="downloadBtn2">.md</button></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  const PROV_LABEL = { google: "Google", microsoft: "Microsoft", orcid: "ORCID", github: "GitHub", linkedin: "LinkedIn" };
+  function esc(s) { return (s || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+  /* ---------- comments store ---------- */
+  const STORE = "ros-entry-flow-comments-v1";
+  let comments = [];
+  try { comments = JSON.parse(localStorage.getItem(STORE) || "[]"); } catch { comments = []; }
+  function save() { try { localStorage.setItem(STORE, JSON.stringify(comments)); } catch {} }
+
+  function renderPins() {
+    document.querySelectorAll(".pin").forEach(p => p.remove());
+    const byTarget = {};
+    comments.forEach((c, i) => { (byTarget[c.target] = byTarget[c.target] || []).push(i + 1); });
+    document.querySelectorAll(".cmt").forEach(el => {
+      const lbl = el.getAttribute("data-clabel");
+      const nums = byTarget[lbl];
+      if (!nums) return;
+      const pin = document.createElement("span");
+      pin.className = "pin";
+      pin.textContent = nums.join(",");
+      pin.addEventListener("click", ev => { ev.stopPropagation(); const first = comments.findIndex(c => c.target === lbl); if (first >= 0) openEditor(el, first, ev); });
+      el.appendChild(pin);
+    });
+  }
+  function flashPin(target) {
+    document.querySelectorAll(".pin").forEach(p => { const el = p.closest(".cmt"); if (el && el.getAttribute("data-clabel") === target) { p.classList.add("hl"); setTimeout(() => p.classList.remove("hl"), 700); } });
+  }
+  function renderPanel() {
+    const body = document.getElementById("panelBody");
+    document.getElementById("cCount").textContent = comments.length;
+    if (!comments.length) { body.innerHTML = '<div class="empty">No notes yet. Turn on Comment mode and click any screen or button.</div>'; return; }
+    const vtag = v => v === "approve" ? '<span class="vbadge" style="color:var(--ok)">APPROVE</span> ' : v === "disapprove" ? '<span class="vbadge" style="color:var(--pin)">DISAPPROVE</span> ' : "";
+    body.innerHTML = comments.map((c, i) => `<div class="citem" data-i="${i}"><span class="num">${i + 1}</span><div style="flex:1"><div class="tgt">${vtag(c.verdict)}${esc(c.target)}</div><div class="txt">${esc(c.text) || "<i>no text</i>"}</div></div><button class="x" data-del="${i}">&times;</button></div>`).join("");
+    body.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); comments.splice(+b.dataset.del, 1); save(); renderAll(); }));
+    body.querySelectorAll(".citem").forEach(it => it.addEventListener("click", e => { if (e.target.closest("[data-del]")) return; const i = +it.dataset.i; const el = [...document.querySelectorAll(".cmt")].find(x => x.getAttribute("data-clabel") === comments[i].target); if (el) { el.scrollIntoView({ block: "center", behavior: "smooth" }); flashPin(comments[i].target); } }));
+  }
+  function renderAll() { renderPins(); renderPanel(); }
+
+  /* ---------- per-change verdicts ---------- */
+  const CHANGES = [
+    { id: "unified", tag: "1", title: "One unified landing", desc: "Merge the start screen, the create-account chooser, and the welcome page into a single screen everyone who is not already signed in with a folder lands on. The forced welcome detour for fresh visitors was already removed, this finishes the job." },
+    { id: "oauthfirst", tag: "2", title: "OAuth first", desc: "Clicking a provider opens that provider immediately, no folder picker in between. This is the core fix for the Google bug you hit." },
+    { id: "folderstep", tag: "3", title: "Folder step after sign-in", desc: "Move the folder connect to after the provider returns, framed as where your account is saved on disk. Same connect, but it reads as expected instead of a surprise. If the folder already holds the account, just unlock." },
+    { id: "relogin", tag: "4", title: "Dedicated re-login screen", desc: "A returning person whose folder is connected but whose session expired gets a clean Welcome back screen to sign back in, instead of the general user picker." },
+    { id: "lastused", tag: "5", title: "Last used provider badge", desc: "Remember the provider you signed in with last and float it to the top of the re-login screen with a Last used badge, the rest collapse into a quiet row." },
+  ];
+  const VSTORE = "ros-entry-flow-verdicts-v1";
+  let verdicts = {};
+  try { verdicts = JSON.parse(localStorage.getItem(VSTORE) || "{}"); } catch { verdicts = {}; }
+  function saveVerdicts() { try { localStorage.setItem(VSTORE, JSON.stringify(verdicts)); } catch {} }
+  function renderChanges() {
+    const wrap = document.getElementById("changes");
+    wrap.innerHTML = CHANGES.map(c => {
+      const v = verdicts[c.id] || "";
+      const cls = v === "approve" ? "approved" : v === "disapprove" ? "disapproved" : "";
+      return `<div class="change ${cls}"><div><div class="ctitle"><span class="tag">${c.tag}</span>${esc(c.title)}</div><div class="cdesc">${esc(c.desc)}</div></div><div class="verdict"><button class="vbtn app ${v === "approve" ? "on" : ""}" data-c="${c.id}" data-v="approve">Approve</button><button class="vbtn dis ${v === "disapprove" ? "on" : ""}" data-c="${c.id}" data-v="disapprove">Disapprove</button>${v ? `<button class="vclear" data-c="${c.id}" data-v="clear">clear</button>` : ""}</div></div>`;
+    }).join("");
+    wrap.querySelectorAll("[data-v]").forEach(b => b.addEventListener("click", () => {
+      const id = b.dataset.c, v = b.dataset.v;
+      if (v === "clear") delete verdicts[id];
+      else verdicts[id] = verdicts[id] === v ? undefined : v;
+      if (!verdicts[id]) delete verdicts[id];
+      saveVerdicts(); renderChanges();
+    }));
+  }
+
+  /* ---------- editor popover ---------- */
+  let editorEl = null;
+  function closeEditor() { if (editorEl) { editorEl.remove(); editorEl = null; } }
+  function openEditor(targetEl, existingIndex, ev) {
+    closeEditor();
+    const target = targetEl.getAttribute("data-clabel") || "Page";
+    const existing = existingIndex != null ? comments[existingIndex] : null;
+    let pv = existing ? (existing.verdict || "") : "";
+    const ed = document.createElement("div");
+    ed.className = "editor";
+    ed.innerHTML = `<div class="lbl">${esc(target)}</div><textarea placeholder="Note, suggestion, or change request">${existing ? esc(existing.text) : ""}</textarea><div class="vchoice"><button class="vbtn" data-vc="note">Note</button><button class="vbtn app" data-vc="approve">Approve</button><button class="vbtn dis" data-vc="disapprove">Disapprove</button></div><div class="acts">${existing ? '<button class="btn danger" data-act="del">Delete</button>' : ""}<span class="spacer"></span><button class="btn" data-act="cancel">Cancel</button><button class="btn on" data-act="save">Save</button></div>`;
+    document.body.appendChild(ed); editorEl = ed;
+    const paint = () => ed.querySelectorAll("[data-vc]").forEach(b => b.classList.toggle("on", (b.dataset.vc === "note" && !pv) || b.dataset.vc === pv));
+    ed.querySelectorAll("[data-vc]").forEach(b => b.addEventListener("click", () => { pv = b.dataset.vc === "note" ? "" : b.dataset.vc; paint(); }));
+    paint();
+    const x = ev ? ev.clientX : targetEl.getBoundingClientRect().left;
+    const y = ev ? ev.clientY : targetEl.getBoundingClientRect().bottom;
+    ed.style.left = Math.min(Math.max(8, x - 20), window.innerWidth - 288) + "px";
+    ed.style.top = Math.min(y + 10, window.innerHeight - 210) + "px";
+    ed.querySelector("textarea").focus();
+    ed.querySelectorAll("[data-act]").forEach(b => b.addEventListener("click", () => {
+      const act = b.dataset.act;
+      if (act === "cancel") return closeEditor();
+      if (act === "del") { if (existingIndex != null) { comments.splice(existingIndex, 1); save(); renderAll(); } return closeEditor(); }
+      if (act === "save") { const text = ed.querySelector("textarea").value.trim(); if (!text && !pv) return closeEditor(); if (existing) { existing.text = text; existing.verdict = pv; } else comments.push({ target, text, verdict: pv }); save(); renderAll(); closeEditor(); }
+    }));
+    ed.addEventListener("keydown", e => { if (e.key === "Escape") closeEditor(); if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) ed.querySelector('[data-act="save"]').click(); });
+  }
+  document.addEventListener("click", e => {
+    if (!document.body.classList.contains("cmt-on")) return;
+    if (e.target.closest(".editor") || e.target.closest(".panel") || e.target.closest(".topbar") || e.target.closest(".pin") || e.target.closest(".changes")) return;
+    const cmt = e.target.closest(".cmt");
+    if (!cmt) return;
+    e.preventDefault(); openEditor(cmt, null, e);
+  });
+
+  /* ---------- flow play, OAuth-first + last-used ---------- */
+  let lastProvider = "google";
+  function setLastUsed(prov) {
+    lastProvider = prov;
+    document.getElementById("signedAs").textContent = prov === "google" ? "you@gmail.com" : prov === "microsoft" ? "you@outlook.com" : prov === "orcid" ? "0000-0002-1825-0097" : prov === "github" ? "you@users.noreply.github.com" : "you@work.com";
+    // The re-login screen shows Google badged as the illustrative example. We do
+    // not restructure its button here (that would mismatch the icon), the toast
+    // and the badge note carry the "remembered last provider" idea.
+  }
+  document.querySelectorAll(".prov[data-prov], .ghostbtn[data-prov]").forEach(b => {
+    b.addEventListener("click", () => {
+      if (document.body.classList.contains("cmt-on")) return; // comment mode owns clicks
+      const prov = b.dataset.prov;
+      document.getElementById("extGlyph").textContent = PROV_LABEL[prov] + " sign-in";
+      const play = document.getElementById("playLanding");
+      if (play) { play.textContent = "Opening " + PROV_LABEL[prov] + " sign-in, no folder picker first"; setTimeout(() => { if (play.textContent.startsWith("Opening")) play.textContent = ""; }, 2200); }
+      setLastUsed(prov);
+      toast(PROV_LABEL[prov] + " set as Last used");
+    });
+  });
+
+  /* ---------- toggles + export ---------- */
+  const cBtn = document.getElementById("commentToggle");
+  cBtn.addEventListener("click", () => { const on = document.body.classList.toggle("cmt-on"); cBtn.classList.toggle("on", on); cBtn.textContent = "Comment mode: " + (on ? "on" : "off"); if (!on) closeEditor(); });
+  const tBtn = document.getElementById("themeToggle");
+  tBtn.addEventListener("click", () => { const dark = document.documentElement.getAttribute("data-theme") === "dark"; document.documentElement.setAttribute("data-theme", dark ? "light" : "dark"); tBtn.textContent = dark ? "Switch to dark" : "Switch to light"; });
+  document.getElementById("panelHead").addEventListener("click", () => { const p = document.getElementById("panel"); const col = p.classList.toggle("collapsed"); document.getElementById("chev").textContent = col ? "show" : "hide"; });
+
+  function buildMarkdown() {
+    let out = "ResearchOS entry flow redesign (OAuth-first), feedback\n\n";
+    out += "Verdicts on the five changes\n";
+    CHANGES.forEach(c => { const v = verdicts[c.id]; out += `- ${c.title}: ${v === "approve" ? "APPROVE" : v === "disapprove" ? "DISAPPROVE" : "undecided"}\n`; });
+    out += "\nNotes\n";
+    if (!comments.length) out += "- none\n";
+    comments.forEach((c, i) => { const tag = c.verdict === "approve" ? "[APPROVE] " : c.verdict === "disapprove" ? "[DISAPPROVE] " : ""; out += `${i + 1}. ${tag}[${c.target}] ${c.text}\n`; });
+    return out;
+  }
+  function toast(msg) { const t = document.getElementById("toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 1500); }
+  async function doCopy() { const md = buildMarkdown(); try { await navigator.clipboard.writeText(md); toast("Feedback copied, paste it back to me"); } catch { window.prompt("Copy your feedback", md); } }
+  function doDownload() { const blob = new Blob([buildMarkdown()], { type: "text/markdown" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "entry-flow-feedback.md"; a.click(); URL.revokeObjectURL(a.href); }
+  document.getElementById("exportBtn").addEventListener("click", doCopy);
+  document.getElementById("exportBtn2").addEventListener("click", doCopy);
+  document.getElementById("downloadBtn").addEventListener("click", doDownload);
+  document.getElementById("downloadBtn2").addEventListener("click", doDownload);
+  document.getElementById("clearBtn").addEventListener("click", () => { if (comments.length && !confirm("Delete all notes?")) return; comments = []; save(); renderAll(); });
+
+  renderChanges();
+  renderAll();
+</script>
+</body>
+</html>
