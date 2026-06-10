@@ -3,9 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>ResearchOS entry flow, before and after (OAuth-first)</title>
+<title>ResearchOS entry flow, before and after (OAuth-first, deck login)</title>
 <style>
-  /* Faithful to the live design tokens (frontend/src/app/globals.css). */
+  /* Faithful to the live design tokens (frontend/src/app/globals.css) and the
+     marketing deck (docs/marketing/researchos-deck.html). */
   :root {
     --surface: #f8fafc;
     --surface-raised: #ffffff;
@@ -21,8 +22,7 @@
     --brand-purple: #5B47D6;
     --ok: #16a34a;
     --pin: #e11d48;
-    --amber: #f59e0b;
-    --scrim: rgba(15, 23, 42, 0.35);
+    --rainbow: linear-gradient(90deg,#ffd2b0 0%,#fff1a8 25%,#b7ebb1 50%,#a6d2f4 75%,#d6b5f0 100%);
   }
   html[data-theme="dark"] {
     --surface: #0a0e1a;
@@ -70,10 +70,7 @@
 
   /* proposed-changes strip */
   .changes { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 10px; margin-bottom: 24px; }
-  .change {
-    border: 1px solid var(--border); background: var(--surface-raised); border-radius: 12px;
-    padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
-  }
+  .change { border: 1px solid var(--border); background: var(--surface-raised); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
   .change.approved { border-color: var(--ok); box-shadow: inset 3px 0 0 var(--ok); }
   .change.disapproved { border-color: var(--pin); box-shadow: inset 3px 0 0 var(--pin); }
   .ctitle { font-weight: 700; font-size: 13px; }
@@ -91,42 +88,27 @@
   .col h2 { font-size: 13px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--foreground-muted); margin: 0 0 4px; }
   .col .sub { font-size: 12px; color: var(--foreground-muted); margin: 0 0 14px; }
   .flow { display: flex; flex-direction: column; gap: 0; }
-  .arrow { text-align: center; color: var(--foreground-muted); font-size: 11.5px; padding: 7px 0; position: relative; }
+  .arrow { text-align: center; color: var(--foreground-muted); font-size: 11.5px; padding: 7px 0; }
   .arrow::before { content: ""; display: block; width: 1px; height: 12px; background: var(--border); margin: 0 auto 4px; }
 
-  /* a phone-like screen card */
-  .screen {
-    position: relative;
-    border: 1px solid var(--border); border-radius: 16px; background: var(--surface);
-    padding: 22px 20px 20px; overflow: hidden;
-  }
+  /* a generic app screen card (the BEFORE column = today's themed gates) */
+  .screen { position: relative; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); padding: 22px 20px 20px; overflow: hidden; }
   .screen.overlay { background: var(--surface-overlay); }
-  .screen .tagstrip { position: absolute; top: 10px; right: 10px; font-size: 10px; font-weight: 700; border-radius: 6px; padding: 2px 7px; }
+  .tagstrip { position: absolute; top: 10px; right: 10px; font-size: 10px; font-weight: 700; border-radius: 6px; padding: 2px 7px; z-index: 4; }
   .tag-old { color: var(--pin); background: color-mix(in srgb, var(--pin) 12%, transparent); }
-  .tag-new { color: var(--brand-action); background: color-mix(in srgb, var(--brand-action) 14%, transparent); }
+  .tag-new { color: #8fd3ff; background: rgba(143,211,255,0.14); }
   .tag-ext { color: var(--foreground-muted); background: var(--surface-sunken); }
   .bot { width: 46px; height: 46px; margin: 2px auto 10px; display: block; }
   .stitle { text-align: center; font-weight: 800; font-size: 17px; color: var(--brand-ink); margin: 0 0 5px; }
   .ssub { text-align: center; font-size: 12px; color: var(--foreground-muted); line-height: 1.5; margin: 0 auto 16px; max-width: 34ch; }
   .stack { display: flex; flex-direction: column; gap: 8px; }
-  .prov, .plain {
-    cursor: pointer; appearance: none;
-    width: 100%; display: flex; align-items: center; justify-content: center; gap: 9px;
-    border-radius: 10px; padding: 10px 12px; font-size: 13px; font-weight: 600;
-    border: 1px solid var(--border); background: var(--surface-raised); color: var(--foreground);
-    transition: transform 0.08s, box-shadow 0.12s;
-  }
-  .prov:hover, .plain:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .prov, .plain { cursor: pointer; appearance: none; width: 100%; display: flex; align-items: center; justify-content: center; gap: 9px; border-radius: 10px; padding: 10px 12px; font-size: 13px; font-weight: 600; border: 1px solid var(--border); background: var(--surface-raised); color: var(--foreground); transition: transform 0.08s, box-shadow 0.12s; }
+  .prov:hover, .plain:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
   .prov.gh { background: #24292e; color: #fff; border-color: #24292e; }
   .prov.li { background: #0A66C2; color: #fff; border-color: #0A66C2; }
   .prov .ico { width: 16px; height: 16px; display: inline-flex; }
-  .prov.gh .ico, .prov.li .ico { color: #fff; }
   .lastused { position: relative; box-shadow: 0 0 0 2px var(--brand-sky); }
   .lubadge { position: absolute; top: -8px; right: 10px; font-size: 9.5px; font-weight: 800; letter-spacing: 0.03em; color: #fff; background: var(--brand-sky); border-radius: 999px; padding: 2px 7px; }
-  .divider { display: flex; align-items: center; gap: 8px; color: var(--foreground-muted); font-size: 11px; margin: 12px 0 10px; }
-  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
-  .secondary { display: flex; flex-direction: column; gap: 7px; }
-  .ghostbtn { cursor: pointer; appearance: none; width: 100%; text-align: center; border: 1px dashed var(--border); background: transparent; color: var(--foreground-muted); border-radius: 9px; padding: 8px; font-size: 12px; font-weight: 600; }
   .folderbtn { cursor: pointer; appearance: none; width: 100%; border: 1px solid var(--brand-action); background: var(--brand-action); color: #fff; border-radius: 10px; padding: 11px; font-size: 13.5px; font-weight: 700; }
   .you { text-align: center; font-size: 12px; color: var(--foreground-muted); margin: 0 0 14px; }
   .you b { color: var(--ok); }
@@ -135,7 +117,47 @@
   .note { margin-top: 12px; font-size: 11.5px; color: var(--foreground-muted); line-height: 1.5; border-top: 1px dashed var(--border); padding-top: 10px; }
   .note.warn { color: var(--pin); }
   .note.good { color: var(--ok); }
-  .play { min-height: 16px; text-align: center; font-size: 11.5px; font-weight: 700; color: var(--brand-action); margin-top: 8px; }
+  .play { min-height: 16px; text-align: center; font-size: 11.5px; font-weight: 700; color: #8fd3ff; margin-top: 10px; }
+
+  /* the AFTER screens = the new dark deck-style login (always dark by design,
+     mirroring the marketing deck title + closing slides). */
+  .deckscreen { position: relative; border-radius: 16px; background: #0a0e1a; color: #f1f5f9; padding: 26px 20px 22px; overflow: hidden; border: 1px solid rgba(255,255,255,0.10); text-align: center; }
+  .deckscreen::before, .deckscreen::after { content: ""; position: absolute; left: 0; right: 0; height: 7px; background-image: var(--rainbow); z-index: 2; }
+  .deckscreen::before { top: 0; } .deckscreen::after { bottom: 0; }
+  .dfloat { position: absolute; opacity: 0.09; pointer-events: none; z-index: 0; }
+  .dfloat.a { top: 14%; left: 8%; width: 46px; } .dfloat.b { bottom: 17%; left: 12%; width: 32px; }
+  .dfloat.c { top: 16%; right: 9%; width: 36px; } .dfloat.d { bottom: 15%; right: 7%; width: 52px; }
+  .deckbot { width: 84px; margin: 6px auto 4px; position: relative; z-index: 1; }
+  .deckbot svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .deckword { font-size: 38px; font-weight: 800; letter-spacing: -0.04em; color: #fff; margin: 2px 0 0; position: relative; z-index: 1; }
+  .deckword.sm { font-size: 23px; margin-top: 4px; }
+  .deckthanks { font-size: 13.5px; color: #b4bfd0; margin: 8px 0 18px; position: relative; z-index: 1; }
+  .decksub { font-size: 12.5px; color: #b4bfd0; max-width: 36ch; margin: 4px auto 16px; line-height: 1.5; position: relative; z-index: 1; }
+  .deckauth { display: flex; gap: 10px; justify-content: center; margin-bottom: 14px; position: relative; z-index: 1; flex-wrap: wrap; }
+  .deckcta { cursor: pointer; appearance: none; border-radius: 12px; padding: 11px 22px; font-size: 14px; font-weight: 700; border: 1px solid rgba(255,255,255,0.22); background: rgba(255,255,255,0.06); color: #fff; }
+  .deckcta.primary { background: linear-gradient(135deg, #1283c9, #5B47D6); border-color: transparent; }
+  .deckcta:hover { transform: translateY(-1px); }
+  .decklinks { display: flex; gap: 9px; justify-content: center; flex-wrap: wrap; position: relative; z-index: 1; }
+  .linkchip { cursor: pointer; appearance: none; display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 11px; border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.05); color: #fff; font-size: 12.5px; font-weight: 600; }
+  .linkchip:hover { background: rgba(255,255,255,0.10); }
+  .linkchip code { font-family: ui-monospace, "SF Mono", monospace; font-size: 11.5px; color: #8fd3ff; }
+  .deckscreen .stack { position: relative; z-index: 1; }
+  .deckscreen .prov { background: rgba(255,255,255,0.06); color: #fff; border-color: rgba(255,255,255,0.18); }
+  .deckscreen .prov.gh { background: #24292e; border-color: #24292e; } .deckscreen .prov.li { background: #0A66C2; border-color: #0A66C2; }
+  .deckscreen .folderbtn { background: linear-gradient(135deg, #1283c9, #5B47D6); border: none; position: relative; z-index: 1; }
+  .deckscreen .stitle { color: #fff; position: relative; z-index: 1; }
+  .deckscreen .ssub { color: #b4bfd0; position: relative; z-index: 1; }
+  .deckscreen .you { color: #b4bfd0; position: relative; z-index: 1; } .deckscreen .you b { color: #6ee7b7; }
+  .deckscreen .ext .glyph { color: #b4bfd0; }
+  .deckscreen .note { border-top-color: rgba(255,255,255,0.14); color: #9fb0c6; position: relative; z-index: 1; }
+  .deckscreen .note.good { color: #6ee7b7; }
+  .deckscreen .divider { color: #9fb0c6; }
+  .deckscreen .divider::before, .deckscreen .divider::after { background: rgba(255,255,255,0.16); }
+  .deckscreen .ghostbtn { border-color: rgba(255,255,255,0.2); color: #b4bfd0; }
+  .divider { display: flex; align-items: center; gap: 8px; color: var(--foreground-muted); font-size: 11px; margin: 12px 0 10px; position: relative; z-index: 1; }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  .secondary { display: flex; flex-direction: column; gap: 7px; position: relative; z-index: 1; }
+  .ghostbtn { cursor: pointer; appearance: none; width: 100%; text-align: center; border: 1px dashed var(--border); background: transparent; color: var(--foreground-muted); border-radius: 9px; padding: 8px; font-size: 12px; font-weight: 600; }
 
   /* comment pins */
   .cmt { position: relative; }
@@ -145,7 +167,7 @@
   .pin.hl { animation: pop 0.6s ease; }
   @keyframes pop { 0%,100% { transform: scale(1); } 40% { transform: scale(1.5); } }
 
-  /* side panel */
+  /* side panel + editor */
   .panel { position: fixed; right: 16px; bottom: 16px; width: 300px; max-height: 70vh; background: var(--surface-overlay); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.28); z-index: 40; display: flex; flex-direction: column; }
   .panel.collapsed .panelBody, .panel.collapsed .panelFoot { display: none; }
   .panelHead { display: flex; align-items: center; gap: 8px; padding: 11px 13px; cursor: pointer; border-bottom: 1px solid var(--border); }
@@ -155,14 +177,11 @@
   .citem { display: flex; gap: 8px; padding: 8px; border-radius: 9px; cursor: pointer; }
   .citem:hover { background: var(--surface-sunken); }
   .citem .num { flex: 0 0 20px; height: 20px; border-radius: 999px; background: var(--pin); color: #fff; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
-  .citem .tgt { font-size: 11px; font-weight: 700; }
-  .citem .txt { font-size: 12px; color: var(--foreground-muted); }
+  .citem .tgt { font-size: 11px; font-weight: 700; } .citem .txt { font-size: 12px; color: var(--foreground-muted); }
   .citem .x { margin-left: auto; border: none; background: none; color: var(--foreground-muted); cursor: pointer; font-size: 15px; }
   .vbadge { font-size: 9.5px; font-weight: 800; }
   .panelFoot { display: flex; gap: 6px; padding: 9px; border-top: 1px solid var(--border); }
   .panelFoot .btn { flex: 1; text-align: center; }
-
-  /* comment editor popover */
   .editor { position: fixed; z-index: 50; width: 280px; background: var(--surface-overlay); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 14px 44px rgba(0,0,0,0.3); padding: 11px; }
   .editor .lbl { font-size: 11px; font-weight: 700; color: var(--foreground-muted); margin-bottom: 6px; }
   .editor textarea { width: 100%; min-height: 64px; resize: vertical; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-sunken); color: var(--foreground); padding: 8px; font: inherit; font-size: 12.5px; }
@@ -174,10 +193,32 @@
 </style>
 </head>
 <body>
+  <!-- BeakerBot, the exact mark from the deck title slide, as a reusable symbol -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <linearGradient id="liq" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/>
+      <stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/>
+      <stop offset="100%" stop-color="#D6B5F0"/>
+    </linearGradient>
+    <symbol id="bbot" viewBox="8 3 24 31">
+      <g fill="none" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none"/>
+        <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#liq)" stroke="none"/>
+        <path d="M22 8 C 22 6, 24 4, 26 6"/>
+        <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12"/>
+        <path d="M11 12 L29 12"/>
+        <circle cx="17" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/>
+        <circle cx="23" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/>
+        <path d="M18 22 Q 20 24, 22 22"/>
+        <path d="M14 26 L15.5 26"/><path d="M24.5 26 L26 26"/>
+      </g>
+    </symbol>
+  </defs></svg>
+
   <div class="topbar">
     <div>
       <h1>ResearchOS entry flow, before and after</h1>
-      <p>OAuth-first redesign. Mark up anything, set a verdict per change, then Export and paste back.</p>
+      <p>OAuth-first, the new login in the marketing-deck style. Mark up anything, set a verdict per change, Export and paste back.</p>
     </div>
     <span class="spacer"></span>
     <button class="btn" id="themeToggle">Switch to dark</button>
@@ -189,7 +230,7 @@
 
   <div class="wrap">
     <p class="lead">
-      The thing that makes Google feel like a bug, your account is a local keypair that lives in the folder, so today the folder picker has to come first and the provider only binds your email afterward. The fix you picked is <b>OAuth-first</b>, the provider opens immediately and the folder step moves to after you are signed in, framed as where your account is saved. Alongside that, one unified landing for everyone who is not already signed in with a folder, a dedicated re-login screen for folder-connected people who got signed out, and a <b>Last used</b> badge on the provider you picked before. Click the provider buttons in the AFTER column to feel the flow, the Last used badge updates live.
+      The new login takes the look you liked from the deck title and closing slides, <b>dark, the BeakerBot bubble, the ResearchOS wordmark, and the route-pill buttons</b>. It is one landing for everyone who is not already signed in with a folder. The Google bug is fixed by going <b>OAuth-first</b>, click a provider and it opens immediately, the folder step moves to after sign-in and reads as where your account is saved. A dedicated re-login screen handles a returning person whose session expired, and the provider they used last carries a <b>Last used</b> badge. Click the buttons in the AFTER column to feel it. The AFTER screens are dark on purpose, that is the new login.
     </p>
 
     <div class="changes" id="changes"></div>
@@ -197,12 +238,12 @@
     <div class="cols">
       <div class="col">
         <h2>Before, today on research-os.app</h2>
-        <p class="sub">Three or four screens, and clicking a provider drops you into a folder picker before the provider ever loads.</p>
+        <p class="sub">Clicking a provider drops you into a folder picker before the provider ever loads, the thing that felt like a bug.</p>
         <div class="flow">
 
           <div class="screen cmt" data-clabel="Before: start screen">
             <span class="tagstrip tag-old">current</span>
-            <svg class="bot" viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v5L5.5 17.5A2.5 2.5 0 0 0 7.8 21h8.4a2.5 2.5 0 0 0 2.3-3.5L14 8V3" stroke="var(--brand-sky)" stroke-width="1.6" stroke-linejoin="round"/><circle cx="10.5" cy="14" r="1" fill="var(--brand-sky)"/><circle cx="13.5" cy="16" r="1" fill="var(--brand-sky)"/></svg>
+            <svg class="bot"><use href="#bbot"/></svg>
             <div class="stitle">Welcome to ResearchOS</div>
             <div class="ssub">Three side-by-side doors, the welcome and sell page sits one scroll below.</div>
             <div class="stack">
@@ -217,7 +258,7 @@
           <div class="screen overlay cmt" data-clabel="Before: create free account">
             <span class="tagstrip tag-old">current</span>
             <div class="stitle">Create your free account</div>
-            <div class="ssub">Pick a sign-in provider. Your data stays on your disk, the account is free and only used for sharing and the directory.</div>
+            <div class="ssub">Pick a sign-in provider. Your data stays on your disk.</div>
             <div class="stack">
               <button class="plain">Sign in with ORCID</button>
               <button class="plain">Continue with Google</button>
@@ -248,33 +289,47 @@
       </div>
 
       <div class="col">
-        <h2>After, OAuth-first</h2>
-        <p class="sub">One landing. Click a provider and it opens immediately. The folder step moves to after sign-in, framed as where your account is saved.</p>
+        <h2>After, OAuth-first, the deck login</h2>
+        <p class="sub">One dark landing in the deck style. Create account or Sign in, the provider opens immediately, the folder step comes after.</p>
         <div class="flow">
 
-          <div class="screen cmt" data-clabel="After: unified landing">
-            <span class="tagstrip tag-new">change 1 + 2</span>
-            <svg class="bot" viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v5L5.5 17.5A2.5 2.5 0 0 0 7.8 21h8.4a2.5 2.5 0 0 0 2.3-3.5L14 8V3" stroke="var(--brand-sky)" stroke-width="1.6" stroke-linejoin="round"/><circle cx="10.5" cy="14" r="1" fill="var(--brand-sky)"/><circle cx="13.5" cy="16" r="1" fill="var(--brand-sky)"/></svg>
-            <div class="stitle">Welcome to ResearchOS</div>
-            <div class="ssub">One screen for everyone who is not already signed in with a folder. Pick how you want to sign in.</div>
+          <div class="deckscreen cmt" data-clabel="After: unified landing (deck style)">
+            <span class="tagstrip tag-new">change 1</span>
+            <svg class="dfloat a"><use href="#bbot"/></svg><svg class="dfloat b"><use href="#bbot"/></svg>
+            <svg class="dfloat c"><use href="#bbot"/></svg><svg class="dfloat d"><use href="#bbot"/></svg>
+            <div class="deckbot"><svg><use href="#bbot"/></svg></div>
+            <div class="deckword">ResearchOS</div>
+            <div class="deckthanks">Own your research. Try it today.</div>
+            <div class="deckauth">
+              <button class="deckcta primary" data-go="picker">Create account</button>
+              <button class="deckcta" data-go="relogin">Sign in</button>
+            </div>
+            <div class="decklinks">
+              <button class="linkchip">See the tour <code>/welcome</code></button>
+              <button class="linkchip">Open the live demo <code>/demo</code></button>
+              <button class="linkchip">Check our math <code>/transparency</code></button>
+            </div>
+          </div>
+
+          <div class="arrow">click Create account</div>
+
+          <div class="deckscreen cmt" data-clabel="After: pick a provider (OAuth-first)">
+            <span class="tagstrip tag-new">change 2</span>
+            <div class="deckword sm">Create your free account</div>
+            <div class="decksub">Pick how to sign in. Your data stays on your disk, the account is free and only for sharing and the directory.</div>
             <div class="stack">
               <button class="prov" data-prov="orcid"><span class="ico"><svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="11" fill="#A6CE39"/><text x="12" y="16" font-size="11" fill="#fff" text-anchor="middle" font-weight="700">iD</text></svg></span>Continue with ORCID</button>
               <button class="prov" data-prov="google"><span class="ico"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="#4285F4" d="M22 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.6a4.8 4.8 0 0 1-2.1 3.1v2.6h3.4c2-1.8 3.1-4.5 3.1-7.5z"/><path fill="#34A853" d="M12 22c2.7 0 5-.9 6.6-2.4l-3.4-2.6c-.9.6-2 1-3.2 1-2.5 0-4.6-1.7-5.4-4H3.1v2.6A10 10 0 0 0 12 22z"/><path fill="#FBBC05" d="M6.6 14a6 6 0 0 1 0-3.8V7.6H3.1a10 10 0 0 0 0 8.9z"/><path fill="#EA4335" d="M12 6.2c1.5 0 2.8.5 3.8 1.5l2.9-2.9A10 10 0 0 0 3.1 7.6L6.6 10c.8-2.3 2.9-3.8 5.4-3.8z"/></svg></span>Continue with Google</button>
               <button class="prov" data-prov="microsoft"><span class="ico"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="#F25022" d="M1 1h10v10H1z"/><path fill="#7FBA00" d="M13 1h10v10H13z"/><path fill="#00A4EF" d="M1 13h10v10H1z"/><path fill="#FFB900" d="M13 13h10v10H13z"/></svg></span>Continue with Microsoft</button>
-              <button class="prov gh" data-prov="github"><span class="ico"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.1-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.3 1.1 2.9.8 0-.6.3-1.1.6-1.3-2.2-.300-4.5-1.1-4.5-4.9 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.7 1a9.4 9.4 0 0 1 5 0c1.9-1.3 2.7-1 2.7-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.8-2.3 4.6-4.5 4.9.3.3.6.9.6 1.8v2.7c0 .3.2.6.7.5A10 10 0 0 0 12 2z"/></svg></span>Continue with GitHub</button>
+              <button class="prov gh" data-prov="github"><span class="ico"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.1-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.3 1.1 2.9.8 0-.6.3-1.1.6-1.3-2.2-.3-4.5-1.1-4.5-4.9 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.7 1a9.4 9.4 0 0 1 5 0c1.9-1.3 2.7-1 2.7-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.8-2.3 4.6-4.5 4.9.3.3.6.9.6 1.8v2.7c0 .3.2.6.7.5A10 10 0 0 0 12 2z"/></svg></span>Continue with GitHub</button>
               <button class="prov li" data-prov="linkedin"><span class="ico"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM9 9h3.8v1.7h.1c.5-1 1.8-2 3.7-2 4 0 4.7 2.6 4.7 6V21h-4v-5.3c0-1.3 0-2.9-1.8-2.9s-2 1.4-2 2.8V21H9z"/></svg></span>Continue with LinkedIn</button>
             </div>
-            <div class="divider">or</div>
-            <div class="secondary">
-              <button class="ghostbtn">Open a folder I already have</button>
-              <button class="ghostbtn">Use ResearchOS locally, no account</button>
-            </div>
-            <div class="play" id="playLanding"></div>
+            <div class="play" id="playPicker"></div>
           </div>
 
           <div class="arrow">click a provider, it opens right away</div>
 
-          <div class="screen cmt" data-clabel="After: provider opens immediately">
+          <div class="deckscreen cmt" data-clabel="After: provider opens immediately">
             <span class="tagstrip tag-ext">external</span>
             <div class="ext"><div class="glyph" id="extGlyph">Provider sign-in</div></div>
             <div class="ssub">No folder picker first. The provider you clicked opens immediately, the way you expected.</div>
@@ -282,36 +337,36 @@
 
           <div class="arrow">signed in, back to ResearchOS</div>
 
-          <div class="screen cmt" data-clabel="After: save your account folder step">
+          <div class="deckscreen cmt" data-clabel="After: save your account folder step">
             <span class="tagstrip tag-new">change 3</span>
             <div class="you">Signed in as <b id="signedAs">you@gmail.com</b></div>
-            <div class="stitle">Save your account on your disk</div>
+            <div class="stitle" style="font-size:19px">Save your account on your disk</div>
             <div class="ssub">Pick a folder to keep your notebook and account. Everything stays local, this folder is your account.</div>
             <button class="folderbtn">Choose a folder</button>
             <div class="note good">Same folder connect as before, but now it reads as the expected next step, not a surprise. If the folder already holds this account we just unlock it.</div>
           </div>
 
           <div class="arrow">into the app</div>
-          <div class="screen cmt" data-clabel="After: in the app"><span class="tagstrip tag-new">done</span><div class="stitle" style="font-size:15px">You are in</div><div class="ssub" style="margin-bottom:0">Workbench, or the lab overview for a lab head.</div></div>
+          <div class="deckscreen cmt" data-clabel="After: in the app"><span class="tagstrip tag-new">done</span><div class="stitle" style="font-size:16px">You are in</div><div class="ssub" style="margin-bottom:0">Workbench, or the lab overview for a lab head.</div></div>
 
-          <div class="arrow" style="padding-top:22px">separate path, returning + signed out</div>
+          <div class="arrow" style="padding-top:22px">separate path, returning and signed out</div>
 
-          <div class="screen overlay cmt" data-clabel="After: re-login screen">
+          <div class="deckscreen cmt" data-clabel="After: re-login screen">
             <span class="tagstrip tag-new">change 4 + 5</span>
-            <svg class="bot" viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v5L5.5 17.5A2.5 2.5 0 0 0 7.8 21h8.4a2.5 2.5 0 0 0 2.3-3.5L14 8V3" stroke="var(--brand-sky)" stroke-width="1.6" stroke-linejoin="round"/></svg>
-            <div class="stitle">Welcome back, Grant</div>
-            <div class="ssub">Your folder is connected. Sign back in to unlock sharing and the directory.</div>
+            <div class="deckbot" style="width:64px"><svg><use href="#bbot"/></svg></div>
+            <div class="deckword sm">Welcome back, Grant</div>
+            <div class="decksub">Your folder is connected. Sign back in to unlock sharing and the directory.</div>
             <div class="stack">
-              <button class="prov lastused" id="reGoogle" data-prov="google"><span class="lubadge" id="luBadge">Last used</span><span class="ico"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="#4285F4" d="M22 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.6a4.8 4.8 0 0 1-2.1 3.1v2.6h3.4c2-1.8 3.1-4.5 3.1-7.5z"/><path fill="#34A853" d="M12 22c2.7 0 5-.9 6.6-2.4l-3.4-2.6c-.9.6-2 1-3.2 1-2.5 0-4.6-1.7-5.4-4H3.1v2.6A10 10 0 0 0 12 22z"/><path fill="#FBBC05" d="M6.6 14a6 6 0 0 1 0-3.8V7.6H3.1a10 10 0 0 0 0 8.9z"/><path fill="#EA4335" d="M12 6.2c1.5 0 2.8.5 3.8 1.5l2.9-2.9A10 10 0 0 0 3.1 7.6L6.6 10c.8-2.3 2.9-3.8 5.4-3.8z"/></svg></span>Continue with Google</button>
+              <button class="prov lastused" data-prov="google"><span class="lubadge">Last used</span><span class="ico"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="#4285F4" d="M22 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.6a4.8 4.8 0 0 1-2.1 3.1v2.6h3.4c2-1.8 3.1-4.5 3.1-7.5z"/><path fill="#34A853" d="M12 22c2.7 0 5-.9 6.6-2.4l-3.4-2.6c-.9.6-2 1-3.2 1-2.5 0-4.6-1.7-5.4-4H3.1v2.6A10 10 0 0 0 12 22z"/><path fill="#FBBC05" d="M6.6 14a6 6 0 0 1 0-3.8V7.6H3.1a10 10 0 0 0 0 8.9z"/><path fill="#EA4335" d="M12 6.2c1.5 0 2.8.5 3.8 1.5l2.9-2.9A10 10 0 0 0 3.1 7.6L6.6 10c.8-2.3 2.9-3.8 5.4-3.8z"/></svg></span>Continue with Google</button>
             </div>
             <div class="divider">other ways</div>
-            <div class="secondary" id="reOthers">
+            <div class="secondary">
               <button class="ghostbtn" data-prov="microsoft">Microsoft</button>
               <button class="ghostbtn" data-prov="orcid">ORCID</button>
               <button class="ghostbtn" data-prov="github">GitHub</button>
               <button class="ghostbtn" data-prov="linkedin">LinkedIn</button>
             </div>
-            <div class="note">The last provider you used floats to the top with the badge. The rest collapse into a quieter row, the pattern you said you loved on other sites.</div>
+            <div class="note">The last provider you used floats to the top with the badge, the rest collapse into a quieter row. The pattern you said you loved on other sites.</div>
           </div>
 
         </div>
@@ -331,8 +386,7 @@
   const PROV_LABEL = { google: "Google", microsoft: "Microsoft", orcid: "ORCID", github: "GitHub", linkedin: "LinkedIn" };
   function esc(s) { return (s || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
-  /* ---------- comments store ---------- */
-  const STORE = "ros-entry-flow-comments-v1";
+  const STORE = "ros-entry-flow-comments-v2";
   let comments = [];
   try { comments = JSON.parse(localStorage.getItem(STORE) || "[]"); } catch { comments = []; }
   function save() { try { localStorage.setItem(STORE, JSON.stringify(comments)); } catch {} }
@@ -342,19 +396,13 @@
     const byTarget = {};
     comments.forEach((c, i) => { (byTarget[c.target] = byTarget[c.target] || []).push(i + 1); });
     document.querySelectorAll(".cmt").forEach(el => {
-      const lbl = el.getAttribute("data-clabel");
-      const nums = byTarget[lbl];
-      if (!nums) return;
-      const pin = document.createElement("span");
-      pin.className = "pin";
-      pin.textContent = nums.join(",");
+      const lbl = el.getAttribute("data-clabel"); const nums = byTarget[lbl]; if (!nums) return;
+      const pin = document.createElement("span"); pin.className = "pin"; pin.textContent = nums.join(",");
       pin.addEventListener("click", ev => { ev.stopPropagation(); const first = comments.findIndex(c => c.target === lbl); if (first >= 0) openEditor(el, first, ev); });
       el.appendChild(pin);
     });
   }
-  function flashPin(target) {
-    document.querySelectorAll(".pin").forEach(p => { const el = p.closest(".cmt"); if (el && el.getAttribute("data-clabel") === target) { p.classList.add("hl"); setTimeout(() => p.classList.remove("hl"), 700); } });
-  }
+  function flashPin(target) { document.querySelectorAll(".pin").forEach(p => { const el = p.closest(".cmt"); if (el && el.getAttribute("data-clabel") === target) { p.classList.add("hl"); setTimeout(() => p.classList.remove("hl"), 700); } }); }
   function renderPanel() {
     const body = document.getElementById("panelBody");
     document.getElementById("cCount").textContent = comments.length;
@@ -366,35 +414,31 @@
   }
   function renderAll() { renderPins(); renderPanel(); }
 
-  /* ---------- per-change verdicts ---------- */
   const CHANGES = [
-    { id: "unified", tag: "1", title: "One unified landing", desc: "Merge the start screen, the create-account chooser, and the welcome page into a single screen everyone who is not already signed in with a folder lands on. The forced welcome detour for fresh visitors was already removed, this finishes the job." },
-    { id: "oauthfirst", tag: "2", title: "OAuth first", desc: "Clicking a provider opens that provider immediately, no folder picker in between. This is the core fix for the Google bug you hit." },
-    { id: "folderstep", tag: "3", title: "Folder step after sign-in", desc: "Move the folder connect to after the provider returns, framed as where your account is saved on disk. Same connect, but it reads as expected instead of a surprise. If the folder already holds the account, just unlock." },
-    { id: "relogin", tag: "4", title: "Dedicated re-login screen", desc: "A returning person whose folder is connected but whose session expired gets a clean Welcome back screen to sign back in, instead of the general user picker." },
+    { id: "unified", tag: "1", title: "One unified landing, deck style", desc: "Replace the start screen plus create-account chooser with a single dark landing in the marketing-deck look, BeakerBot bubble, ResearchOS wordmark, the route-pill buttons (tour, demo, transparency), and Create account plus Sign in. Everyone who is not already signed in with a folder lands here." },
+    { id: "oauthfirst", tag: "2", title: "OAuth first", desc: "Create account opens a provider picker, and clicking a provider opens that provider immediately, no folder picker in between. This is the core fix for the Google bug you hit." },
+    { id: "folderstep", tag: "3", title: "Folder step after sign-in", desc: "Move the folder connect to after the provider returns, framed as where your account is saved on disk. Same connect, reads as expected instead of a surprise. If the folder already holds the account, just unlock." },
+    { id: "relogin", tag: "4", title: "Dedicated re-login screen", desc: "Sign in (folder already connected, session expired) goes to a clean Welcome back screen, not the general user picker." },
     { id: "lastused", tag: "5", title: "Last used provider badge", desc: "Remember the provider you signed in with last and float it to the top of the re-login screen with a Last used badge, the rest collapse into a quiet row." },
   ];
-  const VSTORE = "ros-entry-flow-verdicts-v1";
+  const VSTORE = "ros-entry-flow-verdicts-v2";
   let verdicts = {};
   try { verdicts = JSON.parse(localStorage.getItem(VSTORE) || "{}"); } catch { verdicts = {}; }
   function saveVerdicts() { try { localStorage.setItem(VSTORE, JSON.stringify(verdicts)); } catch {} }
   function renderChanges() {
     const wrap = document.getElementById("changes");
     wrap.innerHTML = CHANGES.map(c => {
-      const v = verdicts[c.id] || "";
-      const cls = v === "approve" ? "approved" : v === "disapprove" ? "disapproved" : "";
+      const v = verdicts[c.id] || ""; const cls = v === "approve" ? "approved" : v === "disapprove" ? "disapproved" : "";
       return `<div class="change ${cls}"><div><div class="ctitle"><span class="tag">${c.tag}</span>${esc(c.title)}</div><div class="cdesc">${esc(c.desc)}</div></div><div class="verdict"><button class="vbtn app ${v === "approve" ? "on" : ""}" data-c="${c.id}" data-v="approve">Approve</button><button class="vbtn dis ${v === "disapprove" ? "on" : ""}" data-c="${c.id}" data-v="disapprove">Disapprove</button>${v ? `<button class="vclear" data-c="${c.id}" data-v="clear">clear</button>` : ""}</div></div>`;
     }).join("");
     wrap.querySelectorAll("[data-v]").forEach(b => b.addEventListener("click", () => {
       const id = b.dataset.c, v = b.dataset.v;
-      if (v === "clear") delete verdicts[id];
-      else verdicts[id] = verdicts[id] === v ? undefined : v;
+      if (v === "clear") delete verdicts[id]; else verdicts[id] = verdicts[id] === v ? undefined : v;
       if (!verdicts[id]) delete verdicts[id];
       saveVerdicts(); renderChanges();
     }));
   }
 
-  /* ---------- editor popover ---------- */
   let editorEl = null;
   function closeEditor() { if (editorEl) { editorEl.remove(); editorEl = null; } }
   function openEditor(targetEl, existingIndex, ev) {
@@ -402,8 +446,7 @@
     const target = targetEl.getAttribute("data-clabel") || "Page";
     const existing = existingIndex != null ? comments[existingIndex] : null;
     let pv = existing ? (existing.verdict || "") : "";
-    const ed = document.createElement("div");
-    ed.className = "editor";
+    const ed = document.createElement("div"); ed.className = "editor";
     ed.innerHTML = `<div class="lbl">${esc(target)}</div><textarea placeholder="Note, suggestion, or change request">${existing ? esc(existing.text) : ""}</textarea><div class="vchoice"><button class="vbtn" data-vc="note">Note</button><button class="vbtn app" data-vc="approve">Approve</button><button class="vbtn dis" data-vc="disapprove">Disapprove</button></div><div class="acts">${existing ? '<button class="btn danger" data-act="del">Delete</button>' : ""}<span class="spacer"></span><button class="btn" data-act="cancel">Cancel</button><button class="btn on" data-act="save">Save</button></div>`;
     document.body.appendChild(ed); editorEl = ed;
     const paint = () => ed.querySelectorAll("[data-vc]").forEach(b => b.classList.toggle("on", (b.dataset.vc === "note" && !pv) || b.dataset.vc === pv));
@@ -425,33 +468,26 @@
   document.addEventListener("click", e => {
     if (!document.body.classList.contains("cmt-on")) return;
     if (e.target.closest(".editor") || e.target.closest(".panel") || e.target.closest(".topbar") || e.target.closest(".pin") || e.target.closest(".changes")) return;
-    const cmt = e.target.closest(".cmt");
-    if (!cmt) return;
+    const cmt = e.target.closest(".cmt"); if (!cmt) return;
     e.preventDefault(); openEditor(cmt, null, e);
   });
 
-  /* ---------- flow play, OAuth-first + last-used ---------- */
-  let lastProvider = "google";
-  function setLastUsed(prov) {
-    lastProvider = prov;
+  /* flow play, OAuth-first + last-used demo */
+  function scrollToLabel(lbl) { const el = [...document.querySelectorAll(".cmt")].find(x => x.getAttribute("data-clabel") === lbl); if (el) el.scrollIntoView({ block: "center", behavior: "smooth" }); }
+  document.querySelectorAll("[data-go]").forEach(b => b.addEventListener("click", () => {
+    if (document.body.classList.contains("cmt-on")) return;
+    scrollToLabel(b.dataset.go === "picker" ? "After: pick a provider (OAuth-first)" : "After: re-login screen");
+  }));
+  document.querySelectorAll(".prov[data-prov], .ghostbtn[data-prov]").forEach(b => b.addEventListener("click", () => {
+    if (document.body.classList.contains("cmt-on")) return;
+    const prov = b.dataset.prov;
+    document.getElementById("extGlyph").textContent = PROV_LABEL[prov] + " sign-in";
     document.getElementById("signedAs").textContent = prov === "google" ? "you@gmail.com" : prov === "microsoft" ? "you@outlook.com" : prov === "orcid" ? "0000-0002-1825-0097" : prov === "github" ? "you@users.noreply.github.com" : "you@work.com";
-    // The re-login screen shows Google badged as the illustrative example. We do
-    // not restructure its button here (that would mismatch the icon), the toast
-    // and the badge note carry the "remembered last provider" idea.
-  }
-  document.querySelectorAll(".prov[data-prov], .ghostbtn[data-prov]").forEach(b => {
-    b.addEventListener("click", () => {
-      if (document.body.classList.contains("cmt-on")) return; // comment mode owns clicks
-      const prov = b.dataset.prov;
-      document.getElementById("extGlyph").textContent = PROV_LABEL[prov] + " sign-in";
-      const play = document.getElementById("playLanding");
-      if (play) { play.textContent = "Opening " + PROV_LABEL[prov] + " sign-in, no folder picker first"; setTimeout(() => { if (play.textContent.startsWith("Opening")) play.textContent = ""; }, 2200); }
-      setLastUsed(prov);
-      toast(PROV_LABEL[prov] + " set as Last used");
-    });
-  });
+    const play = document.getElementById("playPicker");
+    if (play) { play.textContent = "Opening " + PROV_LABEL[prov] + " sign-in, no folder picker first"; setTimeout(() => { if (play.textContent.startsWith("Opening")) play.textContent = ""; }, 2200); }
+    toast(PROV_LABEL[prov] + " opens immediately, folder comes after");
+  }));
 
-  /* ---------- toggles + export ---------- */
   const cBtn = document.getElementById("commentToggle");
   cBtn.addEventListener("click", () => { const on = document.body.classList.toggle("cmt-on"); cBtn.classList.toggle("on", on); cBtn.textContent = "Comment mode: " + (on ? "on" : "off"); if (!on) closeEditor(); });
   const tBtn = document.getElementById("themeToggle");
@@ -459,7 +495,7 @@
   document.getElementById("panelHead").addEventListener("click", () => { const p = document.getElementById("panel"); const col = p.classList.toggle("collapsed"); document.getElementById("chev").textContent = col ? "show" : "hide"; });
 
   function buildMarkdown() {
-    let out = "ResearchOS entry flow redesign (OAuth-first), feedback\n\n";
+    let out = "ResearchOS entry flow redesign (OAuth-first, deck login), feedback\n\n";
     out += "Verdicts on the five changes\n";
     CHANGES.forEach(c => { const v = verdicts[c.id]; out += `- ${c.title}: ${v === "approve" ? "APPROVE" : v === "disapprove" ? "DISAPPROVE" : "undecided"}\n`; });
     out += "\nNotes\n";
