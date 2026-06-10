@@ -11,7 +11,12 @@
 import { fileService } from "@/lib/file-system/file-service";
 import { discoverUsers } from "@/lib/file-system/user-discovery";
 import { planMigrationToSolo, type MigrationPlan } from "./migrate-to-solo";
-import { executeMigrationToSolo, type MigrationExecResult } from "./migrate-to-solo-executor";
+import {
+  executeMigrationToSolo,
+  executeSelfExport,
+  type MigrationExecResult,
+  type SelfExportResult,
+} from "./migrate-to-solo-executor";
 import { createFsaMigrationFs } from "./migration-fs-fsa";
 
 /**
@@ -52,4 +57,33 @@ export async function planMigrationToSoloLive(primaryUser: string): Promise<Migr
  */
 export async function executeMigrationToSoloLive(plan: MigrationPlan): Promise<MigrationExecResult> {
   return executeMigrationToSolo({ fs: createFsaMigrationFs(), plan });
+}
+
+// ---------------------------------------------------------------------------
+// Self-export (the labmate side): take YOUR data to your own folder.
+// ---------------------------------------------------------------------------
+
+export interface SelfExportPlan {
+  /** The departing (current) user. */
+  username: string;
+  /** Per-type record counts for the preview. */
+  records: Record<string, number>;
+  /** Sum of record counts. */
+  total: number;
+  /** The other users who remain in the shared folder (untouched). */
+  remaining: string[];
+}
+
+/** Preview for "take your data out": your record count + who stays behind. */
+export async function planSelfExportLive(username: string): Promise<SelfExportPlan> {
+  const allUsers = await discoverUsers();
+  const records = await countRecordsLive(username);
+  const total = Object.values(records).reduce((sum, n) => sum + n, 0);
+  const remaining = allUsers.filter((u) => u !== username);
+  return { username, records, total, remaining };
+}
+
+/** Execute the self-export over the real folder via the FSA adapter. */
+export async function executeSelfExportLive(username: string): Promise<SelfExportResult> {
+  return executeSelfExport({ fs: createFsaMigrationFs(), username });
 }

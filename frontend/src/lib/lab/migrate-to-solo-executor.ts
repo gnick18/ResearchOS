@@ -131,80 +131,12 @@ export async function executeMigrationToSolo(
   const trashPaths: Record<string, string> = {};
 
   for (const userSummary of plan.usersToMove) {
-    const username = userSummary.username;
-    const srcPath = joinPath("users", username);
-    const bundleRoot = joinPath(bundlesDir, username);
-    const bundleDest = joinPath(bundleRoot, "users", username);
-    const trashDest = joinPath(trashDir, username);
-
-    const srcExists = await fs.exists(srcPath);
-    const trashExists = await fs.exists(trashDest);
-
-    // CRASH-SAFE ORDERING + RESUME. The one irreversible step is deleting the
-    // source, and we NEVER reach it until a complete, VERIFIED bundle exists.
-    // Two facts make the resume sound:
-    //   (a) rename() (the trash move) copies the whole subtree BEFORE deleting
-    //       the source, so the source is the complete copy until the very end.
-    //   (b) the executor only ever calls rename() AFTER bundling + verifying,
-    //       so the mere existence of trashDest proves a COMPLETE bundle exists.
-    //
-    // The four reachable states, keyed on whether the source still exists:
-    if (!srcExists) {
-      // Source gone => the move finished on a prior run (trash + bundle are the
-      // durable complete copies). Idempotent no-op, exactly like a clean rerun.
-      continue;
+    const r = await moveUserOut(fs, userSummary.username, bundlesDir, trashDir);
+    if (r.moved) {
+      bundlePaths[userSummary.username] = r.bundleRoot;
+      trashPaths[userSummary.username] = r.trashDest;
+      movedUsers.push(userSummary.username);
     }
-
-    if (trashExists) {
-      // Source AND trash both present => a prior run crashed somewhere inside
-      // the trash move (its copy or its delete). By fact (b) the bundle is the
-      // authoritative complete copy. Rebuild trash from the BUNDLE (never from
-      // the possibly-partial source), then drop the leftover source. No source
-      // file is read for data here, so a partial source cannot corrupt anything.
-      if (!(await fs.exists(bundleDest))) {
-        throw new Error(
-          `migrate-to-solo: "${username}" is in an inconsistent partial state ` +
-            `(trash present, bundle missing). No data has been deleted; recover ` +
-            `the user's data from users/ or _trash before retrying.`,
-        );
-      }
-      await fs.mkdirp(trashDir);
-      await copyDirRecursiveMfs(fs, bundleDest, trashDest);
-      if (!(await isTreeComplete(fs, bundleDest, trashDest))) {
-        throw new Error(`migrate-to-solo: could not rebuild a complete trash copy for "${username}"; no data deleted.`);
-      }
-      await fs.removeDir(srcPath);
-      bundlePaths[username] = bundleRoot;
-      trashPaths[username] = trashDest;
-      movedUsers.push(username);
-      continue;
-    }
-
-    // Normal path: source present, no trash yet => the source is the complete
-    // authoritative copy.
-    // 1. BUNDLE: copy users/<U>/ -> ${bundlesDir}/<U>/users/<U>/ and VERIFY it
-    //    is complete (catches a silently torn FSA write that left a file
-    //    absent) BEFORE touching the source.
-    const bundleComplete =
-      (await fs.exists(bundleDest)) && (await isTreeComplete(fs, srcPath, bundleDest));
-    if (!bundleComplete) {
-      await copyDirRecursiveMfs(fs, srcPath, bundleDest);
-      if (!(await isTreeComplete(fs, srcPath, bundleDest))) {
-        throw new Error(
-          `migrate-to-solo: bundle for "${username}" is incomplete after copy. ` +
-            `Aborting BEFORE any delete so no data is lost; re-run to resume.`,
-        );
-      }
-    }
-    bundlePaths[username] = bundleRoot;
-
-    // 2. TRASH: move users/<U>/ -> ${trashDir}/<U>/ (recoverable). Only reached
-    //    once the bundle is a verified complete copy.
-    await fs.mkdirp(trashDir);
-    await fs.rename(srcPath, trashDest);
-    trashPaths[username] = trashDest;
-
-    movedUsers.push(username);
   }
 
   // 3. STRIP cross-owner shares from the primary user's retained files.
@@ -227,6 +159,130 @@ export async function executeMigrationToSolo(
     trashPaths,
     sharesStripped,
   };
+}
+
+// ---------------------------------------------------------------------------
+// moveUserOut: bundle + trash ONE user, crash-safe + resumable.
+// ---------------------------------------------------------------------------
+
+/**
+ * Move one user out of the active folder: bundle users/<username>/ into a
+ * portable single-user bundle, VERIFY it is complete, then move the original to
+ * trash. Shared by executeMigrationToSolo (each non-primary user) and
+ * executeSelfExport (just the departing user).
+ *
+ * CRASH-SAFE + RESUMABLE. The one irreversible step is deleting the source, and
+ * it is never reached until a complete, verified bundle exists. Two facts make
+ * the resume sound:
+ *   (a) the trash move (rename) copies the whole subtree BEFORE deleting the
+ *       source, so the source stays the complete copy until the very end.
+ *   (b) we only ever rename AFTER bundling + verifying, so the mere existence of
+ *       trashDest proves a COMPLETE bundle exists.
+ *
+ * Returns moved:false only when the user was already fully moved on a prior run
+ * (an idempotent no-op).
+ */
+async function moveUserOut(
+  fs: MigrationFs,
+  username: string,
+  bundlesDir: string,
+  trashDir: string,
+): Promise<{ moved: boolean; bundleRoot: string; trashDest: string }> {
+  const srcPath = joinPath("users", username);
+  const bundleRoot = joinPath(bundlesDir, username);
+  const bundleDest = joinPath(bundleRoot, "users", username);
+  const trashDest = joinPath(trashDir, username);
+
+  const srcExists = await fs.exists(srcPath);
+  const trashExists = await fs.exists(trashDest);
+
+  // Source gone => the move finished on a prior run. Idempotent no-op.
+  if (!srcExists) {
+    return { moved: false, bundleRoot, trashDest };
+  }
+
+  // Source AND trash both present => a prior run crashed inside the trash move.
+  // By fact (b) the bundle is the authoritative complete copy. Rebuild trash
+  // from the BUNDLE (never from the possibly-partial source), then drop the
+  // leftover source. No source file is read for data, so a partial source
+  // cannot corrupt anything.
+  if (trashExists) {
+    if (!(await fs.exists(bundleDest))) {
+      throw new Error(
+        `migrate-to-solo: "${username}" is in an inconsistent partial state ` +
+          `(trash present, bundle missing). No data has been deleted; recover ` +
+          `the user's data from users/ or _trash before retrying.`,
+      );
+    }
+    await fs.mkdirp(trashDir);
+    await copyDirRecursiveMfs(fs, bundleDest, trashDest);
+    if (!(await isTreeComplete(fs, bundleDest, trashDest))) {
+      throw new Error(`migrate-to-solo: could not rebuild a complete trash copy for "${username}"; no data deleted.`);
+    }
+    await fs.removeDir(srcPath);
+    return { moved: true, bundleRoot, trashDest };
+  }
+
+  // Normal path: source present, no trash yet => the source is authoritative.
+  // 1. BUNDLE and VERIFY complete BEFORE touching the source.
+  const bundleComplete =
+    (await fs.exists(bundleDest)) && (await isTreeComplete(fs, srcPath, bundleDest));
+  if (!bundleComplete) {
+    await copyDirRecursiveMfs(fs, srcPath, bundleDest);
+    if (!(await isTreeComplete(fs, srcPath, bundleDest))) {
+      throw new Error(
+        `migrate-to-solo: bundle for "${username}" is incomplete after copy. ` +
+          `Aborting BEFORE any delete so no data is lost; re-run to resume.`,
+      );
+    }
+  }
+  // 2. TRASH (recoverable). Only reached once the bundle is verified complete.
+  await fs.mkdirp(trashDir);
+  await fs.rename(srcPath, trashDest);
+  return { moved: true, bundleRoot, trashDest };
+}
+
+// ---------------------------------------------------------------------------
+// executeSelfExport: a labmate takes their own data out, leaving the folder.
+// ---------------------------------------------------------------------------
+
+export interface SelfExportResult {
+  /** The departing user. */
+  username: string;
+  /** Path of their portable bundle root (e.g. "_migration_bundles/sharron"). */
+  bundlePath: string;
+  /** Path of their trashed original (e.g. "_trash/migrated_users/sharron"). */
+  trashPath: string;
+  /** False when the user was already gone (idempotent no-op). */
+  moved: boolean;
+}
+
+/**
+ * Extract a single (non-owner) user from a shared folder into their own
+ * portable single-user bundle and remove them from the folder, leaving EVERY
+ * OTHER user untouched (the folder stays multi-user for the rest). This is the
+ * labmate side of the role-aware migration: "take your data to your own folder".
+ *
+ * It deliberately does NOT strip the departing user from the other users' share
+ * lists. Those references degrade gracefully to an archived user on read, and
+ * rewriting other people's records from one member's action would be invasive.
+ *
+ * Recoverable (trash-not-delete) and crash-safe via moveUserOut.
+ */
+export async function executeSelfExport(opts: {
+  fs: MigrationFs;
+  username: string;
+  bundlesDir?: string;
+  trashDir?: string;
+}): Promise<SelfExportResult> {
+  const {
+    fs,
+    username,
+    bundlesDir = "_migration_bundles",
+    trashDir = "_trash/migrated_users",
+  } = opts;
+  const r = await moveUserOut(fs, username, bundlesDir, trashDir);
+  return { username, bundlePath: r.bundleRoot, trashPath: r.trashDest, moved: r.moved };
 }
 
 /**

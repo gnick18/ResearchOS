@@ -17,6 +17,7 @@ import type { IconName } from "@/components/icons";
 import { planMigrationToSoloLive, executeMigrationToSoloLive } from "@/lib/lab/migrate-to-solo-live";
 import type { MigrationPlan } from "@/lib/lab/migrate-to-solo";
 import type { MigrationExecResult } from "@/lib/lab/migrate-to-solo-executor";
+import { useFileSystem } from "@/lib/file-system/file-system-context";
 
 type Phase = "loading" | "preview" | "running" | "done" | "error";
 
@@ -43,15 +44,19 @@ function Point({ icon, title, children }: { icon: IconName; title: string; child
 // starts fresh each time and the load effect only writes state AFTER its await.
 export default function MigrateToSoloModal({
   onClose,
+  onComplete,
   primaryUser,
 }: {
   onClose: () => void;
+  /** Called once the conversion succeeds (the result screen is shown). */
+  onComplete?: () => void;
   primaryUser: string;
 }) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [plan, setPlan] = useState<MigrationPlan | null>(null);
   const [result, setResult] = useState<MigrationExecResult | null>(null);
   const [error, setError] = useState<string>("");
+  const { directoryName } = useFileSystem();
 
   // Compute the plan once on mount.
   useEffect(() => {
@@ -79,6 +84,7 @@ export default function MigrateToSoloModal({
       const r = await executeMigrationToSoloLive(plan);
       setResult(r);
       setPhase("done");
+      onComplete?.();
     } catch (e) {
       setError(errorMessage(e));
       setPhase("error");
@@ -136,12 +142,14 @@ export default function MigrateToSoloModal({
 
             <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-raised p-4">
               <Point icon="download" title="Everyone else gets a portable copy">
-                Each person is packaged into a <code className="text-meta">_migration_bundles</code> folder you can
-                hand to them. They open it as their own single-user folder, so no one loses their work.
+                Each person is packaged under{" "}
+                <code className="text-meta">{directoryName ?? "this folder"}/_migration_bundles</code> so you can hand
+                them their bundle. They open it as their own single-user folder, so no one loses their work.
               </Point>
               <Point icon="history" title="Their data moves to a recoverable Trash">
-                Originals go to <code className="text-meta">_trash/migrated_users</code>, not a hard delete, so you
-                can put anything back if something looks off.
+                Originals go to{" "}
+                <code className="text-meta">{directoryName ?? "this folder"}/_trash/migrated_users</code>, not a hard
+                delete, so you can put anything back if something looks off.
               </Point>
               <Point icon="share" title="Shared links are cleared">
                 Sharing between you and them is removed, because a single-user folder shares with no one. Only the
@@ -198,12 +206,14 @@ export default function MigrateToSoloModal({
             </div>
             <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-raised p-4">
               <Point icon="download" title="Hand-off copies are ready">
-                Find each person under <code className="text-meta">_migration_bundles</code> in this folder and send
-                them their bundle. They open it as their own folder.
+                Find each person under{" "}
+                <code className="text-meta">{directoryName ?? "this folder"}/_migration_bundles</code> and send them
+                their bundle. They open it as their own folder.
               </Point>
               <Point icon="history" title="Nothing was deleted">
-                The originals are in <code className="text-meta">_trash/migrated_users</code> if you ever need to
-                recover them.
+                The originals are in{" "}
+                <code className="text-meta">{directoryName ?? "this folder"}/_trash/migrated_users</code> if you ever
+                need to recover them.
               </Point>
             </div>
             {result.movedUsers.length > 0 && (

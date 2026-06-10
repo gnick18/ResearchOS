@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { appQueryClient } from "@/lib/query-client";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { FileSystemProvider, useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/file-system-context";
 import {
   isDemoOrWikiCapture,
@@ -18,11 +18,6 @@ import {
 } from "@/lib/file-system/wiki-capture-mock";
 import ResearchFolderSetupNew from "@/components/ResearchFolderSetupNew";
 import BrowserNotSupported from "@/components/BrowserNotSupported";
-import {
-  shouldShowLanding,
-  hasSeenLanding,
-  hasConnectBypass,
-} from "@/lib/landing/landing-gate";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import { ELN_IMPORT_PENDING_KEY } from "@/components/import-eln/PickUserBeforeImportModal";
 import UserLoginScreen from "@/components/UserLoginScreen";
@@ -58,6 +53,7 @@ import IdentitySessionRestorer from "@/components/IdentitySessionRestorer";
 import TodaySnapshotPublisher from "@/components/TodaySnapshotPublisher";
 import DataMigrationRunner from "@/components/DataMigrationRunner";
 import MigrationToast from "@/components/MigrationToast";
+import MigrationGate from "@/components/lab/MigrationGate";
 import { ContextMenuProvider } from "@/components/context-menu/ContextMenuProvider";
 import { BeakerSearchProvider } from "@/components/beaker-search/BeakerSearchProvider";
 import { initializeErrorHandlers } from "@/lib/error-reporting";
@@ -240,8 +236,16 @@ function AppContent({ children }: { children: ReactNode }) {
 
   // The `/welcome` route renders the video-driven welcome/sell page standalone
   // for every visitor regardless of connection state (the "revisit" path from
-  // Settings, the first-visit redirect target, and the wiki-screenshot capture
-  // surface). Bypasses every gate below the same way `/wiki/*` does.
+  // Settings and the wiki-screenshot capture surface). Bypasses every gate
+  // below the same way `/wiki/*` does.
+  //
+  // This route and the chooser's slide-down section (EntrySnapSurface section
+  // 2) render the SAME `<WelcomePage>` component, so they can never drift: any
+  // future edit to the welcome content shows up in both. Keep it that way (do
+  // not fork a second copy here) so /welcome and the slide-down stay seamless.
+  // The forced first-visit redirect to /welcome was removed 2026-06-10: fresh
+  // visitors now land on the chooser directly, which already embeds this exact
+  // page one scroll down, so the redirect was a redundant detour.
   const isWelcomeRoute = pathname === "/welcome";
 
   // QueryClient is a module-level singleton (see `appQueryClient` below)
@@ -262,7 +266,6 @@ function AppContent({ children }: { children: ReactNode }) {
     lastConnectedFolder,
     disconnect,
   } = useFileSystem();
-  const router = useRouter();
   const signInInFlight = useSignInIntent();
   // Splash plays once per tab session (survives reloads, so dev reloads and
   // returning users do not replay it; a brand-new tab plays it). Skippable.
@@ -276,10 +279,6 @@ function AppContent({ children }: { children: ReactNode }) {
   );
   const [successShown, setSuccessShown] = useState(successShownThisLoad);
   const [showSetup, setShowSetup] = useState(false);
-  // Belt-and-suspenders: if the router.replace("/welcome") fires but the gate
-  // is somehow re-evaluated before navigation completes, this prevents a
-  // second redirect. In normal flow this stays false.
-  const [landingDismissed] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isConnected) {
@@ -313,30 +312,12 @@ function AppContent({ children }: { children: ReactNode }) {
     }
   }, [currentUser, queryClient]);
 
-  // First-visit landing redirect. Truly-new visitors are sent to /welcome.
-  // This MUST run in an effect, not in render: calling router.replace during
-  // render throws "Cannot update a component (Router) while rendering a
-  // different component". The guards mirror the render gate below exactly
-  // (wiki / welcome routes, demo / wiki-capture, and the still-loading window
-  // all skip it), so this never fires for a returning or connected user.
-  const wantsLandingRedirect =
-    !isWikiRoute &&
-    !isWelcomeRoute &&
-    !isLoading &&
-    !isDemoOrWikiCapture() &&
-    shouldShowLanding({
-      isConnected,
-      currentUser,
-      lastConnectedFolder,
-      availableUsers,
-      seen: landingDismissed || hasSeenLanding(),
-      connectBypass: hasConnectBypass(),
-    });
-  useEffect(() => {
-    if (wantsLandingRedirect) {
-      router.replace("/welcome");
-    }
-  }, [wantsLandingRedirect, router]);
+  // No forced first-visit redirect to /welcome (removed 2026-06-10, Grant). A
+  // fresh visitor now lands on the connect chooser (EntrySnapSurface) directly,
+  // which already embeds the full welcome/sell page one scroll down, so the old
+  // bounce through /welcome was a redundant detour. /welcome stays reachable as
+  // a standalone marketing page (Settings revisit link, dev button, direct
+  // URL); it just is not the forced default anymore.
 
   if (isWikiRoute) {
     // Wiki-pointer multi-beat redesign 2026-05-22 (Wiki pointer manager).
@@ -433,28 +414,6 @@ function AppContent({ children }: { children: ReactNode }) {
 
   if (!isFileSystemAccessSupported()) {
     return <BrowserNotSupported />;
-  }
-
-  // First-time-visitor landing ("sell") page. Sits between the browser-
-  // support check and the connect-folder screen, and renders ONLY for a
-  // genuinely-new visitor: nothing in IndexedDB (no connected folder, no
-  // stored handle, no stored user, no discovered users) AND they have not
-  // already dismissed it AND no `?connect=1` bypass. Any returning signal
-  // makes shouldShowLanding false, so returning users fall straight through
-  // to their reconnect / picker / app surfaces below with zero extra clicks.
-  //
-  // Placed AFTER the isLoading check above: a returning user's silent
-  // reconnect keeps isLoading true until it resolves, so the landing never
-  // flashes before "returning" is known. Demo / wiki-capture / wiki / welcome
-  // routes already returned above, so they cannot reach this branch. The
-  // landing is gated to supported browsers (the unsupported-browser screen
-  // returns just above), so it never sells a tool the visitor cannot run.
-  // Truly-new visitors are redirected to /welcome by the effect above
-  // (wantsLandingRedirect). Render nothing here while that navigation
-  // resolves so the folder picker never flashes underneath it. The actual
-  // router.replace lives in the effect, never in render.
-  if (wantsLandingRedirect) {
-    return null;
   }
 
   // Branded opening splash, once per full page load. The wiki / welcome / demo
@@ -690,6 +649,11 @@ function AppContent({ children }: { children: ReactNode }) {
           Replaces the manual "Run repair" buttons. */}
       <DataMigrationRunner />
       <MigrationToast />
+      {/* Role-aware blocking on-connect migration gate: a multi-user folder
+          greets the owner with "convert to single-user" and a labmate with
+          "take your data to your own folder". Buried-in-Settings was a
+          discoverability gap (Grant 2026-06-10). Dismissible per session. */}
+      <MigrationGate />
       {/* LabArchives import sticky-intent consumer. If the user clicked
           "Import from LabArchives" on the picker screen and signed in
           (which unmounts that screen), this auto-mounts ImportELNDialog

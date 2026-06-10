@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/lib/providers";
 import OfflineGatedAnalytics from "@/components/OfflineGatedAnalytics";
+import SelfExportResultBanner from "@/components/lab/SelfExportResultBanner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -77,6 +78,10 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Providers>{children}</Providers>
+        {/* Post-disconnect confirmation for a labmate self-export. Mounted at the
+            root so it survives the disconnect that self-export triggers (which
+            unmounts the in-app modal) and shows on the connect screen. */}
+        <SelfExportResultBanner />
         <OfflineGatedAnalytics />
       </body>
     </html>
