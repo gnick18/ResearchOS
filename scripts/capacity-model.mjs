@@ -145,6 +145,53 @@ for (const freeGb of [1, 10, 25, 50]) {
   );
 }
 
+console.log("\n=== Business projection (sustainable + modest reinvestment surplus) ===");
+// Adjustable assumptions. Adoption %s are GUESSES (pre-launch), tweak freely.
+const BIZ = {
+  freeGb: 5, // bounded free tier
+  markup: 3, // storage price = markup x R2 cost ($0.045/GB at 3x), still ~1/20th of competitors
+  // adoption mix of total labs:
+  freeShare: 0.75, // light/normal labs that stay within free, pay nothing
+  paidShare: 0.2, // heavier labs that pay metered for storage beyond free
+  sponsorShare: 0.05, // labs/PIs who sponsor (recognition + support)
+  // per-lab figures:
+  freeLabGbStored: 4, // avg bytes a free lab actually stores (under the 5 GB cap)
+  paidLabGbStored: 300, // avg a paying image/video lab stores (heavy)
+  sponsorUsd: 15, // avg monthly sponsorship
+};
+const STORE_PRICE = R2_USD_PER_GB_MO * BIZ.markup; // $/GB-mo charged
+function project(nLabs) {
+  const free = Math.round(nLabs * BIZ.freeShare);
+  const paid = Math.round(nLabs * BIZ.paidShare);
+  const spon = Math.round(nLabs * BIZ.sponsorShare);
+  // costs (R2 for stored bytes) + fixed base
+  const freeCost = free * BIZ.freeLabGbStored * R2_USD_PER_GB_MO;
+  const paidCost = paid * BIZ.paidLabGbStored * R2_USD_PER_GB_MO;
+  const FIXED_BASE_USD = 25; // Vercel + Cloudflare Workers base, paid every month
+  const cost = freeCost + paidCost + FIXED_BASE_USD;
+  // revenue: paid labs pay for storage beyond the free tier, plus sponsorships
+  const paidBillableGb = Math.max(0, BIZ.paidLabGbStored - BIZ.freeGb);
+  const paidRev = paid * paidBillableGb * STORE_PRICE;
+  const sponRev = spon * BIZ.sponsorUsd;
+  const grossRev = paidRev + sponRev;
+  const stripeFees = grossRev * 0.029 + (paid + spon) * 0.3;
+  const netRev = grossRev - stripeFees;
+  const surplus = netRev - cost;
+  return { free, paid, spon, cost, netRev, surplus };
+}
+console.log(
+  `Assumptions: ${BIZ.freeGb} GB free, storage at ${BIZ.markup}x cost ($${STORE_PRICE.toFixed(3)}/GB-mo),` +
+    ` mix ${BIZ.freeShare * 100}/${BIZ.paidShare * 100}/${BIZ.sponsorShare * 100} free/paid/sponsor.`,
+);
+for (const n of [100, 500, 1000, 2000]) {
+  const p = project(n);
+  console.log(
+    `${String(n).padStart(4)} labs (${p.free} free / ${p.paid} paid / ${p.spon} sponsor): ` +
+      `cost $${p.cost.toFixed(0)}/mo, net revenue $${p.netRev.toFixed(0)}/mo, SURPLUS $${p.surplus.toFixed(0)}/mo (pre income tax)`,
+  );
+}
+console.log("Never loses money: the cost breaker caps total cost at your set budget regardless.");
+
 console.log("\n=== Activity reality check (typical lab writes vs the tier ceilings) ===");
 for (const n of [6, 8, 20]) {
   const u = perUser(SCEN.typical);
