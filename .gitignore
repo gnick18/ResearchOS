@@ -64,6 +64,8 @@ tools/taxonomy-backbone/.taxdump-tmp/
 
 # Raw demo screen recordings for the /welcome redesign (large, re-recordable; not tracked)
 demo-recordings/
+# Local clip-review scratch harness for the /welcome video showcases (served preview, re-generatable)
+frontend/public/_clipreview/
 ResearchOS_Beta_Testers.xlsx
 ResearchOS_Beta_Tracker.html
 scripts/activity-report/.venv/
