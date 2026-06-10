@@ -877,6 +877,16 @@
       "screenedAtCommit": "a5b09293f",
       "screenedDate": "2026-06-10",
       "quality": "solid"
+    },
+    "features/ai-helper": {
+      "page": "frontend/src/app/wiki/features/ai-helper/page.tsx",
+      "sourceFiles": [
+        "frontend/src/app/settings/page.tsx",
+        "frontend/public/ai-helper"
+      ],
+      "screenedAtCommit": "fc49fc85e",
+      "screenedDate": "2026-06-10",
+      "quality": "solid"
     }
   }
 }
