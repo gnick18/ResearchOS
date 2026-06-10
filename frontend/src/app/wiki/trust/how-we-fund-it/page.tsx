@@ -23,8 +23,10 @@ export default function HowWeFundItPage() {
       </p>
       <ul>
         <li>
-          <strong>No paid tier.</strong> There is no premium version that
-          unlocks the features you actually need.
+          <strong>No paywalled features.</strong> Every feature is free. The
+          only thing that can cost money is optional cloud storage for a lab
+          that uses a lot of it, priced to cover what it costs us to run, and
+          only if the lab chooses a larger plan.
         </li>
         <li>
           <strong>No per-seat fees.</strong> Adding a student or a
