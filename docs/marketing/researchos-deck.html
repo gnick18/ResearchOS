@@ -1370,13 +1370,48 @@ body.idle .hud,body.idle .help{opacity:0;pointer-events:none}
     <div class="body" style="display:flex;flex-direction:column;gap:30px;justify-content:center">
       <div class="cascade llcsteps">
         <div class="beat sky"><div class="node"><span style="font-size:23px;font-weight:800;color:var(--c)">1</span></div><div class="feat">Register the entity</div><div class="need">Articles of Organization, filed with the state of Wisconsin</div></div>
-        <div class="beat amber"><div class="node"><span style="font-size:23px;font-weight:800;color:var(--c)">2</span></div><div class="feat">Registered agent</div><div class="need">A real in-state address to receive legal mail</div></div>
+        <div class="beat amber"><div class="node"><span style="font-size:23px;font-weight:800;color:var(--c)">2</span></div><div class="feat">Registered agent</div><div class="need">Grant is his own, at a Wisconsin address, to receive legal mail</div></div>
         <div class="beat coral"><div class="node"><span style="font-size:23px;font-weight:800;color:var(--c)">3</span></div><div class="feat">Operating agreement</div><div class="need">The governing document, even for one person</div></div>
         <div class="beat sky"><div class="node"><span style="font-size:23px;font-weight:800;color:var(--c)">4</span></div><div class="feat">EIN from the IRS</div><div class="need">A free federal tax ID, needed to bank and file</div></div>
         <div class="beat amber"><div class="node"><span style="font-size:23px;font-weight:800;color:var(--c)">5</span></div><div class="feat">Business bank account</div><div class="need">Business money kept separate from personal</div></div>
         <div class="beat coral"><div class="node"><span style="font-size:23px;font-weight:800;color:var(--c)">6</span></div><div class="feat">Payment processor</div><div class="need">Stripe, so the entity can legally collect</div></div>
       </div>
       <div class="bizpunch"><b>All of it is set up and ready.</b> An LLC also makes a small yearly chore, the state annual report. And billing is built but switched off during the beta, so every bit of cloud storage is free right now.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 26b2. OPERATOR DASHBOARDS -->
+  <section class="slide">
+    <div class="head">
+      <div class="kicker"><span class="dot"></span> Behind the scenes</div>
+      <h2>The dashboards that run it</h2>
+      <div class="f-oneline" style="max-width:none">Two operator-only pages let one person run the business. Aggregate numbers only, never anyone's data, and they refuse to bill a real customer until the state tax question is answered.</div>
+    </div>
+    <div class="body">
+      <div class="grid3" style="grid-auto-rows:1fr">
+        <div class="card"><div class="ct"><span class="ci"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg></span><h3>Cost circuit breaker</h3></div><p>Caps the monthly cloud bill. If variable cost hits the budget, cloud writes pause and the local app keeps working. Reset is manual.</p></div>
+        <div class="card"><div class="ct"><span class="ci"><svg viewBox="0 0 24 24"><path d="M4 20h16M7 20V11M12 20V5M17 20v-7"/></svg></span><h3>Infrastructure capacity</h3></div><p>Free-tier headroom for each service, with a survival-risk banner that turns amber before any ceiling is close.</p></div>
+        <div class="card"><div class="ct"><span class="ci"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg></span><h3>Ledger and tax summary</h3></div><p>Every expense grouped by IRS Schedule C line, with a per-year CSV export for self-filing.</p></div>
+        <div class="card"><div class="ct"><span class="ci"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg></span><h3>Deadlines</h3></div><p>Countdowns to the Wisconsin annual report and the federal quarterly estimates, color-coded before they are due.</p></div>
+        <div class="card"><div class="ct"><span class="ci"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></span><h3>Money in and out</h3></div><p>Monthly spend by vendor against recorded revenue, plus a tax reserve and a single safe-to-draw number.</p></div>
+        <div class="card"><div class="ct"><span class="ci"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></span><h3>Beta broadcast</h3></div><p>Compose, preview, and send one branded update to the beta-tester list from a real support address.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 26b3. AI WORKERS -->
+  <section class="slide">
+    <div class="head">
+      <div class="kicker"><span class="dot"></span> Standing AI roles</div>
+      <h2>Two AI workers help run it</h2>
+      <div class="f-oneline" style="max-width:none">Beyond building features, a couple of scheduled AI assistants keep the boring, important parts from piling up. Each follows a written playbook kept in the repo.</div>
+    </div>
+    <div class="body" style="display:flex;flex-direction:column;gap:18px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;flex:1;min-height:0">
+        <div class="card"><div class="topbar"></div><div class="ct"><span class="ci"><svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h4"/></svg></span><h3>The Accountant</h3></div><p>Reads the LLC inbox each day, books every receipt onto the ledger already tax-categorized, and drafts a reply asking for the PDF when one is missing. Year-end filing is ready, with no scramble.</p><div class="tags"><span class="tag">Runs daily</span><span class="tag">Books receipts</span><span class="tag">Drafts, never sends</span></div></div>
+        <div class="card"><div class="topbar"></div><div class="ct"><span class="ci"><svg viewBox="0 0 24 24"><path d="M8 6l-5 6 5 6M16 6l5 6-5 6"/></svg></span><h3>The Maintainer</h3></div><p>Triages the GitHub repo every couple of days. It reads new issues, classifies them, proposes labels, drafts replies in the house voice, keeps the feature backlog, and checks deploy health.</p><div class="tags"><span class="tag">Triages issues</span><span class="tag">Keeps the backlog</span><span class="tag">Proposes, never acts</span></div></div>
+      </div>
+      <div class="bizpunch"><b>Both draft and propose. Neither sends an email, closes an issue, or spends a cent on its own.</b> A human approves everything, and every guardrail resets by hand so nothing silently resumes.</div>
     </div>
   </section>
 
