@@ -1,9 +1,16 @@
 "use client";
 
 import { QueryClientProvider } from "@tanstack/react-query";
-import { useState, useEffect, useRef, type ReactNode } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import { appQueryClient } from "@/lib/query-client";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { FileSystemProvider, useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/file-system-context";
 import {
   isDemoOrWikiCapture,
@@ -54,6 +61,59 @@ import { ContextMenuProvider } from "@/components/context-menu/ContextMenuProvid
 import { BeakerSearchProvider } from "@/components/beaker-search/BeakerSearchProvider";
 import { initializeErrorHandlers } from "@/lib/error-reporting";
 import { projectsApi } from "@/lib/local-api";
+
+// Patch the History API once (module scope, idempotent) so a reactive query-param
+// read can observe next/navigation router.push/replace, which call pushState /
+// replaceState. We do this instead of next/navigation's useSearchParams because
+// this root provider wraps EVERY page; useSearchParams there forces a Suspense
+// boundary during static export and, with none above the root, fails the
+// production build outright (and would otherwise de-static every wiki/marketing
+// page into client-side rendering). Wrapping is non-destructive (the original is
+// always called) and never restored, which is fine for the app's lifetime.
+if (
+  typeof window !== "undefined" &&
+  !(window as unknown as { __rosLocationPatched?: boolean }).__rosLocationPatched
+) {
+  (window as unknown as { __rosLocationPatched?: boolean }).__rosLocationPatched =
+    true;
+  for (const method of ["pushState", "replaceState"] as const) {
+    const original = window.history[method];
+    window.history[method] = function (
+      this: History,
+      ...args: Parameters<History["pushState"]>
+    ) {
+      const result = original.apply(this, args);
+      window.dispatchEvent(new Event("researchos:locationchange"));
+      return result;
+    };
+  }
+}
+
+/**
+ * Reactive, Suspense-safe read of whether a `?signIn=` intent is in the URL.
+ * Reads window.location.search (so static export never bails to CSR) and
+ * re-renders on popstate plus the patched-history event above, so an in-session
+ * router.push("/?...&signIn=<provider>") from the start screen / tier chooser
+ * still hides the entry gate exactly as the old useSearchParams subscription did.
+ */
+function useSignInIntent(): boolean {
+  const subscribe = useCallback((onChange: () => void) => {
+    if (typeof window === "undefined") return () => {};
+    window.addEventListener("popstate", onChange);
+    window.addEventListener("researchos:locationchange", onChange);
+    return () => {
+      window.removeEventListener("popstate", onChange);
+      window.removeEventListener("researchos:locationchange", onChange);
+    };
+  }, []);
+  return useSyncExternalStore(
+    subscribe,
+    () =>
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).has("signIn"),
+    () => false,
+  );
+}
 
 /**
  * One-shot orphan-project sweep on first sign-in this session.
@@ -202,7 +262,7 @@ function AppContent({ children }: { children: ReactNode }) {
     disconnect,
   } = useFileSystem();
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const signInInFlight = useSignInIntent();
   // Splash plays once per tab session (survives reloads, so dev reloads and
   // returning users do not replay it; a brand-new tab plays it). Skippable.
   const [splashSeen, setSplashSeen] = useState<boolean>(
@@ -432,7 +492,7 @@ function AppContent({ children }: { children: ReactNode }) {
     !currentUser &&
     entryAction === null &&
     !isDemoOrWikiCapture() &&
-    !searchParams?.get("signIn")
+    !signInInFlight
   ) {
     return (
       <QueryClientProvider client={queryClient}>
@@ -470,7 +530,7 @@ function AppContent({ children }: { children: ReactNode }) {
     entryAction === "create" &&
     (showSetup || !isConnected) &&
     !isDemoOrWikiCapture() &&
-    !searchParams?.get("signIn")
+    !signInInFlight
   ) {
     return (
       <QueryClientProvider client={queryClient}>
