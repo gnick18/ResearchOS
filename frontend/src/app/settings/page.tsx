@@ -1247,18 +1247,43 @@ function SettingsTabStrip({
 }
 
 /**
- * Settings tabs manager 2026-05-23: container for the Lab Mode tab. Lists
- * the lab-admin sections in priority order:
+ * Lab Head hub Phase 1 (LAB_HEAD_HUB.md, 2026-06-10): a small uppercase label
+ * that visually clusters the Lab Mode cards into groups (People / Oversight /
+ * Account) instead of a flat stack. It hides itself while a settings search is
+ * active, so search shows a clean flat list of matching cards with no orphaned
+ * group headings.
+ */
+function HubGroupHeading({ children }: { children: React.ReactNode }) {
+  const { active } = useSettingsSearch();
+  if (active) return null;
+  return (
+    <h3 className="px-1 text-meta font-semibold uppercase tracking-wide text-foreground-muted">
+      {children}
+    </h3>
+  );
+}
+
+/**
+ * Settings tabs manager 2026-05-23, reorganized into the Lab Head hub by
+ * LAB_HEAD_HUB.md (2026-06-10). The Lab Mode tab is the lab head's configuration
+ * and oversight surface (the live "what needs me today" view is Lab Overview).
+ * The cards are grouped rather than flat:
  *
- *   1. AccountTypeSection — member vs lab_head toggle. Always visible
- *      to lab accounts. Toggling here is the entry point for becoming
- *      a lab head (no separate elevation flow).
- *   2. LabRosterSection — archive / restore lab members. Visible to
- *      everyone; LabRoster's internal `canArchive` gate hides the
- *      actions for non-lab-heads.
+ *   People    — Lab Roster (everyone, archive gated internally) + Lab membership
+ *               (lab head + lab tier).
+ *   Oversight — the lab audit trail (lab head only). Reserved slot for an
+ *               approvals + flag policy card linking to the live queues.
+ *   Account   — member vs lab_head toggle. Visible to every lab account, the
+ *               entry point for becoming a lab head.
  *
- * The old PI edit-mode "Lab Head" section (password + active session
- * controls) was removed with the PI edit-session feature.
+ * Two optional modules are reserved (invisible until the PI enables them): a
+ * Data & retention card (LAB_ARCHIVE_CONTINUITY.md) and a Purchasing routing
+ * card (PURCHASE_DOCS_AND_ROUTING.md). They mount between Oversight and Account.
+ *
+ * The Lab Mode tab is also visible to a member in a lab workspace, so lab-head
+ * surfaces gate on the actual account_type (shouldShowLabHeadAuditTrail), not the
+ * looser isLabMode tab flag. The old PI edit-mode password section was removed
+ * with the PI edit-session feature.
  */
 function LabModeTabContent({
   settings,
@@ -1268,18 +1293,37 @@ function LabModeTabContent({
   update: (patch: Partial<UserSettings>) => Promise<void>;
   currentUser: string;
 }) {
-  // The audit trail is a lab-head-only power (you only audit your own edits to
-  // members' records). The Lab Mode tab is also visible to a member in a lab
-  // workspace, so gate this section on the actual account_type rather than the
-  // looser isLabMode tab condition.
+  const isLabHead = shouldShowLabHeadAuditTrail(settings);
   return (
     <>
-      <AccountTypeSection settings={settings} update={update} />
-      {LAB_TIER_ENABLED && shouldShowLabHeadAuditTrail(settings) && (
-        <LabMembershipSection />
+      {/* People: who is in the lab. */}
+      <div className="space-y-4">
+        <HubGroupHeading>People</HubGroupHeading>
+        <LabRosterSection />
+        {LAB_TIER_ENABLED && isLabHead && <LabMembershipSection />}
+      </div>
+
+      {/* Oversight: the durable record. Lab-head only, so the whole group
+          (heading included) is gated to avoid an orphaned heading for members. */}
+      {isLabHead && (
+        <div className="space-y-4">
+          <HubGroupHeading>Oversight</HubGroupHeading>
+          <LabAuditTrailSection />
+          {/* Reserved slot (LAB_HEAD_HUB.md): an Approvals & flag-policy card
+              that links to the live queues on Lab Overview + lab-inbox. */}
+        </div>
       )}
-      {shouldShowLabHeadAuditTrail(settings) && <LabAuditTrailSection />}
-      <LabRosterSection />
+
+      {/* Reserved optional-module slots, invisible until the PI enables them
+          (LAB_HEAD_HUB.md). They render nothing until built + configured:
+            - Data & retention   (LAB_ARCHIVE_CONTINUITY.md)
+            - Purchasing routing (PURCHASE_DOCS_AND_ROUTING.md) */}
+
+      {/* Account: role + account type. */}
+      <div className="space-y-4">
+        <HubGroupHeading>Account</HubGroupHeading>
+        <AccountTypeSection settings={settings} update={update} />
+      </div>
     </>
   );
 }
