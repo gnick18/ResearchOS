@@ -28,6 +28,15 @@ import { signWithDevice } from '@/lib/device-identity';
 import { fetchSnapshot } from '@/lib/snapshots';
 import type { InventorySnapshot, TrackedStock, RecentPurchase } from '@/lib/scan';
 
+// A tracked stock is low when its remaining units have hit its reorder point.
+function stockIsLow(stock: TrackedStock): boolean {
+  return (
+    stock.lowAtCount != null &&
+    typeof stock.unitsRemaining === 'number' &&
+    stock.unitsRemaining <= stock.lowAtCount
+  );
+}
+
 export default function InventoryScreen() {
   const router = useRouter();
   const { surface, spacing } = useTheme();
@@ -82,6 +91,11 @@ export default function InventoryScreen() {
     ? snapshot!.recentPurchases!
     : [];
 
+  // One-tap "Reorder low" filter on the tracked-items section.
+  const [lowOnly, setLowOnly] = useState(false);
+  const hasLow = trackedStocks.some(stockIsLow);
+  const shownStocks = lowOnly ? trackedStocks.filter(stockIsLow) : trackedStocks;
+
   return (
     <ScreenFrame>
       <ScrollView
@@ -97,7 +111,7 @@ export default function InventoryScreen() {
       >
         <ThemedText type="title">Inventory</ThemedText>
         <ThemedText style={[styles.tagline, { color: surface.muted }]}>
-          Scan a package to receive it, track barcodes, and reorder.
+          Track stock and reorder from the bench.
         </ThemedText>
 
         {/* Not paired prompt */}
@@ -161,14 +175,19 @@ export default function InventoryScreen() {
             ) : null}
 
             {/* Tracked items */}
-            <SectionHeader title="Tracked items" />
-            {trackedStocks.length > 0 ? (
+            <SectionHeader
+              title="Tracked items"
+              action={hasLow ? (lowOnly ? 'Show all' : 'Reorder low') : undefined}
+              onAction={hasLow ? () => setLowOnly((v) => !v) : undefined}
+              actionColor={palette.amber}
+            />
+            {shownStocks.length > 0 ? (
               <Card>
-                {trackedStocks.map((stock, i) => (
+                {shownStocks.map((stock, i) => (
                   <TrackedStockRow
                     key={stock.stockId != null ? String(stock.stockId) : `stock-${i}`}
                     stock={stock}
-                    last={i === trackedStocks.length - 1}
+                    last={i === shownStocks.length - 1}
                   />
                 ))}
               </Card>
