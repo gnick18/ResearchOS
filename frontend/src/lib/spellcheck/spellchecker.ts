@@ -22,6 +22,7 @@ const seededExtra = new Set<string>();
 
 const AFF_URL = "/spellcheck/en.aff";
 const DIC_URL = "/spellcheck/en.dic";
+const BENCH_TERMS_URL = "/spellcheck/bench-terms.txt";
 
 // localStorage keys. The enabled flag is mirrored from settings.json so the
 // editor can read it synchronously at mount (same pattern as editorWidthPreset).
@@ -51,6 +52,20 @@ async function build(): Promise<NSpellInstance | null> {
     const [aff, dic] = await Promise.all([affRes.text(), dicRes.text()]);
     const checker = nspell(aff, dic);
     for (const w of SCIENTIFIC_WORDLIST) checker.add(w);
+    // Lazily fetch the large bench-terms wordlist. A fetch failure is non-fatal:
+    // the curated SCIENTIFIC_WORDLIST and the base English dictionary still load.
+    try {
+      const benchRes = await fetch(BENCH_TERMS_URL);
+      if (benchRes.ok) {
+        const text = await benchRes.text();
+        for (const line of text.split("\n")) {
+          const w = line.trim();
+          if (w.length >= 3) checker.add(w);
+        }
+      }
+    } catch {
+      // bench-terms.txt unavailable; checker still works without it
+    }
     for (const w of readLocalUserWords()) {
       const t = w.trim();
       if (t) checker.add(t);

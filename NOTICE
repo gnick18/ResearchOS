@@ -39,3 +39,37 @@ license texts are preserved in the published /open-source credits. Where a
 specific algorithm was ported (for example a melting-temperature routine adapted
 from Biopython, BSD-licensed), that attribution is recorded with the
 corresponding feature and on the /transparency page.
+
+-------------------------------------------------------------------------------
+Spell-checker bench vocabulary (frontend/public/spellcheck/bench-terms.txt)
+-------------------------------------------------------------------------------
+
+The bench-terms.txt wordlist was curated from the following permissively-licensed
+open sources. Only common names and prose terms used by researchers were
+extracted; no raw ontology dumps are distributed.
+
+  NCBI Taxonomy (public domain, US Government work)
+    Source: https://www.ncbi.nlm.nih.gov/taxonomy
+    Contribution: common organism names, genus/species names (model organisms,
+    bacteria, fungi, plants, animals, viruses) used in lab prose.
+    US Government works are not subject to copyright protection in the
+    United States (17 U.S.C. 105).
+
+  ChEBI -- Chemical Entities of Biological Interest (CC BY 4.0)
+    Copyright (c) EMBL-EBI and contributors
+    Source: https://www.ebi.ac.uk/chebi/
+    Contribution: common reagent, buffer, and metabolite names.
+    License: Creative Commons Attribution 4.0 International
+    https://creativecommons.org/licenses/by/4.0/
+
+  PubChem (public domain, NIH/NLM)
+    Source: https://pubchem.ncbi.nlm.nih.gov/
+    Contribution: common compound names, chemical synonyms used in bench prose.
+    Published by the National Institutes of Health, a US Government agency;
+    content is in the public domain.
+
+  Hand-curated vocabulary
+    Molecular biology, biochemistry, cell biology, genetics, genomics,
+    neuroscience, plant biology, cancer biology, microbiology, proteomics,
+    bioinformatics, and laboratory technique terms assembled from domain
+    knowledge. No copyrighted material was copied verbatim.
