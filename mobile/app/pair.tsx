@@ -241,12 +241,12 @@ export default function PairScreen() {
           <View style={styles.heroBot}>
             <BeakerBot size={92} alive />
           </View>
-          <ThemedText type="title" style={styles.center}>
-            Pair your phone
+          <ThemedText type="title" style={[styles.center, { fontSize: 29, lineHeight: 34 }]}>
+            Connect
           </ThemedText>
           <ThemedText style={[styles.body, { color: surface.muted }]}>
-            ResearchOS needs camera access to scan the pairing code shown on your
-            desktop. You can also type the code in by hand.
+            Pair with ResearchOS on your laptop to capture, glance, and sync at
+            the bench.
           </ThemedText>
           <Button
             variant="primary"
