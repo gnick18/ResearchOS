@@ -869,6 +869,11 @@ export async function installWikiCaptureFixture(
   // `DEMO_PNG_PATHS`, which were hardcoded and silently shadowed the
   // real on-disk content whenever the demo bundle grew.
   const IMG_REF_RE = /!\[[^\]]*\]\(Images\/([^)]+)\)/g;
+  // Mirror IMG_REF_RE for `[label](Files/<name>)` attachment links so the
+  // FileStrip's blobs resolve in fixture mode (it scans the same markdown body
+  // for Files/ refs). Image refs point at Images/, not Files/, so this never
+  // collides with the `![..](Images/..)` matches above.
+  const FILE_REF_RE = /\[[^\]]*\]\(Files\/([^)]+)\)/g;
   await Promise.all(
     DEMO_RESULTS_USERS.flatMap((user) => {
       const counters = files.get(normalizePath(`users/${user}/_counters.json`)) as
@@ -928,6 +933,41 @@ export async function installWikiCaptureFixture(
             } catch (err) {
               console.warn(
                 `[wiki-capture-mock] results img fetch failed for ${relPath}:`,
+                err,
+              );
+            }
+          }),
+        );
+        // Same idea for `[label](Files/<name>)` attachments so the editor's
+        // FileStrip resolves its blobs in fixture mode (the Files tab of the
+        // attachment strip). The markdown body is the index; only referenced
+        // files are fetched. Strip any #fragment / ?query before fetching so
+        // `Files/data.csv#sheet1` resolves the underlying file.
+        const fileNames = new Set<string>();
+        for (const text of fetchedTexts) {
+          FILE_REF_RE.lastIndex = 0;
+          let m: RegExpExecArray | null;
+          while ((m = FILE_REF_RE.exec(text)) !== null) {
+            fileNames.add(m[1].split(/[?#]/)[0]);
+          }
+        }
+        await Promise.all(
+          Array.from(fileNames).map(async (fileName) => {
+            const relPath = `${taskBase}/Files/${fileName}`;
+            try {
+              const res = await fetch(`/demo-data/${relPath}`);
+              if (!res.ok) {
+                console.warn(
+                  `[wiki-capture-mock] results file fetch ${res.status}: ${relPath}`,
+                );
+                return;
+              }
+              const blob = await res.blob();
+              blobs.set(normalizePath(relPath), blob);
+              addParentDirs(normalizePath(relPath), dirs);
+            } catch (err) {
+              console.warn(
+                `[wiki-capture-mock] results file fetch failed for ${relPath}:`,
                 err,
               );
             }

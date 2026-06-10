@@ -2275,14 +2275,12 @@ const FIXTURE_ROUTES = [
   // ─────────────────────────────────────────────────────────────────────
   // Notifications bell — shift_alert row.
   //
-  // FIXTURE NOTE: wiki-capture-fixture.ts does NOT currently seed any
-  // notifications (no shift_alert, no sharing-notification rows). Capturing
-  // here will produce an "empty bell" dropdown unless a future bot adds
-  // a shift_alert seed entry. The capture is still wired so the wiki link
-  // doesn't 404; replace with a real shot once the fixture grows a
-  // notification.
+  // Seeded into users/morgan/_notifications.json (a shift_alert from alex
+  // pushing a shared experiment +3 days), so we view as morgan via
+  // ?fixtureUser=morgan and the row reads "alex shifted PCR optimization by
+  // +3d" with the date shift below it. (Was previously an empty-bell stub.)
   {
-    path: "/",
+    path: "/?fixtureUser=morgan",
     file: "notifications-shift-alert.png",
     waitFor: "text=Research Project Overview",
     settleMs: 800,
@@ -2299,6 +2297,192 @@ const FIXTURE_ROUTES = [
         }
       } catch (err) {
         console.warn(`  ⚠ notifications-shift-alert open bell: ${err.message}`);
+      }
+    },
+  },
+  // ─────────────────────────────────────────────────────────────────────
+  // Trash — bulk-action bar. The fixture seeds 3 mixed-type entries in alex's
+  // _trash (note / task / purchase item). Ticking the first two row checkboxes
+  // reveals the sticky bar (Restore N / Permanent delete N / Clear selection).
+  {
+    path: "/trash",
+    file: "trash-bulk-action-bar.png",
+    waitFor: "text=Trash",
+    settleMs: 700,
+    action: async (page) => {
+      try {
+        // Row checkboxes live inside the section <ul><li> rows; the section
+        // header's "Select all" checkbox sits outside the <ul>, so this
+        // locator only matches per-row boxes. Tick the first two.
+        const rowBoxes = page.locator('ul li input[type="checkbox"]');
+        await rowBoxes
+          .first()
+          .waitFor({ state: "visible", timeout: 6000 })
+          .catch(() => {});
+        const n = await rowBoxes.count();
+        for (let i = 0; i < Math.min(2, n); i++) {
+          await rowBoxes.nth(i).click({ timeout: 3000 }).catch(() => {});
+        }
+        await page.waitForTimeout(500);
+      } catch (err) {
+        console.warn(`  ⚠ trash-bulk-action-bar select rows: ${err.message}`);
+      }
+    },
+  },
+  // ─────────────────────────────────────────────────────────────────────
+  // Deposit dialog — metadata-review step. Needs the fixture's project 1
+  // funding_account_id (DEMO-NIH-GM999999) + alex's ORCID/displayName so the
+  // Funding + Creator fields populate. Open task 2's Deposit dialog and advance
+  // from Curate to Metadata.
+  {
+    path: "/workbench",
+    file: "deposit-metadata-review.png",
+    waitFor: "text=Workbench, text=Experiments",
+    settleMs: 800,
+    action: async (page) => {
+      if (
+        !(await revealCompletedAndOpenTask(
+          page,
+          /Yeast transformation:\s*pYES-GAL1::flbA/i,
+        ))
+      )
+        return;
+      try {
+        const depositBtn = page
+          .locator('[data-testid="task-deposit-button"]')
+          .first();
+        await depositBtn
+          .waitFor({ state: "visible", timeout: 5000 })
+          .catch(() => {});
+        if (await depositBtn.count()) {
+          await depositBtn.click({ timeout: 3000 });
+          await page
+            .waitForSelector('[data-testid="deposit-dialog"]', {
+              timeout: 6000,
+            })
+            .catch(() => {});
+        }
+        // Advance Curate -> Metadata.
+        const next = page
+          .locator("button")
+          .filter({ hasText: /^Next: metadata$/ })
+          .first();
+        await next.waitFor({ state: "visible", timeout: 5000 }).catch(() => {});
+        if (await next.count()) {
+          await next.click({ timeout: 3000 });
+        }
+        await page
+          .waitForSelector('[data-testid="deposit-abstract"]', {
+            timeout: 6000,
+          })
+          .catch(() => {});
+        await page.waitForTimeout(600);
+      } catch (err) {
+        console.warn(`  ⚠ deposit-metadata-review open dialog: ${err.message}`);
+      }
+    },
+  },
+  // ─────────────────────────────────────────────────────────────────────
+  // Markdown editor — the unified bottom attachment strip (Images / Files
+  // tabs). task 2's Lab Notes carries an inline image (Images tab) AND a
+  // [colony-counts.csv](Files/...) link (Files tab), so both tabs populate.
+  // Caption shows the Images tab (the plate thumbnail) with the tab bar above.
+  {
+    path: "/workbench",
+    file: "editor-attachment-strip.png",
+    waitFor: "text=Workbench, text=Experiments",
+    settleMs: 800,
+    action: async (page) => {
+      if (
+        !(await revealCompletedAndOpenTask(
+          page,
+          /Yeast transformation:\s*pYES-GAL1::flbA/i,
+        ))
+      )
+        return;
+      await openLabNotesTab(page);
+      try {
+        // The attachment strip sits below the editor body; bring its Images /
+        // Files tab bar into view so it lands in the viewport capture.
+        const tab = page
+          .locator("button")
+          .filter({ hasText: /^Images$/ })
+          .last();
+        await tab.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+        await page.waitForTimeout(500);
+      } catch (err) {
+        console.warn(`  ⚠ editor-attachment-strip scroll: ${err.message}`);
+      }
+    },
+  },
+  // ─────────────────────────────────────────────────────────────────────
+  // Image annotation — the saved overlay rendered INLINE in a note (not the
+  // editor modal). task 5's gel (gel-pcr-screen.png) has a seeded .annot.json
+  // sidecar, so previewing its Lab Notes shows the gel with the ellipse +
+  // arrow + lane labels drawn on top.
+  {
+    path: "/workbench",
+    file: "image-annotation-in-note.png",
+    waitFor: "text=Workbench, text=Experiments",
+    settleMs: 800,
+    action: async (page) => {
+      if (!(await revealCompletedAndOpenTask(page, /PCR-screen integrants/i)))
+        return;
+      await openLabNotesTab(page);
+      await switchEditorMode(page, "Preview");
+      await page.waitForTimeout(800);
+      try {
+        const img = page
+          .locator("img[alt*='DemoCheck' i], img.cursor-pointer")
+          .first();
+        await img.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+        await page.waitForTimeout(600);
+      } catch (err) {
+        console.warn(`  ⚠ image-annotation-in-note scroll: ${err.message}`);
+      }
+    },
+  },
+  // ─────────────────────────────────────────────────────────────────────
+  // Image annotation — the full-screen ImageAnnotatorModal on the seeded gel.
+  // Opening the annotator loads the saved .annot.json shapes (no live drawing
+  // needed). Preview the note, click the gel to open the resize popover, then
+  // click "Annotate".
+  {
+    path: "/workbench",
+    file: "image-annotation-gel.png",
+    waitFor: "text=Workbench, text=Experiments",
+    settleMs: 800,
+    action: async (page) => {
+      if (!(await revealCompletedAndOpenTask(page, /PCR-screen integrants/i)))
+        return;
+      await openLabNotesTab(page);
+      await switchEditorMode(page, "Preview");
+      await page.waitForTimeout(800);
+      try {
+        const img = page
+          .locator("img[alt*='DemoCheck' i], img.cursor-pointer")
+          .first();
+        await img.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+        await img.click({ timeout: 3000 });
+        await page.waitForTimeout(400);
+        // The resize popover exposes an "Annotate" action that opens the
+        // full-screen modal (which loads the seeded shapes on mount).
+        const annotate = page
+          .locator("button")
+          .filter({ hasText: /^Annotate$/ })
+          .first();
+        await annotate
+          .waitFor({ state: "visible", timeout: 4000 })
+          .catch(() => {});
+        if (await annotate.count()) {
+          await annotate.click({ timeout: 3000 });
+        }
+        await page
+          .waitForSelector("text=Annotate image", { timeout: 6000 })
+          .catch(() => {});
+        await page.waitForTimeout(900);
+      } catch (err) {
+        console.warn(`  ⚠ image-annotation-gel open modal: ${err.message}`);
       }
     },
   },
