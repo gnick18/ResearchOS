@@ -11,7 +11,7 @@
 
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -24,6 +24,10 @@ export const unstable_settings = {
 
 export default function TabLayout() {
   const { surface } = useTheme();
+  // The device's bottom inset (Android 3-button nav / gesture bar, iOS home
+  // indicator). With edgeToEdgeEnabled the app draws under the system nav, so
+  // the tab bar must reserve this space or the system buttons cover the tabs.
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -40,10 +44,12 @@ export default function TabLayout() {
           backgroundColor: surface.tabBarBg,
           borderTopColor: surface.tabBarBorder,
           borderTopWidth: 1,
-          // A little extra height for comfortable touch targets.
-          height: Platform.OS === 'ios' ? 84 : 68,
-          paddingTop: 6,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 10,
+          // A ~60px icon+label area, plus the device bottom inset reserved below
+          // it, so the tabs always sit ABOVE the system nav controls (3-button,
+          // gesture bar, or home indicator) instead of hiding behind them.
+          height: 60 + insets.bottom,
+          paddingTop: 8,
+          paddingBottom: insets.bottom + 8,
         },
 
         // Label sits tight under the icon.
