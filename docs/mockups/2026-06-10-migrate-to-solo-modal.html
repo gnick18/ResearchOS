@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Convert to single-user, modal look review</title>
+<style>
+  /* Real tokens lifted from frontend/src/app/globals.css */
+  :root[data-theme="light"]{
+    --surface:#f8fafc; --surface-raised:#ffffff; --surface-overlay:#ffffff; --surface-sunken:#f1f5f9;
+    --foreground:#171717; --foreground-muted:#6b7280; --border:#e5e7eb;
+    --brand-sky:#1aa0e6; --brand-action:#1283c9; --green:#16a34a; --amber:#d97706;
+  }
+  :root[data-theme="dark"]{
+    --surface:#0a0e1a; --surface-raised:#1c2638; --surface-overlay:#28344c; --surface-sunken:#0d1424;
+    --foreground:#f1f5f9; --foreground-muted:#b4bfd0; --border:rgba(255,255,255,0.16);
+    --brand-sky:#1aa0e6; --brand-action:#1283c9; --green:#34d399; --amber:#fbbf24;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Inter,sans-serif;background:var(--surface);color:var(--foreground)}
+  .bar{position:sticky;top:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 16px;background:var(--surface-raised);border-bottom:1px solid var(--border)}
+  .bar b{font-size:13px;margin-right:6px;color:var(--foreground-muted)}
+  .bar button{font-size:13px;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-overlay);color:var(--foreground);cursor:pointer}
+  .bar button.active{background:linear-gradient(to right,#1283c9,#5b47d6);color:#fff;border-color:transparent}
+  .stage{min-height:calc(100vh - 54px);display:flex;align-items:center;justify-content:center;padding:32px;background:
+    radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--surface) 88%, #000 0%), var(--surface))}
+  .scrim{position:fixed;inset:0;background:rgba(2,6,23,.45);backdrop-filter:blur(1px)}
+  /* The modal = LivingPopup surface (bg-surface-overlay + hairline border) */
+  .modal{position:relative;width:100%;max-width:640px;background:var(--surface-overlay);border:1px solid var(--border);
+    border-radius:16px;box-shadow:0 24px 60px rgba(2,6,23,.35);padding:24px}
+  .x{position:absolute;top:14px;right:14px;width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--foreground-muted);cursor:pointer}
+  .col{display:flex;flex-direction:column;gap:20px}
+  .head{display:flex;align-items:center;gap:12px}
+  .head svg{width:24px;height:24px;color:var(--brand-sky)}
+  .title{font-size:18px;font-weight:600;margin:0}
+  .body{font-size:14px;line-height:1.5;margin:0}
+  .muted{color:var(--foreground-muted)}
+  .meta{font-size:12.5px;line-height:1.5;color:var(--foreground-muted);margin:0}
+  code{font-size:12px;background:var(--surface-sunken);padding:1px 5px;border-radius:5px}
+  .card{display:flex;flex-direction:column;gap:14px;border:1px solid var(--border);background:var(--surface-raised);border-radius:12px;padding:16px}
+  .point{display:flex;gap:12px}
+  .point svg{width:20px;height:20px;color:var(--brand-action);flex:0 0 auto;margin-top:2px}
+  .point .pt{font-size:14px;font-weight:500;margin:0}
+  .point .pd{font-size:12.5px;color:var(--foreground-muted);margin:2px 0 0}
+  .list{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .list .row{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-top:1px solid var(--border)}
+  .list .row:first-child{border-top:none}
+  .label{font-size:12.5px;font-weight:500;color:var(--foreground-muted);margin:0 0 8px}
+  .actions{display:flex;justify-content:flex-end;gap:8px;align-items:center}
+  .btn{font-size:14px;padding:9px 16px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--foreground)}
+  .btn.brand{border:none;color:#fff;background:linear-gradient(to right,#1283c9,#5b47d6)}
+  .center{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;padding:24px 0}
+  .spin{width:28px;height:28px;color:var(--brand-action);animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .ok{display:flex;align-items:center;gap:8px;color:var(--green);font-size:14px;font-weight:500}
+  .warn{display:flex;gap:8px;color:var(--amber);font-size:14px;font-weight:500}
+  .note{font-size:12px;color:var(--foreground-muted);max-width:640px;margin:16px auto 0;text-align:center}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+  <div class="bar">
+    <b>State</b>
+    <button data-s="preview" class="active">Preview + confirm</button>
+    <button data-s="running">Converting</button>
+    <button data-s="done">Done</button>
+    <button data-s="error">Interrupted</button>
+    <button data-s="solo">Already solo</button>
+    <span style="flex:1"></span>
+    <b>Theme</b>
+    <button id="theme">Toggle light/dark</button>
+  </div>
+
+  <div class="stage">
+    <div class="scrim"></div>
+
+    <!-- PREVIEW -->
+    <div class="modal state" data-state="preview">
+      <button class="x">&times;</button>
+      <div class="col">
+        <div class="head">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <h2 class="title">Convert this folder to single-user</h2>
+        </div>
+        <p class="body">You are <b>alex</b>. This folder is shared with 3 other people. Converting makes it your own single-user folder, which drops the multi-user overhead and loads faster. Your own notes, tasks, and files are left exactly as they are.</p>
+        <div class="card">
+          <div class="point">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <div><p class="pt">Everyone else gets a portable copy</p><p class="pd">Each person is packaged into a <code>_migration_bundles</code> folder you can hand to them. They open it as their own single-user folder, so no one loses their work.</p></div>
+          </div>
+          <div class="point">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+            <div><p class="pt">Their data moves to a recoverable Trash</p><p class="pd">Originals go to <code>_trash/migrated_users</code>, not a hard delete, so you can put anything back if something looks off.</p></div>
+          </div>
+          <div class="point">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>
+            <div><p class="pt">Shared links are cleared</p><p class="pd">Sharing between you and them is removed, because a single-user folder shares with no one. Only the sharing links change, your records keep their history.</p></div>
+          </div>
+        </div>
+        <div>
+          <p class="label">Moving out (3 people)</p>
+          <div class="list">
+            <div class="row"><span style="font-size:14px">morgan</span><span class="meta">80 records</span></div>
+            <div class="row"><span style="font-size:14px">mira</span><span class="meta">9 records</span></div>
+            <div class="row"><span style="font-size:14px">sam</span><span class="meta">5 records</span></div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn">Cancel</button>
+          <button class="btn brand">Convert to single-user</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RUNNING -->
+    <div class="modal state hidden" data-state="running">
+      <div class="col">
+        <div class="head">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--brand-sky)"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <h2 class="title">Convert this folder to single-user</h2>
+        </div>
+        <div class="center">
+          <svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          <p class="body">Converting. Moving 3 people out and tidying up.</p>
+          <p class="meta">This can take a moment on a synced folder. Please keep this tab open.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- DONE -->
+    <div class="modal state hidden" data-state="done">
+      <button class="x">&times;</button>
+      <div class="col">
+        <div class="head">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--brand-sky)"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <h2 class="title">Convert this folder to single-user</h2>
+        </div>
+        <div class="ok">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px"><polyline points="20 6 9 17 4 12"/></svg>
+          This folder is now single-user.
+        </div>
+        <div class="card">
+          <div class="point">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <div><p class="pt">Hand-off copies are ready</p><p class="pd">Find each person under <code>_migration_bundles</code> in this folder and send them their bundle. They open it as their own folder.</p></div>
+          </div>
+          <div class="point">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+            <div><p class="pt">Nothing was deleted</p><p class="pd">The originals are in <code>_trash/migrated_users</code> if you ever need to recover them.</p></div>
+          </div>
+        </div>
+        <p class="meta">Moved out: morgan, mira, sam.</p>
+        <div class="actions"><button class="btn brand">Done</button></div>
+      </div>
+    </div>
+
+    <!-- ERROR -->
+    <div class="modal state hidden" data-state="error">
+      <button class="x">&times;</button>
+      <div class="col">
+        <div class="head">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--brand-sky)"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <h2 class="title">Convert this folder to single-user</h2>
+        </div>
+        <div class="warn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px;margin-top:1px"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <div><p style="margin:0">The conversion did not finish.</p><p class="meta" style="margin-top:4px">migrate-to-solo: bundle for "morgan" is incomplete after copy. Aborting before any delete so no data is lost; re-run to resume.</p></div>
+        </div>
+        <p class="body">No data was lost. Nothing is removed until a full backup copy exists, so you can safely run this again to finish where it left off.</p>
+        <div class="actions"><button class="btn">Close</button><button class="btn brand">Try again</button></div>
+      </div>
+    </div>
+
+    <!-- ALREADY SOLO -->
+    <div class="modal state hidden" data-state="solo">
+      <button class="x">&times;</button>
+      <div class="col">
+        <div class="head">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <h2 class="title">Convert this folder to single-user</h2>
+        </div>
+        <p class="body">This folder already has a single user, so there is nothing to convert.</p>
+        <div class="actions"><button class="btn">Close</button></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="note">Faithful mockup of <code>MigrateToSoloModal.tsx</code> using the real globals.css tokens. The component is already wired and live in Settings, Data maintenance, "Convert this folder to single-user" (shown only when the folder has 2 or more users). The real-folder run should be done on a COPY of your folder.</p>
+
+<script>
+  const root=document.documentElement;
+  root.setAttribute("data-theme","light");
+  document.getElementById("theme").onclick=()=>root.setAttribute("data-theme",root.getAttribute("data-theme")==="light"?"dark":"light");
+  const states=[...document.querySelectorAll(".state")];
+  document.querySelectorAll(".bar [data-s]").forEach(b=>b.onclick=()=>{
+    document.querySelectorAll(".bar [data-s]").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    states.forEach(s=>s.classList.toggle("hidden",s.dataset.state!==b.dataset.s));
+  });
+</script>
+</body>
+</html>

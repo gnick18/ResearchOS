@@ -12,6 +12,7 @@ import DataSetupScreen from "@/components/DataSetupScreen";
 import UserLoginScreen from "@/components/UserLoginScreen";
 import ImportExperimentDialog from "@/components/ImportExperimentDialog";
 import MigrationStatusRow from "@/components/settings/MigrationStatusRow";
+import MigrateToSoloModal from "@/components/lab/MigrateToSoloModal";
 import DevicesSection from "@/components/settings/DevicesSection";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import Tooltip from "@/components/Tooltip";
@@ -2158,12 +2159,15 @@ function TrashAndHistorySection({ settings, update }: SectionProps) {
 
 function MaintenanceSection() {
   const [importOpen, setImportOpen] = useState(false);
+  const [soloOpen, setSoloOpen] = useState(false);
+  const { currentUser } = useFileSystem();
+  const isLabMode = useIsLabMode() ?? false;
 
   return (
     <SectionShell
       title="Data maintenance"
       description="Tools for normalising on-disk task and method data. Safe to run any time; reports what it changed."
-      searchKeywords="repair method links source paths split lab notes results attachments stamp formats reconcile cross-owner project sharing import experiment zip LabArchives orphan credentials"
+      searchKeywords="repair method links source paths split lab notes results attachments stamp formats reconcile cross-owner project sharing import experiment zip LabArchives orphan credentials convert single user solo separate accounts migrate"
     >
       <ImportRow onOpen={() => setImportOpen(true)} />
       {importOpen && (
@@ -2173,7 +2177,45 @@ function MaintenanceSection() {
         />
       )}
       <MigrationStatusRow />
+      {isLabMode && currentUser && (
+        <>
+          <ConvertToSoloRow onOpen={() => setSoloOpen(true)} />
+          {soloOpen && (
+            <MigrateToSoloModal onClose={() => setSoloOpen(false)} primaryUser={currentUser} />
+          )}
+        </>
+      )}
     </SectionShell>
+  );
+}
+
+function ConvertToSoloRow({ onOpen }: { onOpen: () => void }) {
+  return (
+    <SearchableRow
+      id="convert:single-user"
+      label="Convert this folder to single-user"
+      desc="Turn a shared multi-user folder into your own single-user folder. Everyone else is packaged into a portable copy you can hand them, their data moves to a recoverable Trash, and the lab overhead goes away. Your own data is untouched."
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-body text-foreground">
+            <HighlightedText text="Convert this folder to single-user" />
+          </p>
+          <p className="text-meta text-foreground-muted mt-1">
+            Turn a shared multi-user folder into your own single-user folder. Everyone else is packaged into a
+            portable copy you can hand them, their originals move to a recoverable Trash, and the multi-user overhead
+            goes away. Your own data is untouched, and you preview exactly what moves before anything happens.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onOpen}
+          className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
+        >
+          Convert...
+        </button>
+      </div>
+    </SearchableRow>
   );
 }
 
