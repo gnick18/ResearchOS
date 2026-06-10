@@ -132,7 +132,7 @@ export default function NotificationsFeaturePage() {
         original filename, and the time it arrived.
       </p>
       <Screenshot
-        src="/wiki/screenshots/telegram-inbox.png"
+        src="/wiki/screenshots/photo-inbox.png"
         alt="The Inbox modal showing waiting photos with thumbnails, captions, timestamps, and per-row Move and Delete buttons."
         caption="Open the Inbox to see waiting photos. Each row has a Move-to-active and Delete button, and clicking the row opens an editor for the caption and filename."
       />
@@ -202,7 +202,7 @@ export default function NotificationsFeaturePage() {
         photos surface inline next time you open the note.
       </p>
       <Screenshot
-        src="/wiki/screenshots/telegram-inbox-multiselect.png"
+        src="/wiki/screenshots/photo-inbox-multiselect.png"
         alt="The Inbox modal with three rows selected (blue borders) and the right-click context menu showing Send 3 items to task, Move to active, and Delete."
         caption="Shift-click or Cmd-click to select multiple inbox photos, then right-click for the batch menu."
       />

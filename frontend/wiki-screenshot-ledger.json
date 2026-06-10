@@ -483,20 +483,12 @@
       ],
       "capturedAtCommit": "3dc344efd"
     },
-    "telegram-inbox.png": {
+    "photo-inbox.png": {
       "route": "/",
       "sources": [
         "frontend/src/components/onboarding/StartScreen.tsx",
         "frontend/src/components/UserLoginScreen.tsx",
         "frontend/src/components/onboarding",
-        "frontend/src/components/AppShell.tsx"
-      ],
-      "capturedAtCommit": "3dc344efd"
-    },
-    "telegram-pairing.png": {
-      "route": "/settings",
-      "sources": [
-        "frontend/src/app/settings/page.tsx",
         "frontend/src/components/AppShell.tsx"
       ],
       "capturedAtCommit": "3dc344efd"
@@ -621,7 +613,7 @@
       ],
       "capturedAtCommit": "3dc344efd"
     },
-    "telegram-inbox-multiselect.png": {
+    "photo-inbox-multiselect.png": {
       "route": "/",
       "sources": [
         "frontend/src/components/onboarding/StartScreen.tsx",
