@@ -36,7 +36,7 @@
         "frontend/src/components/AppShell.tsx",
         "frontend/src/components/ResearchFolderSetupNew.tsx"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
@@ -60,7 +60,7 @@
         "frontend/src/components/ProjectDepositDialog.tsx",
         "frontend/src/lib/sharing/unified.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
@@ -79,7 +79,7 @@
         "frontend/src/lib/metadata/orcid.ts",
         "frontend/src/components/import-eln"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
@@ -101,7 +101,7 @@
         "frontend/src/lib/deposit/datacite.ts",
         "frontend/src/lib/deposit/bundle.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
@@ -111,7 +111,7 @@
         "frontend/src/lib/wiki/nav.ts",
         "frontend/src/components/wiki/WikiPage.tsx"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "needs-tightening"
     },
@@ -133,7 +133,7 @@
         "frontend/src/lib/calendar/use-event-reminders.ts",
         "frontend/src/lib/store.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
@@ -153,7 +153,7 @@
         "frontend/src/lib/sequences/pick-readouts.ts",
         "frontend/src/lib/sequences/library-filter.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
@@ -174,7 +174,7 @@
         "frontend/src/lib/export/orchestrate.ts",
         "frontend/src/lib/export/types.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
@@ -187,7 +187,7 @@
         "frontend/src/components/BeakerBotBugStompScene.tsx",
         "frontend/src/hooks/useErrorReporting.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "needs-tightening"
     },
@@ -204,7 +204,7 @@
         "frontend/src/components/TaskDetailPopup.tsx",
         "frontend/src/lib/local-api.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "needs-tightening"
     },
@@ -220,7 +220,7 @@
         "frontend/src/components/lab-overview/ProjectCreateModal.tsx",
         "frontend/src/lib/types.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "needs-tightening"
     },
@@ -236,7 +236,7 @@
         "frontend/src/lib/attachments/image-events.ts",
         "frontend/src/lib/attachments/image-folder.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "needs-tightening"
     },
@@ -262,14 +262,14 @@
         "frontend/src/app/settings/page.tsx",
         "frontend/src/components/ResearchFolderSetupNew.tsx"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "needs-tightening"
     },
     "features/inventory": {
       "page": "frontend/src/app/wiki/features/inventory/page.tsx",
       "sourceFiles": [],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "thin"
     },
@@ -283,7 +283,7 @@
         "frontend/src/lib/calculators/tm-nn.ts",
         "frontend/src/lib/calculators/protein.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
@@ -297,7 +297,7 @@
         "frontend/src/lib/types.ts",
         "frontend/src/lib/nav.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "needs-tightening"
     },
@@ -314,7 +314,7 @@
         "frontend/src/lib/markdown/remark-underline.ts",
         "frontend/src/lib/markdown/sanitize-schema.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "needs-tightening"
     },
@@ -326,7 +326,7 @@
         "frontend/src/components/methods/MethodLibraryDetail.tsx",
         "frontend/src/lib/methods/compound-template-detail.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "needs-tightening"
     },
@@ -353,7 +353,7 @@
         "frontend/src/hooks/useMethodPermissions.ts",
         "frontend/src/lib/types.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "needs-tightening"
     },
@@ -372,14 +372,14 @@
         "frontend/src/lib/local-api.ts",
         "frontend/src/lib/types.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
     "features/pcr": {
       "page": "frontend/src/app/wiki/features/pcr/page.tsx",
       "sourceFiles": [],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "needs-tightening"
     },
@@ -398,7 +398,7 @@
         "frontend/src/components/workbench/WorkbenchProjectsPanel.tsx",
         "frontend/src/lib/local-api.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "needs-tightening"
     },
@@ -418,7 +418,7 @@
         "frontend/src/lib/nav.ts",
         "frontend/src/components/AppShell.tsx"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "needs-tightening"
     },
@@ -434,7 +434,7 @@
         "frontend/src/vendor/seqviz/enzymes.ts",
         "frontend/src/lib/transparency/datasets/digest.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
@@ -450,7 +450,7 @@
         "frontend/src/app/purchases/page.tsx",
         "frontend/src/components/TaskDetailPopup.tsx"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
@@ -462,7 +462,7 @@
         "frontend/src/components/ExportFormatDialog.tsx",
         "frontend/src/lib/export/types.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "needs-tightening"
     },
@@ -492,7 +492,7 @@
         "frontend/src/lib/sequences/find.ts",
         "frontend/src/components/sequences/sequence-view-state.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
@@ -507,7 +507,7 @@
         "frontend/src/components/settings/DevicesSection.tsx",
         "frontend/src/components/animations/index.tsx"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "thin"
     },
@@ -520,7 +520,7 @@
         "frontend/src/lib/local-api.ts",
         "frontend/src/lib/file-system/file-system-context.tsx"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
@@ -541,7 +541,7 @@
         "frontend/src/lib/history/project-viewer.ts",
         "frontend/src/lib/history/task-viewer.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
@@ -555,7 +555,7 @@
         "frontend/src/components/wiki/Screenshot.tsx",
         "frontend/src/lib/onboarding/feature-picks-tabs.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
@@ -571,7 +571,7 @@
         "frontend/src/components/sharing/SharingProviderButtons.tsx",
         "frontend/src/app/api/auth/[...nextauth]/route.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
@@ -583,7 +583,7 @@
         "frontend/src/components/ResearchFolderSetupNew.tsx",
         "frontend/src/lib/file-system/drop-folder.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
@@ -595,10 +595,9 @@
         "frontend/src/lib/file-system/file-system-context.tsx",
         "frontend/src/lib/file-system/user-discovery.ts",
         "frontend/src/lib/file-system/file-service.ts",
-        "frontend/src/lib/settings/user-settings.ts",
         "frontend/src/lib/file-system/drop-folder.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
@@ -614,7 +613,7 @@
         "frontend/src/lib/migrations/cleanup-auth-json.ts",
         "frontend/src/components/AccountPasswordPopup.tsx"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "needs-tightening"
     },
@@ -633,7 +632,7 @@
         "frontend/src/components/wiki/TryInDemo.tsx",
         "frontend/src/lib/local-api.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "needs-tightening"
     },
@@ -652,7 +651,7 @@
         "frontend/src/lib/tasks/results-paths.ts",
         "frontend/src/app/settings/page.tsx"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
@@ -668,7 +667,7 @@
         "frontend/src/components/CommentsThread.tsx",
         "frontend/src/lib/lab/announcements.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "needs-tightening"
     },
@@ -689,7 +688,7 @@
         "frontend/src/lib/nav.ts",
         "frontend/src/components/AppShell.tsx"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "stale"
     },
@@ -705,7 +704,7 @@
         "frontend/src/components/labarchives/RehydrateMissingImagesPanel.tsx",
         "frontend/src/lib/import/eln/adapters/labarchives.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
@@ -721,7 +720,7 @@
         "frontend/src/lib/calendar/calendar-colors.ts",
         "frontend/src/app/calendar/page.tsx"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
@@ -741,7 +740,7 @@
         "frontend/src/components/LiveMarkdownEditor.tsx",
         "frontend/src/app/settings/page.tsx"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "needs-tightening"
     },
@@ -759,10 +758,9 @@
         "frontend/src/lib/error-reporting.ts",
         "frontend/src/app/api/calendar-feed/route.ts",
         "frontend/src/app/api/analytics/event/route.ts",
-        "frontend/src/app/api/orcid/works/route.ts",
-        "frontend/src/app/settings/page.tsx"
+        "frontend/src/app/api/orcid/works/route.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
@@ -773,11 +771,10 @@
         "frontend/src/components/wiki/WikiPage.tsx",
         "frontend/src/components/wiki/Callout.tsx",
         "frontend/src/app/page.tsx",
-        "frontend/src/app/settings/page.tsx",
         "frontend/src/app/experiments/page.tsx",
         "frontend/src/lib/nav.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
@@ -790,11 +787,10 @@
         "frontend/src/lib/transparency/oracles.ts",
         "frontend/src/lib/api/url-guards.ts",
         "frontend/src/lib/api/rate-limit.ts",
-        "frontend/src/app/settings/page.tsx",
         "frontend/src/app/transparency/page.tsx",
         "frontend/src/app/open-source/page.tsx"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
@@ -824,7 +820,7 @@
         "frontend/src/lib/sequences/hmmer-domtbl.ts",
         "frontend/src/app/transparency/page.tsx"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     },
@@ -838,7 +834,7 @@
         "frontend/src/vendor/bio-parsers",
         "frontend/src/lib/calculators/tm-nn.ts"
       ],
-      "screenedAtCommit": "5e94c4de4",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "needs-tightening"
     },
@@ -857,7 +853,7 @@
         "frontend/src/lib/deposit/datacite.test.ts",
         "frontend/src/lib/metadata/orcid.ts"
       ],
-      "screenedAtCommit": "1a1e35ed6",
+      "screenedAtCommit": "220c9238e",
       "screenedDate": "2026-06-09",
       "quality": "solid"
     }
