@@ -127,12 +127,12 @@ export function ActionList({ actions }: { actions: OperationAction[] }) {
           key={a.id}
           type="button"
           onClick={a.onRun}
-          className="flex items-center gap-2.5 rounded-lg border border-border bg-surface px-2.5 py-2 text-left text-body font-semibold text-foreground transition-colors hover:border-gray-300 hover:bg-surface-sunken dark:hover:border-border"
+          className="flex items-center gap-2.5 rounded-lg border border-border bg-surface px-2.5 py-2 text-left text-body font-semibold text-foreground transition-colors hover:border-border hover:bg-surface-sunken"
         >
           {a.glyph != null ? (
             <span
               className={`flex h-6 w-6 flex-none items-center justify-center rounded-md text-[12px] ${
-                a.tileClass ?? "bg-gray-100 text-gray-600 dark:bg-surface-sunken dark:text-foreground-muted"
+                a.tileClass ?? "bg-surface-sunken text-foreground-muted"
               }`}
             >
               {a.glyph}
@@ -209,7 +209,7 @@ export function SequenceOperationsRail({
               <button
                 type="button"
                 onClick={() => onPick(active.id)}
-                className="ml-auto flex h-6 w-6 items-center justify-center rounded-md text-gray-400 hover:bg-surface-sunken hover:text-gray-600 dark:text-foreground-muted dark:hover:text-foreground"
+                className="ml-auto flex h-6 w-6 items-center justify-center rounded-md text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
                 aria-label="Collapse the inspector"
               >
                 <svg
@@ -265,7 +265,7 @@ function RailGroupAndButton({
     <>
       {op.divider ? <div className="my-1 h-px w-7 bg-border" /> : null}
       {op.groupLabel ? (
-        <div className="mb-0.5 mt-1.5 text-[8px] font-extrabold uppercase tracking-wide text-gray-400 dark:text-foreground-muted">
+        <div className="mb-0.5 mt-1.5 text-[8px] font-extrabold uppercase tracking-wide text-foreground-muted">
           {op.groupLabel}
         </div>
       ) : null}
@@ -278,7 +278,7 @@ function RailGroupAndButton({
           className={`relative flex h-[46px] w-12 flex-col items-center justify-center gap-0.5 rounded-xl border transition-colors ${
             active
               ? "border-sky-200 bg-sky-100 text-sky-700 dark:border-sky-800 dark:bg-sky-900/40 dark:text-sky-300"
-              : "border-transparent text-gray-600 hover:bg-gray-100 dark:text-foreground-muted dark:hover:bg-surface-sunken"
+              : "border-transparent text-foreground-muted hover:bg-surface-sunken"
           }`}
         >
           {op.badge != null ? <Badge badge={op.badge} /> : null}
