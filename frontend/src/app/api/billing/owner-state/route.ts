@@ -1,11 +1,13 @@
-// Per-owner storage cap state, for the Cloudflare collab Durable Object to
-// consult before persisting an enforced doc. The DO knows only the doc's
-// owner_pubkey (Ed25519 hex, set on the first grant); it cannot read Neon
-// directly, so it fetches this endpoint and caches the result. Returns { over }.
+// Per-owner cap state, for the Cloudflare collab Durable Object to consult
+// before persisting an enforced doc. The DO knows only the doc's owner_pubkey
+// (Ed25519 hex, set on the first grant); it cannot read Neon directly, so it
+// fetches this endpoint and caches the result. Returns { over, reason }.
 //
 // GET /api/billing/owner-state?ownerPubkey=<hex>
-// Returns: { over: boolean } -- true only when this owner's tallied usage
-// exceeds their plan cap AND billing enforcement is live.
+// Returns: { over: boolean, reason: "quota" | "activity" | null } -- over is true
+// when the owner's lab-wide STORAGE pool exceeds its cap OR the monthly ACTIVITY
+// pool exceeds its write allowance, AND billing enforcement is live. reason says
+// which (storage wins when both).
 //
 // Dormant until launch: when BILLING_ENABLED is off this always returns
 // { over: false }, so the per-owner cap is inert and the global breaker +
@@ -26,15 +28,19 @@
 import { NextResponse } from "next/server";
 
 import { isBillingEnabled } from "@/lib/billing/config";
-import { quotaBytesForOwner } from "@/lib/billing/db";
+import { activityAllowanceForOwner, quotaBytesForOwner } from "@/lib/billing/db";
 import { ensureLabSchema, resolveBillingOwner } from "@/lib/billing/lab";
-import { getLabPoolUsage } from "@/lib/collab/server/db";
+import { currentWritePeriod } from "@/lib/billing/period";
+import { getLabPoolUsage, getLabPoolWrites } from "@/lib/collab/server/db";
 import { getBindingByPubkey } from "@/lib/sharing/directory/db";
 
 export const runtime = "nodejs";
 
 function notOver() {
-  return NextResponse.json({ over: false }, { headers: { "cache-control": "no-store" } });
+  return NextResponse.json(
+    { over: false, reason: null },
+    { headers: { "cache-control": "no-store" } },
+  );
 }
 
 export async function GET(req: Request) {
@@ -69,13 +75,25 @@ export async function GET(req: Request) {
     // pool is just their own usage.
     await ensureLabSchema();
     const ownerKey = await resolveBillingOwner(binding.emailHash);
-    const [usage, cap] = await Promise.all([
+    const period = currentWritePeriod();
+    const [usage, cap, writes, writeAllowance] = await Promise.all([
       getLabPoolUsage(ownerKey),
       quotaBytesForOwner(ownerKey),
+      getLabPoolWrites(ownerKey, period),
+      activityAllowanceForOwner(ownerKey),
     ]);
 
+    // Either the lab-wide storage pool is over its cap, or the lab-wide monthly
+    // ACTIVITY pool is over its write allowance. Storage takes precedence in the
+    // reason so the DO surfaces the more permanent "Storage limit reached"; an
+    // activity-only overage shows "Monthly activity limit reached". Both pause
+    // durable persistence (edits still fan out live + stay local).
+    const storageOver = usage > cap;
+    const activityOver = writes > writeAllowance;
+    const reason = storageOver ? "quota" : activityOver ? "activity" : null;
+
     return NextResponse.json(
-      { over: usage > cap },
+      { over: storageOver || activityOver, reason },
       { headers: { "cache-control": "no-store" } },
     );
   } catch {

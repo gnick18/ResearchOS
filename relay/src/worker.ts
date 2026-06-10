@@ -407,9 +407,19 @@ export class CollabRoom {
   private breakerCache: { paused: boolean; exp: number } | null = null;
   private breakerRefreshing = false;
   /** Cached per-owner over-cap state for this doc's owner, refreshed async +
-   *  fail-open. Dormant unless BILLING_ENABLED (the endpoint returns false). */
-  private ownerCapCache: { over: boolean; exp: number } | null = null;
+   *  fail-open. reason says whether storage ("quota") or activity ("activity")
+   *  is over. Dormant unless BILLING_ENABLED (the endpoint returns over:false). */
+  private ownerCapCache: {
+    over: boolean;
+    reason: "quota" | "activity" | null;
+    exp: number;
+  } | null = null;
   private ownerCapRefreshing = false;
+  /** Durable writes applied since the last activity report to Vercel. Reported +
+   *  decremented on the backup alarm (per-owner ACTIVITY tally). In-memory per DO
+   *  instance; an eviction loses at most the unreported tail, acceptable for a
+   *  metering counter that fails toward under-counting (customer-friendly). */
+  private writesSinceReport = 0;
   /** Per-doc write throttle (token bucket). In-memory per DO instance; resets on
    *  eviction, which is lenient and acceptable for a rate guard. */
   private writeTokens = WRITE_BURST;
@@ -807,28 +817,29 @@ export class CollabRoom {
   }
 
   /**
-   * Whether this doc's owner is over their storage cap. Per-instance cache read
-   * synchronously (hot path never awaits) with an async refresh when stale.
-   * Fails OPEN: no owner_pubkey yet (an open in-lab doc with no grant has no
-   * billable owner), no cache, no APP_BASE_URL, or a fetch error all read as
-   * not-over. The endpoint is itself dormant unless BILLING_ENABLED, so this
-   * whole layer is inert until billing launch.
+   * Whether this doc's owner is over their STORAGE cap or monthly ACTIVITY
+   * allowance, and which. Per-instance cache read synchronously (hot path never
+   * awaits) with an async refresh when stale. Fails OPEN: no owner_pubkey yet (an
+   * open in-lab doc with no grant has no billable owner), no cache, no
+   * APP_BASE_URL, or a fetch error all read as not-over. The endpoint is itself
+   * dormant unless BILLING_ENABLED, so this whole layer is inert until launch.
    */
-  private isOwnerOverCapCached(): boolean {
+  private ownerBlockReason(): "quota" | "activity" | null {
     // No grant yet means no billable owner; never enforce a cap.
-    if (!this.metaGet("owner_pubkey")) return false;
+    if (!this.metaGet("owner_pubkey")) return null;
     const now = Date.now();
     if (!this.ownerCapCache || this.ownerCapCache.exp <= now) {
       void this.refreshOwnerCap();
-      if (!this.ownerCapCache) return false; // first read, fail open
+      if (!this.ownerCapCache) return null; // first read, fail open
     }
-    return this.ownerCapCache.over;
+    return this.ownerCapCache.over ? this.ownerCapCache.reason : null;
   }
 
   private async refreshOwnerCap(): Promise<void> {
     if (this.ownerCapRefreshing) return;
     this.ownerCapRefreshing = true;
     let over = false;
+    let reason: "quota" | "activity" | null = null;
     const base = this.env.APP_BASE_URL;
     const ownerPubkey = this.metaGet("owner_pubkey");
     if (base && ownerPubkey) {
@@ -842,14 +853,18 @@ export class CollabRoom {
           { headers },
         );
         if (res.ok) {
-          const j = (await res.json()) as { over?: boolean };
+          const j = (await res.json()) as {
+            over?: boolean;
+            reason?: "quota" | "activity" | null;
+          };
           over = !!j.over;
+          reason = over ? (j.reason ?? "quota") : null;
         }
       } catch {
         over = false; // fail open
       }
     }
-    this.ownerCapCache = { over, exp: Date.now() + OWNER_CAP_TTL_MS };
+    this.ownerCapCache = { over, reason, exp: Date.now() + OWNER_CAP_TTL_MS };
     this.ownerCapRefreshing = false;
   }
 
@@ -867,9 +882,10 @@ export class CollabRoom {
   }
 
   /** Reason this write must not be durably persisted, or null when it may. */
-  private writeBlockReason(): "paused" | "quota" | "throttled" | null {
+  private writeBlockReason(): "paused" | "quota" | "activity" | "throttled" | null {
     if (this.isCloudPausedCached()) return "paused";
-    if (this.isOwnerOverCapCached()) return "quota";
+    const owner = this.ownerBlockReason();
+    if (owner) return owner; // "quota" (storage) or "activity" (monthly writes)
     if (!this.allowWriteRate()) return "throttled";
     return null;
   }
@@ -916,6 +932,10 @@ export class CollabRoom {
       snapshot,
     );
     this.hasStored = true;
+    // Count this durable write toward the per-owner monthly activity tally,
+    // reported to Vercel on the backup alarm. Activity (compute) is the real
+    // cost driver, so this is what the activity throttle meters against.
+    this.writesSinceReport += 1;
     this.markDirtyAndArm();
     return true;
   }
@@ -987,6 +1007,42 @@ export class CollabRoom {
     // is set (an enforced doc; open docs have no billable owner yet). Runs after
     // the R2 write so a metering hiccup never delays the backup.
     void this.reportDocSize(stored ? stored.byteLength : 0);
+    // Report the write-activity delta accumulated since the last tick.
+    void this.reportActivity();
+  }
+
+  /**
+   * Best-effort POST of the write-activity delta (durable writes since the last
+   * report) to the Vercel monthly tally. Fail-silent. Decrements the counter by
+   * exactly what was reported on success, so writes that land during the await
+   * are preserved for the next tick; on failure the counter is untouched and the
+   * delta retries. Only when owner_pubkey is set (an enforced doc has a billable
+   * owner). Under-counts at worst (eviction loses the unreported tail), the
+   * customer-friendly direction.
+   */
+  private async reportActivity(): Promise<void> {
+    const base = this.env.APP_BASE_URL;
+    if (!base) return; // local dev with no APP_BASE_URL; no-op
+    const ownerPubkey = this.metaGet("owner_pubkey");
+    if (!ownerPubkey) return; // open doc with no grant yet; nothing to bill
+    const delta = this.writesSinceReport;
+    if (delta <= 0) return;
+    try {
+      const headers: Record<string, string> = {
+        "content-type": "application/json",
+      };
+      if (this.env.RELAY_BREAKER_SECRET) {
+        headers.authorization = `Bearer ${this.env.RELAY_BREAKER_SECRET}`;
+      }
+      const res = await fetch(`${base}/api/collab/activity`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ ownerPubkey, writes: delta }),
+      });
+      if (res.ok) this.writesSinceReport -= delta;
+    } catch {
+      // Fail silent; the delta stays and retries on the next alarm tick.
+    }
   }
 
   /**

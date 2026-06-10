@@ -103,6 +103,77 @@ export async function upsertDocSize(params: {
 }
 
 // ---------------------------------------------------------------------------
+// collab_owner_writes table (per-owner monthly ACTIVITY tally)
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-owner monthly write counter, the activity analogue of collab_doc_sizes.
+ * One row per (owner_hash, period), where period is a YYYY-MM month bucket
+ * stamped by SERVER time (so the DO never needs a clock and month rollover is
+ * authoritative on Vercel). The DO reports a write DELTA on each backup alarm
+ * via POST /api/collab/activity; the owner-state route reads the pool sum.
+ * Activity (collab writes / compute) is the real cost driver, so this is what an
+ * over-allowance owner gets throttled against. Keyed by the REAL doc owner, like
+ * collab_doc_sizes, so the lab pool is summed at read time.
+ */
+export async function ensureOwnerWritesSchema(): Promise<void> {
+  const sql = getSql();
+  await sql`
+    CREATE TABLE IF NOT EXISTS collab_owner_writes (
+      owner_hash TEXT NOT NULL,
+      period     TEXT NOT NULL,
+      writes     BIGINT NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (owner_hash, period)
+    )
+  `;
+}
+
+/** Adds a write delta to an owner's counter for the given YYYY-MM period. */
+export async function incrementOwnerWrites(
+  ownerHash: string,
+  delta: number,
+  period: string,
+): Promise<void> {
+  if (delta <= 0) return;
+  const sql = getSql();
+  await sql`
+    INSERT INTO collab_owner_writes (owner_hash, period, writes, updated_at)
+    VALUES (${ownerHash}, ${period}, ${delta}, now())
+    ON CONFLICT (owner_hash, period) DO UPDATE SET
+      writes     = collab_owner_writes.writes + ${delta},
+      updated_at = now()
+  `;
+}
+
+/**
+ * Total writes in a billing owner's SHARED POOL for one period = their own
+ * writes plus every active member's writes (membership resolved in SQL at read
+ * time, exactly like getLabPoolUsage). Solo users have no members, so the pool
+ * is just their own. See docs/proposals/LAB_SHARED_BILLING_POOL.md.
+ */
+export async function getLabPoolWrites(
+  billingOwnerKey: string,
+  period: string,
+): Promise<number> {
+  const sql = getSql();
+  await ensureOwnerWritesSchema();
+  const rows = (await sql`
+    SELECT COALESCE(SUM(writes), 0) AS pool_writes
+    FROM collab_owner_writes
+    WHERE period = ${period}
+      AND (
+        owner_hash = ${billingOwnerKey}
+        OR owner_hash IN (
+          SELECT member_owner_key FROM billing_lab_members
+          WHERE lab_owner_key = ${billingOwnerKey} AND status = 'active'
+        )
+      )
+  `) as Array<{ pool_writes: string | number }>;
+  return Number(rows[0]?.pool_writes ?? 0);
+}
+
+// ---------------------------------------------------------------------------
 // Storage-measurement helpers (used by billing routes and /admin gauge)
 // ---------------------------------------------------------------------------
 
