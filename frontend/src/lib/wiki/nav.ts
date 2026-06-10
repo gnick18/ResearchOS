@@ -112,6 +112,11 @@ export const WIKI_NAV: WikiNode[] = [
         blurb: "How the folder picker works and what it stores.",
       },
       {
+        href: "/wiki/getting-started/converting-to-single-user",
+        label: "Converting to single-user",
+        blurb: "Split an older shared folder so everyone gets their own workspace. Recoverable, and your own data is untouched.",
+      },
+      {
         href: "/wiki/getting-started/creating-a-user",
         label: "Creating a User",
         blurb: "Pick a username, set an optional password.",
