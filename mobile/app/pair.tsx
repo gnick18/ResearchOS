@@ -27,6 +27,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { ScreenHeader } from '@/components/ui/ScreenHeader';
 import { Button } from '@/components/ui/Button';
+import { BeakerBot } from '@/components/ui/BeakerBot';
 import { Card } from '@/components/ui/Card';
 import { useTheme, palette } from '@/lib/design';
 import { setPairing, setDemoPairing } from '@/lib/pairing';
@@ -237,6 +238,9 @@ export default function PairScreen() {
       <ScreenFrame>
         <ScreenHeader />
         <View style={[styles.permissionWrap, { gap: spacing.lg }]}>
+          <View style={styles.heroBot}>
+            <BeakerBot size={92} alive />
+          </View>
           <ThemedText type="title" style={styles.center}>
             Pair your phone
           </ThemedText>
@@ -407,6 +411,10 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   center: { textAlign: 'center' },
+  heroBot: {
+    alignItems: 'center',
+    marginBottom: 2,
+  },
   body: {
     lineHeight: 22,
   },
