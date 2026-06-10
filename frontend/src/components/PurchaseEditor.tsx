@@ -39,11 +39,13 @@ import type {
   CatalogItem,
   PurchaseItem,
   PurchaseAttachment,
+  PurchaseAttachmentKind,
   Task,
 } from "@/lib/types";
 import {
   writePurchaseAttachment,
   openPurchaseAttachment,
+  deletePurchaseAttachmentFile,
   formatAttachmentSize,
 } from "@/lib/purchases/attachments";
 
@@ -123,13 +125,26 @@ function itemToEditingRow(item: PurchaseItem): EditingRow {
 const VENDOR_DATALIST_ID = "purchase-editor-vendor-options";
 const CATEGORY_DATALIST_ID = "purchase-editor-category-options";
 
+/** Document kinds for the per-attachment picker, in audit-useful order. */
+const ATTACHMENT_KINDS: { value: PurchaseAttachmentKind; label: string }[] = [
+  { value: "order_form", label: "Order form" },
+  { value: "invoice", label: "Invoice" },
+  { value: "receipt", label: "Receipt" },
+  { value: "quote", label: "Quote" },
+  { value: "other", label: "Other" },
+];
+
+function attachmentKindLabel(kind: PurchaseAttachmentKind): string {
+  return ATTACHMENT_KINDS.find((k) => k.value === kind)?.label ?? "Other";
+}
+
 /**
  * Purchase documents sub-row (PURCHASE_DOCS_AND_ROUTING.md phase 1b). A thin row
  * under a purchase item spanning all columns, showing its attached PDFs and (in
- * edit mode) the attach + remove controls. Renders nothing for a display row
- * with no documents, so it adds no noise to purchases that have none. Files open
- * in a new tab; attaching + removing happen in edit mode and persist with the
- * row save.
+ * edit mode) the attach + remove + per-doc kind controls. Renders nothing for a
+ * display row with no documents, so it adds no noise to purchases that have
+ * none. Files open in a new tab; attaching / removing / re-kinding happen in
+ * edit mode and persist with the row save.
  */
 function PurchaseDocsRow({
   attachments,
@@ -139,6 +154,7 @@ function PurchaseDocsRow({
   onAttach,
   onRemove,
   onOpen,
+  onKindChange,
 }: {
   attachments: PurchaseAttachment[];
   editing: boolean;
@@ -147,6 +163,7 @@ function PurchaseDocsRow({
   onAttach: () => void;
   onRemove: (id: string) => void;
   onOpen: (att: PurchaseAttachment) => void;
+  onKindChange: (id: string, kind: PurchaseAttachmentKind) => void;
 }) {
   if (!editing && attachments.length === 0) return null;
   return (
@@ -165,6 +182,26 @@ function PurchaseDocsRow({
                 key={att.id}
                 className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-0.5 text-meta"
               >
+                {editing ? (
+                  <select
+                    value={att.kind}
+                    onChange={(e) =>
+                      onKindChange(att.id, e.target.value as PurchaseAttachmentKind)
+                    }
+                    className="rounded border border-border bg-transparent py-0.5 text-meta text-foreground-muted"
+                    aria-label="Document kind"
+                  >
+                    {ATTACHMENT_KINDS.map((k) => (
+                      <option key={k.value} value={k.value}>
+                        {k.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="text-foreground-muted">
+                    {attachmentKindLabel(att.kind)}
+                  </span>
+                )}
                 <button
                   type="button"
                   onClick={() => onOpen(att)}
@@ -524,6 +561,9 @@ export default function PurchaseEditor({
     setEditingItemId(item.id);
     setEditingRow(itemToEditingRow(item));
     setEditSelectedCatalogItem(null);
+    // Start a fresh session-attached list so orphan cleanup only ever acts on
+    // files written during THIS edit session.
+    sessionAttachedRef.current = [];
   }, []);
 
   // Row click. The normal (non-PI) path opens the editor directly when writes
@@ -563,6 +603,11 @@ export default function PurchaseEditor({
   }, [piGate]);
 
   const handleCancelEdit = useCallback(() => {
+    // Files attached during this edit but never saved are orphans, delete them.
+    for (const att of sessionAttachedRef.current) {
+      void deletePurchaseAttachmentFile(att);
+    }
+    sessionAttachedRef.current = [];
     setEditingItemId(null);
     setEditingRow({ ...EMPTY_ROW });
     setEditSelectedCatalogItem(null);
@@ -684,6 +729,20 @@ export default function PurchaseEditor({
         await writePurchase();
       }
 
+      // Orphan cleanup: now that the new attachment set is saved, delete the
+      // files that are no longer referenced. Candidates are the row's original
+      // attachments plus anything attached this session; keep only what the
+      // saved row still points at.
+      const keptPaths = new Set(editingRow.attachments.map((a) => a.path));
+      const removedCandidates = [
+        ...(items.find((i) => i.id === editingItemId)?.attachments ?? []),
+        ...sessionAttachedRef.current,
+      ];
+      for (const att of removedCandidates) {
+        if (!keptPaths.has(att.path)) void deletePurchaseAttachmentFile(att);
+      }
+      sessionAttachedRef.current = [];
+
       setEditingItemId(null);
       setEditingRow({ ...EMPTY_ROW });
       setEditSelectedCatalogItem(null);
@@ -716,6 +775,10 @@ export default function PurchaseEditor({
   // drops the reference (the file is left on disk in v1, orphaned once saved).
   const attachInputRef = useRef<HTMLInputElement | null>(null);
   const [attaching, setAttaching] = useState(false);
+  // Files written to disk during the open edit session. Used by orphan cleanup
+  // (save deletes removed-but-original + attached-then-removed files; cancel
+  // deletes everything attached this session). Reset whenever an edit starts.
+  const sessionAttachedRef = useRef<PurchaseAttachment[]>([]);
 
   const handleAttachFile = useCallback(
     async (file: File | undefined) => {
@@ -728,6 +791,7 @@ export default function PurchaseEditor({
           file,
           "other",
         );
+        sessionAttachedRef.current = [...sessionAttachedRef.current, att];
         setEditingRow((prev) => ({
           ...prev,
           attachments: [...prev.attachments, att],
@@ -748,12 +812,38 @@ export default function PurchaseEditor({
     }));
   }, []);
 
+  const handleAttachmentKindChange = useCallback(
+    (id: string, kind: PurchaseAttachmentKind) => {
+      setEditingRow((prev) => ({
+        ...prev,
+        attachments: prev.attachments.map((a) =>
+          a.id === id ? { ...a, kind } : a,
+        ),
+      }));
+    },
+    [],
+  );
+
   const handleOpenAttachment = useCallback(async (att: PurchaseAttachment) => {
     const ok = await openPurchaseAttachment(att);
     if (!ok) {
       alert("Could not open the file. It may have been moved or deleted.");
     }
   }, []);
+
+  // Missing-receipt nudge (PURCHASE_DOCS_AND_ROUTING.md phase 1b). Counts only
+  // ordered / received purchases with no document, since a not-yet-ordered line
+  // legitimately has no receipt. A gentle hint for the grant record, never a
+  // blocker.
+  const missingDocCount = useMemo(
+    () =>
+      items.filter(
+        (i) =>
+          (i.order_status === "ordered" || i.order_status === "received") &&
+          !(i.attachments?.length),
+      ).length,
+    [items],
+  );
 
   const handleFieldChange = useCallback(
     (field: keyof EditingRow, value: string) => {
@@ -1006,6 +1096,16 @@ export default function PurchaseEditor({
               Cancel
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Missing-receipt nudge (PURCHASE_DOCS_AND_ROUTING.md phase 1b). */}
+      {missingDocCount > 0 && (
+        <div className="mb-2 flex items-center gap-1.5 text-meta text-foreground-muted">
+          <Icon name="file" className="h-3.5 w-3.5" />
+          {missingDocCount} ordered{" "}
+          {missingDocCount === 1 ? "purchase has" : "purchases have"} no document
+          attached. Attach receipts to keep the grant record complete.
         </div>
       )}
 
@@ -1270,6 +1370,7 @@ export default function PurchaseEditor({
                   onAttach={() => attachInputRef.current?.click()}
                   onRemove={handleRemoveAttachment}
                   onOpen={handleOpenAttachment}
+                  onKindChange={handleAttachmentKindChange}
                 />
                 </Fragment>
               ) : (
@@ -1549,6 +1650,7 @@ export default function PurchaseEditor({
                   onAttach={() => {}}
                   onRemove={() => {}}
                   onOpen={handleOpenAttachment}
+                  onKindChange={() => {}}
                 />
                 </Fragment>
               )
