@@ -147,10 +147,17 @@ export async function executeMigrationToSolo(
     movedUserSet,
   );
 
-  // 4. A solo folder has no lab head. Clamp the primary's account_type to
-  //    "member" so the folder derives as solo (isLabModeFolder keys off a lab
-  //    head); otherwise a converting PI would still render lab chrome.
-  await resetPrimaryToMember(fs, plan.primaryUser);
+  // 4. A solo folder has no lab head. Clamp account_type to "member" so the
+  //    result derives as solo (isLabModeFolder keys off a lab head) on BOTH
+  //    sides: the primary's retained folder, AND every moved user's extracted
+  //    bundle, so a moved-out PI's new one-person folder is not still a "lab".
+  await clampSettingsToMember(fs, joinPath("users", plan.primaryUser, "settings.json"));
+  for (const username of movedUsers) {
+    await clampSettingsToMember(
+      fs,
+      joinPath(bundlePaths[username], "users", username, "settings.json"),
+    );
+  }
 
   return {
     primaryUser: plan.primaryUser,
@@ -286,20 +293,17 @@ export async function executeSelfExport(opts: {
 }
 
 /**
- * Clamp users/<primary>/settings.json account_type to "member". A solo folder
- * has no lab head; this keeps useIsLabMode / isLabModeFolder deriving "solo"
- * even when a former lab head converts their own folder. No-op when the file is
- * missing, unparseable, or already "member".
+ * Clamp a settings.json file's account_type to "member". A solo folder has no
+ * lab head, so this keeps useIsLabMode / isLabModeFolder deriving "solo" both
+ * for the primary's retained folder AND for each moved user's extracted bundle
+ * (a moved-out PI's new one-person folder must not still read as a lab). No-op
+ * when the file is missing, unparseable, or already "member".
  */
-async function resetPrimaryToMember(
-  fs: MigrationFs,
-  primaryUser: string,
-): Promise<void> {
-  const path = joinPath("users", primaryUser, "settings.json");
-  if (!(await fs.exists(path))) return;
+async function clampSettingsToMember(fs: MigrationFs, settingsPath: string): Promise<void> {
+  if (!(await fs.exists(settingsPath))) return;
   let raw: string;
   try {
-    raw = await fs.readFile(path);
+    raw = await fs.readFile(settingsPath);
   } catch {
     return;
   }
@@ -317,7 +321,7 @@ async function resetPrimaryToMember(
   // leave those files untouched (no needless rewrite).
   if (obj["account_type"] !== "lab_head") return;
   obj["account_type"] = "member";
-  await fs.writeFile(path, JSON.stringify(obj, null, 2));
+  await fs.writeFile(settingsPath, JSON.stringify(obj, null, 2));
 }
 
 // ---------------------------------------------------------------------------
