@@ -16,6 +16,8 @@ import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 import {
   DEFAULT_ENTITY,
   devAccountFeeSeeds,
+  GOOGLE_DEV_FEE_CENTS,
+  GOOGLE_DEV_FEE_SOURCE,
   type BusinessEmail,
   type BusinessTask,
   type EntityConfig,
@@ -207,9 +209,12 @@ async function seedDefaultsOnce(
 // seeded idempotently by source so a re-run or a page reload never duplicates
 // them. The Tello eSIM is the LLC prepaid mobile line bought 2026-06-10 for the
 // app-store developer accounts (Google Play and Apple both require a real,
-// verifiable mobile number, and VoIP numbers are rejected). amountCents is the
-// actual charged total including tax. Deleting the row and reloading re-seeds it,
-// by design, the same as the auto-seeded dev-account fees.
+// verifiable mobile number, and VoIP numbers are rejected); amountCents is the
+// actual charged total including tax. The Google Play $25 registration is logged
+// here too (org account created 2026-06-10) under the shared GOOGLE_DEV_FEE_SOURCE
+// tag, so it dedupes with the entity-card reconcile path and never double-logs
+// when the Google Play account field is later filled in. Deleting a row and
+// reloading re-seeds it, by design, the same as the auto-seeded dev-account fees.
 const KNOWN_EXPENSE_SEEDS: NewLedgerEntry[] = [
   {
     date: "2026-06-10",
@@ -219,6 +224,15 @@ const KNOWN_EXPENSE_SEEDS: NewLedgerEntry[] = [
     note: "Tello prepaid eSIM, the LLC business phone line for the Google Play and Apple developer accounts (Pay As You Go, no monthly fee)",
     taxCategory: "office",
     source: "tello-esim-2026-06-10",
+  },
+  {
+    date: "2026-06-10",
+    direction: "out",
+    category: "Dev accounts",
+    amountCents: GOOGLE_DEV_FEE_CENTS,
+    note: "Google Play developer registration, the LLC organization account ($25 one-time)",
+    taxCategory: "fees_licenses",
+    source: GOOGLE_DEV_FEE_SOURCE,
   },
 ];
 
