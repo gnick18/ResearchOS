@@ -58,6 +58,7 @@ const EXCLUDED_PREFIXES = [
   "/maintenance", // flag-gated "under construction" holding page (src/proxy.ts); shown only during maintenance windows, not a documented app feature (like /welcome)
   "/profile", // pending wiki page (Profile "your stuff": appearance + researcher profile, split out of Settings)
   "/supplies", // pending wiki page (Supplies v2 unified page; replaces split Inventory + Purchases routes)
+  "/datahub", // pending wiki page (Data Hub, the open-source GraphPad Prism alternative; owed before launch)
 ];
 
 /** Next.js conventions to ignore when walking app/. */
