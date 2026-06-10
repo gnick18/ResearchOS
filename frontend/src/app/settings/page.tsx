@@ -1032,7 +1032,7 @@ function AccountTypeSection({ settings, update }: SectionProps) {
           aria-labelledby="account-type-confirm-title"
           data-testid="account-type-confirm"
         >
-          <div className="bg-surface-raised rounded-xl shadow-xl max-w-md w-full mx-4 p-5">
+          <div className="bg-surface-overlay rounded-xl shadow-xl max-w-md w-full mx-4 p-5">
             <h3
               id="account-type-confirm-title"
               className="text-title font-semibold text-foreground"
@@ -1076,7 +1076,7 @@ function AccountTypeSection({ settings, update }: SectionProps) {
        *  switch stands. */}
       {undoToast && (
         <div
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] bg-gray-900 text-white rounded-lg shadow-lg px-4 py-3 flex items-center gap-3"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] bg-surface-overlay text-foreground border border-border rounded-lg shadow-lg px-4 py-3 flex items-center gap-3"
           role="status"
           aria-live="polite"
           data-testid="account-type-undo-toast"
@@ -1091,7 +1091,7 @@ function AccountTypeSection({ settings, update }: SectionProps) {
             strokeLinecap="round"
             strokeLinejoin="round"
             aria-hidden="true"
-            className="flex-shrink-0 text-emerald-400"
+            className="flex-shrink-0 text-emerald-600 dark:text-emerald-400"
           >
             <polyline points="20 6 9 17 4 12" />
           </svg>
@@ -1104,7 +1104,7 @@ function AccountTypeSection({ settings, update }: SectionProps) {
           <button
             type="button"
             onClick={() => void undoSwitch()}
-            className="text-meta font-medium text-amber-300 hover:text-amber-200 underline-offset-2 hover:underline"
+            className="text-meta font-medium text-amber-600 hover:text-amber-700 dark:text-amber-300 dark:hover:text-amber-200 underline-offset-2 hover:underline"
             data-testid="account-type-undo-button"
           >
             Switch back

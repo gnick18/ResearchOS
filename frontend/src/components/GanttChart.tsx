@@ -1608,7 +1608,7 @@ export default function GanttChart({
                         onMouseLeave={() => setHoveredGoal(null)}
                       >
                         {/* Hover tooltip */}
-                        <div className="absolute left-0 top-full mt-1 bg-gray-900 text-white text-meta px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none" data-force-hover-controls-target>
+                        <div className="absolute left-0 top-full mt-1 bg-surface-overlay border border-border text-foreground text-meta px-2 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none" data-force-hover-controls-target>
                           <div className="font-medium">{goal.name}</div>
                           <div className={isOverdue ? 'text-red-300' : isUrgent ? 'text-yellow-300' : 'text-foreground-muted'}>
                             {isOverdue 
@@ -2201,7 +2201,7 @@ export default function GanttChart({
             role="menuitem"
             onClick={handlePtoToggle}
             data-testid="pto-context-menu-toggle"
-            className="block w-full px-3 py-1.5 text-left text-body text-foreground hover:bg-sky-50"
+            className="block w-full px-3 py-1.5 text-left text-body text-foreground hover:bg-surface-sunken"
           >
             {ptoSet.has(ptoMenu.date)
               ? `Unmark ${ptoMenu.date} as PTO`

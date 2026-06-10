@@ -743,7 +743,7 @@ export default function ImageAnnotatorModal({
       </div>
 
       {/* Floating toolbar, top-left */}
-      <div className="absolute left-4 top-4 z-10 flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-2 rounded-2xl border border-border bg-surface-sunken/95 px-3 py-2 shadow-2xl ring-1 ring-black/5 backdrop-blur">
+      <div className="absolute left-4 top-4 z-10 flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-2 rounded-2xl border border-border bg-surface-raised/95 px-3 py-2 shadow-2xl ring-1 ring-black/5 backdrop-blur">
         <div className="flex items-center gap-1">
           <ToolButton label="Select / move" active={tool === "select"} onClick={() => setTool("select")}>
             <IconCursor />
