@@ -66,16 +66,22 @@ export const inlineRevealTheme = EditorView.baseTheme({
     backgroundColor: "rgba(0, 0, 0, 0.03)",
     fontWeight: "600",
   },
+  // Dark code block, matching the Preview-mode `.prose pre` (globals.css) and
+  // the old Hybrid editor look. The global `.hljs-*` syntax colors are tuned
+  // for a dark background, so the previous light-gray fill (rgba(0,0,0,0.04))
+  // both lost the black look and washed the highlight colors out. Same dark in
+  // light and dark app themes, exactly like `.prose pre`.
   ".cm-inline-fenced pre": {
     margin: "0",
     padding: "0.6em 0.8em",
     borderRadius: "6px",
-    backgroundColor: "rgba(0, 0, 0, 0.04)",
+    backgroundColor: "#1f2937",
     overflowX: "auto",
   },
   ".cm-inline-fenced code": {
     fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
     fontSize: "0.9em",
+    color: "#e5e7eb",
   },
   // Inline image widget (chip 2b): the resolved <img> for an untouched Image
   // node. Constrained so a large figure does not blow out the writing column.
