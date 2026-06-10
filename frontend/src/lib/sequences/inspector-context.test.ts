@@ -47,8 +47,8 @@ describe("deriveSelectionKind", () => {
 });
 
 describe("autoOpenOpForKind", () => {
-  it("region opens Primers", () => {
-    expect(autoOpenOpForKind("region")).toBe("primers");
+  it("region does NOT auto-open (a bare highlight must not yank Primers open)", () => {
+    expect(autoOpenOpForKind("region")).toBeNull();
   });
   it("feature-cds opens Protein", () => {
     expect(autoOpenOpForKind("feature-cds")).toBe("protein");
