@@ -47,6 +47,8 @@ import {
   openPurchaseAttachment,
   deletePurchaseAttachmentFile,
   formatAttachmentSize,
+  ATTACHMENT_KINDS,
+  attachmentKindLabel,
 } from "@/lib/purchases/attachments";
 
 interface PurchaseEditorProps {
@@ -124,19 +126,6 @@ function itemToEditingRow(item: PurchaseItem): EditingRow {
 
 const VENDOR_DATALIST_ID = "purchase-editor-vendor-options";
 const CATEGORY_DATALIST_ID = "purchase-editor-category-options";
-
-/** Document kinds for the per-attachment picker, in audit-useful order. */
-const ATTACHMENT_KINDS: { value: PurchaseAttachmentKind; label: string }[] = [
-  { value: "order_form", label: "Order form" },
-  { value: "invoice", label: "Invoice" },
-  { value: "receipt", label: "Receipt" },
-  { value: "quote", label: "Quote" },
-  { value: "other", label: "Other" },
-];
-
-function attachmentKindLabel(kind: PurchaseAttachmentKind): string {
-  return ATTACHMENT_KINDS.find((k) => k.value === kind)?.label ?? "Other";
-}
 
 /**
  * Purchase documents sub-row (PURCHASE_DOCS_AND_ROUTING.md phase 1b). A thin row

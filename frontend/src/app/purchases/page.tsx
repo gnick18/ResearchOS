@@ -13,6 +13,7 @@ import PurchaseEditor from "@/components/PurchaseEditor";
 import SpendingDashboard from "@/components/SpendingDashboard";
 import DemoPurchasesViewer from "@/components/DemoPurchasesViewer";
 import FundingAccountsManager from "@/components/FundingAccountsManager";
+import { buildPurchaseAuditCsv } from "@/lib/purchases/audit-export";
 import LivingPopup from "@/components/ui/LivingPopup";
 import Tooltip from "@/components/Tooltip";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -389,6 +390,21 @@ function PurchasesPageContent() {
     router,
   });
 
+  // By-grant audit export (PURCHASE_DOCS_AND_ROUTING.md phase 1b). Builds a CSV
+  // of every purchase grouped by grant, with its attached document references,
+  // and triggers a download. The PDF bytes are retained separately; this is the
+  // index an auditor needs.
+  const handleExportAudit = () => {
+    const csv = buildPurchaseAuditCsv(allPurchases, fundingAccounts);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "researchos-purchases-audit.csv";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  };
+
   return (
     <AppShell>
       <div className="flex-1 overflow-auto p-6">
@@ -414,6 +430,14 @@ function PurchasesPageContent() {
               className="px-3 py-1.5 text-body bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 rounded-lg hover:bg-emerald-200 transition-colors"
             >
               Manage Funding Accounts
+            </button>
+            <button
+              onClick={handleExportAudit}
+              disabled={allPurchases.length === 0}
+              title="Download a CSV of all purchases grouped by grant, with their attached documents, for a grant audit"
+              className="px-3 py-1.5 text-body bg-surface-sunken text-foreground rounded-lg hover:bg-surface transition-colors disabled:opacity-50"
+            >
+              Export audit CSV
             </button>
           </div>
         </div>

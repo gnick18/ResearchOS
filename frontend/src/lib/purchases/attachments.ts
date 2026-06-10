@@ -10,6 +10,20 @@
 import { fileService } from "@/lib/file-system/file-service";
 import type { PurchaseAttachment, PurchaseAttachmentKind } from "@/lib/types";
 
+/** Document kinds for the per-attachment picker + labels, in audit-useful order.
+ *  Shared by the PurchaseEditor picker and the by-grant audit export. */
+export const ATTACHMENT_KINDS: { value: PurchaseAttachmentKind; label: string }[] = [
+  { value: "order_form", label: "Order form" },
+  { value: "invoice", label: "Invoice" },
+  { value: "receipt", label: "Receipt" },
+  { value: "quote", label: "Quote" },
+  { value: "other", label: "Other" },
+];
+
+export function attachmentKindLabel(kind: PurchaseAttachmentKind): string {
+  return ATTACHMENT_KINDS.find((k) => k.value === kind)?.label ?? "Other";
+}
+
 /** Directory holding a purchase item's attachment files. */
 export function purchaseAttachmentDir(owner: string, purchaseId: number): string {
   return `users/${owner}/purchase_items/${purchaseId}`;
