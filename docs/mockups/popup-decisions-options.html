@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Popup decisions, Quick note + Wiki article</title>
+<style>
+  :root{
+    --sky:#1AA0E6; --coral:#FF6F61; --amber:#F59E0B;
+    --ink:#0b1320; --ink-2:#3c4656; --ink-3:#8a93a3;
+    --bg:#f2f3f7; --group:#fff; --sep:rgba(60,67,86,.10);
+    --shadow:0 1px 2px rgba(16,24,40,.05),0 8px 24px rgba(16,24,40,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9ebf1;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  header{padding:26px 24px 6px;max-width:1100px;margin:0 auto}
+  header h1{font-size:20px;margin:0 0 6px;letter-spacing:-.02em}
+  header p{font-size:13.5px;color:var(--ink-2);margin:0;line-height:1.55;max-width:80ch}
+  .sec{max-width:1100px;margin:0 auto;padding:14px 24px 30px}
+  .sec h2{font-size:15px;margin:18px 4px 4px;letter-spacing:-.01em}
+  .sec .sub{font-size:12.5px;color:var(--ink-3);margin:0 4px 14px}
+  .row{display:flex;gap:26px;flex-wrap:wrap}
+  .col{width:300px}
+  .opt{display:flex;align-items:baseline;gap:8px;margin:0 2px 10px}
+  .opt .n{font-size:14px;font-weight:800}
+  .opt .d{font-size:12px;color:var(--ink-3)}
+  .opt .cur{font-size:10.5px;font-weight:800;color:var(--sky);border:1px solid var(--sky);border-radius:980px;padding:1px 7px}
+  /* phone */
+  .phone{background:var(--bg);border-radius:30px;padding:14px 14px 18px;box-shadow:var(--shadow);border:1px solid var(--sep);height:540px;display:flex;flex-direction:column}
+  .chev{display:flex;align-items:center;gap:5px;color:var(--sky);font-size:14px;font-weight:600;margin:4px 2px 10px}
+  .chev svg{display:block}
+  .ltitle{font-size:27px;font-weight:800;letter-spacing:-.03em;margin:2px 2px 4px}
+  .psub{font-size:13px;color:var(--ink-3);margin:0 2px 16px;line-height:1.5}
+  .field{background:var(--group);border:1px solid var(--sep);border-radius:13px;padding:14px 13px;font-size:14px;color:var(--ink-3);margin-bottom:12px;box-shadow:var(--shadow)}
+  .field.area{height:130px}
+  .btn{border-radius:13px;padding:14px;text-align:center;font-size:15px;font-weight:700}
+  .btn.sky{background:var(--sky);color:#fff;box-shadow:0 4px 12px rgba(26,160,230,.30)}
+  .btn.coral{background:transparent;color:var(--coral);border:1px solid color-mix(in srgb,var(--coral) 45%,transparent);margin-top:10px}
+  .spacer{flex:1}
+  /* wiki article */
+  .art h1{font-size:23px;line-height:1.15;letter-spacing:-.02em;margin:2px 0 12px}
+  .art p{font-size:12.5px;color:var(--ink-2);line-height:1.55;margin:0 0 12px}
+  .art h3{font-size:15px;margin:4px 0 7px;letter-spacing:-.01em}
+  .card{background:var(--group);border-radius:16px;padding:18px 16px;box-shadow:var(--shadow);border:1px solid var(--sep);overflow:hidden}
+  .scrollclip{flex:1;overflow:hidden}
+  .note{font-size:12px;color:var(--ink-3);margin:12px 2px 0;line-height:1.5}
+  svg{display:block}
+</style></head><body>
+
+<header>
+  <h1>Two popup decisions, pick a column in each</h1>
+  <p>Left-most in each row is what the app ships today. These are static mockups of the target so you can choose the direction before I touch the app. No code changes yet.</p>
+</header>
+
+<!-- QUICK NOTE -->
+<div class="sec">
+  <h2>1. Quick note composer, the send button (and Discard)</h2>
+  <div class="sub">The app currently sends with one sky button labelled "Send to lab" and cancels with the back chevron. Options add your Inbox wording and/or a Discard.</div>
+  <div class="row">
+
+    <!-- A current -->
+    <div class="col">
+      <div class="opt"><span class="n">A. Send to lab</span><span class="cur">ships today</span></div>
+      <div class="phone">
+        <div class="chev"><svg width="9" height="15" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 1.5l-6 6 6 6"/></svg></div>
+        <div class="ltitle">Quick note</div>
+        <div class="psub">Jot a quick note and send it to your lab inbox.</div>
+        <div class="field">Title, optional</div>
+        <div class="field area">Write your note</div>
+        <div class="spacer"></div>
+        <div class="btn sky">Send to lab</div>
+      </div>
+      <div class="note">Clearest about the destination (the lab). Cancel = back chevron. No extra button.</div>
+    </div>
+
+    <!-- B rename -->
+    <div class="col">
+      <div class="opt"><span class="n">B. Send to Inbox</span><span class="d">matches your wording</span></div>
+      <div class="phone">
+        <div class="chev"><svg width="9" height="15" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 1.5l-6 6 6 6"/></svg></div>
+        <div class="ltitle">Quick note</div>
+        <div class="psub">Jot a quick note and send it to your lab inbox.</div>
+        <div class="field">Title, optional</div>
+        <div class="field area">Write your note</div>
+        <div class="spacer"></div>
+        <div class="btn sky">Send to Inbox</div>
+      </div>
+      <div class="note">Reuses the "Inbox" word from the Notebook section. Still cancel via back chevron.</div>
+    </div>
+
+    <!-- C inbox + discard -->
+    <div class="col">
+      <div class="opt"><span class="n">C. Inbox + Discard</span><span class="d">explicit cancel</span></div>
+      <div class="phone">
+        <div class="chev"><svg width="9" height="15" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 1.5l-6 6 6 6"/></svg></div>
+        <div class="ltitle">Quick note</div>
+        <div class="psub">Jot a quick note and send it to your lab inbox.</div>
+        <div class="field">Title, optional</div>
+        <div class="field area">Write your note</div>
+        <div class="spacer"></div>
+        <div class="btn sky">Send to Inbox</div>
+        <div class="btn coral">Discard</div>
+      </div>
+      <div class="note">A visible coral Discard for an explicit throw-away, alongside the back chevron.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- WIKI ARTICLE -->
+<div class="sec">
+  <h2>2. Wiki rendered article, plain vs white card</h2>
+  <div class="sub">The app currently renders the article text straight on the grey canvas. The card option contains it in a white sheet (and adds the "Wiki" back label).</div>
+  <div class="row">
+
+    <!-- A plain current -->
+    <div class="col">
+      <div class="opt"><span class="n">A. Plain on grey</span><span class="cur">ships today</span></div>
+      <div class="phone">
+        <div class="chev"><svg width="9" height="15" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 1.5l-6 6 6 6"/></svg></div>
+        <div class="scrollclip art">
+          <h1>Oh god, another massive docs site</h1>
+          <p>Yeah, fair. There are a lot of pages in here. Good news, this is an encyclopedia, not a textbook. You are not supposed to read it cover to cover.</p>
+          <h3>What ResearchOS is, in one paragraph</h3>
+          <p>A research project management app that runs entirely in your browser and reads or writes a folder on your own computer. No accounts, no sign-up, no upload.</p>
+        </div>
+      </div>
+      <div class="note">Less chrome, more text per screen. Reads a touch flat with no container edge.</div>
+    </div>
+
+    <!-- B card -->
+    <div class="col">
+      <div class="opt"><span class="n">B. White card</span><span class="d">contained + back label</span></div>
+      <div class="phone">
+        <div class="chev"><svg width="9" height="15" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 1.5l-6 6 6 6"/></svg>Wiki</div>
+        <div class="scrollclip">
+          <div class="card art">
+            <h1>Oh god, another massive docs site</h1>
+            <p>Yeah, fair. There are a lot of pages in here. Good news, this is an encyclopedia, not a textbook. You are not supposed to read it cover to cover.</p>
+            <h3>What ResearchOS is, in one paragraph</h3>
+            <p>A research project management app that runs entirely in your browser and reads or writes a folder on your own computer.</p>
+          </div>
+        </div>
+      </div>
+      <div class="note">The white sheet gives the article a clear edge and matches the notes/methods card look. Back chevron gains its "Wiki" label.</div>
+    </div>
+
+  </div>
+</div>
+
+</body></html>
