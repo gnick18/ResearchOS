@@ -9,6 +9,7 @@
 import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Pressable,
   StyleSheet,
   TextInput,
   View,
@@ -92,6 +93,7 @@ export default function PairScreen() {
   // Latch so a held QR code does not run the flow dozens of times.
   const handledRef = useRef(false);
   const [demoSaving, setDemoSaving] = useState(false);
+  const [showManual, setShowManual] = useState(false);
 
   const finishPairing = useCallback(
     async (raw: string) => {
@@ -256,14 +258,22 @@ export default function PairScreen() {
 
           {error ? <ErrorBanner message={error} /> : null}
 
-          <ManualEntry
-            value={manualCode}
-            onChangeText={setManualCode}
-            onSubmit={onSubmitManual}
-            saving={saving}
-          />
+          {showManual ? (
+            <ManualEntry
+              value={manualCode}
+              onChangeText={setManualCode}
+              onSubmit={onSubmitManual}
+              saving={saving}
+            />
+          ) : (
+            <Button
+              variant="secondary"
+              label="Enter a code"
+              onPress={() => setShowManual(true)}
+            />
+          )}
 
-          <DemoButton onPress={onTryDemo} saving={demoSaving} />
+          <DemoLink onPress={onTryDemo} saving={demoSaving} />
         </View>
       </ScreenFrame>
     );
@@ -310,34 +320,32 @@ export default function PairScreen() {
           saving={saving}
         />
 
-        <DemoButton onPress={onTryDemo} saving={demoSaving} />
+        <DemoLink onPress={onTryDemo} saving={demoSaving} />
       </View>
     </ScreenFrame>
   );
 }
 
-// A clearly separated "Try the demo" entry point for reviewers and curious
-// users. Placed after the primary pairing paths so it does not compete with
-// the real flow visually, but is easy to find when there is no desktop handy.
-function DemoButton({ onPress, saving }: { onPress: () => void; saving: boolean }) {
+// A quiet, tertiary "try the demo" text link for reviewers and curious users.
+// Demoted from a full button so it never competes with the real pairing paths,
+// but stays easy to find when there is no desktop handy.
+function DemoLink({ onPress, saving }: { onPress: () => void; saving: boolean }) {
   const { surface } = useTheme();
   return (
-    <View style={styles.demoWrap}>
-      <View style={styles.dividerRow}>
-        <View style={[styles.dividerLine, { backgroundColor: surface.border }]} />
-        <ThemedText style={[styles.dividerLabel, { color: surface.muted }]}>
-          No desktop? Try the demo.
+    <Pressable
+      onPress={onPress}
+      disabled={saving}
+      hitSlop={8}
+      accessibilityRole="button"
+      style={styles.demoLinkWrap}
+    >
+      <ThemedText style={[styles.demoLink, { color: surface.muted }]}>
+        No desktop?{' '}
+        <ThemedText style={[styles.demoLink, styles.demoLinkAccent, { color: palette.sky }]}>
+          Try the demo
         </ThemedText>
-        <View style={[styles.dividerLine, { backgroundColor: surface.border }]} />
-      </View>
-      <Button
-        variant="secondary"
-        label="Try the demo"
-        loading={saving}
-        onPress={onPress}
-        disabled={saving}
-      />
-    </View>
+      </ThemedText>
+    </Pressable>
   );
 }
 
@@ -465,21 +473,16 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
-  // Demo entry point
-  demoWrap: {
-    gap: 10,
-  },
-  dividerRow: {
-    flexDirection: 'row',
+  // Demo entry point (tertiary text link)
+  demoLinkWrap: {
     alignItems: 'center',
-    gap: 8,
+    paddingVertical: 10,
   },
-  dividerLine: {
-    flex: 1,
-    height: 1,
+  demoLink: {
+    fontSize: 14,
+    lineHeight: 20,
   },
-  dividerLabel: {
-    fontSize: 12,
-    lineHeight: 18,
+  demoLinkAccent: {
+    fontWeight: '700',
   },
 });
