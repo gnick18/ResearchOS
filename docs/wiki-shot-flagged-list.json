@@ -1,0 +1,302 @@
+[
+  {
+    "file": "restriction-digest-map.png",
+    "kind": "retake",
+    "issue": "STALE UI: The enzyme picker and bottom toolbar UI shown in the screenshot do not match the current product. The EnzymePickerDialog has been significantly refactored (commit 4f62434e9) to use LivingPopup with a modern layout including presets row, saved-sets row with blue background, filter column, enzyme list with search, and digest summary panel. The screenshot shows an older, simpler dialog layo"
+  },
+  {
+    "file": "transparency-method-validation.png",
+    "kind": "retake",
+    "issue": "Screenshot is vertically truncated - ends mid-content in the 'Where ResearchOS differs' section, cutting off the differences list before it completes | Missing the TransparencyTabs section (the detailed comparison tables for Tm, alignment, digest, translation) which should appear below the differences spotlight | Missing the AppFooter which should appear at the bottom of the page | Stray UI elemen"
+  },
+  {
+    "file": "notifications-shift-alert.png",
+    "kind": "retake",
+    "issue": "Image shows approval/purchase notifications, not a clear shift-alert example | Page caption says it should show 'Alex shifted PCR optimization by +3d' format, but visible text does not match | The specific shift-alert row format (task name + time delta + old/new dates) is not clearly legible HINT: Capture the bell dropdown showing a crisp shift-alert row with the format 'Alex shifted PCR optimizat"
+  },
+  {
+    "file": "telegram-inbox-multiselect.png",
+    "kind": "retake",
+    "issue": "How-to shot showing multi-select and context menu lacks click annotation | Page describes 'Shift-click or Cmd-click to select multiple inbox photos, then right-click for the batch menu' but no amber click ring or cursor annotation indicates which action to perform HINT: Add an amber click ring with cursor annotation showing either: (1) the Shift-click action on the second row to select the range, "
+  },
+  {
+    "file": "version-history-sidebar.png",
+    "kind": "retake",
+    "issue": "Shows empty state ('No earlier versions yet') instead of a populated version history timeline with multiple versions, day headers, and editing sessions. | Cannot see editor avatars, change summaries, or relative timestamps as described in the caption. | The sidebar content is too small/unclear to verify it demonstrates the grouping by day and session. HINT: Capture a note with multiple saves acros"
+  },
+  {
+    "file": "version-history-diff.png",
+    "kind": "retake",
+    "issue": "Appears nearly identical to sidebar.png, showing empty state rather than an actual diff view. | Does not show added lines in green, removed lines in red with strike-through, or per-editor colored left borders as described. | Cannot see editor avatars marking changed runs. | The caption promises 'in-place diff' but the image shows no diff content at all. HINT: Select a version from the history side"
+  },
+  {
+    "file": "version-history-compare-toggle.png",
+    "kind": "retake",
+    "issue": "Appears identical to the other empty-state sidebar screenshots. | The compare toggle control ('Previous' and 'Current') is not visible or prominent enough to see the segmented control UI. | The capture does not demonstrate what changes when toggling between 'Previous' (comparing to prior version) and 'Current' (comparing to live state). HINT: Close-up or zoomed screenshot focusing on the top of th"
+  },
+  {
+    "file": "version-history-restore.png",
+    "kind": "retake",
+    "issue": "The restore button and confirmation UI are present but very small and difficult to read. | The inline confirmation prompt is barely visible. | The screenshot appears to show a complex note (with code/shortcuts) rather than a clear demo note, making it harder to focus on the restore workflow. HINT: Show a simpler, clear demo note with the version history sidebar open. Select an earlier version. The"
+  },
+  {
+    "file": "version-history-undo.png",
+    "kind": "retake",
+    "issue": "The 'Undo restore' button is visible but very small. | The 24-hour countdown or undo-window indicator mentioned in the caption is not clearly visible or readable. | The context around when this button appears (immediately after a restore operation) is not clearly demonstrated. HINT: Capture the note header/popup controls immediately after a restore has been performed. Show the 'Undo restore' butto"
+  },
+  {
+    "file": "links.png",
+    "kind": "retake",
+    "issue": "Developer comment in page.tsx (line 12) explicitly flags this as stale: 'predates Q7-conditional label' | Screenshot does not reflect the Q7 setup wizard conditional feature that is now documented as a core aspect of Links tab visibility (lines 19-24) | Should be recaptured to match current product state with all documented features visible and current HINT: Recapture the Links page after confirmi"
+  },
+  {
+    "file": "folder-connect.png",
+    "kind": "retake",
+    "issue": "Shows UserLoginScreen (account selection), not the ResearchFolderSetupNew folder picker that the page describes | Missing the centered 'Link a folder' card with drag-and-drop zone | Missing the 'Starting fresh? Make an empty folder first' instructions box | Missing 'Explore demo in browser' and 'Or download as a starter folder' links | RISE credentials stamp is not visible in bottom-right corner a"
+  },
+  {
+    "file": "purchases-unified-scroll.png",
+    "kind": "retake",
+    "issue": "Shows Supplies page instead of Purchases page | Header says 'Supplies' not 'Purchases' | Shows supply item list instead of purchase order list | No category filter chips (All, Project purchases, Miscellaneous, Awaiting approval) visible | No ordering status chips visible | Wrong feature captured HINT: Capture the /purchases route (not /supplies). Show the Purchases page header with '+ New Purchase"
+  },
+  {
+    "file": "purchases-expanded-order.png",
+    "kind": "retake",
+    "issue": "Shows a task (Heat-shock survival assay experiment) instead of a purchase order | Shows task tabs (Details, Lab Notes, Method, Results, Order Items) instead of purchase order structure | Line item table shows incorrect columns and context | Wrong feature/page entirely HINT: Capture a purchase order expanded on the /purchases page. Show the inline line-item table with columns: Item Name, Qty, CAS /"
+  },
+  {
+    "file": "purchases-non-purchase-warning.png",
+    "kind": "retake",
+    "issue": "Shows Supplies page instead of PurchaseEditor | Does not show the amber warning banner | Does not show a line-item table for a non-purchase task HINT: Navigate to a non-purchase task (task_type !== 'purchase') and open its editor or inline PurchaseEditor. Show the yellow/amber informational banner above the line-item table reading: 'This task is not typed as a purchase order. Items added here will"
+  },
+  {
+    "file": "purchases-dashboard-funding-cards.png",
+    "kind": "retake",
+    "issue": "Shows Supplies page instead of Purchases dashboard | Does not show funding account cards | Wrong section of page HINT: Scroll to the dashboard section at the bottom of /purchases. Show the funding-account cards row with 3+ cards visible. Each card must display: account name, dollars spent, total budget, dollars remaining, and a progress bar. Include one over-budget card tinted red. Use fixture dat"
+  },
+  {
+    "file": "purchases-dashboard-spend-over-time.png",
+    "kind": "retake",
+    "issue": "Shows Supplies page instead of dashboard | Does not show the spend-over-time bar chart | Does not show hover state with dollar total and item count HINT: Show the vertical bar chart of monthly spend from the dashboard. Display the full last-12-months window (default). Include empty months as zero-height bars. Hover over one bar to reveal tooltip showing '$X.XX (N items)' format. Ensure chart is cl"
+  },
+  {
+    "file": "purchases-dashboard-breakdown-project.png",
+    "kind": "retake",
+    "issue": "Shows Supplies page instead of dashboard | Does not show the breakdown chart section | Missing the segmented control to switch between Project/Vendor/Category lenses HINT: Show the horizontal bar-chart section with Project lens selected. Display the segmented control in the header to switch lenses. Show bars for 2-3 projects sorted by spend (descending). Include 'Uncategorized' bar if applicable. "
+  },
+  {
+    "file": "purchases-dashboard-breakdown-vendor.png",
+    "kind": "retake",
+    "issue": "Shows Supplies page instead of dashboard | Does not show the breakdown chart | Missing Vendor lens selection state HINT: Show the same horizontal bar chart as the Project lens screenshot, but with Vendor lens selected in the segmented control. Display vendor bars (e.g. Sigma, Thermo Fisher, etc.) sorted by spend. Include 'Uncategorized' if present."
+  },
+  {
+    "file": "purchases-dashboard-breakdown-category.png",
+    "kind": "retake",
+    "issue": "Shows Supplies page instead of dashboard | Does not show the breakdown chart | Missing Category lens selection state HINT: Show the same horizontal bar chart with Category lens selected. Display category bars sorted by spend. Include 'Uncategorized' in gray for items with no category set."
+  },
+  {
+    "file": "purchases-non-purchase-panel-expanded.png",
+    "kind": "retake",
+    "issue": "Shows Supplies page instead of dashboard | Does not show the 'Items on non-purchase tasks' panel | Does not show the expanded inline table with host task names HINT: Scroll to the 'Items on non-purchase tasks' section near the bottom of the dashboard. Show the amber panel expanded into an inline table listing: item name, host task name, task type, and dollar amount for each item. Use fixture data "
+  },
+  {
+    "file": "purchases-csv-export.png",
+    "kind": "retake",
+    "issue": "Shows Supplies page instead of dashboard | Does not show the Export CSV button | Does not show the dashboard header with export controls HINT: Scroll to the top of the dashboard section. Show the dashboard header with time-range dropdown (Last 30 days / Last 90 days / Last 12 months / All time / Custom range) and 'All projects' checkbox on the left. Show the green 'Export CSV' button on the top ri"
+  },
+  {
+    "file": "user-login.png",
+    "kind": "retake",
+    "issue": "Caption explicitly states 'Screenshot pending recapture' and notes Lab Mode button removal + BeakerBot mark addition | Screenshot is outdated: does not show current hover-action icons (star for main user, pencil for rename, trash for delete, lock icon for password status) that are now in the codebase | Missing UI elements from modern UserLoginScreen: no visible edit/delete/main-user action icons o"
+  },
+  {
+    "file": "method-catalog-source-pdf.png",
+    "kind": "retake",
+    "issue": "Screenshot caption promises a side-by-side view of template and vendor PDF, but the image shows only the template detail pane with the library modal. The bundled source PDF (which should be open alongside) is not visible in this frame. | This appears to be a template selection view, not a PDF verification view as documented. HINT: Navigate to a template that has a bundled source PDF (page text men"
+  },
+  {
+    "file": "workbench-experiments.png",
+    "kind": "retake",
+    "issue": "Page.tsx explicitly documents this predates the kanban redesign (lines 14-17) | Shows old stacked-section layout instead of four-column kanban board | Shows three-tab strip instead of current five-tab layout (Projects/Experiments/Notes/Lists/Check-ins) | Does not show the actual current UI state | Screenshot predates June 2026 kanban density redesign (2026-06-02) HINT: Capture a fresh screenshot o"
+  },
+  {
+    "file": "workbench-experiments-sections.png",
+    "kind": "retake",
+    "issue": "Page.tsx explicitly documents this predates the kanban redesign (lines 164-167) | Shows stacked vertical section headers instead of side-by-side kanban columns | Does not reflect current four-column layout that has been live since 2026-06-02 | Outdated UI state relative to current product HINT: Capture the Workbench Experiments tab showing the four-column kanban board (Ready to start, Blocked, Run"
+  },
+  {
+    "file": "workbench-lists.png",
+    "kind": "retake",
+    "issue": "Page.tsx comment (line 269) notes 'workbench-lists.png needs recapture: predates inline expand' | Does not show the current inline expansion accordion functionality described in the text (lines 276-307) | Screenshot is outdated relative to current list-card expand behavior HINT: Capture the Lists tab showing five stacked sections (Overdue, Doing, Upcoming, Recently done, Earlier) with list-task ca"
+  },
+  {
+    "file": "workbench-earlier.png",
+    "kind": "retake",
+    "issue": "Screenshot is stale - the page itself explicitly states 'workbench-earlier.png is queued for recapture to reflect the current Workbench layout' (page.tsx lines 46-49) | Tab styling is outdated - current code shows icons, colored backgrounds (indigo/blue/emerald/violet/rose), and modern styling; screenshot shows older tab appearance | Main layout appears incorrect - current WorkbenchExperimentsPane"
+  },
+  {
+    "file": "calendar-feeds-modal.png",
+    "kind": "retake",
+    "issue": "The modal is not visible in the screenshot - only the calendar grid background is shown | The caption promises 'The Linked Calendars panel with a connected ICS subscription and the paste-a-URL form' but the modal dialog is completely absent | No Connected section with example feed is visible | No provider dropdown, color swatches, or ICS URL input field are visible | The screenshot shows the Calen"
+  },
+  {
+    "file": "projects-route-overview.png",
+    "kind": "retake",
+    "issue": "Predates the PROJECT_POPUP_REDESIGN (committed 2026-06-09, screenshot from 2026-06-03). The page.tsx comment (line 68-70) explicitly flags this: 'SCREENSHOT TODO: projects-route-overview.png predates the real-tabs redesign — it may still show the old sticky scroll-anchor strip. Do NOT capture here; recapture when the route UI settles.' The redesign converted the full-page ProjectRoute into a focus"
+  },
+  {
+    "file": "projects-route-results.png",
+    "kind": "retake",
+    "issue": "Appears identical to projects-route-overview.png (same file size 487K). Screenshots are likely not distinct captures of different sections. | Page caption says 'Results section...showing two experiment groups each with their own header row and a strip of thumbnail images' but this is not visible in the actual PNG. | Shows the same modal dialog as overview screenshot, not the Results gallery view. "
+  },
+  {
+    "file": "projects-route-methods.png",
+    "kind": "retake",
+    "issue": "Appears identical to other route screenshots (same 487K file size). Not a distinct capture. | Page caption says 'Methods section...listing several methods with type pills and a used in N experiments badge' but this content is not visible. | Shows the same modal dialog, not the MethodsInventory view. HINT: Open the ProjectDetailPopup, navigate to the Methods view (click the Methods doorway button),"
+  },
+  {
+    "file": "projects-route-activity.png",
+    "kind": "retake",
+    "issue": "Appears identical to other route screenshots (same 487K file size). Not a distinct capture. | Page caption says 'Activity section...listing a chronological feed of events. Each row has an icon, a summary line, and a relative timestamp on the right' but this is not shown in the PNG. | Shows the same modal dialog, not an activity feed view. HINT: Open the ProjectDetailPopup and scroll down in the ho"
+  },
+  {
+    "file": "lab-calculators-modal.png",
+    "kind": "retake",
+    "issue": "Page has two Screenshot components (lines 30-34 and 35-39) with contradictory captions, both using the same single image file | First caption says the image shows the 'Molarity calculator's input fields' but the actual image shows the Scientific calculator with keypad | Second caption correctly says it shows the 'scientific calculator keypad' - only this caption matches reality | The single image "
+  },
+  {
+    "file": "sequences-view-rail.png",
+    "kind": "retake",
+    "issue": "Screenshot is mostly blank white space with only a small portion of UI visible in the top right corner | The view-control rail is not clearly visible or prominent as the subject | Cannot clearly see the icon toggle buttons that are the focus of the caption HINT: Open the sequences editor with a sequence that has features. Navigate to a view where the left-edge view-control rail is fully visible an"
+  },
+  {
+    "file": "sequences-base-view.png",
+    "kind": "retake",
+    "issue": "Dark overlay label visible that reads 'base-level readout row' — this appears to be a dev-only debug element or tooltip | This annotation is not part of the production UI and should not appear in documentation HINT: Re-capture with the same sequence view state (base-level resolution showing monospace bases, complement strand, and feature tracks) but without any dev overlay labels or debug artifact"
+  },
+  {
+    "file": "sequences-primer-design.png",
+    "kind": "retake",
+    "issue": "Screenshot shows the sequences library and launcher interface, not the Add Primer dialog | The caption expects 'The Add Primer dialog showing primer sequence input, live stats (N-mer, GC%, Tm), and alignment visualization' but the image shows a different screen entirely | This is the wrong feature state for the caption HINT: Navigate to an open sequence in the editor. Open the Add Primer dialog fr"
+  },
+  {
+    "file": "sequences-ncbi-specificity.png",
+    "kind": "retake",
+    "issue": "Screenshot shows the sequences library and launcher interface, not the NCBI Primer-BLAST page | The caption expects 'The NCBI Primer-BLAST page open in a browser tab with the primer sequence pre-filled' but the image shows a different application state | This is the wrong feature screen for the caption HINT: From the sequences editor with an open primer, click the BLAST link in the Primers panel f"
+  },
+  {
+    "file": "feedback-modal.png",
+    "kind": "retake",
+    "issue": "Screenshot shows ResearchOS Workbench page with projects, not the Report an Issue modal | Does not match alt text which describes the Type radio group, Title field, description, error details, and buttons | Completely wrong content—this is a different page of the app entirely HINT: Replace with screenshot of FeedbackModal mounted with Bug type selected, showing: warning triangle icon, Report an Is"
+  },
+  {
+    "file": "import-eln-format-pick.png",
+    "kind": "retake",
+    "issue": "Screenshot shows the Settings page, not the import wizard's format selection step. | The page should display three format cards: 'LabArchives Offline Notebook ZIP' (selected in blue with ring highlight), 'LabArchives Notebook-to-PDF' (grayed out with Coming soon badge), and 'Chrome Print-to-PDF' (grayed out with Coming soon badge). | Expected state: the PickFormatStep component inside ImportELNDia"
+  },
+  {
+    "file": "experiments-editor.png",
+    "kind": "retake",
+    "issue": "Shows empty Workbench state with 'No experiments yet' message, not the markdown editor itself | Caption says 'inline editing surface, single Edit / Preview toolbar, Save checkpoint button, and the bottom attachment strip' but none of these are visible | The editor is completely absent from this frame - only the Workbench landing state is shown HINT: Open an experiment with existing Lab Notes conte"
+  },
+  {
+    "file": "methods-library.png",
+    "kind": "retake",
+    "issue": "STALE: Screenshot predates the 10-type rewrite. The visible cards only show ~3 method types (Markdown, Coding workflow, Cell culture), not the full breadth of 10 types that the page documents. | WEAK VIEW: The screenshot shows a sparse library with only a handful of methods across a few categories. A stronger shot would show multiple categories with diverse method types side-by-side to better illu"
+  },
+  {
+    "file": "feedback-modal-bug.png",
+    "kind": "retake",
+    "issue": "Auto-attached error details section (the red box with error message and stack trace) is not clearly visible. According to the component code and page intent, Bug type should display error details in a red-50 bg box when an error is available. The screenshot should capture this prominent feature. | The error context is the key differentiator between Bug and other feedback types (per the page's desc"
+  },
+  {
+    "file": "search-results.png",
+    "kind": "retake",
+    "issue": "Click annotation (pink/magenta ring with cursor) is present but confusing — this is a form overview shot, not a click-step tutorial. If it's meant to be a click shot, the annotation should target the Search button, not the input. If it's an overview, remove the annotation. | Shows only the filter form without results — weak demonstration of what the feature actually does. The page caption says res"
+  },
+  {
+    "file": "user-archiving-roster.png",
+    "kind": "retake",
+    "issue": "Screenshot shows stale edit-session UI: 'Editing as Lab Head' banner and 'End session' button are visible. Per the current component code, the edit-session unlock gate was removed (line 34-40 of page.tsx) — these elements should not exist in the product anymore. | The old edit-mode workflow is no longer part of the archiving flow. A lab head now archives directly without an edit session, so this U"
+  },
+  {
+    "file": "demo-mode-leave.png",
+    "kind": "retake",
+    "issue": "Shows Workbench main app interface instead of the Leave Demo modal dialog | Caption promises 'Leave the demo dialog' but screenshot shows regular app UI with no dialog visible | Missing the modal's key elements: 'Leave the demo?' title, body text, amber Leave button, and Keep exploring link HINT: Capture the Leave the demo modal dialog itself as a centered overlay. Navigate to /demo, click the flo"
+  },
+  {
+    "file": "onboarding-resume-modal.png",
+    "kind": "retake",
+    "issue": "Screenshot is far too zoomed out — the modal is a tiny popup in the center of the screen with the app background behind it, making button labels, BeakerBot pose, and modal text illegible | At current zoom level, readers cannot read the instruction text 'You were partway through setting up ResearchOS...' or see button labels clearly | The view should be a tight close-up of just the modal to show de"
+  },
+  {
+    "file": "gantt-overview.png",
+    "kind": "retake",
+    "issue": "Projects dropdown is open with search filter active ('No projects match') but spec requires it 'collapsed' (closed) | Gantt chart shows empty state 'No tasks to display' but spec requires '3-4 projects on the timeline' with visible colored bars | Cannot verify required visual elements (PTO stripes on Saturday, dependency stripes linking bars) because no tasks are shown | Sidebar shows activity lis"
+  },
+  {
+    "file": "gantt-overview-lab-head.png",
+    "kind": "retake",
+    "issue": "Gantt chart shows empty state 'No tasks to display' but spec/caption requires multiple projects from different lab members visible on timeline | Page caption says 'project dropdown spans every member's projects' but dropdown is closed; unclear if list reflects multi-member scope | Cannot verify the PI/lab-head distinction without seeing actual tasks from multiple team members on the same timeline "
+  },
+  {
+    "file": "trash-bulk-action-bar.png",
+    "kind": "missing-file",
+    "issue": "PNG referenced by /wiki/features/trash does not exist. Either add a capture spec or the page reference is dead."
+  },
+  {
+    "file": "deposit-metadata-review.png",
+    "kind": "missing-file",
+    "issue": "PNG referenced by /wiki/compliance/depositing-to-a-repository does not exist. Either add a capture spec or the page reference is dead."
+  },
+  {
+    "file": "purchases-new-purchase-modal.png",
+    "kind": "missing-file",
+    "issue": "PNG referenced by /wiki/features/purchases does not exist. Either add a capture spec or the page reference is dead."
+  },
+  {
+    "file": "method-catalog-library.png",
+    "kind": "missing-file",
+    "issue": "PNG referenced by /wiki/features/method-catalog does not exist. Either add a capture spec or the page reference is dead."
+  },
+  {
+    "file": "method-catalog-template-detail.png",
+    "kind": "missing-file",
+    "issue": "PNG referenced by /wiki/features/method-catalog does not exist. Either add a capture spec or the page reference is dead."
+  },
+  {
+    "file": "method-catalog-384-plate.png",
+    "kind": "missing-file",
+    "issue": "PNG referenced by /wiki/features/method-catalog does not exist. Either add a capture spec or the page reference is dead."
+  },
+  {
+    "file": "editor-inline-mode.png",
+    "kind": "missing-file",
+    "issue": "PNG referenced by /wiki/features/markdown-editor does not exist. Either add a capture spec or the page reference is dead."
+  },
+  {
+    "file": "editor-attachment-strip.png",
+    "kind": "missing-file",
+    "issue": "PNG referenced by /wiki/features/markdown-editor does not exist. Either add a capture spec or the page reference is dead."
+  },
+  {
+    "file": "editor-save-checkpoint.png",
+    "kind": "missing-file",
+    "issue": "PNG referenced by /wiki/features/markdown-editor does not exist. Either add a capture spec or the page reference is dead."
+  },
+  {
+    "file": "image-annotation-gel.png",
+    "kind": "missing-file",
+    "issue": "PNG referenced by /wiki/features/image-annotation does not exist. Either add a capture spec or the page reference is dead."
+  },
+  {
+    "file": "gel-day3.png",
+    "kind": "missing-file",
+    "issue": "PNG referenced by /wiki/features/image-annotation does not exist. Either add a capture spec or the page reference is dead."
+  },
+  {
+    "file": "image-annotation-in-note.png",
+    "kind": "missing-file",
+    "issue": "PNG referenced by /wiki/features/image-annotation does not exist. Either add a capture spec or the page reference is dead."
+  }
+]
