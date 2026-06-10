@@ -154,6 +154,60 @@ export function resolveFixtureUser(): (typeof WIKI_CAPTURE_FIXTURE_USERS)[number
   return match;
 }
 
+/** Sticky key backing the internal demo "view as" override. Mirrors the
+ *  DEMO_MODE_KEY sticky pattern, so the chosen fixture identity survives the
+ *  /demo route's redirect (which strips the query string) and any client nav
+ *  that drops the param. Set by the demo "view as lab head" toggle; cleared
+ *  by clearAllStickyDemoFlags on Leave Demo. */
+const DEMO_VIEW_AS_KEY = "researchos:demo-view-as";
+
+/** Persist the demo "view as" identity to the sticky key. Called by the
+ *  toggle's onClick BEFORE it hard-navigates, so the reinstall resolves the
+ *  target user even if the URL param never reaches install (App Router can
+ *  intercept a plain anchor and soft-nav, dropping the query). Pass null to
+ *  clear (back to the default alex). */
+export function setDemoViewAsUser(user: string | null): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (user && WIKI_CAPTURE_FIXTURE_USERS.some((u) => u === user)) {
+      window.sessionStorage.setItem(DEMO_VIEW_AS_KEY, user);
+    } else {
+      window.sessionStorage.removeItem(DEMO_VIEW_AS_KEY);
+    }
+  } catch {
+    // best-effort
+  }
+}
+
+/** Internal-only demo "view as" override for the public `/demo` route.
+ *  Distinct from `?fixtureUser=` (which the demo route deliberately ignores
+ *  so a random visitor can't shift the documented alex experience). Set only
+ *  by the in-app demo "view as lab head" toggle, used to record the
+ *  PI-dashboard welcome clip. Reads a `?demoViewAs=<name>` URL param (and
+ *  writes it through to the sticky key) or, when the param is absent, the
+ *  sticky value. Returns the matched seeded user or null (caller keeps alex). */
+export function resolveDemoViewAsUser():
+  | (typeof WIKI_CAPTURE_FIXTURE_USERS)[number]
+  | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const requested = new URLSearchParams(window.location.search).get(
+      "demoViewAs",
+    );
+    if (requested !== null) {
+      const match =
+        WIKI_CAPTURE_FIXTURE_USERS.find((u) => u === requested) ?? null;
+      // Write-through so a later query-stripped reinstall still resolves it.
+      setDemoViewAsUser(match);
+      return match;
+    }
+    const sticky = window.sessionStorage.getItem(DEMO_VIEW_AS_KEY);
+    return WIKI_CAPTURE_FIXTURE_USERS.find((u) => u === sticky) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Returns the capture variant for the current URL, or null if the page
  *  hasn't opted in. Allowed in dev and on localhost in prod; hard-blocked
  *  on non-local hostnames in production. SSR-safe: returns null on the
@@ -344,6 +398,7 @@ export function clearAllStickyDemoFlags(): void {
     WIKI_CAPTURE_STICKY_KEY,
     FORCE_CONTROLS_STICKY_KEY,
     UNLOCK_SESSION_STICKY_KEY,
+    DEMO_VIEW_AS_KEY,
   ];
   for (const key of keys) {
     try {

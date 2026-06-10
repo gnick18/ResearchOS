@@ -21,7 +21,7 @@ import { clearPiEditConfirmations } from "../lab/pi-edit-guard";
 import { discoverUsers, validateResearchFolder, ensureFolderStructure } from "./user-discovery";
 import { readUserSettings, patchUserSettings, userSettingsFileExists, DEFAULT_SETTINGS } from "../settings/user-settings";
 import { useAppStore, readLegacyLocalStorageSettings } from "../store";
-import { getWikiCaptureVariant, getDemoMode, markDemoMode, installWikiCaptureFixture, resolveFixtureUser, clearAllStickyDemoFlags } from "./wiki-capture-mock";
+import { getWikiCaptureVariant, getDemoMode, markDemoMode, installWikiCaptureFixture, resolveFixtureUser, resolveDemoViewAsUser, clearAllStickyDemoFlags } from "./wiki-capture-mock";
 import { rebaseDemoDates, isDemoLab } from "../demo/rebase";
 import { appQueryClient } from "../query-client";
 import { FEED_EVENTS_PREFIX } from "../calendar/feed-cache-keys";
@@ -644,10 +644,16 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
           // fixture pinned to a different seeded user (e.g. mira) so
           // PI-archetype widgets render against her events / tasks.
           // Defaults to "alex" when the param is absent or invalid.
-          // Demo route ignores the override and stays on alex — the
-          // public /demo experience is documented as alex's lab and
-          // shouldn't shift under a URL flag.
-          const fixtureUser = !demo && signIn ? resolveFixtureUser() : "alex";
+          // The public /demo route deliberately ignores `?fixtureUser=`
+          // (documented as alex's lab, shouldn't shift under a public URL
+          // flag). It honors only the internal `?demoViewAs=` param, set
+          // by the demo "view as lab head" toggle so the PI-dashboard
+          // welcome clip can be recorded. Both default to "alex".
+          const fixtureUser = demo
+            ? (resolveDemoViewAsUser() ?? "alex")
+            : signIn
+              ? resolveFixtureUser()
+              : "alex";
           await installWikiCaptureFixture({ signIn, fixtureUser });
           if (demo) {
             // Set the sticky flag now that the fixture is ready, so the

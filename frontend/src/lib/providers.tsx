@@ -26,6 +26,7 @@ import StagedLoadingScreen from "@/components/StagedLoadingScreen";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import GlobalDropGuard from "@/components/GlobalDropGuard";
 import FloatingLeaveDemoButton from "@/components/FloatingLeaveDemoButton";
+import DemoViewAsButton from "@/components/DemoViewAsButton";
 import WikiCaptureRefusedBanner from "@/components/WikiCaptureRefusedBanner";
 import OpenDocsButton from "@/components/OpenDocsButton";
 import SceneTriggerHost from "@/components/SceneTriggerHost";
@@ -776,6 +777,10 @@ export function Providers({ children }: { children: ReactNode }) {
             inside it. No-op in normal use / true fixtures / demo. */}
         <WikiCaptureRefusedBanner />
         <FloatingLeaveDemoButton />
+        {/* Demo-only: flip the fixture identity between Alex (member) and
+            Mira (lab head) so the PI-dashboard welcome clip can be recorded.
+            Renders only inside /demo, never in real use or wiki capture. */}
+        <DemoViewAsButton />
         {/* Dev-only one-click clean-slate session. Mounted here (Providers
             level, above AppContent) like FloatingLeaveDemoButton so it shows on
             the pre-login connect / picker / login surfaces, not just the
