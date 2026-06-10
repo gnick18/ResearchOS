@@ -16,8 +16,9 @@ import {
   isDemoOrWikiCapture,
   isV4PreviewMode,
 } from "@/lib/file-system/wiki-capture-mock";
-import ResearchFolderSetupNew from "@/components/ResearchFolderSetupNew";
+import FolderConnectGate from "@/components/onboarding/FolderConnectGate";
 import BrowserNotSupported from "@/components/BrowserNotSupported";
+import { signIn } from "next-auth/react";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import { ELN_IMPORT_PENDING_KEY } from "@/components/import-eln/PickUserBeforeImportModal";
 import UserLoginScreen from "@/components/UserLoginScreen";
@@ -87,13 +88,20 @@ if (
 }
 
 /**
- * Reactive, Suspense-safe read of whether a `?signIn=` intent is in the URL.
- * Reads window.location.search (so static export never bails to CSR) and
+ * Reactive, Suspense-safe read of the `?signIn=<provider>` intent in the URL.
+ * Returns the provider string (orcid / google / github / linkedin / email) or
+ * null. Reads window.location.search (so static export never bails to CSR) and
  * re-renders on popstate plus the patched-history event above, so an in-session
  * router.push("/?...&signIn=<provider>") from the start screen / tier chooser
  * still hides the entry gate exactly as the old useSearchParams subscription did.
+ *
+ * The provider value (not just a boolean) is needed because, after the folder
+ * connect + account selection that this intent drives, lib/providers triggers
+ * the actual OAuth redirect for the sharing-identity claim. That used to live in
+ * ResearchFolderSetupNew.handleComplete; it was rehomed here when that screen
+ * was retired (onboarding redundancy removal, 2026-06-10).
  */
-function useSignInIntent(): boolean {
+function useSignInProvider(): string | null {
   const subscribe = useCallback((onChange: () => void) => {
     if (typeof window === "undefined") return () => {};
     window.addEventListener("popstate", onChange);
@@ -106,9 +114,50 @@ function useSignInIntent(): boolean {
   return useSyncExternalStore(
     subscribe,
     () =>
-      typeof window !== "undefined" &&
-      new URLSearchParams(window.location.search).has("signIn"),
-    () => false,
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("signIn")
+        : null,
+    () => null,
+  );
+}
+
+// Guards the provider OAuth redirect so it fires exactly once per page load even
+// under a React strict-mode double-mount. signIn() / location.assign() navigate
+// away, so in practice the screen unloads, but the flag keeps a dev double-mount
+// from racing two redirects.
+let providerSignInFired = false;
+
+/**
+ * OAuth sharing-claim resume. Mounted only once the visitor who started a
+ * "Sign in with <provider>" flow (the `?signIn=` intent) has connected a folder
+ * AND selected an account, the prerequisites for minting a real sharing
+ * identity. It fires the provider redirect (or, for email, reloads into the
+ * email-OTP step of the global sharing mount) and shows a brief "Signing you
+ * in" screen so the full app does not flash before navigation.
+ *
+ * This is the rehomed tail of ResearchFolderSetupNew.handleComplete: the
+ * callbackUrl carries ?sharingClaim=1 so the user returns into the global
+ * SharingClaimResume mount (now with their freshly selected user connected) and
+ * a real sharing identity gets created, not just an OAuth session.
+ */
+function ProviderSignInRedirect({ provider }: { provider: string }) {
+  useEffect(() => {
+    if (providerSignInFired) return;
+    providerSignInFired = true;
+    if (provider === "email") {
+      // Email skips OAuth. The folder + user are already connected, so reload
+      // into the global mount which opens the wizard at its email step.
+      window.location.assign("/?sharingEmail=1");
+      return;
+    }
+    void signIn(provider, { callbackUrl: "/?sharingClaim=1" });
+  }, [provider]);
+
+  return (
+    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4 bg-gradient-to-br from-surface-sunken via-surface to-surface-sunken">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-action" />
+      <p className="text-body text-foreground-muted">Signing you in...</p>
+    </div>
   );
 }
 
@@ -220,7 +269,7 @@ let successShownThisLoad = false;
 let chosenTierThisLoad: AccountTier | null = null;
 
 // The start-screen action a not-auto-reconnected visitor picked this load:
-// "open" -> connect/reconnect a folder (ResearchFolderSetupNew); "create" ->
+// "open" -> connect/reconnect a folder (FolderConnectGate); "create" ->
 // the new-account chooser. Module-scoped so a remount during setup does not
 // bounce the user back to the start screen. null = show the start screen.
 let entryActionThisLoad: "open" | "create" | null = null;
@@ -264,9 +313,12 @@ function AppContent({ children }: { children: ReactNode }) {
     loadingStage,
     availableUsers,
     lastConnectedFolder,
+    connect,
+    reconnectWithStoredHandle,
     disconnect,
   } = useFileSystem();
-  const signInInFlight = useSignInIntent();
+  const pendingSignInProvider = useSignInProvider();
+  const signInInFlight = pendingSignInProvider !== null;
   // Splash plays once per tab session (survives reloads, so dev reloads and
   // returning users do not replay it; a brand-new tab plays it). Skippable.
   const [splashSeen, setSplashSeen] = useState<boolean>(
@@ -278,16 +330,6 @@ function AppContent({ children }: { children: ReactNode }) {
     entryActionThisLoad,
   );
   const [successShown, setSuccessShown] = useState(successShownThisLoad);
-  const [showSetup, setShowSetup] = useState(false);
-
-  useEffect(() => {
-    if (!isLoading && !isConnected) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- state machine: setup gate flips based on external fs-connection state transitions
-      setShowSetup(true);
-    } else if (isConnected && currentUser) {
-      setShowSetup(false);
-    }
-  }, [isLoading, isConnected, currentUser]);
 
   // When the rainbow loading screen plays (a real connect / reconnect), treat
   // IT as the branded opening moment and consume the one-shot BeakerBot Splash,
@@ -466,6 +508,19 @@ function AppContent({ children }: { children: ReactNode }) {
               // best-effort; the celebration is non-essential
             }
             setEntryAction("open");
+            // Trigger the folder connect straight from this click. The click is
+            // a live user gesture, so the OS picker opens immediately, no
+            // redundant intermediate "Link a folder" page (onboarding
+            // redundancy removal, 2026-06-10). connect() flips into the loading
+            // screen, so the FolderConnectGate connect surface only shows if the
+            // user cancels (a retry / recovery surface). For a returning visitor
+            // with a remembered folder, re-attach via the stored handle (no OS
+            // picker needed); if that fails the gate is the fallback.
+            if (lastConnectedFolder) {
+              void reconnectWithStoredHandle();
+            } else {
+              void connect();
+            }
           }}
           onCreateAccount={() => {
             entryActionThisLoad = "create";
@@ -488,7 +543,7 @@ function AppContent({ children }: { children: ReactNode }) {
   // Skipped in fixture modes and once a signIn intent is in flight.
   if (
     entryAction === "create" &&
-    (showSetup || !isConnected) &&
+    !isConnected &&
     !isDemoOrWikiCapture() &&
     !signInInFlight
   ) {
@@ -496,7 +551,11 @@ function AppContent({ children }: { children: ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <AccountTierChooser
           onLocal={() => {
-            // Local: record the solo tier + proceed to folder setup.
+            // Local: record the solo tier + open the OS picker straight from
+            // this click (the tile click is a live user gesture), the same
+            // direct connect the start screen's "Open a folder" does. If the
+            // user cancels, the FolderConnectGate connect surface is the retry
+            // fallback (absent account_type normalizes to solo).
             chosenTierThisLoad = "local";
             try {
               sessionStorage.setItem("researchos:account-tier", "local");
@@ -506,44 +565,46 @@ function AppContent({ children }: { children: ReactNode }) {
             }
             entryActionThisLoad = "open";
             setEntryAction("open");
+            void connect();
           }}
         />
       </QueryClientProvider>
     );
   }
 
-  // Folder-picker IS the entry surface (rehome 2026-05-25). The retired
-  // 4-beat pre-onboarding modal that used to gate this branch is gone:
-  // BeakerBot, the welcome copy, the trust / security explainer, the
-  // local-vs-cloud guidance, the cloud-provider setup links, and the
-  // RISE credentials stamp all live inline on `ResearchFolderSetupNew`
-  // now. No more one-shot localStorage gate; the picker is always what
-  // a fresh visitor sees on first paint.
-  if (showSetup || !isConnected) {
-    // Wrapped in QueryClientProvider because the user-picker renders
-    // <UserAvatar> which calls useUserColor() → useQuery(). Without the
-    // provider, the picker throws "No QueryClient set" the moment there
-    // are existing users to choose from (notably in wiki-capture picker
-    // mode, where the fixture exposes two users).
-    //
-    // Note (2026-05-14): the !currentUser branch was split out below so
-    // exit-Lab-Mode (and any other "folder is connected but no user is
-    // picked" state) routes to the cleaner UserLoginScreen — same user-
-    // picker UI Grant sees on a fresh app open, with the Lab Mode CTA in
-    // its proper place. ResearchFolderSetupNew now only fires when the
-    // user genuinely needs folder setup (showSetup=true) or hasn't
-    // connected a folder yet (!isConnected).
+  // Folder-connect gate (onboarding redundancy removal, 2026-06-10). Replaces
+  // the retired ResearchFolderSetupNew landing card, whose own "Link Folder"
+  // button was a redundant second click. The start screen / tier chooser now
+  // call connect() directly from the click, so on the happy path this gate is
+  // skipped (connect() flips straight into the loading screen). It renders when
+  // no folder is attached: after a cancelled picker (retry + Chrome-blocked
+  // recovery modal), on the sign-in-with-provider resume path (the provider
+  // button did a router.push, so a folder still needs picking before the OAuth
+  // claim), or to initialize an empty folder. Once a folder is connected the
+  // flow falls through to UserLoginScreen for account selection.
+  if (!isConnected) {
+    // Wrapped in QueryClientProvider because BeakerBot / avatars inside may
+    // call useUserColor() → useQuery().
     return (
       <QueryClientProvider client={queryClient}>
-        <ResearchFolderSetupNew
-          onComplete={() => {
-            console.log("onComplete callback called in AppContent");
-            setShowSetup(false);
-            queryClient.invalidateQueries();
+        <FolderConnectGate
+          pendingSignInProvider={pendingSignInProvider}
+          onBack={() => {
+            entryActionThisLoad = null;
+            setEntryAction(null);
           }}
         />
       </QueryClientProvider>
     );
+  }
+
+  // OAuth sharing-claim resume. A visitor who started a "Sign in with
+  // <provider>" flow (the `?signIn=` intent) has now connected a folder and
+  // selected an account, so fire the provider redirect (rehomed from the
+  // retired ResearchFolderSetupNew.handleComplete). Sits above the app render so
+  // the full app never flashes before navigation.
+  if (signInInFlight && currentUser && pendingSignInProvider) {
+    return <ProviderSignInRedirect provider={pendingSignInProvider} />;
   }
 
   // Folder is connected but no user is picked — show the clean account
@@ -736,7 +797,7 @@ export function Providers({ children }: { children: ReactNode }) {
             hand-off FeedbackModal). Mounted at the providers level
             for the same pre-login reason as SceneTriggerHost: an
             auto-error captured on UserLoginScreen / DataSetupScreen /
-            ResearchFolderSetupNew needs the confirm dialog to render
+            FolderConnectGate needs the confirm dialog to render
             before AppShell is in the tree. (feedback polish R1) */}
         <AutoErrorConfirmHost />
         {/* Wiki-screenshot fixture body-class + edit-session synth.

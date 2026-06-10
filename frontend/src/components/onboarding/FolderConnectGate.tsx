@@ -1,0 +1,505 @@
+"use client";
+
+// Folder-connect gate (onboarding redundancy removal, 2026-06-10). This is the
+// slim surface that handles the "no folder connected yet" states after the
+// start screen. It replaces the old ResearchFolderSetupNew landing card, whose
+// own "Link Folder" button was a redundant second click: the start screen's
+// "Open a folder" now triggers the OS picker directly (connect() is called
+// inside that click, which is already a user gesture).
+//
+// So this gate is the FALLBACK / RESUME surface, shown only when the picker was
+// not auto-triggered:
+//   - after the user cancels the OS picker (retry here),
+//   - on the sign-in-with-provider path (the provider button did a router.push,
+//     so no folder is connected yet and we prompt for one before the OAuth
+//     claim),
+//   - when an empty folder needs initializing.
+//
+// The demo entry + the fake yeast-lab starter folder live on the welcome page
+// (the scroll-down section of EntrySnapSurface), not here, so they are not
+// duplicated. The Chrome-blocks-system-folders guidance is shown only in the
+// post-abort recovery modal (Grant 2026-06-10: do not pre-warn, surface it when
+// they actually hit the block), since Chrome owns the picker and reports both a
+// real cancel and a blocked-folder pick as the same AbortError.
+//
+// No em-dashes, no emojis, no mid-sentence colons.
+
+import { useState, useRef, useCallback } from "react";
+import {
+  useFileSystem,
+  isFileSystemAccessSupported,
+} from "@/lib/file-system/file-system-context";
+import BrowserNotSupported from "@/components/BrowserNotSupported";
+import BetaDonationButton from "@/components/BetaDonationButton";
+import FeedbackModal from "@/components/FeedbackModal";
+import BeakerBot from "@/components/BeakerBot";
+import { Icon } from "@/components/icons";
+import PickerWalkthroughModal from "@/components/picker-walkthrough/PickerWalkthroughModal";
+import RiseCredentialsStamp from "@/components/RiseCredentialsStamp";
+import VersionBadge from "@/components/VersionBadge";
+import { useErrorReporting } from "@/hooks/useErrorReporting";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import {
+  extractDirectoryHandleFromDrop,
+  describeDropExtractionError,
+  type DropExtractionResult,
+} from "@/lib/file-system/drop-folder";
+
+interface FolderConnectGateProps {
+  /**
+   * The OAuth provider the visitor is mid-sign-in with, if any (the `?signIn=`
+   * intent). Only used to adapt the heading copy so the resume path reads as
+   * "connect your folder to finish signing in" rather than a cold "link a
+   * folder". The actual OAuth redirect after folder + user selection is owned
+   * by lib/providers.tsx, not this component.
+   */
+  pendingSignInProvider: string | null;
+  /** Return to the start screen (resets the entry action). */
+  onBack: () => void;
+}
+
+export default function FolderConnectGate({
+  pendingSignInProvider,
+  onBack,
+}: FolderConnectGateProps) {
+  const {
+    connect,
+    connectWithHandle,
+    isLoading,
+    error,
+    needsInitialization,
+    initializeFolder,
+    directoryName,
+  } = useFileSystem();
+
+  const { showBugReport, currentError, openBugReport, closeBugReport } =
+    useErrorReporting();
+
+  // Opt-in walkthrough modal (the resurrected 4-beat tour). Triggered only by
+  // the explicit CTA below the bubble; returning users skip past.
+  const [walkthroughOpen, setWalkthroughOpen] = useState(false);
+
+  // Drag-and-drop state for the connect card. `isDragOver` is ref-counted so
+  // nested children don't flicker the visual treatment off when the pointer
+  // crosses an internal element boundary.
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [dropError, setDropError] = useState<string | null>(null);
+  const dragCounterRef = useRef(0);
+
+  // Chrome wraps both a real picker cancel AND its system-folder block (Desktop
+  // / Documents root / Downloads / home) in the same AbortError, so after any
+  // aborted picker call we surface the recovery modal that doubles as the
+  // blocked-folder explainer and a no-op for users who simply changed their
+  // mind. Dismissable so it never nags.
+  const [showSystemFolderHint, setShowSystemFolderHint] = useState(false);
+  const [systemFolderHintDismissed, setSystemFolderHintDismissed] =
+    useState(false);
+  useEscapeToClose(
+    useCallback(() => {
+      setShowSystemFolderHint(false);
+      setSystemFolderHintDismissed(true);
+    }, []),
+    showSystemFolderHint && !systemFolderHintDismissed,
+  );
+
+  const handleConnect = async () => {
+    const ok = await connect();
+    // connect() resolves false on AbortError (cancel or Chrome system-folder
+    // block) and on hard errors (which set `error` in context). The silent
+    // AbortError branch sets nothing, so we surface the recovery modal here.
+    if (!ok && !systemFolderHintDismissed) {
+      setShowSystemFolderHint(true);
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!e.dataTransfer?.types?.includes("Files")) return;
+    dragCounterRef.current += 1;
+    setIsDragOver(true);
+    setDropError(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+    if (dragCounterRef.current === 0) setIsDragOver(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDragOver(false);
+
+    const items = e.dataTransfer?.items;
+    if (!items || items.length === 0) return;
+
+    const result: DropExtractionResult =
+      await extractDirectoryHandleFromDrop(items);
+    if (result.kind === "ok") {
+      setDropError(null);
+      await connectWithHandle(result.handle);
+      return;
+    }
+    setDropError(describeDropExtractionError(result.kind));
+  };
+
+  if (!isFileSystemAccessSupported()) {
+    return <BrowserNotSupported />;
+  }
+
+  // Initialize-an-empty-folder prompt. After connect() on a folder that lacks
+  // the ResearchOS structure, finishConnect leaves the handle attached and
+  // flips needsInitialization. The handle stays set so initializeFolder() can
+  // write the structure; on success isConnected flips and providers routes to
+  // the account picker (UserLoginScreen).
+  if (needsInitialization) {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-surface-sunken via-surface to-surface-sunken">
+        <BackdropTexture />
+        <div className="relative z-10 w-full max-w-lg mx-4">
+          <BrandHeader subtitle={`Connected to: ${directoryName}`} />
+
+          <div className="bg-surface-raised backdrop-blur-xl rounded-2xl shadow-2xl border border-border overflow-hidden">
+            <div className="p-6">
+              <h2 className="text-heading font-bold text-foreground mb-4 text-center">
+                Initialize New Folder
+              </h2>
+              <p className="text-foreground-muted mb-6 text-center">
+                This folder doesn&apos;t have the required structure. Would you
+                like to initialize it as a ResearchOS folder?
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={async () => {
+                    await initializeFolder();
+                  }}
+                  disabled={isLoading}
+                  className="flex-1 py-3 btn-brand text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isLoading ? (
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                  ) : (
+                    "Initialize Folder"
+                  )}
+                </button>
+                <button
+                  onClick={onBack}
+                  className="px-4 py-3 bg-surface-sunken hover:bg-surface-sunken/70 text-foreground font-medium rounded-lg transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+
+              {error && (
+                <div className="mt-4 p-3 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
+                  <p className="text-body text-red-700 dark:text-red-300">
+                    {error}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <GateFooter onBugReport={openBugReport} />
+        </div>
+
+        <FeedbackModal
+          isOpen={showBugReport}
+          onClose={closeBugReport}
+          prefilledError={currentError}
+        />
+      </div>
+    );
+  }
+
+  // The connect surface. Shown when no folder is attached: after a cancelled
+  // picker (retry here), or on the sign-in-with-provider resume path.
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-surface-sunken via-surface to-surface-sunken">
+      <VersionBadge tone="surface" className="fixed top-3 left-4 z-[110]" />
+      <BackdropTexture />
+
+      <div className="relative z-10 w-full max-w-2xl mx-4">
+        <button
+          type="button"
+          onClick={onBack}
+          className="mb-4 inline-flex items-center gap-1 text-meta font-semibold text-foreground-muted hover:text-brand-action transition-colors"
+        >
+          <span aria-hidden>&larr;</span> Back
+        </button>
+
+        <h1 className="mb-6 text-center text-display font-extrabold tracking-tight text-foreground">
+          {pendingSignInProvider
+            ? "Connect your folder to finish signing in"
+            : "Connect your folder"}
+        </h1>
+
+        {/* BeakerBot side column with the opt-in walkthrough CTA. On lg+ this
+            floats in the right margin; on smaller screens it stacks above. */}
+        <div className="mb-6 flex flex-col items-center lg:fixed lg:top-6 lg:right-6 lg:left-auto lg:mb-0 lg:w-64 lg:z-40">
+          <div
+            className="mb-2 flex h-24 w-24 items-center justify-center"
+            data-testid="gate-beakerbot"
+          >
+            <BeakerBot
+              pose="idle"
+              alive
+              className="h-full w-full text-sky-300"
+              ariaLabel="BeakerBot"
+            />
+          </div>
+          <div className="relative w-full max-w-xs">
+            <div
+              aria-hidden
+              className="absolute -top-2 left-1/2 h-4 w-4 -translate-x-1/2 rotate-45 bg-surface-raised border-l border-t border-border"
+            />
+            <div className="relative rounded-2xl bg-surface-raised border border-border px-3 py-3 text-center shadow-lg dark:shadow-black/40">
+              <p className="text-title font-medium leading-snug text-foreground">
+                New here? It is strongly recommended to take a short onboarding
+                walkthrough (3 minutes). Returning? Just take it from here.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setWalkthroughOpen(true)}
+            data-testid="gate-walkthrough-open"
+            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-sky-500/10 dark:bg-sky-500/15 px-4 py-2 text-body font-semibold text-sky-700 dark:text-sky-100 border border-sky-400/40 dark:border-sky-300/40 transition-colors hover:bg-sky-500/20 dark:hover:bg-sky-500/25 hover:text-sky-800 dark:hover:text-white hover:border-sky-400/70 dark:hover:border-sky-300/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500 dark:focus-visible:outline-sky-300"
+          >
+            Take the 3-minute walkthrough
+          </button>
+        </div>
+
+        <div className="max-w-xl mx-auto">
+          <div
+            data-testid="link-folder-drop-zone"
+            onDragEnter={handleDragEnter}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`relative bg-surface-raised backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden transition-all ${
+              isDragOver
+                ? "border-2 border-dashed border-blue-400 bg-blue-500/15 ring-4 ring-blue-400/30"
+                : "border-2 border-dashed border-border hover:border-foreground-muted"
+            }`}
+          >
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                  <Icon name="folder" className="w-5 h-5 text-blue-400" />
+                </div>
+                <h2 className="text-heading font-bold text-foreground">
+                  Link a folder
+                </h2>
+              </div>
+              <p className="text-foreground-muted text-body mb-4">
+                Point ResearchOS at a folder on your computer. It can be an
+                existing ResearchOS folder (with your projects and data, maybe
+                synced via OneDrive or iCloud), or a brand-new empty folder. We
+                set up an empty folder automatically the first time you link it.
+              </p>
+              <p
+                className={`text-meta mb-4 transition-colors ${
+                  isDragOver
+                    ? "text-blue-600 dark:text-blue-200 font-medium"
+                    : "text-foreground-muted"
+                }`}
+              >
+                {isDragOver
+                  ? "Release to link this folder"
+                  : "Drop your folder here, or click below to pick"}
+              </p>
+              <button
+                onClick={handleConnect}
+                disabled={isLoading}
+                data-testid="gate-choose-folder"
+                className="btn-brand w-full py-2.5 font-medium rounded-lg shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isLoading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                ) : (
+                  "Choose a folder"
+                )}
+              </button>
+              {dropError && (
+                <p
+                  role="alert"
+                  data-testid="link-folder-drop-error"
+                  className="mt-3 text-meta text-red-600 dark:text-red-300"
+                >
+                  {dropError}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {error && (
+          <div className="mt-4 p-3 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg max-w-xl mx-auto">
+            <p className="text-body text-red-700 dark:text-red-300">{error}</p>
+          </div>
+        )}
+
+        <GateFooter onBugReport={openBugReport} />
+      </div>
+
+      {/* Post-abort recovery modal. Chrome wraps a user cancel and a blocked
+          system-folder pick in the same AbortError, so this is framed to cover
+          both without claiming "Chrome blocked your folder". This is the only
+          place the Desktop/Documents/Downloads guidance appears (Grant
+          2026-06-10): surface it when they actually hit the block, not as a
+          pre-warning. */}
+      {showSystemFolderHint && !systemFolderHintDismissed && (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="gate-system-folder-recovery-title"
+        >
+          <div
+            data-testid="gate-system-folder-recovery"
+            className="w-full max-w-md rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-300/50 dark:border-amber-300/30 shadow-2xl p-6"
+          >
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-amber-500/20">
+                <Icon name="alert" className="h-5 w-5 text-amber-300" />
+              </span>
+              <div className="flex-1">
+                <h3
+                  id="gate-system-folder-recovery-title"
+                  className="text-title font-semibold text-foreground"
+                >
+                  That folder can&apos;t be used. Pick a different spot.
+                </h3>
+                <p className="mt-2 text-body text-amber-700 dark:text-amber-100/90 leading-relaxed">
+                  If Chrome just told you a folder &quot;contains system
+                  files&quot;, that is its block on sensitive locations. Chrome
+                  blocks the top-level Desktop, Documents, Downloads, and home
+                  folders themselves, but a subfolder you make inside any of them
+                  works fine.
+                </p>
+                <p className="mt-2 text-body text-amber-700 dark:text-amber-100/90 leading-relaxed">
+                  Make an empty folder with your file manager (like
+                  Documents/ResearchOS, or even one on your Desktop), then link
+                  that folder here, not its top-level parent. We set up an empty
+                  folder automatically the first time you link it.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSystemFolderHint(false);
+                  setSystemFolderHintDismissed(true);
+                }}
+                className="px-3 py-2 text-body rounded-lg text-amber-700 dark:text-amber-100/80 hover:text-foreground hover:bg-surface-sunken transition-colors"
+                data-testid="gate-system-folder-recovery-dismiss"
+              >
+                Got it
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSystemFolderHint(false);
+                  void handleConnect();
+                }}
+                className="px-4 py-2 text-body font-medium rounded-lg bg-amber-500/90 text-slate-900 hover:bg-amber-400 transition-colors"
+                data-testid="gate-system-folder-recovery-retry"
+              >
+                Link a folder in Documents
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <FeedbackModal
+        isOpen={showBugReport}
+        onClose={closeBugReport}
+        prefilledError={currentError}
+      />
+
+      {/* RISE credentials authority stamp, bottom-right. */}
+      <RiseCredentialsStamp />
+
+      {/* Opt-in walkthrough modal (controlled). Renders nothing while closed. */}
+      <PickerWalkthroughModal
+        open={walkthroughOpen}
+        onClose={() => setWalkthroughOpen(false)}
+      />
+    </div>
+  );
+}
+
+/** Shared dotted backdrop texture used by both gate surfaces. */
+function BackdropTexture() {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 overflow-hidden"
+    >
+      <div className="absolute left-1/2 top-[-12%] h-[60vh] w-[85vw] -translate-x-1/2 rounded-full bg-gradient-to-br from-brand-sky/30 via-brand-purple/15 to-transparent opacity-70 blur-3xl dark:opacity-40" />
+      <div
+        className="absolute inset-0 opacity-[0.05]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23475569' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+        }}
+      />
+    </div>
+  );
+}
+
+/** BeakerBot-in-gradient-pill brand header used by the init surface. */
+function BrandHeader({ subtitle }: { subtitle: string }) {
+  return (
+    <div className="text-center mb-8">
+      <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-sky to-brand-purple shadow-lg mb-4">
+        <BeakerBot
+          pose="idle"
+          noLiquid
+          ariaLabel="ResearchOS BeakerBot logo"
+          className="w-8 h-8 text-white"
+        />
+      </div>
+      <h1 className="text-display font-extrabold tracking-tight text-foreground">
+        ResearchOS
+      </h1>
+      <p className="text-foreground-muted mt-2">{subtitle}</p>
+    </div>
+  );
+}
+
+/** Lean footer for the gate surfaces. The full footer-link set (setup guide,
+ *  sharing, support) lives on the start screen; here we keep just the setup
+ *  guide and a bug-report affordance, since this is a fallback surface. */
+function GateFooter({ onBugReport }: { onBugReport: () => void }) {
+  return (
+    <div className="text-center mt-6 flex items-center justify-center gap-4 flex-wrap">
+      <a
+        href="/wiki/getting-started/connecting-your-folder"
+        className="text-foreground-muted hover:text-foreground text-meta transition-colors"
+      >
+        New here? Read the setup guide
+      </a>
+      <button
+        onClick={onBugReport}
+        className="text-foreground-muted hover:text-foreground text-meta transition-colors"
+      >
+        Report Bug
+      </button>
+      <BetaDonationButton variant="link" />
+    </div>
+  );
+}

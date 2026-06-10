@@ -1,5 +1,5 @@
 // Coverage for the drop-event → FileSystemDirectoryHandle extractor used
-// by the "Link Existing Folder" drop zone in ResearchFolderSetupNew.tsx.
+// by the "Link a folder" drop zone in FolderConnectGate.tsx.
 //
 // The DataTransferItemList that drop events deliver is impossible to
 // construct directly in a test env (it's an interface, not a class), so

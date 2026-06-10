@@ -266,6 +266,21 @@ function SignInRow({
         <span className="text-meta text-[#8593a8]">
           A seeded lab, no folder or account needed.
         </span>
+        {/* Starter-folder download, rehomed here next to the live demo (its
+            conceptual sibling, the low-commitment "just look around" path) from
+            the retired ResearchFolderSetupNew landing card (onboarding
+            redundancy removal, 2026-06-10). Same fake yeast-lab dataset, but as
+            a folder you link so you can poke at the real on-disk layout. */}
+        <a
+          href="/demo-lab.zip"
+          data-testid="welcome-download-starter"
+          className="mt-2 text-meta text-[#8593a8] underline-offset-2 transition-colors hover:text-brand-action hover:underline"
+        >
+          Or download it as a starter folder to link
+        </a>
+        <span className="text-meta text-[#8593a8]">
+          An entirely fake yeast-lab dataset to explore the app with.
+        </span>
       </div>
     </div>
   );

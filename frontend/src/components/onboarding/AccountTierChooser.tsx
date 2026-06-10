@@ -1,11 +1,11 @@
 "use client";
 
 // The 3-tier account chooser. Rendered as the first beat for a fresh user
-// (no currentUser, fresh folder) before ResearchFolderSetupNew.
+// (no currentUser, fresh folder) before the folder connect.
 //
 // Phase B2: the chooser is now a state machine.
 //
-//   Local tile   -> onLocal() (falls through to ResearchFolderSetupNew as before)
+//   Local tile   -> onLocal() (opens the OS picker directly via connect())
 //   Free tile    -> provider sub-step -> router.push("/?connect=1&signIn=<p>")
 //   Lab tile     -> create-or-join sub-step:
 //                     Create -> provider sub-step -> sets lab-create marker, router.push

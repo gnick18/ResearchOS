@@ -7,7 +7,7 @@ import { detectUnsupportedBrowser } from "@/lib/file-system/file-system-context"
  * API that ResearchOS is built on. The copy is browser-specific so a Brave
  * user (who we used to tell was supported) gets a straight answer instead of
  * a screen that contradicts itself. Shared by `providers.tsx` and
- * `ResearchFolderSetupNew.tsx` so the two gates never drift apart.
+ * `FolderConnectGate.tsx` so the two gates never drift apart.
  */
 const COPY: Record<
   ReturnType<typeof detectUnsupportedBrowser>,

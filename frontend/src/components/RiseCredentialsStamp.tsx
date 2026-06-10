@@ -6,7 +6,7 @@ import Image from "next/image";
  * RISE credentials stamp.
  *
  * Fixed-position card in the bottom-right corner of the viewport. Lives
- * on the folder-picker (`ResearchFolderSetupNew`) as a structural
+ * on the folder-connect gate (`FolderConnectGate`) as a structural
  * "real academic project, not a data-harvesting scheme" signal that
  * sits visibly out of the main column. Renamed and re-homed from the
  * retired pre-onboarding modal's `CredentialsFooter` on 2026-05-25.

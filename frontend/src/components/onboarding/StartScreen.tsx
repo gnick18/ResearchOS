@@ -21,6 +21,9 @@ import { markLandingSeen } from "@/lib/landing/landing-gate";
 import SharingProviderButtons, {
   type SharingProvider,
 } from "@/components/sharing/SharingProviderButtons";
+import BetaDonationButton from "@/components/BetaDonationButton";
+import FeedbackModal from "@/components/FeedbackModal";
+import { useErrorReporting } from "@/hooks/useErrorReporting";
 
 export interface StartScreenProps {
   /** True when a previously-connected folder is known (returning visitor). */
@@ -45,6 +48,8 @@ export function StartScreen({
 }: StartScreenProps) {
   const router = useRouter();
   const [showSignIn, setShowSignIn] = useState(false);
+  const { showBugReport, currentError, openBugReport, closeBugReport } =
+    useErrorReporting();
 
   const signIn = (provider: SharingProvider) => {
     markLandingSeen();
@@ -131,6 +136,41 @@ export function StartScreen({
           account only adds sharing and team sync.
         </p>
       )}
+
+      {/* Footer links, rehomed from the retired ResearchFolderSetupNew landing
+          card (onboarding redundancy removal, 2026-06-10). The setup guide and
+          the lab-sharing primer answer the two most common pre-connect
+          questions; Report Bug + Support keep the beta-feedback affordances at
+          the front door. */}
+      {!showSignIn && (
+        <div className="mt-6 flex items-center justify-center gap-4 flex-wrap text-center">
+          <a
+            href="/wiki/getting-started/connecting-your-folder"
+            className="text-foreground-muted hover:text-foreground text-meta transition-colors"
+          >
+            New here? Read the setup guide
+          </a>
+          <a
+            href="/wiki/shared-lab-accounts"
+            className="text-foreground-muted hover:text-foreground text-meta transition-colors"
+          >
+            Sharing a folder with your lab?
+          </a>
+          <button
+            onClick={openBugReport}
+            className="text-foreground-muted hover:text-foreground text-meta transition-colors"
+          >
+            Report Bug
+          </button>
+          <BetaDonationButton variant="link" />
+        </div>
+      )}
+
+      <FeedbackModal
+        isOpen={showBugReport}
+        onClose={closeBugReport}
+        prefilledError={currentError}
+      />
 
       {/* Bouncing scroll-down affordance: snaps to the welcome section below. */}
       {onScrollDown && !showSignIn && (
