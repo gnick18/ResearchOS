@@ -502,6 +502,8 @@ export default function NotebookScreen() {
           entryId,
           userX25519PubHex,
           pairing.relayUrl,
+          // Scanned notes carry their OCR layer in the sealed command.
+          pendingCapture.ocr,
         );
         fireSuccess({ subtitle: `Filed in ${notebook.title}` });
       } catch {

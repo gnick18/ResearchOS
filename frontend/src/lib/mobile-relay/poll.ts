@@ -69,6 +69,7 @@ import { filesApi, notesApi, inventoryItemsApi, inventoryStocksApi, purchasesApi
 import { canWriteIgnoringPiRole } from "@/lib/sharing/unified";
 import { attachImageToTask, attachImageToNote } from "@/lib/attachments/attach-image";
 import { writeAnnotations, type AnnotationDoc } from "@/lib/attachments/annotations";
+import { writeOcr, type OcrResult } from "@/lib/attachments/ocr";
 import { imageEvents } from "@/lib/attachments/image-events";
 import { sidecarPath, type ImageSidecar } from "@/lib/attachments/image-folder";
 import {
@@ -257,6 +258,9 @@ interface RouteCaptureNoteCommand {
   owner: string;
   /** Entry id to append the image to. Null means use the latest entry (fallback). */
   entryId: string | null;
+  /** OCR layer for a scanned handwriting note (sealed inside this command, E2E).
+   *  Present only for scans; the laptop writes it to {image}.ocr.json. */
+  ocr?: OcrResult;
 }
 
 /**
@@ -762,7 +766,7 @@ export async function runCaptureInboxPoll(
   // the relay TTL (set by the worker) is the guard.
   const routeMap = new Map<string, { taskId: number; owner: string; tab: "notes" | "results"; commandId: string }>();
   // Note route map: captureId -> note destination + commandId (Phase 1.5).
-  const noteRouteMap = new Map<string, { noteId: number; owner: string; entryId: string | null; commandId: string }>();
+  const noteRouteMap = new Map<string, { noteId: number; owner: string; entryId: string | null; commandId: string; ocr?: OcrResult }>();
   // Append-line commands to apply after the route-map pass. Accumulated here so
   // we process captures first (route-map must be complete), then apply appends.
   const appendLineQueue: Array<{ cmd: AppendLineCommand; commandId: string }> = [];
@@ -820,6 +824,7 @@ export async function runCaptureInboxPoll(
                 owner: rcn.owner,
                 entryId: rcn.entryId ?? null,
                 commandId: cmd.commandId,
+                ocr: rcn.ocr,
               });
               console.info(
                 `${LOG_PREFIX} route-capture-note command: captureId=${rcn.captureId} -> note ${rcn.owner}/${rcn.noteId} entryId=${rcn.entryId ?? "latest"}`,
@@ -1078,6 +1083,28 @@ export async function runCaptureInboxPoll(
           console.info(
             `${LOG_PREFIX} wrote note ${noteRoute.noteId}/Images/${noteResult.finalFilename}`,
           );
+
+          // Scanned handwriting note: write the OCR sidecar next to the image so
+          // the note shows the enhanced scan with its hidden editable text, and
+          // search can index the extracted text. Best-effort, never blocks the
+          // image that already landed.
+          if (noteRoute.ocr) {
+            try {
+              await writeOcr(
+                `users/${noteRoute.owner}/notes/${noteRoute.noteId}`,
+                noteResult.finalFilename,
+                noteRoute.ocr,
+              );
+              console.info(
+                `${LOG_PREFIX} wrote OCR sidecar for ${noteResult.finalFilename}`,
+              );
+            } catch (ocrErr) {
+              console.warn(
+                `${LOG_PREFIX} failed to write OCR sidecar for ${noteResult.finalFilename}`,
+                ocrErr instanceof Error ? ocrErr.message : String(ocrErr),
+              );
+            }
+          }
 
           // Dispatch note:routed so the open note popup auto-switches to the entry.
           if (typeof window !== "undefined") {
