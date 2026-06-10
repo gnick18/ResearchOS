@@ -15,9 +15,11 @@ export interface SectionHeaderProps {
   action?: string;
   /** Fires when the action label is pressed. */
   onAction?: () => void;
+  /** Optional action label color. Defaults to the sky active tint. */
+  actionColor?: string;
 }
 
-export function SectionHeader({ title, action, onAction }: SectionHeaderProps) {
+export function SectionHeader({ title, action, onAction, actionColor }: SectionHeaderProps) {
   const { surface, type, spacing } = useTheme();
 
   return (
@@ -25,7 +27,7 @@ export function SectionHeader({ title, action, onAction }: SectionHeaderProps) {
       <Text style={[styles.title, { color: surface.text }]}>{title}</Text>
       {action && onAction ? (
         <Pressable onPress={onAction} hitSlop={8} accessibilityRole="button">
-          <Text style={[styles.action, { color: surface.tabBarActiveTint }]}>{action}</Text>
+          <Text style={[styles.action, { color: actionColor ?? surface.tabBarActiveTint }]}>{action}</Text>
         </Pressable>
       ) : null}
     </View>
