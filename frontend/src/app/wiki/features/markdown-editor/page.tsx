@@ -604,6 +604,15 @@ A3 looks suspect, repeat tomorrow morning.`}</code>
           same image a second time. The file isn&apos;t duplicated, only the
           reference is.
         </li>
+        <li>
+          <strong>Spell-check your prose</strong> by turning on{" "}
+          <Link href="/wiki/features/settings">Settings &rsaquo; Behavior</Link>{" "}
+          &rsaquo; Spell-check in the editor (off by default). When on, the
+          editor underlines likely misspellings and offers click-to-fix
+          suggestions, and its dictionary already knows common lab terms so
+          science words aren&apos;t flagged. Anything it does flag can be added
+          to your own dictionary. Code spans, link URLs, and numbers stay quiet.
+        </li>
       </ul>
     </WikiPage>
   );

@@ -250,10 +250,18 @@ export default function SettingsFeaturePage() {
 
       <h2>Behavior</h2>
       <p>
-        One safety switch. <strong>Confirm destructive actions</strong>, when
-        on, shows an &ldquo;Are you sure?&rdquo; prompt before you delete a
-        task, project, or similar object. Switching it off skips the prompt for
-        power-user use.
+        A safety switch and an editor helper. <strong>Confirm destructive
+        actions</strong>, when on, shows an &ldquo;Are you sure?&rdquo; prompt
+        before you delete a task, project, or similar object. Switching it off
+        skips the prompt for power-user use.
+      </p>
+      <p>
+        <strong>Spell-check in the editor</strong> underlines likely
+        misspellings as you write notes and offers click-to-fix suggestions. It
+        is off by default because bench shorthand (gene names, reagents, your
+        own abbreviations) reads as misspelled, so turn it on when you write
+        longer prose and want the catch. The dictionary already knows common lab
+        terms, and you can add any word it flags to your own dictionary.
       </p>
 
       <h2>Appearance</h2>
