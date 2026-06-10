@@ -68,10 +68,33 @@ const PUBLIC_ROUTES = [
   // Create a new account). For the local-first "connect your folder" docs we
   // point at "Open a folder", the path that opens a folder on your own disk.
   {
+    // The start screen is the account chooser (Sign in / Open a folder /
+    // Create account). The folder-connect docs want the ResearchFolderSetupNew
+    // picker, which renders AFTER clicking "Open a folder", so click it and
+    // wait for the drop zone to mount. fullPage so the "Link a folder" card,
+    // the "Starting fresh?" box, the demo/starter links, and the RISE stamp all
+    // land in the shot.
     path: "/?connect=1",
     file: "folder-connect.png",
     waitFor: "text=Open a folder",
-    highlight: { text: "Open a folder" },
+    fullPage: true,
+    action: async (page) => {
+      try {
+        const openBtn = page.getByText(/Open a folder/i).first();
+        if (await openBtn.count()) {
+          await openBtn.click({ timeout: 3000 });
+          await page
+            .waitForSelector('[data-testid="link-folder-drop-zone"]', {
+              timeout: 4000,
+            })
+            .catch(() => {});
+          await page.waitForTimeout(600);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ folder-connect open picker: ${err.message}`);
+      }
+    },
+    highlight: { selector: '[data-testid="link-folder-drop-zone"]' },
   },
   // The first-time-visitor landing ("sell") page. Captured from the
   // standalone /welcome route (renders for everyone, no fixture needed).
@@ -95,9 +118,29 @@ const PICKER_ROUTES = [
     path: "/",
     file: "user-login.png",
     captureVariant: "picker",
-    waitFor:
-      "text=Select Account, text=Create New Account, text=Pick a user, text=Continue",
-    highlight: { selector: "input[placeholder*='username' i]" },
+    // The picker subtitle is "Select your account to continue". The old
+    // waitFor text ("Pick a user", "Continue") never existed in
+    // UserLoginScreen, so it timed out and the shot missed the hover-action
+    // icons (star = set main, pencil = rename, trash = delete) that only
+    // surface on hover. Force the first tile's hover state so those icons are
+    // visible in the capture.
+    waitFor: "text=Select your account to continue",
+    settleMs: 600,
+    action: async (page) => {
+      try {
+        const tile = page
+          .locator('div[role="button"][aria-label*="Sign in as" i]')
+          .first();
+        if (await tile.count()) {
+          await tile.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+          await tile.hover({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(400);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ user-login hover tile: ${err.message}`);
+      }
+    },
+    highlight: { selector: 'div[role="button"][aria-label*="Sign in as" i]' },
   },
 ];
 
@@ -473,14 +516,17 @@ async function notePopupClip(page) {
  *  open a modal). */
 const FIXTURE_ROUTES = [
   {
-    // Project Surface route — Overview section + the sticky anchor strip.
-    // FakeYeast project (alex/1) is the demo project. The fixture seeds no
-    // overview prose, so the editor's empty-state placeholder is what
-    // shows up. fullPage so the section spacing reads cleanly below the
-    // sticky top bar.
+    // Project Surface — the ProjectDetailPopup home view (PROJECT_POPUP_REDESIGN,
+    // 2026-06-09). The full-page ProjectRoute was retired; loading
+    // /workbench/projects/1 renders the browse grid and auto-opens the popup for
+    // project 1 (FakeYeast). The home view shows the Status glance section
+    // (progress bar + experiment/task counts + last active), the About overview
+    // (empty-state placeholder, the fixture seeds no prose), the Go to doorways,
+    // and the Actions row. Viewport capture of the centered popup.
     path: "/workbench/projects/1",
     file: "projects-route-overview.png",
-    waitFor: '[data-testid="project-route-topbar"], text=Overview',
+    waitFor:
+      '[data-testid="project-status-glance"], [data-testid="project-overview"]',
     settleMs: 800,
   },
   {
@@ -666,6 +712,21 @@ const FIXTURE_ROUTES = [
     file: "gantt-overview.png",
     waitFor: ".gantt, [role='grid'], text=GANTT",
     settleMs: 1500,
+    action: async (page) => {
+      // The Projects dropdown can carry over an open/filtered state from prior
+      // store state, which either hides every bar (empty Gantt) or covers the
+      // timeline with the open listbox. Close it if it's open so the shot shows
+      // the full timeline with all project bars.
+      try {
+        const trigger = page
+          .locator('button[aria-haspopup="listbox"][aria-expanded="true"]')
+          .first();
+        if (await trigger.count()) {
+          await trigger.click({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(500);
+        }
+      } catch {}
+    },
     highlight: { text: "+ Task" },
   },
   {
@@ -719,6 +780,31 @@ const FIXTURE_ROUTES = [
     },
   },
   {
+    // The lab-head (PI) Gantt view: signed in as mira (the fixture's lab_head),
+    // the project dropdown spans every member's projects so the timeline shows
+    // task bars from both alex and morgan. Referenced by the gantt wiki page's
+    // lab-head section. Highlight the "All" project filter to show the
+    // cross-member scope.
+    path: "/gantt?fixtureUser=mira",
+    file: "gantt-overview-lab-head.png",
+    waitFor: ".gantt, [role='grid'], text=GANTT",
+    settleMs: 1500,
+    action: async (page) => {
+      // Ensure all projects are shown (close the dropdown if it carried over an
+      // open/filtered state).
+      try {
+        const trigger = page
+          .locator('button[aria-haspopup="listbox"][aria-expanded="true"]')
+          .first();
+        if (await trigger.count()) {
+          await trigger.click({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(500);
+        }
+      } catch {}
+    },
+    highlight: { text: "All" },
+  },
+  {
     // The Workbench Experiments tab: the pipeline kanban board (Ready /
     // Blocked / Running / Awaiting columns) with the results grids below.
     // Projects is the default tab now, so click into Experiments first.
@@ -751,6 +837,11 @@ const FIXTURE_ROUTES = [
     file: "transparency-method-validation.png",
     waitFor: "text=Method validation, text=peer-reviewed",
     settleMs: 1400,
+    // fullPage so the whole page is captured top-to-bottom: the header, the
+    // exact/within/larger count badges, the complete "Where ResearchOS differs"
+    // list, the TransparencyTabs comparison tables, and the AppFooter. A
+    // viewport shot truncates mid-"Where ResearchOS differs".
+    fullPage: true,
   },
   {
     // Lab calculators modal: the floating beaker button (global) opens the
@@ -845,15 +936,19 @@ const FIXTURE_ROUTES = [
     },
   },
   {
+    // The markdown editor inside an experiment's Lab Notes tab. The
+    // TaskDetailPopup defaults to the Details tab, so open the task THEN
+    // click into Lab Notes or the shot lands on the empty Details pane.
     path: "/workbench",
     file: "experiments-editor.png",
     waitFor: "text=Workbench, text=Experiments",
     settleMs: 800,
     action: async (page) => {
-      await revealCompletedAndOpenTask(
+      if (!(await revealCompletedAndOpenTask(
         page,
         /Yeast transformation:\s*pYES-GAL1::flbA/i,
-      );
+      ))) return;
+      await openLabNotesTab(page);
     },
   },
   // NOTE: editor-language-picker.png was retired 2026-05-28. It was never
@@ -921,9 +1016,76 @@ const FIXTURE_ROUTES = [
     },
   },
   {
+    // editor-inline-mode.png — the markdown editor in its default "inline"
+    // mode mid-edit. Open the seeded experiment's Lab Notes, then place the
+    // caret on a non-heading paragraph so the markdown markers reveal only on
+    // the cursor line (the "caret-aware marker hiding" mechanic the wiki page
+    // describes). Referenced by /wiki/features/markdown-editor.
+    path: "/experiments",
+    file: "editor-inline-mode.png",
+    waitFor: "h1, h2, text=Lab Notes",
+    settleMs: 800,
+    action: async (page) => {
+      if (!(await revealCompletedAndOpenTask(
+        page,
+        /Yeast transformation:\s*pYES-GAL1::flbA/i,
+      ))) return;
+      try {
+        await openLabNotesTab(page);
+        // Click mid-document on a body paragraph to place the caret there so
+        // the markers reveal on that line only.
+        const block = page.getByText(/Plated on SD-Ura/i).first();
+        if (await block.count()) {
+          await block.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+          await block.click({ timeout: 3000 });
+          await page.waitForTimeout(500);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ editor-inline-mode action: ${err.message}`);
+      }
+    },
+  },
+  {
+    // editor-save-checkpoint.png — the right end of the editor toolbar with
+    // the Version history (clock) button and the blue "Save checkpoint"
+    // button enabled. Open Lab Notes, focus the editor body so the editor goes
+    // dirty and the Save checkpoint button enables. Referenced by
+    // /wiki/features/markdown-editor.
+    path: "/experiments",
+    file: "editor-save-checkpoint.png",
+    waitFor: "text=Lab Notes",
+    settleMs: 800,
+    action: async (page) => {
+      if (!(await revealCompletedAndOpenTask(
+        page,
+        /Yeast transformation:\s*pYES-GAL1::flbA/i,
+      ))) return;
+      try {
+        await openLabNotesTab(page);
+        // Focus a body paragraph so the editor registers a change and the
+        // "Save checkpoint" button switches to its blue enabled state.
+        const block = page.getByText(/Plated on SD-Ura/i).first();
+        if (await block.count()) {
+          await block.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+          await block.click({ timeout: 3000 });
+          await page.waitForTimeout(500);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ editor-save-checkpoint action: ${err.message}`);
+      }
+    },
+    highlight: { text: "Save checkpoint" },
+  },
+  {
+    // fullPage so the whole library lands in one shot: the header (search,
+    // New Category, Template library, New Method), the My Methods section, and
+    // crucially the Shared with Lab section with its diverse method-type pills
+    // (Markdown, PCR, LC Gradient, Plate Layout, Cell culture, Mass spec, qPCR
+    // analysis, Coding workflow). A viewport shot only catches ~3 types.
     path: "/methods",
     file: "methods-library.png",
-    waitFor: "text=Methods",
+    waitFor: "text=Method Library",
+    fullPage: true,
     highlight: { text: "New Method" },
   },
   {
@@ -1170,16 +1332,58 @@ const FIXTURE_ROUTES = [
     // states. No row tints, no active/earlier split — the post-redesign
     // page is a single reverse-chronological list. Replaces purchases-list.png
     // which was retired with the Chip A-E unified-scroll rework.
+    //
+    // ENV REQUIREMENT: NEXT_PUBLIC_INVENTORY_ENABLED must be unset or =0 for
+    // this capture. When it is =1 the /purchases route redirects to /supplies
+    // (the inventory list), which is the wrong page — the shot then shows the
+    // Supplies header + supply items instead of the Purchases order list.
     path: "/purchases",
     file: "purchases-unified-scroll.png",
     waitFor: "text=Purchases",
     settleMs: 600,
   },
   {
+    // The NewPurchaseModal, opened from the amber "+ New Purchase" button in
+    // the page header. Referenced by /wiki/features/purchases. Same env
+    // requirement as the other /purchases shots (INVENTORY_ENABLED off).
+    path: "/purchases",
+    file: "purchases-new-purchase-modal.png",
+    waitFor: "text=Purchases",
+    settleMs: 700,
+    action: async (page) => {
+      try {
+        let btn = page
+          .locator('[data-tour-target="purchases-new-button"]')
+          .first();
+        if (!(await btn.count())) {
+          btn = page
+            .locator("button")
+            .filter({ hasText: /New Purchase/i })
+            .first();
+        }
+        if (await btn.count()) {
+          await btn.click({ timeout: 3000 });
+          await page
+            .waitForSelector("text=New Purchase", { timeout: 4000 })
+            .catch(() => {});
+          await page.waitForTimeout(600);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ purchases-new-purchase-modal open: ${err.message}`);
+      }
+    },
+    highlight: { text: "New Purchase" },
+  },
+  {
     // One purchase order card expanded inline, with the PurchaseEditor's
     // line-item table visible and the new Vendor + Category columns
     // populated. Bonus: focus the Vendor input and type one letter so the
     // autocomplete datalist surfaces suggestions (NEB, etc.).
+    //
+    // ENV REQUIREMENT: NEXT_PUBLIC_INVENTORY_ENABLED must be unset or =0, else
+    // /purchases redirects to /supplies (inventory list) and the
+    // PurchaseEditor line-item table never renders, so the shot lands on the
+    // wrong page.
     path: "/purchases",
     file: "purchases-expanded-order.png",
     waitFor: "text=Purchases",
@@ -1299,7 +1503,21 @@ const FIXTURE_ROUTES = [
       } catch (err) {
         console.warn(`  ⚠ purchases-non-purchase-warning open tab: ${err.message}`);
       }
+      // Confirm the amber non-purchase warning banner actually rendered before
+      // the shot — the previous spec waited only for "Lab Notes", which is
+      // present before the Order items tab is clicked.
+      try {
+        await page.waitForSelector(
+          'text=This task is not typed as a purchase order',
+          { timeout: 5000 },
+        );
+      } catch {
+        console.warn(
+          "  ⚠ purchases-non-purchase-warning: warning banner never rendered",
+        );
+      }
     },
+    highlight: { selector: "div.bg-yellow-50.border.border-yellow-200" },
   },
   {
     // Tight clip around the dashboard's "Funding accounts" card grid
@@ -1307,9 +1525,13 @@ const FIXTURE_ROUTES = [
     // Uncategorized tile if items lack a funding_string). Section
     // heading "Funding accounts" is rendered as an <h4> inside
     // SpendingDashboard.
+    // ENV REQUIREMENT: NEXT_PUBLIC_INVENTORY_ENABLED must be off, else
+    // /purchases redirects to /supplies and the dashboard's "Funding accounts"
+    // <h4> never exists. Wait on the dashboard heading (not the generic
+    // "Purchases" page text, which also matches the Supplies header).
     path: "/purchases",
     file: "purchases-dashboard-funding-cards.png",
-    waitFor: "text=Purchases",
+    waitFor: "text=Spending dashboard",
     settleMs: 900,
     action: async (page) => {
       try {
@@ -1355,12 +1577,40 @@ const FIXTURE_ROUTES = [
   },
   {
     // Tight clip around the recharts BarChart that shows monthly spend.
-    // The chart sits inside a <section> headed by "Spend over time".
-    path: "/purchases",
+    // The chart sits inside a <section> headed by "Spend over time". On
+    // /supplies (INVENTORY_ENABLED), the dashboard lives in a lab-head-only
+    // drawer, so sign in as mira and open "View spending" first, then hover a
+    // bar to surface the "$X.XX (N items)" tooltip.
+    path: "/supplies?wikiCapture=1&fixtureUser=mira",
     file: "purchases-dashboard-spend-over-time.png",
-    waitFor: "text=Purchases",
+    waitFor: "text=View spending",
     settleMs: 900,
     action: async (page) => {
+      try {
+        const view = page
+          .locator(
+            '[data-testid="supplies-view-spending"], button:has-text("View spending")',
+          )
+          .first();
+        if (await view.count()) {
+          await view.click({ timeout: 3000 });
+          await page
+            .waitForSelector("text=Spend over time", { timeout: 5000 })
+            .catch(() => {});
+          await page.waitForTimeout(700);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ spend-over-time open drawer: ${err.message}`);
+      }
+      // Hover the first chart bar so the "$X.XX (N items)" tooltip renders.
+      try {
+        const bar = page.locator(".recharts-bar-rectangle").first();
+        if (await bar.count()) {
+          await bar.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
+          await bar.hover({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(500);
+        }
+      } catch {}
       try {
         const clip = await page.evaluate(() => {
           const headings = Array.from(
@@ -1405,11 +1655,29 @@ const FIXTURE_ROUTES = [
     // we anchor the lookup off the segmented-control buttons (the three
     // exact-text pills "Project" / "Vendor" / "Category" sit inside a
     // shared container).
-    path: "/purchases",
+    // /supplies hides the dashboard in a lab-head-only drawer, so sign in as
+    // mira and open "View spending" first. Project is the default lens.
+    path: "/supplies?wikiCapture=1&fixtureUser=mira",
     file: "purchases-dashboard-breakdown-project.png",
-    waitFor: "text=Purchases",
+    waitFor: "text=View spending",
     settleMs: 900,
     action: async (page) => {
+      try {
+        const view = page
+          .locator(
+            '[data-testid="supplies-view-spending"], button:has-text("View spending")',
+          )
+          .first();
+        if (await view.count()) {
+          await view.click({ timeout: 3000 });
+          await page
+            .waitForSelector("text=Spending dashboard", { timeout: 5000 })
+            .catch(() => {});
+          await page.waitForTimeout(700);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ breakdown-project open drawer: ${err.message}`);
+      }
       try {
         const clip = await page.evaluate(() => {
           // Find the segmented-control button labeled "Project" and walk
@@ -1451,12 +1719,28 @@ const FIXTURE_ROUTES = [
     },
   },
   {
-    // Same area, "Vendor" pill clicked first.
-    path: "/purchases",
+    // Same area, "Vendor" pill clicked first. /supplies drawer (lab-head).
+    path: "/supplies?wikiCapture=1&fixtureUser=mira",
     file: "purchases-dashboard-breakdown-vendor.png",
-    waitFor: "text=Purchases",
+    waitFor: "text=View spending",
     settleMs: 900,
     action: async (page) => {
+      try {
+        const view = page
+          .locator(
+            '[data-testid="supplies-view-spending"], button:has-text("View spending")',
+          )
+          .first();
+        if (await view.count()) {
+          await view.click({ timeout: 3000 });
+          await page
+            .waitForSelector("text=Spending dashboard", { timeout: 5000 })
+            .catch(() => {});
+          await page.waitForTimeout(700);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ breakdown-vendor open drawer: ${err.message}`);
+      }
       try {
         const pill = page
           .locator("button")
@@ -1511,12 +1795,28 @@ const FIXTURE_ROUTES = [
     },
   },
   {
-    // Same area, "Category" pill clicked first.
-    path: "/purchases",
+    // Same area, "Category" pill clicked first. /supplies drawer (lab-head).
+    path: "/supplies?wikiCapture=1&fixtureUser=mira",
     file: "purchases-dashboard-breakdown-category.png",
-    waitFor: "text=Purchases",
+    waitFor: "text=View spending",
     settleMs: 900,
     action: async (page) => {
+      try {
+        const view = page
+          .locator(
+            '[data-testid="supplies-view-spending"], button:has-text("View spending")',
+          )
+          .first();
+        if (await view.count()) {
+          await view.click({ timeout: 3000 });
+          await page
+            .waitForSelector("text=Spending dashboard", { timeout: 5000 })
+            .catch(() => {});
+          await page.waitForTimeout(700);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ breakdown-category open drawer: ${err.message}`);
+      }
       try {
         const pill = page
           .locator("button")
@@ -1635,12 +1935,31 @@ const FIXTURE_ROUTES = [
     },
   },
   {
-    // Highlight the "Export CSV" button on the dashboard. The button
-    // sits in the dashboard header above the Funding accounts grid.
-    path: "/purchases",
+    // Highlight the "Export CSV" button on the dashboard. On /supplies the
+    // dashboard (with the Export CSV control) lives in the lab-head-only
+    // "View spending" drawer, so sign in as mira and open it first.
+    path: "/supplies?wikiCapture=1&fixtureUser=mira",
     file: "purchases-csv-export.png",
-    waitFor: "text=Purchases",
+    waitFor: "text=View spending",
     settleMs: 800,
+    action: async (page) => {
+      try {
+        const view = page
+          .locator(
+            '[data-testid="supplies-view-spending"], button:has-text("View spending")',
+          )
+          .first();
+        if (await view.count()) {
+          await view.click({ timeout: 3000 });
+          await page
+            .waitForSelector("text=Export CSV", { timeout: 5000 })
+            .catch(() => {});
+          await page.waitForTimeout(700);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ purchases-csv-export open drawer: ${err.message}`);
+      }
+    },
     highlight: { text: "Export CSV" },
   },
   {
@@ -1656,15 +1975,24 @@ const FIXTURE_ROUTES = [
   // needs lab-overview illustrations, add fresh entries pointed at
   // /lab-overview with verified `action`s and re-capture.
   {
-    path: "/search?q=DEMO",
+    // The keywords URL param (not q) auto-populates the Keywords input and runs
+    // the search on mount, so the shot shows actual result cards (not just the
+    // empty form). Annotate the Search button to match the "then click Search"
+    // wiki caption.
+    path: "/search?keywords=DEMO",
     file: "search-results.png",
-    waitFor: "text=Search, text=DEMO",
-    highlight: { selector: "input[type='search'], input[placeholder*='earch' i]" },
+    waitFor: "text=Search results",
+    settleMs: 600,
+    highlight: { text: "Search" },
   },
   {
+    // The nav tab label was changed from "Lab Links" to the account-type-
+    // agnostic "Links" (2026-05-26), so the waitFor must match the current
+    // UI. Viewport shot of the Links page header ("N links saved") + the
+    // Add Link button + the first category group of link cards.
     path: "/links",
     file: "links.png",
-    waitFor: "text=Lab Links, text=Links",
+    waitFor: "text=Links, text=links saved",
     highlight: { text: "New Link" },
   },
   // NOTE: results-list.png and results-tab.png were retired when chip 4
@@ -1672,23 +2000,31 @@ const FIXTURE_ROUTES = [
   // captures now happen on the Workbench page via workbench-earlier.png
   // below.
   {
+    // The "Earlier results" archive lives on the Experiments tab (Projects
+    // is the default tab now), so click into Experiments first. fullPage so
+    // the EARLIER RESULTS header + the Flat / By project layout toggle + the
+    // grouped result cards all read in one shot. The Workbench fixture
+    // populates alex's completed experiments in ?wikiCapture=1.
     path: "/workbench",
     file: "workbench-earlier.png",
-    waitFor: "text=Workbench, text=Lab Notes, text=Experiments",
+    waitFor: "text=Workbench, text=Experiments",
     settleMs: 1000,
+    fullPage: true,
     action: async (page) => {
-      // Scroll to the Earlier archive at the bottom of the page so the
-      // section header + grouped cards are in frame. The Workbench
-      // fixture (added via chip 3) ensures alex's completed experiments
-      // and chain stacks populate the archive in ?wikiCapture=1.
+      await ensureExperimentsTab(page);
+      // Scroll to the Earlier results archive so the section header + the
+      // grouped cards are in frame before the fullPage capture settles.
       try {
-        const earlier = page.getByText(/^Earlier\b/i).first();
+        const earlier = page
+          .getByText(/^(Earlier results|EARLIER RESULTS|Earlier)\b/i)
+          .first();
         if (await earlier.count()) {
           await earlier.scrollIntoViewIfNeeded({ timeout: 3000 });
           await page.waitForTimeout(400);
         }
       } catch {}
     },
+    highlight: { text: "EARLIER RESULTS" },
   },
   {
     // The Lists tab renders 5 stages stacked top-to-bottom (Overdue /
@@ -1710,6 +2046,19 @@ const FIXTURE_ROUTES = [
           await page.waitForTimeout(800);
         }
       } catch {}
+      // Expand the first list-task card inline so the accordion panel (violet
+      // border, sub-task checklist, Add item input, Mark list complete button)
+      // is visible — that interactive panel is what the wiki text describes.
+      try {
+        const card = page.locator("h3, h4").first();
+        if (await card.count()) {
+          await card.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+          await card.click({ timeout: 3000 });
+          await page.waitForTimeout(700);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ workbench-lists expand card: ${err.message}`);
+      }
     },
   },
   {
@@ -1723,6 +2072,43 @@ const FIXTURE_ROUTES = [
     waitFor: "text=Settings, text=Profile",
     fullPage: true,
     highlight: { text: "Connect Telegram" },
+  },
+  {
+    // user-archiving-roster.png — the Lab Roster in Settings with a member
+    // row's Archive button revealed on hover. Referenced by
+    // /wiki/getting-started/user-archiving. The PI edit-session unlock gate was
+    // removed, so there must be NO "Editing as Lab Head" banner / "End session"
+    // button. Sign in as mira (the fixture's lab_head) so the roster + Archive
+    // affordance render.
+    path: "/settings?fixtureUser=mira",
+    file: "user-archiving-roster.png",
+    waitFor: "text=Lab Roster",
+    settleMs: 800,
+    action: async (page) => {
+      // Scroll the Lab Roster into view, then hover a non-self member row to
+      // reveal its Archive button.
+      try {
+        const roster = page.getByText(/Lab Roster/i).first();
+        if (await roster.count()) {
+          await roster.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(400);
+        }
+        // Roster rows carry a data-testid like lab-roster-row-<member>; hover
+        // the second one (the first is usually the lab-head's own row).
+        let row = page.locator('[data-testid^="lab-roster-row-"]').nth(1);
+        if (!(await row.count())) {
+          row = page.locator('[data-testid^="lab-roster-row-"]').first();
+        }
+        if (await row.count()) {
+          await row.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+          await row.hover({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(400);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ user-archiving-roster hover row: ${err.message}`);
+      }
+    },
+    highlight: { text: "Archive" },
   },
   {
     path: "/",
@@ -1772,17 +2158,31 @@ const FIXTURE_ROUTES = [
     // as a static list. Playwright's selectOption / click can't reliably
     // *visually* open a native dropdown across platforms, but bumping
     // size= forces the options to render inline — captured in the shot.
-    path: "/calendar",
+    // Deep-link /calendar?addFeed=1 auto-opens the Linked Calendars modal on
+    // mount, which is more reliable than a button click (LivingPopup animates
+    // in and the old 800ms timeout fired before it was visible). waitFor on the
+    // form text "Add a calendar subscription" confirms the modal is mounted.
+    path: "/calendar?addFeed=1",
     file: "calendar-feeds-modal.png",
-    waitFor: "text=Calendar",
+    waitFor: "text=Add a calendar subscription",
     action: async (page) => {
-      const btn = page.getByText(/Manage Feeds|External Feeds|Linked Calendars/i).first();
-      if (await btn.count()) {
-        try {
-          await btn.click({ timeout: 3000 });
-          await page.waitForTimeout(800);
-        } catch {}
-      }
+      // Fallback: if the deep-link didn't auto-open the modal, click the
+      // Linked Calendars trigger.
+      try {
+        const present = await page
+          .getByText(/Add a calendar subscription/i)
+          .first()
+          .count();
+        if (!present) {
+          const btn = page
+            .getByText(/Manage Feeds|External Feeds|Linked Calendars/i)
+            .first();
+          if (await btn.count()) {
+            await btn.click({ timeout: 3000 });
+            await page.waitForTimeout(800);
+          }
+        }
+      } catch {}
       try {
         await page.evaluate(() => {
           // Find the Provider <select> inside the Manage Feeds modal.
@@ -1815,9 +2215,12 @@ const FIXTURE_ROUTES = [
   // flips `getDemoMode() === true` via URL match, rendering the floating
   // Leave Demo button. Click it to open `LeaveDemoModal`.
   {
+    // Wait for the app to load (the old "Demo Lab" header text no longer
+    // matches /demo), click the floating "Leave Demo" pill, then wait for the
+    // LeaveDemoModal ("Leave the demo?" title) to mount before capture.
     path: "/demo",
     file: "demo-mode-leave.png",
-    waitFor: "text=Demo Lab, text=Research Project Overview",
+    waitFor: "text=Research Project Overview",
     settleMs: 1000,
     action: async (page) => {
       try {
@@ -1826,12 +2229,16 @@ const FIXTURE_ROUTES = [
           .first();
         if (await floating.count()) {
           await floating.click({ timeout: 3000 });
-          await page.waitForTimeout(800);
+          await page
+            .waitForSelector("text=Leave the demo?", { timeout: 4000 })
+            .catch(() => {});
+          await page.waitForTimeout(600);
         }
       } catch (err) {
         console.warn(`  ⚠ demo-mode-leave click: ${err.message}`);
       }
     },
+    highlight: { text: "Leave demo" },
   },
   // ─────────────────────────────────────────────────────────────────────
   // Experiments Export dialog.
@@ -2036,6 +2443,11 @@ const FIXTURE_ROUTES = [
         console.warn(`  ⚠ telegram-inbox-multiselect select+menu: ${err.message}`);
       }
     },
+    // Annotate the Shift-click target (the second inbox row) so the how-to
+    // shot shows which action produced the range selection + context menu.
+    highlight: {
+      selector: "li.group.flex.items-center.gap-3:nth-of-type(2)",
+    },
   },
   // ─────────────────────────────────────────────────────────────────────
   // ELN import wizard.
@@ -2073,19 +2485,21 @@ const FIXTURE_ROUTES = [
     settleMs: 1000,
     action: async (page) => {
       // The "Open import…" button is the action slot inside the
-      // LabArchivesOptionCard. data-onboarding-target="labarchives-import"
-      // is the most stable selector since the button text could be
-      // tweaked by future copy edits.
+      // LabArchivesOptionCard. The data-onboarding-target attribute does NOT
+      // exist on it (the old selector matched nothing and the click silently
+      // no-op'd), so match by the button's visible text instead.
       try {
         const btn = page
-          .locator('[data-onboarding-target="labarchives-import"]')
+          .locator("button")
+          .filter({ hasText: /Open import/i })
           .first();
         if (await btn.count()) {
+          await btn.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
           await btn.click({ timeout: 3000 });
           // Wait for the wizard's Step 1 header ("1 · Choose format") so
           // the format-picker cards have laid out before we capture.
           await page
-            .waitForSelector("text=Choose format", { timeout: 3000 })
+            .waitForSelector("text=Choose format", { timeout: 4000 })
             .catch(() => {});
           await page.waitForTimeout(600);
         }
@@ -2111,14 +2525,17 @@ const FIXTURE_ROUTES = [
       try {
         const btn = page.locator('[aria-label="Send feedback"]').first();
         if (await btn.count()) {
-          await btn.click({ timeout: 3000 });
+          // The feedback pill sits in the bottom-right floating cluster and
+          // may be below the fold; bring it into view before clicking.
+          await btn.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+          await btn.click({ timeout: 3000, force: true });
           // FeedbackModal renders an <h2> "Report an Issue" once "Bug"
           // (the default) is the selected type. Wait for it so the rest
           // of the modal body has mounted before we capture.
           await page
-            .waitForSelector("text=Report an Issue", { timeout: 3000 })
+            .waitForSelector("text=Report an Issue", { timeout: 4000 })
             .catch(() => {});
-          await page.waitForTimeout(500);
+          await page.waitForTimeout(600);
         }
       } catch (err) {
         console.warn(`  ⚠ feedback-modal open: ${err.message}`);
@@ -2426,6 +2843,7 @@ const FIXTURE_ROUTES = [
     file: "onboarding-resume-modal.png",
     waitFor: '[data-testid="v4-resume-prompt"]',
     settleMs: 700,
+    highlight: { text: "Resume" },
     action: async (page) => {
       try {
         const clip = await page.evaluate(() => {
@@ -2804,6 +3222,216 @@ const FIXTURE_ROUTES = [
       if (clip && clip.width > 200 && clip.height > 200) return { clip };
     },
   },
+  {
+    // method-catalog-library.png — the Template Library picker (full view): the
+    // category rail on the left + the grid of template cards. Referenced by
+    // /wiki/features/method-catalog. Open the modal, activate the Templates
+    // segment, and capture the grid WITHOUT selecting a specific template.
+    path: "/methods",
+    file: "method-catalog-library.png",
+    waitFor: "text=Methods",
+    settleMs: 1000,
+    action: async (page) => {
+      try {
+        const btn = page
+          .locator('[data-tour-target="methods-template-library-button"]')
+          .first();
+        await btn.waitFor({ state: "visible", timeout: 12000 });
+        await page.waitForTimeout(1500);
+        await btn.click({ timeout: 5000, force: true });
+        await page.waitForTimeout(1000);
+      } catch (err) {
+        console.warn(`  ⚠ method-catalog-library open modal: ${err.message}`);
+        return;
+      }
+      try {
+        const tplSeg = page
+          .locator("button")
+          .filter({ hasText: /^Templates$/ })
+          .first();
+        if (await tplSeg.count()) {
+          await tplSeg.click({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(1000);
+        }
+      } catch {}
+      // Clip to the modal's white card.
+      const clip = await page.evaluate(() => {
+        const backdrop = document.querySelector(".fixed.inset-0.z-50");
+        if (!backdrop) return null;
+        const card =
+          backdrop.querySelector('div[class*="rounded-xl"][class*="shadow-2xl"]') ??
+          backdrop.firstElementChild;
+        if (!card) return null;
+        const r = card.getBoundingClientRect();
+        const pad = 12;
+        const x = Math.max(0, Math.floor(r.left - pad));
+        const y = Math.max(0, Math.floor(r.top - pad));
+        const width = Math.min(
+          Math.max(0, window.innerWidth - x),
+          Math.ceil(r.width + pad * 2),
+        );
+        const height = Math.min(
+          Math.max(0, window.innerHeight - y),
+          Math.ceil(r.height + pad * 2),
+        );
+        return { x, y, width, height };
+      });
+      if (clip && clip.width > 200 && clip.height > 200) return { clip };
+    },
+  },
+  {
+    // method-catalog-template-detail.png — the detail pane for a simple PCR
+    // template (title + method-type pill, description, structured preview, the
+    // "Will be added to: Uncategorized" line, and the blue "Use template"
+    // button). Referenced by /wiki/features/method-catalog. The catalog ships
+    // in the fixture, so no seeded methods are needed.
+    path: "/methods",
+    file: "method-catalog-template-detail.png",
+    waitFor: "text=Methods",
+    settleMs: 1000,
+    action: async (page) => {
+      try {
+        const btn = page
+          .locator('[data-tour-target="methods-template-library-button"]')
+          .first();
+        await btn.waitFor({ state: "visible", timeout: 12000 });
+        await page.waitForTimeout(1500);
+        await btn.click({ timeout: 5000, force: true });
+        await page.waitForTimeout(1000);
+      } catch (err) {
+        console.warn(`  ⚠ method-catalog-template-detail open modal: ${err.message}`);
+        return;
+      }
+      try {
+        const tplSeg = page
+          .locator("button")
+          .filter({ hasText: /^Templates$/ })
+          .first();
+        if (await tplSeg.count()) {
+          await tplSeg.click({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(800);
+        }
+      } catch {}
+      // Select a simple PCR template so the detail pane shows a clear structured
+      // preview + the "Use template" button (not a gated "Enable <type>" state).
+      try {
+        const card = page
+          .getByText(/Taq|Q5|Phusion|Colony PCR|PCR/i)
+          .first();
+        await card.waitFor({ state: "visible", timeout: 8000 }).catch(() => {});
+        if (await card.count()) {
+          await card.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+          await card.click({ timeout: 4000, force: true });
+          await page.waitForTimeout(1200);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ method-catalog-template-detail select card: ${err.message}`);
+      }
+      const clip = await page.evaluate(() => {
+        const backdrop = document.querySelector(".fixed.inset-0.z-50");
+        if (!backdrop) return null;
+        const card =
+          backdrop.querySelector('div[class*="rounded-xl"][class*="shadow-2xl"]') ??
+          backdrop.firstElementChild;
+        if (!card) return null;
+        const r = card.getBoundingClientRect();
+        const pad = 12;
+        const x = Math.max(0, Math.floor(r.left - pad));
+        const y = Math.max(0, Math.floor(r.top - pad));
+        const width = Math.min(
+          Math.max(0, window.innerWidth - x),
+          Math.ceil(r.width + pad * 2),
+        );
+        const height = Math.min(
+          Math.max(0, window.innerHeight - y),
+          Math.ceil(r.height + pad * 2),
+        );
+        return { x, y, width, height };
+      });
+      if (clip && clip.width > 200 && clip.height > 200) return { clip };
+    },
+    highlight: { text: "Use template" },
+  },
+  {
+    // method-catalog-384-plate.png — the detail pane for the MTT / CellTiter
+    // 384-well plate-layout template, showing the rendered 384-well grid with
+    // control columns + the dose-response series. Referenced by
+    // /wiki/features/method-catalog. Catalog ships in the fixture.
+    path: "/methods",
+    file: "method-catalog-384-plate.png",
+    waitFor: "text=Methods",
+    settleMs: 1000,
+    action: async (page) => {
+      try {
+        const btn = page
+          .locator('[data-tour-target="methods-template-library-button"]')
+          .first();
+        await btn.waitFor({ state: "visible", timeout: 12000 });
+        await page.waitForTimeout(1500);
+        await btn.click({ timeout: 5000, force: true });
+        await page.waitForTimeout(1000);
+      } catch (err) {
+        console.warn(`  ⚠ method-catalog-384-plate open modal: ${err.message}`);
+        return;
+      }
+      try {
+        const tplSeg = page
+          .locator("button")
+          .filter({ hasText: /^Templates$/ })
+          .first();
+        if (await tplSeg.count()) {
+          await tplSeg.click({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(800);
+        }
+      } catch {}
+      // Optionally narrow to Plate layouts, then select the 384-well MTT card.
+      try {
+        const plates = page
+          .locator("button")
+          .filter({ hasText: /^Plate layouts/i })
+          .first();
+        if (await plates.count()) {
+          await plates.click({ timeout: 3000, force: true }).catch(() => {});
+          await page.waitForTimeout(700);
+        }
+      } catch {}
+      try {
+        const card = page
+          .getByText(/MTT.*cell-viability.*384-well|384-well/i)
+          .first();
+        await card.waitFor({ state: "visible", timeout: 8000 }).catch(() => {});
+        if (await card.count()) {
+          await card.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+          await card.click({ timeout: 4000, force: true });
+          await page.waitForTimeout(1500);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ method-catalog-384-plate select card: ${err.message}`);
+      }
+      const clip = await page.evaluate(() => {
+        const backdrop = document.querySelector(".fixed.inset-0.z-50");
+        if (!backdrop) return null;
+        const card =
+          backdrop.querySelector('div[class*="rounded-xl"][class*="shadow-2xl"]') ??
+          backdrop.firstElementChild;
+        if (!card) return null;
+        const r = card.getBoundingClientRect();
+        const pad = 12;
+        const x = Math.max(0, Math.floor(r.left - pad));
+        const y = Math.max(0, Math.floor(r.top - pad));
+        const width = Math.min(
+          Math.max(0, window.innerWidth - x),
+          Math.ceil(r.width + pad * 2),
+        );
+        const height = Math.min(
+          Math.max(0, window.innerHeight - y),
+          Math.ceil(r.height + pad * 2),
+        );
+        return { x, y, width, height };
+      });
+      if (clip && clip.width > 200 && clip.height > 200) return { clip };
+    },
+  },
   // ── Welcome / landing-page showcase shots ───────────────────────────────
   // Referenced by LandingPage.tsx. These were hand-captured back in May, so
   // they went stale (lab-overview showed the deleted widget canvas) and leaked
@@ -3023,13 +3651,12 @@ const FIXTURE_ROUTES = [
           await item.click({ timeout: 4000 });
           await page.waitForTimeout(1200);
         }
+        // The enzyme-picker dialog was retired (commit 4f62434e9). Enzyme
+        // site display is now toggled via the "Enzyme sites" switch in the
+        // bottom SequenceDisplayStrip toolbar, which renders the restriction
+        // map with the default COMMON_ENZYMES labels (NcoI, KpnI, SphI...).
         await page
-          .getByRole("button", { name: /Enzyme/i })
-          .first()
-          .click({ timeout: 4000 });
-        await page.waitForTimeout(500);
-        await page
-          .getByText(/^Cut sites$/)
+          .getByRole("switch", { name: "Enzyme sites" })
           .first()
           .click({ timeout: 4000 })
           .catch(() => {});
@@ -3063,10 +3690,13 @@ const FIXTURE_ROUTES = [
   },
   {
     // 4. Base-level sequence view: complement strand, ruler, feature tracks.
+    // Extend the settle after switching to the Sequence tab so any dev-only
+    // debug overlay (e.g. the "base-level readout row" label) has disappeared
+    // before capture — those artifacts must not leak into the wiki shot.
     path: "/sequences",
     file: "sequences-base-view.png",
     waitFor: "text=pEGFP-N1",
-    settleMs: 1000,
+    settleMs: 1600,
     action: async (page) => {
       try {
         const seqTab = page.getByRole("tab", { name: /^Sequence$/i }).first();
@@ -3078,8 +3708,11 @@ const FIXTURE_ROUTES = [
     },
   },
   {
-    // 5. View-control rail: the narrow icon-toggle strip on the left edge.
-    //    Crop to just the rail column.
+    // 5. Operations rail: the narrow icon-button rail (~60px) on the RIGHT
+    //    edge of the editor (data-testid="sequence-operations"), with the
+    //    Design / Analyze / Export / More groups stacked vertically. The old
+    //    crop targeted a band after the library on the LEFT, which is the
+    //    canvas, not the rail — clip to the rail element itself instead.
     path: "/sequences",
     file: "sequences-view-rail.png",
     waitFor: "text=pEGFP-N1",
@@ -3092,13 +3725,26 @@ const FIXTURE_ROUTES = [
           await page.waitForTimeout(900);
         }
       } catch {}
-      // Crop to a band around the rail — starts after the library panel.
+      // Clip to the right-edge operations rail.
       const clip = await page.evaluate(() => {
-        const lib = document.querySelector("select");
-        const libRight = lib
-          ? Math.ceil((lib.closest("aside, [class*='library'], div")?.getBoundingClientRect()?.right ?? 380))
-          : 380;
-        return { x: libRight, y: 60, width: 56, height: 780 };
+        const rail = document.querySelector('[data-testid="sequence-operations"]');
+        if (rail) {
+          const r = rail.getBoundingClientRect();
+          const pad = 8;
+          const x = Math.max(0, Math.floor(r.left - pad));
+          const y = Math.max(0, Math.floor(r.top - pad));
+          const width = Math.min(
+            Math.max(0, window.innerWidth - x),
+            Math.ceil(r.width + pad * 2),
+          );
+          const height = Math.min(
+            Math.max(0, window.innerHeight - y),
+            Math.ceil(r.height + pad * 2),
+          );
+          return { x, y, width, height };
+        }
+        // Fallback: a thin band along the right edge.
+        return { x: window.innerWidth - 72, y: 60, width: 72, height: 780 };
       });
       return { clip };
     },
@@ -3165,27 +3811,42 @@ const FIXTURE_ROUTES = [
     },
   },
   {
-    // 8. Primer design dialog: Add Primer flow with live stats.
+    // 8. Primer design dialog: Add primer flow with live stats. The Feature/
+    // Primer/Enzyme toolbar dropdowns were removed (SequenceEditView.tsx) and
+    // replaced with right-click context menus, so select a region, right-click
+    // it, and choose "Design primers here…" to open the Add primer dialog.
     path: "/sequences",
     file: "sequences-primer-design.png",
     waitFor: "text=pEGFP-N1",
     settleMs: 1000,
     action: async (page) => {
       try {
-        // Open the Primer toolbar menu.
-        const primerMenu = page.getByRole("button", { name: /^Primer/i }).first();
-        if (await primerMenu.count()) {
-          await primerMenu.click({ timeout: 3000 });
-          await page.waitForTimeout(400);
+        // Select a region of the sequence by clicking + shift-clicking across
+        // the base track, then right-click to open the context menu.
+        const seq = page.locator(".la-vz-seq").first();
+        if (await seq.count()) {
+          await seq.click({ position: { x: 100, y: 20 }, timeout: 3000 }).catch(() => {});
+          await seq
+            .click({ position: { x: 200, y: 20 }, modifiers: ["Shift"], timeout: 3000 })
+            .catch(() => {});
+          await seq
+            .click({ position: { x: 200, y: 20 }, button: "right", timeout: 3000 })
+            .catch(() => {});
+          await page.waitForTimeout(500);
         }
-        // Click "Add Primer…" in the dropdown.
-        const addItem = page.getByRole("menuitem", { name: /Add Primer/i }).first();
-        if (await addItem.count()) {
-          await addItem.click({ timeout: 3000 });
-          await page.waitForTimeout(600);
+        // Click "Design primers here…" in the context menu.
+        const item = page
+          .getByRole("menuitem", { name: /Design primers here/i })
+          .first();
+        if (await item.count()) {
+          await item.click({ timeout: 3000 });
+          await page.waitForTimeout(700);
         }
-        // Type a plausible primer sequence so the stats populate.
-        const input = page.locator('input[placeholder*="primer" i], input[placeholder*="sequence" i], input[type="text"]').first();
+        // Fill the primer sequence textarea so the live stats (N-mer, GC%, Tm)
+        // populate.
+        const input = page
+          .locator('textarea, input[placeholder*="bases" i], input[placeholder*="sequence" i]')
+          .first();
         if (await input.count()) {
           await input.fill("ATGGTGAGCAAGGGCGAGGAG");
           await page.waitForTimeout(700);
@@ -3194,28 +3855,45 @@ const FIXTURE_ROUTES = [
         console.warn(`  ⚠ sequences-primer-design action: ${err.message}`);
       }
     },
+    highlight: {
+      selector: 'textarea, input[placeholder*="bases" i], input[placeholder*="sequence" i]',
+    },
   },
   {
-    // 9. NCBI specificity handoff: the Primers tab with the BLAST link visible.
+    // 9. NCBI specificity handoff: the Primers Check tab with the
+    // "Check genome-wide on NCBI" / "Open Primer-BLAST" handoff button visible.
+    // The Feature/Primer/Enzyme toolbar dropdowns were removed and replaced
+    // with right-click context menus, so reach the Add primer dialog via the
+    // "Design primers here…" context-menu item (same flow as primer-design).
     path: "/sequences",
     file: "sequences-ncbi-specificity.png",
     waitFor: "text=pEGFP-N1",
     settleMs: 1000,
     action: async (page) => {
       try {
-        // Open Primer > Add Primer…, type a sequence, then go to the Check tab.
-        const primerMenu = page.getByRole("button", { name: /^Primer/i }).first();
-        if (await primerMenu.count()) {
-          await primerMenu.click({ timeout: 3000 });
-          await page.waitForTimeout(400);
+        // Select a region and open the context menu → Design primers here…
+        const seq = page.locator(".la-vz-seq").first();
+        if (await seq.count()) {
+          await seq.click({ position: { x: 100, y: 20 }, timeout: 3000 }).catch(() => {});
+          await seq
+            .click({ position: { x: 200, y: 20 }, modifiers: ["Shift"], timeout: 3000 })
+            .catch(() => {});
+          await seq
+            .click({ position: { x: 200, y: 20 }, button: "right", timeout: 3000 })
+            .catch(() => {});
+          await page.waitForTimeout(500);
         }
-        const addItem = page.getByRole("menuitem", { name: /Add Primer/i }).first();
-        if (await addItem.count()) {
-          await addItem.click({ timeout: 3000 });
+        const item = page
+          .getByRole("menuitem", { name: /Design primers here/i })
+          .first();
+        if (await item.count()) {
+          await item.click({ timeout: 3000 });
           await page.waitForTimeout(600);
         }
         // Fill a primer sequence.
-        const input = page.locator('input[placeholder*="primer" i], input[placeholder*="sequence" i], input[type="text"]').first();
+        const input = page
+          .locator('textarea, input[placeholder*="bases" i], input[placeholder*="sequence" i]')
+          .first();
         if (await input.count()) {
           await input.fill("ATGGTGAGCAAGGGCGAGGAG");
           await page.waitForTimeout(500);
