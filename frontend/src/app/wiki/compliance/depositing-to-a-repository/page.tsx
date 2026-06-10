@@ -62,8 +62,8 @@ export default function DepositingToARepositoryPage() {
       <ul>
         <li>
           <strong>From an experiment</strong>: open the experiment&apos;s detail
-          popup and press <strong>Deposit to a repository</strong>. The bundle is
-          that one experiment.
+          popup and click the <strong>Deposit to a repository</strong> button in
+          its header. The bundle is that one experiment.
         </li>
         <li>
           <strong>From a project</strong>: open the project and choose Deposit to
@@ -96,11 +96,13 @@ export default function DepositingToARepositoryPage() {
           <p>
             <strong>Hand off.</strong> Pick <strong>Zenodo</strong>,{" "}
             <strong>Figshare</strong>, or <strong>Other repository</strong>.
-            ResearchOS downloads the data bundle plus a{" "}
-            <code>datacite.json</code> metadata file, then opens the
-            repository&apos;s own upload page in a new tab. You drag the bundle
-            in, paste or reference the metadata, and click Publish there to mint
-            the DOI.
+            ResearchOS downloads one archive (named{" "}
+            <code>{"{name}"}-deposit.zip</code>) that holds your curated data and
+            a <code>datacite.json</code> metadata file, then opens the
+            repository&apos;s own upload page in a new tab. For Zenodo and
+            Figshare that button jumps you straight to their new-upload form. You
+            drag the archive in, copy the metadata fields into the form, and
+            click Publish there to mint the DOI.
           </p>
         </Step>
       </Steps>
@@ -134,8 +136,10 @@ export default function DepositingToARepositoryPage() {
           the editing-history stamps stripped out. Fully editable.
         </li>
         <li>
-          <strong>License</strong>: you pick one before handoff. The two
-          NIH-friendly defaults (CC-BY-4.0 and CC0-1.0) are surfaced first.
+          <strong>License</strong>: the one field you must set before handoff,
+          since NIH expects shared data to carry a license and ResearchOS has
+          none to fall back on. The two NIH-friendly defaults (CC-BY-4.0 and
+          CC0-1.0) are surfaced first as recommended.
         </li>
         <li>
           <strong>Keywords</strong>: pulled from the experiment&apos;s tags.
@@ -169,9 +173,9 @@ export default function DepositingToARepositoryPage() {
 
       <h2>After the handoff</h2>
       <p>
-        The deposit bundle and the metadata file are downloads. They are never
-        written into your on-disk data folder and never become a new sidecar, so
-        depositing leaves your project files untouched. Once the repository mints
+        The deposit archive is a download. It is never written into your on-disk
+        data folder and never becomes a new sidecar, so depositing leaves your
+        project files untouched. Once the repository mints
         the DOI, copy it back into ResearchOS wherever you cite the dataset, and
         record it in your Data Management and Sharing Plan as your funder
         requires.
