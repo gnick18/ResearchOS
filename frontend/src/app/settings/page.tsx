@@ -31,10 +31,13 @@ import {
   patchUserSettings,
   readUserSettings,
   SIDEBAR_HORIZON_CHOICES,
+  DEFAULT_PURCHASE_ROUTING,
   type UserSettings,
   type CalendarViewMode,
   type DateFormat,
   type TimeFormat,
+  type PurchaseRoutingConfig,
+  type PurchaseRoutingContact,
 } from "@/lib/settings/user-settings";
 import { setSpellCheckEnabledLocal } from "@/lib/spellcheck/spellchecker";
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
@@ -1248,6 +1251,167 @@ function SettingsTabStrip({
 }
 
 /**
+ * Department-routing config (PURCHASE_DOCS_AND_ROUTING.md, the Purchasing module
+ * of the Lab Head hub). A PI turns on routing, adds the department / HR contacts
+ * a purchase document gets emailed to, and edits the draft templates. Disabled +
+ * empty by default, so the whole thing (and the "Send to department" button on
+ * purchases) stays hidden until the PI opts in. The draft opens in the PI's own
+ * mail app, so it sends from their real address with no stored credentials.
+ */
+function PurchaseRoutingSection({ settings, update }: SectionProps) {
+  const [draft, setDraft] = useState<PurchaseRoutingConfig>(
+    () => settings.purchaseRouting ?? DEFAULT_PURCHASE_ROUTING,
+  );
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    await update({ purchaseRouting: draft });
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const addContact = () => {
+    const c: PurchaseRoutingContact = {
+      id: crypto.randomUUID(),
+      name: "",
+      email: "",
+    };
+    setDraft((d) => ({ ...d, contacts: [...d.contacts, c] }));
+  };
+  const editContact = (
+    id: string,
+    field: "name" | "email",
+    value: string,
+  ) =>
+    setDraft((d) => ({
+      ...d,
+      contacts: d.contacts.map((c) =>
+        c.id === id ? { ...c, [field]: value } : c,
+      ),
+    }));
+  const removeContact = (id: string) =>
+    setDraft((d) => ({ ...d, contacts: d.contacts.filter((c) => c.id !== id) }));
+
+  const input =
+    "w-full rounded-lg border border-border bg-surface px-3 py-2 text-body";
+
+  return (
+    <SectionShell
+      title="Department routing"
+      description="Optional. Email a purchase's documents to your department or HR contact in one click, drafted from your own account. Turn it on to add a Send to department button on approved purchases."
+      searchKeywords="purchase routing department HR email send document invoice receipt grant"
+    >
+      <label className="flex items-center gap-2 text-body text-foreground">
+        <input
+          type="checkbox"
+          checked={draft.enabled}
+          onChange={(e) =>
+            setDraft((d) => ({ ...d, enabled: e.target.checked }))
+          }
+        />
+        Enable department routing
+      </label>
+
+      <div className={draft.enabled ? "" : "pointer-events-none opacity-50"}>
+        <div className="mt-4">
+          <p className="mb-1 text-meta font-semibold text-foreground-muted">
+            Department / HR contacts
+          </p>
+          <div className="space-y-2">
+            {draft.contacts.length === 0 && (
+              <p className="text-meta text-foreground-muted">No contacts yet.</p>
+            )}
+            {draft.contacts.map((c) => (
+              <div key={c.id} className="flex items-center gap-2">
+                <input
+                  className={input}
+                  placeholder="Name / role"
+                  value={c.name}
+                  onChange={(e) => editContact(c.id, "name", e.target.value)}
+                />
+                <input
+                  className={input}
+                  placeholder="email@university.edu"
+                  value={c.email}
+                  onChange={(e) => editContact(c.id, "email", e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => removeContact(c.id)}
+                  className="text-foreground-muted hover:text-rose-600"
+                  aria-label="Remove contact"
+                >
+                  <Icon name="close" className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={addContact}
+            className="mt-2 inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-meta font-medium hover:bg-surface-sunken"
+          >
+            <Icon name="plus" className="h-3.5 w-3.5" /> Add contact
+          </button>
+        </div>
+
+        <div className="mt-4">
+          <label className="mb-1 block text-meta font-semibold text-foreground-muted">
+            Email subject template
+          </label>
+          <input
+            className={input}
+            value={draft.subjectTemplate}
+            onChange={(e) =>
+              setDraft((d) => ({ ...d, subjectTemplate: e.target.value }))
+            }
+          />
+        </div>
+        <div className="mt-3">
+          <label className="mb-1 block text-meta font-semibold text-foreground-muted">
+            Email body template
+          </label>
+          <textarea
+            rows={6}
+            className={input}
+            value={draft.bodyTemplate}
+            onChange={(e) =>
+              setDraft((d) => ({ ...d, bodyTemplate: e.target.value }))
+            }
+          />
+        </div>
+        <p className="mt-1 text-meta text-foreground-muted leading-relaxed">
+          Placeholders filled in when you draft: {"{item}"} {"{grant}"}{" "}
+          {"{vendor}"} {"{total}"} {"{me}"}. The draft opens in your own mail app
+          so it sends from your real address. Attach the PDF (open it from the
+          purchase) before sending, since a drafted email cannot carry the file
+          for you.
+        </p>
+      </div>
+
+      <div className="mt-4 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving}
+          className="rounded-lg bg-blue-600 px-3 py-1.5 text-body font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          {saving ? "Saving..." : "Save routing settings"}
+        </button>
+        {saved && (
+          <span className="text-meta text-emerald-600 dark:text-emerald-400">
+            Saved
+          </span>
+        )}
+      </div>
+    </SectionShell>
+  );
+}
+
+/**
  * Lab Head hub Phase 1 (LAB_HEAD_HUB.md, 2026-06-10): a small uppercase label
  * that visually clusters the Lab Mode cards into groups (People / Oversight /
  * Account) instead of a flat stack. It hides itself while a settings search is
@@ -1315,10 +1479,17 @@ function LabModeTabContent({
         </div>
       )}
 
-      {/* Reserved optional-module slots, invisible until the PI enables them
-          (LAB_HEAD_HUB.md). They render nothing until built + configured:
-            - Data & retention   (LAB_ARCHIVE_CONTINUITY.md)
-            - Purchasing routing (PURCHASE_DOCS_AND_ROUTING.md) */}
+      {/* Purchasing: the department-routing module (lab-head only). The card
+          itself is how a PI enables/configures routing, so it shows whenever the
+          viewer is a lab head; the "Send to department" affordance on purchases
+          stays hidden until routing.enabled is true. Reserved slot for the Data &
+          retention module (LAB_ARCHIVE_CONTINUITY.md) still to come. */}
+      {isLabHead && (
+        <div className="space-y-4">
+          <HubGroupHeading>Purchasing</HubGroupHeading>
+          <PurchaseRoutingSection settings={settings} update={update} />
+        </div>
+      )}
 
       {/* Account: role + account type. */}
       <div className="space-y-4">
