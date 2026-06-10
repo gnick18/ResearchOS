@@ -90,6 +90,17 @@ declare module "next-auth" {
   }
 }
 
+// Gate EVERY OAuth provider on its client id, not just Entra/ORCID below. A
+// provider whose AUTH_*_ID/SECRET are undefined throws at config time and takes
+// the whole auth handler down, which 500s every getSession() call. Google,
+// GitHub, and LinkedIn used to mount unconditionally, so a dev environment with
+// no OAuth creds broke the auth route (the lab-session boot probe surfaced it).
+// Prod has the creds, so the providers mount there exactly as before; dev
+// without creds simply omits them and falls back to the devmock provider.
+const google = process.env.AUTH_GOOGLE_ID ? [Google] : [];
+const github = process.env.AUTH_GITHUB_ID ? [GitHub] : [];
+const linkedin = process.env.AUTH_LINKEDIN_ID ? [LinkedIn] : [];
+
 // Only include Entra when configured. A provider with undefined client
 // credentials would throw at config time and take the whole auth setup down.
 const microsoftEntra = process.env.AUTH_MICROSOFT_ENTRA_ID_ID
@@ -139,7 +150,14 @@ const orcidProvider = process.env.AUTH_ORCID_ID
   : [];
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  providers: [Google, GitHub, LinkedIn, ...microsoftEntra, ...orcidProvider, ...devMockProvider],
+  providers: [
+    ...google,
+    ...github,
+    ...linkedin,
+    ...microsoftEntra,
+    ...orcidProvider,
+    ...devMockProvider,
+  ],
   session: { strategy: "jwt" },
   trustHost: true,
   callbacks: {

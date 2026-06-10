@@ -108,8 +108,17 @@ export function createLabSessionEffects(params: {
     // live, or null so the gate falls back to showing the sign-in buttons.
     // -----------------------------------------------------------------
     async peekSession(): Promise<{ email: string } | null> {
-      const existing = await getSession();
-      return existing?.user?.email ? { email: existing.user.email } : null;
+      // A silent boot probe must never throw. getSession hits /api/auth/session,
+      // which can 500 when the auth backend is misconfigured or unreachable (no
+      // OAuth creds in dev, a transient network error). Treat any failure as "no
+      // session" so the lab gate falls back to the sign-in buttons instead of
+      // crashing the whole app on boot.
+      try {
+        const existing = await getSession();
+        return existing?.user?.email ? { email: existing.user.email } : null;
+      } catch {
+        return null;
+      }
     },
 
     async authenticate(provider: string): Promise<{ email: string }> {
