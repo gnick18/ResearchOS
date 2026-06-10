@@ -401,7 +401,7 @@ In plain terms: you are free to use, study, share, and modify ResearchOS, and yo
 
 ## Sponsor
 
-ResearchOS has no paid tier and no investors. Sponsorship covers hosting and development so it stays free and open. If it helps your work, you can back it on [GitHub Sponsors](https://github.com/sponsors/ResearchOS-LLC). The tiers, perks, and the sponsor wall live at `/thanks` in the app.
+ResearchOS has no investors. The local-first app is free and open source forever, because your research lives in a folder on your own disk and never has to touch our servers. The only paid part is optional cloud storage above a generous free pool, priced to recover what it costs us to run, not to make a profit. Sponsorship and those plans cover hosting and development. If it helps your work, you can back it on [GitHub Sponsors](https://github.com/sponsors/ResearchOS-LLC). The tiers, perks, and the sponsor wall live at `/thanks` in the app.
 
 ---
 

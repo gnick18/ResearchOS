@@ -4,14 +4,16 @@ Canonical reference for anyone writing marketing, pricing, or FAQ copy about
 what ResearchOS charges for. Keep this current as billing changes, it is the
 single source the branding work pulls from.
 
-Last updated 2026-06-09.
+Last updated 2026-06-10.
 
 House voice applies to everything written from this file: no em-dashes, no
 emojis, no mid-sentence colons, always state the why, no AI-speak.
 
-Status right now: all billing is built behind the `BILLING_ENABLED` flag, which
-is OFF in production. The whole app is free during beta. Nothing below is live
-yet.
+Status right now: billing is built behind the `BILLING_ENABLED` flag, which is
+OFF in production, so all cloud storage is free during the beta. As of the
+2026-06-10 demo launch the app itself is publicly live, including sharing and
+real-time collaboration. Only billing stays off, so nothing in this file is
+charged for yet. The host repo (github.com/gnick18/ResearchOS) is now public.
 
 ## The core promise (lead with this)
 
@@ -33,6 +35,10 @@ yet.
   not a trial.
 - Plus and Pro dollar figures are still PROVISIONAL. Do not print them yet. Safe
   to say "a free tier and low-cost paid tiers for heavier storage."
+- The plan STRUCTURE is locked and final (the six names above, one picker, Free
+  at 5 GB and $0, shared-pool labs). It is not waiting on a decision. The only
+  held item is the Plus and Pro prices, which stay unpublished until a few weeks
+  of real usage set them. Treat "the tiers" as settled when writing copy.
 
 ## Activity is never billed per edit
 

@@ -70,9 +70,12 @@ export default function CloudAndPlansPage() {
         </li>
       </ul>
       <Callout variant="tip" title="Text barely counts">
-        Notes and methods are tiny. A lab would need roughly half a million text
-        notes to fill the free pool. The pool only fills with the heavy things,
-        mostly images and large file attachments in shared work.
+        Notes and methods are tiny, so a lab would need roughly half a million
+        text notes to fill the free pool. The pool only fills with the heavy
+        things, mostly images and large file attachments in shared work. A gel
+        or bench photo is about the size of a photo from a modern phone, a few
+        megabytes, so the shared 5 GB still holds on the order of a thousand of
+        them.
       </Callout>
 
       <h2>Plans and how it is paid for</h2>

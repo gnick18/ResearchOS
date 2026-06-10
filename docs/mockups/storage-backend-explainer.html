@@ -224,7 +224,7 @@
 
     <!-- 5. calculator -->
     <h2><span class="n">5</span>What actually fills the pool? (try it)</h2>
-    <p class="lede">Pick what your lab is syncing to the cloud and how much. The math uses representative sizes (the photo figure is approximate, pending a measured sample). The headline holds either way: text is basically free; images and big files are the only things that move the needle.</p>
+    <p class="lede">Pick what your lab is syncing to the cloud and how much. The math uses representative sizes, with a bench photo set to the size of a still from a modern phone. The headline holds either way, text is basically free, and images and big files are the only things that move the needle.</p>
     <div class="card">
       <div class="calc">
         <div>
@@ -252,7 +252,7 @@
         <thead><tr><th>Synced to the cloud</th><th class="r">Each</th><th class="r">To fill 1 GB</th></tr></thead>
         <tbody id="reftable"></tbody>
       </table>
-      <p class="note">Sizes are approximate and pending a measured sample. A 2-page note is its markdown plus its record (~10 KB). A phone photo is the app's compressed JPEG, roughly 1 to 3 MB depending on the device and scene (call it ~2 MB). A shared project varies a lot with its attachments, a few MB for a text-only project, hundreds of MB if it is photo-heavy. Files are whatever you attach, a few KB to about a gigabyte.</p>
+      <p class="note">Sizes are representative. A 2-page note is its markdown plus its record (~10 KB). A bench or gel photo is about the size of a still from a modern phone, roughly 3 to 5 MB depending on the device and scene (call it ~4 MB). A shared project varies a lot with its attachments, a few MB for a text-only project, hundreds of MB if it is photo-heavy. Files are whatever you attach, a few KB to about a gigabyte.</p>
     </div>
 
     <!-- 7. how it's paid for -->
@@ -282,7 +282,7 @@
   const TYPES = [
     { id:"note",   ic:IC.note,    nm:"2-page text notes",   unit:"notes",   bytes:10*1024,  max:5000 },
     { id:"method", ic:IC.method,  nm:"Methods / protocols",  unit:"methods", bytes:12*1024,  max:5000 },
-    { id:"photo",  ic:IC.photo,   nm:"Phone bench photos",    unit:"photos",  bytes:2*MB,     max:800 },
+    { id:"photo",  ic:IC.photo,   nm:"Phone bench photos",    unit:"photos",  bytes:4*MB,     max:1280 },
     { id:"project",ic:IC.project, nm:"Shared projects (w/ images)", unit:"projects", bytes:40*MB, max:40 },
     { id:"file",   ic:IC.file,    nm:"A big file",            unit:"file",    bytes:200*MB,   isFile:true },
   ];
