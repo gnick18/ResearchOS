@@ -247,6 +247,43 @@ export const WIKI_NAV: WikiNode[] = [
         blurb: "Mark up gels and micrographs without touching the original image. Annotations live in a sidecar you can delete to revert.",
       },
       {
+        href: "/wiki/features/companion",
+        label: "Companion",
+        blurb: "The phone app that pairs to your laptop, so you capture photos, scan handwriting, glance at today, read methods, and track inventory at the bench.",
+        children: [
+          {
+            href: "/wiki/features/companion/pairing",
+            label: "Pairing",
+            blurb: "Scan a QR to link your phone to a laptop. No account, no password, just public keys.",
+          },
+          {
+            href: "/wiki/features/companion/capture-and-route",
+            label: "Capture and route",
+            blurb: "Take or upload a photo, caption it, and file it into an experiment's Lab Notes or Results.",
+          },
+          {
+            href: "/wiki/features/companion/scanning-notes",
+            label: "Scanning handwritten notes",
+            blurb: "Scan a paper page; on-device recognition makes the handwriting searchable on the laptop.",
+          },
+          {
+            href: "/wiki/features/companion/today-glance",
+            label: "Today glance",
+            blurb: "Pull down to see what is scheduled, overdue, and upcoming, delivered from the laptop.",
+          },
+          {
+            href: "/wiki/features/companion/view-method",
+            label: "View a method on your phone",
+            blurb: "Read a method big and scrollable at the bench, and log a variation back to the experiment.",
+          },
+          {
+            href: "/wiki/features/companion/inventory-scanning",
+            label: "Inventory scanning",
+            blurb: "Barcode-scan to count stock down, see what is low, and mark a purchase as arrived.",
+          },
+        ],
+      },
+      {
         href: "/wiki/features/purchases",
         label: "Purchases & Funding",
         blurb: "Track buys against lab-wide funding accounts.",
