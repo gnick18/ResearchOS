@@ -406,6 +406,7 @@ function Ledger({
   ledger,
   onAdd,
   onDelete,
+  onUpdateTax,
 }: {
   ledger: LedgerEntry[];
   onAdd: (e: {
@@ -417,6 +418,7 @@ function Ledger({
     taxCategory: string;
   }) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
+  onUpdateTax: (id: number, taxCategory: string) => Promise<void>;
 }) {
   const [form, setForm] = useState(EMPTY_ENTRY);
   const [busy, setBusy] = useState(false);
@@ -551,7 +553,27 @@ function Ledger({
                   <td className="px-2 py-2 text-foreground-muted">{e.date}</td>
                   <td className="px-2 py-2 text-foreground">{e.category || "-"}</td>
                   <td className="px-2 py-2 text-foreground-muted">
-                    {e.direction === "in" ? "-" : taxCategoryLabel(e.taxCategory)}
+                    {e.direction === "in" ? (
+                      "-"
+                    ) : (
+                      <select
+                        value={e.taxCategory}
+                        onChange={(ev) => onUpdateTax(e.id, ev.target.value)}
+                        className={`rounded-md border px-1.5 py-1 text-meta ${
+                          e.taxCategory
+                            ? "border-border bg-transparent text-foreground-muted"
+                            : "border-amber-400 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                        }`}
+                        title="Set the Schedule C tax category for this expense"
+                      >
+                        <option value="">Uncategorized</option>
+                        {TAX_CATEGORIES.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.label}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </td>
                   <td className="px-2 py-2 text-foreground-muted">{e.note || "-"}</td>
                   <td
@@ -996,6 +1018,15 @@ export default function BusinessTracker() {
     await load();
   };
 
+  const updateEntryTax = async (id: number, taxCategory: string) => {
+    await fetch("/api/admin/business", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "updateEntryTax", id, taxCategory }),
+    });
+    await load();
+  };
+
   const recordInfra = async (cents: number) => {
     await addEntry({
       date: new Date().toISOString().slice(0, 10),
@@ -1212,7 +1243,12 @@ export default function BusinessTracker() {
             <SectionTitle sub="Every income and expense. Infrastructure bills can be auto-estimated later; for now, enter them by hand.">
               Ledger
             </SectionTitle>
-            <Ledger ledger={ledger} onAdd={addEntry} onDelete={deleteEntry} />
+            <Ledger
+              ledger={ledger}
+              onAdd={addEntry}
+              onDelete={deleteEntry}
+              onUpdateTax={updateEntryTax}
+            />
             <div className="mt-6">
               <TaxSummaryPanel ledger={ledger} />
             </div>

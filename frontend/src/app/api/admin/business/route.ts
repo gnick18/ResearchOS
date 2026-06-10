@@ -30,6 +30,7 @@ import {
   listBusinessEmails,
   listLedger,
   listTasks,
+  setLedgerTaxCategory,
   setTaskDone,
   upsertEntity,
 } from "@/lib/business/db";
@@ -181,6 +182,18 @@ export async function POST(request: Request): Promise<Response> {
         taxCategory,
         source: asString(e.source) || "manual",
       });
+      return json(200, { entry });
+    }
+
+    if (action === "updateEntryTax") {
+      const id = Math.round(Number(body.id));
+      if (!Number.isFinite(id) || id <= 0) return json(400, { error: "invalid id" });
+      const taxCategory = asString(body.taxCategory);
+      if (taxCategory && !isValidTaxCategory(taxCategory)) {
+        return json(400, { error: "invalid tax category" });
+      }
+      const entry = await setLedgerTaxCategory(id, taxCategory);
+      if (!entry) return json(404, { error: "entry not found" });
       return json(200, { entry });
     }
 

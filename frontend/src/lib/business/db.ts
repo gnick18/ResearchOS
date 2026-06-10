@@ -508,6 +508,19 @@ export async function addLedgerEntryBySource(
   return { entry: await addLedgerEntry(entry), inserted: true };
 }
 
+/** Sets the tax category on one existing ledger entry, returning the updated row. */
+export async function setLedgerTaxCategory(
+  id: number,
+  taxCategory: string,
+): Promise<LedgerEntry | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    UPDATE business_ledger SET tax_category = ${taxCategory} WHERE id = ${id}
+    RETURNING id, entry_date, direction, category, amount_cents, note, source, tax_category
+  `) as LedgerRow[];
+  return rows.length > 0 ? rowToEntry(rows[0]) : null;
+}
+
 /** Removes one ledger entry by id. */
 export async function deleteLedgerEntry(id: number): Promise<void> {
   const sql = getSql();
