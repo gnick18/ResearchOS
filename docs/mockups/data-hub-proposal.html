@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Data Hub proposal — mark it up</title>
+<style>
+  :root {
+    --sky: #1AA0E6;
+    --action: #1283C9;
+    --amber: #F59E0B;
+    --coral: #FF6F61;
+    --purple: #5B47D6;
+    --ink: #111827;
+    --green: #18a058;
+    --red: #e5484d;
+
+    --bg: #f2f3f7;
+    --surface: #ffffff;
+    --surface-2: #f8f9fb;
+    --text: #1b2230;
+    --text-dim: #5b6577;
+    --border: #e2e6ee;
+    --shadow: 0 1px 2px rgba(17,24,39,.06), 0 6px 20px rgba(17,24,39,.06);
+  }
+  html[data-theme="dark"] {
+    --bg: #0a0e1a;
+    --surface: #1c2638;
+    --surface-2: #161f30;
+    --text: #e7ecf5;
+    --text-dim: #93a0b8;
+    --border: #2b3850;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .rainbow-band { height: 6px; background: linear-gradient(90deg,#FF6F61,#F59E0B,#48c774,#1AA0E6,#5B47D6); }
+  header.hero {
+    max-width: 980px; margin: 0 auto; padding: 30px 24px 8px;
+  }
+  .eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--action); font-weight: 700; }
+  h1 { font-size: 30px; font-weight: 800; margin: 6px 0 4px; color: var(--text); }
+  .lede { color: var(--text-dim); font-size: 15px; max-width: 760px; }
+  .lede strong { color: var(--text); font-weight: 700; }
+
+  .toolbar {
+    position: sticky; top: 0; z-index: 30;
+    background: color-mix(in srgb, var(--bg) 86%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    margin-top: 14px;
+  }
+  .toolbar-inner { max-width: 980px; margin: 0 auto; padding: 10px 24px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .counts { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill {
+    font-size: 12.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); cursor: pointer; user-select: none;
+  }
+  .pill[data-on="true"] { color: #fff; border-color: transparent; }
+  .pill.all[data-on="true"] { background: var(--ink); }
+  .pill.approve[data-on="true"] { background: var(--green); }
+  .pill.cut[data-on="true"] { background: var(--red); }
+  .pill.discuss[data-on="true"] { background: var(--amber); color: #3a2a00; }
+  .pill.undecided[data-on="true"] { background: var(--action); }
+  .pill .n { opacity: .8; font-weight: 800; }
+  .spacer { flex: 1; }
+  input.search {
+    font-size: 13px; padding: 7px 11px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); width: 190px;
+  }
+  button.btn {
+    font-size: 13px; font-weight: 700; padding: 7px 12px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  }
+  button.btn.primary { background: linear-gradient(90deg,var(--action),var(--purple)); color: #fff; border-color: transparent; }
+
+  main { max-width: 980px; margin: 0 auto; padding: 18px 24px 120px; }
+  .section-h { margin: 26px 0 4px; font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--action); }
+  .section-sub { color: var(--text-dim); font-size: 13px; margin-bottom: 12px; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px 16px; margin: 10px 0; box-shadow: var(--shadow);
+    border-left: 4px solid var(--border);
+  }
+  .card[data-verdict="approve"] { border-left-color: var(--green); }
+  .card[data-verdict="cut"] { border-left-color: var(--red); }
+  .card[data-verdict="discuss"] { border-left-color: var(--amber); }
+  .card-top { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .card-id { font-size: 11.5px; font-weight: 800; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .card-title { font-size: 15.5px; font-weight: 700; flex: 1; min-width: 200px; }
+  .tag { font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px; letter-spacing: .03em; white-space: nowrap; }
+  .tag.p0 { background: rgba(91,71,214,.14); color: var(--purple); }
+  .tag.p1 { background: rgba(18,131,201,.14); color: var(--action); }
+  .tag.p2 { background: rgba(245,158,11,.16); color: #9a6b00; }
+  .tag.p3 { background: rgba(91,102,120,.16); color: var(--text-dim); }
+  .tag.star { background: rgba(255,111,97,.16); color: #c43c2f; }
+  html[data-theme="dark"] .tag.p2 { color: var(--amber); }
+  .card-detail { color: var(--text-dim); font-size: 13.5px; margin: 8px 0 0; }
+  .card-detail code { background: var(--surface-2); padding: 1px 5px; border-radius: 5px; font-size: 12px; color: var(--text); }
+  .card-actions { display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+  .vbtn {
+    font-size: 12.5px; font-weight: 700; padding: 5px 12px; border-radius: 7px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface-2); color: var(--text-dim);
+  }
+  .vbtn.approve.on { background: var(--green); color: #fff; border-color: transparent; }
+  .vbtn.cut.on { background: var(--red); color: #fff; border-color: transparent; }
+  .vbtn.discuss.on { background: var(--amber); color: #3a2a00; border-color: transparent; }
+  .rec { font-size: 11.5px; color: var(--text-dim); margin-left: 2px; }
+  textarea.note {
+    width: 100%; margin-top: 10px; resize: vertical; min-height: 0; height: 34px;
+    font-family: inherit; font-size: 13px; padding: 7px 10px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+  }
+  textarea.note:focus { outline: 2px solid color-mix(in srgb, var(--action) 40%, transparent); }
+  .hidden { display: none !important; }
+
+  .callout {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; font-size: 13.5px; color: var(--text-dim); margin: 8px 0 4px;
+  }
+  .callout b { color: var(--text); }
+  footer { max-width: 980px; margin: 0 auto; padding: 0 24px 60px; color: var(--text-dim); font-size: 12px; }
+  a { color: var(--action); }
+  .theme-toggle { cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="rainbow-band"></div>
+<header class="hero">
+  <div class="eyebrow">ResearchOS &middot; the final major feature</div>
+  <h1>Data Hub: a free, open GraphPad Prism alternative</h1>
+  <p class="lede">Synthesized from five research streams (Prism teardown, the analysis catalog, SigmaPlot and OriginPro, the spreadsheet round-trip, and the open-source library scout). Everything below runs <strong>fully in the browser</strong> against your on-disk folder, no backend. Mark each item <strong>Approve</strong>, <strong>Cut</strong>, or <strong>Discuss</strong>, drop a note, then hit <strong>Export</strong> and paste it back into chat. Recommended cut is pre-marked, nothing is locked.</p>
+</header>
+
+<div class="toolbar">
+  <div class="toolbar-inner">
+    <div class="counts" id="counts"></div>
+    <div class="spacer"></div>
+    <input class="search" id="search" placeholder="filter items..." />
+    <button class="btn theme-toggle" id="themeBtn">Dark</button>
+    <button class="btn primary" id="exportBtn">Export decisions</button>
+  </div>
+</div>
+
+<main id="app"></main>
+
+<footer>
+  Source research lives in <code>docs/research/data-hub/</code>. The text synthesis is <code>docs/research/data-hub/00-SYNTHESIS-and-build-plan.md</code>. This page is a decision worksheet, not the build.
+</footer>
+
+<script>
+const ITEMS = [
+  // A. Architecture & positioning
+  {s:"A. Architecture and positioning", id:"A1", phase:"p0", title:"Build Data Hub as a new top-level tab, a free OSS Prism alternative, fully client-side", rec:"approve",
+   detail:"A dedicated route alongside Methods/Results. All compute in-browser, data stays in the user's folder. Carries the usual obligations: an <code>APP_ROUTE_TO_WIKI</code> entry plus a wiki page (the build gate blocks deploy otherwise), brand tokens, BeakerBot, Icon component, house voice."},
+  {s:"A. Architecture and positioning", id:"A2", phase:"p0", title:"Native-JS compute spine, build the confidence-interval math in-house", rec:"approve",
+   detail:"<code>@stdlib/stats</code> (Apache-2.0) for hypothesis tests, <code>ml-levenberg-marquardt</code> + <code>ml-matrix</code> (MIT) for curve fitting. LM returns best-fit values but no standard errors, so we build the Jacobian to covariance to SE to CI step ourselves, exactly how scipy curve_fit makes pcov. This is the one real piece of stats math we author."},
+  {s:"A. Architecture and positioning", id:"A3", phase:"p0", title:"Plot on recharts + a thin custom d3 SVG layer we already ship", rec:"approve",
+   detail:"recharts (in the bundle) for common interactive charts; custom SVG on <code>d3-scale</code>/<code>d3-shape</code> (also in the bundle) for grouped error bars, fitted overlays, box, violin, Kaplan-Meier. SVG-native means publication vector export is basically free. Plotly.js stays off the default bundle, lazy escape hatch only."},
+  {s:"A. Architecture and positioning", id:"A4", phase:"p3", title:"Optional Pyodide validated kernel (real scipy/statsmodels), opt-in and lazy only", rec:"approve",
+   detail:"Run actual Python stats via WASM for advanced or citation-critical analyses, explicitly opted into and lazily loaded, never on the default path (~7MB+ runtime). Self-hostable for offline. Gives labs server-grade, reproducible numbers with zero reimplementation risk. WebR/R rejected as primary (clunkier, R is GPL)."},
+  {s:"A. Architecture and positioning", id:"A5", phase:"p0", title:"Public validation gate: every stat and fit checked against scipy / Prism reference values", rec:"approve",
+   detail:"A vitest gate pins our results to known-good scipy/Prism outputs, the same pattern as the existing <code>/transparency</code> page that compares our Tm and alignment math to Biopython. Correctness insurance plus a trust asset for the LabArchives flip and the NIH reproducibility pitch."},
+  {s:"A. Architecture and positioning", id:"A6", phase:"p0", title:"Every analysis is a stored, re-runnable spec that auto-updates when data changes", rec:"approve",
+   detail:"Prism's live-linked family, applied to our reactive local-first data layer. Editing a value reflows results and graphs. The spec (table, analysis choices, model) is saved with the data, so the whole figure re-runs. This is the honest core of the reproducibility story we already tell."},
+
+  // B. Data model / table types
+  {s:"B. Data model: table types", id:"B1", phase:"p1", title:"Column table", rec:"approve",
+   detail:"Highest-volume type. Groups side by side, replicates stacked. Western blot quant, ELISA, viability, qPCR ratios. Unlocks t tests and one-way ANOVA; default graph is the column scatter dot plot. The single most-used Prism workflow in biology."},
+  {s:"B. Data model: table types", id:"B2", phase:"p1", title:"XY table", rec:"approve",
+   detail:"Second-highest. One X column, multiple Y datasets with replicate subcolumns. The home of nonlinear regression: dose-response curves, standard curves, time courses."},
+  {s:"B. Data model: table types", id:"B3", phase:"p2", title:"Grouped table (two-way ANOVA, interleaved bars)", rec:"approve",
+   detail:"Rows and columns are both categorical factors (genotype x treatment, time x treatment). The most complex common case, but very frequent in pharmacology and cell biology. Phase 2."},
+  {s:"B. Data model: table types", id:"B4", phase:"p2", title:"Survival table (Kaplan-Meier)", rec:"approve",
+   detail:"Time-to-event data. Ubiquitous in oncology and infection biology. Pairs with the Kaplan-Meier graph and log-rank test. Phase 2."},
+  {s:"B. Data model: table types", id:"B5", phase:"p3", title:"Contingency table (Fisher / chi-square)", rec:"discuss",
+   detail:"Frequency counts for binary outcomes (alive/dead, responder/non-responder). Moderate use in genetics and immunology. Phase 3 candidate, worth confirming you want it before later phases."},
+  {s:"B. Data model: table types", id:"B6", phase:"p3", title:"Defer Parts-of-whole, Multiple-variables, and Nested tables", rec:"approve",
+   detail:"Narrow penetration in wet-lab biology (pie charts, multivariable regression input, hierarchical replicates). Recommend leaving these out of the first three phases. Cut this item if you actually want one of them sooner."},
+
+  // C. Analyses
+  {s:"C. Analyses (Tier 1, the core 80%)", id:"C1", phase:"p1", title:"Unpaired t test (Welch default, equal-variance option, Mann-Whitney fallback)", rec:"approve",
+   detail:"The single most-used test in wet-lab biology. Virtually every two-group comparison runs through this."},
+  {s:"C. Analyses (Tier 1, the core 80%)", id:"C2", phase:"p1", title:"Paired t test (Wilcoxon signed-rank fallback)", rec:"approve",
+   detail:"Before/after in the same animal or cell line, repeated-measures two-group designs."},
+  {s:"C. Analyses (Tier 1, the core 80%)", id:"C3", phase:"p1", title:"One-way ANOVA with Tukey and Dunnett multiple comparisons", rec:"approve",
+   detail:"Three or more conditions compared to each other or to a control. The post-hoc multiple-comparison choice is what users actually need here."},
+  {s:"C. Analyses (Tier 1, the core 80%)", id:"C4", phase:"p1", title:"Two-way ANOVA with Tukey / Sidak / Bonferroni", rec:"approve",
+   detail:"Factorial designs (genotype x treatment, time x treatment). Pairs with the Grouped table. Standard in pharmacology and cell biology."},
+  {s:"C. Analyses (Tier 1, the core 80%)", id:"C5", phase:"p1", title:"Nonlinear regression: 4PL variable-slope dose-response (EC50/IC50 + 95% CI)", rec:"approve",
+   detail:"Prism's crown jewel and the dominant analysis in pharmacology and signaling. Every IC50/EC50 uses this. Needs the in-house CI math from A2."},
+  {s:"C. Analyses (Tier 2, frequent)", id:"C6", phase:"p2", title:"Tier 2 analyses bundle", rec:"approve",
+   detail:"Mann-Whitney / Kruskal-Wallis + Dunn; Pearson / Spearman correlation; Kaplan-Meier survival + log-rank; simple linear regression; Michaelis-Menten enzyme kinetics. Note in the box if you want to trim any of these from Phase 2."},
+  {s:"C. Analyses (Tier 3, specialized)", id:"C7", phase:"p3", title:"Tier 3 analyses bundle", rec:"discuss",
+   detail:"One/two-phase exponential decay/association; contingency (Fisher / chi-square); receptor-binding saturation; Friedman; repeated-measures one-way ANOVA. Phase 3. Note which subfields your lab actually needs."},
+  {s:"C. Analyses (Tier 4, minority / Pyodide candidates)", id:"C8", phase:"p3", title:"Tier 4: ROC, Bland-Altman, multiple/logistic regression, three-way ANOVA", rec:"discuss",
+   detail:"Minority use in bench biology, more clinical/epidemiological. Strong candidates for the optional Pyodide kernel (A4) rather than hand-built native JS. Cut if you would rather not promise them at all."},
+
+  // D. Graph types
+  {s:"D. Graph types", id:"D1", phase:"p1", title:"Bar with SD/SEM error bars + significance brackets", rec:"approve",
+   detail:"Appears in the majority of biology papers. Error bars compute automatically from raw replicates. Significance brackets with asterisks are a near-universal publication step."},
+  {s:"D. Graph types", id:"D2", phase:"p1", title:"Column scatter / dot plot, individual points shown by default", rec:"approve",
+   detail:"Increasingly required by journals over bar-only for transparency. Recommend individual-point display as the Data Hub default."},
+  {s:"D. Graph types", id:"D3", phase:"p1", title:"XY scatter with curve-fit overlay", rec:"approve",
+   detail:"Dose-response and standard curves: the fitted curve drawn over the points, with the fit parameters shown."},
+  {s:"D. Graph types", id:"D4", phase:"p1", title:"XY line / time-course plot", rec:"approve",
+   detail:"Connected series for kinetics and longitudinal reads."},
+  {s:"D. Graph types", id:"D5", phase:"p2", title:"Before-after paired, box-and-whisker, violin, Kaplan-Meier step", rec:"approve",
+   detail:"Phase 2 graph set. Box and violin for distribution-forward data, before-after for paired designs, KM step for survival."},
+  {s:"D. Graph types", id:"D6", phase:"p3", title:"Later graphs: pie, volcano, heatmap with dendrogram", rec:"discuss",
+   detail:"Pie (Parts-of-whole, niche), volcano (omics-adjacent), and the OriginPro-borrowed clustered heatmap. Nice-to-have, later. Note if any of these is a must for your lab."},
+
+  // E. Differentiators
+  {s:"E. Differentiators (where we beat Prism for our users)", id:"E1", phase:"p1", title:"Guided test-selection wizard with an assumption Report Card", rec:"approve", star:true,
+   detail:"The highest-value idea in the whole research. Ask 4-5 plain questions (what are you comparing, how many groups, paired or not), recommend the test, auto-check normality and equal variance, fall back to the right nonparametric test if assumptions fail, and explain it all in plain language. Serves the bench scientist who is not a statistician, and it is exactly our concept-first, explain-the-why voice."},
+  {s:"E. Differentiators (where we beat Prism for our users)", id:"E2", phase:"p1", title:"Automatic error bars from raw replicates (no analysis step)", rec:"approve", star:true,
+   detail:"Type individual replicates, the graph shows SD or SEM immediately. Mundane but it is the thing users love most about Prism. Table stakes."},
+  {s:"E. Differentiators (where we beat Prism for our users)", id:"E3", phase:"p1", title:"Live-linked family: a data edit reflows results and graphs", rec:"approve",
+   detail:"Natural fit for our reactive local-first data layer. The central architectural feature of Prism, and we get it close to free."},
+  {s:"E. Differentiators (where we beat Prism for our users)", id:"E4", phase:"p1", title:"One-click significance brackets on graphs", rec:"approve",
+   detail:"Add p-value brackets and asterisks from the comparison results directly onto the figure. Nearly as important as the graph for publishing."},
+  {s:"E. Differentiators (where we beat Prism for our users)", id:"E5", phase:"p2", title:"Select-the-graph-first, get a pre-shaped table showing how to enter data", rec:"approve",
+   detail:"SigmaPlot's trick. Picking a graph type produces a correctly-shaped empty table, which kills the most common confusion point for new users."},
+  {s:"E. Differentiators (where we beat Prism for our users)", id:"E6", phase:"p2", title:"Cloneable figure templates", rec:"approve",
+   detail:"OriginPro idea. A graph's column-to-plot mapping is reused on any structurally identical dataset. The reproducibility story applied to figures, and a real time-saver for repeated assays."},
+  {s:"E. Differentiators (where we beat Prism for our users)", id:"E7", phase:"p3", title:"Show-the-code: surface the equivalent Python/R snippet for each analysis", rec:"discuss",
+   detail:"Since every analysis is a reproducible operation, we can show the scipy/statsmodels (or R) code that reproduces it. Reinforces the open, auditable, point-any-AI-at-your-data angle. Optional and later, but a strong differentiator nobody else offers."},
+
+  // F. Spreadsheet pillar
+  {s:"F. Spreadsheet integration (a stated first-class pillar)", id:"F1", phase:"p1", title:"Clean .xlsx and CSV import with structure detection mapped to table types", rec:"approve",
+   detail:"Detect header rows, per-column types, wide-vs-long, multi-block sheets, and map onto a Column / XY / Grouped table. Uses <code>exceljs</code> (MIT). Cell values, formulas-as-strings, multiple sheets, merged cells, and basic styles all survive import."},
+  {s:"F. Spreadsheet integration (a stated first-class pillar)", id:"F2", phase:"p1", title:"Paste-from-Excel with a transpose option", rec:"approve",
+   detail:"Tab-separated paste mapping to columns is the dominant data-entry path in practice. Transpose handles the rows-vs-columns mismatch."},
+  {s:"F. Spreadsheet integration (a stated first-class pillar)", id:"F3", phase:"p1", title:"Export data and figures: SVG, PDF, hi-DPI PNG, copy-to-clipboard, .xlsx out", rec:"approve",
+   detail:"Vector SVG/PDF (reusing @react-pdf/renderer) and journal-DPI PNG for papers, clipboard for slides, styled .xlsx export of the data. The clean export half of the pillar."},
+  {s:"F. Spreadsheet integration (a stated first-class pillar)", id:"F4", phase:"p1", title:"Decision: re-plot their data natively instead of round-tripping native Excel charts", rec:"approve", star:true,
+   detail:"The honest verdict from the research: no free, production-stable browser library can faithfully preserve a native embedded Excel chart through a round-trip (SheetJS and ExcelJS both drop charts on read; the one MIT chart library is pre-1.0 alpha). So we read their data and formulas cleanly and re-plot natively in Data Hub, usually better. This is a messaging call, approve the framing or note how you want to position it."},
+  {s:"F. Spreadsheet integration (a stated first-class pillar)", id:"F5", phase:"p3", title:"Recompute imported Excel formulas in-browser (optional)", rec:"discuss",
+   detail:"<code>@formulajs/formulajs</code> (MIT, ~400 Excel functions) can recompute imported formulas so an imported sheet stays live. Avoids <code>hyperformula</code> (GPLv3/commercial). Phase 3, only if you want imported formulas to recompute rather than import as static values."},
+
+  // G. Phasing
+  {s:"G. Phasing (approve the sequence)", id:"G0", phase:"p0", title:"Phase 0: foundation", rec:"approve",
+   detail:"Design lock, the table-type data model, the reproducible-analysis spec, and the engine wrappers (stats + fitting + covariance/CI) behind the validation gate. Plus the route's wiki page so the build can deploy. No user-visible feature yet, this is the load-bearing base."},
+  {s:"G. Phasing (approve the sequence)", id:"G1", phase:"p1", title:"Phase 1: the MVP", rec:"approve",
+   detail:"Column and XY tables, all Tier-1 analyses, the core graphs, automatic error bars, the guided wizard v1, xlsx/CSV import with structure detection, and SVG/PNG export. This is a genuinely useful Prism replacement for the 80% case."},
+  {s:"G. Phasing (approve the sequence)", id:"G2", phase:"p2", title:"Phase 2: depth", rec:"approve",
+   detail:"Grouped table and two-way ANOVA, Tier-2 analyses, box/violin/Kaplan-Meier, significance-bracket polish, PDF and journal-DPI export, cloneable figure templates, select-graph-first."},
+  {s:"G. Phasing (approve the sequence)", id:"G3", phase:"p3", title:"Phase 3: reach", rec:"approve",
+   detail:"Tier-3 analyses, the optional Pyodide validated kernel, show-the-code, formula recompute, and the advanced graph types."},
+];
+
+const STORE_KEY = "datahub-proposal-v1";
+let state = JSON.parse(localStorage.getItem(STORE_KEY) || "{}");
+let filter = "all";
+let query = "";
+
+function save() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+function verdictOf(id) { return (state[id] && state[id].v) || ""; }
+function noteOf(id) { return (state[id] && state[id].n) || ""; }
+function setVerdict(id, v) { state[id] = state[id] || {}; state[id].v = (state[id].v === v ? "" : v); save(); render(); }
+function setNote(id, n) { state[id] = state[id] || {}; state[id].n = n; save(); updateCounts(); }
+
+function phaseTag(p) {
+  return {p0:'<span class="tag p0">Phase 0</span>',p1:'<span class="tag p1">Phase 1</span>',p2:'<span class="tag p2">Phase 2</span>',p3:'<span class="tag p3">Phase 3</span>'}[p] || "";
+}
+
+function counts() {
+  let a=0,c=0,d=0,u=0;
+  ITEMS.forEach(it => { const v=verdictOf(it.id); if(v==="approve")a++; else if(v==="cut")c++; else if(v==="discuss")d++; else u++; });
+  return {a,c,d,u};
+}
+
+function updateCounts() {
+  const {a,c,d,u} = counts();
+  const el = document.getElementById("counts");
+  el.innerHTML = `
+    <span class="pill all" data-f="all" data-on="${filter==='all'}">All <span class="n">${ITEMS.length}</span></span>
+    <span class="pill approve" data-f="approve" data-on="${filter==='approve'}">Approved <span class="n">${a}</span></span>
+    <span class="pill cut" data-f="cut" data-on="${filter==='cut'}">Cut <span class="n">${c}</span></span>
+    <span class="pill discuss" data-f="discuss" data-on="${filter==='discuss'}">Discuss <span class="n">${d}</span></span>
+    <span class="pill undecided" data-f="undecided" data-on="${filter==='undecided'}">Undecided <span class="n">${u}</span></span>`;
+  el.querySelectorAll(".pill").forEach(p => p.onclick = () => { filter = p.dataset.f; render(); });
+}
+
+function matchesFilter(it) {
+  const v = verdictOf(it.id) || "undecided";
+  if (filter !== "all" && v !== filter) return false;
+  if (query) {
+    const hay = (it.id + " " + it.title + " " + it.detail + " " + it.s).toLowerCase();
+    if (!hay.includes(query)) return false;
+  }
+  return true;
+}
+
+function render() {
+  updateCounts();
+  const app = document.getElementById("app");
+  app.innerHTML = "";
+  let lastSection = null;
+  ITEMS.forEach(it => {
+    if (!matchesFilter(it)) return;
+    if (it.s !== lastSection) {
+      lastSection = it.s;
+      const h = document.createElement("div");
+      h.className = "section-h";
+      h.textContent = it.s;
+      app.appendChild(h);
+    }
+    const v = verdictOf(it.id);
+    const card = document.createElement("div");
+    card.className = "card";
+    if (v) card.dataset.verdict = v;
+    card.innerHTML = `
+      <div class="card-top">
+        <span class="card-id">${it.id}</span>
+        <span class="card-title">${it.title} ${it.star?'<span class="tag star">key idea</span>':''}</span>
+        ${phaseTag(it.phase)}
+      </div>
+      <div class="card-detail">${it.detail}</div>
+      <div class="card-actions">
+        <span class="vbtn approve ${v==='approve'?'on':''}" data-v="approve">Approve</span>
+        <span class="vbtn cut ${v==='cut'?'on':''}" data-v="cut">Cut</span>
+        <span class="vbtn discuss ${v==='discuss'?'on':''}" data-v="discuss">Discuss</span>
+        <span class="rec">recommended: ${it.rec}</span>
+      </div>
+      <textarea class="note" placeholder="note (optional)...">${noteOf(it.id)}</textarea>`;
+    card.querySelectorAll(".vbtn").forEach(b => b.onclick = () => setVerdict(it.id, b.dataset.v));
+    const ta = card.querySelector(".note");
+    ta.oninput = () => { setNote(it.id, ta.value); ta.style.height='auto'; ta.style.height=(ta.scrollHeight)+'px'; };
+    setTimeout(()=>{ ta.style.height='auto'; ta.style.height=(ta.scrollHeight)+'px'; },0);
+    app.appendChild(card);
+  });
+  if (!app.children.length) {
+    app.innerHTML = '<div class="callout">No items match this filter.</div>';
+  }
+}
+
+function buildExport() {
+  const {a,c,d,u} = counts();
+  let out = "# Data Hub proposal decisions\n\n";
+  out += `Approved ${a} / Cut ${c} / Discuss ${d} / Undecided ${u} (of ${ITEMS.length})\n\n`;
+  let lastSection = null;
+  ITEMS.forEach(it => {
+    const v = verdictOf(it.id);
+    const n = noteOf(it.id);
+    if (it.s !== lastSection) { lastSection = it.s; out += `\n## ${it.s}\n`; }
+    const mark = v ? v.toUpperCase() : "undecided";
+    out += `- [${mark}] ${it.id} ${it.title}`;
+    if (n) out += `\n    note: ${n}`;
+    out += "\n";
+  });
+  out += "\n---\nGenerated from docs/mockups/data-hub-proposal.html\n";
+  return out;
+}
+
+document.getElementById("exportBtn").onclick = () => {
+  const text = buildExport();
+  navigator.clipboard.writeText(text).then(()=>{}, ()=>{});
+  const blob = new Blob([text], {type:"text/markdown"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "data-hub-decisions.md"; a.click();
+  URL.revokeObjectURL(url);
+  const btn = document.getElementById("exportBtn");
+  const old = btn.textContent; btn.textContent = "Copied + downloaded";
+  setTimeout(()=>btn.textContent=old, 1600);
+};
+
+document.getElementById("search").oninput = (e) => { query = e.target.value.toLowerCase().trim(); render(); };
+
+const themeBtn = document.getElementById("themeBtn");
+function applyTheme(t){ document.documentElement.dataset.theme = t; themeBtn.textContent = t==="dark"?"Light":"Dark"; localStorage.setItem("datahub-theme", t); }
+themeBtn.onclick = () => applyTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
+applyTheme(localStorage.getItem("datahub-theme") || "light");
+
+render();
+</script>
+</body>
+</html>
