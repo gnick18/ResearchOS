@@ -322,6 +322,20 @@ h2{font-weight:800;letter-spacing:-.025em;line-height:1.05;font-size:50px;color:
 @keyframes spWord{0%,58%{opacity:0;transform:translateY(14px)}72%{opacity:1;transform:translateY(0)}100%{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){.splashstage,.splashword,.sp-body,.sp-liquid,.sp-eye,.sp-sparkle,.sp-draw,.sp-smile{animation:none}.sp-draw,.sp-smile{stroke-dashoffset:0}.sp-liquid{transform:scaleY(1)}.sp-eye{transform:scale(1);opacity:1}.sp-body{opacity:1}}
 
+/* ---- business / LLC + open-source credits ---- */
+.llcsteps .beat .need{font-style:normal}
+.cascade.llcsteps{flex:0 0 auto}
+.bizpunch{background:linear-gradient(100deg,#eef6ff,#fff4ec);border:1px solid var(--border);border-radius:14px;padding:14px 22px;font-size:16px;color:#374151;line-height:1.45}
+.bizpunch b{color:var(--ink)}
+.osswall{display:flex;flex-direction:column;gap:12px;flex:1;min-height:0;justify-content:center}
+.ossgroup{display:flex;align-items:baseline;gap:16px}
+.ossgroup .glabel{flex:0 0 158px;font-size:12.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--action);text-align:right;line-height:1.3}
+.osschips{display:flex;flex-wrap:wrap;gap:7px;flex:1}
+.osschip{font-size:13.5px;font-weight:600;color:var(--ink);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px 11px}
+.osschip em{font-style:normal;color:var(--coral);font-size:11px;font-weight:700;margin-left:6px}
+.ossfoot{font-size:13.5px;color:var(--muted);line-height:1.5}
+.ossfoot b{color:var(--ink)}
+
 /* ---- AI agents contrast ---- */
 .aigrid{display:grid;grid-template-columns:1fr 1fr;gap:24px;flex:1;min-height:0}
 .aicol{border:1px solid var(--border);border-radius:20px;padding:22px 24px;display:flex;flex-direction:column;position:relative;overflow:hidden}
@@ -1343,6 +1357,63 @@ body.idle .hud,body.idle .help{opacity:0;pointer-events:none}
         <div class="card"><div class="topbar"></div><div class="ct"><h3>One tool, not five</h3></div><p>Notebook, sequences, methods, inventory, and grants in one place, so nothing falls between apps.</p></div>
         <div class="card"><div class="topbar"></div><div class="ct"><h3>Made by a researcher</h3></div><p>Built in a working lab, for working labs, and funded to stay free for the people who need it most.</p></div>
       </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 26b. WHY AN LLC -->
+  <section class="slide">
+    <div class="head">
+      <div class="kicker"><span class="dot"></span> The business behind it</div>
+      <h2>Why there's an LLC</h2>
+      <div class="f-oneline" style="max-width:none">Optional cloud storage costs real money every month, so there is a small, accountable entity to collect it, pay the bills, and handle taxes. Cost recovery, not profit.</div>
+    </div>
+    <div class="body" style="display:flex;flex-direction:column;gap:30px;justify-content:center">
+      <div class="cascade llcsteps">
+        <div class="beat sky"><div class="node"><span style="font-size:23px;font-weight:800;color:var(--c)">1</span></div><div class="feat">Register the entity</div><div class="need">Articles of Organization, filed with the state of Wisconsin</div></div>
+        <div class="beat amber"><div class="node"><span style="font-size:23px;font-weight:800;color:var(--c)">2</span></div><div class="feat">Registered agent</div><div class="need">A real in-state address to receive legal mail</div></div>
+        <div class="beat coral"><div class="node"><span style="font-size:23px;font-weight:800;color:var(--c)">3</span></div><div class="feat">Operating agreement</div><div class="need">The governing document, even for one person</div></div>
+        <div class="beat sky"><div class="node"><span style="font-size:23px;font-weight:800;color:var(--c)">4</span></div><div class="feat">EIN from the IRS</div><div class="need">A free federal tax ID, needed to bank and file</div></div>
+        <div class="beat amber"><div class="node"><span style="font-size:23px;font-weight:800;color:var(--c)">5</span></div><div class="feat">Business bank account</div><div class="need">Business money kept separate from personal</div></div>
+        <div class="beat coral"><div class="node"><span style="font-size:23px;font-weight:800;color:var(--c)">6</span></div><div class="feat">Payment processor</div><div class="need">Stripe, so the entity can legally collect</div></div>
+      </div>
+      <div class="bizpunch"><b>All of it is set up and ready.</b> An LLC also makes a small yearly chore, the state annual report. And billing is built but switched off during the beta, so every bit of cloud storage is free right now.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 26c. STILL OPEN SOURCE -->
+  <section class="slide">
+    <div class="head">
+      <div class="kicker"><span class="dot"></span> Open source</div>
+      <h2>Still open source, all the way down</h2>
+      <div class="f-oneline" style="max-width:none">A company running the optional cloud does not change what ResearchOS is. The software stays free and open, and it cannot be taken away from you.</div>
+    </div>
+    <div class="body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;height:100%">
+        <div class="card"><div class="topbar"></div><div class="ct"><h3>AGPLv3, forever</h3></div><p>Free, open, and forkable. Read it, fork it, self-host it. AGPLv3 keeps it open even when it is offered as a service, so a lab-grade tool cannot quietly close up.</p></div>
+        <div class="card"><div class="topbar"></div><div class="ct"><h3>Your copyright, not the company's</h3></div><p>The copyright is held by the author, Grant Nickles, not the LLC. The business cannot be used to lock the open project away from the labs that depend on it.</p></div>
+        <div class="card"><div class="topbar"></div><div class="ct"><h3>The company runs only the optional cloud</h3></div><p>Every feature is free, and the local notebook never depends on the company. The only thing that can ever cost money is optional cloud storage, priced at cost.</p></div>
+        <div class="card"><div class="topbar"></div><div class="ct"><h3>Grant-funded, not venture-backed</h3></div><p>A UW-Madison RISE fellowship and voluntary GitHub Sponsors fund the free core. There are no investors to answer to and no pressure to lock you in.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 26d. BUILT ON OPEN SOURCE -->
+  <section class="slide">
+    <div class="head">
+      <div class="kicker"><span class="dot"></span> Credits</div>
+      <h2>Built on open source</h2>
+    </div>
+    <div class="body" style="display:flex;flex-direction:column;gap:16px">
+      <div class="osswall">
+        <div class="ossgroup"><div class="glabel">Framework</div><div class="osschips"><span class="osschip">React</span><span class="osschip">React DOM</span><span class="osschip">Next.js</span></div></div>
+        <div class="ossgroup"><div class="glabel">Editor &amp; Markdown</div><div class="osschips"><span class="osschip">CodeMirror</span><span class="osschip">marked</span><span class="osschip">remark</span><span class="osschip">rehype</span><span class="osschip">turndown</span></div></div>
+        <div class="ossgroup"><div class="glabel">Sequences &amp; canvas</div><div class="osschips"><span class="osschip">SeqViz</span><span class="osschip">TeselaGen bio-parsers</span><span class="osschip">Konva</span><span class="osschip">react-konva</span></div></div>
+        <div class="ossgroup"><div class="glabel">Data &amp; collaboration</div><div class="osschips"><span class="osschip">Loro CRDT</span><span class="osschip">loro-codemirror</span></div></div>
+        <div class="ossgroup"><div class="glabel">Charts, files, state</div><div class="osschips"><span class="osschip">Recharts</span><span class="osschip">frappe-gantt</span><span class="osschip">JSZip</span><span class="osschip">Zustand</span><span class="osschip">TanStack Query</span><span class="osschip">date-fns</span><span class="osschip">react-pdf</span></div></div>
+        <div class="ossgroup"><div class="glabel">Crypto &amp; infra</div><div class="osschips"><span class="osschip">noble crypto</span><span class="osschip">next-auth</span><span class="osschip">AWS S3 SDK</span><span class="osschip">Stripe</span><span class="osschip">Resend</span></div></div>
+        <div class="ossgroup"><div class="glabel">Science</div><div class="osschips"><span class="osschip">Biopython Tm port <em>BSD</em></span><span class="osschip">SantaLucia &amp; Allawi parameters</span></div></div>
+      </div>
+      <div class="ossfoot"><b>62 open-source packages, overwhelmingly MIT,</b> with a little ISC, Apache-2.0, and BSD. Every one is credited in our THIRD_PARTY_NOTICES, generated from the dependency tree so it can never drift. This is both a thank-you to the community and the attribution these licenses require. <a href="#" data-demo="/open-source" target="_blank" rel="noopener" style="color:var(--action);font-weight:700;text-decoration:none">See the full page at /open-source</a></div>
     </div>
   </section>
 
