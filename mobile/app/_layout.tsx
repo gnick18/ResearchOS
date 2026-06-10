@@ -95,6 +95,7 @@ export default function RootLayout() {
           <Stack.Screen name="bulk" options={{ headerShown: false }} />
           <Stack.Screen name="annotate" options={{ headerShown: false }} />
           <Stack.Screen name="add-purchase" options={{ headerShown: false }} />
+          <Stack.Screen name="method" options={{ headerShown: false }} />
           <Stack.Screen name="wiki/[slug]" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: false }} />
         </Stack>

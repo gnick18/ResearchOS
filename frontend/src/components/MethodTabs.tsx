@@ -19,6 +19,7 @@ import CompoundMethodTabContent from "./methods/CompoundMethodTabContent";
 import CodingWorkflowMethodTabContent from "./methods/CodingWorkflowMethodTabContent";
 import QpcrAnalysisMethodTabContent from "./methods/QpcrAnalysisMethodTabContent";
 import { WrapAsCompoundAction } from "./methods/WrapAsCompoundAction";
+import ViewMethodOnPhoneButton from "./methods/ViewMethodOnPhoneButton";
 
 interface MethodTabsProps {
   task: Task;
@@ -221,6 +222,16 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
             </Tooltip>
           )}
         </div>
+        {/* View method on phone (explicit entry point, Grant's locked v1
+            decision). Publishes a sealed read-mode projection of this
+            experiment's method(s) to the paired phone so the researcher can
+            follow the protocol at the bench. Self-hides when no phone is
+            paired. Shown in read AND edit mode (viewing is always allowed). */}
+        {activeMethod && (
+          <div className="ml-2 mb-2">
+            <ViewMethodOnPhoneButton taskId={task.id} taskOwner={task.owner} />
+          </div>
+        )}
         {/* Extend-into-kit affordance for the active non-compound method.
             Wrapping creates a new compound (kit) that lists the active
             method as its first child, then swaps this task's attachment
