@@ -2120,7 +2120,7 @@ const FIXTURE_ROUTES = [
   },
   {
     path: "/",
-    file: "telegram-inbox.png",
+    file: "photo-inbox.png",
     waitFor: "text=Research Project Overview",
     settleMs: 800,
     action: async (page) => {
@@ -2138,21 +2138,6 @@ const FIXTURE_ROUTES = [
     },
   },
   // Modals — navigate, click a button, then capture.
-  {
-    path: "/settings",
-    file: "telegram-pairing.png",
-    waitFor: "text=Settings",
-    action: async (page) => {
-      const tg = page.getByText(/Connect Telegram|Telegram/i).first();
-      if (await tg.count()) {
-        try {
-          await tg.click({ timeout: 3000 });
-          await page.waitForTimeout(800);
-        } catch {}
-      }
-    },
-    highlight: { selector: "input[placeholder*='token' i], input[placeholder*='123456' i]" },
-  },
   {
     // After opening the Manage Feeds modal, expand the native Provider
     // <select> so all 4 options (iCloud / Google / Outlook / Other) render
@@ -2568,7 +2553,7 @@ const FIXTURE_ROUTES = [
   // shift-clicks then range-select from the anchor to the target.
   {
     path: "/",
-    file: "telegram-inbox-multiselect.png",
+    file: "photo-inbox-multiselect.png",
     waitFor: "text=Research Project Overview",
     settleMs: 800,
     action: async (page) => {
@@ -2583,7 +2568,7 @@ const FIXTURE_ROUTES = [
           await page.waitForTimeout(800);
         }
       } catch (err) {
-        console.warn(`  ⚠ telegram-inbox-multiselect open panel: ${err.message}`);
+        console.warn(`  ⚠ photo-inbox-multiselect open panel: ${err.message}`);
         return;
       }
       // Inbox rows are <li> elements inside a <ul>. Scope to the inbox
@@ -2595,7 +2580,7 @@ const FIXTURE_ROUTES = [
         const rows = page.locator("li.group.flex.items-center.gap-3");
         const rowCount = await rows.count();
         if (rowCount === 0) {
-          console.warn(`  ⚠ telegram-inbox-multiselect: 0 rows visible`);
+          console.warn(`  ⚠ photo-inbox-multiselect: 0 rows visible`);
           return;
         }
         // First row: modifier-click so we DON'T trigger the edit popup
@@ -2625,7 +2610,7 @@ const FIXTURE_ROUTES = [
           .catch(() => {});
         await page.waitForTimeout(700);
       } catch (err) {
-        console.warn(`  ⚠ telegram-inbox-multiselect select+menu: ${err.message}`);
+        console.warn(`  ⚠ photo-inbox-multiselect select+menu: ${err.message}`);
       }
     },
     // Annotate the Shift-click target (the second inbox row) so the how-to
