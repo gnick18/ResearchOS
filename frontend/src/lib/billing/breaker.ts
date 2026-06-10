@@ -219,6 +219,33 @@ export async function estimateGlobalMonthlyCostCents(): Promise<GlobalCostEstima
   };
 }
 
+export interface CostCategory {
+  label: string;
+  vendor: string;
+  cents: number;
+  /** Fixed monthly commitment (not budgeted) vs variable usage cost. */
+  fixed: boolean;
+  color: string;
+}
+
+/**
+ * The SINGLE canonical breakdown of monthly cost OUT, by category and vendor,
+ * derived from a GlobalCostEstimate. Both the cost-breaker panel and the
+ * monthly-money-flow (spend) panel render from this one list, so a label, color,
+ * or value (e.g. an annual fee in capacity-shared.ts) only ever changes in one
+ * place. The panels may present it differently; the data is unified here.
+ */
+export function buildCostCategories(cost: GlobalCostEstimate): CostCategory[] {
+  return [
+    { label: "Hosting", vendor: "Vercel", cents: VERCEL_BASE_CENTS, fixed: true, color: "#6366f1" },
+    { label: "Compute base", vendor: "Cloudflare Workers", cents: WORKERS_BASE_CENTS, fixed: true, color: "#f59e0b" },
+    { label: "Doc storage", vendor: "Durable Objects", cents: cost.doCents, fixed: false, color: "#0ea5e9" },
+    { label: "File storage", vendor: "Cloudflare R2", cents: cost.r2Cents, fixed: false, color: "#10b981" },
+    { label: "Activity", vendor: "Cloudflare", cents: cost.activityCents, fixed: false, color: "#8b5cf6" },
+    { label: "Annual fees", vendor: "Apple, LLC report, domain", cents: cost.amortizedAnnualCents, fixed: true, color: "#a855f7" },
+  ];
+}
+
 // --- hot-path read (cached) -------------------------------------------------
 
 let cache: { paused: boolean; exp: number } | null = null;

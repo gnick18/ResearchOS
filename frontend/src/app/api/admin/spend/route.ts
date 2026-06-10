@@ -8,8 +8,7 @@ import { auth } from "@/lib/sharing/auth";
 import { isAdminEmail } from "@/lib/sharing/admin";
 import { json } from "@/lib/sharing/directory/guard";
 import {
-  VERCEL_BASE_CENTS,
-  WORKERS_BASE_CENTS,
+  buildCostCategories,
   estimateGlobalMonthlyCostCents,
 } from "@/lib/billing/breaker";
 import { ensureBusinessSchema, listLedger } from "@/lib/business/db";
@@ -39,15 +38,8 @@ export async function GET(): Promise<Response> {
   try {
     const cost = await estimateGlobalMonthlyCostCents();
 
-    // Money OUT, estimated provider cost by category (vendor-tagged).
-    const outCategories = [
-      { label: "Hosting", vendor: "Vercel", cents: VERCEL_BASE_CENTS, fixed: true, color: "#6366f1" },
-      { label: "Compute base", vendor: "Cloudflare Workers", cents: WORKERS_BASE_CENTS, fixed: true, color: "#f59e0b" },
-      { label: "Doc storage", vendor: "Durable Objects", cents: cost.doCents, fixed: false, color: "#0ea5e9" },
-      { label: "File storage", vendor: "Cloudflare R2", cents: cost.r2Cents, fixed: false, color: "#10b981" },
-      { label: "Activity", vendor: "Cloudflare", cents: cost.activityCents, fixed: false, color: "#8b5cf6" },
-      { label: "Annual fees", vendor: "Apple, LLC report, domain", cents: cost.amortizedAnnualCents, fixed: true, color: "#a855f7" },
-    ];
+    // Money OUT, estimated provider cost by category (the single canonical list).
+    const outCategories = buildCostCategories(cost);
 
     // Money IN, recorded revenue THIS MONTH grouped by category (empty until we
     // have revenue). Pulled from the business ledger, direction 'in'.
