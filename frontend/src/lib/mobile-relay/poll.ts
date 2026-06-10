@@ -103,6 +103,45 @@ import {
 
 const LOG_PREFIX = "[capture-poller]";
 
+// Decoupled OCR layers awaiting their image, keyed by captureId. MODULE-LEVEL so
+// an ocr-sidecar command that arrives in a different poll cycle than its image
+// is still applied (the command is acked on arrival, but the OCR persists here
+// until the image lands). Consumed + deleted when the image is written; capped
+// so a capture whose image never arrives cannot leak unboundedly.
+const ocrByCaptureId = new Map<string, OcrResult>();
+const OCR_BY_CAPTURE_CAP = 200;
+
+function rememberOcr(captureId: string, ocr: OcrResult): void {
+  if (ocrByCaptureId.size >= OCR_BY_CAPTURE_CAP) {
+    const oldest = ocrByCaptureId.keys().next().value;
+    if (oldest !== undefined) ocrByCaptureId.delete(oldest);
+  }
+  ocrByCaptureId.set(captureId, ocr);
+}
+
+/** Write the decoupled OCR sidecar next to a just-written image, if one arrived
+ *  for this captureId. Consumes (deletes) the entry. Best-effort, never throws. */
+async function writeOcrSidecarIfPresent(
+  captureId: string,
+  basePath: string,
+  finalFilename: string,
+): Promise<void> {
+  const ocr = ocrByCaptureId.get(captureId);
+  if (!ocr) return;
+  try {
+    await writeOcr(basePath, finalFilename, ocr);
+    ocrByCaptureId.delete(captureId);
+    console.info(
+      `${LOG_PREFIX} wrote OCR sidecar ${basePath}/Images/${finalFilename}.ocr.json`,
+    );
+  } catch (err) {
+    console.warn(
+      `${LOG_PREFIX} failed to write OCR sidecar for ${finalFilename}`,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
 /** Coarse category a capture is routed by, derived from its content type. */
 export type CaptureKind =
   | "image"
@@ -258,9 +297,21 @@ interface RouteCaptureNoteCommand {
   owner: string;
   /** Entry id to append the image to. Null means use the latest entry (fallback). */
   entryId: string | null;
-  /** OCR layer for a scanned handwriting note (sealed inside this command, E2E).
-   *  Present only for scans; the laptop writes it to {image}.ocr.json. */
-  ocr?: OcrResult;
+}
+
+/**
+ * An ocr-sidecar command (decoupled OCR delivery). The phone seals this for
+ * every scanned capture, keyed to the captureId, INDEPENDENT of routing. The
+ * laptop stores it by captureId and writes {image}.ocr.json next to the image
+ * WHEREVER it lands (inbox, notebook, or experiment), so a scan keeps its OCR
+ * layer no matter where the user files it (or if they leave it in the inbox).
+ */
+interface OcrSidecarCommand {
+  type: "ocr-sidecar";
+  /** The captureId this OCR layer belongs to. */
+  captureId: string;
+  /** The OCR result to write to {image}.ocr.json. */
+  ocr: OcrResult;
 }
 
 /**
@@ -766,7 +817,7 @@ export async function runCaptureInboxPoll(
   // the relay TTL (set by the worker) is the guard.
   const routeMap = new Map<string, { taskId: number; owner: string; tab: "notes" | "results"; commandId: string }>();
   // Note route map: captureId -> note destination + commandId (Phase 1.5).
-  const noteRouteMap = new Map<string, { noteId: number; owner: string; entryId: string | null; commandId: string; ocr?: OcrResult }>();
+  const noteRouteMap = new Map<string, { noteId: number; owner: string; entryId: string | null; commandId: string }>();
   // Append-line commands to apply after the route-map pass. Accumulated here so
   // we process captures first (route-map must be complete), then apply appends.
   const appendLineQueue: Array<{ cmd: AppendLineCommand; commandId: string }> = [];
@@ -824,13 +875,31 @@ export async function runCaptureInboxPoll(
                 owner: rcn.owner,
                 entryId: rcn.entryId ?? null,
                 commandId: cmd.commandId,
-                ocr: rcn.ocr,
               });
               console.info(
                 `${LOG_PREFIX} route-capture-note command: captureId=${rcn.captureId} -> note ${rcn.owner}/${rcn.noteId} entryId=${rcn.entryId ?? "latest"}`,
               );
             } else {
               console.warn(`${LOG_PREFIX} route-capture-note command ${cmd.commandId} has invalid fields, skipping`);
+            }
+          } else if (parsed.type === "ocr-sidecar") {
+            // Decoupled OCR. Store the OCR layer by captureId + ack now; it is
+            // written to {image}.ocr.json wherever this capture's image lands
+            // (inbox / note / experiment), no dependency on routing.
+            const osc = parsed as OcrSidecarCommand;
+            if (osc.captureId && osc.ocr && typeof osc.ocr.text === "string") {
+              rememberOcr(osc.captureId, osc.ocr);
+              console.info(`${LOG_PREFIX} ocr-sidecar command: captureId=${osc.captureId}`);
+              try {
+                await ackCommands(keys, [cmd.commandId]);
+              } catch (ackErr) {
+                console.warn(
+                  `${LOG_PREFIX} failed to ack ocr-sidecar command ${cmd.commandId}`,
+                  ackErr instanceof Error ? ackErr.message : String(ackErr),
+                );
+              }
+            } else {
+              console.warn(`${LOG_PREFIX} ocr-sidecar command ${cmd.commandId} has invalid fields, skipping`);
             }
           } else if (parsed.type === "append-line") {
             // Phase 2: append a calc result line to a task doc. Defer to after
@@ -1057,6 +1126,11 @@ export async function runCaptureInboxPoll(
             console.info(
               `${LOG_PREFIX} wrote inbox fallback ${basePath}/Images/${inboxResult.finalFilename} (note not writable)`,
             );
+            await writeOcrSidecarIfPresent(
+              capture.captureId,
+              basePath,
+              inboxResult.finalFilename,
+            );
             await markCaptureSeen(currentUser, seen, capture.captureId);
             await ackCaptures(keys, [capture.captureId]);
             console.info(`${LOG_PREFIX} acked ${capture.captureId} (note-perm inbox fallback)`);
@@ -1084,27 +1158,13 @@ export async function runCaptureInboxPoll(
             `${LOG_PREFIX} wrote note ${noteRoute.noteId}/Images/${noteResult.finalFilename}`,
           );
 
-          // Scanned handwriting note: write the OCR sidecar next to the image so
-          // the note shows the enhanced scan with its hidden editable text, and
-          // search can index the extracted text. Best-effort, never blocks the
-          // image that already landed.
-          if (noteRoute.ocr) {
-            try {
-              await writeOcr(
-                `users/${noteRoute.owner}/notes/${noteRoute.noteId}`,
-                noteResult.finalFilename,
-                noteRoute.ocr,
-              );
-              console.info(
-                `${LOG_PREFIX} wrote OCR sidecar for ${noteResult.finalFilename}`,
-              );
-            } catch (ocrErr) {
-              console.warn(
-                `${LOG_PREFIX} failed to write OCR sidecar for ${noteResult.finalFilename}`,
-                ocrErr instanceof Error ? ocrErr.message : String(ocrErr),
-              );
-            }
-          }
+          // Decoupled OCR: write the sidecar next to the note image if an
+          // ocr-sidecar command arrived for this capture (scanned handwriting).
+          await writeOcrSidecarIfPresent(
+            capture.captureId,
+            `users/${noteRoute.owner}/notes/${noteRoute.noteId}`,
+            noteResult.finalFilename,
+          );
 
           // Dispatch note:routed so the open note popup auto-switches to the entry.
           if (typeof window !== "undefined") {
@@ -1189,6 +1249,15 @@ export async function runCaptureInboxPoll(
         });
         console.info(
           `${LOG_PREFIX} wrote ${imageLandingPath}/Images/${result.finalFilename}`,
+        );
+
+        // Decoupled OCR: write the sidecar next to the image wherever it landed
+        // (a routed experiment, or the default inbox), if an ocr-sidecar command
+        // arrived for this capture.
+        await writeOcrSidecarIfPresent(
+          capture.captureId,
+          imageLandingPath,
+          result.finalFilename,
         );
 
         // Auto-switch the open experiment popup to the tab the photo landed in
