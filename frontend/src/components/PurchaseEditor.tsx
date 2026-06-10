@@ -50,6 +50,8 @@ import {
   ATTACHMENT_KINDS,
   attachmentKindLabel,
 } from "@/lib/purchases/attachments";
+import { buildDepartmentMailto } from "@/lib/purchases/routing";
+import { readUserSettings } from "@/lib/settings/user-settings";
 
 interface PurchaseEditorProps {
   taskId: number;
@@ -144,6 +146,7 @@ function PurchaseDocsRow({
   onRemove,
   onOpen,
   onKindChange,
+  routing,
 }: {
   attachments: PurchaseAttachment[];
   editing: boolean;
@@ -153,7 +156,15 @@ function PurchaseDocsRow({
   onRemove: (id: string) => void;
   onOpen: (att: PurchaseAttachment) => void;
   onKindChange: (id: string, kind: PurchaseAttachmentKind) => void;
+  // Department routing (slice 3). Non-null only for a display row of an approved
+  // purchase when the PI has routing enabled with at least one contact. The
+  // draft-and-hand-off opens the PI's own mail client.
+  routing?: {
+    contacts: { id: string; name: string; email: string }[];
+    onSend: (email: string) => void;
+  } | null;
 }) {
+  const [sendTo, setSendTo] = useState(routing?.contacts[0]?.email ?? "");
   if (!editing && attachments.length === 0) return null;
   return (
     <tr className="border-b border-border bg-surface-sunken/40">
@@ -224,6 +235,33 @@ function PurchaseDocsRow({
               <Icon name="import" className="w-3.5 h-3.5" />
               {attaching ? "Attaching..." : "Attach PDF"}
             </button>
+          )}
+          {routing && routing.contacts.length > 0 && (
+            <span className="ml-auto inline-flex items-center gap-1">
+              {routing.contacts.length > 1 && (
+                <select
+                  value={sendTo || routing.contacts[0].email}
+                  onChange={(e) => setSendTo(e.target.value)}
+                  className="rounded border border-border bg-transparent py-0.5 text-meta text-foreground-muted"
+                  aria-label="Department recipient"
+                >
+                  {routing.contacts.map((c) => (
+                    <option key={c.id} value={c.email}>
+                      {c.name || c.email}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <button
+                type="button"
+                onClick={() => routing.onSend(sendTo || routing.contacts[0].email)}
+                className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-meta font-medium text-foreground hover:bg-surface-sunken"
+                title="Draft an email to the department with this purchase's details"
+              >
+                <Icon name="share" className="w-3.5 h-3.5" />
+                Send to department
+              </button>
+            </span>
           )}
         </div>
       </td>
@@ -316,6 +354,40 @@ export default function PurchaseEditor({
     queryKey: ["funding-accounts"],
     queryFn: () => purchasesApi.listFundingAccounts(),
   });
+
+  // Department routing (PURCHASE_DOCS_AND_ROUTING.md slice 3). The viewer's own
+  // settings hold the routing config; it is meaningful only for a lab head who
+  // turned it on. Members / non-configured labs read a disabled config and the
+  // "Send to department" affordance never appears.
+  const { data: mySettings } = useQuery({
+    queryKey: ["user-settings", gateCurrentUser],
+    queryFn: () => readUserSettings(gateCurrentUser ?? ""),
+    enabled: !!gateCurrentUser,
+  });
+  const routingCfg = mySettings?.purchaseRouting;
+  const routingActive =
+    !!routingCfg?.enabled && (routingCfg.contacts?.length ?? 0) > 0;
+
+  const handleSendToDept = useCallback(
+    (item: PurchaseItem, email: string) => {
+      if (!routingCfg) return;
+      const acct = fundingAccounts.find(
+        (a) => a.id === item.funding_account_id,
+      );
+      const grant = acct?.name || item.funding_string || "(no grant)";
+      const me = mySettings?.displayName || gateCurrentUser || "";
+      const url = buildDepartmentMailto(email, item, routingCfg, {
+        item: item.item_name,
+        grant,
+        vendor: item.vendor || "",
+        total: `$${(item.total_price ?? 0).toFixed(2)}`,
+        me,
+      });
+      // mailto: opens the OS mail client without navigating the app away.
+      window.location.href = url;
+    },
+    [routingCfg, fundingAccounts, mySettings, gateCurrentUser],
+  );
 
   // Funding-string prefill (funding-niceties bot, 2026-05-28). Load the parent
   // task's project so a new purchase can default its funding string to the
@@ -1640,6 +1712,14 @@ export default function PurchaseEditor({
                   onRemove={() => {}}
                   onOpen={handleOpenAttachment}
                   onKindChange={() => {}}
+                  routing={
+                    routingActive && item.approved
+                      ? {
+                          contacts: routingCfg!.contacts,
+                          onSend: (email) => handleSendToDept(item, email),
+                        }
+                      : null
+                  }
                 />
                 </Fragment>
               )
