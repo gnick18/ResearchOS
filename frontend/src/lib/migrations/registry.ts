@@ -26,6 +26,10 @@ import {
   RECONCILE_HOSTED_ID,
 } from "./reconcile-hosted";
 import { runFundingRework, FUNDING_REWORK_ID } from "./funding-rework";
+import {
+  backfillResultsHeaders,
+  RESULTS_HEADER_BACKFILL_ID,
+} from "./results-header-backfill";
 import type { Migration, MigrationReport } from "./types";
 
 /** The lib/repair/* functions share a `{ total, repaired, unrecoverable }`
@@ -136,5 +140,13 @@ export const MIGRATIONS: Migration[] = [
     id: FUNDING_REWORK_ID,
     title: "Funding account links + live spend",
     run: runFundingRework,
+  },
+  {
+    // Backfill the "# Results: <name>" header on experiments created before
+    // results.md was scaffolded at creation, so Results opens with its title
+    // like Lab Notes does. Additive, own experiments only, idempotent.
+    id: RESULTS_HEADER_BACKFILL_ID,
+    title: "Results headers",
+    run: backfillResultsHeaders,
   },
 ];
