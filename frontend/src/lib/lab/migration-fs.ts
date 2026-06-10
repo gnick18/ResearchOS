@@ -75,4 +75,11 @@ export interface MigrationFs {
    * Return true when the path exists (either file or directory).
    */
   exists(path: string): Promise<boolean>;
+
+  /**
+   * Recursively remove a directory (and all contents). Idempotent: removing an
+   * absent path is a no-op, never throws ENOENT. Used by the crash-safe resume
+   * path to drop a leftover partial source once a COMPLETE trash copy exists.
+   */
+  removeDir(path: string): Promise<void>;
 }

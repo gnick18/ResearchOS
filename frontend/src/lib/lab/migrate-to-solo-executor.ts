@@ -20,6 +20,17 @@
 
 import type { MigrationFs } from "./migration-fs";
 import type { MigrationPlan } from "./migrate-to-solo";
+import {
+  SHARE_ARRAY_FIELDS,
+  SCALAR_OWNER_FIELDS,
+  SHARED_WITH_ME_ARRAYS,
+  NOTIFICATION_OWNER_FIELDS,
+  NOTIFICATIONS_ARRAY_FIELD,
+  classifyFile,
+  isMovedUser,
+  isWildcard,
+  resolveUsername,
+} from "./migration-ref-policy";
 
 // ---------------------------------------------------------------------------
 // Public types.
@@ -122,24 +133,73 @@ export async function executeMigrationToSolo(
   for (const userSummary of plan.usersToMove) {
     const username = userSummary.username;
     const srcPath = joinPath("users", username);
+    const bundleRoot = joinPath(bundlesDir, username);
+    const bundleDest = joinPath(bundleRoot, "users", username);
+    const trashDest = joinPath(trashDir, username);
 
-    // Idempotent: if the source directory is already gone, skip gracefully.
     const srcExists = await fs.exists(srcPath);
+    const trashExists = await fs.exists(trashDest);
+
+    // CRASH-SAFE ORDERING + RESUME. The one irreversible step is deleting the
+    // source, and we NEVER reach it until a complete, VERIFIED bundle exists.
+    // Two facts make the resume sound:
+    //   (a) rename() (the trash move) copies the whole subtree BEFORE deleting
+    //       the source, so the source is the complete copy until the very end.
+    //   (b) the executor only ever calls rename() AFTER bundling + verifying,
+    //       so the mere existence of trashDest proves a COMPLETE bundle exists.
+    //
+    // The four reachable states, keyed on whether the source still exists:
     if (!srcExists) {
+      // Source gone => the move finished on a prior run (trash + bundle are the
+      // durable complete copies). Idempotent no-op, exactly like a clean rerun.
       continue;
     }
 
-    // 1. BUNDLE: copy users/<U>/ -> ${bundlesDir}/<U>/users/<U>/
-    //    The bundle root is bundlesDir/<U> so that connecting it gives a valid
-    //    single-user folder with users/<U>/ inside.
-    const bundleRoot = joinPath(bundlesDir, username);
-    const bundleDest = joinPath(bundleRoot, "users", username);
-    await copyDirRecursiveMfs(fs, srcPath, bundleDest);
+    if (trashExists) {
+      // Source AND trash both present => a prior run crashed somewhere inside
+      // the trash move (its copy or its delete). By fact (b) the bundle is the
+      // authoritative complete copy. Rebuild trash from the BUNDLE (never from
+      // the possibly-partial source), then drop the leftover source. No source
+      // file is read for data here, so a partial source cannot corrupt anything.
+      if (!(await fs.exists(bundleDest))) {
+        throw new Error(
+          `migrate-to-solo: "${username}" is in an inconsistent partial state ` +
+            `(trash present, bundle missing). No data has been deleted; recover ` +
+            `the user's data from users/ or _trash before retrying.`,
+        );
+      }
+      await fs.mkdirp(trashDir);
+      await copyDirRecursiveMfs(fs, bundleDest, trashDest);
+      if (!(await isTreeComplete(fs, bundleDest, trashDest))) {
+        throw new Error(`migrate-to-solo: could not rebuild a complete trash copy for "${username}"; no data deleted.`);
+      }
+      await fs.removeDir(srcPath);
+      bundlePaths[username] = bundleRoot;
+      trashPaths[username] = trashDest;
+      movedUsers.push(username);
+      continue;
+    }
+
+    // Normal path: source present, no trash yet => the source is the complete
+    // authoritative copy.
+    // 1. BUNDLE: copy users/<U>/ -> ${bundlesDir}/<U>/users/<U>/ and VERIFY it
+    //    is complete (catches a silently torn FSA write that left a file
+    //    absent) BEFORE touching the source.
+    const bundleComplete =
+      (await fs.exists(bundleDest)) && (await isTreeComplete(fs, srcPath, bundleDest));
+    if (!bundleComplete) {
+      await copyDirRecursiveMfs(fs, srcPath, bundleDest);
+      if (!(await isTreeComplete(fs, srcPath, bundleDest))) {
+        throw new Error(
+          `migrate-to-solo: bundle for "${username}" is incomplete after copy. ` +
+            `Aborting BEFORE any delete so no data is lost; re-run to resume.`,
+        );
+      }
+    }
     bundlePaths[username] = bundleRoot;
 
-    // 2. TRASH: move users/<U>/ -> ${trashDir}/<U>/
-    //    Done AFTER a successful bundle copy to ensure recoverability.
-    const trashDest = joinPath(trashDir, username);
+    // 2. TRASH: move users/<U>/ -> ${trashDir}/<U>/ (recoverable). Only reached
+    //    once the bundle is a verified complete copy.
     await fs.mkdirp(trashDir);
     await fs.rename(srcPath, trashDest);
     trashPaths[username] = trashDest;
@@ -238,27 +298,56 @@ export async function copyDirRecursiveMfs(
   }
 }
 
+/**
+ * Collect every FILE path under `dir`, relative to `dir`, recursively.
+ * Used to verify a bundle copy covered the whole source before any delete.
+ */
+async function listTreeFiles(fs: MigrationFs, dir: string, prefix = ""): Promise<Set<string>> {
+  const out = new Set<string>();
+  const entries = await fs.listDir(dir);
+  for (const entry of entries) {
+    const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.kind === "dir") {
+      for (const f of await listTreeFiles(fs, joinPath(dir, entry.name), rel)) out.add(f);
+    } else {
+      out.add(rel);
+    }
+  }
+  return out;
+}
+
+/**
+ * True when `dst` contains (at least) every file present under `src`. A torn
+ * FSA write leaves a file ABSENT (the atomic .tmp never moves), so a missing
+ * file is exactly the failure this catches before the source is deleted.
+ */
+async function isTreeComplete(fs: MigrationFs, src: string, dst: string): Promise<boolean> {
+  const srcFiles = await listTreeFiles(fs, src);
+  const dstFiles = await listTreeFiles(fs, dst);
+  for (const f of srcFiles) {
+    if (!dstFiles.has(f)) return false;
+  }
+  return true;
+}
+
 // ---------------------------------------------------------------------------
 // stripSharesFromPrimary: remove moved-user references from the primary's files.
 // ---------------------------------------------------------------------------
 
 /**
- * Walk every .json file under users/<primaryUser>/ and remove references to
- * any moved username from:
- *   (a) Any array field named "shared_with". Entries may be plain strings OR
- *       objects with a "username" or "user" field (both forms are handled).
- *   (b) shared_notebooks files: array fields named "participants", "members",
- *       or "usernames". Also nulls out a string "owner" or "sharedBy" field
- *       if it equals a moved username.
- * It ALSO clears lab-wide sharing, which is stale once the folder is solo:
- *   (d) drops the "*" wildcard (shared with all lab members) from every share
- *       array, and
- *   (e) sets is_shared to false.
+ * Walk every .json file under users/<primaryUser>/ and remove dangling
+ * cross-owner references to any moved user, dispatching per file via
+ * transformPrimaryFile (see migration-ref-policy.ts for the strip/prune/keep
+ * contract). In short:
+ *   - records: strip active grants (shared_with / members / "*" / is_shared),
+ *     clear external_project whose owner left, rename former 1:1 notebooks.
+ *   - _shared_with_me.json / _notifications.json / *-hosted.json: prune the
+ *     array ENTRIES that point at a moved user's now-gone data.
+ *   - attribution (assignee, comment author, last_edited_by, created_by) is
+ *     intentionally KEPT (it gray-degrades to an archived user on read).
  *
- * Only rewrites a file if it actually changed. Skips files that are not valid
- * JSON or that have none of the relevant fields.
- *
- * Returns one ShareStripRecord per modified file.
+ * Only rewrites a file if it actually changed. Files that are not valid JSON
+ * are left byte-untouched. Returns one ShareStripRecord per modified file.
  */
 async function stripSharesFromPrimary(
   fs: MigrationFs,
@@ -284,88 +373,224 @@ async function stripSharesFromPrimary(
       return; // not valid JSON: skip
     }
 
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-      return; // not an object: skip
-    }
+    const outcome = transformPrimaryFile(relPath, parsed, movedUsers);
+    if (!outcome) return; // nothing to change in this file
 
-    const obj = parsed as Record<string, unknown>;
-    const removed: string[] = [];
-
-    // (a) shared_with arrays.
-    if (Array.isArray(obj["shared_with"])) {
-      const before = obj["shared_with"] as unknown[];
-      const after = before.filter((entry) => !isMovedUser(entry, movedUsers));
-      if (after.length !== before.length) {
-        const removedHere = before
-          .filter((e) => isMovedUser(e, movedUsers))
-          .map((e) => resolveUsername(e));
-        removed.push(...removedHere);
-        obj["shared_with"] = after;
-      }
-    }
-
-    // (b) Shared-notebook participant/member/usernames arrays.
-    for (const field of ["participants", "members", "usernames"] as const) {
-      if (Array.isArray(obj[field])) {
-        const before = obj[field] as unknown[];
-        const after = before.filter((entry) => !isMovedUser(entry, movedUsers));
-        if (after.length !== before.length) {
-          const removedHere = before
-            .filter((e) => isMovedUser(e, movedUsers))
-            .map((e) => resolveUsername(e));
-          removed.push(...removedHere);
-          obj[field] = after;
-        }
-      }
-    }
-
-    // (c) Null out owner/sharedBy if they point to a moved user.
-    for (const field of ["owner", "sharedBy"] as const) {
-      if (typeof obj[field] === "string" && movedUsers.has(obj[field] as string)) {
-        removed.push(obj[field] as string);
-        obj[field] = null;
-      }
-    }
-
-    // (d) Lab-wide sharing is stale once the folder is solo (there is no lab to
-    //     share with). Drop the "*" wildcard (shared-with-all-lab-members) from
-    //     every share array. "*" may be a plain string or an object form.
-    for (const field of ["shared_with", "participants", "members", "usernames"] as const) {
-      if (Array.isArray(obj[field])) {
-        const before = obj[field] as unknown[];
-        const after = before.filter((e) => resolveUsername(e) !== "*");
-        if (after.length !== before.length) {
-          removed.push("*");
-          obj[field] = after;
-        }
-      }
-    }
-
-    // (e) Clear the is_shared flag: a solo folder shares with no one.
-    if (obj["is_shared"] === true) {
-      obj["is_shared"] = false;
-      removed.push("is_shared");
-    }
-
-    // (f) Former 1:1 (mentoring) notebooks: the 1:1 construct is meaningless
-    //     once solo. Rename a "1:1 with <name>" shared notebook to a neutral
-    //     title so it reads as the ordinary personal notebook it now is.
-    if (
-      relPath.includes("/shared_notebooks/") &&
-      typeof obj["title"] === "string" &&
-      /^1:1 with /i.test(obj["title"] as string)
-    ) {
-      obj["title"] = "Meeting notes";
-      removed.push("(1:1-rename)");
-    }
-
-    if (removed.length === 0) return; // no changes
-
-    await fs.writeFile(relPath, JSON.stringify(obj, null, 2));
-    records.push({ file: relPath, removed });
+    await fs.writeFile(relPath, JSON.stringify(outcome.value, null, 2));
+    records.push({ file: relPath, removed: outcome.removed });
   });
 
   return records;
+}
+
+// ---------------------------------------------------------------------------
+// transformPrimaryFile: file-aware strip / prune of one parsed json value.
+// ---------------------------------------------------------------------------
+
+/** True only for a non-null, non-array object. */
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+/**
+ * Dispatch a single parsed primary-user file to the right transform based on
+ * its filename. Returns the new value + a list of what was removed, or null if
+ * nothing changed (so the caller leaves the file's bytes untouched).
+ *
+ * The three filename-gated sidecars (_shared_with_me.json, _notifications.json,
+ * *-hosted.json) hold ARRAY ENTRIES that POINT AT a moved user's data; once
+ * that data leaves the folder the entry is dead, so the whole entry is pruned.
+ * Every other json is a "record" and gets the conservative field-level strip.
+ */
+function transformPrimaryFile(
+  relPath: string,
+  parsed: unknown,
+  movedUsers: Set<string>,
+): { value: unknown; removed: string[] } | null {
+  switch (classifyFile(relPath)) {
+    case "notifications":
+      return pruneNotifications(parsed, movedUsers);
+    case "shared_with_me":
+      return pruneSharedWithMe(parsed, movedUsers);
+    case "hosted":
+      return pruneHostedManifest(parsed, movedUsers);
+    default:
+      return stripRecord(relPath, parsed, movedUsers);
+  }
+}
+
+/**
+ * _notifications.json is `{ version, notifications: [...] }` on disk (a legacy
+ * root-array form is also tolerated). Drop every notification whose sender
+ * (from_user) or referenced record owner (owner_username) is a moved user, as
+ * it now points at a person / record that has left the folder.
+ */
+function pruneNotifications(
+  parsed: unknown,
+  movedUsers: Set<string>,
+): { value: unknown; removed: string[] } | null {
+  const removed: string[] = [];
+  const prune = (list: unknown[]): unknown[] =>
+    list.filter((entry) => {
+      if (isPlainObject(entry)) {
+        for (const f of NOTIFICATION_OWNER_FIELDS) {
+          const val = entry[f];
+          if (typeof val === "string" && movedUsers.has(val)) {
+            removed.push(val);
+            return false;
+          }
+        }
+      }
+      return true;
+    });
+
+  // Object-wrapped form: { version, notifications: [...] }.
+  if (isPlainObject(parsed) && Array.isArray(parsed[NOTIFICATIONS_ARRAY_FIELD])) {
+    const after = prune(parsed[NOTIFICATIONS_ARRAY_FIELD] as unknown[]);
+    if (!removed.length) return null;
+    return { value: { ...parsed, [NOTIFICATIONS_ARRAY_FIELD]: after }, removed };
+  }
+  // Legacy root-array form.
+  if (Array.isArray(parsed)) {
+    const after = prune(parsed);
+    return removed.length ? { value: after, removed } : null;
+  }
+  return null;
+}
+
+/**
+ * _shared_with_me.json indexes records OWNED BY OTHERS that the primary could
+ * read. After those owners leave, the entries point at data that is gone, so
+ * prune every tasks/projects/methods entry whose owner is a moved user.
+ */
+function pruneSharedWithMe(
+  parsed: unknown,
+  movedUsers: Set<string>,
+): { value: unknown; removed: string[] } | null {
+  if (!isPlainObject(parsed)) return null;
+  const obj: Record<string, unknown> = { ...parsed };
+  const removed: string[] = [];
+  let changed = false;
+  for (const arr of SHARED_WITH_ME_ARRAYS) {
+    if (Array.isArray(obj[arr])) {
+      const before = obj[arr] as unknown[];
+      const after = before.filter((e) => {
+        if (isPlainObject(e) && typeof e.owner === "string" && movedUsers.has(e.owner)) {
+          removed.push(e.owner);
+          return false;
+        }
+        return true;
+      });
+      if (after.length !== before.length) {
+        obj[arr] = after;
+        changed = true;
+      }
+    }
+  }
+  return changed ? { value: obj, removed } : null;
+}
+
+/**
+ * projects/<id>-hosted.json lists tasks hosted INTO the primary's project from
+ * other owners. Prune any entry whose owner or sharedBy is a moved user (its
+ * task file has left with that user's bundle, so the entry is drift).
+ */
+function pruneHostedManifest(
+  parsed: unknown,
+  movedUsers: Set<string>,
+): { value: unknown; removed: string[] } | null {
+  if (!isPlainObject(parsed) || !Array.isArray(parsed.hostedTasks)) return null;
+  const obj: Record<string, unknown> = { ...parsed };
+  const removed: string[] = [];
+  const before = obj.hostedTasks as unknown[];
+  const after = before.filter((e) => {
+    if (isPlainObject(e)) {
+      const owner = e.owner;
+      const sharedBy = e.sharedBy;
+      if (
+        (typeof owner === "string" && movedUsers.has(owner)) ||
+        (typeof sharedBy === "string" && movedUsers.has(sharedBy))
+      ) {
+        removed.push(typeof owner === "string" ? owner : String(sharedBy));
+        return false;
+      }
+    }
+    return true;
+  });
+  if (after.length === before.length) return null;
+  obj.hostedTasks = after;
+  return { value: obj, removed };
+}
+
+/**
+ * A normal record (task / project / method / note / goal / notebook / 1:1 /
+ * purchase / etc). Conservatively strips only:
+ *   - active access grants: shared_with / sharedWith / participants / members /
+ *     usernames entries naming a moved user OR the "*" wildcard,
+ *   - is_shared -> false,
+ *   - a scalar owner / sharedBy / shared_by equal to a moved user (safety net),
+ *   - external_project whose destination owner is gone (delete the ref),
+ *   - the 1:1 notebook title rename.
+ * It KEEPS attribution (assignee, comment author/mentions, last_edited_by,
+ * created_by, approval / flag stamps) which gray-degrades to an archived user.
+ * Array-rooted or scalar files are left byte-untouched.
+ */
+function stripRecord(
+  relPath: string,
+  parsed: unknown,
+  movedUsers: Set<string>,
+): { value: unknown; removed: string[] } | null {
+  if (!isPlainObject(parsed)) return null;
+  const obj = parsed;
+  const removed: string[] = [];
+
+  // Active access grants + "*" wildcard.
+  for (const field of SHARE_ARRAY_FIELDS) {
+    if (Array.isArray(obj[field])) {
+      const before = obj[field] as unknown[];
+      const after = before.filter((e) => !isMovedUser(e, movedUsers) && !isWildcard(e));
+      if (after.length !== before.length) {
+        for (const e of before) {
+          if (isWildcard(e)) removed.push("*");
+          else if (isMovedUser(e, movedUsers)) removed.push(resolveUsername(e));
+        }
+        obj[field] = after;
+      }
+    }
+  }
+
+  // Scalar owner-ish fields (safety net for malformed / legacy records).
+  for (const field of SCALAR_OWNER_FIELDS) {
+    if (typeof obj[field] === "string" && movedUsers.has(obj[field] as string)) {
+      removed.push(obj[field] as string);
+      obj[field] = null;
+    }
+  }
+
+  // Cross-folder hosting ref whose destination owner has left.
+  const ext = obj["external_project"];
+  if (isPlainObject(ext) && typeof ext.owner === "string" && movedUsers.has(ext.owner)) {
+    removed.push(`external_project:${ext.owner}`);
+    delete obj["external_project"];
+  }
+
+  // A solo folder shares with no one.
+  if (obj["is_shared"] === true) {
+    obj["is_shared"] = false;
+    removed.push("is_shared");
+  }
+
+  // Former 1:1 (mentoring) notebook: neutralize the now-meaningless title.
+  if (
+    relPath.includes("/shared_notebooks/") &&
+    typeof obj["title"] === "string" &&
+    /^1:1 with /i.test(obj["title"] as string)
+  ) {
+    obj["title"] = "Meeting notes";
+    removed.push("(1:1-rename)");
+  }
+
+  return removed.length ? { value: obj, removed } : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -407,33 +632,4 @@ function joinPath(...segments: string[]): string {
     .map((s, i) => (i === 0 ? s : s.replace(/^\/+/, "")))
     .join("/")
     .replace(/\/+/g, "/");
-}
-
-/**
- * Return true if a shared_with / participants entry refers to a moved user.
- * Handles both plain-string entries and object entries with a "username" or
- * "user" field.
- */
-function isMovedUser(entry: unknown, movedUsers: Set<string>): boolean {
-  if (typeof entry === "string") return movedUsers.has(entry);
-  if (typeof entry === "object" && entry !== null) {
-    const obj = entry as Record<string, unknown>;
-    if (typeof obj["username"] === "string") return movedUsers.has(obj["username"]);
-    if (typeof obj["user"] === "string") return movedUsers.has(obj["user"]);
-  }
-  return false;
-}
-
-/**
- * Extract the username string from a plain-string or object-form entry.
- * Used when building the list of removed usernames for ShareStripRecord.
- */
-function resolveUsername(entry: unknown): string {
-  if (typeof entry === "string") return entry;
-  if (typeof entry === "object" && entry !== null) {
-    const obj = entry as Record<string, unknown>;
-    if (typeof obj["username"] === "string") return obj["username"];
-    if (typeof obj["user"] === "string") return obj["user"];
-  }
-  return String(entry);
 }

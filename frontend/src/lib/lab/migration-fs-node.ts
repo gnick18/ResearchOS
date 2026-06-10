@@ -84,6 +84,10 @@ export function createNodeMigrationFs(rootAbsPath: string): MigrationFs {
         return false;
       }
     },
+
+    async removeDir(path: string): Promise<void> {
+      await nodefs.rm(abs(path), { recursive: true, force: true });
+    },
   };
 
   return mfs;

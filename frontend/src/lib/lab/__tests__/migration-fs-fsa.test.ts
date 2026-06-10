@@ -116,8 +116,10 @@ vi.mock("@/lib/file-system/file-service", () => {
       return null; // FileSystemDirectoryHandle not needed in tests
     }),
 
+    // Matches the REAL fileService: resolves a FILE handle only, so it returns
+    // false for a directory. The adapter's exists() must detect dirs itself.
     fileExists: vi.fn(async (path: string) => {
-      return fakeFiles.has(path) || fakeDirs.has(path);
+      return fakeFiles.has(path);
     }),
 
     deleteFile: vi.fn(async (path: string) => {
@@ -216,6 +218,20 @@ describe("createFsaMigrationFs", () => {
       expect(await mfs.exists("out/result.json")).toBe(true);
       const back = await mfs.readFile("out/result.json");
       expect(back).toBe('{"ok":true}');
+    });
+  });
+
+  // -- exists (directory) ----------------------------------------------------
+
+  describe("exists (directory)", () => {
+    it("returns true for a directory path even though fileExists only finds files", async () => {
+      // A user directory with files but no file AT the directory path itself.
+      seedFile("users/bob/tasks/1.json", "{}");
+      const mfs = createFsaMigrationFs();
+      // This is the exact check the executor performs on users/<U>.
+      expect(await mfs.exists("users/bob")).toBe(true);
+      expect(await mfs.exists("users/bob/tasks")).toBe(true);
+      expect(await mfs.exists("users/nope")).toBe(false);
     });
   });
 

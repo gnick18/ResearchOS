@@ -98,7 +98,23 @@ export function createFsaMigrationFs(): MigrationFs {
     },
 
     async exists(path: string): Promise<boolean> {
-      return fileService.fileExists(path);
+      // fileService.fileExists resolves a FILE handle, so it returns false for
+      // a DIRECTORY. The executor checks directory paths (users/<U>, bundle and
+      // trash dirs), so we must also detect directories: a path is a directory
+      // when its parent lists it as a child directory.
+      if (await fileService.fileExists(path)) return true;
+      const parts = path.split("/").filter(Boolean);
+      if (parts.length === 0) return true; // the root always exists
+      const name = parts[parts.length - 1];
+      const parent = parts.slice(0, -1).join("/");
+      const childDirs = await fileService.listDirectories(parent);
+      return childDirs.includes(name);
+    },
+
+    async removeDir(path: string): Promise<void> {
+      // deleteDirectory is recursive and returns false (no throw) on a missing
+      // path, so this is idempotent.
+      await fileService.deleteDirectory(path);
     },
 
     /**
