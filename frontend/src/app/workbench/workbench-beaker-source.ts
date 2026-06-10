@@ -179,6 +179,9 @@ export interface WorkbenchSourceData {
   listDetailOf: (task: Task) => string;
   /** A short echo for a note, e.g. "in Lab meeting, updated 2h ago". */
   noteDetailOf: (note: Note) => string;
+  /** Aggregated OCR text per note (scanned handwriting), for the search
+   *  haystack only. Empty/absent when no scans exist. */
+  noteOcrText?: Map<number, string>;
   /** Whether the viewer can move / delete a note (owned, or shared at edit).
    *  Resolved by the hook against the live currentUser + shared_with levels,
    *  since Note carries no per-recipient permission field. */
@@ -403,9 +406,12 @@ function buildContextCard(data: WorkbenchSourceData): PaletteContextCard {
       text: `${lead}${ctx.task.name}, ${data.listDetailOf(ctx.task)}`,
     };
   } else if (ctx?.kind === "note") {
+    // Append the scanned-handwriting OCR text (haystack only) so a page is
+    // findable by what it says. Empty for notes with no scans.
+    const noteOcr = data.noteOcrText?.get(ctx.note.id) ?? "";
     selection = {
       iconName: ICON_NOTE,
-      text: `${lead}${ctx.note.title}, ${data.noteDetailOf(ctx.note)}`,
+      text: `${lead}${ctx.note.title}, ${data.noteDetailOf(ctx.note)}${noteOcr ? ` ${noteOcr}` : ""}`,
     };
   } else if (ctx?.kind === "oneonone") {
     selection = {
@@ -1001,6 +1007,8 @@ function noteNavItem(
       note.description ? note.description.slice(0, 80) : "",
       note.is_running_log ? "running log" : "",
       note.is_shared ? "shared" : "",
+      // Scanned-handwriting OCR text, so a page is findable by what it says.
+      data.noteOcrText?.get(note.id) ?? "",
     ]
       .filter(Boolean)
       .join(" "),

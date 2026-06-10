@@ -42,6 +42,7 @@ import {
   STANDALONE_FILTER_KEY,
 } from "@/lib/search/filterKey";
 import { oneOnOneLabel } from "@/lib/one-on-one/label";
+import { readBaseOcrText } from "@/lib/attachments/ocr";
 import { normalizeSharedWith } from "@/lib/sharing/unified";
 import { taskKey } from "@/lib/types";
 import type { Note, Notebook, OneOnOne, Project, Task } from "@/lib/types";
@@ -195,6 +196,36 @@ export function useWorkbenchBeakerSource(deps: WorkbenchBeakerPageDeps): void {
   const { data: notes = [] } = useQuery({
     queryKey: ["notes"],
     queryFn: () => notesApi.list(),
+  });
+  // Aggregated OCR text per note (scanned handwriting), for search. Walks each
+  // note's Images/ once for its .ocr.json sidecars, cached + background, so a
+  // scanned page is findable by its handwriting without per-keystroke I/O. The
+  // map is empty until a scan exists, so this is inert for OCR-free folders.
+  // poll.ts invalidates ["note-ocr-text"] after writing a sidecar so a freshly
+  // scanned page into an existing note refreshes the index.
+  const noteIdSig = useMemo(
+    () => notes.map((n) => n.id).sort((a, b) => a - b).join(","),
+    [notes],
+  );
+  const { data: noteOcrText } = useQuery({
+    queryKey: ["note-ocr-text", noteIdSig],
+    queryFn: async () => {
+      const map = new Map<number, string>();
+      for (const note of notes) {
+        if (!note.username) continue;
+        try {
+          const text = await readBaseOcrText(
+            `users/${note.username}/notes/${note.id}`,
+          );
+          if (text) map.set(note.id, text);
+        } catch {
+          // A note whose folder is unreadable just gets no OCR text.
+        }
+      }
+      return map;
+    },
+    enabled: notes.length > 0,
+    staleTime: 5 * 60_000,
   });
   const { data: notebooks = [] } = useQuery({
     queryKey: ["shared-notebooks", "mine"],
@@ -714,6 +745,7 @@ export function useWorkbenchBeakerSource(deps: WorkbenchBeakerPageDeps): void {
       experimentDetailOf,
       listDetailOf,
       noteDetailOf,
+      noteOcrText: noteOcrText ?? new Map<number, string>(),
       noteEditableOf,
       projectLabelForTask,
     };
@@ -745,6 +777,7 @@ export function useWorkbenchBeakerSource(deps: WorkbenchBeakerPageDeps): void {
     experimentDetailOf,
     listDetailOf,
     noteDetailOf,
+    noteOcrText,
     noteEditableOf,
     projectLabelForTask,
     handlers,

@@ -114,3 +114,34 @@ export async function writeOcr(
 ): Promise<void> {
   await fileService.writeJson(ocrPath(basePath, imageName), doc);
 }
+
+/**
+ * Aggregate all OCR text for one note/task base, for the search index. Lists
+ * `${basePath}/Images/` once and reads ONLY the `.ocr.json` sidecars, so a base
+ * with no scanned pages costs a single directory list and zero reads. Returns
+ * the concatenated text (newline-joined), or "" when there is none. Never throws
+ * (a missing Images dir or a malformed sidecar is treated as empty).
+ */
+export async function readBaseOcrText(basePath: string): Promise<string> {
+  const dir = `${basePath}/Images`;
+  let files: string[];
+  try {
+    files = await fileService.listFiles(dir);
+  } catch {
+    return "";
+  }
+  const ocrFiles = files.filter((f) => f.endsWith(".ocr.json"));
+  if (ocrFiles.length === 0) return "";
+  const texts: string[] = [];
+  for (const f of ocrFiles) {
+    try {
+      const doc = await fileService.readJson<OcrResult>(`${dir}/${f}`);
+      if (doc && typeof doc.text === "string" && doc.text.trim()) {
+        texts.push(doc.text);
+      }
+    } catch {
+      // Skip a malformed sidecar; never let it break indexing.
+    }
+  }
+  return texts.join("\n");
+}
