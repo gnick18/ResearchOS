@@ -38,6 +38,12 @@ until it is on. The global cost breaker + per-doc caps are ALWAYS active
    - `LAB_TIER_ENABLED=true` (lab create + join + the shared pool)
    - `RELAY_BREAKER_SECRET` set on BOTH relay and Vercel (already done), and the
      relay redeployed so APP_BASE_URL points at research-os.app (already done).
+   - `BUSINESS_INGEST_SECRET` set in Vercel prod ONLY IF you move the Accountant
+     inbox bot to post against production (it posts to localhost today, so this
+     is not needed for the local bot). Use a FRESH random value, NOT the local
+     one in frontend/.env.local. Generate: `echo "ros_ingest_$(openssl rand -hex 24)"`.
+     The ingest endpoint is dark until SHARING_ENABLED is on, so this only matters
+     once sharing is live in prod.
 
 3. STRIPE LIVE READINESS (project_stripe_setup):
    - Live keys actually present in the prod env (not the test placeholders).
