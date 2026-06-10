@@ -1,128 +1,132 @@
 # Sponsorship tiers (storage-as-thank-you)
 
-Status: DRAFT for the billing manager to verify + lock. 2026-06-09. Author: branding agent.
-Related: METERED_STORAGE_PRICING.md, LAB_SHARED_BILLING_POOL.md, project_stripe_setup,
-project_sustainability_pricing_model. House style: no em-dashes, no emojis, no mid-sentence colons.
+Status: DRAFT v2, re-based on the billing manager's review (2026-06-09). Author: branding agent.
+Related: METERED_STORAGE_PRICING.md, LAB_SHARED_BILLING_POOL.md, plans.ts, capacity-shared.ts,
+project_stripe_setup. House style: no em-dashes, no emojis, no mid-sentence colons.
 
 ## The idea (Grant, 2026-06-09)
 
 Instead of asking labs to donate out of pure altruism, give a proportional, tangible
-reward: sponsor at a tier and your lab's shared cloud pool grows. A real benefit
-converts recurring GitHub Sponsors far better than a tip jar, and the surplus over our
-cost subsidizes free solo users and sustains the project after the fellowship ends.
+reward: pay at a tier and your lab's shared cloud pool (plus its activity allowance) grows.
+A real benefit converts recurring support far better than a tip jar, and the surplus over
+our cost subsidizes free solo users and sustains the project after the fellowship ends.
 
-Guardrail Grant set: income from a tier should be at least 2-3x the cost of what that
-tier gives away. As shown below, storage is so cheap that this is easy to clear.
+Guardrail Grant set: revenue from a tier should be at least 2-3x the cost of what that tier
+gives. v1 of this doc claimed 17-33x because it used the wrong cost basis; corrected below.
 
-## Two lanes, kept visibly separate (the honesty model)
+## Two lanes, kept visibly separate (the honesty model, unchanged)
 
-Our locked posture is "metered storage = cost recovery, not a profit center." A 2-3x
-margin is margin, so we must not blur the two or it reads as a hidden markup. Keep them
-distinct:
+Our locked posture is "metered storage = cost recovery, not a profit center." A 2-3x margin
+is margin, so we must not blur the two or it reads as a hidden markup. Keep them distinct:
 
-- **Metered storage (Stripe).** Strict cost-recovery, pass-through pricing for a lab that
-  just needs more space and does not want to "sponsor." Unchanged by this proposal.
-- **Sponsorship tiers (GitHub Sponsors).** "Support open-source science software; as a
-  thank-you, your lab gets a bigger shared pool." The framing is supporting the project,
-  not buying storage at a markup. The surplus funds the free solo tier and sustainability.
+- **Metered storage.** Strict cost-recovery, pass-through, for a lab that just needs more
+  space and does not want a "support plan."
+- **Support tiers.** "Support open-source science software; as a thank-you your lab gets a
+  bigger shared pool and activity allowance." The surplus funds the free solo tier and
+  sustainability. We are not selling storage at a markup; we are thanking supporters with it.
 
-Both lanes are honest. The trap is presenting the sponsorship margin as "storage pricing."
+Both run on **Stripe** (see channel note). The "support open-source" framing lives on a
+Stripe-powered page; it does not require GitHub Sponsors.
 
-## Proposed tier ladder
+## The real cost basis (the v1 error, corrected)
 
-Free baseline is unchanged: every lab and every solo user gets a 1 GB shared pool.
-Sponsor tiers ADD to the lab's pool. Numbers are proposals for the billing manager to lock.
+The metered pool is `collab_doc_sizes`, the Loro snapshot byteLength stored in the Cloudflare
+Durable Object. Our own model (`capacity-shared.ts`) prices DO storage at **$0.20/GB-month**.
+The $0.015 R2 rate used in v1 covers only the disaster-recovery backup and relay file bundles,
+not the canonical store the tiers grow. So the planning basis is **$0.20/GB-month**, and
+Stripe fees (~2.9% + $0.30 per charge) come off the top.
 
-| Tier            | USD / month | Lab shared pool | Other perks                          |
-|-----------------|-------------|-----------------|--------------------------------------|
-| Free            | $0          | 1 GB            | The default for every lab and solo.  |
-| Supporter       | $5          | 10 GB           | Sponsor name on the open-source credits wall |
-| Lab             | $10         | 25 GB           | + a higher monthly activity allowance |
-| Research group  | $25         | 75 GB           | + a say in the feature roadmap (priority requests) |
-| Department      | $50         | 200 GB          | + early access to new features        |
-| Heavy / custom  | metered     | pay-as-you-go   | Beyond 200 GB, switch to the cost-recovery metered lane |
+Open question that could lower the basis: whether large image/file attachments live as DO
+snapshot bytes ($0.20) or are split to R2 ($0.015) and metered separately. If attachments are
+R2-stored, a blended rate is defensible and the GB per tier could rise. If they are embedded
+in the Loro doc (DO), it is the full $0.20. **Confirm the attachment architecture before
+locking GB.** Numbers below assume the conservative all-DO $0.20 basis.
 
-Notes:
-- Storage is the headline reward; the non-storage perks ("and stuff") cost us nothing and
-  deepen the lock-in (a credits-wall badge, a roadmap vote, early access).
-- Monthly recurring is the target (the lock-in). GitHub Sponsors also allows one-time and
-  annual; annual could carry a small thank-you discount, billing manager's call.
-- Members are still free to the PI under the shared pool; we never sell seats.
+## Resized tier ladder
 
-## Margin math (clears the 2-3x rule with huge headroom)
+Free baseline unchanged: every lab and solo user gets 1 GB shared + 1M writes/month. Tiers
+ADD to the lab's pool and activity allowance. GB are set BELOW the storage-only 3x cap on
+purpose, to absorb the separate activity-compute cost (DO write ops are a second cost axis,
+not in the storage figure).
 
-Storage cost basis: the lab pool is the cheap end. Raw R2 is about $0.015/GB-month with no
-egress. To be safe, the table also shows a deliberately conservative "loaded" cost of
-$0.10/GB-month (about 6.7x raw, a cushion for Durable Object active-time and any overhead).
-The billing manager should set the real loaded number; the tiers hold either way.
+| Tier            | USD / month | Lab shared pool | Writes / month | Other perks                         |
+|-----------------|-------------|-----------------|----------------|-------------------------------------|
+| Free            | $0          | 1 GB            | 1M             | The default for every lab and solo. |
+| Supporter       | $5          | 5 GB            | 1M             | Name on the open-source credits wall |
+| Lab             | $10         | 12 GB           | 3M             | + credits wall                       |
+| Research group  | $25         | 30 GB           | 10M            | + a say in the feature roadmap       |
+| Department      | $50         | 60 GB           | 15M            | + roadmap + early access             |
+| Heavy / custom  | metered     | pay-as-you-go   | metered        | Beyond 60 GB, switch to metered cost-recovery |
 
-| Tier        | Pool GB | Cost @ $0.015/GB-mo | Margin | Cost @ $0.10/GB-mo | Margin |
-|-------------|---------|---------------------|--------|--------------------|--------|
-| Supporter $5  | 10 GB  | $0.15  | ~33x  | $1.00  | ~5.0x |
-| Lab $10       | 25 GB  | $0.38  | ~27x  | $2.50  | ~4.0x |
-| Research $25  | 75 GB  | $1.13  | ~22x  | $7.50  | ~3.3x |
-| Department $50| 200 GB | $3.00  | ~17x  | $20.00 | ~2.5x |
+Activity allowances reuse the existing `plans.ts` tiers (free 1M, Plus 3M, Pro 10M, Lab 15M).
+The non-storage perks (credits wall, roadmap vote, early access) cost us nothing and deepen
+the lock-in.
 
-Even at the conservative loaded cost, every tier sits at or above the 2.5x floor; at the
-real storage cost they are 17-33x. The constraint is NOT affordability, it is making the
-reward feel generous without giving so much that a heavy lab never reaches the metered lane.
-The $50 / 200 GB top tier is the deliberate ceiling before metered takes over.
+## Margin math, re-based on $0.20/GB-month + Stripe fees
 
-## "What your sponsorship funds" framing
+| Tier         | Pool GB | Storage cost @ $0.20 | Net revenue (after Stripe) | Storage margin |
+|--------------|---------|----------------------|----------------------------|----------------|
+| Supporter $5 | 5 GB    | $1.00 | $4.56  | 4.6x |
+| Lab $10      | 12 GB   | $2.40 | $9.41  | 3.9x |
+| Research $25 | 30 GB   | $6.00 | $23.98 | 4.0x |
+| Department $50 | 60 GB | $12.00| $48.25 | 4.0x |
 
-A solo user's free 1 GB costs us at most about $0.015 to $0.10/month. So a single
-Department sponsor ($50) covers, very conservatively, the cloud cost of hundreds of free
-solo researchers (about 500 at the loaded cost, thousands at the real cost). That is the
-honest, compelling line for the PI: your lab's sponsorship keeps the tool free for the
-labs that cannot pay. Present it as a range or "hundreds," not a hard number.
+Every tier clears ~4x on storage alone. That ~4x (versus the 3x target) is the deliberate
+cushion for the activity-compute cost the storage figure excludes, so the NET margin across
+storage + writes lands near the 3x guardrail. The billing manager should confirm the
+per-write `estimatedOpsCostCents` against these allowances does not eat past the cushion,
+and nudge GB down if it does (especially Department, the thinnest after compute).
 
-## Fulfillment (reuses infra we already built)
+Launch-scale honesty: providers include 5 GB DO + 10 GB R2 free account-wide, so at a handful
+of sponsors marginal cost is roughly $0 and any ladder profits. These numbers are sized for
+AT-SCALE post-fellowship sustainability, where the $0.20 marginal cost governs, not the
+free-tier honeymoon.
 
-The lab pool, the cap, and a gift / cap-raise mechanism already exist (the admin
-`GiftPoolsPanel`). So "sponsor at tier X raises that lab's cap by N GB" is mostly wiring
-the donation channel to the existing gift mechanism.
+## Channel: Stripe, not GitHub Sponsors
 
-- **v1, manual (ship first).** PI sponsors on GitHub, then tells us their lab (email or lab
-  id). The operator raises that lab's cap by the tier's GB via the existing gift panel.
-  Fine at low volume; no new code beyond a small intake form.
-- **v2, automated.** A GitHub Sponsors webhook (sponsorship created / tier-changed /
-  cancelled) maps the sponsor to their lab and auto-adjusts the cap. Needs a sponsor-to-lab
-  identity link (the sponsor confirms their lab on first sponsor).
-- The money channel (GitHub Sponsors payout) and the storage fulfillment (the app's gift
-  mechanism) are decoupled, which is fine; one need not gate the other.
+Reversing v1. Selling a tangible, metered benefit (storage) is a poor fit for GitHub
+Sponsors, whose terms are for supporting work, not selling a service with goods expected in
+return, and it does not handle the sales-tax obligation on a benefit sale (below). Stripe is
+one pipeline, one tax flow, and it is already built. Reserve GitHub Sponsors, if at all, for
+recognition-only donations (a badge, no storage).
 
-## Flags for the billing manager (verify before locking)
+## Fulfillment: model each tier as a plan (reuse plans.ts)
 
-1. **Real loaded cost.** Confirm the all-in cost per GB-month for the pool including
-   Durable Object active-time and any egress, so the GB-per-tier is locked on real numbers,
-   not the $0.10 placeholder.
-2. **It is a sale, not a charitable donation.** ResearchOS LLC is a for-profit LLC, so none
-   of this is tax-deductible regardless. More importantly, giving a tangible benefit
-   (storage) in exchange for payment makes a tier a SALE / subscription, not a gift. Do NOT
-   call it tax-deductible.
-3. **Sales-tax gate.** Because it is a sale of a cloud service, it ties directly into the
-   PENDING WI DOR sales-tax determination (the HARD GATE in the business tracker). Do not
-   launch paid sponsorship tiers until that determination lands and the sales-tax handling
-   is set. This is the real blocker.
-4. **Activity allowance per tier.** The "higher monthly activity allowance" perk needs real
-   numbers from the activity-throttle model (out of scope of the storage pool).
-5. **GitHub Sponsors vs Stripe.** We already have Stripe live for metered storage. Decide
-   whether sponsorship tiers run on GitHub Sponsors (better "support open source" framing,
-   separate payout) or fold into Stripe (one payment system, one tax pipeline). The framing
-   benefit of GitHub vs the operational simplicity of one Stripe pipeline is a real
-   trade-off for the billing manager.
+Each support tier is a flat **plan** in `plans.ts` with `storageBytes` = the tier's pool and
+the matching write allowance. `plans.ts` already does Stripe checkout + the webhook +
+setting the pool allowance. The Stripe subscription webhook manages the grant lifecycle
+(active -> grant on the PI's key, canceled -> revoke), and a grant on the PI's key lifts the
+whole lab pool via `billing_grants` + `resolveBillingOwner`, which is exactly right. Keep the
+manual `GiftPoolsPanel` for operator one-offs (beta testers), not for self-serve recurring.
 
-## Marketing copy (draft, for the GitHub Sponsors tier descriptions)
+## Sales tax (the real launch gate)
 
-- **Supporter, $5/mo.** "Back free, open science software and keep a photo-light lab fully
-  synced. Your lab's shared cloud pool grows to 10 GB, and your name joins the open-source
-  credits wall."
-- **Lab, $10/mo.** "For a small, active lab. A 25 GB shared pool, a higher activity
+It is a sale (tangible benefit for payment, for-profit LLC), so it is taxable, and the
+"support open-source, thank-you storage" wording does NOT make it a tax-exempt donation. The
+live-charge gate (the `sk_live_` check in `/api/billing/plan`) already blocks live charges
+until the WI DOR sales-tax determination lands. Taxability follows the customer's state via
+economic nexus, so it is multi-state: lean on **Stripe Tax**. Cannot launch with live charges
+until the determination lands and tax handling is wired.
+
+## Marketing copy (draft, updated GB)
+
+- **Supporter, $5/mo.** "Back free, open science software and keep a photo-light lab synced.
+  Your lab's shared pool grows to 5 GB, and your name joins the open-source credits wall."
+- **Lab, $10/mo.** "For a small, active lab. A 12 GB shared pool with a higher activity
   allowance, and you help keep ResearchOS free for labs that cannot pay."
-- **Research group, $25/mo.** "A busy, image-heavy lab with room to spare. A 75 GB shared
+- **Research group, $25/mo.** "A busy, image-heavy lab with room to spare. A 30 GB shared
   pool and a say in what we build next."
-- **Department, $50/mo.** "A big shared workspace and early access to new features. At this
-  tier you are substantially funding the free tier for hundreds of solo researchers."
+- **Department, $50/mo.** "A big shared workspace and early access. At this tier you are
+  substantially funding the free tier for solo researchers."
 
-All copy follows house voice: no "free forever," no "we will never charge," storage framed
-as a thank-you for supporting the project, never as buying space at a markup.
+No "free forever," no "we will never charge." Storage is framed as a thank-you for supporting
+the project, never as buying space at a markup.
+
+## Open items for the billing manager to lock
+
+1. Confirm the attachment-storage architecture (DO $0.20 vs R2 $0.015 blended). This is the
+   one thing that could justify more GB per tier.
+2. Confirm the per-write compute cost against the activity allowances so the ~4x storage
+   cushion genuinely covers it; nudge Department GB down if not.
+3. Confirm the plans.ts tier shapes (storageBytes + write allowance) for the four tiers.
+4. Stripe Tax wiring + the WI DOR gate stays the hard launch blocker.
