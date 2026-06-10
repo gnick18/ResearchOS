@@ -49,6 +49,7 @@ import IdleAnimationManager from "@/components/onboarding/IdleAnimationManager";
 import WhatsNewManager from "@/components/WhatsNewManager";
 import WikiCaptureBodyClass from "@/components/WikiCaptureBodyClass";
 import SharedFolderAutoRefresh from "@/components/SharedFolderAutoRefresh";
+import SpellcheckAutoSeed from "@/components/SpellcheckAutoSeed";
 import CaptureInboxPoller from "@/components/CaptureInboxPoller";
 import FocusContextPublisher from "@/components/FocusContextPublisher";
 import DevEphemeralSessionButton from "@/components/DevEphemeralSessionButton";
@@ -657,6 +658,11 @@ function AppContent({ children }: { children: ReactNode }) {
           push: watches the folder via FileSystemObserver, focus-refetch
           fallback. Mounted here so it covers every signed-in route. */}
       <SharedFolderAutoRefresh />
+      {/* Tune the spell-checker to this lab's own vocabulary (inventory,
+          methods, note titles), so the checker never flags a term the lab
+          always writes. Reuses the warm search-index caches, so no extra
+          fetches; inert until the user turns spell-check on. */}
+      <SpellcheckAutoSeed />
       {/* Boot-time identity restore: repopulate the in-memory session from the
           persisted key on reload so the user does not have to re-unlock their
           profile every refresh, and so every reader sees one consistent
