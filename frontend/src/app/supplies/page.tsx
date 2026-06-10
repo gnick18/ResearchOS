@@ -66,6 +66,7 @@ import OrdersApprovalsLens, {
 } from "@/components/supplies/OrdersApprovalsLens";
 import SpendingDashboard from "@/components/SpendingDashboard";
 import FundingAccountsManager from "@/components/FundingAccountsManager";
+import { buildPurchaseAuditCsv } from "@/lib/purchases/audit-export";
 
 // "awaiting_approval" is the lab-head-only "Orders & approvals" lens (decision
 // 4.2): an order-grouped queue, NOT a per-supply view. Members never see it. The
@@ -235,6 +236,24 @@ function SuppliesPageInner() {
     queryFn: purchasesApi.listFundingAccounts,
     enabled: INVENTORY_ENABLED && isLabHead,
   });
+
+  // By-grant audit CSV (PURCHASE_DOCS_AND_ROUTING.md). Moved here from the
+  // retired /purchases page (which redirects into /supplies), so the export is
+  // actually reachable. Downloads every purchase grouped by grant with its
+  // attached-document references.
+  const handleExportAudit = () => {
+    const csv = buildPurchaseAuditCsv(
+      purchasesQuery.data ?? [],
+      fundingAccountsQuery.data ?? [],
+    );
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "researchos-purchases-audit.csv";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  };
 
   const labPurchaseItems = useMemo(
     () => (labPurchaseItemsQuery.data ?? []) as LabPurchaseItem[],
@@ -512,6 +531,17 @@ function SuppliesPageInner() {
                   >
                     <Icon name="eye" className="h-3.5 w-3.5" />
                     View spending
+                  </button>
+                </Tooltip>
+                <Tooltip label="Download a CSV of all purchases grouped by grant, with their attached documents, for a grant audit">
+                  <button
+                    type="button"
+                    onClick={handleExportAudit}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-raised px-3 py-1.5 text-meta font-medium text-foreground hover:bg-surface-sunken"
+                    data-testid="supplies-export-audit"
+                  >
+                    <Icon name="download" className="h-3.5 w-3.5" />
+                    Export audit CSV
                   </button>
                 </Tooltip>
               </>
