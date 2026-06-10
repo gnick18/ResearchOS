@@ -44,6 +44,91 @@ export type TodaySnapshot = {
   upcomingTasks?: SnapshotTask[];
 };
 
+// ---- Method snapshot (View method on phone, 2026-06-10) -------------------
+//
+// The laptop publishes a sealed read-mode projection of the focused experiment's
+// method(s) under the name "method" when the researcher clicks "View method on
+// phone". The phone fetches + unseals it and renders a bench-friendly protocol
+// viewer. All fields are tolerated missing so an older laptop shape never
+// crashes the screen; the viewer narrows on resolvedType to pick a renderer.
+
+export type MethodPcrStep = {
+  name?: string;
+  /** Temperature in C. */
+  temperature?: number;
+  /** Human duration string, e.g. "2 min". */
+  duration?: string;
+};
+
+export type MethodPcrCycle = {
+  repeats?: number;
+  steps?: MethodPcrStep[];
+};
+
+export type MethodPcrProjection = {
+  initial?: MethodPcrStep[];
+  cycles?: MethodPcrCycle[];
+  final?: MethodPcrStep[];
+  hold?: MethodPcrStep | null;
+  ingredients?: Array<{
+    name?: string;
+    concentration?: string;
+    amountPerReaction?: string;
+  }>;
+  notes?: string | null;
+};
+
+export type MethodLcProjection = {
+  steps?: Array<{
+    timeMin?: number;
+    percentA?: number;
+    percentB?: number;
+    flowMlMin?: number;
+  }>;
+  column?: {
+    manufacturer?: string | null;
+    model?: string | null;
+    lengthMm?: number | null;
+    innerDiameterMm?: number | null;
+    particleSizeUm?: number | null;
+  };
+  detectionWavelengthNm?: number | null;
+  ingredients?: Array<{
+    name?: string;
+    role?: string;
+    concentration?: string;
+  }>;
+  description?: string | null;
+};
+
+export type MethodCompoundProjection = {
+  children?: Array<{
+    methodId?: number;
+    label?: string;
+    methodType?: string | null;
+  }>;
+};
+
+export type MethodProjection = {
+  methodId?: number;
+  name?: string;
+  methodType?: string | null;
+  resolvedType?: string;
+  keyParams?: Array<{ label?: string; value?: string }>;
+  pcr?: MethodPcrProjection;
+  lc?: MethodLcProjection;
+  compound?: MethodCompoundProjection;
+  body?: string | null;
+};
+
+export type MethodSnapshot = {
+  generatedAt?: string;
+  taskId?: number;
+  owner?: string;
+  experimentName?: string;
+  methods?: MethodProjection[];
+};
+
 // Fetch + unseal a named snapshot. GETs the relay's snapshot/get endpoint with a
 // device-Ed25519-signed query (device = the phone's Ed25519 pubkey, taken from
 // the pairing record), reads the raw sealed bytes on 200, unseals with this
@@ -61,6 +146,10 @@ export async function fetchSnapshot(
   if (pairing.demo) {
     // Return the appropriate fixture without signing or fetching anything.
     if (name === 'inventory') return DEMO_INVENTORY_SNAPSHOT;
+    // The method snapshot has no demo fixture (the read-mode method viewer is
+    // driven by a real focused experiment on the laptop). Return null so the
+    // viewer shows its "open a method from the laptop" empty state in demo mode.
+    if (name === 'method') return null;
     // Default: "today" and any other name fall back to the today fixture.
     return DEMO_TODAY_SNAPSHOT;
   }

@@ -65,7 +65,7 @@
 
 import { fileService } from "@/lib/file-system/file-service";
 import { appQueryClient } from "@/lib/query-client";
-import { filesApi, notesApi, inventoryItemsApi, inventoryStocksApi, purchasesApi, buildCurrentViewer } from "@/lib/local-api";
+import { filesApi, notesApi, inventoryItemsApi, inventoryStocksApi, purchasesApi, tasksApi, buildCurrentViewer } from "@/lib/local-api";
 import { canWriteIgnoringPiRole } from "@/lib/sharing/unified";
 import { attachImageToTask, attachImageToNote } from "@/lib/attachments/attach-image";
 import { writeAnnotations, type AnnotationDoc } from "@/lib/attachments/annotations";
@@ -331,6 +331,33 @@ interface AppendNoteTextCommand {
   entryId: string | null;
   /** Markdown text to append. */
   text: string;
+}
+
+/**
+ * An add-variation command (View method on phone, 2026-06-10). The phone seals
+ * this when the researcher records a variation while following a method at the
+ * bench (e.g. "this batch I used 30 cycles not 28"). The laptop unseals it and
+ * appends the text as a new timestamped "### Variation" entry on the matching
+ * method attachment's variation_notes, reusing the existing variations feature
+ * (tasksApi.saveVariationNote) so the note shows up in the laptop's Variation
+ * Notes panel + the method's Linked Experiments hover.
+ *
+ * methodId selects which attached method's variation_notes to append to (an
+ * experiment can attach several methods). When absent the laptop falls back to
+ * the task's first method attachment, which is the common single-method case.
+ */
+interface AddVariationCommand {
+  type: "add-variation";
+  /** Numeric task id (matches ActiveTask.id / the focused experiment). */
+  taskId: number;
+  /** Owner username (matches the focused experiment's owner). */
+  owner: string;
+  /** Which attached method's variation_notes to append to. Optional. */
+  methodId?: number;
+  /** The variation text the researcher typed at the bench (plain markdown). */
+  text: string;
+  /** ISO timestamp from the phone, used in the entry header when present. */
+  at?: string;
 }
 
 /**
@@ -824,6 +851,9 @@ export async function runCaptureInboxPoll(
   // Append-note-text commands (text routing). Applied after captures for the
   // same ordering reason as appendLineQueue.
   const appendNoteTextQueue: Array<{ cmd: AppendNoteTextCommand; commandId: string }> = [];
+  // Add-variation commands (View method on phone). Applied after captures so the
+  // variation write does not race route-map construction; each is independent.
+  const addVariationQueue: Array<{ cmd: AddVariationCommand; commandId: string }> = [];
 
   // Load the user's X25519 private key for unsealing commands. The relay
   // seals each command to the user's identity encryption key, which is
@@ -925,6 +955,20 @@ export async function runCaptureInboxPoll(
               );
             } else {
               console.warn(`${LOG_PREFIX} append-note-text command ${cmd.commandId} has invalid fields, skipping`);
+            }
+          } else if (parsed.type === "add-variation") {
+            // View method on phone: a variation recorded at the bench. Queue it
+            // for after the capture pass (same ordering rationale as the append
+            // queues). The text is required; methodId is optional (falls back to
+            // the task's first method attachment in the handler).
+            const av = parsed as AddVariationCommand;
+            if (typeof av.taskId === "number" && av.owner && typeof av.text === "string" && av.text.trim()) {
+              addVariationQueue.push({ cmd: av, commandId: cmd.commandId });
+              console.info(
+                `${LOG_PREFIX} add-variation command queued: task ${av.owner}/${av.taskId} methodId=${av.methodId ?? "first"} text="${av.text.slice(0, 60)}"`,
+              );
+            } else {
+              console.warn(`${LOG_PREFIX} add-variation command ${cmd.commandId} has invalid fields, skipping`);
             }
           } else if (parsed.type === "timer") {
             // Phase 3: a timer started or dismissed on the phone. No dependency
@@ -1689,6 +1733,121 @@ export async function runCaptureInboxPoll(
     }
   }
   // ── end append-note-text processing ─────────────────────────────────────
+
+  // ── add-variation processing ────────────────────────────────────────────
+  // Apply any add-variation commands that arrived this poll. Each appends a new
+  // timestamped "### Variation" entry onto the target method attachment's
+  // variation_notes via the existing variations feature (tasksApi.saveVariationNote),
+  // so the note shows up in the laptop's Variation Notes panel. Handled
+  // independently so one bad command does not block the rest.
+  for (const { cmd, commandId } of addVariationQueue) {
+    try {
+      // Read the focused experiment from the owner's namespace.
+      const task = await tasksApi.get(cmd.taskId, cmd.owner);
+      if (!task) {
+        console.warn(
+          `${LOG_PREFIX} add-variation: task ${cmd.owner}/${cmd.taskId} not found, skipping`,
+        );
+        // Ack so the command does not loop forever on a deleted task.
+        try {
+          await ackCommands(keys, [commandId]);
+        } catch {
+          // best-effort
+        }
+        continue;
+      }
+
+      // Permission gate: the writer must have edit access to the experiment.
+      // Mirrors the note-write gate (own / shared-edit; PI implicit-write-all is
+      // excluded because the poller has no UI to run the once-per-session confirm).
+      const viewer = await buildCurrentViewer();
+      const writable = canWriteIgnoringPiRole(
+        { owner: task.owner, shared_with: task.shared_with ?? [] },
+        viewer,
+      );
+      if (!writable) {
+        console.warn(
+          `${LOG_PREFIX} add-variation: ${currentUser} has no edit access to task ${cmd.owner}/${cmd.taskId}, skipping`,
+        );
+        try {
+          await ackCommands(keys, [commandId]);
+        } catch {
+          // best-effort
+        }
+        continue;
+      }
+
+      // Resolve which attached method's variation_notes to append to. Given
+      // methodId wins when it matches an attachment; otherwise fall back to the
+      // first attachment (the common single-method experiment).
+      const attachments = task.method_attachments ?? [];
+      if (attachments.length === 0) {
+        console.warn(
+          `${LOG_PREFIX} add-variation: task ${cmd.owner}/${cmd.taskId} has no methods attached, skipping`,
+        );
+        try {
+          await ackCommands(keys, [commandId]);
+        } catch {
+          // best-effort
+        }
+        continue;
+      }
+      const targetAttachment =
+        (typeof cmd.methodId === "number"
+          ? attachments.find((a) => a.method_id === cmd.methodId)
+          : undefined) ?? attachments[0];
+      const targetMethodId = targetAttachment.method_id;
+
+      // Build the new entry. Mirrors VariationNotesPanel.handleAddNote: a
+      // "### Variation - <timestamp>" header followed by the body, prepended so
+      // the newest entry is first (same ordering the panel uses).
+      const stampSource = cmd.at ? new Date(cmd.at) : new Date();
+      const timestamp = `${stampSource.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })} ${stampSource.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })}`;
+      const newEntry = `### Variation - ${timestamp}\n\n${cmd.text.trim()}`;
+      const existing = targetAttachment.variation_notes ?? "";
+      const nextNotes = existing.trim()
+        ? `${newEntry}\n\n${existing.trim()}`
+        : newEntry;
+
+      // Persist via the existing variations feature. The 4th arg routes the
+      // write to the owner's namespace (the experiment may be shared with the
+      // current user, owned by someone else). saveVariationNote stamps
+      // attribution to the current signed-in writer via the same path the note
+      // writes use.
+      await tasksApi.saveVariationNote(cmd.taskId, targetMethodId, nextNotes, cmd.owner);
+      console.info(
+        `${LOG_PREFIX} add-variation: appended to task ${cmd.owner}/${cmd.taskId} method ${targetMethodId}`,
+      );
+
+      // Ack the command after the write succeeds.
+      try {
+        await ackCommands(keys, [commandId]);
+        console.info(`${LOG_PREFIX} acked add-variation command ${commandId}`);
+      } catch (ackErr) {
+        console.warn(
+          `${LOG_PREFIX} failed to ack add-variation command ${commandId}`,
+          ackErr instanceof Error ? ackErr.message : String(ackErr),
+        );
+      }
+
+      pulled += 1;
+    } catch (variationErr) {
+      errors += 1;
+      console.warn(
+        `${LOG_PREFIX} failed to apply add-variation command ${commandId}`,
+        variationErr instanceof Error ? variationErr.message : String(variationErr),
+      );
+    }
+  }
+  // ── end add-variation processing ────────────────────────────────────────
 
   // The poller writes notes/images straight through the API + file-service layer,
   // which does NOT run the React Query mutation hooks that normally refresh open
