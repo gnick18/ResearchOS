@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import nspell from "nspell";
 import dictionary from "dictionary-en";
 import { SCIENTIFIC_WORDLIST } from "./scientific-wordlist";
-import { shouldCheckToken, confidentCorrection } from "./spellchecker";
+import { shouldCheckToken, confidentCorrection, cleanOcrText } from "./spellchecker";
 
 // Build a real checker the same way the browser path does (English dictionary
 // seeded with the curated lab wordlist). In the node test env dictionary-en
@@ -65,5 +65,31 @@ describe("confidentCorrection (conservative OCR auto-correct)", () => {
         expect(Math.abs(fix.length - typo.length)).toBeLessThanOrEqual(2);
       }
     }
+  });
+});
+
+describe("cleanOcrText (conservative OCR clean-up)", () => {
+  it("preserves numbers, symbols, and line breaks byte-for-byte", () => {
+    const input = "PCR 30 cycles\n72C extension\npH 7.4";
+    const { cleaned } = cleanOcrText(checker, input);
+    expect(cleaned).toContain("30");
+    expect(cleaned).toContain("72C");
+    expect(cleaned).toContain("pH 7.4");
+    expect(cleaned.split("\n").length).toBe(3);
+  });
+  it("leaves curated lab words untouched", () => {
+    const { cleaned, corrections } = cleanOcrText(checker, "plasmid miniprep supernatant");
+    expect(cleaned).toBe("plasmid miniprep supernatant");
+    expect(corrections).toBe(0);
+  });
+  it("never changes an already-correct sentence", () => {
+    const input = "remove the supernatant and resuspend the pellet";
+    const { cleaned, corrections } = cleanOcrText(checker, input);
+    expect(cleaned).toBe(input);
+    expect(corrections).toBe(0);
+  });
+  it("reports a non-negative correction count", () => {
+    const { corrections } = cleanOcrText(checker, "the experimnt was a sucess");
+    expect(corrections).toBeGreaterThanOrEqual(0);
   });
 });

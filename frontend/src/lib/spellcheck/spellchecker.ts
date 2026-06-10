@@ -168,6 +168,30 @@ export function confidentCorrection(
   return matchCase(word, fix);
 }
 
+/**
+ * Clean a block of OCR text using the conservative rule, for the "Clean up"
+ * action on a scanned page. Only confident single-suggestion corrections are
+ * applied (confidentCorrection); ambiguous misspellings are left raw on purpose.
+ * Word boundaries are the only thing touched, so spacing, line breaks, numbers,
+ * and punctuation survive byte-for-byte. Returns the cleaned text and how many
+ * words changed, so the caller can tell the user "fixed N words" / "looks clean".
+ */
+export function cleanOcrText(
+  checker: NSpellInstance,
+  text: string,
+): { cleaned: string; corrections: number } {
+  let corrections = 0;
+  const cleaned = text.replace(/[A-Za-z][A-Za-z'’]*/g, (word) => {
+    const fix = confidentCorrection(checker, word);
+    if (fix && fix !== word) {
+      corrections += 1;
+      return fix;
+    }
+    return word;
+  });
+  return { cleaned, corrections };
+}
+
 /** Apply the original token's capitalization pattern to the replacement. */
 function matchCase(original: string, replacement: string): string {
   if (original === original.toUpperCase()) return replacement.toUpperCase();

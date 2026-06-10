@@ -99,6 +99,9 @@ function OcrRevealDisclosure({
   const hasLocalEdit = useRef(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [copied, setCopied] = useState(false);
+  // Conservative auto-clean (the spell-checker's single-suggestion corrections).
+  const [cleanState, setCleanState] = useState<"idle" | "working" | "done">("idle");
+  const [cleanMsg, setCleanMsg] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Sync the buffer when the sidecar changes externally, unless the user has a
@@ -134,6 +137,43 @@ function OcrRevealDisclosure({
     },
     [persistEdit],
   );
+
+  // One-shot "Clean up" pass over the extracted text. Lazy-loads the spell
+  // checker (curated lab dictionary + English) and applies ONLY confident
+  // single-suggestion corrections, leaving ambiguous OCR garble raw. The result
+  // lands in the edit buffer (marked as a local edit) so the user reviews it and
+  // it persists through the normal debounce, never silently overwriting the raw
+  // sidecar without the user seeing it.
+  const handleCleanUp = useCallback(async () => {
+    setCleanState("working");
+    setCleanMsg(null);
+    try {
+      const { getSpellChecker, cleanOcrText } = await import(
+        "@/lib/spellcheck/spellchecker"
+      );
+      const checker = await getSpellChecker();
+      if (!checker) {
+        setCleanState("idle");
+        setCleanMsg("Spell-checker unavailable");
+        return;
+      }
+      const { cleaned, corrections } = cleanOcrText(checker, editedText);
+      setCleanState("done");
+      setTimeout(() => setCleanState("idle"), 2000);
+      if (corrections === 0) {
+        setCleanMsg("Looks clean");
+        return;
+      }
+      hasLocalEdit.current = true;
+      setEditedText(cleaned);
+      setCleanMsg(`Fixed ${corrections} word${corrections === 1 ? "" : "s"}`);
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => void persistEdit(cleaned), 800);
+    } catch {
+      setCleanState("idle");
+      setCleanMsg(null);
+    }
+  }, [editedText, persistEdit]);
 
   const handleCopy = useCallback(async () => {
     try {
@@ -186,16 +226,33 @@ function OcrRevealDisclosure({
                   Saved
                 </span>
               )}
+              {saveState === "idle" && cleanMsg && <span>{cleanMsg}</span>}
             </span>
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="flex items-center gap-1 text-xs text-foreground-muted hover:text-foreground transition-colors"
-              aria-label="Copy extracted text"
-            >
-              <Icon name={copied ? "check" : "copy"} className="h-3.5 w-3.5" />
-              <span>{copied ? "Copied" : "Copy"}</span>
-            </button>
+            <span className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleCleanUp}
+                disabled={cleanState === "working"}
+                className="flex items-center gap-1 text-xs text-foreground-muted hover:text-foreground transition-colors disabled:opacity-50"
+                aria-label="Clean up spelling in the extracted text"
+                title="Fix confident spelling mistakes from the scan, using a dictionary that knows common lab terms. Ambiguous words are left as-is."
+              >
+                <Icon
+                  name={cleanState === "done" ? "check" : "pencil"}
+                  className="h-3.5 w-3.5"
+                />
+                <span>{cleanState === "working" ? "Cleaning..." : "Clean up"}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="flex items-center gap-1 text-xs text-foreground-muted hover:text-foreground transition-colors"
+                aria-label="Copy extracted text"
+              >
+                <Icon name={copied ? "check" : "copy"} className="h-3.5 w-3.5" />
+                <span>{copied ? "Copied" : "Copy"}</span>
+              </button>
+            </span>
           </span>
         </span>
       )}
