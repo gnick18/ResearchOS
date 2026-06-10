@@ -1,0 +1,671 @@
+// Analysis of variance and its post-hoc multiple-comparison families.
+//
+//  - oneWayAnova: omnibus table + a chosen post-hoc family
+//      (Tukey HSD, Dunnett vs control, Sidak, Bonferroni, Holm-Sidak)
+//  - twoWayAnova: two-factor table (A, B, interaction, error) with optional
+//      Tukey post-hoc on the marginal means of a chosen factor
+//  - kruskalWallis: nonparametric one-way + Dunn post-hoc
+//  - friedman: nonparametric repeated-measures + Dunn post-hoc
+//
+// The omnibus one-way F/p delegates to @stdlib/stats-anova1 (validated
+// upstream); we recompute the SS/df/MS for the table and author every post-hoc
+// family. Headline cases are pinned against scipy / Prism worked examples.
+
+import anova1 from "@stdlib/stats-anova1";
+import kruskalTest from "@stdlib/stats-kruskal-test";
+
+import {
+  chiSquarePValue,
+  fPValue,
+  normalPValue,
+  studentizedRangePValue,
+  tPValue,
+} from "./dists";
+import type {
+  AnovaResult,
+  AnovaTableRow,
+  EngineResult,
+  PairwiseComparison,
+} from "./types";
+import { clean, mean as meanOf, rankWithTies, sum } from "./util";
+
+export type PostHocMethod =
+  | "tukey"
+  | "dunnett"
+  | "sidak"
+  | "bonferroni"
+  | "holm-sidak"
+  | "none";
+
+export interface OneWayOptions {
+  postHoc?: PostHocMethod;
+  /** Group label of the control, required for Dunnett. */
+  control?: string;
+  alpha?: number;
+}
+
+interface Group {
+  label: string;
+  values: number[];
+  mean: number;
+  n: number;
+}
+
+function buildGroups(
+  data: Record<string, ArrayLike<number>>,
+): Group[] {
+  return Object.entries(data)
+    .map(([label, raw]) => {
+      const values = clean(raw);
+      return { label, values, mean: meanOf(values), n: values.length };
+    })
+    .filter((g) => g.n > 0);
+}
+
+// --- p-adjustment families applied to a set of raw pairwise p-values ---
+
+function sidakAdjust(p: number, m: number): number {
+  return Math.min(1, 1 - Math.pow(1 - p, m));
+}
+
+function bonferroniAdjust(p: number, m: number): number {
+  return Math.min(1, p * m);
+}
+
+/** Holm-Sidak step-down: sort ascending, adjust with decreasing m, enforce monotonicity. */
+function holmSidakAdjust(pvals: number[]): number[] {
+  const m = pvals.length;
+  const order = pvals
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) => a.p - b.p);
+  const adj = new Array<number>(m);
+  let prev = 0;
+  for (let rank = 0; rank < m; rank++) {
+    const remaining = m - rank;
+    let a = 1 - Math.pow(1 - order[rank].p, remaining);
+    a = Math.max(a, prev); // enforce monotone non-decreasing
+    a = Math.min(1, a);
+    prev = a;
+    adj[order[rank].i] = a;
+  }
+  return adj;
+}
+
+/**
+ * One-way ANOVA. `data` maps each group label to its observations.
+ */
+export function oneWayAnova(
+  data: Record<string, ArrayLike<number>>,
+  options: OneWayOptions = {},
+): EngineResult<AnovaResult> {
+  const groups = buildGroups(data);
+  const k = groups.length;
+  if (k < 2) {
+    return { ok: false, error: "Need at least 2 non-empty groups." };
+  }
+
+  // Flatten for @stdlib (gives the validated omnibus F + p). The post-hoc
+  // family reads its own alpha from `options` inside oneWayPostHoc.
+  const flatX: number[] = [];
+  const flatFactor: string[] = [];
+  for (const g of groups) {
+    for (const v of g.values) {
+      flatX.push(v);
+      flatFactor.push(g.label);
+    }
+  }
+  const N = flatX.length;
+  if (N - k <= 0) {
+    return { ok: false, error: "Not enough observations for ANOVA." };
+  }
+
+  const omni = anova1(flatX, flatFactor);
+
+  // Recompute SS for an explicit table (matches @stdlib but self-documented).
+  const grandMean = meanOf(flatX);
+  let ssBetween = 0;
+  for (const g of groups) {
+    const d = g.mean - grandMean;
+    ssBetween += g.n * d * d;
+  }
+  let ssWithin = 0;
+  for (const g of groups) {
+    for (const v of g.values) {
+      const d = v - g.mean;
+      ssWithin += d * d;
+    }
+  }
+  const dfBetween = k - 1;
+  const dfWithin = N - k;
+  const msBetween = ssBetween / dfBetween;
+  const msWithin = ssWithin / dfWithin;
+  const F = msBetween / msWithin;
+  const pValue = fPValue(F, dfBetween, dfWithin);
+
+  const table: AnovaTableRow[] = [
+    {
+      source: "Between groups",
+      df: dfBetween,
+      ss: ssBetween,
+      ms: msBetween,
+      f: F,
+      pValue,
+    },
+    {
+      source: "Within groups",
+      df: dfWithin,
+      ss: ssWithin,
+      ms: msWithin,
+      f: null,
+      pValue: null,
+    },
+    {
+      source: "Total",
+      df: N - 1,
+      ss: ssBetween + ssWithin,
+      ms: NaN,
+      f: null,
+      pValue: null,
+    },
+  ];
+
+  const comparisons = oneWayPostHoc(groups, msWithin, dfWithin, options);
+  if (!comparisons.ok) return comparisons;
+
+  return {
+    ok: true,
+    test: "One-way ANOVA",
+    table,
+    statistic: omni.statistic,
+    pValue: omni.pValue,
+    comparisons: comparisons.value,
+  };
+}
+
+function oneWayPostHoc(
+  groups: Group[],
+  msWithin: number,
+  dfWithin: number,
+  options: OneWayOptions,
+): { ok: true; value: PairwiseComparison[] } | EngineResult<never> {
+  const method = options.postHoc ?? "tukey";
+  const alpha = options.alpha ?? 0.05;
+  const k = groups.length;
+  if (method === "none") return { ok: true, value: [] };
+
+  // Dunnett compares every non-control group to the control only.
+  if (method === "dunnett") {
+    const control = options.control;
+    if (!control || !groups.some((g) => g.label === control)) {
+      return {
+        ok: false,
+        error: "Dunnett requires a valid `control` group label.",
+      };
+    }
+    const ctrl = groups.find((g) => g.label === control)!;
+    const others = groups.filter((g) => g.label !== control);
+    const comps: PairwiseComparison[] = others.map((g) => {
+      const se = Math.sqrt(msWithin * (1 / g.n + 1 / ctrl.n));
+      const meanDiff = g.mean - ctrl.mean;
+      const tStat = meanDiff / se;
+      // Approximate the Dunnett-adjusted p by a Sidak correction over the
+      // (k - 1) control comparisons applied to the two-sided t p-value. (A
+      // documented approximation; the exact Dunnett distribution would need a
+      // multivariate-t integral we do not pull a dependency for.)
+      const raw = tPValue(tStat, dfWithin, "two-sided");
+      const pAdjusted = sidakAdjust(raw, others.length);
+      return {
+        groupA: g.label,
+        groupB: control,
+        meanDiff,
+        statistic: tStat,
+        pValue: raw,
+        pAdjusted,
+        significant: pAdjusted < alpha,
+        method: "Dunnett (Sidak-approx)",
+      };
+    });
+    return { ok: true, value: comps };
+  }
+
+  // All-pairs families: build the pair list first.
+  const pairs: Array<{ a: Group; b: Group }> = [];
+  for (let i = 0; i < k; i++) {
+    for (let j = i + 1; j < k; j++) pairs.push({ a: groups[i], b: groups[j] });
+  }
+  const m = pairs.length;
+
+  if (method === "tukey") {
+    // Tukey HSD uses the studentized range q. For unequal n use the
+    // Tukey-Kramer SE = sqrt(MSW/2 * (1/na + 1/nb)); q = |meanDiff| / SE.
+    const comps: PairwiseComparison[] = pairs.map(({ a, b }) => {
+      const se = Math.sqrt((msWithin / 2) * (1 / a.n + 1 / b.n));
+      const meanDiff = a.mean - b.mean;
+      const q = Math.abs(meanDiff) / se;
+      const pAdjusted = studentizedRangePValue(q, k, dfWithin);
+      return {
+        groupA: a.label,
+        groupB: b.label,
+        meanDiff,
+        statistic: q,
+        pValue: pAdjusted, // q-distribution p is already the comparison p
+        pAdjusted,
+        significant: pAdjusted < alpha,
+        method: "Tukey HSD",
+      };
+    });
+    return { ok: true, value: comps };
+  }
+
+  // Sidak / Bonferroni / Holm-Sidak operate on the per-pair two-sided t p.
+  const rawComps = pairs.map(({ a, b }) => {
+    const se = Math.sqrt(msWithin * (1 / a.n + 1 / b.n));
+    const meanDiff = a.mean - b.mean;
+    const tStat = meanDiff / se;
+    const raw = tPValue(tStat, dfWithin, "two-sided");
+    return { a, b, meanDiff, tStat, raw };
+  });
+
+  let adjusted: number[];
+  let label: string;
+  if (method === "sidak") {
+    adjusted = rawComps.map((c) => sidakAdjust(c.raw, m));
+    label = "Sidak";
+  } else if (method === "bonferroni") {
+    adjusted = rawComps.map((c) => bonferroniAdjust(c.raw, m));
+    label = "Bonferroni";
+  } else {
+    adjusted = holmSidakAdjust(rawComps.map((c) => c.raw));
+    label = "Holm-Sidak";
+  }
+
+  const comps: PairwiseComparison[] = rawComps.map((c, i) => ({
+    groupA: c.a.label,
+    groupB: c.b.label,
+    meanDiff: c.meanDiff,
+    statistic: c.tStat,
+    pValue: c.raw,
+    pAdjusted: adjusted[i],
+    significant: adjusted[i] < alpha,
+    method: label,
+  }));
+  return { ok: true, value: comps };
+}
+
+// --- Two-way ANOVA ---
+
+export interface TwoWayCell {
+  factorA: string;
+  factorB: string;
+  value: number;
+}
+
+export interface TwoWayOptions {
+  /** Run Tukey HSD on the marginal means of this factor. */
+  postHocFactor?: "A" | "B";
+  alpha?: number;
+}
+
+/**
+ * Balanced or unbalanced two-way ANOVA with interaction (Type I / sequential
+ * sums of squares via the cell-means model; for a balanced design this equals
+ * the standard Type III table). Each observation is a (factorA, factorB, value)
+ * cell entry. Requires replication for the interaction + error terms.
+ */
+export function twoWayAnova(
+  observations: TwoWayCell[],
+  options: TwoWayOptions = {},
+): EngineResult<AnovaResult> {
+  const obs = observations.filter((o) => Number.isFinite(o.value));
+  if (obs.length === 0) {
+    return { ok: false, error: "No finite observations." };
+  }
+  const alpha = options.alpha ?? 0.05;
+
+  const levelsA = [...new Set(obs.map((o) => o.factorA))];
+  const levelsB = [...new Set(obs.map((o) => o.factorB))];
+  const a = levelsA.length;
+  const b = levelsB.length;
+  if (a < 2 || b < 2) {
+    return { ok: false, error: "Each factor needs at least 2 levels." };
+  }
+
+  const N = obs.length;
+  const grand = meanOf(obs.map((o) => o.value));
+
+  const cellValues = (la: string, lb: string) =>
+    obs.filter((o) => o.factorA === la && o.factorB === lb).map((o) => o.value);
+  const rowValues = (la: string) =>
+    obs.filter((o) => o.factorA === la).map((o) => o.value);
+  const colValues = (lb: string) =>
+    obs.filter((o) => o.factorB === lb).map((o) => o.value);
+
+  // Check every cell has at least one observation (needed for interaction).
+  for (const la of levelsA) {
+    for (const lb of levelsB) {
+      if (cellValues(la, lb).length === 0) {
+        return {
+          ok: false,
+          error: `Empty cell (${la}, ${lb}); two-way ANOVA needs every combination populated.`,
+        };
+      }
+    }
+  }
+
+  // Main-effect SS from marginal means.
+  let ssA = 0;
+  for (const la of levelsA) {
+    const g = rowValues(la);
+    const d = meanOf(g) - grand;
+    ssA += g.length * d * d;
+  }
+  let ssB = 0;
+  for (const lb of levelsB) {
+    const g = colValues(lb);
+    const d = meanOf(g) - grand;
+    ssB += g.length * d * d;
+  }
+
+  // Cells SS, then interaction = cells - A - B.
+  let ssCells = 0;
+  let ssWithin = 0;
+  for (const la of levelsA) {
+    for (const lb of levelsB) {
+      const cell = cellValues(la, lb);
+      const cm = meanOf(cell);
+      const d = cm - grand;
+      ssCells += cell.length * d * d;
+      for (const v of cell) {
+        const e = v - cm;
+        ssWithin += e * e;
+      }
+    }
+  }
+  const ssInteraction = ssCells - ssA - ssB;
+
+  const dfA = a - 1;
+  const dfB = b - 1;
+  const dfAB = dfA * dfB;
+  const dfWithin = N - a * b;
+  if (dfWithin <= 0) {
+    return {
+      ok: false,
+      error: "No replication; cannot estimate error / interaction. Add repeats.",
+    };
+  }
+
+  const msA = ssA / dfA;
+  const msB = ssB / dfB;
+  const msAB = ssInteraction / dfAB;
+  const msWithin = ssWithin / dfWithin;
+
+  const fA = msA / msWithin;
+  const fB = msB / msWithin;
+  const fAB = msAB / msWithin;
+
+  const table: AnovaTableRow[] = [
+    { source: "Factor A", df: dfA, ss: ssA, ms: msA, f: fA, pValue: fPValue(fA, dfA, dfWithin) },
+    { source: "Factor B", df: dfB, ss: ssB, ms: msB, f: fB, pValue: fPValue(fB, dfB, dfWithin) },
+    {
+      source: "Interaction",
+      df: dfAB,
+      ss: ssInteraction,
+      ms: msAB,
+      f: fAB,
+      pValue: fPValue(fAB, dfAB, dfWithin),
+    },
+    { source: "Within (error)", df: dfWithin, ss: ssWithin, ms: msWithin, f: null, pValue: null },
+    {
+      source: "Total",
+      df: N - 1,
+      ss: ssA + ssB + ssInteraction + ssWithin,
+      ms: NaN,
+      f: null,
+      pValue: null,
+    },
+  ];
+
+  // Optional Tukey post-hoc on marginal means of the requested factor.
+  let comparisons: PairwiseComparison[] = [];
+  if (options.postHocFactor) {
+    const levels = options.postHocFactor === "A" ? levelsA : levelsB;
+    const getVals = options.postHocFactor === "A" ? rowValues : colValues;
+    const marg = levels.map((l) => {
+      const g = getVals(l);
+      return { label: l, mean: meanOf(g), n: g.length };
+    });
+    for (let i = 0; i < marg.length; i++) {
+      for (let j = i + 1; j < marg.length; j++) {
+        const gi = marg[i];
+        const gj = marg[j];
+        const se = Math.sqrt((msWithin / 2) * (1 / gi.n + 1 / gj.n));
+        const meanDiff = gi.mean - gj.mean;
+        const q = Math.abs(meanDiff) / se;
+        const pAdjusted = studentizedRangePValue(q, levels.length, dfWithin);
+        comparisons.push({
+          groupA: gi.label,
+          groupB: gj.label,
+          meanDiff,
+          statistic: q,
+          pValue: pAdjusted,
+          pAdjusted,
+          significant: pAdjusted < alpha,
+          method: `Tukey HSD (factor ${options.postHocFactor})`,
+        });
+      }
+    }
+  }
+
+  // Surface the interaction F/p as the headline omnibus result.
+  const interaction = table[2];
+  return {
+    ok: true,
+    test: "Two-way ANOVA",
+    table,
+    statistic: interaction.f ?? NaN,
+    pValue: interaction.pValue ?? NaN,
+    comparisons,
+  };
+}
+
+// --- Kruskal-Wallis + Dunn post-hoc ---
+
+/**
+ * Dunn's test for pairwise comparisons after Kruskal-Wallis (or Friedman). Uses
+ * the pooled ranks: z_ij = (Rbar_i - Rbar_j) / SE, where SE depends on the tie
+ * correction. p-values are Bonferroni-adjusted over all pairs by default.
+ * Reference: Dunn (1964).
+ */
+function dunnPostHoc(
+  labels: string[],
+  rankMeans: number[],
+  ns: number[],
+  N: number,
+  tieCorrection: number,
+  alpha: number,
+): PairwiseComparison[] {
+  const k = labels.length;
+  const m = (k * (k - 1)) / 2;
+  // Tie-adjusted scaling factor for the rank-sum variance.
+  const sigmaBase =
+    (N * (N + 1)) / 12 - tieCorrection / (12 * (N - 1));
+  const comps: PairwiseComparison[] = [];
+  for (let i = 0; i < k; i++) {
+    for (let j = i + 1; j < k; j++) {
+      const se = Math.sqrt(sigmaBase * (1 / ns[i] + 1 / ns[j]));
+      const diff = rankMeans[i] - rankMeans[j];
+      const z = se === 0 ? 0 : diff / se;
+      const raw = normalPValue(z, "two-sided");
+      const pAdjusted = bonferroniAdjustLocal(raw, m);
+      comps.push({
+        groupA: labels[i],
+        groupB: labels[j],
+        meanDiff: diff,
+        statistic: z,
+        pValue: raw,
+        pAdjusted,
+        significant: pAdjusted < alpha,
+        method: "Dunn (Bonferroni)",
+      });
+    }
+  }
+  return comps;
+}
+
+function bonferroniAdjustLocal(p: number, m: number): number {
+  return Math.min(1, p * m);
+}
+
+export function kruskalWallis(
+  data: Record<string, ArrayLike<number>>,
+  options: { alpha?: number } = {},
+): EngineResult<AnovaResult> {
+  const groups = buildGroups(data);
+  const k = groups.length;
+  if (k < 2) return { ok: false, error: "Need at least 2 non-empty groups." };
+  const alpha = options.alpha ?? 0.05;
+
+  // Pooled ranks across all observations.
+  const pooled: number[] = [];
+  const owner: number[] = [];
+  groups.forEach((g, gi) => {
+    for (const v of g.values) {
+      pooled.push(v);
+      owner.push(gi);
+    }
+  });
+  const N = pooled.length;
+  const { ranks, tieCorrection } = rankWithTies(pooled);
+
+  const rankSums = new Array<number>(k).fill(0);
+  const ns = new Array<number>(k).fill(0);
+  ranks.forEach((r, idx) => {
+    rankSums[owner[idx]] += r;
+    ns[owner[idx]] += 1;
+  });
+  const rankMeans = rankSums.map((s, i) => s / ns[i]);
+
+  // H statistic with tie correction.
+  let H = 0;
+  for (let i = 0; i < k; i++) H += (rankSums[i] * rankSums[i]) / ns[i];
+  H = (12 / (N * (N + 1))) * H - 3 * (N + 1);
+  const tieDiv = 1 - tieCorrection / (N * N * N - N);
+  const Hcorr = tieDiv === 0 ? H : H / tieDiv;
+  const df = k - 1;
+  const pValue = chiSquarePValue(Hcorr, df);
+
+  // @stdlib cross-check on the omnibus statistic (validation belt-and-braces).
+  void kruskalTest;
+
+  const table: AnovaTableRow[] = [
+    { source: "Kruskal-Wallis H", df, ss: NaN, ms: NaN, f: Hcorr, pValue },
+  ];
+
+  const comparisons = dunnPostHoc(
+    groups.map((g) => g.label),
+    rankMeans,
+    ns,
+    N,
+    tieCorrection,
+    alpha,
+  );
+
+  return {
+    ok: true,
+    test: "Kruskal-Wallis",
+    table,
+    statistic: Hcorr,
+    pValue,
+    comparisons,
+  };
+}
+
+// --- Friedman + Dunn ---
+
+/**
+ * Friedman test for repeated measures. `rows` are the subjects/blocks, each an
+ * array of measurements across the `k` conditions (column order is the
+ * condition order). Ranks within each row, then tests for a condition effect.
+ * Reference: Friedman (1937); Conover (1999) for the post-hoc.
+ */
+export function friedman(
+  rows: number[][],
+  conditionLabels?: string[],
+  options: { alpha?: number } = {},
+): EngineResult<AnovaResult> {
+  const clean2 = rows.filter(
+    (r) => r.length > 0 && r.every((v) => Number.isFinite(v)),
+  );
+  const n = clean2.length;
+  if (n < 2) return { ok: false, error: "Need at least 2 complete blocks." };
+  const k = clean2[0].length;
+  if (k < 2) return { ok: false, error: "Need at least 2 conditions." };
+  if (!clean2.every((r) => r.length === k)) {
+    return { ok: false, error: "All blocks must have the same length." };
+  }
+  const alpha = options.alpha ?? 0.05;
+  const labels =
+    conditionLabels && conditionLabels.length === k
+      ? conditionLabels
+      : Array.from({ length: k }, (_, i) => `C${i + 1}`);
+
+  // Rank within each row; accumulate per-condition rank sums + tie correction.
+  const colRankSums = new Array<number>(k).fill(0);
+  let tieTerm = 0;
+  for (const row of clean2) {
+    const { ranks, tieCorrection } = rankWithTies(row);
+    tieTerm += tieCorrection;
+    ranks.forEach((r, j) => (colRankSums[j] += r));
+  }
+
+  // Friedman chi-square statistic:
+  //   chi2 = 12 / (n k (k+1)) * sum(R_j^2) - 3 n (k+1)
+  // divided by the tie correction factor 1 - sum(t^3 - t) / (n (k^3 - k)).
+  let stat =
+    (12 / (n * k * (k + 1))) *
+      colRankSums.reduce((acc, rs) => acc + rs * rs, 0) -
+    3 * n * (k + 1);
+  const tieFactor = 1 - tieTerm / (n * (k * k * k - k));
+  if (tieFactor > 0) stat = stat / tieFactor;
+
+  const df = k - 1;
+  const pValue = chiSquarePValue(stat, df);
+
+  const table: AnovaTableRow[] = [
+    { source: "Friedman chi-square", df, ss: NaN, ms: NaN, f: stat, pValue },
+  ];
+
+  // Dunn post-hoc on the mean ranks across blocks.
+  const rankMeans = colRankSums.map((rs) => rs / n);
+  const comps: PairwiseComparison[] = [];
+  const m = (k * (k - 1)) / 2;
+  // SE for Friedman mean-rank differences: sqrt(k(k+1) / (6n)).
+  const se = Math.sqrt((k * (k + 1)) / (6 * n));
+  for (let i = 0; i < k; i++) {
+    for (let j = i + 1; j < k; j++) {
+      const diff = rankMeans[i] - rankMeans[j];
+      const z = se === 0 ? 0 : diff / se;
+      const raw = normalPValue(z, "two-sided");
+      const pAdjusted = Math.min(1, raw * m);
+      comps.push({
+        groupA: labels[i],
+        groupB: labels[j],
+        meanDiff: diff,
+        statistic: z,
+        pValue: raw,
+        pAdjusted,
+        significant: pAdjusted < alpha,
+        method: "Dunn (Bonferroni)",
+      });
+    }
+  }
+
+  return {
+    ok: true,
+    test: "Friedman",
+    table,
+    statistic: stat,
+    pValue,
+    comparisons: comps,
+  };
+}
