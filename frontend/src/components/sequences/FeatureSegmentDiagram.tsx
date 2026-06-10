@@ -62,7 +62,7 @@ export default function FeatureSegmentDiagram({
   };
 
   return (
-    <div className="rounded-md border border-gray-200 bg-gray-50/70 px-3 pb-2 pt-1.5">
+    <div className="rounded-md border border-border bg-surface-raised px-3 pb-2 pt-1.5">
       <svg
         viewBox={`0 0 ${WIDTH} 52`}
         className="h-[52px] w-full"
@@ -75,7 +75,7 @@ export default function FeatureSegmentDiagram({
           y1={TRACK_Y}
           x2={WIDTH - PAD}
           y2={TRACK_Y}
-          stroke="#d1d5db"
+          style={{ stroke: "var(--border-subtle)" }}
           strokeWidth={1}
         />
 
@@ -87,7 +87,7 @@ export default function FeatureSegmentDiagram({
             y1={TRACK_Y}
             x2={g.x + g.width}
             y2={TRACK_Y}
-            stroke="#9ca3af"
+            style={{ stroke: "var(--foreground-muted)" }}
             strokeWidth={1.5}
             strokeDasharray="3 3"
           />
@@ -122,16 +122,16 @@ export default function FeatureSegmentDiagram({
         })}
 
         {/* span coordinate labels (1-based inclusive) */}
-        <text x={PAD} y={TRACK_Y + 18} textAnchor="start" fontSize={10} fill="#6b7280">
+        <text x={PAD} y={TRACK_Y + 18} textAnchor="start" fontSize={10} style={{ fill: "var(--foreground-muted)" }}>
           {(layout.spanStart + 1).toLocaleString()}
         </text>
-        <text x={WIDTH - PAD} y={TRACK_Y + 18} textAnchor="end" fontSize={10} fill="#6b7280">
+        <text x={WIDTH - PAD} y={TRACK_Y + 18} textAnchor="end" fontSize={10} style={{ fill: "var(--foreground-muted)" }}>
           {layout.spanEnd.toLocaleString()}
         </text>
       </svg>
 
       {/* SnapGene-style summary line */}
-      <div className="mt-0.5 text-center text-meta font-medium text-gray-500">
+      <div className="mt-0.5 text-center text-meta font-medium text-foreground-muted">
         {layout.summary}
       </div>
     </div>

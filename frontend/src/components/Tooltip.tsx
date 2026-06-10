@@ -310,7 +310,7 @@ export default function Tooltip({
                   matches the BeakerBot brand mark (sky-500, beaker
                   silhouette + face) per the project's mascot-is-BeakerBot
                   rule. */}
-              <div className="flex items-center gap-1.5 bg-sky-50 dark:bg-sky-500/15 px-3 py-1.5 border-b border-sky-100">
+              <div className="flex items-center gap-1.5 bg-surface-sunken dark:bg-sky-500/15 px-3 py-1.5 border-b border-border">
                 <svg
                   width="14"
                   height="14"
@@ -386,14 +386,14 @@ export default function Tooltip({
               }}
               className={
                 body
-                  ? "rounded-md bg-gray-900 text-white text-meta font-medium px-2.5 py-1.5 shadow-lg leading-snug"
-                  : "whitespace-nowrap rounded-md bg-gray-900 text-white text-meta font-medium px-2 py-1 shadow-lg"
+                  ? "rounded-md bg-surface-overlay text-foreground border border-border text-meta font-medium px-2.5 py-1.5 shadow-lg leading-snug"
+                  : "whitespace-nowrap rounded-md bg-surface-overlay text-foreground border border-border text-meta font-medium px-2 py-1 shadow-lg"
               }
             >
               {body ? (
                 <>
                   <span className="block font-semibold mb-1">{label}</span>
-                  <span className="block font-normal text-gray-100">{body}</span>
+                  <span className="block font-normal text-foreground-muted">{body}</span>
                 </>
               ) : (
                 label

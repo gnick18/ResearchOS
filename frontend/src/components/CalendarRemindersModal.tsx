@@ -208,7 +208,7 @@ export default function CalendarRemindersModal({ open, onClose }: Props) {
         </div>
 
         {saving && (
-          <div className="absolute inset-0 pointer-events-none bg-white/30" />
+          <div className="absolute inset-0 pointer-events-none bg-surface-overlay/40" />
         )}
       </div>
     </LivingPopup>

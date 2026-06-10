@@ -617,7 +617,7 @@ function FloatingSelectionBadge({
   return (
     <div
       ref={cardRef}
-      className="pointer-events-none absolute z-30 flex items-center gap-3 rounded-lg border border-border bg-white/95 px-3 py-1.5 text-meta text-foreground-muted shadow-md backdrop-blur-sm"
+      className="pointer-events-none absolute z-30 flex items-center gap-3 rounded-lg border border-border bg-surface-overlay/95 px-3 py-1.5 text-meta text-foreground-muted shadow-md backdrop-blur-sm"
       style={{ left: pos.left, top: pos.top }}
     >
       <SelectionReadoutContent readout={readout} />

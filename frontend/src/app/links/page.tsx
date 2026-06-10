@@ -688,7 +688,7 @@ export default function LabLinksPage() {
         {/* Delete Confirmation Modal */}
         {deleteConfirmId && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setDeleteConfirmId(null)}>
-            <div className="bg-surface-raised rounded-xl p-6 max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-surface-overlay border border-border shadow-lg rounded-xl p-6 max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
               <h3 className="text-heading font-semibold text-foreground mb-2">
                 Delete Link?
               </h3>

@@ -73,7 +73,7 @@ export default function NoteDeleteUndoToast() {
 
   return (
     <div
-      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] bg-gray-900 text-white rounded-lg shadow-xl px-4 py-3 flex items-center gap-3 max-w-md"
+      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] bg-surface-overlay text-foreground border border-border rounded-lg shadow-xl px-4 py-3 flex items-center gap-3 max-w-md"
       role="status"
       aria-live="polite"
       data-testid="note-delete-undo-toast"
@@ -88,7 +88,7 @@ export default function NoteDeleteUndoToast() {
         strokeLinecap="round"
         strokeLinejoin="round"
         aria-hidden="true"
-        className="flex-shrink-0 text-gray-400"
+        className="flex-shrink-0 text-foreground-muted"
       >
         <polyline points="3 6 5 6 21 6" />
         <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
@@ -105,7 +105,7 @@ export default function NoteDeleteUndoToast() {
         type="button"
         onClick={() => void handleUndo()}
         disabled={restoring}
-        className="text-meta font-semibold text-amber-300 hover:text-amber-200 underline-offset-2 hover:underline disabled:opacity-50"
+        className="text-meta font-semibold text-amber-600 hover:text-amber-700 dark:text-amber-300 dark:hover:text-amber-200 underline-offset-2 hover:underline disabled:opacity-50"
         data-testid="note-delete-undo-button"
       >
         {restoring ? "Restoring…" : "Undo"}
@@ -114,7 +114,7 @@ export default function NoteDeleteUndoToast() {
         type="button"
         onClick={() => setToast(null)}
         aria-label="Dismiss"
-        className="text-gray-400 hover:text-white p-0.5 flex-shrink-0"
+        className="text-foreground-muted hover:text-foreground p-0.5 flex-shrink-0"
       >
         <svg
           width="14"

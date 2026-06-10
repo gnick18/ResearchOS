@@ -1321,9 +1321,8 @@ export default function TaxonomyTreeView({
                             height={pillH}
                             rx={pillH / 2}
                             ry={pillH / 2}
-                            fill="#ffffff"
+                            style={{ fill: "var(--surface-raised)", stroke: "var(--border-subtle)" }}
                             fillOpacity={0.92}
-                            stroke="rgba(0,0,0,0.08)"
                             strokeWidth={1}
                           />
                           <text
@@ -1332,7 +1331,7 @@ export default function TaxonomyTreeView({
                             textAnchor={labelAnchor}
                             dominantBaseline="middle"
                             fontSize={fontSize}
-                            fill="#1f2937"
+                            style={{ fill: "var(--foreground)" }}
                           >
                             {n.name}
                           </text>
@@ -1397,7 +1396,7 @@ export default function TaxonomyTreeView({
             {legend.length > 0 ? (
               <div
                 data-testid="taxonomy-thickness-legend"
-                className="absolute bottom-4 left-4 z-10 max-w-[15rem] rounded-lg border border-border bg-white/95 px-3 py-2.5 shadow-sm backdrop-blur-sm"
+                className="absolute bottom-4 left-4 z-10 max-w-[15rem] rounded-lg border border-border bg-surface-raised/95 px-3 py-2.5 shadow-sm backdrop-blur-sm"
                 onPointerDown={(e) => e.stopPropagation()}
                 onWheel={(e) => e.stopPropagation()}
               >

@@ -72,17 +72,17 @@ function ExternalIcon() {
 
 function OracleCitation({ oracle }: { oracle: OracleRef }) {
   return (
-    <li className="rounded-lg border border-gray-200 bg-gray-50/60 px-4 py-3">
+    <li className="rounded-lg border border-border bg-surface-raised px-4 py-3">
       <div className="flex items-baseline gap-2">
         <span className="inline-block h-2.5 w-2.5 shrink-0 translate-y-[1px] rounded-full" style={{ backgroundColor: colorFor(oracle.id) }} />
-        <span className="text-body font-semibold text-gray-900">{oracle.name}</span>
-        <span className="text-meta text-gray-400">v{oracle.version}</span>
+        <span className="text-body font-semibold text-foreground">{oracle.name}</span>
+        <span className="text-meta text-foreground-muted">v{oracle.version}</span>
       </div>
-      <p className="mt-1 font-mono text-meta text-gray-600">{oracle.entrypoint}</p>
-      <p className="mt-1 text-meta text-gray-500">{oracle.citation}</p>
-      <p className="mt-1 text-meta text-gray-400">
+      <p className="mt-1 font-mono text-meta text-foreground-muted">{oracle.entrypoint}</p>
+      <p className="mt-1 text-meta text-foreground-muted">{oracle.citation}</p>
+      <p className="mt-1 text-meta text-foreground-muted">
         Reproduce:{" "}
-        <span className="font-mono text-gray-500">{oracle.generator}</span>
+        <span className="font-mono text-foreground-muted">{oracle.generator}</span>
         {oracle.url ? (
           <>
             {" "}
@@ -101,9 +101,9 @@ function OracleCitation({ oracle }: { oracle: OracleRef }) {
 function CaseVisualCard({ domain, c }: { domain: DomainReport; c: CaseResult }) {
   const v = c.visual;
   return (
-    <div className="rounded-xl border border-gray-200 bg-gray-50/70 p-4">
+    <div className="rounded-xl border border-border bg-surface-raised p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <span className="text-body font-medium text-gray-800">{c.label}</span>
+        <span className="text-body font-medium text-foreground">{c.label}</span>
         <StatusPill
           status={c.status}
           exact={c.comparisons.every((cmp) => cmp.delta === 0)}
@@ -141,11 +141,11 @@ function CaseVisualCard({ domain, c }: { domain: DomainReport; c: CaseResult }) 
       {v?.kind === "property-table" || v?.kind === "sequence-match" || v?.kind === "domain-set" ? null : (
         <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-meta">
           {c.comparisons.map((cmp) => (
-            <span key={cmp.oracleId} className="text-gray-500">
+            <span key={cmp.oracleId} className="text-foreground-muted">
               vs {oracleName(domain.oracles, cmp.oracleId)}: ResearchOS{" "}
-              <span className="font-mono text-gray-800">{cmp.ours}</span>, reference{" "}
-              <span className="font-mono text-gray-700">{cmp.theirs}</span>{" "}
-              <span className="text-gray-400">(Δ {cmp.delta} {cmp.tolerance.unit})</span>
+              <span className="font-mono text-foreground">{cmp.ours}</span>, reference{" "}
+              <span className="font-mono text-foreground">{cmp.theirs}</span>{" "}
+              <span className="text-foreground-muted">(Δ {cmp.delta} {cmp.tolerance.unit})</span>
             </span>
           ))}
         </div>
@@ -156,10 +156,10 @@ function CaseVisualCard({ domain, c }: { domain: DomainReport; c: CaseResult }) 
 
 function ScalarTable({ domain, unit }: { domain: DomainReport; unit: string }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-gray-200">
+    <div className="overflow-x-auto rounded-xl border border-border">
       <table className="w-full text-left text-meta">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50 text-gray-500">
+          <tr className="border-b border-border bg-surface-sunken text-foreground-muted">
             <th className="px-3 py-2 font-semibold">Case</th>
             <th className="px-3 py-2 font-semibold">Reference</th>
             <th className="px-3 py-2 text-right font-semibold">ResearchOS</th>
@@ -171,20 +171,20 @@ function ScalarTable({ domain, unit }: { domain: DomainReport; unit: string }) {
         <tbody>
           {domain.cases.map((c) =>
             c.comparisons.map((cmp, ci) => (
-              <tr key={`${c.id}-${cmp.oracleId}`} className={`border-b border-gray-100 last:border-0 ${cmp.informational ? "bg-gray-50/60" : ""}`}>
+              <tr key={`${c.id}-${cmp.oracleId}`} className={`border-b border-border last:border-0 ${cmp.informational ? "bg-surface-sunken/60" : ""}`}>
                 {ci === 0 ? (
                   <td rowSpan={c.comparisons.length} className="px-3 py-2 align-top">
-                    <div className="font-medium text-gray-800">{c.label}</div>
-                    <div className="mt-0.5 break-all font-mono text-[11px] text-gray-400">{c.input}</div>
+                    <div className="font-medium text-foreground">{c.label}</div>
+                    <div className="mt-0.5 break-all font-mono text-[11px] text-foreground-muted">{c.input}</div>
                   </td>
                 ) : null}
-                <td className="px-3 py-2 text-gray-600">{oracleName(domain.oracles, cmp.oracleId)}</td>
-                <td className="px-3 py-2 text-right font-mono text-gray-800">{cmp.ours}</td>
-                <td className="px-3 py-2 text-right font-mono text-gray-600">{cmp.theirs}</td>
-                <td className="px-3 py-2 text-right font-mono text-gray-500">{cmp.delta}</td>
+                <td className="px-3 py-2 text-foreground-muted">{oracleName(domain.oracles, cmp.oracleId)}</td>
+                <td className="px-3 py-2 text-right font-mono text-foreground">{cmp.ours}</td>
+                <td className="px-3 py-2 text-right font-mono text-foreground-muted">{cmp.theirs}</td>
+                <td className="px-3 py-2 text-right font-mono text-foreground-muted">{cmp.delta}</td>
                 <td className="px-3 py-2">
                   {cmp.informational ? (
-                    <span className="text-meta text-gray-400">context</span>
+                    <span className="text-meta text-foreground-muted">context</span>
                   ) : (
                     <StatusPill status={cmp.status} exact={cmp.delta === 0} kind={cmp.tolerance.kind} />
                   )}
@@ -214,7 +214,7 @@ function Collapsible({ label, children }: { label: string; children: ReactNode }
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-meta font-medium text-gray-600 hover:border-sky-300 hover:text-sky-700"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-meta font-medium text-foreground-muted hover:border-sky-300 hover:text-sky-700"
         aria-expanded={open}
       >
         {open ? "Hide" : "Show"} {label}
@@ -239,12 +239,12 @@ function DomainSummary({ domain }: { domain: DomainReport }) {
         {c.exact} exact
       </span>
       {c.within > 0 ? (
-        <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 font-semibold text-gray-600">
+        <span className="inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-700/50 px-2.5 py-0.5 font-semibold text-gray-600 dark:text-gray-300">
           {c.within} within tolerance
         </span>
       ) : null}
       {c.expected > 0 ? (
-        <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 font-semibold text-slate-600">
+        <span className="inline-flex items-center rounded-full bg-slate-100 dark:bg-slate-700/50 px-2.5 py-0.5 font-semibold text-slate-600 dark:text-slate-300">
           {c.expected} expected difference{c.expected === 1 ? "" : "s"}
         </span>
       ) : null}
@@ -253,7 +253,7 @@ function DomainSummary({ domain }: { domain: DomainReport }) {
           {c.larger} larger difference{c.larger === 1 ? "" : "s"}
         </span>
       ) : null}
-      {hasInfo ? <span className="text-gray-400">+ {infoCount} cross-method context</span> : null}
+      {hasInfo ? <span className="text-foreground-muted">+ {infoCount} cross-method context</span> : null}
     </div>
   );
 }
@@ -299,12 +299,12 @@ function DomainPanel({ domain }: { domain: DomainReport }) {
 
   return (
     <div>
-      <h2 className="mb-2 text-heading font-bold tracking-tight text-gray-900">{domain.title}</h2>
+      <h2 className="mb-2 text-heading font-bold tracking-tight text-foreground">{domain.title}</h2>
       <DomainSummary domain={domain} />
 
-      <p className="mb-2 mt-4 max-w-2xl text-body text-gray-600">{domain.summary}</p>
-      <p className="mb-6 text-meta text-gray-400">
-        Tested module: <span className="font-mono text-gray-500">{domain.impl}</span>
+      <p className="mb-2 mt-4 max-w-2xl text-body text-foreground-muted">{domain.summary}</p>
+      <p className="mb-6 text-meta text-foreground-muted">
+        Tested module: <span className="font-mono text-foreground-muted">{domain.impl}</span>
       </p>
 
       {/* The scatter is the at-a-glance summary for a scalar domain, so it stays
@@ -335,7 +335,7 @@ export default function TransparencyTabs({ domains }: { domains: DomainReport[] 
 
   return (
     <div>
-      <div role="tablist" aria-label="Validated calculations" className="flex flex-wrap gap-1 border-b border-gray-200">
+      <div role="tablist" aria-label="Validated calculations" className="flex flex-wrap gap-1 border-b border-border">
         {domains.map((d) => {
           const selected = d.id === active.id;
           return (
@@ -347,14 +347,14 @@ export default function TransparencyTabs({ domains }: { domains: DomainReport[] 
               onClick={() => setActiveId(d.id)}
               className={`-mb-px flex items-center gap-2 rounded-t-lg border border-b-2 px-4 py-2.5 text-body font-medium transition ${
                 selected
-                  ? "border-sky-200 dark:border-sky-500/30 border-b-sky-600 bg-sky-50/70 text-sky-700 dark:text-sky-300"
-                  : "border-transparent border-b-transparent text-gray-500 hover:border-b-gray-300 hover:text-gray-800"
+                  ? "border-sky-200 dark:border-sky-500/30 border-b-sky-600 bg-sky-50/70 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300"
+                  : "border-transparent border-b-transparent text-foreground-muted hover:border-b-border hover:text-foreground"
               }`}
             >
               {d.title}
               <span
                 className={`rounded-full px-1.5 py-0.5 text-meta font-semibold tabular-nums ${
-                  selected ? "bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300" : "bg-gray-100 text-gray-500"
+                  selected ? "bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300" : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
                 }`}
               >
                 {d.totals.pass}/{total(d)}

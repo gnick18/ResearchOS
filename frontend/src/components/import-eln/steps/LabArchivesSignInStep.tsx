@@ -49,11 +49,11 @@ export default function LabArchivesSignInStep({
         onMatchesChange={handleMatches}
       />
 
-      <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+      <div className="flex items-center justify-between pt-2 border-t border-border">
         <button
           type="button"
           onClick={onBack}
-          className="px-3 py-2 text-body text-gray-700 hover:text-gray-900"
+          className="px-3 py-2 text-body text-foreground-muted hover:text-foreground"
         >
           Back
         </button>
@@ -61,7 +61,7 @@ export default function LabArchivesSignInStep({
           <button
             type="button"
             onClick={() => onContinue(new Map())}
-            className="px-3 py-2 text-body bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg"
+            className="px-3 py-2 text-body bg-surface-sunken hover:bg-surface-sunken/80 text-foreground rounded-lg"
           >
             Skip — leave as placeholders
           </button>

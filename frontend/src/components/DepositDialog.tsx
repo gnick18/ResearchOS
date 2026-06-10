@@ -1073,7 +1073,7 @@ function HandoffDownloadStep({
           </button>
         </div>
         <pre
-          className="text-meta bg-gray-900 text-gray-100 rounded-lg p-3 overflow-auto max-h-52 leading-relaxed"
+          className="text-meta bg-surface-sunken text-foreground rounded-lg p-3 overflow-auto max-h-52 leading-relaxed"
           data-testid="deposit-metadata-json"
         >
           {built.metadataJson}

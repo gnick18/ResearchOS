@@ -109,16 +109,16 @@ export default function PickUserBeforeImportModal({
         aria-modal="true"
         aria-labelledby="eln-pick-user-title"
         data-testid="eln-pick-user-modal"
-        className="relative w-full max-w-md bg-gradient-to-br from-slate-800 to-slate-900 border border-white/15 rounded-2xl shadow-2xl overflow-hidden"
+        className="relative w-full max-w-md bg-surface-overlay border border-border rounded-2xl shadow-2xl overflow-hidden"
       >
         <div className="p-6">
           <h2
             id="eln-pick-user-title"
-            className="text-heading font-bold text-white mb-1"
+            className="text-heading font-bold text-foreground mb-1"
           >
             Pick a user to own the imported notebook
           </h2>
-          <p className="text-meta text-slate-400 mb-5">
+          <p className="text-meta text-foreground-muted mb-5">
             The LabArchives notebook needs an account on this folder. Pick an
             existing user or create a new one, then the import will continue.
           </p>
@@ -132,17 +132,17 @@ export default function PickUserBeforeImportModal({
                   onClick={() => handlePick(user)}
                   disabled={isPicking || isCreating}
                   data-testid={`eln-pick-user-tile-${user}`}
-                  className="w-full p-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-blue-500/50 rounded-lg transition-all text-left flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full p-3 bg-surface-raised/80 hover:bg-surface-raised border border-border hover:border-blue-500/50 rounded-lg transition-all text-left flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <UserAvatar username={user} size="md" />
-                  <span className="text-white font-medium">{user}</span>
+                  <span className="text-foreground font-medium">{user}</span>
                 </button>
               ))}
             </div>
           )}
 
-          <div className={hasUsers ? "border-t border-white/10 pt-5" : ""}>
-            <h3 className="text-body font-medium text-slate-300 mb-3">
+          <div className={hasUsers ? "border-t border-border pt-5" : ""}>
+            <h3 className="text-body font-medium text-foreground-muted mb-3">
               {hasUsers ? "Create new account" : "Create your first account"}
             </h3>
             <div className="flex gap-2">
@@ -152,7 +152,7 @@ export default function PickUserBeforeImportModal({
                 onChange={(e) => setNewUsername(e.target.value)}
                 placeholder="Enter username"
                 data-testid="eln-pick-user-new-input"
-                className="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 px-4 py-2 bg-surface-sunken border border-border rounded-lg text-foreground placeholder-foreground-muted focus:outline-none focus:ring-2 focus:ring-blue-500"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") void handleCreate();
                 }}
@@ -169,7 +169,7 @@ export default function PickUserBeforeImportModal({
               </button>
             </div>
             {createError && (
-              <p className="text-red-400 text-body mt-2" role="alert">
+              <p className="text-red-600 dark:text-red-400 text-body mt-2" role="alert">
                 {createError}
               </p>
             )}
