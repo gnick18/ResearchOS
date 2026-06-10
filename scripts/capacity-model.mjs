@@ -108,6 +108,43 @@ for (const t of TIERS) {
   );
 }
 
+console.log("\n=== 2x-cost pricing: what 'charge double our cost' actually produces ===");
+const COST_PER_GB = R2_USD_PER_GB_MO; // files dominate the pool, R2 = $0.015
+const MARKUP = 2; // Grant: 2x cost, not greedy vs competitors
+const pricePerGb = COST_PER_GB * MARKUP; // $0.03 / GB-month at 2x
+console.log(`2x cost = $${pricePerGb.toFixed(3)} per GB-month (R2 $${COST_PER_GB} x ${MARKUP}).`);
+console.log("\n(a) If we FIX the GB at a small ladder, 2x cost is sub-dollar (Stripe's");
+console.log("    $0.30/charge floor makes anything under ~$5 impractical):");
+for (const gb of [5, 12, 30, 60]) {
+  console.log(`   ${String(gb).padStart(3)} GB -> $${(gb * pricePerGb).toFixed(2)}/mo at 2x cost  (too cheap to bill)`);
+}
+console.log("\n(b) If we FIX a round price and give 2x-cost GB, the pools are huge");
+console.log("    (R2 is that cheap), and a typical 6-person lab uses ~11 GB/YEAR:");
+const u6 = perUser(SCEN.typical).storageMbPerYr * 6; // MB/yr for a 6-person typical lab
+for (const price of [5, 10, 25, 50]) {
+  const gb = price / pricePerGb;
+  const labYears = (gb * GB) / u6;
+  const typicalLabs = (gb * GB) / (u6 * 1); // labs covered for one year of typical use
+  console.log(
+    `   $${String(price).padStart(2)}/mo -> ${Math.round(gb)} GB  = ~${labYears.toFixed(0)} yrs for one typical lab,` +
+      ` or ~${typicalLabs.toFixed(1)} typical labs' annual use`,
+  );
+}
+console.log("\nINSIGHT: a normal lab costs us pennies, so 2x-its-cost is unbillable.");
+console.log("The honest shape: generous FREE tier (covers normal labs, ~$0 to us),");
+console.log("then 2x-cost metered ($0.03/GB-mo) for the heavy IMAGE/VIDEO labs that");
+console.log("actually exceed it. Round price points buy enormous pools at 2x cost.");
+
+console.log("\n=== Free-tier coverage (how long a generous free tier lasts a lab) ===");
+for (const freeGb of [1, 10, 25, 50]) {
+  const yrs6 = (freeGb * GB) / u6;
+  const yrs8 = (freeGb * GB) / (perUser(SCEN.typical).storageMbPerYr * 8);
+  const costToUs = freeGb * COST_PER_GB;
+  console.log(
+    `   ${String(freeGb).padStart(2)} GB free -> ~${yrs6.toFixed(1)} yr (6-ppl) / ~${yrs8.toFixed(1)} yr (8-ppl) typical, costs us $${costToUs.toFixed(2)}/lab/mo if full`,
+  );
+}
+
 console.log("\n=== Activity reality check (typical lab writes vs the tier ceilings) ===");
 for (const n of [6, 8, 20]) {
   const u = perUser(SCEN.typical);
