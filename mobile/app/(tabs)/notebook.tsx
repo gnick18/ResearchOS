@@ -19,12 +19,14 @@ import {
   Image,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   TextInput,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+// ScrollView comes from gesture-handler so the per-row swipe-to-delete
+// cooperates with vertical scrolling instead of fighting it.
+import { Swipeable, ScrollView } from 'react-native-gesture-handler';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -193,6 +195,12 @@ export default function NotebookScreen() {
 
   // ---- Photo capture pipeline ----
   const { captures, refresh: refreshCaptures } = useCaptures();
+  // Automatic retry for failed sends: a failed capture retries itself a couple
+  // of times with backoff (reading "Waiting for connection" while it does)
+  // before it falls back to a manual "Couldn't send / Retry".
+  const retryAttempts = useRef<Map<string, number>>(new Map());
+  const retryTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set());
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [previewDoc, setPreviewDoc] = useState<AnnotationDoc | null>(null);
   // OCR layer for a scanned handwriting note (null for plain photos). Rides with
@@ -720,6 +728,55 @@ export default function NotebookScreen() {
     );
   }, [refreshCaptures]);
 
+  // Automatic retry backoff for failed captures. A failed send retries itself
+  // up to MAX_AUTO_RETRIES times (reading "Waiting for connection" in between)
+  // before it settles into a manual "Couldn't send / Retry".
+  useEffect(() => {
+    if (!pairing) return;
+    const MAX_AUTO_RETRIES = 2;
+    captures.forEach((c) => {
+      if (c.status === 'sent') {
+        retryAttempts.current.delete(c.id);
+        return;
+      }
+      if (c.status !== 'failed') return;
+      if (retryTimers.current.has(c.id)) return;
+      const attempts = retryAttempts.current.get(c.id) ?? 0;
+      if (attempts >= MAX_AUTO_RETRIES) return;
+      retryAttempts.current.set(c.id, attempts + 1);
+      setRetryingIds((prev) => {
+        const next = new Set(prev);
+        next.add(c.id);
+        return next;
+      });
+      const timer = setTimeout(() => {
+        retryTimers.current.delete(c.id);
+        void (async () => {
+          try {
+            await sendOne(c, { suppressBurst: true });
+          } catch {
+            // Still failed; the effect reschedules until the cap is hit.
+          }
+          setRetryingIds((prev) => {
+            const next = new Set(prev);
+            next.delete(c.id);
+            return next;
+          });
+          await refreshCaptures();
+        })();
+      }, 3000 * (attempts + 1));
+      retryTimers.current.set(c.id, timer);
+    });
+  }, [captures, pairing, sendOne, refreshCaptures]);
+
+  // Clear any pending retry timers on unmount.
+  useEffect(() => {
+    const timers = retryTimers.current;
+    return () => {
+      timers.forEach((t) => clearTimeout(t));
+    };
+  }, []);
+
   // ---- Today snapshot data ----
   const tasks: SnapshotTask[] = Array.isArray(snapshot?.tasks)
     ? snapshot!.tasks!
@@ -1057,6 +1114,7 @@ export default function NotebookScreen() {
                   onRemove={onRemove}
                   onSend={paired ? sendOne : undefined}
                   isLast={i === captures.length - 1}
+                  retrying={retryingIds.has(capture.id)}
                 />
               ))}
             </View>
@@ -1241,87 +1299,105 @@ function CaptureRow({
   onRemove,
   onSend,
   isLast,
+  retrying,
 }: {
   capture: Capture;
   onRemove: (id: string) => void;
   onSend?: (capture: Capture) => void;
   isLast?: boolean;
+  // True while a failed capture is in its automatic-retry backoff, so the row
+  // reads "Waiting for connection" instead of "Couldn't send".
+  retrying?: boolean;
 }) {
   const { surface, radii } = useTheme();
   const sent = capture.status === 'sent';
-  const failed = capture.status === 'failed';
   const sending = capture.status === 'sending' || capture.status === 'queued';
+  const waiting = capture.status === 'failed' && !!retrying;
+  const failed = capture.status === 'failed' && !retrying;
   const canRetry = !!onSend && failed;
 
-  return (
-    <View
-      style={[
-        styles.inboxRow,
-        !isLast && {
-          borderBottomWidth: StyleSheet.hairlineWidth,
-          borderBottomColor: surface.border,
-        },
-      ]}
+  const renderRightActions = () => (
+    <Pressable
+      onPress={() => onRemove(capture.id)}
+      style={styles.swipeDelete}
+      accessibilityRole="button"
+      accessibilityLabel="Delete capture"
     >
-      <Image
-        source={{ uri: capture.uri }}
-        style={[styles.inboxThumb, { borderRadius: radii.sm }]}
-      />
-      <View style={styles.inboxRowBody}>
-        <ThemedText
-          style={[styles.inboxRowTitle, { color: surface.text }]}
-          numberOfLines={2}
-        >
-          {capture.caption.length > 0 ? capture.caption : 'No caption'}
-        </ThemedText>
-        <View style={styles.inboxStatusRow}>
-          {sending ? (
-            <>
-              <ActivityIndicator size="small" color={palette.sky} />
-              <ThemedText style={[styles.inboxStatus, { color: palette.sky }]}>
-                Sending...
-              </ThemedText>
-            </>
-          ) : sent ? (
-            <>
-              <Ionicons name="checkmark-circle" size={16} color={palette.success} />
-              <ThemedText style={[styles.inboxStatus, { color: palette.success }]}>
-                On your laptop
-              </ThemedText>
-            </>
-          ) : (
-            <>
-              <View style={styles.failDot} />
-              <ThemedText style={[styles.inboxStatus, { color: palette.danger }]}>
-                Couldn&apos;t send
-              </ThemedText>
-            </>
-          )}
-          <View style={styles.inboxRowActions}>
-            {canRetry ? (
-              <Pressable
-                onPress={() => onSend?.(capture)}
-                accessibilityRole="button"
-                hitSlop={8}
-              >
-                <ThemedText style={[styles.inboxAction, { color: palette.sky }]}>
-                  Retry
+      <Ionicons name="trash-outline" size={20} color={palette.white} />
+      <ThemedText style={styles.swipeDeleteLabel}>Delete</ThemedText>
+    </Pressable>
+  );
+
+  return (
+    <Swipeable renderRightActions={renderRightActions} overshootRight={false}>
+      <View
+        style={[
+          styles.inboxRow,
+          { backgroundColor: surface.surface },
+          !isLast && {
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            borderBottomColor: surface.border,
+          },
+        ]}
+      >
+        <Image
+          source={{ uri: capture.uri }}
+          style={[styles.inboxThumb, { borderRadius: radii.sm }]}
+        />
+        <View style={styles.inboxRowBody}>
+          <ThemedText
+            style={[styles.inboxRowTitle, { color: surface.text }]}
+            numberOfLines={2}
+          >
+            {capture.caption.length > 0 ? capture.caption : 'No caption'}
+          </ThemedText>
+          <View style={styles.inboxStatusRow}>
+            {sending ? (
+              <>
+                <ActivityIndicator size="small" color={palette.sky} />
+                <ThemedText style={[styles.inboxStatus, { color: palette.sky }]}>
+                  Sending...
                 </ThemedText>
-              </Pressable>
+              </>
+            ) : sent ? (
+              <>
+                <Ionicons name="checkmark-circle" size={16} color={palette.success} />
+                <ThemedText style={[styles.inboxStatus, { color: palette.success }]}>
+                  On your laptop
+                </ThemedText>
+              </>
+            ) : waiting ? (
+              <>
+                <Ionicons name="time-outline" size={15} color={palette.warning} />
+                <ThemedText style={[styles.inboxStatus, { color: palette.warning }]}>
+                  Waiting for connection
+                </ThemedText>
+              </>
+            ) : (
+              <>
+                <View style={styles.failDot} />
+                <ThemedText style={[styles.inboxStatus, { color: palette.danger }]}>
+                  Couldn&apos;t send
+                </ThemedText>
+              </>
+            )}
+            {canRetry ? (
+              <View style={styles.inboxRowActions}>
+                <Pressable
+                  onPress={() => onSend?.(capture)}
+                  accessibilityRole="button"
+                  hitSlop={8}
+                >
+                  <ThemedText style={[styles.inboxAction, { color: palette.sky }]}>
+                    Retry
+                  </ThemedText>
+                </Pressable>
+              </View>
             ) : null}
-            <Pressable
-              onPress={() => onRemove(capture.id)}
-              accessibilityRole="button"
-              hitSlop={8}
-            >
-              <ThemedText style={[styles.inboxRemove, { color: surface.muted }]}>
-                Remove
-              </ThemedText>
-            </Pressable>
           </View>
         </View>
       </View>
-    </View>
+    </Swipeable>
   );
 }
 
@@ -1503,6 +1579,14 @@ const styles = StyleSheet.create({
   },
   inboxRemove: { fontSize: 12.5, fontWeight: '600' },
   failDot: { width: 9, height: 9, borderRadius: 999, backgroundColor: palette.danger },
+  swipeDelete: {
+    backgroundColor: palette.danger,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 84,
+    gap: 3,
+  },
+  swipeDeleteLabel: { color: palette.white, fontSize: 12, fontWeight: '700' },
 
   // Today glance
   emptyLine: { lineHeight: 20 },
