@@ -116,7 +116,7 @@ export default function WikiBrowseScreen() {
     <ScreenFrame>
       {/* Header matches every other tab: big title, muted tagline, then search. */}
       <View style={styles.headerArea}>
-        <ThemedText type="title">Help &amp; Wiki</ThemedText>
+        <ThemedText type="title">Wiki</ThemedText>
         <ThemedText style={[styles.tagline, { color: surface.muted }]}>
           Guides and help, searchable across every page.
         </ThemedText>
