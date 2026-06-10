@@ -16,6 +16,7 @@ import OperatorSignIn from "@/components/admin/OperatorSignIn";
 import Link from "next/link";
 import AppFooter from "@/components/AppFooter";
 import CostBreakerPanel from "@/components/admin/CostBreakerPanel";
+import GiftPoolsPanel from "@/components/admin/GiftPoolsPanel";
 import SpendByCategoryPanel from "@/components/admin/SpendByCategoryPanel";
 import {
   computeSummary,
@@ -913,6 +914,8 @@ export default function BusinessTracker() {
       <div className="mt-6 grid grid-cols-1 gap-x-8 gap-y-6 xl:grid-cols-2 xl:items-start">
         <div className="space-y-6">
           <CostBreakerPanel />
+
+          <GiftPoolsPanel />
 
           <SpendByCategoryPanel />
 

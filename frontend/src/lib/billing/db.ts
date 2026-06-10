@@ -15,6 +15,7 @@
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 
 import { FREE_ALLOWANCE_BYTES } from "./config";
+import { getActiveGrant } from "./grants";
 import { getSponsoringLab } from "./lab";
 import { getPlan } from "./plans";
 
@@ -192,18 +193,30 @@ function isLabSponsor(sub: SubscriptionRecord | null): boolean {
  * plan, else the free plan.
  */
 export async function quotaBytesForOwner(ownerKey: string): Promise<number> {
+  let base = FREE_ALLOWANCE_BYTES;
+  let usedLab = false;
   const sponsorKey = await getSponsoringLab(ownerKey).catch(() => null);
   if (sponsorKey) {
     const lab = await getSubscription(sponsorKey);
     if (isLabSponsor(lab)) {
-      return planStorageBytes(lab);
+      base = planStorageBytes(lab);
+      usedLab = true;
     }
   }
-  const sub = await getSubscription(ownerKey);
-  if (sub && sub.status === "active") {
-    return planStorageBytes(sub);
+  if (!usedLab) {
+    const sub = await getSubscription(ownerKey);
+    if (sub && sub.status === "active") {
+      base = planStorageBytes(sub);
+    }
   }
-  return FREE_ALLOWANCE_BYTES;
+  // Add any operator-issued gift pool on this key (a grant on a PI lifts the
+  // whole lab pool, since the pool resolves to the PI key). Fail-safe to no
+  // bonus so a grants hiccup never shrinks or breaks the quota.
+  const { bonusBytes } = await getActiveGrant(ownerKey).catch(() => ({
+    bonusBytes: 0,
+    bonusWrites: 0,
+  }));
+  return base + bonusBytes;
 }
 
 /**
@@ -214,18 +227,28 @@ export async function quotaBytesForOwner(ownerKey: string): Promise<number> {
  */
 export async function activityAllowanceForOwner(ownerKey: string): Promise<number> {
   const freeWrites = getPlan("free")?.activityWritesPerMonth ?? 0;
+  let base = freeWrites;
+  let usedLab = false;
   const sponsorKey = await getSponsoringLab(ownerKey).catch(() => null);
   if (sponsorKey) {
     const lab = await getSubscription(sponsorKey);
     if (isLabSponsor(lab)) {
-      return getPlan(lab?.planId)?.activityWritesPerMonth ?? freeWrites;
+      base = getPlan(lab?.planId)?.activityWritesPerMonth ?? freeWrites;
+      usedLab = true;
     }
   }
-  const sub = await getSubscription(ownerKey);
-  if (sub && sub.status === "active") {
-    return getPlan(sub.planId)?.activityWritesPerMonth ?? freeWrites;
+  if (!usedLab) {
+    const sub = await getSubscription(ownerKey);
+    if (sub && sub.status === "active") {
+      base = getPlan(sub.planId)?.activityWritesPerMonth ?? freeWrites;
+    }
   }
-  return freeWrites;
+  // Add any operator-issued gift pool on this key (activity side). Fail-safe.
+  const { bonusWrites } = await getActiveGrant(ownerKey).catch(() => ({
+    bonusBytes: 0,
+    bonusWrites: 0,
+  }));
+  return base + bonusWrites;
 }
 
 /**
