@@ -15,7 +15,7 @@
 
 import { useEffect, useState } from "react";
 
-import LivingPopup from "@/components/ui/LivingPopup";
+import HeaderPopover from "@/components/ui/HeaderPopover";
 import Toggle from "@/components/ui/Toggle";
 import { Icon } from "@/components/icons";
 import DevicesSection from "@/components/settings/DevicesSection";
@@ -217,16 +217,13 @@ export default function CompanionHub() {
         : `${devices.count} phones paired`;
 
   return (
-    <LivingPopup
+    <HeaderPopover
       open={isOpen}
       origin={origin}
       onClose={close}
       label="Companion"
-      widthClassName="max-w-2xl"
-      fillHeight
-      blur
+      widthClassName="max-w-md"
     >
-      <div className="flex flex-col h-full min-h-0">
         {/* Header row: icon + title on the left, paired-status pill on the right. */}
         <div className="flex items-center gap-2 px-5 pt-5 pb-3">
           <Icon name="phone" className="w-5 h-5 text-sky-500" />
@@ -271,7 +268,6 @@ export default function CompanionHub() {
           {tab === "info" ? <InfoPanel /> : null}
           {tab === "settings" ? <SettingsPanel /> : null}
         </div>
-      </div>
-    </LivingPopup>
+    </HeaderPopover>
   );
 }

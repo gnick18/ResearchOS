@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from "react";
 
-import LivingPopup from "@/components/ui/LivingPopup";
+import HeaderPopover from "@/components/ui/HeaderPopover";
 import { Icon } from "@/components/icons";
 import { useTimersPopup } from "@/lib/ui/timers-popup-store";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
@@ -245,16 +245,13 @@ export default function TimersPopup() {
     .sort((a, b) => b.endsAt - a.endsAt);
 
   return (
-    <LivingPopup
+    <HeaderPopover
       open={isOpen}
       origin={origin}
       onClose={close}
       label="Timers"
-      widthClassName="max-w-md"
-      fillHeight
-      blur
+      widthClassName="max-w-sm"
     >
-      <div className="flex flex-col h-full min-h-0">
         <div className="flex items-center gap-2 px-5 pt-5 pb-3">
           <Icon name="alarmClock" className="w-5 h-5 text-sky-500" />
           <h2 className="text-title font-semibold text-foreground">Timers</h2>
@@ -302,7 +299,6 @@ export default function TimersPopup() {
 
           <AlarmModeSetting />
         </div>
-      </div>
-    </LivingPopup>
+    </HeaderPopover>
   );
 }
