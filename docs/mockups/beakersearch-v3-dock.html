@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BeakerSearch v3 — floating dock that snaps to an edge-peek (interactive review)</title>
+<style>
+  /* ── Faithful tokens from frontend/src/app/globals.css ───────────────────── */
+  :root {
+    --bg: #ffffff; --surface: #ffffff; --raised: #ffffff; --sunken: #f8fafc;
+    --fg: #171717; --fg-muted: #6b7280; --border: #e5e7eb;
+    --accent: #1283c9; --accent-soft: #eff6ff; --sky: #1aa0e6; --ink: #111827; --purple: #5b47d6;
+    --scrim: rgba(15, 23, 42, 0.35); --pin: #e11d48; --ok: #16a34a;
+    --shadow: 0 24px 60px -20px rgba(15,23,42,0.35), 0 8px 24px -12px rgba(15,23,42,0.25);
+    --t-task: #f59e0b; --t-project: #8b5cf6; --t-method: #10b981; --t-seq: #1aa0e6;
+  }
+  [data-theme="dark"] {
+    --bg: #0a0e1a; --surface: #0a0e1a; --raised: #131c2e; --sunken: #0d1424;
+    --fg: #f1f5f9; --fg-muted: #b4bfd0; --border: rgba(255,255,255,0.22);
+    --accent: #38bdf8; --accent-soft: rgba(56,189,248,0.14); --sky: #1aa0e6; --ink: #f1f5f9; --purple: #8b7bef;
+    --scrim: rgba(2, 6, 16, 0.55); --pin: #fb7185; --ok: #34d399;
+    --shadow: 0 24px 60px -20px rgba(0,0,0,0.7), 0 8px 24px -12px rgba(0,0,0,0.6);
+    --t-task: #fbbf24; --t-project: #a78bfa; --t-method: #34d399; --t-seq: #38bdf8;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--fg); -webkit-font-smoothing: antialiased; }
+
+  /* ── Top toolbar ─────────────────────────────────────────────────────────── */
+  .toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--raised); position: sticky; top: 0; z-index: 60; }
+  .toolbar h1 { font-size: 14px; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
+  .toolbar .tag { font-size: 11px; color: var(--fg-muted); font-weight: 600; }
+  .spacer { flex: 1; }
+  .btn { font: inherit; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: var(--surface); color: var(--fg); border-radius: 8px; padding: 6px 11px; cursor: pointer; }
+  .btn:hover { background: var(--sunken); }
+  .btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.danger { color: var(--pin); }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { font: inherit; font-size: 12px; font-weight: 600; border: 0; background: var(--surface); color: var(--fg); padding: 6px 11px; cursor: pointer; border-right: 1px solid var(--border); }
+  .seg button:last-child { border-right: 0; }
+  .seg button.on { background: var(--accent); color: #fff; }
+  .kbd { display: inline-block; font: inherit; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 5px; border: 1px solid var(--border); background: var(--sunken); color: var(--fg-muted); line-height: 1.5; }
+
+  /* ── Layout ──────────────────────────────────────────────────────────────── */
+  .wrap { display: flex; min-height: calc(100vh - 53px); }
+  .stage { position: relative; flex: 1; overflow: hidden; min-height: calc(100vh - 53px);
+    background: radial-gradient(1200px 400px at 80% -10%, color-mix(in srgb, var(--sky) 8%, transparent), transparent), var(--bg); }
+  .rail { width: 360px; flex: none; border-left: 1px solid var(--border); background: var(--raised); display: flex; flex-direction: column; max-height: calc(100vh - 53px); position: sticky; top: 53px; }
+
+  /* ── Faux Sequences page ─────────────────────────────────────────────────── */
+  .page { padding: 18px 22px 60px; max-width: 880px; }
+  .crumbs { font-size: 12px; color: var(--fg-muted); font-weight: 600; margin-bottom: 4px; }
+  .crumbs b { color: var(--fg); }
+  .page h2 { font-size: 20px; font-weight: 800; margin: 0 0 14px; letter-spacing: -0.01em; }
+  .seqtools { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .chip { font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; }
+  .chip:hover { border-color: var(--accent); }
+  .featrow { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .feat { font-size: 11px; font-weight: 700; color: #fff; padding: 4px 10px; border-radius: 6px; cursor: pointer; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25); }
+  .feat.hot { outline: 2px solid var(--fg); outline-offset: 2px; }
+  .seqcard { border: 1px solid var(--border); border-radius: 12px; background: var(--raised); padding: 14px; margin-bottom: 16px; }
+  .seqcard .lab { font-size: 11px; font-weight: 700; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
+  .bases { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 15px; letter-spacing: 2px; line-height: 1.9; user-select: none; }
+  .base { padding: 1px 0; cursor: text; border-radius: 2px; }
+  .base.sel { background: color-mix(in srgb, var(--accent) 28%, transparent); }
+  .selnote { font-size: 11px; color: var(--fg-muted); margin-top: 8px; font-weight: 600; }
+  .prose { font-size: 13px; line-height: 1.65; color: var(--fg); max-width: 640px; }
+  .prose p { margin: 0 0 10px; }
+  .interactive-proof { display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 700; color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); border: 1px solid color-mix(in srgb, var(--ok) 35%, transparent); padding: 4px 10px; border-radius: 999px; margin-bottom: 14px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+
+  .bot { width: 22px; height: 22px; flex: none; }
+
+  /* ── The one dock ────────────────────────────────────────────────────────── */
+  .dock { position: absolute; background: var(--raised); border: 1px solid var(--border); box-shadow: var(--shadow); display: flex; flex-direction: column; overflow: hidden; border-radius: 14px; z-index: 30; }
+  .dock.snapping { transition: left 0.28s cubic-bezier(.22,1,.36,1), top 0.28s cubic-bezier(.22,1,.36,1), right 0.28s cubic-bezier(.22,1,.36,1), bottom 0.28s cubic-bezier(.22,1,.36,1), width 0.28s cubic-bezier(.22,1,.36,1), transform 0.28s cubic-bezier(.22,1,.36,1); }
+  .dock.dragging { transition: none; cursor: grabbing; user-select: none; }
+
+  /* floating mode (default): width set inline, left/top inline */
+  .dock.floating { width: 330px; }
+  .dock.floating.collapsed { width: 230px; }
+  .dock.floating.collapsed .docksearch,
+  .dock.floating.collapsed .recheck,
+  .dock.floating.collapsed .ctxcard,
+  .dock.floating.collapsed .results,
+  .dock.floating.collapsed .dockfoot { display: none; }
+  .dock.floating.collapsed .dockhead { border-bottom: 0; }
+
+  /* tucked off-edge: keep the floating size, slide fully off the side leaving the tab */
+  .dock.tucked.right { transform: translateX(calc(100% + 24px)); }
+  .dock.tucked.left { transform: translateX(calc(-100% - 24px)); }
+
+  .dockhead { display: flex; align-items: center; gap: 8px; padding: 9px 10px 9px 12px; border-bottom: 1px solid var(--border); cursor: grab; user-select: none; }
+  .dockhead .title { font-size: 13px; font-weight: 800; letter-spacing: -0.01em; }
+  .dockhead .grip { color: var(--fg-muted); font-size: 14px; }
+  .iconbtn { width: 26px; height: 26px; flex: none; display: grid; place-items: center; border-radius: 7px; border: 1px solid transparent; background: transparent; color: var(--fg-muted); cursor: pointer; font-size: 15px; }
+  .iconbtn:hover { background: var(--sunken); color: var(--fg); border-color: var(--border); }
+  .docksearch { padding: 10px 12px 6px; }
+  .searchbox { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 9px; padding: 8px 10px; background: var(--surface); }
+  .searchbox input { flex: 1; border: 0; outline: 0; background: transparent; color: var(--fg); font: inherit; font-size: 13px; }
+  .searchbox .ph { color: var(--fg-muted); }
+
+  .recheck { display: flex; align-items: center; gap: 8px; margin: 8px 12px 4px; padding: 7px 10px; border-radius: 9px; cursor: pointer; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border)); background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 12.5px; }
+  .recheck:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+  .recheck .reicon { font-size: 14px; display: inline-block; }
+  .recheck .reicon.flash { animation: rc 0.5s ease; }
+  @keyframes rc { 0% { transform: rotate(0); } 100% { transform: rotate(360deg); } }
+
+  .ctxcard { margin: 8px 12px; border: 1px dashed var(--border); border-radius: 9px; padding: 9px 11px; background: var(--sunken); font-size: 11.5px; }
+  .ctxcard.bump { animation: bump 0.45s ease; }
+  @keyframes bump { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 50%, transparent); } 100% { box-shadow: 0 0 0 8px transparent; } }
+  .ctxcard .clab { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--fg-muted); margin-bottom: 6px; }
+  .ctxrow { display: flex; gap: 7px; margin-bottom: 4px; align-items: baseline; }
+  .ctxrow .k { color: var(--fg-muted); width: 64px; flex: none; font-weight: 600; }
+  .ctxrow .v { color: var(--fg); font-weight: 600; }
+  .ctxrow .v.none { color: var(--fg-muted); font-weight: 500; font-style: italic; }
+
+  .results { padding: 4px 8px 10px; overflow-y: auto; flex: 1; }
+  .grouphd { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--fg-muted); padding: 8px 6px 4px; }
+  .res { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 8px; cursor: pointer; border-left: 3px solid transparent; }
+  .res:hover, .res.hl { background: var(--accent-soft); border-left-color: var(--accent); }
+  .res .typ { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  .res .lab { font-size: 13px; font-weight: 600; flex: 1; }
+  .res .meta { font-size: 11px; color: var(--fg-muted); }
+  .dockfoot { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-top: 1px solid var(--border); font-size: 11px; color: var(--fg-muted); flex-wrap: wrap; }
+
+  /* edge peek tab (shown when parked) */
+  .edge-tab { position: absolute; top: 50%; transform: translateY(-50%); display: none; flex-direction: column; align-items: center; gap: 8px; background: var(--raised); border: 1px solid var(--border); padding: 12px 7px; cursor: pointer; box-shadow: var(--shadow); z-index: 31; }
+  .edge-tab.show { display: flex; }
+  .edge-tab.right { right: 0; border-right: 0; border-radius: 12px 0 0 12px; }
+  .edge-tab.left { left: 0; border-left: 0; border-radius: 0 12px 12px 0; }
+  .edge-tab .vtext { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; font-weight: 800; color: var(--fg); letter-spacing: 0.04em; }
+  .edge-tab.left .vtext { transform: rotate(0deg); }
+  .edge-tab:hover { border-color: var(--accent); }
+
+  /* snap zones shown while dragging near an edge */
+  .snapzone { position: absolute; top: 0; bottom: 0; width: 80px; z-index: 20; pointer-events: none; opacity: 0; transition: opacity 0.15s; background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 22%, transparent), transparent); }
+  .snapzone.right { right: 0; background: linear-gradient(270deg, color-mix(in srgb, var(--accent) 22%, transparent), transparent); }
+  .snapzone.left { left: 0; }
+  .snapzone.show { opacity: 0.5; }
+  .snapzone.armed { opacity: 1; }
+  .snapzone.armed::after { content: "Hide here"; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 11px; font-weight: 800; color: var(--accent); white-space: nowrap; }
+
+  .hidden { display: none !important; }
+
+  /* ── BEFORE: current full-screen modal ───────────────────────────────────── */
+  .before-scrim { position: absolute; inset: 0; z-index: 40; display: none; background: var(--scrim); backdrop-filter: blur(3px); align-items: flex-start; justify-content: center; }
+  .before-scrim.show { display: flex; }
+  .before-modal { margin-top: 11vh; width: min(580px, calc(100% - 32px)); background: var(--raised); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; }
+  .blocked-banner { position: absolute; left: 16px; bottom: 16px; z-index: 41; display: none; font-size: 12px; font-weight: 700; color: #fff; background: var(--pin); padding: 7px 12px; border-radius: 8px; box-shadow: var(--shadow); }
+
+  /* ── Comment mode + pins ─────────────────────────────────────────────────── */
+  body.cmt .stage, body.cmt .stage * { cursor: crosshair !important; }
+  .pin { position: absolute; z-index: 70; min-width: 18px; height: 18px; padding: 0 4px; font-size: 11px; font-weight: 800; line-height: 18px; text-align: center; background: var(--pin); color: #fff; border-radius: 9px; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+  .pin.hl { outline: 2px solid var(--fg); outline-offset: 1px; }
+
+  /* ── Right rail ──────────────────────────────────────────────────────────── */
+  .rail .scroll { overflow-y: auto; padding: 14px; }
+  .panel { margin-bottom: 18px; }
+  .panel > h3 { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-muted); margin: 0 0 8px; }
+  .lede { font-size: 12px; color: var(--fg-muted); line-height: 1.5; margin: 0 0 10px; }
+  .model { border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border)); background: var(--accent-soft); border-radius: 10px; padding: 11px 12px; }
+  .model .mt { font-size: 13px; font-weight: 800; margin-bottom: 5px; }
+  .model ol { margin: 6px 0 0; padding-left: 18px; font-size: 12px; line-height: 1.6; color: var(--fg); }
+
+  .change { border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: 9px; padding: 10px; margin-bottom: 9px; background: var(--surface); }
+  .change.approved { border-left-color: var(--ok); }
+  .change.disapproved { border-left-color: var(--pin); }
+  .change .ct { font-size: 13px; font-weight: 800; margin-bottom: 3px; }
+  .change .cd { font-size: 11.5px; color: var(--fg-muted); line-height: 1.5; margin-bottom: 8px; }
+  .vbtns { display: flex; gap: 6px; }
+  .vbtn { font: inherit; font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface); color: var(--fg); cursor: pointer; }
+  .vbtn.app.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .vbtn.dis.on { background: var(--pin); border-color: var(--pin); color: #fff; }
+
+  .citem { display: flex; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .citem .num { flex: none; width: 18px; height: 18px; background: var(--pin); color: #fff; border-radius: 9px; font-size: 11px; font-weight: 800; line-height: 18px; text-align: center; }
+  .citem .body { flex: 1; }
+  .citem .tgt { font-size: 10px; color: var(--fg-muted); font-weight: 700; }
+  .citem .vbadge { font-size: 9px; font-weight: 800; }
+  .citem .del { font-size: 11px; color: var(--fg-muted); cursor: pointer; border: 0; background: transparent; }
+  .empty { font-size: 12px; color: var(--fg-muted); font-style: italic; padding: 6px 0; }
+
+  .editor { position: absolute; z-index: 90; width: 250px; background: var(--raised); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); padding: 10px; }
+  .editor textarea { width: 100%; height: 64px; resize: vertical; font: inherit; font-size: 12px; border: 1px solid var(--border); border-radius: 7px; padding: 6px; background: var(--surface); color: var(--fg); }
+  .editor .vchoice { display: flex; gap: 6px; margin: 8px 0; }
+  .editor .erow { display: flex; gap: 6px; justify-content: flex-end; }
+
+  .railfoot { border-top: 1px solid var(--border); padding: 12px 14px; display: flex; gap: 8px; }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <svg class="bot" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M9 3h6M10 3v5L5 18a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-10V3" stroke="#1aa0e6" stroke-width="1.7" stroke-linejoin="round"/>
+      <path d="M7.3 14h9.4" stroke="#1aa0e6" stroke-width="1.7"/>
+      <circle cx="10.3" cy="17" r="0.9" fill="#1aa0e6"/><circle cx="13.4" cy="18.2" r="0.7" fill="#1aa0e6"/></svg>
+    <h1>BeakerSearch v3</h1>
+    <span class="tag">floating dock · drag to an edge to hide · re-checkable</span>
+    <div class="spacer"></div>
+    <span class="tag">View</span>
+    <div class="seg" id="viewSeg">
+      <button data-view="after" class="on">After (v3)</button>
+      <button data-view="before">Before (today)</button>
+    </div>
+    <button class="btn" id="resetDockBtn">Reset dock</button>
+    <button class="btn" id="themeBtn">Dark</button>
+    <button class="btn" id="cmtBtn">Comment mode: off</button>
+  </div>
+
+  <div class="wrap">
+    <div class="stage" id="stage">
+      <div class="page">
+        <div class="crumbs" data-beaker-target="route:sequences">Sequences <b>›</b> pUC19 <b>(editing)</b></div>
+        <h2 data-beaker-target="sequence:puc19">pUC19 plasmid map</h2>
+        <div class="interactive-proof"><span class="dot"></span> The page stays live while BeakerSearch is open — select bases, hover features, click chips</div>
+
+        <div class="seqtools">
+          <span class="chip" data-beaker-target="action:add-feature">Add feature</span>
+          <span class="chip" data-beaker-target="action:add-primer">Add primer</span>
+          <span class="chip" data-beaker-target="action:translate">Translate</span>
+          <span class="chip" data-beaker-target="action:find">Find site</span>
+        </div>
+
+        <div class="featrow" id="featrow">
+          <span class="feat" style="background:#f59e0b" data-beaker-target="feature:lacz">lacZα</span>
+          <span class="feat" style="background:#8b5cf6" data-beaker-target="feature:ampr">AmpR</span>
+          <span class="feat" style="background:#10b981" data-beaker-target="feature:ori">ori</span>
+          <span class="feat" style="background:#ec4899" data-beaker-target="primer:m13f">M13-F primer</span>
+        </div>
+
+        <div class="seqcard">
+          <div class="lab">Sequence — drag across bases to select a region</div>
+          <div class="bases" id="bases"></div>
+          <div class="selnote" id="selnote">No region selected.</div>
+        </div>
+
+        <div class="seqcard">
+          <div class="lab">Notes — try selecting this text, then hit Re-check</div>
+          <div class="prose" data-beaker-target="note:cloning-plan">
+            <p>Clone the insert into the MCS using EcoRI and HindIII. Blue-white screening on X-gal plates picks recombinants by lacZα disruption.</p>
+            <p>Confirm orientation with the M13 forward primer before sending for sequencing.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- snap zones (appear while dragging) -->
+      <div class="snapzone left" id="snapL"></div>
+      <div class="snapzone right" id="snapR"></div>
+
+      <!-- the one dock -->
+      <div class="dock floating snapping" id="dock"></div>
+      <!-- edge peek tab -->
+      <div class="edge-tab right" id="edgeTab"><span class="vtext">BeakerSearch</span></div>
+
+      <!-- BEFORE modal -->
+      <div class="before-scrim" id="beforeScrim">
+        <div class="before-modal">
+          <div class="docksearch" style="padding:14px">
+            <div class="searchbox"><span style="color:var(--fg-muted);font-size:14px">⌕</span>
+              <input placeholder="Search tasks, projects, sequences, methods…" /></div>
+          </div>
+          <div class="results" style="padding:4px 12px 14px">
+            <div class="grouphd">Suggested</div>
+            <div class="res hl"><span class="typ" style="background:var(--t-seq)"></span><span class="lab">pUC19 plasmid map</span><span class="meta">sequence</span></div>
+            <div class="res"><span class="typ" style="background:var(--t-task)"></span><span class="lab">Digest + ligate insert</span><span class="meta">task</span></div>
+            <div class="res"><span class="typ" style="background:var(--t-method)"></span><span class="lab">Blue-white screening</span><span class="meta">method</span></div>
+          </div>
+          <div class="dockfoot"><span class="kbd">↑↓</span> move <span class="kbd">↵</span> open <span class="kbd">esc</span> close</div>
+        </div>
+      </div>
+      <div class="blocked-banner" id="blockedBanner">Page is blocked. You must close BeakerSearch to touch the sequence again.</div>
+    </div>
+
+    <div class="rail">
+      <div class="scroll">
+        <div class="panel">
+          <h3>The chosen model</h3>
+          <div class="model">
+            <div class="mt">Floating dock that hides off the edge</div>
+            <ol>
+              <li>Opens as a small floating window you drag anywhere. It never resizes.</li>
+              <li>Collapse button shrinks it to a pill; click the pill to reopen.</li>
+              <li>Drag it to a side (or hit the hide button) and it slides off that edge, leaving a peek tab.</li>
+              <li>Pull the tab back in for a re-check; the box returns at its same size.</li>
+              <li>Close and Escape fully dismiss it; reopen returns it where you left it.</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Try it</h3>
+          <p class="lede">Drag the dock header toward the right or left side — a "Hide here" zone lights up and it slides off that edge into a tab. Pull the tab back in to re-check. The hide button (⇥) does the same without dragging. <span class="kbd">Cmd K</span> toggles, <span class="kbd">R</span> re-checks, <span class="kbd">esc</span> closes.</p>
+        </div>
+
+        <div class="panel">
+          <h3>Proposed changes — approve or disapprove</h3>
+          <div id="changeList"></div>
+        </div>
+
+        <div class="panel">
+          <h3>Comments (<span id="cCount">0</span>)</h3>
+          <div id="cBody"><div class="empty">No comments yet. Turn on Comment mode and click any part of the page or dock.</div></div>
+        </div>
+      </div>
+      <div class="railfoot">
+        <button class="btn on" id="exportBtn" style="flex:1">Copy feedback</button>
+        <button class="btn" id="downloadBtn">Download .md</button>
+        <button class="btn danger" id="resetBtn">Reset</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+  const $ = (s, r) => (r || document).querySelector(s);
+  const $$ = (s, r) => [...(r || document).querySelectorAll(s)];
+  const esc = (s) => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  const root = document.documentElement;
+  const stage = $("#stage");
+  const dock = $("#dock");
+  const edgeTab = $("#edgeTab");
+  const snapL = $("#snapL"), snapR = $("#snapR");
+
+  /* ---------------- theme ---------------- */
+  const themeBtn = $("#themeBtn");
+  function setTheme(t) { root.setAttribute("data-theme", t); themeBtn.textContent = t === "dark" ? "Light" : "Dark"; try { localStorage.setItem("bs3-theme", t); } catch {} }
+  themeBtn.onclick = () => setTheme(root.getAttribute("data-theme") === "dark" ? "light" : "dark");
+  try { const t = localStorage.getItem("bs3-theme"); if (t) setTheme(t); } catch {}
+
+  /* ---------------- dock body ---------------- */
+  const RESULTS = [
+    { g: "Suggested", color: "--t-seq", lab: "pUC19 plasmid map", meta: "sequence · you are here" },
+    { g: "Suggested", color: "--t-task", lab: "Digest + ligate insert", meta: "task · due Fri" },
+    { g: "Suggested", color: "--t-method", lab: "Blue-white screening", meta: "method" },
+    { g: "On this page", color: "--t-seq", lab: "M13-F primer", meta: "primer · pointed at" },
+    { g: "On this page", color: "--t-project", lab: "Cloning campaign Q3", meta: "project" },
+  ];
+  function buildDock() {
+    const groups = {}; RESULTS.forEach(r => { (groups[r.g] = groups[r.g] || []).push(r); });
+    let res = "";
+    Object.keys(groups).forEach(g => {
+      res += `<div class="grouphd">${g}</div>`;
+      groups[g].forEach((r, i) => { res += `<div class="res${g === "Suggested" && i === 0 ? " hl" : ""}"><span class="typ" style="background:var(${r.color})"></span><span class="lab">${r.lab}</span><span class="meta">${r.meta}</span></div>`; });
+    });
+    dock.innerHTML = `
+      <div class="dockhead" id="dockHead">
+        <svg class="bot" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 3h6M10 3v5L5 18a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-10V3" stroke="#1aa0e6" stroke-width="1.7" stroke-linejoin="round"/><path d="M7.3 14h9.4" stroke="#1aa0e6" stroke-width="1.7"/></svg>
+        <span class="title">BeakerSearch</span><span class="grip">⠿</span>
+        <div style="flex:1"></div>
+        <button class="iconbtn" data-act="tuck" title="Hide to edge (or drag me to a side)">⇥</button>
+        <button class="iconbtn" data-act="collapse" title="Collapse">▾</button>
+        <button class="iconbtn" data-act="close" title="Close (Esc)">✕</button>
+      </div>
+      <div class="docksearch"><div class="searchbox"><span class="ph" style="font-size:14px">⌕</span><input placeholder="Search tasks, projects, sequences, methods…" /></div></div>
+      <div class="recheck" data-act="recheck"><span class="reicon">↻</span> Re-check page <div style="flex:1"></div><span class="kbd">R</span></div>
+      <div class="ctxcard" data-ctx>
+        <div class="clab">Captured context</div>
+        <div class="ctxrow"><span class="k">Route</span><span class="v" data-cx="route">Sequences › pUC19</span></div>
+        <div class="ctxrow"><span class="k">Pointing at</span><span class="v none" data-cx="pointer">nothing yet</span></div>
+        <div class="ctxrow"><span class="k">Selection</span><span class="v none" data-cx="sel">none</span></div>
+      </div>
+      <div class="results">${res}</div>
+      <div class="dockfoot"><span class="kbd">Cmd K</span> toggle <span class="kbd">R</span> re-check <span class="kbd">esc</span> close — page stays live</div>`;
+  }
+  buildDock();
+
+  /* ---------------- dock state machine ----------------
+   * The dock is ALWAYS a floating-sized capsule. It never resizes. Two ways to
+   * get it out of the way: collapse (shrink to a pill) or tuck (slide it off the
+   * nearest side, leaving a peek tab). Dragging it to an edge tucks it. */
+  const state = { open: true, collapsed: false, tucked: false, side: "right", x: null, y: null };
+  const FLOAT_W = 330;
+
+  function defaultFloatPos() {
+    const sr = stage.getBoundingClientRect();
+    return { x: Math.max(20, sr.width - FLOAT_W - 40), y: 24 };
+  }
+  function restingX(side) {
+    const sr = stage.getBoundingClientRect();
+    return side === "left" ? 16 : Math.max(16, sr.width - dock.offsetWidth - 16);
+  }
+
+  function applyDock() {
+    const before = $("#beforeScrim").classList.contains("show");
+    const visible = state.open && !before; // stays rendered when tucked so it can slide off
+    dock.classList.toggle("hidden", !visible);
+    dock.classList.toggle("floating", true);
+    dock.classList.toggle("collapsed", state.collapsed && !state.tucked);
+    dock.classList.toggle("tucked", state.tucked);
+    dock.classList.toggle("left", state.side === "left");
+    dock.classList.toggle("right", state.side === "right");
+
+    if (state.x == null) { const p = defaultFloatPos(); state.x = p.x; state.y = p.y; }
+    dock.style.left = state.x + "px"; dock.style.top = state.y + "px";
+    dock.style.right = "auto"; dock.style.bottom = "auto"; dock.style.width = "";
+
+    // peek tab shows only while tucked
+    edgeTab.classList.toggle("show", visible && state.tucked);
+    edgeTab.classList.toggle("left", state.side === "left");
+    edgeTab.classList.toggle("right", state.side === "right");
+
+    $("#blockedBanner").style.display = before ? "block" : "none";
+  }
+
+  function openDock() { state.open = true; state.tucked = false; applyDock(); }
+  function closeDock() { state.open = false; applyDock(); }
+  function tuckDock(side) { state.side = side || state.side; state.tucked = true; state.x = restingX(state.side); dock.classList.add("snapping"); applyDock(); }
+  function untuck() { state.tucked = false; state.x = restingX(state.side); dock.classList.add("snapping"); applyDock(); }
+  function resetDock() { state.collapsed = false; state.tucked = false; state.side = "right"; const p = defaultFloatPos(); state.x = p.x; state.y = p.y; state.open = true; dock.classList.add("snapping"); applyDock(); }
+
+  /* ---------------- icon actions ---------------- */
+  dock.addEventListener("click", (e) => {
+    if (document.body.classList.contains("cmt")) return;
+    const a = e.target.closest("[data-act]"); if (!a) {
+      // clicking a collapsed pill reopens it
+      if (state.collapsed && e.target.closest(".dockhead")) { state.collapsed = false; applyDock(); }
+      return;
+    }
+    e.stopPropagation();
+    const act = a.dataset.act;
+    if (act === "close") closeDock();
+    else if (act === "recheck") doRecheck();
+    else if (act === "collapse") { state.collapsed = !state.collapsed; applyDock(); }
+    else if (act === "tuck") tuckDock(state.side);
+  });
+  edgeTab.addEventListener("click", () => { if (document.body.classList.contains("cmt")) return; untuck(); });
+
+  /* ---------------- dragging + drag-to-edge tuck ---------------- */
+  (function enableDrag() {
+    let on = false, sx, sy, ox, oy;
+    const SNAP = 70; // px from a side that tucks on release
+
+    dock.addEventListener("pointerdown", (e) => {
+      if (document.body.classList.contains("cmt")) return;
+      if (state.tucked) return; // tucked = grab the tab instead
+      const head = e.target.closest(".dockhead"); if (!head) return;
+      if (e.target.closest("[data-act]")) return;
+      on = true;
+      dock.classList.add("dragging"); dock.classList.remove("snapping");
+      dock.setPointerCapture(e.pointerId);
+      sx = e.clientX; sy = e.clientY; ox = state.x; oy = state.y;
+    });
+
+    dock.addEventListener("pointermove", (e) => {
+      if (!on) return;
+      const sr = stage.getBoundingClientRect();
+      let nx = ox + (e.clientX - sx), ny = oy + (e.clientY - sy);
+      nx = Math.max(0, Math.min(nx, sr.width - dock.offsetWidth));
+      ny = Math.max(0, Math.min(ny, sr.height - 44));
+      state.x = nx; state.y = ny;
+      dock.style.left = nx + "px"; dock.style.top = ny + "px"; dock.style.right = "auto";
+
+      const nearRight = (nx + dock.offsetWidth) > (sr.width - SNAP);
+      const nearLeft = nx < SNAP;
+      snapL.classList.add("show"); snapR.classList.add("show");
+      snapR.classList.toggle("armed", nearRight);
+      snapL.classList.toggle("armed", nearLeft && !nearRight);
+    });
+
+    dock.addEventListener("pointerup", () => {
+      if (!on) return; on = false;
+      dock.classList.remove("dragging"); dock.classList.add("snapping");
+      const sr = stage.getBoundingClientRect();
+      const nearRight = (state.x + dock.offsetWidth) > (sr.width - SNAP);
+      const nearLeft = state.x < SNAP;
+      snapL.classList.remove("show", "armed"); snapR.classList.remove("show", "armed");
+      if (nearRight) tuckDock("right");
+      else if (nearLeft) tuckDock("left");
+      else applyDock();
+    });
+  })();
+
+  /* ---------------- re-check (pointer + selection + route) ---------------- */
+  let lastTargetKey = null;
+  const PRETTY = {
+    "feature:lacz": "lacZα feature", "feature:ampr": "AmpR feature", "feature:ori": "ori feature",
+    "primer:m13f": "M13-F primer", "sequence:puc19": "pUC19 (sequence)", "note:cloning-plan": "Cloning plan note",
+    "action:add-feature": "Add feature button", "action:add-primer": "Add primer button",
+    "action:translate": "Translate button", "action:find": "Find site button", "route:sequences": "Sequences route",
+  };
+  stage.addEventListener("pointerover", (e) => {
+    if (e.target.closest(".dock") || e.target.closest(".edge-tab")) return;
+    const t = e.target.closest("[data-beaker-target]"); if (t) lastTargetKey = t.getAttribute("data-beaker-target");
+  });
+  function currentSelectionText() {
+    const s = window.getSelection && window.getSelection();
+    if (s && String(s).trim().length) return String(s).trim().slice(0, 60);
+    if (baseSel.start != null) { const a = Math.min(baseSel.start, baseSel.end), b = Math.max(baseSel.start, baseSel.end); return `${b - a + 1} bp region (bases ${a + 1}–${b + 1})`; }
+    return null;
+  }
+  function doRecheck() {
+    const card = dock.querySelector("[data-ctx]");
+    const pv = dock.querySelector('[data-cx="pointer"]'), sv = dock.querySelector('[data-cx="sel"]');
+    const ptr = lastTargetKey ? (PRETTY[lastTargetKey] || lastTargetKey) : null;
+    pv.textContent = ptr || "nothing yet"; pv.classList.toggle("none", !ptr);
+    const sel = currentSelectionText(); sv.textContent = sel || "none"; sv.classList.toggle("none", !sel);
+    const ic = dock.querySelector(".reicon"); ic.classList.remove("flash"); void ic.offsetWidth; ic.classList.add("flash");
+    card.classList.remove("bump"); void card.offsetWidth; card.classList.add("bump");
+  }
+
+  /* ---------------- page interactivity: base selection ---------------- */
+  const SEQ = "ATGACCATGATTACGGATTCACTGGCCGTCGTTTTACAACGTCGTGACTGGGAAAACCCTGG";
+  const basesEl = $("#bases");
+  basesEl.innerHTML = SEQ.split("").map((c, i) => `<span class="base" data-i="${i}">${c}</span>`).join("");
+  const baseSel = { start: null, end: null };
+  let dragSel = false;
+  function paintSel() {
+    const a = baseSel.start == null ? -1 : Math.min(baseSel.start, baseSel.end);
+    const b = baseSel.start == null ? -2 : Math.max(baseSel.start, baseSel.end);
+    $$(".base", basesEl).forEach(el => { const i = +el.dataset.i; el.classList.toggle("sel", i >= a && i <= b); });
+    $("#selnote").textContent = baseSel.start == null ? "No region selected." : `Selected ${b - a + 1} bp (bases ${a + 1}–${b + 1}). Now hit Re-check.`;
+  }
+  basesEl.addEventListener("pointerdown", (e) => { if (document.body.classList.contains("cmt")) return; const b = e.target.closest(".base"); if (!b) return; dragSel = true; baseSel.start = +b.dataset.i; baseSel.end = baseSel.start; paintSel(); e.preventDefault(); });
+  basesEl.addEventListener("pointerover", (e) => { if (!dragSel) return; const b = e.target.closest(".base"); if (b) { baseSel.end = +b.dataset.i; paintSel(); } });
+  window.addEventListener("pointerup", () => { dragSel = false; });
+  $("#featrow").addEventListener("pointerover", (e) => { const f = e.target.closest(".feat"); if (f) { $$(".feat").forEach(x => x.classList.remove("hot")); f.classList.add("hot"); } });
+
+  /* ---------------- view toggle ---------------- */
+  $("#viewSeg").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; $$("#viewSeg button").forEach(x => x.classList.toggle("on", x === b)); $("#beforeScrim").classList.toggle("show", b.dataset.view === "before"); applyDock(); });
+  $("#resetDockBtn").onclick = resetDock;
+
+  /* ---------------- keyboard ---------------- */
+  window.addEventListener("keydown", (e) => {
+    const before = $("#beforeScrim").classList.contains("show");
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); if (before) return; state.open ? closeDock() : openDock(); }
+    else if (e.key === "Escape") { if (state.open && !before) closeDock(); }
+    else if (e.key.toLowerCase() === "r" && !e.metaKey && !e.ctrlKey && !e.altKey) { const tag = (document.activeElement && document.activeElement.tagName) || ""; if (tag === "INPUT" || tag === "TEXTAREA") return; if (state.open && !before) { e.preventDefault(); doRecheck(); } }
+  });
+
+  /* =================== COMMENT MODE + PINS =================== */
+  const CSTORE = "bs3-comments-v2";
+  let comments = []; try { comments = JSON.parse(localStorage.getItem(CSTORE) || "[]"); } catch { comments = []; }
+  function saveC() { try { localStorage.setItem(CSTORE, JSON.stringify(comments)); } catch {} }
+  const cmtBtn = $("#cmtBtn"); let cmtOn = false;
+  cmtBtn.onclick = () => { cmtOn = !cmtOn; document.body.classList.toggle("cmt", cmtOn); cmtBtn.textContent = "Comment mode: " + (cmtOn ? "on" : "off"); cmtBtn.classList.toggle("on", cmtOn); };
+
+  function labelOf(el) {
+    const t = el.closest("[data-beaker-target]"); if (t) return PRETTY[t.getAttribute("data-beaker-target")] || t.getAttribute("data-beaker-target");
+    if (el.closest(".dock")) return "BeakerSearch dock";
+    if (el.closest(".edge-tab")) return "Edge peek tab";
+    if (el.closest(".before-modal")) return "Current modal";
+    const lab = el.closest(".res"); if (lab) return "Result: " + $(".lab", lab).textContent;
+    return (el.textContent || el.className || "element").trim().slice(0, 28) || "element";
+  }
+  let editorEl = null;
+  function closeEditor() { if (editorEl) { editorEl.remove(); editorEl = null; } }
+  stage.addEventListener("click", (e) => {
+    if (!cmtOn) return; e.preventDefault(); e.stopPropagation(); closeEditor();
+    const sr = stage.getBoundingClientRect();
+    const px = e.clientX - sr.left, py = e.clientY - sr.top, target = labelOf(e.target);
+    editorEl = document.createElement("div"); editorEl.className = "editor";
+    editorEl.style.left = Math.min(px, sr.width - 270) + "px"; editorEl.style.top = Math.min(py, sr.height - 170) + "px";
+    editorEl.innerHTML = `<div style="font-size:11px;font-weight:800;color:var(--fg-muted);margin-bottom:6px">${esc(target)}</div>
+      <textarea placeholder="Your note…"></textarea>
+      <div class="vchoice"><button class="vbtn app" data-v="approve">Approve</button><button class="vbtn dis" data-v="disapprove">Disapprove</button></div>
+      <div class="erow"><button class="btn" data-x="cancel">Cancel</button><button class="btn on" data-x="add">Add</button></div>`;
+    stage.appendChild(editorEl);
+    const ta = $("textarea", editorEl); ta.focus(); let verdict = "";
+    $$(".vchoice .vbtn", editorEl).forEach(b => b.onclick = () => { verdict = (verdict === b.dataset.v) ? "" : b.dataset.v; $$(".vchoice .vbtn", editorEl).forEach(x => x.classList.toggle("on", (verdict === "approve" && x.classList.contains("app")) || (verdict === "disapprove" && x.classList.contains("dis")))); });
+    editorEl.querySelector('[data-x="cancel"]').onclick = closeEditor;
+    editorEl.querySelector('[data-x="add"]').onclick = () => { const text = ta.value.trim(); if (!text && !verdict) { closeEditor(); return; } comments.push({ target, text, verdict, x: px / sr.width, y: py / sr.height }); saveC(); closeEditor(); renderComments(); };
+  }, true);
+
+  function renderPins() {
+    $$(".pin").forEach(p => p.remove());
+    const sr = stage.getBoundingClientRect();
+    comments.forEach((c, i) => { const pin = document.createElement("span"); pin.className = "pin"; pin.textContent = i + 1; pin.style.left = (c.x * sr.width) + "px"; pin.style.top = (c.y * sr.height) + "px"; pin.onclick = (ev) => { ev.stopPropagation(); flash(i); }; stage.appendChild(pin); });
+  }
+  function flash(i) { renderComments(); const item = $(`#cBody .citem[data-i="${i}"]`); if (item) item.scrollIntoView({ block: "center", behavior: "smooth" }); const pins = $$(".pin"); if (pins[i]) { pins[i].classList.add("hl"); setTimeout(() => pins[i].classList.remove("hl"), 1200); } }
+  function renderCommentPanel() {
+    $("#cCount").textContent = comments.length; const body = $("#cBody");
+    if (!comments.length) { body.innerHTML = '<div class="empty">No comments yet. Turn on Comment mode and click any part of the page or dock.</div>'; return; }
+    body.innerHTML = comments.map((c, i) => { const vt = c.verdict === "approve" ? '<span class="vbadge" style="color:var(--ok)">APPROVE</span> ' : c.verdict === "disapprove" ? '<span class="vbadge" style="color:var(--pin)">DISAPPROVE</span> ' : ""; return `<div class="citem" data-i="${i}"><span class="num">${i + 1}</span><div class="body"><div class="tgt">${esc(c.target)}</div><div>${vt}${esc(c.text || "(no note)")}</div></div><button class="del" data-del="${i}">✕</button></div>`; }).join("");
+    $$("#cBody .del").forEach(b => b.onclick = () => { comments.splice(+b.dataset.del, 1); saveC(); renderComments(); });
+    $$("#cBody .citem").forEach(it => it.onclick = (e) => { if (e.target.closest(".del")) return; flash(+it.dataset.i); });
+  }
+  function renderComments() { renderPins(); renderCommentPanel(); }
+
+  /* =================== CHANGES =================== */
+  const CHANGES = [
+    { id: "model", t: "Floating dock that hides off the edge", d: "The chosen form factor. Opens floating + draggable at a fixed size, collapses to a pill, and slides off the nearest side into a peek tab when dragged to an edge (or via the hide button). Pull the tab to bring it back at the same size. It never resizes into a full-height panel." },
+    { id: "nonmodal", t: "Non-modal — no scrim, page stays live", d: "Remove the full-screen dark scrim and the aria-modal focus trap. The dock paints only over its own footprint; the rest of the page keeps full pointer + keyboard control while it is open." },
+    { id: "recheck", t: "Re-check page (button + R shortcut)", d: "A first-class action that re-captures pointer target + text selection + current route on demand, replacing today's one-shot snapshot taken only at open time." },
+    { id: "ctxcard", t: "Live context card", d: "Show what was captured (Route, Pointing at, Selection) so the result ranking's bias is visible, and it updates when you re-check." },
+    { id: "cmdk", t: "Cmd K opens the dock; retire the modal", d: "Cmd K now toggles the dockable panel with search auto-focused. The centered full-screen palette is removed. One unified surface." },
+    { id: "closable", t: "Always closable + remembers its spot", d: "X and Escape always fully close it; on reopen it returns to where you left it (floating position, or docked side, or tucked)." },
+    { id: "colors", t: "Carry over v2 per-type result colors", d: "Keep the v2 amber/violet/emerald/sky type accents and left-rail highlight so v3 reads as an evolution, not a reset." },
+  ];
+  const VSTORE = "bs3-verdicts-v2";
+  let verdicts = {}; try { verdicts = JSON.parse(localStorage.getItem(VSTORE) || "{}"); } catch {}
+  function saveV() { try { localStorage.setItem(VSTORE, JSON.stringify(verdicts)); } catch {} }
+  function renderChanges() {
+    $("#changeList").innerHTML = CHANGES.map(c => { const v = verdicts[c.id] || ""; return `<div class="change ${v === "approve" ? "approved" : v === "disapprove" ? "disapproved" : ""}" data-c="${c.id}"><div class="ct">${c.t}</div><div class="cd">${c.d}</div><div class="vbtns"><button class="vbtn app ${v === "approve" ? "on" : ""}" data-v="approve">Approve</button><button class="vbtn dis ${v === "disapprove" ? "on" : ""}" data-v="disapprove">Disapprove</button></div></div>`; }).join("");
+    $$("#changeList .change").forEach(ch => $$(".vbtn", ch).forEach(b => b.onclick = () => { const id = ch.dataset.c, v = b.dataset.v; verdicts[id] = verdicts[id] === v ? "" : v; saveV(); renderChanges(); }));
+  }
+
+  /* =================== EXPORT =================== */
+  function buildExport() {
+    const L = []; L.push("# BeakerSearch v3 — review feedback", "");
+    L.push("## Form factor", "Floating dock that snaps to an edge-peek (locked with Grant)", "");
+    L.push("## Proposed changes");
+    CHANGES.forEach(c => { const v = verdicts[c.id] || "no verdict"; L.push(`- [${v.toUpperCase()}] ${c.t}`); });
+    L.push(""); L.push("## Comments");
+    if (!comments.length) L.push("(none)");
+    else comments.forEach((c, i) => L.push(`${i + 1}. (${c.target})${c.verdict ? " [" + c.verdict.toUpperCase() + "]" : ""} ${c.text || "(no note)"}`));
+    return L.join("\n");
+  }
+  $("#exportBtn").onclick = () => { const txt = buildExport(); navigator.clipboard.writeText(txt).then(() => { $("#exportBtn").textContent = "Copied ✓"; setTimeout(() => $("#exportBtn").textContent = "Copy feedback", 1400); }, () => alert(txt)); };
+  $("#downloadBtn").onclick = () => { const blob = new Blob([buildExport()], { type: "text/markdown" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "beakersearch-v3-feedback.md"; a.click(); };
+  $("#resetBtn").onclick = () => { if (!confirm("Clear all comments and verdicts?")) return; comments = []; verdicts = {}; [CSTORE, VSTORE].forEach(k => { try { localStorage.removeItem(k); } catch {} }); renderComments(); renderChanges(); };
+
+  /* ---------------- boot ---------------- */
+  applyDock(); renderChanges(); renderComments();
+  window.addEventListener("resize", () => { renderPins(); if (state.mode === "floating") { const sr = stage.getBoundingClientRect(); state.x = Math.min(state.x, sr.width - dock.offsetWidth); applyDock(); } });
+})();
+</script>
+</body>
+</html>

@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import AppFooter from "@/components/AppFooter";
 import BeakerBotGreeting from "@/components/admin/BeakerBotGreeting";
+import BroadcastPanel from "@/components/admin/BroadcastPanel";
 import OperatorSignIn from "@/components/admin/OperatorSignIn";
 import SpendByCategoryPanel from "@/components/admin/SpendByCategoryPanel";
 import {
@@ -756,6 +757,11 @@ export default function AdminMetrics() {
           })()}
         </section>
       )}
+
+      {/* Broadcast email */}
+      <div className="mt-10">
+        <BroadcastPanel />
+      </div>
 
       {/* Page-usage pointer */}
       <p className="mt-8 text-meta text-foreground-muted leading-relaxed">

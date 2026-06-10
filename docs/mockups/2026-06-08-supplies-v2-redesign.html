@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Supplies v2 redesign — review</title>
+<style>
+  :root{
+    --bg:#0a0e1a; --panel:#121829; --panel2:#0f1422; --ink:#e7ecf5; --mut:#9aa6bd;
+    --line:#222b41; --brand:#3b82f6; --amber:#f59e0b; --rose:#fb7185; --emer:#34d399;
+    --slate:#64748b; --ok:#34d399; --warn:#f59e0b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  header{padding:22px 28px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(10,14,26,.92);backdrop-filter:blur(6px);z-index:5}
+  h1{margin:0 0 4px;font-size:20px}
+  .sub{color:var(--mut);font-size:13px;max-width:760px}
+  main{max-width:1040px;margin:0 auto;padding:26px 20px 120px}
+  .sec{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin:20px 0;overflow:hidden}
+  .sec-h{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line);background:var(--panel2)}
+  .sec-h .name{font-weight:700;font-size:15px}
+  .sec-h .id{color:var(--mut);font:12px ui-monospace,monospace}
+  .sec-b{padding:18px}
+  .note{color:var(--mut);font-size:13px;margin:0 0 14px}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:820px){.cols{grid-template-columns:1fr}}
+  .frame{border:1px solid var(--line);border-radius:12px;background:var(--panel2);padding:14px;min-height:120px}
+  .frame .ft{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin-bottom:10px;display:flex;justify-content:space-between}
+  .tag{font-size:10px;padding:1px 7px;border-radius:99px;border:1px solid var(--line)}
+  .tag.bad{color:var(--rose);border-color:#5b2530}
+  .tag.good{color:var(--emer);border-color:#1d4a3a}
+  .bar{height:8px;border-radius:6px;background:#1b2334;overflow:hidden;margin:4px 0}
+  .bar > i{display:block;height:100%;background:var(--brand)}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 9px;border-radius:99px;border:1px solid var(--line);background:#0c1322;color:var(--mut)}
+  .chip.amber{color:var(--amber);border-color:#5a4413}
+  .chip.rose{color:var(--rose);border-color:#5b2530}
+  .chip.brand{color:#93c5fd;border-color:#1e3a6b}
+  .chip.emer{color:var(--emer);border-color:#1d4a3a}
+  .fakebtn{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:6px 12px;border-radius:9px;background:var(--brand);color:#fff;border:none}
+  .ghostbtn{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:5px 11px;border-radius:9px;background:#0c1322;color:var(--ink);border:1px solid var(--line)}
+  .plot{height:120px;border:1px dashed #2c3550;border-radius:8px;display:flex;align-items:flex-end;gap:6px;padding:10px;background:#0c1322}
+  .plot > span{flex:1;background:linear-gradient(#3b82f6,#1e3a6b);border-radius:3px 3px 0 0}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line)}
+  th{color:var(--mut);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  td .nm{font-weight:600}
+  td .meta{color:var(--mut);font-size:11px}
+  .right{text-align:right}
+  .verdict{display:flex;gap:6px;align-items:center;padding:10px 18px;border-top:1px solid var(--line);background:var(--panel2)}
+  .verdict button{font:12px inherit;padding:5px 12px;border-radius:8px;border:1px solid var(--line);background:#0c1322;color:var(--mut);cursor:pointer}
+  .verdict button.on[data-v="ok"]{background:#0f3a2c;color:var(--emer);border-color:#1d4a3a}
+  .verdict button.on[data-v="warn"]{background:#3a2e0f;color:var(--amber);border-color:#5a4413}
+  .verdict button.on[data-v="no"]{background:#3a1620;color:var(--rose);border-color:#5b2530}
+  .verdict textarea{flex:1;min-height:30px;background:#0c1322;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 9px;font:12px inherit;resize:vertical}
+  .pick{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+  .pick label{flex:1;min-width:220px;border:1px solid var(--line);border-radius:10px;padding:12px;background:#0c1322;cursor:pointer;display:block}
+  .pick label.sel{border-color:var(--brand);box-shadow:0 0 0 1px var(--brand) inset}
+  .pick .pt{font-weight:700;margin-bottom:3px}
+  .pick .pd{color:var(--mut);font-size:12px}
+  .legend{font-size:11px;color:var(--mut);margin-top:8px}
+  .row-supply{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#0c1322;margin-bottom:8px}
+  .row-supply .id{flex:1;min-width:0}
+  .row-supply .id .nm{font-weight:600}
+  .row-supply .id .meta{color:var(--mut);font-size:11px}
+  .state{display:flex;gap:8px;align-items:center}
+  #exportBar{position:fixed;bottom:0;left:0;right:0;background:rgba(15,20,34,.96);border-top:1px solid var(--line);padding:12px 20px;display:flex;justify-content:space-between;align-items:center;z-index:6}
+  #exportBar button{font:13px inherit;font-weight:600;padding:8px 16px;border-radius:9px;background:var(--brand);color:#fff;border:none;cursor:pointer}
+  #modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:9}
+  #modal .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;width:min(720px,92vw)}
+  #modal textarea{width:100%;height:340px;background:#0c1322;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px;font:12px ui-monospace,monospace}
+</style>
+</head>
+<body>
+<header>
+  <h1>Supplies v2 redesign &mdash; review</h1>
+  <div class="sub">Grounded in the three-part UI audit (Purchases UI + plots, Inventory UI, BeakerSearch + right-click). Mark each section APPROVE / CHANGE / NO, leave notes, pick the route, then Export and paste back. Nothing is built yet.</div>
+</header>
+<main>
+
+  <!-- SECTION 1: plots -->
+  <div class="sec" data-sec="plots" data-label="Plots collapse to a View-spending drawer + lab-head funding">
+    <div class="sec-h"><span class="name">1. The spending plots</span><span class="id">#plots</span></div>
+    <div class="sec-b">
+      <p class="note">Today the SpendingDashboard is ~700&ndash;900px of permanent scroll at the bottom of /purchases, rendered even with zero purchases. Most of it is analytics a member never acts on. Proposal: keep only the total + filters + list above the fold; move charts behind a button; gate funding budgets to lab heads.</p>
+      <div class="cols">
+        <div class="frame">
+          <div class="ft"><span>Before</span><span class="tag bad">~800px permanent</span></div>
+          <div style="font-weight:600;margin-bottom:6px">Spending dashboard &middot; $9,140</div>
+          <div class="legend">Funding accounts</div>
+          <div class="bar"><i style="width:72%"></i></div><div class="bar"><i style="width:48%;background:var(--rose)"></i></div>
+          <div class="legend" style="margin-top:8px">Spend over time</div>
+          <div class="plot"><span style="height:40%"></span><span style="height:70%"></span><span style="height:55%"></span><span style="height:90%"></span><span style="height:35%"></span><span style="height:60%"></span></div>
+          <div class="legend" style="margin-top:8px">Breakdown by project</div>
+          <div class="plot"><span style="height:80%"></span><span style="height:55%"></span><span style="height:30%"></span></div>
+        </div>
+        <div class="frame">
+          <div class="ft"><span>After</span><span class="tag good">~40px, charts on demand</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-weight:600">Purchases &middot; <span style="color:var(--mut)">$9,140 this window</span></div>
+            <button class="ghostbtn">View spending &#9662;</button>
+          </div>
+          <div class="legend" style="margin-top:10px">Filters + list start right here, above the fold:</div>
+          <div style="margin-top:8px"><span class="chip">All 18</span> <span class="chip">Needs ordering 4</span> <span class="chip">Ordered 6</span> <span class="chip">Received 8</span></div>
+          <div class="legend" style="margin-top:14px">"View spending" opens a right-side drawer with the time-series + breakdown + range controls. Funding-budget cards live in the (lab-head) Manage Funding popup, not the member's main scroll. "Items on wrong task type" becomes a one-line chip.</div>
+        </div>
+      </div>
+    </div>
+    <div class="verdict" data-id="plots"><button data-v="ok">Approve</button><button data-v="warn">Change</button><button data-v="no">No</button><textarea placeholder="notes on the plots treatment"></textarea></div>
+  </div>
+
+  <!-- SECTION 2: inventory parity -->
+  <div class="sec" data-sec="parity" data-label="Bring Inventory to Purchases interaction parity (palette + right-click)">
+    <div class="sec-h"><span class="name">2. Inventory &rarr; interaction parity</span><span class="id">#parity</span></div>
+    <div class="sec-b">
+      <p class="note">Purchases already has a full BeakerSearch source + right-click PI menu. Inventory has none. To let either page shed permanent UI, Inventory needs the same. Proposal: an Inventory beaker source + a right-click menu on item/stock rows + hover-as-context + a deep-link. Keep Inventory's strong inline controls (tap status, count steppers) AND add the off-page paths.</p>
+      <div class="cols">
+        <div class="frame">
+          <div class="ft"><span>New: right-click an item / stock</span><span class="tag good">parity with Purchases</span></div>
+          <div style="border:1px solid var(--line);border-radius:9px;background:#0c1322;width:230px;font-size:12.5px">
+            <div style="padding:7px 11px;border-bottom:1px solid var(--line)">Add stock&hellip;</div>
+            <div style="padding:7px 11px;border-bottom:1px solid var(--line)">Edit item</div>
+            <div style="padding:7px 11px;border-bottom:1px solid var(--line)">Set status &rsaquo;</div>
+            <div style="padding:7px 11px;border-bottom:1px solid var(--line)">Reorder this &rarr; Purchases</div>
+            <div style="padding:7px 11px;border-bottom:1px solid var(--line)">Move location&hellip;</div>
+            <div style="padding:7px 11px;color:var(--rose)">Delete</div>
+          </div>
+        </div>
+        <div class="frame">
+          <div class="ft"><span>New: BeakerSearch on /inventory</span></div>
+          <div style="font-size:12.5px;color:var(--mut)">Palette commands the page can lean on:</div>
+          <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">
+            <span class="chip">Add item</span><span class="chip">Add stock for &hellip;</span><span class="chip">Scan</span><span class="chip">Import</span>
+            <span class="chip amber">Show expiring</span><span class="chip rose">Show low</span><span class="chip">Show stale</span>
+            <span class="chip brand">Reorder &hellip; &rarr; Purchases</span><span class="chip">Storage map</span>
+          </div>
+          <div class="legend" style="margin-top:12px">"Reorder this" is the bridge command on BOTH sides: it drops the item into the Purchases needs-ordering queue, prefilled from the inventory identity fields, so you never retype name/vendor/catalog.</div>
+        </div>
+      </div>
+    </div>
+    <div class="verdict" data-id="parity"><button data-v="ok">Approve</button><button data-v="warn">Change</button><button data-v="no">No</button><textarea placeholder="notes on parity"></textarea></div>
+  </div>
+
+  <!-- SECTION 3: the route fork -->
+  <div class="sec" data-sec="route" data-label="THE FORK: route A (tighter 2 tabs) vs route B (one unified Supplies list)">
+    <div class="sec-h"><span class="name">3. The fork &mdash; how unified?</span><span class="id">#route</span></div>
+    <div class="sec-b">
+      <p class="note">Inventory and Purchases share identity fields (name / vendor / catalog # / CAS / url) but have orthogonal state: on-hand (count, status, expiry, location) vs ordering (order-status, price, funding, approval). There's even an unused FK linking a received purchase to its stock. Two ways to exploit that.</p>
+      <div class="pick" id="routePick">
+        <label data-r="A"><div class="pt">Route A &middot; tighter two tabs</div><div class="pd">Keep Inventory + Purchases tabs. De-dupe via the FK (show "on hand: N" on a purchase line, "on order: N" on an inventory item), drawer the plots, bring Inventory to parity. Lowest risk, ships incrementally, keeps two familiar surfaces.</div></label>
+        <label data-r="B"><div class="pt">Route B &middot; one unified Supplies page</div><div class="pd">Collapse to a single list. Each row is a supply; on-hand and on-order are two badges; click opens a detail panel with an "On hand" section and an "Ordering" section. The two pages become one mental model. Bolder, bigger build, the "is it good enough" bet.</div></label>
+      </div>
+      <div class="legend">Route B preview is in section 4. Pick here; mark section 4 on whether the unified design clears the bar.</div>
+    </div>
+    <div class="verdict" data-id="route"><button data-v="ok">Approve the pick</button><button data-v="warn">Lean, with caveats</button><button data-v="no">Neither</button><textarea placeholder="why this route"></textarea></div>
+  </div>
+
+  <!-- SECTION 4: route B unified page -->
+  <div class="sec" data-sec="unified" data-label="Route B preview: the one unified Supplies list + detail panel">
+    <div class="sec-h"><span class="name">4. Route B preview &mdash; one Supplies list</span><span class="id">#unified</span></div>
+    <div class="sec-b">
+      <p class="note">One list. Identity is entered once. On-hand state (from Inventory) and ordering state (from Purchases) ride as two badge clusters per row. Filters answer the two daily questions: "what needs attention" and "what needs ordering". The spending plots are a lab-head drawer; approval/funding move into the detail panel + lab-head views.</p>
+      <div style="margin-bottom:10px"><span class="chip emer">Everything 42</span> <span class="chip amber">Needs attention 5</span> <span class="chip rose">Low / out 3</span> <span class="chip brand">On order 4</span> <span class="ghostbtn" style="float:right">+ Add supply</span></div>
+
+      <div class="row-supply">
+        <div class="id"><div class="nm">Taq polymerase</div><div class="meta">Enzyme &middot; NEB &middot; M0273</div></div>
+        <div class="state"><span class="chip emer">3 on hand</span></div>
+      </div>
+      <div class="row-supply">
+        <div class="id"><div class="nm">Anti-FLAG antibody</div><div class="meta">Antibody &middot; Sigma &middot; F1804</div></div>
+        <div class="state"><span class="chip rose">low &middot; 1 left</span><span class="chip brand">ordered</span></div>
+      </div>
+      <div class="row-supply">
+        <div class="id"><div class="nm">SYBR Green mix</div><div class="meta">Reagent &middot; Thermo &middot; A25742</div></div>
+        <div class="state"><span class="chip amber">expires 9d</span><button class="ghostbtn">Reorder</button></div>
+      </div>
+      <div class="row-supply">
+        <div class="id"><div class="nm">Conference flight</div><div class="meta">Misc &middot; (purchase only, never stocked)</div></div>
+        <div class="state"><span class="chip brand">needs ordering</span></div>
+      </div>
+
+      <div class="frame" style="margin-top:14px">
+        <div class="ft"><span>Click a row &rarr; detail panel (two orthogonal sections)</span></div>
+        <div class="cols">
+          <div>
+            <div style="font-weight:600;margin-bottom:6px">On hand</div>
+            <div class="legend">3 vials &middot; tap status / step count &middot; lot, expiry, location &middot; storage-map link &middot; "Reorder" button</div>
+          </div>
+          <div>
+            <div style="font-weight:600;margin-bottom:6px">Ordering</div>
+            <div class="legend">order-status (needs / ordered / received) &middot; price, funding &middot; PI approval (lab head) &middot; order history</div>
+          </div>
+        </div>
+        <div class="legend" style="margin-top:10px">A "purchase-only" thing (flights, services) has just the Ordering section. A "never-ordered" stock has just On hand. Most reagents have both. Receiving an order auto-creates / increments its on-hand stock (the FK that exists today).</div>
+      </div>
+      <div class="legend" style="margin-top:10px"><b>Honest tradeoffs:</b> Purchases is task-scoped with funding + multi-item orders + PI approval; folding that into a per-supply row needs care (an "order" groups items; approval is per-item). Route B is a real data-model reconciliation, not just a view swap. Route A gets 70% of the benefit at 30% of the risk.</div>
+    </div>
+    <div class="verdict" data-id="unified"><button data-v="ok">Good enough, go unified</button><button data-v="warn">Close, needs work</button><button data-v="no">Not good enough, stay 2 tabs</button><textarea placeholder="does the unified design clear the bar?"></textarea></div>
+  </div>
+
+</main>
+
+<div id="exportBar"><div style="color:var(--mut);font-size:12px">Mark sections + pick a route, then export.</div><button id="exportBtn">Export review</button></div>
+<div id="modal"><div class="card"><textarea id="exportText" readonly></textarea><div style="text-align:right;margin-top:10px"><button class="fakebtn" onclick="document.getElementById('modal').style.display='none'">Close</button></div></div></div>
+
+<script>
+const store={};
+document.querySelectorAll('.verdict').forEach(v=>{
+  const id=v.dataset.id;store[id]={v:'',n:''};
+  v.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    store[id].v=b.dataset.v;v.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  });
+  v.querySelector('textarea').oninput=e=>store[id].n=e.target.value;
+});
+let route='';
+document.querySelectorAll('#routePick label').forEach(l=>l.onclick=()=>{
+  route=l.dataset.r;document.querySelectorAll('#routePick label').forEach(x=>x.classList.remove('sel'));l.classList.add('sel');
+});
+document.getElementById('exportBtn').onclick=()=>{
+  let out='SUPPLIES v2 REDESIGN REVIEW\n'+'='.repeat(34)+'\n\n';
+  out+='ROUTE PICK: '+(route?('Route '+route):'(none picked)')+'\n\n';
+  document.querySelectorAll('.sec').forEach(s=>{
+    const id=s.dataset.sec,c=store[id]||{};
+    const verd=c.v==='ok'?'APPROVE':c.v==='warn'?'CHANGE':c.v==='no'?'NO':'(unmarked)';
+    out+='['+verd+'] '+s.dataset.label+'\n';
+    if(c.n&&c.n.trim())out+='   note: '+c.n.trim()+'\n';
+    out+='\n';
+  });
+  document.getElementById('exportText').value=out;
+  document.getElementById('modal').style.display='flex';
+};
+</script>
+</body>
+</html>

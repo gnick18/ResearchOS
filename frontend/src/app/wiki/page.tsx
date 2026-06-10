@@ -51,14 +51,11 @@ export default function WikiLandingPage() {
           on your disk. It can be an existing ResearchOS folder or a brand-new
           empty one you made first (Chrome cannot create a folder from the
           picker, so starting fresh means making an empty folder in your file
-          manager, then linking it). For a quick intro first, BeakerBot offers
-          an optional <strong>3-minute walkthrough</strong> button in the
-          upper-right of this screen. It's a 4-beat modal that explains data
-          security and folder choice. It does not link a folder for you. See{" "}
+          manager, then linking it). Want the full breakdown first? See{" "}
           <Link href="/wiki/getting-started/connecting-your-folder">
             Connecting Your Folder
-          </Link>{" "}
-          for the full breakdown.
+          </Link>
+          .
         </li>
         <li>
           Pick a username. Your data lives under{" "}
@@ -66,12 +63,9 @@ export default function WikiLandingPage() {
           optional password to gate access on a shared machine.
         </li>
         <li>
-          Once you sign in, BeakerBot&apos;s in-product welcome tour auto-starts
-          on the empty account. (This is the longer hands-on tour, separate
-          from the optional 3-minute walkthrough on the folder picker.) Click
-          through to learn the major surfaces. See{" "}
+          Once you sign in, you land on an empty account ready to fill. See{" "}
           <Link href="/wiki/getting-started/welcome-wizard">Welcome Wizard</Link>{" "}
-          for a breakdown of each step.
+          for a walk through the major surfaces.
         </li>
         <li>
           Start adding projects, methods, experiments, and Gantt tasks. Everything

@@ -45,3 +45,5 @@ Plated 200 µL out of the 1 mL recovery; saving the rest at 4 °C in case effici
 After 48 h: counted **40 colonies** on the experimental plate. WT control: 0 colonies (good). EV control: 38 colonies (expected).
 
 ![Transformation plate — SD-Ura selection, 48 h](Images/transformation-plate.png)
+
+Raw colony counts: [colony-counts.csv](Files/colony-counts.csv)

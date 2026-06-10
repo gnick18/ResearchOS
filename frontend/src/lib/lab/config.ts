@@ -13,4 +13,4 @@
  * false. Phase 1 ships the crypto core dark behind this, so none of it can run
  * in the app until a later phase flips it on.
  */
-export const LAB_TIER_ENABLED = false;
+export const LAB_TIER_ENABLED = true; // LOCAL TEST ONLY — do not commit/push; origin/main stays false until launch

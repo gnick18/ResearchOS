@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BeakerSearch palette, before and after</title>
+<style>
+  /* Faithful to the live design tokens (frontend/src/app/globals.css). */
+  :root {
+    --surface-raised: #ffffff;
+    --surface-sunken: #f8fafc;
+    --foreground: #171717;
+    --foreground-muted: #6b7280;
+    --border: #e5e7eb;
+    --scrim: rgba(15, 23, 42, 0.35);
+    --sky-icon: #0284c7;
+    --sky-soft-bg: #f0f9ff;
+    --sky-active: #eff6ff;
+    --accent: #0284c7;
+    --task-ic: #d97706;   --task-bg: #fffbeb;
+    --proj-ic: #7c3aed;   --proj-bg: #f5f3ff;
+    --meth-ic: #059669;   --meth-bg: #ecfdf5;
+    --seq-ic:  #0284c7;   --seq-bg:  #f0f9ff;
+    --page-bg: #e2e8f0;
+    --pin: #e11d48;
+  }
+  html[data-theme="dark"] {
+    --surface-raised: #131c2e;
+    --surface-sunken: #0d1424;
+    --foreground: #f1f5f9;
+    --foreground-muted: #b4bfd0;
+    --border: rgba(255, 255, 255, 0.22);
+    --scrim: rgba(2, 6, 15, 0.55);
+    --sky-icon: #7dd3fc;
+    --sky-soft-bg: rgba(12, 74, 110, 0.3);
+    --sky-active: rgba(12, 74, 110, 0.3);
+    --accent: #38bdf8;
+    --task-ic: #fbbf24;   --task-bg: rgba(120, 53, 15, 0.32);
+    --proj-ic: #c4b5fd;   --proj-bg: rgba(76, 29, 149, 0.30);
+    --meth-ic: #6ee7b7;   --meth-bg: rgba(6, 78, 59, 0.32);
+    --seq-ic:  #7dd3fc;   --seq-bg:  rgba(12, 74, 110, 0.34);
+    --page-bg: #060a13;
+    --pin: #fb7185;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--page-bg);
+    color: var(--foreground);
+    transition: background 0.2s;
+  }
+  .topbar {
+    position: sticky; top: 0; z-index: 30;
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 22px;
+    background: var(--surface-raised);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .topbar h1 { font-size: 15px; margin: 0; font-weight: 700; }
+  .topbar p { margin: 0; font-size: 12px; color: var(--foreground-muted); }
+  .spacer { flex: 1; }
+  .btn {
+    appearance: none; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface-sunken);
+    color: var(--foreground); border-radius: 8px;
+    padding: 7px 12px; font-size: 12.5px; font-weight: 600;
+  }
+  .btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.danger { color: var(--pin); }
+
+  .stage { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; padding: 28px 22px 56px; max-width: 1320px; margin: 0 auto; }
+  @media (max-width: 980px) { .stage { grid-template-columns: 1fr; } }
+  .col h2 { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--foreground-muted); margin: 0 0 4px; font-weight: 800; }
+  .col .blurb { font-size: 12.5px; color: var(--foreground-muted); margin: 0 0 16px; min-height: 32px; }
+  .frame { background: var(--scrim); border-radius: 18px; padding: 30px 26px; }
+
+  .palette {
+    width: 100%; max-width: 560px; margin: 0 auto;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: 16px; overflow: visible;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.45);
+  }
+  .hdr { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); border-radius: 16px 16px 0 0; }
+  .bot { width: 24px; height: 24px; flex: none; }
+  .bot.sm { width: 20px; height: 20px; }
+  .word { font-size: 14px; font-weight: 600; color: var(--foreground); flex: none; }
+  .magnifier { width: 16px; height: 16px; flex: none; color: var(--foreground-muted); }
+  .input { flex: 1; min-width: 0; font-size: 14px; color: var(--foreground); }
+  .input .typed { color: var(--foreground); }
+  .input .caret { display: inline-block; width: 1px; height: 15px; background: var(--accent); margin-left: 1px; vertical-align: -2px; animation: blink 1.1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .kbd { border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground-muted); border-radius: 6px; padding: 2px 6px; font-size: 11px; font-weight: 600; flex: none; }
+
+  .list { padding: 4px 0; max-height: 380px; overflow-y: auto; }
+
+  .ghead-before { padding: 8px 16px 4px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--foreground-muted); }
+  .ghead-after { display: flex; align-items: center; gap: 8px; padding: 10px 16px 4px; font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; color: var(--foreground-muted); }
+  .ghead-after .rule { flex: 1; height: 1px; background: var(--border); opacity: 0.6; }
+  .ghint { font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--foreground-muted); }
+
+  .row { display: flex; align-items: center; gap: 12px; padding: 8px 16px; cursor: pointer; position: relative; }
+  .chip { width: 24px; height: 24px; flex: none; border-radius: 7px; display: flex; align-items: center; justify-content: center; background: var(--surface-sunken); color: var(--sky-icon); }
+  .chip svg { width: 14px; height: 14px; }
+  .rtext { min-width: 0; flex: 1; }
+  .rlabel { display: block; font-size: 14px; font-weight: 500; color: var(--foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rsub { display: block; font-size: 11px; color: var(--foreground-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rhint { flex: none; font-size: 11px; color: var(--foreground-muted); }
+  .rhint.chiphint { border: 1px solid var(--border); border-radius: 6px; padding: 2px 7px; font-weight: 600; }
+
+  .row.active-before { background: var(--sky-active); }
+  .row.active-after { background: var(--sky-active); }
+  .row.active-after::before { content: ""; position: absolute; left: 0; top: 4px; bottom: 4px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent); }
+
+  .chip.t-task { background: var(--task-bg); color: var(--task-ic); }
+  .chip.t-proj { background: var(--proj-bg); color: var(--proj-ic); }
+  .chip.t-meth { background: var(--meth-bg); color: var(--meth-ic); }
+  .chip.t-seq  { background: var(--seq-bg);  color: var(--seq-ic); }
+
+  .ftr-before { display: flex; gap: 16px; align-items: center; padding: 8px 16px; border-top: 1px solid var(--border); font-size: 11px; color: var(--foreground-muted); border-radius: 0 0 16px 16px; }
+  .ftr-before .push { margin-left: auto; }
+  .ftr-after { display: flex; gap: 14px; align-items: center; padding: 9px 16px; border-top: 1px solid var(--border); font-size: 11px; color: var(--foreground-muted); border-radius: 0 0 16px 16px; }
+  .ftr-after .grp { display: inline-flex; align-items: center; gap: 6px; }
+  .ftr-after .k { border: 1px solid var(--border); background: var(--surface-sunken); border-radius: 5px; min-width: 18px; height: 18px; padding: 0 5px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--foreground); }
+  .ftr-after .push { margin-left: auto; }
+
+  /* ----- comment mode ----- */
+  body.cmt-on .cmt { cursor: crosshair; }
+  body.cmt-on .cmt:hover { outline: 2px dashed var(--accent); outline-offset: -2px; border-radius: 8px; }
+  .cmt { position: relative; }
+  .pin {
+    position: absolute; top: -8px; right: -8px; z-index: 8;
+    min-width: 18px; height: 18px; padding: 0 4px;
+    background: var(--pin); color: #fff; border-radius: 9px;
+    font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4); cursor: pointer;
+  }
+  .pin.hl { outline: 2px solid var(--foreground); }
+
+  /* editor popover */
+  .editor {
+    position: fixed; z-index: 50; width: 280px;
+    background: var(--surface-raised); border: 1px solid var(--border);
+    border-radius: 12px; box-shadow: 0 18px 40px -10px rgba(0,0,0,0.55);
+    padding: 12px;
+  }
+  .editor .lbl { font-size: 11px; font-weight: 700; color: var(--foreground-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+  .editor textarea {
+    width: 100%; min-height: 78px; resize: vertical;
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px;
+    font: inherit; font-size: 13px; background: var(--surface-sunken); color: var(--foreground);
+  }
+  .editor .acts { display: flex; gap: 8px; margin-top: 8px; }
+  .editor .acts .spacer { flex: 1; }
+
+  /* comments panel */
+  .panel {
+    position: fixed; right: 18px; bottom: 18px; z-index: 40;
+    width: 340px; max-height: 60vh; display: flex; flex-direction: column;
+    background: var(--surface-raised); border: 1px solid var(--border);
+    border-radius: 14px; box-shadow: 0 18px 40px -10px rgba(0,0,0,0.55);
+  }
+  .panel.collapsed .panel-body, .panel.collapsed .panel-foot { display: none; }
+  .panel-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .panel-head h3 { font-size: 13px; margin: 0; font-weight: 700; }
+  .panel-head .count { font-size: 11px; color: var(--foreground-muted); }
+  .panel-head .chev { margin-left: auto; color: var(--foreground-muted); font-size: 12px; }
+  .panel-body { overflow-y: auto; padding: 6px; }
+  .citem { display: flex; gap: 8px; padding: 8px; border-radius: 8px; }
+  .citem:hover { background: var(--surface-sunken); }
+  .citem .num { flex: none; width: 18px; height: 18px; background: var(--pin); color: #fff; border-radius: 9px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+  .citem .body { min-width: 0; flex: 1; }
+  .citem .tgt { font-size: 11px; color: var(--foreground-muted); }
+  .citem .txt { font-size: 13px; color: var(--foreground); white-space: pre-wrap; word-break: break-word; }
+  .citem .x { flex: none; cursor: pointer; color: var(--foreground-muted); font-size: 14px; border: none; background: none; }
+  .panel-foot { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); }
+  .empty { font-size: 12.5px; color: var(--foreground-muted); padding: 14px; text-align: center; }
+
+  .note { max-width: 1320px; margin: 0 auto; padding: 0 22px 90px; }
+  .note h3 { font-size: 13px; margin: 24px 0 10px; }
+  .note ul { margin: 0; padding-left: 18px; }
+  .note li { font-size: 13px; color: var(--foreground-muted); margin: 5px 0; line-height: 1.5; }
+  .note b { color: var(--foreground); font-weight: 600; }
+
+  /* change cards with a verdict control */
+  .changes { display: grid; gap: 10px; }
+  .change {
+    display: flex; gap: 14px; align-items: flex-start;
+    border: 1px solid var(--border); border-radius: 12px;
+    background: var(--surface-raised); padding: 12px 14px;
+    border-left-width: 4px; border-left-color: var(--border);
+  }
+  .change.approved { border-left-color: #16a34a; }
+  .change.disapproved { border-left-color: var(--pin); }
+  .change .ctext { flex: 1; min-width: 0; }
+  .change .ctitle { font-size: 13.5px; font-weight: 600; color: var(--foreground); margin-bottom: 2px; }
+  .change .cdesc { font-size: 12.5px; color: var(--foreground-muted); line-height: 1.5; }
+  .change .verdict { flex: none; display: flex; flex-direction: column; gap: 6px; width: 132px; }
+  .vbtn {
+    appearance: none; cursor: pointer; text-align: center;
+    border: 1px solid var(--border); background: var(--surface-sunken);
+    color: var(--foreground); border-radius: 8px; padding: 6px 8px;
+    font-size: 12px; font-weight: 600;
+  }
+  .vbtn.app.on { background: #16a34a; border-color: #16a34a; color: #fff; }
+  .vbtn.dis.on { background: var(--pin); border-color: var(--pin); color: #fff; }
+  .vbadge { font-size: 11px; font-weight: 700; }
+  .vrow { display: flex; gap: 6px; }
+  .vrow .vbtn { flex: 1; }
+  .vclear { font-size: 11px; color: var(--foreground-muted); background: none; border: none; cursor: pointer; padding: 0; text-decoration: underline; align-self: flex-end; }
+
+  /* verdict choices inside the comment editor */
+  .editor .vchoice { display: flex; gap: 6px; margin-top: 8px; }
+  .editor .vchoice .vbtn { flex: 1; padding: 5px; }
+
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 60; background: var(--foreground); color: var(--surface-raised); font-size: 12.5px; font-weight: 600; padding: 9px 14px; border-radius: 8px; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <h1>BeakerSearch palette, before and after</h1>
+      <p>Click rows to select. Turn on Comment mode, then click any part of either palette to pin a note.</p>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn" id="commentToggle">Comment mode: off</button>
+    <button class="btn" id="themeToggle">Switch to dark</button>
+  </div>
+
+  <div class="stage">
+    <div class="col">
+      <h2>Before (live today)</h2>
+      <p class="blurb">One sky hue for every type, a loud header with a redundant magnifier and an in-palette Cmd K chip, flat highlight, a text footer legend.</p>
+      <div class="frame">
+        <div class="palette" data-col="before">
+          <div class="hdr cmt" data-clabel="Before / header">
+            <span class="bot" id="botB"></span>
+            <span class="word">BeakerSearch</span>
+            <svg class="magnifier" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <span class="input"><span class="typed">mito</span><span class="caret"></span></span>
+            <span class="kbd">Cmd K</span>
+          </div>
+          <div class="list" id="listBefore" data-col="before"></div>
+          <div class="ftr-before cmt" data-clabel="Before / footer">
+            <span>Up and Down to navigate</span>
+            <span>Enter to run or open</span>
+            <span class="push">Cmd K reaches everything, including tools off the rail</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <h2>After (proposed)</h2>
+      <p class="blurb">Per-type chip color, a calmer header (no magnifier, esc chip), a left accent on the active row with a chip-style hint, softer headings, key-chip footer.</p>
+      <div class="frame">
+        <div class="palette" data-col="after">
+          <div class="hdr cmt" data-clabel="After / header">
+            <span class="bot sm" id="botA"></span>
+            <span class="word">BeakerSearch</span>
+            <span class="input"><span class="typed">mito</span><span class="caret"></span></span>
+            <span class="kbd">esc</span>
+          </div>
+          <div class="list" id="listAfter" data-col="after"></div>
+          <div class="ftr-after cmt" data-clabel="After / footer">
+            <span class="grp"><span class="k">&uarr;</span><span class="k">&darr;</span> navigate</span>
+            <span class="grp"><span class="k">&crarr;</span> open</span>
+            <span class="grp"><span class="k">esc</span> close</span>
+            <span class="push">Cmd K reaches everything</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <h3>What changed and why. Mark each one Approve or Disapprove.</h3>
+    <div class="changes" id="changes"></div>
+    <p style="font-size:12.5px;color:var(--foreground-muted);max-width:760px;margin-top:14px;">Everything else (the BeakerBot brand mark, the scrim and blur, the row density, the context card on sequence pages, the keyboard model) is unchanged. The BeakerBot glyph here is a simple stand-in for the real mascot SVG.</p>
+  </div>
+
+  <!-- comments panel -->
+  <div class="panel" id="panel">
+    <div class="panel-head" id="panelHead">
+      <h3>Comments</h3>
+      <span class="count" id="cCount">0</span>
+      <span class="chev" id="chev">hide</span>
+    </div>
+    <div class="panel-body" id="panelBody">
+      <div class="empty" id="cEmpty">No comments yet. Turn on Comment mode and click any part of a palette.</div>
+    </div>
+    <div class="panel-foot">
+      <button class="btn" id="exportBtn">Copy feedback</button>
+      <button class="btn" id="downloadBtn">Download .md</button>
+      <span style="flex:1"></span>
+      <button class="btn danger" id="clearBtn">Clear</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  const botSvg = (size) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v6l-4.5 8a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 9V3"/><path d="M7.5 15h9" stroke="#7dd3fc"/></svg>`;
+  document.getElementById('botB').innerHTML = botSvg(24);
+  document.getElementById('botA').innerHTML = botSvg(20);
+
+  const ic = {
+    list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>',
+    folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+    book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2z"/><path d="M4 19a2 2 0 0 0 2 2h12"/></svg>',
+    seq: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 4v4M12 16v4"/></svg>',
+    search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>',
+  };
+
+  const groups = [
+    { title: 'Tasks', type: 'task', glyph: 'list', items: [
+      { label: 'Mito stress assay, plate 3', sub: 'Experiment in Mitochondria QC', hint: 'Open' },
+      { label: 'Order MitoTracker Deep Red', sub: 'Purchase in Mitochondria QC, shared by alex', hint: 'Open' },
+    ]},
+    { title: 'Projects', type: 'proj', glyph: 'folder', items: [
+      { label: 'Mitochondria QC', sub: 'Project', hint: 'Open' },
+    ]},
+    { title: 'Methods', type: 'meth', glyph: 'book', items: [
+      { label: 'Mito membrane potential (TMRM)', sub: 'Assay, Imaging, lab-wide', hint: 'Open' },
+    ]},
+    { title: 'Sequences', type: 'seq', glyph: 'seq', items: [
+      { label: 'pMito-GFP', sub: 'dna, Circular, 6,418 bp', hint: 'Open' },
+    ]},
+  ];
+
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  function renderList(el, after) {
+    const colName = after ? 'After' : 'Before';
+    let html = '';
+    for (const g of groups) {
+      if (after) {
+        html += `<div class="ghead-after cmt" data-clabel="${colName} / ${g.title} heading"><span>${g.title}</span><span class="rule"></span></div>`;
+      } else {
+        html += `<div class="ghead-before cmt" data-clabel="${colName} / ${g.title} heading">${g.title}</div>`;
+      }
+      for (const it of g.items) {
+        const chipCls = after ? `chip t-${g.type}` : 'chip';
+        const hintCls = after ? 'rhint chiphint' : 'rhint';
+        html += `<div class="row cmt" data-clabel="${colName} / ${esc(it.label)}">
+          <span class="${chipCls}">${ic[g.glyph]}</span>
+          <span class="rtext"><span class="rlabel">${esc(it.label)}</span><span class="rsub">${esc(it.sub)}</span></span>
+          <span class="${hintCls}">${it.hint}</span>
+        </div>`;
+      }
+    }
+    // search everything row
+    const headCls = after ? 'ghead-after' : 'ghead-before';
+    const headInner = after ? '<span>More</span><span class="rule"></span>' : 'More';
+    const hintCls = after ? 'rhint chiphint' : 'rhint';
+    html += `<div class="${headCls} cmt" data-clabel="${colName} / More heading">${headInner}</div>
+      <div class="row cmt" data-clabel="${colName} / Search everything row">
+        <span class="chip">${ic.search}</span>
+        <span class="rtext"><span class="rlabel">Search everything for "mito"</span><span class="rsub">Open the full search with filters</span></span>
+        <span class="${hintCls}">Search</span>
+      </div>`;
+    el.innerHTML = html;
+
+    // first row active by default
+    const rows = el.querySelectorAll('.row');
+    if (rows[0]) rows[0].classList.add(after ? 'active-after' : 'active-before');
+  }
+
+  renderList(document.getElementById('listBefore'), false);
+  renderList(document.getElementById('listAfter'), true);
+
+  /* ---------- clickable row selection + arrow keys ---------- */
+  let focusedList = null;
+  function selectRow(list, row) {
+    const after = list.dataset.col === 'after';
+    const cls = after ? 'active-after' : 'active-before';
+    list.querySelectorAll('.row').forEach(r => r.classList.remove(cls));
+    row.classList.add(cls);
+    focusedList = list;
+  }
+  document.querySelectorAll('.list').forEach(list => {
+    list.addEventListener('click', (e) => {
+      if (document.body.classList.contains('cmt-on')) return; // comment mode handles clicks
+      const row = e.target.closest('.row');
+      if (row && list.contains(row)) selectRow(list, row);
+    });
+  });
+  document.addEventListener('keydown', (e) => {
+    if (document.body.classList.contains('cmt-on')) return;
+    if (!focusedList) return;
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    e.preventDefault();
+    const after = focusedList.dataset.col === 'after';
+    const cls = after ? 'active-after' : 'active-before';
+    const rows = [...focusedList.querySelectorAll('.row')];
+    let i = rows.findIndex(r => r.classList.contains(cls));
+    if (i < 0) i = 0;
+    i = (i + (e.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length;
+    selectRow(focusedList, rows[i]);
+    rows[i].scrollIntoView({ block: 'nearest' });
+  });
+
+  /* ---------- comments ---------- */
+  const STORE = 'beakersearch-mockup-comments-v1';
+  let comments = [];
+  try { comments = JSON.parse(localStorage.getItem(STORE) || '[]'); } catch { comments = []; }
+
+  function save() { try { localStorage.setItem(STORE, JSON.stringify(comments)); } catch {} }
+
+  function clabelOf(el) {
+    const c = el.closest('.cmt');
+    return c ? c.getAttribute('data-clabel') : 'Page';
+  }
+
+  function renderPins() {
+    document.querySelectorAll('.pin').forEach(p => p.remove());
+    // group by clabel to stack numbers if multiple on one target
+    const byTarget = {};
+    comments.forEach((c, i) => {
+      (byTarget[c.target] = byTarget[c.target] || []).push(i + 1);
+    });
+    document.querySelectorAll('.cmt').forEach(el => {
+      const lbl = el.getAttribute('data-clabel');
+      const nums = byTarget[lbl];
+      if (!nums) return;
+      const pin = document.createElement('span');
+      pin.className = 'pin';
+      pin.textContent = nums.join(',');
+      pin.title = 'Comment ' + nums.join(', ');
+      pin.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const first = comments.findIndex(c => c.target === lbl);
+        if (first >= 0) openEditor(el, first, ev);
+      });
+      el.appendChild(pin);
+    });
+  }
+
+  function renderPanel() {
+    const body = document.getElementById('panelBody');
+    document.getElementById('cCount').textContent = comments.length;
+    if (comments.length === 0) {
+      body.innerHTML = '<div class="empty" id="cEmpty">No comments yet. Turn on Comment mode and click any part of a palette.</div>';
+      return;
+    }
+    const vtag = (v) => v === 'approve'
+      ? '<span class="vbadge" style="color:#16a34a">APPROVE</span> '
+      : v === 'disapprove' ? '<span class="vbadge" style="color:var(--pin)">DISAPPROVE</span> ' : '';
+    body.innerHTML = comments.map((c, i) => `
+      <div class="citem" data-i="${i}">
+        <span class="num">${i + 1}</span>
+        <div class="body">
+          <div class="tgt">${vtag(c.verdict)}${esc(c.target)}</div>
+          <div class="txt">${esc(c.text) || '<i>no text</i>'}</div>
+        </div>
+        <button class="x" data-del="${i}" title="Delete">&times;</button>
+      </div>`).join('');
+    body.querySelectorAll('[data-del]').forEach(b => {
+      b.addEventListener('click', () => { comments.splice(+b.dataset.del, 1); save(); renderAll(); });
+    });
+    body.querySelectorAll('.citem').forEach(it => {
+      it.addEventListener('click', (e) => {
+        if (e.target.closest('[data-del]')) return;
+        const i = +it.dataset.i;
+        const el = [...document.querySelectorAll('.cmt')].find(x => x.getAttribute('data-clabel') === comments[i].target);
+        if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); flashPin(comments[i].target); }
+      });
+    });
+  }
+
+  function flashPin(target) {
+    document.querySelectorAll('.pin').forEach(p => {
+      const el = p.closest('.cmt');
+      if (el && el.getAttribute('data-clabel') === target) {
+        p.classList.add('hl'); setTimeout(() => p.classList.remove('hl'), 1200);
+      }
+    });
+  }
+
+  function renderAll() { renderPins(); renderPanel(); }
+  renderAll();
+
+  /* ---------- per-change verdicts ---------- */
+  const CHANGES = [
+    { id: 'color', title: 'Per-type color coding', desc: 'Tasks read amber, Projects violet, Methods emerald, Sequences sky. The global source mixes four types in one list, so a glanceable hue cuts the scan time. Subtle tinted chips, not loud, reusing the existing icon-chip shape.' },
+    { id: 'header', title: 'Calmer header', desc: 'The standalone search magnifier was redundant with the wordmark and placeholder, so it is gone. The in-palette "Cmd K" chip becomes "esc", the actually useful hint. The input gets the reclaimed room.' },
+    { id: 'activerow', title: 'Clearer active row', desc: 'A 3px left accent bar plus the soft fill makes the highlighted row unmistakable, and the right hint ("Open", "Search", a shortcut) becomes a bordered chip so the run affordance reads as a control.' },
+    { id: 'headings', title: 'Softer group headings', desc: 'The 10px extrabold all-caps headings repeat many times and shout. They drop to a calmer semibold with a hairline rule, so the records lead and the labels recede.' },
+    { id: 'footer', title: 'Key-chip footer', desc: 'The text legend becomes compact key chips (up and down, enter, esc), faster to parse and consistent with the rest of the app keyboard affordances.' },
+  ];
+  const VSTORE = 'beakersearch-mockup-verdicts-v1';
+  let verdicts = {};
+  try { verdicts = JSON.parse(localStorage.getItem(VSTORE) || '{}'); } catch { verdicts = {}; }
+  function saveVerdicts() { try { localStorage.setItem(VSTORE, JSON.stringify(verdicts)); } catch {} }
+
+  function renderChanges() {
+    const wrap = document.getElementById('changes');
+    wrap.innerHTML = CHANGES.map(c => {
+      const v = verdicts[c.id] || '';
+      const cls = v === 'approve' ? 'approved' : v === 'disapprove' ? 'disapproved' : '';
+      return `<div class="change ${cls}" data-change="${c.id}">
+        <div class="ctext">
+          <div class="ctitle">${esc(c.title)}</div>
+          <div class="cdesc">${esc(c.desc)}</div>
+        </div>
+        <div class="verdict">
+          <div class="vrow">
+            <button class="vbtn app ${v === 'approve' ? 'on' : ''}" data-v="approve">Approve</button>
+            <button class="vbtn dis ${v === 'disapprove' ? 'on' : ''}" data-v="disapprove">Disapprove</button>
+          </div>
+          ${v ? '<button class="vclear" data-v="clear">clear</button>' : '<span style="height:14px"></span>'}
+        </div>
+      </div>`;
+    }).join('');
+    wrap.querySelectorAll('.change').forEach(card => {
+      const id = card.dataset.change;
+      card.querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', () => {
+        const v = b.dataset.v;
+        if (v === 'clear') delete verdicts[id];
+        else verdicts[id] = (verdicts[id] === v ? undefined : v);
+        if (!verdicts[id]) delete verdicts[id];
+        saveVerdicts(); renderChanges();
+      }));
+    });
+  }
+  renderChanges();
+
+  /* editor popover */
+  let editorEl = null;
+  function closeEditor() { if (editorEl) { editorEl.remove(); editorEl = null; } }
+  function openEditor(targetEl, existingIndex, ev) {
+    closeEditor();
+    const target = clabelOf(targetEl);
+    const existing = existingIndex != null ? comments[existingIndex]
+      : null;
+    let pendingVerdict = existing ? (existing.verdict || '') : '';
+    const ed = document.createElement('div');
+    ed.className = 'editor';
+    ed.innerHTML = `
+      <div class="lbl">${esc(target)}</div>
+      <textarea placeholder="Type your note, suggestion, or change request">${existing ? esc(existing.text) : ''}</textarea>
+      <div class="vchoice">
+        <button class="vbtn" data-vc="note">Note</button>
+        <button class="vbtn app" data-vc="approve">Approve</button>
+        <button class="vbtn dis" data-vc="disapprove">Disapprove</button>
+      </div>
+      <div class="acts">
+        ${existing ? '<button class="btn danger" data-act="del">Delete</button>' : ''}
+        <span class="spacer"></span>
+        <button class="btn" data-act="cancel">Cancel</button>
+        <button class="btn on" data-act="save">Save</button>
+      </div>`;
+    document.body.appendChild(ed);
+    editorEl = ed;
+    const paintVc = () => ed.querySelectorAll('[data-vc]').forEach(b => {
+      const sel = (b.dataset.vc === 'note' && !pendingVerdict) || b.dataset.vc === pendingVerdict;
+      b.classList.toggle('on', sel);
+    });
+    ed.querySelectorAll('[data-vc]').forEach(b => b.addEventListener('click', () => {
+      pendingVerdict = b.dataset.vc === 'note' ? '' : b.dataset.vc;
+      paintVc();
+    }));
+    paintVc();
+    // position near the click / element
+    const x = ev ? ev.clientX : targetEl.getBoundingClientRect().left;
+    const y = ev ? ev.clientY : targetEl.getBoundingClientRect().bottom;
+    const w = 280, vw = window.innerWidth, vh = window.innerHeight;
+    ed.style.left = Math.min(Math.max(8, x - 20), vw - w - 8) + 'px';
+    ed.style.top = Math.min(y + 10, vh - 200) + 'px';
+    const ta = ed.querySelector('textarea');
+    ta.focus();
+    ed.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
+      const act = b.dataset.act;
+      if (act === 'cancel') return closeEditor();
+      if (act === 'del') { if (existingIndex != null) { comments.splice(existingIndex, 1); save(); renderAll(); } return closeEditor(); }
+      if (act === 'save') {
+        const text = ta.value.trim();
+        if (!text && !pendingVerdict) { closeEditor(); return; }
+        if (existing) { existing.text = text; existing.verdict = pendingVerdict; }
+        else { comments.push({ target, text, verdict: pendingVerdict }); }
+        save(); renderAll(); closeEditor();
+      }
+    }));
+    ed.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeEditor();
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) ed.querySelector('[data-act="save"]').click();
+    });
+  }
+
+  // click-to-comment when comment mode is on
+  document.addEventListener('click', (e) => {
+    if (!document.body.classList.contains('cmt-on')) return;
+    if (e.target.closest('.editor') || e.target.closest('.panel') || e.target.closest('.topbar') || e.target.closest('.pin')) return;
+    const cmt = e.target.closest('.cmt');
+    if (!cmt) return;
+    e.preventDefault();
+    openEditor(cmt, null, e);
+  });
+
+  /* toggles */
+  const cBtn = document.getElementById('commentToggle');
+  cBtn.addEventListener('click', () => {
+    const on = document.body.classList.toggle('cmt-on');
+    cBtn.classList.toggle('on', on);
+    cBtn.textContent = 'Comment mode: ' + (on ? 'on' : 'off');
+    if (!on) closeEditor();
+  });
+
+  const tBtn = document.getElementById('themeToggle');
+  tBtn.addEventListener('click', () => {
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+    tBtn.textContent = dark ? 'Switch to dark' : 'Switch to light';
+  });
+
+  /* panel collapse */
+  document.getElementById('panelHead').addEventListener('click', () => {
+    const p = document.getElementById('panel');
+    const col = p.classList.toggle('collapsed');
+    document.getElementById('chev').textContent = col ? 'show' : 'hide';
+  });
+
+  /* export */
+  function buildMarkdown() {
+    let out = 'BeakerSearch palette redesign, feedback\n\n';
+    out += 'Decisions on the five changes\n';
+    CHANGES.forEach(c => {
+      const v = verdicts[c.id];
+      const mark = v === 'approve' ? 'APPROVE' : v === 'disapprove' ? 'DISAPPROVE' : 'undecided';
+      out += `- ${c.title}: ${mark}\n`;
+    });
+    out += '\nComments\n';
+    if (comments.length === 0) out += '- none\n';
+    comments.forEach((c, i) => {
+      const tag = c.verdict === 'approve' ? '[APPROVE] ' : c.verdict === 'disapprove' ? '[DISAPPROVE] ' : '';
+      out += `${i + 1}. ${tag}[${c.target}] ${c.text}\n`;
+    });
+    return out;
+  }
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 1600);
+  }
+  document.getElementById('exportBtn').addEventListener('click', async () => {
+    const md = buildMarkdown();
+    try { await navigator.clipboard.writeText(md); toast('Feedback copied. Paste it back to me.'); }
+    catch { window.prompt('Copy your feedback', md); }
+  });
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    const blob = new Blob([buildMarkdown()], { type: 'text/markdown' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'beakersearch-comments.md';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    if (comments.length && !confirm('Delete all comments?')) return;
+    comments = []; save(); renderAll();
+  });
+</script>
+</body>
+</html>

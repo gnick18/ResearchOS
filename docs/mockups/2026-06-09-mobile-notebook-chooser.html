@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>ResearchOS - mobile notebook chooser (pick any notebook, or unsorted)</title>
+<style>
+  :root{--sky:#1AA0E6;--purple:#5B47D6;--ink:#0b1320;--ink-2:#3c4656;--ink-3:#8a93a3;--bg:#f2f3f7;--group:#fff;--sep:rgba(60,67,86,.10);--card-shadow:0 1px 2px rgba(16,24,40,.05),0 8px 24px rgba(16,24,40,.06);--ok:#1a9c5b;--ok-bg:#e4f7ec;--warn:#d98a0b;--warn-bg:#fdf3e2;--r1:#FFD2B0;--r2:#FFF1A8;--r3:#B7EBB1;--r4:#A6D2F4;--r5:#D6B5F0;--radius:18px;--page:#e9ebf1;--amber:#E8920B;--green:#16A34A;--violet:#9333EA}
+  *{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .top{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--page) 88%,transparent);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--sep);padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .top h1{font-size:17px;margin:0;font-weight:700;letter-spacing:-.02em}.top .sub{font-size:12.5px;color:var(--ink-3)}.spacer{flex:1}
+  .tbtn{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--sep);background:var(--group);color:var(--ink);border-radius:980px;padding:8px 15px;cursor:pointer}.tbtn.brand{background:linear-gradient(135deg,var(--sky),var(--purple));color:#fff;border:none}
+  .legend{display:flex;gap:12px;font-size:12px;color:var(--ink-3);align-items:center;flex-wrap:wrap}.dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px}.dot.ok{background:#1a9c5b}.dot.warn{background:#d98a0b}.dot.none{background:#c4ccd6}
+  .wrap{max-width:1240px;margin:0 auto;padding:20px 20px 120px}.intro{font-size:13px;color:var(--ink-2);max-width:980px;line-height:1.6;margin:8px 0}
+  .grid{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start;margin-top:16px;justify-content:center}.cell{width:330px}
+  .cap{display:flex;align-items:baseline;gap:8px;margin:0 2px 9px}.cap .step{min-width:22px;height:22px;border-radius:50%;background:var(--sky);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 7px}.cap .n{font-size:14px;font-weight:700}.cap .d{font-size:12px;color:var(--ink-3)}
+  .phone{width:330px;height:700px;border-radius:46px;background:var(--bg);position:relative;overflow:hidden;border:10px solid #0c0d10;box-shadow:0 30px 60px rgba(16,24,40,.22)}
+  .phone::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5));z-index:40}
+  .scr{position:absolute;inset:0;display:flex;flex-direction:column}
+  .rainbow{height:4px;background:linear-gradient(90deg,var(--r1),var(--r2),var(--r3),var(--r4),var(--r5))}
+  .statusbar{height:44px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 7px;font-size:13px;font-weight:600}
+  .preview{display:flex;gap:12px;align-items:center;background:var(--group);border-radius:14px;box-shadow:var(--card-shadow);padding:11px;margin:2px 16px 0}
+  .thumb{width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,#cfe6f7,#a6d2f4);flex-shrink:0}
+  .preview .pt{font-size:14px;font-weight:700}.preview .ps{font-size:12px;color:var(--ink-3);margin-top:2px}
+  .sheet{position:absolute;left:0;right:0;bottom:0;top:96px;z-index:35;background:var(--bg);border-radius:24px 24px 0 0;padding:10px 16px 16px;box-shadow:0 -12px 40px rgba(0,0,0,.16);display:flex;flex-direction:column}
+  .grab{width:38px;height:5px;border-radius:980px;background:var(--sep);margin:4px auto 10px}
+  .sheet-h{font-size:19px;font-weight:800;letter-spacing:-.02em;margin:0 4px 3px}
+  .sheet-sub{font-size:12.5px;color:var(--ink-3);margin:0 4px 12px;line-height:1.4}
+  .sheet-scroll{overflow:auto;margin:0 -4px;padding:0 4px}.sheet-scroll::-webkit-scrollbar{display:none}
+  .sec-h{font-size:11.5px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;margin:12px 6px 7px}
+  .opt{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:1.5px solid var(--sep);background:var(--group);border-radius:14px;padding:12px 13px;margin-bottom:9px;cursor:pointer;position:relative}
+  .opt.rec{border-color:var(--sky);box-shadow:0 0 0 3px color-mix(in srgb,var(--sky) 16%,transparent)}
+  .opt .ico{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:color-mix(in srgb,var(--amber) 14%,transparent);color:var(--amber)}
+  .opt .ico.sky{background:color-mix(in srgb,var(--sky) 13%,transparent);color:var(--sky)}.opt .ico.green{background:color-mix(in srgb,var(--green) 14%,transparent);color:var(--green)}.opt .ico.violet{background:color-mix(in srgb,var(--violet) 14%,transparent);color:var(--violet)}.opt .ico.gray{background:color-mix(in srgb,var(--ink-3) 16%,transparent);color:var(--ink-2)}
+  .opt .ox{flex:1;min-width:0}.opt .ot{font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.opt .os{font-size:12px;color:var(--ink-3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .opt.locked{opacity:.55;cursor:default}.opt.locked .lock{margin-left:auto;color:var(--ink-3)}
+  .pill{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:980px;white-space:nowrap}.pill.sky{background:color-mix(in srgb,var(--sky) 14%,transparent);color:var(--sky)}.pill.violet{background:color-mix(in srgb,var(--violet) 14%,transparent);color:var(--violet)}.pill.warn{background:var(--warn-bg);color:var(--warn)}
+  .chev{color:var(--ink-3);opacity:.5;flex-shrink:0}
+  .entry{display:flex;align-items:center;gap:11px;width:100%;text-align:left;border:none;background:transparent;border-radius:12px;padding:10px 11px;cursor:pointer;position:relative}.entry+.entry::before{content:"";position:absolute;top:0;left:11px;right:11px;height:1px;background:var(--sep)}
+  .entry .dt{width:32px;text-align:center;flex-shrink:0}.entry .dt .dd{font-size:15px;font-weight:800;line-height:1}.entry .dt .mm{font-size:9.5px;font-weight:700;color:var(--ink-3);text-transform:uppercase}
+  .entry .et{font-size:14px;font-weight:600}.entry .es{font-size:11.5px;color:var(--ink-3);margin-top:1px}
+  .group{background:var(--group);border-radius:14px;box-shadow:var(--card-shadow);overflow:hidden;margin-bottom:9px}
+  .ghost{background:transparent;border:none;color:var(--ink-3);font-weight:600;font-size:14px;width:100%;padding:12px;cursor:pointer}
+  .toast{position:absolute;left:16px;right:16px;bottom:20px;z-index:36;background:var(--ink);color:#fff;border-radius:14px;padding:13px 15px;display:flex;align-items:center;gap:11px;box-shadow:0 12px 30px rgba(0,0,0,.3)}
+  .toast .tk{width:26px;height:26px;border-radius:50%;background:var(--ok);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}.toast .tt{font-size:13.5px;font-weight:650}.toast .ts{font-size:11.5px;opacity:.75}
+  .why{font-size:12px;color:var(--ink-2);line-height:1.55;margin:10px 2px 0;border-left:2px solid var(--sky);padding-left:11px}
+  .review{margin-top:12px;display:flex;gap:7px;flex-wrap:wrap}.seg{display:inline-flex;border:1px solid var(--sep);border-radius:9px;overflow:hidden}.seg button{font:inherit;font-size:12px;padding:6px 11px;border:none;background:var(--group);color:var(--ink-3);cursor:pointer}.seg button.on.ok{background:#1a9c5b;color:#fff}.seg button.on.warn{background:#d98a0b;color:#fff}.seg button.on.none{background:#64748b;color:#fff}
+  .cmt{width:100%;margin-top:8px;font:inherit;font-size:12.5px;border:1px dashed var(--sep);border-radius:9px;background:var(--group);color:var(--ink);padding:8px 10px;resize:vertical;min-height:30px}
+  svg{display:block}
+  #exm{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}#exm .box{background:var(--group);border-radius:16px;max-width:680px;width:100%;padding:18px;border:1px solid var(--sep)}#exm textarea{width:100%;min-height:220px;font-family:ui-monospace,Menlo,monospace;font-size:12px;border:1px solid var(--sep);border-radius:8px;background:var(--bg);color:var(--ink);padding:10px}
+</style>
+</head>
+<body>
+<div class="top">
+  <div><h1>Mobile notebook chooser</h1><div class="sub">Capture a note, pick ANY notebook to file it in (yours, shared, 1:1), or leave it unsorted.</div></div>
+  <div class="spacer"></div>
+  <div class="legend"><span><span class="dot ok"></span>Approve</span><span><span class="dot warn"></span>Change</span><span><span class="dot none"></span>?</span></div>
+  <button class="tbtn brand" id="export">Export</button>
+</div>
+<div class="wrap">
+  <p class="intro">The reframe. Instead of only routing to whatever is open on the laptop, the phone shows a chooser of every notebook you can write to, so the companion is a real capture tool, not just a remote. The chooser leads with a recommended row (what is open on your laptop, if anything), then your own notebooks, notebooks shared with you (edit access only, view-only ones are shown locked), and your 1:1 notebooks with your PI or students. "Unsorted note" always sits at the bottom for a quick capture that is not filed (it lands in the inbox). Picking a multi-entry running notebook then asks which entry (the recommended-entry picker we already mocked). The laptop does the write, with the edit-permission gate and correct attribution.</p>
+  <div class="grid" id="grid"></div>
+</div>
+<div id="exm"><div class="box"><div style="display:flex;gap:10px;margin-bottom:10px;align-items:center"><strong style="font-size:14px">Feedback</strong><span class="spacer" style="flex:1"></span><button class="tbtn" onclick="navigator.clipboard.writeText(exT.value)">Copy</button><button class="tbtn" onclick="exm.style.display='none'">Close</button></div><textarea id="exT" readonly></textarea></div></div>
+<script>
+const I={
+ chev:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+ check:'<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
+ note:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h6"/></svg>',
+ exp:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v6l-5 9a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3l-5-9V3"/><path d="M8 3h8"/></svg>',
+ people:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+ lock:'<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+ inbox:'<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>',
+};
+const sb='<div class="statusbar"><span>9:41</span><span>5G</span></div>';
+const preview='<div class="preview"><div class="thumb"></div><div><div class="pt">Quick note</div><div class="ps">Just now</div></div></div>';
+
+const screens=[
+ {id:'chooser',n:'Notebook chooser',d:'pick any notebook, or unsorted',
+  why:'THE NEW SURFACE. Leads with a RECOMMENDED row = what is open on your laptop right now (here the Cloning log, reusing the focus context). Then YOUR NOTEBOOKS, SHARED WITH YOU (edit access only, DECIDED 2026-06-09 to hide view-only shares entirely since you cannot file there), and 1:1 NOTEBOOKS with your PI / students. "Unsorted note" always at the bottom = a quick capture that lands in the inbox, unfiled. Applies to BOTH photos and quick notes; the experiment Notes/Results auto-route stays the smart default when an experiment is open.',
+  html:`<div class="scr"><div class="rainbow"></div>${sb}${preview}
+   <div class="sheet">
+     <div class="grab"></div>
+     <div class="sheet-h">Where should this go?</div>
+     <div class="sheet-sub">Pick a notebook, or leave it unsorted.</div>
+     <div class="sheet-scroll">
+       <div class="sec-h" style="margin-top:2px">Open on your laptop</div>
+       <button class="opt rec"><div class="ico">${I.note}</div><div class="ox"><div class="ot">Cloning log, pENTR-GFP <span class="pill sky">open</span></div><div class="os">Recommended, you have it open</div></div><div class="chev">${I.chev}</div></button>
+       <div class="sec-h">Your notebooks</div>
+       <div class="group">
+         <button class="opt" style="border:none;border-radius:0;margin:0"><div class="ico">${I.note}</div><div class="ox"><div class="ot">Antibody titration plan</div><div class="os">3 entries</div></div><div class="chev">${I.chev}</div></button>
+         <button class="opt" style="border:none;border-radius:0;margin:0;border-top:1px solid var(--sep)"><div class="ico">${I.note}</div><div class="ox"><div class="ot">Reagent prep log</div><div class="os">12 entries</div></div><div class="chev">${I.chev}</div></button>
+       </div>
+       <div class="sec-h">Shared with you</div>
+       <div class="group">
+         <button class="opt" style="border:none;border-radius:0;margin:0"><div class="ico green">${I.people}</div><div class="ox"><div class="ot">Lab freezer inventory</div><div class="os">from Priya &middot; can edit</div></div><div class="chev">${I.chev}</div></button>
+       </div>
+       <div class="sec-h">1:1 notebooks</div>
+       <div class="group">
+         <button class="opt" style="border:none;border-radius:0;margin:0"><div class="ico violet">${I.people}</div><div class="ox"><div class="ot">1:1 with Dr. Okafor <span class="pill violet">PI</span></div><div class="os">your mentoring notebook</div></div><div class="chev">${I.chev}</div></button>
+         <button class="opt" style="border:none;border-radius:0;margin:0;border-top:1px solid var(--sep)"><div class="ico violet">${I.people}</div><div class="ox"><div class="ot">1:1 with Sam (student)</div><div class="os">your mentoring notebook</div></div><div class="chev">${I.chev}</div></button>
+       </div>
+       <button class="ghost" style="margin-top:6px;display:flex;align-items:center;justify-content:center;gap:8px">${I.inbox} Unsorted note (inbox)</button>
+     </div>
+   </div></div>`},
+
+ {id:'entry',n:'Which entry',d:'after picking a running notebook',
+  why:'Picking a multi-entry running notebook drops into the recommended-entry picker we already mocked and built (recommended = the open entry, else the last edited, then all entries). A single-entry or non-running notebook skips this and files straight in.',
+  html:`<div class="scr"><div class="rainbow"></div>${sb}${preview}
+   <div class="sheet">
+     <div class="grab"></div>
+     <div class="sheet-h">Which entry?</div>
+     <div class="sheet-sub">Cloning log, pENTR-GFP</div>
+     <div class="sheet-scroll">
+       <div class="sec-h" style="margin-top:2px">Recommended</div>
+       <button class="opt rec"><div class="ico">${I.note}</div><div class="ox"><div class="ot">Colony PCR screen <span class="pill sky">open</span></div><div class="os">Jun 9 &middot; the entry you have open</div></div><div style="width:22px;height:22px;border-radius:50%;background:var(--sky);color:#fff;display:flex;align-items:center;justify-content:center">${I.check}</div></button>
+       <div class="sec-h">All entries</div>
+       <div class="group">
+         <button class="entry"><div class="dt"><div class="dd">7</div><div class="mm">Jun</div></div><div class="ox"><div class="et">Ligation + transformation</div><div class="es">edited Jun 7</div></div><div class="chev">${I.chev}</div></button>
+         <button class="entry"><div class="dt"><div class="dd">5</div><div class="mm">Jun</div></div><div class="ox"><div class="et">Restriction digest</div><div class="es">edited Jun 5</div></div><div class="chev">${I.chev}</div></button>
+       </div>
+       <button class="ghost" style="margin-top:4px">Back to notebooks</button>
+     </div>
+   </div></div>`},
+
+ {id:'done',n:'Filed',d:'confirmation',
+  why:'After you pick, the phone uploads and posts the route command; the laptop writes it into that notebook entry (edit-permission checked, attributed to you), and confirms. An unsorted note instead lands in the inbox with the same gentle "appears on your laptop in a few seconds" line.',
+  html:`<div class="scr"><div class="rainbow"></div>${sb}
+   <div style="padding:18px 18px 0"><div style="font-size:26px;font-weight:800;letter-spacing:-.03em">Notebook</div></div>
+   <div style="padding:14px 18px">
+     <div class="sec-h" style="margin:6px 6px">Recently sent</div>
+     <div class="group"><button class="opt" style="border:none;border-radius:0;margin:0"><div class="ico">${I.note}</div><div class="ox"><div class="ot">Quick note</div><div class="os">Cloning log &middot; Colony PCR screen</div></div><span class="pill" style="background:var(--ok-bg);color:var(--ok)">filed</span></button></div>
+   </div>
+   <div class="toast"><div class="tk">${I.check}</div><div><div class="tt">Filed in Colony PCR screen</div><div class="ts">Cloning log, pENTR-GFP &middot; appears on your laptop shortly</div></div></div>
+  </div>`},
+];
+
+const grid=document.getElementById('grid');
+screens.forEach((s,i)=>{
+  const cell=document.createElement('div');cell.className='cell';
+  cell.innerHTML=`<div class="cap"><span class="step">${i+1}</span><span class="n">${s.n}</span><span class="d">${s.d}</span></div><div class="phone">${s.html}</div><div class="why">${s.why}</div><div class="review"><div class="seg" data-k="${s.id}"><button data-v="ok" class="ok">Approve</button><button data-v="warn" class="warn">Change</button><button data-v="none" class="none">?</button></div></div><textarea class="cmt" data-c="${s.id}" placeholder="Notes on this screen..."></textarea>`;
+  grid.appendChild(cell);
+});
+const verdicts={},comments={};
+document.querySelectorAll('.seg').forEach(seg=>{const k=seg.dataset.k;seg.querySelectorAll('button').forEach(b=>{b.onclick=()=>{seg.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');verdicts[k]=b.dataset.v;};});});
+document.querySelectorAll('.cmt').forEach(t=>{t.oninput=()=>comments[t.dataset.c]=t.value;});
+document.getElementById('export').onclick=()=>{let out='MOBILE NOTEBOOK CHOOSER - review\n\n';screens.forEach((s,i)=>{out+=`${i+1}. ${s.n} (${s.id}): ${(verdicts[s.id]||'-').toUpperCase()}\n`;if(comments[s.id])out+=`   note: ${comments[s.id]}\n`;});document.getElementById('exT').value=out;document.getElementById('exm').style.display='flex';};
+</script>
+</body>
+</html>

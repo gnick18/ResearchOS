@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TaskPicker placement, top vs centered</title>
+<style>
+  :root {
+    --bg: #f1f5f9;
+    --surface: #ffffff;
+    --surface-raised: #ffffff;
+    --surface-sunken: #f8fafc;
+    --foreground: #0f172a;
+    --foreground-muted: #64748b;
+    --border: #e2e8f0;
+    --accent: #2563eb;
+    --sky-active: #eff6ff;
+    --pin: #e11d48;
+    --good: #16a34a;
+    --scrim: rgba(15, 23, 42, 0.25);
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 24px 50px -12px rgba(0,0,0,0.28);
+  }
+  html[data-theme="dark"] {
+    --bg: #0b1220;
+    --surface: #0f172a;
+    --surface-raised: #111c30;
+    --surface-sunken: #0c1626;
+    --foreground: #e6edf6;
+    --foreground-muted: #93a4bd;
+    --border: #24344d;
+    --accent: #3b82f6;
+    --sky-active: #16243c;
+    --pin: #fb7185;
+    --good: #22c55e;
+    --scrim: rgba(2, 6, 12, 0.45);
+    --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 24px 50px -12px rgba(0,0,0,0.6);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--foreground); }
+
+  .topbar { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 12px; padding: 14px 20px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .topbar h1 { font-size: 16px; margin: 0; }
+  .topbar p { font-size: 12px; color: var(--foreground-muted); margin: 2px 0 0; }
+  .spacer { flex: 1; }
+  .btn { font: inherit; font-size: 12.5px; padding: 7px 12px; border: 1px solid var(--border); background: var(--surface-raised); color: var(--foreground); border-radius: 8px; cursor: pointer; }
+  .btn:hover { background: var(--surface-sunken); }
+  .btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.danger { color: var(--pin); }
+
+  .stage { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; padding: 22px; max-width: 1500px; margin: 0 auto; }
+  @media (max-width: 1040px) { .stage { grid-template-columns: 1fr; } }
+  .col h2 { font-size: 14px; margin: 0 0 4px; }
+  .col .blurb { font-size: 12px; color: var(--foreground-muted); margin: 0 0 12px; min-height: 32px; }
+
+  /* faux app viewport */
+  .frame { position: relative; height: 560px; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--bg); box-shadow: var(--shadow); }
+  .app { position: absolute; inset: 0; filter: saturate(0.96); }
+  .app .nav { display: flex; align-items: center; gap: 18px; padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--border); font-size: 12.5px; }
+  .app .nav .logo { font-weight: 800; }
+  .app .nav .tab { color: var(--foreground-muted); }
+  .app .nav .tab.active { color: var(--accent); font-weight: 600; }
+  .app .panel { position: absolute; left: 16px; top: 60px; width: 210px; }
+  .app .panel .h { font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--pin); margin: 6px 0; }
+  .app .card { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+  .app .card .t { font-size: 12px; }
+  .app .card .d { font-size: 10.5px; color: var(--foreground-muted); }
+  .app .main { position: absolute; left: 244px; right: 16px; top: 60px; }
+  .app .main .h2 { font-size: 18px; font-weight: 700; }
+  .app .main .sub { font-size: 12px; color: var(--foreground-muted); margin-top: 2px; }
+
+  /* scrim + picker */
+  .scrim { position: absolute; inset: 0; background: var(--scrim); display: flex; padding: 16px; }
+  .scrim.top { align-items: flex-start; justify-content: center; padding-top: 56px; }
+  .scrim.center { align-items: center; justify-content: center; }
+  .picker { width: 100%; max-width: 460px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); display: flex; flex-direction: column; overflow: hidden; }
+  .picker .ph { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--border); }
+  .picker .ph svg { width: 17px; height: 17px; color: var(--foreground-muted); flex: none; }
+  .picker .ph input { flex: 1; border: 0; background: transparent; font: inherit; font-size: 13.5px; color: var(--foreground); outline: none; }
+  .picker .ph .x { color: var(--foreground-muted); cursor: pointer; border: 0; background: transparent; font-size: 16px; }
+  .picker .pl { max-height: 260px; overflow-y: auto; }
+  .picker .prow { padding: 10px 14px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .picker .prow:hover, .picker .prow.sel { background: var(--sky-active); }
+  .picker .prow .l { font-size: 13px; color: var(--foreground); }
+  .picker .prow .s { font-size: 11px; color: var(--foreground-muted); }
+
+  /* comment pins */
+  body.cmt-on .frame { cursor: crosshair; }
+  .cmt { position: relative; }
+  .pin { position: absolute; top: -8px; right: -8px; z-index: 20; min-width: 18px; height: 18px; padding: 0 4px; background: var(--pin); color: #fff; border-radius: 9px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+  .pin.hl { outline: 2px solid var(--foreground); }
+
+  /* decision */
+  .decide { max-width: 1500px; margin: 0 auto; padding: 0 22px 8px; }
+  .decide h3 { font-size: 14px; }
+  .opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 1040px) { .opts { grid-template-columns: 1fr; } }
+  .opt { border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: 10px; padding: 14px; background: var(--surface-raised); cursor: pointer; }
+  .opt.picked { border-left-color: var(--good); background: var(--sky-active); }
+  .opt .ot { font-size: 13.5px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .opt .od { font-size: 12px; color: var(--foreground-muted); margin-top: 6px; line-height: 1.45; }
+  .opt .rec { font-size: 10px; font-weight: 700; color: var(--good); border: 1px solid var(--good); border-radius: 5px; padding: 1px 5px; }
+  .opt .chosen { font-size: 11px; font-weight: 700; color: var(--good); margin-top: 8px; display: none; }
+  .opt.picked .chosen { display: block; }
+
+  /* comments panel */
+  .panel-c { position: fixed; right: 16px; bottom: 16px; width: 320px; max-height: 70vh; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); display: flex; flex-direction: column; z-index: 60; }
+  .panel-c.collapsed .pbody, .panel-c.collapsed .pfoot { display: none; }
+  .phead { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .phead h3 { font-size: 13px; margin: 0; }
+  .phead .count { background: var(--accent); color: #fff; border-radius: 9px; font-size: 11px; padding: 0 7px; line-height: 18px; }
+  .phead .chev { margin-left: auto; font-size: 11px; color: var(--foreground-muted); }
+  .pbody { overflow-y: auto; padding: 8px; }
+  .empty { font-size: 12px; color: var(--foreground-muted); padding: 12px; }
+  .citem { display: flex; gap: 8px; padding: 8px; border-radius: 8px; cursor: pointer; }
+  .citem:hover { background: var(--surface-sunken); }
+  .citem .num { flex: none; width: 18px; height: 18px; background: var(--pin); color: #fff; border-radius: 9px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+  .citem .tgt { font-size: 11px; color: var(--foreground-muted); }
+  .citem .txt { font-size: 12.5px; }
+  .citem .x { margin-left: auto; border: 0; background: transparent; color: var(--foreground-muted); cursor: pointer; font-size: 15px; }
+  .pfoot { display: flex; gap: 8px; padding: 8px; border-top: 1px solid var(--border); }
+
+  .editor { position: fixed; z-index: 70; width: 280px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); padding: 10px; }
+  .editor .lbl { font-size: 11px; color: var(--foreground-muted); margin-bottom: 6px; }
+  .editor textarea { width: 100%; min-height: 64px; resize: vertical; font: inherit; font-size: 12.5px; border: 1px solid var(--border); border-radius: 8px; padding: 7px; background: var(--surface); color: var(--foreground); }
+  .editor .acts { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
+  .editor .acts .spacer { flex: 1; }
+
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px); background: var(--foreground); color: var(--bg); padding: 9px 14px; border-radius: 8px; font-size: 12.5px; opacity: 0; transition: all .25s; z-index: 80; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <h1>TaskPicker placement, top vs centered</h1>
+      <p>The parent-task picker (set "this depends on"). Pick a placement below. Turn on Comment mode, then click anywhere on a frame to pin a note.</p>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn" id="commentToggle">Comment mode: off</button>
+    <button class="btn" id="themeToggle">Switch to dark</button>
+  </div>
+
+  <div class="stage">
+    <div class="col">
+      <h2>Top-aligned (live today)</h2>
+      <p class="blurb">The picker drops from near the top of the screen, command-palette style, the way Cmd K / BeakerSearch appears. Bespoke scrim, no zoom animation.</p>
+      <div class="frame cmt" data-clabel="Top-aligned frame">
+        <div class="app" id="appTop"></div>
+        <div class="scrim top">
+          <div class="picker cmt" data-clabel="Top-aligned / picker card" id="pickTop"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <h2>Centered (LivingPopup default)</h2>
+      <p class="blurb">The same card floats in the vertical middle, like every other migrated popup. Gains the unified zoom-from-click, scrim, and stack membership for free.</p>
+      <div class="frame cmt" data-clabel="Centered frame">
+        <div class="app" id="appCenter"></div>
+        <div class="scrim center">
+          <div class="picker cmt" data-clabel="Centered / picker card" id="pickCenter"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="decide">
+    <h3>Pick the placement (one)</h3>
+    <div class="opts" id="opts"></div>
+    <p style="font-size:12px;color:var(--foreground-muted);max-width:820px;margin-top:12px;">Note. TaskPicker already has the no-double-dim fix, so it is not broken either way. This is purely about where it appears and whether it joins the LivingPopup family. The other two Send-to pickers already shipped on LivingPopup (centered).</p>
+  </div>
+
+  <div class="panel-c" id="panel">
+    <div class="phead" id="phead">
+      <h3>Comments</h3>
+      <span class="count" id="cCount">0</span>
+      <span class="chev" id="chev">hide</span>
+    </div>
+    <div class="pbody" id="pbody"><div class="empty">No comments yet. Turn on Comment mode and click any part of a frame.</div></div>
+    <div class="pfoot">
+      <button class="btn" id="exportBtn">Copy feedback</button>
+      <span style="flex:1"></span>
+      <button class="btn danger" id="clearBtn">Clear</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  /* faux app background (same on both frames) */
+  function appHtml() {
+    const cards = [
+      ['Build pDEMO-fluo plasmid library','4d, dependency chain'],
+      ['Set up growth curves in YPD/glucose','3d'],
+      ['Heat-shock survival assay','1d'],
+    ];
+    return `
+      <div class="nav"><span class="logo">ResearchOS</span><span class="tab">Workbench</span><span class="tab active">GANTT</span><span class="tab">Methods</span><span class="tab">Sequences</span></div>
+      <div class="panel">
+        <div class="h">Overdue (4)</div>
+        ${cards.map(c=>`<div class="card"><div class="t">${c[0]}</div><div class="d">${c[1]}</div></div>`).join('')}
+      </div>
+      <div class="main">
+        <div class="h2">qPCR — fakeGFP expression vs control</div>
+        <div class="sub">Experiment in DEMO: Engineer FakeYeast for biofuel</div>
+      </div>`;
+  }
+  document.getElementById('appTop').innerHTML = appHtml();
+  document.getElementById('appCenter').innerHTML = appHtml();
+
+  /* picker card (same content both placements) */
+  const ROWS = [
+    ['Mini-prep candidate plasmids','DEMO: Engineer FakeYeast for biofuel'],
+    ['qPCR — fakeGFP expression vs control','DEMO: Engineer FakeYeast for biofuel'],
+    ['Set up growth curves in YPD/glucose','DEMO: Engineer FakeYeast for biofuel'],
+    ['Run fluorescence reader','DEMO: Engineer FakeYeast for biofuel'],
+    ['Send sequencing — top 4','DEMO: Engineer FakeYeast for biofuel'],
+  ];
+  function pickerHtml() {
+    return `
+      <div class="ph">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input placeholder="Search experiments to depend on" />
+        <button class="x" aria-label="Close">&times;</button>
+      </div>
+      <div class="pl">
+        ${ROWS.map((r,i)=>`<div class="prow ${i===0?'sel':''}"><div class="l">${esc(r[0])}</div><div class="s">${esc(r[1])}</div></div>`).join('')}
+      </div>`;
+  }
+  document.getElementById('pickTop').innerHTML = pickerHtml();
+  document.getElementById('pickCenter').innerHTML = pickerHtml();
+
+  // clickable rows (when not commenting)
+  document.querySelectorAll('.picker').forEach(p => p.addEventListener('click', (e) => {
+    if (document.body.classList.contains('cmt-on')) return;
+    const row = e.target.closest('.prow'); if (!row) return;
+    p.querySelectorAll('.prow').forEach(r => r.classList.remove('sel'));
+    row.classList.add('sel');
+  }));
+
+  /* decision (pick one) */
+  const OPTIONS = [
+    { id: 'top', title: 'Keep top-aligned', rec: true, desc: 'Add an optional align="top" prop to LivingPopup, migrate TaskPicker with it. Keeps the exact command-palette drop-from-top you see, and reusable for future palette-style popups.' },
+    { id: 'center', title: 'Center it', desc: 'Migrate as-is onto LivingPopup. Simplest, fully consistent with every other popup, but the picker moves to the vertical middle.' },
+    { id: 'leave', title: 'Leave as-is', desc: 'Skip it. Already has the no-double-dim fix, so it is not broken. It keeps its bespoke top shell (no zoom). Treat palette-style pickers as out of scope, like BeakerSearch.' },
+  ];
+  const PSTORE = 'taskpicker-placement-pick-v1';
+  let pick = '';
+  try { pick = localStorage.getItem(PSTORE) || ''; } catch {}
+  function renderOpts() {
+    document.getElementById('opts').innerHTML = OPTIONS.map(o => `
+      <div class="opt ${pick===o.id?'picked':''}" data-opt="${o.id}">
+        <div class="ot">${esc(o.title)} ${o.rec?'<span class="rec">my pick</span>':''}</div>
+        <div class="od">${esc(o.desc)}</div>
+        <div class="chosen">Chosen</div>
+      </div>`).join('');
+    document.querySelectorAll('.opt').forEach(el => el.addEventListener('click', () => {
+      pick = (pick === el.dataset.opt) ? '' : el.dataset.opt;
+      try { localStorage.setItem(PSTORE, pick); } catch {}
+      renderOpts();
+    }));
+  }
+  renderOpts();
+
+  /* comments */
+  const STORE = 'taskpicker-placement-comments-v1';
+  let comments = [];
+  try { comments = JSON.parse(localStorage.getItem(STORE) || '[]'); } catch {}
+  function save(){ try { localStorage.setItem(STORE, JSON.stringify(comments)); } catch {} }
+
+  function renderPins() {
+    document.querySelectorAll('.pin').forEach(p => p.remove());
+    const byTarget = {};
+    comments.forEach((c,i) => { (byTarget[c.target]=byTarget[c.target]||[]).push(i+1); });
+    document.querySelectorAll('.cmt').forEach(el => {
+      const lbl = el.getAttribute('data-clabel');
+      const nums = byTarget[lbl]; if (!nums) return;
+      const pin = document.createElement('span');
+      pin.className = 'pin'; pin.textContent = nums.join(',');
+      pin.addEventListener('click', (ev) => { ev.stopPropagation(); const f = comments.findIndex(c=>c.target===lbl); if (f>=0) openEditor(el, f, ev); });
+      el.appendChild(pin);
+    });
+  }
+  function renderPanel() {
+    document.getElementById('cCount').textContent = comments.length;
+    const body = document.getElementById('pbody');
+    if (!comments.length) { body.innerHTML = '<div class="empty">No comments yet. Turn on Comment mode and click any part of a frame.</div>'; return; }
+    body.innerHTML = comments.map((c,i)=>`
+      <div class="citem" data-i="${i}">
+        <span class="num">${i+1}</span>
+        <div style="flex:1"><div class="tgt">${esc(c.target)}</div><div class="txt">${esc(c.text)||'<i>no text</i>'}</div></div>
+        <button class="x" data-del="${i}">&times;</button>
+      </div>`).join('');
+    body.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => { comments.splice(+b.dataset.del,1); save(); renderAll(); }));
+    body.querySelectorAll('.citem').forEach(it => it.addEventListener('click', (e) => {
+      if (e.target.closest('[data-del]')) return;
+      const t = comments[+it.dataset.i].target;
+      const el = [...document.querySelectorAll('.cmt')].find(x=>x.getAttribute('data-clabel')===t);
+      if (el) { el.scrollIntoView({block:'center',behavior:'smooth'}); document.querySelectorAll('.pin').forEach(p=>{ if(p.closest('.cmt')?.getAttribute('data-clabel')===t){ p.classList.add('hl'); setTimeout(()=>p.classList.remove('hl'),1200);} }); }
+    }));
+  }
+  function renderAll(){ renderPins(); renderPanel(); }
+  renderAll();
+
+  let editorEl = null;
+  function closeEditor(){ if (editorEl){ editorEl.remove(); editorEl=null; } }
+  function openEditor(targetEl, existingIndex, ev) {
+    closeEditor();
+    const target = (targetEl.closest('.cmt')||targetEl).getAttribute('data-clabel') || 'Page';
+    const existing = existingIndex!=null ? comments[existingIndex] : null;
+    const ed = document.createElement('div'); ed.className = 'editor';
+    ed.innerHTML = `<div class="lbl">${esc(target)}</div>
+      <textarea placeholder="Type your note or suggestion">${existing?esc(existing.text):''}</textarea>
+      <div class="acts">${existing?'<button class="btn danger" data-act="del">Delete</button>':''}<span class="spacer"></span><button class="btn" data-act="cancel">Cancel</button><button class="btn on" data-act="save">Save</button></div>`;
+    document.body.appendChild(ed); editorEl = ed;
+    const vw = window.innerWidth, vh = window.innerHeight, w = 280;
+    const x = ev?ev.clientX:targetEl.getBoundingClientRect().left, y = ev?ev.clientY:targetEl.getBoundingClientRect().bottom;
+    ed.style.left = Math.min(Math.max(8, x-20), vw-w-8)+'px';
+    ed.style.top = Math.min(y+10, vh-200)+'px';
+    const ta = ed.querySelector('textarea'); ta.focus();
+    ed.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
+      const a = b.dataset.act;
+      if (a==='cancel') return closeEditor();
+      if (a==='del'){ if(existingIndex!=null){ comments.splice(existingIndex,1); save(); renderAll(); } return closeEditor(); }
+      if (a==='save'){ const t = ta.value.trim(); if(!t){ closeEditor(); return; } if(existing) existing.text=t; else comments.push({target,text:t}); save(); renderAll(); closeEditor(); }
+    }));
+    ed.addEventListener('keydown', (e) => { if (e.key==='Escape') closeEditor(); if (e.key==='Enter'&&(e.metaKey||e.ctrlKey)) ed.querySelector('[data-act="save"]').click(); });
+  }
+  document.addEventListener('click', (e) => {
+    if (!document.body.classList.contains('cmt-on')) return;
+    if (e.target.closest('.editor')||e.target.closest('.panel-c')||e.target.closest('.topbar')||e.target.closest('.pin')) return;
+    const cmt = e.target.closest('.cmt'); if (!cmt) return;
+    e.preventDefault(); openEditor(cmt, null, e);
+  });
+
+  const cBtn = document.getElementById('commentToggle');
+  cBtn.addEventListener('click', () => { const on = document.body.classList.toggle('cmt-on'); cBtn.classList.toggle('on', on); cBtn.textContent = 'Comment mode: '+(on?'on':'off'); if(!on) closeEditor(); });
+  const tBtn = document.getElementById('themeToggle');
+  tBtn.addEventListener('click', () => { const d = document.documentElement.getAttribute('data-theme')==='dark'; document.documentElement.setAttribute('data-theme', d?'light':'dark'); tBtn.textContent = d?'Switch to dark':'Switch to light'; });
+  document.getElementById('phead').addEventListener('click', () => { const c = document.getElementById('panel').classList.toggle('collapsed'); document.getElementById('chev').textContent = c?'show':'hide'; });
+
+  function buildMd() {
+    const opt = OPTIONS.find(o=>o.id===pick);
+    let out = 'TaskPicker placement, feedback\n\n';
+    out += 'Pick: ' + (opt?opt.title:'undecided') + '\n\nComments\n';
+    if (!comments.length) out += '- none\n';
+    comments.forEach((c,i)=> out += `${i+1}. [${c.target}] ${c.text}\n`);
+    return out;
+  }
+  function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1600); }
+  document.getElementById('exportBtn').addEventListener('click', async () => { const md=buildMd(); try { await navigator.clipboard.writeText(md); toast('Feedback copied. Paste it back to me.'); } catch { window.prompt('Copy your feedback', md); } });
+  document.getElementById('clearBtn').addEventListener('click', () => { if (comments.length && !confirm('Delete all comments?')) return; comments=[]; save(); renderAll(); });
+</script>
+</body>
+</html>

@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BeakerSearch v2, sub-flow UX, side by side</title>
+<style>
+  :root{
+    --surface-raised:#fff;--surface-sunken:#f8fafc;--surface:#fff;
+    --foreground:#171717;--foreground-muted:#6b7280;--border:#e5e7eb;
+    --scrim:rgba(15,23,42,0.35);--accent:#0284c7;
+    --task-ic:#d97706;--task-bg:#fffbeb;--person-ic:#db2777;--person-bg:#fdf2f8;
+    --sky-ic:#0284c7;--sky-bg:#f0f9ff;--page-bg:#e2e8f0;--pin:#e11d48;
+  }
+  html[data-theme="dark"]{
+    --surface-raised:#131c2e;--surface-sunken:#0d1424;--surface:#0a0e1a;
+    --foreground:#f1f5f9;--foreground-muted:#b4bfd0;--border:rgba(255,255,255,0.22);
+    --scrim:rgba(2,6,15,0.55);--accent:#38bdf8;
+    --task-ic:#fbbf24;--task-bg:rgba(120,53,15,0.32);--person-ic:#f9a8d4;--person-bg:rgba(131,24,67,0.36);
+    --sky-ic:#7dd3fc;--sky-bg:rgba(12,74,110,0.34);--page-bg:#060a13;--pin:#fb7185;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--page-bg);color:var(--foreground);}
+  .topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:12px 22px;background:var(--surface-raised);border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .topbar h1{font-size:15px;margin:0;font-weight:700;}
+  .topbar p{margin:0;font-size:12px;color:var(--foreground-muted);}
+  .spacer{flex:1;}
+  .btn{cursor:pointer;border:1px solid var(--border);background:var(--surface-sunken);color:var(--foreground);border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;}
+  .btn.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .btn.danger{color:var(--pin);}
+  .stage{display:grid;grid-template-columns:1fr 1fr;gap:28px;padding:28px 22px 40px;max-width:1340px;margin:0 auto;}
+  @media (max-width:1000px){.stage{grid-template-columns:1fr;}}
+  .col h2{font-size:13px;color:var(--foreground);margin:0 0 4px;font-weight:700;}
+  .col .blurb{font-size:12.5px;color:var(--foreground-muted);margin:0 0 16px;min-height:54px;}
+  .frame{background:var(--scrim);border-radius:18px;padding:26px 22px;}
+  .palette{width:100%;max-width:560px;margin:0 auto;background:var(--surface-raised);border:1px solid var(--border);border-radius:16px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.45);overflow:hidden;}
+  .hdr{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);}
+  .bot{width:20px;height:20px;flex:none;}
+  .word{font-size:14px;font-weight:600;flex:none;}
+  .crumbs{flex:1;min-width:0;font-size:13px;color:var(--foreground-muted);display:flex;align-items:center;gap:6px;}
+  .crumbs .cur{color:var(--foreground);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .crumbs .sep{opacity:.6;}
+  .kbd{border:1px solid var(--border);background:var(--surface-sunken);color:var(--foreground-muted);border-radius:6px;padding:2px 6px;font-size:11px;font-weight:600;flex:none;}
+  .input{flex:1;min-width:0;font-size:14px;color:var(--foreground-muted);}
+  .back{display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;color:var(--foreground-muted);font-size:12.5px;font-weight:600;border-bottom:1px solid var(--border);background:var(--surface-sunken);}
+  .back svg{width:14px;height:14px;}
+  .list{padding:4px 0;max-height:420px;overflow-y:auto;}
+  .ghead{display:flex;align-items:center;gap:8px;padding:10px 16px 4px;font-size:10.5px;font-weight:600;text-transform:uppercase;color:var(--foreground-muted);}
+  .ghead .hint{font-weight:500;text-transform:none;}
+  .ghead .rule{flex:1;height:1px;background:var(--border);opacity:.6;}
+  .r{display:flex;align-items:center;gap:12px;padding:8px 16px;cursor:pointer;position:relative;}
+  .r.active{background:var(--sky-bg);}
+  .r.active::before{content:"";position:absolute;left:0;top:4px;bottom:4px;width:3px;border-radius:0 3px 3px 0;background:var(--accent);}
+  .r.sub{padding-left:40px;}
+  .r.sub::after{content:"";position:absolute;left:27px;top:0;bottom:0;width:1px;background:var(--border);}
+  .chip{width:24px;height:24px;flex:none;border-radius:7px;display:flex;align-items:center;justify-content:center;background:var(--surface-sunken);color:var(--sky-ic);}
+  .chip svg{width:14px;height:14px;}
+  .chip.task{background:var(--task-bg);color:var(--task-ic);}
+  .chip.person{background:var(--person-bg);color:var(--person-ic);}
+  .chip.sm{width:20px;height:20px;border-radius:6px;}
+  .chip.sm svg{width:12px;height:12px;}
+  .rtext{min-width:0;flex:1;}
+  .rl{display:block;font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .r.sub .rl{font-size:13px;}
+  .rs{display:block;font-size:11px;color:var(--foreground-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .rh{flex:none;border:1px solid var(--border);border-radius:6px;padding:2px 7px;font-size:11px;font-weight:600;color:var(--foreground-muted);}
+  .caret{margin-left:auto;flex:none;color:var(--foreground-muted);}
+  .caret svg{width:14px;height:14px;}
+  .ftr{display:flex;gap:14px;align-items:center;padding:9px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--foreground-muted);}
+  .ftr .k{border:1px solid var(--border);background:var(--surface-sunken);border-radius:5px;min-width:18px;height:18px;padding:0 5px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--foreground);}
+  .ftr .grp{display:inline-flex;align-items:center;gap:6px;}
+  .ftr .push{margin-left:auto;}
+  .tryhint{text-align:center;font-size:12px;color:var(--foreground-muted);margin-top:12px;}
+  .tryhint b{color:var(--accent);}
+  /* verdict cards */
+  body.cmt-on .cmt{cursor:crosshair;}
+  body.cmt-on .cmt:hover{outline:2px dashed var(--accent);outline-offset:-2px;border-radius:8px;}
+  .cmt{position:relative;}
+  .pin{position:absolute;top:-8px;right:-8px;z-index:8;min-width:18px;height:18px;padding:0 4px;background:var(--pin);color:#fff;border-radius:9px;font-size:11px;font-weight:700;line-height:18px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.4);cursor:pointer;}
+  .editor{position:fixed;z-index:50;width:280px;background:var(--surface-raised);border:1px solid var(--border);border-radius:12px;box-shadow:0 18px 40px -10px rgba(0,0,0,.55);padding:12px;}
+  .editor .lbl{font-size:11px;font-weight:700;color:var(--foreground-muted);text-transform:uppercase;margin-bottom:6px;}
+  .editor textarea{width:100%;min-height:74px;resize:vertical;border:1px solid var(--border);border-radius:8px;padding:8px;font:inherit;font-size:13px;background:var(--surface-sunken);color:var(--foreground);}
+  .editor .acts{display:flex;gap:8px;margin-top:8px;}
+  .editor .acts .sp{flex:1;}
+  .note{max-width:1340px;margin:0 auto;padding:0 22px 90px;}
+  .note h3{font-size:13px;margin:8px 0 10px;}
+  .changes{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  @media (max-width:1000px){.changes{grid-template-columns:1fr;}}
+  .change{display:flex;flex-direction:column;gap:8px;border:1px solid var(--border);border-radius:12px;background:var(--surface-raised);padding:12px 14px;border-top-width:4px;border-top-color:var(--border);}
+  .change.picked{border-top-color:#16a34a;}
+  .change .cti{font-size:13.5px;font-weight:600;}
+  .change .cd{font-size:12.5px;color:var(--foreground-muted);line-height:1.5;}
+  .change .pros{font-size:12px;color:var(--foreground-muted);}
+  .change .pros b{color:var(--foreground);}
+  .vrow{display:flex;gap:6px;margin-top:auto;}
+  .vrow .vb{flex:1;text-align:center;border:1px solid var(--border);background:var(--surface-sunken);border-radius:8px;padding:7px 8px;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--foreground);}
+  .vb.pick.on{background:#16a34a;border-color:#16a34a;color:#fff;}
+  .panel{position:fixed;right:18px;bottom:18px;z-index:40;width:340px;max-height:60vh;display:flex;flex-direction:column;background:var(--surface-raised);border:1px solid var(--border);border-radius:14px;box-shadow:0 18px 40px -10px rgba(0,0,0,.55);}
+  .panel.collapsed .pb,.panel.collapsed .pf{display:none;}
+  .ph{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;}
+  .ph h3{font-size:13px;margin:0;font-weight:700;}
+  .ph .chev{margin-left:auto;color:var(--foreground-muted);font-size:12px;}
+  .pb{overflow-y:auto;padding:6px;}
+  .ci{display:flex;gap:8px;padding:8px;border-radius:8px;}
+  .ci .num{flex:none;width:18px;height:18px;background:var(--pin);color:#fff;border-radius:9px;font-size:11px;font-weight:700;line-height:18px;text-align:center;}
+  .ci .bd{min-width:0;flex:1;}
+  .ci .tg{font-size:11px;color:var(--foreground-muted);}
+  .ci .tx{font-size:13px;white-space:pre-wrap;word-break:break-word;}
+  .ci .x{flex:none;cursor:pointer;color:var(--foreground-muted);font-size:14px;border:none;background:none;}
+  .pf{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--border);}
+  .empty{font-size:12.5px;color:var(--foreground-muted);padding:14px;text-align:center;}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:60;background:var(--foreground);color:var(--surface-raised);font-size:12.5px;font-weight:600;padding:9px 14px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none;}
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <h1>BeakerSearch v2, the sub-flow picker, two presentations</h1>
+      <p>Both live. Click "Assign 'PCR optimization' to a lab member" in each to feel the difference, then pick one below.</p>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn" id="commentToggle">Comment mode: off</button>
+    <button class="btn" id="themeToggle">Switch to dark</button>
+  </div>
+  <div class="stage">
+    <div class="col">
+      <h2>Option A, pushed view-stack</h2>
+      <p class="blurb">Selecting the action REPLACES the list with a scoped member picker, a breadcrumb shows where you are, Escape or Back pops you out. The input filters the picker. Scales to multi-step (pick task, then assignee).</p>
+      <div class="frame"><div class="palette" data-mode="stack" id="palA"></div></div>
+      <div class="tryhint">Try, click <b>Assign</b>, type to filter, press <b>Back</b></div>
+    </div>
+    <div class="col">
+      <h2>Option B, inline expansion</h2>
+      <p class="blurb">Selecting the action EXPANDS the member list inline under the row, the rest of the palette stays put. Calmer for one-step picks, but a chained multi-step flow nests awkwardly.</p>
+      <div class="frame"><div class="palette" data-mode="inline" id="palB"></div></div>
+      <div class="tryhint">Try, click <b>Assign</b> to expand it in place</div>
+    </div>
+  </div>
+  <div class="note">
+    <h3>Which presentation for the v2 sub-flow framework? Pick one (or comment).</h3>
+    <div class="changes" id="changes"></div>
+  </div>
+  <div class="panel" id="panel">
+    <div class="ph" id="panelHead"><h3>Comments</h3><span class="chev" id="chev">hide</span></div>
+    <div class="pb" id="panelBody"><div class="empty">No comments yet. Turn on Comment mode and click any row.</div></div>
+    <div class="pf"><button class="btn" id="exportBtn">Copy decision</button><button class="btn danger" id="clearBtn">Clear</button></div>
+  </div>
+  <div class="toast" id="toast"></div>
+<script>
+  const botSvg=(s)=>`<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v6l-4.5 8a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 9V3"/><path d="M7.5 15h9" stroke="#7dd3fc"/></svg>`;
+  const ic={
+    assign:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M19 8v6M16 11h6"/></svg>',
+    person:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/></svg>',
+    check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+    cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>',
+    link:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>',
+    open:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>',
+    back:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
+    caret:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>',
+  };
+  const members=[
+    {n:"alex",s:"6 open, 2 overdue"},{n:"morgan",s:"3 open, on track"},
+    {n:"jordan",s:"1 open"},{n:"sam",s:"4 open, 1 overdue"},
+  ];
+  const baseRows=[
+    {ic:"assign",t:'Assign "PCR optimization" to a lab member',s:"owner-routed, notifies the assignee",sub:true},
+    {ic:"cal",t:'Shift "PCR optimization" dates',s:"Jun 12 to Jun 19"},
+    {ic:"link",t:'Add a dependency from "PCR optimization"',s:"link to another experiment",sub:true},
+    {ic:"open",t:'Open "PCR optimization"',s:"view and edit details",h:"Open"},
+  ];
+  function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+  // ---- Option A, view-stack ----
+  function renderStack(el, stage){
+    let h=`<div class="hdr"><span class="bot">${botSvg(20)}</span>`;
+    if(stage==="root"){
+      h+=`<span class="word">BeakerSearch</span><span class="input">PCR optimization<span style="color:var(--accent)">|</span></span><span class="kbd">esc</span></div>`;
+      h+=`<div class="list"><div class="ghead"><span>Suggested</span><span class="hint">for the selected task</span><span class="rule"></span></div>`;
+      baseRows.forEach((r,i)=>{
+        h+=`<div class="r ${i===0?'active':''}" data-act="${r.sub?'push':''}"><span class="chip">${ic[r.ic]}</span><span class="rtext"><span class="rl">${esc(r.t)}</span><span class="rs">${esc(r.s)}</span></span>${r.sub?`<span class="caret">${ic.caret}</span>`:(r.h?`<span class="rh">${r.h}</span>`:'')}</div>`;
+      });
+      h+=`</div>`;
+    } else {
+      h+=`<div class="crumbs"><span>Gantt</span><span class="sep">/</span><span class="cur">Assign "PCR optimization" to...</span></div><span class="kbd">esc</span></div>`;
+      h+=`<div class="back" data-act="pop"><span>${ic.back}</span> Back</div>`;
+      h+=`<div class="list"><div class="ghead"><span>Pick a lab member</span><span class="rule"></span></div>`;
+      members.forEach((m,i)=>{
+        h+=`<div class="r ${i===0?'active':''}" data-pick="${m.n}"><span class="chip person">${ic.person}</span><span class="rtext"><span class="rl">${m.n}</span><span class="rs">${m.s}</span></span></div>`;
+      });
+      h+=`</div>`;
+    }
+    h+=`<div class="ftr"><span class="grp"><span class="k">&uarr;</span><span class="k">&darr;</span> navigate</span><span class="grp"><span class="k">&crarr;</span> ${stage==="root"?'run':'assign'}</span><span class="grp"><span class="k">esc</span> ${stage==="root"?'close':'back'}</span><span class="push">${stage==="root"?'Cmd K reaches everything':'one step of the flow'}</span></div>`;
+    el.innerHTML=h;
+    el.querySelectorAll("[data-act]").forEach(n=>n.addEventListener("click",()=>{
+      const a=n.getAttribute("data-act");
+      if(a==="push")renderStack(el,"assign");
+      else if(a==="pop")renderStack(el,"root");
+    }));
+    el.querySelectorAll("[data-pick]").forEach(n=>n.addEventListener("click",()=>{toast(`Assigned to ${n.getAttribute("data-pick")}`);renderStack(el,"root");}));
+  }
+
+  // ---- Option B, inline expansion ----
+  function renderInline(el, expanded){
+    let h=`<div class="hdr"><span class="bot">${botSvg(20)}</span><span class="word">BeakerSearch</span><span class="input">PCR optimization<span style="color:var(--accent)">|</span></span><span class="kbd">esc</span></div>`;
+    h+=`<div class="list"><div class="ghead"><span>Suggested</span><span class="hint">for the selected task</span><span class="rule"></span></div>`;
+    baseRows.forEach((r,i)=>{
+      const isAssign=r.ic==="assign";
+      const open=isAssign&&expanded;
+      h+=`<div class="r ${i===0&&!expanded?'active':''}" data-exp="${isAssign?'1':''}"><span class="chip">${ic[r.ic]}</span><span class="rtext"><span class="rl">${esc(r.t)}</span><span class="rs">${esc(r.s)}</span></span>${r.sub?`<span class="caret" style="transform:${open?'rotate(90deg)':'none'}">${ic.caret}</span>`:(r.h?`<span class="rh">${r.h}</span>`:'')}</div>`;
+      if(open){
+        h+=`<div class="ghead" style="padding-left:40px"><span>pick a member</span><span class="rule"></span></div>`;
+        members.forEach((m,j)=>{
+          h+=`<div class="r sub ${j===0?'active':''}" data-pick="${m.n}"><span class="chip person sm">${ic.person}</span><span class="rtext"><span class="rl">${m.n}</span><span class="rs">${m.s}</span></span></div>`;
+        });
+      }
+    });
+    h+=`</div><div class="ftr"><span class="grp"><span class="k">&uarr;</span><span class="k">&darr;</span> navigate</span><span class="grp"><span class="k">&crarr;</span> ${expanded?'assign':'run'}</span><span class="grp"><span class="k">esc</span> ${expanded?'collapse':'close'}</span><span class="push">stays in one list</span></div>`;
+    el.innerHTML=h;
+    el.querySelectorAll("[data-exp]").forEach(n=>{ if(n.getAttribute("data-exp")==="1") n.addEventListener("click",()=>renderInline(el,!expanded)); });
+    el.querySelectorAll("[data-pick]").forEach(n=>n.addEventListener("click",e=>{e.stopPropagation();toast(`Assigned to ${n.getAttribute("data-pick")}`);renderInline(el,false);}));
+  }
+
+  renderStack(document.getElementById("palA"),"root");
+  renderInline(document.getElementById("palB"),false);
+
+  // ---- decision cards + comments ----
+  const STORE='v2subflow-comments',VSTORE='v2subflow-pick';
+  let comments=[];try{comments=JSON.parse(localStorage.getItem(STORE)||'[]')}catch{}
+  let pick=localStorage.getItem(VSTORE)||'';
+  const CHANGES=[
+    {id:'stack',title:'Option A, pushed view-stack',desc:'A breadcrumb + Back, the list swaps to the picker.',pros:'<b>Pro</b>, scales to multi-step (pick task then assignee), the input clearly filters one thing, feels like a real flow. <b>Con</b>, you lose sight of the other suggestions while picking.'},
+    {id:'inline',title:'Option B, inline expansion',desc:'The picker opens under the row, nothing else moves.',pros:'<b>Pro</b>, calmer, the rest of the palette stays in view, one keystroke to collapse. <b>Con</b>, a chained multi-step flow nests awkwardly, the list can get long.'},
+  ];
+  function renderChanges(){
+    const w=document.getElementById('changes');
+    w.innerHTML=CHANGES.map(c=>`<div class="change ${pick===c.id?'picked':''}"><div class="cti">${c.title}</div><div class="cd">${c.desc}</div><div class="pros">${c.pros}</div><div class="vrow"><button class="vb pick ${pick===c.id?'on':''}" data-p="${c.id}">${pick===c.id?'Picked':'Pick this'}</button></div></div>`).join('');
+    w.querySelectorAll('[data-p]').forEach(b=>b.addEventListener('click',()=>{pick=pick===b.dataset.p?'':b.dataset.p;localStorage.setItem(VSTORE,pick);renderChanges();}));
+  }
+  renderChanges();
+  function clabelOf(el){const c=el.closest('.r,.change,.palette');return c?(c.querySelector('.rl')?.textContent||c.querySelector('.cti')?.textContent||'palette'):'page';}
+  function renderPins(){document.querySelectorAll('.pin').forEach(p=>p.remove());}
+  function renderPanel(){const b=document.getElementById('panelBody');if(!comments.length){b.innerHTML='<div class="empty">No comments yet. Turn on Comment mode and click any row.</div>';return;}b.innerHTML=comments.map((c,i)=>`<div class="ci"><span class="num">${i+1}</span><div class="bd"><div class="tg">${esc(c.target)}</div><div class="tx">${esc(c.text)}</div></div><button class="x" data-del="${i}">&times;</button></div>`).join('');b.querySelectorAll('[data-del]').forEach(x=>x.addEventListener('click',()=>{comments.splice(+x.dataset.del,1);save();renderPanel();}));}
+  const save=()=>{try{localStorage.setItem(STORE,JSON.stringify(comments))}catch{}};
+  renderPanel();
+  let editorEl=null;
+  function closeEditor(){if(editorEl){editorEl.remove();editorEl=null;}}
+  document.addEventListener('click',e=>{
+    if(!document.body.classList.contains('cmt-on'))return;
+    if(e.target.closest('.editor')||e.target.closest('.panel')||e.target.closest('.topbar'))return;
+    const t=e.target.closest('.r,.change');if(!t)return;e.preventDefault();e.stopPropagation();
+    closeEditor();const target=clabelOf(t);
+    const ed=document.createElement('div');ed.className='editor';
+    ed.innerHTML=`<div class="lbl">${esc(target)}</div><textarea placeholder="Your note"></textarea><div class="acts"><span class="sp"></span><button class="btn" data-a="cancel">Cancel</button><button class="btn on" data-a="save">Save</button></div>`;
+    document.body.appendChild(ed);editorEl=ed;
+    ed.style.left=Math.min(Math.max(8,e.clientX-20),innerWidth-288)+'px';ed.style.top=Math.min(e.clientY+10,innerHeight-200)+'px';
+    ed.querySelector('textarea').focus();
+    ed.querySelectorAll('[data-a]').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.a==='save'){const v=ed.querySelector('textarea').value.trim();if(v){comments.push({target,text:v});save();renderPanel();}}closeEditor();}));
+  },true);
+  const cB=document.getElementById('commentToggle');cB.addEventListener('click',()=>{const on=document.body.classList.toggle('cmt-on');cB.classList.toggle('on',on);cB.textContent='Comment mode: '+(on?'on':'off');if(!on)closeEditor();});
+  const tB=document.getElementById('themeToggle');tB.addEventListener('click',()=>{const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');tB.textContent=d?'Switch to dark':'Switch to light';});
+  document.getElementById('panelHead').addEventListener('click',()=>{const p=document.getElementById('panel');const c=p.classList.toggle('collapsed');document.getElementById('chev').textContent=c?'show':'hide';});
+  function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1400);}
+  document.getElementById('exportBtn').addEventListener('click',async()=>{let o='BeakerSearch v2 sub-flow decision\n\n';o+='Preferred presentation: '+(pick==='stack'?'Option A, pushed view-stack':pick==='inline'?'Option B, inline expansion':'undecided')+'\n\nComments\n';if(!comments.length)o+='- none\n';comments.forEach((c,i)=>o+=`${i+1}. [${c.target}] ${c.text}\n`);try{await navigator.clipboard.writeText(o);toast('Decision copied. Paste it back to me.');}catch{prompt('Copy',o);}});
+  document.getElementById('clearBtn').addEventListener('click',()=>{comments=[];save();renderPanel();});
+</script>
+</body>
+</html>

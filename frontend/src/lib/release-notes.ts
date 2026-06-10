@@ -72,6 +72,47 @@ export interface ReleaseNote {
  */
 export const RELEASE_NOTES: ReadonlyArray<ReleaseNote> = [
   {
+    version: "0.75",
+    date: "2026-06-10",
+    highlights: [
+      "ResearchOS is launching publicly as v0.75 beta. The whole notebook is free, open, and still just files on your own computer",
+      "A mobile companion: pair your phone, then capture photos and handwritten pages at the bench and file them into an experiment in one tap",
+      "Handwriting scan to searchable text, scanned pages are read with OCR and become findable from global search",
+      "Supplies, reimagined: inventory and purchasing merged into one hub with a reorder cart and PI approvals",
+      "Send work across labs, share notes, methods, and sequences with any ResearchOS user over an encrypted relay, even without a shared folder",
+      "Full dark mode across the whole app, automatic safe data upgrades on connect, and a cost guardrail with a 5 GB free cloud pool",
+    ],
+    message: [
+      {
+        kind: "para",
+        text: "This is the big one. ResearchOS is launching publicly as v0.75 beta. Over a few months it went from a simple notes prototype to a full local-first workspace for research labs, and it is ready for you to use every day.",
+      },
+      {
+        kind: "para",
+        text: "Nothing about the core changed. Your work still lives in a plain folder on your own computer, free and open. An account stays optional and only adds identity and sharing. Cloud storage is optional, priced to recover cost not to profit, with a 5 GB free pool, and billing is not even turned on yet.",
+      },
+      {
+        kind: "feature",
+        title: "What landed for launch",
+        text: "the headline additions since the last release.",
+        items: [
+          "A mobile companion that pairs to your phone for bench capture and quick notes",
+          "Handwriting scanned to searchable text with on-device OCR",
+          "Supplies, with inventory and purchasing merged into one hub plus a reorder cart",
+          "Cross-lab sharing of notes, methods, and sequences over an encrypted relay",
+          "Full dark mode across every page",
+          "Automatic, safe data upgrades that run on connect, no manual repair steps",
+          "A 1:1 mentoring space, a purchase audit trail, order PDF attachments, and one-click send to your department",
+          "A cost guardrail that caps cloud spend, with a flat cost-recovery plan and a 5 GB free pool",
+        ],
+      },
+      {
+        kind: "para",
+        text: "Thank you to everyone who tested the early builds and sent feedback. It shaped almost every part of this. Keep it coming.",
+      },
+    ],
+  },
+  {
     version: "0.5.0",
     date: "2026-06-05",
     signInChoice: true,

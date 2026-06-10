@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Account setup revamp - interactive mockup</title>
+<style>
+  /* Brand tokens (verbatim from frontend/src/app/globals.css) */
+  :root{
+    --sky:#1AA0E6; --action:#1283C9; --ink:#111827; --purple:#5B47D6;
+    --rainbow:linear-gradient(95deg,#f97316 0%,#e8920b 22%,#16a34a 48%,#0284c7 72%,#9333ea 100%);
+    --rainbow-soft:linear-gradient(180deg,#ffd2b0,#fff1a8,#b7ebb1,#a6d2f4,#d6b5f0);
+    --surface:#f8fafc; --raised:#ffffff; --sunken:#f1f5f9;
+    --fg:#111827; --fg-muted:#6b7280; --border:#e5e7eb; --border-strong:#d1d5db;
+    --shadow:0 10px 40px rgba(2,8,23,.12);
+    --ok:#16a34a; --no:#dc2626; --maybe:#d97706;
+  }
+  [data-theme="dark"]{
+    --surface:#0a0e1a; --raised:#1c2638; --sunken:#0d1424;
+    --fg:#f1f5f9; --fg-muted:#b4bfd0; --border:#28344c; --border-strong:#3a4a66;
+    --shadow:0 12px 48px rgba(0,0,0,.5);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--surface); color:var(--fg); line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  /* ---- top toolbar ---- */
+  .toolbar{
+    position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:12px;
+    padding:10px 18px; background:var(--raised); border-bottom:1px solid var(--border);
+  }
+  .toolbar h1{font-size:15px; margin:0; font-weight:800; letter-spacing:-.01em}
+  .toolbar .sub{font-size:12px; color:var(--fg-muted); margin-left:2px}
+  .spacer{flex:1}
+  .btn{
+    font:inherit; font-size:13px; font-weight:600; cursor:pointer; border-radius:9px;
+    padding:7px 12px; border:1px solid var(--border-strong); background:var(--raised); color:var(--fg);
+    transition:.12s;
+  }
+  .btn:hover{border-color:var(--action)}
+  .btn.primary{background:var(--action); color:#fff; border-color:var(--action)}
+  .btn.toggle.on{background:var(--purple); color:#fff; border-color:var(--purple)}
+  /* ---- layout ---- */
+  .wrap{display:grid; grid-template-columns:230px 1fr; gap:0; min-height:calc(100vh - 53px)}
+  .rail{border-right:1px solid var(--border); padding:16px 12px; background:var(--raised)}
+  .rail h2{font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--fg-muted); margin:0 0 10px 6px}
+  .beat{
+    display:flex; gap:10px; align-items:center; padding:9px 10px; border-radius:9px; cursor:pointer;
+    font-size:13px; font-weight:600; color:var(--fg-muted); margin-bottom:3px;
+  }
+  .beat:hover{background:var(--sunken)}
+  .beat.active{background:var(--action); color:#fff}
+  .beat .n{
+    width:20px;height:20px;border-radius:6px;display:grid;place-items:center;
+    font-size:11px;font-weight:700;background:var(--sunken);color:var(--fg-muted);flex:none;
+  }
+  .beat.active .n{background:rgba(255,255,255,.25);color:#fff}
+  .beat .vd{margin-left:auto;font-size:13px}
+  .stage-wrap{padding:24px; position:relative}
+  .hint{font-size:12px;color:var(--fg-muted);margin:0 0 14px;max-width:760px}
+  /* ---- the device frame (the mock screen) ---- */
+  .device{
+    position:relative; margin:0 auto; max-width:980px; min-height:600px;
+    background:var(--surface); border:1px solid var(--border); border-radius:18px; overflow:hidden;
+    box-shadow:var(--shadow);
+  }
+  .device .dotgrid{position:absolute;inset:0;opacity:.5;
+    background-image:radial-gradient(var(--border) 1px,transparent 1px);background-size:22px 22px;pointer-events:none}
+  .screen{position:relative; padding:48px 40px; min-height:600px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center}
+  .screen.hidden{display:none}
+  /* BeakerBot */
+  .bot{width:96px;height:124px}
+  .bot.idle{animation:sway 5s ease-in-out infinite}
+  @keyframes sway{0%,100%{transform:rotate(-2deg)}50%{transform:rotate(2deg)}}
+  .blink{animation:blink 5.5s infinite}
+  @keyframes blink{0%,93%,100%{opacity:1}96%{opacity:.1}}
+  .wordmark{font-size:40px;font-weight:800;letter-spacing:-.02em;margin:14px 0 0}
+  .wordmark .os{background:var(--rainbow);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .tagline{color:var(--fg-muted);font-size:15px;margin:8px 0 0}
+  /* chooser tiles */
+  .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;width:100%;max-width:860px;margin:30px 0 0}
+  .tile{
+    text-align:left;border:1.5px solid var(--border);border-radius:16px;padding:20px;background:var(--raised);
+    cursor:pointer;transition:.14s;position:relative;display:flex;flex-direction:column;min-height:230px;
+  }
+  .tile:hover{border-color:var(--action);transform:translateY(-3px);box-shadow:var(--shadow)}
+  .tile .ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;margin-bottom:12px;color:#fff}
+  .tile h3{margin:0 0 4px;font-size:17px;font-weight:800}
+  .tile .price{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+  .tile p{font-size:13px;color:var(--fg-muted);margin:8px 0 0}
+  .tile ul{margin:12px 0 0;padding-left:16px;font-size:12.5px;color:var(--fg-muted)}
+  .tile li{margin:3px 0}
+  .tile .pickbtn{margin-top:auto;padding-top:14px}
+  .pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px}
+  .pill.free{background:rgba(22,163,74,.14);color:#16a34a}
+  .pill.paid{background:rgba(91,71,214,.15);color:var(--purple)}
+  /* provider buttons */
+  .providers{display:flex;flex-direction:column;gap:10px;width:100%;max-width:360px;margin:24px 0 0}
+  .prov{display:flex;align-items:center;gap:12px;justify-content:center;padding:12px;border:1.5px solid var(--border-strong);
+    border-radius:11px;background:var(--raised);font-weight:600;font-size:14px;cursor:pointer}
+  .prov:hover{border-color:var(--action)}
+  .escape{margin-top:20px;font-size:13px;color:var(--fg-muted)}
+  .escape a{color:var(--action);font-weight:600;cursor:pointer;text-decoration:underline}
+  .backlink{position:absolute;top:20px;left:22px;font-size:13px;color:var(--fg-muted);cursor:pointer;font-weight:600}
+  .backlink:hover{color:var(--action)}
+  .note{margin-top:18px;font-size:12px;color:var(--fg-muted);max-width:420px;background:var(--sunken);
+    border:1px solid var(--border);border-radius:10px;padding:10px 14px}
+  /* lab subchoice + join */
+  .subtiles{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:620px;width:100%;margin:26px 0 0}
+  .field{width:100%;max-width:420px;margin:8px 0 0;text-align:left}
+  .field label{font-size:12px;font-weight:700;color:var(--fg-muted);display:block;margin-bottom:4px}
+  .field input{width:100%;padding:11px 12px;border:1.5px solid var(--border-strong);border-radius:10px;background:var(--raised);color:var(--fg);font:inherit}
+  .labrow{display:flex;align-items:center;gap:12px;width:100%;max-width:480px;padding:12px 14px;border:1px solid var(--border);
+    border-radius:12px;background:var(--raised);margin:8px 0 0;text-align:left}
+  .labrow .av{width:36px;height:36px;border-radius:9px;background:var(--rainbow-soft);flex:none}
+  .labrow .meta{flex:1}
+  .labrow .meta b{font-size:14px}
+  .labrow .meta span{display:block;font-size:12px;color:var(--fg-muted)}
+  .lock{font-size:11px;color:var(--fg-muted)}
+  /* folder + success */
+  .folderbox{border:2px dashed var(--border-strong);border-radius:16px;padding:34px;max-width:460px;width:100%;margin:24px 0 0}
+  .checkmark{width:84px;height:84px;border-radius:50%;background:var(--ok);display:grid;place-items:center;animation:pop .5s ease}
+  @keyframes pop{0%{transform:scale(.2);opacity:0}60%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+  .confetti span{position:absolute;width:8px;height:8px;border-radius:2px;animation:fall 1.4s ease-out forwards}
+  @keyframes fall{0%{transform:translateY(-20px) rotate(0);opacity:1}100%{transform:translateY(220px) rotate(360deg);opacity:0}}
+  /* splash overlay anim */
+  .splashfx{display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .ring{position:absolute;border-radius:50%;border:2px solid var(--sky);opacity:0;animation:ripple 2.4s ease-out infinite}
+  @keyframes ripple{0%{width:80px;height:80px;opacity:.6}100%{width:360px;height:360px;opacity:0}}
+  /* decisions panel */
+  .decisions{max-width:980px;margin:20px auto 60px}
+  .change{background:var(--raised);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:10px 0;display:flex;gap:14px;align-items:flex-start}
+  .change .body{flex:1}
+  .change h4{margin:0 0 3px;font-size:14px}
+  .change p{margin:0;font-size:13px;color:var(--fg-muted)}
+  .verdicts{display:flex;gap:6px;flex:none}
+  .vb{font-size:12px;font-weight:700;padding:6px 10px;border-radius:8px;border:1px solid var(--border-strong);background:var(--raised);color:var(--fg-muted);cursor:pointer}
+  .vb.ok.sel{background:var(--ok);color:#fff;border-color:var(--ok)}
+  .vb.no.sel{background:var(--no);color:#fff;border-color:var(--no)}
+  .vb.maybe.sel{background:var(--maybe);color:#fff;border-color:var(--maybe)}
+  .change textarea{width:100%;margin-top:8px;min-height:0;height:34px;border:1px solid var(--border);border-radius:8px;padding:7px 9px;font:inherit;font-size:12px;background:var(--sunken);color:var(--fg);resize:vertical}
+  /* comment pins */
+  .pin{position:absolute;width:24px;height:24px;border-radius:50% 50% 50% 2px;background:var(--purple);color:#fff;
+    font-size:12px;font-weight:700;display:grid;place-items:center;transform:translate(-50%,-100%);cursor:pointer;z-index:20;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+  body.commentmode .device{cursor:crosshair}
+  .pinpop{position:fixed;z-index:100;background:var(--raised);border:1px solid var(--border-strong);border-radius:10px;padding:10px;width:240px;box-shadow:var(--shadow)}
+  .pinpop textarea{width:100%;height:60px;border:1px solid var(--border);border-radius:7px;font:inherit;font-size:12px;padding:6px;background:var(--sunken);color:var(--fg)}
+  .pinpop .row{display:flex;gap:6px;margin-top:6px;justify-content:flex-end}
+  .badge{font-size:11px;background:var(--purple);color:#fff;border-radius:999px;padding:1px 7px;font-weight:700}
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <h1>Account setup revamp</h1>
+  <span class="sub">interactive mockup &middot; click the beats, drop comments, mark each change</span>
+  <span class="spacer"></span>
+  <button class="btn toggle" id="commentBtn">Comment mode <span class="badge" id="pinCount">0</span></button>
+  <button class="btn" id="themeBtn">Dark</button>
+  <button class="btn" id="resetBtn">Reset</button>
+  <button class="btn primary" id="exportBtn">Export decisions</button>
+</div>
+
+<div class="wrap">
+  <aside class="rail">
+    <h2>Flow beats</h2>
+    <div id="beatList"></div>
+    <h2 style="margin-top:18px">Try a path</h2>
+    <div class="beat" data-jump="local"><span class="n">L</span> Local-only path</div>
+    <div class="beat" data-jump="free"><span class="n">F</span> Free account path</div>
+    <div class="beat" data-jump="lab"><span class="n">P</span> Lab head path</div>
+    <div class="beat" data-jump="join"><span class="n">J</span> Join a lab path</div>
+  </aside>
+
+  <main>
+    <div class="stage-wrap">
+      <p class="hint" id="beatHint"></p>
+      <div class="device" id="device">
+        <div class="dotgrid"></div>
+        <!-- screens injected -->
+      </div>
+    </div>
+
+    <div class="decisions">
+      <h3 style="max-width:980px;margin:0 auto 4px">Changes to approve</h3>
+      <p class="hint" style="margin:0 auto 8px">Mark each. Notes + comment pins all roll into the export.</p>
+      <div id="changeList"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+const SVG_BOT = `<svg class="bot blink" viewBox="8 3 24 31" fill="none" stroke="#1AA0E6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+<defs><linearGradient id="liq" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/><stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/><stop offset="100%" stop-color="#D6B5F0"/></linearGradient></defs>
+<path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none"/>
+<path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#liq)" stroke="none"/>
+<path d="M22 8 C 22 6, 24 4, 26 6"/><path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12"/>
+<path d="M11 12 L29 12"/><circle cx="17" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/><circle cx="23" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/>
+<path d="M18 22 Q 20 24, 22 22"/><path d="M14 26 L15.5 26"/><path d="M24.5 26 L26 26"/></svg>`;
+
+const ICON = {
+  local:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>`,
+  free:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/><path d="M19 5l2 2-2 2" /></svg>`,
+  lab:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 21V8m12 13V8M4 8h16M9 8V4h6v4"/><circle cx="12" cy="14" r="2"/></svg>`,
+};
+
+// ---- the flow beats ----
+const BEATS = [
+  {id:'splash', name:'Splash on open', vkey:'splash'},
+  {id:'chooser', name:'The 3-tier chooser', vkey:'chooser'},
+  {id:'oauth', name:'Sign in (free + lab)', vkey:'oauth'},
+  {id:'labsub', name:'Lab: create or join', vkey:'labsub'},
+  {id:'joinsearch', name:'Join: link or search', vkey:'join'},
+  {id:'folder', name:'Connect folder', vkey:'folder'},
+  {id:'success', name:'Success -> Workbench', vkey:'success'},
+];
+
+// ---- changes to approve ----
+const CHANGES = [
+  ['c1','New start screen replaces "boom you are in"','A real entry screen with a splash, not silently defaulting everyone to solo and dumping them at Workbench.'],
+  ['c2','3-tier chooser at creation','Local-only (no login) / Free account (login -> external sharing, data stays local) / Lab (paid cloud). Account type is chosen up front, not buried in Settings.'],
+  ['c3','OAuth happens at creation for Free + Lab','The third-party sign-in is the very next beat after picking Free or Lab, before the folder screen. One felt step, not "keypair then login".'],
+  ['c4','Solo escape hatch on every account path','"Just use it locally instead" is always one click away, and we say solo can upgrade to a lab/account later.'],
+  ['c5','Lab splits into Create a lab vs Join a lab','Create = you are the Lab Head. Join = you are a member.'],
+  ['c6','Join = invite link OR searchable lab directory','Click the link from your invite email, OR browse/search labs and Request to join. Listed/unlisted toggle keeps private labs invite-only; requests need PI approval (reuses Phase 8e).'],
+  ['c7','Splash + success animations from the BeakerBot system','Animated splash on open, and a celebratory hand-off transition when you log in / connect a folder and land on Workbench.'],
+  ['c8','No passkey anywhere','Lab daily login is OAuth (or recovery on a new device). The passkey ceremony is gone (P3b). Reconcile IDENTITY_LAB_LOGIN.md to match.'],
+];
+
+// ---- screen renderers ----
+function screenHTML(v){
+  const back = `<div class="backlink" data-jump="chooser">&larr; Back</div>`;
+  if(v==='splash') return `<div class="screen splashfx">
+    <div class="ring"></div><div class="ring" style="animation-delay:.8s"></div><div class="ring" style="animation-delay:1.6s"></div>
+    ${SVG_BOT}<div class="wordmark">Research<span class="os">OS</span></div>
+    <div class="tagline">Your lab, your data, your machine.</div>
+    <div class="note" style="margin-top:26px">Splash plays for ~1.2s on open (BeakerBot lifts the rainbow liquid, ripples settle), then fades into the chooser. Reduced-motion shows a static logo.</div></div>`;
+
+  if(v==='chooser') return `<div class="screen">
+    ${SVG_BOT.replace('class="bot blink"','class="bot blink idle" style="width:64px;height:82px"')}
+    <div class="wordmark" style="font-size:28px;margin-top:6px">How will you use Research<span class="os">OS</span>?</div>
+    <div class="tagline" style="font-size:14px">Pick one. You can change later, nothing is locked in.</div>
+    <div class="tiles">
+      <div class="tile" data-jump="local">
+        <div class="ic" style="background:var(--fg-muted)">${ICON.local}</div>
+        <span class="price pill free">Free</span><h3>Just me, local</h3>
+        <p>Everything stays on your computer. No account, no login, nothing leaves your disk.</p>
+        <ul><li>Full app, offline</li><li>No sign-in ever</li><li>Most private</li></ul>
+        <div class="pickbtn"><button class="btn primary" style="width:100%">Start local</button></div>
+      </div>
+      <div class="tile" data-jump="free">
+        <div class="ic" style="background:var(--action)">${ICON.free}</div>
+        <span class="price pill free">Free</span><h3>Free account</h3>
+        <p>Local like above, plus a sign-in so you can share notes, methods and files with researchers outside your folder.</p>
+        <ul><li>Data still on your disk</li><li>Findable in the directory</li><li>Send + receive externally</li></ul>
+        <div class="pickbtn"><button class="btn primary" style="width:100%">Create free account</button></div>
+      </div>
+      <div class="tile" data-jump="lab">
+        <div class="ic" style="background:var(--purple)">${ICON.lab}</div>
+        <span class="price pill paid">Paid</span><h3>Lab</h3>
+        <p>Run or join a lab. Real-time collaboration, PI oversight, cloud-backed so your team works together.</p>
+        <ul><li>Create a lab or join one</li><li>Cloud sync (server-blind)</li><li>Everything in Free, too</li></ul>
+        <div class="pickbtn"><button class="btn primary" style="width:100%">Set up a lab</button></div>
+      </div>
+    </div>
+    <div class="escape">Not sure? <a data-jump="local">Start local for now</a> &mdash; you can upgrade to an account or a lab any time.</div></div>`;
+
+  if(v==='oauth') return `<div class="screen">${back}
+    ${SVG_BOT.replace('class="bot blink"','class="bot blink" style="width:56px;height:72px"')}
+    <div class="wordmark" style="font-size:24px;margin-top:6px">Sign in to finish</div>
+    <div class="tagline" style="font-size:14px">This is your login from now on. We create your account behind the scenes, you never manage keys.</div>
+    <div class="providers">
+      <div class="prov">${gIcon()} Continue with Google</div>
+      <div class="prov">${ghIcon()} Continue with GitHub</div>
+      <div class="prov"><b style="color:#a6ce39">iD</b> Continue with ORCID</div>
+    </div>
+    <div class="escape">Changed your mind? <a data-jump="local">Just use ResearchOS locally instead</a></div>
+    <div class="note">Free + Lab both land here. On a new device later, the same sign-in restores you. No passkey, no recovery code to memorize.</div></div>`;
+
+  if(v==='labsub') return `<div class="screen">${back}
+    <div class="wordmark" style="font-size:26px">Create a lab, or join one?</div>
+    <div class="subtiles">
+      <div class="tile" data-jump="oauth" style="min-height:180px">
+        <div class="ic" style="background:var(--purple)">${ICON.lab}</div>
+        <h3>Create a lab</h3><p>You are the Lab Head. Invite members, see everyone's work, own the lab key.</p>
+        <div class="pickbtn"><button class="btn primary" style="width:100%">Create a lab</button></div>
+      </div>
+      <div class="tile" data-jump="join" style="min-height:180px">
+        <div class="ic" style="background:var(--action)">${ICON.free}</div>
+        <h3>Join a lab</h3><p>Someone runs a lab and you are joining it as a member.</p>
+        <div class="pickbtn"><button class="btn" style="width:100%">Join a lab</button></div>
+      </div>
+    </div></div>`;
+
+  if(v==='join') return `<div class="screen">${back}
+    <div class="wordmark" style="font-size:24px">Join a lab</div>
+    <div class="tagline" style="font-size:14px">Have an invite link from your PI? It just works. Otherwise, find your lab below.</div>
+    <div class="field"><label>Paste an invite link</label><input placeholder="https://research-os.app/accept/..." /></div>
+    <div style="font-size:12px;color:var(--fg-muted);margin:16px 0 4px">or search for your lab</div>
+    <div class="field"><input placeholder="Search labs by name or PI..." value="fung" /></div>
+    <div class="labrow"><div class="av"></div><div class="meta"><b>Keller Fungal Genetics Lab</b><span>UW-Madison &middot; 9 members</span></div><button class="btn primary">Request to join</button></div>
+    <div class="labrow"><div class="av" style="background:#a6d2f4"></div><div class="meta"><b>Fungal Interactions Lab</b><span>UW-Madison &middot; 4 members</span></div><button class="btn primary">Request to join</button></div>
+    <div class="labrow"><div class="av" style="background:#d6b5f0"></div><div class="meta"><b>Private Mycology Group</b><span class="lock">&#128274; Unlisted &middot; invite link only</span></div></div>
+    <div class="note">Requesting sends the PI an approval (Phase 8e). You are not in until they approve. Unlisted labs never appear here.</div></div>`;
+
+  if(v==='folder') return `<div class="screen">
+    <div class="wordmark" style="font-size:24px">Where should your data live?</div>
+    <div class="tagline" style="font-size:14px">Pick a folder on your disk. This is yours, we never upload your research files.</div>
+    <div class="folderbox">
+      <div style="font-size:40px">&#128193;</div>
+      <button class="btn primary" style="margin-top:10px" data-jump="success">Choose folder</button>
+      <p style="font-size:12px;color:var(--fg-muted);margin:12px 0 0">Chrome opens your file picker. New here? Make an empty folder first.</p>
+    </div>
+    <div class="note">For Lab + Free, this comes AFTER sign-in (so the felt order is: pick how -> sign in -> point at your folder -> in). Local-only jumps straight here.</div></div>`;
+
+  if(v==='success') return `<div class="screen" style="overflow:hidden">
+    <div class="confetti" id="confetti"></div>
+    <div class="checkmark"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg></div>
+    <div class="wordmark" style="font-size:26px;margin-top:18px">You're in.</div>
+    <div class="tagline">Taking you to your Workbench...</div>
+    ${SVG_BOT.replace('class="bot blink"','class="bot blink idle" style="width:60px;height:78px;margin-top:18px"')}
+    <div class="note">BeakerBot waves and the screen slides into Workbench. Same celebratory beat fires on first folder-connect and on each daily sign-in.</div></div>`;
+  return '';
+}
+function gIcon(){return `<svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22 12c0-.7-.1-1.4-.2-2H12v4h5.6c-.2 1.3-1 2.4-2.1 3.1v2.6h3.4C20.8 18 22 15.3 22 12z"/><path fill="#34A853" d="M12 22c2.7 0 5-1 6.6-2.7l-3.4-2.6c-.9.6-2 1-3.2 1-2.5 0-4.6-1.7-5.4-3.9H3.1v2.7C4.7 19.9 8.1 22 12 22z"/><path fill="#FBBC05" d="M6.6 13.8c-.2-.6-.3-1.2-.3-1.8s.1-1.2.3-1.8V7.5H3.1C2.4 8.9 2 10.4 2 12s.4 3.1 1.1 4.5l3.5-2.7z"/><path fill="#EA4335" d="M12 6.4c1.4 0 2.7.5 3.7 1.5l2.8-2.8C16.9 3.5 14.7 2.5 12 2.5 8.1 2.5 4.7 4.6 3.1 7.5l3.5 2.7c.8-2.2 2.9-3.8 5.4-3.8z"/></svg>`}
+function ghIcon(){return `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.5 2 2 6.6 2 12.3c0 4.5 2.9 8.3 6.8 9.7.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.4-3.4-1.4-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.3 1.1 2.9.8.1-.7.3-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.6 0 0 .8-.3 2.7 1a9.3 9.3 0 015 0c1.9-1.3 2.7-1 2.7-1 .5 1.3.2 2.3.1 2.6.6.7 1 1.6 1 2.7 0 3.9-2.3 4.7-4.6 5 .4.3.7.9.7 1.9v2.8c0 .3.2.6.7.5 3.9-1.4 6.8-5.2 6.8-9.7C22 6.6 17.5 2 12 2z"/></svg>`}
+
+// ---- render device ----
+let current='splash';
+function render(){
+  const dev=document.getElementById('device');
+  dev.querySelectorAll('.screen,.pin').forEach(n=>n.remove());
+  dev.insertAdjacentHTML('beforeend', screenHTML(current));
+  // beats active
+  document.querySelectorAll('.beat[data-beat]').forEach(b=>b.classList.toggle('active', b.dataset.beat===current));
+  document.getElementById('beatHint').textContent = HINTS[current]||'';
+  if(current==='success') fireConfetti();
+  rehydratePins();
+  bindJumps();
+}
+const HINTS={
+  splash:'BEAT 1. The first thing on app open. Replaces the instant folder-gate. Sets the brand tone, then fades to the chooser.',
+  chooser:'BEAT 2. The fork that does not exist today. Three tiers, each says what you get + the price. This is the heart of the revamp.',
+  oauth:'BEAT 3. Free + Lab both sign in here, BEFORE the folder screen. One felt step. Escape hatch back to local always present.',
+  labsub:'BEAT 2b. Choosing Lab opens this: are you running a lab (Lab Head) or joining one (member)?',
+  join:'BEAT 2c. Join via the invite link from your email, OR search the lab directory and Request to join (PI approves). Unlisted labs stay hidden.',
+  folder:'BEAT 4. Connect the data folder. For Free/Lab this is after sign-in; Local-only comes straight here from the chooser.',
+  success:'BEAT 5. The payoff. Animated checkmark + BeakerBot, then a slide into Workbench. Same beat on every login.',
+};
+
+function bindJumps(){
+  document.querySelectorAll('[data-jump]').forEach(el=>{
+    el.onclick=(e)=>{ if(document.body.classList.contains('commentmode')) return;
+      e.stopPropagation(); const t=el.dataset.jump;
+      const map={local:'folder',free:'oauth',lab:'labsub',join:'join'};
+      current = map[t]||t; render();
+    };
+  });
+}
+
+// ---- beats rail ----
+const bl=document.getElementById('beatList');
+BEATS.forEach(b=>{
+  const d=document.createElement('div'); d.className='beat'; d.dataset.beat=b.id;
+  d.innerHTML=`<span class="n">${BEATS.indexOf(b)+1}</span> ${b.name} <span class="vd" data-vd="${b.id}"></span>`;
+  d.onclick=()=>{current=b.id;render();};
+  bl.appendChild(d);
+});
+
+// ---- changes ----
+const store=JSON.parse(localStorage.getItem('acctSetupMock')||'{}');
+store.verdicts=store.verdicts||{}; store.notes=store.notes||{}; store.pins=store.pins||[];
+function save(){localStorage.setItem('acctSetupMock',JSON.stringify(store));}
+const cl=document.getElementById('changeList');
+CHANGES.forEach(([id,title,desc])=>{
+  const v=store.verdicts[id]||'';
+  const el=document.createElement('div');el.className='change';
+  el.innerHTML=`<div class="body"><h4>${title}</h4><p>${desc}</p>
+    <textarea data-note="${id}" placeholder="note (optional)">${store.notes[id]||''}</textarea></div>
+    <div class="verdicts">
+      <div class="vb ok ${v==='ok'?'sel':''}" data-v="ok" data-id="${id}">Approve</div>
+      <div class="vb maybe ${v==='maybe'?'sel':''}" data-v="maybe" data-id="${id}">Discuss</div>
+      <div class="vb no ${v==='no'?'sel':''}" data-v="no" data-id="${id}">No</div>
+    </div>`;
+  cl.appendChild(el);
+});
+cl.addEventListener('click',e=>{const b=e.target.closest('.vb');if(!b)return;
+  store.verdicts[b.dataset.id]=b.dataset.v;save();
+  b.parentNode.querySelectorAll('.vb').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');
+});
+cl.addEventListener('input',e=>{if(e.target.dataset.note){store.notes[e.target.dataset.note]=e.target.value;save();}});
+
+// ---- comment pins ----
+let commentMode=false;
+document.getElementById('commentBtn').onclick=function(){commentMode=!commentMode;
+  this.classList.toggle('on',commentMode);document.body.classList.toggle('commentmode',commentMode);};
+document.getElementById('device').addEventListener('click',e=>{
+  if(!commentMode)return;
+  const dev=document.getElementById('device');const r=dev.getBoundingClientRect();
+  const x=((e.clientX-r.left)/r.width)*100, y=((e.clientY-r.top)/r.height)*100;
+  const pin={id:Date.now(),beat:current,x,y,text:''};store.pins.push(pin);save();
+  rehydratePins();openPin(pin.id);
+});
+function rehydratePins(){
+  const dev=document.getElementById('device');dev.querySelectorAll('.pin').forEach(n=>n.remove());
+  store.pins.filter(p=>p.beat===current).forEach(p=>{
+    const idx=store.pins.indexOf(p)+1;const el=document.createElement('div');el.className='pin';
+    el.style.left=p.x+'%';el.style.top=p.y+'%';el.textContent=idx;el.title=p.text||'(empty)';
+    el.onclick=ev=>{ev.stopPropagation();openPin(p.id);};dev.appendChild(el);
+  });
+  document.getElementById('pinCount').textContent=store.pins.length;
+}
+function openPin(id){
+  const p=store.pins.find(x=>x.id===id);if(!p)return;
+  document.querySelectorAll('.pinpop').forEach(n=>n.remove());
+  const pop=document.createElement('div');pop.className='pinpop';
+  pop.style.left=Math.min(window.innerWidth-260,event.clientX)+'px';pop.style.top=event.clientY+'px';
+  pop.innerHTML=`<textarea placeholder="comment...">${p.text||''}</textarea>
+    <div class="row"><button class="btn" data-del>Delete</button><button class="btn primary" data-ok>Save</button></div>`;
+  document.body.appendChild(pop);const ta=pop.querySelector('textarea');ta.focus();
+  pop.querySelector('[data-ok]').onclick=()=>{p.text=ta.value;save();pop.remove();rehydratePins();};
+  pop.querySelector('[data-del]').onclick=()=>{store.pins=store.pins.filter(x=>x.id!==id);save();pop.remove();rehydratePins();};
+}
+
+// ---- theme ----
+document.getElementById('themeBtn').onclick=function(){
+  const d=document.documentElement;const dark=d.getAttribute('data-theme')==='dark';
+  d.setAttribute('data-theme',dark?'light':'dark');this.textContent=dark?'Dark':'Light';};
+
+// ---- confetti ----
+function fireConfetti(){const c=document.getElementById('confetti');if(!c)return;
+  const cols=['#f97316','#16a34a','#0284c7','#9333ea','#e8920b'];
+  for(let i=0;i<40;i++){const s=document.createElement('span');
+    s.style.left=(20+Math.random()*60)+'%';s.style.top='30%';s.style.background=cols[i%5];
+    s.style.animationDelay=(Math.random()*.4)+'s';c.appendChild(s);}}
+
+// ---- export ----
+document.getElementById('exportBtn').onclick=()=>{
+  let md='# Account setup revamp - review\\n\\n## Change decisions\\n\\n';
+  CHANGES.forEach(([id,title])=>{const v=store.verdicts[id]||'(none)';const n=store.notes[id]?` - note: ${store.notes[id]}`:'';
+    md+=`- [${v.toUpperCase()}] ${title}${n}\\n`;});
+  md+='\\n## Comment pins\\n\\n';
+  if(!store.pins.length)md+='(none)\\n';
+  store.pins.forEach((p,i)=>{md+=`${i+1}. (${p.beat}) ${p.text||'(empty)'}\\n`;});
+  navigator.clipboard.writeText(md).then(()=>alert('Copied to clipboard. Paste it back into chat.'),
+    ()=>{const b=new Blob([md],{type:'text/markdown'});const a=document.createElement('a');
+    a.href=URL.createObjectURL(b);a.download='account-setup-review.md';a.click();});
+};
+document.getElementById('resetBtn').onclick=()=>{if(confirm('Clear all verdicts, notes and pins?')){localStorage.removeItem('acctSetupMock');location.reload();}};
+
+render();
+</script>
+</body>
+</html>

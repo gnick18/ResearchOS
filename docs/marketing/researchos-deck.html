@@ -1,0 +1,1251 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS — marketing deck</title>
+<link rel="icon" href="assets/brand/beakerbot-mark.svg" />
+<link rel="stylesheet" href="assets/fonts/geist-local.css" />
+<style>
+/* ============================================================
+   ResearchOS marketing deck
+   Brand tokens lifted verbatim from frontend/src/app/globals.css
+   ============================================================ */
+:root{
+  --rainbow: linear-gradient(90deg,#ffd2b0 0%,#fff1a8 25%,#b7ebb1 50%,#a6d2f4 75%,#d6b5f0 100%);
+  --rainbow-v: linear-gradient(180deg,#ffd2b0 0%,#fff1a8 25%,#b7ebb1 50%,#a6d2f4 75%,#d6b5f0 100%);
+  --vivid: linear-gradient(95deg,#f97316 0%,#e8920b 22%,#16a34a 48%,#0284c7 72%,#9333ea 100%);
+  --sky:#1AA0E6;
+  --amber:#F59E0B;
+  --coral:#FF6F61;
+  --tri: linear-gradient(100deg,#1AA0E6 0%,#F59E0B 50%,#FF6F61 100%);
+  --action:#1283c9;
+  --ink:#111827;
+  --purple:#5B47D6;
+  --bg:#ffffff;
+  --surface:#f8fafc;
+  --sunken:#f1f5f9;
+  --muted:#6b7280;
+  --muted2:#9ca3af;
+  --border:#e5e7eb;
+  --soft:#eff6ff;
+  --good:#16a34a;
+  --font: 'Geist','Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--font);
+  background:#0b1020;
+  color:var(--ink);
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+
+/* ---- stage + scaling ---- */
+.stage{position:fixed;inset:0;overflow:hidden;background:
+  radial-gradient(1200px 800px at 50% -10%, #141b33 0%, #0b1020 60%);}
+.deck{position:absolute;top:50%;left:50%;width:1280px;height:720px;
+  transform:translate(-50%,-50%);transform-origin:center center;}
+.slide{position:absolute;inset:0;width:1280px;height:720px;background:var(--bg);
+  display:none;flex-direction:column;overflow:hidden;
+  padding:64px 84px 70px;}
+.slide.active{display:flex;animation:slideIn .42s cubic-bezier(.22,.61,.36,1)}
+@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* ---- the signature rainbow bars, top + bottom of every slide ---- */
+.slide::before,.slide::after{content:"";position:absolute;left:0;right:0;height:12px;
+  background-image:var(--rainbow);z-index:5}
+.slide::before{top:0}
+.slide::after{bottom:0}
+
+/* ---- per-slide page number ---- */
+.pageno{position:absolute;right:34px;bottom:24px;z-index:6;
+  font-size:14px;font-weight:600;letter-spacing:.02em;color:var(--muted2)}
+.pageno b{color:var(--action)}
+.slide.dark .pageno{color:rgba(255,255,255,.55)}
+.slide.dark .pageno b{color:#8fd3ff}
+
+/* ---- shared type ---- */
+.kicker{display:inline-flex;align-items:center;gap:9px;font-size:15px;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--action);margin-bottom:18px}
+.kicker .dot{width:9px;height:9px;border-radius:50%;background-image:var(--tri)}
+h1{font-weight:800;letter-spacing:-.03em;line-height:1.02;color:var(--ink)}
+h2{font-weight:800;letter-spacing:-.025em;line-height:1.05;font-size:50px;color:var(--ink)}
+.sub{font-size:21px;line-height:1.45;color:var(--muted);font-weight:450;max-width:62ch}
+.rainbow-text{background-image:var(--tri);-webkit-background-clip:text;background-clip:text;color:transparent}
+.slide.dark{background:#0a0e1a;color:#f1f5f9}
+.slide.dark h1,.slide.dark h2{color:#fff}
+.slide.dark .sub{color:#b4bfd0}
+
+/* ============================================================ TITLE */
+.title{align-items:center;justify-content:center;text-align:center;
+  background:
+   radial-gradient(900px 520px at 50% 8%, #ffffff 0%, #f6f9ff 55%, #eef4ff 100%);}
+.title .wordmark{font-size:104px;font-weight:800;letter-spacing:-.04em;color:var(--ink);margin-top:14px}
+.title .tagline{font-size:26px;color:var(--action);font-weight:600;margin-top:10px}
+.title .talk{margin-top:30px;font-size:22px;color:var(--muted);font-weight:500;max-width:50ch}
+.title .by{margin-top:34px;font-size:16px;color:var(--muted2);font-weight:500;
+  display:flex;gap:14px;align-items:center;justify-content:center}
+.title .by span{display:inline-flex;align-items:center;gap:8px}
+.title .by .pip{width:7px;height:7px;border-radius:50%;background-image:var(--tri)}
+
+/* floating background beakers */
+.floaties{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.floaty{position:absolute;opacity:.10}
+.floaty.a{top:12%;left:9%;width:90px;animation:drift 9s ease-in-out infinite}
+.floaty.b{bottom:16%;left:15%;width:60px;animation:drift 11s ease-in-out infinite .6s}
+.floaty.c{top:18%;right:11%;width:70px;animation:drift 10s ease-in-out infinite 1.2s}
+.floaty.d{bottom:20%;right:9%;width:104px;animation:drift 12s ease-in-out infinite .3s}
+@keyframes drift{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-18px) rotate(4deg)}}
+
+/* ---- the animated BeakerBot ---- */
+.bot{position:relative;width:208px;height:auto;z-index:1;animation:bob 3.4s ease-in-out infinite}
+.bot svg{display:block;width:100%;height:auto;overflow:visible}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+.bot .bubbles{position:absolute;left:50%;top:46%;width:70px;height:46%;transform:translateX(-50%);pointer-events:none}
+.bot .bubbles i{position:absolute;bottom:0;width:9px;height:9px;border-radius:50%;
+  background:rgba(26,160,230,.55);animation:rise 2.8s linear infinite}
+.bot .bubbles i:nth-child(1){left:14%;animation-delay:0s}
+.bot .bubbles i:nth-child(2){left:42%;width:7px;height:7px;animation-delay:.7s}
+.bot .bubbles i:nth-child(3){left:68%;width:11px;height:11px;animation-delay:1.4s}
+.bot .bubbles i:nth-child(4){left:30%;width:6px;height:6px;animation-delay:2.0s}
+@keyframes rise{0%{transform:translateY(0) scale(.6);opacity:0}
+  15%{opacity:.9}70%{opacity:.7}100%{transform:translateY(-150px) scale(1);opacity:0}}
+@media (prefers-reduced-motion:reduce){
+  .bot,.floaty,.bot .bubbles i{animation:none}
+}
+
+/* ============================================================ SECTION divider */
+.section{justify-content:center;background:
+  radial-gradient(900px 600px at 18% 12%, #f4f8ff 0%, #ffffff 60%)}
+.section .big{font-size:74px;font-weight:800;letter-spacing:-.035em;line-height:1.0;max-width:20ch}
+.section .lead{font-size:24px;color:var(--muted);margin-top:24px;max-width:54ch;line-height:1.45}
+.section .num{font-size:20px;font-weight:800;letter-spacing:.12em;color:var(--action);margin-bottom:22px}
+.section .bar{width:120px;height:12px;border-radius:8px;background-image:var(--tri);margin-top:34px}
+
+/* ============================================================ generic content */
+.head{margin-bottom:26px}
+.body{flex:1;min-height:0}
+.lede{font-size:20px;color:var(--muted);margin-top:12px;max-width:70ch;line-height:1.45}
+
+/* stat grid */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;height:100%}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:18px;
+  padding:30px 28px;display:flex;flex-direction:column;justify-content:center;
+  position:relative;overflow:hidden}
+/* the three signature app colors as a clean colored spine, cycled per card (not the rainbow) */
+.stat::after{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--sky)}
+.stat:nth-child(3n+2)::after{background:var(--amber)}
+.stat:nth-child(3n)::after{background:var(--coral)}
+.stat .n{font-size:50px;font-weight:800;letter-spacing:-.03em;color:var(--ink);line-height:1}
+.stat .n small{font-size:26px;color:var(--action);font-weight:800}
+.stat .l{font-size:16px;color:var(--muted);margin-top:12px;line-height:1.35;font-weight:500}
+
+/* two-column */
+.cols{display:grid;grid-template-columns:1.05fr 1fr;gap:44px;height:100%;align-items:center}
+.cols.media-left{grid-template-columns:1fr 1.05fr}
+.points{display:flex;flex-direction:column;gap:18px}
+.point{display:flex;gap:14px;align-items:flex-start}
+.point .ic{flex:0 0 auto;width:30px;height:30px;border-radius:9px;background:var(--soft);
+  display:grid;place-items:center;margin-top:2px}
+.point .ic svg{width:17px;height:17px;stroke:var(--action);fill:none;stroke-width:2.2;
+  stroke-linecap:round;stroke-linejoin:round}
+.point .tx b{display:block;font-size:19px;font-weight:700;color:var(--ink);margin-bottom:3px}
+.point .tx span{font-size:16.5px;color:var(--muted);line-height:1.4}
+
+/* screenshot frame (browser chrome) */
+.shot{border-radius:16px;overflow:hidden;border:1px solid var(--border);
+  box-shadow:0 24px 60px -28px rgba(17,24,39,.45);background:#fff}
+.shot .bar{height:34px;background:var(--sunken);display:flex;align-items:center;gap:7px;
+  padding:0 14px;border-bottom:1px solid var(--border)}
+.shot .bar i{width:11px;height:11px;border-radius:50%;background:#cbd5e1}
+.shot .bar i:nth-child(1){background:#f1a1a1}
+.shot .bar i:nth-child(2){background:#f3d191}
+.shot .bar i:nth-child(3){background:#a7d9a7}
+.shot img,.shot video{display:block;width:100%;height:auto;background:#fff}
+.shot.contain img{object-fit:contain;max-height:520px}
+
+/* live demo button */
+.demo{display:inline-flex;align-items:center;gap:12px;margin-top:24px;
+  padding:13px 20px 13px 16px;border-radius:13px;text-decoration:none;
+  background-image:linear-gradient(to right,#1283c9,#5b47d6);color:#fff;
+  box-shadow:0 12px 26px -12px rgba(91,71,214,.7);transition:transform .12s ease}
+.demo:hover{transform:translateY(-2px)}
+.demo .play{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.18);
+  display:grid;place-items:center;flex:0 0 auto}
+.demo .play svg{width:13px;height:13px;fill:#fff;margin-left:2px}
+.demo .t b{display:block;font-size:16px;font-weight:700;letter-spacing:.01em}
+.demo .t code{font-size:13px;opacity:.82;font-family:'Geist Mono',ui-monospace,monospace}
+
+/* feature header row */
+.fhead{display:flex;align-items:baseline;gap:16px;margin-bottom:6px}
+.fhead .ix{font-size:18px;font-weight:800;color:var(--action);letter-spacing:.05em}
+.f-oneline{font-size:19px;color:var(--muted);line-height:1.45;max-width:46ch;margin-top:8px}
+.tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.tag{font-size:13.5px;font-weight:600;color:var(--action);background:var(--soft);
+  border:1px solid #dbeafe;border-radius:999px;padding:5px 12px}
+
+/* themes / more grid */
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;height:100%}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:1fr;gap:16px;height:100%}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;
+  padding:22px 22px;display:flex;flex-direction:column;gap:8px;position:relative}
+.card .ct{display:flex;align-items:center;gap:11px}
+.card .ci{width:34px;height:34px;border-radius:10px;background:#fff;border:1px solid var(--border);
+  display:grid;place-items:center;flex:0 0 auto}
+.card .ci svg{width:19px;height:19px;stroke:var(--action);fill:none;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+.card h3{font-size:17.5px;font-weight:750;color:var(--ink);letter-spacing:-.01em}
+.card p{font-size:14.5px;color:var(--muted);line-height:1.4}
+.card .topbar{position:absolute;left:0;right:0;top:0;height:5px;border-radius:16px 16px 0 0;
+  background:var(--sky)}
+.card:nth-child(3n+2) .topbar{background:var(--amber)}
+.card:nth-child(3n) .topbar{background:var(--coral)}
+
+/* tiers (solo / account / lab) */
+.tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;height:100%}
+.tier{border:1px solid var(--border);border-radius:20px;padding:26px 24px 24px;display:flex;
+  flex-direction:column;background:var(--bg);position:relative;overflow:hidden}
+.tier.feat{border-color:#bfdbfe;box-shadow:0 22px 50px -30px rgba(18,131,201,.55)}
+.tier .botimg{height:118px;display:grid;place-items:center;margin-bottom:6px}
+.tier .botimg img{height:118px;width:auto}
+.tier .tn{font-size:13px;font-weight:800;letter-spacing:.10em;text-transform:uppercase;color:var(--action)}
+.tier h3{font-size:25px;font-weight:800;letter-spacing:-.02em;margin:4px 0 4px}
+.tier .price{font-size:15px;font-weight:700;color:var(--good);margin-bottom:12px}
+.tier ul{list-style:none;display:flex;flex-direction:column;gap:9px;margin-top:4px}
+.tier li{font-size:15px;color:#374151;line-height:1.35;display:flex;gap:9px;align-items:flex-start}
+.tier li svg{width:15px;height:15px;stroke:var(--good);fill:none;stroke-width:2.4;
+  stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto;margin-top:3px}
+.tier .ribbon{position:absolute;top:16px;right:-34px;transform:rotate(45deg);
+  background:var(--coral);color:#fff;font-size:11px;font-weight:800;letter-spacing:.08em;
+  padding:5px 42px}
+
+/* pricing table */
+.ptable{width:100%;border-collapse:separate;border-spacing:0;font-size:17px}
+.ptable th,.ptable td{padding:15px 18px;text-align:left}
+.ptable thead th{font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+  border-bottom:2px solid var(--border)}
+.ptable tbody tr:not(:last-child) td{border-bottom:1px solid var(--border)}
+.ptable td.tool{font-weight:700;color:var(--ink)}
+.ptable td .vendor{font-size:13.5px;color:var(--muted2);font-weight:500;display:block;margin-top:2px}
+.ptable td.price{font-weight:700;color:var(--ink);white-space:nowrap}
+.ptable .ros td{background:linear-gradient(to right,#eef6ff,#f3efff);font-weight:800}
+.ptable .ros td.tool{color:var(--action)}
+.ptable .ros td.price{color:var(--good)}
+
+/* savings columns */
+.save{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;height:100%}
+.scol{border:1px solid var(--border);border-radius:20px;overflow:hidden;display:flex;flex-direction:column}
+.scol .top{padding:20px 22px 16px;background:var(--surface);border-bottom:1px solid var(--border)}
+.scol .scale{font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--action)}
+.scol .heads{font-size:30px;font-weight:800;color:var(--ink);letter-spacing:-.02em;margin-top:3px}
+.scol .heads small{font-size:16px;color:var(--muted);font-weight:600}
+.scol .mid{padding:20px 22px;flex:1;display:flex;flex-direction:column;gap:11px;justify-content:center}
+.scol .row{display:flex;justify-content:space-between;align-items:baseline;font-size:16px;gap:10px}
+.scol .row .k{color:var(--muted)}
+.scol .row .v{font-weight:700;color:var(--ink);white-space:nowrap}
+/* itemized tool lines that sum to the stack total */
+.scol .row.item{font-size:14px}
+.scol .row.item .k{color:#4b5563}
+.scol .row.item .k em{font-style:normal;color:var(--muted2);font-size:12px;margin-left:5px}
+.scol .row.item .v{font-weight:600;color:#374151}
+.scol .rule{height:1px;background:var(--border);margin:5px 0 2px}
+.scol .row.stack{font-weight:700}
+.scol .row.stack .k{color:var(--ink);font-weight:700}
+.scol .row.stack .v{color:#b91c1c}
+.scol .row.ros .v{color:var(--good)}
+.scol .save-amt{padding:18px 22px;background:linear-gradient(135deg,#ecfdf5,#eff6ff);
+  border-top:1px solid var(--border)}
+.scol .save-amt .lab{font-size:13px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--good)}
+.scol .save-amt .big{font-size:34px;font-weight:800;color:var(--good);letter-spacing:-.02em;line-height:1.05}
+.scol .save-amt .five{font-size:14.5px;color:var(--muted);margin-top:4px;font-weight:600}
+
+/* footnote */
+.foot{position:absolute;left:84px;right:120px;bottom:26px;font-size:12.5px;color:var(--muted2);
+  line-height:1.4;z-index:6}
+.slide.dark .foot{color:rgba(255,255,255,.45)}
+
+/* recap takeaways */
+.takeaways{display:flex;flex-direction:column;gap:16px;height:100%;justify-content:center}
+.ta{display:flex;gap:18px;align-items:center}
+.ta .b{flex:0 0 auto;width:46px;height:46px;border-radius:13px;background:var(--sky);
+  display:grid;place-items:center;font-weight:800;color:#fff;font-size:20px}
+.ta:nth-child(3n+2) .b{background:var(--amber)}
+.ta:nth-child(3n) .b{background:var(--coral)}
+.ta .tx b{display:block;font-size:21px;font-weight:750;color:var(--ink)}
+.ta .tx span{font-size:16.5px;color:var(--muted)}
+
+/* outro links */
+.outro{align-items:center;justify-content:center;text-align:center}
+.outro .links{display:flex;gap:16px;margin-top:32px;flex-wrap:wrap;justify-content:center}
+.linkchip{display:inline-flex;align-items:center;gap:10px;padding:13px 20px;border-radius:13px;
+  border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.05);color:#fff;
+  text-decoration:none;font-size:16px;font-weight:600}
+.linkchip code{font-family:'Geist Mono',ui-monospace,monospace;font-size:14px;color:#8fd3ff}
+.outro .wordmark{font-size:60px;font-weight:800;letter-spacing:-.04em;color:#fff;margin-top:18px}
+.outro .thanks{font-size:22px;color:#b4bfd0;margin-top:10px}
+
+/* ---- data-driven charts ---- */
+.chartwrap{display:flex;flex-direction:column;gap:16px;justify-content:center}
+.chart{width:100%;height:auto;display:block}
+.chart text{font-family:var(--font);font-weight:600}
+.chartstats{display:flex;gap:16px}
+.cstat{flex:1;border:1px solid var(--border);border-radius:14px;padding:13px 20px;background:var(--surface);position:relative;overflow:hidden}
+.cstat::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--c,#1AA0E6)}
+.cstat.sky{--c:var(--sky)}.cstat.amber{--c:var(--amber)}.cstat.coral{--c:var(--coral)}
+.cstat .cn{font-size:32px;font-weight:800;letter-spacing:-.02em;color:var(--ink);line-height:1}
+.cstat .cl{font-size:14px;color:var(--muted);margin-top:5px;font-weight:500}
+
+/* ---- cloud architecture diagram ---- */
+.arch{display:grid;grid-template-columns:280px 1fr;gap:16px;flex:1;min-height:0;align-items:stretch}
+.local{border:1px solid var(--border);border-radius:20px;background:linear-gradient(160deg,#eef6ff,#f8fbff);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:11px;padding:24px;position:relative;overflow:hidden}
+.local::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--sky)}
+.local .ic{width:74px;height:74px;border-radius:18px;background:#fff;border:1px solid #dbeafe;display:grid;place-items:center}
+.local .ic svg{width:40px;height:40px;stroke:var(--sky);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.local .nm{font-size:23px;font-weight:800;color:var(--ink);letter-spacing:-.02em}
+.local .rl{font-size:15px;color:var(--muted);line-height:1.35;max-width:20ch}
+.local .badge{margin-top:2px;font-size:12.5px;font-weight:700;color:var(--action);background:#fff;border:1px solid #dbeafe;border-radius:999px;padding:6px 13px}
+.layers{display:flex;flex-direction:column;gap:13px;justify-content:center}
+.lrow{display:flex;align-items:center}
+.conn{flex:0 0 92px;position:relative;height:34px;display:flex;align-items:center}
+.conn .lbl{position:absolute;top:-4px;left:0;right:8px;text-align:center;font-size:10px;font-weight:700;letter-spacing:.03em;color:var(--muted2);text-transform:uppercase}
+.conn svg{width:92px;height:14px;margin-top:12px}
+.layer{flex:1;border:1px solid var(--border);border-radius:16px;padding:13px 18px;background:var(--bg);position:relative;overflow:hidden}
+.layer::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--c)}
+.layer.sky{--c:var(--sky)}
+.layer.amber{--c:var(--amber)}
+.layer.coral{--c:var(--coral)}
+.layer .lh{display:flex;align-items:center;gap:12px}
+.layer .li{width:34px;height:34px;border-radius:10px;background:var(--soft);display:grid;place-items:center;flex:0 0 auto}
+.layer .li svg{width:19px;height:19px;stroke:var(--c);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.layer .ln{font-size:17px;font-weight:750;color:var(--ink);letter-spacing:-.01em}
+.layer .ls{font-size:12.5px;color:var(--muted2)}
+.layer .cost{margin-left:auto;text-align:right;font-size:20px;font-weight:800;color:var(--c);letter-spacing:-.02em;white-space:nowrap}
+.layer .cost small{display:block;font-size:11px;color:var(--muted2);font-weight:600}
+.layer .ld{font-size:13px;color:var(--muted);line-height:1.38;margin-top:6px}
+.strat{background:linear-gradient(100deg,#eef6ff,#fff4ec);border:1px solid var(--border);border-radius:14px;
+  padding:13px 20px;font-size:13.5px;color:#374151;line-height:1.45}
+.strat b{color:var(--ink)}
+.strat .beta{color:var(--muted2);font-size:12px;margin-top:5px}
+
+/* ---- HUD / controls ---- */
+.hud{position:fixed;right:18px;bottom:14px;z-index:50;display:flex;gap:8px;align-items:center;
+  font-family:var(--font)}
+.hud button{width:38px;height:38px;border-radius:10px;border:1px solid rgba(255,255,255,.16);
+  background:rgba(255,255,255,.07);color:#fff;cursor:pointer;font-size:17px;
+  display:grid;place-items:center;backdrop-filter:blur(6px)}
+.hud button:hover{background:rgba(255,255,255,.16)}
+.hud .count{color:#cbd5e1;font-size:14px;font-weight:600;padding:0 8px;min-width:62px;text-align:center}
+.progress{position:fixed;left:0;top:0;height:3px;background-image:var(--vivid);z-index:60;
+  transition:width .35s ease}
+.help{position:fixed;left:18px;bottom:16px;z-index:50;color:rgba(255,255,255,.45);
+  font-size:12.5px;font-family:var(--font)}
+.help b{color:rgba(255,255,255,.8)}
+/* auto-hide the on-screen controls when the mouse is idle, so a recording stays clean */
+.hud,.help{transition:opacity .45s ease}
+body.idle .hud,body.idle .help{opacity:0;pointer-events:none}
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<div class="stage">
+  <div class="deck" id="deck">
+
+  <!-- ============================================================ 1. TITLE -->
+  <section class="slide title">
+    <div class="floaties">
+      <img class="floaty a" src="assets/brand/beakerbot-mark.svg" alt="">
+      <img class="floaty b" src="assets/brand/beakerbot-mark.svg" alt="">
+      <img class="floaty c" src="assets/brand/beakerbot-mark.svg" alt="">
+      <img class="floaty d" src="assets/brand/beakerbot-mark.svg" alt="">
+    </div>
+    <div class="bot">
+      <div class="bubbles"><i></i><i></i><i></i><i></i></div>
+      <svg viewBox="8 3 24 31" fill="none" stroke="#1AA0E6" stroke-width="1.6"
+           stroke-linecap="round" stroke-linejoin="round">
+        <defs>
+          <linearGradient id="liq" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/>
+            <stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/>
+            <stop offset="100%" stop-color="#D6B5F0"/>
+          </linearGradient>
+        </defs>
+        <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none"/>
+        <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#liq)" stroke="none"/>
+        <path d="M22 8 C 22 6, 24 4, 26 6"/>
+        <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12"/>
+        <path d="M11 12 L29 12"/>
+        <circle cx="17" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/>
+        <circle cx="23" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/>
+        <path d="M18 22 Q 20 24, 22 22"/>
+        <path d="M14 26 L15.5 26"/><path d="M24.5 26 L26 26"/>
+      </svg>
+    </div>
+    <div class="wordmark">ResearchOS</div>
+    <div class="tagline">The local-first workspace for research labs.</div>
+    <div class="talk">What we built, how it works, and what it can save your lab.</div>
+    <div class="by">
+      <span><span class="pip"></span> Grant Nickles, University of Wisconsin-Madison</span>
+      <span><span class="pip"></span> June 2026</span>
+    </div>
+  </section>
+
+  <!-- ============================================================ 2. SECTION: story -->
+  <section class="slide section">
+    <div class="num">PART ONE</div>
+    <div class="big">What we <span class="rainbow-text">built</span></div>
+    <div class="lead">From a simple notes prototype to a full research platform in about four months.</div>
+    <div class="bar"></div>
+  </section>
+
+  <!-- ============================================================ 3. THE NUMBERS -->
+  <section class="slide">
+    <div class="head">
+      <div class="kicker"><span class="dot"></span> By the numbers</div>
+      <h2>Four months of work</h2>
+    </div>
+    <div class="body">
+      <div class="stats">
+        <div class="stat"><div class="n">116</div><div class="l">days of active development, from the first commit on Feb 15 to today</div></div>
+        <div class="stat"><div class="n">3,660</div><div class="l">code commits, with about 686,000 net new lines of code</div></div>
+        <div class="stat"><div class="n">8</div><div class="l">major capability areas, from the notebook to sequence cloning</div></div>
+        <div class="stat"><div class="n">91</div><div class="l">ready-to-run protocol templates from the major reagent vendors</div></div>
+        <div class="stat"><div class="n">v0.75</div><div class="l">the public launch release, free and open while we finish the beta</div></div>
+        <div class="stat"><div class="n">1</div><div class="l">researcher, building it with AI agents over roughly 160 hands-on hours</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 4. CODEBASE CHART -->
+  <section class="slide">
+    <div class="head">
+      <div class="kicker"><span class="dot"></span> The codebase over time</div>
+      <h2>How the codebase grew</h2>
+    </div>
+    <div class="body chartwrap">
+      <svg class="chart" id="chartCommits" viewBox="0 0 1000 360"></svg>
+      <div class="chartstats">
+        <div class="cstat sky"><div class="cn">3,691</div><div class="cl">commits</div></div>
+        <div class="cstat amber"><div class="cn">~686k</div><div class="cl">net lines of code</div></div>
+        <div class="cstat coral"><div class="cn">115</div><div class="cl">days, one researcher with AI</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 5. FEATURES CHART -->
+  <section class="slide">
+    <div class="head">
+      <div class="kicker"><span class="dot"></span> Features shipped</div>
+      <h2>How many, and when</h2>
+    </div>
+    <div class="body chartwrap">
+      <svg class="chart" id="chartFeatures" viewBox="0 0 1000 360"></svg>
+      <div class="chartstats">
+        <div class="cstat amber"><div class="cn">21</div><div class="cl">major features</div></div>
+        <div class="cstat sky"><div class="cn">8</div><div class="cl">capability areas</div></div>
+        <div class="cstat coral"><div class="cn">~4 wks</div><div class="cl">from 1 feature to 21</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 6. SECTION: storage -->
+  <section class="slide section">
+    <div class="num">PART TWO</div>
+    <div class="big">Where your <span class="rainbow-text">data lives</span></div>
+    <div class="lead">Local by default, cloud only if you want it, and priced at our actual cost.</div>
+    <div class="bar"></div>
+  </section>
+
+  <!-- ============================================================ 7. LOCAL-FIRST -->
+  <section class="slide">
+    <div class="head">
+      <div class="kicker"><span class="dot"></span> Local-first</div>
+      <h2>Your data is just files on your computer</h2>
+    </div>
+    <div class="body">
+      <div class="cols">
+        <div class="shot">
+          <div class="bar"><i></i><i></i><i></i></div>
+          <video src="assets/shots/video/own-your-data.mp4" poster="assets/shots/video/own-your-data.poster.jpg"
+                 autoplay muted loop playsinline></video>
+        </div>
+        <div class="points">
+          <div class="point"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 7l2-3h6l2 3h6v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg></span>
+            <span class="tx"><b>A folder you can open in Finder</b><span>Notes are Markdown, records are JSON. Readable with or without ResearchOS.</span></span></div>
+          <div class="point"><span class="ic"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span>
+            <span class="tx"><b>No account, no upload, works offline</b><span>The full notebook runs with nothing in the cloud. Your everyday work never leaves your machine.</span></span></div>
+          <div class="point"><span class="ic"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-9-9M21 3v6h-6"/></svg></span>
+            <span class="tx"><b>Sync it your own way</b><span>Drop the folder in Drive, Dropbox, iCloud, or Box and your existing backup handles it.</span></span></div>
+          <div class="point"><span class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 4v16"/></svg></span>
+            <span class="tx"><b>This is why the core is free</b><span>Because we never have to store or process your work, we never have to charge you to use it.</span></span></div>
+        </div>
+      </div>
+    </div>
+    <div class="foot">ResearchOS runs in Chrome or Edge on the desktop, the browsers that let an app work directly with a folder on your disk.</div>
+  </section>
+
+  <!-- ============================================================ 8. OPTIONAL CLOUD -->
+  <section class="slide">
+    <div class="head">
+      <div class="kicker"><span class="dot"></span> Optional cloud</div>
+      <h2>Cloud storage is optional, and priced at cost</h2>
+    </div>
+    <div class="body">
+      <div class="points" style="max-width:96ch">
+        <div class="point"><span class="ic"><svg viewBox="0 0 24 24"><path d="M6 18a4 4 0 010-8 5 5 0 019.6-1.5A3.5 3.5 0 0118 18z"/></svg></span>
+          <span class="tx"><b>Off by default</b><span>Turn it on only if you want cross-device sync, sharing, or an off-site backup. Nothing moves to the cloud until you say so.</span></span></div>
+        <div class="point"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></span>
+          <span class="tx"><b>5 GB free, then a low flat plan</b><span>Every account gets a 5 GB cloud pool at no cost, enough for most labs. Above it, storage is a low flat monthly plan priced to recover our cost, not a per-gigabyte meter that creeps up.</span></span></div>
+        <div class="point"><span class="ic"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span>
+          <span class="tx"><b>Editing is never metered per keystroke</b><span>Heavy real-time use simply slows to periodic sync. It never turns into a surprise bill.</span></span></div>
+        <div class="point"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg></span>
+          <span class="tx"><b>A hard cost ceiling</b><span>A built-in circuit breaker caps spend. If it is reached, cloud writes pause and the local app keeps working without interruption.</span></span></div>
+        <div class="point"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+          <span class="tx"><b>Free during the beta</b><span>Cloud billing is not turned on yet, so the whole app is free today while we finish.</span></span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 8b. CLOUD ARCHITECTURE -->
+  <section class="slide">
+    <div class="head">
+      <div class="kicker"><span class="dot"></span> Cloud architecture</div>
+      <h2>How the cloud layers work</h2>
+    </div>
+    <div class="body" style="display:flex;flex-direction:column;gap:16px">
+      <div class="arch">
+        <div class="local">
+          <div class="ic"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M2 20h20M9 20l.5-3M15 20l-.5-3"/></svg></div>
+          <div class="nm">Your computer</div>
+          <div class="rl">The original. Every note and file, as plain files you own.</div>
+          <div class="badge">$0 &middot; offline &middot; private</div>
+        </div>
+        <div class="layers">
+          <div class="lrow">
+            <div class="conn"><span class="lbl">files &amp; images</span>
+              <svg viewBox="0 0 92 14"><line x1="2" y1="7" x2="80" y2="7" stroke="#1AA0E6" stroke-width="5"/><path d="M80 1 L91 7 L80 13 Z" fill="#1AA0E6"/></svg></div>
+            <div class="layer sky">
+              <div class="lh"><span class="li"><svg viewBox="0 0 24 24"><path d="M21 16V8l-9-5-9 5v8l9 5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg></span>
+                <div><div class="ln">Cloudflare R2</div><div class="ls">bulk file bytes</div></div>
+                <div class="cost">$0.015<small>per GB-mo, free egress</small></div></div>
+              <div class="ld">Images and attachments land here, never in a database. The bulk of your bytes, kept on the cheapest layer.</div>
+            </div>
+          </div>
+          <div class="lrow">
+            <div class="conn"><span class="lbl">tiny edits</span>
+              <svg viewBox="0 0 92 14"><line x1="2" y1="7" x2="80" y2="7" stroke="#F59E0B" stroke-width="2"/><path d="M80 2 L90 7 L80 12 Z" fill="#F59E0B"/></svg></div>
+            <div class="layer amber">
+              <div class="lh"><span class="li"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></svg></span>
+                <div><div class="ln">Durable Objects</div><div class="ls">live co-editing</div></div>
+                <div class="cost">$0.20<small>per GB-mo + activity</small></div></div>
+              <div class="ld">Only tiny CRDT deltas and the live sync socket. Powers real-time co-editing in a lab, kept small on purpose.</div>
+            </div>
+          </div>
+          <div class="lrow">
+            <div class="conn"><span class="lbl">a sealed send</span>
+              <svg viewBox="0 0 92 14"><line x1="2" y1="7" x2="80" y2="7" stroke="#FF6F61" stroke-width="2" stroke-dasharray="5 4"/><path d="M80 2 L90 7 L80 12 Z" fill="#FF6F61"/></svg></div>
+            <div class="layer coral">
+              <div class="lh"><span class="li"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg></span>
+                <div><div class="ln">Encrypted relay</div><div class="ls">one-time send</div></div>
+                <div class="cost">1 GB<small>30 days, then gone</small></div></div>
+              <div class="ld">A sealed handoff to another user, deleted the moment they pick it up. End-to-end encrypted, and it never counts against your pool.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="strat"><b>R2-first.</b> We push the heavy bytes to the cheapest layer and keep only tiny, hot state in the pricey one, so a full 5 GB free pool costs us about 7 cents a month. The cloud only ever holds copies. Your folder stays the original, and a collaborator's work mirrors back to your own disk.
+        <div class="beta">Real-time collaboration and billing are flag-gated and off during the free beta.</div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 9. SECTION: accounts -->
+  <section class="slide section">
+    <div class="num">PART THREE</div>
+    <div class="big">Solo, or <span class="rainbow-text">signed in</span></div>
+    <div class="lead">Accounts are optional. Here is what each way of using ResearchOS gives you.</div>
+    <div class="bar"></div>
+  </section>
+
+  <!-- ============================================================ 10. THREE TIERS -->
+  <section class="slide">
+    <div class="head">
+      <div class="kicker"><span class="dot"></span> Three ways to use it</div>
+      <h2>Solo, a free account, or a lab</h2>
+    </div>
+    <div class="body">
+      <div class="tiers">
+        <div class="tier">
+          <div class="botimg"><img src="assets/brand/beakerbot-solo.svg" alt="BeakerBot, solo"></div>
+          <div class="tn">Solo</div>
+          <h3>No account</h3>
+          <div class="price">Free, fully local</div>
+          <ul>
+            <li><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>The complete notebook on your own machine</li>
+            <li><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>Every feature, all of it offline</li>
+            <li><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>Nothing to sign up for, nothing in the cloud</li>
+          </ul>
+        </div>
+        <div class="tier feat">
+          <div class="ribbon">FREE</div>
+          <div class="botimg"><img src="assets/brand/beakerbot-computer.svg" alt="BeakerBot at a laptop"></div>
+          <div class="tn">Free account</div>
+          <h3>Signed in</h3>
+          <div class="price">Free, adds identity</div>
+          <ul>
+            <li><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>An identity tied to your ORCID</li>
+            <li><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>Recovery codes if you lose a laptop</li>
+            <li><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>Send notes, methods, and plasmids to anyone</li>
+            <li><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>Pick up on another computer or your phone</li>
+          </ul>
+        </div>
+        <div class="tier">
+          <div class="botimg"><img src="assets/brand/beakerbot-lab.svg" alt="BeakerBot with a lab team"></div>
+          <div class="tn">Lab</div>
+          <h3>A shared lab</h3>
+          <div class="price">Free core, one bill for cloud</div>
+          <ul>
+            <li><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>A PI sets up the lab, members join</li>
+            <li><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>Automatic sharing and shared methods</li>
+            <li><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>PI overview, approvals, and mentoring</li>
+            <li><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>Only the PI ever pays, members never do</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 11. WHY AN ACCOUNT -->
+  <section class="slide">
+    <div class="head">
+      <div class="kicker"><span class="dot"></span> Accounts</div>
+      <h2>Why make an account? It is optional</h2>
+      <div class="lede">You never need one to use the notebook. An account does not move your data to the cloud, it adds identity and connection on top of the local-first core.</div>
+    </div>
+    <div class="body">
+      <div class="grid3" style="grid-auto-rows:1fr">
+        <div class="card"><div class="topbar"></div><div class="ct"><span class="ci"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg></span><h3>Prove it is yours</h3></div><p>Your work is attributed to your ORCID identity, so authorship is clear and verifiable.</p></div>
+        <div class="card"><div class="topbar"></div><div class="ct"><span class="ci"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg></span><h3>Never lose access</h3></div><p>Recovery codes mean a lost or broken laptop does not mean lost access to your account.</p></div>
+        <div class="card"><div class="topbar"></div><div class="ct"><span class="ci"><svg viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/></svg></span><h3>Work anywhere</h3></div><p>Pick up your work on another computer, or capture from your phone at the bench.</p></div>
+        <div class="card"><div class="topbar"></div><div class="ct"><span class="ci"><svg viewBox="0 0 24 24"><path d="M4 4h16v12H7l-3 3z"/></svg></span><h3>Send and receive</h3></div><p>Share a note, method, or sequence with any other user by email, even with no shared folder.</p></div>
+        <div class="card"><div class="topbar"></div><div class="ct"><span class="ci"><svg viewBox="0 0 24 24"><path d="M16 11a4 4 0 10-8 0M4 20a8 8 0 0116 0"/></svg></span><h3>Join a lab</h3></div><p>Automatic sharing with your lab, shared methods, and PI oversight when you want it.</p></div>
+        <div class="card"><div class="topbar"></div><div class="ct"><span class="ci"><svg viewBox="0 0 24 24"><path d="M3 7l2-3h6l2 3h6v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg></span><h3>Still local-first</h3></div><p>Your folder stays the source of truth. The account is connection, not a cloud handover.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 12. SECTION: features -->
+  <section class="slide dark section" style="background:radial-gradient(900px 600px at 80% 20%, #14233a 0%, #0a0e1a 60%)">
+    <div class="num" style="color:#8fd3ff">PART FOUR</div>
+    <div class="big" style="color:#fff">One tool that replaces <span class="rainbow-text">five</span></div>
+    <div class="lead" style="color:#b4bfd0">The notebook, methods, the Gantt timeline, purchasing, and the calendar, in one workspace, with the sequence editor on top.</div>
+    <div class="shot" style="margin-top:30px;max-width:760px;border:1px solid rgba(255,255,255,.12)">
+      <div class="bar"><i></i><i></i><i></i></div>
+      <video src="assets/shots/video/replaces-5-tools.mp4" poster="assets/shots/video/replaces-5-tools.poster.jpg" autoplay muted loop playsinline></video>
+    </div>
+  </section>
+
+  <!-- ============================================================ 13. SEQUENCE EDITOR -->
+  <section class="slide">
+    <div class="head">
+      <div class="fhead"><span class="ix">FEATURE 01</span></div>
+      <h2>Sequence editor and cloning, built in</h2>
+      <div class="f-oneline">A SnapGene-style editor with circular plasmid maps, annotated views, and in-silico cloning, all in the browser, all free.</div>
+    </div>
+    <div class="body">
+      <div class="cols">
+        <div>
+          <div class="tags">
+            <span class="tag">Circular and linear maps</span>
+            <span class="tag">Gibson, Golden Gate, restriction, Gateway</span>
+            <span class="tag">Auto primer design with Tm</span>
+            <span class="tag">Restriction digest overlay</span>
+          </div>
+          <a class="demo" href="#" data-demo="/demo/sequences" target="_blank" rel="noopener">
+            <span class="play"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg></span>
+            <span class="t"><b>Show it live</b><code>/demo/sequences</code></span>
+          </a>
+        </div>
+        <div class="shot">
+          <div class="bar"><i></i><i></i><i></i></div>
+          <video src="assets/shots/video/sequence-editor-a.mp4" poster="assets/shots/video/sequence-editor-a.poster.jpg" autoplay muted loop playsinline></video>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 14. METHODS CATALOG -->
+  <section class="slide">
+    <div class="head">
+      <div class="fhead"><span class="ix">FEATURE 02</span></div>
+      <h2>A methods library with 91 ready protocols</h2>
+      <div class="f-oneline">Structured, reusable protocols from NEB, Promega, Qiagen, Thermo, Bio-Rad, and more, many with the original vendor PDF attached.</div>
+    </div>
+    <div class="body">
+      <div class="cols media-left">
+        <div class="shot">
+          <div class="bar"><i></i><i></i><i></i></div>
+          <video src="assets/shots/video/methods-library.mp4" poster="assets/shots/video/methods-library.poster.jpg" autoplay muted loop playsinline></video>
+        </div>
+        <div>
+          <div class="tags">
+            <span class="tag">Ten method types</span>
+            <span class="tag">Structured PCR and plate layouts</span>
+            <span class="tag">Vendor PDFs bundled</span>
+            <span class="tag">Searchable catalog</span>
+          </div>
+          <a class="demo" href="#" data-demo="/demo/methods" target="_blank" rel="noopener">
+            <span class="play"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg></span>
+            <span class="t"><b>Show it live</b><code>/demo/methods</code></span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 15. VERSION HISTORY -->
+  <section class="slide">
+    <div class="head">
+      <div class="fhead"><span class="ix">FEATURE 03</span></div>
+      <h2>Version history on every record</h2>
+      <div class="f-oneline">Every save is tracked on disk, grouped by day and session, with a colored diff and one-click restore. No other free notebook ships this.</div>
+    </div>
+    <div class="body">
+      <div class="cols">
+        <div>
+          <div class="tags">
+            <span class="tag">Per-save, per-editor diffs</span>
+            <span class="tag">Day and session grouping</span>
+            <span class="tag">Restore and undo restore</span>
+            <span class="tag">A compliance story you can show</span>
+          </div>
+          <a class="demo" href="#" data-demo="/demo/workbench" target="_blank" rel="noopener">
+            <span class="play"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg></span>
+            <span class="t"><b>Show it live</b><code>/demo/workbench → open a note → history</code></span>
+          </a>
+        </div>
+        <div class="shot">
+          <div class="bar"><i></i><i></i><i></i></div>
+          <img src="assets/shots/version-history-diff.png" alt="Version history diff">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 16. GANTT -->
+  <section class="slide">
+    <div class="head">
+      <div class="fhead"><span class="ix">FEATURE 04</span></div>
+      <h2>A Gantt timeline for the whole lab</h2>
+      <div class="f-oneline">Every active task across every project on one drag-and-drop timeline, colored by project, chained by dependency, aware of time off.</div>
+    </div>
+    <div class="body">
+      <div class="cols media-left">
+        <div class="shot">
+          <div class="bar"><i></i><i></i><i></i></div>
+          <img src="assets/shots/gantt-overview.png" alt="Gantt timeline">
+        </div>
+        <div>
+          <div class="tags">
+            <span class="tag">Drag to reschedule</span>
+            <span class="tag">Drop to chain dependencies</span>
+            <span class="tag">Colored by project</span>
+            <span class="tag">Skips PTO automatically</span>
+          </div>
+          <a class="demo" href="#" data-demo="/demo/gantt" target="_blank" rel="noopener">
+            <span class="play"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg></span>
+            <span class="t"><b>Show it live</b><code>/demo/gantt</code></span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 17. PURCHASES -->
+  <section class="slide">
+    <div class="head">
+      <div class="fhead"><span class="ix">FEATURE 05</span></div>
+      <h2>Purchases and grant tracking</h2>
+      <div class="f-oneline">An order list and a live spending dashboard in the same app as the notebook, with grant burn by project, vendor, and category.</div>
+    </div>
+    <div class="body">
+      <div class="cols">
+        <div>
+          <div class="tags">
+            <span class="tag">Spend by funding account</span>
+            <span class="tag">Charts by project and vendor</span>
+            <span class="tag">CSV export</span>
+            <span class="tag">PI approval queue</span>
+          </div>
+          <a class="demo" href="#" data-demo="/demo/purchases" target="_blank" rel="noopener">
+            <span class="play"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg></span>
+            <span class="t"><b>Show it live</b><code>/demo/purchases</code></span>
+          </a>
+        </div>
+        <div class="shot">
+          <div class="bar"><i></i><i></i><i></i></div>
+          <img src="assets/shots/purchases-dashboard-funding-cards.png" alt="Purchases funding cards">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 18. PHOTO INBOX -->
+  <section class="slide">
+    <div class="head">
+      <div class="fhead"><span class="ix">FEATURE 06</span></div>
+      <h2>Capture from your phone at the bench</h2>
+      <div class="f-oneline">Pair a phone with a QR code, snap a photo or a handwritten page, and it lands in your inbox to file into an experiment in one tap.</div>
+    </div>
+    <div class="body">
+      <div class="cols media-left">
+        <div class="shot">
+          <div class="bar"><i></i><i></i><i></i></div>
+          <img src="assets/shots/telegram-inbox.png" alt="Photo inbox">
+        </div>
+        <div>
+          <div class="tags">
+            <span class="tag">QR pairing in Settings</span>
+            <span class="tag">One-tap file to experiment</span>
+            <span class="tag">Handwriting becomes searchable text</span>
+            <span class="tag">Batch routing</span>
+          </div>
+          <a class="demo" href="#" data-demo="/demo" target="_blank" rel="noopener">
+            <span class="play"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg></span>
+            <span class="t"><b>Show it live</b><code>/demo → Inbox pill</code></span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 19. TRANSPARENCY -->
+  <section class="slide">
+    <div class="head">
+      <div class="fhead"><span class="ix">FEATURE 07</span></div>
+      <h2>Our math is checked in public</h2>
+      <div class="f-oneline">A public page compares our Tm, alignment, digest, and translation against Biopython and primer3, re-checked on every code change so it cannot drift.</div>
+    </div>
+    <div class="body">
+      <div class="cols">
+        <div>
+          <div class="tags">
+            <span class="tag">Side by side with Biopython and primer3</span>
+            <span class="tag">Recomputed every commit</span>
+            <span class="tag">No login or folder needed</span>
+            <span class="tag">A trust signal for reviewers</span>
+          </div>
+          <a class="demo" href="#" data-demo="/transparency" target="_blank" rel="noopener">
+            <span class="play"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg></span>
+            <span class="t"><b>Show it live</b><code>/transparency</code></span>
+          </a>
+        </div>
+        <div class="shot">
+          <div class="bar"><i></i><i></i><i></i></div>
+          <img src="assets/shots/transparency-method-validation.png" alt="Method validation table">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 20. PI OVERVIEW -->
+  <section class="slide">
+    <div class="head">
+      <div class="fhead"><span class="ix">FEATURE 08</span></div>
+      <h2>A PI dashboard for the whole lab</h2>
+      <div class="f-oneline">Pending approvals, member workload, the activity feed, and announcements on one landing page, with a PI view across every member's work.</div>
+    </div>
+    <div class="body">
+      <div class="cols media-left">
+        <div class="shot">
+          <div class="bar"><i></i><i></i><i></i></div>
+          <video src="assets/shots/video/pi-lab-overview.mp4" poster="assets/shots/video/pi-lab-overview.poster.jpg" autoplay muted loop playsinline></video>
+        </div>
+        <div>
+          <div class="tags">
+            <span class="tag">Pending approvals</span>
+            <span class="tag">Member workload</span>
+            <span class="tag">Lab activity feed</span>
+            <span class="tag">Announcements</span>
+          </div>
+          <a class="demo" href="#" data-demo="/demo" target="_blank" rel="noopener">
+            <span class="play"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg></span>
+            <span class="t"><b>Show it live</b><code>/demo → switch to the PI user</code></span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 21. AND MORE -->
+  <section class="slide">
+    <div class="head">
+      <div class="kicker"><span class="dot"></span> And there is more</div>
+      <h2>The rest of what it does</h2>
+    </div>
+    <div class="body">
+      <div class="grid4">
+        <div class="card"><div class="ct"><span class="ci"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg></span><h3>The notebook</h3></div><p>Experiments on a kanban board, notes, projects, and lists.</p></div>
+        <div class="card"><div class="ct"><span class="ci"><svg viewBox="0 0 24 24"><path d="M5 8h14M5 12h14M5 16h9"/></svg></span><h3>Inventory</h3></div><p>Track reagents by container, with low-stock and expiry flags.</p></div>
+        <div class="card"><div class="ct"><span class="ci"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg></span><h3>Calendar and feeds</h3></div><p>Tasks and events, with iCal export to Google or Outlook.</p></div>
+        <div class="card"><div class="ct"><span class="ci"><svg viewBox="0 0 24 24"><path d="M4 4h16v12H7l-3 3z"/></svg></span><h3>Lab inbox</h3></div><p>Threaded comments, announcements, and @-mentions in one stream.</p></div>
+        <div class="card"><div class="ct"><span class="ci"><svg viewBox="0 0 24 24"><path d="M12 3l2 5 5 .4-3.8 3.3L16.5 17 12 14l-4.5 3 1.3-5.3L5 8.4 10 8z"/></svg></span><h3>Image annotation</h3></div><p>Vector markup over bench photos, with the original left untouched.</p></div>
+        <div class="card"><div class="ct"><span class="ci"><svg viewBox="0 0 24 24"><path d="M16 11a4 4 0 10-8 0M4 20a8 8 0 0116 0"/></svg></span><h3>Mentoring and 1:1s</h3></div><p>A shared advising space for a PI and member, goals and agenda.</p></div>
+        <div class="card"><div class="ct"><span class="ci"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg></span><h3>NIH data deposit</h3></div><p>Guided Zenodo deposit with funder and ORCID metadata.</p></div>
+        <div class="card"><div class="ct"><span class="ci"><svg viewBox="0 0 24 24"><path d="M21 21l-5-5M3 11a8 8 0 1016 0 8 8 0 00-16 0z"/></svg></span><h3>Import and search</h3></div><p>Bring in a LabArchives notebook, then search across everything.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 22. SECTION: price -->
+  <section class="slide section">
+    <div class="num">PART FIVE</div>
+    <div class="big">What it <span class="rainbow-text">costs</span></div>
+    <div class="lead">Free and open at the core. Then the honest comparison against the tools it replaces.</div>
+    <div class="bar"></div>
+  </section>
+
+  <!-- ============================================================ 23. OUR PRICING -->
+  <section class="slide">
+    <div class="head">
+      <div class="kicker"><span class="dot"></span> Our pricing</div>
+      <h2>Free and open at the core</h2>
+    </div>
+    <div class="body">
+      <div class="cols">
+        <div class="points">
+          <div class="point"><span class="ic"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span>
+            <span class="tx"><b>The notebook is free, forever, and open source</b><span>Released under the GNU AGPLv3. Your data lives on your machine, in open formats you can read without us.</span></span></div>
+          <div class="point"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></span>
+            <span class="tx"><b>Cloud storage is the only paid part, at cost</b><span>A 5 GB free pool, then a low flat plan priced to recover cost, not profit. For a lab, only the PI ever pays, on one invoice.</span></span></div>
+          <div class="point"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 2l3 6 6 .5-4.5 4 1.5 6L12 15l-6 3.5 1.5-6L3 8.5 9 8z"/></svg></span>
+            <span class="tx"><b>Cost recovery, not profit</b><span>Funded by a UW-Madison RISE fellowship and voluntary support. A registered Wisconsin LLC handles paid storage, sized only to cover its bills.</span></span></div>
+        </div>
+        <div class="card" style="background:linear-gradient(135deg,#eef6ff,#f3efff);border-color:#dbeafe;justify-content:center;gap:14px">
+          <div class="topbar"></div>
+          <div style="font-size:15px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--action)">The bottom line</div>
+          <div style="font-size:30px;font-weight:800;letter-spacing:-.02em;color:var(--ink);line-height:1.12">
+            Use the whole thing for <span class="rainbow-text">$0</span>.</div>
+          <div style="font-size:16.5px;color:var(--muted);line-height:1.45">
+            Because your everyday work never touches our servers, we never have to charge you to use your own notebook. Pay only if you opt into cloud storage above the free tier.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 24. COMPETITOR STACK -->
+  <section class="slide">
+    <div class="head">
+      <div class="kicker"><span class="dot"></span> What a lab pays today</div>
+      <h2>The stack ResearchOS replaces</h2>
+    </div>
+    <div class="body">
+      <table class="ptable">
+        <thead><tr><th>Tool</th><th>What it does</th><th>Academic price</th></tr></thead>
+        <tbody>
+          <tr><td class="tool">LabArchives<span class="vendor">Electronic lab notebook</span></td><td>The NIH-listed notebook</td><td class="price">$330 / user / year</td></tr>
+          <tr><td class="tool">SnapGene<span class="vendor">Sequence editing and cloning</span></td><td>Plasmid maps, cloning, primers</td><td class="price">$350, up to $1,625 for 5 seats</td></tr>
+          <tr><td class="tool">Quartzy<span class="vendor">Inventory and ordering</span></td><td>Reagent inventory and orders</td><td class="price">from $159 / month</td></tr>
+          <tr><td class="tool">Benchling<span class="vendor">R&amp;D cloud notebook</span></td><td>Free for academics, paid for industry</td><td class="price">free for academics</td></tr>
+          <tr class="ros"><td class="tool">ResearchOS<span class="vendor">All of the above, in one app</span></td><td>Notebook, sequences, methods, inventory, grants</td><td class="price">$0 core, cloud optional</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="foot">Academic list prices, 2025 to 2026, from vendor sites and our own wiki. Quartzy moved to a paid subscription in 2026. Benchling stays free for academics, so the savings below count the paid seats labs actually buy, not the free ones.</div>
+  </section>
+
+  <!-- ============================================================ 25. SAVINGS -->
+  <section class="slide">
+    <div class="head">
+      <div class="kicker"><span class="dot"></span> What you save</div>
+      <h2>What you save at each size</h2>
+    </div>
+    <div class="body">
+      <div class="save">
+        <div class="scol">
+          <div class="top"><div class="scale">A single lab</div><div class="heads">~8 <small>people</small></div></div>
+          <div class="mid">
+            <div class="row item"><span class="k">LabArchives <em>8 &times; $330</em></span><span class="v">$2,640</span></div>
+            <div class="row item"><span class="k">SnapGene <em>5 seats</em></span><span class="v">$1,625</span></div>
+            <div class="rule"></div>
+            <div class="row stack"><span class="k">Separate tools</span><span class="v">~$4,300 / yr</span></div>
+            <div class="row ros"><span class="k">ResearchOS</span><span class="v">~$0 / yr</span></div>
+          </div>
+          <div class="save-amt"><div class="lab">You save</div><div class="big">~$4,300/yr</div><div class="five">about $21,000 over 5 years</div></div>
+        </div>
+        <div class="scol">
+          <div class="top"><div class="scale">A department</div><div class="heads">~50 <small>people</small></div></div>
+          <div class="mid">
+            <div class="row item"><span class="k">LabArchives <em>50 &times; $330</em></span><span class="v">$16,500</span></div>
+            <div class="row item"><span class="k">SnapGene <em>~25 seats</em></span><span class="v">$6,000</span></div>
+            <div class="rule"></div>
+            <div class="row stack"><span class="k">Separate tools</span><span class="v">~$22,500 / yr</span></div>
+            <div class="row ros"><span class="k">ResearchOS</span><span class="v">~$0 / yr</span></div>
+          </div>
+          <div class="save-amt"><div class="lab">You save</div><div class="big">~$22,500/yr</div><div class="five">about $112,000 over 5 years</div></div>
+        </div>
+        <div class="scol">
+          <div class="top"><div class="scale">An institution</div><div class="heads">~500 <small>people</small></div></div>
+          <div class="mid">
+            <div class="row item"><span class="k">LabArchives <em>500 &times; $330</em></span><span class="v">$165,000</span></div>
+            <div class="row item"><span class="k">SnapGene <em>campus</em></span><span class="v">$6,000</span></div>
+            <div class="rule"></div>
+            <div class="row stack"><span class="k">Separate tools</span><span class="v">~$171,000 / yr</span></div>
+            <div class="row ros"><span class="k">ResearchOS</span><span class="v">~$0 / yr</span></div>
+          </div>
+          <div class="save-amt"><div class="lab">You save</div><div class="big">up to ~$171k/yr</div><div class="five">roughly $440k to $855k over 5 years</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="foot">Stack = LabArchives at $330/user/yr academic (the figure on our own wiki) plus SnapGene at published academic seat tiers. Benchling is excluded because its academic tier is free, and adding inventory or commercial Benchling would only widen the gap. Institution figures use list price as a ceiling, a negotiated campus license runs lower per seat but the savings stay large. ResearchOS core is $0, only optional cloud above the free 5 GB pool has any cost.</div>
+  </section>
+
+  <!-- ============================================================ 26. THE TRUST FLIP -->
+  <section class="slide">
+    <div class="head">
+      <div class="kicker"><span class="dot"></span> Why it is different</div>
+      <h2>What makes it different</h2>
+    </div>
+    <div class="body">
+      <div class="grid3" style="grid-auto-rows:1fr">
+        <div class="card"><div class="topbar"></div><div class="ct"><h3>You own the data</h3></div><p>Plain files on your disk, in open formats. Leave any time and take everything, no export request, no lock-in.</p></div>
+        <div class="card"><div class="topbar"></div><div class="ct"><h3>No surprise bills</h3></div><p>The core is free, cloud is opt-in and capped, and editing is never metered per keystroke. A circuit breaker stops runaway cost.</p></div>
+        <div class="card"><div class="topbar"></div><div class="ct"><h3>Open and checkable</h3></div><p>Open source, and every calculation is validated in public against Biopython and primer3 on every change.</p></div>
+        <div class="card"><div class="topbar"></div><div class="ct"><h3>Built for NIH sharing</h3></div><p>Guided deposit to public repositories with the funder and ORCID metadata reviewers expect.</p></div>
+        <div class="card"><div class="topbar"></div><div class="ct"><h3>One tool, not five</h3></div><p>Notebook, sequences, methods, inventory, and grants in one place, so nothing falls between apps.</p></div>
+        <div class="card"><div class="topbar"></div><div class="ct"><h3>Made by a researcher</h3></div><p>Built in a working lab, for working labs, and funded to stay free for the people who need it most.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 27. RECAP -->
+  <section class="slide">
+    <div class="head">
+      <div class="kicker"><span class="dot"></span> In short</div>
+      <h2>What ResearchOS is</h2>
+    </div>
+    <div class="body">
+      <div class="takeaways">
+        <div class="ta"><div class="b">1</div><div class="tx"><b>A research platform built in four months</b><span>From a notes prototype to a full lab workspace, launching now at v0.75.</span></div></div>
+        <div class="ta"><div class="b">2</div><div class="tx"><b>Local-first, so your data is just your files</b><span>Works offline, no account required, with optional cloud at our actual cost.</span></div></div>
+        <div class="ta"><div class="b">3</div><div class="tx"><b>Solo, free account, or a shared lab</b><span>Accounts are optional and add identity and sharing, not a cloud handover.</span></div></div>
+        <div class="ta"><div class="b">4</div><div class="tx"><b>One tool that replaces five</b><span>Notebook, sequence cloning, methods, inventory, and grant tracking together.</span></div></div>
+        <div class="ta"><div class="b">5</div><div class="tx"><b>Free at the core, and it saves real money</b><span>About $4,400 a year for one lab, up to $180,000 a year for a campus.</span></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 28. OUTRO -->
+  <section class="slide dark outro" style="background:radial-gradient(900px 600px at 50% 14%, #14233a 0%, #0a0e1a 62%)">
+    <div class="floaties">
+      <img class="floaty a" src="assets/brand/beakerbot-mark.svg" alt="">
+      <img class="floaty d" src="assets/brand/beakerbot-mark.svg" alt="">
+    </div>
+    <div class="bot">
+      <div class="bubbles"><i></i><i></i><i></i><i></i></div>
+      <svg viewBox="8 3 24 31" fill="none" stroke="#1AA0E6" stroke-width="1.6"
+           stroke-linecap="round" stroke-linejoin="round">
+        <defs>
+          <linearGradient id="liq2" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/>
+            <stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/>
+            <stop offset="100%" stop-color="#D6B5F0"/>
+          </linearGradient>
+        </defs>
+        <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none"/>
+        <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#liq2)" stroke="none"/>
+        <path d="M22 8 C 22 6, 24 4, 26 6"/>
+        <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12"/>
+        <path d="M11 12 L29 12"/>
+        <circle cx="17" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/>
+        <circle cx="23" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/>
+        <path d="M18 22 Q 20 24, 22 22"/>
+        <path d="M14 26 L15.5 26"/><path d="M24.5 26 L26 26"/>
+      </svg>
+    </div>
+    <div class="wordmark">ResearchOS</div>
+    <div class="thanks">Own your research. Try it today.</div>
+    <div class="links">
+      <a class="linkchip" href="#" data-demo="/welcome" target="_blank" rel="noopener">See the tour <code>/welcome</code></a>
+      <a class="linkchip" href="#" data-demo="/demo" target="_blank" rel="noopener">Open the live demo <code>/demo</code></a>
+      <a class="linkchip" href="#" data-demo="/transparency" target="_blank" rel="noopener">Check our math <code>/transparency</code></a>
+    </div>
+  </section>
+
+  </div><!-- /deck -->
+</div><!-- /stage -->
+
+<div class="hud">
+  <button id="prev" title="Previous (←)">‹</button>
+  <span class="count" id="count">1 / 1</span>
+  <button id="next" title="Next (→)">›</button>
+  <button id="fs" title="Fullscreen (F)">⛶</button>
+</div>
+<div class="help">Move with <b>← →</b> or <b>Space</b> · <b>F</b> fullscreen · <b>Home</b> first slide</div>
+
+<script>
+/* ============================================================
+   Demo target. Points at the live deployed site so you and your
+   labmates can open every demo on your own laptops in real time.
+   Swap to "http://localhost:3000" if you ever want a local demo.
+   ============================================================ */
+var DEMO_BASE = "https://research-os.app";
+
+(function(){
+  var deck = document.getElementById('deck');
+  var slides = Array.prototype.slice.call(deck.querySelectorAll('.slide'));
+  var total = slides.length;
+  var i = 0;
+
+  // wire demo links to the configured base
+  Array.prototype.forEach.call(document.querySelectorAll('[data-demo]'), function(a){
+    a.href = DEMO_BASE + a.getAttribute('data-demo').split(' ')[0].split('→')[0].trim();
+  });
+
+  // stamp a page number onto every slide
+  slides.forEach(function(s, n){
+    var p = document.createElement('div');
+    p.className = 'pageno';
+    p.innerHTML = '<b>' + String(n+1).padStart(2,'0') + '</b> / ' + String(total).padStart(2,'0');
+    s.appendChild(p);
+  });
+
+  var count = document.getElementById('count');
+  var progress = document.getElementById('progress');
+
+  function fit(){
+    var s = Math.min(window.innerWidth/1280, window.innerHeight/720);
+    deck.style.transform = 'translate(-50%,-50%) scale(' + s + ')';
+  }
+  function playVisible(){
+    slides.forEach(function(s, n){
+      var v = s.querySelector('video');
+      if(!v) return;
+      if(n === i){ try{ v.currentTime = 0; v.play(); }catch(e){} }
+      else { v.pause(); }
+    });
+  }
+  function show(n){
+    i = Math.max(0, Math.min(total-1, n));
+    slides.forEach(function(s, idx){ s.classList.toggle('active', idx===i); });
+    count.textContent = (i+1) + ' / ' + total;
+    progress.style.width = ((i)/(total-1)*100) + '%';
+    playVisible();
+  }
+  function next(){ show(i+1); }
+  function prev(){ show(i-1); }
+
+  document.getElementById('next').onclick = next;
+  document.getElementById('prev').onclick = prev;
+  document.getElementById('fs').onclick = function(){
+    if(!document.fullscreenElement){ document.documentElement.requestFullscreen(); }
+    else { document.exitFullscreen(); }
+  };
+
+  document.addEventListener('keydown', function(e){
+    if(e.key==='ArrowRight'||e.key==='PageDown'||e.key===' '){ e.preventDefault(); next(); }
+    else if(e.key==='ArrowLeft'||e.key==='PageUp'){ e.preventDefault(); prev(); }
+    else if(e.key==='Home'){ show(0); }
+    else if(e.key==='End'){ show(total-1); }
+    else if(e.key==='f'||e.key==='F'){ document.getElementById('fs').click(); }
+  });
+
+  // click empty area to advance, but never on links or buttons
+  deck.addEventListener('click', function(e){
+    if(e.target.closest('a,button,video')) return;
+    next();
+  });
+
+  // hide the controls after a couple seconds of no input, reveal them on any activity
+  var idleTimer;
+  function activity(){
+    document.body.classList.remove('idle');
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(function(){ document.body.classList.add('idle'); }, 2600);
+  }
+  ['mousemove','keydown','click','touchstart','wheel'].forEach(function(ev){
+    document.addEventListener(ev, activity, {passive:true});
+  });
+
+  // ---- data-driven charts, drawn from the real tracker numbers ----
+  var LINES_WEEKS = [{d:"2026-02-15",v:6200},{d:"2026-02-22",v:11974},{d:"2026-03-01",v:11974},{d:"2026-03-08",v:63378},{d:"2026-03-15",v:63378},{d:"2026-03-22",v:63378},{d:"2026-03-29",v:67439},{d:"2026-04-05",v:67439},{d:"2026-04-12",v:67439},{d:"2026-04-19",v:67439},{d:"2026-04-26",v:67439},{d:"2026-05-03",v:67439},{d:"2026-05-10",v:67439},{d:"2026-05-17",v:162873},{d:"2026-05-24",v:300637},{d:"2026-05-31",v:420193},{d:"2026-06-07",v:685830}];
+  var FEATURES = [{d:"2026-03-04",n:"Desktop app"},{d:"2026-05-11",n:"Web rebuild"},{d:"2026-05-12",n:"Own your files"},{d:"2026-05-12",n:"Experiments"},{d:"2026-05-12",n:"Calendar"},{d:"2026-05-12",n:"Search"},{d:"2026-05-12",n:"Telegram capture"},{d:"2026-05-13",n:"In-app wiki"},{d:"2026-05-13",n:"ELN import"},{d:"2026-05-13",n:"Public demo"},{d:"2026-05-14",n:"Brand system"},{d:"2026-05-14",n:"Onboarding"},{d:"2026-05-21",n:"Encrypted sharing"},{d:"2026-05-29",n:"Version history"},{d:"2026-05-30",n:"Template library"},{d:"2026-05-31",n:"Lab calculators"},{d:"2026-06-02",n:"Sequence editor"},{d:"2026-06-02",n:"Photo annotation"},{d:"2026-06-04",n:"Real-time collab"},{d:"2026-06-04",n:"Transparency"},{d:"2026-06-05",n:"Cloud storage"}];
+  var T0 = Date.parse("2026-02-09"), T1 = Date.parse("2026-06-10");
+  var PL = 64, PR = 980, PT = 24, PB = 314;
+  function dx(d){ return PL + (Date.parse(d) - T0) / (T1 - T0) * (PR - PL); }
+  function yv(v, vmax){ return PB - (v / vmax) * (PB - PT); }
+  var MONTHS = [["2026-02-15","Feb"],["2026-03-01","Mar"],["2026-04-01","Apr"],["2026-05-01","May"],["2026-06-01","Jun"]];
+  function ff(n){ return Number(n).toFixed(1); }
+  function axisSVG(yTicks, vmax, yfmt){
+    var s = "";
+    yTicks.forEach(function(v){
+      var y = yv(v, vmax);
+      s += '<line x1="'+PL+'" y1="'+ff(y)+'" x2="'+PR+'" y2="'+ff(y)+'" stroke="#eef1f5" stroke-width="1"/>';
+      s += '<text x="'+(PL-12)+'" y="'+ff(y+4)+'" text-anchor="end" font-size="13" fill="#9ca3af">'+yfmt(v)+'</text>';
+    });
+    MONTHS.forEach(function(m){
+      s += '<text x="'+ff(dx(m[0]))+'" y="'+(PB+26)+'" text-anchor="middle" font-size="13" fill="#9ca3af">'+m[1]+'</text>';
+    });
+    return s;
+  }
+  function renderCommits(){
+    var svg = document.getElementById('chartCommits'); if(!svg) return;
+    var vmax = 800000;
+    var pts = LINES_WEEKS.map(function(w){ return [dx(w.d), yv(w.v, vmax)]; });
+    var line = "M" + pts.map(function(p){ return ff(p[0])+","+ff(p[1]); }).join(" L");
+    var area = "M"+ff(pts[0][0])+","+PB+" L" + pts.map(function(p){ return ff(p[0])+","+ff(p[1]); }).join(" L") + " L"+ff(pts[pts.length-1][0])+","+PB+" Z";
+    var bx = dx("2026-05-11"), last = pts[pts.length-1];
+    var s = '<defs><linearGradient id="gcom" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1AA0E6" stop-opacity="0.30"/><stop offset="100%" stop-color="#1AA0E6" stop-opacity="0.02"/></linearGradient></defs>';
+    s += axisSVG([0,200000,400000,600000,800000], vmax, function(v){ return v===0 ? "0" : (v/1000)+"k"; });
+    s += '<line x1="'+ff(bx)+'" y1="'+PT+'" x2="'+ff(bx)+'" y2="'+PB+'" stroke="#F59E0B" stroke-width="1.5" stroke-dasharray="4 4"/>';
+    s += '<text x="'+ff(bx-10)+'" y="'+(PT+16)+'" text-anchor="end" font-size="14" font-weight="700" fill="#F59E0B">web rebuild</text>';
+    s += '<path d="'+area+'" fill="url(#gcom)"/>';
+    s += '<path d="'+line+'" fill="none" stroke="#1AA0E6" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>';
+    s += '<circle cx="'+ff(last[0])+'" cy="'+ff(last[1])+'" r="5" fill="#1AA0E6"/>';
+    s += '<text x="'+ff(last[0]-8)+'" y="'+ff(last[1]-12)+'" text-anchor="end" font-size="15" font-weight="800" fill="#111827">~686k net lines</text>';
+    svg.innerHTML = s;
+  }
+  function renderFeatures(){
+    var svg = document.getElementById('chartFeatures'); if(!svg) return;
+    var vmax = 24;
+    function countAt(d){ return FEATURES.filter(function(f){ return Date.parse(f.d) <= Date.parse(d); }).length; }
+    var cy = PB, path = "M"+ff(PL)+","+ff(cy), dots = "";
+    FEATURES.forEach(function(f, i){
+      var x = dx(f.d), ny = yv(i+1, vmax);
+      path += " L"+ff(x)+","+ff(cy)+" L"+ff(x)+","+ff(ny);
+      cy = ny;
+      dots += '<circle cx="'+ff(x)+'" cy="'+ff(ny)+'" r="3.2" fill="#F59E0B"/>';
+    });
+    var endX = dx("2026-06-10");
+    path += " L"+ff(endX)+","+ff(cy);
+    var area = path + " L"+ff(endX)+","+PB+" L"+ff(PL)+","+PB+" Z";
+    var s = '<defs><linearGradient id="gfeat" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#F59E0B" stop-opacity="0.20"/><stop offset="100%" stop-color="#F59E0B" stop-opacity="0.02"/></linearGradient></defs>';
+    s += axisSVG([0,7,14,21], vmax, function(v){ return ""+v; });
+    s += '<path d="'+area+'" fill="url(#gfeat)"/>';
+    s += '<path d="'+path+'" fill="none" stroke="#F59E0B" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>';
+    s += dots;
+    var labels = [
+      {d:"2026-05-12", n:"the rebuild week", anchor:"end",    ox:-10, oy:-2},
+      {d:"2026-05-29", n:"Version history",  anchor:"middle", ox:0,   oy:-18},
+      {d:"2026-06-02", n:"Sequence editor",  anchor:"end", ox:-12, oy:-4},
+      {d:"2026-06-04", n:"Real-time collab", anchor:"end", ox:-12, oy:-30}
+    ];
+    labels.forEach(function(l){
+      var x = dx(l.d), c = countAt(l.d), y = yv(c, vmax);
+      var tx = x + l.ox, ty = y + l.oy;
+      s += '<circle cx="'+ff(x)+'" cy="'+ff(y)+'" r="4.5" fill="#FF6F61"/>';
+      s += '<line x1="'+ff(x)+'" y1="'+ff(y)+'" x2="'+ff(tx)+'" y2="'+ff(ty+4)+'" stroke="#FF6F61" stroke-width="1"/>';
+      s += '<text x="'+ff(tx)+'" y="'+ff(ty)+'" text-anchor="'+l.anchor+'" font-size="13.5" font-weight="700" fill="#111827">'+l.n+'</text>';
+    });
+    svg.innerHTML = s;
+  }
+  renderCommits(); renderFeatures();
+
+  window.addEventListener('resize', fit);
+  fit(); show(0); activity();
+})();
+</script>
+</body>
+</html>

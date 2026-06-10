@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS welcome page reimagining (review)</title>
+<style>
+  /* ---- brand tokens (from frontend/src/app/globals.css) ---- */
+  :root{
+    --rainbow: linear-gradient(90deg,#ffd2b0 0%,#fff1a8 25%,#b7ebb1 50%,#a6d2f4 75%,#d6b5f0 100%);
+    --rainbow-vivid: linear-gradient(95deg,#f97316 0%,#e8920b 22%,#16a34a 50%,#0284c7 74%,#9333ea 100%);
+    --sky:#1aa0e6; --action:#1283c9; --ink:#111827; --purple:#5b47d6;
+    --radius:16px;
+    --maxw:1180px;
+  }
+  html[data-theme="light"]{
+    --bg:#f8fafc; --surface:#ffffff; --sunken:#f1f5f9;
+    --fg:#0f172a; --muted:#64748b; --border:#e5e7eb; --band:#eef4fb;
+    --hero-from:#ffffff; --hero-to:#eef4fb; --chrome:#f1f5f9; --code:#0f172a;
+  }
+  html[data-theme="dark"]{
+    --rainbow: var(--rainbow-vivid);
+    --bg:#0a0e1a; --surface:#141a2b; --sunken:#10162400;
+    --fg:#f1f5f9; --muted:#94a3b8; --border:#26304a; --band:#0e1424;
+    --hero-from:#0a0e1a; --hero-to:#0e1730; --chrome:#1c2638; --code:#cbd5e1;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.5;transition:background .25s,color .25s}
+  a{color:inherit}
+  code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+
+  /* ---- review toolbar ---- */
+  #bar{position:fixed;top:0;left:0;right:0;z-index:9000;display:flex;gap:10px;align-items:center;
+    padding:8px 14px;background:rgba(15,23,42,.92);color:#fff;font-size:13px;backdrop-filter:blur(8px)}
+  #bar b{font-weight:700}
+  #bar .sp{flex:1}
+  #bar button{font:inherit;border:1px solid #3a455f;background:#1e293b;color:#fff;border-radius:8px;
+    padding:5px 11px;cursor:pointer}
+  #bar button.on{background:#2563eb;border-color:#2563eb}
+  #bar .pill{font-size:11px;color:#9fb0c9}
+  .wrap{padding-top:44px}
+
+  /* comment mode */
+  body.cmt *{cursor:crosshair !important}
+  .pin{position:absolute;width:26px;height:26px;border-radius:50%;background:#2563eb;color:#fff;
+    font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;
+    border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4);z-index:8000;cursor:pointer}
+
+  /* section approve/disapprove chips */
+  .sec{position:relative}
+  .vbtns{position:absolute;top:10px;right:10px;z-index:50;display:flex;gap:6px;opacity:.25;transition:opacity .15s}
+  .sec:hover .vbtns{opacity:1}
+  .vbtns button{font-size:11px;border-radius:999px;border:1px solid var(--border);background:var(--surface);
+    color:var(--muted);padding:3px 9px;cursor:pointer}
+  .vbtns button.yes.act{background:#16a34a;color:#fff;border-color:#16a34a}
+  .vbtns button.no.act{background:#dc2626;color:#fff;border-color:#dc2626}
+  .sec[data-v="yes"]{outline:2px solid rgba(22,163,74,.5)}
+  .sec[data-v="no"]{outline:2px solid rgba(220,38,38,.5)}
+
+  /* ---- layout primitives ---- */
+  .cap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  .rainbow-top{height:8px;background:var(--rainbow)}
+  .kicker{font:600 12px/1 ui-monospace,monospace;letter-spacing:.04em;color:var(--action);
+    text-transform:none;display:inline-flex;align-items:center;gap:8px}
+  .kicker::before{content:"";width:22px;height:3px;border-radius:2px;background:var(--rainbow)}
+  h2.big{font-size:clamp(26px,3.2vw,40px);font-weight:800;letter-spacing:-.02em;margin:14px 0 10px}
+  .lead{color:var(--muted);font-size:17px;max-width:60ch}
+  .band{background:var(--band)}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
+  .btn-brand{background:linear-gradient(90deg,var(--action),var(--purple));color:#fff;border:none;
+    border-radius:11px;padding:12px 20px;font-weight:700;font-size:15px;cursor:pointer}
+  .btn-ghost{background:var(--surface);border:1px solid var(--border);color:var(--fg);border-radius:11px;
+    padding:12px 20px;font-weight:600;font-size:15px;cursor:pointer}
+
+  /* nav */
+  nav.top{display:flex;align-items:center;justify-content:space-between;max-width:1320px;margin:0 auto;padding:16px 24px}
+  .wordmark{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px}
+  .beaker{width:30px;height:34px;border-radius:8px 8px 11px 11px;border:2.5px solid var(--sky);position:relative;overflow:hidden;background:var(--surface)}
+  .beaker::after{content:"";position:absolute;left:0;right:0;bottom:0;height:62%;background:var(--rainbow)}
+  .beaker::before{content:"";position:absolute;left:6px;right:6px;top:-4px;height:5px;border-radius:3px;background:var(--sky)}
+  .navpills{display:flex;gap:10px}
+  .navpill{font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--surface);
+    border-radius:999px;padding:6px 12px;display:inline-flex;gap:6px;align-items:center}
+
+  /* HERO */
+  header.hero{background:linear-gradient(180deg,var(--hero-from),var(--hero-to));position:relative;overflow:hidden;text-align:center;padding:8px 24px 56px}
+  .bloom{position:absolute;left:50%;top:-160px;width:1100px;height:680px;max-width:130vw;transform:translateX(-50%);
+    background:radial-gradient(closest-side,#a6d2f4 0%,#b7ebb1 32%,#fff1a8 56%,#ffd2b0 74%,transparent 100%);
+    filter:blur(90px);opacity:.5;pointer-events:none}
+  html[data-theme="dark"] .bloom{background:radial-gradient(closest-side,#0284c7 0%,#16a34a 34%,#e8920b 60%,#9333ea 100%,transparent 100%);opacity:.32}
+  .hero-inner{position:relative;max-width:920px;margin:0 auto}
+  .mascot{width:104px;height:120px;margin:6px auto 0;border-radius:18px 18px 26px 26px;border:4px solid var(--sky);
+    position:relative;overflow:hidden;background:var(--surface);box-shadow:0 16px 34px rgba(26,160,230,.34)}
+  .mascot::after{content:"";position:absolute;left:0;right:0;bottom:0;height:58%;background:var(--rainbow)}
+  .mascot::before{content:"";position:absolute;left:14px;right:14px;top:-6px;height:8px;border-radius:4px;background:var(--sky)}
+  .eyes{position:absolute;top:30px;left:0;right:0;display:flex;gap:16px;justify-content:center;z-index:2}
+  .eyes i{width:9px;height:9px;border-radius:50%;background:var(--sky)}
+  .badge{margin-top:18px;display:inline-flex;gap:8px;align-items:center;font-size:12px;font-weight:600;
+    color:#0369a1;background:#e0f2fe;border:1px solid #bae6fd;border-radius:999px;padding:6px 14px}
+  html[data-theme="dark"] .badge{color:#7dd3fc;background:#0b2540;border-color:#1e3a5f}
+  h1.hero{font-size:clamp(38px,6vw,74px);font-weight:800;letter-spacing:-.03em;line-height:1.02;margin:20px auto 0;max-width:16ch}
+  .rainbow-text{background:var(--rainbow-vivid);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{margin:20px auto 0;max-width:58ch;font-size:19px;color:var(--muted)}
+
+  /* two-path sign-in */
+  .paths{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:760px;margin:30px auto 0;text-align:left}
+  @media(max-width:740px){.paths{grid-template-columns:1fr}}
+  .path{padding:20px;border-radius:var(--radius)}
+  .path.local{background:var(--surface);border:1px solid var(--border)}
+  .path.share{background:var(--sunken);border:1px solid var(--border)}
+  html[data-theme="dark"] .path.share{background:#0c1526}
+  .ptag{font-size:11px;font-weight:700;color:var(--action);text-transform:uppercase;letter-spacing:.04em}
+  .ph{font-weight:700;font-size:18px;margin:4px 0 8px}
+  .plist{margin:0 0 14px;padding:0;list-style:none;font-size:13px;color:var(--muted)}
+  .plist li{padding:3px 0 3px 20px;position:relative}
+  .plist li::before{content:"";position:absolute;left:0;top:9px;width:11px;height:6px;border-left:2px solid #16a34a;border-bottom:2px solid #16a34a;transform:rotate(-45deg)}
+  .oauth{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .oauth button{font-size:13px;font-weight:600;border:1px solid var(--border);background:var(--surface);border-radius:10px;padding:9px;cursor:pointer;color:var(--fg)}
+  .fine{font-size:12px;color:var(--muted);margin-top:10px}
+
+  /* hero centerpiece: NIH compliance (the urgent broad hook for funded labs) */
+  .herostat{max-width:780px;margin:32px auto 0;border-radius:20px;padding:2px;background:linear-gradient(120deg,var(--action),var(--purple))}
+  .herostat .inner{background:var(--surface);border-radius:18px;padding:24px 28px;text-align:left}
+  .herostat .lab{font:700 11px/1 ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--action)}
+  .herostat h3{margin:9px 0 7px;font-size:23px;font-weight:800;letter-spacing:-.01em}
+  .herostat p{margin:0;font-size:15px;color:var(--muted)}
+  .herostat .checks{display:flex;flex-wrap:wrap;gap:9px 20px;margin:15px 0 4px;font-size:13.5px;font-weight:600}
+  .herostat .checks span{display:inline-flex;align-items:center;gap:7px}
+  .herostat .checks span::before{content:"";width:12px;height:7px;border-left:2px solid #16a34a;border-bottom:2px solid #16a34a;transform:rotate(-45deg)}
+  .herostat a{display:inline-block;margin-top:10px;font-weight:700;color:var(--action);text-decoration:none}
+
+  /* demo frame (now used in feature sections, not the hero) */
+  .demoframe{max-width:980px;margin:34px auto 0;border-radius:18px;padding:3px;background:var(--rainbow)}
+  .demoframe .chrome{background:var(--chrome);border-radius:15px;overflow:hidden;border:1px solid var(--border)}
+  .chrome .bar{display:flex;gap:6px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--border)}
+  .chrome .bar i{width:11px;height:11px;border-radius:50%;background:#cbd5e1}
+  .chrome .url{margin-left:10px;font:12px ui-monospace,monospace;color:var(--muted);background:var(--bg);padding:3px 10px;border-radius:6px}
+  .demo-stage{aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;
+    background:repeating-linear-gradient(45deg,var(--sunken),var(--sunken) 12px,transparent 12px,transparent 24px);
+    color:var(--muted);font-size:13px;text-align:center;gap:8px;flex-direction:column}
+  .vchip{font:600 11px/1 ui-monospace,monospace;color:#fff;background:#0f172a;border-radius:999px;padding:5px 12px}
+
+  /* generic section */
+  section{padding:64px 0}
+  .grid2{display:grid;grid-template-columns:1.05fr 1fr;gap:36px;align-items:center}
+  @media(max-width:820px){.grid2{grid-template-columns:1fr}}
+
+  /* credibility */
+  .pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:26px}
+  @media(max-width:700px){.pillars{grid-template-columns:1fr}}
+  .pillar{padding:20px}
+  .pillar h4{margin:10px 0 6px;font-size:16px}
+  .pillar p{margin:0;font-size:14px;color:var(--muted)}
+  .ico{width:36px;height:36px;border-radius:10px;background:var(--sunken);display:flex;align-items:center;justify-content:center;color:var(--action);font-weight:800}
+
+  /* bento */
+  .bento{display:grid;grid-template-columns:repeat(6,1fr);gap:16px;margin-top:26px}
+  .cell{padding:18px;display:flex;flex-direction:column;gap:12px}
+  .cell.lead{grid-column:span 3}
+  .cell.small{grid-column:span 2}
+  .cell.wide{grid-column:span 6}
+  @media(max-width:820px){.cell.lead,.cell.small,.cell.wide{grid-column:span 6}}
+  .cell .no{font:700 12px/1 ui-monospace,monospace;color:var(--action)}
+  .cell h3{margin:0;font-size:19px}
+  .cell p{margin:0;font-size:14px;color:var(--muted)}
+  .miniframe{margin-top:auto;border-radius:12px;overflow:hidden;border:1px solid var(--border);background:var(--chrome)}
+  .miniframe .demo-stage{aspect-ratio:16/10}
+
+  /* own your data terminal block */
+  .term{border-radius:14px;overflow:hidden;border:1px solid var(--border);background:var(--code,#0f172a)}
+  html[data-theme="light"] .term{background:#0f172a}
+  .term .hd{display:flex;gap:6px;padding:10px 12px;background:#0b1220;border-bottom:1px solid #1e293b}
+  .term .hd i{width:11px;height:11px;border-radius:50%;background:#334155}
+  .term .hd span{margin-left:10px;font:12px ui-monospace,monospace;color:#94a3b8}
+  .term .body{aspect-ratio:16/10;display:flex;align-items:center;justify-content:center;color:#64748b;font:12px ui-monospace,monospace}
+
+  /* NIH band */
+  .nih{background:linear-gradient(120deg,var(--action),var(--purple));color:#fff;text-align:center;border-radius:0}
+  .nih h2{color:#fff}
+  .nih .lead{color:#e0eaff;margin:0 auto}
+  .nih .row{display:flex;gap:12px;justify-content:center;margin-top:22px;flex-wrap:wrap}
+  .nih .row .btn-ghost{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.4);color:#fff}
+  .nih .row .btn-white{background:#fff;color:var(--action);border:none;border-radius:11px;padding:12px 20px;font-weight:700;cursor:pointer}
+
+  /* comparison */
+  table.cmp{width:100%;border-collapse:collapse;margin-top:24px;font-size:14px}
+  table.cmp th,table.cmp td{padding:12px 14px;border-bottom:1px solid var(--border);text-align:left}
+  table.cmp th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  table.cmp td.win{background:rgba(26,160,230,.07);font-weight:600}
+  .yes{color:#16a34a;font-weight:700}
+  .soon{font-size:11px;background:var(--sunken);border-radius:999px;padding:2px 8px;color:var(--muted)}
+
+  /* CTA */
+  .ctaband{background:var(--band);text-align:center}
+
+  footer{border-top:1px solid var(--border);padding:28px 0;color:var(--muted);font-size:13px}
+  footer .cap{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+
+  /* notes panel */
+  #panel{position:fixed;right:0;top:44px;bottom:0;width:300px;background:var(--surface);border-left:1px solid var(--border);
+    z-index:8500;transform:translateX(100%);transition:transform .2s;display:flex;flex-direction:column}
+  #panel.open{transform:none}
+  #panel h3{margin:0;padding:12px 14px;font-size:14px;border-bottom:1px solid var(--border)}
+  #panel .list{flex:1;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px}
+  .note{border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px}
+  .note b{color:var(--action)}
+  #panel textarea{width:100%;min-height:54px;font:inherit;border:1px solid var(--border);border-radius:8px;padding:6px}
+</style>
+</head>
+<body>
+
+<div id="bar">
+  <b>Welcome reimagining</b> <span class="pill">first design pass — mark it up</span>
+  <span class="sp"></span>
+  <button id="t-theme">🌗 Dark/Light</button>
+  <button id="t-cmt">💬 Comment mode</button>
+  <button id="t-panel">📋 Notes (<span id="ncount">0</span>)</button>
+  <button id="t-export">⬇ Export decisions</button>
+</div>
+
+<div id="panel">
+  <h3>Comments + decisions</h3>
+  <div class="list" id="notelist"></div>
+</div>
+
+<div class="wrap" id="page">
+
+  <!-- ========================= NAV + HERO ========================= -->
+  <div class="rainbow-top"></div>
+  <div class="sec" data-sec="nav">
+    <div class="vbtns"><button class="yes" data-v="yes">keep</button><button class="no" data-v="no">change</button></div>
+    <nav class="top">
+      <div class="wordmark"><span class="beaker"></span> ResearchOS</div>
+      <div class="navpills">
+        <span class="navpill">✦ What we're building</span>
+        <span class="navpill">🎓 Backed by UW-Madison</span>
+        <span class="navpill" style="border-color:var(--action);color:var(--action)">🌗 Theme</span>
+      </div>
+    </nav>
+  </div>
+
+  <header class="hero sec" data-sec="hero">
+    <div class="vbtns"><button class="yes" data-v="yes">keep</button><button class="no" data-v="no">change</button></div>
+    <div class="bloom"></div>
+    <div class="hero-inner">
+      <div class="mascot"><div class="eyes"><i></i><i></i></div></div>
+      <div class="badge"><span style="width:7px;height:7px;border-radius:50%;background:#0ea5e9;display:inline-block"></span> Built by PhD researchers, for researchers.</div>
+      <h1 class="hero">Your whole lab, in a notebook you <span class="rainbow-text">actually own</span></h1>
+      <p class="sub">Plan experiments, run real protocols, design plasmids, and write it all up in one workspace. Free to use, and everything you write stays on your own machine.</p>
+
+      <!-- Sign-in / open-folder live in the get-started chooser ABOVE this
+           sales page, so no auth cards here. CTAs route back up to it. -->
+      <div style="margin-top:26px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+        <button class="btn-brand">Start your notebook</button>
+        <button class="btn-ghost">See it in action ↓</button>
+      </div>
+      <div class="fine" style="margin-top:12px">Free, no sign-up to begin. Sign-in is only for sharing, and lives on the start screen above.</div>
+
+      <!-- Hero centerpiece: NIH compliance, the urgent broad hook for funded
+           labs (Grant 2026-06-10, replacing the oversized demo loop). The real
+           demo loops now live in the feature sections below. -->
+      <div class="herostat"><div class="inner">
+        <div class="lab">Built for grant-funded labs</div>
+        <h3>Meets your NIH Data Management &amp; Sharing Plan</h3>
+        <p>The data management your mandate requires, free. Open records, full version history, structured exports, and one-click Zenodo deposit with ORCID and grant metadata.</p>
+        <div class="checks"><span>Open data records</span><span>Version history</span><span>Zenodo deposit</span><span>No enterprise markup</span></div>
+        <a href="#">Read the NIH compliance guide &rarr;</a>
+      </div></div>
+    </div>
+  </header>
+
+  <!-- ========================= FLAGSHIP ========================= -->
+  <section class="band sec" data-sec="flagship">
+    <div class="vbtns"><button class="yes" data-v="yes">keep</button><button class="no" data-v="no">change</button></div>
+    <div class="cap grid2">
+      <div>
+        <span class="kicker">the flagship</span>
+        <h2 class="big">Design plasmids and run cloning, built in</h2>
+        <p class="lead">A SnapGene-style sequence editor with circular maps, Gibson, Golden Gate, and restriction cloning, plus auto-designed primers. Free, where others charge hundreds.</p>
+        <ul class="plist" style="margin-top:14px"><li>Annotated circular + linear maps</li><li>Gibson / Golden Gate / restriction in silico</li><li>Primers designed for you</li></ul>
+      </div>
+      <div class="demoframe" style="margin:0">
+        <div class="chrome"><div class="bar"><i></i><i></i><i></i><span class="url">sequence editor</span></div>
+        <div class="demo-stage"><span class="vchip">▶ sequence-editor-b · cloning</span><span>drop a fragment, the map updates live</span></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================= CREDIBILITY ========================= -->
+  <section class="sec" data-sec="cred">
+    <div class="vbtns"><button class="yes" data-v="yes">keep</button><button class="no" data-v="no">change</button></div>
+    <div class="cap" style="text-align:center">
+      <div style="width:54px;height:4px;border-radius:3px;background:var(--rainbow);margin:0 auto 16px"></div>
+      <h2 class="big" style="margin-bottom:0">Built by PhD researchers, for researchers</h2>
+      <div class="pillars" style="text-align:left">
+        <div class="card pillar"><div class="ico">{}</div><h4>Open source</h4><p>AGPLv3 and fully auditable. Read every line.</p></div>
+        <div class="card pillar"><div class="ico">🎓</div><h4>Fellowship-backed</h4><p>Funded by a UW-Madison fellowship, stays free.</p></div>
+        <div class="card pillar"><div class="ico">✓</div><h4>Science you can check</h4><p>Tm, alignment, digests verified vs Biopython + primer3.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================= BENTO ========================= -->
+  <section class="band sec" data-sec="bento">
+    <div class="vbtns"><button class="yes" data-v="yes">keep</button><button class="no" data-v="no">change</button></div>
+    <div class="cap">
+      <span class="kicker">the toolkit</span>
+      <h2 class="big">The tools that make you want to try it</h2>
+      <div class="bento">
+        <div class="card cell lead"><span class="no">01 · replaces 5 tools</span><h3>One workspace instead of five tabs</h3><p>Notebook, methods, Gantt, purchasing, calendar, together.</p><div class="miniframe"><div class="demo-stage"><span class="vchip">▶ replaces-5-tools</span></div></div></div>
+        <div class="card cell lead"><span class="no">02 · methods library</span><h3>91 protocols from major biotech, preloaded</h3><p>NEB, Promega, Qiagen and more, structured with source PDFs.</p><div class="miniframe"><div class="demo-stage"><span class="vchip">▶ methods-library</span></div></div></div>
+        <div class="card cell small"><span class="no">03 · cloning</span><h3>Gibson + Golden Gate, in silico</h3><p>Assemble and check before you touch the bench.</p></div>
+        <div class="card cell small"><span class="no">04 · PI overview</span><h3>The whole lab at a glance</h3><p>Every member's projects, funding, progress.</p><div class="miniframe"><div class="demo-stage"><span class="vchip">▶ pi-lab-overview</span></div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================= NEW: ACCOUNTS / GROW OR SPLIT ========================= -->
+  <section class="sec" data-sec="accounts">
+    <div class="vbtns"><button class="yes" data-v="yes">keep</button><button class="no" data-v="no">change</button></div>
+    <div class="cap">
+      <span class="kicker">new · your lab, your call</span>
+      <h2 class="big">Start solo, grow into a lab, or split back out</h2>
+      <p class="lead">Work alone on your own machine. Add a free account when you want to share across labs. Spin up a lab when your team needs real-time sync. Leaving a shared folder? Take just your data to your own folder in one click. One folder per person, always recoverable, never locked in.</p>
+      <div class="bento" style="grid-template-columns:repeat(3,1fr)">
+        <div class="card cell"><span class="no">just me, local</span><h3>Free</h3><p>The full app on your computer. No account, most private.</p></div>
+        <div class="card cell"><span class="no">free account</span><h3>Free</h3><p>Cross-lab sharing + encrypted inbox. Data still on your disk.</p></div>
+        <div class="card cell"><span class="no">lab</span><h3>Team</h3><p>Real-time collaboration and cloud sync for the whole team.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================= OWN YOUR DATA ========================= -->
+  <section class="band sec" data-sec="owndata">
+    <div class="vbtns"><button class="yes" data-v="yes">keep</button><button class="no" data-v="no">change</button></div>
+    <div class="cap grid2">
+      <div>
+        <span class="kicker">a different deal than a cloud notebook</span>
+        <h2 class="big">No cloud. No lock-in. Just your files.</h2>
+        <p class="lead">Every note, image, and result is a plain file in a folder you own. Open it in Finder. Back it up your way. Nothing is uploaded unless you choose to share it.</p>
+        <ul class="plist" style="margin-top:14px"><li>Local-first and private by default</li><li>Open and auditable, AGPLv3</li><li>Free, fellowship-funded</li></ul>
+      </div>
+      <div class="term">
+        <div class="hd"><i></i><i></i><i></i><span>~/Lab/crispr-screen/</span></div>
+        <div class="body"><span class="vchip">▶ own-your-data · Finder reveal</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================= SECONDARY + COLLAB SOON ========================= -->
+  <section class="sec" data-sec="secondary">
+    <div class="vbtns"><button class="yes" data-v="yes">keep</button><button class="no" data-v="no">change</button></div>
+    <div class="cap">
+      <span class="kicker">and a lot more</span>
+      <h2 class="big">Snap from the bench, deposit to Zenodo, collaborate live</h2>
+      <div class="bento" style="grid-template-columns:repeat(3,1fr)">
+        <div class="card cell"><span class="no">snap from the bench</span><h3>Phone to inbox</h3><p>Telegram a photo, it lands in your notebook ready to attach.</p><div class="miniframe"><div class="demo-stage"><span class="vchip">▶ snap-from-bench</span></div></div></div>
+        <div class="card cell"><span class="no">NIH + Zenodo</span><h3>Grant-ready deposits</h3><p>Data-management compliance and Zenodo deposit with ORCID + grant metadata.</p><div class="miniframe"><div class="demo-stage"><span class="vchip">▶ nih-zenodo</span></div></div></div>
+        <div class="card cell"><span class="no">on the roadmap</span><h3>Live collaboration, soon</h3><p>Google-Docs-style real-time editing, local-first, free.</p><div class="miniframe"><div class="demo-stage" style="gap:6px"><span style="color:#0ea5e9">▍Mira</span><span style="color:#9333ea">▍Alex</span></div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- (NIH band promoted into the hero centerpiece, removed here to dedupe.) -->
+
+  <!-- ========================= COMPARISON ========================= -->
+  <section class="sec" data-sec="cmp">
+    <div class="vbtns"><button class="yes" data-v="yes">keep</button><button class="no" data-v="no">change</button></div>
+    <div class="cap">
+      <span class="kicker">a full lab suite vs the point tools</span>
+      <h2 class="big">Honest about where each one wins</h2>
+      <table class="cmp">
+        <tr><th>Feature</th><th>ResearchOS</th><th>LabArchives</th><th>SnapGene</th><th>Quartzy</th></tr>
+        <tr><td>Price</td><td class="win">Free + open</td><td>Per-seat</td><td>Per-seat</td><td>Free</td></tr>
+        <tr><td>Your data location</td><td class="win">Your disk</td><td>Their cloud</td><td>Your disk</td><td>Their cloud</td></tr>
+        <tr><td>Full lab suite</td><td class="win"><span class="yes">✓</span></td><td>partial</td><td>—</td><td>—</td></tr>
+        <tr><td>Sequence + cloning</td><td class="win"><span class="yes">✓</span></td><td>—</td><td><span class="yes">✓</span></td><td>—</td></tr>
+        <tr><td>Inventory + ordering</td><td class="win"><span class="yes">✓</span></td><td>—</td><td>—</td><td><span class="yes">✓</span></td></tr>
+        <tr><td>Live collaboration</td><td class="win"><span class="soon">soon</span></td><td>✓</td><td>—</td><td>—</td></tr>
+      </table>
+      <p class="fine">SnapGene goes deeper on cloning and Quartzy has the bigger vendor catalog. ResearchOS wins by being all of it in one place, free, with your data on your own disk. Two-way Quartzy sync is on the roadmap, so you can keep the ordering tools your lab already uses.</p>
+    </div>
+  </section>
+
+  <!-- ========================= CTA ========================= -->
+  <section class="ctaband sec" data-sec="cta">
+    <div class="vbtns"><button class="yes" data-v="yes">keep</button><button class="no" data-v="no">change</button></div>
+    <div class="cap">
+      <div style="width:54px;height:4px;border-radius:3px;background:var(--rainbow);margin:0 auto 18px"></div>
+      <div class="mascot" style="width:64px;height:74px;border-width:3px"></div>
+      <h2 class="big">Start your notebook in a minute</h2>
+      <p class="lead" style="margin:0 auto">No sign-up to begin. The notebook is free and open, funded by a university fellowship and donations.</p>
+      <div style="display:flex;gap:12px;justify-content:center;margin-top:22px;flex-wrap:wrap">
+        <button class="btn-brand">Open your notebook</button>
+        <button class="btn-ghost">Explore the live demo</button>
+      </div>
+    </div>
+  </section>
+
+  <footer><div class="cap"><div class="wordmark" style="font-size:16px"><span class="beaker" style="width:22px;height:26px"></span> ResearchOS</div><div>Free and open source · AGPLv3 · Built at UW-Madison</div></div></footer>
+
+</div>
+
+<script>
+  const LS_V="welcome_v2_votes", LS_N="welcome_v2_notes";
+  const votes=JSON.parse(localStorage.getItem(LS_V)||"{}");
+  const notes=JSON.parse(localStorage.getItem(LS_N)||"[]");
+
+  // theme
+  document.getElementById('t-theme').onclick=()=>{
+    const h=document.documentElement; h.dataset.theme = h.dataset.theme==='dark'?'light':'dark';
+  };
+  // panel
+  const panel=document.getElementById('panel');
+  document.getElementById('t-panel').onclick=()=>panel.classList.toggle('open');
+
+  // votes
+  function paintVotes(){document.querySelectorAll('.sec').forEach(s=>{const k=s.dataset.sec;const v=votes[k];
+    s.setAttribute('data-v',v||'');s.querySelectorAll('.vbtns button').forEach(b=>b.classList.toggle('act',b.dataset.v===v));});}
+  document.querySelectorAll('.vbtns button').forEach(b=>{b.onclick=e=>{e.stopPropagation();
+    const sec=b.closest('.sec').dataset.sec; votes[sec]=votes[sec]===b.dataset.v?'':b.dataset.v;
+    localStorage.setItem(LS_V,JSON.stringify(votes));paintVotes();};});
+  paintVotes();
+
+  // comment mode + pins
+  let cmt=false;
+  document.getElementById('t-cmt').onclick=function(){cmt=!cmt;this.classList.toggle('on',cmt);document.body.classList.toggle('cmt',cmt);};
+  document.getElementById('page').addEventListener('click',e=>{
+    if(!cmt) return; if(e.target.closest('.vbtns')||e.target.closest('.pin'))return;
+    const txt=prompt('Comment:'); if(!txt)return;
+    const r=document.getElementById('page').getBoundingClientRect();
+    const x=e.clientX-r.left, y=e.clientY-r.top;
+    notes.push({n:notes.length+1,x,y,txt,sec:(e.target.closest('.sec')||{}).dataset?.sec||'?'});
+    localStorage.setItem(LS_N,JSON.stringify(notes));render();
+  });
+  function render(){
+    document.querySelectorAll('.pin').forEach(p=>p.remove());
+    const page=document.getElementById('page');
+    notes.forEach(nt=>{const d=document.createElement('div');d.className='pin';d.textContent=nt.n;
+      d.style.left=nt.x-13+'px';d.style.top=nt.y-13+'px';d.title=nt.txt;
+      d.onclick=ev=>{ev.stopPropagation();if(confirm('Delete note '+nt.n+'? ("'+nt.txt+'")')){notes.splice(notes.indexOf(nt),1);notes.forEach((m,i)=>m.n=i+1);localStorage.setItem(LS_N,JSON.stringify(notes));render();}};
+      page.appendChild(d);});
+    const list=document.getElementById('notelist');list.innerHTML='';
+    notes.forEach(nt=>{const el=document.createElement('div');el.className='note';el.innerHTML='<b>#'+nt.n+'</b> ['+nt.sec+'] '+nt.txt;list.appendChild(el);});
+    document.getElementById('ncount').textContent=notes.length;
+  }
+  render();
+
+  // export
+  document.getElementById('t-export').onclick=()=>{
+    let out="# Welcome reimagining — review\\n\\n## Section decisions\\n";
+    document.querySelectorAll('.sec').forEach(s=>{const k=s.dataset.sec;out+="- "+k+": "+(votes[k]||"(no call)")+"\\n";});
+    out+="\\n## Comments\\n"; notes.forEach(nt=>out+=nt.n+". ["+nt.sec+"] "+nt.txt+"\\n");
+    navigator.clipboard.writeText(out).then(()=>alert("Copied to clipboard. Paste it back to me.")).catch(()=>{
+      const b=new Blob([out],{type:'text/markdown'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='welcome-review.md';a.click();});
+  };
+</script>
+</body>
+</html>
