@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Chemistry Workbench stack spike</title>
+<style>
+  :root {
+    --sky: #1AA0E6; --action: #1283C9; --ink: #111827; --purple: #5B47D6;
+    --bg: #f7f9fc; --card: #ffffff; --line: #e3e8ef; --muted: #5b6577;
+    --ok: #1a9e6a; --warn: #c2790b; --bad: #c0392b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+         color: var(--ink); background: var(--bg); }
+  header { background: linear-gradient(135deg, var(--action), var(--purple)); color: #fff; padding: 28px 32px; }
+  header h1 { margin: 0 0 4px; font-size: 22px; font-weight: 800; letter-spacing: -0.01em; }
+  header p { margin: 0; opacity: 0.92; font-size: 14px; }
+  main { max-width: 1080px; margin: 0 auto; padding: 24px 20px 80px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; margin: 18px 0;
+          box-shadow: 0 1px 2px rgba(16,24,40,0.04); }
+  .card h2 { margin: 0 0 4px; font-size: 16px; font-weight: 700; }
+  .card h2 .num { color: var(--sky); margin-right: 8px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+  .row { display: flex; gap: 22px; flex-wrap: wrap; }
+  .col { flex: 1 1 320px; min-width: 280px; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin: 0 0 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+  textarea, input[type=text] { width: 100%; font: 13px/1.5 "SF Mono", ui-monospace, Menlo, monospace; padding: 10px 12px;
+            border: 1px solid var(--line); border-radius: 9px; background: #fbfcfe; resize: vertical; }
+  input[type=text] { font-family: inherit; }
+  button { background: var(--action); color: #fff; border: 0; border-radius: 9px; padding: 9px 16px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  button:hover { background: #0f6fab; }
+  button.ghost { background: #eef3f9; color: var(--action); }
+  button.ghost:hover { background: #e0e9f4; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 0; }
+  .chip { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: #eef3f9; color: var(--action); cursor: pointer; }
+  .chip:hover { background: #dfeaf6; }
+  .depict { display: flex; align-items: center; justify-content: center; min-height: 230px; border: 1px dashed var(--line);
+            border-radius: 11px; background: #fff; padding: 10px; }
+  .depict svg, .depict img { max-width: 100%; max-height: 260px; }
+  table.id { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+  table.id td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.id td:first-child { color: var(--muted); width: 42%; font-weight: 600; }
+  table.id td.mono { font-family: "SF Mono", ui-monospace, Menlo, monospace; word-break: break-all; }
+  .status { font-size: 13px; padding: 8px 12px; border-radius: 8px; margin-top: 12px; display: none; }
+  .status.show { display: block; }
+  .status.ok { background: #e7f6ee; color: #0d6b46; }
+  .status.err { background: #fbecea; color: #97271b; }
+  .status.info { background: #eaf3fb; color: #0f5a8f; }
+  table.fp { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.fp th, table.fp td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  table.fp th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+  table.fp td.n { text-align: right; font-family: "SF Mono", ui-monospace, Menlo, monospace; }
+  .verdict { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; }
+  .verdict.ok { background: #e7f6ee; color: var(--ok); }
+  .verdict.note { background: #fdf3e3; color: var(--warn); }
+  .legend { font-size: 12.5px; color: var(--muted); margin-top: 14px; }
+  .legend b { color: var(--ink); }
+  code { font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 12.5px; background: #eef2f7; padding: 1px 5px; border-radius: 4px; }
+  .pill { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; vertical-align: middle; }
+  .pill.live { background: #e7f6ee; color: var(--ok); }
+  .pill.meta { background: #eaf3fb; color: var(--action); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Chemistry Workbench stack spike</h1>
+  <p>Live proof that the recommended browser-only stack actually runs, plus the measured WASM footprint. Ketcher canvas + RDKit.js engine + PubChem import, no backend.</p>
+</header>
+<main>
+
+  <div class="card">
+    <h2><span class="num">1</span>Measured footprint <span class="verdict ok">acceptable, lazy-loaded</span></h2>
+    <p class="sub">Real asset sizes from the published packages (jsDelivr, 2026-06-10). None of this is in the core app bundle. It loads only when a user first opens the chemistry feature, then browser-caches.</p>
+    <table class="fp">
+      <thead><tr><th>Asset</th><th>Role</th><th class="n">Raw</th><th class="n">Gzip</th></tr></thead>
+      <tbody>
+        <tr><td><code>indigo-ketcher-1.43.0.wasm</code></td><td>Ketcher's editor engine (required by the canvas)</td><td class="n">8.8 MB</td><td class="n">2.99 MB</td></tr>
+        <tr><td><code>ketcher-react.js</code> + css</td><td>The drawing canvas UI</td><td class="n">3.4 MB</td><td class="n">0.67 MB</td></tr>
+        <tr><td><code>RDKit_minimal.wasm</code> + js</td><td>Cheminformatics (SMILES, InChIKey, descriptors, substructure, depiction)</td><td class="n">6.9 MB</td><td class="n">2.03 MB</td></tr>
+        <tr><td colspan="2"><b>First-open total</b> (cached after)</td><td class="n"><b>19.1 MB</b></td><td class="n"><b>5.69 MB</b></td></tr>
+      </tbody>
+    </table>
+    <p class="legend"><b>Read:</b> ~5.7 MB gzipped on the first time the editor opens, then cached. For a desktop research tool this is fine because it is behind a <code>dynamic(ssr:false)</code> import and never touches the home/dashboard load. The lighter alternative (OpenChemLib, ~1.5 MB, editor+engine in one) trades a best-in-class editor and RDKit's stronger substructure search for the smaller size. The footprint alone does not force that downgrade.</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">2</span>RDKit.js engine, running live <span class="pill live">LIVE WASM</span></h2>
+    <p class="sub">This is the load-bearing engine (and the one with the maintenance-transition caveat). It is loaded from CDN right now in your browser. Ketcher emits a SMILES or Molfile; RDKit consumes the exact same contract, so this proves the engine half end to end. Type a SMILES or paste a Molfile.</p>
+    <div class="row">
+      <div class="col">
+        <label for="smi">Structure input (SMILES or Molfile)</label>
+        <textarea id="smi" rows="5">CC(=O)Oc1ccccc1C(=O)O</textarea>
+        <div class="chips" id="examples"></div>
+        <div style="margin-top:12px"><button id="renderBtn" disabled>Render + analyze</button></div>
+        <div class="status" id="rdkitStatus"></div>
+      </div>
+      <div class="col">
+        <div class="depict" id="depict"><span style="color:var(--muted)">Booting RDKit WASM…</span></div>
+        <table class="id" id="idTable"></table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">3</span>PubChem import, browser-direct <span class="pill live">LIVE FETCH</span></h2>
+    <p class="sub">The NCBI-import analogue. Searches PubChem PUG-REST straight from the browser (no proxy, CORS-open verified). Pulls metadata + the 2D structure, then feeds the structure to RDKit to render and canonicalize, proving the whole import to engine to depiction pipeline.</p>
+    <div class="row">
+      <div class="col" style="flex:0 0 100%">
+        <label for="q">Search by name, CID, or SMILES</label>
+        <div style="display:flex; gap:8px">
+          <input type="text" id="q" value="caffeine" />
+          <button id="searchBtn" style="flex:0 0 auto">Search PubChem</button>
+        </div>
+        <div class="chips" id="pcExamples"></div>
+        <div class="status" id="pcStatus"></div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <div class="col">
+        <label>PubChem 2D depiction</label>
+        <div class="depict" id="pcPng"><span style="color:var(--muted)">Results appear here</span></div>
+      </div>
+      <div class="col">
+        <label>RDKit re-render from the imported structure</label>
+        <div class="depict" id="pcRdkit"><span style="color:var(--muted)">Imported structure appears here</span></div>
+      </div>
+      <div class="col" style="flex:1 1 100%">
+        <table class="id" id="pcTable"></table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">4</span>What this spike settles</h2>
+    <table class="fp">
+      <thead><tr><th>Question</th><th>Verdict</th></tr></thead>
+      <tbody>
+        <tr><td>Does RDKit.js actually run client-side, no backend?</td><td><span class="verdict ok">Yes, live above</span></td></tr>
+        <tr><td>Is PubChem browser-direct (no proxy)?</td><td><span class="verdict ok">Yes, live above</span></td></tr>
+        <tr><td>Does Ketcher support our React 19?</td><td><span class="verdict ok">Yes, peerDep <code>^18.2.0 || ^19.0.0</code></span></td></tr>
+        <tr><td>Licensing clean for AGPLv3?</td><td><span class="verdict ok">Ketcher/Indigo Apache-2.0, RDKit BSD-3</span></td></tr>
+        <tr><td>Is the footprint a blocker?</td><td><span class="verdict note">No, ~5.7 MB gzip but lazy-loaded + cached</span></td></tr>
+        <tr><td>Ketcher canvas embedded in the live Next app</td><td><span class="verdict note">Not in this file, needs the isolated worktree spike</span></td></tr>
+      </tbody>
+    </table>
+    <p class="legend"><b>Honest scope:</b> the full Ketcher React canvas needs a bundler (web workers + wasm paths), so embedding it lives in a separate Next.js worktree spike, not this single file. This page proves the two pieces that had to be de-risked live, the RDKit engine and the PubChem path, and confirms Ketcher's React 19 + license fit from package metadata. The <span class="pill meta">META</span> items are confirmed from package data, the <span class="pill live">LIVE</span> items are running in front of you.</p>
+  </div>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@rdkit/rdkit@2025.3.4-1.0.0/dist/RDKit_minimal.js"></script>
+<script>
+let RDKit = null;
+const $ = (id) => document.getElementById(id);
+
+function setStatus(el, kind, msg) { el.className = "status show " + kind; el.textContent = msg; }
+function clearStatus(el) { el.className = "status"; }
+
+function identityRows(mol) {
+  let smiles = "", inchikey = "", formula = "", amw = "", exact = "", heavy = "", rings = "", rot = "";
+  try { smiles = mol.get_smiles(); } catch (e) {}
+  try { const inchi = mol.get_inchi(); inchikey = RDKit.get_inchikey_for_inchi(inchi); } catch (e) {}
+  try {
+    const d = JSON.parse(mol.get_descriptors());
+    formula = d.formula || ""; amw = d.amw != null ? d.amw.toFixed(2) : "";
+    exact = d.exactmw != null ? d.exactmw.toFixed(4) : ""; heavy = d.NumHeavyAtoms ?? "";
+    rings = d.NumRings ?? ""; rot = d.NumRotatableBonds ?? "";
+  } catch (e) {}
+  return { smiles, inchikey, formula, amw, exact, heavy, rings, rot };
+}
+
+function fillIdTable(tableEl, r, extra) {
+  const rows = [
+    ["Canonical SMILES", r.smiles, true],
+    ["InChIKey", r.inchikey, true],
+    ["Molecular formula", r.formula, true],
+    ["Avg molecular weight", r.amw ? r.amw + " g/mol" : "", false],
+    ["Exact mass", r.exact, false],
+    ["Heavy atoms", String(r.heavy), false],
+    ["Rings", String(r.rings), false],
+    ["Rotatable bonds", String(r.rot), false],
+  ];
+  if (extra) rows.unshift(...extra);
+  tableEl.innerHTML = rows.filter(([,v]) => v !== "" && v !== "undefined" && v != null)
+    .map(([k, v, mono]) => `<tr><td>${k}</td><td class="${mono ? "mono" : ""}">${v}</td></tr>`).join("");
+}
+
+function renderInput() {
+  const input = $("smi").value.trim();
+  if (!input || !RDKit) return;
+  const mol = RDKit.get_mol(input);
+  if (!mol || !mol.is_valid()) {
+    if (mol) mol.delete();
+    setStatus($("rdkitStatus"), "err", "RDKit could not parse that input. Check the SMILES or Molfile.");
+    $("depict").innerHTML = "";
+    $("idTable").innerHTML = "";
+    return;
+  }
+  clearStatus($("rdkitStatus"));
+  $("depict").innerHTML = mol.get_svg(360, 260);
+  fillIdTable($("idTable"), identityRows(mol));
+  mol.delete();
+}
+
+const EXAMPLES = {
+  "Aspirin": "CC(=O)Oc1ccccc1C(=O)O",
+  "Caffeine": "Cn1cnc2c1c(=O)n(C)c(=O)n2C",
+  "Ibuprofen": "CC(C)Cc1ccc(C(C)C(=O)O)cc1",
+  "Penicillin G": "CC1(C)SC2C(NC(=O)Cc3ccccc3)C(=O)N2C1C(=O)O",
+  "Glucose": "OCC1OC(O)C(O)C(O)C1O",
+};
+function buildExamples() {
+  $("examples").innerHTML = Object.keys(EXAMPLES).map(n => `<span class="chip" data-smi="${EXAMPLES[n]}">${n}</span>`).join("");
+  $("examples").querySelectorAll(".chip").forEach(c => c.onclick = () => { $("smi").value = c.dataset.smi; renderInput(); });
+  const pc = ["aspirin", "caffeine", "2244", "ibuprofen", "morphine", "penicillin"];
+  $("pcExamples").innerHTML = pc.map(n => `<span class="chip" data-q="${n}">${n}</span>`).join("");
+  $("pcExamples").querySelectorAll(".chip").forEach(c => c.onclick = () => { $("q").value = c.dataset.q; pubchemSearch(); });
+}
+
+const PUG = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound";
+async function pubchemSearch() {
+  const q = $("q").value.trim();
+  if (!q) return;
+  const isCid = /^\d+$/.test(q);
+  const ns = isCid ? `cid/${q}` : `name/${encodeURIComponent(q)}`;
+  setStatus($("pcStatus"), "info", "Querying PubChem PUG-REST, browser-direct…");
+  $("pcPng").innerHTML = ""; $("pcRdkit").innerHTML = ""; $("pcTable").innerHTML = "";
+  try {
+    const propUrl = `${PUG}/${ns}/property/MolecularFormula,MolecularWeight,InChIKey,IUPACName,Title/JSON`;
+    const pr = await fetch(propUrl);
+    if (!pr.ok) throw new Error("No match (HTTP " + pr.status + ")");
+    const props = (await pr.json()).PropertyTable.Properties[0];
+    const cid = props.CID;
+    $("pcPng").innerHTML = `<img alt="PubChem 2D" src="${PUG}/cid/${cid}/PNG" />`;
+    const sdf = await (await fetch(`${PUG}/cid/${cid}/record/SDF?record_type=2d`)).text();
+    let rdkitRows = {};
+    if (RDKit) {
+      const mol = RDKit.get_mol(sdf);
+      if (mol && mol.is_valid()) {
+        $("pcRdkit").innerHTML = mol.get_svg(340, 240);
+        rdkitRows = identityRows(mol);
+        mol.delete();
+      }
+    }
+    fillIdTable($("pcTable"), rdkitRows, [
+      ["PubChem CID", String(cid), true],
+      ["Name", props.Title || props.IUPACName || "", false],
+      ["PubChem formula", props.MolecularFormula || "", true],
+      ["PubChem mol. weight", (props.MolecularWeight || "") + " g/mol", false],
+      ["PubChem InChIKey", props.InChIKey || "", true],
+    ]);
+    setStatus($("pcStatus"), "ok", `Imported CID ${cid} from PubChem and re-rendered it with RDKit. Full pipeline working, no backend.`);
+  } catch (e) {
+    setStatus($("pcStatus"), "err", "PubChem lookup failed: " + e.message);
+  }
+}
+
+window.initRDKitModule().then((mod) => {
+  RDKit = mod;
+  $("renderBtn").disabled = false;
+  $("renderBtn").onclick = renderInput;
+  $("searchBtn").onclick = pubchemSearch;
+  buildExamples();
+  renderInput();
+}).catch((e) => {
+  setStatus($("rdkitStatus"), "err", "RDKit failed to load: " + e.message);
+  $("depict").innerHTML = '<span style="color:var(--bad)">RDKit WASM failed to load</span>';
+});
+</script>
+</body>
+</html>

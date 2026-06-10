@@ -1,0 +1,795 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Chemistry Workbench, interactive mockup</title>
+<style>
+  /* Faithful to the live design tokens (frontend/src/app/globals.css). */
+  :root {
+    --surface: #f4f6fb; --surface-raised: #ffffff; --surface-overlay: #ffffff;
+    --foreground: #111827; --foreground-muted: #5b6577;
+    --border: #e3e8ef; --border-strong: #cdd5e1;
+    --sky: #1AA0E6; --action: #1283C9; --purple: #5B47D6; --ink: #111827;
+    --action-soft: #eaf3fb; --purple-soft: #f1eefb; --green: #1a9e6a; --green-soft: #e7f6ee;
+    --amber: #c2790b; --amber-soft: #fdf3e3; --scrim: rgba(15,23,42,0.42);
+    --pin: #e11d48; --shadow: 0 1px 2px rgba(16,24,40,0.05), 0 8px 24px rgba(16,24,40,0.06);
+  }
+  html[data-theme="dark"] {
+    --surface: #0a0e1a; --surface-raised: #1c2638; --surface-overlay: #28344c;
+    --foreground: #f1f5f9; --foreground-muted: #aab4c5;
+    --border: rgba(255,255,255,0.16); --border-strong: rgba(255,255,255,0.26);
+    --sky: #4cc2f5; --action: #38bdf8; --purple: #a99bf0; --ink: #f1f5f9;
+    --action-soft: rgba(12,74,110,0.34); --purple-soft: rgba(76,29,149,0.32);
+    --green: #5fd6a0; --green-soft: rgba(6,78,59,0.34); --amber: #f2b84b; --amber-soft: rgba(120,53,15,0.34);
+    --scrim: rgba(2,6,15,0.6); --pin: #fb7185; --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 10px 30px rgba(0,0,0,0.5);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         background: var(--surface); color: var(--foreground); transition: background 0.2s, color 0.2s; }
+  .topbar { position: sticky; top: 0; z-index: 40; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+            padding: 10px 18px; background: var(--surface-raised); border-bottom: 1px solid var(--border); }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 15px; }
+  .brand .dot { width: 22px; height: 22px; border-radius: 7px; background: linear-gradient(135deg, var(--sky), var(--purple)); }
+  .tabs { display: flex; gap: 4px; margin-left: 6px; flex-wrap: wrap; }
+  .tab { font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 8px; border: 1px solid transparent;
+         background: transparent; color: var(--foreground-muted); cursor: pointer; }
+  .tab:hover { background: var(--action-soft); }
+  .tab.on { background: var(--action-soft); color: var(--action); border-color: var(--border); }
+  .spacer { flex: 1; }
+  .ctrl { font-size: 12.5px; font-weight: 600; padding: 6px 11px; border-radius: 8px; border: 1px solid var(--border-strong);
+          background: var(--surface-raised); color: var(--foreground); cursor: pointer; }
+  .ctrl.on { background: var(--pin); color: #fff; border-color: var(--pin); }
+  .ctrl.primary { background: var(--action); color: #fff; border-color: var(--action); }
+  .wrap { display: flex; gap: 0; align-items: flex-start; }
+  .stage { flex: 1; min-width: 0; padding: 26px 28px 90px; }
+  .side { width: 330px; flex: 0 0 330px; position: sticky; top: 53px; height: calc(100vh - 53px); overflow-y: auto;
+          border-left: 1px solid var(--border); background: var(--surface-raised); padding: 16px 14px; }
+  .screen { display: none; } .screen.on { display: block; }
+  .crumb { font-size: 12.5px; color: var(--foreground-muted); margin: 0 0 14px; }
+  h1.page { font-size: 24px; font-weight: 800; letter-spacing: -0.015em; margin: 0 0 4px; }
+  p.lede { color: var(--foreground-muted); font-size: 14px; margin: 0 0 22px; max-width: 760px; }
+
+  /* hub */
+  .toolrow { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 22px; }
+  .searchbox { flex: 1 1 280px; display: flex; align-items: center; gap: 8px; background: var(--surface-raised);
+               border: 1px solid var(--border-strong); border-radius: 11px; padding: 9px 13px; min-width: 240px; }
+  .searchbox input { border: 0; background: transparent; color: var(--foreground); font-size: 14px; width: 100%; outline: none; }
+  .actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 0 0 26px; }
+  .act { display: flex; gap: 12px; align-items: flex-start; background: var(--surface-raised); border: 1px solid var(--border);
+         border-radius: 13px; padding: 15px 16px; cursor: pointer; box-shadow: var(--shadow); }
+  .act:hover { border-color: var(--action); }
+  .act .ic { width: 38px; height: 38px; flex: 0 0 38px; border-radius: 10px; display: grid; place-items: center; }
+  .act .ic.draw { background: var(--action-soft); color: var(--action); }
+  .act .ic.imp { background: var(--green-soft); color: var(--green); }
+  .act .ic.pc { background: var(--purple-soft); color: var(--purple); }
+  .act h3 { margin: 0 0 2px; font-size: 14.5px; font-weight: 700; }
+  .act p { margin: 0; font-size: 12.5px; color: var(--foreground-muted); line-height: 1.45; }
+  .seclabel { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+              color: var(--foreground-muted); margin: 0 0 12px; display: flex; align-items: center; gap: 10px; }
+  .seclabel .count { font-weight: 600; color: var(--action); background: var(--action-soft); border-radius: 999px; padding: 1px 9px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(208px, 1fr)); gap: 14px; }
+  .mol { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 13px; overflow: hidden;
+         cursor: pointer; box-shadow: var(--shadow); transition: transform 0.08s, border-color 0.12s; }
+  .mol:hover { border-color: var(--action); transform: translateY(-2px); }
+  .mol .thumb { height: 150px; background: #fff; display: grid; place-items: center; border-bottom: 1px solid var(--border); padding: 8px; }
+  html[data-theme="dark"] .mol .thumb { background: #f7fafc; }
+  .mol .thumb svg { max-width: 100%; max-height: 134px; }
+  .mol .body { padding: 11px 13px 13px; }
+  .mol .nm { font-size: 14px; font-weight: 700; margin: 0 0 3px; }
+  .mol .meta { font-size: 12px; color: var(--foreground-muted); font-family: "SF Mono", ui-monospace, Menlo, monospace; }
+  .mol .chips { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 9px; }
+  .pchip { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--purple-soft); color: var(--purple); }
+  .pchip.src { background: var(--green-soft); color: var(--green); }
+  .optin { display: flex; gap: 12px; align-items: center; background: var(--action-soft); border: 1px solid var(--border);
+           border-radius: 12px; padding: 12px 16px; margin: 0 0 22px; font-size: 13px; color: var(--foreground); }
+
+  /* editor popup */
+  .popup-demo { background: var(--surface-overlay); border: 1px solid var(--border-strong); border-radius: 16px;
+                box-shadow: var(--shadow); overflow: hidden; max-width: 1000px; }
+  .popup-head { display: flex; align-items: center; gap: 10px; padding: 13px 18px; border-bottom: 1px solid var(--border); }
+  .popup-head .nm { font-weight: 700; font-size: 15px; }
+  .popup-head input { border: 1px solid var(--border); background: var(--surface-raised); color: var(--foreground);
+                      border-radius: 8px; padding: 5px 10px; font-size: 14px; font-weight: 600; width: 220px; }
+  .editor-body { display: flex; min-height: 420px; }
+  .ket { flex: 1; min-width: 0; display: flex; flex-direction: column; border-right: 1px solid var(--border); }
+  .kettool { display: flex; gap: 5px; padding: 8px 10px; border-bottom: 1px solid var(--border); flex-wrap: wrap; background: var(--surface-raised); }
+  .ktbtn { width: 30px; height: 30px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface-overlay);
+           display: grid; place-items: center; font-size: 12px; color: var(--foreground-muted); cursor: pointer; font-weight: 700; }
+  .ktbtn.on, .ktbtn:hover { background: var(--action-soft); color: var(--action); border-color: var(--action); }
+  .kcanvas { flex: 1; display: grid; place-items: center; background:
+             radial-gradient(circle, var(--border) 1px, transparent 1px); background-size: 22px 22px; padding: 16px; }
+  html[data-theme="dark"] .kcanvas { background-color: #f7fafc; background-image: radial-gradient(circle, #d4dde8 1px, transparent 1px); }
+  .kcanvas svg { max-width: 96%; max-height: 360px; }
+  .ket-foot { font-size: 11.5px; color: var(--foreground-muted); padding: 6px 12px; border-top: 1px solid var(--border);
+              display: flex; align-items: center; gap: 6px; background: var(--surface-raised); }
+  .insp { width: 290px; flex: 0 0 290px; padding: 14px 16px; overflow-y: auto; }
+  .insp h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--foreground-muted);
+             margin: 16px 0 8px; } .insp h4:first-child { margin-top: 0; }
+  .idtab { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .idtab td { padding: 5px 4px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .idtab td:first-child { color: var(--foreground-muted); width: 45%; }
+  .idtab td.mono { font-family: "SF Mono", ui-monospace, Menlo, monospace; word-break: break-all; }
+  .toolitem { display: flex; align-items: center; gap: 9px; padding: 8px 9px; border-radius: 9px; font-size: 13px;
+              cursor: pointer; color: var(--foreground); } .toolitem:hover { background: var(--action-soft); }
+  .toolitem .d { width: 7px; height: 7px; border-radius: 999px; background: var(--action); flex: 0 0 7px; }
+  .savebar { display: flex; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--border); justify-content: flex-end; align-items: center; }
+  .btn { font-size: 13.5px; font-weight: 600; padding: 8px 16px; border-radius: 9px; border: 1px solid var(--border-strong);
+         background: var(--surface-raised); color: var(--foreground); cursor: pointer; }
+  .btn.brand { background: linear-gradient(135deg, var(--action), var(--purple)); color: #fff; border: 0; }
+
+  /* pubchem dialog */
+  .pcsearch { display: flex; gap: 8px; max-width: 560px; margin: 0 0 8px; }
+  .pcsearch input { flex: 1; border: 1px solid var(--border-strong); background: var(--surface-raised); color: var(--foreground);
+                    border-radius: 10px; padding: 10px 13px; font-size: 14px; }
+  .privnote { font-size: 12px; color: var(--foreground-muted); margin: 0 0 18px; max-width: 560px; }
+  .pcgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 13px; }
+  .pccard { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+  .pccard .thumb { height: 130px; background: #fff; display: grid; place-items: center; padding: 8px; border-bottom: 1px solid var(--border); }
+  .pccard .thumb svg { max-height: 116px; max-width: 100%; }
+  .pccard .b { padding: 11px 13px; }
+  .pccard .nm { font-weight: 700; font-size: 14px; margin: 0 0 4px; }
+  .pccard .kv { font-size: 12px; color: var(--foreground-muted); font-family: "SF Mono", ui-monospace, Menlo, monospace; line-height: 1.6; }
+  .pccard .imp { margin-top: 10px; width: 100%; }
+
+  /* in-context */
+  .ctx { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .panelcard { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; box-shadow: var(--shadow); }
+  .panelcard h3 { margin: 0 0 3px; font-size: 15px; font-weight: 700; }
+  .panelcard .hint { font-size: 12.5px; color: var(--foreground-muted); margin: 0 0 14px; }
+  .minirow { display: flex; align-items: center; gap: 11px; padding: 8px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; }
+  .minirow .mthumb { width: 52px; height: 52px; flex: 0 0 52px; background: #fff; border-radius: 8px; display: grid; place-items: center; border: 1px solid var(--border); }
+  .minirow .mthumb svg { max-width: 48px; max-height: 48px; }
+  .minirow .nm { font-size: 13.5px; font-weight: 600; }
+  .minirow .mm { font-size: 11.5px; color: var(--foreground-muted); font-family: "SF Mono", ui-monospace, Menlo, monospace; }
+  .noteblock { font-size: 13.5px; line-height: 1.6; color: var(--foreground); }
+  .inlinemol { display: inline-flex; align-items: center; gap: 8px; vertical-align: middle; background: var(--action-soft);
+               border: 1px solid var(--border); border-radius: 9px; padding: 4px 9px 4px 5px; margin: 2px; cursor: pointer; }
+  .inlinemol .it { width: 34px; height: 34px; background: #fff; border-radius: 6px; display: grid; place-items: center; }
+  .inlinemol .it svg { max-width: 32px; max-height: 32px; }
+  .inlinemol .il { font-size: 12.5px; font-weight: 600; color: var(--action); }
+
+  /* side panels */
+  .sidehead { font-size: 13px; font-weight: 800; margin: 4px 2px 10px; display: flex; align-items: center; justify-content: space-between; }
+  .sidehead .mini { font-size: 11px; font-weight: 600; color: var(--foreground-muted); }
+  .change { background: var(--surface-overlay); border: 1px solid var(--border); border-left: 3px solid var(--border-strong);
+            border-radius: 9px; padding: 10px 11px; margin-bottom: 9px; }
+  .change.approve { border-left-color: var(--green); } .change.disapprove { border-left-color: var(--pin); }
+  .change .t { font-size: 12.5px; font-weight: 700; margin: 0 0 3px; }
+  .change .d { font-size: 11.5px; color: var(--foreground-muted); line-height: 1.45; margin: 0 0 8px; }
+  .vrow { display: flex; gap: 6px; }
+  .vbtn { flex: 1; font-size: 11.5px; font-weight: 700; padding: 5px 0; border-radius: 7px; border: 1px solid var(--border-strong);
+          background: var(--surface-raised); color: var(--foreground-muted); cursor: pointer; }
+  .vbtn.app.on { background: var(--green); color: #fff; border-color: var(--green); }
+  .vbtn.dis.on { background: var(--pin); color: #fff; border-color: var(--pin); }
+  .cpanel { margin-top: 16px; }
+  .citem { background: var(--surface-overlay); border: 1px solid var(--border); border-radius: 8px; padding: 8px 9px; margin-bottom: 7px; font-size: 12px; }
+  .citem .cn { font-weight: 700; color: var(--pin); }
+  .citem .cx { float: right; cursor: pointer; color: var(--foreground-muted); }
+  .empty { font-size: 12px; color: var(--foreground-muted); padding: 8px 2px; }
+
+  /* pins */
+  .pin { position: absolute; width: 22px; height: 22px; border-radius: 999px 999px 999px 2px; background: var(--pin); color: #fff;
+         font-size: 11px; font-weight: 800; display: grid; place-items: center; cursor: pointer; z-index: 35; transform: translate(-50%, -100%);
+         box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+  .annot { position: relative; }
+  body.commenting .annot { outline: 1px dashed var(--action); outline-offset: 2px; cursor: crosshair; }
+  body.commenting .annot:hover { outline: 2px dashed var(--pin); }
+  .editor-pop { position: fixed; z-index: 60; width: 280px; background: var(--surface-overlay); border: 1px solid var(--border-strong);
+                border-radius: 11px; box-shadow: var(--shadow); padding: 12px; }
+  .editor-pop textarea { width: 100%; border: 1px solid var(--border); background: var(--surface-raised); color: var(--foreground);
+                         border-radius: 8px; padding: 8px; font-size: 13px; resize: vertical; min-height: 64px; }
+  .editor-pop .er { display: flex; gap: 6px; margin-top: 8px; }
+  .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff;
+           padding: 10px 18px; border-radius: 10px; font-size: 13px; z-index: 80; opacity: 0; transition: opacity 0.2s; }
+  .toast.show { opacity: 1; }
+  .note { font-size: 12px; color: var(--foreground-muted); background: var(--amber-soft); border: 1px solid var(--border);
+          border-radius: 9px; padding: 9px 12px; margin: 18px 0 0; }
+
+  .chip { font-size: 12px; font-weight: 600; padding: 4px 11px; border-radius: 999px; background: var(--action-soft);
+          color: var(--action); cursor: pointer; border: 1px solid var(--border); }
+  .chip:hover { border-color: var(--action); }
+  /* literature */
+  .litbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 0 0 6px; }
+  .litbar input { flex: 1 1 260px; border: 1px solid var(--border-strong); background: var(--surface-raised); color: var(--foreground);
+                  border-radius: 10px; padding: 10px 13px; font-size: 14px; min-width: 200px; }
+  .livebadge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--green-soft); color: var(--green); }
+  .countline { display: flex; gap: 18px; flex-wrap: wrap; margin: 14px 0 18px; }
+  .countstat { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 12px; padding: 12px 18px; box-shadow: var(--shadow); }
+  .countstat .big { font-size: 24px; font-weight: 800; color: var(--action); letter-spacing: -0.02em; }
+  .countstat .lbl { font-size: 12px; color: var(--foreground-muted); }
+  .littwo { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 1100px) { .littwo { grid-template-columns: 1fr; } }
+  .litsec h3 { font-size: 14px; font-weight: 700; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+  .litsec .src { font-size: 11px; color: var(--foreground-muted); font-weight: 600; }
+  .paper { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 11px; padding: 11px 13px; margin-bottom: 9px; box-shadow: var(--shadow); }
+  .paper a.t { font-size: 13.5px; font-weight: 700; color: var(--foreground); text-decoration: none; line-height: 1.35; }
+  .paper a.t:hover { color: var(--action); }
+  .paper .m { font-size: 12px; color: var(--foreground-muted); margin-top: 4px; }
+  .paper .m b { color: var(--foreground); font-weight: 600; }
+  .paper .cited { font-size: 11px; color: var(--action); font-weight: 600; }
+  .patwrap { display: flex; gap: 6px; flex-wrap: wrap; }
+  .patchip { font-size: 11.5px; font-family: "SF Mono", ui-monospace, Menlo, monospace; padding: 4px 9px; border-radius: 7px;
+             background: var(--surface-raised); border: 1px solid var(--border); color: var(--foreground); text-decoration: none; }
+  .patchip:hover { border-color: var(--action); color: var(--action); }
+  .scbox { background: var(--purple-soft); border: 1px solid var(--border); border-radius: 13px; padding: 15px 17px; margin: 22px 0 0; }
+  .scbox h3 { margin: 0 0 3px; font-size: 14.5px; font-weight: 700; }
+  .scbox .row2 { display: flex; gap: 8px; margin: 10px 0 0; flex-wrap: wrap; }
+  .scbox input { flex: 1 1 240px; border: 1px solid var(--border-strong); background: var(--surface-raised); color: var(--foreground);
+                 border-radius: 9px; padding: 8px 11px; font-size: 13px; font-family: "SF Mono", ui-monospace, Menlo, monospace; }
+  .scstatus { font-size: 12px; color: var(--foreground-muted); margin-top: 10px; min-height: 16px; }
+  .scgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 12px; }
+  .sccard { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .sccard .th { height: 92px; background: #fff; display: grid; place-items: center; padding: 6px; border-bottom: 1px solid var(--border); }
+  .sccard .th svg { max-height: 80px; max-width: 100%; }
+  .sccard .bb { padding: 7px 9px; }
+  .sccard .nn { font-size: 11.5px; font-weight: 600; line-height: 1.3; }
+  .sccard .ff { font-size: 11px; color: var(--foreground-muted); font-family: "SF Mono", ui-monospace, Menlo, monospace; }
+  .spin { display: inline-block; width: 13px; height: 13px; border: 2px solid var(--border-strong); border-top-color: var(--action);
+          border-radius: 999px; animation: sp 0.7s linear infinite; vertical-align: -2px; margin-right: 6px; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  .litloading { font-size: 13px; color: var(--foreground-muted); padding: 16px 0; }
+  /* companion rail tabs */
+  .raildtabs { display: flex; gap: 4px; margin: 0 0 12px; }
+  .railtab { flex: 1; font-size: 12px; font-weight: 700; padding: 6px 0; border-radius: 8px; border: 1px solid var(--border);
+             background: var(--surface-raised); color: var(--foreground-muted); cursor: pointer; }
+  .railtab.on { background: var(--action-soft); color: var(--action); border-color: var(--action); }
+  .railpane { display: none; } .railpane.on { display: block; }
+  .railcount { display: flex; gap: 12px; margin: 4px 0 12px; }
+  .railcount .c { flex: 1; background: var(--surface-overlay); border: 1px solid var(--border); border-radius: 9px; padding: 8px 10px; text-align: center; }
+  .railcount .c .n { font-size: 18px; font-weight: 800; color: var(--action); }
+  .railcount .c .l { font-size: 10.5px; color: var(--foreground-muted); }
+  .railpaper { font-size: 12px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+  .railpaper a { color: var(--foreground); text-decoration: none; font-weight: 600; } .railpaper a:hover { color: var(--action); }
+  .railpaper .mm { color: var(--foreground-muted); font-size: 11px; margin-top: 2px; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><span class="dot"></span> ResearchOS</div>
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-screen="hub">Chemistry hub</button>
+    <button class="tab" data-screen="editor">Structure editor</button>
+    <button class="tab" data-screen="pubchem">PubChem import</button>
+    <button class="tab" data-screen="literature">Find in literature</button>
+    <button class="tab" data-screen="context">In context</button>
+  </div>
+  <div class="spacer"></div>
+  <button class="ctrl" id="themeBtn">Dark</button>
+  <button class="ctrl" id="commentBtn">Comment mode</button>
+  <button class="ctrl primary" id="exportBtn">Export review</button>
+</div>
+
+<div class="wrap">
+  <div class="stage">
+
+    <!-- HUB -->
+    <section class="screen on" id="hub">
+      <p class="crumb">Workbench / Chemistry</p>
+      <h1 class="page">Chemistry</h1>
+      <p class="lede">Draw, store, and search chemical structures, the same way the Sequences workbench handles DNA and protein. Your library lives in your data folder, linked to projects. Nothing is sent anywhere unless you search PubChem.</p>
+
+      <div class="optin annot" data-annot="Opt-in banner">
+        <strong>This is an opt-in module.</strong>
+        <span style="color:var(--foreground-muted)">You turned Chemistry on in feature setup. Lab members who do not work with small molecules never see it.</span>
+      </div>
+
+      <div class="toolrow annot" data-annot="Search + filter bar">
+        <div class="searchbox">
+          <span style="color:var(--foreground-muted)">&#9906;</span>
+          <input placeholder="Search by name, formula, or draw a substructure to filter" />
+        </div>
+        <button class="ctrl">All projects</button>
+        <button class="ctrl">Sort: recent</button>
+      </div>
+
+      <div class="actions annot" data-annot="Action cards">
+        <div class="act" data-go="editor"><div class="ic draw">&#9998;</div><div><h3>New structure</h3><p>Open a blank canvas and draw a molecule.</p></div></div>
+        <div class="act" data-go="pubchem"><div class="ic pc">&#9906;</div><div><h3>Search PubChem</h3><p>Pull any of 100M+ compounds with full metadata.</p></div></div>
+        <div class="act"><div class="ic imp">&#8681;</div><div><h3>Import file</h3><p>Drop a .mol, .sdf, .smi, .cdxml and more.</p></div></div>
+      </div>
+
+      <div class="seclabel">Your library <span class="count" id="libCount">8</span></div>
+      <div class="grid annot" id="libGrid" data-annot="Library grid"></div>
+
+      <div class="note">Mockup note. Every structure thumbnail on this page is rendered live by RDKit.js in your browser right now, the exact engine the real feature would use. Molecular weights are computed, not typed.</div>
+    </section>
+
+    <!-- EDITOR -->
+    <section class="screen" id="editor">
+      <p class="crumb">Chemistry / Library / Ibuprofen</p>
+      <h1 class="page">Structure editor</h1>
+      <p class="lede">The Ketcher canvas opens in a contained popup, the same shell the live-markdown editor uses. The right panel is the companion rail, identity computed by RDKit plus the tools that act on the open structure.</p>
+
+      <div class="popup-demo annot" data-annot="Editor popup shell">
+        <div class="popup-head">
+          <span class="nm">Editing</span>
+          <input value="Ibuprofen" />
+          <div class="spacer"></div>
+          <button class="btn">Close</button>
+        </div>
+        <div class="editor-body">
+          <div class="ket annot" data-annot="Ketcher canvas region">
+            <div class="kettool">
+              <div class="ktbtn on" title="Select">&#9633;</div>
+              <div class="ktbtn" title="Bond">/</div>
+              <div class="ktbtn" title="Chain">&#8743;</div>
+              <div class="ktbtn" title="Ring">&#9711;</div>
+              <div class="ktbtn" title="Charge">+</div>
+              <div class="ktbtn" title="Atom">C</div>
+              <div class="ktbtn" title="Atom">N</div>
+              <div class="ktbtn" title="Atom">O</div>
+              <div class="ktbtn" title="Template">T</div>
+              <div class="ktbtn" title="Erase">&#9003;</div>
+            </div>
+            <div class="kcanvas" id="editorCanvas"></div>
+            <div class="ket-foot"><span style="width:7px;height:7px;border-radius:999px;background:var(--green);display:inline-block"></span> Ketcher (Apache-2.0) on Indigo WASM, fully offline</div>
+          </div>
+          <div class="insp annot" data-annot="Companion rail">
+            <div class="raildtabs">
+              <button class="railtab on" data-rail="identity">Identity</button>
+              <button class="railtab" data-rail="papers">Papers &amp; patents</button>
+            </div>
+            <div class="railpane on" id="railIdentity">
+              <h4>Identity (RDKit)</h4>
+              <table class="idtab" id="editorId"></table>
+              <h4>Companion tools</h4>
+              <div class="toolitem"><span class="d"></span> Copy canonical SMILES</div>
+              <div class="toolitem"><span class="d"></span> Copy InChIKey</div>
+              <div class="toolitem"><span class="d"></span> Descriptor panel</div>
+              <div class="toolitem"><span class="d"></span> Find similar in library</div>
+              <div class="toolitem"><span class="d"></span> View in 3D</div>
+              <h4>Linked projects</h4>
+              <div class="mol-chips"><span class="pchip">Anti-inflammatory screen</span></div>
+            </div>
+            <div class="railpane" id="railPapers">
+              <h4>Literature for this structure <span class="livebadge">LIVE</span></h4>
+              <div id="railLit"><div class="litloading">Open this tab to fetch live papers and patents.</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="savebar">
+          <span style="font-size:12px;color:var(--foreground-muted);margin-right:auto">Saved to users/grant/molecules/14.mol</span>
+          <button class="btn">Export</button>
+          <button class="btn brand">Save to library</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- PUBCHEM -->
+    <section class="screen" id="pubchem">
+      <p class="crumb">Chemistry / Import from PubChem</p>
+      <h1 class="page">Search PubChem</h1>
+      <p class="lede">The same browser-direct pattern as the NCBI sequence import. Search a public government database, preview the metadata, import the structure into your library in one click.</p>
+
+      <div class="pcsearch annot" data-annot="PubChem search">
+        <input value="caffeine" id="pcq" />
+        <button class="btn brand" id="pcSearchBtn">Search</button>
+      </div>
+      <p class="privnote">The only thing that leaves your browser is the name you type, sent to PubChem, a public NIH resource. No account, no proxy, no tracking. You receive back a public structure.</p>
+
+      <div class="pcgrid annot" id="pcGrid" data-annot="PubChem results"></div>
+    </section>
+
+    <!-- LITERATURE -->
+    <section class="screen" id="literature">
+      <p class="crumb">Chemistry / Find in literature</p>
+      <h1 class="page">Find in literature <span class="livebadge">LIVE DATA</span></h1>
+      <p class="lede">The free answer to the SciFinder feature chemists pay for. Pick a compound or draw a fragment, see the papers and patents that mention it. Every result below is fetched live, right now, from PubChem, Europe PMC, and SureChEMBL, all browser-direct with no backend.</p>
+
+      <div class="litbar annot" data-annot="Literature search">
+        <input id="litq" value="caffeine" placeholder="Compound name, or pick one from your library" />
+        <button class="btn brand" id="litBtn">Find papers and patents</button>
+      </div>
+      <div class="chips" id="litExamples" style="margin-bottom:18px"></div>
+
+      <div id="litResults"></div>
+
+      <div class="scbox annot" data-annot="Substructure to patents (SureChEMBL)">
+        <h3>Search patents by substructure <span class="src" style="color:var(--purple)">SureChEMBL, 28M patents</span></h3>
+        <p class="hint" style="font-size:12.5px;color:var(--foreground-muted);margin:0">This is the capability PubChem does not have. Enter a SMILES or SMARTS fragment, SureChEMBL finds compounds extracted from patent text and images that contain it. Async, it submits a search and polls, the same as a real cheminformatics server.</p>
+        <div class="row2">
+          <input id="scq" value="O=C(C)Oc1ccccc1C(=O)O" />
+          <button class="btn brand" id="scBtn">Search patents</button>
+        </div>
+        <div class="scstatus" id="scStatus"></div>
+        <div class="scgrid" id="scGrid"></div>
+      </div>
+
+      <div class="note" id="litHonest">Honest limit, stated up front. PubChem links are curated depositor + co-occurrence data. Europe PMC mines open-access and CC-licensed full text plus all abstracts, not every paywalled paper. SureChEMBL indexes specific compounds extracted from patents, not the broad generic Markush claims that CAS deconstructs. We show what is free and say what it is not. We do not replace CAS curation, we make the free 90 percent one click away.</div>
+    </section>
+
+    <!-- IN CONTEXT -->
+    <section class="screen" id="context">
+      <p class="crumb">How molecules appear elsewhere</p>
+      <h1 class="page">In context</h1>
+      <p class="lede">A structure is not trapped in the hub. It links to projects and embeds inside notes and results, the way a sequence or an image does.</p>
+      <div class="ctx">
+        <div class="panelcard annot" data-annot="Project Molecules section">
+          <h3>On a project</h3>
+          <p class="hint">Project: Anti-inflammatory screen. A Molecules section sits next to the Sequences section, populated by moleculesApi.listByProject.</p>
+          <div id="ctxMols"></div>
+        </div>
+        <div class="panelcard annot" data-annot="Inline molecule block in a note">
+          <h3>Inside a lab note</h3>
+          <p class="hint">A molecule embeds inline like an image. Click to open the full editor in a popup.</p>
+          <div class="noteblock">
+            Dissolved <span class="inlinemol" data-mol="Ibuprofen"><span class="it" id="inl1"></span><span class="il">Ibuprofen</span></span> in DMSO to a 10 mM stock. Counter-screened against
+            <span class="inlinemol" data-mol="Aspirin"><span class="it" id="inl2"></span><span class="il">Aspirin</span></span> and
+            <span class="inlinemol" data-mol="Salicylic acid"><span class="it" id="inl3"></span><span class="il">Salicylic acid</span></span>.
+            Incubated 30 min at 37 C before the COX-2 readout.
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- SIDE -->
+  <aside class="side">
+    <div class="sidehead">Design proposals <span class="mini" id="vCount"></span></div>
+    <div id="changes"></div>
+    <div class="cpanel">
+      <div class="sidehead">Comments <span class="mini" id="cCount"></span></div>
+      <div id="commentList"><div class="empty">Turn on Comment mode, then click any dashed region to pin a note.</div></div>
+    </div>
+  </aside>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@rdkit/rdkit@2025.3.4-1.0.0/dist/RDKit_minimal.js"></script>
+<script>
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+let RDKit = null;
+
+const MOLS = [
+  { n:"Aspirin", s:"CC(=O)Oc1ccccc1C(=O)O", f:"C9H8O4", proj:"Anti-inflammatory screen", src:"drawn" },
+  { n:"Ibuprofen", s:"CC(C)Cc1ccc(C(C)C(=O)O)cc1", f:"C13H18O2", proj:"Anti-inflammatory screen", src:"drawn" },
+  { n:"Salicylic acid", s:"OC(=O)c1ccccc1O", f:"C7H6O3", proj:"Anti-inflammatory screen", src:"drawn" },
+  { n:"Acetaminophen", s:"CC(=O)Nc1ccc(O)cc1", f:"C8H9NO2", proj:"Anti-inflammatory screen", src:"pubchem" },
+  { n:"Caffeine", s:"Cn1cnc2c1c(=O)n(C)c(=O)n2C", f:"C8H10N4O2", proj:"Solvent stocks", src:"pubchem" },
+  { n:"Dopamine", s:"NCCc1ccc(O)c(O)c1", f:"C8H11NO2", proj:"Neuro panel", src:"imported" },
+  { n:"Penicillin G", s:"CC1(C)SC2C(NC(=O)Cc3ccccc3)C(=O)N2C1C(=O)O", f:"C16H18N2O4S", proj:"Antibiotics", src:"imported" },
+  { n:"Glucose", s:"OCC1OC(O)C(O)C(O)C1O", f:"C6H12O6", proj:"Metabolomics", src:"drawn" },
+];
+
+function svgOf(smiles, w, h) {
+  if (!RDKit) return '<span style="color:#9aa">…</span>';
+  const m = RDKit.get_mol(smiles);
+  if (!m || !m.is_valid()) { if (m) m.delete(); return '<span style="color:#c33">?</span>'; }
+  const svg = m.get_svg(w, h); m.delete(); return svg;
+}
+function mwOf(smiles) {
+  if (!RDKit) return "";
+  const m = RDKit.get_mol(smiles); if (!m || !m.is_valid()) { if(m)m.delete(); return ""; }
+  let mw = ""; try { mw = JSON.parse(m.get_descriptors()).amw.toFixed(2); } catch(e){}
+  m.delete(); return mw;
+}
+function idRowsOf(smiles) {
+  const m = RDKit.get_mol(smiles); const out = {};
+  try { out.smiles = m.get_smiles(); } catch(e){}
+  try { out.ik = RDKit.get_inchikey_for_inchi(m.get_inchi()); } catch(e){}
+  try { const d = JSON.parse(m.get_descriptors()); out.amw = d.amw.toFixed(2); out.exact = d.exactmw.toFixed(4); out.heavy = d.NumHeavyAtoms; out.rings = d.NumRings; out.rot = d.NumRotatableBonds; } catch(e){}
+  m.delete(); return out;
+}
+
+function renderHub() {
+  $("#libCount").textContent = MOLS.length;
+  $("#libGrid").innerHTML = MOLS.map((m,i) => `
+    <div class="mol" data-i="${i}">
+      <div class="thumb">${svgOf(m.s, 190, 134)}</div>
+      <div class="body">
+        <div class="nm">${m.n}</div>
+        <div class="meta">${m.f} &middot; ${mwOf(m.s)} g/mol</div>
+        <div class="chips"><span class="pchip">${m.proj}</span><span class="pchip src">${m.src}</span></div>
+      </div>
+    </div>`).join("");
+  $$("#libGrid .mol").forEach(el => el.addEventListener("click", () => { if(document.body.classList.contains('commenting'))return; loadEditor(MOLS[+el.dataset.i]); showScreen("editor"); }));
+}
+
+let editorMol = MOLS[1];
+function loadEditor(m) {
+  editorMol = m;
+  $(".popup-head input").value = m.n;
+  $("#editor .crumb").textContent = "Chemistry / Library / " + m.n;
+  $("#editorCanvas").innerHTML = svgOf(m.s, 460, 360);
+  const r = idRowsOf(m.s);
+  $("#editorId").innerHTML = [
+    ["Name", m.n, false], ["Formula", m.f, true], ["Canonical SMILES", r.smiles, true],
+    ["InChIKey", r.ik, true], ["Avg MW", (r.amw||"")+" g/mol", false], ["Exact mass", r.exact, false],
+    ["Heavy atoms", r.heavy, false], ["Rings", r.rings, false], ["Rotatable bonds", r.rot, false],
+  ].filter(x=>x[1]!=null&&x[1]!=="").map(([k,v,mono])=>`<tr><td>${k}</td><td class="${mono?'mono':''}">${v}</td></tr>`).join("");
+  $("#editor .savebar span").textContent = "Saved to users/grant/molecules/" + (MOLS.indexOf(m)+10) + ".mol";
+  // reset companion rail to Identity so it never shows another molecule's literature
+  const rt = $$(".railtab"); if (rt.length) { rt.forEach((x,i)=>x.classList.toggle("on", i===0));
+    $("#railIdentity")?.classList.add("on"); $("#railPapers")?.classList.remove("on");
+    if ($("#railLit")) $("#railLit").innerHTML = '<div class="litloading">Open this tab to fetch live papers and patents.</div>'; }
+}
+
+const PC = [
+  { n:"Caffeine", cid:2519, f:"C8H10N4O2", s:"Cn1cnc2c1c(=O)n(C)c(=O)n2C", ik:"RYYVLZVUVIJVGH-UHFFFAOYSA-N" },
+  { n:"Theobromine", cid:5429, f:"C7H8N4O2", s:"Cn1cnc2c1c(=O)[nH]c(=O)n2C", ik:"YAPQBXQYLJRXSA-UHFFFAOYSA-N" },
+  { n:"Theophylline", cid:2153, f:"C7H8N4O2", s:"Cn1c(=O)c2[nH]cnc2n(C)c1=O", ik:"ZFXYFBGIUFBOJW-UHFFFAOYSA-N" },
+  { n:"Paraxanthine", cid:4687, f:"C7H8N4O2", s:"Cn1cnc2c1c(=O)[nH]c(=O)n2C", ik:"QUNWUDVFRNGTCO-UHFFFAOYSA-N" },
+];
+function renderPubchem() {
+  $("#pcGrid").innerHTML = PC.map(p => `
+    <div class="pccard">
+      <div class="thumb">${svgOf(p.s, 220, 116)}</div>
+      <div class="b">
+        <div class="nm">${p.n}</div>
+        <div class="kv">CID ${p.cid}<br>${p.f} &middot; ${mwOf(p.s)} g/mol<br>${p.ik}</div>
+        <button class="btn brand imp">Import to library</button>
+      </div>
+    </div>`).join("");
+}
+
+function renderContext() {
+  const sub = MOLS.filter(m => m.proj === "Anti-inflammatory screen");
+  $("#ctxMols").innerHTML = sub.map(m => `
+    <div class="minirow"><div class="mthumb">${svgOf(m.s,46,46)}</div>
+    <div><div class="nm">${m.n}</div><div class="mm">${m.f} &middot; ${mwOf(m.s)} g/mol</div></div></div>`).join("");
+  const il = (id,s) => { const e = $("#"+id); if (e) e.innerHTML = svgOf(s, 32, 32); };
+  il("inl1", "CC(C)Cc1ccc(C(C)C(=O)O)cc1"); il("inl2","CC(=O)Oc1ccccc1C(=O)O"); il("inl3","OC(=O)c1ccccc1O");
+}
+
+// screens
+function showScreen(id) {
+  $$(".screen").forEach(s => s.classList.toggle("on", s.id === id));
+  $$("#tabs .tab").forEach(t => t.classList.toggle("on", t.dataset.screen === id));
+}
+$$("#tabs .tab").forEach(t => t.addEventListener("click", () => showScreen(t.dataset.screen)));
+$$(".act[data-go]").forEach(a => a.addEventListener("click", () => { if(!document.body.classList.contains('commenting')) showScreen(a.dataset.go); }));
+
+// theme
+$("#themeBtn").addEventListener("click", () => {
+  const dark = document.documentElement.getAttribute("data-theme") === "dark";
+  document.documentElement.setAttribute("data-theme", dark ? "light" : "dark");
+  $("#themeBtn").textContent = dark ? "Dark" : "Light";
+});
+
+/* ---- design proposals ---- */
+const PROPOSALS = [
+  { id:"hub-page", t:"Dedicated /chemistry hub page", d:"A full page (not just an empty-state pane) is the home for the library, search, and quick actions." },
+  { id:"libcard", t:"Library card design", d:"RDKit thumbnail, name, formula + computed MW, project chip, and a source chip (drawn / imported / pubchem)." },
+  { id:"actions", t:"Three primary actions", d:"New structure, Search PubChem, Import file as the top action row." },
+  { id:"editor-shell", t:"Ketcher in a LivingPopup", d:"The canvas opens in a contained popup like live-markdown, not a full-page route." },
+  { id:"companion", t:"Companion rail beside the canvas", d:"RDKit identity readout plus structure-acting tools (copy SMILES/InChIKey, descriptors, find similar, 3D)." },
+  { id:"pubchem", t:"Browser-direct PubChem import", d:"Search, metadata preview, one-click import with provenance. No proxy, privacy line stated." },
+  { id:"molfile-store", t:"Store as .mol + meta sidecar", d:"users/<u>/molecules/<id>.mol keeps 2D coords; SMILES/InChIKey/formula/MW in the sidecar with project_ids[]." },
+  { id:"incontext", t:"Project section + inline note blocks", d:"A Molecules section on projects and inline molecule blocks embedded in notes/results." },
+  { id:"optin", t:"Opt-in module gating", d:"Behind NEXT_PUBLIC_CHEMISTRY_ENABLED + interest pick, hidden for users who do not want it." },
+  { id:"lit-hub", t:"Find in literature, first-class hub mode", d:"Pick a compound or draw a fragment, see papers + patents. The free answer to the paid SciFinder feature." },
+  { id:"lit-sources", t:"Three free sources, browser-direct", d:"PubChem curated links + Europe PMC full-text mentions + SureChEMBL patent chemistry, all CORS-open, no key, no backend." },
+  { id:"lit-rail", t:"Papers and patents tab in the editor rail", d:"The open structure's literature, one tab away from its identity." },
+  { id:"lit-substruct", t:"Substructure to patents (SureChEMBL)", d:"The capability PubChem lacks. Draw a fragment, find patent compounds containing it." },
+  { id:"lit-honest", t:"Honest-limit copy", d:"State plainly that this is the free 90 percent, not CAS curation or Markush deconstruction." },
+];
+const VSTORE = "chemMockVerdicts", CSTORE = "chemMockComments";
+let verdicts = {}; try { verdicts = JSON.parse(localStorage.getItem(VSTORE)||"{}"); } catch(e){}
+let comments = []; try { comments = JSON.parse(localStorage.getItem(CSTORE)||"[]"); } catch(e){}
+const saveV = () => { try { localStorage.setItem(VSTORE, JSON.stringify(verdicts)); } catch(e){} };
+const saveC = () => { try { localStorage.setItem(CSTORE, JSON.stringify(comments)); } catch(e){} };
+
+function renderChanges() {
+  $("#changes").innerHTML = PROPOSALS.map(p => {
+    const v = verdicts[p.id] || "";
+    return `<div class="change ${v}"><div class="t">${p.t}</div><div class="d">${p.d}</div>
+      <div class="vrow"><button class="vbtn app ${v==='approve'?'on':''}" data-id="${p.id}" data-v="approve">Approve</button>
+      <button class="vbtn dis ${v==='disapprove'?'on':''}" data-id="${p.id}" data-v="disapprove">Flag</button></div></div>`;
+  }).join("");
+  const done = Object.values(verdicts).filter(Boolean).length;
+  $("#vCount").textContent = done + "/" + PROPOSALS.length;
+  $$("#changes .vbtn").forEach(b => b.addEventListener("click", () => {
+    const id=b.dataset.id, v=b.dataset.v; verdicts[id] = verdicts[id]===v ? "" : v; saveV(); renderChanges();
+  }));
+}
+
+/* ---- comments ---- */
+let commenting = false;
+$("#commentBtn").addEventListener("click", () => {
+  commenting = !commenting;
+  document.body.classList.toggle("commenting", commenting);
+  $("#commentBtn").classList.toggle("on", commenting);
+});
+document.addEventListener("click", (e) => {
+  if (!commenting) return;
+  const region = e.target.closest(".annot");
+  if (!region || e.target.closest(".editor-pop")) return;
+  e.preventDefault(); e.stopPropagation();
+  const rect = region.getBoundingClientRect();
+  const x = ((e.clientX - rect.left)/rect.width*100), y = ((e.clientY - rect.top)/rect.height*100);
+  openCommentEditor(region.dataset.annot, x, y, e.clientX, e.clientY, null);
+}, true);
+
+function openCommentEditor(label, xp, yp, px, py, idx) {
+  $(".editor-pop")?.remove();
+  const pop = document.createElement("div"); pop.className = "editor-pop";
+  pop.style.left = Math.min(px, innerWidth-300)+"px"; pop.style.top = Math.min(py, innerHeight-180)+"px";
+  pop.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--foreground-muted);margin-bottom:6px">PIN ON: ${label}</div>
+    <textarea placeholder="Your note...">${idx!=null?comments[idx].note:""}</textarea>
+    <div class="er"><button class="btn brand" data-save style="flex:1">Save pin</button><button class="btn" data-cancel>Cancel</button></div>`;
+  document.body.appendChild(pop);
+  const ta = pop.querySelector("textarea"); ta.focus();
+  pop.querySelector("[data-save]").addEventListener("click", () => {
+    const note = ta.value.trim(); if (!note) { pop.remove(); return; }
+    if (idx!=null) comments[idx].note = note;
+    else comments.push({ label, xp, yp, note });
+    saveC(); pop.remove(); renderComments();
+  });
+  pop.querySelector("[data-cancel]").addEventListener("click", () => pop.remove());
+}
+
+function renderComments() {
+  $$(".pin").forEach(p => p.remove());
+  comments.forEach((c, i) => {
+    const region = $$(".annot").find(a => a.dataset.annot === c.label);
+    if (region && region.offsetParent !== null) {
+      const pin = document.createElement("div"); pin.className = "pin"; pin.textContent = i+1;
+      pin.style.left = c.xp+"%"; pin.style.top = c.yp+"%";
+      pin.addEventListener("click", (ev) => { ev.stopPropagation(); const r = region.getBoundingClientRect();
+        openCommentEditor(c.label, c.xp, c.yp, r.left+r.width*c.xp/100, r.top+r.height*c.yp/100, i); });
+      region.appendChild(pin);
+    }
+  });
+  $("#cCount").textContent = comments.length ? comments.length+" pins" : "";
+  $("#commentList").innerHTML = comments.length ? comments.map((c,i) =>
+    `<div class="citem"><span class="cx" data-del="${i}">&times;</span><span class="cn">#${i+1}</span> <b>${c.label}</b><br>${c.note}</div>`).join("")
+    : '<div class="empty">Turn on Comment mode, then click any dashed region to pin a note.</div>';
+  $$("#commentList .cx").forEach(b => b.addEventListener("click", () => { comments.splice(+b.dataset.del,1); saveC(); renderComments(); }));
+}
+
+/* ---- export ---- */
+function buildMarkdown() {
+  let md = "# Chemistry Workbench mockup review\n\n## Design proposals\n\n";
+  PROPOSALS.forEach(p => {
+    const v = verdicts[p.id]; const mark = v==="approve"?"APPROVE":v==="disapprove"?"FLAG":"undecided";
+    md += `- [${mark}] ${p.t} - ${p.d}\n`;
+  });
+  md += "\n## Comments\n\n";
+  if (!comments.length) md += "(none)\n";
+  comments.forEach((c,i) => md += `${i+1}. (${c.label}) ${c.note}\n`);
+  return md;
+}
+function toast(m){ const t=$("#toast"); t.textContent=m; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1800); }
+$("#exportBtn").addEventListener("click", async () => {
+  const md = buildMarkdown();
+  try { await navigator.clipboard.writeText(md); toast("Review copied to clipboard, paste it back into chat"); }
+  catch(e){ const blob=new Blob([md],{type:"text/markdown"}); const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob); a.download="chemistry-mockup-review.md"; a.click(); toast("Downloaded review .md"); }
+});
+
+/* ---- LIVE literature companion (PubChem + Europe PMC + SureChEMBL) ---- */
+const PUGB = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound";
+const EPMC = "https://www.ebi.ac.uk/europepmc/webservices/rest/search";
+const SCHEM = "https://www.surechembl.org/api";
+const esc = (s) => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const nfmt = (n) => Number(n).toLocaleString("en-US");
+
+async function pubchemResolveCid(name) {
+  const r = await fetch(`${PUGB}/name/${encodeURIComponent(name)}/cids/JSON`);
+  if (!r.ok) return null;
+  return (await r.json()).IdentifierList.CID[0];
+}
+async function pubchemLinks(cid) {
+  const out = { papers: null, patents: [] };
+  const [pm, pat] = await Promise.allSettled([
+    fetch(`${PUGB}/cid/${cid}/xrefs/PubMedID/JSON`).then(r => r.ok ? r.json() : null),
+    fetch(`${PUGB}/cid/${cid}/xrefs/PatentID/JSON`).then(r => r.ok ? r.json() : null),
+  ]);
+  if (pm.value) out.papers = pm.value.InformationList.Information[0].PubMedID.length;
+  if (pat.value) out.patents = pat.value.InformationList.Information[0].PatentID;
+  return out;
+}
+async function europePmcPapers(query, n) {
+  const r = await fetch(`${EPMC}?query=${encodeURIComponent(query)}&format=json&pageSize=${n}&resultType=core&sort=CITED desc`);
+  if (!r.ok) return { hits: 0, papers: [] };
+  const d = await r.json();
+  return { hits: d.hitCount, papers: (d.resultList.result || []).map(x => ({
+    title: x.title, authors: x.authorString, journal: x.journalTitle || x.bookOrReportDetails?.publisher || "",
+    year: x.pubYear, cited: x.citedByCount, source: x.source, id: x.id, doi: x.doi })) };
+}
+function patentUrl(id) { return `https://patents.google.com/patent/${id.replace(/-/g,"")}/en`; }
+function paperCard(p) {
+  return `<div class="paper"><a class="t" target="_blank" rel="noopener" href="https://europepmc.org/article/${p.source}/${p.id}">${esc(p.title)}</a>
+    <div class="m"><b>${esc((p.authors||"").slice(0,90))}</b></div>
+    <div class="m">${esc(p.journal)} ${p.year? "&middot; "+p.year:""} ${p.cited?`&middot; <span class="cited">${nfmt(p.cited)} citations</span>`:""}</div></div>`;
+}
+
+async function renderLiterature(name) {
+  const box = $("#litResults");
+  box.innerHTML = `<div class="litloading"><span class="spin"></span>Fetching live from PubChem and Europe PMC for "${esc(name)}"…</div>`;
+  let cid = null;
+  try { cid = await pubchemResolveCid(name); } catch(e){}
+  const [links, epmc] = await Promise.all([
+    cid ? pubchemLinks(cid).catch(()=>({papers:null,patents:[]})) : Promise.resolve({papers:null,patents:[]}),
+    europePmcPapers(name, 14).catch(()=>({hits:0,papers:[]})),
+  ]);
+  const patShown = links.patents.slice(0, 28);
+  box.innerHTML = `
+    <div class="countline">
+      <div class="countstat"><div class="big">${epmc.hits!=null?nfmt(epmc.hits):"—"}</div><div class="lbl">Europe PMC papers mentioning it</div></div>
+      <div class="countstat"><div class="big">${links.papers!=null?nfmt(links.papers):"—"}</div><div class="lbl">PubChem linked papers</div></div>
+      <div class="countstat"><div class="big">${links.patents.length?nfmt(links.patents.length):"—"}</div><div class="lbl">PubChem linked patents</div></div>
+    </div>
+    <div class="littwo">
+      <div class="litsec"><h3>Papers <span class="src">Europe PMC, full-text mentions, top cited</span></h3>
+        ${epmc.papers.length ? epmc.papers.map(paperCard).join("") : '<div class="empty">No papers found.</div>'}</div>
+      <div class="litsec"><h3>Patents <span class="src">PubChem links, showing ${patShown.length} of ${nfmt(links.patents.length)}</span></h3>
+        <div class="patwrap">${patShown.length ? patShown.map(id=>`<a class="patchip" target="_blank" rel="noopener" href="${patentUrl(id)}">${esc(id)}</a>`).join("") : '<div class="empty">No linked patents.</div>'}</div></div>
+    </div>`;
+}
+
+async function sureChemblSearch(struct) {
+  const status = $("#scStatus"), grid = $("#scGrid");
+  grid.innerHTML = ""; status.innerHTML = `<span class="spin"></span>Submitting fragment to SureChEMBL…`;
+  try {
+    const sub = await fetch(`${SCHEM}/search/structure`, { method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ StructureSearchRequest:{ struct, structSearchType:"substructure", maxResults:50, query:"" } }) }).then(r=>r.json());
+    const hash = sub?.data?.hash;
+    if (!hash) throw new Error("no search id returned");
+    let count = 0;
+    for (let i=0;i<18;i++) {
+      await new Promise(r=>setTimeout(r,1200));
+      const st = await fetch(`${SCHEM}/search/${hash}/status`).then(r=>r.json());
+      const msg = st?.data?.message || ""; count = st?.data?.resultCount || count;
+      status.innerHTML = `<span class="spin"></span>Searching 28M patents… ${count?nfmt(count)+" matches":""}`;
+      if (/finish/i.test(msg)) break;
+    }
+    const res = await fetch(`${SCHEM}/search/${hash}/results?page=1&start_on=0&max_results=12`).then(r=>r.json());
+    const structures = res?.data?.results?.structures || [];
+    status.innerHTML = `<b style="color:var(--purple)">${nfmt(count)} compounds in patents</b> contain this fragment. Showing ${structures.length}, each links to its SureChEMBL patent record.`;
+    grid.innerHTML = structures.map(s => `
+      <a class="sccard" target="_blank" rel="noopener" href="https://www.surechembl.org/chemical/${s.chemical_id}">
+        <div class="th">${RDKit?svgOf(s.smiles,140,80):""}</div>
+        <div class="bb"><div class="nn">${esc((s.name||"").slice(0,46))}</div><div class="ff">${esc(s.mol_formula||"")}</div></div></a>`).join("");
+  } catch(e) {
+    status.innerHTML = `<span style="color:var(--pin)">SureChEMBL request failed: ${esc(e.message)}. The real build retries and proxies if needed.</span>`;
+  }
+}
+
+async function loadRailLit(name) {
+  const box = $("#railLit");
+  box.innerHTML = `<div class="litloading"><span class="spin"></span>Fetching for ${esc(name)}…</div>`;
+  let cid=null; try { cid = await pubchemResolveCid(name); } catch(e){}
+  const [links, epmc] = await Promise.all([
+    cid ? pubchemLinks(cid).catch(()=>({papers:null,patents:[]})) : Promise.resolve({papers:null,patents:[]}),
+    europePmcPapers(name, 5).catch(()=>({hits:0,papers:[]})),
+  ]);
+  box.innerHTML = `
+    <div class="railcount">
+      <div class="c"><div class="n">${epmc.hits!=null?nfmt(epmc.hits):"—"}</div><div class="l">papers</div></div>
+      <div class="c"><div class="n">${links.patents.length?nfmt(links.patents.length):"—"}</div><div class="l">patents</div></div>
+    </div>
+    ${epmc.papers.map(p=>`<div class="railpaper"><a target="_blank" rel="noopener" href="https://europepmc.org/article/${p.source}/${p.id}">${esc((p.title||"").slice(0,90))}</a><div class="mm">${esc(p.journal)} ${p.year?"&middot; "+p.year:""}</div></div>`).join("")}
+    <div style="font-size:11px;color:var(--foreground-muted);margin-top:8px">Live from PubChem + Europe PMC</div>`;
+}
+
+// wire literature once on first open
+let litLoaded = false, railLitName = null;
+function maybeRunLiterature() { if (!litLoaded) { litLoaded = true; renderLiterature($("#litq").value.trim()); } }
+$$("#tabs .tab").forEach(t => { if (t.dataset.screen==="literature") t.addEventListener("click", () => setTimeout(maybeRunLiterature, 30)); });
+$("#litBtn")?.addEventListener("click", () => renderLiterature($("#litq").value.trim()));
+$("#litq")?.addEventListener("keydown", e => { if (e.key==="Enter") renderLiterature($("#litq").value.trim()); });
+$("#scBtn")?.addEventListener("click", () => sureChemblSearch($("#scq").value.trim()));
+// rail tabs
+$$(".railtab").forEach(b => b.addEventListener("click", () => {
+  const which = b.dataset.rail;
+  $$(".railtab").forEach(x=>x.classList.toggle("on", x===b));
+  $("#railIdentity").classList.toggle("on", which==="identity");
+  $("#railPapers").classList.toggle("on", which==="papers");
+  if (which==="papers" && railLitName !== editorMol.n) { railLitName = editorMol.n; loadRailLit(editorMol.n); }
+}));
+
+window.initRDKitModule().then(mod => {
+  RDKit = mod;
+  renderHub(); loadEditor(MOLS[1]); renderPubchem(); renderContext();
+  renderChanges(); renderComments();
+  $("#litExamples").innerHTML = ["caffeine","aspirin","ibuprofen","dopamine","penicillin","morphine"].map(n=>`<span class="chip" data-q="${n}">${n}</span>`).join("");
+  $$("#litExamples .chip").forEach(c => c.addEventListener("click", () => { $("#litq").value=c.dataset.q; litLoaded=true; renderLiterature(c.dataset.q); }));
+}).catch(e => { document.querySelector(".stage").insertAdjacentHTML("afterbegin", '<div class="note">RDKit failed to load from CDN, thumbnails will be blank. '+e.message+'</div>'); renderChanges(); renderComments(); });
+</script>
+</body>
+</html>
