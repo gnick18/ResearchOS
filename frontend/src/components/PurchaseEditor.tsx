@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { labApi, projectsApi as rawProjectsApi, tasksApi, purchasesApi } from "@/lib/local-api";
 import {
@@ -35,7 +35,17 @@ import { usePiRecordMenu } from "@/hooks/usePiRecordMenu";
 import { savePiRecordEdit } from "@/lib/lab/pi-record-edit";
 import { auditRecordTypeFor } from "@/lib/lab/pi-record-menu";
 import { normalizeOrderStatus } from "@/lib/types";
-import type { CatalogItem, PurchaseItem, Task } from "@/lib/types";
+import type {
+  CatalogItem,
+  PurchaseItem,
+  PurchaseAttachment,
+  Task,
+} from "@/lib/types";
+import {
+  writePurchaseAttachment,
+  openPurchaseAttachment,
+  formatAttachmentSize,
+} from "@/lib/purchases/attachments";
 
 interface PurchaseEditorProps {
   taskId: number;
@@ -71,6 +81,11 @@ interface EditingRow {
   vendor: string;
   catalog_number: string;
   category: string;
+  // Purchase documents (PURCHASE_DOCS_AND_ROUTING.md phase 1b). Held on the edit
+  // row and persisted with the form save, so attachment writes ride the same
+  // tested save routing as every other field. Files are written to disk on
+  // attach; this is just the on-record reference list.
+  attachments: PurchaseAttachment[];
 }
 
 const EMPTY_ROW: EditingRow = {
@@ -85,6 +100,7 @@ const EMPTY_ROW: EditingRow = {
   vendor: "",
   catalog_number: "",
   category: "",
+  attachments: [],
 };
 
 function itemToEditingRow(item: PurchaseItem): EditingRow {
@@ -100,11 +116,94 @@ function itemToEditingRow(item: PurchaseItem): EditingRow {
     vendor: item.vendor || "",
     catalog_number: item.catalog_number || "",
     category: item.category || "",
+    attachments: item.attachments ?? [],
   };
 }
 
 const VENDOR_DATALIST_ID = "purchase-editor-vendor-options";
 const CATEGORY_DATALIST_ID = "purchase-editor-category-options";
+
+/**
+ * Purchase documents sub-row (PURCHASE_DOCS_AND_ROUTING.md phase 1b). A thin row
+ * under a purchase item spanning all columns, showing its attached PDFs and (in
+ * edit mode) the attach + remove controls. Renders nothing for a display row
+ * with no documents, so it adds no noise to purchases that have none. Files open
+ * in a new tab; attaching + removing happen in edit mode and persist with the
+ * row save.
+ */
+function PurchaseDocsRow({
+  attachments,
+  editing,
+  attaching,
+  colSpan,
+  onAttach,
+  onRemove,
+  onOpen,
+}: {
+  attachments: PurchaseAttachment[];
+  editing: boolean;
+  attaching: boolean;
+  colSpan: number;
+  onAttach: () => void;
+  onRemove: (id: string) => void;
+  onOpen: (att: PurchaseAttachment) => void;
+}) {
+  if (!editing && attachments.length === 0) return null;
+  return (
+    <tr className="border-b border-border bg-surface-sunken/40">
+      <td colSpan={colSpan} className="px-2 py-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1 text-meta text-foreground-muted">
+            <Icon name="file" className="w-3.5 h-3.5" />
+            Documents
+          </span>
+          {attachments.length === 0 ? (
+            <span className="text-meta text-foreground-muted">none yet</span>
+          ) : (
+            attachments.map((att) => (
+              <span
+                key={att.id}
+                className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-0.5 text-meta"
+              >
+                <button
+                  type="button"
+                  onClick={() => onOpen(att)}
+                  className="max-w-[16rem] truncate text-blue-600 dark:text-blue-400 hover:underline"
+                  title={`${att.filename}${
+                    att.file_size ? ` (${formatAttachmentSize(att.file_size)})` : ""
+                  }`}
+                >
+                  {att.filename}
+                </button>
+                {editing && (
+                  <button
+                    type="button"
+                    onClick={() => onRemove(att.id)}
+                    className="text-foreground-muted hover:text-rose-600"
+                    aria-label={`Remove ${att.filename}`}
+                  >
+                    <Icon name="close" className="w-3 h-3" />
+                  </button>
+                )}
+              </span>
+            ))
+          )}
+          {editing && (
+            <button
+              type="button"
+              onClick={onAttach}
+              disabled={attaching}
+              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-meta font-medium text-foreground hover:bg-surface-sunken disabled:opacity-50"
+            >
+              <Icon name="import" className="w-3.5 h-3.5" />
+              {attaching ? "Attaching..." : "Attach PDF"}
+            </button>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
 
 export default function PurchaseEditor({
   taskId,
@@ -526,6 +625,9 @@ export default function PurchaseEditor({
         vendor: editingRow.vendor.trim() || null,
         catalog_number: editingRow.catalog_number.trim() || null,
         category: editingRow.category.trim() || null,
+        // Purchase documents (PURCHASE_DOCS_AND_ROUTING.md phase 1b). Persisted
+        // with the rest of the row through the shared write routing.
+        attachments: editingRow.attachments,
       };
 
       // The persistence closure, shared by the normal and the PI-edit paths so
@@ -607,6 +709,51 @@ export default function PurchaseEditor({
     purchaseOwner,
     items,
   ]);
+
+  // Purchase documents (PURCHASE_DOCS_AND_ROUTING.md phase 1b). Attaching writes
+  // the file to the purchase's folder immediately and appends the reference to
+  // the open edit row; the reference persists when the row is saved. Removing
+  // drops the reference (the file is left on disk in v1, orphaned once saved).
+  const attachInputRef = useRef<HTMLInputElement | null>(null);
+  const [attaching, setAttaching] = useState(false);
+
+  const handleAttachFile = useCallback(
+    async (file: File | undefined) => {
+      if (!file || !editingItemId) return;
+      setAttaching(true);
+      try {
+        const att = await writePurchaseAttachment(
+          rowLoroOwner,
+          editingItemId,
+          file,
+          "other",
+        );
+        setEditingRow((prev) => ({
+          ...prev,
+          attachments: [...prev.attachments, att],
+        }));
+      } catch {
+        alert(`Failed to attach ${file.name}`);
+      } finally {
+        setAttaching(false);
+      }
+    },
+    [editingItemId, rowLoroOwner],
+  );
+
+  const handleRemoveAttachment = useCallback((id: string) => {
+    setEditingRow((prev) => ({
+      ...prev,
+      attachments: prev.attachments.filter((a) => a.id !== id),
+    }));
+  }, []);
+
+  const handleOpenAttachment = useCallback(async (att: PurchaseAttachment) => {
+    const ok = await openPurchaseAttachment(att);
+    if (!ok) {
+      alert("Could not open the file. It may have been moved or deleted.");
+    }
+  }, []);
 
   const handleFieldChange = useCallback(
     (field: keyof EditingRow, value: string) => {
@@ -773,6 +920,19 @@ export default function PurchaseEditor({
 
   return (
     <div className="p-4">
+      {/* Purchase documents (PURCHASE_DOCS_AND_ROUTING.md phase 1b). One hidden
+          file input shared by the open edit row's "Attach PDF" button; only one
+          row edits at a time, so a single input is enough. */}
+      <input
+        ref={attachInputRef}
+        type="file"
+        accept="application/pdf,.pdf"
+        className="hidden"
+        onChange={(e) => {
+          void handleAttachFile(e.target.files?.[0]);
+          e.target.value = "";
+        }}
+      />
       {/* R1b: sharing chips — read-only visibility hint row for the
           parent purchase task. */}
       {parentTask && (
@@ -917,8 +1077,8 @@ export default function PurchaseEditor({
             {items.map((item) => (
               editingItemId === item.id ? (
                 // Edit mode row
+                <Fragment key={item.id}>
                 <tr
-                  key={item.id}
                   className="border-b border-border bg-amber-50 dark:bg-amber-500/10"
                 >
                   <td className="py-2 px-2 relative" ref={editSuggestionsRef}>
@@ -1102,10 +1262,20 @@ export default function PurchaseEditor({
                     </Tooltip>
                   </td>
                 </tr>
+                <PurchaseDocsRow
+                  attachments={editingRow.attachments}
+                  editing
+                  attaching={attaching}
+                  colSpan={16}
+                  onAttach={() => attachInputRef.current?.click()}
+                  onRemove={handleRemoveAttachment}
+                  onOpen={handleOpenAttachment}
+                />
+                </Fragment>
               ) : (
                 // View mode row
+                <Fragment key={item.id}>
                 <tr
-                  key={item.id}
                   className={`border-b border-border ${!writesDisabled || piGate.isPiEdit ? "hover:bg-surface-sunken cursor-pointer" : ""}`}
                   onClick={
                     !writesDisabled || piGate.isPiEdit
@@ -1371,6 +1541,16 @@ export default function PurchaseEditor({
                     </div>
                   </td>
                 </tr>
+                <PurchaseDocsRow
+                  attachments={item.attachments ?? []}
+                  editing={false}
+                  attaching={false}
+                  colSpan={16}
+                  onAttach={() => {}}
+                  onRemove={() => {}}
+                  onOpen={handleOpenAttachment}
+                />
+                </Fragment>
               )
             ))}
 
