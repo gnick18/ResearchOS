@@ -485,6 +485,29 @@ export async function addLedgerEntry(entry: NewLedgerEntry): Promise<LedgerEntry
   return rowToEntry(rows[0]);
 }
 
+/**
+ * Idempotent append keyed on `source`. If a row already carries this exact
+ * non-empty source tag it is returned untouched (inserted: false), so a daily
+ * inbox scan that re-posts the same receipt never double-logs it. An empty or
+ * "manual" source has no stable identity, so it always inserts.
+ */
+export async function addLedgerEntryBySource(
+  entry: NewLedgerEntry,
+): Promise<{ entry: LedgerEntry; inserted: boolean }> {
+  const source = entry.source ?? "";
+  if (source && source !== "manual") {
+    const sql = getSql();
+    const existing = (await sql`
+      SELECT id, entry_date, direction, category, amount_cents, note, source, tax_category
+      FROM business_ledger WHERE source = ${source} LIMIT 1
+    `) as LedgerRow[];
+    if (existing.length > 0) {
+      return { entry: rowToEntry(existing[0]), inserted: false };
+    }
+  }
+  return { entry: await addLedgerEntry(entry), inserted: true };
+}
+
 /** Removes one ledger entry by id. */
 export async function deleteLedgerEntry(id: number): Promise<void> {
   const sql = getSql();
