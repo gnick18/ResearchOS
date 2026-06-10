@@ -45,7 +45,7 @@ import BeakerBot from "@/components/BeakerBot";
 import SponsorStrip from "@/components/SponsorStrip";
 import BeakerBotPeek from "@/components/welcome/BeakerBotPeek";
 import Wordmark from "@/components/Wordmark";
-import DemoLoop, { DemoLoopPlaceholder } from "@/components/welcome/DemoLoop";
+import DemoLoop from "@/components/welcome/DemoLoop";
 import { usePreloadOnIdle } from "@/lib/perf/use-preload-on-idle";
 import RoadmapModal from "@/components/RoadmapModal";
 import { markLandingSeen } from "@/lib/landing/landing-gate";
@@ -708,9 +708,10 @@ export default function WelcomePage() {
                 Drop in a fragment, pick a restriction site, and the map updates
                 live, with a review step before anything saves.
               </p>
-              <DemoLoopPlaceholder
-                tag="Gibson cloning"
-                claim="A cloning action joining fragments, with the construct assembling live."
+              <DemoLoop
+                src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/gibson-cloning.mp4"
+                poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/gibson-cloning.poster.jpg"
+                label="Assembling a construct from fragments with Gibson and Golden Gate cloning"
                 className="mt-4 flex-1"
               />
             </BentoCell>
@@ -931,9 +932,10 @@ export default function WelcomePage() {
                   Send a photo from the bench over Telegram and it lands in your
                   notebook, ready to attach to the right experiment.
                 </p>
-                <DemoLoopPlaceholder
-                  tag="Snap from the bench"
-                  claim="A bench photo arriving in the inbox and being filed onto an experiment."
+                <DemoLoop
+                  src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/snap-from-bench.mp4"
+                  poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/snap-from-bench.poster.jpg"
+                  label="Bench photos arriving in the inbox, ready to file onto an experiment"
                   className="mt-4 flex-1"
                 />
               </BentoCell>
@@ -944,9 +946,10 @@ export default function WelcomePage() {
                   Data-management compliance plus a one-click Zenodo deposit that
                   carries your ORCID and grant metadata.
                 </p>
-                <DemoLoopPlaceholder
-                  tag="NIH and Zenodo"
-                  claim="A Zenodo deposit assembling with ORCID and grant metadata attached."
+                <DemoLoop
+                  src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/nih-zenodo.mp4"
+                  poster="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/nih-zenodo.poster.jpg"
+                  label="Building a grant-ready Zenodo deposit with ORCID and grant metadata"
                   className="mt-4 flex-1"
                 />
               </BentoCell>
