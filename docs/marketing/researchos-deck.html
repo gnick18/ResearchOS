@@ -289,6 +289,10 @@ h2{font-weight:800;letter-spacing:-.025em;line-height:1.05;font-size:50px;color:
 
 /* ---- launch splash recreation (drawn live) ---- */
 .slide.splashslide{padding:0;background:radial-gradient(720px 480px at 50% 40%, #ffffff 0%, #f3f8ff 58%, #eaf1fb 100%)}
+/* a real screen-recording, when present, replaces the CSS recreation automatically */
+.splashvid{display:none;position:absolute;inset:14px 0;width:100%;height:calc(100% - 28px);object-fit:contain;z-index:1;background:transparent}
+.splashslide.has-vid .splash{display:none}
+.splashslide.has-vid .splashvid{display:block}
 .splashkicker{position:absolute;top:46px;left:84px;z-index:6}
 .splash{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px}
 .splashstage{display:flex;flex-direction:column;align-items:center;gap:20px;animation:spGroup 5s ease-in-out infinite}
@@ -1135,6 +1139,8 @@ body.idle .hud,body.idle .help{opacity:0;pointer-events:none}
   <!-- ============================================================ 21a. LAUNCH SPLASH -->
   <section class="slide splashslide">
     <div class="kicker splashkicker"><span class="dot"></span> The launch screen</div>
+    <!-- Drop a real screen-recording at assets/shots/video/splash.mp4 and it auto-replaces the CSS recreation below. -->
+    <video class="splashvid" muted loop playsinline preload="auto" src="assets/shots/video/splash.mp4"></video>
     <div class="splash">
       <div class="splashstage">
         <svg class="splashbot" viewBox="8 3 24 31">
@@ -1533,6 +1539,17 @@ var DEMO_BASE = "https://research-os.app";
     svg.innerHTML = s;
   }
   renderCommits(); renderFeatures();
+
+  // If a real splash recording exists, swap it in for the CSS recreation.
+  (function(){
+    var v = document.querySelector('.splashvid');
+    if(!v) return;
+    v.addEventListener('loadeddata', function(){
+      var slide = v.closest('.splashslide');
+      if(slide) slide.classList.add('has-vid');
+      try{ v.play(); }catch(e){}
+    });
+  })();
 
   window.addEventListener('resize', fit);
   fit(); show(0); activity();
