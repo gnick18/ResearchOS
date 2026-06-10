@@ -130,3 +130,22 @@ the project, never as buying space at a markup.
    cushion genuinely covers it; nudge Department GB down if not.
 3. Confirm the plans.ts tier shapes (storageBytes + write allowance) for the four tiers.
 4. Stripe Tax wiring + the WI DOR gate stays the hard launch blocker.
+
+## Strategic sizing questions (Grant, 2026-06-09, pending billing manager)
+
+These two reshape the ladder and depend on answers above:
+
+- **Is the pool even enough for a normal 6-8 person lab?** This is entirely gated by item 1.
+  If images count against the DO pool ($0.20), text is trivial but photos dominate, and an
+  active lab generates roughly 2-4 GB/year, so free 1 GB is only ~3-6 months and the Lab
+  tier likely needs to grow from 12 GB to ~20-25 GB for multi-year comfort. If attachments
+  split to R2, the pool is text-only and 1 GB is plenty for any normal lab indefinitely (and
+  the storage tiers lose most of their pull). We cannot size honestly until item 1 is answered.
+
+- **A $100 top tier?** Two distinct things hide in "covers 5+ labs":
+  - A bigger SINGLE lab/group (15-20 people): just extend the ladder. $100/mo nets ~$96.80,
+    so ~100-120 GB holds the ~4x margin, and the surplus subsidizes roughly 75+ free labs
+    (not 5). Clean to add.
+  - A true INSTITUTIONAL tier where one payment covers 5+ SEPARATE lab pools (multiple PIs):
+    the as-built model is per-lab (one PI = one pool), so this needs a new department /
+    institution aggregation concept. That is a model design question, not a price point.
