@@ -234,23 +234,33 @@ function NumericWithUnit<U extends string>({
               <Pressable
                 key={u}
                 onPress={() => onUnit(u)}
-                style={[
+                style={({ pressed }) => [
                   styles.unitChip,
                   {
-                    backgroundColor: active ? palette.skyDim : surface.sunken,
-                    borderColor: active ? palette.skyBorder : surface.border,
+                    backgroundColor: pressed
+                      ? palette.amber
+                      : active
+                        ? palette.sky
+                        : surface.surface,
+                    borderColor: pressed
+                      ? palette.amber
+                      : active
+                        ? palette.sky
+                        : surface.border,
                     borderRadius: radii.sm,
                   },
                 ]}
               >
-                <Text
-                  style={[
-                    styles.unitLabel,
-                    { color: active ? palette.sky : surface.muted },
-                  ]}
-                >
-                  {u}
-                </Text>
+                {({ pressed }) => (
+                  <Text
+                    style={[
+                      styles.unitLabel,
+                      { color: pressed || active ? palette.white : surface.muted },
+                    ]}
+                  >
+                    {u}
+                  </Text>
+                )}
               </Pressable>
             );
           })}
@@ -331,6 +341,49 @@ function ResultRow({ label, value }: { label: string; value: string }) {
 
 function HintText({ children }: { children: string }) {
   return <Text style={[styles.hint, { color: palette.faint }]}>{children}</Text>;
+}
+
+// The per-tab formula tip. An amber callout with a small "f" badge that, once
+// read, collapses to just the badge on tap (and re-expands when the badge is
+// tapped again) so it never crowds the inputs. Grant 2026-06-10.
+function HintCallout({ children }: { children: string }) {
+  const { surface } = useTheme();
+  const [collapsed, setCollapsed] = useState(false);
+
+  if (collapsed) {
+    return (
+      <Pressable
+        onPress={() => setCollapsed(false)}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Show the formula tip"
+        style={({ pressed }) => [
+          styles.hintBadge,
+          styles.hintBadgeAlone,
+          pressed && { backgroundColor: palette.coral },
+        ]}
+      >
+        <Text style={styles.hintBadgeLabel}>f</Text>
+      </Pressable>
+    );
+  }
+
+  return (
+    <Pressable
+      onPress={() => setCollapsed(true)}
+      accessibilityRole="button"
+      accessibilityLabel="Hide the formula tip"
+      style={({ pressed }) => [
+        styles.hintCallout,
+        pressed && { backgroundColor: 'rgba(245, 158, 11, 0.22)' },
+      ]}
+    >
+      <View style={styles.hintBadge}>
+        <Text style={styles.hintBadgeLabel}>f</Text>
+      </View>
+      <Text style={[styles.hintCalloutText, { color: surface.text }]}>{children}</Text>
+    </Pressable>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -487,9 +540,11 @@ function ExportButton({ lineText }: { lineText: string | null }) {
         styles.exportBtn,
         {
           backgroundColor: enabled
-            ? pressed ? palette.skyBorder : palette.skyDim
+            ? pressed ? palette.amber : palette.skyDim
             : surface.sunken,
-          borderColor: enabled ? palette.skyBorder : surface.border,
+          borderColor: enabled
+            ? pressed ? palette.amber : palette.skyBorder
+            : surface.border,
           borderRadius: radii.md,
           opacity: enabled ? 1 : 0.5,
         },
@@ -498,9 +553,16 @@ function ExportButton({ lineText }: { lineText: string | null }) {
       accessibilityLabel="Export to notebook"
       accessibilityHint="Appends this result to the experiment open on your laptop."
     >
-      <Text style={[styles.exportBtnLabel, { color: enabled ? palette.sky : surface.muted }]}>
-        Export to notebook
-      </Text>
+      {({ pressed }) => (
+        <Text
+          style={[
+            styles.exportBtnLabel,
+            { color: enabled ? (pressed ? palette.white : palette.sky) : surface.muted },
+          ]}
+        >
+          Export to notebook
+        </Text>
+      )}
     </Pressable>
   );
 }
@@ -761,9 +823,9 @@ function MolarityTab() {
 
   return (
     <View style={styles.tabGap}>
-      <HintText>
+      <HintCallout>
         n = m / MW, C = n / V. Enter MW plus target concentration and volume to get the mass to weigh out. Or enter a mass to get moles and concentration.
-      </HintText>
+      </HintCallout>
       <PlainNumeric label="Molecular weight (g/mol)" value={mw} onValue={setMw} placeholder="e.g. 58.44" />
       <NumericWithUnit label="Target concentration" value={conc} onValue={setConc} unit={concU} onUnit={setConcU} units={CONC_UNITS} />
       <NumericWithUnit label="Volume" value={vol} onValue={setVol} unit={volU} onUnit={setVolU} units={VOL_UNITS} />
@@ -827,9 +889,9 @@ function DilutionTab() {
 
   return (
     <View style={styles.tabGap}>
-      <HintText>
+      <HintCallout>
         C1 V1 = C2 V2. Enter stock concentration, the final concentration, and the final volume. Solves for how much stock to add.
-      </HintText>
+      </HintCallout>
       <NumericWithUnit label="Stock concentration (C1)" value={c1} onValue={setC1} unit={c1u} onUnit={setC1u} units={CONC_UNITS} />
       <NumericWithUnit label="Final concentration (C2)" value={c2} onValue={setC2} unit={c2u} onUnit={setC2u} units={CONC_UNITS} />
       <NumericWithUnit label="Final volume (V2)" value={v2} onValue={setV2} unit={v2u} onUnit={setV2u} units={VOL_UNITS} />
@@ -894,9 +956,9 @@ function SerialTab() {
 
   return (
     <View style={styles.tabGap}>
-      <HintText>
+      <HintCallout>
         Each tube takes a fixed transfer from the previous tube and tops up with diluent, giving an equal fold dilution per step.
-      </HintText>
+      </HintCallout>
       <NumericWithUnit label="Starting concentration" value={start} onValue={setStart} unit={startU} onUnit={setStartU} units={CONC_UNITS} />
       <NumericWithUnit label="Per-tube final volume" value={vol} onValue={setVol} unit={volU} onUnit={setVolU} units={VOL_UNITS} />
       <PlainNumeric label="Fold factor (per step)" value={fold} onValue={setFold} placeholder="e.g. 10" suffix="x" />
@@ -999,9 +1061,9 @@ function BufferTab() {
 
   return (
     <View style={styles.tabGap}>
-      <HintText>
+      <HintCallout>
         Volume of stock = (final conc x total volume) / stock conc. The leftover is your diluent.
-      </HintText>
+      </HintCallout>
       <NumericWithUnit label="Total volume" value={total} onValue={setTotal} unit={totalU} onUnit={setTotalU} units={VOL_UNITS} />
 
       {rows.map((r) => (
@@ -1018,9 +1080,16 @@ function BufferTab() {
             {rows.length > 1 ? (
               <Pressable
                 onPress={() => remove(r.id)}
-                style={[styles.removeBtn, { backgroundColor: palette.dangerLight, borderRadius: radii.sm }]}
+                style={({ pressed }) => [
+                  styles.removeBtn,
+                  { backgroundColor: pressed ? palette.coral : palette.dangerLight, borderRadius: radii.sm },
+                ]}
               >
-                <Text style={{ color: palette.danger, fontWeight: '700', fontSize: 13 }}>X</Text>
+                {({ pressed }) => (
+                  <Text style={{ color: pressed ? palette.white : palette.danger, fontWeight: '700', fontSize: 16 }}>
+                    &times;
+                  </Text>
+                )}
               </Pressable>
             ) : null}
           </View>
@@ -1045,9 +1114,20 @@ function BufferTab() {
 
       <Pressable
         onPress={() => setRows((prev) => [...prev, makeBufferRow()])}
-        style={[styles.addBtn, { borderColor: palette.skyBorder, backgroundColor: palette.skyDim, borderRadius: radii.md }]}
+        style={({ pressed }) => [
+          styles.addBtn,
+          {
+            borderColor: pressed ? palette.amber : palette.skyBorder,
+            backgroundColor: pressed ? palette.amber : palette.skyDim,
+            borderRadius: radii.md,
+          },
+        ]}
       >
-        <Text style={[styles.addBtnLabel, { color: palette.sky }]}>+ Add component</Text>
+        {({ pressed }) => (
+          <Text style={[styles.addBtnLabel, { color: pressed ? palette.white : palette.sky }]}>
+            + Add component
+          </Text>
+        )}
       </Pressable>
 
       {result === null ? (
@@ -1169,6 +1249,36 @@ const styles = StyleSheet.create({
   resultLabel: { fontSize: 14, lineHeight: 20 },
   resultValue: { fontSize: 16, fontWeight: '600', lineHeight: 22, textAlign: 'right' },
   hint: { fontSize: 13, lineHeight: 18 },
+  // Collapsible amber formula callout
+  hintCallout: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 9,
+    backgroundColor: 'rgba(245, 158, 11, 0.13)',
+    borderRadius: 12,
+    padding: 11,
+  },
+  hintBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    backgroundColor: palette.amber,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hintBadgeAlone: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    alignSelf: 'flex-start',
+  },
+  hintBadgeLabel: {
+    color: palette.white,
+    fontSize: 14,
+    fontWeight: '800',
+    fontStyle: 'italic',
+  },
+  hintCalloutText: { flex: 1, fontSize: 13, lineHeight: 19 },
   table: {
     borderWidth: 1,
     borderRadius: radii.md,
