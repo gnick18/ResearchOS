@@ -929,8 +929,8 @@ export default function WelcomePage() {
               {/* Snap from the bench (placeholder until recorded). */}
               <BentoCell num="snap from the bench" span="third" title="From your phone to your inbox">
                 <p className="text-body leading-relaxed text-[#475569]">
-                  Send a photo from the bench over Telegram and it lands in your
-                  notebook, ready to attach to the right experiment.
+                  Send a photo from the bench with the companion app and it lands
+                  in your notebook, ready to attach to the right experiment.
                 </p>
                 <DemoLoop
                   src="https://tkqei2x7bdmdvg7v.public.blob.vercel-storage.com/snap-from-bench.mp4"
