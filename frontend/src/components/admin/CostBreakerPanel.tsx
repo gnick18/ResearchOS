@@ -22,6 +22,7 @@ interface CostEstimate {
   storageCents: number;
   activityCents: number;
   fixedBaseCents: number;
+  amortizedAnnualCents: number;
   variableCents: number;
   totalCents: number;
 }
@@ -133,7 +134,8 @@ export default function CostBreakerPanel() {
         <p className="mt-1 text-meta text-foreground-muted">
           Storage {usd(cost.storageCents)} + activity {usd(cost.activityCents)} ={" "}
           {usd(cost.variableCents)} variable. Plus {usd(cost.fixedBaseCents)} fixed
-          base = {usd(cost.totalCents)} total (base not budgeted).
+          base + {usd(cost.amortizedAnnualCents)} annual fees (monthly) ={" "}
+          {usd(cost.totalCents)} total (fixed + annual not budgeted).
         </p>
       </div>
 

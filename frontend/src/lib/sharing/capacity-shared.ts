@@ -83,6 +83,26 @@ export const STORAGE_FREE_TIER_BYTES = {
  */
 export const FIXED_MONTHLY_BASE_CENTS = 2500;
 
+/**
+ * Recurring ANNUAL fees, kept as a breakdown so the cost panel can show them as
+ * their MONTHLY equivalent (Grant 2026-06-09, "it really is a monthly cost,
+ * $120/yr = $10/mo"). Edit these as real invoices land. One-time fees (Google
+ * Play $25 registration, etc.) do NOT belong here, only recurring yearly ones.
+ */
+export const ANNUAL_RECURRING_FEES_CENTS = {
+  appleDeveloper: 9900, // $99/yr Apple Developer Program
+  wiAnnualReport: 2500, // ~$25/yr Wisconsin LLC annual report (verify exact fee)
+  domain: 1400, // ~$14/yr research-os.app (verify)
+};
+
+/** The annual recurring fees expressed as a monthly run-rate (sum / 12). */
+export const AMORTIZED_ANNUAL_CENTS = Math.round(
+  (ANNUAL_RECURRING_FEES_CENTS.appleDeveloper +
+    ANNUAL_RECURRING_FEES_CENTS.wiAnnualReport +
+    ANNUAL_RECURRING_FEES_CENTS.domain) /
+    12,
+);
+
 export interface InfraCostEstimate {
   /** Durable Objects (collab doc) storage above its free tier. */
   doCents: number;
@@ -90,6 +110,8 @@ export interface InfraCostEstimate {
   r2Cents: number;
   /** Fixed Workers Paid + Vercel Pro base, billed regardless of usage. */
   fixedBaseCents: number;
+  /** Recurring annual fees (Apple, LLC report, domain) as a monthly equivalent. */
+  amortizedAnnualCents: number;
   totalCents: number;
 }
 
@@ -119,6 +141,8 @@ export function estimateMonthlyInfraCostCents(
     doCents,
     r2Cents,
     fixedBaseCents: FIXED_MONTHLY_BASE_CENTS,
-    totalCents: doCents + r2Cents + FIXED_MONTHLY_BASE_CENTS,
+    amortizedAnnualCents: AMORTIZED_ANNUAL_CENTS,
+    totalCents:
+      doCents + r2Cents + FIXED_MONTHLY_BASE_CENTS + AMORTIZED_ANNUAL_CENTS,
   };
 }

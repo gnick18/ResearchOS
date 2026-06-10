@@ -48,6 +48,7 @@ export async function GET(): Promise<Response> {
       { label: "Doc storage", vendor: "Durable Objects", cents: cost.doCents, fixed: false, color: "#0ea5e9" },
       { label: "File storage", vendor: "Cloudflare R2", cents: cost.r2Cents, fixed: false, color: "#10b981" },
       { label: "Activity", vendor: "Cloudflare", cents: cost.activityCents, fixed: false, color: "#8b5cf6" },
+      { label: "Annual fees (monthly)", vendor: "Apple, LLC, domain", cents: cost.amortizedAnnualCents, fixed: true, color: "#ec4899" },
     ];
     return json(200, { state, cost, spend: { categories, totalCents: cost.totalCents } });
   } catch {

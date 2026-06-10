@@ -174,9 +174,12 @@ export interface GlobalCostEstimate {
   activityCents: number;
   /** The fixed monthly base (Workers + Vercel), shown for context, NOT budgeted. */
   fixedBaseCents: number;
+  /** Recurring annual fees (Apple, LLC report, domain) as a monthly equivalent,
+   *  shown for context, NOT budgeted (they are fixed commitments, not runaway). */
+  amortizedAnnualCents: number;
   /** What the budget is compared against: variable cost only (storage + activity). */
   variableCents: number;
-  /** Everything including the fixed base, for display. */
+  /** Everything including the fixed base + amortized annual fees, for display. */
   totalCents: number;
 }
 
@@ -209,8 +212,10 @@ export async function estimateGlobalMonthlyCostCents(): Promise<GlobalCostEstima
     r2Cents: storage.r2Cents,
     activityCents,
     fixedBaseCents: storage.fixedBaseCents,
+    amortizedAnnualCents: storage.amortizedAnnualCents,
     variableCents,
-    totalCents: variableCents + storage.fixedBaseCents,
+    totalCents:
+      variableCents + storage.fixedBaseCents + storage.amortizedAnnualCents,
   };
 }
 
