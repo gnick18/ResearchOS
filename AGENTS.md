@@ -324,9 +324,14 @@ Use this for any field rename. **Do NOT do hard on-disk cutovers** — rewrite-a
   (the `eas build`/`eas submit` steps tagged [YOU]/[AGENT]), and
   `docs/ops/mobile-dev-accounts-setup.md` (accounts).
 - EAS is configured: project `@gnickles/researchos-companion`, `eas.json` profiles,
-  bundle id `app.researchos.companion`. Dev accounts are PERSONAL (Apple Individual
-  paid, Google personal), transfer to the LLC org later. Google personal accounts
-  need a 12-tester/14-day closed test before production (the Android launch gate).
+  bundle id `app.researchos.companion`. **Dev-account plan updated 2026-06-10, the
+  LLC D-U-N-S was assigned** (9-digit, stored in `/admin/business` + the LLC vault,
+  not in repo), which unblocks enrolling both stores under the LLC. iOS ships first
+  on the existing **Individual** Apple account ($99/yr paid), then App-Transfers to
+  the LLC org after launch (Grant's call, 2026-06-10). Android builds FRESH on a new
+  **LLC organization** Play account ($25), which is exempt from the 12-tester /
+  14-day closed test that gates personal accounts. Runbook plus the App-Transfer
+  criteria are in `docs/ops/mobile-dev-accounts-setup.md`.
 - BeakerBot app icons are in `mobile/assets/images/` (generator `brand/src/`); the
   Play feature graphic is `brand/png/researchos-play-feature.png`. Both are listed
   in `brand/BRAND_MANAGER.md`.
@@ -374,11 +379,10 @@ grouped containers with hairlines) via an ideal-vs-live convergence.
   targets the dev build, not Expo Go); mirror an Android screen for a demo with
   scrcpy (`brew install scrcpy`, then `scrcpy`).
 
-### Telegram (live)
-- One bot per user. Token paired via `TelegramPairingModal`, written to `users/<u>/_telegram.json` with an auto-appended `.gitignore` rule so it doesn't get committed.
-- `lib/telegram/use-telegram-polling.ts` polls `getUpdates`. New photos land in `users/{user}/inbox/Images/` with `.json` sidecar containing caption / sender / received_at.
-- `/api/telegram-file/route.ts` is the Vercel function that proxies file CDN downloads through (CORS workaround).
-- `InboxPanel`, `InboxToast`, `InboxBadge`, `TelegramStatusBadge` render the inbox; `ImageStrip` reads from the inbox + task Images folder.
+### Phone ingestion (companion app, Telegram REMOVED 2026-06-10)
+- The phone path is the **mobile companion app only**. Telegram was fully removed (Grant, 2026-06-10): `lib/telegram/*`, `/api/telegram-file/route.ts`, `TelegramPairingModal`, `TelegramStatusBadge`, and the polling hook are all gone. The companion relay (`lib/mobile-relay/poll.ts`) replaced it. Only inert remnants remain (a dormant onboarding `picks.telegram` tour beat that never fires since the pick is no longer offered, internal `telegram_*` artifact function names, and code comments); the user-facing copy + wiki screenshots were de-Telegrammed. Do NOT reintroduce a Telegram surface.
+- Incoming photos land in `users/{user}/inbox/Images/` by default. **Auto-routing (2026-06-10):** when an experiment popup is open and a photo arrives with no explicit phone route command, `poll.ts` reads `activeTask` + `activeTaskTab` and lands it in that experiment's active tab (Results when on Results, else Lab Notes), then fires `capture:routed` so the popup switches and the image strip refreshes. An explicit phone route command still wins; falls back to the inbox when nothing is open.
+- `InboxPanel`, `InboxToast`, `InboxBadge` render the inbox; `ImageStrip` reads from the inbox + task Images folder.
 
 ### External calendar (live, ICS-only)
 - `lib/calendar/external-feeds-store.ts` persists ICS subscriptions in `users/{user}/_calendar-feeds.json`.
