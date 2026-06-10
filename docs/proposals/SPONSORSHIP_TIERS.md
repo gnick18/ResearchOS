@@ -1,5 +1,11 @@
 # Sponsorship tiers (storage-as-thank-you)
 
+> SUPERSEDED IN PART (2026-06-10). The billing manager locked a cleaner two-channel model,
+> storage plans live on Stripe (a Free/Plus/Pro plan picker, 5 GB free), and GitHub Sponsors
+> is recognition-only donations. So the storage-as-reward ladder below is replaced by the plan
+> picker, and only the Sponsors-donation framing survives. The canonical copy facts now live in
+> docs/reference/billing-copy-facts.md. Keep this doc for the donation-framing reasoning only.
+
 Status: DRAFT v2, re-based on the billing manager's review (2026-06-09). Author: branding agent.
 Related: METERED_STORAGE_PRICING.md, LAB_SHARED_BILLING_POOL.md, plans.ts, capacity-shared.ts,
 project_stripe_setup. House style: no em-dashes, no emojis, no mid-sentence colons.
