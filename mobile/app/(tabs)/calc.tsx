@@ -23,7 +23,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -31,7 +30,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 
 import { getFocusContext } from '@/lib/focus-context';
 import { usePairing } from '@/lib/pairing';
@@ -102,9 +100,9 @@ export default function CalcScreen() {
 
   return (
     <ScreenFrame>
-      {/* Calculator switcher: a tap-to-change header (doubles as the title). */}
+      {/* Calculator header: large title + horizontal chip selector. */}
       <View style={styles.switcherWrap}>
-        <CalcSwitcher active={activeTab} onChange={setActiveTab} />
+        <CalcHeader active={activeTab} onChange={setActiveTab} />
       </View>
 
       {/* Tab body */}
@@ -124,10 +122,20 @@ export default function CalcScreen() {
 }
 
 // ---------------------------------------------------------------------------
-// Calculator switcher (dropdown header + bottom-sheet list)
+// Calculator header: large title + horizontal chip selector
 // ---------------------------------------------------------------------------
 
-function CalcSwitcher({
+// Compact chip labels for the row (shorter than the full tab names so the
+// selector stays tidy now that the dropdown is gone).
+const CHIP_LABEL: Record<TabId, string> = {
+  scientific: 'Scientific',
+  molarity: 'Molarity',
+  dilution: 'Dilution',
+  serial: 'Serial',
+  buffer: 'Buffer',
+};
+
+function CalcHeader({
   active,
   onChange,
 }: {
@@ -135,57 +143,43 @@ function CalcSwitcher({
   onChange: (id: TabId) => void;
 }) {
   const { surface } = useTheme();
-  const [open, setOpen] = useState(false);
-  const label = TABS.find((t) => t.id === active)?.label ?? 'Calculator';
-
   return (
     <>
-      <Pressable
-        onPress={() => setOpen(true)}
-        style={[styles.switcher, { backgroundColor: surface.surface, borderColor: surface.border }]}
-        accessibilityRole="button"
-        accessibilityLabel={`Calculator: ${label}, tap to switch`}
+      <ThemedText style={[styles.calcTitle, { color: surface.text }]}>Calc</ThemedText>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chipRow}
+        keyboardShouldPersistTaps="handled"
       >
-        <View style={{ flex: 1 }}>
-          <ThemedText style={[styles.switcherTitle, { color: surface.text }]}>{label}</ThemedText>
-          <ThemedText style={[styles.switcherSub, { color: surface.muted }]}>
-            tap to switch calculator
-          </ThemedText>
-        </View>
-        <Ionicons name="chevron-down" size={20} color={palette.sky} />
-      </Pressable>
-
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={styles.sheetBackdrop} onPress={() => setOpen(false)}>
-          <Pressable style={[styles.sheet, { backgroundColor: surface.surface }]} onPress={() => {}}>
-            <View style={styles.sheetGrab} />
-            <ThemedText style={[styles.sheetTitle, { color: surface.muted }]}>CALCULATORS</ThemedText>
-            {TABS.map((t) => {
-              const on = t.id === active;
-              return (
-                <Pressable
-                  key={t.id}
-                  onPress={() => {
-                    onChange(t.id);
-                    setOpen(false);
-                  }}
-                  style={[styles.sheetItem, on && { backgroundColor: palette.skyDim, borderRadius: radii.md }]}
-                >
-                  <ThemedText
-                    style={[
-                      styles.sheetItemLabel,
-                      { color: on ? palette.sky : surface.text, fontWeight: on ? '700' : '500' },
-                    ]}
-                  >
-                    {t.label}
-                  </ThemedText>
-                  {on ? <Ionicons name="checkmark" size={18} color={palette.sky} /> : null}
-                </Pressable>
-              );
-            })}
-          </Pressable>
-        </Pressable>
-      </Modal>
+        {TABS.map((t) => {
+          const on = t.id === active;
+          return (
+            <Pressable
+              key={t.id}
+              onPress={() => onChange(t.id)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: on }}
+              accessibilityLabel={`${CHIP_LABEL[t.id]} calculator`}
+              style={[
+                styles.calcChip,
+                on
+                  ? styles.calcChipOn
+                  : { backgroundColor: surface.surface, borderColor: surface.border },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.calcChipLabel,
+                  { color: on ? palette.white : surface.muted, fontWeight: on ? '700' : '600' },
+                ]}
+              >
+                {CHIP_LABEL[t.id]}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
     </>
   );
 }
@@ -1091,32 +1085,30 @@ function BufferTab() {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
 
-  // Calculator switcher (dropdown header)
-  switcherWrap: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.sm },
-  switcher: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 13,
+  // Calculator header: large title + horizontal chip selector
+  switcherWrap: { paddingTop: spacing.lg, paddingBottom: spacing.sm },
+  calcTitle: {
+    fontSize: 30,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    lineHeight: 34,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  chipRow: { gap: 8, paddingHorizontal: spacing.lg, paddingVertical: 2 },
+  calcChip: {
     paddingHorizontal: 14,
-    paddingVertical: 11,
-    gap: 10,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
     shadowColor: '#101828',
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.05,
     shadowRadius: 3,
     shadowOffset: { width: 0, height: 1 },
-    elevation: 2,
+    elevation: 1,
   },
-  switcherTitle: { fontSize: 18, fontWeight: '800', letterSpacing: -0.2, lineHeight: 22 },
-  switcherSub: { fontSize: 12, lineHeight: 16, marginTop: 1 },
-
-  // Switcher bottom sheet
-  sheetBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
-  sheet: { borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 30 },
-  sheetGrab: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(0,0,0,0.18)', marginBottom: 10 },
-  sheetTitle: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, marginLeft: 6, marginBottom: 4 },
-  sheetItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 14 },
-  sheetItemLabel: { fontSize: 16 },
+  calcChipOn: { backgroundColor: palette.sky, borderColor: palette.sky, elevation: 0, shadowOpacity: 0 },
+  calcChipLabel: { fontSize: 13 },
 
   body: {
     paddingHorizontal: spacing.lg,
