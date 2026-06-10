@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Data Hub tab — mark it up</title>
+<style>
+  :root {
+    --sky:#1AA0E6; --action:#1283C9; --amber:#F59E0B; --coral:#FF6F61; --purple:#5B47D6; --ink:#111827;
+    --green:#18a058; --red:#e5484d;
+    --bg:#eef0f5; --surface:#ffffff; --surface-2:#f6f8fb; --rail:#f3f5f9;
+    --text:#1b2230; --text-dim:#5b6577; --border:#e2e6ee; --grid:#eaedf3;
+    --shadow:0 1px 2px rgba(17,24,39,.06), 0 8px 24px rgba(17,24,39,.07);
+  }
+  html[data-theme="dark"]{
+    --bg:#070b14; --surface:#1c2638; --surface-2:#161f30; --rail:#121a29;
+    --text:#e7ecf5; --text-dim:#93a0b8; --border:#2b3850; --grid:#243149;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.4);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased;}
+  .rainbow{height:5px;background:linear-gradient(90deg,#FF6F61,#F59E0B,#48c774,#1AA0E6,#5B47D6);}
+  /* page chrome */
+  .pagehead{max-width:1160px;margin:0 auto;padding:18px 22px 6px;}
+  .eyebrow{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--action);font-weight:800;}
+  h1{font-size:23px;font-weight:800;margin:4px 0 2px;}
+  .sub{color:var(--text-dim);font-size:13.5px;max-width:760px;}
+  .toolrow{max-width:1160px;margin:10px auto 0;padding:0 22px;display:flex;gap:9px;align-items:center;flex-wrap:wrap;}
+  .btn{font-size:12.5px;font-weight:700;padding:7px 12px;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text);}
+  .btn.primary{background:linear-gradient(90deg,var(--action),var(--purple));color:#fff;border-color:transparent;}
+  .btn.on{background:var(--amber);color:#3a2a00;border-color:transparent;}
+  .countpill{font-size:12px;font-weight:700;color:var(--text-dim);padding:5px 10px;border:1px solid var(--border);border-radius:999px;background:var(--surface);}
+  .spacer{flex:1;}
+
+  /* the app frame */
+  .frame{max-width:1160px;margin:14px auto 0;padding:0 22px;}
+  .app{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);}
+  .topbar{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border);background:var(--surface);}
+  .doc-title{font-weight:800;font-size:15px;}
+  .crumb{font-size:12px;color:var(--text-dim);}
+  .crumb b{color:var(--text);font-weight:700;}
+  .topbar .acts{margin-left:auto;display:flex;gap:8px;}
+  .tbtn{font-size:12px;font-weight:700;padding:6px 11px;border-radius:7px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);cursor:pointer;}
+  .tbtn.brand{background:linear-gradient(90deg,var(--action),var(--purple));color:#fff;border-color:transparent;}
+
+  .body{display:flex;min-height:560px;}
+  /* left navigator rail */
+  .rail{width:226px;flex-shrink:0;background:var(--rail);border-right:1px solid var(--border);padding:10px 8px;}
+  .rail .seg{margin-bottom:14px;}
+  .rail .seg-h{display:flex;align-items:center;justify-content:space-between;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);padding:2px 8px 5px;}
+  .rail .add{font-size:13px;color:var(--text-dim);cursor:pointer;border:0;background:none;font-weight:800;}
+  .navitem{display:flex;align-items:center;gap:8px;font-size:13px;padding:7px 9px;border-radius:7px;cursor:pointer;color:var(--text);}
+  .navitem:hover{background:var(--surface-2);}
+  .navitem.active{background:color-mix(in srgb,var(--action) 14%,transparent);color:var(--action);font-weight:700;}
+  .navitem .ic{width:15px;height:15px;flex-shrink:0;opacity:.85;}
+  .navitem.active .ic{opacity:1;}
+  /* collection filter + foldered data-table tree (seq-hub style) */
+  .collfilter{padding:2px 8px 10px;margin-bottom:6px;border-bottom:1px solid var(--border);}
+  .collfilter label{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);display:block;margin-bottom:4px;}
+  .collfilter select{width:100%;font-size:12.5px;font-weight:700;padding:6px 8px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);cursor:pointer;}
+  .folder{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:800;letter-spacing:.02em;color:var(--text-dim);padding:5px 8px;border-radius:6px;cursor:pointer;}
+  .folder:hover{background:var(--surface-2);}
+  .folder .caret{display:inline-flex;transition:transform .15s;}
+  .folder.closed .caret{transform:rotate(-90deg);}
+  .folder .fcount{margin-left:auto;font-size:10px;opacity:.65;font-weight:700;}
+  .folder.closed + .kids{display:none;}
+  .tbl{display:flex;align-items:center;gap:7px;font-size:13px;padding:6px 9px 6px 24px;border-radius:7px;cursor:pointer;color:var(--text);}
+  .tbl:hover{background:var(--surface-2);}
+  .tbl.active{background:color-mix(in srgb,var(--action) 14%,transparent);color:var(--action);font-weight:700;}
+  .tbl .tt{margin-left:auto;font-size:9px;color:var(--text-dim);border:1px solid var(--border);border-radius:4px;padding:0 4px;}
+  .collgroup-h{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--action);padding:8px 8px 2px;}
+
+  /* main panel */
+  .main{flex:1;padding:18px 20px;overflow:auto;min-width:0;}
+  .panel{display:none;}
+  .panel.show{display:block;}
+  .panel-h{font-size:16px;font-weight:800;margin:0 0 2px;}
+  .panel-note{font-size:12.5px;color:var(--text-dim);margin:0 0 14px;}
+
+  /* data grid */
+  .gridtools{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px;}
+  table.grid{border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums;}
+  table.grid th,table.grid td{border:1px solid var(--grid);padding:6px 14px;text-align:center;min-width:78px;}
+  table.grid thead th{background:var(--surface-2);font-weight:700;}
+  table.grid td.cell{cursor:text;background:var(--surface);}
+  table.grid td.cell:hover{outline:2px solid color-mix(in srgb,var(--action) 45%,transparent);outline-offset:-2px;}
+  table.grid tfoot td{background:var(--surface-2);font-size:12px;color:var(--text-dim);font-weight:600;}
+  table.grid tfoot td.lab{text-align:right;color:var(--text-dim);font-weight:700;}
+  .rowhead{color:var(--text-dim);font-weight:600;background:var(--surface-2);min-width:40px;}
+
+  /* results */
+  .verdict{background:color-mix(in srgb,var(--sky) 9%,transparent);border:1px solid color-mix(in srgb,var(--sky) 30%,transparent);border-radius:10px;padding:12px 14px;font-size:14px;margin-bottom:14px;}
+  .verdict b{font-weight:800;}
+  table.stat{border-collapse:collapse;font-size:13px;width:100%;max-width:620px;margin:0 0 16px;font-variant-numeric:tabular-nums;}
+  table.stat th,table.stat td{border-bottom:1px solid var(--grid);padding:7px 12px;text-align:right;}
+  table.stat th{color:var(--text-dim);font-weight:700;text-align:right;border-bottom:2px solid var(--border);font-size:11.5px;text-transform:uppercase;letter-spacing:.03em;}
+  table.stat td:first-child,table.stat th:first-child{text-align:left;}
+  .sig{font-weight:800;color:var(--action);}
+  .codetoggle{font-size:12.5px;font-weight:700;color:var(--action);cursor:pointer;background:none;border:0;padding:0;display:inline-flex;gap:6px;align-items:center;}
+  pre.code{display:none;margin-top:10px;background:#0d1626;color:#d7e2f4;border:1px solid var(--border);border-radius:10px;padding:14px 16px;font-size:12px;line-height:1.55;overflow:auto;font-family:"SF Mono",ui-monospace,Menlo,monospace;}
+  pre.code.show{display:block;}
+  pre.code .c{color:#6b7da3;} pre.code .k{color:#8fb8ff;} pre.code .s{color:#9be6a0;}
+
+  /* graph */
+  .graphwrap{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;}
+  .figcard{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;}
+  .stylepanel{width:230px;flex-shrink:0;font-size:12.5px;}
+  .stylepanel h4{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);margin:0 0 8px;font-weight:800;}
+  .ctl{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--grid);}
+  .ctl select,.ctl input[type=range]{font-size:12px;}
+  .seg-toggle{display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden;}
+  .seg-toggle button{font-size:11.5px;font-weight:700;padding:4px 9px;border:0;background:var(--surface);color:var(--text-dim);cursor:pointer;}
+  .seg-toggle button.on{background:var(--action);color:#fff;}
+  .exprow{display:flex;gap:7px;margin-top:12px;}
+
+  /* tag chips (approve/disapprove on proposed elements) */
+  .tagged{position:relative;}
+  .tagchip{display:inline-flex;gap:5px;align-items:center;margin-left:8px;vertical-align:middle;}
+  .tagchip .lbl{font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text-dim);background:var(--surface-2);border:1px solid var(--border);padding:1px 6px;border-radius:999px;}
+  .vchip{font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);cursor:pointer;}
+  .vchip.approve.on{background:var(--green);color:#fff;border-color:transparent;}
+  .vchip.cut.on{background:var(--red);color:#fff;border-color:transparent;}
+
+  /* comment pins */
+  .pin{position:absolute;width:20px;height:20px;border-radius:50%;background:var(--coral);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3);z-index:40;}
+  body.commenting .app{cursor:crosshair;}
+  .commentbar{position:fixed;left:0;right:0;bottom:0;background:var(--amber);color:#3a2a00;text-align:center;font-size:12.5px;font-weight:700;padding:6px;z-index:60;display:none;}
+  body.commenting .commentbar{display:block;}
+
+  /* side drawer */
+  .drawer{position:fixed;top:0;right:0;height:100%;width:340px;background:var(--surface);border-left:1px solid var(--border);box-shadow:var(--shadow);transform:translateX(100%);transition:transform .2s;z-index:70;display:flex;flex-direction:column;}
+  .drawer.open{transform:translateX(0);}
+  .drawer h3{margin:0;padding:14px 16px;border-bottom:1px solid var(--border);font-size:14px;}
+  .drawer .list{flex:1;overflow:auto;padding:10px 14px;}
+  .drawer .item{font-size:12.5px;border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:8px;background:var(--surface-2);}
+  .drawer .item .meta{font-size:10.5px;color:var(--text-dim);font-weight:700;text-transform:uppercase;letter-spacing:.03em;margin-bottom:3px;}
+  .drawer .foot{padding:12px 14px;border-top:1px solid var(--border);display:flex;gap:8px;}
+  .drawer textarea{width:100%;font-family:inherit;font-size:12.5px;border:1px solid var(--border);border-radius:7px;padding:6px 8px;background:var(--surface);color:var(--text);resize:vertical;}
+
+  /* wizard overlay */
+  .overlay{position:fixed;inset:0;background:rgba(8,12,22,.5);display:none;align-items:center;justify-content:center;z-index:80;}
+  .overlay.open{display:flex;}
+  .wizard{width:460px;max-width:92vw;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;}
+  .wizard .whead{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+  .wizard .whead .title{font-weight:800;font-size:15px;}
+  .wizard .wbody{padding:18px;}
+  .wstep{display:none;} .wstep.show{display:block;}
+  .wq{font-size:15px;font-weight:700;margin-bottom:12px;}
+  .wopt{display:block;width:100%;text-align:left;font-size:13.5px;padding:11px 13px;margin-bottom:8px;border:1px solid var(--border);border-radius:9px;background:var(--surface-2);color:var(--text);cursor:pointer;}
+  .wopt:hover{border-color:var(--action);background:color-mix(in srgb,var(--action) 8%,transparent);}
+  .wprog{font-size:11px;color:var(--text-dim);font-weight:700;}
+  .reportcard{border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:12px 0;}
+  .rc-row{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-bottom:1px solid var(--grid);font-size:12.5px;}
+  .rc-row:last-child{border-bottom:0;}
+  .rc-badge{font-size:10px;font-weight:800;padding:2px 7px;border-radius:999px;flex-shrink:0;margin-top:1px;}
+  .rc-badge.pass{background:color-mix(in srgb,var(--green) 18%,transparent);color:var(--green);}
+  .rc-badge.info{background:color-mix(in srgb,var(--amber) 22%,transparent);color:#9a6b00;}
+  html[data-theme=dark] .rc-badge.info{color:var(--amber);}
+  .wrec{font-size:14px;font-weight:700;margin-bottom:4px;}
+  .wfoot{padding:14px 18px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+
+  .landing{display:none;}
+  .landing.show{display:block;}
+  .tree{font-size:13px;}
+  .tree .proj{font-weight:800;margin:10px 0 4px;display:flex;gap:7px;align-items:center;}
+  .tree .fold{margin-left:18px;color:var(--text-dim);font-weight:700;margin:6px 0 2px;display:flex;gap:6px;align-items:center;}
+  .tree .docrow{margin-left:36px;padding:5px 8px;border-radius:6px;display:flex;gap:8px;align-items:center;cursor:pointer;}
+  .tree .docrow:hover{background:var(--surface-2);}
+  .tree .docrow .tt{font-size:10px;color:var(--text-dim);border:1px solid var(--border);border-radius:4px;padding:0 5px;}
+  .ic{display:inline-block;vertical-align:middle;}
+  footer{max-width:1160px;margin:14px auto;padding:0 22px 50px;color:var(--text-dim);font-size:12px;}
+</style>
+</head>
+<body>
+<div class="rainbow"></div>
+<div class="pagehead">
+  <div class="eyebrow">ResearchOS &middot; Phase 1 proposal &middot; mark it up</div>
+  <h1>Data Hub: the tab</h1>
+  <p class="sub">A live, clickable mockup of the Data Hub document, laid out as the Prism-style three-pane navigator you picked. The math and the version-controlled data model are already built and tested. Click the navigator items, run the guided analysis, toggle the graph styling. Then mark the tagged proposals Approve or Disapprove, drop comment pins anywhere, and Export back to chat.</p>
+</div>
+<div class="toolrow">
+  <span class="countpill" id="count"></span>
+  <button class="btn" id="landingBtn">All documents</button>
+  <span class="spacer"></span>
+  <button class="btn" id="commentBtn">Comment mode</button>
+  <button class="btn" id="drawerBtn">Decisions + comments</button>
+  <button class="btn" id="themeBtn">Dark</button>
+  <button class="btn primary" id="exportBtn">Export</button>
+</div>
+
+<div class="frame">
+  <div class="app" id="app">
+    <!-- LANDING (all documents) -->
+    <div class="landing" id="landing">
+      <div class="topbar"><span class="doc-title">Data Hub</span><span class="crumb">your analyses, organized by project</span>
+        <div class="acts"><button class="tbtn brand" onclick="openDoc()">Open "Cell viability assay"</button></div>
+      </div>
+      <div style="padding:16px 20px;">
+        <div class="tree">
+          <div class="proj">${svgIcon('folder',16)} Fungal Interactions</div>
+            <div class="fold">${svgIcon('folder',14)} Drug screening</div>
+              <div class="docrow" onclick="openDoc()">${svgIcon('table',15)} Cell viability assay <span class="tt">Column</span></div>
+              <div class="docrow" onclick="openDoc()">${svgIcon('chart',15)} IC50 dose-response <span class="tt">XY</span></div>
+            <div class="fold">${svgIcon('folder',14)} Growth curves</div>
+              <div class="docrow" onclick="openDoc()">${svgIcon('chart',15)} OD600 time course <span class="tt">XY</span></div>
+          <div class="proj">${svgIcon('folder',16)} Mentor projects</div>
+              <div class="docrow" onclick="openDoc()">${svgIcon('table',15)} Survival, strain panel <span class="tt">Survival</span></div>
+        </div>
+        <p class="panel-note" style="margin-top:14px;">Documents live inside projects (collections) and subfolders, like sequences. The same document can be pulled into more than one project, and any table, result, or plot can be dropped into a lab note, result page, or note as a chip.</p>
+      </div>
+    </div>
+
+    <!-- DOCUMENT (three-pane) -->
+    <div id="docview">
+      <div class="topbar">
+        <span class="doc-title">Cell viability assay</span>
+        <span class="crumb"><b>Fungal Interactions</b> / Drug screening</span>
+        <div class="acts">
+          <button class="tbtn brand" onclick="openWizard()">Guided analysis</button>
+          <button class="tbtn" onclick="flash(this,'Imported')">Import data</button>
+          <button class="tbtn" onclick="flash(this,'Exported figure')">Export figure</button>
+        </div>
+      </div>
+      <div class="body">
+        <!-- navigator -->
+        <div class="rail tagged" data-tag="nav">
+          <div class="collfilter">
+            <label>Collection</label>
+            <select id="collSel" onchange="renderTree()">
+              <option value="Fungal Interactions">Fungal Interactions</option>
+              <option value="Mentor projects">Mentor projects</option>
+              <option value="__all">All collections</option>
+            </select>
+          </div>
+          <div class="seg">
+            <div class="seg-h"><span>Data Tables</span><button class="add" title="New table or folder">+</button></div>
+            <div id="dtTree"></div>
+          </div>
+          <div class="seg">
+            <div class="seg-h"><span>Results</span><button class="add">+</button></div>
+            <div class="navitem" data-panel="anova" onclick="go('anova')">${svgIcon('sigma',15)} One-way ANOVA</div>
+            <div class="navitem" data-panel="tukey" onclick="go('tukey')">${svgIcon('compare',15)} Tukey comparisons</div>
+          </div>
+          <div class="seg">
+            <div class="seg-h"><span>Graphs</span><button class="add">+</button></div>
+            <div class="navitem" data-panel="graph" onclick="go('graph')">${svgIcon('chart',15)} Viability column scatter</div>
+          </div>
+          <div style="padding:6px 9px;margin-top:6px;">${tagControls('nav','The three-pane navigator')}</div>
+        </div>
+
+        <!-- main -->
+        <div class="main">
+          <!-- DATA -->
+          <div class="panel show" data-panel="data">
+            <div class="panel-h">Cell viability assay</div>
+            <p class="panel-note">Column table. Each column is a treatment group, each row a replicate well. Paste straight from Excel.</p>
+            <div class="gridtools">
+              <button class="tbtn" onclick="flash(this,'Pasted 3 columns')">Paste from Excel</button>
+              <button class="tbtn" onclick="flash(this,'Imported')">Import .xlsx / .csv</button>
+              <button class="tbtn brand" onclick="openWizard()">New analysis</button>
+              <button class="tbtn" onclick="go('graph')">New graph</button>
+            </div>
+            <table class="grid" id="dataGrid"></table>
+            <p class="panel-note tagged" data-tag="autoerror" style="margin-top:12px;max-width:620px;">
+              The mean, SD, SEM and n in the footer are computed automatically from the raw replicates, with no analysis step. Error bars on any graph of this table follow the same numbers live. ${tagControls('autoerror','Automatic error bars from replicates')}
+            </p>
+          </div>
+
+          <!-- ANOVA -->
+          <div class="panel" data-panel="anova">
+            <div class="panel-h">One-way ANOVA</div>
+            <p class="panel-note">Comparing cell viability across Control, Drug A, and Drug B.</p>
+            <div class="verdict tagged" data-tag="plainlang">
+              <b>The three groups are not the same.</b> Cell viability differs significantly across Control, Drug A, and Drug B (one-way ANOVA, F(2, 15) = 119.4, p &lt; 0.0001). In plain terms, both drugs lower viability, and they differ from each other too. See the Tukey comparisons for which pairs differ.
+              ${tagControls('plainlang','Plain-language results summary')}
+            </div>
+            <table class="stat">
+              <thead><tr><th>Source</th><th>SS</th><th>df</th><th>MS</th><th>F</th><th>p</th></tr></thead>
+              <tbody>
+                <tr><td>Between groups</td><td>6101.4</td><td>2</td><td>3050.7</td><td>119.4</td><td>&lt;0.0001</td></tr>
+                <tr><td>Within groups</td><td>383.2</td><td>15</td><td>25.5</td><td></td><td></td></tr>
+                <tr><td>Total</td><td>6484.6</td><td>17</td><td></td><td></td><td></td></tr>
+              </tbody>
+            </table>
+            <button class="codetoggle" onclick="toggleCode('anovaCode',this)">${svgIcon('code',14)} <span>Show the code</span></button>
+            <div class="tagged" data-tag="showcode" style="margin-top:4px;">
+              <pre class="code" id="anovaCode"><span class="k">from</span> scipy <span class="k">import</span> stats
+<span class="k">import</span> statsmodels.stats.multicomp <span class="k">as</span> mc
+
+control = [<span class="s">98, 102, 95, 105, 100, 99</span>]
+drug_a  = [<span class="s">78, 82, 75, 80, 85, 79</span>]
+drug_b  = [<span class="s">55, 60, 52, 58, 50, 57</span>]
+
+F, p = stats.f_oneway(control, drug_a, drug_b)
+<span class="c"># F = 119.4, p = 2.8e-10</span>
+
+tukey = mc.pairwise_tukeyhsd(
+    endog=control + drug_a + drug_b,
+    groups=[<span class="s">"Control"</span>]*6 + [<span class="s">"Drug A"</span>]*6 + [<span class="s">"Drug B"</span>]*6,
+)
+print(tukey)</pre>
+              <div style="font-size:12px;color:var(--text-dim);margin-top:6px;">Every analysis can show the exact open-source code that reproduces it. ${tagControls('showcode','Show-the-code reproducibility')}</div>
+            </div>
+          </div>
+
+          <!-- TUKEY -->
+          <div class="panel" data-panel="tukey">
+            <div class="panel-h">Tukey multiple comparisons</div>
+            <p class="panel-note">Every pair, with the family-wise error rate held at 0.05.</p>
+            <table class="stat">
+              <thead><tr><th>Comparison</th><th>Mean diff</th><th>95% CI</th><th>Adj. p</th><th>Summary</th></tr></thead>
+              <tbody>
+                <tr><td>Control vs Drug A</td><td>20.0</td><td>14.1 to 25.9</td><td>&lt;0.0001</td><td class="sig">***</td></tr>
+                <tr><td>Control vs Drug B</td><td>44.5</td><td>38.6 to 50.4</td><td>&lt;0.0001</td><td class="sig">****</td></tr>
+                <tr><td>Drug A vs Drug B</td><td>24.5</td><td>18.6 to 30.4</td><td>&lt;0.0001</td><td class="sig">***</td></tr>
+              </tbody>
+            </table>
+            <p class="panel-note">ns = not significant, * p&lt;0.05, ** p&lt;0.01, *** p&lt;0.001, **** p&lt;0.0001. These asterisks drop straight onto the graph as significance brackets.</p>
+          </div>
+
+          <!-- GRAPH -->
+          <div class="panel" data-panel="graph">
+            <div class="panel-h">Viability column scatter</div>
+            <p class="panel-note">Individual points with the group mean and error bars, plus significance brackets from the Tukey result.</p>
+            <div class="graphwrap">
+              <div class="figcard"><div id="figHost"></div>
+                <div class="exprow">
+                  <button class="tbtn" onclick="flash(this,'Saved viability.svg')">Export SVG</button>
+                  <button class="tbtn" onclick="flash(this,'Saved viability.png (600 dpi)')">Export PNG</button>
+                  <button class="tbtn" onclick="flash(this,'Copied to clipboard')">Copy</button>
+                </div>
+              </div>
+              <div class="stylepanel tagged" data-tag="graphcustom">
+                <h4>Graph style</h4>
+                <div class="ctl"><span>Error bars</span>
+                  <select id="ctlError" onchange="renderFig()"><option value="sem">Mean + SEM</option><option value="sd">Mean + SD</option><option value="none">None</option></select></div>
+                <div class="ctl"><span>Show points</span>
+                  <div class="seg-toggle"><button id="ptsOn" class="on" onclick="setPts(true)">On</button><button id="ptsOff" onclick="setPts(false)">Off</button></div></div>
+                <div class="ctl"><span>Style</span>
+                  <div class="seg-toggle"><button id="styScatter" class="on" onclick="setStyle('scatter')">Scatter</button><button id="styBar" onclick="setStyle('bar')">Bar</button></div></div>
+                <div class="ctl"><span>Brackets</span>
+                  <div class="seg-toggle"><button id="brOn" class="on" onclick="setBrk(true)">On</button><button id="brOff" onclick="setBrk(false)">Off</button></div></div>
+                <div class="ctl"><span>Color</span>
+                  <select id="ctlColor" onchange="renderFig()"><option value="brand">Brand trio</option><option value="sky">Sky</option><option value="ink">Mono</option></select></div>
+                <div class="ctl" style="border-bottom:0;"><span>Axis text</span>
+                  <input type="range" id="ctlFont" min="10" max="16" value="13" oninput="renderFig()"></div>
+                <div style="margin-top:10px;">${tagControls('graphcustom','Publication styling + vector export')}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>This is a decision worksheet, not the build. The validated engine and the cell-level versioned data model are already on main. Source research is in <code>docs/research/data-hub/</code>.</footer>
+
+<!-- comment bar -->
+<div class="commentbar">Comment mode on. Click anywhere on the mockup to drop a numbered pin. Click the button again to turn it off.</div>
+
+<!-- wizard -->
+<div class="overlay" id="overlay">
+  <div class="wizard tagged" data-tag="wizard">
+    <div class="whead">${svgIcon('wand',16)}<span class="title">Guided analysis</span><span class="spacer" style="flex:1"></span><span class="wprog" id="wprog">Step 1 of 4</span></div>
+    <div class="wbody">
+      <div class="wstep show" data-step="0">
+        <div class="wq">What are you comparing?</div>
+        <button class="wopt" onclick="wnext()">The means of two or more groups</button>
+        <button class="wopt" onclick="wnext()">A relationship between two measures</button>
+        <button class="wopt" onclick="wnext()">Survival or time to an event</button>
+      </div>
+      <div class="wstep" data-step="1">
+        <div class="wq">How many groups?</div>
+        <button class="wopt" onclick="wnext()">Two groups</button>
+        <button class="wopt" onclick="wnext()">Three or more groups</button>
+      </div>
+      <div class="wstep" data-step="2">
+        <div class="wq">Are the measurements paired?</div>
+        <button class="wopt" onclick="wnext()">Independent (different wells or animals)</button>
+        <button class="wopt" onclick="wnext()">Paired (same subject before and after)</button>
+      </div>
+      <div class="wstep" data-step="3">
+        <div class="wrec">Recommended: one-way ANOVA with Tukey</div>
+        <p style="font-size:12.5px;color:var(--text-dim);margin:0 0 6px;">Three independent groups, one measured outcome. Here is what we checked before recommending it.</p>
+        <div class="reportcard">
+          <div class="rc-row"><span class="rc-badge pass">PASS</span><div><b>Normality.</b> Each group looks normally distributed (Shapiro-Wilk, smallest p = 0.34). A t-test family is appropriate.</div></div>
+          <div class="rc-row"><span class="rc-badge pass">PASS</span><div><b>Equal variance.</b> The groups have similar spread (Brown-Forsythe, p = 0.71). Standard ANOVA is fine.</div></div>
+          <div class="rc-row"><span class="rc-badge info">NOTE</span><div>If an assumption had failed, we would switch you to the Kruskal-Wallis test automatically and tell you why.</div></div>
+        </div>
+        ${tagControls('wizard','The guided wizard + assumption report card')}
+      </div>
+    </div>
+    <div class="wfoot">
+      <button class="tbtn" onclick="closeWizard()">Cancel</button>
+      <button class="tbtn brand" id="wrun" style="display:none" onclick="closeWizard();go('anova')">Run this analysis</button>
+    </div>
+  </div>
+</div>
+
+<!-- drawer -->
+<div class="drawer" id="drawer">
+  <h3>Decisions + comments</h3>
+  <div class="list" id="drawerList"></div>
+  <div class="foot"><button class="btn" style="flex:1" onclick="toggleDrawer()">Close</button><button class="btn primary" style="flex:1" onclick="doExport()">Export</button></div>
+</div>
+
+<script>
+// ---------- icons ----------
+function svgIcon(name,s){
+  const p={
+    folder:'<path d="M3 5h5l2 2h11v11H3z" fill="none" stroke="currentColor" stroke-width="1.7"/>',
+    table:'<rect x="3" y="4" width="18" height="16" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M3 9h18M9 4v16" stroke="currentColor" stroke-width="1.5"/>',
+    chart:'<path d="M4 19V5M4 19h16M8 15v-4M12 15V8M16 15v-6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
+    caret:'<path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+    sigma:'<path d="M7 5h10M7 5l6 7-6 7h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>',
+    compare:'<path d="M6 7h6M6 12h10M6 17h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="18" cy="7" r="2" fill="currentColor"/>',
+    code:'<path d="M8 8l-4 4 4 4M16 8l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
+    wand:'<path d="M5 19l9-9M14 6l1 1M17 4l.5 .5M18 9l.5 .5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="15" cy="7" r="0" /><path d="M16 7l1.5-1.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>'
+  }[name]||'';
+  return '<svg class="ic" width="'+s+'" height="'+s+'" viewBox="0 0 24 24">'+p+'</svg>';
+}
+
+// ---------- data ----------
+const GROUPS=[
+  {name:'Control', vals:[98,102,95,105,100,99], color:'#1AA0E6'},
+  {name:'Drug A',  vals:[78,82,75,80,85,79],   color:'#F59E0B'},
+  {name:'Drug B',  vals:[55,60,52,58,50,57],   color:'#FF6F61'},
+];
+const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
+const sd=a=>{const m=mean(a);return Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/(a.length-1));};
+const sem=a=>sd(a)/Math.sqrt(a.length);
+
+// ---------- data grid ----------
+function buildGrid(){
+  const nrows=GROUPS[0].vals.length;
+  let h='<thead><tr><th class="rowhead">#</th>'+GROUPS.map(g=>'<th>'+g.name+'</th>').join('')+'</tr></thead><tbody>';
+  for(let r=0;r<nrows;r++){
+    h+='<tr><td class="rowhead">'+(r+1)+'</td>'+GROUPS.map(g=>'<td class="cell" contenteditable="true">'+g.vals[r]+'</td>').join('')+'</tr>';
+  }
+  h+='</tbody><tfoot>';
+  h+='<tr><td class="lab">Mean</td>'+GROUPS.map(g=>'<td>'+mean(g.vals).toFixed(1)+'</td>').join('')+'</tr>';
+  h+='<tr><td class="lab">SD</td>'+GROUPS.map(g=>'<td>'+sd(g.vals).toFixed(2)+'</td>').join('')+'</tr>';
+  h+='<tr><td class="lab">SEM</td>'+GROUPS.map(g=>'<td>'+sem(g.vals).toFixed(2)+'</td>').join('')+'</tr>';
+  h+='<tr><td class="lab">n</td>'+GROUPS.map(g=>'<td>'+g.vals.length+'</td>').join('')+'</tr>';
+  h+='</tfoot>';
+  document.getElementById('dataGrid').innerHTML=h;
+}
+
+// ---------- figure (SVG) ----------
+const fig={error:'sem',points:true,style:'scatter',brackets:true};
+function setPts(v){fig.points=v;document.getElementById('ptsOn').classList.toggle('on',v);document.getElementById('ptsOff').classList.toggle('on',!v);renderFig();}
+function setStyle(v){fig.style=v;document.getElementById('styScatter').classList.toggle('on',v==='scatter');document.getElementById('styBar').classList.toggle('on',v==='bar');renderFig();}
+function setBrk(v){fig.brackets=v;document.getElementById('brOn').classList.toggle('on',v);document.getElementById('brOff').classList.toggle('on',!v);renderFig();}
+function renderFig(){
+  fig.error=document.getElementById('ctlError').value;
+  const colorMode=document.getElementById('ctlColor').value;
+  const font=+document.getElementById('ctlFont').value;
+  const W=430,H=340,padL=52,padR=18,padT=34,padB=46;
+  const x0=padL,x1=W-padR,y0=H-padB,y1=padT;
+  const ymax=120;
+  const yScale=v=>y0+(y1-y0)*(v/ymax);
+  const colorFor=(g,i)=>colorMode==='sky'?'#1AA0E6':colorMode==='ink'?'#475569':g.color;
+  const bandW=(x1-x0)/GROUPS.length;
+  let s='<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Inter,sans-serif">';
+  // y axis + ticks
+  s+='<line x1="'+x0+'" y1="'+y1+'" x2="'+x0+'" y2="'+y0+'" stroke="#94a3b8" stroke-width="1"/>';
+  for(let t=0;t<=120;t+=30){const yy=yScale(t);s+='<line x1="'+(x0-4)+'" y1="'+yy+'" x2="'+x0+'" y2="'+yy+'" stroke="#94a3b8"/><text x="'+(x0-8)+'" y="'+(yy+4)+'" font-size="'+(font-2)+'" fill="#64748b" text-anchor="end">'+t+'</text>';}
+  s+='<text transform="translate('+(x0-38)+','+((y0+y1)/2)+') rotate(-90)" font-size="'+font+'" fill="#334155" text-anchor="middle">Cell viability (%)</text>';
+  s+='<line x1="'+x0+'" y1="'+y0+'" x2="'+x1+'" y2="'+y0+'" stroke="#94a3b8" stroke-width="1"/>';
+  // groups
+  const cx=[];
+  GROUPS.forEach((g,i)=>{
+    const c=x0+bandW*(i+0.5);cx.push(c);
+    const m=mean(g.vals),e=fig.error==='sd'?sd(g.vals):fig.error==='sem'?sem(g.vals):0;
+    const col=colorFor(g,i);
+    if(fig.style==='bar'){
+      const bw=bandW*0.5;s+='<rect x="'+(c-bw/2)+'" y="'+yScale(m)+'" width="'+bw+'" height="'+(y0-yScale(m))+'" fill="'+col+'" opacity="0.30"/>';
+    }
+    // mean line
+    s+='<line x1="'+(c-22)+'" y1="'+yScale(m)+'" x2="'+(c+22)+'" y2="'+yScale(m)+'" stroke="'+col+'" stroke-width="2.4"/>';
+    // error bars
+    if(fig.error!=='none'){
+      s+='<line x1="'+c+'" y1="'+yScale(m-e)+'" x2="'+c+'" y2="'+yScale(m+e)+'" stroke="'+col+'" stroke-width="1.6"/>';
+      s+='<line x1="'+(c-7)+'" y1="'+yScale(m+e)+'" x2="'+(c+7)+'" y2="'+yScale(m+e)+'" stroke="'+col+'" stroke-width="1.6"/>';
+      s+='<line x1="'+(c-7)+'" y1="'+yScale(m-e)+'" x2="'+(c+7)+'" y2="'+yScale(m-e)+'" stroke="'+col+'" stroke-width="1.6"/>';
+    }
+    // points
+    if(fig.points){
+      g.vals.forEach((v,k)=>{const jx=c+((k%2?1:-1)*(3+3*Math.floor(k/2)));s+='<circle cx="'+jx+'" cy="'+yScale(v)+'" r="3" fill="'+col+'" opacity="0.9"/>';});
+    }
+    s+='<text x="'+c+'" y="'+(y0+18)+'" font-size="'+font+'" fill="#334155" text-anchor="middle">'+g.name+'</text>';
+  });
+  // significance brackets
+  if(fig.brackets){
+    const br=(i,j,lbl,yTop)=>{const a=cx[i],b=cx[j];return '<line x1="'+a+'" y1="'+(yTop+6)+'" x2="'+a+'" y2="'+yTop+'" stroke="#334155"/><line x1="'+a+'" y1="'+yTop+'" x2="'+b+'" y2="'+yTop+'" stroke="#334155"/><line x1="'+b+'" y1="'+yTop+'" x2="'+b+'" y2="'+(yTop+6)+'" stroke="#334155"/><text x="'+((a+b)/2)+'" y="'+(yTop-3)+'" font-size="'+font+'" fill="#334155" text-anchor="middle" font-weight="700">'+lbl+'</text>';};
+    s+=br(0,1,'***',yScale(112));
+    s+=br(0,2,'****',yScale(122-3));
+  }
+  s+='</svg>';
+  document.getElementById('figHost').innerHTML=s;
+}
+
+// ---------- navigation ----------
+function go(p){
+  document.querySelectorAll('.navitem').forEach(n=>n.classList.toggle('active',n.dataset.panel===p));
+  document.querySelectorAll('.panel').forEach(pl=>pl.classList.toggle('show',pl.dataset.panel===p));
+  if(p==='graph')renderFig();
+}
+function openDoc(){document.getElementById('landing').classList.remove('show');document.getElementById('docview').style.display='';}
+document.getElementById('landingBtn').onclick=()=>{const l=document.getElementById('landing');const showing=l.classList.toggle('show');document.getElementById('docview').style.display=showing?'none':'';};
+
+// ---------- collection-filtered, foldered Data Tables tree (seq-hub style) ----------
+const COLLECTIONS={
+  'Fungal Interactions':[
+    {folder:'Drug screening',open:true,tables:[{name:'Cell viability assay',type:'Column'},{name:'IC50 dose-response',type:'XY'}]},
+    {folder:'Growth curves',open:false,tables:[{name:'OD600 time course',type:'XY'}]},
+    {folder:null,tables:[{name:'Scratch measurements',type:'Column'}]},
+  ],
+  'Mentor projects':[
+    {folder:'Strain panel',open:true,tables:[{name:'Survival, strain panel',type:'Survival'}]},
+  ],
+};
+let activeTable='Cell viability assay';
+function tableRow(t){
+  const a=t.name===activeTable?' active':'';
+  return '<div class="tbl'+a+'" onclick="selectTable(\''+t.name+'\')">'+svgIcon('table',14)+'<span>'+t.name+'</span><span class="tt">'+t.type+'</span></div>';
+}
+function renderTree(){
+  const sel=document.getElementById('collSel').value;
+  const colls=sel==='__all'?Object.keys(COLLECTIONS):[sel];
+  let h='';
+  colls.forEach(cn=>{
+    if(sel==='__all')h+='<div class="collgroup-h">'+cn+'</div>';
+    COLLECTIONS[cn].forEach(grp=>{
+      if(grp.folder){
+        h+='<div class="folder'+(grp.open?'':' closed')+'" onclick="toggleFolder(this)"><span class="caret">'+svgIcon('caret',13)+'</span>'+svgIcon('folder',14)+'<span>'+grp.folder+'</span><span class="fcount">'+grp.tables.length+'</span></div>';
+        h+='<div class="kids">'+grp.tables.map(tableRow).join('')+'</div>';
+      }else{
+        h+=grp.tables.map(tableRow).join('');
+      }
+    });
+  });
+  document.getElementById('dtTree').innerHTML=h;
+}
+function toggleFolder(el){el.classList.toggle('closed');}
+function selectTable(name){
+  activeTable=name;renderTree();
+  const t=document.querySelector('#docview .doc-title');if(t)t.textContent=name;
+  go('data');
+}
+
+// ---------- code toggle ----------
+function toggleCode(id,btn){const el=document.getElementById(id);const on=el.classList.toggle('show');btn.querySelector('span').textContent=on?'Hide the code':'Show the code';}
+
+// ---------- wizard ----------
+let wstep=0;
+function openWizard(){wstep=0;updateWizard();document.getElementById('overlay').classList.add('open');}
+function closeWizard(){document.getElementById('overlay').classList.remove('open');}
+function wnext(){if(wstep<3){wstep++;updateWizard();}}
+function updateWizard(){
+  document.querySelectorAll('.wstep').forEach(s=>s.classList.toggle('show',+s.dataset.step===wstep));
+  document.getElementById('wprog').textContent='Step '+(wstep+1)+' of 4';
+  document.getElementById('wrun').style.display=wstep===3?'':'none';
+}
+
+// ---------- flash buttons ----------
+function flash(btn,msg){const o=btn.textContent;btn.textContent=msg;btn.disabled=true;setTimeout(()=>{btn.textContent=o;btn.disabled=false;},1200);}
+
+// ---------- tagged approve/disapprove ----------
+const KEY='datahub-tab-mockup-v1';
+let state=JSON.parse(localStorage.getItem(KEY)||'{}');
+state.v=state.v||{};state.c=state.c||[];
+function save(){localStorage.setItem(KEY,JSON.stringify(state));updateCount();}
+const TAG_LABELS={nav:'Three-pane navigator',autoerror:'Automatic error bars',plainlang:'Plain-language summary',showcode:'Show-the-code',graphcustom:'Publication styling + export',wizard:'Guided wizard + report card'};
+function tagControls(tag,label){
+  return '<span class="tagchip" data-tagchip="'+tag+'"><span class="lbl">'+label+'</span>'+
+    '<span class="vchip approve" onclick="setV(event,\''+tag+'\',\'approve\')">Approve</span>'+
+    '<span class="vchip cut" onclick="setV(event,\''+tag+'\',\'cut\')">Disapprove</span></span>';
+}
+function setV(ev,tag,v){ev.stopPropagation();state.v[tag]=state.v[tag]===v?'':v;save();paintChips();}
+function paintChips(){
+  document.querySelectorAll('[data-tagchip]').forEach(ch=>{
+    const tag=ch.dataset.tagchip,v=state.v[tag];
+    ch.querySelector('.approve').classList.toggle('on',v==='approve');
+    ch.querySelector('.cut').classList.toggle('on',v==='cut');
+  });
+}
+
+// ---------- comments ----------
+let commenting=false;
+document.getElementById('commentBtn').onclick=function(){commenting=!commenting;document.body.classList.toggle('commenting',commenting);this.classList.toggle('on',commenting);};
+document.getElementById('app').addEventListener('click',function(e){
+  if(!commenting)return;
+  if(e.target.closest('.vchip')||e.target.closest('.navitem'))return;
+  const r=this.getBoundingClientRect();
+  const xp=((e.clientX-r.left)/r.width*100).toFixed(2),yp=((e.clientY-r.top)/r.height*100).toFixed(2);
+  const text=prompt('Comment for pin '+(state.c.length+1)+':');
+  if(text){state.c.push({n:state.c.length+1,x:xp,y:yp,text:text});save();paintPins();}
+});
+function paintPins(){
+  document.querySelectorAll('.pin').forEach(p=>p.remove());
+  const host=document.getElementById('app');host.style.position='relative';
+  state.c.forEach(c=>{const d=document.createElement('div');d.className='pin';d.style.left=c.x+'%';d.style.top=c.y+'%';d.textContent=c.n;d.title=c.text;d.onclick=ev=>{ev.stopPropagation();alert('Pin '+c.n+': '+c.text);};host.appendChild(d);});
+}
+
+// ---------- drawer + count + export ----------
+function updateCount(){
+  const a=Object.values(state.v).filter(x=>x==='approve').length;
+  const d=Object.values(state.v).filter(x=>x==='cut').length;
+  document.getElementById('count').innerHTML=a+' approved &middot; '+d+' disapproved &middot; '+state.c.length+' comments';
+}
+function toggleDrawer(){document.getElementById('drawer').classList.toggle('open');renderDrawer();}
+document.getElementById('drawerBtn').onclick=toggleDrawer;
+function renderDrawer(){
+  let h='';
+  Object.keys(TAG_LABELS).forEach(t=>{const v=state.v[t];h+='<div class="item"><div class="meta">'+(v?v.toUpperCase():'undecided')+'</div>'+TAG_LABELS[t]+'</div>';});
+  state.c.forEach(c=>{h+='<div class="item"><div class="meta">Comment '+c.n+'</div>'+c.text+'</div>';});
+  document.getElementById('drawerList').innerHTML=h;
+}
+function buildExport(){
+  let o='# Data Hub tab mockup decisions\n\n';
+  o+='## Proposed elements\n';
+  Object.keys(TAG_LABELS).forEach(t=>{const v=state.v[t];o+='- ['+(v?v.toUpperCase():'undecided')+'] '+TAG_LABELS[t]+'\n';});
+  o+='\n## Comments\n';
+  if(!state.c.length)o+='(none)\n';
+  state.c.forEach(c=>{o+='- Pin '+c.n+' (at '+c.x+'%, '+c.y+'%): '+c.text+'\n';});
+  o+='\n---\nFrom docs/mockups/data-hub-tab-mockup.html\n';
+  return o;
+}
+function doExport(){
+  const t=buildExport();
+  navigator.clipboard&&navigator.clipboard.writeText(t).catch(()=>{});
+  const b=new Blob([t],{type:'text/markdown'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='data-hub-tab-decisions.md';a.click();URL.revokeObjectURL(u);
+  const btn=document.getElementById('exportBtn');const o=btn.textContent;btn.textContent='Copied + downloaded';setTimeout(()=>btn.textContent=o,1500);
+}
+document.getElementById('exportBtn').onclick=doExport;
+
+// ---------- theme ----------
+const tb=document.getElementById('themeBtn');
+function theme(t){document.documentElement.dataset.theme=t;tb.textContent=t==='dark'?'Light':'Dark';localStorage.setItem('datahub-tab-theme',t);if(document.querySelector('.panel[data-panel=graph].show'))renderFig();}
+tb.onclick=()=>theme(document.documentElement.dataset.theme==='dark'?'light':'dark');
+
+// ---------- init ----------
+// The static HTML uses ${...} tokens for icons and the approve/disapprove chips.
+// They are NOT inside a JS template literal, so interpolate them once here by
+// evaluating each token against the functions defined above (svgIcon, tagControls).
+function interp(el){if(!el)return;el.innerHTML=el.innerHTML.replace(/\$\{([^}]*)\}/g,function(m,e){try{return eval(e);}catch(_){return '';}});}
+interp(document.getElementById('app'));
+interp(document.getElementById('overlay'));
+buildGrid();renderTree();renderFig();paintChips();paintPins();updateCount();
+theme(localStorage.getItem('datahub-tab-theme')||'light');
+</script>
+</body>
+</html>
