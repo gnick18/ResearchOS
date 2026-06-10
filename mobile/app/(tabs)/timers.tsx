@@ -343,7 +343,7 @@ function TimerRow({
           {timer.label.length > 0 ? timer.label : 'Lab timer'}
         </ThemedText>
         {isRunning ? (
-          <ThemedText style={[styles.countdown, { color: palette.sky }]}>
+          <ThemedText style={[styles.countdown, { color: palette.amber }]}>
             {formatClock(remainingSec)}
           </ThemedText>
         ) : (
@@ -364,7 +364,7 @@ function TimerRow({
             accessibilityRole="button"
             hitSlop={8}
           >
-            <ThemedText style={[styles.actionText, { color: palette.sky }]}>
+            <ThemedText style={[styles.actionText, { color: palette.coral }]}>
               Cancel
             </ThemedText>
           </Pressable>
