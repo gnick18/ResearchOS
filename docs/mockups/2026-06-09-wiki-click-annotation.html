@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Wiki screenshot click-annotation styles</title>
+<style>
+  :root {
+    --blue: #1AA0E6;        /* BeakerBot sky blue */
+    --blue-soft: rgba(26, 160, 230, 0.18);
+    --blue-glow: rgba(26, 160, 230, 0.45);
+    --red: #ef4444;         /* current ring color */
+    --red-soft: rgba(239, 68, 68, 0.18);
+    --red-glow: rgba(239, 68, 68, 0.45);
+    --ink: #0f172a;
+    --muted: #475569;
+    --line: #e2e8f0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #f8fafc; color: var(--ink);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    padding: 40px 28px 80px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  .lede { color: var(--muted); margin: 0 0 28px; max-width: 760px; }
+  h2 { font-size: 18px; margin: 40px 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 18px; font-size: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px; }
+  .card {
+    background: #fff; border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px; box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+  }
+  .card h3 { margin: 0 0 2px; font-size: 15px; }
+  .card p { margin: 2px 0 16px; color: var(--muted); font-size: 13px; }
+  /* synthetic UI stage so the annotation reads cleanly */
+  .stage {
+    position: relative; height: 180px; border-radius: 12px;
+    background: #1e293b; display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+  .mockbtn {
+    position: relative; background: var(--blue); color: #fff; font-weight: 600;
+    font-size: 14px; padding: 12px 26px; border-radius: 10px; letter-spacing: 0.2px;
+  }
+  /* element rings */
+  .ring-red .mockbtn {
+    outline: 3px solid var(--red); outline-offset: 4px;
+    box-shadow: 0 0 0 6px var(--red-soft), 0 0 24px 4px var(--red-glow);
+  }
+  .ring-blue .mockbtn {
+    outline: 3px solid var(--blue); outline-offset: 4px;
+    box-shadow: 0 0 0 6px var(--blue-soft), 0 0 24px 4px var(--blue-glow);
+  }
+  /* cursor graphic */
+  .cursor {
+    position: absolute; width: 26px; height: 26px; pointer-events: none;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+    /* placed just below-right of the click point, conventional pointer offset */
+  }
+  /* click pulse: concentric rings centered on the click point */
+  .pulse, .pulse::before, .pulse::after {
+    position: absolute; border-radius: 50%; pointer-events: none;
+    border: 2.5px solid var(--c, var(--blue));
+  }
+  .pulse {
+    width: 44px; height: 44px; opacity: 0.9;
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--c, var(--blue)) 16%, transparent);
+  }
+  .pulse::before { content: ""; inset: 8px; opacity: 0.7; }
+  .pulse::after  { content: ""; inset: -14px; opacity: 0.35; border-width: 2px; }
+  .legend { font-size: 12px; color: var(--muted); margin-top: 14px; display:flex; gap:18px; flex-wrap:wrap; }
+  .swatch { display:inline-block; width:11px; height:11px; border-radius:3px; vertical-align:-1px; margin-right:5px; }
+  /* in-context section */
+  .context { margin-top: 16px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background:#fff; }
+  .context .shotwrap { position: relative; line-height: 0; }
+  .context img { width: 100%; display: block; }
+  /* overlay positioned over the Link Folder button (~50% x, ~65% y) */
+  .ctx-pulse {
+    position: absolute; left: 50%; top: 65%; transform: translate(-50%, -50%);
+    width: 54px; height: 54px; border-radius: 50%; border: 3px solid var(--blue);
+    box-shadow: 0 0 0 7px var(--blue-soft), 0 0 22px 4px var(--blue-glow);
+  }
+  .ctx-pulse::after {
+    content:""; position:absolute; inset:-18px; border-radius:50%;
+    border: 2px solid var(--blue); opacity: 0.3;
+  }
+  .ctx-cursor { position:absolute; left: calc(50% + 26px); top: calc(65% + 18px); width: 30px; height: 30px; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.55)); }
+  .note { background:#eff6ff; border:1px solid #bfdbfe; color:#1e3a5f; padding:12px 14px; border-radius:10px; font-size:13px; margin-top:18px; }
+  .rec { display:inline-block; font-size:11px; font-weight:700; color:#fff; background:var(--blue); padding:2px 8px; border-radius:999px; margin-left:8px; vertical-align:2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Wiki screenshot click-annotation styles</h1>
+  <p class="lede">Pick the standard for every how-to screenshot. Today the capture script draws only a red outline around the target element. You asked for a mouse pointer and a click-circle so it reads as "click here." Below are the candidate styles, plus a recolor question (the current red is aggressive and off the BeakerBot palette).</p>
+
+  <h2>The four candidates</h2>
+  <p class="sub">Same target button, four annotation treatments. The cursor is a clean pointer set just below-right of the click point. The pulse is concentric rings centered on it.</p>
+
+  <div class="grid">
+    <!-- 1 current -->
+    <div class="card ring-red">
+      <h3>1. Current, red element ring</h3>
+      <p>What ships today. No pointer, no click indicator, just an outline. Reads as "look here," not "click here."</p>
+      <div class="stage"><div class="mockbtn">Link Folder</div></div>
+    </div>
+
+    <!-- 2 blue ring only -->
+    <div class="card ring-blue">
+      <h3>2. Brand-blue element ring</h3>
+      <p>Same idea, recolored to BeakerBot sky blue. On-brand and calmer, but still no pointer or click cue.</p>
+      <div class="stage"><div class="mockbtn">Link Folder</div></div>
+    </div>
+
+    <!-- 3 cursor + pulse, no ring -->
+    <div class="card">
+      <h3>3. Cursor and click-circle <span class="rec">recommended</span></h3>
+      <p>A pointer landing on the target with a click pulse. No element outline, the cursor carries the meaning. Cleanest "click here."</p>
+      <div class="stage">
+        <div class="mockbtn">Link Folder</div>
+        <div class="pulse" style="--c:var(--blue); left:50%; top:50%; transform:translate(-50%,-50%);"></div>
+        <svg class="cursor" style="left:calc(50% + 16px); top:calc(50% + 10px);" viewBox="0 0 24 24" fill="#fff" stroke="#0f172a" stroke-width="1.5"><path d="M4 2 L4 18 L8.5 13.5 L11.5 20 L14 19 L11 12.5 L17 12.5 Z"/></svg>
+      </div>
+    </div>
+
+    <!-- 4 combined -->
+    <div class="card ring-blue">
+      <h3>4. Blue ring plus cursor and pulse</h3>
+      <p>Belt and suspenders. The outline frames the target and the cursor shows the action. Most emphatic, slightly busier.</p>
+      <div class="stage">
+        <div class="mockbtn">Link Folder</div>
+        <div class="pulse" style="--c:var(--blue); left:50%; top:50%; transform:translate(-50%,-50%);"></div>
+        <svg class="cursor" style="left:calc(50% + 16px); top:calc(50% + 10px);" viewBox="0 0 24 24" fill="#fff" stroke="#0f172a" stroke-width="1.5"><path d="M4 2 L4 18 L8.5 13.5 L11.5 20 L14 19 L11 12.5 L17 12.5 Z"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <h2>Candidate 3 on a real capture</h2>
+  <p class="sub">The cursor and click-circle placed over the actual folder-connect shot, so you can judge it in context. (This image still carries the old red ring baked in, the new standard would replace it.)</p>
+  <div class="context">
+    <div class="shotwrap">
+      <img src="../../frontend/public/wiki/screenshots/folder-connect.png" alt="folder connect screen" />
+      <div class="ctx-pulse"></div>
+      <svg class="ctx-cursor" viewBox="0 0 24 24" fill="#fff" stroke="#0f172a" stroke-width="1.5"><path d="M4 2 L4 18 L8.5 13.5 L11.5 20 L14 19 L11 12.5 L17 12.5 Z"/></svg>
+    </div>
+  </div>
+
+  <div class="note">
+    Only how-to shots that teach a specific click get the cursor and pulse. Pure "here is the feature" overview shots stay clean, no annotation. The capture script would gain a per-shot <code>click: { text or selector }</code> option that places the pointer and pulse at the target center, alongside the existing ring.
+  </div>
+
+  <div class="legend">
+    <span><span class="swatch" style="background:var(--blue)"></span>BeakerBot sky blue #1AA0E6</span>
+    <span><span class="swatch" style="background:var(--red)"></span>current red #ef4444</span>
+  </div>
+</div>
+</body>
+</html>

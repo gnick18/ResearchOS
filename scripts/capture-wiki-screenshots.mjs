@@ -30,10 +30,11 @@
  *   - The fixture mode is dev-only — guarded by NODE_ENV inside the app.
  */
 
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import { annotateBuffer } from "./lib/wiki-annotate.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..");
@@ -49,6 +50,11 @@ const { chromium } = requireFromFrontend("playwright");
 const OUT_DIR = path.join(REPO_ROOT, "frontend", "public", "wiki", "screenshots");
 const BASE_URL = process.env.WIKI_CAPTURE_BASE_URL ?? "http://localhost:3000";
 const VIEWPORT = { width: 1440, height: 900 };
+const SCALE = 2; // deviceScaleFactor, screenshots are 2x the CSS viewport
+// When on, a `highlight` target is rendered as the adaptive "click here" mark
+// (ring + click-pulse + cursor, composited after capture) instead of the old
+// in-page red ring. Set WIKI_NO_ANNOTATE=1 to fall back to the red ring.
+const ANNOTATE = process.env.WIKI_NO_ANNOTATE !== "1";
 
 /** Public, no-auth routes (fresh browser context). */
 const PUBLIC_ROUTES = [
@@ -58,16 +64,14 @@ const PUBLIC_ROUTES = [
   // lib/landing/landing-gate.ts) so this shot still captures the connect
   // screen. The wiki pages themselves are validated by `next build` and
   // don't need screenshot snapshots in /public.
-  // The picker consolidated to a single "Link a folder" card (the old
-  // two-card Link Existing / Create New layout is gone: Chrome's File
-  // System Access API cannot create a folder from the picker dialog).
-  // waitFor matches the current card heading; highlight rings the
-  // "Link Folder" button text.
+  // The start screen is now the account chooser (Sign in / Open a folder /
+  // Create a new account). For the local-first "connect your folder" docs we
+  // point at "Open a folder", the path that opens a folder on your own disk.
   {
     path: "/?connect=1",
     file: "folder-connect.png",
-    waitFor: "text=Link a folder",
-    highlight: { text: "Link Folder" },
+    waitFor: "text=Open a folder",
+    highlight: { text: "Open a folder" },
   },
   // The first-time-visitor landing ("sell") page. Captured from the
   // standalone /welcome route (renders for everyone, no fixture needed).
@@ -3453,6 +3457,42 @@ async function applyClean(page, opts = {}) {
         }
       });
     }
+    // Kill decorative animation overlays and dev-only FABs that are NOT in the
+    // floating dock, so they can never leak into a docs shot. Covers the
+    // celebration overlays (fixed inset-0 pointer-events-none z-[100]) and the
+    // BeakerBot scene easter eggs like the late-night coffee refill (inline
+    // position:fixed inset:0 pointer-events:none), plus the Dev restart-server
+    // and ephemeral-session buttons (fixed bottom-left, text starts with "Dev:").
+    await page.evaluate(() => {
+      // Persistent style so a celebration that mounts after this sweep, during
+      // the pre-screenshot settle, still stays hidden.
+      if (!document.getElementById("wiki-hide-style")) {
+        const s = document.createElement("style");
+        s.id = "wiki-hide-style";
+        s.textContent = ".pointer-events-none.inset-0.z-\\[100\\]{display:none !important}";
+        document.head.appendChild(s);
+      }
+      const vw = window.innerWidth, vh = window.innerHeight;
+      for (const el of document.querySelectorAll("body *")) {
+        const cs = getComputedStyle(el);
+        if (cs.position === "fixed" && cs.pointerEvents === "none") {
+          const r = el.getBoundingClientRect();
+          if (r.width >= vw * 0.85 && r.height >= vh * 0.85) {
+            el.style.display = "none";
+          }
+        }
+      }
+      for (const el of document.querySelectorAll("button, a")) {
+        if (/^Dev:/i.test((el.textContent || "").trim())) {
+          let n = el;
+          for (let i = 0; i < 4 && n; i++) {
+            if (getComputedStyle(n).position === "fixed") { n.style.display = "none"; break; }
+            n = n.parentElement;
+          }
+          el.style.display = "none";
+        }
+      }
+    });
   } catch {}
 }
 
@@ -3501,6 +3541,42 @@ async function applyHighlight(page, highlight) {
     }, highlight);
   } catch (err) {
     console.warn(`  ⚠ highlight failed: ${err.message}`);
+  }
+}
+
+// Find the highlight target and return its bounding box in DEVICE pixels
+// (CSS rect * SCALE), matching the captured PNG's pixel space. Does not style
+// the element. Returns null if no match or the element is off-screen.
+async function measureTarget(page, highlight) {
+  if (!highlight) return null;
+  try {
+    const rect = await page.evaluate((spec) => {
+      let el = null;
+      if (spec.selector) el = document.querySelector(spec.selector);
+      if (!el && spec.text) {
+        const needle = String(spec.text).toLowerCase();
+        const cands = Array.from(
+          document.querySelectorAll("button, a, [role='button']"),
+        );
+        el =
+          cands.find((e) => (e.textContent || "").trim().toLowerCase() === needle) ||
+          cands.find((e) => (e.textContent || "").trim().toLowerCase().includes(needle));
+      }
+      if (!el) return null;
+      el.scrollIntoView({ block: "center", behavior: "instant" });
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y, width: r.width, height: r.height };
+    }, highlight);
+    if (!rect || rect.width <= 0 || rect.height <= 0) return null;
+    return {
+      x: rect.x * SCALE,
+      y: rect.y * SCALE,
+      width: rect.width * SCALE,
+      height: rect.height * SCALE,
+    };
+  } catch (err) {
+    console.warn(`  ⚠ measure failed: ${err.message}`);
+    return null;
   }
 }
 
@@ -3601,7 +3677,13 @@ async function _capturePageAt(page, route, url) {
     }
   }
   await applyClean(page, { keepDock: route.keepDock });
-  await applyHighlight(page, route.highlight);
+  // In annotate mode we measure the target and composite the adaptive mark
+  // after capture, so we skip the in-page red ring. Legacy mode keeps the ring.
+  let annotateBox = null;
+  if (route.highlight) {
+    if (ANNOTATE) annotateBox = await measureTarget(page, route.highlight);
+    else await applyHighlight(page, route.highlight);
+  }
   await page.waitForTimeout(200); // let style changes commit
   // Actions that need to capture a clip taller than the default viewport
   // (e.g. pcr-editor's stacked gradient + recipe panels) return
@@ -3616,6 +3698,13 @@ async function _capturePageAt(page, route, url) {
   }
   try {
     const clip = dynamicClip ?? route.crop ?? null;
+    if (clip || route.fullPage) {
+      if (annotateBox) {
+        console.warn(
+          `  ⚠ ${route.file} — annotation skipped (clip/fullPage layout, handle in audit)`,
+        );
+      }
+    }
     if (clip) {
       // clip wins over fullPage if both are set — clip is more specific.
       await page.screenshot({ path: out, clip });
@@ -3679,6 +3768,14 @@ async function _capturePageAt(page, route, url) {
         }
         delete window.__wikiCaptureFlips;
       });
+    } else if (annotateBox) {
+      // Simple viewport shot with a click target, capture clean then
+      // composite the adaptive ring + click-pulse + cursor at the target.
+      const raw = await page.screenshot({ fullPage: false });
+      const { buffer, color } = await annotateBuffer(raw, annotateBox);
+      await writeFile(out, buffer);
+      console.log(`  ✓ ${route.file} (annotated ${color})`);
+      return true;
     } else {
       await page.screenshot({ path: out, fullPage: false });
     }
