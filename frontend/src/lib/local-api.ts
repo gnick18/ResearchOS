@@ -7,6 +7,7 @@ import {
   type TrashEntityType,
 } from "./trash";
 import { recordProjectActivity } from "./project-activity/event-log";
+import type { RetentionEntry, RetentionEntryCreate } from "./lab/retention";
 import { HISTORY_ENGINE_ENABLED, recordNoteHistory, recordTaskHistory, recordProjectHistory, recordInventoryItemVersion, recordInventoryStockVersion } from "./history";
 import type { HistoryEditKind } from "./history";
 // Phase 2 chunk 4: when the Loro pilot is on, the note's Loro doc IS the
@@ -172,6 +173,9 @@ const publicCodingWorkflowStore = getPublicStore<CodingWorkflowProtocol>("coding
 const qpcrAnalysisStore = new JsonStore<QPCRAnalysisProtocol>("qpcr_analyses");
 const publicQpcrAnalysisStore = getPublicStore<QPCRAnalysisProtocol>("qpcr_analyses");
 const purchaseItemsStore = new JsonStore<PurchaseItem>("purchase_items");
+// Lab data-retention registry (LAB_ARCHIVE_CONTINUITY.md). PI-owned, lives under
+// the current (PI) user's folder. See `retentionApi` below.
+const retentionStore = new JsonStore<RetentionEntry>("lab_retention");
 const catalogStore = new JsonStore<CatalogItem>("item_catalog");
 const labLinksStore = new JsonStore<LabLink>("lab_links");
 const notesStore = new JsonStore<Note>("notes");
@@ -4866,6 +4870,18 @@ export const purchasesApi = {
       uncategorized_spent: uncategorizedSpent,
     };
   },
+};
+
+/**
+ * Lab data-retention registry (LAB_ARCHIVE_CONTINUITY.md phase 1a). PI-owned,
+ * scoped to the current (PI) user's folder. No bytes move here, an entry records
+ * who / where / how long a member's data is retained for compliance.
+ */
+export const retentionApi = {
+  list: (): Promise<RetentionEntry[]> => retentionStore.listAll(),
+  create: (entry: RetentionEntryCreate): Promise<RetentionEntry> =>
+    retentionStore.create(entry),
+  delete: (id: number): Promise<boolean> => retentionStore.delete(id),
 };
 
 /**
