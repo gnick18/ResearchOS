@@ -19,12 +19,14 @@ import {
   Image,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   TextInput,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+// ScrollView comes from gesture-handler so the per-row swipe-to-delete
+// cooperates with vertical scrolling instead of fighting it.
+import { Swipeable, ScrollView } from 'react-native-gesture-handler';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -44,10 +46,10 @@ import { useTheme, palette } from '@/lib/design';
 import {
   addCapture,
   removeCapture,
+  clearAllCaptures,
   sendCapture,
   useCaptures,
   type Capture,
-  type CaptureStatus,
 } from '@/lib/captures';
 import { usePairing, clearPairing } from '@/lib/pairing';
 import { scanNote, isScannerAvailable, type OcrResult } from '@/lib/ocr';
@@ -193,6 +195,12 @@ export default function NotebookScreen() {
 
   // ---- Photo capture pipeline ----
   const { captures, refresh: refreshCaptures } = useCaptures();
+  // Automatic retry for failed sends: a failed capture retries itself a couple
+  // of times with backoff (reading "Waiting for connection" while it does)
+  // before it falls back to a manual "Couldn't send / Retry".
+  const retryAttempts = useRef<Map<string, number>>(new Map());
+  const retryTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set());
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [previewDoc, setPreviewDoc] = useState<AnnotationDoc | null>(null);
   // OCR layer for a scanned handwriting note (null for plain photos). Rides with
@@ -702,6 +710,73 @@ export default function NotebookScreen() {
     [refreshCaptures],
   );
 
+  const onRemoveAll = useCallback(() => {
+    Alert.alert(
+      'Remove all from Inbox?',
+      'This clears the list on your phone. Captures already on your laptop stay there.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove all',
+          style: 'destructive',
+          onPress: async () => {
+            await clearAllCaptures();
+            await refreshCaptures();
+          },
+        },
+      ],
+    );
+  }, [refreshCaptures]);
+
+  // Automatic retry backoff for failed captures. A failed send retries itself
+  // up to MAX_AUTO_RETRIES times (reading "Waiting for connection" in between)
+  // before it settles into a manual "Couldn't send / Retry".
+  useEffect(() => {
+    if (!pairing) return;
+    const MAX_AUTO_RETRIES = 2;
+    captures.forEach((c) => {
+      if (c.status === 'sent') {
+        retryAttempts.current.delete(c.id);
+        return;
+      }
+      if (c.status !== 'failed') return;
+      if (retryTimers.current.has(c.id)) return;
+      const attempts = retryAttempts.current.get(c.id) ?? 0;
+      if (attempts >= MAX_AUTO_RETRIES) return;
+      retryAttempts.current.set(c.id, attempts + 1);
+      setRetryingIds((prev) => {
+        const next = new Set(prev);
+        next.add(c.id);
+        return next;
+      });
+      const timer = setTimeout(() => {
+        retryTimers.current.delete(c.id);
+        void (async () => {
+          try {
+            await sendOne(c, { suppressBurst: true });
+          } catch {
+            // Still failed; the effect reschedules until the cap is hit.
+          }
+          setRetryingIds((prev) => {
+            const next = new Set(prev);
+            next.delete(c.id);
+            return next;
+          });
+          await refreshCaptures();
+        })();
+      }, 3000 * (attempts + 1));
+      retryTimers.current.set(c.id, timer);
+    });
+  }, [captures, pairing, sendOne, refreshCaptures]);
+
+  // Clear any pending retry timers on unmount.
+  useEffect(() => {
+    const timers = retryTimers.current;
+    return () => {
+      timers.forEach((t) => clearTimeout(t));
+    };
+  }, []);
+
   // ---- Today snapshot data ----
   const tasks: SnapshotTask[] = Array.isArray(snapshot?.tasks)
     ? snapshot!.tasks!
@@ -978,7 +1053,7 @@ export default function NotebookScreen() {
             />
             <Button
               variant="primary"
-              label="Add to outbox"
+              label="Send to Inbox"
               loading={saving}
               onPress={onAddToOutbox}
               disabled={saving}
@@ -992,29 +1067,58 @@ export default function NotebookScreen() {
           </Card>
         ) : null}
 
-        {/* Outbox (only shown when there are captures) */}
+        {/* Inbox (only shown when there are captures). Captures sync to the
+            lab inbox automatically; the header keeps small bulk conveniences. */}
         {captures.length > 0 ? (
-          <>
-            <SectionHeader title="Outbox" />
-            {paired &&
-            captures.some((c) => c.status === 'queued' || c.status === 'failed') ? (
-              <Button
-                variant="secondary"
-                label="Send all"
-                loading={sendingAll}
-                onPress={onSendAll}
-                disabled={sendingAll}
-              />
-            ) : null}
-            {captures.map((capture) => (
-              <CaptureRow
-                key={capture.id}
-                capture={capture}
-                onRemove={onRemove}
-                onSend={paired ? sendOne : undefined}
-              />
-            ))}
-          </>
+          <View style={styles.inboxSection}>
+            <View style={styles.inboxHeaderRow}>
+              <View style={styles.inboxTitleGroup}>
+                <View style={styles.inboxBadge}>
+                  <Ionicons name="file-tray-full" size={16} color={palette.white} />
+                </View>
+                <ThemedText style={[styles.inboxTitle, { color: surface.text }]}>
+                  Inbox
+                </ThemedText>
+              </View>
+              <View style={styles.inboxActions}>
+                {paired &&
+                captures.some(
+                  (c) => c.status === 'queued' || c.status === 'failed',
+                ) ? (
+                  <Pressable
+                    onPress={onSendAll}
+                    disabled={sendingAll}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                  >
+                    <ThemedText style={[styles.inboxAction, { color: palette.sky }]}>
+                      Send all
+                    </ThemedText>
+                  </Pressable>
+                ) : null}
+                <Pressable onPress={onRemoveAll} hitSlop={8} accessibilityRole="button">
+                  <ThemedText style={[styles.inboxAction, { color: palette.coral }]}>
+                    Remove all
+                  </ThemedText>
+                </Pressable>
+              </View>
+            </View>
+            <ThemedText style={[styles.inboxHelper, { color: surface.muted }]}>
+              Captures sync to your lab inbox automatically.
+            </ThemedText>
+            <View style={[styles.inboxGroup, { backgroundColor: surface.surface }]}>
+              {captures.map((capture, i) => (
+                <CaptureRow
+                  key={capture.id}
+                  capture={capture}
+                  onRemove={onRemove}
+                  onSend={paired ? sendOne : undefined}
+                  isLast={i === captures.length - 1}
+                  retrying={retryingIds.has(capture.id)}
+                />
+              ))}
+            </View>
+          </View>
         ) : null}
 
         {/* Today glance (only shown when paired) */}
@@ -1143,7 +1247,9 @@ function ConnectionCard({
   const { surface } = useTheme();
   return (
     <View style={styles.connCard}>
-      <View style={styles.connDot} />
+      <View style={styles.connBadge}>
+        <Ionicons name="checkmark" size={16} color={palette.white} />
+      </View>
       <View style={styles.connText}>
         <ThemedText style={[styles.connName, { color: surface.text }]}>
           {labName}
@@ -1184,95 +1290,114 @@ function TaskRow({ task, overdue }: { task: SnapshotTask; overdue?: boolean }) {
   );
 }
 
-const STATUS_LABEL: Record<CaptureStatus, string> = {
-  queued: 'Queued',
-  sending: 'Sending',
-  sent: 'Sent',
-  failed: 'Failed',
-};
-
+// A single capture row inside the grouped Inbox container. The row reports
+// its own status (Sending / On your laptop / Couldn't send); a per-row action
+// appears only on a real failure (Retry). Single-row delete is a small muted
+// Remove for now; swipe-to-delete lands in the next pass.
 function CaptureRow({
   capture,
   onRemove,
   onSend,
+  isLast,
+  retrying,
 }: {
   capture: Capture;
   onRemove: (id: string) => void;
   onSend?: (capture: Capture) => void;
+  isLast?: boolean;
+  // True while a failed capture is in its automatic-retry backoff, so the row
+  // reads "Waiting for connection" instead of "Couldn't send".
+  retrying?: boolean;
 }) {
-  const { surface, spacing, radii } = useTheme();
-  const isSending = capture.status === 'sending';
-  const canSend =
-    !!onSend && (capture.status === 'queued' || capture.status === 'failed');
+  const { surface, radii } = useTheme();
+  const sent = capture.status === 'sent';
+  const sending = capture.status === 'sending' || capture.status === 'queued';
+  const waiting = capture.status === 'failed' && !!retrying;
+  const failed = capture.status === 'failed' && !retrying;
+  const canRetry = !!onSend && failed;
 
-  const pillBg =
-    capture.status === 'sent'
-      ? palette.successLight
-      : capture.status === 'failed'
-        ? palette.dangerLight
-        : palette.skyDim;
-  const pillColor =
-    capture.status === 'sent'
-      ? palette.success
-      : capture.status === 'failed'
-        ? palette.danger
-        : palette.sky;
+  const renderRightActions = () => (
+    <Pressable
+      onPress={() => onRemove(capture.id)}
+      style={styles.swipeDelete}
+      accessibilityRole="button"
+      accessibilityLabel="Delete capture"
+    >
+      <Ionicons name="trash-outline" size={20} color={palette.white} />
+      <ThemedText style={styles.swipeDeleteLabel}>Delete</ThemedText>
+    </Pressable>
+  );
 
   return (
-    <Card compact style={[styles.captureCard, { gap: spacing.md }]}>
-      <View style={styles.captureInner}>
+    <Swipeable renderRightActions={renderRightActions} overshootRight={false}>
+      <View
+        style={[
+          styles.inboxRow,
+          { backgroundColor: surface.surface },
+          !isLast && {
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            borderBottomColor: surface.border,
+          },
+        ]}
+      >
         <Image
           source={{ uri: capture.uri }}
-          style={[styles.thumb, { borderRadius: radii.sm }]}
+          style={[styles.inboxThumb, { borderRadius: radii.sm }]}
         />
-        <View style={styles.captureBody}>
+        <View style={styles.inboxRowBody}>
           <ThemedText
-            style={[styles.rowTitle, { color: surface.text }]}
+            style={[styles.inboxRowTitle, { color: surface.text }]}
             numberOfLines={2}
           >
             {capture.caption.length > 0 ? capture.caption : 'No caption'}
           </ThemedText>
-          <ThemedText style={[styles.rowMeta, { color: surface.muted }]}>
-            {formatCreatedAt(capture.createdAt)}
-          </ThemedText>
-          <View style={styles.captureFooter}>
-            <View style={[styles.pill, { backgroundColor: pillBg }]}>
-              <ThemedText style={[styles.pillText, { color: pillColor }]}>
-                {STATUS_LABEL[capture.status]}
-              </ThemedText>
-            </View>
-            <View style={styles.captureActions}>
-              {isSending ? <ActivityIndicator color={palette.sky} /> : null}
-              {canSend ? (
+          <View style={styles.inboxStatusRow}>
+            {sending ? (
+              <>
+                <ActivityIndicator size="small" color={palette.sky} />
+                <ThemedText style={[styles.inboxStatus, { color: palette.sky }]}>
+                  Sending...
+                </ThemedText>
+              </>
+            ) : sent ? (
+              <>
+                <Ionicons name="checkmark-circle" size={16} color={palette.success} />
+                <ThemedText style={[styles.inboxStatus, { color: palette.success }]}>
+                  On your laptop
+                </ThemedText>
+              </>
+            ) : waiting ? (
+              <>
+                <Ionicons name="time-outline" size={15} color={palette.warning} />
+                <ThemedText style={[styles.inboxStatus, { color: palette.warning }]}>
+                  Waiting for connection
+                </ThemedText>
+              </>
+            ) : (
+              <>
+                <View style={styles.failDot} />
+                <ThemedText style={[styles.inboxStatus, { color: palette.danger }]}>
+                  Couldn&apos;t send
+                </ThemedText>
+              </>
+            )}
+            {canRetry ? (
+              <View style={styles.inboxRowActions}>
                 <Pressable
                   onPress={() => onSend?.(capture)}
                   accessibilityRole="button"
                   hitSlop={8}
                 >
-                  <ThemedText style={[styles.actionText, { color: palette.sky }]}>
-                    {capture.status === 'failed' ? 'Retry' : 'Send'}
+                  <ThemedText style={[styles.inboxAction, { color: palette.sky }]}>
+                    Retry
                   </ThemedText>
                 </Pressable>
-              ) : null}
-              <Pressable
-                onPress={() => onRemove(capture.id)}
-                accessibilityRole="button"
-                hitSlop={8}
-              >
-                <ThemedText style={[styles.actionText, { color: palette.sky }]}>
-                  Remove
-                </ThemedText>
-              </Pressable>
-            </View>
+              </View>
+            ) : null}
           </View>
-          {capture.status === 'sent' ? (
-            <ThemedText style={[styles.rowMeta, { color: surface.muted, marginTop: 4 }]}>
-              Appears on your laptop in a few seconds.
-            </ThemedText>
-          ) : null}
         </View>
       </View>
-    </Card>
+    </Swipeable>
   );
 }
 
@@ -1347,11 +1472,13 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 1,
   },
-  connDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 999,
+  connBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
     backgroundColor: palette.success,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   connText: { flex: 1 },
   connName: { fontSize: 14, fontWeight: '600', lineHeight: 20 },
@@ -1403,20 +1530,63 @@ const styles = StyleSheet.create({
   },
 
   // Capture rows
-  captureCard: {},
-  captureInner: { flexDirection: 'row', gap: 12 },
-  thumb: { width: 64, height: 64, backgroundColor: '#000000' },
-  captureBody: { flex: 1, gap: 6 },
-  captureFooter: {
+  // Inbox section (captures grouped in one colorful container)
+  inboxSection: { gap: 8 },
+  inboxHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 2,
+    paddingHorizontal: 2,
   },
-  pill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
-  pillText: { fontSize: 12, fontWeight: '600' },
-  captureActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  actionText: { fontWeight: '600', fontSize: 14 },
+  inboxTitleGroup: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  inboxBadge: {
+    width: 27,
+    height: 27,
+    borderRadius: 8,
+    backgroundColor: palette.sky,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: palette.sky,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  inboxTitle: { fontSize: 19, fontWeight: '800', letterSpacing: -0.2 },
+  inboxActions: { flexDirection: 'row', alignItems: 'center', gap: 15 },
+  inboxAction: { fontSize: 13, fontWeight: '700' },
+  inboxHelper: { fontSize: 12, lineHeight: 16, paddingHorizontal: 2, marginTop: -2 },
+  inboxGroup: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    shadowColor: '#101828',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  inboxRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13 },
+  inboxThumb: { width: 46, height: 46, backgroundColor: '#0e1626' },
+  inboxRowBody: { flex: 1, gap: 5 },
+  inboxRowTitle: { fontSize: 14, fontWeight: '600', lineHeight: 19 },
+  inboxStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  inboxStatus: { fontSize: 12.5, fontWeight: '600' },
+  inboxRowActions: {
+    marginLeft: 'auto',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  inboxRemove: { fontSize: 12.5, fontWeight: '600' },
+  failDot: { width: 9, height: 9, borderRadius: 999, backgroundColor: palette.danger },
+  swipeDelete: {
+    backgroundColor: palette.danger,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 84,
+    gap: 3,
+  },
+  swipeDeleteLabel: { color: palette.white, fontSize: 12, fontWeight: '700' },
 
   // Today glance
   emptyLine: { lineHeight: 20 },

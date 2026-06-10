@@ -44,12 +44,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   title: {
-    // Matches the mockup large title (30 / weight 800 / tight tracking). lineHeight
-    // sits a touch above the size so descenders never clip.
-    fontSize: 30,
+    // Modern iOS large title (34 / weight 800 / tight tracking), matching the
+    // ideal mockup. lineHeight sits a touch above the size so descenders never
+    // clip. This is the app-wide large title used by every tab and page header.
+    fontSize: 34,
     fontWeight: '800',
-    lineHeight: 36,
-    letterSpacing: -0.5,
+    lineHeight: 40,
+    letterSpacing: -0.8,
   },
   subtitle: {
     fontSize: 20,

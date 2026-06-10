@@ -7,6 +7,7 @@ import { Platform, StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AppSplash } from '@/components/AppSplash';
 import { RainbowBar } from '@/components/ui/RainbowBar';
@@ -81,6 +82,7 @@ export default function RootLayout() {
       : { ...DefaultTheme, colors: { ...DefaultTheme.colors, background: '#f2f3f7' } };
 
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaProvider>
     <ThemeProvider value={navTheme}>
       <View style={styles.root}>
@@ -125,6 +127,7 @@ export default function RootLayout() {
       <StatusBar style="auto" />
     </ThemeProvider>
     </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
