@@ -78,6 +78,15 @@
   .sec-h .act { font-size: 13px; font-weight: 600; color: var(--sky); }
   .helper { font-size: 12px; color: var(--foreground-muted); margin: -4px 6px 12px; }
 
+  /* colorful Inbox header: icon + title + small inline actions */
+  .inbox-h { display: flex; align-items: center; justify-content: space-between; margin: 4px 2px 2px; }
+  .inbox-title { display: flex; align-items: center; gap: 9px; font-size: 19px; font-weight: 800; letter-spacing: -.01em; }
+  .inbox-ico { width: 27px; height: 27px; border-radius: 8px; background: linear-gradient(135deg, var(--sky), #3fb4f0); display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(26,160,230,.35); }
+  .inbox-actions { display: flex; gap: 15px; }
+  .ia { font-size: 13px; font-weight: 700; cursor: default; }
+  .ia.send { color: var(--sky); }
+  .ia.remove { color: var(--coral); }
+
   .card { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 13px 14px; margin-bottom: 11px; position: relative; }
   .crow { display: flex; align-items: center; gap: 12px; }
   .thumb { width: 46px; height: 46px; border-radius: 10px; background: linear-gradient(135deg, #23304a, #0e1626); flex-shrink: 0; }
@@ -154,7 +163,7 @@
     <h2>What is the outbox FOR?</h2>
     <p>When you snap a bench photo or jot a quick note, the app sends it to your lab the moment you confirm, then asks where to file it. It lands on your laptop within seconds. The list of recent captures is there to reassure you that it arrived, and to give you a way out if something fails.</p>
     <p>But the current UI describes that automatic process with manual-process words. "Outbox" implies a staging area you flush yourself. "Queued" implies it is waiting on you. A blue "Send" button on every row implies you have to tap it, when sending already happened, that button is really a retry for the rare stuck item. The first-time read is "wait, do I need to press Send?"</p>
-    <div class="purpose"><strong>Proposed purpose.</strong> Make the surface honest about being automatic. Captures sync to your laptop on their own. Each row just shows where it is (Sending, On your laptop, Waiting for connection). No button appears unless a send actually fails, and then it is a single Retry. Removing a row is a swipe, not a permanent button competing with Send.</div>
+    <div class="purpose"><strong>Proposed purpose.</strong> Call it the Inbox (the same word the laptop uses for where these land) and make it honest about being automatic. Each row just shows where it is (Sending, On your laptop, Waiting for connection); a per-row action appears only on a real failure (Retry). The header keeps small, low-key bulk conveniences, Send all (push any stragglers now) and Remove all (clear the inbox), instead of a big full-width button. A colorful inbox badge gives the section energy instead of reading grey and sad.</div>
   </div>
 
   <div class="wrap">
@@ -204,10 +213,14 @@
           <h3>After — automatic sync</h3>
           <div class="stage" data-stage="after">
             <div class="screen">
-              <div class="sec-h"><span class="lbl plain">Recent captures</span></div>
-              <div class="helper">Synced to your laptop automatically.</div>
-
-              <div class="syncbanner">1 capture couldn't sync<span class="retryall">Retry all</span></div>
+              <div class="inbox-h">
+                <span class="inbox-title">
+                  <span class="inbox-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.5 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.5A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.5z"/></svg></span>
+                  Inbox
+                </span>
+                <span class="inbox-actions"><span class="ia send">Send all</span><span class="ia remove">Remove all</span></span>
+              </div>
+              <div class="helper">Captures sync to your lab inbox automatically.</div>
 
               <div class="group">
                 <div class="grow">
@@ -236,7 +249,7 @@
               <div class="swipehint">swipe a row left to delete · all captures in one container, not a card each</div>
 
               <div class="capbtn after">Send to lab</div>
-              <div class="note-good">All captures sit in one container with hairline separators (the ideal look), with lighter titles. Every row just reports where it is. The only button in the normal flow is gone. Retry appears only on a real failure, and a swipe (not a permanent button) deletes a row. "Send to lab" matches what the button actually does.</div>
+              <div class="note-good">Named Inbox to match the laptop, with a colorful sky badge so it is not grey and sad. Small inline Send all (sky) and Remove all (coral) replace the big button. All captures sit in one container with hairline separators (the ideal look), lighter titles, each row just shows where it is. Retry appears only on a real failure, and a swipe deletes a single row. "Send to lab" matches what the button actually does.</div>
             </div>
           </div>
         </div>
@@ -263,13 +276,14 @@
 
 <script>
 const CHANGES = [
-  { id: "rename", t: "Rename \"Outbox\" to \"Recent captures\"", d: "Plus a one-line helper, Synced to your laptop automatically. Reframes the section from a staging area you flush into an automatic log." },
+  { id: "rename", t: "Rename \"Outbox\" to \"Inbox\"", d: "The laptop already calls the destination the Inbox, so the phone should use the same word instead of Outbox. Plus a one-line helper, Captures sync to your lab inbox automatically." },
   { id: "nosend", t: "Remove the per-row \"Send\" button", d: "Sending is automatic. A Send button on a row that already sent is the core confusion. It only ever meant retry." },
   { id: "onlaptop", t: "Done state reads \"On your laptop\"", d: "A quiet green check plus plain-language proof it arrived where you care, instead of a Sent pill sitting next to action buttons." },
   { id: "sending", t: "In-flight reads \"Sending…\" with a spinner", d: "Replaces \"Queued\". Queued implied it was waiting on you; Sending shows it is already moving on its own." },
   { id: "waiting", t: "Offline reads \"Waiting for connection\"", d: "Amber, no button. It auto-resumes when the connection is back. Nothing for you to do." },
   { id: "failonly", t: "An action appears only on real failure", d: "Failed sends auto-retry first. If one still fails it shows \"Couldn't send\" with a single Retry, the only button in the whole surface." },
-  { id: "banner", t: "Replace \"Send all\" with a conditional banner", d: "No permanent Send all. A small \"N couldn't sync · Retry all\" banner appears only when something is actually stuck, then disappears." },
+  { id: "smallactions", t: "Small inline \"Send all\" + \"Remove all\"", d: "Replace the big full-width Send all button with small inline header actions (like the ideal), and add a Remove all counterpart to clear the inbox. Send all in sky, Remove all in coral." },
+  { id: "color", t: "Make the Inbox colorful, not grey", d: "A sky inbox-icon badge in the header and colored actions give the section energy to match the photo/note buttons above it, instead of reading grey and sad." },
   { id: "swipe", t: "Swipe-left to delete a row", d: "Replaces the always-visible Remove button. Declutters every row and matches the iOS gesture people already expect." },
   { id: "capbtn", t: "Relabel \"Add to outbox\" to \"Send to lab\"", d: "The button sends immediately, it does not stage. The label should say what it does." },
   { id: "group", t: "Group all captures in one container", d: "One rounded card with hairline separators between rows, like the ideal, instead of a separate bordered card per capture. Calmer, and it lets the grey page breathe." },
