@@ -214,20 +214,20 @@ function SkippedPanel({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="rounded-lg border border-gray-200 bg-gray-50">
+    <div className="rounded-lg border border-border bg-surface-raised">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="w-full text-left px-4 py-2 flex items-center justify-between"
       >
-        <span className="text-meta font-medium text-gray-800">
+        <span className="text-meta font-medium text-foreground">
           {skipped.length} duplicate page{skipped.length === 1 ? "" : "s"} skipped
         </span>
-        <span className="text-gray-500 text-meta">{open ? "Hide" : "Show"} list</span>
+        <span className="text-foreground-muted text-meta">{open ? "Hide" : "Show"} list</span>
       </button>
       {open && (
-        <div className="border-t border-gray-200 px-4 py-2 max-h-48 overflow-y-auto">
-          <ul className="space-y-0.5 text-[11px] text-gray-700 font-mono">
+        <div className="border-t border-border px-4 py-2 max-h-48 overflow-y-auto">
+          <ul className="space-y-0.5 text-[11px] text-foreground-muted font-mono">
             {skipped.map((s) => (
               <li key={s.pageId}>
                 page {s.pageId} → existing task #{s.existingTaskId}
