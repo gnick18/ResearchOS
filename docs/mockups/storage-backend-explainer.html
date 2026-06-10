@@ -172,11 +172,11 @@
 
     <!-- 2. when cloud -->
     <h2><span class="n">2</span>Three ways data can leave your machine</h2>
-    <p class="lede">Each path handles encryption differently, so it is worth being precise. Only the third, real-time collaboration, is what your storage allowance meters.</p>
+    <p class="lede">Each path handles encryption differently, so it is worth being precise. Only the third, real-time collaboration, is what counts against your storage allowance.</p>
     <div class="keyrow">
       <div class="key"><b><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--green);vertical-align:-3px;margin-right:6px"><rect x="3" y="5" width="18" height="12" rx="1.5"/><path d="M2 20h20"/></svg>Private, on your disk</b><span>Your own notes and files never leave your machine. Nothing uploads unless you choose one of the two paths below.</span></div>
       <div class="key"><b><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--action);vertical-align:-3px;margin-right:6px"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M5 20h14"/></svg>A one-time Send</b><span>Send a note, method, project, or a phone photo to someone. End-to-end encrypted and transient, deleted the moment they pick it up. Does not count against the storage pool.</span></div>
-      <div class="key"><b><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--purple);vertical-align:-3px;margin-right:6px"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 5.5a3 3 0 0 1 0 6"/><path d="M21 20a6 6 0 0 0-5-5.9"/></svg>Real-time collaboration</b><span>So collaborators converge even when offline, the server holds the shared copy. Encrypted in transit and at rest, but not end-to-end. This is the copy the allowance meters.</span></div>
+      <div class="key"><b><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--purple);vertical-align:-3px;margin-right:6px"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 5.5a3 3 0 0 1 0 6"/><path d="M21 20a6 6 0 0 0-5-5.9"/></svg>Real-time collaboration</b><span>So collaborators converge even when offline, the server holds the shared copy. Encrypted in transit and at rest, but not end-to-end. This is the copy that counts against the allowance.</span></div>
     </div>
 
     <!-- 3. the pool -->
@@ -188,20 +188,20 @@
           <h3>A lab</h3>
           <div class="who"><span class="chip pi">Lab head (PI)</span><span class="chip mem">member</span><span class="chip mem">member</span><span class="chip mem">member</span><span class="chip mem">+ more</span></div>
           <div class="poolbar"><i></i></div>
-          <div class="cap">One shared 1 GB free pool for the whole lab. Adding members does NOT add more free space.</div>
+          <div class="cap">One shared 5 GB free pool for the whole lab. Adding members does NOT add more free space.</div>
         </div>
         <div class="pool">
           <h3>A solo user</h3>
           <div class="who"><span class="chip pi">You</span></div>
           <div class="poolbar"><i style="width:34%"></i></div>
-          <div class="cap">Your own 1 GB free tier, the free users the model exists to support.</div>
+          <div class="cap">Your own 5 GB free tier, the free users the model exists to support.</div>
         </div>
       </div>
       <div class="facts">
         <div class="fact"><b>Only the PI ever pays</b><span>Members never pay and never see a bill. They inherit the lab's ceiling, so a capped-out lab is the PI's call, not theirs.</span></div>
-        <div class="fact"><b>One allowance per lab</b><span>A free lab shares a single 1 GB pool, the same size as a solo user's. Heavy labs pay or donate for more.</span></div>
-        <div class="fact"><b>Solo stays solo</b><span>Each solo user keeps their own 1 GB free tier, independent of any lab.</span></div>
-        <div class="fact"><b>No per-seat free bonus</b><span>Joiners do not each bring another free gigabyte. The pool is shared, by design.</span></div>
+        <div class="fact"><b>One allowance per lab</b><span>A free lab shares a single 5 GB pool, the same size as a solo user's. Heavy labs move to a larger flat-price plan.</span></div>
+        <div class="fact"><b>Solo stays solo</b><span>Each solo user keeps their own 5 GB free tier, independent of any lab.</span></div>
+        <div class="fact"><b>No per-seat free bonus</b><span>Joiners do not each bring another free 5 GB. The pool is shared, by design.</span></div>
       </div>
     </div>
 
@@ -237,7 +237,7 @@
           </div>
         </div>
         <div class="meter">
-          <div class="readout"><span class="big" id="used">1 MB</span><span class="of">of the 1 GB pool</span></div>
+          <div class="readout"><span class="big" id="used">1 MB</span><span class="of">of the 5 GB pool</span></div>
           <div class="bar" id="bar"><i id="fill"></i></div>
           <div class="readout" style="margin-top:10px"><span class="of" id="pctlabel">used</span><span class="of" id="pct">0.1%</span></div>
           <div class="verdict fine" id="verdict">Plenty of room.</div>
@@ -258,19 +258,19 @@
     <!-- 7. how it's paid for -->
     <h2><span class="n">7</span>How it is paid for</h2>
     <div class="card">
-      <p style="margin-top:0">The local-first core is <b>free and open source (AGPLv3) for every lab</b>. It is supported by a UW-Madison RISE fellowship and voluntary contributions. The optional cloud storage is <b>metered for cost recovery</b>, we pay our providers per gigabyte, it is not a profit center.</p>
-      <p>If a lab leans on the cloud heavily, the lab head can contribute toward that lab's storage. Solo users stay free, supported by the fellowship and by labs that choose to give back.</p>
-      <p class="note">Provider costs, for reference: storage runs from about $0.015 per gigabyte-month for the bulk pool up to about $0.35 for the small database tier, which is what the metered option recovers.</p>
+      <p style="margin-top:0">The local-first core is <b>free and open source (AGPLv3) for every lab</b>, with every feature included. It is supported by a UW-Madison RISE fellowship and voluntary contributions. Cloud storage above the free pool comes as <b>flat-price plans, priced to recover what it costs us to run</b>, not a profit center.</p>
+      <p>If a lab leans on the cloud heavily, the lab head can move the lab to a larger flat-price plan. Solo users stay free, supported by the fellowship and by labs that choose to give back.</p>
+      <p class="note">Why it stays cheap: our provider storage runs from about $0.015 per gigabyte-month for the bulk pool up to about $0.35 for the small database tier, so a 5 GB free pool costs us pennies and the paid plans only recover real cost. Plan prices are still being finalized from real usage, so they are not published yet.</p>
     </div>
 
     <div class="foot">
-      Draft for review. Numbers from the live config (free allowance 1 GB shared per lab, per-lab billing pool resolving to the PI) and real entity sizes in the codebase. See <b>docs/proposals/LAB_SHARED_BILLING_POOL.md</b>. Reusable as a wiki page and as slide frames once approved.
+      Draft for review. Free pool 5 GB shared per lab (per-lab billing pool resolving to the PI), with larger flat-price plans above it. Entity sizes from the codebase. Canonical facts in <b>docs/branding/BILLING_FACTS.md</b>; model in <b>docs/proposals/METERED_STORAGE_PRICING.md</b>. Reusable as a wiki page and as slide frames once approved.
     </div>
   </div>
 
 <script>
   const MB = 1024*1024, GB = 1024*1024*1024;
-  const POOL = GB;
+  const POOL = 5*GB;
   const svgIcon = (inner) => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--action);vertical-align:-4px;margin-right:4px">${inner}</svg>`;
   const IC = {
     note: svgIcon('<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/>'),
@@ -342,9 +342,9 @@
     if (full){
       verdict.textContent = "This fills the shared pool. At the cap, cloud sync pauses (no bill) until space is freed or the PI adds storage, and the data stays safe on your disks.";
     } else if (!cur.isFile && cur.bytes < MB){
-      verdict.textContent = "Barely a dent: " + fmt(totalBytes) + ", about " + (pct<0.01?"<0.01":pct.toFixed(2)) + "% of 1 GB. Text never fills the pool, a lab would need ~100,000 notes to reach a gigabyte.";
+      verdict.textContent = "Barely a dent: " + fmt(totalBytes) + ", about " + (pct<0.01?"<0.01":pct.toFixed(2)) + "% of the 5 GB pool. Text never fills the pool, a lab would need about 500,000 notes to fill 5 GB.";
     } else {
-      verdict.textContent = fmt(totalBytes) + " used, " + (pct<0.01?"<0.01":pct.toFixed(2)) + "% of the shared 1 GB pool.";
+      verdict.textContent = fmt(totalBytes) + " used, " + (pct<0.01?"<0.01":pct.toFixed(2)) + "% of the shared 5 GB pool.";
     }
   }
   qty.addEventListener("input", render);
@@ -384,7 +384,7 @@
       st.textContent = "Almost full (" + pct.toFixed(0) + "%). One more sync would reach the cap and pause cloud sync. Still no bill, and nothing is lost.";
     } else {
       st.className = "status fine";
-      st.textContent = used === 0 ? "Plenty of room in the shared pool." : fmt(used) + " of the lab's 1 GB used (" + pct.toFixed(0) + "%). Lots of headroom.";
+      st.textContent = used === 0 ? "Plenty of room in the shared pool." : fmt(used) + " of the lab's 5 GB used (" + pct.toFixed(0) + "%). Lots of headroom.";
     }
   }
   document.getElementById("add").onclick = () => { if (used+ADD<=POOL) used+=ADD; renderDemo(); };
