@@ -287,6 +287,34 @@ h2{font-weight:800;letter-spacing:-.025em;line-height:1.05;font-size:50px;color:
 .outro .wordmark{font-size:60px;font-weight:800;letter-spacing:-.04em;color:#fff;margin-top:18px}
 .outro .thanks{font-size:22px;color:#b4bfd0;margin-top:10px}
 
+/* ---- AI agents contrast ---- */
+.aigrid{display:grid;grid-template-columns:1fr 1fr;gap:24px;flex:1;min-height:0}
+.aicol{border:1px solid var(--border);border-radius:20px;padding:22px 24px;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.aicol.good{background:linear-gradient(165deg,#edf9f1,#f5fbff);border-color:#bfe6cb}
+.aicol.bad{background:linear-gradient(165deg,#fbf1f1,#faf6f6);border-color:#eccfcf}
+.aicol .aihead{display:flex;align-items:center;gap:11px;font-size:19px;font-weight:800;color:var(--ink)}
+.aicol .aihead .pill{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:4px 11px;border-radius:999px}
+.aicol.good .aihead .pill{background:#16a34a;color:#fff}
+.aicol.bad .aihead .pill{background:#b91c1c;color:#fff}
+.aidiag{display:flex;align-items:center;justify-content:center;gap:12px;padding:22px 0 16px}
+.ainode{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;flex:0 0 auto}
+.ainode .box{width:66px;height:66px;border-radius:16px;display:grid;place-items:center;background:#fff;border:1px solid var(--border)}
+.ainode .box svg{width:32px;height:32px;stroke:var(--ink);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.ainode small{font-size:12px;font-weight:600;color:var(--muted)}
+.aiarrow{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}
+.aiarrow svg{width:100%;height:14px}
+.aicol.good .aiarrow svg{stroke:#16a34a}
+.aicol.bad .aiarrow svg{stroke:#b91c1c}
+.aiarrow .lbl{font-size:11.5px;font-weight:700}
+.aicol.good .aiarrow .lbl{color:#16a34a}
+.aicol.bad .aiarrow .lbl{color:#b91c1c}
+.aibox-files{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.aibox-files span{font-size:10px;font-family:'Geist Mono',ui-monospace,monospace;background:#fff;border:1px solid var(--border);border-radius:5px;padding:2px 6px;color:var(--action)}
+.aicol p{font-size:15px;line-height:1.46;color:#374151;margin-top:auto}
+.aicol p b{color:var(--ink)}
+.aipunch{background:linear-gradient(100deg,#eef6ff,#fff4ec);border:1px solid var(--border);border-radius:14px;padding:14px 22px;text-align:center;font-size:18.5px;font-weight:750;color:var(--ink)}
+.aipunch span{background-image:var(--tri);-webkit-background-clip:text;background-clip:text;color:transparent}
+
 /* ---- BeakerBot showcase gallery (live CSS animations) ---- */
 .bbgallery{display:flex;gap:16px;justify-content:center;align-items:stretch;flex:1;min-height:0}
 .bbcard{flex:1;border:1px solid var(--border);border-radius:18px;background:var(--surface);
@@ -701,6 +729,40 @@ body.idle .hud,body.idle .help{opacity:0;pointer-events:none}
       </div>
       <div class="strat"><b>R2-first.</b> We push the heavy bytes to the cheapest layer and keep only tiny, hot state in the pricey one, so a full 5 GB free pool costs us about 7 cents a month. The cloud only ever holds copies. Your folder stays the original, and a collaborator's work mirrors back to your own disk.
         <div class="beta">Real-time collaboration and billing are flag-gated and off during the free beta.</div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 8c. AI AGENTS -->
+  <section class="slide">
+    <div class="head">
+      <div class="kicker"><span class="dot"></span> Local-first and AI</div>
+      <h2>Your AI agents can read it all</h2>
+      <div class="f-oneline" style="max-width:none">Because your research is plain files on your disk, the AI tools you already use can work with it directly. A cloud notebook that encrypts your data for you also locks your agents out of it.</div>
+    </div>
+    <div class="body" style="display:flex;flex-direction:column;gap:16px">
+      <div class="aigrid">
+        <div class="aicol good">
+          <div class="aihead"><span class="pill">ResearchOS</span> Local, open files</div>
+          <div class="aidiag">
+            <div class="ainode"><div class="box"><svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="3"/><circle cx="9.7" cy="13" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.3" cy="13" r="1.1" fill="currentColor" stroke="none"/><path d="M12 4.5v3.5M8.5 19v2M15.5 19v2"/></svg></div><small>Your AI agent</small></div>
+            <div class="aiarrow"><svg viewBox="0 0 90 12" preserveAspectRatio="none"><line x1="3" y1="6" x2="76" y2="6" stroke="#16a34a" stroke-width="3"/><path d="M76 1 L88 6 L76 11 Z" fill="#16a34a" stroke="none"/></svg><span class="lbl">reads it directly</span></div>
+            <div class="ainode"><div class="box"><svg viewBox="0 0 24 24"><path d="M3 7l2-3h6l2 3h6v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg></div><small>Your folder</small></div>
+          </div>
+          <div class="aibox-files" style="flex-direction:row;justify-content:center;margin-bottom:14px"><span>experiment.json</span><span>notes.md</span><span>plasmid.gb</span></div>
+          <p>Plain Markdown and JSON on your own disk. Point <b>Claude, Cursor, an MCP server, or any script</b> at the folder and it reads every note, result, and sequence. No API, no export, no permission needed.</p>
+        </div>
+        <div class="aicol bad">
+          <div class="aihead"><span class="pill">Cloud ELN</span> Encrypted on their servers</div>
+          <div class="aidiag">
+            <div class="ainode"><div class="box"><svg viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="3"/><circle cx="9.7" cy="13" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.3" cy="13" r="1.1" fill="currentColor" stroke="none"/><path d="M12 4.5v3.5M8.5 19v2M15.5 19v2"/></svg></div><small>Your AI agent</small></div>
+            <div class="aiarrow"><svg viewBox="0 0 90 16"><line x1="3" y1="8" x2="33" y2="8" stroke="#b91c1c" stroke-width="3"/><line x1="41" y1="2" x2="54" y2="14" stroke="#b91c1c" stroke-width="3" stroke-linecap="round"/><line x1="54" y1="2" x2="41" y2="14" stroke="#b91c1c" stroke-width="3" stroke-linecap="round"/><line x1="62" y1="8" x2="87" y2="8" stroke="#b91c1c" stroke-width="3" opacity=".28"/></svg><span class="lbl">locked out</span></div>
+            <div class="ainode"><div class="box"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg></div><small>Their cloud</small></div>
+          </div>
+          <div class="aibox-files" style="flex-direction:row;justify-content:center;margin-bottom:14px"><span style="color:#b91c1c;border-color:#eccfcf">encrypted blob</span><span style="color:#b91c1c;border-color:#eccfcf">vendor API only</span></div>
+          <p>Your data sits encrypted behind their login and their API. Your own AI tools <b>cannot open what they cannot reach</b>. You get only what the vendor chooses to expose, if anything.</p>
+        </div>
+      </div>
+      <div class="aipunch">Local-first keeps your data and your AI tools <span>together on your own machine</span>, where they can actually work.</div>
     </div>
   </section>
 
