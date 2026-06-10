@@ -30,6 +30,14 @@
   .cmp-head .n{font-size:17px;font-weight:800;letter-spacing:-.01em}
   .cmp-head .tag{font-size:11px;font-weight:700;border-radius:980px;padding:2px 9px;background:var(--ok-bg);color:var(--ok)}
   .cmp-head .tag.close{background:color-mix(in srgb,var(--sky) 14%,transparent);color:var(--sky)}
+  /* Final / locked: live app approved, no further changes */
+  .cmp.final{border-color:var(--ok);box-shadow:0 0 0 2px color-mix(in srgb,var(--ok) 32%,transparent),var(--card-shadow)}
+  .cmp-head .tag.final{background:var(--ok);color:#fff;display:inline-flex;align-items:center;gap:5px}
+  .cmp-head .tag.final svg{width:11px;height:11px}
+  .cmp.final .col.live .phone.shot{box-shadow:0 0 0 3px var(--ok),0 24px 50px rgba(16,24,40,.18)}
+  .cmp.final .col.ideal{opacity:.5}
+  .finalstrip{font-size:12.5px;font-weight:600;color:var(--ok);margin:0 0 14px;display:flex;align-items:center;gap:7px;background:var(--ok-bg);border-radius:9px;padding:8px 12px}
+  .finalstrip svg{width:14px;height:14px;flex-shrink:0}
   .cmp-note{font-size:12.5px;color:var(--ink-2);line-height:1.5;margin:0 0 16px;max-width:720px;border-left:2px solid var(--sky);padding-left:11px}
   .pair{display:flex;gap:26px;justify-content:center;flex-wrap:wrap}
   .col{display:flex;flex-direction:column;align-items:center;gap:9px}
@@ -148,7 +156,7 @@ const IDEAL={
 };
 
 const PAIRS=[
- {n:'Notebook',tag:'shipped',note:'The home tab. Blue Take a photo, coral Quick note, amber Upload from camera roll, the trio sprinkled exactly as drawn. Outbox below, all on the near-white grey canvas.',ideal:'notebook',shot:'01_notebook_demo.png'},
+ {n:'Notebook',tag:'shipped',final:true,note:'Live app now exceeds the ideal. The redesigned colorful Inbox (grouped captures, status lines, swipe-to-delete), the green check connection badge, and the 34px large title all go beyond the authored target. Blue Take a photo, coral Quick note, amber Upload from camera roll trio intact on the near-white grey canvas.',ideal:'notebook',shot:'01_notebook_demo.png'},
  {n:'Inventory',tag:'shipped',note:'Tracked items with stock pills and a scan action. Same card-on-grey rhythm as the ideal.',ideal:'inventory',shot:'02_inventory.png'},
  {n:'Calc',tag:'shipped',note:'Header is now the Calc title plus a horizontal chip selector, matching the ideal (the old tap-to-switch dropdown is gone). Coral AC, blue operators and digits, amber equals, dark result strip, function chips all match the target.',ideal:'calc',shot:'03_calc.png'},
  {n:'Timer',tag:'shipped',note:'Quick-start presets in blue, large HH:MM:SS entry, keypad below. The running-timer accent (amber countdown, coral cancel) is the one trio fix this pass added.',ideal:'timer',shot:'04_timer.png'},
@@ -167,10 +175,12 @@ const SOLO=[
 function phoneIdeal(key){return `<div class="phone ideal">${IDEAL[key]}</div>`;}
 function phoneShot(src){return `<div class="phone shot"><img src="emushots/${src}" alt=""></div>`;}
 
+const CHECK_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
 document.getElementById('paired').innerHTML=PAIRS.map(p=>`
- <div class="cmp">
-   <div class="cmp-head"><span class="n">${p.n}</span><span class="tag ${p.tag==='close'?'close':''}">${p.tag}</span></div>
+ <div class="cmp ${p.final?'final':''}">
+   <div class="cmp-head"><span class="n">${p.n}</span>${p.final?`<span class="tag final">${CHECK_SVG}Final &middot; locked</span>`:`<span class="tag ${p.tag==='close'?'close':''}">${p.tag}</span>`}</div>
    <div class="cmp-note">${p.note}</div>
+   ${p.final?`<div class="finalstrip">${CHECK_SVG}Approved as final. The live app matches or beats the ideal here, no further changes.</div>`:''}
    <div class="pair">
      <div class="col"><span class="lbl ideal"><span class="d"></span>Ideal</span>${phoneIdeal(p.ideal)}</div>
      <div class="col"><span class="lbl live"><span class="d"></span>Live app</span>${phoneShot(p.shot)}</div>
