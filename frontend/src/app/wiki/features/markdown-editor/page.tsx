@@ -246,8 +246,8 @@ export default function MarkdownEditorPage() {
         the document&apos;s <code>Images/</code> folder as a row of thumbnails,
         whether or not the body references the image yet. Images already
         referenced look normal. Images that exist on disk but aren&apos;t
-        referenced yet (e.g., a fresh arrival from Telegram) show a small blue
-        dot in the corner so you can spot them. Here&apos;s what you can do from
+        referenced yet (e.g., a fresh arrival from the companion app) show a
+        small blue dot in the corner so you can spot them. Here&apos;s what you can do from
         the tab.
       </p>
       <ul>

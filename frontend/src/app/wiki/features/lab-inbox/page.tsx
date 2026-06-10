@@ -72,7 +72,7 @@ export default function LabInboxFeaturePage() {
       <p>
         See{" "}
         <Link href="/wiki/features/notifications">Notifications and Inbox</Link>{" "}
-        for the bell, the Telegram image inbox, and the calendar reminders
+        for the bell, the companion app image inbox, and the calendar reminders
         that live in the personal queue.
       </p>
 
