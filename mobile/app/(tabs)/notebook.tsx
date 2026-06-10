@@ -17,6 +17,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  LayoutAnimation,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -68,6 +69,8 @@ import { postOcrSidecar } from '@/lib/ocr-sidecar';
 import { sendTextNote } from '@/lib/notes';
 import { NotebookChooser } from '@/components/NotebookChooser';
 import { fireSuccess } from '@/lib/success-burst';
+import { useTodayPrefs } from '@/lib/today-prefs';
+import { hapticImpact, useReduceMotion } from '@/lib/interaction-prefs';
 import {
   DEMO_IMAGE_URI,
   DEMO_SEED_KEY,
@@ -98,6 +101,23 @@ export default function NotebookScreen() {
   const [snapshotLoaded, setSnapshotLoaded] = useState(false);
   const [snapshotLoading, setSnapshotLoading] = useState(false);
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
+
+  // ---- Today visibility (device-local pref) + collapse state ----
+  // showToday gates the whole surface (default on, so existing users keep it).
+  // todayExpanded is the in-session pull-down state, expanded by default, so
+  // the glance is there on open and one tap on the grab handle tucks it away.
+  const [todayPrefs] = useTodayPrefs();
+  const [todayExpanded, setTodayExpanded] = useState(true);
+  const reduceMotion = useReduceMotion();
+  const toggleTodayExpanded = useCallback(() => {
+    hapticImpact();
+    // A light height animation reads as a pull-down/tuck-away. Skipped under
+    // reduce motion so the section just snaps open or closed.
+    if (!reduceMotion) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }
+    setTodayExpanded((prev) => !prev);
+  }, [reduceMotion]);
 
   // ---- Demo mode side-effects (seeding captures + one-time notification) ----
   // These run once when we first land in demo mode. Guards in AsyncStorage
@@ -867,7 +887,9 @@ export default function NotebookScreen() {
           </Pressable>
         </View>
         <ThemedText style={[styles.tagline, { color: surface.muted }]}>
-          Capture the bench into your lab notebook, and see what is on today.
+          {todayPrefs.showToday
+            ? 'Capture the bench into your lab notebook, and see what is on today.'
+            : 'Capture the bench into your lab notebook.'}
         </ThemedText>
 
         {/* Demo mode pill: persistent sky-accent banner so sample data is
@@ -894,6 +916,138 @@ export default function NotebookScreen() {
           labName={pairing?.labName ?? 'Paired with your lab'}
           onUnpair={onUnpair}
         />
+
+        {/* Today pull-down (top of the tab, expanded by default). The grab
+            handle plus chevron tucks the glance away for a lean bench, and the
+            Settings "Show Today" toggle removes it entirely. Only shown when
+            paired, since the today snapshot comes from the laptop. Hidden
+            entirely when the pref is off, so the app is unchanged. */}
+        {pairing && todayPrefs.showToday ? (
+          <View style={styles.todaySection}>
+            <Pressable
+              onPress={toggleTodayExpanded}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: todayExpanded }}
+              accessibilityLabel={
+                todayExpanded ? 'Hide Today' : 'Show Today'
+              }
+              style={({ pressed }) => [
+                styles.todayHandleWrap,
+                { opacity: pressed ? 0.85 : 1 },
+              ]}
+            >
+              {/* Grab handle bar, the pull-down affordance. */}
+              <View style={[styles.todayGrab, { backgroundColor: surface.border }]} />
+              <View style={styles.todayHeaderRow}>
+                <View style={styles.todayHeaderLeft}>
+                  <View style={styles.todayBadge}>
+                    <Ionicons name="today-outline" size={15} color={palette.white} />
+                  </View>
+                  <ThemedText style={[styles.todayTitle, { color: surface.text }]}>
+                    Today
+                  </ThemedText>
+                  {overdue > 0 ? (
+                    <View style={styles.todayOverduePill}>
+                      <ThemedText style={styles.todayOverduePillText}>
+                        {overdue} overdue
+                      </ThemedText>
+                    </View>
+                  ) : null}
+                </View>
+                <Ionicons
+                  name={todayExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={18}
+                  color={surface.muted}
+                />
+              </View>
+            </Pressable>
+
+            {todayExpanded ? (
+              <View style={styles.todayBody}>
+                {snapshotError ? (
+                  <View
+                    style={[
+                      styles.errorBanner,
+                      {
+                        borderColor: palette.dangerBorder,
+                        backgroundColor: palette.dangerLight,
+                        borderRadius: 12,
+                      },
+                    ]}
+                  >
+                    <ThemedText style={[styles.errorText, { color: palette.danger }]}>
+                      {snapshotError}
+                    </ThemedText>
+                  </View>
+                ) : null}
+
+                {snapshotLoading && !snapshotLoaded ? (
+                  <View style={styles.loadingWrap}>
+                    <ActivityIndicator color={palette.sky} />
+                  </View>
+                ) : null}
+
+                {snapshotLoaded && snapshot === null && !snapshotError ? (
+                  <Card>
+                    <ThemedText style={[styles.cardTitle, { color: surface.text }]}>
+                      Not synced yet
+                    </ThemedText>
+                    <ThemedText style={[styles.tagline, { color: surface.muted }]}>
+                      Open ResearchOS on your laptop to sync today.
+                    </ThemedText>
+                  </Card>
+                ) : null}
+
+                {snapshotLoaded && snapshot !== null && !snapshotError ? (
+                  <>
+                    {tasks.length > 0 ? (
+                      tasks.map((task, i) => (
+                        <TaskRow key={task.id ?? `today-${i}`} task={task} />
+                      ))
+                    ) : (
+                      <EmptyState
+                        icon="calendar-outline"
+                        text="Nothing scheduled for today."
+                      />
+                    )}
+
+                    {overdueTasks.length > 0 ? (
+                      <>
+                        <SectionHeader title={`Overdue (${overdue})`} />
+                        {overdueTasks.map((task, i) => (
+                          <TaskRow key={task.id ?? `overdue-${i}`} task={task} overdue />
+                        ))}
+                      </>
+                    ) : overdue > 0 ? (
+                      <ThemedText style={[styles.emptyLine, { color: palette.danger }]}>
+                        {overdue} overdue
+                      </ThemedText>
+                    ) : null}
+
+                    {upcomingTasks.length > 0 ? (
+                      <>
+                        <SectionHeader title={`Coming up (${upcoming})`} />
+                        {upcomingTasks.map((task, i) => (
+                          <TaskRow key={task.id ?? `upcoming-${i}`} task={task} />
+                        ))}
+                      </>
+                    ) : upcoming > 0 ? (
+                      <ThemedText style={[styles.emptyLine, { color: surface.muted }]}>
+                        {upcoming} upcoming
+                      </ThemedText>
+                    ) : null}
+                  </>
+                ) : null}
+
+                {snapshot?.generatedAt ? (
+                  <ThemedText style={[styles.synced, { color: surface.muted }]}>
+                    Last synced {formatSynced(snapshot.generatedAt)}
+                  </ThemedText>
+                ) : null}
+              </View>
+            ) : null}
+          </View>
+        ) : null}
 
         {/* Quick-capture action row (per mockup: side-by-side icon-over-label cards) */}
         {!previewUri ? (
@@ -932,6 +1086,37 @@ export default function NotebookScreen() {
           </View>
         ) : null}
 
+        {/* Scan a handwritten note. Elevated to a flagship card because reading
+            a paper page into searchable text is the headline reason to capture
+            from the phone, not one option buried in a button list. The native
+            scanner cleans the page onto a white background and OCRs it on
+            device. Dev client only, hidden in Expo Go via isScannerAvailable. */}
+        {!previewUri && !quickNoteOpen && isScannerAvailable() ? (
+          <Pressable
+            onPress={onScanNote}
+            accessibilityRole="button"
+            accessibilityLabel="Scan a handwritten note"
+            style={({ pressed }) => [
+              styles.scanCard,
+              { borderRadius: radii.lg, opacity: pressed ? 0.92 : 1 },
+            ]}
+          >
+            <View style={styles.scanIconTile}>
+              <Ionicons name="scan-outline" size={24} color={palette.white} />
+            </View>
+            <View style={styles.scanCardText}>
+              <ThemedText style={styles.scanCardTitle}>
+                Scan a handwritten note
+              </ThemedText>
+              <ThemedText style={styles.scanCardSub}>
+                Turn a paper page into searchable text. Cleaned and read on your
+                device.
+              </ThemedText>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={palette.skyBorder} />
+          </Pressable>
+        ) : null}
+
         {/* Camera roll upload (below action row, no preview yet) */}
         {!previewUri && !quickNoteOpen ? (
           <Button
@@ -939,17 +1124,6 @@ export default function NotebookScreen() {
             accent="amber"
             label="Upload from camera roll"
             onPress={onUploadFromLibrary}
-          />
-        ) : null}
-
-        {/* Scan a handwritten note (dev client only, hidden in Expo Go). The
-            native scanner cleans the page onto a white background and OCRs it. */}
-        {!previewUri && !quickNoteOpen && isScannerAvailable() ? (
-          <Button
-            variant="secondary"
-            accent="sky"
-            label="Scan a handwritten note"
-            onPress={onScanNote}
           />
         ) : null}
 
@@ -1136,92 +1310,6 @@ export default function NotebookScreen() {
           </View>
         ) : null}
 
-        {/* Today glance (only shown when paired) */}
-        {pairing ? (
-          <>
-            {snapshotError ? (
-              <View
-                style={[
-                  styles.errorBanner,
-                  {
-                    borderColor: palette.dangerBorder,
-                    backgroundColor: palette.dangerLight,
-                    borderRadius: 12,
-                  },
-                ]}
-              >
-                <ThemedText style={[styles.errorText, { color: palette.danger }]}>
-                  {snapshotError}
-                </ThemedText>
-              </View>
-            ) : null}
-
-            {snapshotLoading && !snapshotLoaded ? (
-              <View style={styles.loadingWrap}>
-                <ActivityIndicator color={palette.sky} />
-              </View>
-            ) : null}
-
-            {snapshotLoaded && snapshot === null && !snapshotError ? (
-              <Card>
-                <ThemedText style={[styles.cardTitle, { color: surface.text }]}>
-                  Not synced yet
-                </ThemedText>
-                <ThemedText style={[styles.tagline, { color: surface.muted }]}>
-                  Open ResearchOS on your laptop to sync today.
-                </ThemedText>
-              </Card>
-            ) : null}
-
-            {snapshotLoaded && snapshot !== null && !snapshotError ? (
-              <>
-                <SectionHeader title="Today" />
-                {tasks.length > 0 ? (
-                  tasks.map((task, i) => (
-                    <TaskRow key={task.id ?? `today-${i}`} task={task} />
-                  ))
-                ) : (
-                  <EmptyState
-                    icon="calendar-outline"
-                    text="Nothing scheduled for today."
-                  />
-                )}
-
-                {overdueTasks.length > 0 ? (
-                  <>
-                    <SectionHeader title={`Overdue (${overdue})`} />
-                    {overdueTasks.map((task, i) => (
-                      <TaskRow key={task.id ?? `overdue-${i}`} task={task} overdue />
-                    ))}
-                  </>
-                ) : overdue > 0 ? (
-                  <ThemedText style={[styles.emptyLine, { color: palette.danger }]}>
-                    {overdue} overdue
-                  </ThemedText>
-                ) : null}
-
-                {upcomingTasks.length > 0 ? (
-                  <>
-                    <SectionHeader title={`Coming up (${upcoming})`} />
-                    {upcomingTasks.map((task, i) => (
-                      <TaskRow key={task.id ?? `upcoming-${i}`} task={task} />
-                    ))}
-                  </>
-                ) : upcoming > 0 ? (
-                  <ThemedText style={[styles.emptyLine, { color: surface.muted }]}>
-                    {upcoming} upcoming
-                  </ThemedText>
-                ) : null}
-              </>
-            ) : null}
-
-            {snapshot?.generatedAt ? (
-              <ThemedText style={[styles.synced, { color: surface.muted }]}>
-                Last synced {formatSynced(snapshot.generatedAt)}
-              </ThemedText>
-            ) : null}
-          </>
-        ) : null}
       </ScrollView>
 
       {/* NotebookChooser sheet (photo path) */}
@@ -1602,6 +1690,83 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   swipeDeleteLabel: { color: palette.white, fontSize: 12, fontWeight: '700' },
+
+  // Today pull-down
+  todaySection: { gap: 10 },
+  todayHandleWrap: {
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    paddingTop: 8,
+    paddingBottom: 10,
+    paddingHorizontal: 14,
+    gap: 8,
+    shadowColor: '#101828',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  todayGrab: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 999,
+  },
+  todayHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  todayHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  todayBadge: {
+    width: 27,
+    height: 27,
+    borderRadius: 8,
+    backgroundColor: palette.sky,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  todayTitle: { fontSize: 19, fontWeight: '800', letterSpacing: -0.2 },
+  todayOverduePill: {
+    backgroundColor: palette.dangerLight,
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+  },
+  todayOverduePillText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: palette.danger,
+  },
+  todayBody: { gap: 14 },
+
+  // Scan flagship card
+  scanCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    backgroundColor: palette.skyDim,
+    borderWidth: 1,
+    borderColor: palette.skyBorder,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+  },
+  scanIconTile: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: palette.sky,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: palette.sky,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  scanCardText: { flex: 1, gap: 3 },
+  scanCardTitle: { fontSize: 15.5, fontWeight: '800', color: palette.sky, letterSpacing: -0.2 },
+  scanCardSub: { fontSize: 12.5, lineHeight: 17, color: palette.sky, opacity: 0.85 },
 
   // Today glance
   emptyLine: { lineHeight: 20 },

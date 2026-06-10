@@ -16,6 +16,7 @@ import { ThemedText } from '@/components/themed-text';
 import { useTheme, palette, spacing } from '@/lib/design';
 import { useMascotPrefs } from '@/lib/mascot-prefs';
 import { useInteractionPrefs } from '@/lib/interaction-prefs';
+import { useTodayPrefs } from '@/lib/today-prefs';
 import { usePairing, clearPairing } from '@/lib/pairing';
 import { getDevicePubHex } from '@/lib/device-identity';
 
@@ -33,6 +34,7 @@ export default function SettingsScreen() {
   const { surface } = useTheme();
   const [mascot, setMascot] = useMascotPrefs();
   const [interaction, setInteraction] = useInteractionPrefs();
+  const [today, setToday] = useTodayPrefs();
   const { pairing, refresh } = usePairing();
 
   const [deviceId, setDeviceId] = useState<string | null>(null);
@@ -89,6 +91,22 @@ export default function SettingsScreen() {
               onValueChange={(on) => setMascot({ visible: on })}
               trackColor={{ true: palette.sky, false: surface.border }}
               accessibilityLabel="Show floating mascot"
+            />
+          </View>
+          <View style={[styles.row, styles.rowDivider]}>
+            <View style={styles.rowText}>
+              <ThemedText style={[styles.rowTitle, { color: surface.text }]}>
+                Show Today
+              </ThemedText>
+              <ThemedText style={[styles.rowSub, { color: surface.muted }]}>
+                A glance at today and overdue tasks at the top of the Notebook tab, synced from your laptop. Turn off to keep the bench lean.
+              </ThemedText>
+            </View>
+            <Switch
+              value={today.showToday}
+              onValueChange={(on) => setToday({ showToday: on })}
+              trackColor={{ true: palette.sky, false: surface.border }}
+              accessibilityLabel="Show Today"
             />
           </View>
         </Card>
