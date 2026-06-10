@@ -41,12 +41,14 @@ import {
   readUserSettings,
   SIDEBAR_HORIZON_CHOICES,
   DEFAULT_PURCHASE_ROUTING,
+  DEFAULT_LAB_MEMBERSHIP_AGREEMENT,
   type UserSettings,
   type CalendarViewMode,
   type DateFormat,
   type TimeFormat,
   type PurchaseRoutingConfig,
   type PurchaseRoutingContact,
+  type LabMembershipAgreement,
 } from "@/lib/settings/user-settings";
 import { setSpellCheckEnabledLocal } from "@/lib/spellcheck/spellchecker";
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
@@ -1421,6 +1423,102 @@ function PurchaseRoutingSection({ settings, update }: SectionProps) {
 }
 
 /**
+ * Lab membership agreement, PI side (LAB_ARCHIVE_CONTINUITY.md). The lab head
+ * drafts the data-ownership acknowledgment a member accepts at join, and bumps
+ * its version when the text changes materially (so an acceptance records which
+ * version was agreed to). This is the PI-side spine only; the member-side
+ * recorded acceptance + the join gating are a later slice, so the card is honest
+ * that nothing is enforced at join yet. Lab-head only. Framing is
+ * institutional-data / PI-as-custodian and explicitly NOT legal advice.
+ */
+function LabAgreementSection({ settings, update }: SectionProps) {
+  const [draft, setDraft] = useState<LabMembershipAgreement>(
+    () => settings.labMembershipAgreement ?? DEFAULT_LAB_MEMBERSHIP_AGREEMENT,
+  );
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    // Bump the version when the text changed materially, so a later acceptance
+    // can record exactly which wording the member agreed to.
+    const prev = settings.labMembershipAgreement ?? DEFAULT_LAB_MEMBERSHIP_AGREEMENT;
+    const textChanged = draft.text.trim() !== prev.text.trim();
+    const next: LabMembershipAgreement = {
+      enabled: draft.enabled,
+      text: draft.text,
+      version: textChanged ? prev.version + 1 : prev.version,
+    };
+    await update({ labMembershipAgreement: next });
+    setDraft(next);
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const input =
+    "w-full rounded-lg border border-border bg-surface px-3 py-2 text-body";
+
+  return (
+    <SectionShell
+      title="Membership agreement"
+      description="Optional. The data-ownership acknowledgment new members accept when they join your lab. Editing the text bumps its version. Recording acceptances at join is coming next, this is where you draft and version the text."
+      searchKeywords="membership agreement consent join data ownership institutional retention NIH IP policy custodian"
+    >
+      <label className="flex items-center gap-2 text-body text-foreground">
+        <input
+          type="checkbox"
+          checked={draft.enabled}
+          onChange={(e) =>
+            setDraft((d) => ({ ...d, enabled: e.target.checked }))
+          }
+        />
+        Present this agreement to new members
+      </label>
+
+      <div className={draft.enabled ? "mt-3" : "mt-3 pointer-events-none opacity-50"}>
+        <div className="mb-1 flex items-center justify-between">
+          <label className="text-meta font-semibold text-foreground-muted">
+            Agreement text
+          </label>
+          <span className="text-meta text-foreground-muted">
+            Version {draft.version}
+          </span>
+        </div>
+        <textarea
+          rows={10}
+          className={input}
+          value={draft.text}
+          onChange={(e) => setDraft((d) => ({ ...d, text: e.target.value }))}
+        />
+        <p className="mt-1 text-meta text-foreground-muted leading-relaxed">
+          Frame data as institutional research data with the lab head as
+          custodian, not as the PI&apos;s personal property. This is a lab
+          agreement, not legal advice, so check it against your institution&apos;s
+          own data and IP policy. Nothing is enforced at join yet.
+        </p>
+      </div>
+
+      <div className="mt-4 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving}
+          className="rounded-lg bg-blue-600 px-3 py-1.5 text-body font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          {saving ? "Saving..." : "Save agreement"}
+        </button>
+        {saved && (
+          <span className="text-meta text-emerald-600 dark:text-emerald-400">
+            Saved
+          </span>
+        )}
+      </div>
+    </SectionShell>
+  );
+}
+
+/**
  * Retention registry (LAB_ARCHIVE_CONTINUITY.md phase 1a). The PI's compliance
  * dashboard: one row per retained unit recording where a member's data lives
  * (R2 / hard drive / institutional drive), for how long, and when it becomes
@@ -1647,6 +1745,9 @@ function LabModeTabContent({
         <HubGroupHeading>People</HubGroupHeading>
         <LabRosterSection />
         {LAB_TIER_ENABLED && isLabHead && <LabMembershipSection />}
+        {isLabHead && (
+          <LabAgreementSection settings={settings} update={update} />
+        )}
       </div>
 
       {/* Oversight: the durable record. Lab-head only, so the whole group

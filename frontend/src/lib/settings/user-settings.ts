@@ -205,6 +205,37 @@ export const DEFAULT_PURCHASE_ROUTING: PurchaseRoutingConfig = {
     "Please let me know if you need anything else.\n\nThank you,\n{me}",
 };
 
+// Lab membership agreement (LAB_ARCHIVE_CONTINUITY.md). PI-owned, opt-in. The
+// data-ownership acknowledgment a member accepts at join. PI-side spine here
+// (the template + version the PI edits); the member-side recorded acceptance +
+// join gating is a separate slice. `version` bumps when the text changes
+// materially, so an acceptance can record which version was agreed to. Framing
+// is institutional-data / PI-as-custodian, NOT "the PI personally owns it", and
+// it is NOT legal advice (the PI checks it against the institution's policy).
+export interface LabMembershipAgreement {
+  /** Whether the agreement is presented at join (gating wired in a later slice). */
+  enabled: boolean;
+  /** Bumps on material text change; acceptances record the accepted version. */
+  version: number;
+  /** The agreement body. */
+  text: string;
+}
+
+export const DEFAULT_LAB_MEMBERSHIP_AGREEMENT: LabMembershipAgreement = {
+  enabled: false,
+  version: 1,
+  text:
+    "Research data created in this lab is institutional research data. The lab " +
+    "head is its custodian and is responsible for retaining it to meet funder " +
+    "and institution requirements (for example NIH data retention and your " +
+    "university's policy).\n\n" +
+    "By joining this lab you acknowledge that your finished lab work may be " +
+    "archived and retained by the lab head for those compliance purposes, and " +
+    "that the lab head can view and edit lab records as part of running the lab.\n\n" +
+    "This is a lab agreement, not legal advice. Please read it against your " +
+    "institution's own data and intellectual-property policy.",
+};
+
 export interface UserSettings {
   schemaVersion: 1;
 
@@ -300,6 +331,10 @@ export interface UserSettings {
   /** Purchase department-routing config (lab-head only, opt-in). Defaults to a
    *  disabled empty config; normalize() repairs a hand-edited bad shape. */
   purchaseRouting: PurchaseRoutingConfig;
+
+  /** Lab membership agreement config (lab-head only, opt-in). PI-side template +
+   *  version; normalize() repairs a hand-edited bad shape. */
+  labMembershipAgreement: LabMembershipAgreement;
 
   // When on, the app makes zero calls to its own server proxy
   // (`/api/calendar-feed`).
@@ -442,6 +477,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   offlineMode: false,
   account_type: "member",
   purchaseRouting: DEFAULT_PURCHASE_ROUTING,
+  labMembershipAgreement: DEFAULT_LAB_MEMBERSHIP_AGREEMENT,
 };
 
 /** Horizon choices surfaced in the Settings → Sidebar selector. */
@@ -530,6 +566,25 @@ function normalize(raw: Partial<UserSettings> | null | undefined): UserSettings 
               : DEFAULT_PURCHASE_ROUTING.bodyTemplate,
         }
       : { ...DEFAULT_PURCHASE_ROUTING };
+
+  // Lab membership agreement: same defensive repair as the routing config.
+  const ag = merged.labMembershipAgreement as
+    | Partial<LabMembershipAgreement>
+    | undefined;
+  merged.labMembershipAgreement =
+    ag && typeof ag === "object"
+      ? {
+          enabled: ag.enabled === true,
+          version:
+            Number.isFinite(ag.version) && (ag.version as number) >= 1
+              ? Math.floor(ag.version as number)
+              : DEFAULT_LAB_MEMBERSHIP_AGREEMENT.version,
+          text:
+            typeof ag.text === "string" && ag.text.trim()
+              ? ag.text
+              : DEFAULT_LAB_MEMBERSHIP_AGREEMENT.text,
+        }
+      : { ...DEFAULT_LAB_MEMBERSHIP_AGREEMENT };
 
   // Editor width preset (Phase 1): drop a hand-edited garbage value so the
   // field reads as "unset" (= the default measure) rather than a class the
