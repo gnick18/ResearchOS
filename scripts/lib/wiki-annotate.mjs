@@ -73,15 +73,22 @@ function drawCursor(ctx, x, y, s, fill, stroke) {
 
 /**
  * Draw the annotation onto an existing canvas context.
- * @param {object} opts - { cursor?: boolean } cursor defaults to true.
+ * @param {object} opts
+ *   ring   - draw the outline around the target (default true)
+ *   pulses - number of concentric click-pulse rings (default 0)
+ *   cursor - draw the pointer (default true)
+ *   ringWidth - stroke multiplier for the ring (default 2.4)
  * @returns {{ color: string, lum: number }}
  */
 export function drawAnnotation(ctx, box, W, H, opts = {}) {
+  const ring = opts.ring !== false;
   const cursor = opts.cursor !== false;
+  const pulses = opts.pulses ?? 0;
+  const ringMul = opts.ringWidth ?? 2.4;
   const lum = sampleBackground(ctx, box, W, H);
   const light = lum > 0.5;
   const color = light ? "#E11D6B" : "#FFC400"; // rose on light, amber on dark
-  const casing = light ? "rgba(255,255,255,0.95)" : "rgba(0,0,0,0.55)";
+  const casing = light ? "rgba(255,255,255,0.92)" : "rgba(0,0,0,0.5)";
   const cw = Math.max(1, W / 480);
 
   const padR = Math.round(Math.min(W, H) * 0.012);
@@ -90,33 +97,32 @@ export function drawAnnotation(ctx, box, W, H, opts = {}) {
   const radius = Math.max(6, Math.round(Math.min(rh, rw) * 0.42));
   const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
 
-  // casing under the ring
-  roundRect(ctx, rx, ry, rw, rh, radius);
-  ctx.lineWidth = cw * 5;
-  ctx.strokeStyle = casing;
-  ctx.stroke();
-  // main ring with glow
-  roundRect(ctx, rx, ry, rw, rh, radius);
-  ctx.lineWidth = cw * 3;
-  ctx.strokeStyle = color;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = cw * 8;
-  ctx.stroke();
-  ctx.shadowBlur = 0;
+  if (ring) {
+    // thin casing under the ring for contrast on any background
+    roundRect(ctx, rx, ry, rw, rh, radius);
+    ctx.lineWidth = cw * (ringMul + 1.6);
+    ctx.strokeStyle = casing;
+    ctx.stroke();
+    // main ring, soft glow only (no heavy stack)
+    roundRect(ctx, rx, ry, rw, rh, radius);
+    ctx.lineWidth = cw * ringMul;
+    ctx.strokeStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = cw * 5;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
 
-  // click-pulse, concentric rings centered on the target
-  const base = Math.round(rh * 0.55);
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < pulses; i++) {
     ctx.beginPath();
-    ctx.arc(cx, cy, base + i * base * 0.7, 0, Math.PI * 2);
+    ctx.arc(cx, cy, Math.round(rh * 0.55) * (1 + i * 0.7), 0, Math.PI * 2);
     ctx.lineWidth = cw * (2.2 - i * 0.5);
     ctx.strokeStyle = color;
-    ctx.globalAlpha = 0.55 - i * 0.16;
+    ctx.globalAlpha = 0.5 - i * 0.16;
     ctx.stroke();
   }
   ctx.globalAlpha = 1;
 
-  // pointer landing just inside the target, body below-right of the label
   if (cursor) {
     const cs = Math.max(1.5, W / 320);
     drawCursor(ctx, cx + rw * 0.18, cy + rh * 0.18, cs, "#ffffff", "#0f172a");

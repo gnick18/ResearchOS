@@ -3475,12 +3475,22 @@ async function applyClean(page, opts = {}) {
       const vw = window.innerWidth, vh = window.innerHeight;
       for (const el of document.querySelectorAll("body *")) {
         const cs = getComputedStyle(el);
+        // Decorative overlays and easter-egg scenes (full-screen celebration
+        // layers AND small corner BeakerBot avatars) are all fixed and
+        // pointer-events:none. Real content is interactive, so hiding fixed
+        // pointer-events-none overlays of any meaningful size is safe for docs.
         if (cs.position === "fixed" && cs.pointerEvents === "none") {
           const r = el.getBoundingClientRect();
-          if (r.width >= vw * 0.85 && r.height >= vh * 0.85) {
-            el.style.display = "none";
-          }
+          const fullScreen = r.width >= vw * 0.85 && r.height >= vh * 0.85;
+          const cornerDecor = r.width >= 20 && r.width <= vw * 0.5 && r.height >= 20 && r.height <= vh * 0.5;
+          if (fullScreen || cornerDecor) el.style.display = "none";
         }
+      }
+      // The Next.js dev indicator (the "N" badge bottom-left) lives in a
+      // <nextjs-portal> web component and only exists in dev. Hide it so it
+      // never lands in a docs shot.
+      for (const el of document.querySelectorAll("nextjs-portal")) {
+        el.style.display = "none";
       }
       for (const el of document.querySelectorAll("button, a")) {
         if (/^Dev:/i.test((el.textContent || "").trim())) {
@@ -3563,7 +3573,14 @@ async function measureTarget(page, highlight) {
           cands.find((e) => (e.textContent || "").trim().toLowerCase().includes(needle));
       }
       if (!el) return null;
-      el.scrollIntoView({ block: "center", behavior: "instant" });
+      // Only scroll if the target is not already fully in view. An unnecessary
+      // scrollIntoView on an in-view element can drag below-the-fold footer
+      // content up into the captured frame.
+      const r0 = el.getBoundingClientRect();
+      const vh = window.innerHeight;
+      if (r0.top < 0 || r0.bottom > vh) {
+        el.scrollIntoView({ block: "center", behavior: "instant" });
+      }
       const r = el.getBoundingClientRect();
       return { x: r.x, y: r.y, width: r.width, height: r.height };
     }, highlight);
