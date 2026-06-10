@@ -1002,6 +1002,7 @@ export default function NotebookScreen() {
             />
             <Button
               variant="secondary"
+              accent="coral"
               label="Discard"
               onPress={() => {
                 setQuickNoteOpen(false);
@@ -1046,8 +1047,9 @@ export default function NotebookScreen() {
             />
             <Button
               variant="secondary"
+              accent="amber"
               label={previewDoc ? 'Edit annotations' : 'Annotate'}
-              icon={<Ionicons name="brush-outline" size={18} color={palette.sky} />}
+              icon={<Ionicons name="brush-outline" size={18} color={palette.amber} />}
               onPress={onAnnotate}
               disabled={saving}
             />
@@ -1060,6 +1062,7 @@ export default function NotebookScreen() {
             />
             <Button
               variant="secondary"
+              accent="coral"
               label="Discard"
               onPress={onDiscard}
               disabled={saving}
