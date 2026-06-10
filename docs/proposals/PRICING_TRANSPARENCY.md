@@ -83,6 +83,40 @@ precise multiplier.
 - Not a hard per-lab-cost number we cannot stand behind. Use ranges, and let the
   re-runnable capacity model (scripts/capacity-model.mjs) back the claims.
 
+## The honest-default message (Grant, 2026-06-09): buy what you use, support via GitHub
+
+Tell buyers the cheapest path, plainly. It builds trust and it is true. Add this
+to the pricing page, the GitHub Sponsors page, and the marketing copy.
+
+Draft copy:
+- "Only pay for the storage you actually use. We meter cloud storage at our cost,
+  with no markup, so you never pay for space you do not need. Most labs need very
+  little, your notebook lives on your machine, so for most labs the free tier is
+  the right answer."
+- "If you want to support the project beyond your own costs, the best way is
+  GitHub Sponsors, a direct donation to the open-source work, not a marked-up
+  bill."
+
+This positions ResearchOS as the rare tool that tells you to pay less, a sharp
+contrast to per-seat ELNs built to maximize what you pay.
+
+STRATEGIC FORK this raises (needs Grant to lock before branding finalizes the
+ladder). The word "instead support via GitHub" points buyers AWAY from the
+marked-up storage sponsorship tiers (Supporter/Lab/Research/Department in
+SPONSORSHIP_TIERS.md). Two coherent models, and the pricing page cannot honestly
+show both messages at full volume:
+- MODEL A (purist, what this message implies). Storage is strict cost-recovery,
+  buy only what you use, no markup. Support is voluntary GitHub donations.
+  Maximally honest, sustainability rides on donations. The institutional ask
+  becomes a donation, not a storage sale.
+- MODEL B (sponsorship tiers). Keep the marked-up storage tiers whose surplus
+  funds free labs, framed as support-with-a-thank-you. More predictable revenue,
+  but "just buy what you use" undercuts the pitch for the marked-up tiers.
+- HYBRID. Offer cost-recovery metered storage as the honest default AND keep the
+  sponsorship tiers for labs that WANT to give more for a bigger pool, with this
+  honest message shown plainly. The two-lane model already drafted, just with the
+  cost-recovery lane elevated as the recommended path.
+
 ## Where it lands (at billing launch, not before)
 
 The public site currently and honestly says there is no paid tier, and billing
