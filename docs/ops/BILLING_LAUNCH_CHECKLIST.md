@@ -46,6 +46,16 @@ until it is on. The global cost breaker + per-doc caps are ALWAYS active
    - CPA sales-tax category check resolved (still open per the LLC notes).
    - Mercury payout account confirmed receiving (test a real low-value charge).
 
+3b. RECONCILE PUBLIC COPY (the site currently says there is no paid tier). At
+   launch, several pages assert "no paid tier" which becomes false:
+   - /wiki/trust/how-we-fund-it, replace the "No paid tier" bullet with the
+     feature-paywall framing (every feature free, only optional cloud storage is
+     paid) and add the "why it costs so little" section.
+   - Land the pricing-transparency content (docs/proposals/PRICING_TRANSPARENCY.md)
+     so the suspiciously-low price comes with its honest economic reason.
+   - The /thanks GitHub-Sponsors tiers were already renamed off the billing names
+     (Backer/Patron/Benefactor); mirror those names in the GitHub dashboard.
+
 4. SEED GIFT POOLS (optional, recommended before launch). Issue beta testers a
    gift pool on /admin/business so they are not capped the moment enforcement
    turns on. Grants can be seeded NOW (dormant) and take effect at the flip. A
