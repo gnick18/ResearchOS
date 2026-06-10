@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>BeakerBot sponsor badges mockup — ResearchOS 2026-06-10</title>
+<style>
+  :root {
+    --sky:#1AA0E6; --sky-dim:rgba(26,160,230,.12); --sky-ring:rgba(26,160,230,.30);
+    --ink:#0f172a; --muted:#5b6b7f; --surface:#ffffff; --bg:#f3f8fd;
+    --border:#dde8f2; --raised:#ffffff;
+    --gold:#D4A52A; --gold-dim:rgba(212,165,42,.14);
+    --shadow-sm:0 1px 3px rgba(15,23,42,.06),0 4px 12px rgba(15,23,42,.06);
+    --shadow-md:0 2px 4px rgba(15,23,42,.05),0 10px 28px rgba(15,23,42,.09);
+    --shadow-lg:0 4px 8px rgba(15,23,42,.06),0 16px 48px rgba(26,160,230,.14);
+    --grad-bg:linear-gradient(160deg,#edf6fd 0%,#f8fbff 60%,#edf6fd 100%);
+  }
+  html.dark {
+    --ink:#dce8f4; --muted:#7ea5c0; --surface:#0c1622; --bg:#08111d;
+    --border:#162030; --raised:#0f1c2d;
+    --grad-bg:linear-gradient(160deg,#0b1826 0%,#0d1a2f 60%,#0b1826 100%);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--grad-bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.55}
+  /* layout */
+  .bar{display:flex;align-items:center;gap:14px;padding:14px 24px;
+    border-bottom:1px solid var(--border);background:var(--raised)}
+  .bar h1{margin:0;font-size:14px;font-weight:700}
+  .bar .sub{font-size:12px;color:var(--muted)}
+  .bar-right{margin-left:auto}
+  .toggle{font:inherit;font-size:12px;font-weight:600;cursor:pointer;
+    border:1px solid var(--border);background:var(--raised);color:var(--ink);
+    border-radius:999px;padding:5px 14px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px 80px}
+  .section{padding:44px 0 0}
+  .eyebrow{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--sky);margin:0 0 5px}
+  .h2{font-size:24px;font-weight:700;margin:0 0 6px;letter-spacing:-.01em}
+  .lead{font-size:15px;color:var(--muted);max-width:680px;margin:0 0 28px;line-height:1.6}
+  /* tier row */
+  .tier-row{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-bottom:44px}
+  /* badge card */
+  .badge-card{background:var(--raised);border:1px solid var(--border);border-radius:20px;
+    padding:28px 22px 22px;box-shadow:var(--shadow-md);display:flex;flex-direction:column;align-items:center}
+  .badge-card.gold-ring{border-color:var(--gold);
+    box-shadow:0 0 0 2px rgba(212,165,42,.22),var(--shadow-lg)}
+  .tier-name{font-size:18px;font-weight:800;margin:12px 0 2px;text-align:center}
+  .tier-price{font-size:13px;color:var(--muted);margin:0 0 12px;text-align:center}
+  .tier-perk{font-size:13.5px;color:var(--ink);text-align:center;max-width:220px;line-height:1.55;margin:0 0 18px}
+  /* size demos */
+  .size-row{display:flex;align-items:flex-end;gap:24px;margin-top:2px;justify-content:center}
+  .size-demo{display:flex;flex-direction:column;align-items:center;gap:5px}
+  .size-label{font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+  /* usage contexts */
+  .contexts-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-bottom:44px}
+  .context-panel{background:var(--raised);border:1px solid var(--border);border-radius:18px;
+    padding:26px;box-shadow:var(--shadow-sm)}
+  .context-panel h3{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--sky);margin:0 0 18px}
+  /* sponsor wall sim */
+  .wall-sim{background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:24px}
+  .wall-sim .wall-title{font-size:15px;font-weight:700;margin:0 0 16px}
+  .wall-tiers{display:flex;flex-direction:column;gap:22px}
+  .wall-tier-group .wt-label{font-size:11px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+  .wall-avatars{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+  .wall-avatar{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .wall-avatar .wa-name{font-size:11px;color:var(--muted);font-weight:600}
+  /* github tier sim */
+  .gh-sim{background:#0d1117;border:1px solid #30363d;border-radius:12px;overflow:hidden}
+  .gh-sim .gh-bar{background:#161b22;border-bottom:1px solid #30363d;
+    padding:10px 14px;font-size:12px;color:#8b949e;display:flex;align-items:center;gap:6px}
+  .gh-sim .gh-bar svg{flex:0 0 auto}
+  .gh-tiers{padding:14px}
+  .gh-tier-item{display:flex;align-items:center;gap:14px;
+    padding:12px 14px;border-radius:10px;border:1px solid #30363d;
+    background:#161b22;margin-bottom:10px;cursor:pointer;transition:border-color .15s}
+  .gh-tier-item:last-child{margin-bottom:0}
+  .gh-tier-item:hover{border-color:#58a6ff}
+  .gh-tier-info{flex:1}
+  .gh-tier-info .gt-name{color:#e6edf3;font-size:14px;font-weight:600;margin-bottom:2px}
+  .gh-tier-info .gt-price{color:#8b949e;font-size:12px}
+  .gh-tier-info .gt-perk{color:#8b949e;font-size:12px;margin-top:3px}
+  .gh-btn{font-size:12px;font-weight:600;padding:5px 12px;border-radius:6px;
+    background:#238636;color:#fff;border:none;cursor:pointer;white-space:nowrap}
+  /* annotation */
+  .note-box{background:var(--sky-dim);border:1px solid var(--sky-ring);border-radius:10px;
+    padding:12px 16px;font-size:13px;color:var(--ink);margin-top:12px;line-height:1.6}
+  .note-box b{color:var(--sky)}
+  /* divider */
+  .divider{border:none;border-top:1px solid var(--border);margin:44px 0 0}
+  /* open question banner */
+  .q-banner{background:var(--raised);border:1px solid var(--border);border-radius:14px;
+    padding:18px 22px;margin-top:36px;box-shadow:var(--shadow-sm)}
+  .q-banner .q-label{font-size:11px;font-weight:800;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--gold);margin:0 0 8px}
+  .q-banner ul{margin:0;padding-left:18px;font-size:14px;color:var(--ink);line-height:1.8}
+  @media(max-width:800px){.tier-row,.contexts-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- ===== SHARED DEFS (gradients, clip paths) ===== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="liq-main" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFD2B0"/>
+      <stop offset="25%" stop-color="#FFF1A8"/>
+      <stop offset="50%" stop-color="#B7EBB1"/>
+      <stop offset="75%" stop-color="#A6D2F4"/>
+      <stop offset="100%" stop-color="#D6B5F0"/>
+    </linearGradient>
+    <!-- bench: standard liquid -->
+    <linearGradient id="liq-bench" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFD2B0"/>
+      <stop offset="25%" stop-color="#FFF1A8"/>
+      <stop offset="50%" stop-color="#B7EBB1"/>
+      <stop offset="75%" stop-color="#A6D2F4"/>
+      <stop offset="100%" stop-color="#D6B5F0"/>
+    </linearGradient>
+    <!-- lab: slightly richer liquid, same hues -->
+    <linearGradient id="liq-lab" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFB580"/>
+      <stop offset="25%" stop-color="#FFE84A"/>
+      <stop offset="50%" stop-color="#7FDF76"/>
+      <stop offset="75%" stop-color="#5DC6F8"/>
+      <stop offset="100%" stop-color="#B87FEC"/>
+    </linearGradient>
+    <!-- institute: gold-accented liquid -->
+    <linearGradient id="liq-inst" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFD055"/>
+      <stop offset="35%" stop-color="#FFF1A8"/>
+      <stop offset="65%" stop-color="#A6D2F4"/>
+      <stop offset="100%" stop-color="#D6B5F0"/>
+    </linearGradient>
+    <!-- gold shimmer for institute crown -->
+    <linearGradient id="gold-crown" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F5D060"/>
+      <stop offset="55%" stop-color="#D4A52A"/>
+      <stop offset="100%" stop-color="#A67C18"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<!-- ===== NAV BAR ===== -->
+<div class="bar">
+  <svg width="20" height="26" viewBox="-10 -13 20 26" fill="none" stroke="#1AA0E6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6"/>
+    <path d="M -9 -6 L 9 -6"/>
+    <path d="M 2 -10 C 2 -12, 4 -14, 6 -12"/>
+    <circle cx="-3" cy="0" r="1.2" fill="#1AA0E6" stroke="none"/>
+    <circle cx="3" cy="0" r="1.2" fill="#1AA0E6" stroke="none"/>
+    <path d="M -2 4 Q 0 6, 2 4"/>
+  </svg>
+  <h1>GitHub Sponsors badge concepts</h1>
+  <span class="sub">ResearchOS &mdash; 2026-06-10 &mdash; mockup for Grant review</span>
+  <div class="bar-right">
+    <button class="toggle" onclick="document.documentElement.classList.toggle('dark')">Toggle dark</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- INTRO -->
+  <div class="section">
+    <p class="eyebrow">BeakerBot sponsor badges</p>
+    <h2 class="h2">Three tiers, one escalating BeakerBot</h2>
+    <p class="lead">
+      Sponsor tiers are named Bench, Lab, and Institute. They carry a distinct BeakerBot variant per tier so the badge reads at a glance. The escalation is visual posture and celebration level: Bench is calm and plain, Lab is cheerful with raised brows and a sparkle, Institute is fully celebrating with confetti and a crown.
+    </p>
+  </div>
+
+  <!-- ===== BADGE CARDS (large tier view) ===== -->
+  <div class="tier-row">
+
+    <!-- BENCH -->
+    <div class="badge-card">
+      <svg width="120" height="130" viewBox="-24 -26 48 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- shadow -->
+        <ellipse cx="0" cy="17" rx="11" ry="2.2" fill="#1AA0E6" opacity=".10"/>
+        <!-- body background -->
+        <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6 Z" fill="white"/>
+        <!-- liquid -->
+        <path d="M -8 1 Q -6 -0.2 -4 1 T 0 1 T 4 1 T 8 1 L 8 6 C 8 12, 4 14, 0 14 C -4 14, -8 12, -8 6 L -8 1 Z" fill="url(#liq-bench)"/>
+        <!-- antenna -->
+        <path d="M 2 -10 C 2 -12, 4 -14, 6 -12" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+        <!-- outline + shoulder -->
+        <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M -9 -6 L 9 -6" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+        <!-- eyes (calm, standard) -->
+        <circle cx="-3" cy="0" r="1.2" fill="#1AA0E6"/>
+        <circle cx="3" cy="0" r="1.2" fill="#1AA0E6"/>
+        <!-- simple small smile -->
+        <path d="M -2 4 Q 0 5.5, 2 4" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+        <!-- vents -->
+        <path d="M -6 8 L -4.5 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M 4.5 8 L 6 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+        <!-- tier badge ring: simple sky ring below -->
+        <circle cx="0" cy="20" r="6" fill="#1AA0E6" opacity=".08" stroke="#1AA0E6" stroke-width=".7" stroke-dasharray="2.5 1.5"/>
+        <text x="0" y="23.5" text-anchor="middle" font-size="5.5" font-weight="800" fill="#1AA0E6" font-family="system-ui,sans-serif" letter-spacing=".04em">BENCH</text>
+      </svg>
+      <div class="tier-name">Bench</div>
+      <div class="tier-price">$5 / month</div>
+      <div class="tier-perk">Keeps the lights on. Your name on the sponsor wall and a GitHub Sponsor badge on your profile.</div>
+      <div class="size-row">
+        <!-- wall avatar size: 40px -->
+        <div class="size-demo">
+          <svg width="40" height="44" viewBox="-24 -26 48 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6 Z" fill="white"/>
+            <path d="M -8 1 Q -6 -0.2 -4 1 T 0 1 T 4 1 T 8 1 L 8 6 C 8 12, 4 14, 0 14 C -4 14, -8 12, -8 6 L -8 1 Z" fill="url(#liq-bench)"/>
+            <path d="M 2 -10 C 2 -12, 4 -14, 6 -12" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M -9 -6 L 9 -6" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round"/>
+            <circle cx="-3" cy="0" r="1.3" fill="#1AA0E6"/>
+            <circle cx="3" cy="0" r="1.3" fill="#1AA0E6"/>
+            <path d="M -2 4 Q 0 5.5, 2 4" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M -6 8 L -4.5 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M 4.5 8 L 6 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+          <span class="size-label">Wall (40px)</span>
+        </div>
+        <!-- gh tier image size: 80px -->
+        <div class="size-demo">
+          <svg width="80" height="88" viewBox="-24 -26 48 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6 Z" fill="white"/>
+            <path d="M -8 1 Q -6 -0.2 -4 1 T 0 1 T 4 1 T 8 1 L 8 6 C 8 12, 4 14, 0 14 C -4 14, -8 12, -8 6 L -8 1 Z" fill="url(#liq-bench)"/>
+            <path d="M 2 -10 C 2 -12, 4 -14, 6 -12" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M -9 -6 L 9 -6" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+            <circle cx="-3" cy="0" r="1.2" fill="#1AA0E6"/>
+            <circle cx="3" cy="0" r="1.2" fill="#1AA0E6"/>
+            <path d="M -2 4 Q 0 5.5, 2 4" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M -6 8 L -4.5 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M 4.5 8 L 6 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+          <span class="size-label">GH image (80px)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- LAB -->
+    <div class="badge-card">
+      <svg width="120" height="130" viewBox="-24 -26 48 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="0" cy="17" rx="11" ry="2.2" fill="#1AA0E6" opacity=".12"/>
+        <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6 Z" fill="white"/>
+        <path d="M -8 1 Q -6 -0.2 -4 1 T 0 1 T 4 1 T 8 1 L 8 6 C 8 12, 4 14, 0 14 C -4 14, -8 12, -8 6 L -8 1 Z" fill="url(#liq-lab)"/>
+        <path d="M 2 -10 C 2 -12, 4 -14, 6 -12" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M -9 -6 L 9 -6" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+        <!-- raised brows: curious / pleased -->
+        <path d="M -5.1 -1.9 Q -3.5 -3.2, -1.6 -2.4" stroke="#1AA0E6" stroke-width="1.1" stroke-linecap="round" fill="none"/>
+        <path d="M 1.6 -2.4 Q 3.5 -3.2, 5.1 -1.9" stroke="#1AA0E6" stroke-width="1.1" stroke-linecap="round" fill="none"/>
+        <!-- eyes (slightly larger, happier) -->
+        <circle cx="-3" cy="0" r="1.4" fill="#1AA0E6"/>
+        <circle cx="3" cy="0" r="1.4" fill="#1AA0E6"/>
+        <!-- wider grin -->
+        <path d="M -2.6 4 Q 0 6.5, 2.6 4" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M -6 8 L -4.5 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M 4.5 8 L 6 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+        <!-- sparkle (gold cross) beside head -->
+        <g stroke="#D4A52A" stroke-width="1.1" stroke-linecap="round">
+          <path d="M 14 -14 L 14 -10"/>
+          <path d="M 12 -12 L 16 -12"/>
+        </g>
+        <circle cx="14" cy="-12" r="1.4" fill="#FFD055" opacity=".30" stroke="none"/>
+        <!-- tier ring: sky with small dot pattern -->
+        <circle cx="0" cy="20" r="6" fill="#1AA0E6" opacity=".10" stroke="#1AA0E6" stroke-width=".7" stroke-dasharray="2 1"/>
+        <text x="0" y="23.5" text-anchor="middle" font-size="5.5" font-weight="800" fill="#1AA0E6" font-family="system-ui,sans-serif" letter-spacing=".04em">LAB</text>
+      </svg>
+      <div class="tier-name">Lab</div>
+      <div class="tier-price">$25 / month</div>
+      <div class="tier-perk">Your name or handle in SPONSORS.md in the repo, plus a featured spot on the sponsor wall.</div>
+      <div class="size-row">
+        <div class="size-demo">
+          <svg width="40" height="44" viewBox="-24 -26 48 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6 Z" fill="white"/>
+            <path d="M -8 1 Q -6 -0.2 -4 1 T 0 1 T 4 1 T 8 1 L 8 6 C 8 12, 4 14, 0 14 C -4 14, -8 12, -8 6 L -8 1 Z" fill="url(#liq-lab)"/>
+            <path d="M 2 -10 C 2 -12, 4 -14, 6 -12" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M -9 -6 L 9 -6" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M -5.1 -1.9 Q -3.5 -3.2, -1.6 -2.4" stroke="#1AA0E6" stroke-width="1.1" stroke-linecap="round" fill="none"/>
+            <path d="M 1.6 -2.4 Q 3.5 -3.2, 5.1 -1.9" stroke="#1AA0E6" stroke-width="1.1" stroke-linecap="round" fill="none"/>
+            <circle cx="-3" cy="0" r="1.4" fill="#1AA0E6"/>
+            <circle cx="3" cy="0" r="1.4" fill="#1AA0E6"/>
+            <path d="M -2.6 4 Q 0 6.5, 2.6 4" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M -6 8 L -4.5 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M 4.5 8 L 6 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+          <span class="size-label">Wall (40px)</span>
+        </div>
+        <div class="size-demo">
+          <svg width="80" height="88" viewBox="-24 -26 48 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6 Z" fill="white"/>
+            <path d="M -8 1 Q -6 -0.2 -4 1 T 0 1 T 4 1 T 8 1 L 8 6 C 8 12, 4 14, 0 14 C -4 14, -8 12, -8 6 L -8 1 Z" fill="url(#liq-lab)"/>
+            <path d="M 2 -10 C 2 -12, 4 -14, 6 -12" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M -9 -6 L 9 -6" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M -5.1 -1.9 Q -3.5 -3.2, -1.6 -2.4" stroke="#1AA0E6" stroke-width="1.1" stroke-linecap="round" fill="none"/>
+            <path d="M 1.6 -2.4 Q 3.5 -3.2, 5.1 -1.9" stroke="#1AA0E6" stroke-width="1.1" stroke-linecap="round" fill="none"/>
+            <circle cx="-3" cy="0" r="1.4" fill="#1AA0E6"/>
+            <circle cx="3" cy="0" r="1.4" fill="#1AA0E6"/>
+            <path d="M -2.6 4 Q 0 6.5, 2.6 4" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M -6 8 L -4.5 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M 4.5 8 L 6 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+            <!-- sparkle at 80px it shows -->
+            <g stroke="#D4A52A" stroke-width="1.0" stroke-linecap="round">
+              <path d="M 14 -14 L 14 -10"/><path d="M 12 -12 L 16 -12"/>
+            </g>
+          </svg>
+          <span class="size-label">GH image (80px)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- INSTITUTE -->
+    <div class="badge-card gold-ring">
+      <svg width="120" height="130" viewBox="-24 -26 48 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- confetti scattered around -->
+        <rect x="-19" y="-19" width="2.2" height="2.2" rx=".4" fill="#1AA0E6" opacity=".7" transform="rotate(18,-18,-18)"/>
+        <circle cx="17" cy="-17" r="1.2" fill="#7FC98A" opacity=".8"/>
+        <rect x="15" y="-8" width="2" height="2" rx=".3" fill="#B87FEC" opacity=".7" transform="rotate(-22,16,-7)"/>
+        <circle cx="-17" cy="-10" r="1.1" fill="#F4B740" opacity=".8"/>
+        <rect x="-12" y="-22" width="1.8" height="1.8" rx=".3" fill="#EE8FAE" opacity=".7" transform="rotate(10,-11,-21)"/>
+        <circle cx="12" cy="-22" r="1.0" fill="#1AA0E6" opacity=".6"/>
+        <path d="M 20 -6 L 21.5 -4.5" stroke="#EE8FAE" stroke-width="1.2" stroke-linecap="round"/>
+        <path d="M -20 -4 L -18.5 -5.5" stroke="#7FC98A" stroke-width="1.2" stroke-linecap="round"/>
+        <!-- gold crown sitting above the head -->
+        <g fill="url(#gold-crown)">
+          <!-- crown base band -->
+          <rect x="-6" y="-17" width="12" height="3" rx=".8"/>
+          <!-- three points -->
+          <polygon points="-6,-17 -4,-22 -2,-17"/>
+          <polygon points="-1.2,-17 0,-22.5 1.2,-17"/>
+          <polygon points="2,-17 4,-22 6,-17"/>
+          <!-- crown accent gems -->
+          <circle cx="-3.2" cy="-15.8" r=".7" fill="#FFE066"/>
+          <circle cx="0" cy="-15.8" r=".7" fill="#FFE066"/>
+          <circle cx="3.2" cy="-15.8" r=".7" fill="#FFE066"/>
+        </g>
+        <!-- body -->
+        <ellipse cx="0" cy="17" rx="11" ry="2.2" fill="#1AA0E6" opacity=".12"/>
+        <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6 Z" fill="white"/>
+        <path d="M -8 1 Q -6 -0.2 -4 1 T 0 1 T 4 1 T 8 1 L 8 6 C 8 12, 4 14, 0 14 C -4 14, -8 12, -8 6 L -8 1 Z" fill="url(#liq-inst)"/>
+        <path d="M 2 -10 C 2 -12, 4 -14, 6 -12" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M -9 -6 L 9 -6" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+        <!-- high excited brows -->
+        <path d="M -5.4 -2.4 Q -3.5 -4.0, -1.4 -3.1" stroke="#1AA0E6" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+        <path d="M 1.4 -3.1 Q 3.5 -4.0, 5.4 -2.4" stroke="#1AA0E6" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+        <!-- big eyes -->
+        <circle cx="-3" cy="0" r="1.6" fill="#1AA0E6"/>
+        <circle cx="3" cy="0" r="1.6" fill="#1AA0E6"/>
+        <!-- open celebration mouth (filled arc) -->
+        <path d="M -3.2 3.5 Q 0 7.5, 3.2 3.5 Q 0 5.0, -3.2 3.5 Z" fill="#1AA0E6" opacity=".85" stroke="none"/>
+        <path d="M -6 8 L -4.5 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M 4.5 8 L 6 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+        <!-- gold accent ring -->
+        <circle cx="0" cy="20" r="6.5" fill="none" stroke="#D4A52A" stroke-width="1.0" stroke-dasharray="2 1.5" opacity=".7"/>
+        <text x="0" y="23.5" text-anchor="middle" font-size="4.8" font-weight="800" fill="#D4A52A" font-family="system-ui,sans-serif" letter-spacing=".04em">INSTITUTE</text>
+      </svg>
+      <div class="tier-name">Institute</div>
+      <div class="tier-price">$100 / month</div>
+      <div class="tier-perk">Your logo and link featured on the sponsor wall. Everything in Lab included. The most visible way to support ResearchOS.</div>
+      <div class="size-row">
+        <div class="size-demo">
+          <svg width="40" height="44" viewBox="-24 -26 48 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- minimal at 40px: just body + crown, no confetti -->
+            <g fill="url(#gold-crown)">
+              <rect x="-6" y="-17" width="12" height="3" rx=".8"/>
+              <polygon points="-6,-17 -4,-22 -2,-17"/>
+              <polygon points="-1.2,-17 0,-22.5 1.2,-17"/>
+              <polygon points="2,-17 4,-22 6,-17"/>
+            </g>
+            <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6 Z" fill="white"/>
+            <path d="M -8 1 Q -6 -0.2 -4 1 T 0 1 T 4 1 T 8 1 L 8 6 C 8 12, 4 14, 0 14 C -4 14, -8 12, -8 6 L -8 1 Z" fill="url(#liq-inst)"/>
+            <path d="M 2 -10 C 2 -12, 4 -14, 6 -12" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M -9 -6 L 9 -6" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round"/>
+            <circle cx="-3" cy="0" r="1.5" fill="#1AA0E6"/>
+            <circle cx="3" cy="0" r="1.5" fill="#1AA0E6"/>
+            <path d="M -3 3.8 Q 0 7, 3 3.8 Q 0 5, -3 3.8 Z" fill="#1AA0E6" opacity=".85" stroke="none"/>
+            <path d="M -6 8 L -4.5 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M 4.5 8 L 6 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+          <span class="size-label">Wall (40px)</span>
+        </div>
+        <div class="size-demo">
+          <svg width="80" height="88" viewBox="-24 -26 48 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="-19" y="-19" width="2" height="2" rx=".4" fill="#1AA0E6" opacity=".6" transform="rotate(18,-18,-18)"/>
+            <circle cx="17" cy="-17" r="1.1" fill="#7FC98A" opacity=".8"/>
+            <rect x="15" y="-8" width="1.8" height="1.8" rx=".3" fill="#B87FEC" opacity=".6" transform="rotate(-22,16,-7)"/>
+            <circle cx="-17" cy="-10" r="1.0" fill="#F4B740" opacity=".7"/>
+            <g fill="url(#gold-crown)">
+              <rect x="-6" y="-17" width="12" height="3" rx=".8"/>
+              <polygon points="-6,-17 -4,-22 -2,-17"/>
+              <polygon points="-1.2,-17 0,-22.5 1.2,-17"/>
+              <polygon points="2,-17 4,-22 6,-17"/>
+              <circle cx="-3.2" cy="-15.8" r=".7" fill="#FFE066"/>
+              <circle cx="0" cy="-15.8" r=".7" fill="#FFE066"/>
+              <circle cx="3.2" cy="-15.8" r=".7" fill="#FFE066"/>
+            </g>
+            <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6 Z" fill="white"/>
+            <path d="M -8 1 Q -6 -0.2 -4 1 T 0 1 T 4 1 T 8 1 L 8 6 C 8 12, 4 14, 0 14 C -4 14, -8 12, -8 6 L -8 1 Z" fill="url(#liq-inst)"/>
+            <path d="M 2 -10 C 2 -12, 4 -14, 6 -12" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M -9 -6 L 9 -6" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M -5.4 -2.4 Q -3.5 -4.0, -1.4 -3.1" stroke="#1AA0E6" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+            <path d="M 1.4 -3.1 Q 3.5 -4.0, 5.4 -2.4" stroke="#1AA0E6" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+            <circle cx="-3" cy="0" r="1.6" fill="#1AA0E6"/>
+            <circle cx="3" cy="0" r="1.6" fill="#1AA0E6"/>
+            <path d="M -3.2 3.5 Q 0 7.5, 3.2 3.5 Q 0 5.0, -3.2 3.5 Z" fill="#1AA0E6" opacity=".85" stroke="none"/>
+            <path d="M -6 8 L -4.5 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+            <path d="M 4.5 8 L 6 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+          <span class="size-label">GH image (80px)</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /tier-row -->
+
+  <hr class="divider"/>
+
+  <!-- ===== USAGE CONTEXTS ===== -->
+  <div class="section">
+    <p class="eyebrow">Usage contexts</p>
+    <h2 class="h2">How the badges land in both surfaces</h2>
+    <p class="lead">Left: the in-app /thanks sponsor wall. Right: how each tier reads inside the GitHub Sponsors tier picker. These are the two places a badge has to work.</p>
+  </div>
+
+  <div class="contexts-grid">
+
+    <!-- CONTEXT 1: THANKS WALL -->
+    <div class="context-panel">
+      <h3>In-app /thanks sponsor wall</h3>
+      <div class="wall-sim">
+        <div class="wall-title">The people behind ResearchOS</div>
+        <div class="wall-tiers">
+
+          <!-- Institute tier on wall -->
+          <div class="wall-tier-group">
+            <div class="wt-label">Institute</div>
+            <div class="wall-avatars">
+              <!-- featured: large avatar with name + logo placeholder -->
+              <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:12px">
+                <svg width="52" height="58" viewBox="-24 -26 48 52" fill="none">
+                  <g fill="url(#gold-crown)">
+                    <rect x="-6" y="-17" width="12" height="3" rx=".8"/>
+                    <polygon points="-6,-17 -4,-22 -2,-17"/>
+                    <polygon points="-1.2,-17 0,-22.5 1.2,-17"/>
+                    <polygon points="2,-17 4,-22 6,-17"/>
+                    <circle cx="-3.2" cy="-15.8" r=".7" fill="#FFE066"/>
+                    <circle cx="0" cy="-15.8" r=".7" fill="#FFE066"/>
+                    <circle cx="3.2" cy="-15.8" r=".7" fill="#FFE066"/>
+                  </g>
+                  <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6 Z" fill="white"/>
+                  <path d="M -8 1 Q -6 -0.2 -4 1 T 0 1 T 4 1 T 8 1 L 8 6 C 8 12, 4 14, 0 14 C -4 14, -8 12, -8 6 L -8 1 Z" fill="url(#liq-inst)"/>
+                  <path d="M 2 -10 C 2 -12, 4 -14, 6 -12" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+                  <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M -9 -6 L 9 -6" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+                  <path d="M -5.4 -2.4 Q -3.5 -4.0, -1.4 -3.1" stroke="#1AA0E6" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+                  <path d="M 1.4 -3.1 Q 3.5 -4.0, 5.4 -2.4" stroke="#1AA0E6" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+                  <circle cx="-3" cy="0" r="1.6" fill="#1AA0E6"/>
+                  <circle cx="3" cy="0" r="1.6" fill="#1AA0E6"/>
+                  <path d="M -3.2 3.5 Q 0 7.5, 3.2 3.5 Q 0 5.0, -3.2 3.5 Z" fill="#1AA0E6" opacity=".85" stroke="none"/>
+                  <path d="M -6 8 L -4.5 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+                  <path d="M 4.5 8 L 6 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+                </svg>
+                <div>
+                  <div style="font-size:14px;font-weight:700;color:var(--ink)">Your Institute Name</div>
+                  <div style="font-size:12px;color:var(--gold)">Institute sponsor</div>
+                  <div style="font-size:11px;color:var(--muted);margin-top:2px">Link to your site or lab page</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Lab tier on wall -->
+          <div class="wall-tier-group">
+            <div class="wt-label">Lab</div>
+            <div class="wall-avatars">
+              <!-- 3 example Lab avatars -->
+              <div class="wall-avatar">
+                <svg width="40" height="44" viewBox="-24 -26 48 52" fill="none">
+                  <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6 Z" fill="white"/>
+                  <path d="M -8 1 Q -6 -0.2 -4 1 T 0 1 T 4 1 T 8 1 L 8 6 C 8 12, 4 14, 0 14 C -4 14, -8 12, -8 6 L -8 1 Z" fill="url(#liq-lab)"/>
+                  <path d="M 2 -10 C 2 -12, 4 -14, 6 -12" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round"/>
+                  <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M -9 -6 L 9 -6" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round"/>
+                  <path d="M -5.1 -1.9 Q -3.5 -3.2, -1.6 -2.4" stroke="#1AA0E6" stroke-width="1.1" stroke-linecap="round" fill="none"/>
+                  <path d="M 1.6 -2.4 Q 3.5 -3.2, 5.1 -1.9" stroke="#1AA0E6" stroke-width="1.1" stroke-linecap="round" fill="none"/>
+                  <circle cx="-3" cy="0" r="1.4" fill="#1AA0E6"/>
+                  <circle cx="3" cy="0" r="1.4" fill="#1AA0E6"/>
+                  <path d="M -2.6 4 Q 0 6.5, 2.6 4" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+                  <path d="M -6 8 L -4.5 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+                  <path d="M 4.5 8 L 6 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+                </svg>
+                <span class="wa-name">@researcher1</span>
+              </div>
+              <div class="wall-avatar">
+                <svg width="40" height="44" viewBox="-24 -26 48 52" fill="none">
+                  <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6 Z" fill="white"/>
+                  <path d="M -8 1 Q -6 -0.2 -4 1 T 0 1 T 4 1 T 8 1 L 8 6 C 8 12, 4 14, 0 14 C -4 14, -8 12, -8 6 L -8 1 Z" fill="url(#liq-lab)"/>
+                  <path d="M 2 -10 C 2 -12, 4 -14, 6 -12" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round"/>
+                  <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M -9 -6 L 9 -6" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round"/>
+                  <path d="M -5.1 -1.9 Q -3.5 -3.2, -1.6 -2.4" stroke="#1AA0E6" stroke-width="1.1" stroke-linecap="round" fill="none"/>
+                  <path d="M 1.6 -2.4 Q 3.5 -3.2, 5.1 -1.9" stroke="#1AA0E6" stroke-width="1.1" stroke-linecap="round" fill="none"/>
+                  <circle cx="-3" cy="0" r="1.4" fill="#1AA0E6"/>
+                  <circle cx="3" cy="0" r="1.4" fill="#1AA0E6"/>
+                  <path d="M -2.6 4 Q 0 6.5, 2.6 4" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+                  <path d="M -6 8 L -4.5 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+                  <path d="M 4.5 8 L 6 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+                </svg>
+                <span class="wa-name">@piname</span>
+              </div>
+              <div class="wall-avatar">
+                <svg width="40" height="44" viewBox="-24 -26 48 52" fill="none">
+                  <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6 Z" fill="white"/>
+                  <path d="M -8 1 Q -6 -0.2 -4 1 T 0 1 T 4 1 T 8 1 L 8 6 C 8 12, 4 14, 0 14 C -4 14, -8 12, -8 6 L -8 1 Z" fill="url(#liq-lab)"/>
+                  <path d="M 2 -10 C 2 -12, 4 -14, 6 -12" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round"/>
+                  <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M -9 -6 L 9 -6" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round"/>
+                  <path d="M -5.1 -1.9 Q -3.5 -3.2, -1.6 -2.4" stroke="#1AA0E6" stroke-width="1.1" stroke-linecap="round" fill="none"/>
+                  <path d="M 1.6 -2.4 Q 3.5 -3.2, 5.1 -1.9" stroke="#1AA0E6" stroke-width="1.1" stroke-linecap="round" fill="none"/>
+                  <circle cx="-3" cy="0" r="1.4" fill="#1AA0E6"/>
+                  <circle cx="3" cy="0" r="1.4" fill="#1AA0E6"/>
+                  <path d="M -2.6 4 Q 0 6.5, 2.6 4" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+                  <path d="M -6 8 L -4.5 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+                  <path d="M 4.5 8 L 6 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+                </svg>
+                <span class="wa-name">@labmate</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bench tier on wall -->
+          <div class="wall-tier-group">
+            <div class="wt-label">Bench</div>
+            <div class="wall-avatars">
+              <div class="wall-avatar">
+                <svg width="32" height="36" viewBox="-24 -26 48 52" fill="none">
+                  <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6 Z" fill="white"/>
+                  <path d="M -8 1 Q -6 -0.2 -4 1 T 0 1 T 4 1 T 8 1 L 8 6 C 8 12, 4 14, 0 14 C -4 14, -8 12, -8 6 L -8 1 Z" fill="url(#liq-bench)"/>
+                  <path d="M 2 -10 C 2 -12, 4 -14, 6 -12" stroke="#1AA0E6" stroke-width="1.8" stroke-linecap="round"/>
+                  <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6" stroke="#1AA0E6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M -9 -6 L 9 -6" stroke="#1AA0E6" stroke-width="1.8" stroke-linecap="round"/>
+                  <circle cx="-3" cy="0" r="1.3" fill="#1AA0E6"/>
+                  <circle cx="3" cy="0" r="1.3" fill="#1AA0E6"/>
+                  <path d="M -2 4 Q 0 5.5, 2 4" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+                </svg>
+                <span class="wa-name">@bencher</span>
+              </div>
+              <div class="wall-avatar">
+                <svg width="32" height="36" viewBox="-24 -26 48 52" fill="none">
+                  <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6 Z" fill="white"/>
+                  <path d="M -8 1 Q -6 -0.2 -4 1 T 0 1 T 4 1 T 8 1 L 8 6 C 8 12, 4 14, 0 14 C -4 14, -8 12, -8 6 L -8 1 Z" fill="url(#liq-bench)"/>
+                  <path d="M 2 -10 C 2 -12, 4 -14, 6 -12" stroke="#1AA0E6" stroke-width="1.8" stroke-linecap="round"/>
+                  <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6" stroke="#1AA0E6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M -9 -6 L 9 -6" stroke="#1AA0E6" stroke-width="1.8" stroke-linecap="round"/>
+                  <circle cx="-3" cy="0" r="1.3" fill="#1AA0E6"/>
+                  <circle cx="3" cy="0" r="1.3" fill="#1AA0E6"/>
+                  <path d="M -2 4 Q 0 5.5, 2 4" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+                </svg>
+                <span class="wa-name">@jane_sci</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <div class="note-box" style="margin-top:14px">
+        <b>Wall hierarchy:</b> Institute sponsors get a featured card (logo + name + link). Lab sponsors get a medium avatar with handle. Bench sponsors get a small avatar with handle. All use the tier variant of BeakerBot so tier is readable at a glance without a label.
+      </div>
+    </div>
+
+    <!-- CONTEXT 2: GITHUB TIERS -->
+    <div class="context-panel">
+      <h3>GitHub Sponsors tier picker</h3>
+      <div class="gh-sim">
+        <div class="gh-bar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="#8b949e"><path d="M12 .3a12 12 0 1 0 0 24 12 12 0 0 0 0-24zm3.1 18.2h-6.2v-7.5h6.2v7.5zm-3.1-9a2.2 2.2 0 1 1 0-4.4 2.2 2.2 0 0 1 0 4.4z"/></svg>
+          Sponsor ResearchOS-LLC on GitHub
+        </div>
+        <div class="gh-tiers">
+
+          <!-- Bench -->
+          <div class="gh-tier-item">
+            <svg width="48" height="52" viewBox="-24 -26 48 52" fill="none">
+              <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6 Z" fill="#161b22"/>
+              <path d="M -8 1 Q -6 -0.2 -4 1 T 0 1 T 4 1 T 8 1 L 8 6 C 8 12, 4 14, 0 14 C -4 14, -8 12, -8 6 L -8 1 Z" fill="url(#liq-bench)"/>
+              <path d="M 2 -10 C 2 -12, 4 -14, 6 -12" stroke="#1AA0E6" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6" stroke="#1AA0E6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M -9 -6 L 9 -6" stroke="#1AA0E6" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="-3" cy="0" r="1.2" fill="#1AA0E6"/>
+              <circle cx="3" cy="0" r="1.2" fill="#1AA0E6"/>
+              <path d="M -2 4 Q 0 5.5, 2 4" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+              <path d="M -6 8 L -4.5 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+              <path d="M 4.5 8 L 6 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+            <div class="gh-tier-info">
+              <div class="gt-name">Bench</div>
+              <div class="gt-price">$5 / month</div>
+              <div class="gt-perk">GitHub Sponsor badge + name on the sponsor wall</div>
+            </div>
+            <button class="gh-btn">Sponsor</button>
+          </div>
+
+          <!-- Lab -->
+          <div class="gh-tier-item">
+            <svg width="48" height="52" viewBox="-24 -26 48 52" fill="none">
+              <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6 Z" fill="#161b22"/>
+              <path d="M -8 1 Q -6 -0.2 -4 1 T 0 1 T 4 1 T 8 1 L 8 6 C 8 12, 4 14, 0 14 C -4 14, -8 12, -8 6 L -8 1 Z" fill="url(#liq-lab)"/>
+              <path d="M 2 -10 C 2 -12, 4 -14, 6 -12" stroke="#1AA0E6" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6" stroke="#1AA0E6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M -9 -6 L 9 -6" stroke="#1AA0E6" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M -5.1 -1.9 Q -3.5 -3.2, -1.6 -2.4" stroke="#1AA0E6" stroke-width="1.1" stroke-linecap="round" fill="none"/>
+              <path d="M 1.6 -2.4 Q 3.5 -3.2, 5.1 -1.9" stroke="#1AA0E6" stroke-width="1.1" stroke-linecap="round" fill="none"/>
+              <circle cx="-3" cy="0" r="1.4" fill="#1AA0E6"/>
+              <circle cx="3" cy="0" r="1.4" fill="#1AA0E6"/>
+              <path d="M -2.6 4 Q 0 6.5, 2.6 4" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+              <path d="M -6 8 L -4.5 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+              <path d="M 4.5 8 L 6 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+              <g stroke="#D4A52A" stroke-width="1.0" stroke-linecap="round">
+                <path d="M 14 -14 L 14 -10"/><path d="M 12 -12 L 16 -12"/>
+              </g>
+            </svg>
+            <div class="gh-tier-info">
+              <div class="gt-name">Lab</div>
+              <div class="gt-price">$25 / month</div>
+              <div class="gt-perk">Name in SPONSORS.md + featured on the sponsor wall</div>
+            </div>
+            <button class="gh-btn">Sponsor</button>
+          </div>
+
+          <!-- Institute -->
+          <div class="gh-tier-item" style="border-color:#6e5f2a">
+            <svg width="48" height="52" viewBox="-24 -26 48 52" fill="none">
+              <g fill="url(#gold-crown)">
+                <rect x="-6" y="-17" width="12" height="3" rx=".8"/>
+                <polygon points="-6,-17 -4,-22 -2,-17"/>
+                <polygon points="-1.2,-17 0,-22.5 1.2,-17"/>
+                <polygon points="2,-17 4,-22 6,-17"/>
+                <circle cx="-3.2" cy="-15.8" r=".7" fill="#FFE066"/>
+                <circle cx="0" cy="-15.8" r=".7" fill="#FFE066"/>
+                <circle cx="3.2" cy="-15.8" r=".7" fill="#FFE066"/>
+              </g>
+              <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6 Z" fill="#161b22"/>
+              <path d="M -8 1 Q -6 -0.2 -4 1 T 0 1 T 4 1 T 8 1 L 8 6 C 8 12, 4 14, 0 14 C -4 14, -8 12, -8 6 L -8 1 Z" fill="url(#liq-inst)"/>
+              <path d="M 2 -10 C 2 -12, 4 -14, 6 -12" stroke="#1AA0E6" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M -8 -6 L -8 6 C -8 12, -4 14, 0 14 C 4 14, 8 12, 8 6 L 8 -6" stroke="#1AA0E6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M -9 -6 L 9 -6" stroke="#1AA0E6" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M -5.4 -2.4 Q -3.5 -4.0, -1.4 -3.1" stroke="#1AA0E6" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+              <path d="M 1.4 -3.1 Q 3.5 -4.0, 5.4 -2.4" stroke="#1AA0E6" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+              <circle cx="-3" cy="0" r="1.6" fill="#1AA0E6"/>
+              <circle cx="3" cy="0" r="1.6" fill="#1AA0E6"/>
+              <path d="M -3.2 3.5 Q 0 7.5, 3.2 3.5 Q 0 5.0, -3.2 3.5 Z" fill="#1AA0E6" opacity=".85" stroke="none"/>
+              <path d="M -6 8 L -4.5 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+              <path d="M 4.5 8 L 6 8" stroke="#1AA0E6" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+            <div class="gh-tier-info">
+              <div class="gt-name" style="color:#d4a52a">Institute</div>
+              <div class="gt-price">$100 / month</div>
+              <div class="gt-perk">Logo + link featured on the /thanks page</div>
+            </div>
+            <button class="gh-btn" style="background:#6e5f2a">Sponsor</button>
+          </div>
+
+        </div>
+      </div>
+      <div class="note-box" style="margin-top:14px">
+        <b>GitHub note:</b> the tier image slot in GitHub Sponsors accepts a 100x100px PNG or SVG. These SVG variants export clean at that size. GitHub does not apply a background, so the transparent body fill here should be swapped for a white fill in the production export.
+      </div>
+    </div>
+
+  </div><!-- /contexts-grid -->
+
+  <hr class="divider"/>
+
+  <!-- ===== ESCALATION SUMMARY ===== -->
+  <div class="section">
+    <p class="eyebrow">Design rationale</p>
+    <h2 class="h2">The escalation at a glance</h2>
+    <p class="lead">Each tier step adds one visible signal so the badge reads immediately without a label, while all three are unmistakably the same BeakerBot.</p>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:36px">
+      <div style="background:var(--raised);border:1px solid var(--border);border-radius:14px;padding:20px;box-shadow:var(--shadow-sm)">
+        <div style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--sky);margin-bottom:8px">Bench</div>
+        <div style="font-size:14px;color:var(--ink);line-height:1.6">Plain BeakerBot. Standard liquid, calm eyes, small closed smile. Sky-blue stroke, no accessories. The minimum readable form of the character.</div>
+      </div>
+      <div style="background:var(--raised);border:1px solid var(--border);border-radius:14px;padding:20px;box-shadow:var(--shadow-sm)">
+        <div style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--sky);margin-bottom:8px">Lab</div>
+        <div style="font-size:14px;color:var(--ink);line-height:1.6">Raised eyebrows, wider grin, slightly larger eyes, richer liquid saturation. One gold sparkle cross floating beside the head. Visibly happier, not yet over the top.</div>
+      </div>
+      <div style="background:var(--raised);border:1px solid var(--border);border-radius:14px;padding:20px;box-shadow:var(--shadow-sm)">
+        <div style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin-bottom:8px">Institute</div>
+        <div style="font-size:14px;color:var(--ink);line-height:1.6">Gold crown with three points and gem accents. High brows, fully open celebration mouth (filled arc). Confetti scattered around. Gold-tinted liquid. The full celebration read, clearly distinct at any size.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== OPEN QUESTIONS ===== -->
+  <div class="q-banner">
+    <div class="q-label">Open questions for Grant</div>
+    <ul>
+      <li>The tier names Bench / Lab / Institute come directly from the existing thanks-page mockup. Confirm these are final before wiring them into FUNDING.yml and the Sponsors profile.</li>
+      <li>The Institute badge uses gold as its accent color. That is intentional (contrast with the sky-blue base tier language) but Grant should confirm gold does not conflict with any planned palette for future recognition features.</li>
+      <li>GitHub Sponsors profile org is pending approval. Once approved, the PNG exports (100x100) need a white or transparent background decision. White is safer for GitHub dark mode rendering.</li>
+      <li>The Lab perk says "name in SPONSORS.md in the repo." Confirm whether that file lives at repo root or inside docs/ before the tiers go live.</li>
+    </ul>
+  </div>
+
+</div><!-- /wrap -->
+
+<footer style="padding:36px 0 52px;text-align:center;color:var(--muted);font-size:12px;border-top:1px solid var(--border);margin-top:44px">
+  Mockup for review only. Not committed to production. ResearchOS LLC.
+</footer>
+
+</body>
+</html>
