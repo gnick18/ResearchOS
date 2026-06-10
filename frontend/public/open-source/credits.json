@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-06-10T22:23:04.929Z",
+  "generatedAt": "2026-06-10T23:18:15.671Z",
   "appVersion": "0.75.0",
-  "dependencyCount": 74,
+  "dependencyCount": 78,
   "licenseCounts": {
-    "Apache-2.0": 12,
+    "Apache-2.0": 15,
     "MIT": 50,
+    "BSD-3-Clause": 2,
     "ISC": 8,
     "(MIT AND BSD)": 1,
-    "BSD-3-Clause": 1,
     "MPL-2.0": 1,
     "(MIT OR GPL-3.0-or-later)": 1
   },
@@ -334,6 +334,12 @@
       "repo": "https://github.com/paulmillr/noble-hashes"
     },
     {
+      "name": "@rdkit/rdkit",
+      "version": "2025.3.4-1.0.0",
+      "license": "BSD-3-Clause",
+      "repo": "https://github.com/rdkit/rdkit-js"
+    },
+    {
       "name": "@react-pdf/renderer",
       "version": "4.5.1",
       "license": "MIT",
@@ -524,6 +530,24 @@
       "version": "3.10.1",
       "license": "(MIT OR GPL-3.0-or-later)",
       "repo": "https://github.com/Stuk/jszip"
+    },
+    {
+      "name": "ketcher-core",
+      "version": "3.12.0",
+      "license": "Apache-2.0",
+      "repo": "https://github.com/epam/ketcher"
+    },
+    {
+      "name": "ketcher-react",
+      "version": "3.12.0",
+      "license": "Apache-2.0",
+      "repo": "https://github.com/epam/ketcher"
+    },
+    {
+      "name": "ketcher-standalone",
+      "version": "3.12.0",
+      "license": "Apache-2.0",
+      "repo": "https://github.com/epam/ketcher"
     },
     {
       "name": "konva",

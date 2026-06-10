@@ -74,6 +74,10 @@ RUNTIME DEPENDENCIES
   License: MIT
   Source:  https://github.com/paulmillr/noble-hashes
 
+@rdkit/rdkit@2025.3.4-1.0.0
+  License: BSD-3-Clause
+  Source:  https://github.com/rdkit/rdkit-js
+
 @react-pdf/renderer@4.5.1
   License: MIT
   Source:  https://github.com/diegomura/react-pdf
@@ -200,6 +204,18 @@ jstat@1.9.6
 jszip@3.10.1
   License: (MIT OR GPL-3.0-or-later)
   Source:  https://github.com/Stuk/jszip
+
+ketcher-core@3.12.0
+  License: Apache-2.0
+  Source:  https://github.com/epam/ketcher
+
+ketcher-react@3.12.0
+  License: Apache-2.0
+  Source:  https://github.com/epam/ketcher
+
+ketcher-standalone@3.12.0
+  License: Apache-2.0
+  Source:  https://github.com/epam/ketcher
 
 konva@10.3.0
   License: MIT

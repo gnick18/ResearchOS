@@ -49,11 +49,11 @@ The calculators reproduce published methods. The parameters and equations come s
 The full per-package list with versions and source links is in [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES). Grouped by license, the runtime dependencies are:
 
 - **MIT** (50): @codemirror/commands, @codemirror/lang-markdown, @codemirror/language, @codemirror/lint, @codemirror/state, @codemirror/view, @lezer/common, @lezer/highlight, @lezer/markdown, @neondatabase/serverless, @noble/ciphers, @noble/curves, @noble/hashes, @react-pdf/renderer, @scure/bip39, @tanstack/react-query, @upstash/ratelimit, @upstash/redis, @vercel/analytics, date-fns, expr-eval-fork, fflate, frappe-gantt, jstat, konva, loro-codemirror, loro-crdt, marked, minisearch, ml-levenberg-marquardt, ml-matrix, next, nspell, qrcode, react, react-dom, react-konva, react-markdown, recharts, rehype-highlight, rehype-raw, rehype-sanitize, remark-gfm, remark-parse, remark-rehype, resend, stripe, turndown, unified, zustand
-- **Apache-2.0** (12): @aws-sdk/client-s3, @aws-sdk/s3-request-presigner, @stdlib/stats-anova1, @stdlib/stats-base-dists-chisquare, @stdlib/stats-base-dists-f, @stdlib/stats-base-dists-normal, @stdlib/stats-base-dists-t, @stdlib/stats-kruskal-test, @stdlib/stats-ttest, @stdlib/stats-ttest2, @stdlib/stats-wilcoxon, idb-keyval
+- **Apache-2.0** (15): @aws-sdk/client-s3, @aws-sdk/s3-request-presigner, @stdlib/stats-anova1, @stdlib/stats-base-dists-chisquare, @stdlib/stats-base-dists-f, @stdlib/stats-base-dists-normal, @stdlib/stats-base-dists-t, @stdlib/stats-kruskal-test, @stdlib/stats-ttest, @stdlib/stats-ttest2, @stdlib/stats-wilcoxon, idb-keyval, ketcher-core, ketcher-react, ketcher-standalone
 - **ISC** (8): d3-hierarchy, d3-interpolate, d3-scale, d3-selection, d3-shape, d3-transition, d3-zoom, next-auth
+- **BSD-3-Clause** (2): @rdkit/rdkit, diff
 - **(MIT AND BSD)** (1): dictionary-en
 - **(MIT OR GPL-3.0-or-later)** (1): jszip
-- **BSD-3-Clause** (1): diff
 - **MPL-2.0** (1): ical.js
 
 ---
