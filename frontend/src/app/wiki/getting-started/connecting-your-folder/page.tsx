@@ -48,10 +48,9 @@ export default function ConnectingYourFolderPage() {
         <li>
           <strong>The Link a folder card in the center</strong>: one card,
           titled <strong>Link a folder</strong>. It holds a short description,
-          the &ldquo;Starting fresh? Make an empty folder first&rdquo;
-          instructions, a drag-and-drop zone, and the{" "}
-          <strong>Link Folder</strong> button. This is the whole folder flow.
-          Link an existing folder or a brand-new empty one through the same card.
+          a drag-and-drop zone, and the <strong>Choose a folder</strong>{" "}
+          button. This is the whole folder flow. Link an existing folder or a
+          brand-new empty one through the same card.
         </li>
         <li>
           <strong>BeakerBot in the upper-right</strong>: a small sky-blue
@@ -67,11 +66,10 @@ export default function ConnectingYourFolderPage() {
         </li>
       </ul>
       <p>
-        Below the card sit an{" "}
-        <strong>Explore demo in browser</strong> button (it opens a seeded fake
-        yeast lab at <code>/demo</code> so you can look around without linking
-        anything) and a smaller <strong>Or download as a starter folder</strong>{" "}
-        link for the same fake dataset as a real folder you can link.
+        Want to look around before committing a folder? The seeded fake yeast
+        lab (browse it in the app, or download it as a real starter folder you
+        can link) lives on the <Link href="/welcome">welcome page</Link>, not on
+        this card. See <Link href="/wiki/getting-started/demo-mode">Demo Mode</Link>.
       </p>
 
       <Callout variant="tip" title="The walkthrough is optional and doesn't link a folder">
@@ -86,11 +84,9 @@ export default function ConnectingYourFolderPage() {
 
       <h2>Starting fresh? Make an empty folder first</h2>
       <p>
-        Because the picker can only open a folder that already exists, the card
-        spells out a short make-it-yourself recipe under the heading{" "}
-        <strong>Starting fresh? Make an empty folder first</strong>. Do this
-        with your normal file manager (Finder on Mac, Explorer on Windows)
-        before you click Link Folder.
+        Because the picker can only open a folder that already exists, you make
+        the folder yourself first. Do this with your normal file manager (Finder
+        on Mac, Explorer on Windows) before you click Choose a folder.
       </p>
       <Steps>
         <Step>
@@ -104,8 +100,8 @@ export default function ConnectingYourFolderPage() {
           Name it something like <code>ResearchOS</code>.
         </Step>
         <Step>
-          Click <strong>Link Folder</strong> below the recipe and select the
-          folder you just made, not its top-level parent.
+          Click <strong>Choose a folder</strong> and select the folder you just
+          made, not its top-level parent.
         </Step>
       </Steps>
 
@@ -113,7 +109,7 @@ export default function ConnectingYourFolderPage() {
       <Steps>
         <Step>
           Link the folder. You have two equivalent ways. Click the{" "}
-          <strong>Link Folder</strong> button to open your operating
+          <strong>Choose a folder</strong> button to open your operating
           system&apos;s folder picker, or <strong>drag a folder directly onto
           the Link a folder card</strong>. The card highlights with a dashed
           blue border, and its hint text changes from &ldquo;Drop your folder
@@ -229,15 +225,14 @@ export default function ConnectingYourFolderPage() {
 
       <h2>Reconnecting later</h2>
       <p>
-        After your first connect, ResearchOS remembers the folder name via
-        browser storage. On your next visit, instead of the Link a folder card
-        you see a dedicated <strong>reconnect screen</strong>: it shows the
-        folder name in a bold heading (<em>Reconnect to [your-folder]</em>)
-        and a prominent <strong>Continue</strong> button that re-attaches
-        without reopening the OS picker. A smaller{" "}
-        <strong>Pick a different folder</strong> link below the button lets
-        you switch to a different location if needed. The browser may show a
-        one-time permission prompt the first time you reconnect after a
+        After your first connect, ResearchOS remembers the folder handle via
+        browser storage and reconnects to it silently whenever Chrome still
+        holds the permission, so most return visits drop you straight back into
+        your data with no picker and no extra click. When the start screen does
+        appear for a returning user, it greets you with{" "}
+        <strong>Welcome back</strong> and an <strong>Open your folder</strong>{" "}
+        button that re-opens the picker on the same location. The browser may
+        show a one-time permission prompt the first time you reconnect after a
         browser restart.
       </p>
 

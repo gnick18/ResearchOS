@@ -22,15 +22,20 @@ export default function NotificationsFeaturePage() {
       <ul>
         <li>
           <strong>The bell</strong> in the top-right of the header collects
-          everything someone shared with you (tasks, methods, projects),
-          calendar reminders that have fired, and shift alerts when another
-          lab member reschedules a shared task. A red count badge appears
-          when there are unread items.
+          everything that needs your attention. Things someone shared with you
+          (tasks, methods, projects), calendar reminders that have fired, shift
+          alerts when a labmate reschedules a shared task, @-mentions in
+          comments, and (in a lab) announcements, task assignments, purchase
+          approvals, flag-for-review notes, and purchase-order updates. A red
+          count badge appears when there are unread items.
         </li>
         <li>
           <strong>The Inbox pill</strong>, right next to the bell, opens a
-          centered modal of photos waiting to be filed into an experiment.
-          The pill turns amber and shows a count when photos are waiting.
+          centered modal with two tabs, <strong>Shared with me</strong> (items
+          another ResearchOS user sent you across folders) and{" "}
+          <strong>Photos</strong> (images waiting to be filed into an
+          experiment). The pill turns amber and shows a count that sums both
+          when anything is waiting.
         </li>
         <li>
           <strong>An inbox toast</strong> appears at the bottom-right corner
@@ -41,8 +46,9 @@ export default function NotificationsFeaturePage() {
 
       <h2>The bell</h2>
       <p>
-        Click the bell to drop down a list of notifications. Each row is one
-        of three kinds.
+        Click the bell to drop down a list of notifications. Rows come in
+        several kinds, each with its own icon. The three most common are below,
+        and the lab-specific kinds follow.
       </p>
       <ul>
         <li>
@@ -63,6 +69,19 @@ export default function NotificationsFeaturePage() {
           start-date moves and, when start and end shifted by different
           amounts, the end-date move is shown on the second line. Use it to
           keep tabs on a shared schedule without watching the Gantt all day.
+        </li>
+        <li>
+          <strong>@-mentions.</strong> When someone @-mentions you by name in a
+          comment, that mention surfaces here as its own row so a direct callout
+          doesn&apos;t get lost in the ambient comment feed.
+        </li>
+        <li>
+          <strong>Lab notifications.</strong> Inside a lab, the bell also fires
+          for announcements, task assignments your PI hands you, purchase
+          approvals, flag-for-review notes on your records, and purchase-order
+          updates (someone asked you to order a supply, or yours was ordered).
+          Each lands as its own row with a <strong>View →</strong> or{" "}
+          <strong>Open →</strong> link to the right surface.
         </li>
       </ul>
       <Screenshot
@@ -104,9 +123,12 @@ export default function NotificationsFeaturePage() {
 
       <h2>The Inbox modal</h2>
       <p>
-        The Inbox pill in the header counts photos sitting in your inbox
-        folder. Click it to open the Inbox modal, a centered popup over
-        the rest of the app. Each row shows a thumbnail, the caption, the
+        Click the Inbox pill to open a centered popup with two tabs. The{" "}
+        <strong>Shared with me</strong> tab holds items another ResearchOS user
+        sent you across folders (see{" "}
+        <Link href="/wiki/features/sharing-and-permissions">Sharing &amp; Permissions</Link>{" "}
+        for that flow), and the <strong>Photos</strong> tab, covered below,
+        holds images waiting to be filed. Each photo row shows a thumbnail, the caption, the
         original filename, and the time it arrived.
       </p>
       <Screenshot
@@ -224,17 +246,17 @@ export default function NotificationsFeaturePage() {
 
       <h2>Lab Inbox and comments</h2>
       <p>
-        The bell handles your personal queue (shared-with-me, reminders,
-        shift alerts). Comments and announcements live in a separate
-        surface, the{" "}
+        The bell handles things you need to acknowledge directly, including the
+        @-mentions and lab notifications above. The broader comment stream lives
+        in a separate surface, the{" "}
         <Link href="/wiki/features/lab-inbox">Lab Inbox</Link>. The two are
         kept separate on purpose.
       </p>
       <ul>
         <li>
           <strong>The bell pings you</strong> for things you need to
-          acknowledge. A labmate shared a task with you, a calendar reminder
-          fired, your task was shifted by someone with edit access.
+          acknowledge, including @-mentions, shares, fired reminders, shift
+          alerts, and lab notifications.
         </li>
         <li>
           <strong>The Lab Inbox is ambient.</strong> Comments people left on
@@ -243,11 +265,9 @@ export default function NotificationsFeaturePage() {
         </li>
       </ul>
       <p>
-        The bell does ping for one comment case. When someone{" "}
-        <strong>@-mentions you</strong> by name in a comment, that mention
-        shows up as a row in the bell so you do not miss a direct callout.
-        General comments on records you can read stay in the Lab Inbox only.
-        See{" "}
+        The split is by urgency. A direct @-mention lands in the bell so you do
+        not miss a callout, while general comments on records you can read stay
+        in the Lab Inbox only. See{" "}
         <Link href="/wiki/features/lab-inbox/comments">Comments</Link> for
         the threading and mention model.
       </p>

@@ -130,6 +130,12 @@ export default function ImageAnnotationFeaturePage() {
         shape.
       </p>
       <p>
+        When you zoom past the fit point, a small <strong>navigator</strong>{" "}
+        appears in the corner with a preview of the whole image and a green box
+        marking the region you are looking at. Click or drag inside it to jump
+        the view to another part of the image without zooming back out.
+      </p>
+      <p>
         When the markup looks right, press <strong>Save</strong> and the editor
         writes your shapes to the sidecar and closes. <strong>Cancel</strong>{" "}
         discards everything since you opened the editor. Saving never writes the

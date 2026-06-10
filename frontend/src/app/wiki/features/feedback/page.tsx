@@ -7,7 +7,7 @@ export default function FeedbackFeaturePage() {
   return (
     <WikiPage
       title="Feedback"
-      intro="The feedback button is a thin layer over GitHub Issues. Click it, pick a type (bug, feature, feedback), fill in the modal, and ResearchOS opens a pre-filled GitHub issue URL in a new tab. Nothing submits automatically. You see the body, you edit it, you click Submit. It's the most privacy-respecting bug-tracking flow we could think of."
+      intro="The feedback button is a thin layer over GitHub Issues. Click it, pick a type (Bug, Feature request, General feedback), fill in the modal, and ResearchOS opens a pre-filled GitHub issue URL in a new tab. Nothing submits automatically. You see the body, you edit it, you click Submit. It's the most privacy-respecting bug-tracking flow we could think of."
     >
       {/* TODO screenshot agent: capture the FeedbackModal with the Bug type selected.
           Route: any page; click the FeedbackButton at the bottom
@@ -34,7 +34,10 @@ export default function FeedbackFeaturePage() {
 
       <h2>The three feedback types</h2>
       <p>
-        Pick a type at the top of the modal.
+        Pick a type at the top of the modal. The modal remembers your
+        last-used type across sessions, so the choice you make most is the one
+        already selected next time (an error-triggered open is the exception,
+        it locks to Bug so you see the crash context you came to report).
       </p>
       <ul>
         <li>
@@ -44,14 +47,14 @@ export default function FeedbackFeaturePage() {
           report has enough context for a fix.
         </li>
         <li>
-          <strong>Feature.</strong> A new capability you wish existed. The
-          modal walks a lighter template (what you want, why) and routes to
+          <strong>Feature request.</strong> A new capability you wish existed.
+          The modal walks a lighter template (what you want, why) and routes to
           the enhancement label on GitHub.
         </li>
         <li>
-          <strong>Feedback.</strong> Anything that does not fit the first
-          two, like a comment on UX, a typo, or a confused-by-naming note.
-          Routes to the feedback label.
+          <strong>General feedback.</strong> Anything that does not fit the
+          first two, like a comment on UX, a typo, or a confused-by-naming
+          note. Routes to the feedback label.
         </li>
       </ul>
 
@@ -77,7 +80,7 @@ export default function FeedbackFeaturePage() {
         fields and label routing on the receiving side. The modal sends a
         type query parameter that GitHub uses to pre-select the matching
         template. The result is one consistent shape regardless of who
-        clicked Bug, Feature, or Feedback.
+        clicked Bug, Feature request, or General feedback.
       </Callout>
 
       <h2>Attaching screenshots</h2>
@@ -99,7 +102,9 @@ export default function FeedbackFeaturePage() {
         crash recovery) ends with the same feedback flow. Stomping the bug
         opens the FeedbackModal pre-set to Bug type and prefilled with a hint
         from the crash context. It's the same modal as the manual entry
-        point, just with an auto-populated body.
+        point, just with an auto-populated body. If you have reduced motion
+        turned on, the animation is skipped and you get a static aftermath
+        tableau instead.
       </p>
 
       <Callout variant="tip" title="Why a pre-filled URL instead of a POST">

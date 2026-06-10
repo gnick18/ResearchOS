@@ -48,8 +48,10 @@ export default function HomeFeaturePage() {
         <Link href="/wiki/features/projects">Project Surface</Link> for the
         Overview, Results, Methods, Goals, and Activity walkthrough). The
         Workbench's other tabs (Experiments, Notes, Lists) sit alongside
-        Projects in the same view, plus a role-relative mentoring tab when one
-        applies to you.
+        Projects in the same view. A fifth role-relative 1:1 tab (labeled
+        Mentoring for a lab head, Check-ins for a member) appears when it applies
+        to you, a lab head always sees it, and a member sees it once they're in
+        at least one active 1:1.
       </p>
 
       <h2>Create a project</h2>

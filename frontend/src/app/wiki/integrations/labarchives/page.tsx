@@ -152,9 +152,10 @@ export default function LabArchivesIntegrationPage() {
       <Callout variant="info" title="What ends up on disk">
         Each notebook page becomes a directory under{" "}
         <code>users/&lt;you&gt;/results/task-&lt;id&gt;/</code> with a{" "}
-        <code>notes.md</code> body, a <code>notes/Files/</code> folder for
-        file attachments, a <code>notes/Images/</code> folder for inline
-        images, and an <code>_import_source.json</code> for provenance. Tasks
+        <code>notes.md</code> body alongside a <code>notes/</code> folder that
+        holds a <code>Files/</code> subfolder for file attachments, an{" "}
+        <code>Images/</code> subfolder for inline images, and an{" "}
+        <code>_import_source.json</code> for provenance. Tasks
         are marked complete, with{" "}
         <code>task_type = &quot;experiment&quot;</code> and{" "}
         <code>start_date</code> set to the page&apos;s newest entry timestamp.

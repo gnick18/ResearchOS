@@ -46,7 +46,9 @@ export default function StartHerePage() {
       <Callout variant="tip" title="1. Your data stays on your machine">
         Everything you do writes to the folder you connected. Nothing is
         uploaded, and there is no ResearchOS server holding your research. Want
-        a backup? Copy the folder. Want to leave? Delete it. The handful of
+        a backup? Copy the folder. Want to leave? Delete it. Deleting inside the
+        app sends records to the Trash (the trash-can icon in the top-right),
+        where you can restore them or delete them for good. The handful of
         network calls the app does make (fetching calendar feeds you opted into,
         the AI Helper when you turn it on, anonymous usage analytics) never carry
         your research, and the full story is on{" "}
@@ -112,11 +114,12 @@ export default function StartHerePage() {
       >
         ResearchOS works fine on its own. The{" "}
         <Link href="/wiki/integrations/calendar-feeds">calendar feeds</Link>{" "}
-        (subscribe to a Google, Outlook, or iCloud calendar) and the AI Helper
-        live in Settings, off by default, and switch on independently. Settings
-        sits behind your avatar in the top-right corner (click the circle with
-        your initial), not in the top nav. Turn them on if and when you want
-        them.
+        (subscribe to a Google, Outlook, or iCloud calendar), the AI Helper, and
+        the Companion phone pairing (the phone icon in the top-right) all
+        live behind opt-in switches, off by default, and turn on independently.
+        Settings sits behind your avatar in the top-right corner (click the
+        circle with your initial), not in the top nav. Turn them on if and when
+        you want them.
       </Callout>
 
       <h2>How to find the rest of the wiki</h2>

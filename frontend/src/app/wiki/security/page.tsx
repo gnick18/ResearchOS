@@ -103,9 +103,9 @@ export default function SecurityPage() {
       <p>
         A few routes on the ResearchOS server are involved. Two are
         CORS-bypass streams that exist because browsers refuse to talk
-        directly to the upstream service. The last is an anonymous
-        page-view ping. None of them ever sees the contents of your data
-        folder.
+        directly to the upstream service. The last two are anonymous
+        telemetry, a page-view ping and a feature-usage beacon. None of them
+        ever sees the contents of your data folder.
       </p>
       <ul>
         <li>
@@ -138,6 +138,17 @@ export default function SecurityPage() {
           disables it durably, the script tag is never injected when
           offline mode is on.
         </li>
+        <li>
+          <strong>Feature-usage beacon.</strong> When you use a tracked
+          feature like sending a share or publishing a directory profile, the
+          browser fires a small anonymous beacon to{" "}
+          <code>/api/analytics/event</code> so the operator dashboard can count
+          how often features get used. The payload is allow-listed enum and
+          boolean flags only (was an ORCID present, did the share go to an
+          existing user), never an ID, name, title, or anything you typed. It
+          rides the same <strong>Offline mode</strong> gate, and the server
+          re-validates and stores only the allow-listed shape.
+        </li>
       </ul>
       <p>
         The calendar CORS-bypass proxy uses the most defensive shape we
@@ -160,6 +171,13 @@ export default function SecurityPage() {
         <strong>Settings &rarr; Offline mode</strong> disables it durably, the
         script is not injected when the toggle is on, and the toggle is read at
         component-mount time so the choice survives reloads.
+      </p>
+      <p>
+        We also collect anonymous feature-usage counts via{" "}
+        <code>/api/analytics/event</code>, such as how often a share gets sent.
+        These carry allow-listed enum and boolean flags only, never an ID,
+        name, or anything you typed, and they ride the same{" "}
+        <strong>Offline mode</strong> gate.
       </p>
       <p>
         We do not collect anything else. No Sentry, no Google Analytics, no
@@ -205,9 +223,11 @@ export default function SecurityPage() {
         gate, anyone on the internet can hit the calendar-feed proxy route
         (subject to rate limiting). This is not a data-exfiltration risk
         because the proxy has no access to your data folder, but it does mean
-        someone could burn your Vercel function budget. Set{" "}
-        <code>UPSTASH_REDIS_REST_URL</code> for shared-state rate limiting
-        on public deploys. The wiring is already in place.
+        someone could burn your Vercel function budget. Set both{" "}
+        <code>UPSTASH_REDIS_REST_URL</code> and{" "}
+        <code>UPSTASH_REDIS_REST_TOKEN</code> for shared-state rate limiting
+        on public deploys (the Vercel Upstash integration provisions both).
+        The wiring is already in place.
       </Callout>
       <Callout variant="warning" title="Live collaboration uploads a readable copy">
         One-time sends to someone outside your folder are end-to-end encrypted,
@@ -280,8 +300,11 @@ export default function SecurityPage() {
             occasional requests to{" "}
             <code>va.vercel-scripts.com</code> and{" "}
             <code>vitals.vercel-insights.com</code> for anonymous
-            page-view pings (unless <strong>Offline mode</strong> is on,
-            in which case you&apos;ll see none of those). One more
+            page-view pings, plus an occasional anonymous{" "}
+            <code>/api/analytics/event</code> beacon when you use a tracked
+            feature like sending a share (allow-listed enum and boolean props
+            only, no IDs or text). All of those stop when{" "}
+            <strong>Offline mode</strong> is on. One more
             destination may appear in a narrow circumstance. If the AI
             Helper prompts bundled with your running app are older than
             the latest deploy and you click{" "}

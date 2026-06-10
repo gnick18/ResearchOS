@@ -7,7 +7,7 @@ export default function SettingsFeaturePage() {
   return (
     <WikiPage
       title="Settings"
-      intro="One long stack of panels, each one a small slice of how the app looks and behaves for you. The big ones are Profile and account, Professional mode, Tabs, LabArchives, AI Helper, Sidebar, View defaults, Appearance, Animation, Behavior, Streaks, History &amp; Trash, Data inventory, Data maintenance, Security, and Offline mode. Reach the page through the gear icon in the top-right of the header."
+      intro="One long stack of panels, each one a small slice of how the app looks and behaves for you. The big ones are Profile and account, Professional mode, Tabs, LabArchives, AI Helper, Sidebar, View defaults, Appearance, Animation, Behavior, Streaks, History &amp; Trash, Data inventory, Data maintenance, Security, and Offline mode. PI accounts also get an Account type picker (Member vs PI) over in the Lab Mode tab. Reach the page through the gear icon in the top-right of the header."
     >
       <Screenshot
         src="/wiki/screenshots/settings.png"
@@ -35,17 +35,32 @@ export default function SettingsFeaturePage() {
 
       <h2>Personal vs Lab Mode tabs</h2>
       <p>
-        PI accounts (<code>account_type === &quot;lab_head&quot;</code>)
-        see a two-tab strip at the top of the page. <strong>Personal</strong>{" "}
-        is the default (every panel documented below) and{" "}
-        <strong>Lab Mode</strong> is the lab-wide configuration that only a PI
-        can change. The
-        Personal tab is identical to what every account sees. The Lab Mode tab
-        holds the LabRoster (see{" "}
+        Accounts in a lab workspace see a two-tab strip at the top of the page.{" "}
+        <strong>Personal</strong> is the default (every panel documented below)
+        and is identical to what a solo account sees. <strong>Lab Mode</strong>{" "}
+        gathers the lab-wide cards, the Lab roster (see{" "}
         <Link href="/wiki/getting-started/user-archiving">User archiving</Link>),
-        the announcement defaults, and the PI password reset. Members do
-        not see the tab strip at all because they never have access to the Lab
-        Mode controls.
+        the membership agreement, the audit trail, the retention registry,
+        purchase routing, and the Account type picker. Solo users never see the
+        strip at all, so their settings stay one single stack.
+      </p>
+      <p>
+        Most of the Lab Mode cards (audit trail, retention, purchase routing)
+        are PI-only and stay hidden for members, but a member in a lab still
+        sees the tab so they can read the roster and reach the Account type
+        picker.
+      </p>
+
+      <h2>Account type</h2>
+      <p>
+        Living in the Lab Mode tab, this is the Member vs PI role picker that
+        decides what the rest of the app shows you. <strong>Member</strong> is
+        the default. <strong>PI</strong> adds the fixed, curated Lab Overview
+        page, audit logging, and purchase approval. Because the switch reshapes
+        your nav and widgets, clicking the other tile opens a confirmation
+        dialog before anything is written, and once you confirm, a 10-second{" "}
+        <strong>Switch back</strong> toast lets you undo in case you picked the
+        wrong one.
       </p>
 
       <h2>Data folder and Account</h2>

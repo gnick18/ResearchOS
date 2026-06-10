@@ -65,7 +65,7 @@ export default function ConvertingToSingleUserPage() {
       <h2>If you own the folder, make it your own</h2>
       <p>
         As the folder&apos;s main user you are offered{" "}
-        <strong>Make this your own folder</strong>. You keep this folder and
+        <strong>Convert this folder to mine</strong>. You keep this folder and
         everything in it that is yours. Everyone else is packaged into their own
         portable copy, and their originals here move to a recoverable Trash.
         Before anything happens you see a preview of exactly who moves and how
@@ -127,7 +127,10 @@ export default function ConvertingToSingleUserPage() {
         their data is not touched. It is the same safe, recoverable mechanism,
         scoped to only you.
       </p>
-      <p>The preview shows your record count and who stays behind. On confirm:</p>
+      <p>
+        The preview shows your record count and who stays behind. When you
+        confirm, ResearchOS does three things.
+      </p>
       <Steps>
         <Step>
           Your data is copied into{" "}

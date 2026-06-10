@@ -42,8 +42,9 @@ export default function SequencesFeaturePage() {
         your folder, grouped into collections that map to your projects. A
         collection selector at the top of the panel lets you narrow the list to one
         project or view everything at once. Within a collection, sequences sort by
-        last-modified date by default, and a search box at the top of the list
-        filters by name in real time.
+        name (ascending) by default, and the column headers let you re-sort by
+        date added, type, or length. A search box at the top of the list filters
+        by name in real time.
       </p>
       <Screenshot
         src="/wiki/screenshots/sequences-library-filter.png"
@@ -97,8 +98,8 @@ export default function SequencesFeaturePage() {
       </p>
       <p>
         The Map tab renders the sequence as a circular plasmid map or a linear map,
-        depending on the sequence topology and the topology toggle in the view-control
-        rail. The Sequence tab renders the bases at nucleotide resolution with the
+        depending on the sequence topology and the topology chip in the display
+        strip. The Sequence tab renders the bases at nucleotide resolution with the
         complement strand, translation tracks, and ruler. The Features tab opens a
         structured list of every annotation on the sequence, with controls for
         adding, editing, or deleting features. The Primers tab lists every
@@ -106,28 +107,31 @@ export default function SequencesFeaturePage() {
         The History tab shows the edit and save history for the sequence.
       </p>
 
-      <h2>The view-control rail</h2>
+      <h2>The display (Show) strip</h2>
       <p>
-        A narrow vertical strip of icon buttons runs along the left edge of the
-        editor. This is the view-control rail. Each button is a toggle, and pressing
-        it switches a display layer on or off without changing the active tab. The
-        rail carries toggles for features, restriction enzyme cut sites, CDS
-        translation, open reading frames, primers, the base-position ruler, and the
-        circular vs. linear topology override. A wrap-mode toggle, available when
-        the sequence is displayed in linear form, switches between a wrapped
-        multi-row layout and a single-row horizontal scroll.
+        A thin horizontal row of pill chips, labeled Show, sits in the editor
+        chrome alongside the tab bar. This is the display strip. Each chip is a
+        toggle, and pressing it switches a display layer on or off without changing
+        the active tab. The strip carries chips for features, primers, restriction
+        enzyme cut sites, CDS translation, open reading frames, the base-position
+        ruler, and the circular vs. linear topology override. A wrap-mode chip,
+        active when the sequence is displayed in linear form, switches between a
+        wrapped multi-row layout and a single continuous line. On the Features,
+        Primers, and History tabs (where there is no canvas to draw on) the chips
+        dim and go non-interactive in place rather than disappearing, so nothing
+        jumps as you switch tabs.
       </p>
       <Screenshot
         src="/wiki/screenshots/sequences-view-rail.png"
-        alt="The view-control rail showing a column of small icon toggle buttons along the left edge of the editor, with the Features and Ruler toggles lit in sky blue."
-        caption="The view-control rail. Active layers show a sky-blue background; inactive layers are gray. A small caret under the Features toggle opens the per-type show/hide flyout."
+        alt="The horizontal Show strip in the editor chrome, a row of pill-chip toggles with the Features and Ruler chips lit in sky blue."
+        caption="The Show strip. Active layers read as a filled sky-blue pill; inactive layers are calm outline pills. A caret on the Features chip opens the per-type show/hide flyout."
       />
       <p>
-        The Features toggle has a secondary disclosure caret below it. Clicking
+        The Features chip carries a disclosure caret on its trailing edge. Clicking
         the caret opens a small flyout listing every feature type present on the
         sequence, with an eye icon per type so you can hide specific annotation
         categories (promoters, for example) without hiding everything. An amber
-        dot on the Features toggle marks when some types are hidden, so you never
+        dot on the Features chip marks when some types are hidden, so you never
         lose track of a non-default visibility state.
       </p>
 
@@ -137,7 +141,7 @@ export default function SequencesFeaturePage() {
         a color-coded ring where each annotated feature appears as a named arc in
         the color assigned to its feature type. Clicking a feature arc on the map
         selects it and scrolls the Features panel to that entry. The topology
-        toggle in the view-control rail switches a circular sequence to a linear
+        chip in the display strip switches a circular sequence to a linear
         map if you prefer the linear layout, and a linear molecule always opens in
         linear form.
       </p>
@@ -147,7 +151,7 @@ export default function SequencesFeaturePage() {
         caption="A circular plasmid map. Feature arcs are color-coded by type. Click any arc to select the feature."
       />
       <Callout variant="tip" title="Restriction sites on the map">
-        Enable the Restriction sites toggle in the view-control rail to overlay
+        Enable the Enzyme sites chip in the display strip to overlay
         cut sites on the map. The default set of common restriction enzymes is
         pre-loaded; the enzyme picker (accessible from the Enzyme toolbar button)
         lets you filter to any subset.

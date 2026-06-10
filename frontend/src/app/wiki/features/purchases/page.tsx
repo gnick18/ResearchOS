@@ -405,12 +405,13 @@ export default function PurchasesFeaturePage() {
       />
 
       <p>
-        Next to the export button, PIs see a{" "}
-        <strong>Open in Lab Overview</strong> shortcut that opens the same
-        purchase data inside the LabPurchases Tool popup on{" "}
-        <Link href="/wiki/features/lab-overview">/lab-overview</Link>,
-        where the funding-bar, burn-rate, and pending-approval surfaces all
-        live in one place.
+        The dashboard export covers what you are looking at right now. For a
+        grant audit, the page header has a separate{" "}
+        <strong>Export audit CSV</strong> button that ignores the dashboard
+        filters and writes every purchase grouped by grant, with references to
+        each attached document, to a file named{" "}
+        <code>researchos-purchases-audit.csv</code>. That is the index an
+        auditor needs (the document files themselves stay in your data folder).
       </p>
 
       <h2>The PI experience</h2>

@@ -76,7 +76,7 @@ export default function CloningWorkspaceFeaturePage() {
         carry the source fragments&apos; annotations onto the product (on by default),
         and pick how the homology overlap is sized. You can fix the overlap to a length in base pairs
         (the default is 25 bp) or let the engine grow it until the homology reaches a
-        target melting temperature. From there the Workspace does two things. It
+        target melting temperature (48 degrees C by default). From there the Workspace does two things. It
         computes the assembled product as the fragment bodies joined in order, with
         the homology living once at each seam. And it designs the per-fragment PCR
         primers, where each primer is an annealing region sized to a target Tm (about 60
@@ -112,7 +112,7 @@ export default function CloningWorkspaceFeaturePage() {
       </p>
       <p>
         In the Workspace you choose two or more sequences and a set of common cutters
-        (EcoRI, BamHI, HindIII, PstI, KpnI, SmaI, XhoI, NotI, and others). The engine
+        (EcoRI, BamHI, HindIII, PstI, KpnI, SmaI, XhoI, and NotI). The engine
         digests each sequence on both strands, types every resulting end as blunt, a
         5&apos; overhang, or a 3&apos; overhang, and then enumerates the products
         whose ends form a consistent ligation chain. Because a fragment can ligate in

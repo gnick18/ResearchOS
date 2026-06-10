@@ -161,12 +161,12 @@ export default function MethodsFeaturePage() {
         <strong>Private</strong> pill in the header. The share popup opens.
         In the <strong>User</strong> dropdown, select{" "}
         <strong>All Lab Users</strong>. A confirmation box appears below.
-        Click <strong>Apply</strong>. The pill updates to{" "}
-        <strong>Shared with the lab</strong> and a green message confirms
-        the change.
+        Click <strong>Apply</strong>. The pill flips from{" "}
+        <strong>Private</strong> (a lock icon) to <strong>Public</strong> (a
+        globe icon) to confirm the method is now visible to the whole lab.
       </p>
       <p>
-        Lab-shared methods show a green <strong>Shared</strong> badge on
+        Lab-shared methods show a green <strong>Public</strong> badge on
         their card and appear in every user&apos;s library.
       </p>
 

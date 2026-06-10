@@ -41,7 +41,7 @@ function ComingSoon() {
 export default function LabArchivesComparisonPage() {
   return (
     <WikiPage
-      intro="An honest side-by-side. LabArchives is the incumbent most academic labs are leaving, so it is the right thing to measure against. ResearchOS wins decisively on data ownership and cost; LabArchives is still ahead on a few specific things, and this page says so plainly."
+      intro="An honest side-by-side. LabArchives is the incumbent most academic labs are leaving, so it is the right thing to measure against. ResearchOS wins decisively on data ownership and cost. LabArchives is still ahead on a few specific things, and this page says so plainly."
     >
       <h2>Who each one is for</h2>
       <p>
@@ -142,8 +142,8 @@ export default function LabArchivesComparisonPage() {
               <td>
                 <Partial>
                   Ships on notes, tasks, experiments (Lab Notes and Results),
-                  and projects, each with a restore button. Standalone library
-                  methods are not separately versioned yet.
+                  projects, and sequences, each with a restore button.
+                  Standalone library methods are not separately versioned yet.
                 </Partial>
               </td>
               <td>
@@ -326,8 +326,9 @@ export default function LabArchivesComparisonPage() {
         <li>
           <strong>Complete per-entry revision history.</strong> ResearchOS now
           ships per-entry version history with a restore button on notes,
-          tasks, experiments (both Lab Notes and Results), and projects, and an
-          experiment also tracks per-method protocol deviations as it changes,
+          tasks, experiments (both Lab Notes and Results), projects, and
+          sequences, and an experiment also tracks per-method protocol
+          deviations as it changes,
           so the gap here is narrow. LabArchives still covers every record
           type, while ResearchOS does not yet version standalone library method
           records.

@@ -27,9 +27,13 @@ export default function LinksFeaturePage() {
       <p>
         Each saved link is a card with a preview image (or a solid colored
         block if no image), the link title, a short description, and the
-        hostname. Cards are grouped into category sections. The section
-        header is the category name, and links without a category land
-        under <em>Other</em>. Clicking a card opens its URL in a new tab.
+        hostname. When a link has a category, the card shows it as a small
+        badge in the top-left corner of the preview. Cards are grouped into
+        category sections. The section header is the category name, and links
+        without a category land under <em>Other</em>. Clicking a card opens its
+        URL in a new tab. To narrow the board to one category, filter by it from
+        the search palette. A banner with a <strong>Clear</strong> button shows
+        which filter is active.
       </p>
       <Callout variant="info" title="Color swatch vs. preview image">
         The color swatch only appears when no preview image is set. If you
@@ -70,8 +74,8 @@ export default function LinksFeaturePage() {
         <Step>
           Set <strong>Visibility</strong>. <strong>Just me</strong> (the
           default) keeps the link private to you. <strong>Whole lab</strong>{" "}
-          puts it on every lab member&apos;s Links page, where any of them can
-          see and edit it.
+          puts it on every lab member&apos;s Links page, where they can see and
+          open it. You stay the owner, so only you can edit or remove it.
         </Step>
         <Step>
           Optionally add a <strong>Description</strong> and override the{" "}

@@ -28,8 +28,9 @@ export default function ResultsFeaturePage() {
         <Link href="/wiki/features/experiments">Workbench</Link> page, with
         the header rendered in uppercase as <strong>EARLIER RESULTS</strong>.
         They keep all the same write-up affordances. Clicking a card opens
-        the task detail popup with the Results tab selected, where you fill
-        in the markdown summary and drop in images.
+        the task detail popup on its Details tab (the default for an
+        experiment). Pick the Results tab there to fill in the markdown
+        summary and drop in images.
       </p>
       <p>
         Because this archive grows for as long as you keep working, it paginates

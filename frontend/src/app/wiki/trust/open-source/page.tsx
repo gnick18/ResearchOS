@@ -57,7 +57,9 @@ export default function OpenSourcePage() {
         </a>{" "}
         page opens with a sincere thank-you to the open-source and scientific
         community, then credits the specific projects ResearchOS depends on. It
-        groups the highlights by area, calls out the code vendored directly
+        features a couple of recently added projects up top (right now
+        expr-eval-fork and the Biopython melting-temperature port), groups the
+        highlights by area, calls out the code vendored directly
         (such as SeqViz, the TeselaGen tg-oss components, and the Biopython
         melting-temperature port), names the scientific references behind the
         calculators, and includes the full auto-generated dependency list. The

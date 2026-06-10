@@ -67,7 +67,12 @@ export default function DepositingToARepositoryPage() {
         </li>
         <li>
           <strong>From a project</strong>: open the project and choose Deposit to
-          bundle the project as a collection of its experiments.
+          bundle it as one dataset. The first step lets you multi-select which
+          experiments and which notes go in (notes come from your full note
+          list, since notes are not project-scoped). The bundle then holds each
+          item exported on its own, one combined navigable PDF across everything,
+          the raw re-importable bundle for each experiment, and a markdown
+          rendering of each note.
         </li>
       </ul>
 
@@ -149,7 +154,10 @@ export default function DepositingToARepositoryPage() {
           the project, including the funder name, the funder ID and ID type, and
           the award number and title. These populate the DataCite{" "}
           <code>fundingReference</code> so the deposit carries the grant
-          attribution funders expect.
+          attribution funders expect. A project-level deposit goes further and
+          lists multiple funders, the primary grant linked to the project plus
+          any other grants that purchases in the project were charged to, deduped
+          so the same grant never shows twice.
         </li>
       </ul>
 

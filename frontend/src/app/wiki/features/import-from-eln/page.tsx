@@ -31,8 +31,7 @@ export default function ImportFromELNPage() {
       <p>
         You start from{" "}
         <strong>Settings → LabArchives → Open import…</strong>, which
-        opens the wizard as a modal. The first-run setup screen has the
-        same entry point under <em>Coming from LabArchives?</em>. If you
+        opens the wizard as a modal. If you
         haven&apos;t produced an Offline Notebook ZIP yet, hop over to{" "}
         <Link href="/wiki/getting-started/labarchives-export">
           Exporting from LabArchives

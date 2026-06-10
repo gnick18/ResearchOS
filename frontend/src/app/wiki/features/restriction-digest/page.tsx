@@ -31,13 +31,13 @@ export default function RestrictionDigestFeaturePage() {
         fragment sizes result.
       </p>
       <p>
-        The digest is a display layer on the open sequence. Turn on the Restriction
-        sites toggle in the editor&apos;s view-control rail to overlay cut sites on
-        the circular or linear map, and open the enzyme picker (from the Enzyme
-        toolbar button) to choose which enzymes are active. The digest overlay
-        itself saves nothing. The active enzyme set lives in the editor&apos;s view
-        state for the session, though you can name and keep a set of your own from
-        the picker (see below).
+        The digest is a display layer on the open sequence. Turn on the Enzyme
+        sites chip in the display strip above the viewer to overlay cut sites on
+        the circular or linear map, and open the enzyme picker (the Choose enzymes
+        action under the Cut operation in the right sidebar) to choose which
+        enzymes are active. The digest overlay itself saves nothing. The active
+        enzyme set lives in the editor&apos;s view state for the session, though
+        you can name and keep a set of your own from the picker (see below).
       </p>
 
       <TryInDemo href="/sequences">Try the Sequences workbench</TryInDemo>

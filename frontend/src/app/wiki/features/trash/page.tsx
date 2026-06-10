@@ -8,7 +8,7 @@ export default function TrashFeaturePage() {
   return (
     <WikiPage
       title="Trash &amp; History"
-      intro="A recovery window for deletes. When you delete a note, task, project, method, purchase, goal, lab link, mass spec protocol, or sequence, it does not vanish. It moves into a per-user trash folder where it sits for 30 days. Within that window you can restore it back to its original location with one click. After the window passes, an automatic sweep removes it for good."
+      intro="A recovery window for deletes. When you delete a note, task, project, method, purchase, goal, lab link, mass spec protocol, sequence, inventory item or stock, or storage location, it does not vanish. It moves into a per-user trash folder where it sits for 30 days. Within that window you can restore it back to its original location with one click. After the window passes, an automatic sweep removes it for good."
     >
       <h2>Why this exists</h2>
       <p>
@@ -56,7 +56,8 @@ export default function TrashFeaturePage() {
         so all your deleted notes sit together, all your deleted tasks sit
         together, and so on. Sequences now show up here too, alongside notes,
         tasks, projects, methods, purchase items, high-level goals, lab links,
-        mass spec protocols, and inventory items and stocks. A section only
+        mass spec protocols, inventory items and stocks, and storage locations.
+        A section only
         appears when it has something in it, so the page stays short when most
         categories are empty.
       </p>
@@ -104,9 +105,9 @@ export default function TrashFeaturePage() {
         <Step>
           <strong>Act from the bar.</strong> As soon as something is selected,
           a bar slides in at the top of the list showing how many items are
-          selected. From there you can <strong>Restore</strong> all of them,
-          <strong> Permanent delete</strong> all of them, or
-          <strong> Clear selection</strong> to start over.
+          selected. From there you can <strong>Restore</strong> all of them,{" "}
+          <strong>Permanent delete</strong> all of them, or{" "}
+          <strong>Clear selection</strong> to start over.
         </Step>
         <Step>
           <strong>Confirm a bulk delete.</strong> Restoring in bulk happens
@@ -152,9 +153,9 @@ export default function TrashFeaturePage() {
       </p>
 
       <Callout variant="info" title="The window is per-user">
-        Each user&rsquo;s cleanup window applies to their own trash. If a PI
-        deletes one of your records during an unlock session, the trash entry
-        lands in your folder and inherits your cleanup setting.
+        Each user&rsquo;s cleanup window applies to their own trash. If a lab
+        head deletes one of your records, the trash entry lands in your folder
+        and inherits your cleanup setting.
       </Callout>
 
       <h2>Who can delete a record</h2>
@@ -164,15 +165,11 @@ export default function TrashFeaturePage() {
         delete it. That&rsquo;s your call as the owner.
       </p>
       <p>
-        The one carve-out is the PI lab-head edit session. When a PI is in an
-        active{" "}
-        <Link href="/wiki/features/lab-head/edit-session-and-password">
-          edit-session unlock
-        </Link>
-        , they can delete records owned by other lab members. The trash entry
-        records the PI as the deleter and ties the entry to the unlock
-        session so the audit log groups consistently with the rest of the
-        edits made during that session.
+        The one carve-out is the lab head. A lab head can delete records owned
+        by other lab members, based on a real role check (your account is a lab
+        head), not a temporary unlock. The trash entry records the lab head as
+        the deleter and rides an audit session id along so the audit log groups
+        the action with the rest of that batch.
       </p>
 
       <h2>Restoring a record</h2>

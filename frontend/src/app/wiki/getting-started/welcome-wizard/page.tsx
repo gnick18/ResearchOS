@@ -93,8 +93,7 @@ export default function WelcomeWizardPage() {
         The first call is whether you are flying solo (one user, your own
         account) or running a multi-person lab (everyone points their
         ResearchOS at the same shared folder). The pick determines whether
-        the PI follow-up question (Q1c, below) fires and whether the
-        Lab Links surface is called &quot;Links&quot; or &quot;Lab Links&quot;.
+        the PI follow-up question (Q1c, below) fires.
       </p>
 
       <Screenshot
@@ -147,7 +146,7 @@ export default function WelcomeWizardPage() {
         conditional walkthrough clusters fire in Phase 2.
       </p>
 
-      <h3>Q7, Links / Lab Links</h3>
+      <h3>Q7, Links</h3>
       <p>
         The final setup question asks whether you want a tab for saving
         bookmarks, things like VPN links, lab calendars, freezer inventory spreadsheets,
@@ -155,11 +154,10 @@ export default function WelcomeWizardPage() {
         you can jump straight to the resource.
       </p>
       <p>
-        The surface name is account-type-conditional. Solo accounts see{" "}
-        <strong>Links</strong>, and lab accounts see{" "}
-        <strong>Lab Links</strong>, a shared tab visible to everyone in the lab. Saying yes to Q7 adds the
-        tab and fires the <code>links</code> conditional walkthrough later in
-        Phase 2.
+        The tab is labeled <strong>Links</strong> for every account type. On a
+        lab account it is a shared tab visible to everyone in the lab. Saying
+        yes to Q7 adds the tab and fires the <code>links</code> conditional
+        walkthrough later in Phase 2.
       </p>
 
       <h2>Phase 2, walkthrough on your real account</h2>
@@ -520,10 +518,9 @@ export default function WelcomeWizardPage() {
           in the Calendar tab when you click Next.
         </li>
         <li>
-          <strong>Links / Lab Links</strong> (Q7 = yes). The <code>links</code>{" "}
-          step walks the bookmark tab, adding a card with a URL and label, and
-          the difference between personal Links (solo) and shared Lab Links
-          (lab).
+          <strong>Links</strong> (Q7 = yes). The <code>links</code> step walks
+          the bookmark tab, adding a card with a URL and label, and notes that
+          on a lab account the tab is shared with everyone in the lab.
         </li>
       </ul>
 
@@ -661,10 +658,10 @@ export default function WelcomeWizardPage() {
         <li><strong>Calendar</strong> appears only when <code>calendar === &quot;yes&quot;</code>.</li>
         <li><strong>Goals</strong> appears only when <code>goals === &quot;yes&quot;</code>.</li>
         <li>
-          <strong>Links / Lab Links</strong> appears only when{" "}
-          <code>links === &quot;yes&quot;</code>. Solo accounts see the tab
-          labeled <strong>Links</strong>; lab accounts see{" "}
-          <strong>Lab Links</strong>.
+          <strong>Links</strong> appears only when{" "}
+          <code>links === &quot;yes&quot;</code>. The tab is labeled{" "}
+          <strong>Links</strong> for every account type. On a lab account it is
+          shared with everyone in the lab.
         </li>
       </ul>
       <p>
@@ -672,7 +669,7 @@ export default function WelcomeWizardPage() {
         otherwise show. Settings cannot <strong>unhide</strong> a tab that the
         picks excluded. To get a hidden tab back, re-run the tour and flip the
         matching Q answer, or toggle it on directly in{" "}
-        <strong>Settings &gt; Onboarding &gt; Visible tabs</strong>.
+        <strong>Settings &gt; Tabs</strong>.
       </p>
 
       <Callout variant="tip" title="Power-user shortcut, ?wizard-preview=1">

@@ -7,7 +7,7 @@ export default function UserArchivingPage() {
   return (
     <WikiPage
       title="User archiving"
-      intro="When a lab member leaves (graduates, rotates out, switches projects), archiving their account is the right move. Archiving hides them from active views but keeps every byte of their data on disk and in the lab's history. They drop out of the login picker, the member-workload chart, and the pickers you use to assign new work. The records they already wrote stay readable to anyone with permission."
+      intro="When a lab member leaves (graduates, rotates out, switches projects), archiving their account is the right move. Archiving hides them from the surfaces where you pick someone, but keeps every byte of their data on disk and in the lab's history. They drop out of the login picker by default and out of the pickers you use to assign new work (the @mention, share, and assignee dropdowns). The records they already wrote stay readable to anyone with permission."
     >
       {/* TODO screenshot agent: capture the LabRoster in Settings with the Archive action on a row.
           Route: /settings (Lab Mode tab, LabRoster section)
@@ -33,7 +33,8 @@ export default function UserArchivingPage() {
           preserving their on-disk data. Tasks they own, notes they wrote,
           purchases they logged, all stay where they are. Anyone with read
           access still sees them. The archived user just stops appearing in
-          the picker, the member workload widget, and the active member roster.
+          the login picker, the @mention and assignee dropdowns, and the
+          active-member jump list on the Lab Overview.
         </li>
         <li>
           <strong>Delete</strong> removes the user&apos;s folder from disk
@@ -77,10 +78,10 @@ export default function UserArchivingPage() {
           control below).
         </li>
         <li>
-          Drops the member from the active-member list on the Lab
-          Overview, so the workload view counts active people first (an
-          archived member only resurfaces when you drill into their row
-          to restore them).
+          Drops the member from the active-member jump list on the Lab
+          Overview, so the people you can quick-jump to are active first
+          (an archived member only resurfaces when you drill into their
+          row to restore them).
         </li>
         <li>
           Filters them out of the @mention picker, the share dialog, and
@@ -122,9 +123,9 @@ export default function UserArchivingPage() {
         Members never see an &quot;archived&quot; banner on their own account.
         If a lab head archives someone who later signs back in, that person
         signs in normally and sees their data as they left it. Only the
-        shared lab surfaces stop including them. The audit log is the source
-        of truth for &quot;why am I not showing up in the workload widget,&quot;
-        and the lab head can read it from the member&apos;s record.
+        shared lab surfaces stop offering them as a pick. The audit log is the
+        source of truth for &quot;why am I not showing up as an assignee
+        option,&quot; and the lab head can read it from the member&apos;s record.
       </Callout>
 
       <h2>When to archive</h2>
@@ -135,8 +136,8 @@ export default function UserArchivingPage() {
           person who picks up the project.
         </li>
         <li>
-          A rotation student wrapped up and you do not want them on the
-          member-workload chart for upcoming planning.
+          A rotation student wrapped up and you do not want them turning
+          up in the assignee dropdown when you plan the next round of work.
         </li>
         <li>
           An undergrad worked over the summer and is gone for the school

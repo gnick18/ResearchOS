@@ -155,16 +155,19 @@ export default function CalendarFeaturePage() {
         you can recolor any feed to match your preferences without disconnecting
         and re-adding it. Toggle a feed on or off from either the modal or the
         legend. Remove a feed with the <strong>Remove</strong> link in the modal.
-        Feeds refetch every 15 minutes. If a feed fails to fetch, an amber banner
-        appears above the calendar grid with a <strong>Retry now</strong>{" "}
-        button.
+        Feed data goes stale after 15 minutes, so the next time you open the
+        Calendar page (or hit the sidebar legend) ResearchOS refetches it.
+        It won&apos;t poll on a timer while the tab sits open. If a feed fails
+        to fetch, an amber banner appears above the calendar grid with a{" "}
+        <strong>Retry now</strong> button that pulls fresh data immediately.
       </p>
       <p>
         Clicking a linked event opens a read-only popover with the title,
         time, location, and any notes the source calendar published. To
         edit a linked event, open it in its source app (Google Calendar,
-        Outlook, Apple Calendar) and the change shows up in ResearchOS on
-        the next 15-minute refresh.
+        Outlook, Apple Calendar) and the change shows up in ResearchOS the
+        next time it refetches the feed (when you reopen the Calendar page
+        after the 15-minute stale window, or hit <strong>Retry now</strong>).
       </p>
       <p>
         Want the deep-dive?{" "}
