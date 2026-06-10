@@ -50,6 +50,7 @@ import {
   type CaptureStatus,
 } from '@/lib/captures';
 import { usePairing, clearPairing } from '@/lib/pairing';
+import { scanNote, isScannerAvailable, type OcrResult } from '@/lib/ocr';
 import { setPendingBatch } from '@/lib/bulk-batch';
 import { signWithDevice } from '@/lib/device-identity';
 import {
@@ -61,6 +62,7 @@ import { getFocusContext, type FocusContext } from '@/lib/focus-context';
 import { postRouteCapture } from '@/lib/route-capture';
 import { fetchNotebooks, type NotebookSummary } from '@/lib/notebooks';
 import { postRouteCaptureNote, postAppendNoteText } from '@/lib/note-route';
+import { postOcrSidecar } from '@/lib/ocr-sidecar';
 import { sendTextNote } from '@/lib/notes';
 import { NotebookChooser } from '@/components/NotebookChooser';
 import { fireSuccess } from '@/lib/success-burst';
@@ -193,6 +195,9 @@ export default function NotebookScreen() {
   const { captures, refresh: refreshCaptures } = useCaptures();
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [previewDoc, setPreviewDoc] = useState<AnnotationDoc | null>(null);
+  // OCR layer for a scanned handwriting note (null for plain photos). Rides with
+  // the capture so the laptop writes the {image}.ocr.json sidecar.
+  const [previewOcr, setPreviewOcr] = useState<OcrResult | null>(null);
   const [caption, setCaption] = useState('');
   const [saving, setSaving] = useState(false);
   const [sendingAll, setSendingAll] = useState(false);
@@ -296,7 +301,28 @@ export default function NotebookScreen() {
     if (!asset?.uri) return;
     setPreviewUri(asset.uri);
     setPreviewDoc(null);
+    setPreviewOcr(null);
     setCaption('');
+  }, []);
+
+  // Scan a handwritten page. The native document scanner rectifies + cleans it
+  // onto a white background and OCRs it on-device, then we stage the enhanced
+  // image as the preview with its OCR layer attached. Only available on the dev
+  // client (isScannerAvailable is false in Expo Go). Cancel is a silent no-op.
+  const onScanNote = useCallback(async () => {
+    try {
+      const scanned = await scanNote();
+      if (!scanned) return;
+      setPreviewUri(scanned.uri);
+      setPreviewDoc(null);
+      setPreviewOcr(scanned.ocr);
+      setCaption('');
+    } catch (err) {
+      Alert.alert(
+        'Scan failed',
+        err instanceof Error ? err.message : 'Could not scan the note.',
+      );
+    }
   }, []);
 
   const onUploadFromLibrary = useCallback(async () => {
@@ -319,6 +345,7 @@ export default function NotebookScreen() {
     if (picked.length === 1) {
       setPreviewUri(picked[0]);
       setPreviewDoc(null);
+      setPreviewOcr(null);
       setCaption('');
       return;
     }
@@ -366,6 +393,20 @@ export default function NotebookScreen() {
       if (!userX25519PubHex) {
         fireSuccess({ subtitle: 'Sent to inbox' });
         return;
+      }
+
+      // Decoupled OCR. A scanned capture carries its OCR layer on its own sealed
+      // command keyed to the captureId, sent now regardless of where it routes,
+      // so the laptop writes {image}.ocr.json wherever the image lands (inbox,
+      // notebook, or experiment). Plain photos have no ocr, so this is a no-op
+      // for them.
+      if (queued.ocr) {
+        void postOcrSidecar(
+          queued.id,
+          queued.ocr,
+          userX25519PubHex,
+          pairing.relayUrl,
+        );
       }
 
       let ctx: FocusContext | null;
@@ -476,6 +517,8 @@ export default function NotebookScreen() {
           entryId,
           userX25519PubHex,
           pairing.relayUrl,
+          // OCR no longer rides the route command; it travels on its own
+          // ocr-sidecar command (postOcrSidecar) keyed to the captureId.
         );
         fireSuccess({ subtitle: `Filed in ${notebook.title}` });
       } catch {
@@ -619,9 +662,13 @@ export default function NotebookScreen() {
         caption,
         // Carry the annotation doc with the queued capture when one was drawn.
         annotation: previewDoc ?? undefined,
+        // Carry the OCR layer for a scanned note so the laptop writes the
+        // {image}.ocr.json sidecar.
+        ocr: previewOcr ?? undefined,
       });
       setPreviewUri(null);
       setPreviewDoc(null);
+      setPreviewOcr(null);
       setCaption('');
       await refreshCaptures();
       if (pairing) {
@@ -630,7 +677,7 @@ export default function NotebookScreen() {
     } finally {
       setSaving(false);
     }
-  }, [previewUri, previewDoc, caption, refreshCaptures, pairing, sendWithRouting]);
+  }, [previewUri, previewDoc, previewOcr, caption, refreshCaptures, pairing, sendWithRouting]);
 
   // Stash the preview photo and open the annotation editor. The doc comes back
   // on focus return (see useFocusEffect above).
@@ -643,6 +690,7 @@ export default function NotebookScreen() {
   const onDiscard = useCallback(() => {
     setPreviewUri(null);
     setPreviewDoc(null);
+    setPreviewOcr(null);
     setCaption('');
   }, []);
 
@@ -816,6 +864,17 @@ export default function NotebookScreen() {
             accent="amber"
             label="Upload from camera roll"
             onPress={onUploadFromLibrary}
+          />
+        ) : null}
+
+        {/* Scan a handwritten note (dev client only, hidden in Expo Go). The
+            native scanner cleans the page onto a white background and OCRs it. */}
+        {!previewUri && !quickNoteOpen && isScannerAvailable() ? (
+          <Button
+            variant="secondary"
+            accent="sky"
+            label="Scan a handwritten note"
+            onPress={onScanNote}
           />
         ) : null}
 

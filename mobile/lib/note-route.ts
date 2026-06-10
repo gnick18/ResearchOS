@@ -27,6 +27,7 @@ import { bytesToHex } from '@noble/curves/utils.js';
 import { utf8ToBytes } from '@noble/hashes/utils.js';
 import { sealToUser } from '@/lib/device-identity';
 import { postCommand } from '@/lib/focus-context';
+import type { OcrResult } from '@/lib/ocr';
 
 /**
  * Builds, seals, and posts a route-capture-note command to the relay.
@@ -36,6 +37,11 @@ import { postCommand } from '@/lib/focus-context';
  * attachImageToNote). If userX25519PubHex is absent or empty the function
  * returns without posting (graceful no-op so the capture still lands in the
  * inbox).
+ *
+ * For a scanned handwriting note, the OCR layer rides INSIDE this sealed command
+ * (E2E to the user X25519, like the quick-note text does), so the laptop writes
+ * the {image}.ocr.json sidecar without the OCR ever sitting in plaintext relay
+ * meta. The relay does not carry capture meta, so the command is the channel.
  *
  * Must be called AFTER sendCapture completes so the relay already holds the
  * image when the laptop polls the command queue.
@@ -47,11 +53,20 @@ export async function postRouteCaptureNote(
   entryId: string | null,
   userX25519PubHex: string,
   relayUrl?: string,
+  ocr?: OcrResult,
 ): Promise<void> {
   // Guard: no-op when the user X25519 pubkey is not yet available (pairing gap).
   if (!userX25519PubHex) return;
 
-  const command = { type: 'route-capture-note', captureId, noteId, owner, entryId };
+  const command = {
+    type: 'route-capture-note',
+    captureId,
+    noteId,
+    owner,
+    entryId,
+    // Carry the OCR layer only for scanned notes, so plain photos stay small.
+    ...(ocr ? { ocr } : {}),
+  };
   const plaintext = utf8ToBytes(JSON.stringify(command));
 
   let sealed: Uint8Array;

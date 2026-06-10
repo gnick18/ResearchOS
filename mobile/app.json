@@ -44,7 +44,14 @@
           }
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      [
+        "react-native-document-scanner-plugin",
+        {
+          "cameraPermission": "ResearchOS uses the camera to scan and clean up your handwritten notes."
+        }
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,

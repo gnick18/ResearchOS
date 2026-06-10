@@ -21,6 +21,12 @@
  * House style: no em-dashes, no emojis, no mid-sentence colons.
  */
 
+import { Image } from 'react-native';
+import DocumentScanner, {
+  ResponseType,
+} from 'react-native-document-scanner-plugin';
+import TextRecognition from '@react-native-ml-kit/text-recognition';
+
 export const OCR_SCHEMA_VERSION = 1 as const;
 
 export type OcrEngine = 'apple-vision' | 'mlkit';
@@ -59,12 +65,43 @@ export interface ScanNoteResult {
 }
 
 /**
- * Whether the native document scanner + OCR are available in this runtime.
- * False in Expo Go (the native modules ship with the dev client). At the
- * dev-client cutover this becomes a real probe of the installed native modules.
+ * Whether the native document scanner + OCR are available in this runtime. True
+ * on the dev client (where the native modules ship), probed defensively so a
+ * stray Expo Go bundle degrades to "unavailable" rather than crashing. Note that
+ * statically importing the native packages above already makes this module
+ * dev-client-only, this probe is belt-and-suspenders.
  */
 export function isScannerAvailable(): boolean {
-  return false;
+  return (
+    !!DocumentScanner &&
+    typeof DocumentScanner.scanDocument === 'function' &&
+    !!TextRecognition &&
+    typeof TextRecognition.recognize === 'function'
+  );
+}
+
+// Read an image's natural pixel size. The boxes + imageW/imageH are relative to
+// the ENHANCED scan, so this measures the scanner's output, not the raw photo.
+function getImageSize(uri: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve) => {
+    Image.getSize(
+      uri,
+      (width, height) => resolve({ width, height }),
+      () => resolve({ width: 0, height: 0 }),
+    );
+  });
+}
+
+// ML Kit returns a per-element `frame`. The field names are not pinned in the
+// package docs, so read both the {left,top,width,height} and the {x,y} shapes
+// defensively and emit natural-pixel [x, y, w, h] to match OcrLine.bbox.
+function frameToBbox(frame: unknown): [number, number, number, number] {
+  const f = (frame ?? {}) as Record<string, number | undefined>;
+  const x = f.left ?? f.x ?? 0;
+  const y = f.top ?? f.y ?? 0;
+  const w = f.width ?? 0;
+  const h = f.height ?? 0;
+  return [x, y, w, h];
 }
 
 /**
@@ -87,6 +124,63 @@ export function isScannerAvailable(): boolean {
  */
 export async function scanNote(): Promise<ScanNoteResult | null> {
   if (!isScannerAvailable()) return null;
-  // Native scan + OCR wiring lands at the dev-client cutover (see doc comment).
-  return null;
+
+  // 1. Scan + clean. VisionKit on iOS / ML Kit document scanner on Android does
+  // the perspective correction, deskew, and white-background contrast clean.
+  // Returns enhanced page image file paths. Cancel returns status 'cancel'.
+  const { scannedImages, status } = await DocumentScanner.scanDocument({
+    responseType: ResponseType.ImageFilePath,
+    croppedImageQuality: 100,
+    maxNumDocuments: 1,
+  });
+  if (status !== 'success' || !scannedImages || scannedImages.length === 0) {
+    return null;
+  }
+  const uri = scannedImages[0];
+
+  // 2. Natural pixel size of the enhanced page (for the bboxes + the sidecar).
+  const { width: imageW, height: imageH } = await getImageSize(uri);
+
+  // 3. OCR the ENHANCED image (not the raw photo). ML Kit returns blocks of
+  // lines; flatten to OcrLine. ML Kit text recognition does not expose a
+  // reliable per-line confidence, so default to 1 (Apple Vision, a later
+  // iOS-accuracy path, does provide it).
+  const lines: OcrLine[] = [];
+  try {
+    const recognized = await TextRecognition.recognize(uri);
+    for (const block of recognized.blocks ?? []) {
+      for (const line of block.lines ?? []) {
+        lines.push({
+          text: line.text ?? '',
+          bbox: frameToBbox((line as { frame?: unknown }).frame),
+          confidence: 1,
+        });
+      }
+    }
+    const ocr: OcrResult = {
+      version: OCR_SCHEMA_VERSION,
+      engine: 'mlkit',
+      extractedAt: new Date().toISOString(),
+      imageW,
+      imageH,
+      text: recognized.text ?? lines.map((l) => l.text).join('\n'),
+      lines,
+      edited: false,
+    };
+    return { uri, ocr };
+  } catch {
+    // OCR failed but the enhanced scan is still useful. Return the image with an
+    // empty text layer rather than dropping the capture.
+    const ocr: OcrResult = {
+      version: OCR_SCHEMA_VERSION,
+      engine: 'mlkit',
+      extractedAt: new Date().toISOString(),
+      imageW,
+      imageH,
+      text: '',
+      lines: [],
+      edited: false,
+    };
+    return { uri, ocr };
+  }
 }
