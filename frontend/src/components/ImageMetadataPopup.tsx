@@ -8,6 +8,7 @@ import { imageEvents } from "@/lib/attachments/image-events";
 import { sidecarPath, type ImageSidecar } from "@/lib/attachments/image-folder";
 import { useAppStore, type ActiveTask } from "@/lib/store";
 import AnnotatedImage from "@/components/AnnotatedImage";
+import { OcrReveal } from "@/components/OcrImage";
 import LivingPopup from "@/components/ui/LivingPopup";
 
 // Konva touches window/canvas and breaks SSR, so the annotator is loaded
@@ -233,6 +234,9 @@ export default function ImageMetadataPopup({
                       className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
                     />
                   </div>
+                  {/* Extracted text from a scanned handwriting note. Renders
+                      nothing when the image has no .ocr.json sidecar. */}
+                  <OcrReveal basePath={basePath} filename={filename} />
                   {onRename && (
                     <div className="pt-2 border-t border-border">
                       <label className="block text-meta font-medium text-foreground-muted mb-1">
