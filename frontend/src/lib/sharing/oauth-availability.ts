@@ -37,3 +37,15 @@ export function isDevMockAuth(): boolean {
 export function isRealSharingEnabled(): boolean {
   return process.env.NEXT_PUBLIC_SHARING_ENABLED === "true";
 }
+
+// Whether to OFFER the Microsoft (Entra ID) sign-in button. Microsoft is gated
+// on its OWN flag, separate from the other providers, because it needs its own
+// Azure app registration. The deployer registers a multitenant Entra app, sets
+// AUTH_MICROSOFT_ENTRA_ID_ID/SECRET (the server provider then mounts on its own
+// gate in auth.ts), and flips NEXT_PUBLIC_AUTH_MICROSOFT_ENABLED to "true" so the
+// client shows the button. Until then the button stays hidden, so it never
+// dead-ends at /api/auth/error. Always paired with the surface's own
+// OAuth-available gate, so it only shows where the other providers already do.
+export function isMicrosoftAuthEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_AUTH_MICROSOFT_ENABLED === "true";
+}

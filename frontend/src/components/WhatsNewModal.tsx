@@ -4,7 +4,8 @@ import { useState } from "react";
 import BeakerBot from "./BeakerBot";
 import BeakerBotMouseWaveScene from "./BeakerBotMouseWaveScene";
 import LivingPopup from "@/components/ui/LivingPopup";
-import { GoogleIcon, GitHubIcon, LinkedInIcon, OrcidIcon } from "@/components/sharing/icons";
+import { GoogleIcon, GitHubIcon, LinkedInIcon, MicrosoftIcon, OrcidIcon } from "@/components/sharing/icons";
+import { isMicrosoftAuthEnabled } from "@/lib/sharing/oauth-availability";
 import { FREE_STORAGE_BYTES, TTL_DAYS } from "@/lib/sharing/relay/limits";
 import { APP_CHANNEL } from "@/lib/version";
 import type { ReleaseNote } from "@/lib/release-notes";
@@ -46,7 +47,7 @@ interface Props {
    *  other providers. When absent, the sign-in cards render but the provider
    *  buttons are inert (the manager always wires this). */
   onStartAccount?: (
-    provider: "orcid" | "google" | "github" | "linkedin",
+    provider: "orcid" | "google" | "microsoft-entra-id" | "github" | "linkedin",
   ) => void;
   /** Start the email-verification path (the v0.5 accounts popup only). Unlike
    *  the OAuth providers this does not redirect: the manager records the
@@ -195,7 +196,7 @@ function SignInChoiceCards({
 }: {
   onKeepLocal: () => void;
   onStartAccount?: (
-    provider: "orcid" | "google" | "github" | "linkedin",
+    provider: "orcid" | "google" | "microsoft-entra-id" | "github" | "linkedin",
   ) => void;
   onStartEmail?: () => void;
 }) {
@@ -288,6 +289,17 @@ function SignInChoiceCards({
             <GoogleIcon className="h-4 w-4 shrink-0" />
             Google
           </button>
+          {isMicrosoftAuthEnabled() && (
+            <button
+              type="button"
+              onClick={() => onStartAccount?.("microsoft-entra-id")}
+              data-testid="whats-new-signin-microsoft"
+              className={`${oauthBtn} border-[#d7dde5] bg-surface-raised text-foreground`}
+            >
+              <MicrosoftIcon className="h-4 w-4 shrink-0" />
+              Microsoft
+            </button>
+          )}
           <button
             type="button"
             onClick={() => onStartAccount?.("github")}

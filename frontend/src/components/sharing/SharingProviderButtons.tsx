@@ -10,11 +10,22 @@ import {
   GitHubIcon,
   GoogleIcon,
   LinkedInIcon,
+  MicrosoftIcon,
   OrcidIcon,
 } from "./icons";
-import { isOAuthPublishAvailable, isDevMockAuth } from "@/lib/sharing/oauth-availability";
+import {
+  isOAuthPublishAvailable,
+  isDevMockAuth,
+  isMicrosoftAuthEnabled,
+} from "@/lib/sharing/oauth-availability";
 
-export type SharingProvider = "orcid" | "google" | "github" | "linkedin" | "devmock";
+export type SharingProvider =
+  | "orcid"
+  | "google"
+  | "microsoft-entra-id"
+  | "github"
+  | "linkedin"
+  | "devmock";
 
 export default function SharingProviderButtons({
   onProvider,
@@ -69,6 +80,19 @@ export default function SharingProviderButtons({
         <GoogleIcon className="w-4 h-4" />
         Continue with Google
       </button>
+      {/* Microsoft is gated on its own flag (its own Azure app registration),
+          so it only shows once the deployer has configured it. White button so
+          the four-square brand logo stays legible, like Google and ORCID. */}
+      {isMicrosoftAuthEnabled() && (
+        <button
+          type="button"
+          onClick={() => onProvider("microsoft-entra-id")}
+          className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-surface-raised text-slate-800 hover:bg-slate-100 font-medium transition-colors border border-border"
+        >
+          <MicrosoftIcon className="w-4 h-4" />
+          Continue with Microsoft
+        </button>
+      )}
       <button
         type="button"
         onClick={() => onProvider("github")}

@@ -28,10 +28,10 @@ import {
   hasSharingIdentity,
 } from "@/lib/sharing/identity/sidecar";
 import { evaluateUnlockMatch } from "@/lib/sharing/identity/unlock-match";
-import { GoogleIcon, GitHubIcon, LinkedInIcon } from "@/components/sharing/icons";
+import { GoogleIcon, GitHubIcon, LinkedInIcon, MicrosoftIcon } from "@/components/sharing/icons";
 import SharingProviderButtons from "@/components/sharing/SharingProviderButtons";
 import { startSharingClaimOAuth } from "@/lib/sharing/claim-oauth";
-import { isOAuthPublishAvailable, isRealSharingEnabled } from "@/lib/sharing/oauth-availability";
+import { isOAuthPublishAvailable, isRealSharingEnabled, isMicrosoftAuthEnabled } from "@/lib/sharing/oauth-availability";
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
 import CreateLocalIdentityStep from "@/components/sharing/CreateLocalIdentityStep";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
@@ -693,7 +693,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   // user's claimed identity sidecar. This is an online convenience alongside the
   // offline doors, a user can still cancel and unlock with their passkey or
   // recovery code instead.
-  const startUnlockOAuth = (provider: "google" | "github" | "linkedin", username: string) => {
+  const startUnlockOAuth = (provider: "google" | "github" | "linkedin" | "microsoft-entra-id", username: string) => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
     url.searchParams.set(UNLOCK_QUERY_PARAM, username);
@@ -1584,6 +1584,17 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                           <GoogleIcon className="w-4 h-4" />
                           Sign in with Google
                         </button>
+                        {isMicrosoftAuthEnabled() && (
+                          <button
+                            type="button"
+                            onClick={() => void signIn("microsoft-entra-id", { callbackUrl: "/" })}
+                            disabled={loggingIn !== null}
+                            className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-white px-4 py-2.5 text-meta font-semibold text-gray-800 shadow-sm transition-all hover:border-foreground-muted hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <MicrosoftIcon className="w-4 h-4" />
+                            Sign in with Microsoft
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => void signIn("github", { callbackUrl: "/" })}
@@ -1769,6 +1780,17 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                         <GoogleIcon className="w-4 h-4" />
                         Continue with Google
                       </button>
+                      {isMicrosoftAuthEnabled() && (
+                        <button
+                          type="button"
+                          onClick={() => startUnlockOAuth("microsoft-entra-id", unlockGate.username)}
+                          disabled={unlocking}
+                          className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-white text-slate-800 hover:bg-slate-100 font-medium transition-colors disabled:opacity-50"
+                        >
+                          <MicrosoftIcon className="w-4 h-4" />
+                          Continue with Microsoft
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => startUnlockOAuth("github", unlockGate.username)}
