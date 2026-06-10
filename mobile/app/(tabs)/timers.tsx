@@ -203,11 +203,9 @@ export default function TimersScreen() {
             </>
           ) : null}
 
-          <Card style={{ gap: spacing.md }}>
-            <ThemedText style={[styles.cardSectionTitle, { color: surface.text }]}>
-              New timer
-            </ThemedText>
-
+          {/* New-timer composer sits directly on the canvas (no wrapping card),
+              so only a running timer gets a grouped card above. */}
+          <View style={{ gap: spacing.md }}>
             <View>
               <ThemedText style={[styles.subLabel, { color: surface.muted }]}>
                 QUICK START
@@ -253,7 +251,7 @@ export default function TimersScreen() {
                 {hh}:{mm}:{ss}
               </ThemedText>
               <ThemedText style={[styles.displayHint, { color: palette.faint }]}>
-                hours : min : sec
+                HOURS : MIN : SEC
               </ThemedText>
             </View>
 
@@ -297,7 +295,7 @@ export default function TimersScreen() {
                 alerted when the app is closed.
               </ThemedText>
             ) : null}
-          </Card>
+          </View>
 
           {finished.length > 0 ? (
             <>
