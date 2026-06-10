@@ -7,7 +7,7 @@ import { Steps, Step } from "@/components/wiki/Steps";
 export default function WelcomeWizardPage() {
   return (
     <WikiPage
-      intro="BeakerBot's welcome tour is a guided walkthrough on your real account. It opens with a short setup Q&A, then drops you into a live tour that helps you create your first project, method, and experiment right in the app. Plan on five to fifteen minutes, depending on which optional surfaces you opt into."
+      intro="BeakerBot's welcome tour was a guided walkthrough on your real account. It opened with a short setup Q&A, then dropped you into a live tour that helped you create your first project, method, and experiment right in the app. The tour has been retired (it asked for too much hand-holding and a few of the surfaces it walked drifted out from under it), so fresh accounts no longer launch it. This page documents how it worked and what replaced the pieces that still matter, like your visible tabs. A simpler awareness-first walkthrough will take its place."
     >
       <Screenshot
         src="/wiki/screenshots/onboarding-welcome-step.png"
@@ -73,38 +73,12 @@ export default function WelcomeWizardPage() {
 
       <h2>Who sees the tour</h2>
       <p>
-        The tour auto-fires only when three conditions all hold.
+        Nobody, anymore. The auto-fire path is hardcoded off, so a fresh
+        account lands straight on the normal empty state with no tour, no
+        banner, and no nag. The rest of this page describes how the tour
+        behaved while it was live, kept for reference and for the parts that
+        still ship (the setup questions used to seed your visible tabs).
       </p>
-      <ul>
-        <li>The folder has no <code>_user_metadata</code> entry, or the file is empty.</li>
-        <li>
-          There is no <code>_onboarding.json</code> on disk for the active user,
-          or the file has no <code>wizard_completed_at</code> and no{" "}
-          <code>wizard_skipped_at</code> field.
-        </li>
-        <li>
-          The session is not in a completed or skipped state. The dev flag{" "}
-          <code>?wizard-preview=1</code> overrides both completed and skipped
-          states so the tour can be driven against fixture data.
-        </li>
-      </ul>
-      <p>
-        Existing users never see the tour automatically. If you signed in
-        before BeakerBot existed, your sidecar migrates quietly to the new
-        schema with no auto-fire, no banner, no nag.
-      </p>
-      <p>
-        To run the tour after the fact, go to{" "}
-        <strong>Settings &gt; Onboarding</strong> and click{" "}
-        <strong>Re-run tour</strong>. BeakerBot re-mounts in place immediately
-        (no page reload) starting from the welcome screen.
-      </p>
-
-      <Screenshot
-        src="/wiki/screenshots/onboarding-settings-rerun-button.png"
-        alt="The Onboarding section of Settings showing the Re-run tour row with a sky-blue Re-run tour button on the right edge."
-        caption="The Re-run tour button in Settings. Clears completion state and re-mounts BeakerBot at the welcome screen without a page reload."
-      />
 
       <h2>Phase 1, setup questions</h2>
       <p>
@@ -143,7 +117,7 @@ export default function WelcomeWizardPage() {
         a single binary question. Are you the PI, or are you a member?
         Picking <strong>PI</strong> sets{" "}
         <code>account_type</code> to <code>&quot;lab_head&quot;</code> on this
-        account; picking <strong>Member</strong> leaves it at the default. One
+        account. Picking <strong>Member</strong> leaves it at the default. One
         person in the lab fills the PI slot. The picker badge in the
         login screen, the audit log, and the Lab Overview surface are all
         gated on the resulting <code>account_type</code>. See{" "}
@@ -152,13 +126,13 @@ export default function WelcomeWizardPage() {
 
       <h3>Q2 through Q6, feature picks</h3>
       <p>
-        Five questions about ResearchOS surfaces and preferences.
+        Four questions about ResearchOS surfaces and preferences. The
+        numbering skips Q5, that slot was retired before launch.
       </p>
       <ul>
         <li><strong>Q2:</strong> Will you track lab purchases? (Yes / No / Maybe later)</li>
         <li><strong>Q3:</strong> Want calendar feeds? (Yes / No / Maybe later)</li>
         <li><strong>Q4:</strong> Want a goal-tracking page? (Yes / No / Maybe later)</li>
-        <li><strong>Q5:</strong> Want a phone companion for image inbox? (Yes / No / Maybe later)</li>
         <li>
           <strong>Q6:</strong> AI Helper prompt size. ResearchOS can paste a
           system prompt into Claude, ChatGPT, or Gemini so the assistant
@@ -182,8 +156,8 @@ export default function WelcomeWizardPage() {
       </p>
       <p>
         The surface name is account-type-conditional. Solo accounts see{" "}
-        <strong>Links</strong>; lab accounts see <strong>Lab Links</strong>, a
-        shared tab visible to everyone in the lab. Saying yes to Q7 adds the
+        <strong>Links</strong>, and lab accounts see{" "}
+        <strong>Lab Links</strong>, a shared tab visible to everyone in the lab. Saying yes to Q7 adds the
         tab and fires the <code>links</code> conditional walkthrough later in
         Phase 2.
       </p>
@@ -194,7 +168,10 @@ export default function WelcomeWizardPage() {
         universal sequence covering the major surfaces (Home, Project,
         Notifications, Workbench, the editor, Methods, Gantt, Settings, Search,
         and the wiki pointer), followed by four conditional clusters that fire
-        only when the matching Q answer was <strong>yes</strong>.
+        only when the matching Q answer was <strong>yes</strong>. Search has
+        since moved off the top nav into the Cmd-K palette, so the search beat
+        below describes a surface you now reach with a keyboard shortcut rather
+        than a tab.
       </p>
       <p>
         The walkthrough was deliberately trimmed. Most clusters are pitched at
@@ -233,7 +210,7 @@ export default function WelcomeWizardPage() {
         The project page is where every experiment, method, and task you
         attach to a project comes back together in one view. The Overview
         box at the top is yours to fill in (hypothesis, motivation, why
-        this project exists); the Results, Methods, and Activity tabs next
+        this project exists). The Results, Methods, and Activity tabs next
         to it surface automatically once you have something to show, and
         stay hidden while a project is still empty. This single beat
         introduces the Overview box, then hands you off to notifications.
@@ -278,7 +255,8 @@ export default function WelcomeWizardPage() {
 
       <h4>Workbench experiment creation</h4>
       <p>
-        Methods are the recipe; the Workbench is where you actually run them.
+        Methods are the recipe, and the Workbench is where you actually run
+        them.
         Every experiment gets its own entry with space for notes, results,
         attached protocols, and files. This is the page you spend most of your
         time on, so the create flow stays hands-on across two beats.
@@ -421,8 +399,8 @@ export default function WelcomeWizardPage() {
         <Step>
           <strong>experiment-attach-method-notes.</strong> BeakerBot
           spotlights the Variation Notes field and narrates the mental model.
-          The method is the protocol template; the notes are what changed for
-          this one run. No typing demo, the spotlight plus explanation is
+          The method is the protocol template, and the notes are what changed
+          for this one run. No typing demo, the spotlight plus explanation is
           enough.
         </Step>
       </Steps>
@@ -438,14 +416,14 @@ export default function WelcomeWizardPage() {
         <Step><strong>gantt-drag-drop.</strong> Cursor drags the experiment bar to reschedule it. BeakerBot narrates the date-shift.</Step>
         <Step><strong>gantt-deps-beakerbot.</strong> BeakerBot wires a fake experiment A as a dependency of your experiment.</Step>
         <Step><strong>gantt-deps-user.</strong> User-action. You wire fake experiment B as another dependency. Page lock active.</Step>
-        <Step><strong>gantt-deps-cascade.</strong> BeakerBot moves the head dependency; the cascade shift fires across the downstream chain.</Step>
+        <Step><strong>gantt-deps-cascade.</strong> BeakerBot moves the head dependency, and the cascade shift fires across the downstream chain.</Step>
       </Steps>
 
       <p>
         <strong>Lab accounts only</strong> (gated on Q1 = lab). Six share-feature beats follow the universal arc.
       </p>
       <Steps>
-        <Step><strong>gantt-share-intro.</strong> BeakerBot explains cross-lab experiment sharing. Both people see the task on Gantt and task lists; only the creator can delete it; permissions are edit or read-only.</Step>
+        <Step><strong>gantt-share-intro.</strong> BeakerBot explains cross-lab experiment sharing. Both people see the task on Gantt and task lists, only the creator can delete it, and permissions are edit or read-only.</Step>
         <Step><strong>gantt-share-beakerbot-spawn.</strong> BeakerBot spawns a temporary second lab account (itself, tagged <code>is_tutorial: true</code>), creates a &quot;Make some coffee together&quot; experiment, and shares it with you so it appears on your Gantt.</Step>
         <Step><strong>gantt-share-user-explores.</strong> User-action. You open the shared experiment popup to explore it. Page lock active.</Step>
         <Step><strong>gantt-share-user-shares-back.</strong> User-action. You share one of your own experiments back with BeakerBot (open it, click Share, pick a labmate, choose view or edit, and save). Page lock active.</Step>
@@ -459,13 +437,13 @@ export default function WelcomeWizardPage() {
         explains the Goals overlay on the Gantt toolbar.
       </p>
 
-      <h4>Settings deep-dive (13 steps)</h4>
+      <h4>Settings deep-dive (12 steps)</h4>
       <p>
         Settings is the last stop on the universal arc. BeakerBot opens with a
         narration beat that establishes scope (everything about the account,
         from appearance and visible tabs to integrations, the AI Helper prompt,
         and the re-run button), then walks two personalization beats on the
-        Gantt toolbar, six Settings-page narration beats, and a four-beat AI
+        Gantt toolbar, five Settings-page narration beats, and a four-beat AI
         Helper cluster.
       </p>
       <Steps>
@@ -480,10 +458,10 @@ export default function WelcomeWizardPage() {
         <Step><strong>settings-tour-folder.</strong> Universal. Explains that the connected lab folder is set, and that switching folders means signing out and picking a new one from the entry screen.</Step>
         <Step><strong>settings-tour-account-type-toggle.</strong> Conditional on Q1 = solo. Explains how to pivot from solo to a lab account via the user picker (no dedicated Settings toggle yet).</Step>
         <Step><strong>settings-tour-visible-tabs.</strong> Universal. Tabs you said no to are hidden; check the box here to turn one back on, or hide tabs you don&apos;t need.</Step>
-        <Step><strong>settings-tour-streak.</strong> Universal. The streak counter is private and on by default; toggle it off here if you prefer not to be reminded.</Step>
+        <Step><strong>settings-tour-streak.</strong> Universal. The streak counter is private and on by default. Toggle it off here if you prefer not to be reminded.</Step>
         <Step><strong>settings-tour-rerun.</strong> Universal. BeakerBot points at the Re-run tour button and tells you the whole walkthrough can be replayed from here.</Step>
         <Step><strong>ai-helper-size-diff (conditional on Q6).</strong> First AI Helper beat. Explains the economic motivation behind size tradeoffs. External models charge by tokens, so the AI Helper sizes its system prompt to match how much you are willing to spend per chat.</Step>
-        <Step><strong>ai-helper-size-options (conditional on Q6).</strong> Cursor cycles through the Full, Medium, and Minimal tabs in the AI Helper section so you see each one render in place. Full gives the model everything it could want; Minimal strips down to essentials; Medium sits in between.</Step>
+        <Step><strong>ai-helper-size-options (conditional on Q6).</strong> Cursor cycles through the Full, Medium, and Minimal tabs in the AI Helper section so you see each one render in place. Full gives the model everything it could want, Minimal strips down to essentials, and Medium sits in between.</Step>
         <Step><strong>ai-helper-use-case-paste (conditional on Q6).</strong> Paste-and-go use case walkthrough.</Step>
         <Step><strong>ai-helper-use-case-agentic (conditional on Q6).</strong> Agentic use-case walkthrough.</Step>
       </Steps>
@@ -677,7 +655,7 @@ export default function WelcomeWizardPage() {
         The rules work like this.
       </p>
       <ul>
-        <li><strong>Always visible:</strong> Home, Workbench, Methods, Experiments, Gantt, Search.</li>
+        <li><strong>Always visible:</strong> Home, Workbench, Gantt, Methods, Sequences. Experiments live under Workbench rather than on their own tab, and Search now lives in the Cmd-K palette instead of the nav.</li>
         <li><strong>Lab Overview</strong> appears only when <code>account_type === &quot;lab_head&quot;</code> (the PI dashboard at <code>/lab-overview</code>).</li>
         <li><strong>Purchases</strong> appears only when <code>purchases === &quot;yes&quot;</code>.</li>
         <li><strong>Calendar</strong> appears only when <code>calendar === &quot;yes&quot;</code>.</li>
@@ -724,7 +702,7 @@ export default function WelcomeWizardPage() {
       <ul>
         <li>
           <strong>Mount at step.</strong> Pick any v4 step ID from the dropdown
-          (every node in <code>TOUR_STEP_ORDER</code>, the full 78-step graph
+          (every node in <code>TOUR_STEP_ORDER</code>, the full step graph
           from <code>welcome</code> through <code>tour-goodbye</code>) and click{" "}
           <strong>Mount wizard at this step</strong>. The orchestrator writes a
           resume_state pointing at your pick, flips the force-show flag on the

@@ -7,7 +7,7 @@ import { TryInDemo } from "@/components/wiki/TryInDemo";
 export default function GanttFeaturePage() {
   return (
     <WikiPage
-      intro="The Gantt timeline holds every active task across every project you can see. You scan packed rows of colored bars and your eye picks out the busy weeks, the dependencies that cross projects, and the gaps where nothing is planned yet. The chart is a working surface, not a read-only report. You drag bars to reschedule, drop one on another to chain them, right-click a day to mark it as PTO, and drop an image straight onto a task."
+      intro="The Gantt timeline holds every active task across every project you can see. You scan packed rows of colored bars and your eye picks out the busy weeks, the dependencies that cross projects, and the gaps where nothing is planned yet. The chart is a working surface, not a read-only report. You drag bars to reschedule, drop one on another to chain them, and right-click a day to mark it as PTO."
     >
       {/* TODO screenshot agent: capture the Gantt with the redesigned toolbar + diverse bar styles.
           Route: /gantt
@@ -46,13 +46,6 @@ export default function GanttFeaturePage() {
           the same chain shares the same stripe color, so you can trace a
           chain visually across rows. Standalone tasks show a dimmer
           per-experiment stripe.
-        </li>
-        <li>
-          <strong>Gradient bars for dependent tasks.</strong> When a bar is
-          downstream of another (FS, SS, or SF), the fill renders as a
-          subtle gradient instead of a flat color. The gradient direction
-          mirrors the dependency direction, so you can read whether a task
-          waits on something earlier or constrains something later.
         </li>
         <li>
           <strong>Type icons.</strong> A horizontal-lines icon on the right
@@ -123,7 +116,7 @@ export default function GanttFeaturePage() {
           <strong>Zoom segmented control.</strong> Eight buttons:{" "}
           <code>1W</code>, <code>2W</code>, <code>3W</code>, <code>1M</code>,{" "}
           <code>3M</code>, <code>6M</code>, <code>1Y</code>, <code>All</code>.
-          Shorter zooms keep day-level detail; longer ones span many weeks.
+          Shorter zooms keep day-level detail. Longer ones span many weeks.
           <strong> All</strong> currently shows an 8-week window starting
           from the current Monday, not a full-history view.
         </li>
@@ -154,7 +147,7 @@ export default function GanttFeaturePage() {
         only opens when an SF (finish-before) chain would shift a task to
         start in the past. The modal lists every affected task with its old
         and new dates and a per-task warning line for the past-date
-        conflicts. <strong>Apply Changes</strong> commits the cascade;{" "}
+        conflicts. <strong>Apply Changes</strong> commits the cascade, and{" "}
         <strong>Cancel</strong> leaves the chain alone.
       </p>
 
@@ -274,7 +267,7 @@ export default function GanttFeaturePage() {
       <p>
         To move a task into or out of that bucket, open the task and use the
         project dropdown in its detail popup. Alongside your real projects it
-        lists a <strong>Standalone (no project)</strong> option; picking it
+        lists a <strong>Standalone (no project)</strong> option. Picking it
         drops the task off every project, and picking a real project files an
         orphan task back under it.
       </p>
@@ -303,15 +296,20 @@ export default function GanttFeaturePage() {
         caption="Lab head view, where the project dropdown spans every member's projects, so one timeline shows the whole lab."
       />
 
-      <h2>Drop an image on a task</h2>
+      <h2>Attach an image to a task</h2>
       <p>
-        Drag any image file from Finder or the desktop and drop it on a task
-        bar. The image attaches to that task as a new Images-folder entry
-        and a markdown reference is appended to the task&apos;s Lab Notes
-        body. This is the fastest path to file a gel image or a microscope
-        snap straight from the chart, without first opening the task popup.
-        The drop zone highlights blue while you are hovering, so you can
-        tell which bar will receive the file.
+        To file a gel image or a microscope snap, click the bar to open the
+        task, then drag the image file from Finder onto the open popup card.
+        The drop works anywhere on the card, so you do not have to aim at a
+        specific field. The image saves to the task&apos;s Images folder and
+        shows up in the image strip, and a toast confirms it was added to
+        Lab Notes.
+      </p>
+      <p>
+        Dropping a file does not splice a reference into the notes body. That
+        stays your call. When you want the image to appear inline in your
+        notes, drag it out of the strip and into the notes editor, and
+        ResearchOS places the reference where you drop it.
       </p>
 
       <h2>Mark a day as PTO</h2>

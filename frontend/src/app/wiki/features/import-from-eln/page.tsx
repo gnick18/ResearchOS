@@ -141,11 +141,13 @@ export default function ImportFromELNPage() {
       <h2>Project mapping in detail</h2>
       <p>
         Every notebook folder that contains pages you&apos;re importing
-        gets a row in the Map projects step. Pages directly at the
-        notebook root (no folder above them) don&apos;t show up as a
-        mapping row, they just inherit the wizard&apos;s default of{" "}
-        <em>no project</em> unless you assign them later. Rows that
-        don&apos;t affect any pages aren&apos;t shown either.
+        gets a row in the Map projects step. Pages still inside a folder
+        share one row per folder. A page that sits right at the export
+        root with one folder name above it gets its own row defaulting to{" "}
+        <em>create new project</em> named after the page. A truly
+        loose page with no folder context at all (an orphan) also gets
+        its own row, but defaulting to <em>no project</em> so you can
+        decide case by case.
       </p>
       <p>
         Here is how the three decisions behave.

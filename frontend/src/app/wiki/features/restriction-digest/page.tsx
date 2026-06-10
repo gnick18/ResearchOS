@@ -34,9 +34,10 @@ export default function RestrictionDigestFeaturePage() {
         The digest is a display layer on the open sequence. Turn on the Restriction
         sites toggle in the editor&apos;s view-control rail to overlay cut sites on
         the circular or linear map, and open the enzyme picker (from the Enzyme
-        toolbar button) to choose which enzymes are active. Nothing is saved by the
-        digest itself; the active enzyme set lives in the editor&apos;s view state for
-        the session.
+        toolbar button) to choose which enzymes are active. The digest overlay
+        itself saves nothing. The active enzyme set lives in the editor&apos;s view
+        state for the session, though you can name and keep a set of your own from
+        the picker (see below).
       </p>
 
       <TryInDemo href="/sequences">Try the Sequences workbench</TryInDemo>
@@ -56,7 +57,7 @@ export default function RestrictionDigestFeaturePage() {
         is, whether
         the site is palindromic, whether it contains a degenerate (non-ACGT) code, and
         what overhang the cut leaves. You never have to type an enzyme&apos;s
-        recognition site or cut position; it all comes from the bundled data.
+        recognition site or cut position, it all comes from the bundled data.
       </p>
 
       <h2>Cut detection on both strands</h2>
@@ -75,7 +76,7 @@ export default function RestrictionDigestFeaturePage() {
         When an enzyme cuts, the top-strand cut and the bottom-strand cut may land at
         the same position or at offset positions. When they coincide, the cut leaves a
         blunt end. When the top strand cuts before the bottom strand, the cut leaves a
-        5&apos; overhang; when the top strand cuts after, it leaves a 3&apos;
+        5&apos; overhang. When the top strand cuts after, it leaves a 3&apos;
         overhang. The catalog labels each enzyme&apos;s overhang type, so you can pick
         for the geometry your downstream ligation needs (compatible sticky ends, or
         blunt ends for a blunt ligation). This is the same overhang typing the{" "}
@@ -116,6 +117,12 @@ export default function RestrictionDigestFeaturePage() {
         sequence at least once. Because the presets are recomputed from the open
         sequence, Unique cutters really means unique on this molecule, not unique in
         general.
+      </p>
+      <p>
+        When you settle on a selection you want to reuse, the Saved sets control
+        lets you name it and keep it. Saved sets are stored per user and follow you
+        across every sequence you open, so a panel of go-to enzymes is one click away
+        the next time, not something you rebuild by hand.
       </p>
 
       <Callout variant="tip" title="The digest is validated band-for-band">

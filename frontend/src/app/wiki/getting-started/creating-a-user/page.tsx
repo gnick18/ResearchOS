@@ -67,21 +67,30 @@ export default function CreatingAUserPage() {
 
       <h2>Optional password</h2>
       <p>
-        If you share a laptop, or you&apos;re storing the folder in a shared
-        cloud, you can set a per-user password. Go to{" "}
-        <strong>Settings → Security → Set Password</strong>. The password is
-        PBKDF2-hashed and stored in{" "}
-        <code>users/&lt;your-name&gt;/_auth.json</code>. You can also set or
-        change a password directly from the user-picker by hovering a user
-        row and clicking the padlock icon that appears.
+        A password is optional only when you&apos;re a genuinely solo folder
+        (one user, no PI). The moment a folder is shared (two or more users) or
+        a PI is present, every account needs a login, so the password becomes
+        required. To set one, open <strong>Settings</strong> from your avatar
+        in the header and find the password section, then click{" "}
+        <strong>Set password</strong> (it reads <strong>Change password</strong>{" "}
+        once you have one). The password unlocks that account&apos;s local keypair,
+        which is wrapped and stored in{" "}
+        <code>users/&lt;your-name&gt;/_account.json</code> on your disk and
+        never sent to any server. (An older PBKDF2{" "}
+        <code>_auth.json</code> file was retired, the app cleans up any leftover
+        copies on its own.)
       </p>
 
       <Callout variant="warning" title="Password recovery">
-        Forgot your password? Delete{" "}
-        <code>users/&lt;your-name&gt;/_auth.json</code> from your folder (in
-        Finder or Explorer) and the password gate goes away. Your data is
-        untouched. This means a password isn&apos;t real security, it&apos;s a
-        deterrent on a shared machine.
+        When you first set a password, the app shows a one-time recovery code
+        (twelve words). Save it somewhere safe, because it&apos;s the only way
+        back in if you forget the password. On the sign-in screen, click your
+        account and choose <strong>Use your recovery code</strong> instead of
+        the password. A password isn&apos;t real security here, the raw markdown
+        and images stay readable to anyone with folder access, it&apos;s a
+        deterrent on a shared machine. (For a solo folder you can also remove
+        the login outright from that same password section in Settings, but a
+        shared folder keeps the login by policy.)
       </Callout>
 
       <Callout variant="info" title="PI accounts always have a password">
@@ -100,6 +109,13 @@ export default function CreatingAUserPage() {
         Click your avatar in the top-right of the header, then{" "}
         <strong>Switch user</strong>. Pick another user from the list. Your view
         and data reload to that user&apos;s namespace.
+      </p>
+      <p>
+        If any accounts have been archived (a way to retire a member without
+        deleting their data), they&apos;re hidden from the picker by default. A{" "}
+        <strong>Show archived</strong> link appears below the user grid whenever
+        archived accounts exist, so an occasional returner can reveal their tile
+        and sign back in.
       </p>
 
       <h2>Main user</h2>

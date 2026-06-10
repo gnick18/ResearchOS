@@ -19,7 +19,7 @@ export default function CalendarFeaturePage() {
         The Calendar page lays out your ResearchOS events on a grid
         alongside any read-only items pulled in from a linked Google,
         Outlook, or iCloud calendar. Both kinds of event render with a
-        filled colored background; the text color flips between black and
+        filled colored background. The text color flips between black and
         white automatically so the title stays readable regardless of
         which color a feed picks. External events also carry a small link
         icon in the corner, which is the visual cue that the event came
@@ -211,9 +211,11 @@ export default function CalendarFeaturePage() {
         <li>
           <strong>Calendars</strong> lists ResearchOS events plus every
           linked feed, color-matched to the grid. Click a feed row to hide
-          or show its events without disconnecting it. The{" "}
-          <strong>Reminders</strong> and <strong>Manage</strong> links sit
-          at the top of this section.
+          or show its events without disconnecting it. Click the color swatch
+          on any row to recolor it, including the ResearchOS events row, so
+          you can override the per-type defaults with one color for all your
+          native events. The <strong>Reminders</strong> and{" "}
+          <strong>Manage</strong> links sit at the top of this section.
         </li>
         <li>
           <strong>Upcoming</strong> shows the next 30 days, grouped by

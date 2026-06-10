@@ -7,7 +7,7 @@ export default function FeaturesIndex() {
   const children = node?.children ?? [];
   return (
     <WikiPage
-      intro="One short page per feature page in ResearchOS. Each has a screenshot, a few steps for the most common action, and any non-obvious tips."
+      intro="One short page per feature in ResearchOS. Most show a screenshot, the steps for the most common action, and any non-obvious tips."
     >
       <div className="grid gap-3 not-prose mt-3 sm:grid-cols-2">
         {children.map((c) => (

@@ -40,9 +40,9 @@ export default function MethodValidationPage() {
           the workhorse behind most primer-design pipelines.
         </li>
         <li>
-          <strong>pydna</strong> for cloning and assembly products, so a
-          Gibson or Gateway result can be checked against a published
-          reference sequence.
+          <strong>pydna</strong> for restriction-ligation and Golden Gate
+          assembly products. Gateway recombination is checked separately
+          against the published attB site sequence.
         </li>
       </ul>
       <p>

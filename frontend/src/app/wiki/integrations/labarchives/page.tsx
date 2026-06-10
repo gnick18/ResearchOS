@@ -12,8 +12,8 @@ export default function LabArchivesIntegrationPage() {
       <p>
         LabArchives and ResearchOS sit at opposite ends of a hand-off, not in
         a live sync. LabArchives is your ELN of record while you&apos;re
-        running experiments; ResearchOS is where you bring those notebooks once
-        you want them on disk in a structured form. There&apos;s no two-way
+        running experiments, and ResearchOS is where you bring those notebooks
+        once you want them on disk in a structured form. There&apos;s no two-way
         connection, and ResearchOS never writes back to LabArchives.
       </p>
       <p>
@@ -80,14 +80,14 @@ export default function LabArchivesIntegrationPage() {
           Open the notebook you want to export in LabArchives on the web.
         </Step>
         <Step>
-          Click <strong>More</strong> in the top toolbar &rarr;{" "}
-          <strong>Offline Notebook</strong>. (LabArchives sometimes labels this{" "}
-          <em>Export Notebook</em> or <em>Backup Notebook</em> depending on
-          your institution&apos;s build.)
+          Open the <strong>&equiv;</strong> menu &rarr;{" "}
+          <strong>Utilities</strong> &rarr;{" "}
+          <strong>Create Offline Notebook</strong>. (The exact wording varies
+          a little by institution build.)
         </Step>
         <Step>
-          Wait. Large notebooks take minutes to assemble; LabArchives emails
-          you when the ZIP is ready.
+          Wait. Large notebooks take minutes to assemble, and LabArchives
+          emails you when the ZIP is ready.
         </Step>
         <Step>
           Download the ZIP from the email link. Don&apos;t unzip it, since
@@ -103,23 +103,27 @@ export default function LabArchivesIntegrationPage() {
           <em>Import from LabArchives</em> card.
         </Step>
         <Step>
-          Drag the Offline Notebook ZIP into the upload step. The wizard parses
-          the bundle and surfaces a preview of pages, folders, and inline images.
+          On the <strong>Choose format</strong> step, leave the default
+          (Offline Notebook ZIP). The PDF and Chrome-print formats are sketched
+          in as coming-soon and stay disabled.
         </Step>
         <Step>
-          On the <strong>Pick format</strong> step, leave the default (Offline
-          Notebook). PDF and Chrome-print formats are stubbed for a later
-          version.
+          Drag the Offline Notebook ZIP into the <strong>Upload ZIP</strong>{" "}
+          step. The wizard parses the bundle and surfaces a preview of pages,
+          folders, and inline images.
         </Step>
         <Step>
-          On the <strong>Preview</strong> step, glance through the page list
-          and confirm the entry counts look right.
+          On the <strong>Preview notebook</strong> step, glance through the
+          page list and confirm the entry counts look right.
         </Step>
         <Step>
-          On the <strong>Project mapping</strong> step, point each LabArchives
+          On the <strong>Map projects</strong> step, point each LabArchives
           folder at one of your existing ResearchOS projects, or let the wizard
           create a new project named{" "}
-          <code>&lt;folder&gt; (imported)</code>.
+          <code>&lt;folder&gt; (imported)</code>. If that name is already taken,
+          the wizard appends a number (<code>(imported 2)</code>,{" "}
+          <code>(imported 3)</code>) so you never end up with two projects
+          sharing a name.
         </Step>
         <Step>
           If the wizard detected Form-B images (and you&apos;re not in demo
@@ -156,11 +160,24 @@ export default function LabArchivesIntegrationPage() {
         <code>start_date</code> set to the page&apos;s newest entry timestamp.
       </Callout>
 
+      <Callout variant="info" title="Importing the same notebook twice">
+        Importing a notebook you&apos;ve already brought over is safe. Pages
+        that haven&apos;t changed are recognized and left alone. If a page was
+        edited in LabArchives after your last import (new entries, or an
+        existing entry updated), the Preview step flags it and lets you tick
+        which changed pages to overwrite. Overwriting replaces that
+        task&apos;s notes and attachments while keeping the task itself, so its
+        id, name, project, dates, and any sharing stay intact. Nothing is
+        overwritten unless you tick it.
+      </Callout>
+
       <h2 id="recovering-form-b-images">Recovering Form-B images</h2>
       <p>
         Three paths exist to pull Form-B images into your notes. All three
         are credential-free, so ResearchOS never asks for your LabArchives
-        password.
+        password. The wizard hides its Fetch images step in demo mode, but the
+        per-task Rehydrate panel and these recovery paths still work there,
+        since they all run client-side against files you bring in.
       </p>
 
       <h3 id="devtools-script">Path 1, the DevTools browser script</h3>

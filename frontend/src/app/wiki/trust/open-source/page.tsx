@@ -20,7 +20,7 @@ export default function OpenSourcePage() {
         </li>
         <li>
           <strong>Fork it.</strong> You can take the code, change it, and build
-          the version your lab needs. You are not waiting on a vendor&apos;s
+          the version your lab needs. You&apos;re not waiting on a vendor&apos;s
           roadmap.
         </li>
         <li>
@@ -32,20 +32,20 @@ export default function OpenSourcePage() {
       <p>
         The copyleft nature of AGPLv3 also means those rights travel forward.
         Anyone who distributes a modified version, including over a network,
-        has to offer the same freedoms to their users. The openness is not a
-        one-time gift, it is a property the license keeps enforcing.
+        has to offer the same freedoms to their users. The openness isn&apos;t a
+        one-time gift, it&apos;s a property the license keeps enforcing.
       </p>
 
       <Callout variant="info" title="Why AGPL specifically">
         A weaker license would let someone take ResearchOS, lock it behind a
         paywall, and never share their changes back. AGPLv3 is the version that
         closes the network-service loophole, so a lab-grade tool stays open
-        even when it is offered as a service.
+        even when it&apos;s offered as a service.
       </Callout>
 
       <h2>Crediting the work we build on</h2>
       <p>
-        ResearchOS does not exist in a vacuum. It is built on top of a large
+        ResearchOS doesn&apos;t exist in a vacuum. It&apos;s built on top of a large
         body of open-source software and published science, and the project
         takes the obligation to credit that work seriously, both as a matter of
         courtesy and as a matter of license.
@@ -61,8 +61,8 @@ export default function OpenSourcePage() {
         (such as SeqViz, the TeselaGen tg-oss components, and the Biopython
         melting-temperature port), names the scientific references behind the
         calculators, and includes the full auto-generated dependency list. The
-        page lives in{" "}
-        <code>frontend/src/components/open-source/</code> and pulls its facts
+        route lives at{" "}
+        <code>frontend/src/app/open-source/page.tsx</code> and pulls its facts
         from a file generated off the installed dependency tree, so the
         versions and licenses are never hand-guessed.
       </p>
@@ -84,7 +84,7 @@ export default function OpenSourcePage() {
         <a href="/open-source" target="_blank" rel="noopener noreferrer">
           Built on open source
         </a>{" "}
-        page is public and needs no account. It is the warm, human-readable
+        page is public and needs no account. It&apos;s the warm, human-readable
         companion to the machine-generated notices file in the repo.
       </Callout>
     </WikiPage>

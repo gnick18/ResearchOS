@@ -9,7 +9,7 @@ export default function ExperimentsFeaturePage() {
   return (
     <WikiPage
       title="The Workbench"
-      intro="The Workbench is where active research lives day to day. One page, four tabs (Projects, Experiments, Notes, Lists), each with its own way of grouping work. The URL is /workbench, and /experiments still redirects there for backwards compatibility."
+      intro="The Workbench is where active research lives day to day. One page with four core tabs (Projects, Experiments, Notes, Lists), each with its own way of grouping work, plus a fifth tab that appears only for people in a 1:1. The URL is /workbench, and /experiments still redirects there for backwards compatibility."
     >
       {/* SCREENSHOT TODO: workbench-experiments.png predates the kanban
           redesign — it still shows the old stacked-section layout and a
@@ -32,7 +32,7 @@ export default function ExperimentsFeaturePage() {
         <strong> Experiments</strong> (blue),
         <strong> Notes</strong> (emerald),
         <strong> Lists</strong> (violet).
-        The active tab fills with its color; the others read as gray
+        The active tab fills with its color, and the others read as gray
         text buttons. <strong>Projects</strong> is the default landing tab,
         so opening ResearchOS drops you on a grid of your projects rather than
         a flat task list (see{" "}
@@ -246,7 +246,7 @@ export default function ExperimentsFeaturePage() {
         <li>
           <strong>Upcoming</strong>: list tasks scheduled to start within
           the next 14 days. Tasks starting further out are omitted from
-          the main list; a small gray footnote below the section reads
+          the main list, and a small gray footnote below the section reads
           &quot;+ N scheduled later than 14d out&quot; so you know they
           exist without cluttering the view.
         </li>
@@ -255,7 +255,7 @@ export default function ExperimentsFeaturePage() {
         </li>
         <li>
           <strong>Earlier</strong>: completed more than 30 days ago.
-          Collapsed by default; click the header to expand.
+          Collapsed by default, so click the header to expand.
         </li>
       </ol>
       <p>
@@ -281,26 +281,26 @@ export default function ExperimentsFeaturePage() {
       </p>
       <ul>
         <li>
-          <strong>Name row</strong>: click the name to rename it
-          inline. Press Enter or click away to save.
+          The <strong>name row</strong> lets you click the name to rename
+          it inline. Press Enter or click away to save.
         </li>
         <li>
-          <strong>Sub-task checklist</strong>: tick individual items to
-          check them off. Click an item&apos;s text to rename it. The
-          delete icon appears on hover to remove an item.
+          The <strong>sub-task checklist</strong> lets you tick individual
+          items to check them off. Click an item&apos;s text to rename it,
+          and the delete icon appears on hover to remove an item.
         </li>
         <li>
-          <strong>Add item</strong>: type in the input and press Enter
-          (or click <strong>Add</strong>) to append a new item to the
-          checklist.
+          <strong>Add item</strong> appends a new item to the checklist
+          when you type in the input and press Enter (or click{" "}
+          <strong>Add</strong>).
         </li>
         <li>
-          <strong>Mark list complete</strong> button in the footer marks
-          the whole list done and cascades all un-checked items to
+          The <strong>Mark list complete</strong> button in the footer
+          marks the whole list done and cascades all un-checked items to
           complete. Click again to mark it incomplete.
         </li>
         <li>
-          <strong>Open full view</strong> link in the footer opens the
+          The <strong>Open full view</strong> link in the footer opens the
           legacy full-screen popup for the same task, useful for the
           Details and date-editing fields not exposed in the inline panel.
         </li>
@@ -389,7 +389,7 @@ export default function ExperimentsFeaturePage() {
       <p>
         Drag images straight into the body to place them inline, or drop
         them on the strip to attach without inlining. Switch the strip to its
-        Files tab for non-image attachments (PDFs especially); click a file
+        Files tab for non-image attachments (PDFs especially). Click a file
         link in the prose to open or download it.
       </p>
       <Callout variant="info" title="Where the files live">
@@ -508,7 +508,7 @@ export default function ExperimentsFeaturePage() {
           <strong>HTML report</strong>: a single self-contained{" "}
           <code>.html</code> page bundled in a <code>.zip</code> with
           its attachments. Images are base64-inlined so the page
-          renders even offline; PDF methods and other non-image files
+          renders even offline, and PDF methods and other non-image files
           sit alongside in <code>attachments/Notes/</code>,{" "}
           <code>attachments/Results/</code>, and{" "}
           <code>attachments/Methods/</code>. Open it in any browser, or

@@ -8,14 +8,14 @@ export default function ImageAnnotationFeaturePage() {
   return (
     <WikiPage
       title="Image annotation"
-      intro="Circle a gel band, arrow a feature on a micrograph, label the lanes. The image annotation editor lets you mark up a photo right where it lives in your notes, and it does so without ever touching the original file. Your markup is a separate, re-editable layer you can change or remove at any time."
+      intro="Circle a gel band, arrow a feature on a micrograph, label the lanes. The image annotation editor lets you mark up a photo right where it lives in your notes, and it doesn't touch the original file to do it. Your markup is a separate, re-editable layer you can change or remove at any time."
     >
       <p>
         Lab images carry meaning that the pixels alone do not. A reviewer needs
         to know which band is the product, which colony you picked, which cell
         in the field is the one you counted. ResearchOS gives you a drawing
         surface for exactly that, and it treats your raw image as something you
-        never want corrupted.
+        don't ever want corrupted.
       </p>
 
       <Screenshot
@@ -31,7 +31,7 @@ export default function ImageAnnotationFeaturePage() {
       <h2>The raw image is never modified</h2>
       <p>
         This is the part worth understanding before anything else. When you
-        annotate an image, ResearchOS does not flatten your shapes into the
+        annotate an image, ResearchOS doesn't flatten your shapes into the
         photo. The original file stays byte-for-byte identical on disk. Your
         markup is written to a small companion file next to it, called a
         sidecar, named <code>Images/{"{filename}"}.annot.json</code>. A gel
@@ -90,7 +90,7 @@ export default function ImageAnnotationFeaturePage() {
       <ul>
         <li>
           <strong>Arrow</strong> and <strong>Line</strong>: point at a feature
-          or connect two things. The arrow draws a head; the line is a plain
+          or connect two things. The arrow draws a head, and the line is a plain
           segment.
         </li>
         <li>
@@ -100,6 +100,11 @@ export default function ImageAnnotationFeaturePage() {
         <li>
           <strong>Freehand pen</strong>: trace an irregular outline, like the
           edge of a tissue section.
+        </li>
+        <li>
+          <strong>Polygon</strong>: click vertex by vertex to bound a region
+          with straight edges, then close it by pressing Enter or clicking back
+          on the first point (Escape cancels a polygon in progress).
         </li>
         <li>
           <strong>Text label</strong>: drop a caption directly on the image, for

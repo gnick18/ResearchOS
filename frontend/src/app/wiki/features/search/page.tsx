@@ -17,8 +17,9 @@ export default function SearchFeaturePage() {
       <h2>What the page looks like</h2>
       <p>
         The page opens with an empty filter card and a placeholder that reads
-        &ldquo;Enter search criteria above.&rdquo; Type into the Keywords box
-        (or use any of the dropdowns), then click the blue{" "}
+        &ldquo;Search to get started&rdquo; over &ldquo;Enter keywords, dates,
+        or filters above.&rdquo; Type into the Keywords box (or use any of the
+        dropdowns), then click the blue{" "}
         <strong>Search</strong> button. Results render below as a grid of
         cards, one per matching task. The <strong>Clear</strong> button next
         to it resets every filter and empties the result grid.
@@ -28,6 +29,12 @@ export default function SearchFeaturePage() {
         Pressing Enter while focused on the Keywords box runs the search
         without needing to click the button.
       </Callout>
+      <p>
+        You can also land here pre-loaded. Choosing &ldquo;Search everything
+        for&rdquo; in the BeakerSearch palette opens{" "}
+        <code>/search?keywords=&lt;your query&gt;</code>, which seeds the
+        Keywords box and runs the search automatically.
+      </p>
 
       <h2>The filters</h2>
       <p>
@@ -55,7 +62,7 @@ export default function SearchFeaturePage() {
         <li>
           <strong>Specific Method</strong> matches tasks whose first attached
           method is the one you pick.{" "}
-          <strong>Method Category</strong> is the broader version: it matches
+          <strong>Method Category</strong> is the broader version and matches
           on the method&apos;s folder.
         </li>
         <li>
@@ -92,11 +99,15 @@ export default function SearchFeaturePage() {
       />
       <p>
         Clicking <strong>Export selected</strong> opens the same{" "}
-        <strong>Export</strong> dialog the experiment popup uses, with three
-        format cards: <strong>PDF report</strong>, <strong>HTML report</strong>,
-        and <strong>Raw ResearchOS format</strong>. The dialog heading reads{" "}
-        <em>Export N experiments</em> with a reminder that multi-experiment
-        exports produce a zip with one file per experiment.
+        <strong>Export</strong> dialog the experiment popup uses. It offers{" "}
+        <strong>PDF report</strong>, <strong>HTML report</strong>, and{" "}
+        <strong>Raw ResearchOS format</strong>, plus a{" "}
+        <strong>Combined PDF</strong> option (only when you pick more than one)
+        that merges every selected experiment into one navigable PDF with a
+        cover page, a clickable index, and bookmarks. The dialog heading counts
+        what you picked (for example, <em>Export 3 experiments</em>) with a
+        reminder that multi-experiment exports produce a zip with one file per
+        experiment.
       </p>
       <ul>
         <li>

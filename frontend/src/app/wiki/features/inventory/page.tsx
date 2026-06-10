@@ -221,9 +221,11 @@ export default function InventoryFeaturePage() {
         </li>
       </ul>
       <p>
-        These are additive. A plain reagent simply has none of them, and future
-        categories (cell lines, strains, primers, enzymes) slot in the same way
-        without disturbing anything that already exists.
+        These are additive. A plain reagent simply has none of them. Categories
+        like enzymes, primers, cell lines, and strains are already there to
+        choose, and a future version will give them typed fields the same way we
+        did for antibodies and plasmids, without disturbing anything that
+        already exists.
       </p>
 
       <h2>Precise consumption is opt-in, never the default</h2>

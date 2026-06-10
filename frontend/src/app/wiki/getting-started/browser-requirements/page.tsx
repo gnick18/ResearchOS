@@ -16,8 +16,9 @@ export default function BrowserRequirementsPage() {
           <strong>Microsoft Edge</strong> (version 86+) on Windows, macOS.
         </li>
         <li>
-          Other Chromium-based browsers (e.g., Arc, Vivaldi, Opera) usually
-          work but aren&apos;t officially tested.
+          Other Chromium-based browsers (e.g., Arc, Vivaldi, Opera) should
+          work, we just don&apos;t officially test them, so report any issues
+          you hit.
         </li>
       </ul>
 
@@ -41,16 +42,18 @@ export default function BrowserRequirementsPage() {
         </li>
         <li>
           <strong>Mobile browsers</strong> (e.g., Chrome / Edge / Brave on iOS
-          or Android) won&apos;t work. The API is desktop-only.
+          or Android) won&apos;t work. The File System Access API is
+          desktop-only, so even the Chromium-based browsers on phones and
+          tablets can&apos;t open your folder.
         </li>
       </ul>
 
       <Callout variant="info" title="Why this limitation?">
         ResearchOS uses the <strong>File System Access API</strong> to read and
         write JSON files directly to a folder you pick. This is what lets the
-        app run with no server, no account, and no upload of your data. While
-        Firefox and Safari haven&apos;t shipped support yet, those browsers
-        can&apos;t open ResearchOS folders.
+        app run with no server, no account, and no upload of your data. Firefox
+        and Safari don&apos;t support the File System Access API yet, so those
+        browsers can&apos;t open ResearchOS folders.
       </Callout>
 
       <h2>How to switch browsers</h2>

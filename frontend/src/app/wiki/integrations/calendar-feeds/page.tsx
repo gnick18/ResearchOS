@@ -19,7 +19,7 @@ export default function CalendarFeedsIntegrationPage() {
         Each linked calendar shows its events on the Calendar page in the
         color you pick, sitting alongside ResearchOS tasks and events.
         Clicking an event opens a popup with the title, time, and any
-        location or notes the source calendar published.
+        location, notes, or link the source calendar published.
       </p>
       <p>
         Linked calendars are read-only. ResearchOS fetches a public iCal
@@ -173,6 +173,15 @@ export default function CalendarFeedsIntegrationPage() {
           touched.
         </li>
       </ul>
+      <p>
+        If a feed fails to fetch three times in a row (a usual sign the share
+        URL expired or was revoked), ResearchOS stops auto-retrying it and the
+        row shows <strong>Stopped syncing &mdash; the link may be broken or
+        expired</strong>. Click <strong>Retry now</strong> after fixing the
+        link, or remove the subscription and re-add it with a fresh URL. A
+        one-off hiccup instead shows a quieter note that it will retry on its
+        own.
+      </p>
 
       <h2>How often feeds refresh</h2>
       <p>
@@ -218,8 +227,8 @@ export default function CalendarFeedsIntegrationPage() {
           <code>127.0.0.0/8</code>.
         </li>
         <li>
-          Private IPv4 ranges: <code>10.0.0.0/8</code>,{" "}
-          <code>172.16.0.0/12</code>, <code>192.168.0.0/16</code>.
+          The private IPv4 ranges <code>10.0.0.0/8</code>,{" "}
+          <code>172.16.0.0/12</code>, and <code>192.168.0.0/16</code>.
         </li>
         <li>
           Link-local <code>169.254.0.0/16</code> and the IPv6 equivalents{" "}

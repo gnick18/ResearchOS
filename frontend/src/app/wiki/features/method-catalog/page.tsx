@@ -90,7 +90,7 @@ export default function MethodCatalogPage() {
         protocol you have to trust blindly. With the bundled PDF one click away,
         you can confirm an annealing temperature, a reagent volume, or a primer
         concentration against the manufacturer&apos;s own insert before you run
-        the bench. The template is the convenient form; the PDF is the proof.
+        the bench. The template is the convenient form, and the PDF is the proof.
       </Callout>
       <Screenshot
         src="/wiki/screenshots/method-catalog-source-pdf.png"
@@ -133,7 +133,7 @@ export default function MethodCatalogPage() {
         <Step>
           The template is copied into your Methods library as a brand-new method
           you own. Edit it freely, attach it to experiments, and share it with
-          the lab if you like; none of that touches the original template.
+          the lab if you like. None of that touches the original template.
         </Step>
       </Steps>
       <Screenshot
@@ -169,14 +169,17 @@ export default function MethodCatalogPage() {
         workflows). Using one drops both halves into your library together, ready
         to attach to an experiment as a single coherent method. The structured
         instrument parameters in these were transcribed verbatim from the vendor
-        documentation.
+        documentation. If one half ever fails to copy (a missing file, an
+        interrupted run), ResearchOS leaves the part that did land in place and
+        tags it <code>incomplete-kit</code> so you can find and remove it rather
+        than ending up with a silent half-built method.
       </p>
 
       <h2>Provenance and open formats</h2>
       <p>
         Everything about a template is plain, inspectable data. The protocol body
-        is markdown; the structured fields are JSON; the bundled source PDFs are
-        ordinary PDFs recorded with their origin URL and checksum. A method you
+        is markdown, the structured fields are JSON, and the bundled source PDFs
+        are ordinary PDFs recorded with their origin URL and checksum. A method you
         create from a template is stored the same open way as any other method on
         disk, so it is portable, diff-able, and readable without ResearchOS. The
         bundled-PDF provenance, a verifiable link from a working protocol back to

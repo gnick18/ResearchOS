@@ -12,20 +12,24 @@ export default function VersionHistoryPage() {
       <Callout variant="info" title="What has version history today">
         Version history, including restore and the 24-hour undo, is on for
         everyone on free-form <strong>Notes</strong>, <strong>Tasks</strong>, and{" "}
-        <strong>Projects</strong>. Nothing to turn on. The same timeline,
-        diff, and restore also power the{" "}
-        <Link href="/wiki/features/sequences">Sequences history tab</Link>.
-        Results and methods are still on the roadmap. The page below uses Notes
-        as the worked example, but the behavior is the same on every surface that
-        has it.
+        <strong>Projects</strong>. There's nothing to configure or turn on, it
+        works automatically. The same timeline, diff, and restore also cover a
+        task's <strong>Lab Notes</strong> and <strong>Results</strong> documents
+        and the{" "}
+        <Link href="/wiki/features/sequences">Sequences history tab</Link>,
+        though those document surfaces record the restore as a normal forward
+        version rather than offering the one-click 24-hour undo. We're working on
+        version history for Methods next. The page below uses Notes as the worked
+        example, but the behavior is the same on every surface that has it.
       </Callout>
 
       <h2>What a version is</h2>
       <p>
         A <strong>version</strong> is a single saved state of a note. You do not
         create versions by hand and there is no &quot;commit&quot; button to
-        remember. The editor already decides when to flush your work to disk
-        (see <Link href="/wiki/features/markdown-editor">Saving in the editor</Link>),
+        remember. You save explicitly by clicking <strong>Save checkpoint</strong>{" "}
+        in the editor (see{" "}
+        <Link href="/wiki/features/markdown-editor">Saving in the editor</Link>),
         and every one of those saves appends one row to an append-only history
         file that lives next to the note on disk, at{" "}
         <code>users/&lt;owner&gt;/_history/notes/&lt;id&gt;.jsonl</code>. The row
@@ -35,14 +39,14 @@ export default function VersionHistoryPage() {
       <p>
         Because the file is append-only and stores deltas, the history never
         rewrites the live note. The note you are editing is always the ground
-        truth; the history is a side-channel that the save path writes{" "}
+        truth. The history is a side-channel that the save path writes{" "}
         <em>after</em> the note is safely on disk, and a failure to write history
         can never block or corrupt a save.
       </p>
       <p>
         This is a different kind of safety net than the{" "}
         <Link href="/wiki/features/trash">Trash</Link>. Trash recovers a note you{" "}
-        <em>deleted</em>; version history recovers a note you{" "}
+        <em>deleted</em>, while version history recovers a note you{" "}
         <em>edited</em>. A paragraph you overwrote three saves ago is not in the
         trash, because the note itself was never deleted, but it is sitting in
         the version history, exactly as you last left it.
@@ -53,7 +57,7 @@ export default function VersionHistoryPage() {
         Open any note and look for the clock-arrow{" "}
         <strong>history</strong> control on the note popup. Click it and a
         <strong> version history sidebar</strong> slides in on the right while the
-        note body stays on the left. The sidebar is the timeline; the body
+        note body stays on the left. The sidebar is the timeline, and the body
         column becomes the place where each version is shown.
       </p>
       <Screenshot
@@ -66,14 +70,14 @@ export default function VersionHistoryPage() {
         avatar, a one-line summary of what that save changed (for example,
         &quot;edited 2 paragraphs&quot;), and a relative timestamp like &quot;3
         hours ago.&quot; Hover the timestamp for the full date and time. The
-        newest state sits at the top, tagged <strong>Current version</strong>;
-        scroll down to walk backward in time.
+        newest state sits at the top, tagged <strong>Current version</strong>.
+        Scroll down to walk backward in time.
       </p>
 
       <h2>Grouped by day, then by session</h2>
       <p>
         A working note can accumulate dozens of saves in an afternoon. A flat
-        list of every save would be noise, so the sidebar groups them the way
+        list of every save would be overwhelming, so the sidebar groups them the way
         you actually remember your work, by <strong>day</strong> first, then by{" "}
         <strong>editing session</strong> within the day.
       </p>
@@ -94,8 +98,8 @@ export default function VersionHistoryPage() {
         Notes with a very long history are paginated (a <em>Load older
         versions</em> button at the bottom), and saves from far enough back are
         summarized into a single &quot;earlier versions&quot; note rather than
-        kept row by row. You always keep the recent, detailed timeline; the deep
-        past is condensed so the sidebar opens instantly.
+        kept row by row. You always keep the recent, detailed timeline, and the
+        deep past is condensed so the sidebar opens instantly.
       </Callout>
 
       <h2>The in-place diff</h2>
@@ -136,7 +140,7 @@ export default function VersionHistoryPage() {
         to the <strong>current</strong> version instead. That answers a
         different question, &quot;what is different between this old state and the
         note as it stands right now?&quot; Use <em>Previous</em> to audit one
-        edit; use <em>Current</em> to see everything that has happened since.
+        edit, or <em>Current</em> to see everything that has happened since.
       </p>
       <Screenshot
         src="/wiki/screenshots/version-history-compare-toggle.png"
@@ -156,7 +160,7 @@ export default function VersionHistoryPage() {
       </p>
       <p>
         Visibility follows the same rules as the note itself. A note that is
-        private to you keeps its history private to you; if you share the note
+        private to you keeps its history private to you. If you share the note
         with the lab, a labmate who can read the note can read its history too.
         The history does not widen access, and it does not leak past edits to
         anyone who could not already read the note. See{" "}

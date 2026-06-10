@@ -7,7 +7,7 @@ export default function UserArchivingPage() {
   return (
     <WikiPage
       title="User archiving"
-      intro="When a lab member leaves (graduates, rotates out, switches projects), archiving their account is the right move. Archiving hides them from active views but keeps every byte of their data on disk and in the lab's history. They drop out of the login picker, member workload, and lab activity feeds; the records they wrote stay readable to anyone with permission."
+      intro="When a lab member leaves (graduates, rotates out, switches projects), archiving their account is the right move. Archiving hides them from active views but keeps every byte of their data on disk and in the lab's history. They drop out of the login picker, the member-workload chart, and the pickers you use to assign new work. The records they already wrote stay readable to anyone with permission."
     >
       {/* TODO screenshot agent: capture the LabRoster in Settings with the Archive action on a row.
           Route: /settings (Lab Mode tab, LabRoster section)
@@ -53,72 +53,78 @@ export default function UserArchivingPage() {
 
       <h2>Where the affordance lives</h2>
       <p>
-        Archiving is a PI soft-write. Open{" "}
+        Only a lab head can archive a member. Open{" "}
         <strong>Settings</strong> &rarr; <strong>Lab Mode tab</strong> and the{" "}
-        <strong>LabRoster</strong> section lists every member. Hover any
-        row to reveal an <strong>Archive</strong> button on the right. The
-        first archive in a fresh session prompts for the PI password
-        (see{" "}
-        <Link href="/wiki/features/lab-head/edit-session-and-password">
-          Edit session and password
-        </Link>); subsequent archives during the same 5-minute window run
-        without re-prompting.
+        <strong>Lab Roster</strong> section lists every member. Hover any
+        row to reveal an <strong>Archive</strong> button on the right (you
+        can also right-click a row for the same action). There is no password
+        and no edit session to unlock anymore, being a lab head is enough.
+        Clicking Archive opens a short confirmation dialog so you do not
+        archive someone by accident, and that is the only gate.
       </p>
 
       <h2>What happens on archive</h2>
       <p>
-        One archive runs six steps, all in a single atomic action.
+        One archive is a single action that does a few things at once.
       </p>
       <ol>
         <li>
-          Sets <code>archived_at</code> on the member&apos;s metadata entry.
+          Stamps the member&apos;s onboarding sidecar as archived, with the
+          time and the lab head who did it.
         </li>
         <li>
-          Hides the member from the user picker by default (see filter
+          Hides the member from the login picker by default (see filter
           control below).
         </li>
         <li>
-          Drops the member from member-workload, lab-activity, and
-          recent-activity widgets on the Lab Overview.
+          Drops the member from the active-member list on the Lab
+          Overview, so the workload view counts active people first (an
+          archived member only resurfaces when you drill into their row
+          to restore them).
+        </li>
+        <li>
+          Filters them out of the @mention picker, the share dialog, and
+          the assignee dropdown, so you do not assign new work to someone
+          who left.
         </li>
         <li>
           Keeps their records (tasks, notes, purchases) readable to anyone
-          who already had access. No permissions are stripped retroactively.
+          who already had access. No permissions are stripped, and the
+          comments and announcements they already wrote stay exactly where
+          they are.
         </li>
         <li>
-          Keeps their comments and announcements visible in their original
-          places, with an archived badge next to their name.
-        </li>
-        <li>
-          Writes an <code>archive_user</code> row to{" "}
-          <Link href="/wiki/features/lab-head/audit-log">_pi_audit.json</Link>{" "}
-          recording the actor, target, and timestamp.
+          Writes an entry to the{" "}
+          <Link href="/wiki/features/lab-head/audit-log">audit log</Link>{" "}
+          recording the actor, the target, and the timestamp. A restore
+          writes a matching entry.
         </li>
       </ol>
 
       <h2>Bringing an archived member back</h2>
       <p>
-        At the top of the LabRoster section is a{" "}
-        <strong>Show archived</strong> toggle. Flip it on and archived
-        members reappear in the table with a muted style and an{" "}
-        <strong>Unarchive</strong> button instead of Archive. One click
-        (still gated by the edit session) restores them on every surface,
-        and the audit row this time is <code>unarchive_user</code>.
+        Archived members do not disappear from the Lab Roster. They sit at
+        the bottom of the same table in a muted style with an{" "}
+        <strong>Archived</strong> badge, and the row shows a{" "}
+        <strong>Restore</strong> button where active rows show Archive. One
+        click (after the same confirmation dialog) brings them back on every
+        surface as if they never left, and the audit log records the restore.
       </p>
       <p>
-        Archived members are also filterable on the user picker. By default
-        the picker hides them; a small <strong>Show archived</strong>{" "}
-        checkbox at the bottom of the picker reveals them when you need to
-        sign in as a former member to check their work.
+        The login picker is the one place archived members are hidden by
+        default. When a lab has archived accounts, a small{" "}
+        <strong>Show archived</strong> link appears below the account grid.
+        Click it to reveal former members so you can sign in as one of them
+        to check their work.
       </p>
 
       <Callout variant="info" title="The 'who archived me' question">
         Members never see an &quot;archived&quot; banner on their own account.
-        If a PI archives someone who later signs back in, that person
-        signs in normally and sees their data as they left it; only the
-        cross-lab surfaces stop including them. The audit log is the source
+        If a lab head archives someone who later signs back in, that person
+        signs in normally and sees their data as they left it. Only the
+        shared lab surfaces stop including them. The audit log is the source
         of truth for &quot;why am I not showing up in the workload widget,&quot;
-        readable by the PI from PI Actions.
+        and the lab head can read it from the member&apos;s record.
       </Callout>
 
       <h2>When to archive</h2>
@@ -134,7 +140,7 @@ export default function UserArchivingPage() {
         </li>
         <li>
           An undergrad worked over the summer and is gone for the school
-          year; archive now, unarchive when they return.
+          year. Archive now, unarchive when they return.
         </li>
       </ul>
       <p>

@@ -7,11 +7,11 @@ export default function SettingsFeaturePage() {
   return (
     <WikiPage
       title="Settings"
-      intro="Fourteen panels stacked top to bottom: Profile, Tabs, LabArchives, AI Helper, Sidebar, View defaults, Animation, Notifications &amp; behavior, Streaks, Data inventory, Data maintenance, Onboarding, Security, and Offline mode. Reach the page through the gear icon in the top-right of the header."
+      intro="One long stack of panels, each one a small slice of how the app looks and behaves for you. The big ones are Profile and account, Professional mode, Tabs, LabArchives, AI Helper, Sidebar, View defaults, Appearance, Animation, Behavior, Streaks, History &amp; Trash, Data inventory, Data maintenance, Security, and Offline mode. Reach the page through the gear icon in the top-right of the header."
     >
       <Screenshot
         src="/wiki/screenshots/settings.png"
-        alt="The Settings page showing its stack of panels: Profile, Tabs, LabArchives, AI Helper, Sidebar, View defaults, Animation, Notifications &amp; behavior, Streaks, Data inventory, Data maintenance, Onboarding, Security, and Offline mode."
+        alt="The Settings page showing its stack of panels, including Profile and account, Professional mode, Tabs, LabArchives, AI Helper, Sidebar, View defaults, Appearance, Animation, Behavior, Streaks, History &amp; Trash, Data inventory, Data maintenance, Security, and Offline mode."
       />
 
       <p>
@@ -28,7 +28,7 @@ export default function SettingsFeaturePage() {
         At the very top of the page, above every panel, a search bar filters
         the visible settings down to whatever matches your typed substring.
         Type <code>password</code> and the page collapses to the Security
-        panel; type <code>animation</code> and it narrows to the Animation
+        panel. Type <code>animation</code> and it narrows to the Animation
         section. The filter matches section headings and the body text inside
         each panel. Clear the bar to restore the full stack.
       </p>
@@ -48,37 +48,35 @@ export default function SettingsFeaturePage() {
         Mode controls.
       </p>
 
-      <h2>Profile</h2>
+      <h2>Data folder and Account</h2>
       <p>
-        The top panel sets how the rest of the app addresses you. A large
-        avatar bubble on the left previews the gradient that&apos;ll appear in
-        comments, lab views, and the user-picker. The <strong>Display name</strong>{" "}
-        field overrides your folder name (leave it blank to fall back to the
-        folder name).
+        The first two cards handle the basics of where you are. The{" "}
+        <strong>Data folder</strong> card shows the folder this app is currently
+        reading and writing, with a <strong>Connect or switch folder</strong>{" "}
+        button. Switching only re-points the app, it never moves or deletes
+        files. The <strong>Account</strong> card shows who you&apos;re signed in
+        as and a <strong>Switch user</strong> button that opens the same picker
+        as the app login screen.
       </p>
+
+      <h2>Profile and account</h2>
       <p>
-        The <strong>Primary color</strong> row is a fixed 10-color palette.
-        Clicking a swatch updates the avatar preview instantly and refreshes
-        every avatar bubble across the app on the next paint. A swatch is
-        grayed out when another lab member already holds that color as a solid.
-        Direction doesn&apos;t matter, so blue-to-green and green-to-blue count
-        as the same combination, and the collision system blocks whichever pair
-        was claimed first.
+        Near the top of the page, after the Data folder and Account cards, a
+        small pointer card sends you to your{" "}
+        <Link href="/profile">Profile page</Link>. Your display name, avatar
+        color, ORCID, researcher profile, and your account and keys all live
+        there now, so this card is just a doorway with a <strong>Go to your
+        Profile</strong> button (it reads <strong>Set up on your Profile</strong>{" "}
+        until sharing is set up).
       </p>
+
+      <h2>Professional mode</h2>
       <p>
-        Below the primary row sits an <strong>Optional second color for
-        gradient</strong> row. Pick any swatch that is not your primary and is
-        not already taken by a lab-mate to create a two-stop gradient. The
-        avatar preview updates immediately. A <strong>Clear secondary</strong>{" "}
-        button appears next to the row label whenever a secondary is active;
-        clicking it returns your avatar to a solid color (blocked if the solid
-        form of your primary is already taken). The tooltip on any grayed-out
-        swatch shows which lab member holds that combination.
-      </p>
-      <p>
-        The <strong>Tint header with my color</strong> toggle controls one
-        thing, whether the top header bar uses your gradient or stays plain
-        white. Your avatar bubbles keep your color either way.
+        One switch for a quieter workspace. Turning it on silences the three
+        playful surfaces at once, the streak badge, the per-task animation, and
+        BeakerBot. Turning it back off doesn&apos;t flip those back
+        automatically, so you re-enable whichever ones you want from their own
+        panels.
       </p>
 
       <h2>Tabs</h2>
@@ -121,22 +119,23 @@ export default function SettingsFeaturePage() {
 
       <h2 id="ai-helper">AI Helper</h2>
       <p>
-        Generates a schema-aware prompt you can paste into Claude, ChatGPT, or
-        Gemini to turn it into a support assistant that understands your
-        ResearchOS data model. The section has three parts, a size picker, a
-        copy button, and one-click open-in buttons.
+        Generates a schema-aware prompt you can paste into Claude, ChatGPT,
+        Gemini, or Microsoft Copilot to turn it into a support assistant that
+        understands your ResearchOS data model. The section has three parts, a
+        size picker, a copy button, and one-click open-in buttons.
       </p>
       <p>
         The <strong>size picker</strong> is a three-option radio group.
       </p>
       <ul>
         <li>
-          <strong>Lean (recommended)</strong>, around 10k tokens. Fits in
+          <strong>Lean</strong>, around 10k tokens. Fits in
           every major chat interface including free-tier context windows.
         </li>
         <li>
-          <strong>Full</strong>, around 22k tokens. Best for drafting on
-          big-context models like Claude Sonnet, GPT-4o, or Gemini 2.5 Pro.
+          <strong>Full (recommended)</strong>, around 22k tokens. Best for
+          drafting on big-context models like Claude Sonnet, GPT-5, or Gemini
+          2.5 Pro.
         </li>
         <li>
           <strong>Minimal</strong>, around 3k tokens. For tiny windows or
@@ -146,9 +145,9 @@ export default function SettingsFeaturePage() {
       <p>
         The <strong>Copy prompt to clipboard</strong> button copies the
         selected size&apos;s markdown. The <strong>Open in your AI</strong>{" "}
-        row has three buttons (Claude, ChatGPT, Gemini). Each one copies the
-        prompt and opens that provider in a new tab so you can paste it as your
-        first message.
+        row has four buttons (Claude, ChatGPT, Gemini, Copilot). Each one copies
+        the prompt and opens that provider in a new tab so you can paste it as
+        your first message.
       </p>
       <p>
         When the prompt served by the app is older than the running code, an{" "}
@@ -217,11 +216,12 @@ export default function SettingsFeaturePage() {
       <h2>Animation</h2>
       <p>
         A grid of animation choices for the celebration that plays when you
-        complete a task. Each tile shows an emoji icon, a name, and a one-line
+        complete a task. Each tile shows an icon, a name, and a one-line
         flavor description. The selected tile gets a purple ring.
       </p>
       <p>
-        The eleven available themes.
+        The ten available themes, plus a <strong>None / off</strong> tile that
+        skips the celebration entirely.
       </p>
       <ul>
         <li><strong>Celebration</strong>, confetti, unicorns, and rainbows.</li>
@@ -234,48 +234,43 @@ export default function SettingsFeaturePage() {
         <li><strong>Animals</strong>, paw prints, birds, and butterflies.</li>
         <li><strong>Fungi</strong>, mushrooms, spores, and mycelium.</li>
         <li><strong>Scary</strong>, skulls, ghosts, and monsters.</li>
-        <li><strong>BeakerBot</strong>, random BeakerBot scenes with ladders, skateboards, and more.</li>
       </ul>
       <p>
-        Pick the one that suits your vibe. The change takes effect the next
-        time you check off a task.
+        Pick the one that suits your vibe. Clicking a tile plays a quick live
+        preview right there, and the change takes effect the next time you check
+        off a task.
       </p>
       <p>
         Below the grid sits a separate <strong>BeakerBot animations</strong>{" "}
-        toggle. This is a different control. It governs BeakerBot&apos;s daily
-        hello wave (a quick &quot;Hi!&quot; the first time you open ResearchOS
-        each day) and the BeakerBot streak-celebration scenes that fire when you
-        hit a streak milestone. Leave it on for the full personality, or turn it
-        off for a quieter experience. The per-task celebration you picked above
-        keeps playing either way.
+        toggle. This is a different control. It governs the BeakerBot streak and
+        milestone celebrations that fire when you hit a streak goal. Leave it on
+        for the full personality, or turn it off for a quieter experience. The
+        per-task celebration you picked above keeps playing either way.
       </p>
 
-      <h2>Notifications &amp; behavior</h2>
+      <h2>Behavior</h2>
       <p>
-        Two master switches for safety prompts and lab-view visibility.
+        One safety switch. <strong>Confirm destructive actions</strong>, when
+        on, shows an &ldquo;Are you sure?&rdquo; prompt before you delete a
+        task, project, or similar object. Switching it off skips the prompt for
+        power-user use.
       </p>
-      <ul>
-        <li>
-          <strong>Confirm destructive actions</strong>, when on, the app shows
-          an &ldquo;Are you sure?&rdquo; prompt before you delete a task,
-          project, or similar object. Switching it off skips the prompt for
-          power-user use.
-        </li>
-        <li>
-          <strong>Hide my goals from lab view</strong>, when on, the PI
-          will not see your goals on their{" "}
-          <Link href="/wiki/features/lab-overview">Lab Overview</Link>{" "}
-          dashboard. The flag is also mirrored to the shared{" "}
-          <code>_user_metadata.json</code> file so the dashboard reader picks
-          it up immediately.
-        </li>
-      </ul>
+
+      <h2>Appearance</h2>
+      <p>
+        Three tiles, <strong>Light</strong>, <strong>Dark</strong>, and{" "}
+        <strong>System</strong>, that set the app&apos;s theme. System follows
+        your device&apos;s light/dark setting. This is a per-device display
+        preference rather than a folder setting, so it lives on the machine
+        you&apos;re using and doesn&apos;t travel between computers. The welcome
+        page always stays light.
+      </p>
 
       <h2 id="streaks">Streaks</h2>
       <p>
         Tracks how many workdays in a row you have saved something in
         ResearchOS. Streak data is stored in a per-user sidecar and is visible
-        only to you; no one else in the lab sees your count.
+        only to you, so no one else in the lab sees your count.
       </p>
       <p>
         The section has a single <strong>Enable streak tracking</strong> toggle
@@ -303,6 +298,16 @@ export default function SettingsFeaturePage() {
       <p>
         Below the reset button is a <strong>PTO</strong> subsection for
         configuring planned days off so the streak counter skips them.
+      </p>
+
+      <h2>History &amp; Trash</h2>
+      <p>
+        Deleting a record doesn&apos;t erase it right away. It goes to the
+        trash and stays recoverable for a window you set here. The{" "}
+        <strong>Cleanup window</strong> radio picks how long (a fixed number of
+        days, or never auto-purge), and an <strong>Open trash</strong> link
+        takes you to the <Link href="/trash">trash page</Link> to restore items
+        to where they came from or delete them for good ahead of the window.
       </p>
 
       <h2>Data inventory</h2>
@@ -342,90 +347,39 @@ export default function SettingsFeaturePage() {
       <p>
         <strong>External calls</strong> is a disclosure paragraph listing the
         destinations your browser contacts when using ResearchOS. There are
-        two. (a){" "}
+        three. (a){" "}
         <code>/api/calendar-feed</code> on this app&apos;s origin,
-        which fetches ICS calendars on your behalf; and (b){" "}
+        which fetches ICS calendars on your behalf. (b){" "}
         <code>va.vercel-scripts.com</code> / <code>vitals.vercel-insights.com</code>{" "}
         for anonymous page-view pings via Vercel Web Analytics plus anonymous
-        Core Web Vitals via Vercel Speed Insights. Enabling Offline mode
-        (below) blocks both of these.
+        Core Web Vitals via Vercel Speed Insights. (c){" "}
+        <code>research-os-xi.vercel.app</code>, only when you click{" "}
+        <strong>Pull latest</strong> in the AI Helper section to fetch a newer
+        prompt. Enabling Offline mode (below) blocks (a) and (b).
       </p>
 
       <h2>Data maintenance</h2>
       <p>
-        Seven rows that each kick off a one-shot cleanup pass over your on-disk
-        data. The first row is an import button for bringing experiments in
-        from another ResearchOS user. The next four rows are repair buttons
-        that normalize older task and method files. The sixth row reconciles
-        cross-owner project sharing. The seventh row cleans up orphaned
-        LabArchives credentials. The app already understands the older shapes
-        on read, so the repair buttons aren&apos;t required to keep things
-        working. They tidy files so the long tail of old data uses the current
-        format. Every button is safe to re-run.
+        Two rows. The first is the <strong>Import experiment</strong> button for
+        bringing an experiment another ResearchOS user exported (a{" "}
+        <code>-raw.zip</code> bundle) into your workspace. You get to match its
+        project and methods against your own before anything is written.
       </p>
       <p>
-        Click any button and a status line appears below the description
-        showing what the pass scanned, repaired, or appended (plus a red
-        &ldquo;failed&rdquo; count if anything broke).
+        The second is a <strong>Format upgrades</strong> status row. As
+        ResearchOS evolves, the shape of some on-disk files changes. Those
+        upgrades now run automatically in the background the moment you connect
+        a folder, with nothing to lose (anything removed goes to a recoverable
+        trash). The row tells you how many checks have run, and a single{" "}
+        <strong>Re-run all checks</strong> button replays the whole set for
+        support or power-user cases. You almost never need it, since the
+        automatic pass keeps your folder current on its own.
       </p>
-      <ul>
-        <li>
-          <strong>Import experiment</strong>, opens a dialog for loading an
-          experiment exported by another ResearchOS user (a{" "}
-          <code>-raw.zip</code> bundle). You match its project and methods
-          against your own before anything is written.
-        </li>
-        <li>
-          <strong>Repair method links</strong>, rewrites tasks that still
-          store their linked method in the old <code>method_id</code> field
-          into the current multi-method shape.
-        </li>
-        <li>
-          <strong>Repair method source paths</strong>, walks every method
-          (private and public) and renames the legacy <code>github_path</code>{" "}
-          field to <code>source_path</code>. Same value, just under a new key.
-        </li>
-        <li>
-          <strong>Split Lab Notes / Results attachments</strong>, walks every
-          task you own and splits the shared per-task <code>Files/</code> and{" "}
-          <code>Images/</code> folders into per-tab folders (one set under{" "}
-          <em>notes/</em>, one under <em>results/</em>), copying each file into
-          whichever tab body references it and rewriting markdown links to
-          match. Files referenced by neither body stay put in the legacy
-          folder.
-        </li>
-        <li>
-          <strong>Repair stamp formats</strong>, walks every notes, results,
-          and method markdown file and rewrites the legacy stamp header at the
-          top into the newer HTML-comment format. Older files render fine, but
-          a stray stamp-end line sometimes bleeds into the preview until this
-          repair runs.
-        </li>
-        <li>
-          <strong>Reconcile cross-owner project sharing</strong>, walks every
-          task and every project hosted manifest and fixes drift between the
-          two sides (a hosted task that&apos;s no longer marked as external on
-          its origin, or a manifest entry pointing at a deleted task). Safe to
-          run any time, with no destructive operations beyond pruning broken
-          refs.
-        </li>
-        <li>
-          <strong>Clean up orphaned LabArchives credentials</strong>, scans for
-          two sidecar files left behind by the removed institutional LabArchives
-          API. One is <code>_labarchives-deployer.json</code> at the folder root
-          (which stored an institutional access password in plaintext) and{" "}
-          <code>users/&lt;u&gt;/_labarchives.json</code> per user. If orphans
-          are found, the button shows a confirmation before deleting. An amber
-          detection banner appears above the row automatically when these files
-          are present.
-        </li>
-      </ul>
-      <Callout variant="tip" title="When to run these">
-        Run the repair buttons once, in order, the first time you open a
-        long-lived folder after a ResearchOS update. After that, you only need
-        to re-run them if you notice old-format files appearing (for example,
-        a task synced from another user who hasn&apos;t run them yet). They
-        never delete data, only rewrite fields in place.
+      <Callout variant="info" title="No more repair buttons">
+        Earlier versions had a long list of one-off repair buttons here. Those
+        are gone. The same idempotent checks now run on their own at connect
+        time, so a folder synced from a lab-mate who hasn&apos;t opened the
+        latest build gets tidied up automatically the next time you open it.
       </Callout>
 
       <h2>Onboarding</h2>
@@ -448,8 +402,10 @@ export default function SettingsFeaturePage() {
       <p>
         In the popup you can set a new password (minimum 4 characters), change
         an existing one (current password required), or remove the password
-        entirely. Passwords are hashed with PBKDF2-SHA-256 at 600k iterations
-        before being written to disk.
+        entirely. Your password wraps this account&apos;s keys with Argon2id, a
+        deliberately slow, memory-hard function, before anything is written to
+        disk. Setting a password also gives you a one-time recovery code to save
+        in case you forget it.
       </p>
       <Callout variant="warning" title="What a password protects, and what it doesn't">
         The password gate stops a lab member from accidentally signing into
@@ -460,13 +416,12 @@ export default function SettingsFeaturePage() {
       </Callout>
       <Callout variant="info" title="Forgot your password?">
         Since ResearchOS has no server, there&apos;s no &ldquo;reset
-        link&rdquo; email. To clear a forgotten password, open the shared
-        data folder in Finder or Explorer, go into{" "}
-        <code>users/&lt;you&gt;/</code>, and delete{" "}
-        <code>_auth.json</code>. Sign in again and the gate is gone. A lab
-        admin (or anyone with access to the folder) can do this for you. The
-        Account password popup&apos;s &ldquo;Forgot your password?&rdquo;
-        link walks through the same steps inside the app.
+        link&rdquo; email. On the sign-in screen, click your account and choose{" "}
+        <strong>Use your recovery code</strong> instead of the password, then
+        enter the one-time code you saved when you set it. If you also lost the
+        recovery code, a lab admin can reset you from their own account. The
+        Account password popup&apos;s &ldquo;Forgot your password?&rdquo; link
+        walks through the same steps inside the app.
       </Callout>
 
       <h2>Offline mode</h2>

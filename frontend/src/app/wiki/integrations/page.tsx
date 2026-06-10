@@ -7,7 +7,7 @@ export default function IntegrationsIndex() {
   const children = node?.children ?? [];
   return (
     <WikiPage
-      intro="Optional add-ons that connect ResearchOS to outside services. All are off by default."
+      intro="Optional add-ons that connect ResearchOS to outside services. You set each one up only if you want it, and nothing here runs until you do."
     >
       <div className="grid gap-3 not-prose mt-3 sm:grid-cols-2">
         {children.map((c) => (

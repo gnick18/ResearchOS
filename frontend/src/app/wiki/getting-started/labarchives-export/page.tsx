@@ -80,7 +80,7 @@ export default function LabArchivesExportPage() {
           computer. The file is usually named something like{" "}
           <code>offline_&lt;notebook-id&gt;.zip</code>. Save it somewhere
           you can find later (your Downloads folder is fine), and{" "}
-          <strong>do not unzip it</strong>. ResearchOS reads the archive
+          <strong>don&apos;t unzip it</strong>. ResearchOS reads the archive
           as a single file.
         </Step>
       </Steps>

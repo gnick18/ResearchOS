@@ -17,8 +17,9 @@ export default function DemoModePage() {
         >
           research-os-xi.vercel.app/demo
         </a>
-        {" "}, the canonical public URL as of this writing; check the project
-        site for the current link if it has moved) and you land straight inside
+        , the canonical public URL as of this writing, so check the
+        project site for the current link if it has moved) and you land
+        straight inside
         ResearchOS as a researcher named <strong>alex</strong>, with a
         populated lab to click around in. Nothing touches your disk and the
         browser never asks for a folder.
@@ -49,9 +50,9 @@ export default function DemoModePage() {
 
       <h2>Who&apos;s in the demo lab</h2>
       <p>
-        Four seeded users are available from the user-picker. It helps to know
-        who is who, since exploring the lab-head views and the shared records
-        means signing in as the right researcher.
+        Three seeded users are available from the user-picker. It helps to
+        know who is who, since exploring the lab-head views and the shared
+        records means signing in as the right researcher.
       </p>
       <ul>
         <li>
@@ -70,14 +71,16 @@ export default function DemoModePage() {
           announcements, and the flag-for-review notifications. She owns the
           orange (#f97316) user color in the comment threads.
         </li>
-        <li>
-          <strong>Dr. Sam Whitley</strong> (member, archived). Sam was
-          archived by mira on 2026-03-15 and exists to demo the
-          user-archiving feature. His historical comments and methods are
-          still visible across the lab, but he no longer shows up in
-          assignment pickers.
-        </li>
       </ul>
+      <p>
+        There&apos;s also a fourth person in the data, <strong>Dr. Sam
+        Whitley</strong> (member, archived). He&apos;s not in the user-picker
+        because mira archived him on 2026-03-15, and archived users drop out of
+        the sign-in roster and the assignment pickers. He&apos;s there to show
+        what archiving does. His historical comments are still visible across
+        the lab, so you can see that an archived member&apos;s past work
+        sticks around even after they&apos;re gone.
+      </p>
 
       <h2>Edits are temporary</h2>
       <p>
@@ -91,17 +94,18 @@ export default function DemoModePage() {
       <h2>Dates always feel current</h2>
       <p>
         Every demo experiment, goal, and event gets its start and end date
-        rebased on the fly so the demo&apos;s &ldquo;today&rdquo; matches
-        your real today. Visit the demo this week and upcoming experiments
-        stay upcoming, the Gantt scrolls to the current week, and the
-        calendar shows events around now. Visit it again in a month and the
-        whole timeline slides forward to match.
+        rebased on the fly. Every date shifts by exactly the number of days
+        since your last visit, so the demo&apos;s &ldquo;now&rdquo; lines up
+        with your real now. Visit the demo this week and upcoming experiments
+        stay upcoming, the Gantt scrolls to the current week, and the calendar
+        shows events around now.
       </p>
       <p>
         Method history, PCR protocol creation dates, and lab note timestamps
-        stay put, because they read as history rather than schedule. The
-        rebase is also idempotent, so visiting twice in the same day
-        doesn&apos;t accumulate drift.
+        stay put, because they read as history rather than schedule. Visit the
+        demo one day, come back a month later, and the timeline slides forward
+        without compounding drift, since each visit shifts only the days since
+        the last one.
       </p>
 
       <h2>Reading the docs from inside the demo</h2>

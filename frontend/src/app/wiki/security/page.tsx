@@ -16,10 +16,10 @@ export default function SecurityPage() {
         and task data, images, attachments, and calendar
         subscriptions all stay in that folder. Nothing about your work is
         uploaded to a database we control, because there is no database
-        we control. Two narrow proxy routes we wrote exist for browser
-        CORS reasons and are documented below, but they are streams, not
-        stores. Vercel Web Analytics adds one outbound destination, also
-        documented below.
+        we control. A couple of narrow proxy routes we wrote exist for
+        browser CORS reasons and are documented below, but they are
+        streams, not stores. Vercel Web Analytics adds one outbound
+        destination, also documented below.
       </p>
 
       <h2>What stays on your computer</h2>
@@ -101,10 +101,10 @@ export default function SecurityPage() {
 
       <h2>What briefly touches a server we operate</h2>
       <p>
-        Two routes on the ResearchOS server are involved. The first is a
-        CORS-bypass stream that exists because browsers refuse to talk
-        directly to the upstream service. The second is an anonymous
-        page-view ping. Neither ever sees the contents of your data
+        A few routes on the ResearchOS server are involved. Two are
+        CORS-bypass streams that exist because browsers refuse to talk
+        directly to the upstream service. The last is an anonymous
+        page-view ping. None of them ever sees the contents of your data
         folder.
       </p>
       <ul>
@@ -117,6 +117,16 @@ export default function SecurityPage() {
           URL query string, so it is never written to Vercel access logs. A
           15-minute edge cache keeps repeated polls from hammering the
           upstream. We do not persist the URL or the contents.
+        </li>
+        <li>
+          <strong>ORCID publication lookup.</strong> When you view a
+          researcher profile that lists an ORCID iD (during sharing or
+          profile setup), the browser asks{" "}
+          <code>/api/orcid/works</code> to fetch that person&apos;s public
+          publication list from the ORCID API and hand it back. ORCID&apos;s
+          API isn&apos;t CORS-open, so the call has to go server-side. The
+          route only ever touches public ORCID data, it&apos;s rate-limited
+          per IP, and it stores nothing.
         </li>
         <li>
           <strong>Vercel Web Analytics.</strong> When you navigate between
@@ -225,7 +235,7 @@ export default function SecurityPage() {
             in plain English.
           </li>
           <li>
-            The <strong>Offline mode</strong> toggle disables the two proxy
+            The <strong>Offline mode</strong> toggle disables the proxy
             routes plus the Vercel Analytics script tag in one click, for
             anyone who wants zero outbound network from the app surface.
           </li>
@@ -265,7 +275,9 @@ export default function SecurityPage() {
             You should see requests to your own ResearchOS origin (for
             JavaScript, CSS, and static assets), occasional requests to{" "}
             <code>/api/calendar-feed</code> when a subscribed feed
-            refreshes, and occasional requests to{" "}
+            refreshes, a one-off request to <code>/api/orcid/works</code>{" "}
+            if you open a researcher profile that lists an ORCID iD, and
+            occasional requests to{" "}
             <code>va.vercel-scripts.com</code> and{" "}
             <code>vitals.vercel-insights.com</code> for anonymous
             page-view pings (unless <strong>Offline mode</strong> is on,

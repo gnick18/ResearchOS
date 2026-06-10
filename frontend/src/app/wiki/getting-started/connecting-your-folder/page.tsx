@@ -123,7 +123,9 @@ export default function ConnectingYourFolderPage() {
         </Step>
         <Step>
           The browser asks for permission to read and write that folder. Click{" "}
-          <strong>Allow on every visit</strong> so you don&apos;t get reprompted.
+          <strong>Allow</strong>. Chrome remembers the grant until you clear the
+          site&apos;s data, so you won&apos;t get reprompted every time (you may
+          see it once more after a browser restart).
         </Step>
         <Step>
           ResearchOS initializes the folder structure (e.g., <code>users/</code>,{" "}
@@ -204,21 +206,25 @@ export default function ConnectingYourFolderPage() {
         ResearchOS creates a simple tree the first time you connect.
       </p>
       <pre className="my-3 rounded-lg bg-surface-sunken border border-border px-4 py-3 overflow-x-auto text-meta text-foreground font-mono leading-relaxed">{`your-folder/
-├── users/
-│   ├── <your-username>/
-│   │   ├── projects/
-│   │   ├── tasks/
-│   │   ├── methods/
-│   │   ├── notes/
-│   │   ├── Images/
-│   │   └── settings.json
-│   └── public/        ← shared methods & protocols
-└── lab/               ← shared funding accounts`}</pre>
+└── users/
+    ├── <your-username>/
+    │   ├── projects/
+    │   ├── tasks/
+    │   ├── methods/
+    │   ├── notes/
+    │   ├── Images/
+    │   └── ...more         ← a folder per data type
+    ├── public/            ← shared methods & protocols
+    └── lab/               ← shared funding accounts`}</pre>
 
       <p>
-        Everything is plain JSON and plain image files. You can back up the
-        folder by copying it, version-control it with git, or open it in Finder
-        / Explorer at any time.
+        That tree is trimmed for readability. Each kind of record (events,
+        goals, dependencies, purchases, and a few others) gets its own
+        subfolder under your username, plus small counter files ResearchOS uses
+        to hand out IDs. You don&apos;t edit those by hand. Everything is plain
+        JSON and plain image files, so you can back up the folder by copying it,
+        version-control it with git, or open it in Finder / Explorer at any
+        time.
       </p>
 
       <h2>Reconnecting later</h2>

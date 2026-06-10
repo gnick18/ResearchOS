@@ -27,7 +27,9 @@ export default function ProjectsFeaturePage() {
         </li>
         <li>
           <strong>Color dot and name.</strong> A small filled dot in the
-          project&apos;s chosen color sits next to the project name.
+          project&apos;s chosen color sits next to the project name. A project
+          you never picked a color for falls back to one from a built-in
+          palette, and you can change it any time from the Edit dialog.
         </li>
         <li>
           <strong>Completion bar.</strong> A thin bar showing the percentage of
@@ -82,15 +84,19 @@ export default function ProjectsFeaturePage() {
         <strong>Methods</strong>, <strong>Sequences</strong>,{" "}
         <strong>Goals</strong>, <strong>Activity</strong>, and{" "}
         <strong>Funding</strong>, but a tab only appears when it has something to
-        show. Overview always shows. Results, Methods, Sequences, and Activity
-        auto-hide when they are empty, and Goals appears only when you opted into
-        goals. So a brand-new project with just a hypothesis shows close to a
-        single Overview tab, never a tab that leads nowhere.
+        show. Overview and Results always show. Results stays put even when it
+        is empty, because its empty state is actionable (it points you at the
+        experiments where results live), so it is never a dead end. Methods,
+        Sequences, and Activity auto-hide when they are empty, and Goals appears
+        only when you opted into goals. So a brand-new project with just a
+        hypothesis shows close to a single Overview tab, never a tab that leads
+        nowhere.
       </p>
       <Callout variant="info" title="Empty sections hide themselves">
-        You will not see a Results or Methods tab until the project actually has
-        a result image or an attached method. The tab strip grows as the project
-        fills in, which keeps an early-stage project from looking broken.
+        You will not see a Methods or Sequences tab until the project actually
+        has an attached method or a linked sequence. The tab strip grows as the
+        project fills in, which keeps an early-stage project from looking broken.
+        Overview and Results are the exception, they always show.
       </Callout>
 
       <h3>Overview</h3>
@@ -332,9 +338,10 @@ export default function ProjectsFeaturePage() {
           progress and the activity feed.
         </li>
         <li>
-          There is <strong>no Overview, Results, Methods, or Sequences</strong>{" "}
-          to fill in, because Miscellaneous has no hypothesis, no experiments,
-          and no protocol or construct inventory worth deduplicating.
+          The <strong>Overview and Results tabs still render</strong> (those two
+          always show), but there is no project hypothesis to write up and no
+          Methods or Sequences inventory to deduplicate, since Miscellaneous
+          holds loose tasks rather than experiments and constructs.
         </li>
       </ul>
       <Callout variant="info" title="Miscellaneous is a permanent catch-all">
@@ -352,7 +359,7 @@ export default function ProjectsFeaturePage() {
         </Step>
         <Step>
           Click a card to navigate to that project&apos;s route. The card itself
-          has no menu; project-level actions live on the route&apos;s top bar.
+          has no menu, project-level actions live on the route&apos;s top bar.
         </Step>
         <Step>
           On the route, write into the Overview textarea and use the tab strip

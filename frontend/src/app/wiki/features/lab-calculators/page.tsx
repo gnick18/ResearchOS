@@ -90,7 +90,7 @@ export default function LabCalculatorsFeaturePage() {
         The primer melting-temperature calculator. Paste a DNA or RNA sequence and it
         reports the length, the GC content, and the melting temperature using a
         nearest-neighbor model (the SantaLucia parameters that IDT OligoAnalyzer,
-        Primer3, NEB, and SnapGene use). Only the sequence is required, standard
+        Primer3, NEB, Benchling, and SnapGene use). Only the sequence is required, standard
         reaction conditions are assumed, and an Advanced section lets you enter your
         actual salt, Mg2+, dNTP, and oligo concentrations for a sharper value. For
         very short oligos it also shows the Wallace 2-4 rule, where the rule of thumb

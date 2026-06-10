@@ -46,9 +46,11 @@ export default function StartHerePage() {
       <Callout variant="tip" title="1. Your data stays on your machine">
         Everything you do writes to the folder you connected. Nothing is
         uploaded, and there is no ResearchOS server holding your research. Want
-        a backup? Copy the folder. Want to leave? Delete it. The only network
-        calls the app makes are to fetch calendar feeds you opted into. The full
-        story is on <Link href="/wiki/security">Security</Link>.
+        a backup? Copy the folder. Want to leave? Delete it. The handful of
+        network calls the app does make (fetching calendar feeds you opted into,
+        the AI Helper when you turn it on, anonymous usage analytics) never carry
+        your research, and the full story is on{" "}
+        <Link href="/wiki/security">Security</Link>.
       </Callout>
 
       <Callout
@@ -63,28 +65,28 @@ export default function StartHerePage() {
 
       <Callout
         variant="tip"
-        title="3. Home is for status, the Workbench is for doing the work"
+        title="3. There is no home dashboard, you land where you work"
       >
-        Two surfaces, two jobs.{" "}
-        <Link href="/wiki/features/home">Home</Link> is the dashboard you glance
-        at each morning, with today&apos;s tasks, upcoming deadlines, and recent
-        activity. The{" "}
-        <Link href="/wiki/features/experiments">Workbench</Link> is where you
-        actually run experiments, with its Experiments, Notes, and Lists tabs, a
-        project filter that sticks as you move between them, and a popup holding
-        the details, lab notes, method, and results. If you are spending hours
-        on Home, you probably want the Workbench.
+        Opening ResearchOS doesn&apos;t drop you on a dashboard to glance at. The
+        root URL is just a router that{" "}
+        <Link href="/wiki/features/home">sends you to the surface for your role</Link>.
+        A member or solo researcher lands on the{" "}
+        <Link href="/wiki/features/experiments">Workbench</Link>, opened to a grid
+        of their projects, with its Projects, Experiments, Notes, and Lists tabs,
+        a project filter that sticks as you move between them, and a popup holding
+        the details, lab notes, method, and results. A PI lands on Lab Overview
+        instead. Either way, you start on the thing you actually use.
       </Callout>
 
       <Callout
         variant="tip"
         title="4. Tasks live in projects, projects live in your account"
       >
-        The shape is account, then projects, then tasks. Sharing happens at the
-        task level (or through a shared method). When you share a task with a
-        labmate, it shows up in their Workbench under the project, editable if
-        you let them. The unit you share is the task, not the whole project. The
-        rules are on{" "}
+        The shape is account, then projects, then tasks. Sharing is granular,
+        you hand over one record at a time (most often a task, sometimes a
+        method, note, project, or goal) and set read or edit per recipient. When
+        you share a task with a labmate, it shows up in their Workbench under the
+        project, editable if you let them. The rules are on{" "}
         <Link href="/wiki/features/sharing-and-permissions">
           Sharing and permissions
         </Link>
@@ -111,8 +113,10 @@ export default function StartHerePage() {
         ResearchOS works fine on its own. The{" "}
         <Link href="/wiki/integrations/calendar-feeds">calendar feeds</Link>{" "}
         (subscribe to a Google, Outlook, or iCloud calendar) and the AI Helper
-        live in Settings, off by default, and switch on independently. Turn them
-        on if and when you want them.
+        live in Settings, off by default, and switch on independently. Settings
+        sits behind your avatar in the top-right corner (click the circle with
+        your initial), not in the top nav. Turn them on if and when you want
+        them.
       </Callout>
 
       <h2>How to find the rest of the wiki</h2>

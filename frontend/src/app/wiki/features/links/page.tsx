@@ -6,8 +6,8 @@ import { Steps, Step } from "@/components/wiki/Steps";
 export default function LinksFeaturePage() {
   return (
     <WikiPage
-      title="Links / Lab Links"
-      intro="Your own bookmark wall, link cards with preview images, grouped into categories, stored under your user."
+      title="Links"
+      intro="Your own bookmark wall, link cards with preview images, grouped into categories, stored under your user. Keep a link to yourself, or share it with the whole lab."
     >
       {/* links.png needs recapture: predates Q7-conditional label */}
       <Screenshot
@@ -15,12 +15,6 @@ export default function LinksFeaturePage() {
         alt="The Links page showing link cards grouped into category sections, each card with a preview image and a title underneath."
         caption="Link cards grouped by category. Each card opens its URL in a new tab when clicked."
       />
-
-      <Callout variant="info" title="Solo vs. lab label">
-        Solo accounts see this surface labeled &quot;Links&quot; in the
-        nav and page header. Lab accounts see &quot;Lab Links&quot;.
-        The feature is identical either way.
-      </Callout>
 
       <Callout variant="info" title="Q7 opt-in, Links is only visible if you enabled it">
         The Links tab only appears if you answered &quot;Yes&quot; to the
@@ -43,11 +37,13 @@ export default function LinksFeaturePage() {
         precedence and the color is not shown.
       </Callout>
 
-      <Callout variant="info" title="Per-user, not lab-wide">
+      <Callout variant="info" title="Private by default, shareable per link">
         Links sit in your own folder under{" "}
-        <code>users/{`<you>`}/lab_links/</code>. Each labmate keeps their own
-        wall. Adding a link doesn&apos;t share it with anyone else. There
-        is no per-link public or shared toggle in the data model.
+        <code>users/{`<you>`}/lab_links/</code>, so each labmate keeps their own
+        wall. A new link is private to you. If you want, you can flip a single
+        link to <strong>Whole lab</strong> so everyone in the lab sees it on
+        their own page. There&apos;s no all-or-nothing switch, you choose this
+        link by link.
       </Callout>
 
       <h2>Add a link</h2>
@@ -58,15 +54,24 @@ export default function LinksFeaturePage() {
         </Step>
         <Step>
           Paste a URL into the <strong>URL</strong> field. Click the small
-          image-icon button next to it to fetch a preview. That fills in
-          the title, description, and preview image automatically (the
-          fields are still editable afterward).
+          image-icon button next to it and, if the title is still blank, it
+          seeds the title with the site&apos;s hostname (for example{" "}
+          <em>addgene.org</em>). It does this in your browser, with no server
+          call, so nothing is sent off and no description or thumbnail is
+          scraped. The card shows the site&apos;s favicon on its own. Every
+          field stays editable afterward.
         </Step>
         <Step>
           Give the link a <strong>Title</strong> (required), pick or type a{" "}
           <strong>Category</strong> (the dropdown suggests Protocol,
           Database, Tool, Reference, Supplier, Publication, Software, Other,
           but any text works), and pick one of the eight color swatches.
+        </Step>
+        <Step>
+          Set <strong>Visibility</strong>. <strong>Just me</strong> (the
+          default) keeps the link private to you. <strong>Whole lab</strong>{" "}
+          puts it on every lab member&apos;s Links page, where any of them can
+          see and edit it.
         </Step>
         <Step>
           Optionally add a <strong>Description</strong> and override the{" "}
@@ -87,14 +92,24 @@ export default function LinksFeaturePage() {
         only ever set the title, not the URL display.
       </p>
 
+      <h2>Links a labmate shared</h2>
+      <p>
+        When someone sets a link to <strong>Whole lab</strong>, it shows up on
+        your Links page too, carrying their avatar and a <em>Shared by</em>{" "}
+        label so you can tell it apart from your own. The pencil and trash
+        icons stay hidden on a shared-in card, only the person who owns it can
+        edit or remove it, or switch its Visibility back to{" "}
+        <strong>Just me</strong>.
+      </p>
+
       <h2>What each link stores</h2>
       <p>
         Per the on-disk JSON, a link is a title, a URL, an optional
         description, an optional category, a color, and an optional preview
-        image URL.
-        That&apos;s it. There is no per-link sharing toggle, no
-        cross-user visibility, no labmate ordering. If a labmate needs the
-        same set of URLs, they add them to their own Links page.
+        image URL, plus who owns it and whether it&apos;s shared with the whole
+        lab. There&apos;s no labmate ordering. Links you keep private stay in
+        your own folder, and a labmate who wants the same private set adds them
+        to their own Links page.
       </p>
     </WikiPage>
   );

@@ -43,12 +43,13 @@ export default function HomeFeaturePage() {
         For a member or solo researcher, the landing surface is the Workbench
         with its <strong>Projects</strong> tab selected. The grid shows a card
         per project with the project's color dot, a percent-complete progress
-        bar, and the open-task count. Click a card to open that project's
-        dedicated route (see{" "}
+        bar, and small count chips (experiments, list tasks, and sequences once
+        you have any). Click a card to open that project (see{" "}
         <Link href="/wiki/features/projects">Project Surface</Link> for the
         Overview, Results, Methods, Goals, and Activity walkthrough). The
         Workbench's other tabs (Experiments, Notes, Lists) sit alongside
-        Projects in the same view.
+        Projects in the same view, plus a role-relative mentoring tab when one
+        applies to you.
       </p>
 
       <h2>Create a project</h2>
@@ -67,9 +68,10 @@ export default function HomeFeaturePage() {
           type a name (e.g. <em>CRISPR Gene Editing Study</em>).
         </Step>
         <Step>
-          Press <strong>Create</strong>. The card appears in the grid
-          immediately, and the project shows up in the Gantt and the project
-          sidebar too.
+          Press <strong>Create</strong>. The modal closes and leaves you right
+          where you were, with the new card already in the grid (creating a
+          project doesn't jump you into it). The project's color then carries
+          through everywhere it appears, like the bar on the Gantt.
         </Step>
       </Steps>
       <Callout variant="tip" title="Color is visual grouping everywhere">
@@ -83,7 +85,7 @@ export default function HomeFeaturePage() {
       <p>
         When a labmate shares a project with you, it surfaces in your Projects
         grid alongside your own. The card reads the same as any other, with its
-        color, progress, and open-task count. Whether your edits save back
+        color, progress, and count chips. Whether your edits save back
         depends on the permission the owner granted. Edit permission writes to
         their copy, view permission is read-only. See{" "}
         <Link href="/wiki/features/sharing-and-permissions">

@@ -31,6 +31,13 @@ export default function ResultsFeaturePage() {
         the task detail popup with the Results tab selected, where you fill
         in the markdown summary and drop in images.
       </p>
+      <p>
+        Because this archive grows for as long as you keep working, it paginates
+        instead of dumping everything at once. The flat view shows a page of
+        cards with a <strong>Show more</strong> button for the rest. The
+        by-project view collapses each project group (tap a group to expand it)
+        and caps a long group until you hit <strong>Show all</strong>.
+      </p>
       <Screenshot
         src="/wiki/screenshots/workbench-earlier.png"
         alt="The Earlier results section at the bottom of the Workbench page, with completed experiment cards grouped by project."
@@ -50,15 +57,16 @@ export default function ResultsFeaturePage() {
         section.
       </p>
 
-      <h2>Per-project completed work → Workbench Results tab</h2>
+      <h2>Per-project completed work → project Results gallery</h2>
       <p>
         Clicking a project card on the{" "}
-        <Link href="/wiki/features/home">Home</Link> page navigates to the
-        project route at <code>/workbench/projects/&lt;id&gt;</code>. The{" "}
-        <strong>Results</strong> tab there shows a gallery of result images
-        for that project via the <code>ResultsGallery</code> component. This
-        is the fastest way to review all result images for a single project
-        without leaving its context.
+        <Link href="/wiki/features/home">Home</Link> page opens that project&apos;s
+        detail popup (the deep link lives at{" "}
+        <code>/workbench/projects/&lt;id&gt;</code>). Its{" "}
+        <strong>Go to</strong> section has a <strong>Results</strong> doorway
+        that opens a gallery of every result image for that project. This is
+        the fastest way to review a project&apos;s result images without leaving
+        its context.
       </p>
 
       <Callout variant="tip" title="Why the page was retired">

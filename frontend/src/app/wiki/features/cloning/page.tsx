@@ -65,15 +65,16 @@ export default function CloningWorkspaceFeaturePage() {
       <p>
         Overlap assembly joins an ordered set of fragments that share short
         homologous ends. At the bench you amplify each fragment with primers whose
-        5&apos; ends carry a homology tail matching the neighbouring fragment; the
+        5&apos; ends carry a homology tail matching the neighbouring fragment. The
         exonuclease chews back, the matching single strands anneal, and the fragments
         fuse with the shared homology present exactly once at each junction. This is
         the chemistry behind Gibson assembly and NEBuilder HiFi.
       </p>
       <p>
         In the Workspace you add two or more fragments in the order you want them
-        joined, choose whether the product is linear or circular, and pick how the
-        homology overlap is sized. You can fix the overlap to a length in base pairs
+        joined, choose whether the product is linear or circular, decide whether to
+        carry the source fragments&apos; annotations onto the product (on by default),
+        and pick how the homology overlap is sized. You can fix the overlap to a length in base pairs
         (the default is 25 bp) or let the engine grow it until the homology reaches a
         target melting temperature. From there the Workspace does two things. It
         computes the assembled product as the fragment bodies joined in order, with
@@ -162,8 +163,8 @@ export default function CloningWorkspaceFeaturePage() {
       </p>
       <Callout variant="info" title="Gateway substrate topology">
         Gateway substrates are normally supercoiled circles. The donor and
-        destination vectors must be circular to recombine; the entry clone in an LR
-        reaction should be circular too, while the attB-PCR product fed into a BP
+        destination vectors must be circular to recombine, and the entry clone in an
+        LR reaction should be circular too, while the attB-PCR product fed into a BP
         reaction can be linear. The review step warns you when an input topology
         would not recombine in the standard reaction.
       </Callout>

@@ -34,16 +34,16 @@ export default function AccountsPage() {
 
       <h3>Free account (solo + sharing)</h3>
       <p>
-        You sign in with Google, GitHub, or ORCID. Your data still lives on
-        your disk. What signing in unlocks is two sharing surfaces:
+        You sign in with Google, GitHub, ORCID, or LinkedIn. Your data still
+        lives on your disk. Signing in unlocks two sharing surfaces.
       </p>
       <ul>
         <li>
           <strong>Cross-boundary sharing.</strong> Send notes, methods, and
           files to any ResearchOS user who has an account, even if they are not
           in your folder. Recipients get a copy in their own folder. The
-          transfer is end-to-end encrypted: the relay holds only ciphertext and
-          neither ResearchOS nor the relay can read what you sent.
+          transfer is end-to-end encrypted, so the relay holds only ciphertext
+          and neither ResearchOS nor the relay can read what you sent.
         </li>
         <li>
           <strong>Researcher directory.</strong> You become findable by name
@@ -54,7 +54,7 @@ export default function AccountsPage() {
       <p>
         There is no cloud storage involved in the Free account tier. The
         sharing relay is a one-time encrypted handoff, not a persistent store.
-        Your data folder does not leave your machine.
+        Your data folder doesn&apos;t leave your machine.
       </p>
 
       <h3>Lab (team collaboration)</h3>
@@ -63,8 +63,8 @@ export default function AccountsPage() {
         co-editing inside a lab. Notes, experiments, and notebooks sync live
         between lab members. The PI gets a{" "}
         <Link href="/wiki/features/lab-overview">Lab Overview</Link> with
-        cross-member views: workload, purchases queue, activity, and meeting
-        notes with each member.
+        cross-member views of workload, the purchase-approval queue, and a
+        running feed of lab activity.
       </p>
       <p>
         Each member&apos;s files still live on their own disk. The cloud layer
@@ -114,30 +114,36 @@ export default function AccountsPage() {
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
             </tr>
             <tr className="bg-surface-sunken/40">
+              <td className="px-4 py-2.5 text-foreground">Works fully offline</td>
+              <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
+              <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
+              <td className="px-4 py-2.5 text-center text-foreground-muted">Yes, but live co-editing needs internet</td>
+            </tr>
+            <tr>
               <td className="px-4 py-2.5 text-foreground">Send notes/files to other researchers</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">No</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
             </tr>
-            <tr>
+            <tr className="bg-surface-sunken/40">
               <td className="px-4 py-2.5 text-foreground">Researcher directory listing</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">No</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
             </tr>
-            <tr className="bg-surface-sunken/40">
+            <tr>
               <td className="px-4 py-2.5 text-foreground">Real-time co-editing with labmates</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">No</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">No</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
             </tr>
-            <tr>
+            <tr className="bg-surface-sunken/40">
               <td className="px-4 py-2.5 text-foreground">PI Lab Overview dashboard</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">No</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">No</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes (Lab Head)</td>
             </tr>
-            <tr className="bg-surface-sunken/40">
+            <tr>
               <td className="px-4 py-2.5 text-foreground">Cloud sync for real-time collaboration</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">No</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">No</td>
@@ -172,9 +178,10 @@ export default function AccountsPage() {
           then choose <strong>Free account</strong>.
         </Step>
         <Step>
-          Sign in with Google, GitHub, or ORCID. This creates an identity
-          that other researchers can find in the directory. The sign-in
-          happens once; ResearchOS remembers it.
+          Sign in with Google, GitHub, ORCID, or LinkedIn. This creates an
+          identity that other researchers can find in the directory. The sign-in
+          happens once, and ResearchOS remembers it so you don&apos;t have to
+          sign in again on this device.
         </Step>
         <Step>
           Connect your data folder. Your folder stays on your machine. The
@@ -194,7 +201,7 @@ export default function AccountsPage() {
           <strong>Create a new lab</strong>.
         </Step>
         <Step>
-          Sign in with Google, GitHub, or ORCID.
+          Sign in with Google, GitHub, ORCID, or LinkedIn.
         </Step>
         <Step>
           Give your lab a name. This becomes the display name in the lab
@@ -248,7 +255,7 @@ export default function AccountsPage() {
       <Callout variant="info" title="Joining does not affect your existing data">
         When you join a lab, your folder stays exactly as it is. The
         collaboration layer connects your local data to the shared sync
-        channel; it does not move or overwrite your files.
+        channel without moving or overwriting your files.
       </Callout>
 
       <h2>Cost and the free tier</h2>
@@ -263,21 +270,21 @@ export default function AccountsPage() {
           used, no billing ever.
         </li>
         <li>
-          <strong>Lab accounts:</strong> a pooled 1 GB free tier per member
-          covers most active labs. Above that, cloud storage is
-          $0.30/GB-month. You set a cap in your lab settings (it defaults to
-          the 1 GB free allowance), and the cap protects you from surprise
-          charges. If the cap is reached, cloud sync pauses and local-first
-          keeps working until you raise the cap or clear old data.
+          <strong>Lab accounts:</strong> a free plan with a 5 GB cloud pool
+          shared across the whole lab covers most active labs. If a lab needs
+          more, it can move to a larger flat-price plan, so the cost is a known
+          monthly number rather than a surprise. The free plan is the default
+          and never charges.
         </li>
       </ul>
 
       <Callout variant="warning" title="The cost model is cost-recovery, not profit">
-        ResearchOS is not trying to extract money from researchers. The
-        metered cloud tier exists to cover the actual cost of running the
-        sync infrastructure for labs that use it heavily. The free tier is
-        generous enough that most labs will stay within it. You will never
-        be billed without first opting in by raising the cap above 1 GB.
+        ResearchOS is not trying to extract money from researchers. The paid
+        plans exist to cover the actual cost of running the sync infrastructure
+        for labs that use it heavily. The free plan is generous enough that most
+        labs will stay within it, and you are never charged without choosing a
+        paid plan. If a lab ever runs past what its plan covers, cloud sync
+        pauses and the local-first app keeps working until there is room again.
         See <Link href="/wiki/trust/how-we-fund-it">How it stays free</Link>{" "}
         for the broader funding story.
       </Callout>

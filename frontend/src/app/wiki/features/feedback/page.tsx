@@ -46,7 +46,7 @@ export default function FeedbackFeaturePage() {
         <li>
           <strong>Feature.</strong> A new capability you wish existed. The
           modal walks a lighter template (what you want, why) and routes to
-          the feature-request label on GitHub.
+          the enhancement label on GitHub.
         </li>
         <li>
           <strong>Feedback.</strong> Anything that does not fit the first
@@ -68,6 +68,7 @@ export default function FeedbackFeaturePage() {
         <li>Nothing on your machine moves until you intentionally submit.</li>
         <li>You can sanitize anything that landed in the auto-attached error details before posting.</li>
         <li>The full report shape is determined by <code>feedback.yml</code> in the repo, so the GitHub side renders a templated form rather than a raw markdown body.</li>
+        <li>If you would rather not open a new tab, a Copy Link button puts the same pre-filled issue URL on your clipboard so you can open it yourself.</li>
       </ul>
 
       <Callout variant="info" title="feedback.yml routing">
@@ -78,6 +79,19 @@ export default function FeedbackFeaturePage() {
         template. The result is one consistent shape regardless of who
         clicked Bug, Feature, or Feedback.
       </Callout>
+
+      <h2>Attaching screenshots</h2>
+      <p>
+        Every feedback type lets you attach screenshots, by dropping them on
+        the modal, pasting from the clipboard, or clicking to pick files. The
+        images stay in memory and never leave your machine on their own. A
+        GitHub new-issue URL is text only, so the images cannot ride along with
+        the rest of the report. Instead, when you submit with screenshots
+        attached, the modal opens the issue tab and then shows a short last
+        step that keeps your thumbnails handy. The clipboard holds one image at
+        a time, so you copy each thumbnail and paste it into the GitHub
+        description under the Screenshots heading, one at a time.
+      </p>
 
       <h2>The BugStomp scene</h2>
       <p>

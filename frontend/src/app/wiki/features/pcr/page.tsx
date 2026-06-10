@@ -27,7 +27,7 @@ export default function PCRFeaturePage() {
           The <strong>Thermal Gradient</strong> panel up top is a left-to-right
           row of colored square blocks, one per step. Each block shows the
           temperature and duration of that step. A purple dashed rectangle
-          wraps the cycled section and carries a small <code>x35</code> badge
+          wraps the cycled section and carries a small <code>x30</code> badge
           for the repeat count.
         </li>
         <li>
@@ -55,26 +55,26 @@ export default function PCRFeaturePage() {
       </p>
       <ul>
         <li>
-          <strong>Initial steps</strong>: one or more blocks that run once
-          before the cycled section. Typically initial denaturation around
-          95 °C for two minutes, painted red.
+          An <strong>initial step</strong> is one or more blocks that run
+          once before the cycled section. Typically this is initial
+          denaturation around 95 °C for three minutes, painted red.
         </li>
         <li>
-          <strong>Cycled block</strong>: a group of blocks wrapped in a
+          The <strong>cycled block</strong> is a group of blocks wrapped in a
           purple dashed rectangle, repeated end-to-end by the count on the
-          purple badge above it (35 by default). The usual three are
+          purple badge above it (30 by default). The usual three are
           denaturation, annealing, and extension. Steps inside this block
           carry a faint purple ring so you can tell at a glance which blocks
           are inside the cycle.
         </li>
         <li>
-          <strong>Final steps</strong>: one or more blocks after the cycled
-          block that run once. Typically final extension at 72 °C for three
-          minutes.
+          A <strong>final step</strong> is one or more blocks after the
+          cycled block that run once. Typically final extension at 72 °C for
+          five minutes.
         </li>
         <li>
-          <strong>Hold</strong>: a single block at the right end with the
-          duration <em>Indef.</em>, parking the thermocycler at a low
+          The <strong>hold</strong> is a single block at the right end with
+          the duration <em>Indef.</em>, parking the thermocycler at a low
           temperature (12 °C by default) until you come back to it. Painted
           blue.
         </li>
@@ -92,12 +92,12 @@ export default function PCRFeaturePage() {
           Go to <Link href="/wiki/features/methods">Methods</Link> and click{" "}
           <strong>+ New Method</strong>. In the type picker that opens, choose
           the <strong>PCR</strong> type. That drops you into the protocol
-          editor. Type a name into the <strong>Protocol Name</strong> field at
+          editor. Type a name into the <strong>Method Name</strong> field at
           the top of the popup.
         </Step>
         <Step>
           The gradient panel opens with a sensible default loaded in (initial
-          denaturation, the three-step cycle at 35 repeats, final extension,
+          denaturation, the three-step cycle at 30 repeats, final extension,
           and a hold). Click the <strong>Edit Cycle</strong> button on the
           toolbar to enter editing mode. The blocks start jiggling to signal
           that they are now interactive.
@@ -125,32 +125,32 @@ export default function PCRFeaturePage() {
           arrows. When a block outside the cycle is selected, a purple{" "}
           <strong>Add to Cycle</strong> button appears with a dropdown
           listing each cycle by position and repeat count (e.g.,{" "}
-          <em>Cycle 1 (x35)</em>, <em>Cycle 2 (x35)</em>). Cycles have no
-          name field; the positional label is the only identifier. Pick a
+          <em>Cycle 1 (x30)</em>, <em>Cycle 2 (x30)</em>). Cycles have no
+          name field, so the positional label is the only identifier. Pick a
           cycle and the block jumps into its rectangle.
         </Step>
         <Step>
           <strong>Adjust the repeat count.</strong> Click the purple{" "}
-          <code>x35</code> badge above the cycled rectangle to open the Edit
+          <code>x30</code> badge above the cycled rectangle to open the Edit
           Cycle Repeats popup. Type a new number (1–100) and save.
         </Step>
         <Step>
           <strong>Add or remove blocks.</strong> The toolbar has{" "}
           <strong>+ Add Step</strong> (opens a{" "}
           <strong>StepEditPopup</strong> pre-populated with{" "}
-          &quot;New Step&quot;, 60 °C, 30 sec; the block only lands in the
-          gradient after you click <strong>Save</strong>) and{" "}
+          &quot;New Step&quot;, 60 °C, 30 sec, where the block only lands in
+          the gradient after you click <strong>Save</strong>) and{" "}
           <strong>+ Add Cycle</strong> (opens an{" "}
           <strong>Add Empty Cycle</strong> confirmation modal with{" "}
-          <strong>Cancel</strong> and <strong>Add</strong> buttons; the new
-          empty cycled rectangle only appears after you click{" "}
+          <strong>Cancel</strong> and <strong>Add</strong> buttons, where the
+          new empty cycled rectangle only appears after you click{" "}
           <strong>Add</strong>, and you fill it by adding steps and using{" "}
           <em>Add to Cycle</em>). To delete, switch on the red{" "}
           <strong>Gradient Eraser</strong> and click any block to remove it.
           The purple <strong>Cycle Eraser</strong> works differently. Click a{" "}
-          <code>x35</code> badge and it removes just the cycle rectangle,
+          <code>x30</code> badge and it removes just the cycle rectangle,
           leaving its steps behind as ordinary final steps. In normal (non-
-          eraser) mode, clicking the same <code>x35</code> badge opens the{" "}
+          eraser) mode, clicking the same <code>x30</code> badge opens the{" "}
           <strong>Edit Cycle Repeats</strong> popup so you can change the
           repeat count. <strong>Clear All</strong> wipes the whole gradient
           back to empty.
@@ -171,9 +171,9 @@ export default function PCRFeaturePage() {
         <Step>
           Type any free-text <strong>Notes</strong> (lot numbers, master mix
           quirks, the day&apos;s primer pair). Click{" "}
-          <strong>Create Protocol</strong>. The card appears in your
-          protocol library and shows up on the Attach PCR Protocol picker in
-          any experiment.
+          <strong>Create Method</strong>. The card appears in your
+          protocol library and shows up in the <strong>Attach a method</strong>{" "}
+          picker on any experiment.
         </Step>
       </Steps>
 
@@ -185,10 +185,10 @@ export default function PCRFeaturePage() {
 
       <h2>Attaching a protocol to an experiment</h2>
       <p>
-        From an experiment popup, the <strong>Attach PCR Protocol</strong>{" "}
-        picker shows every protocol in your library, your own and any in the
-        Shared folder. Pick one and ResearchOS copies the gradient and the
-        reagent table onto that experiment.
+        From an experiment popup, the <strong>Attach a method</strong>{" "}
+        picker shows every method and protocol in your library, your own and
+        any in the public folder. Pick a PCR protocol and ResearchOS copies the
+        gradient and the reagent table onto that experiment.
       </p>
       <p>
         From that point on, the experiment carries its own copy. Bump the
@@ -213,10 +213,11 @@ export default function PCRFeaturePage() {
         <strong>checkoff column</strong> on the left. Each ingredient row has
         a small checkbox. Tick it as you pipette each reagent into your
         tube. Checked rows turn green and a progress bar at the top of the
-        table advances from left to right as you work through the recipe.
-        The Total row has no checkbox (it&apos;s a math row, not an
+        table advances from left to right as you work through the recipe,
+        with an <em>X/Y checked</em> count beside it. The Total row has no
+        checkbox and is left out of that count (it&apos;s a math row, not an
         ingredient). Checkoff state is per-experiment and does not affect
-        the shared library protocol.
+        the library protocol.
       </p>
 
       <h2>Sharing</h2>

@@ -140,7 +140,11 @@ export default function LabArchivesComparisonPage() {
                 <strong>Per-entry edit history with revert</strong>
               </td>
               <td>
-                <Partial>Roadmapped, not shipped yet.</Partial>
+                <Partial>
+                  Ships on notes, tasks, experiments (Lab Notes and Results),
+                  and projects, each with a restore button. Standalone library
+                  methods are not separately versioned yet.
+                </Partial>
               </td>
               <td>
                 <Yes>Full revision history on every entry.</Yes>
@@ -320,9 +324,11 @@ export default function LabArchivesComparisonPage() {
         <li>
           <strong>Complete per-entry revision history.</strong> ResearchOS now
           ships per-entry version history with a restore button on notes,
-          tasks, and projects, so the gap here is narrow. LabArchives still
-          covers every record type, while ResearchOS does not yet version
-          results and methods.
+          tasks, experiments (both Lab Notes and Results), and projects, and an
+          experiment also tracks per-method protocol deviations as it changes,
+          so the gap here is narrow. LabArchives still covers every record
+          type, while ResearchOS does not yet version standalone library method
+          records.
         </li>
         <li>
           <strong>Security certifications.</strong> FedRAMP, SOC 2, ISO

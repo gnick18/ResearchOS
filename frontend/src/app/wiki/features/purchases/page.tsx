@@ -7,7 +7,7 @@ export default function PurchasesFeaturePage() {
   return (
     <WikiPage
       title="Purchases & Funding"
-      intro="The Purchases page answers one question for grant management. Where is the money going right now? It pairs a flat reverse-chronological list of every purchase order with a live spending dashboard, so a PI can scan recent activity and check budget burn without leaving the page."
+      intro="Track every dollar your lab spends and check grant burn in one view. The Purchases page pairs a flat reverse-chronological list of every purchase order with a live spending dashboard, so you can scan recent activity and check budget burn without leaving the page."
     >
       <Screenshot
         src="/wiki/screenshots/purchases-unified-scroll.png"
@@ -28,9 +28,8 @@ export default function PurchasesFeaturePage() {
         The header at the top reads{" "}
         <strong>Purchases &middot; N orders &middot; $X.XX total</strong>, where the
         total comes from every line item across every order visible to you. To the
-        right is the <strong>Manage Funding Accounts</strong> button, which expands
-        a panel inline above the list so you can add or edit grant codes without
-        leaving the page.
+        right is the <strong>Manage Funding Accounts</strong> button, which opens
+        a popup where you can add or edit grant codes without leaving the page.
       </p>
 
       <h2>Creating a purchase</h2>
@@ -70,8 +69,8 @@ export default function PurchasesFeaturePage() {
           de-duped case-insensitively with the most-recent record winning. When the
           typed value matches a prior item name exactly, <strong>Vendor</strong> and
           {" "}<strong>Price per unit</strong> fill in automatically. Quantity stays
-          at 1; funding string stays unchanged (recurring purchases often re-bill
-          against a different grant).
+          at 1, and the funding string stays unchanged (recurring purchases often
+          re-bill against a different grant).
         </li>
         <li>
           <strong>Vendor</strong>: free text, optional. Not auto-filled unless an
@@ -81,21 +80,21 @@ export default function PurchasesFeaturePage() {
           <strong>Category</strong>: a <code>&lt;select&gt;</code> listing your
           non-archived, non-shared owned projects plus a synthetic{" "}
           <strong>Miscellaneous</strong> option at the bottom. Defaults to the first
-          owned project alphabetically; falls back to Miscellaneous if you have no
-          owned projects yet. Choosing Miscellaneous routes the purchase to the
+          owned project alphabetically, falling back to Miscellaneous if you have
+          no owned projects yet. Choosing Miscellaneous routes the purchase to the
           hidden <code>_misc_purchases</code> bucket (see below).
         </li>
         <li>
           <strong>Price per unit</strong> and <strong>Quantity</strong>: numeric
-          free-text inputs. Price defaults blank; quantity defaults to 1.
+          free-text inputs. Price defaults blank, and quantity defaults to 1.
         </li>
         <li>
           <strong>Funding string</strong>: a <code>&lt;datalist&gt;</code>
           autocomplete pulls from your existing funding accounts (for example,{" "}
           <code>NIH-R01-12345</code>). Typing a new string and saving creates a
           budget-zero funding account automatically so the string appears in future
-          dropdowns without a separate setup step. The field is optional; leave it
-          blank to record the purchase without a funding association.
+          dropdowns without a separate setup step. The field is optional, so leave
+          it blank to record the purchase without a funding association.
         </li>
       </ul>
       <p>
@@ -113,7 +112,7 @@ export default function PurchasesFeaturePage() {
         <strong>Project purchases</strong> filters to orders attached to a real
         project, hiding the Miscellaneous bucket. <strong>Miscellaneous</strong>{" "}
         shows only the ad-hoc purchases in the hidden{" "}
-        <code>_misc_purchases</code> bucket; this chip is hidden entirely when{" "}
+        <code>_misc_purchases</code> bucket. This chip is hidden entirely when{" "}
         <code>miscTaskCount === 0</code> so a freshly-onboarded account does not
         see a confusing empty bucket. The fourth chip is{" "}
         <strong>Awaiting approval</strong> for lab members (relabeled{" "}
@@ -139,10 +138,14 @@ export default function PurchasesFeaturePage() {
       </p>
       <p>
         Click any row to expand it into a line-item table. Each row is one thing
-        you are buying with columns for item name, quantity, vendor link, CAS or
-        accession number, price per unit, shipping, computed total, the funding
-        account paying for it, plus the new <strong>Vendor</strong> and{" "}
-        <strong>Category</strong> columns. The blue-tinted row at the bottom is
+        you are buying with columns for item name, quantity, vendor link, price
+        per unit, shipping, computed total, the funding account paying for it,
+        plus the <strong>Vendor</strong> and <strong>Category</strong> columns.
+        A line item carries two distinct identifiers, the <strong>CAS</strong>{" "}
+        (the chemical identity of a reagent) and the{" "}
+        <strong>catalog number</strong> (the vendor&apos;s ordering number you
+        type back into their site to reorder), so a chemical and the part number
+        you buy it under stay separate. The blue-tinted row at the bottom is
         empty and waiting for a new line. The round green checkmark at the
         bottom-right of the expanded view marks the whole order complete, and the
         red trash icon next to it deletes the entire order plus every line item
@@ -233,9 +236,11 @@ export default function PurchasesFeaturePage() {
         arrows next to it. Click the forward arrow to advance a stage or the
         back arrow to revert one. The control is available to any lab member, so
         whoever actually places the order can mark it without waiting on a PI
-        edit session. The <strong>Ordering</strong> chip row above the list (Any
-        stage, Needs ordering, Ordered, Received) filters the whole page to
-        orders containing an item in the chosen stage.
+        edit session. You can also assign a line item to a labmate to place the
+        order for you, which fires a bell to that person so the request does not
+        get lost in conversation. The <strong>Ordering</strong> chip row above
+        the list (Any stage, Needs ordering, Ordered, Received) filters the
+        whole page to orders containing an item in the chosen stage.
       </p>
       <Callout variant="info" title="Moving to Ordered notifies the requester">
         When a labmate placed an order on someone else&apos;s behalf, advancing
@@ -410,17 +415,18 @@ export default function PurchasesFeaturePage() {
 
       <h2>The PI experience</h2>
       <p>
-        PIs do not have <code>/purchases</code> in their nav. The
-        canonical surface for them is the LabPurchases Tool inside the Lab
-        Overview, opened either from a pinned widget tile or from the Tools
-        launcher in the header. The popup is a four-tab dashboard.
+        PIs have <code>/purchases</code> in their nav just like everyone
+        else, and the page gives them the same order list and dashboard
+        scoped to lab-visible spend. For a lab-wide rollup, the LabPurchases
+        Tool inside the Lab Overview opens from the Tools launcher in the
+        header. The popup is a four-tab dashboard.
       </p>
       <ul>
         <li>
           <strong>Pending approvals</strong>. The work queue. Each row is a
           purchase waiting on the PI with inline{" "}
           <strong>Approve</strong> and <strong>Decline</strong> buttons. The
-          first action of a fresh session unlocks the 5-minute edit window;
+          first action of a fresh session unlocks the 5-minute edit window, and
           subsequent rows process without re-prompting. See{" "}
           <Link href="/wiki/features/lab-head/edit-session-and-password">
             Edit session and password
@@ -459,7 +465,7 @@ export default function PurchasesFeaturePage() {
 
       <Callout variant="info" title="Empty state">
         When you have no purchases yet, the spend-over-time chart shows the
-        prompt <em>Add your first purchase to see spend breakdowns here.</em>{" "}
+        prompt <em>Add a purchase to see spend breakdowns here.</em>{" "}
         The funding cards still render with a zero spent value against each
         account&apos;s budget, so the budget scaffold is visible from day one.
       </Callout>
@@ -467,9 +473,8 @@ export default function PurchasesFeaturePage() {
       <h2>Managing funding accounts</h2>
       <p>
         Click <strong>Manage Funding Accounts</strong> at the top right and a
-        panel opens inline above the order list. The button label flips to{" "}
-        <strong>Hide Funding Manager</strong> while it is open, so you can
-        collapse it back down without leaving the page. Each account has a name
+        popup opens over the page, so you can edit grants without losing your
+        place in the list. Each account has a name
         (for example <code>NIH-R01-12345</code>), a total budget, and an
         optional one-line description.
       </p>
@@ -509,8 +514,8 @@ export default function PurchasesFeaturePage() {
       </ul>
       <p>
         These fields are deliberately separate from the account name. The name
-        is your own short label that purchases match on; the award number is the
-        official identifier and may differ. All of them map one-to-one to the
+        is your own short label that purchases match on, while the award number
+        is the official identifier and may differ. All of them map one-to-one to the
         DataCite <code>fundingReference</code> fields, so when you later deposit
         an experiment to a repository the funder attribution is a direct copy
         rather than something you re-enter.

@@ -15,7 +15,7 @@ export default function TrashFeaturePage() {
         Research data has a different relationship to time than consumer data.
         A note about a PCR run from eight months ago is not &ldquo;old, who
         cares,&rdquo; it is the experimental record. A misclick on the delete
-        button used to be irrecoverable; the new trash flow gives you a safety
+        button used to be irrecoverable. The new trash flow gives you a safety
         net without changing how you delete.
       </p>
       <Callout variant="info" title="Deleted vs edited, two different safety nets">
@@ -43,21 +43,22 @@ export default function TrashFeaturePage() {
         keeps a flat summary of every trashed record. The index is rebuilt
         automatically from the directory listing if it ever goes out of sync
         (manual file deletion, OneDrive merge conflict, partial crash). The
-        on-disk files are the ground truth; the index is just a read-time
+        on-disk files are the ground truth. The index is just a read-time
         optimization.
       </p>
 
       <h2>The /trash page</h2>
       <p>
         Open the trash from the small trash-can icon in the top-right corner
-        of the header (next to the Settings gear) or from the{" "}
+        of the header (just left of your avatar chip) or from the{" "}
         <Link href="/settings#history-and-trash">Settings &rarr; History &amp; Trash</Link>{" "}
         section. Trashed records are grouped into sections by what they are,
         so all your deleted notes sit together, all your deleted tasks sit
         together, and so on. Sequences now show up here too, alongside notes,
         tasks, projects, methods, purchase items, high-level goals, lab links,
-        and mass spec protocols. A section only appears when it has something
-        in it, so the page stays short when most categories are empty.
+        mass spec protocols, and inventory items and stocks. A section only
+        appears when it has something in it, so the page stays short when most
+        categories are empty.
       </p>
       <p>Each row shows the following.</p>
       <ul>
@@ -140,7 +141,7 @@ export default function TrashFeaturePage() {
         Defaults to <strong>30 days</strong>. Change it under{" "}
         <Link href="/settings#history-and-trash">Settings &rarr; History &amp; Trash</Link>.
         Four options, 7 days, 30 days, 90 days, or Never. The Never option
-        means automatic cleanup never fires; you can still delete from the
+        means automatic cleanup never fires, but you can still delete from the
         trash page manually.
       </p>
       <p>
@@ -160,13 +161,13 @@ export default function TrashFeaturePage() {
       <p>
         Only the record owner sees the Delete button. If a labmate has shared
         edit access to one of your notes, they can edit it, but they cannot
-        delete it; that&rsquo;s your call as the owner.
+        delete it. That&rsquo;s your call as the owner.
       </p>
       <p>
         The one carve-out is the PI lab-head edit session. When a PI is in an
         active{" "}
         <Link href="/wiki/features/lab-head/edit-session-and-password">
-          Phase 5 unlock
+          edit-session unlock
         </Link>
         , they can delete records owned by other lab members. The trash entry
         records the PI as the deleter and ties the entry to the unlock
@@ -191,7 +192,7 @@ export default function TrashFeaturePage() {
       <p>
         Use <strong>Permanent delete</strong> on the row to remove a trash
         entry ahead of the cleanup window. The button asks for confirmation
-        and is final. After permanent delete, the record is gone; there is
+        and is final. After permanent delete, the record is gone. There is
         no second-level recycle bin.
       </p>
 
@@ -220,16 +221,17 @@ export default function TrashFeaturePage() {
       </ul>
       <Callout variant="info" title="Archive then trash is fine">
         You can archive a project today and trash it next month. Restoring
-        from trash strips the trash metadata only; the archive state survives
-        the round trip.
+        from trash strips the trash metadata only, so the archive state
+        survives the round trip.
       </Callout>
 
       <h2>Restoring with a trashed parent</h2>
       <p>
         Records like Tasks (parent: Project), Notes (no parent), Purchase
-        Items (parent: Task), and High-level Goals (parent: Project) record a
-        soft reference to their parent at delete time. When you restore a
-        record whose parent is ALSO in trash, a prompt asks what you want to do.
+        Items (parent: Task), High-level Goals (parent: Project), and a
+        sub-method (parent: its parent Method) record a soft reference to their
+        parent at delete time. When you restore a record whose parent is ALSO
+        in trash, a prompt asks what you want to do.
       </p>
       <ul>
         <li><strong>Restore both</strong> (default): restores the parent first, then this record.</li>
@@ -241,15 +243,15 @@ export default function TrashFeaturePage() {
         the restore proceeds straight through.
       </p>
 
-      <h2>What R2 does not yet do</h2>
+      <h2>What trash does not yet do</h2>
       <p>
         Per-record edit history (the per-save timeline plus a revert button) is
         now shipping on a separate track. It is live today on free-form Notes as
-        a rolling-out pilot; see{" "}
+        a rolling-out pilot. See{" "}
         <Link href="/wiki/features/version-history">Version History</Link> for
         what is on and where it goes next. The settings panel also surfaces an
         &ldquo;Orphaned files&rdquo; row as a placeholder. Image attachments
-        referenced only by deleted notes stay on disk for now; a cleanup tool
+        referenced only by deleted notes stay on disk for now. A cleanup tool
         that finds and removes unreferenced images ships in a later phase.
       </p>
 
@@ -257,7 +259,7 @@ export default function TrashFeaturePage() {
         Every delete you make through the app is recoverable for at least
         seven days (the most aggressive cleanup setting). Within the default
         30-day window, a misclick is a one-button fix. We do not promise the
-        trash is tamper-proof; the files sit in your folder and you can edit
+        trash is tamper-proof. The files sit in your folder and you can edit
         them by hand on disk if you really want to.
       </Callout>
     </WikiPage>

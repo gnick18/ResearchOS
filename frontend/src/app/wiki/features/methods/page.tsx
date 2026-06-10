@@ -186,19 +186,13 @@ export default function MethodsFeaturePage() {
         retired Lab Mode account).
       </p>
       <p>
-        Once a <strong>Markdown</strong> method is shared with the lab, the
-        inline Edit button disappears for everyone, including the creator,
-        and the body becomes read-only. To change a published Markdown
-        protocol, flip it back to private via the share popup, edit, then
-        republish.
-      </p>
-      <p>
-        <strong>Structured-method editors</strong> (PCR, LC Gradient, Plate
-        Layout, and others) behave differently. The creator retains edit
-        access even when the method is shared, because the editor is gated
-        by <code>canWrite</code> (which passes for the original creator
-        regardless of sharing status). Other lab members can read and attach
-        the method but cannot modify the shared copy.
+        Sharing a method does not lock the creator out of it. Editing is
+        gated by <code>canWrite</code>, which always passes for the original
+        owner regardless of sharing status, so you keep your inline Edit
+        button on a lab-shared method just like a private one. This holds
+        for every type, Markdown and the structured editors alike. Other lab
+        members can read and attach the shared method but cannot modify your
+        library copy.
       </p>
       <p>
         All users can always attach a shared method to their own experiments
@@ -251,18 +245,20 @@ export default function MethodsFeaturePage() {
         delete button on hover.
       </p>
       <p>
-        For <strong>PCR methods</strong>, you can also edit the thermal
-        gradient or recipe table directly inside the experiment tab. Your
-        edits save as an experiment-local copy when you click{" "}
-        <strong>Save Changes</strong>, so the original protocol in the
-        library stays untouched. A <strong>Reset to Method</strong> button
-        reverts the experiment&apos;s copy back to the library version
-        whenever you want.
+        Most method types also let you edit the protocol itself directly
+        inside the experiment tab, not just leave a note about it. A PCR tab
+        edits its thermal gradient and recipe table, an LC tab its gradient,
+        a Plate tab its layout, and the Cell Culture, qPCR Analysis, and
+        Markdown tabs their own bodies. Your edits save as an
+        experiment-local copy when you click <strong>Save Changes</strong>,
+        so the original protocol in the library stays untouched, and a{" "}
+        <strong>Reset to Method</strong> button reverts the experiment&apos;s
+        copy back to the library version whenever you want.
       </p>
       <p>
-        Markdown and PDF methods don&apos;t copy the body onto the
-        experiment. The Variation Notes panel is the only place where
-        per-experiment changes are recorded for those formats.
+        PDF methods are the exception. They render the original file and have
+        no per-experiment copy, so the Variation Notes panel is the only place
+        to record what you did differently for that run.
       </p>
 
       <Callout variant="tip" title="Search before you write">
