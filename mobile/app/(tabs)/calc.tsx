@@ -1088,10 +1088,10 @@ const styles = StyleSheet.create({
   // Calculator header: large title + horizontal chip selector
   switcherWrap: { paddingTop: spacing.lg, paddingBottom: spacing.sm },
   calcTitle: {
-    fontSize: 30,
+    fontSize: 34,
     fontWeight: '800',
-    letterSpacing: -0.5,
-    lineHeight: 34,
+    letterSpacing: -0.8,
+    lineHeight: 40,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.md,
   },
