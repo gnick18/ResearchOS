@@ -91,6 +91,12 @@ export async function ensureLabSchema(): Promise<void> {
   `;
   await sql`ALTER TABLE billing_lab_members ADD COLUMN IF NOT EXISTS usage_visible boolean not null default false`;
   await sql`ALTER TABLE billing_lab_members ADD COLUMN IF NOT EXISTS label text`;
+  // How the row was created. 'directory' rows are reconciled from the lab's DO
+  // roster (auto-enroll on join, auto-remove on leave); 'invite' rows come from
+  // the PI's manual /api/billing/lab/members sponsorship of an external owner.
+  // The roster reconcile only manages 'directory' rows so it never clobbers a
+  // manually-invited external member. Existing rows default to 'invite'.
+  await sql`ALTER TABLE billing_lab_members ADD COLUMN IF NOT EXISTS source text not null default 'invite'`;
   // A member can be sponsored by at most one lab at once. Enforced at the data
   // layer too, so a race cannot leave two active sponsors for one owner.
   await sql`
@@ -280,12 +286,50 @@ export async function enrollMemberActive(
       AND status <> 'declined'
   `;
   await sql`
-    INSERT INTO billing_lab_members (lab_owner_key, member_owner_key, status, label, updated_at)
-    VALUES (${labOwnerKey}, ${memberOwnerKey}, 'active', ${label}, now())
+    INSERT INTO billing_lab_members (lab_owner_key, member_owner_key, status, label, source, updated_at)
+    VALUES (${labOwnerKey}, ${memberOwnerKey}, 'active', ${label}, 'directory', now())
     ON CONFLICT (lab_owner_key, member_owner_key) DO UPDATE SET
       status = 'active',
       label = COALESCE(${label}, billing_lab_members.label),
+      source = 'directory',
       updated_at = now()
   `;
+}
+
+/**
+ * Reconciles a lab's DIRECTORY-sourced membership to exactly the given member
+ * set, for the DO roster reporting hook. Members who joined by an invite link
+ * (membership lives in the LabRecordDO with no Neon touchpoint) are enrolled,
+ * and directory members who left (a departure rotates the lab log, dropping them
+ * from the roster) are removed. Idempotent and self-healing: each membership-log
+ * change re-reports the full roster. Manually-invited external members (source
+ * 'invite') are never touched, so the two sponsorship paths do not clobber each
+ * other. See docs/proposals/LAB_SHARED_BILLING_POOL.md.
+ */
+export async function reconcileLabMembers(
+  labOwnerKey: string,
+  members: { memberOwnerKey: string; label?: string | null }[],
+): Promise<void> {
+  const sql = getSql();
+  const wanted = new Set(members.map((m) => m.memberOwnerKey));
+
+  // Enroll (or refresh) every current roster member as an active directory row.
+  for (const m of members) {
+    await enrollMemberActive(labOwnerKey, m.memberOwnerKey, m.label ?? null);
+  }
+
+  // Remove directory members who are no longer on the roster (they left the lab).
+  // Only 'directory' rows, so a manual 'invite' sponsorship is left intact.
+  const activeDir = (await sql`
+    SELECT member_owner_key FROM billing_lab_members
+    WHERE lab_owner_key = ${labOwnerKey}
+      AND status = 'active'
+      AND source = 'directory'
+  `) as { member_owner_key: string }[];
+  for (const row of activeDir) {
+    if (!wanted.has(row.member_owner_key)) {
+      await removeMember(labOwnerKey, row.member_owner_key);
+    }
+  }
 }
 

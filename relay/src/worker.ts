@@ -3008,6 +3008,42 @@ export class LabRecordDO {
    *  plus the gen-0 envelope. The DO verifies the head signature on the entry,
    *  records head_pubkey, and stores the entry + envelope. Rejects if the lab
    *  already exists (head_pubkey already set) with 409. */
+  /**
+   * Best-effort report of this lab's current member roster to the Vercel billing
+   * reconcile endpoint, so members who joined by an invite link (membership lives
+   * here in the DO with no Neon touchpoint) are enrolled in the lab's shared
+   * billing pool, and members who left are removed. Mirrors CollabRoom's
+   * reportDocSize: fail-silent, only when APP_BASE_URL is set, secret-gated. Sends
+   * Ed25519 PUBKEYS only (Vercel resolves them to email hashes), so no email
+   * leaves the DO. See docs/proposals/LAB_SHARED_BILLING_POOL.md.
+   */
+  private async reportLabRoster(roster: LabMemberWire[]): Promise<void> {
+    const base = this.env.APP_BASE_URL;
+    if (!base) return; // local dev with no APP_BASE_URL; no-op
+    const piPubkey = this.metaGet("head_pubkey");
+    if (!piPubkey) return; // lab not created yet
+    const members = roster
+      .filter(
+        (m) => m && m.role !== "head" && typeof m.ed25519PublicKey === "string",
+      )
+      .map((m) => ({ pubkey: m.ed25519PublicKey, username: m.username }));
+    try {
+      const headers: Record<string, string> = {
+        "content-type": "application/json",
+      };
+      if (this.env.RELAY_BREAKER_SECRET) {
+        headers.authorization = `Bearer ${this.env.RELAY_BREAKER_SECRET}`;
+      }
+      await fetch(`${base}/api/billing/lab/reconcile`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ piPubkey, members }),
+      });
+    } catch {
+      // Fail silent; enrollment is best-effort and self-heals on the next change.
+    }
+  }
+
   private async handleCreate(request: Request, labId: string): Promise<Response> {
     let body: { entry?: unknown; envelope?: unknown };
     try {
@@ -3089,6 +3125,8 @@ export class LabRecordDO {
       JSON.stringify(envelope),
     );
 
+    // Enroll the genesis roster (any backfilled members) into the billing pool.
+    void this.reportLabRoster(entry.roster);
     return this.json({ ok: true }, 200);
   }
 
@@ -3228,6 +3266,10 @@ export class LabRecordDO {
       JSON.stringify(entry),
     );
 
+    // The entry carries the full post-change roster, so reconcile the lab's
+    // billing pool to it (enroll joiners, remove departures) on any add/remove/
+    // rotate. Best-effort and idempotent.
+    void this.reportLabRoster(entry.roster);
     return this.json({ ok: true }, 200);
   }
 

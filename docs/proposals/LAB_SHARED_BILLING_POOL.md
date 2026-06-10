@@ -182,12 +182,19 @@ Files:
   (member -> lab, solo -> self, error -> self). SQL aggregation + enrollment
   verify at the BILLING_ENABLED launch-time integration test.
 
-KNOWN GAP (follow-up): only the directory request -> approve flow auto-enrolls.
-A member who joins purely by a shared INVITE LINK (no directory request)
-finalizes membership in the LabRecordDO, which has no Neon touchpoint, so they
-are not enrolled and bill as solo until a directory action. Closing this needs a
-DO -> Vercel membership-report hook (mirroring the doc-size reporting hook), or a
-periodic reconcile from the lab's DO roster. Deferred; flagged to Grant.
+INVITE-LINK GAP CLOSED (2026-06-09). The LabRecordDO now reports its full member
+roster to a new `/api/billing/lab/reconcile` endpoint on every membership-log
+change (create + add/remove/rotate append), so a member who joins purely by a
+shared invite link is enrolled in the lab's billing pool. The DO sends Ed25519
+PUBKEYS only (Vercel resolves them to email hashes via getBindingByPubkey, no
+email leaves the DO), best-effort + fail-silent + secret-gated, mirroring the
+doc-size reporting hook. `reconcileLabMembers(labKey, members)` enrolls roster
+members and removes directory members who left, and is idempotent + self-healing
+(each log change re-reports the full roster). A `source` column ('directory' vs
+'invite') keeps the reconcile from clobbering a manually-invited external member.
+Verified: relay lab.mjs (create/append/rotate/get) all pass with the hook;
+frontend tsc + 16 billing/collab tests pass. SQL aggregation + live enrollment
+verify at the BILLING_ENABLED launch-time integration test.
 
 ## Out of scope
 
