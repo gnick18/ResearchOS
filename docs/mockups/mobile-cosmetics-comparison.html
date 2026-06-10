@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mobile cosmetics pass, comparison</title>
+<style>
+  :root {
+    --sky: #1AA0E6;
+    --coral: #FF6F61;
+    --amber: #F59E0B;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --page: #f2f3f7;
+    --card: #ffffff;
+    --line: #e6e8ee;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink);
+    background: var(--page);
+    line-height: 1.5;
+  }
+  header {
+    padding: 40px 32px 24px;
+    border-bottom: 1px solid var(--line);
+    background: var(--card);
+  }
+  header h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: -0.02em; }
+  header p { margin: 0; color: var(--muted); max-width: 720px; }
+  .trio {
+    display: inline-flex; gap: 8px; margin-top: 14px;
+  }
+  .chip {
+    font-size: 12px; font-weight: 600; color: #fff;
+    padding: 4px 10px; border-radius: 999px;
+  }
+  .chip.sky { background: var(--sky); }
+  .chip.coral { background: var(--coral); }
+  .chip.amber { background: var(--amber); }
+  main { padding: 32px; max-width: 1100px; margin: 0 auto; }
+  section { margin-bottom: 44px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+  .sec-head h2 { margin: 0; font-size: 19px; letter-spacing: -0.01em; }
+  .commit {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px; color: var(--muted);
+    background: var(--page); padding: 2px 8px; border-radius: 6px;
+  }
+  .sec-note { margin: 2px 0 18px; color: var(--muted); max-width: 760px; }
+  .pair {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+  }
+  .shot { background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+  .shot .label {
+    font-size: 13px; font-weight: 600; padding: 10px 14px;
+    border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px;
+  }
+  .shot .label.before { color: var(--muted); }
+  .shot .label.after { color: var(--sky); }
+  .dot { width: 8px; height: 8px; border-radius: 999px; }
+  .dot.before { background: #cbd5e1; }
+  .dot.after { background: var(--sky); }
+  .shot img { width: 100%; display: block; }
+  .gallery {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px;
+  }
+  .gallery .shot .label { color: var(--ink); justify-content: center; }
+  .single { max-width: 340px; }
+  footer { padding: 28px 32px 60px; color: var(--muted); font-size: 13px; max-width: 1100px; margin: 0 auto; }
+  a { color: var(--sky); }
+  @media (max-width: 720px) { .pair { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Mobile cosmetics pass</h1>
+  <p>Screen-by-screen aesthetic fine-tuning of the Expo-Go mobile app, captured live on the Android emulator and checked against the approved apple-polish ideal. Four UI-only commits, all landed on mobile main. The signature trio is sprinkled per screen, never a full rainbow.</p>
+  <div class="trio">
+    <span class="chip sky">sky #1AA0E6</span>
+    <span class="chip coral">coral #FF6F61</span>
+    <span class="chip amber">amber #F59E0B</span>
+  </div>
+</header>
+
+<main>
+
+  <section>
+    <div class="sec-head"><h2>1. Near-white grey canvas</h2><span class="commit">8aad62cd7</span></div>
+    <p class="sec-note">The old page was a sky-tinted brand blue (#E6F4FE). Swapped to iOS-style near-white grey (#f2f3f7) across every canvas source so the white popups stand out against the page instead of blending into it. Shown here as the current Notebook home, grey page with the trio on the action cards.</p>
+    <div class="single shot">
+      <div class="label after"><span class="dot after"></span>After, grey canvas + trio action cards</div>
+      <img src="emushots/01_notebook_demo.png" alt="Notebook home on grey canvas" />
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>2. White sheets pop off the grey</h2><span class="commit">183432007</span></div>
+    <p class="sec-note">Inverse-sheet pattern. The notebook chooser sheet went from grey (same hue as the page, leaning on the scrim to separate) to a pure-white sheet with grey-inset card groups, so the modal pops harder off the grey page. Recommended rows are sky-tinted.</p>
+    <div class="pair">
+      <div class="shot">
+        <div class="label before"><span class="dot before"></span>Before, grey sheet</div>
+        <img src="emushots/09a_chooser_grey_before.png" alt="Chooser grey sheet before" />
+      </div>
+      <div class="shot">
+        <div class="label after"><span class="dot after"></span>After, white sheet + grey-inset groups</div>
+        <img src="emushots/09b_chooser_white_after.png" alt="Chooser white sheet after" />
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>3. BeakerBot warms the pairing screen</h2><span class="commit">9620e2472</span></div>
+    <p class="sec-note">The pre-pairing screen was cold and mascot-less. Added a living BeakerBot above the title to match the approved Connect frame, so the first screen a new user sees is friendly and on-brand. The global rainbow bar caps the top.</p>
+    <div class="pair">
+      <div class="shot">
+        <div class="label before"><span class="dot before"></span>Before, no mascot</div>
+        <img src="emushots/12a_pairing_before.png" alt="Pairing screen before" />
+      </div>
+      <div class="shot">
+        <div class="label after"><span class="dot after"></span>After, BeakerBot anchors it</div>
+        <img src="emushots/12b_pairing_after.png" alt="Pairing screen after" />
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>4. Running-timer trio accent</h2><span class="commit">9be548b6e</span></div>
+    <p class="sec-note">The running countdown was all-blue, the one genuine trio gap found in the pass. Now an amber countdown with a coral Cancel, while idle presets stay blue. The Timer screen below shows the trio in its resting state.</p>
+    <div class="single shot">
+      <div class="label after"><span class="dot after"></span>Timer screen</div>
+      <img src="emushots/04_timer.png" alt="Timer screen" />
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>Verified clean, no change needed</h2></div>
+    <p class="sec-note">These screens were already correctly designed in the pass. Captured to confirm the trio reads well and the grey canvas renders without a blue flash. No fabricated changes.</p>
+    <div class="gallery">
+      <div class="shot"><div class="label">Calc, coral AC / blue keys / amber equals</div><img src="emushots/03_calc.png" alt="Calc" /></div>
+      <div class="shot"><div class="label">Inventory</div><img src="emushots/02_inventory.png" alt="Inventory" /></div>
+      <div class="shot"><div class="label">Wiki</div><img src="emushots/05_wiki.png" alt="Wiki" /></div>
+      <div class="shot"><div class="label">Settings</div><img src="emushots/06_settings.png" alt="Settings" /></div>
+      <div class="shot"><div class="label">Quick note compose</div><img src="emushots/08_quicknote_compose.png" alt="Quick note compose" /></div>
+      <div class="shot"><div class="label">Calc switcher dropdown</div><img src="emushots/11_calc_switcher.png" alt="Calc switcher" /></div>
+      <div class="shot"><div class="label">Send, sent state</div><img src="emushots/10_send_sent_state.png" alt="Send sent state" /></div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  Ideal reference frames live in
+  <a href="2026-06-08-mobile-apple-polish-v2.html">2026-06-08-mobile-apple-polish-v2.html</a>
+  (apple-polish ideal) and ideal-current-app.html (per-screen ideal). Screenshots captured live on the Pixel 7 emulator in demo mode (fixture data only, no real research). All four commits landed on mobile main.
+</footer>
+
+</body>
+</html>
