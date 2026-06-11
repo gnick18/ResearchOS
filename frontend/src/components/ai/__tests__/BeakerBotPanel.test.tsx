@@ -253,6 +253,133 @@ describe("BeakerBotPanel", () => {
     expect(screen.queryByTestId("beakerbot-approval")).toBeNull();
   });
 
+  it("renders an ask_user choice as buttons and resolves single-select on a tap", async () => {
+    // Turn 1, the model asks the user to pick a table. The panel renders a button
+    // per option. Tapping one resolves the choice (no Confirm step for single
+    // select), the loop continues, and the final answer renders.
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse(
+          toolCall("ask_user", {
+            question: "Which table would you like to analyze?",
+            options: ["qPCR table", "Growth assay"],
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(finalAnswer("Analyzing the Growth assay.")),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BeakerBotPanel />);
+    fireEvent.change(screen.getByTestId("beakerbot-input"), {
+      target: { value: "analyze my data" },
+    });
+    fireEvent.click(screen.getByTestId("beakerbot-send"));
+
+    // The choice prompt appears with the question and a button per option.
+    const choice = await screen.findByTestId("beakerbot-choice");
+    expect(choice).toHaveTextContent("Which table would you like to analyze?");
+    const buttons = screen.getAllByTestId("beakerbot-choice-option");
+    expect(buttons).toHaveLength(2);
+    // Single-select has no Confirm button.
+    expect(screen.queryByTestId("beakerbot-choice-confirm")).toBeNull();
+
+    // Tapping one option resolves the choice and the loop produces the answer.
+    fireEvent.click(buttons[1]);
+    await waitFor(() => {
+      expect(
+        screen.getByText("Analyzing the Growth assay."),
+      ).toBeInTheDocument();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("renders a multi-select ask_user, enables Confirm only at the exact count, and resolves with the array", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse(
+          toolCall("ask_user", {
+            question: "Which two groups would you like to compare?",
+            options: ["Control", "Drug A", "Drug B"],
+            select: "multiple",
+            count: 2,
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(finalAnswer("Comparing Control and Drug B.")),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BeakerBotPanel />);
+    fireEvent.change(screen.getByTestId("beakerbot-input"), {
+      target: { value: "run a t-test" },
+    });
+    fireEvent.click(screen.getByTestId("beakerbot-send"));
+
+    const choice = await screen.findByTestId("beakerbot-choice");
+    expect(choice).toHaveTextContent(
+      "Which two groups would you like to compare?",
+    );
+    const options = screen.getAllByTestId("beakerbot-choice-option");
+    expect(options).toHaveLength(3);
+
+    const confirm = screen.getByTestId(
+      "beakerbot-choice-confirm",
+    ) as HTMLButtonElement;
+    // Confirm starts disabled (zero picked, need exactly two).
+    expect(confirm.disabled).toBe(true);
+
+    // One pick, still disabled (need exactly two).
+    fireEvent.click(options[0]);
+    expect(confirm.disabled).toBe(true);
+
+    // Two picks, now enabled.
+    fireEvent.click(options[2]);
+    expect(confirm.disabled).toBe(false);
+
+    fireEvent.click(confirm);
+    await waitFor(() => {
+      expect(
+        screen.getByText("Comparing Control and Drug B."),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("resolves an ask_user choice gracefully when the user cancels", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse(
+          toolCall("ask_user", {
+            question: "Which group?",
+            options: ["Control", "Drug"],
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(finalAnswer("No problem, tell me when you decide.")),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BeakerBotPanel />);
+    fireEvent.change(screen.getByTestId("beakerbot-input"), {
+      target: { value: "compare groups" },
+    });
+    fireEvent.click(screen.getByTestId("beakerbot-send"));
+
+    await screen.findByTestId("beakerbot-choice");
+    fireEvent.click(screen.getByTestId("beakerbot-choice-cancel"));
+    await waitFor(() => {
+      expect(
+        screen.getByText("No problem, tell me when you decide."),
+      ).toBeInTheDocument();
+    });
+  });
+
   it("shows the proxy error message in the panel when the key is missing", async () => {
     vi.stubGlobal(
       "fetch",

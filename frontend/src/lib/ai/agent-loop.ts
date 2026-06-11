@@ -25,6 +25,7 @@
 
 import {
   toToolDefinition,
+  isChoiceDecision,
   type AiTool,
   type ApprovalRequest,
   type ApprovalDecision,
@@ -35,6 +36,7 @@ import {
   readPlanSteps,
   readPlanSummary,
 } from "./tools/propose-plan";
+import { ASK_USER_TOOL_NAME, parseAskUserArgs } from "./tools/ask-user";
 import type { BeakerBotAutonomy } from "./autonomy-store";
 
 // An OpenAI-compatible chat message. Tool plumbing needs the extra fields beyond
@@ -220,6 +222,69 @@ async function handleProposePlan(
   };
 }
 
+// Handle the ask_user coordination tool. Like propose_plan, the loop owns it by
+// name, it is NOT an action and never flows through the per-action gate (there is
+// nothing to approve, the user is choosing, not allowing). It raises a "choice"
+// request on the SAME pause/resume bridge and returns the user's selection to the
+// model so it continues with the real choice. A dismiss returns a graceful "no
+// choice" result, the model must not invent a pick.
+async function handleAskUser(
+  args: Record<string, unknown>,
+  deps: GateDeps,
+): Promise<unknown> {
+  const parsed = parseAskUserArgs(args);
+
+  // No question or fewer than two options is not a real choice. Tell the model to
+  // ask plainly rather than present a degenerate one-button prompt.
+  if (parsed.question.length === 0 || parsed.options.length < 2) {
+    return {
+      chosen: false,
+      message:
+        "A choice needs a clear question and at least two options. Ask the user directly instead, or gather the options first (for example call list_datahub_tables to learn the real group names).",
+    };
+  }
+
+  // Without an approver we cannot present the choice, so decline safely, never
+  // pick on the user's behalf.
+  if (!deps.requestApproval) {
+    return {
+      chosen: false,
+      message:
+        "This choice needs the user to pick, but no input path is available. Do not choose for them, ask the user directly how they would like to proceed.",
+    };
+  }
+
+  const decision = await deps.requestApproval({
+    kind: "choice",
+    toolName: ASK_USER_TOOL_NAME,
+    question: parsed.question,
+    options: parsed.options,
+    select: parsed.select,
+    ...(parsed.count !== undefined ? { count: parsed.count } : {}),
+  });
+
+  // The choice bridge resolves with a richer value than allow / skip. A defensive
+  // fall-through, if a non-choice decision ever comes back, treat it as no pick.
+  if (!isChoiceDecision(decision) || decision.cancelled) {
+    return {
+      chosen: false,
+      message:
+        "The user dismissed the choice without picking. Do not choose for them, ask again or stop, whichever fits.",
+    };
+  }
+
+  // Return the selection in a shape the model can use directly. For a single
+  // pick, also surface the lone value as `selected` so a yes / no or single-table
+  // choice is trivial to read.
+  return {
+    chosen: true,
+    selected:
+      parsed.select === "one" ? decision.selected[0] ?? null : decision.selected,
+    message:
+      "The user made their choice. Continue using exactly the option or options they picked, do not ask them to confirm it again.",
+  };
+}
+
 // Decide whether an action tool call needs the user's approval before it runs,
 // and if so, ask. This is the reusable gate every action tool flows through, the
 // decision is driven by the tool's `action` flag, the tool's own `isDestructive`
@@ -320,6 +385,14 @@ async function runToolCall(
   // execute. On Approve it flips the run-level plan flag.
   if (call.function.name === PROPOSE_PLAN_TOOL_NAME) {
     return handleProposePlan(args, deps);
+  }
+
+  // ask_user is the structured-choice coordination tool, the loop owns it too. It
+  // is NOT an action and must not flow through the per-action gate (there is
+  // nothing to approve, the user is picking). Handle it by name before the gate,
+  // it raises a "choice" request on the shared bridge and returns the selection.
+  if (call.function.name === ASK_USER_TOOL_NAME) {
+    return handleAskUser(args, deps);
   }
 
   // Approval gate for action tools. Read-only tools pass straight through.

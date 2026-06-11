@@ -30,6 +30,7 @@ import { showSpotlight, dismissSpotlight } from "@/components/ai/spotlight-contr
 import type {
   ApprovalRequest,
   ApprovalDecision,
+  ChoiceDecision,
 } from "@/lib/ai/tools/types";
 
 export type ChatRole = "user" | "assistant";
@@ -51,6 +52,9 @@ const TOOL_STATUS: Record<string, string> = {
   guide_to_element: "showing you where",
   click_element: "clicking for you",
   propose_plan: "planning the steps",
+  ask_user: "asking what you would like",
+  list_datahub_tables: "looking at your data tables",
+  run_datahub_analysis: "running the analysis",
 };
 
 function statusLabel(status: LoopStatus): string {
@@ -58,7 +62,11 @@ function statusLabel(status: LoopStatus): string {
     return TOOL_STATUS[status.toolName] ?? "looking something up";
   }
   if (status.phase === "awaiting-approval") {
-    return "waiting for your go-ahead";
+    // ask_user pauses on a pick, not an approval, so the wording reads as a
+    // choice rather than a go-ahead.
+    return status.toolName === "ask_user"
+      ? "waiting for your choice"
+      : "waiting for your go-ahead";
   }
   return "thinking";
 }
@@ -164,12 +172,25 @@ export function useAiChat() {
     [],
   );
 
-  // Called by the panel's Allow / Skip buttons. Resolves the in-flight approval
-  // promise, unblocking the agent loop with the user's decision. The resolver
-  // (set in requestApproval) clears the highlight and the prompt state itself, so
-  // this only forwards the decision.
+  // Called by the panel's Allow / Skip and Approve / Cancel buttons. Resolves the
+  // in-flight approval promise, unblocking the agent loop with the user's
+  // decision. The resolver (set in requestApproval) clears the highlight and the
+  // prompt state itself, so this only forwards the decision.
   const resolveApproval = useCallback(
     (decision: ApprovalDecision) => {
+      pendingApprovalRef.current?.resolve(decision);
+    },
+    [],
+  );
+
+  // Called by the panel's choice buttons (ask_user). It rides the SAME bridge as
+  // resolveApproval, just resolving with a richer ChoiceDecision instead of allow
+  // / skip. A single-select tap calls this with the one option and cancelled
+  // false, a multi-select Confirm with the picked array, and a dismiss with an
+  // empty array and cancelled true so the model gets a graceful "no choice".
+  const resolveChoice = useCallback(
+    (selected: string[], cancelled: boolean) => {
+      const decision: ChoiceDecision = { kind: "choice", selected, cancelled };
       pendingApprovalRef.current?.resolve(decision);
     },
     [],
@@ -256,5 +277,6 @@ export function useAiChat() {
     send,
     pendingApproval,
     resolveApproval,
+    resolveChoice,
   };
 }

@@ -43,6 +43,28 @@ describe("BEAKERBOT_SYSTEM_PROMPT", () => {
     expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/Never invent a statistic/i);
   });
 
+  it("instructs the buttons-not-prose choice flow with ask_user", () => {
+    // When the answer is one of a few known values, BeakerBot must call ask_user
+    // so the user TAPS a button, not type the answer back in prose.
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/ask_user/);
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/button/i);
+    // The known-small-set rule and the count-for-a-subset guidance are both there.
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/known, small, enumerable set/i);
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/count 2/);
+    // The analysis flow uses ask_user to pick groups before running. The prompt
+    // names all three tools in order (list to learn names, ask to pick, then run).
+    const listAt = BEAKERBOT_SYSTEM_PROMPT.indexOf("list_datahub_tables");
+    const askAt = BEAKERBOT_SYSTEM_PROMPT.indexOf(
+      "ask_user to let the user pick",
+    );
+    const runAt = BEAKERBOT_SYSTEM_PROMPT.indexOf(
+      "run_datahub_analysis on the picked groups",
+    );
+    expect(listAt).toBeGreaterThanOrEqual(0);
+    expect(askAt).toBeGreaterThan(listAt);
+    expect(runAt).toBeGreaterThan(askAt);
+  });
+
   it("includes narrow-panel formatting guidance telling BeakerBot to avoid tables", () => {
     // The panel is a narrow sidebar. BeakerBot must know not to produce wide
     // markdown tables that would overflow it.

@@ -23,21 +23,33 @@ export type JsonSchema = {
   additionalProperties?: boolean;
 };
 
-// A request the agent loop surfaces to the UI before it proceeds. It comes in two
-// shapes, distinguished by `kind`, so the panel can render the right control.
+// How many options the user picks in a choice request. "one" is a single tap
+// that resolves immediately, "multiple" toggles chips and confirms.
+export type ChoiceSelect = "one" | "multiple";
+
+// A request the agent loop surfaces to the UI before it proceeds. It comes in a
+// few shapes, distinguished by `kind`, so the panel can render the right control.
+// All three ride the SAME pause/resume bridge (requestApproval / resolveApproval),
+// the loop awaits the user's answer through one resolver and never blocks the UI
+// thread.
 //
-//   - kind "plan", BeakerBot is PROPOSING a whole plan up front (the new flow).
-//     The user sees the human-readable steps and approves the lot once with
-//     Approve / Cancel. On approve the loop runs every routine step with no
-//     further asking. This is what propose_plan raises.
+//   - kind "plan", BeakerBot is PROPOSING a whole plan up front. The user sees
+//     the human-readable steps and approves the lot once with Approve / Cancel.
+//     On approve the loop runs every routine step with no further asking. This is
+//     what propose_plan raises.
 //   - kind "action", a single ACTION needs a final confirm at the moment it runs
 //     (Allow / Skip). This is the destructive hard-stop (delete, send, share,
 //     pay) that ALWAYS confirms, even inside an already-approved plan, and the
 //     fallback per-action confirm for a lone action with no plan.
+//   - kind "choice", BeakerBot needs the user to PICK from a known small set
+//     (which groups, which table, which test, yes or no). The user TAPS a button
+//     instead of typing the answer, so the model gets a structured selection.
+//     This is what ask_user raises. It is not an approval, the user is choosing,
+//     so it resolves with the picked option(s), not allow / skip.
 //
-// Both describe what BeakerBot wants to do in plain words. The action shape can
-// carry a perceived element ref so the UI spotlights the target before the user
-// allows it. The loop awaits the user's answer through the resolver.
+// The plan and action shapes describe what BeakerBot wants to do in plain words.
+// The action shape can carry a perceived element ref so the UI spotlights the
+// target before the user allows it.
 export type ApprovalRequest =
   | {
       kind: "plan";
@@ -62,14 +74,51 @@ export type ApprovalRequest =
       /** True when the destructive hard-stop forced this confirm, so the UI can
        *  warn more firmly. */
       destructive?: boolean;
+    }
+  | {
+      kind: "choice";
+      /** The tool that raised the choice, for traceability (always ask_user). */
+      toolName: string;
+      /** The question shown above the buttons, for example "Which two groups
+       *  would you like to compare?". */
+      question: string;
+      /** The options to render as buttons, each a short human label. */
+      options: string[];
+      /** "one" for a single immediate pick, "multiple" for a toggle-and-confirm. */
+      select: ChoiceSelect;
+      /** For "multiple", the exact number the user must pick before Confirm is
+       *  enabled, for example 2 for a two-group t-test. Undefined means any
+       *  number from one up. */
+      count?: number;
     };
 
-// The UI's answer to an approval request. "allow" proceeds (run the action, or
-// approve the plan), "skip" declines (do not run the action, or cancel the plan)
-// and tells the model the user said no, so it can respond gracefully. The same
-// two-value decision covers both Allow / Skip and Approve / Cancel, the panel
-// just labels the buttons to match the request kind.
-export type ApprovalDecision = "allow" | "skip";
+// The UI's answer to a request on the bridge. The plan and action shapes resolve
+// with the two-value approval decision, "allow" proceeds (run the action, or
+// approve the plan), "skip" declines (do not run, or cancel) so the model can
+// respond gracefully. The panel labels the buttons to match the request kind
+// (Allow / Skip, Approve / Cancel). A choice request resolves with a richer value
+// instead, the option(s) the user picked, or a cancelled flag when they dismissed
+// without choosing, so the model continues with the real selection rather than a
+// yes / no.
+export type ApprovalDecision = "allow" | "skip" | ChoiceDecision;
+
+// The answer to a choice request. `selected` carries the picked option strings
+// (exactly one for "one", one or more for "multiple"). `cancelled` is true when
+// the user dismissed without choosing, in which case `selected` is empty.
+export type ChoiceDecision = {
+  kind: "choice";
+  selected: string[];
+  cancelled: boolean;
+};
+
+/** Type guard, narrow an ApprovalDecision to a choice decision. The plan and
+ *  action gates only ever see "allow" / "skip", so this is how the ask_user
+ *  handler reads its richer answer off the shared bridge. */
+export function isChoiceDecision(
+  decision: ApprovalDecision,
+): decision is ChoiceDecision {
+  return typeof decision === "object" && decision.kind === "choice";
+}
 
 // A single tool BeakerBot can call. `execute` receives the parsed argument object
 // the model produced and returns a result that is JSON-serialized back into the

@@ -111,7 +111,9 @@ describe("approval gate: ask autonomy", () => {
     const req: ApprovalRequest = requestApproval.mock.calls[0][0];
     expect(req.kind).toBe("action");
     expect(req.toolName).toBe("do_thing");
-    expect(typeof req.summary).toBe("string");
+    if (req.kind === "action") {
+      expect(typeof req.summary).toBe("string");
+    }
     // execute ran because the decision was "allow".
     expect(execute).toHaveBeenCalledTimes(1);
   });

@@ -66,6 +66,123 @@ function AssistantMarkdown({ content }: { content: string }) {
   );
 }
 
+// The choice prompt (ask_user). BeakerBot needs the user to pick from a known
+// small set, so instead of asking them to type the answer back it renders a
+// button per option. Single-select resolves on a tap. Multi-select toggles chips
+// (sky-blue brand accent on the selected ones) and resolves on Confirm, which is
+// enabled only when the selection is valid (at least one, and exactly `count`
+// when a count was given). A dismiss resolves with a graceful "no choice". This
+// rides the SAME pause/resume bridge as the plan and action prompts, it only
+// resolves with the picked option(s) rather than allow / skip.
+function ChoicePrompt({
+  question,
+  options,
+  select,
+  count,
+  onResolve,
+}: {
+  question: string;
+  options: string[];
+  select: "one" | "multiple";
+  count?: number;
+  onResolve: (selected: string[], cancelled: boolean) => void;
+}) {
+  const [picked, setPicked] = useState<string[]>([]);
+  const multiple = select === "multiple";
+
+  const toggle = (option: string) => {
+    setPicked((prev) =>
+      prev.includes(option)
+        ? prev.filter((o) => o !== option)
+        : [...prev, option],
+    );
+  };
+
+  // Confirm is valid for "multiple" when at least one is picked, and exactly
+  // `count` when a count was given (for example exactly 2 for a two-group test).
+  const confirmValid =
+    picked.length >= 1 && (count === undefined || picked.length === count);
+
+  // The hint under a multi-select tells the user how many to pick when it matters.
+  const countHint =
+    multiple && count !== undefined
+      ? count === picked.length
+        ? `${count} selected`
+        : `Pick ${count} (${picked.length} selected)`
+      : null;
+
+  return (
+    <div
+      data-testid="beakerbot-choice"
+      className="mx-4 mb-2 rounded-md border border-brand bg-brand/5 px-3 py-2"
+    >
+      <div className="mb-2 flex items-start gap-2">
+        <span className="text-brand">
+          <Icon name="vial" className="h-4 w-4" title="BeakerBot has a question" />
+        </span>
+        <p className="text-meta text-foreground">{question}</p>
+      </div>
+      <div className="mb-2 flex flex-wrap gap-1.5">
+        {options.map((option) => {
+          const isPicked = picked.includes(option);
+          return (
+            <button
+              key={option}
+              type="button"
+              data-testid="beakerbot-choice-option"
+              aria-pressed={multiple ? isPicked : undefined}
+              onClick={() => {
+                // Single-select resolves immediately with the one option, no
+                // Confirm step. Multi-select toggles and waits for Confirm.
+                if (multiple) toggle(option);
+                else onResolve([option], false);
+              }}
+              className={`rounded-md border px-2.5 py-1 text-meta font-medium transition-colors ${
+                multiple && isPicked
+                  ? "border-brand bg-brand text-white"
+                  : "border-border text-foreground hover:border-brand hover:bg-brand/10"
+              }`}
+            >
+              {option}
+            </button>
+          );
+        })}
+      </div>
+      {countHint ? (
+        <p
+          data-testid="beakerbot-choice-hint"
+          className="mb-2 text-meta text-foreground-muted"
+        >
+          {countHint}
+        </p>
+      ) : null}
+      <div className="flex items-center gap-2">
+        {multiple ? (
+          <button
+            type="button"
+            data-testid="beakerbot-choice-confirm"
+            disabled={!confirmValid}
+            onClick={() => onResolve(picked, false)}
+            className="btn-brand flex items-center gap-1 rounded-md px-3 py-1.5 text-meta font-medium disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Icon name="check" className="h-3.5 w-3.5" title="Confirm" />
+            Confirm
+          </button>
+        ) : null}
+        <button
+          type="button"
+          data-testid="beakerbot-choice-cancel"
+          onClick={() => onResolve([], true)}
+          className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+        >
+          <Icon name="close" className="h-3.5 w-3.5" title="Cancel" />
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function BeakerBotPanel({
   onClose,
 }: {
@@ -74,8 +191,16 @@ export default function BeakerBotPanel({
   // it so that surface stays close-free, exactly as before.
   onClose?: () => void;
 } = {}) {
-  const { messages, sending, status, error, send, pendingApproval, resolveApproval } =
-    useAiChat();
+  const {
+    messages,
+    sending,
+    status,
+    error,
+    send,
+    pendingApproval,
+    resolveApproval,
+    resolveChoice,
+  } = useAiChat();
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
 
@@ -329,6 +454,22 @@ export default function BeakerBotPanel({
             </button>
           </div>
         </div>
+      ) : null}
+
+      {/* Choice prompt (ask_user). BeakerBot needs the user to pick from a known
+          small set, so it shows a button per option instead of asking them to
+          type the answer. Single-select taps resolve at once, multi-select
+          toggles and confirms. Keyed on the question so each fresh ask_user
+          remounts with a clean selection. */}
+      {pendingApproval && pendingApproval.request.kind === "choice" ? (
+        <ChoicePrompt
+          key={pendingApproval.request.question}
+          question={pendingApproval.request.question}
+          options={pendingApproval.request.options}
+          select={pendingApproval.request.select}
+          count={pendingApproval.request.count}
+          onResolve={resolveChoice}
+        />
       ) : null}
 
       <div className="border-t border-border p-3">

@@ -32,6 +32,7 @@ import { goToPageTool } from "./go-to-page";
 import { guideToElementTool } from "./guide-to-element";
 import { clickElementTool } from "./click-element";
 import { proposePlanTool } from "./propose-plan";
+import { askUserTool } from "./ask-user";
 import {
   listDataHubTablesTool,
   runDataHubAnalysisTool,
@@ -60,13 +61,16 @@ export const ACTION_TOOLS: AiTool[] = [
 ];
 
 // The coordination toolset. These tools neither read the user's data nor act on
-// it, they steer the approval flow itself. propose_plan is the proposal step of
-// the plan-first action flow, the loop recognizes it by name and raises a single
-// Approve / Cancel for the whole plan, then lets the routine action tools run
-// without re-asking. It carries no `action` flag on purpose, it IS the gate for
-// the plan, so it must not be routed through the per-action gate (that would
-// double-confirm).
-export const COORDINATION_TOOLS: AiTool[] = [proposePlanTool];
+// it, they steer the user-input flow itself, and the loop recognizes each by name
+// and raises a request on the shared pause/resume bridge. None carries an `action`
+// flag, they must not flow through the per-action gate.
+//   - propose_plan is the proposal step of the plan-first action flow, it raises
+//     a single Approve / Cancel for the whole plan, then lets the routine action
+//     tools run without re-asking.
+//   - ask_user is the structured-choice primitive, it raises a "choice" request so
+//     the user TAPS a button to pick from a known small set instead of typing the
+//     answer back, and returns the selection to the model.
+export const COORDINATION_TOOLS: AiTool[] = [proposePlanTool, askUserTool];
 
 // The default toolset handed to the agent loop, the read-only tools plus the
 // coordination tools plus the action tools. The loop reads each tool's `action`
