@@ -21,6 +21,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import AppShell from "@/components/AppShell";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { DATAHUB_ENABLED } from "@/lib/datahub/config";
+import { getDemoMode } from "@/lib/file-system/wiki-capture-mock";
 import { dataHubApi } from "@/lib/datahub/api";
 import { projectsApi } from "@/lib/local-api";
 import type {
@@ -83,6 +84,21 @@ export default function DataHubPage() {
   const { currentUser } = useCurrentUser();
   const queryClient = useQueryClient();
 
+  // Demo sessions get to preview Data Hub even when the production flag is off,
+  // so the public demo can showcase it while real production users never see it.
+  // The demo signal is client-only, so we default to the prod-safe value (not
+  // demo) and read it after mount. `mounted` lets us hold a neutral frame until
+  // then, so a demo session never flashes the not-enabled notice before the real
+  // surface appears. `surfaceEnabled` drives both the gate and the data queries,
+  // so the catalog only loads once the surface is allowed to render.
+  const [isDemo, setIsDemo] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setIsDemo(getDemoMode());
+    setMounted(true);
+  }, []);
+  const surfaceEnabled = DATAHUB_ENABLED || isDemo;
+
   const [collection, setCollection] = useState<Collection>("all");
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [newTableOpen, setNewTableOpen] = useState(false);
@@ -113,13 +129,13 @@ export default function DataHubPage() {
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", "for-datahub"],
     queryFn: () => projectsApi.list(),
-    enabled: DATAHUB_ENABLED,
+    enabled: surfaceEnabled,
   });
 
   const { data: allTables = [] } = useQuery({
     queryKey: ["datahub", "tables"],
     queryFn: () => dataHubApi.list(),
-    enabled: DATAHUB_ENABLED,
+    enabled: surfaceEnabled,
   });
 
   // Filter the catalog by the active collection.
@@ -163,7 +179,7 @@ export default function DataHubPage() {
   // collaborator's op), so the grid + footer always reflect the doc. The prior
   // handle is closed (which flushes its pending commit) before opening the next.
   useEffect(() => {
-    if (!DATAHUB_ENABLED || !currentUser || selectedTableId == null) {
+    if (!surfaceEnabled || !currentUser || selectedTableId == null) {
       setOpenContent(null);
       return;
     }
@@ -195,7 +211,7 @@ export default function DataHubPage() {
       cancelled = true;
       if (unsub) unsub();
     };
-  }, [currentUser, selectedTableId]);
+  }, [surfaceEnabled, currentUser, selectedTableId]);
 
   // A table switch clears the analysis + figure selection (back to the data
   // grid). The dependency is intentionally only the table id.
@@ -539,9 +555,14 @@ export default function DataHubPage() {
   const dialogDefaultCollection =
     collection === "all" || collection === "unfiled" ? "" : collection;
 
-  // Gate: render a calm "not enabled" state when the flag is off (mirror the
-  // /supplies gate). Never crash.
-  if (!DATAHUB_ENABLED) {
+  // Gate: render a calm "not enabled" state when the flag is off and this is not
+  // a demo session (mirror the /supplies gate). Never crash. Before mount we hold
+  // a neutral frame, since the demo signal is client-only, so a demo session never
+  // flashes the not-enabled notice before the real surface appears.
+  if (!surfaceEnabled) {
+    if (!mounted) {
+      return <AppShell>{null}</AppShell>;
+    }
     return (
       <AppShell>
         <div className="mx-auto max-w-md py-20 text-center">

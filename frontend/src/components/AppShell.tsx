@@ -117,8 +117,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // which is client-only). Normal dev shows them a frame after mount, which is
   // fine for dev tooling.
   const [showDevDock, setShowDevDock] = useState(false);
+  // Demo / wiki-capture sessions get to preview not-yet-launched modules
+  // (Data Hub, Chemistry) even when their production flags are off, so the
+  // public demo can showcase them while real production users never see them.
+  // Same hydration-safe pattern as showDevDock above. We default to the
+  // prod-safe value (false) on the server and first client render, then read
+  // the client-only demo signal after mount, so the nav filter re-runs and the
+  // tabs appear a frame later in demo without ever causing an SSR mismatch.
+  const [isDemo, setIsDemo] = useState(false);
   useEffect(() => {
-    setShowDevDock(!isDemoOrWikiCapture());
+    const demo = isDemoOrWikiCapture();
+    setShowDevDock(!demo);
+    setIsDemo(demo);
   }, []);
   // Late-night coffee BeakerBot trigger: fires the CoffeeRefill scene
   // at most once per crossed hour while local time is in [23, 0, 1, 2].
@@ -198,12 +208,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (item.href === "/inventory" && !INVENTORY_ENABLED) return false;
     // /chemistry (the molecule workbench) is an opt-in module. Force it visible
     // when the flag is on (so dogfooding does not depend on the legacy tab list),
-    // and hide it entirely when off (prod default), mirroring how inventory gates.
-    if (item.href === "/chemistry") return CHEMISTRY_ENABLED;
+    // and also in demo so the public demo showcases it, while it stays hidden
+    // for real production users (flag off, not demo), mirroring how inventory gates.
+    if (item.href === "/chemistry") return CHEMISTRY_ENABLED || isDemo;
     // /datahub (the Prism-style analysis + plotting tab) is an opt-in module,
-    // same pattern as /chemistry. Visible when the flag is on, hidden otherwise
-    // (prod default), so it stays dark until Data Hub is launched.
-    if (item.href === "/datahub") return DATAHUB_ENABLED;
+    // same pattern as /chemistry. Visible when the flag is on or in demo, hidden
+    // otherwise (prod default), so it stays dark for real users until launch.
+    if (item.href === "/datahub") return DATAHUB_ENABLED || isDemo;
     // /sequences (the molecular-biology editor) is a flagship surface that
     // must always be reachable from the nav. Existing accounts whose
     // visibleTabs list predates the route would otherwise never see it (the
