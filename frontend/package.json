@@ -2,6 +2,7 @@
   "name": "frontend",
   "version": "0.75.0",
   "private": true,
+  "packageManager": "pnpm@10.34.3",
   "author": "Grant R. Nickles <gnickles@wisc.edu>",
   "license": "AGPL-3.0-or-later",
   "funding": {
