@@ -17,7 +17,7 @@
 // House style: <Icon> only (no inline svg), Tooltip on icon-only buttons, no
 // emojis / em-dashes / mid-sentence colons. Colors are div gradients, so no svg.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 
@@ -159,28 +159,32 @@ export default function PlotColorPicker({
   // The hex field is its own text state so a researcher can type a partial value
   // without it being clobbered mid-keystroke. Committed on valid input / blur.
   const [hexText, setHexText] = useState<string>(() => normalizeHex(value) ?? "#888888");
-  const [recent, setRecent] = useState<string[]>([]);
+  // Recent colors come straight from localStorage on first render. loadRecent
+  // guards typeof window, so the server render gets an empty list and the client
+  // fills it in, matching how PaletteStudio lazy-loads saved palettes. This panel
+  // is client-only (inside the folder-gated Data Hub editor), so there is no
+  // prerendered HTML to mismatch against.
+  const [recent, setRecent] = useState<string[]>(() => loadRecent());
+  // The last `value` prop we synced from, tracked so an external change (on-plot
+  // edit, undo, palette swap) re-seeds the picker without an effect. This is the
+  // React "adjust state during render" pattern, which avoids a cascading render.
+  const [lastValue, setLastValue] = useState<string>(value);
 
   const areaRef = useRef<HTMLDivElement | null>(null);
   const hueRef = useRef<HTMLDivElement | null>(null);
 
-  // Load recent colors after mount (localStorage is client-only).
-  useEffect(() => {
-    setRecent(loadRecent());
-  }, []);
-
-  // Re-seed from an external value change (on-plot edit, undo, palette swap).
-  // Guard against echoing our own change by comparing canonical hex.
-  const current = hsvToHex(hsv);
-  useEffect(() => {
+  // Re-seed from an external value change, during render. We compare the raw prop
+  // (not the canonical hex) so our own committed change does not loop back in.
+  if (value !== lastValue) {
+    setLastValue(value);
     const norm = normalizeHex(value);
-    if (norm && norm !== current) {
+    if (norm && norm !== hsvToHex(hsv)) {
       setHsv(hexToHsv(norm));
       setHexText(norm);
     }
-    // current is derived from hsv; we intentionally only react to value.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
+  }
+
+  const current = hsvToHex(hsv);
 
   const commit = useCallback(
     (next: HSV, opts?: { persist?: boolean }) => {
@@ -289,16 +293,17 @@ export default function PlotColorPicker({
         the strip for hue, or type a hex.
       </p>
 
-      {/* Saturation / value area. White-to-hue across, transparent-to-black down. */}
+      {/* Saturation / value area. White-to-hue across, transparent-to-black down.
+          A 2D area is not a single-axis slider, so it is a labeled group rather
+          than role="slider" (which would require a single aria-valuenow). The
+          one-axis hue control below is the proper slider. */}
       <div
         ref={areaRef}
         onPointerDown={startAreaDrag}
-        role="slider"
-        aria-label="Saturation and brightness"
-        aria-valuetext={`saturation ${Math.round(hsv.s * 100)} percent, brightness ${Math.round(
-          hsv.v * 100,
-        )} percent`}
-        tabIndex={0}
+        role="group"
+        aria-label={`Saturation and brightness, currently saturation ${Math.round(
+          hsv.s * 100,
+        )} percent and brightness ${Math.round(hsv.v * 100)} percent`}
         className="relative h-28 w-full cursor-crosshair touch-none overflow-hidden rounded-md border border-border"
         style={{ backgroundColor: hueHex(hsv.h) }}
       >
