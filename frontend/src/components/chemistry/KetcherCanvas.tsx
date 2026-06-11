@@ -18,8 +18,29 @@ import { StandaloneStructServiceProvider } from "ketcher-standalone";
 import type { Ketcher } from "ketcher-core";
 
 // One Indigo-backed provider for the page; the standalone provider runs the wasm
-// struct service in a worker with no server round-trip.
+// struct service in a worker with no server round-trip. The worker itself is a
+// module-level singleton inside ketcher-standalone (one `new WorkerFactory()`),
+// shared by every service this provider creates and reused by the Editor below.
 const structServiceProvider = new StandaloneStructServiceProvider();
+
+// Warm the Indigo wasm AHEAD of the first editor open. Importing this module
+// already spawns the shared worker; `info()` posts it a trivial request, which
+// forces the worker to compile + instantiate the wasm and answer. Because the
+// worker is the shared singleton the Editor reuses, the open then skips that cost.
+// Best-effort and idempotent (a second call just re-asks a warm worker). We do
+// NOT terminate the worker on teardown: destroy() kills the shared singleton,
+// which would break the next editor open, and it cannot cleanly respawn.
+let warmStarted = false;
+export async function warmKetcher(): Promise<void> {
+  if (warmStarted) return;
+  warmStarted = true;
+  try {
+    await structServiceProvider.createStructService({}).info();
+  } catch {
+    // The editor still instantiates the engine on open as usual.
+    warmStarted = false;
+  }
+}
 
 export default function KetcherCanvas({
   initialStructure,

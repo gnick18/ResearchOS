@@ -74,15 +74,20 @@ export function ChemistryHub({
     window.localStorage.setItem(LIST_WIDTH_KEY, String(Math.round(listWidth)));
   }, [listWidth]);
 
-  // Warm the heavy Ketcher editor chunk in the background once the workbench has
-  // settled, so the first New / Edit click does not pay the cold JS-chunk load
-  // (the largest, most variable part of the open). The Indigo wasm still
-  // instantiates when the editor actually mounts; this only preloads the code.
+  // Warm the heavy Ketcher editor in the background once the workbench has
+  // settled, so the first New / Edit click is near-instant. Importing the canvas
+  // chunk preloads the editor code AND spawns the shared Indigo worker;
+  // warmKetcher() then compiles the wasm ahead of time. The worker is reused by
+  // the Editor on open (confirmed: ketcher-standalone shares one module-level
+  // worker), so the open skips both the chunk load and the wasm compile.
   useEffect(() => {
     if (typeof window === "undefined") return;
     let cancelled = false;
     const warm = () => {
-      if (!cancelled) void import("./KetcherCanvas").catch(() => {});
+      if (cancelled) return;
+      void import("./KetcherCanvas")
+        .then((m) => m.warmKetcher())
+        .catch(() => {});
     };
     const ric = (
       window as unknown as {
