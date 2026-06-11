@@ -430,3 +430,35 @@ export function evaluateCustomCalculator(
 
   return { outputs, messages };
 }
+
+/**
+ * Resolve one `table` input's rows with its computed columns filled in, exactly
+ * as the full evaluation would, so the Use-mode grid can render computed cells
+ * live as the user edits input cells. Returns an array of row objects keyed by
+ * column key (each cell a number or a descriptive string); a non-table or
+ * unknown key yields an empty array. Pure and non-throwing, like the engine.
+ */
+export function deriveTableRows(
+  calc: CustomCalculator,
+  values: CustomCalcInputValues,
+  tableKey: string,
+): Record<string, number | string>[] {
+  const input = calc.inputs.find(
+    (i) => i.key === tableKey && i.type === "table",
+  );
+  if (!input) return [];
+  const scope = buildScope(calc, values);
+  for (const step of calc.steps) {
+    if (!step.key) continue;
+    const result = evalExpr(step.expr, scope);
+    scope[step.key] =
+      typeof result === "number" || typeof result === "string"
+        ? (result as number | string)
+        : NaN;
+  }
+  deriveTableColumns(calc, scope);
+  const rows = scope[tableKey];
+  return Array.isArray(rows)
+    ? (rows as Record<string, number | string>[])
+    : [];
+}

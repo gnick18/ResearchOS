@@ -17,6 +17,8 @@ import Tooltip from "@/components/Tooltip";
 import { calculatorsApi } from "@/lib/local-api";
 import {
   evaluateCustomCalculator,
+  deriveTableRows,
+  formatCalcValue,
   type CustomCalcInputValues,
   type CustomCalcResult,
 } from "@/lib/calculators/custom";
@@ -29,6 +31,7 @@ import { buildCalculatorSubmissionUrl } from "@/lib/calculators/submit-to-librar
 import type {
   CustomCalculator,
   CustomCalculatorInput,
+  CustomCalculatorTableColumn,
   CustomCalculatorStep,
   CustomCalculatorConditional,
   CustomCalculatorOutput,
@@ -128,12 +131,34 @@ function seedValues(inputs: CustomCalculatorInput[]): CustomCalcInputValues {
         input.default !== undefined && !Array.isArray(input.default)
           ? input.default
           : input.options?.[0]?.value ?? "";
+    } else if (input.type === "table") {
+      // Seed the grid from the template's example rows (deep-copied so editing
+      // does not mutate the spec). Computed columns are derived by the engine.
+      values[input.key] = Array.isArray(input.rows)
+        ? input.rows.map((r) => ({ ...r }))
+        : [];
     } else {
       values[input.key] =
         typeof input.default === "number" ? input.default : "";
     }
   }
   return values;
+}
+
+// ── Engine reserved names (Phase 5) ──────────────────────────────────────────
+//
+// An input / step / table-column key must NOT collide with a built-in engine
+// function or constant, or the expression silently resolves to NaN. The builder
+// surfaces this as an inline warning so the author renames before it bites.
+
+const RESERVED_KEYS = new Set([
+  "count", "sum", "mean", "sd", "min", "max", "shannon", "simpson",
+  "geomean", "sumproduct", "linfit_slope", "linfit_intercept", "col",
+  "if", "pi", "e",
+]);
+
+function isReservedKey(key: string): boolean {
+  return RESERVED_KEYS.has(key.trim());
 }
 
 // ── Sharing control (Phase 2) ────────────────────────────────────────────────
@@ -290,6 +315,143 @@ function ReplicateRow({
   );
 }
 
+// ── Table input grid (Phase 5) ───────────────────────────────────────────────
+//
+// A mini-spreadsheet. Input columns are editable per row; computed columns show
+// the engine-derived value live (read-only). Rows add / remove unless the whole
+// calculator is shared-in (non-owner), where the grid is fully read-only,
+// consistent with the rest of the Use view.
+
+function TableInputGrid({
+  calc,
+  values,
+  input,
+  onChange,
+  readOnly = false,
+}: {
+  calc: CustomCalculator;
+  values: CustomCalcInputValues;
+  input: CustomCalculatorInput;
+  onChange: (rows: Record<string, number | string>[]) => void;
+  readOnly?: boolean;
+}) {
+  const columns = input.columns ?? [];
+  const rawRows = Array.isArray(values[input.key])
+    ? (values[input.key] as Record<string, number | string>[])
+    : [];
+  // Engine-derived rows (computed columns filled in) for the read-only cells.
+  const derived = deriveTableRows(calc, values, input.key);
+
+  const setCell = (rowIdx: number, colKey: string, raw: string) => {
+    const next = rawRows.map((r, j) =>
+      j === rowIdx ? { ...r, [colKey]: raw } : { ...r },
+    );
+    onChange(next);
+  };
+  const addRow = () => {
+    const blank: Record<string, number | string> = {};
+    for (const c of columns) if (c.kind === "input") blank[c.key] = "";
+    onChange([...rawRows.map((r) => ({ ...r })), blank]);
+  };
+  const removeRow = (rowIdx: number) =>
+    onChange(rawRows.filter((_, j) => j !== rowIdx));
+
+  return (
+    <div className="rounded-xl border border-border overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-body">
+          <thead>
+            <tr className="bg-surface-sunken">
+              {columns.map((c) => (
+                <th
+                  key={c.key}
+                  className="text-left px-3 py-2 text-meta font-semibold text-foreground-muted"
+                >
+                  {c.label}
+                  {c.unit ? (
+                    <span className="ml-1 font-normal">({c.unit})</span>
+                  ) : null}
+                </th>
+              ))}
+              {!readOnly && <th className="w-10" aria-hidden />}
+            </tr>
+          </thead>
+          <tbody>
+            {rawRows.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={columns.length + (readOnly ? 0 : 1)}
+                  className="px-3 py-3 text-meta text-foreground-muted"
+                >
+                  No rows yet.
+                </td>
+              </tr>
+            ) : (
+              rawRows.map((row, rowIdx) => (
+                <tr key={rowIdx} className="border-t border-border">
+                  {columns.map((c) => {
+                    if (c.kind === "computed") {
+                      const cell = derived[rowIdx]?.[c.key];
+                      const display =
+                        typeof cell === "number"
+                          ? formatCalcValue(cell)
+                          : cell !== undefined && cell !== ""
+                            ? String(cell)
+                            : "—";
+                      return (
+                        <td
+                          key={c.key}
+                          className="px-3 py-1.5 text-foreground tabular-nums"
+                        >
+                          {display}
+                        </td>
+                      );
+                    }
+                    return (
+                      <td key={c.key} className="px-2 py-1.5">
+                        <input
+                          value={
+                            row[c.key] === undefined || row[c.key] === null
+                              ? ""
+                              : String(row[c.key])
+                          }
+                          onChange={(e) => setCell(rowIdx, c.key, e.target.value)}
+                          disabled={readOnly}
+                          aria-label={`${c.label} row ${rowIdx + 1}`}
+                          className="w-full rounded-md border border-border px-2 py-1 text-body text-foreground bg-surface-raised focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-400 disabled:opacity-60"
+                        />
+                      </td>
+                    );
+                  })}
+                  {!readOnly && (
+                    <td className="px-1 py-1.5 text-center">
+                      <Tooltip label="Remove row" placement="top">
+                        <button
+                          type="button"
+                          onClick={() => removeRow(rowIdx)}
+                          aria-label={`Remove row ${rowIdx + 1}`}
+                          className="w-7 h-7 rounded-md border border-border text-foreground-muted hover:text-red-600 hover:border-red-200 inline-flex items-center justify-center transition-colors"
+                        >
+                          <Icon name="close" className="w-3.5 h-3.5" />
+                        </button>
+                      </Tooltip>
+                    </td>
+                  )}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+      {!readOnly && (
+        <div className="px-3 py-2 border-t border-border">
+          <AddButton label="Add row" onClick={addRow} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── The Use view (run a calculator) ──────────────────────────────────────────
 
 export function CalculatorUseView({
@@ -314,8 +476,10 @@ export function CalculatorUseView({
     [calc, values],
   );
 
-  const setValue = (key: string, value: number | number[] | string) =>
-    setValues((prev) => ({ ...prev, [key]: value }));
+  const setValue = (
+    key: string,
+    value: CustomCalcInputValues[string],
+  ) => setValues((prev) => ({ ...prev, [key]: value }));
 
   // A calculator shared in via the whole-lab "*" reference is READ-ONLY for the
   // viewer (the owner stays the only editor; their edits propagate). Suppress
@@ -371,7 +535,15 @@ export function CalculatorUseView({
                 <span className="ml-1 font-normal text-foreground-muted">({input.unit})</span>
               ) : null}
             </FieldLabel>
-            {input.type === "replicate" ? (
+            {input.type === "table" ? (
+              <TableInputGrid
+                calc={calc}
+                values={values}
+                input={input}
+                onChange={(rows) => setValue(input.key, rows)}
+                readOnly={sharedIn}
+              />
+            ) : input.type === "replicate" ? (
               <ReplicateRow
                 values={Array.isArray(values[input.key]) ? (values[input.key] as number[]) : []}
                 onChange={(next) => setValue(input.key, next)}
@@ -702,6 +874,15 @@ export function CalculatorEditView({
                     ...(e.target.value === "dropdown" && !input.options
                       ? { options: [{ label: "Option A", value: 1 }] }
                       : {}),
+                    // Seed a starter column set when switching to a table.
+                    ...(e.target.value === "table" && !input.columns
+                      ? {
+                          columns: [
+                            { key: "item", label: "Item", kind: "input" },
+                            { key: "amount", label: "Amount", kind: "input" },
+                          ] as CustomCalculatorTableColumn[],
+                        }
+                      : {}),
                   })
                 }
                 aria-label="Input type"
@@ -710,6 +891,7 @@ export function CalculatorEditView({
                 <option value="number">Number</option>
                 <option value="replicate">Replicate list</option>
                 <option value="dropdown">Dropdown</option>
+                <option value="table">Table</option>
               </select>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -736,10 +918,21 @@ export function CalculatorEditView({
                 />
               )}
             </div>
+            {isReservedKey(input.key) && (
+              <p className="text-meta text-amber-700 dark:text-amber-300">
+                {`"${input.key.trim()}" is a built-in name, so the formula will read it as the function, not your input. Rename the key.`}
+              </p>
+            )}
             {input.type === "dropdown" && (
               <DropdownOptionsEditor
                 options={input.options ?? []}
                 onChange={(opts) => updateInput(i, { options: opts })}
+              />
+            )}
+            {input.type === "table" && (
+              <TableColumnsEditor
+                columns={input.columns ?? []}
+                onChange={(cols) => updateInput(i, { columns: cols })}
               />
             )}
           </RowShell>
@@ -856,8 +1049,37 @@ export function CalculatorEditView({
       />
 
       {/* Live preview */}
-      <div className="rounded-xl border border-border p-4 space-y-2">
+      <div className="rounded-xl border border-border p-4 space-y-3">
         <SectionTitle>Live preview</SectionTitle>
+        {/* Table inputs render an editable example grid here. Edits both drive
+            the preview AND are saved as the calculator's seed rows, so the
+            author ships a worked example with the spec. */}
+        {draft.inputs
+          .filter((input) => input.type === "table")
+          .map((input) => {
+            const idx = draft.inputs.findIndex((x) => x.key === input.key);
+            return (
+              <div key={input.key} className="space-y-1">
+                <FieldLabel>
+                  {input.label || input.key}
+                  <span className="ml-1 font-normal text-foreground-muted">
+                    (seed rows)
+                  </span>
+                </FieldLabel>
+                <TableInputGrid
+                  calc={previewCalc}
+                  values={previewValues}
+                  input={input}
+                  onChange={(rows) => {
+                    setPreviewValues((prev) => ({ ...prev, [input.key]: rows }));
+                    updateInput(idx, {
+                      rows: rows.map((r) => ({ ...r })),
+                    });
+                  }}
+                />
+              </div>
+            );
+          })}
         {draft.outputs.length === 0 ? (
           <p className="text-body text-foreground-muted">
             Add an output to preview the result.
@@ -951,6 +1173,129 @@ function DropdownOptionsEditor({
       ))}
       <div className="pl-2">
         <AddButton label="Add option" onClick={add} />
+      </div>
+    </div>
+  );
+}
+
+function TableColumnsEditor({
+  columns,
+  onChange,
+}: {
+  columns: CustomCalculatorTableColumn[];
+  onChange: (cols: CustomCalculatorTableColumn[]) => void;
+}) {
+  const update = (i: number, p: Partial<CustomCalculatorTableColumn>) =>
+    onChange(columns.map((c, j) => (j === i ? { ...c, ...p } : c)));
+  const remove = (i: number) => onChange(columns.filter((_, j) => j !== i));
+  const add = () =>
+    onChange([
+      ...columns,
+      { key: `col${columns.length + 1}`, label: "", kind: "input" },
+    ]);
+  // Reorder by swapping with the neighbour, so a column can move up / down.
+  const move = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= columns.length) return;
+    const next = [...columns];
+    [next[i], next[j]] = [next[j], next[i]];
+    onChange(next);
+  };
+
+  return (
+    <div className="space-y-2 pl-1 border-l-2 border-border">
+      <p className="text-meta text-foreground-muted pl-2">
+        Columns. Input columns the user fills per row; a computed column derives
+        per row from the other columns plus your inputs and steps.
+      </p>
+      {columns.map((col, i) => (
+        <div key={i} className="pl-2 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <input
+              value={col.key}
+              onChange={(e) => update(i, { key: e.target.value })}
+              placeholder="key"
+              aria-label="Column key"
+              className={inputCls + " font-mono"}
+            />
+            <input
+              value={col.label}
+              onChange={(e) => update(i, { label: e.target.value })}
+              placeholder="Label"
+              aria-label="Column label"
+              className={inputCls}
+            />
+            <input
+              value={col.unit ?? ""}
+              onChange={(e) => update(i, { unit: e.target.value || undefined })}
+              placeholder="Unit"
+              aria-label="Column unit"
+              className={inputCls + " sm:w-20"}
+            />
+            <select
+              value={col.kind}
+              onChange={(e) =>
+                update(i, {
+                  kind: e.target.value as CustomCalculatorTableColumn["kind"],
+                })
+              }
+              aria-label="Column kind"
+              className={selectCls}
+            >
+              <option value="input">Input</option>
+              <option value="computed">Computed</option>
+            </select>
+            <Tooltip label="Move up" placement="top">
+              <button
+                type="button"
+                onClick={() => move(i, -1)}
+                disabled={i === 0}
+                aria-label="Move column up"
+                className="flex-shrink-0 w-8 h-8 rounded-lg border border-border text-foreground-muted hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
+              >
+                <Icon name="chevronDown" className="w-4 h-4 rotate-180" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Move down" placement="top">
+              <button
+                type="button"
+                onClick={() => move(i, 1)}
+                disabled={i === columns.length - 1}
+                aria-label="Move column down"
+                className="flex-shrink-0 w-8 h-8 rounded-lg border border-border text-foreground-muted hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
+              >
+                <Icon name="chevronDown" className="w-4 h-4" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Remove column" placement="top">
+              <button
+                type="button"
+                onClick={() => remove(i)}
+                aria-label="Remove column"
+                className="flex-shrink-0 w-8 h-8 rounded-lg border border-border text-foreground-muted hover:text-red-600 hover:border-red-200 flex items-center justify-center transition-colors"
+              >
+                <Icon name="close" className="w-3.5 h-3.5" />
+              </button>
+            </Tooltip>
+          </div>
+          {col.kind === "computed" && (
+            <input
+              value={col.expr ?? ""}
+              onChange={(e) => update(i, { expr: e.target.value })}
+              placeholder="per-row expression, e.g. perRxn * n"
+              aria-label="Computed column expression"
+              className={inputCls + " font-mono"}
+            />
+          )}
+          {isReservedKey(col.key) && (
+            <p className="text-meta text-amber-700 dark:text-amber-300">
+              {`"${col.key.trim()}" is a built-in name. Rename the column key.`}
+            </p>
+          )}
+        </div>
+      ))}
+      <div className="pl-2">
+        <AddButton label="Add column" onClick={add} />
       </div>
     </div>
   );
