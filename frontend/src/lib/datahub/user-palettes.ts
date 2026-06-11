@@ -79,3 +79,12 @@ export function removeUserPalette(id: string): Palette[] {
   saveUserPalettes(next);
   return next;
 }
+
+/** Rename a saved palette by id and return the new full list. */
+export function renameUserPalette(id: string, name: string): Palette[] {
+  const next = loadUserPalettes().map((p) =>
+    p.id === id ? { ...p, name } : p,
+  );
+  saveUserPalettes(next);
+  return next;
+}
