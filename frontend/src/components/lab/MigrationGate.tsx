@@ -19,11 +19,13 @@
 // House style: no emojis, no em-dashes, no mid-sentence colons.
 
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import LivingPopup from "@/components/ui/LivingPopup";
 import { Icon } from "@/components/icons";
 import { usePathname } from "next/navigation";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useIsLabMode } from "@/hooks/useIsLabMode";
+import { useIsLabMode, LAB_MODE_QUERY_KEY } from "@/hooks/useIsLabMode";
+import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { isOperatorSurface } from "@/lib/routes/operator-surface";
 import MigrateToSoloModal from "./MigrateToSoloModal";
 import SelfExportModal from "./SelfExportModal";
@@ -43,6 +45,8 @@ export default function MigrationGate() {
   const { currentUser, mainUser } = useCurrentUser();
   const isLabMode = useIsLabMode() ?? false;
   const pathname = usePathname();
+  const { directoryName, disconnect } = useFileSystem();
+  const queryClient = useQueryClient();
   const [dismissed, setDismissed] = useState<boolean>(() => readDismissed());
   const [mode, setMode] = useState<"convert" | "selfexport" | null>(null);
 
@@ -57,6 +61,11 @@ export default function MigrationGate() {
   const onComplete = () => {
     dismiss();
     setMode(null);
+    // The migration changed the folder's user count and/or cleared the
+    // lab-head role, so the cached lab-mode answer (staleTime Infinity) is now
+    // wrong. Invalidate it so the gate's `isLabMode` recomputes to solo and the
+    // popup stays closed without needing a hard reload.
+    void queryClient.invalidateQueries({ queryKey: LAB_MODE_QUERY_KEY });
   };
 
   // Operator surfaces (admin + LLC business) are carved out from every gate.
@@ -99,6 +108,25 @@ export default function MigrationGate() {
           <h2 className="text-title font-semibold text-foreground">
             {isOwner ? "Make this your own folder" : "This is a shared lab folder"}
           </h2>
+        </div>
+
+        {/* What you are about to act on, so the folder and account are never a
+            guess. Grant 2026-06-11: the gate gave no way to confirm which folder
+            or user it meant. */}
+        <div className="rounded-lg border border-border bg-surface-sunken px-3.5 py-2.5 text-meta">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-foreground-muted">Folder</span>
+            <span className="truncate font-medium text-foreground">
+              {directoryName ?? "this folder"}
+            </span>
+          </div>
+          <div className="mt-1 flex items-center justify-between gap-3">
+            <span className="text-foreground-muted">Signed in as</span>
+            <span className="truncate font-medium text-foreground">
+              {currentUser}
+              {isOwner ? " (this folder's main account)" : ""}
+            </span>
+          </div>
         </div>
 
         {isOwner ? (
@@ -149,6 +177,18 @@ export default function MigrationGate() {
             </div>
           </>
         )}
+
+        {/* Escape hatch: if this is the wrong folder or the wrong account, do
+            not force a choice, let them reconnect a different one. */}
+        <div className="border-t border-border pt-3 text-center">
+          <button
+            type="button"
+            onClick={() => void disconnect()}
+            className="text-meta text-foreground-muted underline-offset-2 hover:text-foreground hover:underline"
+          >
+            Wrong folder or account? Use a different folder
+          </button>
+        </div>
       </div>
     </LivingPopup>
   );

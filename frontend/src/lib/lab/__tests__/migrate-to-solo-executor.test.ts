@@ -426,6 +426,35 @@ describe("executeMigrationToSolo: idempotency", () => {
     expect(result.movedUsers).toHaveLength(0);
     expect(result.sharesStripped).toHaveLength(0);
   });
+
+  // Regression: a folder already down to one user, but whose sole account is
+  // still a lab_head, must be demoted to member on the alreadySolo path.
+  // Otherwise lab mode ("2+ users OR any lab head") never clears and the
+  // migration gate re-fires on every launch while "Convert this folder to mine"
+  // silently no-ops. See migrate-to-solo-executor alreadySolo fast path.
+  it("alreadySolo plan clamps a lone lab_head primary to member", async () => {
+    await writeJson(tmp, "users/manny/settings.json", {
+      account_type: "lab_head",
+      display_name: "Manny",
+    });
+    const mfs = createNodeMigrationFs(tmp);
+    const result = await executeMigrationToSolo({
+      fs: mfs,
+      plan: {
+        primaryUser: "manny",
+        usersToMove: [],
+        alreadySolo: true,
+      },
+    });
+    expect(result.movedUsers).toHaveLength(0);
+    const settings = (await readJson(
+      tmp,
+      "users/manny/settings.json",
+    )) as Record<string, unknown>;
+    expect(settings["account_type"]).toBe("member");
+    // Untouched fields survive the clamp.
+    expect(settings["display_name"]).toBe("Manny");
+  });
 });
 
 // ---------------------------------------------------------------------------

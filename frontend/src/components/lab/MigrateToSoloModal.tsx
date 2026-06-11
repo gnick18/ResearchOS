@@ -122,11 +122,21 @@ export default function MigrateToSoloModal({
         {phase === "preview" && plan && plan.alreadySolo && (
           <>
             <p className="text-body text-foreground">
-              This folder already has a single user, so there is nothing to convert.
+              This folder already has just you in it. There is no one to move
+              out, but it is still set up as a shared lab, which is why
+              ResearchOS keeps asking. Finish converting it into your personal
+              folder and it will stop.
             </p>
-            <div className="flex justify-end">
+            <p className="text-meta text-foreground-muted">
+              This only updates this folder&apos;s setup. None of your notes,
+              tasks, or files are touched, and nothing is deleted.
+            </p>
+            <div className="flex items-center justify-end gap-2">
               <button type="button" onClick={onClose} className="px-4 py-2 text-body rounded-lg border border-border text-foreground hover:bg-surface-raised">
-                Close
+                Cancel
+              </button>
+              <button type="button" onClick={run} className="btn-brand px-4 py-2 text-body rounded-lg">
+                Make it my personal folder
               </button>
             </div>
           </>
@@ -190,7 +200,9 @@ export default function MigrateToSoloModal({
               <Icon name="refresh" className="h-7 w-7" />
             </span>
             <p className="text-body text-foreground">
-              Converting. Moving {count} {peopleWord} out and tidying up.
+              {count > 0
+                ? `Converting. Moving ${count} ${peopleWord} out and tidying up.`
+                : "Converting. Finishing up."}
             </p>
             <p className="text-meta text-foreground-muted">
               This can take a moment on a synced folder. Please keep this tab open.
@@ -202,23 +214,33 @@ export default function MigrateToSoloModal({
           <>
             <div className="flex items-center gap-2 text-green-600">
               <Icon name="check" className="h-5 w-5" />
-              <p className="text-body font-medium">This folder is now single-user.</p>
+              <p className="text-body font-medium">
+                This folder is now your personal folder.
+              </p>
             </div>
-            <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-raised p-4">
-              <Point icon="download" title="Hand-off copies are ready">
-                Find each person under{" "}
-                <code className="text-meta">{directoryName ?? "this folder"}/_migration_bundles</code> and send them
-                their bundle. They open it as their own folder.
-              </Point>
-              <Point icon="history" title="Nothing was deleted">
-                The originals are in{" "}
-                <code className="text-meta">{directoryName ?? "this folder"}/_trash/migrated_users</code> if you ever
-                need to recover them.
-              </Point>
-            </div>
-            {result.movedUsers.length > 0 && (
-              <p className="text-meta text-foreground-muted">
-                Moved out: {result.movedUsers.join(", ")}.
+            {result.movedUsers.length > 0 ? (
+              <>
+                <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-raised p-4">
+                  <Point icon="download" title="Hand-off copies are ready">
+                    Find each person under{" "}
+                    <code className="text-meta">{directoryName ?? "this folder"}/_migration_bundles</code> and send them
+                    their bundle. They open it as their own folder.
+                  </Point>
+                  <Point icon="history" title="Nothing was deleted">
+                    The originals are in{" "}
+                    <code className="text-meta">{directoryName ?? "this folder"}/_trash/migrated_users</code> if you ever
+                    need to recover them.
+                  </Point>
+                </div>
+                <p className="text-meta text-foreground-muted">
+                  Moved out: {result.movedUsers.join(", ")}.
+                </p>
+              </>
+            ) : (
+              <p className="text-body text-foreground-muted">
+                Nothing needed to move. This just cleared the leftover shared-lab
+                setup, so it works as a single-user folder now and will not keep
+                asking.
               </p>
             )}
             <div className="flex justify-end">

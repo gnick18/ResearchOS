@@ -115,8 +115,17 @@ export async function executeMigrationToSolo(
     trashDir = "_trash/migrated_users",
   } = opts;
 
-  // No-op fast path: folder is already solo.
+  // Already down to one (or zero) users, so nothing moves. But converting to a
+  // personal folder must still clear a leftover lab-head role: lab mode is
+  // "two or more users OR any lab head", so a solo lab_head folder otherwise
+  // re-triggers the migration gate on every launch and "Convert this folder to
+  // mine" looks like it does nothing. Clamp the primary's account_type to member
+  // first, then return, so the fast path is idempotent and actually solo-izes.
   if (plan.alreadySolo) {
+    await clampSettingsToMember(
+      fs,
+      joinPath("users", plan.primaryUser, "settings.json"),
+    );
     return {
       primaryUser: plan.primaryUser,
       movedUsers: [],
