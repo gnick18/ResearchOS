@@ -33,9 +33,9 @@ import {
   readPlotStyle,
   renderPlot,
   figureFileStem,
-  downloadSvg,
-  downloadPng,
-  copyFigureToClipboard,
+  downloadFigureSvg,
+  downloadFigurePng,
+  copyFigure,
   type PlotStyle,
   type ErrorBarKind,
   type FitModelId,
@@ -133,7 +133,7 @@ export default function GraphEditor({
   const isSurvival = style.kind === "survivalCurve";
   // The live figure. Recomputed whenever the spec, the table, or the linked
   // analysis changes (a cell edit reprojects content, so the points move).
-  const { svg, geometry } = useMemo(
+  const { svg, geometry, frame } = useMemo(
     () => renderPlot(spec, content, analysis),
     [spec, content, analysis],
   );
@@ -185,11 +185,11 @@ export default function GraphEditor({
     onStyleChange({ palette: id, colorOverrides: {} });
   };
 
-  const onExportSvg = () => downloadSvg(svg, fileStem);
+  const onExportSvg = () => downloadFigureSvg(svg, frame, fileStem);
   const onExportPng = async () => {
     setBusy(true);
     try {
-      await downloadPng(svg, geometry.width, geometry.height, fileStem);
+      await downloadFigurePng(svg, frame, fileStem);
     } finally {
       setBusy(false);
     }
@@ -197,11 +197,7 @@ export default function GraphEditor({
   const onCopy = async () => {
     setBusy(true);
     try {
-      const mode = await copyFigureToClipboard(
-        svg,
-        geometry.width,
-        geometry.height,
-      );
+      const mode = await copyFigure(svg, frame);
       setCopyState(mode);
       setTimeout(() => setCopyState("idle"), 1800);
     } catch {

@@ -1156,6 +1156,51 @@ export function withRootSize(
     .replace(/height="[^"]*"/, `height="${height}"`);
 }
 
+/** Round a physical inch value to a tidy string for an SVG width / height. */
+function inchAttr(inches: number): string {
+  // Trim to 4 decimals so 3.5 stays "3.5in" and odd cm conversions stay short.
+  return `${Number(inches.toFixed(4))}in`;
+}
+
+/**
+ * Produce the export-ready SVG markup for a figure. The root width / height are
+ * set in true physical inches (so the .svg file opens at journal size in a
+ * vector tool) while the viewBox stays the design-px box. With no custom size
+ * the markup is returned unchanged, so an old figure exports exactly as before.
+ * The SVG stays self-contained (no external CSS), so it remains a valid export.
+ */
+export function exportSvgMarkup(svg: string, frame: FigureFrame): string {
+  if (!frame.hasSize) return svg;
+  return withRootSize(
+    svg,
+    inchAttr(frame.exportInchesW),
+    inchAttr(frame.exportInchesH),
+  );
+}
+
+/**
+ * The PNG pixel dimensions a figure exports at. A sized figure rasterizes at
+ * physicalInches * dpi (so 3.5 in at 300 DPI is 1050 px wide). A figure with no
+ * size keeps the prior hi-DPI behavior (the base box times the 3x device scale),
+ * so an old figure's PNG is unchanged.
+ */
+export function exportPngPixels(frame: FigureFrame): {
+  width: number;
+  height: number;
+} {
+  if (!frame.hasSize) {
+    const LEGACY_SCALE = 3;
+    return {
+      width: Math.round(FIG.width * LEGACY_SCALE),
+      height: Math.round(FIG.height * LEGACY_SCALE),
+    };
+  }
+  return {
+    width: Math.round(frame.exportInchesW * frame.dpi),
+    height: Math.round(frame.exportInchesH * frame.dpi),
+  };
+}
+
 /**
  * The one-call path the editor uses: spec + content (+ the linked analysis) to a
  * ready SVG string. Resolves groups, pulls bracket requests from the analysis,
@@ -2017,6 +2062,81 @@ export async function downloadPng(
 }
 
 /**
+ * Rasterize an SVG to a PNG Blob at exact target pixel dimensions. The source
+ * figure's viewBox is the layout box, so drawing it to fill a width x height
+ * canvas scales it crisply to the requested resolution. Used by the size-aware
+ * export so a 3.5 in figure at 300 DPI rasterizes to a 1050 px wide PNG.
+ */
+export function svgToPngBlobAt(
+  svg: string,
+  pixelWidth: number,
+  pixelHeight: number,
+): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(svgBlob);
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(pixelWidth));
+        canvas.height = Math.max(1, Math.round(pixelHeight));
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          URL.revokeObjectURL(url);
+          reject(new Error("Canvas 2D context unavailable for PNG export."));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error("Canvas produced no PNG blob."));
+        }, "image/png");
+      } catch (err) {
+        URL.revokeObjectURL(url);
+        reject(err instanceof Error ? err : new Error(String(err)));
+      }
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Failed to rasterize the figure SVG."));
+    };
+    img.src = url;
+  });
+}
+
+/**
+ * Download the figure as a vector SVG sized to its style. The root width /
+ * height carry true physical inches (so the file opens at journal size) while
+ * the viewBox stays the layout box. A figure with no custom size exports the
+ * markup unchanged.
+ */
+export function downloadFigureSvg(
+  svg: string,
+  frame: FigureFrame,
+  fileStem: string,
+): void {
+  downloadSvg(exportSvgMarkup(svg, frame), fileStem);
+}
+
+/**
+ * Download the figure as a PNG rasterized to its export size (physicalInches *
+ * dpi for a sized figure, or the prior 3x hi-DPI base for a sizeless one). The
+ * SVG carries physical units so the raster matches the intended print size.
+ */
+export async function downloadFigurePng(
+  svg: string,
+  frame: FigureFrame,
+  fileStem: string,
+): Promise<void> {
+  const { width, height } = exportPngPixels(frame);
+  const markup = exportSvgMarkup(svg, frame);
+  const blob = await svgToPngBlobAt(markup, width, height);
+  downloadBlob(blob, `${fileStem}.png`);
+}
+
+/**
  * Copy the figure to the OS clipboard as a PNG image when the async Clipboard
  * image API is available, falling back to copying the SVG markup as text. The
  * why: a researcher pastes straight into a slide or a doc, and a PNG pastes as a
@@ -2044,5 +2164,35 @@ export async function copyFigureToClipboard(
     }
   }
   await navigator.clipboard.writeText(svg);
+  return "text";
+}
+
+/**
+ * Copy the figure to the clipboard at its export size. Rasterizes a PNG at
+ * physicalInches * dpi (so a pasted slide image matches the chosen print size),
+ * falling back to the physically-sized SVG text when image-clipboard is blocked.
+ */
+export async function copyFigure(
+  svg: string,
+  frame: FigureFrame,
+): Promise<"image" | "text"> {
+  const markup = exportSvgMarkup(svg, frame);
+  const { width, height } = exportPngPixels(frame);
+  const canWriteImage =
+    typeof ClipboardItem !== "undefined" &&
+    !!navigator.clipboard &&
+    typeof navigator.clipboard.write === "function";
+  if (canWriteImage) {
+    try {
+      const png = await svgToPngBlobAt(markup, width, height);
+      await navigator.clipboard.write([
+        new ClipboardItem({ "image/png": png }),
+      ]);
+      return "image";
+    } catch {
+      // Fall through to the text path.
+    }
+  }
+  await navigator.clipboard.writeText(markup);
   return "text";
 }

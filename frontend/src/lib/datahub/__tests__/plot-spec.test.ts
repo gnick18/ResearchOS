@@ -42,6 +42,8 @@ import {
   figureBox,
   figureFrame,
   withRootSize,
+  exportSvgMarkup,
+  exportPngPixels,
   type PlotStyle,
   type PlotGeometry,
 } from "@/lib/datahub/plot-spec";
@@ -752,5 +754,58 @@ describe("plot-spec: figure frame + root sizing", () => {
     expect(out).toContain('viewBox="0 0 430 340"');
     // The inner rect keeps its original numeric size (only the first match changes).
     expect(out).toContain('<rect width="430" height="340"/>');
+  });
+});
+
+describe("plot-spec: export honors size + DPI", () => {
+  it("PNG pixels are physicalInches * dpi for a sized figure", () => {
+    const frame = figureFrame({
+      ...defaultPlotStyle(),
+      width: 3.5,
+      height: 2.6,
+      sizeUnit: "in",
+      dpi: 300,
+    });
+    const px = exportPngPixels(frame);
+    expect(px.width).toBe(1050); // 3.5 in * 300 DPI
+    expect(px.height).toBe(780); // 2.6 in * 300 DPI
+  });
+
+  it("a higher DPI raises the exported pixel count", () => {
+    const frame = figureFrame({
+      ...defaultPlotStyle(),
+      width: 3.5,
+      height: 2.6,
+      sizeUnit: "in",
+      dpi: 600,
+    });
+    expect(exportPngPixels(frame).width).toBe(2100);
+  });
+
+  it("a no-size figure keeps the prior 3x hi-DPI base raster", () => {
+    const px = exportPngPixels(figureFrame(defaultPlotStyle()));
+    expect(px.width).toBe(FIG.width * 3);
+    expect(px.height).toBe(FIG.height * 3);
+  });
+
+  it("exportSvgMarkup sets physical inches on the root and keeps the viewBox", () => {
+    const content = threeGroupContent();
+    const spec = withStyle(
+      buildPlotSpec({ id: "p", kind: "columnScatter", tableId: "1" }),
+      { width: 3.5, height: 2.6, sizeUnit: "in" },
+    );
+    const { svg, frame } = renderPlot(spec, content, null);
+    const out = exportSvgMarkup(svg, frame);
+    expect(out).toContain('width="3.5in"');
+    expect(out).toContain('height="2.6in"');
+    // The viewBox still frames the design-px box (so the figure is not clipped).
+    expect(out).toContain(`viewBox="0 0 ${toDesignPx(3.5, "in")} ${toDesignPx(2.6, "in")}"`);
+  });
+
+  it("exportSvgMarkup leaves a no-size figure unchanged", () => {
+    const content = threeGroupContent();
+    const spec = buildPlotSpec({ id: "p", kind: "columnScatter", tableId: "1" });
+    const { svg, frame } = renderPlot(spec, content, null);
+    expect(exportSvgMarkup(svg, frame)).toBe(svg);
   });
 });
