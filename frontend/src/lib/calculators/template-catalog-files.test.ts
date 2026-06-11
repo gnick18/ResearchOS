@@ -70,8 +70,8 @@ function asCalc(t: CalculatorTemplate): CustomCalculator {
 }
 
 describe("calculator-template on-disk manifest", () => {
-  it("parses the shipped manifest with all 10 seed templates", () => {
-    expect(manifest.templates.length).toBe(10);
+  it("parses the shipped manifest with all 11 seed templates", () => {
+    expect(manifest.templates.length).toBe(11);
   });
 
   it("every manifest slug has a matching template file", () => {

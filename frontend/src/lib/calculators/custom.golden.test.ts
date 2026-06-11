@@ -225,3 +225,30 @@ describe("GOLDEN: shannon-diversity", () => {
   it("Shannon H oracle constant", () => near(out(r, "Shannon H").value, 1.2798542258336674));
   it("richness = 4", () => near(out(r, "Richness").value, 4));
 });
+
+// ===========================================================================
+// 11. Spore concentration (hemocytometer) — Keller Lab method, transcribed
+//     verbatim from the source script (internal vs outer five squares).
+//       internal: spores/mL = (count * 5) * 1e4 * dilution
+//       outer:    spores/mL = (count * 1e4 * dilution) / 5
+//     Oracle (count=50, dilution=100):
+//       base = 50 * 1e4 * 100 = 5e7
+//       internal = 5e7 * 5 = 2.5e8 ; outer = 5e7 / 5 = 1e7
+// ===========================================================================
+describe("GOLDEN: spore-concentration", () => {
+  const t = loadTemplate("spore-concentration");
+  const internal = evaluateCustomCalculator(asCalc(t), {
+    countType: "i",
+    dilution: 100,
+    avgCount: 50,
+  });
+  const outer = evaluateCustomCalculator(asCalc(t), {
+    countType: "o",
+    dilution: 100,
+    avgCount: 50,
+  });
+  it("internal squares: 2.5e8 spores/mL", () =>
+    near(out(internal, "Spores per mL").value, 2.5e8));
+  it("outer squares: 1e7 spores/mL", () =>
+    near(out(outer, "Spores per mL").value, 1e7));
+});

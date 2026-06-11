@@ -61,6 +61,12 @@
       "name": "Shannon diversity index",
       "description": "Shannon entropy and richness from per-taxon abundance counts.",
       "field": "Ecology and microbiome"
+    },
+    {
+      "slug": "spore-concentration",
+      "name": "Spore concentration (hemocytometer)",
+      "description": "Spores per mL from a hemocytometer count of the four corner squares plus the center, for either the internal or the outer five squares.",
+      "field": "Mycology"
     }
   ]
 }

@@ -1,0 +1,26 @@
+{
+  "slug": "spore-concentration",
+  "name": "Spore concentration (hemocytometer)",
+  "description": "Spores per mL from a hemocytometer count of the four corner squares plus the center, for either the internal or the outer five squares.",
+  "field": "Mycology",
+  "inputs": [
+    {
+      "key": "countType",
+      "type": "dropdown",
+      "label": "Squares counted",
+      "options": [
+        { "label": "Internal squares", "value": "i" },
+        { "label": "Outer squares", "value": "o" }
+      ]
+    },
+    { "key": "dilution", "type": "number", "label": "Dilution factor (type 100 for 1/100)", "default": 100 },
+    { "key": "avgCount", "type": "number", "label": "Average spore count", "default": 50 }
+  ],
+  "steps": [
+    { "key": "base", "expr": "avgCount * 10000 * dilution" }
+  ],
+  "conditionals": [],
+  "outputs": [
+    { "label": "Spores per mL", "expr": "if(countType == \"i\", base * 5, base / 5)", "unit": "spores/mL" }
+  ]
+}
