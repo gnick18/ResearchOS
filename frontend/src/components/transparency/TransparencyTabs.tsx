@@ -39,6 +39,9 @@ const ORACLE_COLOR: Record<string, string> = {
   "native-hmmer": "#7c3aed", // violet
   wallace: "#f59e0b", // amber (context method)
   "gc-rule": "#14b8a6", // teal (context method)
+  "genbank-translation": "#0891b2", // cyan (published reference)
+  "reference-genome-digest": "#0891b2", // cyan (published reference)
+  "published-qpcr": "#0891b2", // cyan (published reference)
 };
 
 function colorFor(id: string): string {
@@ -141,8 +144,9 @@ function CaseVisualCard({ domain, c }: { domain: DomainReport; c: CaseResult }) 
       {v?.kind === "property-table" || v?.kind === "sequence-match" || v?.kind === "domain-set" ? null : (
         <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-meta">
           {c.comparisons.map((cmp) => (
-            <span key={cmp.oracleId} className="text-foreground-muted">
-              vs {oracleName(domain.oracles, cmp.oracleId)}: ResearchOS{" "}
+            <span key={`${cmp.oracleId}-${cmp.metric ?? ""}`} className="text-foreground-muted">
+              vs {oracleName(domain.oracles, cmp.oracleId)}
+              {cmp.metric ? <span className="font-mono"> ({cmp.metric})</span> : null}: ResearchOS{" "}
               <span className="font-mono text-foreground">{cmp.ours}</span>, reference{" "}
               <span className="font-mono text-foreground">{cmp.theirs}</span>{" "}
               <span className="text-foreground-muted">(Δ {cmp.delta} {cmp.tolerance.unit})</span>
