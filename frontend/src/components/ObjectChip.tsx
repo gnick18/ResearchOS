@@ -7,11 +7,29 @@
 // renders the chip calmly. it just navigates, and the target page handles "not
 // found", so nothing crashes here.
 //
+// Popup-capable types (ai popup-host bot, 2026-06-11): notes open IN PLACE via
+// the root ObjectPopupHost rather than navigating. Tasks and experiments are a
+// planned follow-up (they are not in ObjectRefType, they open via a separate
+// ?openTask= deep link), so they navigate for now like every other type.
+// The host is mounted once at the root layout and subscribes to the
+// object-popup-bridge bus. Clicking a chip calls openObjectPopup() on
+// popup-capable types; all other types keep navigating as before. This makes
+// every in-app reference tile (in notes, in BeakerBot answers, anywhere
+// RenderedMarkdown renders) open in place when possible, with navigate as the
+// universal fallback for types without a popup yet.
+//
 // Inline SVG icons only (no emojis). Voice. No em-dashes, no mid-sentence colons.
 
 import { useRouter } from "next/navigation";
 import type { ObjectRefType } from "@/lib/references";
+import { parseObjectDeepLink } from "@/lib/references";
+import { openObjectPopup } from "@/components/ai/object-popup-bridge";
 import { Icon } from "@/components/icons";
+
+// Types that open as a real popup in the root host. All others navigate.
+// Kept in sync with ObjectPopupHost's POPUP_CAPABLE set. If you add a type
+// here, add the matching case in ObjectPopupHost too.
+const POPUP_CAPABLE_TYPES = new Set<ObjectRefType>(["note"]);
 
 /** A small inline icon per object type. Stroke-only, currentColor, 1em-ish so it
  *  rides the text baseline inside the pill. */
@@ -90,6 +108,12 @@ function ChipIcon({ type, className }: { type: ObjectRefType; className?: string
  * `button` styled as a chip (an `a` inside markdown-rendered content can nest
  * oddly, and we want a click handler not an href navigation). The href is kept
  * for context but navigation goes through the router so it is a client-side push.
+ *
+ * For popup-capable types (note today), the click calls
+ * openObjectPopup() which routes to the root ObjectPopupHost. The user sees
+ * the real item popup in place without leaving the current view or the BeakerBot
+ * conversation. For all other types the chip navigates as before, and navigation
+ * is also the automatic fallback whenever the popup host is not mounted.
  */
 export default function ObjectChip({
   type,
@@ -108,6 +132,17 @@ export default function ObjectChip({
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
+        if (POPUP_CAPABLE_TYPES.has(type)) {
+          // Open in place via the root popup host. Parse the id from the href
+          // so the bridge call is type-and-id clean. If parsing fails (should
+          // not happen for a well-formed chip), fall through to navigation.
+          const parsed = parseObjectDeepLink(href);
+          if (parsed) {
+            openObjectPopup(parsed);
+            return;
+          }
+        }
+        // Navigate for non-popup types and as the fallback for any parse failure.
         router.push(href);
       }}
       className="mx-0.5 inline-flex max-w-full items-center gap-1 rounded-full border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/15 px-2 py-0.5 align-baseline text-[0.92em] font-medium text-sky-700 dark:text-sky-300 transition-colors hover:border-sky-300 hover:bg-sky-100 dark:hover:bg-sky-500/20"

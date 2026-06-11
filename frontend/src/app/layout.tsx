@@ -5,6 +5,7 @@ import { Providers } from "@/lib/providers";
 import OfflineGatedAnalytics from "@/components/OfflineGatedAnalytics";
 import SelfExportResultBanner from "@/components/lab/SelfExportResultBanner";
 import BeakerBotDock from "@/components/ai/BeakerBotDock";
+import ObjectPopupHost from "@/components/ObjectPopupHost";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -88,6 +89,12 @@ export default function RootLayout({
               the panel, its useAiChat state, the in-flight agent loop, and the
               pending approval all survive. The dock self-gates its visibility
               (flag + connected user + suppressed routes), see BeakerBotDock. */}
+          {/* Root popup host (ai popup-host bot, 2026-06-11). Mounted above the
+              BeakerBot dock so the dock can ask the host to open a popup via
+              openObjectPopup(). Mounted inside Providers so it has the
+              QueryClient, FileSystem context, and PopupStack available. Renders
+              nothing when no popup is open. */}
+          <ObjectPopupHost />
           <BeakerBotDock />
         </Providers>
         {/* Post-disconnect confirmation for a labmate self-export. Mounted at the

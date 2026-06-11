@@ -34,23 +34,53 @@ import Tooltip from "@/components/Tooltip";
 import { useAiChat } from "./useAiChat";
 import { useNavigationBridge } from "./navigation-bridge";
 import { useBeakerBotAutonomy } from "@/lib/ai/autonomy-store";
+import ObjectChip from "@/components/ObjectChip";
+import { parseObjectDeepLink } from "@/lib/references";
 
 // Lightweight markdown renderer for assistant replies only. Scoped to this panel.
 // Uses standard semantic elements styled by the app's Tailwind prose utilities.
-// The components map restricts rendering to safe, expected markdown elements and
-// keeps links from doing anything unexpected (opens in a new tab, rel=noopener).
+// The components map restricts rendering to safe, expected markdown elements.
+//
+// Object-link upgrade (ai popup-host bot, 2026-06-11): links whose href parses
+// as an in-app object deep link are rendered as ObjectChip rather than a plain
+// anchor. ObjectChip opens popup-capable types (note) in place via the root host
+// and navigates for all others. This is the key wiring that turns a BeakerBot
+// "write_note succeeded, here is the note" reply into a real clickable tile.
+// External links are still opened in a new tab with rel=noopener.
 function AssistantMarkdown({ content }: { content: string }) {
   return (
     <div className="prose prose-sm max-w-none text-foreground [&_a]:text-brand [&_a]:underline [&_code]:rounded [&_code]:bg-surface-overlay [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs [&_li]:my-0.5 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:my-1 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-surface-overlay [&_pre]:p-2 [&_strong]:font-semibold [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-4">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          // Open external links safely; keep them from triggering app navigation.
-          a: ({ href, children, ...props }) => (
-            <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
-              {children}
-            </a>
-          ),
+          // Upgrade object deep-links to ObjectChip (which opens in place for
+          // popup-capable types and navigates for all others). External links
+          // keep the safe new-tab behavior.
+          a: ({ href, children, ...props }) => {
+            const objectRef = parseObjectDeepLink(href ?? "");
+            if (objectRef) {
+              // The markdown link text becomes the chip label. ReactMarkdown
+              // passes children as React nodes, so extract the text content.
+              const label =
+                typeof children === "string"
+                  ? children
+                  : Array.isArray(children)
+                    ? String(children.join(""))
+                    : String(children ?? objectRef.id);
+              return (
+                <ObjectChip
+                  type={objectRef.type}
+                  href={href ?? ""}
+                  label={label}
+                />
+              );
+            }
+            return (
+              <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+                {children}
+              </a>
+            );
+          },
           // Tables would overflow the narrow panel. Render as a div so the
           // layout does not break even if the model ignores the formatting
           // guidance and produces one anyway. The system prompt tells BeakerBot
