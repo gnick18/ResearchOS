@@ -52,6 +52,30 @@ export default function MethodValidationPage() {
         reader can follow that trail and reproduce it.
       </p>
 
+      <h2>Reproducing published results</h2>
+      <p>
+        Matching a reference tool shows ResearchOS computes the same thing
+        another program computes. A stronger check is reproducing what the
+        literature itself reports, so the same validation now includes cases
+        drawn straight from primary sources. ResearchOS translates a gene and
+        reproduces the protein that gene&apos;s own GenBank record annotates,
+        digests a known plasmid and reproduces its fragment sizes, and takes a
+        published qPCR standard-curve slope and reproduces the amplification
+        efficiency the paper reports. Each case cites its accession or DOI,
+        every input and reported value is transcribed verbatim from the source
+        rather than paraphrased, and the comparison runs through the same gate
+        as the rest.
+      </p>
+      <p>
+        Where our result and a familiar figure differ for a real reason, we show
+        the real one and explain it rather than matching the textbook out of
+        habit. The lambda HindIII digest is the clean example. The deposited
+        sequence yields seven fragments, not the eight bands of the classic gel
+        marker, because the extra band comes from the cohesive ends annealing
+        during marker preparation, not from an additional cut site. We pin the
+        honest in-silico result and say why.
+      </p>
+
       <h2>Why the numbers cannot silently drift</h2>
       <p>
         The honest part is not just that ResearchOS matches these tools once.

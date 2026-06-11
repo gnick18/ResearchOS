@@ -92,6 +92,16 @@ export default function MethodCatalogPage() {
         concentration against the manufacturer&apos;s own insert before you run
         the bench. The template is the convenient form, and the PDF is the proof.
       </Callout>
+      <p>
+        Two buttons in the template detail make that comparison one click each.{" "}
+        <strong>View full protocol</strong> opens the complete extracted method
+        rendered the way it will look once it is in your library, the full reagent
+        table and cycling program rather than the compact summary the preview
+        shows. <strong>View vendor PDF</strong> opens the bundled source document.
+        Side by side, they let you read our transcription against the
+        manufacturer&apos;s original, which is also how we audit the library
+        ourselves.
+      </p>
       <Screenshot
         src="/wiki/screenshots/method-catalog-source-pdf.png"
         alt="A template detail with its bundled source PDF open side by side, showing the transcribed reagent table next to the same values in the original vendor insert."
@@ -120,9 +130,11 @@ export default function MethodCatalogPage() {
           <strong>search box</strong> (by name, type, or tag) to narrow the list.
         </Step>
         <Step>
-          <strong>Select a template</strong> to preview it in the detail pane,
-          where you see the full protocol body, the structured fields, and, for
-          the 52 with a bundled document, the source PDF you can open and read.
+          <strong>Select a template</strong> to preview it in the detail pane. A
+          compact preview shows the shape of the protocol, and two buttons open
+          the full view, <strong>View full protocol</strong> for the complete
+          rendered method and (for the 52 with a bundled document){" "}
+          <strong>View vendor PDF</strong> for the original.
         </Step>
         <Step>
           Pick a <strong>destination category</strong> for where the new method
