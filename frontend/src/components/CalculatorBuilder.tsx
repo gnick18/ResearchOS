@@ -28,6 +28,11 @@ import {
   templateToDraft,
   type CalculatorTemplate,
 } from "@/lib/calculators/template-catalog";
+import {
+  deriveInputKey,
+  insertIntoFormula,
+  FORMULA_HELPER_CHIPS,
+} from "@/lib/calculators/builder-helpers";
 import { buildCalculatorSubmissionUrl } from "@/lib/calculators/submit-to-library";
 import type {
   CustomCalculator,
@@ -671,6 +676,121 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
+// ── Section header with a one-line plain explanation ─────────────────────────
+//
+// Plain-language labels were one of the five approved fixes: each section says
+// what it is for in human words, so the author is never staring at a bare,
+// jargon-only heading wondering where to start.
+
+function SectionHeader({
+  title,
+  help,
+}: {
+  title: string;
+  help: string;
+}) {
+  return (
+    <div>
+      <SectionTitle>{title}</SectionTitle>
+      <p className="mt-0.5 text-meta font-normal normal-case text-foreground-muted">
+        {help}
+      </p>
+    </div>
+  );
+}
+
+// ── Clickable variable + helper chips above a formula box ────────────────────
+//
+// The author clicks a variable name (an input key or an earlier step key) or a
+// helper (mean, sum, count, if, col) to drop it straight into the formula,
+// instead of remembering and hand-typing the exact short names. The live result
+// next to the box (rendered by the caller) then updates, so the formula feels
+// alive while it is being written.
+
+function FormulaChips({
+  variables,
+  onInsert,
+}: {
+  variables: string[];
+  onInsert: (text: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+      <span className="text-meta text-foreground-muted mr-0.5">
+        Click to insert:
+      </span>
+      {variables.map((v) => (
+        <button
+          key={v}
+          type="button"
+          onClick={() => onInsert(v)}
+          className="font-mono text-meta font-semibold px-2 py-0.5 rounded-full border border-border bg-surface-sunken text-foreground hover:border-sky-400 hover:text-sky-700 dark:hover:text-sky-300 transition-colors"
+        >
+          {v}
+        </button>
+      ))}
+      {FORMULA_HELPER_CHIPS.map((h) => (
+        <button
+          key={h.label}
+          type="button"
+          onClick={() => onInsert(h.insert)}
+          className="font-mono text-meta font-semibold px-2 py-0.5 rounded-full border border-border bg-surface-sunken text-purple-600 dark:text-purple-300 hover:border-sky-400 transition-colors"
+        >
+          {h.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── Auto short-name hint with an optional manual override ────────────────────
+//
+// Shows the formula key that was auto-derived from the input's label ("used in
+// formulas as `colonies`"), with a small Rename toggle that reveals an editable
+// field for the rare case the author wants a different name. Editing it sets the
+// key directly, which the parent then treats as a manual override (the key stops
+// tracking the label).
+
+function InputKeyHint({
+  keyValue,
+  onChange,
+}: {
+  keyValue: string;
+  onChange: (key: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-meta text-foreground-muted">Formula name</span>
+        <input
+          value={keyValue}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="key"
+          aria-label="Formula name (advanced)"
+          autoFocus
+          className={inputCls + " font-mono sm:w-48"}
+        />
+      </div>
+    );
+  }
+  return (
+    <p className="text-meta text-foreground-muted">
+      used in formulas as{" "}
+      <span className="font-mono font-semibold text-sky-700 dark:text-sky-300">
+        {keyValue || "—"}
+      </span>
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="ml-2 font-semibold text-sky-700 dark:text-sky-300 hover:underline"
+      >
+        Rename
+      </button>
+    </p>
+  );
+}
+
 // ── The Edit view (the builder) ──────────────────────────────────────────────
 
 export function CalculatorEditView({
@@ -678,16 +798,31 @@ export function CalculatorEditView({
   existingId,
   onSaved,
   onCancel,
+  onStartFromTemplate,
+  onSwitchToWizard,
 }: {
   initial: CalcDraft;
   /** When set, save patches that record; otherwise a new record is created. */
   existingId?: number;
   onSaved: (saved: CustomCalculator) => void;
   onCancel: () => void;
+  /** Open the template library as the prominent front door. Omitted hides the
+   *  header button (e.g. when editing an already-saved calculator). */
+  onStartFromTemplate?: () => void;
+  /** Hand the in-progress draft to the step-by-step wizard, carrying the data
+   *  unchanged. Omitted hides the offer. */
+  onSwitchToWizard?: (draft: CalcDraft) => void;
 }) {
   const [draft, setDraft] = useState<CalcDraft>(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Steps + Guidance live under an Advanced disclosure so a basic calculator
+  // (Inputs + a Result formula) is all the author sees by default. Auto-open
+  // when the draft already uses them, so editing a template that relies on a
+  // step or a warning never hides that logic.
+  const [advancedOpen, setAdvancedOpen] = useState(
+    initial.steps.length > 0 || initial.conditionals.length > 0,
+  );
   // External send dialog. Only meaningful for a SAVED calculator (it seals the
   // record's current snapshot), so it carries the saved CustomCalculator.
   const [externalCalc, setExternalCalc] = useState<CustomCalculator | null>(null);
@@ -711,18 +846,51 @@ export function CalculatorEditView({
 
   const patch = (p: Partial<CalcDraft>) => setDraft((d) => ({ ...d, ...p }));
 
+  // Variable chips above the Result formula: every input key plus every step
+  // key (steps are intermediate values usable in later formulas). Empty keys
+  // (a half-typed new input) are dropped so a blank chip never appears.
+  const outputVariables = useMemo(
+    () => [
+      ...draft.inputs.map((x) => x.key).filter(Boolean),
+      ...draft.steps.map((x) => x.key).filter(Boolean),
+    ],
+    [draft.inputs, draft.steps],
+  );
+
   // Inputs
   const addInput = () =>
     patch({
       inputs: [
         ...draft.inputs,
-        { key: `input${draft.inputs.length + 1}`, type: "number", label: "" },
+        // New rows start with no key; it is auto-derived from the label as the
+        // author types, so they never hand-edit a separate identifier field.
+        { key: "", type: "number", label: "" },
       ],
     });
   const updateInput = (i: number, p: Partial<CustomCalculatorInput>) =>
     patch({ inputs: draft.inputs.map((x, j) => (j === i ? { ...x, ...p } : x)) });
   const removeInput = (i: number) =>
     patch({ inputs: draft.inputs.filter((_, j) => j !== i) });
+
+  // Auto short-name: when the author edits an input's plain-language label, the
+  // formula key follows along (camelCase, valid, non-reserved, unique), UNLESS
+  // they have manually overridden the key. We detect a manual override by
+  // checking whether the current key still matches what the previous label
+  // would have derived; if it diverged, the key is hand-set and we leave it.
+  const updateInputLabel = (i: number, label: string) => {
+    const current = draft.inputs[i];
+    const others = draft.inputs
+      .filter((_, j) => j !== i)
+      .map((x) => x.key);
+    const keyWasAuto =
+      current.key === "" ||
+      current.key === deriveInputKey(current.label, others);
+    if (keyWasAuto) {
+      updateInput(i, { label, key: deriveInputKey(label, others) });
+    } else {
+      updateInput(i, { label });
+    }
+  };
 
   // Steps
   const addStep = () =>
@@ -786,6 +954,16 @@ export function CalculatorEditView({
           {existingId !== undefined ? "Edit calculator" : "Build your own"}
         </h3>
         <div className="flex items-center gap-2">
+          {onStartFromTemplate && (
+            <button
+              type="button"
+              onClick={onStartFromTemplate}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-meta font-semibold text-foreground-muted hover:text-foreground hover:bg-surface-sunken transition-colors"
+            >
+              <Icon name="book" className="w-4 h-4" />
+              Start from a template
+            </button>
+          )}
           <button
             type="button"
             onClick={onCancel}
@@ -804,6 +982,17 @@ export function CalculatorEditView({
           </button>
         </div>
       </div>
+
+      {onSwitchToWizard && (
+        <button
+          type="button"
+          onClick={() => onSwitchToWizard(draft)}
+          className="inline-flex items-center gap-1.5 text-meta font-semibold text-sky-700 dark:text-sky-300 hover:text-sky-900"
+        >
+          <Icon name="list" className="w-4 h-4" />
+          Use the step-by-step wizard instead
+        </button>
+      )}
 
       {error && (
         <p className="flex items-start gap-1.5 text-body text-red-600 dark:text-red-400">
@@ -845,21 +1034,17 @@ export function CalculatorEditView({
 
       {/* Inputs */}
       <div className="space-y-2">
-        <SectionTitle>Inputs</SectionTitle>
+        <SectionHeader
+          title="Inputs"
+          help="The boxes you type measurements into when you run the calculator."
+        />
         {draft.inputs.map((input, i) => (
           <RowShell key={i} onRemove={() => removeInput(i)} removeLabel="Remove input">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <input
-                value={input.key}
-                onChange={(e) => updateInput(i, { key: e.target.value })}
-                placeholder="key"
-                aria-label="Input key"
-                className={inputCls + " font-mono"}
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-[2fr_1fr] gap-2">
               <input
                 value={input.label}
-                onChange={(e) => updateInput(i, { label: e.target.value })}
-                placeholder="Label"
+                onChange={(e) => updateInputLabel(i, e.target.value)}
+                placeholder="e.g. Colonies counted"
                 aria-label="Input label"
                 className={inputCls}
               />
@@ -916,9 +1101,13 @@ export function CalculatorEditView({
                 />
               )}
             </div>
+            <InputKeyHint
+              keyValue={input.key}
+              onChange={(key) => updateInput(i, { key })}
+            />
             {isReservedKey(input.key) && (
               <p className="text-meta text-amber-700 dark:text-amber-300">
-                {`"${input.key.trim()}" is a built-in name, so the formula will read it as the function, not your input. Rename the key.`}
+                {`"${input.key.trim()}" is a built-in name, so the formula will read it as the function, not your input. Rename it below.`}
               </p>
             )}
             {input.type === "dropdown" && (
@@ -938,77 +1127,60 @@ export function CalculatorEditView({
         <AddButton label="Add input" onClick={addInput} />
       </div>
 
-      {/* Steps */}
+      {/* Result (outputs). Relabelled as the answer, because "Outputs" read as
+          jargon. Each formula box carries clickable variable + helper chips and
+          a live result, the third approved fix. */}
       <div className="space-y-2">
-        <SectionTitle>Steps (intermediate values)</SectionTitle>
-        {draft.steps.map((step, i) => (
-          <RowShell key={i} onRemove={() => removeStep(i)} removeLabel="Remove step">
-            <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr] gap-2">
-              <input
-                value={step.key}
-                onChange={(e) => updateStep(i, { key: e.target.value })}
-                placeholder="name"
-                aria-label="Step name"
-                className={inputCls + " font-mono"}
-              />
-              <input
-                value={step.expr}
-                onChange={(e) => updateStep(i, { expr: e.target.value })}
-                placeholder="expression, e.g. mean(live)"
-                aria-label="Step expression"
-                className={inputCls + " font-mono"}
-              />
-            </div>
-          </RowShell>
-        ))}
-        <AddButton label="Add step" onClick={addStep} />
-      </div>
-
-      {/* Conditionals */}
-      <div className="space-y-2">
-        <SectionTitle>Guidance (conditionals)</SectionTitle>
-        {draft.conditionals.map((cond, i) => (
-          <RowShell key={i} onRemove={() => removeConditional(i)} removeLabel="Remove guidance">
-            <input
-              value={cond.expr}
-              onChange={(e) => updateConditional(i, e.target.value)}
-              placeholder={'if(viability < 80, "Viability below 80%", "")'}
-              aria-label="Guidance expression"
-              className={inputCls + " font-mono"}
-            />
-          </RowShell>
-        ))}
-        <AddButton label="Add guidance" onClick={addConditional} />
-      </div>
-
-      {/* Outputs */}
-      <div className="space-y-2">
-        <SectionTitle>Outputs</SectionTitle>
+        <SectionHeader
+          title="Result"
+          help="The answer, written as a formula using the input names above."
+        />
         {draft.outputs.map((out, i) => (
-          <RowShell key={i} onRemove={() => removeOutput(i)} removeLabel="Remove output">
+          <RowShell key={i} onRemove={() => removeOutput(i)} removeLabel="Remove result">
             <div className="space-y-2">
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr_auto] gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
                 <input
                   value={out.label}
                   onChange={(e) => updateOutput(i, { label: e.target.value })}
-                  placeholder="Label"
-                  aria-label="Output label"
+                  placeholder="Answer label, e.g. CFU per mL"
+                  aria-label="Result label"
                   className={inputCls}
-                />
-                <input
-                  value={out.expr}
-                  onChange={(e) => updateOutput(i, { expr: e.target.value })}
-                  placeholder="expression"
-                  aria-label="Output expression"
-                  className={inputCls + " font-mono"}
                 />
                 <input
                   value={out.unit ?? ""}
                   onChange={(e) => updateOutput(i, { unit: e.target.value || undefined })}
                   placeholder="Unit"
-                  aria-label="Output unit"
+                  aria-label="Result unit"
                   className={inputCls + " sm:w-24"}
                 />
+              </div>
+              <div>
+                <FormulaChips
+                  variables={outputVariables}
+                  onInsert={(text) =>
+                    updateOutput(i, { expr: insertIntoFormula(out.expr, text) })
+                  }
+                />
+                <input
+                  value={out.expr}
+                  onChange={(e) => updateOutput(i, { expr: e.target.value })}
+                  placeholder="formula, e.g. colonies / (dilution * platedVol)"
+                  aria-label="Result formula"
+                  className={inputCls + " font-mono"}
+                />
+                {/* Live result for this output, from the engine over the seeded
+                    preview values, so the formula feels alive while typing. */}
+                <div className="mt-2 flex items-baseline justify-between gap-3 rounded-lg border border-border bg-surface-sunken px-3 py-2">
+                  <span className="text-meta text-foreground-muted">
+                    With your example values
+                  </span>
+                  <span className="text-title font-bold text-sky-700 dark:text-sky-300 tabular-nums">
+                    {preview.outputs[i]?.display ?? "—"}
+                    {out.unit ? (
+                      <span className="ml-1 text-meta font-normal">{out.unit}</span>
+                    ) : null}
+                  </span>
+                </div>
               </div>
               {/* Number format. Auto keeps the clean default; Scientific reads a
                   large value as 2.5e8; Fixed pins the decimal count. */}
@@ -1066,7 +1238,105 @@ export function CalculatorEditView({
             </div>
           </RowShell>
         ))}
-        <AddButton label="Add output" onClick={addOutput} />
+        <AddButton label="Add another result" onClick={addOutput} />
+      </div>
+
+      {/* Advanced logic disclosure. Steps + Guidance live here so a basic
+          calculator (Inputs + a Result formula) is all the author sees by
+          default, the second approved fix. Auto-opened when the draft already
+          uses a step or a warning, so editing a template never hides its
+          logic. */}
+      <div className="border-t border-dashed border-border pt-3">
+        <button
+          type="button"
+          onClick={() => setAdvancedOpen((o) => !o)}
+          aria-expanded={advancedOpen}
+          className="flex items-center gap-2 text-body font-semibold text-foreground"
+        >
+          <Icon
+            name="chevronRight"
+            className={
+              "w-4 h-4 text-foreground-muted transition-transform " +
+              (advancedOpen ? "rotate-90" : "")
+            }
+          />
+          Advanced logic (optional)
+        </button>
+        <p className="mt-1 text-meta text-foreground-muted">
+          Most calculators do not need this. Open it only if you want a named
+          intermediate value (a Step) or a warning message (Guidance), like a
+          count is too low note.
+        </p>
+        {advancedOpen && (
+          <div className="mt-3 space-y-5">
+            {/* Steps */}
+            <div className="space-y-2">
+              <SectionHeader
+                title="Steps (intermediate values)"
+                help="A named value computed once, then reused in the result or in later steps."
+              />
+              {draft.steps.map((step, i) => (
+                <RowShell
+                  key={i}
+                  onRemove={() => removeStep(i)}
+                  removeLabel="Remove step"
+                >
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr] gap-2">
+                    <input
+                      value={step.key}
+                      onChange={(e) => updateStep(i, { key: e.target.value })}
+                      placeholder="name"
+                      aria-label="Step name"
+                      className={inputCls + " font-mono"}
+                    />
+                    <div>
+                      <FormulaChips
+                        variables={outputVariables}
+                        onInsert={(text) =>
+                          updateStep(i, {
+                            expr: insertIntoFormula(step.expr, text),
+                          })
+                        }
+                      />
+                      <input
+                        value={step.expr}
+                        onChange={(e) => updateStep(i, { expr: e.target.value })}
+                        placeholder="expression, e.g. mean(live)"
+                        aria-label="Step expression"
+                        className={inputCls + " font-mono"}
+                      />
+                    </div>
+                  </div>
+                </RowShell>
+              ))}
+              <AddButton label="Add step" onClick={addStep} />
+            </div>
+
+            {/* Guidance (conditionals) */}
+            <div className="space-y-2">
+              <SectionHeader
+                title="Guidance (warnings)"
+                help="An optional message shown when a condition is met, like a quality flag."
+              />
+              {draft.conditionals.map((cond, i) => (
+                <RowShell
+                  key={i}
+                  onRemove={() => removeConditional(i)}
+                  removeLabel="Remove guidance"
+                >
+                  <input
+                    value={cond.expr}
+                    onChange={(e) => updateConditional(i, e.target.value)}
+                    placeholder={'if(viability < 80, "Viability below 80%", "")'}
+                    aria-label="Guidance expression"
+                    className={inputCls + " font-mono"}
+                  />
+                </RowShell>
+              ))}
+              <AddButton label="Add guidance" onClick={addConditional} />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Sharing */}

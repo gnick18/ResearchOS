@@ -436,6 +436,7 @@ function CalculatorsModalWithBuilder({ onClose }: { onClose: () => void }) {
                   existingId={mode.existingId}
                   onSaved={onSaved}
                   onCancel={() => setMode({ kind: "builtin", tab: "scientific" })}
+                  onStartFromTemplate={() => setMode({ kind: "library" })}
                 />
               )}
               {mode.kind === "library" && (
