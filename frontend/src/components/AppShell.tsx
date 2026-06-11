@@ -711,7 +711,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <TimerAlarm />
       {/* BeakerBot app-wide dock (ai docking bot, 2026-06-11). Mounted ONCE here
           so the panel (and its useAiChat conversation) survives client-side route
-          changes, which is what lets spotlight_ui_element navigate the user to
+          changes, which is what lets guide_to_element navigate the user to
           another page without tearing down the chat. Gated on the flag, so it is
           dark on main and in prod by default. Suppressed on the dense /sequences
           focus surface, matching the Calculators / Report-bug FAB convention. */}

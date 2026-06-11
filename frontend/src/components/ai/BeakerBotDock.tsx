@@ -7,7 +7,7 @@
 // across client-side route changes. Previously the panel lived only on the /ai
 // route and unmounted on navigation, which broke the navigate-and-spotlight tool,
 // when BeakerBot walked you to another page to highlight a button, the chat was
-// left behind. With the panel always mounted here, spotlight_ui_element can
+// left behind. With the panel always mounted here, guide_to_element can
 // navigate the app while the conversation stays exactly where it was.
 //
 // This component renders two things, the summon FAB (a floating button that

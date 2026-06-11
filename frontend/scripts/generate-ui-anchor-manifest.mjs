@@ -6,10 +6,18 @@
 //
 // Output: frontend/src/lib/ai/ui-anchors.generated.ts
 //   A COMMITTED, generated TypeScript module exporting UI_ANCHORS, an array of
-//   { id, label, page } the spotlight tools search and navigate over. The data
-//   is generated, not hand-maintained, so re-running this script after a UI
-//   change re-derives the manifest from the source of truth (the live
-//   data-tour-target anchors).
+//   { id, label, page }. The data is generated, not hand-maintained, so re-running
+//   this script after a UI change re-derives the manifest from the source of truth
+//   (the live data-tour-target anchors).
+//
+//   DEMOTED scope (ai perception bot, 2026-06-11): BeakerBot no longer selects
+//   on-page elements from this manifest. Live perception (lib/ai/page-perception.ts,
+//   the read_page + guide_to_element tools) reads the real DOM at call time, which
+//   never goes stale as the UI moves buttons around. The manifest's one surviving
+//   job is PAGE-LEVEL ROUTING, page-routing.ts maps a free-text request to the most
+//   likely page so go_to_page can navigate there before perceiving it. So the labels
+//   here only need to be good enough to route to the right page, not to be a faithful
+//   per-element catalog.
 //
 // What it does:
 //   - Scans frontend/src for STATIC data-tour-target="<kebab-id>" values.

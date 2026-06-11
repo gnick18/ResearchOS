@@ -1,45 +1,59 @@
 "use client";
 
-// BeakerBot spotlight controller (ai spotlight bot, 2026-06-10).
+// BeakerBot spotlight controller (ai perception bot, 2026-06-11).
 //
-// A self-contained, vanilla-DOM spotlight that BeakerBot's spotlight_ui_element
-// tool drives to highlight one UI element by selector. It renders a pulsing
-// sky-blue glow ring over the target's bounding rect plus a one-line BeakerBot
-// narration bubble, then tracks the target's position until dismissed.
+// A self-contained, vanilla-DOM spotlight that BeakerBot's guide_to_element tool
+// drives to highlight one live element. This is the tour replacement, so the
+// highlight is meant to feel premium, not like a debug box. It renders, over the
+// target's bounding rect:
+//   - a dimming scrim with a soft cut-out around the target, so the eye is pulled
+//     to the one control and the rest of the page recedes,
+//   - a sky-blue glow ring that breathes (a gentle scale + glow pulse), hugging
+//     the element and repositioning on scroll and resize,
+//   - an animated pointer cue (a small bouncing arrow) that draws the eye in from
+//     the side the bubble sits on,
+//   - a BeakerBot narration bubble in the brand sky tone with a one-line note and
+//     a dismiss control.
 //
-// Why vanilla DOM and not the React TourSpotlight component:
-//   - The spotlight has to survive a route change. spotlight_ui_element navigates
-//     from /ai to the target page, which unmounts the BeakerBotPanel (and any
-//     React overlay it hosted). A controller that owns its own nodes on
-//     document.body outlives any component unmount and needs no persistent React
-//     host, so we do not have to touch AppShell or providers (the scope guard).
-//   - The tool runs OUTSIDE React in the agent loop, so an imperative controller
-//     it can call directly is the natural fit.
-// The visual language (sky-blue pulsing glow ring) is a faithful copy of
-// TourSpotlight's ring, and the bubble mirrors SpeechBubble's default sky tone,
-// so the highlight looks like the rest of BeakerBot. We do NOT re-enable the tour
-// or touch its state machine.
+// Why vanilla DOM and not a React overlay, the spotlight has to SURVIVE A ROUTE
+// CHANGE. guide_to_element can navigate from one page to another, which remounts
+// the page tree. A controller that owns its own nodes on document.body outlives
+// any React unmount and needs no persistent host, so we never touch AppShell or
+// providers (the scope guard). The tool also runs OUTSIDE React in the agent loop,
+// so an imperative controller it calls directly is the natural fit.
+//
+// The visual language (sky-blue ring + sky narration bubble) matches BeakerBot's
+// brand and the SpeechBubble primitive. We do NOT re-enable the deprecated tour or
+// touch its state machine.
 //
 // House style, no em-dashes, no emojis, no mid-sentence colons.
 
-// How long to keep polling for a target that has not mounted yet (the page is
-// still rendering after navigation) before giving up. Generous, because a cold
-// route can take a beat to hydrate.
+// How long to keep polling for a target that has not mounted yet before giving
+// up. Generous, because a cold route can take a beat to hydrate.
 const DEFAULT_TIMEOUT_MS = 6000;
 
 // How often to poll for the target while waiting for it to mount.
 const POLL_INTERVAL_MS = 100;
 
-// Z-index band. Above app chrome but the ring is non-interactive. Mirrors the
-// TourSpotlight slot intent (sits over the page, below true app modals).
+// Z-index band. Above app chrome, the scrim and ring are non-interactive (the
+// bubble re-enables pointer events for its dismiss button). Sits over the page,
+// below true app modals.
+const SCRIM_Z = 2147482999;
 const RING_Z = 2147483000;
+const CUE_Z = 2147483000;
 const BUBBLE_Z = 2147483001;
 
-const GLOW_COLOR = "#0284c7"; // sky-700, same as TourSpotlight default.
+const GLOW_COLOR = "#0284c7"; // sky-700, BeakerBot brand.
+const RING_BORDER = "#38bdf8"; // sky-400, matches the SpeechBubble border.
+
+// How long the spotlight stays up before auto-dismissing, so a forgotten ring
+// does not sit on the page forever. Generous, the user can dismiss sooner.
+const AUTO_DISMISS_MS = 30000;
 
 type SpotlightHandles = {
-  overlay: HTMLDivElement;
+  scrim: HTMLDivElement;
   ring: HTMLDivElement;
+  cue: HTMLDivElement;
   bubble: HTMLDivElement;
   cleanup: () => void;
 };
@@ -53,8 +67,9 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-// Inject the pulse keyframes once. Scoped by a stable id so repeat spotlights do
-// not duplicate the style node.
+// Inject the keyframes once. Scoped by a stable id so repeat spotlights do not
+// duplicate the style node. Two animations, a breathing pulse for the ring and a
+// gentle bounce for the pointer cue, plus a soft fade-in for the whole thing.
 function ensureKeyframes(): void {
   if (typeof document === "undefined") return;
   if (document.getElementById("beakerbot-spotlight-keyframes")) return;
@@ -62,13 +77,21 @@ function ensureKeyframes(): void {
   style.id = "beakerbot-spotlight-keyframes";
   style.textContent = `
     @keyframes beakerbotSpotlightPulse {
-      0%   { opacity: 0.45; }
-      50%  { opacity: 0.9; }
-      100% { opacity: 0.45; }
+      0%   { box-shadow: 0 0 0 2px ${GLOW_COLOR}33, 0 0 18px 4px ${GLOW_COLOR}99, inset 0 0 10px 0 ${GLOW_COLOR}55; }
+      50%  { box-shadow: 0 0 0 4px ${GLOW_COLOR}55, 0 0 40px 12px ${GLOW_COLOR}cc, inset 0 0 16px 0 ${GLOW_COLOR}88; }
+      100% { box-shadow: 0 0 0 2px ${GLOW_COLOR}33, 0 0 18px 4px ${GLOW_COLOR}99, inset 0 0 10px 0 ${GLOW_COLOR}55; }
     }
     @keyframes beakerbotSpotlightFadeIn {
       from { opacity: 0; }
       to   { opacity: 1; }
+    }
+    @keyframes beakerbotSpotlightRingIn {
+      from { opacity: 0; transform: scale(1.18); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+    @keyframes beakerbotCueBounce {
+      0%, 100% { transform: translate(0, 0); }
+      50%      { transform: translate(0, 6px); }
     }
   `;
   document.head.appendChild(style);
@@ -82,6 +105,24 @@ export function dismissSpotlight(): void {
   }
 }
 
+function buildScrim(): HTMLDivElement {
+  // A faint full-page dim. The cut-out is faked with a strong box-shadow on the
+  // ring (the ring's outer glow plus this scrim makes the target pop), kept light
+  // so the page is still readable around the highlight.
+  const scrim = document.createElement("div");
+  scrim.setAttribute("data-testid", "beakerbot-spotlight-scrim");
+  scrim.setAttribute("aria-hidden", "true");
+  Object.assign(scrim.style, {
+    position: "fixed",
+    inset: "0",
+    background: "rgba(15, 23, 42, 0.18)", // slate-900 at low alpha.
+    pointerEvents: "none",
+    zIndex: String(SCRIM_Z),
+    animation: "beakerbotSpotlightFadeIn 220ms ease-out forwards",
+  } as Partial<CSSStyleDeclaration>);
+  return scrim;
+}
+
 function buildRing(reducedMotion: boolean): HTMLDivElement {
   const ring = document.createElement("div");
   ring.setAttribute("data-testid", "beakerbot-spotlight-ring");
@@ -89,17 +130,41 @@ function buildRing(reducedMotion: boolean): HTMLDivElement {
   Object.assign(ring.style, {
     position: "fixed",
     boxSizing: "border-box",
-    borderRadius: "8px",
-    border: `3px solid ${GLOW_COLOR}`,
-    boxShadow: `0 0 0 2px ${GLOW_COLOR}40, 0 0 32px 8px ${GLOW_COLOR}, inset 0 0 12px 0 ${GLOW_COLOR}`,
+    borderRadius: "10px",
+    border: `3px solid ${RING_BORDER}`,
+    // The cut-out illusion, a huge spread shadow darkens everything outside the
+    // ring more than the scrim alone, focusing the eye on the target.
+    boxShadow: `0 0 0 2px ${GLOW_COLOR}55, 0 0 40px 12px ${GLOW_COLOR}cc, 0 0 0 9999px rgba(15, 23, 42, 0.12)`,
     pointerEvents: "none",
     zIndex: String(RING_Z),
     animation: reducedMotion
       ? "beakerbotSpotlightFadeIn 200ms ease-out forwards"
-      : "beakerbotSpotlightPulse 1500ms ease-in-out infinite",
-    opacity: reducedMotion ? "0.9" : undefined,
+      : "beakerbotSpotlightRingIn 320ms cubic-bezier(0.22, 1, 0.36, 1) forwards, beakerbotSpotlightPulse 1600ms ease-in-out 320ms infinite",
   } as Partial<CSSStyleDeclaration>);
   return ring;
+}
+
+// The animated pointer cue, a small downward chevron arrow that bounces toward
+// the target from above the bubble. Drawn with the existing brand sky color, no
+// emoji. Direction is set when positioned (it flips when the bubble flips above).
+function buildCue(reducedMotion: boolean): HTMLDivElement {
+  const cue = document.createElement("div");
+  cue.setAttribute("data-testid", "beakerbot-spotlight-cue");
+  cue.setAttribute("aria-hidden", "true");
+  Object.assign(cue.style, {
+    position: "fixed",
+    width: "0",
+    height: "0",
+    borderLeft: "9px solid transparent",
+    borderRight: "9px solid transparent",
+    pointerEvents: "none",
+    zIndex: String(CUE_Z),
+    filter: `drop-shadow(0 1px 2px ${GLOW_COLOR}66)`,
+    animation: reducedMotion
+      ? "beakerbotSpotlightFadeIn 200ms ease-out forwards"
+      : "beakerbotSpotlightFadeIn 220ms ease-out forwards, beakerbotCueBounce 1100ms ease-in-out 220ms infinite",
+  } as Partial<CSSStyleDeclaration>);
+  return cue;
 }
 
 function buildBubble(narration: string): HTMLDivElement {
@@ -111,7 +176,7 @@ function buildBubble(narration: string): HTMLDivElement {
     position: "fixed",
     maxWidth: "260px",
     background: "white",
-    border: "2px solid #38bdf8",
+    border: `2px solid ${RING_BORDER}`,
     borderRadius: "14px",
     padding: "8px 12px",
     color: "#0369a1",
@@ -119,11 +184,12 @@ function buildBubble(narration: string): HTMLDivElement {
     fontWeight: "600",
     fontSize: "13px",
     lineHeight: "1.35",
-    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.12)",
+    boxShadow: "0 6px 20px rgba(2, 132, 199, 0.22)",
     zIndex: String(BUBBLE_Z),
     display: "flex",
     gap: "8px",
     alignItems: "flex-start",
+    animation: "beakerbotSpotlightFadeIn 260ms ease-out forwards",
   } as Partial<CSSStyleDeclaration>);
 
   const text = document.createElement("span");
@@ -152,9 +218,9 @@ function buildBubble(narration: string): HTMLDivElement {
   return bubble;
 }
 
-// Position the ring and bubble against the target's current bounding rect. The
-// ring hugs the element with a little padding, the bubble sits just below (or
-// above if there is no room below).
+// Position the ring, cue, and bubble against the target's current bounding rect.
+// The ring hugs the element with a little padding, the bubble sits below (or above
+// if there is no room), and the cue points from the bubble toward the target.
 function positionTo(handles: SpotlightHandles, el: HTMLElement): void {
   const r = el.getBoundingClientRect();
   const pad = 6;
@@ -165,18 +231,33 @@ function positionTo(handles: SpotlightHandles, el: HTMLElement): void {
     height: `${r.height + pad * 2}px`,
   });
 
-  // Place the bubble below the target by default, flipping above if it would run
-  // off the bottom of the viewport.
   const vh = window.innerHeight;
-  const below = r.bottom + 10;
-  const placeAbove = below > vh - 80;
-  handles.bubble.style.left = `${Math.max(8, r.left)}px`;
+  const below = r.bottom + 14;
+  const placeAbove = below > vh - 90;
+  const bubbleLeft = Math.max(8, Math.min(r.left, window.innerWidth - 268));
+  handles.bubble.style.left = `${bubbleLeft}px`;
+
+  // Cue sits between the bubble and the target, pointing at the target. Centered
+  // on the target horizontally, clamped to the viewport.
+  const cueLeft = Math.max(10, Math.min(r.left + r.width / 2 - 9, window.innerWidth - 20));
+  handles.cue.style.left = `${cueLeft}px`;
+
   if (placeAbove) {
+    // Bubble above the target, cue points DOWN toward it.
     handles.bubble.style.top = "";
-    handles.bubble.style.bottom = `${vh - r.top + 10}px`;
+    handles.bubble.style.bottom = `${vh - r.top + 22}px`;
+    handles.cue.style.top = `${r.top - pad - 16}px`;
+    handles.cue.style.bottom = "";
+    handles.cue.style.borderTop = `11px solid ${GLOW_COLOR}`;
+    handles.cue.style.borderBottom = "";
   } else {
+    // Bubble below the target, cue points UP toward it.
     handles.bubble.style.bottom = "";
-    handles.bubble.style.top = `${below}px`;
+    handles.bubble.style.top = `${below + 12}px`;
+    handles.cue.style.bottom = "";
+    handles.cue.style.top = `${r.bottom + pad + 4}px`;
+    handles.cue.style.borderBottom = `11px solid ${GLOW_COLOR}`;
+    handles.cue.style.borderTop = "";
   }
 }
 
@@ -209,8 +290,6 @@ export function waitForElement(
         resolve(found);
         return;
       }
-      // A non-HTMLElement match (rare) still counts as present but unusable, so we
-      // keep waiting rather than resolving with something we cannot position.
       if (now() - start >= timeoutMs) {
         resolve(null);
         return;
@@ -221,43 +300,44 @@ export function waitForElement(
   });
 }
 
-/** Mount a spotlight on the given element with a narration line. Replaces any
- *  existing spotlight. Tracks the target's position on scroll and resize, and
- *  drops itself if the target detaches from the DOM. Returns when mounted. */
+/** Mount a premium spotlight on the given element with a narration line. Replaces
+ *  any existing spotlight. Tracks the target's position on scroll and resize, drops
+ *  itself if the target detaches from the DOM, and auto-dismisses after a while.
+ *  Returns when mounted. */
 export function showSpotlight(el: HTMLElement, narration: string): void {
   if (typeof document === "undefined") return;
   dismissSpotlight();
   ensureKeyframes();
 
   const reducedMotion = prefersReducedMotion();
-  const overlay = document.createElement("div");
-  overlay.setAttribute("data-testid", "beakerbot-spotlight");
-  // The overlay is just a logical group, the ring and bubble are position:fixed.
-  overlay.style.position = "fixed";
-  overlay.style.inset = "0";
-  overlay.style.pointerEvents = "none";
-  overlay.style.zIndex = String(RING_Z);
-
+  const scrim = buildScrim();
   const ring = buildRing(reducedMotion);
+  const cue = buildCue(reducedMotion);
   const bubble = buildBubble(narration);
-  // The bubble needs pointer events for its dismiss button, the overlay does not.
+  // The bubble needs pointer events for its dismiss button, the rest do not.
   bubble.style.pointerEvents = "auto";
 
-  overlay.appendChild(ring);
-  document.body.appendChild(overlay);
+  document.body.appendChild(scrim);
+  document.body.appendChild(ring);
+  document.body.appendChild(cue);
   document.body.appendChild(bubble);
 
   let raf = 0;
+  let autoDismiss = 0;
   const handles: SpotlightHandles = {
-    overlay,
+    scrim,
     ring,
+    cue,
     bubble,
     cleanup: () => {
       if (raf) cancelAnimationFrame(raf);
+      if (autoDismiss) clearTimeout(autoDismiss);
       window.removeEventListener("scroll", schedule, true);
       window.removeEventListener("resize", schedule);
       mo.disconnect();
-      overlay.remove();
+      scrim.remove();
+      ring.remove();
+      cue.remove();
       bubble.remove();
     },
   };
@@ -292,6 +372,12 @@ export function showSpotlight(el: HTMLElement, narration: string): void {
     inline: "center",
   });
   positionTo(handles, el);
+
+  // Reposition once more after the smooth scroll settles, so the ring lands on the
+  // final rect rather than the pre-scroll one.
+  if (!reducedMotion) setTimeout(schedule, 420);
+
+  autoDismiss = window.setTimeout(() => dismissSpotlight(), AUTO_DISMISS_MS);
 
   active = handles;
 }

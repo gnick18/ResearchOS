@@ -2,7 +2,7 @@
 
 // BeakerBot navigation bridge (ai spotlight bot, 2026-06-10).
 //
-// A tiny event bus that lets the spotlight_ui_element tool, which runs OUTSIDE
+// A tiny event bus that lets the guide_to_element tool, which runs OUTSIDE
 // React in the agent loop, ask the app to soft-navigate to a route. The tool
 // cannot call useRouter (no React context), so it dispatches a request here and a
 // small React subscriber (useNavigationBridge, mounted in the BeakerBot panel)

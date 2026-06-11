@@ -3,7 +3,7 @@
  *
  * BeakerBot must be mounted ONCE at the AppShell level so its conversation state
  * (in useAiChat, inside BeakerBotPanel) survives client-side route changes. That
- * persistence is what lets spotlight_ui_element navigate the user to another page
+ * persistence is what lets guide_to_element navigate the user to another page
  * without tearing down the chat. AppShell does not unmount on navigation, so a
  * dock mounted here is the right home.
  *

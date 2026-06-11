@@ -6,24 +6,33 @@
 // extensibility the design asks for.
 //
 // The registry holds READ-ONLY tools, read-only with respect to the user's DATA.
-// Alongside the data readers it now holds the navigate-and-spotlight pair, which
-// changes the VIEW (navigation plus a decorative highlight) but never the user's
-// files, so it stays in the read-only set with no approval gate. There is still no
-// write tool and no coworker-mode tool. Those are later slices.
+// Alongside the data readers it holds the live page-perception trio, read_page
+// (perceive the current page), go_to_page (navigate when the target is elsewhere),
+// and guide_to_element (scroll to and spotlight a perceived element). Those change
+// the VIEW (a route and a decorative highlight) but never the user's files, so they
+// stay in the read-only set with no approval gate. There is still no write tool and
+// no coworker-mode tool. Those are later slices.
+//
+// The old manifest-driven find_ui_element / spotlight_ui_element pair is retired,
+// live perception supersedes a hand-built element catalog. The manifest's one
+// surviving job, knowing which PAGE a feature lives on, lives in page-routing.ts and
+// is used by go_to_page.
 //
 // House style, no em-dashes, no emojis, no mid-sentence colons.
 
 import { getMyProjectsTool, getMyTasksTool } from "./read-my-work";
-import { findUiElementTool } from "./find-ui-element";
-import { spotlightUiElementTool } from "./spotlight-ui-element";
+import { readPageTool } from "./read-page";
+import { goToPageTool } from "./go-to-page";
+import { guideToElementTool } from "./guide-to-element";
 import type { AiTool } from "./types";
 
 // The default toolset handed to the agent loop. All read-only for user data.
 export const READ_ONLY_TOOLS: AiTool[] = [
   getMyTasksTool,
   getMyProjectsTool,
-  findUiElementTool,
-  spotlightUiElementTool,
+  readPageTool,
+  goToPageTool,
+  guideToElementTool,
 ];
 
 /** Build a name -> tool lookup for dispatch. The loop calls this once per run and

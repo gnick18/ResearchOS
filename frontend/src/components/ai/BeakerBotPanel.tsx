@@ -76,7 +76,7 @@ export default function BeakerBotPanel({
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
 
-  // Register the soft-navigation handler so spotlight_ui_element can drive a real
+  // Register the soft-navigation handler so guide_to_element can drive a real
   // SPA route change (preserving the fixture capture param) instead of a reload.
   // The tool runs outside React, so this bridge is how it reaches the router.
   useNavigationBridge();

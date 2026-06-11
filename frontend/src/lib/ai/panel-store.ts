@@ -10,7 +10,7 @@
 // Conversation persistence note, the panel stays mounted whether open or closed
 // (it is hidden with a transform when closed, not unmounted), so the messages and
 // loop history in useAiChat are never torn down. This is what lets
-// spotlight_ui_element navigate the user from one page to another while the chat
+// guide_to_element navigate the user from one page to another while the chat
 // they were reading stays exactly where it was.
 //
 // House style, no em-dashes, no emojis, no mid-sentence colons.

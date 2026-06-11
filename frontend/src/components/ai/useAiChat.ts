@@ -39,8 +39,9 @@ export type ChatMessage = {
 const TOOL_STATUS: Record<string, string> = {
   get_my_tasks: "checking your tasks",
   get_my_projects: "looking at your projects",
-  find_ui_element: "finding that in the app",
-  spotlight_ui_element: "showing you where",
+  read_page: "looking at the page",
+  go_to_page: "taking you there",
+  guide_to_element: "showing you where",
 };
 
 function statusLabel(status: LoopStatus): string {

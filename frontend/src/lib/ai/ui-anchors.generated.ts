@@ -3,10 +3,11 @@
 // Source of truth: the static data-tour-target anchors in frontend/src.
 // Regenerate with: node frontend/scripts/generate-ui-anchor-manifest.mjs
 //
-// This manifest backs BeakerBot's find_ui_element and spotlight_ui_element tools.
-// Each entry points the assistant at a page and a stable selector it can navigate
-// to and highlight. Dynamic/templated anchors and shared-modal anchors are
-// excluded by the generator (see the script header for the why).
+// This manifest is now a PAGE-LEVEL ROUTING HINT only (page-routing.ts). BeakerBot
+// perceives on-page elements live (read_page + guide_to_element), so the per-element
+// selectors here are no longer used for highlighting, the labels feed the page hint
+// that go_to_page uses to navigate to the right page before perceiving it. Dynamic
+// and shared-modal anchors are excluded by the generator (see the script header).
 //
 // House style, no em-dashes, no emojis, no mid-sentence colons.
 
