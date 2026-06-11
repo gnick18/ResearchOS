@@ -50,6 +50,13 @@ import {
 } from "@/lib/datahub/grouped-table";
 import { survivalGroups } from "@/lib/datahub/survival-table";
 import { fitModel, getModel, kaplanMeier } from "@/lib/datahub/engine";
+import {
+  paletteById,
+  samplePalette,
+  DEFAULT_PALETTE_ID,
+  GREY_RAMP_ID,
+  type Palette,
+} from "@/lib/datahub/palettes";
 
 // ---------------------------------------------------------------------------
 // Plot kinds + style / source shapes
@@ -87,7 +94,25 @@ export interface PlotStyle {
   showPoints: boolean;
   /** Draw significance brackets from the linked analysis. */
   showBrackets: boolean;
+  /**
+   * Legacy single-hue color mode. Kept for back-compat (an old spec without a
+   * palette maps its colorMode onto a palette id in readPlotStyle); the studio
+   * writes `palette` instead.
+   */
   colorMode: ColorMode;
+  /**
+   * The active palette id (see lib/datahub/palettes). Sampled to the figure's
+   * series count so one palette recolors the whole figure. Absent on an old
+   * spec, where colorMode supplies the color instead.
+   */
+  palette?: string;
+  /**
+   * Per-series color overrides (series index -> hex). A direct edit on the plot
+   * (double-click / right-click) or the custom-color studio writes here; a
+   * series with an override ignores the sampled palette color. Additive and
+   * back-compat (absent means no overrides).
+   */
+  colorOverrides?: Record<number, string>;
   /** Axis tick / label font size in px. */
   fontSize: number;
   /** Figure title (top of the plot). Empty hides it. */
@@ -137,12 +162,41 @@ export function defaultPlotStyle(): PlotStyle {
     showPoints: true,
     showBrackets: true,
     colorMode: "brand",
+    palette: DEFAULT_PALETTE_ID,
+    colorOverrides: {},
     fontSize: 13,
     title: "",
     yTitle: "Value",
     xTitle: "",
     fitModel: "linear",
   };
+}
+
+/**
+ * Map a legacy single-hue colorMode onto a palette id, so an old spec that only
+ * stored colorMode still resolves to a real palette. "brand" -> the brand trio,
+ * "sky" -> the sky ramp, "ink" -> the grey ramp.
+ */
+function paletteIdForColorMode(mode: ColorMode): string {
+  if (mode === "sky") return "sky-ramp";
+  if (mode === "ink") return GREY_RAMP_ID;
+  return "brand-trio";
+}
+
+/**
+ * Read a stored colorOverrides record (series index -> hex) back into a typed
+ * map, dropping any non-numeric key or non-hex value so a malformed spec cannot
+ * corrupt the render. Returns a fresh object (never shared) for safe mutation.
+ */
+function readColorOverrides(raw: unknown): Record<number, string> {
+  const out: Record<number, string> = {};
+  if (!raw || typeof raw !== "object") return out;
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    const idx = Number(k);
+    if (!Number.isInteger(idx) || idx < 0) continue;
+    if (typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v)) out[idx] = v;
+  }
+  return out;
 }
 
 /** Valid fitted-curve ids, so a stored string round-trips into the typed union. */
@@ -188,6 +242,18 @@ export function readPlotStyle(spec: PlotSpec): PlotStyle {
       s.colorMode === "sky" || s.colorMode === "ink" || s.colorMode === "brand"
         ? (s.colorMode as ColorMode)
         : d.colorMode,
+    palette:
+      typeof s.palette === "string" && s.palette
+        ? s.palette
+        : // No stored palette: derive one from the legacy colorMode so an old
+          // figure keeps its intended hue family instead of jumping to the new
+          // default.
+          paletteIdForColorMode(
+            s.colorMode === "sky" || s.colorMode === "ink" || s.colorMode === "brand"
+              ? (s.colorMode as ColorMode)
+              : d.colorMode,
+          ),
+    colorOverrides: readColorOverrides(s.colorOverrides),
     fontSize:
       typeof s.fontSize === "number" && Number.isFinite(s.fontSize)
         ? s.fontSize
@@ -264,19 +330,50 @@ export function withStyle(spec: PlotSpec, patch: Partial<PlotStyle>): PlotSpec {
 // Color themes (brand tokens, resolved to hex for SVG / PNG portability)
 // ---------------------------------------------------------------------------
 
-// The brand trio leads with the sky wordmark color, then two complementary
-// publication-safe hues. "sky" is the single-brand mono-hue option; "ink" is a
-// slate mono for a journal that wants no color. Hex (not CSS vars) so a
-// serialized SVG / a rasterized PNG carries its own colors with no stylesheet.
-const BRAND_TRIO = ["#1AA0E6", "#7C3AED", "#F97316"] as const;
-const SKY = "#1AA0E6";
-const INK = "#475569";
+// Series colors come from the active palette (lib/datahub/palettes) sampled to
+// the figure's series COUNT, with any per-series override applied on top. The
+// palette is sampled to the exact count so picking one palette recolors the
+// whole figure consistently (the old single-hue colorMode painted every series
+// the same color). Hex (not CSS vars) so a serialized SVG / a rasterized PNG
+// carries its own colors with no stylesheet.
 
-/** The series color for the i-th group under a color mode. */
-export function colorForGroup(mode: ColorMode, index: number): string {
-  if (mode === "sky") return SKY;
-  if (mode === "ink") return INK;
-  return BRAND_TRIO[index % BRAND_TRIO.length];
+/**
+ * Resolve the color for group `i` of a `count`-series figure under a style. An
+ * explicit per-series override wins; otherwise the active palette is sampled to
+ * `count` and the i-th color is taken. The sampled array is memoized per call
+ * site via the second-stage helper so a row of groups samples once, not n times
+ * (see seriesColors). This single-color entry point is used by the multi-series
+ * builders (grouped bar, survival) that color one series at a time.
+ */
+export function colorForGroup(
+  style: PlotStyle,
+  index: number,
+  count: number,
+): string {
+  const override = style.colorOverrides?.[index];
+  if (override) return override;
+  const sampled = samplePalette(paletteById(style.palette), Math.max(1, count));
+  return sampled[index] ?? sampled[sampled.length - 1] ?? "#000000";
+}
+
+/**
+ * Resolve every series color for a `count`-series figure at once (sample the
+ * palette a single time, then layer overrides). The hot path for the column
+ * builders so the palette is sampled once per figure, not once per group.
+ */
+export function seriesColors(style: PlotStyle, count: number): string[] {
+  const sampled = samplePalette(paletteById(style.palette), Math.max(1, count));
+  const out: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const override = style.colorOverrides?.[i];
+    out.push(override ?? sampled[i] ?? sampled[sampled.length - 1] ?? "#000000");
+  }
+  return out;
+}
+
+/** The active palette for a style (folding nothing extra in at render time). */
+function activePalette(style: PlotStyle): Palette {
+  return paletteById(style.palette);
 }
 
 // Fixed axis / text colors (slate scale), shared by every theme so the chrome
@@ -407,10 +504,13 @@ export function resolvePlotGroups(
 ): PlotGroup[] {
   const cols = groupColumns(content);
   const allStats = computeAllGroupStats(content);
+  // Sample the active palette once to the real group count, then apply any
+  // per-series override, so every group's color comes from the same sampling.
+  const colors = seriesColors(style, cols.length);
   return cols.map((c, i) => ({
     id: c.id,
     name: c.name,
-    color: colorForGroup(style.colorMode, i),
+    color: colors[i] ?? "#000000",
     stats: allStats[c.id] ?? { mean: null, sd: null, sem: null, n: 0 },
     values: columnValues(content, c.id),
   }));
@@ -644,6 +744,65 @@ function fmtTick(value: number): string {
   return String(Math.round(value * 100) / 100);
 }
 
+// ---------------------------------------------------------------------------
+// Mono pattern fills (B and W hatches for the no-color, print-only figures)
+// ---------------------------------------------------------------------------
+
+/** The base gray a mono pattern draws on (matches the mono palette base). */
+const MONO_INK = "#1f2937";
+const MONO_BG = "#ffffff";
+
+/**
+ * The cycle of pattern styles a mono bar plot uses to tell series apart without
+ * color (solid, dots, diagonal, crosshatch, horizontal). Index 0 is a solid
+ * gray fill so the first series is not a busy hatch.
+ */
+const MONO_PATTERN_COUNT = 5;
+
+/** The fill value (a url(#id) or a flat color) for series `i` of a mono plot. */
+function monoFill(i: number): string {
+  return `url(#ros-pat-${i % MONO_PATTERN_COUNT})`;
+}
+
+/**
+ * The <defs> block of the mono pattern tiles, embedded once at the top of a mono
+ * bar figure so the fills are self-contained (the SVG stays a single portable
+ * document that downloads and rasterizes with its patterns intact).
+ */
+function monoPatternDefs(): string {
+  const tiles: string[] = [];
+  // 0: solid gray.
+  tiles.push(
+    `<pattern id="ros-pat-0" width="8" height="8" patternUnits="userSpaceOnUse">` +
+      `<rect width="8" height="8" fill="#9ca3af"/></pattern>`,
+  );
+  // 1: dots.
+  tiles.push(
+    `<pattern id="ros-pat-1" width="7" height="7" patternUnits="userSpaceOnUse">` +
+      `<rect width="7" height="7" fill="${MONO_BG}"/>` +
+      `<circle cx="3.5" cy="3.5" r="1.6" fill="${MONO_INK}"/></pattern>`,
+  );
+  // 2: diagonal lines.
+  tiles.push(
+    `<pattern id="ros-pat-2" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">` +
+      `<rect width="6" height="6" fill="${MONO_BG}"/>` +
+      `<line x1="0" y1="0" x2="0" y2="6" stroke="${MONO_INK}" stroke-width="2"/></pattern>`,
+  );
+  // 3: crosshatch.
+  tiles.push(
+    `<pattern id="ros-pat-3" width="7" height="7" patternUnits="userSpaceOnUse">` +
+      `<rect width="7" height="7" fill="${MONO_BG}"/>` +
+      `<path d="M0 0 L7 7 M7 0 L0 7" stroke="${MONO_INK}" stroke-width="1.2"/></pattern>`,
+  );
+  // 4: horizontal lines.
+  tiles.push(
+    `<pattern id="ros-pat-4" width="6" height="6" patternUnits="userSpaceOnUse">` +
+      `<rect width="6" height="6" fill="${MONO_BG}"/>` +
+      `<line x1="0" y1="3" x2="6" y2="3" stroke="${MONO_INK}" stroke-width="2"/></pattern>`,
+  );
+  return `<defs>${tiles.join("")}</defs>`;
+}
+
 /**
  * Serialize a laid-out figure into a standalone SVG string. No external CSS and
  * no CSS variables, so the same string downloads as a valid .svg AND rasterizes
@@ -664,6 +823,18 @@ export function renderPlotSvg(
   parts.push(
     `<rect x="0" y="0" width="${geo.width}" height="${geo.height}" fill="#ffffff"/>`,
   );
+
+  // A mono (pattern) palette tells series apart by hatch / dot fill on the bars
+  // (no color). Embed the pattern tiles once so the figure stays self-contained.
+  // For a non-bar mono plot there is nothing to hatch, so the points / mean
+  // lines fall back to distinct grey SHADES instead.
+  const pal = activePalette(style);
+  const monoBars = !!pal.pattern && style.kind === "columnBar";
+  const monoShades =
+    !!pal.pattern && style.kind !== "columnBar"
+      ? samplePalette(paletteById(GREY_RAMP_ID), geo.groups.length)
+      : null;
+  if (monoBars) parts.push(monoPatternDefs());
 
   // Title.
   if (style.title.trim() !== "") {
@@ -696,35 +867,46 @@ export function renderPlotSvg(
     `<line x1="${geo.x0}" y1="${geo.y0}" x2="${geo.x1}" y2="${geo.y0}" stroke="${AXIS_COLOR}" stroke-width="1"/>`,
   );
 
-  // Groups: bar, mean line, error bar, points, label.
-  for (const g of geo.groups) {
+  // Groups: bar, mean line, error bar, points, label. data-series on the primary
+  // fill element (the bar, else the first point / mean line) lets a direct edit
+  // on the plot hit-test which series the click landed on.
+  geo.groups.forEach((g, i) => {
+    // An explicit per-series override always wins, even in mono mode. Otherwise a
+    // mono plot uses a hatch pattern (bars) or a grey shade (points / lines).
+    const override = style.colorOverrides?.[i];
+    const barFill = override ?? (monoBars ? monoFill(i) : g.color);
+    const lineColor = override ?? (monoShades ? monoShades[i] ?? g.color : g.color);
     if (g.bar) {
+      // A patterned bar reads at full opacity so the hatch is legible.
+      const op = monoBars && !override ? "1" : "0.30";
       parts.push(
-        `<rect x="${g.bar.x}" y="${g.bar.y}" width="${g.bar.width}" height="${g.bar.height}" fill="${g.color}" opacity="0.30"/>`,
+        `<rect data-series="${i}" x="${g.bar.x}" y="${g.bar.y}" width="${g.bar.width}" height="${g.bar.height}" fill="${barFill}" stroke="${MONO_INK}" stroke-width="${monoBars && !override ? "0.8" : "0"}" opacity="${op}"/>`,
       );
     }
     if (g.meanY !== null) {
       parts.push(
-        `<line x1="${g.cx - g.meanHalf}" y1="${g.meanY}" x2="${g.cx + g.meanHalf}" y2="${g.meanY}" stroke="${g.color}" stroke-width="2.4"/>`,
+        `<line${g.bar ? "" : ` data-series="${i}"`} x1="${g.cx - g.meanHalf}" y1="${g.meanY}" x2="${g.cx + g.meanHalf}" y2="${g.meanY}" stroke="${lineColor}" stroke-width="2.4"/>`,
       );
     }
     if (g.errorBar) {
       const eb = g.errorBar;
       parts.push(
-        `<line x1="${eb.cx}" y1="${eb.bottomY}" x2="${eb.cx}" y2="${eb.topY}" stroke="${g.color}" stroke-width="1.6"/>` +
-          `<line x1="${eb.cx - eb.capHalf}" y1="${eb.topY}" x2="${eb.cx + eb.capHalf}" y2="${eb.topY}" stroke="${g.color}" stroke-width="1.6"/>` +
-          `<line x1="${eb.cx - eb.capHalf}" y1="${eb.bottomY}" x2="${eb.cx + eb.capHalf}" y2="${eb.bottomY}" stroke="${g.color}" stroke-width="1.6"/>`,
+        `<line x1="${eb.cx}" y1="${eb.bottomY}" x2="${eb.cx}" y2="${eb.topY}" stroke="${lineColor}" stroke-width="1.6"/>` +
+          `<line x1="${eb.cx - eb.capHalf}" y1="${eb.topY}" x2="${eb.cx + eb.capHalf}" y2="${eb.topY}" stroke="${lineColor}" stroke-width="1.6"/>` +
+          `<line x1="${eb.cx - eb.capHalf}" y1="${eb.bottomY}" x2="${eb.cx + eb.capHalf}" y2="${eb.bottomY}" stroke="${lineColor}" stroke-width="1.6"/>`,
       );
     }
-    for (const p of g.points) {
+    g.points.forEach((p, k) => {
+      // Tag the first point of a non-bar group as the series hit-target.
+      const tag = !g.bar && k === 0 ? ` data-series="${i}"` : "";
       parts.push(
-        `<circle cx="${p.x}" cy="${p.y}" r="3" fill="${g.color}" opacity="0.9"/>`,
+        `<circle${tag} cx="${p.x}" cy="${p.y}" r="3" fill="${lineColor}" opacity="0.9"/>`,
       );
-    }
+    });
     parts.push(
       `<text x="${g.labelX}" y="${g.labelY}" font-size="${f}" fill="${LABEL_TEXT}" text-anchor="middle">${esc(g.name)}</text>`,
     );
-  }
+  });
 
   // X axis title (below the group labels).
   if (style.xTitle.trim() !== "") {
@@ -934,7 +1116,7 @@ export function layoutXYPlot(
   const xs = pairs.x;
   const yvals = pairs.y;
 
-  const color = colorForGroup(style.colorMode, 0);
+  const color = colorForGroup(style, 0, 1);
 
   // The fitted curve (sampled later once the X scale exists).
   const fit = resolveXYFit(xs, yvals, style.fitModel);
@@ -1068,12 +1250,13 @@ export function renderXYPlotSvg(geo: XYPlotGeometry, style: PlotStyle): string {
     );
   }
 
-  // Raw observations.
-  for (const p of geo.points) {
+  // Raw observations. The first marker carries data-series="0" (an XY figure is
+  // a single series) so a direct edit on the plot can recolor it.
+  geo.points.forEach((p, k) => {
     parts.push(
-      `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="3.2" fill="${geo.color}" opacity="0.9"/>`,
+      `<circle${k === 0 ? ' data-series="0"' : ""} cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="3.2" fill="${geo.color}" opacity="0.9"/>`,
     );
-  }
+  });
 
   // Fit readout (model + R-squared), top-left of the plot area.
   if (geo.fitNote) {
@@ -1192,6 +1375,9 @@ export function layoutGroupedBar(
   const nLevels = Math.max(1, levels.length);
   const clusterW = (x1 - x0) / nLevels;
   const nGroups = Math.max(1, groups.length);
+  // One color per group (sampled from the active palette to the group count, with
+  // overrides applied), shared by the bars and the legend.
+  const groupColors = seriesColors(style, groups.length);
   // Bars fill 70% of the cluster, split among the groups, with a small gap.
   const bandW = clusterW * 0.7;
   const barW = bandW / nGroups;
@@ -1202,7 +1388,7 @@ export function layoutGroupedBar(
     const left = cx - bandW / 2;
     const bars: GroupedBar[] = groups.map((g, gi) => {
       const s = stat(level, g.datasetId);
-      const color = colorForGroup(style.colorMode, gi);
+      const color = groupColors[gi] ?? "#000000";
       const bx = left + barW * gi;
       const mean = s.mean;
       if (mean === null) {
@@ -1222,7 +1408,7 @@ export function layoutGroupedBar(
 
   const legend: GroupedLegendItem[] = groups.map((g, gi) => ({
     name: g.name,
-    color: colorForGroup(style.colorMode, gi),
+    color: groupColors[gi] ?? "#000000",
   }));
 
   return { width, height, x0, x1, y0, y1, yMax, ticks, clusters, legend };
@@ -1294,15 +1480,16 @@ export function renderGroupedBarSvg(
     );
   }
 
-  // Legend (top-right inside the plot area).
+  // Legend (top-right inside the plot area). The swatch carries data-series so a
+  // direct edit on the plot can recolor a whole group from its legend entry.
   let ly = geo.y1 + 4;
-  for (const item of geo.legend) {
+  geo.legend.forEach((item, i) => {
     parts.push(
-      `<rect x="${geo.x1 - 92}" y="${ly}" width="9" height="9" fill="${item.color}" opacity="0.85"/>` +
+      `<rect data-series="${i}" x="${geo.x1 - 92}" y="${ly}" width="9" height="9" fill="${item.color}" opacity="0.85"/>` +
         `<text x="${geo.x1 - 79}" y="${ly + 8}" font-size="${tickFont}" fill="${LABEL_TEXT}">${esc(item.name)}</text>`,
     );
     ly += 13;
-  }
+  });
 
   if (style.xTitle.trim() !== "") {
     parts.push(
@@ -1386,9 +1573,11 @@ export function layoutSurvivalCurve(
     px: Y(v),
   }));
 
+  // One color per arm, sampled from the active palette to the arm count.
+  const armColors = seriesColors(style, groups.length);
   const curves: SurvivalCurve[] = groups.map((g, gi) => {
     const km = kaplanMeier(g.observations);
-    const color = colorForGroup(style.colorMode, gi);
+    const color = armColors[gi] ?? "#000000";
     const path: { x: number; y: number }[] = [{ x: X(0), y: Y(1) }];
     let prevSurvival = 1;
     if (km.ok) {
@@ -1479,15 +1668,16 @@ export function renderSurvivalCurveSvg(
     );
   }
 
-  // Legend (top-right inside the plot area).
+  // Legend (top-right inside the plot area). The swatch carries data-series so a
+  // direct edit on the plot can recolor a whole arm from its legend entry.
   let ly = geo.y1 + 4;
-  for (const item of geo.legend) {
+  geo.legend.forEach((item, i) => {
     parts.push(
-      `<rect x="${geo.x1 - 92}" y="${ly}" width="9" height="9" fill="${item.color}" opacity="0.9"/>` +
+      `<rect data-series="${i}" x="${geo.x1 - 92}" y="${ly}" width="9" height="9" fill="${item.color}" opacity="0.9"/>` +
         `<text x="${geo.x1 - 79}" y="${ly + 8}" font-size="${tickFont}" fill="${LABEL_TEXT}">${esc(item.name)}</text>`,
     );
     ly += 13;
-  }
+  });
 
   parts.push(`</svg>`);
   return parts.join("");

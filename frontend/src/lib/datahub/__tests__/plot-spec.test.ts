@@ -123,13 +123,27 @@ describe("plot-spec: style / source round-trip", () => {
 });
 
 describe("plot-spec: color + stars + error magnitude", () => {
-  it("colorForGroup cycles the brand trio and is flat for mono modes", () => {
-    expect(colorForGroup("brand", 0)).toBe("#1AA0E6");
-    expect(colorForGroup("brand", 1)).toBe("#7C3AED");
-    expect(colorForGroup("brand", 2)).toBe("#F97316");
-    expect(colorForGroup("brand", 3)).toBe("#1AA0E6"); // wraps
-    expect(colorForGroup("sky", 2)).toBe("#1AA0E6");
-    expect(colorForGroup("ink", 1)).toBe("#475569");
+  it("colorForGroup samples the active palette to the series count", () => {
+    const base = defaultPlotStyle();
+    const brand = { ...base, palette: "brand-trio" };
+    // The brand trio sampled to >=3 series gives the three brand hues in order.
+    expect(colorForGroup(brand, 0, 3)).toBe("#1AA0E6");
+    expect(colorForGroup(brand, 1, 3)).toBe("#7C3AED");
+    expect(colorForGroup(brand, 2, 3)).toBe("#F97316");
+    // A sequential ramp (sky) gives DISTINCT blues per series, not one flat blue
+    // (this is the bug the palette system fixes).
+    const sky = { ...base, palette: "sky-ramp" };
+    expect(colorForGroup(sky, 0, 4)).not.toBe(colorForGroup(sky, 3, 4));
+  });
+
+  it("colorForGroup honors a per-series override", () => {
+    const styled = {
+      ...defaultPlotStyle(),
+      palette: "brand-trio",
+      colorOverrides: { 1: "#123456" },
+    };
+    expect(colorForGroup(styled, 0, 3)).toBe("#1AA0E6");
+    expect(colorForGroup(styled, 1, 3)).toBe("#123456");
   });
 
   it("significanceStars matches the GraphPad thresholds", () => {
