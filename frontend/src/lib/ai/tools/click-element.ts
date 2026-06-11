@@ -86,7 +86,7 @@ export function runClick(
 export const clickElementTool: AiTool = {
   name: "click_element",
   description:
-    "Click an element on the current page FOR the user, to perform an action they asked you to do (for example open the new method form, or switch to a tab). Pass the ref of an element from a recent read_page result. This actually clicks the control, it does not just highlight it. Use guide_to_element instead when the user only wants to be SHOWN where something is. Clicking may require the user's approval before it happens, that is expected, propose the click and let the user allow it. Always read_page first so the ref is fresh, and narrate plainly what you are about to click.",
+    "Click an element on the current page FOR the user, to perform an action they asked you to do (for example open the new method form, or switch to a tab). Pass the ref of an element from a recent read_page result. This actually clicks the control, it does not just highlight it. Use guide_to_element instead when the user only wants to be SHOWN where something is. Do NOT ask for permission in your text reply first. When you call this, the app automatically shows the user an Allow or Skip confirmation on the highlighted control, and that is how they approve, so just call it. Always read_page first so the ref is fresh, and after the click goes through say in one short sentence what you did.",
   parameters: {
     type: "object",
     properties: {
