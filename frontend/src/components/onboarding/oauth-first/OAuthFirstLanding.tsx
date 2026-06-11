@@ -21,7 +21,7 @@
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import BeakerBot from "@/components/BeakerBot";
 import LightOnly from "@/components/LightOnly";
@@ -53,12 +53,56 @@ function FloatBot({ className }: { className?: string }) {
   );
 }
 
+// Rising bubble field, the move only we can make (it echoes the beaker). Static
+// deterministic positions so server and client render the same (no hydration
+// mismatch), each bubble timed differently so the field never looks like a grid.
+const BUBBLES = [
+  { left: "6%", size: 9, dur: 14, delay: 0 },
+  { left: "13%", size: 6, dur: 18, delay: 4 },
+  { left: "19%", size: 12, dur: 16, delay: 8 },
+  { left: "27%", size: 5, dur: 20, delay: 2 },
+  { left: "34%", size: 8, dur: 15, delay: 11 },
+  { left: "41%", size: 7, dur: 19, delay: 6 },
+  { left: "48%", size: 11, dur: 17, delay: 1 },
+  { left: "55%", size: 6, dur: 21, delay: 9 },
+  { left: "62%", size: 9, dur: 14, delay: 5 },
+  { left: "69%", size: 5, dur: 18, delay: 13 },
+  { left: "76%", size: 13, dur: 16, delay: 3 },
+  { left: "82%", size: 7, dur: 20, delay: 7 },
+  { left: "88%", size: 6, dur: 15, delay: 10 },
+  { left: "93%", size: 10, dur: 19, delay: 2 },
+  { left: "44%", size: 5, dur: 22, delay: 14 },
+  { left: "58%", size: 8, dur: 17, delay: 12 },
+];
+
 export function OAuthFirstLanding({
   onCreateAccount,
   onSignIn,
 }: OAuthFirstLandingProps) {
   const startRef = useRef<HTMLElement>(null);
   const welcomeRef = useRef<HTMLElement>(null);
+  // Cursor parallax for the decorative layer (auroras, beakers, bubbles).
+  const fxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const layer = fxRef.current;
+    if (!layer) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let raf = 0;
+    const onMove = (e: MouseEvent) => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const dx = (e.clientX - window.innerWidth / 2) / (window.innerWidth / 2);
+        const dy =
+          (e.clientY - window.innerHeight / 2) / (window.innerHeight / 2);
+        layer.style.transform = `translate(${(-dx * 12).toFixed(1)}px, ${(-dy * 10).toFixed(1)}px)`;
+      });
+    };
+    window.addEventListener("mousemove", onMove);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      cancelAnimationFrame(raf);
+    };
+  }, []);
 
   const scrollTo = (ref: React.RefObject<HTMLElement | null>) =>
     ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -75,12 +119,39 @@ export function OAuthFirstLanding({
               "radial-gradient(560px 360px at 50% 6%, #ffffff 0%, #f6f9ff 55%, #eef4ff 100%)",
           }}
         >
-          {/* Drifting pastel-rainbow auroras that fill the wide side margins so
-              the space feels alive, not empty. Decorative, behind everything. */}
-          <div aria-hidden className={`${styles.aurora} ${styles.a1}`} />
-          <div aria-hidden className={`${styles.aurora} ${styles.a2}`} />
-          <div aria-hidden className={`${styles.aurora} ${styles.a3}`} />
-          <div aria-hidden className={`${styles.aurora} ${styles.a4}`} />
+          {/* Dot-grid stage behind the hero (static, masked to fade at edges). */}
+          <div aria-hidden className={styles.dotgrid} />
+
+          {/* Parallax decorative layer: drifting auroras, floating beakers, and
+              the rising bubble field. Shifts slightly opposite the cursor. */}
+          <div ref={fxRef} className={styles.parallaxLayer} aria-hidden>
+            <div className={`${styles.aurora} ${styles.a1}`} />
+            <div className={`${styles.aurora} ${styles.a2}`} />
+            <div className={`${styles.aurora} ${styles.a3}`} />
+            <div className={`${styles.aurora} ${styles.a4}`} />
+            <FloatBot className={`${styles.floaty} top-[12%] left-[7%] w-20`} />
+            <FloatBot className={`${styles.floaty} ${styles.s2} bottom-[15%] left-[11%] w-14`} />
+            <FloatBot className={`${styles.floaty} ${styles.s3} top-[15%] right-[8%] w-16`} />
+            <FloatBot className={`${styles.floaty} ${styles.s4} bottom-[13%] right-[6%] w-24`} />
+            <div className={styles.bubbles}>
+              {BUBBLES.map((b, i) => (
+                <span
+                  key={i}
+                  className={styles.bubble}
+                  style={{
+                    left: b.left,
+                    width: b.size,
+                    height: b.size,
+                    animationDuration: `${b.dur}s`,
+                    animationDelay: `${b.delay}s`,
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Film-grain finish over the color. */}
+          <div aria-hidden className={styles.grain} />
 
           {/* Rainbow bars, top and bottom. */}
           <div
@@ -107,15 +178,9 @@ export function OAuthFirstLanding({
             Dr. Grant Nickles, University of Wisconsin-Madison
           </div>
 
-          {/* Faded floating mascots, deck decoration. Larger here so they frame
-              the full-screen hero, and gently floating so the margins feel
-              alive. */}
-          <FloatBot className={`${styles.floaty} top-[12%] left-[7%] w-20`} />
-          <FloatBot className={`${styles.floaty} ${styles.s2} bottom-[15%] left-[11%] w-14`} />
-          <FloatBot className={`${styles.floaty} ${styles.s3} top-[15%] right-[8%] w-16`} />
-          <FloatBot className={`${styles.floaty} ${styles.s4} bottom-[13%] right-[6%] w-24`} />
-
-          <div className="relative z-[1] flex flex-col items-center">
+          <div
+            className={`relative z-[1] flex flex-col items-center ${styles.enter}`}
+          >
             <IntroBubbleBot size="xl" className="mb-5" />
 
             <Wordmark

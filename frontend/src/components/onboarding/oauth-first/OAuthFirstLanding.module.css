@@ -47,9 +47,126 @@
   50% { transform: translateY(-15px); }
 }
 
+/* Parallax wrapper. The decorative layer (auroras, beakers, bubbles) shifts a
+   few px opposite the cursor so the hero feels like a space with depth. The
+   children keep their own drift/float animations, this only translates the
+   whole layer. */
+.parallaxLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  transition: transform 0.25s ease-out;
+  will-change: transform;
+}
+
+/* Faint dot grid that gives the centered hero a "stage" instead of floating in
+   void, masked to a soft ellipse so it fades out before the edges. */
+.dotgrid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: radial-gradient(
+    circle,
+    rgba(18, 131, 201, 0.13) 1px,
+    transparent 1.5px
+  );
+  background-size: 24px 24px;
+  -webkit-mask-image: radial-gradient(
+    ellipse 58% 52% at 50% 40%,
+    #000 22%,
+    transparent 72%
+  );
+  mask-image: radial-gradient(
+    ellipse 58% 52% at 50% 40%,
+    #000 22%,
+    transparent 72%
+  );
+}
+
+/* Rising bubble field, the move only we can make (it ties the whole hero to the
+   beaker). Each bubble is positioned + timed inline in the component. */
+.bubbles {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.bubble {
+  position: absolute;
+  bottom: -24px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 32% 30%,
+    rgba(199, 229, 250, 0.85),
+    rgba(26, 160, 230, 0.22)
+  );
+  animation-name: bubrise;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes bubrise {
+  0% {
+    transform: translateY(0) scale(0.55);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.6;
+  }
+  85% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateY(-112vh) scale(1);
+    opacity: 0;
+  }
+}
+
+/* Film-grain finish over the whole hero. The single cheapest "designed not
+   amateur" upgrade. Soft-light so it reads as texture, not dirt. */
+.grain {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0.45;
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Entrance choreography. The hero rises and fades in once on load, staggered.
+   Skips the first child (the beaker) so its own bob animation is not overridden;
+   the beaker is the anchor and appears immediately. */
+.enter > *:not(:first-child) {
+  animation: enterUp 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.enter > *:nth-child(1) { animation-delay: 0.02s; }
+.enter > *:nth-child(2) { animation-delay: 0.09s; }
+.enter > *:nth-child(3) { animation-delay: 0.16s; }
+.enter > *:nth-child(4) { animation-delay: 0.23s; }
+.enter > *:nth-child(5) { animation-delay: 0.3s; }
+.enter > *:nth-child(6) { animation-delay: 0.37s; }
+.enter > *:nth-child(7) { animation-delay: 0.44s; }
+@keyframes enterUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .aurora,
-  .floaty {
+  .floaty,
+  .bubble,
+  .parallaxLayer,
+  .enter > * {
     animation: none;
+    transition: none;
   }
 }
