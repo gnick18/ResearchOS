@@ -41,6 +41,10 @@ The `wiki:screenshots` script points at `http://localhost:3000` by default.
 Override with `WIKI_CAPTURE_BASE_URL=http://localhost:3001 npm run
 wiki:screenshots` when running on a different port.
 
+To capture only a subset (instead of regenerating every PNG), pass file-name
+substrings as positional args or set the `WIKI_ONLY` env var to a comma-separated
+list, e.g. `WIKI_ONLY=calc-builder-wizard,calc-builder-form npm run wiki:screenshots`.
+
 Commit the regenerated PNGs alongside any wiki content changes.
 
 ### Feature-flagged captures (held)

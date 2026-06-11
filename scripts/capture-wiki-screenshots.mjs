@@ -4962,13 +4962,21 @@ async function _capturePageAt(page, route, url) {
 }
 
 async function main() {
-  // Optional positional filter: any non-flag args are treated as
-  // file-name substrings, and only routes whose `file` matches one of
-  // them are captured. Lets you re-shoot a single broken image without
-  // regenerating all ~87 (which risks regressing currently-good shots if
-  // an unrelated `action` has drifted). Example:
+  // Optional subset filter: any non-flag positional args, OR the WIKI_ONLY
+  // env var (comma-separated list of `file` names or substrings), are treated
+  // as file-name substrings, and only routes whose `file` matches one of them
+  // are captured (across all phases). Lets you re-shoot a single broken image
+  // without regenerating all ~87 (which risks regressing currently-good shots
+  // if an unrelated `action` has drifted). Examples:
   //   node scripts/capture-wiki-screenshots.mjs search-results editor-image
-  const onlyArgs = process.argv.slice(2).filter((a) => !a.startsWith("-"));
+  //   WIKI_ONLY=calc-builder-wizard,calc-builder-form npm run wiki:screenshots
+  const onlyArgs = [
+    ...process.argv.slice(2).filter((a) => !a.startsWith("-")),
+    ...(process.env.WIKI_ONLY ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
+  ];
   const matchOnly = (route) =>
     onlyArgs.length === 0 ||
     onlyArgs.some((a) => route.file.includes(a));
