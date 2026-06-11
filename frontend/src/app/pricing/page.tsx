@@ -117,7 +117,7 @@ const SUPPORT_ITEMS: FeatureItem[] = [
 export default function PricingPage() {
   return (
     <div className="min-h-screen bg-surface-sunken">
-      <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <Link
           href="/"
           className="text-body font-medium text-foreground-muted underline-offset-2 hover:text-foreground hover:underline"
