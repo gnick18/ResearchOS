@@ -85,3 +85,24 @@ If Llama specifically is ever wanted, it stays reachable by swapping the PROVIDE
 - Close the research gaps, concrete per-token pricing and retention for Together, Groq, Cerebras, Baseten, Novita, the exact serverless-vs-self-host break-even, and ELN competitor precedent (Benchling, LabArchives, GraphPad, Jupyter AI).
 - Build order, question mode first (the free wedge, reusing the tour substrate), then coworker mode, then the paid billing wiring.
 - Build the deterministic Data Hub planner regardless, it is the free local spine the assistant clips into (already in progress as the guided wizard slice).
+
+## 12. Tool catalog (the roadmap)
+
+Each tool is its own slice, the same shape as the foundation work. The LLM orchestrates, the backing engine computes the truth (the LLM never fabricates numbers or data). Writes go through propose-then-approve plus version-control undo, and the user-controlled autonomy setting (ask-before-doing vs auto) governs actions like clicking.
+
+| Tool | Mode | What it does | Backing truth source | R/W | Status |
+|---|---|---|---|---|---|
+| get_my_tasks / get_my_projects | question | reads the user's tasks/projects for "what am I working on" | local-api readers | read | DONE (live) |
+| read_page + smart spotlight | question | live-perception guide to ANY on-screen element, premium animation | live DOM / a11y tree | read (view) | in flight (replaces the manifest tools + the tour) |
+| search_docs (RAG, triggered) | question | answers "how do I / what is" from the wiki + OpenStax, with citations | wiki + openly-licensed corpus | read | planned |
+| read_my_notes / methods / results / sequences / inventory | question | reads the user's other data for "where/what" questions | local-api / Loro stores | read | planned |
+| click_element | coworker | performs a UI click for the user | live DOM | write (action) | NEXT (autonomy-gated, ask/auto setting) |
+| write_note / edit_note | coworker | drafts, fleshes out, summarizes into a note | notes store (Loro, VC-undo) | write | planned (propose-approve) |
+| run_analysis (Data Hub) | coworker | NL -> proposed analysis plan -> runs it | validated stats engine + the planner | write | planned (planner already built) |
+| make_graph / create_table (Data Hub) | coworker | builds a figure or table from data | plot-spec + column/xy table | write | planned |
+| design_primer / annotate_sequence / plan_cloning | coworker | drives the sequence editor | sequence engine (Tm/digest/translate) | write | planned |
+| build_calculator / run_calculator | coworker | makes or runs a lab calculator | calculator engine | write | planned |
+| create_method / edit_method | coworker | authors a method | methods store | write | planned |
+| share / export / Zenodo deposit | coworker | sends data outward | existing sharing/deposit | write (outward) | later (HARD-STOP confirm always, never auto) |
+
+The autonomy setting governs the write/action tools: "ask before doing" (default, propose-then-confirm) vs "auto". Outward-facing tools (share/export/deposit) are a hard stop regardless of the setting.
