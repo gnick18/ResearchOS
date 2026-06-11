@@ -22,7 +22,7 @@ export default function MoleculesInventory({ project }: MoleculesInventoryProps)
   // MoleculeMeta shape), so query by the string form.
   const { data: molecules = [], isLoading } = useQuery<Molecule[]>({
     queryKey: ["project-molecules", project.owner, project.id],
-    queryFn: () => moleculesApi.listByProject(String(project.id)),
+    queryFn: () => moleculesApi.listByProject(String(project.id), project.owner),
   });
 
   return (

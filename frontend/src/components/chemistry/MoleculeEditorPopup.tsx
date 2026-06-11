@@ -54,6 +54,9 @@ export function MoleculeEditorPopup({
   );
   const [identity, setIdentity] = useState<MoleculeIdentity | null>(null);
   const [rail, setRail] = useState<RailTab>("identity");
+  // The compound the Papers tab queries, captured when the tab opens (not the live
+  // name input) so renaming does not refire Europe PMC / PubChem on every keystroke.
+  const [litQuery, setLitQuery] = useState("");
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -66,6 +69,10 @@ export function MoleculeEditorPopup({
   // Project links (collection membership). Persisted immediately for a saved
   // molecule; held and applied on save for a new one.
   const [projectIds, setProjectIds] = useState<string[]>([]);
+  // Transient confirmation for a copy action (the rail's copy tools), so a click
+  // is never silent. Auto-clears.
+  const [copied, setCopied] = useState<string | null>(null);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", "for-chemistry"],
@@ -150,9 +157,16 @@ export function MoleculeEditorPopup({
   useEffect(
     () => () => {
       if (identityTimer.current) clearTimeout(identityTimer.current);
+      if (copyTimer.current) clearTimeout(copyTimer.current);
     },
     [],
   );
+
+  const flashCopied = useCallback((label: string) => {
+    setCopied(label);
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+    copyTimer.current = setTimeout(() => setCopied(null), 1600);
+  }, []);
 
   const handleSave = useCallback(async () => {
     const k = ketcherRef.current;
@@ -183,7 +197,7 @@ export function MoleculeEditorPopup({
     } finally {
       setSaving(false);
     }
-  }, [isNew, moleculeId, name, queryClient, onClose, saving]);
+  }, [isNew, moleculeId, name, projectIds, queryClient, onClose, saving]);
 
   // Add/remove a project link. Persisted immediately for a saved molecule; for a
   // new (unsaved) one it stays local and is written by create() on save.
@@ -261,7 +275,13 @@ export function MoleculeEditorPopup({
               <RailTabButton active={rail === "identity"} onClick={() => setRail("identity")}>
                 Identity
               </RailTabButton>
-              <RailTabButton active={rail === "papers"} onClick={() => setRail("papers")}>
+              <RailTabButton
+                active={rail === "papers"}
+                onClick={() => {
+                  setLitQuery(name.trim());
+                  setRail("papers");
+                }}
+              >
                 Papers &amp; patents
               </RailTabButton>
             </div>
@@ -271,9 +291,10 @@ export function MoleculeEditorPopup({
                 <IdentityPane
                   identity={identity}
                   ready={ready}
+                  onCopied={flashCopied}
                   onCopyReference={
                     !isNew && moleculeId != null
-                      ? () =>
+                      ? () => {
                           void navigator.clipboard
                             ?.writeText(
                               referenceClipboardText(
@@ -282,22 +303,30 @@ export function MoleculeEditorPopup({
                                 name.trim() || "molecule",
                               ),
                             )
-                            .catch(() => {})
+                            .catch(() => {});
+                          flashCopied("reference for a note");
+                        }
                       : undefined
                   }
                 />
+                {copied ? (
+                  <p className="text-meta text-brand-action mt-2">
+                    Copied {copied}.
+                  </p>
+                ) : null}
                 <ProjectLinks
                   projectIds={projectIds}
                   projects={projects}
                   onChange={handleProjectsChange}
                 />
               </>
-            ) : name.trim() ? (
+            ) : litQuery ? (
               // Mounted only when the Papers tab is open, so the fetch is lazy.
-              // Keyed by name+cid so switching molecules refetches cleanly.
+              // Keyed by the captured query (set on tab open) so it does not refetch
+              // while the user edits the name.
               <MoleculeLiterature
-                key={`${name.trim()}-${loadedCid ?? ""}`}
-                query={name.trim()}
+                key={`${litQuery}-${loadedCid ?? ""}`}
+                query={litQuery}
                 cid={loadedCid}
               />
             ) : (
@@ -365,16 +394,20 @@ function RailTabButton({
 function IdentityPane({
   identity,
   ready,
+  onCopied,
   onCopyReference,
 }: {
   identity: MoleculeIdentity | null;
   ready: boolean;
+  /** Flash a transient "Copied X" confirmation in the rail. */
+  onCopied?: (label: string) => void;
   /** When set (saved molecule), offers a Copy-reference tool for note embeds. */
   onCopyReference?: () => void;
 }) {
-  const copy = (value: string | undefined) => {
+  const copy = (value: string | undefined, label: string) => {
     if (!value) return;
     void navigator.clipboard?.writeText(value).catch(() => {});
+    onCopied?.(label);
   };
 
   if (!ready) {
@@ -439,10 +472,12 @@ function IdentityPane({
         Companion tools
       </h4>
       <div className="flex flex-col gap-1">
-        <ToolItem onClick={() => copy(identity.smiles)}>
+        <ToolItem onClick={() => copy(identity.smiles, "canonical SMILES")}>
           Copy canonical SMILES
         </ToolItem>
-        <ToolItem onClick={() => copy(identity.inchikey)}>Copy InChIKey</ToolItem>
+        <ToolItem onClick={() => copy(identity.inchikey, "InChIKey")}>
+          Copy InChIKey
+        </ToolItem>
         {onCopyReference ? (
           <ToolItem onClick={onCopyReference}>
             Copy reference for a note
@@ -516,6 +551,7 @@ function ProjectLinks({
       )}
       {available.length > 0 ? (
         <select
+          aria-label="Add this molecule to a project"
           value=""
           onChange={(e) => {
             if (e.target.value) onChange([...projectIds, e.target.value]);

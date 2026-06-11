@@ -15,6 +15,10 @@ import { moleculesApi } from "@/lib/chemistry/api";
 import { toMolblock } from "@/lib/chemistry/rdkit";
 import { parseStructureFile, type ParseResult } from "@/lib/chemistry/import-file";
 
+// Max structures imported from one file. Each is a disk write; a multi-thousand
+// record SDF would otherwise freeze the dialog.
+const IMPORT_CAP = 200;
+
 export function ImportFileDialog({
   open,
   onClose,
@@ -29,6 +33,9 @@ export function ImportFileDialog({
   const [importing, setImporting] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(
+    null,
+  );
 
   const takeFile = useCallback(async (file: File) => {
     setSummary(null);
@@ -39,10 +46,16 @@ export function ImportFileDialog({
 
   const handleImport = useCallback(async () => {
     if (!parsed || !parsed.structures.length || importing) return;
+    // Each import is a disk write; cap a huge file so the dialog never appears to
+    // hang. The user is told how many were skipped.
+    const toImport = parsed.structures.slice(0, IMPORT_CAP);
+    const capped = parsed.structures.length - toImport.length;
     setImporting(true);
+    setProgress({ done: 0, total: toImport.length });
     let ok = 0;
     let failed = 0;
-    for (const s of parsed.structures) {
+    for (let i = 0; i < toImport.length; i++) {
+      const s = toImport[i];
       try {
         const molblock = s.isMolblock ? s.structure : await toMolblock(s.structure);
         await moleculesApi.create(molblock, { name: s.name, source: "imported" });
@@ -50,15 +63,21 @@ export function ImportFileDialog({
       } catch {
         failed += 1;
       }
+      setProgress({ done: i + 1, total: toImport.length });
     }
     await queryClient.invalidateQueries({ queryKey: ["molecules"] });
+    await queryClient.invalidateQueries({ queryKey: ["project-molecules"] });
     setImporting(false);
-    if (failed === 0) {
+    setProgress(null);
+    if (failed === 0 && capped === 0) {
       onClose();
     } else {
-      setSummary(
-        `Imported ${ok} structure${ok === 1 ? "" : "s"}. ${failed} could not be parsed by RDKit and were skipped.`,
-      );
+      const parts = [`Imported ${ok} structure${ok === 1 ? "" : "s"}.`];
+      if (failed > 0)
+        parts.push(`${failed} could not be parsed by RDKit and were skipped.`);
+      if (capped > 0)
+        parts.push(`${capped} beyond the ${IMPORT_CAP}-per-file limit were not imported.`);
+      setSummary(parts.join(" "));
       setParsed(null);
     }
   }, [parsed, importing, queryClient, onClose]);
@@ -174,8 +193,10 @@ export function ImportFileDialog({
             >
               <Icon name="download" className="w-4 h-4" />
               {importing
-                ? "Importing…"
-                : `Import ${parsed.structures.length} to library`}
+                ? progress
+                  ? `Importing ${progress.done} of ${progress.total}…`
+                  : "Importing…"
+                : `Import ${Math.min(parsed.structures.length, IMPORT_CAP)} to library`}
             </button>
           ) : null}
         </div>

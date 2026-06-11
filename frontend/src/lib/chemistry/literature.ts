@@ -213,6 +213,7 @@ export async function surechemblSubstructure(
   if (!hash) throw new Error("SureChEMBL returned no search id");
 
   let count = 0;
+  let finished = false;
   for (let i = 0; i < maxPolls; i++) {
     await new Promise((r) => setTimeout(r, pollMs));
     const st = (await fetch(`${SURECHEMBL}/search/${hash}/status`).then((r) =>
@@ -221,7 +222,16 @@ export async function surechemblSubstructure(
     const message = st?.data?.message ?? "";
     count = st?.data?.resultCount ?? count;
     onStatus?.(message, count);
-    if (/finish/i.test(message)) break;
+    if (/finish/i.test(message)) {
+      finished = true;
+      break;
+    }
+  }
+  // If the search never reported "finished" within the poll budget, the results
+  // page would be partial or empty; surface that as a timeout rather than
+  // presenting incomplete data as the final answer.
+  if (!finished) {
+    throw new Error("SureChEMBL search did not finish in time");
   }
 
   const res = (await fetch(

@@ -34,6 +34,17 @@ describe("parseStructureFile", () => {
     expect(r.structures.every((s) => s.isMolblock)).toBe(true);
   });
 
+  it("does not use the program line as the name when an SDF record title is blank", () => {
+    // Record 2 has a blank title line followed by a program/timestamp line, the
+    // shape standard exports (OEChem etc.) produce. The name must fall back to the
+    // filename, never the program line.
+    const sdf = `aspirin\n  prog\n\nM  END\n$$$$\n\n  -OEChem-01\n\nM  END\n$$$$\n`;
+    const r = parseStructureFile("export.sdf", sdf);
+    expect(r.structures).toHaveLength(2);
+    expect(r.structures[0].name).toBe("aspirin");
+    expect(r.structures[1].name).toBe("export 2");
+  });
+
   it("parses .smi lines, smiles + optional name", () => {
     const smi = `CC(=O)Oc1ccccc1C(=O)O aspirin\nCn1cnc2c1c(=O)n(C)c(=O)n2C\n`;
     const r = parseStructureFile("set.smi", smi);

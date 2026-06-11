@@ -102,10 +102,17 @@ export async function list(): Promise<Molecule[]> {
 /**
  * List the molecules linked to a project (collection membership via
  * `project_ids`). The project "Molecules" section maps over this; an empty
- * result renders nothing.
+ * result renders nothing. Pass the project OWNER so a shared project read by a
+ * non-owner lists the owner's molecules, not the viewer's (the store otherwise
+ * defaults to the current user).
  */
-export async function listByProject(projectId: string): Promise<Molecule[]> {
-  const all = await moleculeStore.listMeta();
+export async function listByProject(
+  projectId: string,
+  owner?: string,
+): Promise<Molecule[]> {
+  const all = owner
+    ? await moleculeStore.listMetaForUser(owner)
+    : await moleculeStore.listMeta();
   return all.filter((m) => m.project_ids.includes(projectId));
 }
 

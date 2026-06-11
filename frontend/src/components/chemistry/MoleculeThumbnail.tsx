@@ -14,8 +14,20 @@ import { useEffect, useRef, useState } from "react";
 import { renderSvg } from "@/lib/chemistry/rdkit";
 
 // Module-level cache keyed by `${structure}@${w}x${h}`, so a molecule that shows
-// in both the grid and a project section renders its wasm depiction once.
+// in both the grid and a project section renders its wasm depiction once. Bounded
+// (simple FIFO) so paging a large library does not grow it without limit, and we
+// never cache an empty result so a transient RDKit load failure can retry.
 const svgCache = new Map<string, string>();
+const SVG_CACHE_MAX = 300;
+
+function cacheSvg(key: string, svg: string) {
+  if (!svg) return;
+  if (svgCache.size >= SVG_CACHE_MAX) {
+    const oldest = svgCache.keys().next().value;
+    if (oldest !== undefined) svgCache.delete(oldest);
+  }
+  svgCache.set(key, svg);
+}
 
 export function MoleculeThumbnail({
   structure,
@@ -54,7 +66,7 @@ export function MoleculeThumbnail({
     renderSvg(structure, width, height)
       .then((out) => {
         if (cancelled || !aliveRef.current) return;
-        svgCache.set(cacheKey, out);
+        cacheSvg(cacheKey, out);
         setSvg(out);
       })
       .catch(() => {

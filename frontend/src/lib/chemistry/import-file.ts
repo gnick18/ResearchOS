@@ -80,9 +80,13 @@ export function parseStructureFile(
   }
 
   if (ext === "sdf") {
+    // Strip ONLY the single leading newline the $$$$ split leaves before records
+    // after the first, NOT a full trim: a Molfile's first line is its TITLE and is
+    // legitimately blank, so trimming would shift the program/timestamp line into
+    // the name ("-OEChem-..."). The first record has no split artifact.
     const records = text
       .split(/\$\$\$\$/)
-      .map((r) => r.trim())
+      .map((r, i) => (i === 0 ? r : r.replace(/^\r?\n/, "")))
       .filter((r) => r.includes("M  END"));
     const structures = records.map((record, i) => {
       const molblock = molblockOfRecord(record);

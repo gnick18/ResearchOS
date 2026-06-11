@@ -60,11 +60,15 @@ export function MoleculeLiterature({
         // Resolve a CID for the PubChem xref links (skip if we already have one).
         const resolvedCid =
           cid ?? (await resolveNameToCid(q).catch(() => null));
+        // Track whether Europe PMC actually FAILED (network) vs returned 0 hits,
+        // so a real outage reads as an error and a genuinely-unstudied compound
+        // reads as "no results". PubChem links failing is non-fatal (no patents).
+        let epmcFailed = false;
         const [epmc, links] = await Promise.all([
-          europePmcPapers(q, maxPapers).catch(() => ({
-            hitCount: 0,
-            papers: [],
-          })),
+          europePmcPapers(q, maxPapers).catch(() => {
+            epmcFailed = true;
+            return { hitCount: 0, papers: [] };
+          }),
           resolvedCid != null
             ? pubchemLinks(resolvedCid).catch(() => ({
                 papers: null,
@@ -73,6 +77,12 @@ export function MoleculeLiterature({
             : Promise.resolve({ papers: null, patents: [] as string[] }),
         ]);
         if (cancelled) return;
+        if (epmcFailed) {
+          setError(
+            "Could not reach the literature sources. Try again in a moment.",
+          );
+          return;
+        }
         setData({
           hitCount: epmc.hitCount,
           papers: epmc.papers,

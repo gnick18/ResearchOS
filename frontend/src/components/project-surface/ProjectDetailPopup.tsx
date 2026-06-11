@@ -168,7 +168,7 @@ function useProjectGlance(project: Project): ProjectGlance {
   // Chemistry is an opt-in module; skip the disk scan entirely when it is off.
   const { data: molecules = [] } = useQuery({
     queryKey: ["project-molecules", owner, projectId],
-    queryFn: () => moleculesApi.listByProject(String(projectId)),
+    queryFn: () => moleculesApi.listByProject(String(projectId), owner),
     enabled: CHEMISTRY_ENABLED,
   });
 

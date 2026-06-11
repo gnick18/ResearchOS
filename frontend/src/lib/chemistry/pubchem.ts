@@ -54,8 +54,13 @@ export function pngUrl(cid: number): string {
  * coerce it; a missing or unparseable weight becomes null rather than NaN.
  */
 export function mapPropertyRecord(r: PugPropertyRecord): PubChemCompound {
-  const mw =
-    r.MolecularWeight == null ? null : Number(r.MolecularWeight);
+  // PubChem sends MolecularWeight as a string; an empty string coerces to 0, so
+  // treat blank/whitespace as missing rather than a real 0 g/mol.
+  const mwRaw =
+    typeof r.MolecularWeight === "string"
+      ? r.MolecularWeight.trim()
+      : r.MolecularWeight;
+  const mw = mwRaw == null || mwRaw === "" ? null : Number(mwRaw);
   return {
     cid: r.CID,
     name: r.Title || r.IUPACName || `CID ${r.CID}`,

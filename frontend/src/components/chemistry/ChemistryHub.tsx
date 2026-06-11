@@ -36,7 +36,11 @@ export function ChemistryHub({
   const [sort, setSort] = useState<SortKey>("recent");
   const [mode, setMode] = useState<HubMode>("library");
 
-  const { data: molecules = [], isLoading } = useQuery({
+  const {
+    data: molecules = [],
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ["molecules"],
     queryFn: () => moleculesApi.list(),
   });
@@ -79,7 +83,9 @@ export function ChemistryHub({
       <p className="text-body text-foreground-muted mb-5 max-w-[760px]">
         Draw, store, and search chemical structures, the same way the Sequences
         workbench handles DNA and protein. Your library lives in your data folder,
-        linked to projects. Nothing is sent anywhere unless you search PubChem.
+        linked to projects. Nothing leaves your browser unless you search a public
+        database (PubChem, Europe PMC, SureChEMBL), and then only the name or
+        fragment you ask about.
       </p>
 
       {/* mode toggle: the library vs the literature companion */}
@@ -139,7 +145,7 @@ export function ChemistryHub({
           icon="download"
           tone="green"
           title="Import file"
-          body="Drop a .mol, .sdf, .smi, .cdxml and more."
+          body="Drop a .mol, .sdf, .smi, or .smiles file."
           onClick={onImportFile}
         />
       </div>
@@ -154,7 +160,12 @@ export function ChemistryHub({
         </span>
       </div>
 
-      {isLoading ? (
+      {isError ? (
+        <p className="text-meta text-red-600 dark:text-red-300 py-8">
+          Could not read your molecule library. Check that your data folder is
+          connected and try again.
+        </p>
+      ) : isLoading ? (
         <p className="text-meta text-foreground-muted py-8">Loading your library…</p>
       ) : molecules.length === 0 ? (
         <EmptyLibrary onNewStructure={onNewStructure} />
