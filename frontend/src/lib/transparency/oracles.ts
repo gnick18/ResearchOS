@@ -165,6 +165,44 @@ export const PUBLISHED_QPCR: OracleRef = {
   url: "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8341816/",
 };
 
+export const SCIPY: OracleRef = {
+  id: "scipy",
+  name: "SciPy",
+  version: "1.17.1",
+  entrypoint:
+    "scipy.stats (ttest_ind, ttest_rel, mannwhitneyu, wilcoxon, f_oneway, "
+    + "kruskal, friedmanchisquare, pearsonr, spearmanr, linregress, shapiro, levene)",
+  citation:
+    "Virtanen et al. 2020, SciPy 1.0: fundamental algorithms for scientific "
+    + "computing in Python, Nat. Methods 17:261-272",
+  generator: "frontend/scripts/gen-datahub-stats-golden.py",
+  url: "https://docs.scipy.org/doc/scipy/reference/stats.html",
+};
+
+export const STATSMODELS: OracleRef = {
+  id: "statsmodels",
+  name: "statsmodels",
+  version: "0.14.6",
+  entrypoint:
+    "statsmodels.stats.anova.anova_lm (two-way Type II) and "
+    + "statsmodels.stats.multicomp.pairwise_tukeyhsd",
+  citation: "Seabold & Perktold 2010, statsmodels: econometric and statistical modeling",
+  generator: "frontend/scripts/gen-datahub-stats-golden.py",
+  url: "https://www.statsmodels.org/",
+};
+
+export const LIFELINES: OracleRef = {
+  id: "lifelines",
+  name: "lifelines",
+  version: "0.30.3",
+  entrypoint:
+    "lifelines.KaplanMeierFitter (survival, median) and "
+    + "lifelines.statistics.logrank_test",
+  citation: "Davidson-Pilon 2019, lifelines: survival analysis in Python, JOSS 4(40):1317",
+  generator: "frontend/scripts/gen-datahub-stats-golden.py",
+  url: "https://lifelines.readthedocs.io/",
+};
+
 /** Lookup by id, for resolving an oracle from a case's comparison. */
 export const ORACLES: Record<string, OracleRef> = {
   [BIOPYTHON.id]: BIOPYTHON,
@@ -182,4 +220,7 @@ export const ORACLES: Record<string, OracleRef> = {
   [GENBANK_TRANSLATION.id]: GENBANK_TRANSLATION,
   [REFERENCE_GENOME_DIGEST.id]: REFERENCE_GENOME_DIGEST,
   [PUBLISHED_QPCR.id]: PUBLISHED_QPCR,
+  [SCIPY.id]: SCIPY,
+  [STATSMODELS.id]: STATSMODELS,
+  [LIFELINES.id]: LIFELINES,
 };

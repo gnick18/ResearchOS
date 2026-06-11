@@ -17,6 +17,24 @@ import { alignGlobal, alignLocal } from "@/lib/align/core";
 import { findSharedRegions } from "@/lib/align/local-homology";
 import { nearestNeighborTm } from "@/lib/calculators/tm-nn";
 import { analyzeProtein, type ProteinResult } from "@/lib/calculators/protein";
+import {
+  unpairedTTest,
+  pairedTTest,
+  mannWhitneyU,
+  wilcoxonSignedRank,
+  oneWayAnova,
+  twoWayAnova,
+  kruskalWallis,
+  friedman,
+  pearson,
+  spearman,
+  linearRegression,
+  shapiroWilk,
+  levene,
+  brownForsythe,
+  kaplanMeier,
+  logRank,
+} from "@/lib/datahub/engine";
 import { digestEnzymes, fragmentSizes } from "@/lib/sequences/enzyme-filters";
 import { translate } from "@/vendor/seqviz/sequence";
 
@@ -42,6 +60,23 @@ import {
   PUBLISHED_TRANSLATE_CASES,
   qpcrEfficiencyPercent,
 } from "./datasets/published";
+import {
+  GROUP_A,
+  GROUP_B,
+  GROUP_C,
+  KM_READ_TIMES,
+  PAIR_X,
+  PAIR_Y,
+  REPEATED,
+  REPEATED_LABELS,
+  STAT_PINS,
+  SURV_CONTROL,
+  SURV_TREAT,
+  TWOWAY,
+  XY_X,
+  XY_Y,
+  type StatPin,
+} from "./datasets/datahub-stats";
 import { TM_CASES } from "./datasets/tm";
 import { TRANSLATE_CASES } from "./datasets/translation";
 import {
@@ -53,11 +88,14 @@ import {
   EXACT_DEFINITIONS,
   GC_RULE,
   GENBANK_TRANSLATION,
+  LIFELINES,
   NATIVE_HMMER,
   ORACLES,
   PRIMER3,
   PUBLISHED_QPCR,
   REFERENCE_GENOME_DIGEST,
+  SCIPY,
+  STATSMODELS,
   WALLACE,
 } from "./oracles";
 import {
@@ -1005,6 +1043,211 @@ function buildPublishedDomain(): DomainReport {
   };
 }
 
+/* ------------------------------------------------- Data Hub statistics domain */
+
+/**
+ * Run the Data Hub statistics engine on the single fixed dataset and return a map
+ * from pin id to the engine's computed value. This is the "OURS" side of every
+ * comparison; the pinned `reference` in datahub-stats.ts is the scipy /
+ * statsmodels / lifelines side. Throws if any engine call fails on the dataset,
+ * since that would itself be a regression the gate must catch.
+ */
+function runDatahubEngine(): Record<string, number> {
+  const need = <T extends { ok: boolean }>(
+    r: T,
+    what: string,
+  ): Extract<T, { ok: true }> => {
+    if (!r.ok) {
+      throw new Error(`transparency: datahub engine failed on ${what}`);
+    }
+    return r as Extract<T, { ok: true }>;
+  };
+
+  const welch = need(unpairedTTest(GROUP_A, GROUP_B), "Welch t-test");
+  const student = need(
+    unpairedTTest(GROUP_A, GROUP_B, { variance: "student" }),
+    "Student t-test",
+  );
+  const paired = need(pairedTTest(PAIR_X, PAIR_Y), "paired t-test");
+  const mwu = need(mannWhitneyU(GROUP_A, GROUP_B), "Mann-Whitney U");
+  const wil = need(wilcoxonSignedRank(PAIR_X, PAIR_Y), "Wilcoxon signed-rank");
+  const aov1 = need(
+    oneWayAnova({ A: GROUP_A, B: GROUP_B, C: GROUP_C }, { postHoc: "tukey" }),
+    "one-way ANOVA",
+  );
+  const aov2 = need(twoWayAnova(TWOWAY), "two-way ANOVA");
+  const kw = need(kruskalWallis({ A: GROUP_A, B: GROUP_B, C: GROUP_C }), "Kruskal-Wallis");
+  const fr = need(friedman(REPEATED, REPEATED_LABELS), "Friedman");
+  const pear = need(pearson(XY_X, XY_Y), "Pearson correlation");
+  const spear = need(spearman(XY_X, XY_Y), "Spearman correlation");
+  const reg = need(linearRegression(XY_X, XY_Y), "linear regression");
+  const sw = need(shapiroWilk([...GROUP_A, ...GROUP_B, ...GROUP_C]), "Shapiro-Wilk");
+  const lev = need(levene([GROUP_A, GROUP_B, GROUP_C]), "Levene");
+  const bf = need(brownForsythe([GROUP_A, GROUP_B, GROUP_C]), "Brown-Forsythe");
+  const km = need(kaplanMeier(SURV_TREAT), "Kaplan-Meier");
+  const lr = need(
+    logRank([
+      { name: "Treat", observations: SURV_TREAT },
+      { name: "Control", observations: SURV_CONTROL },
+    ]),
+    "log-rank",
+  );
+
+  // Read the step-function survival just after a fixed time (the value carried
+  // forward from the last event at or before t), matching lifelines' predict().
+  const survAt = (t: number): number => {
+    let s = 1;
+    for (const step of km.steps) {
+      if (step.time <= t) s = step.survival;
+      else break;
+    }
+    return s;
+  };
+
+  // Tukey comparisons keyed by the unordered pair, with the sign-free mean diff.
+  const tukey = new Map<string, { meanDiff: number; pAdjusted: number }>();
+  for (const c of aov1.comparisons) {
+    const key = [c.groupA, c.groupB].sort().join("__");
+    tukey.set(key, { meanDiff: Math.abs(c.meanDiff), pAdjusted: c.pAdjusted });
+  }
+  const twoWayRow = (source: string) => {
+    const row = aov2.table.find((r) => r.source === source);
+    if (!row) throw new Error(`transparency: two-way ANOVA missing row ${source}`);
+    return row;
+  };
+  const rowA = twoWayRow("Factor A");
+  const rowB = twoWayRow("Factor B");
+  const rowAB = twoWayRow("Interaction");
+
+  return {
+    unpaired_welch_t: welch.statistic,
+    unpaired_welch_df: welch.df,
+    unpaired_welch_p: welch.pValue,
+    unpaired_student_t: student.statistic,
+    unpaired_student_df: student.df,
+    unpaired_student_p: student.pValue,
+    paired_t: paired.statistic,
+    paired_p: paired.pValue,
+
+    mann_whitney_u: mwu.statistic,
+    mann_whitney_p: mwu.pValue,
+    wilcoxon_w: wil.statistic,
+    wilcoxon_p: wil.pValue,
+
+    oneway_f: aov1.statistic,
+    oneway_p: aov1.pValue,
+    tukey_ac_p: tukey.get("A__C")!.pAdjusted,
+    tukey_ab_meandiff: tukey.get("A__B")!.meanDiff,
+    tukey_bc_meandiff: tukey.get("B__C")!.meanDiff,
+
+    twoway_a_f: rowA.f ?? NaN,
+    twoway_a_p: rowA.pValue ?? NaN,
+    twoway_b_f: rowB.f ?? NaN,
+    twoway_b_p: rowB.pValue ?? NaN,
+    twoway_ab_f: rowAB.f ?? NaN,
+    twoway_ab_p: rowAB.pValue ?? NaN,
+
+    kruskal_h: kw.statistic,
+    kruskal_p: kw.pValue,
+    friedman_chi2: fr.statistic,
+    friedman_p: fr.pValue,
+
+    pearson_r: pear.coefficient,
+    pearson_p: pear.pValue,
+    spearman_rho: spear.coefficient,
+    linreg_slope: reg.slope,
+    linreg_intercept: reg.intercept,
+    linreg_r2: reg.rSquared,
+
+    shapiro_w: sw.statistic,
+    shapiro_p: sw.pValue,
+    levene_w: lev.statistic,
+    levene_p: lev.pValue,
+    bf_w: bf.statistic,
+    bf_p: bf.pValue,
+
+    km_surv_t7: survAt(KM_READ_TIMES[0]),
+    km_surv_t13: survAt(KM_READ_TIMES[1]),
+    km_surv_t23: survAt(KM_READ_TIMES[2]),
+    km_median: km.median ?? NaN,
+    logrank_chi2: lr.chiSquare,
+    logrank_p: lr.pValue,
+  };
+}
+
+function buildDatahubStatsDomain(): DomainReport {
+  const ours = runDatahubEngine();
+
+  const cases: CaseResult[] = STAT_PINS.map((pin: StatPin) => {
+    const got = ours[pin.id];
+    if (got === undefined || !Number.isFinite(got)) {
+      throw new Error(`transparency: datahub stat ${pin.id} produced no finite value`);
+    }
+    // Compare on the sign-free magnitude where the metric is sign-invariant
+    // (mean differences are pinned as magnitudes; everything else is direct).
+    const oursVal = pin.unit === "diff" ? Math.abs(got) : got;
+    const delta = round(Math.abs(oursVal - pin.reference), 9);
+    const tol: Tolerance = {
+      pass: pin.tol,
+      warn: pin.warn,
+      unit: pin.unit,
+      kind: pin.difference ? "loose" : "tight",
+      rationale:
+        pin.difference
+        ?? "ResearchOS computes this statistic by the same definition as the "
+          + "reference tool, so it must agree to numerical precision on this fixed "
+          + "dataset. Any drift beyond the tolerance is an engine regression.",
+    };
+    const status = classify(delta, tol);
+
+    return {
+      id: pin.id,
+      label: pin.metric,
+      input: pin.metric,
+      comparisons: [
+        {
+          oracleId: pin.oracleId,
+          metric: pin.metric,
+          ours: round(oursVal, 6),
+          theirs: pin.reference,
+          delta,
+          tolerance: tol,
+          status,
+        },
+      ],
+      status,
+    };
+  });
+
+  const { status, totals } = rollup(
+    cases.flatMap((c) => c.comparisons.map((cmp) => cmp.status)),
+  );
+
+  return {
+    id: "datahub-stats",
+    title: "Data Hub statistics",
+    summary:
+      "The Data Hub analysis engine (a free, open, local-first alternative to "
+      + "GraphPad Prism) is validated against the tools working scientists already "
+      + "trust. On one small fixed dataset it runs the unpaired (Welch and Student) "
+      + "and paired t-tests, Mann-Whitney U, Wilcoxon signed-rank, one-way and "
+      + "two-way ANOVA with Tukey post-hoc, Kruskal-Wallis, Friedman, Pearson and "
+      + "Spearman correlation, simple linear regression, Shapiro-Wilk and Levene / "
+      + "Brown-Forsythe assumption checks, and Kaplan-Meier survival with the "
+      + "log-rank test. Every reference value is generated by scipy.stats, "
+      + "statsmodels, and lifelines in a committed Python script and pinned here, so "
+      + "each comparison is reproducible. Two rows are flagged as documented method "
+      + "differences (Wilcoxon exact vs normal-approximation p, and the "
+      + "mean-centered vs median-centered Levene convention) rather than forced to "
+      + "match.",
+    impl: "frontend/src/lib/datahub/engine/",
+    oracles: [SCIPY, STATSMODELS, LIFELINES],
+    cases,
+    totals,
+    status,
+  };
+}
+
 /* ------------------------------------------------------------- aggregation */
 
 /**
@@ -1022,6 +1265,7 @@ export function buildTransparencyReport(): TransparencyReport {
     buildCloningDomain(),
     buildDomainsDomain(),
     buildPublishedDomain(),
+    buildDatahubStatsDomain(),
   ];
 
   const { status, totals } = rollup(
