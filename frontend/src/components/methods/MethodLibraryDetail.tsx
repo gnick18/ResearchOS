@@ -8,8 +8,10 @@ import rehypeSanitize from "rehype-sanitize";
 import { markdownSanitizeSchema } from "@/lib/markdown/sanitize-schema";
 import remarkUnderline from "@/lib/markdown/remark-underline";
 import Tooltip from "@/components/Tooltip";
+import { Icon } from "@/components/icons";
 import {
   fetchMethodCatalogTemplate,
+  METHOD_CATALOG_BASE,
   type MethodCatalogManifestEntry,
   type MethodCatalogTemplate,
 } from "@/lib/methods/method-catalog";
@@ -380,10 +382,23 @@ export function SingleTemplateDetail({
       )}
 
       {entry.source_pdf && (
-        <p className="text-meta text-foreground-muted">
-          Includes a bundled source PDF ({entry.source_pdf.filename}), copied
-          alongside the method when you use it.
-        </p>
+        <div className="flex flex-col gap-2">
+          <p className="text-meta text-foreground-muted">
+            Includes a bundled source PDF ({entry.source_pdf.filename}), copied
+            alongside the method when you use it.
+          </p>
+          {entry.source_pdf.bundled && (
+            <a
+              href={`${METHOD_CATALOG_BASE}/sources/${entry.slug}.pdf`}
+              target="_blank"
+              rel="noopener"
+              className="inline-flex w-fit items-center gap-1.5 text-meta font-medium text-accent hover:underline"
+            >
+              <Icon name="file" className="h-3.5 w-3.5" />
+              View vendor PDF
+            </a>
+          )}
+        </div>
       )}
 
       {/* Read-only payload preview */}
