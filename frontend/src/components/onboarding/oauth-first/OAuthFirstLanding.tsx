@@ -57,22 +57,22 @@ function FloatBot({ className }: { className?: string }) {
 // deterministic positions so server and client render the same (no hydration
 // mismatch), each bubble timed differently so the field never looks like a grid.
 const BUBBLES = [
-  { left: "6%", size: 9, dur: 14, delay: 0 },
-  { left: "13%", size: 6, dur: 18, delay: 4 },
-  { left: "19%", size: 12, dur: 16, delay: 8 },
-  { left: "27%", size: 5, dur: 20, delay: 2 },
-  { left: "34%", size: 8, dur: 15, delay: 11 },
-  { left: "41%", size: 7, dur: 19, delay: 6 },
-  { left: "48%", size: 11, dur: 17, delay: 1 },
-  { left: "55%", size: 6, dur: 21, delay: 9 },
-  { left: "62%", size: 9, dur: 14, delay: 5 },
-  { left: "69%", size: 5, dur: 18, delay: 13 },
-  { left: "76%", size: 13, dur: 16, delay: 3 },
-  { left: "82%", size: 7, dur: 20, delay: 7 },
-  { left: "88%", size: 6, dur: 15, delay: 10 },
-  { left: "93%", size: 10, dur: 19, delay: 2 },
-  { left: "44%", size: 5, dur: 22, delay: 14 },
-  { left: "58%", size: 8, dur: 17, delay: 12 },
+  { left: "6%", size: 15, dur: 13, delay: 0 },
+  { left: "13%", size: 10, dur: 17, delay: 3 },
+  { left: "19%", size: 19, dur: 15, delay: 7 },
+  { left: "27%", size: 9, dur: 19, delay: 1 },
+  { left: "34%", size: 13, dur: 14, delay: 10 },
+  { left: "41%", size: 11, dur: 18, delay: 5 },
+  { left: "48%", size: 18, dur: 16, delay: 2 },
+  { left: "55%", size: 10, dur: 20, delay: 8 },
+  { left: "62%", size: 15, dur: 13, delay: 4 },
+  { left: "69%", size: 9, dur: 17, delay: 12 },
+  { left: "76%", size: 20, dur: 15, delay: 2 },
+  { left: "82%", size: 12, dur: 19, delay: 6 },
+  { left: "88%", size: 10, dur: 14, delay: 9 },
+  { left: "93%", size: 16, dur: 18, delay: 1 },
+  { left: "44%", size: 9, dur: 21, delay: 13 },
+  { left: "58%", size: 13, dur: 16, delay: 11 },
 ];
 
 export function OAuthFirstLanding({
