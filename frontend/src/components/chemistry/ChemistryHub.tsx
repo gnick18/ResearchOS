@@ -18,7 +18,12 @@ import Tooltip from "@/components/Tooltip";
 import { Icon } from "@/components/icons";
 import { moleculesApi, type Molecule } from "@/lib/chemistry/api";
 import { projectsApi } from "@/lib/local-api";
-import { clampListWidth, DEFAULT_LIST_WIDTH } from "@/lib/sequences/split-layout";
+import {
+  clampListWidth,
+  DEFAULT_LIST_WIDTH,
+  LIST_MIN_WIDTH,
+  LIST_MAX_WIDTH,
+} from "@/lib/sequences/split-layout";
 import { MoleculeThumbnail } from "./MoleculeThumbnail";
 import { MoleculeDetail } from "./MoleculeDetail";
 import { LiteratureSearch } from "./LiteratureSearch";
@@ -32,17 +37,23 @@ export function ChemistryHub({
   onOpenMolecule,
   onSearchPubchem,
   onImportFile,
+  selectSignal,
 }: {
   onNewStructure: () => void;
   onOpenMolecule: (id: string) => void;
   onSearchPubchem: () => void;
   onImportFile: () => void;
+  // A nonce-stamped request to select a molecule by id (e.g. just imported from
+  // PubChem or a file), so the hub lands the user on it. The nonce lets the same
+  // id be re-selected, and re-runs the effect only when the parent fires it.
+  selectSignal?: { id: string; nonce: number } | null;
 }) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("recent");
   const [collection, setCollection] = useState<string>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mainView, setMainView] = useState<MainView>("auto");
+  const [listCollapsed, setListCollapsed] = useState(false);
 
   const splitRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
@@ -86,7 +97,11 @@ export function ChemistryHub({
     const warm = () => {
       if (cancelled) return;
       void import("./KetcherCanvas")
-        .then((m) => m.warmKetcher())
+        .then((m) => {
+          // The user may have left /chemistry while the chunk loaded; do not warm
+          // (spawn the worker for) a page that is gone.
+          if (!cancelled) return m.warmKetcher();
+        })
         .catch(() => {});
     };
     const ric = (
@@ -129,6 +144,18 @@ export function ChemistryHub({
     }
   }, []);
 
+  // A just-imported molecule: select it and show its detail. Keyed on the nonce
+  // so re-importing the same id still re-fires.
+  const selectNonce = selectSignal?.nonce;
+  useEffect(() => {
+    if (selectSignal?.id) {
+      setSelectedId(selectSignal.id);
+      setMainView("auto");
+      setListCollapsed(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectNonce]);
+
   const onDividerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     e.preventDefault();
@@ -149,6 +176,30 @@ export function ChemistryHub({
     (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
     document.body.style.userSelect = "";
     document.body.style.cursor = "";
+  }, []);
+  // Keyboard resize (a11y): arrows nudge the list width, re-clamped to the pane.
+  const onDividerKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      e.preventDefault();
+      const step = e.shiftKey ? 48 : 16;
+      const w = splitRef.current?.getBoundingClientRect().width ?? 0;
+      setListWidth((cur) =>
+        clampListWidth(cur + (e.key === "ArrowLeft" ? -step : step), w),
+      );
+    },
+    [],
+  );
+  // Safety net: if the component unmounts mid-drag (navigation away while
+  // dragging), restore the page cursor / text selection rather than leaking them.
+  useEffect(() => {
+    return () => {
+      if (draggingRef.current) {
+        document.body.style.userSelect = "";
+        document.body.style.cursor = "";
+        draggingRef.current = false;
+      }
+    };
   }, []);
 
   const projectName = useMemo(() => {
@@ -201,18 +252,46 @@ export function ChemistryHub({
 
   return (
     <div ref={splitRef} className="relative flex h-full min-h-0 px-4 pb-4 gap-0">
+      {/* Re-open pill, shown only when the rail is collapsed. */}
+      {listCollapsed ? (
+        <Tooltip label="Show the molecule list">
+          <button
+            type="button"
+            onClick={() => setListCollapsed(false)}
+            aria-label="Show the molecule list"
+            className="mr-2 mt-1 flex h-9 w-7 shrink-0 items-center justify-center self-start rounded-md border border-border bg-surface-raised text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
+          >
+            <Icon name="chevronRight" className="w-4 h-4" />
+          </button>
+        </Tooltip>
+      ) : null}
       {/* LEFT RAIL */}
       <aside
-        className="flex shrink-0 flex-col overflow-hidden rounded-lg border border-border bg-surface-raised"
-        style={{ width: listWidth }}
+        className={`flex shrink-0 flex-col overflow-hidden rounded-lg border border-border bg-surface-raised transition-[width] duration-200 ${
+          listCollapsed ? "pointer-events-none border-0" : ""
+        }`}
+        style={{ width: listCollapsed ? 0 : listWidth }}
+        aria-hidden={listCollapsed}
       >
         {/* header + actions */}
         <div className="border-b border-border px-3 py-3">
           <div className="flex items-center justify-between gap-2">
             <h1 className="text-title font-bold text-foreground">Chemistry</h1>
-            <span className="text-meta text-foreground-muted">
-              {molecules.length} molecule{molecules.length === 1 ? "" : "s"}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-meta text-foreground-muted">
+                {molecules.length} molecule{molecules.length === 1 ? "" : "s"}
+              </span>
+              <Tooltip label="Hide the list">
+                <button
+                  type="button"
+                  onClick={() => setListCollapsed(true)}
+                  aria-label="Hide the molecule list"
+                  className="shrink-0 rounded-md p-1 text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
+                >
+                  <Icon name="chevronLeft" className="w-4 h-4" />
+                </button>
+              </Tooltip>
+            </div>
           </div>
           <div className="flex flex-wrap gap-1.5 mt-2.5">
             <RailAction icon="pencil" label="New" onClick={onNewStructure} primary />
@@ -311,26 +390,41 @@ export function ChemistryHub({
         </div>
       </aside>
 
-      {/* DIVIDER */}
-      <Tooltip label="Drag to resize">
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Resize the molecule list"
-          onPointerDown={onDividerDown}
-          onPointerMove={onDividerMove}
-          onPointerUp={onDividerUp}
-          onPointerCancel={onDividerUp}
-          className="group relative mx-1 flex w-2 shrink-0 cursor-col-resize touch-none items-center justify-center"
-        >
-          <span className="h-12 w-1 rounded-full bg-border transition-colors group-hover:bg-brand-action" />
-        </div>
-      </Tooltip>
+      {/* DIVIDER (hidden when the rail is collapsed) */}
+      {listCollapsed ? null : (
+        <Tooltip label="Drag to resize (or use arrow keys)">
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize the molecule list"
+            aria-valuenow={Math.round(listWidth)}
+            aria-valuemin={LIST_MIN_WIDTH}
+            aria-valuemax={LIST_MAX_WIDTH}
+            tabIndex={0}
+            onPointerDown={onDividerDown}
+            onPointerMove={onDividerMove}
+            onPointerUp={onDividerUp}
+            onPointerCancel={onDividerUp}
+            onKeyDown={onDividerKeyDown}
+            className="group relative mx-1 flex w-2 shrink-0 cursor-col-resize touch-none items-center justify-center focus:outline-none"
+          >
+            <span className="h-12 w-1 rounded-full bg-border transition-colors group-hover:bg-brand-action group-focus:bg-brand-action" />
+          </div>
+        </Tooltip>
+      )}
 
       {/* MAIN PANE */}
       <section className="flex min-w-0 flex-1 flex-col rounded-lg border border-border bg-surface-raised overflow-hidden">
         {mainView === "literature" ? (
           <div className="min-h-0 flex-1 overflow-y-auto [overscroll-behavior:contain] px-6 py-6">
+            <button
+              type="button"
+              onClick={() => setMainView("auto")}
+              className="inline-flex items-center gap-1.5 mb-4 text-meta font-semibold text-foreground-muted hover:text-foreground"
+            >
+              <Icon name="chevronLeft" className="w-4 h-4" />
+              Back to the library
+            </button>
             <LiteratureSearch />
           </div>
         ) : selected ? (
@@ -341,6 +435,30 @@ export function ChemistryHub({
             onEdit={onOpenMolecule}
             onDeleted={() => setSelectedId(null)}
           />
+        ) : selectedId && !isLoading ? (
+          // A selected molecule that is not in the library (a deep link to a
+          // deleted / missing id). Tell the user instead of a silent launcher.
+          <div className="min-h-0 flex-1 grid place-items-center px-6 py-10 text-center">
+            <div>
+              <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-surface-sunken text-foreground-muted grid place-items-center">
+                <Icon name="vial" className="w-6 h-6" />
+              </div>
+              <h2 className="text-title font-bold text-foreground mb-1">
+                That molecule is not in this library
+              </h2>
+              <p className="text-meta text-foreground-muted max-w-prose mb-4">
+                It may have been deleted, or the link points at a different data
+                folder.
+              </p>
+              <button
+                type="button"
+                onClick={() => setSelectedId(null)}
+                className="inline-flex items-center gap-2 px-4 py-2 text-body font-semibold text-foreground bg-surface-raised border border-border rounded-lg hover:border-brand-action"
+              >
+                Back to the library
+              </button>
+            </div>
+          </div>
         ) : (
           <Launcher
             empty={molecules.length === 0}

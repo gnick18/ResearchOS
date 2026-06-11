@@ -22,9 +22,14 @@ const IMPORT_CAP = 200;
 export function ImportFileDialog({
   open,
   onClose,
+  onImported,
 }: {
   open: boolean;
   onClose: () => void;
+  // Called with the new molecule's id when a single structure was imported, so
+  // the hub can drop the user straight onto it. Skipped for multi-file imports,
+  // where there is no single "the" molecule to land on.
+  onImported?: (id: string) => void;
 }) {
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -54,11 +59,16 @@ export function ImportFileDialog({
     setProgress({ done: 0, total: toImport.length });
     let ok = 0;
     let failed = 0;
+    let lastId: string | null = null;
     for (let i = 0; i < toImport.length; i++) {
       const s = toImport[i];
       try {
         const molblock = s.isMolblock ? s.structure : await toMolblock(s.structure);
-        await moleculesApi.create(molblock, { name: s.name, source: "imported" });
+        const created = await moleculesApi.create(molblock, {
+          name: s.name,
+          source: "imported",
+        });
+        lastId = created.meta.id;
         ok += 1;
       } catch {
         failed += 1;
@@ -70,6 +80,7 @@ export function ImportFileDialog({
     setImporting(false);
     setProgress(null);
     if (failed === 0 && capped === 0) {
+      if (ok === 1 && lastId) onImported?.(lastId);
       onClose();
     } else {
       const parts = [`Imported ${ok} structure${ok === 1 ? "" : "s"}.`];
@@ -80,7 +91,7 @@ export function ImportFileDialog({
       setSummary(parts.join(" "));
       setParsed(null);
     }
-  }, [parsed, importing, queryClient, onClose]);
+  }, [parsed, importing, queryClient, onClose, onImported]);
 
   const reset = () => {
     setFileName(null);

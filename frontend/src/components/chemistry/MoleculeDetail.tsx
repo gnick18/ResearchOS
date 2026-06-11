@@ -6,10 +6,11 @@
 // editing happens in the Ketcher popup (Edit structure), which is heavy to mount,
 // so clicking around the rail shows this instant RDKit view instead.
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 import { moleculesApi, type Molecule } from "@/lib/chemistry/api";
 import { referenceClipboardText } from "@/lib/copy-reference";
 import { MoleculeThumbnail } from "./MoleculeThumbnail";
@@ -32,6 +33,14 @@ export function MoleculeDetail({
   const [showLit, setShowLit] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
+  const cancelDeleteRef = useRef<HTMLButtonElement | null>(null);
+
+  // When the destructive confirm row appears, land focus on the safe choice
+  // (Cancel) rather than leaving it on the now-unmounted "Delete molecule"
+  // trigger, so a keyboard user does not tab into the red button by accident.
+  useEffect(() => {
+    if (confirmDelete) cancelDeleteRef.current?.focus();
+  }, [confirmDelete]);
 
   const projectName = useMemo(() => {
     const map = new Map<string, string>();
@@ -95,14 +104,16 @@ export function MoleculeDetail({
   ];
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto [overscroll-behavior:contain]">
+    <div className="min-h-0 flex-1 overflow-y-auto [overscroll-behavior:contain] @container">
       <div className="max-w-4xl mx-auto px-6 py-6">
         {/* header */}
         <div className="flex items-start gap-3 mb-4">
           <div className="min-w-0 flex-1">
-            <h1 className="text-heading font-bold text-foreground truncate">
-              {molecule.name}
-            </h1>
+            <Tooltip label={molecule.name} placement="bottom">
+              <h1 className="text-heading font-bold text-foreground truncate">
+                {molecule.name}
+              </h1>
+            </Tooltip>
             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
               {linked.map((p) => (
                 <span
@@ -129,9 +140,13 @@ export function MoleculeDetail({
           </button>
         </div>
 
-        <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="grid gap-5 @[640px]:grid-cols-[minmax(0,1fr)_280px]">
           {/* depiction */}
-          <div className="bg-white border border-border rounded-xl grid place-items-center p-4 min-h-[280px]">
+          <div
+            role="img"
+            aria-label={`Chemical structure of ${molecule.name}`}
+            className="bg-white border border-border rounded-xl grid place-items-center p-4 min-h-[280px]"
+          >
             <MoleculeThumbnail
               structure={molecule.smiles ?? ""}
               width={360}
@@ -180,9 +195,13 @@ export function MoleculeDetail({
                 Copy reference for a note
               </ToolItem>
             </div>
-            {copied ? (
-              <p className="text-meta text-brand-action mt-2">Copied {copied}.</p>
-            ) : null}
+            <p
+              role="status"
+              aria-live="polite"
+              className="text-meta text-brand-action mt-2 min-h-[1.25rem]"
+            >
+              {copied ? `Copied ${copied}.` : ""}
+            </p>
 
             {/* linked projects */}
             <h4 className="text-[11px] uppercase tracking-wide text-foreground-muted mt-5 mb-2">
@@ -284,6 +303,7 @@ export function MoleculeDetail({
                 {busy ? "Deleting…" : "Delete"}
               </button>
               <button
+                ref={cancelDeleteRef}
                 type="button"
                 onClick={() => setConfirmDelete(false)}
                 className="px-3 py-1.5 text-meta text-foreground-muted hover:text-foreground"

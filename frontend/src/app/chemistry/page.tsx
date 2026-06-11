@@ -6,7 +6,7 @@
 // hidden when the flag is off (AppShell), and a direct visit shows a calm
 // not-enabled notice rather than a broken page.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import AppShell from "@/components/AppShell";
 import { ChemistryHub } from "@/components/chemistry/ChemistryHub";
@@ -21,6 +21,18 @@ export default function ChemistryPage() {
   const [editing, setEditing] = useState<string | "new" | null>(null);
   const [pubchemOpen, setPubchemOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+
+  // After a PubChem / file import, ask the hub to land on the new molecule. The
+  // nonce makes each import a distinct request even for a repeated id.
+  const [selectSignal, setSelectSignal] = useState<{
+    id: string;
+    nonce: number;
+  } | null>(null);
+  const importNonce = useRef(0);
+  const handleImported = (id: string) => {
+    importNonce.current += 1;
+    setSelectSignal({ id, nonce: importNonce.current });
+  };
 
   // Demo sessions get to preview the workbench even when the production flag is
   // off, so the public demo can showcase it while real production users never
@@ -70,6 +82,7 @@ export default function ChemistryPage() {
         onOpenMolecule={(id) => setEditing(id)}
         onSearchPubchem={() => setPubchemOpen(true)}
         onImportFile={() => setImportOpen(true)}
+        selectSignal={selectSignal}
       />
       <MoleculeEditorPopup
         moleculeId={editing}
@@ -79,8 +92,13 @@ export default function ChemistryPage() {
       <PubChemImportDialog
         open={pubchemOpen}
         onClose={() => setPubchemOpen(false)}
+        onImported={handleImported}
       />
-      <ImportFileDialog open={importOpen} onClose={() => setImportOpen(false)} />
+      <ImportFileDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={handleImported}
+      />
     </AppShell>
   );
 }
