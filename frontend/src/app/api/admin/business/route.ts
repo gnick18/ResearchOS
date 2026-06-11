@@ -9,8 +9,7 @@
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
-import { auth } from "@/lib/sharing/auth";
-import { isAdminEmail } from "@/lib/sharing/admin";
+import { requireOperator } from "@/lib/sharing/operator-access";
 import { isSharingEnabled, json } from "@/lib/sharing/directory/guard";
 import { getCapacityMetrics } from "@/lib/sharing/capacity";
 import { estimateMonthlyInfraCostCents } from "@/lib/sharing/capacity-shared";
@@ -52,12 +51,11 @@ import { isValidTaxCategory } from "@/lib/business/tax-categories";
 
 export const runtime = "nodejs";
 
-/** Shared gate. Returns a Response to short-circuit, or null to proceed. */
+/** Shared gate. Returns a Response to short-circuit, or null to proceed.
+ *  Operator = an ADMIN_EMAILS OAuth session OR a valid operator access-code cookie. */
 async function gate(): Promise<Response | null> {
   if (!isSharingEnabled()) return json(404, { error: "not found" });
-  const session = await auth();
-  if (!isAdminEmail(session?.user?.email)) return json(404, { error: "not found" });
-  return null;
+  return requireOperator();
 }
 
 export async function GET(): Promise<Response> {

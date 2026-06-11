@@ -1,5 +1,6 @@
+import { requireOperator } from "@/lib/sharing/operator-access";
 import { auth } from "@/lib/sharing/auth";
-import { isAdminEmail } from "@/lib/sharing/admin";
+import { adminEmails } from "@/lib/sharing/admin";
 import { isSharingEnabled, json } from "@/lib/sharing/directory/guard";
 import {
   sendBroadcastEmail,
@@ -11,9 +12,8 @@ export const runtime = "nodejs";
 
 export async function POST(req: Request): Promise<Response> {
   if (!isSharingEnabled()) return json(404, { error: "not found" });
-  const session = await auth();
-  if (!isAdminEmail(session?.user?.email))
-    return json(404, { error: "not found" });
+  const blocked = await requireOperator();
+  if (blocked) return blocked;
 
   let body: BroadcastPayload & { testOnly?: boolean };
   try {
@@ -34,7 +34,14 @@ export async function POST(req: Request): Promise<Response> {
   };
 
   if (body.testOnly) {
-    const adminEmail = session!.user!.email!;
+    // The test send goes to the operator's own address. An OAuth operator has it
+    // on the session; a code-authenticated operator has no email, so fall back to
+    // the first ADMIN_EMAILS entry.
+    const session = await auth();
+    const adminEmail = session?.user?.email ?? adminEmails()[0];
+    if (!adminEmail) {
+      return json(400, { error: "no operator email available for a test send" });
+    }
     try {
       await sendBroadcastEmail(adminEmail, msg);
       return json(200, { sent: 1, recipients: [adminEmail], testOnly: true });

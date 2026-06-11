@@ -10,8 +10,7 @@
 // Reads env: SHARING_ENABLED, ADMIN_EMAILS, DATABASE_URL, plus the AUTH_* vars
 // used by the session.
 
-import { auth } from "@/lib/sharing/auth";
-import { isAdminEmail } from "@/lib/sharing/admin";
+import { requireOperator } from "@/lib/sharing/operator-access";
 import { getCapacityMetrics } from "@/lib/sharing/capacity";
 import {
   ensureEmailLogSchema,
@@ -34,10 +33,8 @@ export async function GET(): Promise<Response> {
   }
 
   // Admin gate. No session email, or an email not on the allow-list, is a 404.
-  const session = await auth();
-  if (!isAdminEmail(session?.user?.email)) {
-    return json(404, { error: "not found" });
-  }
+  const blocked = await requireOperator();
+  if (blocked) return blocked;
 
   await ensureSchema();
   await ensureProfileSchema();

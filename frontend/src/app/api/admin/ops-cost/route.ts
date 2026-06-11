@@ -13,8 +13,7 @@
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
-import { auth } from "@/lib/sharing/auth";
-import { isAdminEmail } from "@/lib/sharing/admin";
+import { requireOperator } from "@/lib/sharing/operator-access";
 import { json } from "@/lib/sharing/directory/guard";
 import { estimatedOpsCostCents } from "@/lib/billing/config";
 import { ensureOpsSchema, topOwnersByWrites } from "@/lib/billing/ops";
@@ -27,10 +26,8 @@ function isoDaysAgo(days: number): string {
 }
 
 export async function GET(): Promise<Response> {
-  const session = await auth();
-  if (!isAdminEmail(session?.user?.email)) {
-    return json(404, { error: "not found" });
-  }
+  const blocked = await requireOperator();
+  if (blocked) return blocked;
 
   try {
     await ensureOpsSchema();

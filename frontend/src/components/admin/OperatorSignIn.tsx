@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { signIn, signOut } from "next-auth/react";
-import { isMicrosoftAuthEnabled } from "@/lib/sharing/oauth-availability";
+import {
+  isGithubAuthEnabled,
+  isGoogleAuthEnabled,
+  isMicrosoftAuthEnabled,
+  isOperatorCodeEnabled,
+} from "@/lib/sharing/oauth-availability";
 
 /**
  * Operator sign-in block for the /admin pages. The /api/admin/* endpoints gate
@@ -42,6 +47,39 @@ export default function OperatorSignIn() {
   // mounts in a production build), so the Google/GitHub buttons are the real path.
   const devMockOn = process.env.NEXT_PUBLIC_AUTH_DEV_MOCK === "1";
 
+  const [code, setCode] = useState("");
+  const [codeBusy, setCodeBusy] = useState(false);
+  const [codeErr, setCodeErr] = useState<string | null>(null);
+
+  const submitCode = async () => {
+    const value = code.trim();
+    if (!value) return;
+    setCodeBusy(true);
+    setCodeErr(null);
+    try {
+      const res = await fetch("/api/admin/operator-login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code: value }),
+      });
+      if (res.ok) {
+        // The signed cookie is set; reload so the server gate re-evaluates and
+        // drops us straight into the operator page.
+        window.location.reload();
+        return;
+      }
+      setCodeErr(
+        res.status === 429
+          ? "Too many attempts. Wait a few minutes and try again."
+          : "That code did not work.",
+      );
+    } catch {
+      setCodeErr("Could not reach the server. Try again.");
+    } finally {
+      setCodeBusy(false);
+    }
+  };
+
   return (
     <div className="mt-5 rounded-xl border border-border bg-surface-raised p-4">
       <p className="text-body font-medium text-foreground">Operator sign-in</p>
@@ -57,18 +95,20 @@ export default function OperatorSignIn() {
           <button
             type="button"
             onClick={() => void signIn("devmock", { callbackUrl })}
-            className="inline-flex items-center gap-2 rounded-lg border border-amber-400/50 bg-amber-50 dark:bg-amber-500/10 px-3.5 py-2 text-body font-medium text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-500/20"
+            className="inline-flex items-center gap-2 rounded-lg border border-amber-400/50 bg-amber-50 px-3.5 py-2 text-body font-medium text-amber-800 hover:bg-amber-100"
           >
             Dev sign-in (local)
           </button>
         )}
-        <button
-          type="button"
-          onClick={() => void signIn("google", { callbackUrl })}
-          className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3.5 py-2 text-body font-medium text-foreground hover:bg-surface-sunken"
-        >
-          Sign in with Google
-        </button>
+        {isGoogleAuthEnabled() && (
+          <button
+            type="button"
+            onClick={() => void signIn("google", { callbackUrl })}
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3.5 py-2 text-body font-medium text-foreground hover:bg-surface-sunken"
+          >
+            Sign in with Google
+          </button>
+        )}
         {isMicrosoftAuthEnabled() && (
           <button
             type="button"
@@ -78,23 +118,57 @@ export default function OperatorSignIn() {
             Sign in with Microsoft
           </button>
         )}
-        <button
-          type="button"
-          onClick={() => void signIn("github", { callbackUrl })}
-          className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3.5 py-2 text-body font-medium text-foreground hover:bg-surface-sunken"
-        >
-          Sign in with GitHub
-        </button>
+        {isGithubAuthEnabled() && (
+          <button
+            type="button"
+            onClick={() => void signIn("github", { callbackUrl })}
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3.5 py-2 text-body font-medium text-foreground hover:bg-surface-sunken"
+          >
+            Sign in with GitHub
+          </button>
+        )}
         {email && (
           <button
             type="button"
             onClick={() => void signOut({ callbackUrl })}
-            className="text-meta font-medium text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
+            className="text-meta font-medium text-sky-700 underline-offset-2 hover:underline"
           >
             Sign out
           </button>
         )}
       </div>
+
+      {isOperatorCodeEnabled() && (
+        <div className="mt-3 border-t border-border pt-3">
+          <label className="text-meta text-foreground-muted">
+            Or enter your operator access code
+          </label>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <input
+              type="password"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void submitCode();
+              }}
+              placeholder="Access code"
+              autoComplete="off"
+              className="rounded-lg border border-border bg-surface px-3 py-2 text-body text-foreground"
+            />
+            <button
+              type="button"
+              disabled={codeBusy || !code.trim()}
+              onClick={submitCode}
+              className="rounded-lg bg-sky-600 px-4 py-2 text-body font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
+            >
+              {codeBusy ? "Checking..." : "Enter"}
+            </button>
+          </div>
+          {codeErr ? (
+            <p className="mt-1 text-meta text-rose-600 dark:text-rose-300">{codeErr}</p>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }

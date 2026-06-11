@@ -12,8 +12,7 @@
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
-import { auth } from "@/lib/sharing/auth";
-import { isAdminEmail } from "@/lib/sharing/admin";
+import { requireOperator } from "@/lib/sharing/operator-access";
 import { json } from "@/lib/sharing/directory/guard";
 import { ownerKeyForEmail } from "@/lib/billing/owner";
 import { BYTES_PER_GB } from "@/lib/billing/config";
@@ -29,10 +28,8 @@ export const runtime = "nodejs";
 const WRITES_PER_MILLION = 1_000_000;
 
 async function gate(): Promise<Response | null> {
-  const session = await auth();
-  if (!isAdminEmail(session?.user?.email)) {
-    return json(404, { error: "not found" });
-  }
+  const blocked = await requireOperator();
+  if (blocked) return blocked;
   return null;
 }
 

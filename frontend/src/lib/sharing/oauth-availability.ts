@@ -49,3 +49,31 @@ export function isRealSharingEnabled(): boolean {
 export function isMicrosoftAuthEnabled(): boolean {
   return process.env.NEXT_PUBLIC_AUTH_MICROSOFT_ENABLED === "true";
 }
+
+// Google and GitHub are the default providers, OFFERED wherever the real OAuth UI
+// shows (sharing enabled). A deployment that has NOT configured one of them (for
+// example a local dev wired only for Microsoft) can hide its button by setting
+// the matching flag to "false", so clicking it never dead-ends at
+// /api/auth/error. Default ON, so every existing deployment that already relies
+// on Google/GitHub keeps showing them without setting a new flag.
+export function isGoogleAuthEnabled(): boolean {
+  return (
+    isRealSharingEnabled() &&
+    process.env.NEXT_PUBLIC_AUTH_GOOGLE_ENABLED !== "false"
+  );
+}
+
+export function isGithubAuthEnabled(): boolean {
+  return (
+    isRealSharingEnabled() &&
+    process.env.NEXT_PUBLIC_AUTH_GITHUB_ENABLED !== "false"
+  );
+}
+
+// Whether to OFFER the operator access-code field on the operator sign-in card.
+// Opt-in: the deployer sets OPERATOR_ACCESS_CODE (the secret, server-only) and
+// flips NEXT_PUBLIC_OPERATOR_CODE_ENABLED to "true" so the field shows. Until
+// then the field stays hidden and only the OAuth buttons appear.
+export function isOperatorCodeEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_OPERATOR_CODE_ENABLED === "true";
+}

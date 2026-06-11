@@ -1,5 +1,4 @@
-import { auth } from "@/lib/sharing/auth";
-import { isAdminEmail } from "@/lib/sharing/admin";
+import { requireOperator } from "@/lib/sharing/operator-access";
 import { isSharingEnabled, json } from "@/lib/sharing/directory/guard";
 import {
   addBetaTester,
@@ -11,9 +10,8 @@ export const runtime = "nodejs";
 
 export async function GET(): Promise<Response> {
   if (!isSharingEnabled()) return json(404, { error: "not found" });
-  const session = await auth();
-  if (!isAdminEmail(session?.user?.email))
-    return json(404, { error: "not found" });
+  const blocked = await requireOperator();
+  if (blocked) return blocked;
 
   try {
     const testers = await listBetaTesters();
@@ -25,9 +23,8 @@ export async function GET(): Promise<Response> {
 
 export async function POST(req: Request): Promise<Response> {
   if (!isSharingEnabled()) return json(404, { error: "not found" });
-  const session = await auth();
-  if (!isAdminEmail(session?.user?.email))
-    return json(404, { error: "not found" });
+  const blocked = await requireOperator();
+  if (blocked) return blocked;
 
   let body: { email?: string; name?: string };
   try {
@@ -51,9 +48,8 @@ export async function POST(req: Request): Promise<Response> {
 
 export async function DELETE(req: Request): Promise<Response> {
   if (!isSharingEnabled()) return json(404, { error: "not found" });
-  const session = await auth();
-  if (!isAdminEmail(session?.user?.email))
-    return json(404, { error: "not found" });
+  const blocked = await requireOperator();
+  if (blocked) return blocked;
 
   let body: { id?: number };
   try {
