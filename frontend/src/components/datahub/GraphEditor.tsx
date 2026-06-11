@@ -302,6 +302,109 @@ function FigureSizeControls({
   );
 }
 
+/**
+ * Wrap the live figure with a draggable bottom-right corner handle so a
+ * researcher can resize the figure by eye, the way they would in a slide tool.
+ * The handle sits in the corner OUTSIDE the SVG hit area and stops its own
+ * pointer events, so it never swallows the double-click / right-click color
+ * editing on the plot. The px drag delta is converted back into the figure's
+ * current unit; aspect lock constrains the ratio. The current dimensions show in
+ * a small label while dragging.
+ */
+function FigureResizeFrame({
+  style,
+  frameWidthPx,
+  frameHeightPx,
+  onStyleChange,
+  children,
+}: {
+  style: PlotStyle;
+  /** The figure's on-screen size in design-px (CSS px), so deltas map 1:1. */
+  frameWidthPx: number;
+  frameHeightPx: number;
+  onStyleChange: (patch: Partial<PlotStyle>) => void;
+  children: React.ReactNode;
+}) {
+  const unit: SizeUnit = style.sizeUnit ?? "px";
+  const locked = style.aspectLocked ?? true;
+  const [drag, setDrag] = useState<{ w: number; h: number } | null>(null);
+
+  const ratio =
+    frameWidthPx > 0 && frameHeightPx > 0
+      ? frameWidthPx / frameHeightPx
+      : FIG.width / FIG.height;
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startW = frameWidthPx;
+    const startH = frameHeightPx;
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+
+    const MIN = 120; // keep the figure from collapsing past a usable size
+
+    const move = (ev: PointerEvent) => {
+      const dx = ev.clientX - startX;
+      let w = Math.max(MIN, startW + dx);
+      let h: number;
+      if (locked) {
+        h = w / ratio;
+      } else {
+        const dy = ev.clientY - startY;
+        h = Math.max(MIN, startH + dy);
+        // Re-derive w in case the height hit the floor (keeps the box sane).
+        w = Math.max(MIN, startW + dx);
+      }
+      setDrag({ w: Math.round(w), h: Math.round(h) });
+      onStyleChange({
+        width: roundForUnit(fromDesignPx(w, unit), unit),
+        height: roundForUnit(fromDesignPx(h, unit), unit),
+      });
+    };
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      (e.target as Element).releasePointerCapture?.(ev.pointerId);
+      setDrag(null);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
+  return (
+    <div className="relative inline-block">
+      {children}
+      {/* Drag handle in the bottom-right corner, on top of the figure corner but
+          a small target so it does not block the plot's color hit-testing. */}
+      <div
+        role="slider"
+        aria-label="Resize figure"
+        aria-valuenow={Math.round(frameWidthPx)}
+        tabIndex={0}
+        onPointerDown={onPointerDown}
+        className="absolute bottom-0 right-0 z-10 h-4 w-4 cursor-nwse-resize rounded-tl-sm border border-border bg-surface-raised opacity-70 transition-opacity hover:opacity-100"
+        data-testid="datahub-figure-resize-handle"
+      >
+        <Icon
+          name="scale"
+          className="pointer-events-none h-3 w-3 text-foreground-muted"
+        />
+      </div>
+      {drag && (
+        <div
+          className="pointer-events-none absolute bottom-1 right-5 z-10 rounded bg-foreground/80 px-1.5 py-0.5 text-[10px] font-medium text-white"
+          data-testid="datahub-figure-resize-readout"
+        >
+          {roundForUnit(fromDesignPx(drag.w, unit), unit)} x{" "}
+          {roundForUnit(fromDesignPx(drag.h, unit), unit)} {unit}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function GraphEditor({
   spec,
   content,
@@ -424,13 +527,20 @@ export default function GraphEditor({
       <div className="mt-4 flex flex-wrap items-start gap-5">
         {/* Figure + export row */}
         <div className="rounded-lg border border-border bg-white p-3">
-          <PlotColorEditor
-            svg={svg}
+          <FigureResizeFrame
             style={style}
-            resolvedColors={seriesInfo.colors}
+            frameWidthPx={frame.screenWidth}
+            frameHeightPx={frame.screenHeight}
             onStyleChange={onStyleChange}
-            onSaveColorsAsPalette={onSaveColorsAsPalette}
-          />
+          >
+            <PlotColorEditor
+              svg={svg}
+              style={style}
+              resolvedColors={seriesInfo.colors}
+              onStyleChange={onStyleChange}
+              onSaveColorsAsPalette={onSaveColorsAsPalette}
+            />
+          </FigureResizeFrame>
           <div className="mt-2 flex items-center gap-2">
             <button
               type="button"
