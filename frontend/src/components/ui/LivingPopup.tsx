@@ -218,6 +218,20 @@ export default function LivingPopup({
     };
   }, []);
 
+  // Lock background scroll while the popup is mounted, so a trackpad scroll over
+  // the popup (e.g. the chemistry editor canvas) does not chain through to the
+  // page behind the scrim. Save-then-restore the prior value so stacked popups
+  // nest correctly (the last to unmount restores the original). On macOS overlay
+  // scrollbars there is no width to compensate, so no layout shift.
+  useEffect(() => {
+    if (!mounted) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mounted]);
+
   // Focus trap (a11y, WCAG 2.4.3): keep Tab / Shift+Tab cycling within the popup
   // so keyboard focus cannot wander into the live page behind the scrim. Scoped
   // to the OVERLAY root, so the scrim/close-X (siblings of the card) are part of
