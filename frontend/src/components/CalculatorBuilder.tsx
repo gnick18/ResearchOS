@@ -19,6 +19,7 @@ import {
   evaluateCustomCalculator,
   deriveTableRows,
   formatCalcValue,
+  isReservedName,
   type CustomCalcInputValues,
   type CustomCalcResult,
 } from "@/lib/calculators/custom";
@@ -145,20 +146,17 @@ function seedValues(inputs: CustomCalculatorInput[]): CustomCalcInputValues {
   return values;
 }
 
-// ── Engine reserved names (Phase 5) ──────────────────────────────────────────
+// ── Engine reserved names ────────────────────────────────────────────────────
 //
 // An input / step / table-column key must NOT collide with a built-in engine
 // function or constant, or the expression silently resolves to NaN. The builder
-// surfaces this as an inline warning so the author renames before it bites.
-
-const RESERVED_KEYS = new Set([
-  "count", "sum", "mean", "sd", "min", "max", "shannon", "simpson",
-  "geomean", "sumproduct", "linfit_slope", "linfit_intercept", "col",
-  "if", "pi", "e",
-]);
+// surfaces this as an inline warning so the author renames before it bites. The
+// reserved set is derived from the live parser in custom.ts (isReservedName), so
+// it can never drift from what the engine actually registers (a new helper is
+// reserved automatically), and the match is case-insensitive.
 
 function isReservedKey(key: string): boolean {
-  return RESERVED_KEYS.has(key.trim());
+  return isReservedName(key);
 }
 
 // ── Sharing control (Phase 2) ────────────────────────────────────────────────

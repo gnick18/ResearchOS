@@ -12,6 +12,8 @@ import { describe, expect, it } from "vitest";
 import {
   evaluateCustomCalculator,
   formatCalcValue,
+  isReservedName,
+  RESERVED_NAMES,
   type CustomCalcInputValues,
 } from "./custom";
 import type { CustomCalculator } from "@/lib/types";
@@ -344,5 +346,24 @@ describe("formatCalcValue", () => {
     expect(formatCalcValue(0.1 + 0.2)).toBe("0.3");
     expect(formatCalcValue(NaN)).toBe("—");
     expect(formatCalcValue(0)).toBe("0");
+  });
+});
+
+describe("RESERVED_NAMES (parser-derived, drift-proof)", () => {
+  it("covers every engine helper + constant + keyword operator", () => {
+    for (const name of [
+      "mean", "sum", "count", "sd", "min", "max",
+      "shannon", "simpson", "geomean", "sumproduct",
+      "linfit_slope", "linfit_intercept", "col", "if",
+      "pi", "e", "and", "or", "not", "in",
+    ]) {
+      expect(RESERVED_NAMES.has(name)).toBe(true);
+    }
+  });
+  it("is case-insensitive and flags a colliding key", () => {
+    expect(isReservedName("count")).toBe(true);
+    expect(isReservedName("Count")).toBe(true);
+    expect(isReservedName(" COL ")).toBe(true);
+    expect(isReservedName("avgCount")).toBe(false);
   });
 });

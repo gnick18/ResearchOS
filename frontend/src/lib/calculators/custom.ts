@@ -201,6 +201,34 @@ function makeCustomParser(): Parser {
 
 const customParser = makeCustomParser();
 
+// ── Reserved names ───────────────────────────────────────────────────────────
+//
+// An input / step / column key must never equal a name the engine already
+// resolves, or the formula silently breaks. A key named `count`, for example,
+// makes `count * 10000` resolve the built-in `count()` list helper instead of
+// the value, yielding NaN with no error. RESERVED_NAMES is derived from the
+// SAME parser instance the evaluator uses, so it can never drift from what is
+// actually registered (a new helper like `col` is reserved automatically). The
+// keyword operators (and/or/not/in) are tokenizer syntax rather than entries in
+// the function / constant tables, so they are added explicitly.
+
+export const RESERVED_NAMES: ReadonlySet<string> = new Set(
+  [
+    ...Object.keys(customParser.functions),
+    ...Object.keys(customParser.consts),
+    "and",
+    "or",
+    "not",
+    "in",
+  ].map((n) => n.toLowerCase()),
+);
+
+/** True when a proposed key collides with a reserved engine name
+ *  (case-insensitive, so `Count` collides too). */
+export function isReservedName(key: string): boolean {
+  return RESERVED_NAMES.has(key.trim().toLowerCase());
+}
+
 // ── Display formatting ───────────────────────────────────────────────────────
 
 /** Trim binary floating-point noise and render a clean numeric string. Mirrors
