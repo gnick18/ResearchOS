@@ -58,12 +58,8 @@ export default function MadeInMadison({
       <span
         className={`inline-flex items-center gap-2 text-meta text-foreground-muted ${className}`}
       >
-        {/* WI silhouette: light brand-action fill + brand-action stroke */}
-        <Icon
-          name="wisconsin"
-          className="h-5 w-5 flex-none text-brand-action [&_path]:fill-brand-action/15"
-          title="Wisconsin"
-        />
+        {/* WI silhouette: green-gold gradient with a gold Madison star (self-colored) */}
+        <Icon name="wisconsin" className="h-5 w-5 flex-none" title="Wisconsin" />
         <span>Built in {madison}, Wisconsin.</span>
       </span>
     );
@@ -74,12 +70,8 @@ export default function MadeInMadison({
     <div
       className={`inline-flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-2.5 text-left ${className}`}
     >
-      {/* WI silhouette: ~34px, light brand-action fill tint + brand-action stroke */}
-      <Icon
-        name="wisconsin"
-        className="h-[34px] w-[34px] flex-none text-brand-action [&_path]:fill-brand-action/15"
-        title="Wisconsin"
-      />
+      {/* WI silhouette: ~34px, green-gold gradient with a gold Madison star (self-colored) */}
+      <Icon name="wisconsin" className="h-[34px] w-[34px] flex-none" title="Wisconsin" />
       <div className="flex flex-col gap-0.5">
         <span className="text-sm font-extrabold leading-tight text-foreground">
           Built in {madison}
