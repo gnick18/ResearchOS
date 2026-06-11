@@ -29,6 +29,7 @@ export const APP_ROUTE_TO_WIKI: Record<string, string> = {
   "/settings": "/wiki/features/settings",
   "/trash": "/wiki/features/trash",
   "/sequences": "/wiki/features/sequences",
+  "/datahub": "/wiki/features/datahub",
 };
 
 /** Prefix-aware lookup. Tries an exact match first, then walks the
@@ -235,6 +236,11 @@ export const WIKI_NAV: WikiNode[] = [
         href: "/wiki/features/sequences",
         label: "Sequences",
         blurb: "View, edit, annotate, and clone DNA, RNA, and protein sequences. Your plasmid library lives alongside your notes and experiments.",
+      },
+      {
+        href: "/wiki/features/datahub",
+        label: "Data Hub",
+        blurb: "A free, open-source GraphPad Prism alternative. Statistics and publication figures that run in the browser, with your data staying in your folder.",
       },
       {
         href: "/wiki/features/cloning",
