@@ -401,20 +401,22 @@ function FigureResizeFrame({
       {children}
       {/* Drag handle in the bottom-right corner, on top of the figure corner but
           a small target so it does not block the plot's color hit-testing. */}
-      <div
-        role="slider"
-        aria-label="Resize figure"
-        aria-valuenow={Math.round(frameWidthPx)}
-        tabIndex={0}
-        onPointerDown={onPointerDown}
-        className="absolute bottom-0 right-0 z-10 h-4 w-4 cursor-nwse-resize rounded-tl-sm border border-border bg-surface-raised opacity-70 transition-opacity hover:opacity-100"
-        data-testid="datahub-figure-resize-handle"
-      >
-        <Icon
-          name="scale"
-          className="pointer-events-none h-3 w-3 text-foreground-muted"
-        />
-      </div>
+      <Tooltip label="Drag to resize">
+        <div
+          role="slider"
+          aria-label="Resize figure"
+          aria-valuenow={Math.round(frameWidthPx)}
+          tabIndex={0}
+          onPointerDown={onPointerDown}
+          className="absolute bottom-0 right-0 z-10 h-4 w-4 cursor-nwse-resize rounded-tl-sm border border-border bg-surface-raised opacity-70 transition-opacity hover:opacity-100"
+          data-testid="datahub-figure-resize-handle"
+        >
+          <Icon
+            name="scale"
+            className="pointer-events-none h-3 w-3 text-foreground-muted"
+          />
+        </div>
+      </Tooltip>
       {drag && (
         <div
           className="pointer-events-none absolute bottom-1 right-5 z-10 rounded bg-foreground/80 px-1.5 py-0.5 text-[10px] font-medium text-white"

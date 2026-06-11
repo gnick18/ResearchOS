@@ -774,11 +774,34 @@ export default function PaletteStudio({
         </Ctl>
         {saveNameBody}
         {mode === "library" ? (
-          <p className="mt-2 text-[10px] text-foreground-muted">
-            Pick from the full library, filtered by how many series this figure
-            has, with color-blind and print-safe options. Browse opens the roomy
-            view.
-          </p>
+          <div className="mt-2 space-y-1" data-testid="palette-compact-quickpick">
+            {filtered.slice(0, 5).map((p) => {
+              const cols = samplePalette(p, Math.max(1, seriesCount));
+              const active = p.id === activeId;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => pickPalette(p.id)}
+                  className={`w-full rounded border px-1.5 py-1 transition-colors ${
+                    active
+                      ? "border-accent ring-1 ring-accent/30"
+                      : "border-border hover:border-accent"
+                  }`}
+                  data-testid={`palette-quickpick-${p.id}`}
+                  aria-pressed={active}
+                >
+                  <SwatchRow colors={cols} />
+                </button>
+              );
+            })}
+            {filtered.length === 0 && (
+              <p className="text-[10px] text-foreground-muted">
+                No palettes match the current series count. Browse to adjust
+                filters.
+              </p>
+            )}
+          </div>
         ) : (
           <div className="mt-2">
             {mode === "custom" ? customBody : generateBody}
