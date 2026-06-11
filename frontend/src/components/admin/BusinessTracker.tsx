@@ -25,6 +25,8 @@ import {
   emailArchiveMarkdown,
   formatUSD,
   isReimbursementSettlement,
+  monthlyBurnCents,
+  subscriptionDeadlines,
   upcomingDeadlines,
   vercelOssApplicationDeadline,
   type BusinessEmail,
@@ -36,6 +38,8 @@ import {
   type LedgerEntry,
   type PaymentMethod,
   type PaymentMethodKind,
+  type Subscription,
+  type SubscriptionCadence,
 } from "@/lib/business/calc";
 import { INFRA_TIERS, INFRA_TIERS_CHECKED, INFRA_TIERS_NOTE } from "@/lib/business/infra-tiers";
 import {
@@ -51,6 +55,7 @@ interface BusinessData {
   tasks: BusinessTask[];
   emails: BusinessEmail[];
   paymentMethods: PaymentMethod[];
+  subscriptions: Subscription[];
   summary: BusinessSummary;
   deadlines: Deadline[];
   infraEstimate: InfraCostEstimate;
@@ -1321,6 +1326,268 @@ function ReimbursementPanel({
   );
 }
 
+// --- recurring subscriptions (block 4) ---
+
+interface NewSub {
+  label: string;
+  amountCents: number;
+  cadence: SubscriptionCadence;
+  paidWith: number | null;
+  nextRenewal: string | null;
+}
+
+function SubscriptionRow({
+  sub,
+  methods,
+  onUpdate,
+  onDelete,
+}: {
+  sub: Subscription;
+  methods: PaymentMethod[];
+  onUpdate: (id: number, s: NewSub) => Promise<void>;
+  onDelete: (id: number) => Promise<void>;
+}) {
+  const [dollars, setDollars] = useState((sub.amountCents / 100).toFixed(2));
+  const [cadence, setCadence] = useState<SubscriptionCadence>(sub.cadence);
+  const [paidWith, setPaidWith] = useState(sub.paidWith);
+  const [nextRenewal, setNextRenewal] = useState(sub.nextRenewal ?? "");
+
+  const [synced, setSynced] = useState(sub);
+  if (synced !== sub) {
+    setSynced(sub);
+    setDollars((sub.amountCents / 100).toFixed(2));
+    setCadence(sub.cadence);
+    setPaidWith(sub.paidWith);
+    setNextRenewal(sub.nextRenewal ?? "");
+  }
+
+  const save = (patch: Partial<NewSub>) =>
+    onUpdate(sub.id, {
+      label: sub.label,
+      amountCents: Math.round(parseFloat(dollars) * 100) || 0,
+      cadence,
+      paidWith,
+      nextRenewal: nextRenewal || null,
+      ...patch,
+    });
+
+  const input = "rounded-lg border border-border px-2 py-1 text-meta";
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface-raised px-3 py-2.5">
+      <span className="min-w-[8rem] flex-1 text-body font-medium text-foreground">
+        {sub.label}
+      </span>
+      <label className="flex flex-col">
+        <span className="text-meta text-foreground-muted">Amount</span>
+        <input
+          inputMode="decimal"
+          className={`mt-0.5 w-20 ${input}`}
+          value={dollars}
+          onChange={(e) => setDollars(e.target.value)}
+          onBlur={() => save({ amountCents: Math.round(parseFloat(dollars) * 100) || 0 })}
+        />
+      </label>
+      <label className="flex flex-col">
+        <span className="text-meta text-foreground-muted">Cadence</span>
+        <select
+          className={`mt-0.5 ${input}`}
+          value={cadence}
+          onChange={(e) => {
+            const next = e.target.value as SubscriptionCadence;
+            setCadence(next);
+            void save({ cadence: next });
+          }}
+        >
+          <option value="monthly">Monthly</option>
+          <option value="yearly">Yearly</option>
+        </select>
+      </label>
+      <label className="flex flex-col">
+        <span className="text-meta text-foreground-muted">Paid with</span>
+        <select
+          className={`mt-0.5 ${input}`}
+          value={paidWith == null ? "" : String(paidWith)}
+          onChange={(e) => {
+            const next = e.target.value ? Number(e.target.value) : null;
+            setPaidWith(next);
+            void save({ paidWith: next });
+          }}
+        >
+          <option value="">Untagged</option>
+          {methods.map((m) => (
+            <option key={m.id} value={String(m.id)}>
+              {paymentMethodLabel(m)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col">
+        <span className="text-meta text-foreground-muted">Next renewal</span>
+        <input
+          type="date"
+          className={`mt-0.5 ${input}`}
+          value={nextRenewal}
+          onChange={(e) => setNextRenewal(e.target.value)}
+          onBlur={() => save({ nextRenewal: nextRenewal || null })}
+        />
+      </label>
+      <button
+        type="button"
+        onClick={() => onDelete(sub.id)}
+        className="text-meta text-foreground-muted hover:text-rose-600"
+      >
+        Delete
+      </button>
+    </div>
+  );
+}
+
+function RecurringSubscriptions({
+  subscriptions,
+  methods,
+  onAdd,
+  onUpdate,
+  onDelete,
+}: {
+  subscriptions: Subscription[];
+  methods: PaymentMethod[];
+  onAdd: (s: NewSub) => Promise<void>;
+  onUpdate: (id: number, s: NewSub) => Promise<void>;
+  onDelete: (id: number) => Promise<void>;
+}) {
+  const [form, setForm] = useState({
+    label: "",
+    dollars: "",
+    cadence: "monthly" as SubscriptionCadence,
+    paidWith: "" as string,
+    nextRenewal: "",
+  });
+  const [busy, setBusy] = useState(false);
+  const input = "rounded-lg border border-border px-3 py-2 text-body";
+  const burn = monthlyBurnCents(subscriptions);
+
+  const submit = async () => {
+    const label = form.label.trim();
+    const amountCents = Math.round(parseFloat(form.dollars) * 100);
+    if (!label || !Number.isFinite(amountCents) || amountCents < 0) return;
+    setBusy(true);
+    try {
+      await onAdd({
+        label,
+        amountCents,
+        cadence: form.cadence,
+        paidWith: form.paidWith ? Number(form.paidWith) : null,
+        nextRenewal: form.nextRenewal || null,
+      });
+      setForm({ label: "", dollars: "", cadence: "monthly", paidWith: "", nextRenewal: "" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-surface-raised p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-meta text-foreground-muted leading-relaxed">
+          The recurring charges, so the monthly burn is one number and the
+          renewals feed the deadline strip. Yearly subscriptions are amortized to
+          a twelfth in the total.
+        </p>
+        <p className="text-body font-semibold text-rose-700 dark:text-rose-300">
+          {formatUSD(burn)} / mo
+        </p>
+      </div>
+
+      <div className="mt-3 space-y-2">
+        {subscriptions.length === 0 ? (
+          <p className="text-body text-foreground-muted">
+            No subscriptions yet. Add the Claude Max seats, the Tello top-up, and
+            anything else recurring below.
+          </p>
+        ) : (
+          subscriptions.map((s) => (
+            <SubscriptionRow
+              key={s.id}
+              sub={s}
+              methods={methods}
+              onUpdate={onUpdate}
+              onDelete={onDelete}
+            />
+          ))
+        )}
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-end gap-2">
+        <label className="flex flex-1 flex-col">
+          <span className="text-meta text-foreground-muted">Label</span>
+          <input
+            className={`mt-1 ${input}`}
+            placeholder="Claude Max (seat 1)"
+            value={form.label}
+            onChange={(e) => setForm({ ...form, label: e.target.value })}
+          />
+        </label>
+        <label className="flex flex-col">
+          <span className="text-meta text-foreground-muted">Amount</span>
+          <input
+            inputMode="decimal"
+            className={`mt-1 w-24 ${input}`}
+            placeholder="0.00"
+            value={form.dollars}
+            onChange={(e) => setForm({ ...form, dollars: e.target.value })}
+          />
+        </label>
+        <label className="flex flex-col">
+          <span className="text-meta text-foreground-muted">Cadence</span>
+          <select
+            className={`mt-1 ${input}`}
+            value={form.cadence}
+            onChange={(e) =>
+              setForm({ ...form, cadence: e.target.value as SubscriptionCadence })
+            }
+          >
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+          </select>
+        </label>
+        <label className="flex flex-col">
+          <span className="text-meta text-foreground-muted">Paid with</span>
+          <select
+            className={`mt-1 ${input}`}
+            value={form.paidWith}
+            onChange={(e) => setForm({ ...form, paidWith: e.target.value })}
+          >
+            <option value="">Untagged</option>
+            {methods.map((m) => (
+              <option key={m.id} value={String(m.id)}>
+                {paymentMethodLabel(m)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col">
+          <span className="text-meta text-foreground-muted">Next renewal</span>
+          <input
+            type="date"
+            className={`mt-1 ${input}`}
+            value={form.nextRenewal}
+            onChange={(e) => setForm({ ...form, nextRenewal: e.target.value })}
+          />
+        </label>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={submit}
+          className="rounded-lg bg-sky-600 px-4 py-2 text-body font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
+        >
+          {busy ? "Adding..." : "Add"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function SectionTitle({ children, sub }: { children: React.ReactNode; sub?: string }) {
   return (
     <div className="mb-3 mt-10 first:mt-0">
@@ -1543,6 +1810,13 @@ export default function BusinessTracker() {
   const recordReimbursement = (mode: "capital" | "draw") =>
     postAction({ action: "recordReimbursement", mode });
 
+  const addSubscription = (subscription: NewSub) =>
+    postAction({ action: "addSubscription", subscription });
+  const updateSubscription = (id: number, subscription: NewSub) =>
+    postAction({ action: "updateSubscription", id, subscription });
+  const deleteSubscription = (id: number) =>
+    postAction({ action: "deleteSubscription", id });
+
   if (state.phase === "loading") {
     return (
       <Shell>
@@ -1573,7 +1847,7 @@ export default function BusinessTracker() {
     );
   }
 
-  const { entity, ledger, tasks, emails, paymentMethods, summary, deadlines, infraEstimate } =
+  const { entity, ledger, tasks, emails, paymentMethods, subscriptions, summary, deadlines, infraEstimate } =
     state.data;
 
   return (
@@ -1606,7 +1880,11 @@ export default function BusinessTracker() {
               Deadlines
             </SectionTitle>
             <DeadlineStrip
-              deadlines={[...deadlines, vercelOssApplicationDeadline()]
+              deadlines={[
+                ...deadlines,
+                vercelOssApplicationDeadline(),
+                ...subscriptionDeadlines(subscriptions),
+              ]
                 .filter((d): d is Deadline => d !== null)
                 .sort((a, b) => a.dueDate.localeCompare(b.dueDate))}
             />
@@ -1768,6 +2046,19 @@ export default function BusinessTracker() {
               ledger={ledger}
               methods={paymentMethods}
               onRecord={recordReimbursement}
+            />
+          </div>
+
+          <div>
+            <SectionTitle sub="The recurring charges and the blended monthly burn. Renewal dates feed the deadline strip so a charge never surprises you.">
+              Recurring subscriptions
+            </SectionTitle>
+            <RecurringSubscriptions
+              subscriptions={subscriptions}
+              methods={paymentMethods}
+              onAdd={addSubscription}
+              onUpdate={updateSubscription}
+              onDelete={deleteSubscription}
             />
           </div>
 

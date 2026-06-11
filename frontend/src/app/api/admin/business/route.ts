@@ -23,24 +23,29 @@ import {
   type EntityConfig,
   type LedgerDirection,
   type PaymentMethodKind,
+  type SubscriptionCadence,
 } from "@/lib/business/calc";
 import {
   addLedgerEntry,
   addPaymentMethod,
+  addSubscription,
   addTask,
   deleteLedgerEntry,
   deletePaymentMethod,
+  deleteSubscription,
   deleteTask,
   ensureBusinessSchema,
   getEntity,
   listBusinessEmails,
   listLedger,
   listPaymentMethods,
+  listSubscriptions,
   listTasks,
   setLedgerPaidWith,
   setLedgerTaxCategory,
   setTaskDone,
   updatePaymentMethod,
+  updateSubscription,
   upsertEntity,
 } from "@/lib/business/db";
 import { isValidTaxCategory } from "@/lib/business/tax-categories";
@@ -61,16 +66,18 @@ export async function GET(): Promise<Response> {
 
   await ensureBusinessSchema();
   try {
-    const [entity, ledger, tasks, emails, paymentMethods, capacity] = await Promise.all([
-      getEntity(),
-      listLedger(),
-      listTasks(),
-      listBusinessEmails(),
-      listPaymentMethods(),
-      // Resilient (per-service null fallback) and wrapped, so a measurement
-      // hiccup never sinks the page; the estimate just reads zero.
-      getCapacityMetrics().catch(() => null),
-    ]);
+    const [entity, ledger, tasks, emails, paymentMethods, subscriptions, capacity] =
+      await Promise.all([
+        getEntity(),
+        listLedger(),
+        listTasks(),
+        listBusinessEmails(),
+        listPaymentMethods(),
+        listSubscriptions(),
+        // Resilient (per-service null fallback) and wrapped, so a measurement
+        // hiccup never sinks the page; the estimate just reads zero.
+        getCapacityMetrics().catch(() => null),
+      ]);
     const summary = computeSummary(ledger, entity.reservePct);
     const deadlines = upcomingDeadlines(entity, new Date());
     const infraEstimate = estimateMonthlyInfraCostCents(
@@ -85,6 +92,7 @@ export async function GET(): Promise<Response> {
       tasks,
       emails,
       paymentMethods,
+      subscriptions,
       summary,
       deadlines,
       infraEstimate,
@@ -122,6 +130,36 @@ function parsePaymentMethod(raw: unknown): ParsedPaymentMethod | null {
     asString(o.kind) === "personal" ? "personal" : "llc";
   const status = asString(o.status).trim();
   return { label, last4, kind, status };
+}
+
+interface ParsedSubscription {
+  label: string;
+  amountCents: number;
+  cadence: SubscriptionCadence;
+  paidWith: number | null;
+  nextRenewal: string | null;
+}
+
+function parseSubscription(raw: unknown): ParsedSubscription | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const label = asString(o.label).trim();
+  if (!label) return null;
+  const amountCents = Math.round(Number(o.amountCents));
+  if (!Number.isFinite(amountCents) || amountCents < 0) return null;
+  const cadence: SubscriptionCadence =
+    asString(o.cadence) === "yearly" ? "yearly" : "monthly";
+  const pwRaw = o.paidWith;
+  const paidWith =
+    pwRaw == null || pwRaw === "" ? null : Math.round(Number(pwRaw));
+  if (paidWith !== null && (!Number.isFinite(paidWith) || paidWith <= 0)) {
+    return null;
+  }
+  const nextRenewal =
+    typeof o.nextRenewal === "string" && ISO_DATE.test(o.nextRenewal)
+      ? o.nextRenewal
+      : null;
+  return { label, amountCents, cadence, paidWith, nextRenewal };
 }
 
 function parseEntity(raw: unknown): EntityConfig | null {
@@ -344,6 +382,30 @@ export async function POST(request: Request): Promise<Response> {
               source: "manual",
             });
       return json(200, { entry });
+    }
+
+    if (action === "addSubscription") {
+      const s = parseSubscription(body.subscription);
+      if (!s) return json(400, { error: "invalid subscription" });
+      const subscription = await addSubscription(s);
+      return json(200, { subscription });
+    }
+
+    if (action === "updateSubscription") {
+      const id = Math.round(Number(body.id));
+      if (!Number.isFinite(id) || id <= 0) return json(400, { error: "invalid id" });
+      const s = parseSubscription(body.subscription);
+      if (!s) return json(400, { error: "invalid subscription" });
+      const subscription = await updateSubscription(id, s);
+      if (!subscription) return json(404, { error: "subscription not found" });
+      return json(200, { subscription });
+    }
+
+    if (action === "deleteSubscription") {
+      const id = Math.round(Number(body.id));
+      if (!Number.isFinite(id) || id <= 0) return json(400, { error: "invalid id" });
+      await deleteSubscription(id);
+      return json(200, { ok: true });
     }
 
     return json(400, { error: "unknown action" });

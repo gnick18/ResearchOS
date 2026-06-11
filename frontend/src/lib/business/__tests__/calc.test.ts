@@ -13,13 +13,17 @@ import {
   devAccountFeeSeeds,
   emailArchiveMarkdown,
   formatUSD,
+  monthlyBurnCents,
   nextFederalEstimate,
+  nextSubscriptionOccurrence,
   nextWisconsinAnnualReport,
+  subscriptionDeadlines,
   upcomingDeadlines,
   type BusinessEmail,
   type EntityConfig,
   type LedgerEntry,
   type PaymentMethod,
+  type Subscription,
 } from "../calc";
 
 function entry(
@@ -295,5 +299,46 @@ describe("computeReimbursement", () => {
   it("is zero when nothing is tagged personal", () => {
     const r = computeReimbursement([paid(1, "out", 999, 1)], methods);
     expect(r).toEqual({ frontedCents: 0, settledCents: 0, outstandingCents: 0, count: 0 });
+  });
+});
+
+describe("subscriptions", () => {
+  function sub(
+    id: number,
+    label: string,
+    amountCents: number,
+    cadence: "monthly" | "yearly",
+    nextRenewal: string | null = null,
+  ): Subscription {
+    return { id, label, amountCents, cadence, paidWith: null, nextRenewal, sort: 0 };
+  }
+
+  it("blends monthly burn, amortizing yearly subs to a twelfth", () => {
+    const subs = [
+      sub(1, "Max1", 20_000, "monthly"),
+      sub(2, "Max2", 20_000, "monthly"),
+      sub(3, "Apple", 9_900, "yearly"), // 9900 / 12 = 825
+    ];
+    expect(monthlyBurnCents(subs)).toBe(40_825);
+    expect(monthlyBurnCents([])).toBe(0);
+  });
+
+  it("rolls a renewal forward to the next occurrence on or after today", () => {
+    const now = new Date("2026-06-10T00:00:00Z");
+    expect(nextSubscriptionOccurrence("2026-01-15", "monthly", now)).toBe("2026-06-15");
+    expect(nextSubscriptionOccurrence("2026-08-01", "monthly", now)).toBe("2026-08-01");
+    expect(nextSubscriptionOccurrence("2025-09-01", "yearly", now)).toBe("2026-09-01");
+  });
+
+  it("makes deadlines only for subs with a date, rolled forward", () => {
+    const now = new Date("2026-06-10T00:00:00Z");
+    const dls = subscriptionDeadlines(
+      [sub(7, "Tello", 800, "monthly", "2026-06-12"), sub(8, "NoDate", 500, "monthly", null)],
+      now,
+    );
+    expect(dls).toHaveLength(1);
+    expect(dls[0].key).toBe("sub-renewal-7");
+    expect(dls[0].dueDate).toBe("2026-06-12");
+    expect(dls[0].daysUntil).toBe(2);
   });
 });

@@ -25,6 +25,8 @@ import {
   type LedgerEntry,
   type PaymentMethod,
   type PaymentMethodKind,
+  type Subscription,
+  type SubscriptionCadence,
 } from "./calc";
 
 let sqlSingleton: NeonQueryFunction<false, false> | null = null;
@@ -145,6 +147,22 @@ export async function ensureBusinessSchema(): Promise<void> {
   await sql`ALTER TABLE business_payment_methods ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'llc'`;
   await sql`ALTER TABLE business_payment_methods ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT ''`;
   await sql`ALTER TABLE business_payment_methods ADD COLUMN IF NOT EXISTS sort int NOT NULL DEFAULT 0`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS business_subscriptions (
+      id bigserial primary key,
+      label text not null default '',
+      amount_cents bigint not null default 0,
+      cadence text not null default 'monthly',
+      paid_with bigint,
+      next_renewal date,
+      sort int not null default 0,
+      created_at timestamptz default now()
+    )
+  `;
+  await sql`ALTER TABLE business_subscriptions ADD COLUMN IF NOT EXISTS cadence text NOT NULL DEFAULT 'monthly'`;
+  await sql`ALTER TABLE business_subscriptions ADD COLUMN IF NOT EXISTS paid_with bigint`;
+  await sql`ALTER TABLE business_subscriptions ADD COLUMN IF NOT EXISTS next_renewal date`;
+  await sql`ALTER TABLE business_subscriptions ADD COLUMN IF NOT EXISTS sort int NOT NULL DEFAULT 0`;
   await seedDefaultsOnce(sql);
   await seedKnownExpensesOnce();
   await seedPaymentMethodsOnce(sql);
@@ -742,4 +760,87 @@ export async function updatePaymentMethod(
 export async function deletePaymentMethod(id: number): Promise<void> {
   const sql = getSql();
   await sql`DELETE FROM business_payment_methods WHERE id = ${id}`;
+}
+
+// --- recurring subscriptions ---
+
+type SubscriptionRow = {
+  id: string | number;
+  label: string | null;
+  amount_cents: string | number | null;
+  cadence: string | null;
+  paid_with: string | number | null;
+  next_renewal: string | null;
+  sort: string | number | null;
+};
+
+function normalizeCadence(v: string | null): SubscriptionCadence {
+  return v === "yearly" ? "yearly" : "monthly";
+}
+
+function rowToSubscription(r: SubscriptionRow): Subscription {
+  return {
+    id: Number(r.id),
+    label: r.label ?? "",
+    amountCents: r.amount_cents == null ? 0 : Number(r.amount_cents),
+    cadence: normalizeCadence(r.cadence),
+    paidWith: r.paid_with == null ? null : Number(r.paid_with),
+    nextRenewal: toIsoDateString(r.next_renewal),
+    sort: r.sort == null ? 0 : Number(r.sort),
+  };
+}
+
+/** Every subscription, in sort order then id. */
+export async function listSubscriptions(): Promise<Subscription[]> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT id, label, amount_cents, cadence, paid_with, next_renewal, sort
+    FROM business_subscriptions
+    ORDER BY sort ASC, id ASC
+  `) as SubscriptionRow[];
+  return rows.map(rowToSubscription);
+}
+
+export interface NewSubscription {
+  label: string;
+  amountCents: number;
+  cadence: SubscriptionCadence;
+  paidWith: number | null;
+  nextRenewal: string | null;
+}
+
+/** Appends a subscription at the end of the sort order. */
+export async function addSubscription(
+  s: NewSubscription,
+): Promise<Subscription> {
+  const sql = getSql();
+  const rows = (await sql`
+    INSERT INTO business_subscriptions (label, amount_cents, cadence, paid_with, next_renewal, sort)
+    VALUES (${s.label}, ${s.amountCents}, ${s.cadence}, ${s.paidWith}, ${s.nextRenewal},
+            COALESCE((SELECT MAX(sort) + 1 FROM business_subscriptions), 0))
+    RETURNING id, label, amount_cents, cadence, paid_with, next_renewal, sort
+  `) as SubscriptionRow[];
+  return rowToSubscription(rows[0]);
+}
+
+/** Updates the editable fields of one subscription. */
+export async function updateSubscription(
+  id: number,
+  s: NewSubscription,
+): Promise<Subscription | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    UPDATE business_subscriptions
+    SET label = ${s.label}, amount_cents = ${s.amountCents}, cadence = ${s.cadence},
+        paid_with = ${s.paidWith}, next_renewal = ${s.nextRenewal}
+    WHERE id = ${id}
+    RETURNING id, label, amount_cents, cadence, paid_with, next_renewal, sort
+  `) as SubscriptionRow[];
+  return rows.length > 0 ? rowToSubscription(rows[0]) : null;
+}
+
+/** Removes a subscription. */
+export async function deleteSubscription(id: number): Promise<void> {
+  const sql = getSql();
+  await sql`DELETE FROM business_subscriptions WHERE id = ${id}`;
 }

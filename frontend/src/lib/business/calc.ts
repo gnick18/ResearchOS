@@ -503,6 +503,74 @@ export function upcomingDeadlines(
   return out.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 }
 
+// --- recurring subscriptions ---
+
+export type SubscriptionCadence = "monthly" | "yearly";
+
+/** One recurring charge (a Claude Max seat, the Tello top-up, Apple Developer).
+ *  paidWith points at a business_payment_methods.id, null when untagged. */
+export interface Subscription {
+  id: number;
+  label: string;
+  amountCents: number;
+  cadence: SubscriptionCadence;
+  paidWith: number | null;
+  /** ISO date "YYYY-MM-DD" of the next renewal, or null. */
+  nextRenewal: string | null;
+  sort: number;
+}
+
+/** Total monthly burn. Monthly subs count at face value; yearly subs are
+ *  amortized to a twelfth, so the number is a true blended monthly cost. */
+export function monthlyBurnCents(subs: Subscription[]): number {
+  let cents = 0;
+  for (const s of subs) {
+    cents +=
+      s.cadence === "yearly" ? Math.round(s.amountCents / 12) : s.amountCents;
+  }
+  return cents;
+}
+
+/** Rolls an ISO renewal date forward to the next occurrence on or after today,
+ *  stepping by the cadence, so a monthly sub always surfaces its upcoming charge
+ *  instead of a stale past date. */
+export function nextSubscriptionOccurrence(
+  nextRenewalISO: string,
+  cadence: SubscriptionCadence,
+  now: Date = new Date(),
+): string {
+  const d = parseISODate(nextRenewalISO);
+  const today = startOfTodayUTC(now);
+  let guard = 0;
+  while (d.getTime() < today.getTime() && guard < 600) {
+    if (cadence === "yearly") d.setUTCFullYear(d.getUTCFullYear() + 1);
+    else d.setUTCMonth(d.getUTCMonth() + 1);
+    guard += 1;
+  }
+  return toISODate(d);
+}
+
+/** Renewal deadlines for the subscriptions that have a date, each rolled to its
+ *  next occurrence, so they merge into the deadline strip and nothing lapses. */
+export function subscriptionDeadlines(
+  subs: Subscription[],
+  now: Date = new Date(),
+): Deadline[] {
+  const out: Deadline[] = [];
+  for (const s of subs) {
+    if (!s.nextRenewal) continue;
+    const due = nextSubscriptionOccurrence(s.nextRenewal, s.cadence, now);
+    out.push({
+      key: `sub-renewal-${s.id}`,
+      label: `${s.label} renews`,
+      dueDate: due,
+      daysUntil: daysUntil(parseISODate(due), now),
+      note: `${formatUSD(s.amountCents)} ${s.cadence}.`,
+    });
+  }
+  return out;
+}
+
 /** "$1,234.56" from a cents integer. Negative renders with a leading minus. */
 export function formatUSD(cents: number): string {
   const neg = cents < 0;
