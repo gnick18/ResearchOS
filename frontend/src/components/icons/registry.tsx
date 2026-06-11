@@ -701,6 +701,78 @@ const ICONS_RAW = {
       </>
     ),
   },
+  // ── Pricing page feature glyphs (public /pricing, 2026-06-10 mockup) ────────
+  // Branded line icons that break up the feature-card copy on the pricing page.
+  // Bodies are the verbatim paths from the approved mockup's FBICONS map
+  // (docs/mockups/2026-06-10-pricing-page.html), drawn with the registry's
+  // default 2px round stroke. NEW glyphs, flagged for Grant's icon sign-off.
+  cloud: {
+    concept: "Cloud / optional cloud storage",
+    body: (
+      <path d="M7 18.5a4.5 4.5 0 0 1-.6-8.96 5.5 5.5 0 0 1 10.66-1.2A4 4 0 0 1 17.5 18.5z" />
+    ),
+  },
+  gauge: {
+    concept: "Gauge / throttle",
+    body: (
+      <>
+        <path d="M4.5 18a7.5 7.5 0 1 1 15 0" />
+        <path d="M12 18l3.5-4" />
+      </>
+    ),
+  },
+  receipt: {
+    concept: "Receipt / one invoice",
+    body: (
+      <>
+        <path d="M6 3h12v17l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4V3z" />
+        <path d="M9 8h6" />
+        <path d="M9 12h6" />
+      </>
+    ),
+  },
+  mail: {
+    concept: "Mail / invite by email",
+    body: (
+      <>
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="M3.5 7l8.5 6 8.5-6" />
+      </>
+    ),
+  },
+  shield: {
+    concept: "Shield / cost circuit breaker",
+    body: <path d="M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6z" />,
+  },
+  scale: {
+    concept: "Scale / priced to sustain",
+    body: (
+      <>
+        <path d="M12 4v16" />
+        <path d="M6 20h12" />
+        <path d="M5 8h14" />
+        <path d="M5 8l-2.5 5.5a3 3 0 0 0 5 0z" />
+        <path d="M19 8l-2.5 5.5a3 3 0 0 0 5 0z" />
+      </>
+    ),
+  },
+  database: {
+    concept: "Database / storage",
+    body: (
+      <>
+        <ellipse cx="12" cy="6" rx="7" ry="3" />
+        <path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6" />
+        <path d="M5 12c0 1.6 3.1 3 7 3s7-1.4 7-3" />
+      </>
+    ),
+  },
+  heart: {
+    concept: "Heart / sponsor us",
+    body: (
+      <path d="M12 20s-6.5-4.3-6.5-9A3.5 3.5 0 0 1 12 8a3.5 3.5 0 0 1 6.5 3C18.5 15.7 12 20 12 20z" />
+    ),
+  },
+
   // ── Wisconsin state silhouette (MadeInMadison badge, brand identity) ────────
   // Accurate Wisconsin border (MIT state-svg-defs, viewBox cropped to the shape).
   // Grant approved in the 2026-06-10 pricing-page mockup (.wibadge). The circle

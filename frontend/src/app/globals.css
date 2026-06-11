@@ -977,3 +977,28 @@ html[data-annotator-open] [data-floating-dock] {
   text-decoration-color: #f87171;
 }
 
+
+/* ── Pricing page cost-math optimization bars (/pricing CostMath) ────────────
+ * The cold / hot tier bars grow horizontally on first paint to draw the eye to
+ * the optimization. CSS-div bars (not SVG, so the icon-guard does not apply).
+ * Mirrors the approved 2026-06-10 pricing-page mockup's growx keyframe. */
+@keyframes pricing-bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.pricing-bar-grow {
+  transform-origin: left center;
+  animation: pricing-bar-grow 0.9s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+.pricing-bar-grow-delay {
+  animation-delay: 0.12s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pricing-bar-grow {
+    animation: none;
+  }
+}

@@ -1,0 +1,166 @@
+"use client";
+
+/**
+ * "What you are paying for today" competitor-savings tool on /pricing.
+ *
+ * A people slider plus tickable competitor rows (LabArchives, SnapGene, Quartzy,
+ * Benchling) tally the lab's current annual spend, subtract a conservative
+ * per-person optional-cloud estimate, and show an honest "you save" figure plus
+ * the 5-year total. All numbers come from lib/pricing/assumptions, and the
+ * formula mirrors the approved mockup so the figures come out identical.
+ *
+ * Voice: no em-dashes, no emojis, no mid-sentence colons.
+ */
+
+import { useMemo, useState } from "react";
+
+import { Icon } from "@/components/icons";
+import { COMPETITORS, CLOUD_PER_PERSON_YR } from "@/lib/pricing/assumptions";
+import { usd0 } from "@/lib/pricing/cost-math";
+
+export default function CompetitorSavings() {
+  const [people, setPeople] = useState(8);
+  const [on, setOn] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(COMPETITORS.map((c) => [c.id, !!c.defaultOn])),
+  );
+
+  const { stackTotal, rosCloud, save, save5 } = useMemo(() => {
+    let total = 0;
+    for (const c of COMPETITORS) {
+      if (!on[c.id]) continue;
+      total += c.mode === "user" ? c.cost * people : c.cost;
+    }
+    const cloud = people * CLOUD_PER_PERSON_YR;
+    const saved = Math.max(0, total - cloud);
+    return {
+      stackTotal: total,
+      rosCloud: cloud,
+      save: saved,
+      save5: saved * 5,
+    };
+  }, [people, on]);
+
+  return (
+    <div className="mx-auto max-w-3xl">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {/* Current stack */}
+        <div className="rounded-2xl border border-border bg-surface-raised p-5">
+          <h4 className="mb-4 text-sm font-extrabold text-foreground">
+            Your current stack
+          </h4>
+          <div className="mb-4">
+            <label className="mb-2 flex items-center justify-between text-[12.5px] font-semibold text-foreground">
+              People in your lab
+              <span className="font-extrabold tabular-nums text-brand-action">
+                {people}
+              </span>
+            </label>
+            <input
+              type="range"
+              min={1}
+              max={40}
+              step={1}
+              value={people}
+              onChange={(e) => setPeople(Number(e.target.value))}
+              aria-label="People in your lab"
+              className="w-full cursor-pointer accent-[color:var(--color-brand-action)]"
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            {COMPETITORS.map((c) => {
+              const active = !!on[c.id];
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setOn((prev) => ({ ...prev, [c.id]: !prev[c.id] }))}
+                  className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                    active
+                      ? "border-brand-action bg-brand-action/5"
+                      : "border-border bg-surface-raised hover:border-foreground-muted"
+                  }`}
+                >
+                  <span
+                    className={`flex h-[18px] w-[18px] flex-none items-center justify-center rounded-[5px] border ${
+                      active
+                        ? "border-brand-action bg-brand-action text-white"
+                        : "border-border"
+                    }`}
+                  >
+                    {active ? <Icon name="check" className="h-3 w-3" /> : null}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[13px] font-bold text-foreground">
+                      {c.name}
+                    </span>
+                    <span className="text-[11.5px] text-foreground-muted">
+                      {c.blurb}
+                    </span>
+                  </span>
+                  <span
+                    className={`whitespace-nowrap text-right text-[12px] font-bold tabular-nums ${
+                      c.free ? "text-green-600 dark:text-green-400" : "text-foreground"
+                    }`}
+                  >
+                    {c.priceLabel}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-3 text-[11.5px] leading-snug text-foreground-muted">
+            ResearchOS also replaces GraphPad Prism, ChemDraw, and your
+            file-sharing cloud. We will add those here once we have their academic
+            prices cited.
+          </p>
+        </div>
+
+        {/* What it costs you */}
+        <div className="rounded-2xl border border-border bg-surface-raised p-5">
+          <h4 className="mb-4 text-sm font-extrabold text-foreground">
+            What it costs you
+          </h4>
+          <div className="flex items-baseline justify-between gap-3 py-1.5 text-[12.5px] text-foreground-muted">
+            <span>Your tools today</span>
+            <b className="font-semibold tabular-nums text-foreground">
+              {usd0(stackTotal)} / yr
+            </b>
+          </div>
+          <div className="flex items-baseline justify-between gap-3 py-1.5 text-[12.5px] text-foreground-muted">
+            <span>
+              ResearchOS, the notebook, sequences and inventory, on your disk
+            </span>
+            <b className="font-semibold tabular-nums text-green-600 dark:text-green-400">
+              $0
+            </b>
+          </div>
+          <div className="flex items-baseline justify-between gap-3 py-1.5 text-[12.5px] text-foreground-muted">
+            <span>Optional cloud for sharing, if your lab shares heavily</span>
+            <b className="font-semibold tabular-nums text-foreground">
+              ~{usd0(rosCloud)} / yr
+            </b>
+          </div>
+          <div className="mt-1.5 flex items-baseline justify-between gap-3 border-t border-border pt-3 text-foreground">
+            <span className="text-[12.5px]">You save</span>
+            <span className="text-3xl font-extrabold tabular-nums text-green-600 dark:text-green-400">
+              {usd0(save)} / yr
+            </span>
+          </div>
+          <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-brand-action/10 px-3.5 py-1.5 text-[12px] font-extrabold text-brand-action">
+            <span className="h-2 w-2 flex-none rounded-full bg-brand-action" />
+            <span>about {usd0(save5)} over 5 years</span>
+          </div>
+          <p className="mt-2.5 text-[11.5px] leading-snug text-foreground-muted">
+            List prices, so a negotiated campus license runs lower per seat, but
+            the gap stays large. The ResearchOS notebook is free and runs on your
+            disk. The one thing you might pay for is optional cloud sharing, free
+            up to the 5 GB pool, then a few dollars a month per person. We subtract
+            a heavy-use estimate of that here rather than pretend ResearchOS is
+            free.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

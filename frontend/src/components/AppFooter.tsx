@@ -89,6 +89,14 @@ export default function AppFooter({
             on every code change. */}
         <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-meta text-foreground-muted">
           <Link
+            href="/pricing"
+            className="underline-offset-2 hover:text-foreground hover:underline"
+            data-testid="app-footer-pricing"
+          >
+            Pricing
+          </Link>
+          <span aria-hidden="true">·</span>
+          <Link
             href="/open-source"
             className="underline-offset-2 hover:text-foreground hover:underline"
             data-testid="app-footer-open-source"
