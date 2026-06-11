@@ -90,8 +90,11 @@ export function OAuthFirstLanding({
               aria-hidden
               className="block h-[7px] w-[7px] rounded-full"
               style={{
+                // Brand pip, sky to purple (the documented brand pairing,
+                // brand-sky + brand-purple). The old sky-amber-coral ramp read
+                // orange and off-brand.
                 backgroundImage:
-                  "linear-gradient(100deg, #1AA0E6 0%, #F59E0B 50%, #FF6F61 100%)",
+                  "linear-gradient(120deg, #1AA0E6 0%, #5B47D6 100%)",
               }}
             />
             Dr. Grant Nickles, University of Wisconsin-Madison
