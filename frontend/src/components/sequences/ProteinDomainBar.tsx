@@ -236,7 +236,7 @@ export default function ProteinDomainBar({
     return (
       <div
         data-testid="domain-bar-empty"
-        className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-2.5 text-meta text-gray-500"
+        className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-3 py-2.5 text-meta text-gray-500 dark:border-white/15 dark:bg-white/5 dark:text-foreground-muted"
       >
         No domains annotated yet. Use Annotate domains below to search this protein.
       </div>

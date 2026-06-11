@@ -446,7 +446,7 @@ export default function SequenceOverviewBar({
   return (
     <div
       ref={wrapRef}
-      className="relative w-full shrink-0 select-none border-b border-gray-100 bg-gray-50"
+      className="relative w-full shrink-0 select-none border-b border-gray-100 bg-gray-50 dark:border-white/10 dark:bg-white/5"
       style={{ height: BAR_HEIGHT }}
       aria-label="Sequence overview"
     >

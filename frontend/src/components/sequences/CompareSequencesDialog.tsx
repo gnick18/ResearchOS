@@ -13,14 +13,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { sequencesApi } from "@/lib/local-api";
-import {
-  alignGlobal,
-  alignLocal,
-  dnaScoring,
-  proteinScoring,
-  findSharedRegions,
-} from "@/lib/align";
 import type { AlignmentResult, AlignOp, Hsp, SharedRegionResult } from "@/lib/align";
+import { useAlignWorker, WORKER_THRESHOLD } from "@/lib/align/useAlignWorker";
 import {
   buildCompareModel,
   formatSummaryLine,
@@ -33,9 +27,10 @@ import type { SequenceRecord } from "@/lib/types";
 import type { AlignmentArtifactResult } from "@/lib/sequences/artifacts";
 import LivingPopup from "@/components/ui/LivingPopup";
 
-// Above this many bases on EITHER side we refuse the full DP (O(m*n) memory and
-// time would hang the tab). Plasmid-scale (a few tens of kb) is comfortable.
-const MAX_ALIGN_BASES = 60_000;
+// MAX_ALIGN_BASES is imported as WORKER_THRESHOLD from useAlignWorker (single
+// source of truth). This alias exists only to keep the render-side warning
+// message readable; do NOT add a separate constant here.
+// Plasmid-scale (a few tens of kb) is comfortable for the full DP.
 // Cap the rendered alignment columns so a long full-genome-ish pair can still be
 // summarized without painting hundreds of thousands of monospace cells.
 const MAX_RENDER_COLUMNS = 6_000;
@@ -479,11 +474,20 @@ export default function CompareSequencesDialog({
   // Bases of the two sequences actually aligned, kept for the dotplot.
   const lastBasesRef = useRef<{ a: string; b: string } | null>(null);
 
+  // Off-main-thread alignment for large sequence pairs. The hook manages the
+  // worker lifecycle; terminate() is called on dialog close so nothing leaks.
+  const alignWorker = useAlignWorker();
+
   const { data: sequences = [] } = useQuery({
     queryKey: ["sequences"],
     queryFn: () => sequencesApi.list(),
     enabled: open,
   });
+
+  // Terminate any running worker when the dialog closes so nothing leaks.
+  useEffect(() => {
+    if (!open) alignWorker.terminate();
+  }, [open, alignWorker]);
 
   // Seed A from the caller's selection when the dialog opens. When a SEEDED
   // result is supplied (re-opening a saved alignment artifact), replay its
@@ -514,6 +518,8 @@ export default function CompareSequencesDialog({
 
   const runCompare = useCallback(async () => {
     if (aId == null || bId == null) return;
+    // Terminate any in-flight worker before starting a new run.
+    alignWorker.terminate();
     setRunning(true);
     setError(null);
     setResult(null);
@@ -533,21 +539,28 @@ export default function CompareSequencesDialog({
       // explicit choice. Protein uses BLOSUM62; DNA uses the IUPAC-aware scheme.
       const resolved: ScoreScheme =
         scheme === "auto" ? (looksLikeProtein(aSeq, bSeq) ? "protein" : "dna") : scheme;
-      const scoring = resolved === "protein" ? proteinScoring() : dnaScoring({ iupac });
-      // Yield a frame so the "Aligning…" state can paint before the compute
-      // blocks the thread on a large pair.
-      await new Promise((r) => requestAnimationFrame(() => r(null)));
+      const scoringDesc =
+        resolved === "protein"
+          ? ({ type: "protein" } as const)
+          : ({ type: "dna", iupac } as const);
+
       lastBasesRef.current = { a: aSeq, b: bSeq };
       setUsedScheme(resolved);
       const aName = a.display_name ?? null;
       const bName = b.display_name ?? null;
-      if (aSeq.length > MAX_ALIGN_BASES || bSeq.length > MAX_ALIGN_BASES) {
-        // Too large for full O(m*n) DP. Instead of refusing, find the shared
-        // regions (local homology) via seed-and-extend and still show the
-        // dotplot. This is a heuristic block list, not a single optimal global
-        // alignment, so the UI labels it accordingly.
-        const shared = findSharedRegions(aSeq, bSeq, { scoring });
-        setLargeResult(shared);
+
+      // Run the alignment (off-thread for large pairs, synchronous for small
+      // ones). The worker hook handles the threshold check internally; we
+      // still pass `large` to the hook as a hint via the job size detection.
+      const aligned = await alignWorker.run({
+        aSeq,
+        bSeq,
+        mode,
+        scoring: scoringDesc,
+      });
+
+      if (aligned.large) {
+        setLargeResult(aligned.large);
         // Phase 5: persist the large-sequence result as an artifact. The summary
         // is a zeroed alignment summary (no single base-level alignment exists);
         // the row label leans on the shared-region count instead.
@@ -572,40 +585,38 @@ export default function CompareSequencesDialog({
             cigar: "",
           }),
           alignment: null,
-          large: shared,
+          large: aligned.large,
           bases: { a: aSeq, b: bSeq },
         });
-        return;
+      } else if (aligned.alignment) {
+        const res = aligned.alignment;
+        setResult(res);
+        // Phase 5: persist the base-level alignment as an artifact. In protein
+        // mode swap in the true-residue-identity summary so the saved summary
+        // matches what the dialog shows.
+        const baseSummary = summarizeAlignment(res);
+        const summary =
+          resolved === "protein" ? trueIdentitySummary(res, baseSummary) : baseSummary;
+        onResult?.({
+          aId,
+          bId,
+          aName,
+          bName,
+          mode,
+          scheme: resolved,
+          iupac,
+          summary,
+          alignment: res,
+          large: null,
+          bases: { a: aSeq, b: bSeq },
+        });
       }
-      const res = mode === "global"
-        ? alignGlobal(aSeq, bSeq, { scoring })
-        : alignLocal(aSeq, bSeq, { scoring });
-      setResult(res);
-      // Phase 5: persist the base-level alignment as an artifact. In protein mode
-      // swap in the true-residue-identity summary (same correction the header
-      // readout uses) so the saved summary matches what the dialog shows.
-      const baseSummary = summarizeAlignment(res);
-      const summary =
-        resolved === "protein" ? trueIdentitySummary(res, baseSummary) : baseSummary;
-      onResult?.({
-        aId,
-        bId,
-        aName,
-        bName,
-        mode,
-        scheme: resolved,
-        iupac,
-        summary,
-        alignment: res,
-        large: null,
-        bases: { a: aSeq, b: bSeq },
-      });
     } catch {
       setError("Alignment failed. Try a different pair or a smaller region.");
     } finally {
       setRunning(false);
     }
-  }, [aId, bId, mode, iupac, scheme, onResult]);
+  }, [aId, bId, mode, iupac, scheme, onResult, alignWorker]);
 
   // The render model (wrapped blocks + summary), capped for huge alignments. In
   // protein mode the engine summary's "identity" counts conservative BLOSUM
@@ -757,7 +768,7 @@ export default function CompareSequencesDialog({
                 These sequences are too large for a full base-level alignment
                 ({lastBasesRef.current.a.length.toLocaleString()} bp and{" "}
                 {lastBasesRef.current.b.length.toLocaleString()} bp; the exact
-                alignment is capped at {MAX_ALIGN_BASES.toLocaleString()} bp each).
+                alignment is capped at {WORKER_THRESHOLD.toLocaleString()} bp each).
                 Showing the shared regions (local homology) and the dotplot
                 instead. The shared-region list is a fast heuristic, not a single
                 guaranteed-optimal global alignment.
@@ -774,8 +785,18 @@ export default function CompareSequencesDialog({
               </div>
             </div>
           ) : !result ? (
-            <div className="flex h-40 items-center justify-center text-body text-foreground-muted">
-              {running ? "Aligning…" : "Pick two sequences and select Align."}
+            <div className="flex h-40 flex-col items-center justify-center gap-3 text-body text-foreground-muted">
+              {running ? (
+                <>
+                  <div
+                    className="h-6 w-6 animate-spin rounded-full border-2 border-sky-200 border-t-sky-500"
+                    aria-hidden="true"
+                  />
+                  <span>Aligning sequences&hellip;</span>
+                </>
+              ) : (
+                "Pick two sequences and select Align."
+              )}
             </div>
           ) : result.ops.length === 0 ? (
             <div className="flex h-40 items-center justify-center text-body text-foreground-muted">

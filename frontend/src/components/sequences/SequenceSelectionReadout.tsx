@@ -105,7 +105,11 @@ export function SelectionReadoutContent({
   readout: SelectionReadout | null;
 }) {
   if (readout == null) {
-    return <span className="text-gray-400">Click or select bases to see coordinates.</span>;
+    return (
+      <span className="text-gray-400 dark:text-foreground-muted">
+        Click or select bases to see coordinates.
+      </span>
+    );
   }
   if (readout.kind === "caret") {
     return (
@@ -159,7 +163,7 @@ export default function SequenceSelectionReadout({
     <div
       role="status"
       aria-live="polite"
-      className={`flex items-center gap-4 border-t border-gray-100 bg-gray-50 px-3 py-1.5 text-meta text-gray-600 ${className ?? ""}`}
+      className={`flex items-center gap-4 border-t border-gray-100 bg-gray-50 px-3 py-1.5 text-meta text-gray-600 dark:border-white/10 dark:bg-white/5 dark:text-foreground-muted ${className ?? ""}`}
     >
       <SelectionReadoutContent readout={readout} />
     </div>

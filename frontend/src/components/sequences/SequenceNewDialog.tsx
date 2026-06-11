@@ -61,6 +61,15 @@ export default function SequenceNewDialog({
     () => sanitizeRawSequence(raw, seqType).length,
     [raw, seqType],
   );
+  // How many typed characters were thrown away (a FASTA header and whitespace do
+  // not count, those are expected). Surfaces a "fat-fingered a paste of mostly
+  // invalid text" case so it does not silently become a tiny sequence.
+  const droppedChars = useMemo(() => {
+    const significant = raw
+      .replace(/^\s*>[^\n]*(\n|$)/, "")
+      .replace(/\s+/g, "").length;
+    return Math.max(0, significant - cleanedLength);
+  }, [raw, cleanedLength]);
 
   if (!open) return null;
 
@@ -128,6 +137,11 @@ export default function SequenceNewDialog({
               </label>
               {raw.trim().length > 0 ? (
                 <span className="text-meta text-foreground-muted">
+                  {droppedChars >= 3 ? (
+                    <span className="mr-2 text-amber-600 dark:text-amber-400">
+                      {droppedChars.toLocaleString()} removed
+                    </span>
+                  ) : null}
                   {cleanedLength.toLocaleString()} {unit}
                 </span>
               ) : null}

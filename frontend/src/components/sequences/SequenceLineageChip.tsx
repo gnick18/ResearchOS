@@ -119,7 +119,7 @@ export default function SequenceLineageChip({
   );
 
   return (
-    <div className="border-b border-gray-100 bg-gray-50/60 px-3 py-1.5">
+    <div className="border-b border-gray-100 bg-gray-50/60 px-3 py-1.5 dark:border-white/10 dark:bg-white/5">
       <div className="flex items-start gap-2">
         <LineageIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-500" />
         <div className="min-w-0 flex-1">
