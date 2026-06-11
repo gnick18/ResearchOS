@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS Brand Rulebook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --brand-sky: #1AA0E6;
+    --brand-action: #1283C9;
+    --brand-ink: #111827;
+    --brand-purple: #5B47D6;
+    --foreground: #171717;
+    --foreground-muted: #6b7280;
+    --surface: #f8fafc;
+    --surface-raised: #ffffff;
+    --surface-sunken: #f1f5f9;
+    --border: #e5e7eb;
+    --pkr-green: #2E8B45;
+    --pkr-gold: #FFB81C;
+    --rainbow: linear-gradient(90deg,#ffd2b0 0%,#fff1a8 25%,#b7ebb1 50%,#a6d2f4 75%,#d6b5f0 100%);
+    --rainbow-vivid: linear-gradient(95deg,#f97316 0%,#e8920b 22%,#16a34a 48%,#0284c7 72%,#9333ea 100%);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-snap-type: y proximity; }
+  body {
+    margin: 0;
+    font-family: "Geist", system-ui, -apple-system, sans-serif;
+    color: var(--foreground);
+    background: var(--surface);
+    -webkit-font-smoothing: antialiased;
+  }
+  code, .mono { font-family: "Geist Mono", ui-monospace, monospace; }
+  .deck { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+  section.slide {
+    scroll-snap-align: start;
+    min-height: 100vh;
+    padding: 80px 0 64px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+  .rainbow-bar { height: 7px; background-image: var(--rainbow); }
+  .kicker {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--brand-action); margin: 0 0 10px;
+  }
+  h1 { font-size: 60px; font-weight: 800; letter-spacing: -0.04em; color: var(--brand-ink); margin: 0 0 8px; line-height: 1.02; }
+  h2 { font-size: 34px; font-weight: 800; letter-spacing: -0.03em; color: var(--brand-ink); margin: 0 0 18px; }
+  h3 { font-size: 16px; font-weight: 700; color: var(--brand-ink); margin: 0 0 8px; }
+  p { line-height: 1.55; color: var(--foreground); }
+  .muted { color: var(--foreground-muted); }
+  .lead { font-size: 19px; max-width: 64ch; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }
+  .grid4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
+  .card {
+    background: var(--surface-raised); border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px;
+  }
+  .card.tight { padding: 14px 16px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground);
+    border-radius: 999px; padding: 5px 11px;
+  }
+  ul.clean { padding-left: 18px; margin: 8px 0; }
+  ul.clean li { margin: 5px 0; line-height: 1.5; }
+  .swatch { border-radius: 12px; height: 78px; border: 1px solid var(--border); display: flex; align-items: flex-end; padding: 8px; }
+  .swatch .hex { font-family: "Geist Mono", monospace; font-size: 11px; background: rgba(255,255,255,.85); padding: 2px 6px; border-radius: 6px; }
+  .swatch.dark .hex { background: rgba(0,0,0,.45); color: #fff; }
+  .label { font-size: 12px; font-weight: 600; margin-top: 6px; }
+  .sublabel { font-size: 11px; color: var(--foreground-muted); }
+  .madison { background: linear-gradient(100deg, var(--pkr-green), var(--pkr-gold)); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 800; }
+  .do { border-left: 4px solid #16a34a; }
+  .dont { border-left: 4px solid #dc2626; }
+  .ack {
+    border: 1px solid var(--border); background: var(--surface-raised); border-left: 4px solid var(--brand-sky);
+    border-radius: 12px; padding: 16px 18px; font-size: 15px; line-height: 1.55;
+  }
+  .warn {
+    border: 1px solid #fcd34d; background: #fffbeb; border-radius: 12px; padding: 14px 16px; font-size: 14px; color: #92400e;
+  }
+  .beaker { width: 132px; display: block; }
+  .toc { position: fixed; top: 14px; right: 14px; z-index: 50; display: flex; flex-wrap: wrap; gap: 6px; max-width: 360px; justify-content: flex-end; }
+  .toc a { font-size: 10.5px; font-weight: 600; text-decoration: none; color: var(--foreground-muted); background: var(--surface-raised); border: 1px solid var(--border); border-radius: 999px; padding: 3px 8px; }
+  .toc a:hover { color: var(--brand-action); border-color: var(--brand-action); }
+  .num { font-family: "Geist Mono", monospace; font-size: 12px; color: var(--brand-action); }
+  table.spec { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.spec th, table.spec td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.spec th { color: var(--foreground-muted); font-weight: 600; }
+  table.spec td.mono { font-family: "Geist Mono", monospace; }
+  .type-row { display: flex; align-items: baseline; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .type-row .tk { width: 130px; font-family: "Geist Mono", monospace; font-size: 12px; color: var(--brand-action); flex: none; }
+  .type-row .spec { width: 150px; font-size: 12px; color: var(--foreground-muted); flex: none; }
+  @media (max-width: 820px) { .grid2,.grid3,.grid4 { grid-template-columns: 1fr; } h1 { font-size: 42px; } .toc { display: none; } }
+</style>
+</head>
+<body>
+<div class="rainbow-bar"></div>
+
+<nav class="toc">
+  <a href="#cover">Cover</a>
+  <a href="#who">Who we are</a>
+  <a href="#voice">Voice</a>
+  <a href="#mascot">Mascot</a>
+  <a href="#logo">Logo</a>
+  <a href="#color">Color</a>
+  <a href="#type">Type</a>
+  <a href="#icons">Icons</a>
+  <a href="#madison">Madison</a>
+  <a href="#ack">Acknowledgment</a>
+  <a href="#assets">Assets</a>
+  <a href="#messaging">Messaging</a>
+</nav>
+
+<!-- COVER -->
+<section class="slide" id="cover">
+  <div class="deck" style="display:flex;flex-direction:column;justify-content:center;min-height:78vh;">
+    <svg class="beaker" viewBox="8 3 24 31" fill="none" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <defs><linearGradient id="liq" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/>
+        <stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/>
+        <stop offset="100%" stop-color="#D6B5F0"/>
+      </linearGradient></defs>
+      <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none"/>
+      <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#liq)" stroke="none"/>
+      <path d="M22 8 C 22 6, 24 4, 26 6"/><path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12"/>
+      <path d="M11 12 L29 12"/>
+      <circle cx="17" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/><circle cx="23" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/>
+      <path d="M18 22 Q 20 24, 22 22"/><path d="M14 26 L15.5 26"/><path d="M24.5 26 L26 26"/>
+    </svg>
+    <h1 style="margin-top:18px;">ResearchOS<br/>Brand Rulebook</h1>
+    <p class="lead muted">The single source of truth for how ResearchOS looks, sounds, and credits its support. Fonts, colors, the mascot, approved asset locations, the funding acknowledgment, and the messaging we lead with.</p>
+    <p class="num" style="margin-top:20px;">v1 - 2026-06-11 - built on the brand audit, POSITIONING.md, and MESSAGING.md</p>
+  </div>
+</section>
+
+<!-- WHO WE ARE -->
+<section class="slide" id="who">
+  <div class="deck">
+    <p class="kicker">01 - Who we are</p>
+    <h2>The lab notebook you actually own</h2>
+    <p class="lead">For academic researchers and the labs they work in who want a serious electronic lab notebook without handing their data and their grant money to a vendor, ResearchOS is a local-first, open-source research workspace that keeps every note, method, experiment, structure, and file in a plain folder the researcher owns. It replaces a stack of expensive single-purpose tools with one free app. Unlike LabArchives and Benchling, which lock your work inside their cloud and bill per seat, ResearchOS leaves your data on your own disk, stays free and open source, and only charges cost-recovery for the optional cloud storage you choose.</p>
+    <div class="grid3" style="margin-top:26px;">
+      <div class="card"><h3>Ownership</h3><p class="muted">Your research lives in a folder you own. Leaving is just closing a folder.</p></div>
+      <div class="card"><h3>One Workspace</h3><p class="muted">One free app spans the notebook, chemistry, sequences, and stats.</p></div>
+      <div class="card"><h3>Trust</h3><p class="muted">Open source and validated in public, so you can verify the science.</p></div>
+    </div>
+    <p class="muted" style="margin-top:16px;font-size:13px;">Full detail in <code>docs/branding/POSITIONING.md</code>. These three pillars anchor every page of copy.</p>
+  </div>
+</section>
+
+<!-- VOICE -->
+<section class="slide" id="voice">
+  <div class="deck">
+    <p class="kicker">02 - Voice and tone</p>
+    <h2>Plain-spoken, trustworthy, never salesy</h2>
+    <div class="grid2">
+      <div>
+        <p>We talk to smart people, so we state the reason behind every claim instead of asserting it. We are warm without being cute, and we let BeakerBot carry the personality so the copy stays clear.</p>
+        <h3 style="margin-top:18px;">The hard rules (non-negotiable)</h3>
+        <ul class="clean">
+          <li><b>No em-dashes.</b> Use commas, parentheses, or a period split.</li>
+          <li><b>No mid-sentence colons</b> to introduce a clause or list. Recast it.</li>
+          <li><b>No emojis</b> anywhere in product or marketing copy.</li>
+          <li><b>State the why.</b> "Free because it is local-first, so our costs are small," not "free."</li>
+          <li><b>No AI-speak.</b> No "leverage," "seamless," "revolutionize," "unlock," "cutting-edge."</li>
+        </ul>
+        <p class="muted" style="font-size:13px;">Voice adjectives, plain-spoken, trustworthy, friendly, confident, non-corporate.</p>
+      </div>
+      <div>
+        <div class="card dont">
+          <h3>Before (AI-speak)</h3>
+          <p class="muted">"ResearchOS leverages a cutting-edge local-first architecture to revolutionize your workflow and unlock seamless data ownership."</p>
+        </div>
+        <div class="card do" style="margin-top:14px;">
+          <h3>After (house voice)</h3>
+          <p>"Your research lives in a folder on your own computer. Nothing uploads unless you choose to, so leaving is just closing a folder."</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MASCOT -->
+<section class="slide" id="mascot">
+  <div class="deck">
+    <p class="kicker">03 - The mascot</p>
+    <h2>The mascot is always BeakerBot</h2>
+    <div class="grid2">
+      <div>
+        <p>Wherever a character appears, it is BeakerBot, the friendly sky-blue beaker with a pastel-rainbow liquid. He is the calm, playful face of the product. Never corporate, never aggressive.</p>
+        <div class="card do" style="margin-top:14px;"><h3>Do</h3><ul class="clean">
+          <li>Use the canonical component <code>frontend/src/components/BeakerBot.tsx</code> or an approved master in <code>brand/</code>.</li>
+          <li>Keep the sky-blue stroke <code class="mono">#1AA0E6</code> and the pastel liquid.</li>
+          <li>Use the bubbling marketing variant <code>components/animations/IntroBeaker.tsx</code> for hero moments.</li>
+        </ul></div>
+        <div class="card dont" style="margin-top:14px;"><h3>Do not</h3><ul class="clean">
+          <li>Hand-draw, recolor, or restyle him.</li>
+          <li>Use a different mascot or a generic "robot."</li>
+          <li>Put him in black or a non-brand color.</li>
+        </ul></div>
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;">
+        <svg class="beaker" style="width:150px" viewBox="8 3 24 31" fill="none" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <defs><linearGradient id="liq2" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/>
+            <stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/>
+            <stop offset="100%" stop-color="#D6B5F0"/></linearGradient></defs>
+          <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none"/>
+          <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#liq2)" stroke="none"/>
+          <path d="M22 8 C 22 6, 24 4, 26 6"/><path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12"/>
+          <path d="M11 12 L29 12"/><circle cx="17" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/><circle cx="23" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/>
+          <path d="M18 22 Q 20 24, 22 22"/><path d="M14 26 L15.5 26"/><path d="M24.5 26 L26 26"/>
+        </svg>
+        <p class="sublabel">The signature rainbow liquid is our most ownable visual. Pastel in light mode, vivid in dark mode.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LOGO -->
+<section class="slide" id="logo">
+  <div class="deck">
+    <p class="kicker">04 - Logo and wordmark</p>
+    <h2>The wordmark</h2>
+    <div class="grid2">
+      <div>
+        <p>The wordmark is <b>ResearchOS</b> set in Geist 800 with tight tracking (about -0.03em) in ink <code class="mono">#111827</code>. The lockup pairs the BeakerBot mark with the wordmark.</p>
+        <ul class="clean">
+          <li>Mark plus wordmark for banners and headers.</li>
+          <li>Wordmark alone where the mark is shown nearby.</li>
+          <li>Mark alone for avatars, favicons, and tight spaces.</li>
+          <li>Keep clear space around the lockup equal to the height of the beaker.</li>
+          <li>Never stretch, recolor, or add effects to the wordmark.</li>
+        </ul>
+      </div>
+      <div class="card" style="display:flex;align-items:center;justify-content:center;gap:14px;">
+        <svg style="width:54px" viewBox="8 3 24 31" fill="none" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <defs><linearGradient id="liq3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/><stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/><stop offset="100%" stop-color="#D6B5F0"/></linearGradient></defs>
+          <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none"/>
+          <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#liq3)" stroke="none"/>
+          <path d="M22 8 C 22 6, 24 4, 26 6"/><path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12"/><path d="M11 12 L29 12"/>
+          <circle cx="17" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/><circle cx="23" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/><path d="M18 22 Q 20 24, 22 22"/><path d="M14 26 L15.5 26"/><path d="M24.5 26 L26 26"/>
+        </svg>
+        <span style="font-size:38px;font-weight:800;letter-spacing:-0.03em;color:#111827;">ResearchOS</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COLOR -->
+<section class="slide" id="color">
+  <div class="deck">
+    <p class="kicker">05 - Color</p>
+    <h2>Palette</h2>
+    <h3>Brand colors</h3>
+    <div class="grid4">
+      <div><div class="swatch" style="background:#1AA0E6;"><span class="hex">#1AA0E6</span></div><div class="label">brand-sky</div><div class="sublabel">Identity blue. Mascot + large logos. Fails AA for small text, never use for body.</div></div>
+      <div><div class="swatch" style="background:#1283C9;"><span class="hex">#1283C9</span></div><div class="label">brand-action</div><div class="sublabel">Accessible accent. Links, buttons, selected states (~4.5:1).</div></div>
+      <div><div class="swatch dark" style="background:#111827;"><span class="hex">#111827</span></div><div class="label">brand-ink</div><div class="sublabel">Wordmark and headings.</div></div>
+      <div><div class="swatch dark" style="background:#5B47D6;"><span class="hex">#5B47D6</span></div><div class="label">brand-purple</div><div class="sublabel">Secondary. Pairs with sky on the auth pill.</div></div>
+    </div>
+
+    <h3 style="margin-top:26px;">Signature rainbow</h3>
+    <div class="grid2">
+      <div><div class="swatch" style="background:var(--rainbow);"><span class="hex">pastel - light mode</span></div><div class="sublabel">peach #ffd2b0 - yellow #fff1a8 - mint #b7ebb1 - sky #a6d2f4 - lavender #d6b5f0</div></div>
+      <div><div class="swatch dark" style="background:var(--rainbow-vivid);"><span class="hex">vivid - dark mode</span></div><div class="sublabel">#f97316 - #e8920b - #16a34a - #0284c7 - #9333ea</div></div>
+    </div>
+
+    <h3 style="margin-top:26px;">Surface tokens (use tokens, not raw hex, in product)</h3>
+    <div class="grid2">
+      <table class="spec">
+        <tr><th>Light</th><th>Hex</th></tr>
+        <tr><td class="mono">--surface</td><td class="mono">#f8fafc</td></tr>
+        <tr><td class="mono">--surface-raised</td><td class="mono">#ffffff</td></tr>
+        <tr><td class="mono">--surface-sunken</td><td class="mono">#f1f5f9</td></tr>
+        <tr><td class="mono">--foreground</td><td class="mono">#171717</td></tr>
+        <tr><td class="mono">--foreground-muted</td><td class="mono">#6b7280</td></tr>
+        <tr><td class="mono">--border</td><td class="mono">#e5e7eb</td></tr>
+      </table>
+      <table class="spec">
+        <tr><th>Dark</th><th>Hex</th></tr>
+        <tr><td class="mono">--surface</td><td class="mono">#0a0e1a</td></tr>
+        <tr><td class="mono">--surface-raised</td><td class="mono">#1c2638</td></tr>
+        <tr><td class="mono">--surface-sunken</td><td class="mono">#0d1424</td></tr>
+        <tr><td class="mono">--foreground</td><td class="mono">#f1f5f9</td></tr>
+        <tr><td class="mono">--foreground-muted</td><td class="mono">#b4bfd0</td></tr>
+        <tr><td class="mono">--accent</td><td class="mono">#38bdf8</td></tr>
+      </table>
+    </div>
+    <p class="muted" style="font-size:13px;margin-top:12px;">Source of truth, <code>frontend/src/app/globals.css</code>. In product, always reference the token (bg-surface, text-foreground) so dark mode and the light-scope work. Never pair a theme-aware surface with fixed-dark text.</p>
+  </div>
+</section>
+
+<!-- TYPE -->
+<section class="slide" id="type">
+  <div class="deck">
+    <p class="kicker">06 - Typography</p>
+    <h2>Geist, on a semantic scale</h2>
+    <p class="muted">Primary typeface <b>Geist Sans</b> (400 to 800). Monospace <b>Geist Mono</b> for code, prices, and file paths. Use the semantic tokens, not raw pixel sizes.</p>
+    <div style="margin-top:18px;">
+      <div class="type-row"><span class="tk">text-meta</span><span class="spec">12px / 16px</span><span style="font-size:12px;">Captions, badges, fine print</span></div>
+      <div class="type-row"><span class="tk">text-body</span><span class="spec">14px / 20px</span><span style="font-size:14px;">Default body, forms, menus</span></div>
+      <div class="type-row"><span class="tk">text-title</span><span class="spec">16px / 24px</span><span style="font-size:16px;font-weight:600;">Card and panel titles</span></div>
+      <div class="type-row"><span class="tk">text-heading</span><span class="spec">20px / 28px</span><span style="font-size:20px;font-weight:700;">Page headings</span></div>
+      <div class="type-row"><span class="tk">text-display</span><span class="spec">30px / 36px</span><span style="font-size:30px;font-weight:800;letter-spacing:-0.02em;">Hero display</span></div>
+    </div>
+    <p class="muted" style="font-size:13px;margin-top:14px;">Wordmark, Geist 800, tracking about -0.03em. Reference, <code>docs/TYPE_SCALE.md</code>.</p>
+  </div>
+</section>
+
+<!-- ICONS -->
+<section class="slide" id="icons">
+  <div class="deck">
+    <p class="kicker">07 - Iconography</p>
+    <h2>One registry, guard-enforced</h2>
+    <div class="grid2">
+      <div>
+        <p>Every user-facing icon is a registered inline SVG in <code>frontend/src/components/icons/registry.tsx</code>, used through <code>&lt;Icon name="..." /&gt;</code>. No icon libraries, no emojis as icons.</p>
+        <ul class="clean">
+          <li>Default, <code class="mono">fill=none, stroke=currentColor, strokeWidth=2, viewBox 0 0 24 24</code>.</li>
+          <li>Browse the catalog at <code>/dev/icons</code>.</li>
+          <li>Adding a new icon needs Grant's sign-off (it is a verified asset).</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>The icon guard</h3>
+        <p class="muted">A pre-commit hook and a vitest ratchet block any new inline <code>&lt;svg&gt;</code> outside the registry. Exempt directories, where decorative or vendor SVG is allowed:</p>
+        <ul class="clean">
+          <li class="mono" style="font-size:12px;">components/icons/</li>
+          <li class="mono" style="font-size:12px;">components/animations/ (e.g. IntroBeaker)</li>
+          <li class="mono" style="font-size:12px;">components/showcase/</li>
+          <li class="mono" style="font-size:12px;">vendor/ , app/dev/icons/</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MADISON -->
+<section class="slide" id="madison">
+  <div class="deck">
+    <p class="kicker">08 - Made in Madison</p>
+    <h2>Built in <span class="madison">Madison</span></h2>
+    <div class="grid2">
+      <div>
+        <p>ResearchOS is made in Madison, Wisconsin. The badge uses the Wisconsin state silhouette with a gold star at Madison, in the Green Bay Packers green-gold gradient. The word "Madison" gets the same gradient as a text treatment.</p>
+        <ul class="clean">
+          <li>Component, <code>frontend/src/components/MadeInMadison.tsx</code>.</li>
+          <li>Icon, <code>&lt;Icon name="wisconsin" /&gt;</code> in the registry.</li>
+          <li>Gradient stops, green <code class="mono">#2E8B45</code> to gold <code class="mono">#FFB81C</code>.</li>
+        </ul>
+      </div>
+      <div class="card" style="display:flex;align-items:center;justify-content:center;gap:12px;">
+        <span style="font-size:13px;color:var(--foreground-muted);">Built in</span>
+        <span class="madison" style="font-size:30px;">Madison</span>
+        <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.9 6.2 6.6.8-4.9 4.6 1.3 6.6L12 17.8 6.1 20.8l1.3-6.6L2.5 9.6l6.6-.8z" fill="#FFB81C" stroke="#1e7d3a" stroke-width="0.8"/></svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ACKNOWLEDGMENT -->
+<section class="slide" id="ack">
+  <div class="deck">
+    <p class="kicker">09 - Funding acknowledgment</p>
+    <h2>How we credit our support</h2>
+    <p class="muted">Confirmed with the OVCR project manager (Laila Robbins). This standard replaces every current reference to a "UW-Madison RISE Initiative / RISE fellowship," which is the wrong name.</p>
+
+    <h3 style="margin-top:18px;">Official program name</h3>
+    <div class="ack"><b>UW Distinguished Research Fellowship</b> (or "UW Distinguished Research Fellows Program").</div>
+
+    <h3 style="margin-top:18px;">Approved acknowledgment wording (verbatim)</h3>
+    <div class="ack">"Support for this research was provided by the University of Wisconsin-Madison, Office of the Vice Chancellor for Research with funding from the Wisconsin Alumni Research Foundation."</div>
+
+    <h3 style="margin-top:18px;">Compact form (footers, tight spaces)</h3>
+    <div class="ack">"Supported by the UW Distinguished Research Fellowship (UW-Madison OVCR, with WARF funding)."</div>
+
+    <div class="warn" style="margin-top:18px;">
+      <b>Logos are not approved yet.</b> Laila gave us the acknowledgment text and the official name. Whether we may display UW-Madison, OVCR, or WARF logos on a commercial product site is still pending confirmation from Cynthia Czajkowski (OVCR). Until she confirms, use the text acknowledgment only, no UW or WARF logos.
+    </div>
+
+    <h3 style="margin-top:18px;">Where it goes (replace the old "RISE" text)</h3>
+    <div class="grid2">
+      <ul class="clean">
+        <li>App footer, <code>components/AppFooter.tsx</code></li>
+        <li>Folder-connect credential card, <code>components/RiseCredentialsStamp.tsx</code></li>
+        <li>Wiki funding page, <code>wiki/trust/how-we-fund-it</code></li>
+      </ul>
+      <ul class="clean">
+        <li>Repo <code>README.md</code></li>
+        <li>Marketing deck, <code>docs/marketing/researchos-deck.html</code></li>
+        <li>Internal, <code>AGENTS.md</code> (rename references)</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ASSETS -->
+<section class="slide" id="assets">
+  <div class="deck">
+    <p class="kicker">10 - Where everything lives</p>
+    <h2>Asset map</h2>
+    <table class="spec">
+      <tr><th>Asset</th><th>Location</th></tr>
+      <tr><td>Logo masters (mark, lockup, avatars, banners)</td><td class="mono">brand/*.svg</td></tr>
+      <tr><td>Hi-res PNG exports (avatars, OG, app icons)</td><td class="mono">brand/png/</td></tr>
+      <tr><td>Asset generators (HTML + Playwright)</td><td class="mono">brand/src/</td></tr>
+      <tr><td>BeakerBot mascot (canonical component, all poses)</td><td class="mono">frontend/src/components/BeakerBot.tsx</td></tr>
+      <tr><td>Bubbling marketing beaker</td><td class="mono">frontend/src/components/animations/IntroBeaker.tsx</td></tr>
+      <tr><td>Made-in-Madison badge</td><td class="mono">frontend/src/components/MadeInMadison.tsx</td></tr>
+      <tr><td>Icon registry</td><td class="mono">frontend/src/components/icons/registry.tsx</td></tr>
+      <tr><td>Color + type tokens</td><td class="mono">frontend/src/app/globals.css</td></tr>
+      <tr><td>Favicon (BeakerBot on sky disc)</td><td class="mono">frontend/src/app/icon.svg</td></tr>
+      <tr><td>Positioning + Messaging</td><td class="mono">docs/branding/POSITIONING.md, MESSAGING.md</td></tr>
+      <tr><td>Billing facts (canonical pricing copy)</td><td class="mono">docs/branding/BILLING_FACTS.md</td></tr>
+      <tr><td>Brand operating guide</td><td class="mono">brand/BRAND_MANAGER.md</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- MESSAGING CHEAT SHEET -->
+<section class="slide" id="messaging">
+  <div class="deck">
+    <p class="kicker">11 - Messaging cheat-sheet</p>
+    <h2>What we lead with</h2>
+    <div class="grid2">
+      <div class="card">
+        <h3>Value proposition</h3>
+        <p>"The free, open-source lab notebook that keeps your research in a folder you own, not a vendor's cloud."</p>
+        <h3 style="margin-top:14px;">Elevator pitch</h3>
+        <p class="muted">"ResearchOS is a free, open-source electronic lab notebook that keeps every note and file in a folder you own on your own computer, so your research is never trapped in a vendor's cloud."</p>
+      </div>
+      <div class="card">
+        <h3>Tagline bank</h3>
+        <ul class="clean">
+          <li>The lab notebook you actually own.</li>
+          <li>Own it, do not rent it.</li>
+          <li>Local-first, lock-in-free.</li>
+          <li>Your research, your rules.</li>
+          <li>From a vendor's cloud to a folder you own.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="muted" style="font-size:13px;margin-top:14px;">Full bank (value props, taglines by framework, long descriptions, proof points) in <code>docs/branding/MESSAGING.md</code>.</p>
+    <div class="rainbow-bar" style="margin-top:30px;border-radius:99px;"></div>
+  </div>
+</section>
+
+</body>
+</html>
