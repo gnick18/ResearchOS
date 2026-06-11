@@ -99,6 +99,45 @@ describe("plot-spec: style / source round-trip", () => {
     expect(readPlotStyle(next).errorBar).toBe("sd");
   });
 
+  it("palette + colorOverrides round-trip through withStyle / readPlotStyle", () => {
+    const spec = buildPlotSpec({ id: "p", kind: "columnBar", tableId: "1" });
+    const next = withStyle(spec, {
+      palette: "tol-muted",
+      colorOverrides: { 0: "#112233", 2: "#445566" },
+    });
+    const read = readPlotStyle(next);
+    expect(read.palette).toBe("tol-muted");
+    expect(read.colorOverrides).toEqual({ 0: "#112233", 2: "#445566" });
+  });
+
+  it("colorOverrides survive a JSON serialization round-trip (number keys)", () => {
+    const spec = buildPlotSpec({ id: "p", kind: "columnBar", tableId: "1" });
+    const next = withStyle(spec, { colorOverrides: { 0: "#abcdef", 5: "#fedcba" } });
+    // Simulate the Loro doc path (style is JSON-serialized into the doc).
+    const serialized = JSON.parse(JSON.stringify(next.style));
+    const read = readPlotStyle({ ...next, style: serialized });
+    expect(read.colorOverrides).toEqual({ 0: "#abcdef", 5: "#fedcba" });
+  });
+
+  it("readPlotStyle maps a legacy colorMode onto a palette id", () => {
+    const sky = readPlotStyle({ id: "p", type: "columnBar", style: { colorMode: "sky" }, source: {} });
+    expect(sky.palette).toBe("sky-ramp");
+    const ink = readPlotStyle({ id: "p", type: "columnBar", style: { colorMode: "ink" }, source: {} });
+    expect(ink.palette).toBe("cb-greys");
+    const brand = readPlotStyle({ id: "p", type: "columnBar", style: { colorMode: "brand" }, source: {} });
+    expect(brand.palette).toBe("brand-trio");
+  });
+
+  it("readPlotStyle drops a malformed colorOverride entry", () => {
+    const read = readPlotStyle({
+      id: "p",
+      type: "columnBar",
+      style: { colorOverrides: { 0: "#123456", 1: "notahex", foo: "#999999" } },
+      source: {},
+    });
+    expect(read.colorOverrides).toEqual({ 0: "#123456" });
+  });
+
   it("readPlotStyle falls back to spec.type when style.kind is absent", () => {
     const spec = {
       id: "p",
