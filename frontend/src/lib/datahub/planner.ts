@@ -34,20 +34,25 @@ import {
   type GroupColumn,
 } from "@/lib/datahub/column-table";
 import { xColumn, xyPairs, yColumns } from "@/lib/datahub/xy-table";
+import { groupDatasets, rowFactorLevels } from "@/lib/datahub/grouped-table";
+import { survivalGroups, hasSurvivalData } from "@/lib/datahub/survival-table";
 import type { AnalysisType } from "@/lib/datahub/run-analysis";
 
 /** The decision threshold the Report Card and the engine share. */
 export const PLANNER_ALPHA = 0.05;
 
 /**
- * What the researcher is comparing. "means" is the only family this slice plans
- * (two-group and multi-group mean comparisons); "association" (correlation /
- * regression) and "survival" are declared so an adapter can collect them and the
- * planner can name the gap rather than silently mis-plan. The intent is the
- * adapter-neutral contract: a stepper, an omnibox, or an assistant all produce
- * this shape.
+ * What the researcher is comparing. "means" plans group-mean comparisons (Column
+ * tables), "association" plans correlation / regression (XY tables), "twoFactor"
+ * plans a two-way ANOVA (Grouped tables), and "survival" plans Kaplan-Meier with
+ * the log-rank test (Survival tables). The intent is the adapter-neutral
+ * contract: a stepper, an omnibox, or an assistant all produce this shape.
  */
-export type ComparisonFamily = "means" | "association" | "survival";
+export type ComparisonFamily =
+  | "means"
+  | "association"
+  | "twoFactor"
+  | "survival";
 
 /** Independent samples (different subjects) vs paired (same subject, matched). */
 export type Pairing = "independent" | "paired";
@@ -427,19 +432,135 @@ function planAssociation(
   };
 }
 
-/** Plan a survival intent. Kaplan-Meier and log-rank need the Survival table
- *  type, which is not built yet, so the planner names the method and marks the
- *  plan not-yet-runnable. */
-function planSurvival(intent: AnalysisIntent): ProposedPlan {
+/**
+ * Plan a two-factor intent (a Grouped table). Recommends a two-way ANOVA, which
+ * tests both factors and their interaction at once. Two-way ANOVA assumes the
+ * cell residuals are roughly normal with similar spread; per-cell replication is
+ * usually too small to test those formally, so the Report Card states the
+ * assumption as a NOTE rather than a false pass/fail. Not runnable until the
+ * Grouped table has at least two row levels and two column groups.
+ */
+function planTwoFactor(
+  content: DataHubDocContent,
+  intent: AnalysisIntent,
+): ProposedPlan {
+  const ready =
+    content.meta.table_type === "grouped" &&
+    rowFactorLevels(content).length >= 2 &&
+    groupDatasets(content).length >= 2;
+
+  if (!ready) {
+    return {
+      intent,
+      recommendation: "Two-way ANOVA",
+      rationale:
+        "Comparing two factors at once needs a Grouped table with at least two row labels and two column groups.",
+      steps: [
+        {
+          kind: "run-test",
+          analysisType: null,
+          testLabel: "Two-way ANOVA",
+          columnIds: [],
+        },
+      ],
+      reportCard: [
+        {
+          key: "fallbackNote",
+          status: "note",
+          title: "Available soon",
+          detail:
+            "Two-way ANOVA runs on a Grouped table. Label at least two rows and fill at least two groups with replicates, then try again.",
+        },
+      ],
+      runnable: false,
+      unsupported: "twoFactor",
+    };
+  }
+
+  const levels = rowFactorLevels(content).length;
+  const groups = groupDatasets(content).length;
   return {
     intent,
-    recommendation: "Kaplan-Meier with the log-rank test",
-    rationale:
-      "Survival or time-to-event analysis needs a Survival table with event and time columns, which is a later table type.",
+    recommendation: "Two-way ANOVA",
+    rationale: `${levels} row levels by ${groups} groups, with replicates per cell. A two-way ANOVA tests each factor and the interaction between them in one model.`,
     steps: [
       {
         kind: "run-test",
-        analysisType: null,
+        analysisType: "twoWayAnova",
+        testLabel: "Two-way ANOVA",
+        columnIds: [],
+      },
+    ],
+    reportCard: [
+      {
+        key: "fallbackNote",
+        status: "note",
+        title: "What it assumes",
+        detail:
+          "A two-way ANOVA assumes the values in each cell are roughly normal with similar spread. With only a few replicates per cell that cannot be tested formally, so treat a borderline result with care and check the residuals.",
+      },
+    ],
+    runnable: true,
+  };
+}
+
+/**
+ * Plan a survival intent (a Survival table). Recommends Kaplan-Meier with the
+ * log-rank test. The Report Card notes what those methods assume (independent,
+ * non-informative censoring; the log-rank is most powerful when the hazard ratio
+ * is roughly constant over time). Not runnable until the table has time-to-event
+ * data.
+ */
+function planSurvival(
+  content: DataHubDocContent,
+  intent: AnalysisIntent,
+): ProposedPlan {
+  const ready =
+    content.meta.table_type === "survival" && hasSurvivalData(content);
+
+  if (!ready) {
+    return {
+      intent,
+      recommendation: "Kaplan-Meier with the log-rank test",
+      rationale:
+        "Survival or time-to-event analysis needs a Survival table with a time and an event (1 or 0) for each subject.",
+      steps: [
+        {
+          kind: "run-test",
+          analysisType: null,
+          testLabel: "Kaplan-Meier with the log-rank test",
+          columnIds: [],
+        },
+      ],
+      reportCard: [
+        {
+          key: "fallbackNote",
+          status: "note",
+          title: "Available soon",
+          detail:
+            "Survival analysis runs on a Survival table. Enter a time and an event indicator (1 = event, 0 = censored) for each subject, then try again.",
+        },
+      ],
+      runnable: false,
+      unsupported: "survival",
+    };
+  }
+
+  const arms = survivalGroups(content).filter(
+    (g) => g.observations.length > 0,
+  ).length;
+  const rationale =
+    arms >= 2
+      ? `${arms} arms of time-to-event data. Kaplan-Meier estimates each survival curve and the log-rank test compares them.`
+      : "Time-to-event data in one arm. Kaplan-Meier estimates the survival curve and the median survival. Add a Group label to compare arms with the log-rank test.";
+  return {
+    intent,
+    recommendation: "Kaplan-Meier with the log-rank test",
+    rationale,
+    steps: [
+      {
+        kind: "run-test",
+        analysisType: "kaplanMeier",
         testLabel: "Kaplan-Meier with the log-rank test",
         columnIds: [],
       },
@@ -448,13 +569,12 @@ function planSurvival(intent: AnalysisIntent): ProposedPlan {
       {
         key: "fallbackNote",
         status: "note",
-        title: "Available soon",
+        title: "What it assumes",
         detail:
-          "Survival analysis runs on a Survival table. The guided wizard will plan it once that table type lands.",
+          "Kaplan-Meier and the log-rank test assume censoring is independent of the event (a subject lost to follow-up is not more likely to have the event). The log-rank test is most powerful when one curve stays above the other rather than crossing.",
       },
     ],
-    runnable: false,
-    unsupported: "survival",
+    runnable: true,
   };
 }
 
@@ -473,8 +593,10 @@ export function planAnalysis(
       return planMeans(content, intent);
     case "association":
       return planAssociation(content, intent);
+    case "twoFactor":
+      return planTwoFactor(content, intent);
     case "survival":
-      return planSurvival(intent);
+      return planSurvival(content, intent);
     default:
       return planMeans(content, intent);
   }

@@ -241,3 +241,78 @@ describe("planner: families not yet runnable", () => {
     expect(plan.unsupported).toBe("survival");
   });
 });
+
+describe("planner: two-factor and survival on their own table types", () => {
+  // A minimal Grouped table: 2 row levels x 2 groups x 2 replicate columns.
+  function groupedContent(): DataHubDocContent {
+    const meta: DataHubDocument = {
+      ...META,
+      table_type: "grouped",
+    };
+    return {
+      meta,
+      columns: [
+        { id: "rowlabel", name: "Stage", role: "x", dataType: "text" },
+        { id: "a1", name: "A", role: "y", dataType: "number", datasetId: "g1", subcolumnKind: "replicate" },
+        { id: "a2", name: "A", role: "y", dataType: "number", datasetId: "g1", subcolumnKind: "replicate" },
+        { id: "b1", name: "B", role: "y", dataType: "number", datasetId: "g2", subcolumnKind: "replicate" },
+        { id: "b2", name: "B", role: "y", dataType: "number", datasetId: "g2", subcolumnKind: "replicate" },
+      ],
+      rows: [
+        { id: "r1", cells: { rowlabel: "lo", a1: 9, a2: 11, b1: 11, b2: 13 } },
+        { id: "r2", cells: { rowlabel: "hi", a1: 14, a2: 16, b1: 17, b2: 19 } },
+      ],
+      analyses: [],
+      plots: [],
+    };
+  }
+
+  function survivalContent(): DataHubDocContent {
+    const meta: DataHubDocument = { ...META, table_type: "survival" };
+    return {
+      meta,
+      columns: [
+        { id: "time", name: "Time", role: "x", dataType: "number" },
+        { id: "event", name: "Event", role: "y", dataType: "number" },
+        { id: "group", name: "Group", role: "group", dataType: "text" },
+      ],
+      rows: [
+        { id: "r1", cells: { time: 5, event: 1, group: "A" } },
+        { id: "r2", cells: { time: 8, event: 0, group: "A" } },
+        { id: "r3", cells: { time: 6, event: 1, group: "B" } },
+        { id: "r4", cells: { time: 9, event: 1, group: "B" } },
+      ],
+      analyses: [],
+      plots: [],
+    };
+  }
+
+  const intent = (family: AnalysisIntent["family"]): AnalysisIntent => ({
+    family,
+    groupCount: "two",
+    pairing: "independent",
+  });
+
+  it("recommends and runs a two-way ANOVA on a ready Grouped table", () => {
+    const plan = planAnalysis(groupedContent(), intent("twoFactor"));
+    expect(plan.runnable).toBe(true);
+    expect(plan.steps[0].analysisType).toBe("twoWayAnova");
+    expect(plan.recommendation).toMatch(/[Tt]wo-way/);
+    expect(plan.reportCard.length).toBeGreaterThan(0);
+  });
+
+  it("recommends and runs Kaplan-Meier / log-rank on a ready Survival table", () => {
+    const plan = planAnalysis(survivalContent(), intent("survival"));
+    expect(plan.runnable).toBe(true);
+    expect(plan.steps[0].analysisType).toBe("kaplanMeier");
+    expect(plan.recommendation).toMatch(/Kaplan-Meier|log-rank/);
+  });
+
+  it("does not run a two-factor intent on a Column table", () => {
+    const c = content([{ name: "x", values: NORMAL_A }]);
+    const plan = planAnalysis(c, intent("twoFactor"));
+    expect(plan.runnable).toBe(false);
+    expect(plan.steps[0].analysisType).toBeNull();
+    expect(plan.unsupported).toBe("twoFactor");
+  });
+});

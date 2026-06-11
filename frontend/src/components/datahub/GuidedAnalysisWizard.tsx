@@ -117,7 +117,10 @@ export default function GuidedAnalysisWizard({
     [content],
   );
   const ys = useMemo(() => (content ? yColumns(content) : []), [content]);
-  const isXY = content?.meta.table_type === "xy";
+  const tableType = content?.meta.table_type;
+  const isXY = tableType === "xy";
+  const isGrouped = tableType === "grouped";
+  const isSurvival = tableType === "survival";
 
   // Reset the wizard each open so a re-entry starts clean.
   useEffect(() => {
@@ -172,12 +175,18 @@ export default function GuidedAnalysisWizard({
 
   // The table must have enough columns for the recommended test. A means
   // comparison needs two (or three) group columns; an association needs the one
-  // resolved Y column. The planner still recommends, but a run needs the columns.
-  const requiredColumns = isMeans
-    ? answers.groupCount === "three-plus"
-      ? 3
-      : 2
-    : 1;
+  // resolved Y column; a two-way ANOVA and a survival analysis read the whole
+  // table, so they need no column selection (the planner already checked the
+  // table has the data). The planner still recommends, but a run needs the data.
+  const isWholeTable =
+    answers.family === "twoFactor" || answers.family === "survival";
+  const requiredColumns = isWholeTable
+    ? 0
+    : isMeans
+      ? answers.groupCount === "three-plus"
+        ? 3
+        : 2
+      : 1;
   const enoughColumns =
     plan?.steps[0]?.analysisType == null
       ? false
@@ -236,18 +245,45 @@ export default function GuidedAnalysisWizard({
               <p className="mb-3 text-body font-semibold text-foreground">
                 What are you comparing?
               </p>
-              <OptionButton
-                label="The means of two or more groups"
-                onClick={() => pick({ family: "means" }, 1)}
-              />
-              <OptionButton
-                label="A relationship between two measures"
-                onClick={() => pick({ family: "association" }, 1)}
-              />
-              <OptionButton
-                label="Survival or time to an event"
-                onClick={() => pick({ family: "survival" }, 1)}
-              />
+              {/* The options are scoped to the open table type, so the wizard
+                  never offers a test the table cannot run. A Grouped table
+                  compares two factors; a Survival table compares survival; an
+                  XY table looks at a relationship; a Column table compares
+                  group means. With no table type, all families show. */}
+              {(isGrouped) && (
+                <OptionButton
+                  label="Two factors at once (for example treatment and time)"
+                  onClick={() => pick({ family: "twoFactor" }, 1)}
+                />
+              )}
+              {(isSurvival) && (
+                <OptionButton
+                  label="Survival or time to an event"
+                  onClick={() => pick({ family: "survival" }, 1)}
+                />
+              )}
+              {(isXY) && (
+                <OptionButton
+                  label="A relationship between two measures"
+                  onClick={() => pick({ family: "association" }, 1)}
+                />
+              )}
+              {(!isGrouped && !isSurvival && !isXY) && (
+                <>
+                  <OptionButton
+                    label="The means of two or more groups"
+                    onClick={() => pick({ family: "means" }, 1)}
+                  />
+                  <OptionButton
+                    label="A relationship between two measures"
+                    onClick={() => pick({ family: "association" }, 1)}
+                  />
+                  <OptionButton
+                    label="Survival or time to an event"
+                    onClick={() => pick({ family: "survival" }, 1)}
+                  />
+                </>
+              )}
             </div>
           )}
 
