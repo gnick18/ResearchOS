@@ -46,10 +46,19 @@ export type ChoiceSelect = "one" | "multiple";
 //     instead of typing the answer, so the model gets a structured selection.
 //     This is what ask_user raises. It is not an approval, the user is choosing,
 //     so it resolves with the picked option(s), not allow / skip.
+//   - kind "draft", BeakerBot has DRAFTED note content and wants to write it into
+//     one of the user's notes. The user sees the proposed text rendered as a draft
+//     preview (markdown) BEFORE anything is written, and approves or rejects it.
+//     This is what write_note raises through the gate. Writing the user's actual
+//     note content is sensitive, so the preview IS the consent, and only on Approve
+//     does the tool's execute write to the note. Like plan and action it resolves
+//     with allow / skip (Approve = allow, Reject = skip), so it reuses the same
+//     pause/resume bridge with no parallel loop.
 //
 // The plan and action shapes describe what BeakerBot wants to do in plain words.
 // The action shape can carry a perceived element ref so the UI spotlights the
-// target before the user allows it.
+// target before the user allows it. The draft shape carries the proposed note
+// content so the UI can show it before the write.
 export type ApprovalRequest =
   | {
       kind: "plan";
@@ -74,6 +83,24 @@ export type ApprovalRequest =
       /** True when the destructive hard-stop forced this confirm, so the UI can
        *  warn more firmly. */
       destructive?: boolean;
+    }
+  | {
+      kind: "draft";
+      /** The tool that raised the draft, for the UI to label the prompt (always
+       *  write_note). */
+      toolName: string;
+      /** The proposed note content, drafted by BeakerBot, shown to the user as a
+       *  markdown preview BEFORE anything is written. This is what they approve. */
+      content: string;
+      /** Whether approving CREATES a new note or APPENDS the content to an
+       *  existing one, so the preview can say which. */
+      mode: "create" | "append";
+      /** The title BeakerBot proposes for a new note, or the entry heading for an
+       *  appended section. Optional, the UI falls back to a generic label. */
+      title?: string;
+      /** The title of the existing note the content would be appended to, for the
+       *  preview copy on an append. Optional. */
+      noteTitle?: string;
     }
   | {
       kind: "choice";
@@ -144,10 +171,23 @@ export type AiTool = {
   /** For action tools, build the human approval summary and optional target ref
    *  from the parsed args, so the loop can show the user what will happen WITHOUT
    *  running the tool. Pure, never effectful. Optional, the loop falls back to a
-   *  generic summary when absent. */
+   *  generic summary when absent.
+   *
+   *  An action whose approval is a DRAFT PREVIEW (write_note) returns a `draft`
+   *  payload here instead of a plain summary. When present, the gate raises a
+   *  `kind:"draft"` request carrying the proposed content (rendered as a markdown
+   *  preview) rather than the one-line `kind:"action"` confirm, so the user reviews
+   *  the actual text before it is written. It still resolves with allow / skip on
+   *  the same bridge, Approve = allow, Reject = skip. */
   describeAction?: (args: Record<string, unknown>) => {
     summary: string;
     ref?: string;
+    draft?: {
+      content: string;
+      mode: "create" | "append";
+      title?: string;
+      noteTitle?: string;
+    };
   };
   /** For action tools, decide whether THIS specific call must hard-stop for a
    *  confirm even in "auto" mode (the destructive safety net). Pure. Optional,

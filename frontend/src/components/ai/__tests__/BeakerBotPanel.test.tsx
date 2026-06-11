@@ -61,6 +61,13 @@ vi.mock("@/lib/local-api", () => ({
       },
     ]),
   },
+  // write_note tools read + write through notesApi. Mock the three methods the
+  // tools touch so the draft round-trip runs with no folder.
+  notesApi: {
+    list: vi.fn(async () => []),
+    create: vi.fn(async () => ({ id: 42, title: "qPCR summary", entries: [] })),
+    addEntry: vi.fn(async () => ({ id: 1, title: "qPCR optimization", entries: [] })),
+  },
 }));
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -376,6 +383,87 @@ describe("BeakerBotPanel", () => {
     await waitFor(() => {
       expect(
         screen.getByText("No problem, tell me when you decide."),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("renders a write_note draft preview with Approve / Reject and writes on Approve", async () => {
+    // Turn 1, the model drafts a note and calls write_note. The panel pauses on a
+    // DRAFT preview, the proposed content rendered as markdown, with Approve and
+    // Reject. Tapping Approve writes the note and the loop produces the answer.
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse(
+          toolCall("write_note", {
+            target: "new",
+            title: "qPCR summary",
+            content: "## Results\n**Significant** difference between groups.",
+            mode: "create",
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(finalAnswer("Added the summary to a new note.")),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BeakerBotPanel />);
+    fireEvent.change(screen.getByTestId("beakerbot-input"), {
+      target: { value: "summarize the result into a new note called qPCR summary" },
+    });
+    fireEvent.click(screen.getByTestId("beakerbot-send"));
+
+    // The draft preview appears with the proposed content rendered as real HTML
+    // (a <strong> means the markdown was parsed, not shown raw), plus the
+    // Approve / Reject controls. The one-line action confirm is NOT shown.
+    const draft = await screen.findByTestId("beakerbot-approval-draft");
+    expect(draft).toHaveTextContent("Significant");
+    const preview = screen.getByTestId("beakerbot-draft-preview");
+    expect(preview.querySelector("strong")?.textContent).toBe("Significant");
+    expect(screen.getByTestId("beakerbot-draft-approve")).toBeInTheDocument();
+    expect(screen.getByTestId("beakerbot-draft-reject")).toBeInTheDocument();
+    expect(screen.queryByTestId("beakerbot-approval")).toBeNull();
+
+    // Approving writes the note and the loop continues to the final answer.
+    fireEvent.click(screen.getByTestId("beakerbot-draft-approve"));
+    await waitFor(() => {
+      expect(
+        screen.getByText("Added the summary to a new note."),
+      ).toBeInTheDocument();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects a write_note draft gracefully without writing", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse(
+          toolCall("write_note", {
+            target: "new",
+            title: "draft",
+            content: "Some drafted content.",
+            mode: "create",
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(finalAnswer("No problem, I will not write it.")),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BeakerBotPanel />);
+    fireEvent.change(screen.getByTestId("beakerbot-input"), {
+      target: { value: "draft a note" },
+    });
+    fireEvent.click(screen.getByTestId("beakerbot-send"));
+
+    await screen.findByTestId("beakerbot-approval-draft");
+    fireEvent.click(screen.getByTestId("beakerbot-draft-reject"));
+    await waitFor(() => {
+      expect(
+        screen.getByText("No problem, I will not write it."),
       ).toBeInTheDocument();
     });
   });

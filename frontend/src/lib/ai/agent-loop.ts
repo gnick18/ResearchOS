@@ -340,6 +340,32 @@ async function gateToolCall(
   // happen WITHOUT the tool running. Fall back to a generic summary.
   const described = tool.describeAction?.(args);
   const summary = described?.summary ?? `run ${tool.name}`;
+
+  // A draft-preview action (write_note) raises a richer "draft" request, the
+  // proposed note content rendered for review, instead of the one-line "action"
+  // confirm. The user reads the actual text and Approves (allow) or Rejects (skip)
+  // it before anything is written. Same bridge, same allow / skip resolution.
+  if (described?.draft) {
+    const draft = described.draft;
+    const decision = await deps.requestApproval({
+      kind: "draft",
+      toolName: tool.name,
+      content: draft.content,
+      mode: draft.mode,
+      ...(draft.title ? { title: draft.title } : {}),
+      ...(draft.noteTitle ? { noteTitle: draft.noteTitle } : {}),
+    });
+    if (decision === "allow") return { proceed: true };
+    return {
+      proceed: false,
+      result: {
+        approved: false,
+        message:
+          "The user declined the draft. Do not write it. Acknowledge their choice in one short sentence and offer to revise it if they would like.",
+      },
+    };
+  }
+
   const decision = await deps.requestApproval({
     kind: "action",
     toolName: tool.name,

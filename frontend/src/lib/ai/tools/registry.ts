@@ -47,6 +47,7 @@ import {
   runDataHubAnalysisTool,
 } from "./datahub-analysis";
 import { makeDataHubGraphTool } from "./datahub-graph";
+import { listNotesTool, writeNoteTool } from "./write-note";
 import type { AiTool } from "./types";
 
 // The read-only toolset, read-only with respect to the user's data. Exported on
@@ -70,13 +71,22 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // engine, then navigates the user to the figure. The engine builds the figure,
   // the model never computes a plotted value.
   makeDataHubGraphTool,
+  // list_notes is READ-only with respect to the user's data, it returns the user's
+  // notes (id + title + snippet) so write_note can find the note to append to. The
+  // WRITE half (write_note) is gated and lives in ACTION_TOOLS below.
+  listNotesTool,
 ];
 
 // The action toolset. Each tool here carries action: true and goes through the
 // agent loop's approval gate. click_element dispatches a real click for the user,
 // a genuine page effect that always wants the user's blessing and keeps the
-// destructive hard-stop.
-export const ACTION_TOOLS: AiTool[] = [clickElementTool];
+// destructive hard-stop. write_note writes DRAFTED content into one of the user's
+// notes, and is gated unlike the analysis / graph writes, because writing the
+// user's actual prose is sensitive. Its gate raises a DRAFT PREVIEW (the proposed
+// content with Approve / Reject), and only on Approve does it write. Create and
+// append are non-destructive and version-controlled, so it never forces the
+// destructive hard-stop, the preview is the consent.
+export const ACTION_TOOLS: AiTool[] = [clickElementTool, writeNoteTool];
 
 // The coordination toolset. These tools neither read the user's data nor act on
 // it, they steer the user-input flow itself, and the loop recognizes each by name

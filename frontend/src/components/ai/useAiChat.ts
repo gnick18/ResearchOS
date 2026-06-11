@@ -55,6 +55,8 @@ const TOOL_STATUS: Record<string, string> = {
   ask_user: "asking what you would like",
   list_datahub_tables: "looking at your data tables",
   run_datahub_analysis: "running the analysis",
+  list_notes: "looking through your notes",
+  write_note: "drafting a note for you",
 };
 
 function statusLabel(status: LoopStatus): string {
@@ -63,10 +65,11 @@ function statusLabel(status: LoopStatus): string {
   }
   if (status.phase === "awaiting-approval") {
     // ask_user pauses on a pick, not an approval, so the wording reads as a
-    // choice rather than a go-ahead.
-    return status.toolName === "ask_user"
-      ? "waiting for your choice"
-      : "waiting for your go-ahead";
+    // choice rather than a go-ahead. write_note pauses on a draft review, so it
+    // reads as a review rather than a go-ahead.
+    if (status.toolName === "ask_user") return "waiting for your choice";
+    if (status.toolName === "write_note") return "waiting for your review";
+    return "waiting for your go-ahead";
   }
   return "thinking";
 }

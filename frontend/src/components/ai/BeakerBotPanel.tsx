@@ -456,6 +456,69 @@ export default function BeakerBotPanel({
         </div>
       ) : null}
 
+      {/* Draft preview (write_note). BeakerBot has DRAFTED note content and wants
+          to write it into one of the user's notes. Writing the user's prose is
+          sensitive, so the user reviews the proposed text itself (rendered through
+          the same AssistantMarkdown used for replies) and Approves or Rejects it
+          BEFORE anything is written. This rides the SAME bridge as the plan and
+          action prompts, Approve resolves "allow" and Reject resolves "skip", and
+          only an "allow" lets write_note's execute write. */}
+      {pendingApproval && pendingApproval.request.kind === "draft" ? (
+        <div
+          data-testid="beakerbot-approval-draft"
+          className="mx-4 mb-2 rounded-md border border-brand bg-brand/5 px-3 py-2"
+        >
+          <div className="mb-2 flex items-start gap-2">
+            <span className="text-brand">
+              <Icon
+                name="vial"
+                className="h-4 w-4"
+                title="BeakerBot drafted a note"
+              />
+            </span>
+            <p className="text-meta text-foreground">
+              {pendingApproval.request.mode === "create"
+                ? `I drafted a note${
+                    pendingApproval.request.title
+                      ? ` "${pendingApproval.request.title}"`
+                      : ""
+                  }. Review it before I write it.`
+                : `I drafted a section to add${
+                    pendingApproval.request.noteTitle
+                      ? ` to "${pendingApproval.request.noteTitle}"`
+                      : " to your note"
+                  }. Review it before I write it.`}
+            </p>
+          </div>
+          <div
+            data-testid="beakerbot-draft-preview"
+            className="mb-2 max-h-60 overflow-y-auto rounded border border-border bg-surface px-2 py-1.5"
+          >
+            <AssistantMarkdown content={pendingApproval.request.content} />
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              data-testid="beakerbot-draft-approve"
+              onClick={() => resolveApproval("allow")}
+              className="btn-brand flex items-center gap-1 rounded-md px-3 py-1.5 text-meta font-medium"
+            >
+              <Icon name="check" className="h-3.5 w-3.5" title="Approve" />
+              Approve
+            </button>
+            <button
+              type="button"
+              data-testid="beakerbot-draft-reject"
+              onClick={() => resolveApproval("skip")}
+              className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+            >
+              <Icon name="close" className="h-3.5 w-3.5" title="Reject" />
+              Reject
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {/* Choice prompt (ask_user). BeakerBot needs the user to pick from a known
           small set, so it shows a button per option instead of asking them to
           type the answer. Single-select taps resolve at once, multi-select
