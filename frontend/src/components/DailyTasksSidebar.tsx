@@ -173,7 +173,7 @@ export default function DailyTasksSidebar() {
 
   return (
     <>
-      <aside className="relative w-64 border-r border-border bg-surface-raised overflow-y-auto flex-shrink-0">
+      <aside className="relative w-64 h-full border-r border-border bg-surface-raised overflow-y-auto flex-shrink-0">
         {/* Floating gear in the top-right of the sidebar. Opens a small
             popup with the same content toggles available in Settings ->
             Sidebar, so users can flip them inline without leaving the

@@ -57,7 +57,7 @@ export default function CollapsibleSidebar({
           reclaims its flex space so <main> widens. The transition is suppressed
           until hydration so the stored-state settle on load does not animate. */}
       <div
-        className={hydrated ? "transition-[margin-left] duration-300 ease-in-out" : ""}
+        className={`h-full ${hydrated ? "transition-[margin-left] duration-300 ease-in-out" : ""}`}
         style={{ marginLeft: collapsed ? `-${RAIL_WIDTH}` : "0" }}
         aria-hidden={collapsed}
       >
