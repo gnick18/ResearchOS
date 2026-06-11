@@ -144,6 +144,24 @@ const ICONS_RAW = {
     concept: "List",
     body: <path d="M4 7h16M4 12h16M4 17h10" />,
   },
+  table: {
+    concept: "Table / data grid",
+    body: (
+      <>
+        <rect x="3.5" y="5" width="17" height="14" rx="1.5" />
+        <path d="M3.5 10h17M3.5 14.5h17M11.5 5v14" />
+      </>
+    ),
+  },
+  chart: {
+    concept: "Chart / graph",
+    body: (
+      <>
+        <path d="M5 4v15h15" />
+        <path d="M9 19v-5M13 19v-9M17 19v-7" />
+      </>
+    ),
+  },
   layer: {
     concept: "Layer / target",
     body: (

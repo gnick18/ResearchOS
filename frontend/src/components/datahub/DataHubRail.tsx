@@ -102,7 +102,7 @@ function TableRow({
       }`}
     >
       <Icon
-        name="list"
+        name="table"
         className={`h-4 w-4 shrink-0 ${active ? "text-accent" : "text-foreground-muted"}`}
       />
       <span className="min-w-0 flex-1 truncate">{table.name}</span>
@@ -342,7 +342,7 @@ export default function DataHubRail({
       {/* Graphs (empty-state placeholder; the graphs slice is next) */}
       <EmptySection
         title="Graphs"
-        icon="tree"
+        icon="chart"
         emptyLabel="No graphs yet"
         actionLabel="New graph"
         testid="datahub-graphs-section"
@@ -362,7 +362,7 @@ function EmptySection({
   testid,
 }: {
   title: string;
-  icon: "tree";
+  icon: "chart";
   emptyLabel: string;
   actionLabel: string;
   testid: string;
