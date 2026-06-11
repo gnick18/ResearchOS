@@ -19,7 +19,7 @@
 // House style: <Icon> only, Tooltip on icon-only buttons, brand + semantic
 // tokens, no emojis / em-dashes / mid-sentence colons.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import PaletteStudio from "@/components/datahub/PaletteStudio";
@@ -113,6 +113,36 @@ function Seg<T extends string>({
   );
 }
 
+/**
+ * One section of the right dock. A full-width top divider plus an uppercase
+ * muted header group the controls the way the approved mockup does, so each
+ * group reads as its own block down the panel.
+ */
+function Section({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  /** An optional leading icon name (reuses the registry). */
+  icon?: React.ComponentProps<typeof Icon>["name"];
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="border-t border-border px-3.5 py-3 first:border-t-0">
+      <div className="mb-2 flex items-center gap-1.5">
+        {icon ? (
+          <Icon name={icon} className="h-3 w-3 text-foreground-muted" />
+        ) : null}
+        <h3 className="text-[11px] font-bold uppercase tracking-wide text-foreground-muted">
+          {title}
+        </h3>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 /** Round a size number to a tidy precision for the input (inches / cm keep two
  * decimals, px stays whole). */
 function roundForUnit(value: number, unit: SizeUnit): number {
@@ -196,14 +226,7 @@ function FigureSizeControls({
     "w-16 rounded-md border border-border bg-surface-overlay px-2 py-1 text-meta text-foreground focus:border-sky-400 focus:outline-none";
 
   return (
-    <div className="mt-3 border-t border-border pt-3" data-testid="datahub-figure-size">
-      <div className="mb-2 flex items-center gap-1.5">
-        <Icon name="ruler" className="h-3 w-3 text-foreground-muted" />
-        <span className="text-[11px] font-bold uppercase tracking-wide text-foreground-muted">
-          Figure size
-        </span>
-      </div>
-
+    <div data-testid="datahub-figure-size">
       <Ctl label="Width">
         <input
           type="number"
@@ -423,6 +446,10 @@ export default function GraphEditor({
 }) {
   const [copyState, setCopyState] = useState<"idle" | "image" | "text">("idle");
   const [busy, setBusy] = useState(false);
+  // The full PaletteStudio lives in a roomy modal so the browse grid is not
+  // cramped into the 300px dock. The dock keeps a compact swatch + mode toggle
+  // for quick switching; "Browse all palettes" opens the studio.
+  const [browseOpen, setBrowseOpen] = useState(false);
 
   const style = useMemo(() => readPlotStyle(spec), [spec]);
   const isXY = style.kind === "xyScatter";
@@ -463,6 +490,17 @@ export default function GraphEditor({
   }, [geometry, style.yTitle]);
 
   const fileStem = figureFileStem(style.title.trim() || title);
+
+  // Close the Browse-all-palettes modal on Escape, so the studio popout always
+  // has a keyboard escape (no soft-lock).
+  useEffect(() => {
+    if (!browseOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setBrowseOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [browseOpen]);
 
   // Save the figure's current effective colors (seriesInfo.colors, the resolved
   // per-series colors with any overrides already applied) as a reusable user
@@ -511,82 +549,61 @@ export default function GraphEditor({
         ? "Copied SVG"
         : "Copy";
 
-  return (
-    <div data-testid="datahub-graph-editor">
-      <h1 className="text-title font-semibold text-foreground">{title}</h1>
-      <p className="mt-1 max-w-xl text-meta text-foreground-muted">
-        {isXY
-          ? "Your X and Y observations as a scatter, with a fitted curve laid over them. The fit is computed from the same points, so an edit re-fits the curve, and the export stays a true vector."
-          : isGrouped
-            ? "One cluster per row label, one bar per group, with error bars from the replicates. Every control redraws the figure, and the export stays a true vector."
-            : isSurvival
-              ? "A Kaplan-Meier step curve per group, survival on the Y axis against time on the X axis. Every control redraws the figure, and the export stays a true vector."
-              : "Individual points with the group mean and error bars, plus significance brackets from the stored analysis. Every control redraws the figure, and the export stays a true vector."}
-      </p>
+  const blurb = isXY
+    ? "Your X and Y observations as a scatter, with a fitted curve laid over them. The fit is computed from the same points, so an edit re-fits the curve, and the export stays a true vector."
+    : isGrouped
+      ? "One cluster per row label, one bar per group, with error bars from the replicates. Every control redraws the figure, and the export stays a true vector."
+      : isSurvival
+        ? "A Kaplan-Meier step curve per group, survival on the Y axis against time on the X axis. Every control redraws the figure, and the export stays a true vector."
+        : "Individual points with the group mean and error bars, plus significance brackets from the stored analysis. Every control redraws the figure, and the export stays a true vector.";
 
-      <div className="mt-4 flex flex-wrap items-start gap-5">
-        {/* Figure + export row */}
-        <div className="rounded-lg border border-border bg-white p-3">
-          <FigureResizeFrame
-            style={style}
-            frameWidthPx={frame.screenWidth}
-            frameHeightPx={frame.screenHeight}
-            onStyleChange={onStyleChange}
-          >
-            <PlotColorEditor
-              svg={svg}
-              style={style}
-              resolvedColors={seriesInfo.colors}
-              onStyleChange={onStyleChange}
-              onSaveColorsAsPalette={onSaveColorsAsPalette}
-            />
-          </FigureResizeFrame>
-          <div className="mt-2 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onExportSvg}
-              className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
-              data-testid="datahub-export-svg"
-            >
-              <Icon name="download" className="h-3.5 w-3.5" />
-              Export SVG
-            </button>
-            <button
-              type="button"
-              onClick={onExportPng}
-              disabled={busy}
-              className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
-              data-testid="datahub-export-png"
-            >
-              <Icon name="export" className="h-3.5 w-3.5" />
-              Export PNG
-            </button>
-            <button
-              type="button"
-              onClick={onCopy}
-              disabled={busy}
-              className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
-              data-testid="datahub-copy-figure"
-            >
-              <Icon name="copy" className="h-3.5 w-3.5" />
-              {copyLabel}
-            </button>
-          </div>
-          <p className="mt-1.5 max-w-[430px] text-[11px] text-foreground-muted">
-            SVG stays an infinitely-scalable vector for a paper. PNG renders at 3x
-            for a crisp slide. Copy drops a PNG straight into a doc.
-          </p>
+  return (
+    <div
+      className="flex h-full min-h-0 flex-1"
+      data-testid="datahub-graph-editor"
+    >
+      {/* Canvas. Fills the remaining width, centered on a sunken backdrop so the
+          figure gets the screen and the controls live in the right dock. */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+          <h1 className="truncate text-title font-semibold text-foreground">
+            {title}
+          </h1>
+          <Tooltip label={blurb}>
+            <span className="inline-flex shrink-0 items-center gap-1 text-[11px] text-foreground-muted">
+              <Icon name="check" className="h-3 w-3" />
+              Live from the table
+            </span>
+          </Tooltip>
         </div>
 
-        {/* Style panel */}
-        <div
-          className="w-[280px] shrink-0 rounded-lg border border-border bg-surface-raised p-3"
-          data-testid="datahub-graph-style-panel"
-        >
-          <h4 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-foreground-muted">
-            Graph style
-          </h4>
+        <div className="flex flex-1 items-center justify-center overflow-auto bg-surface-sunken p-6">
+          <div className="rounded-lg border border-border bg-white p-3 shadow-sm">
+            <FigureResizeFrame
+              style={style}
+              frameWidthPx={frame.screenWidth}
+              frameHeightPx={frame.screenHeight}
+              onStyleChange={onStyleChange}
+            >
+              <PlotColorEditor
+                svg={svg}
+                style={style}
+                resolvedColors={seriesInfo.colors}
+                onStyleChange={onStyleChange}
+                onSaveColorsAsPalette={onSaveColorsAsPalette}
+              />
+            </FigureResizeFrame>
+          </div>
+        </div>
+      </div>
 
+      {/* Right dock. Fixed-width full-height column with its own scroll, so the
+          control sections stack down the side the way the mockup shows. */}
+      <aside
+        className="flex h-full w-[300px] shrink-0 flex-col overflow-y-auto border-l border-border bg-surface-raised"
+        data-testid="datahub-graph-style-panel"
+      >
+        <Section title="Graph style">
           {isXY ? (
             <Ctl label="Fitted curve">
               <select
@@ -594,7 +611,7 @@ export default function GraphEditor({
                 onChange={(e) =>
                   onStyleChange({ fitModel: e.target.value as FitModelId })
                 }
-                className="max-w-[140px] rounded-md border border-border bg-surface-overlay px-2 py-1 text-meta text-foreground focus:border-sky-400 focus:outline-none"
+                className="max-w-[150px] rounded-md border border-border bg-surface-overlay px-2 py-1 text-meta text-foreground focus:border-sky-400 focus:outline-none"
                 data-testid="datahub-style-fitmodel"
               >
                 {FIT_MODEL_OPTIONS.map((o) => (
@@ -606,24 +623,28 @@ export default function GraphEditor({
             </Ctl>
           ) : isGrouped ? (
             <Ctl label="Error bars">
-              <select
+              <Seg<ErrorBarKind>
                 value={style.errorBar}
-                onChange={(e) =>
-                  onStyleChange({ errorBar: e.target.value as ErrorBarKind })
-                }
-                className="rounded-md border border-border bg-surface-overlay px-2 py-1 text-meta text-foreground focus:border-sky-400 focus:outline-none"
-                data-testid="datahub-style-errorbar"
-              >
-                <option value="sem">Mean + SEM</option>
-                <option value="sd">Mean + SD</option>
-                <option value="none">None</option>
-              </select>
+                options={[
+                  { value: "sem", label: "SEM" },
+                  { value: "sd", label: "SD" },
+                  { value: "none", label: "None" },
+                ]}
+                onChange={(v) => onStyleChange({ errorBar: v })}
+              />
             </Ctl>
-          ) : isSurvival ? null : (
+          ) : isSurvival ? (
+            <p className="text-[11px] text-foreground-muted">
+              A survival curve has no per-bar style. Tune colors and labels in the
+              sections below.
+            </p>
+          ) : (
             <>
-              <Ctl label="Style">
+              <Ctl label="Chart type">
                 <Seg<PlotStyle["kind"]>
-                  value={style.kind === "columnBar" ? "columnBar" : "columnScatter"}
+                  value={
+                    style.kind === "columnBar" ? "columnBar" : "columnScatter"
+                  }
                   options={[
                     { value: "columnScatter", label: "Scatter" },
                     { value: "columnBar", label: "Bar" },
@@ -633,21 +654,18 @@ export default function GraphEditor({
               </Ctl>
 
               <Ctl label="Error bars">
-                <select
+                <Seg<ErrorBarKind>
                   value={style.errorBar}
-                  onChange={(e) =>
-                    onStyleChange({ errorBar: e.target.value as ErrorBarKind })
-                  }
-                  className="rounded-md border border-border bg-surface-overlay px-2 py-1 text-meta text-foreground focus:border-sky-400 focus:outline-none"
-                  data-testid="datahub-style-errorbar"
-                >
-                  <option value="sem">Mean + SEM</option>
-                  <option value="sd">Mean + SD</option>
-                  <option value="none">None</option>
-                </select>
+                  options={[
+                    { value: "sem", label: "SEM" },
+                    { value: "sd", label: "SD" },
+                    { value: "none", label: "None" },
+                  ]}
+                  onChange={(v) => onStyleChange({ errorBar: v })}
+                />
               </Ctl>
 
-              <Ctl label="Show points">
+              <Ctl label="Points">
                 <Seg<"on" | "off">
                   value={style.showPoints ? "on" : "off"}
                   options={[
@@ -670,15 +688,25 @@ export default function GraphEditor({
               </Ctl>
             </>
           )}
+        </Section>
 
+        <Section title="Colors">
           <PaletteStudio
+            compact
+            onBrowse={() => setBrowseOpen(true)}
             style={style}
             seriesCount={seriesInfo.count}
             seriesNames={seriesInfo.names}
             resolvedColors={seriesInfo.colors}
             onStyleChange={onStyleChange}
           />
+        </Section>
 
+        <Section title="Figure size" icon="ruler">
+          <FigureSizeControls style={style} onStyleChange={onStyleChange} />
+        </Section>
+
+        <Section title="Labels and text">
           <Ctl label="Axis text">
             <input
               type="range"
@@ -692,11 +720,8 @@ export default function GraphEditor({
               aria-label="Axis text size"
             />
           </Ctl>
-
-          <FigureSizeControls style={style} onStyleChange={onStyleChange} />
-
-          <div className="mt-3 border-t border-border pt-3">
-            <label className="block text-[11px] font-bold uppercase tracking-wide text-foreground-muted">
+          <div className="mt-2">
+            <label className="block text-[11px] font-semibold text-foreground-muted">
               Title
             </label>
             <input
@@ -706,7 +731,7 @@ export default function GraphEditor({
               placeholder="Figure title"
               className="mt-1 w-full rounded-md border border-border bg-surface-overlay px-2 py-1 text-meta text-foreground placeholder:text-foreground-muted focus:border-sky-400 focus:outline-none"
             />
-            <label className="mt-2 block text-[11px] font-bold uppercase tracking-wide text-foreground-muted">
+            <label className="mt-2 block text-[11px] font-semibold text-foreground-muted">
               Y axis title
             </label>
             <input
@@ -716,7 +741,7 @@ export default function GraphEditor({
               placeholder="Value"
               className="mt-1 w-full rounded-md border border-border bg-surface-overlay px-2 py-1 text-meta text-foreground placeholder:text-foreground-muted focus:border-sky-400 focus:outline-none"
             />
-            <label className="mt-2 block text-[11px] font-bold uppercase tracking-wide text-foreground-muted">
+            <label className="mt-2 block text-[11px] font-semibold text-foreground-muted">
               X axis title
             </label>
             <input
@@ -727,17 +752,95 @@ export default function GraphEditor({
               className="mt-1 w-full rounded-md border border-border bg-surface-overlay px-2 py-1 text-meta text-foreground placeholder:text-foreground-muted focus:border-sky-400 focus:outline-none"
             />
           </div>
+        </Section>
 
-          <div className="mt-3 flex items-center gap-1.5 border-t border-border pt-2 text-[11px] text-foreground-muted">
-            <Tooltip label="Error bars and brackets are computed from this table's replicates and ANOVA, so the figure always matches the data.">
-              <span className="inline-flex items-center gap-1">
-                <Icon name="check" className="h-3 w-3" />
-                Live from the table
-              </span>
-            </Tooltip>
+        <Section title="Export">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onExportSvg}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+              data-testid="datahub-export-svg"
+            >
+              <Icon name="download" className="h-3.5 w-3.5" />
+              SVG
+            </button>
+            <button
+              type="button"
+              onClick={onExportPng}
+              disabled={busy}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
+              data-testid="datahub-export-png"
+            >
+              <Icon name="export" className="h-3.5 w-3.5" />
+              PNG
+            </button>
+            <button
+              type="button"
+              onClick={onCopy}
+              disabled={busy}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
+              data-testid="datahub-copy-figure"
+            >
+              <Icon name="copy" className="h-3.5 w-3.5" />
+              {copyState === "idle" ? "Copy" : copyLabel}
+            </button>
+          </div>
+          <p className="mt-2 text-[11px] text-foreground-muted">
+            SVG stays an infinitely-scalable vector for a paper. PNG renders at 3x
+            for a crisp slide. Copy drops a PNG straight into a doc.
+          </p>
+        </Section>
+      </aside>
+
+      {/* Browse-all-palettes popout. The full studio (filter-by-N, CB / print
+          toggles, custom per-series, generate, Coolors import, save-your-own)
+          gets a roomy modal instead of the cramped dock. */}
+      {browseOpen && (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center p-4"
+          data-testid="datahub-palette-browse"
+        >
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setBrowseOpen(false)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Browse all palettes"
+            className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-border bg-surface-overlay shadow-xl"
+          >
+            <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+              <h2 className="text-title font-semibold text-foreground">
+                Color palettes
+              </h2>
+              <p className="ml-2 hidden text-meta text-foreground-muted sm:block">
+                Filter by how many series the figure has, then preview live.
+              </p>
+              <Tooltip label="Close">
+                <button
+                  type="button"
+                  onClick={() => setBrowseOpen(false)}
+                  className="ml-auto flex h-7 w-7 items-center justify-center rounded-md border border-border text-foreground-muted transition-colors hover:bg-surface-sunken"
+                  aria-label="Close palette browser"
+                >
+                  <Icon name="close" className="h-3.5 w-3.5" />
+                </button>
+              </Tooltip>
+            </div>
+            <div className="overflow-y-auto px-4 py-3">
+              <PaletteStudio
+                style={style}
+                seriesCount={seriesInfo.count}
+                seriesNames={seriesInfo.names}
+                resolvedColors={seriesInfo.colors}
+                onStyleChange={onStyleChange}
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
