@@ -1,10 +1,14 @@
 # Sponsorship tiers (storage-as-thank-you)
 
-> SUPERSEDED IN PART (2026-06-10). The billing manager locked a cleaner two-channel model,
-> storage plans live on Stripe (a Free/Plus/Pro plan picker, 5 GB free), and GitHub Sponsors
-> is recognition-only donations. So the storage-as-reward ladder below is replaced by the plan
-> picker, and only the Sponsors-donation framing survives. The canonical copy facts now live in
-> docs/reference/billing-copy-facts.md. Keep this doc for the donation-framing reasoning only.
+> SUPERSEDED (2026-06-10). Current model is SOLIDARITY pricing: individuals and labs pay
+> cost recovery, departments and institutions pay a modest sustaining rate above cost
+> through automated self-serve plan builders, and that surplus keeps ResearchOS free for
+> individual researchers. Storage plans live on Stripe (a Free/Plus/Pro plan picker, 5 GB
+> free), and GitHub Sponsors is the individuals give-extra path (recognition-only, it
+> cannot invoice a university). So the storage-as-reward ladder below is replaced by the
+> plan picker plus the dept/institution builders, and only the Sponsors-donation framing
+> survives. Canonical customer copy: docs/branding/BILLING_FACTS.md (mirror
+> docs/reference/billing-copy-facts.md). Keep this doc for the donation-framing reasoning only.
 
 Status: DRAFT v2, re-based on the billing manager's review (2026-06-09). Author: branding agent.
 Related: METERED_STORAGE_PRICING.md, LAB_SHARED_BILLING_POOL.md, plans.ts, capacity-shared.ts,

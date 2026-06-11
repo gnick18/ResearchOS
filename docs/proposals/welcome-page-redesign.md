@@ -94,7 +94,7 @@ The research-recommended converting order is hook to proof to action. Adapted to
 - No em-dashes, no emojis (every icon is an inline SVG, no lucide), no mid-sentence colons. Contractions are good. Concept-first, warm.
 - BeakerBot is the only mascot.
 - The notebook needs no account. Sign-in is only for sharing, inbox, and collaboration. Repeat this wherever sign-in appears so local-only users never feel gated.
-- Free and open, funded by a university fellowship and donations. No pricing tiers, no per-seat fees. Never promise "never charge."
+- The local-first notebook is free and open source, funded by a university fellowship and donations. No per-seat fees, every feature is free. The only paid part is optional cloud storage above a free pool. Never say "free forever" about the cloud, never promise "never charge," and do not write "no paid tier." Canonical billing copy: docs/branding/BILLING_FACTS.md.
 
 ## Aesthetic direction
 

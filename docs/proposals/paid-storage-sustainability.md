@@ -1,5 +1,10 @@
 # Paid storage to keep the servers running
 
+> **SUPERSEDED, current model is solidarity pricing** (individuals/labs cost recovery,
+> dept/inst sustain the free tiers above bare cost via automated plan builders); canonical:
+> docs/branding/BILLING_FACTS.md. This early draft frames all paid storage as flat
+> cost-recovery; that is the OLD model. Read the canon for the current per-audience split.
+
 Status: draft for Grant, 2026-06-05. Author: sharing infra.
 
 Revised 2026-06-05 after two clarifications from Grant. First, cloud storage

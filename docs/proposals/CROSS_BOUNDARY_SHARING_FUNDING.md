@@ -1,5 +1,11 @@
 # Cross-Boundary Sharing, Cost and Sustainability Report
 
+> **SUPERSEDED for the funding model, current model is solidarity pricing** (individuals/labs
+> cost recovery, dept/inst sustain the free tiers above bare cost via automated plan builders);
+> canonical: docs/branding/BILLING_FACTS.md. The relay cost research and the LLC-vehicle
+> findings here remain useful; treat any flat "cost-recovery / never profit" funding framing
+> as historical.
+
 Companion to CROSS_BOUNDARY_SHARING_PROPOSAL.md. Built from five focused research passes (2026-06-03), sources cited throughout. Purpose, decide how the relay is funded and through what vehicle, based on real numbers.
 
 ---

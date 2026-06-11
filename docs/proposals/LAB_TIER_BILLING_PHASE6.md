@@ -1,5 +1,11 @@
 # Lab Tier Phase 6: billing, reconciled with the pivot
 
+> **SUPERSEDED, current model is solidarity pricing** (individuals/labs cost recovery,
+> dept/inst sustain the free tiers above bare cost via automated plan builders); canonical:
+> docs/branding/BILLING_FACTS.md. The lab billing machinery this doc maps (shared pool, PI
+> pays, one invoice) is still accurate; treat any flat "cost-recovery only / never profit"
+> framing as historical and read the canon for the current per-audience model.
+
 Status: DRAFT for sign-off (SHARING + COLLAB manager, 2026-06-08). Teed up at Grant's request. This is a RECONCILIATION doc, not a from-scratch billing design. Most of the billing machinery already exists; Phase 6 maps it onto the solo-free / lab-paid pivot, wires the new lab data plane into metering, and decides when to flip the switch.
 
 Do NOT contradict these existing docs (this one defers to them on the cost math): `PRICING_COST_MODEL.md` (the cost-recovery formula + real infra fees), `METERED_STORAGE_PRICING.md`, `paid-storage-sustainability.md`, `COLLAB_STORAGE_D1_DO_MIGRATION.md`. Code home: `frontend/src/lib/billing/` + `docs/proposals/metered-storage-billing-wiring.md`.

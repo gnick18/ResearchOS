@@ -1,5 +1,16 @@
 # Pricing transparency (why we can charge so little, and it is not a scam)
 
+> **LIVE transparency content, reconciled to the SOLIDARITY model (2026-06-10).** The
+> "strategic fork" this doc raised (Model A purist cost-recovery vs Model B sponsorship
+> tiers vs Hybrid) is now RESOLVED. The model is solidarity pricing: individuals and labs
+> pay cost recovery, while departments and institutions pay a modest sustaining rate ABOVE
+> bare cost through automated self-serve plan builders, and that surplus keeps ResearchOS
+> free for individual researchers and funds the open-source development. GitHub Sponsors is
+> the individuals give-extra path, NOT the institutional channel (Sponsors cannot invoice a
+> university). Canonical customer copy: `docs/branding/BILLING_FACTS.md`; the institutional
+> mechanics live in DEPARTMENT_TIER.md. Do not revert to a flat "everything is strict
+> cost-recovery, no markup" framing, the larger tiers now sustain the free ones.
+
 Status: CONTENT DRAFT for review. 2026-06-09. Author: billing manager.
 The substance to land at billing launch, in /wiki/trust/how-we-fund-it (fix the
 now-false "no paid tier" line), a pricing page, and the marketing/welcome copy
@@ -47,20 +58,26 @@ pricing a thin optional layer on top of a tool that mostly runs on your computer
    never raises a bill. The cost of the tool does not grow with the size of the
    lab, the opposite of per-seat pricing.
 
-## The two lanes, kept honest
+## The two lanes, kept honest (solidarity model)
 
-We do not pretend everything is pure cost recovery. There are two ways money
-comes in, and the difference is stated plainly so the margin is never disguised
-as "what storage costs."
+We do not pretend everyone pays the same way. There are two honest lanes, and the
+difference is stated plainly so the surplus is never disguised as "what storage costs."
 
-- Metered storage (cost recovery). A lab that just needs more space pays close
-  to our actual provider cost. No markup.
-- Sponsorship (support with a thank-you). A lab that wants to back the project
-  sponsors a tier and gets a bigger shared pool as a proportional thank-you. The
-  surplus over our cost is real, and it is what keeps the tool free for labs that
-  cannot pay. That is the point of it, not a hidden profit.
+- Cost recovery (individuals and labs). An individual or a lab that just needs more
+  space pays close to our actual provider cost, no more. No markup hidden inside the
+  storage price.
+- Sustaining (departments and institutions). A department or institution pays a modest
+  rate ABOVE bare cost through an automated self-serve plan builder. That surplus is
+  real, and it is what keeps ResearchOS free for individual researchers and funds the
+  open-source development. It is solidarity pricing, the well-funded buyers sustain the
+  free tiers, not a hidden profit.
 
-Both are far below a hosted-ELN subscription for the same reason, the bulk of
+Individuals can also give extra through GitHub Sponsors if they want to support the
+project beyond their own usage (see below), but Sponsors is the individuals path, the
+institutional surplus comes through the sustaining plan builders because GitHub Sponsors
+cannot invoice a university.
+
+Both lanes stay far below a hosted-ELN subscription for the same reason, the bulk of
 your work never touches our servers.
 
 ## What your sponsorship funds (the line for a PI)
@@ -106,11 +123,15 @@ Draft copy:
 This positions ResearchOS as the rare tool that tells you to pay less, a sharp
 contrast to per-seat ELNs built to maximize what you pay.
 
-STRATEGIC FORK this raises (needs Grant to lock before branding finalizes the
-ladder). The word "instead support via GitHub" points buyers AWAY from the
-marked-up storage sponsorship tiers (Supporter/Lab/Research/Department in
-SPONSORSHIP_TIERS.md). Two coherent models, and the pricing page cannot honestly
-show both messages at full volume:
+STRATEGIC FORK this raised, now RESOLVED (2026-06-10). The fork below is kept for the
+reasoning; the locked answer is the SOLIDARITY model, which is a refinement of the
+Hybrid. Individuals and labs get strict cost-recovery storage (the "buy what you use,
+support via GitHub" honest default). Departments and institutions pay a modest sustaining
+rate above cost through automated self-serve plan builders, and that surplus, NOT
+voluntary sponsorship, is what funds the free tiers and the open-source work. GitHub
+Sponsors stays the individuals give-extra path. So the pricing page shows the honest
+"buy what you use" message to individuals/labs at full volume AND the sustaining plan
+builders to departments/institutions, with no contradiction. Original fork for reference:
 - MODEL A (purist, what this message implies). Storage is strict cost-recovery,
   buy only what you use, no markup. Support is voluntary GitHub donations.
   Maximally honest, sustainability rides on donations. The institutional ask
@@ -118,12 +139,18 @@ show both messages at full volume:
 - MODEL B (sponsorship tiers). Keep the marked-up storage tiers whose surplus
   funds free labs, framed as support-with-a-thank-you. More predictable revenue,
   but "just buy what you use" undercuts the pitch for the marked-up tiers.
-- HYBRID. Offer cost-recovery metered storage as the honest default AND keep the
-  sponsorship tiers for labs that WANT to give more for a bigger pool, with this
-  honest message shown plainly. The two-lane model already drafted, just with the
-  cost-recovery lane elevated as the recommended path.
+- HYBRID (the basis of the locked solidarity model). Offer cost-recovery metered
+  storage as the honest default for individuals and labs AND keep an above-cost
+  sustaining lane for the larger buyers, here realized as the dept/institution plan
+  builders rather than voluntary tiers, with this honest message shown plainly.
 
 ## What "2x cost" actually produces (Grant, 2026-06-09, from scripts/capacity-model.mjs)
+
+> Note (2026-06-10): the "3x R2 markup on metered storage" figure below predates the
+> solidarity split. Under the locked model, INDIVIDUAL and LAB storage is cost recovery,
+> and the sustaining surplus comes from the department/institution plan builders. Treat
+> the markup numbers below as the historical capacity-model exploration, not the
+> customer-facing individual/lab price. Canonical: docs/branding/BILLING_FACTS.md.
 
 LOCKED 2026-06-09 (supersedes the 2x / 25 GB exploration below). After running
 the sustainability projection, Grant set the launch defaults:

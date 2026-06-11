@@ -1,5 +1,11 @@
 # Lab tier redesign: delete the shared folder, solo-free vs lab-paid, PI oversight without a shared disk
 
+> **SUPERSEDED for the pricing model, current model is solidarity pricing** (individuals/labs
+> cost recovery, dept/inst sustain the free tiers above bare cost via automated plan builders);
+> canonical: docs/branding/BILLING_FACTS.md. The architectural thesis here (solo-free vs
+> lab-paid, PI oversight without a shared disk) stands; treat any flat "cost-recovery / never
+> profit" pricing framing as historical.
+
 Status: DRAFT SPINE for sign-off (Grant + sharing/collab manager, 2026-06-07). NO CODE until the model is signed off. A deep-research pass is running in parallel; its findings fold into the Prior Art and the E2E-vs-server-mediated recommendation below. This doc captures the thesis from the 2026-06-07 design conversation.
 
 ## Why this exists

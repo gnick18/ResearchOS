@@ -1,5 +1,14 @@
 # Department-as-container (sponsorship hierarchy, design intent)
 
+> **LIVE spec for the institutional channel of the SOLIDARITY model.** Departments and
+> institutions are the SUSTAINING tier: they pay a modest rate ABOVE bare cost through an
+> automated self-serve plan builder on `/pricing`, billed by an auto recurring Stripe
+> invoice to procurement, and that surplus keeps ResearchOS free for individual
+> researchers and funds the open-source development. (GitHub Sponsors cannot invoice a
+> university, which is why this channel exists.) Canonical customer copy:
+> `docs/branding/BILLING_FACTS.md`. The word "sponsorship" in this older doc means the
+> institutional sustaining contribution, not GitHub Sponsors.
+
 Status: DESIGN INTENT, not a build order. 2026-06-09. Author: billing manager,
 from Grant's observation about who actually pays. Companion to
 SPONSORSHIP_TIERS.md (kept separate so the branding agent owns that doc).

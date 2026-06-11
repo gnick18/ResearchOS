@@ -1,11 +1,24 @@
 # Pricing cost model (numbers behind the plans)
 
+> **LIVE COST MODEL, but read the canon first.** Current model is SOLIDARITY pricing:
+> individuals and labs pay cost recovery, departments and institutions pay a modest
+> sustaining rate ABOVE bare cost, and that surplus keeps ResearchOS free for
+> individual researchers and funds the open-source development. Canonical customer copy:
+> `docs/branding/BILLING_FACTS.md`. The cost-recovery formula below is the floor that
+> the individual/lab tiers sit at; the dept/institution builders add a sustaining
+> contribution on top (see DEPARTMENT_TIER.md). The Free tier is 5 GB, not 1 GB.
+
 Status: working model, numbers PROVISIONAL pending tracking data (2026-06-07)
-Decision philosophy (Grant): cost recovery, not profit. Charge as close as
-possible to only the fees that get passed to us (infra + Stripe + tax), but never
-so low that a paying user costs us more than they pay. The free, local-first core
-stays free; only optional cloud storage + activity is priced.
-Related: METERED_STORAGE_PRICING.md, infra-tiers.ts, lib/billing/config.ts
+Decision philosophy (Grant, UPDATED 2026-06-10): individuals and labs pay cost
+recovery, charge as close as possible to only the fees that get passed to us (infra
++ Stripe + tax) but never so low that a paying user costs us more than they pay.
+Departments and institutions pay a modest sustaining rate above bare cost, and that
+surplus keeps ResearchOS free for individual researchers and funds the open-source
+development. This is solidarity pricing, not a flat "cost recovery, never profit"
+model. The free, local-first core stays free; only optional cloud storage + activity
+is priced.
+Related: METERED_STORAGE_PRICING.md, infra-tiers.ts, lib/billing/config.ts,
+DEPARTMENT_TIER.md, docs/branding/BILLING_FACTS.md
 
 ## The fees that actually get passed to us
 
@@ -71,11 +84,17 @@ Storage in a bundle plan is a flat included allowance up to the cap (standard Sa
 shape), not metered on actual use; the metered per-GB number survives only as the
 a-la-carte comparison anchor.
 
-| Plan | Storage | Activity / mo | Worst-case cost | Price (cost-recovery) |
+The Free tier is **5 GB** (Grant locked this 2026-06-09 after a price analysis,
+`FREE_ALLOWANCE_BYTES` in `lib/billing/config.ts`). The Plus and Pro worked figures
+below are an internal cost-recovery WORKSHEET, not publishable sticker prices. The
+FINAL Plus and Pro sticker prices stay unpublished until real usage sets them; do
+not print them in any customer-facing surface.
+
+| Plan | Storage | Activity / mo | Worst-case cost | Price (cost-recovery worksheet) |
 |------|---------|---------------|-----------------|------------------------|
-| Free | 1 GB    | 1M writes     | ~$1.50          | $0 (base/donations)    |
-| Plus | 50 GB   | 3M writes     | 50*$0.05 + 3*$1.50 = $7.00 | ~$8/mo      |
-| Pro  | 250 GB  | 10M writes    | 250*$0.05 + 10*$1.50 = $27.50 | ~$32/mo  |
+| Free | 5 GB    | 1M writes     | ~$1.75          | $0 (base/donations)    |
+| Plus | 50 GB   | 3M writes     | 50*$0.05 + 3*$1.50 = $7.00 | ~$8/mo (provisional)      |
+| Pro  | 250 GB  | 10M writes    | 250*$0.05 + 10*$1.50 = $27.50 | ~$32/mo (provisional)  |
 
 Lab plans pool the same costs across members on one invoice (per-member free
 pool + shared paid headroom), priced the same way on the lab aggregate.

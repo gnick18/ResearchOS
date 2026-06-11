@@ -1,5 +1,10 @@
 # Account setup revamp (start screen + 3-tier chooser + splash)
 
+> **Pricing note: current model is solidarity pricing.** Individuals and labs pay cost
+> recovery; departments and institutions pay a modest sustaining rate above cost that keeps
+> ResearchOS free for individuals. The free storage pool is 5 GB, not 1 GB. Canonical:
+> docs/branding/BILLING_FACTS.md. The account-setup flow below is otherwise current.
+
 Status: BUILD PLAN, mockups treated as final (Grant 2026-06-09). Ready to build.
 Author: HR (orchestrator)
 Date: 2026-06-09
@@ -23,9 +28,9 @@ Three tiers, all local-first (data always lives on the user's disk, the cloud is
 
 - **Local-only** (account_type solo, no identity published). No login, no cloud. The current solo path.
 - **Free account** (account_type solo, identity published to the directory). OAuth login, data stays on disk, unlocks cross-boundary send/receive + directory presence. Free, with the existing fixed relay budgets (1 GB mailbox, 30-day TTL, blocks at cap, never billed today).
-- **Lab** (account_type lab_head to create, member to join). OAuth login, cloud DO intermediary for team sync + collab + PI oversight. Cost-recovery metered above a 1 GB-per-member free pool, cap-blocks (pauses, never surprise-bills), PI can pay one consolidated invoice.
+- **Lab** (account_type lab_head to create, member to join). OAuth login, cloud DO intermediary for team sync + collab + PI oversight. Cost-recovery metered above the shared free pool (5 GB), cap-blocks (pauses, never surprise-bills), PI can pay one consolidated invoice.
 
-Pricing is cost-recovery pass-through, the free allowance is on us, hitting a cap pauses rather than bills. Lab create-or-join: create = Lab Head, join = invite link OR a searchable lab directory with request-to-join and PI approval (reuses Phase 8e); labs carry a listed/unlisted visibility flag so private labs stay invite-link-only.
+For individuals and labs, pricing is cost-recovery pass-through, the free allowance is on us, hitting a cap pauses rather than bills. (Departments and institutions sit one level up and pay a modest sustaining rate above cost, see docs/branding/BILLING_FACTS.md.) Lab create-or-join: create = Lab Head, join = invite link OR a searchable lab directory with request-to-join and PI approval (reuses Phase 8e); labs carry a listed/unlisted visibility flag so private labs stay invite-link-only.
 
 ## account_type mapping
 
