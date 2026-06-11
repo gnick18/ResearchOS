@@ -201,8 +201,8 @@ export default function ChemistryFeaturePage() {
       </p>
       <Screenshot
         src="/wiki/screenshots/chemistry-substructure-patents.png"
-        alt="The substructure patent search showing a small drawn fragment on the left and a list of SureChEMBL patent-compound hits on the right, each linking to its SureChEMBL chemical page."
-        caption="Substructure patent search. Draw a fragment and SureChEMBL returns patent compounds that contain it."
+        alt="The standalone literature surface with a compound search box and example chips, and below it the SureChEMBL substructure patent search with a SMILES fragment entered, ready to find patent compounds that contain it."
+        caption="The standalone literature surface. Search a compound by name, or use the SureChEMBL substructure search to find patent compounds that contain a fragment."
       />
       <Callout variant="info" title="What the free search does and does not cover">
         These sources are the free 90 percent, not a replacement for the curated

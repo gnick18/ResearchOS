@@ -4456,48 +4456,39 @@ const FIXTURE_ROUTES = [
   },
   {
     // 8. The Molecules section on a project surface. The ProjectDetailPopup for
-    //    project 1 carries a Molecules inventory listing the structures linked to
-    //    the project (the 4 fixture molecules are all linked to project 1).
-    //    Scroll to the section heading and clip around it.
+    //    project 1 lists its sections as click-through "Go to" doorways, so we
+    //    click the Molecules doorway to open the inventory (the 4 fixture
+    //    molecules are linked to project 1), then clip to the popup.
     path: "/workbench/projects/1",
     file: "chemistry-project-molecules.png",
     waitFor: '[data-testid="project-route-topbar"], text=Overview',
     settleMs: 1000,
     action: async (page) => {
       try {
-        await page.evaluate(() => {
-          const byId = document.getElementById("molecules");
-          const el =
-            byId ||
-            Array.from(document.querySelectorAll("h2, h3")).find(
-              (h) => (h.textContent || "").trim() === "Molecules",
-            );
-          if (el) el.scrollIntoView({ block: "start", behavior: "instant" });
-        });
-        await page.waitForTimeout(700);
-        const clip = await page.evaluate(() => {
-          const byId = document.getElementById("molecules");
-          const heading =
-            byId ||
-            Array.from(document.querySelectorAll("h2, h3")).find(
-              (h) => (h.textContent || "").trim() === "Molecules",
-            );
-          if (!heading) return null;
-          const section = heading.closest("section") || heading.parentElement;
-          const r = (section || heading).getBoundingClientRect();
-          const pad = 12;
-          const x = Math.max(0, Math.floor(r.left - pad));
-          const y = Math.max(0, Math.floor(r.top - pad));
-          return {
-            x,
-            y,
-            width: Math.min(window.innerWidth - x, Math.ceil(r.width + pad * 2)),
-            height: Math.min(window.innerHeight - y, Math.ceil(r.height + pad * 2)),
-          };
-        });
-        if (clip && clip.width > 100 && clip.height > 80) return { clip };
+        const doorway = page
+          .getByRole("button", { name: /^Molecules$/i })
+          .first();
+        if (await doorway.count()) {
+          await doorway.click({ timeout: 4000 });
+          await page.waitForTimeout(1100);
+        }
+        const dlg = page.locator('[role="dialog"]').first();
+        if (await dlg.count()) {
+          const box = await dlg.boundingBox();
+          if (box && box.width > 100) {
+            const pad = 16;
+            return {
+              clip: {
+                x: Math.max(0, Math.floor(box.x - pad)),
+                y: Math.max(0, Math.floor(box.y - pad)),
+                width: Math.min(1440, Math.ceil(box.width + pad * 2)),
+                height: Math.min(900, Math.ceil(box.height + pad * 2)),
+              },
+            };
+          }
+        }
       } catch (err) {
-        console.warn(`  ⚠ chemistry-project-molecules clip: ${err.message}`);
+        console.warn(`  ⚠ chemistry-project-molecules action: ${err.message}`);
       }
     },
   },
