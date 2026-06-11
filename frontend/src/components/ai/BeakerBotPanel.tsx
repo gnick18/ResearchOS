@@ -146,7 +146,7 @@ export default function BeakerBotPanel({
             }`}
           >
             <Icon
-              name="gauge"
+              name={autonomy === "auto" ? "bolt" : "ask"}
               className="h-3.5 w-3.5"
               title={autonomy === "auto" ? "Auto" : "Ask"}
             />

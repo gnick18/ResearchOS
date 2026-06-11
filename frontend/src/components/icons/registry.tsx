@@ -721,6 +721,22 @@ const ICONS_RAW = {
       </>
     ),
   },
+  // BeakerBot autonomy toggle (ai-assistant manager, 2026-06-11). `ask` (question
+  // in a circle) marks ask-before-doing mode, `bolt` (lightning) marks auto mode.
+  ask: {
+    concept: "Ask / question",
+    body: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M9.2 9.2a2.9 2.9 0 1 1 3.7 2.8c-0.9 0.3-1.4 0.9-1.4 1.9" />
+        <path d="M12 17.3h0.01" />
+      </>
+    ),
+  },
+  bolt: {
+    concept: "Lightning / auto",
+    body: <path d="M13 3 5 13h6l-1 8 9-11h-6z" />,
+  },
   receipt: {
     concept: "Receipt / one invoice",
     body: (
