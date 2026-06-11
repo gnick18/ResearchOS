@@ -32,3 +32,25 @@ export function consumePreDemoRoute(): string | null {
     return null;
   }
 }
+
+/**
+ * The in-app path a `/demo/<slug>` entry should redirect to once the demo
+ * fixture is installed, preserving the query string and hash so a parameterized
+ * deep link survives the demo redirect. A deep link like
+ * `/demo/datahub?doc=5` resolves to `/datahub?doc=5`, so the target page can
+ * read its param. The bare `/demo` entry returns "" (the caller renders Home in
+ * place rather than redirecting).
+ *
+ * Pure: the caller passes pathname / search / hash (usePathname drops the
+ * query, so the live window.location values are passed in at redirect time).
+ */
+export function demoRedirectTarget(
+  pathname: string,
+  search = "",
+  hash = "",
+): string {
+  if (!pathname || pathname === "/demo") return "";
+  const base = pathname.replace(/^\/demo/, "");
+  if (base === "" || base === "/") return "";
+  return `${base}${search}${hash}`;
+}

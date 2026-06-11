@@ -167,30 +167,36 @@ export default function DataHubPage() {
     return { all: allTables.length, unfiled, perProject };
   }, [allTables]);
 
-  // Deep link: open the document named by `?doc=<id>` (the form an object
-  // reference in a note builds, via objectReferenceMarkdown("datahub", ...)).
-  // Consumed once, after the catalog loads, and only when the doc exists. Jumps
-  // the filter to All so the target is visible whatever project it belongs to.
+  // Resolve which table is selected, in one place so the two rules never fight.
+  // On first load a `?doc=<id>` deep link wins (the form a Data Hub object
+  // reference builds, via objectReferenceMarkdown("datahub", ...)): the filter
+  // jumps to All so the doc is visible whatever project it belongs to, and the
+  // doc is selected. The deep link is consumed once, so a later manual selection
+  // is never yanked back. Otherwise the selection defaults to the first visible
+  // table and self-heals when the current one leaves the filter.
+  //
+  // These were two effects; merging them fixes a race where the default-to-first
+  // rule clobbered a just-applied deep-link selection in the same render pass
+  // (both read the pre-update selectedTableId). The deep-link branch returns
+  // before the default logic, so it can no longer be overridden.
   const deepLinkConsumed = useRef(false);
   useEffect(() => {
-    if (deepLinkConsumed.current || typeof window === "undefined") return;
-    const doc = new URLSearchParams(window.location.search).get("doc");
-    if (!doc) {
-      deepLinkConsumed.current = true;
-      return;
+    if (!deepLinkConsumed.current && typeof window !== "undefined") {
+      const doc = new URLSearchParams(window.location.search).get("doc");
+      if (!doc) {
+        deepLinkConsumed.current = true;
+      } else if (allTables.length > 0) {
+        deepLinkConsumed.current = true;
+        if (allTables.some((t) => t.id === doc)) {
+          if (collection !== "all") setCollection("all");
+          setSelectedTableId(doc);
+          return; // the deep-link selection wins this pass
+        }
+      } else {
+        return; // a doc is requested; wait for the catalog before deciding
+      }
     }
-    if (allTables.length === 0) return; // wait for the catalog
-    deepLinkConsumed.current = true;
-    if (allTables.some((t) => t.id === doc)) {
-      setCollection("all");
-      setSelectedTableId(doc);
-    }
-  }, [allTables]);
-
-  // Keep a valid selection: default to the first visible table.
-  useEffect(() => {
-    // Do not override a pending deep-link selection on the first pass.
-    if (!deepLinkConsumed.current) return;
+    // Default / self-heal the selection to the first visible table.
     if (tablesInCollection.length === 0) {
       setSelectedTableId(null);
       return;
@@ -201,7 +207,7 @@ export default function DataHubPage() {
     ) {
       setSelectedTableId(tablesInCollection[0].id);
     }
-  }, [tablesInCollection, selectedTableId]);
+  }, [allTables, tablesInCollection, selectedTableId, collection]);
 
   // Open (or switch) the Loro doc for the selected table and project its content.
   // Subscribing reprojects on any doc change (a local edit's commit, or a later
