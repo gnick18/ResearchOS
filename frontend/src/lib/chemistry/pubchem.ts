@@ -107,22 +107,64 @@ export async function fetchCompoundsByCids(
   return (data.PropertyTable?.Properties ?? []).map(mapPropertyRecord);
 }
 
+const AUTOCOMPLETE =
+  "https://pubchem.ncbi.nlm.nih.gov/rest/autocomplete/compound";
+
 /**
- * Search PubChem and return up to `max` candidate compounds (a bare CID returns
- * just that one). Throws if nothing matches, so the caller shows an error.
+ * PubChem name autocomplete: related compound names for a query (exact match
+ * first), e.g. caffeine -> [caffeine, Caffeine citrate, Caffeine benzoate, ...].
+ * CORS-open, same host as PUG-REST. Returns [] on any failure.
+ */
+export async function autocompleteNames(
+  query: string,
+  max = 8,
+): Promise<string[]> {
+  const res = await fetch(
+    `${AUTOCOMPLETE}/${encodeURIComponent(query)}/json?limit=${max}`,
+  ).catch(() => null);
+  if (!res || !res.ok) return [];
+  const data = (await res.json().catch(() => null)) as {
+    dictionary_terms?: { compound?: string[] };
+  } | null;
+  return (data?.dictionary_terms?.compound ?? []).slice(0, max);
+}
+
+/**
+ * Search PubChem and return up to `max` candidate compounds for the import grid.
+ * A bare CID returns just that one; a name uses autocomplete to surface related
+ * candidates (the exact match first), resolves each to a CID, dedups, and fetches
+ * their properties in one call. Throws if nothing matches.
  */
 export async function searchCompounds(
   query: string,
   max = 8,
 ): Promise<PubChemCompound[]> {
   const trimmed = query.trim();
-  const cids = /^\d+$/.test(trimmed)
-    ? [Number(trimmed)]
-    : await resolveNameToCids(trimmed, max);
+  if (/^\d+$/.test(trimmed)) {
+    const one = await fetchCompoundsByCids([Number(trimmed)]);
+    if (one.length === 0) throw new Error(`No PubChem match for "${trimmed}"`);
+    return one;
+  }
+  const names = await autocompleteNames(trimmed, max);
+  const seeds = names.length > 0 ? names : [trimmed];
+  const resolved = await Promise.all(
+    seeds.map((n) => resolveNameToCid(n).catch(() => null)),
+  );
+  const cids: number[] = [];
+  for (const c of resolved) {
+    if (c != null && !cids.includes(c)) cids.push(c);
+  }
   if (cids.length === 0) throw new Error(`No PubChem match for "${trimmed}"`);
-  const compounds = await fetchCompoundsByCids(cids);
+  const wanted = cids.slice(0, max);
+  const compounds = await fetchCompoundsByCids(wanted);
   if (compounds.length === 0) throw new Error(`No PubChem match for "${trimmed}"`);
-  return compounds;
+  // Restore the autocomplete order (exact match first); the batch property
+  // endpoint does not guarantee it.
+  const byCid = new Map(compounds.map((c) => [c.cid, c]));
+  const ordered = wanted
+    .map((c) => byCid.get(c))
+    .filter((c): c is PubChemCompound => c != null);
+  return ordered.length > 0 ? ordered : compounds;
 }
 
 /** Fetch the stable identity properties for a CID. */
