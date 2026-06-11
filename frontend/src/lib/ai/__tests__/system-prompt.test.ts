@@ -23,6 +23,15 @@ describe("BEAKERBOT_SYSTEM_PROMPT", () => {
     // No literal em-dash, emoji, or mid-sentence colon list in the prompt itself.
     expect(BEAKERBOT_SYSTEM_PROMPT).not.toMatch(/—/);
   });
+
+  it("includes narrow-panel formatting guidance telling BeakerBot to avoid tables", () => {
+    // The panel is a narrow sidebar. BeakerBot must know not to produce wide
+    // markdown tables that would overflow it.
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/narrow/i);
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/table/i);
+    // The guidance must tell the model to avoid tables, not recommend them.
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/Do NOT use markdown tables/i);
+  });
 });
 
 // The loop carries whatever messages it is given, including the system message,

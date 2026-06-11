@@ -12,12 +12,56 @@
 // modes, no writes. It is isolated under components/ai and is mounted only by the
 // flag-gated /ai route, so it touches no shared global surface.
 //
+// Markdown rendering note: assistant replies are rendered with a lightweight
+// ReactMarkdown + remarkGfm setup defined here rather than importing the shared
+// RenderedMarkdown component. RenderedMarkdown is tightly coupled to the file-
+// system-backed note context (blob URL resolution, AnnotatedImage, OcrReveal,
+// ObjectChip deep-links). None of that applies to AI chat replies, and pulling it
+// in would require providers and side-effects that do not belong in this panel.
+// The same underlying packages (react-markdown, remark-gfm) are reused, keeping
+// the rendered output consistent with the rest of the app's markdown style.
+// User messages are intentionally rendered as plain text, never parsed as markdown,
+// so user input cannot inject formatting or HTML.
+//
 // House style: <Icon> only, brand + semantic tokens, no emojis / em-dashes /
 // mid-sentence colons.
 
 import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Icon } from "@/components/icons";
 import { useAiChat } from "./useAiChat";
+
+// Lightweight markdown renderer for assistant replies only. Scoped to this panel.
+// Uses standard semantic elements styled by the app's Tailwind prose utilities.
+// The components map restricts rendering to safe, expected markdown elements and
+// keeps links from doing anything unexpected (opens in a new tab, rel=noopener).
+function AssistantMarkdown({ content }: { content: string }) {
+  return (
+    <div className="prose prose-sm max-w-none text-foreground [&_a]:text-brand [&_a]:underline [&_code]:rounded [&_code]:bg-surface-overlay [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs [&_li]:my-0.5 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:my-1 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-surface-overlay [&_pre]:p-2 [&_strong]:font-semibold [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-4">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          // Open external links safely; keep them from triggering app navigation.
+          a: ({ href, children, ...props }) => (
+            <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+              {children}
+            </a>
+          ),
+          // Tables would overflow the narrow panel. Render as a div so the
+          // layout does not break even if the model ignores the formatting
+          // guidance and produces one anyway. The system prompt tells BeakerBot
+          // to avoid tables; this is the belt-and-suspenders fallback.
+          table: ({ children }) => (
+            <div className="overflow-x-auto text-xs">{children}</div>
+          ),
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+}
 
 export default function BeakerBotPanel() {
   const { messages, sending, status, error, send } = useAiChat();
@@ -75,13 +119,25 @@ export default function BeakerBotPanel() {
                   : "self-start max-w-[85%] rounded-lg bg-surface-raised px-3 py-2 text-body text-foreground"
               }
             >
-              {m.content || (
-                <span
-                  data-testid="beakerbot-status"
-                  className="text-foreground-muted"
-                >
-                  BeakerBot is {status ?? "thinking"}
-                </span>
+              {m.role === "assistant" ? (
+                m.content ? (
+                  // Render assistant replies as markdown. The typewriter reveal
+                  // updates content incrementally; re-rendering on each update is
+                  // intentional and flicker-free because ReactMarkdown is fast at
+                  // small strings.
+                  <AssistantMarkdown content={m.content} />
+                ) : (
+                  <span
+                    data-testid="beakerbot-status"
+                    className="text-foreground-muted"
+                  >
+                    BeakerBot is {status ?? "thinking"}
+                  </span>
+                )
+              ) : (
+                // User messages are always plain text. Never parse user input as
+                // markdown to avoid unexpected formatting or injection.
+                m.content
               )}
             </div>
           ))

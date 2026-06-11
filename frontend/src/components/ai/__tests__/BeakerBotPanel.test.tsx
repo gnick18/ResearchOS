@@ -7,7 +7,8 @@ import BeakerBotPanel from "../BeakerBotPanel";
 // provider JSON. These tests mock fetch (the proxy) so no model and no key are
 // involved. They assert the final answer renders, that a tool round-trip works end
 // to end (the loop calls the proxy twice, runs the tool locally, then renders the
-// final answer), and that the proxy error surfaces in the panel.
+// final answer), the proxy error surfaces in the panel, assistant markdown renders
+// as HTML elements (bold, lists), and user text is kept as plain text.
 
 // The read tool reads from local-api. Mock it so the tool runs without a folder.
 vi.mock("@/lib/local-api", () => ({
@@ -148,6 +149,64 @@ describe("BeakerBotPanel", () => {
     });
     // The loop made two proxy calls (tool turn + final-answer turn).
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("renders assistant markdown as HTML elements (bold, list items)", async () => {
+    // The model returns markdown. The panel should convert it to real HTML.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(
+          finalAnswer(
+            "Here are two things:\n- **Run the PCR** today\n- Check your results",
+          ),
+        ),
+      ),
+    );
+
+    render(<BeakerBotPanel />);
+    fireEvent.change(screen.getByTestId("beakerbot-input"), {
+      target: { value: "what should I do?" },
+    });
+    fireEvent.click(screen.getByTestId("beakerbot-send"));
+
+    // A <strong> element means **bold** was parsed, not shown as raw asterisks.
+    await waitFor(() => {
+      const strong = document.querySelector(
+        "[data-testid='beakerbot-message-assistant'] strong",
+      );
+      expect(strong).not.toBeNull();
+      expect(strong?.textContent).toBe("Run the PCR");
+    });
+
+    // The list item should also be a real <li>, not raw text with a leading dash.
+    const listItems = document.querySelectorAll(
+      "[data-testid='beakerbot-message-assistant'] li",
+    );
+    expect(listItems.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("keeps user message as plain text even when it contains markdown syntax", async () => {
+    // User input must never be parsed as markdown. Asterisks and backticks
+    // should appear literally in the bubble, not become bold or code elements.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse(finalAnswer("ok"))),
+    );
+
+    render(<BeakerBotPanel />);
+    const markdownInput = "**bold** and `code`";
+    fireEvent.change(screen.getByTestId("beakerbot-input"), {
+      target: { value: markdownInput },
+    });
+    fireEvent.click(screen.getByTestId("beakerbot-send"));
+
+    // The user bubble should contain the raw string, not parsed HTML.
+    const userBubble = await screen.findByTestId("beakerbot-message-user");
+    expect(userBubble.textContent).toBe(markdownInput);
+    // No <strong> or <code> injected into the user bubble.
+    expect(userBubble.querySelector("strong")).toBeNull();
+    expect(userBubble.querySelector("code")).toBeNull();
   });
 
   it("shows the proxy error message in the panel when the key is missing", async () => {
