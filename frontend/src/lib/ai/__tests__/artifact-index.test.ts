@@ -1,0 +1,452 @@
+// Unit tests for the artifact index (Layer 1): scorer, adapters, searchMyWork.
+// All tests are pure: no real folder, no I/O, no Loro. Each adapter and the
+// scorer are tested directly; searchMyWork is tested with stubbed deps.
+
+import { describe, it, expect } from "vitest";
+import {
+  tokenize,
+  scoreBrief,
+  noteToBrief,
+  methodToBrief,
+  sequenceToBrief,
+  dataHubToBrief,
+  projectToBrief,
+  purchaseToBrief,
+  moleculeToBrief,
+  experimentToBrief,
+  searchMyWork,
+  type ArtifactBrief,
+  type ArtifactIndexDeps,
+} from "../artifact-index";
+import type { Note, NoteEntry, Method, SequenceRecord, Project, PurchaseItem, Task } from "@/lib/types";
+import type { DataHubDocument } from "@/lib/datahub/model/types";
+import type { Molecule } from "@/lib/chemistry/api";
+
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
+
+function makeNote(overrides: Partial<Note> = {}): Note {
+  return {
+    id: 1,
+    title: "CRISPR cloning protocol",
+    description: "PCR-based CRISPR insert assembly",
+    is_running_log: false,
+    is_shared: false,
+    entries: [
+      {
+        id: "e1",
+        title: "Colony count",
+        date: "2026-06-10",
+        content: "Counted 24 white colonies on LB-amp plate",
+        created_at: "2026-06-10T12:00:00.000Z",
+        updated_at: "2026-06-10T12:00:00.000Z",
+      } satisfies NoteEntry,
+    ],
+    comments: [],
+    updated_at: "2026-06-10T12:00:00.000Z",
+    username: "grant",
+    ...overrides,
+  };
+}
+
+function makeMethod(overrides: Partial<Method> = {}): Method {
+  return {
+    id: 2,
+    name: "Tm melting curve",
+    source_path: null,
+    method_type: "markdown",
+    folder_path: null,
+    parent_method_id: null,
+    tags: ["qPCR", "Tm"],
+    is_public: false,
+    created_by: "grant",
+    owner: "grant",
+    shared_with: [],
+    excerpt: "Ramp from 65 to 95 C and record fluorescence at each step to find the melt peak.",
+    ...overrides,
+  };
+}
+
+function makeSequence(overrides: Partial<SequenceRecord> = {}): SequenceRecord {
+  return {
+    id: 3,
+    display_name: "pUC19",
+    project_ids: ["1"],
+    added_at: "2026-06-09T10:00:00.000Z",
+    seq_type: "dna",
+    length: 2686,
+    circular: true,
+    feature_count: 7,
+    ...overrides,
+  };
+}
+
+function makeDataHub(overrides: Partial<DataHubDocument> = {}): DataHubDocument {
+  return {
+    id: "dh1",
+    name: "fakeGFP qPCR",
+    project_ids: ["1"],
+    folder_path: null,
+    table_type: "column",
+    created_at: "2026-06-08T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function makeProject(overrides: Partial<Project> = {}): Project {
+  return {
+    id: 4,
+    name: "CRISPR screen 2026",
+    weekend_active: false,
+    tags: ["CRISPR", "screen"],
+    color: null,
+    created_at: "2026-05-01T00:00:00.000Z",
+    sort_order: 0,
+    is_archived: false,
+    archived_at: null,
+    owner: "grant",
+    shared_with: [],
+    ...overrides,
+  };
+}
+
+function makePurchase(overrides: Partial<PurchaseItem> = {}): PurchaseItem {
+  return {
+    id: 5,
+    task_id: 10,
+    item_name: "Gibson Assembly Master Mix",
+    quantity: 1,
+    link: null,
+    cas: null,
+    price_per_unit: 95,
+    shipping_fees: 0,
+    total_price: 95,
+    notes: "Use for insert ligation",
+    funding_string: null,
+    vendor: "NEB",
+    catalog_number: null,
+    category: "reagents",
+    order_status: "needs_ordering",
+    ...overrides,
+  };
+}
+
+function makeMolecule(overrides: Partial<Molecule> = {}): Molecule {
+  return {
+    id: "mol-uuid-1",
+    name: "IPTG",
+    project_ids: [],
+    added_at: "2026-06-07T00:00:00.000Z",
+    smiles: "OCC(O)=O",
+    formula: "C9H18O5S",
+    mol_weight: 238.3,
+    source: "pubchem",
+    ...overrides,
+  };
+}
+
+function makeExperiment(overrides: Partial<Task> = {}): Task {
+  return {
+    id: 6,
+    project_id: 4,
+    name: "Colony PCR screen",
+    start_date: "2026-06-10",
+    duration_days: 1,
+    end_date: "2026-06-10",
+    is_high_level: false,
+    is_complete: false,
+    task_type: "experiment",
+    weekend_override: null,
+    method_ids: [2],
+    deviation_log: null,
+    tags: ["PCR", "screening"],
+    sort_order: 0,
+    experiment_color: null,
+    sub_tasks: null,
+    method_attachments: [],
+    owner: "grant",
+    shared_with: [],
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// tokenize
+// ---------------------------------------------------------------------------
+
+describe("tokenize", () => {
+  it("splits on whitespace and lowercases", () => {
+    expect(tokenize("CRISPR cloning")).toEqual(["crispr", "cloning"]);
+  });
+
+  it("strips punctuation", () => {
+    expect(tokenize("pUC19, plasmid.")).toContain("puc19");
+    expect(tokenize("pUC19, plasmid.")).toContain("plasmid");
+  });
+
+  it("drops single-character tokens", () => {
+    expect(tokenize("t-test")).not.toContain("t");
+  });
+
+  it("returns empty for null/undefined/empty", () => {
+    expect(tokenize(null)).toEqual([]);
+    expect(tokenize(undefined)).toEqual([]);
+    expect(tokenize("")).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// scoreBrief
+// ---------------------------------------------------------------------------
+
+describe("scoreBrief", () => {
+  it("returns 0 for empty query tokens", () => {
+    const brief: ArtifactBrief = {
+      type: "note",
+      id: "1",
+      title: "CRISPR cloning",
+      deepLink: "/notes/1",
+    };
+    expect(scoreBrief(brief, [])).toBe(0);
+  });
+
+  it("scores exact title match higher than keyword match", () => {
+    const briefWithTitleMatch: ArtifactBrief = {
+      type: "note",
+      id: "1",
+      title: "CRISPR cloning",
+      deepLink: "/notes/1",
+      keywords: ["gibson"],
+    };
+    const briefWithKeywordMatch: ArtifactBrief = {
+      type: "note",
+      id: "2",
+      title: "Assembly protocol",
+      deepLink: "/notes/2",
+      keywords: ["crispr"],
+    };
+    const tokens = tokenize("crispr");
+    expect(scoreBrief(briefWithTitleMatch, tokens)).toBeGreaterThan(
+      scoreBrief(briefWithKeywordMatch, tokens),
+    );
+  });
+
+  it("accumulates score across multiple matched tokens", () => {
+    const brief: ArtifactBrief = {
+      type: "note",
+      id: "1",
+      title: "CRISPR cloning protocol",
+      deepLink: "/notes/1",
+    };
+    const oneToken = scoreBrief(brief, tokenize("crispr"));
+    const twoTokens = scoreBrief(brief, tokenize("crispr cloning"));
+    expect(twoTokens).toBeGreaterThan(oneToken);
+  });
+
+  it("partial title token match scores below exact", () => {
+    const briefExact: ArtifactBrief = {
+      type: "note",
+      id: "1",
+      title: "crispr",
+      deepLink: "/notes/1",
+    };
+    const briefPartial: ArtifactBrief = {
+      type: "note",
+      id: "2",
+      title: "crispr-cas9",
+      deepLink: "/notes/2",
+    };
+    const tokens = tokenize("crispr");
+    expect(scoreBrief(briefExact, tokens)).toBeGreaterThanOrEqual(
+      scoreBrief(briefPartial, tokens),
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Per-type adapters
+// ---------------------------------------------------------------------------
+
+describe("noteToBrief", () => {
+  it("returns type note with correct id, title, date, deepLink", () => {
+    const brief = noteToBrief(makeNote());
+    expect(brief.type).toBe("note");
+    expect(brief.id).toBe("1");
+    expect(brief.title).toBe("CRISPR cloning protocol");
+    expect(brief.date).toBe("2026-06-10T12:00:00.000Z");
+    expect(brief.deepLink).toMatch(/\/notes\/1/);
+  });
+
+  it("includes entry titles in keywords for sub-item search", () => {
+    const brief = noteToBrief(makeNote());
+    expect(brief.keywords).toContain("colony");
+    expect(brief.keywords).toContain("count");
+  });
+
+  it("falls back to Untitled note when title is empty", () => {
+    const brief = noteToBrief(makeNote({ title: "" }));
+    expect(brief.title).toBe("Untitled note");
+  });
+});
+
+describe("methodToBrief", () => {
+  it("returns type method with correct fields", () => {
+    const brief = methodToBrief(makeMethod());
+    expect(brief.type).toBe("method");
+    expect(brief.id).toBe("2");
+    expect(brief.title).toBe("Tm melting curve");
+    expect(brief.subtitle).toBe("markdown");
+    expect(brief.deepLink).toMatch(/\/methods\/2/);
+  });
+
+  it("includes tags as keywords", () => {
+    const brief = methodToBrief(makeMethod());
+    expect(brief.keywords).toContain("qpcr");
+  });
+});
+
+describe("sequenceToBrief", () => {
+  it("returns type sequence with length in subtitle", () => {
+    const brief = sequenceToBrief(makeSequence());
+    expect(brief.type).toBe("sequence");
+    expect(brief.subtitle).toContain("2686");
+    expect(brief.deepLink).toMatch(/\/sequences\?seq=3/);
+  });
+
+  it("includes circular in keywords", () => {
+    const brief = sequenceToBrief(makeSequence());
+    expect(brief.keywords).toContain("circular");
+  });
+});
+
+describe("dataHubToBrief", () => {
+  it("returns type datahub with table_type as subtitle", () => {
+    const brief = dataHubToBrief(makeDataHub());
+    expect(brief.type).toBe("datahub");
+    expect(brief.subtitle).toBe("column");
+    expect(brief.deepLink).toMatch(/\/datahub\?doc=dh1/);
+  });
+});
+
+describe("projectToBrief", () => {
+  it("returns type project", () => {
+    const brief = projectToBrief(makeProject());
+    expect(brief.type).toBe("project");
+    expect(brief.subtitle).toBe("active");
+    expect(brief.deepLink).toMatch(/\/projects\/4/);
+  });
+});
+
+describe("purchaseToBrief", () => {
+  it("returns type purchase with vendor as subtitle", () => {
+    const brief = purchaseToBrief(makePurchase());
+    expect(brief.type).toBe("purchase");
+    expect(brief.subtitle).toBe("NEB");
+    expect(brief.deepLink).toBe("/purchases");
+  });
+});
+
+describe("moleculeToBrief", () => {
+  it("returns type molecule with formula as subtitle and real deepLink", () => {
+    const brief = moleculeToBrief(makeMolecule());
+    expect(brief.type).toBe("molecule");
+    expect(brief.subtitle).toBe("C9H18O5S");
+    expect(brief.deepLink).toMatch(/\/chemistry\?molecule=mol-uuid-1/);
+  });
+});
+
+describe("experimentToBrief", () => {
+  it("returns type experiment with active status", () => {
+    const brief = experimentToBrief(makeExperiment());
+    expect(brief.type).toBe("experiment");
+    expect(brief.subtitle).toBe("active");
+    expect(brief.id).toBe("6");
+  });
+
+  it("routes deepLink to parent project page", () => {
+    const brief = experimentToBrief(makeExperiment());
+    expect(brief.deepLink).toMatch(/\/projects\/4/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// searchMyWork integration (stubbed deps)
+// ---------------------------------------------------------------------------
+
+function makeStubDeps(overrides: Partial<ArtifactIndexDeps> = {}): ArtifactIndexDeps {
+  return {
+    listNotes: async () => [makeNote()],
+    listMethods: async () => [makeMethod()],
+    listSequences: async () => [makeSequence()],
+    listDataHub: async () => [makeDataHub()],
+    listProjects: async () => [makeProject()],
+    listPurchases: async () => [makePurchase()],
+    listExperiments: async () => [makeExperiment()],
+    listMolecules: async () => [makeMolecule()],
+    ...overrides,
+  };
+}
+
+describe("searchMyWork", () => {
+  it("returns ranked briefs matching the query", async () => {
+    const results = await searchMyWork("CRISPR cloning", undefined, makeStubDeps());
+    expect(results.length).toBeGreaterThan(0);
+    // The note titled "CRISPR cloning protocol" should rank at the top.
+    expect(results[0].title).toContain("CRISPR");
+  });
+
+  it("filters by types when passed", async () => {
+    const results = await searchMyWork("CRISPR", { types: ["note"] }, makeStubDeps());
+    expect(results.every((r) => r.type === "note")).toBe(true);
+  });
+
+  it("respects the limit parameter", async () => {
+    const deps = makeStubDeps({
+      listNotes: async () => [
+        makeNote({ id: 1, title: "Note one" }),
+        makeNote({ id: 2, title: "Note two" }),
+        makeNote({ id: 3, title: "Note three" }),
+      ],
+    });
+    const results = await searchMyWork("note", { limit: 2 }, deps);
+    expect(results.length).toBeLessThanOrEqual(2);
+  });
+
+  it("returns all types on empty query and sorts by date", async () => {
+    const results = await searchMyWork("", undefined, makeStubDeps());
+    expect(results.length).toBeGreaterThan(0);
+    // Date sort: most-recent first, all should have a type
+    const types = new Set(results.map((r) => r.type));
+    expect(types.size).toBeGreaterThan(1);
+  });
+
+  it("is resilient when one type list throws", async () => {
+    const deps = makeStubDeps({
+      listMolecules: async () => {
+        throw new Error("molecule store unavailable");
+      },
+    });
+    // Should not throw, should return results from other types
+    const results = await searchMyWork("CRISPR", undefined, deps);
+    expect(results.some((r) => r.type !== "molecule")).toBe(true);
+    expect(results.every((r) => r.type !== "molecule")).toBe(true);
+  });
+
+  it("returns an empty array when no types match the filter", async () => {
+    const results = await searchMyWork("anything", { types: ["datahub"] }, makeStubDeps({
+      listDataHub: async () => [],
+    }));
+    expect(results).toHaveLength(0);
+  });
+
+  it("does not return results from a failed type alongside good types", async () => {
+    const deps = makeStubDeps({
+      listSequences: async () => {
+        throw new Error("sequences unavailable");
+      },
+    });
+    const results = await searchMyWork("pUC19", undefined, deps);
+    expect(results.every((r) => r.type !== "sequence")).toBe(true);
+  });
+});

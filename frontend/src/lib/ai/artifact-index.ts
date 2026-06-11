@@ -1,0 +1,452 @@
+// BeakerBot cross-type artifact index (ai artifact-index bot, 2026-06-11).
+//
+// Layer 1 of the artifact-awareness stack. Builds a unified, in-memory index
+// over ALL artifact types (notes, experiments, methods, sequences, Data Hub
+// documents, projects, purchases, molecules) so BeakerBot can locate any piece
+// of the user's work from a natural-language query. No index file is persisted,
+// matching the Option A recommendation in the design doc: on every search the
+// per-type list() APIs run concurrently, their results are mapped to compact
+// ArtifactBriefs, and the resulting union is ranked and returned. That keeps
+// the index always fresh, zero new storage, and zero write-path coupling.
+//
+// WHY on-demand union over a cached file: the per-type list() calls are already
+// cheap metadata reads (no body deserialization). A flat list over all types
+// stays fast at typical bench-science corpus sizes (hundreds, not millions, of
+// notes and sequences). If a real user's corpus proves this too slow in
+// practice, Option C (persisted file, lazy rebuild) is the documented upgrade
+// path.
+//
+// WHY local scorer over embeddings: embeddings add a paid-tier dependency and
+// a cloud round-trip for every search. A simple token-overlap scorer is
+// instantaneous, free, and good enough for the "find my CRISPR cloning note"
+// query that drives this feature. The design doc defers embeddings to the paid
+// tier.
+//
+// Privacy note (from the design doc): only the small matched briefs (titles,
+// ids, dates) reach the inference model, and only when a search runs. The
+// corpus bodies never leave the device. The deepLink on each brief lets
+// BeakerBot navigate or write a reference without further reads.
+//
+// House style, no em-dashes, no emojis, no mid-sentence colons.
+
+import { objectDeepLink, type ObjectRefType } from "@/lib/references";
+import { notesApi, methodsApi, sequencesApi, projectsApi, purchasesApi, fetchAllTasks } from "@/lib/local-api";
+import { dataHubApi } from "@/lib/datahub/api";
+import { moleculesApi } from "@/lib/chemistry/api";
+import type { Note } from "@/lib/types";
+import type { Method } from "@/lib/types";
+import type { SequenceRecord } from "@/lib/types";
+import type { Project } from "@/lib/types";
+import type { PurchaseItem } from "@/lib/types";
+import type { Task } from "@/lib/types";
+import type { DataHubDocument } from "@/lib/datahub/model/types";
+import type { Molecule } from "@/lib/chemistry/api";
+
+// ---------------------------------------------------------------------------
+// ArtifactBrief: the small, model-safe envelope for any artifact in the index.
+// ---------------------------------------------------------------------------
+
+/**
+ * A small, model-safe envelope describing one artifact. The index holds
+ * ONLY these briefs, never the artifact's body. The body is fetched lazily
+ * by a Layer-2 read tool once the brief has been selected.
+ *
+ * type discriminants: "note" | "experiment" | "method" | "sequence" |
+ *   "datahub" | "project" | "purchase" | "molecule"
+ */
+export type ArtifactBrief = {
+  /** Discriminant for routing to the right Layer-2 read tool. */
+  type: string;
+  /** The artifact's stable id (numeric ids are stored as strings for uniformity). */
+  id: string;
+  /** The primary human-readable label shown in the index. */
+  title: string;
+  /** A short secondary label (project name, table type, vendor, ...). Optional. */
+  subtitle?: string;
+  /** ISO date string for the most recent edit or creation. Used for date-based ranking. */
+  date?: string;
+  /** Project ids this artifact belongs to (empty array when unlinked). */
+  projectIds?: string[];
+  /** The in-app path that opens this artifact. Built by objectDeepLink where supported. */
+  deepLink: string;
+  /** Extra tokens beyond the title that improve search hit rate. Derived from a
+   *  few salient fields, never from the full body. */
+  keywords?: string[];
+};
+
+// ---------------------------------------------------------------------------
+// Per-type adapters: pure functions that map a real API record to an ArtifactBrief.
+// ---------------------------------------------------------------------------
+
+/** Map one Note to an ArtifactBrief. Pure, no I/O. */
+export function noteToBrief(note: Note): ArtifactBrief {
+  const keywords: string[] = tokenize(note.title);
+  if (note.description) keywords.push(...tokenize(note.description));
+  // Surface entry titles as searchable keywords so "colony count" finds a note
+  // whose ENTRY is titled "Colony count" even if the note itself is unnamed.
+  for (const entry of note.entries ?? []) {
+    keywords.push(...tokenize(entry.title));
+  }
+  return {
+    type: "note",
+    id: String(note.id),
+    title: note.title || "Untitled note",
+    date: note.updated_at,
+    deepLink: objectDeepLink("note" as ObjectRefType, note.id),
+    keywords: dedupe(keywords),
+  };
+}
+
+/** Map one Task (experiment) to an ArtifactBrief. Pure, no I/O. */
+export function experimentToBrief(task: Task): ArtifactBrief {
+  const keywords: string[] = tokenize(task.name);
+  if (task.tags) keywords.push(...task.tags.map((t) => t.toLowerCase()));
+  return {
+    type: "experiment",
+    id: String(task.id),
+    title: task.name || "Untitled experiment",
+    subtitle: task.is_complete ? "complete" : "active",
+    date: task.start_date,
+    projectIds: task.project_id ? [String(task.project_id)] : [],
+    // Experiments are tasks, they do not have their own deep-link type yet.
+    // Route to the project page that contains them as the best available link.
+    deepLink: task.project_id
+      ? objectDeepLink("project" as ObjectRefType, task.project_id)
+      : "/",
+    keywords: dedupe(keywords),
+  };
+}
+
+/** Map one Method to an ArtifactBrief. Pure, no I/O. */
+export function methodToBrief(method: Method): ArtifactBrief {
+  const keywords: string[] = tokenize(method.name);
+  if (method.tags) keywords.push(...method.tags.map((t) => t.toLowerCase()));
+  if (method.method_type) keywords.push(method.method_type);
+  if (method.excerpt) keywords.push(...tokenize(method.excerpt));
+  return {
+    type: "method",
+    id: String(method.id),
+    title: method.name || "Untitled method",
+    subtitle: method.method_type ?? undefined,
+    date: method.last_edited_at,
+    deepLink: objectDeepLink("method" as ObjectRefType, method.id),
+    keywords: dedupe(keywords),
+  };
+}
+
+/** Map one SequenceRecord to an ArtifactBrief. Pure, no I/O. */
+export function sequenceToBrief(seq: SequenceRecord): ArtifactBrief {
+  const keywords: string[] = tokenize(seq.display_name);
+  if (seq.seq_type) keywords.push(seq.seq_type);
+  if (seq.organism) keywords.push(...tokenize(seq.organism));
+  if (seq.ncbi_accession) keywords.push(seq.ncbi_accession.toLowerCase());
+  const circularLabel = seq.circular ? "circular" : "linear";
+  keywords.push(circularLabel);
+  return {
+    type: "sequence",
+    id: String(seq.id),
+    title: seq.display_name || "Untitled sequence",
+    subtitle: `${seq.seq_type} ${circularLabel} ${seq.length} bp`,
+    date: seq.added_at,
+    projectIds: seq.project_ids,
+    deepLink: objectDeepLink("sequence" as ObjectRefType, seq.id),
+    keywords: dedupe(keywords),
+  };
+}
+
+/** Map one DataHubDocument to an ArtifactBrief. Pure, no I/O. */
+export function dataHubToBrief(doc: DataHubDocument): ArtifactBrief {
+  const keywords: string[] = tokenize(doc.name);
+  if (doc.table_type) keywords.push(doc.table_type);
+  return {
+    type: "datahub",
+    id: doc.id,
+    title: doc.name || "Untitled table",
+    subtitle: doc.table_type,
+    date: doc.last_edited_at ?? doc.created_at,
+    projectIds: doc.project_ids,
+    deepLink: objectDeepLink("datahub" as ObjectRefType, doc.id),
+    keywords: dedupe(keywords),
+  };
+}
+
+/** Map one Project to an ArtifactBrief. Pure, no I/O. */
+export function projectToBrief(project: Project): ArtifactBrief {
+  const keywords: string[] = tokenize(project.name);
+  if (project.tags) keywords.push(...project.tags.map((t) => t.toLowerCase()));
+  if (project.color) keywords.push(project.color.toLowerCase());
+  return {
+    type: "project",
+    id: String(project.id),
+    title: project.name || "Untitled project",
+    subtitle: project.is_archived ? "archived" : "active",
+    date: project.last_edited_at ?? project.created_at,
+    deepLink: objectDeepLink("project" as ObjectRefType, project.id),
+    keywords: dedupe(keywords),
+  };
+}
+
+/** Map one PurchaseItem to an ArtifactBrief. Pure, no I/O. */
+export function purchaseToBrief(item: PurchaseItem): ArtifactBrief {
+  const keywords: string[] = tokenize(item.item_name);
+  if (item.vendor) keywords.push(...tokenize(item.vendor));
+  if (item.category) keywords.push(...tokenize(item.category));
+  if (item.cas) keywords.push(item.cas.toLowerCase());
+  // Order status as a keyword so "ordered items" finds them.
+  if (item.order_status) keywords.push(item.order_status);
+  return {
+    type: "purchase",
+    id: String(item.id),
+    title: item.item_name || "Untitled purchase",
+    subtitle: item.vendor ?? item.category ?? undefined,
+    // Purchase items have no date field of their own; leave date unset so
+    // the scorer sorts them last when the query is empty.
+    deepLink: "/purchases",
+    keywords: dedupe(keywords),
+  };
+}
+
+/** Map one Molecule to an ArtifactBrief. Pure, no I/O. */
+export function moleculeToBrief(mol: Molecule): ArtifactBrief {
+  const keywords: string[] = tokenize(mol.name);
+  if (mol.formula) keywords.push(mol.formula.toLowerCase());
+  if (mol.inchikey) keywords.push(mol.inchikey.toLowerCase());
+  if (mol.smiles) keywords.push(...tokenize(mol.smiles));
+  if (mol.source) keywords.push(mol.source);
+  return {
+    type: "molecule",
+    id: mol.id,
+    title: mol.name || "Untitled molecule",
+    subtitle: mol.formula ?? undefined,
+    date: mol.added_at,
+    projectIds: mol.project_ids,
+    // The molecule deep-link is a real query-param route on /chemistry.
+    // objectDeepLink("molecule", id) builds /chemistry?molecule=<id>.
+    deepLink: objectDeepLink("molecule" as ObjectRefType, mol.id),
+    keywords: dedupe(keywords),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Helpers: tokenize and dedupe for keyword extraction.
+// ---------------------------------------------------------------------------
+
+/**
+ * Split a string into lowercase word tokens for keyword extraction and scoring.
+ * Strips punctuation, drops blanks, lowercases everything. Pure, no I/O.
+ */
+export function tokenize(text: string | null | undefined): string[] {
+  if (!text) return [];
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, " ")
+    .split(/\s+/)
+    .filter((t) => t.length > 1);
+}
+
+/** Remove duplicate tokens while preserving order. Pure, no I/O. */
+function dedupe(tokens: string[]): string[] {
+  const seen = new Set<string>();
+  return tokens.filter((t) => {
+    if (seen.has(t)) return false;
+    seen.add(t);
+    return true;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Scorer: pure, local, token-overlap ranking.
+// ---------------------------------------------------------------------------
+
+/**
+ * Score one brief against a set of query tokens. A higher number means a
+ * better match. An empty token set returns 0 so all briefs rank equally and
+ * the caller falls back to date ordering. Pure, no I/O.
+ *
+ * Weighting rationale (concept first):
+ * - Title tokens carry the most signal. A brief whose title contains the
+ *   exact query word is almost certainly what the user meant.
+ * - Subtitle and keyword tokens are secondary. They let "colony count"
+ *   surface a note whose ENTRY is titled "Colony count" even if the
+ *   note-level title is "Week 3 growth assay".
+ * - Each matched token contributes once (overlap count). We do not multiply
+ *   by IDF because at bench-science corpus sizes the gain is not worth the
+ *   complexity.
+ */
+export function scoreBrief(brief: ArtifactBrief, queryTokens: string[]): number {
+  if (queryTokens.length === 0) return 0;
+
+  let score = 0;
+  const titleTokens = tokenize(brief.title);
+  const subtitleTokens = brief.subtitle ? tokenize(brief.subtitle) : [];
+  const kwTokens = brief.keywords ?? [];
+
+  for (const qt of queryTokens) {
+    // Exact title token match (weight 4).
+    if (titleTokens.includes(qt)) {
+      score += 4;
+      continue;
+    }
+    // Partial title token match (weight 2, e.g. "crispr" matches "crispr-cas9").
+    if (titleTokens.some((tt) => tt.includes(qt) || qt.includes(tt))) {
+      score += 2;
+      continue;
+    }
+    // Subtitle or keyword match (weight 1).
+    if (
+      subtitleTokens.includes(qt) ||
+      kwTokens.includes(qt) ||
+      kwTokens.some((k) => k.includes(qt) || qt.includes(k))
+    ) {
+      score += 1;
+    }
+  }
+  return score;
+}
+
+// ---------------------------------------------------------------------------
+// Injectable deps seam (mirrors datahubAnalysisDeps in datahub-analysis.ts).
+// ---------------------------------------------------------------------------
+
+/**
+ * The data-layer list functions the index depends on, injected so a test can
+ * stub each type's list() with fixture records and never needs a real folder.
+ * Production wires the real APIs via artifactIndexDeps below.
+ */
+export type ArtifactIndexDeps = {
+  listNotes: () => Promise<Note[]>;
+  listMethods: () => Promise<Method[]>;
+  listSequences: () => Promise<SequenceRecord[]>;
+  listDataHub: () => Promise<DataHubDocument[]>;
+  listProjects: () => Promise<Project[]>;
+  listPurchases: () => Promise<PurchaseItem[]>;
+  listExperiments: () => Promise<Task[]>;
+  listMolecules: () => Promise<Molecule[]>;
+};
+
+export const artifactIndexDeps: ArtifactIndexDeps = {
+  listNotes: () => notesApi.list(),
+  listMethods: () => methodsApi.list(),
+  listSequences: () => sequencesApi.list(),
+  listDataHub: () => dataHubApi.list(),
+  listProjects: () => projectsApi.list(),
+  // purchasesApi has listAll (returns the current user's items). Experiments
+  // are tasks with task_type "experiment", there is no dedicated experiments
+  // API, so we read the full task list and filter.
+  listPurchases: () => purchasesApi.listAll(),
+  listExperiments: async () => {
+    const all = await fetchAllTasks();
+    return all.filter((t) => t.task_type === "experiment");
+  },
+  listMolecules: () => moleculesApi.list(),
+};
+
+// ---------------------------------------------------------------------------
+// searchMyWork: the main entry point for BeakerBot.
+// ---------------------------------------------------------------------------
+
+/**
+ * Search the user's work across all artifact types, returning a ranked list of
+ * ArtifactBriefs. BeakerBot calls this when the user refers to an artifact by
+ * name and it is not already in the context line.
+ *
+ * How it works (concept first):
+ * - All per-type list() calls run concurrently (Promise.allSettled). If one
+ *   type's list() throws (a missing folder, a store error) that type's results
+ *   are simply omitted so one failure cannot kill the whole search.
+ * - Each result set is mapped to briefs via the per-type adapters above.
+ * - Each brief is scored against the query tokens by scoreBrief.
+ * - Briefs with score > 0 are sorted descending by score. Ties break on date
+ *   (most-recent first). A blank query returns briefs sorted by date alone
+ *   (a "what do I have?" list).
+ * - Only the top `limit` briefs are returned (default 12). Small results protect
+ *   the context window.
+ *
+ * @param query - Natural-language search string (e.g. "CRISPR cloning note").
+ * @param opts.types - Optional filter to a subset of type discriminants.
+ * @param opts.limit - Maximum number of results (default 12).
+ * @param deps - Injectable seam for testing without a real folder.
+ */
+export async function searchMyWork(
+  query: string,
+  opts?: { types?: string[]; limit?: number },
+  deps: ArtifactIndexDeps = artifactIndexDeps,
+): Promise<ArtifactBrief[]> {
+  const queryTokens = tokenize(query);
+  const limit = opts?.limit ?? 12;
+  const typeFilter = opts?.types && opts.types.length > 0 ? new Set(opts.types) : null;
+
+  // Run all list() calls concurrently. Per-type failure is silently skipped.
+  const [
+    notesResult,
+    methodsResult,
+    sequencesResult,
+    dataHubResult,
+    projectsResult,
+    purchasesResult,
+    experimentsResult,
+    moleculesResult,
+  ] = await Promise.allSettled([
+    deps.listNotes(),
+    deps.listMethods(),
+    deps.listSequences(),
+    deps.listDataHub(),
+    deps.listProjects(),
+    deps.listPurchases(),
+    deps.listExperiments(),
+    deps.listMolecules(),
+  ]);
+
+  // Collect all briefs from settled (fulfilled) results.
+  const allBriefs: ArtifactBrief[] = [];
+
+  function addBriefs<T>(
+    result: PromiseSettledResult<T[]>,
+    toBrief: (item: T) => ArtifactBrief,
+    typeName: string,
+  ): void {
+    if (result.status === "rejected") {
+      // One type's failure is silently skipped. The search continues with the
+      // remaining types so a missing molecule store does not break note search.
+      return;
+    }
+    const filtered =
+      typeFilter && !typeFilter.has(typeName)
+        ? []
+        : result.value;
+    for (const item of filtered) {
+      try {
+        allBriefs.push(toBrief(item));
+      } catch {
+        // Adapter failure on one record is skipped so a corrupt record does
+        // not block the rest of the type.
+      }
+    }
+  }
+
+  addBriefs(notesResult, noteToBrief, "note");
+  addBriefs(methodsResult, methodToBrief, "method");
+  addBriefs(sequencesResult, sequenceToBrief, "sequence");
+  addBriefs(dataHubResult, dataHubToBrief, "datahub");
+  addBriefs(projectsResult, projectToBrief, "project");
+  addBriefs(purchasesResult, purchaseToBrief, "purchase");
+  addBriefs(experimentsResult, experimentToBrief, "experiment");
+  addBriefs(moleculesResult, moleculeToBrief, "molecule");
+
+  // Score and sort. An empty query returns all briefs sorted by date (most
+  // recent first), so the model can answer "what do I have?" cheaply.
+  const scored = allBriefs.map((brief) => ({
+    brief,
+    score: scoreBrief(brief, queryTokens),
+  }));
+
+  scored.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    // Break ties by most-recent date.
+    const da = a.brief.date ?? "";
+    const db = b.brief.date ?? "";
+    return db.localeCompare(da);
+  });
+
+  return scored.slice(0, limit).map((s) => s.brief);
+}

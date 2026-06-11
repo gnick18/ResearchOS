@@ -50,6 +50,16 @@ import {
 } from "./datahub-analysis";
 import { makeDataHubGraphTool } from "./datahub-graph";
 import { listNotesTool, writeNoteTool } from "./write-note";
+import { searchMyWorkTool } from "./search-my-work";
+import {
+  readNoteTool,
+  readMethodTool,
+  readSequenceTool,
+  readExperimentTool,
+  readProjectTool,
+  readPurchaseTool,
+  readMoleculeTool,
+} from "./read-artifact";
 import type { AiTool } from "./types";
 
 // The read-only toolset, read-only with respect to the user's data. Exported on
@@ -84,6 +94,23 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // notes (id + title + snippet) so write_note can find the note to append to. The
   // WRITE half (write_note) is gated and lives in ACTION_TOOLS below.
   listNotesTool,
+  // Layer 1 (artifact-index): cross-type search. search_my_work lets the model find
+  // any artifact by the user's words when the artifact is not already in the context
+  // line. It calls each type's list() concurrently, ranks the briefs by a local
+  // title+keyword scorer, and returns a compact list of matched briefs. Only the
+  // briefs (titles, ids, deep links) cross to the model, never any bodies.
+  searchMyWorkTool,
+  // Layer 2 (read-by-id): one read tool per artifact type. Each accepts an id from
+  // a search_my_work brief and returns a trimmed projection of that artifact's
+  // content. Trimmed to protect the context window. All read-only, none navigates.
+  // read_datahub_analysis already lives above (from Layer 0), not duplicated here.
+  readNoteTool,
+  readMethodTool,
+  readSequenceTool,
+  readExperimentTool,
+  readProjectTool,
+  readPurchaseTool,
+  readMoleculeTool,
 ];
 
 // The action toolset. Each tool here carries action: true and goes through the

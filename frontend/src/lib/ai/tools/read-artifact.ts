@@ -1,0 +1,493 @@
+// BeakerBot Layer-2 read-by-id tools (ai artifact-index bot, 2026-06-11).
+//
+// One read-only tool per artifact type. Each accepts an id from an ArtifactBrief
+// returned by search_my_work, fetches only THAT artifact via its type's existing
+// get/load API, and returns a TRIMMED PROJECTION. The projection is model-friendly
+// and compact on purpose. A large note or method full body would overflow the
+// context window; the projection gives the model enough to answer the user's
+// question, and it can navigate the user to the artifact's deep link if they want
+// to read the rest.
+//
+// WHY trimmed projections: the design doc (decision 4) locks this. Only the
+// fields the model needs to reason about and speak to are returned. Bodies are
+// truncated at a character limit. The user's full data never crosses to the model
+// except what they explicitly put in their message.
+//
+// read_datahub_analysis already exists in datahub-analysis.ts and is NOT
+// duplicated here.
+//
+// All tools are READ-ONLY and carry no `action` flag. They never navigate.
+//
+// House style, no em-dashes, no emojis, no mid-sentence colons.
+
+import { notesApi, methodsApi, sequencesApi, projectsApi, purchasesApi, tasksApi } from "@/lib/local-api";
+import { moleculesApi } from "@/lib/chemistry/api";
+import type { Note, Method, SequenceDetail, Project, PurchaseItem, Task } from "@/lib/types";
+import type { MoleculeDetail } from "@/lib/chemistry/api";
+import type { AiTool } from "./types";
+
+// ---------------------------------------------------------------------------
+// Trimmed-projection types: the model-facing shapes for each artifact type.
+// ---------------------------------------------------------------------------
+
+/** Trimmed note projection returned by read_note. */
+export type NoteProjection =
+  | {
+      ok: true;
+      id: string;
+      title: string;
+      description: string;
+      entries: Array<{ title: string; date: string; content: string }>;
+    }
+  | { ok: false; error: string };
+
+/** Trimmed method projection returned by read_method. */
+export type MethodProjection =
+  | {
+      ok: true;
+      id: string;
+      name: string;
+      method_type: string | null;
+      summary: string;
+      tags: string[];
+    }
+  | { ok: false; error: string };
+
+/** Trimmed sequence projection returned by read_sequence. */
+export type SequenceProjection =
+  | {
+      ok: true;
+      id: string;
+      name: string;
+      seq_type: string;
+      length: number;
+      circular: boolean;
+      featureSummary: string;
+      organism: string | null;
+    }
+  | { ok: false; error: string };
+
+/** Trimmed experiment projection returned by read_experiment. */
+export type ExperimentProjection =
+  | {
+      ok: true;
+      id: string;
+      name: string;
+      status: "complete" | "active";
+      startDate: string;
+      dueDate: string;
+      methodCount: number;
+      tags: string[];
+    }
+  | { ok: false; error: string };
+
+/** Trimmed project projection returned by read_project. */
+export type ProjectProjection =
+  | {
+      ok: true;
+      id: string;
+      name: string;
+      archived: boolean;
+      tags: string[];
+      color: string | null;
+    }
+  | { ok: false; error: string };
+
+/** Trimmed purchase projection returned by read_purchase. */
+export type PurchaseProjection =
+  | {
+      ok: true;
+      id: string;
+      name: string;
+      vendor: string | null;
+      category: string | null;
+      status: string;
+      totalPrice: number;
+      quantity: number;
+      notes: string | null;
+    }
+  | { ok: false; error: string };
+
+/** Trimmed molecule projection returned by read_molecule. */
+export type MoleculeProjection =
+  | {
+      ok: true;
+      id: string;
+      name: string;
+      formula: string | null;
+      smiles: string | null;
+      molecularWeight: number | null;
+      source: string | null;
+    }
+  | { ok: false; error: string };
+
+// ---------------------------------------------------------------------------
+// Pure projectors: map a loaded record to its trimmed projection. These are
+// exported so unit tests assert the shape directly without a real folder.
+// ---------------------------------------------------------------------------
+
+/** Maximum characters returned for a note entry body. */
+const NOTE_ENTRY_TRIM = 600;
+/** Maximum characters returned for a method summary. */
+const METHOD_SUMMARY_TRIM = 400;
+
+/** Trim a string to `max` characters, appending "..." when cut. */
+export function trimBody(text: string | undefined | null, max: number): string {
+  if (!text) return "";
+  return text.length <= max ? text : text.slice(0, max) + "...";
+}
+
+/** Project a loaded Note to its model-facing trimmed shape. Pure, no I/O. */
+export function projectNote(note: Note): Extract<NoteProjection, { ok: true }> {
+  return {
+    ok: true,
+    id: String(note.id),
+    title: note.title || "Untitled note",
+    description: trimBody(note.description, METHOD_SUMMARY_TRIM),
+    entries: (note.entries ?? []).map((e) => ({
+      title: e.title,
+      date: e.date,
+      content: trimBody(e.content, NOTE_ENTRY_TRIM),
+    })),
+  };
+}
+
+/** Project a loaded Method to its model-facing trimmed shape. Pure, no I/O. */
+export function projectMethod(method: Method): Extract<MethodProjection, { ok: true }> {
+  // The method body lives on disk at method.source_path and requires a file
+  // read through fileService. For the trimmed read_method projection the
+  // excerpt field is the pre-computed < 140-char preview stamped at save time,
+  // which is exactly what the model needs without a full file read. For methods
+  // without an excerpt (older records or PDF methods) we fall back to the
+  // method_type's human label so the model still has something useful.
+  const summary = method.excerpt
+    ? trimBody(method.excerpt, METHOD_SUMMARY_TRIM)
+    : method.method_type
+    ? `${method.method_type} protocol`
+    : "No preview available. Open the method to read its steps.";
+  return {
+    ok: true,
+    id: String(method.id),
+    name: method.name || "Untitled method",
+    method_type: method.method_type ?? null,
+    summary,
+    tags: method.tags ?? [],
+  };
+}
+
+/** Project a loaded SequenceDetail to its model-facing trimmed shape. Pure, no I/O. */
+export function projectSequence(seq: SequenceDetail): Extract<SequenceProjection, { ok: true }> {
+  // Never return the full base string in the default projection. The base
+  // string can be tens of thousands of characters and adds zero value for the
+  // model's reasoning. A feature summary (count and types) is far more useful.
+  const featureTypes = new Map<string, number>();
+  for (const ann of seq.annotations ?? []) {
+    const t = ann.type ?? "feature";
+    featureTypes.set(t, (featureTypes.get(t) ?? 0) + 1);
+  }
+  const featureSummary =
+    featureTypes.size === 0
+      ? "no annotated features"
+      : Array.from(featureTypes.entries())
+          .map(([type, count]) => `${count} ${type}`)
+          .join(", ");
+  return {
+    ok: true,
+    id: String(seq.id),
+    name: seq.display_name || "Untitled sequence",
+    seq_type: seq.seq_type,
+    length: seq.length,
+    circular: seq.circular,
+    featureSummary,
+    organism: seq.organism ?? null,
+  };
+}
+
+/** Project a loaded Task (experiment) to its model-facing trimmed shape. Pure, no I/O. */
+export function projectExperiment(task: Task): Extract<ExperimentProjection, { ok: true }> {
+  return {
+    ok: true,
+    id: String(task.id),
+    name: task.name || "Untitled experiment",
+    status: task.is_complete ? "complete" : "active",
+    startDate: task.start_date,
+    dueDate: task.end_date,
+    methodCount: (task.method_ids ?? []).length,
+    tags: task.tags ?? [],
+  };
+}
+
+/** Project a loaded Project to its model-facing trimmed shape. Pure, no I/O. */
+export function projectProject(project: Project): Extract<ProjectProjection, { ok: true }> {
+  return {
+    ok: true,
+    id: String(project.id),
+    name: project.name || "Untitled project",
+    archived: project.is_archived,
+    tags: project.tags ?? [],
+    color: project.color ?? null,
+  };
+}
+
+/** Project a loaded PurchaseItem to its model-facing trimmed shape. Pure, no I/O. */
+export function projectPurchase(item: PurchaseItem): Extract<PurchaseProjection, { ok: true }> {
+  return {
+    ok: true,
+    id: String(item.id),
+    name: item.item_name || "Untitled purchase",
+    vendor: item.vendor ?? null,
+    category: item.category ?? null,
+    status: item.order_status ?? "needs_ordering",
+    totalPrice: item.total_price ?? 0,
+    quantity: item.quantity,
+    notes: item.notes ? trimBody(item.notes, 200) : null,
+  };
+}
+
+/** Project a loaded MoleculeDetail to its model-facing trimmed shape. Pure, no I/O. */
+export function projectMolecule(mol: MoleculeDetail): Extract<MoleculeProjection, { ok: true }> {
+  return {
+    ok: true,
+    id: mol.meta.id,
+    name: mol.meta.name || "Untitled molecule",
+    formula: mol.meta.formula ?? null,
+    smiles: mol.meta.smiles ?? null,
+    molecularWeight: mol.meta.mol_weight ?? null,
+    source: mol.meta.source ?? null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Injectable deps seam.
+// ---------------------------------------------------------------------------
+
+export type ReadArtifactDeps = {
+  getNote: (id: number) => Promise<Note | null>;
+  getMethod: (id: number) => Promise<Method | null>;
+  getSequence: (id: number) => Promise<SequenceDetail | null>;
+  getExperiment: (id: number) => Promise<Task | null>;
+  getProject: (id: number) => Promise<Project | null>;
+  listPurchases: () => Promise<PurchaseItem[]>;
+  getMolecule: (id: string) => Promise<MoleculeDetail | null>;
+};
+
+export const readArtifactDeps: ReadArtifactDeps = {
+  getNote: (id) => notesApi.get(id),
+  getMethod: (id) => methodsApi.get(id),
+  getSequence: (id) => sequencesApi.get(id),
+  getExperiment: (id) => tasksApi.get(id),
+  getProject: (id) => projectsApi.get(id),
+  // purchasesApi has no get(id) method, so we list all and find by id.
+  listPurchases: () => purchasesApi.listAll(),
+  getMolecule: (id) => moleculesApi.get(id),
+};
+
+// ---------------------------------------------------------------------------
+// Tool implementations.
+// ---------------------------------------------------------------------------
+
+function parseIntId(raw: unknown, name: string): { id: number } | { error: string } {
+  const str = typeof raw === "string" ? raw : typeof raw === "number" ? String(raw) : null;
+  if (!str) return { error: `${name} is required.` };
+  const n = parseInt(str, 10);
+  if (isNaN(n)) return { error: `${name} must be a number (got ${JSON.stringify(raw)}).` };
+  return { id: n };
+}
+
+export const readNoteTool: AiTool = {
+  name: "read_note",
+  description:
+    "Read one of the user's notes by id, returning its title, description, and entry bodies (each trimmed to protect the context window). " +
+    "Use this after search_my_work returns a brief with type \"note\" and you need to read its content. " +
+    "Returns { ok: true, id, title, description, entries: [{title, date, content}] } or { ok: false, error } when not found. " +
+    "Read-only, never navigates.",
+  parameters: {
+    type: "object",
+    properties: {
+      id: {
+        type: "string",
+        description: "The note id from a search_my_work brief (the id field).",
+      },
+    },
+    required: ["id"],
+    additionalProperties: false,
+  },
+  execute: async (args) => {
+    const parsed = parseIntId(args.id, "id");
+    if ("error" in parsed) return { ok: false, error: parsed.error } satisfies NoteProjection;
+    const note = await readArtifactDeps.getNote(parsed.id);
+    if (!note) return { ok: false, error: `Note ${args.id} was not found.` } satisfies NoteProjection;
+    return projectNote(note) satisfies NoteProjection;
+  },
+};
+
+export const readMethodTool: AiTool = {
+  name: "read_method",
+  description:
+    "Read one of the user's methods by id, returning its name, type, a short summary (the excerpt), and tags. " +
+    "Use this after search_my_work returns a brief with type \"method\". " +
+    "Returns { ok: true, id, name, method_type, summary, tags } or { ok: false, error } when not found. " +
+    "The summary is a pre-computed excerpt (up to 140 characters) for markdown methods; for PDF and structured types it describes the type. " +
+    "Read-only, never navigates.",
+  parameters: {
+    type: "object",
+    properties: {
+      id: {
+        type: "string",
+        description: "The method id from a search_my_work brief.",
+      },
+    },
+    required: ["id"],
+    additionalProperties: false,
+  },
+  execute: async (args) => {
+    const parsed = parseIntId(args.id, "id");
+    if ("error" in parsed) return { ok: false, error: parsed.error } satisfies MethodProjection;
+    const method = await readArtifactDeps.getMethod(parsed.id);
+    if (!method) return { ok: false, error: `Method ${args.id} was not found.` } satisfies MethodProjection;
+    return projectMethod(method) satisfies MethodProjection;
+  },
+};
+
+export const readSequenceTool: AiTool = {
+  name: "read_sequence",
+  description:
+    "Read one of the user's sequences by id, returning its name, type (dna/rna/protein), length, whether it is circular, a feature summary (count by type), and organism if known. " +
+    "The full base string is NOT returned by default because it is too large for the context window. " +
+    "Use this after search_my_work returns a brief with type \"sequence\". " +
+    "Returns { ok: true, id, name, seq_type, length, circular, featureSummary, organism } or { ok: false, error }. " +
+    "Read-only, never navigates.",
+  parameters: {
+    type: "object",
+    properties: {
+      id: {
+        type: "string",
+        description: "The sequence id from a search_my_work brief.",
+      },
+    },
+    required: ["id"],
+    additionalProperties: false,
+  },
+  execute: async (args) => {
+    const parsed = parseIntId(args.id, "id");
+    if ("error" in parsed) return { ok: false, error: parsed.error } satisfies SequenceProjection;
+    const seq = await readArtifactDeps.getSequence(parsed.id);
+    if (!seq) return { ok: false, error: `Sequence ${args.id} was not found.` } satisfies SequenceProjection;
+    return projectSequence(seq) satisfies SequenceProjection;
+  },
+};
+
+export const readExperimentTool: AiTool = {
+  name: "read_experiment",
+  description:
+    "Read one of the user's experiments by id, returning its name, status (active or complete), start and due dates, the number of attached methods, and tags. " +
+    "Use this after search_my_work returns a brief with type \"experiment\". " +
+    "Returns { ok: true, id, name, status, startDate, dueDate, methodCount, tags } or { ok: false, error }. " +
+    "Read-only, never navigates.",
+  parameters: {
+    type: "object",
+    properties: {
+      id: {
+        type: "string",
+        description: "The experiment id from a search_my_work brief.",
+      },
+    },
+    required: ["id"],
+    additionalProperties: false,
+  },
+  execute: async (args) => {
+    const parsed = parseIntId(args.id, "id");
+    if ("error" in parsed) return { ok: false, error: parsed.error } satisfies ExperimentProjection;
+    const task = await readArtifactDeps.getExperiment(parsed.id);
+    if (!task) return { ok: false, error: `Experiment ${args.id} was not found.` } satisfies ExperimentProjection;
+    if (task.task_type !== "experiment") {
+      return {
+        ok: false,
+        error: `Item ${args.id} is a ${task.task_type}, not an experiment.`,
+      } satisfies ExperimentProjection;
+    }
+    return projectExperiment(task) satisfies ExperimentProjection;
+  },
+};
+
+export const readProjectTool: AiTool = {
+  name: "read_project",
+  description:
+    "Read one of the user's projects by id, returning its name, archived status, tags, and color. " +
+    "Use this after search_my_work returns a brief with type \"project\". " +
+    "Returns { ok: true, id, name, archived, tags, color } or { ok: false, error }. " +
+    "Read-only, never navigates.",
+  parameters: {
+    type: "object",
+    properties: {
+      id: {
+        type: "string",
+        description: "The project id from a search_my_work brief.",
+      },
+    },
+    required: ["id"],
+    additionalProperties: false,
+  },
+  execute: async (args) => {
+    const parsed = parseIntId(args.id, "id");
+    if ("error" in parsed) return { ok: false, error: parsed.error } satisfies ProjectProjection;
+    const project = await readArtifactDeps.getProject(parsed.id);
+    if (!project) return { ok: false, error: `Project ${args.id} was not found.` } satisfies ProjectProjection;
+    return projectProject(project) satisfies ProjectProjection;
+  },
+};
+
+export const readPurchaseTool: AiTool = {
+  name: "read_purchase",
+  description:
+    "Read one of the user's purchase items by id, returning its name, vendor, category, order status, total price, quantity, and notes. " +
+    "Use this after search_my_work returns a brief with type \"purchase\". " +
+    "Returns { ok: true, id, name, vendor, category, status, totalPrice, quantity, notes } or { ok: false, error }. " +
+    "Read-only, never navigates.",
+  parameters: {
+    type: "object",
+    properties: {
+      id: {
+        type: "string",
+        description: "The purchase item id from a search_my_work brief.",
+      },
+    },
+    required: ["id"],
+    additionalProperties: false,
+  },
+  execute: async (args) => {
+    const parsed = parseIntId(args.id, "id");
+    if ("error" in parsed) return { ok: false, error: parsed.error } satisfies PurchaseProjection;
+    const items = await readArtifactDeps.listPurchases();
+    const item = items.find((p) => p.id === parsed.id);
+    if (!item) return { ok: false, error: `Purchase item ${args.id} was not found.` } satisfies PurchaseProjection;
+    return projectPurchase(item) satisfies PurchaseProjection;
+  },
+};
+
+export const readMoleculeTool: AiTool = {
+  name: "read_molecule",
+  description:
+    "Read one of the user's molecules by id, returning its name, molecular formula, SMILES, molecular weight, and source (drawn, imported, or pubchem). " +
+    "Use this after search_my_work returns a brief with type \"molecule\". " +
+    "Returns { ok: true, id, name, formula, smiles, molecularWeight, source } or { ok: false, error }. " +
+    "Read-only, never navigates. The Molfile (2D drawing coordinates) is not returned because it is too large for the context window.",
+  parameters: {
+    type: "object",
+    properties: {
+      id: {
+        type: "string",
+        description: "The molecule id from a search_my_work brief (a UUID string).",
+      },
+    },
+    required: ["id"],
+    additionalProperties: false,
+  },
+  execute: async (args) => {
+    const id = typeof args.id === "string" ? args.id : null;
+    if (!id) return { ok: false, error: "id is required." } satisfies MoleculeProjection;
+    const mol = await readArtifactDeps.getMolecule(id);
+    if (!mol) return { ok: false, error: `Molecule ${args.id} was not found.` } satisfies MoleculeProjection;
+    return projectMolecule(mol) satisfies MoleculeProjection;
+  },
+};
