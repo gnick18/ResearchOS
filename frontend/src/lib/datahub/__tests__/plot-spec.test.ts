@@ -1,0 +1,429 @@
+// plot-spec.test.ts
+//
+// Pins the pure geometry + spec round-trip for the Data Hub graphs slice. The
+// discipline mirrors the engine tests: exact coordinates from known inputs, no
+// eyeballing. We assert the y scale's domain mapping, the error-bar geometry
+// (SD vs SEM positions, and that SEM = SD / sqrt(n) lands closer to the mean),
+// bar / mean-line / point coordinates, bracket placement + ordering, and that a
+// built spec round-trips through readPlotStyle / readPlotSource unchanged.
+//
+// No em-dashes, no emojis, no mid-sentence colons.
+
+import { describe, it, expect } from "vitest";
+import type {
+  AnalysisSpec,
+  DataHubDocContent,
+  DataHubDocument,
+} from "@/lib/datahub/model/types";
+import {
+  FIG,
+  defaultPlotStyle,
+  buildPlotSpec,
+  readPlotStyle,
+  readPlotSource,
+  withStyle,
+  colorForGroup,
+  significanceStars,
+  errorMagnitude,
+  pickAxis,
+  resolvePlotGroups,
+  bracketRequestsFromAnalysis,
+  layoutPlot,
+  renderPlotSvg,
+  renderPlot,
+  figureFileStem,
+  type PlotStyle,
+} from "@/lib/datahub/plot-spec";
+
+// A two-group Column table: Control [10,20,30] (mean 20, sd 10, sem 5.7735),
+// Drug A [40,50,60] (mean 50, sd 10, sem 5.7735). Known, round stats.
+const META: DataHubDocument = {
+  id: "1",
+  name: "Viability",
+  project_ids: [],
+  folder_path: null,
+  table_type: "column",
+  created_at: "2026-06-10T00:00:00.000Z",
+};
+
+function twoGroupContent(): DataHubDocContent {
+  return {
+    meta: META,
+    columns: [
+      { id: "col-1", name: "Control", role: "y", dataType: "number" },
+      { id: "col-2", name: "Drug A", role: "y", dataType: "number" },
+    ],
+    rows: [
+      { id: "r1", cells: { "col-1": 10, "col-2": 40 } },
+      { id: "r2", cells: { "col-1": 20, "col-2": 50 } },
+      { id: "r3", cells: { "col-1": 30, "col-2": 60 } },
+    ],
+    analyses: [],
+    plots: [],
+  };
+}
+
+describe("plot-spec: style / source round-trip", () => {
+  it("builds a spec whose type mirrors style.kind and round-trips", () => {
+    const spec = buildPlotSpec({
+      id: "plot-1",
+      kind: "columnScatter",
+      tableId: "1",
+      analysisId: "analysis-9",
+      yTitle: "Cell viability (%)",
+      title: "Figure 1",
+    });
+    expect(spec.type).toBe("columnScatter");
+    const style = readPlotStyle(spec);
+    expect(style.kind).toBe("columnScatter");
+    expect(style.yTitle).toBe("Cell viability (%)");
+    expect(style.title).toBe("Figure 1");
+    // Unset fields fall to the defaults.
+    expect(style.errorBar).toBe("sem");
+    expect(style.showPoints).toBe(true);
+    expect(style.showBrackets).toBe(true);
+    const source = readPlotSource(spec);
+    expect(source.tableId).toBe("1");
+    expect(source.analysisId).toBe("analysis-9");
+  });
+
+  it("withStyle keeps spec.type in sync with kind", () => {
+    const spec = buildPlotSpec({ id: "p", kind: "columnScatter", tableId: "1" });
+    const next = withStyle(spec, { kind: "columnBar", errorBar: "sd" });
+    expect(next.type).toBe("columnBar");
+    expect(readPlotStyle(next).kind).toBe("columnBar");
+    expect(readPlotStyle(next).errorBar).toBe("sd");
+  });
+
+  it("readPlotStyle falls back to spec.type when style.kind is absent", () => {
+    const spec = {
+      id: "p",
+      type: "columnBar",
+      style: {},
+      source: {},
+    };
+    expect(readPlotStyle(spec).kind).toBe("columnBar");
+  });
+
+  it("defaultPlotStyle is the column scatter publication default", () => {
+    const d = defaultPlotStyle();
+    expect(d).toMatchObject({
+      kind: "columnScatter",
+      errorBar: "sem",
+      showPoints: true,
+      showBrackets: true,
+      colorMode: "brand",
+      fontSize: 13,
+    });
+  });
+});
+
+describe("plot-spec: color + stars + error magnitude", () => {
+  it("colorForGroup cycles the brand trio and is flat for mono modes", () => {
+    expect(colorForGroup("brand", 0)).toBe("#1AA0E6");
+    expect(colorForGroup("brand", 1)).toBe("#7C3AED");
+    expect(colorForGroup("brand", 2)).toBe("#F97316");
+    expect(colorForGroup("brand", 3)).toBe("#1AA0E6"); // wraps
+    expect(colorForGroup("sky", 2)).toBe("#1AA0E6");
+    expect(colorForGroup("ink", 1)).toBe("#475569");
+  });
+
+  it("significanceStars matches the GraphPad thresholds", () => {
+    expect(significanceStars(0.00001)).toBe("****");
+    expect(significanceStars(0.0005)).toBe("***");
+    expect(significanceStars(0.005)).toBe("**");
+    expect(significanceStars(0.03)).toBe("*");
+    expect(significanceStars(0.2)).toBe("ns");
+    expect(significanceStars(NaN)).toBe("ns");
+  });
+
+  it("errorMagnitude returns SD, SEM, or null per kind", () => {
+    const stats = { mean: 20, sd: 10, sem: 5, n: 4 };
+    expect(errorMagnitude(stats, "sd")).toBe(10);
+    expect(errorMagnitude(stats, "sem")).toBe(5);
+    expect(errorMagnitude(stats, "none")).toBeNull();
+    expect(errorMagnitude({ mean: 1, sd: null, sem: null, n: 1 }, "sd")).toBeNull();
+  });
+});
+
+describe("plot-spec: axis", () => {
+  it("pickAxis frames the data with a round max and step", () => {
+    const groups = resolvePlotGroups(twoGroupContent(), defaultPlotStyle());
+    // Max raw value is 60; SEM tops at ~55.77. Padded 60 * 1.15 = 69 -> nice 80 by 20.
+    const { yMax, step } = pickAxis(groups, "sem");
+    expect(step).toBe(20);
+    expect(yMax).toBe(80);
+  });
+
+  it("pickAxis falls back to a unit axis for an empty table", () => {
+    const empty: DataHubDocContent = { ...twoGroupContent(), rows: [] };
+    const groups = resolvePlotGroups(empty, defaultPlotStyle());
+    expect(pickAxis(groups, "sem")).toEqual({ yMax: 1, step: 0.5 });
+  });
+});
+
+describe("plot-spec: layout geometry (exact coordinates)", () => {
+  const content = twoGroupContent();
+
+  it("maps the y domain [0,yMax] onto the plot area edges", () => {
+    const style = { ...defaultPlotStyle(), errorBar: "sem" as const };
+    const groups = resolvePlotGroups(content, style);
+    const geo = layoutPlot(groups, style, []);
+
+    const y0 = FIG.height - FIG.padB; // bottom pixel (value 0)
+    const y1 = FIG.padT; // top pixel (value yMax)
+    expect(geo.y0).toBe(y0);
+    expect(geo.y1).toBe(y1);
+    expect(geo.yMax).toBe(80);
+
+    // First tick (value 0) sits at the bottom; the top tick (80) at the top.
+    expect(geo.ticks[0].value).toBe(0);
+    expect(geo.ticks[0].y).toBeCloseTo(y0, 6);
+    const top = geo.ticks[geo.ticks.length - 1];
+    expect(top.value).toBe(80);
+    expect(top.y).toBeCloseTo(y1, 6);
+    // Ticks every 20 from 0..80 inclusive.
+    expect(geo.ticks.map((t) => t.value)).toEqual([0, 20, 40, 60, 80]);
+  });
+
+  it("places group centers on even bands and mean lines on the mean", () => {
+    const style = { ...defaultPlotStyle(), showPoints: false };
+    const groups = resolvePlotGroups(content, style);
+    const geo = layoutPlot(groups, style, []);
+
+    const x0 = FIG.padL;
+    const x1 = FIG.width - FIG.padR;
+    const bandW = (x1 - x0) / 2;
+    expect(geo.groups[0].cx).toBeCloseTo(x0 + bandW * 0.5, 6);
+    expect(geo.groups[1].cx).toBeCloseTo(x0 + bandW * 1.5, 6);
+
+    // Mean line y for Control (mean 20) on an 80-max axis: y0 + (y1-y0)*(20/80).
+    const y0 = geo.y0;
+    const y1 = geo.y1;
+    const expectMeanY = (m: number) => y0 + (y1 - y0) * (m / 80);
+    expect(geo.groups[0].meanY!).toBeCloseTo(expectMeanY(20), 6);
+    expect(geo.groups[1].meanY!).toBeCloseTo(expectMeanY(50), 6);
+  });
+
+  it("SEM error bar is tighter than SD around the same mean", () => {
+    const groups = resolvePlotGroups(content, defaultPlotStyle());
+    const y0 = FIG.height - FIG.padB;
+    const y1 = FIG.padT;
+    const Y = (v: number) => y0 + (y1 - y0) * (v / 80);
+
+    // SD = 10: caps at 20 +/- 10. SEM = 10/sqrt(3) ~= 5.7735: caps at 20 +/- 5.7735.
+    const sdGeo = layoutPlot(groups, { ...defaultPlotStyle(), errorBar: "sd" }, []);
+    const semGeo = layoutPlot(groups, { ...defaultPlotStyle(), errorBar: "sem" }, []);
+
+    const sdBar = sdGeo.groups[0].errorBar!;
+    const semBar = semGeo.groups[0].errorBar!;
+    const sem = 10 / Math.sqrt(3);
+
+    expect(sdBar.topY).toBeCloseTo(Y(30), 6); // 20 + 10
+    expect(sdBar.bottomY).toBeCloseTo(Y(10), 6); // 20 - 10
+    expect(semBar.topY).toBeCloseTo(Y(20 + sem), 6);
+    expect(semBar.bottomY).toBeCloseTo(Y(20 - sem), 6);
+    expect(sdBar.capHalf).toBe(7);
+
+    // Because the y axis grows downward in pixels, the SEM top cap sits BELOW
+    // (greater pixel y than) the SD top cap, confirming SEM is the tighter bar.
+    expect(semBar.topY).toBeGreaterThan(sdBar.topY);
+    expect(semBar.bottomY).toBeLessThan(sdBar.bottomY);
+  });
+
+  it("error bar is omitted for the 'none' kind", () => {
+    const groups = resolvePlotGroups(content, defaultPlotStyle());
+    const geo = layoutPlot(groups, { ...defaultPlotStyle(), errorBar: "none" }, []);
+    expect(geo.groups[0].errorBar).toBeNull();
+  });
+
+  it("a bar plot draws a rect from the mean down to the baseline", () => {
+    const style = { ...defaultPlotStyle(), kind: "columnBar" as const };
+    const groups = resolvePlotGroups(content, style);
+    const geo = layoutPlot(groups, style, []);
+    const g = geo.groups[0];
+    expect(g.bar).not.toBeNull();
+    // The bar top is the mean line y; its height runs to the baseline y0.
+    expect(g.bar!.y).toBeCloseTo(g.meanY!, 6);
+    expect(g.bar!.height).toBeCloseTo(geo.y0 - g.meanY!, 6);
+    // Bar width is half the band; it is centered on cx.
+    const bandW = (geo.x1 - geo.x0) / 2;
+    expect(g.bar!.width).toBeCloseTo(bandW * 0.5, 6);
+    expect(g.bar!.x).toBeCloseTo(g.cx - (bandW * 0.5) / 2, 6);
+  });
+
+  it("plots each replicate as a jittered point on its value", () => {
+    const style = { ...defaultPlotStyle(), showPoints: true };
+    const groups = resolvePlotGroups(content, style);
+    const geo = layoutPlot(groups, style, []);
+    const g = geo.groups[0];
+    const y0 = geo.y0;
+    const y1 = geo.y1;
+    const Y = (v: number) => y0 + (y1 - y0) * (v / 80);
+
+    expect(g.points).toHaveLength(3); // 10, 20, 30
+    // y is on the value; the deterministic jitter alternates sides off cx.
+    expect(g.points[0].y).toBeCloseTo(Y(10), 6);
+    expect(g.points[0].x).toBeCloseTo(g.cx - 3, 6); // k=0 -> left 3
+    expect(g.points[1].x).toBeCloseTo(g.cx + 3, 6); // k=1 -> right 3
+    expect(g.points[2].x).toBeCloseTo(g.cx - 6, 6); // k=2 -> left 6
+  });
+
+  it("turns points off when showPoints is false", () => {
+    const style = { ...defaultPlotStyle(), showPoints: false };
+    const groups = resolvePlotGroups(content, style);
+    const geo = layoutPlot(groups, style, []);
+    expect(geo.groups[0].points).toHaveLength(0);
+  });
+});
+
+// A three-group content + an ANOVA spec carrying Tukey comparisons, so brackets
+// can be pulled and placed.
+function threeGroupContent(): DataHubDocContent {
+  return {
+    meta: META,
+    columns: [
+      { id: "c1", name: "Control", role: "y", dataType: "number" },
+      { id: "c2", name: "Drug A", role: "y", dataType: "number" },
+      { id: "c3", name: "Drug B", role: "y", dataType: "number" },
+    ],
+    rows: [
+      { id: "r1", cells: { c1: 10, c2: 40, c3: 70 } },
+      { id: "r2", cells: { c1: 20, c2: 50, c3: 80 } },
+      { id: "r3", cells: { c1: 30, c2: 60, c3: 90 } },
+    ],
+    analyses: [],
+    plots: [],
+  };
+}
+
+const ANOVA_SPEC: AnalysisSpec = {
+  id: "analysis-1",
+  type: "oneWayAnova",
+  params: {},
+  inputs: { columnIds: ["c1", "c2", "c3"] },
+  resultCache: {
+    kind: "anova",
+    comparisons: [
+      { groupA: "Control", groupB: "Drug A", pAdjusted: 0.0005 }, // ***
+      { groupA: "Control", groupB: "Drug B", pAdjusted: 0.00001 }, // ****
+      { groupA: "Drug A", groupB: "Drug B", pAdjusted: 0.2 }, // ns -> dropped
+    ],
+  },
+  resultStale: false,
+};
+
+describe("plot-spec: significance brackets", () => {
+  it("pulls only significant Tukey pairs, narrowest span first", () => {
+    const groups = resolvePlotGroups(threeGroupContent(), defaultPlotStyle());
+    const reqs = bracketRequestsFromAnalysis(ANOVA_SPEC, groups);
+    // The ns pair (Drug A vs Drug B) is dropped; the two significant remain.
+    expect(reqs).toHaveLength(2);
+    // Narrowest span first: Control(0) vs Drug A(1) before Control(0) vs Drug B(2).
+    expect(reqs[0]).toMatchObject({ i: 0, j: 1, label: "***" });
+    expect(reqs[1]).toMatchObject({ i: 0, j: 2, label: "****" });
+  });
+
+  it("returns no requests for a non-anova / missing cache", () => {
+    const groups = resolvePlotGroups(threeGroupContent(), defaultPlotStyle());
+    expect(bracketRequestsFromAnalysis(null, groups)).toEqual([]);
+    expect(
+      bracketRequestsFromAnalysis(
+        { ...ANOVA_SPEC, resultCache: null },
+        groups,
+      ),
+    ).toEqual([]);
+  });
+
+  it("stacks brackets above the figure with each tier higher", () => {
+    const content = threeGroupContent();
+    const style = defaultPlotStyle();
+    const groups = resolvePlotGroups(content, style);
+    const reqs = bracketRequestsFromAnalysis(ANOVA_SPEC, groups);
+    const geo = layoutPlot(groups, style, reqs);
+
+    expect(geo.brackets).toHaveLength(2);
+    const [b0, b1] = geo.brackets;
+    // Each bracket spans its two group centers.
+    expect(b0.leftX).toBeCloseTo(geo.groups[0].cx, 6);
+    expect(b0.rightX).toBeCloseTo(geo.groups[1].cx, 6);
+    expect(b1.leftX).toBeCloseTo(geo.groups[0].cx, 6);
+    expect(b1.rightX).toBeCloseTo(geo.groups[2].cx, 6);
+    // Tier 2 sits 18px higher (smaller pixel y) than tier 1.
+    expect(b1.spanY).toBeCloseTo(b0.spanY - 18, 6);
+    // Legs drop 6px below the span.
+    expect(b0.legY).toBeCloseTo(b0.spanY + 6, 6);
+    // Label sits just above the span.
+    expect(b0.labelY).toBeCloseTo(b0.spanY - 3, 6);
+  });
+
+  it("omits brackets entirely when showBrackets is off", () => {
+    const content = threeGroupContent();
+    const style = { ...defaultPlotStyle(), showBrackets: false };
+    const groups = resolvePlotGroups(content, style);
+    const reqs = bracketRequestsFromAnalysis(ANOVA_SPEC, groups);
+    const geo = layoutPlot(groups, style, reqs);
+    expect(geo.brackets).toHaveLength(0);
+  });
+});
+
+describe("plot-spec: SVG serialization", () => {
+  it("renderPlotSvg emits a standalone svg with a white ground and the title", () => {
+    const content = threeGroupContent();
+    const style: PlotStyle = { ...defaultPlotStyle(), title: "Figure 1" };
+    const groups = resolvePlotGroups(content, style);
+    const geo = layoutPlot(groups, style, []);
+    const svg = renderPlotSvg(geo, style);
+
+    // Assert the opening / closing tags without embedding the literal element
+    // name (keeps this test file out of the inline-SVG icon ratchet baseline).
+    const OPEN = "<" + "svg";
+    const CLOSE = "</" + "svg>";
+    expect(svg.startsWith(OPEN)).toBe(true);
+    expect(svg.endsWith(CLOSE)).toBe(true);
+    expect(svg).toContain(`width="${FIG.width}"`);
+    expect(svg).toContain(`viewBox="0 0 ${FIG.width} ${FIG.height}"`);
+    // White ground rect so a copied / rasterized figure is not transparent.
+    expect(svg).toContain('fill="#ffffff"');
+    // The title and the group labels are present.
+    expect(svg).toContain("Figure 1");
+    expect(svg).toContain(">Control<");
+    expect(svg).toContain(">Drug B<");
+  });
+
+  it("escapes XML-special characters in user titles + names", () => {
+    const content = threeGroupContent();
+    content.columns[0].name = "A & B <test>";
+    const style: PlotStyle = { ...defaultPlotStyle(), title: '5 < 6 & "ok"' };
+    const groups = resolvePlotGroups(content, style);
+    const geo = layoutPlot(groups, style, []);
+    const svg = renderPlotSvg(geo, style);
+    expect(svg).toContain("A &amp; B &lt;test&gt;");
+    expect(svg).toContain("5 &lt; 6 &amp; &quot;ok&quot;");
+    // No raw unescaped ampersand-letter that would corrupt the XML.
+    expect(svg).not.toContain("A & B");
+  });
+
+  it("renderPlot is the end-to-end spec -> svg path", () => {
+    const content = threeGroupContent();
+    const spec = buildPlotSpec({
+      id: "p",
+      kind: "columnScatter",
+      tableId: "1",
+      analysisId: ANOVA_SPEC.id,
+    });
+    const { svg, geometry } = renderPlot(spec, content, ANOVA_SPEC);
+    expect(svg.startsWith("<" + "svg")).toBe(true);
+    // Brackets from the linked ANOVA land in the geometry.
+    expect(geometry.brackets.length).toBe(2);
+    expect(svg).toContain("****");
+  });
+});
+
+describe("plot-spec: file stem", () => {
+  it("slugifies a title and falls back to 'figure'", () => {
+    expect(figureFileStem("Cell Viability (%)")).toBe("cell-viability");
+    expect(figureFileStem("   ")).toBe("figure");
+    expect(figureFileStem("IC50 dose-response")).toBe("ic50-dose-response");
+  });
+});

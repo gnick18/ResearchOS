@@ -23,7 +23,9 @@ import type { Project } from "@/lib/types";
 import type {
   AnalysisSpec,
   DataHubDocument,
+  PlotSpec,
 } from "@/lib/datahub/model/types";
+import { readPlotStyle } from "@/lib/datahub/plot-spec";
 
 /** A short, human label for an analysis type (rail row text). */
 function analysisLabel(type: string): string {
@@ -36,6 +38,23 @@ function analysisLabel(type: string): string {
       return "Paired t-test";
     default:
       return type;
+  }
+}
+
+/** A short, human label for a plot kind (rail row text). The figure's own
+ *  title is used when it has been set, so a renamed figure reads naturally. */
+function plotLabel(spec: PlotSpec): string {
+  const style = readPlotStyle(spec);
+  const title = style.title.trim();
+  if (title !== "") return title;
+  switch (style.kind) {
+    case "columnBar":
+      return "Bar graph";
+    case "xyScatter":
+      return "XY graph";
+    case "columnScatter":
+    default:
+      return "Column scatter";
   }
 }
 
@@ -128,6 +147,11 @@ export default function DataHubRail({
   onSelectAnalysis,
   onNewAnalysis,
   analysesEnabled,
+  plots,
+  selectedPlotId,
+  onSelectPlot,
+  onNewGraph,
+  graphsEnabled,
 }: {
   projects: Project[];
   /** The tables visible under the active collection filter. */
@@ -147,6 +171,13 @@ export default function DataHubRail({
   onNewAnalysis: () => void;
   /** True once a table is open so a new analysis can be added. */
   analysesEnabled: boolean;
+  /** The open table's stored figures (empty until one is made). */
+  plots: PlotSpec[];
+  selectedPlotId: string | null;
+  onSelectPlot: (id: string) => void;
+  onNewGraph: () => void;
+  /** True once a table is open so a new graph can be added. */
+  graphsEnabled: boolean;
 }) {
   const groups = useMemo(() => groupByFolder(tables), [tables]);
   // Closed folders by name. Folders start open (the mockup's default).
@@ -339,52 +370,60 @@ export default function DataHubRail({
         )}
       </div>
 
-      {/* Graphs (empty-state placeholder; the graphs slice is next) */}
-      <EmptySection
-        title="Graphs"
-        icon="chart"
-        emptyLabel="No graphs yet"
-        actionLabel="New graph"
-        testid="datahub-graphs-section"
-      />
-    </aside>
-  );
-}
+      {/* Graphs: the open table's figures, plus a working New graph. */}
+      <div className="border-t border-border pt-3" data-testid="datahub-graphs-section">
+        <div className="mb-1 flex items-center justify-between px-1">
+          <div className="flex items-center gap-1.5">
+            <Icon name="chart" className="h-3.5 w-3.5 text-foreground-muted" />
+            <span className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">
+              Graphs
+            </span>
+          </div>
+          <Tooltip label="New graph">
+            <button
+              type="button"
+              onClick={onNewGraph}
+              disabled={!graphsEnabled}
+              aria-label="New graph"
+              className="rounded p-1 text-foreground-muted transition-colors hover:bg-surface-raised hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Icon name="plus" className="h-3.5 w-3.5" />
+            </button>
+          </Tooltip>
+        </div>
 
-/** A rail section that is intentionally empty for slice 1: a header, an
- *  empty-state line, and a disabled "New ..." button so the surface reads as
- *  "coming next" without being clickable. */
-function EmptySection({
-  title,
-  icon,
-  emptyLabel,
-  actionLabel,
-  testid,
-}: {
-  title: string;
-  icon: "chart";
-  emptyLabel: string;
-  actionLabel: string;
-  testid: string;
-}) {
-  return (
-    <div className="border-t border-border pt-3" data-testid={testid}>
-      <div className="mb-1 flex items-center gap-1.5 px-1">
-        <Icon name={icon} className="h-3.5 w-3.5 text-foreground-muted" />
-        <span className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">
-          {title}
-        </span>
+        {plots.length === 0 ? (
+          <p className="px-1 text-meta text-foreground-muted">
+            No graphs yet. Make a column scatter or bar from this table.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-0.5">
+            {plots.map((p) => {
+              const active = p.id === selectedPlotId;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => onSelectPlot(p.id)}
+                  className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-body transition-colors ${
+                    active
+                      ? "bg-accent-soft font-medium text-accent"
+                      : "text-foreground hover:bg-surface-sunken"
+                  }`}
+                >
+                  <Icon
+                    name="chart"
+                    className={`h-4 w-4 shrink-0 ${active ? "text-accent" : "text-foreground-muted"}`}
+                  />
+                  <span className="min-w-0 flex-1 truncate">
+                    {plotLabel(p)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
-      <p className="px-1 text-meta text-foreground-muted">{emptyLabel}</p>
-      <button
-        type="button"
-        disabled
-        aria-disabled
-        className="mt-1.5 flex w-full cursor-not-allowed items-center gap-1 rounded-md border border-dashed border-border px-2 py-1.5 text-meta font-medium text-foreground-muted opacity-60"
-      >
-        <Icon name="plus" className="h-3.5 w-3.5" />
-        {actionLabel}
-      </button>
-    </div>
+    </aside>
   );
 }

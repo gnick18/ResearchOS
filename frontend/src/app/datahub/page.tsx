@@ -37,6 +37,7 @@ import {
   addColumn as addColumnToDoc,
   getDataHubContent,
   setAnalysis as setAnalysisInDoc,
+  setPlot as setPlotInDoc,
   setCell,
 } from "@/lib/loro/datahub-doc";
 import {
@@ -44,6 +45,11 @@ import {
   parseCellInput,
 } from "@/lib/datahub/column-table";
 import { runAnalysis } from "@/lib/datahub/run-analysis";
+import {
+  buildPlotSpec,
+  withStyle,
+  type PlotStyle,
+} from "@/lib/datahub/plot-spec";
 import DataHubRail, { type Collection } from "@/components/datahub/DataHubRail";
 import DataTableGrid from "@/components/datahub/DataTableGrid";
 import NewTableDialog, {
@@ -52,7 +58,11 @@ import NewTableDialog, {
 import NewAnalysisDialog, {
   type NewAnalysisSubmit,
 } from "@/components/datahub/NewAnalysisDialog";
+import NewGraphDialog, {
+  type NewGraphSubmit,
+} from "@/components/datahub/NewGraphDialog";
 import ResultsSheet from "@/components/datahub/ResultsSheet";
+import GraphEditor from "@/components/datahub/GraphEditor";
 
 export default function DataHubPage() {
   const { currentUser } = useCurrentUser();
@@ -67,6 +77,11 @@ export default function DataHubPage() {
     null,
   );
   const [newAnalysisOpen, setNewAnalysisOpen] = useState(false);
+  // The selected figure in the Graphs section (null means no figure is open).
+  // New-graph dialog open state. A figure selection takes precedence over an
+  // analysis selection in the main panel.
+  const [selectedPlotId, setSelectedPlotId] = useState<string | null>(null);
+  const [newGraphOpen, setNewGraphOpen] = useState(false);
 
   // The live projection of the open document's Loro doc. Cell edits write to the
   // doc, then reproject into this state so the grid + footer re-derive. Null
@@ -162,10 +177,11 @@ export default function DataHubPage() {
     };
   }, [currentUser, selectedTableId]);
 
-  // A table switch clears the analysis selection (back to the data grid). The
-  // dependency is intentionally only the table id.
+  // A table switch clears the analysis + figure selection (back to the data
+  // grid). The dependency is intentionally only the table id.
   useEffect(() => {
     setSelectedAnalysisId(null);
+    setSelectedPlotId(null);
   }, [selectedTableId]);
 
   // Flush + drop the open handle on unmount so a pending commit is never lost.
@@ -283,9 +299,56 @@ export default function DataHubPage() {
       setAnalysisInDoc(handle.doc, spec);
       void handle.commit();
       setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+      setSelectedPlotId(null);
       setSelectedAnalysisId(id);
     },
     [openContent],
+  );
+
+  const selectedMeta = useMemo(
+    () => allTables.find((t) => t.id === selectedTableId) ?? null,
+    [allTables, selectedTableId],
+  );
+
+  // Create a new figure from the chosen kind: build the PlotSpec (seeding its
+  // y-axis title from the table name), link the ANOVA for brackets when one was
+  // chosen, persist it via setPlot, commit, reproject, and select it.
+  const handleNewGraph = useCallback(
+    (data: NewGraphSubmit) => {
+      setNewGraphOpen(false);
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      const id = `plot-${Date.now()}`;
+      const spec = buildPlotSpec({
+        id,
+        kind: data.kind,
+        tableId: openIdRef.current,
+        analysisId: data.analysisId,
+        yTitle: selectedMeta?.name ?? "Value",
+      });
+      setPlotInDoc(handle.doc, spec);
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+      setSelectedAnalysisId(null);
+      setSelectedPlotId(id);
+    },
+    [openContent, selectedMeta],
+  );
+
+  // Persist a style patch onto the open figure (a live styling-panel change).
+  // Writes the updated PlotSpec back through setPlot, commits, and reprojects so
+  // the figure redraws and the change is version-controlled.
+  const handlePlotStyleChange = useCallback(
+    (patch: Partial<PlotStyle>) => {
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      const current = openContent.plots.find((p) => p.id === selectedPlotId);
+      if (!current) return;
+      setPlotInDoc(handle.doc, withStyle(current, patch));
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+    },
+    [openContent, selectedPlotId],
   );
 
   // Re-run any stale analyses when the open content changes (a cell edit marks
@@ -298,6 +361,20 @@ export default function DataHubPage() {
       openContent?.analyses.find((a) => a.id === selectedAnalysisId) ?? null,
     [openContent, selectedAnalysisId],
   );
+
+  // The open figure, plus the analysis it pulls significance brackets from (its
+  // source.analysisId, resolved against the live analyses so the latest cached
+  // ANOVA result feeds the brackets).
+  const selectedPlot = useMemo(
+    () => openContent?.plots.find((p) => p.id === selectedPlotId) ?? null,
+    [openContent, selectedPlotId],
+  );
+  const plotAnalysis = useMemo(() => {
+    if (!selectedPlot || !openContent) return null;
+    const aid = (selectedPlot.source as { analysisId?: unknown }).analysisId;
+    if (typeof aid !== "string") return null;
+    return openContent.analyses.find((a) => a.id === aid) ?? null;
+  }, [selectedPlot, openContent]);
 
   useEffect(() => {
     const handle = handleRef.current;
@@ -316,11 +393,6 @@ export default function DataHubPage() {
   // The active collection as the New-table dialog's default ("" for All/Unfiled).
   const dialogDefaultCollection =
     collection === "all" || collection === "unfiled" ? "" : collection;
-
-  const selectedMeta = useMemo(
-    () => allTables.find((t) => t.id === selectedTableId) ?? null,
-    [allTables, selectedTableId],
-  );
 
   // Gate: render a calm "not enabled" state when the flag is off (mirror the
   // /supplies gate). Never crash.
@@ -355,6 +427,14 @@ export default function DataHubPage() {
           onSelectAnalysis={setSelectedAnalysisId}
           onNewAnalysis={() => setNewAnalysisOpen(true)}
           analysesEnabled={!!openContent}
+          plots={openContent?.plots ?? []}
+          selectedPlotId={selectedPlotId}
+          onSelectPlot={(id) => {
+            setSelectedAnalysisId(null);
+            setSelectedPlotId(id);
+          }}
+          onNewGraph={() => setNewGraphOpen(true)}
+          graphsEnabled={!!openContent}
         />
 
         <section className="flex min-w-0 flex-1 flex-col overflow-auto rounded-lg border border-border bg-surface-raised p-5">
@@ -375,6 +455,14 @@ export default function DataHubPage() {
                 New table
               </button>
             </div>
+          ) : selectedMeta && openContent && selectedPlot ? (
+            <GraphEditor
+              spec={selectedPlot}
+              content={openContent}
+              analysis={plotAnalysis}
+              title={selectedMeta.name}
+              onStyleChange={handlePlotStyleChange}
+            />
           ) : selectedMeta && openContent && selectedAnalysis ? (
             <ResultsSheet
               spec={selectedAnalysis}
@@ -420,6 +508,13 @@ export default function DataHubPage() {
         content={openContent}
         onCancel={() => setNewAnalysisOpen(false)}
         onSubmit={handleNewAnalysis}
+      />
+
+      <NewGraphDialog
+        open={newGraphOpen}
+        content={openContent}
+        onCancel={() => setNewGraphOpen(false)}
+        onSubmit={handleNewGraph}
       />
     </AppShell>
   );
