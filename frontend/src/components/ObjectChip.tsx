@@ -11,6 +11,7 @@
 
 import { useRouter } from "next/navigation";
 import type { ObjectRefType } from "@/lib/references";
+import { Icon } from "@/components/icons";
 
 /** A small inline icon per object type. Stroke-only, currentColor, 1em-ish so it
  *  rides the text baseline inside the pill. */
@@ -65,6 +66,10 @@ function ChipIcon({ type, className }: { type: ObjectRefType; className?: string
           <path d="M21 11l-8.5 8.5a4 4 0 0 1-6-6L14 5a3 3 0 0 1 4 4l-8.5 8.5a1.5 1.5 0 0 1-2-2L15 8" />
         </svg>
       );
+    case "molecule":
+      // The chemistry vial, from the verified icon registry (so this new ref type
+      // adds no raw inline SVG over the guard baseline).
+      return <Icon name="vial" className={className} />;
     case "project":
     default:
       // A folder.

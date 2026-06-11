@@ -20,6 +20,7 @@ import { Icon } from "@/components/icons";
 import { moleculesApi } from "@/lib/chemistry/api";
 import { projectsApi } from "@/lib/local-api";
 import { computeIdentity, type MoleculeIdentity } from "@/lib/chemistry/rdkit";
+import { referenceClipboardText } from "@/lib/copy-reference";
 import { MoleculeLiterature } from "./MoleculeLiterature";
 
 const KetcherCanvas = dynamic(() => import("./KetcherCanvas"), {
@@ -267,7 +268,24 @@ export function MoleculeEditorPopup({
 
             {rail === "identity" ? (
               <>
-                <IdentityPane identity={identity} ready={ready} />
+                <IdentityPane
+                  identity={identity}
+                  ready={ready}
+                  onCopyReference={
+                    !isNew && moleculeId != null
+                      ? () =>
+                          void navigator.clipboard
+                            ?.writeText(
+                              referenceClipboardText(
+                                "molecule",
+                                moleculeId,
+                                name.trim() || "molecule",
+                              ),
+                            )
+                            .catch(() => {})
+                      : undefined
+                  }
+                />
                 <ProjectLinks
                   projectIds={projectIds}
                   projects={projects}
@@ -347,9 +365,12 @@ function RailTabButton({
 function IdentityPane({
   identity,
   ready,
+  onCopyReference,
 }: {
   identity: MoleculeIdentity | null;
   ready: boolean;
+  /** When set (saved molecule), offers a Copy-reference tool for note embeds. */
+  onCopyReference?: () => void;
 }) {
   const copy = (value: string | undefined) => {
     if (!value) return;
@@ -422,6 +443,11 @@ function IdentityPane({
           Copy canonical SMILES
         </ToolItem>
         <ToolItem onClick={() => copy(identity.inchikey)}>Copy InChIKey</ToolItem>
+        {onCopyReference ? (
+          <ToolItem onClick={onCopyReference}>
+            Copy reference for a note
+          </ToolItem>
+        ) : null}
       </div>
     </>
   );

@@ -13,6 +13,9 @@ describe("objectDeepLink", () => {
   it("builds the collection route", () => {
     expect(objectDeepLink("collection", "12")).toBe("/sequences?collection=12");
   });
+  it("builds the molecule route (chemistry query param)", () => {
+    expect(objectDeepLink("molecule", "14")).toBe("/chemistry?molecule=14");
+  });
   it("builds the reserved segment routes", () => {
     expect(objectDeepLink("method", " abc")).toBe("/methods/%20abc");
     expect(objectDeepLink("note", "n1")).toBe("/notes/n1");
@@ -42,6 +45,7 @@ describe("parseObjectDeepLink round-trip", () => {
     { type: "note", id: "n1" },
     { type: "file", id: "f1" },
     { type: "project", id: "p1" },
+    { type: "molecule", id: "14" },
   ];
   for (const { type, id } of cases) {
     it(`round-trips ${type}`, () => {

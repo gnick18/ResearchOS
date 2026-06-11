@@ -19,7 +19,8 @@ export type ObjectRefType =
   | "method"
   | "note"
   | "file"
-  | "project";
+  | "project"
+  | "molecule";
 
 /** One route shape. `build` makes the in-app path for an id; `match` recognizes a
  *  path (already split into pathname + query params) and returns the id, or null
@@ -67,6 +68,18 @@ const OBJECT_ROUTES: Record<ObjectRefType, RouteShape> = {
   project: {
     build: (id) => `/projects/${encodeURIComponent(id)}`,
     match: (pathname) => idFromSegmentRoute(pathname, "/projects/"),
+  },
+  // The chemistry workbench opens a molecule via a query param (the editor is a
+  // popup over the hub, not its own route), so this is a query-param route like
+  // sequence/collection, checked before the bare-path routes. The /chemistry page
+  // reads the same `molecule` param to auto-open the editor.
+  molecule: {
+    build: (id) => `/chemistry?molecule=${encodeURIComponent(id)}`,
+    match: (pathname, params) => {
+      if (pathname !== "/chemistry") return null;
+      const mol = params.get("molecule");
+      return mol && mol.length > 0 ? mol : null;
+    },
   },
 };
 
