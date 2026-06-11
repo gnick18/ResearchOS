@@ -99,6 +99,45 @@ describe("plot-spec: style / source round-trip", () => {
     expect(readPlotStyle(next).errorBar).toBe("sd");
   });
 
+  it("palette + colorOverrides round-trip through withStyle / readPlotStyle", () => {
+    const spec = buildPlotSpec({ id: "p", kind: "columnBar", tableId: "1" });
+    const next = withStyle(spec, {
+      palette: "tol-muted",
+      colorOverrides: { 0: "#112233", 2: "#445566" },
+    });
+    const read = readPlotStyle(next);
+    expect(read.palette).toBe("tol-muted");
+    expect(read.colorOverrides).toEqual({ 0: "#112233", 2: "#445566" });
+  });
+
+  it("colorOverrides survive a JSON serialization round-trip (number keys)", () => {
+    const spec = buildPlotSpec({ id: "p", kind: "columnBar", tableId: "1" });
+    const next = withStyle(spec, { colorOverrides: { 0: "#abcdef", 5: "#fedcba" } });
+    // Simulate the Loro doc path (style is JSON-serialized into the doc).
+    const serialized = JSON.parse(JSON.stringify(next.style));
+    const read = readPlotStyle({ ...next, style: serialized });
+    expect(read.colorOverrides).toEqual({ 0: "#abcdef", 5: "#fedcba" });
+  });
+
+  it("readPlotStyle maps a legacy colorMode onto a palette id", () => {
+    const sky = readPlotStyle({ id: "p", type: "columnBar", style: { colorMode: "sky" }, source: {} });
+    expect(sky.palette).toBe("sky-ramp");
+    const ink = readPlotStyle({ id: "p", type: "columnBar", style: { colorMode: "ink" }, source: {} });
+    expect(ink.palette).toBe("cb-greys");
+    const brand = readPlotStyle({ id: "p", type: "columnBar", style: { colorMode: "brand" }, source: {} });
+    expect(brand.palette).toBe("brand-trio");
+  });
+
+  it("readPlotStyle drops a malformed colorOverride entry", () => {
+    const read = readPlotStyle({
+      id: "p",
+      type: "columnBar",
+      style: { colorOverrides: { 0: "#123456", 1: "notahex", foo: "#999999" } },
+      source: {},
+    });
+    expect(read.colorOverrides).toEqual({ 0: "#123456" });
+  });
+
   it("readPlotStyle falls back to spec.type when style.kind is absent", () => {
     const spec = {
       id: "p",
@@ -123,13 +162,27 @@ describe("plot-spec: style / source round-trip", () => {
 });
 
 describe("plot-spec: color + stars + error magnitude", () => {
-  it("colorForGroup cycles the brand trio and is flat for mono modes", () => {
-    expect(colorForGroup("brand", 0)).toBe("#1AA0E6");
-    expect(colorForGroup("brand", 1)).toBe("#7C3AED");
-    expect(colorForGroup("brand", 2)).toBe("#F97316");
-    expect(colorForGroup("brand", 3)).toBe("#1AA0E6"); // wraps
-    expect(colorForGroup("sky", 2)).toBe("#1AA0E6");
-    expect(colorForGroup("ink", 1)).toBe("#475569");
+  it("colorForGroup samples the active palette to the series count", () => {
+    const base = defaultPlotStyle();
+    const brand = { ...base, palette: "brand-trio" };
+    // The brand trio sampled to >=3 series gives the three brand hues in order.
+    expect(colorForGroup(brand, 0, 3)).toBe("#1AA0E6");
+    expect(colorForGroup(brand, 1, 3)).toBe("#7C3AED");
+    expect(colorForGroup(brand, 2, 3)).toBe("#F97316");
+    // A sequential ramp (sky) gives DISTINCT blues per series, not one flat blue
+    // (this is the bug the palette system fixes).
+    const sky = { ...base, palette: "sky-ramp" };
+    expect(colorForGroup(sky, 0, 4)).not.toBe(colorForGroup(sky, 3, 4));
+  });
+
+  it("colorForGroup honors a per-series override", () => {
+    const styled = {
+      ...defaultPlotStyle(),
+      palette: "brand-trio",
+      colorOverrides: { 1: "#123456" },
+    };
+    expect(colorForGroup(styled, 0, 3)).toBe("#1AA0E6");
+    expect(colorForGroup(styled, 1, 3)).toBe("#123456");
   });
 
   it("significanceStars matches the GraphPad thresholds", () => {
