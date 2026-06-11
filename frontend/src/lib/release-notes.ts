@@ -89,7 +89,7 @@ export const RELEASE_NOTES: ReadonlyArray<ReleaseNote> = [
       },
       {
         kind: "para",
-        text: "Nothing about the core changed. Your work still lives in a plain folder on your own computer, free and open. An account stays optional and only adds identity and sharing. Cloud storage is optional, priced to recover cost not to profit, with a 5 GB free pool, and billing is not even turned on yet.",
+        text: "Nothing about the core changed. Your work still lives in a plain folder on your own computer, free and open. An account stays optional and only adds identity and sharing. Cloud storage is optional, with a 5 GB free pool, and individuals and labs pay only what it costs us, and billing is not even turned on yet.",
       },
       {
         kind: "feature",

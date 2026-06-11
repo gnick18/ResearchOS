@@ -49,6 +49,26 @@ editing slows to periodic sync (a throttle), it does not generate a surprise bil
 - The PI invites members by email and the member must accept first. The PI can see each member's
   storage and activity, and members are told this when they accept.
 
+## Departments and institutions (the solidarity tiers, get this exact)
+
+- The heart of the model, and the thing most likely to be reverted by a stale doc.
+  Individuals and labs pay COST RECOVERY (what storage costs us, no more). Departments
+  and institutions pay a modest SUSTAINING rate ABOVE bare cost, and that surplus keeps
+  ResearchOS free for individual researchers and funds the open-source development. This is
+  solidarity pricing, NOT a flat "cost-recovery, never profit" model.
+- A department is a container of labs, an institution a container of departments. Both are
+  AUTOMATED self-serve plan builders on `/pricing` (enter labs / members / adoption / what
+  you share, get a monthly rate = cost recovery + a per-active-lab sustaining contribution).
+  No voluntary "pay above cost" slider, no manual quoting.
+- Billing is an auto recurring Stripe invoice to the procurement office, net terms, ACH or
+  card, adjustable any month, no lock-in. GitHub Sponsors cannot invoice a university, so the
+  invoice is the institutional channel (and why Sponsors stays an individuals path).
+- Institutions get a self-serve trust packet (pre-filled HECVAT, security one-pager, the
+  open-source code, a standard agreement). Lean on local-first + E2E + Entra SSO as the
+  easy-review edge, we hold almost none of their data.
+- Frame savings honestly, always SUBTRACT ResearchOS's real optional-cloud cost rather than
+  claim "$0, you save everything" (that overclaim reads as a scam).
+
 ## Supporting us / donations (state the why)
 
 The best way to support us beyond your own use is two things, buy only the storage you actually

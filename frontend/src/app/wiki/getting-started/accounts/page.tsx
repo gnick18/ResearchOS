@@ -278,7 +278,7 @@ export default function AccountsPage() {
         </li>
       </ul>
 
-      <Callout variant="warning" title="The cost model is cost-recovery, not profit">
+      <Callout variant="warning" title="Priced to sustain, not to profit">
         ResearchOS is not trying to extract money from researchers. The paid
         plans exist to cover the actual cost of running the sync infrastructure
         for labs that use it heavily. The free plan is generous enough that most
