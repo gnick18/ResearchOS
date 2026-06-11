@@ -1,0 +1,120 @@
+/* The animated bubble BeakerBot from the marketing-deck title slide, ported
+   from docs/mockups/2026-06-10-entry-flow-oauth-first.html (.introbot). The
+   BeakerBot mark itself is the shared <BeakerBot> component; this module only
+   adds the gentle bob plus the rising bubbles overlaid on the beaker. The
+   bubbles are decorative <i> elements (not SVG), so they stay out of icon-guard
+   scope.
+
+   No em-dashes, no emojis, no mid-sentence colons. */
+
+.introbot {
+  --rise: -70px;
+  position: relative;
+  margin: 0 auto;
+  animation: bob 3.4s ease-in-out infinite;
+}
+
+.introbot svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.bubbles {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 32px;
+  height: 46%;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.bubbles i {
+  position: absolute;
+  bottom: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(26, 160, 230, 0.55);
+  animation: rise 2.8s linear infinite;
+}
+
+.bubbles i:nth-child(1) {
+  left: 14%;
+  animation-delay: 0s;
+}
+.bubbles i:nth-child(2) {
+  left: 42%;
+  width: 4px;
+  height: 4px;
+  animation-delay: 0.7s;
+}
+.bubbles i:nth-child(3) {
+  left: 68%;
+  width: 6px;
+  height: 6px;
+  animation-delay: 1.4s;
+}
+.bubbles i:nth-child(4) {
+  left: 30%;
+  width: 4px;
+  height: 4px;
+  animation-delay: 2s;
+}
+
+/* Compact variant for the denser Welcome back screen. */
+.sm {
+  --rise: -52px;
+}
+.sm .bubbles {
+  width: 26px;
+}
+.sm .bubbles i {
+  width: 4px;
+  height: 4px;
+}
+.sm .bubbles i:nth-child(3) {
+  width: 5px;
+  height: 5px;
+}
+.sm .bubbles i:nth-child(2),
+.sm .bubbles i:nth-child(4) {
+  width: 3px;
+  height: 3px;
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes rise {
+  0% {
+    transform: translateY(0) scale(0.6);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.9;
+  }
+  70% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(var(--rise, -84px)) scale(1);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .introbot,
+  .bubbles i {
+    animation: none;
+  }
+}

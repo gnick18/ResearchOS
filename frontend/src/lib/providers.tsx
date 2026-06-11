@@ -34,6 +34,9 @@ import AutoErrorConfirmHost from "@/components/AutoErrorConfirmHost";
 import V4MountForUser from "@/components/onboarding/v4/V4MountForUser";
 import { Splash } from "@/components/onboarding/Splash";
 import { EntrySnapSurface } from "@/components/onboarding/EntrySnapSurface";
+import { OAuthFirstLanding } from "@/components/onboarding/oauth-first/OAuthFirstLanding";
+import { WelcomeBackSignIn } from "@/components/onboarding/oauth-first/WelcomeBackSignIn";
+import { isOAuthFirstLoginEnabled } from "@/lib/sharing/oauth-first-login";
 import { SuccessTransition } from "@/components/onboarding/SuccessTransition";
 import SyncPausedIndicator from "@/components/SyncPausedIndicator";
 import {
@@ -120,6 +123,37 @@ function useSignInProvider(): string | null {
         ? new URLSearchParams(window.location.search).get("signIn")
         : null,
     () => null,
+  );
+}
+
+/**
+ * Reactive, Suspense-safe read of the `?sharingClaim=1` return flag, set by the
+ * OAuth-first sign-in (startOAuthFirstSignIn). Subscribes the same way as
+ * useSignInProvider. When true and no folder is connected yet, the OAuth round
+ * trip has completed (verified email in the session) and the visitor still needs
+ * to pick a folder, so the folder gate reads as "Save your account on your disk"
+ * (the post-sign-in framing) rather than a cold connect. The actual identity
+ * claim is completed by the global SharingClaimResume mount once a folder-local
+ * user is connected. Only consulted when the OAuth-first flag is on, so the
+ * legacy flow is untouched.
+ */
+function useSharingClaimReturn(): boolean {
+  const subscribe = useCallback((onChange: () => void) => {
+    if (typeof window === "undefined") return () => {};
+    window.addEventListener("popstate", onChange);
+    window.addEventListener("researchos:locationchange", onChange);
+    return () => {
+      window.removeEventListener("popstate", onChange);
+      window.removeEventListener("researchos:locationchange", onChange);
+    };
+  }, []);
+  return useSyncExternalStore(
+    subscribe,
+    () =>
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).has("sharingClaim")
+        : false,
+    () => false,
   );
 }
 
@@ -272,9 +306,12 @@ let chosenTierThisLoad: AccountTier | null = null;
 
 // The start-screen action a not-auto-reconnected visitor picked this load:
 // "open" -> connect/reconnect a folder (FolderConnectGate); "create" ->
-// the new-account chooser. Module-scoped so a remount during setup does not
-// bounce the user back to the start screen. null = show the start screen.
-let entryActionThisLoad: "open" | "create" | null = null;
+// the new-account chooser; "signin" -> the OAuth-first Welcome-back re-login
+// screen (only reachable when NEXT_PUBLIC_OAUTH_FIRST_LOGIN is on). Module-scoped
+// so a remount during setup does not bounce the user back to the start screen.
+// null = show the landing.
+type EntryAction = "open" | "create" | "signin";
+let entryActionThisLoad: EntryAction | null = null;
 
 function AppContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -331,6 +368,10 @@ function AppContent({ children }: { children: ReactNode }) {
   } = useFileSystem();
   const pendingSignInProvider = useSignInProvider();
   const signInInFlight = pendingSignInProvider !== null;
+  // OAuth-first: did we just return from a provider with ?sharingClaim=1 and no
+  // folder yet? Drives the "Save your account on your disk" folder framing.
+  const sharingClaimReturn = useSharingClaimReturn();
+  const accountSaveFraming = isOAuthFirstLoginEnabled() && sharingClaimReturn;
   // Splash plays once per tab session (survives reloads, so dev reloads and
   // returning users do not replay it; a brand-new tab plays it). Skippable.
   const [splashSeen, setSplashSeen] = useState<boolean>(
@@ -338,7 +379,7 @@ function AppContent({ children }: { children: ReactNode }) {
       typeof window !== "undefined" &&
       sessionStorage.getItem(SPLASH_SEEN_KEY) === "1",
   );
-  const [entryAction, setEntryAction] = useState<"open" | "create" | null>(
+  const [entryAction, setEntryAction] = useState<EntryAction | null>(
     entryActionThisLoad,
   );
   const [successShown, setSuccessShown] = useState(successShownThisLoad);
@@ -509,6 +550,45 @@ function AppContent({ children }: { children: ReactNode }) {
   // flight (the ?signIn param), so the OAuth callback lands on the setup screen.
   // Skipped in fixture modes. Same-device returning users with a live handle
   // never reach here; they reconnect silently above (isLoading branch).
+  // OAuth-first re-login screen (entry-flow redesign change 5). Reached only
+  // when the flag is on and the visitor clicked "Sign in" on the new landing.
+  // Shows the provider logins with the last-used provider floated to the top,
+  // plus an "Open a folder, no account" escape that triggers the OS picker
+  // directly (the same direct connect the landing's Create -> Local path uses).
+  if (
+    isOAuthFirstLoginEnabled() &&
+    entryAction === "signin" &&
+    !isConnected &&
+    !currentUser &&
+    !isDemoOrWikiCapture() &&
+    !signInInFlight
+  ) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <WelcomeBackSignIn
+          onBack={() => {
+            entryActionThisLoad = null;
+            setEntryAction(null);
+          }}
+          onOpenFolder={() => {
+            entryActionThisLoad = "open";
+            try {
+              sessionStorage.setItem(ENTERED_KEY, "1");
+            } catch {
+              // best-effort; the celebration is non-essential
+            }
+            setEntryAction("open");
+            if (lastConnectedFolder) {
+              void reconnectWithStoredHandle();
+            } else {
+              void connect();
+            }
+          }}
+        />
+      </QueryClientProvider>
+    );
+  }
+
   if (
     !isConnected &&
     !currentUser &&
@@ -516,6 +596,31 @@ function AppContent({ children }: { children: ReactNode }) {
     !isDemoOrWikiCapture() &&
     !signInInFlight
   ) {
+    // OAuth-first landing (entry-flow redesign change 1). One light deck-style
+    // intro replaces the start-chooser. Create account opens the existing
+    // three-tier chooser; Sign in opens the Welcome-back screen. Gated on the
+    // flag so the OFF path renders the unchanged EntrySnapSurface below.
+    if (isOAuthFirstLoginEnabled()) {
+      return (
+        <QueryClientProvider client={queryClient}>
+          <OAuthFirstLanding
+            onCreateAccount={() => {
+              entryActionThisLoad = "create";
+              try {
+                sessionStorage.setItem(ENTERED_KEY, "1");
+              } catch {
+                // best-effort
+              }
+              setEntryAction("create");
+            }}
+            onSignIn={() => {
+              entryActionThisLoad = "signin";
+              setEntryAction("signin");
+            }}
+          />
+        </QueryClientProvider>
+      );
+    }
     return (
       <QueryClientProvider client={queryClient}>
         <EntrySnapSurface
@@ -609,6 +714,7 @@ function AppContent({ children }: { children: ReactNode }) {
       <QueryClientProvider client={queryClient}>
         <FolderConnectGate
           pendingSignInProvider={pendingSignInProvider}
+          accountSaveFraming={accountSaveFraming}
           onBack={() => {
             entryActionThisLoad = null;
             setEntryAction(null);

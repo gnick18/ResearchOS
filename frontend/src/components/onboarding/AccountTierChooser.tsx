@@ -23,6 +23,8 @@ import { useRouter } from "next/navigation";
 import { BeakerBotScene } from "@/components/onboarding/BeakerBotScene";
 import { LAB_TIER_ENABLED } from "@/lib/lab/config";
 import { isOAuthPublishAvailable } from "@/lib/sharing/oauth-availability";
+import { isOAuthFirstLoginEnabled } from "@/lib/sharing/oauth-first-login";
+import { startOAuthFirstSignIn } from "@/lib/sharing/oauth-first-signin";
 import { markLandingSeen } from "@/lib/landing/landing-gate";
 import SharingProviderButtons from "@/components/sharing/SharingProviderButtons";
 import type { SharingProvider } from "@/components/sharing/SharingProviderButtons";
@@ -606,13 +608,26 @@ export function AccountTierChooser({ onLocal, onChoose }: AccountTierChooserProp
   }
 
   // -- Free flow: provider sub-step -> navigate --
+  // OAuth-first (flag ON): the provider opens IMMEDIATELY, the folder step
+  // follows the return (startOAuthFirstSignIn). Legacy (flag OFF): the old
+  // deferred path, router.push to the connect gate, then lib/providers fires the
+  // redirect only after a folder + user are connected. The OFF branch is
+  // byte-for-byte the previous behavior.
   function handleFreeProvider(provider: SharingProvider) {
+    if (isOAuthFirstLoginEnabled()) {
+      startOAuthFirstSignIn(provider);
+      return;
+    }
     markLandingSeen();
     router.push("/?connect=1&signIn=" + provider);
   }
 
   // -- Lab Create flow: provider sub-step -> set marker -> navigate --
   function handleLabCreateProvider(provider: SharingProvider) {
+    if (isOAuthFirstLoginEnabled()) {
+      startOAuthFirstSignIn(provider, { labCreate: true });
+      return;
+    }
     markLandingSeen();
     try {
       sessionStorage.setItem("researchos:lab-create", "1");

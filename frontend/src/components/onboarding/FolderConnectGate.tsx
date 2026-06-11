@@ -54,12 +54,25 @@ interface FolderConnectGateProps {
    * by lib/providers.tsx, not this component.
    */
   pendingSignInProvider: string | null;
+  /**
+   * OAuth-first (entry-flow redesign change 4): true when the visitor has just
+   * returned from a provider (verified email in the session, ?sharingClaim=1)
+   * and still needs to pick a folder. Reframes the connect step as "Save your
+   * account on your disk", the expected next step after sign-in rather than a
+   * cold connect. The three identity cases (brand-new empty folder, the folder
+   * already holds this account, or a different user) are all handled downstream
+   * by the account picker (UserLoginScreen) and the global SharingClaimResume
+   * mount, which only mints once a folder-local user is connected. Default
+   * false, so the legacy flow's copy is unchanged.
+   */
+  accountSaveFraming?: boolean;
   /** Return to the start screen (resets the entry action). */
   onBack: () => void;
 }
 
 export default function FolderConnectGate({
   pendingSignInProvider,
+  accountSaveFraming = false,
   onBack,
 }: FolderConnectGateProps) {
   const {
@@ -240,10 +253,20 @@ export default function FolderConnectGate({
         </button>
 
         <h1 className="mb-6 text-center text-display font-extrabold tracking-tight text-foreground">
-          {pendingSignInProvider
-            ? "Connect your folder to finish signing in"
-            : "Connect your folder"}
+          {accountSaveFraming
+            ? "Save your account on your disk"
+            : pendingSignInProvider
+              ? "Connect your folder to finish signing in"
+              : "Connect your folder"}
         </h1>
+        {accountSaveFraming && (
+          <p className="-mt-3 mb-6 text-center text-body text-foreground-muted max-w-xl mx-auto">
+            You are signed in. Pick a folder to keep your notebook and account.
+            Everything stays local, this folder is your account. A brand-new
+            folder starts a fresh account, and if the folder already holds this
+            account we just unlock it.
+          </p>
+        )}
 
         {/* BeakerBot side column with the opt-in walkthrough CTA. On lg+ this
             floats in the right margin; on smaller screens it stacks above. */}
