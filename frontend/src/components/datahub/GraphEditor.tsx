@@ -125,6 +125,7 @@ export default function GraphEditor({
   const style = useMemo(() => readPlotStyle(spec), [spec]);
   const isXY = style.kind === "xyScatter";
   const isGrouped = style.kind === "groupedBar";
+  const isSurvival = style.kind === "survivalCurve";
   // The live figure. Recomputed whenever the spec, the table, or the linked
   // analysis changes (a cell edit reprojects content, so the points move).
   const { svg, geometry } = useMemo(
@@ -175,7 +176,9 @@ export default function GraphEditor({
           ? "Your X and Y observations as a scatter, with a fitted curve laid over them. The fit is computed from the same points, so an edit re-fits the curve, and the export stays a true vector."
           : isGrouped
             ? "One cluster per row label, one bar per group, with error bars from the replicates. Every control redraws the figure, and the export stays a true vector."
-            : "Individual points with the group mean and error bars, plus significance brackets from the stored analysis. Every control redraws the figure, and the export stays a true vector."}
+            : isSurvival
+              ? "A Kaplan-Meier step curve per group, survival on the Y axis against time on the X axis. Every control redraws the figure, and the export stays a true vector."
+              : "Individual points with the group mean and error bars, plus significance brackets from the stored analysis. Every control redraws the figure, and the export stays a true vector."}
       </p>
 
       <div className="mt-4 flex flex-wrap items-start gap-5">
@@ -266,7 +269,7 @@ export default function GraphEditor({
                 <option value="none">None</option>
               </select>
             </Ctl>
-          ) : (
+          ) : isSurvival ? null : (
             <>
               <Ctl label="Style">
                 <Seg<PlotStyle["kind"]>

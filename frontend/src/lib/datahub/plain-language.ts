@@ -13,6 +13,7 @@ import type {
   NormalizedCorrelation,
   NormalizedRegression,
   NormalizedResult,
+  NormalizedSurvival,
   NormalizedTTest,
   NormalizedTwoWayAnova,
 } from "@/lib/datahub/run-analysis";
@@ -160,6 +161,33 @@ function twoWaySummary(r: NormalizedTwoWayAnova): string {
   return `${a}, and ${b}. ${inter}`;
 }
 
+function medianText(m: number | null): string {
+  return m === null ? "not reached" : num(m, 1);
+}
+
+function survivalSummary(r: NormalizedSurvival): string {
+  const medianPart = r.groups
+    .map((g) => `${g.name} ${medianText(g.median)}`)
+    .join(", ");
+  const lead =
+    r.groups.length === 1
+      ? `The median survival is ${medianText(r.groups[0].median)} (${
+          r.groups[0].events
+        } events in ${r.groups[0].n} subjects).`
+      : `Median survival by group: ${medianPart}.`;
+  if (!r.logRank) {
+    return `${lead} Add a Group label to compare arms with a log-rank test.`;
+  }
+  const stat = `log-rank chi-square(${r.logRank.df}) = ${num(
+    r.logRank.chiSquare,
+    2,
+  )}, ${formatP(r.logRank.pValue)}`;
+  if (r.logRank.pValue < ALPHA) {
+    return `${lead} The survival curves differ between groups (${stat}), so the event happens at a different rate across arms.`;
+  }
+  return `${lead} The survival curves are statistically indistinguishable (${stat}). There is not enough evidence that the arms differ.`;
+}
+
 /**
  * The one-sentence (or two-sentence) plain-language verdict for a normalized
  * result. The ResultsSheet renders this above the stats table.
@@ -169,5 +197,6 @@ export function plainLanguageSummary(result: NormalizedResult): string {
   if (result.kind === "correlation") return correlationSummary(result);
   if (result.kind === "regression") return regressionSummary(result);
   if (result.kind === "twoWayAnova") return twoWaySummary(result);
+  if (result.kind === "survival") return survivalSummary(result);
   return ttestSummary(result);
 }

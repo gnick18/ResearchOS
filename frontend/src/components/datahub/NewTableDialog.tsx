@@ -49,8 +49,9 @@ const TABLE_TYPES: {
   {
     type: "survival",
     label: "Survival",
-    blurb: "Time to an event. Coming soon.",
-    enabled: false,
+    blurb:
+      "Time to an event, with censoring, for Kaplan-Meier curves and the log-rank test.",
+    enabled: true,
   },
 ];
 

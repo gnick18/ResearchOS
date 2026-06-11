@@ -40,6 +40,17 @@ export { linearRegression } from "./regression-linear";
 // Assumption checks (normality + equal variance).
 export { shapiroWilk, levene, brownForsythe } from "./assumptions";
 
+// Survival analysis (Kaplan-Meier + log-rank).
+export {
+  kaplanMeier,
+  logRank,
+  type SurvivalObservation,
+  type KaplanMeierStep,
+  type KaplanMeierResult,
+  type LogRankGroup,
+  type LogRankResult,
+} from "./survival";
+
 // Nonlinear curve fitting (the crown jewel).
 export {
   fitModel,

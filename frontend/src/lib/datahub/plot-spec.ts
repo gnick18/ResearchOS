@@ -48,7 +48,8 @@ import {
   groupDatasets,
   rowFactorLevels,
 } from "@/lib/datahub/grouped-table";
-import { fitModel, getModel } from "@/lib/datahub/engine";
+import { survivalGroups } from "@/lib/datahub/survival-table";
+import { fitModel, getModel, kaplanMeier } from "@/lib/datahub/engine";
 
 // ---------------------------------------------------------------------------
 // Plot kinds + style / source shapes
@@ -64,7 +65,8 @@ export type PlotKind =
   | "columnScatter"
   | "columnBar"
   | "xyScatter"
-  | "groupedBar";
+  | "groupedBar"
+  | "survivalCurve";
 
 /** Which error bar a figure draws, computed from the raw replicates. */
 export type ErrorBarKind = "sd" | "sem" | "none";
@@ -164,6 +166,7 @@ export function readPlotStyle(spec: PlotSpec): PlotStyle {
     "columnBar",
     "xyScatter",
     "groupedBar",
+    "survivalCurve",
   ];
   const kind = KINDS.includes(s.kind as PlotKind)
     ? (s.kind as PlotKind)
@@ -756,7 +759,11 @@ export function renderPlot(
   analysis: AnalysisSpec | null,
 ): {
   svg: string;
-  geometry: PlotGeometry | XYPlotGeometry | GroupedBarGeometry;
+  geometry:
+    | PlotGeometry
+    | XYPlotGeometry
+    | GroupedBarGeometry
+    | SurvivalCurveGeometry;
   style: PlotStyle;
 } {
   const style = readPlotStyle(spec);
@@ -769,6 +776,11 @@ export function renderPlot(
   if (style.kind === "groupedBar") {
     const geometry = layoutGroupedBar(content, style);
     const svg = renderGroupedBarSvg(geometry, style);
+    return { svg, geometry, style };
+  }
+  if (style.kind === "survivalCurve") {
+    const geometry = layoutSurvivalCurve(content, style);
+    const svg = renderSurvivalCurveSvg(geometry, style);
     return { svg, geometry, style };
   }
   const groups = resolvePlotGroups(content, style);
@@ -1297,6 +1309,184 @@ export function renderGroupedBarSvg(
       `<text x="${(geo.x0 + geo.x1) / 2}" y="${geo.height - 8}" font-size="${f}" ` +
         `fill="${LABEL_TEXT}" text-anchor="middle">${esc(style.xTitle)}</text>`,
     );
+  }
+
+  parts.push(`</svg>`);
+  return parts.join("");
+}
+
+// ---------------------------------------------------------------------------
+// Kaplan-Meier survival curve (pure, unit-tested)
+// ---------------------------------------------------------------------------
+
+/** One survival arm laid out as a step polyline, in pixels. */
+export interface SurvivalCurve {
+  name: string;
+  color: string;
+  /** The step polyline points (a horizontal then vertical drop per event). */
+  path: { x: number; y: number }[];
+  /** The median survival time, or null when never reached. */
+  median: number | null;
+}
+
+/** The full laid-out survival figure. */
+export interface SurvivalCurveGeometry {
+  width: number;
+  height: number;
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+  tMax: number;
+  xTicks: XYTick[];
+  yTicks: XYTick[];
+  curves: SurvivalCurve[];
+  legend: GroupedLegendItem[];
+}
+
+/**
+ * Lay out a Kaplan-Meier survival figure: time on the X axis, survival 0..1 on
+ * the Y axis, one step-down curve per group (starting at survival 1 at time 0
+ * and dropping at each event time). Pure, asserted in the test suite.
+ */
+export function layoutSurvivalCurve(
+  content: DataHubDocContent,
+  style: PlotStyle,
+): SurvivalCurveGeometry {
+  const { width, height, padL, padR, padT, padB } = FIG;
+  const x0 = padL;
+  const x1 = width - padR;
+  const y0 = height - padB;
+  const y1 = padT;
+
+  const groups = survivalGroups(content).filter(
+    (g) => g.observations.length > 0,
+  );
+
+  // Time axis runs 0 .. the largest observed time.
+  let tMaxData = 0;
+  for (const g of groups) {
+    for (const o of g.observations) {
+      if (o.time > tMaxData) tMaxData = o.time;
+    }
+  }
+  const xAxis = niceTicks(0, tMaxData > 0 ? tMaxData : 1);
+  const tMax = xAxis.hi;
+  const xScale = scaleLinear().domain([0, tMax]).range([x0, x1]);
+  // Survival is a fixed 0..1 fraction axis.
+  const yScale = scaleLinear().domain([0, 1]).range([y0, y1]);
+  const X = (v: number) => xScale(v);
+  const Y = (v: number) => yScale(v);
+
+  const xTicks: XYTick[] = xAxis.values
+    .filter((v) => v >= 0 && v <= tMax + 1e-9)
+    .map((v) => ({ value: v, px: X(v) }));
+  const yTicks: XYTick[] = [0, 0.25, 0.5, 0.75, 1].map((v) => ({
+    value: v,
+    px: Y(v),
+  }));
+
+  const curves: SurvivalCurve[] = groups.map((g, gi) => {
+    const km = kaplanMeier(g.observations);
+    const color = colorForGroup(style.colorMode, gi);
+    const path: { x: number; y: number }[] = [{ x: X(0), y: Y(1) }];
+    let prevSurvival = 1;
+    if (km.ok) {
+      for (const step of km.steps) {
+        // Horizontal to the event time at the prior survival, then drop.
+        path.push({ x: X(step.time), y: Y(prevSurvival) });
+        path.push({ x: X(step.time), y: Y(step.survival) });
+        prevSurvival = step.survival;
+      }
+    }
+    // Extend the last level out to the end of the axis.
+    path.push({ x: X(tMax), y: Y(prevSurvival) });
+    return { name: g.name, color, path, median: km.ok ? km.median : null };
+  });
+
+  const legend: GroupedLegendItem[] = curves.map((c) => ({
+    name: c.name,
+    color: c.color,
+  }));
+
+  return { width, height, x0, x1, y0, y1, tMax, xTicks, yTicks, curves, legend };
+}
+
+/** Serialize a survival figure into a standalone SVG string. */
+export function renderSurvivalCurveSvg(
+  geo: SurvivalCurveGeometry,
+  style: PlotStyle,
+): string {
+  const f = style.fontSize;
+  const tickFont = Math.max(8, f - 2);
+  const parts: string[] = [];
+  parts.push(
+    `<svg width="${geo.width}" height="${geo.height}" viewBox="0 0 ${geo.width} ${geo.height}" ` +
+      `xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Inter, system-ui, sans-serif">`,
+  );
+  parts.push(
+    `<rect x="0" y="0" width="${geo.width}" height="${geo.height}" fill="#ffffff"/>`,
+  );
+
+  if (style.title.trim() !== "") {
+    parts.push(
+      `<text x="${geo.width / 2}" y="${geo.y1 - 14}" font-size="${f + 1}" ` +
+        `fill="${LABEL_TEXT}" text-anchor="middle" font-weight="700">${esc(style.title)}</text>`,
+    );
+  }
+
+  // Y axis + ticks (survival fraction).
+  parts.push(
+    `<line x1="${geo.x0}" y1="${geo.y1}" x2="${geo.x0}" y2="${geo.y0}" stroke="${AXIS_COLOR}" stroke-width="1"/>`,
+  );
+  for (const t of geo.yTicks) {
+    parts.push(
+      `<line x1="${geo.x0 - 4}" y1="${t.px}" x2="${geo.x0}" y2="${t.px}" stroke="${AXIS_COLOR}"/>` +
+        `<text x="${geo.x0 - 8}" y="${t.px + 4}" font-size="${tickFont}" fill="${TICK_TEXT}" text-anchor="end">${fmtTick(t.value)}</text>`,
+    );
+  }
+  const yTitle = style.yTitle.trim() || "Survival";
+  const midY = (geo.y0 + geo.y1) / 2;
+  parts.push(
+    `<text transform="translate(${geo.x0 - 38}, ${midY}) rotate(-90)" font-size="${f}" ` +
+      `fill="${LABEL_TEXT}" text-anchor="middle">${esc(yTitle)}</text>`,
+  );
+
+  // X axis + ticks.
+  parts.push(
+    `<line x1="${geo.x0}" y1="${geo.y0}" x2="${geo.x1}" y2="${geo.y0}" stroke="${AXIS_COLOR}" stroke-width="1"/>`,
+  );
+  for (const t of geo.xTicks) {
+    parts.push(
+      `<line x1="${t.px}" y1="${geo.y0}" x2="${t.px}" y2="${geo.y0 + 4}" stroke="${AXIS_COLOR}"/>` +
+        `<text x="${t.px}" y="${geo.y0 + 16}" font-size="${tickFont}" fill="${TICK_TEXT}" text-anchor="middle">${fmtTick(t.value)}</text>`,
+    );
+  }
+  const xTitle = style.xTitle.trim() || "Time";
+  parts.push(
+    `<text x="${(geo.x0 + geo.x1) / 2}" y="${geo.height - 8}" font-size="${f}" ` +
+      `fill="${LABEL_TEXT}" text-anchor="middle">${esc(xTitle)}</text>`,
+  );
+
+  // Step curves.
+  for (const curve of geo.curves) {
+    if (curve.path.length < 2) continue;
+    const d = curve.path
+      .map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
+      .join(" ");
+    parts.push(
+      `<path d="${d}" fill="none" stroke="${curve.color}" stroke-width="2"/>`,
+    );
+  }
+
+  // Legend (top-right inside the plot area).
+  let ly = geo.y1 + 4;
+  for (const item of geo.legend) {
+    parts.push(
+      `<rect x="${geo.x1 - 92}" y="${ly}" width="9" height="9" fill="${item.color}" opacity="0.9"/>` +
+        `<text x="${geo.x1 - 79}" y="${ly + 8}" font-size="${tickFont}" fill="${LABEL_TEXT}">${esc(item.name)}</text>`,
+    );
+    ly += 13;
   }
 
   parts.push(`</svg>`);

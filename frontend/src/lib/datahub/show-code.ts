@@ -17,6 +17,7 @@ import type {
   NormalizedCorrelation,
   NormalizedRegression,
   NormalizedResult,
+  NormalizedSurvival,
   NormalizedTTest,
   NormalizedTwoWayAnova,
   RunGroup,
@@ -207,6 +208,32 @@ function twoWayCode(r: NormalizedTwoWayAnova): string {
   return rows.join("\n");
 }
 
+function survivalCode(r: NormalizedSurvival): string {
+  if (r.groups.length < 2) {
+    return `from lifelines import KaplanMeierFitter
+
+# durations = each subject's time; events = 1 if the event happened, 0 if censored
+# durations = [...]; events = [...]
+kmf = KaplanMeierFitter()
+kmf.fit(durations, events)
+print(kmf.median_survival_time_)
+kmf.plot_survival_function()`;
+  }
+  return `from lifelines import KaplanMeierFitter
+from lifelines.statistics import multivariate_logrank_test
+
+# df has columns: duration, event (1/0), and group (the arm label).
+# df = pd.DataFrame({"duration": [...], "event": [...], "group": [...]})
+
+for name, sub in df.groupby("group"):
+    kmf = KaplanMeierFitter()
+    kmf.fit(sub["duration"], sub["event"], label=name)
+    print(name, kmf.median_survival_time_)
+
+res = multivariate_logrank_test(df["duration"], df["group"], df["event"])
+print(f"chi2 = {res.test_statistic:.4g}, p = {res.p_value:.4g}")`;
+}
+
 /**
  * The reproducible Python snippet for a normalized analysis result, with the
  * real group names and values baked in so it reproduces the on-screen numbers.
@@ -216,5 +243,6 @@ export function showCode(result: NormalizedResult): string {
   if (result.kind === "correlation") return correlationCode(result);
   if (result.kind === "regression") return regressionCode(result);
   if (result.kind === "twoWayAnova") return twoWayCode(result);
+  if (result.kind === "survival") return survivalCode(result);
   return ttestCode(result);
 }

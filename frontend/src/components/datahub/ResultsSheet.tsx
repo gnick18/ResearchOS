@@ -26,6 +26,7 @@ import {
   type NormalizedCorrelation,
   type NormalizedRegression,
   type NormalizedResult,
+  type NormalizedSurvival,
   type NormalizedTTest,
   type NormalizedTwoWayAnova,
 } from "@/lib/datahub/run-analysis";
@@ -367,6 +368,85 @@ function TwoWayAnovaTables({ r }: { r: NormalizedTwoWayAnova }) {
   );
 }
 
+function SurvivalTables({ r }: { r: NormalizedSurvival }) {
+  const medianText = (m: number | null) => (m === null ? "not reached" : num(m, 1));
+  return (
+    <>
+      <table
+        className="mt-4 w-full max-w-lg border-collapse text-body tabular-nums"
+        data-testid="results-survival-table"
+      >
+        <thead>
+          <tr className="text-meta uppercase tracking-wide text-foreground-muted">
+            <th className="border-b border-border px-3 py-1.5 text-left">Group</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">Subjects</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">Events</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">
+              Median survival
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {r.groups.map((g) => (
+            <tr key={g.name}>
+              <td className="border-b border-border px-3 py-1.5 text-foreground">
+                {g.name}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {g.n}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {g.events}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {medianText(g.median)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {r.logRank && (
+        <table
+          className="mt-4 w-full max-w-md border-collapse text-body tabular-nums"
+          data-testid="results-logrank-table"
+        >
+          <tbody>
+            <tr>
+              <td className="border-b border-border px-3 py-1.5 text-foreground-muted">
+                Log-rank chi-square
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right text-foreground">
+                {num(r.logRank.chiSquare)}
+              </td>
+            </tr>
+            <tr>
+              <td className="border-b border-border px-3 py-1.5 text-foreground-muted">
+                df
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right text-foreground">
+                {r.logRank.df}
+              </td>
+            </tr>
+            <tr>
+              <td className="border-b border-border px-3 py-1.5 text-foreground-muted">
+                p
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right text-foreground">
+                {formatP(r.logRank.pValue)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      )}
+      <p className="mt-2 max-w-xl text-meta text-foreground-muted">
+        Median survival is the time the survival curve crosses 50 percent. The
+        log-rank test compares the whole curves, not just the medians.
+      </p>
+    </>
+  );
+}
+
 export default function ResultsSheet({
   spec,
   content,
@@ -412,6 +492,8 @@ export default function ResultsSheet({
         <AnovaTables r={result} />
       ) : result.kind === "twoWayAnova" ? (
         <TwoWayAnovaTables r={result} />
+      ) : result.kind === "survival" ? (
+        <SurvivalTables r={result} />
       ) : result.kind === "correlation" ? (
         <CorrelationTable r={result} />
       ) : result.kind === "regression" ? (

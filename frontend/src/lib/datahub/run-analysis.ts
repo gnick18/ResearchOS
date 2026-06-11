@@ -35,6 +35,9 @@ import {
   pearson,
   spearman,
   linearRegression,
+  kaplanMeier,
+  logRank,
+  type KaplanMeierStep,
 } from "@/lib/datahub/engine";
 import type {
   AnovaResult,
@@ -54,6 +57,7 @@ import {
   rowLabelColumn,
   twoWayObservations,
 } from "@/lib/datahub/grouped-table";
+import { survivalGroups, hasSurvivalData } from "@/lib/datahub/survival-table";
 
 /** The analysis types this slice can run. */
 export type AnalysisType =
@@ -66,7 +70,11 @@ export type AnalysisType =
   | "correlationPearson"
   | "correlationSpearman"
   | "linearRegression"
-  | "twoWayAnova";
+  | "twoWayAnova"
+  | "kaplanMeier";
+
+/** The analysis types that read a Survival table (time + event + group). */
+export const SURVIVAL_ANALYSIS_TYPES: AnalysisType[] = ["kaplanMeier"];
 
 /** The analysis types that read an XY table (one X column paired with a Y). */
 export const XY_ANALYSIS_TYPES: AnalysisType[] = [
@@ -219,12 +227,40 @@ export interface NormalizedTwoWayAnova {
   pInteraction: number;
 }
 
+/** One arm of a normalized survival result: its Kaplan-Meier curve + median. */
+export interface NormalizedSurvivalGroup {
+  name: string;
+  n: number;
+  events: number;
+  median: number | null;
+  steps: KaplanMeierStep[];
+}
+
+/**
+ * A normalized survival result. One Kaplan-Meier curve per group (steps +
+ * median), plus the log-rank comparison when there are two or more groups. From
+ * the engine's kaplanMeier + logRank.
+ */
+export interface NormalizedSurvival {
+  kind: "survival";
+  type: "kaplanMeier";
+  groups: NormalizedSurvivalGroup[];
+  /** The log-rank test across the groups, or null with fewer than two groups. */
+  logRank: {
+    chiSquare: number;
+    df: number;
+    pValue: number;
+    perGroup: { name: string; observed: number; expected: number }[];
+  } | null;
+}
+
 export type NormalizedResult =
   | NormalizedTTest
   | NormalizedAnova
   | NormalizedCorrelation
   | NormalizedRegression
-  | NormalizedTwoWayAnova;
+  | NormalizedTwoWayAnova
+  | NormalizedSurvival;
 
 /** A failed run carries the engine (or resolver) reason so the UI can show it. */
 export interface RunFailure {
@@ -285,6 +321,9 @@ export function validAnalysisTypes(content: DataHubDocContent): AnalysisType[] {
       return [...GROUPED_ANALYSIS_TYPES];
     }
     return [];
+  }
+  if (content.meta.table_type === "survival") {
+    return hasSurvivalData(content) ? [...SURVIVAL_ANALYSIS_TYPES] : [];
   }
   const k = groupColumns(content).length;
   const out: AnalysisType[] = [];
@@ -381,6 +420,50 @@ function tableRow(table: AnovaResult["table"], source: string) {
   return table.find((r) => r.source === source);
 }
 
+/** Run Kaplan-Meier per group plus a log-rank test on a Survival table. */
+function runSurvivalAnalysis(content: DataHubDocContent): RunOutcome {
+  const groups = survivalGroups(content).filter(
+    (g) => g.observations.length > 0,
+  );
+  if (groups.length === 0) {
+    return {
+      ok: false,
+      error: "Enter a Time and an Event (1 or 0) for each subject first.",
+    };
+  }
+  const normGroups: NormalizedSurvivalGroup[] = [];
+  for (const g of groups) {
+    const km = kaplanMeier(g.observations);
+    if (!km.ok) return { ok: false, error: km.error };
+    normGroups.push({
+      name: g.name,
+      n: km.n,
+      events: km.events,
+      median: km.median,
+      steps: km.steps,
+    });
+  }
+
+  let lr: NormalizedSurvival["logRank"] = null;
+  if (groups.length >= 2) {
+    const r = logRank(groups);
+    if (r.ok) {
+      lr = {
+        chiSquare: r.chiSquare,
+        df: r.df,
+        pValue: r.pValue,
+        perGroup: r.groups.map((x) => ({
+          name: x.name,
+          observed: x.observed,
+          expected: x.expected,
+        })),
+      };
+    }
+  }
+
+  return { ok: true, kind: "survival", type: "kaplanMeier", groups: normGroups, logRank: lr };
+}
+
 /** Run a two-way ANOVA on a Grouped table's flattened observations. */
 function runTwoWayAnalysis(content: DataHubDocContent): RunOutcome {
   const observations = twoWayObservations(content);
@@ -433,6 +516,10 @@ export function runAnalysis(
 
   if (type === "twoWayAnova") {
     return runTwoWayAnalysis(content);
+  }
+
+  if (type === "kaplanMeier") {
+    return runSurvivalAnalysis(content);
   }
 
   const groups = resolveGroups(content, specColumnIds(spec));

@@ -50,6 +50,8 @@ function analysisLabel(type: string): string {
       return "Linear regression";
     case "twoWayAnova":
       return "Two-way ANOVA";
+    case "kaplanMeier":
+      return "Survival analysis";
     default:
       return type;
   }
@@ -68,6 +70,8 @@ function plotLabel(spec: PlotSpec): string {
       return "XY graph";
     case "groupedBar":
       return "Grouped bar";
+    case "survivalCurve":
+      return "Survival curve";
     case "columnScatter":
     default:
       return "Column scatter";

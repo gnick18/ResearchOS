@@ -92,6 +92,7 @@ export default function NewGraphDialog({
 }) {
   const isXY = content?.meta.table_type === "xy";
   const isGrouped = content?.meta.table_type === "grouped";
+  const isSurvival = content?.meta.table_type === "survival";
   const groups = useMemo(
     () => (content ? groupColumns(content) : []),
     [content],
@@ -106,11 +107,19 @@ export default function NewGraphDialog({
 
   useEffect(() => {
     if (!open) return;
-    setKind(isXY ? "xyScatter" : isGrouped ? "groupedBar" : "columnScatter");
+    setKind(
+      isXY
+        ? "xyScatter"
+        : isGrouped
+          ? "groupedBar"
+          : isSurvival
+            ? "survivalCurve"
+            : "columnScatter",
+    );
     setUseBrackets(true);
     setYColumn(ys[0]?.id ?? "");
     setFitModel("linear");
-  }, [open, isXY, isGrouped, ys]);
+  }, [open, isXY, isGrouped, isSurvival, ys]);
 
   useEffect(() => {
     if (!open) return;
@@ -125,7 +134,7 @@ export default function NewGraphDialog({
 
   const canSubmit = isXY
     ? yColumn !== ""
-    : isGrouped
+    : isGrouped || isSurvival
       ? true
       : groups.length >= 1;
 
@@ -142,6 +151,10 @@ export default function NewGraphDialog({
     }
     if (isGrouped) {
       onSubmit({ kind: "groupedBar", analysisId: null });
+      return;
+    }
+    if (isSurvival) {
+      onSubmit({ kind: "survivalCurve", analysisId: null });
       return;
     }
     onSubmit({
@@ -168,7 +181,13 @@ export default function NewGraphDialog({
           and re-fits the curve. You only choose the kind once.
         </p>
 
-        {isGrouped ? (
+        {isSurvival ? (
+          <p className="mt-4 rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-foreground-muted">
+            Makes a Kaplan-Meier survival curve, one step-down line per group,
+            with time on the X axis and survival on the Y axis. Tune the colors
+            from the style panel after it opens.
+          </p>
+        ) : isGrouped ? (
           <p className="mt-4 rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-foreground-muted">
             Makes a grouped bar chart, one cluster per row label and one bar per
             group, with error bars from the replicates. Tune the error-bar type

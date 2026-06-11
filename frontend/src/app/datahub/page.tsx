@@ -52,6 +52,7 @@ import {
   groupDatasets,
   DEFAULT_GROUPED_REPLICATES,
 } from "@/lib/datahub/grouped-table";
+import { buildEmptySurvivalTable } from "@/lib/datahub/survival-table";
 import { runAnalysis } from "@/lib/datahub/run-analysis";
 import {
   buildPlotSpec,
@@ -62,6 +63,7 @@ import DataHubRail, { type Collection } from "@/components/datahub/DataHubRail";
 import DataTableGrid from "@/components/datahub/DataTableGrid";
 import XYTableGrid from "@/components/datahub/XYTableGrid";
 import GroupedTableGrid from "@/components/datahub/GroupedTableGrid";
+import SurvivalTableGrid from "@/components/datahub/SurvivalTableGrid";
 import NewTableDialog, {
   type NewTableSubmit,
 } from "@/components/datahub/NewTableDialog";
@@ -359,7 +361,9 @@ export default function DataHubPage() {
             ? buildEmptyXYTable()
             : data.tableType === "grouped"
               ? buildEmptyGroupedTable()
-              : { columns: [], rows: [] };
+              : data.tableType === "survival"
+                ? buildEmptySurvivalTable()
+                : { columns: [], rows: [] };
       const created = await dataHubApi.create({
         name: data.name,
         table_type: data.tableType,
@@ -473,7 +477,9 @@ export default function DataHubPage() {
       const handle = handleRef.current;
       if (!handle || !openContent || openIdRef.current == null) return;
       const id = `plot-${Date.now()}`;
-      const isXY = openContent.meta.table_type === "xy";
+      const tableType = openContent.meta.table_type;
+      const isXY = tableType === "xy";
+      const isSurvival = tableType === "survival";
       const yName = data.yColumnId
         ? yColumns(openContent).find((c) => c.id === data.yColumnId)?.name
         : undefined;
@@ -484,8 +490,12 @@ export default function DataHubPage() {
         analysisId: data.analysisId,
         yColumnId: data.yColumnId ?? null,
         fitModel: data.fitModel,
-        yTitle: isXY ? yName ?? selectedMeta?.name ?? "Y" : selectedMeta?.name ?? "Value",
-        xTitle: isXY ? "X" : undefined,
+        yTitle: isXY
+          ? yName ?? selectedMeta?.name ?? "Y"
+          : isSurvival
+            ? "Survival"
+            : selectedMeta?.name ?? "Value",
+        xTitle: isXY ? "X" : isSurvival ? "Time" : undefined,
       });
       setPlotInDoc(handle.doc, spec);
       void handle.commit();
@@ -658,7 +668,9 @@ export default function DataHubPage() {
                   ? "XY table. The first column is the X value, each following column is a measured Y, one observation per row."
                   : openContent.meta.table_type === "grouped"
                     ? "Grouped table. Each row is a category and each column group is a second factor, with replicate subcolumns for a two-way ANOVA."
-                    : "Column table. Each column is a treatment group, each row a replicate."}
+                    : openContent.meta.table_type === "survival"
+                      ? "Survival table. Each row is a subject with a time, an event indicator (1 or 0), and an optional group for Kaplan-Meier and the log-rank test."
+                      : "Column table. Each column is a treatment group, each row a replicate."}
               </p>
               {openContent.meta.table_type === "xy" ? (
                 <XYTableGrid
@@ -674,6 +686,12 @@ export default function DataHubPage() {
                   onAddRow={handleAddRow}
                   onAddColumn={handleAddColumn}
                   onRenameGroup={handleRenameGroup}
+                />
+              ) : openContent.meta.table_type === "survival" ? (
+                <SurvivalTableGrid
+                  content={openContent}
+                  onCellCommit={handleCellCommit}
+                  onAddRow={handleAddRow}
                 />
               ) : (
                 <DataTableGrid

@@ -93,6 +93,12 @@ const TYPE_META: Record<
       "Test two factors at once (the row label and the column group) plus their interaction, with Tukey comparisons across the groups.",
     groupCount: "all",
   },
+  kaplanMeier: {
+    label: "Survival analysis",
+    blurb:
+      "Kaplan-Meier curves with median survival, plus the log-rank test when the table has two or more groups.",
+    groupCount: "all",
+  },
 };
 
 export default function NewAnalysisDialog({
@@ -109,6 +115,8 @@ export default function NewAnalysisDialog({
 }) {
   const isXY = content?.meta.table_type === "xy";
   const isGrouped = content?.meta.table_type === "grouped";
+  const isSurvival = content?.meta.table_type === "survival";
+  const wholeTable = isGrouped || isSurvival;
   const groups = useMemo(
     () => (content ? groupColumns(content) : []),
     [content],
@@ -152,7 +160,7 @@ export default function NewAnalysisDialog({
   if (!open) return null;
 
   const isPair = type !== null && TYPE_META[type].groupCount === "two";
-  const canSubmit = isGrouped
+  const canSubmit = wholeTable
     ? type !== null
     : isXY
       ? type !== null && yColumn !== "" && !!xCol
@@ -163,9 +171,9 @@ export default function NewAnalysisDialog({
 
   const submit = () => {
     if (!canSubmit || type === null) return;
-    // A two-way ANOVA reads the whole grouped table (row factor x groups), so it
-    // needs no column selection.
-    const columnIds = isGrouped
+    // A two-way ANOVA or a survival analysis reads the whole table, so it needs
+    // no column selection.
+    const columnIds = wholeTable
       ? []
       : isXY
         ? [yColumn]
@@ -199,7 +207,9 @@ export default function NewAnalysisDialog({
               ? "Add an X column and at least one Y column with numbers before running an analysis."
               : isGrouped
                 ? "Label at least two rows and fill at least two groups with numbers before running a two-way ANOVA."
-                : "Add at least two groups with numbers before running an analysis."}
+                : isSurvival
+                  ? "Enter a Time and an Event (1 or 0) for at least one subject before running a survival analysis."
+                  : "Add at least two groups with numbers before running an analysis."}
           </p>
         ) : (
           <>
@@ -236,6 +246,12 @@ export default function NewAnalysisDialog({
               <p className="mt-4 rounded-md border border-border bg-surface-raised px-3 py-2 text-meta text-foreground-muted">
                 Runs across every row label and every column group on this table,
                 including the interaction. No column picking needed.
+              </p>
+            ) : isSurvival ? (
+              <p className="mt-4 rounded-md border border-border bg-surface-raised px-3 py-2 text-meta text-foreground-muted">
+                Estimates a Kaplan-Meier curve for each Group on this table, and
+                runs the log-rank test when there are two or more groups. No
+                column picking needed.
               </p>
             ) : isXY ? (
               <div className="mt-4 grid grid-cols-2 gap-3">

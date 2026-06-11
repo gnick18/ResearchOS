@@ -236,7 +236,7 @@
   "components/workbench/WorkbenchProjectsPanel.tsx": 4,
   "lib/attachments/annotations.test.ts": 1,
   "lib/attachments/annotations.ts": 1,
-  "lib/datahub/plot-spec.ts": 3,
+  "lib/datahub/plot-spec.ts": 4,
   "lib/methods/method-type-icons.tsx": 10,
   "lib/sequences/export.ts": 4,
   "lib/sharing/relay/__tests__/mailer.test.ts": 1,
