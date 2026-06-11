@@ -774,7 +774,13 @@ export default function DataHubPage() {
           graphsEnabled={!!openContent}
         />
 
-        <section className="flex min-w-0 flex-1 flex-col overflow-auto rounded-lg border border-border bg-surface-raised p-5">
+        <section
+          className={`flex min-w-0 flex-1 flex-col rounded-lg border border-border bg-surface-raised ${
+            selectedMeta && openContent && selectedPlot
+              ? "overflow-hidden"
+              : "overflow-auto p-5"
+          }`}
+        >
           {tablesInCollection.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
               <h1 className="text-heading font-semibold text-foreground">

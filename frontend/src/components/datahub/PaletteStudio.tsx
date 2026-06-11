@@ -119,6 +119,22 @@ function NameInput({
   );
 }
 
+/** A labeled row (label left, control right), matched to the dock styling. */
+function Ctl({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2 border-b border-border py-2 last:border-b-0">
+      <span className="text-meta text-foreground-muted">{label}</span>
+      <div className="flex shrink-0 items-center gap-1">{children}</div>
+    </div>
+  );
+}
+
 /** A small segmented control matched to the GraphEditor styling. */
 function Seg<T extends string>({
   value,
@@ -160,6 +176,8 @@ export default function PaletteStudio({
   seriesNames,
   resolvedColors,
   onStyleChange,
+  compact = false,
+  onBrowse,
 }: {
   style: PlotStyle;
   /** The plot's actual series count, auto-detected from the resolved groups. */
@@ -169,6 +187,11 @@ export default function PaletteStudio({
   /** The colors the figure is currently drawing, for the custom list seed. */
   resolvedColors: string[];
   onStyleChange: (patch: Partial<PlotStyle>) => void;
+  /** When true, render only the quick swatch + mode toggle + Browse button, so
+   * the studio fits the narrow right dock. The full studio opens in a modal. */
+  compact?: boolean;
+  /** Open the full studio in a roomy modal (compact mode only). */
+  onBrowse?: () => void;
 }) {
   const [userPalettes, setUserPalettes] = useState<Palette[]>(() =>
     loadUserPalettes(),
@@ -352,52 +375,47 @@ export default function PaletteStudio({
 
   const userIds = new Set(userPalettes.map((p) => p.id));
 
-  return (
-    <div className="mt-3 border-t border-border pt-3" data-testid="palette-studio">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-[11px] font-bold uppercase tracking-wide text-foreground-muted">
-          Colors
-        </span>
-        <Seg<Mode>
-          value={mode}
-          options={[
-            { value: "library", label: "Library" },
-            { value: "custom", label: "Custom" },
-            { value: "generate", label: "Generate" },
-          ]}
-          onChange={setMode}
-        />
+  // The shared inline name field for any "save as palette" flow (custom /
+  // generate / import). Shows a swatch preview so the researcher sees what they
+  // are naming. Rendered in both the compact dock and the full modal.
+  const saveNameBody = pendingSave ? (
+    <div
+      className="mb-2 rounded-md border border-accent bg-accent-soft p-2"
+      data-testid="palette-save-name"
+    >
+      <p className="mb-1.5 text-[10px] font-semibold text-foreground-muted">
+        Name this palette
+      </p>
+      <div className="mb-1.5">
+        <SwatchRow colors={pendingSave.colors} />
       </div>
+      <NameInput
+        value={pendingSave.name}
+        placeholder="My palette"
+        onChange={(v) =>
+          setPendingSave((prev) => (prev ? { ...prev, name: v } : prev))
+        }
+        onConfirm={commitSave}
+        onCancel={cancelSave}
+        confirmLabel="Save palette"
+      />
+    </div>
+  ) : null;
 
-      {/* Shared inline name field for any "save as palette" flow (custom /
-          generate / import). Shows a swatch preview so the researcher sees what
-          they are naming. */}
-      {pendingSave && (
-        <div
-          className="mb-2 rounded-md border border-accent bg-accent-soft p-2"
-          data-testid="palette-save-name"
-        >
-          <p className="mb-1.5 text-[10px] font-semibold text-foreground-muted">
-            Name this palette
-          </p>
-          <div className="mb-1.5">
-            <SwatchRow colors={pendingSave.colors} />
-          </div>
-          <NameInput
-            value={pendingSave.name}
-            placeholder="My palette"
-            onChange={(v) =>
-              setPendingSave((prev) => (prev ? { ...prev, name: v } : prev))
-            }
-            onConfirm={commitSave}
-            onCancel={cancelSave}
-            confirmLabel="Save palette"
-          />
-        </div>
-      )}
+  // The colors the figure is drawing right now, for the compact swatch preview.
+  // Prefer the resolved colors GraphEditor passed in (palette + overrides
+  // already applied); fall back to sampling the active palette to the count.
+  const previewColors = (): string[] => {
+    if (resolvedColors.length) return resolvedColors;
+    const active = activeId ? paletteById(activeId) : undefined;
+    if (active) return samplePalette(active, Math.max(1, seriesCount));
+    return ["#1AA0E6"];
+  };
 
-      {mode === "library" && (
-        <div data-testid="palette-library">
+  // The full library grid (filter-by-N, CB / print toggles, category, the
+  // scrollable card list). Roomy, so it lives in the modal, not the dock.
+  const libraryBody = (
+    <div data-testid="palette-library">
           {/* Filters */}
           <div className="mb-2 flex flex-wrap items-center gap-1.5">
             <div className="flex items-center gap-1 rounded-md border border-border bg-surface-raised px-1.5 py-1">
@@ -582,10 +600,11 @@ export default function PaletteStudio({
             )}
           </div>
         </div>
-      )}
+  );
 
-      {mode === "custom" && (
-        <div data-testid="palette-custom">
+  // The custom per-series color list. Compact enough to also live in the dock.
+  const customBody = (
+    <div data-testid="palette-custom">
           <p className="mb-2 text-[10px] text-foreground-muted">
             Set each series color by hand. A custom color overrides the palette
             for that series only.
@@ -632,11 +651,13 @@ export default function PaletteStudio({
               Save as palette
             </button>
           </div>
-        </div>
-      )}
+    </div>
+  );
 
-      {mode === "generate" && (
-        <div data-testid="palette-generate">
+  // Generate + lock (the Coolors move) plus the Coolors-URL import. Compact
+  // enough to also live in the dock.
+  const generateBody = (
+    <div data-testid="palette-generate">
           <p className="mb-2 text-[10px] text-foreground-muted">
             Lock the colors you like, then generate the rest. This is the Coolors
             move. Apply writes the colors onto the figure now.
@@ -724,8 +745,76 @@ export default function PaletteStudio({
               <p className="mt-1 text-[10px] text-red-600">{importError}</p>
             )}
           </div>
-        </div>
-      )}
+    </div>
+  );
+
+  // Compact dock view. A live swatch of the current colors, the Library /
+  // Custom / Generate mode toggle for quick switching, the Custom and Generate
+  // bodies inline (small, useful in the dock), and a Browse button that opens
+  // the full library grid in a roomy modal. The full filter-by-N grid does not
+  // belong cramped in the 300px dock.
+  if (compact) {
+    return (
+      <div data-testid="palette-studio-compact">
+        <Ctl label="Current">
+          <div className="w-[150px]">
+            <SwatchRow colors={previewColors()} />
+          </div>
+        </Ctl>
+        <Ctl label="Edit mode">
+          <Seg<Mode>
+            value={mode}
+            options={[
+              { value: "library", label: "Library" },
+              { value: "custom", label: "Custom" },
+              { value: "generate", label: "Generate" },
+            ]}
+            onChange={setMode}
+          />
+        </Ctl>
+        {saveNameBody}
+        {mode === "library" ? (
+          <p className="mt-2 text-[10px] text-foreground-muted">
+            Pick from the full library, filtered by how many series this figure
+            has, with color-blind and print-safe options. Browse opens the roomy
+            view.
+          </p>
+        ) : (
+          <div className="mt-2">
+            {mode === "custom" ? customBody : generateBody}
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={onBrowse}
+          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:bg-surface-sunken"
+          data-testid="palette-browse-button"
+        >
+          <Icon name="layer" className="h-3 w-3" />
+          Browse all palettes
+        </button>
+      </div>
+    );
+  }
+
+  // Full studio (used in the Browse modal). All modes, with the mode toggle.
+  return (
+    <div data-testid="palette-studio">
+      <div className="mb-2 flex items-center justify-end">
+        <Seg<Mode>
+          value={mode}
+          options={[
+            { value: "library", label: "Library" },
+            { value: "custom", label: "Custom" },
+            { value: "generate", label: "Generate" },
+          ]}
+          onChange={setMode}
+        />
+      </div>
+      {saveNameBody}
+      {mode === "library" && libraryBody}
+      {mode === "custom" && customBody}
+      {mode === "generate" && generateBody}
     </div>
   );
 }
