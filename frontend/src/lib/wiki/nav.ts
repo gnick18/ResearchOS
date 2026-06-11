@@ -30,6 +30,7 @@ export const APP_ROUTE_TO_WIKI: Record<string, string> = {
   "/trash": "/wiki/features/trash",
   "/sequences": "/wiki/features/sequences",
   "/datahub": "/wiki/features/datahub",
+  "/chemistry": "/wiki/features/chemistry",
 };
 
 /** Prefix-aware lookup. Tries an exact match first, then walks the
@@ -241,6 +242,11 @@ export const WIKI_NAV: WikiNode[] = [
         href: "/wiki/features/datahub",
         label: "Data Hub",
         blurb: "A free, open-source GraphPad Prism alternative. Statistics and publication figures that run in the browser, with your data staying in your folder.",
+      },
+      {
+        href: "/wiki/features/chemistry",
+        label: "Chemistry",
+        blurb: "A free ChemDraw and SciFinder alternative. Draw structures, build a molecule library, and find the papers and patents for a compound, all in the browser.",
       },
       {
         href: "/wiki/features/cloning",

@@ -4188,6 +4188,237 @@ const FIXTURE_ROUTES = [
       }
     },
   },
+
+  // ── Chemistry workbench shots ─────────────────────────────────────────────
+  // The ?wikiCapture=1 fixture seeds 4 molecules for alex under project 1
+  // (Ethanol, Acetic acid, Glycerol, Resveratrol), each with a real Molfile +
+  // SMILES/InChIKey/formula/weight, so the library, the detail view, and the
+  // structure thumbnails all populate offline. Resveratrol is molecule id 4 and
+  // makes the best detail/editor subject (a non-trivial stilbene). The deep link
+  // /chemistry?molecule=<id> auto-selects a molecule in the rail and opens its
+  // detail view, and it composes with the appended &wikiCapture=1.
+  {
+    // 1. Whole workbench: library rail on the left, Resveratrol selected so its
+    //    detail view fills the right pane. Viewport capture of the split-pane.
+    path: "/chemistry?molecule=4",
+    file: "chemistry-workbench-overview.png",
+    waitFor: "text=Resveratrol",
+    settleMs: 1400,
+  },
+  {
+    // 2. The molecule library rail. Crop to the left panel (header, the New/
+    //    PubChem/Import/Literature actions, the collection selector, the list).
+    //    Clip from x=0 to the resize divider's left edge.
+    path: "/chemistry",
+    file: "chemistry-library-rail.png",
+    waitFor: "text=Resveratrol",
+    settleMs: 1200,
+    action: async (page) => {
+      try {
+        const clip = await page.evaluate(() => {
+          const sep = document.querySelector('[role="separator"]');
+          const right = sep
+            ? Math.ceil(sep.getBoundingClientRect().left)
+            : 360;
+          return { x: 0, y: 0, width: Math.max(280, right), height: 900 };
+        });
+        if (clip && clip.width > 100) return { clip };
+      } catch (err) {
+        console.warn(`  ⚠ chemistry-library-rail clip: ${err.message}`);
+      }
+    },
+  },
+  {
+    // 3. The molecule detail view for Resveratrol: depiction, the identity table
+    //    (formula, avg MW, canonical SMILES, InChIKey), the copy actions, and the
+    //    linked-projects section. Crop to the detail pane (right of the divider).
+    path: "/chemistry?molecule=4",
+    file: "chemistry-molecule-detail.png",
+    waitFor: "text=InChIKey",
+    settleMs: 1400,
+    action: async (page) => {
+      try {
+        const clip = await page.evaluate(() => {
+          const sep = document.querySelector('[role="separator"]');
+          const left = sep ? Math.floor(sep.getBoundingClientRect().right) : 360;
+          return {
+            x: left,
+            y: 0,
+            width: Math.max(200, window.innerWidth - left),
+            height: 900,
+          };
+        });
+        if (clip && clip.width > 100) return { clip };
+      } catch (err) {
+        console.warn(`  ⚠ chemistry-molecule-detail clip: ${err.message}`);
+      }
+    },
+  },
+  {
+    // 4. The structure editor (Ketcher) open over the workbench with Resveratrol
+    //    loaded on the canvas. Opened via the detail view's Edit structure button.
+    //    FIXTURE NOTE: Ketcher is a heavy mount (loads a full drawing engine +
+    //    the Indigo wasm worker). The long settle below covers a cold first mount;
+    //    bump it if the canvas is still blank in the capture.
+    path: "/chemistry?molecule=4",
+    file: "chemistry-editor.png",
+    waitFor: "text=Edit structure",
+    settleMs: 1200,
+    action: async (page) => {
+      try {
+        const edit = page
+          .getByRole("button", { name: /Edit structure/i })
+          .first();
+        if (await edit.count()) {
+          await edit.click({ timeout: 4000 });
+          // Wait for the Ketcher canvas to mount and render the loaded structure.
+          await page
+            .waitForSelector(
+              '.Ketcher-root, [class*="Ketcher"], canvas, svg [class*="ketcher"]',
+              { timeout: 12000 },
+            )
+            .catch(() => {});
+          await page.waitForTimeout(3500);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ chemistry-editor action: ${err.message}`);
+      }
+    },
+  },
+  {
+    // 5. PubChem import: the candidate grid after a name search.
+    //    FIXTURE NOTE: this needs LIVE NETWORK at capture time. The search hits
+    //    PubChem's public autocomplete + property API (CORS-open, no key). With no
+    //    network the dialog shows its empty/search state instead of the grid.
+    path: "/chemistry",
+    file: "chemistry-pubchem-import.png",
+    waitFor: "text=Resveratrol",
+    settleMs: 800,
+    action: async (page) => {
+      try {
+        const pubchem = page
+          .getByRole("button", { name: /^PubChem$/i })
+          .first();
+        if (await pubchem.count()) {
+          await pubchem.click({ timeout: 4000 });
+          await page.waitForTimeout(500);
+        }
+        const input = page
+          .locator('input[placeholder*="caffeine" i], input[placeholder*="compound" i]')
+          .first();
+        if (await input.count()) {
+          await input.fill("caffeine");
+          await input.press("Enter");
+          // Give PubChem time to return candidates.
+          await page.waitForTimeout(4000);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ chemistry-pubchem-import action: ${err.message}`);
+      }
+    },
+  },
+  {
+    // 6. The per-molecule literature panel: papers + patents for Resveratrol.
+    //    FIXTURE NOTE: needs LIVE NETWORK. Europe PMC (by name) populates the
+    //    Papers list; the fixture molecules carry no PubChem cid, so the
+    //    PubChem-linked papers/patents counts stay empty. To exercise the full
+    //    panel, import Resveratrol from PubChem first so it carries a cid.
+    path: "/chemistry?molecule=4",
+    file: "chemistry-literature.png",
+    waitFor: "text=Find papers and patents",
+    settleMs: 800,
+    action: async (page) => {
+      try {
+        const show = page
+          .getByRole("button", { name: /Find papers and patents/i })
+          .first();
+        if (await show.count()) {
+          await show.click({ timeout: 4000 });
+          await page.waitForTimeout(5000);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ chemistry-literature action: ${err.message}`);
+      }
+    },
+  },
+  {
+    // 7. The substructure patent search (SureChEMBL) on the standalone Literature
+    //    surface. Opened via the rail's Literature action.
+    //    FIXTURE NOTE: a populated hit list needs (a) a fragment drawn in the
+    //    embedded Ketcher and (b) a live, async SureChEMBL search (submit + poll).
+    //    Automating the draw is brittle, so this entry captures the search UI in
+    //    its prompt state. Draw a fragment by hand and re-run for a populated shot.
+    path: "/chemistry",
+    file: "chemistry-substructure-patents.png",
+    waitFor: "text=Resveratrol",
+    settleMs: 800,
+    action: async (page) => {
+      try {
+        const lit = page.getByRole("button", { name: /^Literature$/i }).first();
+        if (await lit.count()) {
+          await lit.click({ timeout: 4000 });
+          await page.waitForTimeout(1200);
+        }
+        // Scroll the substructure section into view (below the name search).
+        await page.evaluate(() => {
+          const el = Array.from(document.querySelectorAll("h2, h3, h4")).find(
+            (h) => /substructure|patent/i.test(h.textContent || ""),
+          );
+          if (el) el.scrollIntoView({ block: "center", behavior: "instant" });
+        });
+        await page.waitForTimeout(800);
+      } catch (err) {
+        console.warn(`  ⚠ chemistry-substructure-patents action: ${err.message}`);
+      }
+    },
+  },
+  {
+    // 8. The Molecules section on a project surface. The ProjectDetailPopup for
+    //    project 1 carries a Molecules inventory listing the structures linked to
+    //    the project (the 4 fixture molecules are all linked to project 1).
+    //    Scroll to the section heading and clip around it.
+    path: "/workbench/projects/1",
+    file: "chemistry-project-molecules.png",
+    waitFor: '[data-testid="project-route-topbar"], text=Overview',
+    settleMs: 1000,
+    action: async (page) => {
+      try {
+        await page.evaluate(() => {
+          const byId = document.getElementById("molecules");
+          const el =
+            byId ||
+            Array.from(document.querySelectorAll("h2, h3")).find(
+              (h) => (h.textContent || "").trim() === "Molecules",
+            );
+          if (el) el.scrollIntoView({ block: "start", behavior: "instant" });
+        });
+        await page.waitForTimeout(700);
+        const clip = await page.evaluate(() => {
+          const byId = document.getElementById("molecules");
+          const heading =
+            byId ||
+            Array.from(document.querySelectorAll("h2, h3")).find(
+              (h) => (h.textContent || "").trim() === "Molecules",
+            );
+          if (!heading) return null;
+          const section = heading.closest("section") || heading.parentElement;
+          const r = (section || heading).getBoundingClientRect();
+          const pad = 12;
+          const x = Math.max(0, Math.floor(r.left - pad));
+          const y = Math.max(0, Math.floor(r.top - pad));
+          return {
+            x,
+            y,
+            width: Math.min(window.innerWidth - x, Math.ceil(r.width + pad * 2)),
+            height: Math.min(window.innerHeight - y, Math.ceil(r.height + pad * 2)),
+          };
+        });
+        if (clip && clip.width > 100 && clip.height > 80) return { clip };
+      } catch (err) {
+        console.warn(`  ⚠ chemistry-project-molecules clip: ${err.message}`);
+      }
+    },
+  },
 ];
 
 /** Hide dev/beta UI that distracts from docs. Re-applied per page.
