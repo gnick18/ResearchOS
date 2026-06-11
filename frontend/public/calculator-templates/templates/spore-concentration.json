@@ -21,6 +21,6 @@
   ],
   "conditionals": [],
   "outputs": [
-    { "label": "Spores per mL", "expr": "if(countType == \"i\", base * 5, base / 5)", "unit": "spores/mL" }
+    { "label": "Spores per mL", "expr": "if(countType == \"i\", base * 5, base / 5)", "unit": "spores/mL", "format": "scientific" }
   ]
 }

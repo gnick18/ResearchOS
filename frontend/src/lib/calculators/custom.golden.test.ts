@@ -249,4 +249,9 @@ describe("GOLDEN: spore-concentration", () => {
     near(out(internal, "Spores per mL").value, 2.5e8));
   it("outer squares: 1e7 spores/mL", () =>
     near(out(outer, "Spores per mL").value, 1e7));
+  // The output declares format "scientific" so a large spore count reads as
+  // 2.5e8 rather than 250000000. The numeric .value above is unchanged; only
+  // the .display string honors the format.
+  it("internal squares display is scientific", () =>
+    expect(out(internal, "Spores per mL").display).toBe("2.50e+8"));
 });
