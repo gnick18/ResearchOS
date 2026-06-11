@@ -81,6 +81,50 @@ export async function resolveNameToCid(name: string): Promise<number | null> {
   return data.IdentifierList?.CID?.[0] ?? null;
 }
 
+/** Resolve a name to up to `max` candidate CIDs (the search grid shows several). */
+export async function resolveNameToCids(
+  name: string,
+  max = 8,
+): Promise<number[]> {
+  const res = await fetch(`${PUG}/name/${encodeURIComponent(name)}/cids/JSON`);
+  if (!res.ok) return [];
+  const data = (await res.json()) as { IdentifierList?: { CID?: number[] } };
+  return (data.IdentifierList?.CID ?? []).slice(0, max);
+}
+
+/** Fetch identity properties for several CIDs in one call (preserves PubChem order). */
+export async function fetchCompoundsByCids(
+  cids: number[],
+): Promise<PubChemCompound[]> {
+  if (cids.length === 0) return [];
+  const res = await fetch(
+    `${PUG}/cid/${cids.join(",")}/property/Title,MolecularFormula,MolecularWeight,InChIKey,IUPACName/JSON`,
+  );
+  if (!res.ok) throw new Error(`PubChem property lookup failed (HTTP ${res.status})`);
+  const data = (await res.json()) as {
+    PropertyTable?: { Properties?: PugPropertyRecord[] };
+  };
+  return (data.PropertyTable?.Properties ?? []).map(mapPropertyRecord);
+}
+
+/**
+ * Search PubChem and return up to `max` candidate compounds (a bare CID returns
+ * just that one). Throws if nothing matches, so the caller shows an error.
+ */
+export async function searchCompounds(
+  query: string,
+  max = 8,
+): Promise<PubChemCompound[]> {
+  const trimmed = query.trim();
+  const cids = /^\d+$/.test(trimmed)
+    ? [Number(trimmed)]
+    : await resolveNameToCids(trimmed, max);
+  if (cids.length === 0) throw new Error(`No PubChem match for "${trimmed}"`);
+  const compounds = await fetchCompoundsByCids(cids);
+  if (compounds.length === 0) throw new Error(`No PubChem match for "${trimmed}"`);
+  return compounds;
+}
+
 /** Fetch the stable identity properties for a CID. */
 export async function fetchCompoundByCid(
   cid: number,
