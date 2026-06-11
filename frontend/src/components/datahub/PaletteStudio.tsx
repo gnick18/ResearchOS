@@ -748,73 +748,27 @@ export default function PaletteStudio({
     </div>
   );
 
-  // Compact dock view. A live swatch of the current colors, the Library /
-  // Custom / Generate mode toggle for quick switching, the Custom and Generate
-  // bodies inline (small, useful in the dock), and a Browse button that opens
-  // the full library grid in a roomy modal. The full filter-by-N grid does not
-  // belong cramped in the 300px dock.
+  // Compact dock view. Just the chosen palette's swatch row (the colors the
+  // figure is actually drawing) plus a single Palette button that opens the full
+  // studio in a roomy modal. The in-dock mode toggle and quick-pick were removed
+  // so the dock stays simple: see the current palette, open the studio to change
+  // it. Library / Custom / Generate all still live in that modal.
   if (compact) {
     return (
       <div data-testid="palette-studio-compact">
-        <Ctl label="Current">
+        <Ctl label="Palette">
           <div className="w-[150px]">
             <SwatchRow colors={previewColors()} />
           </div>
         </Ctl>
-        <Ctl label="Edit mode">
-          <Seg<Mode>
-            value={mode}
-            options={[
-              { value: "library", label: "Library" },
-              { value: "custom", label: "Custom" },
-              { value: "generate", label: "Generate" },
-            ]}
-            onChange={setMode}
-          />
-        </Ctl>
-        {saveNameBody}
-        {mode === "library" ? (
-          <div className="mt-2 space-y-1" data-testid="palette-compact-quickpick">
-            {filtered.slice(0, 5).map((p) => {
-              const cols = samplePalette(p, Math.max(1, seriesCount));
-              const active = p.id === activeId;
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => pickPalette(p.id)}
-                  className={`w-full rounded border px-1.5 py-1 transition-colors ${
-                    active
-                      ? "border-accent ring-1 ring-accent/30"
-                      : "border-border hover:border-accent"
-                  }`}
-                  data-testid={`palette-quickpick-${p.id}`}
-                  aria-pressed={active}
-                >
-                  <SwatchRow colors={cols} />
-                </button>
-              );
-            })}
-            {filtered.length === 0 && (
-              <p className="text-[10px] text-foreground-muted">
-                No palettes match the current series count. Browse to adjust
-                filters.
-              </p>
-            )}
-          </div>
-        ) : (
-          <div className="mt-2">
-            {mode === "custom" ? customBody : generateBody}
-          </div>
-        )}
         <button
           type="button"
           onClick={onBrowse}
-          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:bg-surface-sunken"
+          className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:bg-surface-sunken"
           data-testid="palette-browse-button"
         >
           <Icon name="layer" className="h-3 w-3" />
-          Browse all palettes
+          Palette
         </button>
       </div>
     );

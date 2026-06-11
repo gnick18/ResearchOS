@@ -23,6 +23,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import PaletteStudio from "@/components/datahub/PaletteStudio";
+import PlotColorPicker from "@/components/datahub/PlotColorPicker";
 import PlotColorEditor from "@/components/datahub/PlotColorEditor";
 import type {
   AnalysisSpec,
@@ -693,15 +694,32 @@ export default function GraphEditor({
         </Section>
 
         <Section title="Colors">
-          <PaletteStudio
-            compact
-            onBrowse={() => setBrowseOpen(true)}
-            style={style}
-            seriesCount={seriesInfo.count}
-            seriesNames={seriesInfo.names}
-            resolvedColors={seriesInfo.colors}
-            onStyleChange={onStyleChange}
-          />
+          {seriesInfo.count === 1 ? (
+            // One series means one color, so a palette is meaningless. Show a
+            // direct inline picker that sets that single series color. It writes
+            // the same colorOverrides[0] the on-plot double-click editor does.
+            <PlotColorPicker
+              value={seriesInfo.colors[0] ?? "#1AA0E6"}
+              onChange={(hex) =>
+                onStyleChange({
+                  colorOverrides: { ...(style.colorOverrides ?? {}), 0: hex },
+                })
+              }
+            />
+          ) : (
+            // Multiple series. The dock shows only the chosen palette's swatches
+            // plus a Palette button that opens the full studio (Library / Custom
+            // / Generate). The mode toggle and quick-pick moved into that modal.
+            <PaletteStudio
+              compact
+              onBrowse={() => setBrowseOpen(true)}
+              style={style}
+              seriesCount={seriesInfo.count}
+              seriesNames={seriesInfo.names}
+              resolvedColors={seriesInfo.colors}
+              onStyleChange={onStyleChange}
+            />
+          )}
         </Section>
 
         <Section title="Figure size" icon="ruler">
