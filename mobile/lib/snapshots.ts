@@ -148,13 +148,24 @@ export type SnapshotCalculatorDropdownOption = {
   value?: number | string;
 };
 
+export type SnapshotCalculatorTableColumn = {
+  key?: string;
+  label?: string;
+  kind?: 'input' | 'computed';
+  unit?: string;
+  expr?: string;
+};
+
 export type SnapshotCalculatorInput = {
   key?: string;
-  type?: 'number' | 'replicate' | 'dropdown';
+  type?: 'number' | 'replicate' | 'dropdown' | 'table';
   label?: string;
   unit?: string;
   default?: number | number[] | string;
   options?: SnapshotCalculatorDropdownOption[];
+  /** Columns + seed rows for a table input (Phase 5). */
+  columns?: SnapshotCalculatorTableColumn[];
+  rows?: Record<string, number | string>[];
 };
 
 export type SnapshotCalculatorStep = {

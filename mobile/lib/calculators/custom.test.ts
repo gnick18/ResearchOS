@@ -212,6 +212,69 @@ const geoOracle = Math.exp(
 );
 near('geomean', out(hg, 'GeoMean'), geoOracle);
 
+// Table input + col() helper (Phase 5). Mirrors the laptop master-mix oracle:
+// a reagents table with a per-row computed totalUL = perRxn * n, aggregated by
+// sum(col(reagents, "totalUL")). Seed rows sum to 25 per reaction; n = 11, so
+// the total is 275. col() drops a non-numeric cell rather than poisoning it.
+console.log('TABLE + col(): master-mix shape');
+const masterMix: CustomCalculatorSpec = {
+  name: 'PCR master mix maker',
+  description: '',
+  inputs: [
+    { key: 'reactions', type: 'number', label: 'Reactions', default: 10 },
+    { key: 'overagePct', type: 'number', label: 'Overage', unit: '%', default: 10 },
+    {
+      key: 'reagents',
+      type: 'table',
+      label: 'Reagents',
+      columns: [
+        { key: 'name', label: 'Reagent', kind: 'input' },
+        { key: 'perRxn', label: 'Per reaction', kind: 'input', unit: 'uL' },
+        { key: 'totalUL', label: 'Batch total', kind: 'computed', unit: 'uL', expr: 'perRxn * n' },
+      ],
+      rows: [
+        { name: 'Buffer', perRxn: 5 },
+        { name: 'dNTP', perRxn: 1 },
+        { name: 'Primer F', perRxn: 1 },
+        { name: 'Primer R', perRxn: 1 },
+        { name: 'Polymerase', perRxn: 0.5 },
+        { name: 'Template', perRxn: 2 },
+        { name: 'Water', perRxn: 14.5 },
+      ],
+    },
+  ],
+  steps: [{ key: 'n', expr: 'reactions*(1+overagePct/100)' }],
+  conditionals: [],
+  outputs: [{ label: 'Total volume', expr: 'sum(col(reagents, "totalUL"))', unit: 'uL' }],
+};
+const mm = run(masterMix);
+near('master-mix total volume (25 per-rxn * n=11)', out(mm, 'Total volume'), 275);
+
+// col() on supplied rows, with a non-numeric cell that must drop out.
+const colSpec: CustomCalculatorSpec = {
+  name: 'col probe',
+  description: '',
+  inputs: [
+    {
+      key: 'grid',
+      type: 'table',
+      label: 'Grid',
+      columns: [{ key: 'val', label: 'val', kind: 'input' }],
+    },
+  ],
+  steps: [],
+  conditionals: [],
+  outputs: [
+    { label: 'sum', expr: 'sum(col(grid, "val"))' },
+    { label: 'count', expr: 'count(col(grid, "val"))' },
+  ],
+};
+const cg = evaluateCustomCalculator(colSpec, {
+  grid: [{ val: 4 }, { val: '' }, { val: 6 }],
+});
+near('col() sum drops the blank cell', out(cg, 'sum'), 10);
+near('col() count drops the blank cell', out(cg, 'count'), 2);
+
 // ── Summary ───────────────────────────────────────────────────────────────────
 
 console.log(`\n${passed} passed, ${failed} failed`);

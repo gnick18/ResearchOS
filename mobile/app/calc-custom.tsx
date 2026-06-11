@@ -46,6 +46,8 @@ import {
 } from '@/lib/snapshots';
 import {
   evaluateCustomCalculator,
+  deriveTableRows,
+  formatCalcValue,
   type CustomCalculatorSpec,
   type CustomCalculatorInput,
   type CustomCalcInputValues,
@@ -80,6 +82,20 @@ function toSpec(c: SnapshotCalculator): CustomCalculatorSpec {
                 })),
             }
           : {}),
+        ...(i.columns
+          ? {
+              columns: i.columns
+                .filter((col) => typeof col.key === 'string' && col.key !== '')
+                .map((col) => ({
+                  key: col.key as string,
+                  label: col.label ?? (col.key as string),
+                  kind: (col.kind ?? 'input') as 'input' | 'computed',
+                  ...(col.unit ? { unit: col.unit } : {}),
+                  ...(col.expr ? { expr: col.expr } : {}),
+                })),
+            }
+          : {}),
+        ...(i.rows ? { rows: i.rows } : {}),
       })),
     steps: (c.steps ?? [])
       .filter((s) => typeof s.key === 'string')
@@ -99,7 +115,10 @@ function toSpec(c: SnapshotCalculator): CustomCalculatorSpec {
 // a string (so the field can be cleared / typed); a replicate is a list of
 // strings (one per box); a dropdown is the selected option value.
 
-type InputState = Record<string, string | string[] | number | string[]>;
+type InputState = Record<
+  string,
+  string | string[] | number | Record<string, number | string>[]
+>;
 
 function initialState(spec: CustomCalculatorSpec): InputState {
   const state: InputState = {};
@@ -115,6 +134,13 @@ function initialState(spec: CustomCalculatorSpec): InputState {
             ? input.options[0].value
             : '';
       state[input.key] = value;
+    } else if (input.type === 'table') {
+      // Mobile renders a table read-only from its seed rows (full editing is a
+      // laptop affordance, a follow-up here), so the state carries the seed
+      // rows verbatim for the engine to derive computed columns from.
+      state[input.key] = Array.isArray(input.rows)
+        ? input.rows.map((r) => ({ ...r }))
+        : [];
     } else {
       state[input.key] =
         typeof input.default === 'number' ? String(input.default) : '';
@@ -124,7 +150,8 @@ function initialState(spec: CustomCalculatorSpec): InputState {
 }
 
 /** Turn the live UI state into the engine's value map (string boxes -> numbers,
- *  replicate string lists -> number arrays, dropdown value passed through). */
+ *  replicate string lists -> number arrays, dropdown value passed through, a
+ *  table forwarded as its row objects). */
 function toEngineValues(
   spec: CustomCalculatorSpec,
   state: InputState,
@@ -139,6 +166,10 @@ function toEngineValues(
         .filter((n) => Number.isFinite(n));
     } else if (input.type === 'dropdown') {
       values[input.key] = raw as number | string;
+    } else if (input.type === 'table') {
+      values[input.key] = Array.isArray(raw)
+        ? (raw as Record<string, number | string>[])
+        : [];
     } else {
       values[input.key] = typeof raw === 'string' ? raw : String(raw);
     }
@@ -320,6 +351,74 @@ function DropdownField({
   );
 }
 
+/** Read-only table renderer (Phase 5). Full table editing is a laptop
+ *  affordance; on the phone a table input shows its seed rows with computed
+ *  columns derived, plus a one-line "best edited on the laptop" note. It never
+ *  crashes a table-type calculator that syncs to the phone. */
+function TableField({
+  spec,
+  values,
+  input,
+}: {
+  spec: CustomCalculatorSpec;
+  values: CustomCalcInputValues;
+  input: CustomCalculatorInput;
+}) {
+  const { surface } = useTheme();
+  const columns = input.columns ?? [];
+  const rows = deriveTableRows(spec, values, input.key);
+  return (
+    <View style={styles.fieldWrap}>
+      <FieldLabel>{input.unit ? `${input.label} (${input.unit})` : input.label}</FieldLabel>
+      <View style={[styles.tableWrap, { borderColor: surface.border }]}>
+        <View style={[styles.tableHeadRow, { backgroundColor: surface.surface }]}>
+          {columns.map((c) => (
+            <Text
+              key={c.key}
+              style={[styles.tableHeadCell, { color: surface.muted }]}
+              numberOfLines={1}
+            >
+              {c.unit ? `${c.label} (${c.unit})` : c.label}
+            </Text>
+          ))}
+        </View>
+        {rows.length === 0 ? (
+          <Text style={[styles.tableEmpty, { color: surface.muted }]}>No rows.</Text>
+        ) : (
+          rows.map((row, ri) => (
+            <View
+              key={ri}
+              style={[styles.tableBodyRow, { borderTopColor: surface.border }]}
+            >
+              {columns.map((c) => {
+                const cell = row[c.key];
+                const text =
+                  typeof cell === 'number'
+                    ? formatCalcValue(cell)
+                    : cell !== undefined && cell !== ''
+                      ? String(cell)
+                      : '—';
+                return (
+                  <Text
+                    key={c.key}
+                    style={[styles.tableBodyCell, { color: surface.text }]}
+                    numberOfLines={1}
+                  >
+                    {text}
+                  </Text>
+                );
+              })}
+            </View>
+          ))
+        )}
+      </View>
+      <Text style={[styles.tableNote, { color: surface.muted }]}>
+        Best edited on the laptop.
+      </Text>
+    </View>
+  );
+}
+
 // ── Runner (detail) view ────────────────────────────────────────────────────────
 
 function CalcRunner({ calc }: { calc: SnapshotCalculator }) {
@@ -327,9 +426,13 @@ function CalcRunner({ calc }: { calc: SnapshotCalculator }) {
   const spec = useMemo(() => toSpec(calc), [calc]);
   const [state, setState] = useState<InputState>(() => initialState(spec));
 
-  const result = useMemo(
-    () => evaluateCustomCalculator(spec, toEngineValues(spec, state)),
+  const engineValues = useMemo(
+    () => toEngineValues(spec, state),
     [spec, state],
+  );
+  const result = useMemo(
+    () => evaluateCustomCalculator(spec, engineValues),
+    [spec, engineValues],
   );
 
   const setField = (key: string, value: string | string[] | number) =>
@@ -352,6 +455,16 @@ function CalcRunner({ calc }: { calc: SnapshotCalculator }) {
       </View>
 
       {spec.inputs.map((input) => {
+        if (input.type === 'table') {
+          return (
+            <TableField
+              key={input.key}
+              spec={spec}
+              values={engineValues}
+              input={input}
+            />
+          );
+        }
         if (input.type === 'replicate') {
           const v = (state[input.key] as string[]) ?? [''];
           return (
@@ -613,6 +726,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     minHeight: 44,
   },
+  tableWrap: { borderWidth: 1, borderRadius: radii.md, overflow: 'hidden' },
+  tableHeadRow: { flexDirection: 'row', paddingHorizontal: spacing.sm, paddingVertical: 8 },
+  tableHeadCell: { flex: 1, fontSize: 11, fontWeight: '700', paddingRight: 6 },
+  tableBodyRow: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+  },
+  tableBodyCell: { flex: 1, fontSize: 14, paddingRight: 6 },
+  tableEmpty: { paddingHorizontal: spacing.sm, paddingVertical: 8, fontSize: 13 },
+  tableNote: { fontSize: 11, fontStyle: 'italic' },
   repGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   repCell: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   repInput: {
