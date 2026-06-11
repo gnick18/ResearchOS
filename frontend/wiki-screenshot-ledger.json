@@ -25,14 +25,6 @@
       ],
       "capturedAtCommit": "3dc344efd"
     },
-    "landing.png": {
-      "route": "/welcome",
-      "sources": [
-        "frontend/src/app/welcome",
-        "frontend/src/components/AppShell.tsx"
-      ],
-      "capturedAtCommit": "3dc344efd"
-    },
     "user-login.png": {
       "route": "/",
       "sources": [
