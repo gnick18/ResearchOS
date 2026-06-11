@@ -22,9 +22,11 @@ type SortKey = "recent" | "name";
 export function ChemistryHub({
   onNewStructure,
   onOpenMolecule,
+  onSearchPubchem,
 }: {
   onNewStructure: () => void;
   onOpenMolecule: (id: string) => void;
+  onSearchPubchem: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("recent");
@@ -109,7 +111,7 @@ export function ChemistryHub({
           tone="purple"
           title="Search PubChem"
           body="Pull any of 100M+ compounds with full metadata."
-          soon
+          onClick={onSearchPubchem}
         />
         <ActionCard
           icon="download"

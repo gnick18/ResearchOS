@@ -11,11 +11,13 @@ import { useState } from "react";
 import AppShell from "@/components/AppShell";
 import { ChemistryHub } from "@/components/chemistry/ChemistryHub";
 import { MoleculeEditorPopup } from "@/components/chemistry/MoleculeEditorPopup";
+import { PubChemImportDialog } from "@/components/chemistry/PubChemImportDialog";
 import { CHEMISTRY_ENABLED } from "@/lib/chemistry/config";
 
 export default function ChemistryPage() {
   // null = closed, "new" = blank canvas, a string id = edit that molecule.
   const [editing, setEditing] = useState<string | "new" | null>(null);
+  const [pubchemOpen, setPubchemOpen] = useState(false);
 
   if (!CHEMISTRY_ENABLED) {
     return (
@@ -38,11 +40,16 @@ export default function ChemistryPage() {
       <ChemistryHub
         onNewStructure={() => setEditing("new")}
         onOpenMolecule={(id) => setEditing(id)}
+        onSearchPubchem={() => setPubchemOpen(true)}
       />
       <MoleculeEditorPopup
         moleculeId={editing}
         open={editing != null}
         onClose={() => setEditing(null)}
+      />
+      <PubChemImportDialog
+        open={pubchemOpen}
+        onClose={() => setPubchemOpen(false)}
       />
     </AppShell>
   );
