@@ -37,25 +37,9 @@ export default function ChemistryPage() {
   }, []);
   const surfaceEnabled = CHEMISTRY_ENABLED || isDemo;
 
-  // Deep link: /chemistry?molecule=<id> opens that molecule in the editor (used by
-  // the project Molecules section + inline note chips). Read from the URL directly
-  // (not useSearchParams) to avoid the Suspense/prerender boundary it requires, and
-  // strip the param so a later close does not reopen on refresh.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const molecule = params.get("molecule");
-    if (molecule) {
-      setEditing(molecule);
-      params.delete("molecule");
-      const qs = params.toString();
-      window.history.replaceState(
-        null,
-        "",
-        window.location.pathname + (qs ? `?${qs}` : ""),
-      );
-    }
-  }, []);
+  // The /chemistry?molecule=<id> deep link (note chips, project Molecules rows) is
+  // handled inside ChemistryHub, which selects that molecule in the rail rather
+  // than opening the heavy editor.
 
   if (!surfaceEnabled) {
     // Before mount we cannot yet know whether this is a demo session (the demo

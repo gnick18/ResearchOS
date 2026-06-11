@@ -1,25 +1,31 @@
 "use client";
 
-// The /chemistry hub (chemistry-workbench Phase 1). Home for the molecule
-// library, the same way SequencesLauncher is home for DNA/protein. Search +
-// quick actions on top, then the library grid of RDKit-thumbnail cards. Wired to
-// moleculesApi (the per-user molecules/ store); an empty library shows a calm
-// first-run state, not a dead grid.
+// The /chemistry workbench (left-rail redesign, Grant 2026-06-11). Mirrors the
+// /sequences split-pane: a signature left list rail (collection selector + the
+// molecules in that collection) and a main pane that shows the selected
+// molecule's detail (fast RDKit view) or, with nothing selected, the launcher.
+// Clicking around the rail is instant because the detail view is RDKit-rendered;
+// drawing/editing opens the Ketcher popup on demand (heavy to mount).
 //
-// The parent (app/chemistry/page.tsx) owns the editor popup, so the hub takes
-// `onNewStructure` + `onOpenMolecule` callbacks rather than routing itself.
+// The parent (app/chemistry/page.tsx) owns the editor + PubChem + import popups,
+// so this takes their open callbacks. Selection + collection + the deep-link live
+// here.
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
+import Tooltip from "@/components/Tooltip";
 import { Icon } from "@/components/icons";
 import { moleculesApi, type Molecule } from "@/lib/chemistry/api";
 import { projectsApi } from "@/lib/local-api";
+import { clampListWidth, DEFAULT_LIST_WIDTH } from "@/lib/sequences/split-layout";
 import { MoleculeThumbnail } from "./MoleculeThumbnail";
+import { MoleculeDetail } from "./MoleculeDetail";
 import { LiteratureSearch } from "./LiteratureSearch";
 
+const LIST_WIDTH_KEY = "researchos:chemistry:listWidth";
 type SortKey = "recent" | "name";
-type HubMode = "library" | "literature";
+type MainView = "auto" | "literature";
 
 export function ChemistryHub({
   onNewStructure,
@@ -34,7 +40,13 @@ export function ChemistryHub({
 }) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("recent");
-  const [mode, setMode] = useState<HubMode>("library");
+  const [collection, setCollection] = useState<string>("all");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mainView, setMainView] = useState<MainView>("auto");
+
+  const splitRef = useRef<HTMLDivElement>(null);
+  const draggingRef = useRef(false);
+  const [listWidth, setListWidth] = useState(DEFAULT_LIST_WIDTH);
 
   const {
     data: molecules = [],
@@ -44,174 +56,409 @@ export function ChemistryHub({
     queryKey: ["molecules"],
     queryFn: () => moleculesApi.list(),
   });
-
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", "for-chemistry"],
     queryFn: () => projectsApi.list(),
   });
 
-  // project id (string) -> display name, so a card chip reads "Anti-inflammatory
-  // screen", not a numeric id.
+  // Restore + persist the dragged list width.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem(LIST_WIDTH_KEY);
+    const parsed = raw ? Number.parseFloat(raw) : NaN;
+    const w = splitRef.current?.getBoundingClientRect().width ?? 0;
+    if (Number.isFinite(parsed)) setListWidth(clampListWidth(parsed, w));
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(LIST_WIDTH_KEY, String(Math.round(listWidth)));
+  }, [listWidth]);
+
+  // Deep link: /chemistry?molecule=<id> selects that molecule in the rail (from a
+  // note chip or a project Molecules row). Read the URL directly to avoid the
+  // useSearchParams Suspense boundary, and strip the param after.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const mol = params.get("molecule");
+    if (mol) {
+      setSelectedId(mol);
+      setMainView("auto");
+      params.delete("molecule");
+      const qs = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        window.location.pathname + (qs ? `?${qs}` : ""),
+      );
+    }
+  }, []);
+
+  const onDividerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    draggingRef.current = true;
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+  }, []);
+  const onDividerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!draggingRef.current) return;
+    const rect = splitRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setListWidth(clampListWidth(e.clientX - rect.left, rect.width));
+  }, []);
+  const onDividerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+    document.body.style.userSelect = "";
+    document.body.style.cursor = "";
+  }, []);
+
   const projectName = useMemo(() => {
     const map = new Map<string, string>();
     for (const p of projects) map.set(String(p.id), p.name);
     return map;
   }, [projects]);
 
+  const unfiledCount = useMemo(
+    () => molecules.filter((m) => m.project_ids.length === 0).length,
+    [molecules],
+  );
+  const projectCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const m of molecules)
+      for (const pid of m.project_ids)
+        counts.set(pid, (counts.get(pid) ?? 0) + 1);
+    return counts;
+  }, [molecules]);
+
+  const inCollection = useMemo(() => {
+    if (collection === "all") return molecules;
+    if (collection === "unfiled")
+      return molecules.filter((m) => m.project_ids.length === 0);
+    return molecules.filter((m) => m.project_ids.includes(collection));
+  }, [molecules, collection]);
+
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     const filtered = q
-      ? molecules.filter(
+      ? inCollection.filter(
           (m) =>
             m.name.toLowerCase().includes(q) ||
             (m.formula ?? "").toLowerCase().includes(q) ||
             (m.smiles ?? "").toLowerCase().includes(q),
         )
-      : molecules.slice();
+      : inCollection.slice();
     filtered.sort((a, b) =>
       sort === "name"
         ? a.name.localeCompare(b.name)
         : Number(b.id) - Number(a.id),
     );
     return filtered;
-  }, [molecules, query, sort]);
+  }, [inCollection, query, sort]);
+
+  const selected = useMemo(
+    () => molecules.find((m) => m.id === selectedId) ?? null,
+    [molecules, selectedId],
+  );
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6">
-      <p className="text-meta text-foreground-muted mb-1">Workbench / Chemistry</p>
-      <h1 className="text-display font-bold text-foreground mb-1">Chemistry</h1>
-      <p className="text-body text-foreground-muted mb-5 max-w-[760px]">
-        Draw, store, and search chemical structures, the same way the Sequences
-        workbench handles DNA and protein. Your library lives in your data folder,
-        linked to projects. Nothing leaves your browser unless you search a public
-        database (PubChem, Europe PMC, SureChEMBL), and then only the name or
-        fragment you ask about.
-      </p>
+    <div ref={splitRef} className="relative flex h-full min-h-0 px-4 pb-4 gap-0">
+      {/* LEFT RAIL */}
+      <aside
+        className="flex shrink-0 flex-col overflow-hidden rounded-lg border border-border bg-surface-raised"
+        style={{ width: listWidth }}
+      >
+        {/* header + actions */}
+        <div className="border-b border-border px-3 py-3">
+          <div className="flex items-center justify-between gap-2">
+            <h1 className="text-title font-bold text-foreground">Chemistry</h1>
+            <span className="text-meta text-foreground-muted">
+              {molecules.length} molecule{molecules.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1.5 mt-2.5">
+            <RailAction icon="pencil" label="New" onClick={onNewStructure} primary />
+            <RailAction icon="search" label="PubChem" onClick={onSearchPubchem} />
+            <RailAction icon="download" label="Import" onClick={onImportFile} />
+            <RailAction
+              icon="book"
+              label="Literature"
+              onClick={() => {
+                setSelectedId(null);
+                setMainView("literature");
+              }}
+              active={mainView === "literature"}
+            />
+          </div>
+        </div>
 
-      {/* mode toggle: the library vs the literature companion */}
-      <div className="inline-flex gap-1 mb-5 p-1 bg-surface-sunken border border-border rounded-lg">
-        <ModeTab active={mode === "library"} onClick={() => setMode("library")}>
-          Library
-        </ModeTab>
-        <ModeTab
-          active={mode === "literature"}
-          onClick={() => setMode("literature")}
-        >
-          Find in literature
-        </ModeTab>
-      </div>
+        {/* collection selector */}
+        <div className="border-b border-border px-3 py-2">
+          <label className="mb-1 block text-[10.5px] font-semibold uppercase tracking-wide text-foreground-muted">
+            Collection
+          </label>
+          <select
+            aria-label="Filter molecules by collection"
+            value={collection}
+            onChange={(e) => setCollection(e.target.value)}
+            className="w-full rounded-md border border-border bg-surface-raised px-2 py-1.5 text-body text-foreground outline-none focus:border-brand-action"
+          >
+            <option value="all">All molecules ({molecules.length})</option>
+            <option value="unfiled">Unfiled ({unfiledCount})</option>
+            {projects.length > 0 ? (
+              <optgroup label="Projects">
+                {projects.map((p) => (
+                  <option key={p.id} value={String(p.id)}>
+                    {p.name} ({projectCounts.get(String(p.id)) ?? 0})
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
+          </select>
+        </div>
 
-      {mode === "literature" ? (
-        <LiteratureSearch />
-      ) : (
-        <>
-          {/* search + sort */}
-      <div className="flex flex-wrap gap-2.5 mb-5">
-        <div className="flex-1 min-w-[240px] flex items-center gap-2 bg-surface-raised border border-border rounded-xl px-3 py-2">
-          <Icon name="search" className="w-4 h-4 text-foreground-muted flex-shrink-0" />
+        {/* search + sort */}
+        <div className="border-b border-border px-3 py-2 flex items-center gap-2">
           <input
+            type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name, formula, or SMILES"
-            className="w-full bg-transparent text-body text-foreground outline-none placeholder:text-foreground-muted"
+            placeholder="Search name, formula, SMILES"
+            className="flex-1 min-w-0 rounded-md border border-border bg-surface-raised px-2.5 py-1.5 text-body text-foreground placeholder:text-foreground-muted outline-none focus:border-brand-action"
           />
+          <Tooltip label={`Sort by ${sort === "recent" ? "name" : "recent"}`}>
+            <button
+              type="button"
+              onClick={() => setSort((s) => (s === "recent" ? "name" : "recent"))}
+              aria-label="Toggle sort order"
+              className="shrink-0 rounded-md border border-border px-2 py-1.5 text-meta font-semibold text-foreground-muted hover:text-foreground"
+            >
+              {sort === "recent" ? "Recent" : "Name"}
+            </button>
+          </Tooltip>
         </div>
-        <button
-          type="button"
-          onClick={() => setSort((s) => (s === "recent" ? "name" : "recent"))}
-          className="px-3 py-2 text-meta font-semibold text-foreground bg-surface-raised border border-border rounded-lg hover:bg-surface-sunken transition-colors"
+
+        {/* list */}
+        <div className="min-h-0 flex-1 overflow-y-auto [overscroll-behavior:contain]">
+          {isError ? (
+            <p className="px-3 py-6 text-meta text-red-600 dark:text-red-300">
+              Could not read your library. Check your data folder is connected.
+            </p>
+          ) : isLoading ? (
+            <p className="px-3 py-6 text-meta text-foreground-muted">Loading…</p>
+          ) : shown.length === 0 ? (
+            <p className="px-3 py-6 text-meta text-foreground-muted">
+              {molecules.length === 0
+                ? "No molecules yet. Draw one, search PubChem, or import a file."
+                : query.trim()
+                  ? `No molecules match “${query}”.`
+                  : "No molecules in this collection."}
+            </p>
+          ) : (
+            <ul>
+              {shown.map((m) => (
+                <MoleculeRow
+                  key={m.id}
+                  molecule={m}
+                  projectName={projectName}
+                  selected={selectedId === m.id}
+                  onClick={() => {
+                    setSelectedId(m.id);
+                    setMainView("auto");
+                  }}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
+      </aside>
+
+      {/* DIVIDER */}
+      <Tooltip label="Drag to resize">
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize the molecule list"
+          onPointerDown={onDividerDown}
+          onPointerMove={onDividerMove}
+          onPointerUp={onDividerUp}
+          onPointerCancel={onDividerUp}
+          className="group relative mx-1 flex w-2 shrink-0 cursor-col-resize touch-none items-center justify-center"
         >
-          Sort: {sort === "recent" ? "recent" : "name"}
-        </button>
-      </div>
-
-      {/* action cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-7">
-        <ActionCard
-          icon="pencil"
-          tone="action"
-          title="New structure"
-          body="Open a blank canvas and draw a molecule."
-          onClick={onNewStructure}
-        />
-        <ActionCard
-          icon="search"
-          tone="purple"
-          title="Search PubChem"
-          body="Pull any of 100M+ compounds with full metadata."
-          onClick={onSearchPubchem}
-        />
-        <ActionCard
-          icon="download"
-          tone="green"
-          title="Import file"
-          body="Drop a .mol, .sdf, .smi, or .smiles file."
-          onClick={onImportFile}
-        />
-      </div>
-
-      {/* library */}
-      <div className="flex items-center gap-2.5 mb-3">
-        <span className="text-meta font-bold uppercase tracking-wide text-foreground-muted">
-          Your library
-        </span>
-        <span className="text-meta font-semibold text-brand-action bg-accent-soft rounded-full px-2.5 py-0.5">
-          {molecules.length}
-        </span>
-      </div>
-
-      {isError ? (
-        <p className="text-meta text-red-600 dark:text-red-300 py-8">
-          Could not read your molecule library. Check that your data folder is
-          connected and try again.
-        </p>
-      ) : isLoading ? (
-        <p className="text-meta text-foreground-muted py-8">Loading your library…</p>
-      ) : molecules.length === 0 ? (
-        <EmptyLibrary onNewStructure={onNewStructure} />
-      ) : shown.length === 0 ? (
-        <p className="text-meta text-foreground-muted py-8">
-          No molecules match &ldquo;{query}&rdquo;.
-        </p>
-      ) : (
-        <div className="grid gap-3.5 [grid-template-columns:repeat(auto-fill,minmax(208px,1fr))]">
-          {shown.map((m) => (
-            <MoleculeCard
-              key={m.id}
-              molecule={m}
-              projectName={projectName}
-              onClick={() => onOpenMolecule(m.id)}
-            />
-          ))}
+          <span className="h-12 w-1 rounded-full bg-border transition-colors group-hover:bg-brand-action" />
         </div>
-      )}
-        </>
-      )}
+      </Tooltip>
+
+      {/* MAIN PANE */}
+      <section className="flex min-w-0 flex-1 flex-col rounded-lg border border-border bg-surface-raised overflow-hidden">
+        {mainView === "literature" ? (
+          <div className="min-h-0 flex-1 overflow-y-auto [overscroll-behavior:contain] px-6 py-6">
+            <LiteratureSearch />
+          </div>
+        ) : selected ? (
+          <MoleculeDetail
+            key={selected.id}
+            molecule={selected}
+            projects={projects}
+            onEdit={onOpenMolecule}
+            onDeleted={() => setSelectedId(null)}
+          />
+        ) : (
+          <Launcher
+            empty={molecules.length === 0}
+            onNewStructure={onNewStructure}
+            onSearchPubchem={onSearchPubchem}
+            onImportFile={onImportFile}
+            onLiterature={() => {
+              setSelectedId(null);
+              setMainView("literature");
+            }}
+          />
+        )}
+      </section>
     </div>
   );
 }
 
-function ModeTab({
-  active,
+function RailAction({
+  icon,
+  label,
   onClick,
-  children,
+  primary,
+  active,
 }: {
-  active: boolean;
+  icon: "pencil" | "search" | "download" | "book";
+  label: string;
   onClick: () => void;
-  children: React.ReactNode;
+  primary?: boolean;
+  active?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`px-3 py-1.5 text-meta font-semibold rounded-md transition-colors ${
-        active
-          ? "bg-surface-raised text-brand-action shadow-sm"
-          : "text-foreground-muted hover:text-foreground"
+      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-meta font-semibold transition-colors ${
+        primary
+          ? "text-white bg-gradient-to-br from-brand-action to-brand-purple"
+          : active
+            ? "bg-accent-soft text-brand-action border border-brand-action"
+            : "text-foreground-muted border border-border hover:text-foreground hover:bg-surface-sunken"
       }`}
     >
-      {children}
+      <Icon name={icon} className="w-3.5 h-3.5" />
+      {label}
     </button>
+  );
+}
+
+function MoleculeRow({
+  molecule,
+  projectName,
+  selected,
+  onClick,
+}: {
+  molecule: Molecule;
+  projectName: Map<string, string>;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  const mw =
+    molecule.mol_weight != null ? `${molecule.mol_weight.toFixed(2)}` : "";
+  const meta = [molecule.formula, mw && `${mw} g/mol`].filter(Boolean).join(" · ");
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        className={`flex w-full items-center gap-2.5 border-b border-border px-3 py-2 text-left transition-colors ${
+          selected ? "bg-accent-soft" : "hover:bg-surface-sunken"
+        }`}
+      >
+        <span className="w-10 h-10 flex-shrink-0 bg-white rounded-md border border-border grid place-items-center overflow-hidden">
+          <MoleculeThumbnail structure={molecule.smiles ?? ""} width={40} height={40} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-body font-medium text-foreground">
+            {molecule.name}
+          </span>
+          {meta ? (
+            <span className="block truncate text-meta text-foreground-muted font-mono">
+              {meta}
+            </span>
+          ) : null}
+        </span>
+        {molecule.project_ids[0] ? (
+          <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-500/15 text-purple-600 dark:text-purple-300 max-w-[80px] truncate">
+            {projectName.get(molecule.project_ids[0]) ?? "Project"}
+          </span>
+        ) : null}
+      </button>
+    </li>
+  );
+}
+
+function Launcher({
+  empty,
+  onNewStructure,
+  onSearchPubchem,
+  onImportFile,
+  onLiterature,
+}: {
+  empty: boolean;
+  onNewStructure: () => void;
+  onSearchPubchem: () => void;
+  onImportFile: () => void;
+  onLiterature: () => void;
+}) {
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto [overscroll-behavior:contain]">
+      <div className="mx-auto max-w-3xl px-6 py-10">
+        <div className="w-12 h-12 mb-3 rounded-xl bg-accent-soft text-brand-action grid place-items-center">
+          <Icon name="vial" className="w-6 h-6" />
+        </div>
+        <h2 className="text-heading font-bold text-foreground mb-1">
+          {empty ? "Your library is empty" : "Pick a molecule, or start one"}
+        </h2>
+        <p className="text-body text-foreground-muted max-w-prose mb-6">
+          {empty
+            ? "Draw a structure, pull one from PubChem, or import a file. It lands in your library with its formula and weight computed, all in your data folder."
+            : "Select a molecule from the list to see its structure, identity, linked projects, and literature. Or start a new one below."}
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <ActionCard
+            icon="pencil"
+            tone="action"
+            title="New structure"
+            body="Open a blank canvas and draw a molecule."
+            onClick={onNewStructure}
+          />
+          <ActionCard
+            icon="search"
+            tone="purple"
+            title="Search PubChem"
+            body="Pull any of 100M+ compounds with full metadata."
+            onClick={onSearchPubchem}
+          />
+          <ActionCard
+            icon="download"
+            tone="green"
+            title="Import file"
+            body="Drop a .mol, .sdf, .smi, or .smiles file."
+            onClick={onImportFile}
+          />
+          <ActionCard
+            icon="book"
+            tone="action"
+            title="Find in literature"
+            body="Papers and patents for a compound or fragment."
+            onClick={onLiterature}
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -221,14 +468,12 @@ function ActionCard({
   title,
   body,
   onClick,
-  soon,
 }: {
-  icon: "pencil" | "search" | "download";
+  icon: "pencil" | "search" | "download" | "book";
   tone: "action" | "purple" | "green";
   title: string;
   body: string;
-  onClick?: () => void;
-  soon?: boolean;
+  onClick: () => void;
 }) {
   const toneClass =
     tone === "action"
@@ -239,11 +484,8 @@ function ActionCard({
   return (
     <button
       type="button"
-      onClick={soon ? undefined : onClick}
-      disabled={soon}
-      className={`flex gap-3 items-start text-left bg-surface-raised border border-border rounded-xl p-4 shadow-sm transition-colors ${
-        soon ? "opacity-60 cursor-default" : "cursor-pointer hover:border-action"
-      }`}
+      onClick={onClick}
+      className="flex gap-3 items-start text-left bg-surface-raised border border-border rounded-xl p-4 shadow-sm transition-colors cursor-pointer hover:border-brand-action"
     >
       <span
         className={`w-9 h-9 flex-shrink-0 rounded-lg grid place-items-center ${toneClass}`}
@@ -251,94 +493,11 @@ function ActionCard({
         <Icon name={icon} className="w-5 h-5" />
       </span>
       <span className="min-w-0">
-        <span className="flex items-center gap-2">
-          <span className="text-body font-bold text-foreground">{title}</span>
-          {soon ? (
-            <span className="text-[10px] font-bold uppercase tracking-wide text-foreground-muted bg-surface-sunken rounded px-1.5 py-0.5">
-              Soon
-            </span>
-          ) : null}
-        </span>
+        <span className="block text-body font-bold text-foreground">{title}</span>
         <span className="block text-meta text-foreground-muted leading-snug mt-0.5">
           {body}
         </span>
       </span>
     </button>
-  );
-}
-
-function MoleculeCard({
-  molecule,
-  projectName,
-  onClick,
-}: {
-  molecule: Molecule;
-  projectName: Map<string, string>;
-  onClick: () => void;
-}) {
-  const structure = molecule.smiles ?? "";
-  const mw =
-    molecule.mol_weight != null ? `${molecule.mol_weight.toFixed(2)} g/mol` : "";
-  const metaLine = [molecule.formula, mw].filter(Boolean).join(" · ");
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="text-left bg-surface-raised border border-border rounded-xl overflow-hidden shadow-sm transition-transform hover:-translate-y-0.5 hover:border-action"
-    >
-      <div className="h-[150px] bg-white grid place-items-center border-b border-border p-2">
-        <MoleculeThumbnail structure={structure} className="max-w-full" />
-      </div>
-      <div className="px-3 py-3">
-        <div className="text-body font-bold text-foreground mb-0.5 truncate">
-          {molecule.name}
-        </div>
-        {metaLine ? (
-          <div className="text-meta text-foreground-muted font-mono truncate">
-            {metaLine}
-          </div>
-        ) : null}
-        <div className="flex gap-1.5 flex-wrap mt-2">
-          {molecule.project_ids.map((pid) => (
-            <span
-              key={pid}
-              className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-500/15 text-purple-600 dark:text-purple-300"
-            >
-              {projectName.get(pid) ?? "Project"}
-            </span>
-          ))}
-          {molecule.source ? (
-            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300">
-              {molecule.source}
-            </span>
-          ) : null}
-        </div>
-      </div>
-    </button>
-  );
-}
-
-function EmptyLibrary({ onNewStructure }: { onNewStructure: () => void }) {
-  return (
-    <div className="border border-dashed border-border rounded-xl bg-surface-raised px-6 py-12 text-center">
-      <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-accent-soft text-brand-action grid place-items-center">
-        <Icon name="vial" className="w-6 h-6" />
-      </div>
-      <h3 className="text-title font-bold text-foreground mb-1">
-        Your library is empty
-      </h3>
-      <p className="text-meta text-foreground-muted max-w-[420px] mx-auto mb-4">
-        Draw your first structure and it lands here, with its formula and weight
-        computed for you. Everything stays in your data folder.
-      </p>
-      <button
-        type="button"
-        onClick={onNewStructure}
-        className="inline-flex items-center gap-2 px-4 py-2 text-body font-semibold text-white rounded-lg bg-gradient-to-br from-brand-action to-brand-purple"
-      >
-        <Icon name="pencil" className="w-4 h-4" />
-        New structure
-      </button>
-    </div>
   );
 }
