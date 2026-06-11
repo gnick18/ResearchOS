@@ -404,6 +404,79 @@ function AppContent({ children }: { children: ReactNode }) {
   // a standalone marketing page (Settings revisit link, dev button, direct
   // URL); it just is not the forced default anymore.
 
+  // Dev-only login preview. The OAuth-first entry screens (the new landing and
+  // the Welcome-back sign-in) are normally double-gated, the flag has to be on
+  // AND there can be no live session, so a logged-in developer cannot reach them
+  // by typing a URL. This escape renders them on demand without signing out or
+  // flipping NEXT_PUBLIC_OAUTH_FIRST_LOGIN. Type `?previewLogin=1` for the
+  // landing or `?previewLogin=signin` for the sign-in screen, on any page;
+  // `?previewLogin=off` (or the Exit button) leaves it.
+  //
+  // The intent is stashed in sessionStorage because "/" is a pure router that
+  // bounces a lab head to /lab-overview, which strips the query string before
+  // the preview can render. Persisting it means the preview survives that
+  // bounce and shows on whatever route it lands on. The NODE_ENV literal is
+  // inlined at build time so the whole block tree-shakes out of production.
+  if (process.env.NODE_ENV === "development" && typeof window !== "undefined") {
+    const PREVIEW_KEY = "ros_preview_login";
+    const previewParam = new URLSearchParams(window.location.search).get(
+      "previewLogin",
+    );
+    if (previewParam === "off") {
+      try {
+        sessionStorage.removeItem(PREVIEW_KEY);
+      } catch {
+        // sessionStorage unavailable, nothing to clear.
+      }
+    } else if (previewParam) {
+      try {
+        sessionStorage.setItem(PREVIEW_KEY, previewParam);
+      } catch {
+        // sessionStorage unavailable; the URL param still drives this load.
+      }
+    }
+    let previewMode = previewParam && previewParam !== "off" ? previewParam : null;
+    if (!previewMode) {
+      try {
+        previewMode = sessionStorage.getItem(PREVIEW_KEY);
+      } catch {
+        previewMode = null;
+      }
+    }
+    if (previewMode) {
+      const exitPreview = () => {
+        try {
+          sessionStorage.removeItem(PREVIEW_KEY);
+        } catch {
+          // best-effort
+        }
+        window.location.assign("/?previewLogin=off");
+      };
+      return (
+        <QueryClientProvider client={queryClient}>
+          {previewMode === "signin" ? (
+            <WelcomeBackSignIn
+              onBack={() => window.location.assign("/?previewLogin=1")}
+              onOpenFolder={() => {}}
+            />
+          ) : (
+            <OAuthFirstLanding
+              onCreateAccount={() => {}}
+              onSignIn={() => window.location.assign("/?previewLogin=signin")}
+            />
+          )}
+          <button
+            type="button"
+            onClick={exitPreview}
+            className="fixed bottom-4 left-4 z-[100] rounded-full bg-slate-900/85 px-3.5 py-1.5 text-xs font-semibold text-white shadow-lg transition-colors hover:bg-slate-900"
+          >
+            Exit login preview
+          </button>
+        </QueryClientProvider>
+      );
+    }
+  }
+
   if (isWikiRoute) {
     // Wiki-pointer multi-beat redesign 2026-05-22 (Wiki pointer manager).
     // When a signed-in real user is mid-tour and the §6.12 wiki-pointer

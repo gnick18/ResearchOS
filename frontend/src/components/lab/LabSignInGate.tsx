@@ -15,6 +15,7 @@ import { useEffect } from "react";
 import { useSyncExternalStore } from "react";
 import type { LabSessionController } from "@/lib/lab/lab-session";
 import SharingProviderButtons from "@/components/sharing/SharingProviderButtons";
+import { useFileSystem } from "@/lib/file-system/file-system-context";
 
 export function LabSignInGate({
   controller,
@@ -31,6 +32,11 @@ export function LabSignInGate({
     () => controller.getState(),
     () => controller.getState(),
   );
+
+  // Escape hatch so the sign-in overlay can never soft-lock a user. If they
+  // cannot or do not want to complete the lab OAuth (wrong folder, wrong
+  // account), disconnecting returns them to the folder picker.
+  const { disconnect } = useFileSystem();
 
   // Boot the controller for a lab account, then attempt a SILENT resume so a
   // returning user with a live OAuth cookie + persisted keypair goes straight to
@@ -90,6 +96,16 @@ export function LabSignInGate({
             {error.message}
           </p>
         )}
+
+        <div className="border-t border-border pt-3 text-center">
+          <button
+            type="button"
+            onClick={() => void disconnect()}
+            className="text-meta text-foreground-muted underline-offset-2 hover:text-foreground hover:underline"
+          >
+            Use a different folder
+          </button>
+        </div>
       </div>
     </div>
   );

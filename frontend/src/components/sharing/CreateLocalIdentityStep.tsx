@@ -180,7 +180,21 @@ export default function CreateLocalIdentityStep({
             </h3>
             <p className="text-meta text-foreground-muted mt-0.5">for {username}</p>
           </div>
-          {!required && (
+          {required ? (
+            // Even when an account is required, never hard-trap the user on this
+            // step (loading, error, or recovery-code). This always-visible
+            // escape backs out to the account picker, the account may already be
+            // minted, which is fine; onClose just returns there. The primary
+            // "Continue" still gates on confirming the recovery code, so this is
+            // a deliberate back-out, not the default path.
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-meta font-medium text-foreground-muted underline-offset-2 hover:text-foreground hover:underline"
+            >
+              Back to accounts
+            </button>
+          ) : (
             <Tooltip label="Close" placement="bottom">
               <button
                 onClick={onClose}
