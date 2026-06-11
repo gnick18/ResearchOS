@@ -1,0 +1,35 @@
+name: Calculator submission
+description: Submit a calculator you built so it can ship in the shared template library.
+title: "Calculator submission: "
+labels: ["calculator-submission"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Submitting a calculator you built in ResearchOS. A maintainer reviews each submission, and if it fits it ships in a later release seed so everyone gets it. Nothing is added automatically.
+
+        The in-app "Share to the library" button fills this in for you. If you are here by hand, paste your calculator JSON below (open the calculator in the builder, the spec is the JSON it stores).
+
+  - type: textarea
+    id: spec
+    attributes:
+      label: Calculator spec (JSON)
+      description: The calculator definition (name, inputs, steps, conditionals, outputs).
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-it-does
+    attributes:
+      label: What it does and who it helps
+      description: One or two sentences on what the calculator computes and which kind of lab work it is for.
+      placeholder: Converts colony counts to CFU per mL for plate-based titres.
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else?
+      description: Sources, units, edge cases, or anything a reviewer should know.

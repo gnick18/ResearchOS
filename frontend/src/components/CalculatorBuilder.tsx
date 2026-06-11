@@ -25,6 +25,7 @@ import {
   templateToDraft,
   type CalculatorTemplate,
 } from "@/lib/calculators/template-catalog";
+import { buildCalculatorSubmissionUrl } from "@/lib/calculators/submit-to-library";
 import type {
   CustomCalculator,
   CustomCalculatorInput,
@@ -168,6 +169,7 @@ function SharingControl({
   onChange,
   onSendExternal,
   canSendExternal,
+  onSubmitToLibrary,
 }: {
   sharedWith: SharedUser[];
   onChange: (next: SharedUser[]) => void;
@@ -176,6 +178,9 @@ function SharingControl({
    *  save-first hint. */
   onSendExternal?: () => void;
   canSendExternal?: boolean;
+  /** Open a pre-filled GitHub submission so the calculator can be considered
+   *  for the shared template library. Reviewed, not instant. */
+  onSubmitToLibrary?: () => void;
 }) {
   const scope = scopeOf(sharedWith);
   return (
@@ -227,6 +232,23 @@ function SharingControl({
         stay the only editor. External sends a separate encrypted copy the
         recipient then owns.
       </p>
+      {onSubmitToLibrary && (
+        <div className="mt-3 pt-3 border-t border-border">
+          <button
+            type="button"
+            onClick={onSubmitToLibrary}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-meta font-semibold text-foreground-muted hover:text-foreground hover:bg-surface-sunken transition-colors"
+          >
+            <Icon name="book" className="w-4 h-4" />
+            Share to the library
+          </button>
+          <p className="mt-1 text-meta text-foreground-muted">
+            Opens a pre-filled GitHub submission in a new tab. A maintainer
+            reviews it, and if it fits it ships in a later release so every lab
+            gets it. Nothing is added automatically.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -820,6 +842,17 @@ export function CalculatorEditView({
             : undefined
         }
         canSendExternal={existingId !== undefined && !saving}
+        onSubmitToLibrary={() => {
+          // Submission carries the calculator as JSON in a pre-filled GitHub
+          // issue body, so it works from the unsaved draft too (no save-first
+          // gate, unlike the external encrypted send which seals a stored
+          // snapshot). noopener keeps the new tab from reaching back here.
+          window.open(
+            buildCalculatorSubmissionUrl(draftToCalc(draft)),
+            "_blank",
+            "noopener",
+          );
+        }}
       />
 
       {/* Live preview */}
