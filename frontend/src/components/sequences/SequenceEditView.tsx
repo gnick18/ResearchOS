@@ -5698,7 +5698,13 @@ export default function SequenceEditView({
           {/* Live selection readout (left of this group) + the compact taxonomy
               affordance, pushed to the far right of the spine. */}
           <div className="ml-auto flex min-w-0 items-center gap-4 pr-2 text-meta text-foreground-muted">
-            <SelectionReadoutContent readout={readout} />
+            <span
+              role="status"
+              aria-live="polite"
+              className="flex items-center gap-4"
+            >
+              <SelectionReadoutContent readout={readout} />
+            </span>
             <SequenceLineageFooter
               organism={sequence.organism}
               taxId={sequence.tax_id}

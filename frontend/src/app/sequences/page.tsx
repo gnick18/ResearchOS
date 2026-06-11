@@ -383,6 +383,8 @@ export default function SequencesPage() {
   // toggle remembers the dragged width and restores it on exit.
   const [listCollapsed, setListCollapsed] = useState(false);
   const draggingRef = useRef(false);
+  // The latest clamped width during an active drag, persisted on drag end.
+  const dragWidthRef = useRef<number | null>(null);
 
   const queryClient = useQueryClient();
   const { currentUser } = useCurrentUser();
@@ -496,6 +498,13 @@ export default function SequencesPage() {
   // selection while the param lingers in the URL). SSR-safe. searchParams is null
   // until the client hydrates, and resolveDeepLinkSelection is pure.
   const appliedDeepLinkRef = useRef<string | null>(null);
+  // The id a just-applied deep link wants selected. The keep-valid effect below
+  // runs in the same commit as the deep-link effect, and its `selectedId`
+  // closure is still the pre-deep-link value (null on first load), so without
+  // this it would clobber the deep-linked selection back to the first row. The
+  // ref lets keep-valid honor the pending deep link, then clears so later
+  // invalidations (e.g. the selected sequence is deleted) default normally.
+  const deepLinkTargetRef = useRef<number | null>(null);
   useEffect(() => {
     const seqParam = searchParams?.get("seq") ?? null;
     const collectionParam = searchParams?.get("collection") ?? null;
@@ -512,17 +521,27 @@ export default function SequencesPage() {
     if (seqParam && sel.selectId == null && sequences.length === 0) return;
     appliedDeepLinkRef.current = key;
     if (sel.selectCollection != null) setCollection(sel.selectCollection);
-    if (sel.selectId != null) setSelectedId(sel.selectId);
+    if (sel.selectId != null) {
+      deepLinkTargetRef.current = sel.selectId;
+      setSelectedId(sel.selectId);
+    }
   }, [searchParams, sequences]);
 
-  // Keep a valid selection: default to the first visible sequence.
+  // Keep a valid selection: default to the first visible sequence, but defer to
+  // a pending deep-link target so a `?seq=<id>` link is not overwritten here.
   useEffect(() => {
     if (sorted.length === 0) {
       setSelectedId(null);
       return;
     }
     if (selectedId == null || !sorted.some((s) => s.id === selectedId)) {
-      setSelectedId(sorted[0].id);
+      const target = deepLinkTargetRef.current;
+      if (target != null && sorted.some((s) => s.id === target)) {
+        deepLinkTargetRef.current = null;
+        setSelectedId(target);
+      } else {
+        setSelectedId(sorted[0].id);
+      }
     }
   }, [sorted, selectedId]);
 
@@ -1302,12 +1321,19 @@ export default function SequencesPage() {
     }
   }, []);
 
-  // Persist the width whenever it settles (skipped while collapsed since the
-  // rendered width is 0, not the user's chosen width).
-  useEffect(() => {
+  // Persist the width only when the user actually resizes (drag end + keyboard
+  // nudge below), never as a [listWidth] effect. A mount-time effect would write
+  // the default over the just-restored value before the restore's setState
+  // propagates (React 18 StrictMode double-invokes the mount effects with no
+  // re-render between passes), so the saved width never survived a reload.
+  const persistListWidth = useCallback((w: number) => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem(LIST_WIDTH_STORAGE_KEY, String(Math.round(listWidth)));
-  }, [listWidth]);
+    try {
+      window.localStorage.setItem(LIST_WIDTH_STORAGE_KEY, String(Math.round(w)));
+    } catch {
+      /* private mode / quota — non-fatal, the width just will not persist */
+    }
+  }, []);
 
   // Divider drag. Pointer capture keeps the move events flowing even if the
   // cursor outruns the thin handle; the body gets user-select:none so dragging
@@ -1334,7 +1360,9 @@ export default function SequencesPage() {
       if (!container) return;
       const rect = container.getBoundingClientRect();
       const desired = e.clientX - rect.left;
-      setListWidth(clampListWidth(desired, rect.width));
+      const next = clampListWidth(desired, rect.width);
+      dragWidthRef.current = next;
+      setListWidth(next);
     },
     [],
   );
@@ -1346,8 +1374,12 @@ export default function SequencesPage() {
       (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
       document.body.style.userSelect = "";
       document.body.style.cursor = "";
+      if (dragWidthRef.current != null) {
+        persistListWidth(dragWidthRef.current);
+        dragWidthRef.current = null;
+      }
     },
-    [],
+    [persistListWidth],
   );
 
   // Keyboard resize for the separator (arrow keys nudge by 16px, re-clamped).
@@ -1358,13 +1390,21 @@ export default function SequencesPage() {
       const width = container?.getBoundingClientRect().width ?? 0;
       if (e.key === "ArrowLeft") {
         e.preventDefault();
-        setListWidth((w) => clampListWidth(w - step, width));
+        setListWidth((w) => {
+          const next = clampListWidth(w - step, width);
+          persistListWidth(next);
+          return next;
+        });
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
-        setListWidth((w) => clampListWidth(w + step, width));
+        setListWidth((w) => {
+          const next = clampListWidth(w + step, width);
+          persistListWidth(next);
+          return next;
+        });
       }
     },
-    [],
+    [persistListWidth],
   );
 
   // Escape exits focus mode, but only when it is "free" — never while the user

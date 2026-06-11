@@ -157,6 +157,8 @@ export default function SequenceSelectionReadout({
   const readout = useMemo(() => deriveSelectionReadout(selection, seq), [selection, seq]);
   return (
     <div
+      role="status"
+      aria-live="polite"
       className={`flex items-center gap-4 border-t border-gray-100 bg-gray-50 px-3 py-1.5 text-meta text-gray-600 ${className ?? ""}`}
     >
       <SelectionReadoutContent readout={readout} />
