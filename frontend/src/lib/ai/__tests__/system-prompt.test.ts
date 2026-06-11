@@ -34,6 +34,15 @@ describe("BEAKERBOT_SYSTEM_PROMPT", () => {
     expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/delete, send, share, pay/i);
   });
 
+  it("instructs the Data Hub analysis flow, list tables then run the engine-computed test", () => {
+    // The model lists tables, picks columns, and runs the analysis, and it never
+    // computes a statistic, the engine does.
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/list_datahub_tables/);
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/run_datahub_analysis/);
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/engine computes every number/i);
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/Never invent a statistic/i);
+  });
+
   it("includes narrow-panel formatting guidance telling BeakerBot to avoid tables", () => {
     // The panel is a narrow sidebar. BeakerBot must know not to produce wide
     // markdown tables that would overflow it.

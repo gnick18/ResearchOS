@@ -32,6 +32,10 @@ import { goToPageTool } from "./go-to-page";
 import { guideToElementTool } from "./guide-to-element";
 import { clickElementTool } from "./click-element";
 import { proposePlanTool } from "./propose-plan";
+import {
+  listDataHubTablesTool,
+  runDataHubAnalysisTool,
+} from "./datahub-analysis";
 import type { AiTool } from "./types";
 
 // The read-only toolset, read-only with respect to the user's data. Exported on
@@ -43,11 +47,17 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   readPageTool,
   goToPageTool,
   guideToElementTool,
+  listDataHubTablesTool,
 ];
 
 // The action toolset. Each tool here carries action: true and goes through the
-// agent loop's approval gate. Today just click_element.
-export const ACTION_TOOLS: AiTool[] = [clickElementTool];
+// agent loop's approval gate. click_element dispatches a real click;
+// run_datahub_analysis runs a Data Hub statistical analysis and stores the
+// version-controlled result (non-destructive, so plan-approval covers it).
+export const ACTION_TOOLS: AiTool[] = [
+  clickElementTool,
+  runDataHubAnalysisTool,
+];
 
 // The coordination toolset. These tools neither read the user's data nor act on
 // it, they steer the approval flow itself. propose_plan is the proposal step of
