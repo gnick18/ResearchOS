@@ -9,6 +9,7 @@ import { markdownSanitizeSchema } from "@/lib/markdown/sanitize-schema";
 import remarkUnderline from "@/lib/markdown/remark-underline";
 import Tooltip from "@/components/Tooltip";
 import { Icon } from "@/components/icons";
+import LivingPopup from "@/components/ui/LivingPopup";
 import {
   fetchMethodCatalogTemplate,
   METHOD_CATALOG_BASE,
@@ -31,6 +32,7 @@ import type {
   CellCultureMedia,
   IonizationMode,
   LCIngredientRole,
+  PCRIngredient,
   PCRStep,
   PlateWellRole,
 } from "@/lib/types";
@@ -334,6 +336,10 @@ export function SingleTemplateDetail({
   const meta = getMethodTypeMeta(entry.method_type as MethodTypeId);
   const [template, setTemplate] = useState<MethodCatalogTemplate | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  // The roomy full-protocol overlay (see "View full protocol" below). The panel
+  // is only ~400px wide, so the inline preview is compact; the overlay shows the
+  // complete extracted protocol, rendered as it will look once imported.
+  const [fullOpen, setFullOpen] = useState(false);
 
   // Fetch the full payload lazily on selection (the manifest entry carries only
   // metadata). Re-runs when the selected slug changes.
@@ -403,7 +409,19 @@ export function SingleTemplateDetail({
 
       {/* Read-only payload preview */}
       <section className="flex flex-col gap-2 border-t border-border pt-3">
-        <SectionLabel>Preview</SectionLabel>
+        <div className="flex items-center justify-between gap-2">
+          <SectionLabel>Preview</SectionLabel>
+          {state === "ready" && template && (
+            <button
+              type="button"
+              onClick={() => setFullOpen(true)}
+              className="inline-flex items-center gap-1.5 text-meta font-medium text-accent hover:underline"
+            >
+              <Icon name="list" className="h-3.5 w-3.5" />
+              View full protocol
+            </button>
+          )}
+        </div>
         {state === "loading" && (
           <div
             aria-hidden="true"
@@ -460,6 +478,42 @@ export function SingleTemplateDetail({
           </div>
         )}
       </section>
+
+      {/* The roomy, scrollable full-protocol overlay. Wider than the side panel
+          so reagent / gradient tables read in full, and it shows the COMPLETE
+          extracted protocol rendered as it will look once imported (PCR lists
+          every reagent, markdown shows the whole body). */}
+      <LivingPopup
+        open={fullOpen}
+        onClose={() => setFullOpen(false)}
+        label={`${entry.title} full protocol`}
+        widthClassName="max-w-3xl"
+        padded
+        fillHeight
+      >
+        <div className="flex flex-col gap-4 overflow-y-auto pr-1">
+          <div className="flex items-start justify-between gap-3">
+            <h4 className="text-title font-semibold text-foreground">
+              {entry.title}
+            </h4>
+            <TypeBadge meta={meta} />
+          </div>
+          {entry.description && (
+            <p className="text-body text-foreground leading-snug">
+              {entry.description}
+            </p>
+          )}
+          <div className="rounded-lg border border-border bg-surface-sunken/60 p-4">
+            {template ? (
+              <FullPayloadView template={template} />
+            ) : (
+              <p className="text-body text-foreground-muted">
+                The protocol is unavailable right now.
+              </p>
+            )}
+          </div>
+        </div>
+      </LivingPopup>
     </div>
   );
 }
@@ -846,14 +900,55 @@ function StructuredPayloadView({
   }
 }
 
+/**
+ * Render a fetched template payload read-only at FULL detail, for the roomy
+ * "View full protocol" overlay. Shares every per-type helper with the compact
+ * `StructuredPayloadView` so the full view and the panel preview stay visually
+ * consistent. The only difference from the compact view is that nothing is
+ * truncated: PCR lists every reagent (a table) instead of a count, markdown is
+ * unbounded (the overlay scrolls), and notes are shown. What you see is what you
+ * import.
+ */
+function FullPayloadView({
+  template,
+}: {
+  template: MethodCatalogTemplate;
+}) {
+  switch (template.method_type) {
+    case "markdown":
+      return <MarkdownBody body={template.payload.body} unbounded />;
+    case "pcr":
+      return (
+        <PcrPayloadView
+          steps={flattenPcrSteps(template.payload.gradient)}
+          ingredientCount={template.payload.ingredients.length}
+          ingredients={template.payload.ingredients}
+          notes={template.payload.notes}
+        />
+      );
+    // lc_gradient / plate / cell_culture / mass_spec already render their full
+    // payloads in the compact view (gradient table, regions, schedule, scan
+    // params are not truncated). The overlay just gives them more room, so it
+    // reuses the same renderer.
+    default:
+      return <StructuredPayloadView template={template} />;
+  }
+}
+
 /** Read-only markdown body, rendered with the same plugin stack the method
- *  markdown viewer uses (GFM + underline + sanitized raw HTML). */
-function MarkdownBody({ body }: { body: string }) {
+ *  markdown viewer uses (GFM + underline + sanitized raw HTML). In the compact
+ *  preview it is height-bounded; the full-protocol overlay passes `unbounded`
+ *  so the whole body shows (the overlay supplies the scroll). */
+function MarkdownBody({ body, unbounded = false }: { body: string; unbounded?: boolean }) {
   if (!body || body.trim().length === 0) {
     return <p className="text-body text-foreground-muted">Empty protocol body.</p>;
   }
   return (
-    <div className="prose prose-sm max-w-none text-foreground max-h-72 overflow-auto">
+    <div
+      className={`prose prose-sm max-w-none text-foreground ${
+        unbounded ? "" : "max-h-72 overflow-auto"
+      }`}
+    >
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkUnderline]}
         rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema]]}
@@ -896,12 +991,29 @@ function flattenPcrSteps(gradient: {
   return out;
 }
 
+/**
+ * Render a PCR template payload. Two modes share one renderer so the compact
+ * panel preview and the roomy "full protocol" overlay stay visually consistent:
+ *
+ *  - compact (default): the cycling strip plus a COUNT of reagents, because the
+ *    side panel is too narrow for a reagent table.
+ *  - full (`ingredients` supplied): the cycling strip plus the COMPLETE reagent
+ *    table (each name, concentration, amount per reaction) plus notes, so the
+ *    user can read every reagent before importing. What you see is what you import.
+ */
 function PcrPayloadView({
   steps,
   ingredientCount,
+  ingredients,
+  notes,
 }: {
   steps: { label: string; detail: string }[];
+  /** Compact mode: shown as "N ingredients" when `ingredients` is not given. */
   ingredientCount: number;
+  /** Full mode: the complete reagent list, rendered as a table instead of a count. */
+  ingredients?: PCRIngredient[];
+  /** Full mode: protocol notes, shown below the reagents. */
+  notes?: string | null;
 }) {
   return (
     <div className="flex flex-col gap-2">
@@ -915,10 +1027,53 @@ function PcrPayloadView({
           </li>
         ))}
       </ol>
-      <Field
-        label="Reaction mix"
-        value={`${ingredientCount} ingredient${ingredientCount === 1 ? "" : "s"}`}
-      />
+      {ingredients ? (
+        <PcrReagentTable ingredients={ingredients} />
+      ) : (
+        <Field
+          label="Reaction mix"
+          value={`${ingredientCount} ingredient${ingredientCount === 1 ? "" : "s"}`}
+        />
+      )}
+      {notes && notes.trim().length > 0 && (
+        <div>
+          <span className="text-meta font-medium text-foreground-muted">Notes</span>
+          <p className="mt-1 whitespace-pre-wrap text-body text-foreground">{notes}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The COMPLETE PCR reaction mix as a table (name, concentration, amount per
+ *  reaction). Used only in the full-protocol overlay, where there is room. */
+function PcrReagentTable({ ingredients }: { ingredients: PCRIngredient[] }) {
+  if (ingredients.length === 0) {
+    return <Field label="Reaction mix" value="No reagents listed" />;
+  }
+  return (
+    <div>
+      <span className="text-meta font-medium text-foreground-muted">
+        Reaction mix
+      </span>
+      <table className="mt-1 w-full text-body">
+        <thead>
+          <tr className="text-left text-meta text-foreground-muted">
+            <th className="font-medium pr-3">Reagent</th>
+            <th className="font-medium pr-3">Concentration</th>
+            <th className="font-medium">Per reaction</th>
+          </tr>
+        </thead>
+        <tbody className="text-foreground align-top">
+          {ingredients.map((g, i) => (
+            <tr key={g.id || i}>
+              <td className="pr-3">{g.name}</td>
+              <td className="pr-3 text-foreground-muted">{g.concentration || "-"}</td>
+              <td>{g.amount_per_reaction || "-"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
