@@ -33,6 +33,7 @@ import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import { useAiChat } from "./useAiChat";
 import { useNavigationBridge } from "./navigation-bridge";
+import { useBeakerBotMessageBridge } from "./message-bridge";
 import { useBeakerBotAutonomy } from "@/lib/ai/autonomy-store";
 import ObjectChip from "@/components/ObjectChip";
 import { parseObjectDeepLink } from "@/lib/references";
@@ -243,6 +244,13 @@ export default function BeakerBotPanel({
   // SPA route change (preserving the fixture capture param) instead of a reload.
   // The tool runs outside React, so this bridge is how it reaches the router.
   useNavigationBridge();
+
+  // Register the message send function into the message bridge so the
+  // BeakerSearch command palette can seed a query into this conversation from
+  // outside the React tree. The registration is stable (one handler per mount),
+  // and any query queued between the panel open and this effect fires is
+  // flushed immediately on register.
+  useBeakerBotMessageBridge(send);
 
   // Keep the newest message in view as the answer reveals.
   useEffect(() => {

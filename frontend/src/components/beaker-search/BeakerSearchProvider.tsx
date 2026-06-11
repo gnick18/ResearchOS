@@ -75,6 +75,11 @@ import type { BeakerSearchSource } from "./types";
 // active page source so every palette shows the page's own items first and the
 // global "Go to" + "App" reach below.
 import { useGlobalCommands } from "./useGlobalCommands";
+// BeakerSearch v1 AI escalation. The panel store opens the dock; the message
+// bridge seeds the query into the open conversation. Both are stable module-level
+// singletons, so importing them here adds no React complexity.
+import { useBeakerBotPanel } from "@/lib/ai/panel-store";
+import { sendToBeakerBot } from "@/components/ai/message-bridge";
 // BeakerSearch global object search, chunk 1. Mounting the index hook here runs
 // its one-time, fire-and-forget prefetch of the four canonical loaders on shell
 // mount (decision 2, eager-once), so Cmd-K finds a record by name even on a page
@@ -299,6 +304,16 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
     [router],
   );
 
+  // BeakerSearch v1 AI escalation. Opens the BeakerBot dock, seeds the query,
+  // then closes the palette. The escalate action is stable (no deps that churn).
+  // The panel store and message bridge are module-level singletons, so the
+  // useCallback deps are empty and the identity is truly stable.
+  const escalateToBeakerBot = useCallback((q: string) => {
+    useBeakerBotPanel.getState().open();
+    void sendToBeakerBot(q.trim());
+    setOpen(false);
+  }, []);
+
   const activePage = sources.length > 0 ? sources[sources.length - 1] : null;
   // A page source is still reported via hasSource for any trigger that wants to
   // know whether the current surface contributed its own context. The palette,
@@ -421,6 +436,7 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
           onRecheck={recheckPageContext}
           recheckShortcutLabel={recheckShortcutLabel}
           dockControlRef={dockControlRef}
+          onEscalate={escalateToBeakerBot}
         />
         </BeakerSearchHoverContext.Provider>
       </BeakerSearchRegistryContext.Provider>

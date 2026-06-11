@@ -26,12 +26,15 @@ import { taskKey, type Task, type Method, type Project, type SequenceRecord, typ
 import { getMethodTypeMeta } from "@/lib/methods/method-type-registry";
 import { INVENTORY_ENABLED } from "@/lib/inventory/config";
 import { supplyKeyFor } from "@/lib/supplies/supply-model";
+import type { DataHubDocument } from "@/lib/datahub/model/types";
+import type { Molecule } from "@/lib/chemistry/api";
+import type { PurchaseItem } from "@/lib/types";
 
 /** The uniform record the global source ranks and renders. One per core record.
  *  Ranking and rendering branch only on `type`, `iconName`, and `open`, never on
  *  the source record shape, so chunk 2 stays type-agnostic. */
 export interface GlobalIndexEntry {
-  type: "task" | "project" | "method" | "sequence" | "inventory" | "note";
+  type: "task" | "project" | "method" | "sequence" | "inventory" | "note" | "datahub" | "molecule" | "purchase";
   /** Composite identity, taskKey() / `${owner}:${id}` / the sequence id as a
    *  string. The dedup key AND the carrier of the owner into the jump. */
   key: string;
@@ -61,7 +64,7 @@ export interface GlobalIndexEntry {
   ocr?: string;
 }
 
-/** The five core record sets plus the active user, exactly the canonical
+/** The eight core record sets plus the active user, exactly the canonical
  *  React Query caches useGlobalObjectIndex subscribes to. */
 export interface GlobalIndexInput {
   tasks: Task[];
@@ -78,6 +81,16 @@ export interface GlobalIndexInput {
    *  ["note-ocr-text"] query), folded into the note entry's haystack + ocr
    *  field. A note with no scan simply has no entry here. */
   noteOcrText?: Map<number, string>;
+  /** Data Hub documents (tables + analyses). Optional so existing callers and
+   *  tests that do not pass datahub tables keep building the same index. */
+  datahubDocs?: DataHubDocument[];
+  /** Molecules from the chemistry workbench library. Optional for the same
+   *  backward-compat reason as datahubDocs. */
+  molecules?: Molecule[];
+  /** Purchase items. Optional for backward compat. The items are decorated with
+   *  an owner field by listAllIncludingShared; without it we fall back to the
+   *  currentUser so own items always have a key. */
+  purchaseItems?: Array<PurchaseItem & { owner?: string }>;
 }
 
 /** Parse an ISO stamp to epoch ms, 0 when absent or unparseable, so a missing
@@ -266,12 +279,113 @@ export function buildNoteEntry(
   };
 }
 
+/** Map a Data Hub document to a GlobalIndexEntry. Exported for unit tests.
+ *  Uses the "chart" icon (the same glyph the Data Hub page tab uses for data
+ *  visualizations). Deep-links via /datahub?doc=<id> which the page reads to
+ *  auto-select the table on load. */
+export function buildDataHubEntry(
+  doc: DataHubDocument,
+  currentUser: string,
+): GlobalIndexEntry {
+  // Owner is available via the last_edited_by field when present, or via the
+  // caller. For a simpler key use the doc id alone (it is already globally
+  // unique within a user's space). Prefix with "datahub:" for namespace safety.
+  const key = `datahub:${currentUser}:${doc.id}`;
+  const tableTypeLabel =
+    doc.table_type === "xy" ? "XY table"
+    : doc.table_type === "column" ? "Column table"
+    : doc.table_type === "grouped" ? "Grouped table"
+    : doc.table_type === "survival" ? "Survival table"
+    : "Data table";
+  const meta = tableTypeLabel;
+  return {
+    type: "datahub",
+    key,
+    label: doc.name,
+    meta,
+    haystack: buildHaystack([doc.name, doc.table_type, doc.folder_path]),
+    recencyAt: toEpoch(doc.last_edited_at),
+    iconName: "chart" as IconName,
+    href: `/datahub?doc=${encodeURIComponent(doc.id)}`,
+    enabled: true,
+  };
+}
+
+/** Map a Molecule to a GlobalIndexEntry. Exported for unit tests.
+ *  Uses the "vial" icon to match the chemistry hub's molecule glyph.
+ *  Deep-links via /chemistry?molecule=<id> which ChemistryHub reads on mount
+ *  to auto-select the molecule and open its detail. */
+export function buildMoleculeEntry(mol: Molecule): GlobalIndexEntry {
+  // Molecule ids are per-user strings (no global dedup needed for own library).
+  const key = `molecule:${mol.id}`;
+  const metaParts: string[] = [];
+  if (mol.formula) metaParts.push(mol.formula);
+  if (mol.mol_weight != null) metaParts.push(`MW ${mol.mol_weight.toFixed(0)}`);
+  if (mol.source === "pubchem") metaParts.push("from PubChem");
+  else if (mol.source === "imported") metaParts.push("imported");
+  const meta = metaParts.join(", ") || "Molecule";
+  return {
+    type: "molecule",
+    key,
+    label: mol.name,
+    meta,
+    haystack: buildHaystack([mol.name, mol.formula, mol.smiles, mol.inchikey]),
+    recencyAt: toEpoch(mol.added_at),
+    iconName: "vial" as IconName,
+    href: `/chemistry?molecule=${encodeURIComponent(mol.id)}`,
+    enabled: true,
+  };
+}
+
+/** Map a PurchaseItem to a GlobalIndexEntry. Exported for unit tests.
+ *  The purchases page has no per-item deep link, so the href points to the
+ *  purchases page root. A future pass can add a per-item opener if one is built.
+ *  Uses the "receipt" icon. */
+export function buildPurchaseEntry(
+  item: PurchaseItem & { owner?: string },
+  currentUser: string,
+): GlobalIndexEntry {
+  const owner = item.owner ?? currentUser;
+  // Composite key: owner + item id. Item ids are per-owner incrementing ints.
+  const key = `purchase:${owner}:${item.id}`;
+  const metaParts: string[] = [];
+  if (item.vendor) metaParts.push(item.vendor);
+  if (item.category) metaParts.push(item.category);
+  if (item.total_price != null && item.total_price > 0) {
+    metaParts.push(`$${item.total_price.toFixed(2)}`);
+  }
+  const meta = metaParts.join(" · ") || "Purchase";
+  return {
+    type: "purchase",
+    key,
+    label: item.item_name,
+    meta,
+    haystack: buildHaystack([item.item_name, item.vendor, item.category, item.catalog_number, item.cas, item.notes]),
+    recencyAt: 0, // PurchaseItem has no edit timestamp; recency boost is not applicable.
+    iconName: "receipt" as IconName,
+    href: "/purchases",
+    enabled: true,
+  };
+}
+
 /** Map the core record sets into one flat index. Pure and O(n) over the
  *  arrays, the project-name lookup is built once so the task subline does
  *  not re-scan. The merged loaders already dedup own vs shared by composite key,
  *  so this trusts their output and does not re-dedup. */
 export function buildGlobalIndex(input: GlobalIndexInput): GlobalIndexEntry[] {
-  const { tasks, projects, methods, sequences, inventoryItems, currentUser, notes = [], noteOcrText } = input;
+  const {
+    tasks,
+    projects,
+    methods,
+    sequences,
+    inventoryItems,
+    currentUser,
+    notes = [],
+    noteOcrText,
+    datahubDocs = [],
+    molecules = [],
+    purchaseItems = [],
+  } = input;
 
   const projectNameByKey = new Map<string, string>();
   for (const p of projects) projectNameByKey.set(`${p.owner}:${p.id}`, p.name);
@@ -287,5 +401,8 @@ export function buildGlobalIndex(input: GlobalIndexInput): GlobalIndexEntry[] {
   for (const note of notes) {
     entries.push(buildNoteEntry(note, noteOcrText?.get(note.id) ?? "", currentUser));
   }
+  for (const doc of datahubDocs) entries.push(buildDataHubEntry(doc, currentUser));
+  for (const mol of molecules) entries.push(buildMoleculeEntry(mol));
+  for (const item of purchaseItems) entries.push(buildPurchaseEntry(item, currentUser));
   return entries;
 }

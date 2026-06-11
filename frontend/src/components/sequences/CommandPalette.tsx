@@ -25,6 +25,8 @@ import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import { Icon } from "@/components/icons";
 import BeakerBot from "@/components/BeakerBot";
+import { useBeakerBotPanel } from "@/lib/ai/panel-store";
+import { sendToBeakerBot } from "@/components/ai/message-bridge";
 import Tooltip from "@/components/Tooltip";
 import type { SelectionKind } from "@/lib/sequences/inspector-context";
 import {
@@ -92,7 +94,8 @@ const EMPTY_RECENT_RECORDS: PaletteItem[] = [];
 /** Per-type icon-chip classes for a tinted row (the redesign's per-type color
  *  coding, so a mixed list is scannable by hue). Tasks amber, Projects violet,
  *  Methods emerald, Sequences sky, Goals teal, Events rose, Feeds slate (the
- *  read-only external calendar tone). */
+ *  read-only external calendar tone). Data Hub orange, Molecules lime,
+ *  Purchases yellow-warm. */
 const CHIP_TONE: Record<PaletteTone, string> = {
   task: "bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300",
   project: "bg-violet-50 text-violet-600 dark:bg-violet-900/30 dark:text-violet-300",
@@ -106,6 +109,9 @@ const CHIP_TONE: Record<PaletteTone, string> = {
   person: "bg-pink-50 text-pink-600 dark:bg-pink-900/30 dark:text-pink-300",
   funding: "bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-300",
   link: "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300",
+  datahub: "bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-300",
+  molecule: "bg-lime-50 text-lime-600 dark:bg-lime-900/30 dark:text-lime-300",
+  purchase: "bg-yellow-50 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-300",
 };
 /** The default chip for commands / sequence-nav / artifacts / the search-all row
  *  (everything that is not a typed cross-app record). */
@@ -429,6 +435,11 @@ export interface CommandPaletteProps {
    *  Absent on non-shell callers (the editor's own tests), which keep the plain
    *  open / close toggle. */
   dockControlRef?: { current: DockControl | null };
+  /** BeakerSearch v1 AI escalation. When present, shows the "Ask BeakerBot"
+   *  row at the top of the palette (index 0 in the selection model). Absent on
+   *  non-shell callers (the editor's own tests) that do not have the panel
+   *  mounted, so the escalation row simply does not appear there. */
+  onEscalate?: (query: string) => void;
 }
 
 /** The BeakerSearch v3 floating dock. Renders nothing when closed (the geometry
@@ -457,6 +468,7 @@ export function CommandPalette({
   onRecheck,
   recheckShortcutLabel,
   dockControlRef,
+  onEscalate,
 }: CommandPaletteProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -769,6 +781,11 @@ export function CommandPalette({
 
   const flat = useMemo(() => flattenPaletteItems(viewGroups), [viewGroups]);
 
+  // BeakerSearch v1 AI escalation flags. Declared here, immediately after flat,
+  // so all downstream code (useEffects, callbacks) can reference them safely.
+  const hasEscalation = Boolean(onEscalate);
+  const totalHighlightCount = flat.length + (hasEscalation ? 1 : 0);
+
   // Reset the query and remember focus each time the palette opens; default the
   // highlight to the first (top-ranked) result and put the cursor in the input.
   useEffect(() => {
@@ -807,10 +824,11 @@ export function CommandPalette({
   }, [pathname]);
 
   // Keep the highlight in range as the filtered list shrinks; default to the top
-  // result whenever the query changes.
+  // result (index 0, the escalation row when present, else the first flat item)
+  // whenever the query changes.
   useEffect(() => {
-    setHighlight((h) => (h >= flat.length ? 0 : h));
-  }, [flat.length]);
+    setHighlight((h) => (h >= totalHighlightCount ? 0 : h));
+  }, [totalHighlightCount]);
 
   // Restore focus to wherever it was when the palette closes.
   useEffect(() => {
@@ -903,20 +921,28 @@ export function CommandPalette({
   );
 
   // Move the highlight to the next RUNNABLE row, wrapping, skipping disabled
-  // rows. Returns the input index unchanged when nothing is runnable.
+  // rows. The escalation row (index 0) is always enabled. Returns the input
+  // index unchanged when nothing is runnable.
   const moveHighlight = useCallback(
     (dir: 1 | -1) => {
-      if (flat.length === 0) return;
+      if (totalHighlightCount === 0) return;
       let next = highlight;
-      for (let step = 0; step < flat.length; step += 1) {
-        next = (next + dir + flat.length) % flat.length;
-        if (isPaletteItemEnabled(flat[next])) {
+      for (let step = 0; step < totalHighlightCount; step += 1) {
+        next = (next + dir + totalHighlightCount) % totalHighlightCount;
+        // Escalation row (index 0) is always runnable when present.
+        if (hasEscalation && next === 0) {
+          setHighlight(next);
+          return;
+        }
+        // Flat items: their highlight index is their flat-array index + 1.
+        const flatIdx = hasEscalation ? next - 1 : next;
+        if (flatIdx >= 0 && flatIdx < flat.length && isPaletteItemEnabled(flat[flatIdx])) {
           setHighlight(next);
           return;
         }
       }
     },
-    [flat, highlight],
+    [flat, highlight, hasEscalation, totalHighlightCount],
   );
 
   // Escape closes the palette (or pops one sub-flow stage) from a WINDOW-level
@@ -977,7 +1003,15 @@ export function CommandPalette({
           }
           return;
         }
-        runItem(flat[highlight]);
+        // BeakerSearch v1 AI escalation. When the escalation row is highlighted
+        // (index 0), Enter escalates to BeakerBot.
+        if (hasEscalation && highlight === 0 && onEscalate) {
+          onEscalate(query);
+          return;
+        }
+        // For flat items the highlight index is offset by 1 when escalation is present.
+        const flatIdx = hasEscalation ? highlight - 1 : highlight;
+        runItem(flat[flatIdx]);
         return;
       }
     },
@@ -987,9 +1021,11 @@ export function CommandPalette({
       runItem,
       flat,
       highlight,
+      hasEscalation,
+      onEscalate,
+      query,
       inSubflow,
       topSubflow,
-      query,
       subItems.length,
     ],
   );
@@ -1280,25 +1316,45 @@ export function CommandPalette({
   }, [open, onRecheck]);
 
   // Keep the highlighted row scrolled into view as Up / Down walk past the fold.
+  // The escalation row (index 0 when present) carries data-cmd-escalation; flat
+  // items carry data-cmd-index with their flat-array index (adjusted for offset).
   useEffect(() => {
     if (!open) return;
+    // Escalation row is outside the listbox, scroll the dock container instead.
+    if (hasEscalation && highlight === 0) {
+      const escRow = dockRef.current?.querySelector<HTMLElement>(
+        "[data-cmd-escalation]",
+      );
+      if (escRow && typeof escRow.scrollIntoView === "function") {
+        escRow.scrollIntoView({ block: "nearest" });
+      }
+      return;
+    }
     const list = listRef.current;
     if (!list) return;
+    // Flat item index is highlight - 1 when escalation is present.
+    const flatIdx = hasEscalation ? highlight - 1 : highlight;
     const row = list.querySelector<HTMLElement>(
-      `[data-cmd-index="${highlight}"]`,
+      `[data-cmd-index="${flatIdx}"]`,
     );
     // scrollIntoView is absent in some test environments (jsdom), so guard it.
     if (row && typeof row.scrollIntoView === "function") {
       row.scrollIntoView({ block: "nearest" });
     }
-  }, [highlight, open]);
+  }, [highlight, open, hasEscalation]);
 
   if (!mounted || !open) return null;
 
-  const activeId =
-    flat[highlight] != null
-      ? `${baseId}-opt-${paletteItemKey(flat[highlight])}`
+  // When the escalation row is highlighted (index 0 with onEscalate present),
+  // point aria-activedescendant at the escalation row element. For flat items,
+  // offset the flat index by the escalation slot when escalation is present.
+  const activeId = (() => {
+    if (hasEscalation && highlight === 0) return `${baseId}-opt-escalation`;
+    const flatIdx = hasEscalation ? highlight - 1 : highlight;
+    return flat[flatIdx] != null
+      ? `${baseId}-opt-${paletteItemKey(flat[flatIdx])}`
       : undefined;
+  })();
 
   // BeakerSearch v3 geometry, resolved for render. The dock is fixed-position at
   // (x, y); tucked slides it off `side` via a transform leaving the peek tab;
@@ -1668,8 +1724,69 @@ export function CommandPalette({
           </button>
         ) : null}
 
+        {/* Ask BeakerBot escalation row. Always present when onEscalate is
+            wired (the shell caller passes it; non-shell callers omit it, so
+            the row simply does not appear there). It renders ABOVE the result
+            listbox so it is visually the first thing under the search input,
+            and it is index 0 in the highlight model, which is the default on
+            open. Clicking or pressing Enter while it is highlighted escalates
+            the query to BeakerBot instead of navigating a result. */}
+        {onEscalate ? (
+          <div
+            id={`${baseId}-opt-escalation`}
+            data-cmd-escalation="true"
+            role="option"
+            aria-selected={highlight === 0}
+            aria-label={
+              query.trim()
+                ? `Ask BeakerBot about "${query.trim()}"`
+                : "Ask BeakerBot"
+            }
+            onMouseMove={() => setHighlight(0)}
+            onMouseDown={(e) => {
+              // Keep focus in the input; escalate on click.
+              e.preventDefault();
+              onEscalate(query);
+            }}
+            className={`relative mx-2 mb-1 mt-0.5 flex cursor-pointer select-none items-center gap-3 rounded-xl border px-3 py-2.5 ${
+              highlight === 0
+                ? "border-sky-300 bg-sky-50 before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-r before:bg-sky-500 dark:border-sky-700 dark:bg-sky-900/30"
+                : "border-border bg-surface-sunken hover:border-sky-200 hover:bg-sky-50/60 dark:hover:border-sky-800 dark:hover:bg-sky-900/20"
+            }`}
+          >
+            {/* The BeakerBot mark is used here so the AI escalation reads
+                as BeakerBot, consistent with the approved mockup and the
+                standing rule that the mascot is always BeakerBot. */}
+            <BeakerBot
+              pose="idle"
+              animated={false}
+              className="h-5 w-5 flex-none"
+              ariaLabel=""
+            />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-body font-semibold text-foreground">
+                {query.trim()
+                  ? <>Ask BeakerBot about <span className="font-bold text-sky-700 dark:text-sky-300">&ldquo;{query.trim()}&rdquo;</span></>
+                  : "Ask BeakerBot"}
+              </span>
+              <span className="block truncate text-[11px] text-foreground-muted">
+                reasons, perceives, can act
+              </span>
+            </span>
+            <span className="flex flex-none items-center gap-1.5">
+              <span className="rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                uses credit
+              </span>
+              <kbd className="rounded border border-border bg-surface px-1.5 py-0.5 text-[11px] font-semibold text-foreground-muted">
+                enter
+              </kbd>
+            </span>
+          </div>
+        ) : null}
+
         {/* Result list. Grouped, scrollable, with a flat highlight cursor across
-            commands, sequences, and saved results. */}
+            commands, sequences, and saved results. When the AI escalation row is
+            present the flat items are at highlight indices 1..N (shifted by 1). */}
         <div
           ref={listRef}
           id={`${baseId}-listbox`}
@@ -1684,6 +1801,8 @@ export function CommandPalette({
           ) : (
             (() => {
               // A running flat index so the highlight maps across groups.
+              // When escalation is present the highlight index for a flat item
+              // at flat-array position `flatIndex` is `flatIndex + 1`.
               let flatIndex = -1;
               return viewGroups.map((g) => (
                 <div key={g.title}>
@@ -1701,8 +1820,11 @@ export function CommandPalette({
                   </div>
                   {g.items.map((item) => {
                     flatIndex += 1;
-                    const idx = flatIndex;
-                    const isHighlighted = idx === highlight;
+                    const flatIdx = flatIndex;
+                    // The highlight slot for this flat item: offset by 1 when
+                    // the escalation row occupies slot 0.
+                    const highlightIdx = hasEscalation ? flatIdx + 1 : flatIdx;
+                    const isHighlighted = highlightIdx === highlight;
                     const enabled = isPaletteItemEnabled(item);
                     const key = paletteItemKey(item);
                     const parts = paletteRowParts(item);
@@ -1710,13 +1832,13 @@ export function CommandPalette({
                       <div
                         key={key}
                         id={`${baseId}-opt-${key}`}
-                        data-cmd-index={idx}
+                        data-cmd-index={flatIdx}
                         data-cmd-id={key}
                         role="option"
                         aria-selected={isHighlighted}
                         aria-disabled={!enabled}
                         onMouseMove={() => {
-                          if (enabled) setHighlight(idx);
+                          if (enabled) setHighlight(highlightIdx);
                         }}
                         onMouseDown={(e) => {
                           // Keep focus in the input; run on click.

@@ -5,8 +5,18 @@
 // stamp, so the index brain is verified before any provider wiring.
 
 import { describe, it, expect } from "vitest";
-import { buildGlobalIndex, buildInventoryEntry, buildNoteEntry, type GlobalIndexInput } from "./global-index";
-import type { Task, Method, Project, SequenceRecord, InventoryItem, Note } from "@/lib/types";
+import {
+  buildGlobalIndex,
+  buildInventoryEntry,
+  buildNoteEntry,
+  buildDataHubEntry,
+  buildMoleculeEntry,
+  buildPurchaseEntry,
+  type GlobalIndexInput,
+} from "./global-index";
+import type { Task, Method, Project, SequenceRecord, InventoryItem, Note, PurchaseItem } from "@/lib/types";
+import type { DataHubDocument } from "@/lib/datahub/model/types";
+import type { Molecule } from "@/lib/chemistry/api";
 
 const CURRENT_USER = "morgan";
 
@@ -367,5 +377,210 @@ describe("buildNoteEntry (pure note builder, with OCR)", () => {
     const noteEntry = entries.find((e) => e.type === "note");
     expect(noteEntry).toBeDefined();
     expect(noteEntry!.haystack).toContain("blot transfer overnight");
+  });
+});
+
+// ── BeakerSearch v1 coverage-gap adapters ────────────────────────────────────
+// Tests for the three new adapters (Data Hub, Molecule, Purchase). Each
+// adapter is tested directly (pure builder, no DOM, no React), covering the
+// key, href, type, icon, meta, haystack, and recency fields.
+
+function makeDataHubDoc(over: Partial<DataHubDocument> = {}): DataHubDocument {
+  return {
+    id: "42",
+    name: "Dose-response data",
+    project_ids: ["proj-1"],
+    folder_path: null,
+    table_type: "xy",
+    created_at: "2026-06-10T12:00:00Z",
+    last_edited_at: "2026-06-11T08:00:00Z",
+    ...over,
+  };
+}
+
+describe("buildDataHubEntry (pure entry builder)", () => {
+  it("sets type to datahub and uses the chart icon", () => {
+    const entry = buildDataHubEntry(makeDataHubDoc(), CURRENT_USER);
+    expect(entry.type).toBe("datahub");
+    expect(entry.iconName).toBe("chart");
+  });
+
+  it("builds a composite key using the user and doc id", () => {
+    const entry = buildDataHubEntry(makeDataHubDoc({ id: "99" }), CURRENT_USER);
+    expect(entry.key).toBe(`datahub:${CURRENT_USER}:99`);
+  });
+
+  it("deep-links via /datahub?doc=<id>", () => {
+    const entry = buildDataHubEntry(makeDataHubDoc({ id: "42" }), CURRENT_USER);
+    expect(entry.href).toBe("/datahub?doc=42");
+  });
+
+  it("labels the table type in the meta subline", () => {
+    expect(buildDataHubEntry(makeDataHubDoc({ table_type: "xy" }), CURRENT_USER).meta).toBe("XY table");
+    expect(buildDataHubEntry(makeDataHubDoc({ table_type: "column" }), CURRENT_USER).meta).toBe("Column table");
+    expect(buildDataHubEntry(makeDataHubDoc({ table_type: "grouped" }), CURRENT_USER).meta).toBe("Grouped table");
+    expect(buildDataHubEntry(makeDataHubDoc({ table_type: "survival" }), CURRENT_USER).meta).toBe("Survival table");
+  });
+
+  it("folds the name and table_type into a lowercased haystack", () => {
+    const entry = buildDataHubEntry(makeDataHubDoc({ name: "Dose-response" }), CURRENT_USER);
+    expect(entry.haystack).toContain("dose-response");
+    expect(entry.haystack).toBe(entry.haystack.toLowerCase());
+  });
+
+  it("parses last_edited_at to epoch ms for recency", () => {
+    const entry = buildDataHubEntry(makeDataHubDoc(), CURRENT_USER);
+    expect(entry.recencyAt).toBe(Date.parse("2026-06-11T08:00:00Z"));
+  });
+
+  it("falls back to 0 recency when the stamp is absent", () => {
+    const entry = buildDataHubEntry(makeDataHubDoc({ last_edited_at: undefined }), CURRENT_USER);
+    expect(entry.recencyAt).toBe(0);
+  });
+
+  it("marks the entry enabled", () => {
+    expect(buildDataHubEntry(makeDataHubDoc(), CURRENT_USER).enabled).toBe(true);
+  });
+
+  it("buildGlobalIndex includes datahub entries when datahubDocs is passed", () => {
+    const entries = build({ datahubDocs: [makeDataHubDoc()] });
+    const found = entries.filter((e) => e.type === "datahub");
+    expect(found).toHaveLength(1);
+    expect(found[0].label).toBe("Dose-response data");
+  });
+});
+
+function makeMolecule(over: Partial<Molecule> = {}): Molecule {
+  return {
+    id: "mol-7",
+    name: "Caffeine",
+    project_ids: [],
+    added_at: "2026-06-09T10:00:00Z",
+    smiles: "Cn1cnc2c1c(=O)n(C)c(=O)n2C",
+    inchikey: "RYYVLZVUVIJVGH-UHFFFAOYSA-N",
+    formula: "C8H10N4O2",
+    mol_weight: 194.19,
+    source: "pubchem",
+    ...over,
+  };
+}
+
+describe("buildMoleculeEntry (pure entry builder)", () => {
+  it("sets type to molecule and uses the vial icon", () => {
+    const entry = buildMoleculeEntry(makeMolecule());
+    expect(entry.type).toBe("molecule");
+    expect(entry.iconName).toBe("vial");
+  });
+
+  it("builds a prefixed key from the molecule id", () => {
+    const entry = buildMoleculeEntry(makeMolecule({ id: "mol-7" }));
+    expect(entry.key).toBe("molecule:mol-7");
+  });
+
+  it("deep-links via /chemistry?molecule=<id>", () => {
+    const entry = buildMoleculeEntry(makeMolecule({ id: "mol-7" }));
+    expect(entry.href).toBe("/chemistry?molecule=mol-7");
+  });
+
+  it("includes formula, MW, and pubchem source in the meta subline", () => {
+    const entry = buildMoleculeEntry(makeMolecule());
+    expect(entry.meta).toContain("C8H10N4O2");
+    expect(entry.meta).toContain("MW");
+    expect(entry.meta).toContain("PubChem");
+  });
+
+  it("folds name, formula, smiles, and inchikey into the haystack", () => {
+    const entry = buildMoleculeEntry(makeMolecule());
+    expect(entry.haystack).toContain("caffeine");
+    expect(entry.haystack).toContain("c8h10n4o2");
+    expect(entry.haystack).toBe(entry.haystack.toLowerCase());
+  });
+
+  it("parses added_at to epoch ms for recency", () => {
+    const entry = buildMoleculeEntry(makeMolecule({ added_at: "2026-06-09T10:00:00Z" }));
+    expect(entry.recencyAt).toBe(Date.parse("2026-06-09T10:00:00Z"));
+  });
+
+  it("falls back to 0 recency when added_at is absent", () => {
+    const entry = buildMoleculeEntry(makeMolecule({ added_at: undefined }));
+    expect(entry.recencyAt).toBe(0);
+  });
+
+  it("buildGlobalIndex includes molecule entries when molecules is passed", () => {
+    const entries = build({ molecules: [makeMolecule()] });
+    const found = entries.filter((e) => e.type === "molecule");
+    expect(found).toHaveLength(1);
+    expect(found[0].label).toBe("Caffeine");
+  });
+});
+
+function makePurchaseItem(
+  over: Partial<PurchaseItem & { owner?: string }> = {},
+): PurchaseItem & { owner?: string } {
+  return {
+    id: 15,
+    task_id: 3,
+    item_name: "Trypsin MSDS grade",
+    quantity: 2,
+    price_per_unit: 49.99,
+    shipping_fees: 0,
+    total_price: 99.98,
+    link: null,
+    cas: null,
+    notes: null,
+    funding_string: null,
+    vendor: "Sigma-Aldrich",
+    catalog_number: "T1426",
+    category: "enzyme",
+    ...over,
+  } as PurchaseItem & { owner?: string };
+}
+
+describe("buildPurchaseEntry (pure entry builder)", () => {
+  it("sets type to purchase and uses the receipt icon", () => {
+    const entry = buildPurchaseEntry(makePurchaseItem(), CURRENT_USER);
+    expect(entry.type).toBe("purchase");
+    expect(entry.iconName).toBe("receipt");
+  });
+
+  it("builds a composite key from owner and id", () => {
+    const entry = buildPurchaseEntry(makePurchaseItem({ id: 15, owner: CURRENT_USER }), CURRENT_USER);
+    expect(entry.key).toBe(`purchase:${CURRENT_USER}:15`);
+  });
+
+  it("falls back to currentUser when owner is absent on the item", () => {
+    const entry = buildPurchaseEntry(makePurchaseItem({ id: 15 }), CURRENT_USER);
+    expect(entry.key).toBe(`purchase:${CURRENT_USER}:15`);
+  });
+
+  it("links to the purchases page (no per-item deep link exists)", () => {
+    const entry = buildPurchaseEntry(makePurchaseItem(), CURRENT_USER);
+    expect(entry.href).toBe("/purchases");
+  });
+
+  it("includes vendor and category in the meta subline", () => {
+    const entry = buildPurchaseEntry(makePurchaseItem(), CURRENT_USER);
+    expect(entry.meta).toContain("Sigma-Aldrich");
+    expect(entry.meta).toContain("enzyme");
+  });
+
+  it("folds item name, vendor, category, and catalog number into haystack", () => {
+    const entry = buildPurchaseEntry(makePurchaseItem(), CURRENT_USER);
+    expect(entry.haystack).toContain("trypsin msds grade");
+    expect(entry.haystack).toContain("sigma-aldrich");
+    expect(entry.haystack).toContain("t1426");
+    expect(entry.haystack).toBe(entry.haystack.toLowerCase());
+  });
+
+  it("uses 0 for recency (PurchaseItem has no edit timestamp)", () => {
+    const entry = buildPurchaseEntry(makePurchaseItem(), CURRENT_USER);
+    expect(entry.recencyAt).toBe(0);
+  });
+
+  it("buildGlobalIndex includes purchase entries when purchaseItems is passed", () => {
+    const entries = build({ purchaseItems: [makePurchaseItem()] });
+    const found = entries.filter((e) => e.type === "purchase");
+    expect(found).toHaveLength(1);
+    expect(found[0].label).toBe("Trypsin MSDS grade");
   });
 });

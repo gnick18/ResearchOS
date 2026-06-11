@@ -244,6 +244,12 @@ export type PaletteGroupTitle =
   // chunk-5 bot (2026-06-07): inventory items are indexed alongside the four
   // core types; the heading follows the same pattern.
   | "Inventory"
+  // BeakerSearch v1 coverage gap (2026-06-11): Data Hub tables, molecules, and
+  // purchases are indexed alongside the core types; same heading pattern. Keep
+  // these in sync with GLOBAL_TYPE_TITLE in global-source.ts.
+  | "Data Hub"
+  | "Molecules"
+  | "Purchases"
   // BeakerSearch global object search, chunk 3, the trailing "Search everything"
   // handoff row to the full faceted /search.
   | "More"
@@ -949,6 +955,12 @@ export function objectGroupTitle(type: GlobalIndexEntry["type"]): PaletteGroupTi
       return "Sequences";
     case "inventory":
       return "Inventory";
+    case "datahub":
+      return "Data Hub";
+    case "molecule":
+      return "Molecules";
+    case "purchase":
+      return "Purchases";
   }
 }
 
