@@ -36,7 +36,12 @@ import {
   downloadFigureSvg,
   downloadFigurePng,
   copyFigure,
+  convertUnit,
+  fromDesignPx,
+  FIG,
   type PlotStyle,
+  type SizeUnit,
+  type ResizeMode,
   type ErrorBarKind,
   type FitModelId,
 } from "@/lib/datahub/plot-spec";
@@ -104,6 +109,195 @@ function Seg<T extends string>({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+/** Round a size number to a tidy precision for the input (inches / cm keep two
+ * decimals, px stays whole). */
+function roundForUnit(value: number, unit: SizeUnit): number {
+  if (unit === "px") return Math.round(value);
+  return Math.round(value * 100) / 100;
+}
+
+/** The journal / slide size presets, all in inches. */
+const SIZE_PRESETS: { label: string; widthIn: number; heightIn: number }[] = [
+  // A single journal column is 3.5 in wide; the height keeps the base aspect.
+  { label: "Single column", widthIn: 3.5, heightIn: 3.5 * (FIG.height / FIG.width) },
+  // A double (full-page) column is 7.0 in wide.
+  { label: "Double column", widthIn: 7.0, heightIn: 7.0 * (FIG.height / FIG.width) },
+  // A 16:9 slide figure (10 in wide keeps a comfortable half-slide height).
+  { label: "Slide 16:9", widthIn: 10, heightIn: 5.63 },
+];
+
+/**
+ * The "Figure size" section of the style panel. Type-in width / height with a
+ * px / in / cm unit, an export DPI, an aspect lock, a re-layout / scale toggle,
+ * and journal / slide presets. The why: a figure that is sized to its real
+ * destination (a 3.5 in journal column, a 16:9 slide) drops in without
+ * rescaling, and re-layout keeps the axis text legible at that size instead of
+ * shrinking it. All edits write through onStyleChange onto the versioned spec.
+ */
+function FigureSizeControls({
+  style,
+  onStyleChange,
+}: {
+  style: PlotStyle;
+  onStyleChange: (patch: Partial<PlotStyle>) => void;
+}) {
+  const unit: SizeUnit = style.sizeUnit ?? "px";
+  const mode: ResizeMode = style.resizeMode ?? "relayout";
+  const locked = style.aspectLocked ?? true;
+  const dpi = style.dpi ?? 300;
+
+  // The displayed numbers. With no stored size the figure is at the base FIG
+  // box, so show that box in the current unit as the editable starting point.
+  const baseW = fromDesignPx(FIG.width, unit);
+  const baseH = fromDesignPx(FIG.height, unit);
+  const curW = style.width ?? baseW;
+  const curH = style.height ?? baseH;
+  const ratio = curW > 0 && curH > 0 ? curW / curH : FIG.width / FIG.height;
+
+  const dispW = roundForUnit(curW, unit);
+  const dispH = roundForUnit(curH, unit);
+
+  // Write a new width / height pair, keeping the aspect ratio when locked.
+  const setWidth = (w: number) => {
+    if (!Number.isFinite(w) || w <= 0) return;
+    const h = locked ? w / ratio : curH;
+    onStyleChange({ width: roundForUnit(w, unit), height: roundForUnit(h, unit) });
+  };
+  const setHeight = (h: number) => {
+    if (!Number.isFinite(h) || h <= 0) return;
+    const w = locked ? h * ratio : curW;
+    onStyleChange({ width: roundForUnit(w, unit), height: roundForUnit(h, unit) });
+  };
+
+  // Switching the unit converts the displayed numbers so the figure does not
+  // change size (3.5 in becomes 8.89 cm, not a relabeled 3.5 cm).
+  const setUnit = (next: SizeUnit) => {
+    if (next === unit) return;
+    onStyleChange({
+      sizeUnit: next,
+      width: roundForUnit(convertUnit(curW, unit, next), next),
+      height: roundForUnit(convertUnit(curH, unit, next), next),
+    });
+  };
+
+  const applyPreset = (widthIn: number, heightIn: number) => {
+    onStyleChange({
+      sizeUnit: "in",
+      width: roundForUnit(widthIn, "in"),
+      height: roundForUnit(heightIn, "in"),
+    });
+  };
+
+  const numClass =
+    "w-16 rounded-md border border-border bg-surface-overlay px-2 py-1 text-meta text-foreground focus:border-sky-400 focus:outline-none";
+
+  return (
+    <div className="mt-3 border-t border-border pt-3" data-testid="datahub-figure-size">
+      <div className="mb-2 flex items-center gap-1.5">
+        <Icon name="ruler" className="h-3 w-3 text-foreground-muted" />
+        <span className="text-[11px] font-bold uppercase tracking-wide text-foreground-muted">
+          Figure size
+        </span>
+      </div>
+
+      <Ctl label="Width">
+        <input
+          type="number"
+          min={0}
+          step={unit === "px" ? 10 : 0.1}
+          value={dispW}
+          onChange={(e) => setWidth(Number(e.target.value))}
+          className={numClass}
+          aria-label="Figure width"
+          data-testid="datahub-size-width"
+        />
+      </Ctl>
+      <Ctl label="Height">
+        <input
+          type="number"
+          min={0}
+          step={unit === "px" ? 10 : 0.1}
+          value={dispH}
+          onChange={(e) => setHeight(Number(e.target.value))}
+          className={numClass}
+          aria-label="Figure height"
+          data-testid="datahub-size-height"
+        />
+      </Ctl>
+      <Ctl label="Unit">
+        <Seg<SizeUnit>
+          value={unit}
+          options={[
+            { value: "px", label: "px" },
+            { value: "in", label: "in" },
+            { value: "cm", label: "cm" },
+          ]}
+          onChange={setUnit}
+        />
+      </Ctl>
+      <Ctl label="Lock aspect">
+        <button
+          type="button"
+          onClick={() => onStyleChange({ aspectLocked: !locked })}
+          className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition-colors ${
+            locked
+              ? "border-accent bg-accent-soft text-accent"
+              : "border-border bg-surface-raised text-foreground-muted hover:bg-surface-sunken"
+          }`}
+          aria-pressed={locked}
+          data-testid="datahub-size-lock"
+        >
+          <Icon name="lock" className="h-3 w-3" />
+          {locked ? "Locked" : "Free"}
+        </button>
+      </Ctl>
+      <Ctl label="Export DPI">
+        <input
+          type="number"
+          min={72}
+          step={50}
+          value={dpi}
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            if (Number.isFinite(v) && v > 0) onStyleChange({ dpi: Math.round(v) });
+          }}
+          className={numClass}
+          aria-label="Export DPI"
+          data-testid="datahub-size-dpi"
+        />
+      </Ctl>
+      <Ctl label="On resize">
+        <Seg<ResizeMode>
+          value={mode}
+          options={[
+            { value: "relayout", label: "Re-layout" },
+            { value: "scale", label: "Scale" },
+          ]}
+          onChange={(v) => onStyleChange({ resizeMode: v })}
+        />
+      </Ctl>
+      <p className="mt-1 text-[11px] text-foreground-muted">
+        {mode === "relayout"
+          ? "Re-layout redraws the axes to fill the box, so the text stays legible at the chosen size."
+          : "Scale zooms the whole figure like a slide image, so the text and markers grow with the box."}
+      </p>
+
+      <div className="mt-2 flex flex-wrap gap-1.5" data-testid="datahub-size-presets">
+        {SIZE_PRESETS.map((p) => (
+          <button
+            key={p.label}
+            type="button"
+            onClick={() => applyPreset(p.widthIn, p.heightIn)}
+            className="rounded-md border border-border bg-surface-raised px-2 py-1 text-[11px] font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -388,6 +582,8 @@ export default function GraphEditor({
               aria-label="Axis text size"
             />
           </Ctl>
+
+          <FigureSizeControls style={style} onStyleChange={onStyleChange} />
 
           <div className="mt-3 border-t border-border pt-3">
             <label className="block text-[11px] font-bold uppercase tracking-wide text-foreground-muted">
