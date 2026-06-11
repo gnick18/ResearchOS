@@ -106,3 +106,19 @@ Each tool is its own slice, the same shape as the foundation work. The LLM orche
 | share / export / Zenodo deposit | coworker | sends data outward | existing sharing/deposit | write (outward) | later (HARD-STOP confirm always, never auto) |
 
 The autonomy setting governs the write/action tools: "ask before doing" (default, propose-then-confirm) vs "auto". Outward-facing tools (share/export/deposit) are a hard stop regardless of the setting.
+
+## 13. One front door (unified search + assistant), LOCKED 2026-06-11
+
+Two separate "ask BeakerBot" surfaces (the deterministic Cmd-K BeakerSearch pill and the LLM-backed docked panel) would confuse users, they would never know which to reach for. So they unify into ONE front door with two tiers in the same box. This also fixes credits and cost.
+
+- **Tier 1, instant and free, always on.** Typing returns the existing deterministic federated results as you type (notes, methods, tasks, purchases, etc.). No LLM, no credits, no latency, offline. Unchanged in quality.
+- **Tier 2, smart, opt-in.** From the same box, an "Ask BeakerBot" escalation hands the query to the conversational assistant (the docked panel). The box is the entrance, the panel is the room.
+
+Locked behavior:
+- **Default = deterministic-first, explicit escalate.** Free results always show first (they often answer the question outright), and the LLM only fires when the user explicitly escalates. Zero surprise spend.
+- **Optional "smart mode" toggle.** When the user turns it on, the box may AUTO-ROUTE by intent (a full question goes to the LLM automatically). It is explicit and user-controlled so it never catches anyone off guard.
+- **Free-first ALWAYS, even in smart mode (the credit-conservation principle).** Even with smart mode on, show the free Tier-1 results and prefer a free answer whenever the deterministic search can satisfy the query, so the LLM is the last resort, not the first reflex. This keeps the paid tier cheap to operate (aligns with the cost-plus pricing in section 8).
+- **Painless tier toggle.** Switching between a quick free search and the smart path must be one frictionless gesture, so even a paying smart-mode user routinely does a free Tier-1 lookup to avoid spending a credit.
+- **Graceful degradation.** Out of credits or AI off, the escalation simply greys out and full deterministic search remains. The box is never a dead AI prompt.
+
+This is the Spotlight/Raycast-with-AI pattern. It is an entry-surface INTEGRATION slice (merge the BeakerSearch pill and the BeakerBot summon into one front door), best done before launch and before any more entry points are added. It does not block the tool catalog (a tool is a tool regardless of which box invokes it). The earlier "omnibox into beaker-search" idea for the Data Hub analysis planner is the same convergence.
