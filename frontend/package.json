@@ -147,6 +147,9 @@
     "onlyBuiltDependencies": [
       "sharp",
       "unrs-resolver"
+    ],
+    "ignoredBuiltDependencies": [
+      "core-js"
     ]
   }
 }
