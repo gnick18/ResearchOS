@@ -30,6 +30,11 @@ import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { INVENTORY_ENABLED } from "@/lib/inventory/config";
 import { CHEMISTRY_ENABLED } from "@/lib/chemistry/config";
 import { DATAHUB_ENABLED } from "@/lib/datahub/config";
+// BeakerBot app-wide dock (ai docking bot, 2026-06-11). Mounted ONCE at the shell
+// so the conversation persists across route changes (the navigate-and-spotlight
+// fix). Gated on AI_ASSISTANT_ENABLED, dark by default.
+import { AI_ASSISTANT_ENABLED } from "@/lib/ai/config";
+import BeakerBotDock from "@/components/ai/BeakerBotDock";
 import { HELP_HREF, appRouteToWikiRoute } from "@/lib/wiki/nav";
 import { useAppStore } from "@/lib/store";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
@@ -704,6 +709,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <CompanionHub />
       <TimersPopup />
       <TimerAlarm />
+      {/* BeakerBot app-wide dock (ai docking bot, 2026-06-11). Mounted ONCE here
+          so the panel (and its useAiChat conversation) survives client-side route
+          changes, which is what lets spotlight_ui_element navigate the user to
+          another page without tearing down the chat. Gated on the flag, so it is
+          dark on main and in prod by default. Suppressed on the dense /sequences
+          focus surface, matching the Calculators / Report-bug FAB convention. */}
+      {AI_ASSISTANT_ENABLED && !onSequences ? <BeakerBotDock /> : null}
       {/* Global OAuth-claim resume (account-creation-flow bot, 2026-06-05):
        *  finishes sharing-account creation when the user returns from the
        *  provider redirect with ?sharingClaim=1. Mounts SharingSetupWizard for

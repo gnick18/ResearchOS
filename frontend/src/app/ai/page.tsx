@@ -1,27 +1,39 @@
 "use client";
 
-// /ai — BeakerBot, the optional AI assistant (ai foundation bot, 2026-06-10).
+// /ai — BeakerBot landing (ai docking bot, 2026-06-11).
 //
-// The foundation slice: a flag-gated route that mounts the minimal docked
-// BeakerBot panel, which round-trips one message to Llama through the local dev
-// proxy at /api/ai/chat. It proves the plumbing only (BeakerBot can talk to
-// Llama), no tools, no modes, no writes to user data, no RAG.
+// BeakerBot is now an app-wide docked panel mounted ONCE in AppShell (see
+// BeakerBotDock), so its conversation persists across route changes. The docked
+// panel is the new primary surface; this route is kept as a thin landing that
+// simply opens the dock, so any existing /ai link or bookmark still lands the
+// user in BeakerBot. We no longer render a second BeakerBotPanel here, which
+// would double-mount the conversation and the navigation bridge.
 //
-// The whole route gates on AI_ASSISTANT_ENABLED. When off, it renders a calm
-// "not enabled" state (mirroring the /datahub gate), so the prototype stays
-// self-contained and dark on `main` and in prod until the assistant is further
-// along. New top-level route, excluded from the wiki-coverage gate pending its
-// own wiki page (mirrors the /sequences and /datahub precedent).
+// The whole route gates on AI_ASSISTANT_ENABLED. When off, it renders the same
+// calm "not enabled" state as before (mirroring the /datahub gate), so it stays
+// dark on main and in prod until the assistant is further along.
 //
-// House style: <Icon> only, brand + semantic tokens, no emojis / em-dashes /
+// House style, Icon only, brand + semantic tokens, no emojis / em-dashes /
 // mid-sentence colons.
 
+import { useEffect } from "react";
 import AppShell from "@/components/AppShell";
-import BeakerBotPanel from "@/components/ai/BeakerBotPanel";
 import { AI_ASSISTANT_ENABLED } from "@/lib/ai/config";
+import { useBeakerBotPanel } from "@/lib/ai/panel-store";
 
 export default function AiPage() {
-  // Gate: render a calm "not enabled" state when the flag is off (mirror the
+  const openPanel = useBeakerBotPanel((s) => s.open);
+
+  // When the flag is on, opening /ai opens the always-mounted docked panel. The
+  // panel lives in AppShell, so it persists if the user navigates onward from
+  // here. Running this in an effect (not during render) keeps the store update
+  // out of the render pass. Hooks must run unconditionally, so the effect self
+  // gates on the flag rather than sitting behind the early return below.
+  useEffect(() => {
+    if (AI_ASSISTANT_ENABLED) openPanel();
+  }, [openPanel]);
+
+  // Gate, render a calm "not enabled" state when the flag is off (mirror the
   // /datahub gate). Never crash.
   if (!AI_ASSISTANT_ENABLED) {
     return (
@@ -38,8 +50,12 @@ export default function AiPage() {
 
   return (
     <AppShell>
-      <div className="flex h-full min-h-0 justify-end px-4 pb-4">
-        <BeakerBotPanel />
+      <div className="mx-auto max-w-md py-20 text-center">
+        <h2 className="text-heading font-semibold text-foreground">BeakerBot</h2>
+        <p className="mt-2 text-body text-foreground-muted">
+          BeakerBot is docked on the right. Ask it about your work in ResearchOS,
+          and it stays with you as you move between pages.
+        </p>
       </div>
     </AppShell>
   );

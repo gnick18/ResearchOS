@@ -64,7 +64,14 @@ function AssistantMarkdown({ content }: { content: string }) {
   );
 }
 
-export default function BeakerBotPanel() {
+export default function BeakerBotPanel({
+  onClose,
+}: {
+  // When provided, the header shows a close affordance. The app-wide docked
+  // mount passes this so the panel can collapse; the full-page /ai route omits
+  // it so that surface stays close-free, exactly as before.
+  onClose?: () => void;
+} = {}) {
   const { messages, sending, status, error, send } = useAiChat();
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -96,12 +103,23 @@ export default function BeakerBotPanel() {
         <span className="text-brand">
           <Icon name="vial" className="h-5 w-5" title="BeakerBot" />
         </span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h2 className="text-body font-semibold text-foreground">BeakerBot</h2>
           <p className="text-meta text-foreground-muted">
             Ask BeakerBot about your work in ResearchOS.
           </p>
         </div>
+        {onClose ? (
+          <button
+            type="button"
+            data-testid="beakerbot-close"
+            aria-label="Close BeakerBot"
+            onClick={onClose}
+            className="flex-shrink-0 rounded-md p-1 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+          >
+            <Icon name="close" className="h-4 w-4" title="Close BeakerBot" />
+          </button>
+        ) : null}
       </header>
 
       <div
