@@ -49,6 +49,8 @@ export const NAV_ICON_BY_HREF: Record<string, IconName> = {
   "/gantt": "list",
   "/methods": "book",
   "/sequences": "sequence",
+  "/chemistry": "vial",
+  "/datahub": "chart",
   "/purchases": "download",
   "/calendar": "history",
   "/inventory": "vial",
