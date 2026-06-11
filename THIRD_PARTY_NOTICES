@@ -177,6 +177,10 @@ diff@9.0.0
   License: BSD-3-Clause
   Source:  https://github.com/kpdecker/jsdiff
 
+exceljs@4.4.0
+  License: MIT
+  Source:  https://github.com/exceljs/exceljs
+
 expr-eval-fork@3.0.3
   License: MIT
   Source:  https://github.com/jorenbroekema/expr-eval

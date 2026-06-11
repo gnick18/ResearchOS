@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-06-10T23:18:15.671Z",
+  "generatedAt": "2026-06-11T02:26:59.681Z",
   "appVersion": "0.75.0",
-  "dependencyCount": 78,
+  "dependencyCount": 79,
   "licenseCounts": {
     "Apache-2.0": 15,
-    "MIT": 50,
+    "MIT": 51,
     "BSD-3-Clause": 2,
     "ISC": 8,
     "(MIT AND BSD)": 1,
@@ -488,6 +488,12 @@
       "version": "9.0.0",
       "license": "BSD-3-Clause",
       "repo": "https://github.com/kpdecker/jsdiff"
+    },
+    {
+      "name": "exceljs",
+      "version": "4.4.0",
+      "license": "MIT",
+      "repo": "https://github.com/exceljs/exceljs"
     },
     {
       "name": "expr-eval-fork",

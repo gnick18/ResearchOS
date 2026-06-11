@@ -74,6 +74,7 @@
     "date-fns": "^4.1.0",
     "dictionary-en": "^4.0.0",
     "diff": "9.0.0",
+    "exceljs": "4.4.0",
     "expr-eval-fork": "^3.0.3",
     "fflate": "0.8.3",
     "frappe-gantt": "^1.0.4",
