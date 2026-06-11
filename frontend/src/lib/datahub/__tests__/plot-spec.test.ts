@@ -809,3 +809,84 @@ describe("plot-spec: export honors size + DPI", () => {
     expect(exportSvgMarkup(svg, frame)).toBe(svg);
   });
 });
+
+describe("plot-spec: re-layout vs scale", () => {
+  const content = threeGroupContent();
+  const baseSpec = buildPlotSpec({
+    id: "p",
+    kind: "columnScatter",
+    tableId: "1",
+  });
+
+  it("re-layout makes the viewBox the user size; scale keeps the base box", () => {
+    const relayout = renderPlot(
+      withStyle(baseSpec, {
+        width: 800,
+        height: 600,
+        sizeUnit: "px",
+        resizeMode: "relayout",
+      }),
+      content,
+      null,
+    );
+    const scale = renderPlot(
+      withStyle(baseSpec, {
+        width: 800,
+        height: 600,
+        sizeUnit: "px",
+        resizeMode: "scale",
+      }),
+      content,
+      null,
+    );
+    // Re-layout: the viewBox grows to the target size, so the axes recompute.
+    expect(relayout.svg).toContain('viewBox="0 0 800 600"');
+    // Scale: the viewBox stays the base box (the whole figure is zoomed instead).
+    expect(scale.svg).toContain(`viewBox="0 0 ${FIG.width} ${FIG.height}"`);
+    // The two modes therefore produce visibly different SVGs for the same target.
+    expect(relayout.svg).not.toBe(scale.svg);
+  });
+
+  it("scale mode sets the outer width / height to the user size", () => {
+    const { svg } = renderPlot(
+      withStyle(baseSpec, {
+        width: 800,
+        height: 600,
+        sizeUnit: "px",
+        resizeMode: "scale",
+      }),
+      content,
+      null,
+    );
+    // The root carries the zoomed outer size while the viewBox stays base.
+    expect(svg.startsWith('<' + 'svg width="800" height="600"')).toBe(true);
+  });
+
+  it("both modes export to the same physical pixel count (same target size)", () => {
+    const relayout = renderPlot(
+      withStyle(baseSpec, {
+        width: 3.5,
+        height: 2.6,
+        sizeUnit: "in",
+        dpi: 300,
+        resizeMode: "relayout",
+      }),
+      content,
+      null,
+    );
+    const scale = renderPlot(
+      withStyle(baseSpec, {
+        width: 3.5,
+        height: 2.6,
+        sizeUnit: "in",
+        dpi: 300,
+        resizeMode: "scale",
+      }),
+      content,
+      null,
+    );
+    expect(exportPngPixels(relayout.frame)).toEqual(
+      exportPngPixels(scale.frame),
+    );
+  });
+});
