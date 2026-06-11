@@ -23,6 +23,7 @@ import { loadUserCaptureKeys } from "@/lib/mobile-relay/keys";
 import { publishTodayToAllDevices } from "@/lib/mobile-relay/today-snapshot";
 import { publishInventoryToAllDevices } from "@/lib/mobile-relay/inventory-snapshot";
 import { publishNotebooksToAllDevices } from "@/lib/mobile-relay/notebooks-snapshot";
+import { publishCalculatorsToAllDevices } from "@/lib/mobile-relay/calculators-snapshot";
 import { publishTimersToAllDevices } from "@/lib/mobile-relay/timers-snapshot";
 import { useLaptopTimerStore } from "@/lib/timers/laptop-timers";
 
@@ -82,6 +83,16 @@ export default function TodaySnapshotPublisher() {
         if (nb.published > 0 || nb.skipped > 0) {
           console.info(
             `[notebooks-publisher] published to ${nb.published} device(s), skipped ${nb.skipped}`,
+          );
+        }
+        // Calculators snapshot: the user's own custom calculators plus the
+        // lab-shared ones they can see, so a calculator built on the laptop runs
+        // at the bench. A no-op until the builder ships (CALC_BUILDER_ENABLED).
+        if (cancelled) return;
+        const calc = await publishCalculatorsToAllDevices(keys);
+        if (calc.published > 0 || calc.skipped > 0) {
+          console.info(
+            `[calculators-publisher] published to ${calc.published} device(s), skipped ${calc.skipped}`,
           );
         }
         // Timers snapshot: the laptop's own running timers so they mirror onto
