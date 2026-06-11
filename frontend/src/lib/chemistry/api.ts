@@ -10,15 +10,18 @@
  * links and the RDKit-computed identity (SMILES / InChIKey / formula / MW) used
  * for the library list and search.
  *
- * Phase 0 leaves `listByProject` an EMPTY SEAM: no disk reads, no on-disk shape
- * is created, so the data-shape review gate is NOT triggered yet. A consumer
- * surface can render a "Molecules" section against this locked contract today
- * and have it populate automatically once Phase 1 lands the real persistence.
- * The on-disk read/write in Phase 1 IS the flagged data-shape change (verify
- * before merge).
+ * Phase 1 (2026-06-10) lands the real persistence behind `moleculeStore`
+ * (users/<u>/molecules/<id>.mol + <id>.meta.json). This module is the orchestrator
+ * over that pure-IO store: it computes the RDKit identity on save (RDKit is
+ * browser-only, so it lives here, not in the SSR-safe store) and maps the on-disk
+ * pair to the shapes the hub library grid and the project surface consume.
  *
  * See docs/proposals/CHEMISTRY_WORKBENCH_PROPOSAL.md (sections 4 and 9).
  */
+
+import { moleculeStore } from "./molecule-store";
+import { getCurrentUserCached } from "../storage/json-store";
+import { computeIdentity } from "./rdkit";
 
 /** Provenance of a stored molecule, shown as a chip in the library. */
 export type MoleculeSource = "drawn" | "imported" | "pubchem";
@@ -55,21 +58,110 @@ export interface MoleculeMeta {
  */
 export type Molecule = MoleculeMeta;
 
+/** A molecule plus its Molfile bytes, as the editor opens it. */
+export interface MoleculeDetail {
+  meta: MoleculeMeta;
+  /** The MDL Molfile text (2D coordinates preserved). */
+  molfile: string;
+}
+
+/** Fields a caller supplies when saving a new molecule; identity is computed. */
+export interface MoleculeInput {
+  name: string;
+  project_ids?: string[];
+  source?: MoleculeSource;
+  pubchem_cid?: number;
+}
+
+/**
+ * Compute the RDKit identity for a structure and fold it into a meta patch.
+ * Best-effort: a parse failure leaves the identity fields unset rather than
+ * blocking the save (a user can still keep a structure RDKit cannot canonicalize).
+ */
+async function identityPatch(
+  structure: string,
+): Promise<Partial<MoleculeMeta>> {
+  try {
+    const id = await computeIdentity(structure);
+    return {
+      smiles: id.smiles || undefined,
+      inchikey: id.inchikey || undefined,
+      formula: id.formula || undefined,
+      mol_weight: id.mol_weight ?? undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+/** List every molecule in the current user's library (metadata only). */
+export async function list(): Promise<Molecule[]> {
+  return moleculeStore.listMeta();
+}
+
 /**
  * List the molecules linked to a project (collection membership via
- * `project_ids`).
- *
- * SEAM: returns `[]` until the chemistry-workbench Phase 1 lands the `molecules/`
- * store + the Molfile/meta read path. The project surface maps over this and
- * renders a "Molecules" section; an empty result renders nothing, so the surface
- * ships now and molecules appear automatically once Phase 1 fills this in. The
- * signature is final, so wiring against it today is not guesswork.
+ * `project_ids`). The project "Molecules" section maps over this; an empty
+ * result renders nothing.
  */
-export async function listByProject(_projectId: string): Promise<Molecule[]> {
-  return [];
+export async function listByProject(projectId: string): Promise<Molecule[]> {
+  const all = await moleculeStore.listMeta();
+  return all.filter((m) => m.project_ids.includes(projectId));
+}
+
+/** Read one molecule (sidecar + Molfile) for the editor. */
+export async function get(id: string): Promise<MoleculeDetail | null> {
+  const raw = await moleculeStore.getRaw(id);
+  return raw ? { meta: raw.meta, molfile: raw.molfile } : null;
+}
+
+/**
+ * Save a new molecule. Stores the Molfile as the source of truth and computes
+ * the RDKit identity (SMILES / InChIKey / formula / MW) into the sidecar so the
+ * library list and search work without re-parsing every structure.
+ */
+export async function create(
+  molfile: string,
+  input: MoleculeInput,
+): Promise<MoleculeDetail> {
+  const identity = await identityPatch(molfile);
+  const raw = await moleculeStore.create(molfile, {
+    name: input.name,
+    project_ids: input.project_ids ?? [],
+    added_at: new Date().toISOString(),
+    source: input.source ?? "drawn",
+    pubchem_cid: input.pubchem_cid,
+    ...identity,
+  });
+  return { meta: raw.meta, molfile: raw.molfile };
+}
+
+/** Patch a molecule. A new Molfile re-runs identity; metadata fields patch directly. */
+export async function update(
+  id: string,
+  patch: { molfile?: string } & Partial<Omit<MoleculeMeta, "id">>,
+): Promise<MoleculeMeta | null> {
+  const username = await getCurrentUserCached();
+  const { molfile, ...metaPatch } = patch;
+  if (molfile != null) {
+    await moleculeStore.writeMolfile(id, molfile, username);
+    Object.assign(metaPatch, await identityPatch(molfile));
+  }
+  return moleculeStore.updateMeta(id, metaPatch, username);
+}
+
+/** Delete a molecule (both files). Returns true if it existed. */
+export async function remove(id: string): Promise<boolean> {
+  const username = await getCurrentUserCached();
+  return moleculeStore.delete(id, username);
 }
 
 /** Namespaced handle to mirror the other `*Api` modules in the codebase. */
 export const moleculesApi = {
+  list,
   listByProject,
+  get,
+  create,
+  update,
+  remove,
 };

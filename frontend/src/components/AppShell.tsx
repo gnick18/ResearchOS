@@ -28,6 +28,7 @@ import StreakBadge from "./StreakBadge";
 import { installStreakActivityTracking } from "@/lib/streak/streak-activity-bootstrap";
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { INVENTORY_ENABLED } from "@/lib/inventory/config";
+import { CHEMISTRY_ENABLED } from "@/lib/chemistry/config";
 import { HELP_HREF, appRouteToWikiRoute } from "@/lib/wiki/nav";
 import { useAppStore } from "@/lib/store";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
@@ -194,6 +195,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const filtered = NAV_ITEMS.filter((item) => {
     if (item.href === HOME_HREF) return true;
     if (item.href === "/inventory" && !INVENTORY_ENABLED) return false;
+    // /chemistry (the molecule workbench) is an opt-in module. Force it visible
+    // when the flag is on (so dogfooding does not depend on the legacy tab list),
+    // and hide it entirely when off (prod default), mirroring how inventory gates.
+    if (item.href === "/chemistry") return CHEMISTRY_ENABLED;
     // /sequences (the molecular-biology editor) is a flagship surface that
     // must always be reachable from the nav. Existing accounts whose
     // visibleTabs list predates the route would otherwise never see it (the
