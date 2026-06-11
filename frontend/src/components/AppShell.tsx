@@ -637,7 +637,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
        *   - everything else: DailyTasksSidebar (every account type). */}
       <div className="flex flex-1 overflow-hidden">
         {pathname?.startsWith("/sequences") ||
-        pathname?.startsWith("/chemistry") ? (
+        pathname?.startsWith("/chemistry") ||
+        pathname?.startsWith("/datahub") ? (
           /* Sequence editor is a full-bleed FOCUS surface (Grant
            *  2026-06-02): hide the app's left sidebar so the plasmid/
            *  map viewer gets the full width, SnapGene/Benchling-style.
