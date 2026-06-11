@@ -45,6 +45,8 @@ import { askUserTool } from "./ask-user";
 import {
   listDataHubTablesTool,
   runDataHubAnalysisTool,
+  listDataHubAnalysesTool,
+  readDataHubAnalysisTool,
 } from "./datahub-analysis";
 import { makeDataHubGraphTool } from "./datahub-graph";
 import { listNotesTool, writeNoteTool } from "./write-note";
@@ -71,6 +73,13 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // engine, then navigates the user to the figure. The engine builds the figure,
   // the model never computes a plotted value.
   makeDataHubGraphTool,
+  // list_datahub_analyses and read_datahub_analysis are READ-only. They let the
+  // model read back stored analysis results so the user can ask "what did the
+  // t-test show?" without re-running anything. list_datahub_analyses gives the
+  // model a disambiguation list; read_datahub_analysis returns the stored result
+  // for a known id. Neither navigates nor mutates any data.
+  listDataHubAnalysesTool,
+  readDataHubAnalysisTool,
   // list_notes is READ-only with respect to the user's data, it returns the user's
   // notes (id + title + snippet) so write_note can find the note to append to. The
   // WRITE half (write_note) is gated and lives in ACTION_TOOLS below.

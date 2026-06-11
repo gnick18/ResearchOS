@@ -25,6 +25,10 @@ import { callModelViaProxy, ProxyError } from "@/lib/ai/proxy-client";
 import { DEFAULT_TOOLS } from "@/lib/ai/tools/registry";
 import { BEAKERBOT_SYSTEM_PROMPT } from "@/lib/ai/system-prompt";
 import { getAutonomyMode } from "@/lib/ai/autonomy-store";
+import {
+  getBeakerContext,
+  describeBeakerContext,
+} from "@/components/ai/context-bridge";
 import { resolveRef } from "@/lib/ai/page-perception";
 import { showSpotlight, dismissSpotlight } from "@/components/ai/spotlight-controller";
 import type {
@@ -55,6 +59,8 @@ const TOOL_STATUS: Record<string, string> = {
   ask_user: "asking what you would like",
   list_datahub_tables: "looking at your data tables",
   run_datahub_analysis: "running the analysis",
+  list_datahub_analyses: "looking at stored analyses",
+  read_datahub_analysis: "reading the stored result",
   list_notes: "looking through your notes",
   write_note: "drafting a note for you",
 };
@@ -229,10 +235,36 @@ export function useAiChat() {
           { role: "system", content: BEAKERBOT_SYSTEM_PROMPT },
         ];
       }
-      const loopInput: LoopMessage[] = [
-        ...historyRef.current,
-        { role: "user", content: trimmed },
-      ];
+
+      // Inject a fresh per-turn context message so the model can resolve "this",
+      // "the t-test", or "this result" to the entity the user currently has open.
+      // The context is rebuilt on every send from the live context-bridge store,
+      // so it always reflects the current page state. It is NOT stored in
+      // historyRef (the persisted conversation history) because:
+      //   1. It must never go stale, a context captured two turns ago is wrong.
+      //   2. Storing it would duplicate it on every subsequent send.
+      // The persisted history starts at index 0 (the base system prompt). The
+      // context message, when present, is spliced in at index 1, immediately
+      // after the base system prompt and before the conversation turns.
+      const ctxDescription = describeBeakerContext(getBeakerContext());
+      // Hold the per-turn context message by reference so it can be removed from the
+      // persisted history after the run. The loop returns the input array with new
+      // turns appended (it only pushes, never clones), so the SAME object identity
+      // survives, and an identity filter strips exactly the one we injected.
+      const contextMessage: LoopMessage | null = ctxDescription
+        ? { role: "system", content: ctxDescription }
+        : null;
+      const loopInput: LoopMessage[] = contextMessage
+        ? [
+            historyRef.current[0], // base system prompt
+            contextMessage, // fresh per-turn context
+            ...historyRef.current.slice(1), // rest of persisted history
+            { role: "user", content: trimmed },
+          ]
+        : [
+            ...historyRef.current,
+            { role: "user", content: trimmed },
+          ];
 
       try {
         const result = await runAgentLoop({
@@ -246,8 +278,13 @@ export function useAiChat() {
           requestApproval,
         });
 
-        // Persist the full loop history (including tool turns) for the next send.
-        historyRef.current = result.messages;
+        // Persist the full loop history (including tool turns) for the next send,
+        // but strip the per-turn context message by reference so it never persists.
+        // Persisting it would let a stale context line accumulate, one extra system
+        // message per send, the exact failure the per-turn rebuild exists to avoid.
+        historyRef.current = contextMessage
+          ? result.messages.filter((m) => m !== contextMessage)
+          : result.messages;
         setStatus(null);
 
         if (result.answer.length === 0) {

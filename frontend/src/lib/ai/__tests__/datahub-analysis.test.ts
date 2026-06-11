@@ -16,6 +16,8 @@ import { planAnalysis } from "@/lib/datahub/planner";
 import {
   datahubAnalysisDeps,
   shapeTableBrief,
+  shapeAnalysisBrief,
+  shapeStoredAnalysis,
   resolveColumnIds,
   buildIntent,
   parseRunAnalysisArgs,
@@ -24,6 +26,8 @@ import {
   cacheTableContent,
   _clearDataHubAnalysisCache,
   listDataHubTablesTool,
+  listDataHubAnalysesTool,
+  readDataHubAnalysisTool,
   runDataHubAnalysisTool,
 } from "../tools/datahub-analysis";
 
@@ -397,5 +401,225 @@ describe("run_datahub_analysis tool", () => {
     })) as { ok: boolean };
     expect(out.ok).toBe(false);
     expect(persist).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fixtures for read-tool tests (content with a stored analysis)
+// ---------------------------------------------------------------------------
+
+/** Build a two-group content object that already has a stored t-test result,
+ *  the way the doc looks after run_datahub_analysis has written to it. Uses
+ *  planAndRun so the spec type is the real planner-chosen type (e.g.
+ *  "unpairedTTest"), and resultCache is the real engine output. */
+function contentWithStoredAnalysis(): {
+  content: DataHubDocContent;
+  analysisId: string;
+} {
+  const base = twoGroupContent();
+  // Use planAndRun so the spec type matches what the real write path would
+  // store. Hard-coding "ttest" fails because the actual type string is
+  // "unpairedTTest" (the AnalysisType union value the engine recognizes).
+  const run = planAndRun(base, parseRunAnalysisArgs({ tableId: "1" }));
+  if (!run.ok) throw new Error(`fixture planAndRun failed: ${run.error}`);
+  const spec = run.spec;
+  spec.id = "analysis-test-1";
+  const content: DataHubDocContent = { ...base, analyses: [spec] };
+  return { content, analysisId: spec.id };
+}
+
+// ---------------------------------------------------------------------------
+// shapeAnalysisBrief (pure helper for list_datahub_analyses)
+// ---------------------------------------------------------------------------
+
+describe("shapeAnalysisBrief", () => {
+  it("returns the column NAMES (not ids) and the hasResult flag", () => {
+    const { content, analysisId } = contentWithStoredAnalysis();
+    const spec = content.analyses.find((a) => a.id === analysisId)!;
+    const brief = shapeAnalysisBrief(spec, content);
+    // The type is the planner-chosen AnalysisType (e.g. "unpairedTTest"), not
+    // the generic "ttest" string. Assert only the fields that are stable.
+    expect(brief.id).toBe(analysisId);
+    expect(brief.columns).toEqual(["Control", "Drug"]);
+    expect(brief.hasResult).toBe(true);
+    expect(typeof brief.type).toBe("string");
+  });
+
+  it("reports hasResult false when resultCache is null", () => {
+    const base = twoGroupContent();
+    const spec: AnalysisSpec = {
+      id: "no-result",
+      type: "unpairedTTest",
+      params: {},
+      inputs: { columnIds: ["cControl", "cDrug"] },
+      resultCache: null,
+      resultStale: false,
+    };
+    const content: DataHubDocContent = { ...base, analyses: [spec] };
+    expect(shapeAnalysisBrief(spec, content).hasResult).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// shapeStoredAnalysis (pure helper for read_datahub_analysis)
+// ---------------------------------------------------------------------------
+
+describe("shapeStoredAnalysis", () => {
+  it("returns the engine-computed numbers from a stored result", () => {
+    const { content, analysisId } = contentWithStoredAnalysis();
+
+    const shaped = shapeStoredAnalysis(content, analysisId);
+    expect(shaped.ok).toBe(true);
+    if (!shaped.ok) return;
+
+    // The engine value is pinned: the shaped result must carry exactly the
+    // same p-value the engine returned for the same dataset, never an
+    // invented one.
+    const spec = content.analyses[0];
+    const ref = runAnalysis(spec, content);
+    expect(ref.ok && ref.kind === "ttest").toBe(true);
+    if (!ref.ok || ref.kind !== "ttest") return;
+
+    expect(shaped.pValue).toBe(ref.pValue);
+    expect(shaped.table).toBe("fakeGFP qPCR");
+    expect(shaped.columns).toEqual(["Control", "Drug"]);
+    expect(shaped.verdict).toMatch(/Drug|Control/);
+    expect(shaped.keyStatistic).toMatch(/p/);
+  });
+
+  it("returns an error when the analysis id is not found", () => {
+    const { content } = contentWithStoredAnalysis();
+    const result = shapeStoredAnalysis(content, "no-such-id");
+    expect(result.ok).toBe(false);
+    expect("error" in result && result.error).toMatch(/not found/i);
+  });
+
+  it("returns an error when resultCache is null (analysis not run yet)", () => {
+    const base = twoGroupContent();
+    const spec: AnalysisSpec = {
+      id: "pending",
+      type: "unpairedTTest",
+      params: {},
+      inputs: { columnIds: ["cControl", "cDrug"] },
+      resultCache: null,
+      resultStale: false,
+    };
+    const content: DataHubDocContent = { ...base, analyses: [spec] };
+    const result = shapeStoredAnalysis(content, "pending");
+    expect(result.ok).toBe(false);
+    expect("error" in result && result.error).toMatch(/no stored result/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// list_datahub_analyses tool
+// ---------------------------------------------------------------------------
+
+describe("list_datahub_analyses tool", () => {
+  it("returns the list of analyses with names and hasResult flags", async () => {
+    const { content } = contentWithStoredAnalysis();
+    vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(content);
+
+    const out = (await listDataHubAnalysesTool.execute({ tableId: "1" })) as {
+      ok: boolean;
+      table: string;
+      analyses: { id: string; type: string; columns: string[]; hasResult: boolean }[];
+    };
+    expect(out.ok).toBe(true);
+    expect(out.table).toBe("fakeGFP qPCR");
+    expect(out.analyses).toHaveLength(1);
+    expect(out.analyses[0].columns).toEqual(["Control", "Drug"]);
+    expect(out.analyses[0].hasResult).toBe(true);
+  });
+
+  it("returns an error when the table cannot be opened", async () => {
+    vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(null);
+    const out = (await listDataHubAnalysesTool.execute({ tableId: "nope" })) as {
+      ok: boolean;
+      error: string;
+    };
+    expect(out.ok).toBe(false);
+    expect(out.error).toMatch(/could not open/i);
+  });
+
+  it("returns an error when no tableId is given", async () => {
+    const out = (await listDataHubAnalysesTool.execute({})) as {
+      ok: boolean;
+    };
+    expect(out.ok).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// read_datahub_analysis tool
+// ---------------------------------------------------------------------------
+
+describe("read_datahub_analysis tool", () => {
+  it("returns the engine-computed stored result for a known analysis", async () => {
+    const { content, analysisId } = contentWithStoredAnalysis();
+    vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(content);
+
+    const out = (await readDataHubAnalysisTool.execute({
+      tableId: "1",
+      analysisId,
+    })) as { ok: boolean; pValue: number | null; verdict: string; keyStatistic: string };
+
+    expect(out.ok).toBe(true);
+    expect(out.pValue).not.toBeNull();
+    expect(out.pValue as number).toBeLessThan(0.05);
+    expect(out.verdict).toMatch(/Drug|Control/);
+    expect(out.keyStatistic).toMatch(/p/);
+  });
+
+  it("does NOT navigate (read tools are silent)", async () => {
+    const { content, analysisId } = contentWithStoredAnalysis();
+    vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(content);
+    const navigate = vi
+      .spyOn(datahubAnalysisDeps, "navigate")
+      .mockImplementation(() => {});
+
+    await readDataHubAnalysisTool.execute({ tableId: "1", analysisId });
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it("returns an error when the table cannot be opened", async () => {
+    vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(null);
+    const out = (await readDataHubAnalysisTool.execute({
+      tableId: "nope",
+      analysisId: "any",
+    })) as { ok: boolean; error: string };
+    expect(out.ok).toBe(false);
+    expect(out.error).toMatch(/could not open/i);
+  });
+
+  it("returns an error when the analysis id is not found on the table", async () => {
+    const { content } = contentWithStoredAnalysis();
+    vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(content);
+    const out = (await readDataHubAnalysisTool.execute({
+      tableId: "1",
+      analysisId: "no-such",
+    })) as { ok: boolean; error: string };
+    expect(out.ok).toBe(false);
+    expect(out.error).toMatch(/not found/i);
+  });
+
+  it("returns an error when no tableId or analysisId is given", async () => {
+    const out = (await readDataHubAnalysisTool.execute({})) as {
+      ok: boolean;
+      error: string;
+    };
+    expect(out.ok).toBe(false);
+  });
+
+  it("is NOT a gated action (read-only, no action flag)", () => {
+    expect(readDataHubAnalysisTool.action).toBeFalsy();
+    expect(readDataHubAnalysisTool.describeAction).toBeUndefined();
+    expect(readDataHubAnalysisTool.isDestructive).toBeUndefined();
+  });
+
+  it("is NOT a gated action for list_datahub_analyses either", () => {
+    expect(listDataHubAnalysesTool.action).toBeFalsy();
+    expect(listDataHubAnalysesTool.describeAction).toBeUndefined();
+    expect(listDataHubAnalysesTool.isDestructive).toBeUndefined();
   });
 });

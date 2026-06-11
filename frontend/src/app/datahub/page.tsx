@@ -84,6 +84,7 @@ import GraphEditor from "@/components/datahub/GraphEditor";
 import { objectReferenceMarkdown } from "@/lib/references";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
+import { setBeakerContext } from "@/components/ai/context-bridge";
 
 export default function DataHubPage() {
   const { currentUser } = useCurrentUser();
@@ -552,6 +553,64 @@ export default function DataHubPage() {
     () => allTables.find((t) => t.id === selectedTableId) ?? null,
     [allTables, selectedTableId],
   );
+
+  // Publish the current selection to the BeakerBot context bridge so the model
+  // can resolve "this", "the t-test", or "this analysis" to the entity the user
+  // actually has on screen. Placed after selectedMeta (useMemo above) so it is
+  // in scope. The context is rebuilt whenever selectedMeta, selectedAnalysisId,
+  // selectedPlotId, or openContent changes. On unmount it is cleared so the
+  // model does not inherit a stale Data Hub selection after the user navigates.
+  useEffect(() => {
+    if (!selectedMeta) {
+      setBeakerContext(null);
+      return;
+    }
+    const tableParent = {
+      type: "datahub-table" as const,
+      id: selectedMeta.id,
+      name: selectedMeta.name,
+    };
+    if (selectedAnalysisId && openContent) {
+      const analysis = openContent.analyses.find(
+        (a) => a.id === selectedAnalysisId,
+      );
+      setBeakerContext({
+        route: "/datahub",
+        pageLabel: "Data Hub",
+        selection: {
+          type: "datahub-analysis",
+          id: selectedAnalysisId,
+          name: analysis?.type ?? selectedAnalysisId,
+          parent: tableParent,
+        },
+      });
+    } else if (selectedPlotId && openContent) {
+      const plot = openContent.plots.find((p) => p.id === selectedPlotId);
+      setBeakerContext({
+        route: "/datahub",
+        pageLabel: "Data Hub",
+        selection: {
+          type: "datahub-plot",
+          id: selectedPlotId,
+          name: plot ? `Figure (${selectedPlotId})` : selectedPlotId,
+          parent: tableParent,
+        },
+      });
+    } else {
+      setBeakerContext({
+        route: "/datahub",
+        pageLabel: "Data Hub",
+        selection: {
+          type: "datahub-table",
+          id: selectedMeta.id,
+          name: selectedMeta.name,
+        },
+      });
+    }
+    return () => {
+      setBeakerContext(null);
+    };
+  }, [selectedMeta, selectedAnalysisId, selectedPlotId, openContent]);
 
   // Copy a markdown object reference to this table. Pasted into a note or a
   // result it renders as a live Data Hub chip that opens the table; pasted

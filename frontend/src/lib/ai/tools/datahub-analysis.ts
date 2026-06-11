@@ -49,7 +49,7 @@ import {
 import { getCurrentUserCached } from "@/lib/storage/json-store";
 import { groupColumns } from "@/lib/datahub/column-table";
 import { planAnalysis, type AnalysisIntent } from "@/lib/datahub/planner";
-import { runAnalysis, type AnalysisType } from "@/lib/datahub/run-analysis";
+import { runAnalysis, type AnalysisType, type RunOutcome } from "@/lib/datahub/run-analysis";
 import { plainLanguageSummary, formatP } from "@/lib/datahub/plain-language";
 import type {
   AnalysisSpec,
@@ -546,5 +546,214 @@ export const runDataHubAnalysisTool: AiTool = {
     );
 
     return run.result satisfies RunAnalysisResult;
+  },
+};
+
+// ---------------------------------------------------------------------------
+// list_datahub_analyses (READ-only)
+// ---------------------------------------------------------------------------
+
+/** The compact, model-friendly view of one stored AnalysisSpec. */
+export type AnalysisBrief = {
+  id: string;
+  type: string;
+  columns: string[];
+  hasResult: boolean;
+};
+
+/**
+ * Shape one AnalysisSpec into a compact brief for the model. Pure so the tool
+ * and the unit tests share one path. The column names come from the live
+ * groupColumns projection of the content so the model sees "Control" and "Drug"
+ * rather than "cControl" and "cDrug".
+ */
+export function shapeAnalysisBrief(
+  spec: AnalysisSpec,
+  content: DataHubDocContent,
+): AnalysisBrief {
+  const groups = groupColumns(content);
+  const byId = new Map(groups.map((c) => [c.id, c.name]));
+  // inputs is typed Record<string,unknown> in the model; the analysis-writing
+  // path always stores columnIds there as string[].
+  const columnIds =
+    Array.isArray((spec.inputs as { columnIds?: unknown }).columnIds)
+      ? ((spec.inputs as { columnIds: string[] }).columnIds)
+      : [];
+  const columns = columnIds
+    .map((id) => byId.get(id) ?? id)
+    .filter(Boolean);
+  return {
+    id: spec.id,
+    type: spec.type,
+    columns,
+    hasResult: spec.resultCache != null,
+  };
+}
+
+export const listDataHubAnalysesTool: AiTool = {
+  name: "list_datahub_analyses",
+  description:
+    "List the stored analyses on a Data Hub table, so you can find the one the user is asking about and pass its id to read_datahub_analysis. Returns each analysis's id, test type, column names, and whether it has a stored result. Call this when the user refers to a past analysis by table but you do not know which specific analysis they mean (for example \"the t-test on the qPCR table\" when several exist). Read-only.",
+  parameters: {
+    type: "object",
+    properties: {
+      tableId: {
+        type: "string",
+        description:
+          "The id of the Data Hub table whose analyses to list. From list_datahub_tables or the context message.",
+      },
+    },
+    required: ["tableId"],
+    additionalProperties: false,
+  },
+  execute: async (args) => {
+    const tableId = typeof args.tableId === "string" ? args.tableId : "";
+    if (!tableId) {
+      return { ok: false, error: "No tableId given." };
+    }
+    const content = await datahubAnalysisDeps.resolveContent(tableId);
+    if (!content) {
+      return {
+        ok: false,
+        error:
+          "I could not open that table. It may have been deleted, or the id is wrong.",
+      };
+    }
+    cacheTableContent(tableId, content);
+    const analyses = content.analyses.map((a) =>
+      shapeAnalysisBrief(a, content),
+    );
+    return {
+      ok: true,
+      table: content.meta.name,
+      analyses,
+    };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// read_datahub_analysis (READ-only)
+// ---------------------------------------------------------------------------
+
+/** The compact, model-friendly view of one stored analysis result. The engine
+ *  computed every number; the tool only relays resultCache, never recomputes. */
+export type StoredAnalysisResult =
+  | {
+      ok: true;
+      table: string;
+      analysisId: string;
+      test: string;
+      columns: string[];
+      verdict: string;
+      keyStatistic: string;
+      pValue: number | null;
+      nonparametric: boolean;
+    }
+  | { ok: false; error: string };
+
+/**
+ * Shape one stored AnalysisSpec's resultCache into the compact model-friendly
+ * object. Pure, given content and the analysisId, so it can be unit-tested
+ * against a fixture content object with a known resultCache without any folder.
+ * The engine built every number in resultCache; this function only relays them.
+ * It deliberately reuses keyStatisticOf and plainLanguageSummary, the SAME
+ * helpers run_datahub_analysis uses, so the model summarizes a stored result
+ * identically to how it would describe a freshly-run one.
+ */
+export function shapeStoredAnalysis(
+  content: DataHubDocContent,
+  analysisId: string,
+): StoredAnalysisResult {
+  const spec = content.analyses.find((a) => a.id === analysisId);
+  if (!spec) {
+    return { ok: false, error: `Analysis ${analysisId} not found on that table.` };
+  }
+  // resultCache is typed as unknown in the model. Cast it to the RunOutcome
+  // union so the shape checks and the helper calls below type-check. The
+  // analysis-writing path always stores a RunOutcome there, so this is safe.
+  const cached = spec.resultCache as RunOutcome | null;
+  if (!cached || !cached.ok) {
+    return {
+      ok: false,
+      error:
+        "That analysis has no stored result yet. Re-run it, or open it in the Data Hub.",
+    };
+  }
+  const outcome = cached;
+  const groups = groupColumns(content);
+  const byId = new Map(groups.map((c) => [c.id, c.name]));
+  // inputs is typed Record<string,unknown>; the write path always stores
+  // columnIds there as string[].
+  const columnIds =
+    Array.isArray((spec.inputs as { columnIds?: unknown }).columnIds)
+      ? ((spec.inputs as { columnIds: string[] }).columnIds)
+      : [];
+  const columns = columnIds
+    .map((id) => byId.get(id) ?? id)
+    .filter(Boolean);
+  const stat = keyStatisticOf(outcome);
+  // The means family (ttest / anova) carries a model-readable test label.
+  // Use it when it is there; fall back to the spec type for other kinds.
+  const testLabel =
+    outcome.kind === "ttest" || outcome.kind === "anova"
+      ? outcome.test
+      : spec.type;
+  return {
+    ok: true,
+    table: content.meta.name,
+    analysisId: spec.id,
+    test: testLabel,
+    columns,
+    verdict: plainLanguageSummary(outcome),
+    keyStatistic: stat.keyStatistic,
+    pValue: stat.pValue,
+    nonparametric: stat.nonparametric,
+  };
+}
+
+export const readDataHubAnalysisTool: AiTool = {
+  name: "read_datahub_analysis",
+  description:
+    "Read back the stored result of one Data Hub analysis by its id, so you can summarize or explain what a past test showed. Use this when the user asks about an analysis that already exists (for example \"what did the t-test show?\" or \"summarize that analysis\") and it is NOT one you just ran this turn. If you know the analysis id (from the context message or from list_datahub_analyses), call this with it. If you do not know which analysis they mean, call list_datahub_analyses for that table first, then ask_user with the real analysis labels so the user taps the one they mean. Never invent a statistic; only relay what this tool returns. Read-only, it never navigates and never changes any data.",
+  parameters: {
+    type: "object",
+    properties: {
+      tableId: {
+        type: "string",
+        description:
+          "The id of the Data Hub table that owns the analysis. From list_datahub_tables, from list_datahub_analyses, or from the context message (the parent id when an analysis is selected).",
+      },
+      analysisId: {
+        type: "string",
+        description:
+          "The id of the analysis to read. From list_datahub_analyses, from the context message, or from a prior run_datahub_analysis call.",
+      },
+    },
+    required: ["tableId", "analysisId"],
+    additionalProperties: false,
+  },
+  // Read tools never navigate. Reading is silent; if the user also wants to see
+  // the result in the Data Hub, they will say so and the model can then call
+  // go_to_page. Separating read from navigate keeps the tool predictable: calling
+  // read_datahub_analysis never moves the user unexpectedly.
+  execute: async (args) => {
+    const tableId = typeof args.tableId === "string" ? args.tableId : "";
+    const analysisId = typeof args.analysisId === "string" ? args.analysisId : "";
+    if (!tableId || !analysisId) {
+      return {
+        ok: false,
+        error: "Both tableId and analysisId are required.",
+      } satisfies StoredAnalysisResult;
+    }
+    const content = await datahubAnalysisDeps.resolveContent(tableId);
+    if (!content) {
+      return {
+        ok: false,
+        error:
+          "I could not open that table. It may have been deleted, or the id is wrong.",
+      } satisfies StoredAnalysisResult;
+    }
+    cacheTableContent(tableId, content);
+    return shapeStoredAnalysis(content, analysisId) satisfies StoredAnalysisResult;
   },
 };
