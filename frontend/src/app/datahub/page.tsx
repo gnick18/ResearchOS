@@ -55,6 +55,9 @@ import DataTableGrid from "@/components/datahub/DataTableGrid";
 import NewTableDialog, {
   type NewTableSubmit,
 } from "@/components/datahub/NewTableDialog";
+import ImportTableDialog, {
+  type ImportTableSubmit,
+} from "@/components/datahub/ImportTableDialog";
 import NewAnalysisDialog, {
   type NewAnalysisSubmit,
 } from "@/components/datahub/NewAnalysisDialog";
@@ -74,6 +77,7 @@ export default function DataHubPage() {
   const [collection, setCollection] = useState<Collection>("all");
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [newTableOpen, setNewTableOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   // The selected analysis in the Results section (null means the data grid is
   // shown). New-analysis dialog open state.
   const [selectedAnalysisId, setSelectedAnalysisId] = useState<string | null>(
@@ -284,6 +288,35 @@ export default function DataHubPage() {
     [collection, queryClient],
   );
 
+  // Create a Column table from imported data: seed it with the detected columns +
+  // rows (the SAME api / store path New table uses, so the imported table is
+  // version-controlled and editable from the first edit), refresh the catalog,
+  // and open it.
+  const handleImport = useCallback(
+    async (data: ImportTableSubmit) => {
+      setImportOpen(false);
+      const created = await dataHubApi.create({
+        name: data.name,
+        table_type: "column",
+        project_ids: data.collectionId ? [data.collectionId] : [],
+        columns: data.columns,
+        rows: data.rows,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["datahub", "tables"] });
+      if (
+        collection === "all" ||
+        (collection === "unfiled" && !data.collectionId) ||
+        collection === data.collectionId
+      ) {
+        setSelectedTableId(created.id);
+      } else {
+        setCollection(data.collectionId || "unfiled");
+        setSelectedTableId(created.id);
+      }
+    },
+    [collection, queryClient],
+  );
+
   // Create + run an analysis: dispatch the chosen type + columns to the engine,
   // store the spec plus its cached normalized result in the Loro doc (so it is
   // version-controlled and re-runs), commit, reproject, and select it. Shared by
@@ -446,6 +479,7 @@ export default function DataHubPage() {
           onSelectTable={setSelectedTableId}
           onNewTable={() => setNewTableOpen(true)}
           onNewFolder={() => setNewTableOpen(true)}
+          onImport={() => setImportOpen(true)}
           counts={counts}
           analyses={openContent?.analyses ?? []}
           selectedAnalysisId={selectedAnalysisId}
@@ -473,13 +507,22 @@ export default function DataHubPage() {
                 A data table holds your raw replicates. The summary and any graph
                 read from it live, so you enter the numbers once.
               </p>
-              <button
-                type="button"
-                onClick={() => setNewTableOpen(true)}
-                className="btn-brand rounded-md px-4 py-2 text-body font-medium"
-              >
-                New table
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNewTableOpen(true)}
+                  className="btn-brand rounded-md px-4 py-2 text-body font-medium"
+                >
+                  New table
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setImportOpen(true)}
+                  className="rounded-md border border-border px-4 py-2 text-body font-medium text-foreground transition-colors hover:bg-surface-sunken"
+                >
+                  Import data
+                </button>
+              </div>
             </div>
           ) : selectedMeta && openContent && selectedPlot ? (
             <GraphEditor
@@ -527,6 +570,14 @@ export default function DataHubPage() {
         defaultCollectionId={dialogDefaultCollection}
         onCancel={() => setNewTableOpen(false)}
         onSubmit={handleNewTable}
+      />
+
+      <ImportTableDialog
+        open={importOpen}
+        projects={projects}
+        defaultCollectionId={dialogDefaultCollection}
+        onCancel={() => setImportOpen(false)}
+        onSubmit={handleImport}
       />
 
       <NewAnalysisDialog

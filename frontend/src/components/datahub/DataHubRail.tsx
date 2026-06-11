@@ -147,6 +147,7 @@ export default function DataHubRail({
   onSelectTable,
   onNewTable,
   onNewFolder,
+  onImport,
   counts,
   analyses,
   selectedAnalysisId,
@@ -169,6 +170,8 @@ export default function DataHubRail({
   onSelectTable: (id: string) => void;
   onNewTable: () => void;
   onNewFolder: () => void;
+  /** Opens the import dialog (paste from Excel / pick a CSV into a new table). */
+  onImport: () => void;
   /** All / Unfiled / per-project counts for the selector labels. */
   counts: { all: number; unfiled: number; perProject: Map<string, number> };
   /** The open table's stored analyses (empty until one is run). */
@@ -237,6 +240,16 @@ export default function DataHubRail({
             Data Tables
           </span>
           <div className="flex items-center gap-0.5">
+            <Tooltip label="Import data">
+              <button
+                type="button"
+                onClick={onImport}
+                aria-label="Import data"
+                className="rounded p-1 text-foreground-muted transition-colors hover:bg-surface-raised hover:text-foreground"
+              >
+                <Icon name="import" className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
             <Tooltip label="New folder">
               <button
                 type="button"
