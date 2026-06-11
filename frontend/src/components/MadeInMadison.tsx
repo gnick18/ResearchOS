@@ -35,6 +35,14 @@ export default function MadeInMadison({
 }) {
   const subline = tone === "soft" ? SOFT_SUBLINE : PUNCHY_SUBLINE;
 
+  // "Madison" in Green Bay Packers green-and-gold. The gradient is the text
+  // itself (bg-clip-text), so it stays readable on both light and dark.
+  const madison = (
+    <span className="bg-gradient-to-r from-[#216E39] to-[#FFB81C] bg-clip-text text-transparent">
+      Madison
+    </span>
+  );
+
   if (variant === "line") {
     return (
       <span
@@ -46,7 +54,7 @@ export default function MadeInMadison({
           className="h-5 w-5 flex-none text-brand-action [&_path]:fill-brand-action/15"
           title="Wisconsin"
         />
-        <span>Built in Madison, Wisconsin.</span>
+        <span>Built in {madison}, Wisconsin.</span>
       </span>
     );
   }
@@ -64,7 +72,7 @@ export default function MadeInMadison({
       />
       <div className="flex flex-col gap-0.5">
         <span className="text-sm font-extrabold leading-tight text-foreground">
-          Built in Madison
+          Built in {madison}
         </span>
         <span className="text-[11.5px] leading-snug text-foreground-muted">
           {subline}
