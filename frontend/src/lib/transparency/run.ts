@@ -35,6 +35,13 @@ import {
   PROTEIN_METRICS,
   type ProteinExpect,
 } from "./datasets/protein";
+import {
+  PUBLISHED_DIGEST_CASES,
+  PUBLISHED_QPCR_CASES,
+  PUBLISHED_QPCR_CITATION,
+  PUBLISHED_TRANSLATE_CASES,
+  qpcrEfficiencyPercent,
+} from "./datasets/published";
 import { TM_CASES } from "./datasets/tm";
 import { TRANSLATE_CASES } from "./datasets/translation";
 import {
@@ -45,9 +52,12 @@ import {
   BIOPYTHON_TRANSLATE,
   EXACT_DEFINITIONS,
   GC_RULE,
+  GENBANK_TRANSLATION,
   NATIVE_HMMER,
   ORACLES,
   PRIMER3,
+  PUBLISHED_QPCR,
+  REFERENCE_GENOME_DIGEST,
   WALLACE,
 } from "./oracles";
 import {
@@ -836,6 +846,165 @@ function buildDomainsDomain(): DomainReport {
   };
 }
 
+/* ------------------------------------------------------- published domain */
+
+/** A record-annotated protein is a fixed string; every residue must match. */
+const PUBLISHED_TRANSLATE_RES: Tolerance = {
+  pass: 0,
+  warn: 0,
+  unit: "residues",
+  kind: "tight",
+  rationale:
+    "The protein is the one the GenBank record annotates for its own coding "
+    + "sequence. Translating that CDS under the standard genetic code is a fixed "
+    + "codon lookup, so ResearchOS must reproduce the record's protein residue for "
+    + "residue.",
+};
+
+/** A genome digest is right only when every band matches; passing delta is zero. */
+const PUBLISHED_DIGEST_BANDS: Tolerance = {
+  pass: 0,
+  warn: 0,
+  unit: "bands",
+  kind: "tight",
+  rationale:
+    "Fragment sizes from a published reference sequence are exact integers. Our "
+    + "digest scans both strands over the same topology, so every band must match "
+    + "the pattern computed from the deposited record.",
+};
+
+/** Efficiency is recomputed from the slope; must match the paper to its rounding. */
+const PUBLISHED_QPCR_PCT: Tolerance = {
+  pass: 0.5,
+  warn: 0.9,
+  unit: "%",
+  kind: "tight",
+  rationale:
+    "Amplification efficiency follows from the standard-curve slope by "
+    + "efficiency% = (10^(-1/slope) - 1) * 100. The paper reports each efficiency "
+    + "to the whole percent, so our value must land within that rounding (under "
+    + "half a percent) of the published number.",
+};
+
+function buildPublishedDomain(): DomainReport {
+  const cases: CaseResult[] = [];
+
+  // Translation against the GenBank record's own annotated protein.
+  for (const c of PUBLISHED_TRANSLATE_CASES) {
+    const ours = translate(c.seq, "dna");
+    const delta = residueMismatch(ours, c.protein);
+    const status = classify(delta, PUBLISHED_TRANSLATE_RES);
+    cases.push({
+      id: c.id,
+      label: c.label,
+      input: `${c.accession} CDS ${c.cds} (${c.protein.length} aa)`,
+      comparisons: [
+        {
+          oracleId: GENBANK_TRANSLATION.id,
+          metric: c.accession,
+          ours: ours.length,
+          theirs: c.protein.length,
+          delta,
+          tolerance: PUBLISHED_TRANSLATE_RES,
+          status,
+        },
+      ],
+      status,
+      visual: {
+        kind: "codon-track",
+        codons: codons(c.seq),
+        ours,
+        theirs: c.protein,
+      },
+    });
+  }
+
+  // Restriction digest of a published reference genome.
+  for (const c of PUBLISHED_DIGEST_CASES) {
+    const [d] = digestEnzymes(c.seq, "dna", [c.enzymeKey]);
+    const cuts = d
+      ? Array.from(new Set(d.cuts.map((cut) => cut.position))).sort((a, b) => a - b)
+      : [];
+    const ourFragments = fragmentSizes(cuts, c.seq.length, c.circular);
+    const delta = bandMismatch(ourFragments, c.fragments);
+    const status = classify(delta, PUBLISHED_DIGEST_BANDS);
+    cases.push({
+      id: c.id,
+      label: c.label,
+      input: `${c.enzymeName} on ${c.accession} (${c.seq.length.toLocaleString()} bp ${c.circular ? "circular" : "linear"})`,
+      comparisons: [
+        {
+          oracleId: REFERENCE_GENOME_DIGEST.id,
+          metric: c.accession,
+          ours: ourFragments.length,
+          theirs: c.fragments.length,
+          delta,
+          tolerance: PUBLISHED_DIGEST_BANDS,
+          status,
+        },
+      ],
+      status,
+      visual: {
+        kind: "fragment-ladder",
+        ours: ourFragments,
+        theirs: c.fragments,
+        enzymes: [c.enzymeName],
+      },
+    });
+  }
+
+  // RT-qPCR amplification efficiency from a published standard-curve slope.
+  for (const c of PUBLISHED_QPCR_CASES) {
+    const ours = round(qpcrEfficiencyPercent(c.slope), 4);
+    const delta = round(Math.abs(ours - c.reportedPercent), 4);
+    const status = classify(delta, PUBLISHED_QPCR_PCT);
+    cases.push({
+      id: c.id,
+      label: c.label,
+      input: `slope ${c.slope} reported as ${c.reportedPercent}% efficiency`,
+      comparisons: [
+        {
+          oracleId: PUBLISHED_QPCR.id,
+          metric: `slope ${c.slope}`,
+          ours,
+          theirs: c.reportedPercent,
+          delta,
+          tolerance: PUBLISHED_QPCR_PCT,
+          status,
+        },
+      ],
+      status,
+    });
+  }
+
+  const { status, totals } = rollup(
+    cases.flatMap((c) => c.comparisons.map((cmp) => cmp.status)),
+  );
+
+  return {
+    id: "published",
+    title: "Validated against published results",
+    summary:
+      "Beyond matching peer software under identical settings, ResearchOS "
+      + "reproduces values that already exist in the published record. It "
+      + "translates the coding sequences of two GenBank records (human insulin "
+      + "NM_000207.3 and EGFP U55762) to the exact proteins those records annotate, "
+      + "digests two reference sequences (the pUC19 cloning vector L09137 and the "
+      + "bacteriophage lambda genome J02459) to the fragment patterns the deposited "
+      + "sequences yield, and recomputes RT-qPCR amplification efficiencies from the "
+      + "standard-curve slopes reported in a peer-reviewed SARS-CoV-2 wastewater "
+      + `surveillance paper (${PUBLISHED_QPCR_CITATION}). Every reference value is `
+      + "transcribed verbatim from the cited record or paper, so each row can be "
+      + "checked against the original source.",
+    impl:
+      "frontend/src/vendor/seqviz/sequence.ts, frontend/src/lib/sequences/enzyme-filters.ts",
+    oracles: [GENBANK_TRANSLATION, REFERENCE_GENOME_DIGEST, PUBLISHED_QPCR],
+    cases,
+    totals,
+    status,
+  };
+}
+
 /* ------------------------------------------------------------- aggregation */
 
 /**
@@ -852,6 +1021,7 @@ export function buildTransparencyReport(): TransparencyReport {
     buildCalculatorsDomain(),
     buildCloningDomain(),
     buildDomainsDomain(),
+    buildPublishedDomain(),
   ];
 
   const { status, totals } = rollup(

@@ -127,6 +127,44 @@ export const GC_RULE: OracleRef = {
   url: "https://biopython.org/docs/latest/api/Bio.SeqUtils.MeltingTemp.html",
 };
 
+export const GENBANK_TRANSLATION: OracleRef = {
+  id: "genbank-translation",
+  name: "GenBank record annotation",
+  version: "n/a",
+  entrypoint: "the /translation qualifier on a record's annotated coding sequence",
+  citation:
+    "NCBI RefSeq / GenBank records: insulin NM_000207.3, EGFP U55762; the protein "
+    + "each record annotates for its own CDS",
+  generator: "transcribed verbatim from NCBI efetch GenBank text (no script)",
+  url: "https://www.ncbi.nlm.nih.gov/nuccore/",
+};
+
+export const REFERENCE_GENOME_DIGEST: OracleRef = {
+  id: "reference-genome-digest",
+  name: "Reference genome fragment pattern",
+  version: "n/a",
+  entrypoint:
+    "in-silico digest of a published reference sequence (pUC19 L09137, lambda J02459)",
+  citation:
+    "pUC19 + EcoRI single-cut linearization (2,686 bp); lambda + HindIII fragment "
+    + "ladder computed from the deposited J02459 genome",
+  generator: "transcribed verbatim from NCBI efetch GenBank text (no script)",
+  url: "https://www.ncbi.nlm.nih.gov/nuccore/J02459",
+};
+
+export const PUBLISHED_QPCR: OracleRef = {
+  id: "published-qpcr",
+  name: "Published RT-qPCR standard-curve values",
+  version: "n/a",
+  entrypoint:
+    "standard-curve slope paired with amplification efficiency percent, as stated in the paper",
+  citation:
+    "Ahmed et al. 2022, Minimizing errors in RT-PCR detection and quantification "
+    + "of SARS-CoV-2 RNA, Sci. Total Environ. 805:149877",
+  generator: "transcribed verbatim from the PMC full-text XML (PMC8341816, no script)",
+  url: "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8341816/",
+};
+
 /** Lookup by id, for resolving an oracle from a case's comparison. */
 export const ORACLES: Record<string, OracleRef> = {
   [BIOPYTHON.id]: BIOPYTHON,
@@ -141,4 +179,7 @@ export const ORACLES: Record<string, OracleRef> = {
   [NATIVE_HMMER.id]: NATIVE_HMMER,
   [WALLACE.id]: WALLACE,
   [GC_RULE.id]: GC_RULE,
+  [GENBANK_TRANSLATION.id]: GENBANK_TRANSLATION,
+  [REFERENCE_GENOME_DIGEST.id]: REFERENCE_GENOME_DIGEST,
+  [PUBLISHED_QPCR.id]: PUBLISHED_QPCR,
 };
