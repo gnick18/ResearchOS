@@ -69,7 +69,11 @@ The principle the layout serves, the work lands in the real app (a real note, a 
 
 ## 10. Model selection
 
-Priority order set by Grant, performance first, political safety second, cost third. Pending final lock, see the open decision. The task is orchestration, not frontier reasoning, so the absolute top benchmark model is not required, which widens the safe set. Candidates, the best US-origin open model (Meta Llama) for the cleanest optics, the best raw open performer (DeepSeek or Qwen, Chinese-origin, legally fine but an optics hit), or the cleanest license-plus-politics mid-size option (Mistral, EU, Apache). Because the model is a config-swappable base URL, this is a default to build around, not an irreversible commitment.
+Priority order set by Grant, performance first, political safety second, cost third.
+
+LOCKED 2026-06-10, **Meta Llama** is the build-around default. The reasoning, the assistant orchestrates rather than doing frontier reasoning, so the capability that matters is reliable tool-calling and instruction-following, not raw benchmark IQ, and on that axis Llama is excellent. So the best politically-safe model is effectively the best model for this job. Llama also nails the second priority (US-origin, the cleanest optics for an NIH-nervous lab) and is cheap. The raw-reasoning edge held by the Chinese-origin top performers (DeepSeek V3, Qwen3) is largely wasted on a router, and Mistral's open commercial models are mid-size, so neither alternative wins here.
+
+Likely variant, Llama 3.3 70B (proven, stable, strong tool-calling) or Llama 4 Maverick (newer MoE), confirm against current benchmarks at build time. Default host, Fireworks (US, default zero-retention on open weights, SOC 2 Type II plus HIPAA, OpenAI-compatible). Because the model is a config-swappable base URL, this is a default to build around, not an irreversible commitment, and the provider-agnostic design lets a lab self-host or bring its own endpoint.
 
 ## 11. Open gaps and next steps
 
