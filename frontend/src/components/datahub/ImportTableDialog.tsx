@@ -1,18 +1,21 @@
 "use client";
 
 // Import data dialog (Data Hub import slice). Brings spreadsheet data into a new
-// Column table two ways, both needing zero new dependencies:
+// Column table three ways:
 //   - paste straight from Excel or Google Sheets (the clipboard is tab-separated
-//     text), or
-//   - pick a .csv / .tsv / .txt file (read as text).
+//     text),
+//   - pick a .csv / .tsv / .txt file (read as text), or
+//   - pick a binary .xlsx / .xls / .xlsm workbook (read with exceljs, loaded
+//     lazily so the reader only ships when someone actually imports one).
 // A live preview of the detected table lets the user confirm the shape, with a
 // "first row is header" toggle and a "transpose" toggle for the common case where
-// the paste arrives in the wrong orientation. On confirm the page seeds a Column
-// table through the same api / store mutators a fresh table uses.
+// the paste arrives in the wrong orientation. A workbook with more than one sheet
+// adds a sheet picker, since one file can hold several tables. On confirm the page
+// seeds a Column table through the same api / store mutators a fresh table uses.
 //
-// A binary .xlsx workbook is NOT parsed here (it needs a binary reader, a
-// deferred follow-up); picking one shows a friendly "save as CSV or paste"
-// message instead.
+// Honest scope for workbooks: we read the cell values and formula results and
+// re-plot natively. Embedded Excel charts and cell styles are not preserved, so a
+// workbook brings in its numbers and the user re-creates the graph in Data Hub.
 //
 // House style: a popup reads as a contained surface (bg-surface-overlay + border),
 // the primary CTA uses .btn-brand, <Icon> only, no emojis / em-dashes /
@@ -21,11 +24,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Project } from "@/lib/types";
 import type { ColumnDef, RowRecord } from "@/lib/datahub/model/types";
+import { importTextToTable, isXlsxFile } from "@/lib/datahub/import-table";
 import {
-  importTextToTable,
-  isXlsxFile,
-  XLSX_COMING_SOON_MESSAGE,
-} from "@/lib/datahub/import-table";
+  parseXlsx,
+  detectSheetTable,
+  type SheetGrid,
+} from "@/lib/datahub/import-xlsx";
 
 export interface ImportTableSubmit {
   name: string;
@@ -59,6 +63,11 @@ export default function ImportTableDialog({
   const [headerOverride, setHeaderOverride] = useState<boolean | null>(null);
   const [transpose, setTranspose] = useState(false);
   const [fileNote, setFileNote] = useState<string | null>(null);
+  // Workbook source: the parsed sheets (empty when the source is text / paste),
+  // the index of the chosen sheet, and a busy flag while exceljs loads + parses.
+  const [sheets, setSheets] = useState<SheetGrid[]>([]);
+  const [sheetIndex, setSheetIndex] = useState(0);
+  const [xlsxBusy, setXlsxBusy] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Reset the form each open so a prior draft never lingers, and seed the
@@ -71,6 +80,9 @@ export default function ImportTableDialog({
       setHeaderOverride(null);
       setTranspose(false);
       setFileNote(null);
+      setSheets([]);
+      setSheetIndex(0);
+      setXlsxBusy(false);
     }
   }, [open, defaultCollectionId]);
 
@@ -84,15 +96,30 @@ export default function ImportTableDialog({
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onCancel]);
 
-  // The detected table, recomputed live as the text / toggles change. Auto-detect
-  // the header unless the user overrode it.
+  // The active workbook sheet (null when the source is text / paste). Clamped so
+  // a stale index from a previous file never points past the current sheet list.
+  const activeSheet =
+    sheets.length > 0
+      ? sheets[Math.min(sheetIndex, sheets.length - 1)] ?? null
+      : null;
+
+  // The detected table, recomputed live as the source / toggles change. A
+  // workbook runs the SAME detectTable on the chosen sheet's grid that the text
+  // path runs after parsing, so header and type detection are identical. The
+  // header is auto-detected unless the user overrode it.
   const detected = useMemo(() => {
+    if (activeSheet) {
+      return detectSheetTable(activeSheet.grid, {
+        header: headerOverride ?? undefined,
+        transpose,
+      });
+    }
     if (text.trim() === "") return null;
     return importTextToTable(text, {
       header: headerOverride ?? undefined,
       transpose,
     });
-  }, [text, headerOverride, transpose]);
+  }, [activeSheet, text, headerOverride, transpose]);
 
   // The effective header reading (the auto value when not overridden) so the
   // toggle shows the right state even before the user touches it.
@@ -110,23 +137,56 @@ export default function ImportTableDialog({
 
   if (!open) return null;
 
+  // Seed the table name from the file name (minus extension) when the user has
+  // not typed one yet, so an import lands with a sensible default name.
+  const seedNameFromFile = (file: File) => {
+    if (name.trim() !== "") return;
+    const base = file.name.replace(/\.[^.]+$/, "").trim();
+    if (base !== "") setName(base);
+  };
+
   const handleFile = async (file: File | null) => {
     if (!file) return;
     setFileNote(null);
+
     if (isXlsxFile(file)) {
-      setFileNote(XLSX_COMING_SOON_MESSAGE);
+      // Binary workbook: read the bytes and parse with exceljs (loaded lazily by
+      // parseXlsx, so the reader only downloads on a real workbook import).
+      setXlsxBusy(true);
+      setSheets([]);
+      setText("");
+      try {
+        const buffer = await file.arrayBuffer();
+        const workbook = await parseXlsx(buffer);
+        const usable = workbook.sheets.filter((s) => s.grid.length > 0);
+        if (usable.length === 0) {
+          setFileNote(
+            "This workbook has no cell data to import. Add some rows in Excel, or paste the cells above.",
+          );
+          return;
+        }
+        setSheets(usable);
+        setSheetIndex(0);
+        setHeaderOverride(null);
+        setTranspose(false);
+        seedNameFromFile(file);
+      } catch {
+        setFileNote(
+          "This file could not be read as an Excel workbook. Try saving it again as .xlsx, or save it as CSV and pick that instead.",
+        );
+      } finally {
+        setXlsxBusy(false);
+      }
       return;
     }
+
+    // Text source (CSV / TSV / TXT): read as text and clear any workbook state.
     const content = await file.text();
+    setSheets([]);
     setText(content);
     setHeaderOverride(null);
     setTranspose(false);
-    // Seed the table name from the file name (minus extension) when the user has
-    // not typed one yet, so a CSV import lands with a sensible default name.
-    if (name.trim() === "") {
-      const base = file.name.replace(/\.[^.]+$/, "").trim();
-      if (base !== "") setName(base);
-    }
+    seedNameFromFile(file);
   };
 
   const trimmedName = name.trim();
@@ -215,6 +275,8 @@ export default function ImportTableDialog({
             onChange={(e) => {
               setText(e.target.value);
               setFileNote(null);
+              // Typing or pasting takes over from a previously picked workbook.
+              if (sheets.length > 0) setSheets([]);
             }}
             rows={5}
             placeholder={
@@ -228,14 +290,15 @@ export default function ImportTableDialog({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+              disabled={xlsxBusy}
+              className="rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
             >
-              Choose CSV file
+              {xlsxBusy ? "Reading workbook..." : "Choose a file"}
             </button>
             <input
               ref={fileInputRef}
               type="file"
-              accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain,.xlsx,.xls"
+              accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain,.xlsx,.xls,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
               className="hidden"
               data-testid="datahub-import-file"
               onChange={(e) => {
@@ -245,7 +308,8 @@ export default function ImportTableDialog({
               }}
             />
             <span className="text-meta text-foreground-muted">
-              CSV, TSV, or TXT. Reads as text, your data never leaves the browser.
+              CSV, TSV, TXT, or an Excel workbook (.xlsx). Everything is read in
+              the browser, your data never leaves your machine.
             </span>
           </div>
 
@@ -256,6 +320,35 @@ export default function ImportTableDialog({
             >
               {fileNote}
             </p>
+          )}
+
+          {sheets.length > 1 && (
+            <div className="mt-4" data-testid="datahub-import-sheet-picker">
+              <label className="block text-meta font-medium uppercase tracking-wide text-foreground-muted">
+                Sheet
+              </label>
+              <select
+                value={sheetIndex}
+                onChange={(e) => {
+                  setSheetIndex(Number(e.target.value));
+                  // A different sheet is a different table, so re-detect fresh.
+                  setHeaderOverride(null);
+                  setTranspose(false);
+                }}
+                data-testid="datahub-import-sheet-select"
+                className="mt-1 w-full rounded-md border border-border bg-surface-raised px-2 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
+              >
+                {sheets.map((s, i) => (
+                  <option key={`${s.name}-${i}`} value={i}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-meta text-foreground-muted">
+                This workbook has more than one sheet. Pick the one to import. You
+                can import the others into their own tables afterward.
+              </p>
+            </div>
           )}
 
           {detected && detected.columns.length > 0 && (

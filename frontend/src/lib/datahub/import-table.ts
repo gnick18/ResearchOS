@@ -8,10 +8,11 @@
 // produces a normalized { columns, rows } ready to seed a Data Hub Column table
 // through the same api / store mutators a fresh table uses.
 //
-// Scope note: this is the zero-new-dependency half of import. Binary .xlsx files
-// are NOT parsed here (that needs a binary workbook reader and is a deferred
-// follow-up); the UI shows a "save as CSV or paste the cells" message for an
-// .xlsx pick instead of calling this module.
+// Scope note: this is the text half of import (CSV / TSV / paste). Binary .xlsx
+// files are read by import-xlsx.ts, which loads exceljs lazily, turns a chosen
+// sheet into a grid of strings, and then calls THIS module's detectTable so the
+// two paths share header / type detection. The structure logic here is the seam
+// both halves reuse.
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
@@ -366,7 +367,10 @@ export function importTextToTable(
 // xlsx guard
 // ---------------------------------------------------------------------------
 
-/** Whether a picked file is a binary Excel workbook (the deferred path). */
+/**
+ * Whether a picked file is a binary Excel workbook. The dialog routes a true here
+ * to import-xlsx.ts (the exceljs reader) instead of reading the file as text.
+ */
 export function isXlsxFile(file: { name: string; type?: string }): boolean {
   const lower = file.name.toLowerCase();
   if (lower.endsWith(".xlsx") || lower.endsWith(".xls") || lower.endsWith(".xlsm")) {
@@ -378,7 +382,3 @@ export function isXlsxFile(file: { name: string; type?: string }): boolean {
     t === "application/vnd.ms-excel"
   );
 }
-
-/** The friendly message shown when a user picks a binary .xlsx file. */
-export const XLSX_COMING_SOON_MESSAGE =
-  "Excel workbook import is coming soon. For now, open the sheet, copy the cells, and paste them above, or save the sheet as CSV and pick it here.";
