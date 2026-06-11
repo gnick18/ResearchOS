@@ -20,9 +20,11 @@ import CostBreakerPanel from "@/components/admin/CostBreakerPanel";
 import GiftPoolsPanel from "@/components/admin/GiftPoolsPanel";
 import SpendByCategoryPanel from "@/components/admin/SpendByCategoryPanel";
 import {
+  computeReimbursement,
   computeSummary,
   emailArchiveMarkdown,
   formatUSD,
+  isReimbursementSettlement,
   upcomingDeadlines,
   vercelOssApplicationDeadline,
   type BusinessEmail,
@@ -32,6 +34,8 @@ import {
   type EntityConfig,
   type LedgerDirection,
   type LedgerEntry,
+  type PaymentMethod,
+  type PaymentMethodKind,
 } from "@/lib/business/calc";
 import { INFRA_TIERS, INFRA_TIERS_CHECKED, INFRA_TIERS_NOTE } from "@/lib/business/infra-tiers";
 import {
@@ -46,6 +50,7 @@ interface BusinessData {
   ledger: LedgerEntry[];
   tasks: BusinessTask[];
   emails: BusinessEmail[];
+  paymentMethods: PaymentMethod[];
   summary: BusinessSummary;
   deadlines: Deadline[];
   infraEstimate: InfraCostEstimate;
@@ -433,15 +438,19 @@ const EMPTY_ENTRY = {
   dollars: "",
   note: "",
   taxCategory: "",
+  paidWith: "" as string,
 };
 
 function Ledger({
   ledger,
+  methods,
   onAdd,
   onDelete,
   onUpdateTax,
+  onSetPaidWith,
 }: {
   ledger: LedgerEntry[];
+  methods: PaymentMethod[];
   onAdd: (e: {
     date: string;
     direction: LedgerDirection;
@@ -449,9 +458,11 @@ function Ledger({
     amountCents: number;
     note: string;
     taxCategory: string;
+    paidWith: number | null;
   }) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
   onUpdateTax: (id: number, taxCategory: string) => Promise<void>;
+  onSetPaidWith: (id: number, paidWith: number | null) => Promise<void>;
 }) {
   const [form, setForm] = useState(EMPTY_ENTRY);
   const [busy, setBusy] = useState(false);
@@ -478,6 +489,7 @@ function Ledger({
         amountCents,
         note: form.note.trim(),
         taxCategory: form.taxCategory,
+        paidWith: form.paidWith ? Number(form.paidWith) : null,
       });
       setForm({ ...EMPTY_ENTRY, date: form.date });
     } finally {
@@ -544,6 +556,21 @@ function Ledger({
             onChange={(e) => setForm({ ...form, dollars: e.target.value })}
           />
         </label>
+        <label className="flex flex-col">
+          <span className="text-meta text-foreground-muted">Paid with</span>
+          <select
+            className={`mt-1 ${input}`}
+            value={form.paidWith}
+            onChange={(e) => setForm({ ...form, paidWith: e.target.value })}
+          >
+            <option value="">Untagged</option>
+            {methods.map((m) => (
+              <option key={m.id} value={String(m.id)}>
+                {paymentMethodLabel(m)}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="flex flex-1 flex-col">
           <span className="text-meta text-foreground-muted">Note</span>
           <input
@@ -575,6 +602,7 @@ function Ledger({
                 <th className="px-2 py-2 font-semibold">Date</th>
                 <th className="px-2 py-2 font-semibold">Category</th>
                 <th className="px-2 py-2 font-semibold">Tax category</th>
+                <th className="px-2 py-2 font-semibold">Paid with</th>
                 <th className="px-2 py-2 font-semibold">Note</th>
                 <th className="px-2 py-2 text-right font-semibold">Amount</th>
                 <th className="px-2 py-2"></th>
@@ -607,6 +635,22 @@ function Ledger({
                         ))}
                       </select>
                     )}
+                  </td>
+                  <td className="px-2 py-2">
+                    <select
+                      value={e.paidWith == null ? "" : String(e.paidWith)}
+                      onChange={(ev) =>
+                        onSetPaidWith(e.id, ev.target.value ? Number(ev.target.value) : null)
+                      }
+                      className="rounded-md border border-border bg-transparent px-1.5 py-1 text-meta text-foreground-muted"
+                    >
+                      <option value="">Untagged</option>
+                      {methods.map((m) => (
+                        <option key={m.id} value={String(m.id)}>
+                          {paymentMethodLabel(m)}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                   <td className="px-2 py-2 text-foreground-muted">{e.note || "-"}</td>
                   <td
@@ -840,7 +884,11 @@ function TaxSummaryPanel({ ledger }: { ledger: LedgerEntry[] }) {
   const [year, setYear] = useState(years[0] ?? new Date().toISOString().slice(0, 4));
 
   const rows = ledger.filter((e) => e.date.startsWith(year));
-  const expenses = rows.filter((e) => e.direction === "out");
+  // Owner draws (reimbursements) are money-out but not deductible business
+  // expenses, so they are kept out of the Schedule C expense grouping.
+  const expenses = rows.filter(
+    (e) => e.direction === "out" && !isReimbursementSettlement(e),
+  );
   const income = rows.filter((e) => e.direction === "in");
 
   const byCat = new Map<string, number>();
@@ -959,6 +1007,317 @@ function TaxSummaryPanel({ ledger }: { ledger: LedgerEntry[] }) {
         </p>
       ) : null}
     </section>
+  );
+}
+
+// --- payment methods (block 1) ---
+
+function KindChip({ kind }: { kind: PaymentMethodKind }) {
+  return kind === "personal" ? (
+    <span className="rounded-full border border-amber-400 bg-amber-50 px-2 py-0.5 text-meta font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+      Personal
+    </span>
+  ) : (
+    <span className="rounded-full border border-sky-500 px-2 py-0.5 text-meta font-semibold text-sky-700 dark:text-sky-300">
+      LLC
+    </span>
+  );
+}
+
+function paymentMethodLabel(m: PaymentMethod): string {
+  return m.last4 ? `${m.label} ${"••"}${m.last4}` : m.label;
+}
+
+function PaymentMethodRow({
+  method,
+  onUpdate,
+  onDelete,
+}: {
+  method: PaymentMethod;
+  onUpdate: (id: number, m: NewMethod) => Promise<void>;
+  onDelete: (id: number) => Promise<void>;
+}) {
+  const [last4, setLast4] = useState(method.last4);
+  const [status, setStatus] = useState(method.status);
+  const [kind, setKind] = useState<PaymentMethodKind>(method.kind);
+
+  // Re-sync from props when a fresh list arrives, adjust-during-render style.
+  const [synced, setSynced] = useState(method);
+  if (synced !== method) {
+    setSynced(method);
+    setLast4(method.last4);
+    setStatus(method.status);
+    setKind(method.kind);
+  }
+
+  const save = (patch: Partial<NewMethod>) =>
+    onUpdate(method.id, { label: method.label, last4, status, kind, ...patch });
+
+  const input = "rounded-lg border border-border px-2 py-1 text-meta";
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface-raised px-3 py-2.5">
+      <span
+        className={`h-5 w-8 shrink-0 rounded ${
+          kind === "personal"
+            ? "bg-gradient-to-br from-slate-400 to-slate-600"
+            : "bg-gradient-to-br from-sky-400 to-indigo-500"
+        }`}
+        aria-hidden
+      />
+      <div className="min-w-[8rem] flex-1">
+        <p className="text-body font-medium text-foreground">{method.label}</p>
+        <p className="text-meta text-foreground-muted">
+          {last4 ? `${"••"}${last4}` : "last four not set"}
+        </p>
+      </div>
+      <label className="flex flex-col">
+        <span className="text-meta text-foreground-muted">Last four</span>
+        <input
+          inputMode="numeric"
+          maxLength={4}
+          className={`mt-0.5 w-16 ${input}`}
+          placeholder="0000"
+          value={last4}
+          onChange={(e) => setLast4(e.target.value.replace(/\D/g, "").slice(-4))}
+          onBlur={() => last4 !== method.last4 && void save({ last4 })}
+        />
+      </label>
+      <label className="flex flex-col">
+        <span className="text-meta text-foreground-muted">Owner</span>
+        <select
+          className={`mt-0.5 ${input}`}
+          value={kind}
+          onChange={(e) => {
+            const next = e.target.value as PaymentMethodKind;
+            setKind(next);
+            void save({ kind: next });
+          }}
+        >
+          <option value="llc">LLC</option>
+          <option value="personal">Personal</option>
+        </select>
+      </label>
+      <label className="flex flex-col">
+        <span className="text-meta text-foreground-muted">Status</span>
+        <input
+          className={`mt-0.5 w-28 ${input}`}
+          placeholder="Active"
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+          onBlur={() => status !== method.status && void save({ status })}
+        />
+      </label>
+      <KindChip kind={kind} />
+      <button
+        type="button"
+        onClick={() => onDelete(method.id)}
+        className="text-meta text-foreground-muted hover:text-rose-600"
+      >
+        Delete
+      </button>
+    </div>
+  );
+}
+
+interface NewMethod {
+  label: string;
+  last4: string;
+  kind: PaymentMethodKind;
+  status: string;
+}
+
+function PaymentMethods({
+  methods,
+  onAdd,
+  onUpdate,
+  onDelete,
+}: {
+  methods: PaymentMethod[];
+  onAdd: (m: NewMethod) => Promise<void>;
+  onUpdate: (id: number, m: NewMethod) => Promise<void>;
+  onDelete: (id: number) => Promise<void>;
+}) {
+  const [form, setForm] = useState<NewMethod>({
+    label: "",
+    last4: "",
+    kind: "llc",
+    status: "",
+  });
+  const [busy, setBusy] = useState(false);
+  const input = "rounded-lg border border-border px-3 py-2 text-body";
+
+  const submit = async () => {
+    const label = form.label.trim();
+    if (!label) return;
+    setBusy(true);
+    try {
+      await onAdd({
+        label,
+        last4: form.last4.replace(/\D/g, "").slice(-4),
+        kind: form.kind,
+        status: form.status.trim(),
+      });
+      setForm({ label: "", last4: "", kind: "llc", status: "" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-surface-raised p-5">
+      <p className="mb-3 text-meta text-foreground-muted leading-relaxed">
+        The LLC cards and accounts, plus any personal card you fronted a purchase
+        on. Label and last four only, never the full number, expiry, or CVV.
+      </p>
+      <div className="space-y-2">
+        {methods.length === 0 ? (
+          <p className="text-body text-foreground-muted">
+            No payment methods yet. Add your first card or account below.
+          </p>
+        ) : (
+          methods.map((m) => (
+            <PaymentMethodRow
+              key={m.id}
+              method={m}
+              onUpdate={onUpdate}
+              onDelete={onDelete}
+            />
+          ))
+        )}
+      </div>
+      <div className="mt-4 flex flex-wrap items-end gap-2">
+        <label className="flex flex-1 flex-col">
+          <span className="text-meta text-foreground-muted">Label</span>
+          <input
+            className={`mt-1 ${input}`}
+            placeholder="Mercury Mastercard credit"
+            value={form.label}
+            onChange={(e) => setForm({ ...form, label: e.target.value })}
+          />
+        </label>
+        <label className="flex flex-col">
+          <span className="text-meta text-foreground-muted">Last four</span>
+          <input
+            inputMode="numeric"
+            maxLength={4}
+            className={`mt-1 w-20 ${input}`}
+            placeholder="0000"
+            value={form.last4}
+            onChange={(e) =>
+              setForm({ ...form, last4: e.target.value.replace(/\D/g, "").slice(-4) })
+            }
+          />
+        </label>
+        <label className="flex flex-col">
+          <span className="text-meta text-foreground-muted">Owner</span>
+          <select
+            className={`mt-1 ${input}`}
+            value={form.kind}
+            onChange={(e) =>
+              setForm({ ...form, kind: e.target.value as PaymentMethodKind })
+            }
+          >
+            <option value="llc">LLC</option>
+            <option value="personal">Personal</option>
+          </select>
+        </label>
+        <label className="flex flex-col">
+          <span className="text-meta text-foreground-muted">Status</span>
+          <input
+            className={`mt-1 w-28 ${input}`}
+            placeholder="Active"
+            value={form.status}
+            onChange={(e) => setForm({ ...form, status: e.target.value })}
+          />
+        </label>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={submit}
+          className="rounded-lg bg-sky-600 px-4 py-2 text-body font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
+        >
+          {busy ? "Adding..." : "Add card"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// --- reimbursement / owner-fronted view (block 3) ---
+
+function ReimbursementPanel({
+  ledger,
+  methods,
+  onRecord,
+}: {
+  ledger: LedgerEntry[];
+  methods: PaymentMethod[];
+  onRecord: (mode: "capital" | "draw") => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const { frontedCents, settledCents, outstandingCents, count } =
+    computeReimbursement(ledger, methods);
+  const hasPersonal = methods.some((m) => m.kind === "personal");
+
+  const record = async (mode: "capital" | "draw") => {
+    setBusy(true);
+    try {
+      await onRecord(mode);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-surface-raised p-5">
+      <p className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
+        Fronted on personal cards (owed to you)
+      </p>
+      <p className="mt-1 text-display font-bold tracking-tight text-amber-700 dark:text-amber-300">
+        {formatUSD(outstandingCents)}
+      </p>
+      <p className="mt-1 text-meta text-foreground-muted">
+        {formatUSD(frontedCents)} fronted across {count} entr
+        {count === 1 ? "y" : "ies"} tagged personal
+        {settledCents > 0 ? `, ${formatUSD(settledCents)} already settled` : ""}.
+      </p>
+
+      {!hasPersonal ? (
+        <p className="mt-3 text-meta text-foreground-muted">
+          Mark a card as Personal above and tag the expenses you fronted on it,
+          then this totals what the LLC owes you back.
+        </p>
+      ) : (
+        <>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={busy || outstandingCents <= 0}
+              onClick={() => record("capital")}
+              className="rounded-lg bg-sky-600 px-4 py-2 text-body font-semibold text-white hover:bg-sky-700 disabled:opacity-40"
+            >
+              Record as capital contribution
+            </button>
+            <button
+              type="button"
+              disabled={busy || outstandingCents <= 0}
+              onClick={() => record("draw")}
+              className="rounded-lg border border-border px-4 py-2 text-body font-semibold text-foreground hover:bg-surface-sunken disabled:opacity-40"
+            >
+              Record Mercury reimbursement
+            </button>
+          </div>
+          <p className="mt-3 border-t border-border pt-3 text-meta text-foreground-muted leading-relaxed">
+            Capital contribution (recommended, no money moves) adds one money-in
+            entry for the total, so the expenses still deduct and the cash balance
+            stays honest. The Mercury reimbursement option instead logs a real
+            Mercury to personal transfer as an owner draw, which is not a second
+            deductible expense. Either way the outstanding amount drops to zero.
+          </p>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -1120,6 +1479,7 @@ export default function BusinessTracker() {
     amountCents: number;
     note: string;
     taxCategory: string;
+    paidWith?: number | null;
   }) => {
     await fetch("/api/admin/business", {
       method: "POST",
@@ -1172,6 +1532,17 @@ export default function BusinessTracker() {
     postAction({ action: "toggleTask", id, done });
   const deleteTask = (id: number) => postAction({ action: "deleteTask", id });
 
+  const addPaymentMethod = (method: NewMethod) =>
+    postAction({ action: "addPaymentMethod", method });
+  const updatePaymentMethod = (id: number, method: NewMethod) =>
+    postAction({ action: "updatePaymentMethod", id, method });
+  const deletePaymentMethod = (id: number) =>
+    postAction({ action: "deletePaymentMethod", id });
+  const setEntryPaidWith = (id: number, paidWith: number | null) =>
+    postAction({ action: "setEntryPaidWith", id, paidWith });
+  const recordReimbursement = (mode: "capital" | "draw") =>
+    postAction({ action: "recordReimbursement", mode });
+
   if (state.phase === "loading") {
     return (
       <Shell>
@@ -1202,7 +1573,7 @@ export default function BusinessTracker() {
     );
   }
 
-  const { entity, ledger, tasks, emails, summary, deadlines, infraEstimate } =
+  const { entity, ledger, tasks, emails, paymentMethods, summary, deadlines, infraEstimate } =
     state.data;
 
   return (
@@ -1360,19 +1731,44 @@ export default function BusinessTracker() {
           </div>
 
           <div>
-            <SectionTitle sub="Every income and expense. Infrastructure bills can be auto-estimated later; for now, enter them by hand.">
+            <SectionTitle sub="The LLC cards and accounts, plus any personal card you fronted a purchase on. Label and last four only, never the full number, expiry, or CVV.">
+              Payment methods
+            </SectionTitle>
+            <PaymentMethods
+              methods={paymentMethods}
+              onAdd={addPaymentMethod}
+              onUpdate={updatePaymentMethod}
+              onDelete={deletePaymentMethod}
+            />
+          </div>
+
+          <div>
+            <SectionTitle sub="Every income and expense. Tag each with the card it was paid on so the reimbursement total below knows what you fronted. Infrastructure bills can be auto-estimated later; for now, enter them by hand.">
               Ledger
             </SectionTitle>
             <Ledger
               ledger={ledger}
+              methods={paymentMethods}
               onAdd={addEntry}
               onDelete={deleteEntry}
               onUpdateTax={updateEntryTax}
+              onSetPaidWith={setEntryPaidWith}
             />
             <div className="mt-6">
               <TaxSummaryPanel ledger={ledger} />
             </div>
             <DevAccountantPanel />
+          </div>
+
+          <div>
+            <SectionTitle sub="What the LLC owes you back for purchases fronted on a personal card. Tag those expenses with a Personal card above, then settle the total here.">
+              Owner reimbursement
+            </SectionTitle>
+            <ReimbursementPanel
+              ledger={ledger}
+              methods={paymentMethods}
+              onRecord={recordReimbursement}
+            />
           </div>
 
           <div>

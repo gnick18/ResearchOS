@@ -15,23 +15,32 @@ import { isSharingEnabled, json } from "@/lib/sharing/directory/guard";
 import { getCapacityMetrics } from "@/lib/sharing/capacity";
 import { estimateMonthlyInfraCostCents } from "@/lib/sharing/capacity-shared";
 import {
+  computeReimbursement,
   computeSummary,
   upcomingDeadlines,
+  OWNER_CONTRIBUTION_CATEGORY,
+  OWNER_DRAW_CATEGORY,
   type EntityConfig,
   type LedgerDirection,
+  type PaymentMethodKind,
 } from "@/lib/business/calc";
 import {
   addLedgerEntry,
+  addPaymentMethod,
   addTask,
   deleteLedgerEntry,
+  deletePaymentMethod,
   deleteTask,
   ensureBusinessSchema,
   getEntity,
   listBusinessEmails,
   listLedger,
+  listPaymentMethods,
   listTasks,
+  setLedgerPaidWith,
   setLedgerTaxCategory,
   setTaskDone,
+  updatePaymentMethod,
   upsertEntity,
 } from "@/lib/business/db";
 import { isValidTaxCategory } from "@/lib/business/tax-categories";
@@ -52,11 +61,12 @@ export async function GET(): Promise<Response> {
 
   await ensureBusinessSchema();
   try {
-    const [entity, ledger, tasks, emails, capacity] = await Promise.all([
+    const [entity, ledger, tasks, emails, paymentMethods, capacity] = await Promise.all([
       getEntity(),
       listLedger(),
       listTasks(),
       listBusinessEmails(),
+      listPaymentMethods(),
       // Resilient (per-service null fallback) and wrapped, so a measurement
       // hiccup never sinks the page; the estimate just reads zero.
       getCapacityMetrics().catch(() => null),
@@ -74,6 +84,7 @@ export async function GET(): Promise<Response> {
       ledger,
       tasks,
       emails,
+      paymentMethods,
       summary,
       deadlines,
       infraEstimate,
@@ -90,6 +101,27 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 function asString(v: unknown): string {
   return typeof v === "string" ? v : "";
+}
+
+interface ParsedPaymentMethod {
+  label: string;
+  last4: string;
+  kind: PaymentMethodKind;
+  status: string;
+}
+
+/** Validates an incoming payment method. Strips everything but the last four
+ *  digits, so a full card number can never be persisted even if one is sent. */
+function parsePaymentMethod(raw: unknown): ParsedPaymentMethod | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const label = asString(o.label).trim();
+  if (!label) return null;
+  const last4 = asString(o.last4).replace(/\D/g, "").slice(-4);
+  const kind: PaymentMethodKind =
+    asString(o.kind) === "personal" ? "personal" : "llc";
+  const status = asString(o.status).trim();
+  return { label, last4, kind, status };
 }
 
 function parseEntity(raw: unknown): EntityConfig | null {
@@ -175,6 +207,14 @@ export async function POST(request: Request): Promise<Response> {
       if (taxCategory && !isValidTaxCategory(taxCategory)) {
         return json(400, { error: "invalid tax category" });
       }
+      const paidWithRaw = e.paidWith;
+      const paidWith =
+        paidWithRaw == null || paidWithRaw === ""
+          ? null
+          : Math.round(Number(paidWithRaw));
+      if (paidWith !== null && (!Number.isFinite(paidWith) || paidWith <= 0)) {
+        return json(400, { error: "invalid paidWith" });
+      }
       const entry = await addLedgerEntry({
         date,
         direction,
@@ -182,6 +222,7 @@ export async function POST(request: Request): Promise<Response> {
         amountCents,
         note: asString(e.note),
         taxCategory,
+        paidWith,
         source: asString(e.source) || "manual",
       });
       return json(200, { entry });
@@ -225,6 +266,84 @@ export async function POST(request: Request): Promise<Response> {
       if (!Number.isFinite(id) || id <= 0) return json(400, { error: "invalid id" });
       await deleteTask(id);
       return json(200, { ok: true });
+    }
+
+    if (action === "addPaymentMethod") {
+      const m = parsePaymentMethod(body.method);
+      if (!m) return json(400, { error: "invalid payment method" });
+      const method = await addPaymentMethod(m);
+      return json(200, { method });
+    }
+
+    if (action === "updatePaymentMethod") {
+      const id = Math.round(Number(body.id));
+      if (!Number.isFinite(id) || id <= 0) return json(400, { error: "invalid id" });
+      const m = parsePaymentMethod(body.method);
+      if (!m) return json(400, { error: "invalid payment method" });
+      const method = await updatePaymentMethod(id, m);
+      if (!method) return json(404, { error: "method not found" });
+      return json(200, { method });
+    }
+
+    if (action === "deletePaymentMethod") {
+      const id = Math.round(Number(body.id));
+      if (!Number.isFinite(id) || id <= 0) return json(400, { error: "invalid id" });
+      await deletePaymentMethod(id);
+      return json(200, { ok: true });
+    }
+
+    if (action === "setEntryPaidWith") {
+      const id = Math.round(Number(body.id));
+      if (!Number.isFinite(id) || id <= 0) return json(400, { error: "invalid id" });
+      const raw = body.paidWith;
+      const paidWith =
+        raw == null || raw === "" ? null : Math.round(Number(raw));
+      if (paidWith !== null && (!Number.isFinite(paidWith) || paidWith <= 0)) {
+        return json(400, { error: "invalid paidWith" });
+      }
+      const entry = await setLedgerPaidWith(id, paidWith);
+      if (!entry) return json(404, { error: "entry not found" });
+      return json(200, { entry });
+    }
+
+    if (action === "recordReimbursement") {
+      const mode = asString(body.mode);
+      if (mode !== "capital" && mode !== "draw") {
+        return json(400, { error: "invalid mode" });
+      }
+      // The amount is computed server-side from the current ledger and methods,
+      // never trusted from the client, and only the still-outstanding delta is
+      // recorded so a repeat click cannot double-settle.
+      const [ledger, methods] = await Promise.all([
+        listLedger(),
+        listPaymentMethods(),
+      ]);
+      const { outstandingCents } = computeReimbursement(ledger, methods);
+      if (outstandingCents <= 0) {
+        return json(400, { error: "nothing outstanding" });
+      }
+      const today = new Date().toISOString().slice(0, 10);
+      const entry =
+        mode === "capital"
+          ? await addLedgerEntry({
+              date: today,
+              direction: "in",
+              category: OWNER_CONTRIBUTION_CATEGORY,
+              amountCents: outstandingCents,
+              note: "Owner-fronted purchases recorded as a capital contribution (no money moves, the expenses still deduct)",
+              taxCategory: "",
+              source: "manual",
+            })
+          : await addLedgerEntry({
+              date: today,
+              direction: "out",
+              category: OWNER_DRAW_CATEGORY,
+              amountCents: outstandingCents,
+              note: "Mercury to personal reimbursement of owner-fronted purchases (an owner draw, not a deductible expense)",
+              taxCategory: "",
+              source: "manual",
+            });
+      return json(200, { entry });
     }
 
     return json(400, { error: "unknown action" });

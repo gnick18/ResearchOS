@@ -23,6 +23,8 @@ import {
   type EntityConfig,
   type LedgerDirection,
   type LedgerEntry,
+  type PaymentMethod,
+  type PaymentMethodKind,
 } from "./calc";
 
 let sqlSingleton: NeonQueryFunction<false, false> | null = null;
@@ -101,6 +103,11 @@ export async function ensureBusinessSchema(): Promise<void> {
   `;
   await sql`ALTER TABLE business_ledger ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'manual'`;
   await sql`ALTER TABLE business_ledger ADD COLUMN IF NOT EXISTS tax_category text NOT NULL DEFAULT ''`;
+  // The payment method a ledger entry was paid with (business_payment_methods.id),
+  // nullable so every old row and every income row stays untagged. No FK on
+  // purpose, the table is loosely coupled the same way the rest of the schema is,
+  // and a deleted card must not cascade-delete its history.
+  await sql`ALTER TABLE business_ledger ADD COLUMN IF NOT EXISTS paid_with bigint`;
   await sql`
     CREATE TABLE IF NOT EXISTS business_tasks (
       id bigserial primary key,
@@ -123,8 +130,24 @@ export async function ensureBusinessSchema(): Promise<void> {
       sent_at timestamptz default now()
     )
   `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS business_payment_methods (
+      id bigserial primary key,
+      label text not null default '',
+      last4 text not null default '',
+      kind text not null default 'llc',
+      status text not null default '',
+      sort int not null default 0,
+      created_at timestamptz default now()
+    )
+  `;
+  await sql`ALTER TABLE business_payment_methods ADD COLUMN IF NOT EXISTS last4 text NOT NULL DEFAULT ''`;
+  await sql`ALTER TABLE business_payment_methods ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'llc'`;
+  await sql`ALTER TABLE business_payment_methods ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT ''`;
+  await sql`ALTER TABLE business_payment_methods ADD COLUMN IF NOT EXISTS sort int NOT NULL DEFAULT 0`;
   await seedDefaultsOnce(sql);
   await seedKnownExpensesOnce();
+  await seedPaymentMethodsOnce(sql);
 }
 
 // The known facts (from the filed Articles, entity ID R098462, and the
@@ -239,6 +262,37 @@ const KNOWN_EXPENSE_SEEDS: NewLedgerEntry[] = [
 async function seedKnownExpensesOnce(): Promise<void> {
   for (const entry of KNOWN_EXPENSE_SEEDS) {
     await addLedgerEntryBySource(entry);
+  }
+}
+
+// The LLC's known cards and accounts. Seeded ONCE, only when the table is empty,
+// so a re-run never overwrites an edit and deleting a card never re-seeds it.
+// Only the last FOUR digits are stored, the display-safe part PCI permits on
+// receipts and screens; the full card number, expiry, and CVV are never put in
+// source or the database. The Mercury last-four already live in the committed
+// business-page mockup, so seeding them adds nothing new. The personal Amex is
+// seeded WITHOUT its last four (enter it in the UI), keeping the owner's personal
+// card digits out of the open-source repo entirely.
+const SEED_PAYMENT_METHODS: Array<Omit<PaymentMethod, "id">> = [
+  { label: "Mercury Mastercard credit", last4: "6744", kind: "llc", status: "Active", sort: 0 },
+  { label: "Mercury card", last4: "2696", kind: "llc", status: "Printing", sort: 1 },
+  { label: "Mercury Checking", last4: "9490", kind: "llc", status: "Bank", sort: 2 },
+  { label: "Mercury Savings", last4: "7540", kind: "llc", status: "Bank", sort: 3 },
+  { label: "Personal Amex", last4: "", kind: "personal", status: "Phasing out", sort: 4 },
+];
+
+async function seedPaymentMethodsOnce(
+  sql: NeonQueryFunction<false, false>,
+): Promise<void> {
+  const existing = (await sql`
+    SELECT 1 FROM business_payment_methods LIMIT 1
+  `) as unknown[];
+  if (existing.length > 0) return;
+  for (const m of SEED_PAYMENT_METHODS) {
+    await sql`
+      INSERT INTO business_payment_methods (label, last4, kind, status, sort)
+      VALUES (${m.label}, ${m.last4}, ${m.kind}, ${m.status}, ${m.sort})
+    `;
   }
 }
 
@@ -492,6 +546,7 @@ type LedgerRow = {
   note: string | null;
   source: string | null;
   tax_category: string | null;
+  paid_with: string | number | null;
 };
 
 function rowToEntry(r: LedgerRow): LedgerEntry {
@@ -503,6 +558,7 @@ function rowToEntry(r: LedgerRow): LedgerEntry {
     amountCents: Number(r.amount_cents),
     note: r.note ?? "",
     taxCategory: r.tax_category ?? "",
+    paidWith: r.paid_with == null ? null : Number(r.paid_with),
     source: r.source ?? "manual",
   };
 }
@@ -511,7 +567,7 @@ function rowToEntry(r: LedgerRow): LedgerEntry {
 export async function listLedger(): Promise<LedgerEntry[]> {
   const sql = getSql();
   const rows = (await sql`
-    SELECT id, entry_date, direction, category, amount_cents, note, source, tax_category
+    SELECT id, entry_date, direction, category, amount_cents, note, source, tax_category, paid_with
     FROM business_ledger
     ORDER BY entry_date DESC, id DESC
   `) as LedgerRow[];
@@ -525,6 +581,7 @@ export interface NewLedgerEntry {
   amountCents: number;
   note: string;
   taxCategory?: string;
+  paidWith?: number | null;
   source?: string;
 }
 
@@ -532,9 +589,9 @@ export interface NewLedgerEntry {
 export async function addLedgerEntry(entry: NewLedgerEntry): Promise<LedgerEntry> {
   const sql = getSql();
   const rows = (await sql`
-    INSERT INTO business_ledger (entry_date, direction, category, amount_cents, note, source, tax_category)
-    VALUES (${entry.date}, ${entry.direction}, ${entry.category}, ${entry.amountCents}, ${entry.note}, ${entry.source ?? "manual"}, ${entry.taxCategory ?? ""})
-    RETURNING id, entry_date, direction, category, amount_cents, note, source, tax_category
+    INSERT INTO business_ledger (entry_date, direction, category, amount_cents, note, source, tax_category, paid_with)
+    VALUES (${entry.date}, ${entry.direction}, ${entry.category}, ${entry.amountCents}, ${entry.note}, ${entry.source ?? "manual"}, ${entry.taxCategory ?? ""}, ${entry.paidWith ?? null})
+    RETURNING id, entry_date, direction, category, amount_cents, note, source, tax_category, paid_with
   `) as LedgerRow[];
   return rowToEntry(rows[0]);
 }
@@ -552,7 +609,7 @@ export async function addLedgerEntryBySource(
   if (source && source !== "manual") {
     const sql = getSql();
     const existing = (await sql`
-      SELECT id, entry_date, direction, category, amount_cents, note, source, tax_category
+      SELECT id, entry_date, direction, category, amount_cents, note, source, tax_category, paid_with
       FROM business_ledger WHERE source = ${source} LIMIT 1
     `) as LedgerRow[];
     if (existing.length > 0) {
@@ -570,7 +627,21 @@ export async function setLedgerTaxCategory(
   const sql = getSql();
   const rows = (await sql`
     UPDATE business_ledger SET tax_category = ${taxCategory} WHERE id = ${id}
-    RETURNING id, entry_date, direction, category, amount_cents, note, source, tax_category
+    RETURNING id, entry_date, direction, category, amount_cents, note, source, tax_category, paid_with
+  `) as LedgerRow[];
+  return rows.length > 0 ? rowToEntry(rows[0]) : null;
+}
+
+/** Sets (or clears, when paidWith is null) the payment method on one ledger
+ *  entry, returning the updated row. */
+export async function setLedgerPaidWith(
+  id: number,
+  paidWith: number | null,
+): Promise<LedgerEntry | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    UPDATE business_ledger SET paid_with = ${paidWith} WHERE id = ${id}
+    RETURNING id, entry_date, direction, category, amount_cents, note, source, tax_category, paid_with
   `) as LedgerRow[];
   return rows.length > 0 ? rowToEntry(rows[0]) : null;
 }
@@ -590,4 +661,85 @@ export async function deleteLedgerEntriesBySource(source: string): Promise<numbe
 export async function deleteLedgerEntry(id: number): Promise<void> {
   const sql = getSql();
   await sql`DELETE FROM business_ledger WHERE id = ${id}`;
+}
+
+// --- payment methods (cards and accounts, label + last four only) ---
+
+type PaymentMethodRow = {
+  id: string | number;
+  label: string | null;
+  last4: string | null;
+  kind: string | null;
+  status: string | null;
+  sort: string | number | null;
+};
+
+function normalizeKind(v: string | null): PaymentMethodKind {
+  return v === "personal" ? "personal" : "llc";
+}
+
+function rowToPaymentMethod(r: PaymentMethodRow): PaymentMethod {
+  return {
+    id: Number(r.id),
+    label: r.label ?? "",
+    last4: r.last4 ?? "",
+    kind: normalizeKind(r.kind),
+    status: r.status ?? "",
+    sort: r.sort == null ? 0 : Number(r.sort),
+  };
+}
+
+/** Every payment method, in sort order then id. */
+export async function listPaymentMethods(): Promise<PaymentMethod[]> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT id, label, last4, kind, status, sort
+    FROM business_payment_methods
+    ORDER BY sort ASC, id ASC
+  `) as PaymentMethodRow[];
+  return rows.map(rowToPaymentMethod);
+}
+
+export interface NewPaymentMethod {
+  label: string;
+  last4: string;
+  kind: PaymentMethodKind;
+  status: string;
+}
+
+/** Appends a payment method at the end of the sort order. */
+export async function addPaymentMethod(
+  m: NewPaymentMethod,
+): Promise<PaymentMethod> {
+  const sql = getSql();
+  const rows = (await sql`
+    INSERT INTO business_payment_methods (label, last4, kind, status, sort)
+    VALUES (${m.label}, ${m.last4}, ${m.kind}, ${m.status},
+            COALESCE((SELECT MAX(sort) + 1 FROM business_payment_methods), 0))
+    RETURNING id, label, last4, kind, status, sort
+  `) as PaymentMethodRow[];
+  return rowToPaymentMethod(rows[0]);
+}
+
+/** Updates the editable fields of one payment method. */
+export async function updatePaymentMethod(
+  id: number,
+  m: NewPaymentMethod,
+): Promise<PaymentMethod | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    UPDATE business_payment_methods
+    SET label = ${m.label}, last4 = ${m.last4}, kind = ${m.kind}, status = ${m.status}
+    WHERE id = ${id}
+    RETURNING id, label, last4, kind, status, sort
+  `) as PaymentMethodRow[];
+  return rows.length > 0 ? rowToPaymentMethod(rows[0]) : null;
+}
+
+/** Removes a payment method. Ledger rows tagged with it keep their paid_with id
+ *  (no cascade), so deleting a card never rewrites spend history; the tag simply
+ *  stops resolving to a label. */
+export async function deletePaymentMethod(id: number): Promise<void> {
+  const sql = getSql();
+  await sql`DELETE FROM business_payment_methods WHERE id = ${id}`;
 }

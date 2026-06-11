@@ -8,6 +8,7 @@ import {
   DEFAULT_ENTITY,
   GOOGLE_DEV_FEE_CENTS,
   GOOGLE_DEV_FEE_SOURCE,
+  computeReimbursement,
   computeSummary,
   devAccountFeeSeeds,
   emailArchiveMarkdown,
@@ -18,6 +19,7 @@ import {
   type BusinessEmail,
   type EntityConfig,
   type LedgerEntry,
+  type PaymentMethod,
 } from "../calc";
 
 function entry(
@@ -26,7 +28,7 @@ function entry(
   direction: "in" | "out",
   amountCents: number,
 ): LedgerEntry {
-  return { id, date, direction, category: "", amountCents, note: "", taxCategory: "", source: "manual" };
+  return { id, date, direction, category: "", amountCents, note: "", taxCategory: "", paidWith: null, source: "manual" };
 }
 
 describe("computeSummary", () => {
@@ -218,5 +220,80 @@ describe("formatUSD", () => {
     expect(formatUSD(123_456)).toBe("$1,234.56");
     expect(formatUSD(0)).toBe("$0.00");
     expect(formatUSD(-5_00)).toBe("-$5.00");
+  });
+});
+
+describe("computeReimbursement", () => {
+  const methods: PaymentMethod[] = [
+    { id: 1, label: "Mercury credit", last4: "6744", kind: "llc", status: "Active", sort: 0 },
+    { id: 9, label: "Personal Amex", last4: "", kind: "personal", status: "Phasing out", sort: 1 },
+  ];
+
+  function paid(
+    id: number,
+    direction: "in" | "out",
+    amountCents: number,
+    paidWith: number | null,
+  ): LedgerEntry {
+    return {
+      id,
+      date: "2026-06-10",
+      direction,
+      category: "",
+      amountCents,
+      note: "",
+      taxCategory: "",
+      paidWith,
+      source: "manual",
+    };
+  }
+
+  function settlement(
+    id: number,
+    direction: "in" | "out",
+    amountCents: number,
+    category: string,
+  ): LedgerEntry {
+    return {
+      id,
+      date: "2026-06-10",
+      direction,
+      category,
+      amountCents,
+      note: "",
+      taxCategory: "",
+      paidWith: null,
+      source: "manual",
+    };
+  }
+
+  it("sums only money-out entries tagged to a personal method", () => {
+    const ledger = [
+      paid(1, "out", 2_468, 9), // Amex (personal) -> counts
+      paid(2, "out", 2_500, 9), // Amex (personal) -> counts
+      paid(3, "out", 20_000, 1), // Mercury (llc) -> ignored
+      paid(4, "out", 5_000, null), // untagged -> ignored
+      paid(5, "in", 10_000, 9), // income on Amex -> ignored
+    ];
+    const r = computeReimbursement(ledger, methods);
+    expect(r.frontedCents).toBe(4_968);
+    expect(r.outstandingCents).toBe(4_968);
+    expect(r.count).toBe(2);
+  });
+
+  it("subtracts a recorded capital contribution so it does not double-count", () => {
+    const ledger = [
+      paid(1, "out", 4_968, 9),
+      settlement(2, "in", 4_968, "Owner capital contribution"),
+    ];
+    const r = computeReimbursement(ledger, methods);
+    expect(r.frontedCents).toBe(4_968);
+    expect(r.settledCents).toBe(4_968);
+    expect(r.outstandingCents).toBe(0);
+  });
+
+  it("is zero when nothing is tagged personal", () => {
+    const r = computeReimbursement([paid(1, "out", 999, 1)], methods);
+    expect(r).toEqual({ frontedCents: 0, settledCents: 0, outstandingCents: 0, count: 0 });
   });
 });

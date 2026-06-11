@@ -120,8 +120,92 @@ export interface LedgerEntry {
   /** Tax category id (see tax-categories.ts), "" when uncategorized. Drives the
    *  year-end Schedule C summary. Empty for income and old rows. */
   taxCategory: string;
+  /** The payment method (business_payment_methods.id) this entry was paid with,
+   *  or null if untagged. Drives the owner-fronted reimbursement total. Null on
+   *  old rows entered before this column existed. */
+  paidWith: number | null;
   /** "manual" for hand entry; later "infra-estimate" / "storage-payment". */
   source: string;
+}
+
+export type PaymentMethodKind = "llc" | "personal";
+
+/**
+ * A card or bank account the LLC uses. Labels and the last four digits only,
+ * never the full card number, expiry, or CVV (PCI keeps those out of any store,
+ * and the last four is the display-safe part printed on every receipt). `kind`
+ * separates the LLC's own accounts from a personal card the owner fronted a
+ * purchase on, which is what the reimbursement total keys off.
+ */
+export interface PaymentMethod {
+  id: number;
+  label: string;
+  /** Last four digits only, or "" when not entered. */
+  last4: string;
+  kind: PaymentMethodKind;
+  /** Free-text status, e.g. "Active", "Printing", "Bank", "Phasing out". */
+  status: string;
+  sort: number;
+}
+
+/** The ledger categories the reimbursement actions write. A capital
+ *  contribution is money-in (the owner's outlay becomes equity); a reimbursement
+ *  draw is money-out (the LLC pays the owner back). Both SETTLE what is owed, so
+ *  computeReimbursement subtracts them, and the tax summary treats the draw as a
+ *  non-deductible owner draw rather than a business expense. */
+export const OWNER_CONTRIBUTION_CATEGORY = "Owner capital contribution";
+export const OWNER_DRAW_CATEGORY = "Owner draw (reimbursement)";
+
+/** True for the owner-draw / capital-contribution rows the reimbursement actions
+ *  create, so callers can keep them out of expense math. */
+export function isReimbursementSettlement(e: LedgerEntry): boolean {
+  return (
+    e.category === OWNER_CONTRIBUTION_CATEGORY ||
+    e.category === OWNER_DRAW_CATEGORY
+  );
+}
+
+export interface ReimbursementSummary {
+  /** Total cents of money-out entries paid on a personal method. */
+  frontedCents: number;
+  /** Total already settled via a capital contribution or a reimbursement draw. */
+  settledCents: number;
+  /** What the LLC still owes the owner, floored at zero. */
+  outstandingCents: number;
+  /** How many money-out entries make up the fronted total. */
+  count: number;
+}
+
+/**
+ * Works out what the LLC owes the owner for purchases fronted on a personal
+ * card. Pure. A purchase counts only when its `paidWith` maps to a method whose
+ * kind is "personal". The capital-contribution and reimbursement-draw rows the
+ * actions write are subtracted as already-settled, so recording a settlement
+ * drops the outstanding amount to zero instead of letting a second click
+ * double-count it. Income and untagged rows are ignored.
+ */
+export function computeReimbursement(
+  entries: LedgerEntry[],
+  methods: PaymentMethod[],
+): ReimbursementSummary {
+  const personalIds = new Set(
+    methods.filter((m) => m.kind === "personal").map((m) => m.id),
+  );
+  let frontedCents = 0;
+  let settledCents = 0;
+  let count = 0;
+  for (const e of entries) {
+    if (isReimbursementSettlement(e)) {
+      settledCents += e.amountCents;
+      continue;
+    }
+    if (e.direction !== "out") continue;
+    if (e.paidWith == null || !personalIds.has(e.paidWith)) continue;
+    frontedCents += e.amountCents;
+    count += 1;
+  }
+  const outstandingCents = Math.max(frontedCents - settledCents, 0);
+  return { frontedCents, settledCents, outstandingCents, count };
 }
 
 export interface MonthTotals {
