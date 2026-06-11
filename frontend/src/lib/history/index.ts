@@ -105,3 +105,22 @@ export {
   type InventoryItemProjection,
   type InventoryStockProjection,
 } from "./inventory-history";
+
+// chem-history bot (2026-06-11): molecule editor recorder + viewer adapter.
+// Additive entity type ("molecules") keyed by (owner, moleculeId); same shared
+// flags re-exported, single source of truth.
+// NOTE: the recorder + adapter live in lib/chemistry/molecule-history.ts
+// (co-located with the chemistry layer) to keep the import graph clean (the
+// adapter imports MoleculeMeta from api.ts). Re-exported here so consumers can
+// import from "@/lib/history" like other entity types.
+export {
+  recordMoleculeHistory,
+  moleculeAdapter,
+  moleculePayload,
+  projectMoleculeState,
+  summarizeMoleculeChange,
+  moleculeDigest,
+  MOLECULES_ENTITY_TYPE,
+  type MoleculeTrackedState,
+  type MoleculeProjection,
+} from "../chemistry/molecule-history";

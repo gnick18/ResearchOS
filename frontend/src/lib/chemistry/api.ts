@@ -23,6 +23,15 @@ import { moleculeStore } from "./molecule-store";
 import { getCurrentUserCached } from "../storage/json-store";
 import { computeIdentity } from "./rdkit";
 import { trashEntity, restoreMoleculeFromTrash } from "../trash";
+import {
+  HISTORY_ENGINE_ENABLED,
+  MOLECULES_ENTITY_TYPE,
+  moleculePayload,
+  recordMoleculeHistory,
+  projectMoleculeState,
+  type MoleculeTrackedState,
+} from "./molecule-history";
+import { historyEngine } from "@/lib/history/engine";
 
 /** Provenance of a stored molecule, shown as a chip in the library. */
 export type MoleculeSource = "drawn" | "imported" | "pubchem";
@@ -141,6 +150,20 @@ export async function create(
     pubchem_cid: input.pubchem_cid,
     ...identity,
   });
+  // chem-history bot: record genesis checkpoint AFTER the .mol is written.
+  // Best-effort; a history write failure must never block the save.
+  if (HISTORY_ENGINE_ENABLED) {
+    const owner = await getCurrentUserCached();
+    const nextState = moleculePayload(raw.meta, raw.molfile);
+    void recordMoleculeHistory({
+      type: "create",
+      id: raw.meta.id,
+      owner,
+      actor: owner,
+      prevState: null,
+      nextState,
+    });
+  }
   return { meta: raw.meta, molfile: raw.molfile };
 }
 
@@ -151,11 +174,44 @@ export async function update(
 ): Promise<MoleculeMeta | null> {
   const username = await getCurrentUserCached();
   const { molfile, ...metaPatch } = patch;
+
+  // chem-history bot: capture prevState BEFORE the write when a Molfile is
+  // being replaced (that is the structural Save checkpoint). Best-effort: if
+  // the read fails, we skip the history write rather than blocking the save.
+  let prevState: MoleculeTrackedState | null = null;
+  if (molfile != null && HISTORY_ENGINE_ENABLED) {
+    try {
+      const existing = await moleculeStore.getRawForUser(id, username);
+      if (existing) {
+        prevState = moleculePayload(existing.meta, existing.molfile);
+      }
+    } catch {
+      // prevState stays null; history skipped gracefully.
+    }
+  }
+
   if (molfile != null) {
     await moleculeStore.writeMolfile(id, molfile, username);
     Object.assign(metaPatch, await identityPatch(molfile));
   }
-  return moleculeStore.updateMeta(id, metaPatch, username);
+  const updatedMeta = await moleculeStore.updateMeta(id, metaPatch, username);
+
+  // chem-history bot: record checkpoint AFTER the write. Gated on a Molfile
+  // being present (metadata-only updates like project_ids re-links do not
+  // constitute a structural Save that warrants a version checkpoint).
+  if (molfile != null && HISTORY_ENGINE_ENABLED && updatedMeta) {
+    const nextState = moleculePayload(updatedMeta, molfile);
+    void recordMoleculeHistory({
+      type: "update",
+      id,
+      owner: username,
+      actor: username,
+      prevState,
+      nextState,
+    });
+  }
+
+  return updatedMeta;
 }
 
 /** Soft-delete a molecule into the recoverable trash. chem-trash bot
@@ -192,6 +248,97 @@ export async function restore(
   return sidecar as unknown as MoleculeMeta;
 }
 
+// ── History read + restore (chem-history bot) ────────────────────────────────
+
+/**
+ * Read the raw history rows for a molecule. Returns an empty array when there
+ * is no history yet (molecule predates versioning or first Save not yet made).
+ */
+export async function getHistory(
+  id: string,
+  owner?: string,
+) {
+  const username = owner ?? (await getCurrentUserCached());
+  try {
+    return await historyEngine.readHistory(MOLECULES_ENTITY_TYPE, username, id);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Reconstruct the tracked state at a given version index and return the
+ * projected shape (including the molfile). The panel uses this to preview an
+ * earlier version and to seed the restore write.
+ */
+export async function reconstructMoleculeAt(
+  id: string,
+  owner: string,
+  versionIndex: number,
+  headCanonical?: string,
+): Promise<import("./molecule-history").MoleculeProjection | null> {
+  try {
+    const canonical = await historyEngine.reconstructState(
+      MOLECULES_ENTITY_TYPE,
+      owner,
+      id,
+      versionIndex,
+      headCanonical,
+    );
+    return projectMoleculeState(canonical);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Restore a molecule to a prior version by index. Reads the reconstructed state
+ * at that index, writes the recovered Molfile back via `update` (which itself
+ * records a forward "restore" checkpoint), and returns the updated meta. Returns
+ * null when the version cannot be reconstructed or the write fails.
+ */
+export async function restoreVersion(
+  id: string,
+  versionIndex: number,
+  owner?: string,
+): Promise<MoleculeMeta | null> {
+  const username = owner ?? (await getCurrentUserCached());
+  // Need the current HEAD canonical so bare-genesis anchors resolve correctly.
+  const existing = await moleculeStore.getRawForUser(id, username);
+  if (!existing) return null;
+  const headCanonical = JSON.stringify(moleculePayload(existing.meta, existing.molfile));
+
+  const proj = await reconstructMoleculeAt(id, username, versionIndex, headCanonical);
+  if (!proj || !proj.molfile) return null;
+
+  // Write recovered molfile + record a "revert" checkpoint (update wires history).
+  // We pass the revert kind directly through the history recorder so the timeline
+  // shows "Restored an earlier version" rather than "edited structure".
+  try {
+    // Write via the store directly so we can stamp the revert kind ourselves
+    // rather than triggering a second identityPatch call through update.
+    await moleculeStore.writeMolfile(id, proj.molfile, username);
+    const identity = await identityPatch(proj.molfile);
+    const restoredMeta = await moleculeStore.updateMeta(id, identity, username);
+    if (restoredMeta && HISTORY_ENGINE_ENABLED) {
+      const prevState = moleculePayload(existing.meta, existing.molfile);
+      const nextState = moleculePayload(restoredMeta, proj.molfile);
+      void recordMoleculeHistory({
+        type: "revert",
+        id,
+        owner: username,
+        actor: username,
+        prevState,
+        nextState,
+        revertTargetVersion: versionIndex,
+      });
+    }
+    return restoredMeta;
+  } catch {
+    return null;
+  }
+}
+
 /** Namespaced handle to mirror the other `*Api` modules in the codebase. */
 export const moleculesApi = {
   list,
@@ -201,4 +348,7 @@ export const moleculesApi = {
   update,
   remove,
   restore,
+  getHistory,
+  reconstructMoleculeAt,
+  restoreVersion,
 };

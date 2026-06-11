@@ -23,6 +23,9 @@ import { computeIdentity, lipinski, type MoleculeIdentity } from "@/lib/chemistr
 import { LipinskiBadge } from "./LipinskiBadge";
 import { referenceClipboardText } from "@/lib/copy-reference";
 import { MoleculeLiterature } from "./MoleculeLiterature";
+import MoleculeHistoryPanel from "./MoleculeHistoryPanel";
+import { HISTORY_ENGINE_ENABLED } from "@/lib/chemistry/molecule-history";
+import { getCurrentUserCached } from "@/lib/storage/json-store";
 
 const KetcherCanvas = dynamic(() => import("./KetcherCanvas"), {
   ssr: false,
@@ -33,7 +36,7 @@ const KetcherCanvas = dynamic(() => import("./KetcherCanvas"), {
   ),
 });
 
-type RailTab = "identity" | "papers";
+type RailTab = "identity" | "papers" | "history";
 
 export function MoleculeEditorPopup({
   moleculeId,
@@ -74,11 +77,23 @@ export function MoleculeEditorPopup({
   // is never silent. Auto-clears.
   const [copied, setCopied] = useState<string | null>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // chem-history bot: the current user's username, needed by the History panel
+  // as the owner folder. Resolved once on mount; stable for the popup lifetime.
+  const [historyOwner, setHistoryOwner] = useState<string>("");
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects", "for-chemistry"],
     queryFn: () => projectsApi.list(),
   });
+
+  // chem-history bot: resolve the current user once on mount for history panel.
+  useEffect(() => {
+    getCurrentUserCached()
+      .then((u) => {
+        if (u) setHistoryOwner(u);
+      })
+      .catch(() => {});
+  }, []);
 
   const isNew = moleculeId === "new";
 
@@ -290,6 +305,14 @@ export function MoleculeEditorPopup({
               >
                 Papers &amp; patents
               </RailTabButton>
+              {HISTORY_ENGINE_ENABLED && !isNew && (
+                <RailTabButton
+                  active={rail === "history"}
+                  onClick={() => setRail("history")}
+                >
+                  History
+                </RailTabButton>
+              )}
             </div>
 
             {rail === "identity" ? (
@@ -326,6 +349,29 @@ export function MoleculeEditorPopup({
                   onChange={handleProjectsChange}
                 />
               </>
+            ) : rail === "history" && !isNew && moleculeId != null && historyOwner ? (
+              // chem-history bot: mounted only when the History tab is active so
+              // history reads are lazy. The restore handler reloads the molecule
+              // and closes the popup so the user sees the restored structure.
+              <div className="-mx-4 -mb-4" style={{ height: "100%" }}>
+                <MoleculeHistoryPanel
+                  moleculeId={moleculeId}
+                  owner={historyOwner}
+                  canRestore={true}
+                  onRestore={async (versionIndex) => {
+                    const restored = await moleculesApi.restoreVersion(
+                      moleculeId,
+                      versionIndex,
+                      historyOwner,
+                    );
+                    if (restored) {
+                      await queryClient.invalidateQueries({ queryKey: ["molecules"] });
+                      await queryClient.invalidateQueries({ queryKey: ["project-molecules"] });
+                      onClose();
+                    }
+                  }}
+                />
+              </div>
             ) : litQuery ? (
               // Mounted only when the Papers tab is open, so the fetch is lazy.
               // Keyed by the captured query (set on tab open) so it does not refetch
