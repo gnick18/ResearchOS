@@ -30,6 +30,7 @@ export type ShareItemKind =
   | "method"
   | "project"
   | "sequence"
+  | "calculator"
   | "other";
 
 export type ShareDestination = "existing_user" | "email_invite";

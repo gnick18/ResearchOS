@@ -652,7 +652,8 @@ export type InviteItemKind =
   | "experiment"
   | "method"
   | "project"
-  | "sequence";
+  | "sequence"
+  | "calculator";
 
 /** Params for inviteShare. */
 export interface InviteShareParams {

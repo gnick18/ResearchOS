@@ -86,6 +86,7 @@ export type SharePayloadKind =
   | "method"
   | "project"
   | "sequence"
+  | "calculator"
   | "unknown";
 
 /**
@@ -110,11 +111,14 @@ export type SharePayloadKind =
 export async function sniffSharePayload(
   bytes: Uint8Array,
 ): Promise<SharePayloadKind> {
-  // A sequence share is a small plain-JSON envelope, not a zip. Probe it FIRST,
-  // cheaply, so a sequence is never run through the (failing) JSZip path. We do
-  // a minimal in-line decode + parse here rather than importing the sequence
-  // module to avoid pulling its local-api dependency into this transport seam.
-  if (looksLikeSequenceEnvelope(bytes)) return "sequence";
+  // The sequence AND calculator shares are small plain-JSON envelopes, not zips.
+  // Probe FIRST, cheaply, so a JSON envelope is never run through the (failing)
+  // JSZip path. We do a minimal in-line decode + parse here rather than importing
+  // the sequence / calculator modules, to avoid pulling their local-api
+  // dependency into this transport seam. The probe returns the envelope `kind`
+  // so a single JSON parse routes both tiers.
+  const jsonKind = jsonEnvelopeKind(bytes);
+  if (jsonKind === "sequence" || jsonKind === "calculator") return jsonKind;
 
   let zip: JSZip;
   try {
@@ -185,26 +189,27 @@ export function experimentPayloadToFile(
 }
 
 /**
- * Cheap, allocation-light probe for a sequence envelope (sequence-transfer.ts).
- * A zip starts with the local-file-header magic "PK" (0x50 0x4B), so any zip
- * fails this and falls through to the zip path. A sequence envelope is a small
- * UTF-8 JSON object whose first non-whitespace byte is "{". We decode and JSON-
- * parse only when that cheap byte check passes, and confirm `kind === "sequence"`.
- * Tolerant, any failure resolves to false (the bytes fall through to the zip path
+ * Cheap, allocation-light probe for a plain-JSON share envelope (the sequence
+ * and calculator tiers, sequence-transfer.ts / calculator-transfer.ts). A zip
+ * starts with the local-file-header magic "PK" (0x50 0x4B), so any zip fails the
+ * byte check and falls through to the zip path. A JSON envelope is a small UTF-8
+ * object whose first non-whitespace byte is "{". We decode and JSON-parse only
+ * when that cheap byte check passes, and return the envelope's `kind` string.
+ * Tolerant, any failure resolves to null (the bytes fall through to the zip path
  * and ultimately "unknown" if they are neither).
  */
-function looksLikeSequenceEnvelope(bytes: Uint8Array): boolean {
+function jsonEnvelopeKind(bytes: Uint8Array): string | null {
   // Skip leading ASCII whitespace, then require the first real byte to be "{".
   let i = 0;
   while (i < bytes.length && (bytes[i] === 0x20 || bytes[i] === 0x09 || bytes[i] === 0x0a || bytes[i] === 0x0d)) {
     i++;
   }
-  if (i >= bytes.length || bytes[i] !== 0x7b /* { */) return false;
+  if (i >= bytes.length || bytes[i] !== 0x7b /* { */) return null;
   try {
     const text = new TextDecoder().decode(bytes);
     const parsed = JSON.parse(text) as { kind?: unknown };
-    return !!parsed && parsed.kind === "sequence";
+    return parsed && typeof parsed.kind === "string" ? parsed.kind : null;
   } catch {
-    return false;
+    return null;
   }
 }

@@ -3436,12 +3436,24 @@ export interface CustomCalculator {
   steps: CustomCalculatorStep[];
   conditionals: CustomCalculatorConditional[];
   outputs: CustomCalculatorOutput[];
-  /** Sharing selection, persisted only in Phase 1 (no propagation yet).
-   *  Empty = "Just me"; the lab sentinel or external usernames land here in
-   *  later phases. */
-  shared_with: string[];
+  /** Sharing selection, unified shape (Phase 2, 2026-06-10). Empty = "Just
+   *  me"; the whole-lab share is the `{ username: "*", level: "read" }` entry,
+   *  exactly like methods / tasks. Phase 1 wrote a `string[]` here; the read
+   *  path lazy-normalizes those records via `normalizeSharedWith`, so a Phase 1
+   *  record keeps working without a rewrite (the next save lands the new
+   *  shape). */
+  shared_with: SharedUser[];
   created_at: string;
   updated_at: string;
+  /** Whose folder this record lives in. Not persisted to disk (the per-user
+   *  directory IS the owner); overlaid at read time by
+   *  `fetchAllCalculatorsIncludingShared` so the UI can badge a shared-in
+   *  (non-owned) calculator and gate it read-only. */
+  owner?: string;
+  /** True when this calculator is owned by another lab member and surfaced to
+   *  the current user via the whole-lab "*" share. Read-only for them (owner
+   *  edits propagate, it is a live reference, not a copy). Never persisted. */
+  is_shared_with_me?: boolean;
 }
 
 /** Create shape for `calculatorsApi.create` (id + timestamps are stamped by the
@@ -3454,7 +3466,7 @@ export interface CustomCalculatorCreate {
   steps: CustomCalculatorStep[];
   conditionals: CustomCalculatorConditional[];
   outputs: CustomCalculatorOutput[];
-  shared_with?: string[];
+  shared_with?: SharedUser[];
 }
 
 /** Patch shape for `calculatorsApi.update`. Any subset; `updated_at` is
@@ -3467,5 +3479,5 @@ export interface CustomCalculatorUpdate {
   steps?: CustomCalculatorStep[];
   conditionals?: CustomCalculatorConditional[];
   outputs?: CustomCalculatorOutput[];
-  shared_with?: string[];
+  shared_with?: SharedUser[];
 }

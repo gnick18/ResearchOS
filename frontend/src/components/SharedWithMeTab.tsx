@@ -54,6 +54,12 @@ import {
   importSequencePayload,
   type SequenceSharePayload,
 } from "@/lib/sharing/sequence-transfer";
+import {
+  parseCalculatorPayload,
+  readCalculatorPayloadSender,
+  importCalculatorPayload,
+  type CalculatorSharePayload,
+} from "@/lib/sharing/calculator-transfer";
 import { readManifestSenderFromPayload } from "@/lib/sharing/sender-stamp";
 import ReceivedFromBadge from "@/components/ReceivedFromBadge";
 import ImportExperimentDialog from "@/components/ImportExperimentDialog";
@@ -413,8 +419,8 @@ export default function SharedWithMeTab({ onCountChange }: SharedWithMeTabProps)
           <InboxArrowIcon className="w-8 h-8 text-foreground-muted" />
           <p className="text-body text-foreground-muted max-w-xs">
             Set up sharing to receive shared items. You claim an email-linked
-            identity once, then notes, methods, and sequences other labs send you
-            land here.
+            identity once, then notes, methods, sequences, and calculators other
+            labs send you land here.
           </p>
           <button
             type="button"
@@ -643,6 +649,12 @@ function ReviewImportModal({
     "unfiled",
   );
   const [seqProjectId, setSeqProjectId] = useState<number | null>(null);
+  // A decrypted CALCULATOR envelope, parsed for the one-click import. Like a
+  // sequence it is self-contained, so it imports in one step from the modal with
+  // no resolution dialog and no placement (a calculator is not filed in a project).
+  const [calculatorPayload, setCalculatorPayload] =
+    useState<CalculatorSharePayload | null>(null);
+  const [calculatorBytes, setCalculatorBytes] = useState<Uint8Array | null>(null);
   // The verified sender read from the decrypted EXPERIMENT / METHOD / PROJECT
   // manifest (the note path uses `received.sender` instead). Populated once the
   // decrypt resolves, so the experiment/method/project provenance label upgrades
@@ -742,6 +754,20 @@ function ReviewImportModal({
           }
           setSequencePayload(parsed);
           setSequenceBytes(payload);
+        } else if (sniffed === "calculator") {
+          // A calculator is self-contained (just its spec), so we parse the
+          // envelope here and show a one-click import (no resolution dialog).
+          // Read the embedded verified sender for the label + provenance,
+          // exactly like the sequence tier.
+          const parsed = parseCalculatorPayload(payload);
+          if (cancelled) return;
+          const calcSender = readCalculatorPayloadSender(payload);
+          if (calcSender) {
+            setManifestSender(calcSender);
+            onResolveSenderRef.current(item.bundleId, calcSender);
+          }
+          setCalculatorPayload(parsed);
+          setCalculatorBytes(payload);
         }
       } catch (err) {
         console.error("[inbox] receiveRawShare failed", err);
@@ -900,6 +926,31 @@ function ReviewImportModal({
     seqProjectId,
     seqProjects,
   ]);
+
+  // ── Calculator branch (ONE-CLICK) ───────────────────────────────────────────
+  // A calculator is self-contained, nothing to resolve and nothing to file into
+  // a project. Import in one step, decrypt (done) -> create a copy in the
+  // recipient's folder -> ack the relay (ACK-AFTER-WRITE) -> "Saved" toast. The
+  // imported copy is owner-only (the transfer resets sharing), so no sender args
+  // are threaded into the import (provenance lives on the inbox label only).
+  const handleCalculatorImport = useCallback(async () => {
+    if (!calculatorBytes) return;
+    setImporting(true);
+    setError(null);
+    try {
+      await importCalculatorPayload(calculatorBytes);
+      // ACK-AFTER-WRITE: the calculator is on disk now, delete the relay copy.
+      await ackShare({ email, bundleId: item.bundleId });
+      onImported(item.bundleId, "Saved to your calculators.");
+    } catch (err) {
+      console.error("[inbox] calculator import failed", err);
+      setError(
+        "Import failed. Nothing was acknowledged, so this item stays in your inbox to try again.",
+      );
+    } finally {
+      setImporting(false);
+    }
+  }, [calculatorBytes, item, email, onImported]);
 
   // Provenance label for the export-zip tiers (experiment / method / project).
   // Prefer the embedded verified sender (note path via `received.sender`,
@@ -1091,7 +1142,8 @@ function ReviewImportModal({
           ) : unsupported ? (
             <p className="text-body text-foreground-muted text-center py-6">
               Unsupported item type. ResearchOS can import notes, experiments,
-              methods, projects, and sequences here; this item is a different
+              methods, projects, sequences, and calculators here; this item is a
+              different
               kind. You can decline it.
             </p>
           ) : kind === "sequence" && sequencePayload ? (
@@ -1171,6 +1223,30 @@ function ReviewImportModal({
                   )}
                 </div>
               </div>
+            </>
+          ) : kind === "calculator" && calculatorPayload ? (
+            <>
+              <p className="text-meta uppercase tracking-wide text-foreground-muted font-semibold mb-1">
+                Shared calculator
+              </p>
+              <h4 className="text-heading font-semibold text-foreground mb-1">
+                {calculatorPayload.name || "Untitled calculator"}
+              </h4>
+              {calculatorPayload.description && (
+                <p className="text-body text-foreground-muted">
+                  {calculatorPayload.description}
+                </p>
+              )}
+              <p className="text-meta text-foreground-muted mt-1">
+                {calculatorPayload.inputs.length} input
+                {calculatorPayload.inputs.length === 1 ? "" : "s"},{" "}
+                {calculatorPayload.outputs.length} output
+                {calculatorPayload.outputs.length === 1 ? "" : "s"}
+              </p>
+              <p className="text-meta text-foreground-muted mt-3 leading-relaxed">
+                Saving adds a copy to your calculators. Your copy is yours to
+                edit, and it runs entirely in your browser.
+              </p>
             </>
           ) : preview ? (
             <>
@@ -1256,22 +1332,28 @@ function ReviewImportModal({
             onClick={() =>
               kind === "sequence"
                 ? void handleSequenceImport()
-                : void handleImport()
+                : kind === "calculator"
+                  ? void handleCalculatorImport()
+                  : void handleImport()
             }
             disabled={
               importing ||
               loading ||
               !!error ||
               unsupported ||
-              (kind === "sequence" ? !sequencePayload : !preview)
+              (kind === "sequence"
+                ? !sequencePayload
+                : kind === "calculator"
+                  ? !calculatorPayload
+                  : !preview)
             }
             className="px-4 py-1.5 text-meta font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {importing
-              ? kind === "sequence"
+              ? kind === "sequence" || kind === "calculator"
                 ? "Saving…"
                 : "Importing…"
-              : kind === "sequence"
+              : kind === "sequence" || kind === "calculator"
                 ? "Save to my library"
                 : "Import"}
           </button>

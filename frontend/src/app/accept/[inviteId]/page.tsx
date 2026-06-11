@@ -61,6 +61,12 @@ import {
   importSequencePayload,
   type SequenceSharePayload,
 } from "@/lib/sharing/sequence-transfer";
+import {
+  parseCalculatorPayload,
+  readCalculatorPayloadSender,
+  importCalculatorPayload,
+  type CalculatorSharePayload,
+} from "@/lib/sharing/calculator-transfer";
 import { readManifestSenderFromPayload } from "@/lib/sharing/sender-stamp";
 import { readFragmentKey, parseUnlockCode } from "@/lib/sharing/accept-code";
 import ImportExperimentDialog from "@/components/ImportExperimentDialog";
@@ -88,6 +94,8 @@ function kindNoun(kind: SharePayloadKind): { article: string; noun: string } {
       return { article: "a", noun: "project" };
     case "sequence":
       return { article: "a", noun: "sequence" };
+    case "calculator":
+      return { article: "a", noun: "calculator" };
     case "note":
     default:
       return { article: "a", noun: "note" };
@@ -116,6 +124,9 @@ type LoadState =
       // The parsed sequence envelope, SEQUENCE kind only (null otherwise). A
       // sequence imports in one click from the bytes, no dialog.
       sequence: SequenceSharePayload | null;
+      // The parsed calculator envelope, CALCULATOR kind only (null otherwise). A
+      // calculator imports in one click from the bytes, no dialog, no placement.
+      calculator: CalculatorSharePayload | null;
     };
 
 type ImportPhase =
@@ -246,6 +257,7 @@ export default function AcceptInvitePage() {
             payload: null,
             manifestSender: null,
             sequence: null,
+            calculator: null,
           });
           return;
         }
@@ -262,6 +274,7 @@ export default function AcceptInvitePage() {
             payload,
             manifestSender: sender ?? null,
             sequence: null,
+            calculator: null,
           });
           return;
         }
@@ -280,6 +293,26 @@ export default function AcceptInvitePage() {
             payload,
             manifestSender: sender ?? null,
             sequence: parsed,
+            calculator: null,
+          });
+          return;
+        }
+
+        if (kind === "calculator") {
+          // A calculator is self-contained, parse the envelope here and keep the
+          // bytes for the one-click import (no dialog, no placement). Read the
+          // embedded verified sender for the provenance label.
+          const parsed = parseCalculatorPayload(payload);
+          const sender = readCalculatorPayloadSender(payload);
+          if (cancelled) return;
+          setLoad({
+            phase: "ready",
+            kind,
+            received: null,
+            payload,
+            manifestSender: sender ?? null,
+            sequence: null,
+            calculator: parsed,
           });
           return;
         }
@@ -292,6 +325,7 @@ export default function AcceptInvitePage() {
           payload: null,
           manifestSender: null,
           sequence: null,
+          calculator: null,
         });
       } catch (err) {
         if (cancelled) return;
@@ -459,6 +493,34 @@ export default function AcceptInvitePage() {
     }
   }, [load, currentUser, inviteId, seqPlacement, seqProjectId]);
 
+  // File the decrypted CALCULATOR into the new user's folder in ONE step (no
+  // dialog, no placement), then ack the keyless invite. A calculator has nothing
+  // to resolve, so this mirrors the inbox one-click flow, decrypt (done) ->
+  // create a copy -> ACK-AFTER-FILE. The copy is owner-only on arrival.
+  const handleCalculatorImport = useCallback(async () => {
+    if (load.phase !== "ready" || load.kind !== "calculator" || !load.payload) {
+      return;
+    }
+    if (!currentUser) return;
+    setImp({ phase: "importing" });
+    try {
+      await importCalculatorPayload(load.payload);
+      try {
+        await ackInvite(inviteId);
+      } catch (ackErr) {
+        console.warn("[accept] ack after calculator import failed", ackErr);
+      }
+      setImp({ phase: "done" });
+    } catch (err) {
+      console.error("[accept] calculator import failed", err);
+      setImp({
+        phase: "error",
+        message:
+          "Import failed. Nothing was acknowledged, so this invite stays available to try again.",
+      });
+    }
+  }, [load, currentUser, inviteId]);
+
   // The import dialog (experiment / method / project) reports a successful
   // on-disk import. ACK-AFTER-FILE: ack the keyless invite now, then unmount the
   // dialog and show the done state. A failed ack only leaves the relay copy until
@@ -570,10 +632,23 @@ export default function AcceptInvitePage() {
             />
           )}
 
+          {load.phase === "ready" && load.kind === "calculator" && (
+            <CalculatorBody
+              calculator={load.calculator}
+              senderEmail={load.manifestSender?.email ?? null}
+              isConnected={isConnected}
+              currentUser={currentUser}
+              identityReady={identity.status === "ready"}
+              imp={imp}
+              onSetUpSharing={() => setWizardOpen(true)}
+              onSave={() => void handleCalculatorImport()}
+            />
+          )}
+
           {load.phase === "ready" && load.kind === "unknown" && (
             <NoticeBody
               title="Unsupported item"
-              body="This invite contains an item ResearchOS cannot open here yet. Notes, experiments, methods, projects, and sequences are supported."
+              body="This invite contains an item ResearchOS cannot open here yet. Notes, experiments, methods, projects, sequences, and calculators are supported."
             />
           )}
         </div>
@@ -1161,6 +1236,127 @@ function SequenceBody({
             {imp.phase === "importing" ? "Saving…" : "Save to my library"}
           </button>
         </>
+      )}
+    </div>
+  );
+}
+
+// The CALCULATOR kind. Self-contained like a sequence, so there is no import
+// dialog and no placement (a calculator is not filed in a project), the visitor
+// saves it in one click straight into their calculators. Shows the calculator
+// summary + verified sender + the same connect-folder / claim-identity gate.
+function CalculatorBody({
+  calculator,
+  senderEmail,
+  isConnected,
+  currentUser,
+  identityReady,
+  imp,
+  onSetUpSharing,
+  onSave,
+}: {
+  calculator: CalculatorSharePayload | null;
+  senderEmail: string | null;
+  isConnected: boolean;
+  currentUser: string | null;
+  identityReady: boolean;
+  imp: ImportPhase;
+  onSetUpSharing: () => void;
+  onSave: () => void;
+}) {
+  if (imp.phase === "done") {
+    return (
+      <div className="py-6 text-center">
+        <div className="w-12 h-12 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center text-emerald-600 dark:text-emerald-300">
+          <CheckGlyph className="w-6 h-6" />
+        </div>
+        <h2 className="text-title font-semibold text-foreground mt-3">
+          Saved to your calculators
+        </h2>
+        <p className="text-body text-foreground-muted mt-1 leading-relaxed">
+          This calculator is now in your calculators. You can open, run, and edit
+          it like any other, your copy is yours.
+        </p>
+      </div>
+    );
+  }
+
+  const senderLabel = senderEmail ?? "Someone on ResearchOS";
+  const name = calculator?.name || "Untitled calculator";
+  const inputCount = calculator?.inputs.length ?? 0;
+  const outputCount = calculator?.outputs.length ?? 0;
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-lg border border-border bg-surface-sunken px-4 py-3">
+        <p className="text-meta text-foreground-muted">From</p>
+        <p className="text-body font-medium text-foreground break-all">
+          {senderLabel}
+        </p>
+        <p className="text-meta text-emerald-600 dark:text-emerald-300 mt-1.5">
+          ResearchOS opened this calculator with the invite key and passed its
+          integrity check.
+        </p>
+      </div>
+
+      <div>
+        <p className="text-meta uppercase tracking-wide text-foreground-muted font-semibold mb-1">
+          Shared calculator
+        </p>
+        <h2 className="text-heading font-semibold text-foreground break-words">
+          {name}
+        </h2>
+        {calculator?.description && (
+          <p className="text-body text-foreground-muted mt-1">
+            {calculator.description}
+          </p>
+        )}
+        <p className="text-meta text-foreground-muted mt-1">
+          {inputCount} input{inputCount === 1 ? "" : "s"}, {outputCount} output
+          {outputCount === 1 ? "" : "s"}
+        </p>
+        <p className="text-meta text-foreground-muted mt-2 leading-relaxed">
+          Saving adds a copy to your calculators. Your copy is yours to edit, and
+          it runs entirely in your browser.
+        </p>
+      </div>
+
+      {imp.phase === "error" && (
+        <div className="p-3 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
+          <p className="text-meta text-red-700 dark:text-red-300 leading-relaxed">{imp.message}</p>
+        </div>
+      )}
+
+      {/* The keep-it gate, identical to the note / sequence / export-zip paths. */}
+      {!isConnected || !currentUser ? (
+        <NoticeBody
+          title="Open ResearchOS to keep this calculator"
+          body="To save this calculator you first connect a data folder in ResearchOS (it is free and stays on your own computer). Open the app, connect or create your folder, then return to this link."
+        />
+      ) : !identityReady ? (
+        <div className="space-y-3">
+          <p className="text-body text-foreground-muted leading-relaxed">
+            Set up sharing once to claim this email and save the calculator. It
+            proves your address and generates your keypair, so future shares with
+            you stay private end to end.
+          </p>
+          <button
+            type="button"
+            onClick={onSetUpSharing}
+            className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+          >
+            Set up sharing and save the calculator
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={imp.phase === "importing" || !calculator}
+          className="w-full py-2 text-body rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {imp.phase === "importing" ? "Saving…" : "Save to my calculators"}
+        </button>
       )}
     </div>
   );

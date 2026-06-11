@@ -31,7 +31,15 @@ import type {
   CustomCalculatorStep,
   CustomCalculatorConditional,
   CustomCalculatorOutput,
+  SharedUser,
 } from "@/lib/types";
+import {
+  WHOLE_LAB_SENTINEL,
+  isWholeLabShared,
+} from "@/lib/sharing/unified";
+import { EXTERNAL_COLLAB_ENABLED } from "@/lib/loro/config";
+import CalculatorSendOutsideDialog from "@/components/sharing/CalculatorSendOutsideDialog";
+import { useFileSystem } from "@/lib/file-system/file-system-context";
 
 // ── Shared field styling (mirrors CalculatorsButton's inputCls/selectCls) ─────
 
@@ -58,7 +66,9 @@ interface CalcDraft {
   steps: CustomCalculatorStep[];
   conditionals: CustomCalculatorConditional[];
   outputs: CustomCalculatorOutput[];
-  shared_with: string[];
+  /** Unified sharing shape (Phase 2). The whole-lab share is the
+   *  `{ username: "*", level: "read" }` entry, exactly like methods. */
+  shared_with: SharedUser[];
 }
 
 function emptyDraft(): CalcDraft {
@@ -125,71 +135,97 @@ function seedValues(inputs: CustomCalculatorInput[]): CustomCalcInputValues {
   return values;
 }
 
-// ── Sharing control (persisted only in Phase 1) ──────────────────────────────
+// ── Sharing control (Phase 2) ────────────────────────────────────────────────
+//
+// Two stored scopes for the calculator's own ACL: "me" (private, shared_with:
+// []) and "lab" (the whole-lab "*" read share, a LIVE reference other members
+// read through to your file). "External person" is not an ACL state, it is a
+// one-off action that seals a COPY to someone outside the folder, so it opens
+// the external send dialog rather than mutating shared_with. External send is
+// gated behind EXTERNAL_COLLAB_ENABLED, the same flag as every other tier.
 
-const LAB_SENTINEL = "*";
-type ShareScope = "me" | "lab" | "external";
+const LAB_READ_SHARE: SharedUser[] = [
+  { username: WHOLE_LAB_SENTINEL, level: "read" },
+];
 
-function scopeOf(sharedWith: string[]): ShareScope {
-  if (sharedWith.includes(LAB_SENTINEL)) return "lab";
-  if (sharedWith.length > 0) return "external";
-  return "me";
-}
+type ShareScope = "me" | "lab";
 
-function sharedWithForScope(scope: ShareScope, current: string[]): string[] {
-  if (scope === "lab") return [LAB_SENTINEL];
-  if (scope === "external") {
-    // Keep any existing external recipients; Phase 1 does not add new ones (no
-    // recipient picker yet), it only records the intent.
-    const ext = current.filter((u) => u !== LAB_SENTINEL);
-    return ext.length > 0 ? ext : [];
-  }
-  return [];
+function scopeOf(sharedWith: SharedUser[]): ShareScope {
+  return isWholeLabShared(sharedWith) ? "lab" : "me";
 }
 
 const SHARE_OPTIONS: { id: ShareScope; label: string; why: string }[] = [
   { id: "me", label: "Just me", why: "Stays in your folder, visible only to you." },
-  { id: "lab", label: "My lab", why: "Shared with everyone in your lab folder." },
   {
-    id: "external",
-    label: "External",
-    why: "Shared beyond your lab. Propagation arrives in a later release.",
+    id: "lab",
+    label: "My lab",
+    why: "Everyone in your lab folder can run it. They see your latest, you stay the only editor.",
   },
 ];
 
 function SharingControl({
   sharedWith,
   onChange,
+  onSendExternal,
+  canSendExternal,
 }: {
-  sharedWith: string[];
-  onChange: (next: string[]) => void;
+  sharedWith: SharedUser[];
+  onChange: (next: SharedUser[]) => void;
+  /** Open the external send dialog. Undefined hides the External button (flag
+   *  off). Passing it but with `canSendExternal` false keeps it disabled with a
+   *  save-first hint. */
+  onSendExternal?: () => void;
+  canSendExternal?: boolean;
 }) {
   const scope = scopeOf(sharedWith);
   return (
     <div>
       <FieldLabel>Sharing</FieldLabel>
-      <div className="inline-flex rounded-lg border border-border overflow-hidden text-meta font-semibold">
-        {SHARE_OPTIONS.map((opt) => (
-          <Tooltip key={opt.id} label={opt.why} placement="top">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="inline-flex rounded-lg border border-border overflow-hidden text-meta font-semibold">
+          {SHARE_OPTIONS.map((opt) => (
+            <Tooltip key={opt.id} label={opt.why} placement="top">
+              <button
+                type="button"
+                aria-pressed={scope === opt.id}
+                onClick={() => onChange(opt.id === "lab" ? LAB_READ_SHARE : [])}
+                className={
+                  "px-3 py-1.5 transition-colors " +
+                  (scope === opt.id
+                    ? "bg-sky-600 text-white"
+                    : "bg-surface-raised text-foreground-muted hover:bg-surface-sunken")
+                }
+              >
+                {opt.label}
+              </button>
+            </Tooltip>
+          ))}
+        </div>
+        {onSendExternal && (
+          <Tooltip
+            label={
+              canSendExternal
+                ? "Send an encrypted copy to someone outside your lab folder."
+                : "Save the calculator first, then you can send a copy."
+            }
+            placement="top"
+          >
             <button
               type="button"
-              aria-pressed={scope === opt.id}
-              onClick={() => onChange(sharedWithForScope(opt.id, sharedWith))}
-              className={
-                "px-3 py-1.5 transition-colors " +
-                (scope === opt.id
-                  ? "bg-sky-600 text-white"
-                  : "bg-surface-raised text-foreground-muted hover:bg-surface-sunken")
-              }
+              onClick={onSendExternal}
+              disabled={!canSendExternal}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-meta font-semibold text-foreground-muted hover:text-foreground hover:bg-surface-sunken transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {opt.label}
+              <Icon name="share" className="w-4 h-4" />
+              External person
             </button>
           </Tooltip>
-        ))}
+        )}
       </div>
       <p className="mt-1 text-meta text-foreground-muted">
-        Saved with the calculator now. Sharing to others turns on in a later
-        release, so nothing leaves your folder yet.
+        My lab shares a live reference, lab members run your latest copy and you
+        stay the only editor. External sends a separate encrypted copy the
+        recipient then owns.
       </p>
     </div>
   );
@@ -259,16 +295,37 @@ export function CalculatorUseView({
   const setValue = (key: string, value: number | number[] | string) =>
     setValues((prev) => ({ ...prev, [key]: value }));
 
+  // A calculator shared in via the whole-lab "*" reference is READ-ONLY for the
+  // viewer (the owner stays the only editor; their edits propagate). Suppress
+  // the Edit affordance and badge it so the viewer knows why.
+  const sharedIn = calc.is_shared_with_me === true;
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-title font-bold text-foreground">{calc.name}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-title font-bold text-foreground">{calc.name}</h3>
+            {sharedIn && (
+              <Tooltip
+                label={
+                  calc.owner
+                    ? `Shared by ${calc.owner}. You can run it; only the owner edits it.`
+                    : "Shared with your lab. You can run it; only the owner edits it."
+                }
+                placement="top"
+              >
+                <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300 px-2 py-0.5 text-meta font-semibold">
+                  <Icon name="users" className="w-3.5 h-3.5" />
+                  Lab
+                </span>
+              </Tooltip>
+            )}
+          </div>
           {calc.description && (
             <p className="mt-0.5 text-body text-foreground-muted">{calc.description}</p>
           )}
         </div>
-        {onEdit && (
+        {onEdit && !sharedIn && (
           <Tooltip label="Edit this calculator" placement="top">
             <button
               type="button"
@@ -439,6 +496,10 @@ export function CalculatorEditView({
   const [draft, setDraft] = useState<CalcDraft>(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // External send dialog. Only meaningful for a SAVED calculator (it seals the
+  // record's current snapshot), so it carries the saved CustomCalculator.
+  const [externalCalc, setExternalCalc] = useState<CustomCalculator | null>(null);
+  const { currentUser } = useFileSystem();
 
   // Live preview values, re-seeded whenever the input set changes shape.
   const [previewValues, setPreviewValues] = useState<CustomCalcInputValues>(() =>
@@ -744,6 +805,21 @@ export function CalculatorEditView({
       <SharingControl
         sharedWith={draft.shared_with}
         onChange={(next) => patch({ shared_with: next })}
+        onSendExternal={
+          EXTERNAL_COLLAB_ENABLED
+            ? () => {
+                // External send seals the SAVED snapshot. Only available for an
+                // already-saved calculator (existingId set); the tooltip + the
+                // disabled state tell the user to save first otherwise.
+                if (existingId === undefined) return;
+                setExternalCalc({
+                  ...draftToCalc(draft),
+                  id: existingId,
+                });
+              }
+            : undefined
+        }
+        canSendExternal={existingId !== undefined && !saving}
       />
 
       {/* Live preview */}
@@ -778,6 +854,14 @@ export function CalculatorEditView({
           one.
         </p>
       </div>
+
+      {externalCalc && (
+        <CalculatorSendOutsideDialog
+          calculator={externalCalc}
+          ownerUsername={currentUser ?? ""}
+          onClose={() => setExternalCalc(null)}
+        />
+      )}
     </div>
   );
 }

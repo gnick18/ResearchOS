@@ -20,6 +20,7 @@ import type {
   CustomCalculatorStep,
   CustomCalculatorConditional,
   CustomCalculatorOutput,
+  SharedUser,
 } from "@/lib/types";
 
 // ── Where the catalog lives ──────────────────────────────────────────────────
@@ -277,7 +278,7 @@ export function templateToDraft(template: CalculatorTemplate): {
   steps: CustomCalculatorStep[];
   conditionals: CustomCalculatorConditional[];
   outputs: CustomCalculatorOutput[];
-  shared_with: string[];
+  shared_with: SharedUser[];
 } {
   return {
     name: template.name,

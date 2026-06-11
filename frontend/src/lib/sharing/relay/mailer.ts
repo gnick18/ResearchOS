@@ -71,7 +71,8 @@ export type InviteItemKind =
   | "experiment"
   | "method"
   | "project"
-  | "sequence";
+  | "sequence"
+  | "calculator";
 
 /** The bare noun and its article for each kind, used to phrase the email copy. */
 function itemNoun(kind: InviteItemKind | undefined): { article: string; noun: string } {
@@ -84,6 +85,8 @@ function itemNoun(kind: InviteItemKind | undefined): { article: string; noun: st
       return { article: "a", noun: "project" };
     case "sequence":
       return { article: "a", noun: "sequence" };
+    case "calculator":
+      return { article: "a", noun: "calculator" };
     case "note":
     default:
       // The original copy says "research note", keep it for the note path.

@@ -3469,20 +3469,67 @@ export const goalsApi = {
 // `getForUser`/`listForUser`/`saveForUser` for the eventual cross-user (shared
 // / lab) read paths. Phase 1 persists the `shared_with` selection but does NO
 // propagation (that is Phase 2), so there is no public/lab mirror store here.
+/**
+ * Lazy-normalize a calculator record's `shared_with` to the unified
+ * `{ username, level }[]` shape on the read path (Phase 2, 2026-06-10).
+ *
+ * Phase 1 wrote `shared_with: string[]` (the whole-lab share was the literal
+ * "*" string in that array). `normalizeSharedWith` ignores non-object entries,
+ * so a bare-string Phase 1 record would normalize to [] and silently lose its
+ * lab share. We bridge that here: a `string[]` is mapped to entries first (the
+ * "*" string becoming the whole-lab read sentinel), THEN normalized. A record
+ * already on the unified shape passes through unchanged (normalize is
+ * idempotent). The record is not rewritten on disk; the next save lands the new
+ * shape via the write path.
+ */
+function normalizeCalculatorSharedWith(raw: unknown): SharedUser[] {
+  if (Array.isArray(raw) && raw.every((e) => typeof e === "string")) {
+    // Phase 1 string[] form. Map each username string to a read-level entry
+    // (the "*" sentinel is just another username here), then normalize.
+    return normalizeSharedWith(
+      (raw as string[]).map((username) => ({ username, level: "read" as const })),
+    );
+  }
+  return normalizeSharedWith(raw);
+}
+
+/** Project a raw on-disk calculator onto the read shape, normalizing
+ *  `shared_with` (so a Phase 1 record keeps its sharing) and stamping `owner`. */
+function normalizeCalculatorRecord(
+  raw: CustomCalculator,
+  owner: string,
+): CustomCalculator {
+  return {
+    ...raw,
+    owner: raw.owner ?? owner,
+    shared_with: normalizeCalculatorSharedWith(raw.shared_with),
+  };
+}
+
 export const calculatorsApi = {
   list: async (): Promise<CustomCalculator[]> => {
-    return calculatorsStore.listAll();
+    const currentUser = (await getCurrentUserCached()) ?? "";
+    return (await calculatorsStore.listAll()).map((c) =>
+      normalizeCalculatorRecord(c, currentUser),
+    );
   },
 
   listForUser: async (owner: string): Promise<CustomCalculator[]> => {
-    return calculatorsStore.listAllForUser(owner);
+    return (await calculatorsStore.listAllForUser(owner)).map((c) =>
+      normalizeCalculatorRecord(c, owner),
+    );
   },
 
   get: async (id: number, owner?: string): Promise<CustomCalculator | null> => {
     // Owner routing mirrors notesApi / methodsApi: a numeric id is ambiguous
     // across per-user namespaces, so a caller that knows the namespace passes
     // `owner`; otherwise the current user's record is read.
-    return owner ? calculatorsStore.getForUser(id, owner) : calculatorsStore.get(id);
+    const raw = owner
+      ? await calculatorsStore.getForUser(id, owner)
+      : await calculatorsStore.get(id);
+    if (!raw) return null;
+    const effectiveOwner = owner ?? (await getCurrentUserCached()) ?? "";
+    return normalizeCalculatorRecord(raw, effectiveOwner);
   },
 
   create: async (data: CustomCalculatorCreate): Promise<CustomCalculator> => {
@@ -3495,7 +3542,9 @@ export const calculatorsApi = {
       steps: data.steps ?? [],
       conditionals: data.conditionals ?? [],
       outputs: data.outputs ?? [],
-      shared_with: data.shared_with ?? [],
+      // Always persist the unified shape, normalizing whatever the caller
+      // handed us (a unified array, or a stray Phase 1 string[]).
+      shared_with: normalizeCalculatorSharedWith(data.shared_with ?? []),
       created_at: now,
       updated_at: now,
     });
@@ -3507,11 +3556,22 @@ export const calculatorsApi = {
     owner?: string,
   ): Promise<CustomCalculator | null> => {
     // `updated_at` is re-stamped on every write. Owner-routed when the caller
-    // knows the namespace; otherwise the current user's record is patched.
-    const patch = { ...data, updated_at: new Date().toISOString() };
-    return owner
-      ? calculatorsStore.updateForUser(id, patch, owner)
-      : calculatorsStore.update(id, patch);
+    // knows the namespace; otherwise the current user's record is patched. When
+    // the patch carries `shared_with`, normalize it to the unified shape so the
+    // write always lands `{ username, level }[]` on disk (Phase 2).
+    const patch = {
+      ...data,
+      ...(data.shared_with !== undefined
+        ? { shared_with: normalizeCalculatorSharedWith(data.shared_with) }
+        : {}),
+      updated_at: new Date().toISOString(),
+    };
+    const saved = owner
+      ? await calculatorsStore.updateForUser(id, patch, owner)
+      : await calculatorsStore.update(id, patch);
+    if (!saved) return null;
+    const effectiveOwner = owner ?? (await getCurrentUserCached()) ?? "";
+    return normalizeCalculatorRecord(saved, effectiveOwner);
   },
 
   delete: async (id: number, owner?: string): Promise<boolean> => {
@@ -3519,6 +3579,47 @@ export const calculatorsApi = {
       ? calculatorsStore.deleteForUser(id, owner)
       : calculatorsStore.delete(id);
   },
+};
+
+/**
+ * Whole-lab read aggregate for custom calculators (Phase 2, 2026-06-10;
+ * template: `fetchAllInventoryItemsIncludingShared` / `labLinksApi.list` —
+ * walk every member's dir, normalize + stamp owner, then a `canRead` gate per
+ * record). Returns the union of the current user's own calculators PLUS every
+ * other member's calculators the viewer may read (today only via the whole-lab
+ * "*" share). A shared-in calculator is a LIVE REFERENCE read straight from the
+ * owner's file (an owner edit propagates), tagged `is_shared_with_me: true` so
+ * the UI badges it and gates it read-only. External shares are copies, not
+ * references, so they are NOT part of this aggregate (they already live in the
+ * recipient's own folder and surface via `list`).
+ */
+export const fetchAllCalculatorsIncludingShared = async (): Promise<
+  CustomCalculator[]
+> => {
+  const viewer = await buildCurrentViewer();
+  const currentUser = viewer.username;
+  const usernames = await discoverUsers();
+  const out: CustomCalculator[] = [];
+  for (const username of usernames) {
+    const calcs = await calculatorsStore.listAllForUser(username);
+    for (const raw of calcs) {
+      const calc = normalizeCalculatorRecord(raw, username);
+      // `normalizeCalculatorRecord` always stamps owner, so `username` here is
+      // the concrete owner. Own records always pass; cross-user records MUST
+      // clear canRead (owner / explicit username / "*" sentinel). A private
+      // calculator owned by another member is never returned.
+      const record: ShareableRecord = {
+        owner: calc.owner ?? username,
+        shared_with: calc.shared_with,
+      };
+      if (record.owner !== currentUser && !canRead(record, viewer)) continue;
+      out.push({
+        ...calc,
+        is_shared_with_me: calc.owner !== currentUser,
+      });
+    }
+  }
+  return out;
 };
 
 export const pcrApi = {

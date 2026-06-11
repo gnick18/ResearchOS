@@ -5,7 +5,7 @@ import Tooltip from "@/components/Tooltip";
 import LivingPopup from "@/components/ui/LivingPopup";
 import { Icon } from "@/components/icons";
 import { CALC_BUILDER_ENABLED } from "@/lib/calculators/builder-config";
-import { calculatorsApi } from "@/lib/local-api";
+import { calculatorsApi, fetchAllCalculatorsIncludingShared } from "@/lib/local-api";
 import {
   CalculatorUseView,
   CalculatorEditView,
@@ -255,9 +255,19 @@ function CalculatorsModalWithBuilder({ onClose }: { onClose: () => void }) {
 
   const refreshMyCalcs = async () => {
     try {
-      const list = await calculatorsApi.list();
-      // Newest first.
-      setMyCalcs([...list].sort((a, b) => b.id - a.id));
+      // Phase 2: the union of the user's OWN calculators plus any shared into
+      // their lab via the whole-lab "*" reference. Shared-in ones carry
+      // is_shared_with_me and render with a Lab badge + a read-only Use view.
+      const list = await fetchAllCalculatorsIncludingShared();
+      // Own calculators first, then shared-in; newest first within each group.
+      setMyCalcs(
+        [...list].sort((a, b) => {
+          const aShared = a.is_shared_with_me ? 1 : 0;
+          const bShared = b.is_shared_with_me ? 1 : 0;
+          if (aShared !== bShared) return aShared - bShared;
+          return b.id - a.id;
+        }),
+      );
     } catch {
       setMyCalcs([]);
     } finally {
@@ -285,7 +295,10 @@ function CalculatorsModalWithBuilder({ onClose }: { onClose: () => void }) {
       : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken");
 
   const activeBuiltin = mode.kind === "builtin" ? mode.tab : null;
-  const activeUseId = mode.kind === "use" ? mode.calc.id : null;
+  const activeUseId: { id: number; owner: string | null } | null =
+    mode.kind === "use"
+      ? { id: mode.calc.id, owner: mode.calc.owner ?? null }
+      : null;
 
   return (
     <div className="pointer-events-auto">
@@ -340,19 +353,43 @@ function CalculatorsModalWithBuilder({ onClose }: { onClose: () => void }) {
                     None yet. Build one below.
                   </p>
                 )}
-                {myCalcs.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => setMode({ kind: "use", calc: c })}
-                    className={railButtonCls(activeUseId === c.id)}
-                  >
-                    <span className="inline-flex items-center gap-1.5">
-                      <Icon name="vial" className="w-4 h-4 flex-shrink-0" />
-                      <span className="truncate">{c.name}</span>
-                    </span>
-                  </button>
-                ))}
+                {myCalcs.map((c) => {
+                  // Per-user ids are namespaced, so a shared-in calc can share an
+                  // id with one the viewer owns. Key + active-match on owner+id.
+                  const calcKey = `${c.owner ?? "self"}:${c.id}`;
+                  const active =
+                    activeUseId !== null &&
+                    activeUseId.id === c.id &&
+                    activeUseId.owner === (c.owner ?? null);
+                  return (
+                    <button
+                      key={calcKey}
+                      type="button"
+                      onClick={() => setMode({ kind: "use", calc: c })}
+                      className={railButtonCls(active)}
+                    >
+                      <span className="inline-flex items-center gap-1.5 w-full">
+                        <Icon name="vial" className="w-4 h-4 flex-shrink-0" />
+                        <span className="truncate">{c.name}</span>
+                        {c.is_shared_with_me && (
+                          <Tooltip
+                            label={
+                              c.owner
+                                ? `Shared by ${c.owner}. Run only.`
+                                : "Shared with your lab. Run only."
+                            }
+                            placement="right"
+                          >
+                            <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300 px-1.5 py-0.5 text-[10px] font-semibold flex-shrink-0">
+                              <Icon name="users" className="w-3 h-3" />
+                              Lab
+                            </span>
+                          </Tooltip>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
               <div className="space-y-1 pt-1 border-t border-border">
