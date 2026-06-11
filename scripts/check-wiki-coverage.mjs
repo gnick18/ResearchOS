@@ -50,6 +50,7 @@ const EXCLUDED_PREFIXES = [
   "/thanks", // "Sponsors and thanks": GitHub Sponsors tiers + open-source thank-you (marketing/brand page, no AppShell, not a documented app feature; like /open-source). Indexed on purpose, no robots noindex
   "/sponsors", // redirect-only alias → /thanks (client-side router.replace stub, like /pcr)
   "/transparency", // "Transparency of tests": bioinformatic-tool comparisons vs Biopython/primer3, build-time computed + vitest-gated (trust/informational, no AppShell, not a documented app feature; like /open-source)
+  "/pricing", // public pricing page (two-part model + competitor savings + plan builders + cost math); marketing/informational, no AppShell, not a documented app feature (like /welcome and /transparency)
   "/sharing-setup-test", // dev-only test harness for the cross-boundary sharing setup wizard (NODE_ENV=development gated, renders "not available" in prod); not a user feature
   "/privacy", // privacy policy (legal/informational, no AppShell, not a documented app feature; like /open-source). OAuth providers require a privacy-policy URL
   "/welcome-preview", // internal design preview for the welcome page redesign, not a documented user feature
@@ -59,10 +60,10 @@ const EXCLUDED_PREFIXES = [
   "/researchers", // opt-in researcher directory (browse + standalone shareable profile pages); a sharing-network surface, documented under the sharing wiki, not its own page
   "/admin", // operator-only metrics dashboard (gated on ADMIN_EMAILS, data 404s for non-admins); internal tool, not a documented user feature
   "/business", // operator-only LLC business tracker (moved here from /admin/business 2026-06-10; same ADMIN_EMAILS gate, data 404s for non-admins); internal tool, not a documented user feature
+  "/buisness", // redirect-only alias → /business (common misspelling), no UI
   "/maintenance", // flag-gated "under construction" holding page (src/proxy.ts); shown only during maintenance windows, not a documented app feature (like /welcome)
   "/profile", // pending wiki page (Profile "your stuff": appearance + researcher profile, split out of Settings)
   "/supplies", // pending wiki page (Supplies v2 unified page; replaces split Inventory + Purchases routes)
-  "/datahub", // pending wiki page (Data Hub, the open-source GraphPad Prism alternative; owed before launch)
 ];
 
 /** Next.js conventions to ignore when walking app/. */

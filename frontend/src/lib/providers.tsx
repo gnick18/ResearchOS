@@ -56,6 +56,7 @@ import TodaySnapshotPublisher from "@/components/TodaySnapshotPublisher";
 import DataMigrationRunner from "@/components/DataMigrationRunner";
 import MigrationToast from "@/components/MigrationToast";
 import MigrationGate from "@/components/lab/MigrationGate";
+import { isOperatorSurface } from "@/lib/routes/operator-surface";
 import { ContextMenuProvider } from "@/components/context-menu/ContextMenuProvider";
 import { BeakerSearchProvider } from "@/components/beaker-search/BeakerSearchProvider";
 import { initializeErrorHandlers } from "@/lib/error-reporting";
@@ -298,6 +299,16 @@ function AppContent({ children }: { children: ReactNode }) {
   // page one scroll down, so the redirect was a redundant detour.
   const isWelcomeRoute = pathname === "/welcome";
 
+  // Operator surfaces (/admin, /business and anything beneath) are standalone
+  // operator tools served from the Neon API and gated by their OWN third-party
+  // (OAuth) operator sign-in, not by the local folder. They must render directly
+  // and skip every user-facing gate below (folder connect, account picker,
+  // splash, loading) and every app-wide nudge or popup (migration gate, tours,
+  // what's new), so the only thing an operator ever sees here is the page and its
+  // OAuth sign-in if it needs one (Grant 2026-06-10, after the migration gate and
+  // the connect flow kept trapping the business page).
+  const isOperatorRoute = isOperatorSurface(pathname);
+
   // QueryClient is a module-level singleton (see `appQueryClient` below)
   // so non-React-tree consumers (e.g. the onboarding-v4 cursor scripts
   // that fire programmatic API calls outside the component tree) can
@@ -396,6 +407,14 @@ function AppContent({ children }: { children: ReactNode }) {
   // connected user reaching it from the Settings "revisit" link still sees
   // the marketing page rather than being bounced back into the app.
   if (isWelcomeRoute) {
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+  }
+
+  // Operator surfaces render their own page (which carries its OAuth operator
+  // sign-in) and nothing else, bypassing every gate and popup below.
+  if (isOperatorRoute) {
     return (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
