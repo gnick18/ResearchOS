@@ -94,6 +94,11 @@ export function MoleculeEditorPopup({
     setLoadError(null);
     setLoadedCid(undefined);
     setProjectIds([]);
+    // The popup is a single persistent instance, so reset the rail to Identity and
+    // clear the captured literature query when switching molecules; otherwise the
+    // new molecule would show the previous one's Papers-tab literature.
+    setRail("identity");
+    setLitQuery("");
     if (isNew) {
       setName("");
       setInitialStructure(undefined);
