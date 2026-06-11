@@ -123,6 +123,126 @@ describe("POST /api/ai/chat", () => {
     expect(res.headers.get("authorization")).toBeNull();
   });
 
+  it("forwards tools and returns the provider JSON straight back when stream is false (the agent loop)", async () => {
+    process.env.AI_API_KEY = "test-key-should-not-leak";
+    process.env.AI_PROXY_BASE_URL = "https://example.test/v1";
+    process.env.AI_MODEL = "test-model";
+
+    const providerJson = {
+      choices: [
+        {
+          message: {
+            role: "assistant",
+            content: null,
+            tool_calls: [
+              {
+                id: "call_1",
+                type: "function",
+                function: { name: "get_my_tasks", arguments: "{}" },
+              },
+            ],
+          },
+        },
+      ],
+    };
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify(providerJson), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { POST } = await loadRoute();
+    const res = await POST(
+      makeRequest({
+        messages: [{ role: "user", content: "what am I working on?" }],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "get_my_tasks",
+              description: "Get the user's tasks.",
+              parameters: { type: "object", properties: {} },
+              // A smuggled execute field must NEVER reach upstream.
+              execute: "function-string",
+            },
+          },
+        ],
+        stream: false,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toMatch(/application\/json/);
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const sent = JSON.parse(init.body as string) as {
+      stream: boolean;
+      tools: Array<{ function: { name: string; execute?: unknown } }>;
+    };
+    // stream:false forwarded, tools forwarded as definitions only.
+    expect(sent.stream).toBe(false);
+    expect(sent.tools).toHaveLength(1);
+    expect(sent.tools[0].function.name).toBe("get_my_tasks");
+    // The smuggled execute field was stripped at the proxy.
+    expect(sent.tools[0].function.execute).toBeUndefined();
+    expect(init.body as string).not.toContain("function-string");
+
+    // The provider JSON comes straight back, the key never appears in it.
+    const text = await res.text();
+    expect(text).toContain("get_my_tasks");
+    expect(text).not.toContain("test-key-should-not-leak");
+    expect(res.headers.get("authorization")).toBeNull();
+  });
+
+  it("forwards assistant tool_calls and tool result messages so the loop can continue", async () => {
+    process.env.AI_API_KEY = "test-key-should-not-leak";
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { POST } = await loadRoute();
+    await POST(
+      makeRequest({
+        stream: false,
+        messages: [
+          { role: "user", content: "hi" },
+          {
+            role: "assistant",
+            content: null,
+            tool_calls: [
+              {
+                id: "call_1",
+                type: "function",
+                function: { name: "get_my_tasks", arguments: "{}" },
+              },
+            ],
+          },
+          {
+            role: "tool",
+            tool_call_id: "call_1",
+            name: "get_my_tasks",
+            content: '{"count":0,"tasks":[]}',
+          },
+        ],
+      }),
+    );
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const sent = JSON.parse(init.body as string) as {
+      messages: Array<{ role: string; tool_call_id?: string; tool_calls?: unknown }>;
+    };
+    expect(sent.messages).toHaveLength(3);
+    expect(sent.messages[1].tool_calls).toBeDefined();
+    expect(sent.messages[2].role).toBe("tool");
+    expect(sent.messages[2].tool_call_id).toBe("call_1");
+  });
+
   it("returns 502 without leaking detail when the upstream call throws", async () => {
     process.env.AI_API_KEY = "test-key-should-not-leak";
     vi.stubGlobal(

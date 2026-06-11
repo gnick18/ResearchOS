@@ -1,20 +1,29 @@
 "use client";
 
-// useAiChat (ai foundation bot, 2026-06-10).
+// useAiChat (ai tools bot, 2026-06-10).
 //
-// The conversation state + streaming send for the BeakerBot panel. It POSTs the
-// running conversation to the local proxy at /api/ai/chat, reads the streamed
-// response with a ReadableStream reader, and feeds each decoded chunk through the
-// pure SseDeltaParser so the assistant reply renders token-by-token.
+// The conversation state for the BeakerBot panel, now driven by the browser agent
+// loop instead of a single streamed round-trip. On send it prepends the authored
+// system prompt, runs `runAgentLoop` with the read-only toolset and the
+// proxy-backed model caller, and renders the final answer with a light client-side
+// typewriter reveal. The loop executes tools locally (read-only), so BeakerBot can
+// answer from the user's real folder data.
 //
-// The plumbing here is the only thing this foundation slice proves: BeakerBot can
-// talk to Llama. No tools, no agent loop, no modes, no writes. Just a streamed
-// chat round-trip.
+// Why the loop and not the old stream, true token streaming of the final answer is
+// a later polish (design doc), what unlocks real answers now is tool calling, and
+// tool_calls are read reliably from a non-streaming response, not from SSE deltas.
 //
-// House style: no em-dashes, no emojis, no mid-sentence colons.
+// House style, no em-dashes, no emojis, no mid-sentence colons.
 
 import { useCallback, useRef, useState } from "react";
-import { SseDeltaParser } from "@/lib/ai/sse";
+import {
+  runAgentLoop,
+  type LoopMessage,
+  type LoopStatus,
+} from "@/lib/ai/agent-loop";
+import { callModelViaProxy, ProxyError } from "@/lib/ai/proxy-client";
+import { READ_ONLY_TOOLS } from "@/lib/ai/tools/registry";
+import { BEAKERBOT_SYSTEM_PROMPT } from "@/lib/ai/system-prompt";
 
 export type ChatRole = "user" | "assistant";
 
@@ -24,17 +33,62 @@ export type ChatMessage = {
   content: string;
 };
 
-const ENDPOINT = "/api/ai/chat";
+// A small map from tool name to a human status line the panel shows while a tool
+// runs. Concept-first, the user sees what BeakerBot is doing, not the function
+// name. Falls back to a generic line for any tool not listed.
+const TOOL_STATUS: Record<string, string> = {
+  get_my_tasks: "checking your tasks",
+  get_my_projects: "looking at your projects",
+};
+
+function statusLabel(status: LoopStatus): string {
+  if (status.phase === "tool") {
+    return TOOL_STATUS[status.toolName] ?? "looking something up";
+  }
+  return "thinking";
+}
+
+// Reveal the final answer with a light client-side typewriter effect, so the
+// answer does not pop in all at once. This is cosmetic, not real token streaming.
+const REVEAL_STEP_CHARS = 3;
+const REVEAL_INTERVAL_MS = 16;
 
 export function useAiChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sending, setSending] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const counterRef = useRef(0);
+  // The running loop history (with system prompt + tool turns), kept out of React
+  // state because the panel only renders user + assistant text.
+  const historyRef = useRef<LoopMessage[]>([]);
 
   const nextId = useCallback(() => {
     counterRef.current += 1;
     return `msg-${counterRef.current}-${Date.now()}`;
+  }, []);
+
+  const revealAnswer = useCallback((assistantId: string, answer: string) => {
+    return new Promise<void>((resolve) => {
+      if (answer.length === 0) {
+        resolve();
+        return;
+      }
+      let shown = 0;
+      const tick = () => {
+        shown = Math.min(answer.length, shown + REVEAL_STEP_CHARS);
+        const text = answer.slice(0, shown);
+        setMessages((prev) =>
+          prev.map((m) => (m.id === assistantId ? { ...m, content: text } : m)),
+        );
+        if (shown >= answer.length) {
+          resolve();
+          return;
+        }
+        setTimeout(tick, REVEAL_INTERVAL_MS);
+      };
+      tick();
+    });
   }, []);
 
   const send = useCallback(
@@ -50,92 +104,61 @@ export function useAiChat() {
       };
       const assistantId = nextId();
 
-      // Seed an empty assistant bubble so tokens stream into a visible target.
+      // Seed an empty assistant bubble so the status and the revealed answer have a
+      // visible target.
       setMessages((prev) => [
         ...prev,
         userMessage,
         { id: assistantId, role: "assistant", content: "" },
       ]);
       setSending(true);
+      setStatus("thinking");
 
-      // Send the whole running conversation (the proxy only forwards role +
-      // content). Build the wire payload from the pre-send history plus the new
-      // user turn, so the just-seeded empty assistant bubble is excluded.
-      const wire = [...messages, userMessage].map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
+      // Build the loop input. Seed the system prompt once, then carry the running
+      // history forward so multi-turn context (and prior tool results) persist.
+      if (historyRef.current.length === 0) {
+        historyRef.current = [
+          { role: "system", content: BEAKERBOT_SYSTEM_PROMPT },
+        ];
+      }
+      const loopInput: LoopMessage[] = [
+        ...historyRef.current,
+        { role: "user", content: trimmed },
+      ];
 
       try {
-        const res = await fetch(ENDPOINT, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ messages: wire }),
+        const result = await runAgentLoop({
+          messages: loopInput,
+          tools: READ_ONLY_TOOLS,
+          callModel: callModelViaProxy,
+          onStatus: (s) => setStatus(statusLabel(s)),
         });
 
-        if (!res.ok || !res.body) {
-          // The proxy returns a JSON { error } on the missing-key and provider
-          // error paths. Surface it in the panel instead of a silent failure.
-          let message = `Request failed (status ${res.status}).`;
-          try {
-            const data = (await res.json()) as { error?: string };
-            if (data?.error) message = data.error;
-          } catch {
-            // Non-JSON error body, keep the status message.
-          }
-          setError(message);
-          // Drop the empty assistant bubble that will never fill.
-          setMessages((prev) => prev.filter((m) => m.id !== assistantId));
-          return;
-        }
+        // Persist the full loop history (including tool turns) for the next send.
+        historyRef.current = result.messages;
+        setStatus(null);
 
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        const parser = new SseDeltaParser();
-        let acc = "";
-
-        for (;;) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          const { deltas, done: streamDone } = parser.push(chunk);
-          if (deltas.length > 0) {
-            acc += deltas.join("");
-            const text = acc;
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId ? { ...m, content: text } : m,
-              ),
-            );
-          }
-          if (streamDone) break;
-        }
-
-        // Drain any complete trailing line with no terminating newline.
-        const tail = parser.flush();
-        if (tail.deltas.length > 0) {
-          acc += tail.deltas.join("");
-          const text = acc;
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId ? { ...m, content: text } : m,
-            ),
-          );
-        }
-
-        if (acc.length === 0) {
+        if (result.answer.length === 0) {
           setMessages((prev) => prev.filter((m) => m.id !== assistantId));
           setError("BeakerBot returned an empty reply. Try again.");
+          return;
         }
-      } catch {
-        setError("Something went wrong talking to BeakerBot. Try again.");
+        await revealAnswer(assistantId, result.answer);
+      } catch (err) {
+        setStatus(null);
+        // The proxy error text tells a dev exactly what to fix (missing key, etc).
+        const message =
+          err instanceof ProxyError
+            ? err.message
+            : "Something went wrong talking to BeakerBot. Try again.";
+        setError(message);
         setMessages((prev) => prev.filter((m) => m.id !== assistantId));
       } finally {
         setSending(false);
       }
     },
-    [messages, sending, nextId],
+    [sending, nextId, revealAnswer],
   );
 
-  return { messages, sending, error, send };
+  return { messages, sending, status, error, send };
 }

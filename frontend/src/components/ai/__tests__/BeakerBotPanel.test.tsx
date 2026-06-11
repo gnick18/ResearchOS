@@ -1,30 +1,92 @@
-import { describe, expect, it, vi, afterEach } from "vitest";
+import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import BeakerBotPanel from "../BeakerBotPanel";
 
-// Render + streaming pin for the foundation BeakerBot panel. The panel mounts
-// with an input and a send button, and on send it streams the assistant reply
-// token-by-token from the (mocked) proxy. A separate case pins the graceful
-// error path (the missing-key JSON error renders in the panel).
+// Render + agent-loop pin for the BeakerBot panel. The panel now drives the
+// browser agent loop, which posts to the proxy with stream:false and reads the
+// provider JSON. These tests mock fetch (the proxy) so no model and no key are
+// involved. They assert the final answer renders, that a tool round-trip works end
+// to end (the loop calls the proxy twice, runs the tool locally, then renders the
+// final answer), and that the proxy error surfaces in the panel.
 
-function streamingResponse(chunks: string[]): Response {
-  const body = new ReadableStream<Uint8Array>({
-    start(controller) {
-      for (const c of chunks) {
-        controller.enqueue(new TextEncoder().encode(c));
-      }
-      controller.close();
+// The read tool reads from local-api. Mock it so the tool runs without a folder.
+vi.mock("@/lib/local-api", () => ({
+  fetchAllTasksIncludingShared: vi.fn(async () => [
+    {
+      id: 1,
+      project_id: 10,
+      name: "Run the PCR",
+      start_date: "2026-06-01",
+      end_date: "2999-01-01",
+      duration_days: 1,
+      is_complete: false,
+      task_type: "experiment",
+      method_ids: [],
+      method_attachments: [],
+      sub_tasks: null,
+      tags: null,
+      owner: "me",
+      shared_with: [],
+      weekend_override: null,
+      deviation_log: null,
+      experiment_color: null,
+      is_high_level: false,
+      sort_order: 0,
     },
-  });
-  return new Response(body, {
-    status: 200,
-    headers: { "content-type": "text/event-stream" },
+  ]),
+  projectsApi: {
+    list: vi.fn(async () => [
+      {
+        id: 10,
+        name: "PCR optimization",
+        is_archived: false,
+        owner: "me",
+        shared_with: [],
+        weekend_active: false,
+        tags: null,
+        color: null,
+        created_at: "2026-06-01",
+        sort_order: 0,
+        archived_at: null,
+      },
+    ]),
+  },
+}));
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
   });
 }
 
-function frame(content: string): string {
-  return `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n`;
+function finalAnswer(content: string) {
+  return { choices: [{ message: { role: "assistant", content } }] };
 }
+
+function toolCall(name: string, args: object) {
+  return {
+    choices: [
+      {
+        message: {
+          role: "assistant",
+          content: null,
+          tool_calls: [
+            {
+              id: "call_1",
+              type: "function",
+              function: { name, arguments: JSON.stringify(args) },
+            },
+          ],
+        },
+      },
+    ],
+  };
+}
+
+beforeEach(() => {
+  vi.restoreAllMocks();
+});
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -40,38 +102,64 @@ describe("BeakerBotPanel", () => {
     ).toBeInTheDocument();
   });
 
-  it("streams the assistant reply into a bubble on send", async () => {
+  it("renders a direct answer from the loop (no tool call)", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
-        streamingResponse([frame("Tm is "), frame("58 C"), "data: [DONE]\n"]),
+        jsonResponse(finalAnswer("A Tm is a melting temperature.")),
       ),
     );
 
     render(<BeakerBotPanel />);
-    const input = screen.getByTestId("beakerbot-input");
-    fireEvent.change(input, { target: { value: "what is the Tm?" } });
+    fireEvent.change(screen.getByTestId("beakerbot-input"), {
+      target: { value: "what is a Tm?" },
+    });
     fireEvent.click(screen.getByTestId("beakerbot-send"));
 
-    // The user bubble appears immediately.
-    expect(await screen.findByText("what is the Tm?")).toBeInTheDocument();
-
-    // The streamed assistant reply accumulates.
+    expect(await screen.findByText("what is a Tm?")).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByText("Tm is 58 C")).toBeInTheDocument();
+      expect(
+        screen.getByText("A Tm is a melting temperature."),
+      ).toBeInTheDocument();
     });
+  });
+
+  it("runs a tool round-trip and answers from the tool result", async () => {
+    // Turn 1, the model asks for get_my_tasks. Turn 2, after the tool result, it
+    // answers. The panel renders the final answer.
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(toolCall("get_my_tasks", {})))
+      .mockResolvedValueOnce(
+        jsonResponse(finalAnswer("You are working on Run the PCR.")),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BeakerBotPanel />);
+    fireEvent.change(screen.getByTestId("beakerbot-input"), {
+      target: { value: "what am I working on today?" },
+    });
+    fireEvent.click(screen.getByTestId("beakerbot-send"));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("You are working on Run the PCR."),
+      ).toBeInTheDocument();
+    });
+    // The loop made two proxy calls (tool turn + final-answer turn).
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("shows the proxy error message in the panel when the key is missing", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
-        new Response(
-          JSON.stringify({
+        jsonResponse(
+          {
             error:
               "BeakerBot has no model key configured. Add AI_API_KEY to frontend/.env.local and restart the dev server.",
-          }),
-          { status: 500, headers: { "content-type": "application/json" } },
+          },
+          500,
         ),
       ),
     );

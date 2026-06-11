@@ -20,15 +20,15 @@ import { Icon } from "@/components/icons";
 import { useAiChat } from "./useAiChat";
 
 export default function BeakerBotPanel() {
-  const { messages, sending, error, send } = useAiChat();
+  const { messages, sending, status, error, send } = useAiChat();
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
 
-  // Keep the newest message in view as tokens stream in.
+  // Keep the newest message in view as the answer reveals.
   useEffect(() => {
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages]);
+  }, [messages, status]);
 
   const handleSend = () => {
     const text = draft;
@@ -76,7 +76,12 @@ export default function BeakerBotPanel() {
               }
             >
               {m.content || (
-                <span className="text-foreground-muted">BeakerBot is thinking</span>
+                <span
+                  data-testid="beakerbot-status"
+                  className="text-foreground-muted"
+                >
+                  BeakerBot is {status ?? "thinking"}
+                </span>
               )}
             </div>
           ))
