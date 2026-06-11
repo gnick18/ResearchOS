@@ -16,8 +16,17 @@
 // The first action tool is click_element, which dispatches a real click for the
 // user. It carries action: true, so the agent loop routes it through the approval
 // gate (propose-then-approve in "ask" autonomy, direct in "auto", with a
-// destructive hard-stop in both). Future write tools (note writing, run_analysis)
-// reuse the SAME flag and gate, one import and one array entry, no loop change.
+// destructive hard-stop in both). A genuinely destructive or outward-facing future
+// write tool reuses the SAME flag and gate, one import and one array entry.
+//
+// run_datahub_analysis is the exception that proves the rule. It DOES write (a new
+// version-controlled AnalysisSpec), but it is non-destructive AND the user already
+// expressed consent twice over, they asked for the analysis in words and picked the
+// groups through ask_user. A second "Allow it?" on top of that is redundant friction
+// the live test flagged, so it runs WITHOUT the per-action gate (it lives in the
+// read-only set with respect to the gate, not in ACTION_TOOLS). Its execute then
+// navigates the user to the stored result, so the gate is not where its safety
+// lives, the explicit request and the group pick are.
 //
 // The old manifest-driven find_ui_element / spotlight_ui_element pair is retired,
 // live perception supersedes a hand-built element catalog. The manifest's one
@@ -49,16 +58,18 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   goToPageTool,
   guideToElementTool,
   listDataHubTablesTool,
+  // Non-gated by design (see the header note). run_datahub_analysis writes a
+  // reversible analysis the user explicitly requested and whose groups they picked
+  // through ask_user, so it carries no `action` flag and runs immediately like the
+  // perception tools, then navigates the user to the result.
+  runDataHubAnalysisTool,
 ];
 
 // The action toolset. Each tool here carries action: true and goes through the
-// agent loop's approval gate. click_element dispatches a real click;
-// run_datahub_analysis runs a Data Hub statistical analysis and stores the
-// version-controlled result (non-destructive, so plan-approval covers it).
-export const ACTION_TOOLS: AiTool[] = [
-  clickElementTool,
-  runDataHubAnalysisTool,
-];
+// agent loop's approval gate. click_element dispatches a real click for the user,
+// a genuine page effect that always wants the user's blessing and keeps the
+// destructive hard-stop.
+export const ACTION_TOOLS: AiTool[] = [clickElementTool];
 
 // The coordination toolset. These tools neither read the user's data nor act on
 // it, they steer the user-input flow itself, and the loop recognizes each by name

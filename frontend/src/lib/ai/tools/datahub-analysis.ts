@@ -1,9 +1,10 @@
-// BeakerBot Data Hub analysis tools (ai datahub-analysis bot, 2026-06-11).
+// BeakerBot Data Hub analysis tools (ai datahub-analysis bot, 2026-06-11;
+// ai analysis-ux bot, 2026-06-11).
 //
 // BeakerBot's first DATA coworker pair. They let the assistant run a real
 // statistical analysis on a Data Hub table from a natural-language request,
 // through the SAME deterministic planner and reference-validated engine the
-// guided wizard uses, and the SAME plan-approve flow the other action tools use.
+// guided wizard uses.
 //
 // The division of labor is the whole point. The LLM ORCHESTRATES, it maps the
 // user's words ("the Control vs Drug columns", "compare these groups") onto a
@@ -15,26 +16,30 @@
 // Two tools.
 //   - list_datahub_tables (READ-only): the user's Data Hub documents, each a
 //     table, as a compact list so the model can pick the one the request means.
-//   - run_datahub_analysis (ACTION, action: true): plan the analysis with the
-//     planner (the proposal the user approves), run it through the engine, store
-//     the resulting AnalysisSpec in the table's Loro doc (version-controlled),
-//     and return a compact engine-computed result the model summarizes.
+//   - run_datahub_analysis (NON-gated): run the analysis through the planner and
+//     the engine, store the resulting AnalysisSpec in the table's Loro doc
+//     (version-controlled), navigate the user to that stored result in the Data
+//     Hub, and return a compact engine-computed result the model summarizes.
 //
-// describeAction is SYNCHRONOUS and pure (the agent loop requires it), but a
-// rich proposal needs the table content and the planner. We bridge that by
-// caching each table's content the moment list_datahub_tables reads it (the
-// model must call that first to learn a tableId), so describeAction can run the
-// pure planAnalysis against the cached content with no async read. execute then
-// re-reads the live doc so the stored result is always against current data.
+// Why run_datahub_analysis carries no `action` flag (ai analysis-ux bot). It
+// writes, but the write is NON-destructive (a new, reversible, version-controlled
+// AnalysisSpec, the wizard's exact write path, deleting nothing and sending nothing
+// outward) AND the user already consented twice over, they asked for the analysis
+// in words and picked the exact groups through ask_user. A separate "Allow it?" on
+// top of that group pick was redundant friction a live test flagged, so the tool
+// runs straight away like the perception tools, with no per-action approval gate.
+// Its safety is the explicit request and the group pick, not a gate. The old
+// describeAction / isDestructive approval path is gone with the gate.
 //
-// run_datahub_analysis is NOT destructive. Creating an analysis writes a new,
-// reversible, version-controlled AnalysisSpec (the wizard's exact write path),
-// it deletes nothing and sends nothing outward, so plan-approval covers it and
-// it never triggers the destructive hard-stop.
+// After storing, execute navigates the user to /datahub?doc=<tableId> so they SEE
+// the stored analysis (and any graph) on the Data Hub doc rather than only reading
+// a chat summary. The navigation is hard-wired here through the injectable navigate
+// seam (default requestNavigation), not left to the model, so it is reliable.
 //
 // House style, no em-dashes, no emojis, no mid-sentence colons.
 
 import { dataHubApi } from "@/lib/datahub/api";
+import { requestNavigation } from "@/components/ai/navigation-bridge";
 import { openDataHubDoc, type DataHubDocHandle } from "@/lib/loro/datahub-store";
 import {
   getDataHubContent,
@@ -72,6 +77,10 @@ export type DataHubAnalysisDeps = {
   resolveContent: (id: string) => Promise<DataHubDocContent | null>;
   /** Open the doc, write the spec, commit. Returns true on success. */
   persistAnalysis: (id: string, spec: AnalysisSpec) => Promise<boolean>;
+  /** Take the user to a stored result by soft-navigating to an internal path.
+   *  Defaults to the navigation bridge so the run lands the user on the Data Hub
+   *  doc. Injected so a test asserts the navigation without a router. */
+  navigate: (path: string) => void;
 };
 
 async function defaultResolveContent(
@@ -108,6 +117,7 @@ export const datahubAnalysisDeps: DataHubAnalysisDeps = {
   listDocuments: () => dataHubApi.list(),
   resolveContent: defaultResolveContent,
   persistAnalysis: defaultPersistAnalysis,
+  navigate: requestNavigation,
 };
 
 // ---------------------------------------------------------------------------
@@ -450,7 +460,7 @@ export function planAndRun(
 export const runDataHubAnalysisTool: AiTool = {
   name: "run_datahub_analysis",
   description:
-    "Run a statistical analysis on a Data Hub table and store the result, for when the user asks to run a test or compare groups (for example \"run a t-test on Control vs Drug\" or \"compare these groups\"). Call list_datahub_tables first to get the table id and the real column names, then call this with the table id and the columns to compare. You do not pick the test, the app's planner picks the right test for the data and checks its assumptions, then shows the user the proposed test as a plan to approve. After they approve, the engine computes the result, it is saved into that table as a version-controlled analysis, and this returns the verdict plus the key statistic for you to relay. Never invent a statistic, only repeat the numbers this returns. This is the plan you propose, so do not call propose_plan separately for it.",
+    "Run a statistical analysis on a Data Hub table, store the result, and take the user to see it. Use this when the user asks to run a test or compare groups (for example \"run a t-test on Control vs Drug\" or \"compare these groups\"). Call list_datahub_tables first to get the table id and the real column names, then, if the table has more groups than the test needs, call ask_user so the user picks the exact groups. Then call this with the table id and those columns. You do not pick the test, the app's planner picks the right test for the data and checks its assumptions. This runs straight away, there is NO separate approval step, the user's request and their group pick are the consent, so do not call propose_plan for it and do not ask the user to allow it. It saves the result into that table as a version-controlled analysis, navigates the user to the Data Hub doc so they see it, and returns the verdict plus the key statistic. After it returns, give ONE short line, the plain-language verdict and the key number it returned. Never invent a statistic, only repeat the numbers this returns.",
   parameters: {
     type: "object",
     properties: {
@@ -479,12 +489,12 @@ export const runDataHubAnalysisTool: AiTool = {
     required: ["tableId"],
     additionalProperties: false,
   },
-  action: true,
-  describeAction: (args) => describeRunAnalysis(args),
-  // Creating an analysis is a reversible, version-controlled write (a new
-  // AnalysisSpec), not a delete, send, share, or pay. Plan-approval covers it, so
-  // it never triggers the destructive hard-stop.
-  isDestructive: () => false,
+  // No `action` flag (ai analysis-ux bot, 2026-06-11). This tool writes, but the
+  // write is non-destructive and the user already consented by asking for the
+  // analysis and picking the groups through ask_user, so it must NOT flow through
+  // the per-action approval gate (that was the redundant "Allow it?" the live test
+  // flagged). The old describeAction / isDestructive approval hooks are gone with
+  // the gate. Its safety is the explicit request plus the group pick.
   execute: async (args) => {
     const parsed = parseRunAnalysisArgs(args);
     if (!parsed.tableId) {
@@ -495,7 +505,7 @@ export const runDataHubAnalysisTool: AiTool = {
       } satisfies RunAnalysisResult;
     }
     // Always read the LIVE doc so the stored result reflects current data, then
-    // refresh the cache for any later describeAction.
+    // refresh the cache for any later describe pass.
     const content = await datahubAnalysisDeps.resolveContent(parsed.tableId);
     if (!content) {
       return {
@@ -522,6 +532,15 @@ export const runDataHubAnalysisTool: AiTool = {
           "The analysis computed but could not be saved to the table. The result is not stored.",
       } satisfies RunAnalysisResult;
     }
+
+    // Take the user to the stored result. The Data Hub page reads the ?doc=<id>
+    // deep link, selects that table, and shows its stored analyses (and any graph),
+    // so the user SEES the analysis instead of only reading the chat summary. This
+    // is hard-wired here, not left to the model, so it always happens after a
+    // successful run. The navigate seam defaults to the navigation bridge, which
+    // performs a soft SPA transition that preserves the panel.
+    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}`);
+
     return run.result satisfies RunAnalysisResult;
   },
 };

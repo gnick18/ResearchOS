@@ -139,7 +139,7 @@ function ChoicePrompt({
               }}
               className={`rounded-md border px-2.5 py-1 text-meta font-medium transition-colors ${
                 multiple && isPicked
-                  ? "border-brand bg-brand text-white"
+                  ? "btn-brand border-transparent"
                   : "border-border text-foreground hover:border-brand hover:bg-brand/10"
               }`}
             >

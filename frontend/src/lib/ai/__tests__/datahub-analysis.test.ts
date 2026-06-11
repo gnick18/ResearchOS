@@ -272,15 +272,59 @@ describe("planAndRun", () => {
 // ---------------------------------------------------------------------------
 
 describe("run_datahub_analysis tool", () => {
-  it("is a non-destructive action so plan-approval covers it", () => {
-    expect(runDataHubAnalysisTool.action).toBe(true);
-    expect(runDataHubAnalysisTool.isDestructive?.({ tableId: "1" })).toBe(false);
+  it("is NOT a gated action, so a run never raises an approval request", () => {
+    // The redundant "Allow it?" the live test flagged came from this tool routing
+    // through the per-action gate. It no longer carries the `action` flag (nor the
+    // describeAction / isDestructive approval hooks), so the agent loop runs it
+    // straight away like a read-only tool, with zero extra prompts after the group
+    // pick. The user's request plus their ask_user pick are the consent.
+    expect(runDataHubAnalysisTool.action).toBeFalsy();
+    expect(runDataHubAnalysisTool.describeAction).toBeUndefined();
+    expect(runDataHubAnalysisTool.isDestructive).toBeUndefined();
+  });
+
+  it("navigates the user to the stored result in the Data Hub after a run", async () => {
+    const content = twoGroupContent();
+    vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(content);
+    vi.spyOn(datahubAnalysisDeps, "persistAnalysis").mockResolvedValue(true);
+    const navigate = vi
+      .spyOn(datahubAnalysisDeps, "navigate")
+      .mockImplementation(() => {});
+
+    const out = (await runDataHubAnalysisTool.execute({
+      tableId: "1",
+      columns: ["Control", "Drug"],
+    })) as { ok: boolean };
+
+    expect(out.ok).toBe(true);
+    // Hard-wired navigation to the table's deep link, so the user SEES the stored
+    // analysis instead of only reading the chat summary. The doc param is the table
+    // id, which the Data Hub page consumes to select that table.
+    expect(navigate).toHaveBeenCalledWith("/datahub?doc=1");
+  });
+
+  it("does not navigate when the run fails (nothing was stored to show)", async () => {
+    const content = twoGroupContent();
+    vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(content);
+    vi.spyOn(datahubAnalysisDeps, "persistAnalysis").mockResolvedValue(true);
+    const navigate = vi
+      .spyOn(datahubAnalysisDeps, "navigate")
+      .mockImplementation(() => {});
+
+    // Only one column resolves, so the run errors before storing or navigating.
+    const out = (await runDataHubAnalysisTool.execute({
+      tableId: "1",
+      columns: ["Control"],
+    })) as { ok: boolean };
+    expect(out.ok).toBe(false);
+    expect(navigate).not.toHaveBeenCalled();
   });
 
   it("reads live content, runs through the engine, and stores an AnalysisSpec", async () => {
     const content = twoGroupContent();
     let stored: AnalysisSpec | null = null;
     vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(content);
+    vi.spyOn(datahubAnalysisDeps, "navigate").mockImplementation(() => {});
     vi.spyOn(datahubAnalysisDeps, "persistAnalysis").mockImplementation(
       async (_id, spec) => {
         stored = spec;
