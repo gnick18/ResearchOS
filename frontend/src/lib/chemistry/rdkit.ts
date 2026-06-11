@@ -23,6 +23,7 @@ interface RDKitMol {
   get_inchi(): string;
   get_descriptors(): string;
   get_svg(width: number, height: number): string;
+  get_molblock(): string;
   delete(): void;
 }
 interface RDKitModule {
@@ -155,6 +156,27 @@ export async function computeIdentity(input: string): Promise<MoleculeIdentity> 
       rings: toNum(d.NumRings),
       rotatable_bonds: toNum(d.NumRotatableBonds),
     };
+  } finally {
+    mol.delete();
+  }
+}
+
+/**
+ * Convert any parseable structure (SMILES or Molfile) to an MDL Molfile, the
+ * store's source-of-truth form. Used by file import to normalize SMILES into a
+ * `.mol`. A SMILES-derived molblock has flat coordinates; the editor (Ketcher)
+ * lays it out on open and the library thumbnail renders from the SMILES, so the
+ * flat coords never surface. Throws if the input does not parse.
+ */
+export async function toMolblock(input: string): Promise<string> {
+  const RDKit = await getRdkit();
+  const mol = RDKit.get_mol(input);
+  if (!mol || !mol.is_valid()) {
+    mol?.delete();
+    throw new Error("RDKit could not parse the structure");
+  }
+  try {
+    return mol.get_molblock();
   } finally {
     mol.delete();
   }

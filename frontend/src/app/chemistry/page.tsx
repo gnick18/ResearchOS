@@ -12,12 +12,14 @@ import AppShell from "@/components/AppShell";
 import { ChemistryHub } from "@/components/chemistry/ChemistryHub";
 import { MoleculeEditorPopup } from "@/components/chemistry/MoleculeEditorPopup";
 import { PubChemImportDialog } from "@/components/chemistry/PubChemImportDialog";
+import { ImportFileDialog } from "@/components/chemistry/ImportFileDialog";
 import { CHEMISTRY_ENABLED } from "@/lib/chemistry/config";
 
 export default function ChemistryPage() {
   // null = closed, "new" = blank canvas, a string id = edit that molecule.
   const [editing, setEditing] = useState<string | "new" | null>(null);
   const [pubchemOpen, setPubchemOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   if (!CHEMISTRY_ENABLED) {
     return (
@@ -41,6 +43,7 @@ export default function ChemistryPage() {
         onNewStructure={() => setEditing("new")}
         onOpenMolecule={(id) => setEditing(id)}
         onSearchPubchem={() => setPubchemOpen(true)}
+        onImportFile={() => setImportOpen(true)}
       />
       <MoleculeEditorPopup
         moleculeId={editing}
@@ -51,6 +54,7 @@ export default function ChemistryPage() {
         open={pubchemOpen}
         onClose={() => setPubchemOpen(false)}
       />
+      <ImportFileDialog open={importOpen} onClose={() => setImportOpen(false)} />
     </AppShell>
   );
 }

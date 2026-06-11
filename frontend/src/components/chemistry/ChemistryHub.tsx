@@ -25,10 +25,12 @@ export function ChemistryHub({
   onNewStructure,
   onOpenMolecule,
   onSearchPubchem,
+  onImportFile,
 }: {
   onNewStructure: () => void;
   onOpenMolecule: (id: string) => void;
   onSearchPubchem: () => void;
+  onImportFile: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("recent");
@@ -138,7 +140,7 @@ export function ChemistryHub({
           tone="green"
           title="Import file"
           body="Drop a .mol, .sdf, .smi, .cdxml and more."
-          soon
+          onClick={onImportFile}
         />
       </div>
 
