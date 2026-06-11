@@ -23,6 +23,7 @@ import {
   fetchSdf,
   type PubChemCompound,
 } from "@/lib/chemistry/pubchem";
+import { computeIdentity } from "@/lib/chemistry/rdkit";
 import { MoleculeThumbnail } from "./MoleculeThumbnail";
 
 // A PubChem 2D SDF is a Molfile (connection table up to "M  END") followed by the
@@ -38,6 +39,8 @@ function molblockFromSdf(sdf: string): string {
 interface Result {
   compound: PubChemCompound;
   molblock: string;
+  /** Canonical SMILES for a clean preview (PubChem 2D SDFs carry explicit Hs). */
+  previewSmiles?: string;
 }
 
 export function PubChemImportDialog({
@@ -66,7 +69,13 @@ export function PubChemImportDialog({
     try {
       const compound = await searchCompound(q);
       const sdf = await fetchSdf(compound.cid);
-      setResult({ compound, molblock: molblockFromSdf(sdf) });
+      const molblock = molblockFromSdf(sdf);
+      // Canonical SMILES gives a clean depiction (no explicit Hs) for the preview;
+      // the Molfile is still what we store, to keep PubChem's 2D coordinates.
+      const previewSmiles = await computeIdentity(molblock)
+        .then((id) => id.smiles || undefined)
+        .catch(() => undefined);
+      setResult({ compound, molblock, previewSmiles });
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "PubChem search failed. Try another name.",
@@ -176,13 +185,17 @@ function ResultCard({
   importing: boolean;
   onImport: () => void;
 }) {
-  const { compound, molblock } = result;
+  const { compound, molblock, previewSmiles } = result;
   const mw =
     compound.mol_weight != null ? `${compound.mol_weight.toFixed(2)} g/mol` : "";
   return (
     <div className="flex gap-4 items-center bg-surface-raised border border-border rounded-xl p-3 shadow-sm">
       <div className="w-[130px] h-[120px] flex-shrink-0 bg-white grid place-items-center rounded-lg border border-border p-2">
-        <MoleculeThumbnail structure={molblock} width={150} height={104} />
+        <MoleculeThumbnail
+          structure={previewSmiles || molblock}
+          width={150}
+          height={104}
+        />
       </div>
       <div className="min-w-0 flex-1">
         <div className="text-title font-bold text-foreground truncate">
