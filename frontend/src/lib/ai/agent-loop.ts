@@ -23,8 +23,14 @@
 //
 // House style, no em-dashes, no emojis, no mid-sentence colons.
 
-import { toToolDefinition, type AiTool } from "./tools/types";
+import {
+  toToolDefinition,
+  type AiTool,
+  type ApprovalRequest,
+  type ApprovalDecision,
+} from "./tools/types";
 import { buildToolMap } from "./tools/registry";
+import type { BeakerBotAutonomy } from "./autonomy-store";
 
 // An OpenAI-compatible chat message. Tool plumbing needs the extra fields beyond
 // the plain { role, content } the foundation slice used. Content is nullable
@@ -75,7 +81,10 @@ export type ModelCaller = (
 // "checking your tasks").
 export type LoopStatus =
   | { phase: "thinking" }
-  | { phase: "tool"; toolName: string };
+  | { phase: "tool"; toolName: string }
+  // The loop is paused waiting for the user to approve an action. The panel uses
+  // this to show "waiting for you" rather than a spinner.
+  | { phase: "awaiting-approval"; toolName: string };
 
 export type RunAgentLoopOptions = {
   messages: LoopMessage[];
@@ -85,6 +94,19 @@ export type RunAgentLoopOptions = {
   maxIterations?: number;
   // Optional status callback for the panel.
   onStatus?: (status: LoopStatus) => void;
+  // The user's autonomy mode for ACTION tools, read at dispatch time so the gate
+  // respects the current setting. Injected (not imported) so the loop stays pure
+  // and unit-tests with a fixed value. Defaults to "ask", the safe mode, when
+  // absent, so a missing option can never widen autonomy.
+  getAutonomy?: () => BeakerBotAutonomy;
+  // The propose-then-approve bridge to the UI. The loop calls this for an action
+  // tool that needs the user's blessing (always in "ask" mode, and always for a
+  // destructive target even in "auto"). It resolves with the user's decision.
+  // Injected, so production wires it to the panel's confirm UI and tests pass a
+  // fake. When absent, the loop treats every gated action as skipped, the safe
+  // default (never act without an approver), so a misconfigured caller cannot
+  // silently click.
+  requestApproval?: (request: ApprovalRequest) => Promise<ApprovalDecision>;
 };
 
 export type RunAgentLoopResult = {
@@ -104,28 +126,121 @@ const DEFAULT_MAX_ITERATIONS = 5;
 const GUARD_MESSAGE =
   "BeakerBot stopped after several steps without reaching a clear answer. Try asking again, or narrow the question.";
 
+// The gate dependencies threaded into tool dispatch. Kept as a small bag so the
+// dispatch signature stays readable as more is wired in.
+type GateDeps = {
+  getAutonomy: () => BeakerBotAutonomy;
+  requestApproval?: (request: ApprovalRequest) => Promise<ApprovalDecision>;
+};
+
+// Parse a tool call's arguments string into an object, returning null on bad JSON
+// so the caller can surface a clean error. An empty arguments string is a valid
+// empty object.
+function parseToolArgs(call: ToolCall): Record<string, unknown> | null {
+  if (!call.function.arguments || call.function.arguments.trim().length === 0) {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(call.function.arguments);
+    if (parsed && typeof parsed === "object") {
+      return parsed as Record<string, unknown>;
+    }
+    return {};
+  } catch {
+    return null;
+  }
+}
+
+// Decide whether an action tool call needs the user's approval before it runs,
+// and if so, ask. This is the reusable propose-then-approve gate every future
+// write tool flows through, the decision is driven by the tool's `action` flag,
+// the tool's own `isDestructive` check, and the user's autonomy setting, NOT by
+// anything hardcoded to clicking.
+//
+// Returns one of.
+//   - { proceed: true }  run the tool (read-only, or approved, or auto-allowed)
+//   - { proceed: false, result } do NOT run, feed `result` back to the model so
+//     it can respond gracefully (the user skipped, or there is no approver)
+async function gateToolCall(
+  tool: AiTool,
+  args: Record<string, unknown>,
+  deps: GateDeps,
+): Promise<{ proceed: true } | { proceed: false; result: unknown }> {
+  // Read-only tools never gate, they run immediately, exactly as before.
+  if (!tool.action) return { proceed: true };
+
+  // An action tool. Decide whether THIS call must confirm.
+  const destructive = tool.isDestructive?.(args) === true;
+  const autonomy = deps.getAutonomy();
+  // Confirm when the user is in "ask" mode OR when the destructive hard-stop
+  // fires, the hard-stop overrides "auto" so a dangerous click is never silent.
+  const mustConfirm = autonomy === "ask" || destructive;
+
+  if (!mustConfirm) {
+    // "auto" mode and a non-destructive action, run it directly.
+    return { proceed: true };
+  }
+
+  // We need approval. Without an approver we cannot safely act, so decline and
+  // tell the model, never act without a human in "ask" or on a destructive
+  // target.
+  if (!deps.requestApproval) {
+    return {
+      proceed: false,
+      result: {
+        approved: false,
+        message:
+          "This action needs the user's approval, but no approval path is available. The action was not performed.",
+      },
+    };
+  }
+
+  // Build the proposal from the tool's own describer, so the user sees what will
+  // happen WITHOUT the tool running. Fall back to a generic summary.
+  const described = tool.describeAction?.(args);
+  const summary = described?.summary ?? `run ${tool.name}`;
+  const decision = await deps.requestApproval({
+    toolName: tool.name,
+    summary,
+    ...(described?.ref ? { ref: described.ref } : {}),
+    ...(destructive ? { destructive: true } : {}),
+  });
+
+  if (decision === "allow") return { proceed: true };
+
+  // Skipped, return a graceful tool result so the model can move on or explain.
+  return {
+    proceed: false,
+    result: {
+      approved: false,
+      message: `The user declined to ${summary}. Do not retry it, acknowledge their choice and offer an alternative if helpful.`,
+    },
+  };
+}
+
 // Run a tool by name, defending against an unknown name and a malformed arguments
-// string, so one bad call never throws the whole loop. The result is always a
-// JSON-serializable value the loop can stringify into a tool message.
+// string, so one bad call never throws the whole loop. Action tools first pass
+// through the approval gate above, a skipped action returns a graceful result and
+// the tool's execute never runs. The result is always a JSON-serializable value
+// the loop can stringify into a tool message.
 async function runToolCall(
   call: ToolCall,
   toolMap: Map<string, AiTool>,
+  deps: GateDeps,
 ): Promise<unknown> {
   const tool = toolMap.get(call.function.name);
   if (!tool) {
     return { error: `Unknown tool "${call.function.name}".` };
   }
-  let args: Record<string, unknown> = {};
-  if (call.function.arguments && call.function.arguments.trim().length > 0) {
-    try {
-      const parsed = JSON.parse(call.function.arguments);
-      if (parsed && typeof parsed === "object") {
-        args = parsed as Record<string, unknown>;
-      }
-    } catch {
-      return { error: "Tool arguments were not valid JSON." };
-    }
+  const args = parseToolArgs(call);
+  if (args === null) {
+    return { error: "Tool arguments were not valid JSON." };
   }
+
+  // Approval gate for action tools. Read-only tools pass straight through.
+  const gate = await gateToolCall(tool, args, deps);
+  if (!gate.proceed) return gate.result;
+
   try {
     return await tool.execute(args);
   } catch (err) {
@@ -148,6 +263,22 @@ export async function runAgentLoop(
   const toolMap = buildToolMap(options.tools);
   // Work on a copy, so the caller's array is never mutated.
   const messages: LoopMessage[] = [...options.messages];
+
+  // Build the gate deps once. Autonomy defaults to "ask" (the safe mode) when the
+  // caller did not inject a reader. The approval request is wrapped so the panel
+  // sees an "awaiting-approval" status while the loop is paused on the user.
+  const gateDeps: GateDeps = {
+    getAutonomy: options.getAutonomy ?? (() => "ask"),
+    requestApproval: options.requestApproval
+      ? async (request) => {
+          options.onStatus?.({
+            phase: "awaiting-approval",
+            toolName: request.toolName,
+          });
+          return options.requestApproval!(request);
+        }
+      : undefined,
+  };
 
   let iterations = 0;
   while (iterations < maxIterations) {
@@ -176,7 +307,7 @@ export async function runAgentLoop(
 
     for (const call of toolCalls) {
       options.onStatus?.({ phase: "tool", toolName: call.function.name });
-      const result = await runToolCall(call, toolMap);
+      const result = await runToolCall(call, toolMap, gateDeps);
       messages.push({
         role: "tool",
         tool_call_id: call.id,

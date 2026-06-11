@@ -5,13 +5,19 @@
 // gated by approval) is one import and one array entry, no loop change. That is the
 // extensibility the design asks for.
 //
-// The registry holds READ-ONLY tools, read-only with respect to the user's DATA.
-// Alongside the data readers it holds the live page-perception trio, read_page
-// (perceive the current page), go_to_page (navigate when the target is elsewhere),
-// and guide_to_element (scroll to and spotlight a perceived element). Those change
-// the VIEW (a route and a decorative highlight) but never the user's files, so they
-// stay in the read-only set with no approval gate. There is still no write tool and
-// no coworker-mode tool. Those are later slices.
+// The registry holds the read-only tools plus the first ACTION tool. The read-only
+// set is read-only with respect to the user's DATA. Alongside the data readers it
+// holds the live page-perception trio, read_page (perceive the current page),
+// go_to_page (navigate when the target is elsewhere), and guide_to_element (scroll
+// to and spotlight a perceived element). Those change the VIEW (a route and a
+// decorative highlight) but never the user's files, so they stay in the read-only
+// set with no approval gate.
+//
+// The first action tool is click_element, which dispatches a real click for the
+// user. It carries action: true, so the agent loop routes it through the approval
+// gate (propose-then-approve in "ask" autonomy, direct in "auto", with a
+// destructive hard-stop in both). Future write tools (note writing, run_analysis)
+// reuse the SAME flag and gate, one import and one array entry, no loop change.
 //
 // The old manifest-driven find_ui_element / spotlight_ui_element pair is retired,
 // live perception supersedes a hand-built element catalog. The manifest's one
@@ -24,9 +30,12 @@ import { getMyProjectsTool, getMyTasksTool } from "./read-my-work";
 import { readPageTool } from "./read-page";
 import { goToPageTool } from "./go-to-page";
 import { guideToElementTool } from "./guide-to-element";
+import { clickElementTool } from "./click-element";
 import type { AiTool } from "./types";
 
-// The default toolset handed to the agent loop. All read-only for user data.
+// The read-only toolset, read-only with respect to the user's data. Exported on
+// its own so a future cautious "question only" mode can hand the model just these
+// and nothing that acts (design doc section 4, the capability wall).
 export const READ_ONLY_TOOLS: AiTool[] = [
   getMyTasksTool,
   getMyProjectsTool,
@@ -34,6 +43,15 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   goToPageTool,
   guideToElementTool,
 ];
+
+// The action toolset. Each tool here carries action: true and goes through the
+// agent loop's approval gate. Today just click_element.
+export const ACTION_TOOLS: AiTool[] = [clickElementTool];
+
+// The default toolset handed to the agent loop, the read-only tools plus the
+// action tools. The loop reads each tool's `action` flag to decide whether to
+// gate it, so mixing them in one list is safe.
+export const DEFAULT_TOOLS: AiTool[] = [...READ_ONLY_TOOLS, ...ACTION_TOOLS];
 
 /** Build a name -> tool lookup for dispatch. The loop calls this once per run and
  *  resolves each model-requested tool_call by name. */

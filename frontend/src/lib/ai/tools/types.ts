@@ -23,15 +23,62 @@ export type JsonSchema = {
   additionalProperties?: boolean;
 };
 
+// A request the agent loop surfaces to the UI before an action tool runs, when
+// autonomy is "ask" (or a destructive target forces a confirm). It describes
+// what BeakerBot wants to do in plain words plus, when present, a perceived
+// element ref so the UI can show the user the target (a spotlight) before they
+// allow it. The loop awaits the user's answer through the resolver.
+export type ApprovalRequest = {
+  /** The tool that wants to run, for the UI to label the confirm. */
+  toolName: string;
+  /** A short human sentence, for example "click New method". Authored by the
+   *  tool through `describeAction`, never raw arguments. */
+  summary: string;
+  /** When the action targets a perceived element, its ref, so the UI can
+   *  spotlight it. Optional, not every future action has a DOM target. */
+  ref?: string;
+  /** True when the destructive hard-stop forced this confirm even in "auto"
+   *  mode, so the UI can warn more firmly. */
+  destructive?: boolean;
+};
+
+// The UI's answer to an approval request. "allow" runs the tool, "skip" declines
+// it and tells the model the user said no, so it can respond gracefully.
+export type ApprovalDecision = "allow" | "skip";
+
 // A single tool BeakerBot can call. `execute` receives the parsed argument object
 // the model produced and returns a result that is JSON-serialized back into the
 // conversation as the tool message. Results should be compact and model-friendly,
 // not raw store records.
+//
+// An ACTION tool sets `action: true`. Action tools may CHANGE something (the
+// first one is click_element, which dispatches a real click), so the agent loop
+// routes them through the approval gate. A tool without `action` is treated as
+// read-only and runs immediately, the way the perception and data-reader tools
+// always have. New write tools (note writing, run_analysis) reuse this same flag
+// and gate, no loop change per tool.
 export type AiTool = {
   name: string;
   description: string;
   parameters: JsonSchema;
   execute: (args: Record<string, unknown>) => Promise<unknown>;
+  /** When true, this tool performs an action and goes through the approval gate
+   *  in the agent loop (propose-then-approve in "ask" mode, direct in "auto"
+   *  mode, with a destructive hard-stop in both). Absent / false = read-only,
+   *  runs immediately. */
+  action?: boolean;
+  /** For action tools, build the human approval summary and optional target ref
+   *  from the parsed args, so the loop can show the user what will happen WITHOUT
+   *  running the tool. Pure, never effectful. Optional, the loop falls back to a
+   *  generic summary when absent. */
+  describeAction?: (args: Record<string, unknown>) => {
+    summary: string;
+    ref?: string;
+  };
+  /** For action tools, decide whether THIS specific call must hard-stop for a
+   *  confirm even in "auto" mode (the destructive safety net). Pure. Optional,
+   *  absent = never forces a confirm beyond the autonomy setting. */
+  isDestructive?: (args: Record<string, unknown>) => boolean;
 };
 
 // The wire shape the provider expects for tool definitions (OpenAI-compatible

@@ -30,8 +30,10 @@ import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 import { useAiChat } from "./useAiChat";
 import { useNavigationBridge } from "./navigation-bridge";
+import { useBeakerBotAutonomy } from "@/lib/ai/autonomy-store";
 
 // Lightweight markdown renderer for assistant replies only. Scoped to this panel.
 // Uses standard semantic elements styled by the app's Tailwind prose utilities.
@@ -72,9 +74,15 @@ export default function BeakerBotPanel({
   // it so that surface stays close-free, exactly as before.
   onClose?: () => void;
 } = {}) {
-  const { messages, sending, status, error, send } = useAiChat();
+  const { messages, sending, status, error, send, pendingApproval, resolveApproval } =
+    useAiChat();
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
+
+  // The autonomy mode (ask-before-doing vs auto) governs whether BeakerBot's
+  // actions pause for approval. The header control flips it; default is "ask".
+  const autonomy = useBeakerBotAutonomy((s) => s.mode);
+  const toggleAutonomy = useBeakerBotAutonomy((s) => s.toggle);
 
   // Register the soft-navigation handler so guide_to_element can drive a real
   // SPA route change (preserving the fixture capture param) instead of a reload.
@@ -109,6 +117,42 @@ export default function BeakerBotPanel({
             Ask BeakerBot about your work in ResearchOS.
           </p>
         </div>
+        {/* Autonomy toggle. "Ask" (default) means BeakerBot proposes an action and
+            waits for you to allow it. "Auto" lets it act on reversible in-app
+            steps without asking, dangerous or outward-facing actions still
+            confirm. */}
+        <Tooltip
+          label={
+            autonomy === "auto"
+              ? "Auto mode. BeakerBot acts without asking, except for risky actions. Click to require approval."
+              : "Ask mode. BeakerBot asks before it acts. Click to let it act automatically."
+          }
+          placement="bottom"
+        >
+          <button
+            type="button"
+            data-testid="beakerbot-autonomy-toggle"
+            aria-label={
+              autonomy === "auto"
+                ? "BeakerBot autonomy, auto. Switch to ask before doing."
+                : "BeakerBot autonomy, ask before doing. Switch to auto."
+            }
+            aria-pressed={autonomy === "auto"}
+            onClick={toggleAutonomy}
+            className={`flex flex-shrink-0 items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition-colors ${
+              autonomy === "auto"
+                ? "border-brand bg-brand/10 text-brand"
+                : "border-border text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+            }`}
+          >
+            <Icon
+              name="gauge"
+              className="h-3.5 w-3.5"
+              title={autonomy === "auto" ? "Auto" : "Ask"}
+            />
+            {autonomy === "auto" ? "Auto" : "Ask"}
+          </button>
+        </Tooltip>
         {onClose ? (
           <button
             type="button"
@@ -174,6 +218,65 @@ export default function BeakerBotPanel({
           className="mx-4 mb-2 rounded-md border border-border bg-surface-raised px-3 py-2 text-meta text-foreground"
         >
           {error}
+        </div>
+      ) : null}
+
+      {/* Approval prompt. Shown while the agent loop is paused waiting for the
+          user to allow an action. The target element is already spotlighted on
+          the page (see useAiChat.requestApproval), so the user can SEE what will
+          happen before they allow it. A destructive target gets a firmer warning
+          tone and an alert glyph. */}
+      {pendingApproval ? (
+        <div
+          data-testid="beakerbot-approval"
+          className={`mx-4 mb-2 rounded-md border px-3 py-2 ${
+            pendingApproval.request.destructive
+              ? "border-red-400 bg-red-50"
+              : "border-brand bg-brand/5"
+          }`}
+        >
+          <div className="mb-2 flex items-start gap-2">
+            <span
+              className={
+                pendingApproval.request.destructive
+                  ? "text-red-600"
+                  : "text-brand"
+              }
+            >
+              <Icon
+                name={pendingApproval.request.destructive ? "alert" : "vial"}
+                className="h-4 w-4"
+                title="BeakerBot wants to act"
+              />
+            </span>
+            <p className="text-meta text-foreground">
+              BeakerBot wants to {pendingApproval.request.summary}.
+              {pendingApproval.request.destructive
+                ? " This action could be hard to undo, so it always asks first."
+                : ""}{" "}
+              Allow it?
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              data-testid="beakerbot-approval-allow"
+              onClick={() => resolveApproval("allow")}
+              className="btn-brand flex items-center gap-1 rounded-md px-3 py-1.5 text-meta font-medium"
+            >
+              <Icon name="check" className="h-3.5 w-3.5" title="Allow" />
+              Allow
+            </button>
+            <button
+              type="button"
+              data-testid="beakerbot-approval-skip"
+              onClick={() => resolveApproval("skip")}
+              className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+            >
+              <Icon name="skip" className="h-3.5 w-3.5" title="Skip" />
+              Skip
+            </button>
+          </div>
         </div>
       ) : null}
 

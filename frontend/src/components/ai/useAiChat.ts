@@ -22,8 +22,15 @@ import {
   type LoopStatus,
 } from "@/lib/ai/agent-loop";
 import { callModelViaProxy, ProxyError } from "@/lib/ai/proxy-client";
-import { READ_ONLY_TOOLS } from "@/lib/ai/tools/registry";
+import { DEFAULT_TOOLS } from "@/lib/ai/tools/registry";
 import { BEAKERBOT_SYSTEM_PROMPT } from "@/lib/ai/system-prompt";
+import { getAutonomyMode } from "@/lib/ai/autonomy-store";
+import { resolveRef } from "@/lib/ai/page-perception";
+import { showSpotlight, dismissSpotlight } from "@/components/ai/spotlight-controller";
+import type {
+  ApprovalRequest,
+  ApprovalDecision,
+} from "@/lib/ai/tools/types";
 
 export type ChatRole = "user" | "assistant";
 
@@ -42,14 +49,26 @@ const TOOL_STATUS: Record<string, string> = {
   read_page: "looking at the page",
   go_to_page: "taking you there",
   guide_to_element: "showing you where",
+  click_element: "clicking for you",
 };
 
 function statusLabel(status: LoopStatus): string {
   if (status.phase === "tool") {
     return TOOL_STATUS[status.toolName] ?? "looking something up";
   }
+  if (status.phase === "awaiting-approval") {
+    return "waiting for you to allow this";
+  }
   return "thinking";
 }
+
+// The pending approval the panel renders while the loop is paused on the user.
+// It carries the human summary plus a resolver, clicking Allow / Skip in the
+// panel calls the resolver, which unblocks the loop's requestApproval promise.
+export type PendingApproval = {
+  request: ApprovalRequest;
+  resolve: (decision: ApprovalDecision) => void;
+};
 
 // Reveal the final answer with a light client-side typewriter effect, so the
 // answer does not pop in all at once. This is cosmetic, not real token streaming.
@@ -61,6 +80,15 @@ export function useAiChat() {
   const [sending, setSending] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The approval the panel is currently asking the user about, or null when the
+  // loop is not paused on a confirm. The panel renders an Allow / Skip prompt
+  // from this and calls resolveApproval on the user's choice.
+  const [pendingApproval, setPendingApproval] =
+    useState<PendingApproval | null>(null);
+  // A ref mirror of the pending approval so the Allow / Skip handler can resolve
+  // the in-flight promise without depending on render state (the loop runs across
+  // renders). Kept in sync wherever pendingApproval is set.
+  const pendingApprovalRef = useRef<PendingApproval | null>(null);
   const counterRef = useRef(0);
   // The running loop history (with system prompt + tool turns), kept out of React
   // state because the panel only renders user + assistant text.
@@ -93,6 +121,54 @@ export function useAiChat() {
       tick();
     });
   }, []);
+
+  // The propose-then-approve bridge the agent loop calls for an action tool. It
+  // shows the user WHAT will happen (spotlights the target element when the
+  // request carries a ref, the same highlight guide_to_element draws, so seeing
+  // comes before allowing), surfaces the Allow / Skip prompt, and resolves with
+  // the user's decision. Returns a promise that stays pending until the panel
+  // calls resolveApproval, which pauses the loop without blocking the UI thread.
+  const requestApproval = useCallback(
+    (request: ApprovalRequest): Promise<ApprovalDecision> => {
+      // Show the target so the user can see exactly what is about to be clicked
+      // before they allow it. Best-effort, a stale ref simply shows no highlight,
+      // the text summary still says what BeakerBot wants to do.
+      if (request.ref) {
+        const el = resolveRef(request.ref);
+        if (el) {
+          showSpotlight(el, `BeakerBot wants to ${request.summary}.`);
+        }
+      }
+      return new Promise<ApprovalDecision>((resolve) => {
+        const pending: PendingApproval = {
+          request,
+          resolve: (decision) => {
+            // Clear the highlight and the prompt as the user answers, so neither
+            // lingers into the next step. Guard against a double resolve.
+            if (pendingApprovalRef.current !== pending) return;
+            pendingApprovalRef.current = null;
+            dismissSpotlight();
+            setPendingApproval(null);
+            resolve(decision);
+          },
+        };
+        pendingApprovalRef.current = pending;
+        setPendingApproval(pending);
+      });
+    },
+    [],
+  );
+
+  // Called by the panel's Allow / Skip buttons. Resolves the in-flight approval
+  // promise, unblocking the agent loop with the user's decision. The resolver
+  // (set in requestApproval) clears the highlight and the prompt state itself, so
+  // this only forwards the decision.
+  const resolveApproval = useCallback(
+    (decision: ApprovalDecision) => {
+      pendingApprovalRef.current?.resolve(decision);
+    },
+    [],
+  );
 
   const send = useCallback(
     async (text: string) => {
@@ -132,9 +208,13 @@ export function useAiChat() {
       try {
         const result = await runAgentLoop({
           messages: loopInput,
-          tools: READ_ONLY_TOOLS,
+          tools: DEFAULT_TOOLS,
           callModel: callModelViaProxy,
           onStatus: (s) => setStatus(statusLabel(s)),
+          // Read the live autonomy mode at each dispatch, so flipping the toggle
+          // mid-conversation takes effect on the next action.
+          getAutonomy: getAutonomyMode,
+          requestApproval,
         });
 
         // Persist the full loop history (including tool turns) for the next send.
@@ -160,8 +240,16 @@ export function useAiChat() {
         setSending(false);
       }
     },
-    [sending, nextId, revealAnswer],
+    [sending, nextId, revealAnswer, requestApproval],
   );
 
-  return { messages, sending, status, error, send };
+  return {
+    messages,
+    sending,
+    status,
+    error,
+    send,
+    pendingApproval,
+    resolveApproval,
+  };
 }
