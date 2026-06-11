@@ -44,6 +44,7 @@ import {
   buildEmptyColumnTable,
   parseCellInput,
 } from "@/lib/datahub/column-table";
+import { buildEmptyXYTable, yColumns } from "@/lib/datahub/xy-table";
 import { runAnalysis } from "@/lib/datahub/run-analysis";
 import {
   buildPlotSpec,
@@ -52,6 +53,7 @@ import {
 } from "@/lib/datahub/plot-spec";
 import DataHubRail, { type Collection } from "@/components/datahub/DataHubRail";
 import DataTableGrid from "@/components/datahub/DataTableGrid";
+import XYTableGrid from "@/components/datahub/XYTableGrid";
 import NewTableDialog, {
   type NewTableSubmit,
 } from "@/components/datahub/NewTableDialog";
@@ -234,21 +236,34 @@ export default function DataHubPage() {
     setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
   }, [openContent]);
 
-  // Append a new group column (a "y" numeric column), then backfill a null cell
-  // for it on every existing row so the grid reads cleanly.
+  // Append a new column, then backfill a null cell for it on every existing row
+  // so the grid reads cleanly. A Column table gets a "Group N" treatment column;
+  // an XY table gets a "Y N" response column (both role "y"), named for the
+  // archetype so the header reads naturally.
   const handleAddColumn = useCallback(() => {
     const handle = handleRef.current;
     if (!handle || !openContent || openIdRef.current == null) return;
-    const groupCount = openContent.columns.filter(
-      (c) => c.role === "y" || c.role === "group",
-    ).length;
+    const isXY = openContent.meta.table_type === "xy";
     const colId = `col-${Date.now()}`;
-    addColumnToDoc(handle.doc, {
-      id: colId,
-      name: `Group ${groupCount + 1}`,
-      role: "y",
-      dataType: "number",
-    });
+    if (isXY) {
+      const yCount = yColumns(openContent).length;
+      addColumnToDoc(handle.doc, {
+        id: colId,
+        name: `Y${yCount + 1}`,
+        role: "y",
+        dataType: "number",
+      });
+    } else {
+      const groupCount = openContent.columns.filter(
+        (c) => c.role === "y" || c.role === "group",
+      ).length;
+      addColumnToDoc(handle.doc, {
+        id: colId,
+        name: `Group ${groupCount + 1}`,
+        role: "y",
+        dataType: "number",
+      });
+    }
     for (const row of openContent.rows) {
       setCell(handle.doc, row.id, colId, null);
     }
@@ -263,7 +278,9 @@ export default function DataHubPage() {
       const seed =
         data.tableType === "column"
           ? buildEmptyColumnTable()
-          : { columns: [], rows: [] };
+          : data.tableType === "xy"
+            ? buildEmptyXYTable()
+            : { columns: [], rows: [] };
       const created = await dataHubApi.create({
         name: data.name,
         table_type: data.tableType,
@@ -377,12 +394,19 @@ export default function DataHubPage() {
       const handle = handleRef.current;
       if (!handle || !openContent || openIdRef.current == null) return;
       const id = `plot-${Date.now()}`;
+      const isXY = openContent.meta.table_type === "xy";
+      const yName = data.yColumnId
+        ? yColumns(openContent).find((c) => c.id === data.yColumnId)?.name
+        : undefined;
       const spec = buildPlotSpec({
         id,
         kind: data.kind,
         tableId: openIdRef.current,
         analysisId: data.analysisId,
-        yTitle: selectedMeta?.name ?? "Value",
+        yColumnId: data.yColumnId ?? null,
+        fitModel: data.fitModel,
+        yTitle: isXY ? yName ?? selectedMeta?.name ?? "Y" : selectedMeta?.name ?? "Value",
+        xTitle: isXY ? "X" : undefined,
       });
       setPlotInDoc(handle.doc, spec);
       void handle.commit();
@@ -546,15 +570,25 @@ export default function DataHubPage() {
                 </h1>
               </div>
               <p className="mb-4 text-meta text-foreground-muted">
-                Column table. Each column is a treatment group, each row a
-                replicate.
+                {openContent.meta.table_type === "xy"
+                  ? "XY table. The first column is the X value, each following column is a measured Y, one observation per row."
+                  : "Column table. Each column is a treatment group, each row a replicate."}
               </p>
-              <DataTableGrid
-                content={openContent}
-                onCellCommit={handleCellCommit}
-                onAddRow={handleAddRow}
-                onAddColumn={handleAddColumn}
-              />
+              {openContent.meta.table_type === "xy" ? (
+                <XYTableGrid
+                  content={openContent}
+                  onCellCommit={handleCellCommit}
+                  onAddRow={handleAddRow}
+                  onAddColumn={handleAddColumn}
+                />
+              ) : (
+                <DataTableGrid
+                  content={openContent}
+                  onCellCommit={handleCellCommit}
+                  onAddRow={handleAddRow}
+                  onAddColumn={handleAddColumn}
+                />
+              )}
             </>
           ) : (
             <div className="flex flex-1 items-center justify-center text-body text-foreground-muted">

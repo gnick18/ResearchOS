@@ -17,6 +17,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { DataHubDocContent } from "@/lib/datahub/model/types";
 import { groupColumns } from "@/lib/datahub/column-table";
+import { xColumn, yColumns } from "@/lib/datahub/xy-table";
 import {
   validAnalysisTypes,
   type AnalysisType,
@@ -68,6 +69,24 @@ const TYPE_META: Record<
       "Compare three or more groups without assuming a normal distribution. The rank-based answer to a non-normal one-way ANOVA.",
     groupCount: "all",
   },
+  correlationPearson: {
+    label: "Pearson correlation",
+    blurb:
+      "Measure the strength of a linear relationship between X and a Y column. Reports r with a confidence interval.",
+    groupCount: "two",
+  },
+  correlationSpearman: {
+    label: "Spearman correlation",
+    blurb:
+      "Measure a monotone relationship by rank, without assuming a straight line or a normal distribution. Reports rho.",
+    groupCount: "two",
+  },
+  linearRegression: {
+    label: "Linear regression",
+    blurb:
+      "Fit a straight line y = intercept + slope x. Reports the slope, intercept, their confidence intervals, and R-squared.",
+    groupCount: "two",
+  },
 };
 
 export default function NewAnalysisDialog({
@@ -82,10 +101,13 @@ export default function NewAnalysisDialog({
   onCancel: () => void;
   onSubmit: (data: NewAnalysisSubmit) => void;
 }) {
+  const isXY = content?.meta.table_type === "xy";
   const groups = useMemo(
     () => (content ? groupColumns(content) : []),
     [content],
   );
+  const ys = useMemo(() => (content ? yColumns(content) : []), [content]);
+  const xCol = useMemo(() => (content ? xColumn(content) : null), [content]);
   const validTypes = useMemo(
     () => (content ? validAnalysisTypes(content) : []),
     [content],
@@ -95,16 +117,20 @@ export default function NewAnalysisDialog({
   // The two group ids a t-test compares (ignored for ANOVA, which takes all).
   const [groupA, setGroupA] = useState<string>("");
   const [groupB, setGroupB] = useState<string>("");
+  // The Y column an XY analysis runs against (the X column is the table's one).
+  const [yColumn, setYColumn] = useState<string>("");
 
   // Reset the form each open: default to the first valid type and the first two
-  // groups so the common case is one click away.
+  // groups (or the first Y column for an XY table) so the common case is one
+  // click away.
   useEffect(() => {
     if (!open) return;
     const firstType = validTypes[0] ?? null;
     setType(firstType);
     setGroupA(groups[0]?.id ?? "");
     setGroupB(groups[1]?.id ?? "");
-  }, [open, validTypes, groups]);
+    setYColumn(ys[0]?.id ?? "");
+  }, [open, validTypes, groups, ys]);
 
   // Escape closes.
   useEffect(() => {
@@ -119,15 +145,20 @@ export default function NewAnalysisDialog({
   if (!open) return null;
 
   const isPair = type !== null && TYPE_META[type].groupCount === "two";
-  const canSubmit =
-    type !== null &&
-    (isPair ? groupA !== "" && groupB !== "" && groupA !== groupB : groups.length >= 3);
+  const canSubmit = isXY
+    ? type !== null && yColumn !== "" && !!xCol
+    : type !== null &&
+      (isPair
+        ? groupA !== "" && groupB !== "" && groupA !== groupB
+        : groups.length >= 3);
 
   const submit = () => {
     if (!canSubmit || type === null) return;
-    const columnIds = isPair
-      ? [groupA, groupB]
-      : groups.map((g) => g.id);
+    const columnIds = isXY
+      ? [yColumn]
+      : isPair
+        ? [groupA, groupB]
+        : groups.map((g) => g.id);
     onSubmit({ type, columnIds });
   };
 
@@ -151,7 +182,9 @@ export default function NewAnalysisDialog({
 
         {validTypes.length === 0 ? (
           <p className="mt-4 rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-foreground-muted">
-            Add at least two groups with numbers before running an analysis.
+            {isXY
+              ? "Add an X column and at least one Y column with numbers before running an analysis."
+              : "Add at least two groups with numbers before running an analysis."}
           </p>
         ) : (
           <>
@@ -184,7 +217,34 @@ export default function NewAnalysisDialog({
               })}
             </div>
 
-            {isPair ? (
+            {isXY ? (
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-meta font-medium uppercase tracking-wide text-foreground-muted">
+                    X column
+                  </label>
+                  <div className="mt-1 w-full rounded-md border border-border bg-surface-sunken px-2 py-1.5 text-body text-foreground-muted">
+                    {xCol?.name ?? "X"}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-meta font-medium uppercase tracking-wide text-foreground-muted">
+                    Y column
+                  </label>
+                  <select
+                    value={yColumn}
+                    onChange={(e) => setYColumn(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-border bg-surface-raised px-2 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
+                  >
+                    {ys.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            ) : isPair ? (
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-meta font-medium uppercase tracking-wide text-foreground-muted">

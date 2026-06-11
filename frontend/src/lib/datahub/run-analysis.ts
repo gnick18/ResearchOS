@@ -31,16 +31,22 @@ import {
   mannWhitneyU,
   wilcoxonSignedRank,
   kruskalWallis,
+  pearson,
+  spearman,
+  linearRegression,
 } from "@/lib/datahub/engine";
 import type {
   AnovaResult,
   TTestResult,
+  CorrelationResult,
+  LinearRegressionResult,
 } from "@/lib/datahub/engine/types";
 import type {
   AnalysisSpec,
   DataHubDocContent,
 } from "@/lib/datahub/model/types";
 import { columnValues, groupColumns } from "@/lib/datahub/column-table";
+import { xColumn, xyPairs, yColumns } from "@/lib/datahub/xy-table";
 
 /** The analysis types this slice can run. */
 export type AnalysisType =
@@ -49,7 +55,27 @@ export type AnalysisType =
   | "oneWayAnova"
   | "mannWhitneyU"
   | "wilcoxonSignedRank"
-  | "kruskalWallis";
+  | "kruskalWallis"
+  | "correlationPearson"
+  | "correlationSpearman"
+  | "linearRegression";
+
+/** The analysis types that read an XY table (one X column paired with a Y). */
+export const XY_ANALYSIS_TYPES: AnalysisType[] = [
+  "correlationPearson",
+  "correlationSpearman",
+  "linearRegression",
+];
+
+/** The analysis types that read a Column table (group columns). */
+export const COLUMN_ANALYSIS_TYPES: AnalysisType[] = [
+  "unpairedTTest",
+  "pairedTTest",
+  "oneWayAnova",
+  "mannWhitneyU",
+  "wilcoxonSignedRank",
+  "kruskalWallis",
+];
 
 /** A resolved input group: the column id, its display name, and its values. */
 export interface RunGroup {
@@ -110,7 +136,61 @@ export interface NormalizedAnova {
   comparisons: AnovaResult["comparisons"];
 }
 
-export type NormalizedResult = NormalizedTTest | NormalizedAnova;
+/**
+ * A normalized correlation result. Covers Pearson (the linear-association r) and
+ * Spearman (the rank-based rho, robust to non-normality and monotone but
+ * nonlinear relationships). Both come back in the same CorrelationResult shape,
+ * so this normalizes the coefficient label, the resolved X / Y names, and the
+ * raw paired values that reproduce the snippet.
+ */
+export interface NormalizedCorrelation {
+  kind: "correlation";
+  type: "correlationPearson" | "correlationSpearman";
+  /** "pearson" or "spearman", straight from the engine. */
+  method: CorrelationResult["method"];
+  /** The coefficient symbol to print ("r" for Pearson, "rho" for Spearman). */
+  coefficientLabel: string;
+  xName: string;
+  yName: string;
+  x: number[];
+  y: number[];
+  n: number;
+  coefficient: number;
+  statistic: number;
+  df: number;
+  pValue: number;
+  ci95: [number, number];
+}
+
+/**
+ * A normalized linear-regression result (ordinary least squares y = a + b x),
+ * with the slope and intercept plus their standard errors and confidence
+ * intervals, R-squared, and the residual standard error. The raw paired values
+ * are carried so the Show-the-code snippet reproduces the on-screen numbers.
+ */
+export interface NormalizedRegression {
+  kind: "regression";
+  type: "linearRegression";
+  xName: string;
+  yName: string;
+  x: number[];
+  y: number[];
+  n: number;
+  slope: number;
+  intercept: number;
+  rSquared: number;
+  slopeSE: number;
+  interceptSE: number;
+  slopeCI95: [number, number];
+  interceptCI95: [number, number];
+  residualSE: number;
+}
+
+export type NormalizedResult =
+  | NormalizedTTest
+  | NormalizedAnova
+  | NormalizedCorrelation
+  | NormalizedRegression;
 
 /** A failed run carries the engine (or resolver) reason so the UI can show it. */
 export interface RunFailure {
@@ -151,10 +231,20 @@ export function resolveGroups(
   return out;
 }
 
-/** Which analysis types are valid for the current table (by group count). The
- *  nonparametric kinds match the same group counts as their parametric peers,
- *  so a wizard fallback always has a runnable target. */
+/**
+ * Which analysis types are valid for the current table. A Column table offers
+ * the group comparisons (by group count); an XY table offers correlation and
+ * linear regression once it has an X column and at least one Y column. The
+ * nonparametric kinds match the same group counts as their parametric peers, so
+ * a wizard fallback always has a runnable target.
+ */
 export function validAnalysisTypes(content: DataHubDocContent): AnalysisType[] {
+  if (content.meta.table_type === "xy") {
+    if (xColumn(content) && yColumns(content).length >= 1) {
+      return [...XY_ANALYSIS_TYPES];
+    }
+    return [];
+  }
   const k = groupColumns(content).length;
   const out: AnalysisType[] = [];
   if (k >= 2) {
@@ -164,6 +254,86 @@ export function validAnalysisTypes(content: DataHubDocContent): AnalysisType[] {
     out.push("oneWayAnova", "kruskalWallis");
   }
   return out;
+}
+
+/**
+ * Resolve an XY analysis spec into its X / Y names and finite paired values. The
+ * spec stores the Y column id in inputs.columnIds[0]; the X column is the
+ * table's single role-"x" column, resolved live so a rename flows through.
+ */
+function resolveXY(
+  content: DataHubDocContent,
+  spec: AnalysisSpec,
+): { xName: string; yName: string; x: number[]; y: number[] } | null {
+  const xCol = xColumn(content);
+  if (!xCol) return null;
+  const yId = specColumnIds(spec)[0];
+  const yCol = yColumns(content).find((c) => c.id === yId);
+  if (!yCol) return null;
+  const pairs = xyPairs(content, yCol.id);
+  return { xName: xCol.name, yName: yCol.name, x: pairs.x, y: pairs.y };
+}
+
+/** Run a correlation or linear regression on the resolved XY pairs. */
+function runXYAnalysis(
+  type: AnalysisType,
+  content: DataHubDocContent,
+  spec: AnalysisSpec,
+): RunOutcome {
+  const resolved = resolveXY(content, spec);
+  if (!resolved) {
+    return {
+      ok: false,
+      error: "Pick an X column and a Y column on this XY table.",
+    };
+  }
+  const { xName, yName, x, y } = resolved;
+
+  if (type === "linearRegression") {
+    const r = linearRegression(x, y);
+    if (!r.ok) return { ok: false, error: r.error };
+    const res = r as LinearRegressionResult & { ok: true };
+    return {
+      ok: true,
+      kind: "regression",
+      type,
+      xName,
+      yName,
+      x,
+      y,
+      n: res.n,
+      slope: res.slope,
+      intercept: res.intercept,
+      rSquared: res.rSquared,
+      slopeSE: res.slopeSE,
+      interceptSE: res.interceptSE,
+      slopeCI95: res.slopeCI95,
+      interceptCI95: res.interceptCI95,
+      residualSE: res.residualSE,
+    };
+  }
+
+  const r =
+    type === "correlationSpearman" ? spearman(x, y) : pearson(x, y);
+  if (!r.ok) return { ok: false, error: r.error };
+  const res = r as CorrelationResult & { ok: true };
+  return {
+    ok: true,
+    kind: "correlation",
+    type: type === "correlationSpearman" ? "correlationSpearman" : "correlationPearson",
+    method: res.method,
+    coefficientLabel: res.method === "spearman" ? "rho" : "r",
+    xName,
+    yName,
+    x,
+    y,
+    n: res.n,
+    coefficient: res.coefficient,
+    statistic: res.statistic,
+    df: res.df,
+    pValue: res.pValue,
+    ci95: res.ci95,
+  };
 }
 
 function tableRow(table: AnovaResult["table"], source: string) {
@@ -180,6 +350,15 @@ export function runAnalysis(
   content: DataHubDocContent,
 ): RunOutcome {
   const type = spec.type as AnalysisType;
+
+  if (
+    type === "correlationPearson" ||
+    type === "correlationSpearman" ||
+    type === "linearRegression"
+  ) {
+    return runXYAnalysis(type, content, spec);
+  }
+
   const groups = resolveGroups(content, specColumnIds(spec));
 
   if (type === "oneWayAnova" || type === "kruskalWallis") {

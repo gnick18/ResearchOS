@@ -42,6 +42,12 @@ function analysisLabel(type: string): string {
       return "Wilcoxon signed-rank";
     case "kruskalWallis":
       return "Kruskal-Wallis";
+    case "correlationPearson":
+      return "Pearson correlation";
+    case "correlationSpearman":
+      return "Spearman correlation";
+    case "linearRegression":
+      return "Linear regression";
     default:
       return type;
   }

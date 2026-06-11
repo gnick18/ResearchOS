@@ -33,6 +33,7 @@ import {
   groupColumns,
   type GroupColumn,
 } from "@/lib/datahub/column-table";
+import { xColumn, xyPairs, yColumns } from "@/lib/datahub/xy-table";
 import type { AnalysisType } from "@/lib/datahub/run-analysis";
 
 /** The decision threshold the Report Card and the engine share. */
@@ -65,6 +66,8 @@ export interface AnalysisIntent {
   pairing: Pairing;
   /** Optional explicit column selection; defaults to all group columns. */
   groupColumnIds?: string[];
+  /** For an association intent on an XY table, the Y column to relate to X. */
+  yColumnId?: string;
 }
 
 /** One row of the assumption Report Card. */
@@ -226,8 +229,8 @@ function equalVarianceRow(groups: number[][]): {
   };
 }
 
-/** Human labels for the six tests the planner can recommend. */
-const TEST_LABELS: Record<AnalysisType, string> = {
+/** Human labels for the means-comparison tests the planner can recommend. */
+const TEST_LABELS: Partial<Record<AnalysisType, string>> = {
   unpairedTTest: "Unpaired t-test (Welch)",
   pairedTTest: "Paired t-test",
   oneWayAnova: "One-way ANOVA with Tukey",
@@ -283,6 +286,9 @@ function planMeans(
   const useNonparametric = !norm.pass;
   const chosenType = useNonparametric ? nonparametricType : parametricType;
 
+  // Safe label lookup (the means types always have an entry).
+  const labelFor = (t: AnalysisType): string => TEST_LABELS[t] ?? t;
+
   const reportCard: ReportCardItem[] = [norm.row, eqVar.row];
 
   // A closing NOTE line. When the plan switched, state why and to what; when it
@@ -292,14 +298,14 @@ function planMeans(
       key: "fallbackNote",
       status: "note",
       title: "Switched test",
-      detail: `Because normality did not hold, we switched you to ${TEST_LABELS[nonparametricType]}, a rank-based test that does not assume a normal distribution.`,
+      detail: `Because normality did not hold, we switched you to ${labelFor(nonparametricType)}, a rank-based test that does not assume a normal distribution.`,
     });
   } else {
     reportCard.push({
       key: "fallbackNote",
       status: "note",
       title: "If an assumption had failed",
-      detail: `We would switch you to ${TEST_LABELS[nonparametricType]} automatically and tell you why.`,
+      detail: `We would switch you to ${labelFor(nonparametricType)} automatically and tell you why.`,
     });
   }
 
@@ -313,13 +319,13 @@ function planMeans(
 
   return {
     intent,
-    recommendation: TEST_LABELS[chosenType],
+    recommendation: labelFor(chosenType),
     rationale,
     steps: [
       {
         kind: "run-test",
         analysisType: chosenType,
-        testLabel: TEST_LABELS[chosenType],
+        testLabel: labelFor(chosenType),
         columnIds,
       },
     ],
@@ -329,19 +335,25 @@ function planMeans(
 }
 
 /**
- * Plan an association (correlation / regression) intent. Correlation and linear
- * regression exist in the engine but the wizard does not yet collect the X / Y
- * pairing they need (that arrives with the XY table type), so the planner names
- * the recommended approach and marks the plan not-yet-runnable rather than
- * guessing columns. Naming the right method is honest; computing the wrong one
- * is not.
+ * Plan an association (correlation) intent on an XY table. Picks the Y column
+ * (the intent's choice, else the first), checks normality of X and Y, and
+ * recommends Pearson when both look normal (the linear-association coefficient)
+ * or Spearman when either departs from normal (a rank-based monotone measure
+ * that does not assume a straight line or a normal distribution). When the table
+ * is not an XY table the plan is not runnable and names what is needed, which is
+ * honest rather than guessing columns.
  */
-function planAssociation(intent: AnalysisIntent): ProposedPlan {
-  return {
+function planAssociation(
+  content: DataHubDocContent,
+  intent: AnalysisIntent,
+): ProposedPlan {
+  const xCol = xColumn(content);
+  const ys = yColumns(content);
+  const notRunnable = (detail: string): ProposedPlan => ({
     intent,
     recommendation: "Correlation or linear regression",
     rationale:
-      "A relationship between two measures is an XY analysis. The guided wizard plans group comparisons today; pick an XY table to run correlation or regression.",
+      "A relationship between two measures is an XY analysis. It needs an XY table with an X column and at least one Y column.",
     steps: [
       {
         kind: "run-test",
@@ -351,16 +363,67 @@ function planAssociation(intent: AnalysisIntent): ProposedPlan {
       },
     ],
     reportCard: [
-      {
-        key: "fallbackNote",
-        status: "note",
-        title: "Available soon",
-        detail:
-          "Correlation and regression run on an XY table. The guided wizard will plan them once the XY table type lands.",
-      },
+      { key: "fallbackNote", status: "note", title: "Available soon", detail },
     ],
     runnable: false,
     unsupported: "association",
+  });
+
+  if (content.meta.table_type !== "xy" || !xCol || ys.length === 0) {
+    return notRunnable(
+      "Correlation and regression run on an XY table. Make an XY table with an X column and a Y column, then try again.",
+    );
+  }
+
+  const yCol = ys.find((c) => c.id === intent.yColumnId) ?? ys[0];
+  const pairs = xyPairs(content, yCol.id);
+
+  // Check normality of X and Y. Pearson assumes an approximately normal, linear
+  // relationship; Spearman (rank-based) is the safer choice when either departs.
+  const norm = normalityRow([pairs.x, pairs.y]);
+  const usePearson = norm.pass;
+  const chosenType: AnalysisType = usePearson
+    ? "correlationPearson"
+    : "correlationSpearman";
+  const recommendation = usePearson
+    ? "Pearson correlation"
+    : "Spearman correlation";
+
+  const reportCard: ReportCardItem[] = [norm.row];
+  reportCard.push(
+    usePearson
+      ? {
+          key: "fallbackNote",
+          status: "note",
+          title: "If normality had failed",
+          detail:
+            "We would switch you to Spearman, a rank-based correlation that does not assume a straight line or a normal distribution, and tell you why. You can also run a linear regression from the New analysis menu to get the slope.",
+        }
+      : {
+          key: "fallbackNote",
+          status: "note",
+          title: "Switched method",
+          detail:
+            "Because the values are not normally distributed, we recommend Spearman, a rank-based correlation that captures a monotone trend without assuming a straight line.",
+        },
+  );
+
+  const rationale = `${yCol.name} against ${xCol.name}, ${pairs.x.length} paired observations. Here is what we checked before recommending it.`;
+
+  return {
+    intent,
+    recommendation,
+    rationale,
+    steps: [
+      {
+        kind: "run-test",
+        analysisType: chosenType,
+        testLabel: recommendation,
+        columnIds: [yCol.id],
+      },
+    ],
+    reportCard,
+    runnable: true,
   };
 }
 
@@ -409,7 +472,7 @@ export function planAnalysis(
     case "means":
       return planMeans(content, intent);
     case "association":
-      return planAssociation(intent);
+      return planAssociation(content, intent);
     case "survival":
       return planSurvival(intent);
     default:

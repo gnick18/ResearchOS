@@ -27,6 +27,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
 import type { DataHubDocContent } from "@/lib/datahub/model/types";
 import { groupColumns } from "@/lib/datahub/column-table";
+import { yColumns } from "@/lib/datahub/xy-table";
 import {
   planAnalysis,
   type AnalysisIntent,
@@ -48,6 +49,8 @@ interface Answers {
   family?: ComparisonFamily;
   groupCount?: "two" | "three-plus";
   pairing?: Pairing;
+  /** For an XY association, which Y column to relate to X. */
+  yColumnId?: string;
 }
 
 /** A single tappable option button (mirrors the mockup's .wopt). */
@@ -113,6 +116,8 @@ export default function GuidedAnalysisWizard({
     () => (content ? groupColumns(content) : []),
     [content],
   );
+  const ys = useMemo(() => (content ? yColumns(content) : []), [content]);
+  const isXY = content?.meta.table_type === "xy";
 
   // Reset the wizard each open so a re-entry starts clean.
   useEffect(() => {
@@ -140,6 +145,7 @@ export default function GuidedAnalysisWizard({
       family: answers.family,
       groupCount: answers.groupCount ?? "two",
       pairing: answers.pairing ?? "independent",
+      yColumnId: answers.yColumnId,
     };
     return planAnalysis(content, intent);
   }, [content, answers]);
@@ -150,7 +156,12 @@ export default function GuidedAnalysisWizard({
   // A means comparison asks family, count, pairing (then review = step 3). The
   // other families short-circuit to review right after family (step 1).
   const isMeans = answers.family === "means";
-  const reviewStep = isMeans ? 3 : 1;
+  const isAssoc = answers.family === "association";
+  // An XY association inserts one Y-column question before review; everything
+  // else short-circuits to review right after the family (or after pairing for
+  // a means comparison).
+  const needYStep = isAssoc && isXY && ys.length > 0;
+  const reviewStep = isMeans ? 3 : needYStep ? 2 : 1;
   const totalSteps = reviewStep + 1;
   const onReview = step >= reviewStep;
 
@@ -159,13 +170,18 @@ export default function GuidedAnalysisWizard({
     setStep(advanceTo);
   };
 
-  // The table must have enough group columns for the recommended test. The
-  // planner still recommends, but a run needs the columns to exist.
+  // The table must have enough columns for the recommended test. A means
+  // comparison needs two (or three) group columns; an association needs the one
+  // resolved Y column. The planner still recommends, but a run needs the columns.
+  const requiredColumns = isMeans
+    ? answers.groupCount === "three-plus"
+      ? 3
+      : 2
+    : 1;
   const enoughColumns =
     plan?.steps[0]?.analysisType == null
       ? false
-      : (plan?.steps[0]?.columnIds.length ?? 0) >=
-        (answers.groupCount === "three-plus" ? 3 : 2);
+      : (plan?.steps[0]?.columnIds.length ?? 0) >= requiredColumns;
 
   const canRun =
     !!plan && plan.runnable && plan.steps[0]?.analysisType != null && enoughColumns;
@@ -184,7 +200,7 @@ export default function GuidedAnalysisWizard({
     }
     // From review, step back to the last question for the family.
     if (onReview) {
-      setStep(isMeans ? 2 : 0);
+      setStep(isMeans ? 2 : needYStep ? 1 : 0);
       return;
     }
     setStep((s) => Math.max(0, s - 1));
@@ -264,6 +280,21 @@ export default function GuidedAnalysisWizard({
                 label="Paired (same subject before and after)"
                 onClick={() => pick({ pairing: "paired" }, 3)}
               />
+            </div>
+          )}
+
+          {step === 1 && needYStep && (
+            <div data-testid="wizard-step-ycolumn">
+              <p className="mb-3 text-body font-semibold text-foreground">
+                Which measure do you want to relate to X?
+              </p>
+              {ys.map((c) => (
+                <OptionButton
+                  key={c.id}
+                  label={c.name}
+                  onClick={() => pick({ yColumnId: c.id }, 2)}
+                />
+              ))}
             </div>
           )}
 

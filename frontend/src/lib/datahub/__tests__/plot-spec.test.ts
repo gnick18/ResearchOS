@@ -32,7 +32,11 @@ import {
   renderPlotSvg,
   renderPlot,
   figureFileStem,
+  niceTicks,
+  layoutXYPlot,
+  renderXYPlotSvg,
   type PlotStyle,
+  type PlotGeometry,
 } from "@/lib/datahub/plot-spec";
 
 // A two-group Column table: Control [10,20,30] (mean 20, sd 10, sem 5.7735),
@@ -414,8 +418,8 @@ describe("plot-spec: SVG serialization", () => {
     });
     const { svg, geometry } = renderPlot(spec, content, ANOVA_SPEC);
     expect(svg.startsWith("<" + "svg")).toBe(true);
-    // Brackets from the linked ANOVA land in the geometry.
-    expect(geometry.brackets.length).toBe(2);
+    // Brackets from the linked ANOVA land in the geometry (a column figure).
+    expect((geometry as PlotGeometry).brackets.length).toBe(2);
     expect(svg).toContain("****");
   });
 });
@@ -425,5 +429,83 @@ describe("plot-spec: file stem", () => {
     expect(figureFileStem("Cell Viability (%)")).toBe("cell-viability");
     expect(figureFileStem("   ")).toBe("figure");
     expect(figureFileStem("IC50 dose-response")).toBe("ic50-dose-response");
+  });
+});
+
+describe("plot-spec: nice axis ticks", () => {
+  it("frames a range with round tick values that cover it", () => {
+    const t = niceTicks(0, 95);
+    expect(t.lo).toBeLessThanOrEqual(0);
+    expect(t.hi).toBeGreaterThanOrEqual(95);
+    // Every tick is a clean multiple of the step.
+    for (const v of t.values) {
+      expect(Math.abs(v / t.step - Math.round(v / t.step))).toBeLessThan(1e-6);
+    }
+    expect(t.values[0]).toBe(t.lo);
+    expect(t.values[t.values.length - 1]).toBe(t.hi);
+  });
+
+  it("opens a window around a degenerate (min === max) range", () => {
+    const t = niceTicks(5, 5);
+    expect(t.lo).toBeLessThan(5);
+    expect(t.hi).toBeGreaterThan(5);
+  });
+});
+
+describe("plot-spec: XY scatter + fitted curve", () => {
+  const XY_META: DataHubDocument = {
+    id: "xy1",
+    name: "Line",
+    project_ids: [],
+    folder_path: null,
+    table_type: "xy",
+    created_at: "2026-06-10T00:00:00.000Z",
+  };
+
+  // A perfectly linear y = 2x + 1 so the fit is exact and easy to assert.
+  function lineContent(): DataHubDocContent {
+    const xs = [0, 1, 2, 3, 4, 5];
+    return {
+      meta: XY_META,
+      columns: [
+        { id: "x", name: "X", role: "x", dataType: "number" },
+        { id: "y1", name: "Y", role: "y", dataType: "number" },
+      ],
+      rows: xs.map((x, i) => ({
+        id: `r${i}`,
+        cells: { x, y1: 2 * x + 1 },
+      })),
+      analyses: [],
+      plots: [],
+    };
+  }
+
+  it("lays out one point per finite pair and a fitted polyline", () => {
+    const content = lineContent();
+    const style = { ...defaultPlotStyle(), kind: "xyScatter" as const, fitModel: "linear" as const };
+    const geo = layoutXYPlot(content, style, "y1");
+    expect(geo.points).toHaveLength(6);
+    // The line fit produces a sampled polyline.
+    expect(geo.fitPath).not.toBeNull();
+    expect((geo.fitPath ?? []).length).toBeGreaterThan(2);
+    // The fit note reports the (perfect) R-squared.
+    expect(geo.fitNote).toContain("R-squared = 1.000");
+    // Points stay inside the plot frame.
+    for (const p of geo.points) {
+      expect(p.x).toBeGreaterThanOrEqual(geo.x0 - 1);
+      expect(p.x).toBeLessThanOrEqual(geo.x1 + 1);
+    }
+  });
+
+  it("draws points only when the fitted curve is 'none'", () => {
+    const content = lineContent();
+    const style = { ...defaultPlotStyle(), kind: "xyScatter" as const, fitModel: "none" as const };
+    const geo = layoutXYPlot(content, style, "y1");
+    expect(geo.fitPath).toBeNull();
+    expect(geo.fitNote).toBeNull();
+    const svg = renderXYPlotSvg(geo, style);
+    expect(svg.startsWith("<" + "svg")).toBe(true);
+    expect(svg).toContain("<circle");
+    expect(svg).not.toContain("<path");
   });
 });

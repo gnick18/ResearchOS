@@ -35,8 +35,9 @@ const TABLE_TYPES: {
   {
     type: "xy",
     label: "XY",
-    blurb: "Paired X and Y for dose-response and time courses. Coming soon.",
-    enabled: false,
+    blurb:
+      "Paired X and Y for dose-response and time courses, with correlation, regression, and fitted curves.",
+    enabled: true,
   },
   {
     type: "grouped",

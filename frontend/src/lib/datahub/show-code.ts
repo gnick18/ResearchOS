@@ -14,6 +14,8 @@
 
 import type {
   NormalizedAnova,
+  NormalizedCorrelation,
+  NormalizedRegression,
   NormalizedResult,
   NormalizedTTest,
   RunGroup,
@@ -149,11 +151,48 @@ t, p = stats.ttest_ind(${a.var.trim()}, ${b.var.trim()}, equal_var=False)
 print(f"t = {t:.4g}, p = {p:.4g}")`;
 }
 
+function correlationCode(r: NormalizedCorrelation): string {
+  const x = pyList(r.x);
+  const y = pyList(r.y);
+  if (r.method === "spearman") {
+    return `from scipy import stats
+
+x = ${x}
+y = ${y}
+
+# Spearman rank correlation (monotone, no normality assumption)
+rho, p = stats.spearmanr(x, y)
+print(f"rho = {rho:.4g}, p = {p:.4g}")`;
+  }
+  return `from scipy import stats
+
+x = ${x}
+y = ${y}
+
+# Pearson linear correlation
+r, p = stats.pearsonr(x, y)
+print(f"r = {r:.4g}, p = {p:.4g}")`;
+}
+
+function regressionCode(r: NormalizedRegression): string {
+  return `from scipy import stats
+
+x = ${pyList(r.x)}
+y = ${pyList(r.y)}
+
+# Ordinary least squares linear regression y = intercept + slope * x
+fit = stats.linregress(x, y)
+print(f"slope = {fit.slope:.4g}, intercept = {fit.intercept:.4g}")
+print(f"R-squared = {fit.rvalue ** 2:.4g}, slope SE = {fit.stderr:.4g}")`;
+}
+
 /**
  * The reproducible Python snippet for a normalized analysis result, with the
  * real group names and values baked in so it reproduces the on-screen numbers.
  */
 export function showCode(result: NormalizedResult): string {
   if (result.kind === "anova") return anovaCode(result);
+  if (result.kind === "correlation") return correlationCode(result);
+  if (result.kind === "regression") return regressionCode(result);
   return ttestCode(result);
 }

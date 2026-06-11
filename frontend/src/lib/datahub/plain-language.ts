@@ -10,6 +10,8 @@
 
 import type {
   NormalizedAnova,
+  NormalizedCorrelation,
+  NormalizedRegression,
   NormalizedResult,
   NormalizedTTest,
 } from "@/lib/datahub/run-analysis";
@@ -93,11 +95,51 @@ function ttestSummary(r: NormalizedTTest): string {
   )}, which is within what chance would produce.`;
 }
 
+/** Plain-language strength word for a correlation magnitude. */
+function strengthWord(abs: number): string {
+  if (abs >= 0.7) return "strong";
+  if (abs >= 0.4) return "moderate";
+  if (abs >= 0.2) return "weak";
+  return "negligible";
+}
+
+function correlationSummary(r: NormalizedCorrelation): string {
+  const sym = r.coefficientLabel;
+  const stat = `${
+    r.method === "spearman" ? "Spearman" : "Pearson"
+  }, ${sym} = ${num(r.coefficient, 2)}, ${formatP(r.pValue)}, n = ${r.n}`;
+  const dir = r.coefficient >= 0 ? "rises with" : "falls as";
+  const strength = strengthWord(Math.abs(r.coefficient));
+  if (r.pValue < ALPHA) {
+    return `${r.yName} ${dir} ${r.xName} (${stat}). That is a ${strength}, statistically reliable ${
+      r.method === "spearman" ? "monotone" : "linear"
+    } association.`;
+  }
+  return `${r.yName} and ${r.xName} show no reliable association here (${stat}). The ${strength} trend that is present is within what chance would produce.`;
+}
+
+function regressionSummary(r: NormalizedRegression): string {
+  const stat = `y = ${num(r.intercept, 3)} + ${num(
+    r.slope,
+    3,
+  )} x, R-squared = ${num(r.rSquared, 3)}, n = ${r.n}`;
+  const dir = r.slope >= 0 ? "increases" : "decreases";
+  return `Each one-unit rise in ${r.xName} ${dir} ${r.yName} by about ${num(
+    Math.abs(r.slope),
+    3,
+  )} (${stat}). The line explains ${num(
+    r.rSquared * 100,
+    0,
+  )} percent of the variation in ${r.yName}.`;
+}
+
 /**
  * The one-sentence (or two-sentence) plain-language verdict for a normalized
  * result. The ResultsSheet renders this above the stats table.
  */
 export function plainLanguageSummary(result: NormalizedResult): string {
   if (result.kind === "anova") return anovaSummary(result);
+  if (result.kind === "correlation") return correlationSummary(result);
+  if (result.kind === "regression") return regressionSummary(result);
   return ttestSummary(result);
 }

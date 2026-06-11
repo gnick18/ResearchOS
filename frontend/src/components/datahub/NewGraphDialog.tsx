@@ -21,13 +21,30 @@ import type {
   DataHubDocContent,
 } from "@/lib/datahub/model/types";
 import { groupColumns } from "@/lib/datahub/column-table";
-import type { PlotKind } from "@/lib/datahub/plot-spec";
+import { yColumns } from "@/lib/datahub/xy-table";
+import type { PlotKind, FitModelId } from "@/lib/datahub/plot-spec";
 
 export interface NewGraphSubmit {
   kind: PlotKind;
   /** The linked ANOVA analysis id for brackets, or null. */
   analysisId: string | null;
+  /** For an XY figure, the Y column to plot against X. */
+  yColumnId?: string | null;
+  /** For an XY figure, the initial fitted-curve model. */
+  fitModel?: FitModelId;
 }
+
+/** The fitted-curve choices the XY graph dialog offers. */
+const FIT_OPTIONS: { value: FitModelId; label: string }[] = [
+  { value: "linear", label: "Linear (line of best fit)" },
+  { value: "logistic4pl", label: "4-parameter logistic (dose-response)" },
+  { value: "michaelis-menten", label: "Michaelis-Menten" },
+  { value: "exp-decay-1phase", label: "Exponential decay" },
+  { value: "exp-association-1phase", label: "Exponential association" },
+  { value: "polynomial2", label: "Quadratic" },
+  { value: "gaussian", label: "Gaussian peak" },
+  { value: "none", label: "None (points only)" },
+];
 
 const KINDS: {
   kind: PlotKind;
@@ -73,20 +90,26 @@ export default function NewGraphDialog({
   onCancel: () => void;
   onSubmit: (data: NewGraphSubmit) => void;
 }) {
+  const isXY = content?.meta.table_type === "xy";
   const groups = useMemo(
     () => (content ? groupColumns(content) : []),
     [content],
   );
+  const ys = useMemo(() => (content ? yColumns(content) : []), [content]);
   const anova = useMemo(() => findAnova(content), [content]);
 
   const [kind, setKind] = useState<PlotKind>("columnScatter");
   const [useBrackets, setUseBrackets] = useState(true);
+  const [yColumn, setYColumn] = useState<string>("");
+  const [fitModel, setFitModel] = useState<FitModelId>("linear");
 
   useEffect(() => {
     if (!open) return;
-    setKind("columnScatter");
+    setKind(isXY ? "xyScatter" : "columnScatter");
     setUseBrackets(true);
-  }, [open]);
+    setYColumn(ys[0]?.id ?? "");
+    setFitModel("linear");
+  }, [open, isXY, ys]);
 
   useEffect(() => {
     if (!open) return;
@@ -99,10 +122,19 @@ export default function NewGraphDialog({
 
   if (!open) return null;
 
-  const canSubmit = groups.length >= 1;
+  const canSubmit = isXY ? yColumn !== "" : groups.length >= 1;
 
   const submit = () => {
     if (!canSubmit) return;
+    if (isXY) {
+      onSubmit({
+        kind: "xyScatter",
+        analysisId: null,
+        yColumnId: yColumn,
+        fitModel,
+      });
+      return;
+    }
     onSubmit({
       kind,
       analysisId: anova && useBrackets ? anova.id : null,
@@ -123,11 +155,56 @@ export default function NewGraphDialog({
       >
         <h2 className="text-title font-semibold text-foreground">New graph</h2>
         <p className="mt-1 text-meta text-foreground-muted">
-          The figure reads from this table live, so an edit to a replicate
-          redraws the points and error bars. You only choose the kind once.
+          The figure reads from this table live, so an edit redraws the points
+          and re-fits the curve. You only choose the kind once.
         </p>
 
-        {groups.length === 0 ? (
+        {isXY ? (
+          ys.length === 0 ? (
+            <p className="mt-4 rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-foreground-muted">
+              Add an X column and at least one Y column with numbers before
+              making a graph.
+            </p>
+          ) : (
+            <>
+              <label className="mt-4 block text-meta font-medium uppercase tracking-wide text-foreground-muted">
+                Y column
+              </label>
+              <select
+                value={yColumn}
+                onChange={(e) => setYColumn(e.target.value)}
+                className="mt-1 w-full rounded-md border border-border bg-surface-raised px-2 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
+              >
+                {ys.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+
+              <label className="mt-4 block text-meta font-medium uppercase tracking-wide text-foreground-muted">
+                Fitted curve
+              </label>
+              <select
+                value={fitModel}
+                onChange={(e) => setFitModel(e.target.value as FitModelId)}
+                className="mt-1 w-full rounded-md border border-border bg-surface-raised px-2 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
+                data-testid="datahub-newgraph-fitmodel"
+              >
+                {FIT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 rounded-md border border-border bg-surface-raised px-3 py-2 text-meta text-foreground-muted">
+                The curve is fit by least squares from these points, the same way
+                a notebook would. You can change the model later from the style
+                panel.
+              </p>
+            </>
+          )
+        ) : groups.length === 0 ? (
           <p className="mt-4 rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-foreground-muted">
             Add at least one group with numbers before making a graph.
           </p>

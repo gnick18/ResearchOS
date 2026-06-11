@@ -37,7 +37,20 @@ import {
   type PlotStyle,
   type ColorMode,
   type ErrorBarKind,
+  type FitModelId,
 } from "@/lib/datahub/plot-spec";
+
+/** The fitted-curve choices the XY style panel offers, labeled for scientists. */
+const FIT_MODEL_OPTIONS: { value: FitModelId; label: string }[] = [
+  { value: "none", label: "None (points only)" },
+  { value: "linear", label: "Linear" },
+  { value: "logistic4pl", label: "4-parameter logistic (dose-response)" },
+  { value: "michaelis-menten", label: "Michaelis-Menten" },
+  { value: "exp-decay-1phase", label: "Exponential decay" },
+  { value: "exp-association-1phase", label: "Exponential association" },
+  { value: "polynomial2", label: "Quadratic" },
+  { value: "gaussian", label: "Gaussian peak" },
+];
 
 /** A labeled row in the style panel (label left, control right). */
 function Ctl({
@@ -110,6 +123,7 @@ export default function GraphEditor({
   const [busy, setBusy] = useState(false);
 
   const style = useMemo(() => readPlotStyle(spec), [spec]);
+  const isXY = style.kind === "xyScatter";
   // The live figure. Recomputed whenever the spec, the table, or the linked
   // analysis changes (a cell edit reprojects content, so the points move).
   const { svg, geometry } = useMemo(
@@ -156,9 +170,9 @@ export default function GraphEditor({
     <div data-testid="datahub-graph-editor">
       <h1 className="text-title font-semibold text-foreground">{title}</h1>
       <p className="mt-1 max-w-xl text-meta text-foreground-muted">
-        Individual points with the group mean and error bars, plus significance
-        brackets from the stored analysis. Every control redraws the figure, and
-        the export stays a true vector.
+        {isXY
+          ? "Your X and Y observations as a scatter, with a fitted curve laid over them. The fit is computed from the same points, so an edit re-fits the curve, and the export stays a true vector."
+          : "Individual points with the group mean and error bars, plus significance brackets from the stored analysis. Every control redraws the figure, and the export stays a true vector."}
       </p>
 
       <div className="mt-4 flex flex-wrap items-start gap-5">
@@ -217,53 +231,74 @@ export default function GraphEditor({
             Graph style
           </h4>
 
-          <Ctl label="Style">
-            <Seg<PlotStyle["kind"]>
-              value={style.kind === "columnBar" ? "columnBar" : "columnScatter"}
-              options={[
-                { value: "columnScatter", label: "Scatter" },
-                { value: "columnBar", label: "Bar" },
-              ]}
-              onChange={(kind) => onStyleChange({ kind })}
-            />
-          </Ctl>
+          {isXY ? (
+            <Ctl label="Fitted curve">
+              <select
+                value={style.fitModel}
+                onChange={(e) =>
+                  onStyleChange({ fitModel: e.target.value as FitModelId })
+                }
+                className="max-w-[140px] rounded-md border border-border bg-surface-overlay px-2 py-1 text-meta text-foreground focus:border-sky-400 focus:outline-none"
+                data-testid="datahub-style-fitmodel"
+              >
+                {FIT_MODEL_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </Ctl>
+          ) : (
+            <>
+              <Ctl label="Style">
+                <Seg<PlotStyle["kind"]>
+                  value={style.kind === "columnBar" ? "columnBar" : "columnScatter"}
+                  options={[
+                    { value: "columnScatter", label: "Scatter" },
+                    { value: "columnBar", label: "Bar" },
+                  ]}
+                  onChange={(kind) => onStyleChange({ kind })}
+                />
+              </Ctl>
 
-          <Ctl label="Error bars">
-            <select
-              value={style.errorBar}
-              onChange={(e) =>
-                onStyleChange({ errorBar: e.target.value as ErrorBarKind })
-              }
-              className="rounded-md border border-border bg-surface-overlay px-2 py-1 text-meta text-foreground focus:border-sky-400 focus:outline-none"
-              data-testid="datahub-style-errorbar"
-            >
-              <option value="sem">Mean + SEM</option>
-              <option value="sd">Mean + SD</option>
-              <option value="none">None</option>
-            </select>
-          </Ctl>
+              <Ctl label="Error bars">
+                <select
+                  value={style.errorBar}
+                  onChange={(e) =>
+                    onStyleChange({ errorBar: e.target.value as ErrorBarKind })
+                  }
+                  className="rounded-md border border-border bg-surface-overlay px-2 py-1 text-meta text-foreground focus:border-sky-400 focus:outline-none"
+                  data-testid="datahub-style-errorbar"
+                >
+                  <option value="sem">Mean + SEM</option>
+                  <option value="sd">Mean + SD</option>
+                  <option value="none">None</option>
+                </select>
+              </Ctl>
 
-          <Ctl label="Show points">
-            <Seg<"on" | "off">
-              value={style.showPoints ? "on" : "off"}
-              options={[
-                { value: "on", label: "On" },
-                { value: "off", label: "Off" },
-              ]}
-              onChange={(v) => onStyleChange({ showPoints: v === "on" })}
-            />
-          </Ctl>
+              <Ctl label="Show points">
+                <Seg<"on" | "off">
+                  value={style.showPoints ? "on" : "off"}
+                  options={[
+                    { value: "on", label: "On" },
+                    { value: "off", label: "Off" },
+                  ]}
+                  onChange={(v) => onStyleChange({ showPoints: v === "on" })}
+                />
+              </Ctl>
 
-          <Ctl label="Brackets">
-            <Seg<"on" | "off">
-              value={style.showBrackets ? "on" : "off"}
-              options={[
-                { value: "on", label: "On" },
-                { value: "off", label: "Off" },
-              ]}
-              onChange={(v) => onStyleChange({ showBrackets: v === "on" })}
-            />
-          </Ctl>
+              <Ctl label="Brackets">
+                <Seg<"on" | "off">
+                  value={style.showBrackets ? "on" : "off"}
+                  options={[
+                    { value: "on", label: "On" },
+                    { value: "off", label: "Off" },
+                  ]}
+                  onChange={(v) => onStyleChange({ showBrackets: v === "on" })}
+                />
+              </Ctl>
+            </>
+          )}
 
           <Ctl label="Color">
             <select

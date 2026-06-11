@@ -23,6 +23,8 @@ import type {
 import {
   runAnalysis,
   type NormalizedAnova,
+  type NormalizedCorrelation,
+  type NormalizedRegression,
   type NormalizedResult,
   type NormalizedTTest,
 } from "@/lib/datahub/run-analysis";
@@ -197,6 +199,76 @@ function TTestTable({ r }: { r: NormalizedTTest }) {
   );
 }
 
+function ciText(ci: [number, number] | null | undefined): string {
+  if (!ci || !Number.isFinite(ci[0]) || !Number.isFinite(ci[1])) return "-";
+  return `${num(ci[0])} to ${num(ci[1])}`;
+}
+
+function KeyValueTable({
+  rows,
+  testid,
+}: {
+  rows: { label: string; value: string }[];
+  testid: string;
+}) {
+  return (
+    <table
+      className="mt-4 w-full max-w-md border-collapse text-body tabular-nums"
+      data-testid={testid}
+    >
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.label}>
+            <td className="border-b border-border px-3 py-1.5 text-foreground-muted">
+              {row.label}
+            </td>
+            <td className="border-b border-border px-3 py-1.5 text-right text-foreground">
+              {row.value}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function CorrelationTable({ r }: { r: NormalizedCorrelation }) {
+  const sym = r.coefficientLabel;
+  return (
+    <KeyValueTable
+      testid="results-correlation-table"
+      rows={[
+        { label: "Method", value: r.method === "spearman" ? "Spearman rank" : "Pearson" },
+        { label: `Coefficient (${sym})`, value: num(r.coefficient, 3) },
+        { label: "95% CI of " + sym, value: ciText(r.ci95) },
+        { label: "t", value: num(r.statistic) },
+        { label: "df", value: num(r.df, 0) },
+        { label: "p", value: formatP(r.pValue) },
+        { label: "Pairs (n)", value: num(r.n, 0) },
+      ]}
+    />
+  );
+}
+
+function RegressionTable({ r }: { r: NormalizedRegression }) {
+  return (
+    <KeyValueTable
+      testid="results-regression-table"
+      rows={[
+        { label: "Slope", value: num(r.slope, 4) },
+        { label: "Slope SE", value: num(r.slopeSE, 4) },
+        { label: "95% CI of slope", value: ciText(r.slopeCI95) },
+        { label: "Intercept", value: num(r.intercept, 4) },
+        { label: "Intercept SE", value: num(r.interceptSE, 4) },
+        { label: "95% CI of intercept", value: ciText(r.interceptCI95) },
+        { label: "R-squared", value: num(r.rSquared, 4) },
+        { label: "Residual SE", value: num(r.residualSE, 4) },
+        { label: "Pairs (n)", value: num(r.n, 0) },
+      ]}
+    />
+  );
+}
+
 export default function ResultsSheet({
   spec,
   content,
@@ -240,6 +312,10 @@ export default function ResultsSheet({
 
       {result.kind === "anova" ? (
         <AnovaTables r={result} />
+      ) : result.kind === "correlation" ? (
+        <CorrelationTable r={result} />
+      ) : result.kind === "regression" ? (
+        <RegressionTable r={result} />
       ) : (
         <TTestTable r={result} />
       )}

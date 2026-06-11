@@ -42,6 +42,8 @@ import {
   columnValues,
   type GroupStats,
 } from "@/lib/datahub/column-table";
+import { xColumn, xyPairs, yColumns } from "@/lib/datahub/xy-table";
+import { fitModel, getModel } from "@/lib/datahub/engine";
 
 // ---------------------------------------------------------------------------
 // Plot kinds + style / source shapes
@@ -83,7 +85,25 @@ export interface PlotStyle {
   yTitle: string;
   /** X axis title (below the group labels). Empty hides it. */
   xTitle: string;
+  /**
+   * For an XY figure, the curve fitted over the scatter. "none" draws points
+   * only; "linear" draws the least-squares line; any other id is a registered
+   * nonlinear model (4PL, Michaelis-Menten, exponential, ...). Ignored by the
+   * column figures.
+   */
+  fitModel: FitModelId;
 }
+
+/** The fitted-curve choices an XY figure offers (mirrors the engine registry). */
+export type FitModelId =
+  | "none"
+  | "linear"
+  | "logistic4pl"
+  | "michaelis-menten"
+  | "exp-decay-1phase"
+  | "exp-association-1phase"
+  | "polynomial2"
+  | "gaussian";
 
 /** What a figure draws: the source table and (optionally) a linked analysis. */
 export interface PlotSource {
@@ -94,6 +114,8 @@ export interface PlotSource {
    * brackets, or null when brackets are off / no analysis is linked.
    */
   analysisId: string | null;
+  /** For an XY figure, which Y (response) column to plot against X. */
+  yColumnId?: string | null;
 }
 
 /** The default publication style for a brand-new column figure. */
@@ -108,8 +130,21 @@ export function defaultPlotStyle(): PlotStyle {
     title: "",
     yTitle: "Value",
     xTitle: "",
+    fitModel: "linear",
   };
 }
+
+/** Valid fitted-curve ids, so a stored string round-trips into the typed union. */
+const FIT_MODEL_IDS: FitModelId[] = [
+  "none",
+  "linear",
+  "logistic4pl",
+  "michaelis-menten",
+  "exp-decay-1phase",
+  "exp-association-1phase",
+  "polynomial2",
+  "gaussian",
+];
 
 /** Read a PlotSpec's open style record into the typed PlotStyle, with defaults. */
 export function readPlotStyle(spec: PlotSpec): PlotStyle {
@@ -143,6 +178,9 @@ export function readPlotStyle(spec: PlotSpec): PlotStyle {
     title: typeof s.title === "string" ? s.title : d.title,
     yTitle: typeof s.yTitle === "string" ? s.yTitle : d.yTitle,
     xTitle: typeof s.xTitle === "string" ? s.xTitle : d.xTitle,
+    fitModel: FIT_MODEL_IDS.includes(s.fitModel as FitModelId)
+      ? (s.fitModel as FitModelId)
+      : d.fitModel,
   };
 }
 
@@ -152,6 +190,7 @@ export function readPlotSource(spec: PlotSpec): PlotSource {
   return {
     tableId: typeof s.tableId === "string" ? s.tableId : "",
     analysisId: typeof s.analysisId === "string" ? s.analysisId : null,
+    yColumnId: typeof s.yColumnId === "string" ? s.yColumnId : null,
   };
 }
 
@@ -166,17 +205,25 @@ export function buildPlotSpec(args: {
   kind: PlotKind;
   tableId: string;
   analysisId?: string | null;
+  /** For an XY figure, the Y column to plot against X. */
+  yColumnId?: string | null;
+  /** For an XY figure, the initial fitted-curve model. */
+  fitModel?: FitModelId;
   /** Seed the y-axis title from the table name when the caller has it. */
   yTitle?: string;
+  xTitle?: string;
   title?: string;
 }): PlotSpec {
   const style = defaultPlotStyle();
   style.kind = args.kind;
   if (args.yTitle !== undefined) style.yTitle = args.yTitle;
+  if (args.xTitle !== undefined) style.xTitle = args.xTitle;
   if (args.title !== undefined) style.title = args.title;
+  if (args.fitModel !== undefined) style.fitModel = args.fitModel;
   const source: PlotSource = {
     tableId: args.tableId,
     analysisId: args.analysisId ?? null,
+    yColumnId: args.yColumnId ?? null,
   };
   return {
     id: args.id,
@@ -693,8 +740,18 @@ export function renderPlot(
   spec: PlotSpec,
   content: DataHubDocContent,
   analysis: AnalysisSpec | null,
-): { svg: string; geometry: PlotGeometry; style: PlotStyle } {
+): {
+  svg: string;
+  geometry: PlotGeometry | XYPlotGeometry;
+  style: PlotStyle;
+} {
   const style = readPlotStyle(spec);
+  if (style.kind === "xyScatter") {
+    const source = readPlotSource(spec);
+    const geometry = layoutXYPlot(content, style, source.yColumnId ?? null);
+    const svg = renderXYPlotSvg(geometry, style);
+    return { svg, geometry, style };
+  }
   const groups = resolvePlotGroups(content, style);
   const requests = style.showBrackets
     ? bracketRequestsFromAnalysis(analysis, groups)
@@ -702,6 +759,300 @@ export function renderPlot(
   const geometry = layoutPlot(groups, style, requests);
   const svg = renderPlotSvg(geometry, style);
   return { svg, geometry, style };
+}
+
+// ---------------------------------------------------------------------------
+// XY scatter + fitted curve (pure, unit-tested)
+// ---------------------------------------------------------------------------
+
+/** A laid-out axis tick for the XY figure (value + its pixel position). */
+export interface XYTick {
+  value: number;
+  /** Pixel x for an x-axis tick, or pixel y for a y-axis tick. */
+  px: number;
+}
+
+/** The full laid-out XY figure the XY serializer turns into SVG. */
+export interface XYPlotGeometry {
+  width: number;
+  height: number;
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+  xMin: number;
+  xMax: number;
+  yMin: number;
+  yMax: number;
+  xTicks: XYTick[];
+  yTicks: XYTick[];
+  /** The plotted raw observations, in pixels. */
+  points: { x: number; y: number }[];
+  /** The fitted-curve polyline in pixels, or null when no curve is drawn. */
+  fitPath: { x: number; y: number }[] | null;
+  color: string;
+  /** A short readout for the fit (model + R-squared), or null. */
+  fitNote: string | null;
+}
+
+/**
+ * Standard "nice number" rounding (Heckbert) so an axis frames arbitrary data
+ * with round tick values. round=true snaps to the nearest nice number; false
+ * rounds up so the axis always covers the range.
+ */
+function niceNum(range: number, round: boolean): number {
+  if (range <= 0 || !Number.isFinite(range)) return 1;
+  const exp = Math.floor(Math.log10(range));
+  const frac = range / Math.pow(10, exp);
+  let nice: number;
+  if (round) {
+    if (frac < 1.5) nice = 1;
+    else if (frac < 3) nice = 2;
+    else if (frac < 7) nice = 5;
+    else nice = 10;
+  } else {
+    if (frac <= 1) nice = 1;
+    else if (frac <= 2) nice = 2;
+    else if (frac <= 5) nice = 5;
+    else nice = 10;
+  }
+  return nice * Math.pow(10, exp);
+}
+
+/**
+ * Nice axis bounds + evenly spaced tick values covering [min, max]. Handles a
+ * degenerate (min === max) range by opening a unit window around the value.
+ */
+export function niceTicks(
+  min: number,
+  max: number,
+  count = 5,
+): { lo: number; hi: number; step: number; values: number[] } {
+  if (!Number.isFinite(min) || !Number.isFinite(max)) {
+    return { lo: 0, hi: 1, step: 0.5, values: [0, 0.5, 1] };
+  }
+  if (min === max) {
+    const pad = Math.abs(min) > 0 ? Math.abs(min) * 0.5 : 1;
+    min -= pad;
+    max += pad;
+  }
+  const range = niceNum(max - min, false);
+  const step = niceNum(range / Math.max(1, count - 1), true);
+  const lo = Math.floor(min / step) * step;
+  const hi = Math.ceil(max / step) * step;
+  const values: number[] = [];
+  // Guard floating-point drift so the last tick lands exactly.
+  for (let v = lo; v <= hi + step * 1e-6; v += step) {
+    values.push(Math.round(v * 1e9) / 1e9);
+  }
+  return { lo, hi, step, values };
+}
+
+/**
+ * Resolve a fitted curve for the (x, y) pairs under a chosen model. Returns the
+ * predictor function (fitted parameters baked in) plus a short note, or null
+ * when no curve is requested / the fit cannot run. The engine does the math
+ * (fitModel for nonlinear, the registered "linear" model for the line), so the
+ * curve and any stored regression agree.
+ */
+function resolveXYFit(
+  x: number[],
+  y: number[],
+  modelId: FitModelId,
+): { predict: (x: number) => number; note: string } | null {
+  if (modelId === "none") return null;
+  const model = getModel(modelId);
+  if (!model) return null;
+  if (x.length <= model.paramNames.length) return null;
+  const result = fitModel(modelId, x, y);
+  if (!result.ok) return null;
+  const params = result.parameters.map((p) => p.value);
+  if (!params.every((v) => Number.isFinite(v))) return null;
+  const predict = model.fn(params);
+  const r2 = Number.isFinite(result.rSquared)
+    ? `R-squared = ${result.rSquared.toFixed(3)}`
+    : "";
+  const note = `${model.label}${r2 ? `, ${r2}` : ""}`;
+  return { predict, note };
+}
+
+/**
+ * Lay out an XY figure: the scatter of (x, y) pairs for the chosen Y column on
+ * numeric X and Y axes, plus an optional fitted curve sampled across the X
+ * range. Both axes frame the data (the curve included) with nice round ticks.
+ * Pure, so the geometry is asserted in the test suite.
+ */
+export function layoutXYPlot(
+  content: DataHubDocContent,
+  style: PlotStyle,
+  yColumnId: string | null,
+): XYPlotGeometry {
+  const { width, height, padL, padR, padT, padB } = FIG;
+  const x0 = padL;
+  const x1 = width - padR;
+  const y0 = height - padB;
+  const y1 = padT;
+
+  // Resolve the Y column (the requested one, else the first available).
+  const ys = yColumns(content);
+  const xCol = xColumn(content);
+  const targetY =
+    (yColumnId && ys.find((c) => c.id === yColumnId)?.id) || ys[0]?.id || null;
+  const pairs =
+    xCol && targetY ? xyPairs(content, targetY) : { x: [], y: [] };
+  const xs = pairs.x;
+  const yvals = pairs.y;
+
+  const color = colorForGroup(style.colorMode, 0);
+
+  // The fitted curve (sampled later once the X scale exists).
+  const fit = resolveXYFit(xs, yvals, style.fitModel);
+
+  // Data extents over the points; widen the Y extent to include the curve.
+  let xMinData = xs.length ? Math.min(...xs) : 0;
+  let xMaxData = xs.length ? Math.max(...xs) : 1;
+  if (xMinData === xMaxData) {
+    xMaxData = xMinData + 1;
+  }
+  let yMinData = yvals.length ? Math.min(...yvals) : 0;
+  let yMaxData = yvals.length ? Math.max(...yvals) : 1;
+
+  // Sample the fitted curve across the X data range to both draw it and let it
+  // influence the Y frame (a curve can overshoot the points).
+  const SAMPLES = 96;
+  const rawFit: { x: number; y: number }[] = [];
+  if (fit && xs.length > 0) {
+    for (let i = 0; i <= SAMPLES; i++) {
+      const xv = xMinData + ((xMaxData - xMinData) * i) / SAMPLES;
+      const yv = fit.predict(xv);
+      if (Number.isFinite(yv)) {
+        rawFit.push({ x: xv, y: yv });
+        if (yv < yMinData) yMinData = yv;
+        if (yv > yMaxData) yMaxData = yv;
+      }
+    }
+  }
+
+  const xAxis = niceTicks(xMinData, xMaxData);
+  const yAxis = niceTicks(yMinData, yMaxData);
+
+  const xScale = scaleLinear().domain([xAxis.lo, xAxis.hi]).range([x0, x1]);
+  const yScale = scaleLinear().domain([yAxis.lo, yAxis.hi]).range([y0, y1]);
+  const X = (v: number) => xScale(v);
+  const Y = (v: number) => yScale(v);
+
+  const xTicks: XYTick[] = xAxis.values.map((v) => ({ value: v, px: X(v) }));
+  const yTicks: XYTick[] = yAxis.values.map((v) => ({ value: v, px: Y(v) }));
+
+  const points = xs.map((xv, i) => ({ x: X(xv), y: Y(yvals[i]) }));
+  const fitPath =
+    rawFit.length > 0 ? rawFit.map((p) => ({ x: X(p.x), y: Y(p.y) })) : null;
+
+  return {
+    width,
+    height,
+    x0,
+    x1,
+    y0,
+    y1,
+    xMin: xAxis.lo,
+    xMax: xAxis.hi,
+    yMin: yAxis.lo,
+    yMax: yAxis.hi,
+    xTicks,
+    yTicks,
+    points,
+    fitPath,
+    color,
+    fitNote: fit ? fit.note : null,
+  };
+}
+
+/**
+ * Serialize a laid-out XY figure into a standalone SVG string. Same portability
+ * contract as the column serializer: a white ground, inline font stack, and no
+ * external CSS, so the string downloads as a valid .svg and rasterizes to PNG.
+ */
+export function renderXYPlotSvg(geo: XYPlotGeometry, style: PlotStyle): string {
+  const f = style.fontSize;
+  const tickFont = Math.max(8, f - 2);
+  const parts: string[] = [];
+  parts.push(
+    `<svg width="${geo.width}" height="${geo.height}" viewBox="0 0 ${geo.width} ${geo.height}" ` +
+      `xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Inter, system-ui, sans-serif">`,
+  );
+  parts.push(
+    `<rect x="0" y="0" width="${geo.width}" height="${geo.height}" fill="#ffffff"/>`,
+  );
+
+  if (style.title.trim() !== "") {
+    parts.push(
+      `<text x="${geo.width / 2}" y="${geo.y1 - 14}" font-size="${f + 1}" ` +
+        `fill="${LABEL_TEXT}" text-anchor="middle" font-weight="700">${esc(style.title)}</text>`,
+    );
+  }
+
+  // Y axis + ticks.
+  parts.push(
+    `<line x1="${geo.x0}" y1="${geo.y1}" x2="${geo.x0}" y2="${geo.y0}" stroke="${AXIS_COLOR}" stroke-width="1"/>`,
+  );
+  for (const t of geo.yTicks) {
+    parts.push(
+      `<line x1="${geo.x0 - 4}" y1="${t.px}" x2="${geo.x0}" y2="${t.px}" stroke="${AXIS_COLOR}"/>` +
+        `<text x="${geo.x0 - 8}" y="${t.px + 4}" font-size="${tickFont}" fill="${TICK_TEXT}" text-anchor="end">${fmtTick(t.value)}</text>`,
+    );
+  }
+  if (style.yTitle.trim() !== "") {
+    const midY = (geo.y0 + geo.y1) / 2;
+    parts.push(
+      `<text transform="translate(${geo.x0 - 38}, ${midY}) rotate(-90)" font-size="${f}" ` +
+        `fill="${LABEL_TEXT}" text-anchor="middle">${esc(style.yTitle)}</text>`,
+    );
+  }
+
+  // X axis + ticks.
+  parts.push(
+    `<line x1="${geo.x0}" y1="${geo.y0}" x2="${geo.x1}" y2="${geo.y0}" stroke="${AXIS_COLOR}" stroke-width="1"/>`,
+  );
+  for (const t of geo.xTicks) {
+    parts.push(
+      `<line x1="${t.px}" y1="${geo.y0}" x2="${t.px}" y2="${geo.y0 + 4}" stroke="${AXIS_COLOR}"/>` +
+        `<text x="${t.px}" y="${geo.y0 + 16}" font-size="${tickFont}" fill="${TICK_TEXT}" text-anchor="middle">${fmtTick(t.value)}</text>`,
+    );
+  }
+  if (style.xTitle.trim() !== "") {
+    parts.push(
+      `<text x="${(geo.x0 + geo.x1) / 2}" y="${geo.height - 8}" font-size="${f}" ` +
+        `fill="${LABEL_TEXT}" text-anchor="middle">${esc(style.xTitle)}</text>`,
+    );
+  }
+
+  // Fitted curve under the points.
+  if (geo.fitPath && geo.fitPath.length > 1) {
+    const d = geo.fitPath
+      .map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
+      .join(" ");
+    parts.push(
+      `<path d="${d}" fill="none" stroke="${geo.color}" stroke-width="2"/>`,
+    );
+  }
+
+  // Raw observations.
+  for (const p of geo.points) {
+    parts.push(
+      `<circle cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="3.2" fill="${geo.color}" opacity="0.9"/>`,
+    );
+  }
+
+  // Fit readout (model + R-squared), top-left of the plot area.
+  if (geo.fitNote) {
+    parts.push(
+      `<text x="${geo.x0 + 6}" y="${geo.y1 + 12}" font-size="${tickFont}" fill="${LABEL_TEXT}">${esc(geo.fitNote)}</text>`,
+    );
+  }
+
+  parts.push(`</svg>`);
+  return parts.join("");
 }
 
 // ---------------------------------------------------------------------------
