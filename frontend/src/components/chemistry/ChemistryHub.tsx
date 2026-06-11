@@ -14,6 +14,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import {
+  substructureMatches,
+  similarityRank,
+  type SimilarityResult,
+} from "@/lib/chemistry/structure-search";
+
 import Tooltip from "@/components/Tooltip";
 import { Icon } from "@/components/icons";
 import { moleculesApi, type Molecule } from "@/lib/chemistry/api";
@@ -32,6 +38,8 @@ import { LiteratureSearch } from "./LiteratureSearch";
 const LIST_WIDTH_KEY = "researchos:chemistry:listWidth";
 type SortKey = "recent" | "name";
 type MainView = "auto" | "literature";
+type SearchMode = "text" | "structure";
+type StructureMode = "substructure" | "similar";
 
 export function ChemistryHub({
   onNewStructure,
@@ -61,6 +69,21 @@ export function ChemistryHub({
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const queryClient = useQueryClient();
+
+  // Structure search state (v2 Phase 2). When searchMode === "structure", the
+  // text input becomes a SMILES/SMARTS field and the list is replaced by async
+  // RDKit results. Text mode is unchanged.
+  const [searchMode, setSearchMode] = useState<SearchMode>("text");
+  const [structureMode, setStructureMode] = useState<StructureMode>("substructure");
+  const [structureQuery, setStructureQuery] = useState("");
+  // Debounced value that actually fires RDKit (avoids per-keystroke wasm calls).
+  const [debouncedStructureQuery, setDebouncedStructureQuery] = useState("");
+  const [structureSearching, setStructureSearching] = useState(false);
+  const [structureError, setStructureError] = useState<string | null>(null);
+  // Substructure results: ids that contain the query.
+  const [substructHitIds, setSubstructHitIds] = useState<Set<string>>(new Set());
+  // Similarity results: ranked list with scores.
+  const [similarityResults, setSimilarityResults] = useState<SimilarityResult[]>([]);
 
   const splitRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
@@ -234,6 +257,68 @@ export function ChemistryHub({
     return molecules.filter((m) => m.project_ids.includes(collection));
   }, [molecules, collection]);
 
+  // Debounce the structure query so we do not fire RDKit on every keystroke.
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedStructureQuery(structureQuery), 300);
+    return () => clearTimeout(id);
+  }, [structureQuery]);
+
+  // Run the structure search whenever the debounced query, mode, or collection
+  // changes. Clears results on mode switch or empty query.
+  useEffect(() => {
+    const q = debouncedStructureQuery.trim();
+    if (searchMode !== "structure" || !q) {
+      setSubstructHitIds(new Set());
+      setSimilarityResults([]);
+      setStructureError(null);
+      setStructureSearching(false);
+      return;
+    }
+
+    const targets = inCollection
+      .filter((m) => m.smiles)
+      .map((m) => ({ id: m.id, structure: m.smiles ?? "" }));
+
+    setStructureSearching(true);
+    setStructureError(null);
+
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        if (structureMode === "substructure") {
+          const hits = await substructureMatches(q, targets);
+          if (!cancelled) {
+            setSubstructHitIds(hits);
+            setSimilarityResults([]);
+          }
+        } else {
+          const ranked = await similarityRank(q, targets);
+          if (!cancelled) {
+            setSimilarityResults(ranked);
+            setSubstructHitIds(new Set());
+          }
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setStructureError(
+            err instanceof Error ? err.message : "Structure search failed",
+          );
+          setSubstructHitIds(new Set());
+          setSimilarityResults([]);
+        }
+      } finally {
+        if (!cancelled) setStructureSearching(false);
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedStructureQuery, structureMode, searchMode, inCollection]);
+
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     const filtered = q
@@ -252,12 +337,38 @@ export function ChemistryHub({
     return filtered;
   }, [inCollection, query, sort]);
 
+  // Structure mode result lists. These replace `shown` while searchMode is
+  // "structure" and a debounced query is present.
+  const SIMILARITY_CAP = 50;
+
+  const structureSubstructShown = useMemo(() => {
+    if (searchMode !== "structure" || structureMode !== "substructure") return null;
+    if (!debouncedStructureQuery.trim()) return null;
+    return inCollection.filter((m) => substructHitIds.has(m.id));
+  }, [searchMode, structureMode, debouncedStructureQuery, inCollection, substructHitIds]);
+
+  const structureSimilarShown = useMemo(() => {
+    if (searchMode !== "structure" || structureMode !== "similar") return null;
+    if (!debouncedStructureQuery.trim()) return null;
+    const scoreMap = new Map<string, number>(
+      similarityResults.map((r) => [r.id, r.score]),
+    );
+    return inCollection
+      .filter((m) => {
+        const s = scoreMap.get(m.id);
+        return s != null && s > 0;
+      })
+      .sort((a, b) => (scoreMap.get(b.id) ?? 0) - (scoreMap.get(a.id) ?? 0))
+      .slice(0, SIMILARITY_CAP);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchMode, structureMode, debouncedStructureQuery, inCollection, similarityResults]);
+
   const selected = useMemo(
     () => molecules.find((m) => m.id === selectedId) ?? null,
     [molecules, selectedId],
   );
 
-  // ── Bulk selection ──────────────────────────────────────────────────────
+  // -- Bulk selection ------------------------------------------------------
   // Keep the checked set consistent with the live data: drop ids that have
   // left the library (deleted), but DO NOT clear on a search/collection change
   // so a user can refine the view mid-selection (mirrors the sequences rule).
@@ -275,11 +386,33 @@ export function ChemistryHub({
     });
   }, [molecules]);
 
+  // The "active list" -- what is actually displayed in the rail at the moment.
+  // In structure mode with a live query, this is the structure results; otherwise
+  // it is the text-filtered `shown` list. Checked-state operations (select all,
+  // count) all key off this.
+  const activeList = useMemo(() => {
+    if (searchMode === "structure" && debouncedStructureQuery.trim()) {
+      if (structureMode === "substructure" && structureSubstructShown)
+        return structureSubstructShown;
+      if (structureMode === "similar" && structureSimilarShown)
+        return structureSimilarShown;
+      return [];
+    }
+    return shown;
+  }, [
+    searchMode,
+    debouncedStructureQuery,
+    structureMode,
+    structureSubstructShown,
+    structureSimilarShown,
+    shown,
+  ]);
+
   const visibleCheckedCount = useMemo(
-    () => shown.reduce((n, m) => n + (checkedIds.has(m.id) ? 1 : 0), 0),
-    [shown, checkedIds],
+    () => activeList.reduce((n, m) => n + (checkedIds.has(m.id) ? 1 : 0), 0),
+    [activeList, checkedIds],
   );
-  const allVisibleChecked = shown.length > 0 && visibleCheckedCount === shown.length;
+  const allVisibleChecked = activeList.length > 0 && visibleCheckedCount === activeList.length;
   const someVisibleChecked = visibleCheckedCount > 0 && !allVisibleChecked;
 
   const toggleChecked = useCallback((id: string) => {
@@ -294,12 +427,13 @@ export function ChemistryHub({
   const toggleAllVisible = useCallback(() => {
     setCheckedIds((prev) => {
       const next = new Set(prev);
-      const everyVisible = shown.length > 0 && shown.every((m) => next.has(m.id));
-      if (everyVisible) for (const m of shown) next.delete(m.id);
-      else for (const m of shown) next.add(m.id);
+      const everyVisible =
+        activeList.length > 0 && activeList.every((m) => next.has(m.id));
+      if (everyVisible) for (const m of activeList) next.delete(m.id);
+      else for (const m of activeList) next.add(m.id);
       return next;
     });
-  }, [shown]);
+  }, [activeList]);
 
   const clearSelection = useCallback(() => setCheckedIds(new Set()), []);
 
@@ -448,29 +582,101 @@ export function ChemistryHub({
           </select>
         </div>
 
-        {/* search + sort */}
-        <div className="border-b border-border px-3 py-2 flex items-center gap-2">
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search name, formula, SMILES"
-            className="flex-1 min-w-0 rounded-md border border-border bg-surface-raised px-2.5 py-1.5 text-body text-foreground placeholder:text-foreground-muted outline-none focus:border-brand-action"
-          />
-          <Tooltip label={`Sort by ${sort === "recent" ? "name" : "recent"}`}>
+        {/* search mode toggle + input */}
+        <div className="border-b border-border px-3 py-2 space-y-2">
+          {/* Text / Structure toggle */}
+          <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={() => setSort((s) => (s === "recent" ? "name" : "recent"))}
-              aria-label="Toggle sort order"
-              className="shrink-0 rounded-md border border-border px-2 py-1.5 text-meta font-semibold text-foreground-muted hover:text-foreground"
+              onClick={() => setSearchMode("text")}
+              className={`rounded-md px-2.5 py-1 text-meta font-semibold transition-colors ${
+                searchMode === "text"
+                  ? "bg-accent-soft text-brand-action"
+                  : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
+              }`}
             >
-              {sort === "recent" ? "Recent" : "Name"}
+              Text
             </button>
-          </Tooltip>
+            <button
+              type="button"
+              onClick={() => setSearchMode("structure")}
+              className={`rounded-md px-2.5 py-1 text-meta font-semibold transition-colors ${
+                searchMode === "structure"
+                  ? "bg-accent-soft text-brand-action"
+                  : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
+              }`}
+            >
+              Structure
+            </button>
+            {searchMode === "text" ? (
+              <Tooltip label={`Sort by ${sort === "recent" ? "name" : "recent"}`}>
+                <button
+                  type="button"
+                  onClick={() => setSort((s) => (s === "recent" ? "name" : "recent"))}
+                  aria-label="Toggle sort order"
+                  className="ml-auto shrink-0 rounded-md border border-border px-2 py-1 text-meta font-semibold text-foreground-muted hover:text-foreground"
+                >
+                  {sort === "recent" ? "Recent" : "Name"}
+                </button>
+              </Tooltip>
+            ) : null}
+          </div>
+
+          {/* Text search input */}
+          {searchMode === "text" ? (
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search name, formula, SMILES"
+              className="w-full min-w-0 rounded-md border border-border bg-surface-raised px-2.5 py-1.5 text-body text-foreground placeholder:text-foreground-muted outline-none focus:border-brand-action"
+            />
+          ) : (
+            /* Structure search controls */
+            <div className="space-y-1.5">
+              {/* Substructure / Similar sub-toggle */}
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setStructureMode("substructure")}
+                  className={`rounded-md px-2.5 py-1 text-meta font-semibold transition-colors ${
+                    structureMode === "substructure"
+                      ? "bg-accent-soft text-brand-action"
+                      : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
+                  }`}
+                >
+                  Substructure
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStructureMode("similar")}
+                  className={`rounded-md px-2.5 py-1 text-meta font-semibold transition-colors ${
+                    structureMode === "similar"
+                      ? "bg-accent-soft text-brand-action"
+                      : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
+                  }`}
+                >
+                  Similar
+                </button>
+              </div>
+              {/* SMILES / SMARTS input */}
+              <input
+                type="text"
+                value={structureQuery}
+                onChange={(e) => setStructureQuery(e.target.value)}
+                placeholder={
+                  structureMode === "substructure"
+                    ? "SMILES or SMARTS, e.g. c1ccccc1"
+                    : "SMILES query, e.g. CC(=O)O"
+                }
+                className="w-full min-w-0 rounded-md border border-border bg-surface-raised px-2.5 py-1.5 text-body font-mono text-foreground placeholder:text-foreground-muted outline-none focus:border-brand-action"
+              />
+            </div>
+          )}
         </div>
 
         {/* select all (only when there are rows to select) */}
-        {!isLoading && !isError && shown.length > 0 ? (
+        {!isLoading && !isError && activeList.length > 0 ? (
           <div className="flex items-center gap-2 border-b border-border px-3 py-1.5">
             <input
               type="checkbox"
@@ -495,13 +701,97 @@ export function ChemistryHub({
               Could not read your library. Check your data folder is connected.
             </p>
           ) : isLoading ? (
-            <p className="px-3 py-6 text-meta text-foreground-muted">Loading…</p>
+            <p className="px-3 py-6 text-meta text-foreground-muted">Loading...</p>
+          ) : searchMode === "structure" ? (
+            /* -- Structure search results -- */
+            structureSearching ? (
+              <p className="px-3 py-6 text-meta text-foreground-muted">
+                Searching structures...
+              </p>
+            ) : structureError ? (
+              <p className="px-3 py-6 text-meta text-red-600 dark:text-red-300">
+                {structureError}
+              </p>
+            ) : !debouncedStructureQuery.trim() ? (
+              <p className="px-3 py-6 text-meta text-foreground-muted">
+                {structureMode === "substructure"
+                  ? "Enter a SMILES or SMARTS fragment above to find molecules that contain it."
+                  : "Enter a SMILES above to rank your library by similarity."}
+              </p>
+            ) : structureMode === "substructure" &&
+              structureSubstructShown !== null ? (
+              structureSubstructShown.length === 0 ? (
+                <p className="px-3 py-6 text-meta text-foreground-muted">
+                  No molecules contain this substructure.
+                </p>
+              ) : (
+                <>
+                  <p className="px-3 pt-2 pb-1 text-meta text-foreground-muted">
+                    <span className="font-semibold text-foreground">
+                      {structureSubstructShown.length}
+                    </span>{" "}
+                    {structureSubstructShown.length === 1
+                      ? "molecule contains"
+                      : "molecules contain"}{" "}
+                    this substructure
+                  </p>
+                  <ul>
+                    {structureSubstructShown.map((m) => (
+                      <MoleculeRow
+                        key={m.id}
+                        molecule={m}
+                        projectName={projectName}
+                        selected={selectedId === m.id}
+                        checked={checkedIds.has(m.id)}
+                        onToggleCheck={() => toggleChecked(m.id)}
+                        onClick={() => {
+                          setSelectedId(m.id);
+                          setMainView("auto");
+                        }}
+                      />
+                    ))}
+                  </ul>
+                </>
+              )
+            ) : structureMode === "similar" && structureSimilarShown !== null ? (
+              structureSimilarShown.length === 0 ? (
+                <p className="px-3 py-6 text-meta text-foreground-muted">
+                  No similar molecules found in this collection.
+                </p>
+              ) : (
+                <>
+                  <p className="px-3 pt-2 pb-1 text-meta text-foreground-muted">
+                    Ranked by Tanimoto similarity
+                  </p>
+                  <ul>
+                    {structureSimilarShown.map((m) => {
+                      const score = similarityResults.find((r) => r.id === m.id)?.score ?? 0;
+                      return (
+                        <MoleculeRow
+                          key={m.id}
+                          molecule={m}
+                          projectName={projectName}
+                          selected={selectedId === m.id}
+                          checked={checkedIds.has(m.id)}
+                          onToggleCheck={() => toggleChecked(m.id)}
+                          onClick={() => {
+                            setSelectedId(m.id);
+                            setMainView("auto");
+                          }}
+                          similarityScore={score}
+                        />
+                      );
+                    })}
+                  </ul>
+                </>
+              )
+            ) : null
           ) : shown.length === 0 ? (
             <p className="px-3 py-6 text-meta text-foreground-muted">
               {molecules.length === 0
                 ? "No molecules yet. Draw one, search PubChem, or import a file."
                 : query.trim()
-                  ? `No molecules match “${query}”.`
+                  ? `No molecules match "${query}".`
                   : "No molecules in this collection."}
             </p>
           ) : (
@@ -543,7 +833,7 @@ export function ChemistryHub({
                 }}
                 className="rounded-md border border-border bg-surface-raised px-2 py-1 text-meta text-foreground outline-none focus:border-brand-action disabled:opacity-60"
               >
-                <option value="">Add to project…</option>
+                <option value="">Add to project...</option>
                 {projects.map((p) => (
                   <option key={p.id} value={String(p.id)}>
                     {p.name}
@@ -557,7 +847,7 @@ export function ChemistryHub({
               disabled={bulkBusy}
               className="ml-auto rounded-md px-2.5 py-1 text-meta font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60 dark:text-red-400 dark:hover:bg-red-500/10"
             >
-              {bulkBusy ? "Deleting…" : "Delete"}
+              {bulkBusy ? "Deleting..." : "Delete"}
             </button>
             <button
               type="button"
@@ -694,6 +984,7 @@ function MoleculeRow({
   checked,
   onToggleCheck,
   onClick,
+  similarityScore,
 }: {
   molecule: Molecule;
   projectName: Map<string, string>;
@@ -701,10 +992,16 @@ function MoleculeRow({
   checked: boolean;
   onToggleCheck: () => void;
   onClick: () => void;
+  /** When defined, a Tanimoto similarity score in [0,1] is shown as a badge. */
+  similarityScore?: number;
 }) {
   const mw =
     molecule.mol_weight != null ? `${molecule.mol_weight.toFixed(2)}` : "";
   const meta = [molecule.formula, mw && `${mw} g/mol`].filter(Boolean).join(" · ");
+  const pct =
+    similarityScore != null
+      ? `${Math.round(similarityScore * 100)}%`
+      : null;
   return (
     <li
       className={`flex items-center border-b border-border ${
@@ -738,7 +1035,11 @@ function MoleculeRow({
             </span>
           ) : null}
         </span>
-        {molecule.project_ids[0] ? (
+        {pct != null ? (
+          <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-sky-50 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300">
+            {pct}
+          </span>
+        ) : molecule.project_ids[0] ? (
           <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-500/15 text-purple-600 dark:text-purple-300 max-w-[80px] truncate">
             {projectName.get(molecule.project_ids[0]) ?? "Project"}
           </span>
