@@ -52,6 +52,9 @@ import OverviewSection from "@/components/project-surface/OverviewSection";
 import ResultsGallery from "@/components/project-surface/ResultsGallery";
 import MethodsInventory from "@/components/project-surface/MethodsInventory";
 import SequencesInventory from "@/components/project-surface/SequencesInventory";
+import MoleculesInventory from "@/components/project-surface/MoleculesInventory";
+import { moleculesApi } from "@/lib/chemistry/api";
+import { CHEMISTRY_ENABLED } from "@/lib/chemistry/config";
 import { EditProjectModal } from "@/components/project-surface/ProjectRoute";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAccountType } from "@/hooks/useAccountType";
@@ -91,6 +94,7 @@ interface ProjectGlance {
   hasResults: boolean;
   hasMethods: boolean;
   hasSequences: boolean;
+  hasMolecules: boolean;
   events: ProjectActivityEvent[];
 }
 
@@ -161,6 +165,13 @@ function useProjectGlance(project: Project): ProjectGlance {
     queryFn: () => sequencesApi.listByProject(projectId),
   });
 
+  // Chemistry is an opt-in module; skip the disk scan entirely when it is off.
+  const { data: molecules = [] } = useQuery({
+    queryKey: ["project-molecules", owner, projectId],
+    queryFn: () => moleculesApi.listByProject(String(projectId)),
+    enabled: CHEMISTRY_ENABLED,
+  });
+
   return useMemo(() => {
     const experiments = experimentTasks.length;
     const experimentsComplete = experimentTasks.filter((t) => t.is_complete).length;
@@ -180,6 +191,7 @@ function useProjectGlance(project: Project): ProjectGlance {
       hasResults: totalImages > 0,
       hasMethods,
       hasSequences: sequences.length > 0,
+      hasMolecules: molecules.length > 0,
       events,
     };
   }, [
@@ -189,6 +201,7 @@ function useProjectGlance(project: Project): ProjectGlance {
     totalImages,
     hasMethods,
     sequences,
+    molecules,
     project.last_edited_at,
     project.created_at,
   ]);
@@ -232,7 +245,13 @@ function eventSummary(event: ProjectActivityEvent): string {
   }
 }
 
-type InnerView = "home" | "results" | "methods" | "sequences" | "history";
+type InnerView =
+  | "home"
+  | "results"
+  | "methods"
+  | "sequences"
+  | "molecules"
+  | "history";
 
 export interface ProjectDetailPopupProps {
   /** The project to show. The popup re-reads the canonical record itself so a
@@ -444,6 +463,7 @@ export default function ProjectDetailPopup({
   const showResultsDoorway = glance.hasResults;
   const showMethodsDoorway = glance.hasMethods;
   const showSequencesDoorway = glance.hasSequences;
+  const showMoleculesDoorway = CHEMISTRY_ENABLED && glance.hasMolecules;
 
   const gantt = `/gantt?project=${encodeURIComponent(`${project.owner}:${project.id}`)}`;
 
@@ -677,6 +697,15 @@ export default function ProjectDetailPopup({
                     icon={<path d="M12 3a9 9 0 1 0 6.364 2.636" />}
                   />
                 )}
+                {showMoleculesDoorway && (
+                  <Doorway
+                    label="Molecules"
+                    onClick={() => setView("molecules")}
+                    icon={
+                      <path d="M9 3h6M10 3v5L5 18.5A1.5 1.5 0 0 0 6.4 21h11.2a1.5 1.5 0 0 0 1.4-2.5L14 8V3" />
+                    }
+                  />
+                )}
               </div>
             </section>
 
@@ -813,6 +842,16 @@ export default function ProjectDetailPopup({
           </div>
           <div className="mt-3 flex-1 min-h-0 overflow-y-auto pr-1">
             <SequencesInventory project={project} />
+          </div>
+        </div>
+      )}
+      {view === "molecules" && (
+        <div className="flex flex-col min-h-0 flex-1">
+          <div className="pr-10">
+            <BackBar onBack={() => setView("home")} />
+          </div>
+          <div className="mt-3 flex-1 min-h-0 overflow-y-auto pr-1">
+            <MoleculesInventory project={project} />
           </div>
         </div>
       )}

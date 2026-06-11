@@ -12,12 +12,13 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Ketcher } from "ketcher-core";
 
 import LivingPopup from "@/components/ui/LivingPopup";
 import { Icon } from "@/components/icons";
 import { moleculesApi } from "@/lib/chemistry/api";
+import { projectsApi } from "@/lib/local-api";
 import { computeIdentity, type MoleculeIdentity } from "@/lib/chemistry/rdkit";
 import { MoleculeLiterature } from "./MoleculeLiterature";
 
@@ -61,6 +62,14 @@ export function MoleculeEditorPopup({
   // The loaded molecule's PubChem CID, if it was imported from PubChem (lets the
   // Papers tab skip the name->CID resolve and link the exact compound's patents).
   const [loadedCid, setLoadedCid] = useState<number | undefined>(undefined);
+  // Project links (collection membership). Persisted immediately for a saved
+  // molecule; held and applied on save for a new one.
+  const [projectIds, setProjectIds] = useState<string[]>([]);
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ["projects", "for-chemistry"],
+    queryFn: () => projectsApi.list(),
+  });
 
   const isNew = moleculeId === "new";
 
@@ -76,6 +85,7 @@ export function MoleculeEditorPopup({
     setIdentity(null);
     setLoadError(null);
     setLoadedCid(undefined);
+    setProjectIds([]);
     if (isNew) {
       setName("");
       setInitialStructure(undefined);
@@ -93,6 +103,7 @@ export function MoleculeEditorPopup({
         }
         setName(detail.meta.name);
         setLoadedCid(detail.meta.pubchem_cid);
+        setProjectIds(detail.meta.project_ids ?? []);
         setInitialStructure(detail.molfile || detail.meta.smiles || undefined);
         setStructureReady(true);
       })
@@ -155,11 +166,16 @@ export function MoleculeEditorPopup({
       }
       const cleanName = name.trim() || "Untitled structure";
       if (isNew || moleculeId == null) {
-        await moleculesApi.create(molfile, { name: cleanName, source: "drawn" });
+        await moleculesApi.create(molfile, {
+          name: cleanName,
+          source: "drawn",
+          project_ids: projectIds,
+        });
       } else {
         await moleculesApi.update(moleculeId, { molfile, name: cleanName });
       }
       await queryClient.invalidateQueries({ queryKey: ["molecules"] });
+      await queryClient.invalidateQueries({ queryKey: ["project-molecules"] });
       onClose();
     } catch {
       setLoadError("Saving failed. Your structure is still on the canvas.");
@@ -167,6 +183,24 @@ export function MoleculeEditorPopup({
       setSaving(false);
     }
   }, [isNew, moleculeId, name, queryClient, onClose, saving]);
+
+  // Add/remove a project link. Persisted immediately for a saved molecule; for a
+  // new (unsaved) one it stays local and is written by create() on save.
+  const handleProjectsChange = useCallback(
+    async (next: string[]) => {
+      setProjectIds(next);
+      if (!isNew && moleculeId != null) {
+        try {
+          await moleculesApi.update(moleculeId, { project_ids: next });
+          await queryClient.invalidateQueries({ queryKey: ["molecules"] });
+          await queryClient.invalidateQueries({ queryKey: ["project-molecules"] });
+        } catch {
+          // non-fatal; the chip state still reflects the intent
+        }
+      }
+    },
+    [isNew, moleculeId, queryClient],
+  );
 
   if (moleculeId == null) return null;
 
@@ -232,7 +266,14 @@ export function MoleculeEditorPopup({
             </div>
 
             {rail === "identity" ? (
-              <IdentityPane identity={identity} ready={ready} />
+              <>
+                <IdentityPane identity={identity} ready={ready} />
+                <ProjectLinks
+                  projectIds={projectIds}
+                  projects={projects}
+                  onChange={handleProjectsChange}
+                />
+              </>
             ) : name.trim() ? (
               // Mounted only when the Papers tab is open, so the fetch is lazy.
               // Keyed by name+cid so switching molecules refetches cleanly.
@@ -402,5 +443,67 @@ function ToolItem({
       <span className="w-1.5 h-1.5 rounded-full bg-brand-action flex-shrink-0" />
       {children}
     </button>
+  );
+}
+
+function ProjectLinks({
+  projectIds,
+  projects,
+  onChange,
+}: {
+  projectIds: string[];
+  projects: Array<{ id: number; name: string }>;
+  onChange: (next: string[]) => void;
+}) {
+  const linked = projects.filter((p) => projectIds.includes(String(p.id)));
+  const available = projects.filter((p) => !projectIds.includes(String(p.id)));
+  return (
+    <>
+      <h4 className="text-[11px] uppercase tracking-wide text-foreground-muted mt-4 mb-2">
+        Linked projects
+      </h4>
+      {linked.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {linked.map((p) => (
+            <span
+              key={p.id}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-500/15 text-purple-600 dark:text-purple-300"
+            >
+              {p.name}
+              <button
+                type="button"
+                onClick={() =>
+                  onChange(projectIds.filter((id) => id !== String(p.id)))
+                }
+                aria-label={`Unlink from ${p.name}`}
+                className="leading-none hover:opacity-70"
+              >
+                &times;
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="text-meta text-foreground-muted mb-2">
+          Not linked to a project yet.
+        </p>
+      )}
+      {available.length > 0 ? (
+        <select
+          value=""
+          onChange={(e) => {
+            if (e.target.value) onChange([...projectIds, e.target.value]);
+          }}
+          className="w-full text-meta text-foreground bg-surface-raised border border-border rounded-md px-2 py-1.5 outline-none focus:border-brand-action"
+        >
+          <option value="">Add to a project…</option>
+          {available.map((p) => (
+            <option key={p.id} value={String(p.id)}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      ) : null}
+    </>
   );
 }

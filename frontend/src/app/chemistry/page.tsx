@@ -6,7 +6,7 @@
 // hidden when the flag is off (AppShell), and a direct visit shows a calm
 // not-enabled notice rather than a broken page.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import AppShell from "@/components/AppShell";
 import { ChemistryHub } from "@/components/chemistry/ChemistryHub";
@@ -20,6 +20,26 @@ export default function ChemistryPage() {
   const [editing, setEditing] = useState<string | "new" | null>(null);
   const [pubchemOpen, setPubchemOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+
+  // Deep link: /chemistry?molecule=<id> opens that molecule in the editor (used by
+  // the project Molecules section + inline note chips). Read from the URL directly
+  // (not useSearchParams) to avoid the Suspense/prerender boundary it requires, and
+  // strip the param so a later close does not reopen on refresh.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const molecule = params.get("molecule");
+    if (molecule) {
+      setEditing(molecule);
+      params.delete("molecule");
+      const qs = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        window.location.pathname + (qs ? `?${qs}` : ""),
+      );
+    }
+  }, []);
 
   if (!CHEMISTRY_ENABLED) {
     return (
