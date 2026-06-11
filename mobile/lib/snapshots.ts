@@ -129,6 +129,70 @@ export type MethodSnapshot = {
   methods?: MethodProjection[];
 };
 
+// ---- Calculators snapshot (Custom Calculator Builder Phase 3, 2026-06-10) ----
+//
+// The laptop auto-publishes a sealed projection of the calculators the user can
+// see (their own custom calculators plus the lab-shared ones) under the name
+// "calculators", on the same cadence as today / inventory / notebooks. The
+// phone fetches + unseals it and runs the SAME ported engine
+// (lib/calculators/custom.ts) over each spec, so a calculator built on the
+// laptop computes identically at the bench. All fields tolerated missing so an
+// older laptop shape never crashes the screen.
+//
+// The spec fields (inputs / steps / conditionals / outputs) match the engine's
+// CustomCalculatorSpec, so a fetched calculator drops straight into
+// evaluateCustomCalculator.
+
+export type SnapshotCalculatorDropdownOption = {
+  label?: string;
+  value?: number | string;
+};
+
+export type SnapshotCalculatorInput = {
+  key?: string;
+  type?: 'number' | 'replicate' | 'dropdown';
+  label?: string;
+  unit?: string;
+  default?: number | number[] | string;
+  options?: SnapshotCalculatorDropdownOption[];
+};
+
+export type SnapshotCalculatorStep = {
+  key?: string;
+  expr?: string;
+};
+
+export type SnapshotCalculatorConditional = {
+  expr?: string;
+};
+
+export type SnapshotCalculatorOutput = {
+  label?: string;
+  expr?: string;
+  unit?: string;
+};
+
+export type SnapshotCalculator = {
+  uid?: string;
+  id?: number;
+  name?: string;
+  description?: string;
+  field?: string;
+  inputs?: SnapshotCalculatorInput[];
+  steps?: SnapshotCalculatorStep[];
+  conditionals?: SnapshotCalculatorConditional[];
+  outputs?: SnapshotCalculatorOutput[];
+  /** Owner username, used for the "Shared by <owner>" line on a lab calc. */
+  ownerLabel?: string;
+  /** True when owned by another lab member (read-only, surfaced via the share). */
+  isShared?: boolean;
+};
+
+export type CalculatorsSnapshot = {
+  generatedAt?: string;
+  calculators?: SnapshotCalculator[];
+};
+
 // Fetch + unseal a named snapshot. GETs the relay's snapshot/get endpoint with a
 // device-Ed25519-signed query (device = the phone's Ed25519 pubkey, taken from
 // the pairing record), reads the raw sealed bytes on 200, unseals with this
@@ -150,6 +214,10 @@ export async function fetchSnapshot(
     // driven by a real focused experiment on the laptop). Return null so the
     // viewer shows its "open a method from the laptop" empty state in demo mode.
     if (name === 'method') return null;
+    // The calculators snapshot has no demo fixture (custom calculators are
+    // user-authored on a real laptop). Return null so the viewer shows its
+    // "build one on the laptop" empty state in demo mode.
+    if (name === 'calculators') return null;
     // Default: "today" and any other name fall back to the today fixture.
     return DEMO_TODAY_SNAPSHOT;
   }
@@ -196,4 +264,16 @@ export async function fetchSnapshot(
     console.warn(`[snapshot] JSON parse failed for "${name}"`, e);
     throw new Error(`snapshot format error for "${name}"`);
   }
+}
+
+/** Typed convenience over fetchSnapshot for the "calculators" snapshot. Returns
+ *  null when the laptop has not published yet (or in demo mode). Mirrors how
+ *  method.tsx casts the method snapshot. */
+export async function fetchCalculatorsSnapshot(
+  pairing: Pairing,
+  deviceSign: (message: string) => Promise<string>,
+): Promise<CalculatorsSnapshot | null> {
+  return (await fetchSnapshot('calculators', pairing, deviceSign)) as
+    | CalculatorsSnapshot
+    | null;
 }

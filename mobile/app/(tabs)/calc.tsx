@@ -31,6 +31,8 @@ import {
   View,
 } from 'react-native';
 
+import { useRouter } from 'expo-router';
+
 import { getFocusContext } from '@/lib/focus-context';
 import { usePairing } from '@/lib/pairing';
 import { postAppendLine } from '@/lib/calc-export';
@@ -111,6 +113,11 @@ export default function CalcScreen() {
         contentContainerStyle={[styles.body, { paddingBottom: sp.xxl + 16 }]}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Synced custom + lab calculators (the ones built on the laptop). Only
+            shown once paired, since they arrive over the relay. The built-in
+            tabs below are always available offline. */}
+        <LabCalculatorsLink />
+
         {activeTab === 'scientific' && <ScientificTab />}
         {activeTab === 'molarity' && <MolarityTab />}
         {activeTab === 'dilution' && <DilutionTab />}
@@ -181,6 +188,61 @@ function CalcHeader({
         })}
       </ScrollView>
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Lab calculators link (synced custom + lab calculators, Phase 3)
+// ---------------------------------------------------------------------------
+
+// A tappable card that opens the synced custom-calculator viewer (calc-custom).
+// Only rendered when the phone is paired, since those calculators arrive over
+// the relay from the laptop. The built-in tabs stay available offline either
+// way. We do not fetch a count here (that is a sealed relay round-trip); the
+// viewer itself shows the list, loading, and empty states.
+function LabCalculatorsLink() {
+  const { surface } = useTheme();
+  const { pairing } = usePairing();
+  const router = useRouter();
+
+  if (!pairing) return null;
+
+  return (
+    <Pressable
+      onPress={() => router.push('/calc-custom')}
+      accessibilityRole="button"
+      accessibilityLabel="Open your lab calculators"
+      accessibilityHint="The calculators you built on the laptop, plus the ones your lab shares."
+      style={({ pressed }) => [
+        styles.labLink,
+        {
+          backgroundColor: pressed ? palette.amber : palette.skyDim,
+          borderColor: pressed ? palette.amber : palette.skyBorder,
+          borderRadius: radii.md,
+        },
+      ]}
+    >
+      {({ pressed }) => (
+        <View style={styles.labLinkRow}>
+          <View style={styles.labLinkText}>
+            <Text style={[styles.labLinkTitle, { color: pressed ? palette.white : palette.sky }]}>
+              Your lab calculators
+            </Text>
+            <Text
+              style={[
+                styles.labLinkSub,
+                { color: pressed ? palette.white : surface.muted },
+              ]}
+            >
+              Built on the laptop, run here at the bench
+            </Text>
+          </View>
+          <Text style={[styles.labLinkChevron, { color: pressed ? palette.white : palette.sky }]}>
+            {'›'}
+          </Text>
+        </View>
+      )}
+    </Pressable>
   );
 }
 
@@ -1195,6 +1257,17 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     gap: spacing.lg,
   },
+  // Lab calculators link card
+  labLink: {
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  labLinkRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  labLinkText: { flex: 1, gap: 2 },
+  labLinkTitle: { fontSize: 15, fontWeight: '700' },
+  labLinkSub: { fontSize: 12, lineHeight: 16 },
+  labLinkChevron: { fontSize: 22, fontWeight: '700' },
   tabGap: { gap: spacing.md },
   fieldWrap: { gap: spacing.xs },
   fieldLabel: { fontSize: 12, fontWeight: '600', letterSpacing: 0.2 },
