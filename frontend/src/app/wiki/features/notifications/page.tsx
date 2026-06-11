@@ -236,7 +236,7 @@ export default function NotificationsFeaturePage() {
       <p>
         Toasts auto-dismiss after about 12 seconds, and any photo you file or
         delete elsewhere also drops out of the toast queue automatically. The
-        small <strong>✕</strong> on a toast just dismisses the notification, the
+        small <strong>close</strong> button on a toast just dismisses the notification, the
         photo stays in the inbox until you act on it.
       </p>
       <Callout variant="tip" title="The toast is your fastest path to filing">

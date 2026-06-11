@@ -33,7 +33,7 @@ export default function SharedLabAccountsPage() {
         files like normal.
       </p>
 
-      <Callout variant="danger" title="The one rule: keep the folder available offline">
+      <Callout variant="danger" title="The one rule, keep the folder available offline">
         ResearchOS NEEDS to read and write the folder directly on disk. If your
         cloud provider keeps the folder &quot;online only&quot; (i.e., a
         placeholder file that downloads on demand), writes will fail or be

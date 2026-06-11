@@ -7,7 +7,7 @@ export default function SharingAndPermissionsPage() {
   return (
     <WikiPage
       title="Sharing and permissions"
-      intro="Every shareable record in ResearchOS (a method, a note, a task, a project, a high-level goal) carries one sharing field: shared_with, an array of small objects pairing a username with a permission level. That field plus a single sentinel value for 'the whole lab' is the entire permission story. Two primitives, canRead and canWrite, build on top of it. PIs get an implicit view-all on the read side. This page is the canonical reference for how the model works."
+      intro="Every shareable record in ResearchOS (a method, a note, a task, a project, a high-level goal) carries one sharing field, shared_with, an array of small objects pairing a username with a permission level. That field plus a single sentinel value for 'the whole lab' is the entire permission story. Two primitives, canRead and canWrite, build on top of it. PIs get an implicit view-all on the read side. This page is the canonical reference for how the model works."
     >
       {/* TODO screenshot agent: capture a Method share dialog showing the shared_with list.
           Route: open a method popup, click the share affordance

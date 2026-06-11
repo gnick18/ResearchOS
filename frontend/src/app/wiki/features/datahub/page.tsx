@@ -142,7 +142,7 @@ export default function DataHubFeaturePage() {
         reports match the tools the field already trusts. The public{" "}
         <Link href="/transparency">Transparency of tests</Link> page documents
         this approach for the bioinformatics tools, and Data Hub follows the same
-        rule: no statistic ships without a reference-pinned test.
+        rule. No statistic ships without a reference-pinned test.
       </Callout>
 
       <h2>The guided analysis wizard</h2>

@@ -156,7 +156,7 @@ export default function PCRFeaturePage() {
           back to empty.
         </Step>
         <Step>
-          Hit <strong>✓ Done Editing</strong> to leave editing mode. The
+          Hit <strong>Done Editing</strong> to leave editing mode. The
           jiggle stops and the toolbar collapses.
         </Step>
         <Step>

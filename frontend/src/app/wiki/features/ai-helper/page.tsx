@@ -104,7 +104,7 @@ export default function AiHelperFeaturePage() {
       <p>
         An AI can <strong>read</strong> anything in the folder you give it access
         to, and <strong>draft</strong> content for you to place. Whether it can{" "}
-        <strong>write</strong> files depends on the tool: a paste-flow chat AI
+        <strong>write</strong> files depends on the tool. A paste-flow chat AI
         only suggests text you copy back, while a folder-access agent can write
         files directly if you let it. Treat agent drafts like a collaborator&apos;s,
         review before you rely on them, and lean on{" "}

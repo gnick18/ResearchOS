@@ -314,7 +314,7 @@ export default function ExperimentsFeaturePage() {
         protocols themselves.
       </Callout>
 
-      <h2>Opening an experiment: the four-tab popup</h2>
+      <h2>Opening an experiment, the four-tab popup</h2>
       <Screenshot
         src="/wiki/screenshots/experiments-editor.png"
         alt="An open experiment popup with the four tabs (Details, Lab Notes, Method, Results) visible across the top and the Details tab active."

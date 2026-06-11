@@ -63,7 +63,7 @@ export default function CostMath() {
             a thin active layer on the faster, pricier tier. That blend puts our
             all-in cost near <b className="text-foreground">$0.05 per GB per month</b>,
             far below either tier on its own. Local-first is why, your everyday
-            work never leaves your disk, so very little ever needs the hot layer.
+            work never leaves your disk, so little ever needs the hot layer.
           </p>
         </div>
 
