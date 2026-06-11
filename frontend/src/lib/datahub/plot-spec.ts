@@ -128,7 +128,31 @@ export interface PlotStyle {
    * column figures.
    */
   fitModel: FitModelId;
+  /**
+   * Figure size (additive, all optional, back-compat). When width/height are
+   * absent the figure renders at the kind's base FIG size, byte-for-byte the
+   * same as before sizing existed. width/height are stored in `sizeUnit`
+   * (px / in / cm), converted to design-px (96 per inch) for the geometry box
+   * and to physical inches for export. `dpi` is the export rasterization
+   * density (a 3.5 in figure at 300 DPI exports a 1050 px wide PNG). `resizeMode`
+   * is how a resize changes the figure. "relayout" (the default) recomputes the
+   * axes / margins to fill the new box so the figure stays legible at journal
+   * dimensions; "scale" keeps the base layout and zooms the whole figure like a
+   * slide image. `aspectLocked` keeps the width/height ratio while resizing.
+   */
+  width?: number;
+  height?: number;
+  sizeUnit?: SizeUnit;
+  dpi?: number;
+  resizeMode?: ResizeMode;
+  aspectLocked?: boolean;
 }
+
+/** The unit a figure's width / height is typed in (and stored as). */
+export type SizeUnit = "px" | "in" | "cm";
+
+/** How a resize changes the figure (re-layout the axes vs zoom the whole image). */
+export type ResizeMode = "relayout" | "scale";
 
 /** The fitted-curve choices an XY figure offers (mirrors the engine registry). */
 export type FitModelId =
@@ -169,7 +193,61 @@ export function defaultPlotStyle(): PlotStyle {
     yTitle: "Value",
     xTitle: "",
     fitModel: "linear",
+    // width / height stay unset so an existing figure renders unchanged; the
+    // unit / dpi / mode defaults only apply once the user sets a size.
+    sizeUnit: "px",
+    dpi: 300,
+    resizeMode: "relayout",
+    aspectLocked: true,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Figure-size units (px / in / cm) <-> design pixels
+// ---------------------------------------------------------------------------
+//
+// Design units are SVG user units, which are CSS pixels at the standard 96 per
+// inch baseline. We convert a typed width / height into design-px for the
+// geometry box (so axes lay out against a real pixel box) and into physical
+// inches for export (so a PNG rasterizes at inches * DPI and an SVG opens at
+// true physical size).
+
+/** CSS pixels per inch at the SVG baseline. */
+export const DESIGN_PX_PER_INCH = 96;
+/** Centimeters per inch (so cm -> in -> px is exact). */
+const CM_PER_INCH = 2.54;
+
+/** Convert a value in the given unit to design pixels (px at 96 / inch). */
+export function toDesignPx(value: number, unit: SizeUnit): number {
+  if (!Number.isFinite(value)) return 0;
+  if (unit === "in") return value * DESIGN_PX_PER_INCH;
+  if (unit === "cm") return value * (DESIGN_PX_PER_INCH / CM_PER_INCH);
+  return value;
+}
+
+/** Convert a value in the given unit to physical inches. */
+export function toInches(value: number, unit: SizeUnit): number {
+  if (!Number.isFinite(value)) return 0;
+  if (unit === "in") return value;
+  if (unit === "cm") return value / CM_PER_INCH;
+  return value / DESIGN_PX_PER_INCH;
+}
+
+/** Convert design pixels back into the given unit (for the UI inputs). */
+export function fromDesignPx(px: number, unit: SizeUnit): number {
+  if (!Number.isFinite(px)) return 0;
+  if (unit === "in") return px / DESIGN_PX_PER_INCH;
+  if (unit === "cm") return (px / DESIGN_PX_PER_INCH) * CM_PER_INCH;
+  return px;
+}
+
+/** Convert a value from one unit to another (for the UI unit dropdown). */
+export function convertUnit(
+  value: number,
+  from: SizeUnit,
+  to: SizeUnit,
+): number {
+  return fromDesignPx(toDesignPx(value, from), to);
 }
 
 /**
@@ -264,6 +342,31 @@ export function readPlotStyle(spec: PlotSpec): PlotStyle {
     fitModel: FIT_MODEL_IDS.includes(s.fitModel as FitModelId)
       ? (s.fitModel as FitModelId)
       : d.fitModel,
+    // Size: width / height are left undefined when absent (so the figure keeps
+    // the base FIG size and renders exactly as before). A stored width / height
+    // must be a positive finite number to count.
+    width:
+      typeof s.width === "number" && Number.isFinite(s.width) && s.width > 0
+        ? s.width
+        : undefined,
+    height:
+      typeof s.height === "number" && Number.isFinite(s.height) && s.height > 0
+        ? s.height
+        : undefined,
+    sizeUnit:
+      s.sizeUnit === "in" || s.sizeUnit === "cm" || s.sizeUnit === "px"
+        ? (s.sizeUnit as SizeUnit)
+        : d.sizeUnit,
+    dpi:
+      typeof s.dpi === "number" && Number.isFinite(s.dpi) && s.dpi > 0
+        ? s.dpi
+        : d.dpi,
+    resizeMode:
+      s.resizeMode === "scale" || s.resizeMode === "relayout"
+        ? (s.resizeMode as ResizeMode)
+        : d.resizeMode,
+    aspectLocked:
+      typeof s.aspectLocked === "boolean" ? s.aspectLocked : d.aspectLocked,
   };
 }
 
@@ -386,7 +489,9 @@ const LABEL_TEXT = "#334155";
 // Geometry (pure, unit-tested)
 // ---------------------------------------------------------------------------
 
-/** Fixed figure box + padding. Matches the approved mockup's proportions. */
+/** Base figure box + padding. Matches the approved mockup's proportions. This
+ * is the size every figure draws at when the user has not set a custom size, so
+ * an old figure with no width / height renders byte-for-byte the same. */
 export const FIG = {
   width: 430,
   height: 340,
@@ -395,6 +500,46 @@ export const FIG = {
   padT: 34,
   padB: 46,
 } as const;
+
+/** The padding + base box a laid-out figure uses (the box may be resized). */
+export interface FigureBox {
+  width: number;
+  height: number;
+  padL: number;
+  padR: number;
+  padT: number;
+  padB: number;
+}
+
+/**
+ * The geometry box a figure lays out against, derived from its style size.
+ *
+ * In "relayout" mode (the default) the box becomes the user's size in design-px
+ * so the axes / margins recompute to fill it and the fonts stay the point size
+ * the "Axis text" control sets, which keeps the figure legible at journal
+ * dimensions. In "scale" mode the box stays the base FIG size (the viewBox does
+ * not change); the whole figure is zoomed by the outer width / height instead,
+ * so text and markers grow with the box like a slide image.
+ *
+ * When the style has no width / height the box is exactly the base FIG, so a
+ * figure with no size renders identically to before sizing existed.
+ */
+export function figureBox(style: PlotStyle): FigureBox {
+  const base: FigureBox = { ...FIG };
+  const unit: SizeUnit = style.sizeUnit ?? "px";
+  const hasSize =
+    typeof style.width === "number" &&
+    style.width > 0 &&
+    typeof style.height === "number" &&
+    style.height > 0;
+  if (!hasSize) return base;
+  if ((style.resizeMode ?? "relayout") === "scale") return base;
+  return {
+    ...base,
+    width: toDesignPx(style.width as number, unit),
+    height: toDesignPx(style.height as number, unit),
+  };
+}
 
 /** One resolved group ready to plot: name, color, stats, and raw values. */
 export interface PlotGroup {
@@ -606,7 +751,7 @@ export function layoutPlot(
   style: PlotStyle,
   bracketRequests: { i: number; j: number; label: string }[],
 ): PlotGeometry {
-  const { width, height, padL, padR, padT, padB } = FIG;
+  const { width, height, padL, padR, padT, padB } = figureBox(style);
   const x0 = padL;
   const x1 = width - padR;
   const y0 = height - padB;
@@ -930,6 +1075,87 @@ export function renderPlotSvg(
   return parts.join("");
 }
 
+// ---------------------------------------------------------------------------
+// Figure frame: the outer (on-screen) and export (physical) sizes
+// ---------------------------------------------------------------------------
+
+/** The resolved sizes a figure renders + exports at, derived from its style. */
+export interface FigureFrame {
+  /** The layout box (viewBox) in design-px (the box the axes lay out against). */
+  box: FigureBox;
+  /** The on-screen outer size in CSS px (what the rendered SVG occupies). */
+  screenWidth: number;
+  screenHeight: number;
+  /** The physical export size in inches (PNG = inches * dpi, SVG = "Nin"). */
+  exportInchesW: number;
+  exportInchesH: number;
+  /** Export rasterization density. */
+  dpi: number;
+  /** True when the style carries an explicit width / height. */
+  hasSize: boolean;
+}
+
+/**
+ * Resolve every size a figure needs. The layout box (viewBox) comes from
+ * figureBox (base when relayout, user-size when relayout, base when scale). The
+ * on-screen outer size is always the user's size in design-px (so scale mode
+ * zooms the base viewBox up to the requested box). The export size is the same
+ * physical dimensions in inches so a PNG rasterizes at inches * dpi and an SVG
+ * opens at true physical size. With no stored size everything falls back to the
+ * base box, so an old figure renders + exports exactly as before.
+ */
+export function figureFrame(style: PlotStyle): FigureFrame {
+  const box = figureBox(style);
+  const unit: SizeUnit = style.sizeUnit ?? "px";
+  const dpi = style.dpi && style.dpi > 0 ? style.dpi : 300;
+  const hasSize =
+    typeof style.width === "number" &&
+    style.width > 0 &&
+    typeof style.height === "number" &&
+    style.height > 0;
+  if (!hasSize) {
+    // No custom size: outer == base box, export at the base box treated as px
+    // (inches = px / 96), so the existing hi-DPI PNG path stays the fallback.
+    return {
+      box,
+      screenWidth: box.width,
+      screenHeight: box.height,
+      exportInchesW: toInches(FIG.width, "px"),
+      exportInchesH: toInches(FIG.height, "px"),
+      dpi,
+      hasSize: false,
+    };
+  }
+  const screenWidth = toDesignPx(style.width as number, unit);
+  const screenHeight = toDesignPx(style.height as number, unit);
+  return {
+    box,
+    screenWidth,
+    screenHeight,
+    exportInchesW: toInches(style.width as number, unit),
+    exportInchesH: toInches(style.height as number, unit),
+    dpi,
+    hasSize: true,
+  };
+}
+
+/**
+ * Rewrite ONLY the root SVG element's width / height attributes (leaving the
+ * viewBox untouched) so the same serialized figure can render at the on-screen
+ * size, scale-zoom (viewBox stays base, outer grows), or carry true physical
+ * units for export. Operates on the first width= / height= occurrences, which
+ * are the root element's (the renderers write them first).
+ */
+export function withRootSize(
+  svg: string,
+  width: string,
+  height: string,
+): string {
+  return svg
+    .replace(/width="[^"]*"/, `width="${width}"`)
+    .replace(/height="[^"]*"/, `height="${height}"`);
+}
+
 /**
  * The one-call path the editor uses: spec + content (+ the linked analysis) to a
  * ready SVG string. Resolves groups, pulls bracket requests from the analysis,
@@ -947,31 +1173,46 @@ export function renderPlot(
     | GroupedBarGeometry
     | SurvivalCurveGeometry;
   style: PlotStyle;
+  frame: FigureFrame;
 } {
   const style = readPlotStyle(spec);
+  const frame = figureFrame(style);
+  // Render the figure, then size the on-screen root. In relayout the layout box
+  // already equals the user size so the outer size matches; in scale the layout
+  // box is the base FIG, so set the outer width / height to the user's size and
+  // the base viewBox zooms up. With no custom size this is a no-op (outer ==
+  // box), so the markup is unchanged from before sizing existed.
+  const onScreen = (svg: string): string => {
+    if (!frame.hasSize) return svg;
+    return withRootSize(
+      svg,
+      String(frame.screenWidth),
+      String(frame.screenHeight),
+    );
+  };
   if (style.kind === "xyScatter") {
     const source = readPlotSource(spec);
     const geometry = layoutXYPlot(content, style, source.yColumnId ?? null);
-    const svg = renderXYPlotSvg(geometry, style);
-    return { svg, geometry, style };
+    const svg = onScreen(renderXYPlotSvg(geometry, style));
+    return { svg, geometry, style, frame };
   }
   if (style.kind === "groupedBar") {
     const geometry = layoutGroupedBar(content, style);
-    const svg = renderGroupedBarSvg(geometry, style);
-    return { svg, geometry, style };
+    const svg = onScreen(renderGroupedBarSvg(geometry, style));
+    return { svg, geometry, style, frame };
   }
   if (style.kind === "survivalCurve") {
     const geometry = layoutSurvivalCurve(content, style);
-    const svg = renderSurvivalCurveSvg(geometry, style);
-    return { svg, geometry, style };
+    const svg = onScreen(renderSurvivalCurveSvg(geometry, style));
+    return { svg, geometry, style, frame };
   }
   const groups = resolvePlotGroups(content, style);
   const requests = style.showBrackets
     ? bracketRequestsFromAnalysis(analysis, groups)
     : [];
   const geometry = layoutPlot(groups, style, requests);
-  const svg = renderPlotSvg(geometry, style);
-  return { svg, geometry, style };
+  const svg = onScreen(renderPlotSvg(geometry, style));
+  return { svg, geometry, style, frame };
 }
 
 // ---------------------------------------------------------------------------
@@ -1100,7 +1341,7 @@ export function layoutXYPlot(
   style: PlotStyle,
   yColumnId: string | null,
 ): XYPlotGeometry {
-  const { width, height, padL, padR, padT, padB } = FIG;
+  const { width, height, padL, padR, padT, padB } = figureBox(style);
   const x0 = padL;
   const x1 = width - padR;
   const y0 = height - padB;
@@ -1321,7 +1562,7 @@ export function layoutGroupedBar(
   content: DataHubDocContent,
   style: PlotStyle,
 ): GroupedBarGeometry {
-  const { width, height, padL, padR, padT, padB } = FIG;
+  const { width, height, padL, padR, padT, padB } = figureBox(style);
   const x0 = padL;
   const x1 = width - padR;
   const y0 = height - padB;
@@ -1540,7 +1781,7 @@ export function layoutSurvivalCurve(
   content: DataHubDocContent,
   style: PlotStyle,
 ): SurvivalCurveGeometry {
-  const { width, height, padL, padR, padT, padB } = FIG;
+  const { width, height, padL, padR, padT, padB } = figureBox(style);
   const x0 = padL;
   const x1 = width - padR;
   const y0 = height - padB;

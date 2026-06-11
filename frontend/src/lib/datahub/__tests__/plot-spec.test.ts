@@ -35,6 +35,13 @@ import {
   niceTicks,
   layoutXYPlot,
   renderXYPlotSvg,
+  toDesignPx,
+  toInches,
+  fromDesignPx,
+  convertUnit,
+  figureBox,
+  figureFrame,
+  withRootSize,
   type PlotStyle,
   type PlotGeometry,
 } from "@/lib/datahub/plot-spec";
@@ -560,5 +567,190 @@ describe("plot-spec: XY scatter + fitted curve", () => {
     expect(svg.startsWith("<" + "svg")).toBe(true);
     expect(svg).toContain("<circle");
     expect(svg).not.toContain("<path");
+  });
+});
+
+describe("plot-spec: figure size units", () => {
+  it("converts px / in / cm to design pixels at 96 per inch", () => {
+    expect(toDesignPx(100, "px")).toBe(100);
+    expect(toDesignPx(3.5, "in")).toBeCloseTo(336, 6);
+    expect(toDesignPx(2.54, "cm")).toBeCloseTo(96, 6);
+  });
+
+  it("converts px / in / cm to physical inches", () => {
+    expect(toInches(96, "px")).toBeCloseTo(1, 6);
+    expect(toInches(3.5, "in")).toBe(3.5);
+    expect(toInches(2.54, "cm")).toBeCloseTo(1, 6);
+  });
+
+  it("round-trips design pixels back to a unit", () => {
+    expect(fromDesignPx(336, "in")).toBeCloseTo(3.5, 6);
+    expect(fromDesignPx(96, "cm")).toBeCloseTo(2.54, 6);
+    expect(fromDesignPx(120, "px")).toBe(120);
+  });
+
+  it("convertUnit moves a value between units without changing the size", () => {
+    // 3.5 in is the single-column width; as cm it is 8.89 cm.
+    expect(convertUnit(3.5, "in", "cm")).toBeCloseTo(8.89, 6);
+    // and back again.
+    expect(convertUnit(8.89, "cm", "in")).toBeCloseTo(3.5, 6);
+    // px <-> in.
+    expect(convertUnit(336, "px", "in")).toBeCloseTo(3.5, 6);
+  });
+});
+
+describe("plot-spec: size-driven geometry", () => {
+  it("a style with no size uses the base FIG box", () => {
+    const box = figureBox(defaultPlotStyle());
+    expect(box.width).toBe(FIG.width);
+    expect(box.height).toBe(FIG.height);
+  });
+
+  it("relayout mode makes the box the user's size in design pixels", () => {
+    const style: PlotStyle = {
+      ...defaultPlotStyle(),
+      width: 7,
+      height: 5,
+      sizeUnit: "in",
+      resizeMode: "relayout",
+    };
+    const box = figureBox(style);
+    expect(box.width).toBeCloseTo(toDesignPx(7, "in"), 6);
+    expect(box.height).toBeCloseTo(toDesignPx(5, "in"), 6);
+    // Padding is unchanged (margins stay constant, the plot area fills more).
+    expect(box.padL).toBe(FIG.padL);
+  });
+
+  it("scale mode keeps the layout box at the base FIG size", () => {
+    const style: PlotStyle = {
+      ...defaultPlotStyle(),
+      width: 7,
+      height: 5,
+      sizeUnit: "in",
+      resizeMode: "scale",
+    };
+    const box = figureBox(style);
+    expect(box.width).toBe(FIG.width);
+    expect(box.height).toBe(FIG.height);
+  });
+
+  it("layoutPlot fills a larger box in relayout (the plot area grows)", () => {
+    const groups = resolvePlotGroups(twoGroupContent(), defaultPlotStyle());
+    const baseGeo = layoutPlot(groups, defaultPlotStyle(), []);
+    const big: PlotStyle = {
+      ...defaultPlotStyle(),
+      width: 800,
+      height: 600,
+      sizeUnit: "px",
+      resizeMode: "relayout",
+    };
+    const bigGeo = layoutPlot(groups, big, []);
+    expect(bigGeo.width).toBe(800);
+    expect(bigGeo.height).toBe(600);
+    // The plot area (x1 - x0) is wider than the base figure's.
+    expect(bigGeo.x1 - bigGeo.x0).toBeGreaterThan(baseGeo.x1 - baseGeo.x0);
+  });
+});
+
+describe("plot-spec: size persistence + back-compat", () => {
+  it("round-trips the new size fields through withStyle / readPlotStyle", () => {
+    const spec = buildPlotSpec({ id: "p", kind: "columnBar", tableId: "1" });
+    const next = withStyle(spec, {
+      width: 3.5,
+      height: 2.6,
+      sizeUnit: "in",
+      dpi: 600,
+      resizeMode: "scale",
+      aspectLocked: false,
+    });
+    const read = readPlotStyle(next);
+    expect(read.width).toBe(3.5);
+    expect(read.height).toBe(2.6);
+    expect(read.sizeUnit).toBe("in");
+    expect(read.dpi).toBe(600);
+    expect(read.resizeMode).toBe("scale");
+    expect(read.aspectLocked).toBe(false);
+  });
+
+  it("defaultPlotStyle leaves width / height unset with sane size defaults", () => {
+    const d = defaultPlotStyle();
+    expect(d.width).toBeUndefined();
+    expect(d.height).toBeUndefined();
+    expect(d.sizeUnit).toBe("px");
+    expect(d.dpi).toBe(300);
+    expect(d.resizeMode).toBe("relayout");
+    expect(d.aspectLocked).toBe(true);
+  });
+
+  it("readPlotStyle drops a non-positive or malformed stored size", () => {
+    const read = readPlotStyle({
+      id: "p",
+      type: "columnBar",
+      style: { width: -5, height: "tall", dpi: 0 },
+      source: {},
+    });
+    expect(read.width).toBeUndefined();
+    expect(read.height).toBeUndefined();
+    // A bad dpi falls back to the default.
+    expect(read.dpi).toBe(300);
+  });
+
+  it("a no-size figure renders byte-for-byte the same as the base render", () => {
+    const content = threeGroupContent();
+    const spec = buildPlotSpec({
+      id: "p",
+      kind: "columnScatter",
+      tableId: "1",
+      analysisId: ANOVA_SPEC.id,
+    });
+    // The end-to-end render must not change for an old (sizeless) spec.
+    const { svg } = renderPlot(spec, content, ANOVA_SPEC);
+    // Reproduce the exact pre-sizing markup directly from the layout path.
+    const style = readPlotStyle(spec);
+    const groups = resolvePlotGroups(content, style);
+    const requests = bracketRequestsFromAnalysis(ANOVA_SPEC, groups);
+    const expected = renderPlotSvg(layoutPlot(groups, style, requests), style);
+    expect(svg).toBe(expected);
+    // And it still carries the base box dimensions.
+    expect(svg).toContain(`viewBox="0 0 ${FIG.width} ${FIG.height}"`);
+  });
+});
+
+describe("plot-spec: figure frame + root sizing", () => {
+  it("a no-size frame falls back to the base box at 96 dpi inches", () => {
+    const frame = figureFrame(defaultPlotStyle());
+    expect(frame.hasSize).toBe(false);
+    expect(frame.screenWidth).toBe(FIG.width);
+    expect(frame.screenHeight).toBe(FIG.height);
+    expect(frame.exportInchesW).toBeCloseTo(FIG.width / 96, 6);
+    expect(frame.dpi).toBe(300);
+  });
+
+  it("a sized frame reports design-px on screen and inches for export", () => {
+    const style: PlotStyle = {
+      ...defaultPlotStyle(),
+      width: 3.5,
+      height: 2.6,
+      sizeUnit: "in",
+      dpi: 300,
+    };
+    const frame = figureFrame(style);
+    expect(frame.hasSize).toBe(true);
+    expect(frame.screenWidth).toBeCloseTo(336, 6);
+    expect(frame.exportInchesW).toBe(3.5);
+    expect(frame.exportInchesH).toBe(2.6);
+  });
+
+  it("withRootSize rewrites only the root width / height, not the viewBox", () => {
+    const svg =
+      "<" +
+      'svg width="430" height="340" viewBox="0 0 430 340"><rect width="430" height="340"/></svg>';
+    const out = withRootSize(svg, "3.5in", "2.6in");
+    expect(out).toContain('width="3.5in"');
+    expect(out).toContain('height="2.6in"');
+    // The viewBox is untouched.
+    expect(out).toContain('viewBox="0 0 430 340"');
+    // The inner rect keeps its original numeric size (only the first match changes).
+    expect(out).toContain('<rect width="430" height="340"/>');
   });
 });
