@@ -4,6 +4,7 @@ import {
   insertIntoFormula,
   buildDraftPartsFromWizard,
   emptyWizardState,
+  shouldRouteToWizard,
   FORMULA_HELPER_CHIPS,
 } from "./builder-helpers";
 import { evaluateCustomCalculator } from "./custom";
@@ -155,6 +156,29 @@ describe("buildDraftPartsFromWizard", () => {
     };
     const parts = buildDraftPartsFromWizard(state);
     expect(parts.outputs[0].label).toBe("My calc");
+  });
+});
+
+describe("shouldRouteToWizard", () => {
+  it("routes a first-timer (no owned calculators) to the wizard", () => {
+    expect(
+      shouldRouteToWizard({ loaded: true, hasOwnCalculator: false }),
+    ).toBe(true);
+  });
+
+  it("routes a returning author (owns one) to the full form", () => {
+    expect(
+      shouldRouteToWizard({ loaded: true, hasOwnCalculator: true }),
+    ).toBe(false);
+  });
+
+  it("defaults to the wizard while the list is still loading", () => {
+    expect(
+      shouldRouteToWizard({ loaded: false, hasOwnCalculator: false }),
+    ).toBe(true);
+    expect(
+      shouldRouteToWizard({ loaded: false, hasOwnCalculator: true }),
+    ).toBe(true);
   });
 });
 

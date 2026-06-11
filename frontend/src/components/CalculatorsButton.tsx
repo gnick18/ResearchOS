@@ -15,6 +15,8 @@ import {
   templateToDraft,
   type CalcDraft,
 } from "@/components/CalculatorBuilder";
+import { CalculatorWizard } from "@/components/CalculatorWizard";
+import { shouldRouteToWizard } from "@/lib/calculators/builder-helpers";
 import type { CustomCalculator } from "@/lib/types";
 import type { CalculatorTemplate } from "@/lib/calculators/template-catalog";
 import {
@@ -246,6 +248,7 @@ type RailMode =
   | { kind: "builtin"; tab: TabId }
   | { kind: "use"; calc: CustomCalculator }
   | { kind: "edit"; draft: CalcDraft; existingId?: number }
+  | { kind: "wizard" }
   | { kind: "library" };
 
 function CalculatorsModalWithBuilder({ onClose }: { onClose: () => void }) {
@@ -286,6 +289,20 @@ function CalculatorsModalWithBuilder({ onClose }: { onClose: () => void }) {
 
   const onUseTemplate = (template: CalculatorTemplate) => {
     setMode({ kind: "edit", draft: templateToDraft(template) });
+  };
+
+  // Hybrid entry: a first-timer (no calculator they OWN, shared-in ones do not
+  // count) gets the guided wizard, a returning author gets the simpler full
+  // form. Both can switch the other way at any time. While the list is still
+  // loading we treat the user as a first-timer, the safer default for someone
+  // who has likely never built one.
+  const hasOwnCalculator = myCalcs.some((c) => !c.is_shared_with_me);
+  const onBuildYourOwn = () => {
+    if (shouldRouteToWizard({ loaded: loadedCalcs, hasOwnCalculator })) {
+      setMode({ kind: "wizard" });
+    } else {
+      setMode({ kind: "edit", draft: emptyDraft() });
+    }
   };
 
   const railButtonCls = (active: boolean) =>
@@ -395,7 +412,7 @@ function CalculatorsModalWithBuilder({ onClose }: { onClose: () => void }) {
               <div className="space-y-1 pt-1 border-t border-border">
                 <button
                   type="button"
-                  onClick={() => setMode({ kind: "edit", draft: emptyDraft() })}
+                  onClick={onBuildYourOwn}
                   className="w-full inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-body font-medium text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-500/15 transition-colors"
                 >
                   <Icon name="plus" className="w-4 h-4" />
@@ -437,6 +454,21 @@ function CalculatorsModalWithBuilder({ onClose }: { onClose: () => void }) {
                   onSaved={onSaved}
                   onCancel={() => setMode({ kind: "builtin", tab: "scientific" })}
                   onStartFromTemplate={() => setMode({ kind: "library" })}
+                  // Switching to the wizard is a from-scratch flow, so only offer
+                  // it for a NEW calculator (no existingId), never mid-edit of a
+                  // saved one where it would silently drop the edits.
+                  onSwitchToWizard={
+                    mode.existingId === undefined
+                      ? () => setMode({ kind: "wizard" })
+                      : undefined
+                  }
+                />
+              )}
+              {mode.kind === "wizard" && (
+                <CalculatorWizard
+                  onSaved={onSaved}
+                  onCancel={() => setMode({ kind: "builtin", tab: "scientific" })}
+                  onSwitchToForm={(draft) => setMode({ kind: "edit", draft })}
                 />
               )}
               {mode.kind === "library" && (

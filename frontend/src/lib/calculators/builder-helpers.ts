@@ -195,6 +195,24 @@ export function buildDraftPartsFromWizard(state: WizardState): {
   };
 }
 
+// ── Hybrid entry routing ─────────────────────────────────────────────────────
+//
+// Build your own routes a first-timer to the guided wizard and a returning
+// author to the simpler full form. A first-timer is anyone who has not yet
+// SAVED a calculator they own; calculators shared into their lab do not count,
+// since reading someone else's does not teach you the builder. While the list
+// is still loading we route to the wizard, the safer default for a likely
+// first-timer. Pure so the routing rule is unit-testable.
+
+export function shouldRouteToWizard(opts: {
+  loaded: boolean;
+  /** Whether the user owns at least one saved calculator (shared-in excluded). */
+  hasOwnCalculator: boolean;
+}): boolean {
+  if (!opts.loaded) return true;
+  return !opts.hasOwnCalculator;
+}
+
 /** Insert chip text into an existing formula string, adding a separating space
  *  only when the current value does not already end in whitespace or an open
  *  paren. Pure so both the form and wizard share identical insert behaviour. */
