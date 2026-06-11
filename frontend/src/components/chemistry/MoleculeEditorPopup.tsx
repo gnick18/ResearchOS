@@ -19,6 +19,7 @@ import LivingPopup from "@/components/ui/LivingPopup";
 import { Icon } from "@/components/icons";
 import { moleculesApi } from "@/lib/chemistry/api";
 import { computeIdentity, type MoleculeIdentity } from "@/lib/chemistry/rdkit";
+import { MoleculeLiterature } from "./MoleculeLiterature";
 
 const KetcherCanvas = dynamic(() => import("./KetcherCanvas"), {
   ssr: false,
@@ -57,6 +58,9 @@ export function MoleculeEditorPopup({
   // The structure to open is known (canvas safe to mount). False while an existing
   // molecule's Molfile is still loading.
   const [structureReady, setStructureReady] = useState(false);
+  // The loaded molecule's PubChem CID, if it was imported from PubChem (lets the
+  // Papers tab skip the name->CID resolve and link the exact compound's patents).
+  const [loadedCid, setLoadedCid] = useState<number | undefined>(undefined);
 
   const isNew = moleculeId === "new";
 
@@ -71,6 +75,7 @@ export function MoleculeEditorPopup({
     setStructureReady(false);
     setIdentity(null);
     setLoadError(null);
+    setLoadedCid(undefined);
     if (isNew) {
       setName("");
       setInitialStructure(undefined);
@@ -87,6 +92,7 @@ export function MoleculeEditorPopup({
           return;
         }
         setName(detail.meta.name);
+        setLoadedCid(detail.meta.pubchem_cid);
         setInitialStructure(detail.molfile || detail.meta.smiles || undefined);
         setStructureReady(true);
       })
@@ -227,11 +233,19 @@ export function MoleculeEditorPopup({
 
             {rail === "identity" ? (
               <IdentityPane identity={identity} ready={ready} />
+            ) : name.trim() ? (
+              // Mounted only when the Papers tab is open, so the fetch is lazy.
+              // Keyed by name+cid so switching molecules refetches cleanly.
+              <MoleculeLiterature
+                key={`${name.trim()}-${loadedCid ?? ""}`}
+                query={name.trim()}
+                cid={loadedCid}
+              />
             ) : (
               <p className="text-meta text-foreground-muted leading-relaxed">
-                Live papers and patents for the open structure are coming in the
-                next chunk. They will fetch from PubChem, Europe PMC, and
-                SureChEMBL, browser-direct, the moment you open this tab.
+                Name this structure (a compound name like &ldquo;caffeine&rdquo;, or
+                import one from PubChem) to find the papers and patents that mention
+                it.
               </p>
             )}
           </aside>

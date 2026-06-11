@@ -16,8 +16,10 @@ import { Icon } from "@/components/icons";
 import { moleculesApi, type Molecule } from "@/lib/chemistry/api";
 import { projectsApi } from "@/lib/local-api";
 import { MoleculeThumbnail } from "./MoleculeThumbnail";
+import { LiteratureSearch } from "./LiteratureSearch";
 
 type SortKey = "recent" | "name";
+type HubMode = "library" | "literature";
 
 export function ChemistryHub({
   onNewStructure,
@@ -30,6 +32,7 @@ export function ChemistryHub({
 }) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("recent");
+  const [mode, setMode] = useState<HubMode>("library");
 
   const { data: molecules = [], isLoading } = useQuery({
     queryKey: ["molecules"],
@@ -77,7 +80,24 @@ export function ChemistryHub({
         linked to projects. Nothing is sent anywhere unless you search PubChem.
       </p>
 
-      {/* search + sort */}
+      {/* mode toggle: the library vs the literature companion */}
+      <div className="inline-flex gap-1 mb-5 p-1 bg-surface-sunken border border-border rounded-lg">
+        <ModeTab active={mode === "library"} onClick={() => setMode("library")}>
+          Library
+        </ModeTab>
+        <ModeTab
+          active={mode === "literature"}
+          onClick={() => setMode("literature")}
+        >
+          Find in literature
+        </ModeTab>
+      </div>
+
+      {mode === "literature" ? (
+        <LiteratureSearch />
+      ) : (
+        <>
+          {/* search + sort */}
       <div className="flex flex-wrap gap-2.5 mb-5">
         <div className="flex-1 min-w-[240px] flex items-center gap-2 bg-surface-raised border border-border rounded-xl px-3 py-2">
           <Icon name="search" className="w-4 h-4 text-foreground-muted flex-shrink-0" />
@@ -152,7 +172,33 @@ export function ChemistryHub({
           ))}
         </div>
       )}
+        </>
+      )}
     </div>
+  );
+}
+
+function ModeTab({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-3 py-1.5 text-meta font-semibold rounded-md transition-colors ${
+        active
+          ? "bg-surface-raised text-brand-action shadow-sm"
+          : "text-foreground-muted hover:text-foreground"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
