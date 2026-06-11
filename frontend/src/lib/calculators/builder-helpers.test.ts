@@ -2,8 +2,11 @@ import { describe, it, expect } from "vitest";
 import {
   deriveInputKey,
   insertIntoFormula,
+  buildDraftPartsFromWizard,
+  emptyWizardState,
   FORMULA_HELPER_CHIPS,
 } from "./builder-helpers";
+import { evaluateCustomCalculator } from "./custom";
 
 describe("deriveInputKey", () => {
   it("camelCases a multi-word label", () => {
@@ -68,6 +71,90 @@ describe("insertIntoFormula", () => {
 
   it("does not add a space right after an open paren", () => {
     expect(insertIntoFormula("mean(", "live")).toBe("mean(live");
+  });
+});
+
+describe("buildDraftPartsFromWizard", () => {
+  it("assembles a valid, evaluable draft from a finished wizard state", () => {
+    const state = {
+      ...emptyWizardState(),
+      name: "CFU per mL",
+      field: "Microbiology",
+      measurements: [
+        { label: "Colonies counted", key: "colonies" },
+        { label: "Dilution plated", key: "dilution" },
+        { label: "Volume plated", key: "platedVol", unit: "mL" },
+      ],
+      formula: "colonies / (dilution * platedVol)",
+      answerLabel: "CFU per mL",
+      answerUnit: "CFU/mL",
+      warnings: [{ condition: "colonies < 30", message: "Count is too low" }],
+      steps: [],
+    };
+    const parts = buildDraftPartsFromWizard(state);
+
+    expect(parts.name).toBe("CFU per mL");
+    expect(parts.field).toBe("Microbiology");
+    expect(parts.inputs).toHaveLength(3);
+    expect(parts.inputs[2]).toMatchObject({ key: "platedVol", unit: "mL" });
+    expect(parts.outputs).toHaveLength(1);
+    expect(parts.outputs[0]).toMatchObject({
+      label: "CFU per mL",
+      expr: "colonies / (dilution * platedVol)",
+      unit: "CFU/mL",
+    });
+    // A warning becomes an if(...) conditional.
+    expect(parts.conditionals).toHaveLength(1);
+    expect(parts.conditionals[0].expr).toContain("if(colonies < 30");
+
+    // The assembled spec actually evaluates through the real engine.
+    const calc = {
+      id: 0,
+      description: "",
+      shared_with: [],
+      created_at: "",
+      updated_at: "",
+      ...parts,
+    };
+    const result = evaluateCustomCalculator(calc, {
+      colonies: 150,
+      dilution: 1e-5,
+      platedVol: 0.1,
+    });
+    expect(result.outputs[0].value).toBeCloseTo(1.5e8, -3);
+  });
+
+  it("drops empty measurements, warnings and steps", () => {
+    const state = {
+      ...emptyWizardState(),
+      name: "Trivial",
+      measurements: [
+        { label: "x", key: "x" },
+        { label: "", key: "" },
+      ],
+      formula: "x * 2",
+      warnings: [
+        { condition: "x < 1", message: "" },
+        { condition: "", message: "low" },
+      ],
+      steps: [{ key: "", expr: "" }],
+    };
+    const parts = buildDraftPartsFromWizard(state);
+    expect(parts.inputs).toHaveLength(1);
+    expect(parts.conditionals).toHaveLength(0);
+    expect(parts.steps).toHaveLength(0);
+  });
+
+  it("falls back to the calculator name when no answer label is given", () => {
+    const state = {
+      ...emptyWizardState(),
+      name: "My calc",
+      measurements: [{ label: "a", key: "a" }],
+      formula: "a",
+      answerLabel: "",
+    };
+    const parts = buildDraftPartsFromWizard(state);
+    expect(parts.outputs[0].label).toBe("My calc");
   });
 });
 

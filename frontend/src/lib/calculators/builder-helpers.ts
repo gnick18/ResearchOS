@@ -11,6 +11,12 @@
 //      functions (mean, sum, count, if, col) registered in custom.ts.
 
 import { isReservedName } from "@/lib/calculators/custom";
+import type {
+  CustomCalculatorInput,
+  CustomCalculatorStep,
+  CustomCalculatorConditional,
+  CustomCalculatorOutput,
+} from "@/lib/types";
 
 /** The formula helpers surfaced as clickable chips. The inserted text drops the
  *  caret-ready opening paren so the author types the argument straight away.
@@ -79,6 +85,114 @@ export function deriveInputKey(label: string, taken: readonly string[]): string 
   }
   // Pathological exhaustion guard (effectively unreachable).
   return base + Date.now().toString(36);
+}
+
+// ── Wizard draft assembly ────────────────────────────────────────────────────
+//
+// The guided wizard collects its answers as a flat, plain state object, then
+// this pure function turns that state into the spec arrays a CalcDraft needs.
+// Keeping it pure means the wizard and a unit test agree on exactly what gets
+// saved, and the form (which shares the CalcDraft shape) can pick the draft up
+// unchanged when the author switches over.
+
+/** A single measurement the author enters at the bench. */
+export interface WizardMeasurement {
+  /** Plain-language label, e.g. "Colonies counted". */
+  label: string;
+  /** Auto-derived formula key; the wizard fills this via deriveInputKey. */
+  key: string;
+  /** Optional unit shown next to the field, e.g. "mL". */
+  unit?: string;
+}
+
+/** A warning rule the author can add on the optional step. */
+export interface WizardWarning {
+  /** The condition under which the message shows, e.g. "colonies < 30". */
+  condition: string;
+  /** The message to surface when the condition holds. */
+  message: string;
+}
+
+/** A named intermediate value the author can add on the optional step. */
+export interface WizardStep {
+  key: string;
+  expr: string;
+}
+
+export interface WizardState {
+  name: string;
+  field: string;
+  measurements: WizardMeasurement[];
+  formula: string;
+  answerLabel: string;
+  answerUnit: string;
+  warnings: WizardWarning[];
+  steps: WizardStep[];
+}
+
+export function emptyWizardState(): WizardState {
+  return {
+    name: "",
+    field: "",
+    measurements: [],
+    formula: "",
+    answerLabel: "",
+    answerUnit: "",
+    warnings: [],
+    steps: [],
+  };
+}
+
+/** Assemble the four spec arrays plus identity from a finished wizard state. The
+ *  result is the shape a CalcDraft expects (sans sharing, which the wizard
+ *  always saves as private). A warning becomes a conditional of the form
+ *  if(condition, "message", ""); a blank message or condition is dropped. */
+export function buildDraftPartsFromWizard(state: WizardState): {
+  name: string;
+  field: string;
+  inputs: CustomCalculatorInput[];
+  steps: CustomCalculatorStep[];
+  conditionals: CustomCalculatorConditional[];
+  outputs: CustomCalculatorOutput[];
+} {
+  const inputs: CustomCalculatorInput[] = state.measurements
+    .filter((m) => m.label.trim() !== "" || m.key.trim() !== "")
+    .map((m) => ({
+      key: m.key,
+      type: "number" as const,
+      label: m.label,
+      ...(m.unit && m.unit.trim() !== "" ? { unit: m.unit.trim() } : {}),
+    }));
+
+  const steps: CustomCalculatorStep[] = state.steps
+    .filter((s) => s.key.trim() !== "" && s.expr.trim() !== "")
+    .map((s) => ({ key: s.key.trim(), expr: s.expr.trim() }));
+
+  const conditionals: CustomCalculatorConditional[] = state.warnings
+    .filter((w) => w.condition.trim() !== "" && w.message.trim() !== "")
+    .map((w) => ({
+      // Escape any double quotes in the message so the expression stays valid.
+      expr: `if(${w.condition.trim()}, "${w.message.trim().replace(/"/g, "'")}", "")`,
+    }));
+
+  const outputs: CustomCalculatorOutput[] = [
+    {
+      label: state.answerLabel.trim() || state.name.trim(),
+      expr: state.formula.trim(),
+      ...(state.answerUnit && state.answerUnit.trim() !== ""
+        ? { unit: state.answerUnit.trim() }
+        : {}),
+    },
+  ];
+
+  return {
+    name: state.name.trim(),
+    field: state.field.trim(),
+    inputs,
+    steps,
+    conditionals,
+    outputs,
+  };
 }
 
 /** Insert chip text into an existing formula string, adding a separating space

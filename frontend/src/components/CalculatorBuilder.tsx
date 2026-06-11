@@ -1714,5 +1714,5 @@ export function CalculatorLibraryView({
 
 // ── Exports for the modal rail ───────────────────────────────────────────────
 
-export { emptyDraft, calcToDraft, templateToDraft };
+export { emptyDraft, calcToDraft, templateToDraft, draftToCalc, seedValues };
 export type { CalcDraft };
