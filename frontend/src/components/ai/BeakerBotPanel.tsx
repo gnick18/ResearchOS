@@ -31,6 +31,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Icon } from "@/components/icons";
 import { useAiChat } from "./useAiChat";
+import { useNavigationBridge } from "./navigation-bridge";
 
 // Lightweight markdown renderer for assistant replies only. Scoped to this panel.
 // Uses standard semantic elements styled by the app's Tailwind prose utilities.
@@ -67,6 +68,11 @@ export default function BeakerBotPanel() {
   const { messages, sending, status, error, send } = useAiChat();
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
+
+  // Register the soft-navigation handler so spotlight_ui_element can drive a real
+  // SPA route change (preserving the fixture capture param) instead of a reload.
+  // The tool runs outside React, so this bridge is how it reaches the router.
+  useNavigationBridge();
 
   // Keep the newest message in view as the answer reveals.
   useEffect(() => {

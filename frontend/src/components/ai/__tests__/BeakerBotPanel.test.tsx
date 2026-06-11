@@ -10,6 +10,15 @@ import BeakerBotPanel from "../BeakerBotPanel";
 // final answer), the proxy error surfaces in the panel, assistant markdown renders
 // as HTML elements (bold, lists), and user text is kept as plain text.
 
+// The panel now mounts the navigation bridge (useNavigationBridge), which reads
+// the App Router via next/navigation. There is no router provider in these unit
+// renders, so mock next/navigation with inert stubs. The bridge only registers a
+// handler here, it does not navigate during these tests.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 // The read tool reads from local-api. Mock it so the tool runs without a folder.
 vi.mock("@/lib/local-api", () => ({
   fetchAllTasksIncludingShared: vi.fn(async () => [
