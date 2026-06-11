@@ -186,6 +186,12 @@ export default function DataHubPage() {
   // uses this so the user sees the test RESULT. Null when no analysis was requested.
   // Consumed once the analysis is selected (or when its doc loads without it).
   const pendingAnalysisId = useRef<string | null>(null);
+  // A pending `?plot=<id>` deep link, the figure analog of pendingAnalysisId,
+  // captured alongside `?doc=` so once the deep-linked doc's content loads we can
+  // select that plot and land the user ON the figure (the Graphs view) rather
+  // than the raw data grid. BeakerBot's make_datahub_graph navigation uses this
+  // so the user sees the chart it built. Null when no plot was requested.
+  const pendingPlotId = useRef<string | null>(null);
   useEffect(() => {
     if (!deepLinkConsumed.current && typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
@@ -195,10 +201,11 @@ export default function DataHubPage() {
       } else if (allTables.length > 0) {
         deepLinkConsumed.current = true;
         if (allTables.some((t) => t.id === doc)) {
-          // Stash any requested analysis before selecting the table, so the
-          // table-switch effect that clears the analysis selection runs first and
-          // the analysis-deep-link effect below re-applies it once content loads.
+          // Stash any requested analysis or plot before selecting the table, so
+          // the table-switch effect that clears the selection runs first and the
+          // deep-link effects below re-apply them once content loads.
           pendingAnalysisId.current = params.get("analysis");
+          pendingPlotId.current = params.get("plot");
           if (collection !== "all") setCollection("all");
           setSelectedTableId(doc);
           return; // the deep-link selection wins this pass
@@ -280,6 +287,23 @@ export default function DataHubPage() {
     if (openContent.analyses.some((a) => a.id === wanted)) {
       setSelectedPlotId(null);
       setSelectedAnalysisId(wanted);
+    }
+  }, [openContent]);
+
+  // Apply a pending `?plot=<id>` deep link once the deep-linked doc's content has
+  // loaded, the figure analog of the analysis deep-link effect above. This runs
+  // after the table-switch clear, so the plot the build navigated to is what
+  // wins, and the user lands on its figure rather than the raw data grid.
+  // Backward compatible, with no plot param the ref is null and this is a no-op.
+  // If the id is not among the loaded plots we still consume the ref and fall
+  // back to the grid, so a stale or wrong id never leaves the deep link stuck.
+  useEffect(() => {
+    if (pendingPlotId.current == null || !openContent) return;
+    const wanted = pendingPlotId.current;
+    pendingPlotId.current = null;
+    if (openContent.plots.some((p) => p.id === wanted)) {
+      setSelectedAnalysisId(null);
+      setSelectedPlotId(wanted);
     }
   }, [openContent]);
 

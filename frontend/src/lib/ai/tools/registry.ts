@@ -46,6 +46,7 @@ import {
   listDataHubTablesTool,
   runDataHubAnalysisTool,
 } from "./datahub-analysis";
+import { makeDataHubGraphTool } from "./datahub-graph";
 import type { AiTool } from "./types";
 
 // The read-only toolset, read-only with respect to the user's data. Exported on
@@ -63,6 +64,12 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // through ask_user, so it carries no `action` flag and runs immediately like the
   // perception tools, then navigates the user to the result.
   runDataHubAnalysisTool,
+  // Non-gated for the same reason. make_datahub_graph builds a reversible,
+  // version-controlled figure the user explicitly asked for (and whose graph type
+  // / error bar they may have tapped through ask_user) through the validated plot
+  // engine, then navigates the user to the figure. The engine builds the figure,
+  // the model never computes a plotted value.
+  makeDataHubGraphTool,
 ];
 
 // The action toolset. Each tool here carries action: true and goes through the

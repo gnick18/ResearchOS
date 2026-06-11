@@ -64,6 +64,17 @@ const SEED_TTEST = {
   resultStale: false,
 };
 
+// A stored column bar figure, so a `?plot=` deep-link test can assert the page
+// lands on the figure (the Graphs editor) rather than the raw data grid. The
+// engine draws the figure from the content on render, so the spec carries only
+// its kind + source. Seeded only when docState.seedPlots is flipped on.
+const SEED_PLOT = {
+  id: "plot-1",
+  type: "columnBar",
+  style: { kind: "columnBar", errorBar: "sem" },
+  source: { tableId: "1", analysisId: null },
+};
+
 function seedContent(): DataHubDocContent {
   return {
     meta: SEED_META,
@@ -73,7 +84,7 @@ function seedContent(): DataHubDocContent {
     ],
     rows: SEED_ROWS.map((r) => ({ id: r.id, cells: { ...r.cells } })),
     analyses: docState.seedAnalyses ? [{ ...SEED_TTEST }] : [],
-    plots: [],
+    plots: docState.seedPlots ? [{ ...SEED_PLOT }] : [],
   };
 }
 
@@ -97,6 +108,9 @@ const { docState } = vi.hoisted(() => ({
     // When true, seedContent includes the stored t-test, so the `?analysis=`
     // deep-link test can land on its result sheet. Off by default.
     seedAnalyses: false,
+    // When true, seedContent includes the stored bar figure, so the `?plot=`
+    // deep-link test can land on the Graphs editor. Off by default.
+    seedPlots: false,
   },
 }));
 
@@ -152,6 +166,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   docState.content = null;
   docState.seedAnalyses = false;
+  docState.seedPlots = false;
   // Reset any deep-link query the prior test set, so each case starts clean.
   window.history.replaceState(null, "", "/datahub");
 });
@@ -229,5 +244,36 @@ describe("DataHubPage — analysis deep link (?doc=&analysis=)", () => {
 
     expect(await screen.findByTestId("datahub-data-grid")).toBeInTheDocument();
     expect(screen.queryByTestId("results-ttest-table")).not.toBeInTheDocument();
+  });
+});
+
+describe("DataHubPage — figure deep link (?doc=&plot=)", () => {
+  it("lands on the figure (the Graphs editor), not the data grid, when ?plot= names a stored plot", async () => {
+    // BeakerBot's make_datahub_graph navigates here so the user sees the chart.
+    docState.seedPlots = true;
+    window.history.replaceState(null, "", "/datahub?doc=1&plot=plot-1");
+    renderPage();
+
+    // The Graphs editor (the figure) is shown, not the raw replicate grid.
+    expect(await screen.findByTestId("datahub-graph-editor")).toBeInTheDocument();
+    expect(screen.queryByTestId("datahub-data-grid")).not.toBeInTheDocument();
+  });
+
+  it("falls back to the data grid when ?plot= names an unknown plot", async () => {
+    docState.seedPlots = true;
+    window.history.replaceState(null, "", "/datahub?doc=1&plot=does-not-exist");
+    renderPage();
+
+    expect(await screen.findByTestId("datahub-data-grid")).toBeInTheDocument();
+    expect(screen.queryByTestId("datahub-graph-editor")).not.toBeInTheDocument();
+  });
+
+  it("lands on the data grid when only ?doc= is present (backward compatible)", async () => {
+    docState.seedPlots = true;
+    window.history.replaceState(null, "", "/datahub?doc=1");
+    renderPage();
+
+    expect(await screen.findByTestId("datahub-data-grid")).toBeInTheDocument();
+    expect(screen.queryByTestId("datahub-graph-editor")).not.toBeInTheDocument();
   });
 });
