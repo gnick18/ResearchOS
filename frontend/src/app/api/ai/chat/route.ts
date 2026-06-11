@@ -27,7 +27,11 @@ export const runtime = "nodejs";
 // but every value is env-overridable. Do NOT hardcode Fireworks anywhere except
 // this default.
 const DEFAULT_BASE_URL = "https://api.fireworks.ai/inference/v1";
-const DEFAULT_MODEL = "accounts/fireworks/models/llama-v3p3-70b-instruct";
+// gpt-oss-120b, the locked default (design doc section 10). OpenAI's open-weight
+// Apache-2.0 model, US-origin, on the Fireworks serverless catalog. Llama is NOT
+// on Fireworks serverless (dedicated-deployment-only), so it is reachable only by
+// swapping the provider via AI_PROXY_BASE_URL. Override the model with AI_MODEL.
+const DEFAULT_MODEL = "accounts/fireworks/models/gpt-oss-120b";
 
 type ChatMessage = { role: string; content: string };
 
