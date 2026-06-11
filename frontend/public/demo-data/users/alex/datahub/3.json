@@ -1,0 +1,146 @@
+{
+  "meta": {
+    "id": "3",
+    "name": "Heat-shock survival by strain",
+    "project_ids": [
+      "3"
+    ],
+    "folder_path": null,
+    "table_type": "column",
+    "created_at": "2026-05-14T15:00:00.000Z",
+    "last_edited_by": "alex",
+    "last_edited_at": "2026-05-15T10:30:00.000Z"
+  },
+  "columns": [
+    {
+      "id": "col-1",
+      "name": "Control (WT)",
+      "role": "y",
+      "dataType": "number"
+    },
+    {
+      "id": "col-2",
+      "name": "FakeYeast-001",
+      "role": "y",
+      "dataType": "number"
+    },
+    {
+      "id": "col-3",
+      "name": "FakeYeast-002",
+      "role": "y",
+      "dataType": "number"
+    }
+  ],
+  "rows": [
+    {
+      "id": "row-1",
+      "cells": {
+        "col-1": 42.1,
+        "col-2": 61.4,
+        "col-3": 55.8
+      }
+    },
+    {
+      "id": "row-2",
+      "cells": {
+        "col-1": 38.7,
+        "col-2": 58.9,
+        "col-3": 52.3
+      }
+    },
+    {
+      "id": "row-3",
+      "cells": {
+        "col-1": 45.3,
+        "col-2": 64.2,
+        "col-3": 57.1
+      }
+    },
+    {
+      "id": "row-4",
+      "cells": {
+        "col-1": 40.2,
+        "col-2": 60.1,
+        "col-3": 54.6
+      }
+    }
+  ],
+  "analyses": [
+    {
+      "id": "analysis-survival-ttest",
+      "type": "unpairedTTest",
+      "params": {},
+      "inputs": {
+        "columnIds": [
+          "col-1",
+          "col-2"
+        ]
+      },
+      "resultCache": {
+        "ok": true,
+        "kind": "ttest",
+        "type": "unpairedTTest",
+        "test": "Welch's t-test",
+        "nonparametric": false,
+        "groups": [
+          {
+            "columnId": "col-1",
+            "name": "Control (WT)",
+            "values": [
+              42.1,
+              38.7,
+              45.3,
+              40.2
+            ]
+          },
+          {
+            "columnId": "col-2",
+            "name": "FakeYeast-001",
+            "values": [
+              61.4,
+              58.9,
+              64.2,
+              60.1
+            ]
+          }
+        ],
+        "statistic": -10.743514034925361,
+        "df": 5.722207128297488,
+        "pValue": 0.0000523529724349812,
+        "effectSize": -7.59681162786857,
+        "effectSizeLabel": "Cohen's d",
+        "ci95": [
+          -24.086339891980945,
+          -15.063660108019043
+        ],
+        "meanA": 41.575,
+        "meanB": 61.15,
+        "meanDiff": -19.574999999999996
+      },
+      "resultStale": false
+    }
+  ],
+  "plots": [
+    {
+      "id": "plot-survival-bar",
+      "type": "columnBar",
+      "style": {
+        "kind": "columnBar",
+        "errorBar": "sem",
+        "showPoints": true,
+        "showBrackets": true,
+        "colorMode": "brand",
+        "fontSize": 13,
+        "title": "Heat-shock survival by strain",
+        "yTitle": "% survival (50 C, 30 min)",
+        "xTitle": "",
+        "fitModel": "linear"
+      },
+      "source": {
+        "tableId": "3",
+        "analysisId": "analysis-survival-ttest",
+        "yColumnId": null
+      }
+    }
+  ]
+}

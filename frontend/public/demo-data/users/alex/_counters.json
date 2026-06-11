@@ -19,5 +19,7 @@
   "inventory_items": 7,
   "inventory_stocks": 8,
   "storage_nodes": 3,
-  "sequences": 9
+  "sequences": 9,
+  "datahub": 3,
+  "molecules": 4
 }

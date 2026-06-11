@@ -1,0 +1,13 @@
+{
+  "id": "1",
+  "name": "Ethanol",
+  "project_ids": [
+    "1"
+  ],
+  "added_at": "2026-05-14T16:00:00.000Z",
+  "smiles": "CCO",
+  "inchikey": "LFQSCWFLJHTTHZ-UHFFFAOYSA-N",
+  "formula": "C2H6O",
+  "mol_weight": 46.07,
+  "source": "imported"
+}

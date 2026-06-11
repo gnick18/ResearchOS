@@ -1,0 +1,178 @@
+{
+  "meta": {
+    "id": "2",
+    "name": "Growth curve, YPD vs 4% glucose",
+    "project_ids": [
+      "3"
+    ],
+    "folder_path": null,
+    "table_type": "xy",
+    "created_at": "2026-05-14T15:00:00.000Z",
+    "last_edited_by": "alex",
+    "last_edited_at": "2026-05-15T10:30:00.000Z"
+  },
+  "columns": [
+    {
+      "id": "col-x",
+      "name": "Time (h)",
+      "role": "x",
+      "dataType": "number"
+    },
+    {
+      "id": "col-ypd",
+      "name": "YPD",
+      "role": "y",
+      "dataType": "number"
+    },
+    {
+      "id": "col-glu",
+      "name": "4% glucose",
+      "role": "y",
+      "dataType": "number"
+    }
+  ],
+  "rows": [
+    {
+      "id": "row-1",
+      "cells": {
+        "col-x": 0,
+        "col-ypd": 0.05,
+        "col-glu": 0.05
+      }
+    },
+    {
+      "id": "row-2",
+      "cells": {
+        "col-x": 2,
+        "col-ypd": 0.12,
+        "col-glu": 0.09
+      }
+    },
+    {
+      "id": "row-3",
+      "cells": {
+        "col-x": 4,
+        "col-ypd": 0.31,
+        "col-glu": 0.21
+      }
+    },
+    {
+      "id": "row-4",
+      "cells": {
+        "col-x": 6,
+        "col-ypd": 0.74,
+        "col-glu": 0.48
+      }
+    },
+    {
+      "id": "row-5",
+      "cells": {
+        "col-x": 8,
+        "col-ypd": 1.32,
+        "col-glu": 0.92
+      }
+    },
+    {
+      "id": "row-6",
+      "cells": {
+        "col-x": 10,
+        "col-ypd": 1.98,
+        "col-glu": 1.44
+      }
+    },
+    {
+      "id": "row-7",
+      "cells": {
+        "col-x": 12,
+        "col-ypd": 2.41,
+        "col-glu": 1.83
+      }
+    },
+    {
+      "id": "row-8",
+      "cells": {
+        "col-x": 24,
+        "col-ypd": 3.05,
+        "col-glu": 2.36
+      }
+    }
+  ],
+  "analyses": [
+    {
+      "id": "analysis-growth-reg",
+      "type": "linearRegression",
+      "params": {},
+      "inputs": {
+        "columnIds": [
+          "col-ypd"
+        ]
+      },
+      "resultCache": {
+        "ok": true,
+        "kind": "regression",
+        "type": "linearRegression",
+        "xName": "Time (h)",
+        "yName": "YPD",
+        "x": [
+          0,
+          2,
+          4,
+          6,
+          8,
+          10,
+          12,
+          24
+        ],
+        "y": [
+          0.05,
+          0.12,
+          0.31,
+          0.74,
+          1.32,
+          1.98,
+          2.41,
+          3.05
+        ],
+        "n": 8,
+        "slope": 0.14175726927939317,
+        "intercept": 0.07800252844500632,
+        "rSquared": 0.8846466534374275,
+        "slopeSE": 0.02089776750830964,
+        "interceptSE": 0.2265264017784352,
+        "slopeCI95": [
+          0.09062227430083804,
+          0.1928922642579483
+        ],
+        "interceptCI95": [
+          -0.47628760866387354,
+          0.6322926655538862
+        ],
+        "residualSE": 0.4155977016801269
+      },
+      "resultStale": false
+    }
+  ],
+  "plots": [
+    {
+      "id": "plot-growth-xy",
+      "type": "xyScatter",
+      "style": {
+        "kind": "xyScatter",
+        "errorBar": "sem",
+        "showPoints": true,
+        "showBrackets": true,
+        "colorMode": "brand",
+        "fontSize": 13,
+        "title": "Growth curve, YPD vs 4% glucose",
+        "yTitle": "OD600",
+        "xTitle": "Time (h)",
+        "fitModel": "linear"
+      },
+      "source": {
+        "tableId": "2",
+        "analysisId": null,
+        "yColumnId": "col-ypd"
+      }
+    }
+  ]
+}

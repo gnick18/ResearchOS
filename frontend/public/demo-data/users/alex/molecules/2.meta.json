@@ -1,0 +1,13 @@
+{
+  "id": "2",
+  "name": "Acetic acid",
+  "project_ids": [
+    "1"
+  ],
+  "added_at": "2026-05-14T16:00:00.000Z",
+  "smiles": "CC(=O)O",
+  "inchikey": "QTBSBXVTEAMEQO-UHFFFAOYSA-N",
+  "formula": "C2H4O2",
+  "mol_weight": 60.05,
+  "source": "imported"
+}

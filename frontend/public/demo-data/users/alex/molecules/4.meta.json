@@ -1,0 +1,13 @@
+{
+  "id": "4",
+  "name": "Resveratrol",
+  "project_ids": [
+    "1"
+  ],
+  "added_at": "2026-05-14T16:00:00.000Z",
+  "smiles": "Oc1ccc(/C=C/c2cc(O)cc(O)c2)cc1",
+  "inchikey": "LUKBXSAWLPMMSZ-OWOJBTEDSA-N",
+  "formula": "C14H12O3",
+  "mol_weight": 228.24,
+  "source": "imported"
+}

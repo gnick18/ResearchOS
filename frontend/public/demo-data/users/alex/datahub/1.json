@@ -1,0 +1,271 @@
+{
+  "meta": {
+    "id": "1",
+    "name": "fakeGFP expression (qPCR)",
+    "project_ids": [
+      "1"
+    ],
+    "folder_path": null,
+    "table_type": "column",
+    "created_at": "2026-05-14T15:00:00.000Z",
+    "last_edited_by": "alex",
+    "last_edited_at": "2026-05-15T10:30:00.000Z"
+  },
+  "columns": [
+    {
+      "id": "col-1",
+      "name": "Control (WT)",
+      "role": "y",
+      "dataType": "number"
+    },
+    {
+      "id": "col-2",
+      "name": "FakeYeast-001",
+      "role": "y",
+      "dataType": "number"
+    },
+    {
+      "id": "col-3",
+      "name": "FakeYeast-002",
+      "role": "y",
+      "dataType": "number"
+    },
+    {
+      "id": "col-4",
+      "name": "FakeYeast-003",
+      "role": "y",
+      "dataType": "number"
+    }
+  ],
+  "rows": [
+    {
+      "id": "row-1",
+      "cells": {
+        "col-1": 1.02,
+        "col-2": 2.31,
+        "col-3": 3.12,
+        "col-4": 1.85
+      }
+    },
+    {
+      "id": "row-2",
+      "cells": {
+        "col-1": 0.97,
+        "col-2": 2.48,
+        "col-3": 3.45,
+        "col-4": 1.72
+      }
+    },
+    {
+      "id": "row-3",
+      "cells": {
+        "col-1": 1.05,
+        "col-2": 2.19,
+        "col-3": 2.98,
+        "col-4": 1.94
+      }
+    },
+    {
+      "id": "row-4",
+      "cells": {
+        "col-1": 0.99,
+        "col-2": 2.55,
+        "col-3": 3.3,
+        "col-4": 1.68
+      }
+    },
+    {
+      "id": "row-5",
+      "cells": {
+        "col-1": 1,
+        "col-2": 2.4,
+        "col-3": 3.21,
+        "col-4": 1.8
+      }
+    }
+  ],
+  "analyses": [
+    {
+      "id": "analysis-gfp-anova",
+      "type": "oneWayAnova",
+      "params": {},
+      "inputs": {
+        "columnIds": [
+          "col-1",
+          "col-2",
+          "col-3",
+          "col-4"
+        ]
+      },
+      "resultCache": {
+        "ok": true,
+        "kind": "anova",
+        "type": "oneWayAnova",
+        "test": "One-way ANOVA",
+        "nonparametric": false,
+        "groups": [
+          {
+            "columnId": "col-1",
+            "name": "Control (WT)",
+            "values": [
+              1.02,
+              0.97,
+              1.05,
+              0.99,
+              1
+            ]
+          },
+          {
+            "columnId": "col-2",
+            "name": "FakeYeast-001",
+            "values": [
+              2.31,
+              2.48,
+              2.19,
+              2.55,
+              2.4
+            ]
+          },
+          {
+            "columnId": "col-3",
+            "name": "FakeYeast-002",
+            "values": [
+              3.12,
+              3.45,
+              2.98,
+              3.3,
+              3.21
+            ]
+          },
+          {
+            "columnId": "col-4",
+            "name": "FakeYeast-003",
+            "values": [
+              1.85,
+              1.72,
+              1.94,
+              1.68,
+              1.8
+            ]
+          }
+        ],
+        "statistic": 274.2835043409697,
+        "pValue": 5.806466418789569e-14,
+        "dfBetween": 3,
+        "dfWithin": 16,
+        "table": [
+          {
+            "source": "Between groups",
+            "df": 3,
+            "ss": 13.031895000000006,
+            "ms": 4.343965000000002,
+            "f": 274.283504340963,
+            "pValue": 5.806466418789569e-14
+          },
+          {
+            "source": "Within groups",
+            "df": 16,
+            "ss": 0.2534,
+            "ms": 0.0158375,
+            "f": null,
+            "pValue": null
+          },
+          {
+            "source": "Total",
+            "df": 19,
+            "ss": 13.285295000000005,
+            "ms": null,
+            "f": null,
+            "pValue": null
+          }
+        ],
+        "comparisons": [
+          {
+            "groupA": "Control (WT)",
+            "groupB": "FakeYeast-001",
+            "meanDiff": -1.3800000000000001,
+            "statistic": 24.52001743337293,
+            "pValue": 4.5215386990093975e-11,
+            "pAdjusted": 4.5215386990093975e-11,
+            "significant": true,
+            "method": "Tukey HSD"
+          },
+          {
+            "groupA": "Control (WT)",
+            "groupB": "FakeYeast-002",
+            "meanDiff": -2.2060000000000004,
+            "statistic": 39.196491636246876,
+            "pValue": 1.3167245072054357e-13,
+            "pAdjusted": 1.3167245072054357e-13,
+            "significant": true,
+            "method": "Tukey HSD"
+          },
+          {
+            "groupA": "Control (WT)",
+            "groupB": "FakeYeast-003",
+            "meanDiff": -0.792,
+            "statistic": 14.072357831327073,
+            "pValue": 1.634042094966759e-7,
+            "pAdjusted": 1.634042094966759e-7,
+            "significant": true,
+            "method": "Tukey HSD"
+          },
+          {
+            "groupA": "FakeYeast-001",
+            "groupB": "FakeYeast-002",
+            "meanDiff": -0.8260000000000005,
+            "statistic": 14.676474202873951,
+            "pValue": 9.09658256498247e-8,
+            "pAdjusted": 9.09658256498247e-8,
+            "significant": true,
+            "method": "Tukey HSD"
+          },
+          {
+            "groupA": "FakeYeast-001",
+            "groupB": "FakeYeast-003",
+            "meanDiff": 0.5880000000000001,
+            "statistic": 10.447659602045858,
+            "pValue": 0.000008373153629892549,
+            "pAdjusted": 0.000008373153629892549,
+            "significant": true,
+            "method": "Tukey HSD"
+          },
+          {
+            "groupA": "FakeYeast-002",
+            "groupB": "FakeYeast-003",
+            "meanDiff": 1.4140000000000006,
+            "statistic": 25.124133804919808,
+            "pValue": 3.1288860391498474e-11,
+            "pAdjusted": 3.1288860391498474e-11,
+            "significant": true,
+            "method": "Tukey HSD"
+          }
+        ]
+      },
+      "resultStale": false
+    }
+  ],
+  "plots": [
+    {
+      "id": "plot-gfp-scatter",
+      "type": "columnScatter",
+      "style": {
+        "kind": "columnScatter",
+        "errorBar": "sem",
+        "showPoints": true,
+        "showBrackets": true,
+        "colorMode": "brand",
+        "fontSize": 13,
+        "title": "fakeGFP reporter induction by strain",
+        "yTitle": "Relative fakeGFP expression",
+        "xTitle": "",
+        "fitModel": "linear"
+      },
+      "source": {
+        "tableId": "1",
+        "analysisId": "analysis-gfp-anova",
+        "yColumnId": null
+      }
+    }
+  ]
+}

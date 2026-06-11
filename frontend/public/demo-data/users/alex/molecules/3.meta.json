@@ -1,0 +1,13 @@
+{
+  "id": "3",
+  "name": "Glycerol",
+  "project_ids": [
+    "1"
+  ],
+  "added_at": "2026-05-14T16:00:00.000Z",
+  "smiles": "OCC(O)CO",
+  "inchikey": "PEDCQBHIVMGVHV-UHFFFAOYSA-N",
+  "formula": "C3H8O3",
+  "mol_weight": 92.09,
+  "source": "imported"
+}
