@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Custom Calculator Builder - before / after</title>
+<style>
+  :root {
+    --surface: #f8fafc;
+    --surface-raised: #ffffff;
+    --surface-overlay: #ffffff;
+    --surface-sunken: #f1f5f9;
+    --foreground: #171717;
+    --foreground-muted: #6b7280;
+    --border: #e5e7eb;
+    --brand-sky: #1AA0E6;
+    --brand-action: #1283C9;
+    --brand-purple: #5B47D6;
+    --coral: #FF6F61;
+    --amber: #F59E0B;
+    --green: #1a9f5a;
+    --red: #d9483b;
+  }
+  html.dark {
+    --surface: #0a0e1a;
+    --surface-raised: #1c2638;
+    --surface-overlay: #28344c;
+    --surface-sunken: #0d1424;
+    --foreground: #f1f5f9;
+    --foreground-muted: #b4bfd0;
+    --border: rgba(255,255,255,0.16);
+    --green: #34d27e;
+    --red: #f0857a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    background: var(--surface);
+    color: var(--foreground);
+    -webkit-font-smoothing: antialiased;
+  }
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 12px 18px;
+    background: var(--surface-raised);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar h1 { font-size: 15px; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
+  .topbar .sub { font-size: 12px; color: var(--foreground-muted); margin-right: auto; }
+  .ctrl {
+    font-size: 12px; font-weight: 600;
+    padding: 6px 11px; border-radius: 9px;
+    border: 1px solid var(--border);
+    background: var(--surface-overlay); color: var(--foreground);
+    cursor: pointer; transition: all .12s;
+  }
+  .ctrl:hover { border-color: var(--brand-action); }
+  .ctrl.on { background: var(--brand-action); color: #fff; border-color: var(--brand-action); }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+  .seg button { border: none; border-radius: 0; }
+  .seg button + button { border-left: 1px solid var(--border); }
+
+  .layout { display: grid; grid-template-columns: minmax(0,1fr) 360px; gap: 0; }
+  .stage { padding: 26px 22px 80px; min-height: 80vh; }
+  @media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } .panel { display: none; } }
+
+  /* ---- the mock modal ---- */
+  .modal {
+    width: 100%; max-width: 980px; margin: 0 auto;
+    background: var(--surface-overlay);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.18);
+    overflow: hidden;
+  }
+  .modal-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 15px 20px; border-bottom: 1px solid var(--border);
+  }
+  .modal-head .dot {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: rgba(26,160,230,.14); color: var(--brand-action);
+    display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px;
+  }
+  html.dark .modal-head .dot { background: rgba(26,160,230,.20); color: #7cc6ef; }
+  .modal-head h2 { font-size: 16px; font-weight: 800; margin: 0; }
+  .modal-head .x { margin-left: auto; color: var(--foreground-muted); cursor: pointer; font-size: 18px; }
+
+  .modal-body { display: grid; grid-template-columns: 210px minmax(0,1fr); min-height: 460px; }
+  .rail { border-right: 1px solid var(--border); padding: 12px 10px; background: var(--surface-sunken); }
+  .rail .grouplabel { font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--foreground-muted); padding: 10px 8px 4px; }
+  .rail .item {
+    display: flex; align-items: center; gap: 7px;
+    padding: 7px 9px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; color: var(--foreground);
+  }
+  .rail .item:hover { background: var(--surface-raised); }
+  .rail .item.active { background: var(--brand-action); color: #fff; }
+  .rail .item .tagme { margin-left: auto; font-size: 9.5px; font-weight: 700; padding: 1px 6px; border-radius: 999px; background: rgba(91,71,214,.16); color: var(--brand-purple); }
+  .rail .item.active .tagme { background: rgba(255,255,255,.22); color: #fff; }
+  .rail .build {
+    margin-top: 10px; width: 100%; text-align: left;
+    padding: 8px 10px; border-radius: 9px;
+    border: 1px dashed var(--brand-action); color: var(--brand-action); background: transparent;
+    font-size: 12.5px; font-weight: 700; cursor: pointer;
+  }
+  .rail .build:hover { background: rgba(18,131,201,.07); }
+
+  .content { padding: 18px 20px; }
+
+  /* use/edit toggle + sharing row */
+  .crumb { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .crumb h3 { font-size: 17px; font-weight: 800; margin: 0; }
+  .pill { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+  .pill.share { background: rgba(26,159,90,.14); color: var(--green); }
+  .pill.phone { background: rgba(245,158,11,.16); color: #b9770a; }
+  html.dark .pill.phone { color: var(--amber); }
+  .ue { margin-left: auto; }
+
+  .field { margin-bottom: 12px; }
+  .field > label { display: block; font-size: 11px; font-weight: 700; color: var(--foreground-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .03em; }
+  .inp {
+    width: 100%; padding: 8px 10px; font-size: 13.5px;
+    background: var(--surface-sunken); border: 1px solid var(--border); border-radius: 9px; color: var(--foreground);
+    font-family: inherit;
+  }
+  .inp:focus { outline: none; border-color: var(--brand-action); }
+  .inp.mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; }
+  .row5 { display: flex; gap: 6px; }
+  .row5 .inp { text-align: center; padding: 8px 4px; }
+
+  .section { border: 1px solid var(--border); border-radius: 12px; padding: 12px 13px; margin-bottom: 12px; background: var(--surface-raised); }
+  .section > .h { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .section > .h .t { font-size: 12.5px; font-weight: 800; }
+  .section > .h .hint { font-size: 11px; color: var(--foreground-muted); }
+  .section > .h .add { margin-left: auto; font-size: 11.5px; font-weight: 700; color: var(--brand-action); cursor: pointer; border: none; background: none; }
+
+  .chip-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .typechip { font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground-muted); cursor: pointer; }
+  .typechip.sel { border-color: var(--brand-action); color: var(--brand-action); background: rgba(18,131,201,.08); }
+
+  .defrow { display: grid; grid-template-columns: 1.1fr 1.5fr auto; gap: 8px; align-items: center; margin-bottom: 7px; }
+  .defrow .kind { font-size: 10px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; color: var(--brand-purple); }
+  .defrow .del { color: var(--foreground-muted); cursor: pointer; border: none; background: none; font-size: 15px; }
+  .small { font-size: 11px; color: var(--foreground-muted); }
+
+  /* USE view rendered calculator */
+  .use-input { margin-bottom: 13px; }
+  .use-input > label { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 700; margin-bottom: 5px; }
+  .use-input .unit { color: var(--foreground-muted); font-weight: 600; }
+  .result-card { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-top: 6px; }
+  .result-card .r {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+    padding: 11px 14px; border-bottom: 1px solid var(--border);
+  }
+  .result-card .r:last-child { border-bottom: none; }
+  .result-card .r .lab { font-size: 12.5px; color: var(--foreground-muted); }
+  .result-card .r .val { font-size: 19px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .result-card .r .val.good { color: var(--brand-action); }
+  .flag { display: flex; gap: 8px; align-items: flex-start; padding: 10px 14px; font-size: 12px; background: rgba(245,158,11,.10); color: #8a5a06; }
+  html.dark .flag { color: #f3c777; }
+  .stepval { font-size: 11px; color: var(--foreground-muted); margin-top: 3px; font-variant-numeric: tabular-nums; }
+
+  .note { font-size: 11.5px; color: var(--foreground-muted); padding: 9px 12px; border-top: 1px solid var(--border); display: flex; gap: 8px; align-items: center; }
+
+  /* before view */
+  .before-tabs { display: flex; flex-wrap: wrap; gap: 5px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .before-tabs .bt { font-size: 11.5px; font-weight: 700; padding: 5px 10px; border-radius: 8px; color: var(--foreground-muted); }
+  .before-tabs .bt.on { background: var(--brand-action); color: #fff; }
+  .before-note { text-align: center; font-size: 12px; color: var(--coral); padding: 8px; font-weight: 600; }
+  .keypad { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 14px; }
+  .keypad div { padding: 10px 0; text-align: center; border: 1px solid var(--border); border-radius: 8px; font-size: 12px; background: var(--surface-sunken); }
+
+  /* right panel */
+  .panel { border-left: 1px solid var(--border); background: var(--surface-raised); height: calc(100vh - 49px); position: sticky; top: 49px; overflow-y: auto; }
+  .panel-tabs { display: flex; padding: 10px 12px 0; gap: 6px; position: sticky; top: 0; background: var(--surface-raised); z-index: 2; }
+  .panel-tabs button { flex: 1; font-size: 12px; font-weight: 700; padding: 7px; border: 1px solid var(--border); border-bottom: none; border-radius: 9px 9px 0 0; background: var(--surface-sunken); color: var(--foreground-muted); cursor: pointer; }
+  .panel-tabs button.on { background: var(--surface-raised); color: var(--foreground); border-color: var(--border); }
+  .panel-body { padding: 12px; }
+
+  .change {
+    border: 1px solid var(--border); border-left: 3px solid var(--border);
+    border-radius: 10px; padding: 11px 12px; margin-bottom: 11px; background: var(--surface-overlay);
+  }
+  .change.approve { border-left-color: var(--green); }
+  .change.disapprove { border-left-color: var(--red); }
+  .change.discuss { border-left-color: var(--amber); }
+  .change .num { font-size: 10px; font-weight: 800; color: var(--foreground-muted); }
+  .change h4 { font-size: 13px; font-weight: 800; margin: 3px 0 5px; }
+  .change p { font-size: 11.5px; color: var(--foreground-muted); margin: 0 0 9px; line-height: 1.45; }
+  .verds { display: flex; gap: 5px; margin-bottom: 7px; }
+  .verds button { flex: 1; font-size: 11px; font-weight: 700; padding: 5px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground-muted); cursor: pointer; }
+  .verds button.aon { background: var(--green); color: #fff; border-color: var(--green); }
+  .verds button.don { background: var(--red); color: #fff; border-color: var(--red); }
+  .verds button.qon { background: var(--amber); color: #fff; border-color: var(--amber); }
+  .change textarea { width: 100%; font-family: inherit; font-size: 11.5px; padding: 6px 8px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground); resize: vertical; min-height: 34px; }
+
+  .pin { position: absolute; width: 22px; height: 22px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--brand-purple); color: #fff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,.3); z-index: 30; }
+  .pin span { transform: rotate(45deg); }
+  body.commenting [data-pin] { cursor: crosshair; outline-offset: -2px; }
+  body.commenting [data-pin]:hover { outline: 2px dashed var(--brand-purple); }
+
+  .commentcard { border: 1px solid var(--border); border-radius: 9px; padding: 9px 10px; margin-bottom: 9px; background: var(--surface-overlay); }
+  .commentcard .cn { font-size: 10.5px; font-weight: 800; color: var(--brand-purple); }
+  .commentcard .ct { font-size: 11px; color: var(--foreground-muted); }
+  .commentcard textarea { width: 100%; font-size: 11.5px; font-family: inherit; margin-top: 5px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-sunken); color: var(--foreground); padding: 5px; min-height: 30px; }
+  .commentcard .del2 { float: right; color: var(--foreground-muted); cursor: pointer; font-size: 12px; }
+
+  .export-summary { white-space: pre-wrap; font-family: ui-monospace, Menlo, monospace; font-size: 11px; background: var(--surface-sunken); border: 1px solid var(--border); border-radius: 8px; padding: 10px; max-height: 320px; overflow-y: auto; }
+  .hide { display: none !important; }
+  .stagewrap { position: relative; }
+
+  /* template gallery */
+  .gallery { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .tcard { border: 1px solid var(--border); border-radius: 11px; padding: 11px 12px; background: var(--surface-raised); display: flex; flex-direction: column; gap: 5px; }
+  .tcard .tf { font-size: 9.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--brand-purple); }
+  .tcard .tn { font-size: 13.5px; font-weight: 800; }
+  .tcard .td { font-size: 11.5px; color: var(--foreground-muted); line-height: 1.4; }
+  .tcard .tu { font-size: 10.5px; color: var(--foreground-muted); font-style: italic; }
+  .tcard .tfoot { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+  .fitbadge { font-size: 9.5px; font-weight: 800; padding: 2px 7px; border-radius: 999px; }
+  .fitbadge.ok { background: rgba(26,159,90,.14); color: var(--green); }
+  .fitbadge.table { background: rgba(245,158,11,.16); color: #b9770a; }
+  .fitbadge.tweak { background: rgba(18,131,201,.12); color: var(--brand-action); }
+  .fitbadge.helper { background: rgba(91,71,214,.14); color: var(--brand-purple); }
+  html.dark .fitbadge.table { color: var(--amber); }
+  .tcard .use { margin-left: auto; font-size: 10.5px; font-weight: 700; color: var(--brand-action); border: 1px solid var(--border); background: var(--surface-sunken); border-radius: 7px; padding: 4px 9px; cursor: pointer; }
+  @media (max-width: 720px){ .gallery { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>Custom Calculator Builder</h1>
+  <span class="sub">Lab-shareable, build-your-own calculators. Review each proposed change on the right, mark it up, hit Export.</span>
+  <div class="seg">
+    <button class="ctrl on" id="vAfter" onclick="setView('after')">After (new)</button>
+    <button class="ctrl" id="vBefore" onclick="setView('before')">Before (current)</button>
+  </div>
+  <button class="ctrl" id="themeBtn" onclick="toggleTheme()">Dark</button>
+  <button class="ctrl" id="commentBtn" onclick="toggleComment()">Comment mode</button>
+  <button class="ctrl" onclick="openExport()">Export</button>
+</div>
+
+<div class="layout">
+  <div class="stage">
+    <div class="stagewrap" id="stagewrap">
+
+      <!-- ================= AFTER ================= -->
+      <div id="afterView">
+        <div class="modal">
+          <div class="modal-head">
+            <span class="dot">f(x)</span>
+            <h2>Lab Calculators</h2>
+            <span class="x">close</span>
+          </div>
+          <div class="modal-body">
+            <div class="rail" data-pin="rail (modal layout)">
+              <div class="grouplabel">Built in</div>
+              <div class="item">Scientific</div>
+              <div class="item">Molarity</div>
+              <div class="item">Dilution</div>
+              <div class="item">Serial dilution</div>
+              <div class="item">Primer Tm</div>
+              <div class="item small-more">+ 3 more</div>
+              <div class="grouplabel">My calculators</div>
+              <div class="item active">Spore suspension <span class="tagme">Lab</span></div>
+              <div class="item">Plasmid ng to fmol <span class="tagme">Me</span></div>
+              <button class="rail build" onclick="setMode('edit')" data-pin="Build your own entry">+ Build your own</button>
+              <div class="grouplabel">Template library</div>
+              <div class="item" onclick="setMode('library')" data-pin="template library entry">Browse all 10</div>
+            </div>
+
+            <div class="content">
+              <!-- USE MODE -->
+              <div id="useMode">
+                <div class="crumb">
+                  <h3>Spore suspension</h3>
+                  <span class="pill share" data-pin="sharing model">Shared lab-wide</span>
+                  <span class="pill phone" data-pin="phone sync">On your paired phone</span>
+                  <div class="ue seg">
+                    <button class="ctrl on">Use</button>
+                    <button class="ctrl" onclick="setMode('edit')">Edit</button>
+                  </div>
+                </div>
+
+                <div class="use-input" data-pin="replicate input (count boxes)">
+                  <label>Hemocytometer counts <span class="unit">spores / square, 5 squares</span></label>
+                  <div class="row5">
+                    <input class="inp count" value="42" oninput="recompute()">
+                    <input class="inp count" value="38" oninput="recompute()">
+                    <input class="inp count" value="45" oninput="recompute()">
+                    <input class="inp count" value="40" oninput="recompute()">
+                    <input class="inp count" value="41" oninput="recompute()">
+                  </div>
+                  <div class="stepval" id="meanline"></div>
+                </div>
+
+                <div class="use-input">
+                  <label>Dilution factor <span class="unit">fold</span></label>
+                  <input class="inp" id="dil" value="10" oninput="recompute()">
+                </div>
+
+                <div class="use-input">
+                  <label>Target concentration <span class="unit">spores / mL</span></label>
+                  <input class="inp" id="target" value="1e6" oninput="recompute()">
+                </div>
+
+                <div class="result-card" data-pin="outputs">
+                  <div class="r"><span class="lab">Concentration</span><span class="val good" id="outConc">-</span></div>
+                  <div class="r"><span class="lab">Volume of stock for 10 mL at target</span><span class="val" id="outVol">-</span></div>
+                  <div class="flag" id="flagRow"><span>note</span><span id="flagText"></span></div>
+                </div>
+
+                <div class="note" data-pin="show the math / provenance">
+                  <span>Formula</span>
+                  <span class="inp mono" style="border:none;background:none;padding:0;">concentration = mean(counts) x dilution x 1e4</span>
+                </div>
+              </div>
+
+              <!-- LIBRARY MODE (template gallery) -->
+              <div id="libraryMode" class="hide">
+                <div class="crumb">
+                  <h3>Template library</h3>
+                  <span class="small">Start from a proven calculator, then make it yours.</span>
+                  <div class="ue seg">
+                    <button class="ctrl" onclick="setMode('use')">Back</button>
+                  </div>
+                </div>
+                <div id="galleryHost"></div>
+              </div>
+
+              <!-- EDIT MODE (builder) -->
+              <div id="editMode" class="hide">
+                <div class="crumb">
+                  <h3>Editing: Spore suspension</h3>
+                  <div class="ue seg">
+                    <button class="ctrl" onclick="setMode('use')">Use</button>
+                    <button class="ctrl on">Edit</button>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label>Name</label>
+                  <input class="inp" value="Spore suspension">
+                </div>
+                <div class="field">
+                  <label>What it does</label>
+                  <input class="inp" value="Spores per mL from hemocytometer counts, plus stock volume for a target.">
+                </div>
+
+                <div class="section" data-pin="builder: Inputs">
+                  <div class="h"><span class="t">Inputs</span><span class="hint">what the user types</span><button class="add" onclick="addRow('Inputs')">+ Add input</button></div>
+                  <div class="defrow">
+                    <span class="kind">replicate</span>
+                    <input class="inp" value="counts (5 boxes)">
+                    <button class="del">x</button>
+                  </div>
+                  <div class="defrow">
+                    <span class="kind">number</span>
+                    <input class="inp" value="dilution (fold)">
+                    <button class="del">x</button>
+                  </div>
+                  <div class="defrow">
+                    <span class="kind">number</span>
+                    <input class="inp" value="target (spores/mL)">
+                    <button class="del">x</button>
+                  </div>
+                  <div class="chip-row" style="margin-top:6px;">
+                    <span class="small">Input type:</span>
+                    <span class="typechip sel">Number</span>
+                    <span class="typechip">Replicate list</span>
+                    <span class="typechip">Dropdown</span>
+                  </div>
+                </div>
+
+                <div class="section" data-pin="builder: Steps (intermediate variables)">
+                  <div class="h"><span class="t">Steps</span><span class="hint">named intermediate values</span><button class="add" onclick="addRow('Steps')">+ Add step</button></div>
+                  <div class="defrow">
+                    <input class="inp" value="meanCount">
+                    <input class="inp mono" value="mean(counts)">
+                    <button class="del">x</button>
+                  </div>
+                </div>
+
+                <div class="section" data-pin="builder: Conditionals">
+                  <div class="h"><span class="t">Conditionals</span><span class="hint">if / then guidance</span><button class="add" onclick="addRow('Conditionals')">+ Add rule</button></div>
+                  <div class="defrow" style="grid-template-columns: 1fr;">
+                    <input class="inp mono" value="if(meanCount < 10, 'Count more squares for accuracy', '')">
+                  </div>
+                </div>
+
+                <div class="section" data-pin="builder: Outputs">
+                  <div class="h"><span class="t">Outputs</span><span class="hint">the answers, with units</span><button class="add" onclick="addRow('Outputs')">+ Add output</button></div>
+                  <div class="defrow">
+                    <input class="inp" value="concentration">
+                    <input class="inp mono" value="meanCount * dilution * 1e4">
+                    <button class="del">x</button>
+                  </div>
+                  <div class="defrow">
+                    <input class="inp" value="stock volume (mL)">
+                    <input class="inp mono" value="target * 10 / concentration">
+                    <button class="del">x</button>
+                  </div>
+                </div>
+
+                <div class="section" data-pin="sharing controls">
+                  <div class="h"><span class="t">Sharing</span></div>
+                  <div class="chip-row">
+                    <span class="typechip">Just me</span>
+                    <span class="typechip sel">My lab</span>
+                    <span class="typechip">External person</span>
+                  </div>
+                  <p class="small" style="margin:9px 0 0;">Lab-wide stays a live reference, so when you fix the formula everyone gets the fix. External sends a copy over the encrypted relay. Anything you can use here syncs to your paired phone automatically.</p>
+                  <div style="margin-top:11px;padding-top:11px;border-top:1px solid var(--border);" data-pin="share to public library (GitHub)">
+                    <div class="h" style="margin-bottom:6px;"><span class="t">Think others would use it?</span></div>
+                    <p class="small" style="margin:0 0 8px;">Submit it to the public template library. It opens a pre-filled GitHub submission for review, the same way the feedback button works. Accepted calculators ship in the next release.</p>
+                    <button class="ctrl" onclick="openSubmit()">Share to the library</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= BEFORE ================= -->
+      <div id="beforeView" class="hide">
+        <div class="modal" style="max-width:760px;">
+          <div class="modal-head">
+            <span class="dot">f(x)</span>
+            <h2>Lab Calculators</h2>
+            <span class="x">close</span>
+          </div>
+          <div class="before-tabs">
+            <span class="bt on">Scientific</span>
+            <span class="bt">Molarity</span>
+            <span class="bt">Dilution</span>
+            <span class="bt">Serial dilution</span>
+            <span class="bt">Primer Tm</span>
+            <span class="bt">DNA / RNA</span>
+            <span class="bt">Protein properties</span>
+            <span class="bt">Buffer recipe</span>
+          </div>
+          <div style="padding:14px 16px;">
+            <input class="inp mono" value="" placeholder="type an expression" style="margin-bottom:6px;">
+            <div class="keypad">
+              <div>sin</div><div>cos</div><div>tan</div><div>ln</div><div>log</div>
+              <div>7</div><div>8</div><div>9</div><div>(</div><div>)</div>
+              <div>4</div><div>5</div><div>6</div><div>x</div><div>/</div>
+              <div>1</div><div>2</div><div>3</div><div>+</div><div>-</div>
+              <div>0</div><div>.</div><div>Ans</div><div>=</div><div>C</div>
+            </div>
+          </div>
+          <div class="before-note">Today: 8 fixed tabs, no way to add your own, and the keypad overflows the modal height. There is nothing lab-specific here.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- right docked panel -->
+  <div class="panel">
+    <div class="panel-tabs">
+      <button class="on" id="ptChanges" onclick="setPanel('changes')">Changes</button>
+      <button id="ptComments" onclick="setPanel('comments')">Comments</button>
+    </div>
+    <div class="panel-body">
+      <div id="panelChanges"></div>
+      <div id="panelComments" class="hide"></div>
+    </div>
+  </div>
+</div>
+
+<!-- export overlay -->
+<div id="exportOverlay" class="hide" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;">
+  <div style="background:var(--surface-overlay);border:1px solid var(--border);border-radius:14px;max-width:620px;width:100%;padding:18px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      <strong style="font-size:15px;">Decisions and comments</strong>
+      <button class="ctrl" style="margin-left:auto;" onclick="copyExport()">Copy</button>
+      <button class="ctrl" onclick="downloadExport()">Download .md</button>
+      <button class="ctrl" onclick="closeExport()">Close</button>
+    </div>
+    <div class="export-summary" id="exportText"></div>
+  </div>
+</div>
+
+<!-- submit-to-library overlay -->
+<div id="submitOverlay" class="hide" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;">
+  <div style="background:var(--surface-overlay);border:1px solid var(--border);border-radius:14px;max-width:560px;width:100%;padding:18px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <strong style="font-size:15px;">Share to the template library</strong>
+      <button class="ctrl" style="margin-left:auto;" onclick="closeSubmit()">Close</button>
+    </div>
+    <p class="small" style="margin:0 0 12px;">This opens a pre-filled GitHub submission with your calculator attached as JSON. A maintainer reviews it for correctness, then it ships in the next release seed. Nothing is published instantly, and no backend is involved.</p>
+    <div class="export-summary" style="max-height:200px;">{
+  "name": "Spore suspension",
+  "field": "Microbiology",
+  "inputs": [
+    { "key": "counts", "type": "replicate", "label": "Hemocytometer counts" },
+    { "key": "dilution", "type": "number", "default": 10 },
+    { "key": "target", "type": "number", "default": 1e6 }
+  ],
+  "steps": [{ "key": "meanCount", "expr": "mean(counts)" }],
+  "conditionals": [{ "expr": "if(meanCount < 10, 'Count more squares', '')" }],
+  "outputs": [
+    { "label": "concentration", "expr": "meanCount * dilution * 1e4", "unit": "/mL" },
+    { "label": "stock volume", "expr": "target * 10 / concentration", "unit": "mL" }
+  ]
+}</div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button class="ctrl on" onclick="alert('In the app this opens the pre-filled GitHub submission.')">Open GitHub submission</button>
+      <button class="ctrl" onclick="closeSubmit()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------- proposed changes ---------------- */
+const CHANGES = [
+  { id:"c1", title:"Add a My calculators library + Build your own", body:"The modal gets a left rail that splits Built in from My calculators, with a Build your own button. Custom calculators live with the built-ins instead of in a separate place." },
+  { id:"c2", title:"Widen and re-lay the modal", body:"Move from the cramped single column to a wider two-pane layout (rail + content), which also fixes the long-standing too-tall Scientific keypad overflow." },
+  { id:"c3", title:"Typed inputs: number, replicate list, dropdown", body:"A custom calculator declares its own inputs. The replicate list is the count-five-boxes case and feeds mean / sum / sd / count straight into formulas." },
+  { id:"c4", title:"Steps and conditionals", body:"Named intermediate variables (meanCount = mean(counts)) keep formulas readable, and if(cond, a, b) rules add plain-language guidance like count more squares." },
+  { id:"c5", title:"Named outputs with units, live preview", body:"Multiple outputs each with a unit, recomputing live as you type. The Use / Edit toggle is the build-then-use loop." },
+  { id:"c6", title:"Sharing: just me / lab-wide / external", body:"Reuses the existing shared_with primitive. Lab-wide is a live reference so a fix propagates; external sends a copy over the encrypted relay." },
+  { id:"c7", title:"Auto-sync to the paired phone", body:"The phone ships with the built-ins only. On pairing it pulls your and your labmates custom calculators over the same sealed relay snapshot the view-method feature uses, and renders them with one generic renderer (no app update)." },
+  { id:"c8", title:"Worked Spore suspension example", body:"Ships as the demo of the whole model: five hemocytometer counts to a mean, a dilution and hemocytometer constant to a concentration, plus a target-to-stock-volume second output and a low-count conditional." },
+  { id:"c9", title:"Template library (mirrors the method catalog)", body:"A Start-from-a-template gallery grouped by field, seeded with 10 real calculators. Static JSON under public/calculator-templates plus a golden test that pins each one input-to-output. Open one, tweak the constants, save your own." },
+  { id:"c10", title:"Share to the library, curated via GitHub", body:"A Share-to-library button exports the calc JSON and opens a pre-filled GitHub submission, the same pipeline the feedback button uses. Reviewed not instant, calcs are reviewable JSON, accepted ones ship in the next seed. Zero backend." },
+  { id:"c11", title:"Engine: list helpers + enum dropdowns", body:"Two small additions so all 10 showcase calcs work: a curated list-aware set (shannon, simpson, geomean, sumproduct, linfit_slope, linfit_intercept) for ecology and standard-curve cases, and dropdowns that carry an enum value so a formula can branch on the selection (the RCF/RPM mode switch). Full curve fitting still belongs to the Data Hub." },
+];
+
+/* ---------------- template library seed ---------------- */
+const TEMPLATES = [
+  { name:"Cell viability + count", field:"Cell culture", does:"Trypan blue live/dead to viability %, cells per mL, and total cells.", uses:"two replicate lists, steps, low-viability flag", fit:"ok" },
+  { name:"CFU per mL from plate counts", field:"Microbiology", does:"Colonies, dilution, and plated volume to CFU per mL.", uses:"number, 30 to 300 countable-range flag", fit:"ok" },
+  { name:"OD600 to cells per mL", field:"Microbiology", does:"Optical density to cell density, organism picks the factor.", uses:"dropdown constant, OD>1 dilute flag", fit:"ok" },
+  { name:"qPCR amplification efficiency", field:"Molecular biology", does:"Standard-curve slope to efficiency %, with an accept-range note.", uses:"power, 90 to 110% flag", fit:"ok" },
+  { name:"PCR master mix maker", field:"Molecular biology", does:"Per-reaction reagent volumes scaled by reaction count and overage.", uses:"many inputs and outputs, overage step", fit:"table" },
+  { name:"Injection volume by body weight", field:"In vivo / pharmacology", does:"Dose, animal weight, and stock concentration to inject volume.", uses:"unit step, small-volume flag", fit:"ok" },
+  { name:"RCF and RPM converter", field:"General lab", does:"Convert centrifuge speed to g-force and back for a rotor radius.", uses:"enum dropdown mode, branched output", fit:"tweak" },
+  { name:"Doubling time and growth rate", field:"Microbiology", does:"Two counts and elapsed time to growth rate and doubling time.", uses:"ln, two outputs", fit:"ok" },
+  { name:"Isotope decay correction", field:"Radiochemistry", does:"Correct activity for decay, isotope picks the half-life.", uses:"dropdown half-life, exponential", fit:"ok" },
+  { name:"Shannon diversity index", field:"Ecology / microbiome", does:"Species counts to a diversity index.", uses:"list helper shannon(counts)", fit:"helper" },
+];
+const FITLABEL = { ok:"Works today", table:"Wants the table follow-up", tweak:"Needs enum dropdown", helper:"Needs a list helper" };
+
+const STORE_KEY = "ccb-mockup-2026-06-10";
+let state = load();
+function load() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {verdicts:{},notes:{},comments:[],dark:false}; }
+  catch(e){ return {verdicts:{},notes:{},comments:[],dark:false}; }
+}
+function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+
+/* ---------------- view + theme ---------------- */
+function setView(v){
+  document.getElementById('afterView').classList.toggle('hide', v!=='after');
+  document.getElementById('beforeView').classList.toggle('hide', v!=='before');
+  document.getElementById('vAfter').classList.toggle('on', v==='after');
+  document.getElementById('vBefore').classList.toggle('on', v==='before');
+  renderPins();
+}
+function setMode(m){
+  document.getElementById('useMode').classList.toggle('hide', m!=='use');
+  document.getElementById('editMode').classList.toggle('hide', m!=='edit');
+  document.getElementById('libraryMode').classList.toggle('hide', m!=='library');
+  if(m==='library') renderLibrary();
+  renderPins();
+}
+function renderLibrary(){
+  const byField = {};
+  TEMPLATES.forEach(t => { (byField[t.field] = byField[t.field] || []).push(t); });
+  const host = document.getElementById('galleryHost');
+  host.innerHTML = Object.keys(byField).map(field => `
+    <div class="grouplabel" style="padding-left:0;">${field}</div>
+    <div class="gallery" style="margin-bottom:12px;">
+      ${byField[field].map(t => `
+        <div class="tcard">
+          <div class="tn">${t.name}</div>
+          <div class="td">${t.does}</div>
+          <div class="tu">uses ${t.uses}</div>
+          <div class="tfoot">
+            <span class="fitbadge ${t.fit}">${FITLABEL[t.fit]}</span>
+            <button class="use" onclick="alert('In the app this opens ${t.name.replace(/'/g,'')} in the builder, ready to tweak.')">Use this</button>
+          </div>
+        </div>`).join('')}
+    </div>`).join('');
+}
+function openSubmit(){ document.getElementById('submitOverlay').classList.remove('hide'); }
+function closeSubmit(){ document.getElementById('submitOverlay').classList.add('hide'); }
+function toggleTheme(){
+  state.dark = !state.dark; applyTheme(); save();
+}
+function applyTheme(){
+  document.documentElement.classList.toggle('dark', state.dark);
+  document.getElementById('themeBtn').textContent = state.dark ? "Light" : "Dark";
+}
+
+/* ---------------- live spore math ---------------- */
+function num(v){ const n = Number(v); return Number.isFinite(n) ? n : 0; }
+function fmt(n){
+  if(!Number.isFinite(n)) return "-";
+  if(n===0) return "0";
+  if(Math.abs(n)>=1e5 || (Math.abs(n)<1e-3)) return n.toExponential(2);
+  return (Math.round(n*1000)/1000).toLocaleString();
+}
+function recompute(){
+  const counts = [...document.querySelectorAll('.count')].map(i=>num(i.value));
+  const mean = counts.reduce((a,b)=>a+b,0)/counts.length;
+  const dil = num(document.getElementById('dil').value);
+  const target = num(document.getElementById('target').value);
+  const conc = mean * dil * 1e4;
+  const vol = conc>0 ? (target * 10 / conc) : 0;
+  document.getElementById('meanline').textContent = "mean = " + fmt(mean) + " spores / square";
+  document.getElementById('outConc').textContent = fmt(conc) + " /mL";
+  document.getElementById('outVol').textContent = fmt(vol) + " mL";
+  const flagRow = document.getElementById('flagRow');
+  if(mean < 10){ flagRow.style.display="flex"; document.getElementById('flagText').textContent = "Count is low (" + fmt(mean) + "). Count more squares for accuracy."; }
+  else { flagRow.style.display="none"; }
+}
+
+/* ---------------- changes panel ---------------- */
+function renderChanges(){
+  const host = document.getElementById('panelChanges');
+  host.innerHTML = CHANGES.map((c,i)=>{
+    const v = state.verdicts[c.id] || "";
+    return `<div class="change ${v}" id="card-${c.id}">
+      <div class="num">CHANGE ${i+1} of ${CHANGES.length}</div>
+      <h4>${c.title}</h4>
+      <p>${c.body}</p>
+      <div class="verds">
+        <button class="${v==='approve'?'aon':''}" onclick="setVerdict('${c.id}','approve')">Approve</button>
+        <button class="${v==='disapprove'?'don':''}" onclick="setVerdict('${c.id}','disapprove')">Disapprove</button>
+        <button class="${v==='discuss'?'qon':''}" onclick="setVerdict('${c.id}','discuss')">Discuss</button>
+      </div>
+      <textarea placeholder="note (optional)" oninput="setNote('${c.id}',this.value)">${state.notes[c.id]||''}</textarea>
+    </div>`;
+  }).join('');
+}
+function setVerdict(id,v){
+  state.verdicts[id] = (state.verdicts[id]===v) ? "" : v; save(); renderChanges();
+}
+function setNote(id,v){ state.notes[id]=v; save(); }
+
+/* ---------------- comment pins ---------------- */
+let commenting = false;
+function toggleComment(){
+  commenting = !commenting;
+  document.body.classList.toggle('commenting', commenting);
+  document.getElementById('commentBtn').classList.toggle('on', commenting);
+}
+function onStageClick(e){
+  if(!commenting) return;
+  const t = e.target.closest('[data-pin]');
+  if(!t) return;
+  e.preventDefault(); e.stopPropagation();
+  const wrap = document.getElementById('stagewrap');
+  const wr = wrap.getBoundingClientRect();
+  const tr = t.getBoundingClientRect();
+  const x = tr.left - wr.left + 6;
+  const y = tr.top - wr.top + 6;
+  state.comments.push({ n: state.comments.length+1, label: t.getAttribute('data-pin'), x, y, text:"" });
+  save(); renderPins(); renderComments(); setPanel('comments');
+}
+function renderPins(){
+  const wrap = document.getElementById('stagewrap');
+  [...wrap.querySelectorAll('.pin')].forEach(p=>p.remove());
+  state.comments.forEach(c=>{
+    const el = document.createElement('div');
+    el.className='pin'; el.style.left=c.x+'px'; el.style.top=c.y+'px';
+    el.innerHTML='<span>'+c.n+'</span>';
+    el.title = c.label;
+    el.onclick=()=>{ setPanel('comments'); const ta=document.getElementById('cmt-'+c.n); if(ta){ta.focus();} };
+    wrap.appendChild(el);
+  });
+}
+function renderComments(){
+  const host = document.getElementById('panelComments');
+  if(!state.comments.length){ host.innerHTML = '<p class="small">Turn on Comment mode, then click any highlighted area to drop a pin.</p>'; return; }
+  host.innerHTML = state.comments.map(c=>`
+    <div class="commentcard">
+      <span class="del2" onclick="delComment(${c.n})">x</span>
+      <div class="cn">PIN ${c.n}</div>
+      <div class="ct">${c.label}</div>
+      <textarea id="cmt-${c.n}" placeholder="your comment" oninput="setComment(${c.n},this.value)">${c.text||''}</textarea>
+    </div>`).join('');
+}
+function setComment(n,v){ const c=state.comments.find(x=>x.n===n); if(c){c.text=v; save();} }
+function delComment(n){
+  state.comments = state.comments.filter(x=>x.n!==n);
+  state.comments.forEach((c,i)=>c.n=i+1);
+  save(); renderPins(); renderComments();
+}
+
+/* ---------------- panel switch ---------------- */
+function setPanel(p){
+  document.getElementById('panelChanges').classList.toggle('hide', p!=='changes');
+  document.getElementById('panelComments').classList.toggle('hide', p!=='comments');
+  document.getElementById('ptChanges').classList.toggle('on', p==='changes');
+  document.getElementById('ptComments').classList.toggle('on', p==='comments');
+}
+
+/* ---------------- export ---------------- */
+function buildExport(){
+  let out = "# Custom Calculator Builder - review\n\n";
+  out += "## Decisions\n\n";
+  CHANGES.forEach((c,i)=>{
+    const v = state.verdicts[c.id] || "(no decision)";
+    out += `${i+1}. [${v.toUpperCase()}] ${c.title}\n`;
+    if(state.notes[c.id]) out += `   note: ${state.notes[c.id]}\n`;
+  });
+  out += "\n## Comments\n\n";
+  if(!state.comments.length) out += "(none)\n";
+  state.comments.forEach(c=>{ out += `- Pin ${c.n} (${c.label}): ${c.text||'(empty)'}\n`; });
+  return out;
+}
+function openExport(){ document.getElementById('exportText').textContent = buildExport(); document.getElementById('exportOverlay').classList.remove('hide'); }
+function closeExport(){ document.getElementById('exportOverlay').classList.add('hide'); }
+function copyExport(){ navigator.clipboard.writeText(buildExport()); }
+function downloadExport(){
+  const blob = new Blob([buildExport()], {type:"text/markdown"});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = "custom-calculator-builder-review.md"; a.click();
+}
+
+/* ---------------- builder add-row (mockup feel) ---------------- */
+function addRow(kind){
+  alert("In the real builder this adds a new " + kind.replace(/s$/,'').toLowerCase() + " row. The mockup keeps the spore example fixed so the live math stays readable.");
+}
+
+/* ---------------- init ---------------- */
+document.getElementById('stagewrap').addEventListener('click', onStageClick, true);
+applyTheme();
+renderChanges();
+renderComments();
+renderPins();
+recompute();
+</script>
+</body>
+</html>
