@@ -17,6 +17,7 @@
  */
 import type {
   CustomCalculatorInput,
+  CustomCalculatorTableColumn,
   CustomCalculatorStep,
   CustomCalculatorConditional,
   CustomCalculatorOutput,
@@ -81,6 +82,34 @@ function asString(value: unknown, label: string): string {
   return value;
 }
 
+function parseTableColumns(
+  raw: unknown,
+  label: string,
+): CustomCalculatorTableColumn[] {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    throw new Error(`${label} needs a non-empty columns array`);
+  }
+  return raw.map((entry, i) => {
+    if (!isRecord(entry)) throw new Error(`${label} column #${i} is not an object`);
+    const key = asString(entry.key, `${label} column #${i} key`);
+    const colLabel = asString(entry.label, `${label} column "${key}" label`);
+    const kind = entry.kind;
+    if (kind !== "input" && kind !== "computed") {
+      throw new Error(`${label} column "${key}" kind must be "input" or "computed"`);
+    }
+    const col: CustomCalculatorTableColumn = { key, label: colLabel, kind };
+    if (entry.unit !== undefined) {
+      col.unit = asString(entry.unit, `${label} column "${key}" unit`);
+    }
+    if (kind === "computed") {
+      col.expr = asString(entry.expr, `${label} computed column "${key}" expr`);
+    } else if (entry.expr !== undefined) {
+      col.expr = asString(entry.expr, `${label} column "${key}" expr`);
+    }
+    return col;
+  });
+}
+
 function parseInputs(raw: unknown, label: string): CustomCalculatorInput[] {
   if (!Array.isArray(raw)) {
     throw new Error(`${label}: inputs must be an array`);
@@ -90,7 +119,12 @@ function parseInputs(raw: unknown, label: string): CustomCalculatorInput[] {
     const key = asString(entry.key, `${label}: input #${i} key`);
     const label2 = asString(entry.label, `${label}: input #${i} label`);
     const type = entry.type;
-    if (type !== "number" && type !== "replicate" && type !== "dropdown") {
+    if (
+      type !== "number" &&
+      type !== "replicate" &&
+      type !== "dropdown" &&
+      type !== "table"
+    ) {
       throw new Error(`${label}: input "${key}" has an invalid type`);
     }
     const out: CustomCalculatorInput = { key, type, label: label2 };
@@ -99,6 +133,20 @@ function parseInputs(raw: unknown, label: string): CustomCalculatorInput[] {
     }
     if (entry.default !== undefined) {
       out.default = entry.default as number | number[] | string;
+    }
+    if (type === "table") {
+      out.columns = parseTableColumns(entry.columns, `${label}: table "${key}"`);
+      if (entry.rows !== undefined) {
+        if (!Array.isArray(entry.rows)) {
+          throw new Error(`${label}: table "${key}" rows must be an array`);
+        }
+        out.rows = entry.rows.map((r, j) => {
+          if (!isRecord(r)) {
+            throw new Error(`${label}: table "${key}" row #${j} is not an object`);
+          }
+          return r as Record<string, number | string>;
+        });
+      }
     }
     if (type === "dropdown") {
       if (!Array.isArray(entry.options) || entry.options.length === 0) {

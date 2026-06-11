@@ -35,7 +35,7 @@
     {
       "slug": "pcr-master-mix",
       "name": "PCR master mix maker",
-      "description": "Scale a per-reaction PCR mix to a batch with overage, totalling each reagent and the full volume.",
+      "description": "Scale a per-reaction PCR mix to a batch with overage. List each reagent in the table, set how much you use per reaction, and the batch total per reagent and the full volume update as you go.",
       "field": "Molecular biology"
     },
     {

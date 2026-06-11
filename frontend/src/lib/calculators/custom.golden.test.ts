@@ -139,22 +139,20 @@ describe("GOLDEN: qpcr-efficiency", () => {
 });
 
 // ===========================================================================
-// 5. PCR master mix maker
-//    Oracle (reactions=10, overage=10 -> n=11; per-reaction
+// 5. PCR master mix maker (Phase 5 table form)
+//    Now ONE `reagents` table input with a per-row computed `totalUL = perRxn
+//    * n` column, aggregated by `sum(col(reagents, "totalUL"))`. Defaults run
+//    over the seed rows (no supplied table value, so the engine uses
+//    `input.rows`).
+//    Oracle (reactions=10, overage=10 -> n = 10*(1+10/100) = 11; seed rows
 //      buffer 5, dNTP 1, primerF 1, primerR 1, polymerase 0.5, template 2,
-//      water 14.5; sum per reaction = 25):
-//      each total = per-reaction * 11 ; total volume = 25 * 11 = 275
+//      water 14.5; sum perRxn = 25):
+//      each row totalUL = perRxn * 11 ; total volume = sum = 25 * 11 = 275
 // ===========================================================================
-describe("GOLDEN: pcr-master-mix", () => {
+describe("GOLDEN: pcr-master-mix (table form)", () => {
   const r = evalDefaults("pcr-master-mix");
-  it("buffer total = 55", () => near(out(r, "Buffer total").value, 55));
-  it("dNTP total = 11", () => near(out(r, "dNTP total").value, 11));
-  it("primer F total = 11", () => near(out(r, "Primer F total").value, 11));
-  it("primer R total = 11", () => near(out(r, "Primer R total").value, 11));
-  it("polymerase total = 5.5", () => near(out(r, "Polymerase total").value, 5.5));
-  it("template total = 22", () => near(out(r, "Template total").value, 22));
-  it("water total = 159.5", () => near(out(r, "Water total").value, 159.5));
-  it("total volume = 275", () => near(out(r, "Total volume").value, 275));
+  it("total volume = 275 (25 per-rxn * n=11)", () =>
+    near(out(r, "Total volume").value, 275));
 });
 
 // ===========================================================================
