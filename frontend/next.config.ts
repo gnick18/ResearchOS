@@ -145,12 +145,19 @@ const CAPTURE_RELAY_ORIGIN =
  *     the editor canvas needs blob: workers. Without it the in-browser engine is
  *     CSP-blocked. Scoped to worker-src, the worker code is our own bundled
  *     ketcher chunk, not remote.
+ *   script-src 'unsafe-eval': the same Indigo wasm module is built with Emscripten
+ *     glue that uses new Function / eval to bootstrap, which 'wasm-unsafe-eval'
+ *     does not cover. Without 'unsafe-eval' the worker silently hangs (the
+ *     violation fires in worker scope and never reaches the main console), so the
+ *     editor sits on its loading spinner forever. Verified live against the
+ *     /chemistry-embed-check probe. The policy already allows 'unsafe-inline'
+ *     scripts, so this is an incremental relaxation, not a new class of risk.
  *   frame-src blob:: PDF previews render via <iframe src=blob:...>.
  *   frame-ancestors 'none': blocks clickjacking via third-party embedding.
  */
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://va.vercel-scripts.com",
+  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' 'unsafe-eval' https://va.vercel-scripts.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data: https://*.public.blob.vercel-storage.com",
   // Vercel Blob CDN for the welcome-page demo loop videos and their posters.
