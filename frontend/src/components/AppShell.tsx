@@ -29,6 +29,7 @@ import { installStreakActivityTracking } from "@/lib/streak/streak-activity-boot
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { INVENTORY_ENABLED } from "@/lib/inventory/config";
 import { CHEMISTRY_ENABLED } from "@/lib/chemistry/config";
+import { DATAHUB_ENABLED } from "@/lib/datahub/config";
 import { HELP_HREF, appRouteToWikiRoute } from "@/lib/wiki/nav";
 import { useAppStore } from "@/lib/store";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
@@ -199,6 +200,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     // when the flag is on (so dogfooding does not depend on the legacy tab list),
     // and hide it entirely when off (prod default), mirroring how inventory gates.
     if (item.href === "/chemistry") return CHEMISTRY_ENABLED;
+    // /datahub (the Prism-style analysis + plotting tab) is an opt-in module,
+    // same pattern as /chemistry. Visible when the flag is on, hidden otherwise
+    // (prod default), so it stays dark until Data Hub is launched.
+    if (item.href === "/datahub") return DATAHUB_ENABLED;
     // /sequences (the molecular-biology editor) is a flagship surface that
     // must always be reachable from the nav. Existing accounts whose
     // visibleTabs list predates the route would otherwise never see it (the
