@@ -1,14 +1,15 @@
 "use client";
 
-// BeakerBotDock (ai docking bot, 2026-06-11).
+// BeakerBotDock (ai persist bot, 2026-06-11).
 //
-// The app-wide home for BeakerBot. Mounted ONCE at the AppShell level so the
-// conversation panel (and its useAiChat state inside BeakerBotPanel) PERSISTS
-// across client-side route changes. Previously the panel lived only on the /ai
-// route and unmounted on navigation, which broke the navigate-and-spotlight tool,
-// when BeakerBot walked you to another page to highlight a button, the chat was
-// left behind. With the panel always mounted here, guide_to_element can
-// navigate the app while the conversation stays exactly where it was.
+// The app-wide home for BeakerBot. Mounted ONCE in the ROOT layout
+// (app/layout.tsx) so the conversation panel (and its useAiChat state inside
+// BeakerBotPanel) PERSISTS across client-side route changes. It used to live in
+// AppShell, but AppShell is re-rendered fresh by each page, so navigating reset
+// the chat, the in-flight agent loop, and the pending Allow/Skip prompt. That
+// broke navigate-then-click ("open the new method form for me"), the panel was
+// rebuilt empty and the approval prompt was gone. The root layout persists, so
+// the conversation now stays exactly where it was while BeakerBot navigates.
 //
 // This component renders two things, the summon FAB (a floating button that
 // toggles the panel) and the docked panel itself (right side, collapsible). The
@@ -16,22 +17,39 @@
 // is hidden with a transform when closed, NOT unmounted, so the conversation is
 // never torn down.
 //
-// Gating, the whole dock is gated on AI_ASSISTANT_ENABLED by the AppShell caller,
-// so it stays dark on main and in prod (flag off by default) until BeakerBot is
-// further along.
+// Visibility gate, because the dock is now global (it no longer rides AppShell),
+// it decides its own visibility. It shows ONLY when ALL of, the flag
+// AI_ASSISTANT_ENABLED is on (dark on main and in prod by default), AND a user is
+// connected (so it never appears pre-login / on data-setup / onboarding), AND the
+// route is not suppressed. Suppressed routes are /sequences (the dense focus
+// surface, preserving the old behavior) and /wiki (public docs). When in doubt,
+// hide.
 //
 // House style, Icon only, brand + semantic tokens, no emojis / em-dashes /
 // mid-sentence colons.
 
+import { usePathname } from "next/navigation";
 import Tooltip from "@/components/Tooltip";
 import { Icon } from "@/components/icons";
 import BeakerBotPanel from "./BeakerBotPanel";
 import { useBeakerBotPanel } from "@/lib/ai/panel-store";
+import { AI_ASSISTANT_ENABLED } from "@/lib/ai/config";
+import { useFileSystem } from "@/lib/file-system/file-system-context";
 
 export default function BeakerBotDock() {
   const isOpen = useBeakerBotPanel((s) => s.isOpen);
   const toggle = useBeakerBotPanel((s) => s.toggle);
   const close = useBeakerBotPanel((s) => s.close);
+  const { currentUser } = useFileSystem();
+  const pathname = usePathname();
+
+  // Self-gate. Hidden unless the flag is on AND a user is connected AND the route
+  // is not a suppressed surface. Conservative, hide when in doubt.
+  const onSuppressedRoute =
+    !!pathname?.startsWith("/sequences") || !!pathname?.startsWith("/wiki");
+  const visible = AI_ASSISTANT_ENABLED && !!currentUser && !onSuppressedRoute;
+
+  if (!visible) return null;
 
   return (
     <>

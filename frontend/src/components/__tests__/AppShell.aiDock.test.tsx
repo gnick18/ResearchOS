@@ -1,23 +1,16 @@
 /**
- * AppShell — BeakerBot app-wide dock mount (ai docking bot, 2026-06-11).
+ * AppShell — BeakerBot dock is NOT mounted here (ai persist bot, 2026-06-11).
  *
- * BeakerBot must be mounted ONCE at the AppShell level so its conversation state
- * (in useAiChat, inside BeakerBotPanel) survives client-side route changes. That
- * persistence is what lets guide_to_element navigate the user to another page
- * without tearing down the chat. AppShell does not unmount on navigation, so a
- * dock mounted here is the right home.
- *
- * Pins:
- *   - flag off  -> the dock is NOT mounted (prod default, unchanged);
- *   - flag on   -> the dock IS mounted, at the shell level (alongside the other
- *                  global popups), so it persists across route changes;
- *   - /sequences -> the dock is suppressed even with the flag on, matching the
- *                  Calculators / Report-bug FAB convention on that dense surface.
+ * The dock moved OUT of AppShell and INTO the root layout (app/layout.tsx),
+ * because AppShell is re-rendered fresh by each of the 22 pages, so a dock mounted
+ * here reset the conversation and the pending Allow/Skip prompt on a navigate-
+ * then-click. These tests pin that AppShell no longer renders the dock under any
+ * flag value, so the persistent mount can only be the root-layout one (covered by
+ * BeakerBotDock.test).
  *
  * The AI flag is mocked behind a getter reading a hoisted holder so each test can
  * flip it. Every heavy AppShell child is stubbed inert (mirrors
- * AppShell.demoTabs.test). The real BeakerBotDock is rendered so we assert the
- * actual mount, but its panel children are mocked next/navigation-safe.
+ * AppShell.demoTabs.test).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
@@ -145,25 +138,24 @@ afterEach(() => {
   holder.pathname = "/workbench";
 });
 
-describe("AppShell — BeakerBot app-wide dock", () => {
-  it("does not mount the dock when the AI flag is off (prod default)", () => {
+describe("AppShell — BeakerBot dock is not mounted here", () => {
+  it("does not mount the dock when the AI flag is off", () => {
     const { queryByTestId } = renderShell();
     expect(queryByTestId("beakerbot-dock")).toBeNull();
     expect(queryByTestId("beakerbot-summon")).toBeNull();
   });
 
-  it("mounts the dock at the shell level when the AI flag is on", () => {
+  it("does not mount the dock even when the AI flag is on (moved to root layout)", () => {
     holder.ai = true;
-    const { getByTestId } = renderShell();
-    // The dock (and its persistent panel) is present in the shell, so its
-    // conversation survives route changes.
-    expect(getByTestId("beakerbot-dock")).toBeInTheDocument();
-    expect(getByTestId("beakerbot-panel")).toBeInTheDocument();
-    // The summon button is the toggle.
-    expect(getByTestId("beakerbot-summon")).toBeInTheDocument();
+    const { queryByTestId } = renderShell();
+    // The dock now lives in the persistent root layout, not in AppShell, so the
+    // shell must not render it (otherwise it would mount twice).
+    expect(queryByTestId("beakerbot-dock")).toBeNull();
+    expect(queryByTestId("beakerbot-panel")).toBeNull();
+    expect(queryByTestId("beakerbot-summon")).toBeNull();
   });
 
-  it("suppresses the dock on /sequences even with the flag on", () => {
+  it("does not mount the dock on /sequences either", () => {
     holder.ai = true;
     holder.pathname = "/sequences";
     const { queryByTestId } = renderShell();

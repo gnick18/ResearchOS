@@ -4,6 +4,7 @@ import "./globals.css";
 import { Providers } from "@/lib/providers";
 import OfflineGatedAnalytics from "@/components/OfflineGatedAnalytics";
 import SelfExportResultBanner from "@/components/lab/SelfExportResultBanner";
+import BeakerBotDock from "@/components/ai/BeakerBotDock";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -77,7 +78,18 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          {/* BeakerBot app-wide dock (ai persist bot, 2026-06-11). Mounted in the
+              ROOT layout inside Providers, NOT in AppShell, because AppShell is
+              re-rendered fresh by each of the 22 pages, so a dock mounted there
+              reset the conversation and the pending Allow/Skip prompt on a
+              navigate-then-click. The root layout persists across navigation, so
+              the panel, its useAiChat state, the in-flight agent loop, and the
+              pending approval all survive. The dock self-gates its visibility
+              (flag + connected user + suppressed routes), see BeakerBotDock. */}
+          <BeakerBotDock />
+        </Providers>
         {/* Post-disconnect confirmation for a labmate self-export. Mounted at the
             root so it survives the disconnect that self-export triggers (which
             unmounts the in-app modal) and shows on the connect screen. */}
