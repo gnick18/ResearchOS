@@ -54,19 +54,27 @@ export function MoleculeEditorPopup({
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  // The structure to open is known (canvas safe to mount). False while an existing
+  // molecule's Molfile is still loading.
+  const [structureReady, setStructureReady] = useState(false);
 
   const isNew = moleculeId === "new";
 
   // Load the molecule to edit (or reset for a new one) when the target changes.
+  // KetcherCanvas loads its structure once, in onInit, so it must not mount until
+  // the structure to open is known; otherwise it opens empty and the late prop
+  // update is ignored. `structureReady` gates the mount on that.
   useEffect(() => {
     if (!open || moleculeId == null) return;
     let cancelled = false;
     setReady(false);
+    setStructureReady(false);
     setIdentity(null);
     setLoadError(null);
     if (isNew) {
       setName("");
       setInitialStructure(undefined);
+      setStructureReady(true);
       return;
     }
     moleculesApi
@@ -75,13 +83,17 @@ export function MoleculeEditorPopup({
         if (cancelled) return;
         if (!detail) {
           setLoadError("This molecule could not be found in your library.");
+          setStructureReady(true);
           return;
         }
         setName(detail.meta.name);
         setInitialStructure(detail.molfile || detail.meta.smiles || undefined);
+        setStructureReady(true);
       })
       .catch(() => {
-        if (!cancelled) setLoadError("Could not open this molecule.");
+        if (cancelled) return;
+        setLoadError("Could not open this molecule.");
+        setStructureReady(true);
       });
     return () => {
       cancelled = true;
@@ -189,6 +201,10 @@ export function MoleculeEditorPopup({
             {loadError && !ready ? (
               <div className="flex-1 grid place-items-center text-meta text-red-600 dark:text-red-300 px-6 text-center">
                 {loadError}
+              </div>
+            ) : !structureReady ? (
+              <div className="flex-1 grid place-items-center text-meta text-foreground-muted">
+                Opening your structure…
               </div>
             ) : (
               <KetcherCanvas
