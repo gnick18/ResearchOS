@@ -43,6 +43,26 @@ wiki:screenshots` when running on a different port.
 
 Commit the regenerated PNGs alongside any wiki content changes.
 
+### Feature-flagged captures (held)
+
+A few shots live behind a feature flag and only render when that flag is set in
+the build that the capture runs against:
+
+- `calc-builder-wizard.png`, `calc-builder-form.png`, and
+  `calc-template-library.png` (the build-your-own section of
+  `/wiki/features/lab-calculators`) need `NEXT_PUBLIC_CALC_BUILDER=1` in the
+  build, or the Build your own button and the template library do not render.
+  Capture them with the flag on, e.g.
+  `NEXT_PUBLIC_CALC_BUILDER=1 npm run build && npm run start -- -p 3001`, then
+  `npm run wiki:screenshots`.
+
+These three are HELD until the builder UI is locked. Until they are captured the
+wiki shows the "screenshot pending" placeholder for them, which is fine. Their
+route entries (with the modal-open + builder click steps) already live in
+`capture-wiki-screenshots.mjs`; the builder-specific click selectors there are
+best-effort and should be confirmed against the live builder when the capture is
+actually run.
+
 ## How fixture mode works
 
 The capture relies on a `?wikiCapture=1` URL flag handled by

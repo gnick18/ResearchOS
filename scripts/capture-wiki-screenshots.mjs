@@ -865,6 +865,88 @@ const FIXTURE_ROUTES = [
       } catch {}
     },
   },
+  // ── Custom Calculator Builder (HELD captures) ───────────────────────────────
+  // These three shots cover the build-your-own section of the lab-calculators
+  // wiki page. They are HELD until the builder UI is locked (Grant's review).
+  // CAPTURE REQUIREMENT: the prod build for the capture run must set
+  // NEXT_PUBLIC_CALC_BUILDER=1, or the builder rail / Build your own button does
+  // not render and these shots fall back to the "coming soon" placeholder. The
+  // builder-specific click selectors below are best-effort and must be confirmed
+  // against the live builder when the capture is actually run.
+  {
+    // The template library gallery inside the calculators modal.
+    path: "/workbench",
+    file: "calc-template-library.png",
+    waitFor: "text=Workbench",
+    settleMs: 900,
+    keepDock: true,
+    action: async (page) => {
+      try {
+        let btn = page.locator('button[aria-label="Open lab calculators"]').first();
+        if (!(await btn.count())) {
+          btn = page.getByRole("button", { name: /Open lab calculators/i }).first();
+        }
+        if (await btn.count()) {
+          await btn.click({ timeout: 3000, force: true });
+          // Open the template library from the modal rail.
+          const lib = page.getByRole("button", { name: /Template library|Browse all/i }).first();
+          await lib.waitFor({ timeout: 4000 }).catch(() => {});
+          await lib.click({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(800);
+        }
+      } catch {}
+    },
+  },
+  {
+    // The build-your-own wizard (a fresh fixture user with no saved calculators
+    // routes to the wizard).
+    path: "/workbench",
+    file: "calc-builder-wizard.png",
+    waitFor: "text=Workbench",
+    settleMs: 900,
+    keepDock: true,
+    action: async (page) => {
+      try {
+        let btn = page.locator('button[aria-label="Open lab calculators"]').first();
+        if (!(await btn.count())) {
+          btn = page.getByRole("button", { name: /Open lab calculators/i }).first();
+        }
+        if (await btn.count()) {
+          await btn.click({ timeout: 3000, force: true });
+          const build = page.getByRole("button", { name: /Build your own/i }).first();
+          await build.waitFor({ timeout: 4000 }).catch(() => {});
+          await build.click({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(800);
+        }
+      } catch {}
+    },
+  },
+  {
+    // The simplified form (reached from the wizard via "Switch to the full form").
+    path: "/workbench",
+    file: "calc-builder-form.png",
+    waitFor: "text=Workbench",
+    settleMs: 900,
+    keepDock: true,
+    action: async (page) => {
+      try {
+        let btn = page.locator('button[aria-label="Open lab calculators"]').first();
+        if (!(await btn.count())) {
+          btn = page.getByRole("button", { name: /Open lab calculators/i }).first();
+        }
+        if (await btn.count()) {
+          await btn.click({ timeout: 3000, force: true });
+          const build = page.getByRole("button", { name: /Build your own/i }).first();
+          await build.waitFor({ timeout: 4000 }).catch(() => {});
+          await build.click({ timeout: 3000 }).catch(() => {});
+          const toForm = page.getByRole("button", { name: /full form/i }).first();
+          await toForm.waitFor({ timeout: 3000 }).catch(() => {});
+          await toForm.click({ timeout: 3000 }).catch(() => {});
+          await page.waitForTimeout(800);
+        }
+      } catch {}
+    },
+  },
   {
     // Lab comments docked right rail on an experiment popup, for the
     // features/lab-inbox/comments page. Open the seeded experiment that carries

@@ -149,6 +149,119 @@ export default function LabCalculatorsFeaturePage() {
         write-up on the{" "}
         <Link href="/wiki/trust/method-validation">Method validation</Link> page.
       </Callout>
+
+      <h2>Build your own calculator</h2>
+      <p>
+        The calculators above are fixed, and the math you do in them is scratch.
+        Plenty of bench math is too specific to ship for everyone, though. A spore
+        suspension from five hemocytometer counts, a master mix scaled to your reaction
+        count, a dosing volume from an animal&apos;s weight. So you can build your own
+        calculator for the math your lab actually does. Unlike the built-in tabs, a
+        calculator you build is saved, as its own item in your folder, and you can
+        share it and use it on your phone.
+      </p>
+      <p>
+        Open the Lab calculators modal and, alongside the built-in tabs, you will find
+        your own calculators, a Build your own button, and a template library. A
+        calculator you build is just inputs and a formula. You name the things you
+        measure, you write the answer as a formula using those names, and the result
+        computes live as you fill it in, exactly like the built-in tabs.
+      </p>
+
+      <h3>How you build one</h3>
+      <p>
+        The first time, a short wizard walks you through it one plain question at a
+        time. What does this work out, what do you measure, what is the formula, any
+        warnings to add, and what is the answer called. It assembles the calculator for
+        you, with the answer updating live on the formula step so you can see it working
+        before you save.
+      </p>
+      <Screenshot
+        src="/wiki/screenshots/calc-builder-wizard.png"
+        alt="The build-your-own calculator wizard asking one plain-language question, with a live answer shown below the formula field."
+        caption="First time through, a wizard asks one plain question at a time and assembles the calculator for you."
+      />
+      <p>
+        Once you have built one, Build your own opens a single form instead, with the
+        same pieces laid out together. You can switch between the wizard and the form at
+        any time, and your work carries across. The form keeps the simple case simple,
+        the optional pieces (intermediate steps and guidance warnings) sit behind an
+        Advanced section, so a basic calculator is just inputs and a result.
+      </p>
+      <Screenshot
+        src="/wiki/screenshots/calc-builder-form.png"
+        alt="The build-your-own calculator form, with named inputs, clickable variable chips above the result formula, a live result, and an Advanced section for steps and guidance."
+        caption="The form view. Name your inputs, write the result formula (the chips above it drop a variable in), and the result computes live."
+      />
+
+      <h3>Start from a template</h3>
+      <p>
+        You rarely need to start from a blank page. The template library carries
+        ready-made calculators grouped by field, including spore concentration, CFU per
+        mL from plate counts, OD600 to cell density, qPCR amplification efficiency, and
+        doubling time. Open the closest one, change the parts that differ for your lab,
+        and save it as your own. Cloning and tweaking a real example is faster than
+        building from scratch, so it is how most calculators start.
+      </p>
+      <Screenshot
+        src="/wiki/screenshots/calc-template-library.png"
+        alt="The calculator template library, a gallery of ready-made calculators grouped by field with a Use this action on each card."
+        caption="The template library. Start from a proven calculator and make it yours."
+      />
+
+      <h3>Inputs, formulas, and guidance</h3>
+      <p>
+        An input is a box you type a measurement into. You name it in plain words and
+        the builder gives it a short name to use in formulas, so labelling one Average
+        spore count lets you reference it as avgCount. An input can be a single number,
+        a dropdown of choices, or a replicate list (several values you average, like
+        five squares on a hemocytometer). The result is a formula written with those
+        names, and helpers like mean, sum, and standard deviation are there for the
+        replicate case.
+      </p>
+      <p>
+        Guidance is the optional safety net. You write a condition and a message, and
+        the message only appears when the condition is true. A spore calculator can warn
+        you when the count is too low to be reliable, a qPCR calculator can flag an
+        efficiency outside the accepted range. The warning stays quiet until something
+        is actually off. Each answer can also be shown the way you read it, a plain
+        number, scientific notation, or a fixed number of decimals.
+      </p>
+
+      <h3>Sharing and your phone</h3>
+      <p>
+        A calculator you build is yours until you share it. Share it with your lab and
+        everyone in your lab folder can run it as a live reference, so they always see
+        your latest and you stay the only editor. Share it with someone outside your
+        folder and a copy travels to them over the encrypted transfer relay. And when
+        your phone is paired to your laptop, your calculators sync to it automatically,
+        so the math you built at the bench is on the bench with you. The companion app
+        ships with the built-in calculators and pulls your custom ones in once it is
+        paired.
+      </p>
+      <Callout variant="tip" title="Built once, available everywhere">
+        Build a calculator on your laptop and it is in your folder, on your paired
+        phone, and (if you share it) in your labmates&apos; libraries, with no extra
+        steps. Fix a formula once and the fix reaches everyone who has the lab-shared
+        version, because they read your copy rather than holding their own.
+      </Callout>
+
+      <h3>Submitting to the public library</h3>
+      <p>
+        If you build a calculator others would find useful, you can submit it to the
+        public template library. It opens a pre-filled submission on our GitHub for a
+        maintainer to review, and accepted calculators ship in a later release for
+        everyone to start from. It is reviewed rather than instant, so the shared
+        library stays trustworthy.
+      </p>
+
+      <Callout variant="info" title="The same validated engine">
+        Your calculators run on the same expression engine the built-in tabs use, so
+        the math is the hardened, tested layer rather than a loose evaluator. The
+        engine, and how our calculations reproduce reference values and published
+        results, is shown on the{" "}
+        <Link href="/transparency">Transparency page</Link>.
+      </Callout>
     </WikiPage>
   );
 }
