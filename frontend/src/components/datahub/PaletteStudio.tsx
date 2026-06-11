@@ -33,6 +33,7 @@ import {
   loadUserPalettes,
   addUserPalette,
   removeUserPalette,
+  renameUserPalette,
   newUserPaletteId,
 } from "@/lib/datahub/user-palettes";
 
@@ -50,6 +51,70 @@ function SwatchRow({ colors }: { colors: string[] }) {
           style={{ backgroundColor: c }}
         />
       ))}
+    </div>
+  );
+}
+
+/**
+ * One shared inline name field with a confirm + cancel, reused everywhere a
+ * palette gets a name (save from custom / generate / import, and rename). It is
+ * deliberately not window.prompt so the naming stays inside the studio styling
+ * and a misclick cannot lose the colors.
+ */
+function NameInput({
+  value,
+  placeholder,
+  onChange,
+  onConfirm,
+  onCancel,
+  confirmLabel,
+}: {
+  value: string;
+  placeholder?: string;
+  onChange: (v: string) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+  confirmLabel: string;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        type="text"
+        autoFocus
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            onConfirm();
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            onCancel();
+          }
+        }}
+        className="min-w-0 flex-1 rounded-md border border-border bg-surface-overlay px-2 py-1 text-[11px] text-foreground placeholder:text-foreground-muted focus:border-sky-400 focus:outline-none"
+      />
+      <Tooltip label={confirmLabel}>
+        <button
+          type="button"
+          onClick={onConfirm}
+          className="flex h-6 w-6 items-center justify-center rounded-md border border-accent bg-accent text-white transition-colors hover:opacity-90"
+          aria-label={confirmLabel}
+        >
+          <Icon name="check" className="h-3 w-3" />
+        </button>
+      </Tooltip>
+      <Tooltip label="Cancel">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex h-6 w-6 items-center justify-center rounded-md border border-border text-foreground-muted transition-colors hover:bg-surface-sunken"
+          aria-label="Cancel"
+        >
+          <Icon name="close" className="h-3 w-3" />
+        </button>
+      </Tooltip>
     </div>
   );
 }
@@ -126,6 +191,18 @@ export default function PaletteStudio({
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState("");
 
+  // A pending "save as palette" flow. While set, an inline name field is shown
+  // (instead of window.prompt) so the researcher can name the colors before they
+  // become a reusable palette. `colors` is the exact effective set to store.
+  const [pendingSave, setPendingSave] = useState<{
+    colors: string[];
+    name: string;
+  } | null>(null);
+  // The id of the saved palette whose name is currently being edited in the
+  // library grid, plus the working text.
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameText, setRenameText] = useState("");
+
   const library = useMemo(() => [...PALETTES, ...userPalettes], [userPalettes]);
 
   const filtered = useMemo(
@@ -155,6 +232,55 @@ export default function PaletteStudio({
     onStyleChange({ colorOverrides: next });
   };
   const resetOverrides = () => onStyleChange({ colorOverrides: {} });
+
+  // The effective per-series colors the Custom list is editing, the palette
+  // sampled to the series count with any colorOverrides applied. We reuse the
+  // already-resolved colors GraphEditor passed in (computed by the plot-spec
+  // resolver) and layer the overrides on top, so this never recomputes palette
+  // logic by hand and always matches what the figure is drawing.
+  const effectiveCustomColors = (): string[] =>
+    Array.from({ length: Math.max(1, seriesCount) }).map(
+      (_, i) => style.colorOverrides?.[i] ?? resolvedColors[i] ?? "#888888",
+    );
+
+  // --- save as palette (shared inline-name flow) ---
+  const beginSave = (colors: string[], prefill: string) => {
+    setPendingSave({ colors: colors.slice(), name: prefill });
+  };
+  const beginSaveCustom = () =>
+    beginSave(effectiveCustomColors(), "My palette");
+  const cancelSave = () => setPendingSave(null);
+  const commitSave = () => {
+    if (!pendingSave) return;
+    const p: Palette = {
+      id: newUserPaletteId(),
+      name: pendingSave.name.trim() || "My palette",
+      category: "qualitative",
+      cbSafe: false,
+      printSafe: false,
+      colors: pendingSave.colors,
+    };
+    setUserPalettes(addUserPalette(p));
+    onStyleChange({ palette: p.id, colorOverrides: {} });
+    setPendingSave(null);
+  };
+
+  // --- rename a saved palette in the library grid ---
+  const beginRename = (id: string, current: string) => {
+    setRenamingId(id);
+    setRenameText(current);
+  };
+  const cancelRename = () => {
+    setRenamingId(null);
+    setRenameText("");
+  };
+  const commitRename = () => {
+    if (!renamingId) return;
+    const name = renameText.trim();
+    if (name) setUserPalettes(renameUserPalette(renamingId, name));
+    setRenamingId(null);
+    setRenameText("");
+  };
 
   // --- generate + lock actions ---
   const ensureLen = (arr: string[], n: number, fill: string) => {
@@ -198,17 +324,9 @@ export default function PaletteStudio({
     onStyleChange({ colorOverrides: next });
   };
   const saveGenerated = () => {
-    const colors = ensureLen(genColors, genN, "#cccccc");
-    const p: Palette = {
-      id: newUserPaletteId(),
-      name: "My palette",
-      category: "qualitative",
-      cbSafe: false,
-      printSafe: false,
-      colors,
-    };
-    setUserPalettes(addUserPalette(p));
-    onStyleChange({ palette: p.id, colorOverrides: {} });
+    // Open the shared inline-name flow prefilled with "My palette" so the
+    // researcher can name it before it is saved.
+    beginSave(ensureLen(genColors, genN, "#cccccc"), "My palette");
   };
 
   // --- Coolors import ---
@@ -220,16 +338,9 @@ export default function PaletteStudio({
       );
       return;
     }
-    const p: Palette = {
-      id: newUserPaletteId(),
-      name: "Imported palette",
-      category: "qualitative",
-      cbSafe: false,
-      printSafe: false,
-      colors: hexes,
-    };
-    setUserPalettes(addUserPalette(p));
-    onStyleChange({ palette: p.id, colorOverrides: {} });
+    // Hand the parsed colors to the shared inline-name flow, prefilled with
+    // "Imported palette", so the name is editable before saving.
+    beginSave(hexes, "Imported palette");
     setImportText("");
     setImportError("");
   };
@@ -257,6 +368,33 @@ export default function PaletteStudio({
           onChange={setMode}
         />
       </div>
+
+      {/* Shared inline name field for any "save as palette" flow (custom /
+          generate / import). Shows a swatch preview so the researcher sees what
+          they are naming. */}
+      {pendingSave && (
+        <div
+          className="mb-2 rounded-md border border-accent bg-accent-soft p-2"
+          data-testid="palette-save-name"
+        >
+          <p className="mb-1.5 text-[10px] font-semibold text-foreground-muted">
+            Name this palette
+          </p>
+          <div className="mb-1.5">
+            <SwatchRow colors={pendingSave.colors} />
+          </div>
+          <NameInput
+            value={pendingSave.name}
+            placeholder="My palette"
+            onChange={(v) =>
+              setPendingSave((prev) => (prev ? { ...prev, name: v } : prev))
+            }
+            onConfirm={commitSave}
+            onCancel={cancelSave}
+            confirmLabel="Save palette"
+          />
+        </div>
+      )}
 
       {mode === "library" && (
         <div data-testid="palette-library">
@@ -337,6 +475,33 @@ export default function PaletteStudio({
             {filtered.map((p) => {
               const cols = samplePalette(p, filterN);
               const active = p.id === activeId;
+              const isUser = userIds.has(p.id);
+
+              // While renaming, the card becomes a plain container (not a
+              // button) so the inline name input is not nested inside a button,
+              // which is invalid and would swallow clicks.
+              if (isUser && renamingId === p.id) {
+                return (
+                  <div
+                    key={p.id}
+                    className="w-full rounded-md border border-accent p-2"
+                    data-testid={`palette-card-${p.id}`}
+                  >
+                    <div className="mb-1.5">
+                      <NameInput
+                        value={renameText}
+                        placeholder={p.name}
+                        onChange={setRenameText}
+                        onConfirm={commitRename}
+                        onCancel={cancelRename}
+                        confirmLabel="Save name"
+                      />
+                    </div>
+                    <SwatchRow colors={cols} />
+                  </div>
+                );
+              }
+
               return (
                 <button
                   key={p.id}
@@ -373,20 +538,35 @@ export default function PaletteStudio({
                           {p.colors.length}
                         </span>
                       )}
-                      {userIds.has(p.id) && (
-                        <Tooltip label="Delete this saved palette">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteUserPalette(p.id);
-                            }}
-                            className="flex h-4 w-4 items-center justify-center rounded text-foreground-muted hover:text-red-600"
-                            aria-label="Delete saved palette"
-                          >
-                            <Icon name="trash" className="h-3 w-3" />
-                          </button>
-                        </Tooltip>
+                      {isUser && (
+                        <>
+                          <Tooltip label="Rename this saved palette">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                beginRename(p.id, p.name);
+                              }}
+                              className="flex h-4 w-4 items-center justify-center rounded text-foreground-muted hover:text-accent"
+                              aria-label="Rename saved palette"
+                            >
+                              <Icon name="pencil" className="h-3 w-3" />
+                            </button>
+                          </Tooltip>
+                          <Tooltip label="Delete this saved palette">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteUserPalette(p.id);
+                              }}
+                              className="flex h-4 w-4 items-center justify-center rounded text-foreground-muted hover:text-red-600"
+                              aria-label="Delete saved palette"
+                            >
+                              <Icon name="trash" className="h-3 w-3" />
+                            </button>
+                          </Tooltip>
+                        </>
                       )}
                     </span>
                   </div>
@@ -433,14 +613,25 @@ export default function PaletteStudio({
               );
             })}
           </div>
-          <button
-            type="button"
-            onClick={resetOverrides}
-            className="mt-2 flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-surface-sunken"
-          >
-            <Icon name="refresh" className="h-3 w-3" />
-            Reset to palette
-          </button>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={resetOverrides}
+              className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-surface-sunken"
+            >
+              <Icon name="refresh" className="h-3 w-3" />
+              Reset to palette
+            </button>
+            <button
+              type="button"
+              onClick={beginSaveCustom}
+              className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-surface-sunken"
+              data-testid="palette-custom-save"
+            >
+              <Icon name="save" className="h-3 w-3" />
+              Save as palette
+            </button>
+          </div>
         </div>
       )}
 

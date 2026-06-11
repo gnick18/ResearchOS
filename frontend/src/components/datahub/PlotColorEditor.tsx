@@ -28,6 +28,14 @@ type Popover =
       y: number;
       current: string;
     }
+  | {
+      // Naming the whole figure's colors as a reusable palette, reached from the
+      // menu's "Save colors as palette" item.
+      kind: "saveName";
+      x: number;
+      y: number;
+      name: string;
+    }
   | null;
 
 /** Read the series index off the nearest data-series ancestor of an event target. */
@@ -46,12 +54,20 @@ export default function PlotColorEditor({
   style,
   resolvedColors,
   onStyleChange,
+  onSaveColorsAsPalette,
 }: {
   svg: string;
   style: PlotStyle;
   /** The colors the figure is drawing, so the menu can show / copy the real one. */
   resolvedColors: string[];
   onStyleChange: (patch: Partial<PlotStyle>) => void;
+  /**
+   * Save the figure's current effective colors as a named user palette. The
+   * colors are the same resolvedColors the editor is drawing (resolved by the
+   * plot-spec resolver up in GraphEditor), so the menu only has to hand back the
+   * chosen name. Optional so the component still renders without the wiring.
+   */
+  onSaveColorsAsPalette?: (name: string) => void;
 }) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [popover, setPopover] = useState<Popover>(null);
@@ -229,6 +245,78 @@ export default function PlotColorEditor({
             <Icon name="paste" className="h-3 w-3" />
             Paste color
           </button>
+          {onSaveColorsAsPalette && (
+            <button
+              type="button"
+              onClick={() =>
+                setPopover({
+                  kind: "saveName",
+                  x: popover.x,
+                  y: popover.y,
+                  name: "My palette",
+                })
+              }
+              className="flex w-full items-center gap-2 border-t border-border px-3 py-1.5 text-left text-foreground hover:bg-surface-sunken"
+              data-testid="plot-save-colors"
+            >
+              <Icon name="save" className="h-3 w-3" />
+              Save colors as palette
+            </button>
+          )}
+        </div>
+      )}
+
+      {popover?.kind === "saveName" && (
+        <div
+          data-plot-popover
+          className="absolute z-20 w-[200px] rounded-md border border-border bg-surface-raised p-2 shadow-lg"
+          style={{
+            left: Math.min(popover.x, 280),
+            top: Math.min(popover.y, 260),
+          }}
+        >
+          <p className="mb-1.5 text-[10px] font-semibold text-foreground-muted">
+            Name this palette
+          </p>
+          <div className="flex items-center gap-1">
+            <input
+              type="text"
+              autoFocus
+              value={popover.name}
+              placeholder="My palette"
+              onChange={(e) => setPopover({ ...popover, name: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  onSaveColorsAsPalette?.(popover.name.trim() || "My palette");
+                  setPopover(null);
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  setPopover(null);
+                }
+              }}
+              className="min-w-0 flex-1 rounded-md border border-border bg-surface-overlay px-2 py-1 text-[11px] text-foreground placeholder:text-foreground-muted focus:border-sky-400 focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                onSaveColorsAsPalette?.(popover.name.trim() || "My palette");
+                setPopover(null);
+              }}
+              className="flex h-6 w-6 items-center justify-center rounded-md border border-accent bg-accent text-white transition-colors hover:opacity-90"
+              aria-label="Save palette"
+            >
+              <Icon name="check" className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setPopover(null)}
+              className="flex h-6 w-6 items-center justify-center rounded-md border border-border text-foreground-muted transition-colors hover:bg-surface-sunken"
+              aria-label="Cancel"
+            >
+              <Icon name="close" className="h-3 w-3" />
+            </button>
+          </div>
         </div>
       )}
     </div>

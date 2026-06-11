@@ -40,6 +40,10 @@ import {
   type ErrorBarKind,
   type FitModelId,
 } from "@/lib/datahub/plot-spec";
+import {
+  addUserPalette,
+  newUserPaletteId,
+} from "@/lib/datahub/user-palettes";
 
 /** The fitted-curve choices the XY style panel offers, labeled for scientists. */
 const FIT_MODEL_OPTIONS: { value: FitModelId; label: string }[] = [
@@ -163,6 +167,24 @@ export default function GraphEditor({
 
   const fileStem = figureFileStem(style.title.trim() || title);
 
+  // Save the figure's current effective colors (seriesInfo.colors, the resolved
+  // per-series colors with any overrides already applied) as a reusable user
+  // palette and select it, so a right-click "Save colors as palette" keeps the
+  // exact colors on screen. The name is renameable later in the studio.
+  const onSaveColorsAsPalette = (name: string) => {
+    const colors = seriesInfo.colors.length ? seriesInfo.colors : ["#1AA0E6"];
+    const id = newUserPaletteId();
+    addUserPalette({
+      id,
+      name: name.trim() || "My palette",
+      category: "qualitative",
+      cbSafe: false,
+      printSafe: false,
+      colors,
+    });
+    onStyleChange({ palette: id, colorOverrides: {} });
+  };
+
   const onExportSvg = () => downloadSvg(svg, fileStem);
   const onExportPng = async () => {
     setBusy(true);
@@ -217,6 +239,7 @@ export default function GraphEditor({
             style={style}
             resolvedColors={seriesInfo.colors}
             onStyleChange={onStyleChange}
+            onSaveColorsAsPalette={onSaveColorsAsPalette}
           />
           <div className="mt-2 flex items-center gap-2">
             <button
