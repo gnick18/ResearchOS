@@ -21,7 +21,7 @@ import TwoPartModel from "@/components/pricing/TwoPartModel";
  * since it is off during the beta.
  *
  * Marketing / informational page, intentionally excluded from the wiki-coverage
- * map (alongside /welcome and /transparency) and rendered without the AppShell
+ * map (alongside /transparency) and rendered without the AppShell
  * or a connected data folder so anyone can read it.
  *
  * Voice: no em-dashes, no emojis, no mid-sentence colons.

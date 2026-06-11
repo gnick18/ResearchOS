@@ -13,7 +13,7 @@ import OpenSourceCredits from "@/components/open-source/OpenSourceCredits";
  * dependency tree so it never drifts.
  *
  * This is an informational / legal page, not a documented app feature, so it
- * is intentionally excluded from the wiki-coverage map (alongside /welcome),
+ * is intentionally excluded from the wiki-coverage map (a marketing page),
  * and it renders without the AppShell or a connected data folder so anyone can
  * read it.
  */

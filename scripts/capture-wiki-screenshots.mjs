@@ -97,16 +97,6 @@ const PUBLIC_ROUTES = [
     highlight: { selector: '[data-testid="link-folder-drop-zone"]' },
   },
   // The first-time-visitor landing ("sell") page. Captured from the
-  // standalone /welcome route (renders for everyone, no fixture needed).
-  // settleMs lets the hi-wave BeakerBot greeting finish and unmount (~2s)
-  // so the corner is clear in the hero shot. Viewport capture (the hero),
-  // not fullPage.
-  {
-    path: "/welcome",
-    file: "landing.png",
-    waitFor: '[data-testid="landing-page"]',
-    settleMs: 2300,
-  },
 ];
 
 /** Picker-mode route: fixture is installed but no currentUser is set, so

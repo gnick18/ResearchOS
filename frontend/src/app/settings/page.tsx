@@ -3547,25 +3547,9 @@ function TipsSection() {
         onDismiss={() => setWhatsNewOpen(false)}
       />
 
-      {/* Revisit the first-time-visitor landing ("sell") page. It is gated
-          to truly-new visitors at "/", so a connected user can only re-see
-          it via this dedicated /welcome route. (landing-page manager) */}
-      <div className="mt-4 flex items-start justify-between gap-4 border-t border-border pt-4">
-        <div className="min-w-0 flex-1">
-          <p className="text-body text-foreground">View the welcome page</p>
-          <p className="text-meta text-foreground-muted mt-1">
-            Revisit the landing page new visitors see on their very first
-            open, with the overview of what ResearchOS does.
-          </p>
-        </div>
-        <Link
-          href="/welcome"
-          data-testid="settings-view-welcome-page"
-          className="px-3 py-2 text-body border border-border text-foreground hover:bg-surface-sunken rounded-lg whitespace-nowrap"
-        >
-          View welcome page
-        </Link>
-      </div>
+      {/* The "View welcome page" revisit was removed 2026-06-11 with the
+          standalone /welcome route; the marketing now lives only as the entry
+          surface slide-down for new visitors. */}
 
       {/* Pop into the seeded demo lab and back. Entering hard-navigates to
           /demo so FileSystemProvider remounts and installWikiCaptureFixture

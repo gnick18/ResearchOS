@@ -68,8 +68,8 @@ export default function ConnectingYourFolderPage() {
       <p>
         Want to look around before committing a folder? The seeded fake yeast
         lab (browse it in the app, or download it as a real starter folder you
-        can link) lives on the <Link href="/welcome">welcome page</Link>, not on
-        this card. See <Link href="/wiki/getting-started/demo-mode">Demo Mode</Link>.
+        can link) lives in Demo Mode, not on this card. See{" "}
+        <Link href="/wiki/getting-started/demo-mode">Demo Mode</Link>.
       </p>
 
       <Callout variant="tip" title="The walkthrough is optional and doesn't link a folder">

@@ -322,19 +322,9 @@ function AppContent({ children }: { children: ReactNode }) {
   // any future client-rendered queries inside the wiki work.
   const isWikiRoute = pathname?.startsWith("/wiki");
 
-  // The `/welcome` route renders the video-driven welcome/sell page standalone
-  // for every visitor regardless of connection state (the "revisit" path from
-  // Settings and the wiki-screenshot capture surface). Bypasses every gate
-  // below the same way `/wiki/*` does.
-  //
-  // This route and the chooser's slide-down section (EntrySnapSurface section
-  // 2) render the SAME `<WelcomePage>` component, so they can never drift: any
-  // future edit to the welcome content shows up in both. Keep it that way (do
-  // not fork a second copy here) so /welcome and the slide-down stay seamless.
-  // The forced first-visit redirect to /welcome was removed 2026-06-10: fresh
-  // visitors now land on the chooser directly, which already embeds this exact
-  // page one scroll down, so the redirect was a redundant detour.
-  const isWelcomeRoute = pathname === "/welcome";
+  // The standalone `/welcome` route was retired 2026-06-11 (Grant). The marketing
+  // content lives only as the slide-down of the entry surface now (EntrySnapSurface
+  // / the OAuth-first landing both embed `<WelcomePage>`); there is one front door.
 
   // Operator surfaces (/admin, /business and anything beneath) are standalone
   // operator tools served from the Neon API and gated by their OWN third-party
@@ -438,16 +428,6 @@ function AppContent({ children }: { children: ReactNode }) {
         </QueryClientProvider>
       );
     }
-    return (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    );
-  }
-
-  // `/welcome`: render the route's own page (the standalone landing) for
-  // every visitor, skipping the loading / connect / picker gates below. A
-  // connected user reaching it from the Settings "revisit" link still sees
-  // the marketing page rather than being bounced back into the app.
-  if (isWelcomeRoute) {
     return (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );

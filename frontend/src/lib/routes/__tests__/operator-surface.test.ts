@@ -9,7 +9,7 @@ describe("isOperatorSurface (gate carve-out for admin + business)", () => {
   });
 
   it("does NOT match normal user surfaces", () => {
-    for (const p of ["/", "/workbench", "/sequences", "/settings", "/welcome", "/administrator", "/business-cards"]) {
+    for (const p of ["/", "/workbench", "/sequences", "/settings", "/administrator", "/business-cards"]) {
       expect(isOperatorSurface(p), p).toBe(false);
     }
   });

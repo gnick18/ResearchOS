@@ -43,7 +43,6 @@ const EXCLUDED_PREFIXES = [
   "/experiments", // redirect-only stub → /workbench (no AppShell, so the ? icon never renders here)
   "/pcr", // redirect-only stub → /methods (PCR fully managed under /methods; repair button moved to Settings)
   "/lab-inbox", // redirect-only stub → /lab-overview (legacy bookmark target after the 2026-05-23 rename)
-  "/welcome", // first-time-visitor landing ("sell") page, not a documented app feature; captured as landing.png
   "/showcase", // hidden, unlinked BeakerBot showcase Easter egg (URL / brand-mark unlock only, never in nav); not a documented feature
   "/sequences", // pending wiki page (sequence editor Phase 4)
   "/open-source", // "Built on open source" credits + attribution page (legal/informational, no AppShell, not a documented app feature; like /welcome)
