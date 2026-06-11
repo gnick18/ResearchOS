@@ -2,6 +2,8 @@
 
 **The local-first workspace for research labs. Experiments, lab notes, methods, and calendar, all on your own disk.**
 
+Built in Madison, Wisconsin. A registered Wisconsin LLC, independent and Midwest based, not a California cloud.
+
 <p align="center">
   <a href="https://research-os.app/demo"><img alt="Try the live demo" src="https://img.shields.io/badge/live%20demo-research--os.app-1AA0E6" /></a>
   <a href="LICENSE"><img alt="License: AGPL v3" src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" /></a>

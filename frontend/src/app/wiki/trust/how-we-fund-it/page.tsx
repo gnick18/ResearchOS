@@ -1,3 +1,4 @@
+import MadeInMadison from "@/components/MadeInMadison";
 import Callout from "@/components/wiki/Callout";
 import WikiPage from "@/components/wiki/WikiPage";
 
@@ -58,6 +59,12 @@ export default function HowWeFundItPage() {
         voluntary support can extend the runway without ever turning the tool
         into a product that charges low-resource labs to use it.
       </Callout>
+
+      {/* Wisconsin LLC badge: soft tone on this formal trust page, no California
+          jab, just the plain accountable-business statement. */}
+      <div className="my-4 flex justify-center">
+        <MadeInMadison variant="badge" tone="soft" />
+      </div>
 
       <h2>What we are careful not to promise</h2>
       <p>

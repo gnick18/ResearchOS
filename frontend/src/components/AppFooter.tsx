@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import MadeInMadison from "@/components/MadeInMadison";
 import Wordmark from "@/components/Wordmark";
 
 /**
@@ -79,6 +80,9 @@ export default function AppFooter({
         <p className="text-meta text-foreground-muted" data-testid="app-footer-author">
           Built by Dr. Grant R. Nickles, PhD.
         </p>
+        {/* Wisconsin LLC identity line: sits between the author credit and the
+            trust/credits link row, compact enough not to dominate the footer. */}
+        <MadeInMadison variant="line" tone="soft" />
         {/* Subtle credit + trust links: the /open-source page thanks the
             community and carries the full attribution; the /transparency page
             shows our bioinformatic tools checked against Biopython and primer3

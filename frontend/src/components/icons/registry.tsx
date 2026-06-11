@@ -701,6 +701,28 @@ const ICONS_RAW = {
       </>
     ),
   },
+  // ── Wisconsin state silhouette (MadeInMadison badge, brand identity) ────────
+  // Stylized Wisconsin outline on a 100×100 viewBox. The path is the same one
+  // Grant approved in the 2026-06-10 pricing-page mockup (.wibadge). The circle
+  // is Madison (coral dot, fixed fill so it always reads even if the parent
+  // strokes a different color). stroke="currentColor" lets callers tint the
+  // border; the fill is a light brand-action tint applied via className.
+  // Grant sign-off: 2026-06-10, pricing-page mockup section 9.
+  wisconsin: {
+    concept: "Wisconsin state silhouette",
+    viewBox: "0 0 100 100",
+    body: (
+      <>
+        <path
+          d="M24 18 L34 22 L44 18 L58 20 L64 14 L70 12 L68 22 L62 28 L66 42 L66 58 L64 70 L26 70 L24 56 L22 40 L20 26 Z"
+          strokeWidth={3}
+          strokeLinejoin="round"
+        />
+        {/* Madison dot — coral/accent, always filled regardless of stroke color */}
+        <circle cx="45" cy="56" r="3.4" fill="#f56565" stroke="none" />
+      </>
+    ),
+  },
 } satisfies Record<string, IconEntry>;
 
 export type IconName = keyof typeof ICONS_RAW;
