@@ -7,21 +7,25 @@
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
-import BeakerBot from "@/components/BeakerBot";
+import IntroBeaker from "@/components/animations/IntroBeaker";
 import styles from "./IntroBubbleBot.module.css";
 
 export function IntroBubbleBot({
   size = "lg",
   className,
 }: {
-  /** "lg" for the main landing hero, "sm" for the denser Welcome-back screen. */
-  size?: "lg" | "sm";
+  /** "xl" for the full-screen landing hero, "lg" mid, "sm" for the denser
+   *  Welcome-back screen. */
+  size?: "xl" | "lg" | "sm";
   className?: string;
 }) {
-  const wrapWidth = size === "sm" ? "w-[70px]" : "w-[92px]";
+  const wrapWidth =
+    size === "sm" ? "w-[70px]" : size === "xl" ? "w-[190px]" : "w-[92px]";
+  const sizeClass =
+    size === "sm" ? styles.sm : size === "xl" ? styles.xl : "";
   return (
     <div
-      className={`${styles.introbot} ${size === "sm" ? styles.sm : ""} ${wrapWidth} ${className ?? ""}`.trim()}
+      className={`${styles.introbot} ${sizeClass} ${wrapWidth} ${className ?? ""}`.trim()}
     >
       {/* Rising bubbles overlay (decorative). */}
       <div className={styles.bubbles} aria-hidden>
@@ -30,12 +34,7 @@ export function IntroBubbleBot({
         <i />
         <i />
       </div>
-      <BeakerBot
-        pose="idle"
-        alive
-        ariaLabel="ResearchOS BeakerBot"
-        className="w-full text-brand-sky"
-      />
+      <IntroBeaker className="w-full" />
     </div>
   );
 }

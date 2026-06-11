@@ -96,31 +96,32 @@ export function OAuthFirstLanding({
             Dr. Grant Nickles, University of Wisconsin-Madison
           </div>
 
-          {/* Faded floating mascots, deck decoration. */}
-          <FloatBot className="top-[14%] left-[8%] w-12" />
-          <FloatBot className="bottom-[17%] left-[12%] w-8" />
-          <FloatBot className="top-[16%] right-[9%] w-9" />
-          <FloatBot className="bottom-[15%] right-[7%] w-12" />
+          {/* Faded floating mascots, deck decoration. Larger here so they
+              frame the full-screen hero instead of dotting the corners. */}
+          <FloatBot className="top-[12%] left-[7%] w-20" />
+          <FloatBot className="bottom-[15%] left-[11%] w-14" />
+          <FloatBot className="top-[15%] right-[8%] w-16" />
+          <FloatBot className="bottom-[13%] right-[6%] w-24" />
 
           <div className="relative z-[1] flex flex-col items-center">
-            <IntroBubbleBot size="lg" className="mb-2" />
+            <IntroBubbleBot size="xl" className="mb-5" />
 
             <Wordmark
               textOnly
               size="lg"
-              textClassName="text-brand-ink"
+              textClassName="text-brand-ink !text-5xl sm:!text-6xl"
               className="!gap-0"
             />
-            <p className="mt-2 text-[15px] font-semibold text-brand-action">
+            <p className="mt-3 text-lg font-semibold text-brand-action sm:text-xl">
               Own your research. Try it today.
             </p>
 
             {/* Create account + Sign in. */}
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3.5">
               <button
                 type="button"
                 onClick={onCreateAccount}
-                className="rounded-xl px-6 py-2.5 text-sm font-bold text-white"
+                className="rounded-xl px-7 py-3 text-base font-bold text-white"
                 style={{
                   background: "linear-gradient(135deg, #1283c9, #5B47D6)",
                 }}
@@ -130,25 +131,25 @@ export function OAuthFirstLanding({
               <button
                 type="button"
                 onClick={onSignIn}
-                className="rounded-xl border border-border bg-surface-raised px-6 py-2.5 text-sm font-bold text-foreground hover:border-foreground-muted transition-colors"
+                className="rounded-xl border border-border bg-surface-raised px-7 py-3 text-base font-bold text-foreground hover:border-foreground-muted transition-colors"
               >
                 Sign in
               </button>
             </div>
 
             {/* Route pills, one row. */}
-            <div className="mt-3.5 flex flex-nowrap items-center justify-center gap-2">
+            <div className="mt-6 flex flex-nowrap items-center justify-center gap-2">
               <button
                 type="button"
                 onClick={() => scrollTo(welcomeRef)}
-                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-surface-sunken px-3 py-1.5 text-[11px] font-semibold text-foreground hover:bg-surface-raised hover:border-foreground-muted transition-colors"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-surface-sunken px-3.5 py-2 text-xs font-semibold text-foreground hover:bg-surface-raised hover:border-foreground-muted transition-colors"
               >
                 <Icon name="map" className="h-3.5 w-3.5 text-brand-action" />
                 See the tour
               </button>
               <a
                 href="/demo"
-                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-surface-sunken px-3 py-1.5 text-[11px] font-semibold text-foreground hover:bg-surface-raised hover:border-foreground-muted transition-colors"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-surface-sunken px-3.5 py-2 text-xs font-semibold text-foreground hover:bg-surface-raised hover:border-foreground-muted transition-colors"
               >
                 <Icon name="eye" className="h-3.5 w-3.5 text-brand-action" />
                 Open the live demo
@@ -156,7 +157,7 @@ export function OAuthFirstLanding({
               </a>
               <a
                 href="/transparency"
-                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-surface-sunken px-3 py-1.5 text-[11px] font-semibold text-foreground hover:bg-surface-raised hover:border-foreground-muted transition-colors"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-surface-sunken px-3.5 py-2 text-xs font-semibold text-foreground hover:bg-surface-raised hover:border-foreground-muted transition-colors"
               >
                 <Icon name="scale" className="h-3.5 w-3.5 text-brand-action" />
                 Check our math

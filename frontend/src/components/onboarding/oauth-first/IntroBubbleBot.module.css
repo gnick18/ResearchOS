@@ -64,6 +64,31 @@
   animation-delay: 2s;
 }
 
+/* Hero variant for the full-screen landing. The beaker is ~190px (vs 92px at
+   lg), so the bubble cluster and rise scale up to match. */
+.xl {
+  --rise: -132px;
+}
+.xl .bubbles {
+  width: 56px;
+}
+.xl .bubbles i {
+  width: 9px;
+  height: 9px;
+}
+.xl .bubbles i:nth-child(2) {
+  width: 7px;
+  height: 7px;
+}
+.xl .bubbles i:nth-child(3) {
+  width: 11px;
+  height: 11px;
+}
+.xl .bubbles i:nth-child(4) {
+  width: 7px;
+  height: 7px;
+}
+
 /* Compact variant for the denser Welcome back screen. */
 .sm {
   --rise: -52px;

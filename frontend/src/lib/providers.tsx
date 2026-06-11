@@ -374,6 +374,13 @@ function AppContent({ children }: { children: ReactNode }) {
   );
   const [successShown, setSuccessShown] = useState(successShownThisLoad);
 
+  // Client-mounted flag, only used to gate the dev login preview below so it
+  // does not cause a hydration mismatch. The preview reads window/sessionStorage,
+  // which the server cannot, so the first client render must match the server
+  // (preview off) and only swap in after mount.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   // When the rainbow loading screen plays (a real connect / reconnect), treat
   // IT as the branded opening moment and consume the one-shot BeakerBot Splash,
   // so a returning user does not see a rainbow-loading then BeakerBot-splash
@@ -417,7 +424,11 @@ function AppContent({ children }: { children: ReactNode }) {
   // the preview can render. Persisting it means the preview survives that
   // bounce and shows on whatever route it lands on. The NODE_ENV literal is
   // inlined at build time so the whole block tree-shakes out of production.
-  if (process.env.NODE_ENV === "development" && typeof window !== "undefined") {
+  if (
+    process.env.NODE_ENV === "development" &&
+    mounted &&
+    typeof window !== "undefined"
+  ) {
     const PREVIEW_KEY = "ros_preview_login";
     const previewParam = new URLSearchParams(window.location.search).get(
       "previewLogin",
