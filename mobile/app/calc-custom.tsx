@@ -105,6 +105,8 @@ function toSpec(c: SnapshotCalculator): CustomCalculatorSpec {
       label: o.label ?? '',
       expr: o.expr ?? '',
       ...(o.unit ? { unit: o.unit } : {}),
+      ...(o.format ? { format: o.format } : {}),
+      ...(o.decimals !== undefined ? { decimals: o.decimals } : {}),
     })),
   };
 }

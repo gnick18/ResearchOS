@@ -3450,6 +3450,14 @@ export interface CustomCalculatorOutput {
   expr: string;
   /** Optional unit shown next to the value. */
   unit?: string;
+  /** How the numeric value is rendered. Omitted = "auto" (clean default that
+   *  prints integers in full and trims float noise). "scientific" renders
+   *  `2.5e8` via toExponential; "fixed" renders a fixed number of decimals via
+   *  toFixed. A spore-concentration calc wants "scientific" so a large count
+   *  reads as 2.5e8 rather than 250000000. */
+  format?: "auto" | "scientific" | "fixed";
+  /** Decimal places for "scientific" / "fixed". Defaults to 2 when omitted. */
+  decimals?: number;
 }
 
 /** A saved, user-authored calculator record. Stored per-user at

@@ -181,6 +181,10 @@ export type SnapshotCalculatorOutput = {
   label?: string;
   expr?: string;
   unit?: string;
+  /** Per-output number format, carried through so phone display matches the
+   *  laptop (a scientific output reads as 2.5e8, not 250000000). */
+  format?: 'auto' | 'scientific' | 'fixed';
+  decimals?: number;
 };
 
 export type SnapshotCalculator = {

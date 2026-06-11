@@ -196,6 +196,24 @@ function parseOutputs(raw: unknown, label: string): CustomCalculatorOutput[] {
     if (entry.unit !== undefined) {
       out.unit = asString(entry.unit, `${label} #${i} unit`);
     }
+    if (entry.format !== undefined) {
+      if (
+        entry.format !== "auto" &&
+        entry.format !== "scientific" &&
+        entry.format !== "fixed"
+      ) {
+        throw new Error(
+          `${label} #${i} format must be "auto", "scientific", or "fixed"`,
+        );
+      }
+      out.format = entry.format;
+    }
+    if (entry.decimals !== undefined) {
+      if (typeof entry.decimals !== "number" || !Number.isFinite(entry.decimals)) {
+        throw new Error(`${label} #${i} decimals must be a number`);
+      }
+      out.decimals = entry.decimals;
+    }
     return out;
   });
 }

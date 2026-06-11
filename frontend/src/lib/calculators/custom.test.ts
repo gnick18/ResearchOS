@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import {
   evaluateCustomCalculator,
   formatCalcValue,
+  formatCalcValueAs,
   isReservedName,
   RESERVED_NAMES,
   type CustomCalcInputValues,
@@ -346,6 +347,36 @@ describe("formatCalcValue", () => {
     expect(formatCalcValue(0.1 + 0.2)).toBe("0.3");
     expect(formatCalcValue(NaN)).toBe("—");
     expect(formatCalcValue(0)).toBe("0");
+  });
+});
+
+describe("formatCalcValueAs (per-output number format)", () => {
+  it("auto is byte-identical to formatCalcValue", () => {
+    for (const n of [0, 19000000, 0.1 + 0.2, 250000000, -7.5, 1 / 3]) {
+      expect(formatCalcValueAs(n)).toBe(formatCalcValue(n));
+      expect(formatCalcValueAs(n, "auto")).toBe(formatCalcValue(n));
+    }
+  });
+  it("scientific renders via toExponential, default 2 decimals", () => {
+    expect(formatCalcValueAs(250000000, "scientific")).toBe("2.50e+8");
+    expect(formatCalcValueAs(250000000, "scientific", 1)).toBe("2.5e+8");
+    expect(formatCalcValueAs(0.000123, "scientific", 3)).toBe("1.230e-4");
+  });
+  it("fixed renders via toFixed, default 2 decimals", () => {
+    expect(formatCalcValueAs(3.14159, "fixed")).toBe("3.14");
+    expect(formatCalcValueAs(3.14159, "fixed", 0)).toBe("3");
+    expect(formatCalcValueAs(2, "fixed", 3)).toBe("2.000");
+  });
+  it("keeps the dash for a non-finite value regardless of format", () => {
+    expect(formatCalcValueAs(NaN, "scientific")).toBe("—");
+    expect(formatCalcValueAs(NaN, "fixed")).toBe("—");
+  });
+  it("evaluateCustomCalculator honors a per-output format on display", () => {
+    const calc = calcOf([{ key: "n", type: "number", label: "n" }], "n");
+    calc.outputs[0].format = "scientific";
+    const r = run(calc, { n: 250000000 });
+    expect(r.outputs[0].value).toBe(250000000);
+    expect(r.outputs[0].display).toBe("2.50e+8");
   });
 });
 

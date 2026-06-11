@@ -74,6 +74,11 @@ export interface CustomCalculatorOutput {
   label: string;
   expr: string;
   unit?: string;
+  /** How the numeric value is rendered. Omitted = "auto" (the clean default).
+   *  Mirrors the laptop record so phone display matches the laptop. */
+  format?: 'auto' | 'scientific' | 'fixed';
+  /** Decimal places for "scientific" / "fixed". Defaults to 2 when omitted. */
+  decimals?: number;
 }
 
 /** The runnable spec the phone evaluates (the subset of the laptop record + the
@@ -262,6 +267,25 @@ export function formatCalcValue(n: number): string {
   if (n === 0) return '0';
   if (Number.isInteger(n) && Math.abs(n) < 1e15) return String(n);
   return String(Number(n.toPrecision(12)));
+}
+
+/** Per-output number format. "auto" is the clean default (`formatCalcValue`).
+ *  "scientific" renders `2.5e8` via toExponential; "fixed" pins decimals via
+ *  toFixed. The "—" non-finite guard is preserved. `decimals` defaults to 2.
+ *  Verbatim mirror of the laptop engine so phone display matches. */
+export function formatCalcValueAs(
+  n: number,
+  format?: 'auto' | 'scientific' | 'fixed',
+  decimals?: number,
+): string {
+  if (typeof n !== 'number' || Number.isNaN(n)) return '—';
+  if (!Number.isFinite(n)) return n > 0 ? 'Infinity' : '-Infinity';
+  const d = Number.isFinite(decimals)
+    ? Math.min(100, Math.max(0, Math.trunc(decimals as number)))
+    : 2;
+  if (format === 'scientific') return n.toExponential(d);
+  if (format === 'fixed') return n.toFixed(d);
+  return formatCalcValue(n);
 }
 
 // ── Evaluation ───────────────────────────────────────────────────────────────
@@ -458,7 +482,7 @@ export function evaluateCustomCalculator(
     return {
       label: out.label,
       value,
-      display: formatCalcValue(value),
+      display: formatCalcValueAs(value, out.format, out.decimals),
       ...(out.unit ? { unit: out.unit } : {}),
     };
   });

@@ -241,6 +241,29 @@ export function formatCalcValue(n: number): string {
   return String(Number(n.toPrecision(12)));
 }
 
+/** Per-output number format. "auto" is the clean default (`formatCalcValue`).
+ *  "scientific" renders `2.5e8` via toExponential (a large spore count reads
+ *  better that way); "fixed" pins a decimal count via toFixed. The "—"
+ *  non-finite guard is preserved so a failed expression still degrades cleanly.
+ *  `decimals` defaults to 2 for both scientific and fixed. Pure / non-throwing.
+ */
+export function formatCalcValueAs(
+  n: number,
+  format?: "auto" | "scientific" | "fixed",
+  decimals?: number,
+): string {
+  if (typeof n !== "number" || Number.isNaN(n)) return "—";
+  if (!Number.isFinite(n)) return n > 0 ? "Infinity" : "-Infinity";
+  // Clamp to toExponential / toFixed's supported 0..100 digit range so a stray
+  // out-of-range decimals value cannot throw and break the live preview.
+  const d = Number.isFinite(decimals)
+    ? Math.min(100, Math.max(0, Math.trunc(decimals as number)))
+    : 2;
+  if (format === "scientific") return n.toExponential(d);
+  if (format === "fixed") return n.toFixed(d);
+  return formatCalcValue(n);
+}
+
 // ── Evaluation ───────────────────────────────────────────────────────────────
 
 export interface CustomCalcOutputResult {
@@ -451,7 +474,7 @@ export function evaluateCustomCalculator(
     return {
       label: out.label,
       value,
-      display: formatCalcValue(value),
+      display: formatCalcValueAs(value, out.format, out.decimals),
       ...(out.unit ? { unit: out.unit } : {}),
     };
   });

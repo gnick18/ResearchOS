@@ -75,6 +75,29 @@ function out(r: CustomCalcResult, label: string): number {
   return o.value;
 }
 
+/** Read one output's display string (the format-honoring render). */
+function disp(r: CustomCalcResult, label: string): string {
+  const o = r.outputs.find((x) => x.label === label);
+  if (!o) {
+    failed += 1;
+    console.error(`FAIL  output "${label}" missing`);
+    return '';
+  }
+  return o.display;
+}
+
+function eqStr(label: string, actual: string, oracle: string): void {
+  if (actual === oracle) {
+    passed += 1;
+    console.log(`  ok  ${label} = ${JSON.stringify(actual)}`);
+  } else {
+    failed += 1;
+    console.error(
+      `FAIL  ${label}: got ${JSON.stringify(actual)}, expected ${JSON.stringify(oracle)}`,
+    );
+  }
+}
+
 /** Build the default-value input map from a spec's declared defaults, the same
  *  set the laptop golden suite and the "Use" view start from. */
 function defaultValues(
@@ -274,6 +297,31 @@ const cg = evaluateCustomCalculator(colSpec, {
 });
 near('col() sum drops the blank cell', out(cg, 'sum'), 10);
 near('col() count drops the blank cell', out(cg, 'count'), 2);
+
+// ── Per-output number format (matches the laptop engine) ──────────────────────
+
+console.log('FORMAT: per-output auto / scientific / fixed');
+const fmtSpec: CustomCalculatorSpec = {
+  name: 'format probe',
+  description: '',
+  inputs: [{ key: 'n', type: 'number', label: 'n', default: 250000000 }],
+  steps: [],
+  conditionals: [],
+  outputs: [
+    { label: 'auto', expr: 'n' },
+    { label: 'sci', expr: 'n', format: 'scientific' },
+    { label: 'sci1', expr: 'n', format: 'scientific', decimals: 1 },
+    { label: 'fixed', expr: 'n / 1e8', format: 'fixed' },
+    { label: 'fixed3', expr: 'n / 1e8', format: 'fixed', decimals: 3 },
+  ],
+};
+const fmt = run(fmtSpec);
+near('format leaves numeric value untouched', out(fmt, 'sci'), 250000000);
+eqStr('auto display is the clean default', disp(fmt, 'auto'), '250000000');
+eqStr('scientific display (default 2 dp)', disp(fmt, 'sci'), '2.50e+8');
+eqStr('scientific display (1 dp)', disp(fmt, 'sci1'), '2.5e+8');
+eqStr('fixed display (default 2 dp)', disp(fmt, 'fixed'), '2.50');
+eqStr('fixed display (3 dp)', disp(fmt, 'fixed3'), '2.500');
 
 // ── Summary ───────────────────────────────────────────────────────────────────
 
