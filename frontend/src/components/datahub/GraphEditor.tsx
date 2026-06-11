@@ -33,10 +33,15 @@ import {
   readPlotStyle,
   renderPlot,
   figureFileStem,
-  downloadSvg,
-  downloadPng,
-  copyFigureToClipboard,
+  downloadFigureSvg,
+  downloadFigurePng,
+  copyFigure,
+  convertUnit,
+  fromDesignPx,
+  FIG,
   type PlotStyle,
+  type SizeUnit,
+  type ResizeMode,
   type ErrorBarKind,
   type FitModelId,
 } from "@/lib/datahub/plot-spec";
@@ -108,6 +113,298 @@ function Seg<T extends string>({
   );
 }
 
+/** Round a size number to a tidy precision for the input (inches / cm keep two
+ * decimals, px stays whole). */
+function roundForUnit(value: number, unit: SizeUnit): number {
+  if (unit === "px") return Math.round(value);
+  return Math.round(value * 100) / 100;
+}
+
+/** The journal / slide size presets, all in inches. */
+const SIZE_PRESETS: { label: string; widthIn: number; heightIn: number }[] = [
+  // A single journal column is 3.5 in wide; the height keeps the base aspect.
+  { label: "Single column", widthIn: 3.5, heightIn: 3.5 * (FIG.height / FIG.width) },
+  // A double (full-page) column is 7.0 in wide.
+  { label: "Double column", widthIn: 7.0, heightIn: 7.0 * (FIG.height / FIG.width) },
+  // A 16:9 slide figure (10 in wide keeps a comfortable half-slide height).
+  { label: "Slide 16:9", widthIn: 10, heightIn: 5.63 },
+];
+
+/**
+ * The "Figure size" section of the style panel. Type-in width / height with a
+ * px / in / cm unit, an export DPI, an aspect lock, a re-layout / scale toggle,
+ * and journal / slide presets. The why: a figure that is sized to its real
+ * destination (a 3.5 in journal column, a 16:9 slide) drops in without
+ * rescaling, and re-layout keeps the axis text legible at that size instead of
+ * shrinking it. All edits write through onStyleChange onto the versioned spec.
+ */
+function FigureSizeControls({
+  style,
+  onStyleChange,
+}: {
+  style: PlotStyle;
+  onStyleChange: (patch: Partial<PlotStyle>) => void;
+}) {
+  const unit: SizeUnit = style.sizeUnit ?? "px";
+  const mode: ResizeMode = style.resizeMode ?? "relayout";
+  const locked = style.aspectLocked ?? true;
+  const dpi = style.dpi ?? 300;
+
+  // The displayed numbers. With no stored size the figure is at the base FIG
+  // box, so show that box in the current unit as the editable starting point.
+  const baseW = fromDesignPx(FIG.width, unit);
+  const baseH = fromDesignPx(FIG.height, unit);
+  const curW = style.width ?? baseW;
+  const curH = style.height ?? baseH;
+  const ratio = curW > 0 && curH > 0 ? curW / curH : FIG.width / FIG.height;
+
+  const dispW = roundForUnit(curW, unit);
+  const dispH = roundForUnit(curH, unit);
+
+  // Write a new width / height pair, keeping the aspect ratio when locked.
+  const setWidth = (w: number) => {
+    if (!Number.isFinite(w) || w <= 0) return;
+    const h = locked ? w / ratio : curH;
+    onStyleChange({ width: roundForUnit(w, unit), height: roundForUnit(h, unit) });
+  };
+  const setHeight = (h: number) => {
+    if (!Number.isFinite(h) || h <= 0) return;
+    const w = locked ? h * ratio : curW;
+    onStyleChange({ width: roundForUnit(w, unit), height: roundForUnit(h, unit) });
+  };
+
+  // Switching the unit converts the displayed numbers so the figure does not
+  // change size (3.5 in becomes 8.89 cm, not a relabeled 3.5 cm).
+  const setUnit = (next: SizeUnit) => {
+    if (next === unit) return;
+    onStyleChange({
+      sizeUnit: next,
+      width: roundForUnit(convertUnit(curW, unit, next), next),
+      height: roundForUnit(convertUnit(curH, unit, next), next),
+    });
+  };
+
+  const applyPreset = (widthIn: number, heightIn: number) => {
+    onStyleChange({
+      sizeUnit: "in",
+      width: roundForUnit(widthIn, "in"),
+      height: roundForUnit(heightIn, "in"),
+    });
+  };
+
+  const numClass =
+    "w-16 rounded-md border border-border bg-surface-overlay px-2 py-1 text-meta text-foreground focus:border-sky-400 focus:outline-none";
+
+  return (
+    <div className="mt-3 border-t border-border pt-3" data-testid="datahub-figure-size">
+      <div className="mb-2 flex items-center gap-1.5">
+        <Icon name="ruler" className="h-3 w-3 text-foreground-muted" />
+        <span className="text-[11px] font-bold uppercase tracking-wide text-foreground-muted">
+          Figure size
+        </span>
+      </div>
+
+      <Ctl label="Width">
+        <input
+          type="number"
+          min={0}
+          step={unit === "px" ? 10 : 0.1}
+          value={dispW}
+          onChange={(e) => setWidth(Number(e.target.value))}
+          className={numClass}
+          aria-label="Figure width"
+          data-testid="datahub-size-width"
+        />
+      </Ctl>
+      <Ctl label="Height">
+        <input
+          type="number"
+          min={0}
+          step={unit === "px" ? 10 : 0.1}
+          value={dispH}
+          onChange={(e) => setHeight(Number(e.target.value))}
+          className={numClass}
+          aria-label="Figure height"
+          data-testid="datahub-size-height"
+        />
+      </Ctl>
+      <Ctl label="Unit">
+        <Seg<SizeUnit>
+          value={unit}
+          options={[
+            { value: "px", label: "px" },
+            { value: "in", label: "in" },
+            { value: "cm", label: "cm" },
+          ]}
+          onChange={setUnit}
+        />
+      </Ctl>
+      <Ctl label="Lock aspect">
+        <button
+          type="button"
+          onClick={() => onStyleChange({ aspectLocked: !locked })}
+          className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition-colors ${
+            locked
+              ? "border-accent bg-accent-soft text-accent"
+              : "border-border bg-surface-raised text-foreground-muted hover:bg-surface-sunken"
+          }`}
+          aria-pressed={locked}
+          data-testid="datahub-size-lock"
+        >
+          <Icon name="lock" className="h-3 w-3" />
+          {locked ? "Locked" : "Free"}
+        </button>
+      </Ctl>
+      <Ctl label="Export DPI">
+        <input
+          type="number"
+          min={72}
+          step={50}
+          value={dpi}
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            if (Number.isFinite(v) && v > 0) onStyleChange({ dpi: Math.round(v) });
+          }}
+          className={numClass}
+          aria-label="Export DPI"
+          data-testid="datahub-size-dpi"
+        />
+      </Ctl>
+      <Ctl label="On resize">
+        <Seg<ResizeMode>
+          value={mode}
+          options={[
+            { value: "relayout", label: "Re-layout" },
+            { value: "scale", label: "Scale" },
+          ]}
+          onChange={(v) => onStyleChange({ resizeMode: v })}
+        />
+      </Ctl>
+      <p className="mt-1 text-[11px] text-foreground-muted">
+        {mode === "relayout"
+          ? "Re-layout redraws the axes to fill the box, so the text stays legible at the chosen size."
+          : "Scale zooms the whole figure like a slide image, so the text and markers grow with the box."}
+      </p>
+
+      <div className="mt-2 flex flex-wrap gap-1.5" data-testid="datahub-size-presets">
+        {SIZE_PRESETS.map((p) => (
+          <button
+            key={p.label}
+            type="button"
+            onClick={() => applyPreset(p.widthIn, p.heightIn)}
+            className="rounded-md border border-border bg-surface-raised px-2 py-1 text-[11px] font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Wrap the live figure with a draggable bottom-right corner handle so a
+ * researcher can resize the figure by eye, the way they would in a slide tool.
+ * The handle sits in the corner OUTSIDE the SVG hit area and stops its own
+ * pointer events, so it never swallows the double-click / right-click color
+ * editing on the plot. The px drag delta is converted back into the figure's
+ * current unit; aspect lock constrains the ratio. The current dimensions show in
+ * a small label while dragging.
+ */
+function FigureResizeFrame({
+  style,
+  frameWidthPx,
+  frameHeightPx,
+  onStyleChange,
+  children,
+}: {
+  style: PlotStyle;
+  /** The figure's on-screen size in design-px (CSS px), so deltas map 1:1. */
+  frameWidthPx: number;
+  frameHeightPx: number;
+  onStyleChange: (patch: Partial<PlotStyle>) => void;
+  children: React.ReactNode;
+}) {
+  const unit: SizeUnit = style.sizeUnit ?? "px";
+  const locked = style.aspectLocked ?? true;
+  const [drag, setDrag] = useState<{ w: number; h: number } | null>(null);
+
+  const ratio =
+    frameWidthPx > 0 && frameHeightPx > 0
+      ? frameWidthPx / frameHeightPx
+      : FIG.width / FIG.height;
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startW = frameWidthPx;
+    const startH = frameHeightPx;
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+
+    const MIN = 120; // keep the figure from collapsing past a usable size
+
+    const move = (ev: PointerEvent) => {
+      const dx = ev.clientX - startX;
+      let w = Math.max(MIN, startW + dx);
+      let h: number;
+      if (locked) {
+        h = w / ratio;
+      } else {
+        const dy = ev.clientY - startY;
+        h = Math.max(MIN, startH + dy);
+        // Re-derive w in case the height hit the floor (keeps the box sane).
+        w = Math.max(MIN, startW + dx);
+      }
+      setDrag({ w: Math.round(w), h: Math.round(h) });
+      onStyleChange({
+        width: roundForUnit(fromDesignPx(w, unit), unit),
+        height: roundForUnit(fromDesignPx(h, unit), unit),
+      });
+    };
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      (e.target as Element).releasePointerCapture?.(ev.pointerId);
+      setDrag(null);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
+  return (
+    <div className="relative inline-block">
+      {children}
+      {/* Drag handle in the bottom-right corner, on top of the figure corner but
+          a small target so it does not block the plot's color hit-testing. */}
+      <div
+        role="slider"
+        aria-label="Resize figure"
+        aria-valuenow={Math.round(frameWidthPx)}
+        tabIndex={0}
+        onPointerDown={onPointerDown}
+        className="absolute bottom-0 right-0 z-10 h-4 w-4 cursor-nwse-resize rounded-tl-sm border border-border bg-surface-raised opacity-70 transition-opacity hover:opacity-100"
+        data-testid="datahub-figure-resize-handle"
+      >
+        <Icon
+          name="scale"
+          className="pointer-events-none h-3 w-3 text-foreground-muted"
+        />
+      </div>
+      {drag && (
+        <div
+          className="pointer-events-none absolute bottom-1 right-5 z-10 rounded bg-foreground/80 px-1.5 py-0.5 text-[10px] font-medium text-white"
+          data-testid="datahub-figure-resize-readout"
+        >
+          {roundForUnit(fromDesignPx(drag.w, unit), unit)} x{" "}
+          {roundForUnit(fromDesignPx(drag.h, unit), unit)} {unit}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function GraphEditor({
   spec,
   content,
@@ -133,7 +430,7 @@ export default function GraphEditor({
   const isSurvival = style.kind === "survivalCurve";
   // The live figure. Recomputed whenever the spec, the table, or the linked
   // analysis changes (a cell edit reprojects content, so the points move).
-  const { svg, geometry } = useMemo(
+  const { svg, geometry, frame } = useMemo(
     () => renderPlot(spec, content, analysis),
     [spec, content, analysis],
   );
@@ -185,11 +482,11 @@ export default function GraphEditor({
     onStyleChange({ palette: id, colorOverrides: {} });
   };
 
-  const onExportSvg = () => downloadSvg(svg, fileStem);
+  const onExportSvg = () => downloadFigureSvg(svg, frame, fileStem);
   const onExportPng = async () => {
     setBusy(true);
     try {
-      await downloadPng(svg, geometry.width, geometry.height, fileStem);
+      await downloadFigurePng(svg, frame, fileStem);
     } finally {
       setBusy(false);
     }
@@ -197,11 +494,7 @@ export default function GraphEditor({
   const onCopy = async () => {
     setBusy(true);
     try {
-      const mode = await copyFigureToClipboard(
-        svg,
-        geometry.width,
-        geometry.height,
-      );
+      const mode = await copyFigure(svg, frame);
       setCopyState(mode);
       setTimeout(() => setCopyState("idle"), 1800);
     } catch {
@@ -234,13 +527,20 @@ export default function GraphEditor({
       <div className="mt-4 flex flex-wrap items-start gap-5">
         {/* Figure + export row */}
         <div className="rounded-lg border border-border bg-white p-3">
-          <PlotColorEditor
-            svg={svg}
+          <FigureResizeFrame
             style={style}
-            resolvedColors={seriesInfo.colors}
+            frameWidthPx={frame.screenWidth}
+            frameHeightPx={frame.screenHeight}
             onStyleChange={onStyleChange}
-            onSaveColorsAsPalette={onSaveColorsAsPalette}
-          />
+          >
+            <PlotColorEditor
+              svg={svg}
+              style={style}
+              resolvedColors={seriesInfo.colors}
+              onStyleChange={onStyleChange}
+              onSaveColorsAsPalette={onSaveColorsAsPalette}
+            />
+          </FigureResizeFrame>
           <div className="mt-2 flex items-center gap-2">
             <button
               type="button"
@@ -392,6 +692,8 @@ export default function GraphEditor({
               aria-label="Axis text size"
             />
           </Ctl>
+
+          <FigureSizeControls style={style} onStyleChange={onStyleChange} />
 
           <div className="mt-3 border-t border-border pt-3">
             <label className="block text-[11px] font-bold uppercase tracking-wide text-foreground-muted">
