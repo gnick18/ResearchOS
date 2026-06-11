@@ -83,8 +83,10 @@ export default function CloudAndPlansPage() {
         The local-first core is free and open source under the AGPLv3, with
         every feature included. It is supported by a UW-Madison RISE fellowship
         and by voluntary contributions. Cloud storage above the free pool comes
-        as flat-price plans, priced to recover what it costs us to run rather
-        than to make a profit.
+        as flat-price plans. Individuals and labs pay only what it costs us to
+        run, and larger institutions pay a modest sustaining rate above that,
+        which keeps ResearchOS free for individual researchers and funds the
+        open-source development.
       </p>
       <p>
         The plans are flat, not metered per gigabyte, so the bill is a known

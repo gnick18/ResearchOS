@@ -29,7 +29,7 @@ import TwoPartModel from "@/components/pricing/TwoPartModel";
 export const metadata: Metadata = {
   title: "Pricing | ResearchOS",
   description:
-    "The ResearchOS local notebook is free and open source forever. The only paid part is optional cloud storage for shared and co-edited documents, priced to recover what it costs us to run. See the competitor savings, the plan builders, and the actual cost math. Everything is free during the beta.",
+    "The ResearchOS local notebook is free and open source forever. The only paid part is optional cloud storage for shared and co-edited documents. Individuals and labs pay what it costs us, larger institutions pay a little more to keep it free for everyone else. See the competitor savings, the plan builders, and the actual cost math. Everything is free during the beta.",
 };
 
 const METERING_ITEMS: FeatureItem[] = [
