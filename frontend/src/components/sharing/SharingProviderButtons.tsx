@@ -67,7 +67,7 @@ export default function SharingProviderButtons({
       <button
         type="button"
         onClick={() => onProvider("orcid")}
-        className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-surface-raised text-slate-800 hover:bg-slate-100 font-medium transition-colors border border-border"
+        className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-white text-slate-800 hover:bg-slate-100 font-medium transition-colors border border-slate-300"
       >
         <OrcidIcon className="w-4 h-4" />
         Sign in with ORCID
@@ -75,7 +75,7 @@ export default function SharingProviderButtons({
       <button
         type="button"
         onClick={() => onProvider("google")}
-        className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-surface-raised text-slate-800 hover:bg-slate-100 font-medium transition-colors border border-border"
+        className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-white text-slate-800 hover:bg-slate-100 font-medium transition-colors border border-slate-300"
       >
         <GoogleIcon className="w-4 h-4" />
         Continue with Google
@@ -87,7 +87,7 @@ export default function SharingProviderButtons({
         <button
           type="button"
           onClick={() => onProvider("microsoft-entra-id")}
-          className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-surface-raised text-slate-800 hover:bg-slate-100 font-medium transition-colors border border-border"
+          className="w-full flex items-center justify-center gap-2 py-2.5 text-body rounded-lg bg-white text-slate-800 hover:bg-slate-100 font-medium transition-colors border border-slate-300"
         >
           <MicrosoftIcon className="w-4 h-4" />
           Continue with Microsoft

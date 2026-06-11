@@ -94,7 +94,7 @@ export default function SpendByCategoryPanel() {
       {/* Money OUT */}
       <div className="mt-5">
         <div className="flex items-end justify-between gap-3">
-          <p className="text-meta font-semibold uppercase tracking-wide text-red-700 dark:text-red-300">
+          <p className="text-meta font-semibold uppercase tracking-wide text-red-700">
             Money out, estimated cost
           </p>
           <p className="text-body font-bold tracking-tight text-foreground">
@@ -135,7 +135,7 @@ export default function SpendByCategoryPanel() {
       {/* Money IN */}
       <div className="mt-6">
         <div className="flex items-end justify-between gap-3">
-          <p className="text-meta font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+          <p className="text-meta font-semibold uppercase tracking-wide text-emerald-700">
             Money in, revenue
           </p>
           <p className="text-body font-bold tracking-tight text-foreground">
@@ -185,8 +185,8 @@ export default function SpendByCategoryPanel() {
         <span
           className={`text-body font-bold ${
             net >= 0
-              ? "text-emerald-700 dark:text-emerald-300"
-              : "text-red-700 dark:text-red-300"
+              ? "text-emerald-700"
+              : "text-red-700"
           }`}
         >
           {net >= 0 ? "+" : "-"}

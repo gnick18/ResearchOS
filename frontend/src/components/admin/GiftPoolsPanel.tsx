@@ -194,7 +194,7 @@ export default function GiftPoolsPanel() {
         />
       </div>
       {err ? (
-        <p className="mt-2 text-meta text-red-700 dark:text-red-300">{err}</p>
+        <p className="mt-2 text-meta text-red-700">{err}</p>
       ) : null}
 
       {/* Existing grants */}

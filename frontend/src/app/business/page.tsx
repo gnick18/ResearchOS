@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import BusinessTracker from "@/components/admin/BusinessTracker";
+import LightOnly from "@/components/LightOnly";
 
 /**
  * Standalone `/business` route: the operator-only LLC business tracker.
@@ -12,6 +13,11 @@ import BusinessTracker from "@/components/admin/BusinessTracker";
  * from the wiki-coverage map (an operator tool, not a documented user feature).
  * Moved here from /admin/business 2026-06-10 (Grant) for a cleaner path; the old
  * route redirects here, and /admin and /business cross-link to each other.
+ *
+ * Pinned to light mode (Grant 2026-06-11): the operator surfaces always read in
+ * the light palette regardless of the user's theme. The full-height
+ * bg-surface-sunken root covers the viewport, so the LightOnly scope leaves no
+ * dark peek behind it.
  */
 export const metadata: Metadata = {
   title: "Business | ResearchOS",
@@ -19,5 +25,9 @@ export const metadata: Metadata = {
 };
 
 export default function BusinessPage() {
-  return <BusinessTracker />;
+  return (
+    <LightOnly>
+      <BusinessTracker />
+    </LightOnly>
+  );
 }

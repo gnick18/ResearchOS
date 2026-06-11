@@ -78,13 +78,13 @@ function Shell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-4">
             <Link
               href="/admin"
-              className="text-body font-medium text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
+              className="text-body font-medium text-sky-700 underline-offset-2 hover:underline"
             >
               Operator metrics
             </Link>
             <Link
               href="/"
-              className="text-body font-medium text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
+              className="text-body font-medium text-sky-700 underline-offset-2 hover:underline"
             >
               Back to the app
             </Link>
@@ -108,9 +108,9 @@ function StatCard({
 }) {
   const valueClass =
     tone === "good"
-      ? "text-emerald-700 dark:text-emerald-300"
+      ? "text-emerald-700"
       : tone === "reserve"
-        ? "text-amber-700 dark:text-amber-300"
+        ? "text-amber-700"
         : "text-foreground";
   return (
     <div className="rounded-2xl border border-border bg-surface-raised p-5">
@@ -127,15 +127,15 @@ function StatCard({
 function deadlineTone(daysUntil: number): { box: string; text: string; chip: string } {
   if (daysUntil < 0) {
     return {
-      box: "border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/15",
-      text: "text-rose-700 dark:text-rose-300",
+      box: "border-rose-200 bg-rose-50",
+      text: "text-rose-700",
       chip: "overdue",
     };
   }
   if (daysUntil <= 14) {
     return {
-      box: "border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15",
-      text: "text-amber-700 dark:text-amber-300",
+      box: "border-amber-200 bg-amber-50",
+      text: "text-amber-700",
       chip: `in ${daysUntil} day${daysUntil === 1 ? "" : "s"}`,
     };
   }
@@ -425,7 +425,7 @@ function EntityCard({
         >
           {saving ? "Saving..." : "Save entity facts"}
         </button>
-        {saved ? <span className="text-meta text-emerald-600 dark:text-emerald-300">Saved.</span> : null}
+        {saved ? <span className="text-meta text-emerald-600">Saved.</span> : null}
         <span className="text-meta text-foreground-muted">
           The reserve % is a placeholder until your accountant sets it.
         </span>
@@ -593,7 +593,7 @@ function Ledger({
           {busy ? "Adding..." : "Add"}
         </button>
       </div>
-      {err ? <p className="mt-2 text-meta text-rose-600 dark:text-rose-300">{err}</p> : null}
+      {err ? <p className="mt-2 text-meta text-rose-600">{err}</p> : null}
 
       <div className="mt-5 overflow-x-auto">
         {ledger.length === 0 ? (
@@ -628,7 +628,7 @@ function Ledger({
                         className={`rounded-md border px-1.5 py-1 text-meta ${
                           e.taxCategory
                             ? "border-border bg-transparent text-foreground-muted"
-                            : "border-amber-400 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                            : "border-amber-400 bg-amber-50 text-amber-800"
                         }`}
                         title="Set the Schedule C tax category for this expense"
                       >
@@ -660,7 +660,7 @@ function Ledger({
                   <td className="px-2 py-2 text-foreground-muted">{e.note || "-"}</td>
                   <td
                     className={`px-2 py-2 text-right font-mono ${
-                      e.direction === "in" ? "text-emerald-700 dark:text-emerald-300" : "text-foreground"
+                      e.direction === "in" ? "text-emerald-700" : "text-foreground"
                     }`}
                   >
                     {e.direction === "in" ? "+" : "-"}
@@ -847,11 +847,11 @@ function SalesTaxBanner({
 }) {
   if (status === "exempt") {
     return (
-      <div className="mb-4 rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/15 px-4 py-3">
-        <p className="text-body font-semibold text-emerald-800 dark:text-emerald-300">
+      <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+        <p className="text-body font-semibold text-emerald-800">
           Wisconsin sales tax: exempt. Clear to charge.
         </p>
-        {note ? <p className="mt-1 text-meta text-emerald-700 dark:text-emerald-300">{note}</p> : null}
+        {note ? <p className="mt-1 text-meta text-emerald-700">{note}</p> : null}
       </div>
     );
   }
@@ -859,12 +859,12 @@ function SalesTaxBanner({
   return (
     <div
       className={`mb-4 rounded-xl border px-4 py-3 ${
-        taxable ? "border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15" : "border-rose-300 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/15"
+        taxable ? "border-amber-300 bg-amber-50" : "border-rose-300 bg-rose-50"
       }`}
     >
       <p
         className={`text-body font-semibold ${
-          taxable ? "text-amber-800 dark:text-amber-300" : "text-rose-800 dark:text-rose-300"
+          taxable ? "text-amber-800" : "text-rose-800"
         }`}
       >
         {taxable
@@ -872,7 +872,7 @@ function SalesTaxBanner({
           : "Hard gate: sales-tax determination pending. Do not bill a real customer until the WI DOR replies."}
       </p>
       {note ? (
-        <p className={`mt-1 text-meta ${taxable ? "text-amber-700 dark:text-amber-300" : "text-rose-700 dark:text-rose-300"}`}>
+        <p className={`mt-1 text-meta ${taxable ? "text-amber-700" : "text-rose-700"}`}>
           {note}
         </p>
       ) : null}
@@ -1006,7 +1006,7 @@ function TaxSummaryPanel({ ledger }: { ledger: LedgerEntry[] }) {
         </table>
       )}
       {uncategorized > 0 ? (
-        <p className="mt-3 text-meta text-amber-700 dark:text-amber-300">
+        <p className="mt-3 text-meta text-amber-700">
           {uncategorized} expense{uncategorized === 1 ? "" : "s"} are uncategorized.
           Set a tax category on each so the Schedule C totals are complete.
         </p>
@@ -1019,11 +1019,11 @@ function TaxSummaryPanel({ ledger }: { ledger: LedgerEntry[] }) {
 
 function KindChip({ kind }: { kind: PaymentMethodKind }) {
   return kind === "personal" ? (
-    <span className="rounded-full border border-amber-400 bg-amber-50 px-2 py-0.5 text-meta font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+    <span className="rounded-full border border-amber-400 bg-amber-50 px-2 py-0.5 text-meta font-semibold text-amber-700">
       Personal
     </span>
   ) : (
-    <span className="rounded-full border border-sky-500 px-2 py-0.5 text-meta font-semibold text-sky-700 dark:text-sky-300">
+    <span className="rounded-full border border-sky-500 px-2 py-0.5 text-meta font-semibold text-sky-700">
       LLC
     </span>
   );
@@ -1279,7 +1279,7 @@ function ReimbursementPanel({
       <p className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
         Fronted on personal cards (owed to you)
       </p>
-      <p className="mt-1 text-display font-bold tracking-tight text-amber-700 dark:text-amber-300">
+      <p className="mt-1 text-display font-bold tracking-tight text-amber-700">
         {formatUSD(outstandingCents)}
       </p>
       <p className="mt-1 text-meta text-foreground-muted">
@@ -1494,7 +1494,7 @@ function RecurringSubscriptions({
           renewals feed the deadline strip. Yearly subscriptions are amortized to
           a twelfth in the total.
         </p>
-        <p className="text-body font-semibold text-rose-700 dark:text-rose-300">
+        <p className="text-body font-semibold text-rose-700">
           {formatUSD(burn)} / mo
         </p>
       </div>
@@ -1630,8 +1630,8 @@ function DevAccountantPanel() {
     "rounded-lg border border-border px-3 py-2 text-meta font-medium hover:bg-surface-sunken disabled:opacity-50";
 
   return (
-    <div className="mt-10 rounded-2xl border border-dashed border-amber-400/60 bg-amber-50/40 p-4 dark:bg-amber-950/20">
-      <p className="text-meta font-semibold text-amber-800 dark:text-amber-300">
+    <div className="mt-10 rounded-2xl border border-dashed border-amber-400/60 bg-amber-50/40 p-4">
+      <p className="text-meta font-semibold text-amber-800">
         Dev tools, Accountant bot (development only)
       </p>
       <p className="mt-1 text-meta text-foreground-muted leading-relaxed">
@@ -1652,7 +1652,7 @@ function DevAccountantPanel() {
         <div className="mt-3 rounded-xl border border-border bg-surface p-3">
           <p
             className={`text-meta font-semibold ${
-              result.ok ? "text-emerald-700 dark:text-emerald-300" : "text-rose-600 dark:text-rose-400"
+              result.ok ? "text-emerald-700" : "text-rose-600"
             }`}
           >
             {result.ok ? "Booking path healthy" : "Booking path needs attention"}
@@ -1676,7 +1676,7 @@ function DevAccountantPanel() {
             <p className="mt-2 text-meta text-foreground-muted">{result.message}</p>
           ) : null}
           {result.hint ? (
-            <p className="mt-1 text-meta text-amber-700 dark:text-amber-300">{result.hint}</p>
+            <p className="mt-1 text-meta text-amber-700">{result.hint}</p>
           ) : null}
         </div>
       ) : null}
@@ -1976,7 +1976,7 @@ export default function BusinessTracker() {
                 <tr
                   key={t.service}
                   className={`border-b border-border align-top last:border-0 ${
-                    t.actionNow ? "bg-amber-50 dark:bg-amber-500/15" : ""
+                    t.actionNow ? "bg-amber-50" : ""
                   }`}
                 >
                   <td className="px-3 py-2">
@@ -1987,7 +1987,7 @@ export default function BusinessTracker() {
                   <td className="px-3 py-2 text-foreground-muted">{t.paid}</td>
                   <td
                     className={`px-3 py-2 ${
-                      t.actionNow ? "font-medium text-amber-700 dark:text-amber-300" : "text-foreground-muted"
+                      t.actionNow ? "font-medium text-amber-700" : "text-foreground-muted"
                     }`}
                   >
                     {t.upgradeWhen}

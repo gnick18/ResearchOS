@@ -101,8 +101,8 @@ export default function CostBreakerPanel() {
         <span
           className={`inline-flex items-center rounded-full px-3 py-1 text-meta font-semibold ring-1 ring-inset ${
             state.tripped
-              ? "text-red-700 ring-red-300 dark:text-red-300"
-              : "text-emerald-700 ring-emerald-300 dark:text-emerald-300"
+              ? "text-red-700 ring-red-300"
+              : "text-emerald-700 ring-emerald-300"
           }`}
         >
           {state.tripped ? "TRIPPED, cloud writes paused" : "OK"}
@@ -140,7 +140,7 @@ export default function CostBreakerPanel() {
       </div>
 
       {state.tripped && state.reason ? (
-        <p className="mt-3 rounded-lg px-4 py-2.5 text-meta text-red-700 ring-1 ring-inset ring-red-300 dark:text-red-300">
+        <p className="mt-3 rounded-lg px-4 py-2.5 text-meta text-red-700 ring-1 ring-inset ring-red-300">
           Tripped: {state.reason}
           {state.trippedAt ? ` (${state.trippedAt.slice(0, 16).replace("T", " ")})` : ""}
         </p>
@@ -178,7 +178,7 @@ export default function CostBreakerPanel() {
             type="button"
             disabled={busy}
             onClick={() => act({ action: "reset" })}
-            className="rounded-lg border border-emerald-500 px-4 py-2 text-meta font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 dark:text-emerald-300 dark:hover:bg-emerald-500/10"
+            className="rounded-lg border border-emerald-500 px-4 py-2 text-meta font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
           >
             Reset breaker
           </button>

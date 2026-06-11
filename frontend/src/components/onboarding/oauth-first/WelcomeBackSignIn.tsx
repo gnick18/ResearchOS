@@ -105,7 +105,10 @@ export function WelcomeBackSignIn({
       "relative w-full flex items-center justify-center gap-2.5 rounded-[10px] px-3 py-2.5 text-[13px] font-semibold transition-transform hover:-translate-y-px";
     if (def.dark === "github") return `${base} bg-[#24292e] text-white`;
     if (def.dark === "linkedin") return `${base} bg-[#0A66C2] text-white`;
-    return `${base} border border-border bg-surface-raised text-foreground`;
+    // The light-branded providers (ORCID, Google, Microsoft) stay white in BOTH
+    // themes so the multicolor brand logos stay legible and the label is always
+    // dark-on-white. A theme-aware surface here goes dark-on-dark in dark mode.
+    return `${base} border border-slate-300 bg-white text-slate-800 hover:bg-slate-100`;
   }
 
   return (
