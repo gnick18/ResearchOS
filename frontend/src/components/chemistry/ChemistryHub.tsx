@@ -74,6 +74,36 @@ export function ChemistryHub({
     window.localStorage.setItem(LIST_WIDTH_KEY, String(Math.round(listWidth)));
   }, [listWidth]);
 
+  // Warm the heavy Ketcher editor chunk in the background once the workbench has
+  // settled, so the first New / Edit click does not pay the cold JS-chunk load
+  // (the largest, most variable part of the open). The Indigo wasm still
+  // instantiates when the editor actually mounts; this only preloads the code.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let cancelled = false;
+    const warm = () => {
+      if (!cancelled) void import("./KetcherCanvas").catch(() => {});
+    };
+    const ric = (
+      window as unknown as {
+        requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number;
+        cancelIdleCallback?: (id: number) => void;
+      }
+    ).requestIdleCallback;
+    let idleId: number | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    if (ric) idleId = ric(warm, { timeout: 4000 });
+    else timer = setTimeout(warm, 1500);
+    return () => {
+      cancelled = true;
+      const cic = (
+        window as unknown as { cancelIdleCallback?: (id: number) => void }
+      ).cancelIdleCallback;
+      if (idleId != null && cic) cic(idleId);
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
   // Deep link: /chemistry?molecule=<id> selects that molecule in the rail (from a
   // note chip or a project Molecules row). Read the URL directly to avoid the
   // useSearchParams Suspense boundary, and strip the param after.
