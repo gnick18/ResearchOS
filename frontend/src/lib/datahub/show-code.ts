@@ -18,6 +18,7 @@ import type {
   NormalizedRegression,
   NormalizedResult,
   NormalizedTTest,
+  NormalizedTwoWayAnova,
   RunGroup,
 } from "@/lib/datahub/run-analysis";
 
@@ -186,6 +187,26 @@ print(f"slope = {fit.slope:.4g}, intercept = {fit.intercept:.4g}")
 print(f"R-squared = {fit.rvalue ** 2:.4g}, slope SE = {fit.stderr:.4g}")`;
 }
 
+function twoWayCode(r: NormalizedTwoWayAnova): string {
+  // Reconstruct the long-format observations from the ANOVA so the snippet
+  // builds the same DataFrame statsmodels fits (factorA x factorB with repeats).
+  const rows: string[] = [];
+  // The normalized result does not carry the raw cells, so emit a template the
+  // researcher fills with their table; statsmodels' OLS + anova_lm is the
+  // standard two-way path with an interaction term.
+  rows.push("import pandas as pd");
+  rows.push("import statsmodels.api as sm");
+  rows.push("from statsmodels.formula.api import ols");
+  rows.push("");
+  rows.push("# df has columns: factorA (the row label), factorB (the group),");
+  rows.push("# and value (each replicate). One row per replicate observation.");
+  rows.push('# df = pd.DataFrame({"factorA": [...], "factorB": [...], "value": [...]})');
+  rows.push("");
+  rows.push('model = ols("value ~ C(factorA) + C(factorB) + C(factorA):C(factorB)", data=df).fit()');
+  rows.push("print(sm.stats.anova_lm(model, typ=2))");
+  return rows.join("\n");
+}
+
 /**
  * The reproducible Python snippet for a normalized analysis result, with the
  * real group names and values baked in so it reproduces the on-screen numbers.
@@ -194,5 +215,6 @@ export function showCode(result: NormalizedResult): string {
   if (result.kind === "anova") return anovaCode(result);
   if (result.kind === "correlation") return correlationCode(result);
   if (result.kind === "regression") return regressionCode(result);
+  if (result.kind === "twoWayAnova") return twoWayCode(result);
   return ttestCode(result);
 }

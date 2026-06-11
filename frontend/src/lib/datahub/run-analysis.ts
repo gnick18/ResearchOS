@@ -26,6 +26,7 @@
 
 import {
   oneWayAnova,
+  twoWayAnova,
   unpairedTTest,
   pairedTTest,
   mannWhitneyU,
@@ -47,6 +48,12 @@ import type {
 } from "@/lib/datahub/model/types";
 import { columnValues, groupColumns } from "@/lib/datahub/column-table";
 import { xColumn, xyPairs, yColumns } from "@/lib/datahub/xy-table";
+import {
+  groupDatasets,
+  rowFactorLevels,
+  rowLabelColumn,
+  twoWayObservations,
+} from "@/lib/datahub/grouped-table";
 
 /** The analysis types this slice can run. */
 export type AnalysisType =
@@ -58,7 +65,8 @@ export type AnalysisType =
   | "kruskalWallis"
   | "correlationPearson"
   | "correlationSpearman"
-  | "linearRegression";
+  | "linearRegression"
+  | "twoWayAnova";
 
 /** The analysis types that read an XY table (one X column paired with a Y). */
 export const XY_ANALYSIS_TYPES: AnalysisType[] = [
@@ -66,6 +74,9 @@ export const XY_ANALYSIS_TYPES: AnalysisType[] = [
   "correlationSpearman",
   "linearRegression",
 ];
+
+/** The analysis types that read a Grouped table (row factor x column groups). */
+export const GROUPED_ANALYSIS_TYPES: AnalysisType[] = ["twoWayAnova"];
 
 /** The analysis types that read a Column table (group columns). */
 export const COLUMN_ANALYSIS_TYPES: AnalysisType[] = [
@@ -186,11 +197,34 @@ export interface NormalizedRegression {
   residualSE: number;
 }
 
+/**
+ * A normalized two-way ANOVA result. The full ANOVA table (factor A, factor B,
+ * interaction, error, total) plus the three effect F / p values pulled out for
+ * the plain-language verdict, the resolved factor names, and any Tukey post-hoc
+ * comparisons on the column factor. Comes from the engine's twoWayAnova.
+ */
+export interface NormalizedTwoWayAnova {
+  kind: "twoWayAnova";
+  type: "twoWayAnova";
+  /** The row factor name (the row-label column) and the column factor name. */
+  factorAName: string;
+  factorBName: string;
+  table: AnovaResult["table"];
+  comparisons: AnovaResult["comparisons"];
+  fA: number;
+  pA: number;
+  fB: number;
+  pB: number;
+  fInteraction: number;
+  pInteraction: number;
+}
+
 export type NormalizedResult =
   | NormalizedTTest
   | NormalizedAnova
   | NormalizedCorrelation
-  | NormalizedRegression;
+  | NormalizedRegression
+  | NormalizedTwoWayAnova;
 
 /** A failed run carries the engine (or resolver) reason so the UI can show it. */
 export interface RunFailure {
@@ -242,6 +276,13 @@ export function validAnalysisTypes(content: DataHubDocContent): AnalysisType[] {
   if (content.meta.table_type === "xy") {
     if (xColumn(content) && yColumns(content).length >= 1) {
       return [...XY_ANALYSIS_TYPES];
+    }
+    return [];
+  }
+  if (content.meta.table_type === "grouped") {
+    // Two-way ANOVA needs at least two row-factor levels and two column groups.
+    if (rowFactorLevels(content).length >= 2 && groupDatasets(content).length >= 2) {
+      return [...GROUPED_ANALYSIS_TYPES];
     }
     return [];
   }
@@ -340,6 +381,37 @@ function tableRow(table: AnovaResult["table"], source: string) {
   return table.find((r) => r.source === source);
 }
 
+/** Run a two-way ANOVA on a Grouped table's flattened observations. */
+function runTwoWayAnalysis(content: DataHubDocContent): RunOutcome {
+  const observations = twoWayObservations(content);
+  if (observations.length === 0) {
+    return {
+      ok: false,
+      error: "Label each row and fill the group replicates before running a two-way ANOVA.",
+    };
+  }
+  const r = twoWayAnova(observations, { postHocFactor: "B" });
+  if (!r.ok) return { ok: false, error: r.error };
+  const rowA = tableRow(r.table, "Factor A");
+  const rowB = tableRow(r.table, "Factor B");
+  const rowI = tableRow(r.table, "Interaction");
+  return {
+    ok: true,
+    kind: "twoWayAnova",
+    type: "twoWayAnova",
+    factorAName: rowLabelColumn(content)?.name || "Row factor",
+    factorBName: "Group",
+    table: r.table,
+    comparisons: r.comparisons,
+    fA: rowA?.f ?? NaN,
+    pA: rowA?.pValue ?? NaN,
+    fB: rowB?.f ?? NaN,
+    pB: rowB?.pValue ?? NaN,
+    fInteraction: rowI?.f ?? NaN,
+    pInteraction: rowI?.pValue ?? NaN,
+  };
+}
+
 /**
  * Run one analysis spec against the current table content and return a
  * normalized result (or a typed failure). Pure: no I/O, no Loro, no commit. The
@@ -357,6 +429,10 @@ export function runAnalysis(
     type === "linearRegression"
   ) {
     return runXYAnalysis(type, content, spec);
+  }
+
+  if (type === "twoWayAnova") {
+    return runTwoWayAnalysis(content);
   }
 
   const groups = resolveGroups(content, specColumnIds(spec));

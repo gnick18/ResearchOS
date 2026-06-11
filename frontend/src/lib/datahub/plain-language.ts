@@ -14,6 +14,7 @@ import type {
   NormalizedRegression,
   NormalizedResult,
   NormalizedTTest,
+  NormalizedTwoWayAnova,
 } from "@/lib/datahub/run-analysis";
 
 const ALPHA = 0.05;
@@ -133,6 +134,32 @@ function regressionSummary(r: NormalizedRegression): string {
   )} percent of the variation in ${r.yName}.`;
 }
 
+function twoWaySummary(r: NormalizedTwoWayAnova): string {
+  const effect = (name: string, f: number, p: number, dfText: string): string => {
+    const stat = `F${dfText} = ${num(f)}, ${formatP(p)}`;
+    return p < ALPHA
+      ? `${name} has a real effect (${stat})`
+      : `${name} shows no clear effect (${stat})`;
+  };
+  // The df text is read off the table rows for the methods-style F(df1, df2).
+  const within = r.table.find((row) => row.source.startsWith("Within"));
+  const dfW = within?.df ?? NaN;
+  const dfOf = (source: string) =>
+    `(${r.table.find((row) => row.source === source)?.df ?? "?"}, ${dfW})`;
+
+  const a = effect(r.factorAName, r.fA, r.pA, dfOf("Factor A"));
+  const b = effect(`the ${r.factorBName.toLowerCase()} factor`, r.fB, r.pB, dfOf("Factor B"));
+  const interactionReal = r.pInteraction < ALPHA;
+  const inter = interactionReal
+    ? `The two factors interact (${`F${dfOf(
+        "Interaction",
+      )} = ${num(r.fInteraction)}, ${formatP(r.pInteraction)}`}), so the effect of one depends on the level of the other. Read the main effects with that in mind.`
+    : `There is no significant interaction (${`F${dfOf(
+        "Interaction",
+      )} = ${num(r.fInteraction)}, ${formatP(r.pInteraction)}`}), so the two factors act independently here.`;
+  return `${a}, and ${b}. ${inter}`;
+}
+
 /**
  * The one-sentence (or two-sentence) plain-language verdict for a normalized
  * result. The ResultsSheet renders this above the stats table.
@@ -141,5 +168,6 @@ export function plainLanguageSummary(result: NormalizedResult): string {
   if (result.kind === "anova") return anovaSummary(result);
   if (result.kind === "correlation") return correlationSummary(result);
   if (result.kind === "regression") return regressionSummary(result);
+  if (result.kind === "twoWayAnova") return twoWaySummary(result);
   return ttestSummary(result);
 }

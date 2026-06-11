@@ -124,6 +124,7 @@ export default function GraphEditor({
 
   const style = useMemo(() => readPlotStyle(spec), [spec]);
   const isXY = style.kind === "xyScatter";
+  const isGrouped = style.kind === "groupedBar";
   // The live figure. Recomputed whenever the spec, the table, or the linked
   // analysis changes (a cell edit reprojects content, so the points move).
   const { svg, geometry } = useMemo(
@@ -172,7 +173,9 @@ export default function GraphEditor({
       <p className="mt-1 max-w-xl text-meta text-foreground-muted">
         {isXY
           ? "Your X and Y observations as a scatter, with a fitted curve laid over them. The fit is computed from the same points, so an edit re-fits the curve, and the export stays a true vector."
-          : "Individual points with the group mean and error bars, plus significance brackets from the stored analysis. Every control redraws the figure, and the export stays a true vector."}
+          : isGrouped
+            ? "One cluster per row label, one bar per group, with error bars from the replicates. Every control redraws the figure, and the export stays a true vector."
+            : "Individual points with the group mean and error bars, plus significance brackets from the stored analysis. Every control redraws the figure, and the export stays a true vector."}
       </p>
 
       <div className="mt-4 flex flex-wrap items-start gap-5">
@@ -246,6 +249,21 @@ export default function GraphEditor({
                     {o.label}
                   </option>
                 ))}
+              </select>
+            </Ctl>
+          ) : isGrouped ? (
+            <Ctl label="Error bars">
+              <select
+                value={style.errorBar}
+                onChange={(e) =>
+                  onStyleChange({ errorBar: e.target.value as ErrorBarKind })
+                }
+                className="rounded-md border border-border bg-surface-overlay px-2 py-1 text-meta text-foreground focus:border-sky-400 focus:outline-none"
+                data-testid="datahub-style-errorbar"
+              >
+                <option value="sem">Mean + SEM</option>
+                <option value="sd">Mean + SD</option>
+                <option value="none">None</option>
               </select>
             </Ctl>
           ) : (

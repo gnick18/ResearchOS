@@ -91,6 +91,7 @@ export default function NewGraphDialog({
   onSubmit: (data: NewGraphSubmit) => void;
 }) {
   const isXY = content?.meta.table_type === "xy";
+  const isGrouped = content?.meta.table_type === "grouped";
   const groups = useMemo(
     () => (content ? groupColumns(content) : []),
     [content],
@@ -105,11 +106,11 @@ export default function NewGraphDialog({
 
   useEffect(() => {
     if (!open) return;
-    setKind(isXY ? "xyScatter" : "columnScatter");
+    setKind(isXY ? "xyScatter" : isGrouped ? "groupedBar" : "columnScatter");
     setUseBrackets(true);
     setYColumn(ys[0]?.id ?? "");
     setFitModel("linear");
-  }, [open, isXY, ys]);
+  }, [open, isXY, isGrouped, ys]);
 
   useEffect(() => {
     if (!open) return;
@@ -122,7 +123,11 @@ export default function NewGraphDialog({
 
   if (!open) return null;
 
-  const canSubmit = isXY ? yColumn !== "" : groups.length >= 1;
+  const canSubmit = isXY
+    ? yColumn !== ""
+    : isGrouped
+      ? true
+      : groups.length >= 1;
 
   const submit = () => {
     if (!canSubmit) return;
@@ -133,6 +138,10 @@ export default function NewGraphDialog({
         yColumnId: yColumn,
         fitModel,
       });
+      return;
+    }
+    if (isGrouped) {
+      onSubmit({ kind: "groupedBar", analysisId: null });
       return;
     }
     onSubmit({
@@ -159,7 +168,13 @@ export default function NewGraphDialog({
           and re-fits the curve. You only choose the kind once.
         </p>
 
-        {isXY ? (
+        {isGrouped ? (
+          <p className="mt-4 rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-foreground-muted">
+            Makes a grouped bar chart, one cluster per row label and one bar per
+            group, with error bars from the replicates. Tune the error-bar type
+            and colors from the style panel after it opens.
+          </p>
+        ) : isXY ? (
           ys.length === 0 ? (
             <p className="mt-4 rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-foreground-muted">
               Add an X column and at least one Y column with numbers before

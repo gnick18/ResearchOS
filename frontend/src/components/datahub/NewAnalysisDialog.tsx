@@ -87,6 +87,12 @@ const TYPE_META: Record<
       "Fit a straight line y = intercept + slope x. Reports the slope, intercept, their confidence intervals, and R-squared.",
     groupCount: "two",
   },
+  twoWayAnova: {
+    label: "Two-way ANOVA",
+    blurb:
+      "Test two factors at once (the row label and the column group) plus their interaction, with Tukey comparisons across the groups.",
+    groupCount: "all",
+  },
 };
 
 export default function NewAnalysisDialog({
@@ -102,6 +108,7 @@ export default function NewAnalysisDialog({
   onSubmit: (data: NewAnalysisSubmit) => void;
 }) {
   const isXY = content?.meta.table_type === "xy";
+  const isGrouped = content?.meta.table_type === "grouped";
   const groups = useMemo(
     () => (content ? groupColumns(content) : []),
     [content],
@@ -145,20 +152,26 @@ export default function NewAnalysisDialog({
   if (!open) return null;
 
   const isPair = type !== null && TYPE_META[type].groupCount === "two";
-  const canSubmit = isXY
-    ? type !== null && yColumn !== "" && !!xCol
-    : type !== null &&
-      (isPair
-        ? groupA !== "" && groupB !== "" && groupA !== groupB
-        : groups.length >= 3);
+  const canSubmit = isGrouped
+    ? type !== null
+    : isXY
+      ? type !== null && yColumn !== "" && !!xCol
+      : type !== null &&
+        (isPair
+          ? groupA !== "" && groupB !== "" && groupA !== groupB
+          : groups.length >= 3);
 
   const submit = () => {
     if (!canSubmit || type === null) return;
-    const columnIds = isXY
-      ? [yColumn]
-      : isPair
-        ? [groupA, groupB]
-        : groups.map((g) => g.id);
+    // A two-way ANOVA reads the whole grouped table (row factor x groups), so it
+    // needs no column selection.
+    const columnIds = isGrouped
+      ? []
+      : isXY
+        ? [yColumn]
+        : isPair
+          ? [groupA, groupB]
+          : groups.map((g) => g.id);
     onSubmit({ type, columnIds });
   };
 
@@ -184,7 +197,9 @@ export default function NewAnalysisDialog({
           <p className="mt-4 rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-foreground-muted">
             {isXY
               ? "Add an X column and at least one Y column with numbers before running an analysis."
-              : "Add at least two groups with numbers before running an analysis."}
+              : isGrouped
+                ? "Label at least two rows and fill at least two groups with numbers before running a two-way ANOVA."
+                : "Add at least two groups with numbers before running an analysis."}
           </p>
         ) : (
           <>
@@ -217,7 +232,12 @@ export default function NewAnalysisDialog({
               })}
             </div>
 
-            {isXY ? (
+            {isGrouped ? (
+              <p className="mt-4 rounded-md border border-border bg-surface-raised px-3 py-2 text-meta text-foreground-muted">
+                Runs across every row label and every column group on this table,
+                including the interaction. No column picking needed.
+              </p>
+            ) : isXY ? (
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-meta font-medium uppercase tracking-wide text-foreground-muted">

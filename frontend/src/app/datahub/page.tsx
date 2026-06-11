@@ -35,6 +35,7 @@ import {
 import {
   addRow as addRowToDoc,
   addColumn as addColumnToDoc,
+  updateColumn as updateColumnInDoc,
   getDataHubContent,
   setAnalysis as setAnalysisInDoc,
   setPlot as setPlotInDoc,
@@ -45,6 +46,11 @@ import {
   parseCellInput,
 } from "@/lib/datahub/column-table";
 import { buildEmptyXYTable, yColumns } from "@/lib/datahub/xy-table";
+import {
+  buildEmptyGroupedTable,
+  groupDatasets,
+  DEFAULT_GROUPED_REPLICATES,
+} from "@/lib/datahub/grouped-table";
 import { runAnalysis } from "@/lib/datahub/run-analysis";
 import {
   buildPlotSpec,
@@ -54,6 +60,7 @@ import {
 import DataHubRail, { type Collection } from "@/components/datahub/DataHubRail";
 import DataTableGrid from "@/components/datahub/DataTableGrid";
 import XYTableGrid from "@/components/datahub/XYTableGrid";
+import GroupedTableGrid from "@/components/datahub/GroupedTableGrid";
 import NewTableDialog, {
   type NewTableSubmit,
 } from "@/components/datahub/NewTableDialog";
@@ -243,8 +250,40 @@ export default function DataHubPage() {
   const handleAddColumn = useCallback(() => {
     const handle = handleRef.current;
     if (!handle || !openContent || openIdRef.current == null) return;
-    const isXY = openContent.meta.table_type === "xy";
-    const colId = `col-${Date.now()}`;
+    const tableType = openContent.meta.table_type;
+    const stamp = Date.now();
+
+    if (tableType === "grouped") {
+      // Add a whole new column group: one datasetId with the same replicate
+      // count as the existing groups (or the default), each backfilled null.
+      const groups = groupDatasets(openContent);
+      const reps =
+        groups[0]?.replicateColumnIds.length ?? DEFAULT_GROUPED_REPLICATES;
+      const datasetId = `grp-${stamp}`;
+      const name = `Group ${groups.length + 1}`;
+      const newColIds: string[] = [];
+      for (let r = 0; r < reps; r++) {
+        const colId = `${datasetId}-r${r + 1}`;
+        newColIds.push(colId);
+        addColumnToDoc(handle.doc, {
+          id: colId,
+          name,
+          role: "y",
+          dataType: "number",
+          datasetId,
+          subcolumnKind: "replicate",
+        });
+      }
+      for (const row of openContent.rows) {
+        for (const colId of newColIds) setCell(handle.doc, row.id, colId, null);
+      }
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+      return;
+    }
+
+    const isXY = tableType === "xy";
+    const colId = `col-${stamp}`;
     if (isXY) {
       const yCount = yColumns(openContent).length;
       addColumnToDoc(handle.doc, {
@@ -271,6 +310,28 @@ export default function DataHubPage() {
     setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
   }, [openContent]);
 
+  // Rename a column group on a Grouped table: every replicate column in the
+  // group shares the group name, so a rename writes the new name to each of
+  // them. Reprojects so the header and any two-way ANOVA pick up the new name.
+  const handleRenameGroup = useCallback(
+    (datasetId: string, name: string) => {
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      const trimmed = name.trim();
+      if (trimmed === "") return;
+      const group = groupDatasets(openContent).find(
+        (g) => g.datasetId === datasetId,
+      );
+      if (!group) return;
+      for (const colId of group.replicateColumnIds) {
+        updateColumnInDoc(handle.doc, colId, { name: trimmed });
+      }
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+    },
+    [openContent],
+  );
+
   // Create a new Column table (seeded empty), refresh the catalog, and open it.
   const handleNewTable = useCallback(
     async (data: NewTableSubmit) => {
@@ -280,7 +341,9 @@ export default function DataHubPage() {
           ? buildEmptyColumnTable()
           : data.tableType === "xy"
             ? buildEmptyXYTable()
-            : { columns: [], rows: [] };
+            : data.tableType === "grouped"
+              ? buildEmptyGroupedTable()
+              : { columns: [], rows: [] };
       const created = await dataHubApi.create({
         name: data.name,
         table_type: data.tableType,
@@ -572,7 +635,9 @@ export default function DataHubPage() {
               <p className="mb-4 text-meta text-foreground-muted">
                 {openContent.meta.table_type === "xy"
                   ? "XY table. The first column is the X value, each following column is a measured Y, one observation per row."
-                  : "Column table. Each column is a treatment group, each row a replicate."}
+                  : openContent.meta.table_type === "grouped"
+                    ? "Grouped table. Each row is a category and each column group is a second factor, with replicate subcolumns for a two-way ANOVA."
+                    : "Column table. Each column is a treatment group, each row a replicate."}
               </p>
               {openContent.meta.table_type === "xy" ? (
                 <XYTableGrid
@@ -580,6 +645,14 @@ export default function DataHubPage() {
                   onCellCommit={handleCellCommit}
                   onAddRow={handleAddRow}
                   onAddColumn={handleAddColumn}
+                />
+              ) : openContent.meta.table_type === "grouped" ? (
+                <GroupedTableGrid
+                  content={openContent}
+                  onCellCommit={handleCellCommit}
+                  onAddRow={handleAddRow}
+                  onAddColumn={handleAddColumn}
+                  onRenameGroup={handleRenameGroup}
                 />
               ) : (
                 <DataTableGrid

@@ -27,6 +27,7 @@ import {
   type NormalizedRegression,
   type NormalizedResult,
   type NormalizedTTest,
+  type NormalizedTwoWayAnova,
 } from "@/lib/datahub/run-analysis";
 import { formatP, plainLanguageSummary } from "@/lib/datahub/plain-language";
 import { showCode } from "@/lib/datahub/show-code";
@@ -269,6 +270,103 @@ function RegressionTable({ r }: { r: NormalizedRegression }) {
   );
 }
 
+function TwoWayAnovaTables({ r }: { r: NormalizedTwoWayAnova }) {
+  return (
+    <>
+      <table
+        className="mt-4 w-full border-collapse text-body tabular-nums"
+        data-testid="results-twoway-table"
+      >
+        <thead>
+          <tr className="text-meta uppercase tracking-wide text-foreground-muted">
+            <th className="border-b border-border px-3 py-1.5 text-left">Source</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">SS</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">df</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">MS</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">F</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">p</th>
+          </tr>
+        </thead>
+        <tbody>
+          {r.table.map((row) => (
+            <tr key={row.source}>
+              <td className="border-b border-border px-3 py-1.5 text-foreground">
+                {row.source}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {num(row.ss, 1)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {row.df}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {Number.isFinite(row.ms) ? num(row.ms, 1) : "-"}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {row.f === null ? "" : num(row.f, 2)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {row.pValue === null ? "" : formatP(row.pValue)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-2 text-meta text-foreground-muted">
+        Factor A is the row label, Factor B is the column group, and the
+        interaction tests whether the effect of one depends on the other.
+      </p>
+
+      {r.comparisons.length > 0 && (
+        <>
+          <h3 className="mt-5 text-body font-semibold text-foreground">
+            Tukey comparisons across the groups
+          </h3>
+          <table
+            className="mt-2 w-full border-collapse text-body tabular-nums"
+            data-testid="results-twoway-tukey-table"
+          >
+            <thead>
+              <tr className="text-meta uppercase tracking-wide text-foreground-muted">
+                <th className="border-b border-border px-3 py-1.5 text-left">
+                  Comparison
+                </th>
+                <th className="border-b border-border px-3 py-1.5 text-right">
+                  Mean diff
+                </th>
+                <th className="border-b border-border px-3 py-1.5 text-right">
+                  Adj. p
+                </th>
+                <th className="border-b border-border px-3 py-1.5 text-center">
+                  Summary
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {r.comparisons.map((c) => (
+                <tr key={`${c.groupA}:${c.groupB}`}>
+                  <td className="border-b border-border px-3 py-1.5 text-foreground">
+                    {c.groupA} vs {c.groupB}
+                  </td>
+                  <td className="border-b border-border px-3 py-1.5 text-right">
+                    {num(c.meanDiff, 1)}
+                  </td>
+                  <td className="border-b border-border px-3 py-1.5 text-right">
+                    {formatP(c.pAdjusted)}
+                  </td>
+                  <td className="border-b border-border px-3 py-1.5 text-center font-semibold text-accent">
+                    {stars(c.pAdjusted)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+    </>
+  );
+}
+
 export default function ResultsSheet({
   spec,
   content,
@@ -312,6 +410,8 @@ export default function ResultsSheet({
 
       {result.kind === "anova" ? (
         <AnovaTables r={result} />
+      ) : result.kind === "twoWayAnova" ? (
+        <TwoWayAnovaTables r={result} />
       ) : result.kind === "correlation" ? (
         <CorrelationTable r={result} />
       ) : result.kind === "regression" ? (

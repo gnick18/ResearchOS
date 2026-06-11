@@ -48,6 +48,8 @@ function analysisLabel(type: string): string {
       return "Spearman correlation";
     case "linearRegression":
       return "Linear regression";
+    case "twoWayAnova":
+      return "Two-way ANOVA";
     default:
       return type;
   }
@@ -64,6 +66,8 @@ function plotLabel(spec: PlotSpec): string {
       return "Bar graph";
     case "xyScatter":
       return "XY graph";
+    case "groupedBar":
+      return "Grouped bar";
     case "columnScatter":
     default:
       return "Column scatter";

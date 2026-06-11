@@ -43,6 +43,11 @@ import {
   type GroupStats,
 } from "@/lib/datahub/column-table";
 import { xColumn, xyPairs, yColumns } from "@/lib/datahub/xy-table";
+import {
+  cellMean,
+  groupDatasets,
+  rowFactorLevels,
+} from "@/lib/datahub/grouped-table";
 import { fitModel, getModel } from "@/lib/datahub/engine";
 
 // ---------------------------------------------------------------------------
@@ -55,7 +60,11 @@ import { fitModel, getModel } from "@/lib/datahub/engine";
  * the mean with error bars) are wired. "xyScatter" is declared for the later
  * XY-with-fitted-curve slice so PlotSpec.type does not need a migration.
  */
-export type PlotKind = "columnScatter" | "columnBar" | "xyScatter";
+export type PlotKind =
+  | "columnScatter"
+  | "columnBar"
+  | "xyScatter"
+  | "groupedBar";
 
 /** Which error bar a figure draws, computed from the raw replicates. */
 export type ErrorBarKind = "sd" | "sem" | "none";
@@ -150,14 +159,19 @@ const FIT_MODEL_IDS: FitModelId[] = [
 export function readPlotStyle(spec: PlotSpec): PlotStyle {
   const d = defaultPlotStyle();
   const s = spec.style ?? {};
-  const kind =
-    s.kind === "columnBar" || s.kind === "xyScatter" || s.kind === "columnScatter"
-      ? (s.kind as PlotKind)
-      : // Fall back to the spec.type when style.kind is absent (round-trip the
-        // top-level type) so an old spec without a style.kind still draws.
-        spec.type === "columnBar" || spec.type === "xyScatter"
-        ? (spec.type as PlotKind)
-        : d.kind;
+  const KINDS: PlotKind[] = [
+    "columnScatter",
+    "columnBar",
+    "xyScatter",
+    "groupedBar",
+  ];
+  const kind = KINDS.includes(s.kind as PlotKind)
+    ? (s.kind as PlotKind)
+    : // Fall back to the spec.type when style.kind is absent (round-trip the
+      // top-level type) so an old spec without a style.kind still draws.
+      KINDS.includes(spec.type as PlotKind)
+      ? (spec.type as PlotKind)
+      : d.kind;
   return {
     kind,
     errorBar:
@@ -742,7 +756,7 @@ export function renderPlot(
   analysis: AnalysisSpec | null,
 ): {
   svg: string;
-  geometry: PlotGeometry | XYPlotGeometry;
+  geometry: PlotGeometry | XYPlotGeometry | GroupedBarGeometry;
   style: PlotStyle;
 } {
   const style = readPlotStyle(spec);
@@ -750,6 +764,11 @@ export function renderPlot(
     const source = readPlotSource(spec);
     const geometry = layoutXYPlot(content, style, source.yColumnId ?? null);
     const svg = renderXYPlotSvg(geometry, style);
+    return { svg, geometry, style };
+  }
+  if (style.kind === "groupedBar") {
+    const geometry = layoutGroupedBar(content, style);
+    const svg = renderGroupedBarSvg(geometry, style);
     return { svg, geometry, style };
   }
   const groups = resolvePlotGroups(content, style);
@@ -1048,6 +1067,235 @@ export function renderXYPlotSvg(geo: XYPlotGeometry, style: PlotStyle): string {
   if (geo.fitNote) {
     parts.push(
       `<text x="${geo.x0 + 6}" y="${geo.y1 + 12}" font-size="${tickFont}" fill="${LABEL_TEXT}">${esc(geo.fitNote)}</text>`,
+    );
+  }
+
+  parts.push(`</svg>`);
+  return parts.join("");
+}
+
+// ---------------------------------------------------------------------------
+// Grouped bar chart (pure, unit-tested)
+// ---------------------------------------------------------------------------
+
+/** One bar in a grouped bar chart, in pixels. */
+export interface GroupedBar {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  color: string;
+  /** The error bar over this bar, or null. */
+  error: { cx: number; topY: number; bottomY: number; capHalf: number } | null;
+}
+
+/** A laid-out cluster (one row-factor level) of grouped bars. */
+export interface GroupedCluster {
+  label: string;
+  labelX: number;
+  bars: GroupedBar[];
+}
+
+/** A legend entry (one column group). */
+export interface GroupedLegendItem {
+  name: string;
+  color: string;
+}
+
+/** The full laid-out grouped bar figure. */
+export interface GroupedBarGeometry {
+  width: number;
+  height: number;
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+  yMax: number;
+  ticks: AxisTick[];
+  clusters: GroupedCluster[];
+  legend: GroupedLegendItem[];
+}
+
+/**
+ * Lay out a grouped bar chart for a Grouped table: the row-factor levels along
+ * the X axis, a cluster of bars per level (one bar per column group), bar height
+ * the (row level, group) cell mean, and error bars from the cell SD / SEM (the
+ * same numbers cellMean returns). Pure, so the geometry is asserted in tests.
+ */
+export function layoutGroupedBar(
+  content: DataHubDocContent,
+  style: PlotStyle,
+): GroupedBarGeometry {
+  const { width, height, padL, padR, padT, padB } = FIG;
+  const x0 = padL;
+  const x1 = width - padR;
+  const y0 = height - padB;
+  const y1 = padT;
+
+  const levels = rowFactorLevels(content);
+  const groups = groupDatasets(content);
+
+  // Resolve every cell mean + error once.
+  const stat = (level: string, datasetId: string) =>
+    cellMean(content, level, datasetId);
+  const errFor = (s: { sd: number | null; n: number }): number | null => {
+    if (style.errorBar === "none") return null;
+    if (s.sd === null || !Number.isFinite(s.sd)) return null;
+    return style.errorBar === "sd" ? s.sd : s.sd / Math.sqrt(s.n);
+  };
+
+  // Data max over (mean + error) to frame the Y axis.
+  let dataMax = 0;
+  let any = false;
+  for (const level of levels) {
+    for (const g of groups) {
+      const s = stat(level, g.datasetId);
+      if (s.mean === null) continue;
+      any = true;
+      const e = errFor(s) ?? 0;
+      const top = s.mean + e;
+      if (top > dataMax) dataMax = top;
+    }
+  }
+  let yMax: number;
+  let step: number;
+  if (!any || dataMax <= 0) {
+    yMax = 1;
+    step = 0.5;
+  } else {
+    const t = niceTicks(0, dataMax * 1.1);
+    yMax = t.hi;
+    step = t.step;
+  }
+
+  const yScale = scaleLinear().domain([0, yMax]).range([y0, y1]);
+  const Y = (v: number) => yScale(v);
+
+  const ticks: AxisTick[] = [];
+  for (let v = 0; v <= yMax + step * 1e-6; v += step) {
+    const value = Math.round(v * 1e6) / 1e6;
+    ticks.push({ value, y: Y(value) });
+  }
+
+  const nLevels = Math.max(1, levels.length);
+  const clusterW = (x1 - x0) / nLevels;
+  const nGroups = Math.max(1, groups.length);
+  // Bars fill 70% of the cluster, split among the groups, with a small gap.
+  const bandW = clusterW * 0.7;
+  const barW = bandW / nGroups;
+  const capHalf = Math.min(6, barW * 0.3);
+
+  const clusters: GroupedCluster[] = levels.map((level, li) => {
+    const cx = x0 + clusterW * (li + 0.5);
+    const left = cx - bandW / 2;
+    const bars: GroupedBar[] = groups.map((g, gi) => {
+      const s = stat(level, g.datasetId);
+      const color = colorForGroup(style.colorMode, gi);
+      const bx = left + barW * gi;
+      const mean = s.mean;
+      if (mean === null) {
+        return { x: bx, y: y0, width: barW * 0.86, height: 0, color, error: null };
+      }
+      const y = Y(mean);
+      const e = errFor(s);
+      const barCx = bx + (barW * 0.86) / 2;
+      const error =
+        e !== null && e > 0
+          ? { cx: barCx, topY: Y(mean + e), bottomY: Y(mean - e), capHalf }
+          : null;
+      return { x: bx, y, width: barW * 0.86, height: y0 - y, color, error };
+    });
+    return { label: level, labelX: cx, bars };
+  });
+
+  const legend: GroupedLegendItem[] = groups.map((g, gi) => ({
+    name: g.name,
+    color: colorForGroup(style.colorMode, gi),
+  }));
+
+  return { width, height, x0, x1, y0, y1, yMax, ticks, clusters, legend };
+}
+
+/** Serialize a grouped bar figure into a standalone SVG string. */
+export function renderGroupedBarSvg(
+  geo: GroupedBarGeometry,
+  style: PlotStyle,
+): string {
+  const f = style.fontSize;
+  const tickFont = Math.max(8, f - 2);
+  const parts: string[] = [];
+  parts.push(
+    `<svg width="${geo.width}" height="${geo.height}" viewBox="0 0 ${geo.width} ${geo.height}" ` +
+      `xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Inter, system-ui, sans-serif">`,
+  );
+  parts.push(
+    `<rect x="0" y="0" width="${geo.width}" height="${geo.height}" fill="#ffffff"/>`,
+  );
+
+  if (style.title.trim() !== "") {
+    parts.push(
+      `<text x="${geo.width / 2}" y="${geo.y1 - 14}" font-size="${f + 1}" ` +
+        `fill="${LABEL_TEXT}" text-anchor="middle" font-weight="700">${esc(style.title)}</text>`,
+    );
+  }
+
+  // Y axis + ticks.
+  parts.push(
+    `<line x1="${geo.x0}" y1="${geo.y1}" x2="${geo.x0}" y2="${geo.y0}" stroke="${AXIS_COLOR}" stroke-width="1"/>`,
+  );
+  for (const t of geo.ticks) {
+    parts.push(
+      `<line x1="${geo.x0 - 4}" y1="${t.y}" x2="${geo.x0}" y2="${t.y}" stroke="${AXIS_COLOR}"/>` +
+        `<text x="${geo.x0 - 8}" y="${t.y + 4}" font-size="${tickFont}" fill="${TICK_TEXT}" text-anchor="end">${fmtTick(t.value)}</text>`,
+    );
+  }
+  if (style.yTitle.trim() !== "") {
+    const midY = (geo.y0 + geo.y1) / 2;
+    parts.push(
+      `<text transform="translate(${geo.x0 - 38}, ${midY}) rotate(-90)" font-size="${f}" ` +
+        `fill="${LABEL_TEXT}" text-anchor="middle">${esc(style.yTitle)}</text>`,
+    );
+  }
+  // X axis.
+  parts.push(
+    `<line x1="${geo.x0}" y1="${geo.y0}" x2="${geo.x1}" y2="${geo.y0}" stroke="${AXIS_COLOR}" stroke-width="1"/>`,
+  );
+
+  // Clusters: bars + error bars + the level label.
+  for (const cluster of geo.clusters) {
+    for (const bar of cluster.bars) {
+      if (bar.height > 0) {
+        parts.push(
+          `<rect x="${bar.x.toFixed(2)}" y="${bar.y.toFixed(2)}" width="${bar.width.toFixed(2)}" height="${bar.height.toFixed(2)}" fill="${bar.color}" opacity="0.85"/>`,
+        );
+      }
+      if (bar.error) {
+        const eb = bar.error;
+        parts.push(
+          `<line x1="${eb.cx.toFixed(2)}" y1="${eb.bottomY.toFixed(2)}" x2="${eb.cx.toFixed(2)}" y2="${eb.topY.toFixed(2)}" stroke="${LABEL_TEXT}" stroke-width="1.3"/>` +
+            `<line x1="${(eb.cx - eb.capHalf).toFixed(2)}" y1="${eb.topY.toFixed(2)}" x2="${(eb.cx + eb.capHalf).toFixed(2)}" y2="${eb.topY.toFixed(2)}" stroke="${LABEL_TEXT}" stroke-width="1.3"/>`,
+        );
+      }
+    }
+    parts.push(
+      `<text x="${cluster.labelX.toFixed(2)}" y="${geo.y0 + 16}" font-size="${tickFont}" fill="${LABEL_TEXT}" text-anchor="middle">${esc(cluster.label)}</text>`,
+    );
+  }
+
+  // Legend (top-right inside the plot area).
+  let ly = geo.y1 + 4;
+  for (const item of geo.legend) {
+    parts.push(
+      `<rect x="${geo.x1 - 92}" y="${ly}" width="9" height="9" fill="${item.color}" opacity="0.85"/>` +
+        `<text x="${geo.x1 - 79}" y="${ly + 8}" font-size="${tickFont}" fill="${LABEL_TEXT}">${esc(item.name)}</text>`,
+    );
+    ly += 13;
+  }
+
+  if (style.xTitle.trim() !== "") {
+    parts.push(
+      `<text x="${(geo.x0 + geo.x1) / 2}" y="${geo.height - 8}" font-size="${f}" ` +
+        `fill="${LABEL_TEXT}" text-anchor="middle">${esc(style.xTitle)}</text>`,
     );
   }
 

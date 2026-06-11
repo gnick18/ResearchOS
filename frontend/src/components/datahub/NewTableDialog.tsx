@@ -42,8 +42,9 @@ const TABLE_TYPES: {
   {
     type: "grouped",
     label: "Grouped",
-    blurb: "Groups within groups. Coming soon.",
-    enabled: false,
+    blurb:
+      "Two factors at once, a row label and column groups with replicates, for two-way ANOVA.",
+    enabled: true,
   },
   {
     type: "survival",
