@@ -31,8 +31,9 @@
 // Its safety is the explicit request and the group pick, not a gate. The old
 // describeAction / isDestructive approval path is gone with the gate.
 //
-// After storing, execute navigates the user to /datahub?doc=<tableId> so they SEE
-// the stored analysis (and any graph) on the Data Hub doc rather than only reading
+// After storing, execute navigates the user to
+// /datahub?doc=<tableId>&analysis=<analysisId> so they land on the test's RESULT
+// sheet (not the raw data grid) and SEE the stored analysis rather than only reading
 // a chat summary. The navigation is hard-wired here through the injectable navigate
 // seam (default requestNavigation), not left to the model, so it is reliable.
 //
@@ -533,13 +534,16 @@ export const runDataHubAnalysisTool: AiTool = {
       } satisfies RunAnalysisResult;
     }
 
-    // Take the user to the stored result. The Data Hub page reads the ?doc=<id>
-    // deep link, selects that table, and shows its stored analyses (and any graph),
-    // so the user SEES the analysis instead of only reading the chat summary. This
-    // is hard-wired here, not left to the model, so it always happens after a
-    // successful run. The navigate seam defaults to the navigation bridge, which
-    // performs a soft SPA transition that preserves the panel.
-    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}`);
+    // Take the user to the stored result. The Data Hub page reads the
+    // ?doc=<id>&analysis=<analysisId> deep link, selects that table, and then
+    // selects the just-stored analysis so its result sheet (not the raw data grid)
+    // is what the user lands on, so they SEE the test result instead of only reading
+    // the chat summary. This is hard-wired here, not left to the model, so it always
+    // happens after a successful run. The navigate seam defaults to the navigation
+    // bridge, which performs a soft SPA transition that preserves the panel.
+    datahubAnalysisDeps.navigate(
+      `/datahub?doc=${parsed.tableId}&analysis=${run.result.analysisId}`,
+    );
 
     return run.result satisfies RunAnalysisResult;
   },

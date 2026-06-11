@@ -294,13 +294,16 @@ describe("run_datahub_analysis tool", () => {
     const out = (await runDataHubAnalysisTool.execute({
       tableId: "1",
       columns: ["Control", "Drug"],
-    })) as { ok: boolean };
+    })) as { ok: boolean; analysisId: string };
 
     expect(out.ok).toBe(true);
-    // Hard-wired navigation to the table's deep link, so the user SEES the stored
-    // analysis instead of only reading the chat summary. The doc param is the table
-    // id, which the Data Hub page consumes to select that table.
-    expect(navigate).toHaveBeenCalledWith("/datahub?doc=1");
+    // Hard-wired navigation to the result deep link, so the user lands on the test's
+    // RESULT sheet instead of the raw data grid (and instead of only reading the chat
+    // summary). The doc param is the table id, the analysis param is the just-stored
+    // analysis id, which the Data Hub page consumes to select the table then its result.
+    expect(navigate).toHaveBeenCalledWith(
+      `/datahub?doc=1&analysis=${out.analysisId}`,
+    );
   });
 
   it("does not navigate when the run fails (nothing was stored to show)", async () => {

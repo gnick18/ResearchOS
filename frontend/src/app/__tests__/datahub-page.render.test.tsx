@@ -50,6 +50,20 @@ const SEED_META: DataHubDocument = {
   created_at: "2026-06-10T00:00:00.000Z",
 };
 
+// A stored t-test analysis (Control vs Drug A), so a `?analysis=` deep-link test
+// can assert the page lands on the result sheet. ResultsSheet recomputes from the
+// content on render, so the spec needs only its type + column inputs to render the
+// real t-test table; resultCache is left null. Seeded only when the deep-link test
+// flips docState.seedAnalyses on (the other tests keep the empty-analyses default).
+const SEED_TTEST = {
+  id: "analysis-ttest-1",
+  type: "unpairedTTest",
+  params: {},
+  inputs: { columnIds: ["col-1", "col-2"] },
+  resultCache: null,
+  resultStale: false,
+};
+
 function seedContent(): DataHubDocContent {
   return {
     meta: SEED_META,
@@ -58,7 +72,7 @@ function seedContent(): DataHubDocContent {
       { id: "col-2", name: "Drug A", role: "y", dataType: "number" },
     ],
     rows: SEED_ROWS.map((r) => ({ id: r.id, cells: { ...r.cells } })),
-    analyses: [],
+    analyses: docState.seedAnalyses ? [{ ...SEED_TTEST }] : [],
     plots: [],
   };
 }
@@ -78,7 +92,12 @@ vi.mock("@/lib/datahub/api", () => ({
 // it, getDataHubContent returns a snapshot, and the store hands the page a
 // minimal handle. This is enough for the page's edit -> reproject -> engine loop.
 const { docState } = vi.hoisted(() => ({
-  docState: { content: null as DataHubDocContent | null },
+  docState: {
+    content: null as DataHubDocContent | null,
+    // When true, seedContent includes the stored t-test, so the `?analysis=`
+    // deep-link test can land on its result sheet. Off by default.
+    seedAnalyses: false,
+  },
 }));
 
 vi.mock("@/lib/loro/datahub-store", () => ({
@@ -132,6 +151,9 @@ function renderPage() {
 beforeEach(() => {
   vi.clearAllMocks();
   docState.content = null;
+  docState.seedAnalyses = false;
+  // Reset any deep-link query the prior test set, so each case starts clean.
+  window.history.replaceState(null, "", "/datahub");
 });
 
 describe("DataHubPage — slice 1 skeleton + Column-table loop", () => {
@@ -174,5 +196,38 @@ describe("DataHubPage — slice 1 skeleton + Column-table loop", () => {
     await waitFor(() => {
       expect(within(screen.getByTestId("datahub-footer-mean")).getByText("30.00")).toBeInTheDocument();
     });
+  });
+});
+
+describe("DataHubPage — analysis deep link (?doc=&analysis=)", () => {
+  it("lands on the analysis result sheet, not the data grid, when ?analysis= names a stored analysis", async () => {
+    // BeakerBot's run navigates here so the user sees the test RESULT.
+    docState.seedAnalyses = true;
+    window.history.replaceState(null, "", "/datahub?doc=1&analysis=analysis-ttest-1");
+    renderPage();
+
+    // The result sheet (the t-test table) is shown, not the raw replicate grid.
+    expect(await screen.findByTestId("results-ttest-table")).toBeInTheDocument();
+    expect(screen.queryByTestId("datahub-data-grid")).not.toBeInTheDocument();
+  });
+
+  it("falls back to the data grid when ?analysis= names an unknown analysis", async () => {
+    // A stale or wrong analysis id must not error or leave the page stuck; the
+    // table still opens on its data grid.
+    docState.seedAnalyses = true;
+    window.history.replaceState(null, "", "/datahub?doc=1&analysis=does-not-exist");
+    renderPage();
+
+    expect(await screen.findByTestId("datahub-data-grid")).toBeInTheDocument();
+    expect(screen.queryByTestId("results-ttest-table")).not.toBeInTheDocument();
+  });
+
+  it("lands on the data grid when only ?doc= is present (backward compatible)", async () => {
+    docState.seedAnalyses = true;
+    window.history.replaceState(null, "", "/datahub?doc=1");
+    renderPage();
+
+    expect(await screen.findByTestId("datahub-data-grid")).toBeInTheDocument();
+    expect(screen.queryByTestId("results-ttest-table")).not.toBeInTheDocument();
   });
 });

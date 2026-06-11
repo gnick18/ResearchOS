@@ -180,14 +180,25 @@ export default function DataHubPage() {
   // (both read the pre-update selectedTableId). The deep-link branch returns
   // before the default logic, so it can no longer be overridden.
   const deepLinkConsumed = useRef(false);
+  // A pending `?analysis=<id>` deep link, captured alongside `?doc=` so that once
+  // the deep-linked doc's content loads we can select that analysis and land the
+  // user on its result sheet (not the raw data grid). BeakerBot's run navigation
+  // uses this so the user sees the test RESULT. Null when no analysis was requested.
+  // Consumed once the analysis is selected (or when its doc loads without it).
+  const pendingAnalysisId = useRef<string | null>(null);
   useEffect(() => {
     if (!deepLinkConsumed.current && typeof window !== "undefined") {
-      const doc = new URLSearchParams(window.location.search).get("doc");
+      const params = new URLSearchParams(window.location.search);
+      const doc = params.get("doc");
       if (!doc) {
         deepLinkConsumed.current = true;
       } else if (allTables.length > 0) {
         deepLinkConsumed.current = true;
         if (allTables.some((t) => t.id === doc)) {
+          // Stash any requested analysis before selecting the table, so the
+          // table-switch effect that clears the analysis selection runs first and
+          // the analysis-deep-link effect below re-applies it once content loads.
+          pendingAnalysisId.current = params.get("analysis");
           if (collection !== "all") setCollection("all");
           setSelectedTableId(doc);
           return; // the deep-link selection wins this pass
@@ -254,6 +265,23 @@ export default function DataHubPage() {
     setSelectedAnalysisId(null);
     setSelectedPlotId(null);
   }, [selectedTableId]);
+
+  // Apply a pending `?analysis=<id>` deep link once the deep-linked doc's content
+  // has loaded. This runs after the table-switch clear above, so the analysis the
+  // run navigated to is what wins, and the user lands on its result sheet rather
+  // than the raw data grid. Backward compatible, with no analysis param the ref is
+  // null and this is a no-op (the table stays on the grid as before). If the id is
+  // not among the loaded analyses we still consume the ref and fall back to the
+  // grid, so a stale or wrong id never leaves the deep link stuck.
+  useEffect(() => {
+    if (pendingAnalysisId.current == null || !openContent) return;
+    const wanted = pendingAnalysisId.current;
+    pendingAnalysisId.current = null;
+    if (openContent.analyses.some((a) => a.id === wanted)) {
+      setSelectedPlotId(null);
+      setSelectedAnalysisId(wanted);
+    }
+  }, [openContent]);
 
   // Flush + drop the open handle on unmount so a pending commit is never lost.
   useEffect(() => {
