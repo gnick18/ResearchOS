@@ -58,6 +58,9 @@ import NewTableDialog, {
 import NewAnalysisDialog, {
   type NewAnalysisSubmit,
 } from "@/components/datahub/NewAnalysisDialog";
+import GuidedAnalysisWizard, {
+  type GuidedAnalysisSubmit,
+} from "@/components/datahub/GuidedAnalysisWizard";
 import NewGraphDialog, {
   type NewGraphSubmit,
 } from "@/components/datahub/NewGraphDialog";
@@ -77,6 +80,10 @@ export default function DataHubPage() {
     null,
   );
   const [newAnalysisOpen, setNewAnalysisOpen] = useState(false);
+  // The guided-analysis wizard open state. The wizard collects a structured
+  // intent, plans the test (assumption-aware), and runs through the SAME path as
+  // a New analysis once the user approves the plan.
+  const [guidedOpen, setGuidedOpen] = useState(false);
   // The selected figure in the Graphs section (null means no figure is open).
   // New-graph dialog open state. A figure selection takes precedence over an
   // analysis selection in the main panel.
@@ -277,12 +284,14 @@ export default function DataHubPage() {
     [collection, queryClient],
   );
 
-  // Run a new analysis: dispatch the chosen type + columns to the engine, store
-  // the spec plus its cached normalized result in the Loro doc (so it is
-  // version-controlled and re-runs), commit, reproject, and select it.
-  const handleNewAnalysis = useCallback(
-    (data: NewAnalysisSubmit) => {
-      setNewAnalysisOpen(false);
+  // Create + run an analysis: dispatch the chosen type + columns to the engine,
+  // store the spec plus its cached normalized result in the Loro doc (so it is
+  // version-controlled and re-runs), commit, reproject, and select it. Shared by
+  // the New analysis dialog and the guided wizard, which both produce the same
+  // { type, columnIds } shape, so a guided run is indistinguishable from a manual
+  // one once it lands.
+  const createAnalysis = useCallback(
+    (data: { type: string; columnIds: string[] }) => {
       const handle = handleRef.current;
       if (!handle || !openContent || openIdRef.current == null) return;
       const id = `analysis-${Date.now()}`;
@@ -303,6 +312,22 @@ export default function DataHubPage() {
       setSelectedAnalysisId(id);
     },
     [openContent],
+  );
+
+  const handleNewAnalysis = useCallback(
+    (data: NewAnalysisSubmit) => {
+      setNewAnalysisOpen(false);
+      createAnalysis(data);
+    },
+    [createAnalysis],
+  );
+
+  const handleGuidedAnalysis = useCallback(
+    (data: GuidedAnalysisSubmit) => {
+      setGuidedOpen(false);
+      createAnalysis(data);
+    },
+    [createAnalysis],
   );
 
   const selectedMeta = useMemo(
@@ -426,6 +451,7 @@ export default function DataHubPage() {
           selectedAnalysisId={selectedAnalysisId}
           onSelectAnalysis={setSelectedAnalysisId}
           onNewAnalysis={() => setNewAnalysisOpen(true)}
+          onGuidedAnalysis={() => setGuidedOpen(true)}
           analysesEnabled={!!openContent}
           plots={openContent?.plots ?? []}
           selectedPlotId={selectedPlotId}
@@ -508,6 +534,13 @@ export default function DataHubPage() {
         content={openContent}
         onCancel={() => setNewAnalysisOpen(false)}
         onSubmit={handleNewAnalysis}
+      />
+
+      <GuidedAnalysisWizard
+        open={guidedOpen}
+        content={openContent}
+        onCancel={() => setGuidedOpen(false)}
+        onSubmit={handleGuidedAnalysis}
       />
 
       <NewGraphDialog

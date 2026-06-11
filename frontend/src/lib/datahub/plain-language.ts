@@ -36,16 +36,21 @@ function anovaSummary(r: NormalizedAnova): string {
     names.length <= 2
       ? names.join(" and ")
       : `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
-  const stat = `one-way ANOVA, F(${r.dfBetween}, ${r.dfWithin}) = ${num(
-    r.statistic,
-  )}, ${formatP(r.pValue)}`;
+  const postHocLabel = r.nonparametric ? "Dunn" : "Tukey";
+  const stat = r.nonparametric
+    ? `Kruskal-Wallis, H(${r.dfBetween}) = ${num(r.statistic)}, ${formatP(
+        r.pValue,
+      )}`
+    : `one-way ANOVA, F(${r.dfBetween}, ${r.dfWithin}) = ${num(
+        r.statistic,
+      )}, ${formatP(r.pValue)}`;
 
   if (r.pValue < ALPHA) {
     const sig = r.comparisons.filter((c) => c.significant).length;
     const pairTail =
       sig > 0
-        ? ` ${sig} of ${r.comparisons.length} pairs differ after Tukey correction, so see the comparisons below for which ones.`
-        : " The omnibus test is significant, so see the Tukey comparisons for where the difference sits.";
+        ? ` ${sig} of ${r.comparisons.length} pairs differ after ${postHocLabel} correction, so see the comparisons below for which ones.`
+        : ` The omnibus test is significant, so see the ${postHocLabel} comparisons for where the difference sits.`;
     return `At least one of ${list} stands apart from the rest (${stat}).${pairTail}`;
   }
   return `${list} look the same on this measure (${stat}). There is not enough evidence to call any group different.`;
@@ -53,20 +58,36 @@ function anovaSummary(r: NormalizedAnova): string {
 
 function ttestSummary(r: NormalizedTTest): string {
   const [a, b] = r.groups;
-  const stat = `${r.test}, t(${num(r.df, r.df % 1 === 0 ? 0 : 1)}) = ${num(
-    r.statistic,
-    2,
-  )}, ${formatP(r.pValue)}`;
+  // A rank test reports its own statistic (U or W) with no df, and it compares
+  // distributions rather than means, so the prose says "shifts higher" not "is
+  // higher by N on average".
+  const statLabel = r.nonparametric
+    ? r.test.startsWith("Wilcoxon")
+      ? "W"
+      : "U"
+    : "t";
+  const statHead = r.nonparametric
+    ? `${r.test}, ${statLabel} = ${num(r.statistic, 2)}, ${formatP(r.pValue)}`
+    : `${r.test}, t(${num(r.df, r.df % 1 === 0 ? 0 : 1)}) = ${num(
+        r.statistic,
+        2,
+      )}, ${formatP(r.pValue)}`;
 
   if (r.pValue < ALPHA) {
     const higher = r.meanDiff > 0 ? a.name : b.name;
     const lower = r.meanDiff > 0 ? b.name : a.name;
+    if (r.nonparametric) {
+      return `${higher} tends to read higher than ${lower}, and that shift is unlikely to be chance (${statHead}). A rank test compares the whole distribution, so it holds up even when the numbers are not normally distributed.`;
+    }
     return `${higher} is higher than ${lower} by ${num(
       Math.abs(r.meanDiff),
       2,
-    )} on average, and that gap is unlikely to be chance (${stat}).`;
+    )} on average, and that gap is unlikely to be chance (${statHead}).`;
   }
-  return `${a.name} and ${b.name} are statistically indistinguishable here (${stat}). The means differ by ${num(
+  if (r.nonparametric) {
+    return `${a.name} and ${b.name} are statistically indistinguishable here (${statHead}). A rank test found no reliable shift between the two distributions.`;
+  }
+  return `${a.name} and ${b.name} are statistically indistinguishable here (${statHead}). The means differ by ${num(
     Math.abs(r.meanDiff),
     2,
   )}, which is within what chance would produce.`;

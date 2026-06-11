@@ -12,10 +12,15 @@
 // and the plain-language verdict can reproduce themselves.
 //
 // Supported this slice (Column tables only):
-//   - "unpairedTTest"  two groups, Welch by default
-//   - "pairedTTest"    two groups, row-paired
-//   - "oneWayAnova"    three or more groups, Tukey post-hoc
-// Two-way ANOVA needs the Grouped table type and is deferred.
+//   - "unpairedTTest"      two groups, Welch by default
+//   - "pairedTTest"        two groups, row-paired
+//   - "oneWayAnova"        three or more groups, Tukey post-hoc
+//   - "mannWhitneyU"       two independent groups, nonparametric (Welch's fallback)
+//   - "wilcoxonSignedRank" two paired groups, nonparametric (paired t fallback)
+//   - "kruskalWallis"      three or more groups, nonparametric (ANOVA fallback)
+// The three nonparametric kinds are the assumption-failure fallbacks the guided
+// wizard recommends, but they are also valid analyses to run directly. Two-way
+// ANOVA needs the Grouped table type and is deferred.
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
@@ -23,6 +28,9 @@ import {
   oneWayAnova,
   unpairedTTest,
   pairedTTest,
+  mannWhitneyU,
+  wilcoxonSignedRank,
+  kruskalWallis,
 } from "@/lib/datahub/engine";
 import type {
   AnovaResult,
@@ -35,7 +43,13 @@ import type {
 import { columnValues, groupColumns } from "@/lib/datahub/column-table";
 
 /** The analysis types this slice can run. */
-export type AnalysisType = "unpairedTTest" | "pairedTTest" | "oneWayAnova";
+export type AnalysisType =
+  | "unpairedTTest"
+  | "pairedTTest"
+  | "oneWayAnova"
+  | "mannWhitneyU"
+  | "wilcoxonSignedRank"
+  | "kruskalWallis";
 
 /** A resolved input group: the column id, its display name, and its values. */
 export interface RunGroup {
@@ -44,12 +58,24 @@ export interface RunGroup {
   values: number[];
 }
 
-/** A normalized t-test result (unpaired Welch or paired). */
+/**
+ * A normalized two-group result. Covers the parametric t-tests (unpaired Welch,
+ * paired) AND their nonparametric rank-based counterparts (Mann-Whitney U for
+ * independent groups, Wilcoxon signed-rank for paired), which the engine returns
+ * in the same TTestResult shape. A rank test has no df and no CI of the
+ * difference, so those carry NaN / null and the sheet renders a dash.
+ */
 export interface NormalizedTTest {
   kind: "ttest";
-  type: "unpairedTTest" | "pairedTTest";
-  /** Engine label, e.g. "Welch's t-test" or "Paired t-test". */
+  type:
+    | "unpairedTTest"
+    | "pairedTTest"
+    | "mannWhitneyU"
+    | "wilcoxonSignedRank";
+  /** Engine label, e.g. "Welch's t-test" or "Mann-Whitney U (rank-sum)". */
   test: string;
+  /** True for the rank-based nonparametric tests (no df, no CI of difference). */
+  nonparametric: boolean;
   groups: [RunGroup, RunGroup];
   statistic: number;
   df: number;
@@ -62,11 +88,18 @@ export interface NormalizedTTest {
   meanDiff: number;
 }
 
-/** A normalized one-way ANOVA result with its Tukey comparisons. */
+/**
+ * A normalized multi-group result. Covers one-way ANOVA (with Tukey comparisons)
+ * AND the nonparametric Kruskal-Wallis (with Dunn comparisons), which the engine
+ * returns in the same AnovaResult shape. For Kruskal-Wallis the F column carries
+ * the H statistic and SS / MS are NaN (a rank test has no sums of squares).
+ */
 export interface NormalizedAnova {
   kind: "anova";
-  type: "oneWayAnova";
+  type: "oneWayAnova" | "kruskalWallis";
   test: string;
+  /** True for Kruskal-Wallis (rank-based, no sums of squares). */
+  nonparametric: boolean;
   groups: RunGroup[];
   statistic: number;
   pValue: number;
@@ -118,15 +151,17 @@ export function resolveGroups(
   return out;
 }
 
-/** Which analysis types are valid for the current table (by group count). */
+/** Which analysis types are valid for the current table (by group count). The
+ *  nonparametric kinds match the same group counts as their parametric peers,
+ *  so a wizard fallback always has a runnable target. */
 export function validAnalysisTypes(content: DataHubDocContent): AnalysisType[] {
   const k = groupColumns(content).length;
   const out: AnalysisType[] = [];
   if (k >= 2) {
-    out.push("unpairedTTest", "pairedTTest");
+    out.push("unpairedTTest", "pairedTTest", "mannWhitneyU", "wilcoxonSignedRank");
   }
   if (k >= 3) {
-    out.push("oneWayAnova");
+    out.push("oneWayAnova", "kruskalWallis");
   }
   return out;
 }
@@ -147,21 +182,27 @@ export function runAnalysis(
   const type = spec.type as AnalysisType;
   const groups = resolveGroups(content, specColumnIds(spec));
 
-  if (type === "oneWayAnova") {
+  if (type === "oneWayAnova" || type === "kruskalWallis") {
     if (groups.length < 3) {
-      return { ok: false, error: "One-way ANOVA needs at least 3 groups." };
+      const label =
+        type === "kruskalWallis" ? "Kruskal-Wallis" : "One-way ANOVA";
+      return { ok: false, error: `${label} needs at least 3 groups.` };
     }
     const data: Record<string, number[]> = {};
     for (const g of groups) data[g.name] = g.values;
-    const r = oneWayAnova(data, { postHoc: "tukey" });
+    const r =
+      type === "kruskalWallis"
+        ? kruskalWallis(data)
+        : oneWayAnova(data, { postHoc: "tukey" });
     if (!r.ok) return { ok: false, error: r.error };
     const between = tableRow(r.table, "Between groups");
     const within = tableRow(r.table, "Within groups");
     return {
       ok: true,
       kind: "anova",
-      type: "oneWayAnova",
+      type,
       test: r.test,
+      nonparametric: type === "kruskalWallis",
       groups,
       statistic: r.statistic,
       pValue: r.pValue,
@@ -172,15 +213,30 @@ export function runAnalysis(
     };
   }
 
-  if (type === "unpairedTTest" || type === "pairedTTest") {
+  if (
+    type === "unpairedTTest" ||
+    type === "pairedTTest" ||
+    type === "mannWhitneyU" ||
+    type === "wilcoxonSignedRank"
+  ) {
     if (groups.length < 2) {
-      return { ok: false, error: "A t-test needs exactly 2 groups." };
+      return { ok: false, error: "A two-group test needs exactly 2 groups." };
     }
     const [a, b] = groups;
-    const r: ReturnType<typeof unpairedTTest> =
-      type === "pairedTTest"
-        ? pairedTTest(a.values, b.values)
-        : unpairedTTest(a.values, b.values);
+    let r: ReturnType<typeof unpairedTTest>;
+    switch (type) {
+      case "pairedTTest":
+        r = pairedTTest(a.values, b.values);
+        break;
+      case "mannWhitneyU":
+        r = mannWhitneyU(a.values, b.values);
+        break;
+      case "wilcoxonSignedRank":
+        r = wilcoxonSignedRank(a.values, b.values);
+        break;
+      default:
+        r = unpairedTTest(a.values, b.values);
+    }
     if (!r.ok) return { ok: false, error: r.error };
     const res = r as TTestResult & { ok: true };
     const meanA = res.groupA?.mean ?? NaN;
@@ -190,6 +246,8 @@ export function runAnalysis(
       kind: "ttest",
       type,
       test: res.test,
+      nonparametric:
+        type === "mannWhitneyU" || type === "wilcoxonSignedRank",
       groups: [a, b],
       statistic: res.statistic,
       df: res.df,

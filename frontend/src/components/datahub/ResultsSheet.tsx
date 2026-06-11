@@ -146,18 +146,34 @@ function AnovaTables({ r }: { r: NormalizedAnova }) {
 }
 
 function TTestTable({ r }: { r: NormalizedTTest }) {
+  // A rank test reports its own statistic (U or W) with no df and no CI of the
+  // difference, so the table shows the right statistic label and drops the
+  // parametric-only rows rather than printing a dash next to "t" and "df".
+  const statLabel = r.nonparametric
+    ? r.test.startsWith("Wilcoxon")
+      ? "W"
+      : "U"
+    : "t";
   const rows: { label: string; value: string }[] = [
     { label: "Test", value: r.test },
     { label: `Mean (${r.groups[0].name})`, value: num(r.meanA) },
     { label: `Mean (${r.groups[1].name})`, value: num(r.meanB) },
     { label: "Difference of means", value: num(r.meanDiff) },
-    { label: "t", value: num(r.statistic) },
-    { label: "df", value: num(r.df, r.df % 1 === 0 ? 0 : 2) },
+    { label: statLabel, value: num(r.statistic) },
+    ...(r.nonparametric
+      ? []
+      : [
+          { label: "df", value: num(r.df, r.df % 1 === 0 ? 0 : 2) },
+        ]),
     { label: "p", value: formatP(r.pValue) },
-    {
-      label: "95% CI of difference",
-      value: r.ci95 ? `${num(r.ci95[0])} to ${num(r.ci95[1])}` : "-",
-    },
+    ...(r.nonparametric
+      ? []
+      : [
+          {
+            label: "95% CI of difference",
+            value: r.ci95 ? `${num(r.ci95[0])} to ${num(r.ci95[1])}` : "-",
+          },
+        ]),
     { label: r.effectSizeLabel, value: num(r.effectSize) },
   ];
   return (

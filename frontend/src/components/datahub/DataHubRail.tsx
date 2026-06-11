@@ -36,6 +36,12 @@ function analysisLabel(type: string): string {
       return "Unpaired t-test";
     case "pairedTTest":
       return "Paired t-test";
+    case "mannWhitneyU":
+      return "Mann-Whitney U";
+    case "wilcoxonSignedRank":
+      return "Wilcoxon signed-rank";
+    case "kruskalWallis":
+      return "Kruskal-Wallis";
     default:
       return type;
   }
@@ -146,6 +152,7 @@ export default function DataHubRail({
   selectedAnalysisId,
   onSelectAnalysis,
   onNewAnalysis,
+  onGuidedAnalysis,
   analysesEnabled,
   plots,
   selectedPlotId,
@@ -169,6 +176,8 @@ export default function DataHubRail({
   selectedAnalysisId: string | null;
   onSelectAnalysis: (id: string) => void;
   onNewAnalysis: () => void;
+  /** Opens the guided analysis wizard (the assumption-aware test picker). */
+  onGuidedAnalysis: () => void;
   /** True once a table is open so a new analysis can be added. */
   analysesEnabled: boolean;
   /** The open table's stored figures (empty until one is made). */
@@ -316,23 +325,49 @@ export default function DataHubRail({
               Results
             </span>
           </div>
-          <Tooltip label="New analysis">
-            <button
-              type="button"
-              onClick={onNewAnalysis}
-              disabled={!analysesEnabled}
-              aria-label="New analysis"
-              className="rounded p-1 text-foreground-muted transition-colors hover:bg-surface-raised hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <Icon name="plus" className="h-3.5 w-3.5" />
-            </button>
-          </Tooltip>
+          <div className="flex items-center gap-0.5">
+            <Tooltip label="Guided analysis">
+              <button
+                type="button"
+                onClick={onGuidedAnalysis}
+                disabled={!analysesEnabled}
+                aria-label="Guided analysis"
+                className="rounded p-1 text-foreground-muted transition-colors hover:bg-surface-raised hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                data-testid="datahub-guided-analysis-button"
+              >
+                <Icon name="features" className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
+            <Tooltip label="New analysis">
+              <button
+                type="button"
+                onClick={onNewAnalysis}
+                disabled={!analysesEnabled}
+                aria-label="New analysis"
+                className="rounded p-1 text-foreground-muted transition-colors hover:bg-surface-raised hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Icon name="plus" className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
+          </div>
         </div>
 
         {analyses.length === 0 ? (
-          <p className="px-1 text-meta text-foreground-muted">
-            No analyses yet. Run a t-test or ANOVA on this table.
-          </p>
+          <div className="px-1">
+            <p className="text-meta text-foreground-muted">
+              No analyses yet. Run a t-test or ANOVA on this table, or let the
+              guided wizard pick the right test for you.
+            </p>
+            <button
+              type="button"
+              onClick={onGuidedAnalysis}
+              disabled={!analysesEnabled}
+              className="mt-2 flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-meta font-medium text-foreground transition-colors hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Icon name="features" className="h-3.5 w-3.5" />
+              Guided analysis
+            </button>
+          </div>
         ) : (
           <div className="flex flex-col gap-0.5">
             {analyses.map((a) => {

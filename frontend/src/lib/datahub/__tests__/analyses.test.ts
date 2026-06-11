@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   oneWayAnova,
   unpairedTTest,
+  mannWhitneyU,
+  wilcoxonSignedRank,
+  kruskalWallis,
 } from "@/lib/datahub/engine";
 import type {
   AnalysisSpec,
@@ -86,15 +89,23 @@ describe("run-analysis", () => {
     expect(groups[0].values).toEqual(CONTROL);
 
     expect(validAnalysisTypes(content)).toContain("oneWayAnova");
-    // A two-group table offers t-tests but not ANOVA.
+    // A three-group table also offers the nonparametric Kruskal-Wallis.
+    expect(validAnalysisTypes(content)).toContain("kruskalWallis");
+    // A two-group table offers the two-group tests (parametric + rank-based)
+    // but not the three-or-more-group tests.
     const twoGroup: DataHubDocContent = {
       ...content,
       columns: content.columns.slice(0, 2),
     };
-    expect(validAnalysisTypes(twoGroup)).toEqual([
+    const twoTypes = validAnalysisTypes(twoGroup);
+    expect(twoTypes).toEqual([
       "unpairedTTest",
       "pairedTTest",
+      "mannWhitneyU",
+      "wilcoxonSignedRank",
     ]);
+    expect(twoTypes).not.toContain("oneWayAnova");
+    expect(twoTypes).not.toContain("kruskalWallis");
   });
 
   it("runs one-way ANOVA on the demo data consistent with the engine", () => {
@@ -150,6 +161,63 @@ describe("run-analysis", () => {
     expect(outcome.ok).toBe(false);
     if (outcome.ok) throw new Error("expected failure");
     expect(outcome.error).toMatch(/3 groups/);
+  });
+
+  it("routes a Mann-Whitney choice to the engine rank-sum test", () => {
+    const content = demoContent();
+    const outcome = runAnalysis(spec("mannWhitneyU", ["col-1", "col-2"]), content);
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok || outcome.kind !== "ttest") throw new Error("expected ttest");
+    expect(outcome.nonparametric).toBe(true);
+    expect(outcome.test).toContain("Mann-Whitney");
+
+    const engine = mannWhitneyU(CONTROL, DRUG_A);
+    if (!engine.ok) throw new Error("engine failed");
+    expect(outcome.statistic).toBeCloseTo(engine.statistic, 10);
+    expect(outcome.pValue).toBeCloseTo(engine.pValue, 10);
+    // A rank test has no df and no CI of the difference.
+    expect(Number.isNaN(outcome.df)).toBe(true);
+    expect(outcome.ci95).toBeNull();
+  });
+
+  it("routes a Wilcoxon choice to the engine signed-rank test", () => {
+    const content = demoContent();
+    const outcome = runAnalysis(
+      spec("wilcoxonSignedRank", ["col-1", "col-2"]),
+      content,
+    );
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok || outcome.kind !== "ttest") throw new Error("expected ttest");
+    expect(outcome.nonparametric).toBe(true);
+    expect(outcome.test).toContain("Wilcoxon");
+
+    const engine = wilcoxonSignedRank(CONTROL, DRUG_A);
+    if (!engine.ok) throw new Error("engine failed");
+    expect(outcome.statistic).toBeCloseTo(engine.statistic, 10);
+    expect(outcome.pValue).toBeCloseTo(engine.pValue, 10);
+  });
+
+  it("routes a Kruskal-Wallis choice to the engine rank-based ANOVA", () => {
+    const content = demoContent();
+    const outcome = runAnalysis(
+      spec("kruskalWallis", ["col-1", "col-2", "col-3"]),
+      content,
+    );
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok || outcome.kind !== "anova") throw new Error("expected anova");
+    expect(outcome.nonparametric).toBe(true);
+    expect(outcome.test).toContain("Kruskal-Wallis");
+
+    const engine = kruskalWallis({
+      Control: CONTROL,
+      "Drug A": DRUG_A,
+      "Drug B": DRUG_B,
+    });
+    if (!engine.ok) throw new Error("engine failed");
+    expect(outcome.statistic).toBeCloseTo(engine.statistic, 10);
+    expect(outcome.pValue).toBeCloseTo(engine.pValue, 10);
+    // dfBetween = k - 1 for the H statistic.
+    expect(outcome.dfBetween).toBe(2);
   });
 });
 
@@ -229,5 +297,37 @@ describe("show-code", () => {
     if (!outcome.ok) throw new Error("run failed");
     const code = showCode(outcome);
     expect(code).toContain("ttest_rel");
+  });
+
+  it("emits a mannwhitneyu snippet for a Mann-Whitney U test", () => {
+    const content = demoContent();
+    const outcome = runAnalysis(spec("mannWhitneyU", ["col-1", "col-2"]), content);
+    if (!outcome.ok) throw new Error("run failed");
+    const code = showCode(outcome);
+    expect(code).toContain("stats.mannwhitneyu");
+    expect(code).toContain('alternative="two-sided"');
+  });
+
+  it("emits a wilcoxon snippet for a Wilcoxon signed-rank test", () => {
+    const content = demoContent();
+    const outcome = runAnalysis(
+      spec("wilcoxonSignedRank", ["col-1", "col-2"]),
+      content,
+    );
+    if (!outcome.ok) throw new Error("run failed");
+    const code = showCode(outcome);
+    expect(code).toContain("stats.wilcoxon");
+  });
+
+  it("emits a kruskal + dunn snippet for a Kruskal-Wallis test", () => {
+    const content = demoContent();
+    const outcome = runAnalysis(
+      spec("kruskalWallis", ["col-1", "col-2", "col-3"]),
+      content,
+    );
+    if (!outcome.ok) throw new Error("run failed");
+    const code = showCode(outcome);
+    expect(code).toContain("stats.kruskal");
+    expect(code).toContain("posthoc_dunn");
   });
 });

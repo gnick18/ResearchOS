@@ -68,6 +68,23 @@ function anovaCode(r: NormalizedAnova): string {
     .map((s, i) => (i === 0 ? `[${s}` : `[${s}`))
     .join(" + ");
 
+  if (r.nonparametric) {
+    // Kruskal-Wallis with Dunn post-hoc (scikit-posthocs), the rank-based
+    // counterpart of ANOVA + Tukey.
+    return `from scipy import stats
+import scikit_posthocs as sp
+
+${assigns}
+
+# Kruskal-Wallis H test (rank-based, no normality assumption)
+H, p = stats.kruskal(${argList})
+print(f"H = {H:.4g}, p = {p:.4g}")
+
+# Dunn pairwise comparisons with Bonferroni adjustment
+dunn = sp.posthoc_dunn([${argList}], p_adjust="bonferroni")
+print(dunn)`;
+  }
+
   return `from scipy import stats
 import statsmodels.stats.multicomp as mc
 
@@ -100,6 +117,26 @@ ${assigns}
 # Paired (repeated-measures) t-test on the row-matched values
 t, p = stats.ttest_rel(${a.var.trim()}, ${b.var.trim()})
 print(f"t = {t:.4g}, p = {p:.4g}")`;
+  }
+
+  if (r.type === "mannWhitneyU") {
+    return `from scipy import stats
+
+${assigns}
+
+# Mann-Whitney U (rank-sum), the nonparametric two-independent-groups test
+U, p = stats.mannwhitneyu(${a.var.trim()}, ${b.var.trim()}, alternative="two-sided")
+print(f"U = {U:.4g}, p = {p:.4g}")`;
+  }
+
+  if (r.type === "wilcoxonSignedRank") {
+    return `from scipy import stats
+
+${assigns}
+
+# Wilcoxon signed-rank, the nonparametric paired test on row-matched values
+W, p = stats.wilcoxon(${a.var.trim()}, ${b.var.trim()})
+print(f"W = {W:.4g}, p = {p:.4g}")`;
   }
 
   // Unpaired Welch (equal_var=False) is the engine default.

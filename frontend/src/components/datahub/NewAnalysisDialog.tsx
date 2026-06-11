@@ -50,6 +50,24 @@ const TYPE_META: Record<
       "Compare three or more groups at once, then Tukey shows which pairs differ without inflating the false-positive rate.",
     groupCount: "all",
   },
+  mannWhitneyU: {
+    label: "Mann-Whitney U",
+    blurb:
+      "Compare two independent groups without assuming a normal distribution. The rank-based answer to a non-normal unpaired t-test.",
+    groupCount: "two",
+  },
+  wilcoxonSignedRank: {
+    label: "Wilcoxon signed-rank",
+    blurb:
+      "Compare two paired groups without assuming a normal distribution. The rank-based answer to a non-normal paired t-test.",
+    groupCount: "two",
+  },
+  kruskalWallis: {
+    label: "Kruskal-Wallis",
+    blurb:
+      "Compare three or more groups without assuming a normal distribution. The rank-based answer to a non-normal one-way ANOVA.",
+    groupCount: "all",
+  },
 };
 
 export default function NewAnalysisDialog({
