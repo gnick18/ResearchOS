@@ -30,6 +30,11 @@ import {
   type ApprovalDecision,
 } from "./tools/types";
 import { buildToolMap } from "./tools/registry";
+import {
+  PROPOSE_PLAN_TOOL_NAME,
+  readPlanSteps,
+  readPlanSummary,
+} from "./tools/propose-plan";
 import type { BeakerBotAutonomy } from "./autonomy-store";
 
 // An OpenAI-compatible chat message. Tool plumbing needs the extra fields beyond
@@ -127,10 +132,15 @@ const GUARD_MESSAGE =
   "BeakerBot stopped after several steps without reaching a clear answer. Try asking again, or narrow the question.";
 
 // The gate dependencies threaded into tool dispatch. Kept as a small bag so the
-// dispatch signature stays readable as more is wired in.
+// dispatch signature stays readable as more is wired in. `planState` is a mutable
+// per-run flag, propose_plan flips `approved` to true on Approve, and once true
+// the routine action tools in this run run WITHOUT re-asking (the destructive
+// hard-stop still overrides it). It is an object, not a bare boolean, so the gate
+// can mutate it in place across calls within one run.
 type GateDeps = {
   getAutonomy: () => BeakerBotAutonomy;
   requestApproval?: (request: ApprovalRequest) => Promise<ApprovalDecision>;
+  planState: { approved: boolean };
 };
 
 // Parse a tool call's arguments string into an object, returning null on bad JSON
@@ -151,14 +161,74 @@ function parseToolArgs(call: ToolCall): Record<string, unknown> | null {
   }
 }
 
+// Handle the propose_plan coordination tool. It is the proposal step of the
+// plan-first flow, NOT an action, so it never goes through the per-action gate.
+// The loop shows the whole plan to the user with a single Approve / Cancel, and
+// on Approve flips the run-level planState.approved so the routine action tools
+// in this run run without re-asking (the destructive hard-stop still overrides
+// that). The returned result is fed back to the model so it knows whether to
+// proceed with the steps or stop.
+async function handleProposePlan(
+  args: Record<string, unknown>,
+  deps: GateDeps,
+): Promise<unknown> {
+  const steps = readPlanSteps(args);
+  const summary = readPlanSummary(args);
+
+  // No steps to approve. Tell the model to ask plainly rather than present an
+  // empty plan.
+  if (steps.length === 0) {
+    return {
+      approved: false,
+      message:
+        "No steps were provided to plan. Ask the user what they would like to do, or guide them with guide_to_element instead.",
+    };
+  }
+
+  // Without an approver we cannot present the plan, so decline safely, never act
+  // without a human blessing the plan.
+  if (!deps.requestApproval) {
+    return {
+      approved: false,
+      message:
+        "This plan needs the user's approval, but no approval path is available. Do not act, explain what you would do instead.",
+    };
+  }
+
+  const decision = await deps.requestApproval({
+    kind: "plan",
+    toolName: PROPOSE_PLAN_TOOL_NAME,
+    steps,
+    ...(summary ? { summary } : {}),
+  });
+
+  if (decision === "allow") {
+    // Approved, the routine steps in this run no longer re-ask.
+    deps.planState.approved = true;
+    return {
+      approved: true,
+      message:
+        "The user approved the plan. Carry out the steps in order now using go_to_page, read_page, and click_element, without asking again. When done, confirm in one short sentence.",
+    };
+  }
+
+  // Cancelled, stop and acknowledge. The flag stays false so nothing runs silently.
+  return {
+    approved: false,
+    message:
+      "The user cancelled the plan. Stop, do not perform any of the steps, and acknowledge their choice in one short sentence.",
+  };
+}
+
 // Decide whether an action tool call needs the user's approval before it runs,
-// and if so, ask. This is the reusable propose-then-approve gate every future
-// write tool flows through, the decision is driven by the tool's `action` flag,
-// the tool's own `isDestructive` check, and the user's autonomy setting, NOT by
+// and if so, ask. This is the reusable gate every action tool flows through, the
+// decision is driven by the tool's `action` flag, the tool's own `isDestructive`
+// check, the run-level plan approval, and the user's autonomy setting, NOT by
 // anything hardcoded to clicking.
 //
 // Returns one of.
-//   - { proceed: true }  run the tool (read-only, or approved, or auto-allowed)
+//   - { proceed: true }  run the tool (read-only, or plan-approved, or approved,
+//     or auto-allowed)
 //   - { proceed: false, result } do NOT run, feed `result` back to the model so
 //     it can respond gracefully (the user skipped, or there is no approver)
 async function gateToolCall(
@@ -172,18 +242,24 @@ async function gateToolCall(
   // An action tool. Decide whether THIS call must confirm.
   const destructive = tool.isDestructive?.(args) === true;
   const autonomy = deps.getAutonomy();
-  // Confirm when the user is in "ask" mode OR when the destructive hard-stop
-  // fires, the hard-stop overrides "auto" so a dangerous click is never silent.
-  const mustConfirm = autonomy === "ask" || destructive;
 
-  if (!mustConfirm) {
-    // "auto" mode and a non-destructive action, run it directly.
-    return { proceed: true };
+  // The destructive hard-stop is absolute. A genuinely destructive or outward-
+  // facing step ALWAYS pops its own final confirm at the moment it runs, even
+  // inside an already-approved plan and even in "auto" mode. Plan approval and
+  // "auto" cover the ROUTINE steps only, they never bypass this.
+  if (!destructive) {
+    // A non-destructive action runs without a confirm when EITHER the plan was
+    // already approved this run, OR the user is in "auto" mode. Plan approval is
+    // the new path, "auto" is the existing one.
+    if (deps.planState.approved || autonomy === "auto") {
+      return { proceed: true };
+    }
   }
 
-  // We need approval. Without an approver we cannot safely act, so decline and
-  // tell the model, never act without a human in "ask" or on a destructive
-  // target.
+  // We reach here when a confirm is required, a destructive step (hard-stop), or
+  // a non-destructive action in "ask" mode with no approved plan (the fallback
+  // per-action confirm, so a lone single-step action still works). Without an
+  // approver we cannot safely act, so decline and tell the model.
   if (!deps.requestApproval) {
     return {
       proceed: false,
@@ -200,6 +276,7 @@ async function gateToolCall(
   const described = tool.describeAction?.(args);
   const summary = described?.summary ?? `run ${tool.name}`;
   const decision = await deps.requestApproval({
+    kind: "action",
     toolName: tool.name,
     summary,
     ...(described?.ref ? { ref: described.ref } : {}),
@@ -237,6 +314,14 @@ async function runToolCall(
     return { error: "Tool arguments were not valid JSON." };
   }
 
+  // propose_plan is the plan-approval coordination tool, the loop owns it. It is
+  // NOT an action and must not flow through the per-action gate (that would
+  // double-confirm), so handle it by name before the gate and never call its
+  // execute. On Approve it flips the run-level plan flag.
+  if (call.function.name === PROPOSE_PLAN_TOOL_NAME) {
+    return handleProposePlan(args, deps);
+  }
+
   // Approval gate for action tools. Read-only tools pass straight through.
   const gate = await gateToolCall(tool, args, deps);
   if (!gate.proceed) return gate.result;
@@ -266,7 +351,9 @@ export async function runAgentLoop(
 
   // Build the gate deps once. Autonomy defaults to "ask" (the safe mode) when the
   // caller did not inject a reader. The approval request is wrapped so the panel
-  // sees an "awaiting-approval" status while the loop is paused on the user.
+  // sees an "awaiting-approval" status while the loop is paused on the user. The
+  // plan-approval flag is fresh per run and starts false, so an approval never
+  // leaks across separate user messages.
   const gateDeps: GateDeps = {
     getAutonomy: options.getAutonomy ?? (() => "ask"),
     requestApproval: options.requestApproval
@@ -278,6 +365,7 @@ export async function runAgentLoop(
           return options.requestApproval!(request);
         }
       : undefined,
+    planState: { approved: false },
   };
 
   let iterations = 0;

@@ -50,6 +50,7 @@ const TOOL_STATUS: Record<string, string> = {
   go_to_page: "taking you there",
   guide_to_element: "showing you where",
   click_element: "clicking for you",
+  propose_plan: "planning the steps",
 };
 
 function statusLabel(status: LoopStatus): string {
@@ -57,7 +58,7 @@ function statusLabel(status: LoopStatus): string {
     return TOOL_STATUS[status.toolName] ?? "looking something up";
   }
   if (status.phase === "awaiting-approval") {
-    return "waiting for you to allow this";
+    return "waiting for your go-ahead";
   }
   return "thinking";
 }
@@ -122,18 +123,22 @@ export function useAiChat() {
     });
   }, []);
 
-  // The propose-then-approve bridge the agent loop calls for an action tool. It
-  // shows the user WHAT will happen (spotlights the target element when the
-  // request carries a ref, the same highlight guide_to_element draws, so seeing
-  // comes before allowing), surfaces the Allow / Skip prompt, and resolves with
-  // the user's decision. Returns a promise that stays pending until the panel
-  // calls resolveApproval, which pauses the loop without blocking the UI thread.
+  // The approval bridge the agent loop calls. It handles two request shapes, a
+  // PLAN proposal (the whole plan up front, Approve / Cancel) and a single ACTION
+  // confirm (the destructive hard-stop or a lone action, Allow / Skip). For an
+  // action that targets a perceived element, it spotlights the target so the user
+  // can SEE what will happen before allowing it (the same highlight
+  // guide_to_element draws). A plan has no single target, so no spotlight. Either
+  // way it surfaces the prompt and resolves with the user's decision. Returns a
+  // promise that stays pending until the panel calls resolveApproval, which
+  // pauses the loop without blocking the UI thread.
   const requestApproval = useCallback(
     (request: ApprovalRequest): Promise<ApprovalDecision> => {
       // Show the target so the user can see exactly what is about to be clicked
-      // before they allow it. Best-effort, a stale ref simply shows no highlight,
+      // before they allow it. Only the single-action shape carries a ref, a plan
+      // proposal does not. Best-effort, a stale ref simply shows no highlight,
       // the text summary still says what BeakerBot wants to do.
-      if (request.ref) {
+      if (request.kind === "action" && request.ref) {
         const el = resolveRef(request.ref);
         if (el) {
           showSpotlight(el, `BeakerBot wants to ${request.summary}.`);

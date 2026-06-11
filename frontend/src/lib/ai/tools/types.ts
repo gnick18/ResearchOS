@@ -23,27 +23,52 @@ export type JsonSchema = {
   additionalProperties?: boolean;
 };
 
-// A request the agent loop surfaces to the UI before an action tool runs, when
-// autonomy is "ask" (or a destructive target forces a confirm). It describes
-// what BeakerBot wants to do in plain words plus, when present, a perceived
-// element ref so the UI can show the user the target (a spotlight) before they
-// allow it. The loop awaits the user's answer through the resolver.
-export type ApprovalRequest = {
-  /** The tool that wants to run, for the UI to label the confirm. */
-  toolName: string;
-  /** A short human sentence, for example "click New method". Authored by the
-   *  tool through `describeAction`, never raw arguments. */
-  summary: string;
-  /** When the action targets a perceived element, its ref, so the UI can
-   *  spotlight it. Optional, not every future action has a DOM target. */
-  ref?: string;
-  /** True when the destructive hard-stop forced this confirm even in "auto"
-   *  mode, so the UI can warn more firmly. */
-  destructive?: boolean;
-};
+// A request the agent loop surfaces to the UI before it proceeds. It comes in two
+// shapes, distinguished by `kind`, so the panel can render the right control.
+//
+//   - kind "plan", BeakerBot is PROPOSING a whole plan up front (the new flow).
+//     The user sees the human-readable steps and approves the lot once with
+//     Approve / Cancel. On approve the loop runs every routine step with no
+//     further asking. This is what propose_plan raises.
+//   - kind "action", a single ACTION needs a final confirm at the moment it runs
+//     (Allow / Skip). This is the destructive hard-stop (delete, send, share,
+//     pay) that ALWAYS confirms, even inside an already-approved plan, and the
+//     fallback per-action confirm for a lone action with no plan.
+//
+// Both describe what BeakerBot wants to do in plain words. The action shape can
+// carry a perceived element ref so the UI spotlights the target before the user
+// allows it. The loop awaits the user's answer through the resolver.
+export type ApprovalRequest =
+  | {
+      kind: "plan";
+      /** The tool that raised the proposal, for the UI to label the prompt. */
+      toolName: string;
+      /** The human-readable steps BeakerBot intends to run, in order, for
+       *  example ["Go to the Methods page", "Click the New Method button"]. */
+      steps: string[];
+      /** An optional one-line summary of the whole plan. */
+      summary?: string;
+    }
+  | {
+      kind: "action";
+      /** The tool that wants to run, for the UI to label the confirm. */
+      toolName: string;
+      /** A short human sentence, for example "click New method". Authored by the
+       *  tool through `describeAction`, never raw arguments. */
+      summary: string;
+      /** When the action targets a perceived element, its ref, so the UI can
+       *  spotlight it. Optional, not every future action has a DOM target. */
+      ref?: string;
+      /** True when the destructive hard-stop forced this confirm, so the UI can
+       *  warn more firmly. */
+      destructive?: boolean;
+    };
 
-// The UI's answer to an approval request. "allow" runs the tool, "skip" declines
-// it and tells the model the user said no, so it can respond gracefully.
+// The UI's answer to an approval request. "allow" proceeds (run the action, or
+// approve the plan), "skip" declines (do not run the action, or cancel the plan)
+// and tells the model the user said no, so it can respond gracefully. The same
+// two-value decision covers both Allow / Skip and Approve / Cancel, the panel
+// just labels the buttons to match the request kind.
 export type ApprovalDecision = "allow" | "skip";
 
 // A single tool BeakerBot can call. `execute` receives the parsed argument object

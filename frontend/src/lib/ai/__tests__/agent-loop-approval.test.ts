@@ -107,8 +107,9 @@ describe("approval gate: ask autonomy", () => {
 
     // requestApproval was called before execute ran.
     expect(requestApproval).toHaveBeenCalledTimes(1);
-    // The request carries the tool name and the action summary.
+    // The request carries the action shape, the tool name and the summary.
     const req: ApprovalRequest = requestApproval.mock.calls[0][0];
+    expect(req.kind).toBe("action");
     expect(req.toolName).toBe("do_thing");
     expect(typeof req.summary).toBe("string");
     // execute ran because the decision was "allow".
@@ -243,9 +244,12 @@ describe("approval gate: auto + destructive hard-stop", () => {
 
     // The hard-stop overrides auto: approval was requested.
     expect(requestApproval).toHaveBeenCalledTimes(1);
-    // The approval request carries the destructive flag.
+    // The approval request carries the action shape with the destructive flag.
     const req: ApprovalRequest = requestApproval.mock.calls[0][0];
-    expect(req.destructive).toBe(true);
+    expect(req.kind).toBe("action");
+    if (req.kind === "action") {
+      expect(req.destructive).toBe(true);
+    }
     // The user allowed, so execute ran.
     expect(execute).toHaveBeenCalledTimes(1);
   });

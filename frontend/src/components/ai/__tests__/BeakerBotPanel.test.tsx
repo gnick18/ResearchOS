@@ -218,6 +218,41 @@ describe("BeakerBotPanel", () => {
     expect(userBubble.querySelector("code")).toBeNull();
   });
 
+  it("renders a plan proposal with Approve / Cancel and its steps", async () => {
+    // Turn 1, the model proposes a plan. The panel should show the steps with an
+    // Approve and a Cancel button (the plan shape), NOT the single-action Allow /
+    // Skip.
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse(
+          toolCall("propose_plan", {
+            steps: ["Go to the Methods page", "Click the New Method button"],
+            summary: "Open the new method form",
+          }),
+        ),
+      )
+      // The loop will pause on the plan approval, so no second proxy call happens
+      // until the user answers. Provide a follow-up answer for after approve.
+      .mockResolvedValueOnce(jsonResponse(finalAnswer("Opened the form.")));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BeakerBotPanel />);
+    fireEvent.change(screen.getByTestId("beakerbot-input"), {
+      target: { value: "open the new method form for me" },
+    });
+    fireEvent.click(screen.getByTestId("beakerbot-send"));
+
+    // The plan prompt appears with both steps and the Approve / Cancel controls.
+    const plan = await screen.findByTestId("beakerbot-approval-plan");
+    expect(plan).toHaveTextContent("Go to the Methods page");
+    expect(plan).toHaveTextContent("Click the New Method button");
+    expect(screen.getByTestId("beakerbot-approval-approve")).toBeInTheDocument();
+    expect(screen.getByTestId("beakerbot-approval-cancel")).toBeInTheDocument();
+    // The single-action prompt is NOT shown for a plan.
+    expect(screen.queryByTestId("beakerbot-approval")).toBeNull();
+  });
+
   it("shows the proxy error message in the panel when the key is missing", async () => {
     vi.stubGlobal(
       "fetch",

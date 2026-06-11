@@ -31,6 +31,7 @@ import { readPageTool } from "./read-page";
 import { goToPageTool } from "./go-to-page";
 import { guideToElementTool } from "./guide-to-element";
 import { clickElementTool } from "./click-element";
+import { proposePlanTool } from "./propose-plan";
 import type { AiTool } from "./types";
 
 // The read-only toolset, read-only with respect to the user's data. Exported on
@@ -48,10 +49,24 @@ export const READ_ONLY_TOOLS: AiTool[] = [
 // agent loop's approval gate. Today just click_element.
 export const ACTION_TOOLS: AiTool[] = [clickElementTool];
 
+// The coordination toolset. These tools neither read the user's data nor act on
+// it, they steer the approval flow itself. propose_plan is the proposal step of
+// the plan-first action flow, the loop recognizes it by name and raises a single
+// Approve / Cancel for the whole plan, then lets the routine action tools run
+// without re-asking. It carries no `action` flag on purpose, it IS the gate for
+// the plan, so it must not be routed through the per-action gate (that would
+// double-confirm).
+export const COORDINATION_TOOLS: AiTool[] = [proposePlanTool];
+
 // The default toolset handed to the agent loop, the read-only tools plus the
-// action tools. The loop reads each tool's `action` flag to decide whether to
-// gate it, so mixing them in one list is safe.
-export const DEFAULT_TOOLS: AiTool[] = [...READ_ONLY_TOOLS, ...ACTION_TOOLS];
+// coordination tools plus the action tools. The loop reads each tool's `action`
+// flag (and special-cases propose_plan by name) to decide how to handle each, so
+// mixing them in one list is safe.
+export const DEFAULT_TOOLS: AiTool[] = [
+  ...READ_ONLY_TOOLS,
+  ...COORDINATION_TOOLS,
+  ...ACTION_TOOLS,
+];
 
 /** Build a name -> tool lookup for dispatch. The loop calls this once per run and
  *  resolves each model-requested tool_call by name. */

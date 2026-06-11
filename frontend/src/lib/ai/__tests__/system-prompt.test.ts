@@ -24,6 +24,16 @@ describe("BEAKERBOT_SYSTEM_PROMPT", () => {
     expect(BEAKERBOT_SYSTEM_PROMPT).not.toMatch(/—/);
   });
 
+  it("instructs the plan-first action flow, propose the plan before acting", () => {
+    // The model must propose a whole plan up front, not navigate or click first.
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/propose_plan/);
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/do NOT navigate or click first/i);
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/without asking again/i);
+    // The destructive carve-out must still be stated, a destructive step confirms
+    // even inside an approved plan.
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/delete, send, share, pay/i);
+  });
+
   it("includes narrow-panel formatting guidance telling BeakerBot to avoid tables", () => {
     // The panel is a narrow sidebar. BeakerBot must know not to produce wide
     // markdown tables that would overflow it.

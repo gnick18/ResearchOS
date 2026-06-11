@@ -222,11 +222,62 @@ export default function BeakerBotPanel({
       ) : null}
 
       {/* Approval prompt. Shown while the agent loop is paused waiting for the
-          user to allow an action. The target element is already spotlighted on
-          the page (see useAiChat.requestApproval), so the user can SEE what will
-          happen before they allow it. A destructive target gets a firmer warning
-          tone and an alert glyph. */}
-      {pendingApproval ? (
+          user. It comes in two shapes. A PLAN proposal lists the whole sequence
+          of steps BeakerBot intends to run, with a single Approve / Cancel, so
+          the user approves the lot once and the routine steps then run without
+          asking again. A single ACTION confirm asks about one step at the moment
+          it runs (the destructive hard-stop, or a lone action with no plan), with
+          Allow / Skip, and the target element is already spotlighted on the page
+          (see useAiChat.requestApproval) so the user can SEE what will happen. A
+          destructive action gets a firmer warning tone and an alert glyph. */}
+      {pendingApproval && pendingApproval.request.kind === "plan" ? (
+        <div
+          data-testid="beakerbot-approval-plan"
+          className="mx-4 mb-2 rounded-md border border-brand bg-brand/5 px-3 py-2"
+        >
+          <div className="mb-2 flex items-start gap-2">
+            <span className="text-brand">
+              <Icon
+                name="vial"
+                className="h-4 w-4"
+                title="BeakerBot has a plan"
+              />
+            </span>
+            <p className="text-meta text-foreground">
+              {pendingApproval.request.summary
+                ? `${pendingApproval.request.summary}. Here is the plan.`
+                : "BeakerBot has a plan. Here are the steps."}
+            </p>
+          </div>
+          <ol className="mb-2 ml-1 list-decimal space-y-0.5 pl-4 text-meta text-foreground">
+            {pendingApproval.request.steps.map((step, i) => (
+              <li key={i}>{step}</li>
+            ))}
+          </ol>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              data-testid="beakerbot-approval-approve"
+              onClick={() => resolveApproval("allow")}
+              className="btn-brand flex items-center gap-1 rounded-md px-3 py-1.5 text-meta font-medium"
+            >
+              <Icon name="check" className="h-3.5 w-3.5" title="Approve" />
+              Approve
+            </button>
+            <button
+              type="button"
+              data-testid="beakerbot-approval-cancel"
+              onClick={() => resolveApproval("skip")}
+              className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+            >
+              <Icon name="close" className="h-3.5 w-3.5" title="Cancel" />
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {pendingApproval && pendingApproval.request.kind === "action" ? (
         <div
           data-testid="beakerbot-approval"
           className={`mx-4 mb-2 rounded-md border px-3 py-2 ${
