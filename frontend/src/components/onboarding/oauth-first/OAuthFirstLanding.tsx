@@ -25,6 +25,7 @@ import { useRef } from "react";
 
 import BeakerBot from "@/components/BeakerBot";
 import LightOnly from "@/components/LightOnly";
+import MadeInMadison from "@/components/MadeInMadison";
 import Wordmark from "@/components/Wordmark";
 import WelcomePage from "@/components/welcome/WelcomePage";
 import { Icon } from "@/components/icons";
@@ -165,6 +166,40 @@ export function OAuthFirstLanding({
                   /transparency
                 </code>
               </a>
+            </div>
+
+            {/* Pillars strip (brand refresh change 1). States the positioning
+                instead of implying it. */}
+            <div className="mt-7 grid w-full max-w-md grid-cols-3 gap-2">
+              {[
+                ["Ownership", "Your data in a folder you own."],
+                ["One Workspace", "Notebook, chemistry, stats. Free."],
+                ["Trust", "Open source, validated in public."],
+              ].map(([title, desc]) => (
+                <div
+                  key={title}
+                  className="rounded-lg border border-border bg-surface-raised/70 px-2.5 py-2 text-left"
+                >
+                  <p className="text-[11.5px] font-extrabold text-brand-ink">
+                    {title}
+                  </p>
+                  <p className="mt-0.5 text-[10px] leading-snug text-foreground-muted">
+                    {desc}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Made in Madison badge + fellowship credit (brand refresh change
+                2). MadeInMadison renders the real Wisconsin state mark with the
+                gold Madison star. */}
+            <div className="mt-5 flex flex-col items-center gap-2 border-t border-dashed border-border pt-4">
+              <MadeInMadison variant="line" tone="soft" />
+              <p className="max-w-sm text-center text-[10px] leading-relaxed text-foreground-muted">
+                Supported by a UW Distinguished Research Fellowship at UW-Madison
+                (Office of the Vice Chancellor for Research, with funding from the
+                Wisconsin Alumni Research Foundation).
+              </p>
             </div>
           </div>
 

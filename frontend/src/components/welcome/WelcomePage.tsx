@@ -42,6 +42,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import BeakerBot from "@/components/BeakerBot";
+import { Icon } from "@/components/icons";
 import SponsorStrip from "@/components/SponsorStrip";
 import BeakerBotPeek from "@/components/welcome/BeakerBotPeek";
 import Wordmark from "@/components/Wordmark";
@@ -581,7 +582,22 @@ export default function WelcomePage() {
             <p className="text-center text-title font-bold text-brand-ink">
               Built by PhD researchers, for researchers.
             </p>
-            <div className="mx-auto mt-9 grid max-w-[820px] grid-cols-1 gap-x-8 gap-y-9 sm:grid-cols-3">
+            <div className="mx-auto mt-9 grid max-w-[980px] grid-cols-1 gap-x-8 gap-y-9 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Your data is yours (Ownership pillar, brand refresh). The
+                  strongest trust signal leads the band. Uses the registered
+                  folder Icon, no new inline svg. */}
+              <div className="flex flex-col items-center text-center">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
+                  <Icon name="folder" className="h-5 w-5" />
+                </span>
+                <h3 className="mt-3 text-body font-bold text-brand-ink">
+                  Your data is yours
+                </h3>
+                <p className="mt-1 text-body leading-snug text-[#475569]">
+                  Plain files on your own disk. Leaving is just closing a folder.
+                </p>
+              </div>
+
               {/* Open source (links to the credits page). */}
               <a
                 href="/open-source"

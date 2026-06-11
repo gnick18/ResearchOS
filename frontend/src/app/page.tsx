@@ -8,6 +8,7 @@ import {
   fetchAllProjectsIncludingShared,
 } from "@/lib/local-api";
 import AppShell from "@/components/AppShell";
+import BeakerBot from "@/components/BeakerBot";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import UserLoginScreen from "@/components/UserLoginScreen";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
@@ -181,12 +182,24 @@ export default function HomePage() {
 
   return (
     <AppShell>
-      {/* "/" renders no surface of its own any more (widget-framework
-          teardown v2): it is a router that bounces to the role landing.
-          A light spinner fills the brief window before the redirect lands
-          (or while a deep-link popup is open). */}
+      {/* "/" renders no surface of its own (widget-framework teardown v2): it
+          is a router that bounces to the role landing. Instead of a bare
+          spinner, a short branded welcome fills the window before the redirect
+          lands (brand refresh, 2026-06-11). */}
       <div className="flex-1 flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
+        <div className="flex flex-col items-center text-center">
+          <BeakerBot
+            pose="waving"
+            ariaLabel="ResearchOS BeakerBot"
+            className="h-16 w-16 text-brand-sky"
+          />
+          <p className="mt-3 text-heading font-extrabold text-brand-ink dark:text-foreground">
+            Welcome back{currentUser ? `, ${currentUser}` : ""}
+          </p>
+          <p className="mt-1 text-body text-foreground-muted">
+            Taking you to your {isLabHead ? "lab overview" : "workbench"}.
+          </p>
+        </div>
       </div>
 
       {/* Task Detail Popup (deep-link `?openTask=`). */}
