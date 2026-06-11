@@ -30,6 +30,7 @@ import Wordmark from "@/components/Wordmark";
 import WelcomePage from "@/components/welcome/WelcomePage";
 import { Icon } from "@/components/icons";
 import { IntroBubbleBot } from "./IntroBubbleBot";
+import styles from "./OAuthFirstLanding.module.css";
 
 export interface OAuthFirstLandingProps {
   /** Open the three-tier account chooser (Create account). */
@@ -74,6 +75,13 @@ export function OAuthFirstLanding({
               "radial-gradient(560px 360px at 50% 6%, #ffffff 0%, #f6f9ff 55%, #eef4ff 100%)",
           }}
         >
+          {/* Drifting pastel-rainbow auroras that fill the wide side margins so
+              the space feels alive, not empty. Decorative, behind everything. */}
+          <div aria-hidden className={`${styles.aurora} ${styles.a1}`} />
+          <div aria-hidden className={`${styles.aurora} ${styles.a2}`} />
+          <div aria-hidden className={`${styles.aurora} ${styles.a3}`} />
+          <div aria-hidden className={`${styles.aurora} ${styles.a4}`} />
+
           {/* Rainbow bars, top and bottom. */}
           <div
             aria-hidden
@@ -99,12 +107,13 @@ export function OAuthFirstLanding({
             Dr. Grant Nickles, University of Wisconsin-Madison
           </div>
 
-          {/* Faded floating mascots, deck decoration. Larger here so they
-              frame the full-screen hero instead of dotting the corners. */}
-          <FloatBot className="top-[12%] left-[7%] w-20" />
-          <FloatBot className="bottom-[15%] left-[11%] w-14" />
-          <FloatBot className="top-[15%] right-[8%] w-16" />
-          <FloatBot className="bottom-[13%] right-[6%] w-24" />
+          {/* Faded floating mascots, deck decoration. Larger here so they frame
+              the full-screen hero, and gently floating so the margins feel
+              alive. */}
+          <FloatBot className={`${styles.floaty} top-[12%] left-[7%] w-20`} />
+          <FloatBot className={`${styles.floaty} ${styles.s2} bottom-[15%] left-[11%] w-14`} />
+          <FloatBot className={`${styles.floaty} ${styles.s3} top-[15%] right-[8%] w-16`} />
+          <FloatBot className={`${styles.floaty} ${styles.s4} bottom-[13%] right-[6%] w-24`} />
 
           <div className="relative z-[1] flex flex-col items-center">
             <IntroBubbleBot size="xl" className="mb-5" />
@@ -172,7 +181,7 @@ export function OAuthFirstLanding({
 
             {/* Pillars strip (brand refresh change 1). States the positioning
                 instead of implying it. */}
-            <div className="mt-7 grid w-full max-w-md grid-cols-3 gap-2">
+            <div className="mt-7 grid w-full max-w-2xl grid-cols-3 gap-3">
               {[
                 ["Ownership", "Your data in a folder you own."],
                 ["One Workspace", "Notebook, chemistry, stats. Free."],
@@ -180,12 +189,12 @@ export function OAuthFirstLanding({
               ].map(([title, desc]) => (
                 <div
                   key={title}
-                  className="rounded-lg border border-border bg-surface-raised/70 px-2.5 py-2 text-left"
+                  className="rounded-xl border border-border bg-surface-raised/70 px-3.5 py-3 text-left backdrop-blur-sm"
                 >
-                  <p className="text-[11.5px] font-extrabold text-brand-ink">
+                  <p className="text-[12.5px] font-extrabold text-brand-ink">
                     {title}
                   </p>
-                  <p className="mt-0.5 text-[10px] leading-snug text-foreground-muted">
+                  <p className="mt-0.5 text-[11px] leading-snug text-foreground-muted">
                     {desc}
                   </p>
                 </div>
