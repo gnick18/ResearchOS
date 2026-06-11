@@ -13,6 +13,7 @@ import { useState } from "react";
 
 import { Icon } from "@/components/icons";
 import { MoleculeLiterature } from "./MoleculeLiterature";
+import { SubstructurePatentSearch } from "./SubstructurePatentSearch";
 
 const EXAMPLES = ["caffeine", "aspirin", "ibuprofen", "dopamine", "penicillin"];
 
@@ -92,6 +93,8 @@ export function LiteratureSearch() {
           </p>
         )}
       </div>
+
+      <SubstructurePatentSearch />
     </div>
   );
 }
