@@ -631,14 +631,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
        *                      better full-width than squeezed beside a rail.
        *   - everything else: DailyTasksSidebar (every account type). */}
       <div className="flex flex-1 overflow-hidden">
-        {pathname?.startsWith("/sequences") ? (
+        {pathname?.startsWith("/sequences") ||
+        pathname?.startsWith("/chemistry") ? (
           /* Sequence editor is a full-bleed FOCUS surface (Grant
            *  2026-06-02): hide the app's left sidebar so the plasmid/
            *  map viewer gets the full width, SnapGene/Benchling-style.
            *  The /sequences page already has its own working-tree
            *  library on the left, so the DailyTasksSidebar is redundant
-           *  here. Cross-arc note: the de-bloat arc owns AppShell —
-           *  PRESERVE this carve-out when simplifying the sidebar. */
+           *  here. The /chemistry hub is the same kind of focus surface
+           *  (its own library grid), so it hides the Today rail too
+           *  (Grant 2026-06-10). Cross-arc note: the de-bloat arc owns
+           *  AppShell — PRESERVE this carve-out when simplifying the sidebar. */
           null
         ) : pathname === "/calendar" ? (
           <CollapsibleSidebar>
