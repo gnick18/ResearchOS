@@ -112,8 +112,15 @@ def normalize(s: str) -> str:
         .replace("−", "-")  # minus sign
         .replace("×", "x")  # times sign -> x
         .replace("′", "'")  # prime
+        .replace("®", "")  # registered trademark -> drop (breaks "GoTaq® qPCR")
+        .replace("™", "")  # trademark -> drop
+        .replace("©", "")
     )
     s = s.lower()
+    # Hyphenated number-word durations the vendor often writes: "2-minute",
+    # "30-second" -> "2 min", "30 sec" so they match our duration forms.
+    s = re.sub(r"(\d+)\s*-\s*minutes?\b", r"\1 min", s)
+    s = re.sub(r"(\d+)\s*-\s*seconds?\b", r"\1 sec", s)
     # Unit/word synonyms so structured units match however the vendor wrote them.
     # Order matters: longest first.
     repls = [
@@ -231,6 +238,40 @@ def _amount_forms(text: str) -> list[str]:
     return out
 
 
+_VENDOR_PREFIXES = (
+    "thermo fisher",
+    "thermo",
+    "invitrogen",
+    "applied biosystems",
+    "promega",
+    "bio-rad",
+    "biorad",
+    "qiagen",
+    "takara",
+    "roche",
+    "agilent",
+    "waters",
+    "sigma",
+    "neb",
+    "kapa",
+)
+
+
+def _name_alts(name: str) -> list[str]:
+    """Candidate forms for an instrument/column/product name: the full name and a
+    version with a leading vendor word stripped (vendors usually omit their own
+    brand in the body text, e.g. our 'Thermo Q Exactive' vs the PDF's 'Q
+    Exactive'). Our parentheticals are also dropped."""
+    base = re.sub(r"\s*\([^)]*\)", "", (name or "")).strip()
+    out = [base]
+    low = base.lower()
+    for pref in _VENDOR_PREFIXES:
+        if low.startswith(pref + " "):
+            out.append(base[len(pref):].strip())
+            break
+    return [o for o in out if o]
+
+
 def _name_core(name: str) -> str | None:
     """A reagent/ingredient/cell-line name, trimmed of our parenthetical asides
     and trailing qualifiers so the match is on the vendor's product term. Returns
@@ -323,9 +364,11 @@ def checks_for_lc_gradient(payload: dict) -> list[Check]:
                 out.append(Check(f"gradient_steps[{i}].{key}={v}", forms, "structured"))
     col = payload.get("column") or {}
     if col.get("model"):
-        # column model can carry our parentheticals; check the core product term
-        core = re.sub(r"\s*\([^)]*\)", "", str(col["model"])).strip()
-        out.append(Check(f"column model '{core}'", [core], "structured"))
+        # column model can carry our parentheticals + a leading vendor word
+        alts = _name_alts(str(col["model"]))
+        if col.get("manufacturer"):
+            alts += _name_alts(f"{col['manufacturer']} {col['model']}")
+        out.append(Check(f"column model '{alts[0]}'", alts, "structured"))
     for key, unit, mul in (
         ("length_mm", "mm", 1),
         ("inner_diameter_mm", "mm", 1),
@@ -353,8 +396,8 @@ def checks_for_lc_gradient(payload: dict) -> list[Check]:
 def checks_for_mass_spec(payload: dict) -> list[Check]:
     out: list[Check] = []
     if payload.get("instrument"):
-        core = re.sub(r"\s*\([^)]*\)", "", str(payload["instrument"])).strip()
-        out.append(Check(f"instrument '{core}'", [core], "structured"))
+        alts = _name_alts(str(payload["instrument"]))
+        out.append(Check(f"instrument '{alts[0]}'", alts, "structured"))
     src = payload.get("source") or {}
     for key, unit in (
         ("source_temp_c", "c"),

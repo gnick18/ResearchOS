@@ -13,26 +13,14 @@ For every catalog template that bundles a vendor source PDF, this checks whether
 ## Top-line summary
 
 - Templates audited (bundled source PDF): **52**
-- Fully clean (every structured AND free-text value found): **18**
-- Clean on structured values (the ones that matter most): **20**
-- Flagged for review (>=1 value not found): **34**
+- Fully clean (every structured AND free-text value found): **23**
+- Clean on structured values (the ones that matter most): **25**
+- Flagged for review (>=1 value not found): **29**
 - Errored (PDF missing / unreadable): **0**
-- Structured values matched: **487/541** (90%)
+- Structured values matched: **497/541** (92%)
 - Free-text values matched: **586/603** (97%)
 
 ## Per-template (worst-first)
-
-### `promega-gotaq-g2-flexi` - Promega GoTaq G2 Flexi PCR FLAGGED (structured)
-
-- method_type: `pcr`
-- structured: 15/19 found | free-text: 12/13 found
-- **Review (structured), 4:**
-    - cycle duration '30 sec'
-    - ingredient name '5X Green GoTaq Flexi Buffer'
-    - ingredient conc '10 uM (0.5 uM final)'
-    - ingredient name 'GoTaq G2 Flexi DNA Polymerase'
-- Review (free-text), 1:
-    - payload.notes value: '1.5 mM'
 
 ### `thermo-platinum-superfi-ii` - Invitrogen Platinum SuperFi II PCR FLAGGED (structured)
 
@@ -43,19 +31,6 @@ For every catalog template that bundles a vendor source PDF, this checks whether
     - cycle duration '15-30 sec/kb'
     - ingredient name '5X SuperFi II Buffer'
     - ingredient name 'Platinum SuperFi II DNA Polymerase'
-
-### `promega-gotaq-green-master-mix` - Promega GoTaq Green Master Mix PCR FLAGGED (structured)
-
-- method_type: `pcr`
-- structured: 10/13 found | free-text: 9/12 found
-- **Review (structured), 3:**
-    - gradient.initial duration '2 min'
-    - cycle temp 55 C
-    - ingredient name 'GoTaq Green Master Mix'
-- Review (free-text), 3:
-    - payload.notes value: '1.5 mM'
-    - payload.notes value: '200 uM'
-    - payload.notes value: '55 C'
 
 ### `lcms-metabolite-hilic-lc-thermo` - Thermo UltiMate + Q Exactive: HILIC metabolomics LC-MS (LC gradient) FLAGGED (structured)
 
@@ -128,6 +103,16 @@ For every catalog template that bundles a vendor source PDF, this checks whether
 - Review (free-text), 1:
     - payload.description value: '0.250 mL'
 
+### `promega-gotaq-g2-flexi` - Promega GoTaq G2 Flexi PCR FLAGGED (structured)
+
+- method_type: `pcr`
+- structured: 17/19 found | free-text: 12/13 found
+- **Review (structured), 2:**
+    - cycle duration '30 sec'
+    - ingredient conc '10 uM (0.5 uM final)'
+- Review (free-text), 1:
+    - payload.notes value: '1.5 mM'
+
 ### `biorad-iproof` - Bio-Rad iProof High-Fidelity PCR FLAGGED (structured)
 
 - method_type: `pcr`
@@ -136,14 +121,6 @@ For every catalog template that bundles a vendor source PDF, this checks whether
     - cycle duration '8 sec'
     - cycle duration '20 sec'
 
-### `itaq-sybr-qpcr` - iTaq Universal SYBR Green qPCR FLAGGED (structured)
-
-- method_type: `pcr`
-- structured: 8/10 found | free-text: 10/10 found
-- **Review (structured), 2:**
-    - cycle duration '15 sec'
-    - ingredient name 'iTaq Universal SYBR Green Supermix'
-
 ### `takara-ex-taq` - Takara Ex Taq PCR FLAGGED (structured)
 
 - method_type: `pcr`
@@ -151,6 +128,17 @@ For every catalog template that bundles a vendor source PDF, this checks whether
 - **Review (structured), 2:**
     - ingredient conc '10 uM (0.2 uM final)'
     - ingredient name 'Sterile Water'
+
+### `promega-gotaq-green-master-mix` - Promega GoTaq Green Master Mix PCR FLAGGED (structured)
+
+- method_type: `pcr`
+- structured: 12/13 found | free-text: 9/12 found
+- **Review (structured), 1:**
+    - cycle temp 55 C
+- Review (free-text), 3:
+    - payload.notes value: '1.5 mM'
+    - payload.notes value: '200 uM'
+    - payload.notes value: '55 C'
 
 ### `lcms-peptide-rp-lc-thermo` - Thermo EASY-nLC + Q Exactive: peptide LC-MS/MS (LC gradient) FLAGGED (structured)
 
@@ -193,20 +181,6 @@ For every catalog template that bundles a vendor source PDF, this checks whether
 - **Review (structured), 1:**
     - ingredient conc '10 uM (0.2 uM final)'
 
-### `gotaq-probe-qpcr` - GoTaq Probe qPCR (Promega) FLAGGED (structured)
-
-- method_type: `pcr`
-- structured: 9/10 found | free-text: 20/20 found
-- **Review (structured), 1:**
-    - ingredient name 'GoTaq Probe qPCR Master Mix'
-
-### `gotaq-qpcr` - GoTaq qPCR (Promega) FLAGGED (structured)
-
-- method_type: `pcr`
-- structured: 10/11 found | free-text: 15/15 found
-- **Review (structured), 1:**
-    - ingredient name 'GoTaq qPCR Master Mix'
-
 ### `ipsc-maintenance-essential8` - Human iPSC maintenance (Gibco Essential 8) FLAGGED (structured)
 
 - method_type: `cell_culture`
@@ -214,26 +188,12 @@ For every catalog template that bundles a vendor source PDF, this checks whether
 - **Review (structured), 1:**
     - supplement 'RevitaCell Supplement, on thaw and single-cell passage only'
 
-### `lcms-intact-protein-ms-thermo-exploris` - Thermo Vanquish + Orbitrap Exploris: intact-protein LC-MS (MS setup) FLAGGED (structured)
+### `itaq-sybr-qpcr` - iTaq Universal SYBR Green qPCR FLAGGED (structured)
 
-- method_type: `mass_spec`
-- structured: 5/6 found | free-text: 6/6 found
+- method_type: `pcr`
+- structured: 9/10 found | free-text: 10/10 found
 - **Review (structured), 1:**
-    - instrument 'Thermo Orbitrap Exploris 480'
-
-### `lcms-metabolite-ms-thermo-qexactive` - Thermo UltiMate + Q Exactive: HILIC metabolomics LC-MS (MS setup) FLAGGED (structured)
-
-- method_type: `mass_spec`
-- structured: 6/7 found | free-text: 4/4 found
-- **Review (structured), 1:**
-    - instrument 'Thermo Q Exactive'
-
-### `lcms-peptide-ms-thermo-orbitrap` - Thermo EASY-nLC + Q Exactive: peptide LC-MS/MS (MS setup) FLAGGED (structured)
-
-- method_type: `mass_spec`
-- structured: 6/7 found | free-text: 2/2 found
-- **Review (structured), 1:**
-    - instrument 'Thermo Q Exactive Hybrid Quadrupole-Orbitrap'
+    - cycle duration '15 sec'
 
 ### `powerup-sybr-green-qpcr` - PowerUp SYBR Green qPCR FLAGGED (structured)
 
@@ -327,10 +287,35 @@ For every catalog template that bundles a vendor source PDF, this checks whether
 - method_type: `markdown`
 - structured: 0/0 found | free-text: 11/11 found
 
+### `gotaq-probe-qpcr` - GoTaq Probe qPCR (Promega) clean
+
+- method_type: `pcr`
+- structured: 10/10 found | free-text: 20/20 found
+
+### `gotaq-qpcr` - GoTaq qPCR (Promega) clean
+
+- method_type: `pcr`
+- structured: 11/11 found | free-text: 15/15 found
+
 ### `kapa2g-robust` - KAPA2G Robust PCR clean
 
 - method_type: `pcr`
 - structured: 17/17 found | free-text: 12/12 found
+
+### `lcms-intact-protein-ms-thermo-exploris` - Thermo Vanquish + Orbitrap Exploris: intact-protein LC-MS (MS setup) clean
+
+- method_type: `mass_spec`
+- structured: 6/6 found | free-text: 6/6 found
+
+### `lcms-metabolite-ms-thermo-qexactive` - Thermo UltiMate + Q Exactive: HILIC metabolomics LC-MS (MS setup) clean
+
+- method_type: `mass_spec`
+- structured: 7/7 found | free-text: 4/4 found
+
+### `lcms-peptide-ms-thermo-orbitrap` - Thermo EASY-nLC + Q Exactive: peptide LC-MS/MS (MS setup) clean
+
+- method_type: `mass_spec`
+- structured: 7/7 found | free-text: 2/2 found
 
 ### `luna-universal-probe-qpcr` - Luna Universal Probe qPCR (NEB) clean
 
