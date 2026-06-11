@@ -20,11 +20,12 @@ export {
   readTrashedEntity,
   restoreEntity,
   restoreSequenceFromTrash,
+  restoreMoleculeFromTrash,
   permanentlyDelete,
   runAutoCleanupPass,
   sortTrashEntries,
 } from "./trash-reader";
-export { SEQUENCE_GENBANK_FIELD } from "./trash-writer";
+export { SEQUENCE_GENBANK_FIELD, MOLECULE_MOLFILE_FIELD } from "./trash-writer";
 export type { CleanupSummary, TrashSort } from "./trash-reader";
 export {
   migrateLegacyNotesTrashForUser,

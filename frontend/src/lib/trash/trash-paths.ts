@@ -39,6 +39,9 @@ export function trashTypeDirName(entityType: TrashEntityType): string {
       return "mass_spec_protocols";
     case "sequence":
       return "sequences";
+    case "molecule":
+      // chem-trash bot: matches the live store dir `users/<u>/molecules/`.
+      return "molecules";
     case "inventory_item":
       return "inventory_items";
     case "inventory_stock":
@@ -131,6 +134,12 @@ export function liveRecordPath(
       // never read this path as a single JSON record for sequences — they
       // take the sequence-aware branch instead.
       return `users/${username}/sequences/${id}.meta.json`;
+    case "molecule":
+      // chem-trash bot: same two-file shape as sequences. Anchor on the
+      // `.meta.json` sidecar (the file the live library scans). The `.mol`
+      // companion is derived via `moleculeMolfilePathFor`. Molecule ids are
+      // STRING — do not coerce to Number.
+      return `users/${username}/molecules/${id}.meta.json`;
     case "inventory_item":
       return `users/${username}/inventory_items/${id}.json`;
     case "inventory_stock":
@@ -145,4 +154,12 @@ export function liveRecordPath(
  *  writer + reader agree on the pair layout. */
 export function sequenceGenbankPathFor(metaPath: string): string {
   return metaPath.replace(/\.meta\.json$/, ".gb");
+}
+
+/** chem-trash bot (2026-06-11): given a molecule's `.meta.json` live path,
+ *  derive its `.mol` companion (the MDL Molfile source of truth). Centralized
+ *  so the writer + reader agree on the pair layout. Mirrors
+ *  `sequenceGenbankPathFor`. */
+export function moleculeMolfilePathFor(metaPath: string): string {
+  return metaPath.replace(/\.meta\.json$/, ".mol");
 }

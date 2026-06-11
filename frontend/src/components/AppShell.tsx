@@ -10,6 +10,7 @@ import InboxBadge from "./InboxBadge";
 import InboxToast from "./InboxToast";
 import NoteDeleteUndoToast from "./NoteDeleteUndoToast";
 import SequenceDeleteUndoToast from "./SequenceDeleteUndoToast";
+import MoleculeDeleteUndoToast from "./MoleculeDeleteUndoToast";
 import NotificationBadge from "./NotificationBadge";
 import ReminderRunner from "./ReminderRunner";
 import IdlePasswordWipe from "./IdlePasswordWipe";
@@ -687,6 +688,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
        *  soft-deleted sequences (single + bulk), driven by
        *  emitSequenceDeleted. */}
       <SequenceDeleteUndoToast />
+      {/* chem-trash bot (2026-06-11): the same global Undo toast for
+       *  soft-deleted molecules, driven by emitMoleculeDeleted. */}
+      <MoleculeDeleteUndoToast />
       {/* Researcher profile popup (2026-06-05): opens over the current page as
        *  a living, blurred-backdrop popup when a profile is opened from the
        *  avatar menu or a search result, driven by the profile-modal store. */}

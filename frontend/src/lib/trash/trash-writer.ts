@@ -23,6 +23,7 @@ import {
   trashFilePath,
   trashTypeDirPath,
   sequenceGenbankPathFor,
+  moleculeMolfilePathFor,
 } from "./trash-paths";
 import { appendIndexEntry } from "./trash-index";
 import {
@@ -106,6 +107,21 @@ export async function trashEntity<T extends { id: string | number }>(
       // Sequence ids are always numeric (per-user counter). Coerce to keep
       // the two-file paths typed; a string id here is a caller bug.
       id: typeof id === "number" ? id : Number(id),
+      nameForSlug: nameForSlug ?? null,
+      deletedBy,
+      sessionId: sessionId ?? null,
+      parent,
+    })) as TrashedEntity<T> | null;
+  }
+
+  // chem-trash bot: molecules are also a two-file pair (`{id}.mol` +
+  // `{id}.meta.json`). Hand off to the molecule-aware writer, which embeds
+  // the Molfile source INTO the trash `.json` record. Molecule ids are STRING
+  // (do NOT coerce to Number).
+  if (entityType === "molecule") {
+    return (await trashMoleculeEntity({
+      owner,
+      id: String(id),
       nameForSlug: nameForSlug ?? null,
       deletedBy,
       sessionId: sessionId ?? null,
@@ -307,6 +323,129 @@ async function trashSequenceEntity(args: {
   if (!removedMeta) {
     console.warn(
       "[trash-writer] sequence trash file written but live sidecar delete failed; live copy may still be visible",
+    );
+  }
+  return trashed;
+}
+
+/** chem-trash bot (2026-06-11): the MOLECULE-aware trash writer.
+ *
+ *  Molecules are stored as a PAIR — `{id}.mol` (the MDL Molfile source of
+ *  truth, preserves 2D drawing coordinates) + `{id}.meta.json` (the metadata
+ *  sidecar). This is the same shape as sequences (`{id}.gb` + `{id}.meta.json`).
+ *  The generic writer above assumes a single `{id}.json` record, so this branch:
+ *
+ *    1. Reads BOTH live files (sidecar JSON + Molfile text).
+ *    2. Writes ONE trash `.json` record that embeds the Molfile text as a
+ *       `_molecule_molfile` field alongside the sidecar fields + the `_trash`
+ *       block. One file, one index entry — the index / rebuild / cleanup
+ *       machinery is unchanged.
+ *    3. Deletes BOTH live files (sidecar then `.mol`).
+ *
+ *  Restore (`restoreMoleculeFromTrash`) reverses this: splits the embedded
+ *  Molfile back into `{id}.mol` and the stripped sidecar back into
+ *  `{id}.meta.json`. Zero data loss.
+ *
+ *  KEY DIFFERENCE from sequences: molecule ids are STRING (stringified per-user
+ *  counter like "14"), NOT numeric. Never coerce to Number.
+ */
+export const MOLECULE_MOLFILE_FIELD = "_molecule_molfile" as const;
+
+/** The on-disk trash record shape for a molecule: the sidecar fields, the
+ *  embedded Molfile, and the `_trash` block. */
+export interface TrashedMoleculeRecord {
+  id: string;
+  [MOLECULE_MOLFILE_FIELD]: string;
+  // The sidecar fields (name, project_ids, added_at, smiles, inchikey, …)
+  // are spread in alongside these. Kept loose so a forward-compat sidecar
+  // field survives the round-trip untouched.
+  [key: string]: unknown;
+  _trash: TrashFieldBlock;
+}
+
+async function trashMoleculeEntity(args: {
+  owner: string;
+  id: string;
+  nameForSlug: string | null;
+  deletedBy: string;
+  sessionId: string | null;
+  parent?: TrashRestoreMetadata;
+}): Promise<TrashedMoleculeRecord | null> {
+  const { owner, id, nameForSlug, deletedBy, sessionId, parent } = args;
+
+  const metaPath = liveRecordPath(owner, "molecule", id);
+  const molPath = moleculeMolfilePathFor(metaPath);
+
+  // The sidecar is the existence anchor — missing sidecar means nothing to
+  // trash (matches moleculeStore.delete returning hadMeta). The Molfile may
+  // legitimately be empty (a blank scaffold), so default to "".
+  const sidecar = await fileService.readJson<Record<string, unknown>>(metaPath);
+  if (!sidecar) return null;
+  const molfile = (await fileService.readText(molPath)) ?? "";
+
+  const deletedAt = new Date().toISOString();
+  const cleanupDays = await resolveCleanupDays(owner);
+  const autoExpiresAt = computeAutoExpiresAt(deletedAt, cleanupDays);
+
+  const trashBlock: TrashFieldBlock = {
+    deleted_at: deletedAt,
+    deleted_by: deletedBy,
+    auto_expires_at: autoExpiresAt,
+    original_path: metaPath,
+    ...(sessionId ? { deleted_during_session: sessionId } : {}),
+    ...(parent ? { restore_metadata: parent } : {}),
+  };
+
+  const trashed: TrashedMoleculeRecord = {
+    ...(sidecar as Record<string, unknown>),
+    id,
+    [MOLECULE_MOLFILE_FIELD]: molfile,
+    _trash: trashBlock,
+  };
+
+  await fileService.ensureDir(trashTypeDirPath(owner, "molecule"));
+  const slugSource =
+    nameForSlug ??
+    (typeof sidecar.name === "string" ? sidecar.name : null);
+  const onDiskPath = trashFilePath(owner, "molecule", id, slugSource);
+  try {
+    await fileService.writeJson(onDiskPath, trashed);
+  } catch (err) {
+    console.warn("[trash-writer] failed to write molecule trash file", err);
+    return null;
+  }
+
+  try {
+    await appendIndexEntry(owner, {
+      id,
+      entity_type: "molecule",
+      trash_path: onDiskPath.replace(`users/${owner}/`, ""),
+      original_path: metaPath,
+      deleted_at: deletedAt,
+      deleted_by: deletedBy,
+      auto_expires_at: autoExpiresAt,
+      ...(parent?.parent_id !== undefined ? { parent_id: parent.parent_id } : {}),
+      ...(parent?.parent_entity_type
+        ? { parent_entity_type: parent.parent_entity_type }
+        : {}),
+      ...(parent?.parent_trash_path
+        ? { parent_trash_path: parent.parent_trash_path }
+        : {}),
+    });
+  } catch (err) {
+    console.warn(
+      "[trash-writer] appendIndexEntry failed for molecule (non-fatal)",
+      err,
+    );
+  }
+
+  // Remove BOTH live files. Sidecar first (the list anchor) so a torn delete
+  // never leaves a visible-but-orphaned molecule in the library.
+  const removedMeta = await fileService.deleteFile(metaPath);
+  await fileService.deleteFile(molPath);
+  if (!removedMeta) {
+    console.warn(
+      "[trash-writer] molecule trash file written but live sidecar delete failed; live copy may still be visible",
     );
   }
   return trashed;

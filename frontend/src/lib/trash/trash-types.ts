@@ -47,7 +47,16 @@ export type TrashEntityType =
   // inventory box-finder foundation (2026-06-07): the `StorageNode` location
   // tree is a standard single-JSON record at
   // `users/<owner>/storage_nodes/<id>.json`, same soft-delete path.
-  | "storage_node";
+  | "storage_node"
+  // chem-trash bot (2026-06-11): molecules are a TWO-FILE shape on disk
+  // (`{id}.mol` + `{id}.meta.json`), identical structure to sequences.
+  // The trash file embeds the Molfile text inside the `.json` record so the
+  // index / storage / cleanup machinery is unchanged; the write + restore
+  // paths carry molecule-aware branches that read both files and split them
+  // back out. See trash-writer.ts / trash-reader.ts.
+  // Molecule ids are STRING (stringified per-user counter like "14"), NOT
+  // numeric — do NOT coerce to Number. Keep as string throughout.
+  | "molecule";
 
 /** Restore-metadata block on a trashed record. Captures the parent
  *  reference at the time of delete so cascading restore prompts can
@@ -166,6 +175,9 @@ export function displayNameFieldFor(
       return "item_name";
     case "sequence":
       return "display_name";
+    case "molecule":
+      // chem-trash bot: molecules use `name` (not `display_name` like sequences).
+      return "name";
     case "task":
     case "method":
     case "project":

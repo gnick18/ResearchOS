@@ -20,8 +20,9 @@ import {
   trashTypeDirPath,
   liveRecordPath,
   sequenceGenbankPathFor,
+  moleculeMolfilePathFor,
 } from "./trash-paths";
-import { SEQUENCE_GENBANK_FIELD } from "./trash-writer";
+import { SEQUENCE_GENBANK_FIELD, MOLECULE_MOLFILE_FIELD } from "./trash-writer";
 import {
   readOrRebuildTrashIndex,
   readTrashIndex,
@@ -90,6 +91,11 @@ export async function restoreEntity<T extends { id: string | number }>(
   // restore, so route them through the sequence-aware path.
   if (entityType === "sequence") {
     return (await restoreSequenceFromTrash(username, id, restoredBy)) as T | null;
+  }
+  // chem-trash bot: molecules are also a two-file pair, route through the
+  // molecule-aware path. Molecule ids are STRING — no coercion.
+  if (entityType === "molecule") {
+    return (await restoreMoleculeFromTrash(username, String(id), restoredBy)) as T | null;
   }
   const index = await readOrRebuildTrashIndex(username);
   const entry = index.entries.find(
@@ -210,6 +216,81 @@ export async function restoreSequenceFromTrash(
   }
   await fileService.deleteFile(trashFullPath).catch(() => false);
   await removeIndexEntry(username, "sequence", id);
+  return sidecar;
+}
+
+/** chem-trash bot (2026-06-11): restore a trashed MOLECULE back to its
+ *  two-file pair. Mirrors `restoreSequenceFromTrash` exactly, substituting
+ *  the `.mol` Molfile for the `.gb` GenBank.
+ *
+ *  Zero data loss: the Molfile is written verbatim (the exact string that was
+ *  read on trash), and every sidecar field round-trips untouched. The
+ *  `_molecule_molfile` + `_trash` blocks are the ONLY added fields, both
+ *  stripped here before the sidecar is written back.
+ *
+ *  Molecule ids are STRING — do not coerce to Number.
+ *
+ *  Returns the restored sidecar record (so the caller can re-register it in
+ *  the live list), or null when the trash entry / file is missing. */
+export async function restoreMoleculeFromTrash(
+  username: string,
+  id: string,
+  restoredBy?: string,
+): Promise<Record<string, unknown> | null> {
+  const index = await readOrRebuildTrashIndex(username);
+  const entry = index.entries.find(
+    (e) => e.entity_type === "molecule" && e.id === id,
+  );
+  if (!entry) return null;
+  const trashFullPath = `users/${username}/${entry.trash_path}`;
+  const trashed = await fileService.readJson<
+    Record<string, unknown> & { _trash?: TrashedEntity<unknown>["_trash"] }
+  >(trashFullPath);
+  if (!trashed) {
+    await removeIndexEntry(username, "molecule", id);
+    return null;
+  }
+  const trashBlock = trashed._trash;
+
+  // The `.meta.json` path is the index `original_path`; the `.mol` companion
+  // is derived from it. Both live under `users/<owner>/molecules/`.
+  const metaPath = entry.original_path;
+  const molPath = moleculeMolfilePathFor(metaPath);
+
+  // Pull the embedded Molfile out, then strip both the embed + the `_trash`
+  // block so what lands in `.meta.json` is the original sidecar exactly.
+  const molfile =
+    typeof trashed[MOLECULE_MOLFILE_FIELD] === "string"
+      ? (trashed[MOLECULE_MOLFILE_FIELD] as string)
+      : "";
+  const sidecar = { ...trashed };
+  delete sidecar[MOLECULE_MOLFILE_FIELD];
+  delete sidecar._trash;
+
+  // Rename the molecule's `name` on a live collision, then stamp the
+  // deleted/restored audit into the sidecar. The `.mol` source is never
+  // touched, so the Molfile stays byte-faithful.
+  await disambiguateName(username, "molecule", id, sidecar, "name");
+  if (trashBlock) {
+    stampRestoreAudit(sidecar, trashBlock, restoredBy ?? username);
+  }
+
+  const parentDir = metaPath.slice(0, metaPath.lastIndexOf("/"));
+  await fileService.ensureDir(parentDir);
+  try {
+    // Write the Molfile source FIRST (matches moleculeStore.create's ordering
+    // so a torn restore never surfaces a sidecar without its `.mol`).
+    await fileService.writeText(molPath, molfile);
+    await fileService.writeJson(metaPath, sidecar);
+  } catch (err) {
+    console.warn(
+      "[trash-reader] restoreMoleculeFromTrash: writing live pair failed",
+      err,
+    );
+    return null;
+  }
+  await fileService.deleteFile(trashFullPath).catch(() => false);
+  await removeIndexEntry(username, "molecule", id);
   return sidecar;
 }
 
@@ -391,13 +472,13 @@ async function collectLiveNames(
   } catch {
     return names;
   }
-  const isSequence = entityType === "sequence";
-  // For sequences the sidecar is `{id}.meta.json`; the restored record's own
-  // file is `{selfId}.meta.json`. For other types it is `{selfId}.json`.
-  const selfFile = isSequence ? `${selfId}.meta.json` : `${selfId}.json`;
+  const isTwoFilePair = entityType === "sequence" || entityType === "molecule";
+  // For two-file-pair entities (sequence, molecule) the sidecar is
+  // `{id}.meta.json`; for single-JSON entities it is `{id}.json`.
+  const selfFile = isTwoFilePair ? `${selfId}.meta.json` : `${selfId}.json`;
   for (const file of files) {
     if (file === selfFile) continue;
-    if (isSequence) {
+    if (isTwoFilePair) {
       if (!file.endsWith(".meta.json")) continue;
     } else if (!file.endsWith(".json")) {
       continue;

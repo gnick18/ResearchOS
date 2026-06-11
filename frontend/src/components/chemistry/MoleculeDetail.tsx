@@ -12,6 +12,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import { moleculesApi, type Molecule } from "@/lib/chemistry/api";
+import { emitMoleculeDeleted } from "@/lib/chemistry/delete-toast-bus";
 import { computeIdentity, lipinski, type MoleculeIdentity } from "@/lib/chemistry/rdkit";
 import { referenceClipboardText } from "@/lib/copy-reference";
 import { MoleculeThumbnail } from "./MoleculeThumbnail";
@@ -110,8 +111,17 @@ export function MoleculeDetail({
   const handleDelete = async () => {
     setBusy(true);
     try {
-      await moleculesApi.remove(molecule.id);
+      const ok = await moleculesApi.remove(molecule.id);
       await invalidate();
+      if (ok) {
+        emitMoleculeDeleted({
+          ids: [molecule.id],
+          label: `"${molecule.name}"`,
+          onRestored: () => {
+            void invalidate();
+          },
+        });
+      }
       onDeleted();
     } catch {
       setBusy(false);

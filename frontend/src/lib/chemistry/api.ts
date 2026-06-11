@@ -22,6 +22,7 @@
 import { moleculeStore } from "./molecule-store";
 import { getCurrentUserCached } from "../storage/json-store";
 import { computeIdentity } from "./rdkit";
+import { trashEntity, restoreMoleculeFromTrash } from "../trash";
 
 /** Provenance of a stored molecule, shown as a chip in the library. */
 export type MoleculeSource = "drawn" | "imported" | "pubchem";
@@ -157,10 +158,38 @@ export async function update(
   return moleculeStore.updateMeta(id, metaPatch, username);
 }
 
-/** Delete a molecule (both files). Returns true if it existed. */
+/** Soft-delete a molecule into the recoverable trash. chem-trash bot
+ *  (2026-06-11): this moves BOTH `{id}.mol` + `{id}.meta.json` into
+ *  `_trash/molecules/` (the Molfile embedded inside the trash record) and
+ *  records one index entry. It does NOT hard-delete — recovery is via
+ *  `moleculesApi.restore` (Undo toast) or the /trash page. The hard
+ *  `moleculeStore.delete` survives ONLY as the trash-expiry purge primitive.
+ *  Returns true when a molecule was trashed. */
 export async function remove(id: string): Promise<boolean> {
   const username = await getCurrentUserCached();
-  return moleculeStore.delete(id, username);
+  const trashed = await trashEntity({
+    owner: username,
+    entityType: "molecule",
+    id,
+    deletedBy: username,
+  });
+  return trashed != null;
+}
+
+/** Inverse of `remove`. Restores both files of a trashed molecule back to
+ *  the live library and returns the restored sidecar record (or null when
+ *  the trash entry was missing). Callers expose this via the Undo toast and
+ *  the /trash page Restore button. */
+export async function restore(
+  id: string,
+  owner?: string,
+): Promise<MoleculeMeta | null> {
+  const username = owner ?? (await getCurrentUserCached());
+  const restoredBy = await getCurrentUserCached();
+  const sidecar = await restoreMoleculeFromTrash(username, id, restoredBy);
+  if (!sidecar) return null;
+  // The sidecar is the live MoleculeMeta object (all fields round-trip).
+  return sidecar as unknown as MoleculeMeta;
 }
 
 /** Namespaced handle to mirror the other `*Api` modules in the codebase. */
@@ -171,4 +200,5 @@ export const moleculesApi = {
   create,
   update,
   remove,
+  restore,
 };

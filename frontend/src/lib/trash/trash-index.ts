@@ -50,6 +50,9 @@ const ALL_ENTITY_TYPES: TrashEntityType[] = [
   // sequence files vs N index entries and rebuild the index WITHOUT the
   // sequence rows — a silent loss of the trashed-sequence index entries.
   "sequence",
+  // chem-trash bot (2026-06-11): molecules land in `_trash/molecules/` as a
+  // single embedded `.json` record (Molfile inside), same as sequences above.
+  "molecule",
 ];
 
 /** Read the index from disk. Returns an empty index when the file is
