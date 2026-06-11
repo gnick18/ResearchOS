@@ -155,6 +155,8 @@ import {
   DEFAULT_VIEW_STATE,
   isFeatureVisible,
   COMMON_ENZYMES,
+  loadDisplayPrefs,
+  saveDisplayPrefs,
   type SequenceViewState,
 } from "./sequence-view-state";
 import SequenceZoomControl from "./SequenceZoomControl";
@@ -664,6 +666,7 @@ export default function SequenceEditView({
   collectionSequences = EMPTY_COLLECTION_SEQUENCES,
   collectionLabel,
   onOpenSequence,
+  onDirtyChange,
 }: {
   sequence: SequenceDetail;
   /** persist the current GenBank; resolves true on success. Unused when readOnly. */
@@ -716,9 +719,31 @@ export default function SequenceEditView({
   /** Switch the editor to another sequence by id (the page's setSelectedId).
    *  Wires the "Jump to a sequence" rows. Absent => those rows self-hide. */
   onOpenSequence?: (id: number) => void;
+  /** Notify the parent when the unsaved-edits flag changes, so it can guard a
+   *  sequence switch. Absent in read-only / embedded surfaces. */
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const editor = useSequenceEditor(sequence);
   const { doc, annotations: docAnnotations, applyEdit, undo, redo, canUndo, canRedo, dirty } = editor;
+
+  // Unsaved-edits safety net. The editor is explicit-save with no autosave, so
+  // a refresh / tab close with pending edits would silently lose them. Warn the
+  // browser while dirty (covers reload, close, and full-page navigation), and
+  // surface the dirty flag to the parent so it can confirm a sequence switch.
+  // SPA navigation to other in-app routes is not covered here (App Router has no
+  // stable route-guard hook); the per-sequence switch guard lives in the page.
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+  useEffect(() => {
+    if (readOnly || !dirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty, readOnly]);
 
   // seq history bot — the signed-in user is the actor credited on a recorded
   // version + the owner folder the history file lives under (the /sequences route
@@ -778,9 +803,22 @@ export default function SequenceEditView({
   // initialShowEnzymes (additive) starts the cut-site layer ON for embeds where
   // the cut sites are the point (restriction / Golden Gate). Default off keeps
   // the standalone editor's calm-by-default behavior.
-  const [view, setView] = useState<SequenceViewState>(
-    initialShowEnzymes ? { ...DEFAULT_VIEW_STATE, showEnzymes: true } : DEFAULT_VIEW_STATE,
-  );
+  // The standalone workbench remembers the display-layer toggles + wrap mode
+  // across sequences and reloads (loadDisplayPrefs). Embedded / read-only
+  // surfaces (the Cloning preview) always open in the calm default so a saved
+  // preference does not leak into them. The lazy initializer seeds straight from
+  // the persisted subset, so the persist effect below never writes the default
+  // over the saved value on mount (the list-width clobber lesson).
+  const persistPrefs = !embedded && !readOnly;
+  const [view, setView] = useState<SequenceViewState>(() => {
+    const base = initialShowEnzymes
+      ? { ...DEFAULT_VIEW_STATE, showEnzymes: true }
+      : DEFAULT_VIEW_STATE;
+    return persistPrefs ? { ...base, ...loadDisplayPrefs() } : base;
+  });
+  useEffect(() => {
+    if (persistPrefs) saveDisplayPrefs(view);
+  }, [persistPrefs, view]);
   // seq nav bot — the SnapGene BOTTOM-TAB view switcher. `viewMode` is the
   // primary "which view" state (Map / Sequence / Features / Primers /
   // History). Restriction enzymes are a display LAYER, not a tab. The Map +

@@ -64,6 +64,77 @@ export const DEFAULT_VIEW_STATE: SequenceViewState = {
   wrapSequence: true,
 };
 
+// ── Sticky display preferences ───────────────────────────────────────────────
+// The display LAYER toggles + wrap mode are a "how I like to read sequences"
+// preference, so they persist across sequence switches and reloads instead of
+// snapping back to the calm default every time. We deliberately do NOT persist
+// the per-sequence bits: hiddenTypes / hiddenFeatures are keyed to one
+// sequence's features, forceLinear is a per-molecule topology override, and the
+// zoom levels are length-dependent (a zoom tuned for a 1 kb plasmid is wrong for
+// a 200 kb one). Those stay per-sequence and reset on switch.
+
+const DISPLAY_PREFS_KEY = "researchos:sequences:displayPrefs";
+
+/** The subset of the view state that is remembered across sequences + reloads. */
+export type PersistedDisplayPrefs = Pick<
+  SequenceViewState,
+  | "showFeatures"
+  | "showEnzymes"
+  | "showTranslation"
+  | "showOrfs"
+  | "showIndex"
+  | "showPrimers"
+  | "wrapSequence"
+>;
+
+const PERSISTED_PREF_KEYS: Array<keyof PersistedDisplayPrefs> = [
+  "showFeatures",
+  "showEnzymes",
+  "showTranslation",
+  "showOrfs",
+  "showIndex",
+  "showPrimers",
+  "wrapSequence",
+];
+
+/** Read the remembered display preferences. Returns a partial (only the keys
+ *  that were stored as booleans), so a caller merges it over DEFAULT_VIEW_STATE.
+ *  Safe on the server and in private mode (returns {}). */
+export function loadDisplayPrefs(): Partial<PersistedDisplayPrefs> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(DISPLAY_PREFS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const out: Partial<PersistedDisplayPrefs> = {};
+    for (const k of PERSISTED_PREF_KEYS) {
+      if (typeof parsed[k] === "boolean") out[k] = parsed[k] as boolean;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/** Persist just the remembered subset of the current view state. */
+export function saveDisplayPrefs(view: SequenceViewState): void {
+  if (typeof window === "undefined") return;
+  try {
+    const subset: PersistedDisplayPrefs = {
+      showFeatures: view.showFeatures,
+      showEnzymes: view.showEnzymes,
+      showTranslation: view.showTranslation,
+      showOrfs: view.showOrfs,
+      showIndex: view.showIndex,
+      showPrimers: view.showPrimers,
+      wrapSequence: view.wrapSequence,
+    };
+    window.localStorage.setItem(DISPLAY_PREFS_KEY, JSON.stringify(subset));
+  } catch {
+    /* private mode / quota — non-fatal, prefs just will not persist */
+  }
+}
+
 /** A small, common enzyme set surfaced by the simple "Show cut sites" toggle.
  *  The full enzyme picker/filters/saved-sets is Phase 2d; this is just the
  *  view-control on/off lever the brief asks for. These names match the bundled

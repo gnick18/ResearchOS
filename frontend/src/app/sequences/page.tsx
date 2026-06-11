@@ -315,6 +315,9 @@ export default function SequencesPage() {
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  // Whether the open editor has unsaved edits. Lifted from SequenceEditView so a
+  // user-initiated switch to another sequence can confirm before discarding.
+  const [editorDirty, setEditorDirty] = useState(false);
   // seq delete trash bot: ids checked for bulk delete. A non-empty set shows
   // the selection action bar; deleting routes each through the recoverable
   // trash with one shared Undo toast.
@@ -544,6 +547,26 @@ export default function SequencesPage() {
       }
     }
   }, [sorted, selectedId]);
+
+  // A user-initiated switch to a different library row. Confirms before
+  // discarding unsaved edits in the open sequence (the editor is explicit-save).
+  // Programmatic selection (deep links, post-create, post-delete) does not route
+  // through here, so those are never gated.
+  const selectSequenceFromList = useCallback(
+    (id: number) => {
+      if (id === selectedId) return;
+      if (
+        editorDirty &&
+        !window.confirm(
+          "You have unsaved changes in the current sequence. Discard them and switch?",
+        )
+      ) {
+        return;
+      }
+      setSelectedId(id);
+    },
+    [editorDirty, selectedId],
+  );
 
   // seq delete trash bot: keep the bulk selection consistent — drop any
   // checked id that has left the live data set (deleted, or no longer exists).
@@ -1449,14 +1472,32 @@ export default function SequencesPage() {
           + sequence views recolor via the --seq-* CSS vars (globals.css) and its
           chrome via semantic tokens. light-scope is no longer applied here; it
           stays available as a per-subsurface safety valve if any piece misbehaves. */}
+      {/* The split editor needs real horizontal room AND the File System Access
+          API, neither of which a phone offers, so below md we show a calm notice
+          instead of the broken, horizontally-overflowing split layout. */}
+      <div className="flex h-full min-h-0 items-center justify-center px-6 pb-4 text-center md:hidden">
+        <div className="max-w-sm">
+          <h2 className="mb-2 text-title font-bold text-foreground">
+            Open the sequence editor on a desktop
+          </h2>
+          <p className="text-body text-foreground-muted">
+            The sequence workbench needs a wide screen, and it reads your
+            sequences straight from your data folder through a browser API that
+            phones do not support. Open ResearchOS in Chrome or Edge on a
+            computer to view and edit sequences.
+          </p>
+        </div>
+      </div>
       <div
         ref={splitContainerRef}
         /* Fill the AppShell `main` area (which already subtracts the header)
          * instead of a hardcoded `100vh - 7rem`, which undershot and left a
          * dead ~60px bar at the bottom of the editor. `h-full min-h-0` lets the
          * library + viewer run all the way down; `pb-4` keeps the same 1rem
-         * frame as the side padding so the rounded panels aren't flush. */
-        className="relative flex h-full min-h-0 px-4 pb-4"
+         * frame as the side padding so the rounded panels aren't flush.
+         * Hidden below md (phone width) where the split cannot lay out; the
+         * mobile notice above takes over there. */
+        className="relative hidden h-full min-h-0 px-4 pb-4 md:flex"
       >
         {/* Focus re-open handle. Focus mode now lives in the (collapsing)
             sidebar header, so this thin pill on the left edge is the visible way
@@ -1915,7 +1956,7 @@ export default function SequencesPage() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => setSelectedId(s.id)}
+                      onClick={() => selectSequenceFromList(s.id)}
                       className="flex min-w-0 flex-1 items-center gap-2 py-2 pl-1 text-left"
                     >
                       <MoleculeIcon
@@ -2057,6 +2098,7 @@ export default function SequencesPage() {
                   collectionSequences={collectionSiblings}
                   collectionLabel={collectionLabel}
                   onOpenSequence={setSelectedId}
+                  onDirtyChange={setEditorDirty}
                 />
               </div>
             </>
