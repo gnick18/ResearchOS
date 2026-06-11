@@ -612,8 +612,8 @@ export default function WelcomePage() {
                   Fellowship-backed
                 </h3>
                 <p className="mt-1 text-body leading-snug text-[#475569]">
-                  Funded by a UW-Madison fellowship, so it stays free for every
-                  lab.
+                  Funded by a UW Distinguished Research Fellowship at UW-Madison,
+                  so it stays free for every lab.
                 </p>
               </div>
 
@@ -805,7 +805,7 @@ export default function WelcomePage() {
                 </li>
                 <li className="flex items-start gap-2.5 text-body leading-snug text-[#0f1b2e]">
                   <CheckGlyph />
-                  Free, funded by a university fellowship, with no per-seat fees.
+                  Free, funded by a UW Distinguished Research Fellowship, with no per-seat fees.
                 </li>
               </ul>
             </div>
@@ -1191,7 +1191,7 @@ export default function WelcomePage() {
               </a>
             </div>
             <p className="mt-4 text-meta text-[#94a3b8]">
-              Free and open, funded by a university fellowship and donations.
+              Free and open, funded by a UW Distinguished Research Fellowship and donations.
             </p>
           </div>
         </section>
