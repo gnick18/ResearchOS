@@ -52,10 +52,25 @@ if (
         "env var to the deployed relay URL.",
     );
   }
-  console.warn(
-    "[loro/config] NEXT_PUBLIC_COLLAB_RELAY_URL is unset; defaulting collab " +
-      `relay to ${COLLAB_RELAY_URL_DEFAULT} (local dev). Set it for staging/prod.`,
-  );
+  // Warn once, in the browser, AFTER the render/module-eval phase. The bare
+  // module-level console.warn fired dozens of times per page, not from
+  // re-evaluation (the module evaluates once per realm) but because Next dev
+  // captures console calls made during render and replays each one many times.
+  // Deferring with setTimeout moves the call out of that capture window, and the
+  // window flag dedupes it to a single line per page load. Server-side evals are
+  // skipped entirely (no window), so nothing is forwarded.
+  if (typeof window !== "undefined") {
+    const w = window as Window & { __loroRelayWarned?: boolean };
+    if (!w.__loroRelayWarned) {
+      w.__loroRelayWarned = true;
+      setTimeout(() => {
+        console.warn(
+          "[loro/config] NEXT_PUBLIC_COLLAB_RELAY_URL is unset; defaulting " +
+            `collab relay to ${COLLAB_RELAY_URL_DEFAULT} (local dev). Set it for staging/prod.`,
+        );
+      }, 0);
+    }
+  }
 }
 
 /**
