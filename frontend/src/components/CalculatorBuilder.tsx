@@ -986,28 +986,83 @@ export function CalculatorEditView({
         <SectionTitle>Outputs</SectionTitle>
         {draft.outputs.map((out, i) => (
           <RowShell key={i} onRemove={() => removeOutput(i)} removeLabel="Remove output">
-            <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr_auto] gap-2">
-              <input
-                value={out.label}
-                onChange={(e) => updateOutput(i, { label: e.target.value })}
-                placeholder="Label"
-                aria-label="Output label"
-                className={inputCls}
-              />
-              <input
-                value={out.expr}
-                onChange={(e) => updateOutput(i, { expr: e.target.value })}
-                placeholder="expression"
-                aria-label="Output expression"
-                className={inputCls + " font-mono"}
-              />
-              <input
-                value={out.unit ?? ""}
-                onChange={(e) => updateOutput(i, { unit: e.target.value || undefined })}
-                placeholder="Unit"
-                aria-label="Output unit"
-                className={inputCls + " sm:w-24"}
-              />
+            <div className="space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_2fr_auto] gap-2">
+                <input
+                  value={out.label}
+                  onChange={(e) => updateOutput(i, { label: e.target.value })}
+                  placeholder="Label"
+                  aria-label="Output label"
+                  className={inputCls}
+                />
+                <input
+                  value={out.expr}
+                  onChange={(e) => updateOutput(i, { expr: e.target.value })}
+                  placeholder="expression"
+                  aria-label="Output expression"
+                  className={inputCls + " font-mono"}
+                />
+                <input
+                  value={out.unit ?? ""}
+                  onChange={(e) => updateOutput(i, { unit: e.target.value || undefined })}
+                  placeholder="Unit"
+                  aria-label="Output unit"
+                  className={inputCls + " sm:w-24"}
+                />
+              </div>
+              {/* Number format. Auto keeps the clean default; Scientific reads a
+                  large value as 2.5e8; Fixed pins the decimal count. */}
+              <div className="flex items-center gap-2">
+                <span className="text-meta text-foreground-muted">Format</span>
+                <select
+                  value={out.format ?? "auto"}
+                  onChange={(e) => {
+                    const fmt = e.target.value as
+                      | "auto"
+                      | "scientific"
+                      | "fixed";
+                    updateOutput(
+                      i,
+                      fmt === "auto"
+                        ? { format: undefined, decimals: undefined }
+                        : { format: fmt },
+                    );
+                  }}
+                  className={selectCls}
+                  aria-label="Output number format"
+                >
+                  <option value="auto">Auto</option>
+                  <option value="scientific">Scientific</option>
+                  <option value="fixed">Fixed</option>
+                </select>
+                {(out.format === "scientific" || out.format === "fixed") && (
+                  <label className="flex items-center gap-1 text-meta text-foreground-muted">
+                    Decimals
+                    <input
+                      type="number"
+                      min={0}
+                      max={20}
+                      value={out.decimals ?? 2}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === "") {
+                          updateOutput(i, { decimals: undefined });
+                          return;
+                        }
+                        const n = Math.min(
+                          20,
+                          Math.max(0, Math.trunc(Number(raw))),
+                        );
+                        updateOutput(i, {
+                          decimals: Number.isFinite(n) ? n : undefined,
+                        });
+                      }}
+                      aria-label="Output decimal places"
+                      className={inputCls + " w-16"}
+                    />
+                  </label>
+                )}
+              </div>
             </div>
           </RowShell>
         ))}
