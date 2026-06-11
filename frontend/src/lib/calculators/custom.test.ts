@@ -203,6 +203,141 @@ describe("steps, conditionals, defaults, failure", () => {
   });
 });
 
+describe("table input (Phase 5)", () => {
+  // A table with a `perRxn` input column, a `totalUL = perRxn * n` computed
+  // column, a `reactions` scalar + `n` step, and an aggregate output. Column
+  // and step keys avoid the engine reserved names (n is fine, total* is not a
+  // built-in).
+  function tableCalc(): CustomCalculator {
+    return {
+      id: 1,
+      name: "mix",
+      description: "",
+      inputs: [
+        { key: "reactions", type: "number", label: "Reactions", default: 10 },
+        {
+          key: "reagents",
+          type: "table",
+          label: "Reagents",
+          columns: [
+            { key: "name", label: "Reagent", kind: "input" },
+            { key: "perRxn", label: "Per rxn", kind: "input", unit: "uL" },
+            { key: "totalUL", label: "Total", kind: "computed", unit: "uL", expr: "perRxn * n" },
+          ],
+        },
+      ],
+      steps: [{ key: "n", expr: "reactions" }],
+      conditionals: [],
+      outputs: [{ label: "Total volume", expr: "sum(col(reagents, \"totalUL\"))", unit: "uL" }],
+      shared_with: [],
+      created_at: "2026-06-10T00:00:00.000Z",
+      updated_at: "2026-06-10T00:00:00.000Z",
+    };
+  }
+
+  it("evaluates a per-row computed column against the scalar scope", () => {
+    const calc = tableCalc();
+    const r = run(calc, {
+      reactions: 5,
+      reagents: [
+        { name: "Buffer", perRxn: 2 },
+        { name: "dNTP", perRxn: 0.5 },
+      ],
+    });
+    // totalUL = perRxn * n, n = reactions = 5. Output = 2*5 + 0.5*5 = 12.5.
+    near(r.outputs[0].value, 12.5);
+  });
+
+  it("col() extracts a column as a numeric list for aggregation", () => {
+    const calc: CustomCalculator = {
+      id: 2,
+      name: "c",
+      description: "",
+      inputs: [
+        {
+          key: "grid",
+          type: "table",
+          label: "Grid",
+          columns: [{ key: "val", label: "val", kind: "input" }],
+        },
+      ],
+      steps: [],
+      conditionals: [],
+      outputs: [
+        { label: "sum", expr: "sum(col(grid, \"val\"))" },
+        { label: "mean", expr: "mean(col(grid, \"val\"))" },
+        { label: "count", expr: "count(col(grid, \"val\"))" },
+      ],
+      shared_with: [],
+      created_at: "2026-06-10T00:00:00.000Z",
+      updated_at: "2026-06-10T00:00:00.000Z",
+    };
+    const r = run(calc, { grid: [{ val: 3 }, { val: 6 }, { val: 9 }] });
+    near(r.outputs[0].value, 18);
+    near(r.outputs[1].value, 6);
+    near(r.outputs[2].value, 3);
+  });
+
+  it("aggregates over seed rows when no values are supplied", () => {
+    const calc = tableCalc();
+    calc.inputs[1].rows = [
+      { name: "Buffer", perRxn: 2 },
+      { name: "Primer F", perRxn: 1 },
+    ];
+    // reactions default = 10 -> n = 10. Output = 2*10 + 1*10 = 30.
+    const r = run(calc, {});
+    near(r.outputs[0].value, 30);
+  });
+
+  it("a non-numeric cell drops out of col() rather than poisoning the sum", () => {
+    const calc: CustomCalculator = {
+      id: 3,
+      name: "c",
+      description: "",
+      inputs: [
+        {
+          key: "grid",
+          type: "table",
+          label: "Grid",
+          columns: [{ key: "val", label: "val", kind: "input" }],
+        },
+      ],
+      steps: [],
+      conditionals: [],
+      outputs: [{ label: "sum", expr: "sum(col(grid, \"val\"))" }],
+      shared_with: [],
+      created_at: "2026-06-10T00:00:00.000Z",
+      updated_at: "2026-06-10T00:00:00.000Z",
+    };
+    const r = run(calc, { grid: [{ val: 4 }, { val: "" }, { val: 6 }] });
+    near(r.outputs[0].value, 10);
+  });
+
+  it("col() on a missing table or key yields an empty list, never throws", () => {
+    const calc: CustomCalculator = {
+      id: 4,
+      name: "c",
+      description: "",
+      inputs: [
+        {
+          key: "grid",
+          type: "table",
+          label: "Grid",
+          columns: [{ key: "val", label: "val", kind: "input" }],
+        },
+      ],
+      steps: [],
+      conditionals: [],
+      outputs: [{ label: "count", expr: "count(col(grid, \"missing\"))" }],
+      shared_with: [],
+      created_at: "2026-06-10T00:00:00.000Z",
+      updated_at: "2026-06-10T00:00:00.000Z",
+    };
+    const r = run(calc, { grid: [{ val: 1 }] });
+    near(r.outputs[0].value, 0);
+  });
+});
+
 describe("formatCalcValue", () => {
   it("renders integers verbatim, trims float noise, dashes non-finite", () => {
     expect(formatCalcValue(19000000)).toBe("19000000");

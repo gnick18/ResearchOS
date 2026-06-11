@@ -117,6 +117,26 @@ function sumproduct(a: unknown, b: unknown): number {
   return s;
 }
 
+/** Extract one column of a `table` input value as a numeric list, so a step or
+ *  output can aggregate it (e.g. `sum(col(reagents, "totalUL"))`). The first
+ *  argument is the table value (an array of row objects, as bound into the
+ *  scope by `buildScope`), the second is the column key. Non-array tables, a
+ *  missing key, and non-numeric cells degrade to an empty / shorter list rather
+ *  than throwing, matching the engine's NaN-not-crash contract. */
+function col(table: unknown, key: unknown): number[] {
+  if (!Array.isArray(table)) return [];
+  const k = String(key);
+  const out: number[] = [];
+  for (const row of table) {
+    if (row && typeof row === "object") {
+      const cell = (row as Record<string, unknown>)[k];
+      const n = typeof cell === "number" ? cell : Number(cell);
+      if (Number.isFinite(n)) out.push(n);
+    }
+  }
+  return out;
+}
+
 /** Ordinary-least-squares fit of ys on xs. Returns { slope, intercept }. */
 function ols(xsRaw: unknown, ysRaw: unknown): { slope: number; intercept: number } {
   const xs = toNumbers([xsRaw]);
@@ -174,6 +194,7 @@ function makeCustomParser(): Parser {
     sumproduct: (a: unknown, b: unknown) => sumproduct(a, b),
     linfit_slope: (xs: unknown, ys: unknown) => ols(xs, ys).slope,
     linfit_intercept: (xs: unknown, ys: unknown) => ols(xs, ys).intercept,
+    col: (table: unknown, key: unknown) => col(table, key),
   };
   return parser;
 }
@@ -209,21 +230,101 @@ export interface CustomCalcResult {
   messages: string[];
 }
 
+/** One row of a `table` input value, keyed by column key. A cell is a number
+ *  or a descriptive string; `computed` columns are derived during evaluation
+ *  and need not be present here. */
+export type CustomCalcTableRow = Record<string, number | string>;
+
 /** A map from input `key` to the value the user supplied. A `replicate` input
  *  is a number array; a `number` is a number; a `dropdown` is the selected
- *  option value (number or string). */
-export type CustomCalcInputValues = Record<string, number | number[] | string>;
+ *  option value (number or string); a `table` is an array of row objects. */
+export type CustomCalcInputValues = Record<
+  string,
+  number | number[] | string | CustomCalcTableRow[]
+>;
+
+/** A value bound into the evaluation scope. A `table` input is bound as an
+ *  array of row objects (each cell a number or string), which the `col` helper
+ *  reads; the scalar inputs / steps stay numbers, strings, or number arrays. */
+type ScopeValue =
+  | number
+  | number[]
+  | string
+  | Record<string, number | string>[];
+
+/** Bind one `table` input's INPUT columns into an array of row objects. Each
+ *  row carries its user-filled `input` cells (coerced to number where they
+ *  parse, else kept as the raw string for descriptive columns). Computed
+ *  columns are NOT derived here; they are filled in by `deriveTableColumns`
+ *  after the calculator's steps run, so a computed column can reference both
+ *  scalar inputs AND step results. A blank cell binds as NaN. */
+function bindTableRows(
+  input: CustomCalculator["inputs"][number],
+  supplied: unknown,
+): Record<string, number | string>[] {
+  const inputCols = (input.columns ?? []).filter((c) => c.kind === "input");
+  const sourceRows: Record<string, unknown>[] = Array.isArray(supplied)
+    ? (supplied as Record<string, unknown>[])
+    : Array.isArray(input.rows)
+      ? (input.rows as Record<string, unknown>[])
+      : [];
+
+  return sourceRows.map((raw) => {
+    const row: Record<string, number | string> = {};
+    for (const c of inputCols) {
+      const cell = raw?.[c.key];
+      if (typeof cell === "number") {
+        row[c.key] = cell;
+      } else if (cell !== undefined && cell !== null && cell !== "") {
+        const n = Number(cell);
+        row[c.key] = Number.isFinite(n) ? n : String(cell);
+      } else {
+        row[c.key] = NaN;
+      }
+    }
+    return row;
+  });
+}
+
+/** Derive each `table` input's `computed` columns in place, per row, against
+ *  that row's input cells overlaid on the (now step-complete) scope. Run after
+ *  steps so a per-row formula can reference scalar inputs AND step results; a
+ *  bad cell degrades to NaN. */
+function deriveTableColumns(
+  calc: CustomCalculator,
+  scope: Record<string, ScopeValue>,
+): void {
+  for (const input of calc.inputs) {
+    if (input.type !== "table") continue;
+    const computedCols = (input.columns ?? []).filter(
+      (c) => c.kind === "computed",
+    );
+    if (computedCols.length === 0) continue;
+    const rows = scope[input.key];
+    if (!Array.isArray(rows)) continue;
+    for (const row of rows as Record<string, number | string>[]) {
+      for (const c of computedCols) {
+        const rowScope: Record<string, unknown> = { ...scope, ...row };
+        const result = evalExpr(c.expr ?? "", rowScope);
+        row[c.key] = typeof result === "number" ? result : NaN;
+      }
+    }
+  }
+}
 
 /** Coerce raw input values into the evaluation scope, applying each input's
  *  declared default when the supplied value is missing / blank. A `replicate`
  *  input always becomes an array (empty -> []); a `dropdown` falls back to its
- *  first option's value. */
+ *  first option's value; a `table` binds its INPUT columns as an array of row
+ *  objects (computed columns are derived later, after steps). */
 function buildScope(
   calc: CustomCalculator,
   values: CustomCalcInputValues,
-): Record<string, number | number[] | string> {
-  const scope: Record<string, number | number[] | string> = {};
+): Record<string, ScopeValue> {
+  const scope: Record<string, ScopeValue> = {};
+  // Pass 1: scalar inputs (number / replicate / dropdown).
   for (const input of calc.inputs) {
+    if (input.type === "table") continue;
     const supplied = values[input.key];
     if (input.type === "replicate") {
       if (Array.isArray(supplied)) {
@@ -256,6 +357,11 @@ function buildScope(
         scope[input.key] = NaN;
       }
     }
+  }
+  // Pass 2: bind table input columns (computed columns derived after steps).
+  for (const input of calc.inputs) {
+    if (input.type !== "table") continue;
+    scope[input.key] = bindTableRows(input, values[input.key]);
   }
   return scope;
 }
@@ -298,6 +404,10 @@ export function evaluateCustomCalculator(
         ? (result as number | string)
         : NaN;
   }
+
+  // Derive table computed columns now that scalar inputs AND steps are bound,
+  // so a per-row formula can reference either.
+  deriveTableColumns(calc, scope);
 
   const messages: string[] = [];
   for (const cond of calc.conditionals) {

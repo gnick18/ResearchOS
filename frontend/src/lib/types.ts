@@ -3375,17 +3375,41 @@ export interface CustomCalculatorDropdownOption {
   value: number | string;
 }
 
+/** One column of a `table` input (Phase 5, 2026-06-10).
+ *  - `input`     the user types a value into this cell per row.
+ *  - `computed`  the cell is derived per ROW from `expr`, evaluated against
+ *                that row's input-column values plus the calculator's scalar
+ *                inputs / steps. `expr` is required when kind is `computed`.
+ *  The `key` is the variable name the per-row formula and the `col(table, key)`
+ *  helper reference; it follows the same reserved-name / identifier rules as a
+ *  scalar input key. A `name`-style descriptive column is just an `input`
+ *  column whose value happens to be text (it is not referenced numerically). */
+export interface CustomCalculatorTableColumn {
+  key: string;
+  label: string;
+  kind: "input" | "computed";
+  /** Optional unit shown in the column header (e.g. "uL"). */
+  unit?: string;
+  /** Per-row expression, required when `kind` is `computed`. */
+  expr?: string;
+}
+
 /** One input the user fills in when running the calculator.
  *  - `number`    a single numeric field.
  *  - `replicate` a variable-length list of numbers (the multi-box row); the
  *                evaluator binds it as an array so list helpers (mean, sd,
  *                shannon, ...) can operate on it.
  *  - `dropdown`  a fixed choice; the selected option's `value` (number or
- *                string) is bound under `key`. */
+ *                string) is bound under `key`.
+ *  - `table`     a mini-spreadsheet (Phase 5); the user adds / removes rows and
+ *                fills the `input` columns, `computed` columns derive per row,
+ *                and the whole table is bound under `key` as an array of row
+ *                objects so steps / outputs can aggregate it via
+ *                `col(table, "colKey")` wrapped in a list helper. */
 export interface CustomCalculatorInput {
   /** Variable name referenced in step / conditional / output expressions. */
   key: string;
-  type: "number" | "replicate" | "dropdown";
+  type: "number" | "replicate" | "dropdown" | "table";
   /** Human-facing field label. */
   label: string;
   /** Optional unit shown next to the field (e.g. "mL", "mg/kg"). */
@@ -3396,6 +3420,12 @@ export interface CustomCalculatorInput {
   default?: number | number[] | string;
   /** Options for a `dropdown` input. */
   options?: CustomCalculatorDropdownOption[];
+  /** Columns for a `table` input (Phase 5). */
+  columns?: CustomCalculatorTableColumn[];
+  /** Optional seed rows for a `table` input, each keyed by column `key`. A cell
+   *  value is a number or a descriptive string; `computed` columns are derived
+   *  at evaluation time and need not be stored here. */
+  rows?: Record<string, number | string>[];
 }
 
 /** An intermediate named computation. Each `key` becomes available to later
