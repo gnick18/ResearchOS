@@ -422,12 +422,18 @@ function AppContent({ children }: { children: ReactNode }) {
   // The intent is stashed in sessionStorage because "/" is a pure router that
   // bounces a lab head to /lab-overview, which strips the query string before
   // the preview can render. Persisting it means the preview survives that
-  // bounce and shows on whatever route it lands on. The NODE_ENV literal is
-  // inlined at build time so the whole block tree-shakes out of production.
+  // bounce. It is scoped to the entry routes only ("/" and the two role-landing
+  // bounce targets), so a real content route the landing links to (/transparency,
+  // /demo, /pricing, /wiki) renders normally instead of being hijacked by the
+  // persisted flag. The NODE_ENV literal is inlined at build time so the whole
+  // block tree-shakes out of production.
   if (
     process.env.NODE_ENV === "development" &&
     mounted &&
-    typeof window !== "undefined"
+    typeof window !== "undefined" &&
+    (pathname === "/" ||
+      pathname === "/workbench" ||
+      pathname === "/lab-overview")
   ) {
     const PREVIEW_KEY = "ros_preview_login";
     const previewParam = new URLSearchParams(window.location.search).get(
