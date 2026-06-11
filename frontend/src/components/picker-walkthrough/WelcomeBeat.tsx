@@ -29,7 +29,7 @@ export default function WelcomeBeat({ onNext }: WelcomeBeatProps) {
       <p className="mb-3 text-title leading-relaxed text-slate-700">
         Welcome to ResearchOS, a free and open source digital lab notebook
         built by Dr. Grant R. Nickles (PhD) and funded in part by the
-        UW-Madison RISE Initiative.
+        UW Distinguished Research Fellowship at UW-Madison.
       </p>
       <p className="mb-6 text-title leading-relaxed text-slate-700">
         I&apos;ll help you set things up. Every experiment, note, and result

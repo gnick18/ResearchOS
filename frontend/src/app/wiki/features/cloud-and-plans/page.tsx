@@ -81,7 +81,7 @@ export default function CloudAndPlansPage() {
       <h2>Plans and how it is paid for</h2>
       <p>
         The local-first core is free and open source under the AGPLv3, with
-        every feature included. It is supported by a UW-Madison RISE fellowship
+        every feature included. It is supported by a UW Distinguished Research Fellowship at UW-Madison
         and by voluntary contributions. Cloud storage above the free pool comes
         as flat-price plans. Individuals and labs pay only what it costs us to
         run, and larger institutions pay a modest sustaining rate above that,

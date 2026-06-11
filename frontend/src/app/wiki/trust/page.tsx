@@ -55,7 +55,7 @@ export default function TrustPage() {
 
       <h3>4. The funding is clean</h3>
       <p>
-        ResearchOS is grant-funded through a UW-Madison RISE fellowship, not
+        ResearchOS is grant-funded through a UW Distinguished Research Fellowship at UW-Madison, not
         venture-backed. Every feature is free with no per-seat fees, a
         deliberate choice to keep the tool reachable for low-resource labs. The
         only optional paid part is cloud storage for labs that use a lot of it,

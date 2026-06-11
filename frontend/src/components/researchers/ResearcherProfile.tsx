@@ -3,7 +3,7 @@
 // Standalone researcher profile page (rendered at /researchers/[fingerprint]).
 //
 // This is the shareable, direct-link fallback: a clean light page with the
-// profile card centered and the UW-Madison RISE footer at the bottom. It
+// profile card centered and the funding acknowledgment footer at the bottom. It
 // renders WITHOUT the AppShell or a connected folder, so the URL can be pasted
 // into an email and opened by anyone, and it exposes no email address.
 //

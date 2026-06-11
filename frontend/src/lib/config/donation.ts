@@ -1,9 +1,9 @@
 // Sustainability notice shown by BetaDonationButton.
 //
-// ResearchOS is free and open source, supported now by a UW-Madison RISE
-// fellowship and, later, by voluntary contributions from labs that can afford
-// it. No paid tiers, no per-seat fees, no LLC. This panel explains that model;
-// there is nothing to buy. If a voluntary-donation path is set up later (a
+// ResearchOS is free and open source, supported now by a UW Distinguished
+// Research Fellowship at UW-Madison and, later, by voluntary contributions from
+// labs that can afford it. The local app and every feature are free. This panel
+// explains that model. If a voluntary-donation path is set up later (a
 // university gift fund or an Open Collective, say), add the link here.
 export const DONATION_CONFIG = {
   enabled: true,

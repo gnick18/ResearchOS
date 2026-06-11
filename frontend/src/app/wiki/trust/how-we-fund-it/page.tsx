@@ -9,11 +9,14 @@ export default function HowWeFundItPage() {
     >
       <h2>Where the money comes from</h2>
       <p>
-        ResearchOS is funded by a UW-Madison RISE fellowship. It is not backed
-        by venture capital, it is not chasing an acquisition, and it does not
-        answer to investors who need the user base monetized. The work is paid
-        for as research infrastructure, which is a fundamentally different
-        incentive than software built to maximize revenue per user.
+        ResearchOS is funded by a UW Distinguished Research Fellowship at the
+        University of Wisconsin-Madison, supported through the Office of the Vice
+        Chancellor for Research with funding from the Wisconsin Alumni Research
+        Foundation. It is not backed by venture capital, it is not chasing an
+        acquisition, and it does not answer to investors who need the user base
+        monetized. The work is paid for as research infrastructure, which is a
+        fundamentally different incentive than software built to maximize revenue
+        per user.
       </p>
 
       <h2>What that means for your lab</h2>

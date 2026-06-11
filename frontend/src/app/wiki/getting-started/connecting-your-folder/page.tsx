@@ -21,8 +21,8 @@ export default function ConnectingYourFolderPage() {
 
       <Screenshot
         src="/wiki/screenshots/folder-connect.png"
-        alt="The folder-link screen with a single Link a folder card in the center, BeakerBot waving from the upper-right with a Take the 3-minute walkthrough button, an Explore demo in browser link below the card, and the RISE credentials stamp in the bottom-right corner."
-        caption="The first screen you see on a fresh install. One centered Link a folder card, BeakerBot's optional walkthrough nudge in the upper-right, and the RISE credentials stamp pinned bottom-right."
+        alt="The folder-link screen with a single Link a folder card in the center, BeakerBot waving from the upper-right with a Take the 3-minute walkthrough button, an Explore demo in browser link below the card, and the funding credentials stamp in the bottom-right corner."
+        caption="The first screen you see on a fresh install. One centered Link a folder card, BeakerBot's optional walkthrough nudge in the upper-right, and the funding credentials stamp pinned bottom-right."
       />
 
       <h2>Why there is one card, not two</h2>
@@ -60,9 +60,9 @@ export default function ConnectingYourFolderPage() {
           entirely if you already know what you want to do.
         </li>
         <li>
-          <strong>The RISE credentials stamp in the bottom-right</strong>: a
+          <strong>The funding credentials stamp in the bottom-right</strong>: a
           small badge that names the academic project this app was built under
-          (a UW-Madison RISE grant). Pure authority signal; nothing to click.
+          (a UW Distinguished Research Fellowship at UW-Madison). Pure authority signal; nothing to click.
         </li>
       </ul>
       <p>

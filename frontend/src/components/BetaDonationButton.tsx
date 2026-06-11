@@ -143,7 +143,7 @@ function DonationModal({
                 <span className="font-semibold text-foreground">
                   Funded by a fellowship.
                 </span>{" "}
-                A UW-Madison RISE fellowship supports ResearchOS, so there is
+                A UW Distinguished Research Fellowship at UW-Madison supports ResearchOS, so there is
                 nothing to pay to use it.
               </li>
               <li>

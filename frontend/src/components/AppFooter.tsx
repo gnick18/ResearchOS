@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 
 import MadeInMadison from "@/components/MadeInMadison";
@@ -8,14 +7,18 @@ import Wordmark from "@/components/Wordmark";
 
 /**
  * Shared site footer, mirroring the landing page's footer so the credit
- * reads identically wherever it appears (Settings today; the landing page
- * keeps its own inline copy for now). Centered layout: the official
- * UW-Madison RISE logo on top, a "funded by RISE, free and open source on
- * GitHub" line, then the author credit.
+ * reads identically wherever it appears. Centered layout: the wordmark, the
+ * approved funding acknowledgment line (OVCR + WARF), then the author credit.
  *
- * Voice rules: no em-dashes, no emojis (every glyph is text or the
- * official PNG). Pass `className` (e.g. "mt-auto") so a flex-column parent
- * can pin it to the bottom of a short page and fill the empty tail.
+ * Funding acknowledgment (2026-06-11): uses the wording confirmed by the OVCR
+ * project manager and the official program name "UW Distinguished Research
+ * Fellowship". The old "UW-Madison RISE Initiative" logo + name were retired
+ * here. The logo PNG stays in public/credentials/ but is not displayed, since
+ * logo usage on the product site is still pending OVCR (Cynthia) confirmation;
+ * text acknowledgment only for now. See docs/branding/brand-rulebook.html.
+ *
+ * Voice rules: no em-dashes, no emojis. Pass `className` (e.g. "mt-auto") so a
+ * flex-column parent can pin it to the bottom of a short page.
  */
 const GITHUB_URL = "https://github.com/gnick18/ResearchOS";
 
@@ -52,20 +55,10 @@ export default function AppFooter({
           markEasterEgg="none"
           textClassName="text-foreground"
         />
-        {/* White backing chip stays white in both themes so the dark RISE logo
-            PNG reads on the dark footer too. */}
-        <div className="rounded bg-white p-0.5">
-          <Image
-            src="/credentials/uw-rise-logo.png"
-            alt="Wisconsin RISE Initiative (Wisconsin Research, Innovation and Scholarly Excellence)"
-            width={260}
-            height={69}
-            unoptimized
-            className="h-12 w-auto"
-          />
-        </div>
         <p className="text-body text-foreground-muted">
-          Funded by the UW-Madison RISE Initiative. Free and open source on{" "}
+          Supported by a UW Distinguished Research Fellowship at UW-Madison
+          (Office of the Vice Chancellor for Research, with funding from the
+          Wisconsin Alumni Research Foundation). Free and open source on{" "}
           <a
             href={GITHUB_URL}
             target="_blank"
