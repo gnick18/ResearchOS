@@ -9,6 +9,7 @@ import FeatureGrid, {
   type FeatureItem,
 } from "@/components/pricing/FeatureGrid";
 import PlanPicker from "@/components/pricing/PlanPicker";
+import PricingFaq from "@/components/pricing/PricingFaq";
 import PricingHero from "@/components/pricing/PricingHero";
 import { Section, SectionHeading } from "@/components/pricing/Section";
 import TwoPartModel from "@/components/pricing/TwoPartModel";
@@ -212,6 +213,10 @@ export default function PricingPage() {
             />
             <FeatureGrid items={SUPPORT_ITEMS} />
           </Section>
+
+          {/* Pricing FAQ (saas-landing-pages framework: answer the billing and
+              switching objections right before the closing reassurance). */}
+          <PricingFaq />
 
           {/* Credibility + beta note */}
           <Section className="bg-surface-raised text-center">
