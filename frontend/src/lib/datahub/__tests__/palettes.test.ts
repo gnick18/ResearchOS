@@ -12,6 +12,9 @@ import {
   paletteById,
   samplePalette,
   paletteUsableForCount,
+  parseColorsFromText,
+  generateHarmonious,
+  isHexColor,
   type Palette,
 } from "@/lib/datahub/palettes";
 
@@ -123,6 +126,42 @@ describe("palettes: mono", () => {
       mono.colors[0],
       mono.colors[0],
     ]);
+  });
+});
+
+describe("palettes: studio helpers", () => {
+  it("parseColorsFromText pulls hexes from a coolors.co URL", () => {
+    const out = parseColorsFromText(
+      "https://coolors.co/264653-2a9d8f-e9c46a-f4a261-e76f51",
+    );
+    expect(out).toEqual([
+      "#264653",
+      "#2A9D8F",
+      "#E9C46A",
+      "#F4A261",
+      "#E76F51",
+    ]);
+  });
+
+  it("parseColorsFromText accepts #-prefixed and bare hexes and de-dupes", () => {
+    const out = parseColorsFromText("#112233 445566 112233 778899");
+    expect(out).toEqual(["#112233", "#445566", "#778899"]);
+  });
+
+  it("generateHarmonious keeps locked entries and fills the rest", () => {
+    const current = ["#aaaaaa", "#bbbbbb", "#cccccc", "#dddddd"];
+    const locks = [false, true, false, true];
+    const out = generateHarmonious(current, locks, 4);
+    expect(out.length).toBe(4);
+    expect(out[1]).toBe("#bbbbbb");
+    expect(out[3]).toBe("#dddddd");
+    for (const c of out) expect(c).toMatch(HEX);
+  });
+
+  it("isHexColor validates a 6-digit hex", () => {
+    expect(isHexColor("#1AA0E6")).toBe(true);
+    expect(isHexColor("1AA0E6")).toBe(false);
+    expect(isHexColor("#fff")).toBe(false);
   });
 });
 

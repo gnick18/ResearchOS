@@ -726,3 +726,62 @@ export function paletteUsableForCount(p: Palette, n: number): boolean {
   if (p.category === "sequential" || p.category === "mono") return true;
   return p.colors.length >= n;
 }
+
+// ---------------------------------------------------------------------------
+// Studio helpers (generate + lock, Coolors import)
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse hex colors out of pasted text or a coolors.co URL. Coolors encodes a
+ * palette as a dash-joined run of bare 6-digit hexes in the path
+ * (coolors.co/264653-2a9d8f-...), and a paste might be #-prefixed or bare, so
+ * this pulls every 6-hex token and normalizes it to #rrggbb. Returns [] when
+ * fewer than two colors are found so the caller can reject an empty import.
+ */
+export function parseColorsFromText(raw: string): string[] {
+  const matches = raw.match(/#?[0-9a-fA-F]{6}\b/g) || [];
+  const hexes = matches.map((h) => (h.startsWith("#") ? h : `#${h}`).toUpperCase());
+  // De-dupe while preserving order.
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const h of hexes) {
+    if (!seen.has(h)) {
+      seen.add(h);
+      out.push(h);
+    }
+  }
+  return out;
+}
+
+/**
+ * Generate n harmonious colors, keeping any LOCKED entries in place. The
+ * unlocked slots get a pleasant mid-saturation, mid-lightness random hue (the
+ * Coolors move) spread around the wheel so the set reads as a coherent palette
+ * rather than noise. Deterministic only in that locked entries pass through; the
+ * unlocked entries are random by design.
+ */
+export function generateHarmonious(
+  current: string[],
+  locks: boolean[],
+  n: number,
+): string[] {
+  const out: string[] = [];
+  // A random starting hue + an even spread keeps the unlocked colors balanced.
+  const baseHue = Math.floor(Math.random() * 360);
+  for (let i = 0; i < n; i++) {
+    if (locks[i] && current[i]) {
+      out.push(current[i]);
+      continue;
+    }
+    const hue = (baseHue + (360 / Math.max(1, n)) * i + Math.random() * 24) % 360;
+    const sat = 0.45 + Math.random() * 0.3;
+    const light = 0.42 + Math.random() * 0.22;
+    out.push(hslToHex(hue, sat, light));
+  }
+  return out;
+}
+
+/** True when a string is a valid #rrggbb hex (the studio's input guard). */
+export function isHexColor(s: string): boolean {
+  return /^#[0-9a-fA-F]{6}$/.test(s);
+}

@@ -22,6 +22,8 @@
 import { useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
+import PaletteStudio from "@/components/datahub/PaletteStudio";
+import PlotColorEditor from "@/components/datahub/PlotColorEditor";
 import type {
   AnalysisSpec,
   DataHubDocContent,
@@ -35,7 +37,6 @@ import {
   downloadPng,
   copyFigureToClipboard,
   type PlotStyle,
-  type ColorMode,
   type ErrorBarKind,
   type FitModelId,
 } from "@/lib/datahub/plot-spec";
@@ -133,6 +134,33 @@ export default function GraphEditor({
     [spec, content, analysis],
   );
 
+  // The plot's actual series (count + display names + the colors it is drawing),
+  // derived from the laid-out geometry per kind. This seeds the studio's filter
+  // count, the custom per-series list, and the direct-edit popover's "real"
+  // color readout. An XY figure is a single series.
+  const seriesInfo = useMemo(() => {
+    const g = geometry as unknown as Record<string, unknown>;
+    if (Array.isArray(g.groups)) {
+      const groups = g.groups as { name: string; color: string }[];
+      return {
+        count: groups.length,
+        names: groups.map((x) => x.name),
+        colors: groups.map((x) => x.color),
+      };
+    }
+    if (Array.isArray(g.legend)) {
+      const legend = g.legend as { name: string; color: string }[];
+      return {
+        count: legend.length,
+        names: legend.map((x) => x.name),
+        colors: legend.map((x) => x.color),
+      };
+    }
+    // XY scatter (single series).
+    const color = typeof g.color === "string" ? (g.color as string) : "#1AA0E6";
+    return { count: 1, names: [style.yTitle || "Series 1"], colors: [color] };
+  }, [geometry, style.yTitle]);
+
   const fileStem = figureFileStem(style.title.trim() || title);
 
   const onExportSvg = () => downloadSvg(svg, fileStem);
@@ -184,12 +212,11 @@ export default function GraphEditor({
       <div className="mt-4 flex flex-wrap items-start gap-5">
         {/* Figure + export row */}
         <div className="rounded-lg border border-border bg-white p-3">
-          <div
-            className="overflow-hidden"
-            data-testid="datahub-figure"
-            // The serialized SVG is our own, built from the table content; it is
-            // not user free-text HTML, so rendering it here is safe.
-            dangerouslySetInnerHTML={{ __html: svg }}
+          <PlotColorEditor
+            svg={svg}
+            style={style}
+            resolvedColors={seriesInfo.colors}
+            onStyleChange={onStyleChange}
           />
           <div className="mt-2 flex items-center gap-2">
             <button
@@ -230,7 +257,7 @@ export default function GraphEditor({
 
         {/* Style panel */}
         <div
-          className="w-[244px] shrink-0 rounded-lg border border-border bg-surface-raised p-3"
+          className="w-[280px] shrink-0 rounded-lg border border-border bg-surface-raised p-3"
           data-testid="datahub-graph-style-panel"
         >
           <h4 className="mb-1 text-[11px] font-bold uppercase tracking-wide text-foreground-muted">
@@ -321,19 +348,13 @@ export default function GraphEditor({
             </>
           )}
 
-          <Ctl label="Color">
-            <select
-              value={style.colorMode}
-              onChange={(e) =>
-                onStyleChange({ colorMode: e.target.value as ColorMode })
-              }
-              className="rounded-md border border-border bg-surface-overlay px-2 py-1 text-meta text-foreground focus:border-sky-400 focus:outline-none"
-            >
-              <option value="brand">Brand trio</option>
-              <option value="sky">Sky</option>
-              <option value="ink">Mono</option>
-            </select>
-          </Ctl>
+          <PaletteStudio
+            style={style}
+            seriesCount={seriesInfo.count}
+            seriesNames={seriesInfo.names}
+            resolvedColors={seriesInfo.colors}
+            onStyleChange={onStyleChange}
+          />
 
           <Ctl label="Axis text">
             <input
