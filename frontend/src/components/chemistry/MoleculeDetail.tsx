@@ -12,9 +12,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import { moleculesApi, type Molecule } from "@/lib/chemistry/api";
+import { computeIdentity, lipinski, type MoleculeIdentity } from "@/lib/chemistry/rdkit";
 import { referenceClipboardText } from "@/lib/copy-reference";
 import { MoleculeThumbnail } from "./MoleculeThumbnail";
 import { MoleculeLiterature } from "./MoleculeLiterature";
+import { LipinskiBadge } from "./LipinskiBadge";
 
 export function MoleculeDetail({
   molecule,
@@ -34,6 +36,28 @@ export function MoleculeDetail({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const cancelDeleteRef = useRef<HTMLButtonElement | null>(null);
+
+  // Druglikeness descriptors (chemistry v2 Phase 1c). The browse view stores
+  // only core identity in the meta, so we compute the heavier descriptors on
+  // demand from the canonical SMILES. RDKit is cached after first load, so this
+  // is a one-shot wasm call per molecule.
+  const [props, setProps] = useState<MoleculeIdentity | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    setProps(null);
+    const smiles = molecule.smiles;
+    if (!smiles) return;
+    computeIdentity(smiles)
+      .then((id) => {
+        if (!cancelled) setProps(id);
+      })
+      .catch(() => {
+        /* a structure RDKit cannot parse simply shows no extra properties */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [molecule.smiles]);
 
   // When the destructive confirm row appears, land focus on the safe choice
   // (Cancel) rather than leaving it on the now-unmounted "Delete molecule"
@@ -176,6 +200,35 @@ export function MoleculeDetail({
                   ))}
               </tbody>
             </table>
+
+            {props ? (
+              <div className="mt-3">
+                <h4 className="text-[11px] uppercase tracking-wide text-foreground-muted mb-1.5">
+                  Properties
+                </h4>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-meta">
+                  <PropCell label="cLogP" value={props.clogp?.toFixed(2)} />
+                  <PropCell
+                    label="TPSA"
+                    value={props.tpsa != null ? `${props.tpsa.toFixed(1)} Å²` : undefined}
+                  />
+                  <PropCell label="H-bond donors" value={props.h_donors?.toString()} />
+                  <PropCell
+                    label="H-bond acceptors"
+                    value={props.h_acceptors?.toString()}
+                  />
+                  <PropCell
+                    label="Aromatic rings"
+                    value={props.aromatic_rings?.toString()}
+                  />
+                  <PropCell
+                    label="Rotatable bonds"
+                    value={props.rotatable_bonds?.toString()}
+                  />
+                </div>
+                <LipinskiBadge result={lipinski(props)} className="mt-3" />
+              </div>
+            ) : null}
 
             <div className="flex flex-col gap-1 mt-3">
               <ToolItem onClick={() => copy(molecule.smiles, "canonical SMILES")}>
@@ -323,6 +376,18 @@ export function MoleculeDetail({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** A single label/value cell in the Properties grid. Hidden when the value is
+ *  unavailable, so a structure missing one descriptor does not show a blank. */
+function PropCell({ label, value }: { label: string; value?: string }) {
+  if (value == null) return null;
+  return (
+    <div className="flex items-baseline justify-between gap-2 border-b border-border py-1">
+      <span className="text-foreground-muted">{label}</span>
+      <span className="font-medium text-foreground">{value}</span>
     </div>
   );
 }

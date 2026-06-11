@@ -19,7 +19,8 @@ import LivingPopup from "@/components/ui/LivingPopup";
 import { Icon } from "@/components/icons";
 import { moleculesApi } from "@/lib/chemistry/api";
 import { projectsApi } from "@/lib/local-api";
-import { computeIdentity, type MoleculeIdentity } from "@/lib/chemistry/rdkit";
+import { computeIdentity, lipinski, type MoleculeIdentity } from "@/lib/chemistry/rdkit";
+import { LipinskiBadge } from "./LipinskiBadge";
 import { referenceClipboardText } from "@/lib/copy-reference";
 import { MoleculeLiterature } from "./MoleculeLiterature";
 
@@ -444,8 +445,15 @@ function IdentityPane({
     ],
     ["Heavy atoms", identity.heavy_atoms?.toString() ?? null, false],
     ["Rings", identity.rings?.toString() ?? null, false],
+    ["Aromatic rings", identity.aromatic_rings?.toString() ?? null, false],
     ["Rotatable bonds", identity.rotatable_bonds?.toString() ?? null, false],
+    ["cLogP", identity.clogp != null ? identity.clogp.toFixed(2) : null, false],
+    ["TPSA", identity.tpsa != null ? `${identity.tpsa.toFixed(1)} Å²` : null, false],
+    ["H-bond donors", identity.h_donors?.toString() ?? null, false],
+    ["H-bond acceptors", identity.h_acceptors?.toString() ?? null, false],
   ];
+
+  const ro5 = lipinski(identity);
 
   return (
     <>
@@ -472,6 +480,8 @@ function IdentityPane({
             ))}
         </tbody>
       </table>
+
+      <LipinskiBadge result={ro5} className="mt-3" />
 
       <h4 className="text-[11px] uppercase tracking-wide text-foreground-muted mt-4 mb-2">
         Companion tools

@@ -94,6 +94,52 @@ export interface MoleculeIdentity {
   heavy_atoms: number | null;
   rings: number | null;
   rotatable_bonds: number | null;
+  // Druglikeness descriptors (chemistry v2 Phase 1c). RDKit's get_descriptors()
+  // already computes these; we just read them. Display-only for now (not folded
+  // into the on-disk meta), computed on demand from the structure.
+  clogp: number | null;
+  tpsa: number | null;
+  h_donors: number | null;
+  h_acceptors: number | null;
+  aromatic_rings: number | null;
+}
+
+/** A Lipinski Rule-of-Five assessment derived from a computed identity. */
+export interface LipinskiResult {
+  /** Each rule and whether the molecule violates it. */
+  violations: Array<{ rule: string; ok: boolean }>;
+  /** How many of the four rules are violated. */
+  count: number;
+  /** Classic Ro5 verdict: drug-like when no more than one rule is violated. */
+  pass: boolean;
+  /** True only when every input descriptor was available to judge. */
+  complete: boolean;
+}
+
+/**
+ * Lipinski's Rule of Five from a computed identity. Pure, so it is unit tested.
+ * A missing descriptor (null) is treated as "not a violation" but flips
+ * `complete` to false so the UI can show that the verdict is partial.
+ */
+export function lipinski(identity: MoleculeIdentity): LipinskiResult {
+  const checks: Array<{ rule: string; value: number | null; limit: number }> = [
+    { rule: "MW ≤ 500", value: identity.mol_weight, limit: 500 },
+    { rule: "logP ≤ 5", value: identity.clogp, limit: 5 },
+    { rule: "H-bond donors ≤ 5", value: identity.h_donors, limit: 5 },
+    { rule: "H-bond acceptors ≤ 10", value: identity.h_acceptors, limit: 10 },
+  ];
+  let count = 0;
+  let complete = true;
+  const violations = checks.map(({ rule, value, limit }) => {
+    if (value == null) {
+      complete = false;
+      return { rule, ok: true };
+    }
+    const ok = value <= limit;
+    if (!ok) count += 1;
+    return { rule, ok };
+  });
+  return { violations, count, pass: count <= 1, complete };
 }
 
 /**
@@ -155,6 +201,12 @@ export async function computeIdentity(input: string): Promise<MoleculeIdentity> 
       heavy_atoms: toNum(d.NumHeavyAtoms),
       rings: toNum(d.NumRings),
       rotatable_bonds: toNum(d.NumRotatableBonds),
+      clogp: toNum(d.CrippenClogP),
+      tpsa: toNum(d.tpsa),
+      // Prefer the Lipinski H-bond counts; fall back to the plain counts.
+      h_donors: toNum(d.NumHBD ?? d.lipinskiHBD),
+      h_acceptors: toNum(d.NumHBA ?? d.lipinskiHBA),
+      aromatic_rings: toNum(d.NumAromaticRings),
     };
   } finally {
     mol.delete();
