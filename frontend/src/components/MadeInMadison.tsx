@@ -35,10 +35,20 @@ export default function MadeInMadison({
 }) {
   const subline = tone === "soft" ? SOFT_SUBLINE : PUNCHY_SUBLINE;
 
-  // "Madison" in Green Bay Packers green-and-gold. The gradient is the text
-  // itself (bg-clip-text), so it stays readable on both light and dark.
+  // "Madison" in Green Bay Packers green-and-gold. Inline style (not Tailwind
+  // gradient utilities, which changed names in Tailwind v4) with the full
+  // WebKit clip-text recipe, so the gradient is the text itself and reads on
+  // both light and dark.
   const madison = (
-    <span className="bg-gradient-to-r from-[#216E39] to-[#FFB81C] bg-clip-text text-transparent">
+    <span
+      style={{
+        backgroundImage: "linear-gradient(100deg, #2E8B45, #FFB81C)",
+        WebkitBackgroundClip: "text",
+        backgroundClip: "text",
+        WebkitTextFillColor: "transparent",
+        color: "transparent",
+      }}
+    >
       Madison
     </span>
   );
