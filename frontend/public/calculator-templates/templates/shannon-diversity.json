@@ -1,0 +1,15 @@
+{
+  "slug": "shannon-diversity",
+  "name": "Shannon diversity index",
+  "description": "Shannon entropy and richness from per-taxon abundance counts.",
+  "field": "Ecology and microbiome",
+  "inputs": [
+    { "key": "counts", "type": "replicate", "label": "Per-taxon counts", "default": [40, 30, 20, 10] }
+  ],
+  "steps": [],
+  "conditionals": [],
+  "outputs": [
+    { "label": "Shannon H", "expr": "shannon(counts)" },
+    { "label": "Richness", "expr": "count(counts)", "unit": "taxa" }
+  ]
+}

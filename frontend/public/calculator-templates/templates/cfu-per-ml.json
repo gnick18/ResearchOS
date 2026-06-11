@@ -1,0 +1,18 @@
+{
+  "slug": "cfu-per-ml",
+  "name": "CFU per mL from plate counts",
+  "description": "Colony forming units per mL from a plate count, the plated dilution, and the volume plated.",
+  "field": "Microbiology",
+  "inputs": [
+    { "key": "colonies", "type": "number", "label": "Colonies counted", "default": 150 },
+    { "key": "dilution", "type": "number", "label": "Plated dilution (fraction)", "default": 1e-5 },
+    { "key": "platedVol", "type": "number", "label": "Volume plated", "unit": "mL", "default": 0.1 }
+  ],
+  "steps": [],
+  "conditionals": [
+    { "expr": "if(colonies < 30, \"Below 30 colonies, count is statistically unreliable\", if(colonies > 300, \"Above 300, plate too crowded to count accurately\", \"\"))" }
+  ],
+  "outputs": [
+    { "label": "CFU per mL", "expr": "colonies/(dilution*platedVol)", "unit": "CFU/mL" }
+  ]
+}

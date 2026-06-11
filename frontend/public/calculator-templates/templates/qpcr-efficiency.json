@@ -1,0 +1,18 @@
+{
+  "slug": "qpcr-efficiency",
+  "name": "qPCR amplification efficiency",
+  "description": "Amplification efficiency from a standard curve slope, with an acceptable-range check.",
+  "field": "Molecular biology",
+  "inputs": [
+    { "key": "slope", "type": "number", "label": "Standard curve slope", "default": -3.32 }
+  ],
+  "steps": [
+    { "key": "eff", "expr": "(10^(-1/slope)-1)*100" }
+  ],
+  "conditionals": [
+    { "expr": "if(eff < 90, \"Efficiency below 90%, optimize the assay\", if(eff > 110, \"Efficiency above 110%, check for inhibitors\", \"Acceptable\"))" }
+  ],
+  "outputs": [
+    { "label": "Efficiency", "expr": "eff", "unit": "%" }
+  ]
+}

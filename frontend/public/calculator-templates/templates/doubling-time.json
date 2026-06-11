@@ -1,0 +1,19 @@
+{
+  "slug": "doubling-time",
+  "name": "Doubling time and growth rate",
+  "description": "Growth rate and doubling time from two cell counts and the elapsed hours between them.",
+  "field": "Microbiology",
+  "inputs": [
+    { "key": "n1", "type": "number", "label": "Starting count", "default": 100000 },
+    { "key": "n2", "type": "number", "label": "Ending count", "default": 800000 },
+    { "key": "hours", "type": "number", "label": "Elapsed time", "unit": "h", "default": 6 }
+  ],
+  "steps": [
+    { "key": "rate", "expr": "ln(n2/n1)/hours" }
+  ],
+  "conditionals": [],
+  "outputs": [
+    { "label": "Growth rate", "expr": "rate", "unit": "per hour" },
+    { "label": "Doubling time", "expr": "ln(2)/rate", "unit": "h" }
+  ]
+}

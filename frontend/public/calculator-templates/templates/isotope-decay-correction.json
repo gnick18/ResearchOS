@@ -1,0 +1,29 @@
+{
+  "slug": "isotope-decay-correction",
+  "name": "Isotope decay correction",
+  "description": "Remaining activity of a radioisotope after a number of days, from its half-life.",
+  "field": "Radiochemistry",
+  "inputs": [
+    {
+      "key": "isotope",
+      "type": "dropdown",
+      "label": "Isotope",
+      "options": [
+        { "label": "32P (14.29 d)", "value": 14.29 },
+        { "label": "33P (25.4 d)", "value": 25.4 },
+        { "label": "35S (87.4 d)", "value": 87.4 },
+        { "label": "125I (59.4 d)", "value": 59.4 }
+      ]
+    },
+    { "key": "days", "type": "number", "label": "Days elapsed", "unit": "d", "default": 7 },
+    { "key": "initial", "type": "number", "label": "Initial activity", "default": 100 }
+  ],
+  "steps": [
+    { "key": "fraction", "expr": "0.5^(days/isotope)" }
+  ],
+  "conditionals": [],
+  "outputs": [
+    { "label": "Remaining activity", "expr": "initial*fraction" },
+    { "label": "Percent remaining", "expr": "fraction*100", "unit": "%" }
+  ]
+}

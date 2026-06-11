@@ -3353,3 +3353,119 @@ export interface SequenceUpdate {
   tax_id?: string;
   tax_lineage?: SequenceTaxonNode[];
 }
+
+// ── Custom Calculator Builder (Phase 1, 2026-06-10) ──────────────────────────
+//
+// A user-authored calculator: a small typed spec (inputs, intermediate steps,
+// guidance conditionals, outputs) that the pure evaluator in
+// `lib/calculators/custom.ts` runs. The same shape backs both a saved record in
+// the user's folder (`users/<owner>/calculators/<id>.json`, via
+// `calculatorsApi`) and a static library template under
+// `frontend/public/calculator-templates/` (the static template carries a
+// string `slug` instead of the numeric record `id`; see the catalog loader).
+//
+// This is an ADDITIVE new entity. No existing on-disk record shape changes.
+
+/** A single option of a `dropdown` input. The `value` is what the expression
+ *  engine sees when this option is selected, so it may be numeric (e.g. an
+ *  organism conversion factor) OR a string enum (e.g. "rpm" for a mode switch
+ *  branched on with `mode == "rpm"`). The `label` is the human-facing choice. */
+export interface CustomCalculatorDropdownOption {
+  label: string;
+  value: number | string;
+}
+
+/** One input the user fills in when running the calculator.
+ *  - `number`    a single numeric field.
+ *  - `replicate` a variable-length list of numbers (the multi-box row); the
+ *                evaluator binds it as an array so list helpers (mean, sd,
+ *                shannon, ...) can operate on it.
+ *  - `dropdown`  a fixed choice; the selected option's `value` (number or
+ *                string) is bound under `key`. */
+export interface CustomCalculatorInput {
+  /** Variable name referenced in step / conditional / output expressions. */
+  key: string;
+  type: "number" | "replicate" | "dropdown";
+  /** Human-facing field label. */
+  label: string;
+  /** Optional unit shown next to the field (e.g. "mL", "mg/kg"). */
+  unit?: string;
+  /** Default value for `number` (a number) or `replicate` (a list); for a
+   *  dropdown the default is the first option unless overridden here with the
+   *  chosen option's value. */
+  default?: number | number[] | string;
+  /** Options for a `dropdown` input. */
+  options?: CustomCalculatorDropdownOption[];
+}
+
+/** An intermediate named computation. Each `key` becomes available to later
+ *  steps, conditionals, and outputs, evaluated in array order. */
+export interface CustomCalculatorStep {
+  key: string;
+  /** Expression over inputs + earlier steps (expr-eval-fork syntax). */
+  expr: string;
+}
+
+/** A guidance rule. The `expr` is typically an `if(cond, "message", "")`; a
+ *  non-empty string result is surfaced to the user as a guidance message
+ *  (e.g. "Viability below 80%, check handling"). */
+export interface CustomCalculatorConditional {
+  expr: string;
+}
+
+/** A reported result row. */
+export interface CustomCalculatorOutput {
+  label: string;
+  /** Expression over inputs + steps. */
+  expr: string;
+  /** Optional unit shown next to the value. */
+  unit?: string;
+}
+
+/** A saved, user-authored calculator record. Stored per-user at
+ *  `users/<owner>/calculators/<id>.json`. */
+export interface CustomCalculator {
+  /** Numeric per-user record id (JsonStore counter). */
+  id: number;
+  name: string;
+  description: string;
+  /** Optional grouping label (e.g. "Microbiology"), mirrors the template field
+   *  used to group the library gallery. */
+  field?: string;
+  inputs: CustomCalculatorInput[];
+  steps: CustomCalculatorStep[];
+  conditionals: CustomCalculatorConditional[];
+  outputs: CustomCalculatorOutput[];
+  /** Sharing selection, persisted only in Phase 1 (no propagation yet).
+   *  Empty = "Just me"; the lab sentinel or external usernames land here in
+   *  later phases. */
+  shared_with: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+/** Create shape for `calculatorsApi.create` (id + timestamps are stamped by the
+ *  API). `shared_with` defaults to [] (Just me) when omitted. */
+export interface CustomCalculatorCreate {
+  name: string;
+  description?: string;
+  field?: string;
+  inputs: CustomCalculatorInput[];
+  steps: CustomCalculatorStep[];
+  conditionals: CustomCalculatorConditional[];
+  outputs: CustomCalculatorOutput[];
+  shared_with?: string[];
+}
+
+/** Patch shape for `calculatorsApi.update`. Any subset; `updated_at` is
+ *  re-stamped on every write. */
+export interface CustomCalculatorUpdate {
+  name?: string;
+  description?: string;
+  field?: string;
+  inputs?: CustomCalculatorInput[];
+  steps?: CustomCalculatorStep[];
+  conditionals?: CustomCalculatorConditional[];
+  outputs?: CustomCalculatorOutput[];
+  shared_with?: string[];
+}

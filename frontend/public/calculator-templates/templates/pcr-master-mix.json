@@ -1,0 +1,31 @@
+{
+  "slug": "pcr-master-mix",
+  "name": "PCR master mix maker",
+  "description": "Scale a per-reaction PCR mix to a batch with overage, totalling each reagent and the full volume.",
+  "field": "Molecular biology",
+  "inputs": [
+    { "key": "reactions", "type": "number", "label": "Reactions", "default": 10 },
+    { "key": "overagePct", "type": "number", "label": "Overage", "unit": "%", "default": 10 },
+    { "key": "buffer", "type": "number", "label": "Buffer per reaction", "unit": "uL", "default": 5 },
+    { "key": "dNTP", "type": "number", "label": "dNTP per reaction", "unit": "uL", "default": 1 },
+    { "key": "primerF", "type": "number", "label": "Primer F per reaction", "unit": "uL", "default": 1 },
+    { "key": "primerR", "type": "number", "label": "Primer R per reaction", "unit": "uL", "default": 1 },
+    { "key": "polymerase", "type": "number", "label": "Polymerase per reaction", "unit": "uL", "default": 0.5 },
+    { "key": "template", "type": "number", "label": "Template per reaction", "unit": "uL", "default": 2 },
+    { "key": "water", "type": "number", "label": "Water per reaction", "unit": "uL", "default": 14.5 }
+  ],
+  "steps": [
+    { "key": "n", "expr": "reactions*(1+overagePct/100)" }
+  ],
+  "conditionals": [],
+  "outputs": [
+    { "label": "Buffer total", "expr": "buffer*n", "unit": "uL" },
+    { "label": "dNTP total", "expr": "dNTP*n", "unit": "uL" },
+    { "label": "Primer F total", "expr": "primerF*n", "unit": "uL" },
+    { "label": "Primer R total", "expr": "primerR*n", "unit": "uL" },
+    { "label": "Polymerase total", "expr": "polymerase*n", "unit": "uL" },
+    { "label": "Template total", "expr": "template*n", "unit": "uL" },
+    { "label": "Water total", "expr": "water*n", "unit": "uL" },
+    { "label": "Total volume", "expr": "(buffer+dNTP+primerF+primerR+polymerase+template+water)*n", "unit": "uL" }
+  ]
+}

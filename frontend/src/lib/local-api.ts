@@ -124,6 +124,9 @@ import type {
   StorageNode,
   StorageNodeCreate,
   StorageNodeUpdate,
+  CustomCalculator,
+  CustomCalculatorCreate,
+  CustomCalculatorUpdate,
 } from "./types";
 import { sequenceStore } from "./sequences/sequence-store";
 import { genbankToDetail, genbankToRecord, deriveSeqType } from "./sequences/parse";
@@ -179,6 +182,12 @@ const retentionStore = new JsonStore<RetentionEntry>("lab_retention");
 const catalogStore = new JsonStore<CatalogItem>("item_catalog");
 const labLinksStore = new JsonStore<LabLink>("lab_links");
 const notesStore = new JsonStore<Note>("notes");
+// Custom Calculator Builder (Phase 1, 2026-06-10). ADDITIVE per-user store at
+// `users/<owner>/calculators/<id>.json`. Mirrors `notesStore` / `eventsStore`
+// exactly: user-scoped JsonStore, per-user numeric counters. Holds the
+// user-authored `CustomCalculator` records the builder saves. No existing
+// on-disk record shape changes. Gated in the UI by `CALC_BUILDER_ENABLED`.
+const calculatorsStore = new JsonStore<CustomCalculator>("calculators");
 // Weekly goals widget (PI beta feedback, weekly-goals widget, 2026-05-29).
 // DATA-SHAPE CHANGE: a new per-user store at
 // `users/<owner>/weekly_goals/<id>.json`. Mirrors `notesStore` /
@@ -3448,6 +3457,67 @@ export const goalsApi = {
     
     const smartGoals = (goal.smart_goals || []).filter((sg) => sg.id !== smartGoalId);
     return goalsStore.update(id, { smart_goals: smartGoals });
+  },
+};
+
+// ── Custom Calculator Builder (Phase 1, 2026-06-10) ──────────────────────────
+//
+// ADDITIVE per-user entity. Stores user-authored `CustomCalculator` records at
+// `users/<owner>/calculators/<id>.json` via `calculatorsStore`. Mirrors the
+// simple per-user JsonStore wiring (`goalsApi` / `notesApi`): `list`/`get`/
+// `create`/`update`/`delete` on the current user, plus owner-routed
+// `getForUser`/`listForUser`/`saveForUser` for the eventual cross-user (shared
+// / lab) read paths. Phase 1 persists the `shared_with` selection but does NO
+// propagation (that is Phase 2), so there is no public/lab mirror store here.
+export const calculatorsApi = {
+  list: async (): Promise<CustomCalculator[]> => {
+    return calculatorsStore.listAll();
+  },
+
+  listForUser: async (owner: string): Promise<CustomCalculator[]> => {
+    return calculatorsStore.listAllForUser(owner);
+  },
+
+  get: async (id: number, owner?: string): Promise<CustomCalculator | null> => {
+    // Owner routing mirrors notesApi / methodsApi: a numeric id is ambiguous
+    // across per-user namespaces, so a caller that knows the namespace passes
+    // `owner`; otherwise the current user's record is read.
+    return owner ? calculatorsStore.getForUser(id, owner) : calculatorsStore.get(id);
+  },
+
+  create: async (data: CustomCalculatorCreate): Promise<CustomCalculator> => {
+    const now = new Date().toISOString();
+    return calculatorsStore.create({
+      name: data.name,
+      description: data.description ?? "",
+      ...(data.field !== undefined ? { field: data.field } : {}),
+      inputs: data.inputs ?? [],
+      steps: data.steps ?? [],
+      conditionals: data.conditionals ?? [],
+      outputs: data.outputs ?? [],
+      shared_with: data.shared_with ?? [],
+      created_at: now,
+      updated_at: now,
+    });
+  },
+
+  update: async (
+    id: number,
+    data: CustomCalculatorUpdate,
+    owner?: string,
+  ): Promise<CustomCalculator | null> => {
+    // `updated_at` is re-stamped on every write. Owner-routed when the caller
+    // knows the namespace; otherwise the current user's record is patched.
+    const patch = { ...data, updated_at: new Date().toISOString() };
+    return owner
+      ? calculatorsStore.updateForUser(id, patch, owner)
+      : calculatorsStore.update(id, patch);
+  },
+
+  delete: async (id: number, owner?: string): Promise<boolean> => {
+    return owner
+      ? calculatorsStore.deleteForUser(id, owner)
+      : calculatorsStore.delete(id);
   },
 };
 

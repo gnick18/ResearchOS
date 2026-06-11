@@ -1,0 +1,24 @@
+{
+  "slug": "cell-viability-count",
+  "name": "Cell viability and count",
+  "description": "Trypan blue viability and cells per mL from replicate live and dead hemocytometer counts.",
+  "field": "Cell culture",
+  "inputs": [
+    { "key": "live", "type": "replicate", "label": "Live cell counts", "default": [95, 98, 92] },
+    { "key": "dead", "type": "replicate", "label": "Dead cell counts", "default": [5, 2, 8] },
+    { "key": "dilution", "type": "number", "label": "Dilution factor", "default": 2 },
+    { "key": "volume", "type": "number", "label": "Suspension volume", "unit": "mL", "default": 10 }
+  ],
+  "steps": [
+    { "key": "meanLive", "expr": "mean(live)" },
+    { "key": "meanDead", "expr": "mean(dead)" }
+  ],
+  "conditionals": [
+    { "expr": "if(meanLive/(meanLive+meanDead)*100 < 80, \"Viability below 80%, check handling\", \"\")" }
+  ],
+  "outputs": [
+    { "label": "Viability", "expr": "meanLive/(meanLive+meanDead)*100", "unit": "%" },
+    { "label": "Cells per mL", "expr": "meanLive*dilution*1e4", "unit": "cells/mL" },
+    { "label": "Total cells", "expr": "(meanLive*dilution*1e4)*volume", "unit": "cells" }
+  ]
+}

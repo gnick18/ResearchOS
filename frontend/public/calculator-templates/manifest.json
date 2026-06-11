@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "generatedAt": "2026-06-10T00:00:00.000Z",
+  "templates": [
+    {
+      "slug": "cell-viability-count",
+      "name": "Cell viability and count",
+      "description": "Trypan blue viability and cells per mL from replicate live and dead hemocytometer counts.",
+      "field": "Cell culture"
+    },
+    {
+      "slug": "cfu-per-ml",
+      "name": "CFU per mL from plate counts",
+      "description": "Colony forming units per mL from a plate count, the plated dilution, and the volume plated.",
+      "field": "Microbiology"
+    },
+    {
+      "slug": "od600-to-cells",
+      "name": "OD600 to cells per mL",
+      "description": "Estimate cells per mL from an OD600 reading using a per-organism conversion factor.",
+      "field": "Microbiology"
+    },
+    {
+      "slug": "doubling-time",
+      "name": "Doubling time and growth rate",
+      "description": "Growth rate and doubling time from two cell counts and the elapsed hours between them.",
+      "field": "Microbiology"
+    },
+    {
+      "slug": "qpcr-efficiency",
+      "name": "qPCR amplification efficiency",
+      "description": "Amplification efficiency from a standard curve slope, with an acceptable-range check.",
+      "field": "Molecular biology"
+    },
+    {
+      "slug": "pcr-master-mix",
+      "name": "PCR master mix maker",
+      "description": "Scale a per-reaction PCR mix to a batch with overage, totalling each reagent and the full volume.",
+      "field": "Molecular biology"
+    },
+    {
+      "slug": "injection-volume-by-weight",
+      "name": "Injection volume by body weight",
+      "description": "Dosing volume for an animal from the target dose, body weight, and stock concentration.",
+      "field": "In vivo and pharmacology"
+    },
+    {
+      "slug": "rcf-rpm-converter",
+      "name": "RCF and RPM converter",
+      "description": "Convert between relative centrifugal force and rotor speed for a given rotor radius.",
+      "field": "General lab"
+    },
+    {
+      "slug": "isotope-decay-correction",
+      "name": "Isotope decay correction",
+      "description": "Remaining activity of a radioisotope after a number of days, from its half-life.",
+      "field": "Radiochemistry"
+    },
+    {
+      "slug": "shannon-diversity",
+      "name": "Shannon diversity index",
+      "description": "Shannon entropy and richness from per-taxon abundance counts.",
+      "field": "Ecology and microbiome"
+    }
+  ]
+}

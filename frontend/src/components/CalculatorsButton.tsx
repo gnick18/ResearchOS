@@ -1,8 +1,22 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Tooltip from "@/components/Tooltip";
 import LivingPopup from "@/components/ui/LivingPopup";
+import { Icon } from "@/components/icons";
+import { CALC_BUILDER_ENABLED } from "@/lib/calculators/builder-config";
+import { calculatorsApi } from "@/lib/local-api";
+import {
+  CalculatorUseView,
+  CalculatorEditView,
+  CalculatorLibraryView,
+  emptyDraft,
+  calcToDraft,
+  templateToDraft,
+  type CalcDraft,
+} from "@/components/CalculatorBuilder";
+import type { CustomCalculator } from "@/lib/types";
+import type { CalculatorTemplate } from "@/lib/calculators/template-catalog";
 import {
   evaluateExpression,
   type AngleMode,
@@ -84,9 +98,42 @@ export default function CalculatorsButton() {
         </button>
       </Tooltip>
 
-      {showModal && <CalculatorsModal onClose={() => setShowModal(false)} />}
+      {showModal &&
+        (CALC_BUILDER_ENABLED ? (
+          <CalculatorsModalWithBuilder onClose={() => setShowModal(false)} />
+        ) : (
+          <CalculatorsModal onClose={() => setShowModal(false)} />
+        ))}
     </>
   );
+}
+
+/**
+ * Render a built-in calculator tab body by id. Shared between the legacy
+ * tabbed modal and the builder's rail so the eight built-in calculators stay
+ * identical in both layouts.
+ */
+function renderBuiltInTab(tab: TabId): React.ReactNode {
+  switch (tab) {
+    case "scientific":
+      return <ScientificCalcTab />;
+    case "molarity":
+      return <MolarityTab />;
+    case "dilution":
+      return <DilutionTab />;
+    case "serial":
+      return <SerialTab />;
+    case "tm":
+      return <TmTab />;
+    case "nucleic":
+      return <NucleicTab />;
+    case "protein":
+      return <ProteinTab />;
+    case "buffer":
+      return <BufferTab />;
+    default:
+      return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -172,21 +219,199 @@ function CalculatorsModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* Body */}
-        <div className="p-6 overflow-y-auto">
-          {tab === "scientific" && <ScientificCalcTab />}
-          {tab === "molarity" && <MolarityTab />}
-          {tab === "dilution" && <DilutionTab />}
-          {tab === "serial" && <SerialTab />}
-          {tab === "tm" && <TmTab />}
-          {tab === "nucleic" && <NucleicTab />}
-          {tab === "protein" && <ProteinTab />}
-          {tab === "buffer" && <BufferTab />}
-        </div>
+        <div className="p-6 overflow-y-auto">{renderBuiltInTab(tab)}</div>
 
         <p className="px-6 py-3 text-meta text-foreground-muted border-t border-border">
           Quick bench math, computed live in your browser. Nothing here is
           saved.
         </p>
+        </div>
+      </LivingPopup>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Modal shell with the Custom Calculator Builder (CALC_BUILDER_ENABLED)
+// ---------------------------------------------------------------------------
+//
+// A wider two-pane layout: a left rail (Built-in calculators, My calculators,
+// Build your own, Template library) and a right content pane that swaps between
+// a built-in calculator tab, the Use view, the Edit builder, and the Library.
+// Widening the modal also fixes the long-flagged Scientific keypad overflow.
+// When the flag is OFF, `CalculatorsModal` (above) renders the original tabbed
+// layout untouched.
+
+type RailMode =
+  | { kind: "builtin"; tab: TabId }
+  | { kind: "use"; calc: CustomCalculator }
+  | { kind: "edit"; draft: CalcDraft; existingId?: number }
+  | { kind: "library" };
+
+function CalculatorsModalWithBuilder({ onClose }: { onClose: () => void }) {
+  const [mode, setMode] = useState<RailMode>({ kind: "builtin", tab: "scientific" });
+  const [myCalcs, setMyCalcs] = useState<CustomCalculator[]>([]);
+  const [loadedCalcs, setLoadedCalcs] = useState(false);
+
+  const refreshMyCalcs = async () => {
+    try {
+      const list = await calculatorsApi.list();
+      // Newest first.
+      setMyCalcs([...list].sort((a, b) => b.id - a.id));
+    } catch {
+      setMyCalcs([]);
+    } finally {
+      setLoadedCalcs(true);
+    }
+  };
+
+  useEffect(() => {
+    void refreshMyCalcs();
+  }, []);
+
+  const onSaved = (saved: CustomCalculator) => {
+    void refreshMyCalcs();
+    setMode({ kind: "use", calc: saved });
+  };
+
+  const onUseTemplate = (template: CalculatorTemplate) => {
+    setMode({ kind: "edit", draft: templateToDraft(template) });
+  };
+
+  const railButtonCls = (active: boolean) =>
+    "w-full text-left px-3 py-2 rounded-lg text-body transition-colors " +
+    (active
+      ? "bg-sky-50 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300 font-medium"
+      : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken");
+
+  const activeBuiltin = mode.kind === "builtin" ? mode.tab : null;
+  const activeUseId = mode.kind === "use" ? mode.calc.id : null;
+
+  return (
+    <div className="pointer-events-auto">
+      <LivingPopup
+        open
+        onClose={onClose}
+        label="Lab calculators"
+        widthClassName="max-w-6xl"
+        card={false}
+        fillHeight
+      >
+        <div className="relative bg-surface-raised rounded-2xl shadow-2xl w-full h-full max-h-[88vh] overflow-hidden flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+            <h2 className="text-heading font-bold text-foreground flex items-center gap-2">
+              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-sky-100 dark:bg-sky-500/15 text-sky-600 dark:text-sky-300">
+                <CalculatorIcon className="w-4 h-4" />
+              </span>
+              Lab calculators
+            </h2>
+          </div>
+
+          {/* Two-pane body */}
+          <div className="flex flex-1 min-h-0">
+            {/* Left rail */}
+            <nav
+              aria-label="Calculators"
+              className="w-60 flex-shrink-0 border-r border-border overflow-y-auto p-3 space-y-4"
+            >
+              <div className="space-y-0.5">
+                <p className="px-3 pb-1 text-meta font-semibold uppercase tracking-wide text-foreground-muted">
+                  Built-in
+                </p>
+                {TABS.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setMode({ kind: "builtin", tab: t.id })}
+                    className={railButtonCls(activeBuiltin === t.id)}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-0.5">
+                <p className="px-3 pb-1 text-meta font-semibold uppercase tracking-wide text-foreground-muted">
+                  My calculators
+                </p>
+                {loadedCalcs && myCalcs.length === 0 && (
+                  <p className="px-3 py-1 text-meta text-foreground-muted">
+                    None yet. Build one below.
+                  </p>
+                )}
+                {myCalcs.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setMode({ kind: "use", calc: c })}
+                    className={railButtonCls(activeUseId === c.id)}
+                  >
+                    <span className="inline-flex items-center gap-1.5">
+                      <Icon name="vial" className="w-4 h-4 flex-shrink-0" />
+                      <span className="truncate">{c.name}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-1 pt-1 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setMode({ kind: "edit", draft: emptyDraft() })}
+                  className="w-full inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-body font-medium text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-500/15 transition-colors"
+                >
+                  <Icon name="plus" className="w-4 h-4" />
+                  Build your own
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode({ kind: "library" })}
+                  className={
+                    railButtonCls(mode.kind === "library") +
+                    " inline-flex items-center gap-1.5"
+                  }
+                >
+                  <Icon name="book" className="w-4 h-4" />
+                  Template library
+                </button>
+              </div>
+            </nav>
+
+            {/* Right content pane */}
+            <div className="flex-1 min-w-0 overflow-y-auto p-6">
+              {mode.kind === "builtin" && renderBuiltInTab(mode.tab)}
+              {mode.kind === "use" && (
+                <CalculatorUseView
+                  calc={mode.calc}
+                  onEdit={() =>
+                    setMode({
+                      kind: "edit",
+                      draft: calcToDraft(mode.calc),
+                      existingId: mode.calc.id,
+                    })
+                  }
+                />
+              )}
+              {mode.kind === "edit" && (
+                <CalculatorEditView
+                  initial={mode.draft}
+                  existingId={mode.existingId}
+                  onSaved={onSaved}
+                  onCancel={() => setMode({ kind: "builtin", tab: "scientific" })}
+                />
+              )}
+              {mode.kind === "library" && (
+                <CalculatorLibraryView onUseTemplate={onUseTemplate} />
+              )}
+            </div>
+          </div>
+
+          <p className="px-6 py-3 text-meta text-foreground-muted border-t border-border">
+            Quick bench math, computed live in your browser. Built-in
+            calculators are not saved. Calculators you build are saved to your
+            folder.
+          </p>
         </div>
       </LivingPopup>
     </div>

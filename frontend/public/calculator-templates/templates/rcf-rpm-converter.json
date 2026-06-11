@@ -1,0 +1,26 @@
+{
+  "slug": "rcf-rpm-converter",
+  "name": "RCF and RPM converter",
+  "description": "Convert between relative centrifugal force and rotor speed for a given rotor radius.",
+  "field": "General lab",
+  "inputs": [
+    { "key": "radius", "type": "number", "label": "Rotor radius", "unit": "mm", "default": 80 },
+    {
+      "key": "mode",
+      "type": "dropdown",
+      "label": "Convert",
+      "options": [
+        { "label": "RPM to g", "value": "rpm" },
+        { "label": "g to RPM", "value": "g" }
+      ]
+    },
+    { "key": "value", "type": "number", "label": "Value", "default": 10000 }
+  ],
+  "steps": [
+    { "key": "rcm", "expr": "radius/10" }
+  ],
+  "conditionals": [],
+  "outputs": [
+    { "label": "Result", "expr": "if(mode == \"rpm\", 1.118e-5*rcm*value^2, sqrt(value/(1.118e-5*rcm)))" }
+  ]
+}

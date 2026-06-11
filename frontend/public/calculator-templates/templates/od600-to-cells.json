@@ -1,0 +1,25 @@
+{
+  "slug": "od600-to-cells",
+  "name": "OD600 to cells per mL",
+  "description": "Estimate cells per mL from an OD600 reading using a per-organism conversion factor.",
+  "field": "Microbiology",
+  "inputs": [
+    { "key": "od", "type": "number", "label": "OD600 reading", "default": 0.5 },
+    {
+      "key": "organism",
+      "type": "dropdown",
+      "label": "Organism",
+      "options": [
+        { "label": "E. coli", "value": 8e8 },
+        { "label": "S. cerevisiae", "value": 3e7 }
+      ]
+    }
+  ],
+  "steps": [],
+  "conditionals": [
+    { "expr": "if(od > 1, \"OD600 above 1 is outside the linear range, dilute and re-read\", \"\")" }
+  ],
+  "outputs": [
+    { "label": "Cells per mL", "expr": "od*organism", "unit": "cells/mL" }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "slug": "injection-volume-by-weight",
+  "name": "Injection volume by body weight",
+  "description": "Dosing volume for an animal from the target dose, body weight, and stock concentration.",
+  "field": "In vivo and pharmacology",
+  "inputs": [
+    { "key": "dose", "type": "number", "label": "Dose", "unit": "mg/kg", "default": 10 },
+    { "key": "weight", "type": "number", "label": "Body weight", "unit": "g", "default": 25 },
+    { "key": "stock", "type": "number", "label": "Stock concentration", "unit": "mg/mL", "default": 5 }
+  ],
+  "steps": [
+    { "key": "weightKg", "expr": "weight/1000" }
+  ],
+  "conditionals": [
+    { "expr": "if((dose*weightKg/stock)*1000 < 20, \"Volume under 20 uL, consider diluting the stock\", \"\")" }
+  ],
+  "outputs": [
+    { "label": "Volume", "expr": "dose*weightKg/stock", "unit": "mL" },
+    { "label": "Volume", "expr": "(dose*weightKg/stock)*1000", "unit": "uL" }
+  ]
+}
