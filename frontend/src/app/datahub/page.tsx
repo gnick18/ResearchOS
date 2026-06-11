@@ -81,6 +81,9 @@ import NewGraphDialog, {
 } from "@/components/datahub/NewGraphDialog";
 import ResultsSheet from "@/components/datahub/ResultsSheet";
 import GraphEditor from "@/components/datahub/GraphEditor";
+import { objectReferenceMarkdown } from "@/lib/references";
+import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 
 export default function DataHubPage() {
   const { currentUser } = useCurrentUser();
@@ -120,6 +123,8 @@ export default function DataHubPage() {
   // analysis selection in the main panel.
   const [selectedPlotId, setSelectedPlotId] = useState<string | null>(null);
   const [newGraphOpen, setNewGraphOpen] = useState(false);
+  // Transient "copied" flash for the Copy reference button.
+  const [refCopied, setRefCopied] = useState(false);
 
   // The live projection of the open document's Loro doc. Cell edits write to the
   // doc, then reproject into this state so the grid + footer re-derive. Null
@@ -162,8 +167,30 @@ export default function DataHubPage() {
     return { all: allTables.length, unfiled, perProject };
   }, [allTables]);
 
+  // Deep link: open the document named by `?doc=<id>` (the form an object
+  // reference in a note builds, via objectReferenceMarkdown("datahub", ...)).
+  // Consumed once, after the catalog loads, and only when the doc exists. Jumps
+  // the filter to All so the target is visible whatever project it belongs to.
+  const deepLinkConsumed = useRef(false);
+  useEffect(() => {
+    if (deepLinkConsumed.current || typeof window === "undefined") return;
+    const doc = new URLSearchParams(window.location.search).get("doc");
+    if (!doc) {
+      deepLinkConsumed.current = true;
+      return;
+    }
+    if (allTables.length === 0) return; // wait for the catalog
+    deepLinkConsumed.current = true;
+    if (allTables.some((t) => t.id === doc)) {
+      setCollection("all");
+      setSelectedTableId(doc);
+    }
+  }, [allTables]);
+
   // Keep a valid selection: default to the first visible table.
   useEffect(() => {
+    // Do not override a pending deep-link selection on the first pass.
+    if (!deepLinkConsumed.current) return;
     if (tablesInCollection.length === 0) {
       setSelectedTableId(null);
       return;
@@ -468,6 +495,21 @@ export default function DataHubPage() {
     [allTables, selectedTableId],
   );
 
+  // Copy a markdown object reference to this table. Pasted into a note or a
+  // result it renders as a live Data Hub chip that opens the table; pasted
+  // anywhere else it stays a readable link. This is the note-embed entry point.
+  const handleCopyReference = useCallback(async () => {
+    if (!selectedMeta) return;
+    const md = objectReferenceMarkdown("datahub", selectedMeta.id, selectedMeta.name);
+    try {
+      await navigator.clipboard.writeText(md);
+      setRefCopied(true);
+      setTimeout(() => setRefCopied(false), 1800);
+    } catch {
+      setRefCopied(false);
+    }
+  }, [selectedMeta]);
+
   // Create a new figure from the chosen kind: build the PlotSpec (seeding its
   // y-axis title from the table name), link the ANOVA for brackets when one was
   // chosen, persist it via setPlot, commit, reproject, and select it.
@@ -662,6 +704,17 @@ export default function DataHubPage() {
                 <h1 className="text-title font-semibold text-foreground">
                   {selectedMeta.name}
                 </h1>
+                <Tooltip label="Copy a reference to paste into a note or result. It becomes a live chip that opens this table.">
+                  <button
+                    type="button"
+                    onClick={handleCopyReference}
+                    className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
+                    data-testid="datahub-copy-reference"
+                  >
+                    <Icon name="copy" className="h-3.5 w-3.5" />
+                    {refCopied ? "Copied reference" : "Copy reference"}
+                  </button>
+                </Tooltip>
               </div>
               <p className="mb-4 text-meta text-foreground-muted">
                 {openContent.meta.table_type === "xy"

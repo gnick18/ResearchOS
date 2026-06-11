@@ -70,6 +70,10 @@ function ChipIcon({ type, className }: { type: ObjectRefType; className?: string
       // The chemistry vial, from the verified icon registry (so this new ref type
       // adds no raw inline SVG over the guard baseline).
       return <Icon name="vial" className={className} />;
+    case "datahub":
+      // A Data Hub document (a workbook of tables, analyses, and figures). The
+      // chart glyph from the verified registry, so no raw inline SVG is added.
+      return <Icon name="chart" className={className} />;
     case "project":
     default:
       // A folder.

@@ -20,7 +20,8 @@ export type ObjectRefType =
   | "note"
   | "file"
   | "project"
-  | "molecule";
+  | "molecule"
+  | "datahub";
 
 /** One route shape. `build` makes the in-app path for an id; `match` recognizes a
  *  path (already split into pathname + query params) and returns the id, or null
@@ -79,6 +80,17 @@ const OBJECT_ROUTES: Record<ObjectRefType, RouteShape> = {
       if (pathname !== "/chemistry") return null;
       const mol = params.get("molecule");
       return mol && mol.length > 0 ? mol : null;
+    },
+  },
+  // Data Hub opens a document (a workbook) via a query param. The /datahub page
+  // reads the same `doc` param to auto-select that table, so a reference in a
+  // note jumps straight to the analysis surface for that data.
+  datahub: {
+    build: (id) => `/datahub?doc=${encodeURIComponent(id)}`,
+    match: (pathname, params) => {
+      if (pathname !== "/datahub") return null;
+      const doc = params.get("doc");
+      return doc && doc.length > 0 ? doc : null;
     },
   },
 };
