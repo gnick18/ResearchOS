@@ -38,7 +38,7 @@ describe("reminder copy", () => {
     const text = reminderText(d);
     expect(text).toContain("2026-09-30");
     expect(text).toContain("Roughly $25");
-    expect(text).toContain("/admin/business");
+    expect(text).toContain("/business");
   });
 });
 

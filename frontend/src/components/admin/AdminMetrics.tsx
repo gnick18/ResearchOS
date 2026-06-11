@@ -115,7 +115,7 @@ function Shell({ children }: { children: React.ReactNode }) {
           </span>
           <div className="flex items-center gap-4">
             <Link
-              href="/admin/business"
+              href="/business"
               className="text-body font-medium text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
             >
               Business

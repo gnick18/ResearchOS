@@ -96,7 +96,7 @@ describe("reminderHtml", () => {
     } as Deadline;
     const html = reminderHtml(d);
     expect(html).toContain("Annual LLC report");
-    expect(html).toContain("/admin/business");
+    expect(html).toContain("/business");
     expect(html).toContain("business tracker");
     expect(html).toContain(EMAIL_COLORS.sky);
   });

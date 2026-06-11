@@ -1,6 +1,7 @@
 "use client";
 
-// Operator-only LLC business tab (rendered at /admin/business).
+// Operator-only LLC business tab (rendered at /business; moved from
+// /admin/business 2026-06-10).
 //
 // Grant-only. Fetches /api/admin/business, which is gated on ADMIN_EMAILS and
 // SHARING_ENABLED, so a non-admin or a signed-out visitor just sees "not

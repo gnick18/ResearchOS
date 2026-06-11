@@ -50,7 +50,7 @@ export function reminderText(d: Deadline): string {
     `${d.label} is due ${whenPhrase(d.daysUntil)}, on ${d.dueDate}.`,
   ];
   if (d.note) lines.push("", d.note);
-  lines.push("", "From the ResearchOS LLC business tracker (/admin/business).");
+  lines.push("", "From the ResearchOS LLC business tracker (/business).");
   return lines.join("\n");
 }
 
@@ -70,6 +70,6 @@ export function reminderHtml(d: Deadline): string {
     wordmarkSuffix: " &middot; business tracker",
     mascotSize: 34,
     bodyHtml: `<p style="font-size:15px;font-weight:600;color:${ink};margin:0 0 6px;">${due}</p>${note}`,
-    cta: { label: "Open business tracker", url: `${emailAssetOrigin()}/admin/business` },
+    cta: { label: "Open business tracker", url: `${emailAssetOrigin()}/business` },
   });
 }
