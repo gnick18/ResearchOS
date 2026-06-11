@@ -4,7 +4,7 @@ Canonical reference for anyone writing marketing, pricing, or FAQ copy about
 what ResearchOS charges for. Keep this current as billing changes, it is the
 single source the branding work pulls from.
 
-Last updated 2026-06-10.
+Last updated 2026-06-10 (added the solidarity model, larger institutions sustain the free tiers).
 
 House voice applies to everything written from this file: no em-dashes, no
 emojis, no mid-sentence colons, always state the why, no AI-speak.
@@ -20,10 +20,12 @@ charged for yet. The host repo (github.com/gnick18/ResearchOS) is now public.
 - The local-first notebook is free and open source forever (AGPLv3). Your data
   lives in your own folder on your own disk. We never need to charge you to use
   ResearchOS for your own research.
-- We charge only for optional cloud storage, and only to recover what that
-  storage actually costs us. The reason it stays this cheap is the local-first
-  design, your everyday work never touches our servers, so our costs are small
-  and so is the price.
+- We charge only for optional cloud storage. Individuals and labs pay only what
+  that storage actually costs us. Departments and institutions pay a modest
+  sustaining rate above cost, and that surplus keeps ResearchOS free for
+  individual researchers and funds the open-source development. The reason it all
+  stays this cheap is the local-first design, your everyday work never touches
+  our servers, so our costs are small and so is the price.
 
 ## Plans (flat bundles, not metered-on-use to the customer)
 
@@ -78,9 +80,13 @@ charged for yet. The host repo (github.com/gnick18/ResearchOS) is now public.
 - Cost circuit breaker: we set a hard monthly budget. If cloud spend ever
   approaches it, cloud writes pause and the local-first app keeps working with
   zero interruption. We cannot run up a runaway bill that we then pass to you.
-- Pricing philosophy is cost recovery, not profit. We size prices to cover
-  infrastructure plus payment processing plus tax, with a small safety buffer so
-  we are never underwater. We are not trying to be a money printer.
+- Pricing philosophy is priced to sustain, not to profit. Individuals and labs
+  pay cost recovery, what storage actually costs us, no more. Departments and
+  institutions pay a modest sustaining rate above cost, and that surplus keeps
+  ResearchOS free for individual researchers and funds the open-source
+  development. We size everything to cover infrastructure plus payment processing
+  plus tax with a small safety buffer, never to extract profit. We are keeping a
+  public good alive, not running a money printer.
 
 ## Credibility (use lightly)
 
@@ -90,8 +96,10 @@ charged for yet. The host repo (github.com/gnick18/ResearchOS) is now public.
 
 ## Do not publish yet
 
-- No specific Plus or Pro prices, they are provisional until a few weeks of real
-  usage data set them.
+- No FINAL Plus or Pro sticker prices, they are provisional until a few weeks of
+  real usage set them. Transparent cost-recovery ESTIMATES are fine to show when
+  clearly labeled an estimate, not final, and free during beta (the pricing-page
+  calculator and the department and institution builders do exactly this).
 - Do not imply billing is live. It is off during beta, everything is free right
   now.
 - Do not promise "free forever" for cloud storage. The LOCAL notebook is free

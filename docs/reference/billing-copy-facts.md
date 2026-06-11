@@ -9,7 +9,9 @@ House voice: no em-dashes, no emojis, no mid-sentence colons, always state the w
 
 - Everything below is built behind `BILLING_ENABLED`, which is OFF in production. The whole
   app is free during beta. Never imply billing is live.
-- No specific Plus or Pro dollar figures in any public copy. They are provisional.
+- No FINAL Plus or Pro sticker prices in public copy, they are provisional. Transparent
+  cost-recovery ESTIMATES are fine when clearly labeled an estimate, not final, and free during
+  beta (the pricing-page calculator and the dept/institution builders do this).
 - Never say "free forever" about cloud storage. The local notebook is free forever, cloud is
   the optional paid part.
 
@@ -18,8 +20,10 @@ House voice: no em-dashes, no emojis, no mid-sentence colons, always state the w
 The local-first notebook is free and open source forever (AGPLv3). Your data lives in your
 own folder on your own disk. We never need to charge you to use ResearchOS for your own research.
 
-We charge only for optional cloud storage, and only to recover what that storage actually costs
-us. The reason it stays this cheap is the local-first design, your everyday work never touches
+We charge only for optional cloud storage. Individuals and labs pay only what that storage
+actually costs us. Departments and institutions pay a modest sustaining rate above cost, and that
+surplus keeps ResearchOS free for individual researchers and funds the open-source development.
+The reason it all stays this cheap is the local-first design, your everyday work never touches
 our servers, so our costs are small and so is the price.
 
 ## Plans (flat bundles, not metered-on-use to the customer)
@@ -28,8 +32,9 @@ our servers, so our costs are small and so is the price.
 - Each plan bundles a storage allowance plus an activity allowance into one monthly price, one
   invoice line. There is no second meter watching their editing.
 - Free tier is 5 GB plus a generous editing allowance, at $0. A real working tier, not a trial.
-- Plus and Pro dollar figures are provisional. Do not print them. Safe public phrasing is
-  "a free tier and low-cost paid tiers for heavier storage."
+- FINAL Plus and Pro sticker prices are provisional, do not print them. Transparent
+  cost-recovery estimates are fine when labeled an estimate. Safe public phrasing is "a free tier
+  and low-cost paid tiers for heavier storage."
 
 ## Activity is never billed per edit (the LabArchives trust-flip)
 
@@ -62,8 +67,10 @@ The storage plans live on Stripe. Keep the two channels distinct.
 - Cost circuit breaker, a hard monthly budget. If cloud spend nears it, cloud writes pause and
   the local-first app keeps working uninterrupted. We cannot run up a runaway bill and pass it
   to you.
-- Pricing philosophy is cost recovery, not profit, with a small safety buffer so we are never
-  underwater.
+- Pricing philosophy is priced to sustain, not to profit. Individuals and labs pay cost
+  recovery, what storage costs us, no more. Departments and institutions pay a modest sustaining
+  rate above cost, and that surplus keeps ResearchOS free for individual researchers and funds
+  the open-source development. Small safety buffer, never to extract profit.
 
 ## Credibility (use lightly)
 
