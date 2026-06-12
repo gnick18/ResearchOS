@@ -18,6 +18,8 @@
 //
 // Voice in comments, no em-dashes, no emojis, no mid-sentence colons.
 
+import { cachedFetch } from "@/lib/chemistry/fetch-cache";
+
 /** Base URL of the NCBI Datasets v2 REST API. */
 export const NCBI_DATASETS_BASE = "https://api.ncbi.nlm.nih.gov/datasets/v2";
 
@@ -1134,7 +1136,9 @@ export async function listAssemblySequences(
 async function getJson(url: string, signal?: AbortSignal): Promise<unknown> {
   let res: Response;
   try {
-    res = await fetch(url, { headers: { Accept: "application/json" }, signal });
+    // cachedFetch is a passthrough to fetch in production; the demo recorder
+    // turns the cache on and pre-warms these GETs so a clip lands instantly.
+    res = await cachedFetch(url, { headers: { Accept: "application/json" }, signal });
   } catch (e) {
     if ((e as Error)?.name === "AbortError") throw e;
     throw new NcbiDatasetsError("Could not reach NCBI Datasets.");

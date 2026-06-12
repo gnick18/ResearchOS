@@ -233,11 +233,150 @@ const purchases: DemoStep[] = [
   { action: "wait", ms: 1800 },
 ];
 
+// --- Guided NCBI genome import (the wizard) -> the cyp51A walk. An ALTERNATE
+// sequences clip showcasing the new feature: type an organism, pick its
+// reference genome, browse chromosomes, search a gene by NAME, grab a window.
+// Worked example: Aspergillus fumigatus / cyp51A. Every step is a live NCBI
+// round trip (taxonomy, assemblies, contigs, gene search, efetch); the prewarm
+// warms the whole chain during the countdown so each lands instantly. If the API
+// is slow at record time, bump the waits (the engine also polls each target up
+// to 8s, so a slow step self-paces). LIVE-STATE beats are flagged inline. ---
+const sequencesNcbi: DemoStep[] = [
+  { action: "wait", ms: 900 },
+  { action: "click", target: NAV("/sequences"), durationMs: 850 },
+  { action: "wait", ms: 1800 },
+  // Open the guided "Download from NCBI" wizard (header action; the demo fixture
+  // has a collection, so the header button is present, not the launcher card).
+  { action: "click", target: { textContains: "Download from NCBI" }, durationMs: 800 },
+  { action: "wait", ms: 900 },
+  // Step 1: type an organism, NCBI Taxonomy autocompletes (live, debounced 280ms).
+  {
+    action: "type",
+    target: { testid: "ncbi-organism-input" },
+    text: "Aspergillus fumigatus",
+    cadenceMs: 70,
+  },
+  // Suggestions return; pick the first taxon row (the species match).
+  { action: "wait", ms: 1600 },
+  { action: "moveTo", target: { testid: "ncbi-taxon-row" }, durationMs: 700 },
+  { action: "click", target: { testid: "ncbi-taxon-row" }, durationMs: 350 },
+  // Step 2: assemblies list (live). The reference genome is badged. Click the
+  // first row's browse button (the testid is on the row div, so target the inner
+  // button) to walk into its chromosomes.
+  { action: "wait", ms: 1800 },
+  {
+    action: "click",
+    target: `[data-testid="ncbi-assembly-row"] button`,
+    durationMs: 800,
+  },
+  // Step 3: chromosomes for that assembly (live). Rather than guess a contig,
+  // jump straight to the by-name gene search (the wizard lands you on the right
+  // chromosome from the gene's placement).
+  { action: "wait", ms: 1800 },
+  {
+    action: "click",
+    target: { textContains: "Search a gene instead" },
+    durationMs: 800,
+  },
+  { action: "wait", ms: 700 },
+  // Step 4: search the gene by NAME (no accession needed), scoped to the organism.
+  {
+    action: "type",
+    target: { testid: "ncbi-gene-input" },
+    text: "cyp51A",
+    cadenceMs: 90,
+  },
+  { action: "wait", ms: 350 },
+  { action: "click", target: { testid: "ncbi-gene-search" }, durationMs: 600 },
+  // Hits return (live esearch). Click the first hit. LIVE-STATE: the first hit
+  // must carry a chromosome placement (placed rows are enabled); cyp51A in this
+  // organism does. If a record without placement sorts first at record time,
+  // re-take (backtick) or click a placed row.
+  { action: "wait", ms: 1900 },
+  { action: "moveTo", target: { testid: "ncbi-gene-row" }, durationMs: 700 },
+  { action: "click", target: { testid: "ncbi-gene-row" }, durationMs: 350 },
+  // Step 5: the window. Dwell on the strand bar (gene + promoter/terminator
+  // flank). Leave the flank at its 1kb default so the warmed efetch URL matches.
+  { action: "wait", ms: 1400 },
+  { action: "moveTo", target: { testid: "ncbi-flank-input" }, durationMs: 700 },
+  { action: "wait", ms: 1200 },
+  // Import only that slice (live efetch of the gene-plus-flank window, tens of KB,
+  // instant; warmed during the countdown).
+  { action: "moveTo", target: { testid: "ncbi-import-region" }, durationMs: 700 },
+  { action: "click", target: { testid: "ncbi-import-region" }, durationMs: 350 },
+  // Done screen: the annotated region is now in the library.
+  { action: "wait", ms: 2200 },
+  { action: "moveTo", target: { testid: "ncbi-done" }, durationMs: 700 },
+  { action: "wait", ms: 1400 },
+];
+
+// --- Chemistry literature explorer -> the gliotoxin walk. An ALTERNATE
+// chemistry clip showcasing the new explorer (filters + per-year histogram +
+// star a DOI). gliotoxin is the niche example: an Aspergillus fumigatus toxin,
+// tying to the cyp51A organism in the sequences clip. Import the compound, open
+// its Papers & patents, launch the explorer, filter, and star a paper. Beats 1
+// and 4 are live Europe PMC / PubChem calls (warmed during the countdown). ---
+const chemistryGliotoxin: DemoStep[] = [
+  { action: "wait", ms: 900 },
+  { action: "click", target: NAV("/chemistry"), durationMs: 850 },
+  { action: "wait", ms: 1400 },
+  // Import the compound from PubChem (live network).
+  { action: "click", target: { testid: "chem-rail-pubchem" }, durationMs: 800 },
+  { action: "wait", ms: 600 },
+  {
+    action: "type",
+    target: 'input[placeholder^="Compound name"]',
+    text: "gliotoxin",
+    cadenceMs: 90,
+  },
+  { action: "wait", ms: 400 },
+  { action: "click", target: { testid: "pubchem-search-submit" }, durationMs: 600 },
+  { action: "wait", ms: 2400 },
+  { action: "moveTo", target: { testid: "pubchem-import-btn" }, durationMs: 900 },
+  { action: "click", target: { testid: "pubchem-import-btn" }, durationMs: 350 },
+  // Molecule detail loads (RDKit computes properties; warmed wasm).
+  { action: "wait", ms: 2600 },
+  { action: "moveTo", target: { testid: "mol-detail-props" }, durationMs: 900 },
+  { action: "wait", ms: 900 },
+  // Expand the literature panel (lazy mount), then open the full explorer.
+  {
+    action: "click",
+    target: { textContains: "Find papers and patents" },
+    durationMs: 800,
+  },
+  // Europe PMC + PubChem fetch (live, warmed). The "View all" button appears once
+  // the panel has its items.
+  { action: "wait", ms: 3000 },
+  { action: "moveTo", target: { testid: "lit-explorer-open" }, durationMs: 800 },
+  { action: "click", target: { testid: "lit-explorer-open" }, durationMs: 350 },
+  { action: "wait", ms: 1200 },
+  // Inside the explorer: narrow the year range (rescales the histogram + list).
+  {
+    action: "type",
+    target: { testid: "lit-explorer-year-min" },
+    text: "2015",
+    cadenceMs: 110,
+    clear: true,
+  },
+  { action: "wait", ms: 1000 },
+  // Toggle the Research type filter off then on (reviews + patents stand out).
+  { action: "click", target: { testid: "lit-explorer-filter-research" }, durationMs: 600 },
+  { action: "wait", ms: 900 },
+  { action: "click", target: { testid: "lit-explorer-filter-research" }, durationMs: 400 },
+  { action: "wait", ms: 700 },
+  // Star a paper (persists to the molecule's starred_papers sidecar).
+  { action: "moveTo", target: { testid: "lit-explorer-star" }, durationMs: 700 },
+  { action: "click", target: { testid: "lit-explorer-star" }, durationMs: 350 },
+  { action: "wait", ms: 1600 },
+];
+
 export const DEMO_CLIPS: Record<string, DemoStep[]> = {
   chemistry,
   datahub: dataHub,
   sequences,
   purchases,
+  sequencesNcbi,
+  chemistryGliotoxin,
 };
 
 export type DemoClipId = keyof typeof DEMO_CLIPS;
@@ -285,5 +424,21 @@ export const DEMO_CLIP_META: DemoClipMeta[] = [
     hook: "no Quartzy",
     summary:
       "Filter the order list, expand an order's line items, show the spending rollup, then log a new purchase.",
+  },
+  {
+    id: "sequencesNcbi",
+    label: "Guided NCBI import (alt)",
+    file: "sequence-editor.mp4",
+    hook: "no accession hunting",
+    summary:
+      "Alternate sequences clip: the guided NCBI wizard. Type an organism, pick its reference genome, browse chromosomes, search cyp51A by name, grab a 1kb window.",
+  },
+  {
+    id: "chemistryGliotoxin",
+    label: "Literature explorer (alt)",
+    file: "chemistry-workbench.mp4",
+    hook: "no SciFinder license",
+    summary:
+      "Alternate chemistry clip: import gliotoxin, open its Papers & patents, launch the explorer, narrow the year range, filter by type, and star a paper.",
   },
 ];

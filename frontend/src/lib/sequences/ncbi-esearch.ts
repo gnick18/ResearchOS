@@ -18,6 +18,8 @@
 //
 // Voice in comments, no em-dashes, no emojis, no mid-sentence colons.
 
+import { cachedFetch } from "@/lib/chemistry/fetch-cache";
+
 /** Base URL shared by all NCBI E-utilities endpoints. */
 export const EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils";
 
@@ -244,7 +246,7 @@ export function parseGeneSummaries(raw: unknown): GeneSearchHit[] {
 async function getJson(url: string, signal?: AbortSignal): Promise<unknown> {
   let res: Response;
   try {
-    res = await fetch(url, { headers: { Accept: "application/json" }, signal });
+    res = await cachedFetch(url, { headers: { Accept: "application/json" }, signal });
   } catch (e) {
     if ((e as Error)?.name === "AbortError") throw e;
     throw new NcbiSearchError("Could not reach NCBI to search for genes.");

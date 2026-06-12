@@ -15,6 +15,18 @@ import {
 } from "@/lib/chemistry/pubchem";
 import { europePmcPapers, pubchemLinks } from "@/lib/chemistry/literature";
 import { getRdkit } from "@/lib/chemistry/rdkit";
+import {
+  suggestTaxa,
+  listTaxonAssemblies,
+  listAssemblySequences,
+} from "@/lib/sequences/ncbi-datasets";
+import { esearchGenes } from "@/lib/sequences/ncbi-esearch";
+import { efetchGenbank } from "@/lib/sequences/ncbi-efetch";
+import {
+  resolveWindow,
+  hitHasPlacement,
+  placementFromHit,
+} from "@/lib/sequences/guided-ncbi-import";
 
 /**
  * Chemistry clip. Two slow first-touches, both warmed during the countdown:
@@ -25,8 +37,7 @@ import { getRdkit } from "@/lib/chemistry/rdkit";
  * The network half mirrors PubChemImportDialog + MoleculeLiterature (maxPapers=6)
  * call-for-call so the warmed URLs match exactly.
  */
-async function prewarmChemistry(): Promise<void> {
-  const q = "caffeine";
+async function warmChemistryFor(q: string): Promise<void> {
   // Kick off the wasm immediately; don't gate the network warm on it.
   void getRdkit().catch(() => {});
   const compounds = await searchCompounds(q, 8).catch(() => []);
@@ -39,6 +50,62 @@ async function prewarmChemistry(): Promise<void> {
       if (cid != null) await pubchemLinks(cid);
     })(),
   ]);
+}
+
+/** Chemistry clip (caffeine import + structure search + literature). */
+function prewarmChemistry(): Promise<void> {
+  return warmChemistryFor("caffeine");
+}
+
+/** Chemistry literature-explorer clip (gliotoxin import + explorer). Same shape
+ *  as the caffeine warm; the explorer reads the same europePmcPapers + pubchemLinks
+ *  results MoleculeLiterature fetched. */
+function prewarmChemistryGliotoxin(): Promise<void> {
+  return warmChemistryFor("gliotoxin");
+}
+
+/**
+ * Guided NCBI import clip (the cyp51A walk). Replays the wizard's network chain
+ * with the SAME high-level lib calls and the SAME arguments the clip triggers,
+ * so the warmed Datasets / E-utilities URLs match exactly: organism autocomplete,
+ * the first assembly's contig list, the gene search, and the gene-plus-1kb
+ * windowed efetch (the on-camera highlight). All best-effort; a miss just runs
+ * the live call normally. Also warms the SeqViz chunk the imported region renders
+ * into. The lib GET helpers route through the demo fetch cache (see ncbi-* libs).
+ */
+async function prewarmSequencesNcbi(): Promise<void> {
+  void import("@/vendor/seqviz").catch(() => {});
+  const organism = "Aspergillus fumigatus";
+  const gene = "cyp51A";
+  try {
+    const taxa = await suggestTaxa(organism, {});
+    const taxon = taxa[0];
+    await Promise.allSettled([
+      // The browse path: assemblies -> the first assembly's contigs.
+      taxon
+        ? listTaxonAssemblies(taxon.taxId, {})
+            .then((res) => {
+              const first = res.assemblies[0];
+              return first ? listAssemblySequences(first.accession) : undefined;
+            })
+            .catch(() => undefined)
+        : Promise.resolve(undefined),
+      // The highlight: gene-by-name search -> the windowed efetch at the 1kb
+      // default flank (the clip leaves the flank untouched so this URL matches).
+      esearchGenes(gene, organism)
+        .then(async (hits) => {
+          const placed = hits.find(hitHasPlacement);
+          if (!placed) return;
+          const win = resolveWindow(placementFromHit(placed), 1000);
+          await efetchGenbank(placed.contigAccession, {
+            window: { start: win.start, stop: win.stop },
+          });
+        })
+        .catch(() => undefined),
+    ]);
+  } catch {
+    // best-effort; the live wizard calls run normally on a miss
+  }
 }
 
 /**
@@ -55,4 +122,6 @@ async function prewarmSequences(): Promise<void> {
 export const DEMO_PREWARM: Record<string, () => Promise<void>> = {
   chemistry: prewarmChemistry,
   sequences: prewarmSequences,
+  sequencesNcbi: prewarmSequencesNcbi,
+  chemistryGliotoxin: prewarmChemistryGliotoxin,
 };

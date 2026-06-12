@@ -353,6 +353,11 @@ export function MoleculeDetail({
               <MoleculeLiterature
                 query={molecule.name}
                 cid={molecule.pubchem_cid}
+                molecule={molecule}
+                onStarsChanged={() => {
+                  void queryClient.invalidateQueries({ queryKey: ["molecules"] });
+                  void queryClient.invalidateQueries({ queryKey: ["project-molecules"] });
+                }}
               />
             </>
           ) : (

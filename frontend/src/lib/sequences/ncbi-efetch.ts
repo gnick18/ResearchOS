@@ -14,6 +14,8 @@
 //
 // Voice in comments, no em-dashes, no emojis, no mid-sentence colons.
 
+import { cachedFetch } from "@/lib/chemistry/fetch-cache";
+
 /** Base URL of the NCBI E-utilities efetch endpoint. */
 export const NCBI_EFETCH_BASE =
   "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi";
@@ -94,7 +96,7 @@ export async function efetchGenbank(
   if (!acc) throw new EfetchError("Enter an accession.");
   let res: Response;
   try {
-    res = await fetch(efetchUrl(acc, opts?.window), {
+    res = await cachedFetch(efetchUrl(acc, opts?.window), {
       headers: { Accept: "text/plain" },
       signal: opts?.signal,
     });
@@ -242,7 +244,7 @@ async function fetchGeneReport(
     : `${NCBI_DATASETS_BASE}/gene/symbol/${encodeURIComponent(id)}/taxon/${encodeURIComponent(t)}/dataset_report`;
   let res: Response;
   try {
-    res = await fetch(url, { headers: { Accept: "application/json" }, signal });
+    res = await cachedFetch(url, { headers: { Accept: "application/json" }, signal });
   } catch (e) {
     if ((e as Error)?.name === "AbortError") throw e;
     throw new EfetchError("Could not reach NCBI to look up that gene.");
