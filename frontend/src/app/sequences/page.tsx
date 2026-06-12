@@ -11,6 +11,7 @@ import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import AppShell from "@/components/AppShell";
 import Tooltip from "@/components/Tooltip";
+import { Icon } from "@/components/icons";
 import SequenceEditView from "@/components/sequences/SequenceEditView";
 import { usePreloadOnIdle } from "@/lib/perf/use-preload-on-idle";
 import SequenceNewDialog, {
@@ -1576,6 +1577,28 @@ export default function SequencesPage() {
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
+                      {/* Copy reference for a note. Mirrors the chemistry
+                          molecule detail's visible "Copy reference for a note"
+                          action so exporting an open sequence into a note,
+                          experiment (results or lab notes), or method is one
+                          click, then "/" or paste drops it in as a chip. The
+                          right-click row menu still has the same action. */}
+                      <Tooltip label="Copy reference for a note" placement="bottom">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleCopyReference({
+                              type: "sequence",
+                              id: selected.id,
+                              name: selected.display_name,
+                            })
+                          }
+                          aria-label="Copy reference for a note"
+                          className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+                        >
+                          <Icon name="copy" className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
                       <Tooltip label="Share" placement="bottom">
                         <button
                           type="button"
