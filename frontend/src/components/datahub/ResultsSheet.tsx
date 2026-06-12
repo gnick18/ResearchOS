@@ -799,9 +799,36 @@ export default function ResultsSheet({
         <WorkspaceToolbar testId="datahub-results-toolbar" groups={toolbarGroups} />
         <div className="min-h-0 flex-1 overflow-auto px-5 pb-5 pt-4">
           {paramsPanel}
-          <p className="rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-foreground-muted">
-            This analysis cannot run on the current table. {outcome.error}
-          </p>
+          {outcome.needsRaw ? (
+            // A summary table cannot run this test because the raw replicates are
+            // not stored. Show a calm, specific explanation and the one move that
+            // unblocks it (switch the table format), not a generic error.
+            <div
+              className="flex items-start gap-2.5 rounded-md border border-amber-300 bg-amber-50 px-3.5 py-3 dark:border-amber-500/40 dark:bg-amber-500/10"
+              data-testid="results-needs-raw"
+            >
+              <Icon
+                name="alert"
+                className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300"
+              />
+              <div>
+                <p className="text-body font-medium text-foreground">
+                  This test needs raw replicate values
+                </p>
+                <p className="mt-1 text-meta text-foreground-muted">
+                  The table holds entered summary stats (mean, spread, n), which
+                  support the unpaired t-test and the one-way ANOVA. A paired,
+                  rank-based, correlation, or regression test needs the original
+                  measurements. Switch the table to Replicates from its Format
+                  control to run it.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-foreground-muted">
+              This analysis cannot run on the current table. {outcome.error}
+            </p>
+          )}
         </div>
       </div>
     );
