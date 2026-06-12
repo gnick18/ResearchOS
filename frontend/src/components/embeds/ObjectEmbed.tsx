@@ -79,6 +79,12 @@ const EMBED_RENDERERS: Partial<
   experiment: lazy(() => import("./ExperimentEmbed")),
 };
 
+// P7-2 transclusion. A note embed whose view is "transclude" renders its section
+// LIVE via TransclusionEmbed instead of the normal NoteEmbed card. Kept lazy so the
+// recursive markdown renderer only loads when a transclusion is actually on screen,
+// and out of the per-type map so it never collides with the "note" card renderer.
+const TransclusionEmbed = lazy(() => import("./TransclusionEmbed"));
+
 const TYPE_ICON: Record<ObjectRefType, IconName> = {
   sequence: "sequence",
   collection: "folder",
@@ -314,6 +320,31 @@ export default function ObjectEmbed({
   onViewChange,
   pinContext,
 }: EmbedRendererProps) {
+  // P7-2 transclusion. A note embed with view "transclude" renders a live section
+  // of another note, recursion-guarded. It is NOT pinnable or view-switchable in
+  // v1, so it short-circuits the whole pin / stale / view-switch machinery below
+  // and renders inside the same quiet figure frame. Hooks above this point are not
+  // yet declared, so this early return precedes them (no conditional-hook hazard).
+  if (descriptor.type === "note" && descriptor.view === "transclude") {
+    return (
+      <figure
+        className="my-3 mx-0 overflow-hidden rounded-xl border border-border bg-surface-raised"
+        data-embed-type={descriptor.type}
+        data-embed-view={descriptor.view}
+      >
+        <Suspense
+          fallback={<ObjectEmbedCard descriptor={descriptor} caption={caption} loading />}
+        >
+          <TransclusionEmbed
+            descriptor={descriptor}
+            caption={caption}
+            basePath={basePath}
+          />
+        </Suspense>
+      </figure>
+    );
+  }
+
   const Renderer = EMBED_RENDERERS[descriptor.type];
 
   // A pinned embed renders its FROZEN snapshot, not live. The pin id rides the

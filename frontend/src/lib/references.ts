@@ -232,6 +232,9 @@ export interface EmbedOpts {
   /** Portable content identity for cross-library resolution. The path id is only
    *  a hint, this is what survives being shared into another person's library. */
   ref?: string;
+  /** Heading of the section to transclude (P7-2). URL-encoded in the fragment,
+   *  empty / absent means the whole note body. Used with view "transclude". */
+  section?: string;
 }
 
 /** A parsed embed reference. `view` is the render mode, "chip" (the default)
@@ -261,7 +264,7 @@ export const DEFAULT_EMBED_VIEW: Record<ObjectRefType, string> = {
   experiment: "results",
 };
 
-const EMBED_STR_KEYS = ["region", "analysis", "plot", "pin", "ref"] as const;
+const EMBED_STR_KEYS = ["region", "analysis", "plot", "pin", "ref", "section"] as const;
 const EMBED_INT_KEYS = ["rows", "cols", "w", "h"] as const;
 
 /** Parse the `#ros=...` fragment into a view + opts. Tolerant, an empty or

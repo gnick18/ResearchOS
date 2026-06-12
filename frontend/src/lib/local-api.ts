@@ -191,6 +191,7 @@ import {
   type IdpSyncedTaskDraft,
 } from "./idp/action-task-sync";
 import type { Notebook } from "./types";
+import { normalizeTransclusions } from "./embeds/normalize-transclusions";
 
 const projectsStore = new JsonStore<Project>("projects");
 const tasksStore = new JsonStore<Task>("tasks");
@@ -5400,6 +5401,39 @@ async function recordEntryHistory(
   });
 }
 
+// Markdown embed hybrid P7-2 (embeds manager, 2026-06-12): normalize a user-typed
+// `![[Note Title#Heading]]` transclusion into the portable embed link on save. The
+// resolver lists all notes once and matches a title case-insensitively, first match
+// wins, and NEVER matches the note onto itself (a self-transclusion-by-title still
+// resolves to this note's id so the render-time cycle guard catches the loop). Pure
+// + best-effort: a list failure leaves every `![[ ]]` raw (the resolver returns
+// null), so the content is unchanged and the save proceeds. Returns the possibly-
+// rewritten content; identical bytes when nothing matched (guarded by `changed`).
+async function normalizeEntryContent(
+  content: string | undefined,
+  selfNoteId: number,
+): Promise<string | undefined> {
+  if (content == null || content.indexOf("![[") === -1) return content;
+  let all: Note[] = [];
+  try {
+    all = await notesStore.listAll();
+  } catch {
+    return content; // resolver unavailable: leave every transclusion raw
+  }
+  const byTitle = new Map<string, string>();
+  for (const n of all) {
+    const key = (n.title ?? "").trim().toLowerCase();
+    if (!key) continue;
+    // First match wins: only set the key once.
+    if (!byTitle.has(key)) byTitle.set(key, String(n.id));
+  }
+  const { content: next } = normalizeTransclusions(content, (title) => {
+    const id = byTitle.get(title.trim().toLowerCase());
+    return id ?? null;
+  });
+  return next;
+}
+
 // Back-compat heal (unified Share verifier follow-up, 2026-06-04): notes
 // from the pre-R1 coarse-toggle era could set `is_shared = true` WITHOUT
 // writing the "*" whole-lab sentinel into `shared_with`. The unified
@@ -5637,11 +5671,14 @@ export const notesApi = {
     if (!note) return null;
 
     const now = new Date().toISOString();
+    // P7-2 transclusion: rewrite any `![[Note#Heading]]` to the portable embed link
+    // before persisting. Byte-unchanged when the content has no `![[ ]]`.
+    const normalizedContent = await normalizeEntryContent(data.content ?? "", noteId);
     const newEntry: NoteEntry = {
       id: crypto.randomUUID(),
       title: data.title,
       date: data.date,
-      content: data.content ?? "",
+      content: normalizedContent ?? "",
       created_at: now,
       updated_at: now,
     };
@@ -5671,9 +5708,20 @@ export const notesApi = {
     if (!note) return null;
 
     const now = new Date().toISOString();
+    // P7-2 transclusion: this is the primary note-body save path. Normalize any
+    // `![[Note#Heading]]` in the new content into the portable embed link before
+    // persisting. Only runs when `content` is part of this patch AND it actually
+    // contains `![[`, so a title / date only edit (or content with no transclusion)
+    // is byte-for-byte unchanged.
+    const normalizedContent =
+      data.content !== undefined
+        ? await normalizeEntryContent(data.content, noteId)
+        : undefined;
+    const patchedData =
+      normalizedContent !== undefined ? { ...data, content: normalizedContent } : data;
     const entries = (note.entries || []).map((e) => {
       if (e.id === entryId) {
-        return { ...e, ...data, updated_at: now };
+        return { ...e, ...patchedData, updated_at: now };
       }
       return e;
     });
