@@ -182,6 +182,16 @@ export default function TermsOfService() {
           </p>
         </Section>
 
+        <Section id="eligibility" title="Who can use ResearchOS">
+          <p>
+            ResearchOS is a tool for researchers and is meant for people who are
+            at least 13 years old. It is not directed to children under 13, and
+            we do not knowingly collect their information. If you use ResearchOS
+            on behalf of a lab, department, or institution, you confirm that you
+            have the authority to agree to these terms for that group.
+          </p>
+        </Section>
+
         <Section id="acceptable-use" title="Using the service responsibly">
           <p>
             ResearchOS is a tool for research, and we ask that you use it that
@@ -210,6 +220,26 @@ export default function TermsOfService() {
             ResearchOS is a place to do the work, but decisions about regulated
             data, human-subjects rules, your institution&apos;s data-management
             requirements, and similar obligations remain yours.
+          </p>
+        </Section>
+
+        <Section id="copyright" title="Copyright and takedowns">
+          <p>
+            We respect intellectual property. Because the everyday app keeps
+            your files on your own machine, most content never touches us. If
+            you believe something shared or collaborated through our service
+            infringes your copyright, write to{" "}
+            <a
+              href={`mailto:${CONTACT_EMAIL}`}
+              className="font-semibold text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
+            >
+              {CONTACT_EMAIL}
+            </a>{" "}
+            with enough detail to identify the work and where it appears, and we
+            will remove or disable access to infringing material. We may end the
+            accounts of people who repeatedly infringe. If you believe something
+            was removed by mistake, you can write back to explain and we will
+            take another look.
           </p>
         </Section>
 
