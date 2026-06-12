@@ -16,7 +16,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
-import { objectReferenceMarkdown } from "@/lib/references";
+import {
+  objectReferenceMarkdown,
+  objectEmbedMarkdown,
+  DEFAULT_EMBED_VIEW,
+  type ObjectRefType,
+} from "@/lib/references";
 import { CHEMISTRY_ENABLED } from "@/lib/chemistry/config";
 import { DATAHUB_ENABLED } from "@/lib/datahub/config";
 import { MoleculeThumbnail } from "@/components/chemistry/MoleculeThumbnail";
@@ -61,8 +66,14 @@ interface PickerItem {
   label: string;
   sublabel?: string;
   thumbnail?: React.ReactNode;
+  /** The inline mention form, inserted when the mode is "mention". */
   markdown: string;
+  /** Identity for building the block-embed form when the mode is "embed". */
+  ref: { type: ObjectRefType; id: string; name: string };
 }
+
+/** Insert as an inline chip (mention) or a block embed (the rich card). */
+type InsertMode = "mention" | "embed";
 
 interface ReferencePickerProps {
   /** Called with the objectReferenceMarkdown(...) string when an item is picked,
@@ -110,6 +121,7 @@ function PickerRow({
 
 export default function ReferencePicker({ onPick, onClose }: ReferencePickerProps) {
   const [tab, setTab] = useState<Tab>(defaultTab);
+  const [mode, setMode] = useState<InsertMode>("mention");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [molecules, setMolecules] = useState<Molecule[]>([]);
@@ -170,11 +182,17 @@ export default function ReferencePicker({ onPick, onClose }: ReferencePickerProp
   }, [onClose]);
 
   const pick = useCallback(
-    (markdown: string) => {
+    (item: PickerItem) => {
+      const markdown =
+        mode === "embed"
+          ? objectEmbedMarkdown(item.ref.type, item.ref.id, item.ref.name, {
+              view: DEFAULT_EMBED_VIEW[item.ref.type],
+            })
+          : item.markdown;
       onPick(markdown);
       onClose();
     },
-    [onPick, onClose],
+    [mode, onPick, onClose],
   );
 
   const q = query.trim().toLowerCase();
@@ -209,6 +227,7 @@ export default function ReferencePicker({ onPick, onClose }: ReferencePickerProp
             <MoleculeThumbnail structure={m.smiles} width={40} height={40} />
           ) : undefined,
           markdown: objectReferenceMarkdown("molecule", m.id, m.name),
+          ref: { type: "molecule" as const, id: m.id, name: m.name },
         })),
     [molecules, q],
   );
@@ -231,6 +250,11 @@ export default function ReferencePicker({ onPick, onClose }: ReferencePickerProp
             String(s.id),
             s.display_name ?? `Sequence ${s.id}`,
           ),
+          ref: {
+            type: "sequence" as const,
+            id: String(s.id),
+            name: s.display_name ?? `Sequence ${s.id}`,
+          },
         })),
     [sequences, q],
   );
@@ -249,6 +273,7 @@ export default function ReferencePicker({ onPick, onClose }: ReferencePickerProp
           label: m.name,
           sublabel: m.method_type ?? undefined,
           markdown: objectReferenceMarkdown("method", String(m.id), m.name),
+          ref: { type: "method" as const, id: String(m.id), name: m.name },
         })),
     [methods, q],
   );
@@ -267,6 +292,7 @@ export default function ReferencePicker({ onPick, onClose }: ReferencePickerProp
           label: d.name,
           sublabel: d.table_type ?? undefined,
           markdown: objectReferenceMarkdown("datahub", d.id, d.name),
+          ref: { type: "datahub" as const, id: d.id, name: d.name },
         })),
     [datahub, q],
   );
@@ -318,7 +344,7 @@ export default function ReferencePicker({ onPick, onClose }: ReferencePickerProp
       } else if (e.key === "Enter") {
         e.preventDefault();
         const item = items[highlighted];
-        if (item) pick(item.markdown);
+        if (item) pick(item);
       } else if (e.key === "Tab") {
         e.preventDefault();
         cycleTab(e.shiftKey ? -1 : 1);
@@ -417,7 +443,7 @@ export default function ReferencePicker({ onPick, onClose }: ReferencePickerProp
                   key={item.key}
                   item={item}
                   highlighted={i === highlighted}
-                  onPick={() => pick(item.markdown)}
+                  onPick={() => pick(item)}
                   onHover={() => setHighlighted(i)}
                 />
               ))}
@@ -425,11 +451,43 @@ export default function ReferencePicker({ onPick, onClose }: ReferencePickerProp
           )}
         </div>
 
-        {/* Keyboard hint */}
-        <div className="px-4 py-2 border-t border-border shrink-0 text-[11px] text-foreground-muted flex items-center gap-3">
-          <span>Arrow keys to move</span>
-          <span>Enter to insert</span>
-          <span>Tab to switch type</span>
+        {/* Insert-as toggle + keyboard hint */}
+        <div className="px-4 py-2 border-t border-border shrink-0 flex items-center gap-3">
+          <div
+            role="group"
+            aria-label="Insert as"
+            className="inline-flex rounded-lg border border-border p-0.5 bg-surface-sunken"
+          >
+            <button
+              type="button"
+              aria-pressed={mode === "mention"}
+              onClick={() => setMode("mention")}
+              className={`px-2.5 py-0.5 text-[11px] font-semibold rounded-md transition-colors ${
+                mode === "mention"
+                  ? "bg-surface-raised text-foreground shadow-sm"
+                  : "text-foreground-muted hover:text-foreground"
+              }`}
+            >
+              Mention
+            </button>
+            <button
+              type="button"
+              aria-pressed={mode === "embed"}
+              onClick={() => setMode("embed")}
+              className={`px-2.5 py-0.5 text-[11px] font-semibold rounded-md transition-colors ${
+                mode === "embed"
+                  ? "bg-surface-raised text-foreground shadow-sm"
+                  : "text-foreground-muted hover:text-foreground"
+              }`}
+            >
+              Embed
+            </button>
+          </div>
+          <span className="text-[11px] text-foreground-muted">
+            {mode === "embed" ? "Inserts a live block" : "Inserts an inline chip"}
+          </span>
+          <span className="flex-1" />
+          <span className="text-[11px] text-foreground-muted">Enter to insert</span>
         </div>
       </div>
     </div>
