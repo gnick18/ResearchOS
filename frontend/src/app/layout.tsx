@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 import "./globals.css";
@@ -47,6 +47,16 @@ export const metadata: Metadata = {
     title: `ResearchOS, ${TAGLINE}`,
     description: DESCRIPTION,
   },
+};
+
+// Without this, mobile browsers assume a ~980px desktop viewport and render the
+// public marketing pages zoomed-out with horizontal scroll, so the responsive
+// Tailwind breakpoints never engage. The actual tool is desktop-only (it needs
+// the File System Access API), but the welcome / pricing / legal pages must read
+// well on a phone.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({

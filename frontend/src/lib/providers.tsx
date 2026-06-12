@@ -16,7 +16,7 @@ import {
   isDemoOrWikiCapture,
 } from "@/lib/file-system/wiki-capture-mock";
 import FolderConnectGate from "@/components/onboarding/FolderConnectGate";
-import BrowserNotSupported from "@/components/BrowserNotSupported";
+import WelcomePage from "@/components/welcome/WelcomePage";
 import { signIn } from "next-auth/react";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import { ELN_IMPORT_PENDING_KEY } from "@/components/import-eln/PickUserBeforeImportModal";
@@ -564,8 +564,19 @@ function AppContent({ children }: { children: ReactNode }) {
     );
   }
 
+  // Unsupported device or browser (no File System Access API: any phone, plus
+  // Safari / Firefox / Brave on desktop). The tool itself cannot run here, but
+  // the marketing front door must still be readable on any device (Grant,
+  // 2026-06-12). Render the full welcome/sell page in read-only mode: every
+  // section shows and the other public pages stay reachable, only the "start the
+  // app" entry is swapped for a desktop-required notice. The actual entry
+  // surfaces (folder picker, OAuth, account chooser) stay gated below.
   if (!isFileSystemAccessSupported()) {
-    return <BrowserNotSupported />;
+    return (
+      <QueryClientProvider client={queryClient}>
+        <WelcomePage unsupported />
+      </QueryClientProvider>
+    );
   }
 
 

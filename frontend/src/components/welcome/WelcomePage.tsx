@@ -484,12 +484,19 @@ function TrustCard({
 
 export default function WelcomePage({
   embedded = false,
+  unsupported = false,
 }: {
   /** True when WelcomePage is the scroll-down content under the OAuth-first
    *  landing. Hides its own nav AND the entire hero (mascot, badge, headline,
    *  CTAs, the free/no-sign-up line) so the scroll opens directly on section 1
    *  (the stack + cost band), not a second landing. */
   embedded?: boolean;
+  /** True when shown as the front door on a device/browser that cannot run the
+   *  tool (no File System Access API: any phone, Safari, Firefox, Brave). The
+   *  full marketing page still renders so visitors can read everything and reach
+   *  the other public pages; only the "start the app" entry is replaced by a
+   *  desktop-required notice, since the folder picker would not work here. */
+  unsupported?: boolean;
 } = {}) {
   const router = useRouter();
 
@@ -505,6 +512,13 @@ export default function WelcomePage({
   // bouncing the visitor back to /welcome mid-transition.
   const rootRef = useRef<HTMLDivElement | null>(null);
   const goGetStarted = () => {
+    // On an unsupported device/browser the tool cannot run, so "get started"
+    // has nowhere to go. Scroll back up to the desktop-required banner that
+    // explains how to actually start, rather than bouncing through "/".
+    if (unsupported) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
     markLandingSeen();
     // Walk up from the page root to find the nearest scrollable ancestor (the
     // EntrySnapSurface snap container). If found, this page is embedded one
@@ -561,6 +575,29 @@ export default function WelcomePage({
     >
       {/* Thick rainbow ribbon pinned to the very top edge. */}
       <div aria-hidden className="h-2 w-full" style={{ background: RAINBOW }} />
+
+      {/* Desktop-required notice (unsupported device / browser). The page below
+          is fully readable; this explains why the entry buttons do not start the
+          app here, and points to the requirements guide. */}
+      {unsupported && (
+        <div className="sticky top-0 z-20 border-b border-amber-200 bg-amber-50/95 backdrop-blur">
+          <div className="mx-auto flex max-w-[1180px] flex-col gap-1 px-6 py-3 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <p className="text-meta leading-snug text-amber-900 sm:text-body">
+              <span className="font-semibold">
+                ResearchOS runs in Chrome or Edge on a desktop computer.
+              </span>{" "}
+              You can read everything here and on the rest of the site; to start
+              your own notebook, open ResearchOS on a desktop browser.
+            </p>
+            <a
+              href="/wiki/getting-started/browser-requirements"
+              className="shrink-0 text-meta font-semibold text-amber-900 underline underline-offset-2 hover:text-amber-700"
+            >
+              Why desktop only?
+            </a>
+          </div>
+        </div>
+      )}
 
       {/* No max-width here: section backgrounds (the pale-blue bands, the hero
           gradient) must go full-bleed to the screen edges at any width. Each
