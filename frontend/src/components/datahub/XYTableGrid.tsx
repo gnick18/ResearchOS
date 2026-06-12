@@ -24,6 +24,7 @@ export default function XYTableGrid({
   onCellCommit,
   onAddRow,
   onAddColumn,
+  hideAddControls = false,
 }: {
   content: DataHubDocContent;
   /** Persist a single cell edit (row id, column id, the raw input string). */
@@ -31,6 +32,8 @@ export default function XYTableGrid({
   onAddRow: () => void;
   /** Append a new Y (response) column. */
   onAddColumn: () => void;
+  /** Suppress the internal Add bar when the WorkspaceToolbar owns those actions. */
+  hideAddControls?: boolean;
 }) {
   const xCol = useMemo(() => xColumn(content), [content]);
   const ys = useMemo(() => yColumns(content), [content]);
@@ -52,24 +55,26 @@ export default function XYTableGrid({
 
   return (
     <div data-testid="datahub-xy-grid">
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={onAddRow}
-          className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
-        >
-          <Icon name="plus" className="h-3.5 w-3.5" />
-          Add row
-        </button>
-        <button
-          type="button"
-          onClick={onAddColumn}
-          className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
-        >
-          <Icon name="plus" className="h-3.5 w-3.5" />
-          Add Y column
-        </button>
-      </div>
+      {!hideAddControls && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={onAddRow}
+            className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+          >
+            <Icon name="plus" className="h-3.5 w-3.5" />
+            Add row
+          </button>
+          <button
+            type="button"
+            onClick={onAddColumn}
+            className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+          >
+            <Icon name="plus" className="h-3.5 w-3.5" />
+            Add Y column
+          </button>
+        </div>
+      )}
 
       <div className="overflow-auto rounded-lg border border-border">
         <table className="border-collapse text-body tabular-nums">

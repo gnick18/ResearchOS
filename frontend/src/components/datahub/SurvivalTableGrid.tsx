@@ -23,10 +23,13 @@ export default function SurvivalTableGrid({
   content,
   onCellCommit,
   onAddRow,
+  hideAddControls = false,
 }: {
   content: DataHubDocContent;
   onCellCommit: (rowId: string, columnId: string, raw: string) => void;
   onAddRow: () => void;
+  /** Suppress the internal Add bar when the WorkspaceToolbar owns those actions. */
+  hideAddControls?: boolean;
 }) {
   const cols = useMemo(() => {
     const t = timeColumn(content);
@@ -42,16 +45,18 @@ export default function SurvivalTableGrid({
 
   return (
     <div data-testid="datahub-survival-grid">
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={onAddRow}
-          className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
-        >
-          <Icon name="plus" className="h-3.5 w-3.5" />
-          Add subject
-        </button>
-      </div>
+      {!hideAddControls && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={onAddRow}
+            className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+          >
+            <Icon name="plus" className="h-3.5 w-3.5" />
+            Add subject
+          </button>
+        </div>
+      )}
 
       <div className="overflow-auto rounded-lg border border-border">
         <table className="border-collapse text-body tabular-nums">
