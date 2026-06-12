@@ -249,6 +249,9 @@ export default function AcceptInvitePage() {
             entity: bundle.entity,
             attachments: bundle.attachments,
             sender: bundle.sender,
+            // Phase 6c: carry embedded objects through so importNoteBundle can
+            // recreate or relink them and rewrite the note's embed hrefs.
+            embeddedObjects: bundle.embeddedObjects,
           };
           setLoad({
             phase: "ready",
@@ -407,8 +410,11 @@ export default function AcceptInvitePage() {
     try {
       const senderFingerprint = received.sender?.fingerprint || "";
       const senderEmail = received.sender?.email || "an invited share";
+      // Phase 6c: received.embeddedObjects is now populated from the bundle.
+      // The per-item picker UI is STUBBED (same as SharedWithMeTab). Default
+      // behavior (auto-link dups, auto-file new into "Shared by <sender>") fires.
       const { noteId } = await importNoteBundle(
-        { ...received, embeddedObjects: [], metadata: {} },
+        { ...received, metadata: {} },
         { currentUser, senderEmail, senderFingerprint },
       );
 
