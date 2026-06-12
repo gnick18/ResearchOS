@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import {
   runScript,
@@ -11,6 +12,20 @@ import {
 import { DEMO_CLIPS } from "@/lib/demo-video/scripts";
 import { DEMO_PREWARM } from "@/lib/demo-video/prewarm";
 import { setDemoFetchCacheEnabled } from "@/lib/chemistry/fetch-cache";
+import type { DemoStep } from "@/lib/demo-video/engine";
+
+/** The distinct app routes a clip navigates to, parsed from its `a[href="..."]`
+ *  click/move targets, so they can be prefetched (route-warmed) up front. */
+function navTargets(steps: DemoStep[]): string[] {
+  const hrefs = new Set<string>();
+  for (const step of steps) {
+    const target = (step as { target?: unknown }).target;
+    if (typeof target !== "string") continue;
+    const m = target.match(/^a\[href="([^"]+)"\]$/);
+    if (m) hrefs.add(m[1]);
+  }
+  return Array.from(hrefs);
+}
 
 /**
  * Auto-plays a welcome-video clip script when the URL carries `?demo=<clipId>`
@@ -29,6 +44,7 @@ import { setDemoFetchCacheEnabled } from "@/lib/chemistry/fetch-cache";
  */
 export default function DemoVideoAutoplay() {
   const abortRef = useRef<AbortController | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -54,6 +70,18 @@ export default function DemoVideoAutoplay() {
       if (prewarm) {
         setDemoFetchCacheEnabled(true);
         void prewarm().catch(() => {});
+      }
+      // Movie magic, part two: warm the ROUTE code of every page this clip
+      // navigates to (the nav-click targets), during the countdown. In dev this
+      // makes Turbopack compile the route ahead of the click (the first visit is
+      // otherwise compiled on-demand and janks on camera); in prod it prefetches
+      // the route chunk. Derived from the clip's own a[href="..."] click targets.
+      for (const href of navTargets(steps)) {
+        try {
+          router.prefetch(href);
+        } catch {
+          // best-effort; a failed prefetch just means the route loads on click
+        }
       }
       void (async () => {
         // Wait until the app shell is past the loading screen (Workbench is a
