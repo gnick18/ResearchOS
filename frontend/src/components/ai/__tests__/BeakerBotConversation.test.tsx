@@ -74,6 +74,20 @@ vi.mock("@/lib/local-api", () => ({
     create: vi.fn(async () => ({ id: 42, title: "qPCR summary", entries: [] })),
     addEntry: vi.fn(async () => ({ id: 1, title: "qPCR optimization", entries: [] })),
   },
+  // experiment-tools imports method-catalog (for method-template auto-attach),
+  // whose DEFAULT_DEPS references these api objects at module load. The mocked
+  // module must define them or vitest throws on the missing-export access. They
+  // are only touched lazily inside tools the conversation test does not invoke,
+  // so empty stubs (methodsApi gets a list for completeness) are enough.
+  methodsApi: { list: vi.fn(async () => []) },
+  pcrApi: {},
+  lcGradientApi: {},
+  plateApi: {},
+  cellCultureApi: {},
+  massSpecApi: {},
+  filesApi: {},
+  tasksApi: {},
+  dependenciesApi: {},
 }));
 
 function jsonResponse(body: unknown, status = 200): Response {
