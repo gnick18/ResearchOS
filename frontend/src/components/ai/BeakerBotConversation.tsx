@@ -28,6 +28,7 @@ import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Icon } from "@/components/icons";
+import BeakerBot from "@/components/BeakerBot";
 import { useAiChat } from "./useAiChat";
 import ObjectChip from "@/components/ObjectChip";
 import ObjectEmbed from "@/components/embeds/ObjectEmbed";
@@ -177,7 +178,7 @@ function ChoicePrompt({
     >
       <div className="mb-2 flex items-start gap-2">
         <span className="text-brand">
-          <Icon name="vial" className="h-4 w-4" title="BeakerBot has a question" />
+          <BeakerBot pose="idle" className="h-6 w-6" ariaLabel="BeakerBot has a question" />
         </span>
         <p className="text-meta text-foreground">{question}</p>
       </div>
@@ -320,7 +321,7 @@ function TransformApprovalCard({
       {/* Header */}
       <div className="mb-2 flex items-start gap-2">
         <span className="text-brand">
-          <Icon name="vial" className="h-4 w-4" title="BeakerBot wants to transform a table" />
+          <BeakerBot pose="pointing" className="h-6 w-6" ariaLabel="BeakerBot wants to transform a table" />
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-meta font-semibold text-foreground">
@@ -496,10 +497,10 @@ export default function BeakerBotConversation({
         >
           <div className="mb-2 flex items-start gap-2">
             <span className="text-brand">
-              <Icon
-                name="vial"
-                className="h-4 w-4"
-                title="BeakerBot has a plan"
+              <BeakerBot
+                pose="pointing-up"
+                className="h-6 w-6"
+                ariaLabel="BeakerBot has a plan"
               />
             </span>
             <p className="text-meta text-foreground">
@@ -599,10 +600,10 @@ export default function BeakerBotConversation({
         >
           <div className="mb-2 flex items-start gap-2">
             <span className="text-brand">
-              <Icon
-                name="vial"
-                className="h-4 w-4"
-                title="BeakerBot drafted a note"
+              <BeakerBot
+                pose="idle"
+                className="h-6 w-6"
+                ariaLabel="BeakerBot drafted a note"
               />
             </span>
             <p className="text-meta text-foreground">
