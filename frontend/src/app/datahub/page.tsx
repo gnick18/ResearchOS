@@ -54,7 +54,12 @@ import {
   setCell,
   replaceTable as replaceTableInDoc,
   setEntryFormat as setEntryFormatInDoc,
+  setExcludedCells as setExcludedCellsInDoc,
 } from "@/lib/loro/datahub-doc";
+import {
+  isCellExcluded,
+  toggleCellExclusion,
+} from "@/lib/datahub/cell-exclusion";
 import {
   buildBlankRow,
   buildBlankColumn,
@@ -478,6 +483,25 @@ export default function DataHubPage() {
       if (openContent?.meta.derivedFrom) return;
       const value: CellValue = parseCellInput(raw);
       setCell(handle.doc, rowId, columnId, value);
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+    },
+    [openContent?.meta.derivedFrom],
+  );
+
+  // Toggle whether one cell is EXCLUDED from analyses and plots (the Prism
+  // outlier affordance). The value is not deleted, only filtered, so this writes
+  // the recomputed excluded-key set to meta and commits, mirroring a cell edit.
+  // A derived table's data is computed from its source, so exclusion does not
+  // apply there (the same read-only guard the cell edit uses).
+  const handleToggleExclusion = useCallback(
+    (rowId: string, columnId: string) => {
+      const handle = handleRef.current;
+      if (!handle || openIdRef.current == null) return;
+      if (openContent?.meta.derivedFrom) return;
+      const current = getDataHubContent(handle.doc, openIdRef.current);
+      const next = toggleCellExclusion(current, rowId, columnId);
+      setExcludedCellsInDoc(handle.doc, next);
       void handle.commit();
       setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
     },
@@ -2015,6 +2039,7 @@ export default function DataHubPage() {
                       <XYTableGrid
                         content={openContent}
                         onCellCommit={handleCellCommit}
+                        onToggleExclusion={handleToggleExclusion}
                         onAddRow={handleAddRow}
                         onAddColumn={handleAddColumn}
                         crud={gridCrud}
@@ -2025,6 +2050,7 @@ export default function DataHubPage() {
                       <GroupedTableGrid
                         content={openContent}
                         onCellCommit={handleCellCommit}
+                        onToggleExclusion={handleToggleExclusion}
                         onAddRow={handleAddRow}
                         onAddColumn={handleAddColumn}
                         onRenameGroup={handleRenameGroup}
@@ -2036,6 +2062,7 @@ export default function DataHubPage() {
                       <SurvivalTableGrid
                         content={openContent}
                         onCellCommit={handleCellCommit}
+                        onToggleExclusion={handleToggleExclusion}
                         onAddRow={handleAddRow}
                         crud={gridCrud}
                         hideAddControls
@@ -2045,6 +2072,7 @@ export default function DataHubPage() {
                       <DataTableGrid
                         content={openContent}
                         onCellCommit={handleCellCommit}
+                        onToggleExclusion={handleToggleExclusion}
                         onAddRow={handleAddRow}
                         onAddColumn={handleAddColumn}
                         onRenameSummaryGroup={handleRenameSummaryGroup}

@@ -17,6 +17,8 @@ import { useMemo } from "react";
 import { Icon } from "@/components/icons";
 import type { DataHubDocContent } from "@/lib/datahub/model/types";
 import { cellDisplay } from "@/lib/datahub/column-table";
+import { isCellExcluded } from "@/lib/datahub/cell-exclusion";
+import DataCell, { type ToggleCellExclusion } from "@/components/datahub/DataCell";
 import { groupDatasets, rowLabelColumn } from "@/lib/datahub/grouped-table";
 import {
   useGridCrudMenu,
@@ -26,6 +28,7 @@ import {
 export default function GroupedTableGrid({
   content,
   onCellCommit,
+  onToggleExclusion,
   onAddRow,
   onAddColumn,
   onRenameGroup,
@@ -35,6 +38,10 @@ export default function GroupedTableGrid({
 }: {
   content: DataHubDocContent;
   onCellCommit: (rowId: string, columnId: string, raw: string) => void;
+  /** Toggle whether one replicate cell is excluded from analyses and plots. The
+   *  row-label (factor A) cell is a category, not a value, so it is not
+   *  excludable; only the replicate cells offer the menu item. */
+  onToggleExclusion?: ToggleCellExclusion;
   onAddRow: () => void;
   /** Append a new column group (with the same replicate count as the others). */
   onAddColumn: () => void;
@@ -208,36 +215,17 @@ export default function GroupedTableGrid({
                 )}
                 {groups.flatMap((g) =>
                   g.replicateColumnIds.map((colId) => (
-                    <td
+                    <DataCell
                       key={colId}
-                      className="border border-border bg-surface-raised p-0 text-center"
-                    >
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        defaultValue={cellDisplay(row.cells[colId] ?? null)}
-                        key={`${row.id}:${colId}:${cellDisplay(
-                          row.cells[colId] ?? null,
-                        )}`}
-                        readOnly={readOnly}
-                        onBlur={
-                          readOnly
-                            ? undefined
-                            : (e) =>
-                                onCellCommit(row.id, colId, e.currentTarget.value)
-                        }
-                        onKeyDown={(e) => {
-                          if (!readOnly && e.key === "Enter")
-                            e.currentTarget.blur();
-                        }}
-                        aria-label={`${g.name} replicate, row ${r + 1}`}
-                        className={`w-full bg-transparent px-2 py-1.5 text-center text-body text-foreground outline-none ${
-                          readOnly
-                            ? "cursor-default text-foreground-muted"
-                            : "focus:bg-accent-soft"
-                        }`}
-                      />
-                    </td>
+                      rowId={row.id}
+                      columnId={colId}
+                      value={row.cells[colId] ?? null}
+                      excluded={isCellExcluded(content, row.id, colId)}
+                      onToggleExclusion={onToggleExclusion}
+                      ariaLabel={`${g.name} replicate, row ${r + 1}`}
+                      onCellCommit={onCellCommit}
+                      readOnly={readOnly}
+                    />
                   )),
                 )}
               </tr>
