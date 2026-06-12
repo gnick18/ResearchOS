@@ -32,6 +32,7 @@ import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
 import ReceivedFromBadge from "@/components/ReceivedFromBadge";
 import Tooltip from "@/components/Tooltip";
 import { Icon, type IconName } from "@/components/icons";
+import ContextMenu, { type ContextMenuItem } from "@/components/ContextMenu";
 import type {
   Method,
   PCRProtocol,
@@ -160,16 +161,24 @@ function resolveParentId(m: Method, byId: Map<number, Method>): number | null {
  *  (no in-bucket parent); each node's children are its forks, sorted by name,
  *  with a `depth` stamped for indentation. */
 function buildMethodForest(methods: Method[]): MethodNode[] {
+  const keyOf = (m: Method) => `${m.owner}:${m.id}`;
+  // Parent resolution is by numeric id (that's what parent_method_id stores);
+  // first method wins if two share an id across owners. Node identity is keyed
+  // by owner:id so a private id-N and a public id-N stay distinct nodes.
   const byId = new Map<number, Method>();
-  methods.forEach((m) => byId.set(m.id, m));
-  const nodeById = new Map<number, MethodNode>();
-  methods.forEach((m) => nodeById.set(m.id, { method: m, children: [], depth: 0 }));
+  methods.forEach((m) => {
+    if (!byId.has(m.id)) byId.set(m.id, m);
+  });
+  const nodeByKey = new Map<string, MethodNode>();
+  methods.forEach((m) => nodeByKey.set(keyOf(m), { method: m, children: [], depth: 0 }));
   const roots: MethodNode[] = [];
   methods.forEach((m) => {
-    const node = nodeById.get(m.id)!;
+    const node = nodeByKey.get(keyOf(m))!;
     const pid = resolveParentId(m, byId);
-    if (pid != null) {
-      nodeById.get(pid)!.children.push(node);
+    const parentMethod = pid != null ? byId.get(pid) : undefined;
+    const parentNode = parentMethod ? nodeByKey.get(keyOf(parentMethod)) : undefined;
+    if (parentNode && parentNode !== node) {
+      parentNode.children.push(node);
     } else {
       roots.push(node);
     }
@@ -266,6 +275,8 @@ export default function MethodsPage() {
   // list row's fork action; opens the name-the-variant modal.
   const [forkingSource, setForkingSource] = useState<Method | null>(null);
   const [forkBusy, setForkBusy] = useState(false);
+  // Right-click row menu (Open / Fork / Delete). Positioned at the cursor.
+  const [rowMenu, setRowMenu] = useState<{ method: Method; x: number; y: number } | null>(null);
 
   // Deep-link: `/methods?createMethod=public` auto-opens the create
   // modal with the whole-lab sharing pre-selected.
@@ -298,10 +309,27 @@ export default function MethodsPage() {
   // ["methods"] })` calls below still hit it (React Query matches by key prefix),
   // so no invalidation site changes. This is a cache-key alignment only, the page
   // internals and the deep-link are untouched.
-  const { data: methods = [] } = useQuery({
+  const { data: rawMethods = [] } = useQuery({
     queryKey: ["methods", currentUser],
     queryFn: fetchAllMethodsIncludingShared,
   });
+
+  // Dedupe by owner:id. fetchAllMethodsIncludingShared can surface the same
+  // record twice (e.g. a public method present in both the own and public
+  // passes), which both renders a duplicate row and, because two methods then
+  // share an owner:id key, breaks the lineage tree and React keys. First
+  // occurrence wins. This is a defensive guard regardless of the upstream cause.
+  const methods = useMemo(() => {
+    const seen = new Set<string>();
+    const out: Method[] = [];
+    for (const m of rawMethods) {
+      const key = `${m.owner}:${m.id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(m);
+    }
+    return out;
+  }, [rawMethods]);
 
   // Load empty categories from localStorage AFTER currentUser is known so
   // the value is scoped per-user. The legacy unscoped key
@@ -966,6 +994,10 @@ export default function MethodsPage() {
         draggable={isOwnBucket}
         onDragStart={isOwnBucket ? () => handleDragStart(m) : undefined}
         onClick={() => setViewingMethod(m)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setRowMenu({ method: m, x: e.clientX, y: e.clientY });
+        }}
         style={{ paddingLeft: 12 + node.depth * 22 }}
         className={`group flex items-center gap-2 pr-3 py-2 border-b border-border cursor-pointer hover:bg-surface-sunken transition-colors ${
           draggedMethod?.id === m.id && draggedMethod?.owner === m.owner
@@ -1491,6 +1523,46 @@ export default function MethodsPage() {
           onConfirm={handleForkConfirm}
         />
       )}
+
+      {/* Right-click row menu. */}
+      {rowMenu &&
+        (() => {
+          const m = rowMenu.method;
+          const isOwn = Boolean(currentUser) && !isSharedMethod(m, currentUser);
+          const items: ContextMenuItem[] = [
+            {
+              label: "Open",
+              icon: <Icon name="eye" className="h-4 w-4" />,
+              onClick: () => setViewingMethod(m),
+            },
+            {
+              label: "Fork (create a variant)",
+              icon: <Icon name="copy" className="h-4 w-4" />,
+              onClick: () => setForkingSource(m),
+            },
+          ];
+          if (m.is_public) {
+            items.push({
+              label: "Retire from lab",
+              icon: <Icon name="trash" className="h-4 w-4" />,
+              onClick: () => void handleRetirePublicMethod(m),
+            });
+          } else if (isOwn) {
+            items.push({
+              label: "Delete",
+              icon: <Icon name="trash" className="h-4 w-4" />,
+              onClick: () => void handleDelete(m.id),
+            });
+          }
+          return (
+            <ContextMenu
+              x={rowMenu.x}
+              y={rowMenu.y}
+              items={items}
+              onClose={() => setRowMenu(null)}
+            />
+          );
+        })()}
     </AppShell>
   );
 }
