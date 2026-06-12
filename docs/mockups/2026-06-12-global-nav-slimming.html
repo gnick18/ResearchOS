@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Slimming the global navigation bar</title>
+<style>
+  html[data-theme="light"]{
+    --surface:#f8fafc; --surface-raised:#fff; --surface-overlay:#fff; --surface-sunken:#f1f5f9;
+    --border:#e5e7eb; --border-strong:#cbd5e1; --fg:#171717; --fg-muted:#6b7280; --fg-faint:#94a3b8;
+    --brand-sky:#1AA0E6; --brand-action:#1283C9; --pin:#e11d48; --ok:#16a34a; --amber:#d97706;
+    --green:#16a34a; --green-soft:#f0fdf4; --amber-soft:#fffbeb; --blue:#2563eb; --blue-soft:#eff6ff;
+    --tab-active-bg:rgba(18,131,201,.1); --reclaim:#16a34a; --reclaim-soft:#f0fdf4;
+  }
+  html[data-theme="dark"]{
+    --surface:#0a0e1a; --surface-raised:#1c2638; --surface-overlay:#28344c; --surface-sunken:#0d1424;
+    --border:rgba(255,255,255,.16); --border-strong:rgba(255,255,255,.28); --fg:#f1f5f9; --fg-muted:#b4bfd0; --fg-faint:#6b7c96;
+    --brand-sky:#1AA0E6; --brand-action:#3aa0e6; --pin:#fb7185; --ok:#4ade80; --amber:#fbbf24;
+    --green:#4ade80; --green-soft:rgba(22,163,74,.2); --amber-soft:rgba(217,119,6,.2); --blue:#60a5fa; --blue-soft:rgba(37,99,235,.18);
+    --tab-active-bg:rgba(58,160,230,.18); --reclaim:#4ade80; --reclaim-soft:rgba(22,163,74,.18);
+  }
+  *{box-sizing:border-box}html,body{margin:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--surface);color:var(--fg);line-height:1.45;-webkit-font-smoothing:antialiased}
+  a{color:var(--brand-action)}
+
+  header.top{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:14px;padding:13px 22px;background:var(--surface-overlay);border-bottom:1px solid var(--border)}
+  header.top h1{font-size:16.5px;margin:0;font-weight:800;letter-spacing:-.01em}
+  header.top .sub{font-size:12px;color:var(--fg-muted)}
+  header.top .spacer{flex:1}
+  .btn{font:inherit;font-size:13px;font-weight:600;padding:7px 13px;border-radius:9px;border:1px solid var(--border-strong);background:var(--surface-raised);color:var(--fg);cursor:pointer}
+  .btn:hover{border-color:var(--brand-action)}.btn.on{background:var(--brand-action);border-color:var(--brand-action);color:#fff}.btn.danger{color:var(--pin)}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:22px}
+  .lead{color:var(--fg-muted);font-size:13.5px;max-width:980px;margin:0 0 8px}
+  .legend{display:flex;flex-wrap:wrap;gap:10px 18px;font-size:12.5px;color:var(--fg-muted);background:var(--surface-raised);border:1px solid var(--border);border-radius:12px;padding:11px 15px;margin:12px 0 6px}
+  .legend b{color:var(--fg)}.legend .k{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+
+  .section-h{font-size:17px;font-weight:800;margin:32px 0 3px;letter-spacing:-.01em;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .section-h .badge{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:2px 9px}
+  .badge.before{background:var(--surface-sunken);color:var(--fg-faint);border:1px solid var(--border)}
+  .badge.opt{background:var(--blue-soft);color:var(--blue)}
+  .badge.simplest{background:var(--green-soft);color:var(--green)}
+  .badge.most{background:var(--reclaim-soft);color:var(--reclaim)}
+  .section-sub{color:var(--fg-muted);font-size:13px;margin:0 0 12px;max-width:960px}
+  .reclaim-note{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--reclaim);background:var(--reclaim-soft);border:1px solid var(--reclaim);border-radius:999px;padding:3px 11px;margin:0 0 12px}
+
+  /* ============ the faithful app frame ============ */
+  .appframe{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.04);position:relative}
+
+  /* the real nav bar (BEFORE) */
+  .navbar{display:flex;align-items:center;gap:18px;padding:10px 16px;background:var(--surface-raised);border-bottom:1px solid var(--border)}
+  .brand{display:flex;align-items:center;gap:9px;flex:none}
+  .beaker{flex:none}
+  .wordmark{font-weight:800;font-size:16px;letter-spacing:-.02em;color:var(--fg)}
+  .streak{display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:700;color:var(--amber);background:var(--amber-soft);border-radius:999px;padding:2px 8px;flex:none}
+  .tabs{display:flex;align-items:center;gap:2px;flex:1;min-width:0;overflow:hidden}
+  .tab{font-size:13px;font-weight:600;color:var(--fg-muted);padding:6px 10px;border-radius:8px;white-space:nowrap;cursor:pointer;border:none;background:none;font-family:inherit}
+  .tab:hover{background:var(--surface-sunken);color:var(--fg)}
+  .tab.active{color:var(--brand-action);background:var(--tab-active-bg)}
+  .navicons{display:flex;align-items:center;gap:6px;flex:none}
+  .iconbtn{width:32px;height:32px;border-radius:8px;border:1px solid transparent;background:none;color:var(--fg-muted);display:grid;place-items:center;cursor:pointer}
+  .iconbtn:hover{background:var(--surface-sunken);color:var(--fg)}
+  .avatar{width:30px;height:30px;border-radius:999px;background:var(--brand-sky);color:#fff;font-size:12px;font-weight:700;display:grid;place-items:center;flex:none;cursor:pointer}
+
+  /* the sample page body */
+  .pagebody{display:flex;min-height:340px}
+  .leftrail-content{width:200px;flex:none;border-right:1px solid var(--border);background:var(--surface-raised);padding:12px 10px}
+  .leftrail-content .rl-h{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--fg-faint);padding:4px 8px 7px}
+  .rl-item{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:500;color:var(--fg-muted);padding:7px 8px;border-radius:7px;cursor:pointer}
+  .rl-item:hover{background:var(--surface-sunken);color:var(--fg)}
+  .rl-item.on{background:var(--tab-active-bg);color:var(--brand-action);font-weight:600}
+  .rl-dot{width:7px;height:7px;border-radius:2px;flex:none}
+  .content{flex:1;padding:16px 20px;min-width:0;background:var(--surface)}
+  .pagetitle{font-size:18px;font-weight:800;margin:0 0 2px;letter-spacing:-.01em}
+  .pagesub{font-size:12.5px;color:var(--fg-muted);margin:0 0 14px}
+  .listrow{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--surface-raised)}
+  .listrow .ic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff;flex:none}
+  .listrow .meat{flex:1;min-width:0}
+  .listrow .meat .t{font-size:13px;font-weight:700}
+  .listrow .meat .d{font-size:11.5px;color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .listrow .tag{font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 9px;background:var(--surface-sunken);color:var(--fg-muted);flex:none}
+
+  /* measurement chrome */
+  .measure{position:absolute;left:0;right:0;pointer-events:none;z-index:5}
+  .measure .line{position:absolute;left:0;right:0;border-top:2px dashed var(--reclaim);opacity:.65}
+  .measure .lbl{position:absolute;right:8px;font-size:10.5px;font-weight:800;color:var(--reclaim);background:var(--reclaim-soft);border:1px solid var(--reclaim);border-radius:6px;padding:1px 7px;transform:translateY(-50%)}
+
+  /* ============ OPTION 1: slim in place ============ */
+  .navbar.slim{padding:5px 16px;gap:14px}
+  .navbar.slim .wordmark{font-size:14px}
+  .navbar.slim .beaker svg{width:20px;height:20px}
+  .navbar.slim .streak{font-size:11px;padding:1px 7px}
+  .navbar.slim .tab{font-size:12px;padding:4px 8px}
+  .navbar.slim .iconbtn{width:27px;height:27px}
+  .navbar.slim .iconbtn svg{width:16px;height:16px}
+  .navbar.slim .avatar{width:25px;height:25px;font-size:11px}
+
+  /* ============ OPTION 2: auto-hide on scroll ============ */
+  .scrollframe{position:relative}
+  .scrollframe .navbar{position:absolute;top:0;left:0;right:0;z-index:8;transition:transform .26s cubic-bezier(.4,0,.2,1)}
+  .scrollframe.hidden .navbar{transform:translateY(-100%)}
+  /* the sticky affordance line that stays when bar is hidden */
+  .peekline{position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--brand-sky),var(--brand-action));z-index:7;opacity:0;transition:opacity .2s;cursor:pointer}
+  .scrollframe.hidden .peekline{opacity:1}
+  .peekline:hover{height:5px}
+  .scrollport{height:300px;overflow-y:auto;position:relative}
+  .scrollport .navspace{height:53px}
+  .scrolltip{position:absolute;right:12px;bottom:10px;z-index:9;font-size:11px;font-weight:700;color:#fff;background:var(--brand-action);border-radius:999px;padding:4px 11px;opacity:.92;pointer-events:none}
+
+  /* ============ OPTION 3: collapse to a left rail ============ */
+  .railframe{display:flex;min-height:393px;position:relative}
+  .navrail{width:56px;flex:none;background:var(--surface-raised);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:8px 0;transition:width .2s cubic-bezier(.4,0,.2,1);overflow:hidden;z-index:6}
+  .navrail:hover{width:188px;box-shadow:6px 0 24px rgba(0,0,0,.12)}
+  .navrail .rbrand{display:flex;align-items:center;gap:9px;height:38px;padding:0 14px;margin-bottom:6px}
+  .navrail .rbrand .wm{font-weight:800;font-size:15px;letter-spacing:-.02em;opacity:0;transition:opacity .15s;white-space:nowrap}
+  .navrail:hover .rbrand .wm{opacity:1}
+  .railtab{display:flex;align-items:center;gap:0;height:40px;color:var(--fg-muted);cursor:pointer;text-decoration:none;position:relative}
+  .railtab .ric{width:56px;flex:none;display:grid;place-items:center}
+  .railtab .rlabel{font-size:13px;font-weight:600;white-space:nowrap;opacity:0;transition:opacity .15s;color:inherit}
+  .navrail:hover .railtab .rlabel{opacity:1}
+  .railtab:hover{background:var(--surface-sunken);color:var(--fg)}
+  .railtab.active{color:var(--brand-action)}
+  .railtab.active::before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:0 3px 3px 0;background:var(--brand-action)}
+  .railtab.active .ric{background:var(--tab-active-bg)}
+  .railtab .lchip{width:21px;height:21px;border-radius:6px;background:var(--surface-sunken);color:var(--fg-muted);font-size:11px;font-weight:800;display:grid;place-items:center}
+  .railtab.active .lchip{background:var(--brand-action);color:#fff}
+  .railframe .railmain{flex:1;min-width:0;display:flex;flex-direction:column}
+  .railtopstrip{display:flex;align-items:center;padding:8px 16px;background:var(--surface-raised);border-bottom:1px solid var(--border);gap:10px}
+  .railtopstrip .spacer{flex:1}
+  .railhint{font-size:11px;color:var(--fg-faint);padding:4px 0 0 8px}
+
+  /* ============ OPTION 4: hybrid slim + overflow ============ */
+  .navbar.hybrid{padding:7px 16px}
+  .navbar.hybrid .tab{font-size:12.5px}
+  .morewrap{position:relative;flex:none}
+  .morebtn{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:var(--fg-muted);padding:5px 10px;border-radius:8px;border:1px solid var(--border-strong);background:var(--surface-raised);cursor:pointer;font-family:inherit}
+  .morebtn:hover{border-color:var(--brand-action);color:var(--fg)}
+  .morebtn.open{background:var(--tab-active-bg);border-color:var(--brand-action);color:var(--brand-action)}
+  .moremenu{position:absolute;top:calc(100% + 6px);right:0;min-width:180px;background:var(--surface-overlay);border:1px solid var(--border);border-radius:11px;box-shadow:0 14px 40px rgba(0,0,0,.22);padding:6px;z-index:20;display:none}
+  .moremenu.open{display:block}
+  .moremenu .mi{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--fg-muted);padding:8px 11px;border-radius:8px;cursor:pointer}
+  .moremenu .mi:hover{background:var(--surface-sunken);color:var(--fg)}
+  .moremenu .mi.active{color:var(--brand-action);background:var(--tab-active-bg)}
+
+  /* ============ change cards ============ */
+  .changes{display:grid;gap:12px}
+  .change{display:flex;gap:14px;background:var(--surface-raised);border:1px solid var(--border);border-left:4px solid var(--border-strong);border-radius:12px;padding:14px 16px}
+  .change.approved{border-left-color:var(--ok)}.change.disapproved{border-left-color:var(--pin)}
+  .change .body{flex:1;min-width:0}.change .body h4{margin:0 0 4px;font-size:14px;font-weight:700}.change .body p{margin:0;font-size:12.5px;color:var(--fg-muted)}
+  .change .verdict{flex:none;display:flex;flex-direction:column;gap:6px;width:132px}
+  .vbtn{font:inherit;font-size:12.5px;font-weight:600;padding:6px 10px;border-radius:8px;border:1px solid var(--border-strong);background:var(--surface-raised);color:var(--fg);cursor:pointer;text-align:center}
+  .vbtn.ok.on{background:var(--ok);border-color:var(--ok);color:#fff}.vbtn.dis.on{background:var(--pin);border-color:var(--pin);color:#fff}
+  .change textarea{margin-top:8px;width:100%;height:30px;resize:vertical;font:inherit;font-size:12.5px;padding:5px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface-sunken);color:var(--fg)}
+
+  /* ============ comment harness ============ */
+  body.cmt-on{cursor:crosshair}
+  body.cmt-on .cmt{outline:1px dashed rgba(18,131,201,.4);outline-offset:1px}
+  body.cmt-on .cmt:hover{outline:2px solid var(--brand-action);background:rgba(18,131,201,.06)}
+  .pin{position:absolute;transform:translate(-50%,-50%);min-width:19px;height:19px;padding:0 4px;background:var(--pin);color:#fff;border-radius:10px;font-size:11px;font-weight:700;line-height:19px;text-align:center;z-index:50;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+  .pin.app{background:var(--ok)}.pin.dis{background:var(--amber)}
+  .editor{position:fixed;width:280px;background:var(--surface-overlay);border:1px solid var(--border);border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.35);z-index:70;padding:11px}
+  .editor .lbl{font-size:11px;color:var(--fg-faint);margin-bottom:6px}
+  .editor textarea{width:100%;height:60px;resize:vertical;font:inherit;font-size:12.5px;padding:7px;border-radius:8px;border:1px solid var(--border);background:var(--surface-sunken);color:var(--fg)}
+  .vchoice{display:flex;gap:6px;margin:8px 0}
+  .vchoice .vb{flex:1;font:inherit;font-size:11.5px;font-weight:600;padding:5px;border-radius:7px;border:1px solid var(--border-strong);background:var(--surface-raised);color:var(--fg-muted);cursor:pointer}
+  .vchoice .vb.on{background:var(--brand-action);border-color:var(--brand-action);color:#fff}
+  .vchoice .vb.app.on{background:var(--ok);border-color:var(--ok)}
+  .vchoice .vb.dis.on{background:var(--amber);border-color:var(--amber)}
+  .editor .acts{display:flex;gap:7px;align-items:center}.editor .acts .spacer{flex:1}
+  .cpanel{position:fixed;right:16px;bottom:16px;width:330px;max-height:72vh;display:flex;flex-direction:column;background:var(--surface-overlay);border:1px solid var(--border);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.3);z-index:55;overflow:hidden}
+  .cpanel .ch{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--border)}.cpanel .ch h3{margin:0;font-size:14px;font-weight:800;flex:1}.cpanel .ch .cCount{font-size:12px;color:var(--fg-faint)}
+  .cbody{overflow:auto;padding:8px}.cempty{color:var(--fg-faint);font-size:12.5px;padding:14px 8px;text-align:center}
+  .citem{display:flex;gap:8px;padding:8px;border-radius:9px}.citem:hover{background:var(--surface-sunken)}
+  .citem .num{flex:none;width:19px;height:19px;color:#fff;border-radius:10px;font-size:11px;font-weight:700;line-height:19px;text-align:center;background:var(--pin)}
+  .citem .num.app{background:var(--ok)}.citem .num.dis{background:var(--amber)}
+  .citem .ctxt{font-size:12.5px;flex:1}.citem .ctxt .tgt{color:var(--fg-faint);font-size:11px;display:block}.citem .del{background:none;border:none;color:var(--fg-faint);cursor:pointer;font-size:14px}
+  .vtag{font-size:9.5px;font-weight:800;letter-spacing:.03em;border-radius:4px;padding:1px 5px;margin-right:5px}
+  .vtag.app{background:var(--green-soft);color:var(--green)}.vtag.dis{background:var(--amber-soft);color:var(--amber)}
+  .cfoot{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px;border-top:1px solid var(--border)}.cfoot .wide{grid-column:1/-1}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--surface);font-size:13px;font-weight:600;padding:9px 16px;border-radius:10px;z-index:90;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Slimming the global navigation bar</h1>
+    <div class="sub">Design review. The current bar versus four ways to reclaim the vertical space it eats on every screen.</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn" id="themeToggle">Switch to dark</button>
+  <button class="btn" id="commentToggle">Comment mode: off</button>
+</header>
+
+<div class="wrap">
+  <p class="lead">This is a design mockup, not the real app. Every signed-in page carries a persistent global header with eleven top-level tabs, the wordmark and streak badge, and right-side controls. It eats a fixed strip of vertical space everywhere. Each option below sits on the same sample page (a Methods explorer) so the bar-versus-content ratio is an honest comparison. Pick a direction here and we build it.</p>
+  <div class="legend">
+    <span class="k"><b>How to review</b></span>
+    <span class="k">Hover the tabs, scroll Option 2, hover the rail in Option 3, click More in Option 4. The interactions are real.</span>
+    <span class="k"><span class="dot" style="background:var(--reclaim)"></span> green markers show the vertical space reclaimed.</span>
+    <span class="k"><b>Comment mode</b> click any element to pin a note and tag it Approve / Disapprove.</span>
+    <span class="k"><b>Per-option</b> Approve / Disapprove on each direction below.</span>
+    <span class="k"><b>Export</b> Copy or Download .md, then paste it back into chat.</span>
+  </div>
+
+  <!-- ================= BEFORE ================= -->
+  <h2 class="section-h cmt">The current bar <span class="badge before">Before</span></h2>
+  <p class="section-sub">Full-width header, eleven text tabs, the wordmark and a streak badge on the left, four right-side icon controls (timer, phone pairing, settings, your avatar). This is the baseline. The tab strip is rendered identically in every option so the savings are visible.</p>
+  <div class="appframe">
+    <div class="navbar cmt" id="navBefore"></div>
+    <div class="pagebody cmt" data-sample="before"></div>
+  </div>
+
+  <!-- ================= OPTION 1 ================= -->
+  <h2 class="section-h cmt">Option 1, slim in place <span class="badge opt">Option 1</span> <span class="badge simplest">Simplest, lowest risk</span></h2>
+  <p class="section-sub">The same horizontal bar, just shorter. Tighter vertical padding, a smaller wordmark, tighter tab spacing and font, smaller right-side icons. Nothing moves, nothing hides, so there is no relearning. The cheapest win.</p>
+  <div class="reclaim-note" id="reclaim1">Reclaims about 10px of height</div>
+  <div class="appframe">
+    <div class="navbar slim cmt" id="navSlim"></div>
+    <div class="pagebody cmt" data-sample="slim"></div>
+  </div>
+
+  <!-- ================= OPTION 2 ================= -->
+  <h2 class="section-h cmt">Option 2, auto-hide on scroll <span class="badge opt">Option 2</span></h2>
+  <p class="section-sub">The full bar shows at the top. Scroll the sample content down and the bar slides up out of view, scroll up and it comes back, the common app pattern. A thin accent line stays pinned at the very top while the bar is hidden so you always know it is one scroll-up away. Scroll inside the framed area below to feel it.</p>
+  <div class="reclaim-note">Reclaims the full bar (about 53px) while reading, returns on intent</div>
+  <div class="appframe scrollframe" id="scrollFrame">
+    <div class="peekline cmt" id="peekLine"></div>
+    <div class="navbar cmt" id="navScroll"></div>
+    <div class="scrollport" id="scrollPort">
+      <div class="navspace"></div>
+      <div class="pagebody cmt" data-sample="scroll" data-long="1"></div>
+    </div>
+    <div class="scrolltip" id="scrollTip">Scroll down inside here</div>
+  </div>
+
+  <!-- ================= OPTION 3 ================= -->
+  <h2 class="section-h cmt">Option 3, collapse to a left rail <span class="badge opt">Option 3</span> <span class="badge most">Frees the most space</span></h2>
+  <p class="section-sub">The tabs leave the top entirely and live in a thin 56px icon rail on the left edge. Hover the rail and it expands to show labels. The top strip then carries only the wordmark and the right-side controls, so the whole tab row of vertical space is gone. Hover the rail below to expand it.</p>
+  <div class="reclaim-note">Reclaims the entire tab row from the top (about 36px), tabs move to the side</div>
+  <div class="appframe">
+    <div class="railframe">
+      <nav class="navrail cmt" id="navRail"></nav>
+      <div class="railmain">
+        <div class="railtopstrip cmt">
+          <div class="brand">
+            <span class="beaker">__BEAKER_SM__</span>
+            <span class="wordmark">ResearchOS</span>
+          </div>
+          <span class="streak">__FLAME__5</span>
+          <span class="spacer"></span>
+          <div class="navicons" data-icons="1"></div>
+        </div>
+        <div class="pagebody" data-sample="rail" data-norail="1"></div>
+      </div>
+    </div>
+  </div>
+  <div class="railhint">Icons assigned for the mockup are placeholders. Real per-tab icons would go through the icon-guard sign-off before any build.</div>
+
+  <!-- ================= OPTION 4 ================= -->
+  <h2 class="section-h cmt">Option 4, hybrid slim bar plus overflow menu <span class="badge opt">Option 4</span></h2>
+  <p class="section-sub">A slim horizontal bar that keeps the six most-used tabs inline and tucks the rest behind a More dropdown. Familiar shape, fewer items competing for the eye. Click More below to open it.</p>
+  <div class="reclaim-note">Reclaims height like Option 1, plus a calmer tab row</div>
+  <div class="appframe">
+    <div class="navbar hybrid cmt" id="navHybrid"></div>
+    <div class="pagebody cmt" data-sample="hybrid"></div>
+  </div>
+
+  <!-- ================= CHANGES ================= -->
+  <h2 class="section-h">The options, mark each</h2>
+  <p class="section-sub">Approve or disapprove each direction. You can approve more than one, or approve a primary and a fallback. Verdicts persist in this browser.</p>
+  <div class="changes" id="changes"></div>
+</div>
+
+<div class="cpanel" id="cpanel" style="display:none">
+  <div class="ch"><h3>Comments</h3><span class="cCount" id="cCount">0</span></div>
+  <div class="cbody" id="cbody"><div class="cempty">No comments yet. Turn on Comment mode and click any element.</div></div>
+  <div class="cfoot">
+    <button class="btn" id="exportBtn">Copy feedback</button>
+    <button class="btn" id="downloadBtn">Download .md</button>
+    <button class="btn danger wide" id="clearBtn">Clear all comments</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ---------- shared glyphs (inline SVG, never emoji) ---------- */
+const BEAKER = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1AA0E6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6.5L5 18a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-8.5V3"/><path d="M7.5 14h9"/></svg>';
+const FLAME = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="margin-right:1px"><path d="M12 2c0 4-4 5-4 9a4 4 0 0 0 8 0c0-2-1-3-1-3 2 1 3 3 3 5a6 6 0 0 1-12 0c0-5 6-6 6-11z"/></svg>';
+const I_TIMER = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 13V9M9 2h6M19 5l1.5 1.5"/></svg>';
+const I_PHONE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/></svg>';
+const I_GEAR  = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>';
+
+/* ---------- tabs ---------- */
+const TABS = ["Home","Workbench","GANTT","Methods","Sequences","Chemistry","Data Hub","Inventory","Purchases","Calendar","Links"];
+const ACTIVE = "Methods";
+/* hybrid: the six most-used inline, rest behind More */
+const HYBRID_INLINE = ["Home","Workbench","GANTT","Methods","Data Hub","Calendar"];
+const HYBRID_MORE = TABS.filter(t=>!HYBRID_INLINE.includes(t)); // Sequences, Chemistry, Inventory, Purchases, Links
+/* a sensible single-letter / short chip per tab for the rail (real SVGs need icon-guard sign-off) */
+const RAIL_ICON = {
+  "Home":"H","Workbench":"W","GANTT":"G","Methods":"M","Sequences":"Sq","Chemistry":"Ch",
+  "Data Hub":"D","Inventory":"In","Purchases":"$","Calendar":"Ca","Links":"L"
+};
+
+function brandHTML(){
+  return '<div class="brand"><span class="beaker">'+BEAKER+'</span><span class="wordmark">ResearchOS</span></div>'
+    + '<span class="streak">'+FLAME+'5</span>';
+}
+function tabsHTML(list){
+  return '<div class="tabs">'+list.map(t=>'<button class="tab'+(t===ACTIVE?" active":"")+'">'+esc(t)+'</button>').join("")+'</div>';
+}
+function iconsHTML(){
+  return '<button class="iconbtn" title="Timer">'+I_TIMER+'</button>'
+    + '<button class="iconbtn" title="Pair phone">'+I_PHONE+'</button>'
+    + '<button class="iconbtn" title="Settings">'+I_GEAR+'</button>'
+    + '<span class="avatar" title="Account">GN</span>';
+}
+
+/* full bar = brand + tabs + icons */
+function fullBar(){ return brandHTML()+tabsHTML(TABS)+'<div class="navicons">'+iconsHTML()+'</div>'; }
+document.getElementById("navBefore").innerHTML = fullBar();
+document.getElementById("navSlim").innerHTML   = fullBar();
+document.getElementById("navScroll").innerHTML = fullBar();
+
+/* hybrid bar */
+function hybridBar(){
+  return brandHTML()+tabsHTML(HYBRID_INLINE)
+    + '<div class="morewrap"><button class="morebtn" id="moreBtn">More'
+      + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></button>'
+      + '<div class="moremenu" id="moreMenu">'+HYBRID_MORE.map(t=>'<div class="mi'+(t===ACTIVE?" active":"")+'">'+esc(t)+'</div>').join("")+'</div></div>'
+    + '<div class="navicons">'+iconsHTML()+'</div>';
+}
+document.getElementById("navHybrid").innerHTML = hybridBar();
+
+/* fill placeholder strings in the rail top strip markup */
+document.querySelectorAll(".beaker").forEach(el=>{ if(el.textContent.includes("__BEAKER_SM__")||el.innerHTML.includes("__BEAKER_SM__")) el.innerHTML=BEAKER.replace('width="24" height="24"','width="22" height="22"'); });
+document.querySelectorAll(".streak").forEach(el=>{ if(el.innerHTML.includes("__FLAME__")) el.innerHTML=FLAME+"5"; });
+document.querySelectorAll('[data-icons="1"]').forEach(el=>{ el.innerHTML=iconsHTML(); });
+
+/* rail */
+function railHTML(){
+  let h='<div class="rbrand"><span class="beaker">'+BEAKER.replace('width="24" height="24"','width="22" height="22"')+'</span><span class="wm">ResearchOS</span></div>';
+  h+=TABS.map(t=>'<a class="railtab'+(t===ACTIVE?" active":"")+'" href="#" onclick="return false"><span class="ric"><span class="lchip">'+esc(RAIL_ICON[t])+'</span></span><span class="rlabel">'+esc(t)+'</span></a>').join("");
+  return h;
+}
+document.getElementById("navRail").innerHTML = railHTML();
+
+/* ---------- sample page body ---------- */
+const RAIL_ITEMS = [
+  {n:"All methods", c:"var(--brand-action)", on:true},
+  {n:"Molecular biology", c:"#16a34a"},
+  {n:"Protein", c:"#7c3aed"},
+  {n:"Cell culture", c:"#d97706"},
+  {n:"Imaging", c:"#2563eb"},
+  {n:"qPCR", c:"#e11d48"},
+  {n:"Mass spec", c:"#0891b2"},
+];
+const METHOD_ROWS = [
+  {t:"Touchdown PCR optimization", d:"Updated 2 days ago · 6 steps · 4 reagents", tag:"PCR", c:"#16a34a"},
+  {t:"Gibson assembly, 4-fragment", d:"Updated last week · 9 steps", tag:"Cloning", c:"#7c3aed"},
+  {t:"Western blot, wet transfer", d:"Updated Apr 30 · 12 steps · 7 reagents", tag:"Protein", c:"#2563eb"},
+  {t:"Bradford protein assay", d:"Updated Apr 22 · 5 steps", tag:"Protein", c:"#2563eb"},
+  {t:"Mammalian cell passaging", d:"Updated Mar 18 · 8 steps", tag:"Culture", c:"#d97706"},
+  {t:"qPCR, SYBR green", d:"Updated Mar 10 · 7 steps · 5 reagents", tag:"qPCR", c:"#e11d48"},
+  {t:"LC-MS sample prep, peptides", d:"Updated Feb 28 · 11 steps", tag:"Mass spec", c:"#0891b2"},
+  {t:"Gel extraction and cleanup", d:"Updated Feb 14 · 6 steps", tag:"Cloning", c:"#7c3aed"},
+];
+function sampleHTML(opts){
+  opts = opts||{};
+  const left = opts.norail ? "" :
+    '<div class="leftrail-content"><div class="rl-h">Method library</div>'
+    + RAIL_ITEMS.map(r=>'<div class="rl-item'+(r.on?" on":"")+'"><span class="rl-dot" style="background:'+r.c+'"></span>'+esc(r.n)+'</div>').join("")
+    + '</div>';
+  const rows = opts.long ? METHOD_ROWS.concat(METHOD_ROWS) : METHOD_ROWS;
+  const content = '<div class="content"><div class="pagetitle">Methods</div>'
+    + '<div class="pagesub">Reusable lab protocols. '+rows.length+' methods in this library.</div>'
+    + rows.map(m=>'<div class="listrow"><span class="ic" style="background:'+m.c+'"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M9 3h6M10 3v6.5L5 18a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-8.5V3"/></svg></span>'
+      + '<div class="meat"><div class="t">'+esc(m.t)+'</div><div class="d">'+esc(m.d)+'</div></div>'
+      + '<span class="tag">'+esc(m.tag)+'</span></div>').join("");
+  return left + content + '</div>';
+}
+document.querySelectorAll("[data-sample]").forEach(el=>{
+  el.innerHTML = sampleHTML({ norail: el.dataset.norail==="1", long: el.dataset.long==="1" });
+});
+
+/* ---------- reclaim measurement (Option 1, measured live) ---------- */
+function measureReclaim(){
+  const before = document.getElementById("navBefore");
+  const slim = document.getElementById("navSlim");
+  if(before && slim){
+    const d = Math.round(before.getBoundingClientRect().height - slim.getBoundingClientRect().height);
+    if(d>0) document.getElementById("reclaim1").lastChild.textContent = "Reclaims about "+d+"px of height on every screen";
+  }
+}
+
+/* ---------- Option 2: auto-hide on scroll ---------- */
+(function(){
+  const frame = document.getElementById("scrollFrame");
+  const port  = document.getElementById("scrollPort");
+  const tip   = document.getElementById("scrollTip");
+  let last = 0;
+  port.addEventListener("scroll", ()=>{
+    if(document.body.classList.contains("cmt-on")) return;
+    const y = port.scrollTop;
+    if(y > last && y > 40){ frame.classList.add("hidden"); }       // scrolling down, hide
+    else if(y < last){ frame.classList.remove("hidden"); }          // scrolling up, show
+    last = y;
+    tip.style.opacity = y > 8 ? "0" : ".92";
+  });
+  // peek line click brings the bar back
+  document.getElementById("peekLine").addEventListener("click", ()=>{
+    if(document.body.classList.contains("cmt-on")) return;
+    frame.classList.remove("hidden"); port.scrollTo({top:0,behavior:"smooth"});
+  });
+})();
+
+/* ---------- Option 4: More dropdown ---------- */
+(function(){
+  const btn = document.getElementById("moreBtn");
+  const menu = document.getElementById("moreMenu");
+  btn.addEventListener("click", e=>{
+    if(document.body.classList.contains("cmt-on")) return;
+    e.stopPropagation();
+    const open = menu.classList.toggle("open"); btn.classList.toggle("open", open);
+  });
+  document.addEventListener("click", e=>{
+    if(!menu.classList.contains("open")) return;
+    if(e.target.closest("#moreMenu")||e.target.closest("#moreBtn")) return;
+    menu.classList.remove("open"); btn.classList.remove("open");
+  });
+})();
+
+/* ---------- change cards ---------- */
+const CHANGES = [
+  ["Option 1, slim in place","Shorter horizontal bar. Tighter padding, smaller wordmark and tabs and icons, nothing hides or moves. The lowest-risk reclaim and the cheapest to build."],
+  ["Option 2, auto-hide on scroll","Full bar at the top, slides up as you scroll content down and returns when you scroll up. A 3px accent line stays pinned so the bar reads as retractable, not gone. Frees the whole bar while reading."],
+  ["Option 3, collapse to a left rail","Tabs move into a 56px icon rail on the left that expands to labels on hover. The top strip keeps only the wordmark and right-side controls. Frees the most vertical space, but needs a real icon per tab (icon-guard sign-off) and is the biggest change to muscle memory."],
+  ["Option 4, hybrid slim bar plus overflow menu","Slim bar with the six most-used tabs inline (Home, Workbench, GANTT, Methods, Data Hub, Calendar) and the rest (Sequences, Chemistry, Inventory, Purchases, Links) behind a More dropdown. Familiar shape, calmer row, modest height save."],
+];
+const VSTORE="navslim-verdicts-v1";
+let verdicts={}; try{verdicts=JSON.parse(localStorage.getItem(VSTORE)||"{}")}catch{verdicts={}}
+function saveV(){try{localStorage.setItem(VSTORE,JSON.stringify(verdicts))}catch{}}
+function renderChanges(){
+  document.getElementById("changes").innerHTML=CHANGES.map((c,i)=>{const v=verdicts[i]||{};const cls=v.verdict==="ok"?"approved":v.verdict==="dis"?"disapproved":"";
+    return '<div class="change '+cls+'"><div class="body"><h4>'+esc(c[0])+'</h4><p>'+esc(c[1])+'</p><textarea data-note="'+i+'" placeholder="Optional note...">'+esc(v.note||"")+'</textarea></div>'
+      +'<div class="verdict"><button class="vbtn ok '+(v.verdict==="ok"?"on":"")+'" data-v="ok" data-i="'+i+'">Approve</button><button class="vbtn dis '+(v.verdict==="dis"?"on":"")+'" data-v="dis" data-i="'+i+'">Disapprove</button></div></div>';
+  }).join("");
+}
+document.getElementById("changes").addEventListener("click",e=>{const b=e.target.closest(".vbtn");if(!b)return;const i=b.dataset.i;verdicts[i]=verdicts[i]||{};verdicts[i].verdict=verdicts[i].verdict===b.dataset.v?null:b.dataset.v;saveV();renderChanges();});
+document.getElementById("changes").addEventListener("input",e=>{if(e.target.dataset.note==null)return;const i=e.target.dataset.note;verdicts[i]=verdicts[i]||{};verdicts[i].note=e.target.value;saveV();});
+
+/* ---------- comment harness ---------- */
+const CSTORE="navslim-comments-v1";
+let comments=[]; try{comments=JSON.parse(localStorage.getItem(CSTORE)||"[]")}catch{comments=[]}
+function saveC(){try{localStorage.setItem(CSTORE,JSON.stringify(comments))}catch{}}
+const cpanel=document.getElementById("cpanel");
+function clabel(el){ const c=el.closest(".cmt"); if(!c) return "page";
+  const h=c.querySelector("h2,h4,.ti,.wordmark,.pagetitle,.tab.active,.railtab.active .rlabel"); return (h?h.textContent:c.textContent).trim().replace(/\s+/g," ").slice(0,60); }
+
+let editorEl=null;
+function closeEditor(){ if(editorEl){editorEl.remove();editorEl=null;} }
+function openEditor(targetEl, existingIndex, ev){
+  closeEditor();
+  const target = existingIndex!=null ? comments[existingIndex].target : clabel(targetEl);
+  const existing = existingIndex!=null ? comments[existingIndex] : null;
+  let pv = existing ? (existing.verdict||"") : "";
+  const ed=document.createElement("div"); ed.className="editor";
+  ed.innerHTML='<div class="lbl">'+esc(target)+'</div>'
+    +'<textarea placeholder="Your note, suggestion, or change request">'+(existing?esc(existing.text):"")+'</textarea>'
+    +'<div class="vchoice"><button class="vb" data-vc="note">Note</button><button class="vb app" data-vc="approve">Approve</button><button class="vb dis" data-vc="disapprove">Disapprove</button></div>'
+    +'<div class="acts">'+(existing?'<button class="btn danger" data-act="del">Delete</button>':'')+'<span class="spacer"></span><button class="btn" data-act="cancel">Cancel</button><button class="btn on" data-act="save">Save</button></div>';
+  document.body.appendChild(ed); editorEl=ed;
+  const paint=()=>ed.querySelectorAll("[data-vc]").forEach(b=>b.classList.toggle("on",(b.dataset.vc==="note"&&!pv)||b.dataset.vc===pv));
+  ed.querySelectorAll("[data-vc]").forEach(b=>b.addEventListener("click",()=>{pv=b.dataset.vc==="note"?"":b.dataset.vc;paint();}));
+  paint();
+  const x=ev?ev.clientX:targetEl.getBoundingClientRect().left, y=ev?ev.clientY:targetEl.getBoundingClientRect().bottom;
+  const w=280, vw=innerWidth, vh=innerHeight;
+  ed.style.left=Math.min(Math.max(8,x-20),vw-w-8)+"px"; ed.style.top=Math.min(y+10,vh-230)+"px";
+  ed.querySelector("textarea").focus();
+  ed.querySelectorAll("[data-act]").forEach(b=>b.addEventListener("click",()=>{
+    const a=b.dataset.act;
+    if(a==="cancel") return closeEditor();
+    if(a==="del"){ if(existingIndex!=null){comments.splice(existingIndex,1);saveC();renderComments();} return closeEditor(); }
+    if(a==="save"){ const text=ed.querySelector("textarea").value.trim(); if(!text&&!pv){closeEditor();return;}
+      if(existing){existing.text=text;existing.verdict=pv;} else {comments.push({x:ev.pageX,y:ev.pageY,target,text,verdict:pv});}
+      saveC();renderComments();closeEditor(); }
+  }));
+  ed.addEventListener("keydown",e=>{ if(e.key==="Escape")closeEditor(); if(e.key==="Enter"&&(e.metaKey||e.ctrlKey))ed.querySelector('[data-act="save"]').click(); });
+}
+document.addEventListener("click",e=>{
+  if(!document.body.classList.contains("cmt-on")) return;
+  if(e.target.closest(".editor")||e.target.closest(".cpanel")||e.target.closest("header.top")||e.target.closest(".pin")) return;
+  const c=e.target.closest(".cmt"); if(!c) return;
+  e.preventDefault(); e.stopPropagation(); openEditor(c,null,e);
+},true);
+function renderComments(){
+  document.querySelectorAll(".pin").forEach(p=>p.remove());
+  comments.forEach((c,i)=>{ const pin=document.createElement("span"); pin.className="pin "+(c.verdict==="approve"?"app":c.verdict==="disapprove"?"dis":""); pin.textContent=i+1;
+    pin.style.left=c.x+"px"; pin.style.top=c.y+"px"; pin.title=c.text; pin.addEventListener("click",ev=>{ev.stopPropagation();openEditor(pin,i,ev);}); document.body.appendChild(pin); });
+  document.getElementById("cCount").textContent=comments.length;
+  const body=document.getElementById("cbody");
+  if(!comments.length){ body.innerHTML='<div class="cempty">No comments yet. Turn on Comment mode and click any element.</div>'; return; }
+  body.innerHTML=comments.map((c,i)=>{ const vc=c.verdict==="approve"?"app":c.verdict==="disapprove"?"dis":"";
+    const vtag=c.verdict==="approve"?'<span class="vtag app">APPROVE</span>':c.verdict==="disapprove"?'<span class="vtag dis">DISAPPROVE</span>':"";
+    return '<div class="citem"><span class="num '+vc+'">'+(i+1)+'</span><span class="ctxt">'+vtag+esc(c.text)+'<span class="tgt">'+esc(c.target)+'</span></span><button class="del" data-i="'+i+'">&times;</button></div>'; }).join("");
+}
+document.getElementById("cbody").addEventListener("click",e=>{const d=e.target.closest(".del");if(!d)return;comments.splice(+d.dataset.i,1);saveC();renderComments();});
+document.getElementById("clearBtn").addEventListener("click",()=>{if(comments.length&&!confirm("Clear all comments?"))return;comments=[];saveC();renderComments();});
+
+document.getElementById("commentToggle").addEventListener("click",()=>{
+  const on=document.body.classList.toggle("cmt-on");
+  const b=document.getElementById("commentToggle"); b.textContent="Comment mode: "+(on?"on":"off"); b.classList.toggle("on",on);
+  cpanel.style.display=on?"flex":(comments.length?"flex":"none"); if(!on)closeEditor();
+});
+
+/* ---------- export ---------- */
+function buildMarkdown(){
+  let out="# Global nav slimming, feedback\n\n";
+  out+="## Decisions on the four options\n\n";
+  CHANGES.forEach((c,i)=>{ const v=verdicts[i]||{}; const m=v.verdict==="ok"?"APPROVE":v.verdict==="dis"?"DISAPPROVE":"undecided";
+    out+="- **"+c[0]+"**: "+m+(v.note?" ("+v.note+")":"")+"\n"; });
+  out+="\n## Pinned comments\n\n";
+  if(!comments.length) out+="- none\n";
+  comments.forEach((c,i)=>{ const tag=c.verdict==="approve"?"[APPROVE] ":c.verdict==="disapprove"?"[DISAPPROVE] ":""; out+=(i+1)+". "+tag+"["+c.target+"] "+c.text+"\n"; });
+  return out;
+}
+function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),1700);}
+document.getElementById("exportBtn").addEventListener("click",async()=>{ const md=buildMarkdown();
+  try{await navigator.clipboard.writeText(md);toast("Feedback copied. Paste it back into chat.");}catch{window.prompt("Copy your feedback",md);} });
+document.getElementById("downloadBtn").addEventListener("click",()=>{ const blob=new Blob([buildMarkdown()],{type:"text/markdown"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="global-nav-slimming-feedback.md"; a.click(); URL.revokeObjectURL(a.href); });
+
+/* ---------- theme ---------- */
+document.getElementById("themeToggle").addEventListener("click",()=>{
+  const dark=document.documentElement.getAttribute("data-theme")==="dark";
+  document.documentElement.setAttribute("data-theme",dark?"light":"dark");
+  document.getElementById("themeToggle").textContent=dark?"Switch to dark":"Switch to light";
+});
+
+/* ---------- init ---------- */
+renderChanges(); renderComments(); measureReclaim();
+if(comments.length) cpanel.style.display="flex";
+</script>
+</body>
+</html>

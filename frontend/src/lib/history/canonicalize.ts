@@ -50,6 +50,11 @@ const VOLATILE_STAMP_DENYLIST = new Set<string>([
   // derived cache loses no history. See the design doc FLAG-derived-cache list
   // (Task end_date, PurchaseItem total_price, Method excerpt).
   "end_date",
+  // Check-ins revamp Phase 2 (FLAG-source, Task): the back-link from a
+  // D4-synced task to the check-in action item that spawned it. It is
+  // read-only provenance metadata, never user-edited tracked content, so it
+  // must not pollute a Task's VC delta. Mirrors `revert_undo_window`.
+  "source",
 ]);
 
 /**

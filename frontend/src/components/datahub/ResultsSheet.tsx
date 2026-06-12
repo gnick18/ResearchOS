@@ -14,7 +14,7 @@
 // House style: <Icon> only, brand + semantic tokens, no emojis / em-dashes /
 // mid-sentence colons.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import WorkspaceToolbar, {
@@ -36,6 +36,7 @@ import {
 } from "@/lib/datahub/run-analysis";
 import { formatP, plainLanguageSummary } from "@/lib/datahub/plain-language";
 import { showCode } from "@/lib/datahub/show-code";
+import { chainCode, type ContentResolver } from "@/lib/datahub/chain-code";
 import { resultToText } from "@/lib/datahub/result-text";
 import CodePanel from "@/components/datahub/CodePanel";
 import StyledSelect from "@/components/datahub/StyledSelect";
@@ -106,8 +107,29 @@ function AnovaStatsTable({ r }: { r: NormalizedAnova }) {
         SS is the sum of squares, df the degrees of freedom, MS the mean square,
         and F the ratio the p-value comes from.
       </p>
+      {r.effectSize ? <AnovaEffectSizeTable es={r.effectSize} /> : null}
     </>
   );
+}
+
+/**
+ * Omnibus effect size for an ANOVA / Kruskal-Wallis. eta-squared (or
+ * epsilon-squared for the rank test) is the share of variance the grouping
+ * explains, so the reader sees how big the difference is, not just whether it is
+ * significant. omega-squared and the CI appear only when defined.
+ */
+function AnovaEffectSizeTable({ es }: { es: NormalizedAnova["effectSize"] }) {
+  if (!es) return null;
+  const rows: { label: string; value: string }[] = [
+    { label: es.label, value: num(es.etaSquared, 3) },
+  ];
+  if (es.etaSquaredCI95) {
+    rows.push({ label: `95% CI of ${es.label}`, value: ciText(es.etaSquaredCI95) });
+  }
+  if (es.omegaSquared !== null && Number.isFinite(es.omegaSquared)) {
+    rows.push({ label: "omega-squared", value: num(es.omegaSquared, 3) });
+  }
+  return <KeyValueTable rows={rows} testid="results-anova-effectsize-table" />;
 }
 
 function ComparisonsTable({
@@ -199,7 +221,36 @@ function TTestTable({ r }: { r: NormalizedTTest }) {
             value: r.ci95 ? `${num(r.ci95[0])} to ${num(r.ci95[1])}` : "-",
           },
         ]),
+    // Distribution-free bootstrap CI of the difference, an additive robust
+    // companion to the parametric CI above. Shown whenever the engine computed
+    // one (the raw-data parametric t-tests). The label notes when normality
+    // looked shaky, since that is exactly when this interval is the more honest
+    // one to read.
+    ...(r.bootstrapCI95
+      ? [
+          {
+            label: r.normalityShaky
+              ? "Bootstrap 95% CI of the difference (normality looks shaky, prefer this)"
+              : "Bootstrap 95% CI of the difference",
+            value: ciText(r.bootstrapCI95),
+          },
+        ]
+      : []),
     { label: r.effectSizeLabel, value: num(r.effectSize) },
+    // Standardized effect size CI plus Hedges' g. The rank tests report only the
+    // rank-biserial r above (no parametric d / g / noncentral-t CI exists), so
+    // these rows appear only for the parametric t tests.
+    ...(r.effectSizeCI95
+      ? [
+          {
+            label: `95% CI of ${r.effectSizeLabel}`,
+            value: ciText(r.effectSizeCI95),
+          },
+        ]
+      : []),
+    ...(r.hedgesG !== null && Number.isFinite(r.hedgesG)
+      ? [{ label: "Hedges' g", value: num(r.hedgesG) }]
+      : []),
   ];
   return (
     <table
@@ -264,6 +315,8 @@ function CorrelationTable({ r }: { r: NormalizedCorrelation }) {
         { label: "Method", value: r.method === "spearman" ? "Spearman rank" : "Pearson" },
         { label: `Coefficient (${sym})`, value: num(r.coefficient, 3) },
         { label: "95% CI of " + sym, value: ciText(r.ci95) },
+        { label: "R-squared", value: num(r.rSquared, 3) },
+        { label: "95% CI of R-squared", value: ciText(r.rSquaredCI95) },
         { label: "t", value: num(r.statistic) },
         { label: "df", value: num(r.df, 0) },
         { label: "p", value: formatP(r.pValue) },
@@ -652,11 +705,19 @@ export default function ResultsSheet({
   onGraphResult,
   onChangeAnalysis,
   onParamChange,
+  resolveContent,
 }: {
   spec: AnalysisSpec;
   content: DataHubDocContent;
   /** The analysis's display title (from the rail). */
   title: string;
+  /**
+   * Resolve any table's raw stored content by id, so the Code export can walk
+   * this analysis's source-table lineage and emit the WHOLE chain (base table
+   * to transforms to this analysis). When absent, the Code panel falls back to
+   * the single-step analysis snippet (the pre-lineage behavior).
+   */
+  resolveContent?: ContentResolver;
   /** Open the chooser to run another analysis on this same table. */
   onNewAnalysis?: () => void;
   /** Turn this result into a figure (opens the New graph dialog on the table). */
@@ -683,6 +744,30 @@ export default function ResultsSheet({
   // Always recompute from the live content so an edit to a replicate is
   // reflected. The page restamps the stored cache separately.
   const outcome = useMemo(() => runAnalysis(spec, content), [spec, content]);
+
+  // The lineage-aware Code export: the whole chain from the source table's base
+  // data through every transform to this analysis. It is async (it resolves the
+  // source tables by id), so it is computed into state when the Code panel is
+  // open and the inputs change. Without a resolver we fall back to the single
+  // analysis snippet (the pre-lineage behavior, still correct).
+  const [chainSource, setChainSource] = useState<string>("");
+  useEffect(() => {
+    if (!showingCode) return;
+    if (!resolveContent) {
+      setChainSource(outcome.ok ? showCode(outcome) : "");
+      return;
+    }
+    let active = true;
+    void chainCode(
+      { kind: "analysis", tableId: content.meta.id, content, analysis: spec },
+      resolveContent,
+    ).then((code) => {
+      if (active) setChainSource(code);
+    });
+    return () => {
+      active = false;
+    };
+  }, [showingCode, resolveContent, spec, content, outcome]);
 
   const tabs = useMemo(
     () => (outcome.ok ? resultTabs(outcome) : []),
@@ -835,7 +920,10 @@ export default function ResultsSheet({
   }
 
   const result: NormalizedResult = outcome;
-  const code = showCode(result);
+  // The Code panel shows the lineage-aware chain (state, async). Until it
+  // resolves, fall back to the single-step analysis snippet so the panel never
+  // flashes empty.
+  const code = chainSource || showCode(result);
   const current = tabs[safeTab];
 
   return (
@@ -902,7 +990,7 @@ export default function ResultsSheet({
           <div className="mt-5" data-testid="results-code">
             <CodePanel
               code={code}
-              caption="Every analysis can show the exact open-source code that reproduces it, so you can paste it into a notebook and get the same numbers rather than trust a black box."
+              caption="This reproduces the result from the base table, loading the data and running every transform before the analysis, so you can paste it into a notebook and get the same numbers rather than trust a black box."
               testId="results-code-panel"
             />
           </div>

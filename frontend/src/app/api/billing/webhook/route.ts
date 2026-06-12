@@ -22,6 +22,8 @@ import {
   upsertSubscription,
 } from "@/lib/billing/db";
 import { getPlan } from "@/lib/billing/plans";
+import { packTokens, type AiPack } from "@/lib/billing/ai-config";
+import { creditTokens } from "@/lib/billing/ai-ledger";
 import { getStripe, getWebhookSecret } from "@/lib/billing/stripe";
 import { formatUSD } from "@/lib/business/calc";
 import {
@@ -39,6 +41,11 @@ function normalizeStatus(raw: string): string {
 
 function ownerKeyOf(sub: Stripe.Subscription): string | null {
   return (sub.metadata && sub.metadata.ownerKey) || null;
+}
+
+/** Guards the metadata.aiPack value to the three known top-up tiers. */
+function isAiPack(value: string): value is AiPack {
+  return value === "10" || value === "25" || value === "50";
 }
 
 async function syncSubscription(sub: Stripe.Subscription): Promise<void> {
@@ -95,6 +102,18 @@ export async function POST(request: Request): Promise<Response> {
     switch (event.type) {
       case "checkout.session.completed": {
         const s = event.data.object as Stripe.Checkout.Session;
+        // BeakerBot token top-up (Phase 3). A one-time pack purchase carries the
+        // pack name in metadata, the subscription path does not, so the presence
+        // of aiPack is what distinguishes the two. Credit is idempotent on the
+        // event id, so a redelivered webhook adds the tokens exactly once.
+        const aiPack = s.metadata?.aiPack;
+        if (aiPack && isAiPack(aiPack)) {
+          const ownerKey = s.metadata?.ownerKey;
+          if (ownerKey) {
+            await creditTokens(ownerKey, packTokens(aiPack), event.id);
+          }
+          break;
+        }
         if (s.subscription) {
           const subId =
             typeof s.subscription === "string" ? s.subscription : s.subscription.id;

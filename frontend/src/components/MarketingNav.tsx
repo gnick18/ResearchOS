@@ -4,7 +4,7 @@ import Wordmark from "@/components/Wordmark";
 
 /**
  * Sticky top nav for the public marketing pages (pricing, transparency,
- * open-source, thanks, privacy, about). Minimal and light, the same five
+ * open-source, thanks, privacy, about). Minimal and light, the same
  * destinations everywhere so a prospective user always has the wordmark home
  * link, the credibility pages, and the two calls to action in reach.
  *
@@ -15,6 +15,7 @@ import Wordmark from "@/components/Wordmark";
  */
 const NAV_LINKS: { label: string; href: string }[] = [
   { label: "Product", href: "/" },
+  { label: "BeakerBot", href: "/ai" },
   { label: "Pricing", href: "/pricing" },
   { label: "Transparency", href: "/transparency" },
   { label: "Docs", href: "/wiki" },

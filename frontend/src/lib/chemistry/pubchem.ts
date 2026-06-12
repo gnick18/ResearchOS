@@ -26,9 +26,24 @@ export interface PubChemCompound {
   inchikey: string;
   /** PubChem 2D depiction PNG, for an instant preview before RDKit renders. */
   pngUrl: string;
+  /** Computed octanol-water partition coefficient (XLogP), or null when PubChem
+   *  does not report one for this compound. A lipophilicity descriptor. */
+  xlogp: number | null;
+  /** Hydrogen-bond donor count, or null when absent. */
+  h_bond_donor_count: number | null;
+  /** Hydrogen-bond acceptor count, or null when absent. */
+  h_bond_acceptor_count: number | null;
+  /** Topological polar surface area in square angstroms, or null when absent. */
+  tpsa: number | null;
 }
 
-/** Shape of a single PUG-REST property record (the fields we request). */
+/**
+ * Shape of a single PUG-REST property record (the fields we request). The
+ * descriptor counts (XLogP, the H-bond counts, TPSA) arrive as JSON numbers, but
+ * PubChem has historically sent some numeric properties as strings, so the parser
+ * coerces and tolerates either. Field names are PubChem's EXACT, case-sensitive
+ * PUG-REST property names and must not be renamed (a stale name 400s the request).
+ */
 export interface PugPropertyRecord {
   CID: number;
   Title?: string;
@@ -36,6 +51,27 @@ export interface PugPropertyRecord {
   MolecularFormula?: string;
   MolecularWeight?: string | number;
   InChIKey?: string;
+  XLogP?: string | number;
+  HBondDonorCount?: string | number;
+  HBondAcceptorCount?: string | number;
+  TPSA?: string | number;
+}
+
+/** The exact PUG-REST property list every property lookup requests. Centralized
+ *  so the search and the single-compound path always ask for the same fields and
+ *  the descriptor names never drift between the two. These are PubChem's EXACT,
+ *  case-sensitive property names. */
+export const PUG_PROPERTY_LIST =
+  "Title,MolecularFormula,MolecularWeight,InChIKey,IUPACName,XLogP,HBondDonorCount,HBondAcceptorCount,TPSA";
+
+/** Coerce a raw PUG-REST numeric property (number or string) to a finite number,
+ *  or null when it is missing, blank, or unparseable. Never returns NaN. */
+function numProp(raw: string | number | undefined): number | null {
+  if (raw == null) return null;
+  const v = typeof raw === "string" ? raw.trim() : raw;
+  if (v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
 }
 
 /** 2D SDF record URL for a CID (the structure we persist + feed to RDKit). */
@@ -68,6 +104,12 @@ export function mapPropertyRecord(r: PugPropertyRecord): PubChemCompound {
     mol_weight: mw != null && Number.isFinite(mw) ? mw : null,
     inchikey: r.InChIKey ?? "",
     pngUrl: pngUrl(r.CID),
+    // Physicochemical descriptors. A compound PubChem has no value for (a salt,
+    // an inorganic, an incomplete record) yields null per field, never a throw.
+    xlogp: numProp(r.XLogP),
+    h_bond_donor_count: numProp(r.HBondDonorCount),
+    h_bond_acceptor_count: numProp(r.HBondAcceptorCount),
+    tpsa: numProp(r.TPSA),
   };
 }
 
@@ -98,7 +140,7 @@ export async function fetchCompoundsByCids(
 ): Promise<PubChemCompound[]> {
   if (cids.length === 0) return [];
   const res = await fetch(
-    `${PUG}/cid/${cids.join(",")}/property/Title,MolecularFormula,MolecularWeight,InChIKey,IUPACName/JSON`,
+    `${PUG}/cid/${cids.join(",")}/property/${PUG_PROPERTY_LIST}/JSON`,
   );
   if (!res.ok) throw new Error(`PubChem property lookup failed (HTTP ${res.status})`);
   const data = (await res.json()) as {
@@ -172,7 +214,7 @@ export async function fetchCompoundByCid(
   cid: number,
 ): Promise<PubChemCompound> {
   const res = await fetch(
-    `${PUG}/cid/${cid}/property/Title,MolecularFormula,MolecularWeight,InChIKey,IUPACName/JSON`,
+    `${PUG}/cid/${cid}/property/${PUG_PROPERTY_LIST}/JSON`,
   );
   if (!res.ok) throw new Error(`PubChem property lookup failed (HTTP ${res.status})`);
   const data = (await res.json()) as {

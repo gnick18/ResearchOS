@@ -82,6 +82,12 @@ describe("run-analysis: Pearson through the XY pipe", () => {
     expect(r.n).toBe(7);
     expect(r.coefficient).toBeCloseTo(-0.828503883588428, 9);
     expect(r.pValue).toBeCloseTo(0.021280260007523286, 6);
+    // r-squared and its CI flow through the wrapper too (E1). scipy: r^2 =
+    // 0.686418685121107; squaring the Fisher-z r CI [-0.9739, -0.2006] gives
+    // r^2 CI [0.040242957412993385, 0.9485226114997691].
+    expect(r.rSquared).toBeCloseTo(0.686418685121107, 9);
+    expect(r.rSquaredCI95[0]).toBeCloseTo(0.040242957412993385, 6);
+    expect(r.rSquaredCI95[1]).toBeCloseTo(0.9485226114997691, 6);
   });
 
   it("reproduces the hand-verified Spearman rho", () => {

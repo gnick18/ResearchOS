@@ -50,7 +50,6 @@ import UserColorPickerPopup from "@/components/UserColorPickerPopup";
 import Tooltip from "@/components/Tooltip";
 import BeakerBot from "@/components/BeakerBot";
 import VersionBadge from "@/components/VersionBadge";
-import DevForceWalkthroughButton from "@/components/DevForceWalkthroughButton";
 import DevForceLandingButton from "@/components/DevForceLandingButton";
 import DevPairBypassButton from "@/components/DevPairBypassButton";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
@@ -2139,16 +2138,8 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       {/* Roadmap modal */}
       <RoadmapModal open={roadmapOpen} onClose={() => setRoadmapOpen(false)} />
 
-      {/* Dev-only floating button: create a temporary Test-N user and
-          fire the v4 walkthrough on it. Renders nothing in production
-          (NODE_ENV gate inside the component). Restored after the V3
-          onboarding rip removed the original DevForceTipButton; the
-          new button is v4-only and never touches a real account. */}
-      <DevForceWalkthroughButton onLoggedIn={onLogin} />
-
-      {/* Dev-only floating button (left of the Force-walkthrough FAB):
-          preview the first-time landing ("sell") page via /welcome. Renders
-          nothing in production. (landing-page manager) */}
+      {/* Dev-only floating button: preview the first-time landing ("sell")
+          page via /welcome. Renders nothing in production. */}
       <DevForceLandingButton />
 
       {/* Dev-only one-click sign-in (bottom-left): mints a local identity and

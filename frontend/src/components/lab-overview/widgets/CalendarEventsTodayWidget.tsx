@@ -52,13 +52,6 @@ import {
 import type { Event, ExternalEvent } from "@/lib/types";
 import type { SidebarTileProps, SnapshotTileProps } from "./types";
 import SidebarStatTile from "./snapshot/SidebarStatTile";
-// §6.2b Home widgets walkthrough demo-preview hook (tour-fixtures
-// sub-bot R2, 2026-05-26): when the §6.2b cluster's step bodies push a
-// demo-preview lease, the SnapshotTile below short-circuits the
-// real-events fetch and renders a 4-row fixture so BeakerBot's "the
-// top few rows give you the gist" pitch lands on something other than
-// "Nothing on the calendar today" for a brand-new account.
-import { useTourWidgetDemoPreview } from "@/components/onboarding/v4/TourWidgetDemoPreview";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Inline calendar icon. Two sizes used: 14px for headers / tiles, 16px
@@ -275,87 +268,6 @@ export default function CalendarEventsTodayWidget(_props?: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Demo-preview fixture rows (tour-fixtures sub-bot R2, 2026-05-26)
-// ─────────────────────────────────────────────────────────────────────────
-//
-// Used by the §6.2b walkthrough cluster. The fixture is 4 plausible
-// today-events for a working lab (lab meeting, transformations,
-// imaging, paper deadline), enough rows that the "+N more" footer
-// doesn't kick in (overflow ceiling is 5) but enough density that the
-// tile reads as a busy day. No emojis, no em-dashes, light fictional
-// content (no real PI / project / strain names).
-const DEMO_TODAY_ROWS: TodayRow[] = [
-  {
-    kind: "native",
-    event: {
-      id: -1,
-      title: "Lab meeting",
-      event_type: "meeting",
-      start_date: "1970-01-01",
-      end_date: null,
-      start_time: "09:00",
-      end_time: "10:00",
-      location: "Conf rm 2",
-      url: null,
-      notes: null,
-      color: null,
-    },
-    color: EVENT_TYPE_COLORS.meeting,
-  },
-  {
-    kind: "native",
-    event: {
-      id: -2,
-      title: "Yeast transformations",
-      event_type: "other",
-      start_date: "1970-01-01",
-      end_date: null,
-      start_time: "11:00",
-      end_time: "13:30",
-      location: null,
-      url: null,
-      notes: null,
-      color: null,
-    },
-    color: EVENT_TYPE_COLORS.other,
-  },
-  {
-    kind: "native",
-    event: {
-      id: -3,
-      title: "Confocal imaging slot",
-      event_type: "other",
-      start_date: "1970-01-01",
-      end_date: null,
-      start_time: "14:00",
-      end_time: "16:00",
-      location: "Imaging core",
-      url: null,
-      notes: null,
-      color: null,
-    },
-    color: EVENT_TYPE_COLORS.other,
-  },
-  {
-    kind: "native",
-    event: {
-      id: -4,
-      title: "Methods draft due",
-      event_type: "deadline",
-      start_date: "1970-01-01",
-      end_date: null,
-      start_time: "17:00",
-      end_time: null,
-      location: null,
-      url: null,
-      notes: null,
-      color: null,
-    },
-    color: EVENT_TYPE_COLORS.deadline,
-  },
-];
-
-// ─────────────────────────────────────────────────────────────────────────
 // SnapshotTile
 // ─────────────────────────────────────────────────────────────────────────
 //
@@ -365,15 +277,7 @@ const DEMO_TODAY_ROWS: TodayRow[] = [
 // calendar today" cue.
 
 export function SnapshotTile(_props: SnapshotTileProps) {
-  // §6.2b walkthrough demo-preview short-circuit (tour-fixtures sub-bot
-  // R2, 2026-05-26): when the cluster has pushed a demo lease, render
-  // the inline fixture rows instead of the real data path. Hook order
-  // is preserved (still call useTodayRows) so the React-rules-of-hooks
-  // contract holds across the toggle.
-  const isDemoPreview = useTourWidgetDemoPreview();
-  const realToday = useTodayRows();
-  const rows = isDemoPreview ? DEMO_TODAY_ROWS : realToday.rows;
-  const isLoading = isDemoPreview ? false : realToday.isLoading;
+  const { rows, isLoading } = useTodayRows();
   const top = rows.slice(0, 5);
   const overflow = rows.length - top.length;
 

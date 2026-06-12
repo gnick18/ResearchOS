@@ -46,8 +46,16 @@ import {
   type BuildBundleInput,
   type ReadBundleResult,
   type BundleAttachment,
+  type BundleEmbeddedObject,
   type BundleSender,
 } from "@/lib/sharing/bundle";
+import {
+  importEmbeddedObjects,
+  type ImportEmbeddedObjectsOpts,
+} from "@/lib/sharing/embedded-object-import";
+import { parseObjectEmbed, buildObjectEmbedHref } from "@/lib/references";
+import { collectEmbeddedObjects } from "@/lib/sharing/embedded-object-collect";
+import type { CollectEmbeddedObjectsOpts } from "@/lib/sharing/embedded-object-collect";
 import { fileService } from "@/lib/file-system/file-service";
 import { listImagesInFolder } from "@/lib/attachments/image-folder";
 import { readSharingIdentity } from "@/lib/sharing/identity/sidecar";
@@ -153,17 +161,25 @@ function sanitizeNoteEntity(source: {
  * attachments. Reads the note's Images/ folder off disk; if that folder is
  * absent or empty, attachments is [].
  *
+ * Phase 6b: also collects every object block-embedded in the note's entry
+ * bodies and adds them as embeddedObjects in the bundle input. By default all
+ * embeds are included (D1). Pass opts.embedOpts to restrict or customize:
+ *   opts.embedOpts.excludeHrefs  -- hrefs to skip (share-dialog deselect list)
+ *   opts.embedOpts.fullDataHrefs -- Data Hub hrefs to carry as full dataset (D8)
+ *
  * @param opts.collabDocId - Phase 3c chunk 3a. When provided (read from the
  *   live Loro meta map by the caller), this id is written into the bundle
  *   entity so the recipient's copy carries the same id and can auto-join the
  *   shared relay room. When absent the note is treated as non-collab (the
  *   recipient mints their own id on first share, which is the correct behavior
  *   for a note that has never been through a live session).
+ * @param opts.embedOpts - Phase 6b. Controls which embedded objects are
+ *   collected and how they are serialized. Defaults to include-all.
  */
 export async function buildNoteBundleInput(
   note: Note,
   ownerUsername: string,
-  opts?: { collabDocId?: string },
+  opts?: { collabDocId?: string; embedOpts?: CollectEmbeddedObjectsOpts },
 ): Promise<BuildBundleInput> {
   // Merge the collabDocId from the caller (Loro meta) into the note-like
   // source so sanitizeNoteEntity picks it up. We shallow-clone to avoid
@@ -204,6 +220,18 @@ export async function buildNoteBundleInput(
       ? { email: identity.email, fingerprint: identity.fingerprint }
       : undefined;
 
+  // Phase 6b: collect all objects embedded in the note's entry bodies. We scan
+  // every entry's content for block-embed links and serialize each object. A
+  // failing loader is silently skipped; the embed shows as a no-access
+  // placeholder on the recipient side (Phase 6d).
+  const allMarkdown = (entity.entries ?? [])
+    .map((e: { content: string }) => e.content ?? "")
+    .join("\n");
+  const { objects: embeddedObjects } = await collectEmbeddedObjects(
+    allMarkdown,
+    opts?.embedOpts,
+  );
+
   return {
     // v1: a fresh share identity per send. See the VERSIONING note in the
     // header for the dedupe-on-resend enhancement that supersedes this.
@@ -214,6 +242,7 @@ export async function buildNoteBundleInput(
     entity,
     attachments,
     sender,
+    embeddedObjects: embeddedObjects.length > 0 ? embeddedObjects : undefined,
   };
 }
 
@@ -226,6 +255,15 @@ export async function buildNoteBundleInput(
  * id), and only after the record exists writes the attachment bytes under the
  * new note's Images/ folder with their original filenames. The promise resolves
  * only once everything is on disk, which is what lets the caller ack the relay.
+ *
+ * Phase 6c: after the note is created, imports each embedded object (link or
+ * recreate), then rewrites the note's embed hrefs to point at the recipient's
+ * local object ids. "Skipped" embeds keep their original href (rendered as a
+ * placeholder in Phase 6d). The rewritten note body is persisted.
+ *
+ * @param opts.embeddedObjectOpts - Phase 6c. Controls the embedded-object import.
+ *   When absent, a default is built from currentUser and senderEmail. Pass this
+ *   to supply a per-item destination picker map from the UI.
  */
 export async function importNoteBundle(
   result: ReadBundleResult,
@@ -234,6 +272,17 @@ export async function importNoteBundle(
     senderEmail: string;
     senderFingerprint: string;
     notebookId?: string;
+    /**
+     * Phase 6c. Options for importing the embedded objects that arrived with
+     * the bundle. When absent, a default is built from currentUser + senderEmail.
+     * The UI can populate destinationByHref from a per-item picker before calling
+     * importNoteBundle.
+     *
+     * TODO(Phase 6c follow-up): the per-item picker UI in SharedWithMeTab is
+     * STUBBED. Auto behavior (link dups, file new items into "Shared by <sender>")
+     * is complete. Wire destinationByHref once the picker is built.
+     */
+    embeddedObjectOpts?: Pick<ImportEmbeddedObjectsOpts, "destinationByHref">;
   },
 ): Promise<{ noteId: number }> {
   if (!result.valid) {
@@ -271,6 +320,28 @@ export async function importNoteBundle(
   });
   const noteId = created.id;
 
+  // Phase 6c: import embedded objects BEFORE the final record write so the
+  // rewritten hrefs land in the persisted note in a single write call.
+  // importEmbeddedObjects never throws; a failing item becomes "skipped".
+  const embeddedObjects: BundleEmbeddedObject[] = result.embeddedObjects ?? [];
+  let rewrittenEntries = incoming.entries;
+  if (embeddedObjects.length > 0) {
+    const importResult = await importEmbeddedObjects(embeddedObjects, {
+      currentUser: opts.currentUser,
+      senderLabel: opts.senderEmail,
+      destinationByHref: opts.embeddedObjectOpts?.destinationByHref,
+    });
+
+    // Rewrite embed hrefs in each entry's content so imported/linked objects
+    // point at the recipient's local ids. "Skipped" embeds keep the original
+    // href (Phase 6d renders them as placeholders). The ref= portable id is
+    // preserved in the new href so future dedups still work.
+    rewrittenEntries = incoming.entries.map((entry) => ({
+      ...entry,
+      content: rewriteEmbedHrefs(entry.content, importResult.byHref),
+    }));
+  }
+
   // Stamp the fields notesApi.create does not carry, username (pinned to the
   // recipient), notebook_id, and the provenance marker, by writing the full
   // record back to its canonical path users/<currentUser>/notes/<id>.json. We
@@ -279,8 +350,25 @@ export async function importNoteBundle(
   // is lost.
   const notePath = `users/${opts.currentUser}/notes/${noteId}.json`;
   const baseRecord = (await fileService.readJson<Note>(notePath)) ?? created;
+
+  // Merge rewritten entry content into the base record. The base record carries
+  // the freshly allocated per-entry ids and timestamps; we only replace content
+  // (the field that holds embed hrefs). Title / date are carried from the
+  // incoming entries as well, matching the original sanitized values.
+  const rewrittenBaseEntries = baseRecord.entries?.map((e, idx) => ({
+    ...e,
+    ...(rewrittenEntries[idx]
+      ? {
+          title: rewrittenEntries[idx].title,
+          date: rewrittenEntries[idx].date,
+          content: rewrittenEntries[idx].content,
+        }
+      : {}),
+  })) ?? baseRecord.entries;
+
   const finalRecord: Note = {
     ...baseRecord,
+    entries: rewrittenBaseEntries,
     username: opts.currentUser,
     received_from: opts.senderEmail,
     received_from_fingerprint: opts.senderFingerprint,
@@ -313,4 +401,76 @@ export async function importNoteBundle(
   }
 
   return { noteId };
+}
+
+// ── Href rewrite (Phase 6c) ───────────────────────────────────────────────────
+
+/**
+ * Rewrite the embed hrefs in a markdown string so each resolved object points
+ * at the recipient's local id. "Skipped" objects keep their original href.
+ *
+ * The approach: scan for markdown link patterns `[text](href)` or
+ * `[text](href#fragment)`, check the href against the byHref map, and for
+ * "linked" or "imported" items replace the href with a freshly built embed href
+ * that carries the new local id but preserves the view and the `ref=` portable
+ * identity (so future re-dedup on re-share still works).
+ *
+ * The `ref=` identity: we always set it to the bundle's portableId (when
+ * present) so the rewritten href carries a stable cross-user identity marker.
+ * The view is read from the original embed descriptor via parseObjectEmbed;
+ * when the original was "chip" (no ros= fragment) the rewritten href is also
+ * chiplike (no fragment), preserving the original display intent.
+ */
+function rewriteEmbedHrefs(
+  markdown: string,
+  byHref: Map<string, import("@/lib/sharing/embedded-object-import").EmbedResolution>,
+): string {
+  // Match markdown links: [any text](href) where href may contain a fragment.
+  // The regex is non-greedy and handles nested parens in the href by stopping
+  // at the first unbalanced closing paren that is not part of the fragment.
+  // This is sufficient for our generated deep-link hrefs which never contain
+  // literal parens.
+  return markdown.replace(
+    /\[([^\]]*)\]\(([^)]+)\)/g,
+    (fullMatch, linkText, rawHref) => {
+      // BundleEmbeddedObject.href is the plain base href WITHOUT a fragment
+      // (the collector stores it as just the deep-link path). The markdown may
+      // carry a fragment (e.g. #ros=card). Strip it off so the byHref lookup
+      // matches the bundle's canonical base href.
+      const hashIdx = rawHref.indexOf("#");
+      const baseHref = hashIdx >= 0 ? rawHref.slice(0, hashIdx) : rawHref;
+      const resolution = byHref.get(baseHref);
+      if (!resolution || resolution.action === "skipped" || !resolution.localId) {
+        // Leave unchanged; the embed renderer handles it as a no-access
+        // placeholder (Phase 6d) or as a normal link.
+        return fullMatch;
+      }
+
+      // Parse the original embed to recover the view and any opts (region,
+      // analysis, etc.) so the rewritten href is semantically identical.
+      const descriptor = parseObjectEmbed(rawHref);
+      const view = descriptor?.view;
+      const existingOpts = descriptor?.opts ?? {};
+
+      // Carry the portable id in ref= so future re-shares can dedup. Use the
+      // portableId from the resolution (which mirrors the bundle entry). When
+      // the original href already carried a ref= we prefer the bundle's
+      // portableId (it is more authoritative than what the sender put in the
+      // fragment, since both should be identical, but the bundle value is what
+      // the Phase 6a identity layer verified).
+      const refId = resolution.portableId ?? existingOpts.ref;
+
+      const newHref = buildObjectEmbedHref(
+        resolution.localType,
+        resolution.localId,
+        {
+          ...(view && view !== "chip" ? { view } : {}),
+          ...existingOpts,
+          ...(refId ? { ref: refId } : {}),
+        },
+      );
+
+      return `[${linkText}](${newHref})`;
+    },
+  );
 }

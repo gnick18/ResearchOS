@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { isRecordingMode } from "@/lib/file-system/wiki-capture-mock";
 
 /**
  * DEV-ONLY floating button that restarts the local dev server (reruns
@@ -13,7 +14,18 @@ import { useState } from "react";
  * drops this as dead code).
  */
 export default function DevRestartServerButton() {
-  if (process.env.NODE_ENV !== "development") return null;
+  // Mount-gate so the recording-mode check runs only on the client, with no
+  // server/client hydration mismatch: both render null first, then the effect
+  // reveals the button in dev unless `?record=1` is active. Recording mode
+  // (`?record=1`) is a pristine surface for marketing video, so this dev
+  // chrome stays hidden there alongside the demo chrome.
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (process.env.NODE_ENV === "development" && !isRecordingMode()) {
+      setShow(true);
+    }
+  }, []);
+  if (!show) return null;
   return <DevRestartServerInner />;
 }
 
@@ -63,7 +75,7 @@ function DevRestartServerInner() {
   };
 
   return (
-    <div className="fixed bottom-36 left-4 z-[500] flex max-w-xs flex-col items-start gap-1.5">
+    <div className="flex max-w-xs flex-col items-start gap-1.5">
       {msg && (
         <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-meta text-amber-800 shadow-lg">
           {msg}

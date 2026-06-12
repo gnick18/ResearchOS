@@ -50,6 +50,7 @@ import {
   type FitModelId,
 } from "@/lib/datahub/plot-spec";
 import { plotCode } from "@/lib/datahub/plot-code";
+import { chainCode, type ContentResolver } from "@/lib/datahub/chain-code";
 import {
   addUserPalette,
   newUserPaletteId,
@@ -442,6 +443,7 @@ export default function GraphEditor({
   analysis,
   title,
   onStyleChange,
+  resolveContent,
 }: {
   spec: PlotSpec;
   content: DataHubDocContent;
@@ -451,6 +453,13 @@ export default function GraphEditor({
   title: string;
   /** Persist a style patch onto the versioned PlotSpec. */
   onStyleChange: (patch: Partial<PlotStyle>) => void;
+  /**
+   * Resolve any table's raw stored content by id, so the Code export can walk
+   * this figure's source-table lineage and emit the WHOLE chain (base table to
+   * transforms, the annotated analysis when linked, then the figure). When
+   * absent, the Code panel falls back to the single matplotlib snippet.
+   */
+  resolveContent?: ContentResolver;
 }) {
   const [copyState, setCopyState] = useState<"idle" | "image" | "text">("idle");
   const [busy, setBusy] = useState(false);
@@ -466,6 +475,9 @@ export default function GraphEditor({
   const isXY = style.kind === "xyScatter";
   const isGrouped = style.kind === "groupedBar";
   const isSurvival = style.kind === "survivalCurve";
+  const isEstimation =
+    style.kind === "estimationGardnerAltman" ||
+    style.kind === "estimationCumming";
   // The live figure. Recomputed whenever the spec, the table, or the linked
   // analysis changes (a cell edit reprojects content, so the points move).
   const { svg, geometry, frame } = useMemo(
@@ -502,12 +514,34 @@ export default function GraphEditor({
 
   const fileStem = figureFileStem(style.title.trim() || title);
 
-  // The runnable matplotlib script that redraws this figure, recomputed when the
-  // spec or the table changes so the code always matches what is on screen.
-  const code = useMemo(
+  // The lineage-aware Code export: the whole chain from the source table's base
+  // data through every transform, the annotated analysis when linked, then this
+  // figure. It is async (it resolves the source tables by id), so it is computed
+  // into state when the Code panel is open. Without a resolver we fall back to
+  // the single matplotlib snippet (the pre-lineage behavior, still correct).
+  const singleCode = useMemo(
     () => plotCode(spec, content, analysis),
     [spec, content, analysis],
   );
+  const [chainSource, setChainSource] = useState<string>("");
+  useEffect(() => {
+    if (!showingCode) return;
+    if (!resolveContent) {
+      setChainSource(singleCode);
+      return;
+    }
+    let active = true;
+    void chainCode(
+      { kind: "figure", tableId: content.meta.id, content, plot: spec },
+      resolveContent,
+    ).then((code) => {
+      if (active) setChainSource(code);
+    });
+    return () => {
+      active = false;
+    };
+  }, [showingCode, resolveContent, spec, content, singleCode]);
+  const code = chainSource || singleCode;
 
   // Close the Browse-all-palettes modal on Escape, so the studio popout always
   // has a keyboard escape (no soft-lock).
@@ -655,6 +689,57 @@ export default function GraphEditor({
               A survival curve has no per-bar style. Tune colors and labels in the
               sections below.
             </p>
+          ) : isEstimation ? (
+            <>
+              <Ctl label="Control group">
+                <select
+                  value={style.estimationControlIndex ?? 0}
+                  onChange={(e) =>
+                    onStyleChange({
+                      estimationControlIndex: Number(e.target.value),
+                    })
+                  }
+                  className="max-w-[150px] rounded-md border border-border bg-surface-overlay px-2 py-1 text-meta text-foreground focus:border-sky-400 focus:outline-none"
+                  aria-label="Control group"
+                >
+                  {seriesInfo.names.map((name, i) => (
+                    <option key={i} value={i}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </Ctl>
+              <Ctl label="CI method">
+                <Seg<"bca" | "percentile">
+                  value={style.estimationBootMethod ?? "bca"}
+                  options={[
+                    { value: "bca", label: "BCa" },
+                    { value: "percentile", label: "Pct" },
+                  ]}
+                  onChange={(v) => onStyleChange({ estimationBootMethod: v })}
+                />
+              </Ctl>
+              {style.kind === "estimationGardnerAltman" &&
+              seriesInfo.count === 2 ? (
+                <Ctl label="Paired">
+                  <Seg<"on" | "off">
+                    value={style.estimationPaired ? "on" : "off"}
+                    options={[
+                      { value: "off", label: "No" },
+                      { value: "on", label: "Yes" },
+                    ]}
+                    onChange={(v) =>
+                      onStyleChange({ estimationPaired: v === "on" })
+                    }
+                  />
+                </Ctl>
+              ) : null}
+              <p className="mt-2 text-[11px] text-foreground-muted">
+                The mean difference and its CI come from a bootstrap, the same
+                numbers an estimation analysis reports. The density on the
+                difference axis is that bootstrap distribution.
+              </p>
+            </>
           ) : (
             <>
               <Ctl label="Chart type">
@@ -845,7 +930,7 @@ export default function GraphEditor({
             <div className="mt-2">
               <CodePanel
                 code={code}
-                caption="The script imports numpy and matplotlib, inlines the figure's real values, and writes figure.png at the export DPI, so it reproduces the plot on screen."
+                caption="This reproduces the figure from the base table, loading the data and running every transform before drawing the plot, so the picture traces back to the raw numbers rather than a black box."
                 testId="datahub-figure-code-panel"
               />
             </div>

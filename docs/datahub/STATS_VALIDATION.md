@@ -175,6 +175,54 @@ new `ref_from_stats()` will confirm them on the next scipy run. When the generat
 is next run in a scipy venv, confirm the printed `from_stats` block matches these
 pins (it must, by the equivalence above).
 
+## Estimation-layer coverage (Theme 1: E1 effect sizes, E3 power, E4 bootstrap)
+
+The estimation layer (the part that turns a p-value into a measured effect and a
+planned study) is validated on the same page, so a reader sees the effect sizes,
+power, and bootstrap match the same trusted tools.
+
+- **E1 effect sizes + confidence intervals.** Cohen's d and Hedges' g on the
+  unpaired and paired t-tests, eta-squared and omega-squared on the one-way ANOVA,
+  and r-squared on the Pearson correlation, each pinned on the SAME fixed dataset
+  the tests run on. Cohen's d / dz and Hedges' g come from
+  `pingouin.compute_effsize` (the pooled-SD convention the engine uses, confirmed
+  in the generator against the explicit formula); the standardized-effect 95% CIs
+  come from the noncentral t / noncentral F pivot inverted with `scipy.stats.nct` /
+  `scipy.stats.ncf` (the Smithson 2001 construction the engine implements); the
+  r-squared CI is the squared Fisher-z interval. All are pinned under the `scipy`
+  oracle (pingouin wraps scipy/numpy and the CI machinery is pure scipy). Pins:
+  `unpaired_cohens_d`, `unpaired_hedges_g`, `unpaired_d_ci_lo` / `_hi`,
+  `paired_cohens_dz`, `paired_dz_ci_lo` / `_hi`, `oneway_eta_squared`,
+  `oneway_omega_squared`, `oneway_eta2_ci_lo` / `_hi`, `pearson_r_squared`,
+  `pearson_r2_ci_lo` / `_hi`.
+- **E3 power and sample size.** Power is a study-design scenario, not a statistic
+  of the dataset, so its pins are two FIXED scenarios validated against
+  `statsmodels.stats.power.TTestIndPower`: the achieved power of a two-sample t at
+  n = 26 per group with d = 0.8 (`power_two_sample_t`), and the a-priori per-group
+  N for d = 0.5 and power 0.8 (`samplesize_two_sample_t`, the ceiling of the
+  fractional statsmodels `solve_power`, because the engine reports the smallest
+  integer N that reaches the target so a planned study is never under-powered).
+- **E4 bootstrap (the honest choice).** A reseeded JS bootstrap cannot match
+  `scipy.stats.bootstrap` resample for resample, so an exact end-to-end CI pin
+  would be dishonest. We therefore pin the DETERMINISTIC machinery the bootstrap is
+  built from, on fixed arrays with NO RNG, which IS exactly reproducible against
+  numpy / scipy: the percentile extractor (`boot_percentile_lo` / `_hi`, the 2.5%
+  and 97.5% points of a fixed sorted distribution under the numpy type-7 quantile),
+  the BCa bias-correction z0 (`boot_z0`, `scipy.stats.norm.ppf` of the share of
+  resamples below the observed value, ties as half), and the BCa jackknife
+  acceleration (`boot_acceleration`). The seeded end-to-end CI is validated for
+  statistical convergence to the analytic interval at large B in the engine suite
+  (`engine/__tests__/bootstrap.test.ts`) instead of pinned to an exact value. Do
+  NOT force an exact end-to-end bootstrap CI pin onto the page.
+
+The Show-the-code surface (`frontend/src/lib/datahub/show-code.ts`) emits the
+matching Python for E1 (pingouin `compute_effsize` for d / g, manual eta2 / omega2
+from the ANOVA sums of squares, r-squared for Pearson) and E4 (a
+`scipy.stats.bootstrap` reproduction of the mean-difference CI, noting B = 2000 /
+BCa and that a different PRNG converges to but does not match the engine's seeded
+interval). E3 power is a planner, not a result-bound analysis, so it has no
+`NormalizedResult` kind and is intentionally NOT in show-code.
+
 ## Pending references (engine work not yet done)
 
 These reference values are generated and recorded so the standing rule is already

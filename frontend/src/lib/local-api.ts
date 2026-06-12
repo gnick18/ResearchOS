@@ -89,6 +89,17 @@ import type {
   SharedNotebook,
   OneOnOne,
   OneOnOneActionItem,
+  IDP,
+  IdpGoal,
+  IdpActionRow,
+  IdpSectionKey,
+  CareerStage,
+  CheckinCompact,
+  CheckinCompactRow,
+  CheckinOnboarding,
+  CheckinOnboardingItem,
+  CheckinRotation,
+  CheckinRotationTrack,
   NoteComment,
   TaskComment,
   ImageMetadata,
@@ -152,7 +163,33 @@ import { mondayOf } from "./weekly-goals/week";
 import { computeFundingSpend, computeUncategorizedSpend } from "./funding/spend";
 import { SharedNotebookStore } from "./shared-notebooks/store";
 import { OneOnOneStore, OneOnOneActionItemStore } from "./one-on-one/store";
-import { normalizeOneOnOne } from "./one-on-one/normalize";
+import {
+  normalizeOneOnOne,
+  normalizeOneOnOneActionItem,
+  normalizeWeeklyGoal,
+} from "./one-on-one/normalize";
+import {
+  reconcileSyncedTask,
+  pushCompletionToTask,
+  reconcileCompletionFromTask,
+  type TaskSyncOps,
+  type SyncedTaskDraft,
+} from "./one-on-one/action-item-sync";
+import { IdpStore } from "./idp/store";
+import { normalizeIdpForViewer } from "./idp/visibility";
+import { allSkillIds } from "./idp/competencies";
+import { CheckinCompactStore } from "./checkins/compact-store";
+import { CheckinOnboardingStore } from "./checkins/onboarding-store";
+import { CheckinRotationStore } from "./checkins/rotation-store";
+import { COMPACT_SEED_LABELS, ONBOARDING_SEED_LABELS } from "./checkins/seeds";
+import {
+  addRowToTasks,
+  reconcileRowTask,
+  reconcileRowStatusFromTask,
+  deleteRowTask,
+  type IdpTaskSyncOps,
+  type IdpSyncedTaskDraft,
+} from "./idp/action-task-sync";
 import type { Notebook } from "./types";
 
 const projectsStore = new JsonStore<Project>("projects");
@@ -210,6 +247,16 @@ const sharedNotebooksStore = new SharedNotebookStore();
 // member discovers it via `labApi.getOneOnOnes`.
 const oneOnOnesStore = new OneOnOneStore();
 const oneOnOneActionItemsStore = new OneOnOneActionItemStore();
+const idpsStore = new IdpStore();
+// Check-ins Phase 3b (checkins-phase3b bot, 2026-06-12). String-keyed per-user
+// stores at `users/<spaceOwner>/checkin_compacts/<uuid>.json` and
+// `users/<spaceOwner>/checkin_onboarding/<uuid>.json` (sibling of the one-on-one
+// store). Each record hangs off a check-in space and lives in the space owner's
+// folder with `shared_with` = every member at "edit". See
+// `checkinCompactsApi` / `checkinOnboardingApi` below.
+const checkinCompactsStore = new CheckinCompactStore();
+const checkinOnboardingStore = new CheckinOnboardingStore();
+const checkinRotationsStore = new CheckinRotationStore();
 const fundingAccountsStore = getLabStore<FundingAccount>("funding_accounts");
 
 // Inventory v1 data layer (inventory-chunk1 sub-bot of HR, 2026-06-07).
@@ -349,17 +396,39 @@ async function softDeleteEntity(args: {
   });
 }
 
+/**
+ * Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): lazy backfill
+ * for a Project that predates the source_uuid field. Fire-and-forget write-through.
+ * Pass ownerOverride when reading a cross-user project.
+ */
+function backfillProjectSourceUuid(project: Project, ownerOverride?: string): Project {
+  if (project.source_uuid) return project;
+  // Only backfill records in the current user's own store. A cross-user read
+  // (ownerOverride set) must never mint or write into another user's folder, so
+  // a read never mutates data we do not own and two readers cannot race to stamp
+  // different ids onto one file. That owner backfills their own copy on read.
+  if (ownerOverride) return project;
+  const uuid = (typeof crypto !== "undefined" && "randomUUID" in crypto)
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
+  void projectsStore.update(project.id, { source_uuid: uuid }).catch(() => { /* fire-and-forget */ });
+  return { ...project, source_uuid: uuid };
+}
+
 export const projectsApi = {
   list: async (): Promise<Project[]> => {
-    return projectsStore.listAll();
+    // Phase 6a: lazy-backfill source_uuid on read.
+    return (await projectsStore.listAll()).map((p) => backfillProjectSourceUuid(p));
   },
 
   listWithShared: async (): Promise<Project[]> => {
-    return projectsStore.listAll();
+    return (await projectsStore.listAll()).map((p) => backfillProjectSourceUuid(p));
   },
 
   get: async (id: number, owner?: string): Promise<Project | null> => {
-    return owner ? projectsStore.getForUser(id, owner) : projectsStore.get(id);
+    const project = owner ? await projectsStore.getForUser(id, owner) : await projectsStore.get(id);
+    // Phase 6a: lazy-backfill source_uuid on read.
+    return project ? backfillProjectSourceUuid(project, owner) : null;
   },
 
   /**
@@ -421,6 +490,11 @@ export const projectsApi = {
       ...(data.imported_from !== undefined
         ? { imported_from: data.imported_from }
         : {}),
+      // Phase 6a portable identity: mint once at create time so a cross-user
+      // bundle can resolve this project by identity rather than by local id.
+      source_uuid: (typeof crypto !== "undefined" && "randomUUID" in crypto)
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2),
     });
     // Onboarding v4 §6.1: notify the home-create-project walkthrough
     // step that a new project landed, so BeakerBot can advance without
@@ -829,6 +903,26 @@ function normalizeTaskRecord(raw: Task): Task {
   return normalized;
 }
 
+/**
+ * Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): lazy backfill
+ * for a Task that predates the source_uuid field. Returns the record with the
+ * field set; fires a best-effort write-through so the field persists on the next
+ * read without going through a full tasksApi.update (which would stamp
+ * last_edited_at and trigger history). Pass ownerOverride when reading a
+ * cross-user task (mirrors the tasksApi.get owner routing).
+ */
+function backfillTaskSourceUuid(task: Task, ownerOverride?: string): Task {
+  if (task.source_uuid) return task;
+  // Own-store only. A cross-user read (ownerOverride set) never mints or writes
+  // into another user's folder; that owner backfills their own copy on read.
+  if (ownerOverride) return task;
+  const uuid = (typeof crypto !== "undefined" && "randomUUID" in crypto)
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
+  void tasksStore.update(task.id, { source_uuid: uuid }).catch(() => { /* fire-and-forget */ });
+  return { ...task, source_uuid: uuid };
+}
+
 export const tasksApi = {
   // When `owner` is set (the project being listed is shared with the current
   // user), the query reads from the owner's tasks dir instead of the current
@@ -839,7 +933,8 @@ export const tasksApi = {
     const tasks = owner
       ? (await tasksStore.listAllForUser(owner)).filter((t) => t.project_id === projectId)
       : await tasksStore.query({ project_id: projectId });
-    return tasks.map(computeTaskEndDate);
+    // Phase 6a: lazy-backfill source_uuid on tasks that predate the field.
+    return tasks.map(computeTaskEndDate).map((t) => backfillTaskSourceUuid(t, owner));
   },
 
   get: async (id: number, owner?: string): Promise<Task | null> => {
@@ -851,7 +946,9 @@ export const tasksApi = {
     // on disk; without this their per-user results path would resolve to
     // `users//results/...`.
     const effectiveOwner = owner ?? (await getCurrentUserCached()) ?? "";
-    return computeTaskEndDate(withOwnerFallback(task, effectiveOwner));
+    // Phase 6a: lazy-backfill source_uuid; pass effectiveOwner so the
+    // write-through lands in the right directory.
+    return backfillTaskSourceUuid(computeTaskEndDate(withOwnerFallback(task, effectiveOwner)), effectiveOwner);
   },
   
   create: async (data: {
@@ -923,6 +1020,10 @@ export const tasksApi = {
       })),
       owner: currentUser,
       shared_with: [],
+      // Phase 6a portable identity: mint once at create time.
+      source_uuid: (typeof crypto !== "undefined" && "randomUUID" in crypto)
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2),
     });
     // Onboarding v4 §6.5: notify the workbench-create-experiment-submit
     // walkthrough beat that an experiment landed. The submit step's
@@ -2009,6 +2110,32 @@ function normalizeMethodRecord(raw: Method): Method {
   return raw;
 }
 
+/**
+ * Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): lazy backfill
+ * for a Method that predates the source_uuid field. Fire-and-forget write-through;
+ * the caller gets the enriched record immediately. Distinguishes public methods
+ * (owner === "public") so the write lands in the right store.
+ */
+function backfillMethodSourceUuid(method: Method, currentUser: string): Method {
+  if (method.source_uuid) return method;
+  // Own-store only. A read never mints or writes into a public/communal method
+  // ("public" sentinel) or another user's shared method (that owner backfills
+  // their own copy), so a read never mutates a file we do not own and the
+  // identity stays stable. An own method is ownerless (bare own store) or owned
+  // by the current user.
+  const isOwn = !method.owner || method.owner === currentUser;
+  if (method.owner === "public" || !isOwn) return method;
+  const uuid = (typeof crypto !== "undefined" && "randomUUID" in crypto)
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
+  if (method.owner) {
+    void methodsStore.updateForUser(method.id, { source_uuid: uuid }, method.owner).catch(() => { /* fire-and-forget */ });
+  } else {
+    void methodsStore.update(method.id, { source_uuid: uuid }).catch(() => { /* fire-and-forget */ });
+  }
+  return { ...method, source_uuid: uuid };
+}
+
 // R1d: a one-shot warning fired when a caller routes a `methodsApi.create`
 // to the public namespace using only the deprecated `is_public: true`
 // alias (no whole-lab "*" entry in `shared_with`). The flag is module
@@ -2030,10 +2157,13 @@ export const methodsApi = {
   list: async (): Promise<Method[]> => {
     const privateMethods = await methodsStore.listAll();
     const publicMethods = await publicMethodsStore.listAll();
+    const currentUser = (await getCurrentUserCached()) ?? "";
 
+    // Phase 6a: lazy-backfill source_uuid after legacy normalization. Only the
+    // current user's own methods write through; public/foreign are left as-is.
     const marked = [
-      ...privateMethods.map((m) => normalizeMethodRecord({ ...m, is_public: false })),
-      ...publicMethods.map((m) => normalizeMethodRecord({ ...m, is_public: true })),
+      ...privateMethods.map((m) => backfillMethodSourceUuid(normalizeMethodRecord({ ...m, is_public: false }), currentUser)),
+      ...publicMethods.map((m) => backfillMethodSourceUuid(normalizeMethodRecord({ ...m, is_public: true }), currentUser)),
     ];
     return marked;
   },
@@ -2045,22 +2175,24 @@ export const methodsApi = {
   // method attachments carry `owner: "public"` per the routing-fix
   // contract (3f8b42d2).
   get: async (id: number, owner?: string): Promise<Method | null> => {
+    const currentUser = (await getCurrentUserCached()) ?? "";
     if (owner === "public") {
       const publicMethod = await publicMethodsStore.get(id);
+      // Phase 6a: lazy-backfill source_uuid on read.
       return publicMethod
-        ? normalizeMethodRecord({ ...publicMethod, is_public: true })
+        ? backfillMethodSourceUuid(normalizeMethodRecord({ ...publicMethod, is_public: true }), currentUser)
         : null;
     }
     if (owner) {
       const ownerMethod = await methodsStore.getForUser(id, owner);
-      if (ownerMethod) return normalizeMethodRecord({ ...ownerMethod, is_public: false });
+      if (ownerMethod) return backfillMethodSourceUuid(normalizeMethodRecord({ ...ownerMethod, is_public: false }), currentUser);
       return null;
     }
     const method = await methodsStore.get(id);
-    if (method) return normalizeMethodRecord({ ...method, is_public: false });
+    if (method) return backfillMethodSourceUuid(normalizeMethodRecord({ ...method, is_public: false }), currentUser);
 
     const publicMethod = await publicMethodsStore.get(id);
-    if (publicMethod) return normalizeMethodRecord({ ...publicMethod, is_public: true });
+    if (publicMethod) return backfillMethodSourceUuid(normalizeMethodRecord({ ...publicMethod, is_public: true }), currentUser);
 
     return null;
   },
@@ -2106,6 +2238,10 @@ export const methodsApi = {
         created_by: null,
         owner: "public",
         shared_with: sharedWithPersisted,
+        // Phase 6a portable identity: mint once at create time.
+        source_uuid: (typeof crypto !== "undefined" && "randomUUID" in crypto)
+          ? crypto.randomUUID()
+          : Math.random().toString(36).slice(2),
       });
     }
 
@@ -2121,6 +2257,10 @@ export const methodsApi = {
       created_by: null,
       owner: currentUser,
       shared_with: sharedWithInput,
+      // Phase 6a portable identity: mint once at create time.
+      source_uuid: (typeof crypto !== "undefined" && "randomUUID" in crypto)
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2),
     });
   },
 
@@ -2184,6 +2324,11 @@ export const methodsApi = {
       source_path: data.new_source_path,
       parent_method_id: id,
       is_public: false,
+      // Phase 6a portable identity: a fork gets its own fresh uuid (it is a
+      // new object, not the same identity as the original).
+      source_uuid: (typeof crypto !== "undefined" && "randomUUID" in crypto)
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2),
     });
   },
 
@@ -5277,18 +5422,37 @@ function healLegacyNoteShare(note: Note): Note {
   return note;
 }
 
+/**
+ * Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): lazy backfill
+ * for a Note that predates the source_uuid field. Fire-and-forget write-through;
+ * the caller gets the enriched record immediately. Pass ownerOverride when
+ * reading cross-user notes so the write lands in the right directory.
+ */
+function backfillNoteSourceUuid(note: Note, ownerOverride?: string): Note {
+  if (note.source_uuid) return note;
+  // Own-store only. A cross-user read (ownerOverride set) never mints or writes
+  // into another user's folder; that owner backfills their own copy on read.
+  if (ownerOverride) return note;
+  const uuid = (typeof crypto !== "undefined" && "randomUUID" in crypto)
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
+  void notesStore.update(note.id, { source_uuid: uuid }).catch(() => { /* fire-and-forget */ });
+  return { ...note, source_uuid: uuid };
+}
+
 export const notesApi = {
   list: async (): Promise<Note[]> => {
-    return (await notesStore.listAll()).map(healLegacyNoteShare);
+    return (await notesStore.listAll()).map(healLegacyNoteShare).map((n) => backfillNoteSourceUuid(n));
   },
 
   get: async (id: number, owner?: string): Promise<Note | null> => {
     const note = owner
       ? await notesStore.getForUser(id, owner)
       : await notesStore.get(id);
-    return note ? healLegacyNoteShare(note) : null;
+    // Phase 6a: heal legacy share first, then lazy-backfill source_uuid.
+    return note ? backfillNoteSourceUuid(healLegacyNoteShare(note), owner) : null;
   },
-  
+
   create: async (data: { title: string; description?: string; is_running_log?: boolean; is_shared?: boolean; entries?: Array<{ title: string; date: string; content?: string }> }): Promise<Note> => {
     const now = new Date().toISOString();
     const entries: NoteEntry[] = (data.entries ?? []).map((e) => ({
@@ -5325,6 +5489,10 @@ export const notesApi = {
       created_at: now,
       updated_at: now,
       username: author,
+      // Phase 6a portable identity: mint once at create time.
+      source_uuid: (typeof crypto !== "undefined" && "randomUUID" in crypto)
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2),
     });
   },
   
@@ -6032,6 +6200,10 @@ export const notebooksApi = {
         notebook.members.length >= 2
           ? membersSharedWith(notebook.members)
           : [],
+      // Phase 6a portable identity: mint once at create time.
+      source_uuid: (typeof crypto !== "undefined" && "randomUUID" in crypto)
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2),
     });
   },
 
@@ -6084,6 +6256,71 @@ function oneOnOneShareList(oneOnOne: OneOnOne): SharedUser[] {
   return membersSharedWith(normalizeOneOnOne(oneOnOne).members);
 }
 
+// Check-ins revamp Phase 2 (checkins-phase2 bot, 2026-06-12). The owner-scoped
+// task operations backing the D4 action-item -> Task sync. Every write lands in
+// the SPACE OWNER's task namespace via the per-user `tasksStore`, so a non-owner
+// member adding an assigned item does NOT create a task in their own folder.
+// This is the exact shape a PI-assigned task carries (owner = space owner,
+// assignee = member, shared_with = the member at "edit"), so the to-do surfaces
+// in the assignee's Lists view with no cross-user write.
+const checkinTaskSyncOps: TaskSyncOps = {
+  createTask: async (owner: string, draft: SyncedTaskDraft): Promise<Task> => {
+    const durationDays = 1;
+    const record: Omit<Task, "id"> = {
+      project_id: 0, // STANDALONE — the proven falsy-project path in WorkbenchListsPanel.
+      name: draft.name,
+      start_date: draft.start_date,
+      duration_days: durationDays,
+      end_date: canonicalEndDate({
+        start_date: draft.start_date,
+        duration_days: durationDays,
+      }),
+      is_high_level: false,
+      is_complete: draft.is_complete,
+      task_type: "list",
+      weekend_override: null,
+      method_ids: [],
+      deviation_log: null,
+      tags: null,
+      sort_order: 0,
+      experiment_color: null,
+      sub_tasks: null,
+      method_attachments: [],
+      comments: [],
+      owner,
+      shared_with: draft.shared_with,
+      assignee: draft.assignee,
+      source: draft.source,
+    };
+    return tasksStore.createForUser(record, owner);
+  },
+  updateTask: async (
+    owner: string,
+    id: number,
+    patch: Partial<Task>,
+  ): Promise<Task | null> => {
+    // Recompute the derived end_date when the date inputs change, mirroring
+    // tasksApi.update, so the synced task's timeline stays correct.
+    const next: Partial<Task> = { ...patch };
+    if (patch.start_date !== undefined || patch.duration_days !== undefined) {
+      const existing = await tasksStore.getForUser(id, owner);
+      if (existing) {
+        next.end_date = canonicalEndDate({
+          start_date: patch.start_date ?? existing.start_date,
+          duration_days: patch.duration_days ?? existing.duration_days,
+        });
+      }
+    }
+    return tasksStore.updateForUser(id, next, owner);
+  },
+  deleteTask: async (owner: string, id: number): Promise<void> => {
+    await tasksStore.deleteForUser(id, owner);
+  },
+  getTask: async (owner: string, id: number): Promise<Task | null> => {
+    return tasksStore.getForUser(id, owner);
+  },
+};
+
 export const oneOnOnesApi = {
   /**
    * Create a check-in space. Any account can create one (the lab-head gate is
@@ -6102,6 +6339,10 @@ export const oneOnOnesApi = {
     members: string[];
     mentor?: string | null;
     title?: string | null;
+    /** Check-ins Phase 3b: an optional recurring cadence, applied from a picked
+     *  template's `suggested_cadence`. Null / absent leaves the space cadence-
+     *  free (the prior default). */
+    cadence?: { every: "week" | "2weeks" | "month"; weekday?: number } | null;
   }): Promise<OneOnOne> => {
     const creator = await getCurrentUserCached();
     // Force the creator into members[0], de-duped, preserving order.
@@ -6121,7 +6362,7 @@ export const oneOnOnesApi = {
       mentor,
       kind,
       title: params.title ?? null,
-      cadence: null,
+      cadence: params.cadence ?? null,
       created_by: creator,
       created_at: now,
       owner: creator,
@@ -6166,6 +6407,29 @@ export const oneOnOnesApi = {
   },
 
   /**
+   * Check-ins Phase 4 (committee support). Set or clear the space's next
+   * scheduled meeting date (YYYY-MM-DD, or null to clear). Any member may set it
+   * (the permissive shared-space model). Writes the single canonical record in
+   * the space owner's folder. Returns the normalized space or null if missing.
+   */
+  setNextMeetingDate: async (
+    id: string,
+    date: string | null,
+  ): Promise<OneOnOne | null> => {
+    const oneOnOne = await findOneOnOne(id);
+    if (!oneOnOne) return null;
+    const actor = await getCurrentUserCached();
+    assertMember(oneOnOne, actor);
+    const home = oneOnOne.owner || actor;
+    const updated = await oneOnOnesStore.updateForUser(
+      id,
+      { next_meeting_date: date } as Partial<OneOnOne>,
+      home,
+    );
+    return updated ? normalizeOneOnOne({ ...updated, owner: updated.owner || home }) : null;
+  },
+
+  /**
    * Add a WEEKLY GOAL to a 1:1. Reuses the `WeeklyGoal` record: `text` is the
    * goal, `is_complete` the done toggle, `week_of` the grouping. Lands in the
    * current user's weekly_goals folder, stamped with `one_on_one_id` +
@@ -6176,6 +6440,8 @@ export const oneOnOnesApi = {
     oneOnOneId: string;
     text: string;
     week_of?: string;
+    /** Check-ins Phase 2: optional single assignee for the group goal board. */
+    assignee?: string | null;
   }): Promise<WeeklyGoal> => {
     const oneOnOne = await findOneOnOne(params.oneOnOneId);
     if (!oneOnOne) {
@@ -6183,6 +6449,8 @@ export const oneOnOnesApi = {
     }
     const author = await getCurrentUserCached();
     assertMember(oneOnOne, author);
+    const assignee = params.assignee ?? null;
+    if (assignee !== null) assertMember(oneOnOne, assignee);
     const now = new Date().toISOString();
     return weeklyGoalsStore.create({
       owner: author,
@@ -6194,6 +6462,7 @@ export const oneOnOnesApi = {
       is_shared: true,
       shared_with: oneOnOneShareList(oneOnOne),
       one_on_one_id: params.oneOnOneId,
+      assignee,
     });
   },
 
@@ -6272,6 +6541,10 @@ export const oneOnOnesApi = {
   addActionItem: async (params: {
     oneOnOneId: string;
     text: string;
+    /** Check-ins Phase 2 (D3): optional single assignee + due date. When BOTH
+     *  are set the item materializes a real Task (D4). */
+    assignee?: string | null;
+    due_date?: string | null;
   }): Promise<OneOnOneActionItem> => {
     const oneOnOne = await findOneOnOne(params.oneOnOneId);
     if (!oneOnOne) {
@@ -6279,6 +6552,8 @@ export const oneOnOnesApi = {
     }
     const author = await getCurrentUserCached();
     assertMember(oneOnOne, author);
+    const assignee = params.assignee ?? null;
+    if (assignee !== null) assertMember(oneOnOne, assignee);
     const now = new Date().toISOString();
     const data: Omit<OneOnOneActionItem, "id"> = {
       one_on_one_id: params.oneOnOneId,
@@ -6289,14 +6564,81 @@ export const oneOnOnesApi = {
       // Canonical home is the space owner's (creator's) folder.
       owner: oneOnOne.owner,
       shared_with: oneOnOneShareList(oneOnOne),
+      assignee,
+      due_date: params.due_date ?? null,
+      synced_task_id: null,
     };
-    return oneOnOneActionItemsStore.create(data);
+    const created = await oneOnOneActionItemsStore.create(data);
+    // D4: materialize a synced Task when the item already has both fields.
+    const { synced_task_id } = await reconcileSyncedTask(
+      checkinTaskSyncOps,
+      oneOnOne.owner,
+      { synced_task_id: null, one_on_one_id: created.one_on_one_id, id: created.id },
+      created,
+    );
+    if (synced_task_id !== (created.synced_task_id ?? null)) {
+      return (
+        (await oneOnOneActionItemsStore.updateForUser(
+          created.id,
+          { synced_task_id },
+          oneOnOne.owner,
+        )) ?? { ...created, synced_task_id }
+      );
+    }
+    return created;
+  },
+
+  /**
+   * Edit an action item's text / assignee / due_date, then reconcile its synced
+   * Task (D4): create it the moment the item first has both an assignee and a
+   * due date, update name/date/assignee while it has both, or detach + delete
+   * the task when either field is cleared. Returns the updated item or null.
+   */
+  updateActionItem: async (
+    id: string,
+    patch: { text?: string; assignee?: string | null; due_date?: string | null },
+    owner?: string,
+  ): Promise<OneOnOneActionItem | null> => {
+    const home = owner ?? (await resolveActionItemOwner(id));
+    if (!home) return null;
+    const existingRaw = await oneOnOneActionItemsStore.getForUser(id, home);
+    if (!existingRaw) return null;
+    const existing = normalizeOneOnOneActionItem(existingRaw);
+    if (patch.assignee !== undefined && patch.assignee !== null) {
+      const oneOnOne = await findOneOnOne(existing.one_on_one_id);
+      if (oneOnOne) assertMember(oneOnOne, patch.assignee);
+    }
+    const next = normalizeOneOnOneActionItem({
+      ...existing,
+      ...(patch.text !== undefined ? { text: patch.text } : {}),
+      ...(patch.assignee !== undefined ? { assignee: patch.assignee } : {}),
+      ...(patch.due_date !== undefined ? { due_date: patch.due_date } : {}),
+    });
+    const { synced_task_id } = await reconcileSyncedTask(
+      checkinTaskSyncOps,
+      home,
+      existing,
+      next,
+    );
+    return oneOnOneActionItemsStore.updateForUser(
+      id,
+      {
+        ...(patch.text !== undefined ? { text: patch.text } : {}),
+        ...(patch.assignee !== undefined ? { assignee: patch.assignee } : {}),
+        ...(patch.due_date !== undefined ? { due_date: patch.due_date } : {}),
+        synced_task_id,
+      },
+      home,
+    );
   },
 
   /**
    * Toggle (or set) an action item's done state. Action items live in the lab
    * head's folder; pass `owner` for explicitness (defaults to a discovery walk
    * via `findOneOnOne` of the item's parent). Returns null if not found.
+   *
+   * D4: completing the item ALSO completes its synced Task (and vice versa, via
+   * the read-time reconcile in `getOneOnOneActionItems`).
    */
   toggleActionItem: async (
     id: string,
@@ -6306,19 +6648,823 @@ export const oneOnOnesApi = {
     if (!labHead) return null;
     const existing = await oneOnOneActionItemsStore.getForUser(id, labHead);
     if (!existing) return null;
-    return oneOnOneActionItemsStore.updateForUser(
+    const updated = await oneOnOneActionItemsStore.updateForUser(
       id,
       { is_done: !existing.is_done },
       labHead,
     );
+    if (updated) {
+      await pushCompletionToTask(
+        checkinTaskSyncOps,
+        labHead,
+        normalizeOneOnOneActionItem(updated),
+      );
+    }
+    return updated;
   },
 
   /** Delete an action item from the lab head's folder. Pass `owner` for
-   *  explicitness (defaults to a discovery walk). */
+   *  explicitness (defaults to a discovery walk). D4: also deletes the synced
+   *  Task so a member's to-do never outlives the action item that spawned it. */
   deleteActionItem: async (id: string, owner?: string): Promise<boolean> => {
     const labHead = owner ?? (await resolveActionItemOwner(id));
     if (!labHead) return false;
+    const existing = await oneOnOneActionItemsStore.getForUser(id, labHead);
+    if (existing && typeof existing.synced_task_id === "number") {
+      await checkinTaskSyncOps.deleteTask(labHead, existing.synced_task_id);
+    }
     return oneOnOneActionItemsStore.deleteForUser(id, labHead);
+  },
+};
+
+// ── Mentoring compact + onboarding checklist (Check-ins Phase 3b) ─────────────
+//
+// checkins-phase3b bot, 2026-06-12. See docs/proposals/checkins-revamp.md
+// "Part 3, the academic layer". Both records hang off a check-in space, live in
+// the SPACE OWNER's folder, and carry `shared_with` = every member at "edit", so
+// every member reads, edits, and (for the compact) acknowledges. There is at
+// most one compact and one onboarding checklist per space; the api looks them up
+// by `space_id` over the owner's records.
+
+/** Normalize a compact read off disk so callers never see undefined fields. */
+function normalizeCompact(raw: CheckinCompact): CheckinCompact {
+  return {
+    ...raw,
+    rows: Array.isArray(raw.rows) ? raw.rows : [],
+    acknowledged: Array.isArray(raw.acknowledged) ? raw.acknowledged : [],
+    shared_with: Array.isArray(raw.shared_with) ? raw.shared_with : [],
+  };
+}
+
+/** Find the single compact for a space (lives in the space owner's folder).
+ *  Returns the normalized record or null. */
+async function findCompactForSpace(
+  spaceId: string,
+): Promise<CheckinCompact | null> {
+  const space = await findOneOnOne(spaceId);
+  if (!space) return null;
+  const all = await checkinCompactsStore.listAllForUser(space.owner);
+  const match = all
+    .filter((c) => c.space_id === spaceId)
+    .sort((a, b) => (a.created_at < b.created_at ? -1 : 1))[0];
+  return match ? normalizeCompact({ ...match, owner: match.owner || space.owner }) : null;
+}
+
+export const checkinCompactsApi = {
+  /** The space's compact, or null if none has been started yet. Any member may
+   *  read it (they are in `shared_with`). */
+  getForSpace: async (spaceId: string): Promise<CheckinCompact | null> => {
+    return findCompactForSpace(spaceId);
+  },
+
+  /**
+   * Start the space's compact, seeding the standard AAMC-style topic rows with
+   * empty values. Idempotent: if one already exists it is returned unchanged
+   * (so two members opening the tab at once do not create two). Lives in the
+   * space owner's folder; `shared_with` = every member at "edit".
+   */
+  createForSpace: async (spaceId: string): Promise<CheckinCompact> => {
+    const existing = await findCompactForSpace(spaceId);
+    if (existing) return existing;
+    const space = await findOneOnOne(spaceId);
+    if (!space) throw new Error(`check-in space ${spaceId} not found`);
+    const author = await getCurrentUserCached();
+    assertMember(space, author);
+    const now = new Date().toISOString();
+    const rows: CheckinCompactRow[] = COMPACT_SEED_LABELS.map((label) => ({
+      id: crypto.randomUUID(),
+      label,
+      value: "",
+    }));
+    return checkinCompactsStore.create({
+      space_id: spaceId,
+      owner: space.owner,
+      rows,
+      acknowledged: [],
+      shared_with: oneOnOneShareList(space),
+      created_at: now,
+      updated_at: now,
+    });
+  },
+
+  /**
+   * Replace the compact's rows (the UI manages add/edit client-side then
+   * persists the whole list). Editing the agreement CLEARS every prior
+   * acknowledgement, since the thing they agreed to has changed, so both must
+   * re-acknowledge the revision. Returns the updated record or null.
+   */
+  updateRows: async (
+    id: string,
+    rows: CheckinCompactRow[],
+    owner: string,
+  ): Promise<CheckinCompact | null> => {
+    const updated = await checkinCompactsStore.updateForUser(
+      id,
+      { rows, acknowledged: [], updated_at: new Date().toISOString() },
+      owner,
+    );
+    return updated ? normalizeCompact(updated) : null;
+  },
+
+  /**
+   * Record the current user's acknowledgement. Idempotent: a member already in
+   * `acknowledged` is left as-is (no duplicate entry, the original timestamp
+   * stands). Returns the updated record or null.
+   */
+  acknowledge: async (
+    id: string,
+    owner: string,
+  ): Promise<CheckinCompact | null> => {
+    const existing = await checkinCompactsStore.getForUser(id, owner);
+    if (!existing) return null;
+    const actor = await getCurrentUserCached();
+    const acks = Array.isArray(existing.acknowledged)
+      ? existing.acknowledged
+      : [];
+    if (acks.some((a) => a.username === actor)) {
+      return normalizeCompact(existing);
+    }
+    const updated = await checkinCompactsStore.updateForUser(
+      id,
+      {
+        acknowledged: [...acks, { username: actor, at: new Date().toISOString() }],
+        updated_at: new Date().toISOString(),
+      },
+      owner,
+    );
+    return updated ? normalizeCompact(updated) : null;
+  },
+};
+
+/** Normalize an onboarding checklist read off disk. */
+function normalizeOnboarding(raw: CheckinOnboarding): CheckinOnboarding {
+  return {
+    ...raw,
+    items: Array.isArray(raw.items)
+      ? raw.items.map((i) => ({
+          ...i,
+          done: Boolean(i.done),
+          done_by: i.done_by ?? null,
+          done_at: i.done_at ?? null,
+        }))
+      : [],
+    shared_with: Array.isArray(raw.shared_with) ? raw.shared_with : [],
+  };
+}
+
+/** Find the single onboarding checklist for a space. */
+async function findOnboardingForSpace(
+  spaceId: string,
+): Promise<CheckinOnboarding | null> {
+  const space = await findOneOnOne(spaceId);
+  if (!space) return null;
+  const all = await checkinOnboardingStore.listAllForUser(space.owner);
+  const match = all
+    .filter((o) => o.space_id === spaceId)
+    .sort((a, b) => (a.created_at < b.created_at ? -1 : 1))[0];
+  return match
+    ? normalizeOnboarding({ ...match, owner: match.owner || space.owner })
+    : null;
+}
+
+export const checkinOnboardingApi = {
+  /** The space's onboarding checklist, or null if none has been started. */
+  getForSpace: async (spaceId: string): Promise<CheckinOnboarding | null> => {
+    return findOnboardingForSpace(spaceId);
+  },
+
+  /**
+   * Start the space's onboarding checklist, seeding the standard items (access
+   * and keys, safety training, data-management, the lab norms doc, set the
+   * cadence). Idempotent: returns the existing checklist if one is already
+   * there. Lives in the space owner's folder; every member at "edit".
+   */
+  createForSpace: async (spaceId: string): Promise<CheckinOnboarding> => {
+    const existing = await findOnboardingForSpace(spaceId);
+    if (existing) return existing;
+    const space = await findOneOnOne(spaceId);
+    if (!space) throw new Error(`check-in space ${spaceId} not found`);
+    const author = await getCurrentUserCached();
+    assertMember(space, author);
+    const now = new Date().toISOString();
+    const items: CheckinOnboardingItem[] = ONBOARDING_SEED_LABELS.map(
+      (label) => ({
+        id: crypto.randomUUID(),
+        label,
+        done: false,
+        done_by: null,
+        done_at: null,
+      }),
+    );
+    return checkinOnboardingStore.create({
+      space_id: spaceId,
+      owner: space.owner,
+      items,
+      shared_with: oneOnOneShareList(space),
+      created_at: now,
+      updated_at: now,
+    });
+  },
+
+  /**
+   * Toggle one checklist item's done state (any member may, the permissive D2
+   * model). Sets / clears `done_by` + `done_at` to the actor + now. Returns the
+   * updated record or null.
+   */
+  toggleItem: async (
+    id: string,
+    itemId: string,
+    owner: string,
+  ): Promise<CheckinOnboarding | null> => {
+    const existing = await checkinOnboardingStore.getForUser(id, owner);
+    if (!existing) return null;
+    const actor = await getCurrentUserCached();
+    const now = new Date().toISOString();
+    const items = (Array.isArray(existing.items) ? existing.items : []).map(
+      (item) => {
+        if (item.id !== itemId) return item;
+        const nextDone = !item.done;
+        return {
+          ...item,
+          done: nextDone,
+          done_by: nextDone ? actor : null,
+          done_at: nextDone ? now : null,
+        };
+      },
+    );
+    const updated = await checkinOnboardingStore.updateForUser(
+      id,
+      { items, updated_at: now },
+      owner,
+    );
+    return updated ? normalizeOnboarding(updated) : null;
+  },
+};
+
+// ── Check-ins Phase 4: presenter / journal-club rotation ─────────────────────
+//
+// checkins-phase4 bot, 2026-06-12. A GROUP space can carry an auto-rotating
+// schedule of who presents data and who leads journal club. One rotation per
+// space, lives in the space owner's folder, every member at "edit". Seeded with
+// two tracks ("Data presentation" and "Journal club"), each ordered by the space
+// members with `current_index` 0.
+
+/** The two seed track names for a fresh rotation, in display order. */
+const ROTATION_SEED_TRACK_NAMES = ["Data presentation", "Journal club"];
+
+/** Normalize a rotation read off disk so callers never branch on a missing
+ *  array or an out-of-range `current_index`. */
+function normalizeRotation(raw: CheckinRotation): CheckinRotation {
+  const tracks: CheckinRotationTrack[] = (
+    Array.isArray(raw.tracks) ? raw.tracks : []
+  ).map((t) => {
+    const order = Array.isArray(t.order) ? t.order : [];
+    const idx = order.length > 0 ? ((t.current_index ?? 0) % order.length + order.length) % order.length : 0;
+    return { ...t, order, current_index: idx };
+  });
+  return {
+    ...raw,
+    tracks,
+    shared_with: Array.isArray(raw.shared_with) ? raw.shared_with : [],
+  };
+}
+
+/** Find the single rotation for a space (lives in the space owner's folder). */
+async function findRotationForSpace(
+  spaceId: string,
+): Promise<CheckinRotation | null> {
+  const space = await findOneOnOne(spaceId);
+  if (!space) return null;
+  const all = await checkinRotationsStore.listAllForUser(space.owner);
+  const match = all
+    .filter((r) => r.space_id === spaceId)
+    .sort((a, b) => (a.created_at < b.created_at ? -1 : 1))[0];
+  return match
+    ? normalizeRotation({ ...match, owner: match.owner || space.owner })
+    : null;
+}
+
+export const checkinRotationsApi = {
+  /** The space's rotation, or null if none has been started. Any member may
+   *  read it (they are in `shared_with`). */
+  getForSpace: async (spaceId: string): Promise<CheckinRotation | null> => {
+    return findRotationForSpace(spaceId);
+  },
+
+  /**
+   * Start the space's rotation, seeding two tracks ("Data presentation" and
+   * "Journal club") whose `order` is the space members and `current_index` 0.
+   * Idempotent: if one already exists it is returned unchanged. Lives in the
+   * space owner's folder; `shared_with` = every member at "edit". The space must
+   * be a GROUP space (3+ members); a pair has no rotation.
+   */
+  createForSpace: async (spaceId: string): Promise<CheckinRotation> => {
+    const existing = await findRotationForSpace(spaceId);
+    if (existing) return existing;
+    const space = await findOneOnOne(spaceId);
+    if (!space) throw new Error(`check-in space ${spaceId} not found`);
+    const norm = normalizeOneOnOne(space);
+    if (norm.kind !== "group") {
+      throw new Error("a rotation only exists on a group check-in space");
+    }
+    const author = await getCurrentUserCached();
+    assertMember(space, author);
+    const now = new Date().toISOString();
+    const tracks: CheckinRotationTrack[] = ROTATION_SEED_TRACK_NAMES.map(
+      (name) => ({
+        id: crypto.randomUUID(),
+        name,
+        order: [...norm.members],
+        current_index: 0,
+      }),
+    );
+    return checkinRotationsStore.create({
+      space_id: spaceId,
+      owner: space.owner,
+      tracks,
+      shared_with: oneOnOneShareList(space),
+      created_at: now,
+      updated_at: now,
+    });
+  },
+
+  /**
+   * Advance one track to the next presenter, wrapping modulo `order.length`.
+   * A no-op (returns the record unchanged) for an empty order. Returns the
+   * updated record or null.
+   */
+  advance: async (
+    id: string,
+    trackId: string,
+    owner: string,
+  ): Promise<CheckinRotation | null> => {
+    const existing = await checkinRotationsStore.getForUser(id, owner);
+    if (!existing) return null;
+    const tracks = (Array.isArray(existing.tracks) ? existing.tracks : []).map(
+      (t) => {
+        if (t.id !== trackId) return t;
+        const len = t.order.length;
+        if (len === 0) return t;
+        return { ...t, current_index: (t.current_index + 1) % len };
+      },
+    );
+    const updated = await checkinRotationsStore.updateForUser(
+      id,
+      { tracks, updated_at: new Date().toISOString() },
+      owner,
+    );
+    return updated ? normalizeRotation(updated) : null;
+  },
+
+  /**
+   * Replace one track's rotation order (the reorder / skip affordance). The
+   * caller hands the whole new order; `current_index` is clamped to a valid
+   * index for the new length. Returns the updated record or null.
+   */
+  setOrder: async (
+    id: string,
+    trackId: string,
+    order: string[],
+    owner: string,
+  ): Promise<CheckinRotation | null> => {
+    const existing = await checkinRotationsStore.getForUser(id, owner);
+    if (!existing) return null;
+    const tracks = (Array.isArray(existing.tracks) ? existing.tracks : []).map(
+      (t) => {
+        if (t.id !== trackId) return t;
+        const len = order.length;
+        const idx = len > 0 ? Math.min(t.current_index, len - 1) : 0;
+        return { ...t, order, current_index: idx };
+      },
+    );
+    const updated = await checkinRotationsStore.updateForUser(
+      id,
+      { tracks, updated_at: new Date().toISOString() },
+      owner,
+    );
+    return updated ? normalizeRotation(updated) : null;
+  },
+};
+
+// ── Individual Development Plan (Check-ins Phase 3) ───────────────────────────
+//
+// checkins-phase3 bot, 2026-06-12. See docs/proposals/checkins-revamp.md "IDP
+// structure". An IDP is owned by the TRAINEE and lives in their folder. The
+// trainee edits; the mentor reviews (comment + sign-off) gated to the sections
+// the trainee shared, via `normalizeIdpForViewer`. The lab head gets a STATUS
+// LINE only (`getStatusForMember`), never contents.
+
+/** The owner-scoped task ops backing the IDP action-row -> Task sync (D4-style,
+ *  but trainee-owned, so every write lands in the trainee's namespace). The task
+ *  shape mirrors the check-in synced task: standalone Lists task, project_id 0,
+ *  duration 1, `source` back-linking to the IDP row. */
+const idpTaskSyncOps: IdpTaskSyncOps = {
+  createTask: async (owner: string, draft: IdpSyncedTaskDraft): Promise<Task> => {
+    const durationDays = 1;
+    const record: Omit<Task, "id"> = {
+      project_id: 0, // STANDALONE — the proven falsy-project path in WorkbenchListsPanel.
+      name: draft.name,
+      start_date: draft.start_date,
+      duration_days: durationDays,
+      end_date: canonicalEndDate({
+        start_date: draft.start_date,
+        duration_days: durationDays,
+      }),
+      is_high_level: false,
+      is_complete: draft.is_complete,
+      task_type: "list",
+      weekend_override: null,
+      method_ids: [],
+      deviation_log: null,
+      tags: null,
+      sort_order: 0,
+      experiment_color: null,
+      sub_tasks: null,
+      method_attachments: [],
+      comments: [],
+      owner,
+      shared_with: draft.shared_with,
+      assignee: null,
+      source: draft.source,
+    };
+    return tasksStore.createForUser(record, owner);
+  },
+  updateTask: async (
+    owner: string,
+    id: number,
+    patch: Partial<Task>,
+  ): Promise<Task | null> => {
+    const next: Partial<Task> = { ...patch };
+    if (patch.start_date !== undefined || patch.duration_days !== undefined) {
+      const existing = await tasksStore.getForUser(id, owner);
+      if (existing) {
+        next.end_date = canonicalEndDate({
+          start_date: patch.start_date ?? existing.start_date,
+          duration_days: patch.duration_days ?? existing.duration_days,
+        });
+      }
+    }
+    return tasksStore.updateForUser(id, next, owner);
+  },
+  deleteTask: async (owner: string, id: number): Promise<void> => {
+    await tasksStore.deleteForUser(id, owner);
+  },
+  getTask: async (owner: string, id: number): Promise<Task | null> => {
+    return tasksStore.getForUser(id, owner);
+  },
+};
+
+/** Seed an empty ratings map: every competency skill keyed with a null self +
+ *  null importance, so the form renders every row unrated. */
+function seedIdpRatings(): IDP["self_assessment"]["ratings"] {
+  const ratings: IDP["self_assessment"]["ratings"] = {};
+  for (const id of allSkillIds()) ratings[id] = { self: null, importance: null };
+  return ratings;
+}
+
+/** YYYY-MM-DD one year from now (the default annual revisit date). */
+function oneYearFromNowDate(): string {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Resolve an IDP by id across the lab (it lives in the trainee's folder). */
+async function findIdp(id: string): Promise<IDP | null> {
+  const usernames = await discoverUsers();
+  for (const username of usernames) {
+    const rec = await idpsStore.getForUser(id, username);
+    if (rec) return { ...rec, owner: rec.owner || username };
+  }
+  return null;
+}
+
+/** Reconcile every dated, synced action row's status from its task (the trainee
+ *  may have checked the to-do off in Lists), writing the IDP back if anything
+ *  changed. Returns the reconciled IDP. Owner-only path (the trainee owns the
+ *  tasks). */
+async function reconcileIdpActionStatuses(idp: IDP): Promise<IDP> {
+  let changed = false;
+  const rows = await Promise.all(
+    idp.action_plan.map(async (row) => {
+      const { status, changed: rowChanged } = await reconcileRowStatusFromTask(
+        idpTaskSyncOps,
+        idp.owner,
+        row,
+      );
+      if (rowChanged) {
+        changed = true;
+        return { ...row, status };
+      }
+      return row;
+    }),
+  );
+  if (!changed) return idp;
+  const updated = { ...idp, action_plan: rows };
+  await idpsStore.writeForUser(updated, idp.owner);
+  return updated;
+}
+
+export const idpsApi = {
+  /**
+   * The member's current IDP, or null. Returns the most-recently-updated record
+   * if several exist in their folder. For the OWNER (current user === member)
+   * the full record is returned (with action-row statuses reconciled from their
+   * tasks). For a NON-owner (a mentor) the record passes through
+   * `normalizeIdpForViewer`, which blanks unshared sections and always strips
+   * the values reflection, and returns null if the viewer cannot read it.
+   */
+  getForMember: async (username: string): Promise<IDP | null> => {
+    const all = await idpsStore.listAllForUser(username);
+    if (all.length === 0) return null;
+    all.sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1));
+    const idp = { ...all[0], owner: all[0].owner || username };
+    const viewer = await buildCurrentViewer();
+    if (idp.owner === viewer.username) {
+      // Owner: reconcile action-row completion from their tasks, return full.
+      return reconcileIdpActionStatuses(idp);
+    }
+    return normalizeIdpForViewer(idp, viewer);
+  },
+
+  /**
+   * Status-only compliance read for the lab head / PI view. Returns whether an
+   * IDP exists for the member and when it was last updated. NEVER returns
+   * contents (NSF compliance: the PI sees only that a plan exists).
+   */
+  getStatusForMember: async (
+    username: string,
+  ): Promise<{ exists: boolean; updated_at: string | null }> => {
+    const all = await idpsStore.listAllForUser(username);
+    if (all.length === 0) return { exists: false, updated_at: null };
+    all.sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1));
+    return { exists: true, updated_at: all[0].updated_at };
+  },
+
+  /**
+   * Create the current user's IDP. They are the owner (the trainee). Seeds an
+   * empty ratings map (every competency skill, unrated), empty sections, an
+   * annual revisit date, and no shared sections. `mentor` (optional) is recorded
+   * and added to `shared_with` so the review surface can load it; per-section
+   * sharing still gates the contents.
+   */
+  create: async (params: {
+    career_stage: CareerStage;
+    mentor?: string | null;
+  }): Promise<IDP> => {
+    const owner = await getCurrentUserCached();
+    const now = new Date().toISOString();
+    const mentor = params.mentor ?? null;
+    const data: Omit<IDP, "id"> = {
+      owner,
+      career_stage: params.career_stage,
+      self_assessment: { ratings: seedIdpRatings(), responsibilities: "" },
+      career_exploration: { aspirations: "", target_path: "" },
+      goals: [],
+      action_plan: [],
+      mentor_review: {
+        comment: "",
+        reviewed_by: null,
+        reviewed_at: null,
+        revisit_date: oneYearFromNowDate(),
+      },
+      values_reflection: null,
+      shared_sections: {
+        self_assessment: false,
+        career_exploration: false,
+        goals: false,
+        action_plan: false,
+      },
+      mentor,
+      // A mentor is added at "view" so the review surface can read the IDP;
+      // per-section sharing still blanks the contents until the trainee shares.
+      shared_with: mentor ? [{ username: mentor, level: "read" }] : [],
+      created_at: now,
+      updated_at: now,
+      last_edited_by: owner,
+    };
+    return idpsStore.create(data);
+  },
+
+  /**
+   * Patch an IDP. Stamps `updated_at` + `last_edited_by`. The caller (the
+   * owner, or the mentor on a review/sign-off) routes through here so the stamps
+   * stay consistent. Writes to the IDP's owner folder.
+   */
+  update: async (id: string, patch: Partial<IDP>): Promise<IDP | null> => {
+    const existing = await findIdp(id);
+    if (!existing) return null;
+    const actor = (await getCurrentUserCached()) ?? existing.owner;
+    return idpsStore.updateForUser(
+      id,
+      { ...patch, updated_at: new Date().toISOString(), last_edited_by: actor },
+      existing.owner,
+    );
+  },
+
+  /** Set the career stage (drives the preset filter). Owner-only edit. */
+  setCareerStage: async (
+    id: string,
+    career_stage: CareerStage,
+  ): Promise<IDP | null> => {
+    return idpsApi.update(id, { career_stage });
+  },
+
+  /** Set a single competency skill's dual rating (self and/or importance). */
+  setRating: async (
+    id: string,
+    skillId: string,
+    rating: { self: number | null; importance: number | null },
+  ): Promise<IDP | null> => {
+    const existing = await findIdp(id);
+    if (!existing) return null;
+    const ratings = {
+      ...existing.self_assessment.ratings,
+      [skillId]: rating,
+    };
+    return idpsApi.update(id, {
+      self_assessment: { ...existing.self_assessment, ratings },
+    });
+  },
+
+  /** Set the self-assessment responsibilities free-text box. */
+  setResponsibilities: async (
+    id: string,
+    responsibilities: string,
+  ): Promise<IDP | null> => {
+    const existing = await findIdp(id);
+    if (!existing) return null;
+    return idpsApi.update(id, {
+      self_assessment: { ...existing.self_assessment, responsibilities },
+    });
+  },
+
+  /** Set the career-exploration aspirations + target-path fields. */
+  setCareerExploration: async (
+    id: string,
+    career_exploration: { aspirations: string; target_path: string },
+  ): Promise<IDP | null> => {
+    return idpsApi.update(id, { career_exploration });
+  },
+
+  /** Replace the goals list (the form manages add/edit/remove client-side then
+   *  persists the whole list). */
+  setGoals: async (id: string, goals: IdpGoal[]): Promise<IDP | null> => {
+    return idpsApi.update(id, { goals });
+  },
+
+  /** Set a per-section share toggle. When ANY section is shared the mentor stays
+   *  in `shared_with` (added at create); turning everything off leaves the
+   *  share row in place but blanks every section on the mentor's read. */
+  setSectionShared: async (
+    id: string,
+    section: IdpSectionKey,
+    shared: boolean,
+  ): Promise<IDP | null> => {
+    const existing = await findIdp(id);
+    if (!existing) return null;
+    const shared_sections = { ...existing.shared_sections, [section]: shared };
+    // Keep shared_with consistent: a mentor present => at least a read row so
+    // the review surface can load the (section-filtered) record.
+    let shared_with = existing.shared_with;
+    if (existing.mentor) {
+      const hasRow = shared_with.some((s) => s.username === existing.mentor);
+      if (!hasRow) {
+        shared_with = [
+          ...shared_with,
+          { username: existing.mentor, level: "read" },
+        ];
+      }
+    }
+    return idpsApi.update(id, { shared_sections, shared_with });
+  },
+
+  /** Set the optional, ALWAYS-private values reflection. Owner-only; never
+   *  shared. Pass null to clear it. */
+  setValuesReflection: async (
+    id: string,
+    values_reflection: { note: string } | null,
+  ): Promise<IDP | null> => {
+    return idpsApi.update(id, { values_reflection });
+  },
+
+  /** The mentor's review: comment + sign-off. Sets `reviewed_by` /
+   *  `reviewed_at` to the current user + now, and optionally a new revisit
+   *  date. The mentor is in `shared_with`, so `canWrite`-style routing is the
+   *  IDP owner's folder (the mentor writes a comment into the trainee's record,
+   *  exactly like a PI comment). */
+  submitReview: async (
+    id: string,
+    params: { comment: string; revisit_date?: string | null },
+  ): Promise<IDP | null> => {
+    const existing = await findIdp(id);
+    if (!existing) return null;
+    const reviewer = (await getCurrentUserCached()) ?? "";
+    const mentor_review: IDP["mentor_review"] = {
+      comment: params.comment,
+      reviewed_by: reviewer,
+      reviewed_at: new Date().toISOString(),
+      revisit_date:
+        params.revisit_date ?? existing.mentor_review.revisit_date,
+    };
+    return idpsApi.update(id, { mentor_review });
+  },
+
+  // ── Action-plan rows + the D4-style task sync ──────────────────────────────
+
+  /** Append a blank action-plan row. */
+  addActionRow: async (id: string): Promise<IDP | null> => {
+    const existing = await findIdp(id);
+    if (!existing) return null;
+    const row: IdpActionRow = {
+      id: crypto.randomUUID(),
+      objective: "",
+      approach: "",
+      target_date: null,
+      outcome: "",
+      status: "not_started",
+      synced_task_id: null,
+    };
+    return idpsApi.update(id, { action_plan: [...existing.action_plan, row] });
+  },
+
+  /**
+   * Update an action-plan row's editable fields. Reconciles its synced task
+   * (renames / re-dates / completes, or detaches + deletes the task when the
+   * date is cleared). Owner-only (the trainee owns both the IDP and the task).
+   */
+  updateActionRow: async (
+    id: string,
+    rowId: string,
+    patch: Partial<
+      Pick<
+        IdpActionRow,
+        "objective" | "approach" | "target_date" | "outcome" | "status"
+      >
+    >,
+  ): Promise<IDP | null> => {
+    const existing = await findIdp(id);
+    if (!existing) return null;
+    const idx = existing.action_plan.findIndex((r) => r.id === rowId);
+    if (idx === -1) return existing;
+    const next: IdpActionRow = { ...existing.action_plan[idx], ...patch };
+    const { synced_task_id } = await reconcileRowTask(
+      idpTaskSyncOps,
+      existing.owner,
+      next,
+    );
+    next.synced_task_id = synced_task_id;
+    const action_plan = [...existing.action_plan];
+    action_plan[idx] = next;
+    return idpsApi.update(id, { action_plan });
+  },
+
+  /**
+   * The "Add to tasks" affordance: materialize a real standalone Lists task for
+   * a DATED row, in the trainee's namespace. Stamps `synced_task_id` back.
+   */
+  addActionRowToTasks: async (
+    id: string,
+    rowId: string,
+  ): Promise<IDP | null> => {
+    const existing = await findIdp(id);
+    if (!existing) return null;
+    const idx = existing.action_plan.findIndex((r) => r.id === rowId);
+    if (idx === -1) return existing;
+    const row = existing.action_plan[idx];
+    const { synced_task_id } = await addRowToTasks(
+      idpTaskSyncOps,
+      existing.owner,
+      existing.id,
+      row,
+    );
+    const action_plan = [...existing.action_plan];
+    action_plan[idx] = { ...row, synced_task_id };
+    return idpsApi.update(id, { action_plan });
+  },
+
+  /** Delete an action-plan row, deleting its synced task too. */
+  deleteActionRow: async (id: string, rowId: string): Promise<IDP | null> => {
+    const existing = await findIdp(id);
+    if (!existing) return null;
+    const row = existing.action_plan.find((r) => r.id === rowId);
+    if (row) await deleteRowTask(idpTaskSyncOps, existing.owner, row);
+    const action_plan = existing.action_plan.filter((r) => r.id !== rowId);
+    return idpsApi.update(id, { action_plan });
+  },
+
+  /** Delete the whole IDP (owner-only), sweeping any synced tasks first. */
+  delete: async (id: string): Promise<boolean> => {
+    const existing = await findIdp(id);
+    if (!existing) return false;
+    const actor = await getCurrentUserCached();
+    if (existing.owner !== actor) {
+      throw new Error("Only the trainee can delete their IDP.");
+    }
+    for (const row of existing.action_plan) {
+      await deleteRowTask(idpTaskSyncOps, existing.owner, row);
+    }
+    return idpsStore.deleteForUser(id, existing.owner);
   },
 };
 
@@ -6365,6 +7511,10 @@ async function createOneOnOneNote(
     one_on_one_id: oneOnOneId,
     note_kind: opts.note_kind,
     shared_with: oneOnOneShareList(oneOnOne),
+    // Phase 6a portable identity: mint once at create time.
+    source_uuid: (typeof crypto !== "undefined" && "randomUUID" in crypto)
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2),
   });
 }
 
@@ -8398,7 +9548,7 @@ export const labApi = {
       const userGoals = await weeklyGoalsStore.listAllForUser(username);
       for (const goal of userGoals) {
         if (goal.one_on_one_id !== oneOnOneId) continue;
-        const stamped = { ...goal, owner: goal.owner || username };
+        const stamped = normalizeWeeklyGoal({ ...goal, owner: goal.owner || username });
         const shareable = {
           owner: stamped.owner,
           shared_with: stamped.shared_with ?? [],
@@ -8424,8 +9574,30 @@ export const labApi = {
       const items = await oneOnOneActionItemsStore.listAllForUser(username);
       for (const item of items) {
         if (item.one_on_one_id !== oneOnOneId) continue;
-        const stamped = { ...item, owner: item.owner || username };
-        if (canRead(stamped, viewer)) out.push(stamped);
+        const stamped = normalizeOneOnOneActionItem({
+          ...item,
+          owner: item.owner || username,
+        });
+        if (!canRead(stamped, viewer)) continue;
+        // D4 TASK -> ITEM completion: if the member completed the synced to-do
+        // in their Lists view, the task's is_complete wins. Reconcile on read
+        // and write the corrected is_done back into the owner's folder so the
+        // check-in space and the Lists view converge. No cross-owner write —
+        // the item lives in `stamped.owner`'s folder, which is where we write.
+        const reconciled = await reconcileCompletionFromTask(
+          checkinTaskSyncOps,
+          stamped.owner,
+          stamped,
+        );
+        if (reconciled.changed) {
+          stamped.is_done = reconciled.is_done;
+          await oneOnOneActionItemsStore.updateForUser(
+            stamped.id,
+            { is_done: reconciled.is_done },
+            stamped.owner,
+          );
+        }
+        out.push(stamped);
       }
     }
     return out;

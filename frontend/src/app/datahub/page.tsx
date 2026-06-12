@@ -24,6 +24,8 @@ import { DATAHUB_ENABLED } from "@/lib/datahub/config";
 import { getDemoMode } from "@/lib/file-system/wiki-capture-mock";
 import { dataHubApi } from "@/lib/datahub/api";
 import { recomputeDerived } from "@/lib/datahub/derived";
+import { chainCode } from "@/lib/datahub/chain-code";
+import CodePanel from "@/components/datahub/CodePanel";
 import { projectsApi } from "@/lib/local-api";
 import type {
   CellValue,
@@ -133,6 +135,7 @@ import GuidedAnalysisWizard, {
 import NewGraphDialog, {
   type NewGraphSubmit,
 } from "@/components/datahub/NewGraphDialog";
+import PowerPlannerDialog from "@/components/datahub/PowerPlannerDialog";
 import TransformDialog, {
   type TransformSubmit,
 } from "@/components/datahub/TransformDialog";
@@ -237,6 +240,10 @@ export default function DataHubPage() {
   // analysis selection in the main panel.
   const [selectedPlotId, setSelectedPlotId] = useState<string | null>(null);
   const [newGraphOpen, setNewGraphOpen] = useState(false);
+  // The power / sample-size planner open state. The planner is a stateless
+  // calculator, so it carries no table or content; it is reachable with or
+  // without a table open (a researcher plans a study before any data exists).
+  const [powerPlannerOpen, setPowerPlannerOpen] = useState(false);
   // The Transform dialog open state. It creates a DERIVED table from the open
   // table, or (when the open table is itself derived) edits its transform in
   // place. A single flag drives both since the dialog reads its mode from
@@ -250,6 +257,11 @@ export default function DataHubPage() {
     useState<DataHubDocContent | null>(null);
   // Transient "copied" flash for the Copy reference button.
   const [refCopied, setRefCopied] = useState(false);
+  // The derived-table Code panel: a toggle and the lineage-aware chain script
+  // (async, resolved from the table's base sources). Only a derived table shows
+  // the toggle; an entered table has no recipe to reproduce.
+  const [showTableCode, setShowTableCode] = useState(false);
+  const [tableChainCode, setTableChainCode] = useState<string>("");
   // Inline delete confirm for the table toolbar (no soft-lock: a Cancel is always
   // reachable). Holds the id pending deletion, or null when nothing is pending.
   const [confirmDeleteTableId, setConfirmDeleteTableId] = useState<string | null>(
@@ -472,6 +484,41 @@ export default function DataHubPage() {
       }
     };
   }, []);
+
+  // Resolve any table's RAW stored content by id (its derivedFrom link plus the
+  // last-computed snapshot), so the lineage-aware Code export can walk a derived
+  // table's chain back to its base table(s). Raw content (not the recomputed
+  // projection) is what the walker needs, so it still sees the derivedFrom link.
+  const resolveTableContent = useCallback(
+    (tableId: string) => dataHubApi.getContent(tableId),
+    [],
+  );
+
+  // Hide the derived-table Code panel whenever the open table changes, so it
+  // does not carry over to the next table.
+  useEffect(() => {
+    setShowTableCode(false);
+    setTableChainCode("");
+  }, [selectedTableId]);
+
+  // Compute the derived-table chain script when the Code panel is open. It walks
+  // the open table's lineage back to its base table(s) and emits one commented
+  // script (base data to transforms). Async, so it lands in state.
+  useEffect(() => {
+    if (!showTableCode || !openContent?.meta.derivedFrom) {
+      return;
+    }
+    let active = true;
+    void chainCode(
+      { kind: "table", tableId: openContent.meta.id, content: openContent },
+      resolveTableContent,
+    ).then((code) => {
+      if (active) setTableChainCode(code);
+    });
+    return () => {
+      active = false;
+    };
+  }, [showTableCode, openContent, resolveTableContent]);
 
   // Persist one cell edit: write the parsed value to the doc, commit (debounced),
   // and reproject immediately so the footer recomputes without waiting for the
@@ -1486,6 +1533,8 @@ export default function DataHubPage() {
         analysisId: data.analysisId,
         yColumnId: data.yColumnId ?? null,
         fitModel: data.fitModel,
+        estimationPaired: data.estimationPaired,
+        estimationControlIndex: data.estimationControlIndex,
         yTitle: isXY
           ? yName ?? selectedMeta?.name ?? "Y"
           : isSurvival
@@ -1739,6 +1788,14 @@ export default function DataHubPage() {
           testId: "datahub-toolbar-new-graph",
         },
         {
+          icon: "gauge",
+          label: "Plan study",
+          onClick: () => setPowerPlannerOpen(true),
+          tooltip:
+            "Power and sample-size planner. Find the N you need, the power you have, or the smallest effect you can detect.",
+          testId: "datahub-toolbar-plan-study",
+        },
+        {
           icon: "merge",
           label: derived ? "Edit transform" : "Transform",
           onClick: () => setTransformOpen(true),
@@ -1750,6 +1807,22 @@ export default function DataHubPage() {
       ],
       addGroup,
       [
+        // A derived table can show the open-source code that reproduces it from
+        // its base table(s) through every transform, the same transparency the
+        // analysis and figure Code buttons give. An entered table has no recipe
+        // to reproduce, so this only appears on a derived table.
+        ...(derived
+          ? [
+              {
+                icon: "file" as const,
+                label: showTableCode ? "Hide code" : "Code",
+                onClick: () => setShowTableCode((v) => !v),
+                tooltip:
+                  "Show the code that rebuilds this table from its base table through every transform.",
+                testId: "datahub-toolbar-code",
+              },
+            ]
+          : []),
         {
           icon: "cloning",
           label: "Duplicate",
@@ -1783,6 +1856,7 @@ export default function DataHubPage() {
     handleDuplicateTable,
     handleExportTable,
     selectedTableId,
+    showTableCode,
   ]);
 
   // Gate: render a calm "not enabled" state when the flag is off and this is not
@@ -1822,6 +1896,7 @@ export default function DataHubPage() {
           onNewTable={() => setNewTableOpen(true)}
           onNewFolder={() => setNewTableOpen(true)}
           onImport={() => setImportOpen(true)}
+          onPlanStudy={() => setPowerPlannerOpen(true)}
           counts={counts}
           analyses={openContent?.analyses ?? []}
           selectedAnalysisId={selectedAnalysisId}
@@ -1896,6 +1971,7 @@ export default function DataHubPage() {
               analysis={plotAnalysis}
               title={selectedMeta.name}
               onStyleChange={handlePlotStyleChange}
+              resolveContent={resolveTableContent}
             />
           ) : selectedMeta && openContent && selectedAnalysis ? (
             <ResultsSheet
@@ -1908,6 +1984,7 @@ export default function DataHubPage() {
               onParamChange={(key, value) =>
                 handleAnalysisParamChange(selectedAnalysis.id, key, value)
               }
+              resolveContent={resolveTableContent}
             />
           ) : selectedMeta && openContent ? (
             <div className="flex min-h-0 flex-1 flex-col">
@@ -2105,6 +2182,20 @@ export default function DataHubPage() {
                         readOnly={!!derivedInfo}
                       />
                     )}
+
+                    {/* The lineage-aware Code panel for a derived table, below
+                        the grid. It rebuilds this table from its base table(s)
+                        through every transform, the same transparency the
+                        analysis + figure Code buttons give. */}
+                    {showTableCode && derivedInfo ? (
+                      <div className="mt-5" data-testid="datahub-table-code">
+                        <CodePanel
+                          code={tableChainCode}
+                          caption="This rebuilds the table from its base table, loading the data and running every transform, so the result traces back to the raw numbers rather than a black box."
+                          testId="datahub-table-code-panel"
+                        />
+                      </div>
+                    ) : null}
                   </>
                 )}
               </div>
@@ -2152,6 +2243,11 @@ export default function DataHubPage() {
         content={openContent}
         onCancel={() => setNewGraphOpen(false)}
         onSubmit={handleNewGraph}
+      />
+
+      <PowerPlannerDialog
+        open={powerPlannerOpen}
+        onCancel={() => setPowerPlannerOpen(false)}
       />
 
       <TransformDialog

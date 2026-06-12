@@ -55,6 +55,9 @@ import BeakerBotBlowingBubblesScene from "@/components/BeakerBotBlowingBubblesSc
 import BeakerBotRunwayStrutScene from "@/components/BeakerBotRunwayStrutScene";
 import BeakerBotTwirlScene from "@/components/BeakerBotTwirlScene";
 import BeakerBotPoseCelebrationScene from "@/components/onboarding/BeakerBotPoseCelebrationScene";
+import BeakerBotThinking, {
+  type ThinkingVariant,
+} from "@/components/ai/BeakerBotThinking";
 
 // ── Catalog types ──────────────────────────────────────────────────────────
 
@@ -866,6 +869,44 @@ export default function BeakerBotGalleryPage() {
               idle (no alive, reference)
             </span>
           </div>
+        </div>
+      </section>
+
+      {/* Thinking-indicator variants. The branded "BeakerBot is thinking" line
+          comes in three beaker-blue styles; the live one is picked by the dev
+          switcher in the conversation composer (localStorage key
+          beakerbot.thinkingVariant). Shown here side by side so the best one is
+          easy to choose. */}
+      <section
+        aria-label="Thinking indicator variants"
+        data-testid="gallery-thinking-variants"
+        className="mt-4 rounded-lg border border-slate-200 bg-white p-4"
+      >
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-sky-100 px-2 py-0.5 text-meta font-medium uppercase tracking-wide text-sky-800">
+            Thinking
+          </span>
+          <h2 className="text-title font-semibold text-slate-900">
+            BeakerBotThinking variants
+          </h2>
+        </div>
+        <p className="mt-2 text-body text-slate-700">
+          The branded thinking indicator that replaces the plain status text.
+          Each shows an animated beaker-blue indicator plus the single grey
+          status line. Flip the live one with the dev switcher in the BeakerBot
+          composer (localStorage key beakerbot.thinkingVariant, default pulse).
+        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-8">
+          {(["pulse", "beaker", "blink"] as ThinkingVariant[]).map((v) => (
+            <div
+              key={v}
+              data-testid={`gallery-thinking-${v}`}
+              className="flex flex-col items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-4 py-3"
+            >
+              <BeakerBotThinking variant={v} label="Running the analysis" />
+              <span className="text-meta text-slate-500">{v}</span>
+            </div>
+          ))}
         </div>
       </section>
     </div>

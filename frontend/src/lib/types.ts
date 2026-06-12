@@ -390,6 +390,17 @@ export interface Project {
   // created the ordinary way (and every project written before this slice) omits
   // it. It is the cheap seed a future merge-into-existing (P3) needs.
   imported_from?: ProjectImportedFrom;
+  // Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): a stable
+  // cross-user identity for this record minted once at create time using
+  // crypto.randomUUID(). OPTIONAL + ADDITIVE: records written before Phase 6a
+  // simply lack this field; a lazy backfill in the read-boundary normalizer mints
+  // one and persists it the first time such a record is read (write-through,
+  // fire-and-forget). Never renames, never removes, never requires a hard cutover.
+  // Used by the Phase 6 share-with-dependencies bundle to resolve embedded objects
+  // by content identity instead of the sender's local numeric id. Natural-key
+  // types (molecule: InChIKey, sequence: content fingerprint) do NOT carry this
+  // field and are excluded from source_uuid handling.
+  source_uuid?: string;
 }
 
 /**
@@ -635,6 +646,36 @@ export interface Task {
   // bootstrap bridge for a freshly-imported experiment before its Results
   // sidecar is written for the first time.
   results_collab_doc_id?: string;
+  // Check-ins revamp Phase 2 (checkins-phase2 bot, 2026-06-12). See
+  // docs/proposals/checkins-revamp.md "Phase 2 build spec". The back-link from
+  // a D4-synced task to the check-in action item that spawned it. Present ONLY
+  // on a task materialized by the action-item -> Task sync; absent on every
+  // normal task. ADDITIVE + back-compat: `normalizeTaskRecord` defaults a
+  // missing value to undefined gracefully (it is read-only metadata, never
+  // user-edited). Denylisted in canonicalize.ts so it never pollutes a VC
+  // delta, mirroring `revert_undo_window`.
+  // Check-ins Phase 3 (checkins-phase3 bot, 2026-06-12) extends the union with
+  // the `idp_action` kind, the back-link from a Task materialized by an IDP
+  // action-plan row (D4-style sync, but the trainee owns BOTH the IDP and the
+  // task, so no cross-user write). Same field name, so the `source` denylist in
+  // canonicalize.ts still covers it without change.
+  source?:
+    | {
+        kind: "checkin_action_item";
+        one_on_one_id: string;
+        action_item_id: string;
+      }
+    | {
+        kind: "idp_action";
+        idp_id: string;
+        row_id: string;
+      }
+    | null;
+  // Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): see
+  // Project.source_uuid for the full contract. Experiments and list tasks share
+  // this field via the Task interface. Minted at create time; lazy-backfilled on
+  // read; never removed or renamed. ADDITIVE + back-compat.
+  source_uuid?: string;
 }
 
 /**
@@ -972,6 +1013,10 @@ export interface Method {
   received_from?: string;             // sender canonical email, set only on imported methods
   received_from_fingerprint?: string; // sender key fingerprint
   received_at?: string;               // ISO 8601 timestamp of import
+  // Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): see
+  // Project.source_uuid for the full contract. Minted at create time; lazy-backfilled
+  // on read; never removed or renamed. ADDITIVE + back-compat.
+  source_uuid?: string;
 }
 
 export interface MethodCreate {
@@ -2866,6 +2911,10 @@ export interface Note {
   // field is the bootstrap bridge for newly-imported notes before the sidecar
   // is written for the first time.
   collab_doc_id?: string;
+  // Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): see
+  // Project.source_uuid for the full contract. Minted at create time; lazy-backfilled
+  // on read; never removed or renamed. ADDITIVE + back-compat.
+  source_uuid?: string;
 }
 
 export interface NoteCreate {
@@ -2985,6 +3034,12 @@ export interface WeeklyGoal {
   // (Replaces the retired notebook weekly-task path; weekly goals belong to
   // 1:1s now, not notebooks.)
   one_on_one_id?: string;
+  // Check-ins revamp Phase 2 (checkins-phase2 bot, 2026-06-12). See
+  // docs/proposals/checkins-revamp.md "Phase 2 build spec". Optional single
+  // assignee for a group goal board (a member username, or null/absent =
+  // shared / everyone). ADDITIVE + back-compat: absent on every pre-Phase-2
+  // goal; `normalizeWeeklyGoalRecord` defaults it to null on read.
+  assignee?: string | null;
 }
 
 export interface WeeklyGoalCreate {
@@ -3121,6 +3176,13 @@ export interface OneOnOne {
     every: "week" | "2weeks" | "month" | "none";
     weekday?: number;
   } | null;
+  /** Check-ins Phase 4 (committee support). The next scheduled meeting date
+   *  (YYYY-MM-DD), surfaced in the space header for a committee / annual-cadence
+   *  space with a "pre-circulate the progress report and Specific Aims"
+   *  reminder. ADDITIVE + back-compat: a record written before Phase 4 reads with
+   *  this absent, and `normalizeOneOnOne` defaults it to null on read so callers
+   *  never see `undefined`. */
+  next_meeting_date?: string | null;
   /** Username that created the record. Equals `members[0]` and `owner`. */
   created_by: string;
   /** ISO timestamp of creation. */
@@ -3154,6 +3216,296 @@ export interface OneOnOneActionItem {
   owner: string;
   /** Always `membersSharedWith([labHead, member])` — both at "edit". */
   shared_with: SharedUser[];
+  // Check-ins revamp Phase 2 (checkins-phase2 bot, 2026-06-12). See
+  // docs/proposals/checkins-revamp.md "Phase 2 build spec". All three are
+  // ADDITIVE + back-compat: a record written before Phase 2 reads with these
+  // absent, and `normalizeOneOnOneActionItem` (lib/one-on-one/normalize.ts)
+  // defaults each to null on read so callers never see `undefined`.
+  /** D3 single assignee — a member username, or null = shared / everyone. When
+   *  set together with `due_date`, the item materializes a real Task (D4). */
+  assignee?: string | null;
+  /** YYYY-MM-DD the item is due. Together with `assignee` it triggers the D4
+   *  Task sync. Null = no due date (in-space-only item). */
+  due_date?: string | null;
+  /** The numeric id of the Task this item spawned via D4, in the space owner's
+   *  task namespace. Null until synced; cleared when the item detaches (the
+   *  assignee or due_date is removed) or is deleted. */
+  synced_task_id?: number | null;
+}
+
+// ── Individual Development Plan (Check-ins Phase 3) ───────────────────────────
+//
+// checkins-phase3 bot, 2026-06-12. See docs/proposals/checkins-revamp.md "IDP
+// structure" and the approved mockup docs/mockups/2026-06-12-checkins-phase3-idp
+// .html. The IDP is the academic-layer centerpiece, a living document the
+// TRAINEE owns and the mentor reviews (a review, not co-ownership). It models
+// the five-section spine shared by AAAS myIDP and the UW-Madison Grad School IDP
+// (self-assess, explore, set goals, act, review-and-revisit-annually).
+//
+// HOME FOLDER + STORE: an IDP is owned by the trainee, so the record lives in
+// THEIR folder only (`owner === trainee`), keyed on a globally-unique
+// crypto.randomUUID at `users/<owner>/idps/<uuid>.json` via the thin string-
+// keyed per-user store in lib/idp/store.ts (a sibling of the one-on-one store).
+// The mentor discovers it via the sharing-respecting aggregation, then every
+// non-owner read passes through `normalizeIdpForViewer` (lib/idp/visibility.ts)
+// which blanks any section the trainee has not shared AND always strips the
+// private values reflection. This is the "trainee owns it, mentor reviews
+// shared sections, PI sees only a status line" model real IDPs use.
+
+/** A trainee's career stage. Drives the preset filter on the IDP form. */
+export type CareerStage = "undergrad" | "grad" | "postdoc" | "staff";
+
+/** A goal's horizon: short-term (6 months or less) vs long-term. */
+export type IdpGoalTerm = "short" | "long";
+
+/** An action-plan row's status. */
+export type IdpActionStatus = "not_started" | "in_progress" | "done";
+
+/** The four mentor-shareable IDP sections (the values reflection is never in
+ *  this set — it is always trainee-private and never shared). */
+export type IdpSectionKey =
+  | "self_assessment"
+  | "career_exploration"
+  | "goals"
+  | "action_plan";
+
+/** A single competency skill's dual rating. `self` is the trainee's
+ *  proficiency/confidence (1 to 5); `importance` is how much the skill matters
+ *  for the career they want (1 to 5). The gap between them is the goal signal.
+ *  Either is null until the trainee rates it. */
+export interface IdpSkillRating {
+  self: number | null;
+  importance: number | null;
+}
+
+/** A career or yearly goal. `term` splits short vs long; `priority` is the
+ *  optional UW high/low tag (null = untagged). */
+export interface IdpGoal {
+  id: string;
+  text: string;
+  term: IdpGoalTerm;
+  priority: "high" | "low" | null;
+}
+
+/** A row in the UW four-column SMART action plan. A row that has a
+ *  `target_date` can become a real Lists task (D4); `synced_task_id` is the
+ *  back-link to that task in the trainee's namespace (null until synced). */
+export interface IdpActionRow {
+  id: string;
+  objective: string;
+  approach: string;
+  /** YYYY-MM-DD, or null when the row is not yet dated. */
+  target_date: string | null;
+  /** The "done-when" outcome. */
+  outcome: string;
+  status: IdpActionStatus;
+  /** Set when the trainee adds this dated row to their tasks (D4). The task
+   *  lives in the TRAINEE's namespace (owner === trainee), so no cross-user
+   *  write. Null until synced; cleared on detach/delete. */
+  synced_task_id?: number | null;
+}
+
+/** The mentor's review of the IDP. A comment plus a sign-off date and an annual
+ *  revisit date. NOT co-ownership: the mentor comments and acknowledges, the
+ *  trainee edits the plan. */
+export interface IdpMentorReview {
+  comment: string;
+  /** The mentor username that signed off, or null if not yet reviewed. */
+  reviewed_by: string | null;
+  /** ISO timestamp of the sign-off, or null. */
+  reviewed_at: string | null;
+  /** YYYY-MM-DD, defaults to +1 year on create (annual cadence). */
+  revisit_date: string | null;
+}
+
+/**
+ * An Individual Development Plan. Trainee-owned, mentor-reviewed. Stored in the
+ * trainee's folder; `owner` drives the `canRead`/`canWrite` owner branch.
+ *
+ * DATA-SHAPE FLAGGED: this is a NEW on-disk entity (`users/<owner>/idps/`). All
+ * additions are new; no existing field or layout changes.
+ */
+export interface IDP {
+  /** Globally-unique id (crypto.randomUUID). */
+  id: string;
+  /** The trainee username. The record lives in THEIR folder; drives the
+   *  `canRead` owner branch. Equals the creator. */
+  owner: string;
+  career_stage: CareerStage;
+  /** Section 1. Skill ratings keyed by competency-skill id (see
+   *  lib/idp/competencies.ts), plus the free-text responsibilities box. */
+  self_assessment: {
+    ratings: Record<string, IdpSkillRating>;
+    responsibilities: string;
+  };
+  /** Section 2. Free-text aspirations + a target-path field (the matching
+   *  itself is done off-app at myIDP / ImaginePhD / ChemIDP). */
+  career_exploration: { aspirations: string; target_path: string };
+  /** Section 3. Short and long-term goals with optional priority. */
+  goals: IdpGoal[];
+  /** Section 4. The UW four-column SMART action plan rows. */
+  action_plan: IdpActionRow[];
+  /** Section 5. The mentor's review (comment + sign-off + revisit date). */
+  mentor_review: IdpMentorReview;
+  /** The optional, ALWAYS trainee-private values reflection. Never returned to
+   *  a non-owner reader (stripped to null in `normalizeIdpForViewer`). Null /
+   *  absent = the trainee has not opted in. */
+  values_reflection?: { note: string } | null;
+  /** Which of the four shareable sections the mentor may see. A section set to
+   *  false is blanked for any non-owner viewer. */
+  shared_sections: Record<IdpSectionKey, boolean>;
+  /** The mentor username this IDP is shared with for review, or null. */
+  mentor?: string | null;
+  /** `[{username: mentor, level: "view"}]` when any section is shared, else
+   *  `[]`. Drives `canRead` for the mentor's review surface. */
+  shared_with: SharedUser[];
+  created_at: string;
+  updated_at: string;
+  /** Username that last wrote the record (trainee on edit, mentor on sign-off). */
+  last_edited_by?: string;
+}
+
+// ── Mentoring compact + onboarding checklist (Check-ins Phase 3b) ──────────────
+//
+// checkins-phase3b bot, 2026-06-12. See docs/proposals/checkins-revamp.md
+// "Part 3, the academic layer" (the "Mentoring compact / expectations
+// agreement" and "New-member onboarding checklist" paragraphs) and the approved
+// mockup docs/mockups/2026-06-12-checkins-phase3-idp.html.
+//
+// Both records hang off a check-in space (`OneOnOne`). They live in the SPACE
+// OWNER's folder (`owner === space.owner`) and carry `shared_with =
+// membersSharedWith(members)` so every member reads AND writes them, exactly
+// like the space's weekly goals and action items. There is at most ONE compact
+// and ONE onboarding checklist per space (looked up by `space_id`).
+//
+// DATA-SHAPE FLAGGED: two NEW on-disk entities
+// (`users/<owner>/checkin_compacts/` and `users/<owner>/checkin_onboarding/`).
+// All additions are new; no existing field or layout changes.
+
+/** One row of the expectations compact. `label` is the topic (working hours,
+ *  authorship, communication, vacation), `value` is the agreed text (empty until
+ *  filled). */
+export interface CheckinCompactRow {
+  id: string;
+  label: string;
+  value: string;
+}
+
+/** A member's acknowledgement of the compact. Appended (idempotently) when they
+ *  click Acknowledge. */
+export interface CheckinCompactAck {
+  username: string;
+  /** ISO timestamp of the acknowledgement. */
+  at: string;
+}
+
+/**
+ * A one-time, structured expectations agreement for a check-in relationship.
+ * Both members edit the values and each acknowledges; "Acknowledged by both"
+ * shows once every member has. Either member may revisit (edit) it later.
+ */
+export interface CheckinCompact {
+  /** Globally-unique id (crypto.randomUUID). */
+  id: string;
+  /** The owning check-in space's id (`OneOnOne.id`). */
+  space_id: string;
+  /** Sharing owner — the space owner's folder the record lives in. Equals
+   *  `OneOnOne.owner`. Drives the per-user routing + `canRead`/`canWrite` owner
+   *  branch. */
+  owner: string;
+  /** The expectations rows (topic + agreed text). */
+  rows: CheckinCompactRow[];
+  /** One entry per member who has acknowledged the current agreement. */
+  acknowledged: CheckinCompactAck[];
+  /** Always `membersSharedWith(members)` — every member at "edit", so each can
+   *  edit the values and acknowledge. */
+  shared_with: SharedUser[];
+  created_at: string;
+  updated_at: string;
+}
+
+/** One item of the onboarding checklist. */
+export interface CheckinOnboardingItem {
+  id: string;
+  label: string;
+  done: boolean;
+  /** Username that checked it off, or null. */
+  done_by?: string | null;
+  /** ISO timestamp it was checked off, or null. */
+  done_at?: string | null;
+}
+
+/**
+ * A first-check-in onboarding checklist for a check-in space (access and keys,
+ * safety training, data-management practices, the lab norms doc, set the
+ * cadence). Any member may check items off (the permissive D2 model). Most
+ * relevant to a new-member space but exposed on every space.
+ */
+export interface CheckinOnboarding {
+  /** Globally-unique id (crypto.randomUUID). */
+  id: string;
+  /** The owning check-in space's id (`OneOnOne.id`). */
+  space_id: string;
+  /** Sharing owner — the space owner's folder the record lives in. Equals
+   *  `OneOnOne.owner`. */
+  owner: string;
+  /** The checklist items. */
+  items: CheckinOnboardingItem[];
+  /** Always `membersSharedWith(members)` — every member at "edit", so any member
+   *  may check an item off. */
+  shared_with: SharedUser[];
+  created_at: string;
+  updated_at: string;
+}
+
+// ── Check-ins Phase 4: presenter / journal-club rotation ─────────────────────
+//
+// checkins-phase4 bot, 2026-06-12. See docs/proposals/checkins-revamp.md
+// "Part 3, the academic layer" (the "Rotating presenter / journal-club
+// schedule" paragraph). A GROUP space can carry an auto-rotating schedule of
+// who presents data and who leads journal club, visible to all members, with
+// the upcoming presenter prompted to prep. Labs track this on a whiteboard or
+// in a spreadsheet today.
+//
+// Stored as its own per-user sidecar in the SPACE OWNER's folder
+// (`users/<owner>/checkin_rotations/<uuid>.json`), mirroring the compact /
+// onboarding stores. At most one rotation per space (looked up by `space_id`).
+
+/** One rotating track inside a space's rotation (e.g. "Data presentation" or
+ *  "Journal club"). `order` is the member usernames in rotation order;
+ *  `current_index` is whose turn it is now. */
+export interface CheckinRotationTrack {
+  /** Stable id (crypto.randomUUID) so a track survives reorder + rename. */
+  id: string;
+  /** Display name, e.g. "Data presentation" / "Journal club". */
+  name: string;
+  /** The member usernames in rotation order. */
+  order: string[];
+  /** Index into `order` of whose turn it is now. Advancing wraps modulo
+   *  `order.length`. Clamped to a valid index on read of a degenerate record. */
+  current_index: number;
+}
+
+/**
+ * A group space's presenter / journal-club rotation. One per space, seeded with
+ * two tracks ("Data presentation" and "Journal club"). Every member is in
+ * `shared_with` at "edit" so any member can advance or reorder a track.
+ */
+export interface CheckinRotation {
+  /** Globally-unique id (crypto.randomUUID). */
+  id: string;
+  /** The owning check-in space's id (`OneOnOne.id`), always a GROUP space. */
+  space_id: string;
+  /** Sharing owner — the space owner's folder the record lives in. Equals
+   *  `OneOnOne.owner`. Drives the per-user routing + `canRead`/`canWrite` owner
+   *  branch. */
+  owner: string;
+  /** The rotation tracks. */
+  tracks: CheckinRotationTrack[];
+  /** Always `membersSharedWith(members)` — every member at "edit". */
+  shared_with: SharedUser[];
+  created_at: string;
+  updated_at: string;
 }
 
 // ── Lab Mode Notes ─────────────────────────────────────────────────────────────

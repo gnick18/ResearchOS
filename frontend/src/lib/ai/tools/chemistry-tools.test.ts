@@ -53,6 +53,10 @@ function makePubChemCompound(overrides: Partial<PubChemCompound> = {}): PubChemC
     mol_weight: 194.19,
     inchikey: "RYYVLZVUVIJVGH-UHFFFAOYSA-N",
     pngUrl: "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/2519/PNG",
+    xlogp: -0.1,
+    h_bond_donor_count: 0,
+    h_bond_acceptor_count: 6,
+    tpsa: 58.4,
     ...overrides,
   };
 }
@@ -118,6 +122,28 @@ describe("mapToMatch", () => {
     expect(match.formula).toBe("C8H10N4O2");
     expect(match.mol_weight).toBe(194.19);
     expect(match.canonical_smiles).toBe("");
+  });
+
+  it("surfaces the physicochemical descriptors (XLogP, HBD, HBA, TPSA)", () => {
+    const compound = makePubChemCompound({
+      xlogp: -0.1,
+      h_bond_donor_count: 0,
+      h_bond_acceptor_count: 6,
+      tpsa: 58.4,
+    });
+    const match = mapToMatch(compound);
+    expect(match.xlogp).toBe(-0.1);
+    expect(match.h_bond_donor_count).toBe(0);
+    expect(match.h_bond_acceptor_count).toBe(6);
+    expect(match.tpsa).toBe(58.4);
+  });
+
+  it("passes a missing descriptor through as null, never a throw", () => {
+    const compound = makePubChemCompound({ tpsa: null });
+    const match = mapToMatch(compound);
+    expect(match.tpsa).toBeNull();
+    // The others still surface.
+    expect(match.xlogp).toBe(-0.1);
   });
 
   it("handles a compound with null mol_weight", () => {
@@ -442,6 +468,51 @@ describe("import_molecule tool", () => {
       expect.any(String),
       expect.objectContaining({ source: "pubchem", pubchem_cid: 2519 }),
     );
+  });
+
+  it("threads the four PubChem descriptors through to moleculesApi.create", async () => {
+    vi.spyOn(chemToolsDeps, "fetchCompoundByCid").mockResolvedValueOnce(
+      makePubChemCompound({
+        xlogp: -0.1,
+        h_bond_donor_count: 0,
+        h_bond_acceptor_count: 6,
+        tpsa: 58.4,
+      }),
+    );
+    vi.spyOn(chemToolsDeps, "fetchSdf").mockResolvedValueOnce(SAMPLE_SDF);
+    const createSpy = vi
+      .spyOn(chemToolsDeps, "createMolecule")
+      .mockResolvedValueOnce(
+        makeMoleculeDetail({ meta: makeMoleculeMeta({ source: "pubchem", pubchem_cid: 2519 }) }),
+      );
+
+    await importMoleculeTool.execute({ cid: 2519 });
+
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        source: "pubchem",
+        xlogp: -0.1,
+        h_bond_donor_count: 0,
+        h_bond_acceptor_count: 6,
+        tpsa: 58.4,
+      }),
+    );
+  });
+
+  it("passes a descriptor PubChem reported as null through unchanged", async () => {
+    vi.spyOn(chemToolsDeps, "fetchCompoundByCid").mockResolvedValueOnce(
+      makePubChemCompound({ tpsa: null }),
+    );
+    vi.spyOn(chemToolsDeps, "fetchSdf").mockResolvedValueOnce(SAMPLE_SDF);
+    const createSpy = vi
+      .spyOn(chemToolsDeps, "createMolecule")
+      .mockResolvedValueOnce(makeMoleculeDetail());
+
+    await importMoleculeTool.execute({ cid: 2519 });
+
+    const inputArg = createSpy.mock.calls[0][1] as { tpsa?: number | null };
+    expect(inputArg.tpsa).toBeNull();
   });
 
   it("trims the SDF to a Molfile before saving", async () => {

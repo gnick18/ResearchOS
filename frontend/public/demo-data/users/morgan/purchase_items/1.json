@@ -1,7 +1,7 @@
 {
   "id": 1,
   "task_id": 1,
-  "item_name": "96-well black-walled plates (demo)",
+  "item_name": "96-well black-walled plates",
   "quantity": 2,
   "link": "https://example.org/demo-platesupply",
   "cas": null,
@@ -9,7 +9,7 @@
   "shipping_fees": 8,
   "total_price": 104,
   "notes": null,
-  "funding_string": "DEMO-Internal-Bridge",
+  "funding_string": "Internal Bridge Fund",
   "vendor": "Thermo",
   "category": "Plasticware"
 }

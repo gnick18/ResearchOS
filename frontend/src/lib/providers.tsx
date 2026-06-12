@@ -14,7 +14,6 @@ import { usePathname } from "next/navigation";
 import { FileSystemProvider, useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/file-system-context";
 import {
   isDemoOrWikiCapture,
-  isV4PreviewMode,
 } from "@/lib/file-system/wiki-capture-mock";
 import FolderConnectGate from "@/components/onboarding/FolderConnectGate";
 import BrowserNotSupported from "@/components/BrowserNotSupported";
@@ -26,12 +25,11 @@ import StagedLoadingScreen from "@/components/StagedLoadingScreen";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import GlobalDropGuard from "@/components/GlobalDropGuard";
 import FloatingLeaveDemoButton from "@/components/FloatingLeaveDemoButton";
+import DemoEntryCue from "@/components/DemoEntryCue";
 import DemoViewAsButton from "@/components/DemoViewAsButton";
 import WikiCaptureRefusedBanner from "@/components/WikiCaptureRefusedBanner";
-import OpenDocsButton from "@/components/OpenDocsButton";
 import SceneTriggerHost from "@/components/SceneTriggerHost";
 import AutoErrorConfirmHost from "@/components/AutoErrorConfirmHost";
-import V4MountForUser from "@/components/onboarding/v4/V4MountForUser";
 import { Splash } from "@/components/onboarding/Splash";
 import { EntrySnapSurface } from "@/components/onboarding/EntrySnapSurface";
 import { OAuthFirstLanding } from "@/components/onboarding/oauth-first/OAuthFirstLanding";
@@ -48,6 +46,8 @@ import MilestoneTwirlMount from "@/components/onboarding/MilestoneTwirlMount";
 import IdleAnimationManager from "@/components/onboarding/IdleAnimationManager";
 import WhatsNewManager from "@/components/WhatsNewManager";
 import WikiCaptureBodyClass from "@/components/WikiCaptureBodyClass";
+import RecordingModeBodyClass from "@/components/RecordingModeBodyClass";
+import DemoVideoAutoplay from "@/components/DemoVideoAutoplay";
 import SharedFolderAutoRefresh from "@/components/SharedFolderAutoRefresh";
 import SpellcheckAutoSeed from "@/components/SpellcheckAutoSeed";
 import CaptureInboxPoller from "@/components/CaptureInboxPoller";
@@ -343,12 +343,14 @@ function AppContent({ children }: { children: ReactNode }) {
   // priced" link from the landing just bounced back to the top of the landing.
   const isPublicMarketingRoute =
     pathname === "/pricing" ||
+    pathname === "/ai" ||
     pathname === "/about" ||
     pathname === "/transparency" ||
     pathname === "/open-source" ||
     pathname === "/thanks" ||
     pathname === "/sponsors" ||
-    pathname === "/privacy";
+    pathname === "/privacy" ||
+    pathname === "/terms";
 
   // QueryClient is a module-level singleton (see `appQueryClient` below)
   // so non-React-tree consumers (e.g. the onboarding-v4 cursor scripts
@@ -509,27 +511,11 @@ function AppContent({ children }: { children: ReactNode }) {
   }
 
   if (isWikiRoute) {
-    // Wiki-pointer multi-beat redesign 2026-05-22 (Wiki pointer manager).
-    // When a signed-in real user is mid-tour and the §6.12 wiki-pointer
-    // cluster navigates them to a /wiki/* page, the wiki layout's
-    // dedicated provider tree would normally drop V4MountForUser and
-    // kill the tour mid-walk (see WikiPointerStep R4 2026-05-22 for the
-    // bug we hit before the cluster redesign). Re-mounting V4MountForUser
-    // inside the wiki early-return keeps the tour controller alive
-    // across the wiki visit. Gating on `isConnected && currentUser`
-    // means brand-new visitors (the wiki's original target audience)
-    // still get the slim wiki-only tree.
-    //
-    // Lab Mode retirement R5 (2026-05-23): the legacy `lab` pseudo-user
-    // guard that mirrored AppContent's signed-in branch is gone. After
-    // R5 nobody can sign in as the lab sentinel, so every signed-in
-    // user pulls in V4 here too.
-    const wikiUserHasTour = isConnected && !!currentUser;
-    if (wikiUserHasTour) {
+    // Wiki route for a signed-in real user: render children inside the
+    // query client. The v4 tour wrapper is gone; no tour to keep alive here.
+    if (isConnected && currentUser) {
       return (
-        <QueryClientProvider client={queryClient}>
-          <V4MountForUser username={currentUser}>{children}</V4MountForUser>
-        </QueryClientProvider>
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
       );
     }
     return (
@@ -566,29 +552,12 @@ function AppContent({ children }: { children: ReactNode }) {
   // screenshots that captured the picker UI in this mode may need
   // recapturing — flagged in §8 for the wiki manager.
   if (isDemoOrWikiCapture() && currentUser) {
-    // Demo + wiki-capture: render children only. V4MountForUser only
-    // mounts when the URL explicitly opts in via `?wizard-preview=1`
-    // or `?wizardSeedStep=…` (the v4 preview / screenshot pipeline).
-    // The V3 sequencer carve-out is gone (V3 rip Phase B 2026-05-22).
-    //
-    // Plain `/demo` and bare `?wikiCapture=1` skip the orchestrator
-    // entirely: fixture data, demo banner, floating Leave Demo button
-    // (mounted at the `<Providers>` level), no tour overlay.
-    //
-    // Sticky check (live-test R3 cascade fix 2026-05-21): isV4PreviewMode
-    // reads URL params AND sessionStorage so in-tab navigations whose
-    // hrefs strip the query string don't drop V4MountForUser. Without
-    // this, every cursor-driven router.push from a step body (project
-    // card click, wiki nav, methods nav, etc.) unmounted the v4 tour
-    // and re-summoned the V4ResumePrompt mid-walkthrough.
-    const wantsV4Mount = isV4PreviewMode();
+    // Demo + wiki-capture: render children directly. The v4 tour preview
+    // pipeline (wizard-preview / wizardSeedStep) no longer needs a special
+    // mount now that the tour engine is gone.
     return (
       <QueryClientProvider client={queryClient}>
-        {wantsV4Mount ? (
-          <V4MountForUser username={currentUser}>{children}</V4MountForUser>
-        ) : (
-          <>{children}</>
-        )}
+        <>{children}</>
       </QueryClientProvider>
     );
   }
@@ -940,38 +909,25 @@ function AppContent({ children }: { children: ReactNode }) {
           on the first paint of the signed-in surface. Single-shot,
           clears its own sessionStorage flag on read. */}
       <PendingELNImportMount />
-      <V4MountForUser username={currentUser}>
+      <>
         {children}
-        {/* CelebrationManager is a peer of TourBootstrap inside
-            the TourControllerProvider tree. Inside the provider so
-            useOptionalTourController() returns the live controller
-            value (the manager defers firing while a tour is
-            active, per proposal §6.7 "don't overlap with the
-            bottom-right tour BeakerBot"). */}
+        {/* CelebrationManager: fires milestone BeakerBot celebrations (streak
+            badges etc.) based on the streak sidecar. useOptionalTourController
+            returns null when no provider is in the tree, so the manager
+            runs normally now that the tour engine is gone. */}
         <CelebrationManager username={currentUser} />
-        {/* MilestoneTwirlMount (twirl-milestones bot): peer of
-            CelebrationManager. Fires the celebratory BeakerBot twirl once
-            on the first occurrence of three rare checkpoint moments (tour
-            complete, first experiment complete, first project fully
-            done), deduped per-user in localStorage and gated by the same
-            BeakerBot-animations opt-out. The 7-day-streak twirl is owned
-            by CelebrationManager so it never double-celebrates. */}
+        {/* MilestoneTwirlMount: fires the BeakerBot twirl on rare checkpoint
+            moments (first experiment complete, first project done), deduped
+            per-user in localStorage. */}
         <MilestoneTwirlMount username={currentUser} />
-        {/* IdleAnimationManager: peer of CelebrationManager. Fires a
-            random BeakerBot scene from IDLE_POOL after the user has
-            been idle for IDLE_THRESHOLD_MS. One per session, gated by
-            sessionStorage. Independent of the streak/milestone path
-            CelebrationManager owns. */}
+        {/* IdleAnimationManager: fires a random BeakerBot scene after the user
+            has been idle for IDLE_THRESHOLD_MS. One per session. */}
         <IdleAnimationManager />
-        {/* WhatsNewManager: developer-announcement / "What's New" popup
-            (whats-new bot). Peer of CelebrationManager so it lives inside
-            the TourControllerProvider tree and defers while a tour is
-            active. Fires only on a genuine APP_VERSION upgrade; a
-            brand-new account silently records the version and stays
-            quiet. Gated to the logged-in/connected surface by virtue of
-            mounting under V4MountForUser. */}
+        {/* WhatsNewManager: developer-announcement popup. Fires only on a
+            genuine APP_VERSION upgrade; new accounts silently record the
+            version. */}
         <WhatsNewManager username={currentUser} />
-      </V4MountForUser>
+      </>
     </QueryClientProvider>
   );
 }
@@ -994,22 +950,39 @@ export function Providers({ children }: { children: ReactNode }) {
             `captureRefused` flag off FileSystemProvider, so it must sit
             inside it. No-op in normal use / true fixtures / demo. */}
         <WikiCaptureRefusedBanner />
-        <FloatingLeaveDemoButton />
-        {/* Demo-only: flip the fixture identity between Alex (member) and
-            Mira (lab head) so the PI-dashboard welcome clip can be recorded.
-            Renders only inside /demo, never in real use or wiki capture. */}
-        <DemoViewAsButton />
-        {/* Dev-only one-click clean-slate session. Mounted here (Providers
-            level, above AppContent) like FloatingLeaveDemoButton so it shows on
-            the pre-login connect / picker / login surfaces, not just the
-            signed-in app. Spins up a throwaway in-browser (OPFS) folder, mints
-            an identity, and signs in with no folder picker. Renders nothing in
-            production or once a user is signed in. (mobile manager) */}
-        <DevEphemeralSessionButton />
-        {/* Dev-only: rerun ./start.sh to restart the dev server without the
-            terminal. Mounted here so it floats on every surface in dev. */}
-        <DevRestartServerButton />
-        <OpenDocsButton />
+        {/* Soft one-line demo cue at the top of /demo (dismissible, once per
+            tab). Replaces the old loud always-on banner so the demo reads
+            like a real lab; suppressed in wiki-capture and recording modes. */}
+        <DemoEntryCue />
+        {/* Demo-mode floating affordances, grouped as ONE right-aligned column
+            anchored ABOVE the bottom-right FAB dock (AppShell mounts the
+            calculator / feedback circles at `bottom-6 right-6`) so the pills
+            never overlap those buttons. Each pill is position-agnostic now;
+            this wrapper owns the placement. `pb-14` lifts the column clear of
+            the 48px-tall dock, and the pointer-events pair keeps the empty
+            wrapper from eating clicks when no pill is shown. DemoViewAsButton
+            renders only inside /demo; Leave also shows pre-login, where there
+            is no dock and the column simply floats a touch higher. */}
+        <div className="fixed bottom-6 right-6 z-[60] flex flex-col items-end gap-2 pb-14 pointer-events-none [&>*]:pointer-events-auto">
+          {/* Demo-only: flip the fixture identity between Alex (member) and
+              Mira (lab head) so the PI-dashboard welcome clip can be recorded.
+              Renders only inside /demo, never in real use or wiki capture. */}
+          <DemoViewAsButton />
+          <FloatingLeaveDemoButton />
+        </div>
+        {/* Dev-only floating tools, grouped as ONE bottom-LEFT column so they
+            never overlap each other or the right-side demo cluster. These are
+            gated on NODE_ENV === "development", so they never reach the deployed
+            /demo, which is why they keep their own dev-signal colors (sky /
+            purple) instead of the production pill aesthetic. Each tool is
+            position-agnostic now; this wrapper owns the placement.
+            DevEphemeralSessionButton, a one-click clean-slate OPFS session that
+            shows on the pre-login surfaces too; DevRestartServerButton, reruns
+            ./start.sh. The pointer-events pair keeps the empty wrapper inert. */}
+        <div className="fixed bottom-6 left-6 z-[500] flex flex-col-reverse items-start gap-3 pointer-events-none [&>*]:pointer-events-auto">
+          <DevEphemeralSessionButton />
+          <DevRestartServerButton />
+        </div>
         {/* Global host for fire-and-forget easter-egg scenes (BugStomp,
             etc.). Mounted at this level — above AppContent — so the
             scene can fire from pre-login surfaces (UserLoginScreen has
@@ -1028,6 +1001,14 @@ export function Providers({ children }: { children: ReactNode }) {
             FileSystemProvider so it can read `currentUser` for the
             unlockSession path. */}
         <WikiCaptureBodyClass />
+        {/* Recording-mode (`?record=1`) body class. Hides non-product floating
+            chrome (Next dev indicator, floating dock, BeakerBot flask) so a
+            marketing-video capture surface is pristine. No-op outside record
+            mode. */}
+        <RecordingModeBodyClass />
+        {/* Auto-plays a welcome-video clip (`?demo=<clipId>`) with the demo
+            engine's animated cursor. Demo/wiki-capture-gated; no-op otherwise. */}
+        <DemoVideoAutoplay />
         {/* Website-wide smart right-click framework (sequence editor master).
             Mounted here, above AppContent, so the single shared menu + the
             no-menu glyph + the one document-level contextmenu listener cover

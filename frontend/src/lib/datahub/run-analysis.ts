@@ -39,6 +39,9 @@ import {
   linearRegression,
   kaplanMeier,
   logRank,
+  shapiroWilk,
+  bootstrapDiffCI,
+  meanDifference,
   type KaplanMeierStep,
 } from "@/lib/datahub/engine";
 import type {
@@ -159,7 +162,26 @@ export interface NormalizedTTest {
   pValue: number;
   effectSize: number;
   effectSizeLabel: string;
+  /** Hedges' g (bias-corrected d), or null for the rank tests. */
+  hedgesG: number | null;
+  /** 95% CI of the standardized effect (d/dz) via noncentral t, or null. */
+  effectSizeCI95: [number, number] | null;
   ci95: [number, number] | null;
+  /**
+   * Distribution-free bootstrap 95% CI of the mean difference (BCa, fixed seed),
+   * an additive robust companion to the parametric ci95 above. Computed only on
+   * the raw-data parametric t-tests (unpaired / paired), since the rank tests are
+   * already the nonparametric path and the from-stats path has no replicates to
+   * resample. Null when not computed. This does NOT redefine ci95 (the parametric
+   * mean-difference CI) and is not stored anywhere; it is a render-time readout.
+   */
+  bootstrapCI95: [number, number] | null;
+  /**
+   * True when a Shapiro-Wilk check on the group(s) flags a departure from
+   * normality, so the sheet can foreground the bootstrap CI as the more honest
+   * interval. Advisory only; the test still runs as chosen.
+   */
+  normalityShaky: boolean;
   meanA: number;
   meanB: number;
   meanDiff: number;
@@ -191,6 +213,12 @@ export interface NormalizedAnova {
   dfWithin: number;
   table: AnovaResult["table"];
   comparisons: AnovaResult["comparisons"];
+  /**
+   * Omnibus effect size (eta-squared + omega-squared + CI for ANOVA,
+   * epsilon-squared for Kruskal-Wallis), straight from the engine. Null when the
+   * design defines none.
+   */
+  effectSize: AnovaResult["effectSize"];
 }
 
 /**
@@ -217,6 +245,10 @@ export interface NormalizedCorrelation {
   df: number;
   pValue: number;
   ci95: [number, number];
+  /** Coefficient of determination r^2, the share of variance explained. */
+  rSquared: number;
+  /** 95% CI of r^2, from squaring the sorted coefficient CI bounds. */
+  rSquaredCI95: [number, number];
 }
 
 /**
@@ -470,6 +502,8 @@ function runXYAnalysis(
     df: res.df,
     pValue: res.pValue,
     ci95: res.ci95,
+    rSquared: res.rSquared,
+    rSquaredCI95: res.rSquaredCI95,
   };
 }
 
@@ -655,6 +689,7 @@ function runSummaryAnalysis(
       dfWithin: within?.df ?? NaN,
       table: r.table,
       comparisons: r.comparisons,
+      effectSize: r.effectSize,
     };
   }
 
@@ -708,11 +743,43 @@ function runSummaryAnalysis(
     pValue: r.pValue,
     effectSize: r.effectSize,
     effectSizeLabel: r.effectSizeLabel,
+    hedgesG: r.hedgesG,
+    effectSizeCI95: r.effectSizeCI95,
     ci95: r.ci95,
+    // No raw replicates in the from-stats path, so there is nothing to resample;
+    // the bootstrap CI is honestly null and the normality flag is left false.
+    bootstrapCI95: null,
+    normalityShaky: false,
     meanA: a.mean,
     meanB: b.mean,
     meanDiff: a.mean - b.mean,
   };
+}
+
+/**
+ * Advisory normality check for the parametric t-tests, reusing the engine's
+ * Shapiro-Wilk. WHY this shape: for the UNPAIRED test the t assumption is on each
+ * group, so we flag when EITHER group departs from normal; for the PAIRED test
+ * the assumption is on the within-pair differences, so we test those. A
+ * conservative alpha of 0.05 matches the Report Card convention. Any group too
+ * small for Shapiro-Wilk (n < 3) or a degenerate fit returns "not shaky", since
+ * we will not cry wolf on a sample we cannot judge.
+ */
+function isNormalityShaky(
+  a: number[],
+  b: number[],
+  type: "unpairedTTest" | "pairedTTest",
+): boolean {
+  const failsNormality = (values: number[]): boolean => {
+    const sw = shapiroWilk(values, 0.05);
+    return sw.ok ? !sw.pass : false;
+  };
+  if (type === "pairedTTest") {
+    if (a.length !== b.length) return false;
+    const diffs = a.map((v, i) => v - b[i]);
+    return failsNormality(diffs);
+  }
+  return failsNormality(a) || failsNormality(b);
 }
 
 /**
@@ -791,6 +858,7 @@ export function runAnalysis(
       dfWithin: within?.df ?? NaN,
       table: r.table,
       comparisons: r.comparisons,
+      effectSize: r.effectSize,
     };
   }
 
@@ -834,13 +902,32 @@ export function runAnalysis(
     const res = r as TTestResult & { ok: true };
     const meanA = res.groupA?.mean ?? NaN;
     const meanB = res.groupB?.mean ?? NaN;
+    const nonparametric =
+      type === "mannWhitneyU" || type === "wilcoxonSignedRank";
+    // Additive bootstrap CI of the mean difference for the PARAMETRIC raw-data t
+    // tests only. WHY only those: the rank tests already ARE the nonparametric
+    // path, so a bootstrap there would be redundant, and the bootstrap needs raw
+    // replicates which only this path has. A FIXED seed keeps a given table's CI
+    // stable across re-runs. The normality flag below tells the sheet when to
+    // foreground it, but it is reported either way as a robust companion CI.
+    const parametric = type === "unpairedTTest" || type === "pairedTTest";
+    const bootstrapCI95 = parametric
+      ? bootstrapDiffCI(a.values, b.values, meanDifference, {
+          B: 2000,
+          alpha: 0.05,
+          method: "bca",
+          seed: 0x5eed,
+        })?.ci ?? null
+      : null;
+    const normalityShaky = parametric
+      ? isNormalityShaky(a.values, b.values, type)
+      : false;
     return {
       ok: true,
       kind: "ttest",
       type,
       test: res.test,
-      nonparametric:
-        type === "mannWhitneyU" || type === "wilcoxonSignedRank",
+      nonparametric,
       tail,
       variance,
       groups: [a, b],
@@ -849,7 +936,11 @@ export function runAnalysis(
       pValue: res.pValue,
       effectSize: res.effectSize,
       effectSizeLabel: res.effectSizeLabel,
+      hedgesG: res.hedgesG,
+      effectSizeCI95: res.effectSizeCI95,
       ci95: res.ci95,
+      bootstrapCI95,
+      normalityShaky,
       meanA,
       meanB,
       meanDiff: meanA - meanB,

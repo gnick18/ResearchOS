@@ -8,11 +8,13 @@ import { readUserSettings, type AccountType } from "@/lib/settings/user-settings
 import { readOnboarding } from "@/lib/onboarding/sidecar";
 import { archiveUser, restoreUser } from "@/lib/lab/user-archive";
 import { readSharingIdentity } from "@/lib/sharing/identity/sidecar";
+import { idpsApi } from "@/lib/local-api";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useIsLabHead } from "@/hooks/useIsLabHead";
 import UserAvatar from "@/components/UserAvatar";
 import Tooltip from "@/components/Tooltip";
+import { Icon } from "@/components/icons";
 import { ARCHIVED_USERS_QUERY_KEY } from "@/hooks/useArchivedUsers";
 import { LAB_USER_PROFILES_QUERY_KEY } from "@/hooks/useLabUserProfiles";
 import { useContextMenu } from "@/components/context-menu/ContextMenuProvider";
@@ -53,6 +55,12 @@ interface RosterRow {
   // power over it. The sidecar survives archiving, so this can be true for
   // archived members too.
   hasSharingIdentity: boolean;
+  // Check-ins Phase 4 (NSF compliance surface): whether the member has an IDP
+  // on file, and when it was last updated. CONTENTS-FREE. The PI sees only that
+  // a plan exists (the NIH/NSF expectation), never the plan itself. Sourced from
+  // `idpsApi.getStatusForMember`, which returns only {exists, updated_at}.
+  idpExists: boolean;
+  idpUpdatedAt: string | null;
 }
 
 // D5/D6 read-only badge icon. A small "person plus link" mark for the
@@ -190,6 +198,18 @@ export default function LabRoster() {
           } catch {
             // Stay on "no identity" default.
           }
+          // Check-ins Phase 4: contents-free IDP status. Best-effort like the
+          // reads above; a failure simply yields "no IDP on file". This NEVER
+          // reads the plan contents, only whether one exists and its timestamp.
+          let idpExists = false;
+          let idpUpdatedAt: string | null = null;
+          try {
+            const status = await idpsApi.getStatusForMember(username);
+            idpExists = status.exists;
+            idpUpdatedAt = status.updated_at;
+          } catch {
+            // Stay on "no IDP" default.
+          }
           return {
             username,
             displayName,
@@ -198,6 +218,8 @@ export default function LabRoster() {
             archived_at,
             archived_by,
             hasSharingIdentity,
+            idpExists,
+            idpUpdatedAt,
           };
         }),
       );
@@ -382,6 +404,33 @@ export default function LabRoster() {
                         (archived{" "}
                         {new Date(row.archived_at).toLocaleDateString()})
                       </>
+                    )}
+                  </div>
+                  {/* Check-ins Phase 4: contents-free IDP compliance status.
+                      The PI sees only that a plan exists and when it was last
+                      updated, never the plan itself (NSF expects an IDP to
+                      exist). Do NOT grow this into a "view IDP" affordance, the
+                      contents belong to the trainee. */}
+                  <div
+                    className="text-meta text-foreground-muted truncate"
+                    data-testid={`lab-roster-idp-${row.username}`}
+                  >
+                    {row.idpExists ? (
+                      <span className="inline-flex items-center gap-1">
+                        <Icon
+                          name="check"
+                          className="h-3 w-3 text-emerald-600 dark:text-emerald-400"
+                        />
+                        IDP on file
+                        {row.idpUpdatedAt && (
+                          <>
+                            , updated{" "}
+                            {new Date(row.idpUpdatedAt).toLocaleDateString()}
+                          </>
+                        )}
+                      </span>
+                    ) : (
+                      <span>No IDP on file</span>
                     )}
                   </div>
                 </div>

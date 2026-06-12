@@ -60,6 +60,32 @@ function groupVars(groups: RunGroup[]): { group: RunGroup; var: string }[] {
   return out.map((o) => ({ ...o, var: o.var.padEnd(width) }));
 }
 
+/**
+ * Omnibus effect-size block (E1) for a parametric one-way ANOVA. eta-squared is
+ * SS_between / SS_total and omega-squared is the less biased
+ * (SS_between - df_between * MS_within) / (SS_total + MS_within), both read off the
+ * one-way ANOVA table statsmodels already fits. Emitted only for the parametric
+ * ANOVA (Kruskal-Wallis is a rank test with no sums of squares). `argList` is the
+ * comma-joined group variable names so the snippet reuses the same arrays.
+ */
+function anovaEffectSizeBlock(argList: string): string {
+  return `# Effect size: eta-squared (share of variance explained) and the less
+# biased omega-squared, from the one-way ANOVA sums of squares.
+import numpy as np
+es_groups = [${argList}]
+es_all = np.concatenate([np.asarray(g, float) for g in es_groups])
+grand = np.mean(es_all)
+ss_between = sum(len(g) * (np.mean(g) - grand) ** 2 for g in es_groups)
+ss_within = sum(((np.asarray(g, float) - np.mean(g)) ** 2).sum() for g in es_groups)
+ss_total = ss_between + ss_within
+df_between = len(es_groups) - 1
+df_within = len(es_all) - len(es_groups)
+ms_within = ss_within / df_within
+eta2 = ss_between / ss_total
+omega2 = (ss_between - df_between * ms_within) / (ss_total + ms_within)
+print(f"eta-squared = {eta2:.4g}, omega-squared = {omega2:.4g}")`;
+}
+
 function anovaCode(r: NormalizedAnova): string {
   const gv = groupVars(r.groups);
   const assigns = gv
@@ -97,9 +123,12 @@ ${assigns}
 F, p = stats.f_oneway(${argList})
 print(f"F = {F:.4g}, p = {p:.4g}")`;
 
+  const esBlock = anovaEffectSizeBlock(argList);
+
   if (r.postHoc === "none") {
-    // No post-hoc family selected, so the snippet stops at the omnibus test.
-    return omnibus;
+    // No post-hoc family selected, so the snippet stops at the omnibus test plus
+    // its effect size.
+    return `${omnibus}\n\n${esBlock}`;
   }
 
   if (r.postHoc === "tukey") {
@@ -117,7 +146,9 @@ tukey = mc.pairwise_tukeyhsd(
     endog=${endog},
     groups=${groupsExpr},
 )
-print(tukey)`;
+print(tukey)
+
+${esBlock}`;
   }
 
   // Sidak / Bonferroni / Holm-Sidak adjust the per-pair t-test p-values.
@@ -141,7 +172,59 @@ raw = [stats.ttest_ind(groups[a], groups[b]).pvalue
        for a, b in combinations(names, 2)]
 reject, adj, *_ = multipletests(raw, alpha=0.05, method=${pyStr(methodArg)})
 for (a, b), pa in zip(combinations(names, 2), adj):
-    print(f"{a} vs {b}: adj p = {pa:.4g}")`;
+    print(f"{a} vs {b}: adj p = {pa:.4g}")
+
+${esBlock}`;
+}
+
+/**
+ * Effect-size block (E1) for a parametric two-group t-test. pingouin's
+ * compute_effsize gives Cohen's d (unpaired) / dz (paired) and Hedges' g with the
+ * same pooled-SD convention the engine uses, so the printed d / g reproduce the
+ * on-screen effect size. The rank tests have no parametric standardized d, so this
+ * is only emitted for the unpaired / paired t-tests. `paired=True` selects the
+ * within-pair (dz) form for the paired test.
+ */
+function effectSizeBlock(
+  aVar: string,
+  bVar: string,
+  paired: boolean,
+): string {
+  const eftype = "cohen";
+  const pairedArg = paired ? ", paired=True" : "";
+  const label = paired ? "Cohen's dz" : "Cohen's d";
+  return `# Effect size: ${label} and the bias-corrected Hedges' g (pingouin)
+import pingouin as pg
+d = pg.compute_effsize(${aVar}, ${bVar}, eftype=${pyStr(eftype)}${pairedArg})
+g = pg.compute_effsize(${aVar}, ${bVar}, eftype="hedges"${pairedArg})
+print(f"d = {d:.4g}, Hedges g = {g:.4g}")`;
+}
+
+/**
+ * Bootstrap block (E4) reproducing the distribution-free 95% CI of the mean
+ * difference, emitted only when the run carried a bootstrapCI95. The engine uses a
+ * seeded resampler (BCa, B = 2000) so a JS PRNG cannot match scipy resample for
+ * resample; scipy.stats.bootstrap with its own RNG converges to the same interval
+ * but will not be bit-identical. The snippet says so and uses a fixed numpy seed so
+ * the researcher's own re-runs are at least reproducible to each other.
+ */
+function bootstrapBlock(aVar: string, bVar: string): string {
+  return `# Distribution-free bootstrap 95% CI of the mean difference (BCa, the
+# robust companion to the parametric CI above). A bootstrap draws random
+# resamples, so this scipy interval converges to the engine's CI (B = 2000, BCa)
+# but is not bit-identical, since the two use different PRNGs. The seed below
+# just makes your own re-runs reproducible.
+import numpy as np
+from scipy.stats import bootstrap
+
+def mean_diff(x, y):
+    return np.mean(x) - np.mean(y)
+
+res = bootstrap((${aVar}, ${bVar}), mean_diff, n_resamples=2000,
+                method="BCa", confidence_level=0.95, vectorized=False,
+                random_state=np.random.default_rng(0))
+print(f"bootstrap 95% CI = [{res.confidence_interval.low:.4g}, "
+      f"{res.confidence_interval.high:.4g}]")`;
 }
 
 function ttestCode(r: NormalizedTTest): string {
@@ -157,13 +240,18 @@ function ttestCode(r: NormalizedTTest): string {
   const altArg = `alternative=${pyStr(r.tail)}`;
 
   if (r.type === "pairedTTest") {
-    return `from scipy import stats
+    const blocks = [
+      `from scipy import stats
 
 ${assigns}
 
 # Paired (repeated-measures) t-test on the row-matched values
 t, p = stats.ttest_rel(${a.var.trim()}, ${b.var.trim()}, ${altArg})
-print(f"t = {t:.4g}, p = {p:.4g}")`;
+print(f"t = {t:.4g}, p = {p:.4g}")`,
+      effectSizeBlock(a.var.trim(), b.var.trim(), true),
+    ];
+    if (r.bootstrapCI95) blocks.push(bootstrapBlock(a.var.trim(), b.var.trim()));
+    return blocks.join("\n\n");
   }
 
   if (r.type === "mannWhitneyU") {
@@ -194,13 +282,18 @@ print(f"W = {W:.4g}, p = {p:.4g}")`;
   const comment = student
     ? "# Student's unpaired t-test (assumes equal variance, pooled)"
     : "# Welch's unpaired t-test (does not assume equal variance)";
-  return `from scipy import stats
+  const blocks = [
+    `from scipy import stats
 
 ${assigns}
 
 ${comment}
 t, p = stats.ttest_ind(${a.var.trim()}, ${b.var.trim()}, equal_var=${equalVar}, ${altArg})
-print(f"t = {t:.4g}, p = {p:.4g}")`;
+print(f"t = {t:.4g}, p = {p:.4g}")`,
+    effectSizeBlock(a.var.trim(), b.var.trim(), false),
+  ];
+  if (r.bootstrapCI95) blocks.push(bootstrapBlock(a.var.trim(), b.var.trim()));
+  return blocks.join("\n\n");
 }
 
 function correlationCode(r: NormalizedCorrelation): string {
@@ -223,7 +316,10 @@ y = ${y}
 
 # Pearson linear correlation
 r, p = stats.pearsonr(x, y)
-print(f"r = {r:.4g}, p = {p:.4g}")`;
+print(f"r = {r:.4g}, p = {p:.4g}")
+
+# Effect size: r-squared, the share of variance the linear fit explains
+print(f"r-squared = {r ** 2:.4g}")`;
 }
 
 function regressionCode(r: NormalizedRegression): string {

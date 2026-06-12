@@ -48,18 +48,6 @@ vi.mock("@/lib/file-system/user-metadata", () => ({
   }),
 }));
 
-// Fake tour controller: the manager only reads `tourMode`. We expose
-// a setter via a module-level ref so each test can flip tourMode at
-// will, then re-render the manager.
-const tourState: { mode: "in-product-walkthrough" | null } = { mode: null };
-vi.mock("@/components/onboarding/v4/TourController", () => ({
-  useOptionalTourController: () => {
-    return tourState.mode === null
-      ? null
-      : ({ tourMode: tourState.mode } as { tourMode: string | null });
-  },
-}));
-
 // Capture the manager's milestone listener so tests can fire events
 // without standing up the full S1 tick path. The real implementation
 // is also available via vi.importActual for tests that prefer it; here
@@ -128,7 +116,6 @@ beforeEach(() => {
   userMetaMap.clear();
   __resetStreakWriteQueueForTests();
   __resetStreakActivityTrackerForTests();
-  tourState.mode = null;
   // Clear localStorage between tests so flavor-only locks never bleed.
   if (typeof window !== "undefined") {
     try {
@@ -438,25 +425,6 @@ describe("CelebrationManager", () => {
     expect(celebrationSceneCount()).toBe(0);
   });
 
-  it("tour active (tourMode !== null) defers firing", async () => {
-    tourState.mode = "in-product-walkthrough";
-    memFs.set(PATH, freshSidecar({ current_count: 7 }));
-    const { rerender } = render(<CelebrationManager username={USER} />);
-
-    // Even with pending celebrations, no scene should fire while the
-    // tour is active.
-    await new Promise((r) => setTimeout(r, 50));
-    expect(celebrationSceneCount()).toBe(0);
-
-    // Flip the tour off, re-render so the manager re-reads the
-    // mocked controller value, and the deferred scene should now fire.
-    tourState.mode = null;
-    rerender(<CelebrationManager username={USER} />);
-
-    await waitFor(() => {
-      expect(celebrationSceneCount()).toBe(1);
-    });
-  });
 });
 
 describe("CelebrationManager beakerBotAnimations opt-out", () => {

@@ -153,6 +153,23 @@ describe("run-analysis", () => {
     expect(outcome.pValue).toBeCloseTo(engine.pValue, 10);
     // Control mean 99.833, Drug A mean 79.833, so the difference is exactly 20.
     expect(outcome.meanDiff).toBeCloseTo(20.0, 3);
+
+    // E4 additive bootstrap CI of the difference: present for the parametric
+    // path, reproducible (fixed seed), and it must bracket the observed
+    // difference. We assert the bracket + a sane width rather than exact bounds,
+    // since the bounds are RNG-derived (deterministic given the seed but not a
+    // simple closed form).
+    expect(outcome.bootstrapCI95).not.toBeNull();
+    const [bLo, bHi] = outcome.bootstrapCI95!;
+    expect(bLo).toBeLessThanOrEqual(outcome.meanDiff);
+    expect(bHi).toBeGreaterThanOrEqual(outcome.meanDiff);
+    // Reproducible across re-runs of the same spec on the same data.
+    const again = runAnalysis(
+      spec("unpairedTTest", ["col-1", "col-2"]),
+      content,
+    );
+    if (!again.ok || again.kind !== "ttest") throw new Error("expected ttest");
+    expect(again.bootstrapCI95).toEqual(outcome.bootstrapCI95);
   });
 
   it("fails cleanly when ANOVA is asked for with too few groups", () => {
@@ -178,6 +195,10 @@ describe("run-analysis", () => {
     // A rank test has no df and no CI of the difference.
     expect(Number.isNaN(outcome.df)).toBe(true);
     expect(outcome.ci95).toBeNull();
+    // The rank test IS the nonparametric path, so it carries no redundant
+    // bootstrap CI and never flags normality.
+    expect(outcome.bootstrapCI95).toBeNull();
+    expect(outcome.normalityShaky).toBe(false);
   });
 
   it("routes a Wilcoxon choice to the engine signed-rank test", () => {
@@ -329,5 +350,94 @@ describe("show-code", () => {
     const code = showCode(outcome);
     expect(code).toContain("stats.kruskal");
     expect(code).toContain("posthoc_dunn");
+    // A rank test has no parametric eta-squared, so the effect-size block is NOT
+    // emitted for Kruskal-Wallis.
+    expect(code).not.toContain("eta-squared");
+  });
+
+  it("emits the Cohen's d / Hedges' g effect size and bootstrap CI for an unpaired t-test", () => {
+    const content = demoContent();
+    const outcome = runAnalysis(
+      spec("unpairedTTest", ["col-1", "col-2"]),
+      content,
+    );
+    if (!outcome.ok) throw new Error("run failed");
+    if (outcome.kind !== "ttest") throw new Error("not a ttest");
+    const code = showCode(outcome);
+    // E1: pingouin effect size, the unpaired (non-paired) form.
+    expect(code).toContain("import pingouin as pg");
+    expect(code).toContain("pg.compute_effsize");
+    expect(code).toContain('eftype="cohen"');
+    expect(code).not.toContain("paired=True");
+    expect(code).toContain('eftype="hedges"');
+    // E4: the parametric raw-data t-test carries a bootstrap CI, so its snippet
+    // emits the scipy.stats.bootstrap reproduction of the mean-difference CI.
+    expect(outcome.bootstrapCI95).not.toBeNull();
+    expect(code).toContain("from scipy.stats import bootstrap");
+    expect(code).toContain('method="BCa"');
+    expect(code).toContain("n_resamples=2000");
+  });
+
+  it("emits the paired dz effect size for a paired t-test", () => {
+    const content = demoContent();
+    const outcome = runAnalysis(
+      spec("pairedTTest", ["col-1", "col-2"]),
+      content,
+    );
+    if (!outcome.ok) throw new Error("run failed");
+    const code = showCode(outcome);
+    expect(code).toContain("pg.compute_effsize");
+    expect(code).toContain("paired=True");
+  });
+
+  it("does NOT emit a parametric effect size or bootstrap for the rank tests", () => {
+    const content = demoContent();
+    for (const t of ["mannWhitneyU", "wilcoxonSignedRank"] as const) {
+      const outcome = runAnalysis(spec(t, ["col-1", "col-2"]), content);
+      if (!outcome.ok) throw new Error("run failed");
+      const code = showCode(outcome);
+      expect(code).not.toContain("compute_effsize");
+      expect(code).not.toContain("from scipy.stats import bootstrap");
+    }
+  });
+
+  it("emits the eta-squared / omega-squared effect size for a one-way ANOVA", () => {
+    const content = demoContent();
+    const outcome = runAnalysis(
+      spec("oneWayAnova", ["col-1", "col-2", "col-3"]),
+      content,
+    );
+    if (!outcome.ok) throw new Error("run failed");
+    const code = showCode(outcome);
+    expect(code).toContain("eta2 = ss_between / ss_total");
+    expect(code).toContain("omega2 =");
+    expect(code).toContain('print(f"eta-squared');
+  });
+
+  it("emits the r-squared effect size for a Pearson correlation", () => {
+    // Correlation runs on an XY table; build the normalized result directly so the
+    // show-code string is unit-tested without an XY fixture. The r-squared print is
+    // the E1 addition.
+    const code = showCode({
+      ok: true,
+      kind: "correlation",
+      type: "correlationPearson",
+      method: "pearson",
+      coefficientLabel: "r",
+      xName: "Dose",
+      yName: "Response",
+      x: [1, 2, 3, 4, 5],
+      y: [2.1, 3.9, 6.2, 7.8, 10.1],
+      n: 5,
+      coefficient: 0.999,
+      statistic: 40,
+      df: 3,
+      pValue: 1e-5,
+      ci95: [0.99, 0.9999],
+      rSquared: 0.998,
+      rSquaredCI95: [0.99, 0.9999],
+    } as Parameters<typeof showCode>[0]);
+    expect(code).toContain("stats.pearsonr");
+    expect(code).toContain("r-squared = {r ** 2");
   });
 });

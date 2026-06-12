@@ -10,7 +10,7 @@
 //
 // Pure (no I/O) so it is trivially unit-testable.
 
-import type { OneOnOne } from "../types";
+import type { OneOnOne, OneOnOneActionItem, WeeklyGoal } from "../types";
 
 /** An `OneOnOne` after normalization: `members`/`mentor`/`kind` are guaranteed
  *  present, so callers never branch on the legacy binary again. */
@@ -18,6 +18,9 @@ export type NormalizedOneOnOne = OneOnOne & {
   members: string[];
   mentor: string | null;
   kind: "pair" | "group";
+  /** Check-ins Phase 4: defaulted to null on read so the committee header never
+   *  branches on `undefined`. */
+  next_meeting_date: string | null;
 };
 
 /**
@@ -41,6 +44,7 @@ export function normalizeOneOnOne(rec: OneOnOne): NormalizedOneOnOne {
       members,
       mentor: rec.mentor ?? null,
       kind: members.length > 2 ? "group" : "pair",
+      next_meeting_date: rec.next_meeting_date ?? null,
     };
   }
 
@@ -52,6 +56,7 @@ export function normalizeOneOnOne(rec: OneOnOne): NormalizedOneOnOne {
     members,
     mentor: rec.labHead ?? null,
     kind: "pair",
+    next_meeting_date: rec.next_meeting_date ?? null,
   };
 }
 
@@ -65,4 +70,39 @@ export function otherMember(
   viewer: string,
 ): string | undefined {
   return normalized.members.find((m) => m !== viewer);
+}
+
+/**
+ * Check-ins revamp Phase 2 (checkins-phase2 bot, 2026-06-12). Back-compat shim
+ * at the action-item read boundary, mirroring `normalizeOneOnOne` /
+ * `normalizeTaskRecord`. The Phase 2 fields (`assignee`, `due_date`,
+ * `synced_task_id`) are optional on disk; a record written before Phase 2 reads
+ * with them absent. Default each to null so callers never branch on
+ * `undefined`. Pure (no I/O), so it is run on every get/list/aggregation read.
+ */
+export type NormalizedActionItem = OneOnOneActionItem & {
+  assignee: string | null;
+  due_date: string | null;
+  synced_task_id: number | null;
+};
+
+export function normalizeOneOnOneActionItem(
+  rec: OneOnOneActionItem,
+): NormalizedActionItem {
+  return {
+    ...rec,
+    assignee: rec.assignee ?? null,
+    due_date: rec.due_date ?? null,
+    synced_task_id: rec.synced_task_id ?? null,
+  };
+}
+
+/**
+ * Check-ins revamp Phase 2: default the new optional `assignee` on a weekly
+ * goal to null on read so the group goal board never sees `undefined`. Pure.
+ */
+export type NormalizedWeeklyGoal = WeeklyGoal & { assignee: string | null };
+
+export function normalizeWeeklyGoal(rec: WeeklyGoal): NormalizedWeeklyGoal {
+  return { ...rec, assignee: rec.assignee ?? null };
 }

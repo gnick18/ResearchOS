@@ -21,7 +21,7 @@
 // resolves the recipient in the directory, seals the bundle to their public key,
 // and hands the relay only opaque bytes. We never touch raw private keys.
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
@@ -35,6 +35,11 @@ import {
 import { buildNoteBundleInput } from "@/lib/sharing/note-transfer";
 import InviteOutOfBandPanel from "@/components/sharing/InviteOutOfBandPanel";
 import Tooltip from "@/components/Tooltip";
+import { scanNoteDependencies } from "@/lib/sharing/note-dependencies";
+import {
+  NoteDependencyPanel,
+  useDependencySelection,
+} from "@/components/sharing/NoteDependencyPanel";
 import type { Note } from "@/lib/types";
 
 interface SendOutsideDialogProps {
@@ -260,6 +265,27 @@ function SendForm({
   const [recipient, setRecipient] = useState("");
   const [state, setState] = useState<SendState>({ phase: "idle" });
 
+  // Scan the note's entry bodies for embedded objects once (memoized).
+  // The note body lives in note.entries[].content (each entry is a markdown
+  // block). We join all entry contents to get the full note markdown, mirroring
+  // exactly how buildNoteBundleInput reads it in note-transfer.ts (line 221).
+  const deps = useMemo(() => {
+    const allMarkdown = (note.entries ?? [])
+      .map((e) => e.content ?? "")
+      .join("\n");
+    return scanNoteDependencies(allMarkdown);
+  }, [note]);
+
+  // Dependency selection state: which embeds to include + which datahub rows
+  // to send as full dataset. Defaults: all included, no full-data flags.
+  const {
+    included,
+    fullData,
+    selectionSets,
+    handleToggleIncluded,
+    handleToggleFullData,
+  } = useDependencySelection(deps);
+
   const sending = state.phase === "sending";
   const canSend = !sending && senderEmail !== null && looksLikeEmail(recipient);
 
@@ -274,7 +300,9 @@ function SendForm({
     const recipientEmail = recipient.trim();
     setState({ phase: "sending" });
     try {
-      const bundle = await buildNoteBundleInput(note, ownerUsername);
+      const bundle = await buildNoteBundleInput(note, ownerUsername, {
+        embedOpts: selectionSets,
+      });
       await sendShare({ email: senderEmail, recipientEmail, bundle });
       setState({ phase: "sent", recipient: recipientEmail });
     } catch (err) {
@@ -293,7 +321,7 @@ function SendForm({
         message: "Could not send, please try again.",
       });
     }
-  }, [note, ownerUsername, recipient, senderEmail]);
+  }, [note, ownerUsername, recipient, senderEmail, selectionSets]);
 
   // Invite the non-user, seal the note under a one-time key, park it on the
   // relay, and have ResearchOS send the branded email. The title is the only
@@ -309,7 +337,9 @@ function SendForm({
     const recipientEmail = recipient.trim();
     setState({ phase: "inviting", recipient: recipientEmail });
     try {
-      const bundle = await buildNoteBundleInput(note, ownerUsername);
+      const bundle = await buildNoteBundleInput(note, ownerUsername, {
+        embedOpts: selectionSets,
+      });
       const result = await inviteShare({
         email: senderEmail,
         recipientEmail,
@@ -330,7 +360,7 @@ function SendForm({
           "Could not send the invite. Please try again in a moment.",
       });
     }
-  }, [note, ownerUsername, recipient, senderEmail]);
+  }, [note, ownerUsername, recipient, senderEmail, selectionSets]);
 
   if (state.phase === "sent") {
     return (
@@ -496,6 +526,17 @@ function SendForm({
           className="w-full px-3 py-2 border border-border rounded-lg text-body text-foreground placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-60"
         />
       </div>
+
+      {/* Dependency panel: shown when the note embeds at least one object (D1/D8). */}
+      {deps.length > 0 && (
+        <NoteDependencyPanel
+          deps={deps}
+          included={included}
+          fullData={fullData}
+          onToggleIncluded={handleToggleIncluded}
+          onToggleFullData={handleToggleFullData}
+        />
+      )}
 
       {state.phase === "error" && (
         <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">

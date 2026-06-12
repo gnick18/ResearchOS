@@ -28,9 +28,31 @@
 // EXECUTE functions live in the browser, only tool DEFINITIONS (name, description,
 // JSON Schema) ever cross this proxy, never a key.
 //
+// Billing enforcement (BeakerAI billing Phase 2, 2026-06-12). The whole AI
+// feature is dark in prod, and even locally this proxy stays a pure pass-through
+// UNLESS the server env AI_BILLING_ENABLED is on. That env is the go-live
+// enforcement switch (NOT NEXT_PUBLIC, it never reaches the browser):
+//   off (default, current dev state): behave exactly as before, no session, no
+//     DB, byte-identical, so local dogfooding keeps working.
+//   on (go-live): fail CLOSED. We require a signed-in account, a configured
+//     billing DB, and a positive token balance BEFORE the provider is called,
+//     and we record the turn's token usage AFTER. A free or unbilled model call
+//     can never happen with the switch on.
+//
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
+import { auth } from "@/lib/sharing/auth";
+import { ownerKeyForEmail } from "@/lib/billing/owner";
+import { getOrGrantBalance, recordUsage } from "@/lib/billing/ai-ledger";
+
 export const runtime = "nodejs";
+
+/** Whether the AI billing enforcement switch is on. Fails closed (any value
+ *  other than "1"/"true" leaves the proxy in its original pass-through mode). */
+function isAiBillingEnabled(): boolean {
+  const v = process.env.AI_BILLING_ENABLED;
+  return v === "1" || v === "true";
+}
 
 // Provider-agnostic defaults. Any OpenAI-compatible base URL works, so the
 // default points at Fireworks (the locked default host, design doc section 10)
@@ -75,6 +97,48 @@ function jsonError(status: number, message: string): Response {
     status,
     headers: { "content-type": "application/json" },
   });
+}
+
+/** The token counts an OpenAI-compatible response reports in its `usage` block. */
+type ProviderUsage = {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+};
+
+/** Pulls prompt/completion token counts out of an unknown `usage` value, 0 when
+ *  absent or malformed, so a missing usage block never throws on the hot path. */
+function readUsage(usage: unknown): { prompt: number; completion: number } {
+  const u = (usage ?? {}) as ProviderUsage;
+  const prompt = typeof u.prompt_tokens === "number" ? u.prompt_tokens : 0;
+  const completion =
+    typeof u.completion_tokens === "number" ? u.completion_tokens : 0;
+  return { prompt, completion };
+}
+
+/**
+ * Records a turn's token usage to the ledger, best effort. We never let a metering
+ * failure surface to the user (the model already answered), but the deduction is
+ * the whole point of enforcement, so a real failure is at least logged server-side.
+ * The taskId groups a multi-turn BeakerBot task, the deduction is post-call because
+ * token counts are only known once the model answers.
+ */
+async function meter(
+  ownerKey: string,
+  taskId: string,
+  prompt: number,
+  completion: number,
+): Promise<void> {
+  try {
+    await recordUsage(ownerKey, {
+      taskId,
+      promptTokens: prompt,
+      completionTokens: completion,
+    });
+  } catch {
+    // Swallowed on purpose, the response is already on its way to the browser.
+    // The next turn still re-reads the balance and refuses if it went non-positive.
+    console.error("BeakerBot usage metering failed for a completed turn.");
+  }
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -169,6 +233,47 @@ export async function POST(request: Request): Promise<Response> {
   // stream:false so it can read tool_calls from one complete response.
   const stream = (body as { stream?: unknown })?.stream !== false;
 
+  // Optional per-task id the browser passes (one BeakerBot task spans many turns,
+  // so the ledger groups a task's cost under it). Absent (or with enforcement off)
+  // we fall back to a per-request id, used only when we actually record usage.
+  const rawTaskId = (body as { task_id?: unknown })?.task_id;
+  const taskId =
+    typeof rawTaskId === "string" && rawTaskId.length > 0
+      ? rawTaskId
+      : `req_${crypto.randomUUID()}`;
+
+  // BILLING GATE (fail closed). Only runs when AI_BILLING_ENABLED is on, so the
+  // default path below is byte-identical to before. Order matters, each check
+  // refuses BEFORE the provider is ever called, so an unbilled call is impossible.
+  const billingOn = isAiBillingEnabled();
+  let ownerKey: string | null = null;
+  if (billingOn) {
+    const session = await auth();
+    const email = session?.user?.email;
+    if (!email) {
+      // No verified account, never call the provider on an anonymous request.
+      return jsonError(401, "signin_required");
+    }
+    if (!process.env.DATABASE_URL) {
+      // The ledger is unreachable, refuse rather than silently serve a free call.
+      return jsonError(500, "billing_unconfigured");
+    }
+    ownerKey = ownerKeyForEmail(email);
+    let balance: number;
+    try {
+      balance = await getOrGrantBalance(ownerKey);
+    } catch {
+      // A ledger read failure must fail closed, never an unbilled call.
+      return jsonError(500, "billing_unconfigured");
+    }
+    if (balance <= 0) {
+      return new Response(
+        JSON.stringify({ error: "out_of_credits", balance: 0 }),
+        { status: 402, headers: { "content-type": "application/json" } },
+      );
+    }
+  }
+
   const baseUrl = (process.env.AI_PROXY_BASE_URL || DEFAULT_BASE_URL).replace(
     /\/+$/,
     "",
@@ -189,6 +294,12 @@ export async function POST(request: Request): Promise<Response> {
         model,
         messages: cleanMessages,
         stream,
+        // With enforcement on, ask the provider to emit a final usage chunk on the
+        // SSE stream so we can meter a streamed turn. This is an upstream-only
+        // field, the bytes the browser receives are still teed unchanged below.
+        ...(billingOn && stream
+          ? { stream_options: { include_usage: true } }
+          : {}),
         ...(cleanTools ? { tools: cleanTools } : {}),
         ...(toolChoice ? { tool_choice: toolChoice } : {}),
       }),
@@ -212,7 +323,29 @@ export async function POST(request: Request): Promise<Response> {
   // the browser loop reads tool_calls from one complete message. Still a
   // pass-through, the key never appears in the body.
   if (!stream) {
-    return new Response(upstream.body, {
+    // Enforcement off: stream the body straight through, byte-identical to before.
+    if (!billingOn || !ownerKey) {
+      return new Response(upstream.body, {
+        status: 200,
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "cache-control": "no-store",
+        },
+      });
+    }
+    // Enforcement on: read the full JSON to meter the turn, then return the SAME
+    // text unchanged. We send the exact bytes the provider returned, so tool_calls
+    // and every other field pass through untouched.
+    const text = await upstream.text();
+    let usage: unknown;
+    try {
+      usage = (JSON.parse(text) as { usage?: unknown }).usage;
+    } catch {
+      usage = undefined;
+    }
+    const { prompt, completion } = readUsage(usage);
+    await meter(ownerKey, taskId, prompt, completion);
+    return new Response(text, {
       status: 200,
       headers: {
         "content-type": "application/json; charset=utf-8",
@@ -221,10 +354,72 @@ export async function POST(request: Request): Promise<Response> {
     });
   }
 
-  // Proxy the SSE stream straight through to the browser. The body is already a
-  // ReadableStream of the provider's OpenAI-style `data:` lines, so the panel
-  // parses deltas client-side. This pass-through keeps the proxy thin.
-  return new Response(upstream.body, {
+  // Streaming mode. Enforcement off: proxy the SSE body straight through to the
+  // browser, byte-identical to before. The body is already a ReadableStream of the
+  // provider's OpenAI-style `data:` lines, so the panel parses deltas client-side.
+  if (!billingOn || !ownerKey) {
+    return new Response(upstream.body, {
+      status: 200,
+      headers: {
+        "content-type": "text/event-stream; charset=utf-8",
+        "cache-control": "no-cache, no-transform",
+        connection: "keep-alive",
+      },
+    });
+  }
+
+  // Enforcement on: TEE the stream. One branch is returned to the browser exactly
+  // as received (we never alter the bytes), the other branch is drained here to
+  // find the final usage chunk (include_usage adds it as the last data line) so we
+  // can meter the turn after it completes.
+  const [toClient, toMeter] = upstream.body.tee();
+  const meterOwnerKey = ownerKey;
+  void (async () => {
+    const reader = toMeter.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let prompt = 0;
+    let completion = 0;
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        // SSE frames are separated by a blank line. Parse each complete `data:`
+        // line for a usage block, keeping the trailing partial in the buffer.
+        let nl = buffer.indexOf("\n");
+        while (nl !== -1) {
+          const line = buffer.slice(0, nl).trim();
+          buffer = buffer.slice(nl + 1);
+          if (line.startsWith("data:")) {
+            const payload = line.slice(5).trim();
+            if (payload && payload !== "[DONE]") {
+              try {
+                const obj = JSON.parse(payload) as { usage?: unknown };
+                if (obj.usage) {
+                  const u = readUsage(obj.usage);
+                  // The provider sends cumulative usage in its final chunk, so the
+                  // last seen values are the turn's totals.
+                  prompt = u.prompt;
+                  completion = u.completion;
+                }
+              } catch {
+                // A non-JSON or partial data line, ignore and keep scanning.
+              }
+            }
+          }
+          nl = buffer.indexOf("\n");
+        }
+      }
+    } catch {
+      // A drain failure must not affect the client stream, which is independent.
+    } finally {
+      reader.releaseLock();
+      await meter(meterOwnerKey, taskId, prompt, completion);
+    }
+  })();
+
+  return new Response(toClient, {
     status: 200,
     headers: {
       "content-type": "text/event-stream; charset=utf-8",

@@ -32,6 +32,7 @@ import type {
   PlotSpec,
 } from "@/lib/datahub/model/types";
 import { readPlotStyle } from "@/lib/datahub/plot-spec";
+import { primarySourceId } from "@/lib/datahub/transform/recipe";
 
 /** A short, human label for an analysis type (rail row text). */
 function analysisLabel(type: string): string {
@@ -281,6 +282,7 @@ export default function DataHubRail({
   onNewTable,
   onNewFolder,
   onImport,
+  onPlanStudy,
   counts,
   analyses,
   selectedAnalysisId,
@@ -317,6 +319,12 @@ export default function DataHubRail({
   onNewFolder: () => void;
   /** Opens the import dialog (paste from Excel / pick a CSV into a new table). */
   onImport: () => void;
+  /**
+   * Opens the power / sample-size planner. It is a stateless calculator, so it
+   * sits in the rail header rather than the table toolbar, reachable even before
+   * any table exists (a study is planned before its data).
+   */
+  onPlanStudy: () => void;
   /** All / Unfiled / per-project counts for the selector labels. */
   counts: { all: number; unfiled: number; perProject: Map<string, number> };
   /** The open table's stored analyses (empty until one is run). */
@@ -613,8 +621,12 @@ export default function DataHubRail({
     // A derived table is computed from a source via a transform; mark it so it
     // reads differently from an entered table in the rail.
     const derived = table.derivedFrom;
+    // sourceTableId is the legacy single-op field; primarySourceId reads either
+    // it or the new recipe.sources[0] so the rail still names the source after
+    // the derivedFrom widening.
+    const derivedSourceId = derived ? primarySourceId(derived) : null;
     const sourceName = derived
-      ? nameById.get(derived.sourceTableId) ?? "another table"
+      ? (derivedSourceId ? nameById.get(derivedSourceId) ?? "another table" : "another table")
       : null;
     return (
       <div key={table.id}>
@@ -678,7 +690,7 @@ export default function DataHubRail({
                   data-testid="datahub-rail-derived-badge"
                   aria-label={`Derived from ${sourceName}`}
                 >
-                  <Icon name="merge" className="h-2.5 w-2.5" />
+                  <Icon name="transform" className="h-2.5 w-2.5" />
                 </span>
               </Tooltip>
             )}
@@ -836,6 +848,17 @@ export default function DataHubRail({
             Data Tables
           </span>
           <div className="flex items-center gap-0.5">
+            <Tooltip label="Plan study (power and sample size)">
+              <button
+                type="button"
+                onClick={onPlanStudy}
+                aria-label="Plan study (power and sample size)"
+                className="rounded p-1 text-foreground-muted transition-colors hover:bg-surface-raised hover:text-foreground"
+                data-testid="datahub-rail-plan-study"
+              >
+                <Icon name="gauge" className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
             <Tooltip label="Import data">
               <button
                 type="button"

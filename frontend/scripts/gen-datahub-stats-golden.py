@@ -67,10 +67,13 @@ import json
 import numpy as np
 import scipy
 import scipy.stats as st
+from scipy.optimize import brentq
 import statsmodels
 import statsmodels.api as sm
 from statsmodels.formula.api import ols
 from statsmodels.stats.multicomp import pairwise_tukeyhsd
+from statsmodels.stats.power import TTestIndPower
+import pingouin as pg
 import lifelines
 from lifelines import KaplanMeierFitter
 from lifelines.statistics import logrank_test
@@ -134,6 +137,22 @@ CONTINGENCY = [
     [10, 20, 30],
     [25, 15, 20],
 ]
+
+# --- Fixed inputs for the estimation layer (E1 / E3 / E4) ---
+# E3 power is a DESIGN scenario, not a statistic of the dataset above.
+POWER_TWO_SAMPLE_N = 26      # per-group n
+POWER_TWO_SAMPLE_D = 0.8     # Cohen's d
+POWER_ALPHA = 0.05
+SAMPLESIZE_D = 0.5           # a-priori scenario effect size
+SAMPLESIZE_TARGET_POWER = 0.8
+# E4 bootstrap: only the DETERMINISTIC (RNG-free) machinery is pinned exactly.
+# A reseeded JS bootstrap cannot match scipy resample-for-resample, so these fixed
+# arrays exercise the percentile extractor, the BCa z0, and the jackknife
+# acceleration with no random draws involved. Mirrored verbatim in datahub-stats.ts.
+BOOT_DISTRIBUTION = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]
+BOOT_STATS = [1.0, 1.2, 1.4, 1.5, 1.6, 1.8, 2.0, 2.2, 2.5, 3.0]
+BOOT_OBSERVED = 1.7
+BOOT_ACCEL_SAMPLE = [2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0]
 
 
 # ---------------------------------------------------------------------------
@@ -272,10 +291,18 @@ def ref_from_stats():
     mC, sC, nC = msn(GROUP_C)
 
     # Welch (equal_var=False) and Student (equal_var=True) from stats.
+    # scipy.stats.ttest_ind_from_stats returns a plain Ttest_indResult namedtuple
+    # with only .statistic and .pvalue (no .df, unlike ttest_ind), so the degrees
+    # of freedom are computed here directly. Welch uses Welch-Satterthwaite;
+    # Student (pooled) uses n1 + n2 - 2.
+    vA, vB = sA ** 2, sB ** 2
+    welch_df = ((vA / nA + vB / nB) ** 2
+                / ((vA / nA) ** 2 / (nA - 1) + (vB / nB) ** 2 / (nB - 1)))
+    student_df = float(nA + nB - 2)
     w = st.ttest_ind_from_stats(mA, sA, nA, mB, sB, nB, equal_var=False)
-    out["fromstats_welch"] = {"t": r4(w.statistic), "df": r4(w.df), "p": r4(w.pvalue)}
+    out["fromstats_welch"] = {"t": r4(w.statistic), "df": r4(welch_df), "p": r4(w.pvalue)}
     s = st.ttest_ind_from_stats(mA, sA, nA, mB, sB, nB, equal_var=True)
-    out["fromstats_student"] = {"t": r4(s.statistic), "df": r4(s.df), "p": r4(s.pvalue)}
+    out["fromstats_student"] = {"t": r4(s.statistic), "df": r4(student_df), "p": r4(s.pvalue)}
 
     # One-sided tails on the Welch from-stats case.
     wg = st.ttest_ind_from_stats(mA, sA, nA, mB, sB, nB, equal_var=False,
@@ -429,10 +456,165 @@ def ref_chi_square():
     return {"contingency": {"chi2": r4(chi2), "df": int(dof), "p": r4(p)}}
 
 
+def _solve_ncp(tobs, df, target):
+    """Invert the noncentral t CDF for the noncentrality nc at a target CDF value.
+
+    nct.cdf is monotone decreasing in nc, so bracket around tobs and widen until
+    the function changes sign, then bisect with brentq. This is the same Smithson
+    (2001) construction the engine implements in dists.ts.
+    """
+    f = lambda nc: st.nct.cdf(tobs, df, nc) - target
+    lo, hi = tobs - 1.0, tobs + 1.0
+    for _ in range(100):
+        flo, fhi = f(lo), f(hi)
+        if np.isfinite(flo) and np.isfinite(fhi) and flo * fhi < 0:
+            return brentq(f, lo, hi)
+        lo -= 1.0
+        hi += 1.0
+    raise RuntimeError("noncentral t: no sign change bracket found")
+
+
+def ref_effect_sizes():
+    """E1 effect sizes and their confidence intervals on the fixed dataset.
+
+    Cohen's d and Hedges' g come from pingouin.compute_effsize (the pooled-SD
+    convention the engine uses); the comment cross-checks against the explicit
+    formula, which agrees exactly. The standardized-effect 95% CIs come from the
+    noncentral t / noncentral F pivot via scipy.stats.nct / ncf (Smithson 2001),
+    the SAME method the engine implements. The correlation r-squared CI is the
+    squared Fisher-z interval. All are pinned under the `scipy` oracle (pingouin
+    wraps scipy/numpy and the CI machinery is pure scipy).
+    """
+    out = {}
+
+    # Unpaired (Welch) t-test, GROUP_A vs GROUP_B.
+    A = np.array(GROUP_A); B = np.array(GROUP_B)
+    na, nb = len(A), len(B)
+    d = pg.compute_effsize(A, B, eftype="cohen")
+    g = pg.compute_effsize(A, B, eftype="hedges")
+    df_pool = na + nb - 2
+    scale = np.sqrt(1 / na + 1 / nb)
+    tobs = d / scale
+    d_lo = _solve_ncp(tobs, df_pool, 0.975) * scale
+    d_hi = _solve_ncp(tobs, df_pool, 0.025) * scale
+    out["unpaired"] = {
+        "cohens_d": r4(d), "hedges_g": r4(g),
+        "d_ci_lo": r4(d_lo), "d_ci_hi": r4(d_hi),
+    }
+
+    # Paired t-test, PAIR_X vs PAIR_Y (Cohen's dz on the within-pair differences).
+    PX = np.array(PAIR_X); PY = np.array(PAIR_Y)
+    diff = PX - PY
+    n = len(diff)
+    dz = diff.mean() / diff.std(ddof=1)
+    dz_scale = 1 / np.sqrt(n)
+    df_p = n - 1
+    tobs_dz = dz / dz_scale
+    dz_lo = _solve_ncp(tobs_dz, df_p, 0.975) * dz_scale
+    dz_hi = _solve_ncp(tobs_dz, df_p, 0.025) * dz_scale
+    out["paired"] = {
+        "cohens_dz": r4(dz), "dz_ci_lo": r4(dz_lo), "dz_ci_hi": r4(dz_hi),
+    }
+
+    # One-way ANOVA omnibus effect size, GROUP_A / GROUP_B / GROUP_C.
+    groups = [np.array(GROUP_A), np.array(GROUP_B), np.array(GROUP_C)]
+    allv = np.concatenate(groups)
+    N = len(allv); k = len(groups)
+    grand = allv.mean()
+    ss_b = sum(len(gi) * (gi.mean() - grand) ** 2 for gi in groups)
+    ss_w = sum(((gi - gi.mean()) ** 2).sum() for gi in groups)
+    ss_t = ss_b + ss_w
+    df_b, df_w = k - 1, N - k
+    ms_w = ss_w / df_w
+    eta2 = ss_b / ss_t
+    omega2 = (ss_b - df_b * ms_w) / (ss_t + ms_w)
+    F = st.f_oneway(*groups).statistic
+    lo_lam = brentq(lambda lam: st.ncf.cdf(F, df_b, df_w, lam) - 0.975, 0, 1000)
+    hi_lam = brentq(lambda lam: st.ncf.cdf(F, df_b, df_w, lam) - 0.025, 0, 5000)
+    out["oneway"] = {
+        "eta_squared": r4(eta2), "omega_squared": r4(omega2),
+        "eta2_ci_lo": r4(lo_lam / (lo_lam + N)),
+        "eta2_ci_hi": r4(hi_lam / (hi_lam + N)),
+    }
+
+    # Pearson correlation coefficient of determination + squared Fisher-z CI.
+    X = np.array(XY_X); Y = np.array(XY_Y)
+    r = st.pearsonr(X, Y).statistic
+    nc = len(X)
+    z = np.arctanh(r); se = 1 / np.sqrt(nc - 3); zc = st.norm.ppf(0.975)
+    r_lo = np.tanh(z - zc * se); r_hi = np.tanh(z + zc * se)
+    sq = sorted([r_lo * r_lo, r_hi * r_hi])
+    straddle = r_lo <= 0 <= r_hi
+    out["pearson"] = {
+        "r_squared": r4(r * r),
+        "r2_ci_lo": r4(0.0 if straddle else sq[0]),
+        "r2_ci_hi": r4(sq[1]),
+    }
+    return out
+
+
+def ref_power():
+    """E3 power and sample-size planning scenarios (statsmodels TTestIndPower).
+
+    Power is a study-design scenario, not a statistic of the dataset. The a-priori
+    sample size the engine reports is the smallest INTEGER n whose power reaches the
+    target (round up so the planned study is never under-powered), which is the
+    ceiling of the fractional statsmodels solve_power value.
+    """
+    ind = TTestIndPower()
+    power = ind.power(POWER_TWO_SAMPLE_D, nobs1=POWER_TWO_SAMPLE_N,
+                      alpha=POWER_ALPHA, ratio=1.0, alternative="two-sided")
+    frac = ind.solve_power(effect_size=SAMPLESIZE_D, power=SAMPLESIZE_TARGET_POWER,
+                           alpha=POWER_ALPHA, ratio=1.0, alternative="two-sided")
+    return {
+        "power_two_sample_t": r4(power),
+        "samplesize_two_sample_t_frac": r4(frac),
+        "samplesize_two_sample_t": int(np.ceil(frac)),
+    }
+
+
+def ref_bootstrap():
+    """E4 bootstrap, the DETERMINISTIC (RNG-free) machinery only.
+
+    A reseeded JS bootstrap cannot reproduce scipy.stats.bootstrap resample for
+    resample, so an exact end-to-end CI pin would be dishonest. What IS exactly
+    reproducible, and is pinned here, is the deterministic machinery the bootstrap
+    is built from on fixed arrays with no random draws:
+      - the percentile extractor, the 2.5% / 97.5% points of a fixed sorted
+        distribution under the type-7 (linear) quantile definition (numpy default);
+      - the BCa bias-correction z0 = Phi^-1(share of resamples below observed),
+        ties counted as half (scipy.stats.norm.ppf);
+      - the BCa jackknife acceleration of the mean on a fixed sample.
+    The seeded end-to-end CI is validated for statistical convergence in the engine
+    test suite instead (documented in STATS_VALIDATION.md).
+    """
+    arr = np.array(BOOT_DISTRIBUTION)
+    p_lo = float(np.quantile(arr, 0.025, method="linear"))
+    p_hi = float(np.quantile(arr, 0.975, method="linear"))
+
+    below = sum(1 for s in BOOT_STATS if s < BOOT_OBSERVED)
+    equal = sum(1 for s in BOOT_STATS if s == BOOT_OBSERVED)
+    prop = (below + equal / 2) / len(BOOT_STATS)
+    z0 = float(st.norm.ppf(min(1 - 1e-9, max(1e-9, prop))))
+
+    s = np.array(BOOT_ACCEL_SAMPLE, dtype=float)
+    nn = len(s)
+    theta = np.array([np.delete(s, i).mean() for i in range(nn)])
+    mbar = theta.mean()
+    num = ((mbar - theta) ** 3).sum()
+    den = ((mbar - theta) ** 2).sum()
+    accel = float(num / (6 * den ** 1.5))
+    return {
+        "percentile_lo": r4(p_lo), "percentile_hi": r4(p_hi),
+        "z0": r4(z0), "acceleration": r4(accel),
+    }
+
+
 PROVENANCE = {
     "scipy": scipy.__version__,
     "statsmodels": statsmodels.__version__,
     "lifelines": lifelines.__version__,
+    "pingouin": pg.__version__,
     "numpy": np.__version__,
     "calls": {
         "unpaired_welch": "scipy.stats.ttest_ind(A, B, equal_var=False)",
@@ -463,6 +645,15 @@ PROVENANCE = {
         "km_treat": "lifelines.KaplanMeierFitter.fit / .predict / .median_survival_time_",
         "logrank": "lifelines.statistics.logrank_test",
         "contingency": "scipy.stats.chi2_contingency(table, correction=False)  [PENDING: no engine impl yet]",
+        "effect_sizes.unpaired": "pingouin.compute_effsize(A, B, eftype='cohen'|'hedges'); d CI via scipy.stats.nct inversion (Smithson 2001)",
+        "effect_sizes.paired": "Cohen's dz = mean(diff)/sd(diff); dz CI via scipy.stats.nct inversion",
+        "effect_sizes.oneway": "eta2 = SSb/SSt, omega2 = (SSb - dfb*MSw)/(SSt + MSw); eta2 CI via scipy.stats.ncf inversion",
+        "effect_sizes.pearson": "r^2 from scipy.stats.pearsonr; r^2 CI = squared Fisher-z interval (scipy.stats.norm)",
+        "power.power_two_sample_t": "statsmodels.stats.power.TTestIndPower().power(d, nobs1, alpha, ratio=1, two-sided)",
+        "power.samplesize_two_sample_t": "ceil(TTestIndPower().solve_power(effect_size, power, alpha, ratio=1, two-sided))",
+        "bootstrap.percentile": "numpy.quantile(dist, [0.025, 0.975], method='linear')  [type-7]",
+        "bootstrap.z0": "scipy.stats.norm.ppf(share of resamples below observed, ties as half)",
+        "bootstrap.acceleration": "BCa jackknife skewness of the mean on a fixed sample",
     },
 }
 
@@ -480,6 +671,9 @@ def main():
     refs.update({"assumptions": ref_assumptions()})
     refs.update({"survival": ref_survival()})
     refs.update({"chi_square": ref_chi_square()})
+    refs.update({"effect_sizes": ref_effect_sizes()})
+    refs.update({"power": ref_power()})
+    refs.update({"bootstrap": ref_bootstrap()})
 
     dataset = {
         "GROUP_A": GROUP_A,
@@ -496,6 +690,15 @@ def main():
         "SURV_CONTROL": SURV_CONTROL,
         "KM_READ_TIMES": KM_READ_TIMES,
         "CONTINGENCY": CONTINGENCY,
+        "POWER_TWO_SAMPLE_N": POWER_TWO_SAMPLE_N,
+        "POWER_TWO_SAMPLE_D": POWER_TWO_SAMPLE_D,
+        "POWER_ALPHA": POWER_ALPHA,
+        "SAMPLESIZE_D": SAMPLESIZE_D,
+        "SAMPLESIZE_TARGET_POWER": SAMPLESIZE_TARGET_POWER,
+        "BOOT_DISTRIBUTION": BOOT_DISTRIBUTION,
+        "BOOT_STATS": BOOT_STATS,
+        "BOOT_OBSERVED": BOOT_OBSERVED,
+        "BOOT_ACCEL_SAMPLE": BOOT_ACCEL_SAMPLE,
     }
 
     bundle = {

@@ -118,16 +118,16 @@ const SUPPORT_ITEMS: FeatureItem[] = [
 const AI_ITEMS: FeatureItem[] = [
   {
     icon: "heart",
-    title: "Free tokens when you sign up",
+    title: "About 750,000 free tokens to start",
     body: [
-      "Every new account gets a one-time batch of tokens to try BeakerBot, no card needed. How far they stretch depends on what you ask. A quick question is cheap, a full analysis costs more, and the batch works out to roughly 20 to 25 full analyses or over 100 quick questions. Plenty to see what BeakerBot does before you spend anything.",
+      "Every new account gets a one-time gift of about 750,000 AI tokens to try BeakerBot, no card needed. How far they stretch depends on what you ask. A quick question is cheap, a full analysis costs more, and the gift works out to roughly 20 to 25 full analyses or over 100 quick questions. Plenty to see what BeakerBot does over your own data before you spend anything.",
     ],
   },
   {
     icon: "gauge",
-    title: "Then metered, near cost",
+    title: "Then prepaid top-ups, near cost",
     body: [
-      "After the trial you buy prepaid credits, and each task draws down what it actually cost us to run plus a thin buffer for processing. You always see your token balance and what the last task cost. No subscription, you pay only for what you use.",
+      "After the gift runs out you buy a prepaid top-up, and each task draws down what it actually cost us to run plus a thin buffer for processing. Because a full analysis is about a penny of compute, a $10 top-up is hundreds of analyses. You always see your token balance and what the last task cost. No subscription, you pay only for what you use.",
     ],
   },
   {
@@ -161,6 +161,44 @@ export default function PricingPage() {
               subtitle="Your data has two parts, your folder on your own disk which is free, and the cloud copy you choose to sync or share which is the paid storage part. The one other optional paid thing is the AI assistant, also metered at cost and covered below. The reason it all stays cheap is the local-first design, your daily work never leaves your disk."
             />
             <TwoPartModel />
+          </Section>
+
+          {/* BeakerBot, the AI assistant over your own data. Leads with the free
+              token gift as the hook, then the at-cost framing. Placed high (right
+              after the two-part model) so the free gift is the first concrete
+              perk, not buried below the storage math. id="ai-pricing" so the
+              competitor-savings AI highlight can link here. */}
+          <Section id="ai-pricing">
+            <SectionHeading
+              title="BeakerBot, an AI assistant over your own data, free to start"
+              subtitle="BeakerBot reasons over your notes and results, runs an analysis, makes a plot, and writes it up, always with your approval. It is the one optional thing that is metered, because each task calls a hosted model that costs us real money. Every new account starts with a free batch of tokens, and after that it is priced near our actual cost."
+            />
+            <div className="mx-auto mb-6 max-w-2xl rounded-2xl border border-brand-action/30 bg-brand-action/[0.06] px-5 py-4 text-center">
+              <div className="text-2xl font-extrabold tracking-tight text-brand-ink dark:text-foreground">
+                About 750,000 free AI tokens
+              </div>
+              <p className="mt-1 text-[13px] font-semibold text-foreground-muted">
+                a one-time sign-up gift, about 20 to 25 full analyses or over 100
+                quick questions
+              </p>
+            </div>
+            <FeatureGrid items={AI_ITEMS} />
+            <p className="mt-6 text-center">
+              <a
+                href="/ai"
+                className="inline-flex items-center gap-1.5 text-body font-bold text-brand-action transition-colors hover:text-brand-ink"
+              >
+                See everything BeakerBot can do{" "}
+                <span aria-hidden>&rarr;</span>
+              </a>
+            </p>
+            <p className="mx-auto mt-5 max-w-2xl border-t border-dashed border-border pt-3.5 text-center text-[12px] leading-relaxed text-foreground-muted">
+              <b className="text-foreground">Why no final AI prices yet.</b> We
+              hold the exact top-up prices until a few real tasks show what they
+              actually cost, the same way we set storage from data instead of
+              guessing. The free sign-up gift is set so realistic use lands near
+              25 cents of compute, and during the beta the AI is free.
+            </p>
           </Section>
 
           {/* What you pay today, competitor savings */}
@@ -209,22 +247,6 @@ export default function PricingPage() {
             <FeatureGrid items={METERING_ITEMS} />
             <p className="mx-auto mt-4 max-w-2xl text-center text-sm font-bold leading-snug text-brand-purple">
               Your editing is never metered.
-            </p>
-          </Section>
-
-          {/* The AI is the one metered thing, at cost, a separate optional meter.
-              id="ai-pricing" so the competitor-savings AI highlight can link here. */}
-          <Section id="ai-pricing">
-            <SectionHeading
-              title="The AI assistant is the one thing that is metered, and it is at cost"
-              subtitle="The app, search, editing, and collaboration are all free and unmetered. BeakerBot, the optional AI assistant, is the single exception, because each AI task calls a hosted model that costs us real money. It is a separate optional meter from your storage plan, you can use one, both, or neither."
-            />
-            <FeatureGrid items={AI_ITEMS} />
-            <p className="mx-auto mt-5 max-w-2xl border-t border-dashed border-border pt-3.5 text-center text-[12px] leading-relaxed text-foreground-muted">
-              <b className="text-foreground">Why no final AI prices yet.</b> We
-              hold the exact token grant and credit prices until a few real tasks
-              show what they actually cost, the same way we set storage from data
-              instead of guessing. During the beta the AI is free.
             </p>
           </Section>
 

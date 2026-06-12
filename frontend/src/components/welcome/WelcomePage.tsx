@@ -1023,8 +1023,8 @@ export default function WelcomePage({
         <FeatureRow
           flip
           kicker="// your data, your AI"
-          title="Ask your own research"
-          body="Point AI at the data you own and ask a plain-English question across your notes and results. Your data, your assistant, not a vendor mining your work."
+          title="Meet BeakerBot, your AI over your own research"
+          body="Point BeakerBot at the data you own and ask a plain-English question across your notes and results. It runs the analysis, makes the plot, and writes it up, always with your approval. Your data, your assistant, not a vendor mining your work."
           pills={["Natural language", "Over your own data", "You stay in control"]}
           visual={
             <BeakerBotPeek
@@ -1043,17 +1043,34 @@ export default function WelcomePage({
             </BeakerBotPeek>
           }
         >
+          {/* The free-token gift, made the headline hook of this section. */}
+          <div className="mt-5 rounded-2xl border border-[#cfe0f3] bg-[#eef5fd] px-5 py-4">
+            <div className="text-xl font-extrabold tracking-tight text-brand-ink">
+              Start with about 750,000 free tokens
+            </div>
+            <p className="mt-1 text-body font-semibold text-[#475569]">
+              a one-time sign-up gift, about 20 to 25 full analyses or over 100
+              quick questions, no card needed
+            </p>
+          </div>
           <p className="mt-4 max-w-[54ch] text-body leading-relaxed text-[#475569]">
-            This is the one optional metered feature. A free sign-up gives you
-            tokens to try it, and it is priced near cost because your data stays
-            on your own machine instead of on our servers. A lab or institution
-            can cover a shared pool so members never see a bill. It is free
-            during the beta.{" "}
+            BeakerBot is the one optional metered feature, priced near cost
+            because your data stays on your own machine instead of on our
+            servers. After the free tokens you buy a prepaid top-up, and since a
+            full analysis is about a penny of compute, it stays cheap. A lab or
+            institution can cover a shared pool so members never see a bill, and
+            during the beta it is free.{" "}
             <a
               href="/pricing"
               className="font-bold text-brand-action transition-colors hover:text-brand-ink"
             >
               See how the tokens are priced <span aria-hidden>&rarr;</span>
+            </a>{" "}
+            <a
+              href="/ai"
+              className="font-bold text-brand-action transition-colors hover:text-brand-ink"
+            >
+              See everything BeakerBot can do <span aria-hidden>&rarr;</span>
             </a>
           </p>
         </FeatureRow>

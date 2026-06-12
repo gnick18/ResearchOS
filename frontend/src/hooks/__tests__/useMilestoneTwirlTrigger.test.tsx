@@ -6,12 +6,12 @@
 // Covers:
 //   - fireTwirlMilestone fires the twirl exactly once per milestone and
 //     persists a per-user dedup flag so it never re-fires.
-//   - Each of the three milestones (tourComplete, firstExperiment,
-//     firstProject) dedups independently.
+//   - Each of the two milestones (firstExperiment, firstProject) dedups
+//     independently.
 //   - The animations opt-out (settings.beakerBotAnimations === false)
 //     suppresses the twirl AND leaves the dedup flag unburned.
-//   - The hook integration: a tour-goodbye outro event + a task-
-//     completion event each fire the twirl through the global store.
+//   - The hook integration: a task-completion event fires the twirl
+//     through the global store.
 //   - First-experiment fires only for task_type "experiment"; a purchase
 //     completion does not.
 //   - A project-fully-complete event fires the firstProject twirl.
@@ -35,7 +35,6 @@ import {
 } from "../useMilestoneTwirlTrigger";
 import { useSceneTriggerStore } from "@/lib/scene-trigger-store";
 import { taskCompletionEvents } from "@/lib/tasks/task-completion-events";
-import { TOUR_GOODBYE_PLAY_OUTRO_EVENT } from "@/components/onboarding/v4/steps/cleanup/TourGoodbyeStep";
 
 // The opt-out read goes through readUserSettings. Mock it so we can flip
 // beakerBotAnimations per test without a file system.
@@ -77,12 +76,12 @@ describe("fireTwirlMilestone (dedup + opt-out)", () => {
   });
 
   it("dedups each milestone independently", async () => {
-    await fireTwirlMilestone(USER, "tourComplete");
+    await fireTwirlMilestone(USER, "firstExperiment");
     useSceneTriggerStore.getState().clearActiveScene();
-    // tourComplete is now burned, but firstProject is still pending.
+    // firstExperiment is now burned, but firstProject is still pending.
     const project = await fireTwirlMilestone(USER, "firstProject");
     expect(project).toBe(true);
-    expect(milestonePending(USER, "tourComplete")).toBe(false);
+    expect(milestonePending(USER, "firstExperiment")).toBe(false);
     expect(milestonePending(USER, "firstProject")).toBe(false);
   });
 
@@ -108,10 +107,10 @@ describe("fireTwirlMilestone (dedup + opt-out)", () => {
 
   it("drops when another scene is already playing", async () => {
     useSceneTriggerStore.getState().fireScene("bugstomp", () => {});
-    const accepted = await fireTwirlMilestone(USER, "tourComplete");
+    const accepted = await fireTwirlMilestone(USER, "firstProject");
     expect(accepted).toBe(false);
     // Dedup flag must NOT be burned when we never even attempted a fire.
-    expect(milestonePending(USER, "tourComplete")).toBe(true);
+    expect(milestonePending(USER, "firstProject")).toBe(true);
   });
 });
 
@@ -199,23 +198,6 @@ describe("useMilestoneTwirlTrigger (hook integration)", () => {
     });
     await flushAsync();
     expect(useSceneTriggerStore.getState().activeScene).toBeNull();
-  });
-
-  it("fires the twirl after the tour-goodbye outro budget elapses", async () => {
-    renderHook(() => useMilestoneTwirlTrigger(USER));
-    act(() => {
-      window.dispatchEvent(new CustomEvent(TOUR_GOODBYE_PLAY_OUTRO_EVENT));
-    });
-    // Twirl must NOT fire immediately (it waits out the goodbye outro).
-    await flushAsync();
-    expect(useSceneTriggerStore.getState().activeScene).toBeNull();
-
-    await act(async () => {
-      vi.advanceTimersByTime(5000);
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    expect(useSceneTriggerStore.getState().activeScene).toBe("twirlMilestone");
   });
 
   it("does nothing when username is null", async () => {
