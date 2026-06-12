@@ -4,9 +4,12 @@
 //
 // Renders a compound structure card for a PubChem CID URL or a bare SMILES embed.
 // Uses the SAME RDKit depiction path as the local MoleculeEmbed (MoleculeThumbnail),
-// so the depiction quality and SVG rendering are identical. PubChem compounds also
-// show a "Add to my library" action that saves the compound into the local molecule
-// store (moleculesApi.create), mirroring the chemistry workbench importer flow.
+// so the depiction quality and SVG rendering are identical. Both a PubChem compound
+// and a bare SMILES show an "Add to library" action that saves the compound into the
+// local molecule store (moleculesApi.create), mirroring the chemistry workbench
+// importer flow. A CID saves PubChem's 2D SDF; a bare SMILES is converted to a
+// molblock with RDKit (toMolblock), so the saved molecule has real identity and
+// geometry on first open with no editor round-trip.
 //
 // For a PubChem CID: fetches identity properties from PubChem PUG-REST, then draws
 // the structure from RDKit using the PubChem 2D PNG as a fallback while RDKit loads.
@@ -19,6 +22,7 @@ import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import { MoleculeThumbnail } from "@/components/chemistry/MoleculeThumbnail";
 import { moleculesApi } from "@/lib/chemistry/api";
+import { toMolblock } from "@/lib/chemistry/rdkit";
 import {
   getExternalCache,
   putExternalCache,
@@ -82,12 +86,18 @@ export default function StructureCard({ descriptor, caption, sidecarPath }: Exte
     if (saveState !== "idle") return;
     setSaveState("saving");
     try {
-      // Build a minimal Molfile from the SMILES via PubChem SDF when we have a CID,
-      // or use a stub Molfile skeleton that the molecule store accepts for a SMILES-only
-      // entry. In the CID case, RDKit in the workbench will re-derive geometry on first
-      // open; in the SMILES case the user gets a flat entry they can open and refine.
-      // The simplest safe path: fetch the SDF from PubChem when there is a CID.
+      // Build a real Molfile so the saved molecule has geometry and identity on
+      // first open, no editor round-trip. Two source paths, both ending in a
+      // molblock that moleculesApi.create runs computeIdentity over.
+      //
+      // PubChem CID: fetch the 2D SDF so we keep PubChem's drawn coordinates.
+      // Bare SMILES (or a CID whose SDF fetch failed): convert the SMILES to a
+      // molblock with RDKit, the SAME path the file importer uses for a .smi
+      // entry (lib/chemistry/import-file then toMolblock). RDKit lays out flat
+      // 2D coordinates, so the library thumbnail and the editor both open with a
+      // real structure instead of an empty stub.
       let molfile = "";
+      let source: "pubchem" | "imported" = data.cid != null ? "pubchem" : "imported";
       if (data.cid != null) {
         const PUG = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound";
         const res = await fetch(`${PUG}/cid/${data.cid}/record/SDF?record_type=2d`);
@@ -95,18 +105,24 @@ export default function StructureCard({ descriptor, caption, sidecarPath }: Exte
           molfile = await res.text();
         }
       }
-      // Fallback for SMILES-only or failed SDF fetch: use a comment-only stub.
-      // moleculesApi.create accepts an empty string and derives identity from the meta.
       if (!molfile && data.smiles) {
-        // A minimal V2000 Molfile with no atoms; the molecule store accepts it and the
-        // workbench editor prompts the user to draw or import on first open.
-        molfile = `\n  ResearchOS  \n\n  0  0  0  0  0  0  0  0  0  0999 V2000\nM  END\n`;
+        // RDKit is browser-only and rejects during SSR, but this handler only runs
+        // from a click, so the engine is available. A SMILES RDKit cannot parse
+        // throws here and surfaces as the "Error" save state below.
+        molfile = await toMolblock(data.smiles);
+        // A SMILES-only entry is an import, not a PubChem record, even if a CID
+        // was present but its SDF fetch fell through.
+        source = "imported";
+      }
+      if (!molfile) {
+        setSaveState("error");
+        return;
       }
 
       const name = data.name !== "Unknown structure" ? data.name : (caption || "Imported compound");
       await moleculesApi.create(molfile, {
         name,
-        source: "pubchem",
+        source,
         pubchem_cid: data.cid ?? undefined,
       });
       setSaveState("saved");
