@@ -39,6 +39,7 @@ import {
   type NormalizedMixedModel,
   type NormalizedSurvival,
   type NormalizedCoxRegression,
+  type NormalizedGrubbsOutlier,
   type NormalizedTTest,
   type NormalizedTwoWayAnova,
 } from "@/lib/datahub/run-analysis";
@@ -1122,6 +1123,101 @@ function CoxRegressionTable({ r }: { r: NormalizedCoxRegression }) {
 }
 
 /**
+ * The Grubbs outlier screen, one block per column. Each block shows the column's
+ * original n, the per-step G and critical value (one row per pass of the sweep),
+ * which value each pass examined and whether it was flagged, and the cleaned n
+ * after the flagged points are removed.
+ */
+function GrubbsOutlierTable({ r }: { r: NormalizedGrubbsOutlier }) {
+  return (
+    <div className="flex flex-col gap-4" data-testid="results-grubbs-table">
+      {r.columns.map((col) => {
+        const flaggedSteps = col.result.steps.filter((s) => s.flagged);
+        return (
+          <div key={col.columnId}>
+            <h4 className="text-body font-semibold text-foreground">
+              {col.name}
+            </h4>
+            <table className="mt-1 w-full border-collapse text-body tabular-nums">
+              <thead>
+                <tr className="text-meta uppercase tracking-wide text-foreground-muted">
+                  <th className="border-b border-border px-3 py-1.5 text-left">
+                    Pass
+                  </th>
+                  <th className="border-b border-border px-3 py-1.5 text-right">
+                    n
+                  </th>
+                  <th className="border-b border-border px-3 py-1.5 text-right">
+                    Value
+                  </th>
+                  <th className="border-b border-border px-3 py-1.5 text-right">
+                    Row
+                  </th>
+                  <th className="border-b border-border px-3 py-1.5 text-right">
+                    G
+                  </th>
+                  <th className="border-b border-border px-3 py-1.5 text-right">
+                    G critical
+                  </th>
+                  <th className="border-b border-border px-3 py-1.5 text-right">
+                    Outlier
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {col.result.steps.map((s) => (
+                  <tr key={s.step}>
+                    <td className="border-b border-border px-3 py-1.5 text-foreground">
+                      {s.step}
+                    </td>
+                    <td className="border-b border-border px-3 py-1.5 text-right">
+                      {num(s.n, 0)}
+                    </td>
+                    <td className="border-b border-border px-3 py-1.5 text-right">
+                      {num(s.value, 4)}
+                    </td>
+                    <td className="border-b border-border px-3 py-1.5 text-right">
+                      {num(s.rowIndex + 1, 0)}
+                    </td>
+                    <td className="border-b border-border px-3 py-1.5 text-right">
+                      {num(s.g, 4)}
+                    </td>
+                    <td className="border-b border-border px-3 py-1.5 text-right">
+                      {num(s.gCritical, 4)}
+                    </td>
+                    <td className="border-b border-border px-3 py-1.5 text-right">
+                      {s.flagged ? "Yes" : "No"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="mt-1 text-meta text-foreground-muted">
+              {flaggedSteps.length === 0
+                ? `No outliers flagged. n stays at ${col.result.n}.`
+                : `${flaggedSteps.length} ${
+                    flaggedSteps.length === 1 ? "outlier" : "outliers"
+                  } flagged (${col.result.outlierValues
+                    .map((v) => num(v, 4))
+                    .join(", ")}). Cleaned n is ${col.result.cleanedN}.`}
+            </p>
+          </div>
+        );
+      })}
+      <p className="max-w-xl text-meta text-foreground-muted">
+        Grubbs flags the single most extreme value when its distance from the
+        mean, in sample standard deviations (the G statistic), is larger than the
+        critical value for this sample size at alpha {num(r.alpha, 2)}.{" "}
+        {r.iterative
+          ? "The iterative sweep removes a flagged value and tests again on what remains, so each pass is a new row above."
+          : "Only the single most extreme value is tested (single-pass mode)."}{" "}
+        A flagged value is a candidate for review, not an automatic deletion.
+      </p>
+    </div>
+  );
+}
+
+/**
  * The result tabs for one normalized result. Only tabs that actually have
  * content are returned, so a t-test shows a single "Tabular results" tab while a
  * one-way ANOVA splits into the ANOVA table and (when there are pairs) Multiple
@@ -1264,6 +1360,14 @@ function resultTabs(result: NormalizedResult): {
           id: "tabular",
           label: "Tabular results",
           render: () => <GlobalFitTable r={result} />,
+        },
+      ];
+    case "grubbsOutlier":
+      return [
+        {
+          id: "tabular",
+          label: "Tabular results",
+          render: () => <GrubbsOutlierTable r={result} />,
         },
       ];
     default:

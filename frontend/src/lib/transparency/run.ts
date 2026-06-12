@@ -44,6 +44,7 @@ import {
   shapiroWilk,
   levene,
   brownForsythe,
+  grubbsTest,
   kaplanMeier,
   logRank,
   gehanBreslowWilcoxon,
@@ -99,6 +100,7 @@ import {
   MLR_X1,
   MLR_X2,
   MLR_Y,
+  OUTLIER_SAMPLE,
   PAIR_X,
   PAIR_Y,
   POWER_ALPHA,
@@ -1333,6 +1335,19 @@ function runDatahubEngine(): Record<string, number> {
   const sw = need(shapiroWilk([...GROUP_A, ...GROUP_B, ...GROUP_C]), "Shapiro-Wilk");
   const lev = need(levene([GROUP_A, GROUP_B, GROUP_C]), "Levene");
   const bf = need(brownForsythe([GROUP_A, GROUP_B, GROUP_C]), "Brown-Forsythe");
+
+  // Grubbs outlier test on the one-outlier OUTLIER_SAMPLE (n = 9). The iterative
+  // sweep produces two passes: pass 1 on all 9 values flags the extreme 12.7,
+  // pass 2 on the remaining 8 flags nothing. The G and Bonferroni-corrected
+  // critical value of each pass cross-check the scipy.stats.t hand computation in
+  // the generator. The sweep is deterministic, so these pin tight.
+  const grubbs = need(grubbsTest(OUTLIER_SAMPLE), "Grubbs outlier test");
+  const grubbsStep1 = grubbs.steps[0];
+  const grubbsStep2 = grubbs.steps[1];
+  if (!grubbsStep1 || !grubbsStep2) {
+    throw new Error("transparency: Grubbs did not produce two sweep passes");
+  }
+
   const km = need(kaplanMeier(SURV_TREAT), "Kaplan-Meier");
   const lr = need(
     logRank([
@@ -1557,6 +1572,16 @@ function runDatahubEngine(): Record<string, number> {
     bf_w: bf.statistic,
     bf_p: bf.pValue,
 
+    grubbs_g1: grubbsStep1.g,
+    grubbs_gcrit1: grubbsStep1.gCritical,
+    grubbs_g2: grubbsStep2.g,
+    grubbs_gcrit2: grubbsStep2.gCritical,
+    // 1 when pass 1 flags an outlier and pass 2 does not (the expected sweep
+    // shape for a single-outlier sample). A regression that flagged the wrong
+    // count would change this to 0.
+    grubbs_sweep_shape:
+      grubbsStep1.flagged && !grubbsStep2.flagged ? 1 : 0,
+
     km_surv_t7: survAt(KM_READ_TIMES[0]),
     km_surv_t13: survAt(KM_READ_TIMES[1]),
     km_surv_t23: survAt(KM_READ_TIMES[2]),
@@ -1664,8 +1689,9 @@ function buildDatahubStatsDomain(): DomainReport {
       + "and paired t-tests, Mann-Whitney U, Wilcoxon signed-rank, one-way and "
       + "two-way ANOVA with Tukey post-hoc, Kruskal-Wallis, Friedman, Pearson and "
       + "Spearman correlation, simple linear regression, Shapiro-Wilk and Levene / "
-      + "Brown-Forsythe assumption checks, and Kaplan-Meier survival with the "
-      + "log-rank test. It also validates the estimation layer that turns a p-value "
+      + "Brown-Forsythe assumption checks, the Grubbs outlier test, and Kaplan-Meier "
+      + "survival with the log-rank test. It also validates the estimation layer that "
+      + "turns a p-value "
       + "into a measured effect, the Cohen's d / Hedges' g and standardized-effect "
       + "confidence intervals on the t-tests, eta-squared and omega-squared on the "
       + "one-way ANOVA, and r-squared on the correlation (each against the pingouin / "

@@ -107,6 +107,11 @@ REPEATED_LABELS = ["P", "Q", "R"]
 PAIR_X = [row[0] for row in REPEATED]
 PAIR_Y = [row[1] for row in REPEATED]
 
+# A single sample with one obvious outlier for the Grubbs outlier test. Eight
+# tightly clustered values around 5 plus one (12.7) far above the rest, the
+# textbook one-outlier case. Mirrored verbatim in datahub-stats.ts.
+OUTLIER_SAMPLE = [5.1, 4.9, 5.6, 5.0, 5.3, 4.8, 5.2, 5.4, 12.7]
+
 # An XY dataset for correlation + simple linear regression.
 XY_X = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
 XY_Y = [2.1, 3.9, 6.2, 7.8, 10.1, 12.2, 13.8, 16.1]
@@ -851,6 +856,51 @@ def ref_assumptions():
     return out
 
 
+def ref_grubbs():
+    # Grubbs outlier test. There is no scipy.stats.grubbs, so compute the
+    # two-sided Grubbs G and the Bonferroni-corrected critical value by hand from
+    # scipy.stats.t (this is exact and matches the engine's definition). The
+    # critical value at sample size n and significance alpha is:
+    #   t = upper alpha / (2n) critical of Student's t with n - 2 df
+    #   G_crit = ((n - 1) / sqrt(n)) * sqrt(t^2 / (n - 2 + t^2))
+    # The extreme point is an outlier when G > G_crit. We report the first pass
+    # on the full sample and the second pass after removing the flagged point.
+    def grubbs_critical(n, alpha=0.05):
+        df = n - 2
+        t = st.t.ppf(1 - alpha / (2 * n), df)
+        return ((n - 1) / np.sqrt(n)) * np.sqrt(t ** 2 / (df + t ** 2))
+
+    def grubbs_step(values, alpha=0.05):
+        arr = np.asarray(values, float)
+        mean, sd = arr.mean(), arr.std(ddof=1)
+        i = int(np.argmax(np.abs(arr - mean)))
+        g = 0.0 if sd == 0 else abs(arr[i] - mean) / sd
+        g_crit = grubbs_critical(len(arr), alpha)
+        return {"value": float(arr[i]), "g": g, "g_crit": g_crit,
+                "flagged": bool(g > g_crit), "index": i}
+
+    out = {}
+    s1 = grubbs_step(OUTLIER_SAMPLE, alpha=0.05)
+    out["pass1"] = {
+        "n": len(OUTLIER_SAMPLE),
+        "value": r4(s1["value"]),
+        "g": r4(s1["g"]),
+        "g_crit": r4(s1["g_crit"]),
+        "flagged": s1["flagged"],
+    }
+    # Second pass on the remaining values after removing the flagged point.
+    remaining = [v for j, v in enumerate(OUTLIER_SAMPLE) if j != s1["index"]]
+    s2 = grubbs_step(remaining, alpha=0.05)
+    out["pass2"] = {
+        "n": len(remaining),
+        "value": r4(s2["value"]),
+        "g": r4(s2["g"]),
+        "g_crit": r4(s2["g_crit"]),
+        "flagged": s2["flagged"],
+    }
+    return out
+
+
 def ref_survival():
     out = {}
     kmf = KaplanMeierFitter()
@@ -1118,6 +1168,7 @@ PROVENANCE = {
         "shapiro": "scipy.stats.shapiro(A+B+C)",
         "levene_mean": "scipy.stats.levene(A, B, C, center='mean')  [our levene()]",
         "levene_median": "scipy.stats.levene(A, B, C, center='median')  [our brownForsythe()]",
+        "grubbs": "Grubbs G = max|x-mean|/sd; G_crit from scipy.stats.t.ppf(1-alpha/(2n), n-2) by hand (no scipy.stats.grubbs)",
         "km_treat": "lifelines.KaplanMeierFitter.fit / .predict / .median_survival_time_",
         "logrank": "lifelines.statistics.logrank_test",
         "contingency": "scipy.stats.chi2_contingency(table, correction=False)  [PENDING: no engine impl yet]",
@@ -1152,6 +1203,7 @@ def main():
     refs.update({"global_fit": ref_global_fit()})
     refs.update({"from_stats": ref_from_stats()})
     refs.update({"assumptions": ref_assumptions()})
+    refs.update({"grubbs": ref_grubbs()})
     refs.update({"survival": ref_survival()})
     refs.update({"chi_square": ref_chi_square()})
     refs.update({"effect_sizes": ref_effect_sizes()})

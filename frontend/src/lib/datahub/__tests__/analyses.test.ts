@@ -98,7 +98,10 @@ describe("run-analysis", () => {
       columns: content.columns.slice(0, 2),
     };
     const twoTypes = validAnalysisTypes(twoGroup);
+    // Grubbs outlier detection is offered from a single group column up (each
+    // column is screened on its own), so it leads the list for any column table.
     expect(twoTypes).toEqual([
+      "grubbsOutlier",
       "unpairedTTest",
       "pairedTTest",
       "mannWhitneyU",

@@ -46,6 +46,16 @@ export const REPEATED_LABELS = ["P", "Q", "R"];
 export const PAIR_X = REPEATED.map((r) => r[0]);
 export const PAIR_Y = REPEATED.map((r) => r[1]);
 
+/**
+ * A single sample with one obvious outlier for the Grubbs outlier test. Eight
+ * tightly clustered values around 5 plus one value (12.7) that sits far above
+ * the rest, the textbook one-outlier case. Computing the two-sided Grubbs G and
+ * the Bonferroni-corrected critical value by hand from scipy.stats.t (in the
+ * generator) flags 12.7 as an outlier. A second pass on the remaining 8 values
+ * flags nothing, so the iterative sweep removes exactly one point.
+ */
+export const OUTLIER_SAMPLE = [5.1, 4.9, 5.6, 5.0, 5.3, 4.8, 5.2, 5.4, 12.7];
+
 /** An XY dataset for correlation and simple linear regression. */
 export const XY_X = [1, 2, 3, 4, 5, 6, 7, 8];
 export const XY_Y = [2.1, 3.9, 6.2, 7.8, 10.1, 12.2, 13.8, 16.1];
@@ -502,6 +512,20 @@ export const STAT_PINS: StatPin[] = [
   { id: "levene_p", metric: "Levene (mean-centered), p", reference: 0.912051, oracleId: "scipy", tol: 5e-3, warn: 2e-2, unit: "p" },
   { id: "bf_w", metric: "Brown-Forsythe (median-centered), W", reference: 0.072115, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "W" },
   { id: "bf_p", metric: "Brown-Forsythe (median-centered), p", reference: 0.930744, oracleId: "scipy", tol: 5e-3, warn: 2e-2, unit: "p" },
+
+  // --- Grubbs outlier test (G and critical value by hand from scipy.stats.t) ---
+  // The OUTLIER_SAMPLE (9 values, one clear outlier at 12.7) screened by the
+  // iterative sweep. There is no scipy.stats.grubbs, so the generator computes
+  // the two-sided Grubbs G and the Bonferroni-corrected critical value by hand
+  // from scipy.stats.t (the same definition the engine uses), which is exact.
+  // Pass 1 (n = 9) flags 12.7; pass 2 (n = 8) flags nothing, so the sweep removes
+  // exactly one point. The G and critical value of each pass are deterministic,
+  // so they pin tight.
+  { id: "grubbs_g1", metric: "Grubbs outlier test, pass 1 G (n = 9)", reference: 2.653595, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "G" },
+  { id: "grubbs_gcrit1", metric: "Grubbs outlier test, pass 1 critical value (n = 9, alpha 0.05)", reference: 2.215004, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "G" },
+  { id: "grubbs_g2", metric: "Grubbs outlier test, pass 2 G (n = 8)", reference: 1.639025, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "G" },
+  { id: "grubbs_gcrit2", metric: "Grubbs outlier test, pass 2 critical value (n = 8, alpha 0.05)", reference: 2.126645, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "G" },
+  { id: "grubbs_sweep_shape", metric: "Grubbs outlier test, sweep flags exactly one outlier (1 = yes)", reference: 1, oracleId: "scipy", tol: 1e-6, warn: 1e-6, unit: "flag" },
 
   // --- survival (lifelines KaplanMeierFitter / logrank_test) ---
   { id: "km_surv_t7", metric: "Kaplan-Meier survival at t = 7 (Treatment)", reference: 0.861538, oracleId: "lifelines", tol: 1e-4, warn: 5e-4, unit: "S(t)" },
