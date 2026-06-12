@@ -50,6 +50,7 @@ import {
   runMultipleRegressionTool,
   runLogisticRegressionTool,
   globalFitTool,
+  runDoseResponseTool,
   listDataHubAnalysesTool,
   readDataHubAnalysisTool,
   getAnalysisCodeTool,
@@ -62,6 +63,11 @@ import {
   rescheduleExperimentTool,
   createExperimentChainTool,
 } from "./experiment-tools";
+import {
+  createTaskTool,
+  rescheduleTaskTool,
+  updateTaskTool,
+} from "./task-tools";
 import {
   readNoteTool,
   readMethodTool,
@@ -127,6 +133,11 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // curves with shared parameters through the same runAnalysis path, storing a
   // reversible analysis the user asked for, then navigates to it.
   globalFitTool,
+  // Non-gated for the same reason. run_dose_response fits a single 4PL/5PL curve
+  // and reads out the EC50 / IC50 through the same validated runAnalysis path,
+  // storing a reversible analysis the user asked for, then navigates to it. The
+  // engine owns the fit, the EC50, the Hill slope, and the R-squared.
+  runDoseResponseTool,
   // Non-gated for the same reason. make_datahub_graph builds a reversible,
   // version-controlled figure the user explicitly asked for (and whose graph type
   // / error bar they may have tapped through ask_user) through the validated plot
@@ -248,6 +259,17 @@ export const ACTION_TOOLS: AiTool[] = [
   createExperimentTool,
   rescheduleExperimentTool,
   createExperimentChainTool,
+  // Scheduling coworker tools (action: true, isDestructive false). create_task
+  // adds a task to a project the user names; reschedule_task moves a task through
+  // the dependency-aware shift path (tasksApi.move) so dependents cascade and the
+  // returned ShiftResult tells the model how many moved; update_task renames,
+  // marks complete/incomplete, or moves a task to another project. The user sees a
+  // one-line confirm before each writes. None deletes, so none forces the
+  // destructive hard-stop. The local-api owns every write; the model only maps the
+  // request to real project / task ids. Own-user tasks only for v1.
+  createTaskTool,
+  rescheduleTaskTool,
+  updateTaskTool,
   createSequenceTool,
   createMoleculeTool,
   importMoleculeTool,

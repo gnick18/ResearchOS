@@ -1645,6 +1645,212 @@ export const globalFitTool: AiTool = {
 };
 
 // ---------------------------------------------------------------------------
+// run_dose_response (single-curve 4PL/5PL fit, maps to the doseResponse engine)
+// ---------------------------------------------------------------------------
+
+/** The curve model a single-curve dose-response fit uses. */
+export type DoseResponseModel = "logistic4pl" | "logistic5pl";
+
+/** The model-supplied args for run_dose_response. */
+export type DoseResponseArgs = {
+  tableId: string;
+  model: DoseResponseModel;
+  /** Which Y curve to fit, by name or id. Omit to use the first Y column. */
+  yColumn?: string;
+};
+
+/** The compact, model-friendly result run_dose_response relays. The engine
+ *  computed every number; the model only repeats them, never an EC50, a Hill
+ *  slope, or an R-squared of its own. */
+export type DoseResponseToolResult =
+  | {
+      ok: true;
+      table: string;
+      xName: string;
+      yName: string;
+      model: DoseResponseModel;
+      modelLabel: string;
+      n: number;
+      /** EC50 / IC50 in linear-dose units, with its asymmetric 95% CI. */
+      ec50: number;
+      ec50CI95: [number, number];
+      hillSlope: number;
+      top: number;
+      bottom: number;
+      rSquared: number;
+      /** The full normalized fit (every parameter with its SE + CI). */
+      fit: Extract<RunOutcome, { kind: "doseResponse" }>;
+      analysisId: string;
+    }
+  | { ok: false; error: string };
+
+/** Parse the loose args into typed DoseResponseArgs, defaulting to the 4PL. Pure. */
+export function parseDoseResponseArgs(args: Record<string, unknown>): DoseResponseArgs {
+  const model: DoseResponseModel =
+    args.model === "logistic5pl" ? "logistic5pl" : "logistic4pl";
+  return {
+    tableId: typeof args.tableId === "string" ? args.tableId : "",
+    model,
+    yColumn:
+      typeof args.yColumn === "string" && args.yColumn.trim()
+        ? args.yColumn.trim()
+        : undefined,
+  };
+}
+
+/**
+ * Build a doseResponse spec for the request against live content and run it
+ * through the SAME runAnalysis path the wizard uses, so BeakerBot never computes
+ * an EC50, a Hill slope, or an R-squared. The engine owns the fit; this only maps
+ * the model's words (a table, a model, which Y curve) onto the validated spec,
+ * mirroring buildModelComparison exactly. Pure given the content. Returns the spec
+ * to store plus the compact result, or an error.
+ */
+export function buildDoseResponse(
+  content: DataHubDocContent,
+  parsed: DoseResponseArgs,
+):
+  | { ok: true; spec: AnalysisSpec; result: Extract<DoseResponseToolResult, { ok: true }> }
+  | { ok: false; error: string } {
+  if (!isXYTable(content)) {
+    return {
+      ok: false,
+      error:
+        "A dose-response fit runs on an XY table (an X column of doses plus one or more Y response columns), and that table is not one. Pick an XY table, for example a dose-response curve.",
+    };
+  }
+  const yId = resolveYColumnId(content, parsed.yColumn);
+  if (!yId) {
+    return {
+      ok: false,
+      error: "That XY table has no Y column to fit. Add a Y column of responses first.",
+    };
+  }
+
+  const spec: AnalysisSpec = {
+    id: `analysis-${Date.now()}`,
+    type: "doseResponse",
+    params: { model: parsed.model },
+    inputs: { columnIds: [yId] },
+    resultCache: null,
+    resultStale: false,
+  };
+
+  const outcome = runAnalysis(spec, content);
+  if (!outcome.ok) return { ok: false, error: outcome.error };
+  if (outcome.kind !== "doseResponse") {
+    return { ok: false, error: "The engine did not return a dose-response fit." };
+  }
+  spec.resultCache = outcome;
+
+  const result: Extract<DoseResponseToolResult, { ok: true }> = {
+    ok: true,
+    table: content.meta.name,
+    xName: outcome.xName,
+    yName: outcome.yName,
+    model: outcome.model,
+    modelLabel: outcome.modelLabel,
+    n: outcome.n,
+    ec50: outcome.ec50,
+    ec50CI95: outcome.ec50CI95,
+    hillSlope: outcome.hillSlope.value,
+    top: outcome.top.value,
+    bottom: outcome.bottom.value,
+    rSquared: outcome.rSquared,
+    fit: outcome,
+    analysisId: spec.id,
+  };
+  return { ok: true, spec, result };
+}
+
+/**
+ * Build the one-line preview summary for the run_dose_response step, from the
+ * args and the cached table content, WITHOUT running the fit. Pure, so the
+ * step-mode gate can render the preview-and-confirm block synchronously. Names
+ * the curve where the content is cached, and falls back to a generic line when
+ * the table is not cached yet (the model called the tool without listing first),
+ * so the gate always has something to show, mirroring the other describers.
+ */
+export function describeDoseResponse(args: Record<string, unknown>): {
+  summary: string;
+} {
+  const parsed = parseDoseResponseArgs(args);
+  const content = getCachedTableContent(parsed.tableId);
+  if (!content) {
+    return { summary: `fit a ${parsed.model} dose-response curve on a Data Hub table` };
+  }
+  const yId = resolveYColumnId(content, parsed.yColumn);
+  const yName =
+    (yId && yColumns(content).find((c) => c.id === yId)?.name) || "the curve";
+  return {
+    summary: `fit a ${parsed.model} dose-response curve to ${yName} in ${content.meta.name}`,
+  };
+}
+
+export const runDoseResponseTool: AiTool = {
+  name: "run_dose_response",
+  description:
+    "Fit a single dose-response curve (a 4PL or 5PL logistic) to one XY table and read out the EC50 / IC50, store the result, and take the user to it. Use this when the user asks for a dose-response fit or its potency readout (for example \"fit a dose-response curve and give me the EC50\", \"what is the IC50 here\", \"4PL fit on this curve\"). Call list_datahub_tables first to get the XY table id. Pass the model (\"logistic4pl\" the default, symmetric, or \"logistic5pl\" the asymmetric variable-slope variant). Optionally pass yColumn (a Y-column name or id) to choose which curve to fit when the table has more than one Y column; omit to fit the first. To COMPARE two models instead of fitting one, use compare_models; to fit several curves jointly with shared parameters, use global_fit. The app's engine fits the curve and reports the EC50 / IC50 with its asymmetric 95% CI, the Hill slope, the Top and Bottom plateaus, and R-squared, you NEVER compute an EC50, a Hill slope, or an R-squared. This runs straight away, there is NO separate approval step, so do not call propose_plan for it. It saves the fit into the table as a version-controlled analysis, navigates the user to the Data Hub so they see it, and returns the fit. After it returns, give ONE short line, the EC50 / IC50 with its CI, the Hill slope, and R-squared. Never invent a number, only repeat what this returns.",
+  parameters: {
+    type: "object",
+    properties: {
+      tableId: {
+        type: "string",
+        description:
+          "The id of the XY Data Hub table to fit, from a list_datahub_tables result.",
+      },
+      model: {
+        type: "string",
+        description:
+          "The curve model. \"logistic4pl\" (the default, symmetric four-parameter logistic) or \"logistic5pl\" (the asymmetric five-parameter variant). Use 5PL only when the user asks for it or the curve is visibly asymmetric.",
+      },
+      yColumn: {
+        type: "string",
+        description:
+          "Optional. Which Y column to fit, by name or id, when the XY table has more than one. Omit to fit the first Y column.",
+      },
+    },
+    required: ["tableId"],
+    additionalProperties: false,
+  },
+  // Previewable, not an action (see run_datahub_analysis / compare_models). Step
+  // mode previews the fit; whole-plan mode runs it free, the write is a new,
+  // reversible, version-controlled analysis and the user's request is the consent.
+  previewable: true,
+  describeAction: describeDoseResponse,
+  execute: async (args) => {
+    const parsed = parseDoseResponseArgs(args);
+    if (!parsed.tableId) {
+      return {
+        ok: false,
+        error: "No table was given. Call list_datahub_tables first and pass the XY table id.",
+      } satisfies DoseResponseToolResult;
+    }
+    const content = await datahubAnalysisDeps.resolveContent(parsed.tableId);
+    if (!content) {
+      return {
+        ok: false,
+        error: "I could not open that table. It may have been deleted, or the id is wrong.",
+      } satisfies DoseResponseToolResult;
+    }
+    cacheTableContent(parsed.tableId, content);
+
+    const built = buildDoseResponse(content, parsed);
+    if (!built.ok) return { ok: false, error: built.error } satisfies DoseResponseToolResult;
+
+    const stored = await datahubAnalysisDeps.persistAnalysis(parsed.tableId, built.spec);
+    if (!stored) {
+      return {
+        ok: false,
+        error: "The dose-response fit computed but could not be saved to the table. The result is not stored.",
+      } satisfies DoseResponseToolResult;
+    }
+    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
+    return built.result satisfies DoseResponseToolResult;
+  },
+};
+
+// ---------------------------------------------------------------------------
 // list_datahub_analyses (READ-only)
 // ---------------------------------------------------------------------------
 
