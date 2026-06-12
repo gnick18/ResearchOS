@@ -133,6 +133,16 @@ Walk the document's links, run each href through `parseObjectEmbed`, and you hav
 - Do not duplicate data into the note. An embed is live, it always reflects the current object. Prefer embedding a Data Hub table / result over pasting numbers.
 - House style for any prose BeakerBot writes alongside embeds: no em-dashes, no emojis, no mid-sentence colons.
 
+## Figure numbering (optional, per document)
+
+A document can opt into "Figure 1 / Table 2" numbering by including this one-line directive anywhere in its body:
+
+```
+<!-- ros:number-figures -->
+```
+
+When present, ResearchOS numbers the block embeds in document order (figures and Data Hub tables counted separately) and shows the number in each embed's caption. Use it when BeakerBot is drafting a paper-style writeup, leave it out for a plain lab note. The link text is still the caption, so a good caption per embed makes the numbered figure list read well.
+
 ## Worked examples
 
 ```

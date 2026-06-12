@@ -26,6 +26,7 @@ import {
   normalizeSharedWith,
 } from "@/lib/sharing/unified";
 import type { Note, OneOnOne } from "@/lib/types";
+import { normalizeOneOnOne } from "@/lib/one-on-one/normalize";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -246,10 +247,11 @@ export async function buildNotebooksSnapshot(): Promise<NotebooksSnapshot> {
 
       const oo = ooById.get(note.one_on_one_id);
       // Skip notes whose 1:1 we could not resolve, or where the current user
-      // is not a participant.
+      // is not a participant. `getOneOnOnes` returns normalized records, so we
+      // read the generalized `members`/`mentor` instead of the legacy binary.
       if (!oo) continue;
-      const isParticipant =
-        oo.labHead === currentUser || oo.member === currentUser;
+      const normalized = normalizeOneOnOne(oo);
+      const isParticipant = normalized.members.includes(currentUser);
       if (!isParticipant) continue;
 
       const owner = resolveNoteOwner(note, username);
@@ -257,9 +259,11 @@ export async function buildNotebooksSnapshot(): Promise<NotebooksSnapshot> {
       if (seenOneOnOne.has(dedupKey)) continue;
       seenOneOnOne.add(dedupKey);
 
+      // The partner is the other member of a pair space (the first non-viewer
+      // for a group). The mentor flag is whether the viewer mentors this space.
       const partnerUsername =
-        oo.labHead === currentUser ? oo.member : oo.labHead;
-      const isLabHead = oo.labHead === currentUser;
+        normalized.members.find((m) => m !== currentUser) ?? "";
+      const isLabHead = normalized.mentor === currentUser;
 
       notebooks.push({
         noteId: note.id,

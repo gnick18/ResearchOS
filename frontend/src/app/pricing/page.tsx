@@ -212,8 +212,9 @@ export default function PricingPage() {
             </p>
           </Section>
 
-          {/* The AI is the one metered thing, at cost, a separate optional meter */}
-          <Section>
+          {/* The AI is the one metered thing, at cost, a separate optional meter.
+              id="ai-pricing" so the competitor-savings AI highlight can link here. */}
+          <Section id="ai-pricing">
             <SectionHeading
               title="The AI assistant is the one thing that is metered, and it is at cost"
               subtitle="The app, search, editing, and collaboration are all free and unmetered. BeakerBot, the optional AI assistant, is the single exception, because each AI task calls a hosted model that costs us real money. It is a separate optional meter from your storage plan, you can use one, both, or neither."

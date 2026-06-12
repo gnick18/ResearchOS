@@ -13,7 +13,7 @@ import { useEffect, useState } from "react";
 import { sequencesApi } from "@/lib/local-api";
 import type { SequenceDetail } from "@/lib/types";
 import { objectDeepLink } from "@/lib/references";
-import { ObjectEmbedCard, type EmbedRendererProps } from "./ObjectEmbed";
+import { ObjectEmbedCard, EmbedCaption, type EmbedRendererProps } from "./ObjectEmbed";
 
 type LoadState =
   | { k: "loading" }
@@ -27,7 +27,7 @@ const VIEW_W = 720;
 const PAD = 16;
 const BASE_Y = 46;
 
-export default function SequenceEmbed({ descriptor, caption }: EmbedRendererProps) {
+export default function SequenceEmbed({ descriptor, caption, figureLabel }: EmbedRendererProps) {
   const [state, setState] = useState<LoadState>({ k: "loading" });
 
   useEffect(() => {
@@ -114,6 +114,7 @@ export default function SequenceEmbed({ descriptor, caption }: EmbedRendererProp
           </text>
         </svg>
       </div>
+      <EmbedCaption caption={caption} name={d.display_name} figureLabel={figureLabel} />
     </div>
   );
 }

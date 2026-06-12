@@ -14,14 +14,14 @@ import { useEffect, useState } from "react";
 import { moleculesApi, type MoleculeMeta } from "@/lib/chemistry/api";
 import { MoleculeThumbnail } from "@/components/chemistry/MoleculeThumbnail";
 import { objectDeepLink } from "@/lib/references";
-import { ObjectEmbedCard, type EmbedRendererProps } from "./ObjectEmbed";
+import { ObjectEmbedCard, EmbedCaption, type EmbedRendererProps } from "./ObjectEmbed";
 
 type LoadState =
   | { k: "loading" }
   | { k: "missing" }
   | { k: "ok"; meta: MoleculeMeta };
 
-export default function MoleculeEmbed({ descriptor, caption }: EmbedRendererProps) {
+export default function MoleculeEmbed({ descriptor, caption, figureLabel }: EmbedRendererProps) {
   const [state, setState] = useState<LoadState>({ k: "loading" });
 
   useEffect(() => {
@@ -73,6 +73,7 @@ export default function MoleculeEmbed({ descriptor, caption }: EmbedRendererProp
           <MoleculeThumbnail structure={m.smiles ?? ""} width={200} height={140} />
         </span>
       </div>
+      <EmbedCaption caption={caption} name={m.name} figureLabel={figureLabel} />
     </div>
   );
 }

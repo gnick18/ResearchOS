@@ -1,15 +1,25 @@
-// 1:1 revamp (oneonone data+strip bot, 2026-06-07). See
-// docs/proposals/NOTEBOOKS_AND_ONE_ON_ONE_REVAMP.md.
+// Check-ins revamp Phase 1 (checkins-revamp bot, 2026-06-11). See
+// docs/proposals/checkins-revamp.md.
 //
-// Coverage of the OneOnOne data + API foundation, against an in-memory file
-// system (same harness as shared-notebooks.test.ts). Three users:
-//   - pi      : lab_head (creates the 1:1)
+// Coverage of the generalized check-in space data + API, against an in-memory
+// file system (same harness as shared-notebooks.test.ts). Three users:
+//   - pi      : lab_head (a mentor in some spaces)
 //   - student : plain member (the counterpart)
-//   - other   : plain member, not in any 1:1 (the privacy probe)
+//   - other   : plain member, not in any space (the privacy probe)
+//
+// The 1:1 is now an any-account member-array "space" with an optional mentor
+// edge; any account can create one (the lab-head gate is retired), and reads
+// run through `normalizeOneOnOne` so callers always see `members`/`mentor`/
+// `kind`.
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { canRead, type Viewer } from "../sharing/unified";
-import { oneOnOneLabel, oneOnOneTabLabel } from "./label";
+import {
+  oneOnOneLabel,
+  oneOnOneTabLabel,
+  relationshipHint,
+} from "./label";
+import { normalizeOneOnOne } from "./normalize";
 import type { OneOnOne } from "../types";
 
 const memFs = new Map<string, unknown>();
@@ -79,14 +89,18 @@ beforeEach(() => {
 });
 
 describe("oneOnOnesApi.create", () => {
-  it("a lab head creates a 1:1: stamps labHead/member/owner + both-at-edit", async () => {
+  it("creates a mentoring pair: forces creator into members[0], writes new + legacy fields", async () => {
     setCurrentUser("pi");
-    const oo = await oneOnOnesApi.create({ member: "student" });
+    const oo = await oneOnOnesApi.create({
+      members: ["pi", "student"],
+      mentor: "pi",
+    });
 
     expect(oo.id).toBeTypeOf("string");
     expect(oo.id.length).toBeGreaterThan(0);
-    expect(oo.labHead).toBe("pi");
-    expect(oo.member).toBe("student");
+    expect(oo.members).toEqual(["pi", "student"]);
+    expect(oo.mentor).toBe("pi");
+    expect(oo.kind).toBe("pair");
     expect(oo.created_by).toBe("pi");
     expect(oo.owner).toBe("pi");
     expect(oo.shared_with).toEqual([
@@ -94,7 +108,11 @@ describe("oneOnOnesApi.create", () => {
       { username: "student", level: "edit" },
     ]);
 
-    // Persisted in the lab head's folder under the UUID filename.
+    // Legacy back-compat fields written for a 2-person mentoring space.
+    expect(oo.labHead).toBe("pi");
+    expect(oo.member).toBe("student");
+
+    // Persisted in the creator's folder under the UUID filename.
     const onDisk = memFs.get(`users/pi/one_on_ones/${oo.id}.json`) as OneOnOne;
     expect(onDisk?.id).toBe(oo.id);
 
@@ -104,18 +122,40 @@ describe("oneOnOnesApi.create", () => {
     expect(canRead(oo, viewer("other"))).toBe(false);
   });
 
-  it("a non-lab-head member CANNOT create a 1:1", async () => {
+  it("a non-lab-head member CAN now create a (peer) space", async () => {
     setCurrentUser("student");
+    const oo = await oneOnOnesApi.create({ members: ["student", "other"] });
+
+    expect(oo.members).toEqual(["student", "other"]);
+    expect(oo.mentor).toBeNull();
+    expect(oo.kind).toBe("pair");
+    expect(oo.owner).toBe("student");
+    // No mentor => legacy fields left undefined.
+    expect(oo.labHead).toBeUndefined();
+    expect(oo.member).toBeUndefined();
+  });
+
+  it("forces the creator into members[0] even when omitted, de-duped", async () => {
+    setCurrentUser("pi");
+    const oo = await oneOnOnesApi.create({ members: ["student", "pi"] });
+    expect(oo.members).toEqual(["pi", "student"]);
+  });
+
+  it("rejects a mentor who is not a member", async () => {
+    setCurrentUser("pi");
     await expect(
-      oneOnOnesApi.create({ member: "pi" }),
-    ).rejects.toThrow(/lab head/i);
+      oneOnOnesApi.create({ members: ["pi", "student"], mentor: "other" }),
+    ).rejects.toThrow(/mentor/i);
   });
 });
 
-describe("discovery: both participants see the 1:1, outsiders do not", () => {
-  it("getOneOnOnes returns the 1:1 for the lab head AND the member, not a third", async () => {
+describe("discovery: every member sees the space, outsiders do not", () => {
+  it("getOneOnOnes returns the space for both members, not a third", async () => {
     setCurrentUser("pi");
-    const oo = await oneOnOnesApi.create({ member: "student" });
+    const oo = await oneOnOnesApi.create({
+      members: ["pi", "student"],
+      mentor: "pi",
+    });
 
     setCurrentUser("pi");
     expect((await labApi.getOneOnOnes()).map((o) => o.id)).toEqual([oo.id]);
@@ -126,12 +166,39 @@ describe("discovery: both participants see the 1:1, outsiders do not", () => {
     setCurrentUser("other");
     expect(await labApi.getOneOnOnes()).toEqual([]);
   });
+
+  it("normalizes a legacy on-disk record (labHead/member only) on read", async () => {
+    // Simulate a pre-revamp record with no members array.
+    const legacy: OneOnOne = {
+      id: "legacy-1",
+      labHead: "pi",
+      member: "student",
+      created_by: "pi",
+      created_at: "2026-06-01T00:00:00.000Z",
+      owner: "pi",
+      shared_with: [
+        { username: "pi", level: "edit" },
+        { username: "student", level: "edit" },
+      ],
+    };
+    memFs.set(`users/pi/one_on_ones/legacy-1.json`, legacy);
+
+    setCurrentUser("student");
+    const seen = await labApi.getOneOnOnes();
+    expect(seen.map((o) => o.id)).toEqual(["legacy-1"]);
+    expect(seen[0].members).toEqual(["pi", "student"]);
+    expect(seen[0].mentor).toBe("pi");
+    expect(seen[0].kind).toBe("pair");
+  });
 });
 
 describe("item stamping: weekly goals / notes / action items", () => {
-  it("addWeeklyGoal stamps one_on_one_id + both-at-edit and is readable by both", async () => {
+  it("addWeeklyGoal stamps one_on_one_id + every-member-at-edit and is readable by both", async () => {
     setCurrentUser("pi");
-    const oo = await oneOnOnesApi.create({ member: "student" });
+    const oo = await oneOnOnesApi.create({
+      members: ["pi", "student"],
+      mentor: "pi",
+    });
 
     const goal = await oneOnOnesApi.addWeeklyGoal({
       oneOnOneId: oo.id,
@@ -145,7 +212,6 @@ describe("item stamping: weekly goals / notes / action items", () => {
       { username: "student", level: "edit" },
     ]);
 
-    // The member (the other person) reads it back via the aggregation.
     setCurrentUser("student");
     const seen = await labApi.getOneOnOneWeeklyGoals(oo.id);
     expect(seen.map((g) => g.text)).toEqual(["Run the gel by Friday"]);
@@ -153,7 +219,10 @@ describe("item stamping: weekly goals / notes / action items", () => {
 
   it("addMeetingNote stamps note_kind: meeting + one_on_one_id", async () => {
     setCurrentUser("pi");
-    const oo = await oneOnOnesApi.create({ member: "student" });
+    const oo = await oneOnOnesApi.create({
+      members: ["pi", "student"],
+      mentor: "pi",
+    });
 
     const note = await oneOnOnesApi.addMeetingNote({
       oneOnOneId: oo.id,
@@ -175,9 +244,11 @@ describe("item stamping: weekly goals / notes / action items", () => {
 
   it("addSharedNote stamps note_kind: note", async () => {
     setCurrentUser("pi");
-    const oo = await oneOnOnesApi.create({ member: "student" });
+    const oo = await oneOnOnesApi.create({
+      members: ["pi", "student"],
+      mentor: "pi",
+    });
 
-    // The member adds a freeform shared note (lands in their own folder).
     setCurrentUser("student");
     const note = await oneOnOnesApi.addSharedNote({
       oneOnOneId: oo.id,
@@ -193,11 +264,13 @@ describe("item stamping: weekly goals / notes / action items", () => {
     expect(seen.map((n) => n.title)).toEqual(["Reading list"]);
   });
 
-  it("addActionItem lands in the lab head's folder, both-at-edit; toggle + delete work", async () => {
+  it("addActionItem lands in the owner's folder, every-member-at-edit; toggle + delete work", async () => {
     setCurrentUser("pi");
-    const oo = await oneOnOnesApi.create({ member: "student" });
+    const oo = await oneOnOnesApi.create({
+      members: ["pi", "student"],
+      mentor: "pi",
+    });
 
-    // The member adds an action item.
     setCurrentUser("student");
     const item = await oneOnOnesApi.addActionItem({
       oneOnOneId: oo.id,
@@ -205,27 +278,29 @@ describe("item stamping: weekly goals / notes / action items", () => {
     });
     expect(item.one_on_one_id).toBe(oo.id);
     expect(item.is_done).toBe(false);
-    expect(item.owner).toBe("pi"); // canonical home is the lab head's folder
-    expect(memFs.get(`users/pi/one_on_one_action_items/${item.id}.json`)).toBeDefined();
+    expect(item.owner).toBe("pi"); // canonical home is the creator's folder
+    expect(
+      memFs.get(`users/pi/one_on_one_action_items/${item.id}.json`),
+    ).toBeDefined();
 
-    // The lab head toggles it done (routes to the lab head's folder).
     setCurrentUser("pi");
     const toggled = await oneOnOnesApi.toggleActionItem(item.id);
     expect(toggled?.is_done).toBe(true);
 
-    // Both read it via the aggregation.
     const seen = await labApi.getOneOnOneActionItems(oo.id);
     expect(seen.map((i) => i.is_done)).toEqual([true]);
 
-    // Delete removes it.
     const removed = await oneOnOnesApi.deleteActionItem(item.id);
     expect(removed).toBe(true);
     expect(await labApi.getOneOnOneActionItems(oo.id)).toEqual([]);
   });
 
-  it("item creation rejects a non-member and a missing 1:1", async () => {
+  it("item creation rejects a non-member and a missing space", async () => {
     setCurrentUser("pi");
-    const oo = await oneOnOnesApi.create({ member: "student" });
+    const oo = await oneOnOnesApi.create({
+      members: ["pi", "student"],
+      mentor: "pi",
+    });
 
     setCurrentUser("other");
     await expect(
@@ -239,42 +314,107 @@ describe("item stamping: weekly goals / notes / action items", () => {
   });
 });
 
-describe("delete is lab-head-only", () => {
-  it("the member cannot delete; the lab head can", async () => {
+describe("delete is owner/creator-only", () => {
+  it("a non-owner member cannot delete; the owner can", async () => {
     setCurrentUser("pi");
-    const oo = await oneOnOnesApi.create({ member: "student" });
+    const oo = await oneOnOnesApi.create({
+      members: ["pi", "student"],
+      mentor: "pi",
+    });
 
     setCurrentUser("student");
-    await expect(oneOnOnesApi.delete(oo.id)).rejects.toThrow(/lab head/i);
+    await expect(oneOnOnesApi.delete(oo.id)).rejects.toThrow(/owner/i);
 
     setCurrentUser("pi");
     await oneOnOnesApi.delete(oo.id);
     expect(memFs.get(`users/pi/one_on_ones/${oo.id}.json`)).toBeUndefined();
   });
+
+  it("a peer-space creator (non-lab-head) can delete their own space", async () => {
+    setCurrentUser("student");
+    const oo = await oneOnOnesApi.create({ members: ["student", "other"] });
+    await oneOnOnesApi.delete(oo.id);
+    expect(memFs.get(`users/student/one_on_ones/${oo.id}.json`)).toBeUndefined();
+  });
 });
 
-describe("oneOnOneLabel + oneOnOneTabLabel (pure helpers)", () => {
-  const oo: OneOnOne = {
+describe("normalizeOneOnOne (pure)", () => {
+  it("derives members/mentor/kind from a legacy record", () => {
+    const n = normalizeOneOnOne({
+      id: "x",
+      labHead: "pi",
+      member: "student",
+      created_by: "pi",
+      created_at: "",
+      owner: "pi",
+      shared_with: [],
+    });
+    expect(n.members).toEqual(["pi", "student"]);
+    expect(n.mentor).toBe("pi");
+    expect(n.kind).toBe("pair");
+  });
+
+  it("keeps an existing members array and derives kind from its length", () => {
+    const n = normalizeOneOnOne({
+      id: "x",
+      members: ["a", "b", "c"],
+      mentor: null,
+      created_by: "a",
+      created_at: "",
+      owner: "a",
+      shared_with: [],
+    });
+    expect(n.members).toEqual(["a", "b", "c"]);
+    expect(n.mentor).toBeNull();
+    expect(n.kind).toBe("group");
+  });
+});
+
+describe("oneOnOneLabel + relationshipHint + oneOnOneTabLabel (pure helpers)", () => {
+  const mentoring: OneOnOne = {
     id: "oo-1",
-    labHead: "Dr. Lee",
-    member: "Alex",
+    members: ["Dr. Lee", "Alex"],
+    mentor: "Dr. Lee",
+    kind: "pair",
     created_by: "Dr. Lee",
     created_at: "2026-06-07T00:00:00.000Z",
     owner: "Dr. Lee",
     shared_with: [],
   };
 
-  it("labels by the COUNTERPART, framed by who is looking", () => {
-    // Lab head sees the Mentoring framing labeled by the member.
-    expect(oneOnOneLabel("Dr. Lee", oo)).toBe("Alex - Mentoring");
-    // Member sees the Check-ins framing labeled by the lab head.
-    expect(oneOnOneLabel("Alex", oo)).toBe("Dr. Lee - Check-ins");
-    // Anyone who is not the lab head gets the Check-ins framing.
-    expect(oneOnOneLabel("other", oo)).toBe("Dr. Lee - Check-ins");
+  it("labels a pair space by the COUNTERPART, framed by who is looking", () => {
+    expect(oneOnOneLabel("Dr. Lee", mentoring)).toBe("Alex");
+    expect(oneOnOneLabel("Alex", mentoring)).toBe("Dr. Lee");
   });
 
-  it("the tab label is the role word by account type", () => {
-    expect(oneOnOneTabLabel("lab_head")).toBe("Mentoring");
+  it("prefers an explicit title when set", () => {
+    expect(oneOnOneLabel("Dr. Lee", { ...mentoring, title: "Aim 2" })).toBe(
+      "Aim 2",
+    );
+  });
+
+  it("does not crash on a legacy record with no members array", () => {
+    const legacy: OneOnOne = {
+      id: "oo-2",
+      labHead: "Dr. Lee",
+      member: "Alex",
+      created_by: "Dr. Lee",
+      created_at: "",
+      owner: "Dr. Lee",
+      shared_with: [],
+    };
+    expect(oneOnOneLabel("Alex", legacy)).toBe("Dr. Lee");
+  });
+
+  it("derives a soft relationship hint from the mentor edge", () => {
+    expect(relationshipHint("Dr. Lee", mentoring)).toBe("you-mentor-them");
+    expect(relationshipHint("Alex", mentoring)).toBe("they-mentor-you");
+    const peer: OneOnOne = { ...mentoring, mentor: null };
+    expect(relationshipHint("Dr. Lee", peer)).toBe("peer");
+  });
+
+  it("the tab label is Check-ins for everyone (D6)", () => {
+    expect(oneOnOneTabLabel("lab_head")).toBe("Check-ins");
     expect(oneOnOneTabLabel("lab")).toBe("Check-ins");
     expect(oneOnOneTabLabel("solo")).toBe("Check-ins");
   });

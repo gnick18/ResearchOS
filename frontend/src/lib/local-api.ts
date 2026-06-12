@@ -152,6 +152,7 @@ import { mondayOf } from "./weekly-goals/week";
 import { computeFundingSpend, computeUncategorizedSpend } from "./funding/spend";
 import { SharedNotebookStore } from "./shared-notebooks/store";
 import { OneOnOneStore, OneOnOneActionItemStore } from "./one-on-one/store";
+import { normalizeOneOnOne } from "./one-on-one/normalize";
 import type { Notebook } from "./types";
 
 const projectsStore = new JsonStore<Project>("projects");
@@ -6063,70 +6064,105 @@ async function findOneOnOne(id: string): Promise<OneOnOne | null> {
   const usernames = await discoverUsers();
   for (const username of usernames) {
     const rec = await oneOnOnesStore.getForUser(id, username);
-    if (rec) return { ...rec, owner: rec.owner || username };
+    if (rec) return normalizeOneOnOne({ ...rec, owner: rec.owner || username });
   }
   return null;
 }
 
-/** Throw unless the current user is a lab head (the create / delete gate). */
-async function requireLabHead(): Promise<string> {
-  const viewer = await buildCurrentViewer();
-  if (viewer.account_type !== "lab_head") {
-    throw new Error("Only a lab head can manage a 1:1.");
-  }
-  return viewer.username;
-}
-
-/** Throw unless `actor` is one of the 1:1's two members (the edit gate). */
+/** Throw unless `actor` is one of the space's (normalized) members. */
 function assertMember(oneOnOne: OneOnOne, actor: string): void {
-  if (actor !== oneOnOne.labHead && actor !== oneOnOne.member) {
+  const members = normalizeOneOnOne(oneOnOne).members;
+  if (!members.includes(actor)) {
     throw new Error(
       `User ${actor} is not a member of 1:1 ${oneOnOne.id}`,
     );
   }
 }
 
+/** The `shared_with` for a space's items: every member at "edit". */
+function oneOnOneShareList(oneOnOne: OneOnOne): SharedUser[] {
+  return membersSharedWith(normalizeOneOnOne(oneOnOne).members);
+}
+
 export const oneOnOnesApi = {
   /**
-   * Create a 1:1 between the CURRENT user (who MUST be a lab head) and `member`.
-   * labHead = current user, member = param. `shared_with` =
-   * `membersSharedWith([labHead, member])` (both at "edit"). The record lands in
-   * the lab head's folder. Throws if the current user is not a lab head.
+   * Create a check-in space. Any account can create one (the lab-head gate is
+   * retired in Phase 1). The CURRENT user is forced into `members[0]` (the
+   * creator + owner). `shared_with = membersSharedWith(members)` (every member
+   * at "edit"). `mentor` must be one of `members` or null.
+   *
+   * Back-compat: for a 2-person space WITH a mentor we ALSO write the legacy
+   * `labHead`/`member` fields (`labHead = mentor`, `member` = the other) so a
+   * pre-revamp reader still works; peer + group spaces leave them undefined.
+   * The new `members`/`mentor`/`kind` fields are always written.
+   *
+   * Phase 1 callers pass exactly two members, but the API accepts N.
    */
-  create: async (params: { member: string }): Promise<OneOnOne> => {
-    const labHead = await requireLabHead();
+  create: async (params: {
+    members: string[];
+    mentor?: string | null;
+    title?: string | null;
+  }): Promise<OneOnOne> => {
+    const creator = await getCurrentUserCached();
+    // Force the creator into members[0], de-duped, preserving order.
+    const rest = params.members.filter((m) => m && m !== creator);
+    const members = [creator, ...Array.from(new Set(rest))];
+
+    const mentor = params.mentor ?? null;
+    if (mentor !== null && !members.includes(mentor)) {
+      throw new Error(`mentor ${mentor} is not a member of the space`);
+    }
+
+    const kind: "pair" | "group" = members.length > 2 ? "group" : "pair";
     const now = new Date().toISOString();
+
     const data: Omit<OneOnOne, "id"> = {
-      labHead,
-      member: params.member,
-      created_by: labHead,
+      members,
+      mentor,
+      kind,
+      title: params.title ?? null,
+      cadence: null,
+      created_by: creator,
       created_at: now,
-      owner: labHead,
-      shared_with: membersSharedWith([labHead, params.member]),
+      owner: creator,
+      shared_with: membersSharedWith(members),
     };
+
+    // Legacy back-compat: only a 2-person space WITH a mentor maps cleanly onto
+    // the old labHead/member binary. Write it so pre-revamp readers keep working.
+    if (kind === "pair" && mentor !== null) {
+      const other = members.find((m) => m !== mentor);
+      data.labHead = mentor;
+      if (other) data.member = other;
+    }
+
     return oneOnOnesStore.create(data);
   },
 
-  /** Read a 1:1 by id, across the lab (it lives in the lab head's folder). */
+  /** Read a check-in space by id, across the lab (it lives in the creator's
+   *  folder). Normalized so callers see `members`/`mentor`/`kind`. */
   get: async (id: string): Promise<OneOnOne | null> => {
     return findOneOnOne(id);
   },
 
-  /** Every 1:1 the current viewer participates in (lab head OR member). */
+  /** Every space the current viewer participates in (as any member). */
   list: async (): Promise<OneOnOne[]> => {
     return labApi.getOneOnOnes();
   },
 
-  /** Delete a 1:1 (lab-head only). Removes the record from the lab head's
-   *  folder. Scoped items (notes / weekly goals / action items) are left in
-   *  place; a follow-up step can sweep them, but maintenance mode means no one
-   *  is in real use yet. Throws if the caller is not a lab head. */
+  /** Delete a check-in space. The owner / creator may delete (not just a lab
+   *  head). Removes the record from the owner's folder. Scoped items are left in
+   *  place; a follow-up step can sweep them. */
   delete: async (id: string): Promise<void> => {
-    const labHead = await requireLabHead();
+    const actor = await getCurrentUserCached();
     const oneOnOne = await findOneOnOne(id);
     if (!oneOnOne) return;
-    await oneOnOneActionItemsStore.deleteForUser(id, oneOnOne.labHead);
-    await oneOnOnesStore.deleteForUser(id, oneOnOne.labHead || labHead);
+    if (oneOnOne.owner !== actor && oneOnOne.created_by !== actor) {
+      throw new Error("Only the space owner can delete it.");
+    }
+    const home = oneOnOne.owner || actor;
+    await oneOnOneActionItemsStore.deleteForUser(id, home);
+    await oneOnOnesStore.deleteForUser(id, home);
   },
 
   /**
@@ -6156,7 +6192,7 @@ export const oneOnOnesApi = {
       created_at: now,
       created_by: author,
       is_shared: true,
-      shared_with: membersSharedWith([oneOnOne.labHead, oneOnOne.member]),
+      shared_with: oneOnOneShareList(oneOnOne),
       one_on_one_id: params.oneOnOneId,
     });
   },
@@ -6250,8 +6286,9 @@ export const oneOnOnesApi = {
       is_done: false,
       created_by: author,
       created_at: now,
-      owner: oneOnOne.labHead,
-      shared_with: membersSharedWith([oneOnOne.labHead, oneOnOne.member]),
+      // Canonical home is the space owner's (creator's) folder.
+      owner: oneOnOne.owner,
+      shared_with: oneOnOneShareList(oneOnOne),
     };
     return oneOnOneActionItemsStore.create(data);
   },
@@ -6327,7 +6364,7 @@ async function createOneOnOneNote(
     username: author,
     one_on_one_id: oneOnOneId,
     note_kind: opts.note_kind,
-    shared_with: membersSharedWith([oneOnOne.labHead, oneOnOne.member]),
+    shared_with: oneOnOneShareList(oneOnOne),
   });
 }
 
@@ -8313,9 +8350,8 @@ export const labApi = {
     for (const username of usernames) {
       const records = await oneOnOnesStore.listAllForUser(username);
       for (const oo of records) {
-        const rec: OneOnOne = { ...oo, owner: oo.owner || username };
-        const isParticipant =
-          rec.labHead === viewer.username || rec.member === viewer.username;
+        const rec = normalizeOneOnOne({ ...oo, owner: oo.owner || username });
+        const isParticipant = rec.members.includes(viewer.username);
         if (!isParticipant || !canRead(rec, viewer)) continue;
         out.push(rec);
       }
