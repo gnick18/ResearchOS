@@ -694,6 +694,9 @@ function ReviewImportModal({
             entity: bundle.entity,
             attachments: bundle.attachments,
             sender: bundle.sender,
+            // Phase 6c: carry embedded objects through so the import step can
+            // recreate or relink them and rewrite the note's embed hrefs.
+            embeddedObjects: bundle.embeddedObjects,
           };
           setReceived(result);
           if (result.sender?.email) {
@@ -1000,10 +1003,23 @@ function ReviewImportModal({
 
       // receiveShare returns a ReceiveShareResult, which is a ReadBundleResult
       // minus the `metadata` field. importNoteBundle only reads valid /
-      // entityType / entity / attachments, so supply an empty metadata object to
-      // satisfy the type without inventing data.
+      // entityType / entity / attachments / embeddedObjects, so supply an empty
+      // metadata object to satisfy the type without inventing data.
+      //
+      // Phase 6c: pass the bundle's embeddedObjects through so importNoteBundle
+      // can recreate or relink them in the recipient's folder and rewrite the
+      // note's embed hrefs. received.embeddedObjects is always an array (empty
+      // for pre-Phase-6b bundles). The per-item destination picker is STUBBED:
+      // the default "Shared by <sender>" collection and auto-link dedup behavior
+      // are complete. A full picker UI (showing per-embed destination dropdowns
+      // with dedup hints) can wire into opts.embeddedObjectOpts.destinationByHref
+      // in a follow-up session.
+      //
+      // TODO(Phase 6c follow-up): add a pre-import picker UI here that builds a
+      // destinationByHref map from the user's per-embed collection choices and
+      // a "you already have this, will link" hint for portableId-matched items.
       const { noteId } = await importNoteBundle(
-        { ...received, embeddedObjects: [], metadata: {} },
+        { ...received, metadata: {} },
         { currentUser, senderEmail, senderFingerprint },
       );
 

@@ -66,6 +66,7 @@ import {
   readBundle,
   type BundleAttachment,
   type BuildBundleInput,
+  type BundleEmbeddedObject,
   type BundleSender,
 } from "@/lib/sharing/bundle";
 import {
@@ -506,6 +507,14 @@ export interface ReceiveShareResult {
    * pre-sender bundle, in which case the UI falls back to the relay key hash.
    */
   sender?: BundleSender;
+  /**
+   * Phase 6c: objects embedded in the note, faithfully passed through from the
+   * bundle's embeddedObjects field. Always an array (empty for pre-Phase-6b
+   * bundles or bundles that carried no embedded objects). The import flow uses
+   * this to recreate or relink the recipient's local copies of the embedded
+   * objects before rewriting the note's embed hrefs.
+   */
+  embeddedObjects: BundleEmbeddedObject[];
 }
 
 /**
@@ -554,6 +563,10 @@ export async function receiveShare(
     entity: result.entity,
     attachments: result.attachments,
     sender: result.sender,
+    // Phase 6c: pass embedded objects through faithfully. readBundle always
+    // returns an array (empty for pre-Phase-6b bundles), so this is never
+    // undefined at this point.
+    embeddedObjects: result.embeddedObjects,
   };
 }
 
@@ -931,6 +944,8 @@ export async function fetchInviteBundle(
     entity: result.entity,
     attachments: result.attachments,
     sender: result.sender,
+    // Phase 6c: pass embedded objects through faithfully from the bundle.
+    embeddedObjects: result.embeddedObjects,
   };
 }
 
