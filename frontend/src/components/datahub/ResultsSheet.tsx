@@ -38,6 +38,12 @@ import { formatP, plainLanguageSummary } from "@/lib/datahub/plain-language";
 import { showCode } from "@/lib/datahub/show-code";
 import { resultToText } from "@/lib/datahub/result-text";
 import CodePanel from "@/components/datahub/CodePanel";
+import StyledSelect from "@/components/datahub/StyledSelect";
+import {
+  paramSchema,
+  readParams,
+  type ParamField,
+} from "@/lib/datahub/analysis-params";
 
 /** GraphPad-style significance stars from an adjusted p-value. */
 function stars(p: number): string {
@@ -507,6 +513,137 @@ function resultTabs(result: NormalizedResult): {
   }
 }
 
+/**
+ * A two-or-three-way segmented control (the Seg idiom from the graph editor),
+ * used for the short option sets (Tail, Variance) where every choice should be
+ * visible at a glance rather than hidden behind a dropdown.
+ */
+function Seg({
+  value,
+  options,
+  onChange,
+  ariaLabel,
+}: {
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (v: string) => void;
+  ariaLabel?: string;
+}) {
+  return (
+    <div
+      className="inline-flex overflow-hidden rounded-md border border-border"
+      role="group"
+      aria-label={ariaLabel}
+    >
+      {options.map((o, i) => {
+        const active = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            onClick={() => onChange(o.value)}
+            aria-pressed={active}
+            className={`px-2.5 py-1 text-meta font-medium transition-colors ${
+              i > 0 ? "border-l border-border" : ""
+            } ${
+              active
+                ? "bg-accent-soft text-accent"
+                : "bg-surface-raised text-foreground-muted hover:bg-surface-sunken"
+            }`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** One labeled parameter row: the control plus its why-line underneath. */
+function ParamRow({
+  field,
+  value,
+  onChange,
+}: {
+  field: ParamField;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div data-testid={`results-param-${field.key}`}>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-meta font-semibold text-foreground">
+          {field.label}
+        </span>
+        {field.control === "seg" ? (
+          <Seg
+            value={value}
+            options={field.options}
+            onChange={onChange}
+            ariaLabel={field.label}
+          />
+        ) : (
+          <StyledSelect
+            value={value}
+            options={field.options}
+            onChange={onChange}
+            ariaLabel={field.label}
+            className="min-w-[11rem]"
+          />
+        )}
+      </div>
+      <p className="mt-1 max-w-xl text-[11px] leading-snug text-foreground-muted">
+        {field.why}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * The inline parameters editor. Renders the schema for the current analysis
+ * type as controls; an edit re-runs the result live (the sheet recomputes on
+ * the next render), so there is no Apply button and never a soft-lock. A subtle
+ * cue states that edits re-run live, the same promise the data-link cue makes.
+ */
+function ParametersPanel({
+  spec,
+  fields,
+  onParamChange,
+}: {
+  spec: AnalysisSpec;
+  fields: ParamField[];
+  onParamChange: (key: string, value: string) => void;
+}) {
+  const values = readParams(spec);
+  return (
+    <div
+      className="rounded-lg border border-border bg-surface-raised"
+      data-testid="results-params-panel"
+    >
+      <div className="flex items-center gap-1.5 border-b border-border bg-surface-sunken px-3.5 py-2">
+        <Icon name="gauge" className="h-3 w-3 text-foreground" />
+        <h3 className="text-[11px] font-bold uppercase tracking-wide text-foreground">
+          Test options
+        </h3>
+        <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-foreground-muted">
+          <Icon name="refresh" className="h-3 w-3" />
+          Edits re-run live
+        </span>
+      </div>
+      <div className="flex flex-col gap-3.5 px-3.5 py-3">
+        {fields.map((field) => (
+          <ParamRow
+            key={field.key}
+            field={field}
+            value={values[field.key]}
+            onChange={(v) => onParamChange(field.key, v)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ResultsSheet({
   spec,
   content,
@@ -514,6 +651,7 @@ export default function ResultsSheet({
   onNewAnalysis,
   onGraphResult,
   onChangeAnalysis,
+  onParamChange,
 }: {
   spec: AnalysisSpec;
   content: DataHubDocContent;
@@ -523,14 +661,24 @@ export default function ResultsSheet({
   onNewAnalysis?: () => void;
   /** Turn this result into a figure (opens the New graph dialog on the table). */
   onGraphResult?: () => void;
-  /** Re-pick the test (opens the chooser). Full parameter editing is a later
-   *  phase, so for now this swaps the chosen analysis. */
+  /** Re-pick the test (opens the chooser), a different move than editing the
+   *  current test's options. */
   onChangeAnalysis?: () => void;
+  /** Persist one editable parameter (tail, variance, post-hoc) and re-run. When
+   *  absent, the Parameters affordance is hidden. */
+  onParamChange?: (key: string, value: string) => void;
 }) {
   const [showingCode, setShowingCode] = useState(false);
+  const [showingParams, setShowingParams] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   // Transient "Copied" flash for the Export action.
   const [copied, setCopied] = useState(false);
+
+  // The editable options for this analysis type. Some types (correlation,
+  // regression, Kruskal-Wallis) have none, in which case the Parameters
+  // affordance is hidden rather than opening an empty panel.
+  const paramFields = paramSchema(spec.type);
+  const canEditParams = Boolean(onParamChange) && paramFields.length > 0;
 
   // Always recompute from the live content so an edit to a replicate is
   // reflected. The page restamps the stored cache separately.
@@ -584,6 +732,18 @@ export default function ResultsSheet({
         : []),
     ],
     [
+      ...(canEditParams
+        ? [
+            {
+              icon: "gauge" as const,
+              label: showingParams ? "Hide options" : "Test options",
+              onClick: () => setShowingParams((v) => !v),
+              tooltip:
+                "Change how this test runs, like a one-sided tail or the post-hoc family. The result re-runs as you edit.",
+              testId: "datahub-results-params",
+            },
+          ]
+        : []),
       {
         icon: "copy" as const,
         label: copied ? "Copied" : "Export",
@@ -605,13 +765,28 @@ export default function ResultsSheet({
               icon: "refresh" as const,
               label: "Change analysis",
               onClick: onChangeAnalysis,
-              tooltip: "Re-pick the test. Editing the test options comes later.",
+              tooltip:
+                "Re-pick the test entirely. To tweak how the current test runs, use Test options.",
               testId: "datahub-results-change",
             },
           ]
         : []),
     ],
   ];
+
+  // The parameters panel, rendered in both the success and the failure paths so
+  // a researcher can always reach the options (and back out by hiding them);
+  // never a soft-lock. onParamChange is guaranteed defined here by canEditParams.
+  const paramsPanel =
+    showingParams && canEditParams && onParamChange ? (
+      <div className="mb-4" data-testid="results-params">
+        <ParametersPanel
+          spec={spec}
+          fields={paramFields}
+          onParamChange={onParamChange}
+        />
+      </div>
+    ) : null;
 
   if (!outcome.ok) {
     return (
@@ -623,6 +798,7 @@ export default function ResultsSheet({
         </div>
         <WorkspaceToolbar testId="datahub-results-toolbar" groups={toolbarGroups} />
         <div className="min-h-0 flex-1 overflow-auto px-5 pb-5 pt-4">
+          {paramsPanel}
           <p className="rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-foreground-muted">
             This analysis cannot run on the current table. {outcome.error}
           </p>
@@ -656,6 +832,7 @@ export default function ResultsSheet({
       <WorkspaceToolbar testId="datahub-results-toolbar" groups={toolbarGroups} />
 
       <div className="min-h-0 flex-1 overflow-auto px-5 pb-5 pt-4">
+        {paramsPanel}
         <div
           className="rounded-lg border border-accent/30 bg-accent-soft px-4 py-3 text-body text-foreground"
           data-testid="results-verdict"

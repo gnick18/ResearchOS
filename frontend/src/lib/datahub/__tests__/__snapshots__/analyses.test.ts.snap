@@ -7,7 +7,7 @@ control = [98, 102, 95, 105, 100, 99]
 drug_a  = [78, 82, 75, 80, 85, 79]
 
 # Welch's unpaired t-test (does not assume equal variance)
-t, p = stats.ttest_ind(control, drug_a, equal_var=False)
+t, p = stats.ttest_ind(control, drug_a, equal_var=False, alternative="two-sided")
 print(f"t = {t:.4g}, p = {p:.4g}")"
 `;
 

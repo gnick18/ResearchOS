@@ -89,7 +89,21 @@ dunn = sp.posthoc_dunn([${argList}], p_adjust="bonferroni")
 print(dunn)`;
   }
 
-  return `from scipy import stats
+  const omnibus = `from scipy import stats
+
+${assigns}
+
+# Omnibus one-way ANOVA
+F, p = stats.f_oneway(${argList})
+print(f"F = {F:.4g}, p = {p:.4g}")`;
+
+  if (r.postHoc === "none") {
+    // No post-hoc family selected, so the snippet stops at the omnibus test.
+    return omnibus;
+  }
+
+  if (r.postHoc === "tukey") {
+    return `from scipy import stats
 import statsmodels.stats.multicomp as mc
 
 ${assigns}
@@ -104,6 +118,30 @@ tukey = mc.pairwise_tukeyhsd(
     groups=${groupsExpr},
 )
 print(tukey)`;
+  }
+
+  // Sidak / Bonferroni / Holm-Sidak adjust the per-pair t-test p-values.
+  // statsmodels uses these method names directly in multipletests.
+  const methodArg =
+    r.postHoc === "holm-sidak" ? "holm-sidak" : r.postHoc;
+  return `from scipy import stats
+from statsmodels.stats.multitest import multipletests
+from itertools import combinations
+
+${assigns}
+
+# Omnibus one-way ANOVA
+F, p = stats.f_oneway(${argList})
+print(f"F = {F:.4g}, p = {p:.4g}")
+
+# Pairwise t-tests with ${methodArg} correction (family-wise alpha = 0.05)
+groups = {${gv.map((o) => `${pyStr(o.group.name)}: ${o.var.trim()}`).join(", ")}}
+names = list(groups)
+raw = [stats.ttest_ind(groups[a], groups[b]).pvalue
+       for a, b in combinations(names, 2)]
+reject, adj, *_ = multipletests(raw, alpha=0.05, method=${pyStr(methodArg)})
+for (a, b), pa in zip(combinations(names, 2), adj):
+    print(f"{a} vs {b}: adj p = {pa:.4g}")`;
 }
 
 function ttestCode(r: NormalizedTTest): string {
@@ -113,13 +151,18 @@ function ttestCode(r: NormalizedTTest): string {
     .map((o) => `${o.var} = ${pyList(o.group.values)}`)
     .join("\n");
 
+  // scipy's `alternative` matches our tail values one for one ("two-sided",
+  // "greater", "less"), so the snippet always reflects the actual run rather
+  // than a fixed two-sided assumption.
+  const altArg = `alternative=${pyStr(r.tail)}`;
+
   if (r.type === "pairedTTest") {
     return `from scipy import stats
 
 ${assigns}
 
 # Paired (repeated-measures) t-test on the row-matched values
-t, p = stats.ttest_rel(${a.var.trim()}, ${b.var.trim()})
+t, p = stats.ttest_rel(${a.var.trim()}, ${b.var.trim()}, ${altArg})
 print(f"t = {t:.4g}, p = {p:.4g}")`;
   }
 
@@ -129,7 +172,7 @@ print(f"t = {t:.4g}, p = {p:.4g}")`;
 ${assigns}
 
 # Mann-Whitney U (rank-sum), the nonparametric two-independent-groups test
-U, p = stats.mannwhitneyu(${a.var.trim()}, ${b.var.trim()}, alternative="two-sided")
+U, p = stats.mannwhitneyu(${a.var.trim()}, ${b.var.trim()}, ${altArg})
 print(f"U = {U:.4g}, p = {p:.4g}")`;
   }
 
@@ -139,17 +182,24 @@ print(f"U = {U:.4g}, p = {p:.4g}")`;
 ${assigns}
 
 # Wilcoxon signed-rank, the nonparametric paired test on row-matched values
-W, p = stats.wilcoxon(${a.var.trim()}, ${b.var.trim()})
+W, p = stats.wilcoxon(${a.var.trim()}, ${b.var.trim()}, ${altArg})
 print(f"W = {W:.4g}, p = {p:.4g}")`;
   }
 
-  // Unpaired Welch (equal_var=False) is the engine default.
+  // Unpaired t-test. Welch (equal_var=False) is the default; Student pools the
+  // variances (equal_var=True). The comment and the equal_var flag both follow
+  // the chosen variance assumption so the code matches the on-screen numbers.
+  const student = r.variance === "student";
+  const equalVar = student ? "True" : "False";
+  const comment = student
+    ? "# Student's unpaired t-test (assumes equal variance, pooled)"
+    : "# Welch's unpaired t-test (does not assume equal variance)";
   return `from scipy import stats
 
 ${assigns}
 
-# Welch's unpaired t-test (does not assume equal variance)
-t, p = stats.ttest_ind(${a.var.trim()}, ${b.var.trim()}, equal_var=False)
+${comment}
+t, p = stats.ttest_ind(${a.var.trim()}, ${b.var.trim()}, equal_var=${equalVar}, ${altArg})
 print(f"t = {t:.4g}, p = {p:.4g}")`;
 }
 

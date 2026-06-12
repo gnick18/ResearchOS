@@ -1075,6 +1075,65 @@ function runDatahubEngine(): Record<string, number> {
     oneWayAnova({ A: GROUP_A, B: GROUP_B, C: GROUP_C }, { postHoc: "tukey" }),
     "one-way ANOVA",
   );
+
+  // Selectable PARAMETER options. Each runs the engine with the option a user
+  // could pick, so the same gate that protects the defaults protects every
+  // option. One-sided tails on each two-group test, and the non-Tukey ANOVA
+  // post-hoc families. The default-option runs above already cover two-sided
+  // and Student variance.
+  const welchGreater = need(
+    unpairedTTest(GROUP_A, GROUP_B, { tail: "greater" }),
+    "Welch t-test (greater)",
+  );
+  const welchLess = need(
+    unpairedTTest(GROUP_A, GROUP_B, { tail: "less" }),
+    "Welch t-test (less)",
+  );
+  const pairedGreater = need(
+    pairedTTest(PAIR_X, PAIR_Y, { tail: "greater" }),
+    "paired t-test (greater)",
+  );
+  const pairedLess = need(
+    pairedTTest(PAIR_X, PAIR_Y, { tail: "less" }),
+    "paired t-test (less)",
+  );
+  const mwuGreater = need(
+    mannWhitneyU(GROUP_A, GROUP_B, { tail: "greater" }),
+    "Mann-Whitney U (greater)",
+  );
+  const mwuLess = need(
+    mannWhitneyU(GROUP_A, GROUP_B, { tail: "less" }),
+    "Mann-Whitney U (less)",
+  );
+  const wilGreater = need(
+    wilcoxonSignedRank(PAIR_X, PAIR_Y, { tail: "greater" }),
+    "Wilcoxon signed-rank (greater)",
+  );
+  const wilLess = need(
+    wilcoxonSignedRank(PAIR_X, PAIR_Y, { tail: "less" }),
+    "Wilcoxon signed-rank (less)",
+  );
+  const aovSidak = need(
+    oneWayAnova({ A: GROUP_A, B: GROUP_B, C: GROUP_C }, { postHoc: "sidak" }),
+    "one-way ANOVA (Sidak)",
+  );
+  const aovBonf = need(
+    oneWayAnova({ A: GROUP_A, B: GROUP_B, C: GROUP_C }, { postHoc: "bonferroni" }),
+    "one-way ANOVA (Bonferroni)",
+  );
+  const aovHolm = need(
+    oneWayAnova({ A: GROUP_A, B: GROUP_B, C: GROUP_C }, { postHoc: "holm-sidak" }),
+    "one-way ANOVA (Holm-Sidak)",
+  );
+  // The A vs C adjusted p out of a post-hoc comparison set.
+  const acAdj = (comps: typeof aov1.comparisons): number => {
+    const c = comps.find(
+      (x) =>
+        [x.groupA, x.groupB].sort().join("__") === "A__C",
+    );
+    if (!c) throw new Error("transparency: post-hoc A vs C comparison missing");
+    return c.pAdjusted;
+  };
   const aov2 = need(twoWayAnova(TWOWAY), "two-way ANOVA");
   const kw = need(kruskalWallis({ A: GROUP_A, B: GROUP_B, C: GROUP_C }), "Kruskal-Wallis");
   const fr = need(friedman(REPEATED, REPEATED_LABELS), "Friedman");
@@ -1133,6 +1192,18 @@ function runDatahubEngine(): Record<string, number> {
     mann_whitney_p: mwu.pValue,
     wilcoxon_w: wil.statistic,
     wilcoxon_p: wil.pValue,
+
+    unpaired_welch_greater_p: welchGreater.pValue,
+    unpaired_welch_less_p: welchLess.pValue,
+    paired_greater_p: pairedGreater.pValue,
+    paired_less_p: pairedLess.pValue,
+    mann_whitney_greater_p: mwuGreater.pValue,
+    mann_whitney_less_p: mwuLess.pValue,
+    wilcoxon_greater_p: wilGreater.pValue,
+    wilcoxon_less_p: wilLess.pValue,
+    posthoc_sidak_ac_p: acAdj(aovSidak.comparisons),
+    posthoc_bonferroni_ac_p: acAdj(aovBonf.comparisons),
+    posthoc_holm_sidak_ac_p: acAdj(aovHolm.comparisons),
 
     oneway_f: aov1.statistic,
     oneway_p: aov1.pValue,
