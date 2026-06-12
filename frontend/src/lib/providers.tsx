@@ -35,7 +35,6 @@ import { EntrySnapSurface } from "@/components/onboarding/EntrySnapSurface";
 import { OAuthFirstLanding } from "@/components/onboarding/oauth-first/OAuthFirstLanding";
 import { WelcomeBackSignIn } from "@/components/onboarding/oauth-first/WelcomeBackSignIn";
 import { isOAuthFirstLoginEnabled } from "@/lib/sharing/oauth-first-login";
-import { SuccessTransition } from "@/components/onboarding/SuccessTransition";
 import SyncPausedIndicator from "@/components/SyncPausedIndicator";
 import {
   AccountTierChooser,
@@ -301,13 +300,6 @@ const localDayStamp = () => {
   const day = String(d.getDate()).padStart(2, "0");
   return `${d.getFullYear()}-${month}-${day}`;
 };
-// Set when a visitor actively enters via the start screen (open folder / create
-// account); consumed once when they first reach the app to play the celebratory
-// SuccessTransition. sessionStorage so it survives the OAuth full-page redirect
-// on the Free / Lab paths. Returning users who reconnect silently never set it,
-// so they do not get the celebration on every open.
-const ENTERED_KEY = "researchos:entered";
-let successShownThisLoad = false;
 
 // The account-tier choice for a fresh visitor, recorded for this page load so a
 // remount of AppContent during setup does not re-show the chooser. Phase B2
@@ -401,7 +393,6 @@ function AppContent({ children }: { children: ReactNode }) {
   const [entryAction, setEntryAction] = useState<EntryAction | null>(
     entryActionThisLoad,
   );
-  const [successShown, setSuccessShown] = useState(successShownThisLoad);
 
   // Client-mounted flag, only used to gate the dev login preview below so it
   // does not cause a hydration mismatch. The preview reads window/sessionStorage,
@@ -611,11 +602,6 @@ function AppContent({ children }: { children: ReactNode }) {
           }}
           onOpenFolder={() => {
             entryActionThisLoad = "open";
-            try {
-              sessionStorage.setItem(ENTERED_KEY, "1");
-            } catch {
-              // best-effort; the celebration is non-essential
-            }
             setEntryAction("open");
             if (lastConnectedFolder) {
               void reconnectWithStoredHandle();
@@ -645,11 +631,6 @@ function AppContent({ children }: { children: ReactNode }) {
           <OAuthFirstLanding
             onCreateAccount={() => {
               entryActionThisLoad = "create";
-              try {
-                sessionStorage.setItem(ENTERED_KEY, "1");
-              } catch {
-                // best-effort
-              }
               setEntryAction("create");
             }}
             onSignIn={() => {
@@ -666,11 +647,6 @@ function AppContent({ children }: { children: ReactNode }) {
           returning={!!lastConnectedFolder || availableUsers.length > 0}
           onOpenFolder={() => {
             entryActionThisLoad = "open";
-            try {
-              sessionStorage.setItem(ENTERED_KEY, "1");
-            } catch {
-              // best-effort; the celebration is non-essential
-            }
             setEntryAction("open");
             // Trigger the folder connect straight from this click. The click is
             // a live user gesture, so the OS picker opens immediately, no
@@ -688,11 +664,6 @@ function AppContent({ children }: { children: ReactNode }) {
           }}
           onCreateAccount={() => {
             entryActionThisLoad = "create";
-            try {
-              sessionStorage.setItem(ENTERED_KEY, "1");
-            } catch {
-              // best-effort
-            }
             setEntryAction("create");
           }}
         />
@@ -796,51 +767,20 @@ function AppContent({ children }: { children: ReactNode }) {
   // IS the pretty loading screen that launches users into the app on their first
   // session each day). The user is connected with an account selected, so this
   // is the moment right before the workbench. It plays over the initial app data
-  // load, then the app renders underneath. Consumes the lighter SuccessTransition
-  // for this load so the two never stack. Skipped in fixture modes (returned
-  // above anyway).
+  // load, then the app renders underneath. This replaced the old per-login
+  // SuccessTransition (retired 2026-06-12, the splash is the launch moment now).
+  // Skipped in fixture modes (returned above anyway).
   if (!splashSeen && !isDemoOrWikiCapture()) {
     return (
       <Splash
         onComplete={() => {
           try {
             localStorage.setItem(SPLASH_DAY_KEY, localDayStamp());
-            // This load's celebratory hand-off is satisfied by the splash, so
-            // drop the active-entry marker and mark success shown to keep the
-            // SuccessTransition below from stacking on top.
-            sessionStorage.removeItem(ENTERED_KEY);
           } catch {
             // storage unavailable (private mode edge); the splash may replay on
             // the next load, harmless.
           }
-          successShownThisLoad = true;
-          setSuccessShown(true);
           setSplashSeen(true);
-        }}
-      />
-    );
-  }
-
-  // Celebratory hand-off: when a visitor who actively entered this session
-  // (start screen -> setup/sign-in) first reaches the app, play the
-  // SuccessTransition once, then render the app underneath. Returning users who
-  // reconnect silently never set ENTERED_KEY, so they skip straight to the app.
-  // Skipped in fixture modes (which returned above anyway).
-  if (
-    !successShown &&
-    typeof window !== "undefined" &&
-    sessionStorage.getItem(ENTERED_KEY) === "1"
-  ) {
-    return (
-      <SuccessTransition
-        onComplete={() => {
-          try {
-            sessionStorage.removeItem(ENTERED_KEY);
-          } catch {
-            // best-effort
-          }
-          successShownThisLoad = true;
-          setSuccessShown(true);
         }}
       />
     );
