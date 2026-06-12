@@ -1,11 +1,9 @@
-// sequence editor master. Render test for the welcome page's tree-of-life
-// showcase. The heavy d3 explorer is mocked to a light stub so this test does
-// not pull the real chunk or touch any network; we only assert that the
-// dedicated section mounts the EMBEDDED tree (the offline embed) on the page.
-// jsdom has no IntersectionObserver, so the showcase mounts the tree eagerly
-// (its documented fallback), which is exactly what we assert.
+// Render smoke test for the welcome marketing page. We do not pull any heavy
+// chunk or touch the network; we only assert that the page renders and a couple
+// of its stable sections are on screen. (The old tree-of-life showcase was
+// removed from the page, so its dedicated test went with it.)
 
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 
 // next/navigation router (the page calls useRouter).
@@ -21,48 +19,22 @@ vi.mock("next/image", () => ({
   },
 }));
 
-// next/dynamic returns the module's default synchronously, so the mocked
-// TaxonomyTreeView below is the component the showcase renders.
-vi.mock("next/dynamic", () => ({
-  default: (loader: () => Promise<{ default: unknown }>) => {
-    // The welcome page only dynamic-imports the tree view, which we mock to a
-    // stub; return that stub directly so the showcase renders it inline.
-    void loader;
-    return Stub;
-  },
-}));
-
-// The real explorer is replaced by a stub that records the props it gets, so we
-// can assert the embed is mounted with `embedded`. No d3, no network.
-function Stub(props: { open?: boolean; embedded?: boolean }) {
-  return (
-    <div
-      data-testid="stub-tree-view"
-      data-open={String(Boolean(props.open))}
-      data-embedded={String(Boolean(props.embedded))}
-    />
-  );
-}
-
 import WelcomePage from "./WelcomePage";
 
 afterEach(() => cleanup());
 
-describe("WelcomePage tree-of-life showcase", () => {
-  it("mounts a dedicated tree-of-life section with the embedded explorer", () => {
+describe("WelcomePage", () => {
+  it("renders the page with its key marketing sections", () => {
     render(<WelcomePage />);
 
-    // The dedicated section card is present.
-    const card = screen.getByTestId("welcome-tree-of-life");
-    expect(card).toBeTruthy();
-
-    // The headline copy reads as the explore-the-tree-of-life showcase.
-    expect(screen.getByText("Explore the tree of life")).toBeTruthy();
-
-    // jsdom has no IntersectionObserver, so the showcase mounts the tree
-    // eagerly. It is the embedded (offline) explorer.
-    const tree = screen.getByTestId("stub-tree-view");
-    expect(tree.getAttribute("data-embedded")).toBe("true");
-    expect(tree.getAttribute("data-open")).toBe("true");
+    expect(
+      screen.getByText("The companion app brings ResearchOS to the bench"),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Three steps, your data never leaves unless you say so",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("Free, but accountable")).toBeTruthy();
   });
 });

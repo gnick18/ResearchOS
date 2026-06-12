@@ -26,7 +26,6 @@
  *   6. Purchases + Inventory showcase (placeholder clip)
  *   7. Companion app spotlight (dark band, four capability cards)
  *   8. AI assistant (the metered BeakerBot story, replaces the old AI section)
- *   9. Tree of life showcase (offline, no account)
  *  10. How it works (three steps, local-first)
  *  11. Mission (open-source company + founder line)
  *  12. NIH + Zenodo (grant-ready deposit, moved out of the hero)
@@ -46,7 +45,6 @@
  */
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import BeakerBot from "@/components/BeakerBot";
 import { Icon } from "@/components/icons";
@@ -57,7 +55,6 @@ import Wordmark from "@/components/Wordmark";
 import DemoLoop, { DemoLoopPlaceholder } from "@/components/welcome/DemoLoop";
 import Reveal from "@/components/marketing/Reveal";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
-import { usePreloadOnIdle } from "@/lib/perf/use-preload-on-idle";
 import RoadmapModal from "@/components/RoadmapModal";
 import { markLandingSeen } from "@/lib/landing/landing-gate";
 
@@ -68,18 +65,6 @@ import { markLandingSeen } from "@/lib/landing/landing-gate";
  *  out as type on white). */
 const RAINBOW = "var(--brand-rainbow)";
 const RAINBOW_TEXT = "var(--brand-rainbow-vivid)";
-
-/* ----------------------------------------------------------------------------
- * The offline tree-of-life explorer, code-split. It is a heavy d3 client
- * component, so we load it on its own chunk with ssr off (it draws to a DOM ref
- * and has no server render). The showcase below only mounts it once its section
- * scrolls into view, so the page's initial load never pulls the chunk or fires
- * the backbone fetch.
- * -------------------------------------------------------------------------- */
-const TaxonomyTreeView = dynamic(
-  () => import("@/components/sequences/TaxonomyTreeView"),
-  { ssr: false },
-);
 
 /** A check glyph for the trust-block lists, sky-blue. The single inline check
  *  glyph in the file, reused everywhere a bullet needs a tick. */
@@ -213,81 +198,6 @@ function FeatureRow({
             {media}
           </>
         )}
-      </Reveal>
-    </section>
-  );
-}
-
-/* ----------------------------------------------------------------------------
- * The "Explore the tree of life" showcase. A dedicated full-width section with
- * the real radial explorer running INLINE in its offline embed (no NCBI calls,
- * no login). The tree only mounts once the section scrolls into view, so the
- * page's initial load never pulls the d3 chunk or fires the backbone fetch.
- * Until then the card holds a calm placeholder. Once interacting, the wheel
- * zooms the tree inside its box; the page still scrolls around the card.
- * -------------------------------------------------------------------------- */
-function TreeOfLifeShowcase() {
-  const sectionRef = useRef<HTMLDivElement | null>(null);
-  const [inView, setInView] = useState(false);
-
-  useEffect(() => {
-    const el = sectionRef.current;
-    if (!el) return;
-    // SSR / very old browsers without IntersectionObserver: mount eagerly so the
-    // showcase is never blank. The fetch is async and non-blocking either way.
-    if (typeof IntersectionObserver === "undefined") {
-      setInView(true);
-      return;
-    }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          setInView(true);
-          observer.disconnect();
-        }
-      },
-      // Start loading a little before the card is fully on screen, so the tree
-      // is ready by the time the user reaches it.
-      { rootMargin: "200px 0px" },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <section className="border-y border-[#dce6f3] bg-[#f4f8fd] px-6 py-20 sm:px-12">
-      <Reveal className="mx-auto max-w-[1180px]">
-        <Kicker>// and it runs offline, no account</Kicker>
-        <h2 className="mt-2.5 max-w-[20ch] text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-[36px]">
-          Explore the tree of life
-        </h2>
-        <p className="mt-3 max-w-[58ch] text-title leading-relaxed text-[#475569]">
-          Spin through the diversity of life right here. Click a branch to dive
-          in, click the center to step back, and scroll to zoom. It runs on a
-          bundled backbone, so it works offline with no account.
-        </p>
-
-        {/* The interactive canvas, wrapped in the rainbow frame so it matches
-            the bold-rainbow demo windows. A rounded bordered card, full section
-            width, tall on desktop and a touch shorter on mobile. */}
-        <RainbowFrame className="mt-8">
-          <div
-            ref={sectionRef}
-            data-testid="welcome-tree-of-life"
-            className="h-[26rem] w-full overflow-hidden bg-white sm:h-[30rem]"
-          >
-            {inView ? (
-              <TaxonomyTreeView open embedded />
-            ) : (
-              <div
-                data-testid="welcome-tree-of-life-placeholder"
-                className="flex h-full w-full items-center justify-center bg-[#f5f9fd] text-meta text-[#64748b]"
-              >
-                Loading the tree of life...
-              </div>
-            )}
-          </div>
-        </RainbowFrame>
       </Reveal>
     </section>
   );
@@ -522,10 +432,6 @@ export default function WelcomePage({
   embedded?: boolean;
 } = {}) {
   const router = useRouter();
-
-  // Warm the heavy d3 tree-of-life chunk on idle; it is the hero interaction on
-  // this page, so it should be ready before the visitor scrolls to it.
-  usePreloadOnIdle(() => import("@/components/sequences/TaxonomyTreeView"));
 
   // Roadmap modal state.
   const [roadmapOpen, setRoadmapOpen] = useState(false);
@@ -950,29 +856,32 @@ export default function WelcomePage({
             background: "linear-gradient(160deg,#0e1830,#142a4a 58%,#10203c)",
           }}
         >
-          <Reveal className="mx-auto max-w-[1180px]">
-            <div className="flex items-center gap-2.5">
-              <span
-                aria-hidden
-                className="brand-rainbow-bg h-[3px] w-6 flex-none rounded-full"
-              />
-              <span className="font-mono text-meta font-semibold uppercase tracking-[0.12em] text-[#7fc4ff]">
-                // your lab, in your pocket
-              </span>
-            </div>
-            <h2 className="mt-2.5 max-w-[24ch] text-3xl font-extrabold leading-tight tracking-tight text-white md:text-[36px]">
-              The companion app brings ResearchOS to the bench
-            </h2>
-            <p className="mt-3 max-w-[64ch] text-title leading-relaxed text-[#b9cde6]">
-              Most of research happens standing at a bench, not sitting at a
-              desk. The companion app on your phone is the bench end of your
-              notebook, so the messy steps flow straight into the experiment on
-              your computer. Nothing to retype later.
-            </p>
+          <div className="mx-auto max-w-[1180px]">
+            <Reveal>
+              <div className="flex items-center gap-2.5">
+                <span
+                  aria-hidden
+                  className="brand-rainbow-bg h-[3px] w-6 flex-none rounded-full"
+                />
+                <span className="font-mono text-meta font-semibold uppercase tracking-[0.12em] text-[#7fc4ff]">
+                  // your lab, in your pocket
+                </span>
+              </div>
+              <h2 className="mt-2.5 max-w-[24ch] text-3xl font-extrabold leading-tight tracking-tight text-white md:text-[36px]">
+                The companion app brings ResearchOS to the bench
+              </h2>
+              <p className="mt-3 max-w-[64ch] text-title leading-relaxed text-[#b9cde6]">
+                Most of research happens standing at a bench, not sitting at a
+                desk. The companion app on your phone is the bench end of your
+                notebook, so the messy steps flow straight into the experiment
+                on your computer. Nothing to retype later.
+              </p>
+            </Reveal>
 
             <div className="mt-9 grid items-center gap-9 md:grid-cols-[0.78fr_1.22fr]">
-              {/* CSS phone frame holding a play-glyph placeholder. */}
-              <div className="justify-self-center">
+              {/* CSS phone frame holding a play-glyph placeholder. Leads the
+                  cascade, then the four capability cards follow it in. */}
+              <Reveal className="justify-self-center" delay={0}>
                 <div className="relative aspect-[9/19] w-[196px] overflow-hidden rounded-[30px] border-8 border-[#060d1c] bg-[#0d1424] shadow-[0_20px_54px_rgba(0,0,0,0.55)]">
                   <span
                     aria-hidden
@@ -994,29 +903,38 @@ export default function WelcomePage({
                     Companion app demo
                   </div>
                 </div>
-              </div>
+              </Reveal>
 
-              {/* 2x2 capability grid, copy verbatim from the mockup. */}
+              {/* 2x2 capability grid, copy verbatim from the mockup. Each card
+                  cascades in after the phone at a 90ms step. */}
               <div className="grid gap-3.5 sm:grid-cols-2">
-                <CapabilityCard
-                  title="Snap a photo into the experiment"
-                  body="Photograph a gel, a plate, or the bench and it lands in the right experiment on your computer at full resolution. No cable, no retyping."
-                />
-                <CapabilityCard
-                  title="Scan handwritten notes to text"
-                  body="Point your phone at a page of bench scrawl and it pulls the text out, so a paper note becomes a searchable entry in the experiment."
-                />
-                <CapabilityCard
-                  title="Scan a barcode, inventory updates itself"
-                  body="Scan the barcode on a reagent box and inventory deducts automatically as you use it. No spreadsheet, no manual count, the stock stays right."
-                />
-                <CapabilityCard
-                  title="Run methods on your phone, not on paper"
-                  body="Open a method in reading mode and follow it step by step at the bench instead of printing it. Add a variation note from your phone and it saves back to the run."
-                />
+                <Reveal delay={90}>
+                  <CapabilityCard
+                    title="Snap a photo into the experiment"
+                    body="Photograph a gel, a plate, or the bench and it lands in the right experiment on your computer at full resolution. No cable, no retyping."
+                  />
+                </Reveal>
+                <Reveal delay={180}>
+                  <CapabilityCard
+                    title="Scan handwritten notes to text"
+                    body="Point your phone at a page of bench scrawl and it pulls the text out, so a paper note becomes a searchable entry in the experiment."
+                  />
+                </Reveal>
+                <Reveal delay={270}>
+                  <CapabilityCard
+                    title="Scan a barcode, inventory updates itself"
+                    body="Scan the barcode on a reagent box and inventory deducts automatically as you use it. No spreadsheet, no manual count, the stock stays right."
+                  />
+                </Reveal>
+                <Reveal delay={360}>
+                  <CapabilityCard
+                    title="Run methods on your phone, not on paper"
+                    body="Open a method in reading mode and follow it step by step at the bench instead of printing it. Add a variation note from your phone and it saves back to the run."
+                  />
+                </Reveal>
               </div>
             </div>
-          </Reveal>
+          </div>
         </section>
 
         {/* ── 8. AI ASSISTANT (the metered BeakerBot story) ────────────── */}
@@ -1074,9 +992,6 @@ export default function WelcomePage({
             </a>
           </p>
         </FeatureRow>
-
-        {/* ── 9. TREE OF LIFE (offline delight) ────────────────────────── */}
-        <TreeOfLifeShowcase />
 
         {/* ── 10. HOW IT WORKS (local-first, three steps) ──────────────── */}
         <section className="px-6 py-16 sm:px-12">
