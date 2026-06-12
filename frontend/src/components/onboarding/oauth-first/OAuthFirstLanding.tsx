@@ -21,7 +21,7 @@
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import BeakerBot from "@/components/BeakerBot";
 import LightOnly from "@/components/LightOnly";
@@ -59,6 +59,9 @@ export function OAuthFirstLanding({
 }: OAuthFirstLandingProps) {
   const startRef = useRef<HTMLElement>(null);
   const welcomeRef = useRef<HTMLElement>(null);
+  // Scroll-reactive sticky top bar, hidden over the entry hero, fades in once
+  // the user scrolls into the marketing content.
+  const [scrolled, setScrolled] = useState(false);
   // Cursor parallax for the decorative layer (auroras, beakers, bubbles).
   const fxRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -87,7 +90,41 @@ export function OAuthFirstLanding({
 
   return (
     <LightOnly>
-      <div className="h-screen overflow-y-auto snap-y snap-proximity">
+      <div
+        className="h-screen overflow-y-auto snap-y snap-proximity"
+        onScroll={(e) =>
+          setScrolled(e.currentTarget.scrollTop > window.innerHeight * 0.6)
+        }
+      >
+        {/* Scroll-reactive sticky top bar. Hidden over the entry hero, fades in
+            as you scroll into the content, so there is a consistent header and a
+            way back to sign in. Replaces the WelcomePage nav (embedded). */}
+        <header
+          className={`fixed inset-x-0 top-0 z-50 flex items-center justify-between border-b border-border bg-surface-raised/85 px-5 py-2.5 backdrop-blur-md transition-all duration-300 ${
+            scrolled
+              ? "translate-y-0 opacity-100"
+              : "pointer-events-none -translate-y-full opacity-0"
+          }`}
+        >
+          <Wordmark size="sm" textClassName="text-brand-ink" />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onSignIn}
+              className="rounded-lg px-3.5 py-1.5 text-xs font-bold text-foreground transition-colors hover:text-brand-action"
+            >
+              Sign in
+            </button>
+            <button
+              type="button"
+              onClick={onCreateAccount}
+              className="rounded-lg px-4 py-1.5 text-xs font-bold text-white"
+              style={{ background: "linear-gradient(135deg, #1283c9, #5B47D6)" }}
+            >
+              Create account
+            </button>
+          </div>
+        </header>
         {/* Section 1: the deck-style intro landing. */}
         <section
           ref={startRef}
@@ -260,7 +297,7 @@ export function OAuthFirstLanding({
             <span className="block h-3 w-3 rotate-45 border-t-2 border-l-2 border-current" />
             <span className="text-xs font-medium">Back to get started</span>
           </button>
-          <WelcomePage />
+          <WelcomePage embedded />
         </section>
       </div>
     </LightOnly>

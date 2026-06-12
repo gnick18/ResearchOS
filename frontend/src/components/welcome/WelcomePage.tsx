@@ -280,7 +280,15 @@ function ComparisonRow({
 
 /* ========================================================================== */
 
-export default function WelcomePage() {
+export default function WelcomePage({
+  embedded = false,
+}: {
+  /** True when WelcomePage is the scroll-down content under the OAuth-first
+   *  landing. Hides its own nav and the redundant hero top (mascot, badge,
+   *  headline, CTAs) so the scroll reveals substance, not a second landing. The
+   *  NIH compliance card is kept as the lead. */
+  embedded?: boolean;
+} = {}) {
   const router = useRouter();
 
   // Warm the heavy d3 tree-of-life chunk on idle; it is the hero interaction on
@@ -336,7 +344,8 @@ export default function WelcomePage() {
           the page cap below, so content stays centered without the bands ending
           mid-screen on wide monitors. */}
       <div className="relative">
-        {/* ── Nav ─────────────────────────────────────────────────────── */}
+        {/* ── Nav (hidden when embedded, the landing's sticky bar replaces it) ── */}
+        {!embedded && (
         <nav className="relative z-10 mx-auto flex w-full max-w-[1440px] items-center justify-between px-6 py-5 sm:px-12">
           <Wordmark size="md" animated={false} className="gap-2.5" />
           <div className="flex items-center gap-3">
@@ -375,13 +384,18 @@ export default function WelcomePage() {
             </button>
           </div>
         </nav>
+        )}
 
         {/* ── Hero ────────────────────────────────────────────────────── */}
         {/* Its own subtle band (white to pale blue) with a bottom edge, so the
             hero reads as a distinct chunk and does not bleed into the content
             below. The big hero demo loop is gone; the NIH compliance card is the
             centerpiece under the headline. */}
-        <header className="relative isolate bg-gradient-to-b from-white to-[#eef4fb] px-6 pb-12 pt-2 text-center sm:px-12">
+        <header
+          className={`relative isolate bg-gradient-to-b from-white to-[#eef4fb] px-6 pb-12 text-center sm:px-12 ${
+            embedded ? "pt-16" : "pt-2"
+          }`}
+        >
           {/* Soft rainbow radial bloom behind BeakerBot. */}
           <div
             aria-hidden
@@ -393,6 +407,10 @@ export default function WelcomePage() {
           />
 
           <div className="relative z-10 mx-auto flex max-w-3xl flex-col items-center">
+            {/* Hero top (mascot, badge, headline, CTAs). Hidden when embedded so
+                the scroll-down reveals substance, not a second landing. */}
+            {!embedded && (
+              <>
             <div
               aria-hidden
               className="relative drop-shadow-[0_14px_30px_rgba(26,160,230,0.34)]"
@@ -458,6 +476,8 @@ export default function WelcomePage() {
               Free, and no sign-up to start. You only sign in if you want to
               share with your lab.
             </p>
+              </>
+            )}
 
             {/* Hero centerpiece: NIH Data Management and Sharing Plan
                 compliance, the urgent broad hook for funded labs (Grant
