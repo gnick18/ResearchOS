@@ -26,9 +26,12 @@ import {
   resolveProject,
   resolveTask,
   ownTasks,
+  ownTaskNames,
+  resolveDepType,
   createTaskTool,
   rescheduleTaskTool,
   updateTaskTool,
+  linkTasksTool,
 } from "../tools/task-tools";
 import type { Project, Task, ShiftResult } from "@/lib/types";
 
@@ -378,5 +381,100 @@ describe("update_task tool", () => {
     };
     expect(out.ok).toBe(false);
     expect(out.error).toMatch(/could not find one of your tasks/i);
+  });
+});
+
+describe("resolveTask robustness + ownTaskNames", () => {
+  const tasks = [
+    makeTask({ id: 10, name: "run PCR" }),
+    makeTask({ id: 11, name: "order primers" }),
+  ];
+  it("falls back to a normalized contains match for the model's phrasing", () => {
+    expect(resolveTask(tasks, "the run PCR task")?.id).toBe(10);
+    expect(resolveTask(tasks, "run pcr")?.id).toBe(10);
+  });
+  it("returns null when a contains match is ambiguous", () => {
+    const t2 = [makeTask({ id: 1, name: "run PCR a" }), makeTask({ id: 2, name: "run PCR b" })];
+    expect(resolveTask(t2, "run PCR")).toBeNull();
+  });
+  it("lists own task names for the not-found error", () => {
+    expect(ownTaskNames(tasks)).toEqual(["run PCR", "order primers"]);
+  });
+});
+
+describe("resolveDepType", () => {
+  it("defaults to finish-to-start", () => {
+    expect(resolveDepType(undefined)).toBe("FS");
+    expect(resolveDepType("finish-to-start")).toBe("FS");
+    expect(resolveDepType("anything else")).toBe("FS");
+  });
+  it("maps start-to-start and start-to-finish", () => {
+    expect(resolveDepType("start-to-start")).toBe("SS");
+    expect(resolveDepType("SS")).toBe("SS");
+    expect(resolveDepType("start-to-finish")).toBe("SF");
+    expect(resolveDepType("SF")).toBe("SF");
+  });
+});
+
+describe("link_tasks tool", () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  it("creates a finish-to-start dependency parent=predecessor child=successor", async () => {
+    vi.spyOn(taskToolsDeps, "listTasks").mockResolvedValue([
+      makeTask({ id: 1, name: "order primers" }),
+      makeTask({ id: 2, name: "run PCR" }),
+    ]);
+    const create = vi
+      .spyOn(taskToolsDeps, "createDependency")
+      .mockResolvedValue({ id: 5, parent_id: 1, child_id: 2, dep_type: "FS" });
+    vi.spyOn(taskToolsDeps, "navigate").mockImplementation(() => {});
+
+    const res = (await linkTasksTool.execute({
+      predecessor: "order primers",
+      successor: "run PCR",
+    })) as { ok: boolean; depType?: string };
+
+    expect(res.ok).toBe(true);
+    expect(res.depType).toBe("FS");
+    expect(create).toHaveBeenCalledWith({ parent_id: 1, child_id: 2, dep_type: "FS" });
+  });
+
+  it("errors and lists names when a task is not found", async () => {
+    vi.spyOn(taskToolsDeps, "listTasks").mockResolvedValue([
+      makeTask({ id: 1, name: "order primers" }),
+    ]);
+    const create = vi.spyOn(taskToolsDeps, "createDependency");
+
+    const res = (await linkTasksTool.execute({
+      predecessor: "order primers",
+      successor: "nonexistent",
+    })) as { ok: boolean; error?: string };
+
+    expect(res.ok).toBe(false);
+    expect(res.error).toContain("order primers");
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("refuses to link a task to itself", async () => {
+    vi.spyOn(taskToolsDeps, "listTasks").mockResolvedValue([
+      makeTask({ id: 1, name: "order primers" }),
+    ]);
+    const create = vi.spyOn(taskToolsDeps, "createDependency");
+    const res = (await linkTasksTool.execute({
+      predecessor: "order primers",
+      successor: "order primers",
+    })) as { ok: boolean };
+    expect(res.ok).toBe(false);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("is a gated action with a clear describeAction summary", () => {
+    expect(linkTasksTool.action).toBe(true);
+    const d = linkTasksTool.describeAction!({
+      predecessor: "order primers",
+      successor: "run PCR",
+    });
+    expect(d.summary).toContain("run PCR");
+    expect(d.summary).toContain("order primers");
   });
 });

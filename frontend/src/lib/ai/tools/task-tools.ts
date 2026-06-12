@@ -40,11 +40,18 @@
 import {
   tasksApi,
   projectsApi,
+  dependenciesApi,
   fetchAllTasksIncludingShared,
 } from "@/lib/local-api";
 import { requestNavigation } from "@/components/ai/navigation-bridge";
 import { daysBetween } from "./experiment-tools";
-import type { Project, Task, TaskMoveRequest, ShiftResult } from "@/lib/types";
+import type {
+  Project,
+  Task,
+  TaskMoveRequest,
+  ShiftResult,
+  Dependency,
+} from "@/lib/types";
 import type { AiTool } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -75,6 +82,13 @@ export type TaskToolsDeps = {
   ) => Promise<Task | null>;
   /** Move a task (dependency-aware shift). Returns the ShiftResult cascade. */
   moveTask: (id: number, data: TaskMoveRequest) => Promise<ShiftResult>;
+  /** Create a dependency (a schedule link) between two tasks. Returns the saved
+   *  Dependency. */
+  createDependency: (data: {
+    parent_id: number;
+    child_id: number;
+    dep_type: "FS" | "SS" | "SF";
+  }) => Promise<Dependency>;
   /** Navigate the user to an internal path after a successful write.
    *  Defaults to the navigation bridge. Injected so tests assert the call. */
   navigate: (path: string) => void;
@@ -86,6 +100,7 @@ export const taskToolsDeps: TaskToolsDeps = {
   createTask: (data) => tasksApi.create(data),
   updateTask: (id, data) => tasksApi.update(id, data),
   moveTask: (id, data) => tasksApi.move(id, data),
+  createDependency: (data) => dependenciesApi.create(data),
   navigate: requestNavigation,
 };
 
@@ -142,7 +157,29 @@ export function resolveTask(
     if (byId) return byId;
   }
   const name = String(ref).trim().toLowerCase();
-  return own.find((t) => t.name.trim().toLowerCase() === name) ?? null;
+  // Exact (case-insensitive, trimmed) match first.
+  const exact = own.find((t) => t.name.trim().toLowerCase() === name);
+  if (exact) return exact;
+  // Robustness against the model's phrasing. It may pass "the run PCR task" or
+  // "run pcr" for a task named "run PCR", so fall back to a normalized contains
+  // match (the ref contains the task name, or the task name contains the ref),
+  // but ONLY when exactly one own task matches, so we never silently pick the
+  // wrong one. Ambiguous or no match returns null and the caller lists the real
+  // names. Skip very short refs (1-2 chars) to avoid spurious hits.
+  if (name.length >= 3) {
+    const contains = own.filter((t) => {
+      const tn = t.name.trim().toLowerCase();
+      return tn.includes(name) || name.includes(tn);
+    });
+    if (contains.length === 1) return contains[0];
+  }
+  return null;
+}
+
+/** The names of the user's own tasks, for a "did you mean" style error when a
+ *  lookup misses. Pure. */
+export function ownTaskNames(tasks: Task[]): string[] {
+  return ownTasks(tasks).map((t) => t.name);
 }
 
 // ---------------------------------------------------------------------------
@@ -333,9 +370,10 @@ export const rescheduleTaskTool: AiTool = {
     const tasks = await taskToolsDeps.listTasks();
     const task = resolveTask(tasks, ref);
     if (!task) {
+      const names = ownTaskNames(tasks);
       return {
         ok: false as const,
-        error: `I could not find one of your tasks called "${ref}". Call get_my_tasks and use a real task name or id (you can only reschedule tasks you own).`,
+        error: `I could not find one of your tasks called "${ref}". Your tasks are: ${names.length ? names.map((n) => `"${n}"`).join(", ") : "(none yet)"}. Use one of those exact names or its id (you can only reschedule tasks you own).`,
       };
     }
 
@@ -445,9 +483,10 @@ export const updateTaskTool: AiTool = {
     const tasks = await taskToolsDeps.listTasks();
     const task = resolveTask(tasks, ref);
     if (!task) {
+      const names = ownTaskNames(tasks);
       return {
         ok: false as const,
-        error: `I could not find one of your tasks called "${ref}". Call get_my_tasks and use a real task name or id (you can only update tasks you own).`,
+        error: `I could not find one of your tasks called "${ref}". Your tasks are: ${names.length ? names.map((n) => `"${n}"`).join(", ") : "(none yet)"}. Use one of those exact names or its id (you can only update tasks you own).`,
       };
     }
 
@@ -509,6 +548,109 @@ export const updateTaskTool: AiTool = {
       name: updated.name,
       isComplete: updated.is_complete,
       projectId: updated.project_id || null,
+    };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// link_tasks
+// ---------------------------------------------------------------------------
+
+/** Map a friendly dependency phrasing to the stored dep_type. Finish-to-start
+ *  (the default and by far the most common) means the predecessor must finish
+ *  before the successor starts. Pure. */
+export function resolveDepType(ref: string | undefined): "FS" | "SS" | "SF" {
+  const v = String(ref ?? "").trim().toLowerCase();
+  if (v === "ss" || v.includes("start-to-start") || v.includes("start to start")) return "SS";
+  if (v === "sf" || v.includes("start-to-finish") || v.includes("start to finish")) return "SF";
+  return "FS";
+}
+
+export const linkTasksTool: AiTool = {
+  name: "link_tasks",
+  description:
+    "Create a schedule dependency (a link) between two of the user's tasks on the Gantt, so one is constrained to follow the other and a reschedule cascades. Use this when the user asks to make one task depend on, follow, or come after another (for example \"make run PCR depend on order primers\" or \"order primers then run PCR\"). You have NO other way to create a dependency, so if a request needs tasks linked you MUST call this; never claim a dependency exists unless you created it here. Both tasks must already exist (create them with create_task first). Pass the predecessor (the task that comes first) and the successor (the task that comes after) by name or id, and optionally the type, \"finish-to-start\" (the default, the successor starts after the predecessor finishes), \"start-to-start\", or \"start-to-finish\". The app shows the user a one-line preview before it writes. After it links, say in one short sentence what now depends on what. This links OWN tasks only.",
+  parameters: {
+    type: "object",
+    properties: {
+      predecessor: {
+        type: "string",
+        description:
+          "The task that comes FIRST, by name or numeric id (a real task you own).",
+      },
+      successor: {
+        type: "string",
+        description:
+          "The task that comes AFTER and depends on the predecessor, by name or numeric id (a real task you own).",
+      },
+      type: {
+        type: "string",
+        description:
+          "The dependency type. \"finish-to-start\" (the default), \"start-to-start\", or \"start-to-finish\". Omit for finish-to-start.",
+      },
+    },
+    required: ["predecessor", "successor"],
+    additionalProperties: false,
+  },
+  action: true,
+  describeAction: (args) => {
+    const pre = String(args.predecessor ?? "").trim();
+    const suc = String(args.successor ?? "").trim();
+    const dep = resolveDepType(typeof args.type === "string" ? args.type : undefined);
+    const phrase =
+      dep === "SS" ? "start together" : dep === "SF" ? "start-to-finish" : "finish-to-start";
+    return { summary: `link "${suc}" to follow "${pre}" (${phrase})` };
+  },
+  execute: async (args) => {
+    const preRef =
+      typeof args.predecessor === "string" || typeof args.predecessor === "number"
+        ? (args.predecessor as string | number)
+        : undefined;
+    const sucRef =
+      typeof args.successor === "string" || typeof args.successor === "number"
+        ? (args.successor as string | number)
+        : undefined;
+    const depType = resolveDepType(typeof args.type === "string" ? args.type : undefined);
+
+    const tasks = await taskToolsDeps.listTasks();
+    const predecessor = resolveTask(tasks, preRef);
+    const successor = resolveTask(tasks, sucRef);
+    if (!predecessor || !successor) {
+      const names = ownTaskNames(tasks);
+      const missing = !predecessor ? preRef : sucRef;
+      return {
+        ok: false as const,
+        error: `I could not find one of your tasks called "${missing}". Your tasks are: ${names.length ? names.map((n) => `"${n}"`).join(", ") : "(none yet)"}. Both tasks must already exist, create them with create_task first.`,
+      };
+    }
+    if (predecessor.id === successor.id) {
+      return { ok: false as const, error: "A task cannot depend on itself." };
+    }
+
+    try {
+      // FS / SF / SS all store parent = predecessor, child = successor; the shift
+      // engine reads dep_type to decide the constraint direction.
+      await taskToolsDeps.createDependency({
+        parent_id: predecessor.id,
+        child_id: successor.id,
+        dep_type: depType,
+      });
+    } catch (err) {
+      return {
+        ok: false as const,
+        error: `Could not link the tasks. ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+
+    taskToolsDeps.navigate(
+      `/gantt?highlightTasks=self:${predecessor.id},self:${successor.id}`,
+    );
+
+    return {
+      ok: true as const,
+      predecessor: predecessor.name,
+      successor: successor.name,
+      depType,
     };
   },
 };

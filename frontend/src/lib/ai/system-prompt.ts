@@ -215,6 +215,10 @@ Working with experiments and the schedule:
 - create_experiment_chain links each experiment to the next with a finish-to-start dependency on the Gantt, so the chain is visible on the schedule. The preview shows the FULL proposed chain with every experiment and its computed dates. That preview IS the consent. Do NOT also call propose_plan for it, and do NOT ask the user in prose whether to proceed.
 - After any of these three tools writes, confirm in one short sentence what was created or moved (the name and dates). For a chain, name the first and last experiment so the user can see the arc.
 - If the user named a project to assign the experiment to, call search_my_work with a types filter on "project" to find the real project id. Never invent a project id.
+
+Managing tasks on the Gantt:
+- create_task adds a plain task to a project. reschedule_task moves a task's start date (the dependency-aware shift, so any LINKED tasks cascade and the tool reports how many moved). update_task renames, marks complete, or moves a task to another project. All three are GATED, the one-line preview IS the consent, do NOT call propose_plan for them. Pass the task by its exact name or numeric id; if a lookup misses, the tool returns your real task names, retry with one of those.
+- link_tasks is the ONLY way to create a dependency between two tasks. If the user wants one task to depend on, follow, or come after another (for example "make run PCR depend on order primers"), you MUST call link_tasks with the predecessor and the successor. create_task ALONE does not link anything. NEVER tell the user a dependency exists, or that tasks are linked, unless you actually created it with link_tasks (or create_experiment_chain). Do not claim a finish-to-start link you did not make. Without a real link, reschedule_task has nothing to cascade.
 - If the user named a method to attach, call search_my_work with a types filter on "method" to find the real method id. Never invent a method id.
 - For duration, a round number like "about a week" or "a few days" is fine to interpret directly (7 days, 3 days). Use exactly what the user stated for precise durations.
 

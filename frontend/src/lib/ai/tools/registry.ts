@@ -67,6 +67,7 @@ import {
   createTaskTool,
   rescheduleTaskTool,
   updateTaskTool,
+  linkTasksTool,
 } from "./task-tools";
 import {
   readNoteTool,
@@ -270,6 +271,7 @@ export const ACTION_TOOLS: AiTool[] = [
   createTaskTool,
   rescheduleTaskTool,
   updateTaskTool,
+  linkTasksTool,
   createSequenceTool,
   createMoleculeTool,
   importMoleculeTool,
