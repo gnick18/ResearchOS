@@ -18,6 +18,11 @@ import { Icon } from "@/components/icons";
 import type { DataHubDocContent } from "@/lib/datahub/model/types";
 import { cellDisplay } from "@/lib/datahub/column-table";
 import { pairCount, xColumn, yColumns } from "@/lib/datahub/xy-table";
+import {
+  useGridCrudMenu,
+  ColumnRenameInput,
+  type GridCrudHandlers,
+} from "@/components/datahub/grid-crud-menu";
 
 export default function XYTableGrid({
   content,
@@ -25,6 +30,7 @@ export default function XYTableGrid({
   onAddRow,
   onAddColumn,
   hideAddControls = false,
+  crud,
 }: {
   content: DataHubDocContent;
   /** Persist a single cell edit (row id, column id, the raw input string). */
@@ -34,10 +40,13 @@ export default function XYTableGrid({
   onAddColumn: () => void;
   /** Suppress the internal Add bar when the WorkspaceToolbar owns those actions. */
   hideAddControls?: boolean;
+  /** Right-click row/column CRUD callbacks (see grid-crud-menu). */
+  crud?: GridCrudHandlers;
 }) {
   const xCol = useMemo(() => xColumn(content), [content]);
   const ys = useMemo(() => yColumns(content), [content]);
   const rows = content.rows;
+  const menu = useGridCrudMenu(content, crud ?? {});
 
   // The grid columns in render order: X first, then the Y columns.
   const columns = useMemo(
@@ -86,17 +95,33 @@ export default function XYTableGrid({
               {columns.map((col) => (
                 <th
                   key={col.id}
+                  onContextMenu={(e) => menu.openColumnMenu(e, col.id)}
+                  onDoubleClick={() => {
+                    // Only Y columns rename inline; the X column is the structural
+                    // axis and is never renamed as a data column.
+                    if (!col.isX) menu.beginRename(col.id);
+                  }}
                   className={`min-w-[96px] border border-border px-3 py-1.5 text-center text-body font-semibold ${
                     col.isX
                       ? "bg-accent-soft text-accent"
                       : "bg-surface-sunken text-foreground"
                   }`}
                 >
-                  {col.name}
-                  {col.isX && (
-                    <span className="ml-1 text-[10px] font-medium uppercase opacity-70">
-                      X
-                    </span>
+                  {menu.renamingColumnId === col.id ? (
+                    <ColumnRenameInput
+                      initialName={col.name}
+                      onCommit={(name) => menu.commitRename(col.id, name)}
+                      onCancel={menu.cancelRename}
+                    />
+                  ) : (
+                    <>
+                      {col.name}
+                      {col.isX && (
+                        <span className="ml-1 text-[10px] font-medium uppercase opacity-70">
+                          X
+                        </span>
+                      )}
+                    </>
                   )}
                 </th>
               ))}
@@ -105,7 +130,10 @@ export default function XYTableGrid({
           <tbody>
             {rows.map((row, r) => (
               <tr key={row.id}>
-                <td className="border border-border bg-surface-sunken px-3 py-1 text-center text-meta text-foreground-muted">
+                <td
+                  onContextMenu={(e) => menu.openRowMenu(e, row.id)}
+                  className="border border-border bg-surface-sunken px-3 py-1 text-center text-meta text-foreground-muted"
+                >
                   {r + 1}
                 </td>
                 {columns.map((col) => (

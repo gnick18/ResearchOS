@@ -21,6 +21,11 @@ import {
   formatStat,
   groupColumns,
 } from "@/lib/datahub/column-table";
+import {
+  useGridCrudMenu,
+  ColumnRenameInput,
+  type GridCrudHandlers,
+} from "@/components/datahub/grid-crud-menu";
 
 export default function DataTableGrid({
   content,
@@ -28,6 +33,7 @@ export default function DataTableGrid({
   onAddRow,
   onAddColumn,
   hideAddControls = false,
+  crud,
 }: {
   content: DataHubDocContent;
   /** Persist a single cell edit (row id, column id, the raw input string; the
@@ -38,10 +44,14 @@ export default function DataTableGrid({
   /** Suppress the internal Add row / Add group bar when the page renders the
    *  WorkspaceToolbar above the grid (the toolbar owns those actions there). */
   hideAddControls?: boolean;
+  /** Right-click row/column CRUD callbacks. Omitted in isolated renders / tests
+   *  that do not mount the ContextMenuProvider, in which case no menus attach. */
+  crud?: GridCrudHandlers;
 }) {
   const columns = useMemo(() => groupColumns(content), [content]);
   const stats = useMemo(() => computeAllGroupStats(content), [content]);
   const rows = content.rows;
+  const menu = useGridCrudMenu(content, crud ?? {});
 
   return (
     <div data-testid="datahub-data-grid">
@@ -76,9 +86,19 @@ export default function DataTableGrid({
               {columns.map((col) => (
                 <th
                   key={col.id}
+                  onContextMenu={(e) => menu.openColumnMenu(e, col.id)}
+                  onDoubleClick={() => menu.beginRename(col.id)}
                   className="min-w-[96px] border border-border bg-surface-sunken px-3 py-1.5 text-center text-body font-semibold text-foreground"
                 >
-                  {col.name}
+                  {menu.renamingColumnId === col.id ? (
+                    <ColumnRenameInput
+                      initialName={col.name}
+                      onCommit={(name) => menu.commitRename(col.id, name)}
+                      onCancel={menu.cancelRename}
+                    />
+                  ) : (
+                    col.name
+                  )}
                 </th>
               ))}
             </tr>
@@ -86,7 +106,10 @@ export default function DataTableGrid({
           <tbody>
             {rows.map((row, r) => (
               <tr key={row.id}>
-                <td className="border border-border bg-surface-sunken px-3 py-1 text-center text-meta text-foreground-muted">
+                <td
+                  onContextMenu={(e) => menu.openRowMenu(e, row.id)}
+                  className="border border-border bg-surface-sunken px-3 py-1 text-center text-meta text-foreground-muted"
+                >
                   {r + 1}
                 </td>
                 {columns.map((col) => (

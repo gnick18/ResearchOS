@@ -18,18 +18,28 @@ import {
   eventColumn,
   groupColumn,
 } from "@/lib/datahub/survival-table";
+import {
+  useGridCrudMenu,
+  type GridCrudHandlers,
+} from "@/components/datahub/grid-crud-menu";
 
 export default function SurvivalTableGrid({
   content,
   onCellCommit,
   onAddRow,
   hideAddControls = false,
+  crud,
 }: {
   content: DataHubDocContent;
   onCellCommit: (rowId: string, columnId: string, raw: string) => void;
   onAddRow: () => void;
   /** Suppress the internal Add bar when the WorkspaceToolbar owns those actions. */
   hideAddControls?: boolean;
+  /** Right-click CRUD callbacks. A Survival table has THREE fixed columns (Time,
+   *  Event, Group), so only the ROW menu (insert / delete subject) is wired here;
+   *  deleting or duplicating a fixed column would corrupt the Kaplan-Meier inputs,
+   *  so the column menu is deliberately withheld on this grid. */
+  crud?: GridCrudHandlers;
 }) {
   const cols = useMemo(() => {
     const t = timeColumn(content);
@@ -42,6 +52,14 @@ export default function SurvivalTableGrid({
     return out;
   }, [content]);
   const rows = content.rows;
+  // Row-only menu: pass through just the row handlers so the column menu can never
+  // surface on this grid's fixed Time / Event / Group headers. Memoized so the
+  // hook's callbacks stay stable across renders.
+  const rowOnlyCrud = useMemo<GridCrudHandlers>(
+    () => ({ onDeleteRow: crud?.onDeleteRow, onInsertRowAt: crud?.onInsertRowAt }),
+    [crud?.onDeleteRow, crud?.onInsertRowAt],
+  );
+  const menu = useGridCrudMenu(content, rowOnlyCrud);
 
   return (
     <div data-testid="datahub-survival-grid">
@@ -81,7 +99,10 @@ export default function SurvivalTableGrid({
           <tbody>
             {rows.map((row, r) => (
               <tr key={row.id}>
-                <td className="border border-border bg-surface-sunken px-3 py-1 text-center text-meta text-foreground-muted">
+                <td
+                  onContextMenu={(e) => menu.openRowMenu(e, row.id)}
+                  className="border border-border bg-surface-sunken px-3 py-1 text-center text-meta text-foreground-muted"
+                >
                   {r + 1}
                 </td>
                 {cols.map((col) => (

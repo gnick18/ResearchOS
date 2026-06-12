@@ -35,13 +35,26 @@ import {
 } from "@/lib/loro/datahub-store";
 import {
   addRow as addRowToDoc,
+  addRowAt as addRowAtInDoc,
   addColumn as addColumnToDoc,
+  addColumnAt as addColumnAtInDoc,
   updateColumn as updateColumnInDoc,
+  deleteRow as deleteRowInDoc,
+  removeColumnWithCells as removeColumnInDoc,
   getDataHubContent,
   setAnalysis as setAnalysisInDoc,
   setPlot as setPlotInDoc,
   setCell,
 } from "@/lib/loro/datahub-doc";
+import {
+  buildBlankRow,
+  buildBlankColumn,
+  buildDuplicateColumn,
+  canDeleteColumn,
+  canDeleteRow,
+  columnIndex,
+  rowIndex,
+} from "@/lib/datahub/grid-crud";
 import {
   buildEmptyColumnTable,
   parseCellInput,
@@ -446,6 +459,132 @@ export default function DataHubPage() {
       setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
     },
     [openContent],
+  );
+
+  // --- Grid row/column CRUD (right-click menus) ------------------------------
+  // These mirror the handleAddRow / handleAddColumn commit path exactly (write
+  // through the Loro doc, commit debounced, reproject so the grid re-derives).
+  // The guards live in lib/datahub/grid-crud so the menus can disable an action
+  // and these handlers stay a no-op if one slips through. Generic over columns /
+  // rows; only the menu labels differ by table type.
+
+  // Delete one row by id. Guarded so the last remaining row is never removed (a
+  // table needs at least one row to edit into).
+  const handleDeleteRow = useCallback(
+    (rowId: string) => {
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      if (!canDeleteRow(openContent)) return;
+      deleteRowInDoc(handle.doc, rowId);
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+    },
+    [openContent],
+  );
+
+  // Insert a blank row at a position (above or below a clicked row). Reuses the
+  // blank-row shape so every column gets a null cell.
+  const handleInsertRowAt = useCallback(
+    (index: number) => {
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      const row = buildBlankRow(openContent, `row-${Date.now()}`);
+      addRowAtInDoc(handle.doc, row, index);
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+    },
+    [openContent],
+  );
+
+  // Delete one column by id, dropping its cell from every row. Guarded so a
+  // structural axis (XY X column, Grouped row label) and the last data column are
+  // never removed.
+  const handleDeleteColumn = useCallback(
+    (columnId: string) => {
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      if (!canDeleteColumn(openContent, columnId)) return;
+      removeColumnInDoc(handle.doc, columnId);
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+    },
+    [openContent],
+  );
+
+  // Rename one column's display name. A blank name is rejected (a column needs a
+  // label). The grid renames inline, so this is the commit half of that edit.
+  const handleRenameColumn = useCallback(
+    (columnId: string, name: string) => {
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      const trimmed = name.trim();
+      if (trimmed === "") return;
+      updateColumnInDoc(handle.doc, columnId, { name: trimmed });
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+    },
+    [openContent],
+  );
+
+  // Duplicate one column right after itself: a new column ("<name> copy") with the
+  // source column's role / type, plus each row's source-cell value copied across.
+  const handleDuplicateColumn = useCallback(
+    (columnId: string) => {
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      const newId = `col-${Date.now()}`;
+      const copy = buildDuplicateColumn(openContent, columnId, newId);
+      if (!copy) return;
+      const srcIndex = columnIndex(openContent, columnId);
+      addColumnAtInDoc(handle.doc, copy, srcIndex + 1);
+      for (const row of openContent.rows) {
+        setCell(handle.doc, row.id, newId, row.cells[columnId] ?? null);
+      }
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+    },
+    [openContent],
+  );
+
+  // Insert a blank data column at a position (before or after a clicked column).
+  // Reuses the blank-column shape (type-correct name) and backfills a null cell
+  // per row so the grid reads cleanly.
+  const handleInsertColumnAt = useCallback(
+    (index: number) => {
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      const newId = `col-${Date.now()}`;
+      const col = buildBlankColumn(openContent, newId);
+      addColumnAtInDoc(handle.doc, col, index);
+      for (const row of openContent.rows) {
+        setCell(handle.doc, row.id, newId, null);
+      }
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+    },
+    [openContent],
+  );
+
+  // Bundle the grid CRUD callbacks once so each grid receives a stable object for
+  // its right-click menus. The grid decides which items to surface from the table
+  // type plus the per-column guards.
+  const gridCrud = useMemo(
+    () => ({
+      onDeleteRow: handleDeleteRow,
+      onInsertRowAt: handleInsertRowAt,
+      onDeleteColumn: handleDeleteColumn,
+      onRenameColumn: handleRenameColumn,
+      onDuplicateColumn: handleDuplicateColumn,
+      onInsertColumnAt: handleInsertColumnAt,
+    }),
+    [
+      handleDeleteRow,
+      handleInsertRowAt,
+      handleDeleteColumn,
+      handleRenameColumn,
+      handleDuplicateColumn,
+      handleInsertColumnAt,
+    ],
   );
 
   // Create a new Column table (seeded empty), refresh the catalog, and open it.
@@ -1036,6 +1175,7 @@ export default function DataHubPage() {
                     onCellCommit={handleCellCommit}
                     onAddRow={handleAddRow}
                     onAddColumn={handleAddColumn}
+                    crud={gridCrud}
                     hideAddControls
                   />
                 ) : openContent.meta.table_type === "grouped" ? (
@@ -1045,6 +1185,7 @@ export default function DataHubPage() {
                     onAddRow={handleAddRow}
                     onAddColumn={handleAddColumn}
                     onRenameGroup={handleRenameGroup}
+                    crud={gridCrud}
                     hideAddControls
                   />
                 ) : openContent.meta.table_type === "survival" ? (
@@ -1052,6 +1193,7 @@ export default function DataHubPage() {
                     content={openContent}
                     onCellCommit={handleCellCommit}
                     onAddRow={handleAddRow}
+                    crud={gridCrud}
                     hideAddControls
                   />
                 ) : (
@@ -1060,6 +1202,7 @@ export default function DataHubPage() {
                     onCellCommit={handleCellCommit}
                     onAddRow={handleAddRow}
                     onAddColumn={handleAddColumn}
+                    crud={gridCrud}
                     hideAddControls
                   />
                 )}
