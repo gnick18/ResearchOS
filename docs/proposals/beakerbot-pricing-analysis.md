@@ -76,6 +76,13 @@ This also keeps the storage and AI free tiers cleanly different on purpose: stor
 - At that rate a **$10 block buys roughly 700 average tasks**, a **$25 block roughly 1,800**. These are generous because the underlying cost is tiny, which is the whole trust story.
 - State the reason in copy: open-weight model plus browser-side agent loop keeps our cost low, and we pass it through near cost.
 
+### Department and institution AI pools (reuse the existing channel)
+Departments and institutions get an AI pool alongside their storage plan, through the SAME self-serve plan builder and recurring-invoice-to-procurement channel already built for storage. AI is a second line on the same invoice, not a new payment path. Universities already buy site licenses for LabArchives and Benchling, so an institutional AI line is exactly what their procurement expects.
+
+- **Priced at a sustaining rate above cost (Grant 2026-06-11), the same logic as the storage tiers.** Individuals and labs pay AI at cost-recovery. Departments and institutions pay a modest sustaining rate above bare AI cost, and that surplus keeps the free individual sign-up trial free and funds AI development. Institutions have budget, individuals do not, so the institutional pool is where AI joins the solidarity model, exactly as storage does.
+- **A shared token pool for the institution's members**, with the admin setting the cap. Members draw from the pool, the cost circuit breaker backstops runaway, and an institution can cover its researchers' AI without each one entering a card.
+- **Mechanically it mirrors the storage pool** (only the admin pays, one shared allowance), so the wiring reuses the storage-pool and dept/inst-builder code rather than adding a new path. The plan builder gains an AI line next to the storage line.
+
 ### The guardrails (already partly built)
 - The **cost circuit breaker** exists (`feature_cost_circuit_breaker`): if spend approaches budget, cloud AI pauses while free local search keeps working. No runaway bill reaches the user.
 - Grant must still set **provider-side hard caps** (a Fireworks spend cap), the brief flags this and it is the real backstop.
@@ -105,7 +112,7 @@ Replaces the generic AI section in the welcome redesign mockup. Leads with what 
 >
 > - **Free tokens when you sign up.** Every new account gets a one-time batch of tokens to try BeakerBot, no card needed. How far they stretch depends on what you ask. A quick question is cheap, a full analysis costs more, and the batch works out to roughly 20 to 25 full analyses or over 100 quick questions. Plenty to see what BeakerBot does before you spend anything.
 > - **Then prepaid credits, near cost.** Buy a block, and each task draws down what it actually cost us to run, plus a thin buffer for processing. You always see your balance and what the last task cost.
-> - **Or have your lab cover it.** A lab or department can fund a shared pool, so members use BeakerBot without paying out of pocket.
+> - **Or have your lab or institution cover it.** A lab, department, or institution can fund a shared pool, so members use BeakerBot without paying out of pocket.
 > - **Why it is cheap.** We run an open-weight model and the agent loop runs in your browser, so only a small result ever crosses to the model, never your files. Low cost and your-data-stays-home are the same fact.
 >
 > (Final credit prices are held until a few weeks of real usage set them from data. During the beta the AI is free.)
@@ -118,7 +125,7 @@ Add an "AI (BeakerBot)" section once numbers lock: the free-vs-metered split, th
 ## 5. Implementation notes (for whoever wires billing)
 
 - **The meter**: a per-user AI usage meter (tokens or dollar-cost per task), debiting a credit balance, with the one-time trial credit applied first. The proxy at `frontend/src/app/api/ai/chat/route.ts` already centralizes every AI call, so that is the natural metering point (it sees input/output token counts in the provider response).
-- **The balance + trial credit**: stored per user. The lab-pool option mirrors the storage pool wiring.
+- **The balance + trial credit**: stored per user. The lab pool mirrors the storage pool wiring, and the department/institution AI pool reuses the dept/inst plan builder and the recurring-invoice-to-procurement channel, with an AI line beside the storage line (sustaining rate above cost, same as storage).
 - **Stripe**: prepaid credit-block purchases (one-time charges), same Stripe account as storage. No new entity.
 - **Config as placeholders**: put the rates, the trial credit, and the buffer in a tunable config like `assumptions.ts`, flagged provisional, so they are config-only to change.
 - **Build now in test mode**, go-live is config once banking clears (the storage billing followed this exact path, `project_llc_business_ops`).
