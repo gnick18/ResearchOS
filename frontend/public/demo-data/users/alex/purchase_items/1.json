@@ -1,15 +1,15 @@
 {
   "id": 1,
   "task_id": 7,
-  "item_name": "FakeStrain ΔADE2 (fake yeast collection)",
+  "item_name": "DemoStrain ΔADE2 (fake yeast collection)",
   "quantity": 1,
   "link": "https://example.org/demo-strain-catalog",
   "cas": null,
   "price_per_unit": 220,
   "shipping_fees": 25,
   "total_price": 245,
-  "notes": "Engineered strain (fake), replaces nothing real.",
-  "funding_string": "DOE-EERE-0009431",
+  "notes": "Demo strain — replaces nothing real.",
+  "funding_string": "DEMO-DOE-EERE",
   "vendor": null,
   "category": null
 }

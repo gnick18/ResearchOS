@@ -1,7 +1,7 @@
 {
   "id": 3,
-  "name": "Internal Bridge Fund",
-  "description": "Internal bridge funds for consumables.",
+  "name": "DEMO-Internal-Bridge",
+  "description": "Demo internal bridge funds for consumables.",
   "total_budget": 5000,
   "spent": 980,
   "remaining": 4020

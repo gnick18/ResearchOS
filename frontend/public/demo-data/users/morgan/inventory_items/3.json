@@ -7,7 +7,7 @@
   "cas": null,
   "url": "https://www.neb.com/en-us/products/m0202-t4-dna-ligase",
   "container_label": "vial",
-  "notes": "Sticky/blunt-end ligation for library cloning.",
+  "notes": "[Demo] Sticky/blunt-end ligation for library cloning.",
   "low_at_count": 2,
   "track_consumption": false,
   "product_barcode": null,

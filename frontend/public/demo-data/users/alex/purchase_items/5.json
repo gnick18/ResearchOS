@@ -8,8 +8,8 @@
   "price_per_unit": 40,
   "shipping_fees": 0,
   "total_price": 200,
-  "notes": "Internal media-prep order.",
-  "funding_string": "NIH R01 GM149023",
+  "notes": "Demo internal media-prep order.",
+  "funding_string": "DEMO-NIH-GM999999",
   "vendor": "Internal supply",
   "category": "Plasticware"
 }

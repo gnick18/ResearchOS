@@ -1,6 +1,6 @@
 {
   "id": 11,
-  "name": "flbA expression vs control (ΔΔCq)",
+  "name": "[Demo protocol] flbA expression vs control (ΔΔCq)",
   "source_path": "qpcr_analysis://protocol/1",
   "method_type": "qpcr_analysis",
   "folder_path": "qPCR",

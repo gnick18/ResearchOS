@@ -1,12 +1,12 @@
 {
   "id": 1,
-  "title": "Weekly lab meeting",
+  "title": "Weekly lab meeting (demo)",
   "event_type": "meeting",
   "start_date": "2026-05-25",
   "end_date": "2026-05-25",
   "start_time": "10:00",
   "end_time": "11:00",
-  "location": "Bio 4203",
+  "location": "Bio 4203 (demo)",
   "url": null,
   "notes": "Standing weekly. Member project updates + open issues.",
   "color": "#3b82f6"

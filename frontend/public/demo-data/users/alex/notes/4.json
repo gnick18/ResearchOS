@@ -16,7 +16,7 @@
       "id": "alex-note4-e1",
       "title": "2026-05-11: lab meeting notes",
       "date": "2026-05-11",
-      "content": "Attendees: alex, morgan.\n\nAgenda:\n1. Walk through pYES-GAL1::flbA integration data\n2. Plan for the 96-well fluorescence screen (morgan's project 1)\n3. Review purchase pipeline for the stress-tolerance project\n\nNotes:\nMorgan presented the patch-plate photos from 2026-05-09. Eight clean colonies, no satellites. Plan is to send the top 4 for Sanger sequencing on Monday. Decision: pick rows A1, A2, A3, A4 (per the running log). If 3 of 4 come back clean we move to the qPCR expression check on the same colonies.\n\nFor the 96-well screen, morgan will use the public FakeCheck PCR protocol but with the fakeGFP primer pair (alex protocol 1). Plate map already drafted (morgan note 1). Reader booked for Thursday.\n\nAction items:\n- alex: place IDT order for the fakeGFP primers by Wednesday\n- morgan: finalize plate map and share via the lab notes panel\n- both: review the gel image from PCR screen 2026-05-13 once it's posted",
+      "content": "Attendees: alex, morgan.\n\nAgenda:\n1. Walk through pYES-GAL1::flbA integration data\n2. Plan for the 96-well fluorescence screen (morgan's project 1)\n3. Review purchase pipeline for the stress-tolerance project\n\nNotes:\nMorgan presented the patch-plate photos from 2026-05-09. Eight clean colonies, no satellites. Plan is to send the top 4 for Sanger sequencing on Monday. Decision: pick rows A1, A2, A3, A4 (per the running log). If 3 of 4 come back clean we move to the qPCR expression check on the same colonies.\n\nFor the 96-well screen, morgan will use the public DemoCheck PCR protocol but with the fakeGFP primer pair (alex protocol 1). Plate map already drafted (morgan note 1). Reader booked for Thursday.\n\nAction items:\n- alex: place IDT order for the fakeGFP primers by Wednesday\n- morgan: finalize plate map and share via the lab notes panel\n- both: review the gel image from PCR screen 2026-05-13 once it's posted",
       "created_at": "2026-05-11T13:00:00Z",
       "updated_at": "2026-05-11T15:30:00Z"
     }
@@ -25,7 +25,7 @@
     {
       "id": "cmt-mira-alex-note4-1",
       "author": "mira",
-      "text": "Quick follow-up on the IDT order — please loop me in on the funding split before placing it. Want to keep DOE-EERE-0009431 balanced for the renewal package due next month.",
+      "text": "Quick follow-up on the IDT order — please loop me in on the funding split before placing it. Want to keep DEMO-DOE-EERE balanced for the renewal package due next month.",
       "created_at": "2026-05-11T17:42:00Z"
     }
   ],

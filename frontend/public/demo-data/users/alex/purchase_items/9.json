@@ -9,7 +9,7 @@
   "shipping_fees": 15,
   "total_price": 255,
   "notes": null,
-  "funding_string": "DOE-EERE-0009431",
+  "funding_string": "DEMO-DOE-EERE",
   "vendor": "Thermo",
   "category": "Plasticware"
 }

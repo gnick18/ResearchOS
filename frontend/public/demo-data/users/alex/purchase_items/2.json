@@ -9,7 +9,7 @@
   "shipping_fees": 5,
   "total_price": 61,
   "notes": null,
-  "funding_string": "NIH R01 GM149023",
+  "funding_string": "DEMO-NIH-GM999999",
   "vendor": "IDT",
   "category": "Reagents"
 }

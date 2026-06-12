@@ -8,7 +8,7 @@
   "price_per_unit": 42,
   "shipping_fees": 0,
   "total_price": 84,
-  "notes": "Internal stock.",
+  "notes": "Demo internal stock.",
   "funding_string": null,
   "vendor": "Internal supply",
   "category": "Reagents"

@@ -1,7 +1,7 @@
 {
   "id": 1,
-  "name": "Reverse-phase HPLC — flbA peptide quantification",
-  "description": "HPLC method — separates fake-flbA tryptic peptides on a C18 column. Expected retention for the target peptide: 12.4 min.",
+  "name": "[Demo protocol] Reverse-phase HPLC — flbA peptide quantification",
+  "description": "Demo HPLC method — separates fake-flbA tryptic peptides on a C18 column. Expected retention for the target peptide: 12.4 min (demo number).",
   "gradient_steps": [
     {
       "time_min": 0,
@@ -42,7 +42,7 @@
   ],
   "column": {
     "manufacturer": "Waters",
-    "model": "ACQUITY UPLC BEH C18",
+    "model": "ACQUITY UPLC BEH C18 (demo)",
     "length_mm": 150,
     "inner_diameter_mm": 2.1,
     "particle_size_um": 1.7

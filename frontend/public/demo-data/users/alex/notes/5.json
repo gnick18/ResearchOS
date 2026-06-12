@@ -24,7 +24,7 @@
       "id": "rl-alex-5-e2",
       "title": "2026-04-29: primer concentration check (100 vs 200 nM)",
       "date": "2026-04-29",
-      "content": "100 nM: Cq 22.1, lower fluorescence plateau. 200 nM: Cq 21.7, plateau ~2× higher. Sticking with 200 nM for these runs.",
+      "content": "100 nM: Cq 22.1, lower fluorescence plateau. 200 nM: Cq 21.7, plateau ~2× higher. Sticking with 200 nM for the demo runs.",
       "created_at": "2026-04-29T11:00:00Z",
       "updated_at": "2026-04-29T11:00:00Z"
     },

@@ -8,8 +8,8 @@
   "price_per_unit": 58,
   "shipping_fees": 0,
   "total_price": 116,
-  "notes": "Osmotic stress assay reagent.",
-  "funding_string": "Internal Bridge Fund",
+  "notes": "Osmotic stress assay reagent (demo).",
+  "funding_string": "DEMO-Internal-Bridge",
   "vendor": "Sigma-Aldrich",
   "category": "Reagents"
 }

@@ -7,7 +7,7 @@
   "cas": null,
   "url": "https://www.abcam.com/en-us/products/primary-antibodies/beta-actin-antibody",
   "container_label": "vial",
-  "notes": "Loading-control antibody for Western blots.",
+  "notes": "[Demo] Loading-control antibody for Western blots.",
   "low_at_count": null,
   "track_consumption": false,
   "product_barcode": null,
@@ -15,15 +15,15 @@
     "target": "beta-actin",
     "host_species": "Rabbit",
     "clonality": "monoclonal",
-    "clone": "EPR-FK",
+    "clone": "EPR-DEMO",
     "conjugate": "HRP",
     "isotype": "IgG",
-    "reactivity": "Human, Mouse, Yeast",
+    "reactivity": "Human, Mouse, Yeast (demo)",
     "applications": [
       "WB",
       "FACS"
     ],
-    "rrid": "AB_0000000",
+    "rrid": "AB_0000000 (demo)",
     "recommended_dilution": "1:1000 (WB)"
   },
   "tags": [

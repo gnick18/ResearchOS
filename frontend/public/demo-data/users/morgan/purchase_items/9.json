@@ -9,7 +9,7 @@
   "shipping_fees": 0,
   "total_price": 204,
   "notes": null,
-  "funding_string": "NIH R01 GM149023",
+  "funding_string": "DEMO-NIH-GM999999",
   "vendor": "Thermo",
   "category": "Consumables"
 }

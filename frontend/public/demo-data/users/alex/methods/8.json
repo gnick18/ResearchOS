@@ -1,6 +1,6 @@
 {
   "id": 8,
-  "name": "HeLa passaging — weekly 1:5 split",
+  "name": "[Demo protocol] HeLa passaging — weekly 1:5 split",
   "source_path": "cell_culture://protocol/1",
   "method_type": "cell_culture",
   "folder_path": "Cell culture",

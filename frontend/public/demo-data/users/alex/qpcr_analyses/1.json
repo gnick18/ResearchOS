@@ -1,7 +1,7 @@
 {
   "id": 1,
-  "name": "flbA expression vs control (ΔΔCq)",
-  "description": "qPCR analysis — measures fake-flbA mRNA in induced vs uninduced FakeYeast cultures, normalized to ACT1 housekeeping. Pair with PCR method 5 (qPCR fakeGFP expression) via a compound for the full cycling + analysis kit.",
+  "name": "[Demo protocol] flbA expression vs control (ΔΔCq)",
+  "description": "Demo qPCR analysis — measures fake-flbA mRNA in induced vs uninduced FakeYeast cultures, normalized to ACT1 housekeeping. Pair with PCR method 5 (qPCR fakeGFP expression) via a compound for the full cycling + analysis kit.",
   "chemistry": "sybr",
   "chemistry_label": null,
   "references": [

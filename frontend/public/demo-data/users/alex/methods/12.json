@@ -1,6 +1,6 @@
 {
   "id": 12,
-  "name": "Yeast growth-curve full kit",
+  "name": "[Demo kit] Yeast growth-curve full kit",
   "source_path": null,
   "method_type": "compound",
   "folder_path": "Screening",
@@ -20,7 +20,7 @@
       "method_id": 7,
       "owner": null,
       "ordering": 0,
-      "label": "Plate layout (96-well FakeStrain titration)"
+      "label": "Plate layout (96-well DemoStrain titration)"
     },
     {
       "method_id": 2,

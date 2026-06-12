@@ -1,7 +1,7 @@
 {
   "is_demo": true,
   "version": "1.0",
-  "lab_title": "Synthetic Biology Lab",
+  "lab_title": "Demo Synthetic Biology Lab",
   "generated_at": "2026-05-13T00:00:00Z",
   "last_rebased_at": "2026-05-13",
   "notice": "This folder is the ResearchOS demo lab. All projects, strains, and results are fabricated for tutorial purposes."

@@ -52,7 +52,7 @@
       "method_id": 11,
       "owner": "alex",
       "snapshot_at": "2026-05-13T08:00:00Z",
-      "qpcr_analysis": "{\"cqs\":{\"flbA-1\":{\"cq\":24.3,\"notes\":\"induced, biological triplicate mean\"},\"ref-act1\":{\"cq\":21.7,\"notes\":\"housekeeping baseline\"}},\"notes\":\"induced cultures show ~6× upregulation of flbA vs ACT1.\"}"
+      "qpcr_analysis": "{\"cqs\":{\"flbA-1\":{\"cq\":24.3,\"notes\":\"induced, biological triplicate mean\"},\"ref-act1\":{\"cq\":21.7,\"notes\":\"housekeeping baseline\"}},\"notes\":\"Demo readouts — induced cultures show ~6× upregulation of flbA vs ACT1.\"}"
     }
   ],
   "owner": "alex",

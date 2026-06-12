@@ -1,15 +1,15 @@
 {
   "id": 7,
   "task_id": 24,
-  "item_name": "pYES2 backbone vector",
+  "item_name": "pYES2 backbone vector (demo)",
   "quantity": 1,
   "link": null,
   "cas": null,
   "price_per_unit": 180,
   "shipping_fees": 0,
   "total_price": 180,
-  "notes": "Plasmid — fake catalog entry.",
-  "funding_string": "NIH R01 GM149023",
+  "notes": "Demo plasmid — fake catalog entry.",
+  "funding_string": "DEMO-NIH-GM999999",
   "vendor": null,
   "category": "Reagents"
 }

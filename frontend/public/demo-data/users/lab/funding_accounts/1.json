@@ -1,7 +1,7 @@
 {
   "id": 1,
-  "name": "NIH R01 GM149023",
-  "description": "NIH grant supporting FakeYeast biofuel engineering.",
+  "name": "DEMO-NIH-GM999999",
+  "description": "Fake NIH grant for FakeYeast biofuel engineering.",
   "total_budget": 80000,
   "spent": 14250,
   "remaining": 65750

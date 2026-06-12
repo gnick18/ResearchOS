@@ -20,7 +20,7 @@
   "sub_tasks": [
     {
       "id": "st1",
-      "text": "Run FakeCheck PCR — 16 rxns",
+      "text": "Run DemoCheck PCR — 16 rxns",
       "is_complete": true
     },
     {

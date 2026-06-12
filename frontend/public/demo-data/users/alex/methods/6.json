@@ -1,6 +1,6 @@
 {
   "id": 6,
-  "name": "Reverse-phase HPLC — flbA peptide quantification",
+  "name": "[Demo protocol] Reverse-phase HPLC — flbA peptide quantification",
   "source_path": "lc_gradient://protocol/1",
   "method_type": "lc_gradient",
   "folder_path": "LC-MS",

@@ -16,7 +16,7 @@
       "id": "morgan-note7-e1",
       "title": "2026-05-13: reader run",
       "date": "2026-05-13",
-      "content": "First proper screen of the FY-Δgal80 candidate library off the H1 reader.\n\nPlate setup:\n- 80 candidates (columns 2 to 11)\n- 8 WT negatives (column 1)\n- 8 pFake-fluo+ positives (column 12)\n- 12 empty wells with water for evap correction\n\nReader settings: 485/528 nm, 15 min cycle, 6 h total, 30 C.\n\nTop-line numbers:\n- Positive control mean fluorescence: 18,420 a.u. (SD 850, CV 4.6%)\n- WT negative mean: 320 a.u. (SD 95)\n- 14 candidates land above 5,000 a.u. (vs WT + 3SD); 4 above 10,000 a.u.\n\nNext step: re-grow the top 14 from the deep-well plate, repeat the screen Thursday with technical triplicates. Will write up properly once the technical reps land.",
+      "content": "First proper screen of the FY-Δgal80 candidate library off the H1 reader.\n\nPlate setup:\n- 80 candidates (columns 2 to 11)\n- 8 WT negatives (column 1)\n- 8 pDEMO-fluo+ positives (column 12)\n- 12 empty wells with water for evap correction\n\nReader settings: 485/528 nm, 15 min cycle, 6 h total, 30 C.\n\nTop-line numbers:\n- Positive control mean fluorescence: 18,420 a.u. (SD 850, CV 4.6%)\n- WT negative mean: 320 a.u. (SD 95)\n- 14 candidates land above 5,000 a.u. (vs WT + 3SD); 4 above 10,000 a.u.\n\nNext step: re-grow the top 14 from the deep-well plate, repeat the screen Thursday with technical triplicates. Will write up properly once the technical reps land.",
       "created_at": "2026-05-13T11:30:00Z",
       "updated_at": "2026-05-13T17:45:00Z"
     }

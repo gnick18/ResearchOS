@@ -16,7 +16,7 @@
       "id": "alex-note6-e1",
       "title": "2026-05-05: freezer cleanout",
       "date": "2026-05-05",
-      "content": "Reorganizing -80 freezer 3 (shelf 2).\n\nKept:\n- pYES-GAL1::flbA glycerols (8 tubes, FakeYeast-001 background)\n- pFake-fluo stocks (4 tubes)\n- Backup gDNA from the 2026-03 transformation batch\n\nDiscarded (logged in the chemical waste book):\n- 12 unlabeled tubes, gray caps, no date (assumed >2 years old)\n- Half a box of FakeYeast WT glycerols from 2024 (have fresher stock)\n- Two leaking SOC aliquots\n\nAction: morgan to back up the pYES glycerols into freezer 5 before any future cleanout.",
+      "content": "Reorganizing -80 freezer 3 (shelf 2).\n\nKept:\n- pYES-GAL1::flbA glycerols (8 tubes, FakeYeast-001 background)\n- pDEMO-fluo stocks (4 tubes)\n- Backup gDNA from the 2026-03 transformation batch\n\nDiscarded (logged in the chemical waste book):\n- 12 unlabeled tubes, gray caps, no date (assumed >2 years old)\n- Half a box of FakeYeast WT glycerols from 2024 (have fresher stock)\n- Two leaking SOC aliquots\n\nAction: morgan to back up the pYES glycerols into freezer 5 before any future cleanout.",
       "created_at": "2026-05-05T15:00:00Z",
       "updated_at": "2026-05-05T15:00:00Z"
     }

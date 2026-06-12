@@ -1,12 +1,12 @@
 {
   "id": 3,
-  "title": "Midwest Synthetic Biology Conference 2026",
+  "title": "Demo Synthetic Biology Conference 2026",
   "event_type": "conference",
   "start_date": "2026-06-15",
   "end_date": "2026-06-17",
   "start_time": null,
   "end_time": null,
-  "location": "Madison Convention Center",
+  "location": "Demo Convention Center",
   "url": "https://example.org/demo-sb-2026",
   "notes": null,
   "color": "#8b5cf6"

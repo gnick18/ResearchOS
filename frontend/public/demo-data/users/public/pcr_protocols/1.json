@@ -1,6 +1,6 @@
 {
   "id": 1,
-  "name": "FakeCheck PCR — pYES integration",
+  "name": "[Demo protocol] DemoCheck PCR — pYES integration",
   "gradient": {
     "initial": [
       {
@@ -94,7 +94,7 @@
       "amount_per_reaction": "25.0"
     }
   ],
-  "notes": "Protocol — verifies integration of the `pYES-GAL1::flbA` cassette at the URA3 locus. Expected band: ~1.4 kb.",
+  "notes": "Demo protocol — verifies integration of the `pYES-GAL1::flbA` cassette at the URA3 locus. Expected band: ~1.4 kb.",
   "tags": [
     "demo",
     "screen"

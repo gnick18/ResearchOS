@@ -1,7 +1,7 @@
 {
   "id": 1,
   "title": "96-well plate layout notes",
-  "description": "Column 1 = WT negative, column 12 = pFake-fluo+ positive. Columns 2–11 are candidate FY-Δgal80 transformants from alex's library.",
+  "description": "Column 1 = WT negative, column 12 = pDEMO-fluo+ positive. Columns 2–11 are candidate FY-Δgal80 transformants from alex's library.",
   "is_running_log": false,
   "is_shared": true,
   "shared_with": [

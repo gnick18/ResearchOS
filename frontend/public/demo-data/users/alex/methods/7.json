@@ -1,6 +1,6 @@
 {
   "id": 7,
-  "name": "96-well bacterial growth curve (FakeStrain inducer titration)",
+  "name": "[Demo protocol] 96-well bacterial growth curve (DemoStrain inducer titration)",
   "source_path": "plate://protocol/1",
   "method_type": "plate",
   "folder_path": "Screening",

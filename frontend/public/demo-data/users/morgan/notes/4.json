@@ -16,7 +16,7 @@
       "id": "morgan-note4-e1",
       "title": "2026-05-07: brainstorm notes",
       "date": "2026-05-07",
-      "content": "Whiteboard session 2026-05-07. Goal: design an assay that lets us screen the FY-Δgal80 library for heat-stress survival without losing the fakeGFP reporter signal.\n\nWhat we agreed on:\n- Pre-grow at 30 °C, then shift to 37 °C for 0, 30, 60, 120 min\n- Read fakeGFP at every timepoint plus a recovery read at 4 h post-shift\n- Use the 384-well plates we already ordered for the stress project (purchase item 13) so we don't have to wait\n\nOpen questions:\n- Does fakeGFP itself misfold above 35 °C? Need a quick mScarlet control to separate \"reporter killed\" from \"cell dead\".\n- Reader cycles long enough on 384-well? Morgan to check the reader docs link.\n\nAction items:\n- alex: order 2 plates of mScarlet+ positive control\n- morgan: schedule a calibration run on 384-well format this week\n- both: convert this brainstorm into a real experiment design by 2026-05-21.",
+      "content": "Whiteboard session 2026-05-07. Goal: design an assay that lets us screen the FY-Δgal80 library for heat-stress survival without losing the fakeGFP reporter signal.\n\nWhat we agreed on:\n- Pre-grow at 30 °C, then shift to 37 °C for 0, 30, 60, 120 min\n- Read fakeGFP at every timepoint plus a recovery read at 4 h post-shift\n- Use the 384-well plates we already ordered for the stress project (purchase item 13) so we don't have to wait\n\nOpen questions:\n- Does fakeGFP itself misfold above 35 °C? Need a quick mScarlet control to separate \"reporter killed\" from \"cell dead\".\n- Reader cycles long enough on 384-well? Morgan to check the reader docs link.\n\nAction items:\n- alex: order 2 plates of mScarlet+ positive control (demo)\n- morgan: schedule a calibration run on 384-well format this week\n- both: convert this brainstorm into a real experiment design by 2026-05-21.",
       "created_at": "2026-05-07T14:00:00Z",
       "updated_at": "2026-05-07T15:30:00Z"
     }
@@ -25,7 +25,7 @@
     {
       "id": "cmt-mira-morgan-note4-1",
       "author": "mira",
-      "text": "Big +1 on the mScarlet positive control. Without it we can't separate reporter misfolding from cell death and the whole story falls apart in review. Approve charging this to DOE-EERE-0009431.",
+      "text": "Big +1 on the mScarlet positive control. Without it we can't separate reporter misfolding from cell death and the whole story falls apart in review. Approve charging this to DEMO-DOE-EERE.",
       "created_at": "2026-05-07T17:05:00Z"
     },
     {

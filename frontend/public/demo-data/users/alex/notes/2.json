@@ -32,7 +32,7 @@
       "id": "rl-alex-2-e3",
       "title": "2026-05-13: PCR screen",
       "date": "2026-05-13",
-      "content": "Ran FakeCheck PCR on 16 transformants. Expecting ~50% positive based on the patch results. Gel image goes into the task-3 results folder once it's run this afternoon.",
+      "content": "Ran DemoCheck PCR on 16 transformants. Expecting ~50% positive based on the patch results. Gel image goes into the task-3 results folder once it's run this afternoon.",
       "created_at": "2026-05-13T09:00:00Z",
       "updated_at": "2026-05-13T09:00:00Z"
     }
