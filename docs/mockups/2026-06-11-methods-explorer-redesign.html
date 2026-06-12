@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Methods page redesign — cards to explorer (before / after)</title>
+<style>
+  :root {
+    --surface: #f8fafc;
+    --surface-raised: #ffffff;
+    --surface-overlay: #ffffff;
+    --surface-sunken: #f1f5f9;
+    --border: #e5e7eb;
+    --border-strong: #cbd5e1;
+    --fg: #111827;
+    --fg-muted: #64748b;
+    --fg-faint: #94a3b8;
+    --brand-sky: #1AA0E6;
+    --brand-action: #1283C9;
+    --brand-ink: #111827;
+    --brand-purple: #5B47D6;
+    --pin: #e11d48;
+    --ok: #16a34a;
+    --variant: #7c3aed;
+    --variant-soft: #f3effe;
+  }
+  body.dark {
+    --surface: #0a0e1a;
+    --surface-raised: #1c2638;
+    --surface-overlay: #28344c;
+    --surface-sunken: #0d1424;
+    --border: rgba(255,255,255,0.16);
+    --border-strong: rgba(255,255,255,0.28);
+    --fg: #e9eef7;
+    --fg-muted: #9fb0c8;
+    --fg-faint: #6b7c96;
+    --pin: #fb7185;
+    --ok: #4ade80;
+    --variant: #b69cff;
+    --variant-soft: rgba(124,58,237,0.18);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--surface);
+    color: var(--fg);
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--brand-action); }
+
+  /* ---------- top bar ---------- */
+  header.top {
+    position: sticky; top: 0; z-index: 40;
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 22px;
+    background: var(--surface-overlay);
+    border-bottom: 1px solid var(--border);
+  }
+  header.top h1 { font-size: 17px; margin: 0; font-weight: 800; letter-spacing: -0.01em; }
+  header.top .sub { font-size: 12.5px; color: var(--fg-muted); }
+  header.top .spacer { flex: 1; }
+  .btn {
+    font: inherit; font-size: 13px; font-weight: 600;
+    padding: 7px 13px; border-radius: 9px;
+    border: 1px solid var(--border-strong); background: var(--surface-raised); color: var(--fg);
+    cursor: pointer;
+  }
+  .btn:hover { border-color: var(--brand-action); }
+  .btn.on { background: var(--brand-action); border-color: var(--brand-action); color: #fff; }
+  .btn.danger { color: var(--pin); }
+
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 22px; }
+  .lead { color: var(--fg-muted); font-size: 14px; max-width: 880px; margin: 0 0 6px; }
+
+  .panes { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; margin-top: 18px; }
+  @media (max-width: 1080px) { .panes { grid-template-columns: 1fr; } }
+  .pane { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .pane > .label { padding: 9px 16px; font-size: 11px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; color: var(--fg-faint); border-bottom: 1px solid var(--border); }
+  .pane.before > .label { background: var(--surface-sunken); }
+  .pane.after > .label { background: linear-gradient(90deg, rgba(18,131,201,0.12), rgba(91,71,214,0.10)); color: var(--brand-action); }
+
+  /* ---------- BEFORE: cards ---------- */
+  .before-body { padding: 14px; }
+  .before-search { width: 100%; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--fg-muted); font-size: 13px; margin-bottom: 14px; }
+  .before-grouphead { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-faint); margin: 6px 2px 10px; }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .mcard { position: relative; border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: var(--surface-raised); min-height: 92px; }
+  .mcard h4 { margin: 0 0 6px; font-size: 14px; font-weight: 700; }
+  .mcard .path { font-size: 11px; color: var(--fg-faint); font-family: ui-monospace, monospace; }
+  .mcard .badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+  .badge { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: var(--surface-sunken); color: var(--fg-muted); }
+  .badge.type { background: rgba(18,131,201,0.12); color: var(--brand-action); }
+  .badge.fork { background: var(--variant-soft); color: var(--variant); }
+  .badge.tag { background: transparent; color: var(--fg-faint); padding-left: 2px; }
+  .before-scrollnote { text-align: center; font-size: 12px; color: var(--fg-faint); padding: 16px 0 4px; font-style: italic; }
+
+  /* ---------- AFTER: explorer ---------- */
+  .explorer { display: grid; grid-template-columns: 232px 1fr; min-height: 540px; }
+  .rail { border-right: 1px solid var(--border); background: var(--surface-sunken); padding: 12px 10px; }
+  .rail .search { width: 100%; padding: 8px 11px 8px 30px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface-raised); color: var(--fg); font-size: 13px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: 9px center; }
+  .rail .sec { margin-top: 14px; }
+  .rail .sec-h { font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-faint); padding: 0 6px; margin-bottom: 5px; }
+  .nav { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; font-size: 13px; cursor: pointer; color: var(--fg); }
+  .nav:hover { background: var(--surface-raised); }
+  .nav.active { background: var(--brand-action); color: #fff; font-weight: 600; }
+  .nav.active .count { color: rgba(255,255,255,0.85); }
+  .nav .ico { flex: none; width: 16px; height: 16px; opacity: 0.85; }
+  .nav .lbl { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nav .count { font-size: 11.5px; color: var(--fg-faint); font-variant-numeric: tabular-nums; }
+  .chip-types { display: flex; flex-wrap: wrap; gap: 5px; padding: 2px 4px; }
+  .tchip { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-raised); color: var(--fg-muted); cursor: pointer; }
+  .tchip.on { background: rgba(18,131,201,0.12); border-color: var(--brand-action); color: var(--brand-action); }
+
+  .listcol { display: flex; flex-direction: column; min-width: 0; }
+  .listbar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 12.5px; color: var(--fg-muted); }
+  .listbar .crumb { font-weight: 700; color: var(--fg); font-size: 14px; }
+  .listbar .spacer { flex: 1; }
+  .listbar .mini { font-size: 12px; color: var(--fg-faint); }
+  .rows { overflow: auto; }
+
+  .row { display: flex; align-items: center; gap: 10px; padding: 9px 16px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13.5px; }
+  .row:hover { background: var(--surface-sunken); }
+  .row .twist { flex: none; width: 16px; height: 16px; display: grid; place-items: center; color: var(--fg-faint); transition: transform .12s; }
+  .row .twist.open { transform: rotate(90deg); }
+  .row .twist.leaf { visibility: hidden; }
+  .row .tico { flex: none; width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; background: rgba(18,131,201,0.12); color: var(--brand-action); }
+  .row .tico.var { background: var(--variant-soft); color: var(--variant); }
+  .row .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .tags { display: flex; gap: 5px; margin-left: 2px; }
+  .row .rtag { font-size: 10.5px; color: var(--fg-faint); }
+  .row .grow { flex: 1; min-width: 8px; }
+  .row .varcount { font-size: 11.5px; font-weight: 700; color: var(--variant); background: var(--variant-soft); padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+  .row .folderpin { font-size: 10.5px; color: var(--fg-faint); border: 1px dashed var(--border-strong); border-radius: 5px; padding: 0 5px; white-space: nowrap; }
+  .row .edited { font-size: 11.5px; color: var(--fg-faint); white-space: nowrap; }
+  .row.lvl1 { padding-left: 30px; }
+  .row.lvl2 { padding-left: 52px; }
+  .row.variant { background: linear-gradient(90deg, var(--variant-soft), transparent 60%); }
+  .row.variant .name { font-weight: 500; }
+  .row .lineageline { position: absolute; }
+  .rowwrap { position: relative; }
+  .rowwrap.nested::before { content: ""; position: absolute; left: 23px; top: 0; bottom: 0; width: 1px; background: var(--border-strong); opacity: 0.6; }
+
+  /* fake popup */
+  .popup-scrim { position: fixed; inset: 0; background: rgba(8,12,22,0.45); display: none; place-items: center; z-index: 60; padding: 24px; }
+  .popup-scrim.show { display: grid; }
+  .popup { width: min(560px, 96vw); background: var(--surface-overlay); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,0.35); }
+  .popup .ph { display: flex; align-items: flex-start; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--border); }
+  .popup .ph .tico { width: 34px; height: 34px; }
+  .popup .ph h3 { margin: 0; font-size: 16px; font-weight: 800; }
+  .popup .ph .x { margin-left: auto; cursor: pointer; color: var(--fg-faint); font-size: 20px; line-height: 1; background: none; border: none; }
+  .popup .pb { padding: 16px 18px; }
+  .lineage-box { border: 1px solid var(--border); border-radius: 11px; overflow: hidden; margin-bottom: 14px; }
+  .lineage-box .lh { font-size: 11px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: var(--fg-faint); padding: 8px 12px; background: var(--surface-sunken); border-bottom: 1px solid var(--border); }
+  .lineage-row { display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 13px; }
+  .lineage-row + .lineage-row { border-top: 1px solid var(--border); }
+  .lineage-row .k { font-size: 11px; font-weight: 700; color: var(--fg-faint); width: 86px; flex: none; text-transform: uppercase; letter-spacing: 0.05em; }
+  .lineage-row a { font-weight: 600; }
+  .lineage-row .vlist { display: flex; flex-wrap: wrap; gap: 6px; }
+  .vpill { font-size: 12px; font-weight: 600; color: var(--variant); background: var(--variant-soft); padding: 2px 9px; border-radius: 999px; }
+  .popup .body-stub { color: var(--fg-muted); font-size: 13px; }
+  .popup .pbtns { display: flex; gap: 8px; margin-top: 16px; }
+  .pbtn { font: inherit; font-size: 13px; font-weight: 600; padding: 7px 13px; border-radius: 9px; border: 1px solid var(--border-strong); background: var(--surface-raised); color: var(--fg); cursor: pointer; }
+  .pbtn.brand { background: linear-gradient(90deg, var(--brand-action), var(--brand-purple)); border: none; color: #fff; }
+
+  /* ---------- changes list ---------- */
+  .section-h { font-size: 18px; font-weight: 800; margin: 34px 0 4px; letter-spacing: -0.01em; }
+  .section-sub { color: var(--fg-muted); font-size: 13.5px; margin: 0 0 14px; }
+  .changes { display: grid; gap: 12px; }
+  .change { display: flex; gap: 14px; background: var(--surface-raised); border: 1px solid var(--border); border-left: 4px solid var(--border-strong); border-radius: 12px; padding: 14px 16px; }
+  .change.approved { border-left-color: var(--ok); }
+  .change.disapproved { border-left-color: var(--pin); }
+  .change .body { flex: 1; min-width: 0; }
+  .change .body h4 { margin: 0 0 4px; font-size: 14.5px; font-weight: 700; }
+  .change .body p { margin: 0; font-size: 13px; color: var(--fg-muted); }
+  .change .body .why { margin-top: 6px; font-size: 12.5px; color: var(--fg-faint); }
+  .change .verdict { flex: none; display: flex; flex-direction: column; gap: 6px; width: 140px; }
+  .vbtn { font: inherit; font-size: 12.5px; font-weight: 600; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface-raised); color: var(--fg); cursor: pointer; text-align: center; }
+  .vbtn.ok.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .vbtn.dis.on { background: var(--pin); border-color: var(--pin); color: #fff; }
+  .change textarea { margin-top: 8px; width: 100%; min-height: 0; height: 30px; resize: vertical; font: inherit; font-size: 12.5px; padding: 5px 8px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--fg); }
+
+  /* ---------- comment mode ---------- */
+  body.cmt-on { cursor: crosshair; }
+  body.cmt-on .row, body.cmt-on .mcard, body.cmt-on .nav { cursor: crosshair; }
+  .pin { position: absolute; transform: translate(-50%, -50%); min-width: 18px; height: 18px; padding: 0 4px; background: var(--pin); color: #fff; border-radius: 9px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; z-index: 50; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+
+  .cpanel { position: fixed; right: 16px; bottom: 16px; width: 320px; max-height: 70vh; display: flex; flex-direction: column; background: var(--surface-overlay); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 18px 50px rgba(0,0,0,0.3); z-index: 55; overflow: hidden; }
+  .cpanel .ch { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-bottom: 1px solid var(--border); }
+  .cpanel .ch h3 { margin: 0; font-size: 14px; font-weight: 800; flex: 1; }
+  .cpanel .ch .cCount { font-size: 12px; color: var(--fg-faint); }
+  .cbody { overflow: auto; padding: 8px; }
+  .cempty { color: var(--fg-faint); font-size: 12.5px; padding: 14px 8px; text-align: center; }
+  .citem { display: flex; gap: 8px; padding: 8px; border-radius: 9px; }
+  .citem:hover { background: var(--surface-sunken); }
+  .citem .num { flex: none; width: 18px; height: 18px; background: var(--pin); color: #fff; border-radius: 9px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+  .citem .ctxt { font-size: 12.5px; flex: 1; }
+  .citem .ctxt .tgt { color: var(--fg-faint); font-size: 11px; display: block; }
+  .citem .del { background: none; border: none; color: var(--fg-faint); cursor: pointer; font-size: 14px; }
+  .cfoot { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--border); }
+  .cfoot .btn { flex: 1; }
+  .hint { display: inline-block; font-size: 12px; color: var(--fg-faint); margin-left: 6px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Methods page — cards to explorer</h1>
+    <div class="sub">Before / after redesign. Two-pane explorer, variants nested under base, lineage wins.</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn" id="themeBtn">Dark</button>
+  <button class="btn" id="commentToggle">Comment mode: off</button>
+</header>
+
+<div class="wrap">
+  <p class="lead">Same method library, two ways of showing it. The left is today (endless cards). The right is the proposed explorer: a folder rail you can scan, dense rows instead of bulky cards, and forked variants nested under the base method they came from. Click a row on the right to see the lineage that now lives in the popup.</p>
+  <p class="lead"><strong>How to review:</strong> click rows to explore. Turn on Comment mode, then click any element to pin a note. Below, mark each design decision Approve or Disapprove. Hit <em>Copy feedback</em> and paste it back to me.</p>
+
+  <div class="panes">
+    <!-- BEFORE -->
+    <div class="pane before">
+      <div class="label">Before — today</div>
+      <div class="before-body">
+        <input class="before-search" value="Search methods..." readonly />
+        <div class="before-grouphead">Molecular Biology</div>
+        <div class="cards" id="beforeCards"></div>
+        <div class="before-scrollnote">... 80 more methods below, one continuous scroll ...</div>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div class="pane after">
+      <div class="label">After — explorer</div>
+      <div class="explorer">
+        <aside class="rail" id="rail"></aside>
+        <div class="listcol">
+          <div class="listbar">
+            <span class="crumb" id="crumb">All methods</span>
+            <span class="spacer"></span>
+            <span class="mini" id="listmini"></span>
+          </div>
+          <div class="rows" id="rows"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHANGES -->
+  <h2 class="section-h">What changed, and why</h2>
+  <p class="section-sub">Nine discrete decisions. Mark each one so I build only what you want.</p>
+  <div class="changes" id="changes"></div>
+</div>
+
+<!-- popup -->
+<div class="popup-scrim" id="scrim">
+  <div class="popup" id="popup"></div>
+</div>
+
+<!-- comment panel -->
+<div class="cpanel" id="cpanel" style="display:none">
+  <div class="ch"><h3>Comments</h3><span class="cCount" id="cCount">0</span></div>
+  <div class="cbody" id="cbody"><div class="cempty" id="cEmpty">No comments yet. Turn on Comment mode and click any element.</div></div>
+  <div class="cfoot">
+    <button class="btn" id="exportBtn">Copy feedback</button>
+    <button class="btn danger" id="clearBtn">Clear</button>
+  </div>
+</div>
+
+<script>
+/* ----------------------------- data ----------------------------- */
+const ICONS = {
+  pcr: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6l-4.5 8.4A2 2 0 0 0 7.3 21h9.4a2 2 0 0 0 1.8-3.6L14 9V3"/></svg>',
+  markdown: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 15V9l3 3 3-3v6M18 9v6M16 13l2 2 2-2"/></svg>',
+  plate: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="1.3"/><circle cx="12" cy="8" r="1.3"/><circle cx="16" cy="8" r="1.3"/><circle cx="8" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="16" cy="12" r="1.3"/></svg>',
+  cell_culture: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="10" cy="10" r="2"/><circle cx="15" cy="14" r="1.5"/></svg>',
+  imaging: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="13" rx="2"/><circle cx="12" cy="12.5" r="3.2"/><path d="M8 6l1.5-2h5L16 6"/></svg>',
+};
+const TYPE_LABEL = { pcr: 'PCR', markdown: 'Markdown', plate: 'Assay', cell_culture: 'Cell culture', imaging: 'Imaging' };
+
+// folder is the "home" folder. variants list parent->child by name.
+const METHODS = [
+  { id:1, name:'Phusion PCR (lab standard)', type:'pcr', folder:'Molecular Biology', tags:['pcr','neb'], edited:'2d', parent:null },
+  { id:2, name:'Phusion PCR — GC-rich (5% DMSO)', type:'pcr', folder:'Molecular Biology', tags:['gc-rich'], edited:'1d', parent:1 },
+  { id:3, name:'Phusion PCR — colony screen', type:'pcr', folder:'Molecular Biology', tags:['screen'], edited:'5d', parent:1 },
+  { id:4, name:'Phusion PCR — long amplicon', type:'pcr', folder:'Cloning', tags:['>5kb'], edited:'3w', parent:1 },
+  { id:5, name:'Phusion PCR — long amplicon, touchdown', type:'pcr', folder:'Cloning', tags:['touchdown'], edited:'3w', parent:4 },
+  { id:6, name:'Gibson Assembly', type:'markdown', folder:'Molecular Biology', tags:['cloning'], edited:'1w', parent:null },
+  { id:7, name:'Gibson Assembly — 4 fragment', type:'markdown', folder:'Molecular Biology', tags:['4-frag'], edited:'1w', parent:6 },
+  { id:8, name:'Miniprep (alkaline lysis)', type:'markdown', folder:'Molecular Biology', tags:['plasmid'], edited:'6w', parent:null },
+  { id:9, name:'BCA Protein Assay', type:'plate', folder:'Protein Biochem', tags:['quant'], edited:'2w', parent:null },
+  { id:10, name:'SDS-PAGE (4-20% gradient)', type:'markdown', folder:'Protein Biochem', tags:['gel'], edited:'4d', parent:null },
+  { id:11, name:'SDS-PAGE — native', type:'markdown', folder:'Protein Biochem', tags:['native'], edited:'4d', parent:10 },
+  { id:12, name:'HEK293T transfection (PEI)', type:'cell_culture', folder:'Cell Culture', tags:['transfx'], edited:'3d', parent:null },
+  { id:13, name:'HEK293T transfection — lipofectamine', type:'cell_culture', folder:'Cell Culture', tags:['lipo'], edited:'3d', parent:12 },
+  { id:14, name:'Confocal imaging — fixed cells', type:'imaging', folder:'Imaging', tags:['confocal'], edited:'5w', parent:null },
+];
+const byId = Object.fromEntries(METHODS.map(m => [m.id, m]));
+const childrenOf = (id) => METHODS.filter(m => m.parent === id);
+const FOLDERS = [...new Set(METHODS.map(m => m.folder))];
+
+/* ----------------------------- BEFORE cards ----------------------------- */
+function badge(cls, txt){ return '<span class="badge '+cls+'">'+txt+'</span>'; }
+function renderBefore(){
+  // show only Molecular Biology home methods to convey the flat, structureless feel
+  const mb = METHODS.filter(m => m.folder === 'Molecular Biology');
+  document.getElementById('beforeCards').innerHTML = mb.map(m => {
+    const tags = m.tags.map(t => badge('tag','#'+t)).join('');
+    const fork = m.parent ? badge('fork','Forked') : '';
+    return '<div class="mcard" data-cmt="card: '+m.name+'"><h4>'+m.name+'</h4>'
+      + '<div class="path">methods/'+m.id+'/protocol.json</div>'
+      + '<div class="badges">'+badge('type',TYPE_LABEL[m.type])+fork+tags+'</div></div>';
+  }).join('');
+}
+
+/* ----------------------------- AFTER explorer ----------------------------- */
+let activeFolder = 'all';
+let activeType = null;
+const expanded = new Set([1]); // base 1 expanded by default to show nesting
+
+function railCount(folder){
+  if (folder === 'all') return METHODS.length;
+  if (folder === 'shared') return 4;
+  if (folder === 'templates') return 132;
+  return METHODS.filter(m => m.folder === folder).length;
+}
+function renderRail(){
+  let html = '<input class="search" value="" placeholder="Search all methods..." />';
+  html += '<div class="sec"><div class="sec-h">Library</div>';
+  const lib = [
+    ['all','All methods','<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>'],
+    ['shared','Shared with lab','<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="2.3"/></svg>'],
+    ['templates','Template library','<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/></svg>'],
+  ];
+  lib.forEach(([k,l,ic]) => {
+    html += '<div class="nav '+(activeFolder===k?'active':'')+'" data-folder="'+k+'" data-cmt="rail: '+l+'">'+ic+'<span class="lbl">'+l+'</span><span class="count">'+railCount(k)+'</span></div>';
+  });
+  html += '</div>';
+  html += '<div class="sec"><div class="sec-h">My folders</div>';
+  FOLDERS.forEach(f => {
+    const ic = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+    html += '<div class="nav '+(activeFolder===f?'active':'')+'" data-folder="'+f+'" data-cmt="rail folder: '+f+'">'+ic+'<span class="lbl">'+f+'</span><span class="count">'+railCount(f)+'</span></div>';
+  });
+  html += '</div>';
+  html += '<div class="sec"><div class="sec-h">Filter by type</div><div class="chip-types" id="chipTypes"></div></div>';
+  document.getElementById('rail').innerHTML = html;
+
+  const ct = document.getElementById('chipTypes');
+  ct.innerHTML = Object.keys(TYPE_LABEL).map(t =>
+    '<span class="tchip '+(activeType===t?'on':'')+'" data-type="'+t+'">'+TYPE_LABEL[t]+'</span>').join('');
+}
+
+function passesFilter(m){
+  if (activeFolder !== 'all' && activeFolder !== 'shared' && activeFolder !== 'templates' && m.folder !== activeFolder) return false;
+  if (activeType && m.type !== activeType) return false;
+  return true;
+}
+
+// Build the visible tree. Lineage wins: a variant always renders under its base,
+// even if its home folder differs (then we show a dashed folder pin on the variant).
+function rowHtml(m, level){
+  const kids = childrenOf(m.id);
+  const isOpen = expanded.has(m.id);
+  const twist = kids.length
+    ? '<span class="twist '+(isOpen?'open':'')+'"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m9 6 6 6-6 6"/></svg></span>'
+    : '<span class="twist leaf"></span>';
+  const isVar = m.parent != null;
+  const tico = '<span class="tico '+(isVar?'var':'')+'">'+ICONS[m.type]+'</span>';
+  const tags = m.tags.slice(0,2).map(t => '<span class="rtag">#'+t+'</span>').join('');
+  const varcount = kids.length ? '<span class="varcount">'+kids.length+' variant'+(kids.length>1?'s':'')+'</span>' : '';
+  // folder pin only when a variant's home folder differs from its base's folder
+  let folderpin = '';
+  if (isVar) {
+    const base = byId[m.parent];
+    if (base && base.folder !== m.folder) folderpin = '<span class="folderpin">in '+m.folder+'</span>';
+  }
+  return '<div class="rowwrap '+(level>0?'nested':'')+'">'
+    + '<div class="row lvl'+level+' '+(isVar?'variant':'')+'" data-id="'+m.id+'" data-cmt="row: '+m.name+'">'
+    + twist + tico
+    + '<span class="name">'+m.name+'</span>'
+    + '<span class="tags">'+tags+'</span>'
+    + folderpin
+    + '<span class="grow"></span>'
+    + varcount
+    + '<span class="edited">'+m.edited+'</span>'
+    + '</div></div>';
+}
+function renderRows(){
+  const out = [];
+  // top-level = base methods (no parent). Filter applies to bases; variants follow their base.
+  const bases = METHODS.filter(m => m.parent == null);
+  function walk(m, level){
+    out.push(rowHtml(m, level));
+    if (expanded.has(m.id)) childrenOf(m.id).forEach(k => walk(k, level+1));
+  }
+  let shown = 0;
+  bases.forEach(b => {
+    // a base shows if it OR any descendant passes the filter
+    const family = [b, ...descendants(b.id)];
+    if (!family.some(passesFilter)) return;
+    walk(b, 0); shown += family.length;
+  });
+  document.getElementById('rows').innerHTML = out.join('');
+  const crumb = activeFolder === 'all' ? 'All methods'
+    : activeFolder === 'shared' ? 'Shared with lab'
+    : activeFolder === 'templates' ? 'Template library' : activeFolder;
+  document.getElementById('crumb').textContent = crumb + (activeType ? ' · ' + TYPE_LABEL[activeType] : '');
+  document.getElementById('listmini').textContent = shown + ' methods · variants nested under their base';
+}
+function descendants(id){
+  const out = [];
+  childrenOf(id).forEach(c => { out.push(c); out.push(...descendants(c.id)); });
+  return out;
+}
+
+/* ----------------------------- popup (lineage) ----------------------------- */
+function openPopup(id){
+  const m = byId[id];
+  const kids = childrenOf(id);
+  const base = m.parent ? byId[m.parent] : null;
+  let lineage = '';
+  if (base || kids.length){
+    lineage = '<div class="lineage-box"><div class="lh">Lineage</div>';
+    if (base) lineage += '<div class="lineage-row"><span class="k">Forked from</span><a href="#" onclick="openPopup('+base.id+');return false;">'+base.name+'</a></div>';
+    if (kids.length){
+      lineage += '<div class="lineage-row"><span class="k">Variants</span><span class="vlist">'
+        + kids.map(k => '<span class="vpill" onclick="openPopup('+k.id+')">'+k.name.replace(/^.*— /,'') + '</span>').join('') + '</span></div>';
+    }
+    lineage += '</div>';
+  }
+  document.getElementById('popup').innerHTML =
+    '<div class="ph"><span class="tico '+(m.parent?'var':'')+'">'+ICONS[m.type]+'</span>'
+    + '<h3>'+m.name+'</h3><button class="x" onclick="closePopup()">&times;</button></div>'
+    + '<div class="pb">'+lineage
+    + '<div class="body-stub">This is the existing method viewer, unchanged. The protocol body, type-specific viewer (PCR table / markdown / assay), and the linked-experiments sidebar all render here exactly as today. The redesign only adds the Lineage box above and a Fork action below.</div>'
+    + '<div class="pbtns"><button class="pbtn brand">Fork this method</button><button class="pbtn">Edit</button><button class="pbtn">Share</button></div>'
+    + '</div>';
+  document.getElementById('scrim').classList.add('show');
+}
+function closePopup(){ document.getElementById('scrim').classList.remove('show'); }
+document.getElementById('scrim').addEventListener('click', e => { if (e.target.id === 'scrim') closePopup(); });
+
+/* ----------------------------- interactions ----------------------------- */
+document.getElementById('rail').addEventListener('click', e => {
+  if (document.body.classList.contains('cmt-on')) return;
+  const nav = e.target.closest('.nav');
+  if (nav){ activeFolder = nav.dataset.folder; renderRail(); renderRows(); return; }
+  const chip = e.target.closest('.tchip');
+  if (chip){ activeType = (activeType === chip.dataset.type) ? null : chip.dataset.type; renderRail(); renderRows(); }
+});
+document.getElementById('rows').addEventListener('click', e => {
+  if (document.body.classList.contains('cmt-on')) return;
+  const row = e.target.closest('.row');
+  if (!row) return;
+  const id = +row.dataset.id;
+  if (e.target.closest('.twist') && childrenOf(id).length){
+    expanded.has(id) ? expanded.delete(id) : expanded.add(id);
+    renderRows();
+  } else {
+    openPopup(id);
+  }
+});
+
+/* ----------------------------- changes list ----------------------------- */
+const CHANGES = [
+  ['Retire the card grid for a dense explorer','The card body duplicates work the click-through popup already does, so each card is mostly a big tap target. Dense rows fit 4-5x more methods per screen and stay scannable at hundreds of methods.'],
+  ['Persistent folder / category rail','A left rail with your folders (plus All, Shared with lab, Template library) and live counts. Pick a category and the list scopes to it, instead of scrolling one endless page.'],
+  ['Variants nested under their base method','A forked method renders indented under the base it came from, with a disclosure triangle. The base shows a "N variants" pill. You stop seeing orphan "Forked" badges with no context.'],
+  ['Lineage wins over folders','When a variant lives in a different folder than its base (e.g. a long-amplicon fork filed under Cloning), it still nests under its base, with a small dashed "in Cloning" pin. The family stays together.'],
+  ['Multi-level fork chains','Forks of forks nest deeper (a touchdown variant under the long-amplicon variant under the base). The tree handles a chain, not just one level.'],
+  ['Lineage section in the method popup','The popup gains a Lineage box: "Forked from X" (click to jump up) and a Variants list (click to jump down). Navigate the family from either end.'],
+  ['Surface the Fork action','The fork API and parent_method_id field already exist but no UI ever creates a fork. Add a "Fork this method" button in the popup so the lineage actually gets built.'],
+  ['Type filter chips in the rail','Filter by method type (PCR, Markdown, Assay, etc.) as quick chips, on top of folder scoping and search.'],
+  ['Keep search, the popup, and experiment links unchanged','Search behavior, the type-specific viewers, and the linked-experiments sidebar all stay exactly as they are. This is a list-and-lineage redesign, not a rewrite of method detail.'],
+];
+const VSTORE = 'methods-explorer-verdicts-v1';
+let verdicts = {};
+try { verdicts = JSON.parse(localStorage.getItem(VSTORE) || '{}'); } catch { verdicts = {}; }
+function saveV(){ try { localStorage.setItem(VSTORE, JSON.stringify(verdicts)); } catch {} }
+function renderChanges(){
+  document.getElementById('changes').innerHTML = CHANGES.map((c,i) => {
+    const v = verdicts[i] || {};
+    const cls = v.verdict === 'ok' ? 'approved' : v.verdict === 'dis' ? 'disapproved' : '';
+    return '<div class="change '+cls+'">'
+      + '<div class="body"><h4>'+(i+1)+'. '+c[0]+'</h4><p>'+c[1]+'</p>'
+      + '<textarea data-note="'+i+'" placeholder="Optional note...">'+(v.note||'')+'</textarea></div>'
+      + '<div class="verdict">'
+      + '<button class="vbtn ok '+(v.verdict==='ok'?'on':'')+'" data-v="ok" data-i="'+i+'">Approve</button>'
+      + '<button class="vbtn dis '+(v.verdict==='dis'?'on':'')+'" data-v="dis" data-i="'+i+'">Disapprove</button>'
+      + '</div></div>';
+  }).join('');
+}
+document.getElementById('changes').addEventListener('click', e => {
+  const b = e.target.closest('.vbtn'); if (!b) return;
+  const i = b.dataset.i;
+  verdicts[i] = verdicts[i] || {};
+  verdicts[i].verdict = verdicts[i].verdict === b.dataset.v ? null : b.dataset.v;
+  saveV(); renderChanges();
+});
+document.getElementById('changes').addEventListener('input', e => {
+  if (!e.target.dataset.note) return;
+  const i = e.target.dataset.note;
+  verdicts[i] = verdicts[i] || {};
+  verdicts[i].note = e.target.value;
+  saveV();
+});
+
+/* ----------------------------- comment mode ----------------------------- */
+const CSTORE = 'methods-explorer-comments-v1';
+let comments = [];
+try { comments = JSON.parse(localStorage.getItem(CSTORE) || '[]'); } catch { comments = []; }
+function saveC(){ try { localStorage.setItem(CSTORE, JSON.stringify(comments)); } catch {} }
+const cpanel = document.getElementById('cpanel');
+
+document.getElementById('commentToggle').addEventListener('click', () => {
+  const on = document.body.classList.toggle('cmt-on');
+  document.getElementById('commentToggle').textContent = 'Comment mode: ' + (on ? 'on' : 'off');
+  document.getElementById('commentToggle').classList.toggle('on', on);
+  cpanel.style.display = on ? 'flex' : (comments.length ? 'flex' : 'none');
+});
+document.addEventListener('click', e => {
+  if (!document.body.classList.contains('cmt-on')) return;
+  if (e.target.closest('.cpanel') || e.target.closest('header.top') || e.target.closest('.popup')) return;
+  const host = e.target.closest('[data-cmt]');
+  const target = host ? host.dataset.cmt : 'page';
+  const note = prompt('Comment on "'+target+'":');
+  if (note){ comments.push({ x: e.pageX, y: e.pageY, target, note }); saveC(); renderComments(); }
+  e.preventDefault(); e.stopPropagation();
+}, true);
+
+function renderComments(){
+  document.querySelectorAll('.pin').forEach(p => p.remove());
+  comments.forEach((c,i) => {
+    const pin = document.createElement('span');
+    pin.className = 'pin'; pin.textContent = (i+1);
+    pin.style.left = c.x + 'px'; pin.style.top = c.y + 'px';
+    pin.title = c.note;
+    document.body.appendChild(pin);
+  });
+  document.getElementById('cCount').textContent = comments.length;
+  const body = document.getElementById('cbody');
+  if (!comments.length){ body.innerHTML = '<div class="cempty">No comments yet. Turn on Comment mode and click any element.</div>'; return; }
+  body.innerHTML = comments.map((c,i) =>
+    '<div class="citem"><span class="num">'+(i+1)+'</span><span class="ctxt">'+c.note+'<span class="tgt">'+c.target+'</span></span><button class="del" data-i="'+i+'">&times;</button></div>'
+  ).join('');
+}
+document.getElementById('cbody').addEventListener('click', e => {
+  const d = e.target.closest('.del'); if (!d) return;
+  comments.splice(+d.dataset.i, 1); saveC(); renderComments();
+});
+document.getElementById('clearBtn').addEventListener('click', () => {
+  if (confirm('Clear all comments?')){ comments = []; saveC(); renderComments(); }
+});
+document.getElementById('exportBtn').addEventListener('click', () => {
+  let out = 'METHODS EXPLORER REDESIGN — FEEDBACK\\n=====================================\\n\\nDECISIONS:\\n';
+  CHANGES.forEach((c,i) => {
+    const v = verdicts[i] || {};
+    const mark = v.verdict === 'ok' ? '[APPROVE]' : v.verdict === 'dis' ? '[DISAPPROVE]' : '[ -- ]';
+    out += '\\n'+mark+' '+(i+1)+'. '+c[0];
+    if (v.note) out += '\\n      note: '+v.note;
+  });
+  out += '\\n\\nPINNED COMMENTS:\\n';
+  if (!comments.length) out += '(none)\\n';
+  comments.forEach((c,i) => { out += '\\n'+(i+1)+'. ['+c.target+'] '+c.note; });
+  navigator.clipboard.writeText(out).then(() => {
+    const b = document.getElementById('exportBtn'); const t = b.textContent;
+    b.textContent = 'Copied!'; setTimeout(() => b.textContent = t, 1400);
+  });
+});
+
+/* ----------------------------- theme ----------------------------- */
+document.getElementById('themeBtn').addEventListener('click', () => {
+  const dark = document.body.classList.toggle('dark');
+  document.getElementById('themeBtn').textContent = dark ? 'Light' : 'Dark';
+  renderComments();
+});
+
+/* ----------------------------- init ----------------------------- */
+renderBefore(); renderRail(); renderRows(); renderChanges(); renderComments();
+if (comments.length) cpanel.style.display = 'flex';
+</script>
+</body>
+</html>
