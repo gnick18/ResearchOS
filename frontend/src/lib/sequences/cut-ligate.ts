@@ -196,6 +196,27 @@ function resolveEnzyme(name: string): Enzyme | undefined {
 }
 
 /**
+ * The concrete recognition site of a named enzyme, for use as a 5' primer
+ * overhang (a restriction-site tail so the amplicon can be cut and cloned). The
+ * site bases come from the SAME vendored dataset the digest engine cuts with,
+ * never from a caller, so a primer overhang can never carry an invented site.
+ * Returns the canonical enzyme name plus its uppercase recognition sequence, or
+ * null when the enzyme is unknown OR its recognition sequence carries ambiguity
+ * codes (anything other than A / C / G / T). An ambiguous site (for example
+ * "RAATTY") cannot be written as concrete primer bases, so it is refused rather
+ * than guessed. Pure.
+ */
+export function enzymeSiteForPrimer(
+  name: string,
+): { name: string; site: string } | null {
+  const e = resolveEnzyme(name);
+  if (!e) return null;
+  const site = e.rseq.toUpperCase();
+  if (!/^[ACGT]+$/.test(site)) return null;
+  return { name: e.name, site };
+}
+
+/**
  * Canonical rotation of a circular top-strand sequence: the lexicographically
  * smallest rotation among ALL rotations of the sequence AND of its reverse
  * complement. This makes two circular molecules that are equal up to
