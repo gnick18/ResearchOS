@@ -1,33 +1,65 @@
 "use client";
 
-// "AI usage" section of the unified Settings page (settings-build bot,
-// 2026-06-11). The flagship new surface. A plain-language readout of the
-// BeakerBot token balance, recent task costs, and prepaid blocks, framed to
-// match the /pricing voice. Numbers are illustrative fixtures today (see
-// usage-fixtures.ts), they wire up to a real token ledger when AI billing lands.
+// "AI usage" section of the unified Settings page. The flagship new surface, a
+// plain-language readout of the BeakerBot token balance and recent task costs,
+// framed to match the /pricing voice.
+//
+// The balance and recent tasks are now REAL reads from the AI ledger (BeakerAI
+// billing Phase 4) via fetchAiStatus, with loading, signed-out, and empty states.
+// When AI billing enforcement is off (the current beta default) the endpoint
+// returns a clearly-flagged inert response, so we show the "AI is free during the
+// beta" framing instead of a balance. The $10/$25/$50 packs are DISPLAY-ONLY for
+// now, Phase 3 wires the Stripe purchase, so the buy action is disabled with a
+// "top-ups coming soon" affordance rather than a dead button. The pack token
+// amounts derive from PACK_TOKENS so they stay honest with the live rate, the
+// fixture supplies only the rough "about N analyses" labels.
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { Icon } from "@/components/icons";
-import {
-  AI_USAGE_FIXTURE,
-  RECENT_AI_TASKS_FIXTURE,
-  TOKEN_BLOCKS_FIXTURE,
-} from "@/lib/usage/usage-fixtures";
+import { PACK_TOKENS } from "@/lib/billing/ai-config";
+import { fetchAiStatus, type AiStatus } from "@/lib/billing/ai-client";
+import { TOKEN_BLOCKS_FIXTURE } from "@/lib/usage/usage-fixtures";
 
 function formatTokens(n: number): string {
   return n.toLocaleString("en-US");
 }
 
+/** The display-only packs, the dollar tile + its rough coverage label (fixture)
+ *  paired with the token amount the live rate buys (PACK_TOKENS). */
+const PACKS: { price: string; dollars: 10 | 25 | 50; tasks: string; recommended?: boolean }[] = [
+  { price: "$10", dollars: 10, tasks: TOKEN_BLOCKS_FIXTURE[0]?.tasks ?? "", },
+  { price: "$25", dollars: 25, tasks: TOKEN_BLOCKS_FIXTURE[1]?.tasks ?? "", recommended: true },
+  { price: "$50", dollars: 50, tasks: TOKEN_BLOCKS_FIXTURE[2]?.tasks ?? "", },
+];
+
 export default function AiUsageSection() {
-  const [selectedBlock, setSelectedBlock] = useState<number>(
-    TOKEN_BLOCKS_FIXTURE.findIndex((b) => b.recommended) >= 0
-      ? TOKEN_BLOCKS_FIXTURE.findIndex((b) => b.recommended)
+  const [selectedPack, setSelectedPack] = useState<number>(
+    PACKS.findIndex((p) => p.recommended) >= 0
+      ? PACKS.findIndex((p) => p.recommended)
       : 0,
   );
+  const [status, setStatus] = useState<AiStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    void fetchAiStatus().then((s) => {
+      if (!alive) return;
+      setStatus(s);
+      setLoading(false);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const enabled = status?.enabled === true;
+  const balance = status?.balance ?? 0;
+  const recentTasks = status?.recentTasks ?? [];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1.35fr_1fr] gap-6">
@@ -42,65 +74,80 @@ export default function AiUsageSection() {
           text, a typical question is a few thousand.
         </p>
 
-        <div className="flex items-baseline gap-2 mt-4">
-          <span className="text-display font-bold text-foreground tracking-tight">
-            {formatTokens(AI_USAGE_FIXTURE.tokensLeft)}
-          </span>
-          <span className="text-body font-semibold text-foreground-muted">
-            tokens left
-          </span>
-        </div>
-
-        <div className="mt-2 rounded-lg border border-blue-200 dark:border-blue-500/30 bg-blue-50/60 dark:bg-blue-500/10 px-3 py-2 text-body text-foreground-muted leading-relaxed">
-          That is roughly{" "}
-          <span className="font-medium text-foreground">
-            {AI_USAGE_FIXTURE.balanceTranslation}
-          </span>
-          .
-        </div>
-
-        {AI_USAGE_FIXTURE.includesSignupTrial && (
-          <div className="mt-2">
-            <span className="inline-block rounded-md bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-meta font-semibold px-2 py-0.5">
-              Includes your one-time sign-up gift, about 750,000 tokens
-            </span>
+        {loading ? (
+          <div className="mt-4 h-8 w-48 rounded bg-surface-sunken animate-pulse" />
+        ) : enabled ? (
+          <>
+            <div className="flex items-baseline gap-2 mt-4">
+              <span className="text-display font-bold text-foreground tracking-tight">
+                {formatTokens(balance)}
+              </span>
+              <span className="text-body font-semibold text-foreground-muted">
+                tokens left
+              </span>
+            </div>
+            <div className="mt-2 rounded-lg border border-blue-200 dark:border-blue-500/30 bg-blue-50/60 dark:bg-blue-500/10 px-3 py-2 text-body text-foreground-muted leading-relaxed">
+              That covers roughly{" "}
+              <span className="font-medium text-foreground">
+                a few dozen full analyses or a hundred-plus quick questions
+              </span>
+              , depending on how big each question is.
+            </div>
+          </>
+        ) : (
+          <div className="mt-4 rounded-lg border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-500/10 px-3 py-2 text-body text-foreground-muted leading-relaxed">
+            BeakerBot is free during the beta, so there is no balance to track
+            yet. When metered billing turns on you start with a one-time sign-up
+            gift of about{" "}
+            <span className="font-medium text-foreground">750,000 tokens</span>.
           </div>
         )}
 
-        <div className="mt-5">
-          <p className="text-meta font-semibold uppercase tracking-wide text-foreground-muted mb-2">
-            Recent tasks
-          </p>
-          <ul className="divide-y divide-border">
-            {RECENT_AI_TASKS_FIXTURE.map((task) => (
-              <li
-                key={task.name}
-                className="flex items-center gap-3 py-2 text-body"
-              >
-                <span className="flex-1 text-foreground">{task.name}</span>
-                <span className="text-meta font-semibold text-foreground-muted bg-surface-sunken rounded px-1.5 py-0.5">
-                  {task.kind}
-                </span>
-                <span className="text-meta font-medium text-foreground-muted tabular-nums whitespace-nowrap">
-                  {formatTokens(task.tokens)} tokens
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        {enabled && (
+          <div className="mt-5">
+            <p className="text-meta font-semibold uppercase tracking-wide text-foreground-muted mb-2">
+              Recent tasks
+            </p>
+            {recentTasks.length === 0 ? (
+              <p className="text-meta text-foreground-muted leading-relaxed">
+                No BeakerBot tasks yet. Once you run an analysis or ask a question,
+                its token cost shows up here.
+              </p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {recentTasks.map((task) => (
+                  <li
+                    key={task.taskId}
+                    className="flex items-center gap-3 py-2 text-body"
+                  >
+                    <span className="flex-1 text-foreground truncate">
+                      {task.taskId}
+                    </span>
+                    <span className="text-meta font-semibold text-foreground-muted bg-surface-sunken rounded px-1.5 py-0.5">
+                      {task.kind}
+                    </span>
+                    <span className="text-meta font-medium text-foreground-muted tabular-nums whitespace-nowrap">
+                      {formatTokens(task.tokens)} tokens
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
         <p className="text-meta font-semibold uppercase tracking-wide text-foreground-muted mt-5 mb-2">
           Buy more tokens
         </p>
         <div className="flex gap-2">
-          {TOKEN_BLOCKS_FIXTURE.map((block, i) => {
-            const selected = i === selectedBlock;
+          {PACKS.map((pack, i) => {
+            const selected = i === selectedPack;
             return (
               <button
-                key={block.price}
+                key={pack.price}
                 type="button"
                 aria-pressed={selected}
-                onClick={() => setSelectedBlock(i)}
+                onClick={() => setSelectedPack(i)}
                 className={`flex-1 rounded-xl border p-3 text-center transition-colors ${
                   selected
                     ? "border-blue-400 bg-blue-50 dark:bg-blue-500/15"
@@ -108,20 +155,28 @@ export default function AiUsageSection() {
                 }`}
               >
                 <span className="block text-title font-bold text-foreground">
-                  {block.price}
+                  {pack.price}
                 </span>
                 <span className="block text-meta text-foreground-muted mt-0.5">
-                  {block.tasks}
+                  {pack.tasks}
+                </span>
+                <span className="block text-meta text-foreground-muted mt-0.5 tabular-nums">
+                  {formatTokens(PACK_TOKENS[pack.dollars])} tokens
                 </span>
               </button>
             );
           })}
         </div>
+        {/* Display-only until Phase 3 wires Stripe top-ups. Disabled with a clear
+            affordance rather than a dead button. */}
         <button
           type="button"
-          className="w-full mt-3 px-3 py-2 text-body font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+          disabled
+          aria-disabled="true"
+          title="Token top-ups are coming soon."
+          className="w-full mt-3 px-3 py-2 text-body font-medium bg-surface-sunken text-foreground-muted rounded-lg cursor-not-allowed"
         >
-          Buy tokens
+          Top-ups coming soon
         </button>
 
         <p className="text-meta text-foreground-muted leading-relaxed border-t border-dashed border-border pt-3 mt-4">
