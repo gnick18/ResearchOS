@@ -642,44 +642,31 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
        * CustomizableSidebar branch is removed (the customizable widget rail
        * was deleted with the rest of the framework). Sidebar selection is
        * now purely route-based:
-       *   - /calendar      : CalendarSidebar (its own date rail).
-       *   - /lab-overview  : NO sidebar. The curated Lab Overview page is a
-       *                      wide, max-w-6xl, action-first layout that reads
-       *                      better full-width than squeezed beside a rail.
-       *   - everything else: DailyTasksSidebar (every account type). */}
+       *   - /calendar : CalendarSidebar (its own date rail).
+       *   - /gantt    : DailyTasksSidebar (the Today-at-a-glance task rail).
+       *   - all others: NO sidebar, full-width (Grant 2026-06-11 scoped the
+       *                 Today rail to the GANTT only; it was clutter on every
+       *                 other surface, and "/" is a router with no canvas). */}
       <div className="flex flex-1 overflow-hidden">
-        {pathname?.startsWith("/sequences") ||
-        pathname?.startsWith("/chemistry") ||
-        pathname?.startsWith("/datahub") ||
-        pathname?.startsWith("/methods") ||
-        pathname?.startsWith("/workbench") ? (
-          /* Sequence editor is a full-bleed FOCUS surface (Grant
-           *  2026-06-02): hide the app's left sidebar so the plasmid/
-           *  map viewer gets the full width, SnapGene/Benchling-style.
-           *  The /sequences page already has its own working-tree
-           *  library on the left, so the DailyTasksSidebar is redundant
-           *  here. The /chemistry hub is the same kind of focus surface
-           *  (its own library grid), so it hides the Today rail too
-           *  (Grant 2026-06-10). The /methods explorer is now the same:
-           *  it has its own folder rail, so the Today rail just squeezes
-           *  the method list (Grant 2026-06-11). /workbench hides it too
-           *  (Grant 2026-06-11): it is tab-based (Projects / Experiments /
-           *  Notes / Lists / Check-ins, the latter two now with their own
-           *  explorers), so the Today rail was just clutter. Cross-arc note:
-           *  the de-bloat arc owns AppShell — PRESERVE this carve-out when
-           *  simplifying the sidebar. */
-          null
-        ) : pathname === "/calendar" ? (
+        {pathname === "/calendar" ? (
+          /* Calendar keeps its own date rail. */
           <CollapsibleSidebar>
             <CalendarSidebar />
           </CollapsibleSidebar>
-        ) : pathname === "/lab-overview" ? (
-          null
-        ) : (
+        ) : pathname?.startsWith("/gantt") ? (
+          /* The Today-at-a-glance rail (overdue / today / upcoming tasks)
+           *  now lives ONLY beside the GANTT (Grant 2026-06-11). The GANTT
+           *  is the scheduling surface where a task glance fits the
+           *  context; everywhere else the rail was screen clutter. Every
+           *  other page renders full-width (the old per-surface carve-out
+           *  for /sequences /chemistry /datahub /methods /workbench /
+           *  lab-overview is now the default). "/" is a pure router that
+           *  bounces to /workbench or /lab-overview, so there is no home
+           *  dashboard to host the rail either. */
           <CollapsibleSidebar>
             <DailyTasksSidebar />
           </CollapsibleSidebar>
-        )}
+        ) : null}
         <main className="flex-1 flex flex-col overflow-hidden">
           <LabSessionMount>{children}</LabSessionMount>
         </main>
