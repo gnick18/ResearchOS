@@ -64,7 +64,41 @@ import type {
   DataHubDocContent,
   DataHubDocument,
 } from "@/lib/datahub/model/types";
-import type { AiTool } from "./types";
+import type { AiTool, StepApprovalRequest } from "./types";
+
+// Build a `kind:"step"` rich-block approval from a previewable analysis / model
+// tool's already-resolved parts (the human header, the input pills, and the
+// readout-preview lines). One block per call, the same block UI the transform
+// card renders. Keeps each describe function to a single literal.
+function stepPayloadFor(opts: {
+  toolName: string;
+  iconName: string;
+  title: string;
+  subtitle?: string;
+  name: string;
+  blurb: string;
+  params: { label: string; value: string }[];
+  previewLines?: string[];
+}): StepApprovalRequest {
+  return {
+    kind: "step",
+    toolName: opts.toolName,
+    iconName: opts.iconName,
+    title: opts.title,
+    ...(opts.subtitle ? { subtitle: opts.subtitle } : {}),
+    steps: [
+      {
+        kind: opts.toolName,
+        name: opts.name,
+        blurb: opts.blurb,
+        params: opts.params,
+        ...(opts.previewLines && opts.previewLines.length > 0
+          ? { previewLines: opts.previewLines }
+          : {}),
+      },
+    ],
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Injectable seam (so the tools unit-test with no folder and no Loro).
@@ -319,6 +353,7 @@ function assumptionNote(reportCard: ReturnType<typeof planAnalysis>["reportCard"
  */
 export function describeRunAnalysis(args: Record<string, unknown>): {
   summary: string;
+  stepPayload?: StepApprovalRequest;
 } {
   const parsed = parseRunAnalysisArgs(args);
   const content = getCachedTableContent(parsed.tableId);
@@ -342,8 +377,23 @@ export function describeRunAnalysis(args: Record<string, unknown>): {
       : `${names.join(", ")}`;
   const note = assumptionNote(plan.reportCard);
   const notePhrase = note ? ` ${note}.` : "";
+  const params: { label: string; value: string }[] = [
+    { label: "Test", value: plan.recommendation },
+    { label: names.length === 2 ? "Groups" : "Columns", value: colPhrase },
+    { label: "Table", value: content.meta.name },
+  ];
   return {
     summary: `${plan.recommendation} on ${colPhrase} in ${content.meta.name}.${notePhrase}`,
+    stepPayload: stepPayloadFor({
+      toolName: "run_datahub_analysis",
+      iconName: "chart",
+      title: `Run ${plan.recommendation}`,
+      subtitle: `on ${colPhrase} in ${content.meta.name}`,
+      name: plan.recommendation,
+      blurb: `Statistical test of ${colPhrase}.`,
+      params,
+      previewLines: note ? [`Assumptions, ${note}.`] : undefined,
+    }),
   };
 }
 
@@ -787,6 +837,7 @@ export function buildModelComparison(
  */
 export function describeCompareModels(args: Record<string, unknown>): {
   summary: string;
+  stepPayload?: StepApprovalRequest;
 } {
   const parsed = parseCompareModelsArgs(args);
   const nestedPhrase = parsed.nested ? " (nested)" : "";
@@ -795,8 +846,29 @@ export function describeCompareModels(args: Record<string, unknown>): {
   }
   const content = getCachedTableContent(parsed.tableId);
   const where = content ? ` on ${content.meta.name}` : "";
+  const summary = `fit ${parsed.modelA} vs ${parsed.modelB}${nestedPhrase}${where}`;
+  if (!content) return { summary };
   return {
-    summary: `fit ${parsed.modelA} vs ${parsed.modelB}${nestedPhrase}${where}`,
+    summary,
+    stepPayload: stepPayloadFor({
+      toolName: "compare_models",
+      iconName: "lineage",
+      title: `Compare ${parsed.modelA} vs ${parsed.modelB}`,
+      subtitle: `on ${content.meta.name}`,
+      name: `Model comparison${nestedPhrase}`,
+      blurb: `Decide which model the curve data supports.`,
+      params: [
+        { label: "Model A", value: parsed.modelA },
+        { label: "Model B", value: parsed.modelB },
+        { label: "Nested", value: parsed.nested ? "yes" : "no" },
+        { label: "Table", value: content.meta.name },
+      ],
+      previewLines: [
+        parsed.nested
+          ? "Reports the extra-sum-of-squares F test and AICc."
+          : "Non-nested, reports AICc only.",
+      ],
+    }),
   };
 }
 
@@ -1004,6 +1076,7 @@ export function buildMultipleRegression(
  */
 export function describeMultipleRegression(args: Record<string, unknown>): {
   summary: string;
+  stepPayload?: StepApprovalRequest;
 } {
   const parsed = parseMultipleRegressionArgs(args);
   const content = getCachedTableContent(parsed.tableId);
@@ -1019,6 +1092,20 @@ export function describeMultipleRegression(args: Record<string, unknown>): {
   const predictorNames = parsed.predictors.map(resolve).join(", ");
   return {
     summary: `multiple regression of ${yName} on ${predictorNames} in ${content.meta.name}`,
+    stepPayload: stepPayloadFor({
+      toolName: "run_multiple_regression",
+      iconName: "chart",
+      title: `Multiple regression of ${yName}`,
+      subtitle: `on ${predictorNames} in ${content.meta.name}`,
+      name: "Multiple regression (OLS)",
+      blurb: `Model ${yName} from ${parsed.predictors.length} predictors.`,
+      params: [
+        { label: "Outcome", value: yName },
+        { label: "Predictors", value: predictorNames },
+        { label: "Table", value: content.meta.name },
+      ],
+      previewLines: ["Reports each coefficient with CI, R-squared, the overall F, and VIF."],
+    }),
   };
 }
 
@@ -1192,6 +1279,7 @@ export function buildLogisticRegression(
  */
 export function describeLogisticRegression(args: Record<string, unknown>): {
   summary: string;
+  stepPayload?: StepApprovalRequest;
 } {
   const parsed = parseLogisticRegressionArgs(args);
   const content = getCachedTableContent(parsed.tableId);
@@ -1203,6 +1291,20 @@ export function describeLogisticRegression(args: Record<string, unknown>): {
     (yId && yColumns(content).find((c) => c.id === yId)?.name) || "the outcome";
   return {
     summary: `logistic regression of ${yName} on the X column in ${content.meta.name}`,
+    stepPayload: stepPayloadFor({
+      toolName: "run_logistic_regression",
+      iconName: "chart",
+      title: `Logistic regression of ${yName}`,
+      subtitle: `on the X column in ${content.meta.name}`,
+      name: "Binary logistic regression",
+      blurb: `Model the 0/1 outcome ${yName} against the table's X.`,
+      params: [
+        { label: "Outcome", value: yName },
+        { label: "Predictor", value: "the table's X column" },
+        { label: "Table", value: content.meta.name },
+      ],
+      previewLines: ["Reports the odds ratio with CI, McFadden R-squared, and AUC."],
+    }),
   };
 }
 
@@ -1380,12 +1482,29 @@ export function buildGlobalFit(
  *  content without running the fit. Mirrors the other analysis describers. */
 export function describeGlobalFit(args: Record<string, unknown>): {
   summary: string;
+  stepPayload?: StepApprovalRequest;
 } {
   const parsed = parseGlobalFitArgs(args);
   const content = getCachedTableContent(parsed.tableId);
   const where = content ? ` on ${content.meta.name}` : "";
+  const summary = `globally fit ${parsed.model} across the curves${where} (sharing ${parsed.share})`;
+  if (!content) return { summary };
   return {
-    summary: `globally fit ${parsed.model} across the curves${where} (sharing ${parsed.share})`,
+    summary,
+    stepPayload: stepPayloadFor({
+      toolName: "global_fit",
+      iconName: "lineage",
+      title: `Global fit, ${parsed.model}`,
+      subtitle: `across the curves in ${content.meta.name}`,
+      name: "Global (shared-parameter) fit",
+      blurb: `Fit one ${parsed.model} shape to every Y curve at once.`,
+      params: [
+        { label: "Model", value: parsed.model },
+        { label: "Share", value: parsed.share },
+        { label: "Table", value: content.meta.name },
+      ],
+      previewLines: ["Reports each shared parameter once plus a per-curve EC50 and the pooled R-squared."],
+    }),
   };
 }
 

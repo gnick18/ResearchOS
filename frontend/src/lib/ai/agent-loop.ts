@@ -399,6 +399,24 @@ async function gateToolCall(
     };
   }
 
+  // A previewable analysis / plot / model step raises a "step" rich-block approval
+  // (the same block UI as a transform, with a generic header and a readout
+  // preview) instead of the one-line confirm. The user reviews the step label,
+  // the input pills, and the preview, then Approves or Rejects. Same allow / skip
+  // resolution as the draft and transform paths.
+  if (described?.stepPayload) {
+    const decision = await deps.requestApproval(described.stepPayload);
+    if (decision === "allow") return { proceed: true };
+    return {
+      proceed: false,
+      result: {
+        approved: false,
+        message:
+          "The user declined this step. Do not run it. Acknowledge their choice in one short sentence and offer to adjust it if they would like.",
+      },
+    };
+  }
+
   const decision = await deps.requestApproval({
     kind: "action",
     toolName: tool.name,

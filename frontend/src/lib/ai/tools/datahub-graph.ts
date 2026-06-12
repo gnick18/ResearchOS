@@ -54,7 +54,7 @@ import type {
   DataHubDocContent,
   PlotSpec,
 } from "@/lib/datahub/model/types";
-import type { AiTool } from "./types";
+import type { AiTool, StepApprovalRequest } from "./types";
 // Reuse the analysis tools' content cache (filled by list_datahub_tables) so the
 // sync graph preview can read the table's columns without an await.
 import { getCachedTableContent } from "./datahub-analysis";
@@ -525,6 +525,7 @@ export function buildGraph(
  */
 export function describeMakeGraph(args: Record<string, unknown>): {
   summary: string;
+  stepPayload?: StepApprovalRequest;
 } {
   const parsed = parseMakeGraphArgs(args);
   const kindPhrase =
@@ -542,8 +543,33 @@ export function describeMakeGraph(args: Record<string, unknown>): {
     .filter((c) => colIds.includes(c.id))
     .map((c) => c.name);
   const colPhrase = names.length > 0 ? `${names.join(", ")} from ` : "";
+  const errorBar = parsed.type === "estimation" ? "95% CI" : parsed.errorBar;
+  const params: { label: string; value: string }[] = [
+    { label: "Kind", value: kindPhrase },
+    ...(names.length > 0 ? [{ label: "Columns", value: names.join(", ") }] : []),
+    { label: "Error", value: errorBar },
+    { label: "Table", value: content.meta.name },
+  ];
   return {
     summary: `plot a ${kindPhrase} of ${colPhrase}${content.meta.name}`,
+    stepPayload: {
+      kind: "step",
+      toolName: "make_datahub_graph",
+      iconName: "growth",
+      title: `Plot a ${kindPhrase}`,
+      subtitle: `of ${colPhrase}${content.meta.name}`,
+      steps: [
+        {
+          kind: "make_datahub_graph",
+          name: `${kindPhrase}`,
+          blurb: `Build a publication figure from ${content.meta.name}.`,
+          params,
+          ...(parsed.significanceBrackets
+            ? { previewLines: ["With significance brackets from the saved one-way ANOVA."] }
+            : {}),
+        },
+      ],
+    },
   };
 }
 
