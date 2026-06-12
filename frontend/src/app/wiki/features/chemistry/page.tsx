@@ -66,6 +66,21 @@ export default function ChemistryFeaturePage() {
         rail width, which is remembered for next time.
       </p>
 
+      <p>
+        <strong>Search by structure.</strong> Beyond the name filter, a
+        search-by-structure mode finds molecules in your own library by chemistry
+        rather than text. You draw a fragment to match every molecule that contains
+        that substructure, or rank the library by similarity to a reference
+        structure, so the analogs you already have surface even when their names
+        give nothing away.
+      </p>
+      <p>
+        <strong>Right-click and bulk actions.</strong> Right-clicking a molecule in
+        the rail opens quick actions to rename it, duplicate it, send it to a note,
+        experiment, or method, or delete it. Selecting several rows with their
+        checkboxes lets you delete a batch or file it all under a project at once.
+      </p>
+
       <h2>Getting molecules into the library</h2>
       <p>
         There are three ways to add a molecule, surfaced as the New, PubChem, and
@@ -128,20 +143,33 @@ export default function ChemistryFeaturePage() {
       />
       <p>
         Quick copy actions put the canonical SMILES, the InChIKey, or a reference to
-        the molecule on your clipboard. The molecule reference pastes into a note as
-        a chip that links back to this molecule, so a synthesis note can point
-        directly at the compound it describes. A linked-projects section shows which
-        projects the molecule belongs to, with controls to add or remove a project
-        link, and a literature panel that loads on demand. An Edit structure button
-        opens the molecule in the full editor.
+        the molecule on your clipboard, and a Send to action pushes the molecule
+        straight into a note, experiment, or method. The molecule reference pastes
+        into a note as a chip that links back to this molecule, so a synthesis note
+        can point directly at the compound it describes. A linked-projects section
+        shows which projects the molecule belongs to, with controls to add or remove
+        a project link, a Referenced in panel lists everywhere the molecule is
+        already cited across your notes, experiments, and methods, and a literature
+        panel loads on demand. An Edit structure button opens the molecule in the
+        full editor.
       </p>
-      <Callout variant="warning" title="Deleting a molecule is immediate">
-        The Delete action in the detail view asks for confirmation and then removes
-        the molecule&apos;s files from your folder. Unlike notes and sequences,
-        molecules do not go to the{" "}
-        <Link href="/wiki/features/trash">Trash</Link>, so there is no 30-day
-        recovery window. The confirmation step lands focus on Cancel so the
-        destructive button is never the default.
+      <p>
+        Alongside the core identity, the detail view shows a properties panel with
+        calculated druglikeness numbers, the cLogP, the topological polar surface
+        area, hydrogen-bond donors and acceptors, aromatic rings, and rotatable
+        bonds, next to a Lipinski Rule-of-Five badge that flags at a glance whether
+        the molecule sits inside the usual oral-druglikeness limits. For a molecule
+        imported from PubChem, some of these descriptors are carried from PubChem
+        itself, while the core identity is always recomputed locally.
+      </p>
+      <Callout variant="info" title="Deleting a molecule is recoverable">
+        The Delete action in the detail view asks for confirmation, then moves the
+        molecule to the{" "}
+        <Link href="/wiki/features/trash">Trash</Link> rather than erasing it. You
+        can undo it straight away from the toast that appears, or restore it later
+        from the Trash, the same recovery window notes and sequences get. The
+        confirmation step lands focus on Cancel so the destructive button is never
+        the default.
       </Callout>
 
       <h2 id="editing">Drawing and editing structures</h2>
@@ -166,6 +194,14 @@ export default function ChemistryFeaturePage() {
         a heavier surface than the detail view because it loads a complete drawing
         engine, which is why browsing molecules uses the lightweight detail view and
         the editor opens only when you actually draw or edit.
+      </p>
+
+      <p>
+        The editor keeps a version history. Every time you save, it records a
+        version, and a History tab in the editor rail lists them so you can look back
+        at an earlier structure and restore it. This mirrors the{" "}
+        <Link href="/wiki/features/version-history">version history</Link> notes get,
+        so an edit that turned out wrong is never a dead end.
       </p>
 
       <h2>Literature and patents</h2>

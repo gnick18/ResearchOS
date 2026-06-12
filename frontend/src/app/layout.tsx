@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 import { Providers } from "@/lib/providers";
 import OfflineGatedAnalytics from "@/components/OfflineGatedAnalytics";
@@ -90,8 +91,12 @@ export default function RootLayout({
               message bridge (ai palette-morph bot, 2026-06-11). Registering here
               (instead of inside BeakerBotConversation) means the bridges are
               always exactly one instance whether the conversation is rendering in
-              the dock, the palette, or both simultaneously. */}
-          <BeakerBotBridges />
+              the dock, the palette, or both simultaneously. Wrapped in Suspense
+              because useNavigationBridge uses useSearchParams, which requires a
+              Suspense boundary for static export in Next.js 16. */}
+          <Suspense fallback={null}>
+            <BeakerBotBridges />
+          </Suspense>
           <ObjectPopupHost />
         </Providers>
         {/* Post-disconnect confirmation for a labmate self-export. Mounted at the

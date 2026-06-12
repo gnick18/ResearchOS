@@ -651,54 +651,6 @@ const FIXTURE_ROUTES = [
     },
   },
   {
-    // Project Surface — the left sidebar Projects rail. Land on any
-    // project route so SidebarProjectsNav renders with an active highlight,
-    // then tight-clip the left rail. The rail is the 48-wide aside
-    // (className "w-48 border-r border-gray-200 bg-white …") immediately
-    // inside AppShell's flex row.
-    path: "/workbench/projects/1",
-    file: "projects-sidebar-nav.png",
-    waitFor: '[data-testid="project-route-topbar"], text=Overview',
-    settleMs: 800,
-    action: async (page) => {
-      try {
-        const clip = await page.evaluate(() => {
-          // The rail's Link to "/" with label "Projects" is the stable
-          // marker. Walk up to the enclosing <aside>.
-          const links = Array.from(document.querySelectorAll("aside a"));
-          const projectsLink = links.find(
-            (a) =>
-              (a.getAttribute("href") || "") === "/" &&
-              (a.textContent || "").trim() === "Projects",
-          );
-          if (!projectsLink) return null;
-          let aside = projectsLink.closest("aside");
-          if (!aside) return null;
-          const r = aside.getBoundingClientRect();
-          const pad = 8;
-          const x = Math.max(0, Math.floor(r.left - pad));
-          const y = Math.max(0, Math.floor(r.top - pad));
-          const width = Math.min(
-            Math.max(0, window.innerWidth - x),
-            Math.ceil(r.width + pad * 2),
-          );
-          // Cap the rail height so a tall sub-list doesn't drag the
-          // capture down past the visible region.
-          const maxHeight = Math.min(
-            Math.max(0, window.innerHeight - y),
-            Math.ceil(r.height + pad * 2),
-          );
-          return { x, y, width, height: maxHeight };
-        });
-        if (clip && clip.width > 50 && clip.height > 80) {
-          return { clip };
-        }
-      } catch (err) {
-        console.warn(`  ⚠ projects-sidebar-nav clip: ${err.message}`);
-      }
-    },
-  },
-  {
     path: "/gantt",
     file: "gantt-overview.png",
     waitFor: ".gantt, [role='grid'], text=GANTT",
@@ -719,16 +671,6 @@ const FIXTURE_ROUTES = [
       } catch {}
     },
     highlight: { text: "+ Task" },
-  },
-  {
-    // Crop to the top zoom-control band only. No highlight: the wiki body
-    // describes all eight zoom buttons (D/W/M/3M/6M/Y/All + Today), so a
-    // red ring around just "3M" would be a misleading annotation.
-    path: "/gantt",
-    file: "gantt-zoom-controls.png",
-    waitFor: ".gantt, [role='grid'], text=GANTT",
-    settleMs: 1500,
-    crop: { x: 0, y: 0, width: 1440, height: 220 },
   },
   {
     path: "/gantt",
@@ -1030,31 +972,6 @@ const FIXTURE_ROUTES = [
   // editor's code-fence handling changed, so the capture just re-shot the
   // plain Lab Notes view. Re-add with a verified action if a wiki page
   // ever needs the language-picker illustration.
-  {
-    path: "/experiments",
-    file: "editor-hybrid-selected.png",
-    waitFor: "h1, h2, text=Lab Notes",
-    settleMs: 800,
-    action: async (page) => {
-      if (!(await revealCompletedAndOpenTask(
-        page,
-        /Yeast transformation:\s*pYES-GAL1::flbA/i,
-      ))) return;
-      try {
-        await openLabNotesTab(page);
-        // Hybrid is the default mode. Click a paragraph block from the
-        // seeded body so the blue ring + inline Edit/Delete buttons appear.
-        const block = page.getByText(/Plated on SD-Ura/i).first();
-        if (await block.count()) {
-          await block.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
-          await block.click({ timeout: 3000 });
-          await page.waitForTimeout(500);
-        }
-      } catch (err) {
-        console.warn(`  ⚠ editor-hybrid-selected action: ${err.message}`);
-      }
-    },
-  },
   {
     path: "/experiments",
     file: "editor-image-resize.png",
@@ -2147,6 +2064,20 @@ const FIXTURE_ROUTES = [
     highlight: { text: "Connect Telegram" },
   },
   {
+    // settings-ai-helper.png — the AI Helper section in Settings (the prompt
+    // export feature: size options + open-in-Claude/ChatGPT/Gemini/Copilot).
+    // Referenced by /wiki/features/ai-helper and /wiki/features/settings. The
+    // section carries id="ai-helper" in app/settings/page.tsx, so the #ai-helper
+    // anchor scrolls to it. BEST-EFFORT: confirm the selector/scroll against the
+    // live redesigned settings (SettingsShell uses a ?section= query) when the
+    // capture is actually run; if the AI Helper lives under a ?section= id now,
+    // switch path to /settings?section=<id>.
+    path: "/settings#ai-helper",
+    file: "settings-ai-helper.png",
+    waitFor: "text=AI Helper",
+    settleMs: 900,
+  },
+  {
     // user-archiving-roster.png — the Lab Roster in Settings with a member
     // row's Archive button revealed on hover. Referenced by
     // /wiki/getting-started/user-archiving. The PI edit-session unlock gate was
@@ -2784,6 +2715,37 @@ const FIXTURE_ROUTES = [
       }
     },
   },
+  {
+    // This shot is referenced by /wiki/features/feedback (the FeedbackModal
+    // with the Bug type selected, showing the editable Title, description,
+    // and the auto-attached error-details section). Keep the same
+    // open-the-modal action: the existing entry already opens the
+    // Bug-default modal and waits for "Report an Issue".
+    path: "/",
+    file: "feedback-modal-bug.png",
+    waitFor: "text=Research Project Overview",
+    settleMs: 800,
+    action: async (page) => {
+      try {
+        const btn = page.locator('[aria-label="Send feedback"]').first();
+        if (await btn.count()) {
+          // The feedback pill sits in the bottom-right floating cluster and
+          // may be below the fold; bring it into view before clicking.
+          await btn.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+          await btn.click({ timeout: 3000, force: true });
+          // FeedbackModal renders an <h2> "Report an Issue" once "Bug"
+          // (the default) is the selected type. Wait for it so the rest
+          // of the modal body has mounted before we capture.
+          await page
+            .waitForSelector("text=Report an Issue", { timeout: 4000 })
+            .catch(() => {});
+          await page.waitForTimeout(600);
+        }
+      } catch (err) {
+        console.warn(`  ⚠ feedback-modal-bug open: ${err.message}`);
+      }
+    },
+  },
   // ── Onboarding welcome-tour (v4) captures ─────────────────────────
   //
   // Wiki target: /wiki/getting-started/welcome-wizard
@@ -2945,80 +2907,6 @@ const FIXTURE_ROUTES = [
       }
     },
   },
-  {
-    path: "/settings",
-    file: "onboarding-settings-rerun-button.png",
-    waitFor: "text=Settings, text=Tips",
-    settleMs: 800,
-    action: async (page) => {
-      // The Tips section sits near the bottom of the long Settings
-      // panel stack. Scroll the "Re-run welcome tour" row into view
-      // and capture a tight clip around the Tips card so the wiki shot
-      // matches the section the prose describes. Label updated 2026-05-20
-      // when the v3 wizard cutover renamed the affordance from
-      // "Re-run welcome wizard" to "Re-run welcome tour".
-      try {
-        const label = page
-          .getByText(/Re-run welcome tour/i)
-          .first();
-        if (await label.count()) {
-          await label
-            .scrollIntoViewIfNeeded({ timeout: 3000 })
-            .catch(() => {});
-          await page.waitForTimeout(500);
-        }
-      } catch (err) {
-        console.warn(
-          `  ⚠ onboarding-settings-rerun-button scroll: ${err.message}`,
-        );
-      }
-      // Compute a clip that spans the entire Tips section (its
-      // SectionShell header through the Re-run row's button). This
-      // keeps the surrounding settings panels out of the shot so the
-      // reader's eye lands on the right control.
-      try {
-        const clip = await page.evaluate(() => {
-          const headings = Array.from(
-            document.querySelectorAll("h2, h3"),
-          );
-          const tipsHeading = headings.find(
-            (el) => (el.textContent || "").trim() === "Tips",
-          );
-          if (!tipsHeading) return null;
-          // Walk up to the SectionShell wrapper so the clip catches
-          // the title + the radio set + both action rows.
-          let shell = tipsHeading.parentElement;
-          for (let i = 0; i < 4 && shell; i++) {
-            const cs = getComputedStyle(shell);
-            if (
-              cs.borderRadius !== "0px" ||
-              shell.className.includes("rounded")
-            ) {
-              break;
-            }
-            shell = shell.parentElement;
-          }
-          if (!shell) return null;
-          const rect = shell.getBoundingClientRect();
-          const pad = 12;
-          return {
-            x: Math.max(0, Math.floor(rect.left - pad)),
-            y: Math.max(0, Math.floor(rect.top - pad)),
-            width: Math.ceil(rect.width + pad * 2),
-            height: Math.ceil(rect.height + pad * 2),
-          };
-        });
-        if (clip && clip.width > 100 && clip.height > 100) {
-          return { clip };
-        }
-      } catch (err) {
-        console.warn(
-          `  ⚠ onboarding-settings-rerun-button clip calc: ${err.message}`,
-        );
-      }
-    },
-    highlight: { text: "Re-run welcome tour" },
-  },
   // Wizard-step-seeded captures (v4 port 2026-05-27).
   //
   // `?wizardSeedStep=<id>` is read by installWikiCaptureFixture in
@@ -3039,31 +2927,6 @@ const FIXTURE_ROUTES = [
   // clip calc anchors on `[data-testid="tour-beakerbot-overlay"]` and
   // expands to include the spotlight target rather than just the
   // bubble.
-  {
-    // HE-5a hybrid editor BOLD demo. Cursor types "Bold!" with markdown
-    // `**` syntax in the hybrid editor, demonstrating the inline-render
-    // mechanic. Captures the live-typing moment with the speech bubble
-    // narrating from the fixed bottom-right anchor.
-    //
-    // File rename: v3 used `W5` step nomenclature and the file was
-    // `onboarding-w5-hybrid-editor-typing.png`. Renamed to
-    // `onboarding-hybrid-bold.png` to match the v4 step id.
-    path: "/?wizard-preview=1&wizardSeedStep=hybrid-bold",
-    file: "onboarding-hybrid-bold.png",
-    // Wait for the in-product speech bubble to mount (the in-product
-    // walkthrough overlay has no per-step data-tour-step attribute on
-    // the body; the bubble's testid is the most stable anchor).
-    waitFor: '[data-testid="tour-beakerbot-bubble"]',
-    settleMs: 1500,
-    action: async () => {
-      // No clip — capture the full viewport so the spotlight target
-      // (hybrid editor body), the cursor mid-demo, and the speech
-      // bubble in the bottom-right all sit together in the frame. The
-      // speech bubble is a fixed-position overlay anchored at
-      // bottom: 96px, so a tight clip on the bubble alone would lose
-      // the editor context this screenshot is meant to teach.
-    },
-  },
   {
     // V4ResumePrompt — the Restart / Resume / Discard modal that
     // surfaces when v4 boots with a non-welcome `wizard_resume_state`.
@@ -3680,16 +3543,6 @@ const FIXTURE_ROUTES = [
   // the dev FAB dock. Captured by the pipeline now so they stay current +
   // dev-button-free (applyClean hides the dock on all of these too).
   {
-    // The curated PI Lab Overview page (post widget-framework teardown). The
-    // fixture's PI is mira (alex is a member now), so sign in as mira via the
-    // ?fixtureUser override; /lab-overview then renders the curated ~7-section
-    // PI page, NOT the removed customizable widget canvas.
-    path: "/lab-overview?fixtureUser=mira",
-    file: "lab-overview-pi-default.png",
-    waitFor: "text=Lab Overview",
-    settleMs: 1400,
-  },
-  {
     // The unified Share dialog, opened on a user method. The fixture seeds
     // "Growth-curve QC analysis" under My Methods; open it to show the detail
     // pane, then click its "Share method" header button (aria-label).
@@ -3753,59 +3606,6 @@ const FIXTURE_ROUTES = [
       } catch (err) {
         console.warn(`  ⚠ sharing-method open dialog: ${err.message}`);
       }
-    },
-  },
-  {
-    // The per-task Lab comments thread (seeded on task 5, "PCR-screen
-    // integrants": a mira/alex/morgan thread). Open the completed experiment
-    // popup and scroll the comments into frame.
-    path: "/workbench",
-    file: "lab-inbox-comments-thread.png",
-    waitFor: "text=Workbench",
-    settleMs: 700,
-    action: async (page) => {
-      await ensureExperimentsTab(page);
-      try {
-        const card = page.getByText(/^PCR-screen integrants$/).first();
-        await card.waitFor({ state: "visible", timeout: 12000 });
-        // DOM-click the card (experiment cards are clickable divs).
-        await page.evaluate(() => {
-          const leaf = [...document.querySelectorAll("*")].find(
-            (e) =>
-              e.children.length === 0 &&
-              /^PCR-screen integrants$/.test((e.textContent || "").trim()),
-          );
-          let c = leaf;
-          for (let i = 0; i < 8 && c; i++) {
-            const cs = getComputedStyle(c);
-            if (
-              cs.cursor === "pointer" ||
-              c.getAttribute("role") === "button" ||
-              c.tagName === "BUTTON"
-            ) {
-              c.click();
-              return;
-            }
-            c = c.parentElement;
-          }
-          leaf?.click();
-        });
-        await page.waitForTimeout(1200);
-      } catch (err) {
-        console.warn(`  ⚠ lab-comments open task: ${err.message}`);
-      }
-      // Scroll the Lab comments section into frame.
-      try {
-        await page.evaluate(() => {
-          const node = [...document.querySelectorAll("*")].find(
-            (e) =>
-              /^Lab comments/.test((e.textContent || "").trim()) &&
-              e.children.length <= 4,
-          );
-          node?.scrollIntoView({ block: "center", behavior: "instant" });
-        });
-        await page.waitForTimeout(700);
-      } catch {}
     },
   },
 
@@ -4272,6 +4072,11 @@ const FIXTURE_ROUTES = [
   },
 
   // ── Chemistry workbench shots ─────────────────────────────────────────────
+  // ENV REQUIREMENT: the captured server must be BUILT with
+  // NEXT_PUBLIC_CHEMISTRY_ENABLED=1, or /chemistry renders the "not enabled" gate
+  // and a re-capture overwrites these 8 shots with broken ones. The flag bakes at
+  // build time and this script only connects to a pre-built server, so set it on
+  // the build, not here. See the feature-flagged section of WIKI_SCREENSHOTS.md.
   // The ?wikiCapture=1 fixture seeds 4 molecules for alex under project 1
   // (Ethanol, Acetic acid, Glycerol, Resveratrol), each with a real Molfile +
   // SMILES/InChIKey/formula/weight, so the library, the detail view, and the

@@ -78,6 +78,7 @@ import {
   createMoleculeTool,
   importMoleculeTool,
 } from "./chemistry-tools";
+import { planStudyTool } from "./plan-study";
 import { transformTableTool } from "./transform-table";
 import { wrangleTableTool } from "./wrangle-table";
 import {
@@ -118,6 +119,12 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // for a known id. Neither navigates nor mutates any data.
   listDataHubAnalysesTool,
   readDataHubAnalysisTool,
+  // plan_study is READ-only and computes nothing of the user's data. It answers
+  // study-design questions (how many samples, what power, smallest detectable
+  // effect) through the validated power / sample-size engine before any data is
+  // collected. Non-gated, like the other deterministic engine-computed tools, the
+  // model maps the request to the engine and relays the number.
+  planStudyTool,
   // list_notes is READ-only with respect to the user's data, it returns the user's
   // notes (id + title + snippet) so write_note can find the note to append to. The
   // WRITE half (write_note) is gated and lives in ACTION_TOOLS below.

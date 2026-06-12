@@ -8,11 +8,12 @@
 // billing Phase 4) via fetchAiStatus, with loading, signed-out, and empty states.
 // When AI billing enforcement is off (the current beta default) the endpoint
 // returns a clearly-flagged inert response, so we show the "AI is free during the
-// beta" framing instead of a balance. The $10/$25/$50 packs are DISPLAY-ONLY for
-// now, Phase 3 wires the Stripe purchase, so the buy action is disabled with a
-// "top-ups coming soon" affordance rather than a dead button. The pack token
-// amounts derive from PACK_TOKENS so they stay honest with the live rate, the
-// fixture supplies only the rough "about N analyses" labels.
+// beta" framing instead of a balance. The $10/$25/$50 packs select a tier and the
+// Buy button POSTs the chosen pack to /api/billing/ai-topup (Phase 3), which
+// returns a hosted Stripe Checkout url we send the browser to. Errors surface
+// inline rather than dead-ending. The pack token amounts derive from PACK_TOKENS
+// so they stay honest with the live rate, the fixture supplies only the rough
+// "about N analyses" labels.
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
@@ -20,7 +21,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { Icon } from "@/components/icons";
-import { PACK_TOKENS } from "@/lib/billing/ai-config";
+import { PACK_TOKENS, type AiPack } from "@/lib/billing/ai-config";
 import { fetchAiStatus, type AiStatus } from "@/lib/billing/ai-client";
 import { TOKEN_BLOCKS_FIXTURE } from "@/lib/usage/usage-fixtures";
 
@@ -30,11 +31,14 @@ function formatTokens(n: number): string {
 
 /** The display-only packs, the dollar tile + its rough coverage label (fixture)
  *  paired with the token amount the live rate buys (PACK_TOKENS). */
-const PACKS: { price: string; dollars: 10 | 25 | 50; tasks: string; recommended?: boolean }[] = [
-  { price: "$10", dollars: 10, tasks: TOKEN_BLOCKS_FIXTURE[0]?.tasks ?? "", },
-  { price: "$25", dollars: 25, tasks: TOKEN_BLOCKS_FIXTURE[1]?.tasks ?? "", recommended: true },
-  { price: "$50", dollars: 50, tasks: TOKEN_BLOCKS_FIXTURE[2]?.tasks ?? "", },
+const PACKS: { price: string; dollars: 10 | 25 | 50; pack: AiPack; tasks: string; recommended?: boolean }[] = [
+  { price: "$10", dollars: 10, pack: "10", tasks: TOKEN_BLOCKS_FIXTURE[0]?.tasks ?? "", },
+  { price: "$25", dollars: 25, pack: "25", tasks: TOKEN_BLOCKS_FIXTURE[1]?.tasks ?? "", recommended: true },
+  { price: "$50", dollars: 50, pack: "50", tasks: TOKEN_BLOCKS_FIXTURE[2]?.tasks ?? "", },
 ];
+
+/** The body of the /api/billing/ai-topup response. */
+type TopupResponse = { url?: string; error?: string };
 
 export default function AiUsageSection() {
   const [selectedPack, setSelectedPack] = useState<number>(
@@ -44,6 +48,35 @@ export default function AiUsageSection() {
   );
   const [status, setStatus] = useState<AiStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [buying, setBuying] = useState(false);
+  const [buyError, setBuyError] = useState<string | null>(null);
+
+  async function buyPack(pack: AiPack) {
+    setBuyError(null);
+    setBuying(true);
+    try {
+      const res = await fetch("/api/billing/ai-topup", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ pack }),
+      });
+      const data = (await res.json().catch(() => ({}))) as TopupResponse;
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+        return; // navigating away, leave the spinner up
+      }
+      // Translate the route's machine errors into plain language.
+      setBuyError(
+        data.error === "pack_unconfigured"
+          ? "Token top-ups are not available yet. Please check back soon."
+          : "Could not start checkout. Please try again in a moment.",
+      );
+    } catch {
+      setBuyError("Could not reach checkout. Please check your connection and try again.");
+    } finally {
+      setBuying(false);
+    }
+  }
 
   useEffect(() => {
     let alive = true;
@@ -167,17 +200,27 @@ export default function AiUsageSection() {
             );
           })}
         </div>
-        {/* Display-only until Phase 3 wires Stripe top-ups. Disabled with a clear
-            affordance rather than a dead button. */}
+        {/* Buy the selected pack via a hosted Stripe Checkout (Phase 3). The
+            handler POSTs the pack and follows the returned url. */}
         <button
           type="button"
-          disabled
-          aria-disabled="true"
-          title="Token top-ups are coming soon."
-          className="w-full mt-3 px-3 py-2 text-body font-medium bg-surface-sunken text-foreground-muted rounded-lg cursor-not-allowed"
+          disabled={buying}
+          aria-disabled={buying}
+          onClick={() => void buyPack(PACKS[selectedPack]?.pack ?? "10")}
+          className="w-full mt-3 px-3 py-2 text-body font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          Top-ups coming soon
+          {buying
+            ? "Starting checkout..."
+            : `Buy ${PACKS[selectedPack]?.price ?? ""} of tokens`}
         </button>
+        {buyError && (
+          <p
+            role="alert"
+            className="mt-2 text-meta text-red-600 dark:text-red-400 leading-relaxed"
+          >
+            {buyError}
+          </p>
+        )}
 
         <p className="text-meta text-foreground-muted leading-relaxed border-t border-dashed border-border pt-3 mt-4">
           During the beta the AI is free. After that you pay only for what you

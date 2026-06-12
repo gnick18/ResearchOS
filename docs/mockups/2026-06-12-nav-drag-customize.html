@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>User-customizable navigation bar, drag to arrange</title>
+<style>
+  html[data-theme="light"]{
+    --surface:#f8fafc; --surface-raised:#fff; --surface-overlay:#fff; --surface-sunken:#f1f5f9;
+    --border:#e5e7eb; --border-strong:#cbd5e1; --fg:#171717; --fg-muted:#6b7280; --fg-faint:#94a3b8;
+    --brand-sky:#1AA0E6; --brand-action:#1283C9; --pin:#e11d48; --ok:#16a34a; --amber:#d97706;
+    --green:#16a34a; --green-soft:#f0fdf4; --amber-soft:#fffbeb; --blue:#2563eb; --blue-soft:#eff6ff;
+    --tab-active-bg:rgba(18,131,201,.1); --drop:#16a34a; --drop-soft:#f0fdf4;
+  }
+  html[data-theme="dark"]{
+    --surface:#0a0e1a; --surface-raised:#1c2638; --surface-overlay:#28344c; --surface-sunken:#0d1424;
+    --border:rgba(255,255,255,.16); --border-strong:rgba(255,255,255,.28); --fg:#f1f5f9; --fg-muted:#b4bfd0; --fg-faint:#6b7c96;
+    --brand-sky:#1AA0E6; --brand-action:#3aa0e6; --pin:#fb7185; --ok:#4ade80; --amber:#fbbf24;
+    --green:#4ade80; --green-soft:rgba(22,163,74,.2); --amber-soft:rgba(217,119,6,.2); --blue:#60a5fa; --blue-soft:rgba(37,99,235,.18);
+    --tab-active-bg:rgba(58,160,230,.18); --drop:#4ade80; --drop-soft:rgba(22,163,74,.18);
+  }
+  *{box-sizing:border-box}html,body{margin:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--surface);color:var(--fg);line-height:1.45;-webkit-font-smoothing:antialiased}
+  a{color:var(--brand-action)}
+
+  header.top{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:14px;padding:13px 22px;background:var(--surface-overlay);border-bottom:1px solid var(--border)}
+  header.top h1{font-size:16.5px;margin:0;font-weight:800;letter-spacing:-.01em}
+  header.top .sub{font-size:12px;color:var(--fg-muted)}
+  header.top .spacer{flex:1}
+  .btn{font:inherit;font-size:13px;font-weight:600;padding:7px 13px;border-radius:9px;border:1px solid var(--border-strong);background:var(--surface-raised);color:var(--fg);cursor:pointer}
+  .btn:hover{border-color:var(--brand-action)}.btn.on{background:var(--brand-action);border-color:var(--brand-action);color:#fff}.btn.danger{color:var(--pin)}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:22px}
+  .lead{color:var(--fg-muted);font-size:13.5px;max-width:980px;margin:0 0 8px}
+  .legend{display:flex;flex-wrap:wrap;gap:10px 18px;font-size:12.5px;color:var(--fg-muted);background:var(--surface-raised);border:1px solid var(--border);border-radius:12px;padding:11px 15px;margin:12px 0 6px}
+  .legend b{color:var(--fg)}.legend .k{display:inline-flex;align-items:center;gap:6px}
+  .legend kbd{font:inherit;font-size:11px;font-weight:700;background:var(--surface-sunken);border:1px solid var(--border-strong);border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:var(--fg)}
+  .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+
+  .section-h{font-size:17px;font-weight:800;margin:32px 0 3px;letter-spacing:-.01em;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .section-h .badge{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:2px 9px}
+  .badge.live{background:var(--blue-soft);color:var(--blue)}
+  .badge.you{background:var(--drop-soft);color:var(--drop)}
+  .section-sub{color:var(--fg-muted);font-size:13px;margin:0 0 12px;max-width:960px}
+
+  /* ============ the faithful app frame ============ */
+  .appframe{border:1px solid var(--border);border-radius:14px;overflow:visible;background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.04);position:relative}
+  .appframe .innerclip{border-radius:14px;overflow:hidden}
+
+  /* the slim nav bar */
+  .navbar{display:flex;align-items:center;gap:13px;padding:5px 14px;background:var(--surface-raised);border-bottom:1px solid var(--border);min-height:40px;position:relative}
+  .brand{display:flex;align-items:center;gap:8px;flex:none}
+  .beaker{flex:none;display:grid;place-items:center}
+  .wordmark{font-weight:800;font-size:14px;letter-spacing:-.02em;color:var(--fg)}
+  .streak{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:var(--amber);background:var(--amber-soft);border-radius:999px;padding:1px 7px;flex:none}
+
+  .tabs{display:flex;align-items:center;gap:2px;flex:1;min-width:0}
+  .tab{font-size:12px;font-weight:600;color:var(--fg-muted);padding:4px 9px;border-radius:8px;white-space:nowrap;cursor:pointer;border:1px solid transparent;background:none;font-family:inherit;position:relative;display:inline-flex;align-items:center;gap:5px;user-select:none}
+  .tab:hover{background:var(--surface-sunken);color:var(--fg)}
+  .tab.active{color:var(--brand-action);background:var(--tab-active-bg)}
+
+  .morewrap{position:relative;flex:none}
+  .morebtn{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--fg-muted);padding:4px 10px;border-radius:8px;border:1px solid var(--border-strong);background:var(--surface-raised);cursor:pointer;font-family:inherit}
+  .morebtn:hover{border-color:var(--brand-action);color:var(--fg)}
+  .morebtn.open{background:var(--tab-active-bg);border-color:var(--brand-action);color:var(--brand-action)}
+  .morebtn .chev{transition:transform .18s}
+  .morebtn.open .chev{transform:rotate(180deg)}
+
+  .moremenu{position:absolute;top:calc(100% + 7px);right:0;min-width:208px;background:var(--surface-overlay);border:1px solid var(--border);border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.22);padding:6px;z-index:30;display:none}
+  .moremenu.open{display:block}
+  .moremenu .menuhead{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--fg-faint);padding:6px 10px 7px}
+  .moremenu .mi{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--fg-muted);padding:8px 11px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+  .moremenu .mi:hover{background:var(--surface-sunken);color:var(--fg)}
+  .moremenu .mi.active{color:var(--brand-action);background:var(--tab-active-bg)}
+  .moremenu .mi .grip{margin-left:auto;color:var(--fg-faint);opacity:0;transition:opacity .15s}
+  .moremenu .sep{height:1px;background:var(--border);margin:6px 4px}
+  .moremenu .mi.customize{color:var(--fg-muted);font-weight:600}
+  .moremenu .mi.customize:hover{color:var(--brand-action)}
+  .moremenu .empty{font-size:12px;color:var(--fg-faint);padding:9px 11px;text-align:center;font-style:italic}
+
+  .navicons{display:flex;align-items:center;gap:5px;flex:none}
+  .iconbtn{width:27px;height:27px;border-radius:8px;border:1px solid transparent;background:none;color:var(--fg-muted);display:grid;place-items:center;cursor:pointer}
+  .iconbtn:hover{background:var(--surface-sunken);color:var(--fg)}
+  .avatar{width:25px;height:25px;border-radius:999px;background:var(--brand-sky);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;flex:none;cursor:pointer}
+
+  /* the sample page body */
+  .pagebody{display:flex;min-height:320px}
+  .leftrail-content{width:200px;flex:none;border-right:1px solid var(--border);background:var(--surface-raised);padding:12px 10px}
+  .leftrail-content .rl-h{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--fg-faint);padding:4px 8px 7px}
+  .rl-item{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:500;color:var(--fg-muted);padding:7px 8px;border-radius:7px;cursor:pointer}
+  .rl-item:hover{background:var(--surface-sunken);color:var(--fg)}
+  .rl-item.on{background:var(--tab-active-bg);color:var(--brand-action);font-weight:600}
+  .rl-dot{width:7px;height:7px;border-radius:2px;flex:none}
+  .content{flex:1;padding:16px 20px;min-width:0;background:var(--surface)}
+  .pagetitle{font-size:18px;font-weight:800;margin:0 0 2px;letter-spacing:-.01em}
+  .pagesub{font-size:12.5px;color:var(--fg-muted);margin:0 0 14px}
+  .listrow{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--surface-raised)}
+  .listrow .ic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff;flex:none}
+  .listrow .meat{flex:1;min-width:0}
+  .listrow .meat .t{font-size:13px;font-weight:700}
+  .listrow .meat .d{font-size:11.5px;color:var(--fg-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .listrow .tag{font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 9px;background:var(--surface-sunken);color:var(--fg-muted);flex:none}
+
+  /* ============ EDIT MODE ============ */
+  /* the bar tints faintly while editing so it reads as a different mode */
+  .navbar.editing{background:var(--drop-soft)}
+  html[data-theme="dark"] .navbar.editing{background:var(--surface-overlay)}
+  .navbar.editing .tab{cursor:grab;border-color:var(--border-strong);background:var(--surface-raised);color:var(--fg)}
+  .navbar.editing .tab.active{border-color:var(--brand-action)}
+  .navbar.editing .tab .grip{display:inline-flex}
+  .tab .grip{display:none;color:var(--fg-faint);margin-left:-1px}
+
+  /* the iOS-style jiggle, two offset keyframes so neighbours feel alive */
+  @keyframes jiggleA{0%{transform:rotate(-1.1deg)}50%{transform:rotate(1.1deg)}100%{transform:rotate(-1.1deg)}}
+  @keyframes jiggleB{0%{transform:rotate(1deg)}50%{transform:rotate(-1deg)}100%{transform:rotate(1deg)}}
+  .navbar.editing .tab{animation:jiggleA .28s ease-in-out infinite}
+  .navbar.editing .tab:nth-child(even){animation-name:jiggleB}
+  .navbar.editing .tab.dragging{animation:none;opacity:.4;cursor:grabbing}
+  @media (prefers-reduced-motion: reduce){ .navbar.editing .tab{animation:none} }
+
+  /* the insertion line shown between tabs during a drag */
+  .tabs .ins{width:2px;align-self:stretch;margin:3px 0;border-radius:2px;background:var(--brand-action);flex:none;display:none}
+  .tabs .ins.show{display:block}
+
+  /* the More menu becomes the Hidden drop zone while editing */
+  .moremenu.editing{min-width:230px;border-color:var(--brand-action)}
+  .moremenu.dropzone{outline:2px dashed var(--drop);outline-offset:-4px;background:var(--drop-soft)}
+  html[data-theme="dark"] .moremenu.dropzone{background:var(--surface-overlay)}
+  .moremenu.editing .mi{cursor:grab;background:var(--surface-raised);border-color:var(--border)}
+  .moremenu.editing .mi .grip{opacity:1}
+  .moremenu.editing .mi.dragging{opacity:.4}
+  .moremenu .dzhint{font-size:11px;color:var(--fg-faint);text-align:center;padding:8px 6px 4px;display:none}
+  .moremenu.editing .dzhint{display:block}
+
+  /* the bar itself is a drop zone for items dragged out of Hidden */
+  .navbar.editing.bardrop .tabs{outline:2px dashed var(--drop);outline-offset:2px;border-radius:8px}
+
+  /* the Done pill, only present while editing (it is not a persistent button) */
+  .donepill{display:none;align-items:center;gap:7px;flex:none;margin-left:2px}
+  .navbar.editing .donepill{display:flex}
+  .donebtn{font:inherit;font-size:12px;font-weight:700;padding:4px 13px;border-radius:8px;border:1px solid var(--brand-action);background:var(--brand-action);color:#fff;cursor:pointer}
+  .donebtn:hover{filter:brightness(1.06)}
+  .resetbtn{font:inherit;font-size:11.5px;font-weight:600;padding:4px 9px;border-radius:8px;border:1px solid var(--border-strong);background:var(--surface-raised);color:var(--fg-muted);cursor:pointer;white-space:nowrap}
+  .resetbtn:hover{border-color:var(--pin);color:var(--pin)}
+
+  /* edit-mode helper banner under the bar */
+  .editbanner{display:none;align-items:center;gap:10px;font-size:12px;color:var(--fg-muted);background:var(--drop-soft);border-bottom:1px solid var(--border);padding:6px 14px}
+  html[data-theme="dark"] .editbanner{background:var(--surface-overlay)}
+  .appframe.editing .editbanner{display:flex}
+  .editbanner b{color:var(--fg)}
+  .editbanner .esc{margin-left:auto;font-size:11px;color:var(--fg-faint)}
+
+  /* tiny right-click context menu */
+  .ctxmenu{position:fixed;min-width:158px;background:var(--surface-overlay);border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 36px rgba(0,0,0,.28);padding:5px;z-index:80;display:none}
+  .ctxmenu.open{display:block}
+  .ctxmenu .ci{display:flex;align-items:center;gap:9px;font-size:12.5px;font-weight:600;color:var(--fg);padding:8px 10px;border-radius:7px;cursor:pointer}
+  .ctxmenu .ci:hover{background:var(--surface-sunken)}
+  .ctxmenu .ci svg{color:var(--fg-muted)}
+
+  /* ============ decision cards ============ */
+  .changes{display:grid;gap:12px}
+  .change{display:flex;gap:14px;background:var(--surface-raised);border:1px solid var(--border);border-left:4px solid var(--border-strong);border-radius:12px;padding:14px 16px}
+  .change.approved{border-left-color:var(--ok)}.change.disapproved{border-left-color:var(--pin)}
+  .change .body{flex:1;min-width:0}.change .body h4{margin:0 0 4px;font-size:14px;font-weight:700}.change .body p{margin:0;font-size:12.5px;color:var(--fg-muted)}
+  .change .verdict{flex:none;display:flex;flex-direction:column;gap:6px;width:132px}
+  .vbtn{font:inherit;font-size:12.5px;font-weight:600;padding:6px 10px;border-radius:8px;border:1px solid var(--border-strong);background:var(--surface-raised);color:var(--fg);cursor:pointer;text-align:center}
+  .vbtn.ok.on{background:var(--ok);border-color:var(--ok);color:#fff}.vbtn.dis.on{background:var(--pin);border-color:var(--pin);color:#fff}
+  .change textarea{margin-top:8px;width:100%;height:30px;resize:vertical;font:inherit;font-size:12.5px;padding:5px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface-sunken);color:var(--fg)}
+
+  /* ============ comment harness ============ */
+  body.cmt-on{cursor:crosshair}
+  body.cmt-on .cmt{outline:1px dashed rgba(18,131,201,.4);outline-offset:1px}
+  body.cmt-on .cmt:hover{outline:2px solid var(--brand-action);background:rgba(18,131,201,.06)}
+  .pin{position:absolute;transform:translate(-50%,-50%);min-width:19px;height:19px;padding:0 4px;background:var(--pin);color:#fff;border-radius:10px;font-size:11px;font-weight:700;line-height:19px;text-align:center;z-index:50;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+  .pin.app{background:var(--ok)}.pin.dis{background:var(--amber)}
+  .editor{position:fixed;width:280px;background:var(--surface-overlay);border:1px solid var(--border);border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.35);z-index:90;padding:11px}
+  .editor .lbl{font-size:11px;color:var(--fg-faint);margin-bottom:6px}
+  .editor textarea{width:100%;height:60px;resize:vertical;font:inherit;font-size:12.5px;padding:7px;border-radius:8px;border:1px solid var(--border);background:var(--surface-sunken);color:var(--fg)}
+  .vchoice{display:flex;gap:6px;margin:8px 0}
+  .vchoice .vb{flex:1;font:inherit;font-size:11.5px;font-weight:600;padding:5px;border-radius:7px;border:1px solid var(--border-strong);background:var(--surface-raised);color:var(--fg-muted);cursor:pointer}
+  .vchoice .vb.on{background:var(--brand-action);border-color:var(--brand-action);color:#fff}
+  .vchoice .vb.app.on{background:var(--ok);border-color:var(--ok)}
+  .vchoice .vb.dis.on{background:var(--amber);border-color:var(--amber)}
+  .editor .acts{display:flex;gap:7px;align-items:center}.editor .acts .spacer{flex:1}
+  .cpanel{position:fixed;right:16px;bottom:16px;width:330px;max-height:72vh;display:flex;flex-direction:column;background:var(--surface-overlay);border:1px solid var(--border);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.3);z-index:55;overflow:hidden}
+  .cpanel .ch{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--border)}.cpanel .ch h3{margin:0;font-size:14px;font-weight:800;flex:1}.cpanel .ch .cCount{font-size:12px;color:var(--fg-faint)}
+  .cbody{overflow:auto;padding:8px}.cempty{color:var(--fg-faint);font-size:12.5px;padding:14px 8px;text-align:center}
+  .citem{display:flex;gap:8px;padding:8px;border-radius:9px}.citem:hover{background:var(--surface-sunken)}
+  .citem .num{flex:none;width:19px;height:19px;color:#fff;border-radius:10px;font-size:11px;font-weight:700;line-height:19px;text-align:center;background:var(--pin)}
+  .citem .num.app{background:var(--ok)}.citem .num.dis{background:var(--amber)}
+  .citem .ctxt{font-size:12.5px;flex:1}.citem .ctxt .tgt{color:var(--fg-faint);font-size:11px;display:block}.citem .del{background:none;border:none;color:var(--fg-faint);cursor:pointer;font-size:14px}
+  .vtag{font-size:9.5px;font-weight:800;letter-spacing:.03em;border-radius:4px;padding:1px 5px;margin-right:5px}
+  .vtag.app{background:var(--green-soft);color:var(--green)}.vtag.dis{background:var(--amber-soft);color:var(--amber)}
+  .cfoot{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px;border-top:1px solid var(--border)}.cfoot .wide{grid-column:1/-1}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--surface);font-size:13px;font-weight:600;padding:9px 16px;border-radius:10px;z-index:95;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>User-customizable navigation bar</h1>
+    <div class="sub">Design review. A slim bar where each person drags tabs between the bar and a Hidden tray, with no extra button cluttering the bar.</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn" id="themeToggle">Switch to dark</button>
+  <button class="btn" id="commentToggle">Comment mode: off</button>
+</header>
+
+<div class="wrap">
+  <p class="lead">This is a design mockup, not the real app. It prototypes the slimmed nav bar you approved (six tabs inline, the rest behind More) plus the part you asked for next. Which tabs sit inline versus hidden is now yours to set, by dragging them like app icons. There is a sensible default, and you reshape it for how you actually work. The whole interaction below is real, so you can feel the long-press into edit, the jiggle, and dragging tabs in and out of Hidden before we build it.</p>
+
+  <div class="legend">
+    <span class="k"><b>Enter edit mode three ways</b></span>
+    <span class="k"><b>1.</b> Long-press any tab (hold about half a second).</span>
+    <span class="k"><b>2.</b> Right-click a tab or empty bar space, then Customize tabs.</span>
+    <span class="k"><b>3.</b> Open More, then Customize tabs at the bottom.</span>
+    <span class="k"><b>While editing</b> drag tabs to reorder, drag one into Hidden to hide it, drag one out of Hidden back onto the bar to show it.</span>
+    <span class="k">Press <kbd>Enter</kbd> or <kbd>Esc</kbd>, or the Done pill, to finish. Reset to default lives inside edit mode.</span>
+    <span class="k"><b>Comment mode</b> click any element to pin a note and tag it Approve or Disapprove.</span>
+    <span class="k"><b>Export</b> Copy or Download .md, then paste it back into chat.</span>
+  </div>
+
+  <h2 class="section-h cmt">The slim bar, yours to arrange <span class="badge live">Live</span> <span class="badge you">Drag to customize</span></h2>
+  <p class="section-sub">Six tabs inline by default (Home, Workbench, GANTT, Methods, Data Hub, Calendar), the other five behind More (Sequences, Chemistry, Inventory, Purchases, Links). Methods is the active tab. The bar is about 40px tall so the page below reclaims the space. Try a long-press on a tab to start, or right-click empty space. Your arrangement saves to this browser, so a reload keeps it.</p>
+
+  <div class="appframe" id="appframe">
+    <div class="innerclip">
+      <div class="navbar" id="navbar">
+        <div class="brand"><span class="beaker" id="beakerSlot"></span><span class="wordmark">ResearchOS</span></div>
+        <span class="streak" id="streakSlot"></span>
+        <div class="tabs" id="tabs"></div>
+        <div class="morewrap">
+          <button class="morebtn" id="moreBtn">More<svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></button>
+          <div class="moremenu" id="moreMenu"></div>
+        </div>
+        <div class="donepill" id="donePill">
+          <button class="resetbtn" id="resetBtn">Reset to default</button>
+          <button class="donebtn" id="doneBtn">Done</button>
+        </div>
+        <div class="navicons" id="iconsSlot"></div>
+      </div>
+      <div class="editbanner">
+        <span><b>Editing tabs.</b> Drag to reorder, or drag into Hidden in the More menu to tuck a tab away. Drag from Hidden back here to bring it inline.</span>
+        <span class="esc">Press Enter or Esc, or Done, to finish</span>
+      </div>
+      <div class="pagebody cmt" id="pagebody"></div>
+    </div>
+  </div>
+
+  <h2 class="section-h">The decisions, mark each</h2>
+  <p class="section-sub">Approve or disapprove each call. Verdicts persist in this browser, separate from your tab arrangement, so resetting the layout never clears these.</p>
+  <div class="changes" id="changes"></div>
+</div>
+
+<!-- right-click context menu -->
+<div class="ctxmenu" id="ctxMenu">
+  <div class="ci" id="ctxCustomize">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/><circle cx="8" cy="6" r="2" fill="currentColor"/><circle cx="16" cy="12" r="2" fill="currentColor"/><circle cx="10" cy="18" r="2" fill="currentColor"/></svg>
+    Customize tabs
+  </div>
+</div>
+
+<div class="cpanel" id="cpanel" style="display:none">
+  <div class="ch"><h3>Comments</h3><span class="cCount" id="cCount">0</span></div>
+  <div class="cbody" id="cbody"><div class="cempty">No comments yet. Turn on Comment mode and click any element.</div></div>
+  <div class="cfoot">
+    <button class="btn" id="exportBtn">Copy feedback</button>
+    <button class="btn" id="downloadBtn">Download .md</button>
+    <button class="btn danger wide" id="clearBtn">Clear all comments</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ---------- shared glyphs (inline SVG, never emoji) ---------- */
+const BEAKER = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1AA0E6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6.5L5 18a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-8.5V3"/><path d="M7.5 14h9"/></svg>';
+const FLAME = '<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style="margin-right:1px"><path d="M12 2c0 4-4 5-4 9a4 4 0 0 0 8 0c0-2-1-3-1-3 2 1 3 3 3 5a6 6 0 0 1-12 0c0-5 6-6 6-11z"/></svg>';
+const I_TIMER = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 13V9M9 2h6M19 5l1.5 1.5"/></svg>';
+const I_PHONE = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/></svg>';
+const I_GEAR  = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>';
+const GRIP = '<svg class="grip" width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="6" r="1.6"/><circle cx="16" cy="6" r="1.6"/><circle cx="8" cy="12" r="1.6"/><circle cx="16" cy="12" r="1.6"/><circle cx="8" cy="18" r="1.6"/><circle cx="16" cy="18" r="1.6"/></svg>';
+
+/* ---------- tabs and the default arrangement ---------- */
+const ALL_TABS = ["Home","Workbench","GANTT","Methods","Sequences","Chemistry","Data Hub","Inventory","Purchases","Calendar","Links"];
+const ACTIVE = "Methods";
+const DEFAULT_INLINE = ["Home","Workbench","GANTT","Methods","Data Hub","Calendar"];
+function defaultHidden(){ return ALL_TABS.filter(t=>!DEFAULT_INLINE.includes(t)); }
+
+/* ---------- arrangement state, persisted on its OWN key (separate from review harness keys) ---------- */
+const ARR_STORE = "navdrag-arrangement-v1";
+let arrangement = loadArrangement();
+function loadArrangement(){
+  try{
+    const raw = JSON.parse(localStorage.getItem(ARR_STORE)||"null");
+    if(raw && Array.isArray(raw.inline) && Array.isArray(raw.hidden)){
+      // self-heal against an edited ALL_TABS list so no tab is ever lost
+      const seen = new Set([...raw.inline, ...raw.hidden].filter(t=>ALL_TABS.includes(t)));
+      const inline = raw.inline.filter(t=>ALL_TABS.includes(t));
+      const hidden = raw.hidden.filter(t=>ALL_TABS.includes(t));
+      ALL_TABS.forEach(t=>{ if(!seen.has(t)) hidden.push(t); });
+      return { inline, hidden };
+    }
+  }catch{}
+  return { inline:[...DEFAULT_INLINE], hidden:defaultHidden() };
+}
+function saveArrangement(){ try{ localStorage.setItem(ARR_STORE, JSON.stringify(arrangement)); }catch{} }
+function resetArrangement(){ arrangement = { inline:[...DEFAULT_INLINE], hidden:defaultHidden() }; saveArrangement(); renderBar(); }
+
+/* ---------- static slots ---------- */
+document.getElementById("beakerSlot").innerHTML = BEAKER;
+document.getElementById("streakSlot").innerHTML = FLAME + "5";
+document.getElementById("iconsSlot").innerHTML =
+    '<button class="iconbtn" title="Timer">'+I_TIMER+'</button>'
+  + '<button class="iconbtn" title="Pair phone">'+I_PHONE+'</button>'
+  + '<button class="iconbtn" title="Settings">'+I_GEAR+'</button>'
+  + '<span class="avatar" title="Account">GN</span>';
+
+/* ---------- render the inline tabs + the More menu ---------- */
+const tabsEl = document.getElementById("tabs");
+const moreMenu = document.getElementById("moreMenu");
+const moreBtn = document.getElementById("moreBtn");
+
+function renderBar(){
+  // inline tabs, each draggable; one insertion line element reused
+  tabsEl.innerHTML = arrangement.inline.map(t=>
+    '<button class="tab'+(t===ACTIVE?" active":"")+'" data-tab="'+esc(t)+'" draggable="false">'+GRIP+'<span>'+esc(t)+'</span></button>'
+  ).join("");
+  const ins = document.createElement("span"); ins.className="ins"; ins.id="insLine"; tabsEl.appendChild(ins);
+  renderMore();
+}
+function renderMore(){
+  const hiddenItems = arrangement.hidden.length
+    ? arrangement.hidden.map(t=>'<div class="mi'+(t===ACTIVE?" active":"")+'" data-tab="'+esc(t)+'" draggable="false">'+esc(t)+GRIP+'</div>').join("")
+    : '<div class="empty">No hidden tabs</div>';
+  moreMenu.innerHTML =
+      '<div class="menuhead">Hidden tabs</div>'
+    + '<div class="dzhint">Drop a tab here to hide it</div>'
+    + hiddenItems
+    + '<div class="sep"></div>'
+    + '<div class="mi customize" id="menuCustomize">'
+      + '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/><circle cx="8" cy="6" r="2" fill="currentColor"/><circle cx="16" cy="12" r="2" fill="currentColor"/><circle cx="10" cy="18" r="2" fill="currentColor"/></svg>'
+      + 'Customize tabs</div>';
+  // keep menu open and re-tag dropzone class if we are mid-edit
+  if(editing){ moreMenu.classList.add("editing"); }
+}
+
+/* edit-mode state + element refs (declared before the first renderBar so
+   renderMore's `editing` check is past its temporal dead zone) */
+const appframe = document.getElementById("appframe");
+const navbar = document.getElementById("navbar");
+const banner = appframe.querySelector(".editbanner");
+let editing = false;
+
+renderBar();
+
+/* ============================================================
+   EDIT MODE
+   ============================================================ */
+function openMore(){ moreMenu.classList.add("open"); moreBtn.classList.add("open"); }
+function closeMore(){ moreMenu.classList.remove("open","dropzone"); moreBtn.classList.remove("open"); }
+
+function enterEdit(){
+  if(editing) return;
+  if(document.body.classList.contains("cmt-on")) return;
+  editing = true;
+  navbar.classList.add("editing");
+  appframe.classList.add("editing");
+  moreMenu.classList.add("editing");
+  // make tabs + hidden items draggable
+  setDraggable(true);
+  openMore(); // the Hidden tray is the drop target, so show it
+  toast("Edit mode. Drag tabs in or out of Hidden, press Enter or Esc when done.");
+}
+function exitEdit(){
+  if(!editing) return;
+  editing = false;
+  navbar.classList.remove("editing","bardrop");
+  appframe.classList.remove("editing");
+  moreMenu.classList.remove("editing","dropzone");
+  setDraggable(false);
+  closeMore();
+  saveArrangement();
+}
+function setDraggable(on){
+  tabsEl.querySelectorAll(".tab").forEach(el=>el.setAttribute("draggable", on?"true":"false"));
+  moreMenu.querySelectorAll(".mi[data-tab]").forEach(el=>el.setAttribute("draggable", on?"true":"false"));
+}
+
+document.getElementById("doneBtn").addEventListener("click", e=>{ e.stopPropagation(); exitEdit(); });
+document.getElementById("resetBtn").addEventListener("click", e=>{ e.stopPropagation(); resetArrangement(); setDraggable(true); openMore(); toast("Reset to the default arrangement."); });
+document.addEventListener("keydown", e=>{
+  // Enter and Escape both CONFIRM and exit edit mode. The arrangement saves
+  // live as you drag, so there is no destructive cancel; both keys just mean
+  // "I am done, keep it". Skip when typing in a field (e.g. a comment note).
+  if(!editing) return;
+  const t=e.target;
+  if(t && (t.tagName==="INPUT" || t.tagName==="TEXTAREA" || t.isContentEditable)) return;
+  if(e.key==="Enter" || e.key==="Escape"){ e.preventDefault(); exitEdit(); }
+});
+
+/* ---------- long-press to enter edit (the primary, app-icon gesture) ---------- */
+/* disambiguate click vs long-press vs drag-start:
+   - pointerdown starts a ~450ms timer and records the start point
+   - if the pointer moves more than 6px before the timer fires, treat it as a
+     (potential) drag and cancel the long-press, so a quick reorder grab does
+     not also flip a mode it did not intend
+   - if the timer fires, enter edit mode
+   - a plain pointerup before the timer is just a click and navigates          */
+const LONGPRESS_MS = 450, MOVE_TOL = 6;
+let lpTimer=null, lpStart=null, lpMoved=false;
+function clearLP(){ if(lpTimer){ clearTimeout(lpTimer); lpTimer=null; } lpStart=null; lpMoved=false; }
+
+tabsEl.addEventListener("pointerdown", e=>{
+  if(document.body.classList.contains("cmt-on")) return;
+  if(e.button!==0) return; // left only; right-click handled separately
+  const tab = e.target.closest(".tab"); if(!tab) return;
+  if(editing) return; // already editing, let drag handlers take over
+  lpStart = { x:e.clientX, y:e.clientY }; lpMoved=false;
+  lpTimer = setTimeout(()=>{ lpTimer=null; if(!lpMoved) enterEdit(); }, LONGPRESS_MS);
+});
+tabsEl.addEventListener("pointermove", e=>{
+  if(!lpStart) return;
+  if(Math.abs(e.clientX-lpStart.x)>MOVE_TOL || Math.abs(e.clientY-lpStart.y)>MOVE_TOL){ lpMoved=true; clearLP(); }
+});
+tabsEl.addEventListener("pointerup", clearLP);
+tabsEl.addEventListener("pointercancel", clearLP);
+
+/* ---------- normal click navigates (only when NOT editing and it was not a long-press/drag) ---------- */
+let activeTab = ACTIVE;
+tabsEl.addEventListener("click", e=>{
+  if(document.body.classList.contains("cmt-on")) return;
+  if(editing){ e.preventDefault(); return; } // clicks do nothing useful mid-edit
+  const tab = e.target.closest(".tab"); if(!tab) return;
+  // mark active (navigation stand-in)
+  activeTab = tab.dataset.tab;
+  tabsEl.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active", t.dataset.tab===activeTab));
+  toast("Opened "+activeTab+" (navigation is stubbed in this mockup).");
+});
+
+/* ---------- right-click anywhere on the bar -> context menu ---------- */
+const ctxMenu = document.getElementById("ctxMenu");
+navbar.addEventListener("contextmenu", e=>{
+  if(document.body.classList.contains("cmt-on")) return;
+  e.preventDefault();
+  ctxMenu.style.left = Math.min(e.clientX, innerWidth-170)+"px";
+  ctxMenu.style.top = Math.min(e.clientY, innerHeight-70)+"px";
+  ctxMenu.classList.add("open");
+});
+document.getElementById("ctxCustomize").addEventListener("click", ()=>{ ctxMenu.classList.remove("open"); enterEdit(); });
+document.addEventListener("click", e=>{ if(!e.target.closest("#ctxMenu")) ctxMenu.classList.remove("open"); });
+
+/* ---------- More button: toggles the menu (non-edit), Customize item enters edit ---------- */
+moreBtn.addEventListener("click", e=>{
+  if(document.body.classList.contains("cmt-on")) return;
+  e.stopPropagation();
+  if(editing){ /* keep it open while editing, the tray is the drop zone */ openMore(); return; }
+  const open = moreMenu.classList.contains("open");
+  if(open) closeMore(); else openMore();
+});
+moreMenu.addEventListener("click", e=>{
+  if(document.body.classList.contains("cmt-on")) return;
+  if(e.target.closest("#menuCustomize")){ e.stopPropagation(); enterEdit(); return; }
+});
+document.addEventListener("click", e=>{
+  if(editing) return; // do not auto-close while editing
+  if(!moreMenu.classList.contains("open")) return;
+  if(e.target.closest("#moreMenu")||e.target.closest("#moreBtn")) return;
+  closeMore();
+});
+
+/* ============================================================
+   DRAG AND DROP (HTML5 DnD, real moves between the two zones)
+   ============================================================ */
+let dragName=null, dragFrom=null; // dragFrom: "bar" | "hidden"
+const insLine = ()=>document.getElementById("insLine");
+
+function onDragStart(e){
+  if(!editing){ e.preventDefault(); return; }
+  const el = e.target.closest("[data-tab]"); if(!el){ e.preventDefault(); return; }
+  dragName = el.dataset.tab;
+  dragFrom = el.closest("#moreMenu") ? "hidden" : "bar";
+  el.classList.add("dragging");
+  try{ e.dataTransfer.setData("text/plain", dragName); e.dataTransfer.effectAllowed="move"; }catch{}
+}
+function onDragEnd(){
+  tabsEl.querySelectorAll(".dragging").forEach(el=>el.classList.remove("dragging"));
+  moreMenu.querySelectorAll(".dragging").forEach(el=>el.classList.remove("dragging"));
+  const il = insLine(); if(il) il.classList.remove("show");
+  navbar.classList.remove("bardrop");
+  moreMenu.classList.remove("dropzone");
+  dragName=null; dragFrom=null;
+}
+tabsEl.addEventListener("dragstart", onDragStart);
+tabsEl.addEventListener("dragend", onDragEnd);
+moreMenu.addEventListener("dragstart", onDragStart);
+moreMenu.addEventListener("dragend", onDragEnd);
+
+/* ----- dragging over the inline bar: show an insertion line, allow drop ----- */
+function tabAfterPoint(x){
+  const tabs = [...tabsEl.querySelectorAll(".tab:not(.dragging)")];
+  for(const t of tabs){ const r=t.getBoundingClientRect(); if(x < r.left + r.width/2) return t; }
+  return null; // append at end (before the insertion line)
+}
+tabsEl.addEventListener("dragover", e=>{
+  if(!editing || !dragName) return;
+  e.preventDefault(); e.dataTransfer.dropEffect="move";
+  navbar.classList.add("bardrop");
+  const il = insLine(); if(!il) return;
+  const after = tabAfterPoint(e.clientX);
+  if(after) tabsEl.insertBefore(il, after); else tabsEl.insertBefore(il, il); // keep at end
+  if(!after){ tabsEl.appendChild(il); }
+  il.classList.add("show");
+});
+tabsEl.addEventListener("dragleave", e=>{
+  if(!tabsEl.contains(e.relatedTarget)){ const il=insLine(); if(il) il.classList.remove("show"); navbar.classList.remove("bardrop"); }
+});
+tabsEl.addEventListener("drop", e=>{
+  if(!editing || !dragName) return;
+  e.preventDefault();
+  const after = tabAfterPoint(e.clientX);
+  const insertIndex = after ? arrangement.inline.indexOf(after.dataset.tab) : arrangement.inline.length;
+  moveTab(dragName, dragFrom, "bar", insertIndex);
+});
+
+/* ----- dragging over the Hidden tray: highlight, allow drop to hide ----- */
+moreMenu.addEventListener("dragover", e=>{
+  if(!editing || !dragName) return;
+  e.preventDefault(); e.dataTransfer.dropEffect="move";
+  moreMenu.classList.add("dropzone");
+});
+moreMenu.addEventListener("dragleave", e=>{
+  if(!moreMenu.contains(e.relatedTarget)) moreMenu.classList.remove("dropzone");
+});
+moreMenu.addEventListener("drop", e=>{
+  if(!editing || !dragName) return;
+  e.preventDefault();
+  // if dropped onto a specific hidden item, insert before it, else append
+  const overItem = e.target.closest(".mi[data-tab]");
+  const insertIndex = overItem ? arrangement.hidden.indexOf(overItem.dataset.tab) : arrangement.hidden.length;
+  moveTab(dragName, dragFrom, "hidden", insertIndex);
+});
+
+/* ----- the single move primitive: pull from source list, insert into target ----- */
+function moveTab(name, from, to, index){
+  // remove from wherever it currently lives
+  arrangement.inline = arrangement.inline.filter(t=>t!==name);
+  arrangement.hidden = arrangement.hidden.filter(t=>t!==name);
+  const list = to==="bar" ? arrangement.inline : arrangement.hidden;
+  const i = Math.max(0, Math.min(index, list.length));
+  list.splice(i, 0, name);
+  saveArrangement();
+  renderBar();
+  setDraggable(true);
+  if(editing) openMore();
+  // restore active class
+  tabsEl.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active", t.dataset.tab===activeTab));
+  onDragEnd();
+}
+
+/* ============================================================
+   DECISION CARDS
+   ============================================================ */
+const CHANGES = [
+  ["Slim the bar","Tighten the bar to about 40px (smaller wordmark, tighter tabs and icons) so every page reclaims the height it used to spend on chrome."],
+  ["Default inline set","Home, Workbench, GANTT, Methods, Data Hub, Calendar inline, with Sequences, Chemistry, Inventory, Purchases, Links behind More by default. This is the starting point each person then reshapes."],
+  ["Drag to customize","Let each person drag tabs between the bar and a Hidden tray, like rearranging app icons, and remember it per person. Reorder inline, hide a tab, or pull a hidden one back."],
+  ["Edit-mode entry without a permanent button","Enter edit mode by long-press, right-click then Customize tabs, or a Customize tabs item at the bottom of More. No standing Edit button sits on the bar. A Done pill appears only while editing."],
+];
+const VSTORE = "navdrag-verdicts-v1";
+let verdicts={}; try{verdicts=JSON.parse(localStorage.getItem(VSTORE)||"{}")}catch{verdicts={}}
+function saveV(){try{localStorage.setItem(VSTORE,JSON.stringify(verdicts))}catch{}}
+function renderChanges(){
+  document.getElementById("changes").innerHTML=CHANGES.map((c,i)=>{const v=verdicts[i]||{};const cls=v.verdict==="ok"?"approved":v.verdict==="dis"?"disapproved":"";
+    return '<div class="change '+cls+'"><div class="body"><h4>'+esc(c[0])+'</h4><p>'+esc(c[1])+'</p><textarea data-note="'+i+'" placeholder="Optional note...">'+esc(v.note||"")+'</textarea></div>'
+      +'<div class="verdict"><button class="vbtn ok '+(v.verdict==="ok"?"on":"")+'" data-v="ok" data-i="'+i+'">Approve</button><button class="vbtn dis '+(v.verdict==="dis"?"on":"")+'" data-v="dis" data-i="'+i+'">Disapprove</button></div></div>';
+  }).join("");
+}
+document.getElementById("changes").addEventListener("click",e=>{const b=e.target.closest(".vbtn");if(!b)return;const i=b.dataset.i;verdicts[i]=verdicts[i]||{};verdicts[i].verdict=verdicts[i].verdict===b.dataset.v?null:b.dataset.v;saveV();renderChanges();});
+document.getElementById("changes").addEventListener("input",e=>{if(e.target.dataset.note==null)return;const i=e.target.dataset.note;verdicts[i]=verdicts[i]||{};verdicts[i].note=e.target.value;saveV();});
+
+/* ============================================================
+   COMMENT HARNESS (own keys, separate from arrangement)
+   ============================================================ */
+const CSTORE="navdrag-comments-v1";
+let comments=[]; try{comments=JSON.parse(localStorage.getItem(CSTORE)||"[]")}catch{comments=[]}
+function saveC(){try{localStorage.setItem(CSTORE,JSON.stringify(comments))}catch{}}
+const cpanel=document.getElementById("cpanel");
+function clabel(el){ const c=el.closest(".cmt"); if(!c) return "page";
+  const h=c.querySelector("h2,h4,.ti,.wordmark,.pagetitle,.tab.active,.morebtn"); return (h?h.textContent:c.textContent).trim().replace(/\s+/g," ").slice(0,60); }
+
+let editorEl=null;
+function closeEditor(){ if(editorEl){editorEl.remove();editorEl=null;} }
+function openEditor(targetEl, existingIndex, ev){
+  closeEditor();
+  const target = existingIndex!=null ? comments[existingIndex].target : clabel(targetEl);
+  const existing = existingIndex!=null ? comments[existingIndex] : null;
+  let pv = existing ? (existing.verdict||"") : "";
+  const ed=document.createElement("div"); ed.className="editor";
+  ed.innerHTML='<div class="lbl">'+esc(target)+'</div>'
+    +'<textarea placeholder="Your note, suggestion, or change request">'+(existing?esc(existing.text):"")+'</textarea>'
+    +'<div class="vchoice"><button class="vb" data-vc="note">Note</button><button class="vb app" data-vc="approve">Approve</button><button class="vb dis" data-vc="disapprove">Disapprove</button></div>'
+    +'<div class="acts">'+(existing?'<button class="btn danger" data-act="del">Delete</button>':'')+'<span class="spacer"></span><button class="btn" data-act="cancel">Cancel</button><button class="btn on" data-act="save">Save</button></div>';
+  document.body.appendChild(ed); editorEl=ed;
+  const paint=()=>ed.querySelectorAll("[data-vc]").forEach(b=>b.classList.toggle("on",(b.dataset.vc==="note"&&!pv)||b.dataset.vc===pv));
+  ed.querySelectorAll("[data-vc]").forEach(b=>b.addEventListener("click",()=>{pv=b.dataset.vc==="note"?"":b.dataset.vc;paint();}));
+  paint();
+  const x=ev?ev.clientX:targetEl.getBoundingClientRect().left, y=ev?ev.clientY:targetEl.getBoundingClientRect().bottom;
+  const w=280, vw=innerWidth, vh=innerHeight;
+  ed.style.left=Math.min(Math.max(8,x-20),vw-w-8)+"px"; ed.style.top=Math.min(y+10,vh-230)+"px";
+  ed.querySelector("textarea").focus();
+  ed.querySelectorAll("[data-act]").forEach(b=>b.addEventListener("click",()=>{
+    const a=b.dataset.act;
+    if(a==="cancel") return closeEditor();
+    if(a==="del"){ if(existingIndex!=null){comments.splice(existingIndex,1);saveC();renderComments();} return closeEditor(); }
+    if(a==="save"){ const text=ed.querySelector("textarea").value.trim(); if(!text&&!pv){closeEditor();return;}
+      if(existing){existing.text=text;existing.verdict=pv;} else {comments.push({x:ev.pageX,y:ev.pageY,target,text,verdict:pv});}
+      saveC();renderComments();closeEditor(); }
+  }));
+  ed.addEventListener("keydown",e=>{ if(e.key==="Escape")closeEditor(); if(e.key==="Enter"&&(e.metaKey||e.ctrlKey))ed.querySelector('[data-act="save"]').click(); });
+}
+document.addEventListener("click",e=>{
+  if(!document.body.classList.contains("cmt-on")) return;
+  if(e.target.closest(".editor")||e.target.closest(".cpanel")||e.target.closest("header.top")||e.target.closest(".pin")) return;
+  const c=e.target.closest(".cmt"); if(!c) return;
+  e.preventDefault(); e.stopPropagation(); openEditor(c,null,e);
+},true);
+function renderComments(){
+  document.querySelectorAll(".pin").forEach(p=>p.remove());
+  comments.forEach((c,i)=>{ const pin=document.createElement("span"); pin.className="pin "+(c.verdict==="approve"?"app":c.verdict==="disapprove"?"dis":""); pin.textContent=i+1;
+    pin.style.left=c.x+"px"; pin.style.top=c.y+"px"; pin.title=c.text; pin.addEventListener("click",ev=>{ev.stopPropagation();openEditor(pin,i,ev);}); document.body.appendChild(pin); });
+  document.getElementById("cCount").textContent=comments.length;
+  const body=document.getElementById("cbody");
+  if(!comments.length){ body.innerHTML='<div class="cempty">No comments yet. Turn on Comment mode and click any element.</div>'; return; }
+  body.innerHTML=comments.map((c,i)=>{ const vc=c.verdict==="approve"?"app":c.verdict==="disapprove"?"dis":"";
+    const vtag=c.verdict==="approve"?'<span class="vtag app">APPROVE</span>':c.verdict==="disapprove"?'<span class="vtag dis">DISAPPROVE</span>':"";
+    return '<div class="citem"><span class="num '+vc+'">'+(i+1)+'</span><span class="ctxt">'+vtag+esc(c.text)+'<span class="tgt">'+esc(c.target)+'</span></span><button class="del" data-i="'+i+'">&times;</button></div>'; }).join("");
+}
+document.getElementById("cbody").addEventListener("click",e=>{const d=e.target.closest(".del");if(!d)return;comments.splice(+d.dataset.i,1);saveC();renderComments();});
+document.getElementById("clearBtn").addEventListener("click",()=>{if(comments.length&&!confirm("Clear all comments? This does not touch your tab arrangement."))return;comments=[];saveC();renderComments();});
+
+document.getElementById("commentToggle").addEventListener("click",()=>{
+  const on=document.body.classList.toggle("cmt-on");
+  const b=document.getElementById("commentToggle"); b.textContent="Comment mode: "+(on?"on":"off"); b.classList.toggle("on",on);
+  cpanel.style.display=on?"flex":(comments.length?"flex":"none"); if(!on)closeEditor();
+  if(on && editing) exitEdit(); // do not mix the two modes
+});
+
+/* ---------- export ---------- */
+function buildMarkdown(){
+  let out="# Customizable nav bar, feedback\n\n";
+  out+="## Decisions\n\n";
+  CHANGES.forEach((c,i)=>{ const v=verdicts[i]||{}; const m=v.verdict==="ok"?"APPROVE":v.verdict==="dis"?"DISAPPROVE":"undecided";
+    out+="- **"+c[0]+"**: "+m+(v.note?" ("+v.note+")":"")+"\n"; });
+  out+="\n## My current arrangement (this browser)\n\n";
+  out+="- Inline: "+(arrangement.inline.join(", ")||"none")+"\n";
+  out+="- Hidden: "+(arrangement.hidden.join(", ")||"none")+"\n";
+  out+="\n## Pinned comments\n\n";
+  if(!comments.length) out+="- none\n";
+  comments.forEach((c,i)=>{ const tag=c.verdict==="approve"?"[APPROVE] ":c.verdict==="disapprove"?"[DISAPPROVE] ":""; out+=(i+1)+". "+tag+"["+c.target+"] "+c.text+"\n"; });
+  return out;
+}
+function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove("show"),1900);}
+document.getElementById("exportBtn").addEventListener("click",async()=>{ const md=buildMarkdown();
+  try{await navigator.clipboard.writeText(md);toast("Feedback copied. Paste it back into chat.");}catch{window.prompt("Copy your feedback",md);} });
+document.getElementById("downloadBtn").addEventListener("click",()=>{ const blob=new Blob([buildMarkdown()],{type:"text/markdown"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="nav-drag-customize-feedback.md"; a.click(); URL.revokeObjectURL(a.href); });
+
+/* ---------- theme ---------- */
+document.getElementById("themeToggle").addEventListener("click",()=>{
+  const dark=document.documentElement.getAttribute("data-theme")==="dark";
+  document.documentElement.setAttribute("data-theme",dark?"light":"dark");
+  document.getElementById("themeToggle").textContent=dark?"Switch to dark":"Switch to light";
+});
+
+/* ---------- sample page body ---------- */
+const RAIL_ITEMS = [
+  {n:"All methods", c:"var(--brand-action)", on:true},
+  {n:"Molecular biology", c:"#16a34a"},
+  {n:"Protein", c:"#7c3aed"},
+  {n:"Cell culture", c:"#d97706"},
+  {n:"Imaging", c:"#2563eb"},
+  {n:"qPCR", c:"#e11d48"},
+  {n:"Mass spec", c:"#0891b2"},
+];
+const METHOD_ROWS = [
+  {t:"Touchdown PCR optimization", d:"Updated 2 days ago, 6 steps, 4 reagents", tag:"PCR", c:"#16a34a"},
+  {t:"Gibson assembly, 4-fragment", d:"Updated last week, 9 steps", tag:"Cloning", c:"#7c3aed"},
+  {t:"Western blot, wet transfer", d:"Updated Apr 30, 12 steps, 7 reagents", tag:"Protein", c:"#2563eb"},
+  {t:"Bradford protein assay", d:"Updated Apr 22, 5 steps", tag:"Protein", c:"#2563eb"},
+  {t:"Mammalian cell passaging", d:"Updated Mar 18, 8 steps", tag:"Culture", c:"#d97706"},
+  {t:"qPCR, SYBR green", d:"Updated Mar 10, 7 steps, 5 reagents", tag:"qPCR", c:"#e11d48"},
+  {t:"LC-MS sample prep, peptides", d:"Updated Feb 28, 11 steps", tag:"Mass spec", c:"#0891b2"},
+  {t:"Gel extraction and cleanup", d:"Updated Feb 14, 6 steps", tag:"Cloning", c:"#7c3aed"},
+];
+function sampleHTML(){
+  const left = '<div class="leftrail-content"><div class="rl-h">Method library</div>'
+    + RAIL_ITEMS.map(r=>'<div class="rl-item'+(r.on?" on":"")+'"><span class="rl-dot" style="background:'+r.c+'"></span>'+esc(r.n)+'</div>').join("")
+    + '</div>';
+  const content = '<div class="content"><div class="pagetitle">Methods</div>'
+    + '<div class="pagesub">Reusable lab protocols. '+METHOD_ROWS.length+' methods in this library.</div>'
+    + METHOD_ROWS.map(m=>'<div class="listrow"><span class="ic" style="background:'+m.c+'"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M9 3h6M10 3v6.5L5 18a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-8.5V3"/></svg></span>'
+      + '<div class="meat"><div class="t">'+esc(m.t)+'</div><div class="d">'+esc(m.d)+'</div></div>'
+      + '<span class="tag">'+esc(m.tag)+'</span></div>').join("");
+  return left + content + '</div>';
+}
+document.getElementById("pagebody").innerHTML = sampleHTML();
+
+/* ---------- init ---------- */
+renderChanges(); renderComments();
+if(comments.length) cpanel.style.display="flex";
+</script>
+</body>
+</html>

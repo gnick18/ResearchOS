@@ -42,9 +42,9 @@ describe("objectReferenceMarkdown", () => {
       "[pUC19](/sequences?seq=5)",
     );
   });
-  it("escapes a closing bracket in the name so the link cannot break", () => {
+  it("escapes both brackets in the name so the link cannot break", () => {
     expect(objectReferenceMarkdown("sequence", 5, "clone [v2]")).toBe(
-      "[clone [v2\\]](/sequences?seq=5)",
+      "[clone \\[v2\\]](/sequences?seq=5)",
     );
   });
   it("wraps a task name as a markdown link", () => {
