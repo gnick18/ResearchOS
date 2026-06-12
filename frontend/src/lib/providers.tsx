@@ -289,7 +289,18 @@ function PendingELNImportMount() {
   return <ImportELNDialog isOpen={open} onClose={() => setOpen(false)} />;
 }
 
-const SPLASH_SEEN_KEY = "researchos:splash-seen";
+// The branded BeakerBot splash plays as the launch-into-app moment the FIRST
+// time the workbench loads each day (Grant 2026-06-12: the splash IS the pretty
+// loading screen that launches users into the app on their first session each
+// day). Gated by a per-day stamp in localStorage so it is a once-a-day delight,
+// not every load. Stored as a local YYYY-MM-DD date string.
+const SPLASH_DAY_KEY = "researchos:splash-day";
+const localDayStamp = () => {
+  const d = new Date();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${month}-${day}`;
+};
 // Set when a visitor actively enters via the start screen (open folder / create
 // account); consumed once when they first reach the app to play the celebratory
 // SuccessTransition. sessionStorage so it survives the OAuth full-page redirect
@@ -380,10 +391,12 @@ function AppContent({ children }: { children: ReactNode }) {
   const accountSaveFraming = isOAuthFirstLoginEnabled() && sharingClaimReturn;
   // Splash plays once per tab session (survives reloads, so dev reloads and
   // returning users do not replay it; a brand-new tab plays it). Skippable.
+  // True once today's launch splash has played. Read from the per-day stamp so
+  // the splash fires only on the first workbench load of the day.
   const [splashSeen, setSplashSeen] = useState<boolean>(
     () =>
       typeof window !== "undefined" &&
-      sessionStorage.getItem(SPLASH_SEEN_KEY) === "1",
+      localStorage.getItem(SPLASH_DAY_KEY) === localDayStamp(),
   );
   const [entryAction, setEntryAction] = useState<EntryAction | null>(
     entryActionThisLoad,
@@ -396,23 +409,6 @@ function AppContent({ children }: { children: ReactNode }) {
   // (preview off) and only swap in after mount.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-
-  // When the rainbow loading screen plays (a real connect / reconnect), treat
-  // IT as the branded opening moment and consume the one-shot BeakerBot Splash,
-  // so a returning user does not see a rainbow-loading then BeakerBot-splash
-  // then home double-flash (Grant 2026-06-09). A fast load with no loading
-  // screen still gets the Splash as the opening brand moment.
-  useEffect(() => {
-    if (isLoading && !splashSeen) {
-      try {
-        sessionStorage.setItem(SPLASH_SEEN_KEY, "1");
-      } catch {
-        // sessionStorage unavailable (private mode edge); harmless.
-      }
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- consumes the one-shot splash gate when the loading screen takes over as the brand moment
-      setSplashSeen(true);
-    }
-  }, [isLoading, splashSeen]);
 
   useEffect(() => {
     if (currentUser) {
@@ -581,25 +577,6 @@ function AppContent({ children }: { children: ReactNode }) {
     return <BrowserNotSupported />;
   }
 
-  // Branded opening splash, once per full page load. The wiki / welcome / demo
-  // and wiki-capture surfaces already returned above; this only precedes the
-  // real app entry (setup / login / app). It plays over the brief gate
-  // resolution, then proceeds underneath. Skipped in fixture modes.
-  if (!splashSeen && !isDemoOrWikiCapture()) {
-    return (
-      <Splash
-        onComplete={() => {
-          try {
-            sessionStorage.setItem(SPLASH_SEEN_KEY, "1");
-          } catch {
-            // sessionStorage unavailable (private mode edge); the splash just
-            // plays again next render, harmless.
-          }
-          setSplashSeen(true);
-        }}
-      />
-    );
-  }
 
   // Start screen, the top-level front door (account-setup revamp). Shown to a
   // visitor who is NOT auto-reconnected (no live session: not connected, no
@@ -812,6 +789,35 @@ function AppContent({ children }: { children: ReactNode }) {
           }}
         />
       </QueryClientProvider>
+    );
+  }
+
+  // Branded launch-into-app splash, once per day (Grant 2026-06-12: the splash
+  // IS the pretty loading screen that launches users into the app on their first
+  // session each day). The user is connected with an account selected, so this
+  // is the moment right before the workbench. It plays over the initial app data
+  // load, then the app renders underneath. Consumes the lighter SuccessTransition
+  // for this load so the two never stack. Skipped in fixture modes (returned
+  // above anyway).
+  if (!splashSeen && !isDemoOrWikiCapture()) {
+    return (
+      <Splash
+        onComplete={() => {
+          try {
+            localStorage.setItem(SPLASH_DAY_KEY, localDayStamp());
+            // This load's celebratory hand-off is satisfied by the splash, so
+            // drop the active-entry marker and mark success shown to keep the
+            // SuccessTransition below from stacking on top.
+            sessionStorage.removeItem(ENTERED_KEY);
+          } catch {
+            // storage unavailable (private mode edge); the splash may replay on
+            // the next load, harmless.
+          }
+          successShownThisLoad = true;
+          setSuccessShown(true);
+          setSplashSeen(true);
+        }}
+      />
     );
   }
 
