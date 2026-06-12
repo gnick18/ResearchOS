@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS settings redesign (unified)</title>
+<style>
+  :root {
+    --surface: #f8fafc; --surface-raised: #ffffff; --surface-sunken: #f1f5f9;
+    --foreground: #171717; --foreground-muted: #6b7280; --border: #e5e7eb;
+    --page-bg: #e2e8f0;
+    --brand-sky: #1AA0E6; --brand-action: #1283C9; --brand-ink: #111827; --brand-purple: #5B47D6;
+    --pkr-green: #2E8B45; --pkr-gold: #FFB81C;
+    --ok: #16a34a; --pin: #e11d48;
+    --rainbow: linear-gradient(90deg,#ffd2b0 0%,#fff1a8 25%,#b7ebb1 50%,#a6d2f4 75%,#d6b5f0 100%);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--page-bg); color: var(--foreground); }
+  .topbar { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 12px; padding: 11px 22px; background: var(--surface-raised); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .topbar h1 { font-size: 15px; margin: 0; font-weight: 800; }
+  .topbar p { margin: 0; font-size: 12px; color: var(--foreground-muted); }
+  .spacer { flex: 1; }
+  .btn { appearance: none; cursor: pointer; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground); border-radius: 8px; padding: 7px 12px; font-size: 12.5px; font-weight: 600; }
+  .btn:hover { border-color: var(--foreground-muted); }
+  .btn.on { background: var(--brand-action); border-color: var(--brand-action); color: #fff; }
+  .btn.danger { color: var(--pin); }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 22px 22px 60px; }
+  .intro { font-size: 13.5px; color: var(--foreground-muted); line-height: 1.6; max-width: 92ch; margin: 4px 0 16px; }
+  .intro b { color: var(--foreground); }
+
+  /* before/after explainer */
+  .ba { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 6px 0 20px; }
+  .bacard { border: 1px solid var(--border); background: var(--surface-raised); border-radius: 12px; padding: 13px 15px; }
+  .bacard.after { border-color: color-mix(in srgb, var(--brand-action) 45%, var(--border)); box-shadow: inset 3px 0 0 var(--brand-action); }
+  .bacard h3 { margin: 0 0 6px; font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--foreground-muted); }
+  .bacard.after h3 { color: var(--brand-action); }
+  .bacard ul { margin: 0; padding-left: 16px; }
+  .bacard li { font-size: 12px; color: #475569; line-height: 1.55; margin-bottom: 3px; }
+  .bacard li b { color: var(--brand-ink); }
+
+  .changes { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 10px; margin-bottom: 24px; }
+  .change { border: 1px solid var(--border); background: var(--surface-raised); border-radius: 12px; padding: 11px 13px; display: flex; flex-direction: column; gap: 7px; }
+  .change.approved { border-color: var(--ok); box-shadow: inset 3px 0 0 var(--ok); }
+  .change.disapproved { border-color: var(--pin); box-shadow: inset 3px 0 0 var(--pin); }
+  .ctitle { font-weight: 700; font-size: 12.5px; }
+  .ctitle .tag { font-size: 10px; font-weight: 700; color: var(--brand-action); background: var(--surface-sunken); border-radius: 5px; padding: 1px 5px; margin-right: 6px; }
+  .cdesc { font-size: 11.5px; color: var(--foreground-muted); line-height: 1.5; }
+  .verdict { display: flex; align-items: center; gap: 8px; }
+  .vbtn { appearance: none; cursor: pointer; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground); border-radius: 7px; padding: 4px 9px; font-size: 11px; font-weight: 700; }
+  .vbtn.app.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .vbtn.dis.on { background: var(--pin); border-color: var(--pin); color: #fff; }
+  .vclear { appearance: none; cursor: pointer; border: none; background: none; color: var(--foreground-muted); font-size: 11px; text-decoration: underline; }
+
+  /* the settings shell */
+  .shell { display: grid; grid-template-columns: 244px 1fr; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; min-height: 640px; }
+  .rail { border-right: 1px solid var(--border); background: #fcfdfe; padding: 10px 10px 18px; overflow-y: auto; }
+  .railhead { display: flex; align-items: center; gap: 9px; padding: 10px 8px 12px; }
+  .railhead .avatar { width: 34px; height: 34px; border-radius: 99px; background: linear-gradient(135deg,#1AA0E6,#5B47D6); flex: none; box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--border); }
+  .railhead .who { line-height: 1.2; }
+  .railhead .who .nm { font-size: 13px; font-weight: 800; color: var(--brand-ink); }
+  .railhead .who .rl { font-size: 10.5px; color: var(--foreground-muted); }
+  .railgrp { margin-top: 12px; }
+  .railgrp .glabel { font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--foreground-muted); padding: 0 8px 5px; display: flex; align-items: center; gap: 6px; }
+  .railgrp .glabel .labbadge { font-size: 8.5px; font-weight: 800; color: var(--brand-purple); background: color-mix(in srgb, var(--brand-purple) 12%, transparent); border-radius: 5px; padding: 1px 5px; letter-spacing: .02em; }
+  .railitem { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; appearance: none; border: 0; background: none; cursor: pointer; padding: 7px 8px; border-radius: 9px; font-size: 12.5px; font-weight: 600; color: #334155; }
+  .railitem svg { width: 15px; height: 15px; flex: none; color: var(--foreground-muted); }
+  .railitem:hover { background: var(--surface-sunken); }
+  .railitem.active { background: color-mix(in srgb, var(--brand-action) 11%, transparent); color: var(--brand-action); }
+  .railitem.active svg { color: var(--brand-action); }
+  .railitem .flag { margin-left: auto; font-size: 8.5px; font-weight: 800; color: var(--brand-action); background: color-mix(in srgb, var(--brand-action) 12%, transparent); border-radius: 5px; padding: 1px 5px; }
+
+  /* content pane */
+  .pane { padding: 30px 38px 44px; overflow-y: auto; position: relative; }
+  .panehead { margin-bottom: 4px; }
+  .panehead .ph-kick { font-family: ui-monospace, monospace; font-size: 11px; font-weight: 700; color: var(--brand-action); }
+  .panehead h2 { font-size: 23px; font-weight: 800; letter-spacing: -.02em; color: var(--brand-ink); margin: 5px 0 4px; }
+  .panehead .ph-sub { font-size: 13px; color: #475569; line-height: 1.55; max-width: 70ch; }
+  .grouplabel { font-size: 11.5px; font-weight: 800; color: var(--brand-ink); letter-spacing: .01em; margin: 26px 0 2px; padding-bottom: 7px; border-bottom: 1px solid var(--border); }
+  .row { display: flex; align-items: center; gap: 16px; padding: 13px 2px; border-bottom: 1px solid var(--surface-sunken); }
+  .row:last-child { border-bottom: 0; }
+  .row .rl-l { flex: 1; min-width: 0; }
+  .row .rl-l .lab { font-size: 13px; font-weight: 600; color: var(--brand-ink); }
+  .row .rl-l .hint { font-size: 11.5px; color: var(--foreground-muted); line-height: 1.45; margin-top: 2px; }
+  .row .rl-r { flex: none; display: flex; align-items: center; gap: 8px; }
+
+  input[type=text], select, textarea { font: inherit; font-size: 12.5px; border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; background: var(--surface); color: var(--foreground); }
+  input[type=text], select { min-width: 190px; }
+  textarea { width: 100%; resize: vertical; }
+  .toggle { width: 38px; height: 22px; border-radius: 99px; border: 0; background: #cbd5e1; position: relative; cursor: pointer; transition: background .15s; flex: none; }
+  .toggle::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 99px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: left .15s; }
+  .toggle.on { background: var(--brand-action); } .toggle.on::after { left: 18px; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { appearance: none; border: 0; background: var(--surface); color: #475569; font: inherit; font-size: 12px; font-weight: 600; padding: 6px 11px; cursor: pointer; border-right: 1px solid var(--border); }
+  .seg button:last-child { border-right: 0; }
+  .seg button.on { background: var(--brand-action); color: #fff; }
+  .swatch { width: 24px; height: 24px; border-radius: 7px; border: 1px solid var(--border); cursor: pointer; }
+  .swrow { display: flex; gap: 6px; }
+  .chip { font-size: 11px; font-weight: 700; color: #475569; background: var(--surface-sunken); border: 1px solid var(--border); border-radius: 7px; padding: 4px 9px; }
+  .lnk { font-size: 12.5px; font-weight: 700; color: var(--brand-action); text-decoration: none; }
+  .lnk:hover { text-decoration: underline; }
+  .mono { font-family: ui-monospace, monospace; font-size: 12px; color: #334155; background: var(--surface-sunken); border: 1px solid var(--border); border-radius: 7px; padding: 4px 8px; }
+  .pubrow { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--surface-sunken); font-size: 12.5px; }
+  .pubrow .ptitle { flex: 1; color: var(--brand-ink); }
+  .pubrow .pyear { color: var(--foreground-muted); font-size: 11.5px; }
+  .danger-btn { color: var(--pin); border-color: color-mix(in srgb, var(--pin) 40%, var(--border)); background: color-mix(in srgb, var(--pin) 6%, transparent); }
+
+  /* usage + billing dashboard */
+  .billgrid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 22px; margin-top: 8px; }
+  @media (max-width: 1024px){ .billgrid { grid-template-columns: 1fr; } }
+  .bcard { border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; background: var(--surface-raised); }
+  .bcard.flag { border-color: color-mix(in srgb, var(--brand-action) 35%, var(--border)); }
+  .bcard h4 { margin: 0 0 2px; font-size: 14px; font-weight: 800; color: var(--brand-ink); display: flex; align-items: center; gap: 8px; }
+  .bcard h4 svg { width: 17px; height: 17px; flex: none; color: var(--brand-action); }
+  .bcard .meta { font-size: 11.5px; color: var(--foreground-muted); line-height: 1.5; }
+  .balance { display: flex; align-items: baseline; gap: 8px; margin: 14px 0 2px; }
+  .balance .big { font-size: 36px; font-weight: 800; letter-spacing: -.03em; color: var(--brand-ink); }
+  .balance .unit { font-size: 14px; font-weight: 700; color: var(--foreground-muted); }
+  .translate { font-size: 12.5px; color: #475569; line-height: 1.5; background: color-mix(in srgb, var(--brand-action) 6%, transparent); border: 1px solid color-mix(in srgb, var(--brand-action) 20%, transparent); border-radius: 10px; padding: 9px 12px; margin: 8px 0 4px; }
+  .translate b { color: var(--brand-ink); }
+  .trialpill { display: inline-block; font-size: 10.5px; font-weight: 800; color: var(--pkr-green); background: color-mix(in srgb, var(--pkr-green) 12%, transparent); border-radius: 6px; padding: 2px 7px; }
+  .tasklist { margin-top: 14px; }
+  .tasklist .tl-h { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--foreground-muted); margin-bottom: 6px; }
+  .taskrow { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--surface-sunken); font-size: 12.5px; }
+  .taskrow:last-child { border-bottom: 0; }
+  .taskrow .tname { flex: 1; color: var(--brand-ink); }
+  .taskrow .tkind { font-size: 10px; font-weight: 700; color: var(--foreground-muted); background: var(--surface-sunken); border-radius: 5px; padding: 1px 6px; }
+  .taskrow .tcost { font-variant-numeric: tabular-nums; color: var(--foreground-muted); font-weight: 600; white-space: nowrap; }
+  .buyblocks { display: flex; gap: 9px; margin: 14px 0 6px; }
+  .blk { flex: 1; border: 1px solid var(--border); border-radius: 11px; padding: 11px 8px; text-align: center; cursor: pointer; background: var(--surface); }
+  .blk:hover { border-color: var(--brand-action); }
+  .blk.sel { border-color: var(--brand-action); box-shadow: inset 0 0 0 1px var(--brand-action); background: color-mix(in srgb, var(--brand-action) 6%, transparent); }
+  .blk .bprice { font-size: 17px; font-weight: 800; color: var(--brand-ink); }
+  .blk .btok { font-size: 10.5px; color: var(--foreground-muted); margin-top: 2px; }
+  .bar { height: 9px; border-radius: 99px; background: var(--surface-sunken); overflow: hidden; margin: 6px 0 4px; }
+  .bar > span { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg,#1AA0E6,#1283C9); }
+  .bar.amber > span { background: linear-gradient(90deg,#FFB81C,#f59e0b); }
+  .barlabel { display: flex; justify-content: space-between; font-size: 12px; color: #475569; }
+  .barlabel b { color: var(--brand-ink); }
+  .whyline { font-size: 12px; color: var(--foreground-muted); line-height: 1.55; border-top: 1px dashed var(--border); padding-top: 11px; margin-top: 14px; }
+  .whyline a { color: var(--brand-action); font-weight: 700; text-decoration: none; }
+  .planline { display: flex; align-items: center; gap: 9px; margin: 12px 0 4px; }
+  .planline .pn { font-size: 15px; font-weight: 800; color: var(--brand-ink); }
+  .planline .pbeta { font-size: 10.5px; font-weight: 800; color: var(--pkr-gold); background: color-mix(in srgb, var(--pkr-gold) 16%, transparent); border-radius: 6px; padding: 2px 7px; }
+
+  /* comment pins + panel + editor (reused harness) */
+  body.cmt-on .cmt { cursor: crosshair; }
+  body.cmt-on .cmt:hover { outline: 1px dashed var(--brand-action); outline-offset: -1px; }
+  .pin { position: absolute; top: 6px; right: 6px; z-index: 6; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; background: var(--pin); color: #fff; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+  .cmt { position: relative; }
+  .pin.hl { animation: pulse .7s; } @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.4); } }
+  .editor { position: fixed; z-index: 60; width: 270px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.25); padding: 12px; }
+  .editor .lbl { font-size: 11px; font-weight: 700; color: var(--foreground-muted); margin-bottom: 6px; }
+  .editor textarea { width: 100%; min-height: 64px; resize: vertical; border: 1px solid var(--border); border-radius: 8px; padding: 8px; font: inherit; font-size: 12px; background: var(--surface); color: var(--foreground); }
+  .editor .vchoice { display: flex; gap: 6px; margin: 8px 0; }
+  .editor .vchoice .vbtn.on { background: var(--brand-action); border-color: var(--brand-action); color: #fff; }
+  .editor .vchoice .vbtn.app.on { background: var(--ok); border-color: var(--ok); }
+  .editor .vchoice .vbtn.dis.on { background: var(--pin); border-color: var(--pin); }
+  .editor .acts { display: flex; align-items: center; gap: 6px; }
+  .panel { position: fixed; right: 16px; bottom: 16px; z-index: 50; width: 312px; max-height: 60vh; display: flex; flex-direction: column; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 10px 36px rgba(0,0,0,.25); overflow: hidden; }
+  .panel.collapsed .panelBody, .panel.collapsed .panelFoot { display: none; }
+  .panelHead { display: flex; align-items: center; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13px; }
+  .panelHead .cnt { font-size: 11px; color: var(--foreground-muted); }
+  .panelBody { overflow-y: auto; padding: 6px; }
+  .panelBody .empty { font-size: 11.5px; color: var(--foreground-muted); padding: 14px; text-align: center; }
+  .citem { display: flex; gap: 8px; padding: 8px; border-radius: 8px; cursor: pointer; }
+  .citem:hover { background: var(--surface-sunken); }
+  .citem .num { width: 18px; height: 18px; flex: none; border-radius: 99px; background: var(--pin); color: #fff; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+  .citem .tgt { font-size: 11px; font-weight: 700; }
+  .citem .txt { font-size: 11.5px; color: var(--foreground-muted); }
+  .citem .vbadge { font-size: 9.5px; font-weight: 800; }
+  .citem .x { margin-left: auto; border: none; background: none; color: var(--foreground-muted); cursor: pointer; font-size: 15px; }
+  .panelFoot { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--border); }
+  .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(20px); opacity: 0; background: var(--brand-ink); color: #fff; padding: 9px 16px; border-radius: 99px; font-size: 12.5px; font-weight: 600; z-index: 70; transition: all .2s; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  @media (max-width: 860px){ .ba { grid-template-columns: 1fr; } .shell { grid-template-columns: 1fr; } .rail { border-right: 0; border-bottom: 1px solid var(--border); } }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div><h1>Settings redesign (unified)</h1><p>One left-rail destination. Click a rail item to swap the pane. Comment mode pins notes, approve each change below, Export.</p></div>
+    <span class="spacer"></span>
+    <button class="btn" id="commentToggle">Comment mode: off</button>
+    <button class="btn" id="exportBtn">Export (copy)</button>
+    <button class="btn" id="downloadBtn">Download .md</button>
+    <button class="btn danger" id="clearBtn">Clear notes</button>
+  </div>
+
+  <div class="wrap">
+    <p class="intro">Today settings is fragmented. A <b>3,774-line /settings page</b> with Personal and Lab tabs, a <b>separate /profile page</b>, a standalone public-profile card, and <b>three avatar-menu entries</b> that each go somewhere different. This redesign collapses all of it into <b>one left-rail destination</b>, the modern Linear / Vercel / Notion shape, with a grouped sidebar on the left and a focused content pane on the right. The avatar menu becomes a single "Settings" link. The flagship new section is <b>Usage and billing</b>, the first honest, plain-language readout of AI tokens and cloud storage in one place.</p>
+
+    <div class="ba">
+      <div class="bacard">
+        <h3>Before, fragmented</h3>
+        <ul>
+          <li><b>/settings</b>, 3,774 lines, blocky cards stacked under Personal and Lab tabs, everything scrolls in one wall</li>
+          <li><b>/profile</b>, a separate page for appearance, researcher profile, and ORCID</li>
+          <li>A standalone <b>public-profile card</b> living apart from both</li>
+          <li><b>Three avatar-menu entries</b> pointing at different destinations, so "where do I change this" has no single answer</li>
+          <li>No single place to see AI usage or storage cost</li>
+        </ul>
+      </div>
+      <div class="bacard after">
+        <h3>After, one destination</h3>
+        <ul>
+          <li><b>Left rail plus a content pane</b>, sections grouped under YOU, USAGE AND BILLING, WORKSPACE, DATA, and LAB</li>
+          <li><b>/profile folds fully in</b> as Profile and appearance, the public-profile card included</li>
+          <li>The avatar menu collapses to <b>one Settings link</b></li>
+          <li>Grouped rows with quiet dividers, label left and control right, not boxy stacked cards</li>
+          <li>A new <b>Usage and billing</b> dashboard, AI tokens in plain language plus cloud storage and plan</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="changes" id="changes"></div>
+
+    <div class="shell">
+      <nav class="rail" id="rail">
+        <div class="railhead">
+          <div class="avatar"></div>
+          <div class="who"><div class="nm">Dr. Grant Nickles</div><div class="rl">Lab head, Nickles Lab</div></div>
+        </div>
+        <!-- rail groups injected by JS -->
+      </nav>
+      <div class="pane" id="pane"><!-- section injected by JS --></div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel">
+    <div class="panelHead" id="panelHead"><b>Notes</b><span class="cnt">(<span id="cCount">0</span>)</span><span class="spacer"></span><span class="cnt" id="chev">hide</span></div>
+    <div class="panelBody" id="panelBody"></div>
+    <div class="panelFoot"><button class="btn" id="exportBtn2">Copy</button><button class="btn" id="downloadBtn2">.md</button></div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+  function esc(s){return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+  /* ---------- tiny inline icons ---------- */
+  const IC = {
+    user:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>',
+    shield:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/></svg>',
+    spark:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M18 6l-2.5 2.5M8.5 15.5L6 18"/></svg>',
+    cloud:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 18a4 4 0 010-8 5 5 0 019.6-1.5A3.5 3.5 0 0118 18z"/></svg>',
+    paint:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="9" r="1.2"/><circle cx="15" cy="8" r="1.2"/><circle cx="16" cy="13" r="1.2"/></svg>',
+    sliders:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8h10M18 8h2M4 16h2M10 16h10"/><circle cx="16" cy="8" r="2"/><circle cx="8" cy="16" r="2"/></svg>',
+    layout:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>',
+    phone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/></svg>',
+    bot:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="8" width="16" height="11" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01"/></svg>',
+    check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>',
+    flame:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c1 3 4 4 4 8a4 4 0 01-8 0c0-2 1-3 1.5-4 .5 2 2.5 2 2.5 4"/></svg>',
+    bulb:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 014 10c-1 1-1 2-1 3H9c0-1 0-2-1-3a6 6 0 014-10z"/></svg>',
+    folder:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>',
+    box:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v10l-8 4-8-4V7z"/><path d="M4 7l8 4 8-4M12 11v10"/></svg>',
+    trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>',
+    wrench:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 7a4 4 0 00-5 5l-5 5 2 2 5-5a4 4 0 005-5l-2 2-2-2z"/></svg>',
+    archive:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10h14V9M9 13h6"/></svg>',
+    sync:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9a8 8 0 0114-4M20 15a8 8 0 01-14 4M16 5h4V1M8 19H4v4"/></svg>',
+    users:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><path d="M16 6a3 3 0 010 6M18 20c0-2-1-3.5-2.5-4.5"/></svg>',
+    doc:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 13h6M9 17h6"/></svg>',
+    type:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8V5h14v3M12 5v14M9 19h6"/></svg>',
+    list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>',
+    history:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12a8 8 0 108-8 8 8 0 00-7 4M4 4v4h4M12 8v4l3 2"/></svg>',
+    mail:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M4 7l8 6 8-6"/></svg>',
+  };
+  function tog(on){return '<button class="toggle'+(on?' on':'')+'" onclick="this.classList.toggle(\'on\')"></button>';}
+  function seg(opts,sel){return '<div class="seg">'+opts.map((o,i)=>'<button class="'+(i===sel?'on':'')+'" onclick="this.parentNode.querySelectorAll(\'button\').forEach(b=>b.classList.remove(\'on\'));this.classList.add(\'on\')">'+esc(o)+'</button>').join('')+'</div>';}
+  function row(lab,hint,ctrl){return '<div class="row"><div class="rl-l"><div class="lab">'+lab+'</div>'+(hint?'<div class="hint">'+hint+'</div>':'')+'</div><div class="rl-r">'+ctrl+'</div></div>';}
+  function grp(t){return '<div class="grouplabel">'+t+'</div>';}
+
+  /* ---------- the IA: groups -> sections -> pane HTML ---------- */
+  const GROUPS = [
+    { label:"You", items:[
+      { id:"profile", icon:"user", name:"Profile & appearance" },
+      { id:"account", icon:"shield", name:"Account & security" },
+    ]},
+    { label:"Usage & billing", items:[
+      { id:"ai", icon:"spark", name:"AI usage", flag:"new" },
+      { id:"storage", icon:"cloud", name:"Cloud storage", flag:"new" },
+    ]},
+    { label:"Workspace", items:[
+      { id:"appearance", icon:"paint", name:"Appearance & motion" },
+      { id:"defaults", icon:"sliders", name:"Defaults" },
+      { id:"sidebar", icon:"layout", name:"Sidebar & tabs" },
+      { id:"companion", icon:"phone", name:"Companion" },
+      { id:"aihelper", icon:"bot", name:"AI Helper" },
+      { id:"behavior", icon:"check", name:"Behavior" },
+      { id:"streaks", icon:"flame", name:"Streaks & PTO" },
+      { id:"tips", icon:"bulb", name:"Tips" },
+    ]},
+    { label:"Data", items:[
+      { id:"folder", icon:"folder", name:"Data folder" },
+      { id:"inventory", icon:"box", name:"Inventory & export" },
+      { id:"trash", icon:"trash", name:"Trash & history" },
+      { id:"maintenance", icon:"wrench", name:"Maintenance" },
+      { id:"labarchives", icon:"archive", name:"Lab archives" },
+      { id:"offline", icon:"sync", name:"Offline & sync" },
+    ]},
+    { label:"Lab", lab:true, items:[
+      { id:"members", icon:"users", name:"Members & roster" },
+      { id:"membership", icon:"users", name:"Membership & agreement" },
+      { id:"accounttype", icon:"user", name:"Account type" },
+      { id:"audit", icon:"history", name:"Audit trail" },
+      { id:"retention", icon:"doc", name:"Retention registry" },
+      { id:"routing", icon:"mail", name:"Department routing" },
+    ]},
+  ];
+
+  const head=(kick,title,sub)=>'<div class="panehead cmt" data-clabel="Header, '+esc(title)+'"><div class="ph-kick">'+esc(kick)+'</div><h2>'+esc(title)+'</h2><div class="ph-sub">'+sub+'</div></div>';
+
+  const SECTIONS = {
+    profile: head("you","Profile & appearance","Your display name, avatar, ORCID, affiliation, and publications. This is what other people in your lab and on shared work see. It folds in the old /profile page and the public-profile card, so there is one place to edit how you appear.")
+      + grp("Identity")
+      + row("Display name","Shown on notes, comments, and shared work.",'<input type="text" value="Dr. Grant Nickles">')
+      + row("ORCID","Links your profile to your publication record.",'<input type="text" value="0000-0002-1825-0097">')
+      + row("Affiliation","Institution shown on your public profile.",'<input type="text" value="UW-Madison">')
+      + grp("Avatar & header")
+      + row("Avatar color","Used for your avatar circle everywhere.",'<div class="swrow"><span class="swatch" style="background:#1AA0E6"></span><span class="swatch" style="background:#5B47D6"></span><span class="swatch" style="background:#2E8B45"></span><span class="swatch" style="background:#FFB81C"></span><span class="swatch" style="background:#e11d48"></span></div>')
+      + row("Secondary gradient color","Optional. Blends with the avatar color for a two-tone circle.",'<div class="swrow"><span class="chip">Off</span><span class="swatch" style="background:#5B47D6"></span><span class="swatch" style="background:#1AA0E6"></span></div>')
+      + row("Header tint","Tints your workspace header with your avatar color.",tog(true))
+      + grp("Public profile")
+      + '<div class="row cmt" data-clabel="Profile, publications list"><div class="rl-l"><div class="lab">Publications</div><div class="hint">Pin the ones you want featured, hide the rest. This is the old public-profile card, now part of Settings.</div></div></div>'
+      + '<div style="padding:2px 2px 6px">'
+        + '<div class="pubrow"><span class="ptitle">Volatile mediation of fungal interactions in soil</span><span class="pyear">2024</span><span class="chip">Pinned</span></div>'
+        + '<div class="pubrow"><span class="ptitle">A local-first data model for laboratory records</span><span class="pyear">2025</span><span class="chip">Pin</span></div>'
+        + '<div class="pubrow"><span class="ptitle">Method validation against published results</span><span class="pyear">2026</span><span class="chip">Hide</span></div>'
+      + '</div>',
+
+    account: head("you","Account & security","Who you are signed in as, your account password, and your cryptographic identity. The serious actions, rotate key, disconnect, reset identity, and delete account, live here together so they are easy to find and hard to hit by accident.")
+      + grp("Signed in")
+      + row("Signed in as","",'<span class="mono">grant@nickles.lab</span> <button class="btn">Switch user</button>')
+      + row("Account password","Set, change, or remove the password that protects local access.",'<button class="btn">Change</button> <button class="btn">Remove</button>')
+      + grp("Identity")
+      + row("Identity fingerprint","Share this so a collaborator can verify it is really you.",'<span class="mono">9F2A 7C41 BE08 D3</span> <button class="btn">Copy</button>')
+      + row("Recovery words","Lets you recover this identity on a new device.",'<span class="chip" style="color:var(--pkr-green);background:color-mix(in srgb,var(--pkr-green) 12%,transparent)">Saved</span> <button class="btn">View</button>')
+      + row("Rotate key","Issues a new key pair while keeping your identity.",'<button class="btn">Rotate</button>')
+      + grp("Danger zone")
+      + row("Disconnect","Sign out of this device. Your folder stays on disk.",'<button class="btn">Disconnect</button>')
+      + row("Reset identity","Discards this identity and starts a new one.",'<button class="btn danger-btn">Reset identity</button>')
+      + row("Delete account","Removes your account and cloud copies. Local files remain.",'<button class="btn danger-btn">Delete account</button>'),
+
+    ai: head("usage & billing","AI usage","BeakerBot is the one optional metered feature. Each task calls a hosted model that costs real money, so it is priced near cost, because your data stays on your machine and only a small answer ever crosses to the model. The trial tokens are a one-time sign-up offer, not a monthly grant.")
+      + '<div class="billgrid">'
+        + '<div class="bcard flag cmt" data-clabel="AI usage, token balance + buy">'
+          + '<h4>'+IC.spark+' BeakerBot tokens</h4>'
+          + '<div class="meta">Your prepaid balance for the AI assistant. A token is a small chunk of text, a typical question is a few thousand.</div>'
+          + '<div class="balance"><span class="big">12,400</span><span class="unit">tokens left</span></div>'
+          + '<div class="translate">That is roughly <b>16 full analyses</b> or <b>80-plus quick questions</b>, depending on how big each question is.</div>'
+          + '<div style="margin-top:6px"><span class="trialpill">Includes your one-time sign-up trial</span></div>'
+          + '<div class="tasklist"><div class="tl-h">Recent tasks</div>'
+            + '<div class="taskrow"><span class="tname">t-test on growth data</span><span class="tkind">analysis</span><span class="tcost">1,240 tokens</span></div>'
+            + '<div class="taskrow"><span class="tname">Bar plot with error bars</span><span class="tkind">figure</span><span class="tcost">980 tokens</span></div>'
+            + '<div class="taskrow"><span class="tname">Which PCR runs failed last month</span><span class="tkind">question</span><span class="tcost">340 tokens</span></div>'
+            + '<div class="taskrow"><span class="tname">Summarize and write up the result</span><span class="tkind">write-up</span><span class="tcost">2,110 tokens</span></div>'
+          + '</div>'
+          + '<div class="tl-h" style="margin-top:16px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--foreground-muted)">Buy more tokens</div>'
+          + '<div class="buyblocks">'
+            + '<div class="blk" onclick="this.parentNode.querySelectorAll(\'.blk\').forEach(b=>b.classList.remove(\'sel\'));this.classList.add(\'sel\')"><div class="bprice">$10</div><div class="btok">about 700 tasks</div></div>'
+            + '<div class="blk sel" onclick="this.parentNode.querySelectorAll(\'.blk\').forEach(b=>b.classList.remove(\'sel\'));this.classList.add(\'sel\')"><div class="bprice">$25</div><div class="btok">about 1,800 tasks</div></div>'
+            + '<div class="blk" onclick="this.parentNode.querySelectorAll(\'.blk\').forEach(b=>b.classList.remove(\'sel\'));this.classList.add(\'sel\')"><div class="bprice">$50</div><div class="btok">about 3,600 tasks</div></div>'
+          + '</div>'
+          + '<button class="btn on" style="width:100%;margin-top:4px">Buy tokens</button>'
+          + '<div class="whyline">During the beta the AI is free. After that you pay only for what you use, near our cost, because the open-weight model and the in-browser agent loop keep it cheap. <a href="#">See how AI is priced</a> (links to /pricing)</div>'
+        + '</div>'
+        + '<div class="bcard cmt" data-clabel="AI usage, how it works aside">'
+          + '<h4>'+IC.bot+' How the cost works</h4>'
+          + '<div class="meta" style="line-height:1.6;margin-top:6px">BeakerBot is the assistant that reasons over your work, runs an analysis, makes a plot, and writes it up, always with your approval before it changes anything.</div>'
+          + '<div class="meta" style="line-height:1.6;margin-top:10px">It is metered because each task calls a hosted model that costs us real money to run. We run an open-weight model and the agent loop runs in your browser, so only a small result ever crosses to the model, never your files. Low cost and your-data-stays-home are the same fact.</div>'
+          + '<div class="meta" style="line-height:1.6;margin-top:10px">Your lab, department, or institution can fund a shared pool, so you can use BeakerBot without entering a card.</div>'
+          + '<div class="whyline" style="margin-top:14px"><a href="#">Manage billing / see plans</a> (links to /pricing)</div>'
+        + '</div>'
+      + '</div>',
+
+    storage: head("usage & billing","Cloud storage","Your folder on your own disk is always free. Cloud storage is the optional copy you choose to sync or share, metered at cost because we pass through what the storage costs us. During the beta everything is free.")
+      + '<div class="billgrid">'
+        + '<div class="bcard cmt" data-clabel="Storage, used vs cap bars">'
+          + '<h4>'+IC.cloud+' Storage used</h4>'
+          + '<div class="balance" style="margin-bottom:0"><span class="big">0.4</span><span class="unit">GB of 5 GB</span></div>'
+          + '<div class="bar"><span style="width:8%"></span></div>'
+          + '<div class="barlabel"><span>Your synced copy</span><span><b>8%</b> of your plan</span></div>'
+          + '<div style="height:18px"></div>'
+          + '<h4 style="font-size:13px">'+IC.mail+' Inbox shares</h4>'
+          + '<div class="bar amber" style="margin-top:8px"><span style="width:30%"></span></div>'
+          + '<div class="barlabel"><span>3 of 10 used</span><span>shares others sent you</span></div>'
+        + '</div>'
+        + '<div class="bcard flag cmt" data-clabel="Storage, current plan + manage">'
+          + '<h4>'+IC.check+' Your plan</h4>'
+          + '<div class="planline"><span class="pn">Free</span><span class="pbeta">Beta</span></div>'
+          + '<div class="meta" style="line-height:1.6">Everything is free during the beta. After the beta, cloud storage is metered at cost, your daily local work never leaves your disk so it stays cheap. You can use storage, AI, both, or neither, they are independent.</div>'
+          + '<button class="btn" style="width:100%;margin-top:14px">Manage billing</button>'
+          + '<div class="whyline" style="margin-top:12px"><a href="#">Manage billing / see plans</a> (links to /pricing)</div>'
+        + '</div>'
+      + '</div>',
+
+    appearance: head("workspace","Appearance & motion","Theme, animation, and the personality touches. Turn motion down or BeakerBot off when you want a calmer, more professional workspace.")
+      + row("Theme","",seg(["Light","Dark","System"],0))
+      + row("Animation level","How much the interface moves and transitions.",seg(["None","Subtle","Full"],1))
+      + row("BeakerBot animations","The mascot's little reactions around the app.",tog(true))
+      + row("Professional mode","Tones down playful touches for a plainer look.",tog(false))
+      + row("Sparkles & behavior","Small celebratory flourishes on milestones.",tog(true)),
+
+    defaults: head("workspace","Defaults","The view and format a new project, calendar, or date picker opens with. Set these once instead of changing them every time.")
+      + row("Default Gantt view","",seg(["Days","Weeks","Months"],1))
+      + row("Calendar view","",seg(["Day","Week","Month"],1))
+      + row("Date format","",'<select><option>2026-06-11 (ISO)</option><option>Jun 11, 2026</option><option>11/06/2026</option></select>')
+      + row("Time format","",seg(["12-hour","24-hour"],0))
+      + row("Show shared by default","Include work shared with you in default lists.",tog(true)),
+
+    sidebar: head("workspace","Sidebar & tabs","Which tabs appear in the sidebar, where you land on open, and how far ahead the event horizon looks.")
+      + row("Visible tabs","Hide tabs you do not use to keep the sidebar short.",'<span class="chip">Notes</span> <span class="chip">Experiments</span> <span class="chip">Methods</span> <span class="chip">+4</span>')
+      + row("Default landing tab","Where ResearchOS opens when you start.",'<select><option>Dashboard</option><option>Notes</option><option>Experiments</option></select>')
+      + row("Show tasks","",tog(true))
+      + row("Show calendar","",tog(true))
+      + row("Event horizon days","How many days ahead the horizon view spans.",'<input type="text" value="30" style="min-width:70px">'),
+
+    companion: head("workspace","Companion","Pair your phone so bench photos, scans, and barcode counts flow straight into the right experiment. Manage the devices you have paired.")
+      + grp("Pair a device")
+      + '<div class="row cmt" data-clabel="Companion, pairing QR"><div class="rl-l"><div class="lab">Phone pairing</div><div class="hint">Scan this in the companion app to pair your phone.</div></div><div class="rl-r"><div style="width:84px;height:84px;border:1px solid var(--border);border-radius:10px;background:repeating-conic-gradient(#111827 0 25%, #fff 0 50%) 0 0/16px 16px"></div></div></div>'
+      + grp("Paired devices")
+      + row("Grant's iPhone","Paired 3 days ago, last capture 2 hours ago.",'<button class="btn">Unpair</button>')
+      + row("Bench iPad","Paired last month.",'<button class="btn">Unpair</button>')
+      + row("Check for captures","Pull anything the companion app queued.",'<button class="btn">Check now</button>'),
+
+    aihelper: head("workspace","AI Helper","A schema-aware prompt you copy into an external model like ChatGPT or Claude when you want to ask about your data there. This is separate from BeakerBot, the metered in-app assistant under Usage and billing, this one just builds a prompt for you to paste elsewhere.")
+      + row("Prompt size","Bigger prompts include more of your schema and context.",seg(["Small","Medium","Large"],1))
+      + row("Copy prompt","Copy the generated schema prompt to your clipboard.",'<button class="btn">Copy prompt</button>')
+      + row("Open in provider","Open your external model with the prompt ready.",'<button class="btn">ChatGPT</button> <button class="btn">Claude</button>'),
+
+    behavior: head("workspace","Behavior","Small editor behaviors. Turn spell check and outline mode on or off to match how you like to write.")
+      + row("Spell check","Underlines likely misspellings as you type.",tog(true))
+      + row("Outline mode","Shows a heading outline beside long notes.",tog(false)),
+
+    streaks: head("workspace","Streaks & PTO","An optional streak counter for daily activity, with planned time off so a vacation does not break your streak.")
+      + row("Enable streaks","",tog(true))
+      + row("Current streak","",'<span class="chip">12 days</span>')
+      + row("Best streak","",'<span class="chip">41 days</span>')
+      + '<div class="row cmt" data-clabel="Streaks, PTO editor"><div class="rl-l"><div class="lab">Time off</div><div class="hint">Mark days off so they do not count against your streak.</div></div><div class="rl-r"><button class="btn">Add PTO</button></div></div>'
+      + '<div style="padding:2px"><div class="pubrow"><span class="ptitle">Conference travel</span><span class="pyear">Jun 18 to 21</span><span class="chip">Edit</span></div></div>',
+
+    tips: head("workspace","Tips","Short feature tips that surface when something new is relevant. Turn them off once you know your way around.")
+      + row("Feature tips","Occasional hints about features you have not used yet.",tog(true)),
+
+    folder: head("data","Data folder","The folder on your own computer that holds all your records. That folder is always the original, ResearchOS reads and writes it in place.")
+      + row("Connected folder","",'<span class="mono">~/Research/NicklesLab</span>')
+      + row("Switch or connect","Point ResearchOS at a different folder.",'<button class="btn">Switch folder</button> <button class="btn">Connect another</button>'),
+
+    inventory: head("data","Inventory & export","A count of what is in your folder, a full JSON export you own, and a detector for orphaned artifacts so nothing is left dangling.")
+      + grp("In your folder")
+      + row("Files","",'<span class="chip">1,284</span>')
+      + row("Notes","",'<span class="chip">312</span>')
+      + row("Tasks","",'<span class="chip">96</span>')
+      + row("Projects","",'<span class="chip">8</span>')
+      + grp("Export & cleanup")
+      + row("Export everything","A portable JSON copy of your records.",'<button class="btn">Export JSON</button>')
+      + row("Orphaned artifacts","Files no record points at anymore.",'<span class="chip">2 found</span> <button class="btn">Review</button>'),
+
+    trash: head("data","Trash & history","How long deleted items stay recoverable, and whether a permanent delete asks for confirmation first.")
+      + row("Auto-delete trash after","Items in trash are removed after this many days.",'<input type="text" value="30" style="min-width:70px"> <span class="hint" style="font-size:12px">days</span>')
+      + row("Confirm permanent delete","Ask before anything is removed for good.",tog(true)),
+
+    maintenance: head("data","Maintenance","Format upgrades run automatically when you connect a folder. Here you can see their status, re-run the checks, and read the migration history.")
+      + row("Format upgrades","Idempotent upgrades that keep your records current.",'<span class="chip" style="color:var(--pkr-green);background:color-mix(in srgb,var(--pkr-green) 12%,transparent)">Up to date</span>')
+      + row("Re-run checks","Run the safe upgrade checks again now.",'<button class="btn">Re-run</button>')
+      + '<div class="row cmt" data-clabel="Maintenance, migration history"><div class="rl-l"><div class="lab">Migration history</div><div class="hint">What ran, when, and what it touched.</div></div><div class="rl-r"><button class="btn">View history</button></div></div>'
+      + '<div style="padding:2px"><div class="pubrow"><span class="ptitle">Normalize note timestamps</span><span class="pyear">Jun 7</span><span class="chip">312 records</span></div><div class="pubrow"><span class="ptitle">Move annotations to sidecars</span><span class="pyear">Jun 7</span><span class="chip">44 files</span></div></div>',
+
+    labarchives: head("data","Lab archives","Finished work your lab has archived for retention, kept accessible so you can restore a record if you need it again.")
+      + row("Accessible archives","",'<span class="chip">3 archives</span>')
+      + '<div style="padding:2px"><div class="pubrow"><span class="ptitle">2024 soil volatiles study</span><span class="pyear">archived 2025</span><span class="chip">Restore</span></div><div class="pubrow"><span class="ptitle">Departed member, J. Lee</span><span class="pyear">archived 2026</span><span class="chip">Restore</span></div></div>',
+
+    offline: head("data","Offline & sync","Work fully offline when you want, and resolve any sync conflicts that come up so your records stay consistent across devices.")
+      + row("Offline mode","Stop syncing, work entirely on your disk.",tog(false))
+      + row("Pending conflicts","Two devices edited the same record.",'<span class="chip" style="color:var(--pkr-gold);background:color-mix(in srgb,var(--pkr-gold) 16%,transparent)">1 conflict</span> <button class="btn">Resolve</button>'),
+
+    members: head("lab","Members & roster","Lab heads",'Your lab roster, active and archived. Archive a member when they leave so their work is retained, restore them if they come back.')
+      + grp("Active members")
+      + '<div style="padding:2px"><div class="pubrow"><span class="ptitle">Dr. Grant Nickles</span><span class="pyear">Lab head</span><span class="chip">You</span></div><div class="pubrow"><span class="ptitle">M. Alvarez</span><span class="pyear">Grad student</span><span class="chip">Archive</span></div><div class="pubrow"><span class="ptitle">S. Okafor</span><span class="pyear">Postdoc</span><span class="chip">Archive</span></div></div>'
+      + grp("Archived members")
+      + '<div style="padding:2px"><div class="pubrow"><span class="ptitle">J. Lee</span><span class="pyear">left 2026</span><span class="chip">Restore</span></div></div>',
+
+    membership: head("lab","Membership & agreement","Lab heads",'The invite link, who is asking to join, and the lab-wide rules, solo or lab mode, whether members see each other, and whether the lab head approves changes.')
+      + grp("Invite")
+      + row("Invite link","Share this so a new member can request to join.",'<span class="mono">researchos.app/join/ab12cd</span> <button class="btn">Copy</button>')
+      + '<div class="row cmt" data-clabel="Membership, join requests"><div class="rl-l"><div class="lab">Join requests</div><div class="hint">People waiting for you to let them in.</div></div><div class="rl-r"><span class="chip">2 pending</span> <button class="btn">Review</button></div></div>'
+      + grp("Lab rules")
+      + row("Lab mode","Solo keeps everything private, lab shares with members.",seg(["Solo","Lab"],1))
+      + row("Members see each other","Show the roster to all members.",tog(true))
+      + row("Lab-head approval required","Member changes wait for your sign-off.",tog(false)),
+
+    accounttype: head("lab","Account type","Lab heads",'Whether this account acts as a member or as the PI. The PI role unlocks the lab-head sections.')
+      + row("Role","",seg(["Member","PI / lab head"],1)),
+
+    audit: head("lab","Audit trail","Lab heads",'A per-member history of who edited which field and when, so a lab head can see how a record changed over time.')
+      + row("Member","",'<select><option>M. Alvarez</option><option>S. Okafor</option></select>')
+      + '<div style="padding:2px"><div class="pubrow"><span class="ptitle">Edited experiment 14, yield field</span><span class="pyear">Jun 9, 2:14pm</span></div><div class="pubrow"><span class="ptitle">Created note, qPCR plate 3</span><span class="pyear">Jun 8, 11:02am</span></div></div>',
+
+    retention: head("lab","Retention registry","Lab heads",'A per-member retention policy, how long their finished work is kept and where, so the lab stays compliant with funder data-retention rules.')
+      + '<div style="padding:2px"><div class="pubrow"><span class="ptitle">M. Alvarez</span><span class="pyear">Lab-paid R2, 6 years</span><span class="chip">Edit</span></div><div class="pubrow"><span class="ptitle">S. Okafor</span><span class="pyear">Lab-paid R2, 6 years</span><span class="chip">Edit</span></div><div class="pubrow"><span class="ptitle">J. Lee (departed)</span><span class="pyear">Hard-drive attestation</span><span class="chip">Edit</span></div></div>',
+
+    routing: head("lab","Department routing","Lab heads",'Department contacts and the email templates the PI uses to hand a purchase off to the department, so the subject and body are ready instead of retyped each time.')
+      + grp("Contacts")
+      + '<div style="padding:2px"><div class="pubrow"><span class="ptitle">Chemistry stores</span><span class="pyear">stores@chem.wisc.edu</span><span class="chip">Edit</span></div><div class="pubrow"><span class="ptitle">Department accountant</span><span class="pyear">acct@wisc.edu</span><span class="chip">Edit</span></div></div>'
+      + grp("Email template")
+      + row("Subject","",'<input type="text" value="Purchase request, Nickles Lab" style="min-width:280px">')
+      + '<div class="row cmt" data-clabel="Routing, body template"><div class="rl-l"><div class="lab">Body</div><div class="hint">The default message, with the order PDF attached.</div></div></div>'
+      + '<div style="padding:2px 2px 0"><textarea rows="3">Please process the attached order for the Nickles Lab. The itemized PDF is attached. Reach me with any questions.</textarea></div>',
+  };
+
+  /* ---------- render rail + pane ---------- */
+  let activeId = "ai"; // open on the flagship Usage & billing section
+  function renderRail(){
+    const rail=document.getElementById("rail");
+    // keep the railhead, append groups
+    let html='';
+    GROUPS.forEach(g=>{
+      html+='<div class="railgrp"><div class="glabel">'+esc(g.label)+(g.lab?'<span class="labbadge">Lab heads</span>':'')+'</div>';
+      g.items.forEach(it=>{
+        html+='<button class="railitem'+(it.id===activeId?' active':'')+'" data-id="'+it.id+'">'+(IC[it.icon]||'')+'<span>'+esc(it.name)+'</span>'+(it.flag?'<span class="flag">'+esc(it.flag)+'</span>':'')+'</button>';
+      });
+      html+='</div>';
+    });
+    // remove old groups (everything after railhead)
+    [...rail.querySelectorAll('.railgrp')].forEach(n=>n.remove());
+    rail.insertAdjacentHTML('beforeend', html);
+    rail.querySelectorAll('.railitem').forEach(b=>b.addEventListener('click',()=>{ if(document.body.classList.contains('cmt-on'))return; activeId=b.dataset.id; renderRail(); renderPane(); }));
+  }
+  function renderPane(){
+    const pane=document.getElementById("pane");
+    pane.innerHTML = SECTIONS[activeId] || '<div class="panehead"><h2>Section</h2></div>';
+    pane.scrollTop=0;
+    renderPins();
+  }
+
+  /* ---------- comment harness (reused) ---------- */
+  const STORE="ros-settings-redesign-comments-v1";
+  let comments=[]; try{comments=JSON.parse(localStorage.getItem(STORE)||"[]");}catch{comments=[];}
+  function save(){try{localStorage.setItem(STORE,JSON.stringify(comments));}catch{}}
+  function renderPins(){
+    document.querySelectorAll(".pin").forEach(p=>p.remove());
+    const byT={}; comments.forEach((c,i)=>{(byT[c.target]=byT[c.target]||[]).push(i+1);});
+    document.querySelectorAll(".cmt").forEach(el=>{const lbl=el.getAttribute("data-clabel"); const nums=byT[lbl]; if(!nums)return; const pin=document.createElement("span"); pin.className="pin"; pin.textContent=nums.join(","); pin.addEventListener("click",ev=>{ev.stopPropagation();const f=comments.findIndex(c=>c.target===lbl);if(f>=0)openEditor(el,f,ev);}); el.appendChild(pin);});
+  }
+  function flashPin(t){document.querySelectorAll(".pin").forEach(p=>{const el=p.closest(".cmt");if(el&&el.getAttribute("data-clabel")===t){p.classList.add("hl");setTimeout(()=>p.classList.remove("hl"),700);}});}
+  function renderPanel(){
+    const body=document.getElementById("panelBody"); document.getElementById("cCount").textContent=comments.length;
+    if(!comments.length){body.innerHTML='<div class="empty">No notes yet. Turn on Comment mode and click any row, header, or card.</div>';return;}
+    const vtag=v=>v==="approve"?'<span class="vbadge" style="color:var(--ok)">APPROVE</span> ':v==="disapprove"?'<span class="vbadge" style="color:var(--pin)">DISAPPROVE</span> ':"";
+    body.innerHTML=comments.map((c,i)=>`<div class="citem" data-i="${i}"><span class="num">${i+1}</span><div style="flex:1"><div class="tgt">${vtag(c.verdict)}${esc(c.target)}</div><div class="txt">${esc(c.text)||"<i>no text</i>"}</div></div><button class="x" data-del="${i}">&times;</button></div>`).join("");
+    body.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();comments.splice(+b.dataset.del,1);save();renderAll();}));
+    body.querySelectorAll(".citem").forEach(it=>it.addEventListener("click",e=>{if(e.target.closest("[data-del]"))return;const i=+it.dataset.i;const el=[...document.querySelectorAll(".cmt")].find(x=>x.getAttribute("data-clabel")===comments[i].target);if(el){el.scrollIntoView({block:"center",behavior:"smooth"});flashPin(comments[i].target);}}));
+  }
+  function renderAll(){renderPins();renderPanel();}
+
+  const CHANGES=[
+    {id:"leftrail",tag:"IA",title:"Left rail plus content pane",desc:"Replace the Personal/Lab tabbed wall of blocky cards with a 244px grouped left rail and a focused content pane, the modern Linear/Vercel/Notion shape. Rail groups: You, Usage and billing, Workspace, Data, Lab."},
+    {id:"profilemerge",tag:"merge",title:"Profile folded fully into Settings",desc:"The separate /profile page and the standalone public-profile card both become the Profile and appearance section, display name, avatar color, ORCID, affiliation, and the pin/hide publications list."},
+    {id:"avatarmenu",tag:"merge",title:"Avatar menu collapses to one Settings link",desc:"The three avatar-menu entries that pointed at different destinations become a single Settings link, so there is one answer to where do I change this."},
+    {id:"usagebilling",tag:"new",title:"Usage and billing dashboard (flagship)",desc:"A new section. AI usage shows a token balance with a plain-value translation, recent tasks with token cost, and prepaid blocks. Cloud storage shows used/cap bars, inbox shares, and the current plan. Honest on-brand framing, AI is the one optional metered feature, trial tokens are a one-time offer."},
+    {id:"regroup",tag:"IA",title:"Workspace / Data / Lab regrouping",desc:"The old flat settings split into Workspace (appearance, defaults, sidebar, companion, AI Helper, behavior, streaks, tips), Data (folder, inventory, trash, maintenance, archives, offline), and a role-gated Lab group badged for lab heads."},
+    {id:"aihelperlabel",tag:"clarity",title:"AI Helper labeled distinct from BeakerBot",desc:"The schema-prompt helper for external models is explicitly distinguished from the metered in-app BeakerBot under Usage and billing, so the two are not confused."},
+  ];
+  const VSTORE="ros-settings-redesign-verdicts-v1";
+  let verdicts={}; try{verdicts=JSON.parse(localStorage.getItem(VSTORE)||"{}");}catch{verdicts={};}
+  function saveVerdicts(){try{localStorage.setItem(VSTORE,JSON.stringify(verdicts));}catch{}}
+  function renderChanges(){
+    const wrap=document.getElementById("changes");
+    wrap.innerHTML=CHANGES.map(c=>{const v=verdicts[c.id]||""; const cls=v==="approve"?"approved":v==="disapprove"?"disapproved":"";
+      return `<div class="change ${cls}"><div><div class="ctitle"><span class="tag">${c.tag}</span>${esc(c.title)}</div><div class="cdesc">${esc(c.desc)}</div></div><div class="verdict"><button class="vbtn app ${v==="approve"?"on":""}" data-c="${c.id}" data-v="approve">Approve</button><button class="vbtn dis ${v==="disapprove"?"on":""}" data-c="${c.id}" data-v="disapprove">Disapprove</button>${v?`<button class="vclear" data-c="${c.id}" data-v="clear">clear</button>`:""}</div></div>`;}).join("");
+    wrap.querySelectorAll("[data-v]").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.c,v=b.dataset.v;if(v==="clear")delete verdicts[id];else verdicts[id]=verdicts[id]===v?undefined:v;if(!verdicts[id])delete verdicts[id];saveVerdicts();renderChanges();}));
+  }
+  let editorEl=null;
+  function closeEditor(){if(editorEl){editorEl.remove();editorEl=null;}}
+  function openEditor(targetEl,existingIndex,ev){
+    closeEditor(); const target=targetEl.getAttribute("data-clabel")||"Section"; const existing=existingIndex!=null?comments[existingIndex]:null; let pv=existing?(existing.verdict||""):"";
+    const ed=document.createElement("div");ed.className="editor";
+    ed.innerHTML=`<div class="lbl">${esc(target)}</div><textarea placeholder="Note, suggestion, or change request">${existing?esc(existing.text):""}</textarea><div class="vchoice"><button class="vbtn" data-vc="note">Note</button><button class="vbtn app" data-vc="approve">Approve</button><button class="vbtn dis" data-vc="disapprove">Disapprove</button></div><div class="acts">${existing?'<button class="btn danger" data-act="del">Delete</button>':""}<span class="spacer"></span><button class="btn" data-act="cancel">Cancel</button><button class="btn on" data-act="save">Save</button></div>`;
+    document.body.appendChild(ed);editorEl=ed;
+    const paint=()=>ed.querySelectorAll("[data-vc]").forEach(b=>b.classList.toggle("on",(b.dataset.vc==="note"&&!pv)||b.dataset.vc===pv));
+    ed.querySelectorAll("[data-vc]").forEach(b=>b.addEventListener("click",()=>{pv=b.dataset.vc==="note"?"":b.dataset.vc;paint();}));paint();
+    const x=ev?ev.clientX:targetEl.getBoundingClientRect().left; const y=ev?ev.clientY:targetEl.getBoundingClientRect().bottom;
+    ed.style.left=Math.min(Math.max(8,x-20),window.innerWidth-288)+"px"; ed.style.top=Math.min(y+10,window.innerHeight-220)+"px";
+    ed.querySelector("textarea").focus();
+    ed.querySelectorAll("[data-act]").forEach(b=>b.addEventListener("click",()=>{const act=b.dataset.act;if(act==="cancel")return closeEditor();if(act==="del"){if(existingIndex!=null){comments.splice(existingIndex,1);save();renderAll();}return closeEditor();}if(act==="save"){const text=ed.querySelector("textarea").value.trim();if(!text&&!pv)return closeEditor();if(existing){existing.text=text;existing.verdict=pv;}else comments.push({target,text,verdict:pv});save();renderAll();closeEditor();}}));
+    ed.addEventListener("keydown",e=>{if(e.key==="Escape")closeEditor();if(e.key==="Enter"&&(e.metaKey||e.ctrlKey))ed.querySelector('[data-act="save"]').click();});
+  }
+  document.addEventListener("click",e=>{if(!document.body.classList.contains("cmt-on"))return;if(e.target.closest(".editor")||e.target.closest(".panel")||e.target.closest(".topbar")||e.target.closest(".pin")||e.target.closest(".changes")||e.target.closest(".ba"))return;const cmt=e.target.closest(".cmt");if(!cmt)return;e.preventDefault();openEditor(cmt,null,e);});
+  const cBtn=document.getElementById("commentToggle");
+  cBtn.addEventListener("click",()=>{const on=document.body.classList.toggle("cmt-on");cBtn.classList.toggle("on",on);cBtn.textContent="Comment mode: "+(on?"on":"off");if(!on)closeEditor();});
+  document.getElementById("panelHead").addEventListener("click",()=>{const p=document.getElementById("panel");const col=p.classList.toggle("collapsed");document.getElementById("chev").textContent=col?"show":"hide";});
+  function buildMarkdown(){
+    let out="ResearchOS settings redesign (unified), feedback\n\nChange verdicts\n";
+    CHANGES.forEach(c=>{const v=verdicts[c.id];out+=`- ${c.title}: ${v==="approve"?"APPROVE":v==="disapprove"?"DISAPPROVE":"undecided"}\n`;});
+    out+="\nNotes\n"; if(!comments.length)out+="- none\n";
+    comments.forEach((c,i)=>{const tag=c.verdict==="approve"?"[APPROVE] ":c.verdict==="disapprove"?"[DISAPPROVE] ":"";out+=`${i+1}. ${tag}[${c.target}] ${c.text}\n`;});
+    return out;
+  }
+  function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),1500);}
+  async function doCopy(){const md=buildMarkdown();try{await navigator.clipboard.writeText(md);toast("Feedback copied, paste it back to me");}catch{window.prompt("Copy your feedback",md);}}
+  function doDownload(){const blob=new Blob([buildMarkdown()],{type:"text/markdown"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="settings-redesign-feedback.md";a.click();URL.revokeObjectURL(a.href);}
+  document.getElementById("exportBtn").addEventListener("click",doCopy);
+  document.getElementById("exportBtn2").addEventListener("click",doCopy);
+  document.getElementById("downloadBtn").addEventListener("click",doDownload);
+  document.getElementById("downloadBtn2").addEventListener("click",doDownload);
+  document.getElementById("clearBtn").addEventListener("click",()=>{if(comments.length&&!confirm("Delete all notes?"))return;comments=[];save();renderAll();});
+
+  renderRail(); renderPane(); renderChanges(); renderPanel();
+</script>
+</body>
+</html>
