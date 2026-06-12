@@ -173,6 +173,14 @@ export function OAuthFirstLanding({
             ResearchOS LLC, Madison, Wisconsin
           </div>
 
+          {/* Funding acknowledgment, upper-right, balancing the entity
+              signature in the upper-left. */}
+          <div className="absolute right-5 top-4 z-[4] max-w-[260px] text-right text-[10px] leading-snug text-slate-500">
+            Supported by a UW Distinguished Research Fellowship at UW-Madison
+            (Office of the Vice Chancellor for Research, with funding from the
+            Wisconsin Alumni Research Foundation).
+          </div>
+
           <div
             className={`relative z-[1] flex flex-col items-center ${styles.enter}`}
           >
@@ -264,13 +272,8 @@ export function OAuthFirstLanding({
             {/* Made in Madison badge + fellowship credit (brand refresh change
                 2). MadeInMadison renders the real Wisconsin state mark with the
                 gold Madison star. */}
-            <div className="mt-5 flex flex-col items-center gap-2 border-t border-dashed border-border pt-4">
+            <div className="mt-5 flex flex-col items-center border-t border-dashed border-border pt-4">
               <MadeInMadison variant="line" tone="soft" />
-              <p className="max-w-sm text-center text-[10px] leading-relaxed text-foreground-muted">
-                Supported by a UW Distinguished Research Fellowship at UW-Madison
-                (Office of the Vice Chancellor for Research, with funding from the
-                Wisconsin Alumni Research Foundation).
-              </p>
             </div>
           </div>
 
