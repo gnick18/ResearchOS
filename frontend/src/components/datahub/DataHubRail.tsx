@@ -364,6 +364,14 @@ export default function DataHubRail({
   onExportPlotSvg?: (id: string) => void;
 }) {
   const groups = useMemo(() => groupByFolder(tables), [tables]);
+  // A table id -> name lookup so a derived table can show its source's name in
+  // the rail ("from <source>"). Built from the visible tables; a source outside
+  // the current filter falls back to a generic label.
+  const nameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const t of tables) m.set(t.id, t.name);
+    return m;
+  }, [tables]);
   // Closed folders by name. Folders start open (the mockup's default).
   const [closedFolders, setClosedFolders] = useState<Set<string>>(new Set());
   // Tables the user has explicitly collapsed. The selected table is expanded by
@@ -602,6 +610,12 @@ export default function DataHubRail({
     const active = table.id === selectedTableId;
     const isOpen = active;
     const expanded = isOpen && !collapsedTables.has(table.id);
+    // A derived table is computed from a source via a transform; mark it so it
+    // reads differently from an entered table in the rail.
+    const derived = table.derivedFrom;
+    const sourceName = derived
+      ? nameById.get(derived.sourceTableId) ?? "another table"
+      : null;
     return (
       <div key={table.id}>
         <div
@@ -648,7 +662,25 @@ export default function DataHubRail({
                 onCancel={cancelRename}
               />
             ) : (
-              <span className="min-w-0 flex-1 truncate">{table.name}</span>
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate">{table.name}</span>
+                {derived && (
+                  <span className="truncate text-[10px] font-normal text-foreground-muted">
+                    from {sourceName}
+                  </span>
+                )}
+              </span>
+            )}
+            {derived && (
+              <Tooltip label={`Derived from ${sourceName}`}>
+                <span
+                  className="flex shrink-0 items-center rounded border border-border px-1 text-[10px] font-medium uppercase text-foreground-muted"
+                  data-testid="datahub-rail-derived-badge"
+                  aria-label={`Derived from ${sourceName}`}
+                >
+                  <Icon name="merge" className="h-2.5 w-2.5" />
+                </span>
+              </Tooltip>
             )}
             <span className="shrink-0 rounded border border-border px-1 text-[10px] font-medium uppercase text-foreground-muted">
               {typeTag(table.table_type)}
