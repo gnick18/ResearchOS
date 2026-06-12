@@ -1376,8 +1376,26 @@ export function buildGlobalFit(
   return { ok: true, spec, result };
 }
 
+/** Sync one-line preview for the step-review card, built from the args + cached
+ *  content without running the fit. Mirrors the other analysis describers. */
+export function describeGlobalFit(args: Record<string, unknown>): {
+  summary: string;
+} {
+  const parsed = parseGlobalFitArgs(args);
+  const content = getCachedTableContent(parsed.tableId);
+  const where = content ? ` on ${content.meta.name}` : "";
+  return {
+    summary: `globally fit ${parsed.model} across the curves${where} (sharing ${parsed.share})`,
+  };
+}
+
 export const globalFitTool: AiTool = {
   name: "global_fit",
+  // Previewable like the other instant analysis tools, so it shows a preview +
+  // confirm in step-by-step review mode (it runs free in whole-plan mode). It
+  // carries no `action` flag, the write is a reversible analysis.
+  previewable: true,
+  describeAction: describeGlobalFit,
   description:
     "Run a global (shared-parameter) curve fit across several dose-response curves on one XY table at once (Prism's \"global fitting\"), store the result, and take the user to it. Use this when the user wants to fit the SAME model shape to two or more Y curves together while sharing some parameters and keeping others per-curve (for example \"globally fit these dose-response curves sharing the Hill slope and plateaus\", \"shared-parameter fit with a common Top and Bottom\"). The table must be an XY table with TWO OR MORE Y columns (the engine fits every Y column against the shared X). Call list_datahub_tables first to get the XY table id. Pass the model (\"logistic4pl\" the default, or \"logistic5pl\") and the share preset: \"hill-top-bottom\" (the default and pharmacology standard, shares the Hill slope plus both plateaus and keeps EC50 per curve), \"hill\" (shares the Hill slope only), \"top-bottom\" (shares both plateaus only), or \"all-but-ec50\" (shares everything except EC50). The EC50 is never shared (it is the per-curve readout), and the 5PL asymmetry S is always shared. The engine fits all curves jointly and reports each shared parameter once (with its CI) plus each curve's own EC50 (with CI) and the pooled R-squared. You NEVER compute a fit, a shared parameter, an EC50, or an R-squared, the engine does, and it errors cleanly when there are fewer than 2 Y datasets. This runs straight away, there is NO separate approval step, so do not call propose_plan for it. It saves the result as a version-controlled analysis, navigates the user to the Data Hub so they see it, and returns the fit. After it returns, give ONE short line, the shared parameters and the per-curve EC50s with the pooled R-squared. Never invent a number, only repeat what this returns.",
   parameters: {
