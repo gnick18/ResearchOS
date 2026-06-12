@@ -23,6 +23,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import PaletteStudio from "@/components/datahub/PaletteStudio";
+import CodePanel from "@/components/datahub/CodePanel";
 import StyledSelect from "@/components/datahub/StyledSelect";
 import PlotColorPicker from "@/components/datahub/PlotColorPicker";
 import PlotColorEditor from "@/components/datahub/PlotColorEditor";
@@ -48,6 +49,7 @@ import {
   type ErrorBarKind,
   type FitModelId,
 } from "@/lib/datahub/plot-spec";
+import { plotCode } from "@/lib/datahub/plot-code";
 import {
   addUserPalette,
   newUserPaletteId,
@@ -456,6 +458,9 @@ export default function GraphEditor({
   // cramped into the 300px dock. The dock keeps a compact swatch + mode toggle
   // for quick switching; "Browse all palettes" opens the studio.
   const [browseOpen, setBrowseOpen] = useState(false);
+  // The matplotlib "show the code" panel, hidden until the researcher asks for
+  // it, so the export row stays uncluttered.
+  const [showingCode, setShowingCode] = useState(false);
 
   const style = useMemo(() => readPlotStyle(spec), [spec]);
   const isXY = style.kind === "xyScatter";
@@ -496,6 +501,13 @@ export default function GraphEditor({
   }, [geometry, style.yTitle]);
 
   const fileStem = figureFileStem(style.title.trim() || title);
+
+  // The runnable matplotlib script that redraws this figure, recomputed when the
+  // spec or the table changes so the code always matches what is on screen.
+  const code = useMemo(
+    () => plotCode(spec, content, analysis),
+    [spec, content, analysis],
+  );
 
   // Close the Browse-all-palettes modal on Escape, so the studio popout always
   // has a keyboard escape (no soft-lock).
@@ -812,6 +824,32 @@ export default function GraphEditor({
             SVG stays an infinitely-scalable vector for a paper. PNG renders at 3x
             for a crisp slide. Copy drops a PNG straight into a doc.
           </p>
+
+          <button
+            type="button"
+            onClick={() => setShowingCode((v) => !v)}
+            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-border px-2 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+            data-testid="datahub-figure-code-toggle"
+            aria-expanded={showingCode}
+          >
+            <Icon name="file" className="h-3.5 w-3.5" />
+            {showingCode ? "Hide the code" : "Show the code"}
+          </button>
+          <p className="mt-2 text-[11px] text-foreground-muted">
+            Show the matplotlib code that redraws this figure from the same
+            values, so you can rebuild it in a notebook instead of treating the
+            plot as a black box.
+          </p>
+
+          {showingCode && (
+            <div className="mt-2">
+              <CodePanel
+                code={code}
+                caption="The script imports numpy and matplotlib, inlines the figure's real values, and writes figure.png at the export DPI, so it reproduces the plot on screen."
+                testId="datahub-figure-code-panel"
+              />
+            </div>
+          )}
         </Section>
       </aside>
 

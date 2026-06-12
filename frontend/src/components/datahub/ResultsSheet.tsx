@@ -37,6 +37,7 @@ import {
 import { formatP, plainLanguageSummary } from "@/lib/datahub/plain-language";
 import { showCode } from "@/lib/datahub/show-code";
 import { resultToText } from "@/lib/datahub/result-text";
+import CodePanel from "@/components/datahub/CodePanel";
 
 /** GraphPad-style significance stars from an adjusted p-value. */
 function stars(p: number): string {
@@ -590,6 +591,14 @@ export default function ResultsSheet({
         tooltip: "Copy the results as text to paste into a spreadsheet or note.",
         testId: "datahub-results-export",
       },
+      {
+        icon: "file" as const,
+        label: showingCode ? "Hide code" : "Code",
+        onClick: () => setShowingCode((v) => !v),
+        tooltip:
+          "Show the open-source code that reproduces this result, so you can rerun it in a notebook.",
+        testId: "datahub-results-code",
+      },
       ...(onChangeAnalysis
         ? [
             {
@@ -685,30 +694,14 @@ export default function ResultsSheet({
 
         <div className="mt-4">{current ? current.render() : null}</div>
 
-        <button
-          type="button"
-          onClick={() => setShowingCode((v) => !v)}
-          className="mt-5 flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
-          data-testid="results-show-code-toggle"
-        >
-          <Icon name="file" className="h-3.5 w-3.5" />
-          {showingCode ? "Hide the code" : "Show the code"}
-        </button>
-
         {showingCode && (
-          <>
-            <pre
-              className="mt-2 overflow-auto rounded-lg border border-border bg-surface-sunken p-3 text-meta leading-relaxed text-foreground"
-              data-testid="results-code"
-            >
-              <code>{code}</code>
-            </pre>
-            <p className="mt-2 max-w-xl text-meta text-foreground-muted">
-              Every analysis can show the exact open-source code that reproduces
-              it, so you can paste it into a notebook and get the same numbers
-              rather than trust a black box.
-            </p>
-          </>
+          <div className="mt-5" data-testid="results-code">
+            <CodePanel
+              code={code}
+              caption="Every analysis can show the exact open-source code that reproduces it, so you can paste it into a notebook and get the same numbers rather than trust a black box."
+              testId="results-code-panel"
+            />
+          </div>
         )}
       </div>
     </div>
