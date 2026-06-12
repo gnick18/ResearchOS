@@ -58,6 +58,7 @@ import {
 import { makeDataHubGraphTool } from "./datahub-graph";
 import { listNotesTool, writeNoteTool } from "./write-note";
 import { searchMyWorkTool } from "./search-my-work";
+import { searchLiteratureTool } from "./search-literature";
 import {
   createExperimentTool,
   rescheduleExperimentTool,
@@ -197,6 +198,11 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // (create_molecule and import_molecule) live in ACTION_TOOLS below because they
   // create a new library record and go through the approval gate.
   searchPubChemTool,
+  // search_literature is read-only (a network read to Europe PMC, a public
+  // bibliographic database; no local write). It finds published papers the model
+  // can cite or, on a separate user-approved write_note, pull into a note. The
+  // model only relays what Europe PMC returns and never invents a paper or a DOI.
+  searchLiteratureTool,
   // Cloning coworker READ tools. list_sequences gives the model real sequence ids
   // + feature names; read_sequence_features returns one sequence's full annotation
   // list (with coordinates + strand) so the model can pick a region to extract.
