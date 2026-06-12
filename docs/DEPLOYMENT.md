@@ -90,6 +90,7 @@ https://<your-domain>/api/auth/callback/<provider>
 | `NEXT_PUBLIC_APP_ORIGIN` | for sharing | Production origin (no trailing slash); builds links in OTP/invite emails. |
 | `NEXT_PUBLIC_DISABLE_V4_TOUR` | optional | `true` suppresses the onboarding tour. |
 | `NEXT_PUBLIC_COLLAB_RELAY_URL` | optional | Real-time collab relay (Phase 3, not launched). Leave unset; when set to a `wss://` origin it is auto-added to the CSP `connect-src`. |
+| `NEXT_PUBLIC_OAUTH_FIRST_LOGIN` | optional | `true` shows the redesigned OAuth-first login as the entry surface; unset/`false` shows the legacy chooser. Bakes at build, so a redeploy is required after changing it. **Built and verified locally 2026-06-11, not yet set in Vercel. Set to `true` (Production) at the next deploy to ship the new login.** The welcome rebuild and settings redesign are code, not gated by this, and ship with the deploy regardless. |
 
 ### Auto-set by Vercel — do nothing
 
@@ -99,6 +100,10 @@ hardcoded in the page, so they need no runtime env (`BLOB_READ_WRITE_TOKEN` is
 only needed to re-upload them).
 
 ## Launch checklist
+
+### Pending for the next deploy
+
+- [ ] **Set `NEXT_PUBLIC_OAUTH_FIRST_LOGIN=true` (Production) in Vercel** to turn on the redesigned login. It is built and verified locally but not yet set in Vercel, so prod still serves the legacy chooser. It bakes at build, so it only takes effect on the redeploy. Decided 2026-06-11 to wait until push so an unverified redesign was never live for real visitors. (The welcome rebuild and settings redesign are code and ship with the deploy regardless.)
 
 If sign-in or sharing breaks on a fresh deploy, check these first:
 
