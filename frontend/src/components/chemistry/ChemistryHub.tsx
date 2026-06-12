@@ -830,8 +830,11 @@ export function ChemistryHub({
             </p>
           ) : isLoading ? (
             <p className="px-3 py-6 text-meta text-foreground-muted">Loading...</p>
-          ) : searchMode === "structure" ? (
-            /* -- Structure search results -- */
+          ) : searchMode === "structure" && debouncedStructureQuery.trim() ? (
+            /* -- Structure search results. Only render these once a query is
+               actually entered. A blank structure box falls through to the full
+               library below, so switching into structure mode never blanks the
+               list (an empty filter shows everything, not nothing). -- */
             structureSearching ? (
               <p className="px-3 py-6 text-meta text-foreground-muted">
                 Searching structures...
@@ -839,12 +842,6 @@ export function ChemistryHub({
             ) : structureError ? (
               <p className="px-3 py-6 text-meta text-red-600 dark:text-red-300">
                 {structureError}
-              </p>
-            ) : !debouncedStructureQuery.trim() ? (
-              <p className="px-3 py-6 text-meta text-foreground-muted">
-                {structureMode === "substructure"
-                  ? "Enter a SMILES or SMARTS fragment above to find molecules that contain it."
-                  : "Enter a SMILES above to rank your library by similarity."}
               </p>
             ) : structureMode === "substructure" &&
               structureSubstructShown !== null ? (
