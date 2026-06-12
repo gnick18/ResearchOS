@@ -957,11 +957,14 @@ export default function DataHubPage() {
               spec={selectedAnalysis}
               content={openContent}
               title={selectedMeta.name}
+              onNewAnalysis={() => setNewAnalysisOpen(true)}
+              onGraphResult={() => setNewGraphOpen(true)}
+              onChangeAnalysis={() => setNewAnalysisOpen(true)}
             />
           ) : selectedMeta && openContent ? (
             <div className="flex min-h-0 flex-1 flex-col">
               {/* Title row, then the workspace toolbar full-bleed, then the
-                  scrollable grid body. The toolbar is the headline surface:
+                  scrollable grid body. The toolbar is the headline surface where
                   Analyze leads (the single most-used Prism move), New graph sits
                   beside it, the Add controls are their own group, and Duplicate /
                   Export / Delete close out table-level actions. */}
