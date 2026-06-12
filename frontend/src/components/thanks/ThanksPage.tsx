@@ -205,15 +205,54 @@ function SponsorWall() {
 
 /* ───────────── open-source teaser groups (link out, do not duplicate) ──── */
 
+// Canonical project homepages for every credited project, so each name in the
+// teaser links straight to its source. The full per-package license inventory
+// (with versions) lives on /open-source; these are the friendly front doors.
+const OSS_URLS: Record<string, string> = {
+  CodeMirror: "https://codemirror.net/",
+  marked: "https://marked.js.org/",
+  unified: "https://unifiedjs.com/",
+  turndown: "https://github.com/mixmark-io/turndown",
+  Konva: "https://konvajs.org/",
+  "react-konva": "https://github.com/konvajs/react-konva",
+  SeqViz: "https://github.com/Lattice-Automation/seqviz",
+  TeselaGen: "https://github.com/TeselaGen/tg-oss",
+  "expr-eval-fork": "https://github.com/jorenbroekema/expr-eval",
+  Biopython: "https://biopython.org/",
+  Recharts: "https://recharts.org/",
+  "frappe-gantt": "https://github.com/frappe/gantt",
+  JSZip: "https://stuk.github.io/jszip/",
+  Zustand: "https://github.com/pmndrs/zustand",
+  "TanStack Query": "https://tanstack.com/query",
+  "date-fns": "https://date-fns.org/",
+  React: "https://react.dev/",
+  "Next.js": "https://nextjs.org/",
+};
+
+// A credited project name rendered as a link to its homepage. Opens in a new
+// tab (it leaves ResearchOS) and keeps the bold treatment so the layout reads
+// the same, just clickable. `label` overrides the visible text when the key
+// differs from what we want on screen (e.g. "TeselaGen" -> "TeselaGen").
+function Oss({ name, label }: { name: keyof typeof OSS_URLS; label?: string }) {
+  return (
+    <a
+      href={OSS_URLS[name]}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="font-semibold text-foreground underline decoration-border underline-offset-2 transition-colors hover:text-brand-action hover:decoration-brand-action"
+    >
+      {label ?? name}
+    </a>
+  );
+}
+
 const OSS_GROUPS: { title: string; body: React.ReactNode }[] = [
   {
     title: "The writing surface",
     body: (
       <>
-        <b className="font-semibold text-foreground">CodeMirror</b>,{" "}
-        <b className="font-semibold text-foreground">marked</b>, the{" "}
-        <b className="font-semibold text-foreground">unified</b> remark/rehype
-        pipeline, <b className="font-semibold text-foreground">turndown</b>
+        <Oss name="CodeMirror" />, <Oss name="marked" />, the{" "}
+        <Oss name="unified" /> remark/rehype pipeline, <Oss name="turndown" />
       </>
     ),
   },
@@ -221,10 +260,8 @@ const OSS_GROUPS: { title: string; body: React.ReactNode }[] = [
     title: "Sequence and cloning",
     body: (
       <>
-        <b className="font-semibold text-foreground">Konva</b> and{" "}
-        <b className="font-semibold text-foreground">react-konva</b>, plus
-        vendored <b className="font-semibold text-foreground">SeqViz</b> and{" "}
-        <b className="font-semibold text-foreground">TeselaGen</b> bio-parsers
+        <Oss name="Konva" /> and <Oss name="react-konva" />, plus vendored{" "}
+        <Oss name="SeqViz" /> and <Oss name="TeselaGen" /> bio-parsers
       </>
     ),
   },
@@ -232,9 +269,8 @@ const OSS_GROUPS: { title: string; body: React.ReactNode }[] = [
     title: "Calculators and math",
     body: (
       <>
-        <b className="font-semibold text-foreground">expr-eval-fork</b>, and a
-        primer Tm ported from{" "}
-        <b className="font-semibold text-foreground">Biopython</b>
+        <Oss name="expr-eval-fork" />, and a primer Tm ported from{" "}
+        <Oss name="Biopython" />
       </>
     ),
   },
@@ -242,12 +278,8 @@ const OSS_GROUPS: { title: string; body: React.ReactNode }[] = [
     title: "Charts, files, and state",
     body: (
       <>
-        <b className="font-semibold text-foreground">Recharts</b>,{" "}
-        <b className="font-semibold text-foreground">frappe-gantt</b>,{" "}
-        <b className="font-semibold text-foreground">JSZip</b>,{" "}
-        <b className="font-semibold text-foreground">Zustand</b>,{" "}
-        <b className="font-semibold text-foreground">TanStack Query</b>,{" "}
-        <b className="font-semibold text-foreground">date-fns</b>
+        <Oss name="Recharts" />, <Oss name="frappe-gantt" />, <Oss name="JSZip" />,{" "}
+        <Oss name="Zustand" />, <Oss name="TanStack Query" />, <Oss name="date-fns" />
       </>
     ),
   },
@@ -255,8 +287,7 @@ const OSS_GROUPS: { title: string; body: React.ReactNode }[] = [
     title: "The framework",
     body: (
       <>
-        <b className="font-semibold text-foreground">React</b> and{" "}
-        <b className="font-semibold text-foreground">Next.js</b>
+        <Oss name="React" /> and <Oss name="Next.js" />
       </>
     ),
   },
@@ -264,7 +295,8 @@ const OSS_GROUPS: { title: string; body: React.ReactNode }[] = [
     title: "Code we recycle",
     body: (
       <>
-        SeqViz (MIT), TeselaGen bio-parsers (MIT), the Biopython Tm port (BSD),
+        <Oss name="SeqViz" /> (MIT), <Oss name="TeselaGen" label="TeselaGen bio-parsers" />{" "}
+        (MIT), the <Oss name="Biopython" label="Biopython Tm port" /> (BSD),
         carried with their licenses
       </>
     ),
