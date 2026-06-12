@@ -129,7 +129,12 @@ export type RunAgentLoopResult = {
   messages: LoopMessage[];
 };
 
-const DEFAULT_MAX_ITERATIONS = 5;
+// A whole-plan pipeline (filter, then a test, then a plot, then a note) runs
+// several tools back to back, and each tool typically costs two rounds (a
+// list_* read to resolve ids, then the tool itself), plus the plan round and a
+// final summary. Five was too few and halted multi-step runs partway. Twelve
+// covers a four-step pipeline with margin while still bounding a runaway model.
+const DEFAULT_MAX_ITERATIONS = 12;
 
 const GUARD_MESSAGE =
   "BeakerBot stopped after several steps without reaching a clear answer. Try asking again, or narrow the question.";
