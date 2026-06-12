@@ -36,6 +36,9 @@ const EMBED_RENDERERS: Partial<
   molecule: lazy(() => import("./MoleculeEmbed")),
   datahub: lazy(() => import("./DataHubEmbed")),
   sequence: lazy(() => import("./SequenceEmbed")),
+  note: lazy(() => import("./NoteEmbed")),
+  method: lazy(() => import("./MethodEmbed")),
+  project: lazy(() => import("./ProjectEmbed")),
 };
 
 const TYPE_ICON: Record<ObjectRefType, IconName> = {
