@@ -151,6 +151,46 @@ A user can pin one embed to freeze it as a record of a moment (a figure as it wa
 
 Pinning is a later phase, the v1 ships live-only.
 
+A pinned embed shows a quiet "source changed since you pinned this" badge when the live source has moved on, with view-current and re-pin actions, so a frozen record never silently rots.
+
+## Captions and numbering
+
+Every figure or table embed carries an optional caption, and the link text doubles as it. `[Welch t-test of endpoint OD, YPD vs glucose](/datahub?doc=2&analysis=a3#ros=result)` renders the card with that line as its caption, and the same text is what shows as a plain link outside the tool, so no new syntax is needed. For an image the caption is the native alt text. Captions are what bake into a published figure or table caption.
+
+Embeds can auto-number in document order (Figure 1, Table 2), and an inline mention can reference the number ("see Figure 1"), recomputed as the note changes. This is what makes a note read like a paper draft.
+
+## Export and publish baking
+
+In the app an embed is live. The moment a note leaves the app, exported to PDF, published to `/transparency`, deposited to Zenodo, sent as a static copy, every embed must bake to a self-contained rendering so the artifact keeps its figures with no app and no data folder:
+
+- maps, plots, and structures bake to SVG / PNG, tables and CSV views to real tables, results to a static stat block, images to embedded image data with annotations flattened in.
+- the caption and figure number travel with the baked figure.
+- the original live link is preserved as a small source line ("source: /sequences?seq=2") so a reader still inside ResearchOS can jump to the live object.
+
+The note on disk stays live markdown, baking produces a separate output and never rewrites the source. This is essential because publishing and reproducibility are core to ResearchOS, a published note that lost its figures would defeat the point.
+
+## Backlinks (Referenced in)
+
+Every object gets a "Referenced in" list, the notes, experiments, and methods that embed or mention it. This generalizes the existing `scanMoleculeBacklinks` into one scanner that understands every embed form (object links and native images). It answers "which of my notes use this construct", "where is this result cited", and it is the reverse of the embed graph, embeds point forward, backlinks walk back.
+
+## Sharing a note that contains embeds
+
+Embeds create dependencies, so sharing has to be dependency-aware:
+
+- **Share-time warning.** When a note is shared, if it embeds objects the recipient will not be able to see, warn the sharer ("this note links to N items the recipient cannot access") before sending.
+- **Share with dependencies, as one package.** Optionally bundle the note plus everything it embeds, sequences, molecules, tables, files, into a single package sent over the existing cross-boundary relay (end to end, ephemeral, never stored). The recipient accepts the package and chooses, per item or in bulk, which collection on their own machine each thing lands in.
+- **Permission-aware rendering.** In a shared note an embed of an object the viewer cannot access renders a calm "shared by X, no access" placeholder carrying only the name and type, never the underlying data.
+- **Inbound shares are project-less.** A shared individual item does not inherit the sharer's project. It arrives project-less, grouped under "shared by X" (the received-from view), and the user files it into their own collections later. A project travels with the share only when the WHOLE project is shared, then its membership comes along. The cross-boundary transfer path already drops the sender's project_ids and lands items Unfiled or recipient-chosen, so it already matches this rule, the change is the same-folder share case where a shared item currently shows under its owner's project.
+
+## Transclusion (section embeds)
+
+Beyond whole-object embeds, a note can transclude a SECTION of another note, `![[note#heading]]`-style, rendered live. A standard protocol snippet or a shared methods paragraph is written once and reused everywhere, edit the source and every transclusion updates. Depth-guarded like the note embed.
+
+## Mobile and accessibility
+
+- Mobile and the companion render embeds read-only at least, so a shared note reads correctly on a phone.
+- Every embed carries alt / aria text and is keyboard-focusable, and the baked output keeps figure / table semantics for screen readers and for the published PDF.
+
 ## Insertion UX
 
 The `/` picker (`ReferencePicker`, pull) and the "Send to" picker (`SendReferencePicker`, push) currently insert `[name](/path)`. They gain a light Mention / Embed choice:
@@ -158,6 +198,8 @@ The `/` picker (`ReferencePicker`, pull) and the "Send to" picker (`SendReferenc
 - Default by context: inserting on an empty line creates a block Embed with the type's default view, inserting mid-sentence creates an inline Mention.
 - A small toggle lets the user override, and for embeds a one-tap view switch (map / features / seq for a sequence, table / summary for a table, and so on).
 - The fragment is appended to the link the picker already builds, so the rest of the pipeline is unchanged.
+- Beyond the picker: drag an object from its library onto the editor to embed it, paste a deep link to upgrade it to an embed, paste a SMILES to create a molecule embed.
+- BeakerBot can author embeds ("add the endpoint t-test here") and read the embeds already in a note as context, reusing the artifact index it already builds.
 
 ## Robustness
 
@@ -168,16 +210,21 @@ The `/` picker (`ReferencePicker`, pull) and the "Send to" picker (`SendReferenc
 
 ## Phasing (to minimize regressions)
 
-1. **Phase 0, format + parser.** `#ros` fragment grammar, `parseObjectEmbed(href)`, extend the deep-link builders to carry a view, tighten name escaping. Fully backward compatible (no fragment means chip).
-2. **Phase 1, preview block embeds + insertion.** `ObjectEmbed` component and the per-type renderers for the highest-value types (sequence, molecule, Data Hub table, Data Hub plot, Data Hub result). The picker gains Mention / Embed. Preview only.
+1. **Phase 0, format + parser.** `#ros` fragment grammar, `parseObjectEmbed(href)`, extend the deep-link builders to carry a view, tighten name escaping, captions via link text. Fully backward compatible (no fragment means chip).
+2. **Phase 1, preview block embeds + insertion.** `ObjectEmbed` component and the per-type renderers for the highest-value types (sequence, molecule, Data Hub table, Data Hub plot, Data Hub result, image). The picker gains Mention / Embed, plus drag and paste. Captions + auto-numbering. Preview only.
 3. **Phase 2, editor live preview.** CodeMirror block + inline widgets so embeds show while editing. This is the heaviest engineering piece and the most of the Notion feel.
-4. **Phase 3, remaining types.** method, purchase, inventory, experiment-results, note, file, project.
-5. **Phase 4, pin + view switching polish.** Snapshot / pin, the in-place view switcher, hover-card previews on chips.
+4. **Phase 3, remaining types.** method, purchase, inventory, experiment-results, note, file (pdf / csv / notebook), project.
+5. **Phase 4, backlinks + share safety.** The system-wide "Referenced in" scanner, permission-aware rendering in shared notes, and the share-time dependency warning.
+6. **Phase 5, export and publish baking.** Freeze embeds to self-contained figures / tables for PDF export and for the publish / Zenodo / transparency paths, with captions and numbers.
+7. **Phase 6, share with dependencies.** Bundle a note plus its embedded objects into one cross-boundary package, recipient chooses where each lands, and reconcile the same-folder share case to the project-less inbound rule.
+8. **Phase 7, polish.** Pin + staleness badge, transclusion, in-place view switching, chip hover-card previews, BeakerBot authoring, mobile + accessibility passes.
 
-Each phase lands behind the same additive pipeline, so an existing note with plain links is never affected until the user inserts an embed.
+Each phase lands behind the same additive pipeline, so an existing note with plain links is never affected until the user inserts an embed. Phases 0 to 3 are the embed system itself, 4 to 7 are what make it safe to share, publish, and reuse.
 
 ## Open questions for the mockup review
 
 - Card density and chrome, how much border / header each embed card carries vs a borderless inline look.
 - Default views per type (is a sequence's default `map` or `features`, is a molecule's default bare `structure` or the identity `card`).
-- Whether inline chips should get a hover-card preview in Phase 1 or wait for Phase 4.
+- Whether inline chips should get a hover-card preview in Phase 1 or wait for Phase 7.
+- Caption mechanism, the link text doubling as the caption (proposed) vs an explicit trailing caption line, and whether auto-numbering is on by default or opt-in per note.
+- Share-with-dependencies default, does the share-time warning offer to bundle in one click, and does a bundle default to including all dependencies or let the sharer pick.
