@@ -341,6 +341,75 @@ def ref_rm_anova():
     }
 
 
+def ref_mixed_model():
+    # Random-intercept linear mixed model on REPEATED reshaped to long form (rows
+    # = subjects, columns = the within-subject conditions P, Q, R). The fixed
+    # effect is the treatment-coded condition (P the reference), the random
+    # intercept groups by subject. statsmodels MixedLM defaults to REML; we keep
+    # that default and request a random intercept (re_formula="1"). We print every
+    # fixed-effect coefficient / SE / z / p / 95% CI, both variance components
+    # (the random-intercept group variance and the residual variance), and the
+    # REML log-likelihood. The fixed effects are stable across implementations;
+    # the variance components and the log-likelihood come from a numeric optimum
+    # and can wobble slightly, so the gate pins them with an honest looser band.
+    import pandas as pd
+
+    rows = []
+    for subj, triple in enumerate(REPEATED):
+        for ci, cond in enumerate(REPEATED_LABELS):
+            rows.append({"subject": subj, "condition": cond, "value": triple[ci]})
+    df = pd.DataFrame(rows)
+    # Treatment-code condition with the first label as the reference so the
+    # coefficients match the engine (intercept = reference mean, each other
+    # coefficient = that condition minus the reference).
+    df["condition"] = pd.Categorical(
+        df["condition"], categories=REPEATED_LABELS, ordered=False
+    )
+
+    md = sm.MixedLM.from_formula(
+        "value ~ C(condition)", groups="subject", re_formula="1", data=df
+    )
+    mdf = md.fit(reml=True, method="lbfgs")
+
+    fixed = []
+    params = mdf.fe_params
+    bse = mdf.bse_fe
+    tvals = mdf.tvalues
+    pvals = mdf.pvalues
+    ci = mdf.conf_int()
+    for name in params.index:
+        est = float(params[name])
+        se = float(bse[name])
+        z = float(tvals[name])
+        p = float(pvals[name])
+        lo = float(ci.loc[name][0])
+        hi = float(ci.loc[name][1])
+        fixed.append({
+            "name": name,
+            "estimate": r4(est),
+            "se": r4(se),
+            "z": r4(z),
+            "p": r4(p),
+            "ci_low": r4(lo),
+            "ci_high": r4(hi),
+        })
+
+    # cov_re is the random-effects covariance in units of the residual variance;
+    # statsmodels reports group_var = cov_re[0,0] * scale and residual = scale.
+    group_var = float(mdf.cov_re.iloc[0, 0])
+    residual = float(mdf.scale)
+    loglike = float(mdf.llf)
+
+    return {
+        "fixed_effects": fixed,
+        "group_var": r4(group_var),
+        "residual_var": r4(residual),
+        "reml_loglike": r4(loglike),
+        "groups": int(df["subject"].nunique()),
+        "observations": int(len(df)),
+    }
+
+
 def ref_correlation_regression():
     out = {}
     p = st.pearsonr(XY_X, XY_Y)
@@ -1074,6 +1143,7 @@ def main():
     refs.update({"anova_twoway": ref_anova_twoway()})
     refs.update({"kruskal_friedman": ref_kruskal_friedman()})
     refs.update({"rm_anova": ref_rm_anova()})
+    refs.update({"mixed_model": ref_mixed_model()})
     refs.update({"correlation_regression": ref_correlation_regression()})
     refs.update({"logistic_regression": ref_logistic_regression()})
     refs.update({"multiple_regression": ref_multiple_regression()})

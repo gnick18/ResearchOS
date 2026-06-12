@@ -83,6 +83,12 @@ const TYPE_META: Record<
       "Compare three or more conditions measured on the same subjects, row by row. Reports the condition F, partial eta-squared, and the Greenhouse-Geisser and Huynh-Feldt sphericity corrections. Use this when each row is one subject and each column is a condition.",
     groupCount: "all",
   },
+  linearMixedModel: {
+    label: "Linear mixed model",
+    blurb:
+      "Fit a random-intercept mixed model to three or more conditions measured on the same subjects, row by row. Reports each condition as a fixed effect against the first (the reference), with its standard error, z, p, and 95% interval, plus the between-subject and residual variance. The regression cousin of the repeated-measures ANOVA, fit by REML.",
+    groupCount: "all",
+  },
   multipleRegression: {
     label: "Multiple linear regression",
     blurb:

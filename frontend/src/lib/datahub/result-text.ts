@@ -99,6 +99,30 @@ export function resultToText(result: NormalizedResult): string {
       );
       break;
     }
+    case "mixedModel": {
+      lines.push(row("Term", "Estimate", "SE", "z", "p", "95% CI"));
+      for (const c of result.fixedEffects) {
+        lines.push(
+          row(
+            c.name,
+            n(c.estimate, 6),
+            n(c.standardError, 6),
+            n(c.z, 4),
+            formatP(c.pValue),
+            ci([c.ciLow, c.ciHigh]),
+          ),
+        );
+      }
+      lines.push(
+        "",
+        row("Between-subject variance (sigma_u^2)", n(result.groupVariance, 6)),
+        row("Residual variance (sigma_e^2)", n(result.residualVariance, 6)),
+        row("REML log-likelihood", n(result.remlLogLikelihood, 4)),
+        row("Subjects (groups)", n(result.subjects, 0)),
+        row("Observations", n(result.observations, 0)),
+      );
+      break;
+    }
     case "survival": {
       lines.push(row("Group", "Subjects", "Events", "Median survival"));
       for (const g of result.groups) {

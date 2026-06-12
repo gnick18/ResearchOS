@@ -24,6 +24,7 @@ import type {
   NormalizedRegression,
   NormalizedResult,
   NormalizedRmAnova,
+  NormalizedMixedModel,
   NormalizedSurvival,
   NormalizedCoxRegression,
   NormalizedTTest,
@@ -928,6 +929,50 @@ print(f"Greenhouse-Geisser epsilon = {eff['eps']:.4g}, p-GG = {eff['p_GG_corr']:
 print(f"Huynh-Feldt epsilon = {hf_eps:.4g}")`;
 }
 
+function mixedModelCode(r: NormalizedMixedModel): string {
+  const gv = groupVars(r.groups);
+  const assigns = gv
+    .map((o) => `${o.var} = ${pyList(o.group.values)}`)
+    .join("\n");
+  const condArrays = gv.map((o) => o.var.trim()).join(", ");
+  const condNames = gv.map((o) => pyStr(o.group.name.trim())).join(", ");
+  return `import numpy as np
+import pandas as pd
+import statsmodels.api as sm
+
+# Each array is one within-subject condition; row i is the same subject i.
+${assigns}
+
+conditions = [${condArrays}]
+labels = [${condNames}]
+n = len(conditions[0])
+
+# Stack into long form (one row per subject-condition) for the mixed model.
+rows = []
+for subj in range(n):
+    for label, values in zip(labels, conditions):
+        rows.append({"subject": subj, "condition": label, "value": values[subj]})
+df = pd.DataFrame(rows)
+
+# Treatment-code condition with the first label as the reference so the
+# intercept is the reference-condition mean and each other coefficient is that
+# condition minus the reference.
+df["condition"] = pd.Categorical(df["condition"], categories=labels)
+
+# Random-intercept linear mixed model, fit by REML (the statsmodels default).
+# The random intercept (re_formula="1") lets each subject have its own baseline.
+md = sm.MixedLM.from_formula(
+    "value ~ C(condition)", groups="subject", re_formula="1", data=df
+)
+mdf = md.fit(reml=True, method="lbfgs")
+print(mdf.summary())
+
+# Variance components and the REML log-likelihood.
+print(f"between-subject variance = {mdf.cov_re.iloc[0, 0]:.6g}")
+print(f"residual variance = {mdf.scale:.6g}")
+print(f"REML log-likelihood = {mdf.llf:.6g}")`;
+}
+
 /**
  * The reproducible Python snippet for a normalized analysis result, with the
  * real group names and values baked in so it reproduces the on-screen numbers.
@@ -935,6 +980,7 @@ print(f"Huynh-Feldt epsilon = {hf_eps:.4g}")`;
 export function showCode(result: NormalizedResult): string {
   if (result.kind === "anova") return anovaCode(result);
   if (result.kind === "rmAnova") return rmAnovaCode(result);
+  if (result.kind === "mixedModel") return mixedModelCode(result);
   if (result.kind === "correlation") return correlationCode(result);
   if (result.kind === "regression") return regressionCode(result);
   if (result.kind === "logisticRegression")
