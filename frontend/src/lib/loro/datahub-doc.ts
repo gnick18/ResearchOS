@@ -54,6 +54,7 @@ import type {
   DataHubDocContent,
   DataHubDocument,
   DataHubTableType,
+  DerivedFrom,
   EntryFormat,
   PlotSpec,
   RowRecord,
@@ -71,6 +72,14 @@ export const META_KEY = "meta";
  * when the key is present and a replicates document never carries the key.
  */
 export const ENTRY_FORMAT_KEY = "entry_format";
+/**
+ * The meta key holding a DERIVED table's source link, JSON-serialized (the
+ * DerivedFrom shape is non-scalar, so it is stored as a string the way analysis
+ * params are). Absent means a normal entered table, so the seed only writes the
+ * key when derivedFrom is present and an entered document never carries it. This
+ * keeps the live link travelling with the doc through the CRDT and the mirror.
+ */
+export const DERIVED_FROM_KEY = "derived_from";
 export const COLUMNS_KEY = "columns";
 export const ROWS_KEY = "rows";
 export const ANALYSES_KEY = "analyses";
@@ -214,6 +223,12 @@ export function seedDataHubDoc(content: DataHubDocContent): Uint8Array {
     content.meta.entryFormat === "mean-sem-n"
   ) {
     meta.set(ENTRY_FORMAT_KEY, content.meta.entryFormat);
+  }
+  // derived_from is written ONLY for a derived table, so an entered document
+  // seeds byte-identically to before this field existed. JSON-serialized because
+  // the DerivedFrom shape is non-scalar.
+  if (content.meta.derivedFrom) {
+    meta.set(DERIVED_FROM_KEY, JSON.stringify(content.meta.derivedFrom));
   }
   meta.set("created_at", content.meta.created_at ?? "");
 
@@ -383,6 +398,22 @@ export function getDataHubContent(doc: LoroDoc, id = ""): DataHubDocContent {
   const entryFormat = asString(meta.get(ENTRY_FORMAT_KEY));
   if (entryFormat === "mean-sd-n" || entryFormat === "mean-sem-n") {
     docMeta.entryFormat = entryFormat as EntryFormat;
+  }
+  // Only emit derivedFrom when the serialized key is present and parses into a
+  // well-formed link, so an entered document projects without the field. A
+  // corrupt / partial value is dropped (treated as an entered table) rather than
+  // crashing the projection.
+  const derived = parseJson<DerivedFrom | null>(meta.get(DERIVED_FROM_KEY), null);
+  if (
+    derived &&
+    typeof derived.sourceTableId === "string" &&
+    typeof derived.transform === "string"
+  ) {
+    docMeta.derivedFrom = {
+      sourceTableId: derived.sourceTableId,
+      transform: derived.transform,
+      params: (derived.params ?? {}) as Record<string, unknown>,
+    };
   }
   return {
     meta: docMeta,

@@ -23,6 +23,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { DATAHUB_ENABLED } from "@/lib/datahub/config";
 import { getDemoMode } from "@/lib/file-system/wiki-capture-mock";
 import { dataHubApi } from "@/lib/datahub/api";
+import { recomputeDerived } from "@/lib/datahub/derived";
 import { projectsApi } from "@/lib/local-api";
 import type {
   CellValue,
@@ -214,6 +215,10 @@ export default function DataHubPage() {
   // doc, then reproject into this state so the grid + footer re-derive. Null
   // until a table is opened.
   const [openContent, setOpenContent] = useState<DataHubDocContent | null>(null);
+  // True when the open table is DERIVED but its source table could not be
+  // resolved (deleted / renamed away). The grid renders an explicit empty state
+  // rather than stale data; for a normal entered table this is always false.
+  const [derivedSourceMissing, setDerivedSourceMissing] = useState(false);
   const handleRef = useRef<DataHubDocHandle | null>(null);
   const openIdRef = useRef<string | null>(null);
 
@@ -338,7 +343,24 @@ export default function DataHubPage() {
       openIdRef.current = id;
       const project = () => {
         if (cancelled) return;
-        setOpenContent(getDataHubContent(handle.doc, id));
+        const projected = getDataHubContent(handle.doc, id);
+        if (!projected.meta.derivedFrom) {
+          // Normal entered table: render the projection as-is (today's behavior).
+          setDerivedSourceMissing(false);
+          setOpenContent(projected);
+          return;
+        }
+        // Derived table: recompute its columns/rows from the source table's
+        // CURRENT content (the live link) before rendering. The recompute runs in
+        // memory on open and never trusts the persisted snapshot. dataHubApi
+        // resolves the source by id across any owner.
+        void recomputeDerived(projected, (sourceId) =>
+          dataHubApi.getContent(sourceId),
+        ).then((result) => {
+          if (cancelled) return;
+          setDerivedSourceMissing(result.sourceMissing);
+          setOpenContent(result.content);
+        });
       };
       project();
       unsub = handle.subscribe(project);
@@ -413,12 +435,18 @@ export default function DataHubPage() {
     (rowId: string, columnId: string, raw: string) => {
       const handle = handleRef.current;
       if (!handle || openIdRef.current == null) return;
+      // A DERIVED table's cells are computed from its source, so they are read
+      // only. Ignore an entered edit rather than writing it into the doc (where
+      // the next recompute would discard it anyway, and persisting it would
+      // corrupt the snapshot). The next phase styles the grid as non-editable;
+      // this guard makes the model correct regardless of the grid styling.
+      if (openContent?.meta.derivedFrom) return;
       const value: CellValue = parseCellInput(raw);
       setCell(handle.doc, rowId, columnId, value);
       void handle.commit();
       setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
     },
-    [],
+    [openContent?.meta.derivedFrom],
   );
 
   // Append a blank replicate row across the existing columns.
