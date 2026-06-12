@@ -367,15 +367,15 @@ async function softDeleteEntity(args: {
  */
 function backfillProjectSourceUuid(project: Project, ownerOverride?: string): Project {
   if (project.source_uuid) return project;
+  // Only backfill records in the current user's own store. A cross-user read
+  // (ownerOverride set) must never mint or write into another user's folder, so
+  // a read never mutates data we do not own and two readers cannot race to stamp
+  // different ids onto one file. That owner backfills their own copy on read.
+  if (ownerOverride) return project;
   const uuid = (typeof crypto !== "undefined" && "randomUUID" in crypto)
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2);
-  const patch: Partial<Project> = { source_uuid: uuid };
-  if (ownerOverride) {
-    void projectsStore.updateForUser(project.id, patch, ownerOverride).catch(() => { /* fire-and-forget */ });
-  } else {
-    void projectsStore.update(project.id, patch).catch(() => { /* fire-and-forget */ });
-  }
+  void projectsStore.update(project.id, { source_uuid: uuid }).catch(() => { /* fire-and-forget */ });
   return { ...project, source_uuid: uuid };
 }
 
@@ -877,15 +877,13 @@ function normalizeTaskRecord(raw: Task): Task {
  */
 function backfillTaskSourceUuid(task: Task, ownerOverride?: string): Task {
   if (task.source_uuid) return task;
+  // Own-store only. A cross-user read (ownerOverride set) never mints or writes
+  // into another user's folder; that owner backfills their own copy on read.
+  if (ownerOverride) return task;
   const uuid = (typeof crypto !== "undefined" && "randomUUID" in crypto)
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2);
-  const patch: Partial<Task> = { source_uuid: uuid };
-  if (ownerOverride) {
-    void tasksStore.updateForUser(task.id, patch, ownerOverride).catch(() => { /* fire-and-forget */ });
-  } else {
-    void tasksStore.update(task.id, patch).catch(() => { /* fire-and-forget */ });
-  }
+  void tasksStore.update(task.id, { source_uuid: uuid }).catch(() => { /* fire-and-forget */ });
   return { ...task, source_uuid: uuid };
 }
 
@@ -2082,18 +2080,22 @@ function normalizeMethodRecord(raw: Method): Method {
  * the caller gets the enriched record immediately. Distinguishes public methods
  * (owner === "public") so the write lands in the right store.
  */
-function backfillMethodSourceUuid(method: Method): Method {
+function backfillMethodSourceUuid(method: Method, currentUser: string): Method {
   if (method.source_uuid) return method;
+  // Own-store only. A read never mints or writes into a public/communal method
+  // ("public" sentinel) or another user's shared method (that owner backfills
+  // their own copy), so a read never mutates a file we do not own and the
+  // identity stays stable. An own method is ownerless (bare own store) or owned
+  // by the current user.
+  const isOwn = !method.owner || method.owner === currentUser;
+  if (method.owner === "public" || !isOwn) return method;
   const uuid = (typeof crypto !== "undefined" && "randomUUID" in crypto)
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2);
-  const patch: Partial<Method> = { source_uuid: uuid };
-  if (method.owner === "public") {
-    void publicMethodsStore.update(method.id, patch).catch(() => { /* fire-and-forget */ });
-  } else if (method.owner) {
-    void methodsStore.updateForUser(method.id, patch, method.owner).catch(() => { /* fire-and-forget */ });
+  if (method.owner) {
+    void methodsStore.updateForUser(method.id, { source_uuid: uuid }, method.owner).catch(() => { /* fire-and-forget */ });
   } else {
-    void methodsStore.update(method.id, patch).catch(() => { /* fire-and-forget */ });
+    void methodsStore.update(method.id, { source_uuid: uuid }).catch(() => { /* fire-and-forget */ });
   }
   return { ...method, source_uuid: uuid };
 }
@@ -2119,11 +2121,13 @@ export const methodsApi = {
   list: async (): Promise<Method[]> => {
     const privateMethods = await methodsStore.listAll();
     const publicMethods = await publicMethodsStore.listAll();
+    const currentUser = (await getCurrentUserCached()) ?? "";
 
-    // Phase 6a: lazy-backfill source_uuid after legacy normalization.
+    // Phase 6a: lazy-backfill source_uuid after legacy normalization. Only the
+    // current user's own methods write through; public/foreign are left as-is.
     const marked = [
-      ...privateMethods.map((m) => backfillMethodSourceUuid(normalizeMethodRecord({ ...m, is_public: false }))),
-      ...publicMethods.map((m) => backfillMethodSourceUuid(normalizeMethodRecord({ ...m, is_public: true }))),
+      ...privateMethods.map((m) => backfillMethodSourceUuid(normalizeMethodRecord({ ...m, is_public: false }), currentUser)),
+      ...publicMethods.map((m) => backfillMethodSourceUuid(normalizeMethodRecord({ ...m, is_public: true }), currentUser)),
     ];
     return marked;
   },
@@ -2135,23 +2139,24 @@ export const methodsApi = {
   // method attachments carry `owner: "public"` per the routing-fix
   // contract (3f8b42d2).
   get: async (id: number, owner?: string): Promise<Method | null> => {
+    const currentUser = (await getCurrentUserCached()) ?? "";
     if (owner === "public") {
       const publicMethod = await publicMethodsStore.get(id);
       // Phase 6a: lazy-backfill source_uuid on read.
       return publicMethod
-        ? backfillMethodSourceUuid(normalizeMethodRecord({ ...publicMethod, is_public: true }))
+        ? backfillMethodSourceUuid(normalizeMethodRecord({ ...publicMethod, is_public: true }), currentUser)
         : null;
     }
     if (owner) {
       const ownerMethod = await methodsStore.getForUser(id, owner);
-      if (ownerMethod) return backfillMethodSourceUuid(normalizeMethodRecord({ ...ownerMethod, is_public: false }));
+      if (ownerMethod) return backfillMethodSourceUuid(normalizeMethodRecord({ ...ownerMethod, is_public: false }), currentUser);
       return null;
     }
     const method = await methodsStore.get(id);
-    if (method) return backfillMethodSourceUuid(normalizeMethodRecord({ ...method, is_public: false }));
+    if (method) return backfillMethodSourceUuid(normalizeMethodRecord({ ...method, is_public: false }), currentUser);
 
     const publicMethod = await publicMethodsStore.get(id);
-    if (publicMethod) return backfillMethodSourceUuid(normalizeMethodRecord({ ...publicMethod, is_public: true }));
+    if (publicMethod) return backfillMethodSourceUuid(normalizeMethodRecord({ ...publicMethod, is_public: true }), currentUser);
 
     return null;
   },
@@ -5389,15 +5394,13 @@ function healLegacyNoteShare(note: Note): Note {
  */
 function backfillNoteSourceUuid(note: Note, ownerOverride?: string): Note {
   if (note.source_uuid) return note;
+  // Own-store only. A cross-user read (ownerOverride set) never mints or writes
+  // into another user's folder; that owner backfills their own copy on read.
+  if (ownerOverride) return note;
   const uuid = (typeof crypto !== "undefined" && "randomUUID" in crypto)
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2);
-  const patch: Partial<Note> = { source_uuid: uuid };
-  if (ownerOverride) {
-    void notesStore.updateForUser(note.id, patch, ownerOverride).catch(() => { /* fire-and-forget */ });
-  } else {
-    void notesStore.update(note.id, patch).catch(() => { /* fire-and-forget */ });
-  }
+  void notesStore.update(note.id, { source_uuid: uuid }).catch(() => { /* fire-and-forget */ });
   return { ...note, source_uuid: uuid };
 }
 
