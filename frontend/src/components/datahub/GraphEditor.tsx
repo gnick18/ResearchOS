@@ -26,6 +26,7 @@ import PaletteStudio from "@/components/datahub/PaletteStudio";
 import StyledSelect from "@/components/datahub/StyledSelect";
 import PlotColorPicker from "@/components/datahub/PlotColorPicker";
 import PlotColorEditor from "@/components/datahub/PlotColorEditor";
+import ScrollableNumberInput from "@/components/datahub/ScrollableNumberInput";
 import type {
   AnalysisSpec,
   DataHubDocContent,
@@ -232,26 +233,26 @@ function FigureSizeControls({
   return (
     <div data-testid="datahub-figure-size">
       <Ctl label="Width">
-        <input
-          type="number"
+        <ScrollableNumberInput
           min={0}
+          max={unit === "px" ? 8000 : unit === "cm" ? 200 : 80}
           step={unit === "px" ? 10 : 0.1}
           value={dispW}
-          onChange={(e) => setWidth(Number(e.target.value))}
+          onChange={setWidth}
           className={numClass}
-          aria-label="Figure width"
+          ariaLabel="Figure width"
           data-testid="datahub-size-width"
         />
       </Ctl>
       <Ctl label="Height">
-        <input
-          type="number"
+        <ScrollableNumberInput
           min={0}
+          max={unit === "px" ? 8000 : unit === "cm" ? 200 : 80}
           step={unit === "px" ? 10 : 0.1}
           value={dispH}
-          onChange={(e) => setHeight(Number(e.target.value))}
+          onChange={setHeight}
           className={numClass}
-          aria-label="Figure height"
+          ariaLabel="Figure height"
           data-testid="datahub-size-height"
         />
       </Ctl>
@@ -283,17 +284,16 @@ function FigureSizeControls({
         </button>
       </Ctl>
       <Ctl label="Export DPI">
-        <input
-          type="number"
+        <ScrollableNumberInput
           min={72}
-          step={50}
+          max={1200}
+          step={10}
           value={dpi}
-          onChange={(e) => {
-            const v = Number(e.target.value);
+          onChange={(v) => {
             if (Number.isFinite(v) && v > 0) onStyleChange({ dpi: Math.round(v) });
           }}
           className={numClass}
-          aria-label="Export DPI"
+          ariaLabel="Export DPI"
           data-testid="datahub-size-dpi"
         />
       </Ctl>
