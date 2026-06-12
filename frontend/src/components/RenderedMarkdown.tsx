@@ -112,7 +112,11 @@ export default function RenderedMarkdown({
     let cancelled = false;
     (async () => {
       const newPairs: Array<[string, string]> = [];
-      for (const src of srcs) {
+      for (const rawKey of srcs) {
+        // Strip the display-only #w= fragment before resolution so the
+        // file-system path does not contain the fragment and the map key
+        // matches what the img override will look up.
+        const src = rawKey.replace(/#w=\d+(?:#.*)?$/, "");
         if (!blobUrlResolver.isLocalPath(src)) continue;
         const resolvedPath = blobUrlResolver.resolvePath(src, basePath, ownerUsername);
         const cached = blobUrlResolver.getCachedUrl(resolvedPath);
@@ -184,10 +188,23 @@ export default function RenderedMarkdown({
             );
           },
           img: ({ src, alt, ...props }) => {
-            const originalSrc = String(src || "");
+            const rawSrc = String(src || "");
+            // Strip the #w=<number> fragment BEFORE resolution so the path
+            // matches what the blob-URL cache keyed on. The fragment is a
+            // display-only hint; it must never reach the file-system resolver.
+            const wMatch = rawSrc.match(/#w=(\d+)(?:#.*)?$/);
+            const embedWidth = wMatch ? parseInt(wMatch[1], 10) : undefined;
+            const originalSrc = embedWidth !== undefined
+              ? rawSrc.slice(0, rawSrc.indexOf("#w="))
+              : rawSrc;
             const resolvedSrc = resolvedBlobUrls.get(originalSrc) ?? originalSrc;
             const annotFilename = filenameFromMarkdownSrc(originalSrc);
-            return (
+            const hasCaption = typeof alt === "string" && alt.length > 0;
+            const figureStyle: React.CSSProperties | undefined =
+              embedWidth !== undefined
+                ? { margin: 0, maxWidth: embedWidth }
+                : undefined;
+            const imageElement = (
               <>
                 <AnnotatedImage
                   src={resolvedSrc}
@@ -195,12 +212,44 @@ export default function RenderedMarkdown({
                   basePath={basePath}
                   filename={annotFilename ?? undefined}
                   className="max-w-full rounded-lg"
+                  style={embedWidth !== undefined ? { maxWidth: "100%" } : undefined}
                   {...props}
                 />
                 {/* Scanned handwriting: hidden editable OCR text reveal under
                     the enhanced image. Null for normal images. */}
                 <OcrReveal basePath={basePath} filename={annotFilename ?? undefined} />
               </>
+            );
+            if (!hasCaption && embedWidth === undefined) {
+              // Zero-change path: no alt, no #w -> render exactly as before.
+              return imageElement;
+            }
+            // Use a <span> with display:block rather than <figure> to avoid
+            // invalid block-in-inline nesting inside ReactMarkdown's <p> wrapper.
+            return (
+              <span
+                style={{
+                  display: "block",
+                  margin: 0,
+                  ...(embedWidth !== undefined ? { maxWidth: embedWidth } : {}),
+                }}
+                data-image-embed="true"
+              >
+                {imageElement}
+                {hasCaption && (
+                  <span
+                    data-image-caption="true"
+                    style={{
+                      display: "block",
+                      fontSize: "0.85em",
+                      color: "var(--color-text-secondary, #6b7280)",
+                      marginTop: "0.25rem",
+                    }}
+                  >
+                    {alt}
+                  </span>
+                )}
+              </span>
             );
           },
         }}

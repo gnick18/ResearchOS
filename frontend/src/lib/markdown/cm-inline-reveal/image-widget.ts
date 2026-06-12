@@ -75,7 +75,18 @@ export class ImageWidget extends WidgetType {
     wrap.innerHTML = renderImageHtml(this.source);
     const img = wrap.querySelector("img");
     if (img) {
-      const originalSrc = img.getAttribute("src") ?? "";
+      const rawSrc = img.getAttribute("src") ?? "";
+      // Strip the display-only #w=<number> fragment BEFORE the blob resolver
+      // sees the path. Parse the width out first.
+      const wMatch = rawSrc.match(/#w=(\d+)(?:#.*)?$/);
+      const embedWidth = wMatch ? parseInt(wMatch[1], 10) : undefined;
+      const originalSrc = embedWidth !== undefined
+        ? rawSrc.slice(0, rawSrc.indexOf("#w="))
+        : rawSrc;
+      if (embedWidth !== undefined) {
+        img.setAttribute("src", originalSrc);
+        img.style.maxWidth = `${embedWidth}px`;
+      }
       if (originalSrc && blobUrlResolver.isLocalPath(originalSrc)) {
         // Local path: placeholder now, blob URL when the async read returns.
         img.setAttribute("data-orig-src", originalSrc);
@@ -91,6 +102,19 @@ export class ImageWidget extends WidgetType {
             if (url && img.isConnected) img.setAttribute("src", url);
           });
         }
+      }
+      // When alt text is present, append a figcaption after the img so the
+      // editor widget mirrors the preview caption. The caption is a sibling
+      // inside the same span wrapper (a block-level figure would break the
+      // inline span context).
+      const altText = img.getAttribute("alt") ?? "";
+      if (altText.length > 0) {
+        const caption = document.createElement("figcaption");
+        caption.className = "cm-image-caption";
+        caption.textContent = altText;
+        caption.style.cssText =
+          "font-size:0.85em;color:var(--color-text-secondary,#6b7280);margin-top:0.25rem;display:block";
+        wrap.appendChild(caption);
       }
     }
     return wrap;
