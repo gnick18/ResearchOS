@@ -1178,6 +1178,177 @@ export const runLogisticRegressionTool: AiTool = {
 };
 
 // ---------------------------------------------------------------------------
+// global_fit (XY table with 2+ Y columns, maps to the globalFit engine)
+// ---------------------------------------------------------------------------
+
+/** The curve model a global fit shares parameters across. */
+export type GlobalFitModel = "logistic4pl" | "logistic5pl";
+/** The shared-parameter preset (which parameters are global vs per-curve). */
+export type GlobalFitShare = "hill-top-bottom" | "hill" | "top-bottom" | "all-but-ec50";
+
+/** The model-supplied args for global_fit. */
+export type GlobalFitArgs = {
+  tableId: string;
+  model: GlobalFitModel;
+  share: GlobalFitShare;
+};
+
+/** The compact result global_fit relays. */
+export type GlobalFitToolResult =
+  | {
+      ok: true;
+      table: string;
+      model: GlobalFitModel;
+      share: GlobalFitShare;
+      datasetNames: string[];
+      nDatasets: number;
+      nTotal: number;
+      nParams: number;
+      rSquared: number;
+      /** The full normalized result (shared params + per-curve local EC50s). */
+      fit: Extract<RunOutcome, { kind: "globalFit" }>;
+      analysisId: string;
+    }
+  | { ok: false; error: string };
+
+/** Parse the loose args into typed GlobalFitArgs, defaulting to the pharmacology
+ *  standard (4PL, Hill + Top + Bottom shared, EC50 local). Pure. */
+export function parseGlobalFitArgs(args: Record<string, unknown>): GlobalFitArgs {
+  const model: GlobalFitModel = args.model === "logistic5pl" ? "logistic5pl" : "logistic4pl";
+  const share: GlobalFitShare =
+    args.share === "hill" ||
+    args.share === "top-bottom" ||
+    args.share === "all-but-ec50"
+      ? args.share
+      : "hill-top-bottom";
+  return {
+    tableId: typeof args.tableId === "string" ? args.tableId : "",
+    model,
+    share,
+  };
+}
+
+/**
+ * Build a globalFit spec for the request against live content and run it through
+ * the SAME runAnalysis path the wizard uses. Global fitting shares parameters
+ * across EVERY Y column of an XY table (the engine reads them all), so the table
+ * must be XY with two or more Y columns. The spec carries all Y ids in
+ * inputs.columnIds for record-keeping (the engine reads the columns regardless),
+ * and the model only picks the curve model + the share preset. Pure given the
+ * content.
+ */
+export function buildGlobalFit(
+  content: DataHubDocContent,
+  parsed: GlobalFitArgs,
+):
+  | { ok: true; spec: AnalysisSpec; result: Extract<GlobalFitToolResult, { ok: true }> }
+  | { ok: false; error: string } {
+  if (!isXYTable(content)) {
+    return {
+      ok: false,
+      error:
+        "Global fitting runs on an XY table (a shared X column plus two or more Y curves), and that table is not one. Pick an XY table with several Y columns.",
+    };
+  }
+  const ys = yColumns(content);
+  if (ys.length < 2) {
+    return {
+      ok: false,
+      error:
+        "Global fitting needs at least 2 Y datasets to share parameters across. That table has fewer than two Y columns.",
+    };
+  }
+
+  const spec: AnalysisSpec = {
+    id: `analysis-${Date.now()}`,
+    type: "globalFit",
+    params: { model: parsed.model, share: parsed.share },
+    inputs: { columnIds: ys.map((c) => c.id) },
+    resultCache: null,
+    resultStale: false,
+  };
+
+  const outcome = runAnalysis(spec, content);
+  if (!outcome.ok) return { ok: false, error: outcome.error };
+  if (outcome.kind !== "globalFit") {
+    return { ok: false, error: "The engine did not return a global fit." };
+  }
+  spec.resultCache = outcome;
+
+  const result: Extract<GlobalFitToolResult, { ok: true }> = {
+    ok: true,
+    table: content.meta.name,
+    model: outcome.model,
+    share: parsed.share,
+    datasetNames: outcome.datasetNames,
+    nDatasets: outcome.nDatasets,
+    nTotal: outcome.nTotal,
+    nParams: outcome.nParams,
+    rSquared: outcome.rSquared,
+    fit: outcome,
+    analysisId: spec.id,
+  };
+  return { ok: true, spec, result };
+}
+
+export const globalFitTool: AiTool = {
+  name: "global_fit",
+  description:
+    "Run a global (shared-parameter) curve fit across several dose-response curves on one XY table at once (Prism's \"global fitting\"), store the result, and take the user to it. Use this when the user wants to fit the SAME model shape to two or more Y curves together while sharing some parameters and keeping others per-curve (for example \"globally fit these dose-response curves sharing the Hill slope and plateaus\", \"shared-parameter fit with a common Top and Bottom\"). The table must be an XY table with TWO OR MORE Y columns (the engine fits every Y column against the shared X). Call list_datahub_tables first to get the XY table id. Pass the model (\"logistic4pl\" the default, or \"logistic5pl\") and the share preset: \"hill-top-bottom\" (the default and pharmacology standard, shares the Hill slope plus both plateaus and keeps EC50 per curve), \"hill\" (shares the Hill slope only), \"top-bottom\" (shares both plateaus only), or \"all-but-ec50\" (shares everything except EC50). The EC50 is never shared (it is the per-curve readout), and the 5PL asymmetry S is always shared. The engine fits all curves jointly and reports each shared parameter once (with its CI) plus each curve's own EC50 (with CI) and the pooled R-squared. You NEVER compute a fit, a shared parameter, an EC50, or an R-squared, the engine does, and it errors cleanly when there are fewer than 2 Y datasets. This runs straight away, there is NO separate approval step, so do not call propose_plan for it. It saves the result as a version-controlled analysis, navigates the user to the Data Hub so they see it, and returns the fit. After it returns, give ONE short line, the shared parameters and the per-curve EC50s with the pooled R-squared. Never invent a number, only repeat what this returns.",
+  parameters: {
+    type: "object",
+    properties: {
+      tableId: {
+        type: "string",
+        description: "The id of the XY Data Hub table (with 2+ Y columns) to globally fit, from a list_datahub_tables result.",
+      },
+      model: {
+        type: "string",
+        description:
+          "The curve model to fit across all curves. \"logistic4pl\" (the default, symmetric) or \"logistic5pl\" (asymmetric; its S parameter is always shared).",
+      },
+      share: {
+        type: "string",
+        description:
+          "Which parameters are shared across curves. \"hill-top-bottom\" (the default, shares Hill slope + Top + Bottom, EC50 stays per curve), \"hill\" (Hill slope only), \"top-bottom\" (both plateaus only), or \"all-but-ec50\" (everything except EC50). EC50 is never shared.",
+      },
+    },
+    required: ["tableId"],
+    additionalProperties: false,
+  },
+  execute: async (args) => {
+    const parsed = parseGlobalFitArgs(args);
+    if (!parsed.tableId) {
+      return {
+        ok: false,
+        error: "No table was given. Call list_datahub_tables first and pass the XY table id.",
+      } satisfies GlobalFitToolResult;
+    }
+    const content = await datahubAnalysisDeps.resolveContent(parsed.tableId);
+    if (!content) {
+      return {
+        ok: false,
+        error: "I could not open that table. It may have been deleted, or the id is wrong.",
+      } satisfies GlobalFitToolResult;
+    }
+    cacheTableContent(parsed.tableId, content);
+
+    const built = buildGlobalFit(content, parsed);
+    if (!built.ok) return { ok: false, error: built.error } satisfies GlobalFitToolResult;
+
+    const stored = await datahubAnalysisDeps.persistAnalysis(parsed.tableId, built.spec);
+    if (!stored) {
+      return {
+        ok: false,
+        error: "The global fit computed but could not be saved to the table. The result is not stored.",
+      } satisfies GlobalFitToolResult;
+    }
+    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
+    return built.result satisfies GlobalFitToolResult;
+  },
+};
+
+// ---------------------------------------------------------------------------
 // list_datahub_analyses (READ-only)
 // ---------------------------------------------------------------------------
 

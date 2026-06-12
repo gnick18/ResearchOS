@@ -31,6 +31,24 @@ if (typeof Blob !== "undefined" && typeof Blob.prototype.arrayBuffer !== "functi
   };
 }
 
+// jsdom does not implement window.matchMedia. Components that gate animation on
+// prefers-reduced-motion (LandingBackdrop, IdleAnimationManager, BeakerBot) call
+// it during render, so polyfill a no-op default (nothing matches). Individual
+// tests can still override window.matchMedia for their own cases.
+if (typeof window !== "undefined" && typeof window.matchMedia !== "function") {
+  window.matchMedia = (query: string): MediaQueryList =>
+    ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }) as MediaQueryList;
+}
+
 afterEach(() => {
   cleanup();
 });

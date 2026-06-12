@@ -327,49 +327,66 @@ export default function FolderConnectGate({
                 : "border-2 border-dashed border-border hover:border-foreground-muted"
             }`}
           >
-            <div className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                  <Icon name="folder" className="w-5 h-5 text-blue-400" />
-                </div>
-                <h2 className="text-heading font-bold text-foreground">
-                  Link a folder
-                </h2>
+            <div className="px-6 py-9 text-center">
+              <div
+                className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full transition-colors ${
+                  isDragOver ? "bg-blue-500/25" : "bg-blue-500/15"
+                }`}
+              >
+                <Icon
+                  name="folder"
+                  className={`h-7 w-7 transition-transform ${
+                    isDragOver
+                      ? "scale-110 text-blue-500 dark:text-blue-300"
+                      : "text-blue-400"
+                  }`}
+                />
               </div>
-              <p className="text-foreground-muted text-body mb-4">
-                Point ResearchOS at a folder on your computer. It can be an
-                existing ResearchOS folder (with your projects and data, maybe
-                synced via OneDrive or iCloud), or a brand-new empty folder. We
-                set up an empty folder automatically the first time you link it.
-              </p>
-              <p
-                className={`text-meta mb-4 transition-colors ${
+              <h2
+                className={`text-heading font-bold transition-colors ${
                   isDragOver
-                    ? "text-blue-600 dark:text-blue-200 font-medium"
-                    : "text-foreground-muted"
+                    ? "text-blue-700 dark:text-blue-100"
+                    : "text-foreground"
                 }`}
               >
                 {isDragOver
-                  ? "Release to link this folder"
-                  : "Drop your folder here, or click below to pick"}
-              </p>
-              <button
-                onClick={handleConnect}
-                disabled={isLoading}
-                data-testid="gate-choose-folder"
-                className="btn-brand w-full py-2.5 font-medium rounded-lg shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {isLoading ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                ) : (
-                  "Choose a folder"
-                )}
-              </button>
+                  ? "Release to connect this folder"
+                  : "Drag your data folder here"}
+              </h2>
+              {!isDragOver && (
+                <>
+                  <p className="mt-1.5 text-body text-foreground-muted">
+                    Drop it anywhere in this box to connect.
+                  </p>
+                  <div className="mt-5 flex items-center justify-center gap-3 text-meta text-foreground-muted">
+                    <span className="h-px w-10 bg-border" />
+                    or
+                    <span className="h-px w-10 bg-border" />
+                  </div>
+                  <button
+                    onClick={handleConnect}
+                    disabled={isLoading}
+                    data-testid="gate-choose-folder"
+                    className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-2 text-body font-medium text-foreground transition-colors hover:bg-surface-sunken hover:border-foreground-muted disabled:opacity-50"
+                  >
+                    {isLoading ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
+                    ) : (
+                      "Browse for a folder"
+                    )}
+                  </button>
+                  <p className="mx-auto mt-5 max-w-sm text-meta text-foreground-muted leading-relaxed">
+                    An existing ResearchOS folder or a new empty one. Dragging
+                    skips the file picker, which can stall while a cloud sync
+                    wakes up. Chrome and Edge only.
+                  </p>
+                </>
+              )}
               {dropError && (
                 <p
                   role="alert"
                   data-testid="link-folder-drop-error"
-                  className="mt-3 text-meta text-red-600 dark:text-red-300"
+                  className="mt-4 text-meta text-red-600 dark:text-red-300"
                 >
                   {dropError}
                 </p>
