@@ -100,8 +100,20 @@
       transform 0.4s cubic-bezier(.22,1,.36,1);
   }
   .rider .eye { width: 5px; height: 5px; border-radius: 50%; background: #fff; margin-top: -3px; }
-  .rider.lean-left { transform: rotate(-11deg); }
-  .rider.lean-right { transform: rotate(11deg); }
+  /* While traveling the mascot LIFTS off the edge (leaves) and leans into the
+     move, gliding on the same curve as the box. */
+  .rider.moving { transform: translateY(-11px); }
+  .rider.moving.lean-left { transform: translateY(-11px) rotate(-12deg); }
+  .rider.moving.lean-right { transform: translateY(-11px) rotate(12deg); }
+  /* On arrival it drops back onto the edge with a springy settle bob (a small
+     overshoot down, then up to rest), so the landing feels alive. */
+  @keyframes riderLand {
+    0%   { transform: translateY(-11px); }
+    45%  { transform: translateY(4px); }
+    72%  { transform: translateY(-2px); }
+    100% { transform: translateY(0); }
+  }
+  .rider.land { animation: riderLand 0.4s cubic-bezier(.34,1.4,.64,1); }
 
   .controls { margin-top: 12px; display: flex; gap: 8px; align-items: center; }
   .controls button { font: inherit; font-size: 12.5px; padding: 6px 12px; border-radius: 8px;
@@ -203,7 +215,9 @@
     // blur never reaches it). It travels on the same morph curve and leans
     // toward the direction of travel so it reads as steering the box, then
     // settles upright. It sits just left of center on the top border.
-    rider.classList.remove("lean-left", "lean-right");
+    // Lift off the edge and lean into the move (the "leaving" beat).
+    rider.classList.remove("land", "lean-left", "lean-right");
+    rider.classList.add("moving");
     if (l > prevLeft) rider.classList.add("lean-right");
     else if (l < prevLeft) rider.classList.add("lean-left");
     rider.style.left = (l + Math.min(24, w * 0.18)) + "px";
@@ -214,7 +228,10 @@
     setTimeout(() => paintBody(scene), 150);
     setTimeout(() => {
       surface.classList.remove("morphing");
-      rider.classList.remove("lean-left", "lean-right"); // settle upright
+      // Land: drop the lift + lean, then play the settle bob.
+      rider.classList.remove("moving", "lean-left", "lean-right");
+      rider.classList.add("land");
+      setTimeout(() => rider.classList.remove("land"), 420);
     }, 420);
   }
 
