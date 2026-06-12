@@ -570,7 +570,7 @@ export default function TaxonomyExplorerPanel({
                     <button
                       type="button"
                       onClick={() => onImportOrganism({ organism: node.name })}
-                      className="inline-flex items-center gap-1.5 rounded-md bg-sky-600 px-3 py-1.5 text-meta font-medium text-white transition-colors hover:bg-sky-700"
+                      className="inline-flex items-center gap-1.5 rounded-md bg-brand-action px-3 py-1.5 text-meta font-medium text-white transition-colors hover:bg-brand-action/90"
                     >
                       <DownloadCloudIcon className="h-3.5 w-3.5" />
                       Import from NCBI

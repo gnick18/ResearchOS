@@ -553,7 +553,7 @@ export default function FeatureEditorDialog({
               <button
                 type="button"
                 onClick={submit}
-                className="rounded-lg bg-sky-600 px-4 py-2 text-body font-medium text-white transition-colors hover:bg-sky-700"
+                className="rounded-lg bg-brand-action px-4 py-2 text-body font-medium text-white transition-colors hover:bg-brand-action/90"
               >
                 {isAdd ? "Add feature" : "Save"}
               </button>

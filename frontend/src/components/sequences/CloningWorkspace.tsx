@@ -868,7 +868,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                   />
                   <div className="mt-2 flex justify-end gap-2">
                     <button type="button" onClick={() => setPasteOpen(false)} className="rounded-md px-3 py-1.5 text-meta font-medium text-foreground-muted hover:bg-surface-sunken">Cancel</button>
-                    <button type="button" onClick={addPasted} disabled={!sanitizeRawSequence(pasteSeq, "dna")} className="rounded-md bg-sky-600 px-3 py-1.5 text-meta font-medium text-white hover:bg-sky-700 disabled:opacity-50">Add fragment</button>
+                    <button type="button" onClick={addPasted} disabled={!sanitizeRawSequence(pasteSeq, "dna")} className="rounded-md bg-brand-action px-3 py-1.5 text-meta font-medium text-white hover:bg-brand-action/90 disabled:opacity-50">Add fragment</button>
                   </div>
                 </div>
               ) : null}
@@ -1108,7 +1108,7 @@ export default function CloningWorkspace({ open, onClose, activeProjectIds, onSa
                   type="button"
                   onClick={() => setStep("review")}
                   disabled={!canReview}
-                  className="w-full rounded-md bg-sky-600 px-3 py-2 text-body font-medium text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full rounded-md bg-brand-action px-3 py-2 text-body font-medium text-white hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {method === "overlap"
                     ? "Review junctions"

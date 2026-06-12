@@ -458,7 +458,7 @@ export default function GuidedNcbiImport({
                       state === "done"
                         ? "bg-emerald-500 text-white"
                         : state === "active"
-                          ? "bg-sky-600 text-white"
+                          ? "bg-brand-action text-white"
                           : "bg-surface-sunken text-foreground-muted"
                     }`}
                   >
@@ -750,7 +750,7 @@ function OrganismStep({
                 disabled={busy || !accession.trim()}
                 onClick={() => onImportAccession(accession)}
                 data-testid="ncbi-accession-go"
-                className="rounded-md bg-sky-600 px-3.5 py-2 text-meta font-medium text-white transition-colors hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-md bg-brand-action px-3.5 py-2 text-meta font-medium text-white transition-colors hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Go
               </button>
@@ -944,7 +944,7 @@ function ContigsStep({
         type="button"
         disabled={busy}
         onClick={onSearchGene}
-        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md bg-sky-600 px-3.5 py-2 text-meta font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-50"
+        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md bg-brand-action px-3.5 py-2 text-meta font-medium text-white transition-colors hover:bg-brand-action/90 disabled:opacity-50"
       >
         <Icon name="search" className="h-3.5 w-3.5" />
         Search a gene instead
@@ -1086,7 +1086,7 @@ function GeneStep({
           disabled={busy || !query.trim() || loading}
           onClick={runSearch}
           data-testid="ncbi-gene-search"
-          className="flex items-center gap-1.5 rounded-md bg-sky-600 px-3.5 py-2 text-meta font-medium text-white transition-colors hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-md bg-brand-action px-3.5 py-2 text-meta font-medium text-white transition-colors hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading ? (
             <Icon name="refresh" className="h-3.5 w-3.5 animate-spin" />
@@ -1286,7 +1286,7 @@ function WindowStep({
           disabled={busy}
           onClick={onImport}
           data-testid="ncbi-import-region"
-          className="ml-auto flex items-center gap-1.5 rounded-md bg-sky-600 px-3.5 py-1.5 text-meta font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-50"
+          className="ml-auto flex items-center gap-1.5 rounded-md bg-brand-action px-3.5 py-1.5 text-meta font-medium text-white transition-colors hover:bg-brand-action/90 disabled:opacity-50"
         >
           <Icon name="import" className="h-3.5 w-3.5" />
           Import this region
@@ -1327,7 +1327,7 @@ function DoneScreen({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-md bg-sky-600 px-3.5 py-1.5 text-meta font-medium text-white transition-colors hover:bg-sky-700"
+          className="rounded-md bg-brand-action px-3.5 py-1.5 text-meta font-medium text-white transition-colors hover:bg-brand-action/90"
         >
           Done
         </button>

@@ -1193,7 +1193,7 @@ function RailAction({
       onClick={onClick}
       className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-meta font-semibold transition-colors ${
         primary
-          ? "text-white bg-gradient-to-br from-brand-action to-brand-purple"
+          ? "text-white bg-brand-action transition-colors hover:bg-brand-action/90"
           : active
             ? "bg-accent-soft text-brand-action border border-brand-action"
             : "text-foreground-muted border border-border hover:text-foreground hover:bg-surface-sunken"

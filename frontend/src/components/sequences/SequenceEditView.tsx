@@ -569,7 +569,7 @@ function ToolbarButton({
   const base =
     "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-body font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40";
   const tone = primary
-    ? "bg-sky-600 text-white hover:bg-sky-700 disabled:hover:bg-sky-600"
+    ? "bg-brand-action text-white hover:bg-brand-action/90 disabled:hover:bg-brand-action/90"
     : "text-foreground-muted hover:bg-surface-sunken";
   return (
     <Tooltip label={label}>
@@ -6189,7 +6189,7 @@ export default function SequenceEditView({
               <button
                 type="button"
                 onClick={() => void runPasteTaxonomy()}
-                className="rounded-md bg-sky-600 px-3 py-1.5 text-body font-medium text-white hover:bg-sky-700"
+                className="rounded-md bg-brand-action px-3 py-1.5 text-body font-medium text-white hover:bg-brand-action/90"
               >
                 Paste taxonomy
               </button>

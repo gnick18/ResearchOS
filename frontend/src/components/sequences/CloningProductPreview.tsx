@@ -223,7 +223,7 @@ export default function CloningProductPreview({
             type="button"
             onClick={onSave}
             disabled={saving}
-            className="rounded-md bg-sky-600 px-4 py-1.5 text-meta font-medium text-white hover:bg-sky-700 disabled:opacity-50"
+            className="rounded-md bg-brand-action px-4 py-1.5 text-meta font-medium text-white hover:bg-brand-action/90 disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save to library"}
           </button>

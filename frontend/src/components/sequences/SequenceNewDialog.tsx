@@ -121,7 +121,7 @@ export default function SequenceNewDialog({
                   type="button"
                   onClick={() => setSeqType(t)}
                   className={`flex-1 rounded px-3 py-1.5 ${
-                    seqType === t ? "bg-sky-600 text-white" : "text-foreground-muted hover:bg-surface-sunken"
+                    seqType === t ? "bg-brand-action text-white" : "text-foreground-muted hover:bg-surface-sunken"
                   }`}
                 >
                   {t === "protein" ? "Protein" : t === "rna" ? "RNA" : "DNA"}
@@ -185,7 +185,7 @@ export default function SequenceNewDialog({
               type="button"
               onClick={() => submit(false)}
               disabled={!hasName || cleanedLength === 0}
-              className="rounded-lg bg-sky-600 px-4 py-2 text-body font-medium text-white transition-colors hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-lg bg-brand-action px-4 py-2 text-body font-medium text-white transition-colors hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Create sequence
             </button>

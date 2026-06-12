@@ -100,7 +100,7 @@ export default function StrandSelector({
               aria-label={o.label}
               className={`flex h-7 w-9 items-center justify-center rounded transition-colors ${
                 active
-                  ? "bg-sky-600 text-white"
+                  ? "bg-brand-action text-white"
                   : "text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
               }`}
             >

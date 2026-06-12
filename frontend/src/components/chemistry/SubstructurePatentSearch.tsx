@@ -91,7 +91,7 @@ export function SubstructurePatentSearch() {
           type="button"
           onClick={() => void run()}
           disabled={searching || !query.trim()}
-          className="inline-flex items-center gap-2 px-4 py-2 text-body font-semibold text-white rounded-lg bg-gradient-to-br from-brand-action to-brand-purple disabled:opacity-60"
+          className="inline-flex items-center gap-2 px-4 py-2 text-body font-semibold text-white rounded-lg bg-brand-action transition-colors hover:bg-brand-action/90 disabled:opacity-60"
         >
           <Icon name="search" className="w-4 h-4" />
           {searching ? "Searching…" : "Search patents"}

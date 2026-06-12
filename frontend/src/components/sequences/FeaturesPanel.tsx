@@ -282,7 +282,7 @@ export default function FeaturesPanel({
                 type="button"
                 onClick={onAddFeature}
                 disabled={!canAdd}
-                className="flex items-center gap-1 rounded-md bg-sky-600 px-2 py-1 text-meta font-medium text-white transition-colors hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex items-center gap-1 rounded-md bg-brand-action px-2 py-1 text-meta font-medium text-white transition-colors hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <IconPlus className="h-3 w-3" />
                 Add

@@ -477,7 +477,7 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
                         onClick={() => setSiteIdx(i)}
                         className={`rounded-md px-2 py-0.5 text-meta font-medium transition-colors ${
                           i === siteIdx
-                            ? "bg-sky-600 text-white"
+                            ? "bg-brand-action text-white"
                             : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
                         }`}
                       >
@@ -594,7 +594,7 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
               type="button"
               onClick={submit}
               disabled={!canAdd}
-              className="rounded-lg bg-sky-600 px-4 py-2 text-body font-medium text-white transition-colors hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-lg bg-brand-action px-4 py-2 text-body font-medium text-white transition-colors hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Add primer to template
             </button>
@@ -654,7 +654,7 @@ function MutagenesisFields({
                 aria-pressed={mutType === mt.value}
                 className={`w-full rounded-md px-2 py-1.5 text-meta font-medium transition-colors ${
                   mutType === mt.value
-                    ? "bg-sky-600 text-white"
+                    ? "bg-brand-action text-white"
                     : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
                 }`}
               >

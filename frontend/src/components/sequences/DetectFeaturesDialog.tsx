@@ -322,7 +322,7 @@ export default function DetectFeaturesDialog({
               type="button"
               disabled={selectedCount === 0}
               onClick={apply}
-              className="rounded-md bg-sky-500 px-3 py-1.5 text-body font-medium text-white hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-md bg-brand-action px-3 py-1.5 text-body font-medium text-white hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Add {selectedCount > 0 ? selectedCount : ""} feature
               {selectedCount === 1 ? "" : "s"}

@@ -69,7 +69,7 @@ export default function SequenceConfirmDialog({ request }: { request: SequenceCo
   const isDelete = request.tone === "delete";
   const accent = isDelete
     ? { bg: "bg-rose-100 dark:bg-rose-500/15", fg: "text-rose-600 dark:text-rose-300", btn: "bg-rose-600 hover:bg-rose-700" }
-    : { bg: "bg-sky-100 dark:bg-sky-500/15", fg: "text-sky-600 dark:text-sky-300", btn: "bg-sky-600 hover:bg-sky-700" };
+    : { bg: "bg-sky-100 dark:bg-brand-action/15", fg: "text-sky-600 dark:text-sky-300", btn: "bg-brand-action hover:bg-brand-action/90" };
 
   return (
     <LivingPopup open onClose={request.onCancel} label={request.title} card={false} widthClassName="max-w-md">
