@@ -5,30 +5,58 @@ import { EmbedCaption, UnavailableEmbedCard } from "./ObjectEmbed";
 import type { EmbedDescriptor } from "@/lib/references";
 
 describe("EmbedCaption", () => {
-  it("shows a numbered caption when a figureLabel is present", () => {
+  it("renders a figcaption with the live name when figureLabel is present", () => {
     const { container } = render(
-      <EmbedCaption caption="Resveratrol" name="Resveratrol" figureLabel="Figure 1" />,
+      <EmbedCaption caption="Old Stale Caption" name="Resveratrol" figureLabel="Figure 1" />,
     );
     expect(container.querySelector("figcaption")?.textContent).toBe("Figure 1. Resveratrol");
   });
 
-  it("shows a custom caption that differs from the object name, no numbering", () => {
+  it("prefixes the figcaption with the figureLabel when only caption is provided (no name)", () => {
     const { container } = render(
-      <EmbedCaption caption="Binding pocket of the inhibitor" name="Resveratrol" />,
+      <EmbedCaption caption="Binding pocket" figureLabel="Figure 2" />,
     );
-    expect(container.querySelector("figcaption")?.textContent).toBe(
-      "Binding pocket of the inhibitor",
-    );
+    expect(container.querySelector("figcaption")?.textContent).toBe("Figure 2. Binding pocket");
   });
 
-  it("renders nothing when the caption equals the name and there is no number", () => {
+  it("falls back to caption when name is empty and figureLabel is present", () => {
+    const { container } = render(
+      <EmbedCaption caption="Fallback caption" name="" figureLabel="Figure 3" />,
+    );
+    expect(container.querySelector("figcaption")?.textContent).toBe("Figure 3. Fallback caption");
+  });
+
+  it("renders nothing when figureLabel is absent, even when caption differs from name", () => {
+    // This is the rename-drift case: stale baked caption must NOT leak as a figcaption.
+    const { container } = render(
+      <EmbedCaption caption="Stale Old Name" name="Live New Name" />,
+    );
+    expect(container.querySelector("figcaption")).toBeNull();
+  });
+
+  it("renders nothing when figureLabel is absent and caption matches name", () => {
     const { container } = render(<EmbedCaption caption="Resveratrol" name="Resveratrol" />);
     expect(container.querySelector("figcaption")).toBeNull();
   });
 
-  it("renders nothing with an empty caption and no name", () => {
+  it("renders nothing with an empty caption and no name and no figureLabel", () => {
     const { container } = render(<EmbedCaption caption="" />);
     expect(container.querySelector("figcaption")).toBeNull();
+  });
+
+  it("renders nothing when figureLabel is absent even with a populated caption only", () => {
+    const { container } = render(<EmbedCaption caption="Some caption" />);
+    expect(container.querySelector("figcaption")).toBeNull();
+  });
+
+  // Rename-drift proof: the live name, not the stale caption, appears in the figcaption.
+  it("shows the live object name (not the stale baked caption) in a numbered figure", () => {
+    const { container } = render(
+      <EmbedCaption caption="pUC19 (old name)" name="pUC19-Kan (renamed)" figureLabel="Figure 1" />,
+    );
+    const fig = container.querySelector("figcaption");
+    expect(fig?.textContent).toContain("pUC19-Kan (renamed)");
+    expect(fig?.textContent).not.toContain("pUC19 (old name)");
   });
 });
 

@@ -37,10 +37,13 @@ const detail = {
 };
 
 describe("SequenceEmbed", () => {
-  it("renders the header facts and a feature ribbon", async () => {
+  it("renders the header facts and a feature ribbon using the live object name", async () => {
     get.mockResolvedValue(detail);
+    // caption is a stale baked label that differs from the live display_name.
+    // The embed must show the live name "pUC19", not the stale caption "pUC19 map".
     render(<SequenceEmbed descriptor={descriptor} caption="pUC19 map" basePath="" />);
-    await waitFor(() => expect(screen.getByText("pUC19 map")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("pUC19")).toBeInTheDocument());
+    expect(screen.queryByText("pUC19 map")).toBeNull();
     expect(screen.getByText(/2,686 bp · Circular · 2 features/)).toBeInTheDocument();
     expect(screen.getByText("AmpR")).toBeInTheDocument();
     // The ribbon is an accessible figure.

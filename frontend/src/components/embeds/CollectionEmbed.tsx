@@ -48,7 +48,7 @@ export default function CollectionEmbed({ descriptor, caption }: EmbedRendererPr
   }
 
   const project = state.project;
-  const title = caption || project.name;
+  const title = project.name || caption;
   const href = objectDeepLink("collection", descriptor.id);
 
   return (

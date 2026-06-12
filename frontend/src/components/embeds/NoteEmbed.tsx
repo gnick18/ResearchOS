@@ -58,7 +58,7 @@ export default function NoteEmbed({ descriptor, caption }: EmbedRendererProps) {
   }
 
   const note = state.note;
-  const title = caption || note.title;
+  const title = note.title || caption;
   const excerpt = noteExcerpt(note);
   const href = objectDeepLink("note", descriptor.id);
 

@@ -85,7 +85,10 @@ describe("ExperimentEmbed", () => {
     expect(document.querySelector("span[aria-hidden]")).toBeNull();
   });
 
-  it("uses the caption as the title when provided", async () => {
+  it("shows the live object name even when a stale baked caption differs from it", async () => {
+    // Rename-drift case: the live name is "Internal Name" but the baked caption
+    // is "Custom Caption" (what the name was at insert time). The embed must display
+    // the live name and not surface the stale caption.
     get.mockResolvedValue({
       id: 3,
       name: "Internal Name",
@@ -109,8 +112,8 @@ describe("ExperimentEmbed", () => {
       shared_with: [],
     });
     render(<ExperimentEmbed descriptor={descriptor} caption="Custom Caption" basePath="" />);
-    await waitFor(() => expect(screen.getByText("Custom Caption")).toBeInTheDocument());
-    expect(screen.queryByText("Internal Name")).toBeNull();
+    await waitFor(() => expect(screen.getByText("Internal Name")).toBeInTheDocument());
+    expect(screen.queryByText("Custom Caption")).toBeNull();
   });
 
   it("shows the unavailable card when the experiment is gone", async () => {
