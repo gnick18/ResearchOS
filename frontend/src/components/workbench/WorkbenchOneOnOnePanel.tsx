@@ -31,6 +31,7 @@ import type {
 } from "@/lib/types";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
+import IdpPanel from "@/components/workbench/idp/IdpPanel";
 import ContextMenu from "@/components/ContextMenu";
 import NoteDetailPopup from "@/components/NoteDetailPopup";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
@@ -39,21 +40,40 @@ import type {
   WorkbenchRecentRef,
 } from "@/app/workbench/workbench-beaker-source";
 
-type AreaTab = "goals" | "meetings" | "notes" | "agenda" | "board";
+type AreaTab = "goals" | "meetings" | "notes" | "agenda" | "board" | "idp";
 
 // Check-ins Phase 2: a group space (3+ members) gets a "Task board" sub-tab
 // with per-assignee bands. Pair spaces keep the Phase 1 four-tab layout.
-function areaTabsFor(kind: "pair" | "group"): Array<{ id: AreaTab; label: string }> {
+// Check-ins Phase 3: a MENTORING pair space (pair WITH a mentor) gets an "IDP"
+// sub-tab. The trainee (the non-mentor member) sees "My IDP"; the mentor sees a
+// review surface. Peer pairs and groups have no IDP tab.
+function areaTabsFor(
+  space: OneOnOne | null,
+): Array<{ id: AreaTab; label: string }> {
   const base: Array<{ id: AreaTab; label: string }> = [
     { id: "goals", label: "Weekly goals" },
     { id: "meetings", label: "Meeting notes" },
     { id: "notes", label: "Notes" },
     { id: "agenda", label: "Agenda" },
   ];
-  if (kind === "group") {
+  if (!space) return base;
+  const norm = normalizeOneOnOne(space);
+  if (norm.kind === "group") {
     base.push({ id: "board", label: "Task board" });
   }
+  if (norm.kind === "pair" && norm.mentor) {
+    base.push({ id: "idp", label: "IDP" });
+  }
   return base;
+}
+
+/** For a mentoring pair space, the trainee is the member who is NOT the mentor.
+ *  Returns null for a peer pair, a group, or a space without a resolvable
+ *  counterpart. */
+function traineeOf(space: OneOnOne): string | null {
+  const norm = normalizeOneOnOne(space);
+  if (norm.kind !== "pair" || !norm.mentor) return null;
+  return norm.members.find((m) => m !== norm.mentor) ?? null;
 }
 
 interface WorkbenchOneOnOnePanelProps {
@@ -120,11 +140,7 @@ export default function WorkbenchOneOnOnePanel({
   // The sub-tabs available for the selected space (the Task board only exists
   // for a group). Reset the active tab if the selection no longer offers it
   // (e.g. switching from a group to a pair while "board" was open).
-  const areaTabs = useMemo(
-    () =>
-      areaTabsFor(selected ? normalizeOneOnOne(selected).kind : "pair"),
-    [selected],
-  );
+  const areaTabs = useMemo(() => areaTabsFor(selected), [selected]);
   useEffect(() => {
     if (!areaTabs.some((t) => t.id === area)) setArea(areaTabs[0].id);
   }, [areaTabs, area]);
@@ -317,6 +333,23 @@ export default function WorkbenchOneOnOnePanel({
             {area === "board" && (
               <TaskBoardArea oneOnOne={selected} currentUser={currentUser} />
             )}
+            {area === "idp" &&
+              (() => {
+                const trainee = traineeOf(selected);
+                const mentor = normalizeOneOnOne(selected).mentor;
+                if (!trainee) {
+                  return (
+                    <EmptyArea label="An IDP lives on a mentoring check-in. Set a mentor for this space to open it." />
+                  );
+                }
+                return (
+                  <IdpPanel
+                    trainee={trainee}
+                    currentUser={currentUser}
+                    mentor={mentor}
+                  />
+                );
+              })()}
           </>
         )}
       </section>
