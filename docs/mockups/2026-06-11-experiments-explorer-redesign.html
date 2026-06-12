@@ -123,9 +123,14 @@
   /* board view */
   .board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 14px; }
   .bcol { background: var(--surface-sunken); border-radius: 10px; padding: 9px; }
-  .bcol h5 { margin: 0 0 8px; font-size: 11px; font-weight: 700; color: var(--fg-muted); display: flex; justify-content: space-between; }
+  /* Column headers carry the SAME status colors as the list bands, so the
+     category colors are consistent between List and Board. */
+  .bcol h5 { margin: 0 0 8px; padding: 5px 9px; border-radius: 7px; border-left: 3px solid transparent; font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg-muted); display: flex; justify-content: space-between; }
+  .bcol.ready h5, .bcol.running h5 { background: var(--blue-soft); color: var(--blue); border-left-color: var(--blue); }
+  .bcol.blocked h5, .bcol.awaiting h5 { background: var(--amber-soft); color: var(--amber); border-left-color: var(--amber); }
   .bcard { background: var(--surface-raised); border: 1px solid var(--border); border-left: 3px solid var(--blue); border-radius: 8px; padding: 8px 9px; margin-bottom: 7px; font-size: 12px; cursor: pointer; }
-  .bcard.blocked { border-left-color: var(--amber); }
+  .bcard.ready, .bcard.running { border-left-color: var(--blue); }
+  .bcard.blocked, .bcard.awaiting { border-left-color: var(--amber); }
   .bcard .bt { font-weight: 600; line-height: 1.3; margin-bottom: 4px; }
   .bcard .bm { font-size: 10px; color: var(--fg-faint); }
 
@@ -350,8 +355,8 @@ function renderRows(){
     const cols = [['ready','Ready'],['blocked','Blocked'],['running','Running'],['awaiting','Awaiting']];
     rowsEl.innerHTML = '<div class="board">' + cols.map(([sec,lbl])=>{
       const items = list.filter(e=>e.section===sec);
-      return '<div class="bcol"><h5>'+lbl+'<span>'+items.length+'</span></h5>'
-        + items.map(e=>'<div class="bcard '+(sec==='blocked'?'blocked':'')+'" data-cmt="board card: '+e.name+'"><div class="bt">'+e.name+'</div><div class="bm">'+e.project+'</div></div>').join('')
+      return '<div class="bcol '+sec+'"><h5>'+lbl+'<span>'+items.length+'</span></h5>'
+        + items.map(e=>'<div class="bcard '+sec+'" data-cmt="board card: '+e.name+'"><div class="bt">'+e.name+'</div><div class="bm">'+e.project+'</div></div>').join('')
         + '</div>';
     }).join('') + '</div>';
     return;
