@@ -821,7 +821,7 @@ export default function WelcomePage({
                     />
                     <ComparisonRow
                       label="Live collaboration"
-                      us={{ mark: "soon", text: "Real-time co-editing, in development" }}
+                      us={{ mark: "win", text: "Real-time co-editing on shared notes" }}
                       labarchives={{ mark: "have", text: "Shared cloud notebook" }}
                       snapgene={{ mark: "none", text: "Single-user desktop tool" }}
                       quartzy={{ mark: "have", text: "Shared lab ordering workspace" }}
