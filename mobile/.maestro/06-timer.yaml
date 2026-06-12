@@ -1,0 +1,36 @@
+# Clip 06: Bench timer. Fully on-device + deterministic.
+#
+# Records: switch to Timer -> tap the 1 min quick-start preset -> a Running timer
+# appears and counts down.
+#
+# Tapping a preset auto-starts the timer (startPreset), so there is no separate
+# Start press for presets. A "Running" section then shows the live countdown and
+# a Cancel action. (timer-start is the Start button for the CUSTOM keypad time;
+# it is asserted-present here but the preset path is what we record.)
+#
+# NOTE: the Timer screen calls ensureNotificationPermission on mount, which can
+# raise the Android notification system dialog. We dismiss it optionally.
+appId: app.researchos.companion
+---
+- runFlow: subflows/enter-demo.yaml
+# Switch to the Timer tab (tab label is "Timer"; the screen title is "Timers").
+- tapOn: "Timer"
+- assertVisible: "QUICK START"
+# Dismiss the OS notification dialog if the Timer mount raised one.
+- runFlow:
+    when:
+      visible: "Allow"
+    commands:
+      - tapOn: "Allow"
+# The custom-keypad Start button exists (disabled until a time is entered).
+- assertVisible:
+    id: "timer-start"
+# One-tap the 1 min preset -> it starts immediately.
+- tapOn:
+    id: "timer-preset-1min"
+# A Running timer now shows with a live countdown + Cancel.
+- extendedWaitUntil:
+    visible: "Running"
+    timeout: 8000
+- assertVisible: "Lab timer"
+- assertVisible: "Cancel"

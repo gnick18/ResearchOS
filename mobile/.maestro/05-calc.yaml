@@ -1,0 +1,46 @@
+# Clip 05: Bench calculator (Scientific + Molarity). Fully offline + deterministic.
+#
+# Records: switch to Calc -> Scientific -> type an expression -> live result ->
+# switch to Molarity -> enter MW + concentration + volume -> mass-to-weigh result.
+#
+# Scientific evaluates live as you type (evaluateExpression), so "5*2+7" shows
+# "17" in the result display before any "=" press. We also tap "=" to commit.
+#
+# Molarity: NaCl MW 58.44, 150 mM in 500 mL -> mass to weigh out
+# (massFromConcVolumeMw). The exact rendered string is unit-auto-picked, so we
+# assert the stable label "Mass to weigh out" rather than a brittle number.
+appId: app.researchos.companion
+---
+- runFlow: subflows/enter-demo.yaml
+# Switch to the Calc tab.
+- tapOn: "Calc"
+- assertVisible:
+    id: "calc-tab-scientific"
+- tapOn:
+    id: "calc-tab-scientific"
+# Type an expression into the scientific display input.
+- tapOn:
+    id: "calc-scientific-input"
+- inputText: "5*2+7"
+- hideKeyboard
+# The live result is shown in the calculator display.
+- assertVisible: "17"
+- assertVisible:
+    id: "calc-scientific-result"
+# Commit with "=" (the result becomes the new expression).
+- tapOn: "="
+# Switch to Molarity and run a weigh-out.
+- tapOn:
+    id: "calc-tab-molarity"
+- tapOn:
+    id: "calc-molarity-mw"
+- inputText: "58.44"
+- tapOn:
+    id: "calc-molarity-conc"
+- inputText: "150"
+- tapOn:
+    id: "calc-molarity-vol"
+- inputText: "500"
+- hideKeyboard
+# The weigh-out result row appears once MW + conc + volume are all filled.
+- assertVisible: "Mass to weigh out"

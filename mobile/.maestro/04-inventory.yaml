@@ -1,0 +1,36 @@
+# Clip 04: Inventory tab with the demo stock + the low-stock pills.
+#
+# The inventory snapshot IS demo-guarded (fetchSnapshot returns
+# DEMO_INVENTORY_SNAPSHOT in demo mode), so this is fully deterministic.
+#
+# Records: switch to Inventory -> Scan hero -> tracked stocks with low/ok pills
+# -> purchase orders.
+#
+# Low fixtures (unitsRemaining <= lowAtCount): Fetal bovine serum (1<=2),
+# Puromycin (2<3). OK: DMEM (3>2), Trypsin (5>2).
+appId: app.researchos.companion
+---
+- runFlow: subflows/enter-demo.yaml
+# Switch to the Inventory tab by its visible label.
+- tapOn: "Inventory"
+- assertVisible: "Track stock and reorder from the bench."
+# Scan hero + manual add path.
+- assertVisible:
+    id: "inventory-scan-package"
+- assertVisible:
+    id: "inventory-add-purchase"
+# Tracked stocks render from the fixture.
+- assertVisible:
+    id: "inventory-tracked-row-0"
+- assertVisible: "DMEM (high glucose, no phenol red)"
+- assertVisible: "Fetal bovine serum (heat-inactivated)"  # a low item
+- assertVisible: "Puromycin dihydrochloride (10 mg/mL)"   # a low item
+# The low pill is part of the story.
+- assertVisible: "low"
+# Purchase orders from the fixture.
+- scrollUntilVisible:
+    element:
+      text: "Lipofectamine 3000 Transfection Kit"
+    direction: DOWN
+    timeout: 10000
+- assertVisible: "Pierce BCA Protein Assay Kit"

@@ -164,6 +164,7 @@ function CalcHeader({
           return (
             <Pressable
               key={t.id}
+              testID={`calc-tab-${t.id}`}
               onPress={() => onChange(t.id)}
               accessibilityRole="button"
               accessibilityState={{ selected: on }}
@@ -265,6 +266,7 @@ function NumericWithUnit<U extends string>({
   onUnit,
   units,
   placeholder,
+  inputTestID,
 }: {
   label: string;
   value: string;
@@ -273,6 +275,7 @@ function NumericWithUnit<U extends string>({
   onUnit: (u: U) => void;
   units: readonly U[];
   placeholder?: string;
+  inputTestID?: string;
 }) {
   const { surface } = useTheme();
   return (
@@ -280,6 +283,7 @@ function NumericWithUnit<U extends string>({
       <FieldLabel>{label}</FieldLabel>
       <View style={styles.row}>
         <TextInput
+          testID={inputTestID}
           style={[styles.numInput, { backgroundColor: surface.surface, borderColor: surface.border, color: surface.text, flex: 1 }]}
           value={value}
           onChangeText={onValue}
@@ -338,12 +342,14 @@ function PlainNumeric({
   onValue,
   placeholder,
   suffix,
+  inputTestID,
 }: {
   label: string;
   value: string;
   onValue: (v: string) => void;
   placeholder?: string;
   suffix?: string;
+  inputTestID?: string;
 }) {
   const { surface } = useTheme();
   return (
@@ -351,6 +357,7 @@ function PlainNumeric({
       <FieldLabel>{label}</FieldLabel>
       <View style={styles.row}>
         <TextInput
+          testID={inputTestID}
           style={[styles.numInput, { backgroundColor: surface.surface, borderColor: surface.border, color: surface.text, flex: 1 }]}
           value={value}
           onChangeText={onValue}
@@ -744,6 +751,7 @@ function ScientificTab() {
       {/* Dark calculator display */}
       <View style={styles.disp}>
         <TextInput
+          testID="calc-scientific-input"
           style={styles.dispExpr}
           value={expr}
           onChangeText={setExpr}
@@ -755,7 +763,7 @@ function ScientificTab() {
           onSubmitEditing={commit}
           returnKeyType="done"
         />
-        <Text style={styles.dispRes} numberOfLines={1} adjustsFontSizeToFit>
+        <Text testID="calc-scientific-result" style={styles.dispRes} numberOfLines={1} adjustsFontSizeToFit>
           {shown}
         </Text>
       </View>
@@ -888,9 +896,9 @@ function MolarityTab() {
       <HintCallout>
         n = m / MW, C = n / V. Enter MW plus target concentration and volume to get the mass to weigh out. Or enter a mass to get moles and concentration.
       </HintCallout>
-      <PlainNumeric label="Molecular weight (g/mol)" value={mw} onValue={setMw} placeholder="e.g. 58.44" />
-      <NumericWithUnit label="Target concentration" value={conc} onValue={setConc} unit={concU} onUnit={setConcU} units={CONC_UNITS} />
-      <NumericWithUnit label="Volume" value={vol} onValue={setVol} unit={volU} onUnit={setVolU} units={VOL_UNITS} />
+      <PlainNumeric inputTestID="calc-molarity-mw" label="Molecular weight (g/mol)" value={mw} onValue={setMw} placeholder="e.g. 58.44" />
+      <NumericWithUnit inputTestID="calc-molarity-conc" label="Target concentration" value={conc} onValue={setConc} unit={concU} onUnit={setConcU} units={CONC_UNITS} />
+      <NumericWithUnit inputTestID="calc-molarity-vol" label="Volume" value={vol} onValue={setVol} unit={volU} onUnit={setVolU} units={VOL_UNITS} />
       <NumericWithUnit label="Mass (optional, reverse direction)" value={mass} onValue={setMass} unit={massU} onUnit={setMassU} units={MASS_UNITS} />
 
       <ResultCard empty={!hasResult}>

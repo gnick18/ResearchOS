@@ -1,0 +1,43 @@
+# Shared subflow: bring the companion into the deterministic DEMO state.
+#
+# Steps:
+#   1. Clear app state (so every clip starts from the unpaired first run, and
+#      the demo seed/notification guards re-arm).
+#   2. Launch the app (lands on the Notebook tab, unpaired -> "Pair this phone").
+#   3. Tap the Notebook pair CTA -> /pair screen.
+#   4. Tap "Try the demo" (the tertiary link on the pair screen).
+#   5. Land on the populated demo Notebook and wait for it to render.
+#
+# Reuse from every clip flow with:
+#   - runFlow: subflows/enter-demo.yaml
+#
+# NOTE on the OS notification dialog: on first demo entry the Notebook seeds two
+# sample captures AND asks for the OS notification permission
+# (ensureNotificationPermission -> requestPermissionsAsync). On Android 13+ that
+# pops a system "Allow notifications?" dialog that is NOT part of the app UI. We
+# dismiss it with an OPTIONAL tap so the flow does not hang. If your emulator has
+# already granted/denied notifications (or is below Android 13) the dialog never
+# appears and the optional tap is simply skipped.
+appId: app.researchos.companion
+---
+- clearState
+- launchApp
+# Unpaired Notebook: tap the pair CTA.
+- tapOn:
+    id: "notebook-pair-cta"
+- assertVisible:
+    id: "pair-try-demo"
+# Enter the reviewer demo (writes a demo pairing record, no relay).
+- tapOn:
+    id: "pair-try-demo"
+# Demo Notebook is now populated. The Today glance shows the fixture task.
+- extendedWaitUntil:
+    visible: "Split HEK293 cells (passage 18)"
+    timeout: 15000
+# Dismiss the Android notification-permission system dialog if it appears.
+# Optional so the flow never blocks when there is no dialog.
+- runFlow:
+    when:
+      visible: "Allow"
+    commands:
+      - tapOn: "Allow"

@@ -214,6 +214,7 @@ export default function TimersScreen() {
                 {PRESETS.map((p) => (
                   <Pressable
                     key={p.sec}
+                    testID={`timer-preset-${p.label.replace(/\s+/g, '')}`}
                     style={({ pressed }) => [
                       styles.preset,
                       {
@@ -282,6 +283,7 @@ export default function TimersScreen() {
             </View>
 
             <Button
+              testID="timer-start"
               variant="primary"
               label={duration > 0 ? `Start timer (${formatClock(duration)})` : 'Enter a time'}
               onPress={onStart}
