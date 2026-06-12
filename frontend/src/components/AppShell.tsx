@@ -60,6 +60,8 @@ import { LabSessionMount } from "@/components/lab/LabSessionMount";
 // BeakerSearch step 2a, the app-chrome front-door pill. Visible on every app
 // page, opens the always-present global Cmd-K palette.
 import BeakerSearchPill from "@/components/beaker-search/BeakerSearchPill";
+import AppNavBar from "@/components/AppNavBar";
+import type { NavItem } from "@/lib/nav";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -323,7 +325,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <IdlePasswordWipe />
       {/* Header */}
       <header
-        className={`px-4 py-2.5 flex items-center gap-2 ${
+        className={`px-4 py-1.5 flex items-center gap-2 ${
           tinted ? "light-scope shadow-sm" : "bg-surface-raised border-b border-border"
         }`}
         style={headerStyle}
@@ -345,81 +347,26 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           />
         </PillWrap>
 
-        {/* Navigation */}
-        <nav
-          className="flex items-center gap-1"
-        >
-          {navItems.map((item) => {
-            // The Supplies hub item (href "/supplies" under the flag) is the
-            // active tab for the unified page AND the legacy /inventory +
-            // /purchases routes, which redirect into it. Every other item keeps
-            // the exact-match rule.
-            const isSuppliesHub =
-              INVENTORY_ENABLED &&
-              item.href === "/supplies" &&
-              item.label === "Supplies";
-            const isActive = isSuppliesHub
-              ? pathname === "/supplies" ||
-                pathname === "/inventory" ||
-                pathname === "/purchases"
-              : pathname === item.href;
-            // Onboarding v4 §6.12+ walkthrough anchors. Each top-nav
-            // item gets a `data-tour-target` keyed off its route
-            // (purchases-tab, calendar-tab, etc.) so cursor demos can
-            // hover over it without depending on label text. New
-            // routes flow through here automatically.
-            const tourTarget =
-              item.href === HOME_HREF
-                ? "home-nav-tab"
-                : item.href === "/purchases"
-                  ? "purchases-tab"
-                  : item.href === "/calendar"
-                    ? "calendar-tab"
-                    : item.href === "/links"
-                      ? "lab-links-nav-tab"
-                      : item.href === "/lab-overview"
-                        ? "lab-overview-nav-tab"
-                        : undefined;
-            // Copy-alignment manager 2026-05-26: tab now reads "Links"
-            // for every account type (formerly "Lab Links" for lab
-            // accounts). The label sits on NAV_ITEMS now, so the
-            // account-type override here is gone. Visibility gate
-            // (`picks.links === "yes"`) still lives in deriveVisibleTabs.
-            const displayLabel = item.label;
-            if (tinted) {
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  data-tour-target={tourTarget}
-                  className={`px-3 py-1.5 text-body rounded-full transition-colors shadow-sm ${
-                    isActive
-                      ? "bg-white text-gray-900 font-medium"
-                      : "bg-white/75 text-gray-700 hover:bg-white"
-                  }`}
-                >
-                  {displayLabel}
-                </Link>
-              );
-            }
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                data-tour-target={tourTarget}
-                className={`px-3 py-1.5 text-body rounded-lg transition-colors ${
-                  isActive
-                    ? "bg-accent-soft text-accent font-medium"
-                    : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
-                }`}
-              >
-                {displayLabel}
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="flex-1" />
+        {/* Navigation — the slim, drag-customizable bar (AppNavBar). The
+            inline-vs-More split is the user's to set; the responsive auto-
+            overflow + edit mode live inside the component. The Supplies hub
+            item (href "/supplies" under the flag) is the active tab for the
+            unified page AND the legacy /inventory + /purchases routes, which
+            redirect into it. */}
+        <AppNavBar
+          navItems={navItems}
+          pathname={pathname ?? null}
+          tinted={tinted}
+          currentUser={currentUser ?? null}
+          isSuppliesActive={(item: NavItem) =>
+            INVENTORY_ENABLED &&
+            item.href === "/supplies" &&
+            item.label === "Supplies" &&
+            (pathname === "/supplies" ||
+              pathname === "/inventory" ||
+              pathname === "/purchases")
+          }
+        />
 
         <div className="flex items-center gap-2">
           {/* BeakerSearch step 2a, the app-wide front door. Leads the action

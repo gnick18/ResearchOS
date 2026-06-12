@@ -70,6 +70,7 @@ export default function SidebarContentsPopup({ onClose, anchorRef }: Props) {
       calendarViewMode: saved.defaultCalendarViewMode,
       showShared: saved.showSharedByDefault,
       visibleTabs: saved.visibleTabs,
+      navLayout: saved.navLayout ?? null,
       defaultLandingTab: saved.defaultLandingTab,
       sidebarShowTasks: saved.sidebarShowTasks,
       sidebarShowCalendarEvents: saved.sidebarShowCalendarEvents,
