@@ -1,15 +1,15 @@
 {
   "id": 4,
   "task_id": 15,
-  "item_name": "LC-MS grade acetonitrile (demo)",
+  "item_name": "LC-MS grade acetonitrile",
   "quantity": 2,
   "link": "https://example.org/demo-sigma",
   "cas": "75-05-8",
   "price_per_unit": 95,
   "shipping_fees": 10,
   "total_price": 200,
-  "notes": "Demo solvent for fake-metabolite quantification.",
-  "funding_string": "DEMO-Internal-Bridge",
+  "notes": "Solvent for fake-metabolite quantification.",
+  "funding_string": "Internal Bridge Fund",
   "vendor": "Sigma-Aldrich",
   "category": "Reagents"
 }

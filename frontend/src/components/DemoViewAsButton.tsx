@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   getDemoMode,
+  isRecordingMode,
   isWikiCaptureMode,
   setDemoViewAsUser,
 } from "@/lib/file-system/wiki-capture-mock";
@@ -13,7 +14,10 @@ import { Icon } from "@/components/icons";
 /**
  * Demo-only "view as lab head" toggle. Renders only inside the public
  * `/demo` fixture (and never under `?wikiCapture=1`, so it stays out of
- * wiki screenshots), invisible in every real install.
+ * wiki screenshots, nor under `?record=1`, so a marketing-video surface
+ * stays pristine), invisible in every real install. Styled as a small
+ * muted pill stacked above the Leave-demo pill in the bottom-right so it
+ * reads as a quiet control rather than dominating the screen.
  *
  * The demo signs you in as Alex, a lab member, so the lab-head surfaces
  * (the `/lab-overview` PI dashboard) are gated off. This flips the demo
@@ -45,7 +49,7 @@ export default function DemoViewAsButton() {
   useEffect(() => {
     let alive = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing local React state with the external sessionStorage demo flag on every route change
-    setShow(getDemoMode() && !isWikiCaptureMode());
+    setShow(getDemoMode() && !isWikiCaptureMode() && !isRecordingMode());
     void getCurrentUser().then((u) => {
       if (alive) setViewingAs(u);
     });
@@ -58,7 +62,7 @@ export default function DemoViewAsButton() {
 
   const isLabHead = viewingAs === LAB_HEAD;
   const target = isLabHead ? "alex" : LAB_HEAD;
-  const label = isLabHead ? "Demo: view as member" : "Demo: view as lab head";
+  const label = isLabHead ? "View as member" : "View as lab head";
   const destination = isLabHead
     ? "/demo/workbench?demoViewAs=alex"
     : "/demo/lab-overview?demoViewAs=mira";
@@ -74,10 +78,10 @@ export default function DemoViewAsButton() {
     <a
       href={destination}
       onClick={onClick}
-      className="fixed bottom-36 right-4 z-50 flex items-center gap-2 rounded-full bg-violet-600 px-4 py-3 font-medium text-white shadow-xl transition-colors hover:bg-violet-700 focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2"
+      className="fixed bottom-14 right-4 z-50 flex items-center gap-1.5 rounded-full border border-border bg-surface-raised/90 px-3 py-1.5 text-meta font-medium text-foreground-muted shadow-sm backdrop-blur transition-colors hover:bg-surface-sunken hover:text-foreground focus-visible:ring-2 focus-visible:ring-border focus-visible:ring-offset-2"
       aria-label={label}
     >
-      <Icon name="eye" className="h-4 w-4" />
+      <Icon name="eye" className="h-3.5 w-3.5" />
       <span>{label}</span>
     </a>
   );

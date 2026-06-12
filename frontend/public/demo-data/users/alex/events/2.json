@@ -1,6 +1,6 @@
 {
   "id": 2,
-  "title": "DEMO-DOE renewal abstract deadline",
+  "title": "DOE renewal abstract deadline",
   "event_type": "deadline",
   "start_date": "2026-05-29",
   "end_date": "2026-05-29",
@@ -8,6 +8,6 @@
   "end_time": null,
   "location": null,
   "url": null,
-  "notes": "Fake DOE grant renewal — demo task.",
+  "notes": "DOE grant renewal.",
   "color": "#ef4444"
 }

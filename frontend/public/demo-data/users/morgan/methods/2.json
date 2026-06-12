@@ -1,6 +1,6 @@
 {
   "id": 2,
-  "name": "[Demo protocol] qPCR setup",
+  "name": "qPCR setup",
   "source_path": "users/morgan/methods/2.md",
   "method_type": "markdown",
   "folder_path": "qPCR",

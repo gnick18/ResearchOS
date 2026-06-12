@@ -29,6 +29,13 @@ import { useProfileModal } from "@/lib/sharing/profile-modal-store";
 import { rainbowTheme } from "@/lib/colors";
 import RainbowOrb from "@/components/RainbowOrb";
 import { useTheme } from "@/lib/theme/use-theme";
+import { Icon } from "@/components/icons";
+import {
+  getDemoMode,
+  isRecordingMode,
+  isWikiCaptureMode,
+} from "@/lib/file-system/wiki-capture-mock";
+import LeaveDemoModal from "@/components/LeaveDemoModal";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -210,6 +217,19 @@ export default function UserAvatarMenu({
   const containerRef = useRef<HTMLDivElement>(null);
   const sharing = useSharingIdentity();
 
+  // Quiet escape hatch from the public /demo: a "Leave demo" row in this menu
+  // is the primary way out now that the old loud orange floating cluster was
+  // slimmed to a small corner pill. Mirrors the chrome components' gate
+  // (demo on, not wiki-capture, not recording) so it never shows in a real
+  // install or in a clean capture/recording surface. Synced on pathname
+  // change because the sticky demo flag is read from sessionStorage.
+  const [inDemo, setInDemo] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing local state with the external sessionStorage demo flag on every route change
+    setInDemo(getDemoMode() && !isWikiCaptureMode() && !isRecordingMode());
+  }, [pathname]);
+
   // Dark-mode toggle lives in this menu now (moved out of the top bar to free
   // header space). The row flips the theme and keeps the menu open so the user
   // sees it take effect; the full light/dark/system choice still lives in
@@ -386,8 +406,32 @@ export default function UserAvatarMenu({
               {isDark ? <SunIcon /> : <MoonIcon />}
               {isDark ? "Light mode" : "Dark mode"}
             </DropdownItem>
+            {inDemo && (
+              <>
+                <div className="my-1 h-px bg-border" />
+                <DropdownItem
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setOpen(false);
+                    setLeaveOpen(true);
+                  }}
+                >
+                  <Icon
+                    name="x"
+                    className="h-4 w-4 shrink-0 text-foreground-muted"
+                  />
+                  Leave demo
+                </DropdownItem>
+              </>
+            )}
           </div>
         </div>
+      )}
+      {inDemo && (
+        <LeaveDemoModal
+          isOpen={leaveOpen}
+          onClose={() => setLeaveOpen(false)}
+        />
       )}
     </div>
   );

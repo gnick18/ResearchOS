@@ -26,6 +26,7 @@ import StagedLoadingScreen from "@/components/StagedLoadingScreen";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import GlobalDropGuard from "@/components/GlobalDropGuard";
 import FloatingLeaveDemoButton from "@/components/FloatingLeaveDemoButton";
+import DemoEntryCue from "@/components/DemoEntryCue";
 import DemoViewAsButton from "@/components/DemoViewAsButton";
 import WikiCaptureRefusedBanner from "@/components/WikiCaptureRefusedBanner";
 import OpenDocsButton from "@/components/OpenDocsButton";
@@ -994,6 +995,10 @@ export function Providers({ children }: { children: ReactNode }) {
             `captureRefused` flag off FileSystemProvider, so it must sit
             inside it. No-op in normal use / true fixtures / demo. */}
         <WikiCaptureRefusedBanner />
+        {/* Soft one-line demo cue at the top of /demo (dismissible, once per
+            tab). Replaces the old loud always-on banner so the demo reads
+            like a real lab; suppressed in wiki-capture and recording modes. */}
+        <DemoEntryCue />
         <FloatingLeaveDemoButton />
         {/* Demo-only: flip the fixture identity between Alex (member) and
             Mira (lab head) so the PI-dashboard welcome clip can be recorded.
