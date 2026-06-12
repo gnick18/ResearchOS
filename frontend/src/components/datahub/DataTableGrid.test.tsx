@@ -4,6 +4,8 @@
 // SEM / n footer (the existing behavior). In a summary entry format it shows the
 // compact summary editor instead (per-group Mean / spread / N cells, labeled per
 // format), with no replicate rows and no footer. A cell edit calls back up.
+//
+// Summary-mode group rename uses an inline ColumnRenameInput (no window.prompt).
 
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
@@ -135,5 +137,49 @@ describe("DataTableGrid summary mode", () => {
     fireEvent.blur(cell);
     // Wired to the single summary row id and the group's mean subcolumn id.
     expect(onCellCommit).toHaveBeenCalledWith("row-1", "g1-mean", "9.9");
+  });
+
+  it("double-click on a group header opens inline rename (no window.prompt)", () => {
+    const onRenameSummaryGroup = vi.fn();
+    render(
+      <DataTableGrid
+        content={summaryContent("mean-sd-n")}
+        onCellCommit={() => {}}
+        onAddRow={() => {}}
+        onAddColumn={() => {}}
+        onRenameSummaryGroup={onRenameSummaryGroup}
+      />,
+    );
+    // The group header is a <th> containing the group name text.
+    const header = screen.getByText("Control");
+    // Double-click swaps the label for an inline input -- no window.prompt.
+    fireEvent.doubleClick(header);
+    const input = screen.getByRole("textbox", {
+      name: /rename column/i,
+    }) as HTMLInputElement;
+    expect(input).toBeTruthy();
+    // Commit by blurring with a new value.
+    fireEvent.change(input, { target: { value: "Vehicle" } });
+    fireEvent.blur(input);
+    expect(onRenameSummaryGroup).toHaveBeenCalledWith("g1", "Vehicle");
+  });
+
+  it("Escape on inline rename cancels without calling onRenameSummaryGroup", () => {
+    const onRenameSummaryGroup = vi.fn();
+    render(
+      <DataTableGrid
+        content={summaryContent("mean-sd-n")}
+        onCellCommit={() => {}}
+        onAddRow={() => {}}
+        onAddColumn={() => {}}
+        onRenameSummaryGroup={onRenameSummaryGroup}
+      />,
+    );
+    const header = screen.getByText("Control");
+    fireEvent.doubleClick(header);
+    const input = screen.getByRole("textbox", { name: /rename column/i });
+    fireEvent.keyDown(input, { key: "Escape" });
+    fireEvent.blur(input);
+    expect(onRenameSummaryGroup).not.toHaveBeenCalled();
   });
 });
