@@ -35,7 +35,7 @@ export default function AppFooter({
   return (
     <footer
       data-testid="app-footer"
-      className={`relative border-t border-border bg-surface-raised py-6 ${className}`}
+      className={`relative border-t border-border bg-surface-raised py-4 ${className}`}
     >
       {/* Brand rainbow hairline along the top edge: the BeakerBot liquid ramp,
           the same gradient as the banner + avatars, used as a quiet brand
@@ -44,19 +44,73 @@ export default function AppFooter({
         aria-hidden
         className="brand-rainbow-bg absolute inset-x-0 top-0 h-[3px]"
       />
-      {/* Compact: the wordmark, the funding acknowledgment, then the author
-          credit and the Built-in-Madison line share one row, with the trust
-          links on the last row. Keeps every credit but on fewer, tighter lines
-          so the footer never dominates a short page. */}
-      <div className="mx-auto flex max-w-3xl flex-col items-center gap-2 px-6 text-center">
-        <Wordmark
-          size="sm"
-          textOnly={hideMark}
-          animated={false}
-          markEasterEgg="none"
-          textClassName="text-foreground"
-        />
-        <p className="max-w-[72ch] text-meta leading-relaxed text-foreground-muted">
+      {/* Horizontal, edge to edge. Brand + legal entity + place on the left,
+          trust links on the right, the funding acknowledgment as one small line
+          beneath. Built for a desktop width, not stacked for a phone. */}
+      <div className="mx-auto flex max-w-7xl flex-col gap-2 px-6">
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+          {/* Left: brand mark, the legal entity, and Built-in-Madison, inline. */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-foreground-muted">
+            <Wordmark
+              size="sm"
+              textOnly={hideMark}
+              animated={false}
+              markEasterEgg="none"
+              textClassName="text-foreground"
+            />
+            <span data-testid="app-footer-author">
+              LLC, a registered Wisconsin company
+            </span>
+            <span aria-hidden="true">·</span>
+            <MadeInMadison variant="line" tone="soft" />
+          </div>
+          {/* Right: trust links. The /open-source page thanks the community and
+              carries the full attribution; /transparency shows our tools checked
+              against Biopython and primer3 on every code change. */}
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-meta text-foreground-muted">
+            <Link
+              href="/pricing"
+              className="underline-offset-2 hover:text-foreground hover:underline"
+              data-testid="app-footer-pricing"
+            >
+              Pricing
+            </Link>
+            <span aria-hidden="true">·</span>
+            <Link
+              href="/open-source"
+              className="underline-offset-2 hover:text-foreground hover:underline"
+              data-testid="app-footer-open-source"
+            >
+              Built on open source
+            </Link>
+            <span aria-hidden="true">·</span>
+            <Link
+              href="/thanks"
+              className="underline-offset-2 hover:text-foreground hover:underline"
+              data-testid="app-footer-thanks"
+            >
+              Sponsors and thanks
+            </Link>
+            <span aria-hidden="true">·</span>
+            <Link
+              href="/transparency"
+              className="underline-offset-2 hover:text-foreground hover:underline"
+              data-testid="app-footer-transparency"
+            >
+              Transparency of tests
+            </Link>
+            <span aria-hidden="true">·</span>
+            <Link
+              href="/privacy"
+              className="underline-offset-2 hover:text-foreground hover:underline"
+              data-testid="app-footer-privacy"
+            >
+              Privacy
+            </Link>
+          </div>
+        </div>
+        {/* Funding acknowledgment, small print, one line on a desktop width. */}
+        <p className="text-[11px] leading-relaxed text-foreground-muted">
           Supported by a UW Distinguished Research Fellowship at UW-Madison
           (Office of the Vice Chancellor for Research, with funding from the
           Wisconsin Alumni Research Foundation). Free and open source on{" "}
@@ -71,59 +125,6 @@ export default function AppFooter({
           </a>
           .
         </p>
-        {/* Author credit + the Wisconsin LLC identity line on one row. */}
-        <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 text-meta text-foreground-muted">
-          <span data-testid="app-footer-author">
-            ResearchOS LLC, a registered Wisconsin company.
-          </span>
-          <span aria-hidden="true">·</span>
-          <MadeInMadison variant="line" tone="soft" />
-        </div>
-        {/* Subtle credit + trust links: the /open-source page thanks the
-            community and carries the full attribution; the /transparency page
-            shows our bioinformatic tools checked against Biopython and primer3
-            on every code change. */}
-        <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 text-meta text-foreground-muted">
-          <Link
-            href="/pricing"
-            className="underline-offset-2 hover:text-foreground hover:underline"
-            data-testid="app-footer-pricing"
-          >
-            Pricing
-          </Link>
-          <span aria-hidden="true">·</span>
-          <Link
-            href="/open-source"
-            className="underline-offset-2 hover:text-foreground hover:underline"
-            data-testid="app-footer-open-source"
-          >
-            Built on open source
-          </Link>
-          <span aria-hidden="true">·</span>
-          <Link
-            href="/thanks"
-            className="underline-offset-2 hover:text-foreground hover:underline"
-            data-testid="app-footer-thanks"
-          >
-            Sponsors and thanks
-          </Link>
-          <span aria-hidden="true">·</span>
-          <Link
-            href="/transparency"
-            className="underline-offset-2 hover:text-foreground hover:underline"
-            data-testid="app-footer-transparency"
-          >
-            Transparency of tests
-          </Link>
-          <span aria-hidden="true">·</span>
-          <Link
-            href="/privacy"
-            className="underline-offset-2 hover:text-foreground hover:underline"
-            data-testid="app-footer-privacy"
-          >
-            Privacy
-          </Link>
-        </div>
       </div>
     </footer>
   );
