@@ -1,0 +1,70 @@
+{
+  "header": { "type": "esummary", "version": "0.3" },
+  "result": {
+    "uids": ["3509526", "3505192", "3503949"],
+    "3509526": {
+      "uid": "3509526",
+      "name": "cyp51A",
+      "description": "cytochrome P450",
+      "status": "",
+      "currentid": "",
+      "chromosome": "4",
+      "geneticsource": "genomic",
+      "maplocation": "",
+      "otheraliases": "AFUA_4G06890, Afu4g06890",
+      "otherdesignations": "cytochrome P450",
+      "genomicinfo": [
+        {
+          "chrloc": "4",
+          "chraccver": "NC_007197.1",
+          "chrstart": 1781821,
+          "chrstop": 1777374,
+          "exoncount": 2
+        }
+      ],
+      "geneweight": 1036,
+      "summary": "",
+      "organism": { "scientificname": "Aspergillus fumigatus Af293", "commonname": "", "taxid": 330879 }
+    },
+    "3505192": {
+      "uid": "3505192",
+      "name": "hapE",
+      "description": "CCAAT-binding factor complex subunit HapE",
+      "status": "",
+      "currentid": "",
+      "chromosome": "6",
+      "geneticsource": "genomic",
+      "maplocation": "",
+      "otheraliases": "AFUA_6G05300",
+      "otherdesignations": "CCAAT-binding factor complex subunit HapE",
+      "genomicinfo": [
+        {
+          "chrloc": "6",
+          "chraccver": "NC_007199.1",
+          "chrstart": 1271243,
+          "chrstop": 1270238,
+          "exoncount": 4
+        }
+      ],
+      "geneweight": 287,
+      "summary": "",
+      "organism": { "scientificname": "Aspergillus fumigatus Af293", "commonname": "", "taxid": 330879 }
+    },
+    "3503949": {
+      "uid": "3503949",
+      "name": "NEWENTRY",
+      "description": "Record to be removed",
+      "status": "",
+      "currentid": "",
+      "chromosome": "4",
+      "geneticsource": "genomic",
+      "maplocation": "",
+      "otheraliases": "",
+      "otherdesignations": "",
+      "genomicinfo": [],
+      "geneweight": 0,
+      "summary": "",
+      "organism": { "scientificname": "Aspergillus fumigatus Af293", "commonname": "", "taxid": 330879 }
+    }
+  }
+}
