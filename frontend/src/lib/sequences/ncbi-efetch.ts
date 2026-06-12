@@ -38,8 +38,14 @@ export function looksLikeGenbank(text: string): boolean {
 
 /** Build the efetch URL for one nuccore accession. Always gbwithparts + text so
  *  records that use CONTIG joins still carry the full sequence, and always
- *  tool=research-os with no email (zero personal data in the query string). */
-export function efetchUrl(accession: string): string {
+ *  tool=research-os with no email (zero personal data in the query string).
+ *  Pass a window to fetch only that region (seq_start and seq_stop, 1-based
+ *  inclusive). Omit the window to fetch the whole record, preserving the
+ *  existing behavior. */
+export function efetchUrl(
+  accession: string,
+  window?: { start: number; stop: number },
+): string {
   const params = new URLSearchParams({
     db: "nuccore",
     id: accession,
@@ -47,7 +53,30 @@ export function efetchUrl(accession: string): string {
     retmode: "text",
     tool: "research-os",
   });
+  if (window !== undefined) {
+    params.set("seq_start", String(window.start));
+    params.set("seq_stop", String(window.stop));
+  }
   return `${NCBI_EFETCH_BASE}?${params.toString()}`;
+}
+
+/**
+ * Return the [begin - flank, end + flank] window around a gene placement,
+ * clamped to [1, contigLengthBp] (or [1, Infinity] when the length is
+ * unknown). Pure: no network.
+ */
+export function geneWindow(
+  placement: { begin: number; end: number },
+  flankBp: number,
+  contigLengthBp?: number,
+): { start: number; stop: number } {
+  const start = Math.max(1, placement.begin - flankBp);
+  const maxStop =
+    contigLengthBp !== undefined && Number.isFinite(contigLengthBp)
+      ? contigLengthBp
+      : Infinity;
+  const stop = Math.min(maxStop, placement.end + flankBp);
+  return { start, stop: stop === Infinity ? placement.end + flankBp : stop };
 }
 
 /**
@@ -55,17 +84,17 @@ export function efetchUrl(accession: string): string {
  * CORS-open efetch endpoint. Guards the body with a LOCUS check, so an efetch
  * error-as-200 plain-text body becomes a typed EfetchError instead of feeding
  * garbage to the GenBank parser. An aborted fetch propagates so a cancelled
- * import stops cleanly.
+ * import stops cleanly. Pass a window to fetch only that chromosomal region.
  */
 export async function efetchGenbank(
   accession: string,
-  opts?: { signal?: AbortSignal },
+  opts?: { signal?: AbortSignal; window?: { start: number; stop: number } },
 ): Promise<string> {
   const acc = (accession || "").trim();
   if (!acc) throw new EfetchError("Enter an accession.");
   let res: Response;
   try {
-    res = await fetch(efetchUrl(acc), {
+    res = await fetch(efetchUrl(acc, opts?.window), {
       headers: { Accept: "text/plain" },
       signal: opts?.signal,
     });

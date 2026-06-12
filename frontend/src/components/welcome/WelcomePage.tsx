@@ -44,7 +44,13 @@
  * Warm, concept-first, contractions OK. BeakerBot is the only mascot.
  */
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 import BeakerBot from "@/components/BeakerBot";
 import { Icon } from "@/components/icons";
@@ -292,8 +298,58 @@ const COST_ROWS: { tool: string; does: string; price: string }[] = [
 ];
 
 function CostTable() {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [shown, setShown] = useState(false);
+  const [reduced, setReduced] = useState(false);
+
+  // One-time cascade: the price rows drop in top to bottom as the table scrolls
+  // into view, then stay (they do not re-hide on the way back up, so the running
+  // tally reads as a building total rather than a flicker). Disabled under
+  // prefers-reduced-motion and where IntersectionObserver is missing.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const mq =
+      typeof window !== "undefined" && window.matchMedia
+        ? window.matchMedia("(prefers-reduced-motion: reduce)")
+        : null;
+    if (mq?.matches) {
+      setReduced(true);
+      setShown(true);
+      return;
+    }
+    if (typeof IntersectionObserver === "undefined") {
+      setShown(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setShown(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: "0px 0px -10% 0px", threshold: 0.1 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  const rowStyle = (i: number): CSSProperties =>
+    reduced
+      ? {}
+      : {
+          opacity: shown ? 1 : 0,
+          transform: shown ? "none" : "translateY(14px)",
+          transition:
+            "opacity 0.55s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.55s cubic-bezier(0.2, 0.7, 0.2, 1)",
+          transitionDelay: `${i * 40}ms`,
+        };
+
   return (
-    <div className="mt-8 overflow-hidden rounded-2xl border border-[#e3eaf3] bg-white shadow-[0_1px_2px_rgba(15,40,80,0.04)]">
+    <div
+      ref={ref}
+      className="mt-8 overflow-hidden rounded-2xl border border-[#e3eaf3] bg-white shadow-[0_1px_2px_rgba(15,40,80,0.04)]">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[560px] border-collapse text-left">
           <thead>
@@ -310,8 +366,12 @@ function CostTable() {
             </tr>
           </thead>
           <tbody>
-            {COST_ROWS.map((r) => (
-              <tr key={r.tool} className="border-b border-[#e3eaf3]">
+            {COST_ROWS.map((r, i) => (
+              <tr
+                key={r.tool}
+                className="border-b border-[#e3eaf3]"
+                style={rowStyle(i)}
+              >
                 <td className="px-4 py-3 text-body font-medium text-brand-ink">
                   {r.tool}
                 </td>
@@ -321,7 +381,7 @@ function CostTable() {
                 </td>
               </tr>
             ))}
-            <tr>
+            <tr style={rowStyle(COST_ROWS.length)}>
               <td colSpan={2} className="px-4 pt-5 pb-4">
                 <span className="text-2xl font-extrabold tracking-tight text-brand-ink md:text-[32px]">
                   Thousands per year{" "}
@@ -615,30 +675,34 @@ export default function WelcomePage({
             embedded ? "pt-16" : "pt-16"
           }`}
         >
-          <Reveal className="mx-auto max-w-[1080px]">
-            <Kicker>// what your lab pays for now</Kicker>
-            <h2 className="mt-2.5 max-w-[24ch] text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-[36px]">
-              One free app replaces a shelf of expensive software
-            </h2>
-            <p className="mt-3 max-w-[62ch] text-title leading-relaxed text-[#475569]">
-              Most labs pay for a separate tool for the notebook, the chemistry,
-              the cloning, the stats, and the ordering. The licenses stack up and
-              renew every year, per person. ResearchOS does all of it, free, in a
-              folder on your own machine.
-            </p>
+          <div className="mx-auto max-w-[1080px]">
+            <Reveal>
+              <Kicker>// what your lab pays for now</Kicker>
+              <h2 className="mt-2.5 max-w-[24ch] text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-[36px]">
+                One free app replaces a shelf of expensive software
+              </h2>
+              <p className="mt-3 max-w-[62ch] text-title leading-relaxed text-[#475569]">
+                Most labs pay for a separate tool for the notebook, the
+                chemistry, the cloning, the stats, and the ordering. The licenses
+                stack up and renew every year, per person. ResearchOS does all of
+                it, free, in a folder on your own machine.
+              </p>
+            </Reveal>
             <CostTable />
-            <p className="mt-5 max-w-[68ch] border-t border-dashed border-[#dbe6f3] pt-4 text-body leading-relaxed text-[#64748b]">
-              Free to use, with every feature included. The only thing that ever
-              costs money is optional cloud storage, and we charge what it costs
-              us.{" "}
-              <a
-                href="/pricing"
-                className="font-bold text-brand-action transition-colors hover:text-brand-ink"
-              >
-                See exactly how it is priced <span aria-hidden>&rarr;</span>
-              </a>
-            </p>
-          </Reveal>
+            <Reveal>
+              <p className="mt-5 max-w-[68ch] border-t border-dashed border-[#dbe6f3] pt-4 text-body leading-relaxed text-[#64748b]">
+                Free to use, with every feature included. The only thing that
+                ever costs money is optional cloud storage, and we charge what it
+                costs us.{" "}
+                <a
+                  href="/pricing"
+                  className="font-bold text-brand-action transition-colors hover:text-brand-ink"
+                >
+                  See exactly how it is priced <span aria-hidden>&rarr;</span>
+                </a>
+              </p>
+            </Reveal>
+          </div>
         </section>
 
         {/* ── 2. HONEST COMPARISON (deep-dive after cost) ─────────────────

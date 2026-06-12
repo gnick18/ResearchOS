@@ -48,6 +48,7 @@ import {
   compareModelsTool,
   listDataHubAnalysesTool,
   readDataHubAnalysisTool,
+  getAnalysisCodeTool,
 } from "./datahub-analysis";
 import { makeDataHubGraphTool } from "./datahub-graph";
 import { listNotesTool, writeNoteTool } from "./write-note";
@@ -125,6 +126,10 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // for a known id. Neither navigates nor mutates any data.
   listDataHubAnalysesTool,
   readDataHubAnalysisTool,
+  // get_analysis_code returns the reproducible show-the-code snippet for a
+  // stored analysis so the model can drop the exact stat code into a note. The
+  // engine wrote the snippet; the tool only relays it. Read-only.
+  getAnalysisCodeTool,
   // plan_study is READ-only and computes nothing of the user's data. It answers
   // study-design questions (how many samples, what power, smallest detectable
   // effect) through the validated power / sample-size engine before any data is

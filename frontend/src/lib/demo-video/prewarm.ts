@@ -14,14 +14,21 @@ import {
   resolveNameToCid,
 } from "@/lib/chemistry/pubchem";
 import { europePmcPapers, pubchemLinks } from "@/lib/chemistry/literature";
+import { getRdkit } from "@/lib/chemistry/rdkit";
 
 /**
- * Chemistry clip: PubChem search "caffeine" (searchCompounds q,8) -> import the
- * top candidate's SDF -> literature (europePmcPapers q,6 + pubchemLinks cid).
- * Mirrors PubChemImportDialog + MoleculeLiterature (maxPapers=6) call-for-call.
+ * Chemistry clip. Two slow first-touches, both warmed during the countdown:
+ *  - the RDKit wasm (~2 MB) the import "compute properties" + substructure beats
+ *    block on (getRdkit is an idempotent singleton, so this is just a head start);
+ *  - the live network: PubChem search "caffeine" (searchCompounds q,8) -> top
+ *    candidate's SDF -> literature (europePmcPapers q,6 + pubchemLinks cid).
+ * The network half mirrors PubChemImportDialog + MoleculeLiterature (maxPapers=6)
+ * call-for-call so the warmed URLs match exactly.
  */
 async function prewarmChemistry(): Promise<void> {
   const q = "caffeine";
+  // Kick off the wasm immediately; don't gate the network warm on it.
+  void getRdkit().catch(() => {});
   const compounds = await searchCompounds(q, 8).catch(() => []);
   const top = compounds[0];
   await Promise.allSettled([
@@ -34,7 +41,18 @@ async function prewarmChemistry(): Promise<void> {
   ]);
 }
 
-/** clipId -> prewarm. Only clips with a slow live network beat need one. */
+/**
+ * Sequences clip. The SeqViz viewer is a dynamic() chunk only preloaded on idle
+ * once the sequences PAGE is mounted; the clip navigates there as its first beat,
+ * so warming the chunk from the demo surface during the countdown means the
+ * plasmid renders the moment pEGFP-N1 is opened, with no chunk-fetch hitch.
+ */
+async function prewarmSequences(): Promise<void> {
+  await import("@/vendor/seqviz").catch(() => {});
+}
+
+/** clipId -> prewarm. Only clips with a slow first-touch (network / wasm / chunk). */
 export const DEMO_PREWARM: Record<string, () => Promise<void>> = {
   chemistry: prewarmChemistry,
+  sequences: prewarmSequences,
 };

@@ -21,6 +21,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BeakerBotScene } from "@/components/onboarding/BeakerBotScene";
+import LandingBackdrop from "@/components/onboarding/oauth-first/LandingBackdrop";
 import { LAB_TIER_ENABLED } from "@/lib/lab/config";
 import { isOAuthPublishAvailable } from "@/lib/sharing/oauth-availability";
 import { isOAuthFirstLoginEnabled } from "@/lib/sharing/oauth-first-login";
@@ -30,6 +31,18 @@ import SharingProviderButtons from "@/components/sharing/SharingProviderButtons"
 import type { SharingProvider } from "@/components/sharing/SharingProviderButtons";
 
 export type AccountTier = "local" | "free" | "lab";
+
+// Shared deck backdrop for the tier-chooser step screens, unifying them with the
+// OAuth-first landing. Rendered behind the step content via a negative-z layer
+// (the step container is `isolate`, so the backdrop sits above the white base
+// but below the static content without re-wrapping every child).
+function StepBg() {
+  return (
+    <div className="pointer-events-none absolute inset-0 -z-10">
+      <LandingBackdrop />
+    </div>
+  );
+}
 
 export interface AccountTierChooserProps {
   /**
@@ -262,7 +275,7 @@ function ProviderSubStep({
   onBack: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center w-full px-6 py-10 min-h-screen bg-surface text-foreground">
+    <div className="light-scope relative isolate flex flex-col items-center w-full px-6 py-10 min-h-screen bg-white text-foreground"><StepBg />
       <div className="w-16 h-20 mb-3 flex-none">
         <BeakerBotScene name="computer" className="w-full h-full" />
       </div>
@@ -297,7 +310,7 @@ function LabChoiceSubStep({
   onBack: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center w-full px-6 py-10 min-h-screen bg-surface text-foreground">
+    <div className="light-scope relative isolate flex flex-col items-center w-full px-6 py-10 min-h-screen bg-white text-foreground"><StepBg />
       <div className="w-16 h-20 mb-3 flex-none">
         <BeakerBotScene name="lab" className="w-full h-full" />
       </div>
@@ -428,7 +441,7 @@ function LabJoinSubStep({
   }
 
   return (
-    <div className="flex flex-col items-center w-full px-6 py-10 min-h-screen bg-surface text-foreground">
+    <div className="light-scope relative isolate flex flex-col items-center w-full px-6 py-10 min-h-screen bg-white text-foreground"><StepBg />
       <div className="w-16 h-20 mb-3 flex-none">
         <BeakerBotScene name="lab" className="w-full h-full" />
       </div>
@@ -640,7 +653,7 @@ export function AccountTierChooser({ onLocal, onChoose }: AccountTierChooserProp
   // ---- Step: tiles ----
   if (step.view === "tiles") {
     return (
-      <div className="flex flex-col items-center w-full px-6 py-10 min-h-screen bg-surface text-foreground">
+      <div className="light-scope relative isolate flex flex-col items-center w-full px-6 py-10 min-h-screen bg-white text-foreground"><StepBg />
         {/* header BeakerBot + wordmark */}
         <div className="w-16 h-20 mb-3 flex-none">
           <BeakerBotScene name="solo" className="w-full h-full" />

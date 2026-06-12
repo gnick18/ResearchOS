@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 
 const getContent = vi.fn();
 vi.mock("@/lib/datahub/api", () => ({
@@ -13,6 +13,13 @@ vi.mock("@/lib/datahub/plain-language", () => ({
 }));
 vi.mock("@/lib/datahub/result-text", () => ({
   resultToText: () => "A differs from B (p = 0.001).\n\nt\t4.21\ndf\t44",
+}));
+// Stub the plot renderer so a plot view renders deterministic markup without the
+// real plot-spec geometry (which has its own tests). The body is injected via
+// dangerouslySetInnerHTML, so any non-empty string proves the plot branch ran.
+vi.mock("@/lib/datahub/plot-spec", () => ({
+  renderPlot: () => ({ svg: "<div data-testid='plot-art'>plot</div>" }),
+  readPlotSource: () => ({ analysisId: null }),
 }));
 
 import DataHubEmbed from "./DataHubEmbed";
@@ -106,5 +113,54 @@ describe("DataHubEmbed", () => {
       expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute("href", "/datahub?doc=2"),
     );
     expect(screen.queryByText(/A differs from B/)).toBeNull();
+  });
+
+  // A doc with a table, a plot, and a computed result, so all three views exist
+  // and the switch is shown.
+  const multiViewContent = {
+    ...content,
+    plots: [{ id: "p1", name: "OD over time" }],
+    analyses: [{ id: "a3", type: "ttest", name: "Welch t-test", resultCache: { ok: true, kind: "ttest" } }],
+  };
+
+  it("shows a Table / Plot / Result switch when the doc supports all three", async () => {
+    getContent.mockResolvedValue(multiViewContent);
+    render(<DataHubEmbed descriptor={tableDescriptor} caption="Growth curve" basePath="" />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Table" })).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Plot" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Result" })).toBeInTheDocument();
+  });
+
+  it("hides the switch when only the table view is available", async () => {
+    getContent.mockResolvedValue(content);
+    render(<DataHubEmbed descriptor={tableDescriptor} caption="Growth curve" basePath="" />);
+    await waitFor(() => expect(screen.getByText("time_h")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "Table" })).toBeNull();
+  });
+
+  it("switches table -> result ephemerally (no onViewChange)", async () => {
+    getContent.mockResolvedValue(multiViewContent);
+    render(<DataHubEmbed descriptor={tableDescriptor} caption="Growth curve" basePath="" />);
+    await waitFor(() => expect(screen.getByText("time_h")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Result" }));
+    await waitFor(() => expect(screen.getByText(/A differs from B/)).toBeInTheDocument());
+    // The table is gone after the flip.
+    expect(screen.queryByText("time_h")).toBeNull();
+  });
+
+  it("calls onViewChange with the new view when provided (editor persistence)", async () => {
+    getContent.mockResolvedValue(multiViewContent);
+    const onViewChange = vi.fn();
+    render(
+      <DataHubEmbed
+        descriptor={tableDescriptor}
+        caption="Growth curve"
+        basePath=""
+        onViewChange={onViewChange}
+      />,
+    );
+    await waitFor(() => expect(screen.getByRole("button", { name: "Plot" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Plot" }));
+    expect(onViewChange).toHaveBeenCalledWith("plot");
   });
 });

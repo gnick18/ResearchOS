@@ -33,6 +33,8 @@ import {
   parseCompareModelsArgs,
   resolveYColumnId,
   buildModelComparison,
+  getAnalysisCodeTool,
+  shapeAnalysisCode,
 } from "../tools/datahub-analysis";
 
 // ---------------------------------------------------------------------------
@@ -803,5 +805,75 @@ describe("compare_models tool", () => {
     })) as { ok: boolean };
     expect(result.ok).toBe(false);
     expect(navigate).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// get_analysis_code (show-the-code for a stored analysis)
+// ---------------------------------------------------------------------------
+
+describe("shapeAnalysisCode", () => {
+  it("returns the runnable code + kind for a stored result", () => {
+    const { content, analysisId } = contentWithStoredAnalysis();
+    const out = shapeAnalysisCode(content, analysisId);
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    expect(out.language).toBe("python");
+    expect(out.kind).toBe("ttest");
+    expect(out.code.length).toBeGreaterThan(0);
+    expect(out.analysisId).toBe(analysisId);
+  });
+
+  it("errors for an unknown analysis id", () => {
+    const { content } = contentWithStoredAnalysis();
+    const out = shapeAnalysisCode(content, "nope");
+    expect(out.ok).toBe(false);
+    if (out.ok) return;
+    expect(out.error).toMatch(/not found/i);
+  });
+
+  it("errors when the analysis has no stored result yet", () => {
+    const content = twoGroupContent();
+    const out = shapeAnalysisCode(
+      {
+        ...content,
+        analyses: [
+          {
+            id: "blank",
+            type: "unpairedTTest",
+            params: {},
+            inputs: { columnIds: ["cControl", "cDrug"] },
+            resultCache: null,
+            resultStale: false,
+          },
+        ],
+      },
+      "blank",
+    );
+    expect(out.ok).toBe(false);
+    if (out.ok) return;
+    expect(out.error).toMatch(/no stored result/i);
+  });
+});
+
+describe("get_analysis_code tool", () => {
+  it("is read-only (no action hooks, never navigates)", async () => {
+    expect(getAnalysisCodeTool.action).toBeFalsy();
+    expect(getAnalysisCodeTool.describeAction).toBeUndefined();
+    const navigate = vi.spyOn(datahubAnalysisDeps, "navigate").mockImplementation(() => {});
+    const { content, analysisId } = contentWithStoredAnalysis();
+    vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(content);
+    const result = (await getAnalysisCodeTool.execute({
+      tableId: "1",
+      analysisId,
+    })) as { ok: boolean; code?: string };
+    expect(result.ok).toBe(true);
+    expect((result as { code: string }).code.length).toBeGreaterThan(0);
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it("requires both ids", async () => {
+    const result = (await getAnalysisCodeTool.execute({ tableId: "1" })) as { ok: boolean };
+    expect(result.ok).toBe(false);
   });
 });

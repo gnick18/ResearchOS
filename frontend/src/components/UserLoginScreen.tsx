@@ -48,7 +48,8 @@ import FeedbackModal from "@/components/FeedbackModal";
 import UserAvatar from "@/components/UserAvatar";
 import UserColorPickerPopup from "@/components/UserColorPickerPopup";
 import Tooltip from "@/components/Tooltip";
-import BeakerBot from "@/components/BeakerBot";
+import LandingBackdrop from "@/components/onboarding/oauth-first/LandingBackdrop";
+import { IntroBubbleBot } from "@/components/onboarding/oauth-first/IntroBubbleBot";
 import VersionBadge from "@/components/VersionBadge";
 import DevForceLandingButton from "@/components/DevForceLandingButton";
 import DevPairBypassButton from "@/components/DevPairBypassButton";
@@ -1078,24 +1079,14 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     !contextCurrentUser && !expandPicker && soleUser !== null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto px-4 pt-16 pb-28 bg-gradient-to-br from-surface-sunken via-surface to-surface-sunken">
-      {/* Beta surfacing: the "v0.5.0 beta" version badge top-left. The beta
-          framing is already carried by this badge plus the "Report Bug" footer
-          link below, so we no longer float the verbose BetaNotice paragraph
-          here. It was styled tone="dark" for the old slate-gradient splash and
-          rendered washed-out + overlapping once this gate moved to the light
-          surface gradient. */}
+    <div className="light-scope fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto px-4 pt-16 pb-28 bg-white">
+      {/* Beta surfacing: the "v0.5.0 beta" version badge top-left. */}
       <VersionBadge tone="surface" className="fixed top-3 left-4 z-[110]" />
-      {/* Ambience so the gate reads with depth instead of flat white: a soft
-          brand-colored glow up top behind the logo + a faint slate dot texture.
-          Both are subtle and adapt to dark mode (the old layer used white dots
-          + no glow, which was invisible once the gate became light). */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute left-1/2 top-[-12%] h-[60vh] w-[85vw] -translate-x-1/2 rounded-full bg-gradient-to-br from-brand-sky/30 via-brand-purple/15 to-transparent opacity-70 blur-3xl dark:opacity-40" />
-        <div className="absolute inset-0 opacity-[0.05]" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23475569' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-        }} />
-      </div>
+      {/* Shared deck-style backdrop, the same stage the OAuth-first landing uses
+          (light radial wash, masked dot grid, drifting auroras + floating
+          beakers on a cursor-parallax layer, rainbow bars), so the entry surface
+          and the landing read as one. */}
+      <LandingBackdrop />
 
       {/* max-w bumped from md (28rem / 448px) to 30rem (480px) — gives
           the user cards just enough extra room to seat the full action
@@ -1105,22 +1096,14 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
           names still fall back to ellipsis rather than overflowing.
           (picker card alignment fix, 2026-05-26) */}
       <div className="relative z-10 w-full max-w-[30rem] mx-4">
-        {/* Logo and title */}
+        {/* Logo and title. The animated bubble BeakerBot (IntroBubbleBot) is the
+            same mascot the OAuth-first landing leads with, so the entry surface
+            and the landing share one hero mark. */}
         <div className="text-center mb-8">
-          {/* Brand mark: BeakerBot in the gradient pill. Static (no
-              idle bob — branding shouldn't bounce). `noLiquid` so the
-              mascot reads as a clean white wireframe on the blue→
-              purple gradient instead of fighting it with its own
-              pastel-rainbow fill. */}
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-sky to-brand-purple shadow-lg mb-4">
-            <BeakerBot
-              pose="idle"
-              noLiquid
-              ariaLabel="ResearchOS BeakerBot logo"
-              className="w-8 h-8 text-white"
-            />
+          <div className="mb-4 flex justify-center">
+            <IntroBubbleBot size="sm" />
           </div>
-          <h1 className="text-display font-extrabold tracking-tight text-foreground mb-2">ResearchOS</h1>
+          <h1 className="text-display font-extrabold tracking-tight text-brand-ink mb-2">ResearchOS</h1>
           <p className="text-foreground-muted">Select your account to continue</p>
         </div>
 

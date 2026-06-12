@@ -36,6 +36,7 @@ import {
 import { readLastProvider } from "@/lib/sharing/oauth-first-login";
 import { startOAuthFirstSignIn } from "@/lib/sharing/oauth-first-signin";
 import { IntroBubbleBot } from "./IntroBubbleBot";
+import LandingBackdrop from "./LandingBackdrop";
 
 export interface WelcomeBackSignInProps {
   /** Return to the landing. */
@@ -113,15 +114,9 @@ export function WelcomeBackSignIn({
 
   return (
     <LightOnly>
-      <div
-        className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden px-6 py-16 text-center"
-        style={{
-          background:
-            "radial-gradient(560px 360px at 50% 6%, #ffffff 0%, #f6f9ff 55%, #eef4ff 100%)",
-        }}
-      >
-        <div aria-hidden className="absolute inset-x-0 top-0 h-[7px] z-[2] brand-rainbow-bg" />
-        <div aria-hidden className="absolute inset-x-0 bottom-0 h-[7px] z-[2] brand-rainbow-bg" />
+      <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden px-6 py-16 text-center">
+        {/* Shared deck backdrop, matching the OAuth-first landing exactly. */}
+        <LandingBackdrop />
 
         <button
           type="button"

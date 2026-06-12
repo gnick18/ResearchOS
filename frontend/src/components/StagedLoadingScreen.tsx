@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { fileService } from "@/lib/file-system/file-service";
 import BetaNotice from "@/components/BetaNotice";
 import { IntroBubbleBot } from "@/components/onboarding/oauth-first/IntroBubbleBot";
+import LandingBackdrop from "@/components/onboarding/oauth-first/LandingBackdrop";
 import { useTheme } from "@/lib/theme/use-theme";
 import type { LoadingStage } from "@/lib/file-system/file-system-context";
 
@@ -105,21 +106,12 @@ export default function StagedLoadingScreen({
   return (
     <div
       data-testid="staged-loading-screen"
-      className="fixed inset-0 flex items-center justify-center overflow-hidden bg-gradient-to-b from-white to-[#eef4fb] dark:from-[#0a0e1a] dark:to-[#0d1424]"
+      className="light-scope fixed inset-0 flex items-center justify-center overflow-hidden bg-white"
     >
-      {/* Subtle rainbow wash + hairline, unifying the loader with the welcome
-          page's brand signature. In dark mode brand-rainbow-bg switches to the
-          vivid ramp (globals.css), so at low opacity on the near-black bg it
-          reads as a subtle DARK rainbow glow. Kept faint so the screen every
-          user passes through stays calm, not loud. Decorative, so aria-hidden. */}
-      <div
-        aria-hidden
-        className="brand-rainbow-bg pointer-events-none absolute inset-x-0 top-0 h-1"
-      />
-      <div
-        aria-hidden
-        className="brand-rainbow-bg pointer-events-none absolute -top-32 left-1/2 h-72 w-[140%] -translate-x-1/2 opacity-[0.10] blur-3xl dark:opacity-[0.20]"
-      />
+      {/* Shared deck backdrop, unifying the loader every user passes through with
+          the OAuth-first landing (radial wash, masked dot grid, drifting auroras
+          + floating beakers, rainbow bars). */}
+      <LandingBackdrop />
 
       <div className="relative max-w-xl w-full mx-4 text-center">
         {/* The bubbling BeakerBot is the brand loading mark (Grant 2026-06-11),

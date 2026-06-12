@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Guided NCBI genome import, organism to locus</title>
+<style>
+  :root{
+    --bg:#f4f7fb; --panel:#fff; --ink:#0f1b2d; --muted:#5b6b80; --line:#e2e9f2;
+    --sky:#1AA0E6; --action:#1283C9; --green:#16a34a; --amber:#d97706; --pin:#e11d48;
+    --raised:#f8fbff; --chip:#eef5fc;
+  }
+  html.dark{
+    --bg:#0c1320; --panel:#121d2e; --ink:#e7eef8; --muted:#94a6bd; --line:#22324a;
+    --sky:#3aa0e6; --action:#3aa0e6; --green:#4ade80; --amber:#fbbf24; --pin:#fb7185;
+    --raised:#0f1a29; --chip:#16243a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  header.top{display:flex;align-items:center;gap:12px;padding:14px 22px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:20}
+  header.top h1{font-size:16px;margin:0;font-weight:700}
+  header.top .sub{font-size:12px;color:var(--muted)}
+  .spacer{flex:1}
+  .btn{font:inherit;font-size:12px;font-weight:600;padding:7px 12px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;cursor:pointer}
+  .btn:hover{border-color:var(--action)}
+  .btn.primary{background:var(--action);border-color:var(--action);color:#fff}
+  .wrap{max-width:980px;margin:0 auto;padding:22px}
+  .lead{color:var(--muted);font-size:13px;max-width:760px;margin:4px 0 18px}
+  .lead b{color:var(--ink)}
+
+  /* app frame */
+  .frame{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 10px 40px rgba(15,27,45,.06)}
+  .fhead{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--raised)}
+  .fhead .dot{width:9px;height:9px;border-radius:50%;background:var(--line)}
+  .fhead .ttl{font-weight:700;font-size:13px}
+  .fhead .ncbi{margin-left:auto;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .fhead .ncbi .live{width:7px;height:7px;border-radius:50%;background:var(--green)}
+
+  /* steps rail */
+  .steps{display:flex;gap:2px;padding:10px 16px;border-bottom:1px solid var(--line);font-size:12px;flex-wrap:wrap}
+  .steps .s{display:flex;align-items:center;gap:7px;padding:4px 10px;border-radius:20px;color:var(--muted)}
+  .steps .s .n{width:18px;height:18px;border-radius:50%;background:var(--chip);color:var(--muted);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px}
+  .steps .s.active{color:var(--ink);font-weight:600}
+  .steps .s.active .n{background:var(--action);color:#fff}
+  .steps .s.done .n{background:var(--green);color:#fff}
+  .steps .arrow{color:var(--line);align-self:center}
+
+  .body{padding:20px 22px;min-height:330px}
+  .body h2{font-size:15px;margin:0 0 3px}
+  .body .hint{color:var(--muted);font-size:12px;margin:0 0 16px}
+
+  .field{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+  input.txt{flex:1;font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:var(--raised);color:var(--ink)}
+  input.txt:focus{outline:none;border-color:var(--action)}
+  input.num{width:90px;font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--raised);color:var(--ink)}
+
+  .list{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+  .row{display:flex;align-items:center;gap:12px;padding:11px 13px;border:1px solid var(--line);border-radius:10px;background:var(--raised);cursor:pointer;transition:border-color .12s,background .12s}
+  .row:hover{border-color:var(--action)}
+  .row.sel{border-color:var(--action);background:var(--chip)}
+  .row .main{flex:1;min-width:0}
+  .row .t{font-weight:600}
+  .row .meta{font-size:12px;color:var(--muted)}
+  .row .tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:3px 7px;border-radius:6px;background:var(--chip);color:var(--muted)}
+  .row .tag.ref{background:rgba(22,163,74,.14);color:var(--green)}
+  .row .tag.chr{background:rgba(18,131,201,.12);color:var(--action)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+
+  .placard{border:1px solid var(--line);border-radius:11px;background:var(--raised);padding:14px 16px;margin-top:10px}
+  .placard .g{font-size:16px;font-weight:700}
+  .placard .sub{color:var(--muted);font-size:12px;margin-top:2px}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin-top:11px;font-size:12.5px}
+  .kv .k{color:var(--muted)}
+  .strandbar{margin-top:13px;height:42px;border-radius:8px;background:var(--chip);position:relative;overflow:hidden;border:1px solid var(--line)}
+  .strandbar .gene{position:absolute;top:9px;height:24px;border-radius:5px;background:var(--action);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700}
+  .strandbar .nb{position:absolute;top:9px;height:24px;border-radius:5px;background:var(--line);opacity:.7}
+  .strandbar .flank{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(45deg,rgba(18,131,201,.10),rgba(18,131,201,.10) 6px,transparent 6px,transparent 12px)}
+  .legend2{display:flex;gap:16px;margin-top:8px;font-size:11px;color:var(--muted);flex-wrap:wrap}
+  .legend2 .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+  .nav{display:flex;gap:10px;margin-top:20px;align-items:center}
+  .nav .back{margin-right:auto}
+  .note{font-size:12px;color:var(--muted);margin-top:8px}
+  .ok{color:var(--green)}
+
+  .done{text-align:center;padding:26px 10px}
+  .done .check{width:46px;height:46px;border-radius:50%;background:rgba(22,163,74,.14);color:var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:24px;font-weight:800}
+
+  /* decisions */
+  .dwrap{margin-top:26px}
+  .dwrap h2{font-size:14px;margin:0 0 2px}
+  .dwrap .dhint{color:var(--muted);font-size:12px;margin:0 0 14px}
+  .card{border:1px solid var(--line);border-radius:11px;background:var(--panel);padding:13px 15px;margin-bottom:10px}
+  .card .ctop{display:flex;align-items:center;gap:9px;margin-bottom:6px}
+  .card .did{font-family:ui-monospace,monospace;font-size:11px;color:var(--muted);background:var(--chip);padding:2px 7px;border-radius:6px}
+  .card .ctitle{font-weight:700;font-size:13.5px}
+  .card .rec{margin-left:auto;font-size:11px;color:var(--green);font-weight:700}
+  .card .cbody{font-size:12.5px;color:var(--muted)}
+  .card .cbody code{background:var(--chip);padding:1px 5px;border-radius:5px;font-size:11.5px}
+  .decide{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{font:inherit;font-size:12px;padding:6px 12px;border:0;background:var(--panel);color:var(--ink);cursor:pointer;border-right:1px solid var(--line)}
+  .seg button:last-child{border-right:0}
+  .seg button.on[data-v="approve"]{background:var(--green);color:#fff}
+  .seg button.on[data-v="modify"]{background:var(--amber);color:#fff}
+  .seg button.on[data-v="reject"]{background:var(--pin);color:#fff}
+  .decide input{flex:1;min-width:200px;font:inherit;font-size:12px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--raised);color:var(--ink)}
+  .estat{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Guided NCBI genome import</h1>
+    <div class="sub">Design mockup. Type an organism, pick the reference genome, find a gene, grab a window around it.</div>
+  </div>
+  <div class="spacer"></div>
+  <span class="estat" id="estat">No decisions yet</span>
+  <button class="btn" id="themeBtn">Switch to dark</button>
+  <button class="btn primary" id="exportBtn">Copy feedback</button>
+</header>
+
+<div class="wrap">
+  <p class="lead">This prototypes the flow you described. Today our NCBI tool is three typed tabs (Gene, Genome, Accession). This replaces the guesswork with a guided path, <b>organism to reference genome to gene to a windowed region you actually import</b>. The data below is real (Aspergillus fumigatus Af293, gene cyp51A), the same records the live API returns. Click through it, then mark up the decisions at the bottom. Nothing here writes anything; it is a feel-test before we build.</p>
+
+  <div class="frame">
+    <div class="fhead">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="ttl">Download from NCBI</span>
+      <span class="ncbi"><span class="live"></span>Live, browser-direct, no account</span>
+    </div>
+    <div class="steps" id="stepsRail"></div>
+    <div class="body" id="stepBody"></div>
+  </div>
+
+  <div class="dwrap">
+    <h2>Decisions to sign off</h2>
+    <p class="dhint">Approve, ask to modify, or reject each. Add a note for anything you want changed. Then Copy feedback and paste it back to me.</p>
+    <div id="dlist"></div>
+  </div>
+</div>
+
+<script>
+/* ---------- real data ---------- */
+const TAXA=[
+  {t:"Aspergillus fumigatus",meta:"species, taxid 746128",pick:true},
+  {t:"Aspergillus fumigatus Af293",meta:"strain, taxid 330879"},
+  {t:"Aspergillus fumigatusvar. ellipticus",meta:"variety, taxid 1448314"},
+];
+const ASSEMBLIES=[
+  {acc:"GCF_000002655.1",name:"ASM265v1",level:"Chromosome",sub:"RefSeq, J. Craig Venter Institute, 2025 annotation",ref:true},
+  {acc:"GCA_000002655.1",name:"ASM265v1",level:"Chromosome",sub:"GenBank, primary submission"},
+  {acc:"GCF_002055965.1",name:"Aspfu1.0",level:"Scaffold",sub:"RefSeq, alternate isolate"},
+];
+const CONTIGS=[
+  {acc:"NC_007194.1",chr:"1",len:4918979},{acc:"NC_007195.1",chr:"2",len:4844472},
+  {acc:"NC_007196.1",chr:"3",len:4079167},{acc:"NC_007197.1",chr:"4",len:3923705},
+  {acc:"NC_007198.1",chr:"5",len:3948441},{acc:"NC_007199.1",chr:"6",len:3778736},
+  {acc:"NC_007200.1",chr:"7",len:2058334},{acc:"NC_007201.1",chr:"8",len:1833124},
+];
+const GENE={symbol:"cyp51A",locus:"AFUA_4G06890",desc:"cytochrome P450, sterol 14-alpha demethylase",
+  contig:"NC_007197.1",chr:"4",contigLen:3923705,begin:1777375,end:1781822,orientation:"minus",exons:2};
+// candidate hits from an esearch (db=gene, scoped to the organism). Verified live:
+// "sterol 14-alpha-demethylase AND Aspergillus fumigatus[orgn]" -> cyp51A, erg25B;
+// "cyp51" -> cyp51A, cyp51B. So a NAME or PROTEIN DESCRIPTION resolves, not just a symbol.
+const GENE_HITS=[
+  {symbol:"cyp51A",locus:"AFUA_4G06890",desc:"cytochrome P450, sterol 14-alpha-demethylase",chr:"4",pick:true},
+  {symbol:"cyp51B",locus:"AFUA_7G03740",desc:"sterol 14-alpha-demethylase, paralog",chr:"7"},
+  {symbol:"erg25B",locus:"AFUA_4G04820",desc:"sterol desaturase family protein",chr:"4"},
+];
+const NEIGHBORS=[
+  {locus:"AFUA_4G06870",lo:1769900,hi:1772100},
+  {locus:"asn2 / AFUA_4G06880",lo:1773600,hi:1776300},
+  {locus:"AFUA_4G06900",lo:1782600,hi:1784900},
+];
+const fmt=n=>n.toLocaleString("en-US");
+
+/* ---------- wizard state ---------- */
+let step=1, flank=1000;
+const totalSteps=5;
+const labels=["Organism","Reference","Contigs","Gene","Window"];
+
+function rail(){
+  const r=document.getElementById("stepsRail");
+  let h="";
+  for(let i=1;i<=totalSteps;i++){
+    const cls=i<step?"s done":i===step?"s active":"s";
+    h+=`<span class="${cls}"><span class="n">${i<step?"&#10003;":i}</span>${labels[i-1]}</span>`;
+    if(i<totalSteps) h+=`<span class="arrow">&rsaquo;</span>`;
+  }
+  r.innerHTML=h;
+}
+function go(n){ step=n; render(); }
+
+function render(){
+  rail();
+  const b=document.getElementById("stepBody");
+  if(step===1) b.innerHTML=stepOrganism();
+  if(step===2) b.innerHTML=stepAssemblies();
+  if(step===3) b.innerHTML=stepContigs();
+  if(step===4) b.innerHTML=stepGene();
+  if(step===5) b.innerHTML=stepWindow();
+  if(step===6) b.innerHTML=stepDone();
+  bindBody();
+}
+
+function stepOrganism(){
+  return `<h2>Which organism?</h2><p class="hint">Type a name, we autocomplete from NCBI Taxonomy. This is already wired in our code (suggestTaxa).</p>
+  <div class="field"><input class="txt" id="orgIn" value="Aspergillus fumigatus" autocomplete="off"/></div>
+  <div class="list" id="taxa">${TAXA.map((x,i)=>`
+    <div class="row ${x.pick?'':''}" data-go="2" data-pick="org">
+      <div class="main"><div class="t">${x.t}</div><div class="meta">${x.meta}</div></div>
+      <span class="tag">${x.meta.split(",")[0]}</span>
+    </div>`).join("")}</div>
+  <div class="nav"><span class="note">Pick the species to see its genomes.</span>
+    <button class="btn" id="accHatch" style="margin-left:auto">I have an accession</button></div>
+  <div id="accBox" style="display:none;margin-top:10px" class="placard">
+    <div class="sub" style="margin-bottom:8px">Know exactly what you want? Paste any accession (gene NM_/NG_, genome GCF_/GCA_, or a contig NC_) and skip the guided path.</div>
+    <div class="field"><input class="txt mono" placeholder="e.g. NC_007197.1 or GCF_000002655.1" value="NC_007197.1"/><button class="btn primary" data-go="5">Go</button></div>
+  </div>`;
+}
+function stepAssemblies(){
+  return `<h2>Genomes for <b>Aspergillus fumigatus</b></h2><p class="hint">The reference genome is flagged, so you do not have to know the accession. This is wired too (listTaxonAssemblies, isReference).</p>
+  <div class="list">${ASSEMBLIES.map(a=>`
+    <div class="row" data-go="3" data-pick="asm">
+      <div class="main"><div class="t mono">${a.acc} <span style="font-family:inherit;color:var(--muted);font-weight:400">${a.name}</span></div><div class="meta">${a.sub} &middot; ${a.level} level</div></div>
+      ${a.ref?'<span class="tag ref">Reference</span>':'<span class="tag">'+a.level+'</span>'}
+      <button class="btn" data-go="6" title="Download every contig in this assembly">Whole genome</button>
+    </div>`).join("")}</div>
+  <div class="note">Click a genome to browse its chromosomes, or grab the whole assembly at once with Whole genome.</div>
+  <div class="nav"><button class="btn back" data-go="1">Back</button></div>`;
+}
+function stepContigs(){
+  const max=Math.max(...CONTIGS.map(c=>c.len));
+  return `<h2>Chromosomes in <span class="mono">GCF_000002655.1</span></h2><p class="hint">Pulled live from the assembly (sequence_reports). You can browse, or just search a gene and we land you on the right one. Eight assembled chromosomes, 29.4 Mb total.</p>
+  <div class="list">${CONTIGS.map(c=>`
+    <div class="row ${c.acc===GENE.contig?'':''}" data-go="4" data-pick="contig">
+      <div class="main"><div class="t mono">${c.acc}</div>
+        <div class="meta">Chromosome ${c.chr} &middot; ${fmt(c.len)} bp</div>
+        <div style="height:4px;border-radius:3px;background:var(--chip);margin-top:6px"><div style="height:100%;border-radius:3px;background:var(--action);width:${(c.len/max*100).toFixed(0)}%"></div></div>
+      </div>
+      <span class="tag chr">Chr ${c.chr}</span>
+      <button class="btn" data-go="6" title="Download this whole chromosome">Whole chromosome</button>
+    </div>`).join("")}</div>
+  <div class="note">Grab a whole chromosome, or search a gene to land on the right one and window it.</div>
+  <div class="nav"><button class="btn back" data-go="2">Back</button><button class="btn primary" data-go="4">Search a gene instead</button></div>`;
+}
+function stepGene(){
+  return `<h2>Search a gene</h2><p class="hint">Type a symbol, a locus tag, or the protein name if that is all you know. We search NCBI Gene scoped to this organism (esearch), then resolve where each hit sits. You do not need the accession.</p>
+  <div class="field"><input class="txt" id="geneIn" value="cyp51A" autocomplete="off" placeholder="cyp51A, or sterol 14-alpha-demethylase"/><button class="btn primary" id="geneFind">Search</button></div>
+  <div class="list" id="geneHits">${GENE_HITS.map(h=>`
+    <div class="row ${h.pick?'sel':''}" data-go="5" data-pick="gene">
+      <div class="main"><div class="t">${h.symbol} <span class="mono" style="color:var(--muted);font-weight:400">${h.locus}</span></div>
+        <div class="meta">${h.desc} &middot; chromosome ${h.chr}</div></div>
+      <span class="tag chr">Chr ${h.chr}</span>
+    </div>`).join("")}</div>
+  <div class="note" style="margin-top:10px">Not seeing it? <a href="https://www.ncbi.nlm.nih.gov/gene/?term=Aspergillus+fumigatus" target="_blank" style="color:var(--action)">Search on NCBI Gene</a>, then paste the accession or symbol back here.</div>
+  <div class="nav"><button class="btn back" data-go="3">Back to chromosomes</button></div>`;
+}
+function stepWindow(){
+  const lo=Math.max(1,GENE.begin-flank), hi=Math.min(GENE.contigLen,GENE.end+flank);
+  const span=hi-lo+1;
+  // strand bar geometry
+  const W=lo, total=hi-lo+1;
+  const px=v=>((v-lo)/total*100);
+  const geneL=px(GENE.begin), geneW=px(GENE.end)-px(GENE.begin);
+  const nb=NEIGHBORS.filter(n=>n.hi>lo&&n.lo<hi).map(n=>{
+    const l=Math.max(lo,n.lo), r=Math.min(hi,n.hi);
+    return `<div class="nb" style="left:${px(l)}%;width:${px(r)-px(l)}%" title="${n.locus}"></div>`;
+  }).join("");
+  return `<h2>Grab a window around <b>${GENE.symbol}</b></h2><p class="hint">Default is the gene plus a flank on each side, so you keep the promoter and terminator context for cloning. Edit the flank, we fetch only that slice (efetch with seq_start and seq_stop), not the whole 3.9 Mb chromosome.</p>
+  <div class="field" style="gap:10px">
+    <span>Gene plus</span>
+    <input class="num" id="flankIn" type="number" min="0" step="100" value="${flank}"/>
+    <span>bp on each side</span>
+    <span style="margin-left:auto" class="note">Region <span class="mono ok">${GENE.contig}:${fmt(lo)}..${fmt(hi)}</span> &middot; <b>${fmt(span)} bp</b></span>
+  </div>
+  <div class="strandbar">
+    <div class="flank" style="left:0;width:${geneL}%"></div>
+    <div class="flank" style="left:${geneL+geneW}%;right:0"></div>
+    ${nb}
+    <div class="gene" style="left:${geneL}%;width:${geneW}%">${GENE.symbol}</div>
+  </div>
+  <div class="legend2">
+    <span><span class="sw" style="background:var(--action)"></span>${GENE.symbol} gene</span>
+    <span><span class="sw" style="background:var(--line)"></span>neighbor genes (context)</span>
+    <span><span class="sw" style="background:repeating-linear-gradient(45deg,rgba(18,131,201,.4),rgba(18,131,201,.4) 3px,transparent 3px,transparent 6px)"></span>flank</span>
+  </div>
+  <div class="note" style="margin-top:12px">This window is ~${(span/1000).toFixed(1)} kb, so it parses and renders instantly. The full chromosome would be 7.3 MB and 1,267 genes.</div>
+  <div class="nav"><button class="btn back" data-go="4">Back</button><button class="btn primary" data-go="6">Import this region</button></div>`;
+}
+function stepDone(){
+  const lo=Math.max(1,GENE.begin-flank), hi=Math.min(GENE.contigLen,GENE.end+flank);
+  return `<div class="done">
+    <div class="check">&#10003;</div>
+    <h2 style="text-align:center">Imported into your library</h2>
+    <p class="hint" style="text-align:center"><b>${GENE.symbol} region (${GENE.contig} ${fmt(lo)}..${fmt(hi)})</b><br/>${fmt(hi-lo+1)} bp, annotated, with ${GENE.symbol} and its neighbors as features.</p>
+    <p class="note" style="text-align:center;max-width:520px;margin:10px auto 0">Next in the real flow, you would open this, select the ${GENE.symbol} feature, and use Extract to new sequence (being built now) to pull the gene onto its own sequence, then Assemble it into pEGFP-N1.</p>
+    <div class="nav" style="justify-content:center"><button class="btn" data-go="1">Run it again</button></div>
+  </div>`;
+}
+
+function bindBody(){
+  document.querySelectorAll("[data-go]").forEach(el=>el.addEventListener("click",e=>{e.stopPropagation();go(+el.dataset.go);}));
+  const ah=document.getElementById("accHatch"); if(ah) ah.addEventListener("click",()=>{const b=document.getElementById("accBox");b.style.display=b.style.display==="none"?"block":"none";});
+  const gf=document.getElementById("geneFind"), gi=document.getElementById("geneIn");
+  function runGeneSearch(){
+    const q=(gi.value||"").toLowerCase().trim();
+    const hits=GENE_HITS.filter(h=>!q||h.symbol.toLowerCase().includes(q)||h.locus.toLowerCase().includes(q)||h.desc.toLowerCase().includes(q));
+    document.getElementById("geneHits").innerHTML=(hits.length?hits:GENE_HITS).map(h=>`
+      <div class="row ${h.pick?'sel':''}" data-go="5" data-pick="gene">
+        <div class="main"><div class="t">${h.symbol} <span class="mono" style="color:var(--muted);font-weight:400">${h.locus}</span></div>
+          <div class="meta">${h.desc} &middot; chromosome ${h.chr}</div></div>
+        <span class="tag chr">Chr ${h.chr}</span></div>`).join("");
+    document.querySelectorAll("#geneHits [data-go]").forEach(el=>el.addEventListener("click",e=>{e.stopPropagation();go(+el.dataset.go);}));
+  }
+  if(gf) gf.addEventListener("click",runGeneSearch);
+  if(gi) gi.addEventListener("keydown",e=>{if(e.key==="Enter")runGeneSearch();});
+  const fl=document.getElementById("flankIn"); if(fl) fl.addEventListener("input",()=>{flank=Math.max(0,+fl.value||0);render();setTimeout(()=>{const f=document.getElementById("flankIn");if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}},0);});
+}
+
+/* ---------- decisions ---------- */
+const D=[
+  {id:"NB-1",title:"Guided front door, accession quick-path kept",rec:"Approve",updated:true,
+   body:"UPDATED from your note. Guided flow is the front door, and an <b>I have an accession</b> button (on step 1) drops to a paste-and-go field for people who already know exactly what they want. Nobody is forced through the wizard."},
+  {id:"NB-2",title:"Window default is gene plus a flank, editable",rec:"Approve",
+   body:"Default to the gene span plus <code>1000 bp</code> each side, shown as an editable number, so you keep promoter and terminator context. You picked gene plus a flank."},
+  {id:"NB-3",title:"Every path optional, whole genome too",rec:"Approve",updated:true,
+   body:"UPDATED from your note. Each step keeps a full-download option, <b>Whole genome</b> on an assembly, <b>Whole chromosome</b> on a contig, or window-around-a-gene. Some people just want the whole thing, so no step forces you to narrow."},
+  {id:"NB-4",title:"Search a gene by name, not just accession",rec:"Approve",updated:true,
+   body:"UPDATED from your note. The gene step is a real <b>search</b> (NCBI esearch, scoped to the organism), so a symbol, a locus tag, or a protein name all resolve. Verified live, sterol 14-alpha-demethylase finds cyp51A. A Search on NCBI Gene link is the fallback when our search comes up empty."},
+  {id:"NB-5",title:"This guided flow becomes the sequences demo clip",rec:"Approve",
+   body:"Record the welcome-page Sequence clip as this exact walk (organism, reference, cyp51A, window), then Extract and Assemble into pEGFP-N1. Precache the NCBI calls during the countdown so it is instant on camera."},
+];
+const KEY="ncbiGuidedImportDecisions";
+const DEC=JSON.parse(localStorage.getItem(KEY)||"{}");
+function saveD(){localStorage.setItem(KEY,JSON.stringify(DEC));stat();}
+function dlist(){
+  document.getElementById("dlist").innerHTML=D.map(d=>{
+    const c=DEC[d.id]||{};
+    return `<div class="card">
+      <div class="ctop"><span class="did">${d.id}</span><span class="ctitle">${d.title}</span>${d.updated?'<span class="tag ref" style="font-size:10px">revised</span>':''}<span class="rec">rec ${d.rec}</span></div>
+      <div class="cbody">${d.body}</div>
+      <div class="decide">
+        <span class="seg" data-id="${d.id}">
+          <button data-v="approve" class="${c.v==='approve'?'on':''}">Approve</button>
+          <button data-v="modify" class="${c.v==='modify'?'on':''}">Modify</button>
+          <button data-v="reject" class="${c.v==='reject'?'on':''}">Reject</button>
+        </span>
+        <input data-note="${d.id}" placeholder="note or what to change (optional)" value="${(c.note||'').replace(/"/g,'&quot;')}"/>
+      </div>
+    </div>`;
+  }).join("");
+  document.querySelectorAll(".seg").forEach(s=>s.querySelectorAll("button").forEach(btn=>btn.onclick=()=>{
+    const id=s.dataset.id;DEC[id]=DEC[id]||{};DEC[id].v=btn.dataset.v;
+    s.querySelectorAll("button").forEach(x=>x.classList.remove("on"));btn.classList.add("on");saveD();
+  }));
+  document.querySelectorAll("[data-note]").forEach(i=>i.oninput=()=>{const id=i.dataset.note;DEC[id]=DEC[id]||{};DEC[id].note=i.value;saveD();});
+  stat();
+}
+function stat(){const n=Object.values(DEC).filter(d=>d.v).length;document.getElementById("estat").textContent=n?`${n} of ${D.length} decided`:"No decisions yet";}
+document.getElementById("themeBtn").onclick=()=>{const d=document.documentElement.classList.toggle("dark");document.getElementById("themeBtn").textContent=d?"Switch to light":"Switch to dark";};
+document.getElementById("exportBtn").onclick=()=>{
+  const lines=["# Guided NCBI genome import, design feedback","",`_Marked up ${new Date().toISOString().slice(0,10)}_`,""];
+  D.forEach(d=>{const c=DEC[d.id]||{};const v=c.v?c.v.toUpperCase():"(undecided)";
+    lines.push(`## ${d.id} ${d.title}  ->  ${v}`);lines.push(`Recommended: ${d.rec}.${c.note?"  Note: "+c.note:""}`);lines.push("");});
+  const txt=lines.join("\n");
+  navigator.clipboard.writeText(txt).then(()=>{},()=>{});
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([txt],{type:"text/markdown"}));a.download="ncbi-guided-import-feedback.md";a.click();
+};
+render();dlist();
+</script>
+</body>
+</html>
