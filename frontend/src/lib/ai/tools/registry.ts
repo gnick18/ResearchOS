@@ -65,6 +65,14 @@ import {
   readPurchaseTool,
   readMoleculeTool,
 } from "./read-artifact";
+import {
+  computeTmTool,
+  translateSequenceTool,
+  reverseComplementTool,
+  findOrfsTool,
+  designPrimersTool,
+  createSequenceTool,
+} from "./sequence-tools";
 import type { AiTool } from "./types";
 
 // The read-only toolset, read-only with respect to the user's data. Exported on
@@ -116,6 +124,15 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   readProjectTool,
   readPurchaseTool,
   readMoleculeTool,
+  // Sequence compute tools. Deterministic, non-gated, engine-computed. The model
+  // orchestrates (maps the user's words to a sequenceId or a raw string), the
+  // validated engine computes every number, the model relays the result. None of
+  // these writes or navigates, they are pure computation on the user's sequence.
+  computeTmTool,
+  translateSequenceTool,
+  reverseComplementTool,
+  findOrfsTool,
+  designPrimersTool,
 ];
 
 // The action toolset. Each tool here carries action: true and goes through the
@@ -136,12 +153,17 @@ export const READ_ONLY_TOOLS: AiTool[] = [
 // chain relationship is visible on the schedule. None is destructive (creating is
 // reversible by deleting, rescheduling leaves the experiment intact), so none forces
 // the destructive hard-stop.
+//
+// create_sequence is the sequence coworker write tool (action: true, isDestructive
+// false). The user sees a preview showing the sequence name, type, and length before
+// anything is saved. Only on Approve does the sequence write to the library.
 export const ACTION_TOOLS: AiTool[] = [
   clickElementTool,
   writeNoteTool,
   createExperimentTool,
   rescheduleExperimentTool,
   createExperimentChainTool,
+  createSequenceTool,
 ];
 
 // The coordination toolset. These tools neither read the user's data nor act on
