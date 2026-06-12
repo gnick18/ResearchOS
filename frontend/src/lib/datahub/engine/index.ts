@@ -65,6 +65,26 @@ export {
   type NonlinearModel,
 } from "./fit";
 
+// Bootstrap / resampling confidence intervals (distribution-free, the robust
+// fallback when normality is shaky). Generic primitive plus ready statistic
+// helpers; estimation plots consume the same surface.
+export {
+  bootstrapCI,
+  bootstrapDiffCI,
+  percentileInterval,
+  biasCorrection,
+  jackknifeAcceleration,
+  mulberry32,
+  sampleMean,
+  sampleMedian,
+  meanDifference,
+  medianDifference,
+  ratioOfMeans,
+  type BootstrapMethod,
+  type BootstrapOptions,
+  type BootstrapResult,
+} from "./bootstrap";
+
 // Power and sample-size planning (a study-design calculator, not stored data).
 export {
   powerTwoSampleT,
