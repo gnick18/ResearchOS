@@ -12,6 +12,17 @@
 // new glyphs here. Adding a new icon is a VERIFIED ASSET change that requires
 // Grant's explicit sign-off (see AGENTS.md "Icons are a verified library").
 //
+// ONE GLYPH PER MEANING (Grant, 2026-06-12). This registry dedupes the
+// genuinely SAME concept, it does NOT license reusing a glyph for a different
+// meaning that happens to share a word. Before reusing an existing `name`,
+// read its `concept` below and confirm it matches what your button actually
+// MEANS, not just the noun. If the meaning differs, the right move is a NEW
+// entry (Grant signs off), never overloading a same-word glyph. Each `concept`
+// string is the contract for that glyph, keep it specific so the next person
+// can tell whether their use fits. (This rule exists because the `tree` glyph
+// drifted into the lab mentorship hierarchy, inventory storage nesting, and
+// unrelated "Results" headers all at once before it was split.)
+//
 // The default wrapper (see Icon.tsx) supplies:
 //   fill="none" stroke="currentColor" strokeWidth={2}
 //   strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"
