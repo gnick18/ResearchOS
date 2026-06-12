@@ -41,6 +41,9 @@ import {
   parseLogisticRegressionArgs,
   buildLogisticRegression,
   runLogisticRegressionTool,
+  parseGlobalFitArgs,
+  buildGlobalFit,
+  globalFitTool,
 } from "../tools/datahub-analysis";
 
 // ---------------------------------------------------------------------------
@@ -1046,6 +1049,99 @@ describe("run_logistic_regression tool", () => {
     expect(result.ok).toBe(true);
     expect(navigate).toHaveBeenCalledWith(
       expect.stringContaining(`/datahub?doc=8&analysis=${(result as { analysisId: string }).analysisId}`),
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// global_fit (XY table with 2+ Y columns)
+// ---------------------------------------------------------------------------
+
+// An XY table with TWO dose-response curves sharing a shape (same plateaus +
+// Hill, EC50 shifted between them), so a global fit is well-posed.
+function twoCurveContent(): DataHubDocContent {
+  const xs = [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0];
+  const yA = [4.8, 6.1, 7.9, 12.5, 24.0, 47.0, 70.0, 86.0, 93.5, 96.8, 98.1];
+  const yB = [4.0, 5.0, 6.5, 9.5, 18.0, 38.0, 62.0, 82.0, 92.0, 96.0, 98.0];
+  return {
+    meta: meta({ id: "9", name: "Two curves", table_type: "xy" }),
+    columns: [
+      { id: "x", name: "log[dose]", role: "x", dataType: "number" },
+      { id: "yA", name: "Drug A", role: "y", dataType: "number" },
+      { id: "yB", name: "Drug B", role: "y", dataType: "number" },
+    ],
+    rows: xs.map((x, i) => ({ id: `r${i}`, cells: { x, yA: yA[i], yB: yB[i] } })),
+    analyses: [],
+    plots: [],
+  };
+}
+
+describe("parseGlobalFitArgs", () => {
+  it("defaults to 4PL and the hill-top-bottom share preset", () => {
+    const p = parseGlobalFitArgs({ tableId: "9" });
+    expect(p).toEqual({ tableId: "9", model: "logistic4pl", share: "hill-top-bottom" });
+  });
+  it("reads an explicit 5PL + a valid share preset, and normalizes an unknown share", () => {
+    expect(parseGlobalFitArgs({ tableId: "9", model: "logistic5pl", share: "hill" }).model).toBe(
+      "logistic5pl",
+    );
+    expect(parseGlobalFitArgs({ tableId: "9", share: "top-bottom" }).share).toBe("top-bottom");
+    expect(parseGlobalFitArgs({ tableId: "9", share: "bogus" }).share).toBe("hill-top-bottom");
+  });
+});
+
+describe("buildGlobalFit", () => {
+  it("builds a globalFit spec carrying all Y ids and runs the engine across both curves", () => {
+    const built = buildGlobalFit(
+      twoCurveContent(),
+      parseGlobalFitArgs({ tableId: "9" }),
+    );
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.spec.type).toBe("globalFit");
+    expect(built.spec.params).toMatchObject({ model: "logistic4pl", share: "hill-top-bottom" });
+    expect(built.spec.inputs).toEqual({ columnIds: ["yA", "yB"] });
+    expect(built.result.fit.kind).toBe("globalFit");
+    expect(built.result.nDatasets).toBe(2);
+    expect(built.result.fit.sharedParams.length).toBeGreaterThan(0);
+    expect(built.result.fit.localParams.length).toBe(2);
+    expect(typeof built.result.rSquared).toBe("number");
+  });
+
+  it("rejects an XY table with fewer than 2 Y columns", () => {
+    const built = buildGlobalFit(
+      doseResponseContent(),
+      parseGlobalFitArgs({ tableId: "5" }),
+    );
+    expect(built.ok).toBe(false);
+    if (built.ok) return;
+    expect(built.error).toMatch(/at least 2 Y/i);
+  });
+
+  it("rejects a non-XY (Column) table", () => {
+    const built = buildGlobalFit(
+      twoGroupContent(),
+      parseGlobalFitArgs({ tableId: "1" }),
+    );
+    expect(built.ok).toBe(false);
+    if (built.ok) return;
+    expect(built.error).toMatch(/XY table/i);
+  });
+});
+
+describe("global_fit tool", () => {
+  it("is non-gated and stores + navigates to the result", async () => {
+    expect(globalFitTool.action).toBeFalsy();
+    vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(twoCurveContent());
+    vi.spyOn(datahubAnalysisDeps, "persistAnalysis").mockResolvedValue(true);
+    const navigate = vi.spyOn(datahubAnalysisDeps, "navigate").mockImplementation(() => {});
+    const result = (await globalFitTool.execute({ tableId: "9" })) as {
+      ok: boolean;
+      analysisId?: string;
+    };
+    expect(result.ok).toBe(true);
+    expect(navigate).toHaveBeenCalledWith(
+      expect.stringContaining(`/datahub?doc=9&analysis=${(result as { analysisId: string }).analysisId}`),
     );
   });
 });

@@ -48,6 +48,7 @@ import {
   compareModelsTool,
   runMultipleRegressionTool,
   runLogisticRegressionTool,
+  globalFitTool,
   listDataHubAnalysesTool,
   readDataHubAnalysisTool,
   getAnalysisCodeTool,
@@ -121,6 +122,10 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // navigate to it. The engine owns every coefficient and statistic.
   runMultipleRegressionTool,
   runLogisticRegressionTool,
+  // Non-gated for the same reason. global_fit jointly fits several dose-response
+  // curves with shared parameters through the same runAnalysis path, storing a
+  // reversible analysis the user asked for, then navigates to it.
+  globalFitTool,
   // Non-gated for the same reason. make_datahub_graph builds a reversible,
   // version-controlled figure the user explicitly asked for (and whose graph type
   // / error bar they may have tapped through ask_user) through the validated plot
