@@ -30,6 +30,8 @@ import {
   includeForKind,
   sniffAccessionKind,
   resolveTaxonomy,
+  checkCaps,
+  NCBI_CAPS,
   NcbiDatasetsError,
   type TaxonSuggestion,
   type TaxonAssembly,
@@ -66,6 +68,16 @@ import {
 } from "@/lib/sequences/guided-ncbi-import";
 
 const DEFAULT_FLANK = 1000;
+
+/** Under the hard {@link NCBI_CAPS} ceiling but big enough that a whole download
+ *  will be slow and can make the editor sluggish, so we confirm first. */
+const SOFT_WARN_BP = 10_000_000;
+
+/** Compact Mb label for a size confirm (e.g. "29 Mb"). */
+function mbLabel(bp: number): string {
+  const mb = bp / 1_000_000;
+  return mb >= 10 ? `${Math.round(mb)} Mb` : `${mb.toFixed(1)} Mb`;
+}
 
 export interface GuidedNcbiImportProps {
   /** Called with the parsed, provenance-tagged sequences on a successful
@@ -121,6 +133,11 @@ export default function GuidedNcbiImport({
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // A pending large-download confirm (whole genome / whole chromosome over the
+  // soft size threshold). Cleared on navigation, cancel, or proceed.
+  const [confirm, setConfirm] = useState<
+    null | { sizeLabel: string; proceed: () => void }
+  >(null);
 
   const newController = useCallback(() => {
     abortRef.current?.abort();
@@ -155,19 +172,16 @@ export default function GuidedNcbiImport({
 
   // --- Import hand-offs ------------------------------------------------------
 
-  /** Download a Datasets ZIP (a whole assembly) and hand the imports back. */
-  const importWholeGenome = useCallback(
-    async (target: TaxonAssembly) => {
+  /** Fetch the ZIP for an already-previewed assembly and hand the imports back.
+   *  Split from the size guard so a confirmed large download reuses the preview. */
+  const downloadWholeGenome = useCallback(
+    async (target: TaxonAssembly, preview: NcbiPreview) => {
+      setConfirm(null);
       setError(null);
       setBusy(true);
-      setBusyLabel("Downloading the whole genome from NCBI...");
+      setBusyLabel("Downloading and unpacking the assembly...");
       const c = newController();
       try {
-        const preview: NcbiPreview = await previewGenomeByAccession(
-          target.accession,
-          c.signal,
-        );
-        setBusyLabel("Downloading and unpacking the assembly...");
         const zip = await downloadPackage({
           kind: "genome",
           id: target.accession,
@@ -198,9 +212,50 @@ export default function GuidedNcbiImport({
     [newController, onImported, resolveLineage],
   );
 
+  /** Preview a whole assembly, refuse it if it is over the hard cap, confirm it
+   *  if it is large but allowed, otherwise download straight away. */
+  const importWholeGenome = useCallback(
+    async (target: TaxonAssembly) => {
+      setError(null);
+      setConfirm(null);
+      setBusy(true);
+      setBusyLabel("Checking the genome size...");
+      const c = newController();
+      try {
+        const preview: NcbiPreview = await previewGenomeByAccession(
+          target.accession,
+          c.signal,
+        );
+        const cap = checkCaps(preview);
+        if (!cap.ok) {
+          setError(cap.reason ?? "This genome is too large to import in the browser.");
+          return;
+        }
+        setBusy(false);
+        setBusyLabel("");
+        if (typeof preview.lengthBp === "number" && preview.lengthBp > SOFT_WARN_BP) {
+          setConfirm({
+            sizeLabel: mbLabel(preview.lengthBp),
+            proceed: () => void downloadWholeGenome(target, preview),
+          });
+          return;
+        }
+        await downloadWholeGenome(target, preview);
+      } catch (e) {
+        if (isAbort(e)) return;
+        setError(messageFor(e, "The whole-genome download could not be completed. Try again."));
+      } finally {
+        setBusy(false);
+        setBusyLabel("");
+      }
+    },
+    [newController, downloadWholeGenome],
+  );
+
   /** efetch a whole contig / chromosome record and hand the import back. */
-  const importWholeContig = useCallback(
+  const downloadWholeContig = useCallback(
     async (seq: AssemblySequence) => {
+      setConfirm(null);
       setError(null);
       setBusy(true);
       setBusyLabel("Downloading the whole chromosome from NCBI...");
@@ -229,6 +284,32 @@ export default function GuidedNcbiImport({
       }
     },
     [newController, onImported, organism, resolveLineage],
+  );
+
+  /** Guard a whole-chromosome download by its known length: refuse over the hard
+   *  cap, confirm if large but allowed, otherwise download straight away. */
+  const importWholeContig = useCallback(
+    (seq: AssemblySequence) => {
+      setError(null);
+      setConfirm(null);
+      if (seq.lengthBp > NCBI_CAPS.maxGenomeBp) {
+        setError(
+          `This chromosome is ${mbLabel(seq.lengthBp)}, over the ` +
+            `${mbLabel(NCBI_CAPS.maxGenomeBp)} limit for an in-browser import. ` +
+            `For a record this size, use the NCBI Datasets command-line tool.`,
+        );
+        return;
+      }
+      if (seq.lengthBp > SOFT_WARN_BP) {
+        setConfirm({
+          sizeLabel: mbLabel(seq.lengthBp),
+          proceed: () => void downloadWholeContig(seq),
+        });
+        return;
+      }
+      void downloadWholeContig(seq);
+    },
+    [downloadWholeContig],
   );
 
   /** efetch the gene-plus-flank window and hand the import back. */
@@ -278,8 +359,13 @@ export default function GuidedNcbiImport({
       const c = newController();
       try {
         if (sniffAccessionKind(acc) === "genome") {
-          setBusyLabel("Downloading and unpacking the assembly...");
           const preview = await previewByAccession(acc, c.signal);
+          const cap = checkCaps(preview);
+          if (!cap.ok) {
+            setError(cap.reason ?? "This genome is too large to import in the browser.");
+            return;
+          }
+          setBusyLabel("Downloading and unpacking the assembly...");
           const zip = await downloadPackage({
             kind: preview.kind,
             id: preview.accession,
@@ -328,6 +414,7 @@ export default function GuidedNcbiImport({
     (next: WizardStep) => {
       abortRef.current?.abort();
       setError(null);
+      setConfirm(null);
       setBusy(false);
       setBusyLabel("");
       setStep(next);
@@ -344,6 +431,7 @@ export default function GuidedNcbiImport({
     setPlacement(null);
     setFlank(DEFAULT_FLANK);
     setError(null);
+    setConfirm(null);
     setDoneSummary("");
     setBusy(false);
     setBusyLabel("");
@@ -468,6 +556,42 @@ export default function GuidedNcbiImport({
 
         {step === "done" ? (
           <DoneScreen summary={doneSummary} onAgain={restart} onClose={onClose} />
+        ) : null}
+
+        {/* Large-download confirm: big but under the hard cap. Cancel keeps the
+            user in place (no soft-lock), Download anyway proceeds. */}
+        {confirm && !busy ? (
+          <div
+            className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 dark:border-amber-500/30 dark:bg-amber-500/10"
+            data-testid="ncbi-size-confirm"
+          >
+            <div className="flex items-start gap-2">
+              <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+              <p className="text-meta leading-relaxed text-amber-800 dark:text-amber-200">
+                This download is about {confirm.sizeLabel}. A record this large can
+                take a moment to fetch and may make the editor sluggish. Import it
+                anyway?
+              </p>
+            </div>
+            <div className="mt-2.5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirm(null)}
+                data-testid="ncbi-size-confirm-cancel"
+                className="rounded-md border border-border px-2.5 py-1 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirm.proceed}
+                data-testid="ncbi-size-confirm-proceed"
+                className="rounded-md bg-amber-600 px-3 py-1 text-meta font-medium text-white transition-colors hover:bg-amber-700"
+              >
+                Download anyway
+              </button>
+            </div>
+          </div>
         ) : null}
 
         {/* Inline busy line (download / fetch in progress). */}
