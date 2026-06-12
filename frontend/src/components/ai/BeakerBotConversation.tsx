@@ -1,6 +1,6 @@
 "use client";
 
-// BeakerBotConversation (ai convo-store bot, 2026-06-11).
+// BeakerBotConversation (ai convo-store bot, 2026-06-11; ai palette-morph bot, 2026-06-11).
 //
 // Reusable conversation body extracted from BeakerBotPanel. Contains the
 // message thread, the AssistantMarkdown renderer with ObjectChip tile upgrades,
@@ -11,13 +11,13 @@
 // surfaces can render the same conversation simultaneously, and the state
 // survives the component unmounting and remounting (e.g. the BeakerSearch
 // palette opening and closing). BeakerBotPanel uses this component for its
-// body; the BeakerSearch palette will add it in Phase 2.
+// body; the BeakerSearch palette renders it in Ask mode (Phase 2).
 //
-// The navigation bridge (useNavigationBridge) and the message-bridge
-// registration (useBeakerBotMessageBridge) are mounted HERE, not in
-// BeakerBotPanel, because in Phase 2 this component will be the active
-// conversation surface when the palette is open. BeakerBotPanel re-registers
-// the same hooks via this component, so the behavior is identical to before.
+// BRIDGE REGISTRATION: the navigation bridge and the message bridge are no longer
+// registered here. As of Phase 2 both are registered ONCE at the root layout level
+// (BeakerBotBridges, mounted in app/layout.tsx), so rendering this component in
+// multiple surfaces (dock and palette simultaneously) does not double-register or
+// open a null-handler window on unmount.
 //
 // House style, Icon only, brand + semantic tokens, no emojis / em-dashes /
 // mid-sentence colons.
@@ -27,8 +27,6 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Icon } from "@/components/icons";
 import { useAiChat } from "./useAiChat";
-import { useNavigationBridge } from "./navigation-bridge";
-import { useBeakerBotMessageBridge } from "./message-bridge";
 import ObjectChip from "@/components/ObjectChip";
 import { parseObjectDeepLink } from "@/lib/references";
 
@@ -205,14 +203,9 @@ export default function BeakerBotConversation({
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement | null>(null);
 
-  // Register the soft-navigation handler so guide_to_element can drive a real
-  // SPA route change without reloading the page and tearing down the panel.
-  useNavigationBridge();
-
-  // Register the send function into the message bridge so the BeakerSearch
-  // command palette can seed a query into this conversation from outside the
-  // React tree. Flushed immediately on registration if a message was queued.
-  useBeakerBotMessageBridge(send);
+  // Bridge registration (useNavigationBridge + useBeakerBotMessageBridge) moved
+  // to BeakerBotBridges (mounted once in app/layout.tsx). This component is now
+  // bridge-free so it can render in multiple surfaces without double-registering.
 
   // Keep the newest message in view as the answer reveals.
   useEffect(() => {

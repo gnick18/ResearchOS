@@ -15,6 +15,16 @@
 // hovered key + captures selection + route); the dock only renders the button,
 // wires its shortcut, and shows the captured-context card.
 //
+// BeakerSearch v2 Phase 2 (ai palette-morph bot, 2026-06-11): the dock now
+// supports an Ask mode. When the `askMode` prop is "ask", the search body
+// cross-fades to a BeakerBot conversation rendered right here, and the
+// container grows to accommodate the thread. Back-to-search shrinks it back.
+// The morph is pure CSS animation: min-height transitions at ~0.4s, the search
+// body and ask body each fade (opacity + translateY) at ~0.2s. Both bodies are
+// kept in the DOM simultaneously during the cross-fade (rendered conditionally
+// via opacity-0/pointer-events-none), then the exiting body is hidden after the
+// fade completes (via a CSS class swap on `askMode` change).
+//
 // Icons render through <Icon> from the verified icon library (no inline svg, the
 // icon-guard enforces it); the BeakerBot mark renders via the component. Voice in
 // comments and copy, no em-dashes, no en-dashes, no emojis, no mid-sentence
@@ -25,9 +35,10 @@ import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import { Icon } from "@/components/icons";
 import BeakerBot from "@/components/BeakerBot";
-import { useBeakerBotPanel } from "@/lib/ai/panel-store";
-import { sendToBeakerBot } from "@/components/ai/message-bridge";
 import Tooltip from "@/components/Tooltip";
+import BeakerBotConversation from "@/components/ai/BeakerBotConversation";
+import BeakerSearchAskHeader from "@/components/ai/BeakerSearchAskHeader";
+import { useConversationStore } from "@/lib/ai/conversation-store";
 import type { SelectionKind } from "@/lib/sequences/inspector-context";
 import {
   DOCK_HEIGHT_FALLBACK,
@@ -440,6 +451,14 @@ export interface CommandPaletteProps {
    *  non-shell callers (the editor's own tests) that do not have the panel
    *  mounted, so the escalation row simply does not appear there. */
   onEscalate?: (query: string) => void;
+  /** BeakerSearch v2 Phase 2. The current display mode: "search" (default,
+   *  result rows) or "ask" (BeakerBot conversation in place). Controlled by the
+   *  provider; absent non-shell callers leave the morph dormant. */
+  askMode?: "search" | "ask";
+  /** Switch the palette into Ask mode (e.g. from a Search/Ask toggle). */
+  onEnterAskMode?: () => void;
+  /** Switch the palette back to search mode (the back-to-search control). */
+  onExitAskMode?: () => void;
 }
 
 /** The BeakerSearch v3 floating dock. Renders nothing when closed (the geometry
@@ -469,6 +488,9 @@ export function CommandPalette({
   recheckShortcutLabel,
   dockControlRef,
   onEscalate,
+  askMode = "search",
+  onEnterAskMode,
+  onExitAskMode,
 }: CommandPaletteProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -1599,9 +1621,54 @@ export function CommandPalette({
           </Tooltip>
         </div>
 
-        {/* The collapsible body. Hidden entirely when collapsed (pill mode). */}
+        {/* The collapsible body. Hidden entirely when collapsed (pill mode).
+            When askMode is "ask" the search body cross-fades to the conversation
+            body. Both bodies are kept in the DOM so the transition is smooth (no
+            unmount pop). The exiting body is opacity-0 + pointer-events-none so
+            it is invisible and non-interactive. The grow from search height to
+            chat height is handled by an explicit style on the wrapper. */}
         {dock.collapsed ? null : (
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div
+            className="flex min-h-0 flex-col overflow-hidden"
+            style={{
+              // Grow when in Ask mode to give the conversation room.
+              // ~0.4s cubic-bezier(.4,0,.2,1) matches the approved morph spec.
+              minHeight: askMode === "ask" ? "440px" : undefined,
+              height: askMode === "ask" ? "440px" : undefined,
+              transition: "min-height 0.4s cubic-bezier(.4,0,.2,1), height 0.4s cubic-bezier(.4,0,.2,1)",
+            }}
+          >
+          {/* Ask mode body: the chat header + BeakerBotConversation.
+              Fades in when askMode switches to "ask". The opacity + translateY
+              transition matches the ~0.2s spec from the approved morph. The
+              key forces a clean mount/fade-in each time Ask mode is entered. */}
+          {askMode === "ask" ? (
+            <div
+              key="ask-body"
+              data-testid="beakersearch-ask-body"
+              className="flex flex-1 flex-col overflow-hidden"
+              style={{
+                animation: "palette-fadein 0.2s cubic-bezier(.4,0,.2,1) both",
+              }}
+            >
+              <style>{`
+                @keyframes palette-fadein {
+                  from { opacity: 0; transform: translateY(5px); }
+                  to   { opacity: 1; transform: translateY(0); }
+                }
+              `}</style>
+              <BeakerSearchAskHeader
+                onBack={() => onExitAskMode?.()}
+                onNewChat={() => useConversationStore.getState().clearConversation()}
+              />
+              <BeakerBotConversation className="flex-1" />
+            </div>
+          ) : (
+          <div
+            key="search-body"
+            data-testid="beakersearch-search-body"
+            className="flex flex-1 flex-col overflow-hidden"
+          >
         {/* Search row. The input is a combobox over the result listbox below.
             The search glyph comes from the registry; no inline svg is added. */}
         <div className="flex items-center gap-2.5 px-3 pb-2 pt-2.5">
@@ -1910,6 +1977,8 @@ export function CommandPalette({
             {inSubflow ? "Pick one to continue" : "Cmd K reaches everything"}
           </span>
         </div>
+          </div>
+          )}
           </div>
         )}
       </div>

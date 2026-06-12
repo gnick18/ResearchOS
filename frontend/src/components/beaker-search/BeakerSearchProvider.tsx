@@ -11,6 +11,12 @@
 // renders the existing CommandPalette from the EFFECTIVE source (the active page
 // source merged with the global layer, or a global-only synthetic source).
 //
+// BeakerSearch v2 (Phase 2): the provider also owns the palette's Ask/Search mode
+// toggle (`askMode`). When escalateToBeakerBot is called (enter on the ask row),
+// the palette morphs INTO the conversation instead of opening the dock. The dock
+// is kept alive for now (phase 4 retires it); the conversation state is shared
+// across both surfaces via the persistent conversation store.
+//
 // The model.
 //   - ONE provider, mounted once high in the tree (lib/providers.tsx), so it
 //     covers every route and every pre-login surface, exactly like the
@@ -75,10 +81,9 @@ import type { BeakerSearchSource } from "./types";
 // active page source so every palette shows the page's own items first and the
 // global "Go to" + "App" reach below.
 import { useGlobalCommands } from "./useGlobalCommands";
-// BeakerSearch v1 AI escalation. The panel store opens the dock; the message
-// bridge seeds the query into the open conversation. Both are stable module-level
-// singletons, so importing them here adds no React complexity.
-import { useBeakerBotPanel } from "@/lib/ai/panel-store";
+// BeakerSearch v2 AI escalation (Phase 2). The palette morphs into the
+// conversation in place (the morph), and the message bridge seeds the query into
+// the persistent conversation store. The dock is no longer opened by escalation.
 import { sendToBeakerBot } from "@/components/ai/message-bridge";
 // BeakerSearch global object search, chunk 1. Mounting the index hook here runs
 // its one-time, fire-and-forget prefetch of the four canonical loaders on shell
@@ -138,6 +143,10 @@ const BeakerSearchHoverContext = createContext<string | null>(null);
 
 export function BeakerSearchProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  // BeakerSearch v2 Phase 2. The palette's current mode: "search" (result rows)
+  // or "ask" (BeakerBot conversation in place). Reset to "search" when the
+  // palette closes so the next open always starts at search.
+  const [askMode, setAskMode] = useState<"search" | "ask">("search");
   // The latest `open`, read by the global Cmd/Ctrl+K handler without
   // re-subscribing the listener on every open / close.
   const openRef = useRef(open);
@@ -186,7 +195,11 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const openPalette = useCallback(() => setOpen(true), []);
-  const closePalette = useCallback(() => setOpen(false), []);
+  const closePalette = useCallback(() => {
+    setOpen(false);
+    // Reset to search mode when the palette closes so the next open starts fresh.
+    setAskMode("search");
+  }, []);
   const togglePalette = useCallback(() => setOpen((cur) => !cur), []);
 
   // The always-present GLOBAL layer (cross-page nav + safe app commands). Built
@@ -304,14 +317,16 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
     [router],
   );
 
-  // BeakerSearch v1 AI escalation. Opens the BeakerBot dock, seeds the query,
-  // then closes the palette. The escalate action is stable (no deps that churn).
-  // The panel store and message bridge are module-level singletons, so the
-  // useCallback deps are empty and the identity is truly stable.
+  // BeakerSearch v2 Phase 2 AI escalation (the morph). The palette STAYS open
+  // and switches into Ask mode; the search body cross-fades to the conversation.
+  // The dock is NOT opened. The query is seeded via the message bridge, which
+  // delivers to the persistent conversation store (same state the dock renders).
+  // Back-to-search (onExitAskMode below) returns to search mode without clearing
+  // the conversation, so re-entering Ask resumes.
   const escalateToBeakerBot = useCallback((q: string) => {
-    useBeakerBotPanel.getState().open();
+    setAskMode("ask");
     void sendToBeakerBot(q.trim());
-    setOpen(false);
+    // NOTE: the palette stays open (no setOpen(false)).
   }, []);
 
   const activePage = sources.length > 0 ? sources[sources.length - 1] : null;
@@ -437,6 +452,9 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
           recheckShortcutLabel={recheckShortcutLabel}
           dockControlRef={dockControlRef}
           onEscalate={escalateToBeakerBot}
+          askMode={askMode}
+          onEnterAskMode={() => setAskMode("ask")}
+          onExitAskMode={() => setAskMode("search")}
         />
         </BeakerSearchHoverContext.Provider>
       </BeakerSearchRegistryContext.Provider>

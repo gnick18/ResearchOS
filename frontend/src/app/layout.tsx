@@ -5,6 +5,7 @@ import { Providers } from "@/lib/providers";
 import OfflineGatedAnalytics from "@/components/OfflineGatedAnalytics";
 import SelfExportResultBanner from "@/components/lab/SelfExportResultBanner";
 import BeakerBotDock from "@/components/ai/BeakerBotDock";
+import BeakerBotBridges from "@/components/ai/BeakerBotBridges";
 import ObjectPopupHost from "@/components/ObjectPopupHost";
 
 const geistSans = Geist({
@@ -94,6 +95,12 @@ export default function RootLayout({
               openObjectPopup(). Mounted inside Providers so it has the
               QueryClient, FileSystem context, and PopupStack available. Renders
               nothing when no popup is open. */}
+          {/* Single-registration root for the BeakerBot navigation bridge and
+              message bridge (ai palette-morph bot, 2026-06-11). Registering here
+              (instead of inside BeakerBotConversation) means the bridges are
+              always exactly one instance whether the conversation is rendering in
+              the dock, the palette, or both simultaneously. */}
+          <BeakerBotBridges />
           <ObjectPopupHost />
           <BeakerBotDock />
         </Providers>
