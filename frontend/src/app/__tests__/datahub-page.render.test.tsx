@@ -190,6 +190,19 @@ describe("DataHubPage — slice 1 skeleton + Column-table loop", () => {
     expect(screen.getAllByText("Cell viability assay").length).toBeGreaterThan(0);
   });
 
+  it("nests a stored analysis under its table in the rail family tree", async () => {
+    docState.seedAnalyses = true;
+    renderPage();
+
+    // The open table auto-expands, so its Results subgroup is visible and the
+    // analysis row lives INSIDE that nested section (the family tree), not in a
+    // separate flat list.
+    const results = await screen.findByTestId("datahub-results-section");
+    expect(
+      within(results).getByText(/Unpaired t-test/i),
+    ).toBeInTheDocument();
+  });
+
   it("recomputes the mean / SD / SEM / n footer when a cell is edited", async () => {
     renderPage();
 

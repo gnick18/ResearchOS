@@ -25,6 +25,7 @@ export default function GroupedTableGrid({
   onAddRow,
   onAddColumn,
   onRenameGroup,
+  hideAddControls = false,
 }: {
   content: DataHubDocContent;
   onCellCommit: (rowId: string, columnId: string, raw: string) => void;
@@ -33,6 +34,8 @@ export default function GroupedTableGrid({
   onAddColumn: () => void;
   /** Rename a column group (updates every replicate column in the group). */
   onRenameGroup: (datasetId: string, name: string) => void;
+  /** Suppress the internal Add bar when the WorkspaceToolbar owns those actions. */
+  hideAddControls?: boolean;
 }) {
   const labelCol = useMemo(() => rowLabelColumn(content), [content]);
   const groups = useMemo(() => groupDatasets(content), [content]);
@@ -40,24 +43,26 @@ export default function GroupedTableGrid({
 
   return (
     <div data-testid="datahub-grouped-grid">
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={onAddRow}
-          className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
-        >
-          <Icon name="plus" className="h-3.5 w-3.5" />
-          Add row
-        </button>
-        <button
-          type="button"
-          onClick={onAddColumn}
-          className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
-        >
-          <Icon name="plus" className="h-3.5 w-3.5" />
-          Add group
-        </button>
-      </div>
+      {!hideAddControls && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={onAddRow}
+            className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+          >
+            <Icon name="plus" className="h-3.5 w-3.5" />
+            Add row
+          </button>
+          <button
+            type="button"
+            onClick={onAddColumn}
+            className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+          >
+            <Icon name="plus" className="h-3.5 w-3.5" />
+            Add group
+          </button>
+        </div>
+      )}
 
       <div className="overflow-auto rounded-lg border border-border">
         <table className="border-collapse text-body tabular-nums">

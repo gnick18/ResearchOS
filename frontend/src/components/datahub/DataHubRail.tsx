@@ -1,17 +1,21 @@
 "use client";
 
-// The Data Hub left navigator rail (datahub-tab-p1). Mirrors the mockup's three
-// stacked sections:
+// The Data Hub left navigator rail (datahub-tab-p1, family-tree by datahub-chrome).
 //   - a Collection filter (All / Unfiled / one project per the real project list)
 //   - a foldered Data Tables tree, grouped by folder_path (collapsible folders,
 //     a table-type tag per row, active highlight, New table + New folder)
-//   - Results and Graphs sections, rendered as empty-state placeholders for now
-//     (analyses + graphs are the next slice).
+//   - each table's RESULTS and GRAPHS nest UNDER the table they came from, a
+//     family tree, indented with a left border, instead of three flat lists.
 //
-// Icons: the registry has no "table" or "chart" glyph and new registry entries
-// need Grant's sign-off, so a data table reuses "list" (the closest grid glyph)
-// and the Results / Graphs section headers reuse "tree" (a branching-diagram
-// glyph, the nearest analysis/plot stand-in). Noted in the build report.
+// Why the children only show under the open table: a Data Hub document carries
+// its analyses + plots inside its own content, so only the open table's children
+// are loaded. The selected table auto-expands to reveal its analyses and figures
+// beneath it; selecting another table loads + reveals that one's family. This
+// matches the indented nav in docs/mockups/datahub-table-results-audit.html.
+//
+// Icons: the registry has no dedicated analysis glyph, so an analysis row reuses
+// "list" and the Results subhead reuses "tree" (a branching-diagram glyph); a
+// figure uses "chart". Noted in the build report.
 //
 // House style: <Icon> only, Tooltip on icon-only buttons, brand + semantic
 // tokens, no emojis / em-dashes / mid-sentence colons.
@@ -121,33 +125,66 @@ function groupByFolder(
   return out;
 }
 
-function TableRow({
-  table,
+/** A child row in the family tree (an analysis or a figure), indented under its
+ *  parent table with a left border, matching the mockup's `.it.ind` rows. */
+function ChildRow({
+  icon,
+  label,
   active,
   onSelect,
+  testId,
+  trailing,
 }: {
-  table: DataHubDocument;
+  icon: React.ComponentProps<typeof Icon>["name"];
+  label: string;
   active: boolean;
   onSelect: () => void;
+  testId?: string;
+  trailing?: React.ReactNode;
 }) {
   return (
     <button
       type="button"
       onClick={onSelect}
-      className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-body transition-colors ${
+      data-testid={testId}
+      className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-meta transition-colors ${
         active
           ? "bg-accent-soft font-medium text-accent"
-          : "text-foreground hover:bg-surface-sunken"
+          : "text-foreground-muted hover:bg-surface-raised hover:text-foreground"
       }`}
     >
       <Icon
-        name="table"
-        className={`h-4 w-4 shrink-0 ${active ? "text-accent" : "text-foreground-muted"}`}
+        name={icon}
+        className={`h-3.5 w-3.5 shrink-0 ${active ? "text-accent" : "text-foreground-muted"}`}
       />
-      <span className="min-w-0 flex-1 truncate">{table.name}</span>
-      <span className="shrink-0 rounded border border-border px-1 text-[10px] font-medium uppercase text-foreground-muted">
-        {typeTag(table.table_type)}
-      </span>
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {trailing}
+    </button>
+  );
+}
+
+/** A small "+ add" affordance for a child group (Results / Graphs). */
+function AddChildButton({
+  label,
+  onClick,
+  disabled,
+  testId,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  testId?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      data-testid={testId}
+      className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-raised hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+    >
+      <Icon name="plus" className="h-3.5 w-3.5 shrink-0" />
+      {label}
     </button>
   );
 }
@@ -208,6 +245,10 @@ export default function DataHubRail({
   const groups = useMemo(() => groupByFolder(tables), [tables]);
   // Closed folders by name. Folders start open (the mockup's default).
   const [closedFolders, setClosedFolders] = useState<Set<string>>(new Set());
+  // Tables the user has explicitly collapsed. The selected table is expanded by
+  // default (its family is loaded and worth showing), so we track the opposite,
+  // a set of collapsed table ids, instead of a set of expanded ones.
+  const [collapsedTables, setCollapsedTables] = useState<Set<string>>(new Set());
 
   const toggleFolder = (folder: string) =>
     setClosedFolders((prev) => {
@@ -216,6 +257,156 @@ export default function DataHubRail({
       else next.add(folder);
       return next;
     });
+
+  const toggleTable = (id: string) =>
+    setCollapsedTables((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  // Render one table as a family-tree node: the table row, then (when it is the
+  // open table and not collapsed) its Results and Graphs nested beneath it,
+  // indented under a left border. Only the open table has its analyses + plots
+  // loaded, so a non-selected table shows just its row until it is selected.
+  const renderTableNode = (table: DataHubDocument) => {
+    const active = table.id === selectedTableId;
+    const isOpen = active;
+    const expanded = isOpen && !collapsedTables.has(table.id);
+    return (
+      <div key={table.id}>
+        <div
+          className={`group flex w-full items-center gap-1 rounded-md pr-2 text-body transition-colors ${
+            active
+              ? "bg-accent-soft font-medium text-accent"
+              : "text-foreground hover:bg-surface-sunken"
+          }`}
+        >
+          {/* The chevron toggles the open table's family; for a non-open table it
+              selects it (which loads + reveals its family). */}
+          <button
+            type="button"
+            onClick={() => (isOpen ? toggleTable(table.id) : onSelectTable(table.id))}
+            aria-label={expanded ? "Collapse table" : "Expand table"}
+            className="shrink-0 rounded p-1 text-foreground-muted transition-colors hover:text-foreground"
+          >
+            <Icon
+              name={expanded ? "chevronDown" : "chevronRight"}
+              className={`h-3 w-3 ${active ? "text-accent" : ""}`}
+            />
+          </button>
+          <button
+            type="button"
+            onClick={() => onSelectTable(table.id)}
+            className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-left"
+          >
+            <Icon
+              name="table"
+              className={`h-4 w-4 shrink-0 ${active ? "text-accent" : "text-foreground-muted"}`}
+            />
+            <span className="min-w-0 flex-1 truncate">{table.name}</span>
+            <span className="shrink-0 rounded border border-border px-1 text-[10px] font-medium uppercase text-foreground-muted">
+              {typeTag(table.table_type)}
+            </span>
+          </button>
+        </div>
+
+        {expanded && (
+          <div className="ml-[13px] mt-0.5 flex flex-col gap-1.5 border-l border-border pb-1 pl-2">
+            {/* Results subgroup */}
+            <div data-testid="datahub-results-section">
+              <div className="flex items-center justify-between px-2 py-0.5">
+                <div className="flex items-center gap-1.5">
+                  <Icon name="tree" className="h-3 w-3 text-foreground-muted" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-foreground-muted">
+                    Results
+                  </span>
+                </div>
+                <Tooltip label="Guided analysis">
+                  <button
+                    type="button"
+                    onClick={onGuidedAnalysis}
+                    disabled={!analysesEnabled}
+                    aria-label="Guided analysis"
+                    className="rounded p-0.5 text-foreground-muted transition-colors hover:bg-surface-raised hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                    data-testid="datahub-guided-analysis-button"
+                  >
+                    <Icon name="features" className="h-3.5 w-3.5" />
+                  </button>
+                </Tooltip>
+              </div>
+              {analyses.length === 0 ? (
+                <p className="px-2 pb-1 text-[11px] leading-snug text-foreground-muted">
+                  No analyses yet. Run a t-test or ANOVA on this table, or let the
+                  guided wizard pick the right test.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-0.5">
+                  {analyses.map((a) => (
+                    <ChildRow
+                      key={a.id}
+                      icon="list"
+                      label={analysisLabel(a.type)}
+                      active={a.id === selectedAnalysisId}
+                      onSelect={() => onSelectAnalysis(a.id)}
+                      trailing={
+                        a.resultStale ? (
+                          <span
+                            className="shrink-0 rounded border border-border px-1 text-[10px] font-medium uppercase text-foreground-muted"
+                            title="Re-runs on open"
+                          >
+                            stale
+                          </span>
+                        ) : undefined
+                      }
+                    />
+                  ))}
+                </div>
+              )}
+              <AddChildButton
+                label="New analysis"
+                onClick={onNewAnalysis}
+                disabled={!analysesEnabled}
+              />
+            </div>
+
+            {/* Graphs subgroup */}
+            <div data-testid="datahub-graphs-section">
+              <div className="flex items-center px-2 py-0.5">
+                <Icon name="chart" className="mr-1.5 h-3 w-3 text-foreground-muted" />
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-foreground-muted">
+                  Graphs
+                </span>
+              </div>
+              {plots.length === 0 ? (
+                <p className="px-2 pb-1 text-[11px] leading-snug text-foreground-muted">
+                  No graphs yet. Make a column scatter or bar from this table.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-0.5">
+                  {plots.map((p) => (
+                    <ChildRow
+                      key={p.id}
+                      icon="chart"
+                      label={plotLabel(p)}
+                      active={p.id === selectedPlotId}
+                      onSelect={() => onSelectPlot(p.id)}
+                    />
+                  ))}
+                </div>
+              )}
+              <AddChildButton
+                label="New graph"
+                onClick={onNewGraph}
+                disabled={!graphsEnabled}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <aside
@@ -295,14 +486,7 @@ export default function DataHubRail({
           <div className="flex flex-col gap-0.5">
             {groups.map((grp) => {
               if (grp.folder === null) {
-                return grp.tables.map((t) => (
-                  <TableRow
-                    key={t.id}
-                    table={t}
-                    active={t.id === selectedTableId}
-                    onSelect={() => onSelectTable(t.id)}
-                  />
-                ));
+                return grp.tables.map((t) => renderTableNode(t));
               }
               const closed = closedFolders.has(grp.folder);
               return (
@@ -326,161 +510,10 @@ export default function DataHubRail({
                   </button>
                   {!closed && (
                     <div className="ml-3 flex flex-col gap-0.5 border-l border-border pl-1">
-                      {grp.tables.map((t) => (
-                        <TableRow
-                          key={t.id}
-                          table={t}
-                          active={t.id === selectedTableId}
-                          onSelect={() => onSelectTable(t.id)}
-                        />
-                      ))}
+                      {grp.tables.map((t) => renderTableNode(t))}
                     </div>
                   )}
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Results: the open table's analyses, plus a working New analysis. */}
-      <div className="border-t border-border pt-3" data-testid="datahub-results-section">
-        <div className="mb-1 flex items-center justify-between px-1">
-          <div className="flex items-center gap-1.5">
-            <Icon name="tree" className="h-3.5 w-3.5 text-foreground-muted" />
-            <span className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">
-              Results
-            </span>
-          </div>
-          <div className="flex items-center gap-0.5">
-            <Tooltip label="Guided analysis">
-              <button
-                type="button"
-                onClick={onGuidedAnalysis}
-                disabled={!analysesEnabled}
-                aria-label="Guided analysis"
-                className="rounded p-1 text-foreground-muted transition-colors hover:bg-surface-raised hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                data-testid="datahub-guided-analysis-button"
-              >
-                <Icon name="features" className="h-3.5 w-3.5" />
-              </button>
-            </Tooltip>
-            <Tooltip label="New analysis">
-              <button
-                type="button"
-                onClick={onNewAnalysis}
-                disabled={!analysesEnabled}
-                aria-label="New analysis"
-                className="rounded p-1 text-foreground-muted transition-colors hover:bg-surface-raised hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Icon name="plus" className="h-3.5 w-3.5" />
-              </button>
-            </Tooltip>
-          </div>
-        </div>
-
-        {analyses.length === 0 ? (
-          <div className="px-1">
-            <p className="text-meta text-foreground-muted">
-              No analyses yet. Run a t-test or ANOVA on this table, or let the
-              guided wizard pick the right test for you.
-            </p>
-            <button
-              type="button"
-              onClick={onGuidedAnalysis}
-              disabled={!analysesEnabled}
-              className="mt-2 flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-meta font-medium text-foreground transition-colors hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <Icon name="features" className="h-3.5 w-3.5" />
-              Guided analysis
-            </button>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-0.5">
-            {analyses.map((a) => {
-              const active = a.id === selectedAnalysisId;
-              return (
-                <button
-                  key={a.id}
-                  type="button"
-                  onClick={() => onSelectAnalysis(a.id)}
-                  className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-body transition-colors ${
-                    active
-                      ? "bg-accent-soft font-medium text-accent"
-                      : "text-foreground hover:bg-surface-sunken"
-                  }`}
-                >
-                  <Icon
-                    name="list"
-                    className={`h-4 w-4 shrink-0 ${active ? "text-accent" : "text-foreground-muted"}`}
-                  />
-                  <span className="min-w-0 flex-1 truncate">
-                    {analysisLabel(a.type)}
-                  </span>
-                  {a.resultStale && (
-                    <span
-                      className="shrink-0 rounded border border-border px-1 text-[10px] font-medium uppercase text-foreground-muted"
-                      title="Re-runs on open"
-                    >
-                      stale
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Graphs: the open table's figures, plus a working New graph. */}
-      <div className="border-t border-border pt-3" data-testid="datahub-graphs-section">
-        <div className="mb-1 flex items-center justify-between px-1">
-          <div className="flex items-center gap-1.5">
-            <Icon name="chart" className="h-3.5 w-3.5 text-foreground-muted" />
-            <span className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">
-              Graphs
-            </span>
-          </div>
-          <Tooltip label="New graph">
-            <button
-              type="button"
-              onClick={onNewGraph}
-              disabled={!graphsEnabled}
-              aria-label="New graph"
-              className="rounded p-1 text-foreground-muted transition-colors hover:bg-surface-raised hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <Icon name="plus" className="h-3.5 w-3.5" />
-            </button>
-          </Tooltip>
-        </div>
-
-        {plots.length === 0 ? (
-          <p className="px-1 text-meta text-foreground-muted">
-            No graphs yet. Make a column scatter or bar from this table.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-0.5">
-            {plots.map((p) => {
-              const active = p.id === selectedPlotId;
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => onSelectPlot(p.id)}
-                  className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-body transition-colors ${
-                    active
-                      ? "bg-accent-soft font-medium text-accent"
-                      : "text-foreground hover:bg-surface-sunken"
-                  }`}
-                >
-                  <Icon
-                    name="chart"
-                    className={`h-4 w-4 shrink-0 ${active ? "text-accent" : "text-foreground-muted"}`}
-                  />
-                  <span className="min-w-0 flex-1 truncate">
-                    {plotLabel(p)}
-                  </span>
-                </button>
               );
             })}
           </div>

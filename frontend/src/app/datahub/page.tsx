@@ -81,6 +81,10 @@ import NewGraphDialog, {
 } from "@/components/datahub/NewGraphDialog";
 import ResultsSheet from "@/components/datahub/ResultsSheet";
 import GraphEditor from "@/components/datahub/GraphEditor";
+import WorkspaceToolbar, {
+  type ToolbarGroup,
+} from "@/components/datahub/WorkspaceToolbar";
+import { tableContentToCsv, downloadCsv } from "@/lib/datahub/table-csv";
 import { objectReferenceMarkdown } from "@/lib/references";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
@@ -126,6 +130,11 @@ export default function DataHubPage() {
   const [newGraphOpen, setNewGraphOpen] = useState(false);
   // Transient "copied" flash for the Copy reference button.
   const [refCopied, setRefCopied] = useState(false);
+  // Inline delete confirm for the table toolbar (no soft-lock: a Cancel is always
+  // reachable). Holds the id pending deletion, or null when nothing is pending.
+  const [confirmDeleteTableId, setConfirmDeleteTableId] = useState<string | null>(
+    null,
+  );
 
   // The live projection of the open document's Loro doc. Cell edits write to the
   // doc, then reproject into this state so the grid + footer re-derive. Null
@@ -627,6 +636,52 @@ export default function DataHubPage() {
     }
   }, [selectedMeta]);
 
+  // Export the open table as a CSV download. Built from the live document
+  // content (columns + rows), so it reflects the latest edits without a re-open.
+  const handleExportTable = useCallback(() => {
+    if (!openContent || !selectedMeta) return;
+    downloadCsv(openContent, selectedMeta.name);
+  }, [openContent, selectedMeta]);
+
+  // Duplicate the open table, its analyses, and its graphs into a fresh document
+  // ("<name> copy"), via the same create path New table uses, then open it. The
+  // duplicate carries the source table's collection + folder so it lands beside
+  // the original. Analyses keep their cached results, so the copy opens ready.
+  const handleDuplicateTable = useCallback(async () => {
+    if (!openContent || !selectedMeta) return;
+    const created = await dataHubApi.create({
+      name: `${selectedMeta.name} copy`,
+      table_type: openContent.meta.table_type,
+      project_ids: selectedMeta.project_ids,
+      folder_path: selectedMeta.folder_path,
+      columns: openContent.columns,
+      rows: openContent.rows,
+      analyses: openContent.analyses,
+      plots: openContent.plots,
+    });
+    await queryClient.invalidateQueries({ queryKey: ["datahub", "tables"] });
+    setSelectedTableId(created.id);
+  }, [openContent, selectedMeta, queryClient]);
+
+  // Delete the open table (both files), then refresh the catalog. The selection
+  // self-heals to the next visible table through the existing resolve effect, so
+  // we just clear the pending confirm and let that effect re-point the view.
+  const handleDeleteTable = useCallback(async () => {
+    if (!selectedTableId) return;
+    const id = selectedTableId;
+    setConfirmDeleteTableId(null);
+    // Flush + drop the open handle first so its debounced commit cannot rewrite
+    // the files we are about to delete.
+    const handle = handleRef.current;
+    if (handle && openIdRef.current === id) {
+      await handle.close().catch(() => {});
+      handleRef.current = null;
+      openIdRef.current = null;
+    }
+    await dataHubApi.delete(id);
+    await queryClient.invalidateQueries({ queryKey: ["datahub", "tables"] });
+  }, [selectedTableId, queryClient]);
+
   // Create a new figure from the chosen kind: build the PlotSpec (seeding its
   // y-axis title from the table name), link the ANOVA for brackets when one was
   // chosen, persist it via setPlot, commit, reproject, and select it.
@@ -724,6 +779,88 @@ export default function DataHubPage() {
   const dialogDefaultCollection =
     collection === "all" || collection === "unfiled" ? "" : collection;
 
+  // The table workspace toolbar. Analyze is the headline accent action (the same
+  // chooser the rail's New analysis opens, Prism's single most-used button), New
+  // graph sits beside it, then a group for the type-correct Add controls, then a
+  // group for table-level Duplicate / Export / Delete. The Add label tracks the
+  // table type so a column table reads "Add group" while an XY reads "Add Y
+  // column" and a survival table only offers "Add subject" (no second axis).
+  const tableToolbarGroups = useMemo<ToolbarGroup[]>(() => {
+    if (!openContent) return [];
+    const type = openContent.meta.table_type;
+    const addColumnLabel =
+      type === "xy" ? "Add Y column" : type === "grouped" ? "Add group" : "Add group";
+
+    const addGroup: ToolbarGroup = [
+      {
+        icon: "plus",
+        label: type === "survival" ? "Add subject" : "Add row",
+        onClick: handleAddRow,
+        testId: "datahub-toolbar-add-row",
+      },
+    ];
+    if (type !== "survival") {
+      addGroup.push({
+        icon: "plus",
+        label: addColumnLabel,
+        onClick: handleAddColumn,
+        testId: "datahub-toolbar-add-column",
+      });
+    }
+
+    return [
+      [
+        {
+          icon: "bolt",
+          label: "Analyze",
+          onClick: () => setNewAnalysisOpen(true),
+          primary: true,
+          tooltip: "Choose a statistical test to run on this table.",
+          testId: "datahub-toolbar-analyze",
+        },
+        {
+          icon: "chart",
+          label: "New graph",
+          onClick: () => setNewGraphOpen(true),
+          tooltip: "Make a figure from this table.",
+          testId: "datahub-toolbar-new-graph",
+        },
+      ],
+      addGroup,
+      [
+        {
+          icon: "cloning",
+          label: "Duplicate",
+          onClick: handleDuplicateTable,
+          tooltip: "Copy this table with its analyses and graphs.",
+          testId: "datahub-toolbar-duplicate",
+        },
+        {
+          icon: "download",
+          label: "Export",
+          onClick: handleExportTable,
+          tooltip: "Download this table as a CSV.",
+          testId: "datahub-toolbar-export",
+        },
+        {
+          icon: "trash",
+          label: "Delete",
+          onClick: () => setConfirmDeleteTableId(selectedTableId),
+          danger: true,
+          tooltip: "Delete this table.",
+          testId: "datahub-toolbar-delete",
+        },
+      ],
+    ];
+  }, [
+    openContent,
+    handleAddRow,
+    handleAddColumn,
+    handleDuplicateTable,
+    handleExportTable,
+    selectedTableId,
+  ]);
+
   // Gate: render a calm "not enabled" state when the flag is off and this is not
   // a demo session (mirror the /supplies gate). Never crash. Before mount we hold
   // a neutral frame, since the demo signal is client-only, so a demo session never
@@ -776,7 +913,7 @@ export default function DataHubPage() {
 
         <section
           className={`flex min-w-0 flex-1 flex-col rounded-lg border border-border bg-surface-raised ${
-            selectedMeta && openContent && selectedPlot
+            selectedMeta && openContent
               ? "overflow-hidden"
               : "overflow-auto p-5"
           }`}
@@ -820,10 +957,18 @@ export default function DataHubPage() {
               spec={selectedAnalysis}
               content={openContent}
               title={selectedMeta.name}
+              onNewAnalysis={() => setNewAnalysisOpen(true)}
+              onGraphResult={() => setNewGraphOpen(true)}
+              onChangeAnalysis={() => setNewAnalysisOpen(true)}
             />
           ) : selectedMeta && openContent ? (
-            <>
-              <div className="mb-1 flex items-center gap-2">
+            <div className="flex min-h-0 flex-1 flex-col">
+              {/* Title row, then the workspace toolbar full-bleed, then the
+                  scrollable grid body. The toolbar is the headline surface where
+                  Analyze leads (the single most-used Prism move), New graph sits
+                  beside it, the Add controls are their own group, and Duplicate /
+                  Export / Delete close out table-level actions. */}
+              <div className="flex items-center gap-2 px-5 pb-2 pt-4">
                 <h1 className="text-title font-semibold text-foreground">
                   {selectedMeta.name}
                 </h1>
@@ -839,45 +984,84 @@ export default function DataHubPage() {
                   </button>
                 </Tooltip>
               </div>
-              <p className="mb-4 text-meta text-foreground-muted">
-                {openContent.meta.table_type === "xy"
-                  ? "XY table. The first column is the X value, each following column is a measured Y, one observation per row."
-                  : openContent.meta.table_type === "grouped"
-                    ? "Grouped table. Each row is a category and each column group is a second factor, with replicate subcolumns for a two-way ANOVA."
-                    : openContent.meta.table_type === "survival"
-                      ? "Survival table. Each row is a subject with a time, an event indicator (1 or 0), and an optional group for Kaplan-Meier and the log-rank test."
-                      : "Column table. Each column is a treatment group, each row a replicate."}
-              </p>
-              {openContent.meta.table_type === "xy" ? (
-                <XYTableGrid
-                  content={openContent}
-                  onCellCommit={handleCellCommit}
-                  onAddRow={handleAddRow}
-                  onAddColumn={handleAddColumn}
-                />
-              ) : openContent.meta.table_type === "grouped" ? (
-                <GroupedTableGrid
-                  content={openContent}
-                  onCellCommit={handleCellCommit}
-                  onAddRow={handleAddRow}
-                  onAddColumn={handleAddColumn}
-                  onRenameGroup={handleRenameGroup}
-                />
-              ) : openContent.meta.table_type === "survival" ? (
-                <SurvivalTableGrid
-                  content={openContent}
-                  onCellCommit={handleCellCommit}
-                  onAddRow={handleAddRow}
-                />
-              ) : (
-                <DataTableGrid
-                  content={openContent}
-                  onCellCommit={handleCellCommit}
-                  onAddRow={handleAddRow}
-                  onAddColumn={handleAddColumn}
-                />
+
+              <WorkspaceToolbar testId="datahub-table-toolbar" groups={tableToolbarGroups} />
+
+              {confirmDeleteTableId === selectedMeta.id && (
+                <div
+                  className="flex flex-wrap items-center gap-3 border-b border-border bg-rose-50 px-5 py-2.5 dark:bg-rose-500/10"
+                  data-testid="datahub-delete-confirm"
+                >
+                  <span className="text-meta text-foreground">
+                    Delete {selectedMeta.name}, its analyses, and its graphs. This
+                    cannot be undone.
+                  </span>
+                  <div className="ml-auto flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteTableId(null)}
+                      className="rounded-md border border-border bg-surface-raised px-2.5 py-1 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken"
+                      data-testid="datahub-delete-cancel"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeleteTable}
+                      className="rounded-md bg-rose-600 px-2.5 py-1 text-meta font-semibold text-white transition-colors hover:bg-rose-700"
+                      data-testid="datahub-delete-confirm-button"
+                    >
+                      Delete table
+                    </button>
+                  </div>
+                </div>
               )}
-            </>
+
+              <div className="min-h-0 flex-1 overflow-auto px-5 pb-5 pt-4">
+                <p className="mb-4 text-meta text-foreground-muted">
+                  {openContent.meta.table_type === "xy"
+                    ? "XY table. The first column is the X value, each following column is a measured Y, one observation per row."
+                    : openContent.meta.table_type === "grouped"
+                      ? "Grouped table. Each row is a category and each column group is a second factor, with replicate subcolumns for a two-way ANOVA."
+                      : openContent.meta.table_type === "survival"
+                        ? "Survival table. Each row is a subject with a time, an event indicator (1 or 0), and an optional group for Kaplan-Meier and the log-rank test."
+                        : "Column table. Each column is a treatment group, each row a replicate."}
+                </p>
+                {openContent.meta.table_type === "xy" ? (
+                  <XYTableGrid
+                    content={openContent}
+                    onCellCommit={handleCellCommit}
+                    onAddRow={handleAddRow}
+                    onAddColumn={handleAddColumn}
+                    hideAddControls
+                  />
+                ) : openContent.meta.table_type === "grouped" ? (
+                  <GroupedTableGrid
+                    content={openContent}
+                    onCellCommit={handleCellCommit}
+                    onAddRow={handleAddRow}
+                    onAddColumn={handleAddColumn}
+                    onRenameGroup={handleRenameGroup}
+                    hideAddControls
+                  />
+                ) : openContent.meta.table_type === "survival" ? (
+                  <SurvivalTableGrid
+                    content={openContent}
+                    onCellCommit={handleCellCommit}
+                    onAddRow={handleAddRow}
+                    hideAddControls
+                  />
+                ) : (
+                  <DataTableGrid
+                    content={openContent}
+                    onCellCommit={handleCellCommit}
+                    onAddRow={handleAddRow}
+                    onAddColumn={handleAddColumn}
+                    hideAddControls
+                  />
+                )}
+              </div>
+            </div>
           ) : (
             <div className="flex flex-1 items-center justify-center text-body text-foreground-muted">
               Loading…
