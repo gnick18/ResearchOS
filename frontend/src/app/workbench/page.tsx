@@ -220,21 +220,21 @@ export default function WorkbenchPage() {
 
   return (
     <AppShell>
-      <div className="flex-1 overflow-auto p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-heading font-semibold text-foreground">Workbench</h2>
-            <p className="text-body text-foreground-muted mt-0.5">{subtitle}</p>
+      <div className="flex-1 overflow-auto px-6 pt-3 pb-6">
+        {/* Compact header: the page title + its subtitle sit INLINE with the
+            tabs in a single band, instead of stacking a tall title row above a
+            separate tab row. Reclaims the vertical space the stacked chrome
+            wasted (Grant 2026-06-11). */}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-4 border-b border-border pb-2">
+          <div className="flex items-baseline gap-2 mr-1">
+            <h2 className="text-title font-semibold text-foreground">Workbench</h2>
+            <span className="text-meta text-foreground-muted">{subtitle}</span>
           </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex items-center gap-1 mb-6 border-b border-border pb-3">
+          <div className="flex items-center gap-1">
           <button
             onClick={() => setActiveTab("projects")}
             data-tour-target="workbench-projects-tab"
-            className={`px-4 py-2 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${
+            className={`px-3 py-1.5 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${
               activeTab === "projects"
                 ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300"
                 : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
@@ -248,7 +248,7 @@ export default function WorkbenchPage() {
           <button
             onClick={() => setActiveTab("experiments")}
             data-tour-target="workbench-experiments-tab"
-            className={`px-4 py-2 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${
+            className={`px-3 py-1.5 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${
               activeTab === "experiments"
                 ? "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300"
                 : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
@@ -262,7 +262,7 @@ export default function WorkbenchPage() {
           <button
             onClick={() => setActiveTab("notes")}
             data-tour-target="workbench-notes-tab"
-            className={`px-4 py-2 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${
+            className={`px-3 py-1.5 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${
               activeTab === "notes"
                 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
                 : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
@@ -276,7 +276,7 @@ export default function WorkbenchPage() {
           <button
             onClick={() => setActiveTab("lists")}
             data-tour-target="workbench-lists-tab"
-            className={`px-4 py-2 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${
+            className={`px-3 py-1.5 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${
               activeTab === "lists"
                 ? "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300"
                 : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
@@ -291,7 +291,7 @@ export default function WorkbenchPage() {
             <button
               onClick={() => setActiveTab("oneonone")}
               data-tour-target="workbench-oneonone-tab"
-              className={`px-4 py-2 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${
+              className={`px-3 py-1.5 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${
                 activeTab === "oneonone"
                   ? "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300"
                   : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
@@ -301,6 +301,7 @@ export default function WorkbenchPage() {
               {oneOnOneLabelText}
             </button>
           )}
+          </div>
         </div>
 
         {/* Project filter — hidden on Notes (project-agnostic) and on the
