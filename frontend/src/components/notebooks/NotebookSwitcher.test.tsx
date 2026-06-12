@@ -73,6 +73,12 @@ vi.mock("@/hooks/useCurrentUser", () => ({
   useCurrentUser: () => ({ currentUser: "student" }),
 }));
 
+// NotesPanel reads lab mode via useFileSystem; the test mounts without a
+// FileSystemProvider, so stub the hook to a stable value.
+vi.mock("@/hooks/useIsLabMode", () => ({
+  useIsLabMode: () => false,
+}));
+
 vi.mock("@/components/Tooltip", () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
@@ -200,25 +206,25 @@ describe("Notes tab notebook rail", () => {
       "Thesis 1:1",
     );
 
-    // All notes shows the whole local grid.
-    expect(await screen.findByTestId("note-card-1")).toBeInTheDocument();
-    expect(await screen.findByTestId("note-card-2")).toBeInTheDocument();
+    // All notes shows the whole local list (dense rows).
+    expect(await screen.findByTestId("note-row-1")).toBeInTheDocument();
+    expect(await screen.findByTestId("note-row-2")).toBeInTheDocument();
   });
 
   it("Unfiled hides notes carrying a notebook_id", async () => {
     renderPanel();
     fireEvent.click(await screen.findByTestId("rail-unfiled"));
 
-    expect(await screen.findByTestId("note-card-1")).toBeInTheDocument();
-    expect(screen.queryByTestId("note-card-2")).toBeNull();
+    expect(await screen.findByTestId("note-row-1")).toBeInTheDocument();
+    expect(screen.queryByTestId("note-row-2")).toBeNull();
   });
 
   it("selecting a personal notebook filters the grid to its notes", async () => {
     renderPanel();
     fireEvent.click(await screen.findByTestId("rail-notebook-nb-p"));
 
-    expect(await screen.findByTestId("note-card-2")).toBeInTheDocument();
-    expect(screen.queryByTestId("note-card-1")).toBeNull();
+    expect(await screen.findByTestId("note-row-2")).toBeInTheDocument();
+    expect(screen.queryByTestId("note-row-1")).toBeNull();
     // Still the local grid, NOT the shared-notebook view.
     expect(screen.queryByTestId("notebook-shared-banner")).toBeNull();
   });
@@ -263,8 +269,8 @@ describe("Notes tab notebook rail", () => {
 
   it("Move to notebook routes a note through moveNoteToNotebook", async () => {
     renderPanel();
-    // Right-click the filed note to open its tile context menu.
-    fireEvent.contextMenu(await screen.findByTestId("note-card-2"));
+    // Right-click the filed note to open its row context menu.
+    fireEvent.contextMenu(await screen.findByTestId("note-row-2"));
     fireEvent.click(await screen.findByText("Move to notebook"));
 
     // The move menu offers "Remove from notebook" (the note is filed).

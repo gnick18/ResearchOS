@@ -28,6 +28,7 @@ export default function SurvivalTableGrid({
   onCellCommit,
   onAddRow,
   hideAddControls = false,
+  readOnly = false,
   crud,
 }: {
   content: DataHubDocContent;
@@ -35,6 +36,8 @@ export default function SurvivalTableGrid({
   onAddRow: () => void;
   /** Suppress the internal Add bar when the WorkspaceToolbar owns those actions. */
   hideAddControls?: boolean;
+  /** Render the table as a computed, NON-editable view (a derived table). */
+  readOnly?: boolean;
   /** Right-click CRUD callbacks. A Survival table has THREE fixed columns (Time,
    *  Event, Group), so only the ROW menu (insert / delete subject) is wired here;
    *  deleting or duplicating a fixed column would corrupt the Kaplan-Meier inputs,
@@ -59,11 +62,11 @@ export default function SurvivalTableGrid({
     () => ({ onDeleteRow: crud?.onDeleteRow, onInsertRowAt: crud?.onInsertRowAt }),
     [crud?.onDeleteRow, crud?.onInsertRowAt],
   );
-  const menu = useGridCrudMenu(content, rowOnlyCrud);
+  const menu = useGridCrudMenu(content, readOnly ? {} : rowOnlyCrud);
 
   return (
     <div data-testid="datahub-survival-grid">
-      {!hideAddControls && (
+      {!hideAddControls && !readOnly && (
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -100,7 +103,9 @@ export default function SurvivalTableGrid({
             {rows.map((row, r) => (
               <tr key={row.id}>
                 <td
-                  onContextMenu={(e) => menu.openRowMenu(e, row.id)}
+                  onContextMenu={
+                    readOnly ? undefined : (e) => menu.openRowMenu(e, row.id)
+                  }
                   className="border border-border bg-surface-sunken px-3 py-1 text-center text-meta text-foreground-muted"
                 >
                   {r + 1}
@@ -116,14 +121,23 @@ export default function SurvivalTableGrid({
                       key={`${row.id}:${col.id}:${cellDisplay(
                         row.cells[col.id] ?? null,
                       )}`}
-                      onBlur={(e) =>
-                        onCellCommit(row.id, col.id, e.currentTarget.value)
+                      readOnly={readOnly}
+                      onBlur={
+                        readOnly
+                          ? undefined
+                          : (e) =>
+                              onCellCommit(row.id, col.id, e.currentTarget.value)
                       }
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") e.currentTarget.blur();
+                        if (!readOnly && e.key === "Enter")
+                          e.currentTarget.blur();
                       }}
                       aria-label={`${col.name} subject ${r + 1}`}
-                      className="w-full bg-transparent px-3 py-1.5 text-center text-body text-foreground outline-none focus:bg-accent-soft"
+                      className={`w-full bg-transparent px-3 py-1.5 text-center text-body text-foreground outline-none ${
+                        readOnly
+                          ? "cursor-default text-foreground-muted"
+                          : "focus:bg-accent-soft"
+                      }`}
                     />
                   </td>
                 ))}

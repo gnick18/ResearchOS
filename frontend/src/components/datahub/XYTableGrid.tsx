@@ -30,6 +30,7 @@ export default function XYTableGrid({
   onAddRow,
   onAddColumn,
   hideAddControls = false,
+  readOnly = false,
   crud,
 }: {
   content: DataHubDocContent;
@@ -40,13 +41,15 @@ export default function XYTableGrid({
   onAddColumn: () => void;
   /** Suppress the internal Add bar when the WorkspaceToolbar owns those actions. */
   hideAddControls?: boolean;
+  /** Render the table as a computed, NON-editable view (a derived table). */
+  readOnly?: boolean;
   /** Right-click row/column CRUD callbacks (see grid-crud-menu). */
   crud?: GridCrudHandlers;
 }) {
   const xCol = useMemo(() => xColumn(content), [content]);
   const ys = useMemo(() => yColumns(content), [content]);
   const rows = content.rows;
-  const menu = useGridCrudMenu(content, crud ?? {});
+  const menu = useGridCrudMenu(content, readOnly ? {} : crud ?? {});
 
   // The grid columns in render order: X first, then the Y columns.
   const columns = useMemo(
@@ -64,7 +67,7 @@ export default function XYTableGrid({
 
   return (
     <div data-testid="datahub-xy-grid">
-      {!hideAddControls && (
+      {!hideAddControls && !readOnly && (
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -95,11 +98,13 @@ export default function XYTableGrid({
               {columns.map((col) => (
                 <th
                   key={col.id}
-                  onContextMenu={(e) => menu.openColumnMenu(e, col.id)}
+                  onContextMenu={
+                    readOnly ? undefined : (e) => menu.openColumnMenu(e, col.id)
+                  }
                   onDoubleClick={() => {
                     // Only Y columns rename inline; the X column is the structural
                     // axis and is never renamed as a data column.
-                    if (!col.isX) menu.beginRename(col.id);
+                    if (!readOnly && !col.isX) menu.beginRename(col.id);
                   }}
                   className={`min-w-[96px] border border-border px-3 py-1.5 text-center text-body font-semibold ${
                     col.isX
@@ -131,7 +136,9 @@ export default function XYTableGrid({
             {rows.map((row, r) => (
               <tr key={row.id}>
                 <td
-                  onContextMenu={(e) => menu.openRowMenu(e, row.id)}
+                  onContextMenu={
+                    readOnly ? undefined : (e) => menu.openRowMenu(e, row.id)
+                  }
                   className="border border-border bg-surface-sunken px-3 py-1 text-center text-meta text-foreground-muted"
                 >
                   {r + 1}
@@ -148,14 +155,23 @@ export default function XYTableGrid({
                       key={`${row.id}:${col.id}:${cellDisplay(
                         row.cells[col.id] ?? null,
                       )}`}
-                      onBlur={(e) =>
-                        onCellCommit(row.id, col.id, e.currentTarget.value)
+                      readOnly={readOnly}
+                      onBlur={
+                        readOnly
+                          ? undefined
+                          : (e) =>
+                              onCellCommit(row.id, col.id, e.currentTarget.value)
                       }
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") e.currentTarget.blur();
+                        if (!readOnly && e.key === "Enter")
+                          e.currentTarget.blur();
                       }}
                       aria-label={`${col.name} row ${r + 1}`}
-                      className="w-full bg-transparent px-3 py-1.5 text-center text-body text-foreground outline-none focus:bg-accent-soft"
+                      className={`w-full bg-transparent px-3 py-1.5 text-center text-body text-foreground outline-none ${
+                        readOnly
+                          ? "cursor-default text-foreground-muted"
+                          : "focus:bg-accent-soft"
+                      }`}
                     />
                   </td>
                 ))}

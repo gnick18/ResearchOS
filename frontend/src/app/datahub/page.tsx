@@ -31,6 +31,7 @@ import type {
   DataHubDocument,
   EntryFormat,
   PlotSpec,
+  TransformKind,
 } from "@/lib/datahub/model/types";
 import {
   openDataHubDoc,
@@ -127,6 +128,10 @@ import GuidedAnalysisWizard, {
 import NewGraphDialog, {
   type NewGraphSubmit,
 } from "@/components/datahub/NewGraphDialog";
+import TransformDialog, {
+  type TransformSubmit,
+} from "@/components/datahub/TransformDialog";
+import { runTransform } from "@/lib/datahub/transforms";
 import ResultsSheet from "@/components/datahub/ResultsSheet";
 import GraphEditor from "@/components/datahub/GraphEditor";
 import WorkspaceToolbar, {
@@ -162,6 +167,25 @@ function plotExportLabel(spec: PlotSpec): string {
     case "columnScatter":
     default:
       return "Column scatter";
+  }
+}
+
+/** A short, human label for a transform kind, used in the derived-table banner
+ *  ("Derived from <source> via <label>"). Mirrors the dialog's kind labels. */
+function transformLabel(kind: TransformKind): string {
+  switch (kind) {
+    case "transform":
+      return "Transform";
+    case "normalize":
+      return "Normalize";
+    case "transpose":
+      return "Transpose";
+    case "removeBaseline":
+      return "Remove baseline";
+    case "fractionOfTotal":
+      return "Fraction of total";
+    default:
+      return "Transform";
   }
 }
 
@@ -203,6 +227,17 @@ export default function DataHubPage() {
   // analysis selection in the main panel.
   const [selectedPlotId, setSelectedPlotId] = useState<string | null>(null);
   const [newGraphOpen, setNewGraphOpen] = useState(false);
+  // The Transform dialog open state. It creates a DERIVED table from the open
+  // table, or (when the open table is itself derived) edits its transform in
+  // place. A single flag drives both since the dialog reads its mode from
+  // whether the open table already carries a derivedFrom link.
+  const [transformOpen, setTransformOpen] = useState(false);
+  // The SOURCE content the Transform dialog previews + picks columns against.
+  // For a normal table this is the open content itself; for a derived table the
+  // open content is the computed snapshot, so we resolve its real source by id
+  // when the dialog opens. Null until resolved (the dialog shows no preview then).
+  const [transformSourceContent, setTransformSourceContent] =
+    useState<DataHubDocContent | null>(null);
   // Transient "copied" flash for the Copy reference button.
   const [refCopied, setRefCopied] = useState(false);
   // Inline delete confirm for the table toolbar (no soft-lock: a Cancel is always
@@ -1016,6 +1051,23 @@ export default function DataHubPage() {
     [allTables, selectedTableId],
   );
 
+  // The derived-table banner inputs. When the open table is derived, resolve its
+  // source meta from the catalog so the banner can name it and offer a jump to
+  // it. isDerived comes from the open content's link (the recompute path sets it),
+  // so a normal entered table reads isDerived false and shows no banner.
+  const derivedInfo = useMemo(() => {
+    const link = openContent?.meta.derivedFrom;
+    if (!link) return null;
+    const sourceMeta =
+      allTables.find((t) => t.id === link.sourceTableId) ?? null;
+    return {
+      sourceId: link.sourceTableId,
+      sourceMeta,
+      transform: link.transform,
+      label: transformLabel(link.transform),
+    };
+  }, [openContent, allTables]);
+
   // Publish the current selection to the BeakerBot context bridge so the model
   // can resolve "this", "the t-test", or "this analysis" to the entity the user
   // actually has on screen. Placed after selectedMeta (useMemo above) so it is
@@ -1416,6 +1468,114 @@ export default function DataHubPage() {
     [openContent, selectedMeta],
   );
 
+  // Create or update a DERIVED table from the Transform dialog.
+  //
+  // CREATE (the open table is a normal entered table): mint a new document whose
+  // derivedFrom links back to the open table, seeded with a first computed
+  // snapshot so the catalog mirror and any read of getContent see a valid table.
+  // The recompute path keeps it live on every later open. The derived table
+  // inherits the source's projects + folder so it lands beside it.
+  //
+  // EDIT (the open table is itself derived): rewrite its derivedFrom transform +
+  // params and the snapshot in place, then reproject so the grid + figures
+  // recompute. The source is the derived table's own sourceTableId, resolved by
+  // id (the source content is what the transform runs against).
+  const handleTransform = useCallback(
+    async (data: TransformSubmit) => {
+      setTransformOpen(false);
+      if (!openContent || openIdRef.current == null) return;
+      const existing = openContent.meta.derivedFrom;
+
+      // The content the transform runs against. For a create that is the open
+      // table itself; for an edit it is the derived table's source, fetched by
+      // id (the open table's columns/rows are the previous computed snapshot, not
+      // the source).
+      let sourceId: string;
+      let sourceContent: DataHubDocContent | null;
+      if (existing) {
+        sourceId = existing.sourceTableId;
+        sourceContent = await dataHubApi.getContent(sourceId);
+      } else {
+        sourceId = openIdRef.current;
+        sourceContent = openContent;
+      }
+
+      const derivedFrom = {
+        sourceTableId: sourceId,
+        transform: data.transform,
+        params: data.params,
+      };
+
+      // Compute the snapshot when the source is available. A missing source (only
+      // possible on an edit whose source was deleted) seeds an empty snapshot; the
+      // recompute path then surfaces the deleted-source empty state on open.
+      const snapshot = sourceContent
+        ? runTransform(data.transform, sourceContent, data.params)
+        : null;
+
+      if (existing) {
+        // Edit in place: update the link + snapshot on the derived document. The
+        // selection is unchanged, so the open effect reprojects + recomputes.
+        await dataHubApi.update(openIdRef.current, {
+          derivedFrom,
+          table_type: snapshot?.meta.table_type,
+          columns: snapshot?.columns ?? [],
+          rows: snapshot?.rows ?? [],
+        });
+        await queryClient.invalidateQueries({ queryKey: ["datahub", "tables"] });
+        // Re-open the same handle so the recompute runs and the grid + figures
+        // pick up the new transform. Toggling the id forces the open effect.
+        const id = openIdRef.current;
+        const handle = handleRef.current;
+        if (handle) {
+          await handle.close().catch(() => {});
+          handleRef.current = null;
+          openIdRef.current = null;
+        }
+        setSelectedTableId(null);
+        setTimeout(() => setSelectedTableId(id), 0);
+        return;
+      }
+
+      // Create: a new derived document linked to the open (source) table.
+      const created = await dataHubApi.create({
+        name: data.suggestedName,
+        table_type: snapshot?.meta.table_type ?? openContent.meta.table_type,
+        project_ids: selectedMeta?.project_ids ?? [],
+        folder_path: selectedMeta?.folder_path ?? null,
+        derivedFrom,
+        columns: snapshot?.columns ?? [],
+        rows: snapshot?.rows ?? [],
+      });
+      await queryClient.invalidateQueries({ queryKey: ["datahub", "tables"] });
+      setSelectedTableId(created.id);
+    },
+    [openContent, selectedMeta, queryClient],
+  );
+
+  // Resolve the source content the Transform dialog previews against. For a
+  // normal table the source is the open content; for a derived table the open
+  // content is the snapshot, so fetch the real source by id. Cleared when the
+  // dialog closes so a stale source never lingers.
+  useEffect(() => {
+    if (!transformOpen || !openContent) {
+      setTransformSourceContent(null);
+      return;
+    }
+    const existing = openContent.meta.derivedFrom;
+    if (!existing) {
+      setTransformSourceContent(openContent);
+      return;
+    }
+    let cancelled = false;
+    void dataHubApi.getContent(existing.sourceTableId).then((c) => {
+      if (!cancelled) setTransformSourceContent(c);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [transformOpen, openContent]);
+
   // Persist a style patch onto the open figure (a live styling-panel change).
   // Writes the updated PlotSpec back through setPlot, commits, and reprojects so
   // the figure redraws and the change is version-controlled.
@@ -1492,22 +1652,29 @@ export default function DataHubPage() {
     const summary =
       type === "column" && isSummaryFormat(openContent.meta.entryFormat);
 
+    // A derived table is computed, not entered, so the Add controls do not apply.
+    // It still graphs + analyzes + exports + duplicates + deletes like any table,
+    // and its Transform button edits the link instead of creating a new one.
+    const derived = !!openContent.meta.derivedFrom;
+
     const addGroup: ToolbarGroup = [];
-    if (!summary) {
-      addGroup.push({
-        icon: "plus",
-        label: type === "survival" ? "Add subject" : "Add row",
-        onClick: handleAddRow,
-        testId: "datahub-toolbar-add-row",
-      });
-    }
-    if (type !== "survival") {
-      addGroup.push({
-        icon: "plus",
-        label: addColumnLabel,
-        onClick: handleAddColumn,
-        testId: "datahub-toolbar-add-column",
-      });
+    if (!derived) {
+      if (!summary) {
+        addGroup.push({
+          icon: "plus",
+          label: type === "survival" ? "Add subject" : "Add row",
+          onClick: handleAddRow,
+          testId: "datahub-toolbar-add-row",
+        });
+      }
+      if (type !== "survival") {
+        addGroup.push({
+          icon: "plus",
+          label: addColumnLabel,
+          onClick: handleAddColumn,
+          testId: "datahub-toolbar-add-column",
+        });
+      }
     }
 
     return [
@@ -1526,6 +1693,15 @@ export default function DataHubPage() {
           onClick: () => setNewGraphOpen(true),
           tooltip: "Make a figure from this table.",
           testId: "datahub-toolbar-new-graph",
+        },
+        {
+          icon: "merge",
+          label: derived ? "Edit transform" : "Transform",
+          onClick: () => setTransformOpen(true),
+          tooltip: derived
+            ? "Change the transform that computes this table."
+            : "Make a new table computed from this one. It updates live when you edit this one.",
+          testId: "datahub-toolbar-transform",
         },
       ],
       addGroup,
@@ -1710,7 +1886,7 @@ export default function DataHubPage() {
                 {/* Entry-format control, Column tables only. Lets a researcher
                     switch to entering already-calculated summary stats (Mean,
                     SD or SEM, N) when they do not have the raw replicates. */}
-                {openContent.meta.table_type === "column" ? (
+                {openContent.meta.table_type === "column" && !derivedInfo ? (
                   <div className="ml-auto">
                     <TableFormatControl
                       format={entryFormatOf(openContent)}
@@ -1719,6 +1895,42 @@ export default function DataHubPage() {
                   </div>
                 ) : null}
               </div>
+
+              {/* Derived-table banner. A derived table is computed from a source
+                  via a transform and recomputes live, so the banner names the
+                  source + transform, offers a jump to the source, and carries a
+                  subtle live cue. */}
+              {derivedInfo && (
+                <div
+                  className="flex flex-wrap items-center gap-2 border-b border-border bg-accent-soft/50 px-5 py-2"
+                  data-testid="datahub-derived-banner"
+                >
+                  <span
+                    className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent"
+                    aria-hidden="true"
+                  />
+                  <span className="text-meta text-foreground">
+                    Derived from{" "}
+                    {derivedInfo.sourceMeta ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedTableId(derivedInfo.sourceId)
+                        }
+                        className="font-medium text-accent underline-offset-2 hover:underline"
+                        data-testid="datahub-derived-source-link"
+                      >
+                        {derivedInfo.sourceMeta.name}
+                      </button>
+                    ) : (
+                      <span className="font-medium text-foreground">
+                        a deleted table
+                      </span>
+                    )}{" "}
+                    via {derivedInfo.label}. Updates live.
+                  </span>
+                </div>
+              )}
 
               <WorkspaceToolbar testId="datahub-table-toolbar" groups={tableToolbarGroups} />
 
@@ -1753,54 +1965,95 @@ export default function DataHubPage() {
               )}
 
               <div className="min-h-0 flex-1 overflow-auto px-5 pb-5 pt-4">
-                <p className="mb-4 text-meta text-foreground-muted">
-                  {openContent.meta.table_type === "xy"
-                    ? "XY table. The first column is the X value, each following column is a measured Y, one observation per row."
-                    : openContent.meta.table_type === "grouped"
-                      ? "Grouped table. Each row is a category and each column group is a second factor, with replicate subcolumns for a two-way ANOVA."
-                      : openContent.meta.table_type === "survival"
-                        ? "Survival table. Each row is a subject with a time, an event indicator (1 or 0), and an optional group for Kaplan-Meier and the log-rank test."
-                        : isSummaryFormat(openContent.meta.entryFormat)
-                          ? `Column table, summary entry. Each column is a group, and you enter its mean, ${spreadKindOf(entryFormatOf(openContent)).toUpperCase()}, and n directly. Graphs and the summary-compatible tests draw from those numbers.`
-                          : "Column table. Each column is a treatment group, each row a replicate."}
-                </p>
-                {openContent.meta.table_type === "xy" ? (
-                  <XYTableGrid
-                    content={openContent}
-                    onCellCommit={handleCellCommit}
-                    onAddRow={handleAddRow}
-                    onAddColumn={handleAddColumn}
-                    crud={gridCrud}
-                    hideAddControls
-                  />
-                ) : openContent.meta.table_type === "grouped" ? (
-                  <GroupedTableGrid
-                    content={openContent}
-                    onCellCommit={handleCellCommit}
-                    onAddRow={handleAddRow}
-                    onAddColumn={handleAddColumn}
-                    onRenameGroup={handleRenameGroup}
-                    crud={gridCrud}
-                    hideAddControls
-                  />
-                ) : openContent.meta.table_type === "survival" ? (
-                  <SurvivalTableGrid
-                    content={openContent}
-                    onCellCommit={handleCellCommit}
-                    onAddRow={handleAddRow}
-                    crud={gridCrud}
-                    hideAddControls
-                  />
+                {derivedInfo && derivedSourceMissing ? (
+                  // The source table was deleted, so the live link has nothing to
+                  // recompute from. Show a calm empty state (never a crash) with a
+                  // way to delete this now-orphaned derived table.
+                  <div
+                    className="mx-auto flex max-w-md flex-col items-center gap-3 py-16 text-center"
+                    data-testid="datahub-derived-source-missing"
+                  >
+                    <Icon
+                      name="alert"
+                      className="h-6 w-6 text-foreground-muted"
+                    />
+                    <h2 className="text-title font-semibold text-foreground">
+                      The source table was deleted
+                    </h2>
+                    <p className="text-body text-foreground-muted">
+                      This derived table is computed from another table that no
+                      longer exists, so it has no data to show. You can delete it,
+                      or recreate the source table to bring it back.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteTableId(selectedMeta.id)}
+                      className="rounded-md border border-border px-3 py-1.5 text-body font-medium text-foreground transition-colors hover:bg-surface-sunken"
+                      data-testid="datahub-derived-delete"
+                    >
+                      Delete this derived table
+                    </button>
+                  </div>
                 ) : (
-                  <DataTableGrid
-                    content={openContent}
-                    onCellCommit={handleCellCommit}
-                    onAddRow={handleAddRow}
-                    onAddColumn={handleAddColumn}
-                    onRenameSummaryGroup={handleRenameSummaryGroup}
-                    crud={gridCrud}
-                    hideAddControls
-                  />
+                  <>
+                    <p className="mb-4 text-meta text-foreground-muted">
+                      {derivedInfo
+                        ? `Computed from ${
+                            derivedInfo.sourceMeta?.name ?? "its source"
+                          } via ${derivedInfo.label}. The cells are read-only because they recompute from the source. Edit the transform to change them, or edit the source to update them live.`
+                        : openContent.meta.table_type === "xy"
+                          ? "XY table. The first column is the X value, each following column is a measured Y, one observation per row."
+                          : openContent.meta.table_type === "grouped"
+                            ? "Grouped table. Each row is a category and each column group is a second factor, with replicate subcolumns for a two-way ANOVA."
+                            : openContent.meta.table_type === "survival"
+                              ? "Survival table. Each row is a subject with a time, an event indicator (1 or 0), and an optional group for Kaplan-Meier and the log-rank test."
+                              : isSummaryFormat(openContent.meta.entryFormat)
+                                ? `Column table, summary entry. Each column is a group, and you enter its mean, ${spreadKindOf(entryFormatOf(openContent)).toUpperCase()}, and n directly. Graphs and the summary-compatible tests draw from those numbers.`
+                                : "Column table. Each column is a treatment group, each row a replicate."}
+                    </p>
+                    {openContent.meta.table_type === "xy" ? (
+                      <XYTableGrid
+                        content={openContent}
+                        onCellCommit={handleCellCommit}
+                        onAddRow={handleAddRow}
+                        onAddColumn={handleAddColumn}
+                        crud={gridCrud}
+                        hideAddControls
+                        readOnly={!!derivedInfo}
+                      />
+                    ) : openContent.meta.table_type === "grouped" ? (
+                      <GroupedTableGrid
+                        content={openContent}
+                        onCellCommit={handleCellCommit}
+                        onAddRow={handleAddRow}
+                        onAddColumn={handleAddColumn}
+                        onRenameGroup={handleRenameGroup}
+                        crud={gridCrud}
+                        hideAddControls
+                        readOnly={!!derivedInfo}
+                      />
+                    ) : openContent.meta.table_type === "survival" ? (
+                      <SurvivalTableGrid
+                        content={openContent}
+                        onCellCommit={handleCellCommit}
+                        onAddRow={handleAddRow}
+                        crud={gridCrud}
+                        hideAddControls
+                        readOnly={!!derivedInfo}
+                      />
+                    ) : (
+                      <DataTableGrid
+                        content={openContent}
+                        onCellCommit={handleCellCommit}
+                        onAddRow={handleAddRow}
+                        onAddColumn={handleAddColumn}
+                        onRenameSummaryGroup={handleRenameSummaryGroup}
+                        crud={gridCrud}
+                        hideAddControls
+                        readOnly={!!derivedInfo}
+                      />
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -1847,6 +2100,20 @@ export default function DataHubPage() {
         content={openContent}
         onCancel={() => setNewGraphOpen(false)}
         onSubmit={handleNewGraph}
+      />
+
+      <TransformDialog
+        open={transformOpen}
+        content={transformSourceContent}
+        sourceName={
+          openContent?.meta.derivedFrom
+            ? transformSourceContent?.meta.name ?? "Source"
+            : selectedMeta?.name ?? "Table"
+        }
+        initialTransform={openContent?.meta.derivedFrom?.transform}
+        initialParams={openContent?.meta.derivedFrom?.params}
+        onCancel={() => setTransformOpen(false)}
+        onSubmit={handleTransform}
       />
     </AppShell>
   );

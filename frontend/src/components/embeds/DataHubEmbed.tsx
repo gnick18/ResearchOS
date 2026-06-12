@@ -13,6 +13,9 @@ import { useEffect, useState } from "react";
 import { dataHubApi } from "@/lib/datahub/api";
 import type { DataHubDocContent } from "@/lib/datahub/model/types";
 import { renderPlot, readPlotSource } from "@/lib/datahub/plot-spec";
+import { resultToText } from "@/lib/datahub/result-text";
+import { plainLanguageSummary } from "@/lib/datahub/plain-language";
+import type { NormalizedResult } from "@/lib/datahub/run-analysis";
 import { objectDeepLink } from "@/lib/references";
 import { ObjectEmbedCard, type EmbedRendererProps } from "./ObjectEmbed";
 
@@ -98,8 +101,57 @@ export default function DataHubEmbed({ descriptor, caption }: EmbedRendererProps
     );
   }
 
-  // Result and other non-table views do not have a dedicated renderer yet, so
-  // they show the calm card rather than a misleading raw table.
+  // Result view: render the analysis verdict + stats, reusing the same engine
+  // formatters the Results sheet uses (plainLanguageSummary + resultToText).
+  if (descriptor.view === "result") {
+    const analysisId = descriptor.opts.analysis;
+    const analysis = analysisId
+      ? state.content.analyses.find((a) => a.id === analysisId)
+      : state.content.analyses[0];
+    const cache = analysis?.resultCache as
+      | ({ ok?: boolean; kind?: string } | null)
+      | undefined;
+    if (!analysis || !cache || cache.ok === false || !cache.kind) {
+      return <ObjectEmbedCard descriptor={descriptor} caption={caption} />;
+    }
+    let verdict = "";
+    let table = "";
+    try {
+      verdict = plainLanguageSummary(cache as NormalizedResult);
+      // resultToText is the verdict line, a blank line, then the stat table; we
+      // show the verdict separately, so keep only the table portion here.
+      table = resultToText(cache as NormalizedResult).split("\n").slice(2).join("\n");
+    } catch {
+      return <ObjectEmbedCard descriptor={descriptor} caption={caption} />;
+    }
+    const resultTitle = caption || analysis.name || state.content.meta.name;
+    const resultHref = objectDeepLink("datahub", descriptor.id);
+    return (
+      <div>
+        <div className="flex items-center gap-2 border-b border-border bg-surface-sunken px-3 py-2">
+          <span className="truncate text-body font-semibold text-foreground">{resultTitle}</span>
+          <span className="flex-1" />
+          <a
+            href={resultHref}
+            className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground"
+          >
+            Open
+          </a>
+        </div>
+        <div className="px-3 py-3">
+          <p className="text-body text-foreground">{verdict}</p>
+          {table.trim() ? (
+            <pre className="mt-2 overflow-x-auto whitespace-pre text-meta font-mono text-foreground-muted">
+              {table}
+            </pre>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  // Other non-table views have no dedicated renderer, so they show the calm card
+  // rather than a misleading raw table.
   if (descriptor.view !== "table" && descriptor.view !== "summary") {
     return <ObjectEmbedCard descriptor={descriptor} caption={caption} />;
   }
