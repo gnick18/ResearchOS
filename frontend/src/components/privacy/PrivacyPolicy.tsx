@@ -331,8 +331,8 @@ export default function PrivacyPolicy() {
             >
               {CONTACT_EMAIL}
             </a>
-            . ResearchOS is built by Dr. Grant R. Nickles at the University of
-            Wisconsin-Madison.
+            . ResearchOS is operated by ResearchOS LLC, a registered Wisconsin
+            company.
           </p>
         </Section>
       </main>

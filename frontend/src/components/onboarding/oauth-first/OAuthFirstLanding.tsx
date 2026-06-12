@@ -9,7 +9,7 @@
 //   - light radial background, rainbow bars top and bottom,
 //   - the animated bubble BeakerBot (shared <BeakerBot> via IntroBubbleBot),
 //   - the <Wordmark>, the tagline "Own your research. Try it today.",
-//   - the Dr. Grant Nickles signature in the UPPER-LEFT (pip + name),
+//   - the ResearchOS LLC signature in the UPPER-LEFT (pip + name),
 //   - three route-pill buttons in one row (See the tour, Open the live demo
 //     /demo, Check our math /transparency),
 //   - Create account + Sign in.
@@ -160,7 +160,7 @@ export function OAuthFirstLanding({
             className="absolute inset-x-0 bottom-0 h-[7px] z-[2] brand-rainbow-bg"
           />
 
-          {/* The Dr. Grant Nickles signature, upper-left. */}
+          {/* The ResearchOS LLC signature, upper-left. */}
           <div className="absolute left-5 top-4 z-[4] inline-flex items-center gap-2 text-[10px] font-medium text-slate-500">
             <span
               aria-hidden
@@ -170,7 +170,7 @@ export function OAuthFirstLanding({
                 backgroundColor: "#1AA0E6",
               }}
             />
-            Dr. Grant Nickles, University of Wisconsin-Madison
+            ResearchOS LLC, Madison, Wisconsin
           </div>
 
           <div

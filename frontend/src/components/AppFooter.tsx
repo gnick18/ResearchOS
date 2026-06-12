@@ -74,7 +74,7 @@ export default function AppFooter({
         {/* Author credit + the Wisconsin LLC identity line on one row. */}
         <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 text-meta text-foreground-muted">
           <span data-testid="app-footer-author">
-            Built by Dr. Grant R. Nickles, PhD.
+            ResearchOS LLC, a registered Wisconsin company.
           </span>
           <span aria-hidden="true">·</span>
           <MadeInMadison variant="line" tone="soft" />
