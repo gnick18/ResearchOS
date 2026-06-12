@@ -44,6 +44,10 @@ import {
   parseGlobalFitArgs,
   buildGlobalFit,
   globalFitTool,
+  parseDoseResponseArgs,
+  buildDoseResponse,
+  describeDoseResponse,
+  runDoseResponseTool,
 } from "../tools/datahub-analysis";
 
 // ---------------------------------------------------------------------------
@@ -1145,5 +1149,127 @@ describe("global_fit tool", () => {
     expect(navigate).toHaveBeenCalledWith(
       expect.stringContaining(`/datahub?doc=9&analysis=${(result as { analysisId: string }).analysisId}`),
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// run_dose_response (single-curve 4PL/5PL fit)
+// ---------------------------------------------------------------------------
+
+describe("parseDoseResponseArgs", () => {
+  it("defaults to the 4PL and undefined yColumn", () => {
+    const p = parseDoseResponseArgs({ tableId: "5" });
+    expect(p).toEqual({ tableId: "5", model: "logistic4pl", yColumn: undefined });
+  });
+  it("reads an explicit 5PL and trims yColumn", () => {
+    const p = parseDoseResponseArgs({ tableId: "5", model: "logistic5pl", yColumn: " Response " });
+    expect(p.model).toBe("logistic5pl");
+    expect(p.yColumn).toBe("Response");
+  });
+  it("normalizes an unknown model to the 4PL", () => {
+    expect(parseDoseResponseArgs({ tableId: "5", model: "bogus" }).model).toBe("logistic4pl");
+  });
+});
+
+describe("buildDoseResponse", () => {
+  it("builds a doseResponse spec with columnIds = [yId] and runs the engine", () => {
+    const content = doseResponseContent();
+    const built = buildDoseResponse(content, parseDoseResponseArgs({ tableId: "5" }));
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.spec.type).toBe("doseResponse");
+    expect(built.spec.params).toMatchObject({ model: "logistic4pl" });
+    expect(built.spec.inputs).toEqual({ columnIds: ["y1"] });
+    expect(built.result.fit.kind).toBe("doseResponse");
+    expect(built.result.analysisId).toBe(built.spec.id);
+
+    // The tool reports the engine's OWN numbers, never an eyeballed EC50. Recompute
+    // the same spec through the engine and assert the readouts match exactly.
+    const ref = runAnalysis(built.spec, content);
+    expect(ref.ok && ref.kind === "doseResponse").toBe(true);
+    if (!ref.ok || ref.kind !== "doseResponse") return;
+    expect(built.result.ec50).toBe(ref.ec50);
+    expect(built.result.ec50CI95).toEqual(ref.ec50CI95);
+    expect(built.result.hillSlope).toBe(ref.hillSlope.value);
+    expect(built.result.rSquared).toBe(ref.rSquared);
+  });
+
+  it("honors the 5PL model and stores it in params", () => {
+    const built = buildDoseResponse(
+      doseResponseContent(),
+      parseDoseResponseArgs({ tableId: "5", model: "logistic5pl" }),
+    );
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.spec.params).toMatchObject({ model: "logistic5pl" });
+    expect(built.result.model).toBe("logistic5pl");
+  });
+
+  it("rejects a non-XY (Column) table", () => {
+    const built = buildDoseResponse(twoGroupContent(), parseDoseResponseArgs({ tableId: "1" }));
+    expect(built.ok).toBe(false);
+    if (built.ok) return;
+    expect(built.error).toMatch(/XY table/i);
+  });
+});
+
+describe("describeDoseResponse", () => {
+  it("names the curve and table when content is cached", () => {
+    cacheTableContent("5", doseResponseContent());
+    const { summary } = describeDoseResponse({ tableId: "5" });
+    expect(summary).toMatch(/logistic4pl/);
+    expect(summary).toMatch(/Response/);
+    expect(summary).toMatch(/Dose response/);
+  });
+
+  it("emits a stepPayload-style summary even when the table is NOT cached", () => {
+    // The no-content fallback still returns a usable summary so the step gate
+    // always has something to show (mirrors the other describers' hardening).
+    const { summary } = describeDoseResponse({ tableId: "999", model: "logistic5pl" });
+    expect(summary).toMatch(/logistic5pl/);
+    expect(summary).toMatch(/dose-response/i);
+  });
+});
+
+describe("run_dose_response tool", () => {
+  it("is previewable, not a gated action, like the other analysis tools", () => {
+    expect(runDoseResponseTool.action).toBeFalsy();
+    expect(runDoseResponseTool.previewable).toBe(true);
+    expect(typeof runDoseResponseTool.describeAction).toBe("function");
+    expect(runDoseResponseTool.isDestructive).toBeUndefined();
+  });
+
+  it("stores the fit and navigates the user to it", async () => {
+    const content = doseResponseContent();
+    vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(content);
+    const persist = vi.spyOn(datahubAnalysisDeps, "persistAnalysis").mockResolvedValue(true);
+    const navigate = vi.spyOn(datahubAnalysisDeps, "navigate").mockImplementation(() => {});
+
+    const result = (await runDoseResponseTool.execute({ tableId: "5" })) as {
+      ok: boolean;
+      analysisId?: string;
+      ec50?: number;
+    };
+    expect(result.ok).toBe(true);
+    expect(persist).toHaveBeenCalled();
+    expect(typeof result.ec50).toBe("number");
+    expect(navigate).toHaveBeenCalledWith(
+      expect.stringContaining(`/datahub?doc=5&analysis=${(result as { analysisId: string }).analysisId}`),
+    );
+  });
+
+  it("does not navigate when the build fails (Column table)", async () => {
+    vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(twoGroupContent());
+    vi.spyOn(datahubAnalysisDeps, "persistAnalysis").mockResolvedValue(true);
+    const navigate = vi.spyOn(datahubAnalysisDeps, "navigate").mockImplementation(() => {});
+
+    const result = (await runDoseResponseTool.execute({ tableId: "1" })) as { ok: boolean };
+    expect(result.ok).toBe(false);
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it("returns an error when no tableId is given", async () => {
+    const result = (await runDoseResponseTool.execute({})) as { ok: boolean };
+    expect(result.ok).toBe(false);
   });
 });
