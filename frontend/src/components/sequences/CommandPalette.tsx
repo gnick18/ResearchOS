@@ -1002,8 +1002,15 @@ export function CommandPalette({
           maxHeight: "76vh",
           minHeight: askMode === "ask" ? "min(440px, 76vh)" : undefined,
           height: askMode === "ask" ? "min(440px, 76vh)" : undefined,
+          // Fluid morph (fun pass, 2026-06-12). A springy ease-out
+          // (cubic-bezier(.22,1,.36,1)) gives the size + corner glide a single
+          // settling motion instead of a linear slide, and will-change promotes
+          // the morphing properties to their own layer so the box reshapes
+          // smoothly AS it travels on x / y rather than juddering. Same 0.4s
+          // duration as the approved morph spec.
+          willChange: "left, top, width, height, min-height",
           transition:
-            "min-height 0.4s cubic-bezier(.4,0,.2,1), height 0.4s cubic-bezier(.4,0,.2,1), left 0.4s cubic-bezier(.4,0,.2,1), top 0.4s cubic-bezier(.4,0,.2,1), width 0.4s cubic-bezier(.4,0,.2,1), inset 0.4s cubic-bezier(.4,0,.2,1)",
+            "min-height 0.4s cubic-bezier(.22,1,.36,1), height 0.4s cubic-bezier(.22,1,.36,1), left 0.4s cubic-bezier(.22,1,.36,1), top 0.4s cubic-bezier(.22,1,.36,1), width 0.4s cubic-bezier(.22,1,.36,1), inset 0.4s cubic-bezier(.22,1,.36,1)",
           // Dodge override: replaces inset-x-0/top-[12vh] when a spotlight
           // target would be covered. null = centered (the CSS class wins).
           ...dodgeStyle,
