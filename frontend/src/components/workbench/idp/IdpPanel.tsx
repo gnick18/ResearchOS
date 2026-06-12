@@ -161,7 +161,7 @@ function NoIdpState({
   if (!isOwner) {
     return (
       <div className="flex h-44 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-surface-sunken/40 px-6 text-center text-body text-foreground-muted">
-        <Icon name="book" className="h-6 w-6 text-foreground-muted" />
+        <Icon name="layer" className="h-6 w-6 text-foreground-muted" />
         <p>
           {trainee} has not started a development plan yet. When they do and
           share sections with you, the review surface appears here.
@@ -171,7 +171,7 @@ function NoIdpState({
   }
   return (
     <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-border bg-surface-sunken/40 px-6 py-10 text-center">
-      <Icon name="book" className="h-7 w-7 text-brand-action" />
+      <Icon name="layer" className="h-7 w-7 text-brand-action" />
       <div>
         <p className="text-title font-semibold text-foreground">
           Start your development plan
@@ -252,7 +252,7 @@ function IdpForm({
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-4">
         <div className="flex items-center gap-2">
-          <Icon name="book" className="h-5 w-5 text-brand-action" />
+          <Icon name="layer" className="h-5 w-5 text-brand-action" />
           <div>
             <p className="text-title font-semibold text-foreground">
               {isOwner ? "My development plan" : `${trainee}'s development plan`}
@@ -711,7 +711,7 @@ function SummaryCard({
       <p
         className={`mb-1.5 flex items-center gap-1.5 text-meta font-bold uppercase tracking-wide ${labelColor}`}
       >
-        <Icon name={tone === "strength" ? "check" : "gauge"} className="h-3 w-3" />
+        <Icon name={tone === "strength" ? "check" : "growth"} className="h-3 w-3" />
         {title}
       </p>
       {tags.length === 0 ? (
@@ -735,7 +735,7 @@ function SummaryCard({
 function PrivateSectionNote() {
   return (
     <div className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-surface-sunken/50 px-3 py-3 text-meta text-foreground-muted">
-      <Icon name="lock" className="h-3.5 w-3.5" />
+      <Icon name="eyeOff" className="h-3.5 w-3.5" />
       The trainee keeps this section private. It is not shared with you.
     </div>
   );
@@ -1271,7 +1271,7 @@ function ValuesReflection({
           Values reflection
         </span>
         <span className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-0.5 text-meta font-semibold text-foreground-muted">
-          <Icon name="lock" className="h-3 w-3" />
+          <Icon name="eyeOff" className="h-3 w-3" />
           Optional, private to you
         </span>
         <span className="flex-1" />

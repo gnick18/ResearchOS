@@ -366,7 +366,7 @@ export default function ReferencePicker({ onPick, onClose }: ReferencePickerProp
       >
         {/* Header */}
         <div className="flex items-center gap-2 px-4 pt-4 pb-2 border-b border-border shrink-0">
-          <Icon name="book" className="w-4 h-4 text-foreground-muted" />
+          <Icon name="reference" className="w-4 h-4 text-foreground-muted" />
           <span className="text-body font-semibold text-foreground flex-1">
             Insert reference
           </span>

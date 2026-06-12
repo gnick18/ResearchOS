@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Literature explorer, filters + year histogram + starred DOIs</title>
+<style>
+  :root{
+    --bg:#f4f7fb; --panel:#fff; --ink:#0f1b2d; --muted:#5b6b80; --line:#e2e9f2;
+    --sky:#1AA0E6; --action:#1283C9; --purple:#7c3aed; --green:#16a34a; --amber:#d97706; --pin:#e11d48; --gold:#eab308;
+    --raised:#f8fbff; --chip:#eef5fc;
+  }
+  html.dark{
+    --bg:#0c1320; --panel:#121d2e; --ink:#e7eef8; --muted:#94a6bd; --line:#22324a;
+    --sky:#3aa0e6; --action:#3aa0e6; --purple:#a78bfa; --green:#4ade80; --amber:#fbbf24; --pin:#fb7185; --gold:#fbbf24;
+    --raised:#0f1a29; --chip:#16243a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  header.top{display:flex;align-items:center;gap:12px;padding:14px 22px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:30}
+  header.top h1{font-size:16px;margin:0;font-weight:700}
+  header.top .sub{font-size:12px;color:var(--muted)}
+  .spacer{flex:1}
+  .btn{font:inherit;font-size:12px;font-weight:600;padding:7px 12px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;cursor:pointer}
+  .btn:hover{border-color:var(--action)}
+  .btn.primary{background:var(--action);border-color:var(--action);color:#fff}
+  .estat{font-size:12px;color:var(--muted)}
+  .wrap{max-width:1040px;margin:0 auto;padding:22px}
+  .lead{color:var(--muted);font-size:13px;max-width:780px;margin:4px 0 18px}
+  .lead b{color:var(--ink)}
+
+  /* molecule header + entry */
+  .molcard{display:flex;align-items:center;gap:16px;border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:16px 18px;margin-bottom:16px}
+  .molcard .struct{width:96px;height:72px;border:1px solid var(--line);border-radius:9px;background:var(--raised);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:11px;flex:none}
+  .molcard .nm{font-size:17px;font-weight:700}
+  .molcard .meta{font-size:12px;color:var(--muted);margin-top:2px}
+  .molcard .starred{margin-top:9px;display:flex;gap:6px;flex-wrap:wrap}
+  .chiprow{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:3px 9px;border-radius:20px;background:var(--chip);color:var(--ink);border:1px solid var(--line)}
+  .chiprow .st{color:var(--gold)}
+  .chiprow .x{cursor:pointer;color:var(--muted);font-weight:700}
+
+  /* explorer modal */
+  .scrim{position:fixed;inset:0;background:rgba(8,14,24,.46);display:none;align-items:center;justify-content:center;z-index:40}
+  .scrim.open{display:flex}
+  .modal{width:min(940px,94vw);height:min(640px,90vh);background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(8,14,24,.4)}
+  .mhead{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line);background:var(--raised)}
+  .mhead .t{font-weight:700}
+  .mhead .t small{color:var(--muted);font-weight:500;margin-left:6px}
+  .mhead .live{margin-left:auto;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .mhead .live i{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block}
+  .mhead .close{cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px}
+  .mbody{flex:1;display:flex;min-height:0}
+  .rail{width:248px;border-right:1px solid var(--line);padding:14px;overflow:auto;flex:none}
+  .rail h4{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:14px 0 7px}
+  .rail h4:first-child{margin-top:0}
+  .chk{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;cursor:pointer;font-size:13px}
+  .chk:hover{background:var(--chip)}
+  .chk input{accent-color:var(--action)}
+  .chk .ct{margin-left:auto;font-size:11px;color:var(--muted);background:var(--chip);border-radius:10px;padding:1px 7px}
+  .chk .dot{width:9px;height:9px;border-radius:2px;flex:none}
+  .rng{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+  .rng input[type=range]{flex:1;accent-color:var(--action)}
+  .main{flex:1;display:flex;flex-direction:column;min-width:0}
+  .tools{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)}
+  .tools input.q{flex:1;font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--raised);color:var(--ink)}
+  .tools select{font:inherit;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink)}
+
+  /* histogram (now lives in the left rail, Google-Scholar style) */
+  .cap{font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.3}
+  .hist{display:flex;align-items:flex-end;gap:2px;height:58px;margin-bottom:20px}
+  .hist .bar{flex:1;background:var(--action);border-radius:3px 3px 0 0;min-height:2px;position:relative;cursor:pointer;opacity:.85;transition:opacity .1s}
+  .hist .bar:hover{opacity:1}
+  .hist .bar.rev{background:var(--purple)}
+  .hist .bar .lab{position:absolute;bottom:-15px;left:0;right:0;text-align:center;font-size:9px;color:var(--muted)}
+  .hist .bar .v{position:absolute;top:-14px;left:0;right:0;text-align:center;font-size:9px;color:var(--muted);opacity:0;transition:opacity .1s}
+  .hist .bar:hover .v{opacity:1}
+  .histwrap.shifted{padding-bottom:20px}
+
+  /* results */
+  .results{flex:1;overflow:auto;padding:6px 8px}
+  .paper{display:flex;gap:11px;padding:11px 10px;border-bottom:1px solid var(--line)}
+  .paper .star{cursor:pointer;color:var(--line);font-size:19px;line-height:1;flex:none;width:22px;text-align:center}
+  .paper .star.on{color:var(--gold)}
+  .paper .pmain{flex:1;min-width:0}
+  .paper .ptitle{font-weight:600;font-size:13.5px}
+  .paper .pmeta{font-size:12px;color:var(--muted);margin-top:2px}
+  .paper .badges{margin-top:5px;display:flex;gap:6px;flex-wrap:wrap}
+  .bdg{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:2px 7px;border-radius:6px;background:var(--chip);color:var(--muted)}
+  .bdg.rev{background:rgba(124,58,237,.14);color:var(--purple)}
+  .bdg.pat{background:rgba(217,119,6,.14);color:var(--amber)}
+  .bdg.cit{background:rgba(18,131,201,.12);color:var(--action)}
+  .paper a.doi{color:var(--action);font-size:11px;text-decoration:none}
+  .empty{padding:30px;text-align:center;color:var(--muted);font-size:13px}
+
+  /* decisions */
+  .dwrap{margin-top:26px}
+  .dwrap h2{font-size:14px;margin:0 0 2px}
+  .dwrap .dhint{color:var(--muted);font-size:12px;margin:0 0 14px}
+  .card{border:1px solid var(--line);border-radius:11px;background:var(--panel);padding:13px 15px;margin-bottom:10px}
+  .card .ctop{display:flex;align-items:center;gap:9px;margin-bottom:6px;flex-wrap:wrap}
+  .card .did{font-family:ui-monospace,monospace;font-size:11px;color:var(--muted);background:var(--chip);padding:2px 7px;border-radius:6px}
+  .card .ctitle{font-weight:700;font-size:13.5px}
+  .card .flag{font-size:10px;font-weight:700;text-transform:uppercase;background:rgba(225,29,72,.13);color:var(--pin);padding:2px 7px;border-radius:6px}
+  .card .rec{margin-left:auto;font-size:11px;color:var(--green);font-weight:700}
+  .card .cbody{font-size:12.5px;color:var(--muted)}
+  .card .cbody code{background:var(--chip);padding:1px 5px;border-radius:5px;font-size:11.5px}
+  .decide{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{font:inherit;font-size:12px;padding:6px 12px;border:0;background:var(--panel);color:var(--ink);cursor:pointer;border-right:1px solid var(--line)}
+  .seg button:last-child{border-right:0}
+  .seg button.on[data-v="approve"]{background:var(--green);color:#fff}
+  .seg button.on[data-v="modify"]{background:var(--amber);color:#fff}
+  .seg button.on[data-v="reject"]{background:var(--pin);color:#fff}
+  .decide input{flex:1;min-width:200px;font:inherit;font-size:12px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--raised);color:var(--ink)}
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Literature explorer</h1>
+    <div class="sub">Filters, a papers-per-year histogram, reviews vs patents, and starring a DOI onto the molecule.</div>
+  </div>
+  <div class="spacer"></div>
+  <span class="estat" id="estat">No decisions yet</span>
+  <button class="btn" id="themeBtn">Switch to dark</button>
+  <button class="btn primary" id="exportBtn">Copy feedback</button>
+</header>
+
+<div class="wrap">
+  <p class="lead">Today "Find in literature" returns a flat list. This prototypes the upgrade you described: a full <b>explorer popup</b> with filters, a <b>papers-per-year histogram</b>, toggles to separate research, reviews, and patents, and a <b>star</b> that saves a paper's DOI onto the molecule so it is one click away whenever you open that molecule later. Example molecule is <b>gliotoxin</b> (a niche Aspergillus fumigatus toxin, which also ties to the sequence demo). Click the structure card to open the explorer. Data is illustrative, the shape is real (Europe PMC gives year, type, DOI, citations; PubChem and SureChEMBL give patents).</p>
+
+  <div class="molcard">
+    <div class="struct" id="openExplorer" style="cursor:pointer" title="Open literature explorer">structure<br/>(click)</div>
+    <div style="flex:1">
+      <div class="nm">Gliotoxin</div>
+      <div class="meta mono">C13H14N2O4S2 &middot; 326.39 g/mol &middot; epipolythiodioxopiperazine toxin</div>
+      <div class="starred" id="starredStrip"><span class="estat">No starred papers yet. Open the explorer and star one.</span></div>
+    </div>
+    <button class="btn primary" id="openExplorer2">Find in literature</button>
+  </div>
+
+  <div class="dwrap">
+    <h2>Decisions to sign off</h2>
+    <p class="dhint">Approve, modify, or reject each. The starring one is a data-shape change, flagged. Then Copy feedback.</p>
+    <div id="dlist"></div>
+  </div>
+</div>
+
+<!-- explorer modal -->
+<div class="scrim" id="scrim">
+  <div class="modal">
+    <div class="mhead">
+      <span class="t">Literature for <b>Gliotoxin</b><small id="hitline"></small></span>
+      <span class="live"><i></i>Live, Europe PMC + PubChem + SureChEMBL</span>
+      <span class="close" id="closeModal">&times;</span>
+    </div>
+    <div class="mbody">
+      <div class="rail">
+        <h4>Type</h4>
+        <label class="chk"><input type="checkbox" id="fResearch" checked><span class="dot" style="background:var(--action)"></span>Research<span class="ct" id="cResearch"></span></label>
+        <label class="chk"><input type="checkbox" id="fReview" checked><span class="dot" style="background:var(--purple)"></span>Reviews<span class="ct" id="cReview"></span></label>
+        <label class="chk"><input type="checkbox" id="fPatent" checked><span class="dot" style="background:var(--amber)"></span>Patents<span class="ct" id="cPatent"></span></label>
+        <label class="chk"><input type="checkbox" id="fStar"><span class="dot" style="background:var(--gold)"></span>Starred only<span class="ct" id="cStar"></span></label>
+        <h4>Years <span id="histTotal" style="font-weight:400;text-transform:none;letter-spacing:0;float:right"></span></h4>
+        <div class="cap">Papers per year, click a bar. Purple = reviews.</div>
+        <div class="hist" id="hist"></div>
+        <div class="rng"><span class="mono" style="font-size:11px">from</span><input type="range" id="yr" min="1970" max="2024" value="1970"><span id="yrLab" class="mono">1970</span></div>
+        <h4>Reset</h4>
+        <button class="btn" id="resetFilters" style="width:100%">Clear filters</button>
+      </div>
+      <div class="main">
+        <div class="tools">
+          <input class="q" id="q" placeholder="Filter by title, author, journal"/>
+          <select id="sort">
+            <option value="year">Newest first</option>
+            <option value="cited">Most cited</option>
+            <option value="title">Title A-Z</option>
+          </select>
+        </div>
+        <div class="results" id="results"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- illustrative gliotoxin corpus (shape is real) ---------- */
+// type: research | review | patent. doi present on papers; patents carry a patent id.
+const CORPUS=[
+  {t:"Gliotoxin, a metabolite of Gliocladium fimbriatum",a:"Weindling R",j:"Phytopathology",y:1936,c:88,type:"research",doi:"10.0/glx1936"},
+  {t:"The structure of gliotoxin",a:"Bell MR, Johnson JR",j:"J Am Chem Soc",y:1958,c:142,type:"research",doi:"10.1021/ja01539a017"},
+  {t:"Immunosuppressive activity of gliotoxin",a:"Mullbacher A, Eichner RD",j:"PNAS",y:1984,c:410,type:"research",doi:"10.1073/pnas.81.12.3835"},
+  {t:"Gliotoxin and the epipolythiodioxopiperazines, a review",a:"Gardiner DM",j:"Microbiology",y:2005,c:520,type:"review",doi:"10.1099/mic.0.27847-0"},
+  {t:"Gliotoxin biosynthesis gene cluster in Aspergillus fumigatus",a:"Cramer RA",j:"Eukaryot Cell",y:2006,c:300,type:"research",doi:"10.1128/EC.5.6.972"},
+  {t:"GliT confers self-protection against gliotoxin",a:"Scharf DH",j:"J Am Chem Soc",y:2010,c:188,type:"research",doi:"10.1021/ja1066005"},
+  {t:"Gliotoxin in Aspergillus virulence, a review",a:"Dolan SK",j:"Trends Microbiol",y:2015,c:265,type:"review",doi:"10.1016/j.tim.2015.04.005"},
+  {t:"Redox regulation of gliotoxin biosynthesis",a:"Owens RA",j:"Sci Rep",y:2015,c:97,type:"research",doi:"10.1038/srep12058"},
+  {t:"Gliotoxin as an immunomodulator, mechanisms",a:"Arias M",j:"Front Immunol",y:2018,c:120,type:"review",doi:"10.3389/fimmu.2018.01044"},
+  {t:"Bis-thiomethylgliotoxin and host response",a:"Dolan SK",j:"mBio",y:2017,c:74,type:"research",doi:"10.1128/mBio.01931-16"},
+  {t:"Gliotoxin induces apoptosis in cancer cell lines",a:"Nguyen VT",j:"Mar Drugs",y:2021,c:41,type:"research",doi:"10.3390/md19030137"},
+  {t:"ETP toxins as anticancer scaffolds, 2022 update",a:"Welch TR",j:"Nat Prod Rep",y:2022,c:33,type:"review",doi:"10.1039/D1NP00056J"},
+  {t:"Total synthesis of gliotoxin and analogs",a:"Tan KL",j:"J Org Chem",y:2023,c:9,type:"research",doi:"10.1021/acs.joc.3c00112"},
+  {t:"Gliotoxin derivatives as immunosuppressants",a:"Assignee, Pharma Co",j:"US Patent",y:2009,c:0,type:"patent",doi:"",pid:"US7625931B2"},
+  {t:"Antifungal compositions containing gliotoxin analogs",a:"Assignee, Biotech LLC",j:"WO Patent",y:2016,c:0,type:"patent",doi:"",pid:"WO2016089234A1"},
+  {t:"Method of treating inflammation with ETP compounds",a:"Assignee, University",j:"US Patent",y:2020,c:0,type:"patent",doi:"",pid:"US10683300B2"},
+];
+const fmt=n=>n.toLocaleString("en-US");
+
+/* ---------- filter state ---------- */
+const F={research:true,review:true,patent:true,starOnly:false,fromYear:1970,q:"",sort:"year",pickYear:null};
+const STAR_KEY="litExplorerStars";
+let stars=new Set(JSON.parse(localStorage.getItem(STAR_KEY)||"[]"));
+function saveStars(){localStorage.setItem(STAR_KEY,JSON.stringify([...stars]));renderStarred();}
+function keyOf(p){return p.doi||p.pid||p.t;}
+
+function passes(p){
+  if(p.type==="research"&&!F.research) return false;
+  if(p.type==="review"&&!F.review) return false;
+  if(p.type==="patent"&&!F.patent) return false;
+  if(F.starOnly&&!stars.has(keyOf(p))) return false;
+  if(p.y<F.fromYear) return false;
+  if(F.pickYear!=null&&p.y!==F.pickYear) return false;
+  if(F.q){const s=(p.t+" "+p.a+" "+p.j).toLowerCase();if(!s.includes(F.q.toLowerCase())) return false;}
+  return true;
+}
+function filtered(){
+  let r=CORPUS.filter(passes);
+  if(F.sort==="year") r.sort((a,b)=>b.y-a.y);
+  if(F.sort==="cited") r.sort((a,b)=>b.c-a.c);
+  if(F.sort==="title") r.sort((a,b)=>a.t.localeCompare(b.t));
+  return r;
+}
+
+function renderCounts(){
+  const c=t=>CORPUS.filter(p=>p.type===t).length;
+  document.getElementById("cResearch").textContent=c("research");
+  document.getElementById("cReview").textContent=c("review");
+  document.getElementById("cPatent").textContent=c("patent");
+  document.getElementById("cStar").textContent=stars.size;
+}
+function renderHist(){
+  const rows=CORPUS.filter(p=>{
+    if(p.type==="research"&&!F.research)return false;
+    if(p.type==="review"&&!F.review)return false;
+    if(p.type==="patent"&&!F.patent)return false;
+    return true;
+  });
+  // bucket into 5-year bins
+  const bins={};
+  for(let y=1935;y<=2024;y+=5) bins[y]={total:0,rev:0,label:y};
+  rows.forEach(p=>{const b=Math.floor(p.y/5)*5; if(bins[b]){bins[b].total++; if(p.type==="review")bins[b].rev++;}});
+  const arr=Object.values(bins);
+  const max=Math.max(1,...arr.map(b=>b.total));
+  document.getElementById("hist").innerHTML=arr.map(b=>{
+    const h=b.total/max*100;
+    const cls=b.rev>b.total/2?"bar rev":"bar";
+    const sel=F.pickYear!=null&&Math.floor(F.pickYear/5)*5===b.label?'style="outline:2px solid var(--ink)"':'';
+    return `<div class="${cls}" data-bin="${b.label}" ${sel} title="${b.label}-${b.label+4}: ${b.total} papers, ${b.rev} reviews" style="height:${Math.max(3,h)}%">
+      <span class="v">${b.total||""}</span><span class="lab">${b.label%10===0?("'"+String(b.label).slice(2)):""}</span></div>`;
+  }).join("");
+  document.querySelectorAll(".hist .bar").forEach(el=>el.addEventListener("click",()=>{
+    const bin=+el.dataset.bin;
+    // toggle: clicking selects that 5-year window via fromYear+pickYear-ish; here pick the bin midpoint behavior by filtering to the bin
+    F.pickYear = F.pickYear!=null && Math.floor(F.pickYear/5)*5===bin ? null : bin+2; // representative
+    // simpler: filter to the whole bin
+    F._bin = F._bin===bin?null:bin;
+    renderAll();
+  }));
+  document.getElementById("histTotal").textContent=rows.length+" shown";
+}
+// override bin filtering to whole 5-year window
+function passesBin(p){ if(F._bin==null) return true; return p.y>=F._bin && p.y<F._bin+5; }
+
+function renderResults(){
+  let r=CORPUS.filter(p=>passes(p)&&passesBin(p));
+  if(F.sort==="year") r.sort((a,b)=>b.y-a.y);
+  else if(F.sort==="cited") r.sort((a,b)=>b.c-a.c);
+  else if(F.sort==="title") r.sort((a,b)=>a.t.localeCompare(b.t));
+  const box=document.getElementById("results");
+  if(!r.length){box.innerHTML='<div class="empty">No results with these filters. Clear filters or widen the year.</div>';document.getElementById("hitline").textContent="";return;}
+  box.innerHTML=r.map(p=>{
+    const k=keyOf(p), on=stars.has(k);
+    const badge = p.type==="review"?'<span class="bdg rev">Review</span>':p.type==="patent"?'<span class="bdg pat">Patent</span>':'<span class="bdg">Research</span>';
+    const cit = p.type!=="patent"?`<span class="bdg cit">${p.c} cited</span>`:'';
+    const ref = p.type==="patent"?`<span class="mono" style="color:var(--muted)">${p.pid}</span>`:`<a class="doi" href="https://doi.org/${p.doi}" target="_blank">doi:${p.doi}</a>`;
+    return `<div class="paper">
+      <span class="star ${on?'on':''}" data-k="${k}" title="${on?'Unstar':'Star this paper for gliotoxin'}">${on?'&#9733;':'&#9734;'}</span>
+      <div class="pmain">
+        <div class="ptitle">${p.t}</div>
+        <div class="pmeta">${p.a} &middot; ${p.j} &middot; ${p.y}</div>
+        <div class="badges">${badge}${cit}${ref}</div>
+      </div></div>`;
+  }).join("");
+  document.querySelectorAll(".star").forEach(s=>s.addEventListener("click",()=>{
+    const k=s.dataset.k; if(stars.has(k))stars.delete(k); else stars.add(k); saveStars(); renderAll();
+  }));
+  document.getElementById("hitline").textContent=` (${r.length} of ${CORPUS.length})`;
+}
+function renderStarred(){
+  const strip=document.getElementById("starredStrip");
+  const items=CORPUS.filter(p=>stars.has(keyOf(p)));
+  if(!items.length){strip.innerHTML='<span class="estat">No starred papers yet. Open the explorer and star one.</span>';return;}
+  strip.innerHTML=items.map(p=>{
+    const k=keyOf(p);
+    const ref=p.type==="patent"?p.pid:("doi:"+p.doi);
+    return `<span class="chiprow"><span class="st">&#9733;</span>${p.t.slice(0,34)}${p.t.length>34?'...':''} <span class="mono" style="color:var(--muted)">${ref}</span><span class="x" data-k="${k}">&times;</span></span>`;
+  }).join("");
+  strip.querySelectorAll(".x").forEach(x=>x.addEventListener("click",()=>{stars.delete(x.dataset.k);saveStars();renderAll();}));
+}
+function renderAll(){renderCounts();renderHist();renderResults();renderStarred();}
+
+/* ---------- wire ---------- */
+function openModal(){document.getElementById("scrim").classList.add("open");renderAll();}
+function closeModal(){document.getElementById("scrim").classList.remove("open");}
+document.getElementById("openExplorer").onclick=openModal;
+document.getElementById("openExplorer2").onclick=openModal;
+document.getElementById("closeModal").onclick=closeModal;
+document.getElementById("scrim").addEventListener("click",e=>{if(e.target.id==="scrim")closeModal();});
+["fResearch","fReview","fPatent","fStar"].forEach(id=>{
+  document.getElementById(id).addEventListener("change",e=>{
+    if(id==="fResearch")F.research=e.target.checked;
+    if(id==="fReview")F.review=e.target.checked;
+    if(id==="fPatent")F.patent=e.target.checked;
+    if(id==="fStar")F.starOnly=e.target.checked;
+    renderAll();
+  });
+});
+document.getElementById("yr").addEventListener("input",e=>{F.fromYear=+e.target.value;document.getElementById("yrLab").textContent=e.target.value;renderResults();renderHist();});
+document.getElementById("q").addEventListener("input",e=>{F.q=e.target.value;renderResults();});
+document.getElementById("sort").addEventListener("change",e=>{F.sort=e.target.value;renderResults();});
+document.getElementById("resetFilters").addEventListener("click",()=>{
+  F.research=F.review=F.patent=true;F.starOnly=false;F.fromYear=1970;F.q="";F.sort="year";F._bin=null;F.pickYear=null;
+  document.getElementById("fResearch").checked=document.getElementById("fReview").checked=document.getElementById("fPatent").checked=true;
+  document.getElementById("fStar").checked=false;document.getElementById("yr").value=1970;document.getElementById("yrLab").textContent="1970";
+  document.getElementById("q").value="";document.getElementById("sort").value="year";renderAll();
+});
+
+/* ---------- decisions ---------- */
+const D=[
+  {id:"L-1",title:"Open a full literature explorer popup",rec:"Approve",
+   body:"The inline Find-in-literature stays as a quick peek; a <b>View all</b> button opens the full-screen explorer with the filter rail, histogram, and sort. Heavy lists never crowd the molecule page."},
+  {id:"L-2",title:"Filters: research / reviews / patents, year, search",rec:"Approve",
+   body:"Left rail toggles for research vs reviews vs patents (reviews come from the Europe PMC <code>pubType</code>, which we will start mapping), a from-year slider, a starred-only toggle, plus a text filter and a sort (newest / most cited / title)."},
+  {id:"L-3",title:"Papers-per-year histogram in the left rail",rec:"Approve",
+   body:"The count bar plot lives in the left filter rail, Google Scholar style, binned by year (purple where reviews dominate). Click a bar to filter to that window. Built from each hit's <code>pubYear</code>, no extra fetch."},
+  {id:"L-4",title:"Star a paper to save its DOI onto the molecule",rec:"Approve",flag:true,
+   body:"Starring writes the DOI (or patent id) into the molecule sidecar so it persists and shows the next time that molecule is opened. <b>FLAG, data-shape:</b> a new additive optional field <code>MoleculeMeta.starred_papers?: { doi?, pid?, title, year, type, journal, starred_at }[]</code> on <code>molecules/{id}.meta.json</code>, back-compatible (older molecules omit it)."},
+  {id:"L-5",title:"Show starred papers on the molecule, and build it into the demo",rec:"Approve",
+   body:"A starred strip on the molecule header (and a Starred-only filter). Demo clip beat: import a niche compound (gliotoxin, an A. fumigatus toxin that ties to the sequence demo), open the explorer, filter to reviews, star a DOI, show it saved on the molecule. NCBI/PMC calls precached during the countdown."},
+];
+const KEY="litExplorerDecisions";
+const DEC=JSON.parse(localStorage.getItem(KEY)||"{}");
+function saveD(){localStorage.setItem(KEY,JSON.stringify(DEC));stat();}
+function dlist(){
+  document.getElementById("dlist").innerHTML=D.map(d=>{
+    const c=DEC[d.id]||{};
+    return `<div class="card">
+      <div class="ctop"><span class="did">${d.id}</span><span class="ctitle">${d.title}</span>${d.flag?'<span class="flag">data-shape</span>':''}<span class="rec">rec ${d.rec}</span></div>
+      <div class="cbody">${d.body}</div>
+      <div class="decide">
+        <span class="seg" data-id="${d.id}">
+          <button data-v="approve" class="${c.v==='approve'?'on':''}">Approve</button>
+          <button data-v="modify" class="${c.v==='modify'?'on':''}">Modify</button>
+          <button data-v="reject" class="${c.v==='reject'?'on':''}">Reject</button>
+        </span>
+        <input data-note="${d.id}" placeholder="note or what to change (optional)" value="${(c.note||'').replace(/"/g,'&quot;')}"/>
+      </div></div>`;
+  }).join("");
+  document.querySelectorAll(".seg").forEach(s=>s.querySelectorAll("button").forEach(btn=>btn.onclick=()=>{
+    const id=s.dataset.id;DEC[id]=DEC[id]||{};DEC[id].v=btn.dataset.v;
+    s.querySelectorAll("button").forEach(x=>x.classList.remove("on"));btn.classList.add("on");saveD();
+  }));
+  document.querySelectorAll("[data-note]").forEach(i=>i.oninput=()=>{const id=i.dataset.note;DEC[id]=DEC[id]||{};DEC[id].note=i.value;saveD();});
+  stat();
+}
+function stat(){const n=Object.values(DEC).filter(d=>d.v).length;document.getElementById("estat").textContent=n?`${n} of ${D.length} decided`:"No decisions yet";}
+document.getElementById("themeBtn").onclick=()=>{const d=document.documentElement.classList.toggle("dark");document.getElementById("themeBtn").textContent=d?"Switch to light":"Switch to dark";};
+document.getElementById("exportBtn").onclick=()=>{
+  const lines=["# Literature explorer, design feedback","",`_Marked up ${new Date().toISOString().slice(0,10)}_`,""];
+  D.forEach(d=>{const c=DEC[d.id]||{};const v=c.v?c.v.toUpperCase():"(undecided)";
+    lines.push(`## ${d.id} ${d.title}  ->  ${v}`);lines.push(`Recommended: ${d.rec}.${c.note?"  Note: "+c.note:""}`);lines.push("");});
+  const txt=lines.join("\n");navigator.clipboard.writeText(txt).then(()=>{},()=>{});
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([txt],{type:"text/markdown"}));a.download="literature-explorer-feedback.md";a.click();
+};
+renderStarred();dlist();
+</script>
+</body>
+</html>

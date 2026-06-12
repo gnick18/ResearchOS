@@ -386,7 +386,7 @@ function CalculatorsModalWithBuilder({ onClose }: { onClose: () => void }) {
                       className={railButtonCls(active)}
                     >
                       <span className="inline-flex items-center gap-1.5 w-full">
-                        <Icon name="vial" className="w-4 h-4 flex-shrink-0" />
+                        <Icon name="calculator" className="w-4 h-4 flex-shrink-0" />
                         <span className="truncate">{c.name}</span>
                         {c.is_shared_with_me && (
                           <Tooltip
@@ -426,7 +426,7 @@ function CalculatorsModalWithBuilder({ onClose }: { onClose: () => void }) {
                     " inline-flex items-center gap-1.5"
                   }
                 >
-                  <Icon name="book" className="w-4 h-4" />
+                  <Icon name="library" className="w-4 h-4" />
                   Template library
                 </button>
               </div>

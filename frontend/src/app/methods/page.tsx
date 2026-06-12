@@ -1908,7 +1908,7 @@ function ViewMethodModal({
           {hasLineage && (
             <div className="mx-4 mt-2 mb-1 border border-border rounded-lg overflow-hidden">
               <div className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-sunken border-b border-border text-meta font-bold uppercase tracking-wider text-foreground-muted">
-                <Icon name="merge" className="h-3.5 w-3.5" />
+                <Icon name="lineage" className="h-3.5 w-3.5" />
                 Lineage
               </div>
               <div className="px-3 py-2 space-y-1.5">

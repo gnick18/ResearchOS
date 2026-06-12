@@ -832,7 +832,7 @@ function AgendaArea({ oneOnOne }: { oneOnOne: OneOnOne }) {
               {!item.is_done && isCarriedOver(item.created_at) && (
                 <Tooltip label="Open since your last check-in, still on the agenda">
                   <span className="flex flex-shrink-0 items-center gap-1 rounded-full bg-surface-sunken px-2 py-0.5 text-meta text-foreground-muted">
-                    <Icon name="history" className="h-3 w-3" />
+                    <Icon name="hourglass" className="h-3 w-3" />
                     carried over
                   </span>
                 </Tooltip>

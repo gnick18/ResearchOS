@@ -184,6 +184,64 @@ function demoDocs(): DemoDocSpec[] {
     { id: "col-3", name: "FakeYeast-002", values: [55.8, 52.3, 57.1, 54.6] },
   ]);
 
+  // 4) XY table: dose-response, FakeDrug-A inhibition of FakeYeast growth. x is
+  //    log10(dose in M), an 11-point serial dilution; y is percent inhibition.
+  //    The same arrays the D1 dose-response transparency pins are validated on, so
+  //    the 4PL / 5PL fit and the EC50 are known to converge cleanly.
+  const dose = xyTable(
+    "log[FakeDrug-A] (M)",
+    [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0],
+    [
+      {
+        id: "col-inhib",
+        name: "% inhibition",
+        values: [4.8, 6.1, 7.9, 12.5, 24.0, 47.0, 70.0, 86.0, 93.5, 96.8, 98.1],
+      },
+    ],
+  );
+
+  // 5) XY table: a binary resistance outcome vs FakeDrug-A dose, for simple
+  //    logistic regression. x is dose (mg/L); y is 1 if the colony survived. The
+  //    D4 logistic transparency dataset (moderate overlap, no separation).
+  const resistance = xyTable(
+    "FakeDrug-A dose (mg/L)",
+    [
+      0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5,
+      8.0, 8.5, 9.0, 9.5, 10.0,
+    ],
+    [
+      {
+        id: "col-resist",
+        name: "Resistant (1 = survived)",
+        values: [0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1],
+      },
+    ],
+  );
+
+  // 6) Column table: biofuel yield against two predictors, for multiple linear
+  //    regression. Each column is one variable (Y first, then the two predictors),
+  //    rows aligned by run. The D5 multiple-regression transparency dataset (mild
+  //    predictor correlation so the VIF is meaningful, about 3.5).
+  const yield2 = columnTable([
+    {
+      id: "col-yield",
+      name: "Biofuel yield (g/L)",
+      values: [
+        4.1, 7.8, 8.9, 13.2, 13.0, 18.7, 18.2, 24.1, 22.0, 28.9, 27.1, 32.0,
+      ],
+    },
+    {
+      id: "col-sugar",
+      name: "Sugar feed (g/L)",
+      values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    },
+    {
+      id: "col-aer",
+      name: "Aeration (vvm x10)",
+      values: [2, 5, 3, 8, 4, 9, 6, 11, 7, 13, 10, 14],
+    },
+  ]);
+
   return [
     {
       id: "1",
@@ -247,6 +305,56 @@ function demoDocs(): DemoDocSpec[] {
         analysisId: "analysis-survival-ttest",
         yTitle: "% survival (50 C, 30 min)",
         title: "Heat-shock survival by strain",
+      },
+    },
+    {
+      id: "4",
+      name: "Dose-response, FakeDrug-A inhibition",
+      table_type: "xy",
+      project_ids: [PROJ_STRESS],
+      folder_path: null,
+      columns: dose.columns,
+      rows: dose.rows,
+      analysis: {
+        id: "analysis-dose-4pl",
+        type: "doseResponse",
+        columnIds: ["col-inhib"],
+      },
+      plot: {
+        id: "plot-dose-xy",
+        kind: "xyScatter",
+        yColumnId: "col-inhib",
+        yTitle: "% inhibition",
+        xTitle: "log[FakeDrug-A] (M)",
+        title: "Dose-response, FakeDrug-A inhibition",
+      },
+    },
+    {
+      id: "5",
+      name: "Resistance vs FakeDrug-A dose (binary)",
+      table_type: "xy",
+      project_ids: [PROJ_STRESS],
+      folder_path: null,
+      columns: resistance.columns,
+      rows: resistance.rows,
+      analysis: {
+        id: "analysis-resist-logit",
+        type: "logisticRegression",
+        columnIds: ["col-resist"],
+      },
+    },
+    {
+      id: "6",
+      name: "Biofuel yield vs sugar feed + aeration",
+      table_type: "column",
+      project_ids: [PROJ_BIOFUEL],
+      folder_path: null,
+      columns: yield2.columns,
+      rows: yield2.rows,
+      analysis: {
+        id: "analysis-yield-mlr",
+        type: "multipleRegression",
+        columnIds: ["col-yield", "col-sugar", "col-aer"],
       },
     },
   ];

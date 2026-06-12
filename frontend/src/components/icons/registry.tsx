@@ -12,6 +12,17 @@
 // new glyphs here. Adding a new icon is a VERIFIED ASSET change that requires
 // Grant's explicit sign-off (see AGENTS.md "Icons are a verified library").
 //
+// ONE GLYPH PER MEANING (Grant, 2026-06-12). This registry dedupes the
+// genuinely SAME concept, it does NOT license reusing a glyph for a different
+// meaning that happens to share a word. Before reusing an existing `name`,
+// read its `concept` below and confirm it matches what your button actually
+// MEANS, not just the noun. If the meaning differs, the right move is a NEW
+// entry (Grant signs off), never overloading a same-word glyph. Each `concept`
+// string is the contract for that glyph, keep it specific so the next person
+// can tell whether their use fits. (This rule exists because the `tree` glyph
+// drifted into the lab mentorship hierarchy, inventory storage nesting, and
+// unrelated "Results" headers all at once before it was split.)
+//
 // The default wrapper (see Icon.tsx) supplies:
 //   fill="none" stroke="currentColor" strokeWidth={2}
 //   strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"
@@ -139,6 +150,98 @@ const ICONS_RAW = {
         <rect x="3" y="3" width="18" height="18" rx="2" />
         <rect x="6" y="6" width="5" height="5" rx="1" />
         <rect x="13" y="13" width="5" height="5" rx="1" />
+      </>
+    ),
+  },
+  calculator: {
+    concept: "Saved calculator (a lab calculator from the builder)",
+    body: (
+      <>
+        <rect x="5" y="3" width="14" height="18" rx="2" />
+        <rect x="7" y="5.5" width="10" height="3" rx="0.6" />
+        <circle cx="8.5" cy="12.5" r="0.9" fill="currentColor" stroke="none" />
+        <circle cx="12" cy="12.5" r="0.9" fill="currentColor" stroke="none" />
+        <circle cx="15.5" cy="12.5" r="0.9" fill="currentColor" stroke="none" />
+        <circle cx="8.5" cy="16.5" r="0.9" fill="currentColor" stroke="none" />
+        <circle cx="12" cy="16.5" r="0.9" fill="currentColor" stroke="none" />
+        <circle cx="15.5" cy="16.5" r="0.9" fill="currentColor" stroke="none" />
+      </>
+    ),
+  },
+  move: {
+    concept: "Move / relocate (reposition an item, e.g. inventory)",
+    body: (
+      <>
+        <path d="M12 4V20" />
+        <path d="M4 12H20" />
+        <path d="M9.5 6.5 12 4 14.5 6.5" />
+        <path d="M9.5 17.5 12 20 14.5 17.5" />
+        <path d="M6.5 9.5 4 12 6.5 14.5" />
+        <path d="M17.5 9.5 20 12 17.5 14.5" />
+      </>
+    ),
+  },
+  lineage: {
+    concept: "Lineage / variant family (a method's fork ancestry)",
+    body: (
+      <>
+        <path d="M7 7.2V16.8" />
+        <circle cx="7" cy="5.5" r="1.7" />
+        <circle cx="7" cy="18.5" r="1.7" />
+        <path d="M7 11C12 11 17 12 17 14.3" />
+        <circle cx="17" cy="16" r="1.7" />
+      </>
+    ),
+  },
+  resize: {
+    concept: "Resize (drag to resize a figure / element)",
+    body: (
+      <>
+        <path d="M7 7 17 17" />
+        <path d="M7 12.5V7H12.5" />
+        <path d="M17 11.5V17H11.5" />
+      </>
+    ),
+  },
+  library: {
+    concept: "Template library / catalog (shelved collection of templates)",
+    body: (
+      <>
+        <rect x="4" y="5" width="3.5" height="14" rx="0.8" />
+        <rect x="8.5" y="5" width="3.5" height="14" rx="0.8" />
+        <path d="M15 6.2 18.4 7.2 15.4 19.8 12 18.8 Z" />
+      </>
+    ),
+  },
+  reference: {
+    concept: "Literature reference / citation (an open reference book)",
+    body: (
+      <>
+        <path d="M12 6.5V19.5" />
+        <path d="M12 6.5C10 5 6 5 4 6.5V18.5c2-1.5 6-1.5 8 0" />
+        <path d="M12 6.5c2-1.5 6-1.5 8 0V18.5c-2-1.5-6-1.5-8 0" />
+      </>
+    ),
+  },
+  results: {
+    concept: "Analysis results (a results report, distinct from a graph)",
+    body: (
+      <>
+        <rect x="5" y="4" width="14" height="17" rx="2" />
+        <rect x="9" y="2.5" width="6" height="3" rx="1" />
+        <path d="M8.5 10.5h7" />
+        <path d="M8.5 13.5h4.5" />
+        <path d="M8.5 16.8 10 18.3 13 15.3" />
+      </>
+    ),
+  },
+  growth: {
+    concept: "Growth area / development (a sprout)",
+    body: (
+      <>
+        <path d="M12 21V11" />
+        <path d="M12 13C9 13 7 11 7 8C10 8 12 10 12 13" />
+        <path d="M12 11.5C15 11.5 17 9.5 17 6.5C14 6.5 12 8.5 12 11.5" />
       </>
     ),
   },

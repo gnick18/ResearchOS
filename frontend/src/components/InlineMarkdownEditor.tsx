@@ -77,6 +77,10 @@ type CMModules = {
   // Chip 2b: configures the image widget's relative-src -> blob-URL resolution
   // with the editor base path, matching the LiveMarkdownEditor preview.
   imageBasePathExt: typeof import("@/lib/markdown/cm-inline-reveal/inline-reveal").imageBasePathExt;
+  // Markdown embed hybrid P7-1a: configures the embed block widget's pin context
+  // (sidecar path + bake deps) so a pinned embed renders its frozen snapshot and
+  // offers a Pin / Unpin control. Undefined leaves embeds live (no pin control).
+  embedPinContextExt: typeof import("@/lib/markdown/cm-inline-reveal/inline-reveal").embedPinContextExt;
   // Spell-check: an optional @codemirror/lint linter that underlines misspelled
   // words with click-to-fix suggestions. Loaded with the editor chunk and only
   // spread into the extension set when the user's pref is on (gate read below).
@@ -132,6 +136,11 @@ interface InlineMarkdownEditorProps {
    *  so the inline image widget mints the same blob URL the preview does. When
    *  unset the blobUrlResolver falls back to the data root (wrapper parity). */
   imageBasePath?: string;
+  /** Markdown embed hybrid P7-1a: the doc-level pin context (sidecar path + bake
+   *  deps). When set, a pinned embed renders its frozen snapshot and offers a
+   *  Pin / Unpin control. Absent on every read-only / non-pin surface, then embeds
+   *  render live with no pin control (byte-for-byte unchanged). */
+  embedPinContext?: import("@/components/embeds/ObjectEmbed").EmbedPinContext;
 
   // ---------------------------------------------------------------------------
   // Reference picker hook (Chemistry Phase 3). Additive and OFF by default.
@@ -207,6 +216,10 @@ function buildExtensions(
   // When true, omit history() + historyKeymap because LoroUndoPlugin (bundled
   // inside bindEditorExtension) owns undo. Running both double-applies undo.
   omitHistory = false,
+  // Markdown embed hybrid P7-1a: the doc-level pin context (sidecar path + bake
+  // deps). Spread as the embedPinContext facet so the embed block widget can
+  // resolve a frozen snapshot and offer Pin / Unpin. Undefined leaves embeds live.
+  embedPinContext?: import("@/components/embeds/ObjectEmbed").EmbedPinContext,
 ) {
   const {
     EditorState,
@@ -226,6 +239,7 @@ function buildExtensions(
     tags,
     inlineRevealExtension,
     imageBasePathExt,
+    embedPinContextExt,
     spellcheckExtension,
   } = mods;
 
@@ -294,6 +308,9 @@ function buildExtensions(
     // AFTER the markdown language so the keymap (Prec.high) wins. The
     // image-base-path facet configures the image widget's blob resolution.
     imageBasePathExt(imageBasePath),
+    // Markdown embed hybrid P7-1a: the doc-level pin context facet. Undefined on
+    // every non-pin surface, so the embed widget renders live with no pin control.
+    embedPinContextExt(embedPinContext),
     // Code-block language picker override. Registered at Prec.highest so it wins
     // over the inline-reveal markdown keymap's own Mod-Shift-c binding (Prec.high)
     // and opens the searchable language picker instead of inserting a bare fence.
@@ -327,6 +344,7 @@ export default function InlineMarkdownEditor({
   onDirtyChange,
   measureClass,
   imageBasePath,
+  embedPinContext,
   loroHandle,
   loroEntryIndex = 0,
   loroBaseNote,
@@ -370,6 +388,9 @@ export default function InlineMarkdownEditor({
   // read the current value (and the disabled-reconfigure picks up a later swap)
   // without re-binding the whole editor or destabilizing makeState.
   const imageBasePathRef = useRef(imageBasePath);
+  // Markdown embed hybrid P7-1a: mirror the pin context into a ref so the
+  // once-at-mount makeState reads the current value without re-binding the editor.
+  const embedPinContextRef = useRef(embedPinContext);
 
   // Loro mode: hold all Loro props in latest-value refs so the updateListener
   // (created once at mount) and the entry-switch effect always read fresh values
@@ -405,6 +426,9 @@ export default function InlineMarkdownEditor({
   useEffect(() => {
     imageBasePathRef.current = imageBasePath;
   }, [imageBasePath]);
+  useEffect(() => {
+    embedPinContextRef.current = embedPinContext;
+  }, [embedPinContext]);
   // Keep Loro refs in sync on every render (same pattern as onChangeRef).
   // Mutating refs during render is safe: refs do not trigger re-renders.
   loroHandleRef.current = loroHandle;
@@ -658,7 +682,14 @@ export default function InlineMarkdownEditor({
           updateListener,
           // CM6 history() stays ON in Loro mode too: the Loro binding is
           // sync-only (no LoroUndoPlugin), so CodeMirror owns undo.
-          ...buildExtensions(mods, editable, imageBasePathRef.current, requestCodeBlock),
+          ...buildExtensions(
+            mods,
+            editable,
+            imageBasePathRef.current,
+            requestCodeBlock,
+            false,
+            embedPinContextRef.current,
+          ),
           ...loroExtension,
         ],
       });
@@ -715,6 +746,7 @@ export default function InlineMarkdownEditor({
         tags: highlightMod.tags,
         inlineRevealExtension: inlineRevealMod.inlineRevealExtension,
         imageBasePathExt: inlineRevealMod.imageBasePathExt,
+        embedPinContextExt: inlineRevealMod.embedPinContextExt,
         spellcheckExtension: spellcheckMod.spellcheckExtension,
       };
       modsRef.current = mods;

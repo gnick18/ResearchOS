@@ -1,0 +1,314 @@
+{
+  "meta": {
+    "id": "6",
+    "name": "Biofuel yield vs sugar feed + aeration",
+    "project_ids": [
+      "1"
+    ],
+    "folder_path": null,
+    "table_type": "column",
+    "created_at": "2026-05-14T15:00:00.000Z",
+    "last_edited_by": "alex",
+    "last_edited_at": "2026-05-15T10:30:00.000Z"
+  },
+  "columns": [
+    {
+      "id": "col-yield",
+      "name": "Biofuel yield (g/L)",
+      "role": "y",
+      "dataType": "number"
+    },
+    {
+      "id": "col-sugar",
+      "name": "Sugar feed (g/L)",
+      "role": "y",
+      "dataType": "number"
+    },
+    {
+      "id": "col-aer",
+      "name": "Aeration (vvm x10)",
+      "role": "y",
+      "dataType": "number"
+    }
+  ],
+  "rows": [
+    {
+      "id": "row-1",
+      "cells": {
+        "col-yield": 4.1,
+        "col-sugar": 1,
+        "col-aer": 2
+      }
+    },
+    {
+      "id": "row-2",
+      "cells": {
+        "col-yield": 7.8,
+        "col-sugar": 2,
+        "col-aer": 5
+      }
+    },
+    {
+      "id": "row-3",
+      "cells": {
+        "col-yield": 8.9,
+        "col-sugar": 3,
+        "col-aer": 3
+      }
+    },
+    {
+      "id": "row-4",
+      "cells": {
+        "col-yield": 13.2,
+        "col-sugar": 4,
+        "col-aer": 8
+      }
+    },
+    {
+      "id": "row-5",
+      "cells": {
+        "col-yield": 13,
+        "col-sugar": 5,
+        "col-aer": 4
+      }
+    },
+    {
+      "id": "row-6",
+      "cells": {
+        "col-yield": 18.7,
+        "col-sugar": 6,
+        "col-aer": 9
+      }
+    },
+    {
+      "id": "row-7",
+      "cells": {
+        "col-yield": 18.2,
+        "col-sugar": 7,
+        "col-aer": 6
+      }
+    },
+    {
+      "id": "row-8",
+      "cells": {
+        "col-yield": 24.1,
+        "col-sugar": 8,
+        "col-aer": 11
+      }
+    },
+    {
+      "id": "row-9",
+      "cells": {
+        "col-yield": 22,
+        "col-sugar": 9,
+        "col-aer": 7
+      }
+    },
+    {
+      "id": "row-10",
+      "cells": {
+        "col-yield": 28.9,
+        "col-sugar": 10,
+        "col-aer": 13
+      }
+    },
+    {
+      "id": "row-11",
+      "cells": {
+        "col-yield": 27.1,
+        "col-sugar": 11,
+        "col-aer": 10
+      }
+    },
+    {
+      "id": "row-12",
+      "cells": {
+        "col-yield": 32,
+        "col-sugar": 12,
+        "col-aer": 14
+      }
+    }
+  ],
+  "analyses": [
+    {
+      "id": "analysis-yield-mlr",
+      "type": "multipleRegression",
+      "params": {},
+      "inputs": {
+        "columnIds": [
+          "col-yield",
+          "col-sugar",
+          "col-aer"
+        ]
+      },
+      "resultCache": {
+        "ok": true,
+        "kind": "multipleRegression",
+        "type": "multipleRegression",
+        "yName": "Biofuel yield (g/L)",
+        "predictorNames": [
+          "Sugar feed (g/L)",
+          "Aeration (vvm x10)"
+        ],
+        "y": [
+          4.1,
+          7.8,
+          8.9,
+          13.2,
+          13,
+          18.7,
+          18.2,
+          24.1,
+          22,
+          28.9,
+          27.1,
+          32
+        ],
+        "predictors": [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            5
+          ],
+          [
+            3,
+            3
+          ],
+          [
+            4,
+            8
+          ],
+          [
+            5,
+            4
+          ],
+          [
+            6,
+            9
+          ],
+          [
+            7,
+            6
+          ],
+          [
+            8,
+            11
+          ],
+          [
+            9,
+            7
+          ],
+          [
+            10,
+            13
+          ],
+          [
+            11,
+            10
+          ],
+          [
+            12,
+            14
+          ]
+        ],
+        "n": 12,
+        "nPredictors": 2,
+        "coefficients": [
+          {
+            "name": "Intercept",
+            "estimate": 1.013494132985663,
+            "standardError": 0.4027893205192432,
+            "t": 2.5161891871391946,
+            "pValue": 0.032974188033746854,
+            "ci95": [
+              0.102321386474435,
+              1.924666879496891
+            ],
+            "standardizedBeta": null,
+            "vif": null
+          },
+          {
+            "name": "Sugar feed (g/L)",
+            "estimate": 1.764406779661008,
+            "standardError": 0.0950078288792743,
+            "t": 18.571172507299643,
+            "pValue": 1.743976474344322e-8,
+            "ci95": [
+              1.5494841390398515,
+              1.9793294202821643
+            ],
+            "standardizedBeta": 0.7116083078434297,
+            "vif": 3.5423728813559316
+          },
+          {
+            "name": "Aeration (vvm x10)",
+            "estimate": 0.7414602346805809,
+            "standardError": 0.08853695171117516,
+            "t": 8.374585078322653,
+            "pValue": 0.000015328918768098276,
+            "ci95": [
+              0.5411757351948272,
+              0.9417447341663345
+            ],
+            "standardizedBeta": 0.32089650312243834,
+            "vif": 3.5423728813559316
+          }
+        ],
+        "intercept": {
+          "name": "Intercept",
+          "estimate": 1.013494132985663,
+          "standardError": 0.4027893205192432,
+          "t": 2.5161891871391946,
+          "pValue": 0.032974188033746854,
+          "ci95": [
+            0.102321386474435,
+            1.924666879496891
+          ],
+          "standardizedBeta": null,
+          "vif": null
+        },
+        "slopes": [
+          {
+            "name": "Sugar feed (g/L)",
+            "estimate": 1.764406779661008,
+            "standardError": 0.0950078288792743,
+            "t": 18.571172507299643,
+            "pValue": 1.743976474344322e-8,
+            "ci95": [
+              1.5494841390398515,
+              1.9793294202821643
+            ],
+            "standardizedBeta": 0.7116083078434297,
+            "vif": 3.5423728813559316
+          },
+          {
+            "name": "Aeration (vvm x10)",
+            "estimate": 0.7414602346805809,
+            "standardError": 0.08853695171117516,
+            "t": 8.374585078322653,
+            "pValue": 0.000015328918768098276,
+            "ci95": [
+              0.5411757351948272,
+              0.9417447341663345
+            ],
+            "standardizedBeta": 0.32089650312243834,
+            "vif": 3.5423728813559316
+          }
+        ],
+        "rSquared": 0.9962696326090994,
+        "adjRSquared": 0.9954406620777881,
+        "residualSE": 0.6036431478765166,
+        "fStatistic": 1201.8154988371239,
+        "fDfNum": 2,
+        "fDfDen": 9,
+        "fPValue": 1.1827205881331793e-11,
+        "logLikelihood": -9.243905118691899
+      },
+      "resultStale": false
+    }
+  ],
+  "plots": []
+}

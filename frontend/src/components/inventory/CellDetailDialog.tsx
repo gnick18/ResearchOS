@@ -154,7 +154,7 @@ function OccupiedView({
             onClick={() => setMoving(true)}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-meta font-medium text-foreground hover:bg-surface-sunken"
           >
-            <Icon name="merge" className="h-3.5 w-3.5" />
+            <Icon name="move" className="h-3.5 w-3.5" />
             Move
           </button>
           <button

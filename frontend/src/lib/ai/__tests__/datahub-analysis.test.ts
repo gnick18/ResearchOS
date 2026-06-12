@@ -35,6 +35,12 @@ import {
   buildModelComparison,
   getAnalysisCodeTool,
   shapeAnalysisCode,
+  parseMultipleRegressionArgs,
+  buildMultipleRegression,
+  runMultipleRegressionTool,
+  parseLogisticRegressionArgs,
+  buildLogisticRegression,
+  runLogisticRegressionTool,
 } from "../tools/datahub-analysis";
 
 // ---------------------------------------------------------------------------
@@ -875,5 +881,171 @@ describe("get_analysis_code tool", () => {
   it("requires both ids", async () => {
     const result = (await getAnalysisCodeTool.execute({ tableId: "1" })) as { ok: boolean };
     expect(result.ok).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// run_multiple_regression (Column table)
+// ---------------------------------------------------------------------------
+
+// A Column table with a response and two predictors, enough rows that n > k+1
+// and the fit is well-posed (Y is roughly 2*x1 + 3*x2 with a little noise).
+function multiRegContent(): DataHubDocContent {
+  const x1 = [1, 2, 3, 4, 5, 6];
+  const x2 = [2, 1, 4, 3, 6, 5];
+  const y = [8, 7, 18, 18, 28, 27];
+  const rows = x1.map((_, i) => ({
+    id: `r${i}`,
+    cells: { cY: y[i], cX1: x1[i], cX2: x2[i] },
+  }));
+  return {
+    meta: meta({ id: "7", name: "Yield model" }),
+    columns: [
+      { id: "cY", name: "Yield", role: "y", dataType: "number" },
+      { id: "cX1", name: "Temp", role: "y", dataType: "number" },
+      { id: "cX2", name: "pH", role: "y", dataType: "number" },
+    ],
+    rows,
+    analyses: [],
+    plots: [],
+  };
+}
+
+describe("parseMultipleRegressionArgs", () => {
+  it("reads the Y column and the predictor list, trimming the Y", () => {
+    const p = parseMultipleRegressionArgs({
+      tableId: "7",
+      yColumn: " Yield ",
+      predictors: ["Temp", "pH"],
+    });
+    expect(p).toEqual({ tableId: "7", yColumn: "Yield", predictors: ["Temp", "pH"] });
+  });
+});
+
+describe("buildMultipleRegression", () => {
+  it("builds a spec with columnIds = [yId, ...predictorIds] and runs the engine", () => {
+    const built = buildMultipleRegression(
+      multiRegContent(),
+      parseMultipleRegressionArgs({ tableId: "7", yColumn: "Yield", predictors: ["Temp", "pH"] }),
+    );
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.spec.type).toBe("multipleRegression");
+    expect(built.spec.inputs).toEqual({ columnIds: ["cY", "cX1", "cX2"] });
+    expect(built.result.predictorNames).toEqual(["Temp", "pH"]);
+    expect(typeof built.result.rSquared).toBe("number");
+    expect(typeof built.result.fPValue).toBe("number");
+    expect(built.result.regression.kind).toBe("multipleRegression");
+  });
+
+  it("drops the Y column if it is also named as a predictor and still needs 2", () => {
+    const built = buildMultipleRegression(
+      multiRegContent(),
+      parseMultipleRegressionArgs({ tableId: "7", yColumn: "Yield", predictors: ["Yield", "Temp"] }),
+    );
+    expect(built.ok).toBe(false);
+    if (built.ok) return;
+    expect(built.error).toMatch(/at least 2 distinct predictor/i);
+  });
+
+  it("errors with fewer than two predictors", () => {
+    const built = buildMultipleRegression(
+      multiRegContent(),
+      parseMultipleRegressionArgs({ tableId: "7", yColumn: "Yield", predictors: ["Temp"] }),
+    );
+    expect(built.ok).toBe(false);
+  });
+
+  it("errors when the Y column does not match", () => {
+    const built = buildMultipleRegression(
+      multiRegContent(),
+      parseMultipleRegressionArgs({ tableId: "7", yColumn: "Nope", predictors: ["Temp", "pH"] }),
+    );
+    expect(built.ok).toBe(false);
+    if (built.ok) return;
+    expect(built.error).toMatch(/Y \(response\) column/i);
+  });
+});
+
+describe("run_multiple_regression tool", () => {
+  it("is non-gated and stores + navigates to the result", async () => {
+    expect(runMultipleRegressionTool.action).toBeFalsy();
+    vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(multiRegContent());
+    const persist = vi.spyOn(datahubAnalysisDeps, "persistAnalysis").mockResolvedValue(true);
+    const navigate = vi.spyOn(datahubAnalysisDeps, "navigate").mockImplementation(() => {});
+    const result = (await runMultipleRegressionTool.execute({
+      tableId: "7",
+      yColumn: "Yield",
+      predictors: ["Temp", "pH"],
+    })) as { ok: boolean; analysisId?: string };
+    expect(result.ok).toBe(true);
+    expect(persist).toHaveBeenCalled();
+    expect(navigate).toHaveBeenCalledWith(
+      expect.stringContaining(`/datahub?doc=7&analysis=${(result as { analysisId: string }).analysisId}`),
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// run_logistic_regression (XY table)
+// ---------------------------------------------------------------------------
+
+// An XY table with a binary 0/1 outcome that varies with X (overlapping, so the
+// fit is well-posed and not perfectly separated).
+function binaryOutcomeContent(): DataHubDocContent {
+  const xs = [1, 2, 3, 4, 5, 6, 7, 8];
+  const ys = [0, 0, 0, 1, 0, 1, 1, 1];
+  return {
+    meta: meta({ id: "8", name: "Survival", table_type: "xy" }),
+    columns: [
+      { id: "x", name: "Dose", role: "x", dataType: "number" },
+      { id: "y1", name: "Survived", role: "y", dataType: "number" },
+    ],
+    rows: xs.map((x, i) => ({ id: `r${i}`, cells: { x, y1: ys[i] } })),
+    analyses: [],
+    plots: [],
+  };
+}
+
+describe("buildLogisticRegression", () => {
+  it("builds a logisticRegression spec with columnIds = [yId] and runs the engine", () => {
+    const built = buildLogisticRegression(
+      binaryOutcomeContent(),
+      parseLogisticRegressionArgs({ tableId: "8", yColumn: "Survived" }),
+    );
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.spec.type).toBe("logisticRegression");
+    expect(built.spec.inputs).toEqual({ columnIds: ["y1"] });
+    expect(built.result.regression.kind).toBe("logisticRegression");
+    expect(typeof built.result.oddsRatio).toBe("number");
+    expect(typeof built.result.auc).toBe("number");
+  });
+
+  it("rejects a non-XY (Column) table", () => {
+    const built = buildLogisticRegression(
+      multiRegContent(),
+      parseLogisticRegressionArgs({ tableId: "7" }),
+    );
+    expect(built.ok).toBe(false);
+    if (built.ok) return;
+    expect(built.error).toMatch(/XY table/i);
+  });
+});
+
+describe("run_logistic_regression tool", () => {
+  it("is non-gated and stores + navigates to the result", async () => {
+    expect(runLogisticRegressionTool.action).toBeFalsy();
+    vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(binaryOutcomeContent());
+    vi.spyOn(datahubAnalysisDeps, "persistAnalysis").mockResolvedValue(true);
+    const navigate = vi.spyOn(datahubAnalysisDeps, "navigate").mockImplementation(() => {});
+    const result = (await runLogisticRegressionTool.execute({
+      tableId: "8",
+      yColumn: "Survived",
+    })) as { ok: boolean; analysisId?: string };
+    expect(result.ok).toBe(true);
+    expect(navigate).toHaveBeenCalledWith(
+      expect.stringContaining(`/datahub?doc=8&analysis=${(result as { analysisId: string }).analysisId}`),
+    );
   });
 });

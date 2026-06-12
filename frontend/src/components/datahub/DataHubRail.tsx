@@ -706,7 +706,7 @@ export default function DataHubRail({
             <div data-testid="datahub-results-section">
               <div className="flex items-center justify-between px-2 py-0.5">
                 <div className="flex items-center gap-1.5">
-                  <Icon name="chart" className="h-3 w-3 text-foreground-muted" />
+                  <Icon name="results" className="h-3 w-3 text-foreground-muted" />
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-foreground-muted">
                     Results
                   </span>
