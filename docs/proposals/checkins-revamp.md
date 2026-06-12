@@ -112,14 +112,14 @@ Global constraint: ResearchOS is local-first, so every reminder / notification /
 4. Structure and visualization. Mentor edges + the lab mentorship tree view, skip-level cue, presenter rotation, committee template. Mostly views and templates over the spine.
 5. Hold the bloat list. Revisit only on real user demand.
 
-## Decisions that need Grant's call
+## Decisions, LOCKED 2026-06-11 (Grant, all per recommendation)
 
-- D1, the tab gate. Keep "show Check-ins only when you are in at least one space" for everyone (a clean empty-state-free tab), or always show it so anyone can start their first space from there.
-- D2, completion permission in a group. Anyone can check off any item (less friction), or only the assignee/creator can (more accountability).
-- D3, multi-assignee. Single assignee per item (simplest, covers the need), or allow assigning one item to a subset of the group.
-- D4, action-item to task sync. Should a check-in action item with a due date appear in that person's main task list / GANTT, or stay inside the check-in surface. (The research strongly favors syncing, but it touches the task model.)
-- D5, how far on IDP now. Ship the IDP in this arc as a first-class structured doc, or stub it as a template in phase 3 and build the structured version later.
-- D6, naming. Confirm "Check-ins" as the umbrella for everyone and the retirement of the role-flipped "Mentoring" tab label.
+- D1, tab gate. ALWAYS show the Check-ins tab for every account, with a friendly empty state + a "Start a check-in" button, so creating your first space is always reachable.
+- D2, group completion permission. ANYONE can check off any item in a group space. The assignee is a label showing who it is for, not a lock.
+- D3, assignees. SINGLE assignee per item. Shared items (no assignee) already mean "everyone." Keeps the chip UI and done-semantics simple.
+- D4, action-item to task sync. YES, a check-in action item with a due date syncs into that person's main task list / GANTT, so it lives next to their other lab work. Accept that this touches the task model.
+- D5, IDP. BUILD IT FOR REAL, sequenced. A first-class structured IDP in the academic-layer phase (phase 3), after the spine refactor + group tasks land. It is the differentiator and an NIH progress-report requirement.
+- D6, naming. "Check-ins" is the umbrella for EVERYONE. Retire the role-flipped "Mentoring" tab label; relationship/direction is shown inside each space.
 
 ## Sources
 
