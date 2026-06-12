@@ -250,21 +250,24 @@ export default function SettingsShell({
             })}
           </nav>
 
-        {/* ── Content pane: scrolls, with the footer at the very bottom so it
-            only comes into view once the user reaches the end of a section. ── */}
-        <div ref={paneRef} className="overflow-y-auto">
-          <div className="mx-auto max-w-4xl px-6 py-8 sm:px-8">
-            {activeSection ? (
-              <div key={activeSection.id} className="space-y-4">
-                {activeSection.render()}
-              </div>
-            ) : (
-              <p className="text-body text-foreground-muted">
-                Pick a section from the left.
-              </p>
-            )}
+        {/* ── Content pane: scrolls. The content area grows (flex-1) so the
+            footer is pushed to the bottom of the screen on a short section, and
+            scrolls off the bottom on a long one. It never floats mid-pane. ── */}
+        <div ref={paneRef} className="flex flex-col overflow-y-auto">
+          <div className="flex-1">
+            <div className="mx-auto max-w-4xl px-6 py-8 sm:px-8">
+              {activeSection ? (
+                <div key={activeSection.id} className="space-y-4">
+                  {activeSection.render()}
+                </div>
+              ) : (
+                <p className="text-body text-foreground-muted">
+                  Pick a section from the left.
+                </p>
+              )}
+            </div>
           </div>
-          {footer && <div className="mt-6">{footer}</div>}
+          {footer && <div className="shrink-0">{footer}</div>}
         </div>
       </div>
     </div>
