@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { goalsApi, dependenciesApi, fetchAllTasksIncludingShared, fetchAllProjectsIncludingShared } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -24,6 +25,8 @@ import { useGanttBeakerSource } from "./useGanttBeakerSource";
 const projectKey = (p: Pick<Project, "id" | "owner">) => `${p.owner}:${p.id}`;
 
 export default function Home() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
   const projectFilterMode = useAppStore((s) => s.projectFilterMode);
@@ -39,6 +42,27 @@ export default function Home() {
   
   // State for delete confirmation
   const [, setDeletingGoal] = useState<HighLevelGoal | null>(null);
+
+  // BeakerBot post-write highlight: taskKeys to briefly glow on the Gantt
+  // after an experiment tool creates or reschedules. Populated from the
+  // ?highlightTasks= param (comma-separated "self:<id>" keys), then stripped
+  // from the URL immediately so a refresh does not re-highlight.
+  const [highlightTaskKeys, setHighlightTaskKeys] = useState<string[]>([]);
+
+  useEffect(() => {
+    const raw = searchParams?.get("highlightTasks");
+    if (!raw) return;
+    const keys = raw.split(",").filter(Boolean);
+    if (keys.length === 0) return;
+    setHighlightTaskKeys(keys);
+    // Strip the param from the URL (replace so it does not create a history
+    // entry), mirroring how /?openTask= and /datahub?analysis= strip theirs.
+    const next = new URLSearchParams(searchParams?.toString() ?? "");
+    next.delete("highlightTasks");
+    const clean = next.toString() ? `?${next.toString()}` : "";
+    router.replace(`/gantt${clean}`);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount when param is present; router is stable
+  }, []);
 
   const { currentUser: providerCurrentUser } = useCurrentUser();
   const currentUser = providerCurrentUser ?? "";
@@ -259,6 +283,8 @@ export default function Home() {
           goals={goals}
           onTaskClick={handleTaskClick}
           onGoalClick={(goal) => setEditingGoal(goal)}
+          highlightTaskKeys={highlightTaskKeys}
+          onHighlightDone={() => setHighlightTaskKeys([])}
         />
         <HighLevelGoalSidebar
           goals={goals}

@@ -26,6 +26,14 @@ interface GanttChartProps {
   isLabMode?: boolean;
   userColors?: Map<string, string>; // username -> color mapping for lab mode
   onTaskClickLab?: (task: Task & { username?: string }) => void; // callback with full task for lab mode
+  // BeakerBot post-write highlight (ai gantt-highlight bot, 2026-06-11):
+  // taskKeys to briefly glow after an experiment tool creates / reschedules.
+  // Keys are "self:<numericId>" matching taskKey(task) for own tasks.
+  // The chart scrolls the first key into view, applies a subtle sky ring +
+  // glow to each bar for ~4-5 s, then fades out. onHighlightDone fires after
+  // the fade so the parent can clear the keys.
+  highlightTaskKeys?: string[];
+  onHighlightDone?: () => void;
 }
 
 // Composite key for project lookups inside the chart. Mirrors the helper
@@ -489,6 +497,8 @@ export default function GanttChart({
   isLabMode = false,
   userColors,
   onTaskClickLab,
+  highlightTaskKeys = [],
+  onHighlightDone,
 }: GanttChartProps) {
   const queryClient = useQueryClient();
   const viewMode = useAppStore((s) => s.viewMode);
@@ -1383,6 +1393,85 @@ export default function GanttChart({
       taskElementsRef.current.delete(tk);
     }
   }, []);
+
+  // BeakerBot post-write highlight (ai gantt-highlight bot, 2026-06-11).
+  // When highlightTaskKeys is non-empty (set by the Gantt page after reading
+  // the ?highlightTasks= URL param), scroll the first bar into view and apply
+  // a subtle sky glow to each highlighted bar. The glow fades out after ~4.5 s
+  // via a CSS keyframe animation injected once into the document. Fires only
+  // when the keys change (including the initial populate from the URL param).
+  // onHighlightDone is called after the fade timer so the parent can clear
+  // the keys and avoid a re-highlight on the next re-render.
+  useEffect(() => {
+    if (highlightTaskKeys.length === 0) return;
+
+    // Inject the keyframe animation once into <head> so we do not create
+    // duplicate <style> tags across renders.
+    const STYLE_ID = "gantt-highlight-keyframes";
+    if (!document.getElementById(STYLE_ID)) {
+      const style = document.createElement("style");
+      style.id = STYLE_ID;
+      // sky-500 is #0ea5e9; pulse from a soft ring+glow to nothing over 4.5 s.
+      style.textContent = `
+        @keyframes gantt-bar-highlight {
+          0%   { box-shadow: 0 0 0 2px #0ea5e9, 0 0 12px 4px rgba(14,165,233,0.45); }
+          60%  { box-shadow: 0 0 0 2px #0ea5e9, 0 0 12px 4px rgba(14,165,233,0.45); }
+          100% { box-shadow: none; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    // Try to find and highlight the bars. The task elements may not be in the
+    // ref map yet if the DOM hasn't rendered (e.g. navigated here fresh). Retry
+    // up to ~1 s in 100 ms increments so a cold-navigation highlight still lands.
+    let attempts = 0;
+    const MAX_ATTEMPTS = 10;
+
+    const applyHighlight = () => {
+      attempts++;
+      const found = highlightTaskKeys.some((key) => taskElementsRef.current.has(key));
+      if (!found && attempts < MAX_ATTEMPTS) {
+        setTimeout(applyHighlight, 100);
+        return;
+      }
+
+      // Scroll the first found key into view.
+      for (const key of highlightTaskKeys) {
+        const entry = taskElementsRef.current.get(key);
+        if (entry) {
+          entry.element.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+          break;
+        }
+      }
+
+      // Apply the animation to each highlighted bar element.
+      for (const key of highlightTaskKeys) {
+        const entry = taskElementsRef.current.get(key);
+        if (entry) {
+          const el = entry.element;
+          // Remove any running animation so a re-highlight always restarts.
+          el.style.animation = "none";
+          // Force reflow to restart the animation cleanly.
+          void el.offsetWidth;
+          el.style.animation = "gantt-bar-highlight 4.5s ease-out forwards";
+        }
+      }
+    };
+
+    applyHighlight();
+
+    // Call onHighlightDone after the animation finishes so the parent can
+    // clear highlightTaskKeys. 4.6 s gives the 4.5 s animation a small buffer.
+    const doneTimer = setTimeout(() => {
+      onHighlightDone?.();
+    }, 4600);
+
+    return () => {
+      clearTimeout(doneTimer);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally fires only when highlightTaskKeys identity changes
+  }, [highlightTaskKeys]);
 
   // Handle double-click on empty space to create a new task
   const handleDoubleClick = useCallback((dateStr: string) => {

@@ -1,14 +1,17 @@
-// experiment-tools tests (ai experiment-tools bot, 2026-06-11).
+// experiment-tools tests (ai experiment-tools bot, 2026-06-11;
+// ai gantt-highlight bot, 2026-06-11).
 //
 // Tests cover:
 //   - computeChainDates: pure scheduling math (back-to-back dates, gap days,
 //     duration defaults, single experiment, empty list).
 //   - parseIso / addDays / daysBetween: the date primitives the chain math depends on.
-//   - create_experiment: describeAction preview, execute success + error paths.
+//   - create_experiment: describeAction preview, execute success + error paths,
+//     navigate seam called with /gantt?highlightTasks=self:<id>.
 //   - reschedule_experiment: describeAction preview, duration-preserve, explicit
-//     new end date, not-found path.
+//     new end date, not-found path, navigate seam called on success.
 //   - create_experiment_chain: describeAction shows full schedule, execute creates
-//     experiments + dep edges in order, dep-failure fallback, empty-list error.
+//     experiments + dep edges in order, dep-failure fallback, empty-list error,
+//     navigate seam called with all chain ids on success.
 //
 // All tests stub experimentToolsDeps (the injectable seam), so no real folder or
 // local-api is involved.
@@ -201,6 +204,7 @@ describe("create_experiment tool", () => {
   it("execute creates an experiment and returns the task data", async () => {
     const task = makeTask({ id: 42, name: "Gibson Assembly", start_date: "2026-07-01", end_date: "2026-07-03", duration_days: 2 });
     vi.spyOn(experimentToolsDeps, "createTask").mockResolvedValue(task);
+    vi.spyOn(experimentToolsDeps, "navigate").mockImplementation(() => {});
 
     const result = await createExperimentTool.execute({
       name: "Gibson Assembly",
@@ -211,6 +215,26 @@ describe("create_experiment tool", () => {
     expect(result.ok).toBe(true);
     expect(result.id).toBe(42);
     expect(result.name).toBe("Gibson Assembly");
+  });
+
+  it("execute navigates to /gantt?highlightTasks=self:<id> after a successful write", async () => {
+    const task = makeTask({ id: 42, name: "Gibson Assembly", start_date: "2026-07-01", end_date: "2026-07-03", duration_days: 2 });
+    vi.spyOn(experimentToolsDeps, "createTask").mockResolvedValue(task);
+    const navSpy = vi.spyOn(experimentToolsDeps, "navigate").mockImplementation(() => {});
+
+    await createExperimentTool.execute({ name: "Gibson Assembly", startDate: "2026-07-01" });
+
+    expect(navSpy).toHaveBeenCalledTimes(1);
+    expect(navSpy).toHaveBeenCalledWith("/gantt?highlightTasks=self:42");
+  });
+
+  it("execute does NOT navigate when the write fails", async () => {
+    vi.spyOn(experimentToolsDeps, "createTask").mockRejectedValue(new Error("no folder"));
+    const navSpy = vi.spyOn(experimentToolsDeps, "navigate").mockImplementation(() => {});
+
+    await createExperimentTool.execute({ name: "PCR", startDate: "2026-07-01" });
+
+    expect(navSpy).not.toHaveBeenCalled();
   });
 
   it("execute returns an error when name is empty", async () => {
@@ -275,11 +299,34 @@ describe("reschedule_experiment tool", () => {
     });
     vi.spyOn(experimentToolsDeps, "getTask").mockResolvedValue(existing);
     const updateSpy = vi.spyOn(experimentToolsDeps, "updateTask").mockResolvedValue(updated);
+    vi.spyOn(experimentToolsDeps, "navigate").mockImplementation(() => {});
 
     await rescheduleExperimentTool.execute({ experimentId: 7, newStartDate: "2026-07-10" });
 
     // duration_days should be the existing 3, not recomputed
     expect(updateSpy).toHaveBeenCalledWith(7, { start_date: "2026-07-10", duration_days: 3 });
+  });
+
+  it("execute navigates to /gantt?highlightTasks=self:<id> after a successful reschedule", async () => {
+    const existing = makeTask({ id: 7, start_date: "2026-07-01", end_date: "2026-07-02", duration_days: 1, task_type: "experiment" });
+    const updated = makeTask({ id: 7, start_date: "2026-07-10", end_date: "2026-07-11", duration_days: 1, task_type: "experiment" });
+    vi.spyOn(experimentToolsDeps, "getTask").mockResolvedValue(existing);
+    vi.spyOn(experimentToolsDeps, "updateTask").mockResolvedValue(updated);
+    const navSpy = vi.spyOn(experimentToolsDeps, "navigate").mockImplementation(() => {});
+
+    await rescheduleExperimentTool.execute({ experimentId: 7, newStartDate: "2026-07-10" });
+
+    expect(navSpy).toHaveBeenCalledTimes(1);
+    expect(navSpy).toHaveBeenCalledWith("/gantt?highlightTasks=self:7");
+  });
+
+  it("execute does NOT navigate when the experiment is not found", async () => {
+    vi.spyOn(experimentToolsDeps, "getTask").mockResolvedValue(null);
+    const navSpy = vi.spyOn(experimentToolsDeps, "navigate").mockImplementation(() => {});
+
+    await rescheduleExperimentTool.execute({ experimentId: 99, newStartDate: "2026-07-10" });
+
+    expect(navSpy).not.toHaveBeenCalled();
   });
 
   it("execute uses explicit newEndDate to set a new duration", async () => {
@@ -299,6 +346,7 @@ describe("reschedule_experiment tool", () => {
     });
     vi.spyOn(experimentToolsDeps, "getTask").mockResolvedValue(existing);
     const updateSpy = vi.spyOn(experimentToolsDeps, "updateTask").mockResolvedValue(updated);
+    vi.spyOn(experimentToolsDeps, "navigate").mockImplementation(() => {});
 
     await rescheduleExperimentTool.execute({
       experimentId: 7,
@@ -377,6 +425,7 @@ describe("create_experiment_chain tool", () => {
       .mockResolvedValueOnce(tasks[1])
       .mockResolvedValueOnce(tasks[2]);
     const depSpy = vi.spyOn(experimentToolsDeps, "createDependency").mockResolvedValue(undefined);
+    vi.spyOn(experimentToolsDeps, "navigate").mockImplementation(() => {});
 
     const result = await createExperimentChainTool.execute({
       experiments: [
@@ -400,6 +449,59 @@ describe("create_experiment_chain tool", () => {
     expect(depSpy).toHaveBeenNthCalledWith(2, 11, 12);
 
     expect(createSpy).toHaveBeenCalledTimes(3);
+  });
+
+  it("execute navigates to /gantt?highlightTasks=self:10,self:11,self:12 after a successful chain write", async () => {
+    const tasks = [
+      makeTask({ id: 10, name: "Transformation", start_date: "2026-07-01", end_date: "2026-07-02", duration_days: 1 }),
+      makeTask({ id: 11, name: "Miniprep", start_date: "2026-07-02", end_date: "2026-07-04", duration_days: 2 }),
+      makeTask({ id: 12, name: "Sequencing", start_date: "2026-07-04", end_date: "2026-07-05", duration_days: 1 }),
+    ];
+    vi.spyOn(experimentToolsDeps, "createTask")
+      .mockResolvedValueOnce(tasks[0])
+      .mockResolvedValueOnce(tasks[1])
+      .mockResolvedValueOnce(tasks[2]);
+    vi.spyOn(experimentToolsDeps, "createDependency").mockResolvedValue(undefined);
+    const navSpy = vi.spyOn(experimentToolsDeps, "navigate").mockImplementation(() => {});
+
+    await createExperimentChainTool.execute({
+      experiments: [
+        { name: "Transformation", durationDays: 1 },
+        { name: "Miniprep", durationDays: 2 },
+        { name: "Sequencing", durationDays: 1 },
+      ],
+      startDate: "2026-07-01",
+    });
+
+    expect(navSpy).toHaveBeenCalledTimes(1);
+    expect(navSpy).toHaveBeenCalledWith("/gantt?highlightTasks=self:10,self:11,self:12");
+  });
+
+  it("execute navigates even when dep creation fails (experiments created successfully)", async () => {
+    const task1 = makeTask({ id: 20, name: "Step 1", start_date: "2026-07-01", end_date: "2026-07-02", duration_days: 1 });
+    const task2 = makeTask({ id: 21, name: "Step 2", start_date: "2026-07-02", end_date: "2026-07-03", duration_days: 1 });
+    vi.spyOn(experimentToolsDeps, "createTask")
+      .mockResolvedValueOnce(task1)
+      .mockResolvedValueOnce(task2);
+    vi.spyOn(experimentToolsDeps, "createDependency").mockRejectedValue(new Error("dep store error"));
+    const navSpy = vi.spyOn(experimentToolsDeps, "navigate").mockImplementation(() => {});
+
+    await createExperimentChainTool.execute({
+      experiments: [{ name: "Step 1" }, { name: "Step 2" }],
+      startDate: "2026-07-01",
+    });
+
+    // Experiments created; dep failed. Navigation still fires for the created experiments.
+    expect(navSpy).toHaveBeenCalledTimes(1);
+    expect(navSpy).toHaveBeenCalledWith("/gantt?highlightTasks=self:20,self:21");
+  });
+
+  it("execute does NOT navigate when no experiments are specified", async () => {
+    const navSpy = vi.spyOn(experimentToolsDeps, "navigate").mockImplementation(() => {});
+
+    await createExperimentChainTool.execute({ experiments: [], startDate: "2026-07-01" });
+
+    expect(navSpy).not.toHaveBeenCalled();
   });
 
   it("execute returns an error for an empty experiments list", async () => {
@@ -426,6 +528,7 @@ describe("create_experiment_chain tool", () => {
       .mockResolvedValueOnce(task)
       .mockResolvedValueOnce(task2);
     vi.spyOn(experimentToolsDeps, "createDependency").mockRejectedValue(new Error("dep store error"));
+    vi.spyOn(experimentToolsDeps, "navigate").mockImplementation(() => {});
 
     const result = await createExperimentChainTool.execute({
       experiments: [{ name: "Step 1" }, { name: "Step 2" }],
@@ -445,6 +548,7 @@ describe("create_experiment_chain tool", () => {
       .mockResolvedValueOnce(task1)
       .mockResolvedValueOnce(task2);
     vi.spyOn(experimentToolsDeps, "createDependency").mockResolvedValue(undefined);
+    vi.spyOn(experimentToolsDeps, "navigate").mockImplementation(() => {});
 
     await createExperimentChainTool.execute({
       experiments: [{ name: "A" }, { name: "B" }],

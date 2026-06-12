@@ -32,6 +32,7 @@
 // House style, no em-dashes, no emojis, no mid-sentence colons.
 
 import { tasksApi, dependenciesApi } from "@/lib/local-api";
+import { requestNavigation } from "@/components/ai/navigation-bridge";
 import type { Task } from "@/lib/types";
 import type { AiTool } from "./types";
 
@@ -58,6 +59,10 @@ export type ExperimentToolsDeps = {
   ) => Promise<Task | null>;
   /** Create a finish-to-start dependency edge between two task ids. */
   createDependency: (parentId: number, childId: number) => Promise<void>;
+  /** Navigate the user to an internal path after a successful write.
+   *  Defaults to the navigation bridge (soft SPA router.push).
+   *  Injected so tests assert the call without a real router. */
+  navigate: (path: string) => void;
 };
 
 export const experimentToolsDeps: ExperimentToolsDeps = {
@@ -66,6 +71,7 @@ export const experimentToolsDeps: ExperimentToolsDeps = {
   updateTask: (id, data) => tasksApi.update(id, data),
   createDependency: (parentId, childId) =>
     dependenciesApi.create({ parent_id: parentId, child_id: childId, dep_type: "FS" }).then(() => undefined),
+  navigate: requestNavigation,
 };
 
 // ---------------------------------------------------------------------------
@@ -248,6 +254,11 @@ export const createExperimentTool: AiTool = {
       };
     }
 
+    // Navigate the user to the Gantt so they see the new bar highlighted.
+    // Hard-wired here (not left to the model), like run_datahub_analysis.
+    // Own tasks always use the "self" namespace in taskKey: self:<id>.
+    experimentToolsDeps.navigate(`/gantt?highlightTasks=self:${task.id}`);
+
     return {
       ok: true as const,
       id: task.id,
@@ -361,6 +372,10 @@ export const rescheduleExperimentTool: AiTool = {
         error: `Experiment ${id} disappeared during the update.`,
       };
     }
+
+    // Navigate to the Gantt so the user sees the rescheduled bar in its new
+    // position, highlighted. Only fires after a successful update.
+    experimentToolsDeps.navigate(`/gantt?highlightTasks=self:${updated.id}`);
 
     return {
       ok: true as const,
@@ -567,6 +582,12 @@ export const createExperimentChainTool: AiTool = {
         }
       }
     }
+
+    // Navigate to the Gantt so the user sees the full chain highlighted.
+    // All created experiment ids as self:<id>, in chain order.
+    // Only fires after ALL experiments are successfully created.
+    const highlightParam = created.map((e) => `self:${e.id}`).join(",");
+    experimentToolsDeps.navigate(`/gantt?highlightTasks=${highlightParam}`);
 
     return {
       ok: true as const,
