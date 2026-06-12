@@ -259,7 +259,7 @@ function SignInChoiceCards({
             <ChoiceCheck /> Cross-lab sharing, no shared folder needed.
           </li>
           <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
-            <ChoiceCheck /> Find other ResearchOS users to share with, coming soon.
+            <ChoiceCheck /> Find other ResearchOS users to share with.
           </li>
           <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
             <ChoiceCheck /> Real-time co-editing on shared notes.
