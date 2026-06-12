@@ -53,28 +53,6 @@ function FloatBot({ className }: { className?: string }) {
   );
 }
 
-// Rising bubble field, the move only we can make (it echoes the beaker). Static
-// deterministic positions so server and client render the same (no hydration
-// mismatch), each bubble timed differently so the field never looks like a grid.
-const BUBBLES = [
-  { left: "6%", size: 15, dur: 13, delay: 0 },
-  { left: "13%", size: 10, dur: 17, delay: 3 },
-  { left: "19%", size: 19, dur: 15, delay: 7 },
-  { left: "27%", size: 9, dur: 19, delay: 1 },
-  { left: "34%", size: 13, dur: 14, delay: 10 },
-  { left: "41%", size: 11, dur: 18, delay: 5 },
-  { left: "48%", size: 18, dur: 16, delay: 2 },
-  { left: "55%", size: 10, dur: 20, delay: 8 },
-  { left: "62%", size: 15, dur: 13, delay: 4 },
-  { left: "69%", size: 9, dur: 17, delay: 12 },
-  { left: "76%", size: 20, dur: 15, delay: 2 },
-  { left: "82%", size: 12, dur: 19, delay: 6 },
-  { left: "88%", size: 10, dur: 14, delay: 9 },
-  { left: "93%", size: 16, dur: 18, delay: 1 },
-  { left: "44%", size: 9, dur: 21, delay: 13 },
-  { left: "58%", size: 13, dur: 16, delay: 11 },
-];
-
 export function OAuthFirstLanding({
   onCreateAccount,
   onSignIn,
@@ -133,25 +111,7 @@ export function OAuthFirstLanding({
             <FloatBot className={`${styles.floaty} ${styles.s2} bottom-[15%] left-[11%] w-14`} />
             <FloatBot className={`${styles.floaty} ${styles.s3} top-[15%] right-[8%] w-16`} />
             <FloatBot className={`${styles.floaty} ${styles.s4} bottom-[13%] right-[6%] w-24`} />
-            <div className={styles.bubbles}>
-              {BUBBLES.map((b, i) => (
-                <span
-                  key={i}
-                  className={styles.bubble}
-                  style={{
-                    left: b.left,
-                    width: b.size,
-                    height: b.size,
-                    animationDuration: `${b.dur}s`,
-                    animationDelay: `${b.delay}s`,
-                  }}
-                />
-              ))}
-            </div>
           </div>
-
-          {/* Film-grain finish over the color. */}
-          <div aria-hidden className={styles.grain} />
 
           {/* Rainbow bars, top and bottom. */}
           <div
