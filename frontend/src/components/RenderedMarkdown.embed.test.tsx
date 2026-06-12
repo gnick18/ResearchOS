@@ -17,7 +17,7 @@ describe("RenderedMarkdown block embeds", () => {
     expect(embed).toHaveAttribute("data-embed-view", "map");
     expect(embed).toHaveTextContent("pUC19 map");
     // The generic card's Open action points at the object's deep link.
-    const open = screen.getByRole("link", { name: "Open" });
+    const open = screen.getByRole("link", { name: /^Open/ });
     expect(open).toHaveAttribute("href", "/sequences?seq=5");
   });
 
@@ -53,6 +53,6 @@ describe("RenderedMarkdown block embeds", () => {
     const embed = container.querySelector('[data-embed-type="method"]');
     expect(embed).not.toBeNull();
     expect(embed).toHaveTextContent("Gibson Assembly");
-    expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute("href", "/methods/12");
+    expect(screen.getByRole("link", { name: /^Open/ })).toHaveAttribute("href", "/methods/12");
   });
 });

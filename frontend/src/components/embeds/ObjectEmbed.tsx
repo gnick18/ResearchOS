@@ -166,15 +166,16 @@ export function ObjectEmbedCard({
           {loading ? " · loading…" : ""}
         </p>
       </div>
-      {!loading ? (
-        <a
-          href={href}
-          aria-label={`Open ${TYPE_LABEL[descriptor.type]} ${label}`}
-          className="shrink-0 rounded-md border border-border px-2.5 py-1 text-meta font-semibold text-foreground-muted transition-colors hover:border-brand-action hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
-        >
-          Open
-        </a>
-      ) : null}
+      {/* The Open link points at the object deep link, which is known from the
+          descriptor immediately, so it stays clickable even while the object
+          data is still loading (no reason to hide a working link). */}
+      <a
+        href={href}
+        aria-label={`Open ${TYPE_LABEL[descriptor.type]} ${label}`}
+        className="shrink-0 rounded-md border border-border px-2.5 py-1 text-meta font-semibold text-foreground-muted transition-colors hover:border-brand-action hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
+      >
+        Open
+      </a>
     </div>
   );
 }

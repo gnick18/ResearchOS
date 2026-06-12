@@ -74,12 +74,13 @@ describe("ObjectEmbedCard a11y (P7-6)", () => {
     expect(label).toContain("Molecule");
   });
 
-  it("does not render an Open link while loading", () => {
+  it("keeps the Open link clickable while loading (deep link is known up front)", () => {
     const { container } = render(
       <ObjectEmbedCard descriptor={moleculeDescriptor} caption="Resveratrol" loading />,
     );
-    const link = container.querySelector("a");
-    expect(link).toBeNull();
+    const link = container.querySelector("a") as HTMLAnchorElement;
+    expect(link).not.toBeNull();
+    expect(link.getAttribute("href")).toBe("/chemistry?molecule=4");
   });
 
   it("Open link carries focus-visible ring class", () => {
