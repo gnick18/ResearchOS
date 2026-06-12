@@ -30,6 +30,7 @@ export default function GroupedTableGrid({
   onAddColumn,
   onRenameGroup,
   hideAddControls = false,
+  readOnly = false,
   crud,
 }: {
   content: DataHubDocContent;
@@ -41,6 +42,8 @@ export default function GroupedTableGrid({
   onRenameGroup: (datasetId: string, name: string) => void;
   /** Suppress the internal Add bar when the WorkspaceToolbar owns those actions. */
   hideAddControls?: boolean;
+  /** Render the table as a computed, NON-editable view (a derived table). */
+  readOnly?: boolean;
   /** Right-click CRUD callbacks. A Grouped table's columns are REPLICATE
    *  subcolumns bound into datasetId groups, not free-standing data columns, so a
    *  generic per-column delete / duplicate / insert would leave uneven replicate
@@ -77,11 +80,11 @@ export default function GroupedTableGrid({
       crud?.onInsertGroupAt,
     ],
   );
-  const menu = useGridCrudMenu(content, groupedCrud);
+  const menu = useGridCrudMenu(content, readOnly ? {} : groupedCrud);
 
   return (
     <div data-testid="datahub-grouped-grid">
-      {!hideAddControls && (
+      {!hideAddControls && !readOnly && (
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -122,19 +125,28 @@ export default function GroupedTableGrid({
                 <th
                   key={g.datasetId}
                   colSpan={g.replicateColumnIds.length}
-                  onContextMenu={(e) => menu.openGroupMenu(e, g.datasetId)}
+                  onContextMenu={
+                    readOnly ? undefined : (e) => menu.openGroupMenu(e, g.datasetId)
+                  }
                   className="border border-border bg-surface-sunken px-2 py-1 text-center"
                 >
                   <input
                     type="text"
                     defaultValue={g.name}
                     key={`${g.datasetId}:${g.name}`}
-                    onBlur={(e) => onRenameGroup(g.datasetId, e.currentTarget.value)}
+                    readOnly={readOnly}
+                    onBlur={
+                      readOnly
+                        ? undefined
+                        : (e) => onRenameGroup(g.datasetId, e.currentTarget.value)
+                    }
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") e.currentTarget.blur();
+                      if (!readOnly && e.key === "Enter") e.currentTarget.blur();
                     }}
                     aria-label={`Group name ${g.name}`}
-                    className="w-full bg-transparent text-center text-body font-semibold text-foreground outline-none focus:bg-accent-soft"
+                    className={`w-full bg-transparent text-center text-body font-semibold text-foreground outline-none ${
+                      readOnly ? "cursor-default" : "focus:bg-accent-soft"
+                    }`}
                   />
                 </th>
               ))}
@@ -156,7 +168,9 @@ export default function GroupedTableGrid({
             {rows.map((row, r) => (
               <tr key={row.id}>
                 <td
-                  onContextMenu={(e) => menu.openRowMenu(e, row.id)}
+                  onContextMenu={
+                    readOnly ? undefined : (e) => menu.openRowMenu(e, row.id)
+                  }
                   className="border border-border bg-surface-sunken px-3 py-1 text-center text-meta text-foreground-muted"
                 >
                   {r + 1}
@@ -169,15 +183,26 @@ export default function GroupedTableGrid({
                       key={`${row.id}:${labelCol.id}:${cellDisplay(
                         row.cells[labelCol.id] ?? null,
                       )}`}
-                      onBlur={(e) =>
-                        onCellCommit(row.id, labelCol.id, e.currentTarget.value)
+                      readOnly={readOnly}
+                      onBlur={
+                        readOnly
+                          ? undefined
+                          : (e) =>
+                              onCellCommit(
+                                row.id,
+                                labelCol.id,
+                                e.currentTarget.value,
+                              )
                       }
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") e.currentTarget.blur();
+                        if (!readOnly && e.key === "Enter")
+                          e.currentTarget.blur();
                       }}
                       aria-label={`Row label ${r + 1}`}
                       placeholder="Label"
-                      className="w-full bg-transparent px-3 py-1.5 text-center text-body text-foreground placeholder:text-foreground-muted outline-none focus:bg-accent-soft"
+                      className={`w-full bg-transparent px-3 py-1.5 text-center text-body text-foreground placeholder:text-foreground-muted outline-none ${
+                        readOnly ? "cursor-default" : "focus:bg-accent-soft"
+                      }`}
                     />
                   </td>
                 )}
@@ -194,14 +219,23 @@ export default function GroupedTableGrid({
                         key={`${row.id}:${colId}:${cellDisplay(
                           row.cells[colId] ?? null,
                         )}`}
-                        onBlur={(e) =>
-                          onCellCommit(row.id, colId, e.currentTarget.value)
+                        readOnly={readOnly}
+                        onBlur={
+                          readOnly
+                            ? undefined
+                            : (e) =>
+                                onCellCommit(row.id, colId, e.currentTarget.value)
                         }
                         onKeyDown={(e) => {
-                          if (e.key === "Enter") e.currentTarget.blur();
+                          if (!readOnly && e.key === "Enter")
+                            e.currentTarget.blur();
                         }}
                         aria-label={`${g.name} replicate, row ${r + 1}`}
-                        className="w-full bg-transparent px-2 py-1.5 text-center text-body text-foreground outline-none focus:bg-accent-soft"
+                        className={`w-full bg-transparent px-2 py-1.5 text-center text-body text-foreground outline-none ${
+                          readOnly
+                            ? "cursor-default text-foreground-muted"
+                            : "focus:bg-accent-soft"
+                        }`}
                       />
                     </td>
                   )),

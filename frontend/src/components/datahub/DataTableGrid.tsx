@@ -50,12 +50,14 @@ function SummaryCell({
   value,
   ariaLabel,
   onCellCommit,
+  readOnly = false,
 }: {
   rowId: string;
   columnId: string;
   value: number | null;
   ariaLabel: string;
   onCellCommit: (rowId: string, columnId: string, raw: string) => void;
+  readOnly?: boolean;
 }) {
   const display = value === null ? "" : String(value);
   return (
@@ -65,12 +67,19 @@ function SummaryCell({
         inputMode="decimal"
         defaultValue={display}
         key={`${rowId}:${columnId}:${display}`}
-        onBlur={(e) => onCellCommit(rowId, columnId, e.currentTarget.value)}
+        readOnly={readOnly}
+        onBlur={
+          readOnly
+            ? undefined
+            : (e) => onCellCommit(rowId, columnId, e.currentTarget.value)
+        }
         onKeyDown={(e) => {
-          if (e.key === "Enter") e.currentTarget.blur();
+          if (!readOnly && e.key === "Enter") e.currentTarget.blur();
         }}
         aria-label={ariaLabel}
-        className="w-full bg-transparent px-3 py-1.5 text-center text-body text-foreground outline-none focus:bg-accent-soft"
+        className={`w-full bg-transparent px-3 py-1.5 text-center text-body text-foreground outline-none ${
+          readOnly ? "cursor-default text-foreground-muted" : "focus:bg-accent-soft"
+        }`}
       />
     </td>
   );
@@ -89,10 +98,12 @@ function SummaryEditor({
   content,
   onCellCommit,
   onRenameSummaryGroup,
+  readOnly = false,
 }: {
   content: DataHubDocContent;
   onCellCommit: (rowId: string, columnId: string, raw: string) => void;
   onRenameSummaryGroup?: (datasetId: string, name: string) => void;
+  readOnly?: boolean;
 }) {
   const [renamingGroupId, setRenamingGroupId] = useState<string | null>(null);
   const groups = useMemo(() => readAllGroupSummaries(content), [content]);
@@ -119,7 +130,7 @@ function SummaryEditor({
               <th
                 key={g.datasetId}
                 onDoubleClick={() => {
-                  if (!onRenameSummaryGroup) return;
+                  if (readOnly || !onRenameSummaryGroup) return;
                   setRenamingGroupId(g.datasetId);
                 }}
                 className="min-w-[96px] border border-border bg-surface-sunken px-3 py-1.5 text-center text-body font-semibold text-foreground"
@@ -160,6 +171,7 @@ function SummaryEditor({
                     value={value}
                     ariaLabel={`${g.name} ${r.label}`}
                     onCellCommit={onCellCommit}
+                    readOnly={readOnly}
                   />
                 );
               })}
@@ -178,6 +190,7 @@ export default function DataTableGrid({
   onAddColumn,
   onRenameSummaryGroup,
   hideAddControls = false,
+  readOnly = false,
   crud,
 }: {
   content: DataHubDocContent;
@@ -192,6 +205,10 @@ export default function DataTableGrid({
   /** Suppress the internal Add row / Add group bar when the page renders the
    *  WorkspaceToolbar above the grid (the toolbar owns those actions there). */
   hideAddControls?: boolean;
+  /** Render the table as a computed, NON-editable view (a derived table). Cells
+   *  become read-only, the rename + right-click CRUD menus do not attach, and the
+   *  internal Add bar is suppressed. The footer stats still render. */
+  readOnly?: boolean;
   /** Right-click row/column CRUD callbacks. Omitted in isolated renders / tests
    *  that do not mount the ContextMenuProvider, in which case no menus attach. */
   crud?: GridCrudHandlers;
@@ -200,11 +217,13 @@ export default function DataTableGrid({
   const columns = useMemo(() => groupColumns(content), [content]);
   const stats = useMemo(() => computeAllGroupStats(content), [content]);
   const rows = content.rows;
-  const menu = useGridCrudMenu(content, crud ?? {});
+  // A read-only (derived) table never wires CRUD menus; pass an empty handler set
+  // so no menu items build and the inline rename is never reachable.
+  const menu = useGridCrudMenu(content, readOnly ? {} : crud ?? {});
 
   return (
     <div data-testid="datahub-data-grid">
-      {!hideAddControls && (
+      {!hideAddControls && !readOnly && (
         <div className="mb-3 flex flex-wrap items-center gap-2">
           {/* A summary table has a single fixed row (the entered descriptives),
               so Add row is hidden there; only Add group applies. */}
@@ -235,6 +254,7 @@ export default function DataTableGrid({
             content={content}
             onCellCommit={onCellCommit}
             onRenameSummaryGroup={onRenameSummaryGroup}
+            readOnly={readOnly}
           />
           <p className="mt-3 max-w-xl text-meta text-foreground-muted">
             You entered each group's mean, spread, and n directly, so any graph
@@ -255,8 +275,12 @@ export default function DataTableGrid({
                   {columns.map((col) => (
                     <th
                       key={col.id}
-                      onContextMenu={(e) => menu.openColumnMenu(e, col.id)}
-                      onDoubleClick={() => menu.beginRename(col.id)}
+                      onContextMenu={
+                        readOnly ? undefined : (e) => menu.openColumnMenu(e, col.id)
+                      }
+                      onDoubleClick={
+                        readOnly ? undefined : () => menu.beginRename(col.id)
+                      }
                       className="min-w-[96px] border border-border bg-surface-sunken px-3 py-1.5 text-center text-body font-semibold text-foreground"
                     >
                       {menu.renamingColumnId === col.id ? (
@@ -276,7 +300,9 @@ export default function DataTableGrid({
                 {rows.map((row, r) => (
                   <tr key={row.id}>
                     <td
-                      onContextMenu={(e) => menu.openRowMenu(e, row.id)}
+                      onContextMenu={
+                        readOnly ? undefined : (e) => menu.openRowMenu(e, row.id)
+                      }
                       className="border border-border bg-surface-sunken px-3 py-1 text-center text-meta text-foreground-muted"
                     >
                       {r + 1}
@@ -298,14 +324,27 @@ export default function DataTableGrid({
                           key={`${row.id}:${col.id}:${cellDisplay(
                             row.cells[col.id] ?? null,
                           )}`}
-                          onBlur={(e) =>
-                            onCellCommit(row.id, col.id, e.currentTarget.value)
+                          readOnly={readOnly}
+                          onBlur={
+                            readOnly
+                              ? undefined
+                              : (e) =>
+                                  onCellCommit(
+                                    row.id,
+                                    col.id,
+                                    e.currentTarget.value,
+                                  )
                           }
                           onKeyDown={(e) => {
-                            if (e.key === "Enter") e.currentTarget.blur();
+                            if (!readOnly && e.key === "Enter")
+                              e.currentTarget.blur();
                           }}
                           aria-label={`${col.name} replicate ${r + 1}`}
-                          className="w-full bg-transparent px-3 py-1.5 text-center text-body text-foreground outline-none focus:bg-accent-soft"
+                          className={`w-full bg-transparent px-3 py-1.5 text-center text-body text-foreground outline-none ${
+                            readOnly
+                              ? "cursor-default text-foreground-muted"
+                              : "focus:bg-accent-soft"
+                          }`}
                         />
                       </td>
                     ))}
