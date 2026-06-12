@@ -57,3 +57,34 @@ export function usdMicrosForTokens(tokens: number): number {
   if (!Number.isFinite(tokens) || tokens <= 0) return 0;
   return Math.round(tokens * AI_TOKEN_PRICE_USD * USD_MICROS_PER_USD);
 }
+
+/** The three prepaid top-up tiers, by dollar amount, as the string the
+ *  checkout route and the webhook carry in metadata. */
+export type AiPack = "10" | "25" | "50";
+
+/** The token amount a given pack credits, looked up from PACK_TOKENS by the
+ *  pack's numeric value. The webhook uses this to credit the ledger. */
+export function packTokens(pack: AiPack): number {
+  return PACK_TOKENS[Number(pack) as 10 | 25 | 50];
+}
+
+/**
+ * The Stripe Price id for a top-up pack, read from a SERVER-ONLY env var
+ * (STRIPE_AI_PRICE_10 / _25 / _50). These are one-time prices the operator
+ * creates in Stripe; they are NOT NEXT_PUBLIC because the client never needs the
+ * price id (the checkout is created server-side from the pack name). Returns null
+ * when the var is unset so the route can answer with a clear "pack_unconfigured"
+ * rather than crashing. Phase 3 of the BeakerBot AI billing build.
+ */
+export function aiPackPriceId(pack: AiPack): string | null {
+  switch (pack) {
+    case "10":
+      return process.env.STRIPE_AI_PRICE_10 ?? null;
+    case "25":
+      return process.env.STRIPE_AI_PRICE_25 ?? null;
+    case "50":
+      return process.env.STRIPE_AI_PRICE_50 ?? null;
+    default:
+      return null;
+  }
+}
