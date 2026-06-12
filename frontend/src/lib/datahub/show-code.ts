@@ -19,6 +19,7 @@ import type {
   NormalizedDoseResponse,
   NormalizedGlobalFit,
   NormalizedLogisticRegression,
+  NormalizedRocAuc,
   NormalizedMultipleRegression,
   NormalizedModelComparison,
   NormalizedRegression,
@@ -458,6 +459,50 @@ print(f"odds ratio = {odds_ratio:.4g}  95% CI [{or_lo:.4g}, {or_hi:.4g}]")
 # The x where P = 0.5 is -b0/b1 (the dose-response-style midpoint).
 print(f"X at P=0.5 = {-b0 / b1:.4g}")
 print(f"McFadden pseudo-R2 = {result.prsquared:.4g}")`;
+}
+
+/**
+ * Reproducible Python for the ROC curve + AUC via scikit-learn. roc_curve sweeps
+ * the score thresholds to the (fpr, tpr) points, roc_auc_score is the area, and
+ * the Hanley-McNeil closed form gives the standard error and 95% CI the sheet
+ * shows. Youden's J (max tpr - fpr) picks the optimal cut point. The same fixed
+ * score and binary outcome are baked in so the printout reproduces the numbers.
+ */
+function rocAucCode(r: NormalizedRocAuc): string {
+  return `import numpy as np
+from sklearn.metrics import roc_curve, roc_auc_score
+
+score = ${pyList(r.x)}     # continuous predictor / classifier score
+y = ${pyList(r.y)}  # binary outcome (0 or 1)
+
+score = np.asarray(score, float)
+y = np.asarray(y, int)
+
+# Sweep every threshold to the ROC curve (false positive rate vs true positive
+# rate). roc_auc_score is the area under it, the probability a random positive
+# outscores a random negative.
+fpr, tpr, thresholds = roc_curve(y, score)
+auc = roc_auc_score(y, score)
+print(f"AUC = {auc:.4f}")
+
+# Hanley-McNeil (1982) standard error and 95% CI of the AUC.
+n_pos = int((y == 1).sum())
+n_neg = int((y == 0).sum())
+q1 = auc / (2 - auc)
+q2 = 2 * auc ** 2 / (1 + auc)
+se = np.sqrt(
+    (auc * (1 - auc)
+     + (n_pos - 1) * (q1 - auc ** 2)
+     + (n_neg - 1) * (q2 - auc ** 2)) / (n_pos * n_neg)
+)
+lo, hi = max(0.0, auc - 1.959964 * se), min(1.0, auc + 1.959964 * se)
+print(f"SE = {se:.4f}  95% CI [{lo:.4f}, {hi:.4f}]")
+
+# Optimal cut point by Youden's J (max sensitivity + specificity - 1).
+j = tpr - fpr
+k = int(np.argmax(j))
+print(f"Youden threshold = {thresholds[k]:.4g}  "
+      f"sensitivity = {tpr[k]:.4f}  specificity = {1 - fpr[k]:.4f}")`;
 }
 
 function multipleRegressionCode(r: NormalizedMultipleRegression): string {
@@ -1053,6 +1098,7 @@ export function showCode(result: NormalizedResult): string {
   if (result.kind === "regression") return regressionCode(result);
   if (result.kind === "logisticRegression")
     return logisticRegressionCode(result);
+  if (result.kind === "rocCurve") return rocAucCode(result);
   if (result.kind === "multipleRegression")
     return multipleRegressionCode(result);
   if (result.kind === "doseResponse") return doseResponseCode(result);

@@ -31,6 +31,7 @@ import {
   type NormalizedDoseResponse,
   type NormalizedGlobalFit,
   type NormalizedLogisticRegression,
+  type NormalizedRocAuc,
   type NormalizedMultipleRegression,
   type NormalizedModelComparison,
   type NormalizedRegression,
@@ -565,6 +566,94 @@ function LogisticRegressionTable({
         Y=1 for each one-unit rise in X. An odds ratio of 1 means X carries no
         information. X at P=0.5 is the value where the model predicts an even
         chance, the dose-response style midpoint.
+      </p>
+    </>
+  );
+}
+
+function RocCurveTable({ r }: { r: NormalizedRocAuc }) {
+  // The AUC band a clinician reads against (excellent / good / fair / poor).
+  const band =
+    r.auc >= 0.9
+      ? "excellent"
+      : r.auc >= 0.8
+        ? "good"
+        : r.auc >= 0.7
+          ? "fair"
+          : r.auc > 0.6
+            ? "poor"
+            : "near chance";
+  return (
+    <>
+      <KeyValueTable
+        testid="results-roc-summary-table"
+        rows={[
+          { label: "AUC", value: num(r.auc, 4) },
+          { label: "AUC accuracy band", value: band },
+          { label: "AUC standard error", value: num(r.aucStandardError, 4) },
+          {
+            label: "95% CI of AUC",
+            value: ciText([r.aucCiLow, r.aucCiHigh]),
+          },
+          {
+            label: "Optimal threshold (Youden's J)",
+            value: Number.isFinite(r.youdenThreshold)
+              ? num(r.youdenThreshold, 4)
+              : "-",
+          },
+          {
+            label: "Sensitivity at threshold",
+            value: num(r.youdenSensitivity, 4),
+          },
+          {
+            label: "Specificity at threshold",
+            value: num(r.youdenSpecificity, 4),
+          },
+          { label: "Positives (Y = 1)", value: num(r.nPositive, 0) },
+          { label: "Negatives (Y = 0)", value: num(r.nNegative, 0) },
+          { label: "Rows (n)", value: num(r.n, 0) },
+        ]}
+      />
+      <table
+        className="mt-3 w-full border-collapse text-body tabular-nums"
+        data-testid="results-roc-curve-table"
+      >
+        <thead>
+          <tr className="text-meta uppercase tracking-wide text-foreground-muted">
+            <th className="border-b border-border px-3 py-1.5 text-right">
+              Threshold
+            </th>
+            <th className="border-b border-border px-3 py-1.5 text-right">
+              FPR (1 - specificity)
+            </th>
+            <th className="border-b border-border px-3 py-1.5 text-right">
+              TPR (sensitivity)
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {r.points.map((p, i) => (
+            <tr key={i}>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {Number.isFinite(p.threshold) ? num(p.threshold, 4) : "+inf"}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {num(p.fpr, 4)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {num(p.tpr, 4)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-2 max-w-xl text-meta text-foreground-muted">
+        The ROC curve plots the true positive rate against the false positive
+        rate as the decision threshold sweeps from strict to lenient. The area
+        under it (AUC) is the chance a random positive case outscores a random
+        negative one, so 0.5 is a coin flip and 1.0 is a perfect separator. The
+        Youden cut point is the single threshold that maximizes sensitivity plus
+        specificity.
       </p>
     </>
   );
@@ -1328,6 +1417,14 @@ function resultTabs(result: NormalizedResult): {
           id: "tabular",
           label: "Tabular results",
           render: () => <LogisticRegressionTable r={result} />,
+        },
+      ];
+    case "rocCurve":
+      return [
+        {
+          id: "tabular",
+          label: "Tabular results",
+          render: () => <RocCurveTable r={result} />,
         },
       ];
     case "multipleRegression":

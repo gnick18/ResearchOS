@@ -502,6 +502,7 @@ function labelForAnalysis(analysis: AnalysisSpec): string {
     correlationPearson: "Pearson correlation",
     correlationSpearman: "Spearman correlation",
     linearRegression: "linear regression",
+    rocCurve: "ROC curve and AUC",
     kaplanMeier: "Kaplan-Meier survival analysis",
     coxRegression: "Cox proportional hazards regression",
     grubbsOutlier: "Grubbs outlier test",

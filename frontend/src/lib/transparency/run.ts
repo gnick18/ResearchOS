@@ -35,6 +35,7 @@ import {
   spearman,
   linearRegression,
   logisticRegression,
+  rocAuc,
   multipleRegression,
   fitModel,
   fitGlobal,
@@ -136,6 +137,7 @@ import {
   PUBLISHED_QPCR,
   REFERENCE_GENOME_DIGEST,
   SCIPY,
+  SKLEARN,
   STATSMODELS,
   WALLACE,
 } from "./oracles";
@@ -1265,6 +1267,14 @@ function runDatahubEngine(): Record<string, number> {
     "logistic regression",
   );
 
+  // ROC curve + AUC (Theme 4). Score the SAME binary dataset the logistic case
+  // pins (LOGIT_X as the classifier score, LOGIT_Y as the true label), then read
+  // off the AUC (trapezoidal over the swept curve, equal to sklearn's
+  // roc_auc_score), its Hanley-McNeil SE and 95% CI, and the Youden-optimal
+  // threshold with its sensitivity and specificity. Deterministic, so these pin
+  // tight against scikit-learn.
+  const roc = need(rocAuc(LOGIT_X, LOGIT_Y), "ROC curve");
+
   // Multiple linear regression (D5). Fit y = b0 + b1*x1 + b2*x2 by OLS on the same
   // fixed arrays statsmodels OLS was run on, then read off the coefficients (with
   // the x1 slope SE and the x2 slope p), R-squared, adjusted R-squared, the overall
@@ -1533,6 +1543,14 @@ function runDatahubEngine(): Record<string, number> {
     lr_mcfadden_r2: logit.mcFaddenR2,
     lr_auc: logit.auc,
 
+    roc_auc: roc.auc,
+    roc_auc_se: roc.aucStandardError,
+    roc_auc_ci_low: roc.aucCiLow,
+    roc_auc_ci_high: roc.aucCiHigh,
+    roc_youden_threshold: roc.youdenThreshold,
+    roc_youden_sensitivity: roc.youdenSensitivity,
+    roc_youden_specificity: roc.youdenSpecificity,
+
     mlr_intercept: mlr.intercept.estimate,
     mlr_x1_slope: mlr.slopes[0].estimate,
     mlr_x2_slope: mlr.slopes[1].estimate,
@@ -1689,7 +1707,8 @@ function buildDatahubStatsDomain(): DomainReport {
       + "and paired t-tests, Mann-Whitney U, Wilcoxon signed-rank, one-way and "
       + "two-way ANOVA with Tukey post-hoc, Kruskal-Wallis, Friedman, Pearson and "
       + "Spearman correlation, simple linear regression, Shapiro-Wilk and Levene / "
-      + "Brown-Forsythe assumption checks, the Grubbs outlier test, and Kaplan-Meier "
+      + "Brown-Forsythe assumption checks, the Grubbs outlier test, the ROC curve "
+      + "with its area under the curve (AUC, against scikit-learn) and Kaplan-Meier "
       + "survival with the log-rank test. It also validates the estimation layer that "
       + "turns a p-value "
       + "into a measured effect, the Cohen's d / Hedges' g and standardized-effect "
@@ -1705,7 +1724,7 @@ function buildDatahubStatsDomain(): DomainReport {
       + "mean-centered vs median-centered Levene convention) rather than forced to "
       + "match.",
     impl: "frontend/src/lib/datahub/engine/",
-    oracles: [SCIPY, STATSMODELS, LIFELINES],
+    oracles: [SCIPY, STATSMODELS, LIFELINES, SKLEARN],
     cases,
     totals,
     status,

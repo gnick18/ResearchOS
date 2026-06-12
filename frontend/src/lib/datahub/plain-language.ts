@@ -16,6 +16,7 @@ import type {
   NormalizedDoseResponse,
   NormalizedGlobalFit,
   NormalizedLogisticRegression,
+  NormalizedRocAuc,
   NormalizedMultipleRegression,
   NormalizedModelComparison,
   NormalizedRegression,
@@ -216,6 +217,38 @@ function logisticRegressionSummary(r: NormalizedLogisticRegression): string {
     r.mcFaddenR2,
     3,
   )} (n = ${r.n}).`;
+}
+
+function rocCurveSummary(r: NormalizedRocAuc): string {
+  // A plain-language read of the AUC against the usual diagnostic-accuracy bands.
+  const quality =
+    r.auc >= 0.9
+      ? "excellent"
+      : r.auc >= 0.8
+        ? "good"
+        : r.auc >= 0.7
+          ? "fair"
+          : r.auc > 0.6
+            ? "poor"
+            : "near chance";
+  const ciPart =
+    Number.isFinite(r.aucCiLow) && Number.isFinite(r.aucCiHigh)
+      ? ` (95% CI ${num(r.aucCiLow, 2)} to ${num(r.aucCiHigh, 2)})`
+      : "";
+  const lead = `${r.xName} separates the two ${r.yName} classes with ${quality} accuracy, AUC ${num(
+    r.auc,
+    2,
+  )}${ciPart}.`;
+  const cut = Number.isFinite(r.youdenThreshold)
+    ? ` The best single cut point (Youden's J) is a ${r.xName} of about ${num(
+        r.youdenThreshold,
+        2,
+      )}, where sensitivity is ${num(r.youdenSensitivity, 2)} and specificity is ${num(
+        r.youdenSpecificity,
+        2,
+      )}.`
+    : "";
+  return `${lead}${cut} (n = ${r.n}, ${r.nPositive} positive and ${r.nNegative} negative.)`;
 }
 
 function multipleRegressionSummary(r: NormalizedMultipleRegression): string {
@@ -464,6 +497,7 @@ export function plainLanguageSummary(result: NormalizedResult): string {
   if (result.kind === "regression") return regressionSummary(result);
   if (result.kind === "logisticRegression")
     return logisticRegressionSummary(result);
+  if (result.kind === "rocCurve") return rocCurveSummary(result);
   if (result.kind === "multipleRegression")
     return multipleRegressionSummary(result);
   if (result.kind === "doseResponse") return doseResponseSummary(result);

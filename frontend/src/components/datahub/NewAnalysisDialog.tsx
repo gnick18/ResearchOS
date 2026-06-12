@@ -119,6 +119,12 @@ const TYPE_META: Record<
       "Fit P(Y=1) from one X column and a binary 0/1 Y by maximum likelihood. Reports the slope and intercept, the odds ratio with a 95% confidence interval, McFadden pseudo-R-squared, and the X where P=0.5.",
     groupCount: "two",
   },
+  rocCurve: {
+    label: "ROC curve and AUC",
+    blurb:
+      "Score a diagnostic test against a binary 0/1 outcome. Sweeps every threshold to the ROC curve and reports the area under it (AUC) with a 95% confidence interval, plus the best cut point by Youden's J with its sensitivity and specificity.",
+    groupCount: "two",
+  },
   doseResponse: {
     label: "Dose-response curve",
     blurb:

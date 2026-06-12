@@ -215,6 +215,18 @@ export const LIFELINES: OracleRef = {
   url: "https://lifelines.readthedocs.io/",
 };
 
+export const SKLEARN: OracleRef = {
+  id: "sklearn",
+  name: "scikit-learn",
+  version: "1.9.0",
+  entrypoint: "sklearn.metrics.roc_auc_score and sklearn.metrics.roc_curve",
+  citation:
+    "Pedregosa et al. 2011, scikit-learn: machine learning in Python, "
+    + "JMLR 12:2825-2830; Hanley & McNeil 1982 for the AUC standard error and CI",
+  generator: "frontend/scripts/gen-datahub-stats-golden.py",
+  url: "https://scikit-learn.org/stable/modules/model_evaluation.html#roc-metrics",
+};
+
 /** Lookup by id, for resolving an oracle from a case's comparison. */
 export const ORACLES: Record<string, OracleRef> = {
   [BIOPYTHON.id]: BIOPYTHON,
@@ -236,4 +248,5 @@ export const ORACLES: Record<string, OracleRef> = {
   [STATSMODELS.id]: STATSMODELS,
   [PINGOUIN.id]: PINGOUIN,
   [LIFELINES.id]: LIFELINES,
+  [SKLEARN.id]: SKLEARN,
 };
