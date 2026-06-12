@@ -197,6 +197,30 @@ export interface Project {
   // written before this slice load unchanged, and `projectsStore.update`'s
   // spread-merge filters `undefined` so partial updates preserve it.
   funding_account_id?: number | null;
+  // VC Phase 3 (FLAG-revert_undo_window, Project): the 24h undo-restore window.
+  // Present only between a restore and either its undo or the window's expiry.
+  // Globally denylisted in canonicalize.ts (FLAG-2) so it never pollutes a
+  // delta. Absent on every project that was never restored. Mirrors Task / Note.
+  revert_undo_window?: RevertUndoWindow;
+  // Cross-boundary PROJECT sharing (v1, 2026-06-04): provenance stamp written
+  // when this project was materialized from a received project bundle. ALWAYS-NEW
+  // import lands a shared project as a FRESH project with remapped ids and this
+  // marker, so the UI can show "Imported from alex@lab on 2026-06-04" without
+  // inventing a live sharing relationship. Optional + additive: every project
+  // created the ordinary way (and every project written before this slice) omits
+  // it. It is the cheap seed a future merge-into-existing (P3) needs.
+  imported_from?: ProjectImportedFrom;
+  // Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): a stable
+  // cross-user identity for this record minted once at create time using
+  // crypto.randomUUID(). OPTIONAL + ADDITIVE: records written before Phase 6a
+  // simply lack this field; a lazy backfill in the read-boundary normalizer mints
+  // one and persists it the first time such a record is read (write-through,
+  // fire-and-forget). Never renames, never removes, never requires a hard cutover.
+  // Used by the Phase 6 share-with-dependencies bundle to resolve embedded objects
+  // by content identity instead of the sender's local numeric id. Natural-key
+  // types (molecule: InChIKey, sequence: content fingerprint) do NOT carry this
+  // field and are excluded from source_uuid handling.
+  source_uuid?: string;
 }
 
 export interface SubTask {
@@ -326,6 +350,75 @@ export interface Task {
   // back-fills on next write.
   last_edited_by?: string;
   last_edited_at?: string;
+  // VC Phase 3 (FLAG-revert_undo_window, Task): the 24h undo-restore window.
+  // Present only between a restore and either its undo or the window's expiry.
+  // Globally denylisted in canonicalize.ts (FLAG-2) so it never pollutes a
+  // delta. Absent on every task that was never restored. Mirrors Note's field.
+  revert_undo_window?: RevertUndoWindow;
+  // Cross-boundary EXPERIMENT sharing (provenance, 2026-06-04): verified-sender
+  // marker stamped ONLY on an experiment (task) imported from a received bundle,
+  // the same pattern as Note.received_from. Lets the experiment detail show
+  // "Received from {email}, verified" on the entity itself, not just at receive
+  // time, so a recipient can always tell a foreign experiment from their own.
+  // All three are OPTIONAL and additive, absent on every locally created task,
+  // on every locally file-imported experiment, and on every pre-existing record
+  // (graceful degradation, no migration). The cross-boundary receive path stamps
+  // them; the local export/import path never does. The send (collect) path does
+  // NOT carry them, so a re-shared experiment never leaks the importer's
+  // provenance back out.
+  received_from?: string;             // sender canonical email, set only on imported experiments
+  received_from_fingerprint?: string; // sender key fingerprint
+  received_at?: string;               // ISO 8601 timestamp of import
+  // Experiment-collab chunk 1 (FLAG: new Task field): the collab doc id for the
+  // experiment's Lab Notes document. Mirrors Note.collab_doc_id exactly. Written
+  // to the JSON record on import so the recipient's LabNotesTab can seed the
+  // Loro meta map with the correct id and auto-join the shared doc's relay room.
+  // ADDITIVE and backward-compatible: absent on every locally created task and
+  // every unshared experiment. The Loro sidecar (meta map collab_doc_id key) is
+  // the authoritative store; this JSON field is the bootstrap bridge for a
+  // freshly-imported experiment before its sidecar is written for the first time.
+  collab_doc_id?: string;
+  // Experiment-collab chunk 2 (FLAG: new Task field): the collab doc id for the
+  // experiment's Results document. A SEPARATE doc + relay room from Lab Notes,
+  // so it gets its own flat field rather than overloading collab_doc_id. Written
+  // to the JSON record on import so the recipient's ResultsTab can seed the
+  // Results Loro meta map with the correct id and auto-join that doc's relay
+  // room. ADDITIVE and backward-compatible: absent on every locally created task
+  // and every unshared experiment. The Results Loro sidecar (its own meta map
+  // collab_doc_id key) is the authoritative store; this JSON field is the
+  // bootstrap bridge for a freshly-imported experiment before its Results
+  // sidecar is written for the first time.
+  results_collab_doc_id?: string;
+  // Check-ins revamp Phase 2 (checkins-phase2 bot, 2026-06-12). See
+  // docs/proposals/checkins-revamp.md "Phase 2 build spec". The back-link from
+  // a D4-synced task to the check-in action item that spawned it. Present ONLY
+  // on a task materialized by the action-item -> Task sync; absent on every
+  // normal task. ADDITIVE + back-compat: `normalizeTaskRecord` defaults a
+  // missing value to undefined gracefully (it is read-only metadata, never
+  // user-edited). Denylisted in canonicalize.ts so it never pollutes a VC
+  // delta, mirroring `revert_undo_window`.
+  // Check-ins Phase 3 (checkins-phase3 bot, 2026-06-12) extends the union with
+  // the `idp_action` kind, the back-link from a Task materialized by an IDP
+  // action-plan row (D4-style sync, but the trainee owns BOTH the IDP and the
+  // task, so no cross-user write). Same field name, so the `source` denylist in
+  // canonicalize.ts still covers it without change.
+  source?:
+    | {
+        kind: "checkin_action_item";
+        one_on_one_id: string;
+        action_item_id: string;
+      }
+    | {
+        kind: "idp_action";
+        idp_id: string;
+        row_id: string;
+      }
+    | null;
+  // Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): see
+  // Project.source_uuid for the full contract. Experiments and list tasks share
+  // this field via the Task interface. Minted at create time; lazy-backfilled on
+  // read; never removed or renamed. ADDITIVE + back-compat.
+  source_uuid?: string;
 }
 
 export interface Dependency {
@@ -339,6 +432,13 @@ export interface Method {
   id: number;
   name: string;
   source_path: string | null;
+  // Optional path to a BUNDLED source PDF copied alongside a structured method
+  // when it was instantiated from a "kit" catalog template (Kit Phase 1). The
+  // structured `source_path` is unchanged; this is a best-effort attachment
+  // pointing at `methods/<slug>/source-<vendorFilename>.pdf` under the
+  // connected folder, decoded + rendered by the existing pdf-method viewer.
+  // Null / absent for every method not instantiated from a bundled-PDF kit.
+  source_pdf_path?: string | null;
   method_type: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "mass_spec" | "compound" | "coding_workflow" | "qpcr_analysis" | null;
   folder_path: string | null;
   parent_method_id: number | null;
@@ -358,12 +458,38 @@ export interface Method {
   // `frontend/src/lib/methods/compound-graph.ts` for cycle / depth /
   // orphan validation.
   components?: CompoundComponent[];
+  // Method Picker FLAG B (excerpt-field sub-bot of HR, 2026-05-30): short
+  // plain-text preview (<= 140 chars), stamped at save time so the picker
+  // card hero renders without a per-card file read. Derived from the
+  // markdown body via `deriveExcerptFromMarkdown` (lib/methods/excerpt.ts)
+  // for markdown methods, or the type-registry one-line summary for
+  // structured types; unset for PDF / compound. Optional + additive:
+  // records written before this field load unchanged and render the lazy
+  // file-read / registry-description fallback until their next save (lazy
+  // backfill, no migration). JsonStore writes unknown fields verbatim.
+  excerpt?: string;
   // VCP R3 attribution stamps (VCP R3 attribution stamps, 2026-05-26):
   // most-recent editor + when. `created_by` stays the original author
   // stamp; `last_edited_by` is purely the latest editor. Optional on
   // read for pre-R3 records; back-fills on next write.
   last_edited_by?: string;
   last_edited_at?: string;
+  // Cross-boundary METHOD sharing (provenance, 2026-06-04): verified-sender
+  // marker stamped ONLY on a method imported from a received bundle, the same
+  // pattern as Note.received_from / Task.received_from. Lets the method viewer
+  // show "Received from {email}, verified" on the entity itself, not just at
+  // receive time. All three are OPTIONAL and additive, absent on every locally
+  // created method, on every locally file-imported method, and on every
+  // pre-existing record (graceful degradation, no migration). Only the
+  // cross-boundary receive path stamps them; the send (collect) path does not
+  // carry them, so a re-shared method never leaks the importer's provenance out.
+  received_from?: string;             // sender canonical email, set only on imported methods
+  received_from_fingerprint?: string; // sender key fingerprint
+  received_at?: string;               // ISO 8601 timestamp of import
+  // Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): see
+  // Project.source_uuid for the full contract. Minted at create time; lazy-backfilled
+  // on read; never removed or renamed. ADDITIVE + back-compat.
+  source_uuid?: string;
 }
 
 export interface PCRStep {
@@ -503,8 +629,34 @@ export interface PurchaseItem {
   shipping_fees: number;
   total_price: number;
   notes: string | null;
-  funding_string: string | null;  // New field for funding account
+  // Funding link. `funding_account_id` is the AUTHORITATIVE foreign key to a
+  // FundingAccount.id (funding-rework, 2026-06-08). `funding_string` is kept as
+  // a denormalized display label (the account name at write time) for legacy
+  // records and quick rendering, but matching / spend rollups resolve by the id.
+  // Additive + optional: pre-rework records have no `funding_account_id`. The
+  // read mappers in local-api normalize it to `null`, so a value loaded through
+  // the API is always `number | null`; the raw on-disk record may omit it until
+  // the auto-migration backfills it by matching `funding_string` to an account
+  // name. Optional here (not bare `number | null`) so the many existing
+  // PurchaseItem fixtures / reconstructions stay valid, mirroring the other
+  // additive fields below (order_status, assigned_to, ...).
+  funding_account_id?: number | null;
+  funding_string: string | null;
   vendor: string | null;
+  // Vendor ordering / catalog number (audit fix, additive-fields). The
+  // reorder identifier a user types back into the vendor site, distinct from
+  // `cas` (the chemical identity). Additive + optional: old records without it
+  // normalize to null on read (purchasesApi.create + the Loro field map seed a
+  // null default).
+  catalog_number: string | null;
+  // Supplies v2 unified page (SUPPLIES_V2_UNIFIED.md, chunk 1). Optional link to
+  // the InventoryItem this purchase line is "on order" for, so the unified
+  // Supplies view can attach this open order to the right supply BEFORE receipt
+  // (the post-receipt direction is InventoryStock.purchase_item_id). Stamped by
+  // "Reorder" from a supply; null for ad-hoc purchases (resolved by identity
+  // match at view time) and for order-only things (flights/services). Additive +
+  // optional: old records normalize to null on read.
+  inventory_item_id?: number | null;
   category: string | null;
   // Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29):
   // username of the lab member who was asked to actually place this order.
@@ -551,15 +703,24 @@ export interface PurchaseItem {
   // Optional on read for pre-R3 records; back-fills on next write.
   last_edited_by?: string;
   last_edited_at?: string;
+  // Purchase documents (PURCHASE_DOCS_AND_ROUTING.md, 2026-06-10). Attached PDFs
+  // (order form / invoice / receipt) for grant-audit documentation. Additive +
+  // optional: old records without it normalize to an empty array on read (the
+  // Loro field map + purchasesApi.create seed []).
+  attachments?: PurchaseAttachment[];
 }
 
 export interface FundingAccount {
   id: number;
   name: string;
   description: string | null;
+  // The budget cap. Spend (and therefore "remaining") is NO LONGER stored
+  // (funding-rework, 2026-06-08): it is computed live from purchase line items
+  // via `computeFundingSpend` (lib/funding/spend.ts) wherever it is shown, so
+  // there is one source of truth and no stale on-disk counter to reconcile. The
+  // auto-migration strips the old `spent` / `remaining` fields from existing
+  // funding-account files.
   total_budget: number;
-  spent: number;
-  remaining: number;
   // Structured grant / award metadata (metadata implementation bot,
   // 2026-05-28). All optional + additive: funding-account files written
   // before this slice load unchanged (absent field = "not set"), and the
@@ -617,6 +778,59 @@ export interface Note {
   // on read for pre-R3 records; back-fills on next write.
   last_edited_by?: string;
   last_edited_at?: string;
+  // VC Phase 2 (FLAG-1): the 24h undo-restore window. Present only between a
+  // restore and either its undo or the window's expiry. Denylisted from the
+  // history canonical (FLAG-2) so it never pollutes a delta. Absent on every
+  // note that was never restored.
+  revert_undo_window?: RevertUndoWindow;
+  // Shared Notebooks Phase 1 (notebooks-data bot, 2026-06-02): when set, this
+  // note belongs to a shared 1:1 notebook (see `SharedNotebook`). The value is
+  // the notebook's globally-unique id. ABSENT = a personal note (unchanged
+  // behavior; the personal-notes path never sets this). A note carrying a
+  // `notebook_id` is always created with `shared_with` = both notebook members
+  // at level "edit" (via `pairingSharedWith`), so both members read AND edit
+  // it. Additive / back-compat: old notes read as `undefined` and stay
+  // personal.
+  notebook_id?: string;
+  // 1:1 revamp (oneonone data+strip bot, 2026-06-07). See
+  // docs/proposals/NOTEBOOKS_AND_ONE_ON_ONE_REVAMP.md. When set, this note
+  // belongs to a lab-head <-> member 1:1 (see `OneOnOne`), NOT a notebook. The
+  // value is the 1:1's globally-unique id. `notebook_id` and `one_on_one_id`
+  // are mutually exclusive: a note lives in a notebook OR a 1:1, never both.
+  // ABSENT = an ordinary note (unchanged). Notes carrying this are always
+  // created with `shared_with` = both 1:1 members at "edit", so both read +
+  // edit. Additive / back-compat: old notes read as `undefined`.
+  one_on_one_id?: string;
+  // 1:1 revamp: distinguishes a weekly MEETING note ("meeting") from a freeform
+  // SHARED note ("note") inside a 1:1. ABSENT on every ordinary (non-1:1) note.
+  // Read alongside `one_on_one_id`; meaningless without it.
+  note_kind?: "meeting" | "note";
+  // Cross-boundary sharing (note-transfer adapter, 2026-06-03): provenance
+  // marker stamped ONLY on notes imported from a received bundle (the locked
+  // design in docs/proposals/CROSS_BOUNDARY_SHARING_INBOX_DESIGN.md). They keep
+  // imported items traceable ("received from {email} on {date}") so a recipient
+  // never confuses a foreign note with their own. All three are OPTIONAL and
+  // additive, absent on every locally created note and on every pre-existing
+  // record (graceful degradation, same pattern as created_at above). The send
+  // (collect) path explicitly DROPS these from the shared entity so a re-shared
+  // note never leaks the importer's provenance back out.
+  received_from?: string;             // sender canonical email, set only on imported notes
+  received_from_fingerprint?: string; // sender key fingerprint
+  received_at?: string;               // ISO 8601 timestamp of import
+  // Phase 3c chunk 3a (FLAG: new Note field): the collab doc id that travels
+  // with the note when it is shared cross-boundary (see note-transfer.ts).
+  // Written to the JSON record on import so the recipient's NoteDetailPopup can
+  // seed the Loro meta map with the correct id and auto-join the shared doc's
+  // relay room. The value is a UUID string. ADDITIVE and backward-compatible:
+  // absent on all pre-existing notes and all unshared notes. The Loro sidecar
+  // is the authoritative store (collab_doc_id key in the meta map); this JSON
+  // field is the bootstrap bridge for newly-imported notes before the sidecar
+  // is written for the first time.
+  collab_doc_id?: string;
+  // Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): see
+  // Project.source_uuid for the full contract. Minted at create time; lazy-backfilled
+  // on read; never removed or renamed. ADDITIVE + back-compat.
+  source_uuid?: string;
 }
 
 export interface NoteEntry {
@@ -681,6 +895,14 @@ export interface Event {
    *  push back into events. Optional / nullable for backward compat with
    *  pre-S5 event records. */
   is_pto?: boolean | null;
+  /** Optional link to a task. `task_id` is the numeric id in the owner's
+   *  namespace; `task_owner` is that owner's username, so the pair forms the
+   *  composite "<owner>:<id>" key (matching `taskKey`) and resolves correctly
+   *  for shared tasks. Both null/absent means the event is not linked. Same
+   *  cross-owner linkage convention as purchase items and task notifications.
+   *  Optional / nullable for backward compat with pre-link event records. */
+  task_id?: number | null;
+  task_owner?: string | null;
 }
 
 export interface ExternalEvent {
@@ -1173,8 +1395,10 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 | Start Here | `/wiki/start-here` |
 | Quickstart | `/wiki` |
 | Getting Started | `/wiki/getting-started` |
+| Account tiers | `/wiki/getting-started/accounts` |
 | Browser Requirements | `/wiki/getting-started/browser-requirements` |
 | Connecting Your Folder | `/wiki/getting-started/connecting-your-folder` |
+| Converting to single-user | `/wiki/getting-started/converting-to-single-user` |
 | Creating a User | `/wiki/getting-started/creating-a-user` |
 | Welcome Tour (BeakerBot) | `/wiki/getting-started/welcome-wizard` |
 | Demo Mode | `/wiki/getting-started/demo-mode` |
@@ -1187,19 +1411,37 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 | Box | `/wiki/shared-lab-accounts/box` |
 | iCloud Drive | `/wiki/shared-lab-accounts/icloud` |
 | Features | `/wiki/features` |
-| Home & Projects | `/wiki/features/home` |
+| Where you land | `/wiki/features/home` |
 | Project Surface | `/wiki/features/projects` |
 | Gantt Chart | `/wiki/features/gantt` |
 | The Workbench | `/wiki/features/experiments` |
 | The Markdown Editor | `/wiki/features/markdown-editor` |
+| Version History | `/wiki/features/version-history` |
+| Use any AI with your data | `/wiki/features/ai-helper` |
 | Methods Library | `/wiki/features/methods` |
 | PCR Protocols | `/wiki/features/pcr` |
+| Template Library | `/wiki/features/method-catalog` |
+| Sequences | `/wiki/features/sequences` |
+| Data Hub | `/wiki/features/datahub` |
+| Chemistry | `/wiki/features/chemistry` |
+| Cloning | `/wiki/features/cloning` |
+| Restriction digest | `/wiki/features/restriction-digest` |
+| Lab calculators | `/wiki/features/lab-calculators` |
+| Image annotation | `/wiki/features/image-annotation` |
+| Companion | `/wiki/features/companion` |
+| Pairing | `/wiki/features/companion/pairing` |
+| Capture and route | `/wiki/features/companion/capture-and-route` |
+| Scanning handwritten notes | `/wiki/features/companion/scanning-notes` |
+| Today glance | `/wiki/features/companion/today-glance` |
+| View a method on your phone | `/wiki/features/companion/view-method` |
+| Inventory scanning | `/wiki/features/companion/inventory-scanning` |
 | Purchases & Funding | `/wiki/features/purchases` |
+| Cloud storage & plans | `/wiki/features/cloud-and-plans` |
+| Inventory | `/wiki/features/inventory` |
 | Calendar | `/wiki/features/calendar` |
 | Lab Overview | `/wiki/features/lab-overview` |
-| Widgets and Tools | `/wiki/features/lab-overview/widgets-and-tools` |
-| Customizable sidebar | `/wiki/features/lab-overview/customizable-sidebar` |
-| Snapshot tiles and expanded views | `/wiki/features/lab-overview/snapshot-tiles-and-expanded-views` |
+| Browse lab experiments | `/wiki/features/lab-experiments` |
+| Browse lab notes | `/wiki/features/lab-notes` |
 | Lab Inbox | `/wiki/features/lab-inbox` |
 | Comments | `/wiki/features/lab-inbox/comments` |
 | Announcements | `/wiki/features/lab-inbox/announcements` |
@@ -1207,6 +1449,7 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 | Edit session and password | `/wiki/features/lab-head/edit-session-and-password` |
 | Soft-write actions | `/wiki/features/lab-head/soft-write-actions` |
 | Audit log | `/wiki/features/lab-head/audit-log` |
+| Mentoring and check-ins | `/wiki/features/one-on-ones` |
 | Sharing and permissions | `/wiki/features/sharing-and-permissions` |
 | Search | `/wiki/features/search` |
 | Lab Links | `/wiki/features/links` |
@@ -1217,20 +1460,24 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 | Notifications & Inbox | `/wiki/features/notifications` |
 | Feedback | `/wiki/features/feedback` |
 | Integrations | `/wiki/integrations` |
-| Telegram Bot | `/wiki/integrations/telegram` |
 | Calendar Feeds | `/wiki/integrations/calendar-feeds` |
 | LabArchives | `/wiki/integrations/labarchives` |
 | Compliance | `/wiki/compliance` |
 | NIH Data Management & Sharing | `/wiki/compliance/nih-data-management` |
 | ResearchOS vs LabArchives | `/wiki/compliance/labarchives-comparison` |
+| Depositing to a repository | `/wiki/compliance/depositing-to-a-repository` |
 | Security | `/wiki/security` |
+| Trust | `/wiki/trust` |
+| Method validation | `/wiki/trust/method-validation` |
+| Open source and license | `/wiki/trust/open-source` |
+| How it stays free | `/wiki/trust/how-we-fund-it` |
 
 ## §11 Build metadata
 
 - **Variant:** `lean`
-- **Helper version:** `18`
-- **Schema hash:** `6ada322f6537cbe77c3c63b908ef3a787b4035702f40bc099ab7ada128151196`
-- **Built at:** `2026-05-29T18:17:32.252Z`
-- **Built from commit:** `fa0ffacf584917266de6286b17652a308634509b`
+- **Helper version:** `20`
+- **Schema hash:** `83558711b470158db50ad289887329e0babf72ec9941755c869800ac652fe280`
+- **Built at:** `2026-06-12T07:01:10.630Z`
+- **Built from commit:** `e23a032d092bfb37a75abf591b983aba02632399`
 
 _Generated by `scripts/build-ai-helper.mjs`. Do not edit by hand — run `npm run --prefix frontend ai-helper:refresh` to rebuild and commit._

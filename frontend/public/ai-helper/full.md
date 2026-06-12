@@ -521,6 +521,46 @@ export interface Project {
   // written before this slice load unchanged, and `projectsStore.update`'s
   // spread-merge filters `undefined` so partial updates preserve it.
   funding_account_id?: number | null;
+  // VC Phase 3 (FLAG-revert_undo_window, Project): the 24h undo-restore window.
+  // Present only between a restore and either its undo or the window's expiry.
+  // Globally denylisted in canonicalize.ts (FLAG-2) so it never pollutes a
+  // delta. Absent on every project that was never restored. Mirrors Task / Note.
+  revert_undo_window?: RevertUndoWindow;
+  // Cross-boundary PROJECT sharing (v1, 2026-06-04): provenance stamp written
+  // when this project was materialized from a received project bundle. ALWAYS-NEW
+  // import lands a shared project as a FRESH project with remapped ids and this
+  // marker, so the UI can show "Imported from alex@lab on 2026-06-04" without
+  // inventing a live sharing relationship. Optional + additive: every project
+  // created the ordinary way (and every project written before this slice) omits
+  // it. It is the cheap seed a future merge-into-existing (P3) needs.
+  imported_from?: ProjectImportedFrom;
+  // Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): a stable
+  // cross-user identity for this record minted once at create time using
+  // crypto.randomUUID(). OPTIONAL + ADDITIVE: records written before Phase 6a
+  // simply lack this field; a lazy backfill in the read-boundary normalizer mints
+  // one and persists it the first time such a record is read (write-through,
+  // fire-and-forget). Never renames, never removes, never requires a hard cutover.
+  // Used by the Phase 6 share-with-dependencies bundle to resolve embedded objects
+  // by content identity instead of the sender's local numeric id. Natural-key
+  // types (molecule: InChIKey, sequence: content fingerprint) do NOT carry this
+  // field and are excluded from source_uuid handling.
+  source_uuid?: string;
+}
+
+/**
+ * Provenance for a project that arrived via cross-boundary sharing. Set once at
+ * import time and never edited. `sender` is the recipient's best-known label for
+ * the sender (the verified email when the relay bundle carried one, else a short
+ * key-hash label). `source_project_name` preserves the sender's original project
+ * name even after the local copy is renamed to dodge a collision. `source_grant`
+ * carries the source funding-account NAME for reference (the grant LINK itself is
+ * dropped on share, design Q4), null/undefined when the source had none.
+ */
+export interface ProjectImportedFrom {
+  sender: string;
+  imported_at: string; // ISO timestamp
+  source_project_name: string;
+  source_grant?: string | null;
 }
 
 export interface ProjectCreate {
@@ -534,6 +574,11 @@ export interface ProjectCreate {
   sort_order?: number;
   // Project -> grant link — see Project.funding_account_id.
   funding_account_id?: number | null;
+  // Cross-boundary PROJECT sharing (v1): provenance stamp for a project
+  // materialized from a received bundle. Only the project-import path sets it;
+  // ordinary creates leave it off (absent = not imported). See
+  // Project.imported_from.
+  imported_from?: ProjectImportedFrom;
 }
 
 export interface ProjectUpdate {
@@ -551,6 +596,36 @@ export interface ProjectUpdate {
   last_edited_at?: string;
   // Project -> grant link — see Project.funding_account_id. `null` clears
   // the link; a number sets it.
+  funding_account_id?: number | null;
+  // VC Phase 3 (FLAG-revert_undo_window, Project): the undo-restore window. Set
+  // (object) on a restore; CLEARED (`null`) on an undo. `projectsApi.update`
+  // deletes the key on `null` so the live project carries no lingering field.
+  // Denylisted (FLAG-2). Mirrors TaskUpdate / NoteUpdate exactly.
+  revert_undo_window?: RevertUndoWindow | null;
+}
+
+/**
+ * VC Phase 3 (FLAG-revert_undo_window, Project): the full-tracked-state payload
+ * a restore / undo writes. Superset of ProjectUpdate with every structural field
+ * the canonical tracks, so `projectsApi.update` overwrites the live project to
+ * exactly the target version. Distinct type (not a ProjectUpdate widening)
+ * mirroring TaskRestorePayload / NoteRestorePayload: the restore handler
+ * assembles this from the reconstructed canonical and passes it through
+ * projectsApi.update; the partial-merge store keys on the runtime object so the
+ * structural fields persist. Field types match ProjectUpdate (no widening) so
+ * the override is assignable; the actual runtime values flow in through the
+ * generic `Record<string, unknown>` restore payload, which may carry the on-disk
+ * `tags: null` / `color: null` shapes the partial-merge store accepts verbatim.
+ */
+export interface ProjectRestorePayload extends ProjectUpdate {
+  name?: string;
+  weekend_active?: boolean;
+  tags?: string[];
+  color?: string;
+  sort_order?: number;
+  is_archived?: boolean;
+  archived_at?: string | null;
+  is_hidden?: boolean;
   funding_account_id?: number | null;
 }
 
@@ -676,6 +751,75 @@ export interface Task {
   // back-fills on next write.
   last_edited_by?: string;
   last_edited_at?: string;
+  // VC Phase 3 (FLAG-revert_undo_window, Task): the 24h undo-restore window.
+  // Present only between a restore and either its undo or the window's expiry.
+  // Globally denylisted in canonicalize.ts (FLAG-2) so it never pollutes a
+  // delta. Absent on every task that was never restored. Mirrors Note's field.
+  revert_undo_window?: RevertUndoWindow;
+  // Cross-boundary EXPERIMENT sharing (provenance, 2026-06-04): verified-sender
+  // marker stamped ONLY on an experiment (task) imported from a received bundle,
+  // the same pattern as Note.received_from. Lets the experiment detail show
+  // "Received from {email}, verified" on the entity itself, not just at receive
+  // time, so a recipient can always tell a foreign experiment from their own.
+  // All three are OPTIONAL and additive, absent on every locally created task,
+  // on every locally file-imported experiment, and on every pre-existing record
+  // (graceful degradation, no migration). The cross-boundary receive path stamps
+  // them; the local export/import path never does. The send (collect) path does
+  // NOT carry them, so a re-shared experiment never leaks the importer's
+  // provenance back out.
+  received_from?: string;             // sender canonical email, set only on imported experiments
+  received_from_fingerprint?: string; // sender key fingerprint
+  received_at?: string;               // ISO 8601 timestamp of import
+  // Experiment-collab chunk 1 (FLAG: new Task field): the collab doc id for the
+  // experiment's Lab Notes document. Mirrors Note.collab_doc_id exactly. Written
+  // to the JSON record on import so the recipient's LabNotesTab can seed the
+  // Loro meta map with the correct id and auto-join the shared doc's relay room.
+  // ADDITIVE and backward-compatible: absent on every locally created task and
+  // every unshared experiment. The Loro sidecar (meta map collab_doc_id key) is
+  // the authoritative store; this JSON field is the bootstrap bridge for a
+  // freshly-imported experiment before its sidecar is written for the first time.
+  collab_doc_id?: string;
+  // Experiment-collab chunk 2 (FLAG: new Task field): the collab doc id for the
+  // experiment's Results document. A SEPARATE doc + relay room from Lab Notes,
+  // so it gets its own flat field rather than overloading collab_doc_id. Written
+  // to the JSON record on import so the recipient's ResultsTab can seed the
+  // Results Loro meta map with the correct id and auto-join that doc's relay
+  // room. ADDITIVE and backward-compatible: absent on every locally created task
+  // and every unshared experiment. The Results Loro sidecar (its own meta map
+  // collab_doc_id key) is the authoritative store; this JSON field is the
+  // bootstrap bridge for a freshly-imported experiment before its Results
+  // sidecar is written for the first time.
+  results_collab_doc_id?: string;
+  // Check-ins revamp Phase 2 (checkins-phase2 bot, 2026-06-12). See
+  // docs/proposals/checkins-revamp.md "Phase 2 build spec". The back-link from
+  // a D4-synced task to the check-in action item that spawned it. Present ONLY
+  // on a task materialized by the action-item -> Task sync; absent on every
+  // normal task. ADDITIVE + back-compat: `normalizeTaskRecord` defaults a
+  // missing value to undefined gracefully (it is read-only metadata, never
+  // user-edited). Denylisted in canonicalize.ts so it never pollutes a VC
+  // delta, mirroring `revert_undo_window`.
+  // Check-ins Phase 3 (checkins-phase3 bot, 2026-06-12) extends the union with
+  // the `idp_action` kind, the back-link from a Task materialized by an IDP
+  // action-plan row (D4-style sync, but the trainee owns BOTH the IDP and the
+  // task, so no cross-user write). Same field name, so the `source` denylist in
+  // canonicalize.ts still covers it without change.
+  source?:
+    | {
+        kind: "checkin_action_item";
+        one_on_one_id: string;
+        action_item_id: string;
+      }
+    | {
+        kind: "idp_action";
+        idp_id: string;
+        row_id: string;
+      }
+    | null;
+  // Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): see
+  // Project.source_uuid for the full contract. Experiments and list tasks share
+  // this field via the Task interface. Minted at create time; lazy-backfilled on
+  // read; never removed or renamed. ADDITIVE + back-compat.
+  source_uuid?: string;
 }
 
 /**
@@ -822,6 +966,40 @@ export interface TaskUpdate {
   // usually omit; the write path overwrites whatever is supplied.
   last_edited_by?: string;
   last_edited_at?: string;
+  // VC Phase 3 (FLAG-revert_undo_window, Task): the undo-restore window. Set
+  // (object) on a restore; CLEARED (`null`) on an undo. `tasksApi.update`
+  // deletes the key on `null` so the live task carries no lingering field.
+  // Denylisted (FLAG-2). Mirrors NoteUpdate's field exactly.
+  revert_undo_window?: RevertUndoWindow | null;
+}
+
+/**
+ * VC Phase 3 (FLAG-revert_undo_window, Task): the full-tracked-state payload a
+ * restore / undo writes. Superset of TaskUpdate with every structural field the
+ * canonical tracks, so `tasksApi.update` overwrites the live task to exactly the
+ * target version. Distinct type (not a TaskUpdate widening) mirroring
+ * NoteRestorePayload: the restore handler assembles this from the reconstructed
+ * canonical and passes it through tasksApi.update; the partial-merge store keys
+ * on the runtime object so the structural fields persist.
+ */
+export interface TaskRestorePayload extends TaskUpdate {
+  name?: string;
+  start_date?: string;
+  duration_days?: number;
+  is_high_level?: boolean;
+  is_complete?: boolean;
+  task_type?: "experiment" | "purchase" | "list";
+  weekend_override?: boolean | null;
+  method_ids?: number[];
+  deviation_log?: string | null;
+  tags?: string[];
+  sort_order?: number;
+  experiment_color?: string | null;
+  sub_tasks?: SubTask[];
+  method_attachments?: TaskMethodAttachment[];
+  external_project?: ExternalProjectRef | null;
+  assignee?: string | null;
+  flagged?: PiFlag | null;
 }
 
 export interface TaskMoveRequest {
@@ -925,6 +1103,13 @@ export interface Method {
   id: number;
   name: string;
   source_path: string | null;
+  // Optional path to a BUNDLED source PDF copied alongside a structured method
+  // when it was instantiated from a "kit" catalog template (Kit Phase 1). The
+  // structured `source_path` is unchanged; this is a best-effort attachment
+  // pointing at `methods/<slug>/source-<vendorFilename>.pdf` under the
+  // connected folder, decoded + rendered by the existing pdf-method viewer.
+  // Null / absent for every method not instantiated from a bundled-PDF kit.
+  source_pdf_path?: string | null;
   method_type: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "mass_spec" | "compound" | "coding_workflow" | "qpcr_analysis" | null;
   folder_path: string | null;
   parent_method_id: number | null;
@@ -944,17 +1129,48 @@ export interface Method {
   // `frontend/src/lib/methods/compound-graph.ts` for cycle / depth /
   // orphan validation.
   components?: CompoundComponent[];
+  // Method Picker FLAG B (excerpt-field sub-bot of HR, 2026-05-30): short
+  // plain-text preview (<= 140 chars), stamped at save time so the picker
+  // card hero renders without a per-card file read. Derived from the
+  // markdown body via `deriveExcerptFromMarkdown` (lib/methods/excerpt.ts)
+  // for markdown methods, or the type-registry one-line summary for
+  // structured types; unset for PDF / compound. Optional + additive:
+  // records written before this field load unchanged and render the lazy
+  // file-read / registry-description fallback until their next save (lazy
+  // backfill, no migration). JsonStore writes unknown fields verbatim.
+  excerpt?: string;
   // VCP R3 attribution stamps (VCP R3 attribution stamps, 2026-05-26):
   // most-recent editor + when. `created_by` stays the original author
   // stamp; `last_edited_by` is purely the latest editor. Optional on
   // read for pre-R3 records; back-fills on next write.
   last_edited_by?: string;
   last_edited_at?: string;
+  // Cross-boundary METHOD sharing (provenance, 2026-06-04): verified-sender
+  // marker stamped ONLY on a method imported from a received bundle, the same
+  // pattern as Note.received_from / Task.received_from. Lets the method viewer
+  // show "Received from {email}, verified" on the entity itself, not just at
+  // receive time. All three are OPTIONAL and additive, absent on every locally
+  // created method, on every locally file-imported method, and on every
+  // pre-existing record (graceful degradation, no migration). Only the
+  // cross-boundary receive path stamps them; the send (collect) path does not
+  // carry them, so a re-shared method never leaks the importer's provenance out.
+  received_from?: string;             // sender canonical email, set only on imported methods
+  received_from_fingerprint?: string; // sender key fingerprint
+  received_at?: string;               // ISO 8601 timestamp of import
+  // Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): see
+  // Project.source_uuid for the full contract. Minted at create time; lazy-backfilled
+  // on read; never removed or renamed. ADDITIVE + back-compat.
+  source_uuid?: string;
 }
 
 export interface MethodCreate {
   name: string;
   source_path?: string | null;
+  // Kit Phase 1: optional bundled source-PDF path attached to a structured
+  // method instantiated from a kit template. Threads through
+  // `methodsApi.create` (which spreads the create payload onto the stored
+  // record). Omit / null for non-kit creates.
+  source_pdf_path?: string | null;
   method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "mass_spec" | "compound" | "coding_workflow" | "qpcr_analysis";
   folder_path?: string | null;
   parent_method_id?: number | null;
@@ -976,18 +1192,432 @@ export interface MethodCreate {
    */
   is_public?: boolean;
   components?: CompoundComponent[];
+  // Method Picker FLAG B — stamped excerpt preview (see Method.excerpt).
+  // Spread onto the stored record by `methodsApi.create`. Set by the
+  // markdown create site (derived from the body) and the structured
+  // create branches (the type-registry summary); omitted for PDF / compound.
+  excerpt?: string;
 }
 
 export interface MethodUpdate {
   name?: string;
   source_path?: string | null;
+  // Kit Phase 1: optional bundled source-PDF path (see Method.source_pdf_path).
+  source_pdf_path?: string | null;
   method_type?: "markdown" | "pdf" | "pcr" | "lc_gradient" | "plate" | "cell_culture" | "mass_spec" | "compound" | "coding_workflow" | "qpcr_analysis" | null;
   folder_path?: string | null;
   parent_method_id?: number | null;
   tags?: string[];
   is_public?: boolean;
   components?: CompoundComponent[];
+  // Method Picker FLAG B — re-stamped excerpt preview (see Method.excerpt).
+  // Set by the markdown source-body edit/save site so the picker hero stays
+  // current with the latest body. Spread onto the record by
+  // `methodsApi.update` (which only filters `undefined`).
+  excerpt?: string;
   // VCP R3 — optional; auto-stamped by `methodsApi.update`.
+  last_edited_by?: string;
+  last_edited_at?: string;
+}
+
+// ── Inventory (v1 data layer) ────────────────────────────────────────────────
+//
+// Inventory chunk 1 (inventory-chunk1 sub-bot of HR, 2026-06-07). The catalog
+// item / stock-instance split from `plans/INVENTORY_DESIGN.md` (v2, decisions
+// resolved 2026-06-07). Two records ship in v1: `InventoryItem` (what a thing
+// IS) and `InventoryStock` (the physical containers of it). `StorageNode` (v2),
+// the registry blobs (v3), and `InventoryConsumption` (v4) are deferred and NOT
+// declared here.
+//
+// The design's heart (design §2) is maintenance realism: the spine is a COUNT
+// of containers (`container_count`), not a volume ledger. `amount_per_container`
+// / `unit` are optional and inert unless `track_consumption` is on. The
+// low-stock signal is count-based (`low_at_count`). `status` is derived-and-
+// persisted (design §5.2), recomputed on every write by `deriveInventoryStatus`.
+//
+// FLAGs landing here: FLAG-1 / FLAG-2 / FLAG-3 (entities, paths, types),
+// FLAG-5 (the count-first / status-first / opt-in fields), and the barcode
+// FLAG-B1 (`product_barcode`) / FLAG-B2 (`container_code`). All signed off in
+// design §11 + §15.7. Every field is additive; legacy / absent fields lazy-
+// normalize on read via `normalizeInventoryItemRecord` /
+// `normalizeInventoryStockRecord` in `local-api.ts`.
+
+export type InventoryCategory =
+  | "reagent" // generic chemical / consumable (default)
+  | "antibody" // registry-extended (v3)
+  | "plasmid" // registry-extended (v3)
+  | "enzyme"
+  | "primer"
+  | "cell_line"
+  | "strain"
+  | "kit"
+  | "equipment" // v3+; instances are single, no count semantics
+  | "other";
+
+/** Coarse one-tap-or-derived stock status (design §5.2). */
+export type InventoryStockStatus = "in_stock" | "low" | "empty" | "expired";
+
+/**
+ * `PlasmidRegistry` — the typed fields for a `category: "plasmid"` item
+ * (design §7.1). All fields optional/nullable so a freshly-typed plasmid (or a
+ * legacy plasmid with no registry) stays valid. The sequence file is a path
+ * string only in v3 (no attach / download / map UI; that is the sequence
+ * editor's territory).
+ */
+export interface PlasmidRegistry {
+  backbone?: string | null; // "pUC19", "pET-28a"
+  insert?: string | null; // gene / fragment cloned in
+  resistance?: string | null; // "Ampicillin", "Kanamycin"
+  bacterial_host?: string | null; // "DH5-alpha"
+  size_bp?: number | null;
+  source?: string | null; // Addgene #, collaborator, "in-house"
+  addgene_id?: string | null;
+  sequence_file_path?: string | null; // path to a .gb/.fasta/.dna in the data folder
+  map_notes?: string | null; // free-text feature list as a stopgap
+}
+
+/**
+ * `AntibodyRegistry` — the typed fields for a `category: "antibody"` item
+ * (design §7.2). All fields optional/nullable. `applications` is the multi-pick
+ * WB/IF/IHC/FACS set, `rrid` + dilution feed the planned Western blot / IHC
+ * method types later.
+ */
+export interface AntibodyRegistry {
+  target?: string | null; // antigen, "beta-actin"
+  host_species?: string | null; // "Rabbit", "Mouse"
+  clonality?: "monoclonal" | "polyclonal" | null;
+  clone?: string | null; // clone id for monoclonals
+  conjugate?: string | null; // "HRP", "AlexaFluor-488", "unconjugated"
+  isotype?: string | null; // "IgG1"
+  reactivity?: string | null; // species reactivity "Human, Mouse"
+  applications?: string[] | null; // ["WB", "IF", "IHC", "FACS"]
+  rrid?: string | null; // antibody RRID for reproducibility
+  recommended_dilution?: string | null; // "1:1000 (WB)"
+}
+
+/** The category-specific structured blob hung off an `InventoryItem.registry`
+ *  (design §7). v3 ships Plasmid + Antibody; later registries are new shapes. */
+export type InventoryRegistry = PlasmidRegistry | AntibodyRegistry;
+
+/**
+ * `InventoryItem` — the catalog item: what a thing IS (design §5.1).
+ *
+ * Shares the shareable shape (`owner` / `shared_with`) and the VCP attribution
+ * stamps with Method / Task / Note. New records default `shared_with` to
+ * whole-lab edit (`[{ username: "*", level: "edit" }]`) per design §6.1.
+ */
+export interface InventoryItem {
+  id: number;
+  name: string; // "Q5 High-Fidelity DNA Polymerase"
+  category: InventoryCategory; // drives which extra fields render (v3)
+  catalog_number: string | null;
+  vendor: string | null;
+  cas: string | null; // chemicals; reuse the Purchases field name
+  url: string | null; // product page (mirrors PurchaseItem.link)
+  container_label: string | null; // display word for the count: "vial" | "tube" | "bottle" | "plate" | "box". Default "container".
+  // Chemical-safety + EHS reporting fields (audit fix, additive-fields).
+  // Manual entry only, no auto-lookup. `storage_class` is the hazard /
+  // storage category (free text, e.g. "Flammable", "Corrosive"); `hazard_note`
+  // is a short handling reminder; `sds_url` links the safety data sheet.
+  // All additive + optional: legacy records normalize to null on read.
+  storage_class: string | null;
+  hazard_note: string | null;
+  sds_url: string | null;
+  notes: string | null;
+
+  // Low-stock policy is COUNT-BASED by default (design §2.3). Flags low when the
+  // summed container_count across this item's stocks drops below low_at_count.
+  low_at_count: number | null; // null = no auto low-stock flag; unit is "containers"
+
+  // OPT-IN precise consumption (design §2.6). Default false. When true, this
+  // item's stocks expose the volume/amount field and the deduct workflow (v4).
+  track_consumption?: boolean; // default false
+
+  // Manufacturer UPC / EAN / GTIN, shared by every container of this product
+  // (design §15.1, FLAG-B1). Drives scan-to-identify. Optional.
+  product_barcode: string | null;
+
+  // Optional category-specific structured blob (design §7). v3. Holds a
+  // PlasmidRegistry (category "plasmid") or AntibodyRegistry (category
+  // "antibody"); null / absent for every other category. Optional so legacy
+  // items with no registry stay valid; lazy-normalized to null on read.
+  registry?: InventoryRegistry | null;
+
+  // Sharing + attribution (identical to Method).
+  owner: string;
+  shared_with: SharedUser[];
+  created_by: string | null;
+  last_edited_by?: string;
+  last_edited_at?: string;
+  is_shared_with_me?: boolean; // read-time overlay, never persisted
+  shared_permission?: "view" | "edit";
+
+  tags?: string[] | null;
+}
+
+export interface InventoryItemCreate {
+  name: string;
+  category?: InventoryCategory; // default "reagent"
+  catalog_number?: string | null;
+  vendor?: string | null;
+  cas?: string | null;
+  url?: string | null;
+  container_label?: string | null;
+  // Chemical-safety + EHS reporting fields (audit fix, additive-fields).
+  storage_class?: string | null;
+  hazard_note?: string | null;
+  sds_url?: string | null;
+  notes?: string | null;
+  low_at_count?: number | null;
+  track_consumption?: boolean;
+  product_barcode?: string | null;
+  registry?: InventoryRegistry | null;
+  tags?: string[] | null;
+  /** New records default to whole-lab edit when omitted (design §6.1). Pass
+   *  `[]` for a private item, or an explicit list. */
+  shared_with?: SharedUser[];
+  created_by?: string | null;
+}
+
+export interface InventoryItemUpdate {
+  name?: string;
+  category?: InventoryCategory;
+  catalog_number?: string | null;
+  vendor?: string | null;
+  cas?: string | null;
+  url?: string | null;
+  container_label?: string | null;
+  // Chemical-safety + EHS reporting fields (audit fix, additive-fields).
+  storage_class?: string | null;
+  hazard_note?: string | null;
+  sds_url?: string | null;
+  notes?: string | null;
+  low_at_count?: number | null;
+  track_consumption?: boolean;
+  product_barcode?: string | null;
+  registry?: InventoryRegistry | null;
+  tags?: string[] | null;
+  shared_with?: SharedUser[];
+  // Auto-stamped by `inventoryItemsApi.update`.
+  last_edited_by?: string;
+  last_edited_at?: string;
+}
+
+/**
+ * `InventoryStock` — the stock: the physical containers of one item
+ * (design §5.2). One `InventoryItem` has many `InventoryStock`. This is where
+ * the maintenance-realism reframe is concentrated: `container_count` is the
+ * spine; `amount_per_container` / `unit` are optional and inert; `status` is
+ * derived-and-persisted by `deriveInventoryStatus`.
+ */
+export interface InventoryStock {
+  id: number;
+  item_id: number; // FK -> InventoryItem.id (same owner)
+  lot_number: string | null;
+
+  // --- PRIMARY quantity: a COUNT of physical containers (design §2.2) ---
+  container_count: number; // e.g. 3 (vials). Changed only when a container is finished or arrives.
+
+  // --- COARSE status, one-tap or auto-flipped (design §2.3, derived-and-persisted) ---
+  status: InventoryStockStatus;
+
+  // --- ZERO-UPKEEP date signals (design §2.4) ---
+  received_date: string | null; // ISO; auto-stamped at Purchases-receive
+  expiration_date: string | null; // ISO; drives "expiring soon" forever, entered once
+  opened_date: string | null; // some reagents expire N days after opening
+  last_touched_at: string | null; // ISO; auto-stamped on any edit; drives "stale" signal
+
+  // --- OPTIONAL precise amount, NEVER required, NEVER the default low-stock basis ---
+  // A label on each container ("1 mL", "100 ug"), not a ledger. Only surfaced /
+  // decremented when item.track_consumption === true (design §2.6, v4).
+  amount_per_container: number | null;
+  unit: string | null; // "uL", "mg", "vial", "rxn"; null when count-only
+  concentration: string | null; // free text "10 uM", "5 mg/mL"
+
+  // --- Location: one stock sits in at most one box position (or unplaced) ---
+  location_text: string | null; // v1 stopgap free-text "-80 door, left"
+  location_node_id: number | null; // v2+: FK -> StorageNode.id (the box), null = unplaced
+  position: string | null; // v2+: "A1" cell id inside that box
+
+  // --- Provenance back to the order ledger (design §8.1) ---
+  purchase_item_id: number | null; // FK -> PurchaseItem.id when received from an order
+
+  // Per-container code: a lab-applied label or generated QR id identifying THIS
+  // specific container set / lot (design §15.1, FLAG-B2). Optional.
+  container_code: string | null;
+
+  // --- UNITS-PER-SCAN ledger (scan-manager, 2026-06-08) ---
+  // When `units_per_scan` is set, a single barcode scan deducts `units_per_scan`
+  // from `units_remaining` instead of decrementing `container_count` by 1.
+  // When `units_per_scan` is absent, the existing container-count path is used
+  // unchanged so all legacy stocks behave exactly as before.
+  //
+  // `units_per_scan` — how many discrete units (reactions, mL, etc.) one scan
+  //   consumes from this stock. Must be a positive integer when set.
+  // `units_remaining` — the live ledger of units left. Initialized to the total
+  //   units in the box when the lab registers the stock for tracked scanning via
+  //   `registerTrackedBarcode`. Clamped at 0; never goes negative. Status
+  //   derivation treats 0 units_remaining as empty, and units_remaining below
+  //   the item's low_at_count threshold (in units) as low.
+  units_per_scan?: number;
+  units_remaining?: number;
+
+  // FLAG (scan-manager web sub-bot, 2026-06-08): NEW ADDITIVE FIELD.
+  // `scan_unit_label` is the human label for the unit consumed per scan
+  // (e.g. "tip", "rxn", "mL", "tablet"). It is distinct from `unit`
+  // (which is the amount-per-container label like "uL" or "mg" and belongs
+  // to the precise-consumption ledger) and from `container_label` on
+  // InventoryItem (which labels the container TYPE, not what each scan
+  // deducts). The mobile deduct UI shows this label next to the remaining
+  // count: "47 tips remaining". Optional and additive: absent on every
+  // pre-existing stock record (lazy-normalize to null). Written by the
+  // mobile "register tracker" flow via the mark-arrived action handler.
+  scan_unit_label?: string | null;
+
+  notes: string | null;
+
+  owner: string; // always equals the parent item's owner
+  shared_with: SharedUser[]; // inherits the item's sharing (kept in sync)
+  created_by: string | null;
+  last_edited_by?: string;
+  last_edited_at?: string;
+  is_shared_with_me?: boolean; // read-time overlay, never persisted
+  shared_permission?: "view" | "edit";
+}
+
+export interface InventoryStockCreate {
+  item_id: number;
+  lot_number?: string | null;
+  container_count?: number; // default 1 (design §13 Q2: status-only stocks allowed)
+  /** Optional override; normally derived by `deriveInventoryStatus` on write.
+   *  Pass `"low"` / `"empty"` to record a manual tap (design §5.2). */
+  status?: InventoryStockStatus;
+  received_date?: string | null;
+  expiration_date?: string | null;
+  opened_date?: string | null;
+  last_touched_at?: string | null;
+  amount_per_container?: number | null;
+  unit?: string | null;
+  concentration?: string | null;
+  location_text?: string | null;
+  location_node_id?: number | null;
+  position?: string | null;
+  purchase_item_id?: number | null;
+  container_code?: string | null;
+  units_per_scan?: number;
+  units_remaining?: number;
+  // See InventoryStock.scan_unit_label for the full FLAG note.
+  scan_unit_label?: string | null;
+  notes?: string | null;
+  /** Defaults to the parent item's `shared_with` when omitted (design §5.2:
+   *  a stock inherits the item's sharing). Falls back to whole-lab edit. */
+  shared_with?: SharedUser[];
+  created_by?: string | null;
+}
+
+export interface InventoryStockUpdate {
+  item_id?: number;
+  lot_number?: string | null;
+  container_count?: number;
+  /** A directly-tapped status (design §5.2). `"low"` / `"empty"` are honored
+   *  as a manual tap and NOT clobbered by an `in_stock` recompute. */
+  status?: InventoryStockStatus;
+  received_date?: string | null;
+  expiration_date?: string | null;
+  opened_date?: string | null;
+  last_touched_at?: string | null;
+  amount_per_container?: number | null;
+  unit?: string | null;
+  concentration?: string | null;
+  location_text?: string | null;
+  location_node_id?: number | null;
+  position?: string | null;
+  purchase_item_id?: number | null;
+  container_code?: string | null;
+  units_per_scan?: number;
+  units_remaining?: number;
+  // See InventoryStock.scan_unit_label for the full FLAG note.
+  scan_unit_label?: string | null;
+  notes?: string | null;
+  shared_with?: SharedUser[];
+  // Auto-stamped by `inventoryStocksApi.update`.
+  last_edited_by?: string;
+  last_edited_at?: string;
+}
+
+/**
+ * `StorageNodeKind` — the label on a generic container node (design §5.3).
+ * Mirrors eLabNext's "any unit type, any depth": we do NOT hard-code a fixed
+ * freezer/shelf/rack schema; a node carries a `kind` for display and only
+ * `box` nodes carry grid dims.
+ */
+export type StorageNodeKind =
+  | "room"
+  | "freezer"
+  | "fridge"
+  | "ln2"
+  | "cabinet"
+  | "shelf"
+  | "rack"
+  | "drawer"
+  | "tower"
+  | "box"
+  | "other";
+
+/**
+ * `StorageNode` — the location tree (design §5.3). A single recursive
+ * container model (room -> freezer -> ... -> box). The tree is just
+ * `parent_id` links; depth is unbounded. Only `box` nodes carry `box_rows` /
+ * `box_cols` for the box map; positions are NOT stored on the node (an
+ * `InventoryStock` owns its `location_node_id` + `position`). Sharing +
+ * attribution mirror `InventoryItem` exactly; the location tree is typically
+ * whole-lab shared.
+ */
+export interface StorageNode {
+  id: number;
+  name: string; // "-80 #2", "Shelf 3", "Box: Q5 enzymes"
+  kind: StorageNodeKind;
+  parent_id: number | null; // null = top-level (a room or standalone freezer)
+  temperature: string | null; // "-80 C", "4 C", "RT" — free text, display only
+
+  // ONLY meaningful when kind === "box": the grid dims for the box map.
+  box_rows: number | null; // e.g. 9
+  box_cols: number | null; // e.g. 9
+
+  notes: string | null;
+
+  owner: string;
+  shared_with: SharedUser[]; // the location tree is typically whole-lab shared
+  created_by: string | null;
+  last_edited_by?: string;
+  last_edited_at?: string;
+  is_shared_with_me?: boolean; // read-time overlay, never persisted
+  shared_permission?: "view" | "edit";
+}
+
+export interface StorageNodeCreate {
+  name: string;
+  kind?: StorageNodeKind; // default "other"
+  parent_id?: number | null;
+  temperature?: string | null;
+  box_rows?: number | null;
+  box_cols?: number | null;
+  notes?: string | null;
+  /** Defaults to whole-lab edit when omitted (design §6.1). */
+  shared_with?: SharedUser[];
+  created_by?: string | null;
+}
+
+export interface StorageNodeUpdate {
+  name?: string;
+  kind?: StorageNodeKind;
+  parent_id?: number | null;
+  temperature?: string | null;
+  box_rows?: number | null;
+  box_cols?: number | null;
+  notes?: string | null;
+  shared_with?: SharedUser[];
+  // Auto-stamped by `storageNodesApi.update`.
   last_edited_by?: string;
   last_edited_at?: string;
 }
@@ -1130,8 +1760,9 @@ export type LCGradientProtocolUpdate = Partial<{
 // labeled zones; the per-task `plate_annotation` snapshot carries the actual
 // well-by-well annotations.
 
-/** Plate sizes supported in v1. 384 deferred to v2. */
-export type PlateSize = 12 | 24 | 48 | 96;
+/** Plate sizes supported. 12/24/48/96-well plus high-density 384-well
+ *  (16 rows A-P x 24 columns). */
+export type PlateSize = 12 | 24 | 48 | 96 | 384;
 
 /** Role of a well or region. "custom" pairs with `custom_label` for free-text
  *  brushes (e.g. "Strain ΔADE2"). */
@@ -1745,6 +2376,34 @@ export const PURCHASE_ORDER_STATUS_LABEL: Record<
   received: "Received",
 };
 
+// Purchase document attachments (PURCHASE_DOCS_AND_ROUTING.md, 2026-06-10). A
+// PDF (order form / invoice / receipt) attached to a purchase for grant-audit
+// documentation. The bytes live local-first as a real file in the connected
+// folder under `users/<owner>/purchase_items/<id>/`; this record is the on-record
+// reference. `kind` groups documents for the audit packet and the future
+// department-routing module.
+export type PurchaseAttachmentKind =
+  | "order_form"
+  | "invoice"
+  | "receipt"
+  | "quote"
+  | "other";
+
+export interface PurchaseAttachment {
+  /** Stable id for dedup + deletion, distinct from the file path. */
+  id: string;
+  /** Display name (the original uploaded filename). */
+  filename: string;
+  /** Relative path under the data folder where the file bytes live. */
+  path: string;
+  /** Document kind, for audit grouping + future routing. */
+  kind: PurchaseAttachmentKind;
+  /** ISO timestamp of when it was attached. */
+  uploaded_at: string;
+  /** File size in bytes, for display. */
+  file_size: number;
+}
+
 export interface PurchaseItem {
   id: number;
   task_id: number;
@@ -1756,8 +2415,34 @@ export interface PurchaseItem {
   shipping_fees: number;
   total_price: number;
   notes: string | null;
-  funding_string: string | null;  // New field for funding account
+  // Funding link. `funding_account_id` is the AUTHORITATIVE foreign key to a
+  // FundingAccount.id (funding-rework, 2026-06-08). `funding_string` is kept as
+  // a denormalized display label (the account name at write time) for legacy
+  // records and quick rendering, but matching / spend rollups resolve by the id.
+  // Additive + optional: pre-rework records have no `funding_account_id`. The
+  // read mappers in local-api normalize it to `null`, so a value loaded through
+  // the API is always `number | null`; the raw on-disk record may omit it until
+  // the auto-migration backfills it by matching `funding_string` to an account
+  // name. Optional here (not bare `number | null`) so the many existing
+  // PurchaseItem fixtures / reconstructions stay valid, mirroring the other
+  // additive fields below (order_status, assigned_to, ...).
+  funding_account_id?: number | null;
+  funding_string: string | null;
   vendor: string | null;
+  // Vendor ordering / catalog number (audit fix, additive-fields). The
+  // reorder identifier a user types back into the vendor site, distinct from
+  // `cas` (the chemical identity). Additive + optional: old records without it
+  // normalize to null on read (purchasesApi.create + the Loro field map seed a
+  // null default).
+  catalog_number: string | null;
+  // Supplies v2 unified page (SUPPLIES_V2_UNIFIED.md, chunk 1). Optional link to
+  // the InventoryItem this purchase line is "on order" for, so the unified
+  // Supplies view can attach this open order to the right supply BEFORE receipt
+  // (the post-receipt direction is InventoryStock.purchase_item_id). Stamped by
+  // "Reorder" from a supply; null for ad-hoc purchases (resolved by identity
+  // match at view time) and for order-only things (flights/services). Additive +
+  // optional: old records normalize to null on read.
+  inventory_item_id?: number | null;
   category: string | null;
   // Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29):
   // username of the lab member who was asked to actually place this order.
@@ -1804,6 +2489,11 @@ export interface PurchaseItem {
   // Optional on read for pre-R3 records; back-fills on next write.
   last_edited_by?: string;
   last_edited_at?: string;
+  // Purchase documents (PURCHASE_DOCS_AND_ROUTING.md, 2026-06-10). Attached PDFs
+  // (order form / invoice / receipt) for grant-audit documentation. Additive +
+  // optional: old records without it normalize to an empty array on read (the
+  // Loro field map + purchasesApi.create seed []).
+  attachments?: PurchaseAttachment[];
 }
 
 /** Pending = waiting for the lab head's approval. Approved and declined
@@ -1825,14 +2515,27 @@ export interface PurchaseItemCreate {
   price_per_unit?: number;
   shipping_fees?: number;
   notes?: string | null;
-  funding_string?: string | null;  // New field for funding account
+  // Funding link (funding-rework, 2026-06-08). Prefer setting
+  // `funding_account_id` (authoritative FK); `funding_string` is the
+  // denormalized display label. See PurchaseItem.
+  funding_account_id?: number | null;
+  funding_string?: string | null;
   vendor?: string | null;
+  // Vendor ordering / catalog number (audit fix, additive-fields). Optional;
+  // omitted records default null in purchasesApi.create.
+  catalog_number?: string | null;
+  // Supplies v2 link FK (SUPPLIES_V2_UNIFIED.md, chunk 1). Optional; set by
+  // "Reorder" from a supply, omitted otherwise.
+  inventory_item_id?: number | null;
   category?: string | null;
   // Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29).
   assigned_to?: string | null;
   // Per-item ordering status (purchases-ordered-stage, 2026-05-29). Omit to
   // let `purchasesApi.create` default it to "needs_ordering".
   order_status?: PurchaseOrderStatus;
+  // Purchase documents (PURCHASE_DOCS_AND_ROUTING.md). Optional; omitted records
+  // default to an empty array in purchasesApi.create.
+  attachments?: PurchaseAttachment[];
 }
 
 export interface PurchaseItemUpdate {
@@ -1843,8 +2546,14 @@ export interface PurchaseItemUpdate {
   price_per_unit?: number;
   shipping_fees?: number;
   notes?: string | null;
-  funding_string?: string | null;  // New field for funding account
+  /** Funding link (funding-rework, 2026-06-08). `funding_account_id` is the
+   *  authoritative FK; `funding_string` rides along as the display label.
+   *  Either may be `null` to clear. See PurchaseItem. */
+  funding_account_id?: number | null;
+  funding_string?: string | null;
   vendor?: string | null;
+  // Vendor ordering / catalog number (audit fix, additive-fields). Optional.
+  catalog_number?: string | null;
   category?: string | null;
   /** Lab-manager ordering workflow (purchases-assignee fix, 2026-05-29):
    *  username to assign (or `null` to clear). The writer that flips this
@@ -1871,6 +2580,9 @@ export interface PurchaseItemUpdate {
   // VCP R3 — optional; auto-stamped by `purchasesApi.update`.
   last_edited_by?: string;
   last_edited_at?: string;
+  // Purchase documents (PURCHASE_DOCS_AND_ROUTING.md). Set to replace the list,
+  // or omit to leave unchanged. Serialized into the Loro field map like flagged.
+  attachments?: PurchaseAttachment[];
 }
 
 export interface CatalogItem {
@@ -1878,6 +2590,10 @@ export interface CatalogItem {
   item_name: string;
   link: string | null;
   cas: string | null;
+  // Vendor ordering / catalog number (audit fix, additive-fields). Lets a
+  // catalog suggestion prefill the new purchase row's catalog_number on
+  // select. Optional on read; legacy catalog entries normalize to null.
+  catalog_number?: string | null;
   price_per_unit: number;
 }
 
@@ -1903,9 +2619,13 @@ export interface FundingAccount {
   id: number;
   name: string;
   description: string | null;
+  // The budget cap. Spend (and therefore "remaining") is NO LONGER stored
+  // (funding-rework, 2026-06-08): it is computed live from purchase line items
+  // via `computeFundingSpend` (lib/funding/spend.ts) wherever it is shown, so
+  // there is one source of truth and no stale on-disk counter to reconcile. The
+  // auto-migration strips the old `spent` / `remaining` fields from existing
+  // funding-account files.
   total_budget: number;
-  spent: number;
-  remaining: number;
   // Structured grant / award metadata (metadata implementation bot,
   // 2026-05-28). All optional + additive: funding-account files written
   // before this slice load unchanged (absent field = "not set"), and the
@@ -2002,6 +2722,14 @@ export interface Event {
    *  push back into events. Optional / nullable for backward compat with
    *  pre-S5 event records. */
   is_pto?: boolean | null;
+  /** Optional link to a task. `task_id` is the numeric id in the owner's
+   *  namespace; `task_owner` is that owner's username, so the pair forms the
+   *  composite "<owner>:<id>" key (matching `taskKey`) and resolves correctly
+   *  for shared tasks. Both null/absent means the event is not linked. Same
+   *  cross-owner linkage convention as purchase items and task notifications.
+   *  Optional / nullable for backward compat with pre-link event records. */
+  task_id?: number | null;
+  task_owner?: string | null;
 }
 
 export interface EventCreate {
@@ -2016,6 +2744,8 @@ export interface EventCreate {
   notes?: string | null;
   color?: string | null;
   is_pto?: boolean | null;
+  task_id?: number | null;
+  task_owner?: string | null;
 }
 
 export interface EventUpdate {
@@ -2030,6 +2760,8 @@ export interface EventUpdate {
   notes?: string | null;
   color?: string | null;
   is_pto?: boolean | null;
+  task_id?: number | null;
+  task_owner?: string | null;
 }
 
 // ── External Calendar Feeds (Google/Outlook/iCloud via ICS) ──
@@ -2113,6 +2845,11 @@ export interface LabLinkCreate {
   category?: string | null;
   color?: string | null;
   preview_image_url?: string | null;
+  // Lab-share restore (links lab-share restore bot, 2026-05-29): the
+  // Visibility toggle. `true` = "Whole lab" (stamps the edit-level "*"
+  // whole-lab sentinel on `shared_with`); falsy / omitted = "Just me"
+  // (private, empty `shared_with`). Default for a new link is "Just me".
+  whole_lab?: boolean;
 }
 
 export interface LabLinkUpdate {
@@ -2126,6 +2863,10 @@ export interface LabLinkUpdate {
   // VCP R3 — optional; auto-stamped by `labLinksApi.update`.
   last_edited_by?: string;
   last_edited_at?: string;
+  // Lab-share restore: same Visibility toggle as create. When present it
+  // rewrites `shared_with` in lockstep ("*" sentinel for whole-lab, [] for
+  // private); when omitted the existing sharing is left untouched.
+  whole_lab?: boolean;
 }
 
 export interface LinkPreview {
@@ -2191,6 +2932,29 @@ export interface NoteEntryUpdate {
   content?: string;
 }
 
+/**
+ * VC Phase 2 (FLAG-1): the 24h undo-restore window sidecar. Written atomically
+ * onto the live Note by the restore update, cleared by the undo update, and
+ * stripped by the folder-connect expiry sweep once `expires_at` has passed.
+ *
+ * CRITICAL: this field is in the canonicalize VOLATILE_STAMP_DENYLIST
+ * (FLAG-2), so it never appears in a history delta. It is a transient UI
+ * affordance, not tracked content.
+ */
+export interface RevertUndoWindow {
+  /** The version index (history row index) the note was at BEFORE the restore.
+   *  Undo reverse-walks back to this. */
+  from_version: number;
+  /** The version index the restore reverted TO. */
+  to_version: number;
+  /** ISO 8601 timestamp the restore happened. */
+  reverted_at: string;
+  /** ISO 8601 timestamp the undo affordance expires (reverted_at + 24h). */
+  expires_at: string;
+  /** Username of whoever performed the restore. */
+  reverted_by: string;
+}
+
 export interface NoteComment {
   id: string;
   author: string;       // username of the commenter (the real user, not "lab")
@@ -2242,6 +3006,59 @@ export interface Note {
   // on read for pre-R3 records; back-fills on next write.
   last_edited_by?: string;
   last_edited_at?: string;
+  // VC Phase 2 (FLAG-1): the 24h undo-restore window. Present only between a
+  // restore and either its undo or the window's expiry. Denylisted from the
+  // history canonical (FLAG-2) so it never pollutes a delta. Absent on every
+  // note that was never restored.
+  revert_undo_window?: RevertUndoWindow;
+  // Shared Notebooks Phase 1 (notebooks-data bot, 2026-06-02): when set, this
+  // note belongs to a shared 1:1 notebook (see `SharedNotebook`). The value is
+  // the notebook's globally-unique id. ABSENT = a personal note (unchanged
+  // behavior; the personal-notes path never sets this). A note carrying a
+  // `notebook_id` is always created with `shared_with` = both notebook members
+  // at level "edit" (via `pairingSharedWith`), so both members read AND edit
+  // it. Additive / back-compat: old notes read as `undefined` and stay
+  // personal.
+  notebook_id?: string;
+  // 1:1 revamp (oneonone data+strip bot, 2026-06-07). See
+  // docs/proposals/NOTEBOOKS_AND_ONE_ON_ONE_REVAMP.md. When set, this note
+  // belongs to a lab-head <-> member 1:1 (see `OneOnOne`), NOT a notebook. The
+  // value is the 1:1's globally-unique id. `notebook_id` and `one_on_one_id`
+  // are mutually exclusive: a note lives in a notebook OR a 1:1, never both.
+  // ABSENT = an ordinary note (unchanged). Notes carrying this are always
+  // created with `shared_with` = both 1:1 members at "edit", so both read +
+  // edit. Additive / back-compat: old notes read as `undefined`.
+  one_on_one_id?: string;
+  // 1:1 revamp: distinguishes a weekly MEETING note ("meeting") from a freeform
+  // SHARED note ("note") inside a 1:1. ABSENT on every ordinary (non-1:1) note.
+  // Read alongside `one_on_one_id`; meaningless without it.
+  note_kind?: "meeting" | "note";
+  // Cross-boundary sharing (note-transfer adapter, 2026-06-03): provenance
+  // marker stamped ONLY on notes imported from a received bundle (the locked
+  // design in docs/proposals/CROSS_BOUNDARY_SHARING_INBOX_DESIGN.md). They keep
+  // imported items traceable ("received from {email} on {date}") so a recipient
+  // never confuses a foreign note with their own. All three are OPTIONAL and
+  // additive, absent on every locally created note and on every pre-existing
+  // record (graceful degradation, same pattern as created_at above). The send
+  // (collect) path explicitly DROPS these from the shared entity so a re-shared
+  // note never leaks the importer's provenance back out.
+  received_from?: string;             // sender canonical email, set only on imported notes
+  received_from_fingerprint?: string; // sender key fingerprint
+  received_at?: string;               // ISO 8601 timestamp of import
+  // Phase 3c chunk 3a (FLAG: new Note field): the collab doc id that travels
+  // with the note when it is shared cross-boundary (see note-transfer.ts).
+  // Written to the JSON record on import so the recipient's NoteDetailPopup can
+  // seed the Loro meta map with the correct id and auto-join the shared doc's
+  // relay room. The value is a UUID string. ADDITIVE and backward-compatible:
+  // absent on all pre-existing notes and all unshared notes. The Loro sidecar
+  // is the authoritative store (collab_doc_id key in the meta map); this JSON
+  // field is the bootstrap bridge for newly-imported notes before the sidecar
+  // is written for the first time.
+  collab_doc_id?: string;
+  // Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): see
+  // Project.source_uuid for the full contract. Minted at create time; lazy-backfilled
+  // on read; never removed or renamed. ADDITIVE + back-compat.
+  source_uuid?: string;
 }
 
 export interface NoteCreate {
@@ -2262,6 +3079,37 @@ export interface NoteUpdate {
   // path also stamps `updated_at`; both fields land together.
   last_edited_by?: string;
   last_edited_at?: string;
+  // VC Phase 2 (FLAG-1): the undo-restore window. Set (object) on a restore;
+  // CLEARED (`null`) on an undo. `notesApi.update` deletes the key on `null`
+  // so the live note carries no lingering field. Denylisted (FLAG-2).
+  revert_undo_window?: RevertUndoWindow | null;
+  // VC Phase 2 (FLAG-1): a restore writes the FULL tracked state back, which
+  // for a note spans the structural fields below, not just title/description.
+  // They live in a dedicated payload type (NoteRestorePayload) rather than
+  // widening NoteUpdate's core fields, because NoteUpdate is structurally
+  // compatible with `Partial<NoteCreate>` at several call sites and adding
+  // `entries: NoteEntry[]` here would break that overlap (NoteCreate carries
+  // NoteEntryCreate[]). The restore handler assembles a NoteRestorePayload and
+  // passes it through notesApi.update; the partial-merge store keys on the
+  // object at runtime, so the structural fields persist.
+}
+
+/**
+ * VC Phase 2 (FLAG-1): the full-tracked-state payload a restore / undo writes.
+ * Superset of NoteUpdate with every structural field the canonical tracks, so
+ * `notesApi.update` overwrites the live note to exactly the target version.
+ * Distinct type (not a NoteUpdate widening) to avoid colliding with the
+ * `Partial<NoteCreate>` flows that also feed notesApi.update.
+ */
+export interface NoteRestorePayload extends NoteUpdate {
+  title?: string;
+  description?: string;
+  is_shared?: boolean;
+  is_running_log?: boolean;
+  entries?: NoteEntry[];
+  comments?: NoteComment[];
+  shared_with?: SharedUser[];
+  flagged?: PiFlag | null;
 }
 
 export interface NoteEntriesReorderRequest {
@@ -2319,6 +3167,23 @@ export interface WeeklyGoal {
    *  Optional on read so a record written before this field normalizes to
    *  owner-only (same back-compat shape as notes). */
   shared_with?: SharedUser[];
+  // 1:1 revamp (oneonone data+strip bot, 2026-06-07). See
+  // docs/proposals/NOTEBOOKS_AND_ONE_ON_ONE_REVAMP.md. When set, this weekly
+  // goal is a SHARED weekly goal inside a lab-head <-> member 1:1 (see
+  // `OneOnOne`). The value is the 1:1's globally-unique id. `text` is the goal,
+  // `is_complete` the done toggle, `week_of` the grouping. A goal carrying this
+  // is always created with `shared_with` = both 1:1 members at level "edit" (via
+  // `membersSharedWith`), so either member can add a goal and either can check
+  // it off. ABSENT = a personal / whole-lab weekly goal (unchanged behavior).
+  // (Replaces the retired notebook weekly-task path; weekly goals belong to
+  // 1:1s now, not notebooks.)
+  one_on_one_id?: string;
+  // Check-ins revamp Phase 2 (checkins-phase2 bot, 2026-06-12). See
+  // docs/proposals/checkins-revamp.md "Phase 2 build spec". Optional single
+  // assignee for a group goal board (a member username, or null/absent =
+  // shared / everyone). ADDITIVE + back-compat: absent on every pre-Phase-2
+  // goal; `normalizeWeeklyGoalRecord` defaults it to null on read.
+  assignee?: string | null;
 }
 
 export interface WeeklyGoalCreate {
@@ -2334,6 +3199,400 @@ export interface WeeklyGoalUpdate {
   week_of?: string;
   is_complete?: boolean;
   is_shared?: boolean;
+}
+
+// ── Shared 1:1 Notebooks ─────────────────────────────────────────────────────
+//
+// Shared Notebooks Phase 1 (notebooks-data bot, 2026-06-02). See
+// docs/proposals/SHARED_NOTEBOOKS_PROPOSAL.md. A SharedNotebook is a dedicated
+// shared workspace between EXACTLY two people (typically a PI and a student).
+// Everything inside it (notes + weekly tasks) is ALWAYS shared between exactly
+// those two members at level "edit" - no per-item toggle, never whole-lab.
+//
+// The sharing itself reuses the unified primitive unchanged: the record (and
+// every item created inside it) carries `shared_with = pairingSharedWith(a, b)`
+// (both members at "edit"), and `canRead` / `canWrite` honor that explicit
+// list. No new sharing engine, no migration.
+//
+// ID SHAPE (data-shape decision, notebooks-data bot, 2026-06-02): `id` is a
+// GLOBALLY-UNIQUE string (crypto.randomUUID), NOT a JsonStore numeric counter.
+// The approved proposal specified `id: string`, and global uniqueness is
+// REQUIRED because `notebook_id` is a cross-user query key: items live in each
+// member's own folder, so a per-user numeric counter (the PI's notebook #1 and
+// a student's notebook #1) would collide when aggregating a notebook's items
+// across both members. A UUID has no such collision. The record is stored via
+// a thin string-keyed per-user store (lib/shared-notebooks/store.ts) that
+// mirrors JsonStore's `users/<owner>/<entity>/<id>.json` layout; JsonStore
+// itself is `<T extends { id: number }>` and cannot hold a string id.
+// GENERALIZED 1..N MODEL (notebooks-gen Phase 1, 2026-06-06): a `Notebook` is a
+// single container that holds 1..N members. members.length === 1 is a PRIVATE
+// (unshared) notebook living only in the owner's folder; members.length >= 2 is
+// a SHARED notebook. The former 1:1 PI<->student `SharedNotebook` is the
+// two-member special case. On-disk records may still carry the legacy
+// `[string, string]` tuple shape; `normalizeNotebookRecord` coerces them to
+// `string[]` lazily at the read boundary (no on-disk cutover, folder name
+// `shared_notebooks` unchanged).
+export interface Notebook {
+  /** Globally-unique id (crypto.randomUUID). Referenced by `Note.notebook_id`
+   *  and `WeeklyGoal.notebook_id` across ALL members' folders. */
+  id: string;
+  /** The members, 1..N. members[0] is the creator (=== created_by === owner).
+   *  length 1 = private/unshared; length >= 2 = shared. All are real usernames. */
+  members: string[];
+  /** Username that created the notebook (either a PI or a student; no role
+   *  gate on creation). Equals `owner` and `members[0]`. */
+  created_by: string;
+  /** ISO timestamp of creation. */
+  created_at: string;
+  /** Optional human title. Absent = the UI falls back to "<other member>".
+   *  Editable by the creator via `notebooksApi.updateTitle`. */
+  title?: string;
+  /** Optional hex color for the notebook cover dot (e.g. "#3b82f6"). */
+  color?: string;
+  /** Optional subject icon key (see SubjectIconKey in subject-icons.tsx). */
+  subject_icon?: string;
+  /** Sharing owner — drives `canRead`/`canWrite`'s owner branch and the
+   *  per-user folder the record lives in. Equals `created_by`. Kept as its
+   *  own field so the record satisfies the unified `ShareableRecord` shape
+   *  (owner + shared_with), exactly like WeeklyGoal carries `owner`. */
+  owner: string;
+  /** Always `membersSharedWith(members)` - every member at "edit", deduped.
+   *  For a single-member (private) notebook this is just the owner, which is
+   *  harmless (owner already has access via canRead/canWrite's owner branch). */
+  shared_with: SharedUser[];
+}
+
+/** @deprecated use Notebook (Phase 2 removes this alias + renames callers). */
+export type SharedNotebook = Notebook;
+
+// ── Lab-head <-> member 1:1 ──────────────────────────────────────────────────
+//
+// 1:1 revamp (oneonone data+strip bot, 2026-06-07). See
+// docs/proposals/NOTEBOOKS_AND_ONE_ON_ONE_REVAMP.md. A OneOnOne is a distinct
+// advising workspace between exactly ONE lab head and ONE member, separate from
+// a Notebook (which is now a plain note container). The lab head sets it up;
+// both people edit. It scopes weekly goals, weekly meeting notes, freeform
+// shared notes, and action items via `one_on_one_id`.
+//
+// ID + STORE: `id` is a globally-unique crypto.randomUUID (a cross-user query
+// key, exactly like `Notebook.id`), stored at
+// `users/<labHead>/one_on_ones/<uuid>.json` via the thin string-keyed per-user
+// store in lib/one-on-one/store.ts (a sibling of the notebook store). The lab
+// head's folder is the canonical home; the member discovers it via the
+// sharing-respecting aggregation on `labApi.getOneOnOnes`.
+// Check-ins revamp Phase 1 (checkins-revamp bot, 2026-06-11). See
+// docs/proposals/checkins-revamp.md. The OneOnOne is generalized from a fixed
+// lab-head <-> member binary into an any-account "check-in space" with a
+// `members[]` array and an optional mentorship direction. The change is
+// ADDITIVE and BACKWARD COMPATIBLE: the legacy `labHead`/`member` fields are
+// now OPTIONAL so old on-disk records still parse, and every read path runs a
+// record through `normalizeOneOnOne` (lib/one-on-one/normalize.ts) so the rest
+// of the code only ever sees a populated `members`/`mentor`/`kind`.
+export interface OneOnOne {
+  /** Globally-unique id (crypto.randomUUID). Referenced by `Note.one_on_one_id`,
+   *  `WeeklyGoal.one_on_one_id`, and `OneOnOneActionItem.one_on_one_id`. */
+  id: string;
+  /** LEGACY (optional). The lab-head username for an old two-person mentoring
+   *  record. Phase 1 still writes this ONLY for a 2-person space WITH a mentor
+   *  (`labHead = mentor`) so any pre-revamp reader keeps working; peer + group
+   *  spaces leave it undefined. New code reads `members`/`mentor` instead. */
+  labHead?: string;
+  /** LEGACY (optional). The non-lab-head member username for an old two-person
+   *  record. See `labHead`. New code reads `members`. */
+  member?: string;
+  /** The participants, two or more. `members[0]` is the creator (=== owner ===
+   *  created_by). Always populated after `normalizeOneOnOne`; may be absent on a
+   *  pre-revamp on-disk record (derived from `labHead`/`member` on read). */
+  members?: string[];
+  /** A member who is the mentor for this space, or null for a peer space. A
+   *  pair space with a mentor is a mentoring relationship; with no mentor it is
+   *  a peer check-in. Derived from `labHead` on a legacy record. */
+  mentor?: string | null;
+  /** "pair" (2 members) or "group" (3+). Stored so the UI + templates branch
+   *  without guessing; derived from member count. */
+  kind?: "pair" | "group";
+  /** Optional human title (e.g. "Aim 2 team"). Absent = the UI falls back to the
+   *  other member's name. */
+  title?: string | null;
+  /** Optional recurring cadence, drives the "your check-in is coming up" prompt.
+   *  Phase 1 stores it but does not yet act on it. */
+  cadence?: {
+    every: "week" | "2weeks" | "month" | "none";
+    weekday?: number;
+  } | null;
+  /** Username that created the record. Equals `members[0]` and `owner`. */
+  created_by: string;
+  /** ISO timestamp of creation. */
+  created_at: string;
+  /** Sharing owner — drives `canRead`/`canWrite`'s owner branch and the
+   *  per-user folder the record lives in. Equals the creator (`members[0]`). */
+  owner: string;
+  /** Always `membersSharedWith(members)` — every member at "edit", deduped.
+   *  Everyone reads AND writes the space and everything scoped to it. */
+  shared_with: SharedUser[];
+}
+
+// A tracked agenda / action item inside a 1:1. Lightweight + dedicated store at
+// `users/<labHead>/one_on_one_action_items/<uuid>.json`. Carries the same
+// `shared_with` (both at "edit") so either person adds, toggles, or deletes.
+export interface OneOnOneActionItem {
+  /** Globally-unique id (crypto.randomUUID). */
+  id: string;
+  /** The owning 1:1's id. */
+  one_on_one_id: string;
+  /** Free-form action-item text. */
+  text: string;
+  /** Done toggle. */
+  is_done: boolean;
+  /** Username that created the item (either member). */
+  created_by: string;
+  /** ISO timestamp of creation. */
+  created_at: string;
+  /** Sharing owner — the lab head's folder the item lives in. Equals labHead.
+   *  Drives the per-user routing + the `canRead`/`canWrite` owner branch. */
+  owner: string;
+  /** Always `membersSharedWith([labHead, member])` — both at "edit". */
+  shared_with: SharedUser[];
+  // Check-ins revamp Phase 2 (checkins-phase2 bot, 2026-06-12). See
+  // docs/proposals/checkins-revamp.md "Phase 2 build spec". All three are
+  // ADDITIVE + back-compat: a record written before Phase 2 reads with these
+  // absent, and `normalizeOneOnOneActionItem` (lib/one-on-one/normalize.ts)
+  // defaults each to null on read so callers never see `undefined`.
+  /** D3 single assignee — a member username, or null = shared / everyone. When
+   *  set together with `due_date`, the item materializes a real Task (D4). */
+  assignee?: string | null;
+  /** YYYY-MM-DD the item is due. Together with `assignee` it triggers the D4
+   *  Task sync. Null = no due date (in-space-only item). */
+  due_date?: string | null;
+  /** The numeric id of the Task this item spawned via D4, in the space owner's
+   *  task namespace. Null until synced; cleared when the item detaches (the
+   *  assignee or due_date is removed) or is deleted. */
+  synced_task_id?: number | null;
+}
+
+// ── Individual Development Plan (Check-ins Phase 3) ───────────────────────────
+//
+// checkins-phase3 bot, 2026-06-12. See docs/proposals/checkins-revamp.md "IDP
+// structure" and the approved mockup docs/mockups/2026-06-12-checkins-phase3-idp
+// .html. The IDP is the academic-layer centerpiece, a living document the
+// TRAINEE owns and the mentor reviews (a review, not co-ownership). It models
+// the five-section spine shared by AAAS myIDP and the UW-Madison Grad School IDP
+// (self-assess, explore, set goals, act, review-and-revisit-annually).
+//
+// HOME FOLDER + STORE: an IDP is owned by the trainee, so the record lives in
+// THEIR folder only (`owner === trainee`), keyed on a globally-unique
+// crypto.randomUUID at `users/<owner>/idps/<uuid>.json` via the thin string-
+// keyed per-user store in lib/idp/store.ts (a sibling of the one-on-one store).
+// The mentor discovers it via the sharing-respecting aggregation, then every
+// non-owner read passes through `normalizeIdpForViewer` (lib/idp/visibility.ts)
+// which blanks any section the trainee has not shared AND always strips the
+// private values reflection. This is the "trainee owns it, mentor reviews
+// shared sections, PI sees only a status line" model real IDPs use.
+
+/** A trainee's career stage. Drives the preset filter on the IDP form. */
+export type CareerStage = "undergrad" | "grad" | "postdoc" | "staff";
+
+/** A goal's horizon: short-term (6 months or less) vs long-term. */
+export type IdpGoalTerm = "short" | "long";
+
+/** An action-plan row's status. */
+export type IdpActionStatus = "not_started" | "in_progress" | "done";
+
+/** The four mentor-shareable IDP sections (the values reflection is never in
+ *  this set — it is always trainee-private and never shared). */
+export type IdpSectionKey =
+  | "self_assessment"
+  | "career_exploration"
+  | "goals"
+  | "action_plan";
+
+/** A single competency skill's dual rating. `self` is the trainee's
+ *  proficiency/confidence (1 to 5); `importance` is how much the skill matters
+ *  for the career they want (1 to 5). The gap between them is the goal signal.
+ *  Either is null until the trainee rates it. */
+export interface IdpSkillRating {
+  self: number | null;
+  importance: number | null;
+}
+
+/** A career or yearly goal. `term` splits short vs long; `priority` is the
+ *  optional UW high/low tag (null = untagged). */
+export interface IdpGoal {
+  id: string;
+  text: string;
+  term: IdpGoalTerm;
+  priority: "high" | "low" | null;
+}
+
+/** A row in the UW four-column SMART action plan. A row that has a
+ *  `target_date` can become a real Lists task (D4); `synced_task_id` is the
+ *  back-link to that task in the trainee's namespace (null until synced). */
+export interface IdpActionRow {
+  id: string;
+  objective: string;
+  approach: string;
+  /** YYYY-MM-DD, or null when the row is not yet dated. */
+  target_date: string | null;
+  /** The "done-when" outcome. */
+  outcome: string;
+  status: IdpActionStatus;
+  /** Set when the trainee adds this dated row to their tasks (D4). The task
+   *  lives in the TRAINEE's namespace (owner === trainee), so no cross-user
+   *  write. Null until synced; cleared on detach/delete. */
+  synced_task_id?: number | null;
+}
+
+/** The mentor's review of the IDP. A comment plus a sign-off date and an annual
+ *  revisit date. NOT co-ownership: the mentor comments and acknowledges, the
+ *  trainee edits the plan. */
+export interface IdpMentorReview {
+  comment: string;
+  /** The mentor username that signed off, or null if not yet reviewed. */
+  reviewed_by: string | null;
+  /** ISO timestamp of the sign-off, or null. */
+  reviewed_at: string | null;
+  /** YYYY-MM-DD, defaults to +1 year on create (annual cadence). */
+  revisit_date: string | null;
+}
+
+/**
+ * An Individual Development Plan. Trainee-owned, mentor-reviewed. Stored in the
+ * trainee's folder; `owner` drives the `canRead`/`canWrite` owner branch.
+ *
+ * DATA-SHAPE FLAGGED: this is a NEW on-disk entity (`users/<owner>/idps/`). All
+ * additions are new; no existing field or layout changes.
+ */
+export interface IDP {
+  /** Globally-unique id (crypto.randomUUID). */
+  id: string;
+  /** The trainee username. The record lives in THEIR folder; drives the
+   *  `canRead` owner branch. Equals the creator. */
+  owner: string;
+  career_stage: CareerStage;
+  /** Section 1. Skill ratings keyed by competency-skill id (see
+   *  lib/idp/competencies.ts), plus the free-text responsibilities box. */
+  self_assessment: {
+    ratings: Record<string, IdpSkillRating>;
+    responsibilities: string;
+  };
+  /** Section 2. Free-text aspirations + a target-path field (the matching
+   *  itself is done off-app at myIDP / ImaginePhD / ChemIDP). */
+  career_exploration: { aspirations: string; target_path: string };
+  /** Section 3. Short and long-term goals with optional priority. */
+  goals: IdpGoal[];
+  /** Section 4. The UW four-column SMART action plan rows. */
+  action_plan: IdpActionRow[];
+  /** Section 5. The mentor's review (comment + sign-off + revisit date). */
+  mentor_review: IdpMentorReview;
+  /** The optional, ALWAYS trainee-private values reflection. Never returned to
+   *  a non-owner reader (stripped to null in `normalizeIdpForViewer`). Null /
+   *  absent = the trainee has not opted in. */
+  values_reflection?: { note: string } | null;
+  /** Which of the four shareable sections the mentor may see. A section set to
+   *  false is blanked for any non-owner viewer. */
+  shared_sections: Record<IdpSectionKey, boolean>;
+  /** The mentor username this IDP is shared with for review, or null. */
+  mentor?: string | null;
+  /** `[{username: mentor, level: "view"}]` when any section is shared, else
+   *  `[]`. Drives `canRead` for the mentor's review surface. */
+  shared_with: SharedUser[];
+  created_at: string;
+  updated_at: string;
+  /** Username that last wrote the record (trainee on edit, mentor on sign-off). */
+  last_edited_by?: string;
+}
+
+// ── Mentoring compact + onboarding checklist (Check-ins Phase 3b) ──────────────
+//
+// checkins-phase3b bot, 2026-06-12. See docs/proposals/checkins-revamp.md
+// "Part 3, the academic layer" (the "Mentoring compact / expectations
+// agreement" and "New-member onboarding checklist" paragraphs) and the approved
+// mockup docs/mockups/2026-06-12-checkins-phase3-idp.html.
+//
+// Both records hang off a check-in space (`OneOnOne`). They live in the SPACE
+// OWNER's folder (`owner === space.owner`) and carry `shared_with =
+// membersSharedWith(members)` so every member reads AND writes them, exactly
+// like the space's weekly goals and action items. There is at most ONE compact
+// and ONE onboarding checklist per space (looked up by `space_id`).
+//
+// DATA-SHAPE FLAGGED: two NEW on-disk entities
+// (`users/<owner>/checkin_compacts/` and `users/<owner>/checkin_onboarding/`).
+// All additions are new; no existing field or layout changes.
+
+/** One row of the expectations compact. `label` is the topic (working hours,
+ *  authorship, communication, vacation), `value` is the agreed text (empty until
+ *  filled). */
+export interface CheckinCompactRow {
+  id: string;
+  label: string;
+  value: string;
+}
+
+/** A member's acknowledgement of the compact. Appended (idempotently) when they
+ *  click Acknowledge. */
+export interface CheckinCompactAck {
+  username: string;
+  /** ISO timestamp of the acknowledgement. */
+  at: string;
+}
+
+/**
+ * A one-time, structured expectations agreement for a check-in relationship.
+ * Both members edit the values and each acknowledges; "Acknowledged by both"
+ * shows once every member has. Either member may revisit (edit) it later.
+ */
+export interface CheckinCompact {
+  /** Globally-unique id (crypto.randomUUID). */
+  id: string;
+  /** The owning check-in space's id (`OneOnOne.id`). */
+  space_id: string;
+  /** Sharing owner — the space owner's folder the record lives in. Equals
+   *  `OneOnOne.owner`. Drives the per-user routing + `canRead`/`canWrite` owner
+   *  branch. */
+  owner: string;
+  /** The expectations rows (topic + agreed text). */
+  rows: CheckinCompactRow[];
+  /** One entry per member who has acknowledged the current agreement. */
+  acknowledged: CheckinCompactAck[];
+  /** Always `membersSharedWith(members)` — every member at "edit", so each can
+   *  edit the values and acknowledge. */
+  shared_with: SharedUser[];
+  created_at: string;
+  updated_at: string;
+}
+
+/** One item of the onboarding checklist. */
+export interface CheckinOnboardingItem {
+  id: string;
+  label: string;
+  done: boolean;
+  /** Username that checked it off, or null. */
+  done_by?: string | null;
+  /** ISO timestamp it was checked off, or null. */
+  done_at?: string | null;
+}
+
+/**
+ * A first-check-in onboarding checklist for a check-in space (access and keys,
+ * safety training, data-management practices, the lab norms doc, set the
+ * cadence). Any member may check items off (the permissive D2 model). Most
+ * relevant to a new-member space but exposed on every space.
+ */
+export interface CheckinOnboarding {
+  /** Globally-unique id (crypto.randomUUID). */
+  id: string;
+  /** The owning check-in space's id (`OneOnOne.id`). */
+  space_id: string;
+  /** Sharing owner — the space owner's folder the record lives in. Equals
+   *  `OneOnOne.owner`. */
+  owner: string;
+  /** The checklist items. */
+  items: CheckinOnboardingItem[];
+  /** Always `membersSharedWith(members)` — every member at "edit", so any member
+   *  may check an item off. */
+  shared_with: SharedUser[];
+  created_at: string;
+  updated_at: string;
 }
 
 // ── Lab Mode Notes ─────────────────────────────────────────────────────────────
@@ -2367,6 +3626,370 @@ export interface LabNote {
   last_edited_by?: string;
   last_edited_at?: string;
 }
+
+// ── Sequences (SnapGene-style sequence/plasmid surface, Phase 1) ────────────
+// On-disk format is LOCKED (proposal docs/proposals/SEQUENCE_EDITOR_PROPOSAL.md,
+// Grant 2026-06-02): the SOURCE OF TRUTH is a real GenBank file at
+//   users/{username}/sequences/{id}.gb
+// plus a small ResearchOS metadata SIDECAR at
+//   users/{username}/sequences/{id}.meta.json
+// The sidecar holds only the app-level metadata that GenBank does not carry.
+// NOT a JSON-record-of-truth, NOT a dual-file mirror.
+//
+// DATA-SHAPE FLAGGED: this is a NEW on-disk shape. Review before merge.
+
+/** A DNA / RNA / protein sequence's molecule kind. */
+export type SeqType = "dna" | "rna" | "protein";
+
+/**
+ * The on-disk `{id}.meta.json` sidecar shape. This is the LOCKED metadata
+ * envelope written next to each `{id}.gb` file. It deliberately mirrors the
+ * `users/{username}/sequences/` per-item store convention of other entities.
+ */
+export interface SequenceMeta {
+  /** Stable per-user numeric id; matches the `{id}.gb` / `{id}.meta.json` name. */
+  id: number;
+  /** User-facing name (the GenBank LOCUS name is the parser fallback). */
+  display_name: string;
+  /**
+   * Collection links: ids of projects this sequence belongs to (PROJECTS ARE
+   * COLLECTIONS). A sequence with no project links is "Unfiled". These ids
+   * reference the CURRENT user's own project ids. Cross-user project links are
+   * out of scope for v1 — see the per-user namespacing note in the Phase 1
+   * report; project ids are per-owner and would need owner-qualifying.
+   */
+  project_ids: string[];
+  /** ISO timestamp when the sequence was added to the library. */
+  added_at: string;
+  /** Molecule kind, derived from the GenBank LOCUS on create. */
+  seq_type: SeqType;
+
+  // Cross-boundary provenance. Additive + optional, set ONLY on a sequence that
+  // arrived through a cross-boundary share (sequence-transfer.ts importSequence).
+  // A native sequence has none of these and the ReceivedFromBadge self-hides.
+  // Same pattern as Note.received_from / Method.received_from.
+  received_from?: string;             // sender canonical email, set only on imported sequences
+  received_from_fingerprint?: string; // sender key fingerprint
+  received_at?: string;               // ISO 8601 import timestamp
+
+  // NCBI Datasets provenance. Additive + optional, stamped ONLY on a sequence
+  // that arrived through the "Download from NCBI" import (ncbi-import.ts). A
+  // native / file-imported sequence has none of these and the NCBI badge
+  // self-hides. Same additive, sidecar-only, no-migration pattern as
+  // received_from above (a record simply lacks them).
+  // "ncbi-datasets" is a Datasets package import; "ncbi-efetch" is an annotated
+  // efetch GenBank import (a gene by symbol, or any accession). See ncbi-efetch.ts.
+  source?: "ncbi-datasets" | "ncbi-efetch";  // set only on an NCBI-downloaded sequence
+  ncbi_accession?: string;   // GCF_..., a gene id, etc.
+  organism?: string;         // source organism name from the dataset report
+  tax_id?: string;           // NCBI taxonomy id
+  // NCBI taxonomy enrichment (Phase 2). The named lineage (root -> organism
+  // order), auto-filled on NCBI import and written by the opt-in "Enrich from
+  // NCBI" action. Additive + optional sidecar, no migration, self-hides when
+  // absent (a sequence that was never enriched lacks it).
+  tax_lineage?: SequenceTaxonNode[];
+
+  // restore audit bot (2026-06-04): deleted/restored provenance. Additive +
+  // optional, stamped ONLY when this sequence was restored from Trash (see
+  // trash-reader.ts restoreSequenceFromTrash). A sequence that was never trashed
+  // has none of this and the RestoredBadge self-hides. The field key is the
+  // shared RESTORE_AUDIT_FIELD ("_restore_audit") from lib/trash.
+  _restore_audit?: SequenceRestoreAudit;
+}
+
+/** restore audit bot: the deleted/restored audit blob persisted on a sequence's
+ *  `.meta.json` sidecar after a Trash restore. Mirrors lib/trash's RestoreAudit
+ *  (duplicated here so lib/types stays free of a lib/trash import cycle). */
+export interface SequenceRestoreAudit {
+  deleted_at: string;
+  deleted_by: string;
+  restored_at: string;
+  restored_by: string;
+}
+
+/**
+ * The app-facing sequence record: the parsed view of a sequence, combining the
+ * `.meta.json` sidecar with a light summary parsed from the `.gb` file. The raw
+ * GenBank text and full feature list are loaded on demand by `sequencesApi.get`
+ * (the read view needs the bases + annotations; the library only needs the
+ * summary fields below).
+ */
+export interface SequenceRecord {
+  id: number;
+  display_name: string;
+  project_ids: string[];
+  added_at: string;
+  seq_type: SeqType;
+  /** Length in bases (or residues for protein). */
+  length: number;
+  /** Whether the molecule is circular (plasmid) vs linear. */
+  circular: boolean;
+  /** Number of annotated features in the GenBank record. */
+  feature_count: number;
+
+  // Cross-boundary provenance, carried through from the sidecar so the library
+  // row + viewer can render the ReceivedFromBadge. Optional, absent on a native
+  // sequence (the badge self-hides).
+  received_from?: string;
+  received_from_fingerprint?: string;
+  received_at?: string;
+
+  // NCBI Datasets provenance, carried through from the sidecar so the library
+  // row + viewer can render the "From NCBI" badge. Absent on a native / file-
+  // imported sequence (the badge self-hides).
+  source?: "ncbi-datasets" | "ncbi-efetch";
+  ncbi_accession?: string;
+  organism?: string;
+  tax_id?: string;
+  // NCBI taxonomy enrichment (Phase 2). The named lineage, carried through from
+  // the sidecar so the viewer can render the calm lineage line. Absent on a
+  // non-enriched sequence (the line self-hides).
+  tax_lineage?: SequenceTaxonNode[];
+
+  // restore audit bot: carried through from the sidecar so the library row +
+  // viewer header can render the RestoredBadge. Absent on a never-trashed
+  // sequence (the badge self-hides).
+  _restore_audit?: SequenceRestoreAudit;
+}
+
+/** A fully-loaded sequence, including the bases + parsed annotations needed by
+ *  the read view, plus the raw GenBank text the file holds. */
+export interface SequenceDetail extends SequenceRecord {
+  /** The raw on-disk GenBank text (source of truth). */
+  genbank: string;
+  /** The sequence bases (uppercased), parsed from the GenBank ORIGIN. */
+  seq: string;
+  /** Parsed annotations, shaped for the SeqViz read view. */
+  annotations: SequenceAnnotation[];
+  /** GenBank LOCUS name (may differ from the user-facing display_name). */
+  locus_name: string;
+}
+
+/** A parsed annotation, shaped for the SeqViz `annotations` prop. */
+export interface SequenceAnnotation {
+  name: string;
+  start: number;
+  end: number;
+  direction: -1 | 0 | 1;
+  type?: string;
+  color?: string;
+  // seq introns bot — OPTIONAL exon spans for a multi-segment (join) feature.
+  // Same coordinate space as start/end. Present only when the feature has more
+  // than one location (a spliced CDS); the SeqViz layer renders these as
+  // separate exon boxes joined by a dashed intron connector.
+  segments?: { start: number; end: number }[];
+}
+
+/** Input to `sequencesApi.create`. The caller provides the GenBank text (e.g.
+ *  from a parsed import) and the metadata envelope minus the server-assigned
+ *  fields. */
+export interface SequenceCreate {
+  display_name: string;
+  genbank: string;
+  project_ids?: string[];
+  seq_type?: SeqType;
+  // NCBI Datasets provenance, set only by the "Download from NCBI" import so the
+  // created sequence's sidecar carries the source / accession / organism. Absent
+  // for a native or file-imported create (the fields stay undefined).
+  source?: "ncbi-datasets" | "ncbi-efetch";
+  ncbi_accession?: string;
+  organism?: string;
+  tax_id?: string;
+  // NCBI taxonomy enrichment (Phase 2). The named lineage, set on an NCBI import
+  // (auto-fill) so the created sidecar carries it. Undefined for a native or
+  // file create.
+  tax_lineage?: SequenceTaxonNode[];
+}
+
+/** One node of a sequence's NCBI taxonomy lineage, persisted on the sidecar. The
+ *  shape mirrors the resolver's TaxonomyNode (kept here so lib/types stays free
+ *  of a lib/sequences import). Root -> organism order in the stored array. */
+export interface SequenceTaxonNode {
+  taxId: string;
+  name: string;
+  rank: string;
+}
+
+/** Patch shape for `sequencesApi.update`. Any subset; `genbank` replaces the
+ *  on-disk `.gb` file, the rest patch the sidecar. */
+export interface SequenceUpdate {
+  display_name?: string;
+  project_ids?: string[];
+  seq_type?: SeqType;
+  genbank?: string;
+  // NCBI taxonomy enrichment (Phase 2). The opt-in "Enrich from NCBI" apply
+  // writes organism / tax id / named lineage onto the sidecar. Additive +
+  // optional, only set by the enrich flow.
+  organism?: string;
+  tax_id?: string;
+  tax_lineage?: SequenceTaxonNode[];
+}
+
+// ── Custom Calculator Builder (Phase 1, 2026-06-10) ──────────────────────────
+//
+// A user-authored calculator: a small typed spec (inputs, intermediate steps,
+// guidance conditionals, outputs) that the pure evaluator in
+// `lib/calculators/custom.ts` runs. The same shape backs both a saved record in
+// the user's folder (`users/<owner>/calculators/<id>.json`, via
+// `calculatorsApi`) and a static library template under
+// `frontend/public/calculator-templates/` (the static template carries a
+// string `slug` instead of the numeric record `id`; see the catalog loader).
+//
+// This is an ADDITIVE new entity. No existing on-disk record shape changes.
+
+/** A single option of a `dropdown` input. The `value` is what the expression
+ *  engine sees when this option is selected, so it may be numeric (e.g. an
+ *  organism conversion factor) OR a string enum (e.g. "rpm" for a mode switch
+ *  branched on with `mode == "rpm"`). The `label` is the human-facing choice. */
+export interface CustomCalculatorDropdownOption {
+  label: string;
+  value: number | string;
+}
+
+/** One column of a `table` input (Phase 5, 2026-06-10).
+ *  - `input`     the user types a value into this cell per row.
+ *  - `computed`  the cell is derived per ROW from `expr`, evaluated against
+ *                that row's input-column values plus the calculator's scalar
+ *                inputs / steps. `expr` is required when kind is `computed`.
+ *  The `key` is the variable name the per-row formula and the `col(table, key)`
+ *  helper reference; it follows the same reserved-name / identifier rules as a
+ *  scalar input key. A `name`-style descriptive column is just an `input`
+ *  column whose value happens to be text (it is not referenced numerically). */
+export interface CustomCalculatorTableColumn {
+  key: string;
+  label: string;
+  kind: "input" | "computed";
+  /** Optional unit shown in the column header (e.g. "uL"). */
+  unit?: string;
+  /** Per-row expression, required when `kind` is `computed`. */
+  expr?: string;
+}
+
+/** One input the user fills in when running the calculator.
+ *  - `number`    a single numeric field.
+ *  - `replicate` a variable-length list of numbers (the multi-box row); the
+ *                evaluator binds it as an array so list helpers (mean, sd,
+ *                shannon, ...) can operate on it.
+ *  - `dropdown`  a fixed choice; the selected option's `value` (number or
+ *                string) is bound under `key`.
+ *  - `table`     a mini-spreadsheet (Phase 5); the user adds / removes rows and
+ *                fills the `input` columns, `computed` columns derive per row,
+ *                and the whole table is bound under `key` as an array of row
+ *                objects so steps / outputs can aggregate it via
+ *                `col(table, "colKey")` wrapped in a list helper. */
+export interface CustomCalculatorInput {
+  /** Variable name referenced in step / conditional / output expressions. */
+  key: string;
+  type: "number" | "replicate" | "dropdown" | "table";
+  /** Human-facing field label. */
+  label: string;
+  /** Optional unit shown next to the field (e.g. "mL", "mg/kg"). */
+  unit?: string;
+  /** Default value for `number` (a number) or `replicate` (a list); for a
+   *  dropdown the default is the first option unless overridden here with the
+   *  chosen option's value. */
+  default?: number | number[] | string;
+  /** Options for a `dropdown` input. */
+  options?: CustomCalculatorDropdownOption[];
+  /** Columns for a `table` input (Phase 5). */
+  columns?: CustomCalculatorTableColumn[];
+  /** Optional seed rows for a `table` input, each keyed by column `key`. A cell
+   *  value is a number or a descriptive string; `computed` columns are derived
+   *  at evaluation time and need not be stored here. */
+  rows?: Record<string, number | string>[];
+}
+
+/** An intermediate named computation. Each `key` becomes available to later
+ *  steps, conditionals, and outputs, evaluated in array order. */
+export interface CustomCalculatorStep {
+  key: string;
+  /** Expression over inputs + earlier steps (expr-eval-fork syntax). */
+  expr: string;
+}
+
+/** A guidance rule. The `expr` is typically an `if(cond, "message", "")`; a
+ *  non-empty string result is surfaced to the user as a guidance message
+ *  (e.g. "Viability below 80%, check handling"). */
+export interface CustomCalculatorConditional {
+  expr: string;
+}
+
+/** A reported result row. */
+export interface CustomCalculatorOutput {
+  label: string;
+  /** Expression over inputs + steps. */
+  expr: string;
+  /** Optional unit shown next to the value. */
+  unit?: string;
+  /** How the numeric value is rendered. Omitted = "auto" (clean default that
+   *  prints integers in full and trims float noise). "scientific" renders
+   *  `2.5e8` via toExponential; "fixed" renders a fixed number of decimals via
+   *  toFixed. A spore-concentration calc wants "scientific" so a large count
+   *  reads as 2.5e8 rather than 250000000. */
+  format?: "auto" | "scientific" | "fixed";
+  /** Decimal places for "scientific" / "fixed". Defaults to 2 when omitted. */
+  decimals?: number;
+}
+
+/** A saved, user-authored calculator record. Stored per-user at
+ *  `users/<owner>/calculators/<id>.json`. */
+export interface CustomCalculator {
+  /** Numeric per-user record id (JsonStore counter). */
+  id: number;
+  name: string;
+  description: string;
+  /** Optional grouping label (e.g. "Microbiology"), mirrors the template field
+   *  used to group the library gallery. */
+  field?: string;
+  inputs: CustomCalculatorInput[];
+  steps: CustomCalculatorStep[];
+  conditionals: CustomCalculatorConditional[];
+  outputs: CustomCalculatorOutput[];
+  /** Sharing selection, unified shape (Phase 2, 2026-06-10). Empty = "Just
+   *  me"; the whole-lab share is the `{ username: "*", level: "read" }` entry,
+   *  exactly like methods / tasks. Phase 1 wrote a `string[]` here; the read
+   *  path lazy-normalizes those records via `normalizeSharedWith`, so a Phase 1
+   *  record keeps working without a rewrite (the next save lands the new
+   *  shape). */
+  shared_with: SharedUser[];
+  created_at: string;
+  updated_at: string;
+  /** Whose folder this record lives in. Not persisted to disk (the per-user
+   *  directory IS the owner); overlaid at read time by
+   *  `fetchAllCalculatorsIncludingShared` so the UI can badge a shared-in
+   *  (non-owned) calculator and gate it read-only. */
+  owner?: string;
+  /** True when this calculator is owned by another lab member and surfaced to
+   *  the current user via the whole-lab "*" share. Read-only for them (owner
+   *  edits propagate, it is a live reference, not a copy). Never persisted. */
+  is_shared_with_me?: boolean;
+}
+
+/** Create shape for `calculatorsApi.create` (id + timestamps are stamped by the
+ *  API). `shared_with` defaults to [] (Just me) when omitted. */
+export interface CustomCalculatorCreate {
+  name: string;
+  description?: string;
+  field?: string;
+  inputs: CustomCalculatorInput[];
+  steps: CustomCalculatorStep[];
+  conditionals: CustomCalculatorConditional[];
+  outputs: CustomCalculatorOutput[];
+  shared_with?: SharedUser[];
+}
+
+/** Patch shape for `calculatorsApi.update`. Any subset; `updated_at` is
+ *  re-stamped on every write. */
+export interface CustomCalculatorUpdate {
+  name?: string;
+  description?: string;
+  field?: string;
+  inputs?: CustomCalculatorInput[];
+  steps?: CustomCalculatorStep[];
+  conditionals?: CustomCalculatorConditional[];
+  outputs?: CustomCalculatorOutput[];
+  shared_with?: SharedUser[];
+}
 ```
 
 ## §5 Canonical examples
@@ -2380,7 +4003,7 @@ Source: `frontend/public/demo-data/users/alex/projects/1.json`
 ```json
 {
   "id": 1,
-  "name": "DEMO: Engineer FakeYeast for biofuel",
+  "name": "Engineer FakeYeast for biofuel",
   "weekend_active": false,
   "tags": [
     "demo",
@@ -2392,7 +4015,8 @@ Source: `frontend/public/demo-data/users/alex/projects/1.json`
   "is_archived": false,
   "archived_at": null,
   "owner": "alex",
-  "shared_with": []
+  "shared_with": [],
+  "funding_account_id": 1
 }
 ```
 
@@ -2416,7 +4040,7 @@ Source: `frontend/public/demo-data/users/alex/tasks/2.json`
   "method_ids": [
     1
   ],
-  "deviation_log": "Demo: heat-shock ran 38 min instead of 40 (interrupted by timer reset). Noted for the colony count.",
+  "deviation_log": "Heat-shock ran 38 min instead of 40 (interrupted by timer reset). Noted for the colony count.",
   "tags": null,
   "sort_order": 2,
   "experiment_color": "#3b82f6",
@@ -2466,7 +4090,7 @@ Source: `frontend/public/demo-data/users/alex/tasks/7.json`
 {
   "id": 7,
   "project_id": 2,
-  "name": "Order DemoStrain ΔADE2 reagents",
+  "name": "Order FakeStrain ΔADE2 reagents",
   "start_date": "2026-05-06",
   "duration_days": 1,
   "end_date": "2026-05-06",
@@ -2552,7 +4176,7 @@ Source: `frontend/public/demo-data/users/alex/methods/1.json` — method_type="m
 ```json
 {
   "id": 1,
-  "name": "[Demo protocol] Yeast transformation (LiAc)",
+  "name": "Yeast transformation (LiAc)",
   "source_path": "users/alex/methods/1.md",
   "method_type": "markdown",
   "folder_path": "Strains",
@@ -2572,7 +4196,7 @@ Source: `frontend/public/demo-data/users/alex/methods/5.json` — method_type="p
 ```json
 {
   "id": 5,
-  "name": "[Demo protocol] qPCR fakeGFP expression",
+  "name": "qPCR fakeGFP expression",
   "source_path": "pcr://protocol/1",
   "method_type": "pcr",
   "folder_path": "qPCR",
@@ -2594,7 +4218,7 @@ Source: `frontend/public/demo-data/users/alex/methods/6.json` — method_type="l
 ```json
 {
   "id": 6,
-  "name": "[Demo protocol] Reverse-phase HPLC — flbA peptide quantification",
+  "name": "Reverse-phase HPLC — flbA peptide quantification",
   "source_path": "lc_gradient://protocol/1",
   "method_type": "lc_gradient",
   "folder_path": "LC-MS",
@@ -2617,7 +4241,7 @@ Source: `frontend/public/demo-data/users/alex/methods/7.json` — method_type="p
 ```json
 {
   "id": 7,
-  "name": "[Demo protocol] 96-well bacterial growth curve (DemoStrain inducer titration)",
+  "name": "96-well bacterial growth curve (FakeStrain inducer titration)",
   "source_path": "plate://protocol/1",
   "method_type": "plate",
   "folder_path": "Screening",
@@ -2640,7 +4264,7 @@ Source: `frontend/public/demo-data/users/alex/methods/8.json` — method_type="c
 ```json
 {
   "id": 8,
-  "name": "[Demo protocol] HeLa passaging — weekly 1:5 split",
+  "name": "HeLa passaging — weekly 1:5 split",
   "source_path": "cell_culture://protocol/1",
   "method_type": "cell_culture",
   "folder_path": "Cell culture",
@@ -2663,7 +4287,7 @@ Source: `frontend/public/demo-data/users/alex/methods/9.json` — method_type="c
 ```json
 {
   "id": 9,
-  "name": "[Demo protocol] Growth-curve QC analysis",
+  "name": "Growth-curve QC analysis",
   "source_path": "coding_workflow://protocol/1",
   "method_type": "coding_workflow",
   "folder_path": "Analysis",
@@ -2686,7 +4310,7 @@ Source: `frontend/public/demo-data/users/alex/methods/10.json` — method_type="
 ```json
 {
   "id": 10,
-  "name": "[Demo protocol] LC-MS detection — flbA peptides (ESI+ Q-Exactive)",
+  "name": "LC-MS detection — flbA peptides (ESI+ Q-Exactive)",
   "source_path": "mass_spec://protocol/1",
   "method_type": "mass_spec",
   "folder_path": "LC-MS",
@@ -2710,7 +4334,7 @@ Source: `frontend/public/demo-data/users/alex/methods/11.json` — method_type="
 ```json
 {
   "id": 11,
-  "name": "[Demo protocol] flbA expression vs control (ΔΔCq)",
+  "name": "flbA expression vs control (ΔΔCq)",
   "source_path": "qpcr_analysis://protocol/1",
   "method_type": "qpcr_analysis",
   "folder_path": "qPCR",
@@ -2733,7 +4357,7 @@ Source: `frontend/public/demo-data/users/alex/methods/12.json` — method_type="
 ```json
 {
   "id": 12,
-  "name": "[Demo kit] Yeast growth-curve full kit",
+  "name": "Yeast growth-curve full kit",
   "source_path": null,
   "method_type": "compound",
   "folder_path": "Screening",
@@ -2753,7 +4377,7 @@ Source: `frontend/public/demo-data/users/alex/methods/12.json` — method_type="
       "method_id": 7,
       "owner": null,
       "ordering": 0,
-      "label": "Plate layout (96-well DemoStrain titration)"
+      "label": "Plate layout (96-well FakeStrain titration)"
     },
     {
       "method_id": 2,
@@ -2772,7 +4396,7 @@ Source: `frontend/public/demo-data/users/alex/pcr_protocols/1.json`
 ```json
 {
   "id": 1,
-  "name": "[Demo protocol] qPCR fakeGFP expression",
+  "name": "qPCR fakeGFP expression",
   "gradient": {
     "initial": [
       {
@@ -2839,7 +4463,7 @@ Source: `frontend/public/demo-data/users/alex/pcr_protocols/1.json`
       "amount_per_reaction": "20"
     }
   ],
-  "notes": "Demo qPCR — use ACT1 as housekeeping reference. Public version available at users/public.",
+  "notes": "use ACT1 as housekeeping reference. Public version available at users/public.",
   "tags": [
     "demo",
     "qPCR",
@@ -2859,8 +4483,8 @@ Source: `frontend/public/demo-data/users/alex/lc_gradients/1.json`
 ```json
 {
   "id": 1,
-  "name": "[Demo protocol] Reverse-phase HPLC — flbA peptide quantification",
-  "description": "Demo HPLC method — separates fake-flbA tryptic peptides on a C18 column. Expected retention for the target peptide: 12.4 min (demo number).",
+  "name": "Reverse-phase HPLC — flbA peptide quantification",
+  "description": "HPLC method — separates fake-flbA tryptic peptides on a C18 column. Expected retention for the target peptide: 12.4 min.",
   "gradient_steps": [
     {
       "time_min": 0,
@@ -2901,7 +4525,7 @@ Source: `frontend/public/demo-data/users/alex/lc_gradients/1.json`
   ],
   "column": {
     "manufacturer": "Waters",
-    "model": "ACQUITY UPLC BEH C18 (demo)",
+    "model": "ACQUITY UPLC BEH C18",
     "length_mm": 150,
     "inner_diameter_mm": 2.1,
     "particle_size_um": 1.7
@@ -2944,8 +4568,8 @@ Source: `frontend/public/demo-data/users/alex/plate_layouts/1.json`
 ```json
 {
   "id": 1,
-  "name": "[Demo protocol] 96-well bacterial growth curve (DemoStrain inducer titration)",
-  "description": "Demo plate template — DemoStrain ΔADE2 growth curve in YPD vs. fake-inducer concentration series. Column 1 = media blanks, columns 2-7 = sample wells (5 inducer concentrations + carrier control), columns 8-12 = negative controls.",
+  "name": "96-well bacterial growth curve (FakeStrain inducer titration)",
+  "description": "FakeStrain ΔADE2 growth curve in YPD vs. fake-inducer concentration series. Column 1 = media blanks, columns 2-7 = sample wells (5 inducer concentrations + carrier control), columns 8-12 = negative controls.",
   "plate_size": 96,
   "region_labels": [
     {
@@ -2962,7 +4586,7 @@ Source: `frontend/public/demo-data/users/alex/plate_layouts/1.json`
       "col_start": 1,
       "col_end": 6,
       "role": "sample",
-      "notes": "DemoStrain ΔADE2 + fake-inducer titration"
+      "notes": "FakeStrain ΔADE2 + fake-inducer titration"
     },
     {
       "row_start": 0,
@@ -2970,7 +4594,7 @@ Source: `frontend/public/demo-data/users/alex/plate_layouts/1.json`
       "col_start": 7,
       "col_end": 11,
       "role": "control",
-      "notes": "Wild-type DemoStrain (no inducer)"
+      "notes": "Wild-type FakeStrain (no inducer)"
     }
   ],
   "created_at": "2026-04-22T00:00:00Z",
@@ -2989,13 +4613,13 @@ Source: `frontend/public/demo-data/users/alex/cell_culture_schedules/1.json`
 ```json
 {
   "id": 1,
-  "name": "[Demo protocol] HeLa passaging — weekly 1:5 split",
-  "description": "Demo passaging schedule for HeLa cells. Feed every 2 days, observe day 6, split 1:5 on day 7. Mid-execution actual events logged per experiment.",
+  "name": "HeLa passaging — weekly 1:5 split",
+  "description": "Passaging schedule for HeLa cells. Feed every 2 days, observe day 6, split 1:5 on day 7. Mid-execution actual events logged per experiment.",
   "cell_line": {
-    "name": "HeLa (demo)",
+    "name": "HeLa",
     "species": "Homo sapiens",
     "tissue": "Cervix (adenocarcinoma)",
-    "notes": "Demo strain — fake ATCC ref. Mycoplasma-negative."
+    "notes": "Strain (fake ATCC ref). Mycoplasma-negative."
   },
   "media": {
     "base_medium": "DMEM (high glucose, 4.5 g/L)",
@@ -3056,15 +4680,15 @@ Source: `frontend/public/demo-data/users/alex/purchase_items/1.json`
 {
   "id": 1,
   "task_id": 7,
-  "item_name": "DemoStrain ΔADE2 (fake yeast collection)",
+  "item_name": "FakeStrain ΔADE2 (fake yeast collection)",
   "quantity": 1,
   "link": "https://example.org/demo-strain-catalog",
   "cas": null,
   "price_per_unit": 220,
   "shipping_fees": 25,
   "total_price": 245,
-  "notes": "Demo strain — replaces nothing real.",
-  "funding_string": "DEMO-DOE-EERE",
+  "notes": "Engineered strain (fake), replaces nothing real.",
+  "funding_string": "DOE-EERE-0009431",
   "vendor": null,
   "category": null
 }
@@ -3078,7 +4702,7 @@ Source: `frontend/public/demo-data/users/alex/notes/1.json`
 {
   "id": 1,
   "title": "Run 2026-05-08: pYES-GAL1::flbA transformation",
-  "description": "Transformed FakeYeast-001 with pYES-GAL1::flbA using the LiAc protocol. Heat shock ran short (38 min, see deviation_log). Plated on SD-Ura. 40 colonies after 48 h, eight patched for downstream work.",
+  "description": "Transformed FakeYeast-001 with pYES-GAL1::flbA using the LiAc protocol.",
   "is_running_log": false,
   "is_shared": true,
   "shared_with": [
@@ -3088,7 +4712,16 @@ Source: `frontend/public/demo-data/users/alex/notes/1.json`
       "permission": "view"
     }
   ],
-  "entries": [],
+  "entries": [
+    {
+      "id": "alex-note1-e1",
+      "title": "2026-05-08: transformation run",
+      "date": "2026-05-08",
+      "content": "Transformed FakeYeast-001 with pYES-GAL1::flbA using the LiAc protocol. Heat shock ran short (38 min, see deviation_log). Plated on SD-Ura. 40 colonies after 48 h, eight patched for downstream work.",
+      "created_at": "2026-05-08T14:00:00Z",
+      "updated_at": "2026-05-11T09:00:00Z"
+    }
+  ],
   "comments": [
     {
       "id": "cmt-mira-alex-note1-1",
@@ -3111,7 +4744,7 @@ Source: `frontend/public/demo-data/users/alex/goals/1.json`
 {
   "id": 1,
   "project_id": 1,
-  "name": "DEMO: Publish FakeYeast biofuel paper",
+  "name": "Publish FakeYeast biofuel paper",
   "start_date": "2026-04-01",
   "end_date": "2026-08-31",
   "color": "#3b82f6",
@@ -3157,13 +4790,13 @@ Source: `frontend/public/demo-data/users/alex/events/1.json`
 ```json
 {
   "id": 1,
-  "title": "Demo lab meeting — strain design review",
+  "title": "Lab meeting — strain design review",
   "event_type": "meeting",
   "start_date": "2026-05-18",
   "end_date": "2026-05-18",
   "start_time": "11:00",
   "end_time": "12:00",
-  "location": "Bio 4203 (demo)",
+  "location": "Bio 4203",
   "url": null,
   "notes": "Bring transformation gel images.",
   "color": "#3b82f6"
@@ -3181,9 +4814,9 @@ Source: `frontend/public/demo-data/users/alex/lab_links/1.json`
 ```json
 {
   "id": 1,
-  "title": "Benchling (demo workspace)",
+  "title": "Benchling",
   "url": "https://example.org/demo-benchling",
-  "description": "Cloning notebook for the demo lab.",
+  "description": "Cloning notebook for the lab.",
   "category": "Bioinformatics tools",
   "color": "#3b82f6",
   "preview_image_url": null,
@@ -3661,8 +5294,10 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 | Start Here | `/wiki/start-here` |
 | Quickstart | `/wiki` |
 | Getting Started | `/wiki/getting-started` |
+| Account tiers | `/wiki/getting-started/accounts` |
 | Browser Requirements | `/wiki/getting-started/browser-requirements` |
 | Connecting Your Folder | `/wiki/getting-started/connecting-your-folder` |
+| Converting to single-user | `/wiki/getting-started/converting-to-single-user` |
 | Creating a User | `/wiki/getting-started/creating-a-user` |
 | Welcome Tour (BeakerBot) | `/wiki/getting-started/welcome-wizard` |
 | Demo Mode | `/wiki/getting-started/demo-mode` |
@@ -3675,19 +5310,37 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 | Box | `/wiki/shared-lab-accounts/box` |
 | iCloud Drive | `/wiki/shared-lab-accounts/icloud` |
 | Features | `/wiki/features` |
-| Home & Projects | `/wiki/features/home` |
+| Where you land | `/wiki/features/home` |
 | Project Surface | `/wiki/features/projects` |
 | Gantt Chart | `/wiki/features/gantt` |
 | The Workbench | `/wiki/features/experiments` |
 | The Markdown Editor | `/wiki/features/markdown-editor` |
+| Version History | `/wiki/features/version-history` |
+| Use any AI with your data | `/wiki/features/ai-helper` |
 | Methods Library | `/wiki/features/methods` |
 | PCR Protocols | `/wiki/features/pcr` |
+| Template Library | `/wiki/features/method-catalog` |
+| Sequences | `/wiki/features/sequences` |
+| Data Hub | `/wiki/features/datahub` |
+| Chemistry | `/wiki/features/chemistry` |
+| Cloning | `/wiki/features/cloning` |
+| Restriction digest | `/wiki/features/restriction-digest` |
+| Lab calculators | `/wiki/features/lab-calculators` |
+| Image annotation | `/wiki/features/image-annotation` |
+| Companion | `/wiki/features/companion` |
+| Pairing | `/wiki/features/companion/pairing` |
+| Capture and route | `/wiki/features/companion/capture-and-route` |
+| Scanning handwritten notes | `/wiki/features/companion/scanning-notes` |
+| Today glance | `/wiki/features/companion/today-glance` |
+| View a method on your phone | `/wiki/features/companion/view-method` |
+| Inventory scanning | `/wiki/features/companion/inventory-scanning` |
 | Purchases & Funding | `/wiki/features/purchases` |
+| Cloud storage & plans | `/wiki/features/cloud-and-plans` |
+| Inventory | `/wiki/features/inventory` |
 | Calendar | `/wiki/features/calendar` |
 | Lab Overview | `/wiki/features/lab-overview` |
-| Widgets and Tools | `/wiki/features/lab-overview/widgets-and-tools` |
-| Customizable sidebar | `/wiki/features/lab-overview/customizable-sidebar` |
-| Snapshot tiles and expanded views | `/wiki/features/lab-overview/snapshot-tiles-and-expanded-views` |
+| Browse lab experiments | `/wiki/features/lab-experiments` |
+| Browse lab notes | `/wiki/features/lab-notes` |
 | Lab Inbox | `/wiki/features/lab-inbox` |
 | Comments | `/wiki/features/lab-inbox/comments` |
 | Announcements | `/wiki/features/lab-inbox/announcements` |
@@ -3695,6 +5348,7 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 | Edit session and password | `/wiki/features/lab-head/edit-session-and-password` |
 | Soft-write actions | `/wiki/features/lab-head/soft-write-actions` |
 | Audit log | `/wiki/features/lab-head/audit-log` |
+| Mentoring and check-ins | `/wiki/features/one-on-ones` |
 | Sharing and permissions | `/wiki/features/sharing-and-permissions` |
 | Search | `/wiki/features/search` |
 | Lab Links | `/wiki/features/links` |
@@ -3705,20 +5359,24 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 | Notifications & Inbox | `/wiki/features/notifications` |
 | Feedback | `/wiki/features/feedback` |
 | Integrations | `/wiki/integrations` |
-| Telegram Bot | `/wiki/integrations/telegram` |
 | Calendar Feeds | `/wiki/integrations/calendar-feeds` |
 | LabArchives | `/wiki/integrations/labarchives` |
 | Compliance | `/wiki/compliance` |
 | NIH Data Management & Sharing | `/wiki/compliance/nih-data-management` |
 | ResearchOS vs LabArchives | `/wiki/compliance/labarchives-comparison` |
+| Depositing to a repository | `/wiki/compliance/depositing-to-a-repository` |
 | Security | `/wiki/security` |
+| Trust | `/wiki/trust` |
+| Method validation | `/wiki/trust/method-validation` |
+| Open source and license | `/wiki/trust/open-source` |
+| How it stays free | `/wiki/trust/how-we-fund-it` |
 
 ## §11 Build metadata
 
 - **Variant:** `full`
-- **Helper version:** `18`
-- **Schema hash:** `6ada322f6537cbe77c3c63b908ef3a787b4035702f40bc099ab7ada128151196`
-- **Built at:** `2026-05-29T18:17:32.252Z`
-- **Built from commit:** `fa0ffacf584917266de6286b17652a308634509b`
+- **Helper version:** `20`
+- **Schema hash:** `83558711b470158db50ad289887329e0babf72ec9941755c869800ac652fe280`
+- **Built at:** `2026-06-12T07:01:10.630Z`
+- **Built from commit:** `e23a032d092bfb37a75abf591b983aba02632399`
 
 _Generated by `scripts/build-ai-helper.mjs`. Do not edit by hand — run `npm run --prefix frontend ai-helper:refresh` to rebuild and commit._

@@ -390,6 +390,17 @@ export interface Project {
   // created the ordinary way (and every project written before this slice) omits
   // it. It is the cheap seed a future merge-into-existing (P3) needs.
   imported_from?: ProjectImportedFrom;
+  // Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): a stable
+  // cross-user identity for this record minted once at create time using
+  // crypto.randomUUID(). OPTIONAL + ADDITIVE: records written before Phase 6a
+  // simply lack this field; a lazy backfill in the read-boundary normalizer mints
+  // one and persists it the first time such a record is read (write-through,
+  // fire-and-forget). Never renames, never removes, never requires a hard cutover.
+  // Used by the Phase 6 share-with-dependencies bundle to resolve embedded objects
+  // by content identity instead of the sender's local numeric id. Natural-key
+  // types (molecule: InChIKey, sequence: content fingerprint) do NOT carry this
+  // field and are excluded from source_uuid handling.
+  source_uuid?: string;
 }
 
 /**
@@ -644,7 +655,7 @@ export interface Task {
   // user-edited). Denylisted in canonicalize.ts so it never pollutes a VC
   // delta, mirroring `revert_undo_window`.
   // Check-ins Phase 3 (checkins-phase3 bot, 2026-06-12) extends the union with
-  // the `idp_action` kind: the back-link from a Task materialized by an IDP
+  // the `idp_action` kind, the back-link from a Task materialized by an IDP
   // action-plan row (D4-style sync, but the trainee owns BOTH the IDP and the
   // task, so no cross-user write). Same field name, so the `source` denylist in
   // canonicalize.ts still covers it without change.
@@ -660,6 +671,11 @@ export interface Task {
         row_id: string;
       }
     | null;
+  // Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): see
+  // Project.source_uuid for the full contract. Experiments and list tasks share
+  // this field via the Task interface. Minted at create time; lazy-backfilled on
+  // read; never removed or renamed. ADDITIVE + back-compat.
+  source_uuid?: string;
 }
 
 /**
@@ -997,6 +1013,10 @@ export interface Method {
   received_from?: string;             // sender canonical email, set only on imported methods
   received_from_fingerprint?: string; // sender key fingerprint
   received_at?: string;               // ISO 8601 timestamp of import
+  // Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): see
+  // Project.source_uuid for the full contract. Minted at create time; lazy-backfilled
+  // on read; never removed or renamed. ADDITIVE + back-compat.
+  source_uuid?: string;
 }
 
 export interface MethodCreate {
@@ -2891,6 +2911,10 @@ export interface Note {
   // field is the bootstrap bridge for newly-imported notes before the sidecar
   // is written for the first time.
   collab_doc_id?: string;
+  // Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): see
+  // Project.source_uuid for the full contract. Minted at create time; lazy-backfilled
+  // on read; never removed or renamed. ADDITIVE + back-compat.
+  source_uuid?: string;
 }
 
 export interface NoteCreate {

@@ -392,17 +392,39 @@ async function softDeleteEntity(args: {
   });
 }
 
+/**
+ * Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): lazy backfill
+ * for a Project that predates the source_uuid field. Fire-and-forget write-through.
+ * Pass ownerOverride when reading a cross-user project.
+ */
+function backfillProjectSourceUuid(project: Project, ownerOverride?: string): Project {
+  if (project.source_uuid) return project;
+  // Only backfill records in the current user's own store. A cross-user read
+  // (ownerOverride set) must never mint or write into another user's folder, so
+  // a read never mutates data we do not own and two readers cannot race to stamp
+  // different ids onto one file. That owner backfills their own copy on read.
+  if (ownerOverride) return project;
+  const uuid = (typeof crypto !== "undefined" && "randomUUID" in crypto)
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
+  void projectsStore.update(project.id, { source_uuid: uuid }).catch(() => { /* fire-and-forget */ });
+  return { ...project, source_uuid: uuid };
+}
+
 export const projectsApi = {
   list: async (): Promise<Project[]> => {
-    return projectsStore.listAll();
+    // Phase 6a: lazy-backfill source_uuid on read.
+    return (await projectsStore.listAll()).map((p) => backfillProjectSourceUuid(p));
   },
 
   listWithShared: async (): Promise<Project[]> => {
-    return projectsStore.listAll();
+    return (await projectsStore.listAll()).map((p) => backfillProjectSourceUuid(p));
   },
 
   get: async (id: number, owner?: string): Promise<Project | null> => {
-    return owner ? projectsStore.getForUser(id, owner) : projectsStore.get(id);
+    const project = owner ? await projectsStore.getForUser(id, owner) : await projectsStore.get(id);
+    // Phase 6a: lazy-backfill source_uuid on read.
+    return project ? backfillProjectSourceUuid(project, owner) : null;
   },
 
   /**
@@ -464,6 +486,11 @@ export const projectsApi = {
       ...(data.imported_from !== undefined
         ? { imported_from: data.imported_from }
         : {}),
+      // Phase 6a portable identity: mint once at create time so a cross-user
+      // bundle can resolve this project by identity rather than by local id.
+      source_uuid: (typeof crypto !== "undefined" && "randomUUID" in crypto)
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2),
     });
     // Onboarding v4 §6.1: notify the home-create-project walkthrough
     // step that a new project landed, so BeakerBot can advance without
@@ -872,6 +899,26 @@ function normalizeTaskRecord(raw: Task): Task {
   return normalized;
 }
 
+/**
+ * Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): lazy backfill
+ * for a Task that predates the source_uuid field. Returns the record with the
+ * field set; fires a best-effort write-through so the field persists on the next
+ * read without going through a full tasksApi.update (which would stamp
+ * last_edited_at and trigger history). Pass ownerOverride when reading a
+ * cross-user task (mirrors the tasksApi.get owner routing).
+ */
+function backfillTaskSourceUuid(task: Task, ownerOverride?: string): Task {
+  if (task.source_uuid) return task;
+  // Own-store only. A cross-user read (ownerOverride set) never mints or writes
+  // into another user's folder; that owner backfills their own copy on read.
+  if (ownerOverride) return task;
+  const uuid = (typeof crypto !== "undefined" && "randomUUID" in crypto)
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
+  void tasksStore.update(task.id, { source_uuid: uuid }).catch(() => { /* fire-and-forget */ });
+  return { ...task, source_uuid: uuid };
+}
+
 export const tasksApi = {
   // When `owner` is set (the project being listed is shared with the current
   // user), the query reads from the owner's tasks dir instead of the current
@@ -882,7 +929,8 @@ export const tasksApi = {
     const tasks = owner
       ? (await tasksStore.listAllForUser(owner)).filter((t) => t.project_id === projectId)
       : await tasksStore.query({ project_id: projectId });
-    return tasks.map(computeTaskEndDate);
+    // Phase 6a: lazy-backfill source_uuid on tasks that predate the field.
+    return tasks.map(computeTaskEndDate).map((t) => backfillTaskSourceUuid(t, owner));
   },
 
   get: async (id: number, owner?: string): Promise<Task | null> => {
@@ -894,7 +942,9 @@ export const tasksApi = {
     // on disk; without this their per-user results path would resolve to
     // `users//results/...`.
     const effectiveOwner = owner ?? (await getCurrentUserCached()) ?? "";
-    return computeTaskEndDate(withOwnerFallback(task, effectiveOwner));
+    // Phase 6a: lazy-backfill source_uuid; pass effectiveOwner so the
+    // write-through lands in the right directory.
+    return backfillTaskSourceUuid(computeTaskEndDate(withOwnerFallback(task, effectiveOwner)), effectiveOwner);
   },
   
   create: async (data: {
@@ -966,6 +1016,10 @@ export const tasksApi = {
       })),
       owner: currentUser,
       shared_with: [],
+      // Phase 6a portable identity: mint once at create time.
+      source_uuid: (typeof crypto !== "undefined" && "randomUUID" in crypto)
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2),
     });
     // Onboarding v4 §6.5: notify the workbench-create-experiment-submit
     // walkthrough beat that an experiment landed. The submit step's
@@ -2052,6 +2106,32 @@ function normalizeMethodRecord(raw: Method): Method {
   return raw;
 }
 
+/**
+ * Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): lazy backfill
+ * for a Method that predates the source_uuid field. Fire-and-forget write-through;
+ * the caller gets the enriched record immediately. Distinguishes public methods
+ * (owner === "public") so the write lands in the right store.
+ */
+function backfillMethodSourceUuid(method: Method, currentUser: string): Method {
+  if (method.source_uuid) return method;
+  // Own-store only. A read never mints or writes into a public/communal method
+  // ("public" sentinel) or another user's shared method (that owner backfills
+  // their own copy), so a read never mutates a file we do not own and the
+  // identity stays stable. An own method is ownerless (bare own store) or owned
+  // by the current user.
+  const isOwn = !method.owner || method.owner === currentUser;
+  if (method.owner === "public" || !isOwn) return method;
+  const uuid = (typeof crypto !== "undefined" && "randomUUID" in crypto)
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
+  if (method.owner) {
+    void methodsStore.updateForUser(method.id, { source_uuid: uuid }, method.owner).catch(() => { /* fire-and-forget */ });
+  } else {
+    void methodsStore.update(method.id, { source_uuid: uuid }).catch(() => { /* fire-and-forget */ });
+  }
+  return { ...method, source_uuid: uuid };
+}
+
 // R1d: a one-shot warning fired when a caller routes a `methodsApi.create`
 // to the public namespace using only the deprecated `is_public: true`
 // alias (no whole-lab "*" entry in `shared_with`). The flag is module
@@ -2073,10 +2153,13 @@ export const methodsApi = {
   list: async (): Promise<Method[]> => {
     const privateMethods = await methodsStore.listAll();
     const publicMethods = await publicMethodsStore.listAll();
+    const currentUser = (await getCurrentUserCached()) ?? "";
 
+    // Phase 6a: lazy-backfill source_uuid after legacy normalization. Only the
+    // current user's own methods write through; public/foreign are left as-is.
     const marked = [
-      ...privateMethods.map((m) => normalizeMethodRecord({ ...m, is_public: false })),
-      ...publicMethods.map((m) => normalizeMethodRecord({ ...m, is_public: true })),
+      ...privateMethods.map((m) => backfillMethodSourceUuid(normalizeMethodRecord({ ...m, is_public: false }), currentUser)),
+      ...publicMethods.map((m) => backfillMethodSourceUuid(normalizeMethodRecord({ ...m, is_public: true }), currentUser)),
     ];
     return marked;
   },
@@ -2088,22 +2171,24 @@ export const methodsApi = {
   // method attachments carry `owner: "public"` per the routing-fix
   // contract (3f8b42d2).
   get: async (id: number, owner?: string): Promise<Method | null> => {
+    const currentUser = (await getCurrentUserCached()) ?? "";
     if (owner === "public") {
       const publicMethod = await publicMethodsStore.get(id);
+      // Phase 6a: lazy-backfill source_uuid on read.
       return publicMethod
-        ? normalizeMethodRecord({ ...publicMethod, is_public: true })
+        ? backfillMethodSourceUuid(normalizeMethodRecord({ ...publicMethod, is_public: true }), currentUser)
         : null;
     }
     if (owner) {
       const ownerMethod = await methodsStore.getForUser(id, owner);
-      if (ownerMethod) return normalizeMethodRecord({ ...ownerMethod, is_public: false });
+      if (ownerMethod) return backfillMethodSourceUuid(normalizeMethodRecord({ ...ownerMethod, is_public: false }), currentUser);
       return null;
     }
     const method = await methodsStore.get(id);
-    if (method) return normalizeMethodRecord({ ...method, is_public: false });
+    if (method) return backfillMethodSourceUuid(normalizeMethodRecord({ ...method, is_public: false }), currentUser);
 
     const publicMethod = await publicMethodsStore.get(id);
-    if (publicMethod) return normalizeMethodRecord({ ...publicMethod, is_public: true });
+    if (publicMethod) return backfillMethodSourceUuid(normalizeMethodRecord({ ...publicMethod, is_public: true }), currentUser);
 
     return null;
   },
@@ -2149,6 +2234,10 @@ export const methodsApi = {
         created_by: null,
         owner: "public",
         shared_with: sharedWithPersisted,
+        // Phase 6a portable identity: mint once at create time.
+        source_uuid: (typeof crypto !== "undefined" && "randomUUID" in crypto)
+          ? crypto.randomUUID()
+          : Math.random().toString(36).slice(2),
       });
     }
 
@@ -2164,6 +2253,10 @@ export const methodsApi = {
       created_by: null,
       owner: currentUser,
       shared_with: sharedWithInput,
+      // Phase 6a portable identity: mint once at create time.
+      source_uuid: (typeof crypto !== "undefined" && "randomUUID" in crypto)
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2),
     });
   },
 
@@ -2227,6 +2320,11 @@ export const methodsApi = {
       source_path: data.new_source_path,
       parent_method_id: id,
       is_public: false,
+      // Phase 6a portable identity: a fork gets its own fresh uuid (it is a
+      // new object, not the same identity as the original).
+      source_uuid: (typeof crypto !== "undefined" && "randomUUID" in crypto)
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2),
     });
   },
 
@@ -5320,18 +5418,37 @@ function healLegacyNoteShare(note: Note): Note {
   return note;
 }
 
+/**
+ * Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): lazy backfill
+ * for a Note that predates the source_uuid field. Fire-and-forget write-through;
+ * the caller gets the enriched record immediately. Pass ownerOverride when
+ * reading cross-user notes so the write lands in the right directory.
+ */
+function backfillNoteSourceUuid(note: Note, ownerOverride?: string): Note {
+  if (note.source_uuid) return note;
+  // Own-store only. A cross-user read (ownerOverride set) never mints or writes
+  // into another user's folder; that owner backfills their own copy on read.
+  if (ownerOverride) return note;
+  const uuid = (typeof crypto !== "undefined" && "randomUUID" in crypto)
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
+  void notesStore.update(note.id, { source_uuid: uuid }).catch(() => { /* fire-and-forget */ });
+  return { ...note, source_uuid: uuid };
+}
+
 export const notesApi = {
   list: async (): Promise<Note[]> => {
-    return (await notesStore.listAll()).map(healLegacyNoteShare);
+    return (await notesStore.listAll()).map(healLegacyNoteShare).map((n) => backfillNoteSourceUuid(n));
   },
 
   get: async (id: number, owner?: string): Promise<Note | null> => {
     const note = owner
       ? await notesStore.getForUser(id, owner)
       : await notesStore.get(id);
-    return note ? healLegacyNoteShare(note) : null;
+    // Phase 6a: heal legacy share first, then lazy-backfill source_uuid.
+    return note ? backfillNoteSourceUuid(healLegacyNoteShare(note), owner) : null;
   },
-  
+
   create: async (data: { title: string; description?: string; is_running_log?: boolean; is_shared?: boolean; entries?: Array<{ title: string; date: string; content?: string }> }): Promise<Note> => {
     const now = new Date().toISOString();
     const entries: NoteEntry[] = (data.entries ?? []).map((e) => ({
@@ -5368,6 +5485,10 @@ export const notesApi = {
       created_at: now,
       updated_at: now,
       username: author,
+      // Phase 6a portable identity: mint once at create time.
+      source_uuid: (typeof crypto !== "undefined" && "randomUUID" in crypto)
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2),
     });
   },
   
@@ -6075,6 +6196,10 @@ export const notebooksApi = {
         notebook.members.length >= 2
           ? membersSharedWith(notebook.members)
           : [],
+      // Phase 6a portable identity: mint once at create time.
+      source_uuid: (typeof crypto !== "undefined" && "randomUUID" in crypto)
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2),
     });
   },
 
@@ -7214,6 +7339,10 @@ async function createOneOnOneNote(
     one_on_one_id: oneOnOneId,
     note_kind: opts.note_kind,
     shared_with: oneOnOneShareList(oneOnOne),
+    // Phase 6a portable identity: mint once at create time.
+    source_uuid: (typeof crypto !== "undefined" && "randomUUID" in crypto)
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2),
   });
 }
 
