@@ -39,6 +39,7 @@ import {
   type DesignResult,
   DEFAULT_DESIGN_PARAMS,
 } from "@/lib/sequences/primer-design";
+import { enzymeSiteForPrimer } from "@/lib/sequences/cut-ligate";
 import { sequencesApi } from "@/lib/local-api";
 import { jsonToGenbank, type ParsedSequence } from "@/vendor/bio-parsers";
 import type { SequenceDetail } from "@/lib/types";
@@ -498,7 +499,66 @@ export type PrimerSummary = {
     /** Strongest hairpin stem length (>=3 nt loop); 0 = no significant hairpin. */
     hairpin_stem: number;
   };
+  /** When a restriction-site overhang was requested for this direction, the 5'
+   *  non-annealing tail added to the primer (the protective flank plus the
+   *  enzyme recognition site, all from the validated enzyme dataset). Absent for
+   *  a plain primer. The reported tm_celsius / gc_percent / self_complementarity
+   *  still describe the ANNEALING body only (the tail does not bind the template
+   *  in the first cycle), which is the right number for the annealing step. */
+  overhang?: {
+    /** The enzyme whose site the tail carries (canonical dataset name). */
+    enzyme: string;
+    /** The 5' protective flank bases prepended before the site. */
+    flank: string;
+    /** The enzyme recognition site bases, from the dataset. */
+    site: string;
+    /** The whole 5' tail (flank + site), 5'->3'. */
+    tail: string;
+  };
+  /** The full ordering sequence 5'->3' (the overhang tail, if any, then the
+   *  annealing body). Equals `sequence` when no overhang was added. This is what
+   *  the user actually orders. */
+  full_sequence: string;
 };
+
+/** A documented, generic 5' protective flank for a restriction-site overhang.
+ *  Many enzymes cut poorly right at a blunt fragment end, so a few extra bases
+ *  5' of the site improve digestion. These bases are a FIXED code constant (not
+ *  model-chosen), neutral and non-palindromic; the caller picks only how many
+ *  (0 to its length) through overhang_flank_length. Enzyme-specific extra-base
+ *  needs (for example NotI wants more) should be confirmed against the supplier
+ *  table for a difficult enzyme. */
+const GENERIC_OVERHANG_FLANK = "TTTT";
+
+/** Resolve a requested overhang for one direction into the tail to prepend, or
+ *  an error when the enzyme is unknown / has an ambiguous (non-ACGT) site. Pure.
+ *  `flankLen` is clamped to [0, GENERIC_OVERHANG_FLANK.length]. */
+export function resolveOverhang(
+  enzymeName: string,
+  flankLen: number,
+):
+  | { ok: true; enzyme: string; flank: string; site: string; tail: string }
+  | { ok: false; error: string } {
+  const resolved = enzymeSiteForPrimer(enzymeName);
+  if (!resolved) {
+    return {
+      ok: false,
+      error:
+        `I cannot add an overhang for "${enzymeName}". The enzyme is not in the dataset, or its ` +
+        "recognition site has ambiguity codes (so it cannot be written as concrete primer bases). " +
+        "Pick a common cutter with a fixed site (for example ecori, bamhi, hindiii, xhoi, noti, ndei).",
+    };
+  }
+  const n = Math.max(0, Math.min(GENERIC_OVERHANG_FLANK.length, Math.round(flankLen)));
+  const flank = GENERIC_OVERHANG_FLANK.slice(0, n);
+  return {
+    ok: true,
+    enzyme: resolved.name,
+    flank,
+    site: resolved.site,
+    tail: flank + resolved.site,
+  };
+}
 
 /** Return value from design_primers. */
 export type PrimerDesignResult =
@@ -512,8 +572,12 @@ export type PrimerDesignResult =
     }
   | { ok: false; error: string };
 
-function candidateToSummary(c: PrimerCandidate, dir: "forward" | "reverse"): PrimerSummary {
-  return {
+function candidateToSummary(
+  c: PrimerCandidate,
+  dir: "forward" | "reverse",
+  overhang?: { enzyme: string; flank: string; site: string; tail: string },
+): PrimerSummary {
+  const summary: PrimerSummary = {
     direction: dir,
     sequence: c.primer,
     length: c.length,
@@ -530,13 +594,27 @@ function candidateToSummary(c: PrimerCandidate, dir: "forward" | "reverse"): Pri
       three_prime_dimer_run: c.analysis.threePrimeDimerRun,
       hairpin_stem: c.analysis.hairpinStem,
     },
+    full_sequence: c.primer,
   };
+  if (overhang) {
+    // The tail is non-annealing, so it rides 5' of the engine's binding primer.
+    // The annealing-body metrics (tm / gc / self-complementarity) are left as
+    // the engine computed them, the right numbers for the annealing step.
+    summary.overhang = {
+      enzyme: overhang.enzyme,
+      flank: overhang.flank,
+      site: overhang.site,
+      tail: overhang.tail,
+    };
+    summary.full_sequence = overhang.tail + c.primer;
+  }
+  return summary;
 }
 
 export const designPrimersTool: AiTool = {
   name: "design_primers",
   description:
-    "Design forward and reverse primer candidates for a target region using an APE-style scan (Primer3-compatible default windows: length 18-27 bp, Tm 57-63 C, GC 30-70%, GC clamp, SantaLucia 1998 nearest-neighbor Tm). Pass sequenceId or a raw template sequence, plus regionStart and regionEnd (0-based, end-exclusive) defining the region to amplify. The engine generates and ranks candidates; the top 5 per direction are returned. Each candidate also relays the engine's self-complementarity check (a self_complementarity object with self_dimer_run, three_prime_dimer_run, and hairpin_stem, the longest complementary-run lengths in bases, where 0 means no significant self-complementarity), so the model can flag a primer-dimer or hairpin risk. These are simple APE-level heuristic lengths, not a thermodynamic dG. The model NEVER designs primers itself, it relays what the engine returned.",
+    "Design forward and reverse primer candidates for a target region using an APE-style scan (Primer3-compatible default windows: length 18-27 bp, Tm 57-63 C, GC 30-70%, GC clamp, SantaLucia 1998 nearest-neighbor Tm). Pass sequenceId or a raw template sequence, plus regionStart and regionEnd (0-based, end-exclusive) defining the region to amplify. The engine generates and ranks candidates; the top 5 per direction are returned. Each candidate also relays the engine's self-complementarity check (a self_complementarity object with self_dimer_run, three_prime_dimer_run, and hairpin_stem, the longest complementary-run lengths in bases, where 0 means no significant self-complementarity), so the model can flag a primer-dimer or hairpin risk. These are simple APE-level heuristic lengths, not a thermodynamic dG. For RESTRICTION CLONING you may add a restriction-site overhang to either end by passing forward_overhang_enzyme and / or reverse_overhang_enzyme (an enzyme name as it appears in the dataset, for example \"ecori\", \"bamhi\", \"hindiii\", \"xhoi\", \"noti\", \"ndei\"); the tool prepends a short 5' protective flank plus that enzyme's recognition site (taken from the validated enzyme dataset, NEVER from you) to the matching primer so the amplicon can be cut and ligated, and returns an overhang object plus a full_sequence (the tail then the annealing body, which is what the user orders). The reported tm / gc / self-complementarity describe the annealing body only (the correct number for the annealing step, since the tail does not bind in the first cycle). An unknown enzyme or one whose site has ambiguity codes is refused with a clear message. The model NEVER designs primers or invents a recognition site itself, it relays what the engine and dataset returned.",
   parameters: {
     type: "object",
     properties: {
@@ -559,6 +637,21 @@ export const designPrimersTool: AiTool = {
         type: "number",
         description:
           "0-based end position (exclusive) of the region to amplify on the forward strand.",
+      },
+      forward_overhang_enzyme: {
+        type: "string",
+        description:
+          "Optional. Add this restriction enzyme's recognition site as a 5' overhang on the FORWARD primer (for restriction cloning), as a dataset key (for example \"ecori\", \"bamhi\"). The site bases come from the validated enzyme dataset, not from you. An unknown or ambiguous-site enzyme is refused.",
+      },
+      reverse_overhang_enzyme: {
+        type: "string",
+        description:
+          "Optional. Add this restriction enzyme's recognition site as a 5' overhang on the REVERSE primer, as a dataset key (for example \"hindiii\", \"xhoi\"). Same rules as forward_overhang_enzyme.",
+      },
+      overhang_flank_length: {
+        type: "number",
+        description:
+          "Optional. How many 5' protective-flank bases to put before the recognition site on each overhang (0 to 4, default 3). A few extra bases help many enzymes cut near a fragment end; the flank bases themselves are a fixed neutral spacer chosen by the tool, not by you. Ignored when no overhang enzyme is given.",
       },
     },
     required: ["region_start", "region_end"],
@@ -583,11 +676,32 @@ export const designPrimersTool: AiTool = {
       } satisfies PrimerDesignResult;
     }
 
+    // Optional restriction-site overhangs (for restriction cloning). Resolve the
+    // tail for each requested direction up front so an unknown / ambiguous enzyme
+    // fails BEFORE the scan rather than silently dropping the overhang. The tail
+    // bases come from the validated enzyme dataset, never from the model.
+    const flankLen =
+      typeof args.overhang_flank_length === "number"
+        ? args.overhang_flank_length
+        : 3;
+    let fwdOverhang: { enzyme: string; flank: string; site: string; tail: string } | undefined;
+    let revOverhang: { enzyme: string; flank: string; site: string; tail: string } | undefined;
+    if (typeof args.forward_overhang_enzyme === "string" && args.forward_overhang_enzyme.trim()) {
+      const r = resolveOverhang(args.forward_overhang_enzyme.trim(), flankLen);
+      if (!r.ok) return { ok: false, error: r.error } satisfies PrimerDesignResult;
+      fwdOverhang = { enzyme: r.enzyme, flank: r.flank, site: r.site, tail: r.tail };
+    }
+    if (typeof args.reverse_overhang_enzyme === "string" && args.reverse_overhang_enzyme.trim()) {
+      const r = resolveOverhang(args.reverse_overhang_enzyme.trim(), flankLen);
+      if (!r.ok) return { ok: false, error: r.error } satisfies PrimerDesignResult;
+      revOverhang = { enzyme: r.enzyme, flank: r.flank, site: r.site, tail: r.tail };
+    }
+
     const result: DesignResult = designPrimers(template, rStart, rEnd, DEFAULT_DESIGN_PARAMS);
 
     const primers: PrimerSummary[] = [
-      ...result.forward.map((c) => candidateToSummary(c, "forward")),
-      ...result.reverse.map((c) => candidateToSummary(c, "reverse")),
+      ...result.forward.map((c) => candidateToSummary(c, "forward", fwdOverhang)),
+      ...result.reverse.map((c) => candidateToSummary(c, "reverse", revOverhang)),
     ];
 
     if (primers.length === 0) {

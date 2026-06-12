@@ -29,6 +29,7 @@ import {
   parseCreateSequenceArgs,
   rawSeqToGenbank,
   resolveSequenceBases,
+  resolveOverhang,
   sequenceToolsDeps,
   type SequenceToolsDeps,
 } from "./sequence-tools";
@@ -364,6 +365,71 @@ describe("design_primers tool", () => {
       region_end: 2,
     }) as { ok: boolean };
     expect(result.ok).toBe(false);
+  });
+
+  it("adds a restriction-site overhang from the validated dataset to the matching direction", async () => {
+    const result = await designPrimersTool.execute({
+      sequence: GC_RICH_TEMPLATE,
+      region_start: 0,
+      region_end: GC_RICH_TEMPLATE.length,
+      forward_overhang_enzyme: "ecori",
+      reverse_overhang_enzyme: "hindiii",
+      overhang_flank_length: 3,
+    }) as {
+      ok: boolean;
+      primers?: Array<{
+        direction: string;
+        sequence: string;
+        full_sequence: string;
+        overhang?: { enzyme: string; flank: string; site: string; tail: string };
+      }>;
+    };
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    for (const p of result.primers!) {
+      // The site bases come from the dataset (EcoRI GAATTC / HindIII AAGCTT),
+      // never invented, and the full ordering sequence is tail + annealing body.
+      const expectedSite = p.direction === "forward" ? "GAATTC" : "AAGCTT";
+      expect(p.overhang).toBeDefined();
+      expect(p.overhang!.site).toBe(expectedSite);
+      expect(p.overhang!.flank).toBe("TTT");
+      expect(p.overhang!.tail).toBe("TTT" + expectedSite);
+      expect(p.full_sequence).toBe(p.overhang!.tail + p.sequence);
+    }
+  });
+
+  it("refuses an unknown or ambiguous-site enzyme overhang with a clear message", async () => {
+    const result = await designPrimersTool.execute({
+      sequence: GC_RICH_TEMPLATE,
+      region_start: 0,
+      region_end: GC_RICH_TEMPLATE.length,
+      forward_overhang_enzyme: "notarealenzyme",
+    }) as { ok: boolean; error?: string };
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/cannot add an overhang/i);
+  });
+});
+
+describe("resolveOverhang", () => {
+  it("resolves a fixed-site enzyme and clamps the flank length", () => {
+    const r = resolveOverhang("bamhi", 99);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.enzyme).toBe("BamHI");
+    expect(r.site).toBe("GGATCC");
+    // 99 clamps to the 4-base generic flank.
+    expect(r.flank).toBe("TTTT");
+    expect(r.tail).toBe("TTTTGGATCC");
+  });
+
+  it("drops the flank entirely at length 0", () => {
+    const r = resolveOverhang("ecori", 0);
+    expect(r.ok && r.flank).toBe("");
+    expect(r.ok && r.tail).toBe("GAATTC");
+  });
+
+  it("fails for an unknown enzyme", () => {
+    expect(resolveOverhang("zzz", 3).ok).toBe(false);
   });
 });
 

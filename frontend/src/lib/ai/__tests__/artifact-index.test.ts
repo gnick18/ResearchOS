@@ -15,6 +15,7 @@ import {
   moleculeToBrief,
   experimentToBrief,
   searchMyWork,
+  dayPrefix,
   type ArtifactBrief,
   type ArtifactIndexDeps,
 } from "../artifact-index";
@@ -458,5 +459,71 @@ describe("searchMyWork", () => {
     });
     const results = await searchMyWork("pUC19", undefined, deps);
     expect(results.every((r) => r.type !== "sequence")).toBe(true);
+  });
+
+  // Three notes on distinct days, only notes listed so the window is the only
+  // thing in play.
+  const datedNotesDeps = () =>
+    makeStubDeps({
+      listNotes: async () => [
+        makeNote({ id: 1, title: "Note may", updated_at: "2026-05-15T09:00:00.000Z" }),
+        makeNote({ id: 2, title: "Note early june", updated_at: "2026-06-03T09:00:00.000Z" }),
+        makeNote({ id: 3, title: "Note mid june", updated_at: "2026-06-11T09:00:00.000Z" }),
+      ],
+      listMethods: async () => [],
+      listSequences: async () => [],
+      listDataHub: async () => [],
+      listProjects: async () => [],
+      listPurchases: async () => [],
+      listExperiments: async () => [],
+      listMolecules: async () => [],
+    });
+
+  it("keeps only briefs on or after the since bound", async () => {
+    const results = await searchMyWork("note", { since: "2026-06-01" }, datedNotesDeps());
+    expect(results.map((r) => r.id).sort()).toEqual(["2", "3"]);
+  });
+
+  it("keeps only briefs on or before the until bound", async () => {
+    const results = await searchMyWork("note", { until: "2026-06-05" }, datedNotesDeps());
+    expect(results.map((r) => r.id).sort()).toEqual(["1", "2"]);
+  });
+
+  it("applies both bounds inclusively (day-granular) for a 'last week' window", async () => {
+    const results = await searchMyWork(
+      "note",
+      { since: "2026-06-03", until: "2026-06-11" },
+      datedNotesDeps(),
+    );
+    expect(results.map((r) => r.id).sort()).toEqual(["2", "3"]);
+  });
+
+  it("drops dateless artifacts (a purchase) when a date window is set", async () => {
+    const deps = makeStubDeps({
+      // Only the purchase has no date; everything else is listed empty.
+      listNotes: async () => [],
+      listMethods: async () => [],
+      listSequences: async () => [],
+      listDataHub: async () => [],
+      listProjects: async () => [],
+      listExperiments: async () => [],
+      listMolecules: async () => [],
+    });
+    const results = await searchMyWork("", { since: "2026-01-01" }, deps);
+    expect(results.every((r) => r.type !== "purchase")).toBe(true);
+  });
+});
+
+describe("dayPrefix", () => {
+  it("extracts the YYYY-MM-DD prefix from a full ISO timestamp", () => {
+    expect(dayPrefix("2026-06-10T15:30:00.000Z")).toBe("2026-06-10");
+  });
+  it("passes a date-only string through", () => {
+    expect(dayPrefix("2026-06-10")).toBe("2026-06-10");
+  });
+  it("returns null for empty / non-date input", () => {
+    expect(dayPrefix(undefined)).toBeNull();
+    expect(dayPrefix("")).toBeNull();
+    expect(dayPrefix("last week")).toBeNull();
   });
 });

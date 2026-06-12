@@ -91,7 +91,7 @@ export function OAuthFirstLanding({
   return (
     <LightOnly>
       <div
-        className="h-screen overflow-y-auto snap-y snap-proximity"
+        className="h-screen overflow-y-auto scroll-smooth"
         onScroll={(e) =>
           setScrolled(e.currentTarget.scrollTop > window.innerHeight * 0.6)
         }
@@ -128,7 +128,7 @@ export function OAuthFirstLanding({
         {/* Section 1: the deck-style intro landing. */}
         <section
           ref={startRef}
-          className="relative min-h-screen w-full snap-start overflow-hidden flex flex-col items-center justify-center px-6 py-16 text-center"
+          className="relative min-h-screen w-full overflow-hidden flex flex-col items-center justify-center px-6 py-16 text-center"
           style={{
             background:
               "radial-gradient(560px 360px at 50% 6%, #ffffff 0%, #f6f9ff 55%, #eef4ff 100%)",
@@ -289,8 +289,8 @@ export function OAuthFirstLanding({
           </button>
         </section>
 
-        {/* Section 2: the embedded welcome / sell page, with a snap-up arrow. */}
-        <section ref={welcomeRef} className="relative snap-start">
+        {/* Section 2: the embedded welcome / sell page, with a scroll-up arrow. */}
+        <section ref={welcomeRef} className="relative">
           <button
             type="button"
             onClick={() => scrollTo(startRef)}
