@@ -53,6 +53,12 @@ import type {
   ChoiceDecision,
 } from "@/lib/ai/tools/types";
 import { statusLabel } from "@/components/ai/thinking-status";
+import {
+  createChat,
+  saveChat,
+  getChat,
+  deriveChatTitle,
+} from "@/lib/ai/beaker-chats-store";
 
 // Re-export ChatMessage and ChatRole so consumers need not import from the old
 // hook location (the hook re-exports them for back-compat).
@@ -105,6 +111,12 @@ interface ConversationState {
   status: string | null;
   error: string | null;
   pendingApproval: PendingApproval | null;
+  // The persisted thread this conversation is bound to. Null means a fresh,
+  // not-yet-saved conversation, the first user message creates the thread.
+  currentThreadId: number | null;
+  // The title of the bound thread, mirrored into reactive state so the header
+  // can show which chat the user is in.
+  currentTitle: string | null;
 }
 
 interface ConversationActions {
@@ -113,6 +125,14 @@ interface ConversationActions {
   resolveChoice: (selected: string[], cancelled: boolean) => void;
   /** Reset the conversation to an empty state (clear messages + history). */
   clearConversation: () => void;
+  /**
+   * Start a brand-new chat. Clears the in-memory conversation AND unbinds the
+   * current thread so the next message creates a fresh persisted chat. The old
+   * thread is already saved on disk, it is not deleted.
+   */
+  newChat: () => void;
+  /** Reopen a persisted chat, restoring its transcript and full loop history. */
+  loadThread: (id: number) => Promise<void>;
 }
 
 type ConversationStore = ConversationState & ConversationActions;
@@ -189,6 +209,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
   status: null,
   error: null,
   pendingApproval: null,
+  currentThreadId: null,
+  currentTitle: null,
 
   clearConversation: () => {
     historyStore = [];
@@ -200,6 +222,46 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       status: null,
       error: null,
       pendingApproval: null,
+      currentThreadId: null,
+      currentTitle: null,
+    });
+  },
+
+  // newChat is the user-facing "start fresh" action behind the + button. It is
+  // exactly clearConversation today (which already unbinds the thread), kept as
+  // its own name so the intent reads clearly at call sites and so the saved old
+  // thread is explicitly left untouched on disk.
+  newChat: () => {
+    get().clearConversation();
+  },
+
+  loadThread: async (id: number) => {
+    const stored = await getChat(id);
+    if (!stored) {
+      set({ error: "That chat could not be opened. It may have been deleted." });
+      return;
+    }
+    // Restore the full loop history so the next send continues context, and the
+    // display transcript so the panel renders the prior turns.
+    historyStore = stored.history ?? [];
+    // Keep the message-id counter ahead of any restored id so newly minted ids
+    // never collide with restored ones. Restored ids look like "msg-<n>-<ts>",
+    // so parse the <n> and take the max.
+    let maxN = 0;
+    for (const m of stored.messages ?? []) {
+      const match = /^msg-(\d+)-/.exec(m.id);
+      if (match) maxN = Math.max(maxN, Number(match[1]));
+    }
+    counterStore = maxN;
+    pendingApprovalRef = null;
+    set({
+      messages: stored.messages ?? [],
+      sending: false,
+      status: null,
+      error: null,
+      pendingApproval: null,
+      currentThreadId: stored.id,
+      currentTitle: stored.title,
     });
   },
 
@@ -225,6 +287,12 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     };
     const assistantId = nextId();
 
+    // Capture whether this is a fresh, not-yet-persisted conversation. We bind
+    // the persisted thread below, AFTER the synchronous seed, so the seed and
+    // the sending flag still flip on the same tick (the concurrent-send guard
+    // and the synchronous-render contract both depend on that).
+    const wasFresh = get().currentThreadId === null;
+
     // Seed an empty assistant bubble so the status line and the revealed answer
     // have a visible target right away.
     set((state) => ({
@@ -236,6 +304,28 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       sending: true,
       status: "thinking",
     }));
+
+    // On the first user message of a fresh conversation, create a persisted
+    // thread titled from that message. We do this just after the seed so a
+    // reload mid-answer still leaves a recoverable chat. Failure is non-fatal,
+    // the conversation keeps running in memory and a later send retries the
+    // bind. The sending guard above already blocks a concurrent send, so this
+    // await does not open a race.
+    if (wasFresh) {
+      const title = deriveChatTitle(trimmed);
+      const created = await createChat({
+        title,
+        messages: get().messages,
+        history: historyStore,
+      });
+      if (created) {
+        set({ currentThreadId: created.id, currentTitle: created.title });
+      } else {
+        // Could not persist (no folder connected), still show the title in the
+        // header so the user has a label for the in-memory chat.
+        set({ currentTitle: title });
+      }
+    }
 
     // Build the loop input. Seed the system prompt once; carry the running
     // history forward so multi-turn context and prior tool results persist.
@@ -303,6 +393,18 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         return;
       }
       await revealAnswer(assistantId, result.answer);
+
+      // Persist the completed turn. We save the post-strip historyStore (the
+      // per-turn context message was already removed above) plus the full
+      // display transcript, and bump updatedAt. Resilient, a failed write logs
+      // a warn inside saveChat and never throws into the loop.
+      const threadId = get().currentThreadId;
+      if (threadId !== null) {
+        await saveChat(threadId, {
+          messages: get().messages,
+          history: historyStore,
+        });
+      }
     } catch (err) {
       set({ status: null });
       const message =
@@ -318,6 +420,57 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     }
   },
 }));
+
+// ---- Thread management (used by the History panel) ---------------------------
+// These wrap the persistence layer and keep the live store consistent when the
+// operation touches the currently open thread. listThreads is re-exported from
+// the chats store for one import site in the panel.
+
+import {
+  listChats as listChatsStore,
+  renameChat as renameChatStore,
+  setChatArchived,
+  deleteChat as deleteChatStore,
+  type StoredBeakerChat,
+} from "@/lib/ai/beaker-chats-store";
+
+/** All persisted chats, newest activity first (active + archived). */
+export function listThreads(): Promise<StoredBeakerChat[]> {
+  return listChatsStore();
+}
+
+/** Reopen a thread (thin wrapper over the store action for panel use). */
+export function loadThreadAction(id: number): Promise<void> {
+  return useConversationStore.getState().loadThread(id);
+}
+
+/** Rename a thread. If it is the open thread, update the header title too. */
+export async function renameThread(id: number, title: string): Promise<void> {
+  const updated = await renameChatStore(id, title);
+  if (updated && useConversationStore.getState().currentThreadId === id) {
+    useConversationStore.setState({ currentTitle: updated.title });
+  }
+}
+
+/** Archive or unarchive a thread. */
+export async function archiveThread(
+  id: number,
+  archived: boolean,
+): Promise<void> {
+  await setChatArchived(id, archived);
+}
+
+/**
+ * Delete a thread from disk. If it is the currently open thread, also start a
+ * brand-new chat so the user is not left looking at a transcript that no longer
+ * exists on disk.
+ */
+export async function deleteThread(id: number): Promise<void> {
+  await deleteChatStore(id);
+  if (useConversationStore.getState().currentThreadId === id) {
+    useConversationStore.getState().newChat();
+  }
+}
 
 // ---- Test helpers (not for production use) -----------------------------------
 // Exported so tests can inspect or reset module-level state without importing
@@ -339,5 +492,7 @@ export function resetConversationModule(): void {
     status: null,
     error: null,
     pendingApproval: null,
+    currentThreadId: null,
+    currentTitle: null,
   });
 }
