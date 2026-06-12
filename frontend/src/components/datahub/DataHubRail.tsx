@@ -285,17 +285,19 @@ export default function DataHubRail({
         >
           {/* The chevron toggles the open table's family; for a non-open table it
               selects it (which loads + reveals its family). */}
-          <button
-            type="button"
-            onClick={() => (isOpen ? toggleTable(table.id) : onSelectTable(table.id))}
-            aria-label={expanded ? "Collapse table" : "Expand table"}
-            className="shrink-0 rounded p-1 text-foreground-muted transition-colors hover:text-foreground"
-          >
-            <Icon
-              name={expanded ? "chevronDown" : "chevronRight"}
-              className={`h-3 w-3 ${active ? "text-accent" : ""}`}
-            />
-          </button>
+          <Tooltip label={expanded ? "Collapse" : "Expand"}>
+            <button
+              type="button"
+              onClick={() => (isOpen ? toggleTable(table.id) : onSelectTable(table.id))}
+              aria-label={expanded ? "Collapse table" : "Expand table"}
+              className="shrink-0 rounded p-1 text-foreground-muted transition-colors hover:text-foreground"
+            >
+              <Icon
+                name={expanded ? "chevronDown" : "chevronRight"}
+                className={`h-3 w-3 ${active ? "text-accent" : ""}`}
+              />
+            </button>
+          </Tooltip>
           <button
             type="button"
             onClick={() => onSelectTable(table.id)}
@@ -313,7 +315,7 @@ export default function DataHubRail({
         </div>
 
         {expanded && (
-          <div className="ml-[13px] mt-0.5 flex flex-col gap-1.5 border-l border-border pb-1 pl-2">
+          <div className="ml-[13px] mt-0.5 flex flex-col gap-1.5 border-l-2 border-border pb-1 pl-2">
             {/* Results subgroup */}
             <div data-testid="datahub-results-section">
               <div className="flex items-center justify-between px-2 py-0.5">
@@ -352,12 +354,13 @@ export default function DataHubRail({
                       onSelect={() => onSelectAnalysis(a.id)}
                       trailing={
                         a.resultStale ? (
-                          <span
-                            className="shrink-0 rounded border border-border px-1 text-[10px] font-medium uppercase text-foreground-muted"
-                            title="Re-runs on open"
-                          >
-                            stale
-                          </span>
+                          <Tooltip label="Re-runs on open">
+                            <span
+                              className="shrink-0 rounded border border-border px-1 text-[10px] font-medium uppercase text-foreground-muted"
+                            >
+                              stale
+                            </span>
+                          </Tooltip>
                         ) : undefined
                       }
                     />
