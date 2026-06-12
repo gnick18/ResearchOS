@@ -67,6 +67,7 @@ const EXCLUDED_PREFIXES = [
   "/supplies", // pending wiki page (Supplies v2 unified page; replaces split Inventory + Purchases routes)
   "/ai", // public BeakerBot marketing page (sells the AI assistant; no AppShell, like /pricing and /welcome, not a documented in-app feature)
   "/chemistry-embed-check", // dev-only Ketcher/RDKit embed probe (not a documented user feature; like /sharing-setup-test)
+  "/phylo", // pending wiki page (phylogenetics page; the wiki page + APP_ROUTE_TO_WIKI entry land with the BeakerBot/embeds phase). Like /sequences.
 ];
 
 /** Next.js conventions to ignore when walking app/. */

@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Phylogenetics page mockup</title>
+<style>
+  :root {
+    --surface: #f8fafc; --surface-raised: #ffffff; --surface-overlay: #ffffff;
+    --border: #e5e7eb; --fg: #171717; --muted: #64748b;
+    --accent: #1283c9; --accent-soft: #eff6ff;
+    --brand-sky: #1AA0E6; --brand-ink: #111827; --brand-purple: #5B47D6;
+    --good: #16a34a; --bad: #dc2626; --warn: #b45309; --warn-soft: #fffbeb;
+    --code-bg: #0f172a; --code-fg: #e2e8f0;
+  }
+  [data-theme="dark"] {
+    --surface: #0a0e1a; --surface-raised: #1c2638; --surface-overlay: #28344c;
+    --border: rgba(255,255,255,0.16); --fg: #f1f5f9; --muted: #94a3b8;
+    --accent: #38bdf8; --accent-soft: rgba(56,189,248,0.14);
+    --good: #4ade80; --bad: #f87171; --warn: #fbbf24; --warn-soft: rgba(251,191,36,0.10);
+    --code-bg: #060a14; --code-fg: #cbd5e1;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--surface); color: var(--fg);
+  }
+  h1,h2,h3 { margin: 0; font-weight: 800; letter-spacing: -0.01em; }
+  .muted { color: var(--muted); }
+  button { font: inherit; cursor: pointer; }
+
+  /* top app chrome */
+  .appbar {
+    display: flex; align-items: center; gap: 18px; padding: 10px 18px;
+    background: var(--surface-raised); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 20;
+  }
+  .wordmark { display: flex; align-items: center; gap: 8px; font-weight: 800; }
+  .mark { width: 22px; height: 26px; }
+  .tabs { display: flex; gap: 2px; flex-wrap: wrap; }
+  .tab { padding: 6px 11px; border-radius: 8px; color: var(--muted); font-weight: 600; font-size: 13px; }
+  .tab.active { color: #fff; background: linear-gradient(120deg, var(--accent), var(--brand-purple)); }
+  .tab.new { box-shadow: 0 0 0 2px var(--accent-soft); }
+  .grow { flex: 1; }
+  .ghost {
+    padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface-raised); color: var(--fg);
+  }
+
+  /* layout */
+  .page { max-width: 1180px; margin: 0 auto; padding: 22px 18px 120px; }
+  .crumbs { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .subnav { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-raised); margin: 12px 0 22px; }
+  .subnav button { padding: 7px 16px; border: 0; background: transparent; border-radius: 9px; color: var(--muted); font-weight: 700; }
+  .subnav button.active { background: var(--accent-soft); color: var(--accent); }
+
+  .card { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 14px; padding: 18px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+
+  /* hub */
+  .hubhead { display: flex; align-items: flex-end; gap: 14px; margin-bottom: 18px; }
+  .beaker { width: 40px; height: 48px; flex: 0 0 auto; }
+  .biglink { display: flex; gap: 14px; align-items: flex-start; cursor: pointer; transition: transform .08s ease; }
+  .biglink:hover { transform: translateY(-2px); }
+  .biglink .ic { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); flex: 0 0 auto; }
+  .lib { margin-top: 22px; }
+  .libgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .libcard { border: 1px solid var(--border); border-radius: 12px; padding: 10px; background: var(--surface-raised); }
+  .thumb { height: 84px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); display: grid; place-items: center; margin-bottom: 8px; overflow: hidden; }
+
+  /* builder */
+  .builder { display: grid; grid-template-columns: 380px 1fr; gap: 16px; align-items: start; }
+  .ask { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-raised); margin-bottom: 14px; }
+  .ask input { flex: 1; border: 0; background: transparent; color: var(--fg); font: inherit; outline: none; }
+  .step { margin-bottom: 16px; }
+  .step h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 8px; }
+  .opts { display: flex; flex-wrap: wrap; gap: 6px; }
+  .opt { padding: 6px 11px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-raised); color: var(--fg); font-weight: 600; font-size: 13px; }
+  .opt.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+  .seg button { border: 0; background: var(--surface-raised); color: var(--muted); padding: 6px 12px; font-weight: 700; }
+  .seg button.on { background: var(--accent); color: #fff; }
+  .num { width: 90px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-raised); color: var(--fg); }
+
+  .recipe { position: sticky; top: 70px; }
+  .codetabs { display: flex; gap: 4px; margin-bottom: 8px; }
+  .codetabs button { border: 1px solid var(--border); background: var(--surface-raised); color: var(--muted); padding: 5px 11px; border-radius: 8px; font-weight: 700; font-size: 12px; }
+  .codetabs button.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+  pre { margin: 0; background: var(--code-bg); color: var(--code-fg); border-radius: 12px; padding: 14px; overflow: auto; max-height: 460px; font: 12.5px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
+  pre .cmt { color: #7c8aa5; }
+  pre .why { color: #86b8e8; }
+  .savebar { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .primary { padding: 7px 14px; border-radius: 9px; border: 0; color: #fff; font-weight: 700; background: linear-gradient(120deg, var(--accent), var(--brand-purple)); }
+
+  /* studio */
+  .studio { display: grid; grid-template-columns: 230px 1fr 240px; gap: 14px; align-items: start; }
+  .panel h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 8px; }
+  .inrow { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .track { display: flex; align-items: center; justify-content: space-between; padding: 7px 9px; border: 1px solid var(--border); border-radius: 9px; margin-bottom: 6px; background: var(--surface-raised); }
+  .track .nm { font-weight: 600; font-size: 13px; }
+  .sw { width: 34px; height: 19px; border-radius: 999px; background: var(--border); position: relative; transition: background .12s; flex: 0 0 auto; }
+  .sw.on { background: var(--accent); }
+  .sw::after { content:""; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 50%; background: #fff; transition: left .12s; }
+  .sw.on::after { left: 17px; }
+  .canvas { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 14px; padding: 8px; }
+  .layoutbar { display: flex; gap: 4px; margin-bottom: 6px; }
+  .metatable { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .metatable th, .metatable td { border: 1px solid var(--border); padding: 3px 6px; text-align: left; }
+  .metatable th { color: var(--muted); font-weight: 700; }
+  .caveat { display: flex; gap: 8px; padding: 9px 11px; border: 1px solid var(--warn); background: var(--warn-soft); color: var(--warn); border-radius: 10px; font-size: 12.5px; margin-bottom: 8px; }
+
+  /* review harness */
+  .reviewbar {
+    position: fixed; right: 16px; bottom: 16px; z-index: 50; display: flex; gap: 8px; align-items: center;
+    background: var(--surface-overlay); border: 1px solid var(--border); border-radius: 14px; padding: 8px 10px; box-shadow: 0 10px 30px rgba(0,0,0,.18);
+  }
+  .reviewbar button { border: 1px solid var(--border); background: var(--surface-raised); color: var(--fg); padding: 6px 11px; border-radius: 9px; font-weight: 700; font-size: 13px; }
+  .reviewbar button.armed { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .badge { background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 1px 8px; font-size: 12px; font-weight: 800; }
+
+  .change { display: inline-flex; gap: 4px; align-items: center; margin-left: 8px; vertical-align: middle; }
+  .change button { border: 1px solid var(--border); background: var(--surface-raised); color: var(--muted); width: 24px; height: 24px; border-radius: 7px; font-size: 13px; line-height: 1; padding: 0; }
+  .change button.yes.on { background: var(--good); color: #fff; border-color: var(--good); }
+  .change button.no.on { background: var(--bad); color: #fff; border-color: var(--bad); }
+  .change .note { width: 0; opacity: 0; padding: 0; border: 0; transition: width .12s; }
+  .change.open .note { width: 160px; opacity: 1; padding: 3px 7px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-raised); color: var(--fg); }
+
+  .pinnable { position: relative; }
+  body.commenting .pinnable:hover { outline: 2px dashed var(--accent); outline-offset: 2px; cursor: crosshair; }
+  .pin { position: absolute; z-index: 30; width: 22px; height: 22px; border-radius: 50%; background: var(--brand-purple); color: #fff; font-size: 12px; font-weight: 800; display: grid; place-items: center; transform: translate(-50%,-50%); box-shadow: 0 2px 6px rgba(0,0,0,.3); cursor: pointer; }
+
+  .drawer {
+    position: fixed; top: 0; right: -380px; width: 360px; height: 100%; background: var(--surface-overlay);
+    border-left: 1px solid var(--border); z-index: 60; transition: right .2s ease; display: flex; flex-direction: column;
+  }
+  .drawer.open { right: 0; }
+  .drawer header { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+  .drawer .body { padding: 14px 16px; overflow: auto; flex: 1; }
+  .ditem { border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 10px; background: var(--surface-raised); }
+  .ditem .nbr { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--brand-purple); color: #fff; font-size: 11px; font-weight: 800; margin-right: 6px; }
+  textarea.exp { width: 100%; height: 220px; border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: var(--code-bg); color: var(--code-fg); font: 12px/1.5 ui-monospace, Menlo, monospace; }
+  .hidden { display: none !important; }
+  .tag { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="appbar">
+  <div class="wordmark">
+    <svg class="mark" viewBox="0 0 22 26"><path d="M8 2v8L2 22a2 2 0 0 0 2 3h14a2 2 0 0 0 2-3l-6-12V2" fill="none" stroke="var(--brand-sky)" stroke-width="2" stroke-linejoin="round"/></svg>
+    ResearchOS
+  </div>
+  <nav class="tabs">
+    <span class="tab">Workbench</span>
+    <span class="tab">GANTT</span>
+    <span class="tab">Sequences</span>
+    <span class="tab">Chemistry</span>
+    <span class="tab">Data Hub</span>
+    <span class="tab active new">Phylogenetics</span>
+    <span class="tab">Methods</span>
+  </nav>
+  <span class="grow"></span>
+  <button class="ghost" id="themeBtn">Dark</button>
+</div>
+
+<div class="page">
+  <div class="crumbs">Phylogenetics</div>
+  <div class="subnav">
+    <button data-view="hub" class="active">Hub</button>
+    <button data-view="builder">Tree Builder</button>
+    <button data-view="studio">Tree Studio</button>
+  </div>
+
+  <!-- HUB -->
+  <section id="hub">
+    <div class="hubhead">
+      <svg class="beaker" viewBox="0 0 40 48"><path d="M14 3v12L4 38a3 3 0 0 0 3 4h26a3 3 0 0 0 3-4L26 15V3" fill="none" stroke="var(--brand-sky)" stroke-width="2.5" stroke-linejoin="round"/><rect x="12" y="2" width="16" height="3" rx="1.5" fill="var(--brand-sky)"/></svg>
+      <div>
+        <h1 class="pinnable">Phylogenetics</h1>
+        <div class="muted">Generate the exact tree-building scripts, then turn the finished tree into a publication figure. Nothing runs on our servers.</div>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="card biglink pinnable" data-go="builder">
+        <div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h7"/></svg></div>
+        <div>
+          <h2>Build a tree
+            <span class="change" data-change="hub-builder"><button class="yes">+</button><button class="no">-</button><input class="note" placeholder="note"/></span>
+          </h2>
+          <p class="muted">A wizard that writes the recipe. Pick your data and the steps, get the exact MAFFT, trimAl, IQ-TREE commands plus an install guide for your machine. Or describe it to BeakerBot in plain language.</p>
+          <span class="tag">Generates scripts, never runs them</span>
+        </div>
+      </div>
+      <div class="card biglink pinnable" data-go="studio">
+        <div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3v6M6 9c0 4 5 3 5 7M6 9c0 4 7 3 7 9M18 4l-3 4M18 4l3 4M18 4v16"/></svg></div>
+        <div>
+          <h2>Open the studio
+            <span class="change" data-change="hub-studio"><button class="yes">+</button><button class="no">-</button><input class="note" placeholder="note"/></span>
+          </h2>
+          <p class="muted">Bring a finished tree, link a metadata table, auto-annotate, and edit the figure right here. Export SVG and PNG, plus the ggtree code that recreates it.</p>
+          <span class="tag">The iTOL alternative</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="lib">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <h3 class="pinnable">Your trees</h3>
+        <span class="change" data-change="hub-library"><button class="yes">+</button><button class="no">-</button><input class="note" placeholder="note"/></span>
+        <span class="muted" style="font-size:13px">saved per project, like the molecule and sequence libraries</span>
+      </div>
+      <div class="libgrid">
+        <div class="libcard"><div class="thumb"><svg width="80" height="60" viewBox="0 0 80 60" stroke="var(--accent)" fill="none" stroke-width="1.5"><path d="M8 30h12M20 18h14M20 42h14M34 12h20M34 24h20M34 36h20M34 48h20"/></svg></div><b>Aspergillus species tree</b><div class="muted">62 tips, IQ-TREE</div></div>
+        <div class="libcard"><div class="thumb"><svg width="70" height="70" viewBox="-35 -35 70 70" stroke="var(--brand-purple)" fill="none" stroke-width="1.3"><circle r="6"/><path d="M0 0l22 8M0 0l24-2M0 0l18 16M0 0l-22 8M0 0l-24-3M0 0l-14 19M0 0l8 23"/></svg></div><b>Secondary metabolite BGCs</b><div class="muted">120 tips, circular</div></div>
+        <div class="libcard"><div class="thumb"><svg width="80" height="60" viewBox="0 0 80 60" stroke="var(--accent)" fill="none" stroke-width="1.5"><path d="M8 30h14M22 20h12M22 40h12M34 14h16M34 26h16M34 34h16M34 46h16"/><rect x="56" y="10" width="6" height="40" fill="var(--accent-soft)"/></svg></div><b>cyp51A gene tree</b><div class="muted">48 tips, with heatmap</div></div>
+        <div class="libcard" style="display:grid;place-items:center;color:var(--muted)">+ New tree</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BUILDER -->
+  <section id="builder" class="hidden">
+    <div class="ask pinnable">
+      <svg width="20" height="22" viewBox="0 0 20 22"><path d="M7 2v6L2 17a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3L13 8V2" fill="none" stroke="var(--brand-sky)" stroke-width="2"/></svg>
+      <input placeholder="Describe what you want, for example: a species tree from 50 fungal genomes using single-copy orthologs" />
+      <button class="primary">Ask BeakerBot</button>
+      <span class="change" data-change="builder-llm"><button class="yes">+</button><button class="no">-</button><input class="note" placeholder="note"/></span>
+    </div>
+
+    <div class="builder">
+      <div class="card stack pinnable">
+        <div style="display:flex;align-items:center;gap:8px"><h3 style="margin:0">Choose your options</h3><span class="change" data-change="builder-wizard"><button class="yes">+</button><button class="no">-</button><input class="note" placeholder="note"/></span></div>
+
+        <div class="step"><h3>Data type</h3><div class="opts" data-key="dtype"><span class="opt on">Nucleotide</span><span class="opt">Protein</span><span class="opt">Codon-aware</span></div></div>
+        <div class="step"><h3>What you have</h3><div class="opts" data-key="have"><span class="opt on">Raw sequences (FASTA)</span><span class="opt">An alignment</span><span class="opt">From Sequences library</span></div></div>
+        <div class="step"><h3>Scale</h3><div style="display:flex;gap:8px;align-items:center"><input class="num" id="ntaxa" value="50"/><span class="muted">taxa</span><input class="num" id="nlen" value="1800"/><span class="muted">sites</span></div></div>
+        <div class="step"><h3>Align</h3><div class="opts" data-key="align"><span class="opt on">MAFFT</span><span class="opt">MUSCLE5</span><span class="opt">Clustal Omega</span><span class="opt">Skip</span></div></div>
+        <div class="step"><h3>Trim</h3><div class="opts" data-key="trim"><span class="opt on">trimAl</span><span class="opt">ClipKIT</span><span class="opt">Gblocks</span><span class="opt">Skip</span></div></div>
+        <div class="step"><h3>Model selection</h3><div class="opts" data-key="model"><span class="opt on">ModelFinder</span><span class="opt">Fixed model</span></div></div>
+        <div class="step"><h3>Inference</h3><div class="opts" data-key="infer"><span class="opt on">IQ-TREE 2</span><span class="opt">RAxML-NG</span><span class="opt">FastTree</span><span class="opt">MrBayes</span></div></div>
+        <div class="step"><h3>Branch support</h3><div class="opts" data-key="support"><span class="opt on">UFBoot2 + SH-aLRT</span><span class="opt">Standard bootstrap</span><span class="opt">None</span></div></div>
+        <div class="step"><h3>Your machine</h3><div class="seg" id="os"><button class="on">macOS</button><button>Windows</button><button>Linux</button></div></div>
+      </div>
+
+      <div class="recipe">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><h3 style="margin:0">Your recipe</h3><span class="change" data-change="builder-recipe"><button class="yes">+</button><button class="no">-</button><input class="note" placeholder="note"/></span></div>
+        <div class="codetabs"><button class="on" data-code="recipe">Commands</button><button data-code="deps">Install</button><button data-code="env">environment.yml</button></div>
+        <pre id="recipeOut"></pre>
+        <div class="savebar pinnable">
+          <button class="primary">Save as a method</button>
+          <button class="ghost">Save as a note</button>
+          <button class="ghost">Download run.sh</button>
+          <button class="ghost">Download environment.yml</button>
+          <span class="change" data-change="builder-save"><button class="yes">+</button><button class="no">-</button><input class="note" placeholder="note"/></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STUDIO -->
+  <section id="studio" class="hidden">
+    <div class="studio">
+      <div class="card panel pinnable">
+        <h3>Tree</h3>
+        <div class="inrow"><button class="ghost">Upload</button><button class="ghost">Paste</button><button class="ghost">From builder</button></div>
+        <h3>Metadata
+          <span class="change" data-change="studio-metadata"><button class="yes">+</button><button class="no">-</button><input class="note" placeholder="note"/></span>
+        </h3>
+        <div class="inrow"><button class="ghost">Drop CSV</button><button class="ghost">Link Data Hub table</button></div>
+        <table class="metatable">
+          <tr><th>tip</th><th>section</th><th>genome</th><th>path</th></tr>
+          <tr><td>A. fumigatus</td><td>Fumigati</td><td>29.4</td><td>yes</td></tr>
+          <tr><td>A. fischeri</td><td>Fumigati</td><td>32.5</td><td>no</td></tr>
+          <tr><td>A. flavus</td><td>Flavi</td><td>37.0</td><td>yes</td></tr>
+          <tr><td>A. oryzae</td><td>Flavi</td><td>37.1</td><td>no</td></tr>
+          <tr><td>...</td><td>...</td><td>...</td><td>...</td></tr>
+        </table>
+        <div class="muted" style="font-size:12px;margin-top:6px">Columns map onto annotation tracks. Unmatched tips are shown, never dropped.</div>
+      </div>
+
+      <div class="canvas pinnable">
+        <div class="layoutbar">
+          <div class="seg" id="layout"><button class="on">Rectangular</button><button>Circular</button><button>Slanted</button><button>Unrooted</button></div>
+          <span class="grow"></span>
+          <div class="seg" id="bl"><button class="on">Phylogram</button><button>Cladogram</button></div>
+          <span class="change" data-change="studio-canvas"><button class="yes">+</button><button class="no">-</button><input class="note" placeholder="note"/></span>
+        </div>
+        <svg id="tree" viewBox="0 0 560 420" style="width:100%;height:auto"></svg>
+      </div>
+
+      <div class="stack">
+        <div class="card panel pinnable">
+          <h3>Annotation tracks
+            <span class="change" data-change="studio-tracks"><button class="yes">+</button><button class="no">-</button><input class="note" placeholder="note"/></span>
+          </h3>
+          <div class="track" data-tr="labels"><span class="nm">Tip labels</span><span class="sw on"></span></div>
+          <div class="track" data-tr="points"><span class="nm">Tip points (section)</span><span class="sw on"></span></div>
+          <div class="track" data-tr="strip"><span class="nm">Color strip (section)</span><span class="sw on"></span></div>
+          <div class="track" data-tr="bars"><span class="nm">Bar chart (genome)</span><span class="sw"></span></div>
+          <div class="track" data-tr="heat"><span class="nm">Heatmap (genes)</span><span class="sw"></span></div>
+          <div class="track" data-tr="clade"><span class="nm">Clade highlight</span><span class="sw on"></span></div>
+          <div class="track" data-tr="support"><span class="nm">Support values</span><span class="sw"></span></div>
+        </div>
+        <div class="card panel pinnable">
+          <h3>Export
+            <span class="change" data-change="studio-export"><button class="yes">+</button><button class="no">-</button><input class="note" placeholder="note"/></span>
+          </h3>
+          <div class="inrow"><button class="ghost">SVG</button><button class="ghost">PNG</button><button class="primary" id="showR">ggtree code</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="rwrap" class="card hidden" style="margin-top:14px">
+      <div class="caveat"><b>Heads up.</b><span>This is generated from your figure. The ggtree output is close but not 100% pixel-identical to what you see here.</span></div>
+      <pre id="rcode"></pre>
+    </div>
+  </section>
+</div>
+
+<!-- review harness -->
+<div class="reviewbar">
+  <button id="commentBtn">Comment</button>
+  <button id="decisionsBtn">Decisions <span class="badge" id="decCount">0</span></button>
+  <button id="exportBtn" class="primary" style="border:0">Export</button>
+</div>
+
+<div class="drawer" id="drawer">
+  <header>
+    <b id="drawerTitle">Review</b><span class="grow"></span>
+    <button class="ghost" id="drawerClose">Close</button>
+  </header>
+  <div class="body" id="drawerBody"></div>
+</div>
+
+<script>
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+const store = {
+  get k(){ return "phylo-mock-2026-06-12"; },
+  load(){ try { return JSON.parse(localStorage.getItem(this.k)) || {pins:[],decisions:{}}; } catch(e){ return {pins:[],decisions:{}}; } },
+  save(s){ localStorage.setItem(this.k, JSON.stringify(s)); }
+};
+let state = store.load();
+
+/* theme */
+$("#themeBtn").onclick = () => {
+  const dark = document.documentElement.getAttribute("data-theme") === "dark";
+  document.documentElement.setAttribute("data-theme", dark ? "light" : "dark");
+  $("#themeBtn").textContent = dark ? "Dark" : "Light";
+  drawTree();
+};
+
+/* view switch */
+function show(v){
+  $$(".subnav button").forEach(b => b.classList.toggle("active", b.dataset.view===v));
+  ["hub","builder","studio"].forEach(id => $("#"+id).classList.toggle("hidden", id!==v));
+  if(v==="studio") drawTree();
+  renderPins();
+}
+$$(".subnav button").forEach(b => b.onclick = () => show(b.dataset.view));
+$$("[data-go]").forEach(c => c.onclick = (e) => { if(document.body.classList.contains("commenting")) return; show(c.dataset.go); });
+
+/* builder option toggles */
+$$(".opts").forEach(group => group.onclick = (e) => {
+  const o = e.target.closest(".opt"); if(!o) return;
+  $$(".opt", group).forEach(x => x.classList.remove("on")); o.classList.add("on");
+  buildRecipe();
+});
+$$(".seg").forEach(seg => seg.onclick = (e) => {
+  const b = e.target.closest("button"); if(!b) return;
+  $$("button", seg).forEach(x => x.classList.remove("on")); b.classList.add("on");
+  if(seg.id==="layout"||seg.id==="bl") drawTree(); else buildRecipe();
+});
+["ntaxa","nlen"].forEach(id => $("#"+id).oninput = buildRecipe);
+let codeTab = "recipe";
+$$(".codetabs button").forEach(b => b.onclick = () => { $$(".codetabs button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); codeTab=b.dataset.code; buildRecipe(); });
+
+function pick(key){ const g = $(`.opts[data-key="${key}"]`); return g ? $(".opt.on", g).textContent.trim() : ""; }
+function os(){ return $("#os button.on").textContent.trim(); }
+
+function buildRecipe(){
+  const dtype = pick("dtype"), have = pick("have"), align = pick("align"), trim = pick("trim");
+  const model = pick("model"), infer = pick("infer"), support = pick("support");
+  const ntaxa = $("#ntaxa").value, nlen = $("#nlen").value;
+  const aa = dtype === "Protein";
+  const C = (s) => `<span class="cmt">${s}</span>`;
+  const W = (s) => `<span class="why"># ${s}</span>`;
+  let out = "";
+
+  if(codeTab === "deps"){
+    if(os()==="macOS") out = [
+      C("# Install Miniforge (conda) once, works on Apple Silicon and Intel"),
+      'brew install miniforge',
+      'conda init "$(basename $SHELL)"',
+      "",
+      W("one environment pins every tool so the run is reproducible"),
+      "conda env create -f environment.yml",
+      "conda activate phylo",
+    ].join("\n");
+    else if(os()==="Windows") out = [
+      C("# Windows: run the tools under WSL2 (Ubuntu), the bioinformatics standard"),
+      'wsl --install -d Ubuntu',
+      C("# then, inside Ubuntu:"),
+      'curl -L -O https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh',
+      'bash Miniforge3-Linux-x86_64.sh',
+      "",
+      "conda env create -f environment.yml",
+      "conda activate phylo",
+    ].join("\n");
+    else out = [
+      C("# Linux: Miniforge + conda"),
+      'curl -L -O https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh',
+      'bash Miniforge3-Linux-x86_64.sh',
+      "",
+      "conda env create -f environment.yml",
+      "conda activate phylo",
+    ].join("\n");
+    $("#recipeOut").innerHTML = out; return;
+  }
+
+  if(codeTab === "env"){
+    const pkgs = ["bioconda::iqtree=2.3.6"];
+    if(align==="MAFFT") pkgs.unshift("bioconda::mafft=7.526");
+    if(align==="MUSCLE5") pkgs.unshift("bioconda::muscle=5.1");
+    if(align==="Clustal Omega") pkgs.unshift("bioconda::clustalo=1.2.4");
+    if(trim==="trimAl") pkgs.push("bioconda::trimal=1.5.0");
+    if(trim==="ClipKIT") pkgs.push("bioconda::clipkit=2.3.0");
+    if(trim==="Gblocks") pkgs.push("bioconda::gblocks=0.91b");
+    if(infer==="RAxML-NG") pkgs.push("bioconda::raxml-ng=1.2.2");
+    if(infer==="FastTree") pkgs.push("bioconda::fasttree=2.1.11");
+    if(infer==="MrBayes") pkgs.push("bioconda::mrbayes=3.2.7");
+    out = ["name: phylo","channels:","  - conda-forge","  - bioconda","dependencies:",...pkgs.map(p=>"  - "+p.split("::")[1])].join("\n");
+    $("#recipeOut").innerHTML = out; return;
+  }
+
+  // commands
+  let aln = "alignment.fasta";
+  const lines = [];
+  lines.push(C(`# Recipe for ${ntaxa} taxa, ${nlen} sites, ${dtype.toLowerCase()} data`));
+  lines.push("");
+  if(have !== "An alignment" && align !== "Skip"){
+    if(align==="MAFFT"){
+      const mode = ntaxa>200 ? "--retree 2 (fast, large dataset)" : "--maxiterate 1000 --localpair (L-INS-i, accurate)";
+      lines.push(W(`align with MAFFT, ${ntaxa>200?"speed mode for a large set":"accurate mode for a small set"}`));
+      lines.push(`mafft ${ntaxa>200?"--retree 2":"--maxiterate 1000 --localpair"} input.fasta > ${aln}`);
+    } else if(align==="MUSCLE5"){
+      lines.push(W("align with MUSCLE5"));
+      lines.push(`muscle -align input.fasta -output ${aln}`);
+    } else {
+      lines.push(W("align with Clustal Omega"));
+      lines.push(`clustalo -i input.fasta -o ${aln} --outfmt=fasta`);
+    }
+    lines.push("");
+  } else { aln = "input_alignment.fasta"; }
+
+  let trimmed = aln;
+  if(trim !== "Skip"){
+    trimmed = "trimmed.fasta";
+    if(trim==="trimAl"){ lines.push(W("remove poorly aligned columns")); lines.push(`trimal -in ${aln} -out ${trimmed} -gappyout`); }
+    else if(trim==="ClipKIT"){ lines.push(W("trim with the smart-gap heuristic")); lines.push(`clipkit ${aln} -o ${trimmed} -m smart-gap`); }
+    else { lines.push(W("select conserved blocks")); lines.push(`Gblocks ${aln} -t=${aa?"p":"d"} && mv ${aln}-gb ${trimmed}`); }
+    lines.push("");
+  }
+
+  const mflag = model==="ModelFinder" ? "-m MFP" : (aa ? "-m LG+G" : "-m GTR+G");
+  if(model==="ModelFinder") lines.push(W("ModelFinder picks the best substitution model for you"));
+  else lines.push(W("fixed substitution model"));
+
+  if(infer==="IQ-TREE 2"){
+    let s = `iqtree2 -s ${trimmed} ${mflag} -T AUTO`;
+    if(support==="UFBoot2 + SH-aLRT") s += " -B 1000 -alrt 1000";
+    else if(support==="Standard bootstrap") s += " -b 100";
+    lines.push(`${s} --prefix tree`);
+    lines.push(C("# result: tree.treefile  (open it in the Tree Studio)"));
+  } else if(infer==="RAxML-NG"){
+    lines.push(`raxml-ng --all --msa ${trimmed} --model ${aa?"LG+G":"GTR+G"} ${support!=="None"?"--bs-trees 1000":""}`);
+    lines.push(C("# result: *.raxml.support  (open it in the Tree Studio)"));
+  } else if(infer==="FastTree"){
+    lines.push(W("FastTree is approximate but scales to thousands of taxa"));
+    lines.push(`FastTree ${aa?"":"-nt -gtr "}${trimmed} > tree.nwk`);
+  } else {
+    lines.push(W("Bayesian inference, convert to NEXUS first, then run MrBayes"));
+    lines.push(`mb tree.nex   # set ngen, sump, sumt in the MrBayes block`);
+  }
+  $("#recipeOut").innerHTML = lines.join("\n");
+}
+
+/* ---------- studio tree ---------- */
+const TREE = {n:"root",bl:0,children:[
+  {n:"Fumigati",bl:.3,children:[
+    {n:"A. fumigatus",bl:.5,sec:"Fumigati",g:29.4,path:1,sup:99},
+    {n:"A. fischeri",bl:.5,sec:"Fumigati",g:32.5,path:0,sup:98}],sup:100},
+  {n:"x1",bl:.15,children:[
+    {n:"Flavi",bl:.25,children:[
+      {n:"A. flavus",bl:.45,sec:"Flavi",g:37.0,path:1,sup:95},
+      {n:"A. oryzae",bl:.45,sec:"Flavi",g:37.1,path:0,sup:97}],sup:96},
+    {n:"x2",bl:.18,children:[
+      {n:"A. nidulans",bl:.55,sec:"Nidulantes",g:30.1,path:0,sup:88},
+      {n:"x3",bl:.2,children:[
+        {n:"A. niger",bl:.4,sec:"Nigri",g:34.0,path:1,sup:92},
+        {n:"P. chrysogenum",bl:.6,sec:"Outgroup",g:32.2,path:0,sup:100}],sup:90}],sup:85}],sup:80}
+]};
+const SEC_COLOR = {Fumigati:"#1AA0E6",Flavi:"#5B47D6",Nidulantes:"#16a34a",Nigri:"#b45309",Outgroup:"#94a3b8"};
+const GENES = ["gliP","fumR","aflR","veA"];
+
+function leaves(n, acc=[]){ if(!n.children) acc.push(n); else n.children.forEach(c=>leaves(c,acc)); return acc; }
+$$(".track").forEach(t => t.onclick = (e) => {
+  if(document.body.classList.contains("commenting")) return;
+  const sw = $(".sw", t); sw.classList.toggle("on"); drawTree();
+});
+function on(tr){ return $(`.track[data-tr="${tr}"] .sw`).classList.contains("on"); }
+$("#showR").onclick = () => { const w=$("#rwrap"); w.classList.toggle("hidden"); if(!w.classList.contains("hidden")) buildR(); };
+
+function drawTree(){
+  const svg = $("#tree"); if(!svg) return;
+  const css = getComputedStyle(document.documentElement);
+  const fg = css.getPropertyValue("--fg").trim() || "#171717";
+  const muted = css.getPropertyValue("--muted").trim() || "#64748b";
+  const acc = css.getPropertyValue("--accent").trim();
+  const phylo = $("#bl button.on").textContent.trim()==="Phylogram";
+  const circular = $("#layout button.on").textContent.trim()==="Circular";
+  const lv = leaves(TREE);
+  // assign depth (cumulative bl or rank) and y
+  let maxDepth=0;
+  (function depth(n,d){ n._d = phylo ? d : (n.children?0:1)*0; n._cum = d; maxDepth=Math.max(maxDepth, d); if(n.children) n.children.forEach(c=>depth(c,d+c.bl)); })(TREE,0);
+  // rank depth for cladogram
+  let maxRank=0;
+  (function rank(n,r){ n._r=r; maxRank=Math.max(maxRank,r); if(n.children) n.children.forEach(c=>rank(c,r+1)); })(TREE,0);
+  lv.forEach((l,i)=> l._y = i);
+  (function yy(n){ if(n.children){ n.children.forEach(yy); n._y = (n.children[0]._y + n.children[n.children.length-1]._y)/2; } })(TREE);
+
+  const W=560,H=420, padL=14, padT=18, padB=14;
+  const tracksW = (on("strip")?16:0) + (on("bars")?70:0) + (on("heat")?GENES.length*16+8:0) + (on("labels")?120:0) + 14;
+  const plotW = W - padL - tracksW;
+  const yMax = lv.length-1;
+  const yScale = (y)=> padT + (y/yMax)*(H-padT-padB);
+  const dd = phylo ? maxDepth : maxRank;
+  const xScale = (d)=> padL + (d/dd)*plotW;
+
+  let parts = [];
+  if(circular){
+    parts = radial(lv, phylo, dd, fg, muted, acc);
+    svg.innerHTML = parts.join("");
+    return;
+  }
+
+  // clade highlight (Fumigati)
+  if(on("clade")){
+    const clade = TREE.children[0];
+    const cl = leaves(clade);
+    const y0 = yScale(cl[0]._y)-12, y1 = yScale(cl[cl.length-1]._y)+12;
+    parts.push(`<rect x="${padL}" y="${y0}" width="${plotW+ (on("strip")?16:0)+8}" height="${y1-y0}" rx="6" fill="${SEC_COLOR.Fumigati}" opacity="0.10"/>`);
+    parts.push(`<text x="${padL+4}" y="${y0+12}" font-size="10" fill="${SEC_COLOR.Fumigati}" font-weight="700">Fumigati</text>`);
+  }
+
+  // edges
+  (function edges(n){
+    if(!n.children) return;
+    const px = xScale(phylo? n._cum : n._r);
+    n.children.forEach(c=>{
+      const cx = xScale(phylo? c._cum : c._r);
+      const cy = yScale(c._y), ny=yScale(n._y);
+      parts.push(`<path d="M${px} ${ny} V${cy} H${cx}" fill="none" stroke="${fg}" stroke-width="1.4"/>`);
+      if(on("support") && c.children && c.sup){
+        parts.push(`<text x="${px+3}" y="${ny-3}" font-size="9" fill="${muted}">${c.sup}</text>`);
+      }
+      edges(c);
+    });
+  })(TREE);
+
+  // tip decorations
+  lv.forEach(l=>{
+    const y = yScale(l._y), x = xScale(phylo? l._cum : l._r);
+    let cx = x + 6;
+    if(on("points")) parts.push(`<circle cx="${cx}" cy="${y}" r="4" fill="${SEC_COLOR[l.sec]||muted}"/>`), cx+=10;
+    let tx = padL + plotW + 6;
+    if(on("strip")){ parts.push(`<rect x="${tx}" y="${y-9}" width="12" height="18" fill="${SEC_COLOR[l.sec]||muted}"/>`); tx+=16; }
+    if(on("bars")){ const bw=(l.g-25)/(38-25)*60; parts.push(`<rect x="${tx}" y="${y-7}" width="${Math.max(2,bw)}" height="14" rx="2" fill="${acc}" opacity="0.8"/>`); tx+=70; }
+    if(on("heat")){ GENES.forEach((gn,gi)=>{ const v=(l.path?(gi%2):((gi+1)%2)); parts.push(`<rect x="${tx+gi*16}" y="${y-7}" width="14" height="14" rx="2" fill="${v?acc:'var(--surface)'}" stroke="var(--border)"/>`); }); tx+=GENES.length*16+8; }
+    if(on("labels")) parts.push(`<text x="${tx}" y="${y+4}" font-size="11" font-style="italic" fill="${fg}">${l.n}</text>`);
+  });
+  // scale bar
+  if(phylo){ const u=(0.5/dd)*plotW; parts.push(`<line x1="${padL}" y1="${H-4}" x2="${padL+u}" y2="${H-4}" stroke="${muted}" stroke-width="1.5"/><text x="${padL}" y="${H-8}" font-size="9" fill="${muted}">0.5</text>`); }
+  svg.innerHTML = parts.join("");
+}
+
+function radial(lv, phylo, dd, fg, muted, acc){
+  const cx=250, cy=210, R=150; const parts=[];
+  const aMax = lv.length;
+  const ang = (y)=> (y/(aMax-1))*Math.PI*1.8 - Math.PI*0.9;
+  const rad = (d)=> (d/dd)*R + 18;
+  (function yy(n){ if(n.children){ n.children.forEach(yy); n._y=(n.children[0]._y+n.children[n.children.length-1]._y)/2; } })(TREE);
+  (function edges(n){
+    if(!n.children) return;
+    const pr = rad(phylo? n._cum : n._r);
+    n.children.forEach(c=>{
+      const cr=rad(phylo? c._cum : c._r);
+      const a1=ang(n._y), a2=ang(c._y);
+      const x1=cx+pr*Math.cos(a1), y1=cy+pr*Math.sin(a1);
+      const xa=cx+pr*Math.cos(a2), ya=cy+pr*Math.sin(a2);
+      const x2=cx+cr*Math.cos(a2), y2=cy+cr*Math.sin(a2);
+      const large = Math.abs(a2-a1)>Math.PI?1:0;
+      const sweep = a2>a1?1:0;
+      parts.push(`<path d="M${x1} ${y1} A ${pr} ${pr} 0 ${large} ${sweep} ${xa} ${ya} L ${x2} ${y2}" fill="none" stroke="${fg}" stroke-width="1.3"/>`);
+      edges(c);
+    });
+  })(TREE);
+  lv.forEach(l=>{
+    const a=ang(l._y), r=rad(phylo?l._cum:l._r);
+    const x=cx+r*Math.cos(a), y=cy+r*Math.sin(a);
+    if(on("points")) parts.push(`<circle cx="${x}" cy="${y}" r="3.5" fill="${SEC_COLOR[l.sec]||muted}"/>`);
+    if(on("strip")){ const x2=cx+(r+8)*Math.cos(a), y2=cy+(r+8)*Math.sin(a); parts.push(`<circle cx="${x2}" cy="${y2}" r="4" fill="${SEC_COLOR[l.sec]||muted}"/>`); }
+    if(on("labels")){ const lr=r+14, lx=cx+lr*Math.cos(a), ly=cy+lr*Math.sin(a); const deg=a*180/Math.PI; const flip=Math.cos(a)<0; parts.push(`<text x="${lx}" y="${ly}" font-size="10" font-style="italic" fill="${fg}" transform="rotate(${flip?deg+180:deg} ${lx} ${ly})" text-anchor="${flip?'end':'start'}">${l.n}</text>`); }
+  });
+  return parts;
+}
+
+function buildR(){
+  const t = [];
+  t.push('# install once: BiocManager::install(c("ggtree","ggtreeExtra","treeio"))');
+  t.push('library(ggtree); library(ggtreeExtra); library(ggplot2); library(treeio)');
+  t.push('');
+  t.push('tree <- read.tree("tree.treefile")');
+  t.push('meta <- read.csv("metadata.csv")   # tip, section, genome, path');
+  t.push('');
+  const lay = $("#layout button.on").textContent.trim().toLowerCase();
+  const layout = lay==="circular"?"circular": lay==="slanted"?"slanted": lay==="unrooted"?"daylight":"rectangular";
+  t.push(`p <- ggtree(tree, layout = "${layout}") %<+% meta`);
+  if(on("support")) t.push('p <- p + geom_nodelab(aes(label = label), size = 2, hjust = -0.2)   # support values');
+  if(on("clade")) t.push('p <- p + geom_hilight(node = MRCA(tree, c("A. fumigatus","A. fischeri")), fill = "#1AA0E6", alpha = 0.12)');
+  if(on("points")) t.push('p <- p + geom_tippoint(aes(color = section), size = 2)');
+  if(on("labels")) t.push('p <- p + geom_tiplab(fontface = "italic", size = 3)');
+  if(on("strip")) t.push('p <- p + geom_fruit(geom = geom_tile, mapping = aes(fill = section), width = 0.05)   # color strip');
+  if(on("bars")) t.push('p <- p + geom_fruit(geom = geom_col, mapping = aes(x = genome), offset = 0.1)   # bar chart');
+  if(on("heat")) t.push('p <- gheatmap(p, gene_matrix, width = 0.3, colnames_angle = 90)   # presence / absence');
+  t.push('p <- p + scale_color_manual(values = c(Fumigati="#1AA0E6", Flavi="#5B47D6", Nidulantes="#16a34a", Nigri="#b45309", Outgroup="#94a3b8"))');
+  t.push('p + theme_tree() + geom_treescale()');
+  $("#rcode").textContent = t.join("\n");
+}
+
+/* ---------- decisions ---------- */
+function renderDecisions(){
+  let n = 0;
+  $$(".change").forEach(c => {
+    const id = c.dataset.change; const d = state.decisions[id];
+    const yes = $(".yes", c), no = $(".no", c), note = $(".note", c);
+    yes.classList.toggle("on", d && d.v==="yes");
+    no.classList.toggle("on", d && d.v==="no");
+    if(d && d.note){ note.value = d.note; c.classList.add("open"); }
+    if(d && d.v) n++;
+    yes.onclick = (e)=>{ e.stopPropagation(); toggle(id,"yes",c); };
+    no.onclick = (e)=>{ e.stopPropagation(); toggle(id,"no",c); };
+    note.onclick = (e)=> e.stopPropagation();
+    note.oninput = ()=>{ state.decisions[id] = state.decisions[id]||{}; state.decisions[id].note = note.value; store.save(state); };
+  });
+  $("#decCount").textContent = n;
+}
+function toggle(id,v,c){
+  state.decisions[id] = state.decisions[id]||{};
+  state.decisions[id].v = state.decisions[id].v===v ? null : v;
+  if(state.decisions[id].v) c.classList.add("open");
+  store.save(state); renderDecisions();
+}
+
+/* ---------- comment pins ---------- */
+$("#commentBtn").onclick = () => {
+  document.body.classList.toggle("commenting");
+  $("#commentBtn").classList.toggle("armed");
+};
+document.addEventListener("click", (e)=>{
+  if(!document.body.classList.contains("commenting")) return;
+  const target = e.target.closest(".pinnable");
+  if(!target || e.target.closest(".pin")) return;
+  e.preventDefault(); e.stopPropagation();
+  const r = target.getBoundingClientRect();
+  const text = prompt("Comment:");
+  if(!text) return;
+  const view = $$(".subnav button").find(b=>b.classList.contains("active")).dataset.view;
+  state.pins.push({ x:(e.clientX-r.left)/r.width, y:(e.clientY-r.top)/r.height, sel:cssPath(target), text, view, label: pinLabel(target) });
+  store.save(state); renderPins();
+}, true);
+function pinLabel(el){ const h=el.querySelector("h1,h2,h3,b"); return (h?h.textContent:el.textContent).trim().slice(0,40); }
+function cssPath(el){ return el.className.replace(/\s+/g,"."); }
+function renderPins(){
+  $$(".pin").forEach(p=>p.remove());
+  const view = $$(".subnav button").find(b=>b.classList.contains("active")).dataset.view;
+  let i=0;
+  state.pins.forEach((pin,idx)=>{
+    if(pin.view && pin.view!==view) return;
+    const host = [...$$(".pinnable")].find(el => cssPath(el)===pin.sel);
+    if(!host) return;
+    i++;
+    const dot = document.createElement("div");
+    dot.className="pin"; dot.textContent=idx+1; dot.title=pin.text;
+    dot.style.left=(pin.x*100)+"%"; dot.style.top=(pin.y*100)+"%";
+    if(getComputedStyle(host).position==="static") host.style.position="relative";
+    dot.onclick=(e)=>{ e.stopPropagation(); if(confirm("Pin "+(idx+1)+": "+pin.text+"\n\nDelete this pin?")){ state.pins.splice(idx,1); store.save(state); renderPins(); } };
+    host.appendChild(dot);
+  });
+}
+
+/* ---------- drawer + export ---------- */
+function openDrawer(title, html){ $("#drawerTitle").textContent=title; $("#drawerBody").innerHTML=html; $("#drawer").classList.add("open"); }
+$("#drawerClose").onclick=()=> $("#drawer").classList.remove("open");
+$("#decisionsBtn").onclick=()=>{
+  const labels = { "hub-builder":"Hub: Build a tree card", "hub-studio":"Hub: Open the studio card", "hub-library":"Hub: saved trees library",
+    "builder-llm":"Builder: BeakerBot plain-language ask", "builder-wizard":"Builder: choose-your-options wizard", "builder-recipe":"Builder: generated recipe", "builder-save":"Builder: save as method / downloads",
+    "studio-metadata":"Studio: metadata linking", "studio-canvas":"Studio: tree canvas + layouts", "studio-tracks":"Studio: annotation tracks", "studio-export":"Studio: export + ggtree code" };
+  let html="";
+  Object.keys(labels).forEach(id=>{
+    const d=state.decisions[id]||{}; const v=d.v==="yes"?"Approved":d.v==="no"?"Disapproved":"No vote";
+    const col=d.v==="yes"?"var(--good)":d.v==="no"?"var(--bad)":"var(--muted)";
+    html+=`<div class="ditem"><b>${labels[id]}</b><div style="color:${col};font-weight:700;font-size:12px">${v}</div>${d.note?`<div class="muted" style="margin-top:4px">${d.note}</div>`:""}</div>`;
+  });
+  openDrawer("Decisions", html);
+};
+$("#exportBtn").onclick=()=>{
+  const labels = { "hub-builder":"Hub: Build a tree card", "hub-studio":"Hub: Open the studio card", "hub-library":"Hub: saved trees library",
+    "builder-llm":"Builder: BeakerBot plain-language ask", "builder-wizard":"Builder: choose-your-options wizard", "builder-recipe":"Builder: generated recipe", "builder-save":"Builder: save as method / downloads",
+    "studio-metadata":"Studio: metadata linking", "studio-canvas":"Studio: tree canvas + layouts", "studio-tracks":"Studio: annotation tracks", "studio-export":"Studio: export + ggtree code" };
+  let md = "# Phylogenetics page mockup review\n\n## Decisions\n\n";
+  Object.keys(labels).forEach(id=>{ const d=state.decisions[id]||{}; const v=d.v==="yes"?"APPROVE":d.v==="no"?"DISAPPROVE":"-"; md+=`- [${v}] ${labels[id]}${d.note?` -- ${d.note}`:""}\n`; });
+  md += "\n## Comments\n\n";
+  state.pins.forEach((p,i)=> md+=`${i+1}. (${p.view} / ${p.label}) ${p.text}\n`);
+  if(!state.pins.length) md+="(none)\n";
+  const html = `<p class="muted">Copy this back into chat, or download it.</p><textarea class="exp">${md.replace(/</g,"&lt;")}</textarea>
+    <div style="display:flex;gap:8px;margin-top:10px"><button class="primary" id="copyMd" style="border:0">Copy</button><button class="ghost" id="dlMd">Download .md</button><button class="ghost" id="resetAll">Reset all</button></div>`;
+  openDrawer("Export review", html);
+  $("#copyMd").onclick=()=>{ navigator.clipboard.writeText(md); $("#copyMd").textContent="Copied"; };
+  $("#dlMd").onclick=()=>{ const b=new Blob([md],{type:"text/markdown"}); const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="phylo-mockup-review.md"; a.click(); };
+  $("#resetAll").onclick=()=>{ if(confirm("Clear all pins and decisions?")){ state={pins:[],decisions:{}}; store.save(state); renderDecisions(); renderPins(); $("#drawer").classList.remove("open"); } };
+};
+
+/* init */
+buildRecipe(); renderDecisions(); renderPins();
+</script>
+</body>
+</html>

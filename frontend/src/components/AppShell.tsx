@@ -30,6 +30,7 @@ import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { INVENTORY_ENABLED } from "@/lib/inventory/config";
 import { CHEMISTRY_ENABLED } from "@/lib/chemistry/config";
 import { DATAHUB_ENABLED } from "@/lib/datahub/config";
+import { PHYLO_ENABLED } from "@/lib/phylo/config";
 import { HELP_HREF, appRouteToWikiRoute } from "@/lib/wiki/nav";
 import { useAppStore } from "@/lib/store";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
@@ -217,6 +218,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     // same pattern as /chemistry. Visible when the flag is on or in demo, hidden
     // otherwise (prod default), so it stays dark for real users until launch.
     if (item.href === "/datahub") return DATAHUB_ENABLED || isDemo;
+    // /phylo (the phylogenetics page: Tree Builder + Tree Studio) is an opt-in
+    // module, same pattern as /chemistry and /datahub. Visible when the flag is on
+    // or in demo, hidden otherwise (prod default), so it stays dark until launch.
+    if (item.href === "/phylo") return PHYLO_ENABLED || isDemo;
     // /sequences (the molecular-biology editor) is a flagship surface that
     // must always be reachable from the nav. Existing accounts whose
     // visibleTabs list predates the route would otherwise never see it (the
