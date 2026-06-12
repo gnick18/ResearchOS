@@ -52,6 +52,7 @@ import {
   oneOnOnesApi,
   checkinCompactsApi,
   checkinOnboardingApi,
+  checkinRotationsApi,
 } from "../local-api";
 import { clearCurrentUserCache } from "../storage/json-store";
 import {
@@ -280,5 +281,133 @@ describe("checkinOnboardingApi", () => {
     expect(uncheckedItem?.done).toBe(false);
     expect(uncheckedItem?.done_by).toBeNull();
     expect(uncheckedItem?.done_at).toBeNull();
+  });
+});
+
+// ── Presenter / journal-club rotation (Phase 4) ───────────────────────────────
+
+describe("checkinRotationsApi", () => {
+  async function freshGroup() {
+    setCurrentUser("pi");
+    // A 3-member space is a group; a rotation only exists on a group.
+    return oneOnOnesApi.create({
+      members: ["pi", "student", "other"],
+      mentor: "pi",
+      title: "Lab meeting",
+    });
+  }
+
+  it("seeds two tracks ordered by the members, owner = space owner, shared at edit", async () => {
+    const space = await freshGroup();
+    const rotation = await checkinRotationsApi.createForSpace(space.id);
+
+    expect(rotation.space_id).toBe(space.id);
+    expect(rotation.owner).toBe("pi");
+    expect(rotation.tracks.map((t) => t.name)).toEqual([
+      "Data presentation",
+      "Journal club",
+    ]);
+    for (const track of rotation.tracks) {
+      expect(track.order).toEqual(["pi", "student", "other"]);
+      expect(track.current_index).toBe(0);
+    }
+    expect(rotation.shared_with).toEqual([
+      { username: "pi", level: "edit" },
+      { username: "student", level: "edit" },
+      { username: "other", level: "edit" },
+    ]);
+    // Both members read it; an outsider cannot.
+    expect(canRead(rotation, viewer("pi", true))).toBe(true);
+    expect(canRead(rotation, viewer("student"))).toBe(true);
+
+    // Lives in the owner's folder.
+    expect(
+      memFs.get(`users/pi/checkin_rotations/${rotation.id}.json`),
+    ).toBeTruthy();
+  });
+
+  it("createForSpace is idempotent (no second rotation for the same space)", async () => {
+    const space = await freshGroup();
+    const a = await checkinRotationsApi.createForSpace(space.id);
+    const b = await checkinRotationsApi.createForSpace(space.id);
+    expect(b.id).toBe(a.id);
+    const fetched = await checkinRotationsApi.getForSpace(space.id);
+    expect(fetched?.id).toBe(a.id);
+  });
+
+  it("refuses to start a rotation on a pair space", async () => {
+    setCurrentUser("pi");
+    const pair = await oneOnOnesApi.create({
+      members: ["pi", "student"],
+      mentor: "pi",
+    });
+    await expect(
+      checkinRotationsApi.createForSpace(pair.id),
+    ).rejects.toThrow();
+  });
+
+  it("advance moves to the next presenter and wraps around the end", async () => {
+    const space = await freshGroup();
+    const rotation = await checkinRotationsApi.createForSpace(space.id);
+    const trackId = rotation.tracks[0].id;
+
+    // 0 -> 1
+    const a = await checkinRotationsApi.advance(rotation.id, trackId, "pi");
+    expect(a?.tracks[0].current_index).toBe(1);
+    // 1 -> 2
+    const b = await checkinRotationsApi.advance(rotation.id, trackId, "pi");
+    expect(b?.tracks[0].current_index).toBe(2);
+    // 2 -> 0 (wraparound, three members)
+    const c = await checkinRotationsApi.advance(rotation.id, trackId, "pi");
+    expect(c?.tracks[0].current_index).toBe(0);
+    // The OTHER track is untouched.
+    expect(c?.tracks[1].current_index).toBe(0);
+  });
+
+  it("getForSpace returns the persisted rotation", async () => {
+    const space = await freshGroup();
+    const created = await checkinRotationsApi.createForSpace(space.id);
+    const fetched = await checkinRotationsApi.getForSpace(space.id);
+    expect(fetched?.id).toBe(created.id);
+    expect(fetched?.tracks).toHaveLength(2);
+  });
+
+  it("setOrder replaces a track's order and clamps the index", async () => {
+    const space = await freshGroup();
+    const rotation = await checkinRotationsApi.createForSpace(space.id);
+    const trackId = rotation.tracks[0].id;
+    // advance to index 2 first, then shrink the order to 2 members.
+    await checkinRotationsApi.advance(rotation.id, trackId, "pi");
+    await checkinRotationsApi.advance(rotation.id, trackId, "pi");
+    const updated = await checkinRotationsApi.setOrder(
+      rotation.id,
+      trackId,
+      ["student", "pi"],
+      "pi",
+    );
+    expect(updated?.tracks[0].order).toEqual(["student", "pi"]);
+    // index 2 is now out of range for length 2, clamped to 1.
+    expect(updated?.tracks[0].current_index).toBe(1);
+  });
+});
+
+// ── Committee next-meeting date (Phase 4) ─────────────────────────────────────
+
+describe("oneOnOnesApi.setNextMeetingDate", () => {
+  it("sets and clears the next meeting date on the space", async () => {
+    setCurrentUser("pi");
+    const space = await oneOnOnesApi.create({
+      members: ["pi", "student", "other"],
+      title: "Committee",
+    });
+    // Absent on a fresh record, normalized to null on read.
+    const fresh = await oneOnOnesApi.get(space.id);
+    expect(fresh?.next_meeting_date ?? null).toBeNull();
+
+    const set = await oneOnOnesApi.setNextMeetingDate(space.id, "2026-09-01");
+    expect(set?.next_meeting_date).toBe("2026-09-01");
+
+    const cleared = await oneOnOnesApi.setNextMeetingDate(space.id, null);
+    expect(cleared?.next_meeting_date).toBeNull();
   });
 });

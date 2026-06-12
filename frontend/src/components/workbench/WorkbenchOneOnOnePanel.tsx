@@ -26,9 +26,12 @@ import {
   usersApi,
   checkinCompactsApi,
   checkinOnboardingApi,
+  checkinRotationsApi,
 } from "@/lib/local-api";
 import { oneOnOneLabel } from "@/lib/one-on-one/label";
 import { normalizeOneOnOne } from "@/lib/one-on-one/normalize";
+import { isSkipLevel, directMentorsOf } from "@/lib/checkins/mentorship-tree";
+import MentorshipTree from "@/components/workbench/checkins/MentorshipTree";
 import {
   CHECKIN_TEMPLATES,
   getCheckinTemplate,
@@ -42,6 +45,7 @@ import type {
   CheckinCompact,
   CheckinCompactRow,
   CheckinOnboarding,
+  CheckinRotation,
 } from "@/lib/types";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
@@ -60,6 +64,7 @@ type AreaTab =
   | "notes"
   | "agenda"
   | "board"
+  | "rotation"
   | "idp"
   | "compact"
   | "onboarding";
@@ -86,6 +91,9 @@ function areaTabsFor(
   const norm = normalizeOneOnOne(space);
   if (norm.kind === "group") {
     base.push({ id: "board", label: "Task board" });
+    // Check-ins Phase 4: a group space carries a presenter / journal-club
+    // rotation. Pair spaces have no rotation (it takes 3+ people to rotate).
+    base.push({ id: "rotation", label: "Rotation" });
   }
   if (norm.kind === "pair" && norm.mentor) {
     base.push({ id: "idp", label: "IDP" });
@@ -129,6 +137,7 @@ const itemsKey = (id: string) => ["one-on-one", id, "action-items"] as const;
 const compactKey = (id: string) => ["one-on-one", id, "compact"] as const;
 const onboardingKey = (id: string) =>
   ["one-on-one", id, "onboarding"] as const;
+const rotationKey = (id: string) => ["one-on-one", id, "rotation"] as const;
 
 export default function WorkbenchOneOnOnePanel({
   currentUser,
@@ -142,6 +151,9 @@ export default function WorkbenchOneOnOnePanel({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [area, setArea] = useState<AreaTab>("goals");
   const [showNewDialog, setShowNewDialog] = useState(false);
+  // Check-ins Phase 4: the "View lab tree" full-pane view. When on, the main
+  // pane shows the mentorship forest instead of a selected space.
+  const [showTree, setShowTree] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; oo: OneOnOne } | null>(
     null,
   );
@@ -227,17 +239,35 @@ export default function WorkbenchOneOnOnePanel({
           <h3 className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">
             Check-ins
           </h3>
-          <Tooltip label="Start a check-in">
-            <button
-              type="button"
-              onClick={() => setShowNewDialog(true)}
-              aria-label="Start a check-in"
-              data-testid="oneonone-start-rail"
-              className="rounded-lg p-1 text-brand-action transition-colors hover:bg-surface-sunken"
-            >
-              <Icon name="userPlus" className="h-[18px] w-[18px]" />
-            </button>
-          </Tooltip>
+          <div className="flex items-center gap-1">
+            <Tooltip label="View lab tree">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTree(true);
+                  setSelectedId(null);
+                }}
+                aria-label="View lab tree"
+                data-testid="oneonone-view-tree-rail"
+                className={`rounded-lg p-1 transition-colors hover:bg-surface-sunken ${
+                  showTree ? "text-brand-action" : "text-foreground-muted"
+                }`}
+              >
+                <Icon name="tree" className="h-[18px] w-[18px]" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Start a check-in">
+              <button
+                type="button"
+                onClick={() => setShowNewDialog(true)}
+                aria-label="Start a check-in"
+                data-testid="oneonone-start-rail"
+                className="rounded-lg p-1 text-brand-action transition-colors hover:bg-surface-sunken"
+              >
+                <Icon name="userPlus" className="h-[18px] w-[18px]" />
+              </button>
+            </Tooltip>
+          </div>
         </div>
 
         {oneOnOnes.length === 0 ? (
@@ -276,7 +306,10 @@ export default function WorkbenchOneOnOnePanel({
                       <li key={oo.id}>
                         <button
                           type="button"
-                          onClick={() => setSelectedId(oo.id)}
+                          onClick={() => {
+                            setSelectedId(oo.id);
+                            setShowTree(false);
+                          }}
                           onContextMenu={(e) => {
                             const owner =
                               oo.owner === currentUser ||
@@ -311,7 +344,25 @@ export default function WorkbenchOneOnOnePanel({
 
       {/* Main pane */}
       <section className="min-w-0 flex-1">
-        {!selected ? (
+        {showTree ? (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-2 border-b border-border pb-2">
+              <h3 className="flex items-center gap-2 text-body font-semibold text-foreground">
+                <Icon name="tree" className="h-4 w-4 text-foreground-muted" />
+                Lab tree
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowTree(false)}
+                data-testid="oneonone-tree-close"
+                className="rounded-lg px-2.5 py-1.5 text-body font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
+              >
+                Back to check-ins
+              </button>
+            </div>
+            <MentorshipTree spaces={oneOnOnes} currentUser={currentUser} />
+          </div>
+        ) : !selected ? (
           oneOnOnes.length === 0 ? (
             <div className="flex h-48 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-surface-sunken/40 px-6 text-center text-body text-foreground-muted">
               <p>
@@ -336,6 +387,14 @@ export default function WorkbenchOneOnOnePanel({
           )
         ) : (
           <>
+            <SpaceHeader
+              space={selected}
+              allSpaces={oneOnOnes}
+              currentUser={currentUser}
+              onInvalidateSpaces={() =>
+                queryClient.invalidateQueries({ queryKey: ooKey })
+              }
+            />
             <div className="mb-4 flex items-center gap-1 border-b border-border pb-2">
               {areaTabs.map((t) => (
                 <button
@@ -363,6 +422,9 @@ export default function WorkbenchOneOnOnePanel({
             {area === "agenda" && <AgendaArea oneOnOne={selected} />}
             {area === "board" && (
               <TaskBoardArea oneOnOne={selected} currentUser={currentUser} />
+            )}
+            {area === "rotation" && (
+              <RotationArea oneOnOne={selected} currentUser={currentUser} />
             )}
             {area === "idp" &&
               (() => {
@@ -395,10 +457,12 @@ export default function WorkbenchOneOnOnePanel({
         <NewOneOnOneDialog
           currentUser={currentUser}
           existingPartners={existingPartners(oneOnOnes, currentUser)}
+          allSpaces={oneOnOnes}
           onClose={() => setShowNewDialog(false)}
           onCreated={(created) => {
             queryClient.invalidateQueries({ queryKey: ooKey });
             setSelectedId(created.id);
+            setShowTree(false);
             setShowNewDialog(false);
           }}
         />
@@ -1811,6 +1875,316 @@ function OnboardingArea({
   );
 }
 
+// ── Space header (Phase 4: skip-level cue + committee next-meeting date) ──────
+// A small header above the sub-tabs for the selected space. Shows two Phase 4
+// signals when they apply: a "Skip-level" badge (this mentor is checking in with
+// a trainee who reports through someone else) and, for a committee / annual-
+// cadence space, a "Next committee meeting" line with a pre-circulate reminder
+// and an inline date editor. Renders nothing extra for an ordinary space.
+
+/** True when the space reads as a committee / annual-cadence space: a group on
+ *  a "month" cadence, the shape the thesis-committee template seeds. Advisory,
+ *  it only decides whether to show the committee meeting line. */
+function isCommitteeSpace(space: OneOnOne): boolean {
+  const norm = normalizeOneOnOne(space);
+  return norm.kind === "group" && norm.cadence?.every === "month";
+}
+
+function SpaceHeader({
+  space,
+  allSpaces,
+  currentUser,
+  onInvalidateSpaces,
+}: {
+  space: OneOnOne;
+  allSpaces: OneOnOne[];
+  currentUser: string;
+  onInvalidateSpaces: () => void;
+}) {
+  const skip = useMemo(
+    () => isSkipLevel(space, allSpaces),
+    [space, allSpaces],
+  );
+  const committee = useMemo(() => isCommitteeSpace(space), [space]);
+  const nextDate = normalizeOneOnOne(space).next_meeting_date;
+  const isMember = normalizeOneOnOne(space).members.includes(currentUser);
+
+  const [editingDate, setEditingDate] = useState(false);
+  const [dateDraft, setDateDraft] = useState(nextDate ?? "");
+
+  const setDateMutation = useMutation({
+    mutationFn: (date: string | null) =>
+      oneOnOnesApi.setNextMeetingDate(space.id, date),
+    onSuccess: () => {
+      setEditingDate(false);
+      onInvalidateSpaces();
+    },
+  });
+
+  if (!skip && !committee) return null;
+
+  return (
+    <div className="mb-3 flex flex-col gap-2">
+      {skip && (
+        <Tooltip
+          label="Skip-level check-in"
+          body="A skip-level check-in reaches a trainee who reports through someone else, so the closer mentor stays in the loop on the relationship."
+        >
+          <span
+            className="inline-flex w-fit items-center gap-1.5 rounded-md bg-amber-100 px-2 py-1 text-meta font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300"
+            data-testid="space-skip-level-badge"
+          >
+            <Icon name="skip" className="h-3.5 w-3.5" />
+            Skip-level
+          </span>
+        </Tooltip>
+      )}
+      {committee && (
+        <div
+          className="flex flex-col gap-1 rounded-lg border border-border bg-surface-sunken/40 px-3 py-2"
+          data-testid="space-committee-header"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <Icon name="today" className="h-4 w-4 flex-none text-foreground-muted" />
+            <span className="text-body text-foreground">
+              Next committee meeting
+              {": "}
+              {nextDate ? (
+                <span className="font-medium">
+                  {new Date(`${nextDate}T00:00:00`).toLocaleDateString()}
+                </span>
+              ) : (
+                <span className="text-foreground-muted">not set</span>
+              )}
+            </span>
+            {isMember && !editingDate && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDateDraft(nextDate ?? "");
+                  setEditingDate(true);
+                }}
+                data-testid="committee-date-edit"
+                className="ml-auto rounded px-2 py-0.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
+              >
+                {nextDate ? "Change" : "Set date"}
+              </button>
+            )}
+          </div>
+          {editingDate && (
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="date"
+                value={dateDraft}
+                onChange={(e) => setDateDraft(e.target.value)}
+                data-testid="committee-date-input"
+                className="rounded-md border border-border bg-surface-raised px-2 py-1 text-body text-foreground"
+              />
+              <button
+                type="button"
+                onClick={() =>
+                  setDateMutation.mutate(dateDraft ? dateDraft : null)
+                }
+                disabled={setDateMutation.isPending}
+                data-testid="committee-date-save"
+                className="btn-brand rounded-md px-2.5 py-1 text-meta font-medium disabled:opacity-40"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingDate(false)}
+                className="rounded-md px-2 py-1 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+          <p className="text-meta text-foreground-muted">
+            Pre-circulate the progress report and Specific Aims so the committee
+            reads them before you meet.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Presenter / journal-club rotation (Phase 4, group spaces) ─────────────────
+// A group space carries an auto-rotating schedule of who presents data and who
+// leads journal club. Started lazily, so the tab opens with a Start affordance
+// until one exists. Each track shows "Up next" with an Advance control and a
+// reorder / skip affordance (move someone to the front, or send the current
+// presenter to the back).
+
+function RotationArea({
+  oneOnOne,
+  currentUser,
+}: {
+  oneOnOne: OneOnOne;
+  currentUser: string;
+}) {
+  const queryClient = useQueryClient();
+  const isMember = useMemo(
+    () => normalizeOneOnOne(oneOnOne).members.includes(currentUser),
+    [oneOnOne, currentUser],
+  );
+
+  const { data: rotation, isLoading } = useQuery<CheckinRotation | null>({
+    queryKey: rotationKey(oneOnOne.id),
+    queryFn: () => checkinRotationsApi.getForSpace(oneOnOne.id),
+  });
+
+  const invalidate = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: rotationKey(oneOnOne.id) }),
+    [queryClient, oneOnOne.id],
+  );
+
+  const startMutation = useMutation({
+    mutationFn: () => checkinRotationsApi.createForSpace(oneOnOne.id),
+    onSuccess: invalidate,
+  });
+  const advanceMutation = useMutation({
+    mutationFn: (trackId: string) =>
+      checkinRotationsApi.advance(rotation!.id, trackId, rotation!.owner),
+    onSuccess: invalidate,
+  });
+  const setOrderMutation = useMutation({
+    mutationFn: (vars: { trackId: string; order: string[] }) =>
+      checkinRotationsApi.setOrder(
+        rotation!.id,
+        vars.trackId,
+        vars.order,
+        rotation!.owner,
+      ),
+    onSuccess: invalidate,
+  });
+
+  if (isLoading) {
+    return <p className="text-body italic text-foreground-muted">Loading…</p>;
+  }
+
+  if (!rotation) {
+    return (
+      <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-border bg-surface-sunken/40 px-4 py-5 text-body text-foreground-muted">
+        <p>
+          A rotation tracks who presents data and who leads journal club, so the
+          schedule lives next to the rest of the lab&apos;s work instead of on a
+          whiteboard. The person up next is the one to prep.
+        </p>
+        <button
+          type="button"
+          onClick={() => startMutation.mutate()}
+          disabled={startMutation.isPending || !isMember}
+          data-testid="rotation-start"
+          className="btn-brand flex items-center gap-1.5 rounded-lg px-3 py-2 text-body font-medium disabled:opacity-40"
+        >
+          <Icon name="refresh" className="h-4 w-4" />
+          Start a rotation
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4" data-testid="rotation-area">
+      {rotation.tracks.map((track) => {
+        const len = track.order.length;
+        const upNext =
+          len > 0 ? track.order[track.current_index % len] : null;
+        const onDeck =
+          len > 1 ? track.order[(track.current_index + 1) % len] : null;
+        return (
+          <div
+            key={track.id}
+            className="rounded-xl border border-border bg-surface-raised px-4 py-3"
+            data-testid={`rotation-track-${track.id}`}
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <h4 className="text-body font-semibold text-foreground">
+                {track.name}
+              </h4>
+              {upNext ? (
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-brand-action/10 px-2 py-1 text-meta font-medium text-brand-action">
+                  <Icon name="alarmClock" className="h-3.5 w-3.5" />
+                  Up next {upNext}
+                </span>
+              ) : (
+                <span className="text-meta text-foreground-muted">
+                  No one in the rotation
+                </span>
+              )}
+              {isMember && len > 0 && (
+                <button
+                  type="button"
+                  onClick={() => advanceMutation.mutate(track.id)}
+                  disabled={advanceMutation.isPending}
+                  data-testid={`rotation-advance-${track.id}`}
+                  className="ml-auto flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-meta font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-40"
+                >
+                  <Icon name="chevronRight" className="h-3.5 w-3.5" />
+                  Advance
+                </button>
+              )}
+            </div>
+            {onDeck && (
+              <p className="mt-1 text-meta text-foreground-muted">
+                On deck {onDeck}
+              </p>
+            )}
+            <ol className="mt-2 flex flex-col gap-1">
+              {track.order.map((member, i) => {
+                const current = i === track.current_index % Math.max(len, 1);
+                return (
+                  <li
+                    key={`${member}-${i}`}
+                    className={`flex items-center gap-2 rounded-lg px-2 py-1 text-body ${
+                      current
+                        ? "bg-brand-action/10 text-foreground"
+                        : "text-foreground-muted"
+                    }`}
+                  >
+                    <span className="w-5 flex-none text-right text-meta tabular-nums text-foreground-muted">
+                      {i + 1}
+                    </span>
+                    <span className="truncate">{member}</span>
+                    {current && (
+                      <span className="rounded bg-brand-action/15 px-1.5 py-0.5 text-meta font-semibold text-brand-action">
+                        Now
+                      </span>
+                    )}
+                    {isMember && !current && (
+                      <Tooltip label="Move to the front">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const rest = track.order.filter(
+                              (m, j) => !(m === member && j === i),
+                            );
+                            setOrderMutation.mutate({
+                              trackId: track.id,
+                              order: [member, ...rest],
+                            });
+                          }}
+                          aria-label={`Move ${member} to the front`}
+                          data-testid={`rotation-move-front-${track.id}-${i}`}
+                          className="ml-auto flex-none rounded p-1 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+                        >
+                          <Icon name="skip" className="h-3.5 w-3.5" />
+                        </button>
+                      </Tooltip>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── New check-in dialog (any account) ────────────────────────────────────────
 // Phase 2: a multi-select roster. Pick ONE person for a pair check-in (the "I
 // am the mentor" checkbox makes it a mentoring relationship), or pick TWO or
@@ -1820,11 +2194,15 @@ function OnboardingArea({
 function NewOneOnOneDialog({
   currentUser,
   existingPartners,
+  allSpaces,
   onClose,
   onCreated,
 }: {
   currentUser: string;
   existingPartners: string[];
+  /** Every readable space, used to flag a skip-level mentoring relationship in
+   *  advance (the picked trainee already reports through a different mentor). */
+  allSpaces: OneOnOne[];
   onClose: () => void;
   onCreated: (created: OneOnOne) => void;
 }) {
@@ -1844,6 +2222,21 @@ function NewOneOnOneDialog({
 
   // A pair (one other person) supports the mentor flag; a group does not.
   const isGroup = selected.length >= 2;
+
+  // Check-ins Phase 4: when this would be a mentoring pair and the picked
+  // trainee ALREADY reports through a different mentor (in another readable
+  // space), name it as a skip-level check-in so the creator goes in with eyes
+  // open. Computed from the readable spaces' direct mentor edges.
+  const wouldBeSkipLevel = useMemo(() => {
+    if (isGroup || !isMentor || selected.length !== 1) return false;
+    const trainee = selected[0];
+    const closer = directMentorsOf(allSpaces).get(trainee);
+    if (!closer) return false;
+    for (const m of closer) {
+      if (m !== currentUser) return true;
+    }
+    return false;
+  }, [isGroup, isMentor, selected, allSpaces, currentUser]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2059,6 +2452,20 @@ function NewOneOnOneDialog({
                 </span>
               </span>
             </label>
+          )}
+
+          {wouldBeSkipLevel && (
+            <div
+              className="flex items-start gap-2 rounded-lg bg-amber-100 px-3 py-2 text-meta text-amber-800 dark:bg-amber-500/15 dark:text-amber-300"
+              data-testid="oneonone-new-skip-level-note"
+            >
+              <Icon name="skip" className="mt-0.5 h-4 w-4 flex-none" />
+              <span>
+                This is a skip-level check-in. A skip-level check-in reaches a
+                trainee who reports through someone else, so it can catch a
+                student struggling under another mentor who has not said so.
+              </span>
+            </div>
           )}
 
           {error && <p className="text-body text-red-500">{error}</p>}

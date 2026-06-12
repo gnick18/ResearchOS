@@ -3176,6 +3176,13 @@ export interface OneOnOne {
     every: "week" | "2weeks" | "month" | "none";
     weekday?: number;
   } | null;
+  /** Check-ins Phase 4 (committee support). The next scheduled meeting date
+   *  (YYYY-MM-DD), surfaced in the space header for a committee / annual-cadence
+   *  space with a "pre-circulate the progress report and Specific Aims"
+   *  reminder. ADDITIVE + back-compat: a record written before Phase 4 reads with
+   *  this absent, and `normalizeOneOnOne` defaults it to null on read so callers
+   *  never see `undefined`. */
+  next_meeting_date?: string | null;
   /** Username that created the record. Equals `members[0]` and `owner`. */
   created_by: string;
   /** ISO timestamp of creation. */
@@ -3446,6 +3453,56 @@ export interface CheckinOnboarding {
   items: CheckinOnboardingItem[];
   /** Always `membersSharedWith(members)` — every member at "edit", so any member
    *  may check an item off. */
+  shared_with: SharedUser[];
+  created_at: string;
+  updated_at: string;
+}
+
+// ── Check-ins Phase 4: presenter / journal-club rotation ─────────────────────
+//
+// checkins-phase4 bot, 2026-06-12. See docs/proposals/checkins-revamp.md
+// "Part 3, the academic layer" (the "Rotating presenter / journal-club
+// schedule" paragraph). A GROUP space can carry an auto-rotating schedule of
+// who presents data and who leads journal club, visible to all members, with
+// the upcoming presenter prompted to prep. Labs track this on a whiteboard or
+// in a spreadsheet today.
+//
+// Stored as its own per-user sidecar in the SPACE OWNER's folder
+// (`users/<owner>/checkin_rotations/<uuid>.json`), mirroring the compact /
+// onboarding stores. At most one rotation per space (looked up by `space_id`).
+
+/** One rotating track inside a space's rotation (e.g. "Data presentation" or
+ *  "Journal club"). `order` is the member usernames in rotation order;
+ *  `current_index` is whose turn it is now. */
+export interface CheckinRotationTrack {
+  /** Stable id (crypto.randomUUID) so a track survives reorder + rename. */
+  id: string;
+  /** Display name, e.g. "Data presentation" / "Journal club". */
+  name: string;
+  /** The member usernames in rotation order. */
+  order: string[];
+  /** Index into `order` of whose turn it is now. Advancing wraps modulo
+   *  `order.length`. Clamped to a valid index on read of a degenerate record. */
+  current_index: number;
+}
+
+/**
+ * A group space's presenter / journal-club rotation. One per space, seeded with
+ * two tracks ("Data presentation" and "Journal club"). Every member is in
+ * `shared_with` at "edit" so any member can advance or reorder a track.
+ */
+export interface CheckinRotation {
+  /** Globally-unique id (crypto.randomUUID). */
+  id: string;
+  /** The owning check-in space's id (`OneOnOne.id`), always a GROUP space. */
+  space_id: string;
+  /** Sharing owner — the space owner's folder the record lives in. Equals
+   *  `OneOnOne.owner`. Drives the per-user routing + `canRead`/`canWrite` owner
+   *  branch. */
+  owner: string;
+  /** The rotation tracks. */
+  tracks: CheckinRotationTrack[];
+  /** Always `membersSharedWith(members)` — every member at "edit". */
   shared_with: SharedUser[];
   created_at: string;
   updated_at: string;

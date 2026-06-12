@@ -98,6 +98,8 @@ import type {
   CheckinCompactRow,
   CheckinOnboarding,
   CheckinOnboardingItem,
+  CheckinRotation,
+  CheckinRotationTrack,
   NoteComment,
   TaskComment,
   ImageMetadata,
@@ -178,6 +180,7 @@ import { normalizeIdpForViewer } from "./idp/visibility";
 import { allSkillIds } from "./idp/competencies";
 import { CheckinCompactStore } from "./checkins/compact-store";
 import { CheckinOnboardingStore } from "./checkins/onboarding-store";
+import { CheckinRotationStore } from "./checkins/rotation-store";
 import { COMPACT_SEED_LABELS, ONBOARDING_SEED_LABELS } from "./checkins/seeds";
 import {
   addRowToTasks,
@@ -253,6 +256,7 @@ const idpsStore = new IdpStore();
 // `checkinCompactsApi` / `checkinOnboardingApi` below.
 const checkinCompactsStore = new CheckinCompactStore();
 const checkinOnboardingStore = new CheckinOnboardingStore();
+const checkinRotationsStore = new CheckinRotationStore();
 const fundingAccountsStore = getLabStore<FundingAccount>("funding_accounts");
 
 // Inventory v1 data layer (inventory-chunk1 sub-bot of HR, 2026-06-07).
@@ -6403,6 +6407,29 @@ export const oneOnOnesApi = {
   },
 
   /**
+   * Check-ins Phase 4 (committee support). Set or clear the space's next
+   * scheduled meeting date (YYYY-MM-DD, or null to clear). Any member may set it
+   * (the permissive shared-space model). Writes the single canonical record in
+   * the space owner's folder. Returns the normalized space or null if missing.
+   */
+  setNextMeetingDate: async (
+    id: string,
+    date: string | null,
+  ): Promise<OneOnOne | null> => {
+    const oneOnOne = await findOneOnOne(id);
+    if (!oneOnOne) return null;
+    const actor = await getCurrentUserCached();
+    assertMember(oneOnOne, actor);
+    const home = oneOnOne.owner || actor;
+    const updated = await oneOnOnesStore.updateForUser(
+      id,
+      { next_meeting_date: date } as Partial<OneOnOne>,
+      home,
+    );
+    return updated ? normalizeOneOnOne({ ...updated, owner: updated.owner || home }) : null;
+  },
+
+  /**
    * Add a WEEKLY GOAL to a 1:1. Reuses the `WeeklyGoal` record: `text` is the
    * goal, `is_complete` the done toggle, `week_of` the grouping. Lands in the
    * current user's weekly_goals folder, stamped with `one_on_one_id` +
@@ -6871,6 +6898,151 @@ export const checkinOnboardingApi = {
       owner,
     );
     return updated ? normalizeOnboarding(updated) : null;
+  },
+};
+
+// ── Check-ins Phase 4: presenter / journal-club rotation ─────────────────────
+//
+// checkins-phase4 bot, 2026-06-12. A GROUP space can carry an auto-rotating
+// schedule of who presents data and who leads journal club. One rotation per
+// space, lives in the space owner's folder, every member at "edit". Seeded with
+// two tracks ("Data presentation" and "Journal club"), each ordered by the space
+// members with `current_index` 0.
+
+/** The two seed track names for a fresh rotation, in display order. */
+const ROTATION_SEED_TRACK_NAMES = ["Data presentation", "Journal club"];
+
+/** Normalize a rotation read off disk so callers never branch on a missing
+ *  array or an out-of-range `current_index`. */
+function normalizeRotation(raw: CheckinRotation): CheckinRotation {
+  const tracks: CheckinRotationTrack[] = (
+    Array.isArray(raw.tracks) ? raw.tracks : []
+  ).map((t) => {
+    const order = Array.isArray(t.order) ? t.order : [];
+    const idx = order.length > 0 ? ((t.current_index ?? 0) % order.length + order.length) % order.length : 0;
+    return { ...t, order, current_index: idx };
+  });
+  return {
+    ...raw,
+    tracks,
+    shared_with: Array.isArray(raw.shared_with) ? raw.shared_with : [],
+  };
+}
+
+/** Find the single rotation for a space (lives in the space owner's folder). */
+async function findRotationForSpace(
+  spaceId: string,
+): Promise<CheckinRotation | null> {
+  const space = await findOneOnOne(spaceId);
+  if (!space) return null;
+  const all = await checkinRotationsStore.listAllForUser(space.owner);
+  const match = all
+    .filter((r) => r.space_id === spaceId)
+    .sort((a, b) => (a.created_at < b.created_at ? -1 : 1))[0];
+  return match
+    ? normalizeRotation({ ...match, owner: match.owner || space.owner })
+    : null;
+}
+
+export const checkinRotationsApi = {
+  /** The space's rotation, or null if none has been started. Any member may
+   *  read it (they are in `shared_with`). */
+  getForSpace: async (spaceId: string): Promise<CheckinRotation | null> => {
+    return findRotationForSpace(spaceId);
+  },
+
+  /**
+   * Start the space's rotation, seeding two tracks ("Data presentation" and
+   * "Journal club") whose `order` is the space members and `current_index` 0.
+   * Idempotent: if one already exists it is returned unchanged. Lives in the
+   * space owner's folder; `shared_with` = every member at "edit". The space must
+   * be a GROUP space (3+ members); a pair has no rotation.
+   */
+  createForSpace: async (spaceId: string): Promise<CheckinRotation> => {
+    const existing = await findRotationForSpace(spaceId);
+    if (existing) return existing;
+    const space = await findOneOnOne(spaceId);
+    if (!space) throw new Error(`check-in space ${spaceId} not found`);
+    const norm = normalizeOneOnOne(space);
+    if (norm.kind !== "group") {
+      throw new Error("a rotation only exists on a group check-in space");
+    }
+    const author = await getCurrentUserCached();
+    assertMember(space, author);
+    const now = new Date().toISOString();
+    const tracks: CheckinRotationTrack[] = ROTATION_SEED_TRACK_NAMES.map(
+      (name) => ({
+        id: crypto.randomUUID(),
+        name,
+        order: [...norm.members],
+        current_index: 0,
+      }),
+    );
+    return checkinRotationsStore.create({
+      space_id: spaceId,
+      owner: space.owner,
+      tracks,
+      shared_with: oneOnOneShareList(space),
+      created_at: now,
+      updated_at: now,
+    });
+  },
+
+  /**
+   * Advance one track to the next presenter, wrapping modulo `order.length`.
+   * A no-op (returns the record unchanged) for an empty order. Returns the
+   * updated record or null.
+   */
+  advance: async (
+    id: string,
+    trackId: string,
+    owner: string,
+  ): Promise<CheckinRotation | null> => {
+    const existing = await checkinRotationsStore.getForUser(id, owner);
+    if (!existing) return null;
+    const tracks = (Array.isArray(existing.tracks) ? existing.tracks : []).map(
+      (t) => {
+        if (t.id !== trackId) return t;
+        const len = t.order.length;
+        if (len === 0) return t;
+        return { ...t, current_index: (t.current_index + 1) % len };
+      },
+    );
+    const updated = await checkinRotationsStore.updateForUser(
+      id,
+      { tracks, updated_at: new Date().toISOString() },
+      owner,
+    );
+    return updated ? normalizeRotation(updated) : null;
+  },
+
+  /**
+   * Replace one track's rotation order (the reorder / skip affordance). The
+   * caller hands the whole new order; `current_index` is clamped to a valid
+   * index for the new length. Returns the updated record or null.
+   */
+  setOrder: async (
+    id: string,
+    trackId: string,
+    order: string[],
+    owner: string,
+  ): Promise<CheckinRotation | null> => {
+    const existing = await checkinRotationsStore.getForUser(id, owner);
+    if (!existing) return null;
+    const tracks = (Array.isArray(existing.tracks) ? existing.tracks : []).map(
+      (t) => {
+        if (t.id !== trackId) return t;
+        const len = order.length;
+        const idx = len > 0 ? Math.min(t.current_index, len - 1) : 0;
+        return { ...t, order, current_index: idx };
+      },
+    );
+    const updated = await checkinRotationsStore.updateForUser(
+      id,
+      { tracks, updated_at: new Date().toISOString() },
+      owner,
+    );
+    return updated ? normalizeRotation(updated) : null;
   },
 };
 

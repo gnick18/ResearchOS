@@ -18,6 +18,9 @@ export type NormalizedOneOnOne = OneOnOne & {
   members: string[];
   mentor: string | null;
   kind: "pair" | "group";
+  /** Check-ins Phase 4: defaulted to null on read so the committee header never
+   *  branches on `undefined`. */
+  next_meeting_date: string | null;
 };
 
 /**
@@ -41,6 +44,7 @@ export function normalizeOneOnOne(rec: OneOnOne): NormalizedOneOnOne {
       members,
       mentor: rec.mentor ?? null,
       kind: members.length > 2 ? "group" : "pair",
+      next_meeting_date: rec.next_meeting_date ?? null,
     };
   }
 
@@ -52,6 +56,7 @@ export function normalizeOneOnOne(rec: OneOnOne): NormalizedOneOnOne {
     members,
     mentor: rec.labHead ?? null,
     kind: "pair",
+    next_meeting_date: rec.next_meeting_date ?? null,
   };
 }
 
