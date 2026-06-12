@@ -5574,6 +5574,10 @@ function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave
                 // Notes editor above for the full rationale (CM6 editable=false
                 // -> no local ops -> nothing committed or synced back).
                 disabled={readOnly}
+                // Same seamless insertion as Lab Notes: the toolbar button +
+                // the "/" slash trigger open the reference picker so a molecule,
+                // sequence, method, or Data Hub document drops in as a chip.
+                enableReferencePicker
                 placeholder="Click to start writing results..."
                 onImageDrop={handleImageUpload}
                 onFileDrop={handleFileUpload}

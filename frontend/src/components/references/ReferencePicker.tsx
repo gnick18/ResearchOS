@@ -1,80 +1,107 @@
 "use client";
 
-// Chemistry Phase 3 (2026-06-11). The shared "Insert reference" picker.
+// Chemistry Phase 3 (2026-06-11), seamlessness pass (2026-06-11). The shared
+// "Insert reference" picker, opened by the editor toolbar button or the "/"
+// slash trigger.
 //
-// A modal with a tab strip (Molecules / Sequences / Methods), a search box, and
-// a scrollable list. Clicking a row calls back with objectReferenceMarkdown(...)
-// and closes. The Molecules tab is gated on CHEMISTRY_ENABLED; if chemistry is
-// off, the picker defaults to Sequences and hides the Molecules tab.
+// A modal with a tab strip (Molecules / Sequences / Methods / Data Hub), a
+// search box, and a scrollable list. It is fully keyboard-driven: the search
+// box auto-focuses, you type to filter, Arrow Up/Down move the highlight, Enter
+// inserts the highlighted item, and Tab cycles the type tabs. Clicking a row
+// also inserts it. Each tab is gated on its feature flag, so the picker only
+// offers the object types this deployment has turned on.
 //
 // Voice: no em-dashes, no emojis, no mid-sentence colons.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import { objectReferenceMarkdown } from "@/lib/references";
 import { CHEMISTRY_ENABLED } from "@/lib/chemistry/config";
+import { DATAHUB_ENABLED } from "@/lib/datahub/config";
 import { MoleculeThumbnail } from "@/components/chemistry/MoleculeThumbnail";
 import type { Molecule } from "@/lib/chemistry/api";
 import type { SequenceRecord, Method } from "@/lib/types";
+import type { DataHubDocument } from "@/lib/datahub/model/types";
 
 // Lazy to avoid importing heavy APIs at parse time (the wasm etc.) when the
-// picker has never been opened.
+// picker has never been opened. Each source is best-effort so one failing list
+// (e.g. a flag off, or a read error) never blanks the others.
 async function loadData(): Promise<{
   molecules: Molecule[];
   sequences: SequenceRecord[];
   methods: Method[];
+  datahub: DataHubDocument[];
 }> {
-  const [{ moleculesApi }, { sequencesApi, methodsApi }] = await Promise.all([
+  const [{ moleculesApi }, local, datahubMod] = await Promise.all([
     import("@/lib/chemistry/api"),
     import("@/lib/local-api"),
+    DATAHUB_ENABLED
+      ? import("@/lib/datahub/api")
+      : Promise.resolve(null),
   ]);
-  const [molecules, sequences, methods] = await Promise.all([
-    CHEMISTRY_ENABLED ? moleculesApi.list() : Promise.resolve([] as Molecule[]),
-    sequencesApi.list(),
-    methodsApi.list(),
+  const { sequencesApi, methodsApi } = local;
+  const [molecules, sequences, methods, datahub] = await Promise.all([
+    CHEMISTRY_ENABLED ? moleculesApi.list().catch(() => []) : Promise.resolve([] as Molecule[]),
+    sequencesApi.list().catch(() => [] as SequenceRecord[]),
+    methodsApi.list().catch(() => [] as Method[]),
+    datahubMod ? datahubMod.dataHubApi.list().catch(() => [] as DataHubDocument[]) : Promise.resolve([] as DataHubDocument[]),
   ]);
-  return { molecules, sequences, methods };
+  return { molecules, sequences, methods, datahub };
 }
 
-type Tab = "molecules" | "sequences" | "methods";
+type Tab = "molecules" | "sequences" | "methods" | "datahub";
 
 const defaultTab: Tab = CHEMISTRY_ENABLED ? "molecules" : "sequences";
 
+/** A flattened, render-ready item, so the list + keyboard nav are uniform
+ *  across every object type. */
+interface PickerItem {
+  key: string;
+  label: string;
+  sublabel?: string;
+  thumbnail?: React.ReactNode;
+  markdown: string;
+}
+
 interface ReferencePickerProps {
-  /** Called with the objectReferenceMarkdown(...) string on row click, then the
-   *  picker closes automatically via onClose. */
+  /** Called with the objectReferenceMarkdown(...) string when an item is picked,
+   *  then the picker closes automatically via onClose. */
   onPick: (markdown: string) => void;
   onClose: () => void;
 }
 
 /** A single item row in the picker list. */
 function PickerRow({
-  thumbnail,
-  label,
-  sublabel,
-  onClick,
+  item,
+  highlighted,
+  onPick,
+  onHover,
 }: {
-  thumbnail?: React.ReactNode;
-  label: string;
-  sublabel?: string;
-  onClick: () => void;
+  item: PickerItem;
+  highlighted: boolean;
+  onPick: () => void;
+  onHover: () => void;
 }) {
   return (
     <button
       type="button"
-      onClick={onClick}
-      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left hover:bg-accent-soft transition-colors group"
+      data-highlighted={highlighted ? "1" : undefined}
+      onClick={onPick}
+      onMouseMove={onHover}
+      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
+        highlighted ? "bg-accent-soft" : "hover:bg-accent-soft"
+      }`}
     >
-      {thumbnail && (
+      {item.thumbnail && (
         <div className="shrink-0 w-10 h-10 rounded overflow-hidden bg-white border border-border flex items-center justify-center">
-          {thumbnail}
+          {item.thumbnail}
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <p className="text-body font-medium text-foreground truncate">{label}</p>
-        {sublabel && (
-          <p className="text-meta text-foreground-muted truncate">{sublabel}</p>
+        <p className="text-body font-medium text-foreground truncate">{item.label}</p>
+        {item.sublabel && (
+          <p className="text-meta text-foreground-muted truncate">{item.sublabel}</p>
         )}
       </div>
     </button>
@@ -88,8 +115,11 @@ export default function ReferencePicker({ onPick, onClose }: ReferencePickerProp
   const [molecules, setMolecules] = useState<Molecule[]>([]);
   const [sequences, setSequences] = useState<SequenceRecord[]>([]);
   const [methods, setMethods] = useState<Method[]>([]);
+  const [datahub, setDatahub] = useState<DataHubDocument[]>([]);
+  const [highlighted, setHighlighted] = useState(0);
   const searchRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   // Load data once on mount.
   useEffect(() => {
@@ -100,6 +130,7 @@ export default function ReferencePicker({ onPick, onClose }: ReferencePickerProp
         setMolecules(data.molecules);
         setSequences(data.sequences);
         setMethods(data.methods);
+        setDatahub(data.datahub);
         setLoading(false);
       })
       .catch(() => {
@@ -115,7 +146,7 @@ export default function ReferencePicker({ onPick, onClose }: ReferencePickerProp
     searchRef.current?.focus();
   }, []);
 
-  // Close on Escape.
+  // Close on Escape (capture so it beats the editor's own handlers).
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -148,35 +179,153 @@ export default function ReferencePicker({ onPick, onClose }: ReferencePickerProp
 
   const q = query.trim().toLowerCase();
 
-  const filteredMolecules = molecules.filter(
-    (m) =>
-      !q ||
-      m.name.toLowerCase().includes(q) ||
-      (m.formula ?? "").toLowerCase().includes(q) ||
-      (m.smiles ?? "").toLowerCase().includes(q),
+  const availableTabs = useMemo<Tab[]>(
+    () => [
+      ...(CHEMISTRY_ENABLED ? (["molecules"] as Tab[]) : []),
+      "sequences",
+      "methods",
+      ...(DATAHUB_ENABLED ? (["datahub"] as Tab[]) : []),
+    ],
+    [],
   );
 
-  const filteredSequences = sequences.filter(
-    (s) =>
-      !q ||
-      (s.display_name ?? "").toLowerCase().includes(q) ||
-      (s.seq_type ?? "").toLowerCase().includes(q),
+  const moleculeItems = useMemo<PickerItem[]>(
+    () =>
+      molecules
+        .filter(
+          (m) =>
+            !q ||
+            m.name.toLowerCase().includes(q) ||
+            (m.formula ?? "").toLowerCase().includes(q) ||
+            (m.smiles ?? "").toLowerCase().includes(q),
+        )
+        .map((m) => ({
+          key: `mol-${m.id}`,
+          label: m.name,
+          sublabel:
+            [m.formula, m.smiles ? "SMILES" : undefined].filter(Boolean).join(" · ") ||
+            undefined,
+          thumbnail: m.smiles ? (
+            <MoleculeThumbnail structure={m.smiles} width={40} height={40} />
+          ) : undefined,
+          markdown: objectReferenceMarkdown("molecule", m.id, m.name),
+        })),
+    [molecules, q],
   );
 
-  const filteredMethods = methods.filter(
-    (m) =>
-      !q ||
-      (m.name ?? "").toLowerCase().includes(q) ||
-      (m.method_type ?? "").toLowerCase().includes(q),
+  const sequenceItems = useMemo<PickerItem[]>(
+    () =>
+      sequences
+        .filter(
+          (s) =>
+            !q ||
+            (s.display_name ?? "").toLowerCase().includes(q) ||
+            (s.seq_type ?? "").toLowerCase().includes(q),
+        )
+        .map((s) => ({
+          key: `seq-${s.id}`,
+          label: s.display_name ?? `Sequence ${s.id}`,
+          sublabel: s.seq_type ?? undefined,
+          markdown: objectReferenceMarkdown(
+            "sequence",
+            String(s.id),
+            s.display_name ?? `Sequence ${s.id}`,
+          ),
+        })),
+    [sequences, q],
   );
 
-  const tabs: Array<{ id: Tab; label: string; count: number }> = [
-    ...(CHEMISTRY_ENABLED
-      ? [{ id: "molecules" as Tab, label: "Molecules", count: filteredMolecules.length }]
-      : []),
-    { id: "sequences" as Tab, label: "Sequences", count: filteredSequences.length },
-    { id: "methods" as Tab, label: "Methods", count: filteredMethods.length },
-  ];
+  const methodItems = useMemo<PickerItem[]>(
+    () =>
+      methods
+        .filter(
+          (m) =>
+            !q ||
+            (m.name ?? "").toLowerCase().includes(q) ||
+            (m.method_type ?? "").toLowerCase().includes(q),
+        )
+        .map((m) => ({
+          key: `method-${m.id}`,
+          label: m.name,
+          sublabel: m.method_type ?? undefined,
+          markdown: objectReferenceMarkdown("method", String(m.id), m.name),
+        })),
+    [methods, q],
+  );
+
+  const datahubItems = useMemo<PickerItem[]>(
+    () =>
+      datahub
+        .filter(
+          (d) =>
+            !q ||
+            (d.name ?? "").toLowerCase().includes(q) ||
+            (d.table_type ?? "").toLowerCase().includes(q),
+        )
+        .map((d) => ({
+          key: `dh-${d.id}`,
+          label: d.name,
+          sublabel: d.table_type ?? undefined,
+          markdown: objectReferenceMarkdown("datahub", d.id, d.name),
+        })),
+    [datahub, q],
+  );
+
+  const itemsByTab: Record<Tab, PickerItem[]> = {
+    molecules: moleculeItems,
+    sequences: sequenceItems,
+    methods: methodItems,
+    datahub: datahubItems,
+  };
+  const items = itemsByTab[tab];
+
+  const tabMeta: Record<Tab, string> = {
+    molecules: "Molecules",
+    sequences: "Sequences",
+    methods: "Methods",
+    datahub: "Data Hub",
+  };
+
+  // Reset the highlight whenever the visible list changes (tab or query).
+  useEffect(() => {
+    setHighlighted(0);
+  }, [tab, q]);
+
+  // Keep the highlighted row scrolled into view.
+  useEffect(() => {
+    const el = listRef.current?.querySelector<HTMLElement>('[data-highlighted="1"]');
+    el?.scrollIntoView({ block: "nearest" });
+  }, [highlighted, items]);
+
+  const cycleTab = useCallback(
+    (dir: 1 | -1) => {
+      const idx = availableTabs.indexOf(tab);
+      const next = (idx + dir + availableTabs.length) % availableTabs.length;
+      setTab(availableTabs[next]);
+    },
+    [availableTabs, tab],
+  );
+
+  // The whole flow is keyboard-driven from the search box.
+  const onSearchKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setHighlighted((h) => Math.min(h + 1, Math.max(0, items.length - 1)));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setHighlighted((h) => Math.max(h - 1, 0));
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const item = items[highlighted];
+        if (item) pick(item.markdown);
+      } else if (e.key === "Tab") {
+        e.preventDefault();
+        cycleTab(e.shiftKey ? -1 : 1);
+      }
+    },
+    [items, highlighted, pick, cycleTab],
+  );
 
   return (
     // Backdrop: transparent so the editor stays in view; the panel itself has
@@ -217,9 +366,10 @@ export default function ReferencePicker({ onPick, onClose }: ReferencePickerProp
             <input
               ref={searchRef}
               type="text"
-              placeholder="Search by name or type…"
+              placeholder="Search, then Arrow keys and Enter…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={onSearchKeyDown}
               className="w-full pl-8 pr-3 py-1.5 text-body text-foreground bg-surface border border-border rounded-lg outline-none focus:border-brand-action placeholder:text-foreground-muted"
             />
           </div>
@@ -227,21 +377,21 @@ export default function ReferencePicker({ onPick, onClose }: ReferencePickerProp
 
         {/* Tab strip */}
         <div className="flex items-center gap-1 px-4 pb-2 shrink-0">
-          {tabs.map((t) => (
+          {availableTabs.map((t) => (
             <button
-              key={t.id}
+              key={t}
               type="button"
-              onClick={() => setTab(t.id)}
+              onClick={() => setTab(t)}
               className={`px-3 py-1 text-meta rounded-md transition-colors font-medium ${
-                tab === t.id
+                tab === t
                   ? "bg-brand-action text-white"
                   : "text-foreground-muted hover:bg-accent-soft hover:text-foreground"
               }`}
             >
-              {t.label}
+              {tabMeta[t]}
               {!loading && (
                 <span className="ml-1.5 text-[11px] opacity-70">
-                  {t.count}
+                  {itemsByTab[t].length}
                 </span>
               )}
             </button>
@@ -249,88 +399,37 @@ export default function ReferencePicker({ onPick, onClose }: ReferencePickerProp
         </div>
 
         {/* List */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
+        <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
           {loading ? (
             <p className="text-meta text-foreground-muted py-4 text-center">
               Loading…
             </p>
-          ) : tab === "molecules" && CHEMISTRY_ENABLED ? (
-            filteredMolecules.length === 0 ? (
-              <p className="text-meta text-foreground-muted py-4 text-center">
-                {q ? "No molecules match that search." : "No molecules in your library yet."}
-              </p>
-            ) : (
-              <div className="space-y-0.5">
-                {filteredMolecules.map((m) => (
-                  <PickerRow
-                    key={m.id}
-                    thumbnail={
-                      m.smiles ? (
-                        <MoleculeThumbnail
-                          structure={m.smiles}
-                          width={40}
-                          height={40}
-                        />
-                      ) : undefined
-                    }
-                    label={m.name}
-                    sublabel={[m.formula, m.smiles ? "SMILES" : undefined]
-                      .filter(Boolean)
-                      .join(" · ")}
-                    onClick={() =>
-                      pick(objectReferenceMarkdown("molecule", m.id, m.name))
-                    }
-                  />
-                ))}
-              </div>
-            )
-          ) : tab === "sequences" ? (
-            filteredSequences.length === 0 ? (
-              <p className="text-meta text-foreground-muted py-4 text-center">
-                {q ? "No sequences match that search." : "No sequences in your library yet."}
-              </p>
-            ) : (
-              <div className="space-y-0.5">
-                {filteredSequences.map((s) => (
-                  <PickerRow
-                    key={s.id}
-                    label={s.display_name ?? `Sequence ${s.id}`}
-                    sublabel={s.seq_type ?? undefined}
-                    onClick={() =>
-                      pick(
-                        objectReferenceMarkdown(
-                          "sequence",
-                          String(s.id),
-                          s.display_name ?? `Sequence ${s.id}`,
-                        ),
-                      )
-                    }
-                  />
-                ))}
-              </div>
-            )
-          ) : tab === "methods" ? (
-            filteredMethods.length === 0 ? (
-              <p className="text-meta text-foreground-muted py-4 text-center">
-                {q ? "No methods match that search." : "No methods in your library yet."}
-              </p>
-            ) : (
-              <div className="space-y-0.5">
-                {filteredMethods.map((m) => (
-                  <PickerRow
-                    key={m.id}
-                    label={m.name}
-                    sublabel={m.method_type ?? undefined}
-                    onClick={() =>
-                      pick(
-                        objectReferenceMarkdown("method", String(m.id), m.name),
-                      )
-                    }
-                  />
-                ))}
-              </div>
-            )
-          ) : null}
+          ) : items.length === 0 ? (
+            <p className="text-meta text-foreground-muted py-4 text-center">
+              {q
+                ? `No ${tabMeta[tab].toLowerCase()} match that search.`
+                : `Nothing in ${tabMeta[tab]} yet.`}
+            </p>
+          ) : (
+            <div className="space-y-0.5">
+              {items.map((item, i) => (
+                <PickerRow
+                  key={item.key}
+                  item={item}
+                  highlighted={i === highlighted}
+                  onPick={() => pick(item.markdown)}
+                  onHover={() => setHighlighted(i)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Keyboard hint */}
+        <div className="px-4 py-2 border-t border-border shrink-0 text-[11px] text-foreground-muted flex items-center gap-3">
+          <span>Arrow keys to move</span>
+          <span>Enter to insert</span>
+          <span>Tab to switch type</span>
         </div>
       </div>
     </div>
