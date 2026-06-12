@@ -51,6 +51,8 @@ import {
   coxPH,
   type CoxCoefficient,
   shapiroWilk,
+  grubbsTest,
+  type GrubbsResult,
   bootstrapDiffCI,
   meanDifference,
   fitModel,
@@ -122,7 +124,8 @@ export type AnalysisType =
   | "twoWayAnova"
   | "kaplanMeier"
   | "coxRegression"
-  | "multipleRegression";
+  | "multipleRegression"
+  | "grubbsOutlier";
 
 /** The analysis types that read a Survival table (time + event + group). */
 export const SURVIVAL_ANALYSIS_TYPES: AnalysisType[] = [
@@ -159,6 +162,7 @@ export const COLUMN_ANALYSIS_TYPES: AnalysisType[] = [
   "repeatedMeasuresAnova",
   "linearMixedModel",
   "multipleRegression",
+  "grubbsOutlier",
 ];
 
 /**
@@ -722,6 +726,39 @@ export interface NormalizedCoxRegression {
   concordance: number;
 }
 
+/**
+ * One column's Grubbs outlier screen. Each selected group column is screened on
+ * its own (each is a separate sample), so the result carries an array of
+ * per-column outcomes. Each outcome reports the original n, every flagged
+ * outlier value with its row index, the per-step G / critical value, and the
+ * cleaned n after removing the flagged points. From the engine's grubbsTest.
+ */
+export interface NormalizedGrubbsColumn {
+  columnId: string;
+  name: string;
+  /**
+   * The finite input values for this column, in row order. Carried so the
+   * show-code / chain-code snippets can bake the real arrays in and reproduce
+   * the on-screen flags exactly.
+   */
+  values: number[];
+  /** The full engine result for this column (steps, outliers, cleaned n). */
+  result: GrubbsResult;
+}
+
+export interface NormalizedGrubbsOutlier {
+  kind: "grubbsOutlier";
+  type: "grubbsOutlier";
+  /** The significance level the test ran at. */
+  alpha: number;
+  /** Whether the iterative sweep was used (vs a single pass). */
+  iterative: boolean;
+  /** One screen per selected column, in the order the columns were chosen. */
+  columns: NormalizedGrubbsColumn[];
+  /** Total outliers flagged across every screened column. */
+  totalOutliers: number;
+}
+
 export type NormalizedResult =
   | NormalizedTTest
   | NormalizedAnova
@@ -736,7 +773,8 @@ export type NormalizedResult =
   | NormalizedGlobalFit
   | NormalizedTwoWayAnova
   | NormalizedSurvival
-  | NormalizedCoxRegression;
+  | NormalizedCoxRegression
+  | NormalizedGrubbsOutlier;
 
 /** A failed run carries the engine (or resolver) reason so the UI can show it. */
 export interface RunFailure {
@@ -829,6 +867,12 @@ export function validAnalysisTypes(content: DataHubDocContent): AnalysisType[] {
   }
   const k = groupColumns(content).length;
   const out: AnalysisType[] = [];
+  // Grubbs screens EACH selected column on its own (each column is one sample),
+  // so it is offered from a single group column up. It needs at least 3 finite
+  // values in a column to run, which is checked at run time, not here.
+  if (k >= 1) {
+    out.push("grubbsOutlier");
+  }
   if (k >= 2) {
     out.push("unpairedTTest", "pairedTTest", "mannWhitneyU", "wilcoxonSignedRank");
   }
@@ -1778,6 +1822,53 @@ export function runAnalysis(
   }
 
   const groups = resolveGroups(content, specColumnIds(spec));
+
+  if (type === "grubbsOutlier") {
+    if (groups.length < 1) {
+      return {
+        ok: false,
+        error: "Grubbs outlier detection needs at least 1 column to screen.",
+      };
+    }
+    // Read the screen settings from the params bag (alpha + single-pass vs
+    // iterative). Defaults reproduce the standard Grubbs sweep (iterative, 0.05).
+    const p = readParams(spec);
+    const alpha = p.alpha === "0.01" ? 0.01 : 0.05;
+    const iterative = p.mode !== "single";
+    const columns: NormalizedGrubbsColumn[] = [];
+    let totalOutliers = 0;
+    for (const g of groups) {
+      const r = grubbsTest(g.values, { alpha, iterative });
+      if (!r.ok) {
+        // A column with too few finite values cannot be screened. Fail the run
+        // with a clear reason rather than silently dropping the column, so the
+        // user knows which sample was too small.
+        return {
+          ok: false,
+          error: `${g.name}: ${r.error}`,
+        };
+      }
+      totalOutliers += r.outlierValues.length;
+      // Carry only the finite values (the engine screened these); a non-finite
+      // or excluded cell is dropped, matching what the engine tested.
+      const finite = g.values.filter((v) => Number.isFinite(v));
+      columns.push({
+        columnId: g.columnId,
+        name: g.name,
+        values: finite,
+        result: r,
+      });
+    }
+    return {
+      ok: true,
+      kind: "grubbsOutlier",
+      type,
+      alpha,
+      iterative,
+      columns,
+      totalOutliers,
+    };
+  }
 
   if (type === "repeatedMeasuresAnova") {
     if (groups.length < 2) {

@@ -213,6 +213,32 @@ const GLOBAL_FIT_SHARE_FIELD: ParamField = {
   why: "A shared parameter is fit to one value across every curve; a local parameter is fit separately per curve. Sharing the Hill slope and the plateaus while keeping the EC50 local is the standard way to compare potencies with all curves constrained to a common shape. The asymmetry term of the 5PL is always shared.",
 };
 
+/** Significance level for the Grubbs outlier screen. */
+const GRUBBS_ALPHA_FIELD: ParamField = {
+  key: "alpha",
+  label: "Significance",
+  control: "seg",
+  options: [
+    { value: "0.05", label: "0.05" },
+    { value: "0.01", label: "0.01" },
+  ],
+  default: "0.05",
+  why: "A point is flagged as an outlier only when its distance from the mean is larger than chance would produce at this level. The stricter 0.01 flags fewer points, so it is the safer choice when you do not want to discard a value that might be real.",
+};
+
+/** Single-pass vs iterative sweep for the Grubbs outlier screen. */
+const GRUBBS_MODE_FIELD: ParamField = {
+  key: "mode",
+  label: "Sweep",
+  control: "seg",
+  options: [
+    { value: "iterative", label: "Iterative" },
+    { value: "single", label: "Single point" },
+  ],
+  default: "iterative",
+  why: "A single pass tests only the one most extreme point. The iterative sweep removes a flagged point and tests again on what remains, so it can clear more than one outlier from the same sample, which is the standard way Grubbs is applied.",
+};
+
 /**
  * The schema per analysis type. An empty array means the engine takes no
  * editable options for that analysis (correlation, regression). The order here
@@ -242,6 +268,7 @@ export const ANALYSIS_PARAM_SCHEMA: Record<string, ParamField[]> = {
   coxRegression: [],
   multipleRegression: [],
   globalFit: [GLOBAL_FIT_MODEL_FIELD, GLOBAL_FIT_SHARE_FIELD],
+  grubbsOutlier: [GRUBBS_ALPHA_FIELD, GRUBBS_MODE_FIELD],
 };
 
 /**

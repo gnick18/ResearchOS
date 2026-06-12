@@ -63,6 +63,15 @@ export {
 // Assumption checks (normality + equal variance).
 export { shapiroWilk, levene, brownForsythe } from "./assumptions";
 
+// Outlier detection (Grubbs extreme-studentized-deviate test).
+export {
+  grubbsTest,
+  grubbsCriticalValue,
+  GRUBBS_MIN_N,
+  type GrubbsStep,
+  type GrubbsResult,
+} from "./grubbs";
+
 // Survival analysis (Kaplan-Meier + log-rank).
 export {
   kaplanMeier,
