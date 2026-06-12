@@ -108,7 +108,7 @@ describe("ask_user: single-select", () => {
       messages: [USER_MESSAGE],
       tools: [askUserTool],
       callModel,
-      getAutonomy: () => "ask",
+      getReviewMode: () => "step",
       requestApproval,
     });
 
@@ -156,7 +156,7 @@ describe("ask_user: multi-select with count", () => {
       messages: [USER_MESSAGE],
       tools: [askUserTool],
       callModel,
-      getAutonomy: () => "ask",
+      getReviewMode: () => "step",
       requestApproval,
     });
 
@@ -200,7 +200,7 @@ describe("ask_user: dismiss", () => {
       messages: [USER_MESSAGE],
       tools: [askUserTool],
       callModel,
-      getAutonomy: () => "ask",
+      getReviewMode: () => "step",
       requestApproval,
     });
 
@@ -237,7 +237,7 @@ describe("ask_user: not an action", () => {
       messages: [USER_MESSAGE],
       tools: [askUserTool],
       callModel,
-      getAutonomy: () => "ask",
+      getReviewMode: () => "step",
       requestApproval,
     });
 
@@ -269,7 +269,7 @@ describe("ask_user: degenerate inputs", () => {
       messages: [USER_MESSAGE],
       tools: [askUserTool],
       callModel,
-      getAutonomy: () => "ask",
+      getReviewMode: () => "step",
       requestApproval,
     });
 
@@ -293,7 +293,7 @@ describe("ask_user: degenerate inputs", () => {
       messages: [USER_MESSAGE],
       tools: [askUserTool],
       callModel,
-      getAutonomy: () => "ask",
+      getReviewMode: () => "step",
       // requestApproval intentionally absent.
     });
 

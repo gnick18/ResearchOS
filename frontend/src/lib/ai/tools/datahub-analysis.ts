@@ -575,12 +575,15 @@ export const runDataHubAnalysisTool: AiTool = {
     required: ["tableId"],
     additionalProperties: false,
   },
-  // No `action` flag (ai analysis-ux bot, 2026-06-11). This tool writes, but the
-  // write is non-destructive and the user already consented by asking for the
-  // analysis and picking the groups through ask_user, so it must NOT flow through
-  // the per-action approval gate (that was the redundant "Allow it?" the live test
-  // flagged). The old describeAction / isDestructive approval hooks are gone with
-  // the gate. Its safety is the explicit request plus the group pick.
+  // No `action` flag, but `previewable: true` (ai review-mode bot, 2026-06-12).
+  // This tool writes a new, reversible, version-controlled analysis, so it is not
+  // a destructive action and carries no `action` flag. In whole-plan mode it runs
+  // free (today's behavior, the request plus the group pick is the consent). In
+  // step-by-step mode the previewable flag makes it show a preview-and-confirm
+  // block first, using describeRunAnalysis to render the test name and groups
+  // WITHOUT running it (the planner is pure given the cached content).
+  previewable: true,
+  describeAction: describeRunAnalysis,
   execute: async (args) => {
     const parsed = parseRunAnalysisArgs(args);
     if (!parsed.tableId) {
@@ -775,6 +778,28 @@ export function buildModelComparison(
   return { ok: true, spec, result };
 }
 
+/**
+ * Build the one-line preview summary for the compare_models step, from the args
+ * and the cached table content, WITHOUT running the fit. Pure, so the step-mode
+ * gate can render the preview-and-confirm block synchronously. Falls back to a
+ * generic line when the table is not cached yet (the model called the tool
+ * without listing first), so the gate always has something to show.
+ */
+export function describeCompareModels(args: Record<string, unknown>): {
+  summary: string;
+} {
+  const parsed = parseCompareModelsArgs(args);
+  const nestedPhrase = parsed.nested ? " (nested)" : "";
+  if (!parsed.modelA || !parsed.modelB) {
+    return { summary: "compare two curve-fit models on a Data Hub table" };
+  }
+  const content = getCachedTableContent(parsed.tableId);
+  const where = content ? ` on ${content.meta.name}` : "";
+  return {
+    summary: `fit ${parsed.modelA} vs ${parsed.modelB}${nestedPhrase}${where}`,
+  };
+}
+
 export const compareModelsTool: AiTool = {
   name: "compare_models",
   description:
@@ -811,9 +836,12 @@ export const compareModelsTool: AiTool = {
     required: ["tableId", "modelA", "modelB", "nested"],
     additionalProperties: false,
   },
-  // No `action` flag, mirroring run_datahub_analysis. The write is a new,
-  // reversible, version-controlled analysis and the user's request is the
-  // consent, so it must not flow through the per-action approval gate.
+  // No `action` flag, mirroring run_datahub_analysis. `previewable: true` so the
+  // step-by-step review mode shows a preview-and-confirm block first; in
+  // whole-plan mode it still runs free, the write is a new, reversible,
+  // version-controlled analysis and the user's request is the consent.
+  previewable: true,
+  describeAction: describeCompareModels,
   execute: async (args) => {
     const parsed = parseCompareModelsArgs(args);
     if (!parsed.tableId) {
@@ -967,6 +995,33 @@ export function buildMultipleRegression(
   return { ok: true, spec, result };
 }
 
+/**
+ * Build the one-line preview summary for the run_multiple_regression step, from
+ * the args and the cached table content, WITHOUT running the fit. Pure. Resolves
+ * the model's column references to real names where the content is cached so the
+ * user reads "regress Yield on Temp, pH", and falls back to a generic line
+ * otherwise.
+ */
+export function describeMultipleRegression(args: Record<string, unknown>): {
+  summary: string;
+} {
+  const parsed = parseMultipleRegressionArgs(args);
+  const content = getCachedTableContent(parsed.tableId);
+  if (!content || !parsed.yColumn || parsed.predictors.length === 0) {
+    return { summary: "run a multiple regression on a Data Hub table" };
+  }
+  const groups = groupColumns(content);
+  const nameById = new Map(groups.map((c) => [c.id, c.name]));
+  const lower = new Map(groups.map((c) => [c.name.trim().toLowerCase(), c.name]));
+  const resolve = (ref: string): string =>
+    nameById.get(ref) ?? lower.get(ref.trim().toLowerCase()) ?? ref;
+  const yName = resolve(parsed.yColumn);
+  const predictorNames = parsed.predictors.map(resolve).join(", ");
+  return {
+    summary: `multiple regression of ${yName} on ${predictorNames} in ${content.meta.name}`,
+  };
+}
+
 export const runMultipleRegressionTool: AiTool = {
   name: "run_multiple_regression",
   description:
@@ -992,6 +1047,10 @@ export const runMultipleRegressionTool: AiTool = {
     required: ["tableId", "yColumn", "predictors"],
     additionalProperties: false,
   },
+  // Previewable, not an action (see run_datahub_analysis). Step mode previews the
+  // fit; plan mode runs it free.
+  previewable: true,
+  describeAction: describeMultipleRegression,
   execute: async (args) => {
     const parsed = parseMultipleRegressionArgs(args);
     if (!parsed.tableId) {
@@ -1125,6 +1184,28 @@ export function buildLogisticRegression(
   return { ok: true, spec, result };
 }
 
+/**
+ * Build the one-line preview summary for the run_logistic_regression step, from
+ * the args and the cached table content, WITHOUT running the fit. Pure. Names the
+ * binary outcome column where the content is cached, and falls back to a generic
+ * line otherwise.
+ */
+export function describeLogisticRegression(args: Record<string, unknown>): {
+  summary: string;
+} {
+  const parsed = parseLogisticRegressionArgs(args);
+  const content = getCachedTableContent(parsed.tableId);
+  if (!content) {
+    return { summary: "run a logistic regression on a Data Hub table" };
+  }
+  const yId = resolveYColumnId(content, parsed.yColumn);
+  const yName =
+    (yId && yColumns(content).find((c) => c.id === yId)?.name) || "the outcome";
+  return {
+    summary: `logistic regression of ${yName} on the X column in ${content.meta.name}`,
+  };
+}
+
 export const runLogisticRegressionTool: AiTool = {
   name: "run_logistic_regression",
   description:
@@ -1145,6 +1226,10 @@ export const runLogisticRegressionTool: AiTool = {
     required: ["tableId"],
     additionalProperties: false,
   },
+  // Previewable, not an action (see run_datahub_analysis). Step mode previews the
+  // fit; plan mode runs it free.
+  previewable: true,
+  describeAction: describeLogisticRegression,
   execute: async (args) => {
     const parsed = parseLogisticRegressionArgs(args);
     if (!parsed.tableId) {

@@ -37,7 +37,7 @@ import {
 import { callModelViaProxy, ProxyError } from "@/lib/ai/proxy-client";
 import { DEFAULT_TOOLS } from "@/lib/ai/tools/registry";
 import { BEAKERBOT_SYSTEM_PROMPT } from "@/lib/ai/system-prompt";
-import { getAutonomyMode } from "@/lib/ai/autonomy-store";
+import { getReviewMode } from "@/lib/ai/review-mode-store";
 import {
   getBeakerContext,
   describeBeakerContext,
@@ -280,9 +280,9 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
         tools: DEFAULT_TOOLS,
         callModel: callModelViaProxy,
         onStatus: (s) => set({ status: statusLabel(s) }),
-        // Read the live autonomy mode at each dispatch, so flipping the toggle
-        // mid-conversation takes effect on the next action.
-        getAutonomy: getAutonomyMode,
+        // Read the live review mode at each dispatch, so flipping the control
+        // mid-conversation takes effect on the next step.
+        getReviewMode: getReviewMode,
         requestApproval,
       });
 

@@ -1,22 +1,24 @@
-// agent-loop approval gate tests (ai click tests bot, 2026-06-11).
+// agent-loop approval gate tests (ai click tests bot, 2026-06-11; ai review-mode
+// bot, 2026-06-12).
 //
-// Extends the existing agent-loop suite with the approval gate introduced by the
-// BeakerBot click + autonomy slice. Every safety property is asserted through
-// runAgentLoop with injected fakes (callModel, action tool, requestApproval), so
-// no real DOM and no real model are involved.
+// Extends the existing agent-loop suite with the approval gate, now driven by the
+// review mode (step vs plan) rather than the retired ask/auto autonomy. Every
+// safety property is asserted through runAgentLoop with injected fakes (callModel,
+// action tool, requestApproval), so no real DOM and no real model are involved.
 //
 // Safety properties pinned:
-//   1. "ask" autonomy pauses and calls requestApproval before execute.
+//   1. "step" mode pauses and calls requestApproval before execute.
 //   2. Decision "allow" -> execute runs after approval.
 //   3. Decision "skip" -> execute does NOT run; a graceful declined result is
 //      fed back to the model.
-//   4. "auto" autonomy + non-destructive -> execute runs directly, no approval.
-//   5. "auto" autonomy + destructive tool -> requestApproval IS called (the
-//      hard-stop overrides auto).
+//   4. "plan" mode + a lone non-destructive action with no approved plan still
+//      raises the single-confirm fallback (no silent unattended run).
+//   5. "plan" mode + destructive tool -> requestApproval IS called (the hard-stop
+//      overrides any plan bypass).
 //   6. No requestApproval injected while a gated action is needed -> action is
 //      DECLINED (execute never runs). This is the fail-safe.
-//   7. getAutonomy absent -> defaults to "ask" (gated action requires approval).
-//   8. Read-only tools (action falsy) run with no approval, same as before.
+//   7. getReviewMode absent -> defaults to "step" (gated action requires approval).
+//   8. Read-only tools (action and previewable falsy) run with no approval.
 //   9. The existing loop behaviors (final answer, max-iteration guard, unknown
 //      tool, bad-JSON args) still pass (covered by agent-loop.test.ts; this
 //      file only adds the gate behaviors).
@@ -85,8 +87,8 @@ const USER_MESSAGE: LoopMessage = { role: "user", content: "do the thing" };
 
 // ---- safety property 1 + 2: ask + allow ------------------------------------
 
-describe("approval gate: ask autonomy", () => {
-  it("calls requestApproval before execute when autonomy is 'ask'", async () => {
+describe("approval gate: step mode", () => {
+  it("calls requestApproval before execute in step mode", async () => {
     const { tool, execute } = makeActionTool({});
     const requestApproval = vi.fn(
       async (_req: ApprovalRequest): Promise<ApprovalDecision> => "allow",
@@ -101,7 +103,7 @@ describe("approval gate: ask autonomy", () => {
       messages: [USER_MESSAGE],
       tools: [tool],
       callModel,
-      getAutonomy: () => "ask",
+      getReviewMode: () => "step",
       requestApproval,
     });
 
@@ -131,7 +133,7 @@ describe("approval gate: ask autonomy", () => {
       messages: [USER_MESSAGE],
       tools: [tool],
       callModel,
-      getAutonomy: () => "ask",
+      getReviewMode: () => "step",
       requestApproval,
     });
 
@@ -157,7 +159,7 @@ describe("approval gate: skip decision", () => {
       messages: [USER_MESSAGE],
       tools: [tool],
       callModel,
-      getAutonomy: () => "ask",
+      getReviewMode: () => "step",
       requestApproval,
     });
 
@@ -177,7 +179,7 @@ describe("approval gate: skip decision", () => {
       messages: [USER_MESSAGE],
       tools: [tool],
       callModel,
-      getAutonomy: () => "ask",
+      getReviewMode: () => "step",
       requestApproval,
     });
 
@@ -195,11 +197,13 @@ describe("approval gate: skip decision", () => {
   });
 });
 
-// ---- safety property 4: auto + non-destructive -> no approval ---------------
+// ---- safety property 4: plan mode + lone action -> single confirm fallback --
 
-describe("approval gate: auto autonomy", () => {
-  it("execute runs directly without calling requestApproval when auto + non-destructive", async () => {
-    // isDestructive is false (default, no override).
+describe("approval gate: plan mode with no approved plan", () => {
+  it("a lone non-destructive action in plan mode still raises a single confirm (no silent run)", async () => {
+    // Whole-plan mode, but the model went straight to the action with no
+    // propose_plan, so there is no approved plan this run. The new model has no
+    // silent unattended path, so the gate raises the single-confirm fallback.
     const { tool, execute } = makeActionTool({ isDestructiveOverride: false });
     const requestApproval = vi.fn(async (): Promise<ApprovalDecision> => "allow");
 
@@ -212,20 +216,20 @@ describe("approval gate: auto autonomy", () => {
       messages: [USER_MESSAGE],
       tools: [tool],
       callModel,
-      getAutonomy: () => "auto",
+      getReviewMode: () => "plan",
       requestApproval,
     });
 
-    // requestApproval was never called, execute ran directly.
-    expect(requestApproval).not.toHaveBeenCalled();
+    // The single confirm was raised, then the user allowed and execute ran.
+    expect(requestApproval).toHaveBeenCalledTimes(1);
     expect(execute).toHaveBeenCalledTimes(1);
   });
 });
 
-// ---- safety property 5: auto + destructive -> approval hard-stop ------------
+// ---- safety property 5: plan + destructive -> approval hard-stop ------------
 
-describe("approval gate: auto + destructive hard-stop", () => {
-  it("calls requestApproval even in auto mode when isDestructive returns true", async () => {
+describe("approval gate: plan + destructive hard-stop", () => {
+  it("calls requestApproval even in plan mode when isDestructive returns true", async () => {
     const { tool, execute } = makeActionTool({ isDestructiveOverride: true });
     const requestApproval = vi.fn(
       async (_req: ApprovalRequest): Promise<ApprovalDecision> => "allow",
@@ -240,11 +244,11 @@ describe("approval gate: auto + destructive hard-stop", () => {
       messages: [USER_MESSAGE],
       tools: [tool],
       callModel,
-      getAutonomy: () => "auto",
+      getReviewMode: () => "plan",
       requestApproval,
     });
 
-    // The hard-stop overrides auto: approval was requested.
+    // The hard-stop overrides the plan bypass, approval was requested.
     expect(requestApproval).toHaveBeenCalledTimes(1);
     // The approval request carries the action shape with the destructive flag.
     const req: ApprovalRequest = requestApproval.mock.calls[0][0];
@@ -256,7 +260,7 @@ describe("approval gate: auto + destructive hard-stop", () => {
     expect(execute).toHaveBeenCalledTimes(1);
   });
 
-  it("execute does NOT run for a destructive-auto action when the user skips", async () => {
+  it("execute does NOT run for a destructive plan-mode action when the user skips", async () => {
     const { tool, execute } = makeActionTool({ isDestructiveOverride: true });
     const requestApproval = vi.fn(async (): Promise<ApprovalDecision> => "skip");
 
@@ -269,7 +273,7 @@ describe("approval gate: auto + destructive hard-stop", () => {
       messages: [USER_MESSAGE],
       tools: [tool],
       callModel,
-      getAutonomy: () => "auto",
+      getReviewMode: () => "plan",
       requestApproval,
     });
 
@@ -292,7 +296,7 @@ describe("approval gate: no requestApproval injected", () => {
       messages: [USER_MESSAGE],
       tools: [tool],
       callModel,
-      getAutonomy: () => "ask",
+      getReviewMode: () => "step",
       // requestApproval is intentionally not provided.
     });
 
@@ -312,7 +316,7 @@ describe("approval gate: no requestApproval injected", () => {
       messages: [USER_MESSAGE],
       tools: [tool],
       callModel,
-      getAutonomy: () => "ask",
+      getReviewMode: () => "step",
     });
 
     const secondCallMessages = callModel.mock.calls[1][0];
@@ -328,10 +332,10 @@ describe("approval gate: no requestApproval injected", () => {
   });
 });
 
-// ---- safety property 7: getAutonomy absent -> defaults to "ask" -------------
+// ---- safety property 7: getReviewMode absent -> defaults to "step" ----------
 
-describe("approval gate: getAutonomy absent", () => {
-  it("defaults to 'ask' when getAutonomy is not provided", async () => {
+describe("approval gate: getReviewMode absent", () => {
+  it("defaults to step mode when getReviewMode is not provided", async () => {
     const { tool, execute } = makeActionTool({});
     const requestApproval = vi.fn(
       async (): Promise<ApprovalDecision> => "allow",
@@ -346,11 +350,11 @@ describe("approval gate: getAutonomy absent", () => {
       messages: [USER_MESSAGE],
       tools: [tool],
       callModel,
-      // getAutonomy is absent, so the loop must default to "ask".
+      // getReviewMode is absent, so the loop must default to "step".
       requestApproval,
     });
 
-    // Defaulting to "ask" means requestApproval was called.
+    // Defaulting to "step" means requestApproval was called.
     expect(requestApproval).toHaveBeenCalledTimes(1);
     expect(execute).toHaveBeenCalledTimes(1);
   });
@@ -381,7 +385,7 @@ describe("approval gate: read-only tools", () => {
       messages: [USER_MESSAGE],
       tools: [readOnlyTool],
       callModel,
-      getAutonomy: () => "ask",
+      getReviewMode: () => "step",
       requestApproval,
     });
 
@@ -410,7 +414,7 @@ describe("onStatus during approval", () => {
       messages: [USER_MESSAGE],
       tools: [tool],
       callModel,
-      getAutonomy: () => "ask",
+      getReviewMode: () => "step",
       requestApproval,
       onStatus: (s) => statuses.push(s.phase),
     });

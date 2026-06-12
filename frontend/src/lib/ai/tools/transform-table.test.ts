@@ -315,7 +315,7 @@ describe("agent loop: transform approval gate", () => {
       tools: [transformTableTool],
       callModel: makeModelCaller("normalize", { mode: "max" }),
       requestApproval,
-      getAutonomy: () => "ask",
+      getReviewMode: () => "step",
     });
 
     // The loop raised a transform approval (kind:"transform").
@@ -342,7 +342,7 @@ describe("agent loop: transform approval gate", () => {
       tools: [transformTableTool],
       callModel: makeModelCaller("normalize", { mode: "max" }),
       requestApproval,
-      getAutonomy: () => "ask",
+      getReviewMode: () => "step",
     });
 
     expect(createTable).not.toHaveBeenCalled();
@@ -351,15 +351,26 @@ describe("agent loop: transform approval gate", () => {
     expect(result.answer).toBe("Done.");
   });
 
-  it("proceeds without asking in auto mode (non-destructive)", async () => {
-    // No requestApproval wired; autonomy is "auto". The gate should not block.
+  it("in plan mode a lone action with no approved plan still confirms once, then proceeds on allow", async () => {
+    // Whole-plan mode, but no plan was approved this run (the model called the
+    // action directly), so the gate raises the single-confirm fallback for the
+    // lone step. On allow the transform runs.
+    const capturedRequests: ApprovalRequest[] = [];
+    const requestApproval = async (req: ApprovalRequest): Promise<ApprovalDecision> => {
+      capturedRequests.push(req);
+      return "allow";
+    };
+
     const result = await runAgentLoop({
       messages: [{ role: "user", content: "normalize my growth table" }],
       tools: [transformTableTool],
       callModel: makeModelCaller("normalize", { mode: "max" }),
-      getAutonomy: () => "auto",
+      requestApproval,
+      getReviewMode: () => "plan",
     });
 
+    // The single confirm was raised (the lone-step fallback), then the table ran.
+    expect(capturedRequests).toHaveLength(1);
     expect(createTable).toHaveBeenCalledOnce();
     expect(navigate).toHaveBeenCalled();
     expect(result.answer).toBe("Done.");

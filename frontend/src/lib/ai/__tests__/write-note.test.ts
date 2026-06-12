@@ -245,7 +245,7 @@ describe("write_note gate (draft approval)", () => {
         messages: [USER_MESSAGE],
         tools: [writeNoteTool],
         callModel,
-        getAutonomy: () => "ask",
+        getReviewMode: () => "step",
         requestApproval,
       });
     } finally {
@@ -281,7 +281,7 @@ describe("write_note gate (draft approval)", () => {
         messages: [USER_MESSAGE],
         tools: [writeNoteTool],
         callModel,
-        getAutonomy: () => "ask",
+        getReviewMode: () => "step",
         requestApproval,
       });
     } finally {
@@ -316,7 +316,7 @@ describe("write_note gate (draft approval)", () => {
         messages: [USER_MESSAGE],
         tools: [writeNoteTool],
         callModel,
-        getAutonomy: () => "ask",
+        getReviewMode: () => "step",
         requestApproval,
       });
     } finally {
@@ -350,7 +350,7 @@ describe("write_note gate (draft approval)", () => {
         messages: [USER_MESSAGE],
         tools: [writeNoteTool],
         callModel,
-        getAutonomy: () => "ask",
+        getReviewMode: () => "step",
         requestApproval,
       });
     } finally {

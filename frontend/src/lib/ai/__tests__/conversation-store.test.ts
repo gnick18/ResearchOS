@@ -39,7 +39,7 @@ type AgentLoopOpts = {
   tools: unknown[];
   requestApproval?: (r: unknown) => Promise<unknown>;
   onStatus?: (s: unknown) => void;
-  getAutonomy?: () => string;
+  getReviewMode?: () => string;
 };
 
 // Mock the agent loop. The default implementation calls opts.callModel and

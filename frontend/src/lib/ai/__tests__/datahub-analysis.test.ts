@@ -312,14 +312,15 @@ describe("planAndRun", () => {
 // ---------------------------------------------------------------------------
 
 describe("run_datahub_analysis tool", () => {
-  it("is NOT a gated action, so a run never raises an approval request", () => {
-    // The redundant "Allow it?" the live test flagged came from this tool routing
-    // through the per-action gate. It no longer carries the `action` flag (nor the
-    // describeAction / isDestructive approval hooks), so the agent loop runs it
-    // straight away like a read-only tool, with zero extra prompts after the group
-    // pick. The user's request plus their ask_user pick are the consent.
+  it("is previewable, not a gated action (ai review-mode bot)", () => {
+    // It carries NO `action` flag, so in whole-plan review mode it runs straight
+    // away like before (the request plus the ask_user pick are the consent). It
+    // IS `previewable`, so in step-by-step review mode the gate shows a
+    // preview-and-confirm block first, built from its synchronous describeAction.
+    // It still has no isDestructive hook, the write is reversible.
     expect(runDataHubAnalysisTool.action).toBeFalsy();
-    expect(runDataHubAnalysisTool.describeAction).toBeUndefined();
+    expect(runDataHubAnalysisTool.previewable).toBe(true);
+    expect(typeof runDataHubAnalysisTool.describeAction).toBe("function");
     expect(runDataHubAnalysisTool.isDestructive).toBeUndefined();
   });
 
@@ -776,9 +777,10 @@ describe("buildModelComparison", () => {
 });
 
 describe("compare_models tool", () => {
-  it("is non-gated (no approval hooks), like run_datahub_analysis", () => {
+  it("is previewable, not a gated action, like run_datahub_analysis", () => {
     expect(compareModelsTool.action).toBeFalsy();
-    expect(compareModelsTool.describeAction).toBeUndefined();
+    expect(compareModelsTool.previewable).toBe(true);
+    expect(typeof compareModelsTool.describeAction).toBe("function");
     expect(compareModelsTool.isDestructive).toBeUndefined();
   });
 
