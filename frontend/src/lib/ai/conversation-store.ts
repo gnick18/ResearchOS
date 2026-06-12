@@ -37,7 +37,7 @@ import {
 import { callModelViaProxy, ProxyError } from "@/lib/ai/proxy-client";
 import { DEFAULT_TOOLS } from "@/lib/ai/tools/registry";
 import { BEAKERBOT_SYSTEM_PROMPT } from "@/lib/ai/system-prompt";
-import { getReviewMode } from "@/lib/ai/review-mode-store";
+import { getReviewMode, type BeakerBotReviewMode } from "@/lib/ai/review-mode-store";
 import {
   getBeakerContext,
   describeBeakerContext,
@@ -188,6 +188,17 @@ export function clampPartialEmbed(text: string): string {
     return text.slice(0, open);
   }
   return text;
+}
+
+// The one-line directive injected into each turn's context note so the model
+// behaves for the active review mode (the gate enforces the same split, but the
+// model must KNOW the mode to decide whether to propose one plan up front). Kept
+// pure and exported so it is unit-testable.
+export function reviewModeDirective(mode: BeakerBotReviewMode): string {
+  if (mode === "plan") {
+    return "REVIEW MODE: whole-plan. Before you run any step, call propose_plan ONCE with the FULL sequence of steps as short human sentences (include every Data Hub analysis, transform, plot, and write step). After the user approves the plan, run every step start to finish without asking again. This overrides the per-tool 'do not call propose_plan' notes. A single-step request is a one-line plan. A destructive or outward-facing step still confirms at the moment it runs.";
+  }
+  return "REVIEW MODE: step-by-step. Do not call propose_plan for the self-gating Data Hub and write tools; each one shows its own review block at the moment it runs, and that block is the consent. Follow the per-tool guidance.";
 }
 
 // Typewriter reveal. Updates the assistant message incrementally so the answer
@@ -365,25 +376,25 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     // context message, when present, is spliced in at index 1, immediately
     // after the base system prompt and before the conversation turns.
     const ctxDescription = describeBeakerContext(getBeakerContext());
-    // Hold the per-turn context message by reference so it can be removed from
-    // the persisted history after the run. The loop returns the input array with
-    // new turns appended (it only pushes, never clones), so the SAME object
-    // identity survives, and an identity filter strips exactly the one we
-    // injected.
-    const contextMessage: LoopMessage | null = ctxDescription
-      ? { role: "system", content: ctxDescription }
-      : null;
-    const loopInput: LoopMessage[] = contextMessage
-      ? [
-          historyStore[0], // base system prompt
-          contextMessage, // fresh per-turn context
-          ...historyStore.slice(1), // rest of persisted history
-          { role: "user", content: trimmed },
-        ]
-      : [
-          ...historyStore,
-          { role: "user", content: trimmed },
-        ];
+    // Always lead the per-turn note with the live review mode so the model knows
+    // whether to gate each step (step-by-step) or propose one plan up front
+    // (whole-plan). Read fresh every send so flipping the header mid-conversation
+    // takes effect on the next turn. The page context, when present, follows it.
+    const reviewDirective = reviewModeDirective(getReviewMode());
+    const injectedContent = ctxDescription
+      ? `${reviewDirective}\n\n${ctxDescription}`
+      : reviewDirective;
+    // Hold the per-turn message by reference so it can be removed from the
+    // persisted history after the run. The loop returns the input array with new
+    // turns appended (it only pushes, never clones), so the SAME object identity
+    // survives, and an identity filter strips exactly the one we injected.
+    const contextMessage: LoopMessage = { role: "system", content: injectedContent };
+    const loopInput: LoopMessage[] = [
+      historyStore[0], // base system prompt
+      contextMessage, // fresh per-turn review mode + context
+      ...historyStore.slice(1), // rest of persisted history
+      { role: "user", content: trimmed },
+    ];
 
     try {
       const result = await runAgentLoop({
@@ -401,9 +412,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       // but strip the per-turn context message by reference so it never persists.
       // Persisting it would let a stale context line accumulate, one extra system
       // message per send.
-      historyStore = contextMessage
-        ? result.messages.filter((m) => m !== contextMessage)
-        : result.messages;
+      historyStore = result.messages.filter((m) => m !== contextMessage);
       set({ status: null });
 
       if (result.answer.length === 0) {

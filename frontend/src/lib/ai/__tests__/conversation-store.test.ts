@@ -28,6 +28,7 @@ import {
   resetConversationModule,
   getConversationHistory,
   clampPartialEmbed,
+  reviewModeDirective,
 } from "../conversation-store";
 import type { LoopMessage } from "../agent-loop";
 
@@ -415,5 +416,20 @@ describe("clampPartialEmbed (typewriter does not flash a half-formed link)", () 
 
   it("returns text with no bracket unchanged", () => {
     expect(clampPartialEmbed("just some prose")).toBe("just some prose");
+  });
+});
+
+describe("reviewModeDirective (the model is told the active review mode)", () => {
+  it("tells whole-plan mode to propose one plan up front", () => {
+    const d = reviewModeDirective("plan");
+    expect(d).toContain("whole-plan");
+    expect(d).toContain("propose_plan ONCE");
+    expect(d).toContain("overrides");
+  });
+
+  it("tells step-by-step mode not to propose_plan for self-gating tools", () => {
+    const d = reviewModeDirective("step");
+    expect(d).toContain("step-by-step");
+    expect(d).toContain("Do not call propose_plan");
   });
 });
