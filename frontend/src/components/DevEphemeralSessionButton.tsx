@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { usersApi } from "@/lib/local-api";
 import { createLocalIdentity } from "@/lib/sharing/identity/storage";
 import { seedEphemeralWorkspace } from "@/lib/dev/seed-ephemeral";
+import { isRecordingMode } from "@/lib/file-system/wiki-capture-mock";
 
 /**
  * Dev-only one-click clean-slate session. Spins up a throwaway in-browser
@@ -21,7 +22,18 @@ import { seedEphemeralWorkspace } from "@/lib/dev/seed-ephemeral";
  * is the tradeoff for needing no folder picker.
  */
 export default function DevEphemeralSessionButton() {
-  if (process.env.NODE_ENV !== "development") return null;
+  // Mount-gate so the recording-mode check runs only on the client, with no
+  // server/client hydration mismatch: both render null first, then the effect
+  // reveals the button in dev unless `?record=1` is active. Recording mode
+  // (`?record=1`) is a pristine surface for marketing video, so this dev
+  // chrome stays hidden there alongside the demo chrome.
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (process.env.NODE_ENV === "development" && !isRecordingMode()) {
+      setShow(true);
+    }
+  }, []);
+  if (!show) return null;
   return <DevEphemeralSessionInner />;
 }
 

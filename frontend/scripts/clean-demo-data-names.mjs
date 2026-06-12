@@ -15,12 +15,25 @@
 //
 // Run from frontend/:  node scripts/clean-demo-data-names.mjs
 // Idempotent: re-running after a clean pass changes nothing.
+//
+// Covers BOTH copies of the demo dataset: the on-disk public/demo-data JSON
+// files AND the in-memory fixture (src/lib/file-system/wiki-capture-fixture.ts)
+// that /demo and ?wikiCapture=1 actually render from. The two must stay in
+// sync or the recorded video shows "DEMO:" names the disk copy no longer has.
 
 import { readFileSync, writeFileSync, readdirSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "public", "demo-data");
+const FIXTURE_FILE = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "src",
+  "lib",
+  "file-system",
+  "wiki-capture-fixture.ts",
+);
 
 // Ordered, literal string replacements. Order matters: funding ids and the
 // longer label prefixes are handled before the generic word softening so we
@@ -133,6 +146,20 @@ for (const file of walk(ROOT)) {
 
 console.log(`Cleaned ${changedCount} file(s).`);
 for (const f of changedFiles) console.log("  " + f);
+
+// The in-memory fixture is a .ts module (JSON object literals inside a TS
+// array), not standalone JSON, so it can't go through the JSON.parse gate.
+// The replacements are plain-text and stay inside string values, so applying
+// them as text is safe; `tsc --noEmit` is the validation gate after this run.
+{
+  const before = readFileSync(FIXTURE_FILE, "utf8");
+  let after = before;
+  for (const [from, to] of REPLACEMENTS) after = after.split(from).join(to);
+  if (after !== before) {
+    writeFileSync(FIXTURE_FILE, after);
+    console.log("  src/lib/file-system/wiki-capture-fixture.ts (in-memory fixture)");
+  }
+}
 
 // Cross-reference integrity check: every funding_string must point at an
 // existing funding_account name.

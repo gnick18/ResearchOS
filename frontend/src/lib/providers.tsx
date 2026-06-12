@@ -47,6 +47,7 @@ import MilestoneTwirlMount from "@/components/onboarding/MilestoneTwirlMount";
 import IdleAnimationManager from "@/components/onboarding/IdleAnimationManager";
 import WhatsNewManager from "@/components/WhatsNewManager";
 import WikiCaptureBodyClass from "@/components/WikiCaptureBodyClass";
+import RecordingModeBodyClass from "@/components/RecordingModeBodyClass";
 import SharedFolderAutoRefresh from "@/components/SharedFolderAutoRefresh";
 import SpellcheckAutoSeed from "@/components/SpellcheckAutoSeed";
 import CaptureInboxPoller from "@/components/CaptureInboxPoller";
@@ -986,6 +987,11 @@ export function Providers({ children }: { children: ReactNode }) {
             FileSystemProvider so it can read `currentUser` for the
             unlockSession path. */}
         <WikiCaptureBodyClass />
+        {/* Recording-mode (`?record=1`) body class. Hides non-product floating
+            chrome (Next dev indicator, floating dock, BeakerBot flask) so a
+            marketing-video capture surface is pristine. No-op outside record
+            mode. */}
+        <RecordingModeBodyClass />
         {/* Website-wide smart right-click framework (sequence editor master).
             Mounted here, above AppContent, so the single shared menu + the
             no-menu glyph + the one document-level contextmenu listener cover

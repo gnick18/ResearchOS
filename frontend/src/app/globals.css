@@ -1002,3 +1002,15 @@ html[data-annotator-open] [data-floating-dock] {
     animation: none;
   }
 }
+
+/* Recording mode (`?record=1`): hide non-product floating chrome so a
+ * marketing-video capture surface is pristine. The `recording-mode` class is
+ * added to <body> by RecordingModeBodyClass only when record mode is active,
+ * so these rules are inert in normal use. Covers the Next.js dev-tools
+ * indicator/overlay (the "N" pill), the bottom-right floating dock
+ * (Calculators / Report bug), and the BeakerBot summon flask. */
+body.recording-mode nextjs-portal,
+body.recording-mode [data-floating-dock],
+body.recording-mode [data-testid="beakerbot-summon"] {
+  display: none !important;
+}
