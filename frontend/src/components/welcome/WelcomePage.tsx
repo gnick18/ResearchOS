@@ -1080,29 +1080,37 @@ export default function WelcomePage({
 
         {/* ── 10. HOW IT WORKS (local-first, three steps) ──────────────── */}
         <section className="px-6 py-16 sm:px-12">
-          <Reveal className="mx-auto max-w-[1080px]">
-            <Kicker>// how it works</Kicker>
-            <h2 className="mt-2.5 max-w-[30ch] text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-[34px]">
-              Three steps, your data never leaves unless you say so
-            </h2>
+          <div className="mx-auto max-w-[1080px]">
+            <Reveal>
+              <Kicker>// how it works</Kicker>
+              <h2 className="mt-2.5 max-w-[30ch] text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-[34px]">
+                Three steps, your data never leaves unless you say so
+              </h2>
+            </Reveal>
             <div className="mt-7 grid grid-cols-1 gap-4 md:grid-cols-3">
-              <StepCard
-                num="01"
-                title="Open a folder"
-                body="Pick a folder on your own computer. That folder is always the original."
-              />
-              <StepCard
-                num="02"
-                title="Work locally"
-                body="Notebook, chemistry, stats, cloning, inventory. Fully offline if you want."
-              />
-              <StepCard
-                num="03"
-                title="Sync if you choose"
-                body="Turn on optional cloud to sync, share, or co-edit. Nothing uploads until you do."
-              />
+              <Reveal delay={0}>
+                <StepCard
+                  num="01"
+                  title="Open a folder"
+                  body="Pick a folder on your own computer. That folder is always the original."
+                />
+              </Reveal>
+              <Reveal delay={90}>
+                <StepCard
+                  num="02"
+                  title="Work locally"
+                  body="Notebook, chemistry, stats, cloning, inventory. Fully offline if you want."
+                />
+              </Reveal>
+              <Reveal delay={180}>
+                <StepCard
+                  num="03"
+                  title="Sync if you choose"
+                  body="Turn on optional cloud to sync, share, or co-edit. Nothing uploads until you do."
+                />
+              </Reveal>
             </div>
-          </Reveal>
+          </div>
         </section>
 
         {/* ── 11. MISSION ──────────────────────────────────────────────── */}
@@ -1173,32 +1181,42 @@ export default function WelcomePage({
 
         {/* ── 13. TRUST BAND ───────────────────────────────────────────── */}
         <section className="border-t border-[#d8e3f1] bg-[#f4f8fd] px-6 py-16 sm:px-12">
-          <Reveal className="mx-auto max-w-[1080px]">
-            <Kicker>// why you can trust a free tool</Kicker>
-            <h2 className="mt-2.5 max-w-[20ch] text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-[34px]">
-              Free, but accountable
-            </h2>
+          <div className="mx-auto max-w-[1080px]">
+            <Reveal>
+              <Kicker>// why you can trust a free tool</Kicker>
+              <h2 className="mt-2.5 max-w-[20ch] text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-[34px]">
+                Free, but accountable
+              </h2>
+            </Reveal>
             <div className="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <TrustCard
-                title="Your data is yours"
-                body="Plain files on your disk. Leaving is closing a folder."
-              />
-              <TrustCard
-                title="Open source"
-                body="AGPLv3, and you can read exactly how it works."
-                href="/open-source"
-              />
-              <TrustCard
-                title="Validated science"
-                body="Our math is proven in public against Biopython, primer3, R, and Prism."
-                href="/transparency"
-              />
-              <TrustCard
-                title="Real business"
-                body="A Wisconsin LLC and merchant of record, not a hobby link."
-              />
+              <Reveal delay={0}>
+                <TrustCard
+                  title="Your data is yours"
+                  body="Plain files on your disk. Leaving is closing a folder."
+                />
+              </Reveal>
+              <Reveal delay={90}>
+                <TrustCard
+                  title="Open source"
+                  body="AGPLv3, and you can read exactly how it works."
+                  href="/open-source"
+                />
+              </Reveal>
+              <Reveal delay={180}>
+                <TrustCard
+                  title="Validated science"
+                  body="Our math is proven in public against Biopython, primer3, R, and Prism."
+                  href="/transparency"
+                />
+              </Reveal>
+              <Reveal delay={270}>
+                <TrustCard
+                  title="Real business"
+                  body="A Wisconsin LLC and merchant of record, not a hobby link."
+                />
+              </Reveal>
             </div>
-          </Reveal>
+          </div>
         </section>
 
         {/* ── 14. FINAL CTA ────────────────────────────────────────────── */}
