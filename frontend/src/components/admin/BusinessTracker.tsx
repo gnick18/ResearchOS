@@ -353,7 +353,7 @@ function EntityCard({
           "Bank account label",
           <input
             className={input}
-            placeholder="e.g. Mercury checking (not the number)"
+            placeholder="e.g. business checking (not the number)"
             value={form.bankLabel ?? ""}
             onChange={(e) => setForm({ ...form, bankLabel: e.target.value || null })}
           />,
@@ -1196,7 +1196,7 @@ function PaymentMethods({
           <span className="text-meta text-foreground-muted">Label</span>
           <input
             className={`mt-1 ${input}`}
-            placeholder="Mercury Mastercard credit"
+            placeholder="business Mastercard credit"
             value={form.label}
             onChange={(e) => setForm({ ...form, label: e.target.value })}
           />
@@ -1310,14 +1310,14 @@ function ReimbursementPanel({
               onClick={() => record("draw")}
               className="rounded-lg border border-border px-4 py-2 text-body font-semibold text-foreground hover:bg-surface-sunken disabled:opacity-40"
             >
-              Record Mercury reimbursement
+              Record business-account reimbursement
             </button>
           </div>
           <p className="mt-3 border-t border-border pt-3 text-meta text-foreground-muted leading-relaxed">
             Capital contribution (recommended, no money moves) adds one money-in
             entry for the total, so the expenses still deduct and the cash balance
-            stays honest. The Mercury reimbursement option instead logs a real
-            Mercury to personal transfer as an owner draw, which is not a second
+            stays honest. The business-account reimbursement option instead logs
+            a real business-to-personal transfer as an owner draw, which is not a second
             deductible expense. Either way the outstanding amount drops to zero.
           </p>
         </>
