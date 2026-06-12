@@ -107,6 +107,13 @@
   .idp-sec{border:1px solid var(--border);border-radius:11px;margin-bottom:10px;overflow:hidden}
   .idp-sec .h{padding:8px 12px;font-size:12px;font-weight:700;background:var(--surface-sunken);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px}
   .idp-sec .bd{padding:10px 12px;font-size:12.5px;color:var(--fg-muted)}
+  .idp-sec .h{display:flex;align-items:center}
+  .idp-sec table{width:100%;border-collapse:collapse;font-size:12px}
+  .idp-sec table th{padding:7px 10px;text-align:left;color:var(--fg-faint);font-size:10.5px;text-transform:uppercase;font-weight:700}
+  .idp-sec table td{padding:7px 10px;border-top:1px solid var(--border);vertical-align:top}
+  .dual{display:flex;align-items:center;gap:7px;font-size:12px;padding:4px 0}
+  .dual .nm{flex:1;min-width:0}
+  .dual .lab{font-size:10px;color:var(--fg-faint)}
   .skill{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:4px 0}
   .meter{flex:1;height:6px;border-radius:3px;background:var(--surface-sunken);overflow:hidden;max-width:160px}
   .meter i{display:block;height:100%;background:var(--brand-action)}
@@ -313,14 +320,23 @@ function bodyNotes(){
 }
 function bodyIDP(s){
   const who=s.with[0];
-  return '<div class="complhook">Auto-pulls into the annual review. NIH progress reports now expect an IDP.</div>'
+  const dual=(name,self,imp)=>'<div class="dual"><span class="nm">'+name+'</span>'
+    +'<span class="lab">you</span><span class="meter" style="max-width:64px"><i style="width:'+(self*20)+'%"></i></span>'
+    +'<span class="lab">matters</span><span class="meter" style="max-width:64px"><i style="width:'+(imp*20)+'%;background:var(--purple)"></i></span></div>';
+  const act=(obj,appr,when,out,done)=>'<tr><td>'+cb(done)+'</td><td>'+obj+'</td><td style="color:var(--fg-muted)">'+appr+'</td><td><span class="chip due">'+when+'</span> <span class="chip gantt">task</span></td><td style="color:var(--fg-muted)">'+out+'</td></tr>';
+  return '<div class="complhook">Modeled on AAAS myIDP + the UW-Madison IDP. It is '+P[who].n+'’s document, they choose what to share; you review and sign off. Your lab-head view shows only "IDP on file, updated Jun 4" (NSF now requires that an IDP exists, never its contents).</div>'
     +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="font-size:13px;font-weight:700">'+P[who].n+'’s development plan</span><span class="stagebadge">Grad student</span></div>'
-    +'<div class="idp-sec"><div class="h">Skills self-assessment</div><div class="bd">'
-      +'<div class="skill">Experimental design <span class="meter"><i style="width:70%"></i></span></div>'
-      +'<div class="skill">Scientific writing <span class="meter"><i style="width:45%"></i></span></div>'
-      +'<div class="skill">Presenting / talks <span class="meter"><i style="width:60%"></i></span></div></div></div>'
-    +'<div class="idp-sec"><div class="h">Career goals</div><div class="bd">Tenure-track faculty. This year: first first-author paper, present at the national meeting.</div></div>'
-    +'<div class="idp-sec"><div class="h">This year’s goals (mentor + mentee agree)</div><div class="bd">'+cb(true)+' Pass prelim &nbsp;&nbsp;'+cb(false)+' Submit Aim 1 manuscript &nbsp;&nbsp;'+cb(false)+' Mentor an undergrad</div></div>';
+    +'<div class="idp-sec"><div class="h">1 · Self-assessment<span style="margin-left:auto;font-weight:400;color:var(--fg-faint);font-size:10.5px">rate skill + how much it matters</span></div><div class="bd">'
+      +dual("Experimental design",4,4)+dual("Scientific writing",2,5)+dual("Presenting / talks",3,4)+dual("Mentoring others",2,3)
+      +'<div style="margin-top:8px;font-size:11.5px">Growth area (low skill, high importance): <b>scientific writing</b>. <span style="color:var(--fg-faint)">~6 collapsed competency groups; this is the myIDP dual-rating mechanic.</span></div></div></div>'
+    +'<div class="idp-sec"><div class="h">2 · Career exploration</div><div class="bd">Target path: tenure-track faculty. <a href="#" onclick="return false">Explore fit on myIDP / ImaginePhD →</a> then record the result here. (We link out for the career-matching, we do not rebuild it, exactly what UW does.)</div></div>'
+    +'<div class="idp-sec"><div class="h">3 · Goals</div><div class="bd"><b>Short-term (≤6 mo):</b> submit Aim 1 manuscript. &nbsp; <b>Long-term:</b> first-author paper, present nationally.</div></div>'
+    +'<div class="idp-sec"><div class="h">4 · Action plan<span style="margin-left:auto;font-weight:400;color:var(--green);font-size:10.5px">target dates become tasks</span></div><div class="bd" style="padding:0">'
+      +'<table><thead><tr><th></th><th>Objective / skill</th><th>Approach</th><th>Target</th><th>Done when</th></tr></thead><tbody>'
+      +act("Take the writing workshop","Grad-school course","Sep","Draft ready",false)
+      +act("Pass prelim","Mock exam + committee","Jun","Committee sign-off",true)
+      +'</tbody></table></div></div>'
+    +'<div class="idp-sec"><div class="h">5 · Mentor review</div><div class="bd">Reviewed by you on Jun 4 · next revisit Jun 2027 (annual). "Strong on design, let’s prioritize writing this year."</div></div>';
 }
 function bodyTimeline(){
   return '<div class="tl">'

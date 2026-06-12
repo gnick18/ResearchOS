@@ -93,6 +93,24 @@ Cross-cutting spine features worth stealing directly (Core, table stakes from th
 - A per-relationship meeting history / timeline (Fellow, Lattice). In academia this IS the paper trail for annual reviews and committee reports.
 - Optional "decision" tag on a note ("we are dropping Aim 2"), searchable later. Cheap, and unusually valuable in research where "why did we decide X two years ago" recurs.
 
+## IDP structure (modeled on the free templates, Grant request 2026-06-11)
+
+The IDP must mirror the established free templates scientists already use, not an invented form. Research finding: UW-Madison's own IDP form is adapted directly from the FASEB framework + AAAS myIDP + the National Postdoctoral Association core competencies, so the form Grant used and myIDP share one lineage. The universal spine across myIDP, the UW-Madison form, FASEB, ImaginePhD, and ChemIDP is the same five beats, self-assess, explore, set goals, act, review-and-revisit-annually, and in every one the trainee owns the document and chooses what to share with the mentor.
+
+Ship five sections, career-stage-aware, deliberately lighter than the full 15-page UW packet.
+
+1. Self-assessment. Skill rows, each with the myIDP dual rating, a self-rating 1 to 5 (proficiency/confidence) AND an importance 1 to 5 (how much it matters for the career they want). The gap between the two is the signal for goals. Ship about 6 collapsed competency groups (Research and technical, Communication and writing, Project and data management, Leadership and mentoring, Responsible conduct of research, Career and professional development), each expandable to the fuller myIDP item list. Auto-compute a strengths vs growth-areas summary (UW's "confident 4-5 vs unconfident 1-2" split). One free-text "current responsibilities and near-term requirements" box.
+2. Career exploration. Free-text aspirations + a target-path field. Do NOT rebuild the career-matching algorithm (that is myIDP's whole product), link out to myIDP / ImaginePhD / ChemIDP for the matching and let the trainee record the result here. This is exactly what UW does.
+3. Goals. Short-term (6 months or less) and long-term (more than 6 months) as text, with an optional priority tag (UW's near/long and high/low prioritization, as simple metadata).
+4. Action plan. The UW four-column table as structured rows, objective or skill to learn, approach and strategy, target date, done-when outcome, plus a status. A row with a target date becomes a candidate ResearchOS task (matches D4's action-item-to-task sync and UW's "add IDP deadlines to your calendar"). Status not-started / in-progress / done.
+5. Mentor review. A mentor comment + sign-off (reviewed-on date) and a revisit date defaulting to annual. This is a review, not co-ownership, the mentor comments and acknowledges, the trainee edits.
+
+Career-stage presets (one form, filtered, not four forms). Undergrad, lighter, emphasize self-assessment + short-term goals + exploration, hide grant-writing/budget/mentoring-others rows. Grad student, the full default set, seed goals with prelim/thesis milestones. Postdoc, emphasize leadership/management + career-advancement (job search, negotiation, independence). Staff scientist, emphasize project/people management, deemphasize academic-job-search items.
+
+Privacy and compliance (how real IDPs work). The IDP is the trainee's private document by default, stored local-first like notes. A per-section sharing toggle lets the trainee share specific sections (often Goals + Action plan) while withholding raw self-ratings or a non-academic career interest, the UW form calls this concern out verbatim. The mentor gets a review surface (comment + sign-off), not edit ownership. For compliance, the lab-head view shows only an "IDP on file, last updated <date>" status, never the contents (NSF has required since May 2024 that an IDP exists). One open sub-decision, the values-ranking sub-assessment is prominent in every template but does not even drive myIDP's matching, recommend defaulting it OFF and offering it as an optional reflection.
+
+Sources read for this section: myIDP skills-assessment PDF (the 7 categories + items), the UW-Madison Graduate School IDP page + the 15-page fillable form (DiscoverPD nine facets, the five steps Assess/Write/Discuss/Implement/Revise), the FASEB IDP framework, ImaginePhD (3 assessments, 16 job families), and ChemIDP (ACS, adds an explicit skill-strengthening step).
+
 ## What we should deliberately NOT build
 
 The research was adversarial about corporate-tool features that become bloat at lab scale. Recommended out of scope unless a user asks.
