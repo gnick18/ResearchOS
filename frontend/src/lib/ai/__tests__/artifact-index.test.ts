@@ -361,12 +361,22 @@ describe("experimentToBrief", () => {
     const brief = experimentToBrief(makeExperiment());
     expect(brief.type).toBe("experiment");
     expect(brief.subtitle).toBe("active");
-    expect(brief.id).toBe("6");
+    // id is the composite taskKey ("self:<numericId>" for own tasks).
+    expect(brief.id).toBe("self:6");
   });
 
-  it("routes deepLink to parent project page", () => {
+  it("routes deepLink to the openTask popup path (in-place popup, not project page)", () => {
     const brief = experimentToBrief(makeExperiment());
-    expect(brief.deepLink).toMatch(/\/projects\/4/);
+    // The deep link now uses the real experiment route so the root popup host
+    // can open TaskDetailPopup in place. The old project-page fallback is gone.
+    expect(brief.deepLink).toMatch(/\?openTask=self%3A6/);
+  });
+
+  it("routes a shared experiment deepLink with the owner namespace", () => {
+    const shared = makeExperiment({ owner: "alice", is_shared_with_me: true });
+    const brief = experimentToBrief(shared);
+    expect(brief.id).toBe("alice:6");
+    expect(brief.deepLink).toContain("openTask=alice%3A6");
   });
 });
 

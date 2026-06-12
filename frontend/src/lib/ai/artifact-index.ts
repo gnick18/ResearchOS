@@ -39,6 +39,7 @@ import type { SequenceRecord } from "@/lib/types";
 import type { Project } from "@/lib/types";
 import type { PurchaseItem } from "@/lib/types";
 import type { Task } from "@/lib/types";
+import { taskKey } from "@/lib/types";
 import type { DataHubDocument } from "@/lib/datahub/model/types";
 import type { Molecule } from "@/lib/chemistry/api";
 
@@ -101,18 +102,18 @@ export function noteToBrief(note: Note): ArtifactBrief {
 export function experimentToBrief(task: Task): ArtifactBrief {
   const keywords: string[] = tokenize(task.name);
   if (task.tags) keywords.push(...task.tags.map((t) => t.toLowerCase()));
+  // Use the composite taskKey as the deep-link id so shared experiments
+  // resolve correctly in the popup host (same logic as the ?openTask= handler
+  // on page.tsx). objectDeepLink("experiment", taskKey(task)) produces
+  // /?openTask=<key>, which the root ObjectPopupHost resolves in place.
   return {
     type: "experiment",
-    id: String(task.id),
+    id: taskKey(task),
     title: task.name || "Untitled experiment",
     subtitle: task.is_complete ? "complete" : "active",
     date: task.start_date,
     projectIds: task.project_id ? [String(task.project_id)] : [],
-    // Experiments are tasks, they do not have their own deep-link type yet.
-    // Route to the project page that contains them as the best available link.
-    deepLink: task.project_id
-      ? objectDeepLink("project" as ObjectRefType, task.project_id)
-      : "/",
+    deepLink: objectDeepLink("experiment", taskKey(task)),
     keywords: dedupe(keywords),
   };
 }

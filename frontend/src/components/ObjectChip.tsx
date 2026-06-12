@@ -8,9 +8,9 @@
 // found", so nothing crashes here.
 //
 // Popup-capable types (ai popup-host bot, 2026-06-11): notes open IN PLACE via
-// the root ObjectPopupHost rather than navigating. Tasks and experiments are a
-// planned follow-up (they are not in ObjectRefType, they open via a separate
-// ?openTask= deep link), so they navigate for now like every other type.
+// the root ObjectPopupHost rather than navigating. Tasks and experiments are now
+// also popup-capable: their chips call openObjectPopup(), which routes to the root
+// host, which loads the task by id and renders TaskDetailPopup in place.
 // The host is mounted once at the root layout and subscribes to the
 // object-popup-bridge bus. Clicking a chip calls openObjectPopup() on
 // popup-capable types; all other types keep navigating as before. This makes
@@ -29,7 +29,7 @@ import { Icon } from "@/components/icons";
 // Types that open as a real popup in the root host. All others navigate.
 // Kept in sync with ObjectPopupHost's POPUP_CAPABLE set. If you add a type
 // here, add the matching case in ObjectPopupHost too.
-const POPUP_CAPABLE_TYPES = new Set<ObjectRefType>(["note"]);
+const POPUP_CAPABLE_TYPES = new Set<ObjectRefType>(["note", "task", "experiment"]);
 
 /** A small inline icon per object type. Stroke-only, currentColor, 1em-ish so it
  *  rides the text baseline inside the pill. */
@@ -84,6 +84,14 @@ function ChipIcon({ type, className }: { type: ObjectRefType; className?: string
           <path d="M21 11l-8.5 8.5a4 4 0 0 1-6-6L14 5a3 3 0 0 1 4 4l-8.5 8.5a1.5 1.5 0 0 1-2-2L15 8" />
         </svg>
       );
+    case "task":
+      // A calendar / today icon from the verified registry, representing a task
+      // entry. Using the registry keeps this change within the icon-guard baseline.
+      return <Icon name="today" className={className} />;
+    case "experiment":
+      // A list icon from the verified registry, representing an experiment task.
+      // Experiments are tasks with a structured protocol, so "list" fits well.
+      return <Icon name="list" className={className} />;
     case "molecule":
       // The chemistry vial, from the verified icon registry (so this new ref type
       // adds no raw inline SVG over the guard baseline).
@@ -109,7 +117,7 @@ function ChipIcon({ type, className }: { type: ObjectRefType; className?: string
  * oddly, and we want a click handler not an href navigation). The href is kept
  * for context but navigation goes through the router so it is a client-side push.
  *
- * For popup-capable types (note today), the click calls
+ * For popup-capable types (note, task, experiment), the click calls
  * openObjectPopup() which routes to the root ObjectPopupHost. The user sees
  * the real item popup in place without leaving the current view or the BeakerBot
  * conversation. For all other types the chip navigates as before, and navigation

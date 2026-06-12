@@ -7,14 +7,21 @@
 // ObjectChip, a BeakerBot tool result, or any future surface -- can open an
 // item's popup in place without knowing which page is currently rendered.
 //
-// Scope: notes open as real popups. All other ObjectRefType values
-// (method, sequence, datahub, molecule, project, file, collection) fall back to
-// navigation via objectDeepLink + requestNavigation, so every type does
-// something sensible even before their popups are built.
+// Scope: notes, tasks, and experiments open as real popups. All other
+// ObjectRefType values (method, sequence, datahub, molecule, project, file,
+// collection) fall back to navigation via objectDeepLink + requestNavigation,
+// so every type does something sensible even before their popups are built.
 //
-// Tasks and experiments use a separate deep-link mechanism (?openTask= on /)
-// and are NOT part of ObjectRefType, so they are not handled here. They
-// continue to open via the existing ?openTask= path on the home page.
+// Why task and experiment share the same popup component: experiments are Task
+// records with task_type = "experiment". There is no separate data model or
+// component. The chip type distinction ("task" vs "experiment") tells the user
+// what kind of entry it is, but the popup is identical.
+//
+// Task id encoding: the ObjectRef.id is the composite taskKey ("self:<numericId>"
+// for own tasks, "<owner>:<numericId>" for shared tasks). The host parses this
+// back to a numeric id and optional owner string for tasksApi.get. Older bare
+// numeric string ids (from pre-taskKey callers) still work -- parseTaskRef
+// treats a string that does not contain ":" as a bare numeric id.
 //
 // Why no-op onUpdate / onDelete on NoteDetailPopup: the popup writes all
 // mutations directly through notesApi (no lifted state, no React Query cache).
@@ -28,8 +35,9 @@
 import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import NoteDetailPopup from "@/components/NoteDetailPopup";
+import TaskDetailPopup from "@/components/TaskDetailPopup";
 import { PopupActionsProvider } from "@/lib/lab-overview/popup-actions";
-import { notesApi } from "@/lib/local-api";
+import { notesApi, tasksApi } from "@/lib/local-api";
 import { requestNavigation } from "@/components/ai/navigation-bridge";
 import { objectDeepLink } from "@/lib/references";
 import {
@@ -42,9 +50,31 @@ import {
 // -----------------------------------------------------------------------
 
 /** The object types that open as a real popup in this host. All others fall
- *  back to navigation so every type does something sensible. "note" is the
- *  only type wired in this pass. */
-const POPUP_CAPABLE_TYPES = new Set(["note"]);
+ *  back to navigation so every type does something sensible. Kept in sync with
+ *  ObjectChip's POPUP_CAPABLE_TYPES. If you add a type here, add it there too. */
+const POPUP_CAPABLE_TYPES = new Set(["note", "task", "experiment"]);
+
+// -----------------------------------------------------------------------
+// Task id parsing
+// -----------------------------------------------------------------------
+
+/** Parse the composite taskKey back to a numeric id and optional owner.
+ *  The key format is "self:<numericId>" (own task) or "<owner>:<numericId>"
+ *  (shared task). A bare numeric string (legacy callers) maps to own task. */
+function parseTaskRef(compositeId: string): { numericId: number; owner?: string } | null {
+  const colon = compositeId.indexOf(":");
+  if (colon === -1) {
+    // Legacy bare numeric id.
+    const n = parseInt(compositeId, 10);
+    return Number.isFinite(n) ? { numericId: n } : null;
+  }
+  const ns = compositeId.slice(0, colon);
+  const rest = compositeId.slice(colon + 1);
+  const n = parseInt(rest, 10);
+  if (!Number.isFinite(n)) return null;
+  // "self" namespace = own task, no owner override needed.
+  return ns === "self" ? { numericId: n } : { numericId: n, owner: ns };
+}
 
 // -----------------------------------------------------------------------
 // Note loader (uses React Query so the result is cached)
@@ -62,6 +92,25 @@ function useNote(id: number | null) {
     // editing inside it; a background refetch would clobber the local state
     // in NoteDetailPopup which manages its own editing state from the initial
     // note prop.
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+// -----------------------------------------------------------------------
+// Task loader (uses React Query so the result is cached)
+// -----------------------------------------------------------------------
+
+function useTask(numericId: number | null, owner?: string) {
+  return useQuery({
+    queryKey: ["object-popup-task", numericId, owner ?? "self"],
+    queryFn: async () => {
+      if (numericId === null) return null;
+      return tasksApi.get(numericId, owner);
+    },
+    enabled: numericId !== null,
+    // Mirror the note loader: do not refetch aggressively while the popup is
+    // open. TaskDetailPopup manages its own editing state from the initial prop.
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   });
@@ -113,6 +162,54 @@ function NotePopup({
 }
 
 // -----------------------------------------------------------------------
+// Task popup renderer (also used for experiments, same component)
+// -----------------------------------------------------------------------
+
+function TaskPopup({
+  compositeId,
+  onClose,
+}: {
+  compositeId: string;
+  onClose: () => void;
+}) {
+  const parsed = parseTaskRef(compositeId);
+  const { data: task, isLoading } = useTask(
+    parsed?.numericId ?? null,
+    parsed?.owner,
+  );
+
+  if (!parsed) {
+    // Malformed id -- close quietly and fall back to navigation.
+    onClose();
+    return null;
+  }
+
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand" />
+      </div>
+    );
+  }
+
+  if (!task) {
+    // The task was deleted or not found. Close quietly.
+    onClose();
+    return null;
+  }
+
+  return (
+    <TaskDetailPopup
+      task={task}
+      // project is optional on TaskDetailPopup. The host does not load projects
+      // (it would need a second async fetch). The popup gracefully shows "—"
+      // for the project name when no project object is passed.
+      onClose={onClose}
+    />
+  );
+}
+
+// -----------------------------------------------------------------------
 // The host
 // -----------------------------------------------------------------------
 
@@ -140,16 +237,21 @@ export default function ObjectPopupHost() {
 
   if (!openRef) return null;
 
-  // Note ids are numeric; guard against a malformed ref.
-  const numericId = parseInt(openRef.id, 10);
-  if (Number.isNaN(numericId)) {
-    requestNavigation(objectDeepLink(openRef.type, openRef.id));
-    setOpenRef(null);
-    return null;
+  if (openRef.type === "note") {
+    // Note ids are plain numeric strings.
+    const numericId = parseInt(openRef.id, 10);
+    if (Number.isNaN(numericId)) {
+      requestNavigation(objectDeepLink(openRef.type, openRef.id));
+      setOpenRef(null);
+      return null;
+    }
+    return <NotePopup noteId={numericId} onClose={close} />;
   }
 
-  if (openRef.type === "note") {
-    return <NotePopup noteId={numericId} onClose={close} />;
+  if (openRef.type === "task" || openRef.type === "experiment") {
+    // Task/experiment ids are composite taskKey strings ("self:<n>" or
+    // "<owner>:<n>"). TaskPopup handles the parsing.
+    return <TaskPopup compositeId={openRef.id} onClose={close} />;
   }
 
   // Fallback (should not reach here given POPUP_CAPABLE_TYPES gate above).

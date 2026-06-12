@@ -12,7 +12,11 @@
 // no mid-sentence colons.
 
 /** The object kinds a reference can point at. v1 resolves sequence + collection;
- *  the rest are reserved so the chip renderer and the map already know them. */
+ *  the rest are reserved so the chip renderer and the map already know them.
+ *  "task" covers any Task record (task_type = "list" | "purchase"). "experiment"
+ *  covers Task records whose task_type = "experiment". Both use the same
+ *  ?openTask= deep link on "/" and are handled by the root popup host without
+ *  navigating away from the current page. */
 export type ObjectRefType =
   | "sequence"
   | "collection"
@@ -21,7 +25,9 @@ export type ObjectRefType =
   | "file"
   | "project"
   | "molecule"
-  | "datahub";
+  | "datahub"
+  | "task"
+  | "experiment";
 
 /** One route shape. `build` makes the in-app path for an id; `match` recognizes a
  *  path (already split into pathname + query params) and returns the id, or null
@@ -91,6 +97,35 @@ const OBJECT_ROUTES: Record<ObjectRefType, RouteShape> = {
       if (pathname !== "/datahub") return null;
       const doc = params.get("doc");
       return doc && doc.length > 0 ? doc : null;
+    },
+  },
+  // Tasks and experiments reuse the existing ?openTask= deep link on "/".
+  // The id here is the composite taskKey ("self:<numericId>" for own tasks,
+  // "<owner>:<numericId>" for shared tasks). The root popup host resolves
+  // it via tasksApi rather than triggering a full page navigation, so the
+  // user never leaves the current view or the BeakerBot conversation.
+  task: {
+    build: (id) => `/?openTask=${encodeURIComponent(id)}`,
+    match: (pathname, params) => {
+      if (pathname !== "/") return null;
+      const t = params.get("openTask");
+      return t && t.length > 0 ? t : null;
+    },
+  },
+  // Experiments are Task records with task_type = "experiment". They share
+  // the same deep link and the same popup component. A separate type entry
+  // lets BeakerBot mark the distinction in the chip so the user knows at a
+  // glance whether the tile is an experiment or a generic task.
+  experiment: {
+    build: (id) => `/?openTask=${encodeURIComponent(id)}`,
+    match: (_pathname, _params) => {
+      // Experiments and tasks share the same URL form (?openTask=). The
+      // match for "task" above already consumes it. Returning null here
+      // ensures parseObjectDeepLink resolves ?openTask= to "task" (the
+      // first match wins), which is correct because we cannot distinguish
+      // a task from an experiment purely from the URL. This entry exists
+      // only so objectDeepLink("experiment", id) is valid.
+      return null;
     },
   },
 };
