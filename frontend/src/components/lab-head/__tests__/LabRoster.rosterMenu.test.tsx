@@ -26,6 +26,8 @@ function row(overrides: Partial<Row> = {}): Row {
     archived_at: null,
     archived_by: null,
     hasSharingIdentity: false,
+    idpExists: false,
+    idpUpdatedAt: null,
     ...overrides,
   };
 }
