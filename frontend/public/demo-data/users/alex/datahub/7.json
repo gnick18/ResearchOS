@@ -1,0 +1,311 @@
+{
+  "meta": {
+    "id": "7",
+    "name": "Two-drug dose-response (global fit)",
+    "project_ids": [
+      "3"
+    ],
+    "folder_path": null,
+    "table_type": "xy",
+    "created_at": "2026-05-14T15:00:00.000Z",
+    "last_edited_by": "alex",
+    "last_edited_at": "2026-05-15T10:30:00.000Z"
+  },
+  "columns": [
+    {
+      "id": "col-x",
+      "name": "log[drug] (M)",
+      "role": "x",
+      "dataType": "number"
+    },
+    {
+      "id": "col-ya",
+      "name": "FakeDrug-A (% inhibition)",
+      "role": "y",
+      "dataType": "number"
+    },
+    {
+      "id": "col-yb",
+      "name": "FakeDrug-B (% inhibition)",
+      "role": "y",
+      "dataType": "number"
+    }
+  ],
+  "rows": [
+    {
+      "id": "row-1",
+      "cells": {
+        "col-x": -9,
+        "col-ya": 0.9,
+        "col-yb": 0.1
+      }
+    },
+    {
+      "id": "row-2",
+      "cells": {
+        "col-x": -8.5,
+        "col-ya": 2.9,
+        "col-yb": 0.4
+      }
+    },
+    {
+      "id": "row-3",
+      "cells": {
+        "col-x": -8,
+        "col-ya": 8.6,
+        "col-yb": 0.8
+      }
+    },
+    {
+      "id": "row-4",
+      "cells": {
+        "col-x": -7.5,
+        "col-ya": 23,
+        "col-yb": 2.9
+      }
+    },
+    {
+      "id": "row-5",
+      "cells": {
+        "col-x": -7,
+        "col-ya": 50.4,
+        "col-yb": 8.6
+      }
+    },
+    {
+      "id": "row-6",
+      "cells": {
+        "col-x": -6.5,
+        "col-ya": 75.9,
+        "col-yb": 23.4
+      }
+    },
+    {
+      "id": "row-7",
+      "cells": {
+        "col-x": -6,
+        "col-ya": 90.8,
+        "col-yb": 50.4
+      }
+    },
+    {
+      "id": "row-8",
+      "cells": {
+        "col-x": -5.5,
+        "col-ya": 96.9,
+        "col-yb": 75.9
+      }
+    },
+    {
+      "id": "row-9",
+      "cells": {
+        "col-x": -5,
+        "col-ya": 99.1,
+        "col-yb": 90.8
+      }
+    },
+    {
+      "id": "row-10",
+      "cells": {
+        "col-x": -4.5,
+        "col-ya": 99.6,
+        "col-yb": 96.9
+      }
+    },
+    {
+      "id": "row-11",
+      "cells": {
+        "col-x": -4,
+        "col-ya": 100.1,
+        "col-yb": 99.1
+      }
+    }
+  ],
+  "analyses": [
+    {
+      "id": "analysis-globalfit",
+      "type": "globalFit",
+      "params": {},
+      "inputs": {
+        "columnIds": [
+          "col-ya",
+          "col-yb"
+        ]
+      },
+      "resultCache": {
+        "ok": true,
+        "kind": "globalFit",
+        "type": "globalFit",
+        "model": "logistic4pl",
+        "modelLabel": "4-parameter logistic (variable slope)",
+        "share": "hill-top-bottom",
+        "xName": "log[drug] (M)",
+        "datasetNames": [
+          "FakeDrug-A (% inhibition)",
+          "FakeDrug-B (% inhibition)"
+        ],
+        "curves": [
+          {
+            "name": "FakeDrug-A (% inhibition)",
+            "x": [
+              -9,
+              -8.5,
+              -8,
+              -7.5,
+              -7,
+              -6.5,
+              -6,
+              -5.5,
+              -5,
+              -4.5,
+              -4
+            ],
+            "y": [
+              0.9,
+              2.9,
+              8.6,
+              23,
+              50.4,
+              75.9,
+              90.8,
+              96.9,
+              99.1,
+              99.6,
+              100.1
+            ]
+          },
+          {
+            "name": "FakeDrug-B (% inhibition)",
+            "x": [
+              -9,
+              -8.5,
+              -8,
+              -7.5,
+              -7,
+              -6.5,
+              -6,
+              -5.5,
+              -5,
+              -4.5,
+              -4
+            ],
+            "y": [
+              0.1,
+              0.4,
+              0.8,
+              2.9,
+              8.6,
+              23.4,
+              50.4,
+              75.9,
+              90.8,
+              96.9,
+              99.1
+            ]
+          }
+        ],
+        "sharedParams": [
+          {
+            "name": "Bottom",
+            "value": -0.07611659448278416,
+            "standardError": 0.1345892771927509,
+            "ci95": [
+              -0.36007514811337626,
+              0.20784195914780798
+            ]
+          },
+          {
+            "name": "Top",
+            "value": 99.88977250383118,
+            "standardError": 0.13470325916223905,
+            "ci95": [
+              99.60557346926578,
+              100.17397153839659
+            ]
+          },
+          {
+            "name": "HillSlope",
+            "value": 1.014550847915812,
+            "standardError": 0.006830142819805219,
+            "ci95": [
+              1.0001405061957607,
+              1.0289611896358635
+            ]
+          }
+        ],
+        "localParams": [
+          {
+            "datasetLabel": "FakeDrug-A (% inhibition)",
+            "logEC50": -6.997792603726113,
+            "logEC50SE": 0.003950320596832154,
+            "logEC50CI95": [
+              -7.006127051658745,
+              -6.989458155793481
+            ],
+            "ec50": 1.0050956566768105e-7,
+            "ec50CI95": [
+              9.859909944752715e-8,
+              1.0245704927641964e-7
+            ]
+          },
+          {
+            "datasetLabel": "FakeDrug-B (% inhibition)",
+            "logEC50": -5.999943431868262,
+            "logEC50SE": 0.003950284111707381,
+            "logEC50CI95": [
+              -6.00827780282401,
+              -5.9916090609125146
+            ],
+            "ec50": 0.0000010001302614201605,
+            "ec50CI95": [
+              9.811201543826133e-7,
+              0.0000010195087067982917
+            ]
+          }
+        ],
+        "nDatasets": 2,
+        "nTotal": 22,
+        "nParams": 5,
+        "ssrTotal": 1.4443214465027874,
+        "rSquared": 0.9999619363143893,
+        "df": 17
+      },
+      "resultStale": false
+    }
+  ],
+  "plots": [
+    {
+      "id": "plot-multicurve-xy",
+      "type": "xyScatter",
+      "style": {
+        "kind": "xyScatter",
+        "errorBar": "sem",
+        "showPoints": true,
+        "showBrackets": true,
+        "colorMode": "brand",
+        "palette": "okabe",
+        "colorOverrides": {},
+        "fontSize": 13,
+        "title": "Two-drug dose-response",
+        "yTitle": "% inhibition",
+        "xTitle": "log[drug] (M)",
+        "fitModel": "linear",
+        "sizeUnit": "px",
+        "dpi": 300,
+        "resizeMode": "relayout",
+        "aspectLocked": true,
+        "estimationPaired": false,
+        "estimationControlIndex": 0,
+        "estimationCi": 0.95,
+        "estimationB": 5000,
+        "estimationSeed": 12345,
+        "estimationBootMethod": "bca"
+      },
+      "source": {
+        "tableId": "7",
+        "analysisId": null,
+        "yColumnId": "col-ya"
+      }
+    }
+  ]
+}
