@@ -131,6 +131,202 @@ function RainbowFrame({
 }
 
 /* ----------------------------------------------------------------------------
+ * The mentorship-tree + IDP illustration for the check-ins feature row. A lab
+ * tree (PI -> postdoc/grad -> undergrads) plus an IDP snapshot, framing the
+ * feature as the academic mentorship structure, not generic 1:1s. Built from
+ * plain divs with scoped styled-jsx connectors (no inline SVG, which the icon
+ * guard blocks): a lone mentee gets a straight drop, two or more get a centered
+ * bus. Light-only, matching the rest of the page.
+ * -------------------------------------------------------------------------- */
+function CheckinsVisual() {
+  return (
+    <div className="ros-mtree bg-white p-[18px]">
+      <span className="tag">Check-ins and mentoring</span>
+      <div className="tree">
+        <div className="node pi">Dr. Nickles, PI</div>
+        <div className="trunk" />
+        <div className="children cols-3">
+          <div className="child">
+            <div className="subtree">
+              <div className="node">Postdoc, Ana</div>
+              <div className="trunk" />
+              <div className="children cols-2">
+                <div className="child">
+                  <div className="node sm">Undergrad</div>
+                </div>
+                <div className="child">
+                  <div className="node sm">Undergrad</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="child">
+            <div className="subtree">
+              <div className="node">Grad, Mateo</div>
+              <div className="trunk" />
+              <div className="children cols-1">
+                <div className="child">
+                  <div className="node sm">Undergrad</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="child">
+            <div className="node">Grad, Wei</div>
+          </div>
+        </div>
+      </div>
+      <div className="idp">
+        <div className="idp-h">Mateo, IDP, year 3</div>
+        <div className="meter">
+          <span className="brand-rainbow-bg" />
+        </div>
+        <div className="idp-sub">
+          Career goals private, skills shared with the PI. Next check-in Friday,
+          agenda carried forward.
+        </div>
+      </div>
+      <style jsx>{`
+        .tag {
+          font-family: ui-monospace, Menlo, monospace;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: #64748b;
+        }
+        .tree {
+          margin-top: 12px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          width: 100%;
+        }
+        .node {
+          border: 1px solid #dbe6f3;
+          background: #fbfcfe;
+          border-radius: 10px;
+          padding: 7px 12px;
+          font-size: 12.5px;
+          font-weight: 700;
+          color: #0f2350;
+        }
+        .node.pi {
+          background: linear-gradient(90deg, #3b8bff22, #a06bff22);
+          border-color: #3b8bff55;
+        }
+        .node.sm {
+          font-size: 11px;
+          padding: 5px 9px;
+          font-weight: 600;
+          color: #64748b;
+        }
+        .trunk {
+          width: 2px;
+          height: 16px;
+          background: #dbe6f3;
+        }
+        /* equal columns so each child is centered under its parent trunk;
+           align-items:start so a childless node (Wei) stays at its own tier. */
+        .children {
+          display: grid;
+          gap: 12px;
+          width: 100%;
+          align-items: start;
+        }
+        .cols-1 {
+          grid-template-columns: 1fr;
+        }
+        .cols-2 {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .cols-3 {
+          grid-template-columns: repeat(3, 1fr);
+        }
+        .child {
+          position: relative;
+          padding-top: 16px;
+          display: flex;
+          justify-content: center;
+        }
+        /* translateX(-50%) centers the 2px drop exactly on 50% so it is colinear
+           with the flex-centered trunk (one straight line, not stitched). */
+        .child::before {
+          content: "";
+          position: absolute;
+          top: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 2px;
+          height: 16px;
+          background: #dbe6f3;
+        }
+        .child::after {
+          content: "";
+          position: absolute;
+          top: 0;
+          height: 2px;
+          background: #dbe6f3;
+        }
+        .child:first-child::after {
+          left: 50%;
+          right: -6px;
+        }
+        .child:last-child::after {
+          left: -6px;
+          right: 50%;
+        }
+        .child:not(:first-child):not(:last-child)::after {
+          left: -6px;
+          right: -6px;
+        }
+        /* a lone child has no siblings, so no bus, just the drop. Specificity
+           must beat .child:last-child::after, hence .children.cols-1. */
+        .children.cols-1 .child::after {
+          display: none;
+        }
+        .subtree {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          width: 100%;
+        }
+        .idp {
+          margin-top: 14px;
+          border: 1px solid #dbe6f3;
+          border-radius: 10px;
+          padding: 11px 13px;
+          background: #fbfcfe;
+        }
+        .idp-h {
+          font-size: 12.5px;
+          font-weight: 800;
+          color: #0f2350;
+        }
+        .meter {
+          height: 7px;
+          border-radius: 99px;
+          background: #dbe6f3;
+          margin-top: 7px;
+          overflow: hidden;
+        }
+        .meter span {
+          display: block;
+          height: 100%;
+          width: 62%;
+        }
+        .idp-sub {
+          font-size: 11px;
+          color: #64748b;
+          margin-top: 6px;
+          line-height: 1.5;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------------------
  * A feature showcase row, the workhorse layout for sections 2 through 7 of the
  * mockup. Text on one side, a framed demo (real clip or placeholder) on the
  * other. `flip` puts the visual first on desktop (the mockup's .feat.alt). The
@@ -946,6 +1142,25 @@ export default function WelcomePage({
                 claim="Add a purchase, attach an order PDF, watch it appear in inventory, then the PI hands it off to the department."
                 tag="Purchases + Inventory"
               />
+            </RainbowFrame>
+          }
+        />
+
+        {/* ── 6.5 CHECK-INS + MENTORING ────────────────────────────────── */}
+        <FeatureRow
+          tint
+          kicker="// not corporate one-on-ones"
+          title="Mentorship and check-ins, built for how labs run"
+          body="Structured check-ins between a PI and each trainee, group lab meetings with a presenter rotation, and individual development plans modeled on the standards trainees already use (AAAS myIDP). Funders increasingly expect documented mentoring and IDPs, so it lives where the rest of the lab already works, not in a separate HR tool."
+          pills={[
+            "Career-stage IDPs",
+            "Lab meeting rotation",
+            "PI and trainee 1:1s",
+            "Mentorship tree",
+          ]}
+          visual={
+            <RainbowFrame>
+              <CheckinsVisual />
             </RainbowFrame>
           }
         />

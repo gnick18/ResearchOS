@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Welcome highlight, check-ins built for academia (review)</title>
+<style>
+  :root{
+    --ink:#0f2350; --muted:#475569; --line:#dbe6f3; --tint:#f4f8fd;
+    --action:#1aa0e6; --green:#16a34a; --red:#dc2626; --bg:#fbfcfe; --card:#fff;
+    --rainbow:linear-gradient(90deg,#ff5f6d,#ffc371,#47e6b1,#3b8bff,#a06bff);
+  }
+  [data-theme="dark"]{
+    --ink:#e8eefb; --muted:#9fb2cc; --line:#23344f; --tint:#101a2c;
+    --bg:#0a1120; --card:#0f1a2c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  .ribbon{height:8px;background:var(--rainbow)}
+  /* toolbar */
+  .bar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:12px;
+    padding:10px 18px;background:color-mix(in srgb,var(--card) 92%,transparent);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .bar h1{font-size:14px;margin:0;font-weight:800}
+  .bar .sub{font-size:12px;color:var(--muted)}
+  .spacer{flex:1}
+  .tool{font-size:12px;font-weight:700;border:1px solid var(--line);background:var(--card);
+    color:var(--ink);border-radius:8px;padding:6px 11px;cursor:pointer}
+  .estat{font-size:12px;color:var(--muted)}
+  /* page mock */
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+  .lead{max-width:780px;margin:26px auto 6px;padding:0 24px;font-size:15px;line-height:1.6;color:var(--muted)}
+  .context{max-width:780px;margin:0 auto 18px;padding:0 24px;font-size:12.5px;color:var(--muted)}
+  section.feat{padding:54px 24px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--tint)}
+  .grid{max-width:1180px;margin:0 auto;display:grid;gap:48px;align-items:center}
+  @media(min-width:860px){.grid{grid-template-columns:1fr 1fr}}
+  .kicker{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:700;
+    color:var(--action);letter-spacing:.02em}
+  h2.title{margin:12px 0 0;font-size:30px;line-height:1.12;font-weight:800;letter-spacing:-.02em;max-width:20ch}
+  .body{margin-top:16px;max-width:54ch;font-size:17px;line-height:1.6;color:var(--muted)}
+  .pills{margin-top:18px;display:flex;flex-wrap:wrap;gap:8px 20px}
+  .pill{display:flex;align-items:center;gap:7px;font-size:15px;font-weight:700;color:var(--ink)}
+  .pill i{width:6px;height:6px;border-radius:50%;background:var(--action);display:inline-block}
+  /* rainbow-framed visual */
+  .frame{padding:3px;border-radius:18px;background:var(--rainbow)}
+  .frame-inner{background:var(--card);border-radius:15px;padding:18px}
+  .vtag{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  /* mentorship tree mini */
+  .tree{margin-top:12px;display:flex;flex-direction:column;align-items:center;gap:0;width:100%}
+  .node{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:7px 12px;font-size:12.5px;font-weight:700}
+  .node.pi{background:linear-gradient(90deg,#3b8bff22,#a06bff22);border-color:#3b8bff55}
+  /* vertical drop from the PI to the horizontal bus */
+  .trunk{width:2px;height:16px;background:var(--line)}
+  /* equal columns so each child is centered in its slot (its drop lines up with
+     the parent trunk) regardless of how wide each name box is */
+  /* align-items:start so a childless node (e.g. Wei) stays at its own tier
+     instead of stretching down to match siblings that have mentees below */
+  .children{display:grid;gap:12px;width:100%;align-items:start}
+  .cols-1{grid-template-columns:1fr}
+  .cols-2{grid-template-columns:repeat(2,1fr)}
+  .cols-3{grid-template-columns:repeat(3,1fr)}
+  .children .child{position:relative;padding-top:16px;display:flex;justify-content:center}
+  /* short vertical from the bus down into each child. translateX(-50%) centers
+     the 2px line exactly on 50% so it is colinear with the flex-centered trunk
+     (otherwise left:50% sits the line 1px to the right and the segments look
+     stitched rather than one straight line). */
+  .children .child::before{content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);width:2px;height:16px;background:var(--line)}
+  /* horizontal bus across siblings; ends extend 6px (half the gap) into the gaps
+     so it reads as one continuous line. */
+  .children .child::after{content:"";position:absolute;top:0;height:2px;background:var(--line)}
+  .children .child:first-child::after{left:50%;right:-6px}
+  .children .child:last-child::after{left:-6px;right:50%}
+  .children .child:not(:first-child):not(:last-child)::after{left:-6px;right:-6px}
+  /* a lone child has no siblings, so no horizontal bus, just the straight drop.
+     Specificity must beat .children .child:last-child::after, hence .children.cols-1. */
+  .children.cols-1 .child::after{display:none}
+  /* a mentor who has their own mentees becomes a mini column (node + its subtree) */
+  .subtree{display:flex;flex-direction:column;align-items:center;width:100%}
+  .node.sm{font-size:11px;padding:5px 9px;font-weight:600;color:var(--muted)}
+  .idp{margin-top:14px;border:1px solid var(--line);border-radius:10px;padding:11px 13px;background:var(--bg)}
+  .idp .h{font-size:12.5px;font-weight:800}
+  .meter{height:7px;border-radius:99px;background:var(--line);margin-top:7px;overflow:hidden}
+  .meter span{display:block;height:100%;background:var(--rainbow);width:62%}
+  .idp .sub{font-size:11px;color:var(--muted);margin-top:6px}
+  /* decision blocks */
+  .decision{max-width:780px;margin:18px auto;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+  .decision .q{font-size:13.5px;font-weight:800;margin-bottom:8px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{font-size:12px;font-weight:700;border:0;background:var(--card);color:var(--ink);padding:6px 13px;cursor:pointer}
+  .seg button.on[data-v="approve"]{background:var(--green);color:#fff}
+  .seg button.on[data-v="reject"]{background:var(--red);color:#fff}
+  .variants{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+  .variant{display:flex;gap:9px;align-items:flex-start;font-size:13.5px;padding:9px 11px;border:1px solid var(--line);border-radius:9px;cursor:pointer;background:var(--bg)}
+  .variant.sel{border-color:var(--action);box-shadow:0 0 0 2px #1aa0e633}
+  .variant input{margin-top:3px}
+  .variant .vk{font-family:ui-monospace,monospace;font-size:11px;color:var(--action);display:block;margin-bottom:2px}
+  textarea.note{width:100%;margin-top:9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);
+    color:var(--ink);font-size:12.5px;padding:8px;min-height:42px;resize:vertical;font-family:inherit}
+  .hint{font-size:11px;color:var(--muted);margin-top:6px}
+  dialog{border:0;border-radius:12px;max-width:560px;width:92%;padding:0;background:var(--card);color:var(--ink)}
+  dialog .dh{padding:12px 16px;border-bottom:1px solid var(--line);font-weight:800;font-size:13px}
+  dialog textarea{width:100%;border:0;background:var(--bg);color:var(--ink);min-height:300px;padding:14px;font-family:ui-monospace,monospace;font-size:12px}
+  dialog .df{padding:10px 16px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div class="ribbon"></div>
+<div class="bar">
+  <div>
+    <h1>Welcome highlight, check-ins built for academia</h1>
+    <div class="sub">Review the new feature section + pick the copy angle. Decisions persist locally; Export when done and paste back into chat.</div>
+  </div>
+  <div class="spacer"></div>
+  <span class="estat" id="estat">No decisions yet</span>
+  <button class="tool" id="themeBtn">Toggle dark</button>
+  <button class="tool" id="exportBtn">Export decisions</button>
+</div>
+
+<p class="lead">Check-ins (PI and trainee 1:1s, group lab meetings, and IDPs) are nowhere on the marketing pages today, yet the academic mentorship structure is one of the strongest differentiators versus generic project tools. This adds one feature-row to the welcome scroll, in the exact style of the chemistry / stats / sequences rows, framed for academia.</p>
+<p class="context">Below is how the section would render in the welcome page (faithful to the real FeatureRow: monospace kicker, title, body, capability pills, rainbow-framed visual, tinted band, alternating side). The visual here is a static stand-in for a short demo loop.</p>
+
+<!-- ============ THE RENDERED FEATURE SECTION ============ -->
+<section class="feat">
+  <div class="grid">
+    <!-- text -->
+    <div>
+      <span class="kicker" id="liveKicker">// not corporate one-on-ones</span>
+      <h2 class="title" id="liveTitle">Mentorship and check-ins, built for how labs run</h2>
+      <p class="body">Structured check-ins between a PI and each trainee, group lab meetings with a presenter rotation, and individual development plans modeled on the standards trainees already use (AAAS myIDP). Funders increasingly expect documented mentoring and IDPs, so it lives where the rest of the lab already works, not in a separate HR tool.</p>
+      <div class="pills">
+        <span class="pill"><i></i>Career-stage IDPs</span>
+        <span class="pill"><i></i>Lab meeting rotation</span>
+        <span class="pill"><i></i>PI and trainee 1:1s</span>
+        <span class="pill"><i></i>Mentorship tree</span>
+      </div>
+    </div>
+    <!-- visual -->
+    <div>
+      <div class="frame"><div class="frame-inner">
+        <span class="vtag">Check-ins and mentoring</span>
+        <div class="tree">
+          <div class="node pi">Dr. Nickles, PI</div>
+          <div class="trunk"></div>
+          <div class="children cols-3">
+            <div class="child">
+              <div class="subtree">
+                <div class="node">Postdoc, Ana</div>
+                <div class="trunk"></div>
+                <div class="children cols-2">
+                  <div class="child"><div class="node sm">Undergrad</div></div>
+                  <div class="child"><div class="node sm">Undergrad</div></div>
+                </div>
+              </div>
+            </div>
+            <div class="child">
+              <div class="subtree">
+                <div class="node">Grad, Mateo</div>
+                <div class="trunk"></div>
+                <div class="children cols-1">
+                  <div class="child"><div class="node sm">Undergrad</div></div>
+                </div>
+              </div>
+            </div>
+            <div class="child"><div class="node">Grad, Wei</div></div>
+          </div>
+        </div>
+        <div class="idp">
+          <div class="h">Mateo, IDP, year 3</div>
+          <div class="meter"><span></span></div>
+          <div class="sub">Career goals private, skills shared with PI. Next check-in Fri, agenda carried forward.</div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DECISIONS ============ -->
+<div class="decision">
+  <div class="q">1. Add this section to the welcome page?</div>
+  <div class="seg" data-id="add-section">
+    <button data-v="approve">Approve</button>
+    <button data-v="reject">No</button>
+  </div>
+  <textarea class="note" data-note="add-section" placeholder="Notes (placement, anything to change)..."></textarea>
+</div>
+
+<div class="decision">
+  <div class="q">2. Copy angle, pick the headline (updates the preview above)</div>
+  <div class="variants" id="variants">
+    <label class="variant sel" data-k="// not corporate one-on-ones" data-t="Mentorship and check-ins, built for how labs run">
+      <input type="radio" name="copy" checked>
+      <span><span class="vk">// not corporate one-on-ones</span>Mentorship and check-ins, built for how labs run</span>
+    </label>
+    <label class="variant" data-k="// mentoring funders now expect" data-t="Run 1:1s, lab meetings, and IDPs in one place">
+      <input type="radio" name="copy">
+      <span><span class="vk">// mentoring funders now expect</span>Run 1:1s, lab meetings, and IDPs in one place</span>
+    </label>
+    <label class="variant" data-k="// built for the PI and trainee relationship" data-t="The mentorship structure academic labs actually use">
+      <input type="radio" name="copy">
+      <span><span class="vk">// built for the PI and trainee relationship</span>The mentorship structure academic labs actually use</span>
+    </label>
+  </div>
+  <textarea class="note" data-note="copy" placeholder="Or write your own headline / kicker..."></textarea>
+</div>
+
+<div class="decision">
+  <div class="q">3. The four capability pills, right set?</div>
+  <div class="seg" data-id="pills">
+    <button data-v="approve">Approve</button>
+    <button data-v="reject">Change</button>
+  </div>
+  <textarea class="note" data-note="pills" placeholder="Swap / add / drop any pill (Career-stage IDPs, Lab meeting rotation, PI and trainee 1:1s, Mentorship tree)..."></textarea>
+</div>
+
+<div class="decision">
+  <div class="q">4. Visual concept, mentorship tree + IDP card?</div>
+  <div class="seg" data-id="visual">
+    <button data-v="approve">Approve</button>
+    <button data-v="reject">Different</button>
+  </div>
+  <textarea class="note" data-note="visual" placeholder="A real demo loop of the live check-ins surface will replace this stand-in. Note any preference..."></textarea>
+</div>
+
+<dialog id="exp">
+  <div class="dh">Decisions, copy and paste back into chat</div>
+  <textarea id="expText" readonly></textarea>
+  <div class="df"><button class="tool" id="copyExp">Copy</button><button class="tool" id="closeExp">Close</button></div>
+</dialog>
+
+<script>
+const KEY="ros-checkins-highlight-review";
+const state=JSON.parse(localStorage.getItem(KEY)||"{}");
+function save(){localStorage.setItem(KEY,JSON.stringify(state));render();}
+function render(){
+  const n=Object.keys(state).filter(k=>state[k]&&state[k]!=="").length;
+  document.getElementById("estat").textContent=n?`${n} decision${n>1?"s":""} recorded`:"No decisions yet";
+}
+// segmented approve/reject
+document.querySelectorAll(".seg").forEach(seg=>{
+  const id=seg.dataset.id;
+  seg.querySelectorAll("button").forEach(b=>{
+    if(state[id]===b.dataset.v)b.classList.add("on");
+    b.onclick=()=>{seg.querySelectorAll("button").forEach(x=>x.classList.remove("on"));
+      b.classList.add("on");state[id]=b.dataset.v;save();};
+  });
+});
+// notes
+document.querySelectorAll("[data-note]").forEach(t=>{
+  const id="note:"+t.dataset.note;
+  t.value=state[id]||"";
+  t.oninput=()=>{state[id]=t.value;save();};
+});
+// copy variants drive the live preview
+const variants=document.getElementById("variants");
+variants.querySelectorAll(".variant").forEach(v=>{
+  v.onclick=()=>{
+    variants.querySelectorAll(".variant").forEach(x=>x.classList.remove("sel"));
+    v.classList.add("sel");v.querySelector("input").checked=true;
+    document.getElementById("liveKicker").textContent=v.dataset.k;
+    document.getElementById("liveTitle").textContent=v.dataset.t;
+    state["copy:choice"]=v.dataset.t;save();
+  };
+});
+if(state["copy:choice"]){
+  const m=[...variants.querySelectorAll(".variant")].find(v=>v.dataset.t===state["copy:choice"]);
+  if(m)m.click();
+}
+// theme
+document.getElementById("themeBtn").onclick=()=>{
+  const d=document.documentElement.getAttribute("data-theme")==="dark";
+  document.documentElement.setAttribute("data-theme",d?"":"dark");
+};
+// export
+document.getElementById("exportBtn").onclick=()=>{
+  const lines=["Check-ins academic highlight, review decisions",""];
+  const labels={"add-section":"1. Add section","pills":"3. Pills","visual":"4. Visual"};
+  for(const k of ["add-section","pills","visual"]) lines.push(`${labels[k]}: ${state[k]||"(no answer)"}`);
+  lines.push(`2. Headline chosen: ${state["copy:choice"]||"(default)"}`);
+  lines.push("");
+  for(const k of Object.keys(state).filter(k=>k.startsWith("note:")&&state[k])) lines.push(`Note [${k.slice(5)}]: ${state[k]}`);
+  document.getElementById("expText").value=lines.join("\n");
+  document.getElementById("exp").showModal();
+};
+document.getElementById("copyExp").onclick=()=>navigator.clipboard.writeText(document.getElementById("expText").value);
+document.getElementById("closeExp").onclick=()=>document.getElementById("exp").close();
+render();
+</script>
+</body>
+</html>
