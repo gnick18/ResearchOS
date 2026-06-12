@@ -4,10 +4,12 @@
 //
 //   search_pubchem   (READ-only) — search PubChem by name, formula, or CID.
 //                    Returns a compact list of matches (name, CID, formula, MW,
-//                    canonical SMILES) so the user can pick a compound to import.
-//                    Reuses searchCompounds from lib/chemistry/pubchem.ts, the
-//                    same CORS-open PUG-REST client the import dialog uses.
-//                    No local write; relay the result or relay the error plainly.
+//                    canonical SMILES, plus the physicochemical descriptors XLogP,
+//                    H-bond donor / acceptor counts, and TPSA) so the user can pick
+//                    a compound to import or read its properties. Reuses
+//                    searchCompounds from lib/chemistry/pubchem.ts, the same
+//                    CORS-open PUG-REST client the import dialog uses. No local
+//                    write; relay the result or relay the error plainly.
 //
 //   create_molecule  (ACTION, GATED) — create a molecule record from a SMILES
 //                    string and a name. Reuses computeIdentity (lib/chemistry/rdkit)
@@ -107,6 +109,15 @@ export type PubChemMatch = {
    *  authoritative canonical SMILES that gets written to the library on import comes
    *  from RDKit parsing the SDF, not from this field. */
   canonical_smiles: string;
+  /** Computed octanol-water partition coefficient (XLogP), a lipophilicity
+   *  descriptor, or null when PubChem reports none for this compound. */
+  xlogp: number | null;
+  /** Hydrogen-bond donor count, or null when absent. */
+  h_bond_donor_count: number | null;
+  /** Hydrogen-bond acceptor count, or null when absent. */
+  h_bond_acceptor_count: number | null;
+  /** Topological polar surface area in square angstroms, or null when absent. */
+  tpsa: number | null;
 };
 
 /** Return shape from search_pubchem. */
@@ -128,17 +139,26 @@ export function mapToMatch(c: PubChemCompound): PubChemMatch {
     // Return an empty string here; the model can search the compound and then call
     // import_molecule to get the canonical SMILES into the library.
     canonical_smiles: "",
+    // Physicochemical descriptors PubChem computes (each null when it reports
+    // none), surfaced so the model can relay them. These are informational in the
+    // search result and are not persisted on import (the molecule sidecar carries
+    // its own RDKit-derived descriptors).
+    xlogp: c.xlogp,
+    h_bond_donor_count: c.h_bond_donor_count,
+    h_bond_acceptor_count: c.h_bond_acceptor_count,
+    tpsa: c.tpsa,
   };
 }
 
 export const searchPubChemTool: AiTool = {
   name: "search_pubchem",
   description:
-    "Search PubChem for compounds by name, molecular formula, or CID. Returns up to 8 matching compounds, each with a CID, name, molecular formula, and molecular weight. " +
-    "Use this when the user asks to find a compound, look up a chemical, or wants to know whether a compound is in PubChem before importing it. " +
+    "Search PubChem for compounds by name, molecular formula, or CID. Returns up to 8 matching compounds, each with a CID, name, molecular formula, molecular weight, and the computed physicochemical descriptors XLogP (octanol-water partition coefficient, a lipophilicity measure), hydrogen-bond donor count, hydrogen-bond acceptor count, and topological polar surface area (TPSA, in square angstroms). " +
+    "Use this when the user asks to find a compound, look up a chemical, check its properties (logP, polar surface area, H-bond donors / acceptors), or wants to know whether a compound is in PubChem before importing it. " +
     "A bare number is treated as a CID. A name uses PubChem autocomplete to surface related candidates, with the exact match first. " +
+    "Any descriptor PubChem does not report for a compound comes back as null, so relay only the values that are present. " +
     "This is a read-only network call to PubChem (a public NIH resource), no local data is written. " +
-    "Returns { ok: true, count, matches: [{ cid, name, formula, mol_weight }] } or { ok: false, error } when nothing matches or the network fails. " +
+    "Returns { ok: true, count, matches: [{ cid, name, formula, mol_weight, xlogp, h_bond_donor_count, h_bond_acceptor_count, tpsa }] } or { ok: false, error } when nothing matches or the network fails. " +
     "After a search, you may call import_molecule with the CID to import the compound into the user's library.",
   parameters: {
     type: "object",

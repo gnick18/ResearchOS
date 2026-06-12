@@ -47,6 +47,7 @@ import {
   withStyle,
   type ErrorBarKind,
   type PlotKind,
+  type PlotStyle,
 } from "@/lib/datahub/plot-spec";
 import type {
   DataHubDocContent,
@@ -117,16 +118,26 @@ export const datahubGraphDeps: DataHubGraphDeps = {
 
 /**
  * The model-facing graph type, kept small and plain. "dot" is the Prism column
- * dot plot (individual points over a mean line, the default) and "bar" is a bar
- * to the mean. These map onto the engine's PlotKind ("columnScatter" /
- * "columnBar") so the model never has to know the internal kind names.
+ * dot plot (individual points over a mean line, the default), "bar" is a bar to
+ * the mean, and "estimation" is the modern effect-size figure (the bootstrap
+ * mean-difference with its confidence interval, the alternative to the bar with
+ * significance stars). "dot" and "bar" map onto the engine's column PlotKind;
+ * "estimation" resolves by GROUP COUNT to one of the two estimation kinds
+ * (Gardner-Altman for two groups, Cumming for three or more), so the model never
+ * has to know the internal kind names.
  */
-export type GraphType = "dot" | "bar";
+export type GraphType = "dot" | "bar" | "estimation";
+
+/** The bootstrap CI method an estimation figure can ask for (the engine default
+ *  is "bca", DABEST's default; "percentile" is the simpler alternative). Drawn
+ *  from the engine's own PlotStyle so the option set never drifts. */
+export type BootstrapMethodOption = NonNullable<PlotStyle["estimationBootMethod"]>;
 
 /** The model-supplied arguments, before mapping to a PlotSpec. */
 export type MakeGraphArgs = {
   tableId: string;
-  /** "dot" (the default) for a column dot plot, "bar" for a bar chart. */
+  /** "dot" (the default) for a column dot plot, "bar" for a bar chart, or
+   *  "estimation" for an effect-size-with-CI figure. */
   type: GraphType;
   /** Which error bar to draw, computed by the engine from the raw replicates. */
   errorBar: ErrorBarKind;
@@ -136,11 +147,46 @@ export type MakeGraphArgs = {
   showPoints?: boolean;
   /** Optional figure title. */
   title?: string;
+  /**
+   * Estimation-only. The control group (by name or id) the differences are taken
+   * against. Resolved to its index in the plotted column order; omit to use the
+   * first plotted group.
+   */
+  control?: string;
+  /**
+   * Estimation-only. Draw the paired variant (matched slope lines + a paired
+   * bootstrap) instead of the unpaired one. Only valid for a two-group
+   * (Gardner-Altman) figure; ignored for three or more groups.
+   */
+  paired?: boolean;
+  /** Estimation-only. The CI level the bootstrap reports (0 to 1, default 0.95). */
+  ci?: number;
+  /** Estimation-only. The bootstrap resample count (default 5000). */
+  bootstrapSamples?: number;
+  /** Estimation-only. The PRNG seed so the figure redraws bit-for-bit. */
+  seed?: number;
+  /** Estimation-only. The CI method ("bca" the default, or "percentile"). */
+  bootstrapMethod?: BootstrapMethodOption;
 };
 
-/** Map the model graph type onto the engine PlotKind. */
+/**
+ * Map the column model graph types onto the engine PlotKind. "estimation" is NOT
+ * mapped here because it resolves by group count (see estimationKindForGroups);
+ * an "estimation" argument falls back to the column dot plot kind, which the
+ * estimation build path overrides before storing.
+ */
 export function toPlotKind(type: GraphType): PlotKind {
   return type === "bar" ? "columnBar" : "columnScatter";
+}
+
+/**
+ * Resolve the estimation PlotKind from the plotted group count. Two groups draw a
+ * Gardner-Altman figure (one difference panel); three or more draw a Cumming
+ * figure (one panel per non-control group sharing the control). This is the only
+ * thing that picks between the two estimation kinds, exactly the engine contract.
+ */
+export function estimationKindForGroups(groupCount: number): PlotKind {
+  return groupCount >= 3 ? "estimationCumming" : "estimationGardnerAltman";
 }
 
 /** Parse the loose tool args into a typed MakeGraphArgs, defaulting safely. */
@@ -148,7 +194,12 @@ export function parseMakeGraphArgs(
   args: Record<string, unknown>,
 ): MakeGraphArgs {
   const tableId = typeof args.tableId === "string" ? args.tableId : "";
-  const type: GraphType = args.type === "bar" ? "bar" : "dot";
+  const type: GraphType =
+    args.type === "bar"
+      ? "bar"
+      : args.type === "estimation"
+        ? "estimation"
+        : "dot";
   const errorBar: ErrorBarKind =
     args.errorBar === "sd" || args.errorBar === "none"
       ? (args.errorBar as ErrorBarKind)
@@ -159,7 +210,42 @@ export function parseMakeGraphArgs(
   const showPoints =
     typeof args.showPoints === "boolean" ? args.showPoints : undefined;
   const title = typeof args.title === "string" ? args.title : undefined;
-  return { tableId, type, errorBar, columns, showPoints, title };
+  // Estimation-only args. Each is left undefined when absent so the engine's own
+  // default applies (the build path only writes a field the model actually set).
+  const control = typeof args.control === "string" ? args.control : undefined;
+  const paired = typeof args.paired === "boolean" ? args.paired : undefined;
+  const ci =
+    typeof args.ci === "number" && args.ci > 0 && args.ci < 1
+      ? args.ci
+      : undefined;
+  const bootstrapSamples =
+    typeof args.bootstrapSamples === "number" &&
+    Number.isFinite(args.bootstrapSamples) &&
+    args.bootstrapSamples >= 100
+      ? Math.round(args.bootstrapSamples)
+      : undefined;
+  const seed =
+    typeof args.seed === "number" && Number.isFinite(args.seed)
+      ? Math.round(args.seed)
+      : undefined;
+  const bootstrapMethod =
+    args.bootstrapMethod === "bca" || args.bootstrapMethod === "percentile"
+      ? (args.bootstrapMethod as BootstrapMethodOption)
+      : undefined;
+  return {
+    tableId,
+    type,
+    errorBar,
+    columns,
+    showPoints,
+    title,
+    control,
+    paired,
+    ci,
+    bootstrapSamples,
+    seed,
+    bootstrapMethod,
+  };
 }
 
 /**
@@ -184,6 +270,30 @@ export function resolveGraphColumns(
   return out;
 }
 
+/**
+ * Resolve the model's control reference (a group name OR id, case-insensitive on
+ * name) to its index within the PLOTTED column order, which is the index the
+ * engine reads as style.estimationControlIndex (it aligns the difference axis to
+ * that group's mean and takes every other group's difference against it). An
+ * unknown reference, or none, falls back to 0 (the first plotted group), the
+ * engine's own default. `columnIds` is the resolved, ordered list of plotted
+ * group ids; `content` supplies the group names for a by-name match.
+ */
+export function resolveControlIndex(
+  content: DataHubDocContent,
+  columnIds: string[],
+  control: string | undefined,
+): number {
+  if (!control) return 0;
+  const groups = groupColumns(content);
+  const nameById = new Map(groups.map((c) => [c.id, c.name.trim().toLowerCase()]));
+  const ref = control.trim().toLowerCase();
+  const idx = columnIds.findIndex(
+    (id) => id === control || nameById.get(id) === ref,
+  );
+  return idx >= 0 ? idx : 0;
+}
+
 // ---------------------------------------------------------------------------
 // Build the figure (the model -> plot-spec engine bridge)
 // ---------------------------------------------------------------------------
@@ -197,6 +307,14 @@ export type MakeGraphResult =
       errorBar: ErrorBarKind;
       columns: string[];
       plotId: string;
+      /** The resolved engine PlotKind, present for an estimation figure so the
+       *  model can name the variant it built ("estimationGardnerAltman" for two
+       *  groups, "estimationCumming" for three or more). Absent for dot / bar. */
+      plotKind?: PlotKind;
+      /** The control group name an estimation figure took its differences against. */
+      control?: string;
+      /** True when an estimation figure drew the paired (matched) variant. */
+      paired?: boolean;
     }
   | { ok: false; error: string };
 
@@ -240,17 +358,74 @@ export function buildGraph(
     };
   }
 
-  const kind = toPlotKind(parsed.type);
   const names = groups
     .filter((c) => columnIds.includes(c.id))
     .map((c) => c.name);
+
+  const id = `plot-${Date.now()}`;
+
+  // Estimation figure: the modern effect-size-with-CI plot. The kind resolves by
+  // group count (Gardner-Altman for two, Cumming for three or more), the control
+  // resolves to its index in the plotted column order, and the bootstrap settings
+  // (paired / CI / B / seed / method) are handed to the engine, which runs the
+  // validated E4 bootstrap and lays out the figure. The model never computes a
+  // mean difference, a CI, or a density value.
+  if (parsed.type === "estimation") {
+    const kind = estimationKindForGroups(columnIds.length);
+    const controlIndex = resolveControlIndex(content, columnIds, parsed.control);
+    // Paired is only valid for the two-group Gardner-Altman variant (one
+    // non-control group pairs against the control). For three or more groups the
+    // engine ignores it, so we do not write it onto a Cumming figure.
+    const paired =
+      kind === "estimationGardnerAltman" && parsed.paired === true;
+
+    const base = buildPlotSpec({
+      id,
+      kind,
+      tableId: content.meta.id,
+      yTitle: content.meta.name || "Value",
+      title: parsed.title,
+      estimationControlIndex: controlIndex,
+      estimationPaired: paired,
+    });
+    // Apply the estimation style the engine reads. Only the fields the model set
+    // are written; the rest keep buildPlotSpec's defaults so the figure is
+    // reproducible (the engine reads estimationControlIndex, estimationPaired,
+    // estimationCi, estimationB, estimationSeed, estimationBootMethod).
+    const patch: Partial<PlotStyle> = {
+      kind,
+      estimationControlIndex: controlIndex,
+      estimationPaired: paired,
+    };
+    if (parsed.ci !== undefined) patch.estimationCi = parsed.ci;
+    if (parsed.bootstrapSamples !== undefined)
+      patch.estimationB = parsed.bootstrapSamples;
+    if (parsed.seed !== undefined) patch.estimationSeed = parsed.seed;
+    if (parsed.bootstrapMethod !== undefined)
+      patch.estimationBootMethod = parsed.bootstrapMethod;
+    const spec = withStyle(base, patch);
+
+    const result: Extract<MakeGraphResult, { ok: true }> = {
+      ok: true,
+      table: content.meta.name,
+      graphType: parsed.type,
+      errorBar: parsed.errorBar,
+      columns: names,
+      plotId: id,
+      plotKind: kind,
+      control: names[controlIndex] ?? names[0],
+      paired,
+    };
+    return { ok: true, spec, result };
+  }
+
+  const kind = toPlotKind(parsed.type);
 
   // Build the spec through the validated engine builder (buildPlotSpec seeds the
   // default publication style + the source), then apply the requested kind,
   // error bar, and point toggle through withStyle (the same style write the
   // editor's styling panel uses). The engine builds the figure geometry from
   // this spec; the model never computes a bar height or an error cap.
-  const id = `plot-${Date.now()}`;
   const base = buildPlotSpec({
     id,
     kind,
@@ -289,7 +464,7 @@ export function buildGraph(
 export const makeDataHubGraphTool: AiTool = {
   name: "make_datahub_graph",
   description:
-    "Build a publication figure from a Data Hub table, store it, and take the user to see it. Use this when the user asks to plot, chart, or graph their Data Hub data (for example \"make a bar chart of fakeGFP expression with SEM error bars\" or \"plot the growth curve\"). Call list_datahub_tables first to get the table id and the real column names, then call this with that table id. You pick the table, the graph TYPE (\"dot\" for a column dot plot of individual points over the mean, the default, or \"bar\" for a bar chart of the means), and the error bar (\"sem\", \"sd\", or \"none\"). If the user did not say which graph type or error bar they want and it matters, call ask_user (select \"one\") so they tap the choice (for example \"Bar with SEM\" vs \"Dot plot\") before you call this. The app's plot engine builds the figure itself, you never compute or invent a bar height, a mean, an error bar, or any plotted value. This runs straight away, there is NO separate approval step, the user's request (and any choice they tapped) is the consent, so do not call propose_plan for it and do not ask the user to allow it. It saves the figure into that table as a version-controlled plot, navigates the user to the Data Hub so they see it, and returns what it plotted. After it returns, give ONE short line naming the chart it built.",
+    "Build a publication figure from a Data Hub table, store it, and take the user to see it. Use this when the user asks to plot, chart, or graph their Data Hub data (for example \"make a bar chart of fakeGFP expression with SEM error bars\" or \"plot the growth curve\"). Call list_datahub_tables first to get the table id and the real column names, then call this with that table id. You pick the table, the graph TYPE (\"dot\" for a column dot plot of individual points over the mean, the default, \"bar\" for a bar chart of the means, or \"estimation\" for an effect-size plot, see below), and the error bar (\"sem\", \"sd\", or \"none\"). The \"estimation\" type draws the modern effect-size-with-confidence-interval figure (an estimation plot, also called a Gardner-Altman or Cumming plot, the DABEST-style alternative to a bar chart with significance stars): it shows every group's raw data plus the bootstrap distribution of the mean difference and its CI, so a reader sees the SIZE of the effect rather than only a yes / no star. Ask for it when the user wants an estimation plot, a Gardner-Altman plot, a Cumming plot, an effect-size plot, or a mean-difference / difference-with-CI figure. For an estimation plot you may also pass \"control\" (the group name or id every difference is taken against, default the first plotted group) and \"paired\" (true for matched / repeated-measures data, valid only when exactly two groups are plotted). The two-groups-vs-three-or-more choice (Gardner-Altman vs Cumming) is made for you from the group count, you do not pick it. If the user did not say which graph type or error bar they want and it matters, call ask_user (select \"one\") so they tap the choice (for example \"Bar with SEM\" vs \"Dot plot\" vs \"Estimation plot\") before you call this. The app's plot engine builds the figure itself, you never compute or invent a bar height, a mean, an error bar, a mean difference, a confidence interval, or any plotted value. This runs straight away, there is NO separate approval step, the user's request (and any choice they tapped) is the consent, so do not call propose_plan for it and do not ask the user to allow it. It saves the figure into that table as a version-controlled plot, navigates the user to the Data Hub so they see it, and returns what it plotted. After it returns, give ONE short line naming the chart it built.",
   parameters: {
     type: "object",
     properties: {
@@ -301,12 +476,22 @@ export const makeDataHubGraphTool: AiTool = {
       type: {
         type: "string",
         description:
-          "The graph type. \"dot\" (the default) draws each replicate as a point over the group mean line (a Prism column dot plot). \"bar\" draws a bar to each group mean. Choose from what the user asked for, or call ask_user when it is unspecified and matters.",
+          "The graph type. \"dot\" (the default) draws each replicate as a point over the group mean line (a Prism column dot plot). \"bar\" draws a bar to each group mean. \"estimation\" draws the effect-size figure (a Gardner-Altman plot for two groups, a Cumming plot for three or more) showing the bootstrap mean difference and its confidence interval. Choose from what the user asked for, or call ask_user when it is unspecified and matters.",
       },
       errorBar: {
         type: "string",
         description:
-          "Which error bar to draw, computed by the engine from the raw replicates. \"sem\" (the default) for standard error of the mean, \"sd\" for standard deviation, \"none\" for no error bars.",
+          "Which error bar to draw, computed by the engine from the raw replicates. \"sem\" (the default) for standard error of the mean, \"sd\" for standard deviation, \"none\" for no error bars. Not used by an estimation plot, which draws a confidence interval instead.",
+      },
+      control: {
+        type: "string",
+        description:
+          "Estimation plots only. The control group (by name or id) every mean difference is taken against, and the group the difference axis is aligned to. Omit to use the first plotted group.",
+      },
+      paired: {
+        type: "boolean",
+        description:
+          "Estimation plots only. Set true for matched / repeated-measures data so the figure draws the paired variant (slope lines between the matched points and a paired bootstrap). Valid only when exactly two groups are plotted (a Gardner-Altman figure); ignored for three or more groups.",
       },
       columns: {
         type: "array",

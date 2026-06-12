@@ -16,7 +16,9 @@ import {
   datahubGraphDeps,
   parseMakeGraphArgs,
   toPlotKind,
+  estimationKindForGroups,
   resolveGraphColumns,
+  resolveControlIndex,
   buildGraph,
   makeDataHubGraphTool,
 } from "../tools/datahub-graph";
@@ -49,6 +51,28 @@ function twoGroupContent(): DataHubDocContent {
     columns: [
       { id: "cControl", name: "Control", role: "y", dataType: "number" },
       { id: "cDrug", name: "Drug", role: "y", dataType: "number" },
+    ],
+    rows,
+    analyses: [],
+    plots: [],
+  };
+}
+
+// A three-group column table, so an estimation request resolves to Cumming.
+function threeGroupContent(): DataHubDocContent {
+  const control = [10, 11, 9, 12, 10, 11];
+  const low = [13, 14, 12, 15, 13, 14];
+  const high = [18, 19, 21, 20, 22, 19];
+  const rows = control.map((c, i) => ({
+    id: `r${i}`,
+    cells: { cControl: c, cLow: low[i], cHigh: high[i] },
+  }));
+  return {
+    meta: meta({ id: "3", name: "dose response" }),
+    columns: [
+      { id: "cControl", name: "Control", role: "y", dataType: "number" },
+      { id: "cLow", name: "Low", role: "y", dataType: "number" },
+      { id: "cHigh", name: "High", role: "y", dataType: "number" },
     ],
     rows,
     analyses: [],
@@ -107,6 +131,61 @@ describe("toPlotKind", () => {
   it("maps the plain model types onto the engine PlotKind", () => {
     expect(toPlotKind("bar")).toBe("columnBar");
     expect(toPlotKind("dot")).toBe("columnScatter");
+  });
+});
+
+describe("estimationKindForGroups", () => {
+  it("draws Gardner-Altman for two groups and Cumming for three or more", () => {
+    expect(estimationKindForGroups(2)).toBe("estimationGardnerAltman");
+    expect(estimationKindForGroups(3)).toBe("estimationCumming");
+    expect(estimationKindForGroups(5)).toBe("estimationCumming");
+  });
+});
+
+describe("parseMakeGraphArgs (estimation)", () => {
+  it("reads the estimation type and its control / paired args", () => {
+    const p = parseMakeGraphArgs({
+      tableId: "1",
+      type: "estimation",
+      control: "Control",
+      paired: true,
+      ci: 0.9,
+      bootstrapSamples: 2000,
+      seed: 7,
+      bootstrapMethod: "percentile",
+    });
+    expect(p.type).toBe("estimation");
+    expect(p.control).toBe("Control");
+    expect(p.paired).toBe(true);
+    expect(p.ci).toBe(0.9);
+    expect(p.bootstrapSamples).toBe(2000);
+    expect(p.seed).toBe(7);
+    expect(p.bootstrapMethod).toBe("percentile");
+  });
+  it("drops an out-of-range ci and an unknown bootstrap method", () => {
+    const p = parseMakeGraphArgs({
+      tableId: "1",
+      type: "estimation",
+      ci: 1.5,
+      bootstrapMethod: "wat",
+    });
+    expect(p.ci).toBeUndefined();
+    expect(p.bootstrapMethod).toBeUndefined();
+  });
+});
+
+describe("resolveControlIndex", () => {
+  it("resolves a control name to its index in the plotted column order", () => {
+    const content = threeGroupContent();
+    const cols = ["cControl", "cLow", "cHigh"];
+    expect(resolveControlIndex(content, cols, "High")).toBe(2);
+    expect(resolveControlIndex(content, cols, "cLow")).toBe(1);
+  });
+  it("falls back to the first plotted group for an unknown or absent control", () => {
+    const content = threeGroupContent();
+    const cols = ["cControl", "cLow", "cHigh"];
+    expect(resolveControlIndex(content, cols, undefined)).toBe(0);
+    expect(resolveControlIndex(content, cols, "nope")).toBe(0);
   });
 });
 
@@ -194,6 +273,93 @@ describe("buildGraph", () => {
       parseMakeGraphArgs({ tableId: "1", columns: ["nope"] }),
     );
     expect(built.ok).toBe(false);
+  });
+
+  it("builds a Gardner-Altman estimation figure for a two-group table", () => {
+    const built = buildGraph(
+      twoGroupContent(),
+      parseMakeGraphArgs({ tableId: "1", type: "estimation" }),
+    );
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    // Two groups resolve to the Gardner-Altman kind, on both the top-level type
+    // and the style.kind the engine reads.
+    expect(built.spec.type).toBe("estimationGardnerAltman");
+    const style = readPlotStyle(built.spec);
+    expect(style.kind).toBe("estimationGardnerAltman");
+    // The control defaults to the first plotted group (index 0).
+    expect(style.estimationControlIndex).toBe(0);
+    expect(built.result.graphType).toBe("estimation");
+    expect(built.result.plotKind).toBe("estimationGardnerAltman");
+    expect(built.result.control).toBe("Control");
+  });
+
+  it("builds a Cumming estimation figure for a three-group table", () => {
+    const built = buildGraph(
+      threeGroupContent(),
+      parseMakeGraphArgs({ tableId: "3", type: "estimation" }),
+    );
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.spec.type).toBe("estimationCumming");
+    expect(readPlotStyle(built.spec).kind).toBe("estimationCumming");
+    expect(built.result.plotKind).toBe("estimationCumming");
+  });
+
+  it("resolves a named control to its index in the difference style", () => {
+    const built = buildGraph(
+      threeGroupContent(),
+      parseMakeGraphArgs({ tableId: "3", type: "estimation", control: "High" }),
+    );
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(readPlotStyle(built.spec).estimationControlIndex).toBe(2);
+    expect(built.result.control).toBe("High");
+  });
+
+  it("honors paired for a two-group estimation figure", () => {
+    const built = buildGraph(
+      twoGroupContent(),
+      parseMakeGraphArgs({ tableId: "1", type: "estimation", paired: true }),
+    );
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(readPlotStyle(built.spec).estimationPaired).toBe(true);
+    expect(built.result.paired).toBe(true);
+  });
+
+  it("ignores paired for a three-or-more-group (Cumming) figure per the engine contract", () => {
+    const built = buildGraph(
+      threeGroupContent(),
+      parseMakeGraphArgs({ tableId: "3", type: "estimation", paired: true }),
+    );
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    // Paired is only valid for the two-group Gardner-Altman variant, so a Cumming
+    // figure never carries it (the engine ignores it for 3+ groups).
+    expect(readPlotStyle(built.spec).estimationPaired).toBe(false);
+    expect(built.result.paired).toBe(false);
+  });
+
+  it("carries the bootstrap settings (ci / B / seed / method) onto the estimation style", () => {
+    const built = buildGraph(
+      twoGroupContent(),
+      parseMakeGraphArgs({
+        tableId: "1",
+        type: "estimation",
+        ci: 0.9,
+        bootstrapSamples: 2000,
+        seed: 7,
+        bootstrapMethod: "percentile",
+      }),
+    );
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    const style = readPlotStyle(built.spec);
+    expect(style.estimationCi).toBe(0.9);
+    expect(style.estimationB).toBe(2000);
+    expect(style.estimationSeed).toBe(7);
+    expect(style.estimationBootMethod).toBe("percentile");
   });
 });
 
