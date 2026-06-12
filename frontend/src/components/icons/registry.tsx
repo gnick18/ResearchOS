@@ -140,6 +140,10 @@ const ICONS_RAW = {
     concept: "Plus / new",
     body: <path d="M12 5v14M5 12h14" />,
   },
+  x: {
+    concept: "Close / dismiss",
+    body: <path d="M6 6l12 12M18 6L6 18" />,
+  },
   list: {
     concept: "List",
     body: <path d="M4 7h16M4 12h16M4 17h10" />,

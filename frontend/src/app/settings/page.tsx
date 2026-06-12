@@ -14,7 +14,6 @@ import {
 import { computeFolderManifest } from "@/lib/lab/manifest";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import AppShell from "@/components/AppShell";
 import AppFooter from "@/components/AppFooter";
 import BetaDonationButton from "@/components/BetaDonationButton";
 import AccountPasswordPopup from "@/components/AccountPasswordPopup";
@@ -125,10 +124,41 @@ const TIME_FORMAT_OPTIONS: { value: TimeFormat; label: string }[] = [
 ];
 
 export default function SettingsPage() {
+  const router = useRouter();
+
+  // Full-screen settings: no AppShell, so the app nav is gone and settings take
+  // over the whole window like a focused workspace. Leaving is a permanent X in
+  // the corner or Esc, both go back to where you came from (the workbench if
+  // there is no history to pop, e.g. a direct load).
+  const exit = useCallback(() => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/workbench");
+    }
+  }, [router]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") exit();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [exit]);
+
   return (
-    <AppShell>
+    <div className="fixed inset-0 z-[60] flex flex-col bg-surface-sunken">
+      {/* Permanent close, top-right. Esc also exits. */}
+      <button
+        type="button"
+        onClick={exit}
+        aria-label="Close settings (Esc)"
+        className="absolute right-4 top-3.5 z-20 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-surface text-foreground-muted shadow-sm transition-colors hover:bg-surface-sunken hover:text-foreground"
+      >
+        <Icon name="x" className="h-4 w-4" />
+      </button>
       <SettingsBody />
-    </AppShell>
+    </div>
   );
 }
 

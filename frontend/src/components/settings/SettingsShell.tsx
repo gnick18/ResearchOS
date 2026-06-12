@@ -163,9 +163,10 @@ export default function SettingsShell({
 
   return (
     <div className="min-h-0 flex-1 flex flex-col bg-surface-sunken">
-      {/* Full-width top strip: title, search, saved indicator. */}
+      {/* Full-width top strip: title, search, saved indicator. Extra right
+          padding reserves room for the page's fixed close button (X). */}
       {headerExtra && (
-        <div className="shrink-0 border-b border-border bg-surface-raised px-4 py-4 sm:px-6">
+        <div className="shrink-0 border-b border-border bg-surface-raised py-4 pl-4 pr-16 sm:pl-6">
           {headerExtra}
         </div>
       )}
