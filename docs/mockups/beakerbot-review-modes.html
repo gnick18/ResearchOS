@@ -1,0 +1,707 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BeakerBot review modes, before and after</title>
+<style>
+  /* Faithful to the live design tokens (frontend/src/app/globals.css) and the bar-mockup quality bar. */
+  :root {
+    --surface-raised: #ffffff;
+    --surface-sunken: #f8fafc;
+    --foreground: #171717;
+    --foreground-muted: #6b7280;
+    --border: #e5e7eb;
+    --scrim: rgba(15, 23, 42, 0.35);
+    --sky: #1aa0e6;
+    --action: #1283c9;
+    --sky-soft-bg: #f0f9ff;
+    --accent: #1283c9;
+    --ok: #16a34a;
+    --ok-bg: #ecfdf5;
+    --warn-ic: #d97706; --warn-bg: #fffbeb;
+    --code-bg: #0f172a; --code-fg: #e2e8f0;
+    --page-bg: #e2e8f0;
+    --pin: #e11d48;
+  }
+  html[data-theme="dark"] {
+    --surface-raised: #131c2e;
+    --surface-sunken: #0d1424;
+    --foreground: #f1f5f9;
+    --foreground-muted: #b4bfd0;
+    --border: rgba(255, 255, 255, 0.22);
+    --scrim: rgba(2, 6, 15, 0.55);
+    --sky: #38bdf8;
+    --action: #38bdf8;
+    --sky-soft-bg: rgba(12, 74, 110, 0.3);
+    --accent: #38bdf8;
+    --ok: #4ade80;
+    --ok-bg: rgba(6, 78, 59, 0.32);
+    --warn-ic: #fbbf24; --warn-bg: rgba(120, 53, 15, 0.32);
+    --code-bg: #060c18; --code-fg: #cbd5e1;
+    --page-bg: #060a13;
+    --pin: #fb7185;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--page-bg);
+    color: var(--foreground);
+    transition: background 0.2s;
+  }
+  .topbar {
+    position: sticky; top: 0; z-index: 30;
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 22px;
+    background: var(--surface-raised);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .topbar h1 { font-size: 15px; margin: 0; font-weight: 700; }
+  .topbar p { margin: 0; font-size: 12px; color: var(--foreground-muted); max-width: 720px; }
+  .spacer { flex: 1; }
+  .btn {
+    appearance: none; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface-sunken);
+    color: var(--foreground); border-radius: 8px;
+    padding: 7px 12px; font-size: 12.5px; font-weight: 600;
+  }
+  .btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.danger { color: var(--pin); }
+
+  .stage { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; padding: 28px 22px 56px; max-width: 1480px; margin: 0 auto; }
+  @media (max-width: 1080px) { .stage { grid-template-columns: 1fr; } }
+  .col h2 { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--foreground-muted); margin: 0 0 4px; font-weight: 800; }
+  .col .blurb { font-size: 12.5px; color: var(--foreground-muted); margin: 0 0 16px; min-height: 32px; line-height: 1.5; }
+  .frame { background: var(--scrim); border-radius: 18px; padding: 24px 20px; }
+
+  /* chat panel */
+  .chat {
+    width: 100%; max-width: 580px; margin: 0 auto;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: 16px; overflow: hidden;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.45);
+    display: flex; flex-direction: column;
+  }
+  .chead { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--border); }
+  .bot { width: 24px; height: 24px; flex: none; }
+  .bot.sm { width: 18px; height: 18px; }
+  .word { font-size: 14px; font-weight: 700; color: var(--foreground); flex: none; }
+  .chead .push { margin-left: auto; }
+
+  /* the mode control */
+  .ctrl-old { display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--foreground-muted); }
+  .toggle {
+    position: relative; width: 36px; height: 20px; border-radius: 11px;
+    background: var(--accent); border: none; cursor: pointer; flex: none;
+  }
+  .toggle::after { content: ""; position: absolute; top: 2px; left: 18px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left 0.15s; }
+  .toggle.off { background: var(--border); }
+  .toggle.off::after { left: 2px; }
+
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; background: var(--surface-sunken); }
+  .seg button { appearance: none; border: none; background: transparent; cursor: pointer; font-size: 11.5px; font-weight: 600; color: var(--foreground-muted); padding: 5px 11px; }
+  .seg button.on { background: var(--accent); color: #fff; }
+
+  .body { padding: 14px 14px 18px; display: flex; flex-direction: column; gap: 12px; background: var(--surface-sunken); min-height: 380px; }
+  .msg { max-width: 88%; }
+  .msg.user { align-self: flex-end; background: var(--accent); color: #fff; border-radius: 13px 13px 4px 13px; padding: 9px 12px; font-size: 13px; line-height: 1.45; }
+  .msg.bot { align-self: flex-start; display: flex; gap: 8px; }
+  .msg.bot .bub { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 13px 13px 13px 4px; padding: 9px 12px; font-size: 13px; line-height: 1.5; color: var(--foreground); }
+  .msg.bot .avatar { width: 22px; height: 22px; flex: none; margin-top: 2px; }
+
+  /* step / preview blocks */
+  .stepblock {
+    align-self: stretch;
+    background: var(--surface-raised); border: 1px solid var(--border);
+    border-left: 3px solid var(--accent); border-radius: 10px; overflow: hidden;
+  }
+  .stepblock.run { border-left-color: var(--ok); }
+  .stepblock.gated { border-left-color: var(--accent); }
+  .stepblock.ungated { border-left-color: var(--warn-ic); }
+  .sb-head { display: flex; align-items: center; gap: 9px; padding: 9px 12px; }
+  .sb-ic { width: 26px; height: 26px; border-radius: 7px; flex: none; display: flex; align-items: center; justify-content: center; background: var(--sky-soft-bg); color: var(--action); }
+  .sb-ic svg { width: 15px; height: 15px; }
+  .sb-ic.warn { background: var(--warn-bg); color: var(--warn-ic); }
+  .sb-ic.ok { background: var(--ok-bg); color: var(--ok); }
+  .sb-tt { min-width: 0; flex: 1; }
+  .sb-label { font-size: 12.5px; font-weight: 700; color: var(--foreground); }
+  .sb-desc { font-size: 11.5px; color: var(--foreground-muted); line-height: 1.4; }
+  .sb-tag { flex: none; font-size: 9.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 7px; border-radius: 6px; }
+  .sb-tag.gate { background: var(--sky-soft-bg); color: var(--action); }
+  .sb-tag.now { background: var(--warn-bg); color: var(--warn-ic); }
+  .sb-tag.done { background: var(--ok-bg); color: var(--ok); }
+
+  .sb-inputs { padding: 0 12px 9px 47px; display: flex; flex-wrap: wrap; gap: 5px; }
+  .ipill { font-size: 10.5px; background: var(--surface-sunken); border: 1px solid var(--border); border-radius: 6px; padding: 2px 7px; color: var(--foreground); }
+  .ipill b { color: var(--foreground-muted); font-weight: 600; }
+
+  .sb-preview { margin: 0 12px 10px 47px; border: 1px dashed var(--border); border-radius: 8px; padding: 8px 10px; background: var(--surface-sunken); }
+  .sb-preview .plabel { font-size: 9.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--foreground-muted); margin-bottom: 5px; }
+
+  .sb-acts { display: flex; gap: 8px; padding: 0 12px 11px 47px; }
+  .sb-acts button { flex: 1; appearance: none; cursor: pointer; border-radius: 8px; padding: 6px; font-size: 12px; font-weight: 700; border: 1px solid var(--border); }
+  .sb-acts .approve { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .sb-acts .reject { background: var(--surface-raised); color: var(--foreground); }
+
+  /* result embeds */
+  .embed { margin: 0 12px 10px 47px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .embed-cap { font-size: 10.5px; font-weight: 600; color: var(--foreground-muted); padding: 6px 9px; background: var(--surface-sunken); border-bottom: 1px solid var(--border); }
+  .embed-bd { padding: 9px; }
+
+  /* tiny table preview (wrangle bar) */
+  table.mini { border-collapse: collapse; width: 100%; font-size: 10.5px; }
+  table.mini th, table.mini td { border: 1px solid var(--border); padding: 2px 6px; text-align: left; white-space: nowrap; }
+  table.mini th { background: var(--surface-sunken); font-weight: 700; }
+
+  /* fake plot */
+  .plot { display: flex; align-items: flex-end; gap: 10px; height: 64px; padding: 4px 6px 0; }
+  .bar { width: 26px; border-radius: 4px 4px 0 0; }
+  .bar.c1 { background: var(--action); }
+  .bar.c2 { background: var(--sky); opacity: 0.7; }
+  .plotcap { font-size: 9.5px; color: var(--foreground-muted); text-align: center; margin-top: 3px; }
+
+  /* stat result */
+  .stat { font-size: 11.5px; line-height: 1.6; }
+  .stat b { color: var(--foreground); }
+  .stat .sig { color: var(--ok); font-weight: 700; }
+
+  /* code block (note write) */
+  .codeblk { background: var(--code-bg); color: var(--code-fg); border-radius: 7px; padding: 9px 11px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px; line-height: 1.5; overflow-x: auto; white-space: pre; }
+  .codeblk .kw { color: #7dd3fc; }
+  .codeblk .st { color: #fca5a5; }
+  .codeblk .cm { color: #94a3b8; }
+
+  /* whole-plan card */
+  .plancard { align-self: stretch; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 11px; overflow: hidden; }
+  .plancard .ph { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .plancard .ph .word { font-size: 12.5px; }
+  .plancard ol { margin: 0; padding: 8px 12px 8px 30px; }
+  .plancard li { font-size: 12px; color: var(--foreground); margin: 5px 0; line-height: 1.45; }
+  .plancard li b { font-weight: 700; }
+  .plancard li .sub { color: var(--foreground-muted); font-size: 11px; }
+  .plancard .pf { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); }
+  .plancard .pf button { appearance: none; cursor: pointer; border-radius: 8px; padding: 7px 14px; font-size: 12.5px; font-weight: 700; border: 1px solid var(--border); }
+  .plancard .pf .confirm { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .plancard .pf .edit { background: var(--surface-raised); color: var(--foreground); }
+
+  .hardstop { align-self: stretch; background: var(--warn-bg); border: 1px solid var(--warn-ic); border-radius: 9px; padding: 9px 12px; display: flex; gap: 8px; align-items: flex-start; }
+  .hardstop .hs-ic { color: var(--warn-ic); flex: none; margin-top: 1px; }
+  .hardstop .hs-ic svg { width: 16px; height: 16px; }
+  .hardstop .hs-tx { font-size: 11.5px; line-height: 1.45; color: var(--foreground); }
+  .hardstop .hs-tx b { font-weight: 700; }
+
+  .modeswitch { align-self: center; }
+  .modeswitch .seg { font-size: 12px; }
+  .modehint { align-self: center; font-size: 11px; color: var(--foreground-muted); margin-top: -4px; }
+
+  /* ---------- comment mode (mirrors bar mockup) ---------- */
+  body.cmt-on .cmt { cursor: crosshair; }
+  body.cmt-on .cmt:hover { outline: 2px dashed var(--accent); outline-offset: -2px; border-radius: 8px; }
+  .cmt { position: relative; }
+  .pin {
+    position: absolute; top: -8px; right: -8px; z-index: 8;
+    min-width: 18px; height: 18px; padding: 0 4px;
+    background: var(--pin); color: #fff; border-radius: 9px;
+    font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4); cursor: pointer;
+  }
+  .pin.hl { outline: 2px solid var(--foreground); }
+
+  .editor { position: fixed; z-index: 50; width: 280px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 18px 40px -10px rgba(0,0,0,0.55); padding: 12px; }
+  .editor .lbl { font-size: 11px; font-weight: 700; color: var(--foreground-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+  .editor textarea { width: 100%; min-height: 78px; resize: vertical; border: 1px solid var(--border); border-radius: 8px; padding: 8px; font: inherit; font-size: 13px; background: var(--surface-sunken); color: var(--foreground); }
+  .editor .acts { display: flex; gap: 8px; margin-top: 8px; }
+  .editor .acts .spacer { flex: 1; }
+  .editor .vchoice { display: flex; gap: 6px; margin-top: 8px; }
+  .editor .vchoice .vbtn { flex: 1; padding: 5px; }
+
+  .panel { position: fixed; right: 18px; bottom: 18px; z-index: 40; width: 340px; max-height: 64vh; display: flex; flex-direction: column; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 18px 40px -10px rgba(0,0,0,0.55); }
+  .panel.collapsed .panel-body, .panel.collapsed .panel-foot { display: none; }
+  .panel-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .panel-head h3 { font-size: 13px; margin: 0; font-weight: 700; }
+  .panel-head .count { font-size: 11px; color: var(--foreground-muted); }
+  .panel-head .chev { margin-left: auto; color: var(--foreground-muted); font-size: 12px; }
+  .panel-body { overflow-y: auto; padding: 6px; }
+  .citem { display: flex; gap: 8px; padding: 8px; border-radius: 8px; }
+  .citem:hover { background: var(--surface-sunken); }
+  .citem .num { flex: none; width: 18px; height: 18px; background: var(--pin); color: #fff; border-radius: 9px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+  .citem .body { min-width: 0; flex: 1; }
+  .citem .tgt { font-size: 11px; color: var(--foreground-muted); }
+  .citem .txt { font-size: 13px; color: var(--foreground); white-space: pre-wrap; word-break: break-word; }
+  .citem .x { flex: none; cursor: pointer; color: var(--foreground-muted); font-size: 14px; border: none; background: none; }
+  .panel-foot { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); }
+  .empty { font-size: 12.5px; color: var(--foreground-muted); padding: 14px; text-align: center; }
+
+  .note { max-width: 1480px; margin: 0 auto; padding: 0 22px 90px; }
+  .note h3 { font-size: 13px; margin: 24px 0 10px; }
+  .note p.lead { font-size: 12.5px; color: var(--foreground-muted); max-width: 820px; margin: 0 0 10px; line-height: 1.5; }
+
+  .changes { display: grid; gap: 10px; }
+  .change { display: flex; gap: 14px; align-items: flex-start; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-raised); padding: 12px 14px; border-left-width: 4px; border-left-color: var(--border); }
+  .change.approved { border-left-color: var(--ok); }
+  .change.disapproved { border-left-color: var(--pin); }
+  .change .ctext { flex: 1; min-width: 0; }
+  .change .ctitle { font-size: 13.5px; font-weight: 600; color: var(--foreground); margin-bottom: 2px; }
+  .change .cdesc { font-size: 12.5px; color: var(--foreground-muted); line-height: 1.5; }
+  .change .verdict { flex: none; display: flex; flex-direction: column; gap: 6px; width: 132px; }
+  .vbtn { appearance: none; cursor: pointer; text-align: center; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground); border-radius: 8px; padding: 6px 8px; font-size: 12px; font-weight: 600; }
+  .vbtn.app.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .vbtn.dis.on { background: var(--pin); border-color: var(--pin); color: #fff; }
+  .vbadge { font-size: 11px; font-weight: 700; }
+  .vrow { display: flex; gap: 6px; }
+  .vrow .vbtn { flex: 1; }
+  .vclear { font-size: 11px; color: var(--foreground-muted); background: none; border: none; cursor: pointer; padding: 0; text-decoration: underline; align-self: flex-end; }
+
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 60; background: var(--foreground); color: var(--surface-raised); font-size: 12.5px; font-weight: 600; padding: 9px 14px; border-radius: 8px; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <h1>BeakerBot review modes, before and after</h1>
+      <p>The same request runs in both panels. Left is today. Right is the proposal, with a live toggle between Step-by-step and Whole-plan. Approve or reject the step blocks to watch the pipeline advance. Turn on Comment mode, then click any block to pin a note.</p>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn" id="commentToggle">Comment mode: off</button>
+    <button class="btn" id="themeToggle">Switch to dark</button>
+  </div>
+
+  <div class="stage">
+    <!-- ============ BEFORE ============ -->
+    <div class="col">
+      <h2>Before (live today)</h2>
+      <p class="blurb">An ask/auto toggle gates only the action tools. The transform and the note write show approval cards, but the t-test and the three plots just run and navigate with no per-step block. The gating is half true.</p>
+      <div class="frame">
+        <div class="chat" data-col="before">
+          <div class="chead cmt" data-clabel="Before / header">
+            <span class="bot" id="botB"></span>
+            <span class="word">BeakerBot</span>
+            <span class="push ctrl-old cmt" data-clabel="Before / ask-auto toggle">
+              <span>Ask</span><button class="toggle off" id="askToggleB" title="ask/auto"></button><span>Auto</span>
+            </span>
+          </div>
+          <div class="body" id="bodyBefore"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ AFTER ============ -->
+    <div class="col">
+      <h2>After (proposed)</h2>
+      <p class="blurb">One two-mode control replaces ask/auto. No auto. Step-by-step gives every step its own rich preview block with Approve and Reject. Whole-plan lists the pipeline up front for one confirm, then runs it through.</p>
+      <div class="frame">
+        <div class="chat" data-col="after">
+          <div class="chead cmt" data-clabel="After / header">
+            <span class="bot sm" id="botA"></span>
+            <span class="word">BeakerBot</span>
+            <span class="push seg cmt" id="modeSeg" data-clabel="After / mode control">
+              <button data-mode="step" class="on">Step-by-step</button>
+              <button data-mode="plan">Whole-plan</button>
+            </span>
+          </div>
+          <div class="body" id="bodyAfter"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <h3>What changed and why. Mark each one Approve or Disapprove.</h3>
+    <div class="changes" id="changes"></div>
+    <p class="lead" style="margin-top:14px;">The destructive and outward-facing hard-stop (delete, send, share, pay) still pops its own final confirm in both modes, the moment it runs. Dropping auto never removes that. The BeakerBot glyph here is a sky-blue stand-in for the real mascot SVG. Fixture data only (Control vs Drug, fakeGFP qPCR).</p>
+  </div>
+
+  <div class="panel" id="panel">
+    <div class="panel-head" id="panelHead">
+      <h3>Comments and decisions</h3>
+      <span class="count" id="cCount">0</span>
+      <span class="chev" id="chev">hide</span>
+    </div>
+    <div class="panel-body" id="panelBody">
+      <div class="empty">No comments yet. Turn on Comment mode and click any block.</div>
+    </div>
+    <div class="panel-foot">
+      <button class="btn" id="exportBtn">Copy feedback</button>
+      <button class="btn" id="downloadBtn">Download .md</button>
+      <span style="flex:1"></span>
+      <button class="btn danger" id="clearBtn">Clear</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  const botSvg = (size) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="#1aa0e6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v6l-4.5 8a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 9V3"/><path d="M7.5 15h9" stroke="#38bdf8"/></svg>`;
+  document.getElementById('botB').innerHTML = botSvg(24);
+  document.getElementById('botA').innerHTML = botSvg(22);
+
+  const ic = {
+    transform: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h13l-3-3M21 17H8l3 3"/></svg>',
+    stat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+    plot: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 2 4-6"/></svg>',
+    note: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11l4 4v14H5z"/><path d="M9 9h6M9 13h6M9 17h4"/></svg>',
+    warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg>',
+  };
+
+  const USER_PROMPT = 'Filter my fakeGFP qPCR table to passing wells, merge on the shared sample id, run a t-test of Control vs Drug, make 3 plots, then add it all to my lab notes with the stat code.';
+
+  // ---- step content fragments (shared between modes) ----
+  function previewTable() {
+    return `<div class="embed cmt" data-clabel="STEPID / table preview"><div class="embed-cap">Preview, first rows of the merged result</div><div class="embed-bd"><table class="mini"><tr><th>sample_id</th><th>group</th><th>Cq</th><th>rel_expr</th></tr><tr><td>S-01</td><td>Control</td><td>22.4</td><td>1.00</td></tr><tr><td>S-02</td><td>Drug</td><td>20.1</td><td>4.18</td></tr><tr><td>S-03</td><td>Drug</td><td>20.6</td><td>3.02</td></tr></table></div></div>`;
+  }
+  function embedTable() {
+    return `<div class="embed cmt" data-clabel="STEPID / table result"><div class="embed-cap">fakeGFP_passing_merged, 48 rows, 4 columns</div><div class="embed-bd"><table class="mini"><tr><th>sample_id</th><th>group</th><th>Cq</th><th>rel_expr</th></tr><tr><td>S-01</td><td>Control</td><td>22.4</td><td>1.00</td></tr><tr><td>S-02</td><td>Drug</td><td>20.1</td><td>4.18</td></tr><tr><td>S-03</td><td>Drug</td><td>20.6</td><td>3.02</td></tr></table></div></div>`;
+  }
+  function embedStat() {
+    return `<div class="embed cmt" data-clabel="STEPID / stat result"><div class="embed-cap">Welch two-sample t-test, rel_expr by group</div><div class="embed-bd stat"><b>t</b> = 4.91, <b>df</b> = 41.3, <b>p</b> = <span class="sig">2.1e-05</span><br>Control mean 1.04, Drug mean 3.46, <b>95% CI</b> of difference 1.45 to 3.39</div></div>`;
+  }
+  function embedPlot(kind, cap, h1, h2) {
+    return `<div class="embed cmt" data-clabel="STEPID / ${kind} result"><div class="embed-cap">${cap}</div><div class="embed-bd"><div class="plot"><div class="bar c1" style="height:${h1}%"></div><div class="bar c2" style="height:${h2}%"></div></div><div class="plotcap">Control vs Drug</div></div></div>`;
+  }
+  function embedNote() {
+    return `<div class="embed cmt" data-clabel="STEPID / note result"><div class="embed-cap">Appended to note, fakeGFP qPCR, Drug response</div><div class="embed-bd"><div style="font-size:11.5px;color:var(--foreground-muted);margin-bottom:6px;">Results, embeds, and the reproducible code were added to the note.</div><div class="codeblk"><span class="cm"># get_analysis_code, reproduce the t-test</span>
+<span class="kw">import</span> pandas <span class="kw">as</span> pd
+<span class="kw">from</span> scipy <span class="kw">import</span> stats
+df = pd.read_csv(<span class="st">"fakeGFP_passing_merged.csv"</span>)
+c = df[df.group == <span class="st">"Control"</span>].rel_expr
+d = df[df.group == <span class="st">"Drug"</span>].rel_expr
+t, p = stats.ttest_ind(c, d, equal_var=<span class="kw">False</span>)</div></div></div>`;
+  }
+
+  // step definitions, in pipeline order
+  const STEPS = [
+    { id: 'transform', glyph: 'transform', label: 'Transform table, filter then merge',
+      desc: 'Keep wells where call is Pass, then merge the two plates on sample_id.',
+      inputs: ['Table <b>fakeGFP qPCR</b>', 'filter <b>call = Pass</b>', 'merge on <b>sample_id</b>'],
+      previewLabel: 'Live preview, wrangle_table', preview: previewTable, result: embedTable,
+      gatedBefore: true },
+    { id: 'ttest', glyph: 'stat', label: 'Run a t-test, Control vs Drug',
+      desc: 'Welch two-sample t-test of rel_expr split by group.',
+      inputs: ['Test <b>two-sample t</b>', 'value <b>rel_expr</b>', 'groups <b>Control, Drug</b>'],
+      previewLabel: 'Resolved test', preview: () => `<div style="font-size:11.5px;color:var(--foreground);">Welch t-test, <b>rel_expr</b> by <b>group</b>, Control n=24 vs Drug n=24.</div>`,
+      result: embedStat, gatedBefore: false },
+    { id: 'plot1', glyph: 'plot', label: 'Plot 1, grouped bar of means',
+      desc: 'Bar of mean rel_expr per group with SEM error bars.',
+      inputs: ['Kind <b>bar</b>', 'y <b>rel_expr</b>', 'x <b>group</b>'],
+      previewLabel: 'Figure plan', preview: () => `<div style="font-size:11.5px;color:var(--foreground);"><b>bar</b>, x = group, y = mean rel_expr, error = SEM.</div>`,
+      result: () => embedPlot('bar', 'Bar, mean rel_expr by group', 26, 88), gatedBefore: false },
+    { id: 'plot2', glyph: 'plot', label: 'Plot 2, box plot by group',
+      desc: 'Distribution of rel_expr for Control and Drug.',
+      inputs: ['Kind <b>box</b>', 'y <b>rel_expr</b>', 'x <b>group</b>'],
+      previewLabel: 'Figure plan', preview: () => `<div style="font-size:11.5px;color:var(--foreground);"><b>box</b>, x = group, y = rel_expr.</div>`,
+      result: () => embedPlot('box', 'Box, rel_expr by group', 34, 80), gatedBefore: false },
+    { id: 'plot3', glyph: 'plot', label: 'Plot 3, per-sample scatter',
+      desc: 'rel_expr per sample, colored by group.',
+      inputs: ['Kind <b>scatter</b>', 'y <b>rel_expr</b>', 'color <b>group</b>'],
+      previewLabel: 'Figure plan', preview: () => `<div style="font-size:11.5px;color:var(--foreground);"><b>scatter</b>, y = rel_expr, color = group.</div>`,
+      result: () => embedPlot('scatter', 'Scatter, rel_expr per sample', 40, 72), gatedBefore: false },
+    { id: 'note', glyph: 'note', label: 'Write to lab notes with the stat code',
+      desc: 'Append the result, the three figures, and the get_analysis_code python to the note.',
+      inputs: ['Note <b>fakeGFP qPCR</b>', 'attach <b>3 figures + stats</b>', 'include <b>python code</b>'],
+      previewLabel: 'What will be written', preview: () => embedNote().replace('STEPID', 'note-prev').replace('embed-cap">Appended to note', 'embed-cap">Will append to note'),
+      result: embedNote, gatedBefore: true },
+  ];
+
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function fillId(html, sid){ return html.replace(/STEPID/g, sid); }
+
+  /* =================== BEFORE column =================== */
+  function renderBefore() {
+    const body = document.getElementById('bodyBefore');
+    let h = `<div class="msg user cmt" data-clabel="Before / request">${esc(USER_PROMPT)}</div>`;
+    h += `<div class="msg bot"><span class="avatar">${botSvg(22)}</span><span class="bub">On it. I will gate the action steps and run the rest.</span></div>`;
+    STEPS.forEach(s => {
+      const sid = 'B-' + s.id;
+      if (s.gatedBefore) {
+        // approval card
+        h += `<div class="stepblock gated cmt" data-clabel="Before / ${s.label} card">
+          <div class="sb-head"><span class="sb-ic">${ic[s.glyph]}</span>
+            <span class="sb-tt"><span class="sb-label">${s.label}</span><span class="sb-desc">${s.desc}</span></span>
+            <span class="sb-tag gate">Approve</span></div>
+          <div class="sb-inputs">${s.inputs.map(i=>`<span class="ipill">${i}</span>`).join('')}</div>
+          <div class="sb-acts"><button class="approve">Approve</button><button class="reject">Reject</button></div>
+        </div>`;
+      } else {
+        // runs immediately, just navigates, no block (show what the user actually sees, a terse line + result)
+        h += `<div class="msg bot cmt" data-clabel="Before / ${s.label} ran"><span class="avatar">${botSvg(22)}</span><span class="bub">Ran <b>${s.label.toLowerCase()}</b> and opened it. No approval was asked.</span></div>`;
+        h += fillId(s.result(), sid);
+      }
+    });
+    body.innerHTML = h;
+  }
+
+  /* =================== AFTER column =================== */
+  let afterMode = 'step';
+  // per-step state in step mode: pending | approved | rejected
+  let stepState = {};
+  function resetStepState(){ stepState = {}; STEPS.forEach(s => stepState[s.id] = 'pending'); }
+  resetStepState();
+  let planConfirmed = false;
+
+  function renderAfter() {
+    const body = document.getElementById('bodyAfter');
+    let h = `<div class="msg user cmt" data-clabel="After / request">${esc(USER_PROMPT)}</div>`;
+
+    if (afterMode === 'step') {
+      h += `<div class="msg bot"><span class="avatar">${botSvg(22)}</span><span class="bub">Step-by-step mode. I will show you each step and wait for your go-ahead.</span></div>`;
+      // render up to the first still-pending step; earlier steps show their verdict + result
+      let blocked = false;
+      for (const s of STEPS) {
+        const sid = 'A-' + s.id;
+        const st = stepState[s.id];
+        if (blocked) break;
+        if (st === 'approved') {
+          h += `<div class="stepblock run cmt" data-clabel="After step / ${s.label}">
+            <div class="sb-head"><span class="sb-ic ok">${ic.check}</span>
+              <span class="sb-tt"><span class="sb-label">${s.label}</span><span class="sb-desc">Approved and run.</span></span>
+              <span class="sb-tag done">Done</span></div></div>`;
+          h += fillId(s.result(), sid);
+        } else if (st === 'rejected') {
+          h += `<div class="stepblock cmt" style="border-left-color:var(--pin)" data-clabel="After step / ${s.label}">
+            <div class="sb-head"><span class="sb-ic warn">${ic.warn}</span>
+              <span class="sb-tt"><span class="sb-label">${s.label}</span><span class="sb-desc">Rejected. I told the model so it can adapt the rest of the plan.</span></span></div></div>`;
+        } else {
+          // the active pending block, rich preview + actions
+          h += `<div class="stepblock gated cmt" data-clabel="After step / ${s.label}">
+            <div class="sb-head"><span class="sb-ic">${ic[s.glyph]}</span>
+              <span class="sb-tt"><span class="sb-label">${s.label}</span><span class="sb-desc">${s.desc}</span></span>
+              <span class="sb-tag gate">Review</span></div>
+            <div class="sb-inputs">${s.inputs.map(i=>`<span class="ipill">${i}</span>`).join('')}</div>
+            <div class="sb-preview"><div class="plabel">${s.previewLabel}</div>${fillId(s.preview(), sid)}</div>
+            <div class="sb-acts"><button class="approve" data-step="${s.id}" data-act="approve">Approve and run</button><button class="reject" data-step="${s.id}" data-act="reject">Reject</button></div>
+          </div>`;
+          blocked = true;
+        }
+      }
+      if (!blocked) {
+        // all steps resolved -> note write done -> hard stop annotation
+        h += hardStopBlock();
+        h += `<div class="msg bot"><span class="avatar">${botSvg(22)}</span><span class="bub">Done. Every step above was yours to approve.</span></div>`;
+      }
+    } else {
+      // whole-plan
+      h += `<div class="msg bot"><span class="avatar">${botSvg(22)}</span><span class="bub">Whole-plan mode. Here is the full pipeline. Confirm once and I run it through.</span></div>`;
+      h += `<div class="plancard cmt" data-clabel="After plan / plan card">
+        <div class="ph"><span class="sb-ic">${ic.note}</span><span class="word">Proposed pipeline, 6 steps</span></div>
+        <ol>
+          ${STEPS.map(s => `<li><b>${s.label}</b> <span class="sub">${s.desc}</span></li>`).join('')}
+        </ol>
+        <div class="pf">
+          <button class="confirm" id="planConfirm">${planConfirmed ? 'Running...' : 'Confirm and run all'}</button>
+          <button class="edit">Edit plan</button>
+        </div>
+      </div>`;
+      if (planConfirmed) {
+        STEPS.forEach(s => {
+          const sid = 'AP-' + s.id;
+          h += `<div class="msg bot cmt" data-clabel="After plan / ${s.label} ran"><span class="avatar">${botSvg(22)}</span><span class="bub">Ran <b>${s.label.toLowerCase()}</b>.</span></div>`;
+          h += fillId(s.result(), sid);
+        });
+        h += hardStopBlock();
+        h += `<div class="msg bot"><span class="avatar">${botSvg(22)}</span><span class="bub">Plan complete. Results rendered inline as each step ran.</span></div>`;
+      }
+    }
+    body.innerHTML = h;
+    wireAfter();
+  }
+
+  function hardStopBlock() {
+    return `<div class="hardstop cmt" data-clabel="After / hard-stop annotation">
+      <span class="hs-ic">${ic.warn}</span>
+      <span class="hs-tx"><b>Hard-stop, unchanged in both modes.</b> If the note write also shared the result outside your lab, that destructive or outward-facing step pops its own final confirm at the moment it runs. Dropping auto never removes this gate.</span></div>`;
+  }
+
+  function wireAfter() {
+    document.querySelectorAll('#bodyAfter [data-step]').forEach(b => {
+      b.addEventListener('click', () => {
+        if (document.body.classList.contains('cmt-on')) return;
+        stepState[b.dataset.step] = b.dataset.act === 'approve' ? 'approved' : 'rejected';
+        renderAfter();
+        document.getElementById('bodyAfter').scrollTop = 1e6;
+      });
+    });
+    const pc = document.getElementById('planConfirm');
+    if (pc) pc.addEventListener('click', () => {
+      if (document.body.classList.contains('cmt-on')) return;
+      planConfirmed = true; renderAfter();
+    });
+  }
+
+  // before-column ask/auto toggle is illustrative only
+  document.getElementById('askToggleB').addEventListener('click', function(e){
+    if (document.body.classList.contains('cmt-on')) return;
+    this.classList.toggle('off');
+  });
+
+  // mode segment
+  document.getElementById('modeSeg').addEventListener('click', (e) => {
+    if (document.body.classList.contains('cmt-on')) return;
+    const b = e.target.closest('[data-mode]'); if (!b) return;
+    afterMode = b.dataset.mode;
+    document.querySelectorAll('#modeSeg [data-mode]').forEach(x => x.classList.toggle('on', x === b));
+    if (afterMode === 'step') resetStepState();
+    if (afterMode === 'plan') planConfirmed = false;
+    renderAfter();
+  });
+
+  renderBefore();
+  renderAfter();
+
+  /* =================== per-change verdicts =================== */
+  const CHANGES = [
+    { id: 'control', title: 'Replace ask/auto with a two-mode control', desc: 'The ask/auto toggle becomes a Step-by-step vs Whole-plan segment in the chat header. The distinction is now about how much you review at once, not whether the bot is gated, which was the muddy part of ask/auto.' },
+    { id: 'dropauto', title: 'Drop auto mode entirely', desc: 'There is no silent unattended mode, since per Grant there should never really be a true auto mode. Every run is either reviewed step by step or confirmed as a whole plan first.' },
+    { id: 'stepblock', title: 'Rich per-step preview block', desc: 'In Step-by-step, every meaningful step (transform, t-test, each plot, the note write) renders its own block with a label, a one-line description, the inputs it acts on, a live preview where the engine can compute one cheaply, and Approve and Reject. This is the visible payoff, and it makes the t-test and plots gate too, not just the action tools.' },
+    { id: 'embeds', title: 'Inline result embeds on approve', desc: 'Approving a step renders that step result inline (the merged table, the stat readout, the figure, the note with code), then the next block appears. Reject skips it and tells the model so it can adapt.' },
+    { id: 'plancard', title: 'Whole-plan card with one confirm', desc: 'Whole-plan lists the entire pipeline up front as one card, every step enumerated, with a single Confirm and run all. After confirming, steps run through and render their results inline with no per-step confirm. A lone step is a one-line plan.' },
+  ];
+  const VSTORE = 'beakerbot-modes-mockup-verdicts-v1';
+  let verdicts = {};
+  try { verdicts = JSON.parse(localStorage.getItem(VSTORE) || '{}'); } catch { verdicts = {}; }
+  function saveVerdicts() { try { localStorage.setItem(VSTORE, JSON.stringify(verdicts)); } catch {} }
+
+  function renderChanges() {
+    const wrap = document.getElementById('changes');
+    wrap.innerHTML = CHANGES.map(c => {
+      const v = verdicts[c.id] || '';
+      const cls = v === 'approve' ? 'approved' : v === 'disapprove' ? 'disapproved' : '';
+      return `<div class="change ${cls}" data-change="${c.id}">
+        <div class="ctext"><div class="ctitle">${esc(c.title)}</div><div class="cdesc">${esc(c.desc)}</div></div>
+        <div class="verdict">
+          <div class="vrow">
+            <button class="vbtn app ${v === 'approve' ? 'on' : ''}" data-v="approve">Approve</button>
+            <button class="vbtn dis ${v === 'disapprove' ? 'on' : ''}" data-v="disapprove">Disapprove</button>
+          </div>
+          ${v ? '<button class="vclear" data-v="clear">clear</button>' : '<span style="height:14px"></span>'}
+        </div>
+      </div>`;
+    }).join('');
+    wrap.querySelectorAll('.change').forEach(card => {
+      const id = card.dataset.change;
+      card.querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', () => {
+        const v = b.dataset.v;
+        if (v === 'clear') delete verdicts[id];
+        else verdicts[id] = (verdicts[id] === v ? undefined : v);
+        if (!verdicts[id]) delete verdicts[id];
+        saveVerdicts(); renderChanges();
+      }));
+    });
+  }
+  renderChanges();
+
+  /* =================== comments (mirrors bar mockup) =================== */
+  const STORE = 'beakerbot-modes-mockup-comments-v1';
+  let comments = [];
+  try { comments = JSON.parse(localStorage.getItem(STORE) || '[]'); } catch { comments = []; }
+  function save() { try { localStorage.setItem(STORE, JSON.stringify(comments)); } catch {} }
+  function clabelOf(el) { const c = el.closest('.cmt'); return c ? c.getAttribute('data-clabel') : 'Page'; }
+
+  function renderPins() {
+    document.querySelectorAll('.pin').forEach(p => p.remove());
+    const byTarget = {};
+    comments.forEach((c, i) => { (byTarget[c.target] = byTarget[c.target] || []).push(i + 1); });
+    document.querySelectorAll('.cmt').forEach(el => {
+      const lbl = el.getAttribute('data-clabel');
+      const nums = byTarget[lbl]; if (!nums) return;
+      const pin = document.createElement('span');
+      pin.className = 'pin'; pin.textContent = nums.join(','); pin.title = 'Comment ' + nums.join(', ');
+      pin.addEventListener('click', (ev) => { ev.stopPropagation(); const first = comments.findIndex(c => c.target === lbl); if (first >= 0) openEditor(el, first, ev); });
+      el.appendChild(pin);
+    });
+  }
+  function renderPanel() {
+    const body = document.getElementById('panelBody');
+    document.getElementById('cCount').textContent = comments.length;
+    if (comments.length === 0) { body.innerHTML = '<div class="empty">No comments yet. Turn on Comment mode and click any block.</div>'; return; }
+    const vtag = (v) => v === 'approve' ? '<span class="vbadge" style="color:var(--ok)">APPROVE</span> ' : v === 'disapprove' ? '<span class="vbadge" style="color:var(--pin)">DISAPPROVE</span> ' : '';
+    body.innerHTML = comments.map((c, i) => `
+      <div class="citem" data-i="${i}"><span class="num">${i + 1}</span>
+        <div class="body"><div class="tgt">${vtag(c.verdict)}${esc(c.target)}</div><div class="txt">${esc(c.text) || '<i>no text</i>'}</div></div>
+        <button class="x" data-del="${i}" title="Delete">&times;</button></div>`).join('');
+    body.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => { comments.splice(+b.dataset.del, 1); save(); renderAll(); }));
+    body.querySelectorAll('.citem').forEach(it => it.addEventListener('click', (e) => {
+      if (e.target.closest('[data-del]')) return;
+      const i = +it.dataset.i;
+      const el = [...document.querySelectorAll('.cmt')].find(x => x.getAttribute('data-clabel') === comments[i].target);
+      if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); flashPin(comments[i].target); }
+    }));
+  }
+  function flashPin(target) {
+    document.querySelectorAll('.pin').forEach(p => { const el = p.closest('.cmt'); if (el && el.getAttribute('data-clabel') === target) { p.classList.add('hl'); setTimeout(() => p.classList.remove('hl'), 1200); } });
+  }
+  function renderAll() { renderPins(); renderPanel(); }
+  renderAll();
+
+  let editorEl = null;
+  function closeEditor() { if (editorEl) { editorEl.remove(); editorEl = null; } }
+  function openEditor(targetEl, existingIndex, ev) {
+    closeEditor();
+    const target = clabelOf(targetEl);
+    const existing = existingIndex != null ? comments[existingIndex] : null;
+    let pendingVerdict = existing ? (existing.verdict || '') : '';
+    const ed = document.createElement('div'); ed.className = 'editor';
+    ed.innerHTML = `
+      <div class="lbl">${esc(target)}</div>
+      <textarea placeholder="Type your note, suggestion, or change request">${existing ? esc(existing.text) : ''}</textarea>
+      <div class="vchoice"><button class="vbtn" data-vc="note">Note</button><button class="vbtn app" data-vc="approve">Approve</button><button class="vbtn dis" data-vc="disapprove">Disapprove</button></div>
+      <div class="acts">${existing ? '<button class="btn danger" data-act="del">Delete</button>' : ''}<span class="spacer"></span><button class="btn" data-act="cancel">Cancel</button><button class="btn on" data-act="save">Save</button></div>`;
+    document.body.appendChild(ed); editorEl = ed;
+    const paintVc = () => ed.querySelectorAll('[data-vc]').forEach(b => { const sel = (b.dataset.vc === 'note' && !pendingVerdict) || b.dataset.vc === pendingVerdict; b.classList.toggle('on', sel); });
+    ed.querySelectorAll('[data-vc]').forEach(b => b.addEventListener('click', () => { pendingVerdict = b.dataset.vc === 'note' ? '' : b.dataset.vc; paintVc(); }));
+    paintVc();
+    const x = ev ? ev.clientX : targetEl.getBoundingClientRect().left;
+    const y = ev ? ev.clientY : targetEl.getBoundingClientRect().bottom;
+    const w = 280, vw = window.innerWidth, vh = window.innerHeight;
+    ed.style.left = Math.min(Math.max(8, x - 20), vw - w - 8) + 'px';
+    ed.style.top = Math.min(y + 10, vh - 220) + 'px';
+    const ta = ed.querySelector('textarea'); ta.focus();
+    ed.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
+      const act = b.dataset.act;
+      if (act === 'cancel') return closeEditor();
+      if (act === 'del') { if (existingIndex != null) { comments.splice(existingIndex, 1); save(); renderAll(); } return closeEditor(); }
+      if (act === 'save') {
+        const text = ta.value.trim();
+        if (!text && !pendingVerdict) { closeEditor(); return; }
+        if (existing) { existing.text = text; existing.verdict = pendingVerdict; }
+        else { comments.push({ target, text, verdict: pendingVerdict }); }
+        save(); renderAll(); closeEditor();
+      }
+    }));
+    ed.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeEditor(); if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) ed.querySelector('[data-act="save"]').click(); });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!document.body.classList.contains('cmt-on')) return;
+    if (e.target.closest('.editor') || e.target.closest('.panel') || e.target.closest('.topbar') || e.target.closest('.pin')) return;
+    const cmt = e.target.closest('.cmt'); if (!cmt) return;
+    e.preventDefault(); openEditor(cmt, null, e);
+  });
+
+  const cBtn = document.getElementById('commentToggle');
+  cBtn.addEventListener('click', () => { const on = document.body.classList.toggle('cmt-on'); cBtn.classList.toggle('on', on); cBtn.textContent = 'Comment mode: ' + (on ? 'on' : 'off'); if (!on) closeEditor(); });
+  const tBtn = document.getElementById('themeToggle');
+  tBtn.addEventListener('click', () => { const dark = document.documentElement.getAttribute('data-theme') === 'dark'; document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark'); tBtn.textContent = dark ? 'Switch to dark' : 'Switch to light'; });
+  document.getElementById('panelHead').addEventListener('click', () => { const p = document.getElementById('panel'); const col = p.classList.toggle('collapsed'); document.getElementById('chev').textContent = col ? 'show' : 'hide'; });
+
+  function buildMarkdown() {
+    let out = 'BeakerBot review modes, feedback\n\n';
+    out += 'Decisions on the five changes\n';
+    CHANGES.forEach(c => { const v = verdicts[c.id]; const mark = v === 'approve' ? 'APPROVE' : v === 'disapprove' ? 'DISAPPROVE' : 'undecided'; out += `- ${c.title}: ${mark}\n`; });
+    out += '\nOpen questions from the proposal\n- Default mode (step-by-step proposed): \n- Whole-plan renders each result inline vs final summary only: \n';
+    out += '\nComments\n';
+    if (comments.length === 0) out += '- none\n';
+    comments.forEach((c, i) => { const tag = c.verdict === 'approve' ? '[APPROVE] ' : c.verdict === 'disapprove' ? '[DISAPPROVE] ' : ''; out += `${i + 1}. ${tag}[${c.target}] ${c.text}\n`; });
+    return out;
+  }
+  function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1600); }
+  document.getElementById('exportBtn').addEventListener('click', async () => { const md = buildMarkdown(); try { await navigator.clipboard.writeText(md); toast('Feedback copied. Paste it back to me.'); } catch { window.prompt('Copy your feedback', md); } });
+  document.getElementById('downloadBtn').addEventListener('click', () => { const blob = new Blob([buildMarkdown()], { type: 'text/markdown' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'beakerbot-review-modes-feedback.md'; a.click(); URL.revokeObjectURL(a.href); });
+  document.getElementById('clearBtn').addEventListener('click', () => { if (comments.length && !confirm('Delete all comments?')) return; comments = []; save(); renderAll(); });
+</script>
+</body>
+</html>
