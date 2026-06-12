@@ -1,11 +1,13 @@
-// ai chat-embeds bot, 2026-06-11.
+// ai chat-embeds bot, 2026-06-11; ai embed-align bot, 2026-06-11.
 //
 // Tests for the AssistantMarkdown block-embed path. Verifies:
 //   (a) a lone molecule embed link renders as ObjectEmbed (not a new-tab anchor)
-//   (b) a lone datahub embed link renders as ObjectEmbed
-//   (c) a plain object deep-link (no #ros= fragment) renders as an ObjectChip
-//   (d) an external URL still renders as a new-tab anchor
-//   (e) a molecule embed link that is MID-sentence renders as a chip, not a block
+//   (b) a lone datahub table embed link renders as ObjectEmbed
+//   (c) a lone datahub RESULT embed link renders as ObjectEmbed with analysis opt preserved
+//   (d) a lone datahub PLOT embed link renders as ObjectEmbed with plot opt preserved
+//   (e) a plain object deep-link (no #ros= fragment) renders as an ObjectChip
+//   (f) an external URL still renders as a new-tab anchor
+//   (g) a molecule embed link that is MID-sentence renders as a chip, not a block
 //
 // ObjectEmbed, ObjectChip, and the chemistry/datahub APIs are mocked so this
 // test does not need RDKit, a real folder, or any network.
@@ -13,11 +15,22 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { AssistantMarkdown } from "../BeakerBotConversation";
+import type { EmbedDescriptor } from "@/lib/references";
 
 // Mock ObjectEmbed so we can assert it renders without needing RDKit or APIs.
+// Exposes type, id, view, caption, and the analysis/plot opts so tests can
+// confirm the full descriptor passes through.
 vi.mock("@/components/embeds/ObjectEmbed", () => ({
-  default: ({ descriptor, caption }: { descriptor: { type: string; id: string }; caption: string }) => (
-    <div data-testid="object-embed" data-type={descriptor.type} data-id={descriptor.id} data-caption={caption} />
+  default: ({ descriptor, caption }: { descriptor: EmbedDescriptor; caption: string }) => (
+    <div
+      data-testid="object-embed"
+      data-type={descriptor.type}
+      data-id={descriptor.id}
+      data-view={descriptor.view}
+      data-caption={caption}
+      data-analysis={descriptor.opts.analysis ?? ""}
+      data-plot={descriptor.opts.plot ?? ""}
+    />
   ),
 }));
 
@@ -81,6 +94,42 @@ describe("AssistantMarkdown embed rendering", () => {
     const anchor = document.querySelector("a[target='_blank']") as HTMLAnchorElement | null;
     expect(anchor).not.toBeNull();
     expect(anchor?.href).toContain("pubchem");
+  });
+
+  it("renders a lone datahub RESULT embed link as ObjectEmbed with analysis opt", () => {
+    // This is the form BeakerBot writes after run_datahub_analysis succeeds.
+    // The analysis opt must survive parseObjectEmbed -> loneEmbedFromChatParagraph
+    // -> ObjectEmbed so DataHubEmbed can find the right analysis.
+    const content = "[Welch t-test, A vs B](/datahub?doc=2#ros=result&analysis=a3)";
+    render(<AssistantMarkdown content={content} />);
+
+    const embed = screen.getByTestId("object-embed");
+    expect(embed.getAttribute("data-type")).toBe("datahub");
+    expect(embed.getAttribute("data-id")).toBe("2");
+    expect(embed.getAttribute("data-view")).toBe("result");
+    expect(embed.getAttribute("data-analysis")).toBe("a3");
+    expect(embed.getAttribute("data-caption")).toBe("Welch t-test, A vs B");
+
+    const anchors = document.querySelectorAll("a[target='_blank']");
+    expect(anchors.length).toBe(0);
+  });
+
+  it("renders a lone datahub PLOT embed link as ObjectEmbed with plot opt", () => {
+    // This is the form BeakerBot writes after make_datahub_graph succeeds.
+    // The plot opt must survive to ObjectEmbed so DataHubEmbed can render the
+    // correct PlotSpec SVG.
+    const content = "[OD600 over time](/datahub?doc=2#ros=plot&plot=p1)";
+    render(<AssistantMarkdown content={content} />);
+
+    const embed = screen.getByTestId("object-embed");
+    expect(embed.getAttribute("data-type")).toBe("datahub");
+    expect(embed.getAttribute("data-id")).toBe("2");
+    expect(embed.getAttribute("data-view")).toBe("plot");
+    expect(embed.getAttribute("data-plot")).toBe("p1");
+    expect(embed.getAttribute("data-caption")).toBe("OD600 over time");
+
+    const anchors = document.querySelectorAll("a[target='_blank']");
+    expect(anchors.length).toBe(0);
   });
 
   it("renders a molecule embed link that is mid-sentence as a chip, not a block embed", () => {
