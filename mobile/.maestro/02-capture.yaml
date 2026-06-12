@@ -1,0 +1,39 @@
+# Clip 02: The capture / Inbox flow (camera-free).
+#
+# WHY NOT the "Take a photo" flow: in demo mode the Notebook "Take a photo"
+# button (onTakePhoto in app/(tabs)/notebook.tsx) is NOT bypassed. It always
+# calls ImagePicker.requestCameraPermissionsAsync + launchCameraAsync, opening
+# the REAL device camera plus a permission dialog. That is not deterministic on
+# an emulator, so we record the already-deterministic seeded-Inbox flow instead.
+#
+# On first demo entry the Notebook asynchronously seeds two sample captures into
+# the Inbox (DEMO_IMAGE_URI thumbnails). This clip shows that Inbox, the two
+# seeded rows, and exercises "Send all".
+#
+# Records: demo Notebook -> Inbox section with 2 seeded captures -> Send all.
+appId: app.researchos.companion
+---
+- runFlow: subflows/enter-demo.yaml
+# Wait for the async demo seed to land the two sample captures in the Inbox.
+- extendedWaitUntil:
+    visible: "Inbox"
+    timeout: 15000
+# Scroll the Inbox into view (it sits below the Today glance + actions).
+- scrollUntilVisible:
+    element:
+      id: "notebook-inbox-row-0"
+    direction: DOWN
+    timeout: 12000
+- assertVisible:
+    id: "notebook-inbox-row-0"
+- assertVisible:
+    id: "notebook-inbox-row-1"
+# The seeded captions are part of the story.
+- assertVisible: "Demo: Plate 4 brightfield overview (GFP channel)"
+- assertVisible: "Demo: Post-trypsin cell suspension check"
+# Exercise the bulk "Send all" action. In demo mode the relay is short-circuited
+# so the rows settle (the burst + status text update); we just confirm the tap
+# is reachable and lands without leaving the Notebook.
+- tapOn:
+    id: "notebook-inbox-send-all"
+- assertVisible: "Inbox"

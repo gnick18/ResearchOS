@@ -1,0 +1,43 @@
+# Clip 03: Quick note compose at the bench.
+#
+# Records: demo Notebook -> tap "Quick note" -> inline compose panel ->
+# type a realistic bench title + body -> the "Send to lab" button is live.
+#
+# DEMO GAP (documented): sendTextNote (lib/notes.ts) is NOT demo-guarded. In
+# demo mode "Send to lab" makes a real fetch to https://demo.researchos.app,
+# which fails, so the app shows a "Note failed" alert and keeps the panel open.
+# It therefore cannot show a clean SUCCESS in demo. This clip records the compose
+# experience (the marketing-worthy part: typing a note at the bench) and asserts
+# the typed text. The final "Send to lab" tap is included but its result alert is
+# dismissed if it appears, so the flow never hangs. For a true success clip, the
+# laptop+relay path (real pairing) is required, or sendTextNote needs a demo
+# short-circuit like fetchSnapshot has.
+appId: app.researchos.companion
+---
+- runFlow: subflows/enter-demo.yaml
+# Open the inline quick-note compose panel (paired/demo path).
+- tapOn:
+    id: "notebook-quick-note"
+- assertVisible:
+    id: "notebook-quicknote-body"
+# Type a realistic bench note.
+- tapOn:
+    id: "notebook-quicknote-title"
+- inputText: "HEK293 passage 18"
+- tapOn:
+    id: "notebook-quicknote-body"
+- inputText: "Split 1:6 into 6 wells. 0.25% trypsin 3 min at 37C, quenched with 2 mL DMEM + 10% FBS. Confluency looked ~85%."
+- hideKeyboard
+- assertVisible: "HEK293 passage 18"
+- assertVisible:
+    id: "notebook-quicknote-send"
+# Attempt the send. In demo this raises a "Note failed" alert (see DEMO GAP);
+# dismiss it if present so the flow exits cleanly. Against a real relay this
+# instead fires the success burst and closes the panel.
+- tapOn:
+    id: "notebook-quicknote-send"
+- runFlow:
+    when:
+      visible: "Note failed"
+    commands:
+      - tapOn: "OK"

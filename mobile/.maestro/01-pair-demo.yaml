@@ -1,0 +1,36 @@
+# Clip 01: First-run pairing -> demo entry -> populated Notebook.
+#
+# Records: the unpaired Notebook, the Pair screen, "Try the demo", and the
+# demo Notebook with the Today glance (today / overdue / coming up fixtures).
+#
+# This deliberately does NOT reuse enter-demo.yaml so the pairing screen itself
+# is on camera. It performs the same steps inline, then asserts the full glance.
+appId: app.researchos.companion
+---
+- clearState
+- launchApp
+# Unpaired Notebook with the pair CTA.
+- assertVisible:
+    id: "notebook-pair-cta"
+- tapOn:
+    id: "notebook-pair-cta"
+# Pair screen: the demo link plus the real pairing affordances are visible.
+- assertVisible:
+    id: "pair-try-demo"
+- assertVisible: "Try the demo"
+- tapOn:
+    id: "pair-try-demo"
+# Demo Notebook: connection card + demo pill + the Today glance fixtures.
+- extendedWaitUntil:
+    visible: "Demo mode"
+    timeout: 15000
+- assertVisible: "Split HEK293 cells (passage 18)"
+- assertVisible: "Image plate 4 (GFP channel, 20x)"
+- assertVisible: "qPCR validation of KO clone B7"      # overdue fixture
+- assertVisible: "Western blot for p53 (lysate batch 3)" # coming-up fixture
+# Dismiss the OS notification dialog if Android raised one.
+- runFlow:
+    when:
+      visible: "Allow"
+    commands:
+      - tapOn: "Allow"
