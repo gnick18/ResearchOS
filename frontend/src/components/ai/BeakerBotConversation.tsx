@@ -1,7 +1,7 @@
 "use client";
 
 // BeakerBotConversation (ai convo-store bot, 2026-06-11; ai palette-morph bot,
-// 2026-06-11; ai chat-embeds bot, 2026-06-11).
+// 2026-06-11; ai chat-embeds bot, 2026-06-11; ai transform-tool bot, 2026-06-11).
 //
 // Reusable conversation body extracted from BeakerBotPanel. Contains the
 // message thread, the AssistantMarkdown renderer with ObjectChip tile upgrades,
@@ -33,6 +33,7 @@ import ObjectChip from "@/components/ObjectChip";
 import ObjectEmbed from "@/components/embeds/ObjectEmbed";
 import { parseObjectDeepLink, parseObjectEmbed } from "@/lib/references";
 import { loneEmbedFromChatParagraph, type ChatHastNode } from "./chat-embed-detect";
+import type { TransformApprovalRequest, TransformStepBlock } from "@/lib/ai/tools/types";
 
 // Lightweight markdown renderer for assistant replies only. Scoped to this
 // component. Uses standard semantic elements styled by the app's Tailwind prose
@@ -230,6 +231,161 @@ function ChoicePrompt({
         >
           <Icon name="close" className="h-3.5 w-3.5" title="Cancel" />
           Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// TransformApprovalCard: the block card for transform_table approval.
+//
+// Visual target: docs/mockups/beakerbot-transform-blocks.html.
+// Mirrors the TransformDialog visual language (KIND_META labels + blurbs, param
+// pills, preview table) so the two front ends are consistent.
+//
+// Structure:
+//   - Header: "Transform pipeline, from <sourceName>" + proposed result name.
+//   - Numbered step block(s): number badge, step name, blurb, param pills,
+//     optional first-rows preview table.
+//   - Footer: Approve / Reject buttons.
+//
+// House style, Icon only, brand + semantic tokens, no emojis / em-dashes /
+// mid-sentence colons.
+// ---------------------------------------------------------------------------
+
+function TransformPreviewTable({
+  preview,
+}: {
+  preview: NonNullable<TransformStepBlock["preview"]>;
+}) {
+  if (!preview.columns.length) return null;
+  return (
+    <div
+      className="mt-2 overflow-auto rounded-md border border-border"
+      data-testid="beakerbot-transform-preview"
+    >
+      <p className="bg-surface-sunken px-2 py-1 text-meta text-foreground-muted">
+        First rows preview
+      </p>
+      <table className="w-full border-collapse text-meta tabular-nums">
+        <thead>
+          <tr>
+            {preview.columns.map((col) => (
+              <th
+                key={col}
+                className="border border-border bg-surface-sunken px-2 py-1 text-left font-semibold text-foreground"
+              >
+                {col}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {preview.rows.map((row, ri) => (
+            <tr key={ri}>
+              {row.map((cell, ci) => (
+                <td
+                  key={ci}
+                  className="border border-border bg-surface-raised px-2 py-1 text-foreground-muted"
+                >
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function TransformApprovalCard({
+  request,
+  onApprove,
+  onReject,
+}: {
+  request: TransformApprovalRequest;
+  onApprove: () => void;
+  onReject: () => void;
+}) {
+  return (
+    <div
+      data-testid="beakerbot-approval-transform"
+      className="mx-4 mb-2 rounded-md border border-brand bg-brand/5 px-3 py-2"
+    >
+      {/* Header */}
+      <div className="mb-2 flex items-start gap-2">
+        <span className="text-brand">
+          <Icon name="vial" className="h-4 w-4" title="BeakerBot wants to transform a table" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-meta font-semibold text-foreground">
+            Transform pipeline, from {request.sourceName}
+          </p>
+          <p className="text-meta text-foreground-muted">
+            New table: {request.resultName}
+          </p>
+        </div>
+      </div>
+
+      {/* Step blocks */}
+      <div className="mb-2 flex flex-col gap-2">
+        {request.steps.map((step, index) => (
+          <div
+            key={index}
+            className="flex gap-2 rounded-md border border-border bg-surface-raised px-3 py-2"
+            data-testid="beakerbot-transform-step"
+          >
+            {/* Number badge */}
+            <div className="flex h-6 w-6 flex-none items-center justify-center rounded-full border-2 border-border bg-surface text-meta font-bold text-foreground-muted">
+              {index + 1}
+            </div>
+            {/* Step body */}
+            <div className="min-w-0 flex-1">
+              <p className="text-body font-semibold text-foreground">{step.name}</p>
+              <p className="mt-0.5 text-meta text-foreground-muted">{step.blurb}</p>
+              {/* Param pills */}
+              {step.params.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {step.params.map((pill) => (
+                    <span
+                      key={pill.label}
+                      className="rounded-full border border-border bg-surface-sunken px-2 py-0.5 text-meta text-foreground-muted"
+                    >
+                      <span className="font-medium text-foreground">{pill.label}</span>
+                      {": "}
+                      {pill.value}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {/* Live preview table */}
+              {step.preview && <TransformPreviewTable preview={step.preview} />}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          data-testid="beakerbot-transform-approve"
+          onClick={onApprove}
+          className="btn-brand flex items-center gap-1 rounded-md px-3 py-1.5 text-meta font-medium"
+        >
+          <Icon name="check" className="h-3.5 w-3.5" title="Approve" />
+          Approve
+        </button>
+        <button
+          type="button"
+          data-testid="beakerbot-transform-reject"
+          onClick={onReject}
+          className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+        >
+          <Icon name="close" className="h-3.5 w-3.5" title="Reject" />
+          Reject
         </button>
       </div>
     </div>
@@ -484,6 +640,18 @@ export default function BeakerBotConversation({
             </button>
           </div>
         </div>
+      ) : null}
+
+      {/* Transform block card (transform_table). Step block(s) with param pills
+          and a live preview of the first rows, then Approve / Reject. Keyed on
+          the result name so a re-call remounts cleanly. */}
+      {pendingApproval && pendingApproval.request.kind === "transform" ? (
+        <TransformApprovalCard
+          key={pendingApproval.request.resultName}
+          request={pendingApproval.request}
+          onApprove={() => resolveApproval("allow")}
+          onReject={() => resolveApproval("skip")}
+        />
       ) : null}
 
       {/* Choice prompt (ask_user). Button per option. Keyed on the question so

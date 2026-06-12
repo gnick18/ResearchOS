@@ -366,6 +366,23 @@ async function gateToolCall(
     };
   }
 
+  // A transform-preview action (transform_table) raises a "transform" block-card
+  // approval instead of a one-line confirm. The user reviews the step block(s),
+  // param pills, and the live preview, then Approves or Rejects. Same allow / skip
+  // resolution as the draft path; the card renders differently in the UI.
+  if (described?.transformPayload) {
+    const decision = await deps.requestApproval(described.transformPayload);
+    if (decision === "allow") return { proceed: true };
+    return {
+      proceed: false,
+      result: {
+        approved: false,
+        message:
+          "The user declined the transform. Do not create the derived table. Acknowledge their choice in one short sentence and offer to adjust the transform if they would like.",
+      },
+    };
+  }
+
   const decision = await deps.requestApproval({
     kind: "action",
     toolName: tool.name,

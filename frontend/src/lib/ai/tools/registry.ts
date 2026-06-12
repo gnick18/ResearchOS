@@ -78,6 +78,7 @@ import {
   createMoleculeTool,
   importMoleculeTool,
 } from "./chemistry-tools";
+import { transformTableTool } from "./transform-table";
 import type { AiTool } from "./types";
 
 // The read-only toolset, read-only with respect to the user's data. Exported on
@@ -175,6 +176,14 @@ export const READ_ONLY_TOOLS: AiTool[] = [
 // MW, and 2D SDF), then writes a "pubchem" molecule record. The user sees a preview
 // of the name + CID (for import) or name + SMILES (for create) before anything is
 // written. Only on Approve does the molecule write to the library.
+//
+// transform_table is the Data Hub wrangling coworker tool (action: true,
+// isDestructive false). It maps the user's plain-English transform request onto
+// one of the five existing Data Hub deterministic transforms, runs a real preview
+// through the engine (runTransform), and shows the user a block card (step name,
+// blurb, param pills, and a live first-rows preview) before anything is created.
+// Only on Approve does it create the new derived table and navigate the user to it.
+// The engine computes every cell; the model only maps and relays.
 export const ACTION_TOOLS: AiTool[] = [
   clickElementTool,
   writeNoteTool,
@@ -184,6 +193,7 @@ export const ACTION_TOOLS: AiTool[] = [
   createSequenceTool,
   createMoleculeTool,
   importMoleculeTool,
+  transformTableTool,
 ];
 
 // The coordination toolset. These tools neither read the user's data nor act on
