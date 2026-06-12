@@ -237,6 +237,7 @@ export const ANALYSIS_PARAM_SCHEMA: Record<string, ParamField[]> = {
     COMPARE_NESTED_FIELD,
   ],
   kaplanMeier: [],
+  coxRegression: [],
   multipleRegression: [],
   globalFit: [GLOBAL_FIT_MODEL_FIELD, GLOBAL_FIT_SHARE_FIELD],
 };

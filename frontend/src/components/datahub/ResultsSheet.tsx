@@ -36,6 +36,7 @@ import {
   type NormalizedRegression,
   type NormalizedResult,
   type NormalizedSurvival,
+  type NormalizedCoxRegression,
   type NormalizedTTest,
   type NormalizedTwoWayAnova,
 } from "@/lib/datahub/run-analysis";
@@ -865,6 +866,80 @@ function SurvivalTables({ r }: { r: NormalizedSurvival }) {
   );
 }
 
+function CoxRegressionTable({ r }: { r: NormalizedCoxRegression }) {
+  return (
+    <>
+      <table
+        className="w-full border-collapse text-body tabular-nums"
+        data-testid="results-cox-coefficients-table"
+      >
+        <thead>
+          <tr className="text-meta uppercase tracking-wide text-foreground-muted">
+            <th className="border-b border-border px-3 py-1.5 text-left">Term</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">Coef</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">SE</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">z</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">p</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">
+              Hazard ratio
+            </th>
+            <th className="border-b border-border px-3 py-1.5 text-right">95% CI</th>
+          </tr>
+        </thead>
+        <tbody>
+          {r.coefficients.map((c) => (
+            <tr key={c.name}>
+              <td className="border-b border-border px-3 py-1.5 text-foreground">
+                {c.name}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {num(c.coef, 4)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {num(c.se, 4)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {num(c.z, 3)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {formatP(c.pValue)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {num(c.hazardRatio, 4)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {`${num(c.hrCiLow, 3)} to ${num(c.hrCiHigh, 3)}`}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <KeyValueTable
+        testid="results-cox-fit-table"
+        rows={[
+          { label: "Concordance", value: num(r.concordance, 4) },
+          { label: "Log-likelihood", value: num(r.logLikelihood, 3) },
+          { label: "Null log-likelihood", value: num(r.nullLogLikelihood, 3) },
+          {
+            label: "Likelihood-ratio chi-square",
+            value: `${num(r.lrChiSquare, 3)} (df ${r.lrDf})`,
+          },
+          { label: "Likelihood-ratio p", value: formatP(r.lrPValue) },
+          { label: "Events", value: num(r.events, 0) },
+          { label: "Rows (n)", value: num(r.n, 0) },
+        ]}
+      />
+      <p className="mt-2 max-w-xl text-meta text-foreground-muted">
+        The hazard ratio is exp(coef), the relative rate of the event for the
+        comparison arm versus the reference. A ratio above 1 means a higher
+        hazard, below 1 a lower one, and a ratio of 1 means no difference.
+        Concordance is the share of comparable subject pairs the model ranks in
+        the right order, where 0.5 is a coin flip and 1 is perfect.
+      </p>
+    </>
+  );
+}
+
 /**
  * The result tabs for one normalized result. Only tabs that actually have
  * content are returned, so a t-test shows a single "Tabular results" tab while a
@@ -928,6 +1003,14 @@ function resultTabs(result: NormalizedResult): {
           id: "survival",
           label: "Survival table",
           render: () => <SurvivalTables r={result} />,
+        },
+      ];
+    case "coxRegression":
+      return [
+        {
+          id: "tabular",
+          label: "Tabular results",
+          render: () => <CoxRegressionTable r={result} />,
         },
       ];
     case "correlation":

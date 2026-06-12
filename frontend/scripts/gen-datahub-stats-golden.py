@@ -752,6 +752,36 @@ def ref_survival():
         "df": 1,
         "p": r4(lr.p_value),
     }
+    # Cox proportional hazards on the same two arms. The single covariate is the
+    # arm indicator (Treatment = 1, Control = 0), matching how the Data Hub codes
+    # the comparison-vs-reference contrast. Efron tie handling is lifelines'
+    # default, so the coefficient matches our engine.
+    import pandas as pd
+    from lifelines import CoxPHFitter
+    df = pd.DataFrame({
+        "duration": t + tc,
+        "event": e + ec,
+        "arm": [1] * len(t) + [0] * len(tc),
+    })
+    cph = CoxPHFitter()
+    cph.fit(df, duration_col="duration", event_col="event")
+    s = cph.summary.loc["arm"]
+    # Likelihood-ratio test vs the null model.
+    lr_stat = float(cph.log_likelihood_ratio_test().test_statistic)
+    lr_p = float(cph.log_likelihood_ratio_test().p_value)
+    out["cox"] = {
+        "coef": r4(s["coef"]),
+        "se": r4(s["se(coef)"]),
+        "z": r4(s["z"]),
+        "p": r4(s["p"]),
+        "hr": r4(s["exp(coef)"]),
+        "hr_ci_low": r4(s["exp(coef) lower 95%"]),
+        "hr_ci_high": r4(s["exp(coef) upper 95%"]),
+        "log_likelihood": r4(cph.log_likelihood_),
+        "lr_chi2": r4(lr_stat),
+        "lr_p": r4(lr_p),
+        "concordance": r4(cph.concordance_index_),
+    }
     return out
 
 

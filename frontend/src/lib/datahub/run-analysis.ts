@@ -45,6 +45,8 @@ import {
   type MultipleRegressionCoefficient,
   kaplanMeier,
   logRank,
+  coxPH,
+  type CoxCoefficient,
   shapiroWilk,
   bootstrapDiffCI,
   meanDifference,
@@ -108,10 +110,14 @@ export type AnalysisType =
   | "globalFit"
   | "twoWayAnova"
   | "kaplanMeier"
+  | "coxRegression"
   | "multipleRegression";
 
 /** The analysis types that read a Survival table (time + event + group). */
-export const SURVIVAL_ANALYSIS_TYPES: AnalysisType[] = ["kaplanMeier"];
+export const SURVIVAL_ANALYSIS_TYPES: AnalysisType[] = [
+  "kaplanMeier",
+  "coxRegression",
+];
 
 /**
  * The analysis types that read an XY table. Most pair the single X with ONE Y;
@@ -616,6 +622,25 @@ export interface NormalizedSurvival {
   } | null;
 }
 
+/**
+ * A normalized Cox proportional hazards result. One coefficient per covariate
+ * (the Data Hub surfaces the single arm-indicator covariate, Treatment vs
+ * Control), plus the overall fit summary. From the engine's coxPH.
+ */
+export interface NormalizedCoxRegression {
+  kind: "coxRegression";
+  type: "coxRegression";
+  n: number;
+  events: number;
+  coefficients: CoxCoefficient[];
+  logLikelihood: number;
+  nullLogLikelihood: number;
+  lrChiSquare: number;
+  lrDf: number;
+  lrPValue: number;
+  concordance: number;
+}
+
 export type NormalizedResult =
   | NormalizedTTest
   | NormalizedAnova
@@ -627,7 +652,8 @@ export type NormalizedResult =
   | NormalizedModelComparison
   | NormalizedGlobalFit
   | NormalizedTwoWayAnova
-  | NormalizedSurvival;
+  | NormalizedSurvival
+  | NormalizedCoxRegression;
 
 /** A failed run carries the engine (or resolver) reason so the UI can show it. */
 export interface RunFailure {
@@ -1305,6 +1331,58 @@ function runSurvivalAnalysis(content: DataHubDocContent): RunOutcome {
   return { ok: true, kind: "survival", type: "kaplanMeier", groups: normGroups, logRank: lr };
 }
 
+/**
+ * Run a Cox proportional hazards regression on a Survival table. The single
+ * covariate is the arm indicator. The first arm in the table is the reference
+ * (covariate 0); each later arm gets covariate 1, so exp(coef) is that arm's
+ * hazard ratio versus the reference. With one arm there is nothing to compare.
+ */
+function runCoxAnalysis(content: DataHubDocContent): RunOutcome {
+  const groups = survivalGroups(content).filter(
+    (g) => g.observations.length > 0,
+  );
+  if (groups.length < 2) {
+    return {
+      ok: false,
+      error: "Cox regression needs two arms (a reference and a comparison).",
+    };
+  }
+  // First arm is the reference (indicator 0); the second arm is the comparison
+  // (indicator 1). The covariate is named for the comparison arm.
+  const reference = groups[0].name;
+  const comparison = groups[1].name;
+  const rows = [
+    ...groups[0].observations.map((o) => ({
+      time: o.time,
+      event: o.event,
+      covariates: [0],
+    })),
+    ...groups[1].observations.map((o) => ({
+      time: o.time,
+      event: o.event,
+      covariates: [1],
+    })),
+  ];
+  const covariateName = `${comparison} vs ${reference}`;
+  const res = coxPH(rows, [covariateName]);
+  if (!res.ok) return { ok: false, error: res.error };
+
+  return {
+    ok: true,
+    kind: "coxRegression",
+    type: "coxRegression",
+    n: res.n,
+    events: res.events,
+    coefficients: res.coefficients,
+    logLikelihood: res.logLikelihood,
+    nullLogLikelihood: res.nullLogLikelihood,
+    lrChiSquare: res.lrChiSquare,
+    lrDf: res.lrDf,
+    lrPValue: res.lrPValue,
+    concordance: res.concordance,
+  };
+}
+
 /** Run a two-way ANOVA on a Grouped table's flattened observations. */
 function runTwoWayAnalysis(
   content: DataHubDocContent,
@@ -1561,6 +1639,10 @@ export function runAnalysis(
 
   if (type === "kaplanMeier") {
     return runSurvivalAnalysis(content);
+  }
+
+  if (type === "coxRegression") {
+    return runCoxAnalysis(content);
   }
 
   if (type === "multipleRegression") {

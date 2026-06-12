@@ -19,6 +19,7 @@ import type {
   NormalizedRegression,
   NormalizedResult,
   NormalizedSurvival,
+  NormalizedCoxRegression,
   NormalizedTTest,
   NormalizedTwoWayAnova,
 } from "@/lib/datahub/run-analysis";
@@ -338,6 +339,31 @@ function survivalSummary(r: NormalizedSurvival): string {
   return `${lead} The survival curves are statistically indistinguishable (${stat}). There is not enough evidence that the arms differ.`;
 }
 
+function coxSummary(r: NormalizedCoxRegression): string {
+  const arm = r.coefficients[0];
+  if (!arm) {
+    return "Cox regression needs a comparison arm to estimate a hazard ratio.";
+  }
+  const hr = num(arm.hazardRatio, 2);
+  const ci = `95% CI ${num(arm.hrCiLow, 2)} to ${num(arm.hrCiHigh, 2)}`;
+  const direction =
+    arm.hazardRatio < 1
+      ? "a lower hazard"
+      : arm.hazardRatio > 1
+        ? "a higher hazard"
+        : "the same hazard";
+  const lead = `The hazard ratio for ${arm.name} is ${hr} (${ci}), ${direction} than the reference arm.`;
+  if (arm.pValue < ALPHA) {
+    return `${lead} The difference is significant (${formatP(arm.pValue)}), and the model orders ${num(
+      r.concordance,
+      2,
+    )} of comparable subject pairs correctly.`;
+  }
+  return `${lead} There is not enough evidence that the hazards differ (${formatP(
+    arm.pValue,
+  )}).`;
+}
+
 /**
  * The one-sentence (or two-sentence) plain-language verdict for a normalized
  * result. The ResultsSheet renders this above the stats table.
@@ -355,5 +381,6 @@ export function plainLanguageSummary(result: NormalizedResult): string {
   if (result.kind === "globalFit") return globalFitSummary(result);
   if (result.kind === "twoWayAnova") return twoWaySummary(result);
   if (result.kind === "survival") return survivalSummary(result);
+  if (result.kind === "coxRegression") return coxSummary(result);
   return ttestSummary(result);
 }

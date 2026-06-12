@@ -137,6 +137,12 @@ const TYPE_META: Record<
       "Kaplan-Meier curves with median survival, plus the log-rank test when the table has two or more groups.",
     groupCount: "all",
   },
+  coxRegression: {
+    label: "Cox proportional hazards",
+    blurb:
+      "Fit a Cox model on the survival arms for the hazard ratio (with its 95% interval) of one arm versus the reference, plus the likelihood-ratio test and concordance.",
+    groupCount: "all",
+  },
 };
 
 export default function NewAnalysisDialog({

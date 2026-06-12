@@ -62,11 +62,15 @@ export { shapiroWilk, levene, brownForsythe } from "./assumptions";
 export {
   kaplanMeier,
   logRank,
+  coxPH,
   type SurvivalObservation,
   type KaplanMeierStep,
   type KaplanMeierResult,
   type LogRankGroup,
   type LogRankResult,
+  type CoxObservation,
+  type CoxCoefficient,
+  type CoxResult,
 } from "./survival";
 
 // Nonlinear curve fitting (the crown jewel).

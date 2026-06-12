@@ -44,6 +44,7 @@ import {
   brownForsythe,
   kaplanMeier,
   logRank,
+  coxPH,
   percentileInterval,
   biasCorrection,
   jackknifeAcceleration,
@@ -1316,6 +1317,16 @@ function runDatahubEngine(): Record<string, number> {
     "log-rank",
   );
 
+  // Cox proportional hazards on the same two arms. The covariate is the arm
+  // indicator (Treatment = 1, Control = 0), matching the lifelines reference
+  // coding so exp(coef) is the Treatment-vs-Control hazard ratio.
+  const coxRows = [
+    ...SURV_TREAT.map((o) => ({ time: o.time, event: o.event, covariates: [1] })),
+    ...SURV_CONTROL.map((o) => ({ time: o.time, event: o.event, covariates: [0] })),
+  ];
+  const cox = need(coxPH(coxRows, ["arm"]), "Cox PH");
+  const coxArm = cox.coefficients[0];
+
   // Read the step-function survival just after a fixed time (the value carried
   // forward from the last event at or before t), matching lifelines' predict().
   const survAt = (t: number): number => {
@@ -1502,6 +1513,17 @@ function runDatahubEngine(): Record<string, number> {
     km_median: km.median ?? NaN,
     logrank_chi2: lr.chiSquare,
     logrank_p: lr.pValue,
+    cox_coef: coxArm.coef,
+    cox_se: coxArm.se,
+    cox_z: coxArm.z,
+    cox_p: coxArm.pValue,
+    cox_hr: coxArm.hazardRatio,
+    cox_hr_ci_low: coxArm.hrCiLow,
+    cox_hr_ci_high: coxArm.hrCiHigh,
+    cox_log_likelihood: cox.logLikelihood,
+    cox_lr_chi2: cox.lrChiSquare,
+    cox_lr_p: cox.lrPValue,
+    cox_concordance: cox.concordance,
 
     // E1: effect sizes + standardized-effect CIs (sign-preserving; the pins
     // carry the same sign as the references, so no magnitude folding here).

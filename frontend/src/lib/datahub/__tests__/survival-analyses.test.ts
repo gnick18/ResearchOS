@@ -64,7 +64,10 @@ function spec(): AnalysisSpec {
 
 describe("run-analysis: survival valid types", () => {
   it("offers survival analysis once a Survival table has data", () => {
-    expect(validAnalysisTypes(amlContent())).toEqual(["kaplanMeier"]);
+    expect(validAnalysisTypes(amlContent())).toEqual([
+      "kaplanMeier",
+      "coxRegression",
+    ]);
   });
 });
 
