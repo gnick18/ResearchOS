@@ -53,6 +53,8 @@ import IdpPanel from "@/components/workbench/idp/IdpPanel";
 import ContextMenu from "@/components/ContextMenu";
 import NoteDetailPopup from "@/components/NoteDetailPopup";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+import { useUserColorMap } from "@/hooks/useUserColor";
+import { fallbackColorForUsername } from "@/lib/colors";
 import type {
   WorkbenchInitialOpen,
   WorkbenchRecentRef,
@@ -873,6 +875,9 @@ function TaskBoardArea({
   );
   const [scope, setScope] = useState<"everyone" | "mine">("everyone");
   const [editing, setEditing] = useState<OneOnOneActionItem | null>(null);
+  // Per-member swatch from `_user_metadata` so a member's band matches their
+  // color everywhere else (login avatar, Gantt), not a positional palette.
+  const colorMap = useUserColorMap();
 
   const { data: items = [] } = useQuery<OneOnOneActionItem[]>({
     queryKey: itemsKey(oneOnOne.id),
@@ -916,11 +921,12 @@ function TaskBoardArea({
   });
 
   // Bands: a "Shared" band (assignee null) first, then one per member, in the
-  // space's member order. Scope "mine" keeps only the viewer's own band.
+  // space's member order. Scope "mine" keeps the Shared band (unassigned work is
+  // everyone's) plus the viewer's own band.
   const bands = useMemo(() => {
     const filtered =
       scope === "mine"
-        ? items.filter((i) => i.assignee === currentUser)
+        ? items.filter((i) => i.assignee === currentUser || !i.assignee)
         : items;
     const byAssignee = new Map<string, OneOnOneActionItem[]>();
     const shared: OneOnOneActionItem[] = [];
@@ -946,26 +952,24 @@ function TaskBoardArea({
       accent: string;
       items: OneOnOneActionItem[];
     }> = [];
-    if (scope === "everyone") {
-      out.push({
-        key: "__shared__",
-        label: "Shared",
-        accent: "bg-foreground-muted",
-        items: sortBand(shared),
-      });
-    }
-    members.forEach((m, idx) => {
+    out.push({
+      key: "__shared__",
+      label: "Shared",
+      accent: "var(--color-foreground-muted)",
+      items: sortBand(shared),
+    });
+    members.forEach((m) => {
       const list = byAssignee.get(m) ?? [];
       if (scope === "mine" && m !== currentUser) return;
       out.push({
         key: m,
         label: m === currentUser ? `${m} (you)` : m,
-        accent: BAND_ACCENTS[idx % BAND_ACCENTS.length],
+        accent: colorMap[m]?.primary ?? fallbackColorForUsername(m),
         items: sortBand(list),
       });
     });
     return out;
-  }, [items, members, scope, currentUser]);
+  }, [items, members, scope, currentUser, colorMap]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -998,7 +1002,8 @@ function TaskBoardArea({
               <div className="flex items-center gap-2 px-1">
                 <span
                   aria-hidden="true"
-                  className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${band.accent}`}
+                  className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                  style={{ background: band.accent }}
                 />
                 <p className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">
                   {band.label}
@@ -1048,16 +1053,6 @@ function TaskBoardArea({
     </div>
   );
 }
-
-// Colored band accents, cycled by member index, mirroring the explorer pattern.
-const BAND_ACCENTS = [
-  "bg-sky-500",
-  "bg-emerald-500",
-  "bg-violet-500",
-  "bg-amber-500",
-  "bg-rose-500",
-  "bg-teal-500",
-];
 
 function BoardRow({
   item,
