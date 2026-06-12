@@ -1794,7 +1794,11 @@ export default function DataHubPage() {
           collection={collection}
           onCollectionChange={setCollection}
           selectedTableId={selectedTableId}
-          onSelectTable={setSelectedTableId}
+          onSelectTable={(id) => {
+            setSelectedAnalysisId(null);
+            setSelectedPlotId(null);
+            setSelectedTableId(id);
+          }}
           onNewTable={() => setNewTableOpen(true)}
           onNewFolder={() => setNewTableOpen(true)}
           onImport={() => setImportOpen(true)}
