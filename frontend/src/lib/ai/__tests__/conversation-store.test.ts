@@ -93,6 +93,28 @@ vi.mock("../page-perception", () => ({
   resolveRef: vi.fn(() => null),
 }));
 
+// Stub the chat persistence layer. The thread-aware send path calls createChat
+// / saveChat, which would otherwise reach the FSA file service. We return a
+// fake id so the create-on-first-send binding works without touching disk.
+vi.mock("../beaker-chats-store", () => ({
+  createChat: vi.fn(async (input: { title: string }) => ({
+    id: 1,
+    title: input.title,
+    createdAt: "2026-06-12T00:00:00.000Z",
+    updatedAt: "2026-06-12T00:00:00.000Z",
+    archived: false,
+    messages: [],
+    history: [],
+  })),
+  saveChat: vi.fn(async () => null),
+  getChat: vi.fn(async () => null),
+  listChats: vi.fn(async () => []),
+  renameChat: vi.fn(async () => null),
+  setChatArchived: vi.fn(async () => null),
+  deleteChat: vi.fn(async () => true),
+  deriveChatTitle: (s: string) => s.slice(0, 60),
+}));
+
 // Import mocked modules for use in tests.
 import { callModelViaProxy } from "../proxy-client";
 import { runAgentLoop } from "../agent-loop";
