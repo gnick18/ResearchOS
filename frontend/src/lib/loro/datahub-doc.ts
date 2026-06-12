@@ -414,6 +414,25 @@ export function addRow(
   return row.id;
 }
 
+/**
+ * Insert a row at a position. cells is the initial cell map (columnId -> value).
+ * The index is clamped to [0, length] so an out-of-range insert appends rather
+ * than throwing. Does NOT commit. Returns the row id. This is the positional
+ * sibling of addRow (which always appends), used by the grid Insert-row-above /
+ * Insert-row-below right-click actions.
+ */
+export function addRowAt(doc: LoroDoc, row: RowRecord, index: number): string {
+  const rows = getRowsList(doc);
+  const at = Math.max(0, Math.min(index, rows.length));
+  const map = rows.insertContainer(at, new LoroMap());
+  map.set(ROW_ID_KEY, row.id);
+  for (const [colId, value] of Object.entries(row.cells)) {
+    if (colId === ROW_ID_KEY) continue;
+    map.set(colId, asCell(value));
+  }
+  return row.id;
+}
+
 /** Delete a row by id. No-op when absent. Does NOT commit. */
 export function deleteRow(doc: LoroDoc, rowId: string): void {
   const rows = getRowsList(doc);
@@ -439,6 +458,21 @@ export function moveRow(doc: LoroDoc, rowId: string, toIndex: number): void {
 export function addColumn(doc: LoroDoc, col: ColumnDef): string {
   const columns = getColumnsList(doc);
   const map = columns.insertContainer(columns.length, new LoroMap());
+  writeColumn(map, col);
+  return col.id;
+}
+
+/**
+ * Insert a column at a position. The index is clamped to [0, length] so an
+ * out-of-range insert appends rather than throwing. Does NOT commit. Returns the
+ * column id. The positional sibling of addColumn (which always appends), used by
+ * the grid Insert-before / Insert-after and Duplicate right-click actions so the
+ * new column lands where the user clicked rather than at the far right.
+ */
+export function addColumnAt(doc: LoroDoc, col: ColumnDef, index: number): string {
+  const columns = getColumnsList(doc);
+  const at = Math.max(0, Math.min(index, columns.length));
+  const map = columns.insertContainer(at, new LoroMap());
   writeColumn(map, col);
   return col.id;
 }
@@ -476,6 +510,29 @@ export function removeColumn(doc: LoroDoc, columnId: string): void {
   const idx = findEntryIndex(columns, columnId);
   if (idx < 0) return;
   columns.delete(idx, 1);
+}
+
+/**
+ * Delete a column AND drop its cell key from every row, so the projection no
+ * longer emits a dangling cell for the removed column. No-op when the column is
+ * absent. Does NOT commit. This is the form the grid Delete-column action wants:
+ * removeColumn alone leaves a stale cell key on each row (projectRows emits every
+ * non-id key), so a later analysis or CSV export could still see the deleted
+ * column's values. Stripping the cell keys here keeps the row maps clean.
+ */
+export function removeColumnWithCells(doc: LoroDoc, columnId: string): void {
+  const columns = getColumnsList(doc);
+  const idx = findEntryIndex(columns, columnId);
+  if (idx < 0) return;
+  columns.delete(idx, 1);
+  const rows = getRowsList(doc);
+  for (let i = 0; i < rows.length; i++) {
+    const map = rows.get(i) as LoroMap | undefined;
+    if (!map) continue;
+    // Only delete the key when present, so we never touch a row that never
+    // carried this column (keeps the write set minimal for the CRDT).
+    if (map.get(columnId) !== undefined) map.delete(columnId);
+  }
 }
 
 /** Move a column to a new index (reorder). No-op when absent. Does NOT commit. */
