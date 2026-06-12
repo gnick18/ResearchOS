@@ -486,6 +486,18 @@ export type PrimerSummary = {
   end: number;
   /** Lower is better (0 = perfect match to length/Tm optimum). */
   score: number;
+  /** Self-complementarity / hairpin heuristics from the engine's analysis, so the
+   *  model can report a primer-dimer / fold check. These are simple complementary-
+   *  run LENGTHS in bases (APE-level heuristics), not a thermodynamic dG. A value
+   *  of 0 means no significant self-complementarity for that check. */
+  self_complementarity: {
+    /** Longest any-frame self-complementary run (self-dimer / self-fold risk). */
+    self_dimer_run: number;
+    /** Longest complementary run that includes the 3' terminal base (3' dimer). */
+    three_prime_dimer_run: number;
+    /** Strongest hairpin stem length (>=3 nt loop); 0 = no significant hairpin. */
+    hairpin_stem: number;
+  };
 };
 
 /** Return value from design_primers. */
@@ -510,13 +522,21 @@ function candidateToSummary(c: PrimerCandidate, dir: "forward" | "reverse"): Pri
     start: c.start,
     end: c.end,
     score: Math.round(c.score * 100) / 100,
+    // The engine already ran the full trust analysis on every candidate; surface
+    // its self-complementarity / hairpin run lengths so the model can report a
+    // primer-dimer / fold check rather than dropping the signal.
+    self_complementarity: {
+      self_dimer_run: c.analysis.selfDimerRun,
+      three_prime_dimer_run: c.analysis.threePrimeDimerRun,
+      hairpin_stem: c.analysis.hairpinStem,
+    },
   };
 }
 
 export const designPrimersTool: AiTool = {
   name: "design_primers",
   description:
-    "Design forward and reverse primer candidates for a target region using an APE-style scan (Primer3-compatible default windows: length 18-27 bp, Tm 57-63 C, GC 30-70%, GC clamp, SantaLucia 1998 nearest-neighbor Tm). Pass sequenceId or a raw template sequence, plus regionStart and regionEnd (0-based, end-exclusive) defining the region to amplify. The engine generates and ranks candidates; the top 5 per direction are returned. The model NEVER designs primers itself, it relays what the engine returned.",
+    "Design forward and reverse primer candidates for a target region using an APE-style scan (Primer3-compatible default windows: length 18-27 bp, Tm 57-63 C, GC 30-70%, GC clamp, SantaLucia 1998 nearest-neighbor Tm). Pass sequenceId or a raw template sequence, plus regionStart and regionEnd (0-based, end-exclusive) defining the region to amplify. The engine generates and ranks candidates; the top 5 per direction are returned. Each candidate also relays the engine's self-complementarity check (a self_complementarity object with self_dimer_run, three_prime_dimer_run, and hairpin_stem, the longest complementary-run lengths in bases, where 0 means no significant self-complementarity), so the model can flag a primer-dimer or hairpin risk. These are simple APE-level heuristic lengths, not a thermodynamic dG. The model NEVER designs primers itself, it relays what the engine returned.",
   parameters: {
     type: "object",
     properties: {
