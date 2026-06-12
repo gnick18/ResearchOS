@@ -1,7 +1,7 @@
 {
   "id": 1,
   "title": "Run 2026-05-08: pYES-GAL1::flbA transformation",
-  "description": "Transformed FakeYeast-001 with pYES-GAL1::flbA using the LiAc protocol. Heat shock ran short (38 min, see deviation_log). Plated on SD-Ura. 40 colonies after 48 h, eight patched for downstream work.",
+  "description": "Transformed FakeYeast-001 with pYES-GAL1::flbA using the LiAc protocol.",
   "is_running_log": false,
   "is_shared": true,
   "shared_with": [
@@ -11,7 +11,16 @@
       "permission": "view"
     }
   ],
-  "entries": [],
+  "entries": [
+    {
+      "id": "alex-note1-e1",
+      "title": "2026-05-08: transformation run",
+      "date": "2026-05-08",
+      "content": "Transformed FakeYeast-001 with pYES-GAL1::flbA using the LiAc protocol. Heat shock ran short (38 min, see deviation_log). Plated on SD-Ura. 40 colonies after 48 h, eight patched for downstream work.",
+      "created_at": "2026-05-08T14:00:00Z",
+      "updated_at": "2026-05-11T09:00:00Z"
+    }
+  ],
   "comments": [
     {
       "id": "cmt-mira-alex-note1-1",
