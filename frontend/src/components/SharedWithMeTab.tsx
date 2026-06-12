@@ -54,6 +54,7 @@ import {
   importSequencePayload,
   type SequenceSharePayload,
 } from "@/lib/sharing/sequence-transfer";
+import { EmbeddedImportPicker } from "@/components/sharing/EmbeddedImportPicker";
 import {
   parseCalculatorPayload,
   readCalculatorPayloadSender,
@@ -989,6 +990,16 @@ function ReviewImportModal({
     return { title, entries };
   }, [received]);
 
+  // Per-item destination overrides built by EmbeddedImportPicker. Keyed by the
+  // original embed href, value is the recipient's chosen collection projectId.
+  // Hrefs missing from this map use the import layer's default "Shared by
+  // <sender>" collection. Initialized empty (all items use the default on
+  // first render; the picker calls onChange once dedup resolves and again on
+  // each dropdown change).
+  const [embeddedDestinationByHref, setEmbeddedDestinationByHref] = useState<
+    Map<string, { projectId: string }>
+  >(new Map());
+
   const handleImport = useCallback(async () => {
     if (!received) return;
     setImporting(true);
@@ -1011,16 +1022,18 @@ function ReviewImportModal({
       // note's embed hrefs. received.embeddedObjects is always an array (empty
       // for pre-Phase-6b bundles). The per-item destination picker is STUBBED:
       // the default "Shared by <sender>" collection and auto-link dedup behavior
-      // are complete. A full picker UI (showing per-embed destination dropdowns
-      // with dedup hints) can wire into opts.embeddedObjectOpts.destinationByHref
-      // in a follow-up session.
-      //
-      // TODO(Phase 6c follow-up): add a pre-import picker UI here that builds a
-      // destinationByHref map from the user's per-embed collection choices and
-      // a "you already have this, will link" hint for portableId-matched items.
+      // Phase 6c: the picker above builds embeddedDestinationByHref from the
+      // user's per-embed choices and dedup hints. Thread it through so the
+      // import layer can file each object into the right collection (or link
+      // it to an existing local copy for portableId-matched items).
       const { noteId } = await importNoteBundle(
         { ...received, metadata: {} },
-        { currentUser, senderEmail, senderFingerprint },
+        {
+          currentUser,
+          senderEmail,
+          senderFingerprint,
+          embeddedObjectOpts: { destinationByHref: embeddedDestinationByHref },
+        },
       );
 
       // Seed the version-control baseline so the received snapshot is the base
@@ -1063,7 +1076,7 @@ function ReviewImportModal({
     } finally {
       setImporting(false);
     }
-  }, [received, item, email, currentUser, onImported]);
+  }, [received, item, email, currentUser, onImported, embeddedDestinationByHref]);
 
   // Every hook above runs unconditionally on every render. Only now, after the
   // last hook, do we branch to the experiment/method/project import dialogs.
@@ -1314,6 +1327,22 @@ function ReviewImportModal({
                     ))}
                   </ul>
                 </div>
+              )}
+
+              {/* Phase 6c: per-item destination picker for embedded objects.
+                  Shown only when the bundle carries objects to import or link.
+                  When embeddedObjects is empty (pre-Phase-6b bundles or plain
+                  notes with no embeds), the picker is omitted and import
+                  behavior is identical to before Phase 6c. */}
+              {received && received.embeddedObjects.length > 0 && (
+                <EmbeddedImportPicker
+                  embeddedObjects={received.embeddedObjects}
+                  currentUser={currentUser}
+                  senderLabel={
+                    received.sender?.email ?? senderLabel(item.senderEmailHash)
+                  }
+                  onChange={setEmbeddedDestinationByHref}
+                />
               )}
             </>
           ) : null}

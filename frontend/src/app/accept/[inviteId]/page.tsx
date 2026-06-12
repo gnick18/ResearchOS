@@ -75,6 +75,7 @@ import { recordNoteHistory } from "@/lib/history";
 import { fileService } from "@/lib/file-system/file-service";
 import { projectsApi } from "@/lib/local-api";
 import type { Note, Project } from "@/lib/types";
+import { EmbeddedImportPicker } from "@/components/sharing/EmbeddedImportPicker";
 
 // Fragment / unlock-code parsing lives in lib/sharing/accept-code.ts (pure, unit
 // tested). readFragmentKey recovers the key from a sender-delivered private
@@ -159,6 +160,16 @@ export default function AcceptInvitePage() {
     "unfiled",
   );
   const [seqProjectId, setSeqProjectId] = useState<number | null>(null);
+
+  // Phase 6c: per-item destination overrides built by EmbeddedImportPicker for
+  // note bundles that carry embedded objects. Threaded into importNoteBundle so
+  // the import layer files each object into the right collection (or links to an
+  // existing local copy for portableId-matched items). Initialized empty (all
+  // items use the default "Shared by <sender>" collection on first render; the
+  // picker calls onChange once dedup resolves and again on each dropdown change).
+  const [embeddedDestinationByHref, setEmbeddedDestinationByHref] = useState<
+    Map<string, { projectId: string }>
+  >(new Map());
 
   // The unlock code the recipient pastes when they arrived via the keyless email
   // link (no fragment). Setting keyHex from a valid code re-runs the fetch effect
@@ -410,12 +421,17 @@ export default function AcceptInvitePage() {
     try {
       const senderFingerprint = received.sender?.fingerprint || "";
       const senderEmail = received.sender?.email || "an invited share";
-      // Phase 6c: received.embeddedObjects is now populated from the bundle.
-      // The per-item picker UI is STUBBED (same as SharedWithMeTab). Default
-      // behavior (auto-link dups, auto-file new into "Shared by <sender>") fires.
+      // Phase 6c: thread the per-item destination map built by
+      // EmbeddedImportPicker so each embedded object lands in the collection the
+      // recipient chose (or links to their existing copy for matched portableIds).
       const { noteId } = await importNoteBundle(
         { ...received, metadata: {} },
-        { currentUser, senderEmail, senderFingerprint },
+        {
+          currentUser,
+          senderEmail,
+          senderFingerprint,
+          embeddedObjectOpts: { destinationByHref: embeddedDestinationByHref },
+        },
       );
 
       // Seed the VC baseline the same best-effort, flag-gated way the inbox does.
@@ -453,7 +469,7 @@ export default function AcceptInvitePage() {
           "Import failed. Nothing was acknowledged, so this invite stays available to try again.",
       });
     }
-  }, [load, currentUser, inviteId]);
+  }, [load, currentUser, inviteId, embeddedDestinationByHref]);
 
   // File the decrypted SEQUENCE into the new user's folder in ONE step (no
   // dialog), then ack the keyless invite. A sequence has nothing to resolve, so
@@ -592,12 +608,17 @@ export default function AcceptInvitePage() {
               preview={preview}
               valid={load.received?.valid ?? false}
               attachmentCount={load.received?.attachments.length ?? 0}
+              embeddedObjects={load.received?.embeddedObjects ?? []}
+              senderIdentity={
+                load.received?.sender?.email ?? "Someone on ResearchOS"
+              }
               isConnected={isConnected}
               currentUser={currentUser}
               identityReady={identity.status === "ready"}
               imp={imp}
               onSetUpSharing={() => setWizardOpen(true)}
               onImport={() => void handleImport()}
+              onEmbeddedDestinationChange={setEmbeddedDestinationByHref}
             />
           )}
 
@@ -821,22 +842,30 @@ function ReadyBody({
   preview,
   valid,
   attachmentCount,
+  embeddedObjects,
+  senderIdentity,
   isConnected,
   currentUser,
   identityReady,
   imp,
   onSetUpSharing,
   onImport,
+  onEmbeddedDestinationChange,
 }: {
   preview: PreviewShape;
   valid: boolean;
   attachmentCount: number;
+  embeddedObjects: import("@/lib/sharing/bundle").BundleEmbeddedObject[];
+  senderIdentity: string;
   isConnected: boolean;
   currentUser: string | null;
   identityReady: boolean;
   imp: ImportPhase;
   onSetUpSharing: () => void;
   onImport: () => void;
+  onEmbeddedDestinationChange: (
+    map: Map<string, { projectId: string }>,
+  ) => void;
 }) {
   if (imp.phase === "done") {
     return (
@@ -912,6 +941,18 @@ function ReadyBody({
           )}
         </div>
       </div>
+
+      {/* Phase 6c: per-item destination picker for embedded objects. Shown only
+          when the bundle carries objects to import or link. When embeddedObjects
+          is empty (pre-Phase-6b bundles or plain notes), this renders nothing. */}
+      {embeddedObjects.length > 0 && currentUser && (
+        <EmbeddedImportPicker
+          embeddedObjects={embeddedObjects}
+          currentUser={currentUser}
+          senderLabel={senderIdentity}
+          onChange={onEmbeddedDestinationChange}
+        />
+      )}
 
       {imp.phase === "error" && (
         <div className="p-3 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
