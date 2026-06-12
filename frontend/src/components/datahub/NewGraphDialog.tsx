@@ -92,6 +92,47 @@ function findAnova(content: DataHubDocContent | null): AnalysisSpec | null {
   return content.analyses.find((a) => a.type === "oneWayAnova") ?? null;
 }
 
+/**
+ * Map a curve-fit analysis to the figure fit model it should draw, so a new XY
+ * figure inherits the model the user already fit rather than guessing a line.
+ * doseResponse carries its model in params.model (the 5PL has no separate plot
+ * curve, so it draws as the 4PL shape it specializes); the other entries map a
+ * fit analysis type straight to its FitModelId.
+ */
+function fitModelForAnalysis(a: AnalysisSpec): FitModelId | null {
+  switch (a.type) {
+    case "doseResponse":
+      return (a.params as { model?: unknown }).model === "logistic5pl"
+        ? "logistic4pl"
+        : "logistic4pl";
+    case "linearRegression":
+      return "linear";
+    default:
+      return null;
+  }
+}
+
+/**
+ * The fitted curve a brand-new XY figure should default to for the chosen Y
+ * column. If a curve-fit analysis already exists for that column, inherit its
+ * model so a dose-response opens as the S-curve, not a line. With no fit
+ * analysis, draw points only rather than a misleading line of best fit.
+ */
+function defaultFitModel(
+  content: DataHubDocContent | null,
+  yColumnId: string,
+): FitModelId {
+  if (!content || !yColumnId) return "none";
+  for (const a of content.analyses) {
+    const model = fitModelForAnalysis(a);
+    if (model === null) continue;
+    const ids = (a.inputs as { columnIds?: unknown }).columnIds;
+    const firstId = Array.isArray(ids) ? ids[0] : undefined;
+    if (firstId === yColumnId) return model;
+  }
+  return "none";
+}
+
 /** Find a stored regression on the table (its residuals feed the diagnostics). */
 function findRegression(content: DataHubDocContent | null): AnalysisSpec | null {
   if (!content) return null;
@@ -159,11 +200,14 @@ export default function NewGraphDialog({
             : "columnScatter",
     );
     setUseBrackets(true);
-    setYColumn(ys[0]?.id ?? "");
-    setFitModel("linear");
+    const firstY = ys[0]?.id ?? "";
+    setYColumn(firstY);
+    // Inherit the fit model from a curve-fit analysis already on this Y column
+    // (so a dose-response opens as the S-curve), else draw points only.
+    setFitModel(defaultFitModel(content, firstY));
     setEstPaired(false);
     setEstControl(0);
-  }, [open, isXY, isGrouped, isSurvival, ys]);
+  }, [open, isXY, isGrouped, isSurvival, ys, content]);
 
   useEffect(() => {
     if (!open) return;
@@ -279,7 +323,13 @@ export default function NewGraphDialog({
               </label>
               <select
                 value={yColumn}
-                onChange={(e) => setYColumn(e.target.value)}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setYColumn(next);
+                  // Re-derive the fit so each Y column inherits its own curve-fit
+                  // analysis (or points-only when it has none).
+                  setFitModel(defaultFitModel(content, next));
+                }}
                 className="mt-1 w-full rounded-md border border-border bg-surface-raised px-2 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
               >
                 {ys.map((c) => (
