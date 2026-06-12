@@ -15,6 +15,7 @@ import {
   efetchUrl,
   parseEfetchPreview,
   extractRefSeqGeneAccession,
+  geneWindow,
 } from "./ncbi-efetch";
 import { efetchGenbankToImports } from "./ncbi-import";
 
@@ -42,6 +43,63 @@ describe("efetchUrl", () => {
     expect(url).toContain("retmode=text");
     expect(url).toContain("tool=research-os");
     expect(url.toLowerCase()).not.toContain("email");
+  });
+
+  it("does NOT append seq_start / seq_stop when no window is given", () => {
+    const url = efetchUrl("NM_000546.6");
+    expect(url).not.toContain("seq_start");
+    expect(url).not.toContain("seq_stop");
+  });
+
+  it("appends seq_start and seq_stop when a window is given", () => {
+    const url = efetchUrl("NC_007197.1", { start: 1770000, stop: 1789000 });
+    expect(url).toContain("seq_start=1770000");
+    expect(url).toContain("seq_stop=1789000");
+    // Core params are still present.
+    expect(url).toContain("db=nuccore");
+    expect(url).toContain("id=NC_007197.1");
+  });
+
+  it("window does not bleed into a subsequent no-window call", () => {
+    // efetchUrl is pure, so two calls with different args are independent.
+    const withWindow = efetchUrl("NC_007197.1", { start: 1, stop: 100 });
+    const noWindow = efetchUrl("NC_007197.1");
+    expect(withWindow).toContain("seq_start=1");
+    expect(noWindow).not.toContain("seq_start");
+  });
+});
+
+// --- geneWindow (pure clamp helper) ------------------------------------------
+
+describe("geneWindow", () => {
+  it("returns [begin - flank, end + flank] when the window fits the contig", () => {
+    const w = geneWindow({ begin: 1777375, end: 1781822 }, 5000, 3923705);
+    expect(w.start).toBe(1772375);
+    expect(w.stop).toBe(1786822);
+  });
+
+  it("clamps start to 1 when the flank would go below 1", () => {
+    const w = geneWindow({ begin: 100, end: 500 }, 5000, 1_000_000);
+    expect(w.start).toBe(1);
+    expect(w.stop).toBe(5500);
+  });
+
+  it("clamps stop to contigLengthBp when the flank would exceed it", () => {
+    const w = geneWindow({ begin: 990_000, end: 995_000 }, 10_000, 1_000_000);
+    expect(w.start).toBe(980_000);
+    expect(w.stop).toBe(1_000_000);
+  });
+
+  it("does not clamp stop when no contigLengthBp is given", () => {
+    const w = geneWindow({ begin: 990_000, end: 995_000 }, 10_000);
+    expect(w.start).toBe(980_000);
+    expect(w.stop).toBe(1_005_000);
+  });
+
+  it("handles zero-bp flank (start === begin, stop === end)", () => {
+    const w = geneWindow({ begin: 50_000, end: 60_000 }, 0, 1_000_000);
+    expect(w.start).toBe(50_000);
+    expect(w.stop).toBe(60_000);
   });
 });
 
