@@ -29,9 +29,12 @@ import {
   createExperimentTool,
   rescheduleExperimentTool,
   createExperimentChainTool,
+  resolveMethodIdForTemplate,
+  templateProvenanceTag,
   type ChainExperimentSpec,
 } from "../tools/experiment-tools";
-import type { Task } from "@/lib/types";
+import type { Task, Method } from "@/lib/types";
+import type { MethodCatalogTemplate } from "@/lib/methods/method-catalog";
 
 // ---------------------------------------------------------------------------
 // Fixture helpers
@@ -60,6 +63,36 @@ function makeTask(over: Partial<Task> = {}): Task {
     shared_with: [],
     ...over,
   };
+}
+
+function makeMethod(over: Partial<Method> = {}): Method {
+  return {
+    id: 100,
+    name: "Colony PCR screen",
+    source_path: null,
+    method_type: "markdown",
+    folder_path: null,
+    parent_method_id: null,
+    tags: null,
+    is_public: false,
+    created_by: "testuser",
+    owner: "testuser",
+    shared_with: [],
+    ...over,
+  } as Method;
+}
+
+function makeTemplate(over: Partial<MethodCatalogTemplate> = {}): MethodCatalogTemplate {
+  return {
+    slug: "pcr-colony-screen",
+    title: "Colony PCR screen",
+    description: "Screen colonies by PCR",
+    category: "PCR",
+    method_type: "markdown",
+    tags: ["pcr"],
+    payload: { body: "Run colony PCR." },
+    ...over,
+  } as MethodCatalogTemplate;
 }
 
 // ---------------------------------------------------------------------------
@@ -565,5 +598,122 @@ describe("create_experiment_chain tool", () => {
 
   it("isDestructive returns false", () => {
     expect(createExperimentChainTool.isDestructive!({})).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Method-template attach (reuse-or-instantiate)
+// ---------------------------------------------------------------------------
+
+describe("resolveMethodIdForTemplate", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("reuses an existing method stamped with the template's provenance tag", async () => {
+    const tag = templateProvenanceTag("pcr-colony-screen");
+    const existing = makeMethod({ id: 42, tags: ["pcr", tag] });
+    vi.spyOn(experimentToolsDeps, "listMethods").mockResolvedValue([existing]);
+    const fetchSpy = vi.spyOn(experimentToolsDeps, "fetchTemplate");
+    const instSpy = vi.spyOn(experimentToolsDeps, "instantiateTemplate");
+
+    const result = await resolveMethodIdForTemplate("pcr-colony-screen", experimentToolsDeps);
+    expect(result).toEqual({ ok: true, id: 42, reused: true });
+    // Reuse must not fetch or instantiate.
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(instSpy).not.toHaveBeenCalled();
+  });
+
+  it("instantiates a fresh method when none carries the provenance tag, stamping the tag", async () => {
+    vi.spyOn(experimentToolsDeps, "listMethods").mockResolvedValue([]);
+    vi.spyOn(experimentToolsDeps, "fetchTemplate").mockResolvedValue(makeTemplate());
+    const instSpy = vi
+      .spyOn(experimentToolsDeps, "instantiateTemplate")
+      .mockResolvedValue(makeMethod({ id: 77 }));
+
+    const result = await resolveMethodIdForTemplate("pcr-colony-screen", experimentToolsDeps);
+    expect(result).toEqual({ ok: true, id: 77, reused: false });
+    // The provenance tag is stamped so a later chain reuses it.
+    const opts = instSpy.mock.calls[0][1];
+    expect(opts.tags).toContain(templateProvenanceTag("pcr-colony-screen"));
+  });
+
+  it("returns an error for an unknown slug (fetch fails)", async () => {
+    vi.spyOn(experimentToolsDeps, "listMethods").mockResolvedValue([]);
+    vi.spyOn(experimentToolsDeps, "fetchTemplate").mockRejectedValue(new Error("404"));
+    const result = await resolveMethodIdForTemplate("nope", experimentToolsDeps);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toMatch(/no method template/i);
+  });
+
+  it("falls through to instantiation when the reuse listing throws", async () => {
+    vi.spyOn(experimentToolsDeps, "listMethods").mockRejectedValue(new Error("no folder"));
+    vi.spyOn(experimentToolsDeps, "fetchTemplate").mockResolvedValue(makeTemplate());
+    vi.spyOn(experimentToolsDeps, "instantiateTemplate").mockResolvedValue(makeMethod({ id: 9 }));
+    const result = await resolveMethodIdForTemplate("pcr-colony-screen", experimentToolsDeps);
+    expect(result).toEqual({ ok: true, id: 9, reused: false });
+  });
+});
+
+describe("create_experiment_chain method-template attach", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("attaches the resolved template method id to the experiment it creates", async () => {
+    vi.spyOn(experimentToolsDeps, "listMethods").mockResolvedValue([]);
+    vi.spyOn(experimentToolsDeps, "fetchTemplate").mockResolvedValue(makeTemplate());
+    vi.spyOn(experimentToolsDeps, "instantiateTemplate").mockResolvedValue(makeMethod({ id: 55 }));
+    const createSpy = vi
+      .spyOn(experimentToolsDeps, "createTask")
+      .mockResolvedValue(makeTask({ id: 1, method_ids: [55] }));
+    vi.spyOn(experimentToolsDeps, "navigate").mockImplementation(() => {});
+
+    const result = (await createExperimentChainTool.execute({
+      experiments: [{ name: "Colony PCR", methodTemplateSlug: "pcr-colony-screen" }],
+      startDate: "2026-07-01",
+    })) as { ok: boolean };
+    expect(result.ok).toBe(true);
+    // The created task carries the resolved template method id.
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ method_ids: [55] }),
+    );
+  });
+
+  it("fails the chain with a clear error when the template slug is unknown", async () => {
+    vi.spyOn(experimentToolsDeps, "listMethods").mockResolvedValue([]);
+    vi.spyOn(experimentToolsDeps, "fetchTemplate").mockRejectedValue(new Error("404"));
+    const createSpy = vi.spyOn(experimentToolsDeps, "createTask");
+    vi.spyOn(experimentToolsDeps, "navigate").mockImplementation(() => {});
+
+    const result = (await createExperimentChainTool.execute({
+      experiments: [{ name: "Mystery", methodTemplateSlug: "does-not-exist" }],
+      startDate: "2026-07-01",
+    })) as { ok: boolean; error?: string };
+    expect(result.ok).toBe(false);
+    // The bad slug is caught before the task write.
+    expect(createSpy).not.toHaveBeenCalled();
+  });
+
+  it("merges an explicit methodId and a template id without duplicating", async () => {
+    const tag = templateProvenanceTag("pcr-colony-screen");
+    vi.spyOn(experimentToolsDeps, "listMethods").mockResolvedValue([
+      makeMethod({ id: 55, tags: [tag] }),
+    ]);
+    const createSpy = vi
+      .spyOn(experimentToolsDeps, "createTask")
+      .mockResolvedValue(makeTask());
+    vi.spyOn(experimentToolsDeps, "navigate").mockImplementation(() => {});
+
+    await createExperimentChainTool.execute({
+      experiments: [
+        { name: "PCR", methodIds: [3], methodTemplateSlug: "pcr-colony-screen" },
+      ],
+      startDate: "2026-07-01",
+    });
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ method_ids: [3, 55] }),
+    );
   });
 });

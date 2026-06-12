@@ -31,9 +31,15 @@
 //
 // House style, no em-dashes, no emojis, no mid-sentence colons.
 
-import { tasksApi, dependenciesApi } from "@/lib/local-api";
+import { tasksApi, dependenciesApi, methodsApi } from "@/lib/local-api";
 import { requestNavigation } from "@/components/ai/navigation-bridge";
-import type { Task } from "@/lib/types";
+import {
+  fetchMethodCatalogTemplate,
+  instantiateMethodFromTemplate,
+  type MethodCatalogTemplate,
+  type InstantiateTemplateOptions,
+} from "@/lib/methods/method-catalog";
+import type { Task, Method } from "@/lib/types";
 import type { AiTool } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -59,6 +65,15 @@ export type ExperimentToolsDeps = {
   ) => Promise<Task | null>;
   /** Create a finish-to-start dependency edge between two task ids. */
   createDependency: (parentId: number, childId: number) => Promise<void>;
+  /** List the user's existing methods (for template-reuse lookup). */
+  listMethods: () => Promise<Method[]>;
+  /** Fetch a catalog template payload by slug. */
+  fetchTemplate: (slug: string) => Promise<MethodCatalogTemplate>;
+  /** Instantiate a catalog template as a new private user method. */
+  instantiateTemplate: (
+    template: MethodCatalogTemplate,
+    options: InstantiateTemplateOptions,
+  ) => Promise<Method>;
   /** Navigate the user to an internal path after a successful write.
    *  Defaults to the navigation bridge (soft SPA router.push).
    *  Injected so tests assert the call without a real router. */
@@ -71,8 +86,75 @@ export const experimentToolsDeps: ExperimentToolsDeps = {
   updateTask: (id, data) => tasksApi.update(id, data),
   createDependency: (parentId, childId) =>
     dependenciesApi.create({ parent_id: parentId, child_id: childId, dep_type: "FS" }).then(() => undefined),
+  listMethods: () => methodsApi.list(),
+  fetchTemplate: (slug) => fetchMethodCatalogTemplate(slug),
+  instantiateTemplate: (template, options) =>
+    instantiateMethodFromTemplate(template, options),
   navigate: requestNavigation,
 };
+
+// ---------------------------------------------------------------------------
+// Method-template attach (reuse-or-instantiate)
+// ---------------------------------------------------------------------------
+
+/** Prefix of the tag stamped on a method instantiated from a catalog template,
+ *  so a later experiment chain can REUSE it instead of creating a duplicate. The
+ *  full tag is `from-template:<slug>`. Living in the AI tool layer keeps the
+ *  convention additive (the instantiate path takes it as a plain tag override).
+ */
+export const TEMPLATE_PROVENANCE_PREFIX = "from-template:";
+
+/** The provenance tag for one template slug. */
+export function templateProvenanceTag(slug: string): string {
+  return `${TEMPLATE_PROVENANCE_PREFIX}${slug}`;
+}
+
+/**
+ * Resolve a catalog template slug to a method id to attach. Reuses an existing
+ * method stamped with this template's provenance tag when one is present (so a
+ * chain does not pile up duplicate methods), otherwise fetches the template and
+ * instantiates a fresh private method tagged with the provenance tag. A reuse-
+ * lookup failure falls through to instantiation; a fetch / instantiate failure
+ * is returned as an error so the caller can surface it without aborting the
+ * whole chain.
+ */
+export async function resolveMethodIdForTemplate(
+  slug: string,
+  deps: ExperimentToolsDeps,
+): Promise<{ ok: true; id: number; reused: boolean } | { ok: false; error: string }> {
+  const tag = templateProvenanceTag(slug);
+
+  // Reuse an existing instantiation when one carries the provenance tag.
+  try {
+    const methods = await deps.listMethods();
+    const existing = methods.find((m) => (m.tags ?? []).includes(tag));
+    if (existing) return { ok: true, id: existing.id, reused: true };
+  } catch {
+    // A listing failure is not fatal; fall through and instantiate fresh.
+  }
+
+  let template: MethodCatalogTemplate;
+  try {
+    template = await deps.fetchTemplate(slug);
+  } catch {
+    return {
+      ok: false,
+      error: `There is no method template "${slug}" in the catalog. Use a slug from the template library, or omit it.`,
+    };
+  }
+
+  try {
+    const method = await deps.instantiateTemplate(template, {
+      tags: [...(template.tags ?? []), tag],
+    });
+    return { ok: true, id: method.id, reused: false };
+  } catch (err) {
+    return {
+      ok: false,
+      error: `Could not create a method from template "${slug}". ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Date utilities (pure, exported for tests)
@@ -118,6 +200,8 @@ export interface ChainExperimentSpec {
   name: string;
   durationDays?: number;
   methodIds?: number[];
+  /** Optional catalog template slug to attach (reuse-or-instantiate). */
+  methodTemplateSlug?: string;
 }
 
 export interface ScheduledChainItem {
@@ -126,6 +210,8 @@ export interface ScheduledChainItem {
   endDate: string;
   durationDays: number;
   methodIds: number[];
+  /** Carried through from the spec so the execute step can resolve + attach. */
+  methodTemplateSlug?: string;
 }
 
 /**
@@ -154,6 +240,7 @@ export function computeChainDates(
       endDate,
       durationDays: duration,
       methodIds: exp.methodIds ?? [],
+      methodTemplateSlug: exp.methodTemplateSlug,
     });
     // Next experiment starts at the end of this one, plus gap.
     cursor = addDays(endDate, gapDays);
@@ -411,7 +498,7 @@ export type ChainResult =
 export const createExperimentChainTool: AiTool = {
   name: "create_experiment_chain",
   description:
-    "Create a series of experiments scheduled back-to-back, linked as finish-to-start dependencies on the Gantt. Use this when the user asks to set up a workflow or sequence of experiments, for example \"create a cloning workflow: transformation, then miniprep, then sequencing\" or \"schedule three sequential experiments starting Monday\". Each experiment in the chain is linked to the next with a finish-to-start dependency so the Gantt shows the chain relationship. The app shows the user the FULL proposed schedule, with every experiment and its dates, as a preview BEFORE anything is written. After it writes, confirm the chain in one short sentence. Do NOT also call propose_plan, this preview IS the consent.",
+    "Create a series of experiments scheduled back-to-back, linked as finish-to-start dependencies on the Gantt. Use this when the user asks to set up a workflow or sequence of experiments, for example \"create a cloning workflow: transformation, then miniprep, then sequencing\" or \"schedule three sequential experiments starting Monday\". Each experiment in the chain is linked to the next with a finish-to-start dependency so the Gantt shows the chain relationship. The app shows the user the FULL proposed schedule, with every experiment and its dates, as a preview BEFORE anything is written. Each experiment can also carry a methodTemplateSlug to attach a protocol from the template library, the tool reuses the user's existing method made from that template or instantiates a fresh one and attaches it. After it writes, confirm the chain in one short sentence. Do NOT also call propose_plan, this preview IS the consent.",
   parameters: {
     type: "object",
     properties: {
@@ -436,6 +523,11 @@ export const createExperimentChainTool: AiTool = {
               items: { type: "number" },
               description:
                 "Optional numeric method ids to attach to this experiment.",
+            },
+            methodTemplateSlug: {
+              type: "string",
+              description:
+                "Optional catalog template slug to attach as the experiment's protocol (for example \"pcr-colony-screen\"). The tool reuses the user's existing method made from this template if one exists, otherwise it instantiates the template as a new private method and attaches it. Use a real slug from the template library; an unknown slug fails the chain. Use this when the user names a protocol that matches a template rather than an existing method id.",
             },
           },
           required: ["name"],
@@ -482,14 +574,20 @@ export const createExperimentChainTool: AiTool = {
       methodIds: Array.isArray(e.methodIds)
         ? (e.methodIds as unknown[]).filter((x): x is number => typeof x === "number")
         : undefined,
+      methodTemplateSlug:
+        typeof e.methodTemplateSlug === "string" && e.methodTemplateSlug.trim()
+          ? e.methodTemplateSlug.trim()
+          : undefined,
     }));
 
     const scheduled = computeChainDates(specs, startDate, gapDays);
 
-    const lines = scheduled.map(
-      (s, i) =>
-        `${i + 1}. "${s.name}" — ${s.startDate} to ${s.endDate} (${s.durationDays} day${s.durationDays === 1 ? "" : "s"})`,
-    );
+    const lines = scheduled.map((s, i) => {
+      const templateNote = s.methodTemplateSlug
+        ? ` (+ method template "${s.methodTemplateSlug}")`
+        : "";
+      return `${i + 1}. "${s.name}" — ${s.startDate} to ${s.endDate} (${s.durationDays} day${s.durationDays === 1 ? "" : "s"})${templateNote}`;
+    });
 
     const projectNote = projectId ? ` (project ${projectId})` : "";
     const gapNote = gapDays > 0 ? ` with ${gapDays}-day gap between steps` : "";
@@ -529,6 +627,10 @@ export const createExperimentChainTool: AiTool = {
       methodIds: Array.isArray(e.methodIds)
         ? (e.methodIds as unknown[]).filter((x): x is number => typeof x === "number")
         : [],
+      methodTemplateSlug:
+        typeof e.methodTemplateSlug === "string" && e.methodTemplateSlug.trim()
+          ? e.methodTemplateSlug.trim()
+          : undefined,
     }));
 
     const scheduled = computeChainDates(specs, startDate, gapDays);
@@ -537,6 +639,31 @@ export const createExperimentChainTool: AiTool = {
     const created: Array<{ id: number; name: string; startDate: string; endDate: string }> = [];
     for (let i = 0; i < scheduled.length; i++) {
       const s = scheduled[i];
+
+      // Resolve an attached method template (reuse-or-instantiate) BEFORE the
+      // experiment write, then merge its id into this step's method_ids. A bad
+      // slug fails the chain here, before any task is created for this step.
+      let methodIds = s.methodIds;
+      if (s.methodTemplateSlug) {
+        const resolved = await resolveMethodIdForTemplate(
+          s.methodTemplateSlug,
+          experimentToolsDeps,
+        );
+        if (!resolved.ok) {
+          const partialNote =
+            created.length > 0
+              ? ` ${created.length} experiment${created.length === 1 ? " was" : "s were"} created before this.`
+              : "";
+          return {
+            ok: false as const,
+            error: `${resolved.error}${partialNote}`,
+          } satisfies ChainResult;
+        }
+        methodIds = methodIds.includes(resolved.id)
+          ? methodIds
+          : [...methodIds, resolved.id];
+      }
+
       let task: Task;
       try {
         task = await experimentToolsDeps.createTask({
@@ -545,7 +672,7 @@ export const createExperimentChainTool: AiTool = {
           duration_days: s.durationDays,
           task_type: "experiment",
           project_id: projectId,
-          method_ids: s.methodIds,
+          method_ids: methodIds,
         });
       } catch (err) {
         // Some experiments already created at this point. Report partial failure.
