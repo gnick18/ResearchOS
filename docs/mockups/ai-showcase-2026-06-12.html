@@ -1,0 +1,1291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BeakerBot / AI page, marketing showcase, review mockup 2026-06-12</title>
+<style>
+  /* Brand tokens, faithful to frontend/src/app/globals.css */
+  :root {
+    --surface-raised:   #ffffff;
+    --surface-sunken:   #f8fafc;
+    --surface-mid:      #f1f5f9;
+    --foreground:       #111827;
+    --foreground-muted: #6b7280;
+    --border:           #e5e7eb;
+    --scrim:            rgba(15,23,42,0.35);
+    --page-bg:          #e2e8f0;
+
+    /* Brand palette */
+    --brand-sky:    #1AA0E6;
+    --brand-action: #1283C9;
+    --brand-amber:  #F59E0B;
+    --brand-coral:  #FF6F61;
+    --brand-purple: #5B47D6;
+    --brand-green:  #10B981;
+
+    /* Accent overrides */
+    --accent:       var(--brand-action);
+
+    /* Review harness */
+    --pin:          #e11d48;
+    --approve-bg:   #16a34a;
+  }
+  html[data-theme="dark"] {
+    --surface-raised:   #131c2e;
+    --surface-sunken:   #0d1424;
+    --surface-mid:      #1e2a42;
+    --foreground:       #f1f5f9;
+    --foreground-muted: #b4bfd0;
+    --border:           rgba(255,255,255,0.18);
+    --scrim:            rgba(2,6,15,0.60);
+    --page-bg:          #060a13;
+    --brand-sky:        #7dd3fc;
+    --brand-action:     #38bdf8;
+    --accent:           #38bdf8;
+    --pin:              #fb7185;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--page-bg);
+    color: var(--foreground);
+    transition: background 0.2s;
+  }
+
+  /* ── topbar ── */
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 10px 22px;
+    background: var(--surface-raised);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar .t-title { font-size: 14px; font-weight: 700; margin: 0; }
+  .topbar .t-sub   { font-size: 11.5px; color: var(--foreground-muted); margin: 0; }
+  .spacer { flex: 1; min-width: 8px; }
+  .btn {
+    appearance: none; cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface-sunken);
+    color: var(--foreground);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12.5px; font-weight: 600;
+  }
+  .btn.on  { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.danger { color: var(--pin); }
+
+  /* ── page sections ── */
+  .page-wrap {
+    max-width: 900px; margin: 0 auto;
+    padding: 36px 20px 100px;
+    display: flex; flex-direction: column; gap: 48px;
+  }
+
+  /* Hero */
+  .hero {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px 40px 36px;
+    text-align: center;
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(26,160,230,0.12), transparent);
+    pointer-events: none;
+  }
+  .hero .hero-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(26,160,230,0.12); color: var(--brand-sky);
+    border: 1px solid rgba(26,160,230,0.3);
+    border-radius: 99px; padding: 4px 12px 4px 8px;
+    font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    margin-bottom: 20px;
+  }
+  .hero h1 {
+    margin: 0 0 14px; font-size: 34px; font-weight: 800; line-height: 1.18;
+    color: var(--foreground);
+  }
+  .hero h1 span { color: var(--brand-sky); }
+  .hero .hero-sub {
+    max-width: 560px; margin: 0 auto 28px;
+    font-size: 16px; line-height: 1.6; color: var(--foreground-muted);
+  }
+  .hero .token-pill {
+    display: inline-block;
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 22px;
+    font-size: 14px; line-height: 1.55;
+    max-width: 480px; margin: 0 auto;
+    color: var(--foreground);
+  }
+  .hero .token-pill strong { color: var(--brand-sky); }
+  .hero .token-pill .note { font-size: 12px; color: var(--foreground-muted); margin-top: 4px; }
+  .hero-cta {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin-top: 22px;
+    background: var(--brand-action); color: #fff;
+    border: none; border-radius: 10px;
+    padding: 12px 24px; font-size: 15px; font-weight: 700; cursor: pointer;
+  }
+
+  /* Section headings */
+  .section-head {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 16px;
+  }
+  .section-head .icon-chip {
+    width: 38px; height: 38px; flex: none;
+    border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  }
+  .section-head .text h2 { font-size: 19px; font-weight: 800; margin: 0 0 2px; }
+  .section-head .text p  { font-size: 13px; color: var(--foreground-muted); margin: 0; }
+
+  /* Capability section wrapper */
+  .cap-section {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    position: relative;
+  }
+  .cap-section .cap-head {
+    padding: 22px 26px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-start; gap: 16px;
+  }
+  .cap-section .cap-head .icon-chip {
+    width: 42px; height: 42px; flex: none; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 2px;
+  }
+  .cap-section .cap-head .cap-title { font-size: 17px; font-weight: 800; margin: 0 0 3px; }
+  .cap-section .cap-head .cap-desc  { font-size: 13px; color: var(--foreground-muted); margin: 0; line-height: 1.5; }
+
+  /* Prompt/result cards */
+  .prompt-cards { padding: 20px 26px; display: flex; flex-direction: column; gap: 20px; }
+  .pcard {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .pcard-prompt {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: var(--surface-sunken);
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .pcard-prompt .avatar {
+    width: 26px; height: 26px; flex: none;
+    border-radius: 50%; background: var(--brand-purple);
+    color: #fff; font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 1px;
+  }
+  .pcard-prompt .ptxt { color: var(--foreground); line-height: 1.5; }
+  .pcard-result { padding: 16px; }
+  .pcard-result .result-hdr {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+  }
+  .pcard-result .result-hdr .bot-chip {
+    width: 22px; height: 22px; flex: none;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .pcard-result .result-hdr .tool-badge {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    background: rgba(26,160,230,0.1); color: var(--brand-sky);
+    border: 1px solid rgba(26,160,230,0.25); border-radius: 6px;
+    padding: 2px 8px;
+  }
+  .pcard-result .result-hdr .cost-badge {
+    font-size: 11px; color: var(--foreground-muted);
+    margin-left: auto;
+  }
+
+  /* Data result cards */
+  .stat-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px;
+  }
+  @media (max-width: 600px) { .stat-grid { grid-template-columns: 1fr 1fr; } }
+  .stat-box {
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px;
+  }
+  .stat-box .slabel { font-size: 11px; color: var(--foreground-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .stat-box .sval   { font-size: 22px; font-weight: 800; color: var(--foreground); margin: 2px 0 0; }
+  .stat-box .ssub   { font-size: 11px; color: var(--foreground-muted); }
+
+  /* Report card */
+  .report-card {
+    border: 1px solid var(--border);
+    border-radius: 10px; margin-bottom: 14px; overflow: hidden;
+  }
+  .report-card .rc-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 14px;
+    background: var(--surface-sunken);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--foreground-muted);
+  }
+  .rc-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .rc-row:last-child { border-bottom: none; }
+  .rc-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .rc-dot.pass { background: var(--brand-green); }
+  .rc-dot.warn { background: var(--brand-amber); }
+  .rc-label { color: var(--foreground); flex: 1; }
+  .rc-note  { font-size: 12px; color: var(--foreground-muted); }
+
+  /* Code block */
+  .code-block {
+    background: #0d1117; color: #e2e8f0;
+    border-radius: 10px; padding: 14px 16px;
+    font-family: "SF Mono", "Fira Code", "Fira Mono", "Cascadia Code", Consolas, monospace;
+    font-size: 12.5px; line-height: 1.65;
+    overflow-x: auto; margin-bottom: 4px;
+  }
+  html[data-theme="dark"] .code-block { background: #060a13; border: 1px solid var(--border); }
+  .code-block .kw  { color: #ff7b72; }
+  .code-block .fn  { color: #79c0ff; }
+  .code-block .str { color: #a5d6ff; }
+  .code-block .cmt { color: #8b949e; }
+  .code-block .num { color: #f2cc60; }
+  .code-block .var { color: #e2e8f0; }
+  .show-code-btn {
+    appearance: none; cursor: pointer; background: none;
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 6px 12px; font-size: 12px; font-weight: 600; color: var(--brand-sky);
+    margin-bottom: 12px;
+  }
+  .show-code-btn:hover { background: var(--surface-sunken); }
+
+  /* Bar chart (publication figure) */
+  .figure-wrap {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px;
+    margin-bottom: 8px;
+  }
+  .figure-wrap .fig-title { font-size: 12px; font-weight: 700; text-align: center; color: var(--foreground); margin-bottom: 12px; }
+  .bar-chart-svg { width: 100%; height: auto; display: block; }
+
+  /* Primer card */
+  .primer-card {
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px;
+    margin-bottom: 10px; font-family: "SF Mono", "Fira Code", Consolas, monospace;
+    font-size: 13px; line-height: 1.7;
+  }
+  .primer-card .plabel { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--foreground-muted); margin-bottom: 4px; }
+  .primer-card .psequence { color: var(--brand-sky); word-break: break-all; }
+  .primer-card .pstats { font-family: ui-sans-serif, system-ui, sans-serif; font-size: 12px; color: var(--foreground-muted); margin-top: 4px; display: flex; gap: 16px; flex-wrap: wrap; }
+  .primer-card .pstats span strong { color: var(--foreground); }
+
+  /* Search results */
+  .search-results { display: flex; flex-direction: column; gap: 8px; }
+  .sresult {
+    display: flex; align-items: flex-start; gap: 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px;
+    background: var(--surface-sunken);
+  }
+  .sresult .stype-chip {
+    width: 28px; height: 28px; flex: none; border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 1px;
+  }
+  .sresult .stext .stitle { font-size: 13.5px; font-weight: 600; color: var(--foreground); }
+  .sresult .stext .smeta  { font-size: 12px; color: var(--foreground-muted); margin-top: 2px; }
+  .sresult .stext .snippet { font-size: 12.5px; color: var(--foreground); margin-top: 5px; padding: 6px 10px; background: rgba(26,160,230,0.06); border-left: 3px solid var(--brand-sky); border-radius: 0 6px 6px 0; }
+  .sresult .stext .snippet mark { background: rgba(26,160,230,0.22); color: inherit; border-radius: 3px; padding: 0 2px; }
+
+  /* Gantt / experiment chain */
+  .gantt-wrap {
+    border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden; margin-bottom: 8px;
+  }
+  .gantt-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 14px; background: var(--surface-sunken);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--foreground-muted);
+  }
+  .gantt-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 14px; border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .gantt-row:last-child { border-bottom: none; }
+  .gantt-row .gday  { width: 54px; flex: none; font-size: 11.5px; color: var(--foreground-muted); font-weight: 600; }
+  .gantt-row .gbar  { flex: 1; height: 24px; border-radius: 6px; display: flex; align-items: center; padding: 0 10px; font-size: 12px; font-weight: 600; color: #fff; }
+  .gantt-row .gdep  { font-size: 11px; color: var(--brand-amber); flex: none; display: flex; align-items: center; gap: 4px; }
+  .g-cloning  { background: var(--brand-action); }
+  .g-digest   { background: var(--brand-purple); }
+  .g-ligate   { background: var(--brand-green); }
+  .g-verify   { background: var(--brand-amber); filter: brightness(0.9); }
+
+  /* Molecule card */
+  .molecule-card {
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px;
+    display: flex; gap: 16px; align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .mol-svg-wrap {
+    width: 90px; height: 90px; flex: none;
+    background: var(--surface-raised); border: 1px solid var(--border);
+    border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  }
+  .mol-info .mol-name { font-size: 15px; font-weight: 700; margin: 0 0 4px; }
+  .mol-info .mol-cid  { font-size: 12px; color: var(--foreground-muted); margin: 0 0 8px; }
+  .mol-props { display: flex; flex-wrap: wrap; gap: 8px; }
+  .mol-prop {
+    background: var(--surface-raised); border: 1px solid var(--border);
+    border-radius: 7px; padding: 5px 10px;
+    font-size: 12px;
+  }
+  .mol-prop .pk { color: var(--foreground-muted); }
+  .mol-prop .pv { font-weight: 700; color: var(--foreground); }
+
+  /* Inline narrative text (BeakerBot prose response) */
+  .bb-text {
+    font-size: 14px; line-height: 1.65;
+    color: var(--foreground);
+    margin-bottom: 12px;
+  }
+  .bb-text strong { color: var(--brand-sky); }
+
+  /* Sections verdict review */
+  .review-section {
+    max-width: 900px; margin: 0 auto;
+    padding: 0 20px;
+  }
+  .review-section h2 { font-size: 16px; font-weight: 800; margin: 0 0 14px; }
+  .changes { display: flex; flex-direction: column; gap: 10px; }
+  .change {
+    display: flex; gap: 14px; align-items: flex-start;
+    border: 1px solid var(--border); border-radius: 12px;
+    background: var(--surface-raised); padding: 12px 14px;
+    border-left-width: 4px; border-left-color: var(--border);
+  }
+  .change.approved    { border-left-color: var(--approve-bg); }
+  .change.disapproved { border-left-color: var(--pin); }
+  .change .ctext { flex: 1; min-width: 0; }
+  .change .ctitle { font-size: 13.5px; font-weight: 700; color: var(--foreground); margin-bottom: 2px; }
+  .change .cdesc  { font-size: 12.5px; color: var(--foreground-muted); line-height: 1.5; }
+  .change .verdict { flex: none; display: flex; flex-direction: column; gap: 6px; width: 132px; }
+  .vbtn {
+    appearance: none; cursor: pointer; text-align: center;
+    border: 1px solid var(--border); background: var(--surface-sunken);
+    color: var(--foreground); border-radius: 8px; padding: 6px 8px;
+    font-size: 12px; font-weight: 600;
+  }
+  .vbtn.app.on  { background: var(--approve-bg); border-color: var(--approve-bg); color: #fff; }
+  .vbtn.dis.on  { background: var(--pin); border-color: var(--pin); color: #fff; }
+  .vrow { display: flex; gap: 6px; }
+  .vrow .vbtn { flex: 1; }
+  .vclear { font-size: 11px; color: var(--foreground-muted); background: none; border: none; cursor: pointer; padding: 0; text-decoration: underline; align-self: flex-end; }
+
+  /* Comment mode */
+  body.cmt-on .cmt { cursor: crosshair; }
+  body.cmt-on .cmt:hover { outline: 2px dashed var(--accent); outline-offset: -2px; border-radius: 8px; }
+  .cmt { position: relative; }
+  .pin-dot {
+    position: absolute; top: -7px; right: -7px; z-index: 20;
+    min-width: 18px; height: 18px; padding: 0 4px;
+    background: var(--pin); color: #fff; border-radius: 9px;
+    font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4); cursor: pointer;
+  }
+  .pin-dot.hl { outline: 2px solid var(--foreground); }
+
+  /* Editor popover */
+  .editor {
+    position: fixed; z-index: 60; width: 292px;
+    background: var(--surface-raised); border: 1px solid var(--border);
+    border-radius: 12px; box-shadow: 0 18px 40px -10px rgba(0,0,0,0.55);
+    padding: 12px;
+  }
+  .editor .lbl { font-size: 11px; font-weight: 700; color: var(--foreground-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+  .editor textarea {
+    width: 100%; min-height: 78px; resize: vertical;
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px;
+    font: inherit; font-size: 13px; background: var(--surface-sunken); color: var(--foreground);
+  }
+  .editor .vchoice { display: flex; gap: 6px; margin-top: 8px; }
+  .editor .vchoice .vbtn { flex: 1; padding: 5px; }
+  .editor .acts { display: flex; gap: 8px; margin-top: 8px; }
+  .editor .acts .spacer { flex: 1; }
+
+  /* Comments panel */
+  .panel {
+    position: fixed; right: 18px; bottom: 18px; z-index: 50;
+    width: 340px; max-height: 60vh; display: flex; flex-direction: column;
+    background: var(--surface-raised); border: 1px solid var(--border);
+    border-radius: 14px; box-shadow: 0 18px 40px -10px rgba(0,0,0,0.55);
+  }
+  .panel.collapsed .panel-body,
+  .panel.collapsed .panel-foot { display: none; }
+  .panel-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .panel-head h3 { font-size: 13px; margin: 0; font-weight: 700; }
+  .panel-head .count { font-size: 11px; color: var(--foreground-muted); }
+  .panel-head .chev  { margin-left: auto; color: var(--foreground-muted); font-size: 12px; }
+  .panel-body { overflow-y: auto; padding: 6px; }
+  .citem { display: flex; gap: 8px; padding: 8px; border-radius: 8px; }
+  .citem:hover { background: var(--surface-sunken); }
+  .citem .num { flex: none; width: 18px; height: 18px; background: var(--pin); color: #fff; border-radius: 9px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+  .citem .body { min-width: 0; flex: 1; }
+  .citem .tgt { font-size: 11px; color: var(--foreground-muted); }
+  .citem .txt { font-size: 13px; color: var(--foreground); white-space: pre-wrap; word-break: break-word; }
+  .citem .x   { flex: none; cursor: pointer; color: var(--foreground-muted); font-size: 14px; border: none; background: none; }
+  .panel-foot { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); }
+  .empty { font-size: 12.5px; color: var(--foreground-muted); padding: 14px; text-align: center; }
+  .vbadge { font-size: 11px; font-weight: 700; }
+
+  /* Toast */
+  .toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 70;
+    background: var(--foreground); color: var(--surface-raised);
+    font-size: 12.5px; font-weight: 600; padding: 9px 14px;
+    border-radius: 8px; opacity: 0; transition: opacity 0.2s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  /* Divider between page section and review section */
+  .divider {
+    border: none; border-top: 1px dashed var(--border);
+    margin: 0; max-width: 900px; margin: 0 auto;
+  }
+</style>
+</head>
+<body>
+
+<!-- ── TOP BAR ── -->
+<div class="topbar">
+  <div>
+    <p class="t-title">BeakerBot AI page, marketing review mockup, 2026-06-12</p>
+    <p class="t-sub">Turn on Comment mode, then click any section to pin a note. Approve or disapprove each design decision below the page.</p>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn" id="commentToggle">Comment mode: off</button>
+  <button class="btn" id="themeToggle">Switch to dark</button>
+</div>
+
+<!-- ── PAGE PREVIEW ── -->
+<div class="page-wrap" id="pageWrap">
+
+  <!-- HERO -->
+  <div class="hero cmt" data-clabel="Hero section">
+    <div class="hero-badge">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v5l-4.5 8a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 8V3"/></svg>
+      BeakerBot AI
+    </div>
+    <h1>Your research data.<br><span>An agent that does real work.</span></h1>
+    <p class="hero-sub">
+      BeakerBot is a browser-side AI agent built into ResearchOS. When you ask it a question, it picks the right tool, runs the computation locally against your own data, and hands you the result, not just a chat message.
+    </p>
+    <div class="token-pill">
+      <strong>750,000 tokens free, no card needed.</strong>
+      <div class="note">That covers about 20 to 25 full analyses or 100-plus quick questions. After that, top-ups are priced at cost ($10 / $25 / $50). You see your balance and exactly what each task cost.</div>
+    </div>
+    <div><button class="hero-cta">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v5l-4.5 8a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 8V3"/></svg>
+      Try BeakerBot free
+    </button></div>
+  </div>
+
+  <!-- CAPABILITY 1: DATA HUB -->
+  <div class="cap-section cmt" data-clabel="Data Hub capability section">
+    <div class="cap-head">
+      <div class="icon-chip" style="background:rgba(91,71,214,0.12)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5B47D6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      </div>
+      <div>
+        <div class="cap-title">Data Hub: statistics and publication figures</div>
+        <div class="cap-desc">A GraphPad Prism alternative, built local-first. BeakerBot picks the right test for your design, runs it in the browser against your own table, and gives you the numbers, an assumption report card, and the equivalent Python so you can reproduce the result anywhere.</div>
+      </div>
+    </div>
+    <div class="prompt-cards">
+
+      <!-- Example 1a: t-test -->
+      <div class="pcard cmt" data-clabel="Data Hub / t-test example">
+        <div class="pcard-prompt">
+          <div class="avatar">G</div>
+          <div class="ptxt">Run a t-test on the growth data in my OD600 table. WT versus knockout, six replicates each.</div>
+        </div>
+        <div class="pcard-result">
+          <div class="result-hdr">
+            <div class="bot-chip" id="bb1"></div>
+            <span class="tool-badge">run_datahub_analysis</span>
+            <span class="cost-badge">~30,000 tokens</span>
+          </div>
+          <div class="bb-text">I read your OD600 table (12 rows, 3 columns) and ran Welch's two-sample t-test. Normality passed for both groups (Shapiro-Wilk p &gt; 0.05), so the parametric test is appropriate. Here is what I found.</div>
+          <div class="stat-grid">
+            <div class="stat-box">
+              <div class="slabel">p-value</div>
+              <div class="sval" style="color:var(--brand-green)">0.0038</div>
+              <div class="ssub">Welch's t-test</div>
+            </div>
+            <div class="stat-box">
+              <div class="slabel">t statistic</div>
+              <div class="sval">3.61</div>
+              <div class="ssub">df = 9.8</div>
+            </div>
+            <div class="stat-box">
+              <div class="slabel">Cohen's d</div>
+              <div class="sval">2.08</div>
+              <div class="ssub">Large effect</div>
+            </div>
+            <div class="stat-box">
+              <div class="slabel">WT mean</div>
+              <div class="sval">1.42</div>
+              <div class="ssub">SD 0.11</div>
+            </div>
+            <div class="stat-box">
+              <div class="slabel">KO mean</div>
+              <div class="sval">0.87</div>
+              <div class="ssub">SD 0.18</div>
+            </div>
+            <div class="stat-box">
+              <div class="slabel">95% CI diff</div>
+              <div class="sval" style="font-size:16px">0.22–0.88</div>
+              <div class="ssub">WT &minus; KO</div>
+            </div>
+          </div>
+
+          <div class="report-card">
+            <div class="rc-head">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+              Assumption report card
+            </div>
+            <div class="rc-row"><div class="rc-dot pass"></div><div class="rc-label">Normality (Shapiro-Wilk)</div><div class="rc-note">WT p=0.42, KO p=0.31</div></div>
+            <div class="rc-row"><div class="rc-dot warn"></div><div class="rc-label">Equal variances (Levene)</div><div class="rc-note">Unequal, Welch correction applied</div></div>
+            <div class="rc-row"><div class="rc-dot pass"></div><div class="rc-label">Independence</div><div class="rc-note">Separate biological replicates confirmed</div></div>
+            <div class="rc-row"><div class="rc-dot pass"></div><div class="rc-label">Sample size</div><div class="rc-note">n=6 each; adequate for this effect size</div></div>
+          </div>
+
+          <button class="show-code-btn" onclick="toggleCode(this,'code-ttest')">Show the Python</button>
+          <div id="code-ttest" style="display:none">
+            <div class="code-block"><span class="kw">from</span> <span class="var">scipy</span> <span class="kw">import</span> <span class="var">stats</span>
+<span class="kw">import</span> <span class="var">numpy</span> <span class="kw">as</span> <span class="var">np</span>
+
+<span class="var">wt</span> = [<span class="num">1.38</span>, <span class="num">1.45</span>, <span class="num">1.51</span>, <span class="num">1.39</span>, <span class="num">1.44</span>, <span class="num">1.35</span>]
+<span class="var">ko</span> = [<span class="num">0.81</span>, <span class="num">0.93</span>, <span class="num">0.78</span>, <span class="num">0.91</span>, <span class="num">0.85</span>, <span class="num">0.97</span>]
+
+<span class="var">t_stat</span>, <span class="var">p_val</span> = <span class="fn">stats.ttest_ind</span>(<span class="var">wt</span>, <span class="var">ko</span>, <span class="var">equal_var</span>=<span class="kw">False</span>)
+<span class="var">d</span> = (<span class="fn">np.mean</span>(<span class="var">wt</span>) - <span class="fn">np.mean</span>(<span class="var">ko</span>)) / <span class="fn">np.sqrt</span>(
+    (<span class="fn">np.std</span>(<span class="var">wt</span>, <span class="var">ddof</span>=<span class="num">1</span>)**<span class="num">2</span> + <span class="fn">np.std</span>(<span class="var">ko</span>, <span class="var">ddof</span>=<span class="num">1</span>)**<span class="num">2</span>) / <span class="num">2</span>)
+<span class="fn">print</span>(<span class="str">f"t={t_stat:.3f}, p={p_val:.4f}, d={d:.2f}"</span>)
+<span class="cmt"># t=3.614, p=0.0038, d=2.08</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Example 1b: bar chart -->
+      <div class="pcard cmt" data-clabel="Data Hub / bar chart figure example">
+        <div class="pcard-prompt">
+          <div class="avatar">G</div>
+          <div class="ptxt">Make a publication-ready bar chart with error bars from those replicates.</div>
+        </div>
+        <div class="pcard-result">
+          <div class="result-hdr">
+            <div class="bot-chip" id="bb2"></div>
+            <span class="tool-badge">make_datahub_graph</span>
+            <span class="cost-badge">~30,000 tokens</span>
+          </div>
+          <div class="bb-text">Here is the figure, using mean ± SD. I left it at 300 dpi export-ready. Axes follow standard journal conventions, no top or right spine, tick marks inward, significance bracket with the p-value.</div>
+          <div class="figure-wrap">
+            <div class="fig-title">OD600 at 24 h, WT vs. Knockout (n=6, mean ± SD)</div>
+            <svg class="bar-chart-svg" viewBox="0 0 380 220" xmlns="http://www.w3.org/2000/svg">
+              <!-- axes -->
+              <line x1="55" y1="20" x2="55" y2="170" stroke="#6b7280" stroke-width="1.4"/>
+              <line x1="55" y1="170" x2="330" y2="170" stroke="#6b7280" stroke-width="1.4"/>
+              <!-- y-axis labels -->
+              <text x="48" y="174" text-anchor="end" font-size="11" fill="#6b7280">0</text>
+              <text x="48" y="132" text-anchor="end" font-size="11" fill="#6b7280">0.5</text>
+              <text x="48" y="93"  text-anchor="end" font-size="11" fill="#6b7280">1.0</text>
+              <text x="48" y="54"  text-anchor="end" font-size="11" fill="#6b7280">1.5</text>
+              <!-- y gridlines (light) -->
+              <line x1="55" y1="132" x2="330" y2="132" stroke="#e5e7eb" stroke-width="0.8" stroke-dasharray="3,3"/>
+              <line x1="55" y1="93"  x2="330" y2="93"  stroke="#e5e7eb" stroke-width="0.8" stroke-dasharray="3,3"/>
+              <line x1="55" y1="54"  x2="330" y2="54"  stroke="#e5e7eb" stroke-width="0.8" stroke-dasharray="3,3"/>
+              <!-- axis title -->
+              <text x="185" y="210" text-anchor="middle" font-size="11" fill="#374151">Group</text>
+              <text x="14" y="100" text-anchor="middle" font-size="11" fill="#374151" transform="rotate(-90,14,100)">OD600 (24 h)</text>
+              <!-- WT bar: mean=1.42 → 1.42/1.75 * 150 = 121.7 → top = 170-121.7 = 48.3 -->
+              <rect x="100" y="48" width="60" height="122" fill="#1AA0E6" rx="3"/>
+              <!-- WT error bar: SD=0.11 → 0.11/1.75*150 = 9.4 -->
+              <line x1="130" y1="39" x2="130" y2="57" stroke="#374151" stroke-width="1.8"/>
+              <line x1="123" y1="39" x2="137" y2="39" stroke="#374151" stroke-width="1.8"/>
+              <line x1="123" y1="57" x2="137" y2="57" stroke="#374151" stroke-width="1.8"/>
+              <!-- KO bar: mean=0.87 → 0.87/1.75*150 = 74.6 → top = 170-74.6 = 95.4 -->
+              <rect x="210" y="95" width="60" height="75" fill="#5B47D6" rx="3"/>
+              <!-- KO error bar: SD=0.18 → 0.18/1.75*150=15.4 -->
+              <line x1="240" y1="80" x2="240" y2="110" stroke="#374151" stroke-width="1.8"/>
+              <line x1="233" y1="80" x2="247" y2="80" stroke="#374151" stroke-width="1.8"/>
+              <line x1="233" y1="110" x2="247" y2="110" stroke="#374151" stroke-width="1.8"/>
+              <!-- significance bracket -->
+              <line x1="130" y1="32" x2="240" y2="32" stroke="#374151" stroke-width="1.4"/>
+              <line x1="130" y1="32" x2="130" y2="38" stroke="#374151" stroke-width="1.4"/>
+              <line x1="240" y1="32" x2="240" y2="38" stroke="#374151" stroke-width="1.4"/>
+              <text x="185" y="28" text-anchor="middle" font-size="12" fill="#374151">**</text>
+              <text x="185" y="22" text-anchor="middle" font-size="9.5" fill="#6b7280">p=0.0038</text>
+              <!-- x labels -->
+              <text x="130" y="186" text-anchor="middle" font-size="12" fill="#374151" font-weight="600">WT</text>
+              <text x="240" y="186" text-anchor="middle" font-size="12" fill="#374151" font-weight="600">Knockout</text>
+              <!-- legend -->
+              <rect x="270" y="30" width="10" height="10" fill="#1AA0E6" rx="2"/>
+              <text x="284" y="40" font-size="10" fill="#6b7280">WT</text>
+              <rect x="270" y="46" width="10" height="10" fill="#5B47D6" rx="2"/>
+              <text x="284" y="56" font-size="10" fill="#6b7280">KO</text>
+            </svg>
+          </div>
+          <div style="font-size:12px;color:var(--foreground-muted)">Exported as SVG. A 300 dpi PNG is also available. The figure is linked to your data table, re-run the analysis to refresh it.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- CAPABILITY 2: SEQUENCES -->
+  <div class="cap-section cmt" data-clabel="Sequences capability section">
+    <div class="cap-head">
+      <div class="icon-chip" style="background:rgba(26,160,230,0.1)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1AA0E6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M4.5 9h15M4.5 15h15"/><path d="M12 3c-2 3-2 15 0 18M12 3c2 3 2 15 0 18"/></svg>
+      </div>
+      <div>
+        <div class="cap-title">Sequences: primers, Tm, translation, and more</div>
+        <div class="cap-desc">A SnapGene-style sequence workbench, but the AI does the legwork. Ask for primers in plain language and get back designed oligos with nearest-neighbor Tm values, GC content, and a self-complementarity check, without leaving your notes.</div>
+      </div>
+    </div>
+    <div class="prompt-cards">
+
+      <!-- Example 2a: primer design -->
+      <div class="pcard cmt" data-clabel="Sequences / primer design example">
+        <div class="pcard-prompt">
+          <div class="avatar">G</div>
+          <div class="ptxt">Design cloning primers for this insert. Add a BamHI site on the forward and an EcoRI site on the reverse. Target Tm around 60°C.</div>
+        </div>
+        <div class="pcard-result">
+          <div class="result-hdr">
+            <div class="bot-chip" id="bb3"></div>
+            <span class="tool-badge">design_primers · compute_tm</span>
+            <span class="cost-badge">~7,500 tokens</span>
+          </div>
+          <div class="bb-text">I designed primers against your insert (452 bp) and appended the restriction overhangs. Tms are calculated by the nearest-neighbor method (SantaLucia 1998, 50 mM Na+, 250 nM oligo).</div>
+          <div class="primer-card">
+            <div class="plabel">Forward primer (BamHI)</div>
+            <div class="psequence">CGGGATCC<span style="color:var(--brand-green)">ATGACCGTGAAAGACCTGTTC</span></div>
+            <div class="pstats">
+              <span><strong>Tm</strong> 61.4°C</span>
+              <span><strong>GC</strong> 52%</span>
+              <span><strong>Length</strong> 29 bp</span>
+              <span><strong>Self-comp</strong> none</span>
+            </div>
+          </div>
+          <div class="primer-card">
+            <div class="plabel">Reverse primer (EcoRI)</div>
+            <div class="psequence">CCGAATTC<span style="color:var(--brand-coral)">TTACAGGTTCTCCAGGTCGTA</span></div>
+            <div class="pstats">
+              <span><strong>Tm</strong> 60.8°C</span>
+              <span><strong>GC</strong> 48%</span>
+              <span><strong>Length</strong> 29 bp</span>
+              <span><strong>Self-comp</strong> none</span>
+            </div>
+          </div>
+          <div style="font-size:12.5px;color:var(--foreground-muted)">Both primers were saved to your sequence library as "Insert-F-BamHI" and "Insert-R-EcoRI". Recommended annealing temp is 58°C (Tm minus 3°C, accounting for the non-binding overhang).</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- CAPABILITY 3: CHEMISTRY -->
+  <div class="cap-section cmt" data-clabel="Chemistry capability section">
+    <div class="cap-head">
+      <div class="icon-chip" style="background:rgba(255,111,97,0.12)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF6F61" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v5l4 8H5l4-8V3z"/><path d="M9 3v5"/><path d="M15 3v5"/></svg>
+      </div>
+      <div>
+        <div class="cap-title">Chemistry: PubChem lookup and structure import</div>
+        <div class="cap-desc">A ChemDraw alternative that pulls structures, properties, and literature directly from PubChem, without a subscription or a heavyweight desktop app. Molecules you find are saved locally in your project's Molecules section.</div>
+      </div>
+    </div>
+    <div class="prompt-cards">
+
+      <!-- Example 3a: PubChem search -->
+      <div class="pcard cmt" data-clabel="Chemistry / PubChem example">
+        <div class="pcard-prompt">
+          <div class="avatar">G</div>
+          <div class="ptxt">Look up rapamycin on PubChem and add it to this project's molecule library.</div>
+        </div>
+        <div class="pcard-result">
+          <div class="result-hdr">
+            <div class="bot-chip" id="bb4"></div>
+            <span class="tool-badge">search_pubchem · create_molecule</span>
+            <span class="cost-badge">~7,500 tokens</span>
+          </div>
+          <div class="bb-text">I found rapamycin (CID 5284616) on PubChem and saved it to your project. Here are the key properties.</div>
+          <div class="molecule-card">
+            <div class="mol-svg-wrap">
+              <!-- Simplified structural placeholder SVG for rapamycin (macrolide ring shape) -->
+              <svg width="70" height="70" viewBox="0 0 70 70" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <ellipse cx="35" cy="35" rx="28" ry="24" stroke="#FF6F61" stroke-width="1.8" fill="none"/>
+                <line x1="35" y1="11" x2="63" y2="35" stroke="#FF6F61" stroke-width="1.5"/>
+                <line x1="35" y1="59" x2="63" y2="35" stroke="#FF6F61" stroke-width="1.5"/>
+                <line x1="35" y1="11" x2="7"  y2="35" stroke="#FF6F61" stroke-width="1.5"/>
+                <line x1="35" y1="59" x2="7"  y2="35" stroke="#FF6F61" stroke-width="1.5"/>
+                <circle cx="35" cy="11" r="3" fill="#FF6F61"/>
+                <circle cx="63" cy="35" r="3" fill="#FF6F61"/>
+                <circle cx="35" cy="59" r="3" fill="#FF6F61"/>
+                <circle cx="7"  cy="35" r="3" fill="#FF6F61"/>
+                <text x="35" y="38" text-anchor="middle" font-size="8" fill="#FF6F61" font-weight="700">mTOR</text>
+                <text x="35" y="48" text-anchor="middle" font-size="7" fill="#6b7280">inhibitor</text>
+              </svg>
+            </div>
+            <div class="mol-info">
+              <div class="mol-name">Rapamycin (Sirolimus)</div>
+              <div class="mol-cid">PubChem CID 5284616</div>
+              <div class="mol-props">
+                <div class="mol-prop"><span class="pk">MW </span><span class="pv">914.17</span></div>
+                <div class="mol-prop"><span class="pk">Formula </span><span class="pv">C51H79NO13</span></div>
+                <div class="mol-prop"><span class="pk">XLogP </span><span class="pv">4.3</span></div>
+                <div class="mol-prop"><span class="pk">HBD </span><span class="pv">3</span></div>
+                <div class="mol-prop"><span class="pk">HBA </span><span class="pv">14</span></div>
+                <div class="mol-prop"><span class="pk">TPSA </span><span class="pv">195 Å²</span></div>
+              </div>
+            </div>
+          </div>
+          <div style="font-size:12.5px;color:var(--foreground-muted)">Saved as "Rapamycin" in your Molecules section. The SMILES, InChI key, and 2-D structure file are attached. You can open the full structure editor to annotate or export.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- CAPABILITY 4: SEARCH MY WORK -->
+  <div class="cap-section cmt" data-clabel="Search my work capability section">
+    <div class="cap-head">
+      <div class="icon-chip" style="background:rgba(245,158,11,0.12)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      </div>
+      <div>
+        <div class="cap-title">Search your own work: cross-type, context-aware</div>
+        <div class="cap-desc">BeakerBot searches across every type of object in your folder (notes, experiments, sequences, methods, and molecules) and pulls back actual snippets from the relevant records. It is the same engine that powers BeakerSearch, but driven by a natural-language question instead of a keyword.</div>
+      </div>
+    </div>
+    <div class="prompt-cards">
+
+      <!-- Example 4a: PCR failure search -->
+      <div class="pcard cmt" data-clabel="Search / PCR failure example">
+        <div class="pcard-prompt">
+          <div class="avatar">G</div>
+          <div class="ptxt">What PCR runs failed last month? I think there were some gel photos with bad bands.</div>
+        </div>
+        <div class="pcard-result">
+          <div class="result-hdr">
+            <div class="bot-chip" id="bb5"></div>
+            <span class="tool-badge">search_my_work</span>
+            <span class="cost-badge">~7,500 tokens</span>
+          </div>
+          <div class="bb-text">I searched your folder for PCR experiments and notes from the last 30 days that mention failures, bad bands, or no-band results. I found 3 matching records.</div>
+          <div class="search-results">
+            <div class="sresult">
+              <div class="stype-chip" style="background:rgba(245,158,11,0.12)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+              </div>
+              <div class="stext">
+                <div class="stitle">Colony PCR, pMito-GFP screen, Plate 4</div>
+                <div class="smeta">Experiment &middot; 2026-05-28 &middot; Cloning project</div>
+                <div class="snippet">Lanes 3, 7, 11 showed <mark>no band</mark>. Re-ran with fresh template, same result. Possibly inhibitor carry-over from miniprep step.</div>
+              </div>
+            </div>
+            <div class="sresult">
+              <div class="stype-chip" style="background:rgba(16,185,129,0.12)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.2" stroke-linecap="round"><path d="M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2z"/><path d="M4 19a2 2 0 0 0 2 2h12"/></svg>
+              </div>
+              <div class="stext">
+                <div class="stitle">PCR troubleshooting note, annealing temp sweep</div>
+                <div class="smeta">Note &middot; 2026-05-31 &middot; Cloning project</div>
+                <div class="snippet">Tried 52°C, 55°C, 58°C. <mark>Smearing at 52</mark>, nothing at 58. 55°C gives a faint band but still lower than expected size. May be off-target priming.</div>
+              </div>
+            </div>
+            <div class="sresult">
+              <div class="stype-chip" style="background:rgba(91,71,214,0.12)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5B47D6" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M4.5 9h15M4.5 15h15"/></svg>
+              </div>
+              <div class="stext">
+                <div class="stitle">pMito-GFP insert sequence</div>
+                <div class="smeta">Sequence &middot; linked from experiment above</div>
+                <div class="snippet">Primer binding sites annotated. <mark>Potential hairpin</mark> at position 214–228 on the forward primer binding region (dG = −3.4 kcal/mol).</div>
+              </div>
+            </div>
+          </div>
+          <div style="font-size:12.5px;color:var(--foreground-muted);margin-top:10px">Showing 3 of 3 matches. Want me to open the colony PCR experiment or compute Tm for the primer with the suspected hairpin?</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- CAPABILITY 5: EXPERIMENT CHAINS -->
+  <div class="cap-section cmt" data-clabel="Experiments capability section">
+    <div class="cap-head">
+      <div class="icon-chip" style="background:rgba(16,185,129,0.12)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h2M12 14h4"/><path d="M8 18h1M12 18h4"/></svg>
+      </div>
+      <div>
+        <div class="cap-title">Experiments and scheduling: multi-step protocol chains</div>
+        <div class="cap-desc">BeakerBot creates linked experiment records with dependency arrows, so the Gantt view shows when each step can start. If something slips, ask it to reschedule and it propagates the delay through the chain automatically.</div>
+      </div>
+    </div>
+    <div class="prompt-cards">
+
+      <!-- Example 5a: cloning chain -->
+      <div class="pcard cmt" data-clabel="Experiments / cloning chain example">
+        <div class="pcard-prompt">
+          <div class="avatar">G</div>
+          <div class="ptxt">Set up a 3-day cloning experiment chain, restriction digest today, ligation tomorrow morning, transformation and colony PCR on day 3.</div>
+        </div>
+        <div class="pcard-result">
+          <div class="result-hdr">
+            <div class="bot-chip" id="bb6"></div>
+            <span class="tool-badge">create_experiment_chain</span>
+            <span class="cost-badge">~30,000 tokens</span>
+          </div>
+          <div class="bb-text">I created 4 linked experiments with dependency arrows. Each experiment will stay locked until its predecessor is marked complete. Here is the Gantt view.</div>
+          <div class="gantt-wrap">
+            <div class="gantt-head">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/></svg>
+              Cloning chain &mdash; 3 days
+            </div>
+            <div class="gantt-row">
+              <div class="gday">Day 1</div>
+              <div class="gbar g-digest" style="width:55%">Restriction digest (BamHI + EcoRI)</div>
+            </div>
+            <div class="gantt-row">
+              <div class="gday">Day 2</div>
+              <div class="gbar g-ligate" style="width:40%;margin-left:15%">Ligation (T4 ligase, 16°C overnight)</div>
+              <div class="gdep">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                depends on digest
+              </div>
+            </div>
+            <div class="gantt-row">
+              <div class="gday">Day 3</div>
+              <div class="gbar g-cloning" style="width:35%;margin-left:25%">Transformation (DH5α, heat-shock)</div>
+              <div class="gdep">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                depends on ligation
+              </div>
+            </div>
+            <div class="gantt-row">
+              <div class="gday">Day 3</div>
+              <div class="gbar g-verify" style="width:30%;margin-left:58%">Colony PCR screen</div>
+              <div class="gdep">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                depends on transformation
+              </div>
+            </div>
+          </div>
+          <div style="font-size:12.5px;color:var(--foreground-muted)">All four experiments are now in your Experiments list, tagged to this project. I attached the standard ligation and transformation methods as templates. Want me to add primer sequences to the colony PCR step?</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- PRICING CALLOUT -->
+  <div class="hero cmt" data-clabel="Pricing callout section" style="text-align:left;padding:28px 32px;">
+    <div style="display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:240px;">
+        <div style="font-size:16px;font-weight:800;margin:0 0 8px;">No subscription. No seat fees. You see every token.</div>
+        <p style="font-size:14px;line-height:1.6;color:var(--foreground-muted);margin:0 0 10px;">AI on ResearchOS is metered at cost, we pass through the compute at a thin buffer, we do not mark it up like a subscription product. The reason is that a lab's AI usage varies a lot month to month. One week of heavy analysis should not cost the same as four quiet weeks.</p>
+        <p style="font-size:13px;color:var(--foreground-muted);margin:0;">After the free gift runs out, top-ups are $10, $25, or $50. Your balance and per-task cost are always visible in the sidebar.</p>
+      </div>
+      <div style="flex:none;width:220px;background:var(--surface-sunken);border:1px solid var(--border);border-radius:14px;padding:18px 20px;">
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--foreground-muted);margin-bottom:12px;">Cost reference</div>
+        <div style="font-size:13px;line-height:2;color:var(--foreground);">
+          <div style="display:flex;justify-content:space-between;"><span>Full analysis</span><span style="color:var(--brand-sky);font-weight:700;">30,000 tok</span></div>
+          <div style="display:flex;justify-content:space-between;"><span>Quick question</span><span style="color:var(--brand-sky);font-weight:700;">7,500 tok</span></div>
+          <div style="display:flex;justify-content:space-between;"><span>Free gift</span><span style="color:var(--brand-green);font-weight:700;">750,000 tok</span></div>
+          <hr style="border:none;border-top:1px solid var(--border);margin:8px 0;">
+          <div style="font-size:12px;color:var(--foreground-muted);">~20-25 full analyses free, no card needed.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── DIVIDER + REVIEW SECTION ── -->
+<hr class="divider" style="margin-top:0;margin-bottom:36px;">
+
+<div class="review-section" style="padding-bottom:120px;">
+  <h2>Design decisions, mark each one Approve or Disapprove</h2>
+  <div class="changes" id="changes"></div>
+</div>
+
+<!-- ── COMMENTS PANEL ── -->
+<div class="panel" id="panel">
+  <div class="panel-head" id="panelHead">
+    <h3>Comments</h3>
+    <span class="count" id="cCount">0</span>
+    <span class="chev" id="chev">hide</span>
+  </div>
+  <div class="panel-body" id="panelBody">
+    <div class="empty">No comments yet. Turn on Comment mode and click any section.</div>
+  </div>
+  <div class="panel-foot">
+    <button class="btn" id="exportBtn">Copy feedback</button>
+    <button class="btn" id="downloadBtn">Download .md</button>
+    <span style="flex:1"></span>
+    <button class="btn danger" id="clearBtn">Clear</button>
+  </div>
+</div>
+
+<div class="editor" id="editor" style="display:none"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+  /* ── BeakerBot SVG glyph ── */
+  function bbSvg(size) {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="#1AA0E6" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v5l-4.5 8a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 8V3"/><path d="M7.8 15h8.4" stroke="#7dd3fc"/></svg>`;
+  }
+  ['bb1','bb2','bb3','bb4','bb5','bb6'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = bbSvg(22);
+  });
+
+  /* ── show/hide code ── */
+  function toggleCode(btn, id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const hidden = el.style.display === 'none';
+    el.style.display = hidden ? 'block' : 'none';
+    btn.textContent = hidden ? 'Hide the Python' : 'Show the Python';
+  }
+
+  /* ── localStorage keys ── */
+  const STORE_CMT = 'ai-showcase-comments-v1';
+  const STORE_VRD = 'ai-showcase-verdicts-v1';
+
+  let comments = [];
+  let verdicts = {};
+  try { comments = JSON.parse(localStorage.getItem(STORE_CMT) || '[]'); } catch { comments = []; }
+  try { verdicts = JSON.parse(localStorage.getItem(STORE_VRD) || '{}'); } catch { verdicts = {}; }
+  function saveComments() { try { localStorage.setItem(STORE_CMT, JSON.stringify(comments)); } catch {} }
+  function saveVerdicts() { try { localStorage.setItem(STORE_VRD, JSON.stringify(verdicts)); } catch {} }
+
+  /* ── Design decisions ── */
+  const DECISIONS = [
+    {
+      id: 'hero-token-framing',
+      title: 'Hero: token quantity framing instead of dollar price',
+      desc: 'The free gift is shown as 750,000 tokens with a plain-English translation ("about 20 to 25 full analyses"). Dollars are not mentioned in the gift line because that framing would invite price-shopping before the researcher has seen the value. The per-task cost is explained right below, so it is still honest.'
+    },
+    {
+      id: 'prompt-result-pattern',
+      title: 'Prompt + result card pattern (grounded, not vague)',
+      desc: 'Each capability leads with a realistic grad-student sentence and follows with the literal output (numbers, sequences, search snippets, a Gantt) rather than marketing bullets. The goal is to let the researcher see concretely what BeakerBot can hand them, not just assert that it is "powerful."'
+    },
+    {
+      id: 'assumption-report-card',
+      title: 'Assumption report card on statistical results',
+      desc: 'Every analysis result includes a per-assumption pass/warn/fail checklist. This is shown in the marketing page because it is a real differentiator. Most lab tools silently assume normality. Showing the check communicates both the rigour and the transparency of the engine.'
+    },
+    {
+      id: 'show-the-python',
+      title: '"Show the Python" code toggle on analysis results',
+      desc: 'The equivalent scipy snippet is hidden behind a toggle so it does not overwhelm the result card, but it is one click away. This directly answers the reproducibility concern that keeps some researchers from trusting a browser-native stats engine.'
+    },
+    {
+      id: 'publication-figure-svg',
+      title: 'Publication figure rendered as an SVG inside the result card',
+      desc: 'The bar chart is drawn inline rather than described in prose, so the researcher can immediately see the style: no top/right spine, significance brackets, SD error bars. This is a concrete preview of what they would get on their own data.'
+    },
+    {
+      id: 'pricing-callout-metered-rationale',
+      title: 'Pricing callout: state the WHY for metered billing',
+      desc: 'The pricing section explains that metered-at-cost billing is chosen because lab AI usage varies a lot month to month, not just because it is "flexible." This follows the standing voice rule of giving the real reason rather than an unexplained claim.'
+    },
+    {
+      id: 'five-capabilities-scope',
+      title: 'Five capabilities shown: Data Hub, Sequences, Chemistry, Search, Experiments',
+      desc: 'Navigation tools (go_to_page, click_element) are intentionally absent from the showcase; they are infrastructure, not the selling point. The five capabilities shown each have a concrete real-world use case. Worth discussing whether Chemistry should be earlier or later in the order.'
+    },
+  ];
+
+  function esc(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function renderDecisions() {
+    const wrap = document.getElementById('changes');
+    wrap.innerHTML = DECISIONS.map(d => {
+      const v = verdicts[d.id] || '';
+      const cls = v === 'approve' ? 'approved' : v === 'disapprove' ? 'disapproved' : '';
+      return `<div class="change ${cls}" data-dec="${d.id}">
+        <div class="ctext">
+          <div class="ctitle">${esc(d.title)}</div>
+          <div class="cdesc">${esc(d.desc)}</div>
+        </div>
+        <div class="verdict">
+          <div class="vrow">
+            <button class="vbtn app ${v === 'approve' ? 'on' : ''}" data-v="approve">Approve</button>
+            <button class="vbtn dis ${v === 'disapprove' ? 'on' : ''}" data-v="disapprove">Disapprove</button>
+          </div>
+          ${v ? '<button class="vclear" data-v="clear">clear</button>' : '<span style="height:14px"></span>'}
+        </div>
+      </div>`;
+    }).join('');
+    wrap.querySelectorAll('.change').forEach(card => {
+      const id = card.dataset.dec;
+      card.querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', () => {
+        const v = b.dataset.v;
+        if (v === 'clear') delete verdicts[id];
+        else verdicts[id] = (verdicts[id] === v ? undefined : v);
+        if (!verdicts[id]) delete verdicts[id];
+        saveVerdicts(); renderDecisions();
+      }));
+    });
+  }
+  renderDecisions();
+
+  /* ── Comment pins ── */
+  function renderPins() {
+    document.querySelectorAll('.pin-dot').forEach(p => p.remove());
+    const byTarget = {};
+    comments.forEach((c, i) => {
+      (byTarget[c.target] = byTarget[c.target] || []).push(i + 1);
+    });
+    document.querySelectorAll('.cmt').forEach(el => {
+      const lbl = el.getAttribute('data-clabel');
+      const nums = byTarget[lbl];
+      if (!nums) return;
+      const pin = document.createElement('span');
+      pin.className = 'pin-dot';
+      pin.textContent = nums.join(',');
+      pin.title = 'Comment ' + nums.join(', ');
+      pin.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const first = comments.findIndex(c => c.target === lbl);
+        if (first >= 0) openEditor(el, first, ev);
+      });
+      el.appendChild(pin);
+    });
+  }
+
+  function renderPanel() {
+    const body = document.getElementById('panelBody');
+    document.getElementById('cCount').textContent = comments.length;
+    if (comments.length === 0) {
+      body.innerHTML = '<div class="empty">No comments yet. Turn on Comment mode and click any section.</div>';
+      return;
+    }
+    const vtag = (v) => v === 'approve'
+      ? '<span class="vbadge" style="color:var(--approve-bg)">APPROVE</span> '
+      : v === 'disapprove' ? '<span class="vbadge" style="color:var(--pin)">DISAPPROVE</span> ' : '';
+    body.innerHTML = comments.map((c, i) => `
+      <div class="citem" data-i="${i}">
+        <span class="num">${i + 1}</span>
+        <div class="body">
+          <div class="tgt">${vtag(c.verdict)}${esc(c.target)}</div>
+          <div class="txt">${esc(c.text) || '<i>no text</i>'}</div>
+        </div>
+        <button class="x" data-del="${i}" title="Delete">&times;</button>
+      </div>`).join('');
+    body.querySelectorAll('[data-del]').forEach(b => {
+      b.addEventListener('click', () => {
+        comments.splice(+b.dataset.del, 1);
+        saveComments(); renderAll();
+      });
+    });
+    body.querySelectorAll('.citem').forEach(it => {
+      it.addEventListener('click', (e) => {
+        if (e.target.closest('[data-del]')) return;
+        const i = +it.dataset.i;
+        const el = [...document.querySelectorAll('.cmt')].find(x => x.getAttribute('data-clabel') === comments[i].target);
+        if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); flashPin(comments[i].target); }
+      });
+    });
+  }
+
+  function flashPin(target) {
+    document.querySelectorAll('.pin-dot').forEach(p => {
+      const el = p.closest('.cmt');
+      if (el && el.getAttribute('data-clabel') === target) {
+        p.classList.add('hl'); setTimeout(() => p.classList.remove('hl'), 1200);
+      }
+    });
+  }
+
+  function renderAll() { renderPins(); renderPanel(); }
+  renderAll();
+
+  /* ── Editor popover ── */
+  let editorOpen = false;
+  function closeEditor() {
+    const ed = document.getElementById('editor');
+    ed.style.display = 'none'; editorOpen = false;
+  }
+
+  function openEditor(targetEl, existingIndex, ev) {
+    closeEditor();
+    const target = targetEl.getAttribute('data-clabel') || 'Page';
+    const existing = existingIndex != null ? comments[existingIndex] : null;
+    let pendingVerdict = existing ? (existing.verdict || '') : '';
+
+    const ed = document.getElementById('editor');
+    ed.innerHTML = `
+      <div class="lbl">${esc(target)}</div>
+      <textarea placeholder="Type your note, suggestion, or change request">${existing ? esc(existing.text) : ''}</textarea>
+      <div class="vchoice">
+        <button class="vbtn" data-vc="note">Note</button>
+        <button class="vbtn app" data-vc="approve">Approve</button>
+        <button class="vbtn dis" data-vc="disapprove">Disapprove</button>
+      </div>
+      <div class="acts">
+        ${existing ? '<button class="btn danger" data-act="del">Delete</button>' : ''}
+        <span class="spacer"></span>
+        <button class="btn" data-act="cancel">Cancel</button>
+        <button class="btn on" data-act="save">Save</button>
+      </div>`;
+
+    const paintVc = () => ed.querySelectorAll('[data-vc]').forEach(b => {
+      b.classList.toggle('on', (b.dataset.vc === 'note' && !pendingVerdict) || b.dataset.vc === pendingVerdict);
+    });
+    ed.querySelectorAll('[data-vc]').forEach(b => b.addEventListener('click', () => {
+      pendingVerdict = b.dataset.vc === 'note' ? '' : b.dataset.vc; paintVc();
+    }));
+    paintVc();
+
+    const x = ev ? ev.clientX : targetEl.getBoundingClientRect().left;
+    const y = ev ? ev.clientY : targetEl.getBoundingClientRect().bottom;
+    const w = 292, vw = window.innerWidth, vh = window.innerHeight;
+    ed.style.left = Math.min(Math.max(8, x - 20), vw - w - 8) + 'px';
+    ed.style.top  = Math.min(y + 10, vh - 220) + 'px';
+    ed.style.display = 'block';
+    editorOpen = true;
+    const ta = ed.querySelector('textarea');
+    ta.focus();
+
+    ed.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
+      const act = b.dataset.act;
+      if (act === 'cancel') return closeEditor();
+      if (act === 'del') {
+        if (existingIndex != null) { comments.splice(existingIndex, 1); saveComments(); renderAll(); }
+        return closeEditor();
+      }
+      if (act === 'save') {
+        const text = ta.value.trim();
+        if (!text && !pendingVerdict) return closeEditor();
+        if (existing) { existing.text = text; existing.verdict = pendingVerdict; }
+        else { comments.push({ target, text, verdict: pendingVerdict }); }
+        saveComments(); renderAll(); closeEditor();
+      }
+    }));
+    ed.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeEditor();
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) ed.querySelector('[data-act="save"]').click();
+    });
+  }
+
+  /* ── Click-to-comment ── */
+  document.addEventListener('click', (e) => {
+    if (!document.body.classList.contains('cmt-on')) return;
+    if (e.target.closest('#editor') || e.target.closest('.panel') || e.target.closest('.topbar') || e.target.closest('.pin-dot')) return;
+    const cmt = e.target.closest('.cmt');
+    if (!cmt) { closeEditor(); return; }
+    e.preventDefault();
+    openEditor(cmt, null, e);
+  });
+
+  /* ── Topbar toggles ── */
+  const cBtn = document.getElementById('commentToggle');
+  cBtn.addEventListener('click', () => {
+    const on = document.body.classList.toggle('cmt-on');
+    cBtn.classList.toggle('on', on);
+    cBtn.textContent = 'Comment mode: ' + (on ? 'on' : 'off');
+    if (!on) closeEditor();
+  });
+
+  const tBtn = document.getElementById('themeToggle');
+  tBtn.addEventListener('click', () => {
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+    tBtn.textContent = dark ? 'Switch to dark' : 'Switch to light';
+  });
+
+  /* ── Panel collapse ── */
+  document.getElementById('panelHead').addEventListener('click', () => {
+    const p = document.getElementById('panel');
+    const col = p.classList.toggle('collapsed');
+    document.getElementById('chev').textContent = col ? 'show' : 'hide';
+  });
+
+  /* ── Export ── */
+  function buildMarkdown() {
+    let out = 'BeakerBot AI page, marketing mockup review, 2026-06-12\n\n';
+    out += '## Design decisions\n\n';
+    DECISIONS.forEach(d => {
+      const v = verdicts[d.id];
+      const mark = v === 'approve' ? 'APPROVE' : v === 'disapprove' ? 'DISAPPROVE' : 'undecided';
+      out += `- ${d.title}: ${mark}\n`;
+    });
+    out += '\n## Comments\n\n';
+    if (comments.length === 0) out += '- none\n';
+    comments.forEach((c, i) => {
+      const tag = c.verdict === 'approve' ? '[APPROVE] ' : c.verdict === 'disapprove' ? '[DISAPPROVE] ' : '';
+      out += `${i + 1}. ${tag}[${c.target}] ${c.text}\n`;
+    });
+    return out;
+  }
+
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  document.getElementById('exportBtn').addEventListener('click', async () => {
+    const md = buildMarkdown();
+    try { await navigator.clipboard.writeText(md); toast('Feedback copied. Paste it back to me.'); }
+    catch { window.prompt('Copy your feedback', md); }
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    const blob = new Blob([buildMarkdown()], { type: 'text/markdown' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'ai-showcase-feedback-2026-06-12.md';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    if (comments.length && !confirm('Delete all comments?')) return;
+    comments = []; saveComments(); renderAll();
+  });
+</script>
+</body>
+</html>
