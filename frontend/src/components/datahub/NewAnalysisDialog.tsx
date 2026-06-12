@@ -22,6 +22,10 @@ import {
   validAnalysisTypes,
   type AnalysisType,
 } from "@/lib/datahub/run-analysis";
+import { Icon } from "@/components/icons";
+import { AI_ASSISTANT_ENABLED } from "@/lib/ai/config";
+import { useBeakerSearch } from "@/components/beaker-search/BeakerSearchProvider";
+import { sendToBeakerBot } from "@/components/ai/message-bridge";
 
 export interface NewAnalysisSubmit {
   type: AnalysisType;
@@ -113,6 +117,18 @@ export default function NewAnalysisDialog({
   onCancel: () => void;
   onSubmit: (data: NewAnalysisSubmit) => void;
 }) {
+  const { openBeakerBot } = useBeakerSearch();
+
+  // Hand the test choice off to BeakerBot when the researcher is not sure which
+  // analysis fits. The bot resolves "this table" through its own context bridge,
+  // so the seed query stays generic. Closing this dialog moves focus cleanly
+  // into the BeakerBot conversation.
+  const handleHelpMeChoose = () => {
+    onCancel();
+    openBeakerBot();
+    void sendToBeakerBot("help me choose an analysis for this table");
+  };
+
   const isXY = content?.meta.table_type === "xy";
   const isGrouped = content?.meta.table_type === "grouped";
   const isSurvival = content?.meta.table_type === "survival";
@@ -328,22 +344,37 @@ export default function NewAnalysisDialog({
           </>
         )}
 
-        <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-md border border-border px-3 py-1.5 text-body font-medium text-foreground-muted hover:bg-surface-sunken"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={submit}
-            disabled={!canSubmit}
-            className="btn-brand rounded-md px-3 py-1.5 text-body font-medium disabled:opacity-50"
-          >
-            Run analysis
-          </button>
+        <div className="mt-5 flex items-center justify-between gap-2">
+          {AI_ASSISTANT_ENABLED ? (
+            <button
+              type="button"
+              onClick={handleHelpMeChoose}
+              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-body font-medium text-brand-action hover:bg-accent-soft"
+              data-testid="datahub-help-me-choose"
+            >
+              <Icon name="vial" className="h-3.5 w-3.5" />
+              Help me choose
+            </button>
+          ) : (
+            <span />
+          )}
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded-md border border-border px-3 py-1.5 text-body font-medium text-foreground-muted hover:bg-surface-sunken"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={submit}
+              disabled={!canSubmit}
+              className="btn-brand rounded-md px-3 py-1.5 text-body font-medium disabled:opacity-50"
+            >
+              Run analysis
+            </button>
+          </div>
         </div>
       </div>
     </div>
