@@ -243,3 +243,41 @@ describe("DEFAULT_EMBED_VIEW", () => {
     expect(DEFAULT_EMBED_VIEW.molecule).toBe("card");
   });
 });
+
+describe("transclusion section fragment (P7-2)", () => {
+  it("parses a note transclude embed with an encoded section heading", () => {
+    const d = parseObjectEmbed("/notes/5#ros=transclude&section=Lysis%20step");
+    expect(d).toEqual({
+      type: "note",
+      id: "5",
+      view: "transclude",
+      isEmbed: true,
+      opts: { section: "Lysis step" },
+    });
+  });
+
+  it("round-trips the section opt through buildObjectEmbedHref", () => {
+    const href = buildObjectEmbedHref("note", 5, {
+      view: "transclude",
+      section: "Lysis step",
+    });
+    expect(href).toBe("/notes/5#ros=transclude&section=Lysis+step");
+    const d = parseObjectEmbed(href);
+    expect(d?.view).toBe("transclude");
+    expect(d?.opts.section).toBe("Lysis step");
+  });
+
+  it("a transclude with no section parses to an empty opts.section", () => {
+    const d = parseObjectEmbed("/notes/9#ros=transclude");
+    expect(d?.view).toBe("transclude");
+    expect(d?.opts.section).toBeUndefined();
+  });
+
+  it("setEmbedOpt can add and clear the section opt", () => {
+    const base = "/notes/3#ros=transclude";
+    const withSection = setEmbedOpt(base, "section", "Results");
+    expect(parseObjectEmbed(withSection)?.opts.section).toBe("Results");
+    const cleared = setEmbedOpt(withSection, "section", null);
+    expect(parseObjectEmbed(cleared)?.opts.section).toBeUndefined();
+  });
+});
