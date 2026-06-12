@@ -277,10 +277,13 @@ export default function DataHubPage() {
   }, [surfaceEnabled, currentUser, selectedTableId]);
 
   // A table switch clears the analysis + figure selection (back to the data
-  // grid). The dependency is intentionally only the table id.
+  // grid) and dismisses any pending delete-confirm banner so it never bleeds
+  // onto the newly opened table. The dependency is intentionally only the
+  // table id.
   useEffect(() => {
     setSelectedAnalysisId(null);
     setSelectedPlotId(null);
+    setConfirmDeleteTableId(null);
   }, [selectedTableId]);
 
   // Apply a pending `?analysis=<id>` deep link once the deep-linked doc's content
@@ -897,7 +900,7 @@ export default function DataHubPage() {
           counts={counts}
           analyses={openContent?.analyses ?? []}
           selectedAnalysisId={selectedAnalysisId}
-          onSelectAnalysis={setSelectedAnalysisId}
+          onSelectAnalysis={(id) => { setSelectedPlotId(null); setSelectedAnalysisId(id); }}
           onNewAnalysis={() => setNewAnalysisOpen(true)}
           onGuidedAnalysis={() => setGuidedOpen(true)}
           analysesEnabled={!!openContent}
