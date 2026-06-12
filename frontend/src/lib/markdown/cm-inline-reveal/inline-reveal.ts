@@ -48,6 +48,7 @@ import { inlineRevealTheme } from "./theme";
 import { TableWidget, FencedCodeWidget } from "./block-widgets";
 import { ImageWidget } from "./image-widget";
 import { EmbedWidget, parseLoneEmbedLink } from "./embed-widget";
+import { ObjectChipWidget, parseObjectLink } from "./object-chip-widget";
 import { markdownKeymap } from "./markdown-keymap";
 import { stampHideExtension } from "./stamp-hide";
 
@@ -190,6 +191,28 @@ export function buildDeco(view: EditorView): InlineRevealDecorations {
             return false;
           }
           // Touched: fall through to container handling below (source shows).
+        }
+
+        // OBJECT MENTION chip. A Link whose URL is an in-app object route renders
+        // as a calm inline chip when the caret is not on it (inline replace +
+        // atomic), so a mention reads the same in the editor as in Preview. A
+        // touched link, or a normal external link, falls through to the standard
+        // link reveal. A lone embed link on its own line is already consumed by
+        // the Paragraph branch above, so it never reaches here.
+        if (name === "Link") {
+          const touched = selectionTouchesNode(sel, node.from, node.to);
+          if (!touched && node.to > node.from) {
+            const parsed = parseObjectLink(state.sliceDoc(node.from, node.to));
+            if (parsed) {
+              const deco = Decoration.replace({
+                widget: new ObjectChipWidget(parsed.label, parsed.type),
+              });
+              combinedRanges.push({ from: node.from, to: node.to, deco });
+              atomicRanges.push({ from: node.from, to: node.to, deco });
+              return false;
+            }
+          }
+          // Touched, or not an object link: fall through to normal handling.
         }
 
         // LITERAL `<u>...</u>` underline. The grammar gives us two HTMLTag leaf
