@@ -8,7 +8,30 @@ drug_a  = [78, 82, 75, 80, 85, 79]
 
 # Welch's unpaired t-test (does not assume equal variance)
 t, p = stats.ttest_ind(control, drug_a, equal_var=False, alternative="two-sided")
-print(f"t = {t:.4g}, p = {p:.4g}")"
+print(f"t = {t:.4g}, p = {p:.4g}")
+
+# Effect size: Cohen's d and the bias-corrected Hedges' g (pingouin)
+import pingouin as pg
+d = pg.compute_effsize(control, drug_a, eftype="cohen")
+g = pg.compute_effsize(control, drug_a, eftype="hedges")
+print(f"d = {d:.4g}, Hedges g = {g:.4g}")
+
+# Distribution-free bootstrap 95% CI of the mean difference (BCa, the
+# robust companion to the parametric CI above). A bootstrap draws random
+# resamples, so this scipy interval converges to the engine's CI (B = 2000, BCa)
+# but is not bit-identical, since the two use different PRNGs. The seed below
+# just makes your own re-runs reproducible.
+import numpy as np
+from scipy.stats import bootstrap
+
+def mean_diff(x, y):
+    return np.mean(x) - np.mean(y)
+
+res = bootstrap((control, drug_a), mean_diff, n_resamples=2000,
+                method="BCa", confidence_level=0.95, vectorized=False,
+                random_state=np.random.default_rng(0))
+print(f"bootstrap 95% CI = [{res.confidence_interval.low:.4g}, "
+      f"{res.confidence_interval.high:.4g}]")"
 `;
 
 exports[`show-code > emits reproducible scipy ANOVA + Tukey code with the real values 1`] = `
@@ -28,5 +51,21 @@ tukey = mc.pairwise_tukeyhsd(
     endog=control + drug_a + drug_b,
     groups=["Control"] * 6 + ["Drug A"] * 6 + ["Drug B"] * 6,
 )
-print(tukey)"
+print(tukey)
+
+# Effect size: eta-squared (share of variance explained) and the less
+# biased omega-squared, from the one-way ANOVA sums of squares.
+import numpy as np
+es_groups = [control, drug_a, drug_b]
+es_all = np.concatenate([np.asarray(g, float) for g in es_groups])
+grand = np.mean(es_all)
+ss_between = sum(len(g) * (np.mean(g) - grand) ** 2 for g in es_groups)
+ss_within = sum(((np.asarray(g, float) - np.mean(g)) ** 2).sum() for g in es_groups)
+ss_total = ss_between + ss_within
+df_between = len(es_groups) - 1
+df_within = len(es_all) - len(es_groups)
+ms_within = ss_within / df_within
+eta2 = ss_between / ss_total
+omega2 = (ss_between - df_between * ms_within) / (ss_total + ms_within)
+print(f"eta-squared = {eta2:.4g}, omega-squared = {omega2:.4g}")"
 `;

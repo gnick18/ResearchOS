@@ -77,6 +77,42 @@ export const SURV_CONTROL: SurvivalObservation[] = surv([
 /** Fixed times at which to read the Treatment-arm Kaplan-Meier survival. */
 export const KM_READ_TIMES = [7, 13, 23];
 
+/* ---------------------- fixed inputs for the estimation-layer (E1/E3/E4) pins */
+
+/**
+ * Power and sample-size planning (E3) takes design parameters, not a sample, so
+ * its references are fixed SCENARIOS rather than statistics of the dataset above.
+ * Two scenarios are pinned against statsmodels: the achieved power of a two-sample
+ * t-test at a fixed per-group n and effect size, and the a-priori per-group N for a
+ * target power. Both are real statsmodels.stats.power numbers (see the generator).
+ */
+export const POWER_TWO_SAMPLE_N = 26;
+export const POWER_TWO_SAMPLE_D = 0.8;
+export const POWER_ALPHA = 0.05;
+/** A-priori sample-size scenario: smallest per-group N for this d and target power. */
+export const SAMPLESIZE_D = 0.5;
+export const SAMPLESIZE_TARGET_POWER = 0.8;
+
+/**
+ * Bootstrap (E4) draws random resamples, so a reseeded JS bootstrap cannot match
+ * scipy resample-for-resample and an exact end-to-end CI pin would be dishonest.
+ * What IS exactly reproducible is the DETERMINISTIC machinery the bootstrap is
+ * built from, with no RNG involved: the percentile extraction from a fixed sorted
+ * distribution, the BCa bias-correction z0 from a fixed resample set, and the BCa
+ * jackknife acceleration from a fixed sample. Those three are pinned here against
+ * numpy / scipy on these fixed arrays, which is the honest, reproducible part of
+ * the bootstrap. See docs/datahub/STATS_VALIDATION.md for why the seeded
+ * end-to-end CI is validated for statistical convergence in the engine suite
+ * instead of pinned to an exact value.
+ */
+/** A fixed, already-sorted "bootstrap distribution" for the percentile extractor. */
+export const BOOT_DISTRIBUTION = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0];
+/** A fixed resample-statistic set and observed value for the z0 bias correction. */
+export const BOOT_STATS = [1.0, 1.2, 1.4, 1.5, 1.6, 1.8, 2.0, 2.2, 2.5, 3.0];
+export const BOOT_OBSERVED = 1.7;
+/** A fixed sample for the jackknife acceleration of the mean statistic. */
+export const BOOT_ACCEL_SAMPLE = [2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0];
+
 /* ------------------------------------------------------- pinned reference set */
 
 /**
@@ -275,6 +311,50 @@ export const STAT_PINS: StatPin[] = [
   { id: "km_median", metric: "Kaplan-Meier median survival (Treatment)", reference: 22.0, oracleId: "lifelines", tol: 1e-6, warn: 1e-6, unit: "t" },
   { id: "logrank_chi2", metric: "Log-rank test, chi-square", reference: 11.036361, oracleId: "lifelines", tol: 1e-3, warn: 5e-3, unit: "chi2" },
   { id: "logrank_p", metric: "Log-rank test, p", reference: 0.000893, oracleId: "lifelines", tol: 1e-4, warn: 5e-4, unit: "p" },
+
+  // --- ESTIMATION LAYER (E1): effect sizes + their confidence intervals ---
+  // Effect sizes are pinned on the SAME fixed dataset as the tests above. Cohen's
+  // d and Hedges' g come from pingouin.compute_effsize (which equals the standard
+  // pooled-SD formula, confirmed in the generator), and the standardized-effect
+  // 95% CI comes from the noncentral t / noncentral F pivot via scipy.stats.nct /
+  // ncf (the Smithson 2001 construction the engine implements). All cite scipy.
+  //
+  // Unpaired (Welch) t-test, GROUP_A vs GROUP_B.
+  { id: "unpaired_cohens_d", metric: "Unpaired t-test, Cohen's d", reference: -3.937571, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "d" },
+  { id: "unpaired_hedges_g", metric: "Unpaired t-test, Hedges' g", reference: -3.600065, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "g" },
+  { id: "unpaired_d_ci_lo", metric: "Unpaired t-test, Cohen's d 95% CI lower (noncentral t)", reference: -6.05293, oracleId: "scipy", tol: 5e-3, warn: 2e-2, unit: "d" },
+  { id: "unpaired_d_ci_hi", metric: "Unpaired t-test, Cohen's d 95% CI upper (noncentral t)", reference: -1.760325, oracleId: "scipy", tol: 5e-3, warn: 2e-2, unit: "d" },
+  // Paired t-test, PAIR_X vs PAIR_Y (Cohen's dz on the within-pair differences).
+  { id: "paired_cohens_dz", metric: "Paired t-test, Cohen's dz", reference: -3.952847, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "dz" },
+  { id: "paired_dz_ci_lo", metric: "Paired t-test, Cohen's dz 95% CI lower (noncentral t)", reference: -6.446735, oracleId: "scipy", tol: 5e-3, warn: 2e-2, unit: "dz" },
+  { id: "paired_dz_ci_hi", metric: "Paired t-test, Cohen's dz 95% CI upper (noncentral t)", reference: -1.45395, oracleId: "scipy", tol: 5e-3, warn: 2e-2, unit: "dz" },
+  // One-way ANOVA omnibus effect size, GROUP_A / GROUP_B / GROUP_C.
+  { id: "oneway_eta_squared", metric: "One-way ANOVA, eta-squared", reference: 0.884713, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "eta2" },
+  { id: "oneway_omega_squared", metric: "One-way ANOVA, omega-squared", reference: 0.862711, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "omega2" },
+  { id: "oneway_eta2_ci_lo", metric: "One-way ANOVA, eta-squared 95% CI lower (noncentral F)", reference: 0.690826, oracleId: "scipy", tol: 5e-3, warn: 2e-2, unit: "eta2" },
+  { id: "oneway_eta2_ci_hi", metric: "One-way ANOVA, eta-squared 95% CI upper (noncentral F)", reference: 0.925299, oracleId: "scipy", tol: 5e-3, warn: 2e-2, unit: "eta2" },
+  // Pearson correlation coefficient of determination, XY_X vs XY_Y.
+  { id: "pearson_r_squared", metric: "Pearson correlation, r-squared", reference: 0.998839, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "r2" },
+  { id: "pearson_r2_ci_lo", metric: "Pearson correlation, r-squared 95% CI lower (squared Fisher-z)", reference: 0.993319, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "r2" },
+  { id: "pearson_r2_ci_hi", metric: "Pearson correlation, r-squared 95% CI upper (squared Fisher-z)", reference: 0.999799, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "r2" },
+
+  // --- ESTIMATION LAYER (E3): power and sample-size planning ---
+  // Study-design scenarios, not statistics of the dataset. Pinned against
+  // statsmodels.stats.power.TTestIndPower. Achieved power at a fixed per-group n
+  // and Cohen's d; and the a-priori per-group N (smallest integer reaching the
+  // target power, the ceiling of the fractional statsmodels solve_power value).
+  { id: "power_two_sample_t", metric: "Two-sample t-test power, n = 26 per group, d = 0.8, alpha = 0.05", reference: 0.807487, oracleId: "statsmodels", tol: 1e-3, warn: 5e-3, unit: "power" },
+  { id: "samplesize_two_sample_t", metric: "Two-sample t-test a-priori N per group, d = 0.5, power = 0.8 (ceil of statsmodels solve_power)", reference: 64, oracleId: "statsmodels", tol: 1e-6, warn: 1e-6, unit: "N" },
+
+  // --- ESTIMATION LAYER (E4): bootstrap, the reproducible deterministic parts ---
+  // A reseeded JS bootstrap cannot match scipy resample-for-resample, so instead
+  // of forcing a brittle exact end-to-end CI pin we validate the DETERMINISTIC
+  // machinery the bootstrap is built from, on fixed arrays with NO RNG. These ARE
+  // exactly reproducible against numpy / scipy.
+  { id: "boot_percentile_lo", metric: "Bootstrap percentile interval, 2.5% point of a fixed distribution (numpy type-7)", reference: 0.6125, oracleId: "scipy", tol: 1e-6, warn: 1e-6, unit: "stat" },
+  { id: "boot_percentile_hi", metric: "Bootstrap percentile interval, 97.5% point of a fixed distribution (numpy type-7)", reference: 4.8875, oracleId: "scipy", tol: 1e-6, warn: 1e-6, unit: "stat" },
+  { id: "boot_z0", metric: "Bootstrap BCa bias-correction z0 from a fixed resample set (scipy.stats.norm.ppf)", reference: 0.0, oracleId: "scipy", tol: 1e-6, warn: 1e-6, unit: "z0" },
+  { id: "boot_acceleration", metric: "Bootstrap BCa jackknife acceleration of the mean on a fixed sample", reference: 0.03867, oracleId: "scipy", tol: 1e-5, warn: 5e-5, unit: "a" },
 ];
 
 /**
