@@ -22,6 +22,13 @@
 // carry a page-defined group are shown in both modes so the sequence editor
 // and other pages retain their own palette reach without the prefix.
 //
+// Adaptive dodge (ai adaptive-dodge bot, 2026-06-11): when BeakerBot shows a
+// spotlight on a page element, the centered surface glides to the viewport
+// corner farthest from the target so it never covers what BeakerBot is
+// pointing at. It returns to center when the spotlight is dismissed. Driven
+// by subscribeSpotlight from spotlight-controller, with geometry helpers from
+// spotlight-dodge-geometry (pure, unit-tested, no DOM).
+//
 // Icons render through <Icon> from the verified icon library (no inline svg,
 // the icon-guard enforces it); the BeakerBot mark renders via the component.
 // Voice in comments and copy, no em-dashes, no en-dashes, no emojis, no
@@ -35,6 +42,16 @@ import BeakerBot from "@/components/BeakerBot";
 import BeakerBotConversation from "@/components/ai/BeakerBotConversation";
 import BeakerSearchAskHeader from "@/components/ai/BeakerSearchAskHeader";
 import { useConversationStore } from "@/lib/ai/conversation-store";
+import {
+  subscribeSpotlight,
+  type SpotlightRect,
+} from "@/components/ai/spotlight-controller";
+import {
+  wouldOcclude,
+  farthestCorner,
+  DODGE_SURFACE_W,
+  DODGE_SURFACE_H,
+} from "@/components/ai/spotlight-dodge-geometry";
 import type { SelectionKind } from "@/lib/sequences/inspector-context";
 import type { CapturedContext } from "@/components/beaker-search/captured-context";
 import {
@@ -407,6 +424,81 @@ export function CommandPalette({
 }: CommandPaletteProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // Adaptive dodge state. When the spotlight points at a page element and it
+  // would occlude the surface, we switch from the default centered CSS class to
+  // an absolutely positioned corner. null = centered (default).
+  const [dodgeStyle, setDodgeStyle] = useState<React.CSSProperties | null>(null);
+  // Ref to the surface element so we can read its live rect for occlusion tests.
+  const surfaceRef = useRef<HTMLDivElement | null>(null);
+  // Tracks which corner is currently active to avoid jitter (only update state
+  // when the farthest corner actually changes).
+  const lastCornerRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      // Surface is closed: clear any dodge and reset tracking.
+      setDodgeStyle(null);
+      lastCornerRef.current = null;
+      return;
+    }
+
+    const computeDodge = (rect: SpotlightRect | null) => {
+      if (!rect) {
+        // Spotlight dismissed: glide back to center.
+        setDodgeStyle(null);
+        lastCornerRef.current = null;
+        return;
+      }
+
+      // Determine the surface's current rect. When the surface is centered the
+      // CSS places it at inset-x-0 top-[12vh], so we fall back to a synthetic
+      // centered rect when the ref is not yet measured.
+      const vw = typeof window !== "undefined" ? window.innerWidth : 1920;
+      const vh = typeof window !== "undefined" ? window.innerHeight : 1080;
+      const surfaceEl = surfaceRef.current;
+      const surfaceRect = surfaceEl
+        ? (surfaceEl.getBoundingClientRect() as { left: number; top: number; width: number; height: number })
+        : {
+            left: Math.max(0, (vw - Math.min(600, vw)) / 2),
+            top: vh * 0.12,
+            width: Math.min(600, vw),
+            height: DODGE_SURFACE_H,
+          };
+
+      if (!wouldOcclude(surfaceRect, rect)) {
+        // No occlusion: return to center if we were dodging.
+        setDodgeStyle(null);
+        lastCornerRef.current = null;
+        return;
+      }
+
+      const { corner, left, top } = farthestCorner(
+        rect,
+        { width: vw, height: vh },
+        DODGE_SURFACE_W,
+        DODGE_SURFACE_H,
+      );
+
+      // Only update state when the corner changes, to avoid jitter on rapid
+      // scroll re-track notifications.
+      if (corner === lastCornerRef.current) return;
+      lastCornerRef.current = corner;
+
+      setDodgeStyle({
+        // Override the centered inset-x-0 / top-[12vh] with an exact position.
+        inset: "unset",
+        left: `${left}px`,
+        top: `${top}px`,
+        // Limit width so the surface does not overflow on narrow viewports.
+        width: `min(${DODGE_SURFACE_W}px, calc(100vw - 40px))`,
+        maxWidth: `min(${DODGE_SURFACE_W}px, calc(100vw - 40px))`,
+      });
+    };
+
+    const unsub = subscribeSpotlight(computeDodge);
+    return unsub;
+  }, [open]);
 
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
@@ -893,8 +985,12 @@ export function CommandPalette({
       />
 
       {/* The centered modal surface. Wide (max 600px), near the top-third of
-          the viewport so results land in the reading zone. */}
+          the viewport so results land in the reading zone. When a spotlight is
+          active and would occlude the surface, dodgeStyle overrides the
+          centered position with an absolute corner placement. The transition
+          covers both the normal size morph and the corner glide. */}
       <div
+        ref={surfaceRef}
         role="dialog"
         aria-label="BeakerSearch"
         aria-modal="true"
@@ -906,7 +1002,11 @@ export function CommandPalette({
           maxHeight: "76vh",
           minHeight: askMode === "ask" ? "min(440px, 76vh)" : undefined,
           height: askMode === "ask" ? "min(440px, 76vh)" : undefined,
-          transition: "min-height 0.4s cubic-bezier(.4,0,.2,1), height 0.4s cubic-bezier(.4,0,.2,1)",
+          transition:
+            "min-height 0.4s cubic-bezier(.4,0,.2,1), height 0.4s cubic-bezier(.4,0,.2,1), left 0.4s cubic-bezier(.4,0,.2,1), top 0.4s cubic-bezier(.4,0,.2,1), width 0.4s cubic-bezier(.4,0,.2,1), inset 0.4s cubic-bezier(.4,0,.2,1)",
+          // Dodge override: replaces inset-x-0/top-[12vh] when a spotlight
+          // target would be covered. null = centered (the CSS class wins).
+          ...dodgeStyle,
         }}
       >
         {/* Ask mode body: the chat header + BeakerBotConversation.

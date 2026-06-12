@@ -62,6 +62,43 @@ type SpotlightHandles = {
 // page never stacks rings.
 let active: SpotlightHandles | null = null;
 
+// ---------------------------------------------------------------------------
+// Rect subscription bus (ai adaptive-dodge bot, 2026-06-11).
+//
+// Exposes the live bounding rect of the spotlight target so that other surfaces
+// (the centered BeakerSearch modal) can dodge it. The rect is updated every
+// time positionTo runs (scroll, resize, initial mount) and cleared when the
+// spotlight is dismissed. Subscribers receive the new rect or null.
+// ---------------------------------------------------------------------------
+
+export type SpotlightRect = { left: number; top: number; width: number; height: number };
+
+let currentTargetRect: SpotlightRect | null = null;
+const rectSubscribers = new Set<(rect: SpotlightRect | null) => void>();
+
+function notifyRectSubscribers(rect: SpotlightRect | null): void {
+  currentTargetRect = rect;
+  for (const cb of rectSubscribers) {
+    try { cb(rect); } catch (_) { /* subscriber errors must not crash the spotlight */ }
+  }
+}
+
+/** Subscribe to spotlight rect updates. The callback is called with the target
+ *  element's bounding rect whenever the spotlight is shown or repositioned, and
+ *  with null when it is dismissed. Returns an unsubscribe function. */
+export function subscribeSpotlight(
+  cb: (rect: SpotlightRect | null) => void,
+): () => void {
+  rectSubscribers.add(cb);
+  return () => { rectSubscribers.delete(cb); };
+}
+
+/** Snapshot of the current spotlight target rect, or null if no spotlight is
+ *  active. Updated on every reposition; reads the last-known value synchronously. */
+export function getSpotlightRect(): SpotlightRect | null {
+  return currentTargetRect;
+}
+
 function prefersReducedMotion(): boolean {
   if (typeof window === "undefined" || !window.matchMedia) return false;
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -103,6 +140,7 @@ export function dismissSpotlight(): void {
     active.cleanup();
     active = null;
   }
+  notifyRectSubscribers(null);
 }
 
 function buildScrim(): HTMLDivElement {
@@ -221,8 +259,11 @@ function buildBubble(narration: string): HTMLDivElement {
 // Position the ring, cue, and bubble against the target's current bounding rect.
 // The ring hugs the element with a little padding, the bubble sits below (or above
 // if there is no room), and the cue points from the bubble toward the target.
+// Notifies rect subscribers on every call so the dodge layer stays in sync.
 function positionTo(handles: SpotlightHandles, el: HTMLElement): void {
   const r = el.getBoundingClientRect();
+  // Notify dodge subscribers with the live target rect.
+  notifyRectSubscribers({ left: r.left, top: r.top, width: r.width, height: r.height });
   const pad = 6;
   Object.assign(handles.ring.style, {
     left: `${r.left - pad}px`,
