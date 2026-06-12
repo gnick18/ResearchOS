@@ -9,6 +9,8 @@ import {
   waitForElement,
 } from "@/lib/demo-video/engine";
 import { DEMO_CLIPS } from "@/lib/demo-video/scripts";
+import { DEMO_PREWARM } from "@/lib/demo-video/prewarm";
+import { setDemoFetchCacheEnabled } from "@/lib/chemistry/fetch-cache";
 
 /**
  * Auto-plays a welcome-video clip script when the URL carries `?demo=<clipId>`
@@ -45,6 +47,14 @@ export default function DemoVideoAutoplay() {
       teardownDemoCursor();
       const controller = new AbortController();
       abortRef.current = controller;
+      // Movie magic: warm this clip's live API calls during the countdown so the
+      // on-camera search lands instantly. Best-effort; gated to the demo cache,
+      // so production fetches are untouched.
+      const prewarm = clipId ? DEMO_PREWARM[clipId] : undefined;
+      if (prewarm) {
+        setDemoFetchCacheEnabled(true);
+        void prewarm().catch(() => {});
+      }
       void (async () => {
         // Wait until the app shell is past the loading screen (Sequences is
         // always a nav item), then a 5s countdown gives the operator time to
@@ -90,6 +100,7 @@ export default function DemoVideoAutoplay() {
       window.removeEventListener("keydown", onKey);
       abortRef.current?.abort();
       teardownDemoCursor();
+      setDemoFetchCacheEnabled(false);
     };
   }, []);
 

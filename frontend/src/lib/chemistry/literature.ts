@@ -17,6 +17,8 @@
 // A common compound returns tens of thousands of results (aspirin: 26k papers,
 // 111k patents), so callers must rank + paginate and surface the total, never dump.
 
+import { cachedFetch } from "./fetch-cache";
+
 const PUG = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound";
 const EPMC = "https://www.ebi.ac.uk/europepmc/webservices/rest/search";
 const SURECHEMBL = "https://www.surechembl.org/api";
@@ -43,10 +45,10 @@ export function europePmcArticleUrl(source: string, id: string): string {
 /** Fetch a compound's linked PubMed papers (count) and patents (list) from PubChem. */
 export async function pubchemLinks(cid: number): Promise<PubChemLinks> {
   const [pm, pat] = await Promise.allSettled([
-    fetch(`${PUG}/cid/${cid}/xrefs/PubMedID/JSON`).then((r) =>
+    cachedFetch(`${PUG}/cid/${cid}/xrefs/PubMedID/JSON`).then((r) =>
       r.ok ? (r.json() as Promise<XrefResponse>) : null,
     ),
-    fetch(`${PUG}/cid/${cid}/xrefs/PatentID/JSON`).then((r) =>
+    cachedFetch(`${PUG}/cid/${cid}/xrefs/PatentID/JSON`).then((r) =>
       r.ok ? (r.json() as Promise<XrefResponse>) : null,
     ),
   ]);
@@ -116,7 +118,7 @@ export async function europePmcPapers(
   query: string,
   pageSize = 15,
 ): Promise<EpmcPapers> {
-  const res = await fetch(
+  const res = await cachedFetch(
     `${EPMC}?query=${encodeURIComponent(query)}&format=json&pageSize=${pageSize}&resultType=core&sort=CITED desc`,
   );
   if (!res.ok) return { hitCount: 0, papers: [] };
