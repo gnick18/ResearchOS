@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Notes view redesign — cards to explorer (before / after)</title>
+<style>
+  :root {
+    --surface: #f8fafc; --surface-raised: #ffffff; --surface-overlay: #ffffff;
+    --surface-sunken: #f1f5f9; --border: #e5e7eb; --border-strong: #cbd5e1;
+    --fg: #111827; --fg-muted: #64748b; --fg-faint: #94a3b8;
+    --brand-action: #1283C9; --brand-purple: #5B47D6; --pin: #e11d48; --ok: #16a34a;
+    --amber: #d97706; --amber-soft: #fffbeb;
+  }
+  body.dark {
+    --surface: #0a0e1a; --surface-raised: #1c2638; --surface-overlay: #28344c;
+    --surface-sunken: #0d1424; --border: rgba(255,255,255,0.16); --border-strong: rgba(255,255,255,0.28);
+    --fg: #e9eef7; --fg-muted: #9fb0c8; --fg-faint: #6b7c96; --pin: #fb7185; --ok: #4ade80;
+    --amber: #fbbf24; --amber-soft: rgba(217,119,6,0.18);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--surface); color: var(--fg); line-height: 1.45; -webkit-font-smoothing: antialiased; }
+  a { color: var(--brand-action); }
+
+  header.top { position: sticky; top: 0; z-index: 40; display: flex; align-items: center; gap: 14px;
+    padding: 14px 22px; background: var(--surface-overlay); border-bottom: 1px solid var(--border); }
+  header.top h1 { font-size: 17px; margin: 0; font-weight: 800; letter-spacing: -0.01em; }
+  header.top .sub { font-size: 12.5px; color: var(--fg-muted); }
+  header.top .spacer { flex: 1; }
+  .btn { font: inherit; font-size: 13px; font-weight: 600; padding: 7px 13px; border-radius: 9px;
+    border: 1px solid var(--border-strong); background: var(--surface-raised); color: var(--fg); cursor: pointer; }
+  .btn:hover { border-color: var(--brand-action); }
+  .btn.on { background: var(--brand-action); border-color: var(--brand-action); color: #fff; }
+  .btn.danger { color: var(--pin); }
+
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 22px; }
+  .lead { color: var(--fg-muted); font-size: 14px; max-width: 900px; margin: 0 0 6px; }
+
+  .panes { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; margin-top: 18px; }
+  @media (max-width: 1100px) { .panes { grid-template-columns: 1fr; } }
+  .pane { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .pane > .label { padding: 9px 16px; font-size: 11px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; color: var(--fg-faint); border-bottom: 1px solid var(--border); }
+  .pane.before > .label { background: var(--surface-sunken); }
+  .pane.after > .label { background: linear-gradient(90deg, rgba(18,131,201,0.12), rgba(91,71,214,0.10)); color: var(--brand-action); }
+
+  /* ---------- BEFORE: note cards ---------- */
+  .before-body { padding: 14px; }
+  .before-toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
+  .before-toolbar .pill { font-size: 11.5px; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border); color: var(--fg-muted); background: var(--surface-sunken); }
+  .ncards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .ncard { border: 1px solid var(--border); border-radius: 12px; padding: 13px; background: var(--surface-raised); min-height: 96px; }
+  .ncard .nh { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .ncard .nicon { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: rgba(91,71,214,0.12); color: var(--brand-purple); flex: none; }
+  .ncard .nt { font-weight: 700; font-size: 13.5px; }
+  .ncard .nd { font-size: 11.5px; color: var(--fg-faint); line-height: 1.4; }
+  .ncard .nf { display: flex; gap: 10px; margin-top: 9px; font-size: 10.5px; color: var(--fg-faint); }
+  .before-note { text-align: center; font-size: 12px; color: var(--fg-faint); padding: 12px 0 2px; font-style: italic; }
+
+  /* ---------- AFTER: explorer ---------- */
+  .explorer { display: grid; grid-template-columns: 224px 1fr; min-height: 560px; }
+  .rail { border-right: 1px solid var(--border); background: var(--surface-sunken); padding: 12px 10px; overflow-y: auto; }
+  .rail .sec-h { font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-faint); padding: 0 6px; margin: 14px 0 5px; }
+  .rail .sec-h:first-child { margin-top: 0; }
+  .nav { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; font-size: 13px; cursor: pointer; color: var(--fg); }
+  .nav:hover { background: var(--surface-raised); }
+  .nav.active { background: var(--brand-action); color: #fff; font-weight: 600; }
+  .nav.active .count { color: rgba(255,255,255,0.85); }
+  .nav .dot { width: 10px; height: 10px; border-radius: 999px; flex: none; }
+  .nav .ico { width: 15px; height: 15px; flex: none; opacity: 0.9; }
+  .nav .lbl { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nav .count { font-size: 11.5px; color: var(--fg-faint); font-variant-numeric: tabular-nums; }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; padding: 2px 4px; }
+  .chip { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-raised); color: var(--fg-muted); cursor: pointer; }
+  .chip.on { background: var(--brand-action); border-color: var(--brand-action); color: #fff; }
+
+  .listcol { display: flex; flex-direction: column; min-width: 0; }
+  .listbar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+  .listbar .crumb { font-weight: 700; color: var(--fg); font-size: 14px; display: flex; align-items: center; gap: 7px; }
+  .listbar .spacer { flex: 1; }
+  .listbar .mini { font-size: 12px; color: var(--fg-faint); }
+  .listbar select { font: inherit; font-size: 12px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-raised); color: var(--fg); }
+  .listbar .new { font-size: 12.5px; font-weight: 600; padding: 5px 11px; border-radius: 8px; background: var(--brand-action); color: #fff; border: none; cursor: pointer; }
+  .rows { overflow: auto; }
+
+  .band { display: flex; align-items: center; gap: 8px; padding: 7px 16px 7px 13px; border-bottom: 1px solid var(--border); border-left: 3px solid var(--bandc, var(--border-strong)); background: var(--bandbg, var(--surface-sunken)); font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bandc, var(--fg-muted)); }
+  .band .bico { width: 14px; height: 14px; }
+  .band .bn { flex: 1; }
+
+  .row { display: flex; align-items: center; gap: 11px; padding: 9px 16px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13.5px; }
+  .row:hover { background: var(--surface-sunken); }
+  .row .tico { flex: none; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; }
+  .row .mid { min-width: 0; flex: 1; }
+  .row .nt { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .nd { font-size: 11.5px; color: var(--fg-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .meta { display: flex; align-items: center; gap: 12px; flex: none; color: var(--fg-faint); font-size: 11.5px; }
+  .row .meta .m { display: inline-flex; align-items: center; gap: 3px; }
+  .row .shared { font-size: 10.5px; color: var(--amber); background: var(--amber-soft); padding: 1px 7px; border-radius: 999px; }
+  .row .when { width: 58px; text-align: right; }
+
+  /* changes / comments harness */
+  .section-h { font-size: 18px; font-weight: 800; margin: 34px 0 4px; letter-spacing: -0.01em; }
+  .section-sub { color: var(--fg-muted); font-size: 13.5px; margin: 0 0 14px; }
+  .changes { display: grid; gap: 12px; }
+  .change { display: flex; gap: 14px; background: var(--surface-raised); border: 1px solid var(--border); border-left: 4px solid var(--border-strong); border-radius: 12px; padding: 14px 16px; }
+  .change.approved { border-left-color: var(--ok); }
+  .change.disapproved { border-left-color: var(--pin); }
+  .change .body { flex: 1; min-width: 0; }
+  .change .body h4 { margin: 0 0 4px; font-size: 14.5px; font-weight: 700; }
+  .change .body p { margin: 0; font-size: 13px; color: var(--fg-muted); }
+  .change .verdict { flex: none; display: flex; flex-direction: column; gap: 6px; width: 140px; }
+  .vbtn { font: inherit; font-size: 12.5px; font-weight: 600; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface-raised); color: var(--fg); cursor: pointer; text-align: center; }
+  .vbtn.ok.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .vbtn.dis.on { background: var(--pin); border-color: var(--pin); color: #fff; }
+  .change textarea { margin-top: 8px; width: 100%; height: 30px; resize: vertical; font: inherit; font-size: 12.5px; padding: 5px 8px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--fg); }
+
+  body.cmt-on { cursor: crosshair; }
+  body.cmt-on .row, body.cmt-on .nav, body.cmt-on .ncard, body.cmt-on .band { cursor: crosshair; }
+  .pin { position: absolute; transform: translate(-50%, -50%); min-width: 18px; height: 18px; padding: 0 4px; background: var(--pin); color: #fff; border-radius: 9px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; z-index: 50; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+  .cpanel { position: fixed; right: 16px; bottom: 16px; width: 320px; max-height: 70vh; display: flex; flex-direction: column; background: var(--surface-overlay); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 18px 50px rgba(0,0,0,0.3); z-index: 55; overflow: hidden; }
+  .cpanel .ch { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-bottom: 1px solid var(--border); }
+  .cpanel .ch h3 { margin: 0; font-size: 14px; font-weight: 800; flex: 1; }
+  .cpanel .ch .cCount { font-size: 12px; color: var(--fg-faint); }
+  .cbody { overflow: auto; padding: 8px; }
+  .cempty { color: var(--fg-faint); font-size: 12.5px; padding: 14px 8px; text-align: center; }
+  .citem { display: flex; gap: 8px; padding: 8px; border-radius: 9px; }
+  .citem:hover { background: var(--surface-sunken); }
+  .citem .num { flex: none; width: 18px; height: 18px; background: var(--pin); color: #fff; border-radius: 9px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+  .citem .ctxt { font-size: 12.5px; flex: 1; }
+  .citem .ctxt .tgt { color: var(--fg-faint); font-size: 11px; display: block; }
+  .citem .del { background: none; border: none; color: var(--fg-faint); cursor: pointer; font-size: 14px; }
+  .cfoot { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--border); }
+  .cfoot .btn { flex: 1; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Notes view — cards to explorer</h1>
+    <div class="sub">Before / after. Dense two-pane explorer, grouped under notebook-color bands.</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn" id="themeBtn">Dark</button>
+  <button class="btn" id="commentToggle">Comment mode: off</button>
+</header>
+
+<div class="wrap">
+  <p class="lead">Notes is the closest to done already (it has a notebook rail, a list view, sort and group-by-month). The change is making the dense two-pane the default and aligning it with the new methods and experiments pages, using each notebook's own color as the grouping color.</p>
+  <p class="lead"><strong>How to review:</strong> click the rail to scope by notebook, type, or owner. Click a row to open (the detail popup is unchanged). Turn on Comment mode to pin notes. Below, mark each decision, then Copy feedback.</p>
+
+  <div class="panes">
+    <!-- BEFORE -->
+    <div class="pane before">
+      <div class="label">Before — today (cards default)</div>
+      <div class="before-body">
+        <div class="before-toolbar">
+          <span class="pill">Search...</span>
+          <span class="pill">Grid / List</span>
+          <span class="pill">Sort: Updated</span>
+          <span class="pill">Group: None</span>
+        </div>
+        <div class="ncards" id="beforeCards"></div>
+        <div class="before-note">... cards continue, 1-4 columns, hundreds of notes to scroll ...</div>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div class="pane after">
+      <div class="label">After — explorer</div>
+      <div class="explorer">
+        <aside class="rail" id="rail"></aside>
+        <div class="listcol">
+          <div class="listbar">
+            <span class="crumb" id="crumb">All notes</span>
+            <span class="spacer"></span>
+            <span class="mini" id="listmini"></span>
+            <select id="sortSel">
+              <option value="updated">Sort: Updated</option>
+              <option value="created">Sort: Created</option>
+              <option value="title">Sort: Title</option>
+            </select>
+            <button class="new">+ New Note</button>
+          </div>
+          <div class="rows" id="rows"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="section-h">What changed, and why</h2>
+  <p class="section-sub">Eight decisions. Mark each so I build only what you want.</p>
+  <div class="changes" id="changes"></div>
+</div>
+
+<div class="cpanel" id="cpanel" style="display:none">
+  <div class="ch"><h3>Comments</h3><span class="cCount" id="cCount">0</span></div>
+  <div class="cbody" id="cbody"><div class="cempty" id="cEmpty">No comments yet. Turn on Comment mode and click any element.</div></div>
+  <div class="cfoot"><button class="btn" id="exportBtn">Copy feedback</button><button class="btn danger" id="clearBtn">Clear</button></div>
+</div>
+
+<script>
+/* ----------------------------- data ----------------------------- */
+const NOTEBOOKS = [
+  { id:'journal', name:'Lab journal', color:'#2563eb', icon:'book' },
+  { id:'cloning', name:'Cloning project', color:'#7c3aed', icon:'flask' },
+  { id:'thesis', name:'Thesis writing', color:'#16a34a', icon:'pen' },
+];
+const NB = Object.fromEntries(NOTEBOOKS.map(n => [n.id, n]));
+// type: "single" | "log"
+const NOTES = [
+  { id:1, title:'Daily log — week of Jun 9', desc:'Mon: started overnight cultures. Tue: OD readings + dilutions...', type:'log', notebook:'journal', entries:5, comments:0, when:'2h', owner:'me' },
+  { id:2, title:'Reagent prep — 10x TAE, LB+amp', desc:'Recipes and lot numbers for this month\'s stocks.', type:'single', notebook:'journal', entries:1, comments:0, when:'1d', owner:'me' },
+  { id:3, title:'pYES2 cloning strategy', desc:'Restriction map, primer design, expected band sizes.', type:'single', notebook:'cloning', entries:1, comments:2, when:'3h', owner:'me', shared:true },
+  { id:4, title:'Gibson troubleshooting log', desc:'Attempt 1: no colonies. Attempt 2: switched to fresh master mix...', type:'log', notebook:'cloning', entries:3, comments:1, when:'2d', owner:'me' },
+  { id:5, title:'Chapter 2 outline', desc:'Intro, methods, prelim results. Reorder sections 2.3 / 2.4.', type:'single', notebook:'thesis', entries:1, comments:0, when:'5d', owner:'me' },
+  { id:6, title:'Figure ideas — biofuel yield', desc:'Bar vs line for the titration series; ask Morgan re: stats.', type:'single', notebook:'thesis', entries:1, comments:3, when:'6d', owner:'me' },
+  { id:7, title:'Random idea — co-culture', desc:'What if we co-culture the two strains during induction?', type:'single', notebook:null, entries:1, comments:0, when:'1d', owner:'me' },
+  { id:8, title:'1:1 with Morgan — Jun 10', desc:'Discussed thesis timeline and the LC-MS rerun.', type:'single', notebook:null, entries:1, comments:0, when:'1d', owner:'me', shared:'morgan' },
+];
+const NB_ORDER = ['journal','cloning','thesis'];
+
+function nbCount(id){ return NOTES.filter(n => n.notebook === id).length; }
+const ICONS = {
+  book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2z"/><path d="M4 19a2 2 0 0 1 2-2h12"/></svg>',
+  flask: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6l-4.5 8.4A2 2 0 0 0 7.3 21h9.4a2 2 0 0 0 1.8-3.6L14 9V3"/></svg>',
+  pen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  log: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+  single: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg>',
+  all: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>',
+  unfiled: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+  comment: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  entries: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+};
+
+/* ----------------------------- BEFORE ----------------------------- */
+function renderBefore(){
+  document.getElementById('beforeCards').innerHTML = NOTES.slice(0,6).map(n => {
+    const nb = n.notebook ? NB[n.notebook] : null;
+    return '<div class="ncard" data-cmt="note card: '+n.title+'">'
+      + '<div class="nh"><span class="nicon">'+ICONS[n.type]+'</span><span class="nt">'+n.title+'</span></div>'
+      + '<div class="nd">'+n.desc+'</div>'
+      + '<div class="nf"><span>'+(n.type==='log'?(n.entries+' entries'):'note')+'</span>'+(n.comments?'<span>'+n.comments+' comments</span>':'')+'<span>'+n.when+'</span>'+(nb?'<span>'+nb.name+'</span>':'')+'</div>'
+      + '</div>';
+  }).join('');
+}
+
+/* ----------------------------- AFTER ----------------------------- */
+let activeNav = 'all';   // all | unfiled | nb:<id>
+let activeType = null;   // single | log
+let activeOwner = null;  // mine | shared
+
+function matchesFilters(n){
+  if (activeType && n.type !== activeType) return false;
+  if (activeOwner === 'mine' && n.shared) return false;
+  if (activeOwner === 'shared' && !n.shared) return false;
+  return true;
+}
+function matchesNav(n){
+  if (activeNav === 'all') return true;
+  if (activeNav === 'unfiled') return !n.notebook;
+  if (activeNav.startsWith('nb:')) return n.notebook === activeNav.slice(3);
+  return true;
+}
+function base(){ return NOTES.filter(matchesFilters); }
+
+function renderRail(){
+  let h = '<div class="sec-h">Notebooks</div><div>';
+  const all = base();
+  h += navItem('all', ICONS.all, 'All notes', all.length, null);
+  h += navItem('unfiled', ICONS.unfiled, 'Unfiled', all.filter(n=>!n.notebook).length, null);
+  NB_ORDER.forEach(id => {
+    const nb = NB[id];
+    h += navItem('nb:'+id, ICONS[nb.icon], nb.name, all.filter(n=>n.notebook===id).length, nb.color);
+  });
+  h += '</div>';
+  h += '<div class="sec-h">Type</div><div class="chips">'
+    + chip('type','single','Notes') + chip('type','log','Running logs') + '</div>';
+  h += '<div class="sec-h">Owner</div><div class="chips">'
+    + chip('owner','mine','Mine') + chip('owner','shared','Shared with lab') + '</div>';
+  document.getElementById('rail').innerHTML = h;
+}
+function navItem(key, ico, label, count, color){
+  const active = activeNav===key;
+  const dot = color ? '<span class="dot" style="background:'+(active?'rgba(255,255,255,0.85)':color)+'"></span>' : '<span class="ico">'+ico+'</span>';
+  return '<div class="nav '+(active?'active':'')+'" data-nav="'+key+'" data-cmt="rail: '+label+'">'+dot+'<span class="lbl">'+label+'</span><span class="count">'+count+'</span></div>';
+}
+function chip(kind, val, label){
+  const on = (kind==='type'?activeType:activeOwner)===val;
+  return '<span class="chip '+(on?'on':'')+'" data-'+kind+'="'+val+'">'+label+'</span>';
+}
+
+function rowHtml(n){
+  const nb = n.notebook ? NB[n.notebook] : null;
+  const accent = nb ? nb.color : 'var(--fg-faint)';
+  const tico = '<span class="tico" style="background:'+(nb?hexA(nb.color,0.13):'var(--surface-sunken)')+';color:'+accent+'">'+ICONS[n.type]+'</span>';
+  const meta = [];
+  if (n.type==='log') meta.push('<span class="m">'+ICONS.entries+' '+n.entries+'</span>');
+  if (n.comments) meta.push('<span class="m">'+ICONS.comment+' '+n.comments+'</span>');
+  const shared = n.shared ? '<span class="shared">'+(typeof n.shared==='string'?('shared · '+n.shared):'shared')+'</span>' : '';
+  return '<div class="row" data-cmt="row: '+n.title+'">'+tico
+    + '<span class="mid"><div class="nt">'+n.title+'</div><div class="nd">'+n.desc+'</div></span>'
+    + '<span class="meta">'+meta.join('')+shared+'<span class="when">'+n.when+'</span></span>'
+    + '</div>';
+}
+function hexA(hex, a){
+  const x = hex.replace('#',''); const r=parseInt(x.slice(0,2),16),g=parseInt(x.slice(2,4),16),b=parseInt(x.slice(4,6),16);
+  return 'rgba('+r+','+g+','+b+','+a+')';
+}
+function bandHtml(label, ico, color, count){
+  const style = color ? 'style="--bandc:'+color+';--bandbg:'+hexA(color,0.10)+'"' : '';
+  return '<div class="band" '+style+'><span class="bico">'+ico+'</span><span class="bn">'+label+'</span><span>'+count+'</span></div>';
+}
+function renderRows(){
+  document.getElementById('crumb').innerHTML =
+    activeNav==='all' ? 'All notes'
+    : activeNav==='unfiled' ? 'Unfiled'
+    : (()=>{ const nb=NB[activeNav.slice(3)]; return '<span class="dot" style="width:11px;height:11px;border-radius:999px;background:'+nb.color+'"></span> '+nb.name; })();
+
+  const items = base().filter(matchesNav);
+  document.getElementById('listmini').textContent = items.length + (items.length===1?' note':' notes');
+
+  const grouped = (activeNav==='all');
+  let h = '';
+  if (grouped){
+    NB_ORDER.forEach(id => {
+      const nb = NB[id];
+      const list = items.filter(n=>n.notebook===id);
+      if (!list.length) return;
+      h += bandHtml(nb.name, ICONS[nb.icon], nb.color, list.length) + list.map(rowHtml).join('');
+    });
+    const unfiled = items.filter(n=>!n.notebook);
+    if (unfiled.length) h += bandHtml('Unfiled', ICONS.unfiled, null, unfiled.length) + unfiled.map(rowHtml).join('');
+  } else {
+    h = items.map(rowHtml).join('');
+  }
+  document.getElementById('rows').innerHTML = h || '<div class="cempty">No notes here.</div>';
+}
+
+document.getElementById('rail').addEventListener('click', e => {
+  if (document.body.classList.contains('cmt-on')) return;
+  const nav = e.target.closest('.nav');
+  if (nav){ activeNav = nav.dataset.nav; renderRail(); renderRows(); return; }
+  const t = e.target.closest('[data-type]');
+  if (t){ activeType = activeType===t.dataset.type ? null : t.dataset.type; renderRail(); renderRows(); return; }
+  const o = e.target.closest('[data-owner]');
+  if (o){ activeOwner = activeOwner===o.dataset.owner ? null : o.dataset.owner; renderRail(); renderRows(); }
+});
+
+/* ----------------------------- changes ----------------------------- */
+const CHANGES = [
+  ['Dense two-pane explorer becomes the only layout','Retire the card grid as the default. The rail + dense rows match the new methods and experiments pages, and stay navigable at hundreds of notes. (The list view + notebook rail already exist today; this makes them the one layout.)'],
+  ['Rail: navigate by notebook','All notes, Unfiled, then each notebook with its own color dot, icon, and count. Picking one scopes the list. This is the notebook rail you already have, folded into the explorer.'],
+  ['Rail: filter by type and owner','Chips to filter by Notes vs Running logs, and Mine vs Shared with lab. Replaces the separate type/shared toggles in the toolbar.'],
+  ['Dense rows replace cards','Each note is one row: type icon (tinted by its notebook), title, a one-line snippet, entry + comment counts, a shared pill, and the date. Many more per screen.'],
+  ['Group by notebook with notebook-color bands','In the All view, rows sit under colored notebook bands (each notebook’s own color), Unfiled last. Picking a single notebook shows a flat list. Mirrors the experiments status bands, using notebooks as the category.'],
+  ['Keep sort (Updated / Created / Title) in the bar','The existing sort control stays, in the list bar. Within each band, notes sort by the chosen order.'],
+  ['Right-click row menu (Open / Move to notebook / Delete)','Parity with the methods and experiments right-click menus, with the move-to-notebook action notes already support.'],
+  ['Keep the note popup, search, shared-notebook view, and lab mode unchanged','Clicking a note opens the same detail popup (entries, comments, version history, sharing). Search and the shared-notebook / lab-mode surfaces are untouched. This is a list-and-navigation redesign.'],
+];
+const VSTORE = 'notes-explorer-verdicts-v1';
+let verdicts = {};
+try { verdicts = JSON.parse(localStorage.getItem(VSTORE) || '{}'); } catch { verdicts = {}; }
+function saveV(){ try { localStorage.setItem(VSTORE, JSON.stringify(verdicts)); } catch {} }
+function renderChanges(){
+  document.getElementById('changes').innerHTML = CHANGES.map((c,i) => {
+    const v = verdicts[i] || {};
+    const cls = v.verdict==='ok'?'approved':v.verdict==='dis'?'disapproved':'';
+    return '<div class="change '+cls+'"><div class="body"><h4>'+(i+1)+'. '+c[0]+'</h4><p>'+c[1]+'</p>'
+      + '<textarea data-note="'+i+'" placeholder="Optional note...">'+(v.note||'')+'</textarea></div>'
+      + '<div class="verdict"><button class="vbtn ok '+(v.verdict==='ok'?'on':'')+'" data-v="ok" data-i="'+i+'">Approve</button>'
+      + '<button class="vbtn dis '+(v.verdict==='dis'?'on':'')+'" data-v="dis" data-i="'+i+'">Disapprove</button></div></div>';
+  }).join('');
+}
+document.getElementById('changes').addEventListener('click', e => {
+  const b = e.target.closest('.vbtn'); if (!b) return;
+  const i = b.dataset.i; verdicts[i] = verdicts[i]||{};
+  verdicts[i].verdict = verdicts[i].verdict===b.dataset.v ? null : b.dataset.v;
+  saveV(); renderChanges();
+});
+document.getElementById('changes').addEventListener('input', e => {
+  if (!e.target.dataset.note) return;
+  const i = e.target.dataset.note; verdicts[i] = verdicts[i]||{}; verdicts[i].note = e.target.value; saveV();
+});
+
+/* ----------------------------- comments ----------------------------- */
+const CSTORE = 'notes-explorer-comments-v1';
+let comments = [];
+try { comments = JSON.parse(localStorage.getItem(CSTORE) || '[]'); } catch { comments = []; }
+function saveC(){ try { localStorage.setItem(CSTORE, JSON.stringify(comments)); } catch {} }
+const cpanel = document.getElementById('cpanel');
+document.getElementById('commentToggle').addEventListener('click', () => {
+  const on = document.body.classList.toggle('cmt-on');
+  document.getElementById('commentToggle').textContent = 'Comment mode: ' + (on?'on':'off');
+  document.getElementById('commentToggle').classList.toggle('on', on);
+  cpanel.style.display = on ? 'flex' : (comments.length ? 'flex' : 'none');
+});
+document.addEventListener('click', e => {
+  if (!document.body.classList.contains('cmt-on')) return;
+  if (e.target.closest('.cpanel') || e.target.closest('header.top')) return;
+  const host = e.target.closest('[data-cmt]');
+  const target = host ? host.dataset.cmt : 'page';
+  const note = prompt('Comment on "'+target+'":');
+  if (note){ comments.push({ x:e.pageX, y:e.pageY, target, note }); saveC(); renderComments(); }
+  e.preventDefault(); e.stopPropagation();
+}, true);
+function renderComments(){
+  document.querySelectorAll('.pin').forEach(p=>p.remove());
+  comments.forEach((c,i) => {
+    const pin = document.createElement('span');
+    pin.className='pin'; pin.textContent=(i+1); pin.style.left=c.x+'px'; pin.style.top=c.y+'px'; pin.title=c.note;
+    document.body.appendChild(pin);
+  });
+  document.getElementById('cCount').textContent = comments.length;
+  const body = document.getElementById('cbody');
+  if (!comments.length){ body.innerHTML = '<div class="cempty">No comments yet. Turn on Comment mode and click any element.</div>'; return; }
+  body.innerHTML = comments.map((c,i)=>'<div class="citem"><span class="num">'+(i+1)+'</span><span class="ctxt">'+c.note+'<span class="tgt">'+c.target+'</span></span><button class="del" data-i="'+i+'">&times;</button></div>').join('');
+}
+document.getElementById('cbody').addEventListener('click', e => {
+  const d = e.target.closest('.del'); if (!d) return;
+  comments.splice(+d.dataset.i,1); saveC(); renderComments();
+});
+document.getElementById('clearBtn').addEventListener('click', () => { if (confirm('Clear all comments?')){ comments=[]; saveC(); renderComments(); } });
+document.getElementById('exportBtn').addEventListener('click', () => {
+  let out = 'NOTES EXPLORER REDESIGN — FEEDBACK\\n===================================\\n\\nDECISIONS:\\n';
+  CHANGES.forEach((c,i) => {
+    const v = verdicts[i]||{};
+    const mark = v.verdict==='ok'?'[APPROVE]':v.verdict==='dis'?'[DISAPPROVE]':'[ -- ]';
+    out += '\\n'+mark+' '+(i+1)+'. '+c[0];
+    if (v.note) out += '\\n      note: '+v.note;
+  });
+  out += '\\n\\nPINNED COMMENTS:\\n';
+  if (!comments.length) out += '(none)\\n';
+  comments.forEach((c,i)=>{ out += '\\n'+(i+1)+'. ['+c.target+'] '+c.note; });
+  navigator.clipboard.writeText(out).then(()=>{ const b=document.getElementById('exportBtn'); const t=b.textContent; b.textContent='Copied!'; setTimeout(()=>b.textContent=t,1400); });
+});
+
+/* ----------------------------- theme + init ----------------------------- */
+document.getElementById('themeBtn').addEventListener('click', () => {
+  const dark = document.body.classList.toggle('dark');
+  document.getElementById('themeBtn').textContent = dark ? 'Light' : 'Dark';
+  renderComments();
+});
+renderBefore(); renderRail(); renderRows(); renderChanges(); renderComments();
+if (comments.length) cpanel.style.display = 'flex';
+</script>
+</body>
+</html>
