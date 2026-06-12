@@ -18,11 +18,14 @@ import { findSharedRegions } from "@/lib/align/local-homology";
 import { nearestNeighborTm } from "@/lib/calculators/tm-nn";
 import { analyzeProtein, type ProteinResult } from "@/lib/calculators/protein";
 import {
+  describe as engineDescribe,
   unpairedTTest,
+  unpairedTTestFromStats,
   pairedTTest,
   mannWhitneyU,
   wilcoxonSignedRank,
   oneWayAnova,
+  oneWayAnovaFromStats,
   twoWayAnova,
   kruskalWallis,
   friedman,
@@ -1134,6 +1137,53 @@ function runDatahubEngine(): Record<string, number> {
     if (!c) throw new Error("transparency: post-hoc A vs C comparison missing");
     return c.pAdjusted;
   };
+  // From-summary-stats paths. We compute the summary (mean / SD / n) of the same
+  // raw groups with the engine's own describe, then feed it to the from-stats
+  // tests, so the gate proves the from-stats engine reproduces the scipy
+  // ttest_ind_from_stats / f_oneway reference on this fixed dataset.
+  const summ = (values: number[]): { mean: number; sd: number; n: number } => {
+    const d = need(engineDescribe(values), "describe for from-stats");
+    return { mean: d.mean, sd: d.sd, n: d.n };
+  };
+  const sA = summ(GROUP_A);
+  const sB = summ(GROUP_B);
+  const sC = summ(GROUP_C);
+  const fsWelch = need(
+    unpairedTTestFromStats({
+      mean1: sA.mean, sd1: sA.sd, n1: sA.n,
+      mean2: sB.mean, sd2: sB.sd, n2: sB.n,
+    }),
+    "from-stats Welch t-test",
+  );
+  const fsStudent = need(
+    unpairedTTestFromStats({
+      mean1: sA.mean, sd1: sA.sd, n1: sA.n,
+      mean2: sB.mean, sd2: sB.sd, n2: sB.n,
+      variance: "student",
+    }),
+    "from-stats Student t-test",
+  );
+  const fsWelchGreater = need(
+    unpairedTTestFromStats({
+      mean1: sA.mean, sd1: sA.sd, n1: sA.n,
+      mean2: sB.mean, sd2: sB.sd, n2: sB.n,
+      tail: "greater",
+    }),
+    "from-stats Welch t-test (greater)",
+  );
+  const fsWelchLess = need(
+    unpairedTTestFromStats({
+      mean1: sA.mean, sd1: sA.sd, n1: sA.n,
+      mean2: sB.mean, sd2: sB.sd, n2: sB.n,
+      tail: "less",
+    }),
+    "from-stats Welch t-test (less)",
+  );
+  const fsOneway = need(
+    oneWayAnovaFromStats([sA, sB, sC]),
+    "from-stats one-way ANOVA",
+  );
+
   const aov2 = need(twoWayAnova(TWOWAY), "two-way ANOVA");
   const kw = need(kruskalWallis({ A: GROUP_A, B: GROUP_B, C: GROUP_C }), "Kruskal-Wallis");
   const fr = need(friedman(REPEATED, REPEATED_LABELS), "Friedman");
@@ -1204,6 +1254,17 @@ function runDatahubEngine(): Record<string, number> {
     posthoc_sidak_ac_p: acAdj(aovSidak.comparisons),
     posthoc_bonferroni_ac_p: acAdj(aovBonf.comparisons),
     posthoc_holm_sidak_ac_p: acAdj(aovHolm.comparisons),
+
+    fromstats_welch_t: fsWelch.statistic,
+    fromstats_welch_df: fsWelch.df,
+    fromstats_welch_p: fsWelch.pValue,
+    fromstats_student_t: fsStudent.statistic,
+    fromstats_student_df: fsStudent.df,
+    fromstats_student_p: fsStudent.pValue,
+    fromstats_welch_greater_p: fsWelchGreater.pValue,
+    fromstats_welch_less_p: fsWelchLess.pValue,
+    fromstats_oneway_f: fsOneway.statistic,
+    fromstats_oneway_p: fsOneway.pValue,
 
     oneway_f: aov1.statistic,
     oneway_p: aov1.pValue,

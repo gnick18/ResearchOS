@@ -134,6 +134,47 @@ their validated combinations:
   regression (fixed 95 percent CI), because the engine does not compute the
   alternatives. Those stay validated by their existing default pins.
 
+## From-entered-summary-stats coverage
+
+A Column table can hold ENTERED summary stats (Mean + SD + N, or Mean + SEM + N)
+instead of raw replicates, which is the Prism "enter and plot error values
+already calculated elsewhere" data format. The engine runs the summary-compatible
+tests from those stats, and the standing rule applies to them just like the raw
+paths.
+
+- **Unpaired t-test from stats** (Welch and Student, two- and one-sided) is pinned
+  against `scipy.stats.ttest_ind_from_stats(mean1, std1, nobs1, mean2, std2,
+  nobs2, equal_var=...)`. Pins: `fromstats_welch_t` / `_df` / `_p`,
+  `fromstats_student_t` / `_df` / `_p`, `fromstats_welch_greater_p` / `_less_p`.
+- **One-way ANOVA omnibus from stats** is pinned against `f_oneway` reconstructed
+  from the group summaries (SS between = sum n_i (m_i - grand)^2, SS within =
+  sum (n_i - 1) sd_i^2). Pins: `fromstats_oneway_f` / `_p`. Per-pair post-hoc is
+  OUT OF SCOPE from summary stats (the all-pairs construction needs raw values or
+  a per-pair pooled SE a summary does not pin down), so the engine returns no
+  comparisons and there is nothing to validate there yet.
+- **Equivalence note.** For GROUP_A vs GROUP_B these from-stats references are
+  numerically IDENTICAL to the raw `ttest_ind` / `f_oneway` references, because
+  `ttest_ind_from_stats` is the same computation fed the matching summary. The
+  pins therefore reuse the SAME real-scipy reference values under `fromstats_*`
+  ids, and the generator emits the explicit `ttest_ind_from_stats` / `f_oneway`
+  numbers (`ref_from_stats()`) so a scipy re-run proves the equivalence directly
+  rather than by assertion.
+- **The mean-SEM-n entry format** reconstructs SD = SEM * sqrt(n) before the
+  test, so it is numerically the same test as mean-SD-n and is covered by these
+  same pins (no separate reference needed).
+- **Tests that need raw replicates** (paired t, Mann-Whitney, Wilcoxon, Kruskal-
+  Wallis, correlation, regression) are NOT runnable from a summary; the resolver
+  returns a clear needs-raw failure rather than a wrong number, so there is no
+  from-stats pin for them.
+
+REGEN NOTE: the `fromstats_*` reference values above were not regenerated in a
+scipy environment in the session that added them (scipy was unavailable). They
+reuse the existing, already-scipy-generated raw `ttest_ind` / `f_oneway` values
+for the algebraically identical computation, which is sound, and the generator's
+new `ref_from_stats()` will confirm them on the next scipy run. When the generator
+is next run in a scipy venv, confirm the printed `from_stats` block matches these
+pins (it must, by the equivalence above).
+
 ## Pending references (engine work not yet done)
 
 These reference values are generated and recorded so the standing rule is already
