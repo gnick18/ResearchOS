@@ -82,6 +82,12 @@ interface RenderedMarkdownProps {
   className?: string;
   /** Allow callers that opt into highlighting. Off by default. */
   enableSyntaxHighlight?: boolean;
+  /** Path of the per-document embed-pins sidecar (markdown embed hybrid P7-1a).
+   *  When supplied, a pinned block embed renders its FROZEN snapshot read-only
+   *  (no Pin control, this is the Preview / read-only side). Absent everywhere a
+   *  pin must not resolve (chips, card previews, method picker, ...), so those
+   *  callers are byte-for-byte unchanged. */
+  embedPinSidecar?: string;
 }
 
 /**
@@ -98,6 +104,7 @@ export default function RenderedMarkdown({
   ownerUsername,
   className,
   enableSyntaxHighlight = false,
+  embedPinSidecar,
 }: RenderedMarkdownProps) {
   const [resolvedBlobUrls, setResolvedBlobUrls] = useState<Map<string, string>>(new Map());
 
@@ -178,6 +185,9 @@ export default function RenderedMarkdown({
                   caption={lone.caption}
                   basePath={basePath}
                   figureLabel={figureLabel}
+                  pinContext={
+                    embedPinSidecar ? { sidecarPath: embedPinSidecar } : undefined
+                  }
                 />
               );
             }

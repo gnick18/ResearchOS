@@ -4150,6 +4150,17 @@ function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSav
   const pdfsDir = `${outerBase}/NotesPDFs`;
   const tabBase = useMemo(() => `${outerBase}/notes`, [outerBase]);
   const inLegacyAttachMode = attachBase === outerBase;
+  // Markdown embed hybrid P7-1a: the per-document embed-pins sidecar for the Lab
+  // Notes doc. Pinning freezes a block embed here so the editor renders the frozen
+  // snapshot and offers Pin / Unpin. Only wired when editable, a read-only viewer
+  // gets no pin control (a missing context renders embeds live, unchanged).
+  const embedPinContext = useMemo(
+    () =>
+      readOnly
+        ? undefined
+        : { sidecarPath: `${outerBase}/notes.ros-embeds.json` },
+    [outerBase, readOnly],
+  );
 
   // Look up the project name so a fresh notes.md gets a real project in its
   // stamp instead of "Unknown Project". Reuses the same query key as the
@@ -4789,6 +4800,8 @@ function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSav
                   // LabArchives Form-B rehydration path. No-op when the
                   // sidecar is absent (= not an ELN-imported task).
                   notesMarkdownPath={notesPath}
+                  // Markdown embed hybrid P7-1a: per-document Lab Notes pins sidecar.
+                  embedPinContext={embedPinContext}
                   showToolbar={true}
                   // The popup owns its own version-controlled "Save checkpoint"
                   // button (above), so hide the editor's internal one to
@@ -5082,6 +5095,16 @@ function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave
   const pdfsDir = `${outerBase}/ResultsPDFs`;
   const tabBase = useMemo(() => `${outerBase}/results`, [outerBase]);
   const inLegacyAttachMode = attachBase === outerBase;
+  // Markdown embed hybrid P7-1a: the per-document embed-pins sidecar for the
+  // Results doc. Separate file from the Lab Notes sidecar so a pin on Results never
+  // collides with a pin on Notes. Only wired when editable.
+  const embedPinContext = useMemo(
+    () =>
+      readOnly
+        ? undefined
+        : { sidecarPath: `${outerBase}/results.ros-embeds.json` },
+    [outerBase, readOnly],
+  );
 
   // See LabNotesTab — same lookup so a fresh results.md gets a real project
   // name in its stamp instead of "Unknown Project".
@@ -5589,6 +5612,8 @@ function ResultsTab({ task, readOnly = false, ownerUsername, onRegisterFlushSave
                 // here whose filename happens to match a Form-B entry. The
                 // sidecar read short-circuits cleanly when absent.
                 notesMarkdownPath={resultsPath}
+                // Markdown embed hybrid P7-1a: per-document Results pins sidecar.
+                embedPinContext={embedPinContext}
                 showToolbar={true}
                 // The popup owns its own version-controlled "Save results"
                 // button (above), so hide the editor's internal one to avoid

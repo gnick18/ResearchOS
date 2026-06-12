@@ -326,6 +326,19 @@ export default function NoteDetailPopup({
   // so the path is still defined even if no upload can happen.
   const basePath = `users/${currentUser ?? note.username}/notes/${note.id}`;
 
+  // Markdown embed hybrid P7-1a: the per-note embed-pins sidecar. Pinning freezes a
+  // block embed into this file (one per note), so the editor can render the frozen
+  // snapshot and offer a Pin / Unpin control. Sits beside the note's attachments
+  // under its directory. Only wired when the note is editable, a read-only viewer
+  // gets no pin control (a missing context renders embeds live, unchanged).
+  const embedPinContext = useMemo(
+    () =>
+      readOnly
+        ? undefined
+        : { sidecarPath: `${basePath}/notes.ros-embeds.json` },
+    [basePath, readOnly],
+  );
+
   // Expose this note as the "active note" while the popup is open, so the
   // Telegram batch-routing flow can offer "attach to this open note" as a
   // first-class option alongside the active experiment. Mirrors the
@@ -2291,6 +2304,8 @@ export default function NoteDetailPopup({
                   // no regression for single-user editing or the undo behavior.
                   collabEphemeral={collabActive ? collab.ephemeral : undefined}
                   collabUser={collabActive ? collabUser : undefined}
+                  // Markdown embed hybrid P7-1a: per-note embed-pins sidecar.
+                  embedPinContext={embedPinContext}
                   // Chemistry Phase 3: reference picker (molecule / sequence / method).
                   enableReferencePicker
                 />
@@ -2336,6 +2351,8 @@ export default function NoteDetailPopup({
                   // Phase 3 chunk 5a: live collab cursors (see running-log branch).
                   collabEphemeral={collabActive ? collab.ephemeral : undefined}
                   collabUser={collabActive ? collabUser : undefined}
+                  // Markdown embed hybrid P7-1a: per-note embed-pins sidecar.
+                  embedPinContext={embedPinContext}
                   // Chemistry Phase 3: reference picker.
                   enableReferencePicker
                 />

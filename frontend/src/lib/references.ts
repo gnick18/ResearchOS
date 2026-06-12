@@ -358,3 +358,30 @@ export function swapEmbedView(href: string, newView: string): string {
     ...descriptor.opts,
   });
 }
+
+/** Set or clear a single embed opt on an object-embed href, preserving the type,
+ *  id, view, and every other opt. Passing null or "" for `value` removes the opt.
+ *  Rebuilds through buildObjectEmbedHref so the byte form matches a freshly built
+ *  embed, which is what makes add-then-remove return the original href byte for
+ *  byte (the same builder produces both). An href that does not parse as one of our
+ *  object refs is returned unchanged, so this is safe to run over any link. This is
+ *  the pin-fragment seam (P7-1a): the editor adds `&pin=s_xxx` on Pin and drops it
+ *  on Unpin by calling this with key "pin". */
+export function setEmbedOpt(
+  href: string,
+  key: keyof EmbedOpts,
+  value: string | number | null | undefined,
+): string {
+  const descriptor = parseObjectEmbed(href);
+  if (!descriptor) return href;
+  const nextOpts: EmbedOpts = { ...descriptor.opts };
+  if (value == null || value === "") {
+    delete nextOpts[key];
+  } else {
+    (nextOpts as Record<string, unknown>)[key] = value;
+  }
+  return buildObjectEmbedHref(descriptor.type, descriptor.id, {
+    view: descriptor.view,
+    ...nextOpts,
+  });
+}
