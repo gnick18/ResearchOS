@@ -618,6 +618,14 @@ const ICONS_RAW = {
       </>
     ),
   },
+  transform: {
+    concept: "Data transform / derived table",
+    body: (
+      <>
+        <path d="M5 5h14l-5 7v5l-4 2v-7z" />
+      </>
+    ),
+  },
   skip: {
     concept: "Skip / not tracked",
     body: (

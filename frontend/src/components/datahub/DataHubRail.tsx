@@ -683,7 +683,7 @@ export default function DataHubRail({
                   data-testid="datahub-rail-derived-badge"
                   aria-label={`Derived from ${sourceName}`}
                 >
-                  <Icon name="merge" className="h-2.5 w-2.5" />
+                  <Icon name="transform" className="h-2.5 w-2.5" />
                 </span>
               </Tooltip>
             )}
