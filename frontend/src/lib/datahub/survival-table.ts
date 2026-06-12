@@ -20,6 +20,7 @@ import type {
   RowRecord,
 } from "@/lib/datahub/model/types";
 import type { SurvivalObservation } from "@/lib/datahub/engine";
+import { isCellExcluded } from "@/lib/datahub/cell-exclusion";
 
 export const TIME_COLUMN_ID = "time";
 export const EVENT_COLUMN_ID = "event";
@@ -113,6 +114,15 @@ export function survivalGroups(content: DataHubDocContent): SurvivalGroup[] {
   const order: string[] = [];
   const byName = new Map<string, SurvivalObservation[]>();
   for (const row of content.rows) {
+    // Excluding the subject's Time or Event cell drops the whole subject (the
+    // Time + Event pair is one survival observation), treated as absent so the
+    // Kaplan-Meier curve and the log-rank test never see it.
+    if (
+      isCellExcluded(content, row.id, timeCol.id) ||
+      isCellExcluded(content, row.id, eventCol.id)
+    ) {
+      continue;
+    }
     const time = asNumber(row.cells[timeCol.id]);
     const ev = asNumber(row.cells[eventCol.id]);
     if (time === null || (ev !== 0 && ev !== 1)) continue;

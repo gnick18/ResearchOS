@@ -24,6 +24,7 @@ import type {
   RowRecord,
 } from "@/lib/datahub/model/types";
 import type { TwoWayCell } from "@/lib/datahub/engine";
+import { isCellExcluded } from "@/lib/datahub/cell-exclusion";
 
 /** One column group (a factor-B level) and its replicate subcolumns. */
 export interface GroupDataset {
@@ -162,6 +163,7 @@ export function twoWayObservations(content: DataHubDocContent): TwoWayCell[] {
     if (factorA === "") continue;
     for (const g of groups) {
       for (const colId of g.replicateColumnIds) {
+        if (isCellExcluded(content, row.id, colId)) continue;
         const value = asFiniteNumber(row.cells[colId]);
         if (value === null) continue;
         out.push({ factorA, factorB: g.name, value });
@@ -203,6 +205,7 @@ export function cellMean(
   for (const row of content.rows) {
     if (rowLabelValue(content, row, labelCol.id) !== rowLevel) continue;
     for (const colId of group.replicateColumnIds) {
+      if (isCellExcluded(content, row.id, colId)) continue;
       const v = asFiniteNumber(row.cells[colId]);
       if (v !== null) values.push(v);
     }
