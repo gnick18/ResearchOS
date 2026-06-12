@@ -235,7 +235,11 @@ export function seedDataHubDoc(content: DataHubDocContent): Uint8Array {
   }
   // derived_from is written ONLY for a derived table, so an entered document
   // seeds byte-identically to before this field existed. JSON-serialized because
-  // the DerivedFrom shape is non-scalar.
+  // the DerivedFrom shape is non-scalar. Both link shapes serialize through this
+  // one stringify, and each writes only its OWN keys (a legacy single-op link
+  // writes sourceTableId / transform / params and stays byte-stable; a phase-2
+  // recipe link writes sources / recipe), so an unchanged legacy doc adds nothing
+  // new on disk.
   if (content.meta.derivedFrom) {
     meta.set(DERIVED_FROM_KEY, JSON.stringify(content.meta.derivedFrom));
   }
@@ -423,8 +427,27 @@ export function getDataHubContent(doc: LoroDoc, id = ""): DataHubDocContent {
   // well-formed link, so an entered document projects without the field. A
   // corrupt / partial value is dropped (treated as an entered table) rather than
   // crashing the projection.
+  //
+  // Two shapes are accepted, and each is projected back with EXACTLY the keys it
+  // had on disk, so neither path invents extra keys (byte-stable round-trip):
+  //   - PHASE-2 RECIPE: { sources: string[]; recipe: TransformOp[] }. The engine
+  //     runs this directly. recipe is passed through verbatim (the engine and the
+  //     recompute layer own its op shapes; the serializer treats it as opaque).
+  //   - LEGACY SINGLE-OP: { sourceTableId, transform, params }. A pre-phase-2 doc.
+  //     resolveRecipe normalizes it to a one-op recipe at recompute time, so this
+  //     keeps reading byte-identically to before phase 2.
   const derived = parseJson<DerivedFrom | null>(meta.get(DERIVED_FROM_KEY), null);
   if (
+    derived &&
+    Array.isArray(derived.sources) &&
+    derived.sources.length > 0 &&
+    Array.isArray(derived.recipe)
+  ) {
+    docMeta.derivedFrom = {
+      sources: derived.sources.filter((s): s is string => typeof s === "string"),
+      recipe: derived.recipe,
+    };
+  } else if (
     derived &&
     typeof derived.sourceTableId === "string" &&
     typeof derived.transform === "string"
