@@ -407,15 +407,15 @@ function PurchasesPageContent() {
 
   return (
     <AppShell>
-      <div className="flex-1 overflow-auto p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-heading font-semibold text-foreground">Purchases</h2>
-            <p className="text-body text-foreground-muted mt-0.5">
+      <div className="flex-1 overflow-auto px-6 pt-3 pb-6">
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <h2 className="text-title font-semibold text-foreground">Purchases</h2>
+            <span className="text-meta text-foreground-muted">
               {purchaseTasks.length} purchase order
               {purchaseTasks.length !== 1 ? "s" : ""} · ${grandTotal.toFixed(2)}{" "}
               total
-            </p>
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <button

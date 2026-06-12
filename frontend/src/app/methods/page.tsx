@@ -1260,9 +1260,9 @@ export default function MethodsPage() {
 
   return (
     <AppShell>
-      <div className="flex-1 overflow-auto p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-heading font-semibold text-foreground">
+      <div className="flex-1 overflow-auto px-6 pt-3 pb-6">
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <h2 className="text-title font-semibold text-foreground">
             Method Library
           </h2>
           <div className="flex items-center gap-2">
