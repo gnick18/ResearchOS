@@ -107,3 +107,65 @@ export function resolveRecipe(link: DerivedFrom): ResolvedRecipe | null {
 export function isRecipeLink(link: DerivedFrom): boolean {
   return Array.isArray(link.sources) && Array.isArray(link.recipe);
 }
+
+/** The primary (first) source id of a link, reading either shape. null when the
+ *  link is corrupt / unusable. */
+export function primarySourceId(link: DerivedFrom): string | null {
+  const resolved = resolveRecipe(link);
+  return resolved ? resolved.sources[0] : null;
+}
+
+/**
+ * Map a folded column-transform TransformOp back to the legacy
+ * { transform, params } pair the single-op Transform dialog edits. Returns null
+ * for any op the single-op dialog cannot represent (a relational op, derive,
+ * pivot, unpivot, or a recipe with more than one op). The single-op dialog only
+ * round-trips the five Prism column transforms.
+ */
+export function transformOpToLegacy(
+  op: TransformOp,
+): { transform: TransformKind; params: Record<string, unknown> } | null {
+  switch (op.kind) {
+    case "column-transform":
+      return { transform: "transform", params: op.params as Record<string, unknown> };
+    case "normalize":
+      return { transform: "normalize", params: op.params as Record<string, unknown> };
+    case "transpose":
+      return { transform: "transpose", params: op.params as Record<string, unknown> };
+    case "remove-baseline":
+      return { transform: "removeBaseline", params: op.params as Record<string, unknown> };
+    case "fraction-of-total":
+      return { transform: "fractionOfTotal", params: op.params as Record<string, unknown> };
+    default:
+      return null;
+  }
+}
+
+/**
+ * Read the SINGLE editable column transform out of a derived link for the
+ * single-op Transform dialog. A legacy link reads its transform + params
+ * directly; a phase-2 recipe link is single-op-editable only when its recipe is
+ * exactly one folded column transform. Anything else (a multi-op or multi-source
+ * recipe, or a relational op) returns null, so the dialog opens fresh rather than
+ * misrepresenting a pipeline it cannot edit. The phase-3 builder owns those.
+ */
+export function singleOpForDialog(
+  link: DerivedFrom,
+): { transform: TransformKind; params: Record<string, unknown> } | null {
+  // Legacy shape reads straight through.
+  if (!isRecipeLink(link) && link.transform) {
+    return { transform: link.transform, params: link.params ?? {} };
+  }
+  // Recipe shape is editable in the single-op dialog only when it is one folded
+  // column transform over one source.
+  if (
+    isRecipeLink(link) &&
+    link.sources &&
+    link.sources.length === 1 &&
+    link.recipe &&
+    link.recipe.length === 1
+  ) {
+    return transformOpToLegacy(link.recipe[0]);
+  }
+  return null;
+}
