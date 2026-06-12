@@ -1,15 +1,15 @@
 {
   "id": 3,
   "task_id": 6,
-  "item_name": "GFP fluorescence calibration kit",
+  "item_name": "GFP fluorescence calibration kit (demo)",
   "quantity": 1,
   "link": "https://example.org/demo-fluo-kit",
   "cas": null,
   "price_per_unit": 320,
   "shipping_fees": 12,
   "total_price": 332,
-  "notes": "Reagents for the shared screen.",
-  "funding_string": "DOE-EERE-0009431",
+  "notes": "Demo reagents for the shared screen.",
+  "funding_string": "DEMO-DOE-EERE",
   "vendor": "Thermo",
   "category": "Reagents"
 }

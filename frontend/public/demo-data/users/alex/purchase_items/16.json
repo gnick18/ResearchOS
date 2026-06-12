@@ -1,7 +1,7 @@
 {
   "id": 16,
   "task_id": 27,
-  "item_name": "T7 RNA polymerase",
+  "item_name": "T7 RNA polymerase (demo)",
   "quantity": 1,
   "link": "https://example.org/demo-thermo",
   "cas": null,
@@ -9,7 +9,7 @@
   "shipping_fees": 0,
   "total_price": 172,
   "notes": null,
-  "funding_string": "DOE-EERE-0009431",
+  "funding_string": "DEMO-DOE-EERE",
   "vendor": "Thermo",
   "category": "Reagents"
 }

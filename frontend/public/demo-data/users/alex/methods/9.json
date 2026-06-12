@@ -1,6 +1,6 @@
 {
   "id": 9,
-  "name": "Growth-curve QC analysis",
+  "name": "[Demo protocol] Growth-curve QC analysis",
   "source_path": "coding_workflow://protocol/1",
   "method_type": "coding_workflow",
   "folder_path": "Analysis",

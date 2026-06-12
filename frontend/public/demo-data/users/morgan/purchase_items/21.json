@@ -9,7 +9,7 @@
   "shipping_fees": 5,
   "total_price": 145,
   "notes": "Need these by Tuesday so the rebuild slots into next week's reader run.",
-  "funding_string": "NIH R01 GM149023",
+  "funding_string": "DEMO-NIH-GM999999",
   "vendor": "IDT",
   "category": "Reagents"
 }

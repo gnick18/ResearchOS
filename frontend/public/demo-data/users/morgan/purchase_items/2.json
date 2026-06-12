@@ -1,7 +1,7 @@
 {
   "id": 2,
   "task_id": 2,
-  "item_name": "GFP recombinant standard",
+  "item_name": "GFP recombinant standard (demo)",
   "quantity": 1,
   "link": "https://example.org/demo-gfp-std",
   "cas": null,
@@ -9,7 +9,7 @@
   "shipping_fees": 0,
   "total_price": 175,
   "notes": "For absolute quantification.",
-  "funding_string": "DOE-EERE-0009431",
+  "funding_string": "DEMO-DOE-EERE",
   "vendor": "Sigma-Aldrich",
   "category": "Reagents"
 }

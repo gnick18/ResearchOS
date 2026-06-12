@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": 91,
+      "entity_type": "note",
+      "trash_path": "_trash/notes/91-Old-pYES-cloning-scratch-notes.json",
+      "original_path": "users/alex/notes/91.json",
+      "deleted_at": "2026-05-18T14:05:00Z",
+      "deleted_by": "alex",
+      "auto_expires_at": "2026-06-17T14:05:00Z"
+    },
+    {
+      "id": 92,
+      "entity_type": "task",
+      "trash_path": "_trash/tasks/92-Abandoned-restreak-plan.json",
+      "original_path": "users/alex/tasks/92.json",
+      "deleted_at": "2026-05-19T10:30:00Z",
+      "deleted_by": "alex",
+      "auto_expires_at": "2026-06-18T10:30:00Z"
+    },
+    {
+      "id": 93,
+      "entity_type": "purchase_item",
+      "trash_path": "_trash/purchase_items/93-Duplicate-Phusion-order.json",
+      "original_path": "users/alex/purchase_items/93.json",
+      "deleted_at": "2026-05-17T16:20:00Z",
+      "deleted_by": "alex",
+      "auto_expires_at": "2026-06-16T16:20:00Z"
+    }
+  ],
+  "last_cleanup_at": null
+}

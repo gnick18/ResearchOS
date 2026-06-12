@@ -1,0 +1,15 @@
+{
+  "id": 93,
+  "item_name": "Duplicate Phusion order",
+  "vendor": "NEB (demo)",
+  "price_per_unit": 312,
+  "quantity": 1,
+  "project_id": 1,
+  "owner": "alex",
+  "_trash": {
+    "deleted_at": "2026-05-17T16:20:00Z",
+    "deleted_by": "alex",
+    "auto_expires_at": "2026-06-16T16:20:00Z",
+    "original_path": "users/alex/purchase_items/93.json"
+  }
+}

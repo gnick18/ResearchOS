@@ -1,6 +1,6 @@
 {
   "id": 5,
-  "name": "qPCR fakeGFP expression",
+  "name": "[Demo protocol] qPCR fakeGFP expression",
   "source_path": "pcr://protocol/1",
   "method_type": "pcr",
   "folder_path": "qPCR",

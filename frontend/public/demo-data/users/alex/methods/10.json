@@ -1,6 +1,6 @@
 {
   "id": 10,
-  "name": "LC-MS detection — flbA peptides (ESI+ Q-Exactive)",
+  "name": "[Demo protocol] LC-MS detection — flbA peptides (ESI+ Q-Exactive)",
   "source_path": "mass_spec://protocol/1",
   "method_type": "mass_spec",
   "folder_path": "LC-MS",

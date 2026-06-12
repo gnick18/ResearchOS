@@ -1,0 +1,18 @@
+{
+  "id": 92,
+  "project_id": 1,
+  "name": "Abandoned restreak plan",
+  "start_date": "2026-05-09",
+  "duration_days": 1,
+  "end_date": "2026-05-09",
+  "is_complete": false,
+  "task_type": "list",
+  "owner": "alex",
+  "sub_tasks": [],
+  "_trash": {
+    "deleted_at": "2026-05-19T10:30:00Z",
+    "deleted_by": "alex",
+    "auto_expires_at": "2026-06-18T10:30:00Z",
+    "original_path": "users/alex/tasks/92.json"
+  }
+}

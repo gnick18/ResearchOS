@@ -13,7 +13,7 @@
   "method_ids": [
     1
   ],
-  "deviation_log": "Heat-shock ran 38 min instead of 40 (interrupted by timer reset). Noted for the colony count.",
+  "deviation_log": "Demo: heat-shock ran 38 min instead of 40 (interrupted by timer reset). Noted for the colony count.",
   "tags": null,
   "sort_order": 2,
   "experiment_color": "#3b82f6",

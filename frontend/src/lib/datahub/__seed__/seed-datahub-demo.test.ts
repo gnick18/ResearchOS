@@ -7,11 +7,13 @@
  * doc code resolve without a separate build step (the repo has no tsx / ts-node):
  *
  *   GENERATE  (SEED_DEMO=1 vitest run src/lib/datahub/__seed__):
- *     builds the demo Data Hub documents in memory using the REAL seedDataHubDoc
- *     snapshot exporter and the REAL analysis engine (runAnalysis) + plot builder
- *     (buildPlotSpec), then writes each document's `.loro` snapshot and `.json`
- *     mirror into frontend/public/demo-data/users/alex/datahub/. Run this when the
- *     demo content below changes, then commit the regenerated files.
+ *     builds the demo Data Hub documents in memory using the REAL analysis engine
+ *     (runAnalysis) + plot builder (buildPlotSpec), checks each one round-trips
+ *     through the REAL seedDataHubDoc snapshot exporter, then writes the readable
+ *     `.json` mirror into frontend/public/demo-data/users/alex/datahub/. Run this
+ *     when the demo content below changes, then commit the regenerated files. The
+ *     binary `.loro` snapshot is not shipped (the editor re-seeds it from the
+ *     mirror on first edit), so only the `.json` mirror is written and committed.
  *
  *   GATE  (plain vitest run, the default in CI):
  *     reads the committed `.json` mirrors back, re-seeds a Loro doc from each, and
@@ -473,12 +475,13 @@ const GENERATE = process.env.SEED_DEMO === "1";
 
 describe("Data Hub demo fixtures", () => {
   if (GENERATE) {
-    it("writes the .loro snapshots + .json mirrors", () => {
+    it("writes the .json mirrors", () => {
       mkdirSync(DATAHUB_DIR, { recursive: true });
       for (const spec of demoDocs()) {
         const content = buildContent(spec);
-        const bytes = seedDataHubDoc(content);
-        writeFileSync(join(DATAHUB_DIR, `${spec.id}.loro`), bytes);
+        // Sanity-check the content round-trips through the real CRDT exporter
+        // before committing, even though only the readable mirror is shipped.
+        seedDataHubDoc(content);
         writeFileSync(
           join(DATAHUB_DIR, `${spec.id}.json`),
           JSON.stringify(content, null, 2) + "\n",
@@ -494,9 +497,7 @@ describe("Data Hub demo fixtures", () => {
   for (const spec of demoDocs()) {
     it(`fixture ${spec.id} (${spec.name}) is well-formed`, () => {
       const mirrorPath = join(DATAHUB_DIR, `${spec.id}.json`);
-      const loroPath = join(DATAHUB_DIR, `${spec.id}.loro`);
       expect(existsSync(mirrorPath), `${mirrorPath} missing`).toBe(true);
-      expect(existsSync(loroPath), `${loroPath} missing`).toBe(true);
 
       const mirror = JSON.parse(
         readFileSync(mirrorPath, "utf8"),
@@ -527,10 +528,13 @@ describe("Data Hub demo fixtures", () => {
         expect((p!.source as { tableId?: string }).tableId).toBe(spec.id);
       }
 
-      // The .loro snapshot loads and projects back to the same shape, proving
-      // the binary sidecar matches the readable mirror.
+      // Re-seed a Loro doc from the readable mirror and project it back to the
+      // same shape, proving the committed `.json` round-trips through the real
+      // CRDT exporter. The demo tree ships the `.json` mirror only (the editor
+      // re-seeds the `.loro` snapshot on first edit), so the gate reads the
+      // mirror rather than a committed binary sidecar.
       const doc = new LoroDoc();
-      doc.import(new Uint8Array(readFileSync(loroPath)));
+      doc.import(seedDataHubDoc(mirror));
       const projected = getDataHubContent(doc, spec.id);
       expect(projected.columns.length).toBe(spec.columns.length);
       expect(projected.rows.length).toBe(spec.rows.length);

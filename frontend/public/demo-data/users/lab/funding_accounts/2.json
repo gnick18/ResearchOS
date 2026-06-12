@@ -1,7 +1,7 @@
 {
   "id": 2,
-  "name": "DOE-EERE-0009431",
-  "description": "DOE bioenergy supplement.",
+  "name": "DEMO-DOE-EERE",
+  "description": "Fake DOE bioenergy supplement.",
   "total_budget": 25000,
   "spent": 5310,
   "remaining": 19690

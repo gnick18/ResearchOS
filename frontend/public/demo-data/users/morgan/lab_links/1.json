@@ -1,8 +1,8 @@
 {
   "id": 1,
-  "title": "Plate-reader software docs",
+  "title": "Demo plate-reader software docs",
   "url": "https://example.org/demo-reader-docs",
-  "description": "Manual for the BioTek H1.",
+  "description": "Manual for the demo BioTek H1.",
   "category": "Bioinformatics tools",
   "color": "#10b981",
   "preview_image_url": null,

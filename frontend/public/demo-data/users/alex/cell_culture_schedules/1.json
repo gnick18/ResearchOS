@@ -1,12 +1,12 @@
 {
   "id": 1,
-  "name": "HeLa passaging — weekly 1:5 split",
-  "description": "Passaging schedule for HeLa cells. Feed every 2 days, observe day 6, split 1:5 on day 7. Mid-execution actual events logged per experiment.",
+  "name": "[Demo protocol] HeLa passaging — weekly 1:5 split",
+  "description": "Demo passaging schedule for HeLa cells. Feed every 2 days, observe day 6, split 1:5 on day 7. Mid-execution actual events logged per experiment.",
   "cell_line": {
-    "name": "HeLa",
+    "name": "HeLa (demo)",
     "species": "Homo sapiens",
     "tissue": "Cervix (adenocarcinoma)",
-    "notes": "Strain (fake ATCC ref). Mycoplasma-negative."
+    "notes": "Demo strain — fake ATCC ref. Mycoplasma-negative."
   },
   "media": {
     "base_medium": "DMEM (high glucose, 4.5 g/L)",

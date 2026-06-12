@@ -1,12 +1,12 @@
 {
   "id": 1,
-  "title": "Lab meeting — strain design review",
+  "title": "Demo lab meeting — strain design review",
   "event_type": "meeting",
   "start_date": "2026-05-18",
   "end_date": "2026-05-18",
   "start_time": "11:00",
   "end_time": "12:00",
-  "location": "Bio 4203",
+  "location": "Bio 4203 (demo)",
   "url": null,
   "notes": "Bring transformation gel images.",
   "color": "#3b82f6"

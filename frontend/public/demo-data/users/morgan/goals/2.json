@@ -1,7 +1,7 @@
 {
   "id": 2,
   "project_id": 1,
-  "name": "Validate fakeGFP screening pipeline",
+  "name": "DEMO: Validate fakeGFP screening pipeline",
   "start_date": "2026-04-01",
   "end_date": "2026-06-15",
   "color": "#10b981",
