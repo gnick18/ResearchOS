@@ -112,10 +112,15 @@ For every type: the inline chip, the default block view, other available views, 
 - Block default `card`: note card, title + first-lines excerpt + last-edited stamp. Self-reference and cycles are guarded (render as a chip beyond depth 1).
 - Live: reads the note.
 
-### file  `/files/ID`
-- Chip: file icon + filename.
-- Block default `file`: file card, type icon + name + size. An image file inline-renders a thumbnail, a PDF shows a first-page thumbnail (later).
-- Live: reads the file from the folder.
+### file  `/files/ID`  (render the content, by type)
+A file embed renders the file's CONTENT inline, with the renderer chosen by extension, so a note can inline any artifact from anywhere in the data folder (not only this note's own attachments). This is the powerful reframe of the original "file card": the card is just the fallback.
+- Chip: file icon + filename (inline mention, unchanged).
+- image (png / jpg / tif / gif): renders the actual image as a figure. The embed adds what native attachment cannot. Resize (`w=`), caption, reposition (it is a block line, so it moves with the text), and Annotate, which opens the existing photo-annotation editor and renders the `.annot.json` vector overlay on top of the image. Native attachment (the Images tab) still works for quick capture, the embed is the richer in-context option.
+- pdf: an inline PDF viewer (a page, or first page plus expand), not a thumbnail card.
+- csv / tsv / xlsx: rendered through the Data Hub table view, the same grid plus summary the datahub-table embed uses, so a raw data file reads like a real table.
+- rmd / md / ipynb: rendered fully inline as a nested document inside the larger note (the markdown / notebook rendered, not shown as source).
+- everything else: a compact open / download card (icon + name + size).
+- Live: reads the file from the folder. Heavy renderers (PDF, notebook) lazy-load and render on scroll. The per-extension renderer is the same lazy `ObjectEmbed` dispatch as every other type.
 
 ### project / collection  `/projects/ID`  `/sequences?collection=ID`
 - Chip: folder icon + project name.
