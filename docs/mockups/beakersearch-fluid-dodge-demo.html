@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BeakerSearch fluid dodge demo</title>
+<style>
+  :root {
+    --bg: #f1f5f9; --surface: #ffffff; --sunken: #f8fafc; --border: #e2e8f0;
+    --ink: #0f172a; --muted: #64748b; --sky: #1AA0E6; --action: #1283C9;
+    /* the real morph spec from CommandPalette.tsx */
+    --morph: 0.4s cubic-bezier(.22,1,.36,1);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font: 14px/1.5 -apple-system, "Segoe UI", system-ui, sans-serif;
+    color: var(--ink); background: #e7edf3;
+    display: flex; flex-direction: column; align-items: center; padding: 18px;
+  }
+  h1 { font-size: 17px; margin: 0 0 2px; }
+  .sub { color: var(--muted); font-size: 12.5px; margin: 0 0 14px; }
+  .caption {
+    height: 20px; margin: 0 0 10px; font-size: 13px; font-weight: 600;
+    color: var(--action);
+  }
+
+  /* the mock app page (the stage the surface dodges around) */
+  .stage {
+    position: relative; width: 980px; max-width: 100%; height: 600px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 16px;
+    overflow: hidden; box-shadow: 0 25px 50px -18px rgba(0,0,0,0.35);
+  }
+  .topbar {
+    height: 46px; display: flex; align-items: center; gap: 10px;
+    padding: 0 14px; background: var(--surface); border-bottom: 1px solid var(--border);
+  }
+  .dot { width: 22px; height: 22px; border-radius: 6px; background: var(--sky); }
+  .brand { font-weight: 800; }
+  .body { position: absolute; inset: 46px 0 0 0; padding: 18px; }
+
+  /* page widgets the surface needs to get out of the way of */
+  .widget {
+    position: absolute; border: 1px solid var(--border); border-radius: 12px;
+    background: var(--surface); padding: 12px; transition: box-shadow 0.3s, outline-color 0.3s;
+    outline: 2px solid transparent; outline-offset: 2px;
+  }
+  .widget .wt { font-weight: 700; font-size: 12px; margin-bottom: 8px; color: var(--muted); }
+  .widget.spot { outline-color: var(--sky); box-shadow: 0 0 0 6px rgba(26,160,230,0.14); }
+
+  #graph { left: 300px; top: 90px; width: 380px; height: 250px; }
+  #table { left: 40px; top: 380px; width: 300px; height: 170px; }
+  #mol   { left: 720px; top: 110px; width: 210px; height: 200px; }
+  #cards { left: 380px; top: 380px; width: 300px; height: 160px; }
+
+  /* a little fake bar chart */
+  .bars { display: flex; align-items: flex-end; gap: 12px; height: 180px; padding-top: 10px; }
+  .bars i { display: block; width: 34px; border-radius: 4px 4px 0 0;
+    background: linear-gradient(180deg, var(--sky), var(--action)); }
+  .grid-rows { display: grid; gap: 6px; }
+  .grid-rows div { height: 16px; background: var(--sunken); border-radius: 4px; }
+  .mol-ring { width: 110px; height: 110px; margin: 14px auto 0; border-radius: 50%;
+    border: 10px solid var(--sky); border-right-color: var(--action); }
+
+  /* THE BEAKERSEARCH SURFACE. left/top/width/height + filter all transition on
+     the real morph curve; the chat blurs while it reshapes + glides. */
+  .surface {
+    position: absolute; z-index: 20; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 16px; overflow: hidden;
+    box-shadow: 0 24px 60px -18px rgba(0,0,0,0.45);
+    display: flex; flex-direction: column;
+    will-change: left, top, width, height, filter;
+    transition:
+      left var(--morph), top var(--morph), width var(--morph),
+      height var(--morph), filter 0.32s cubic-bezier(.22,1,.36,1);
+  }
+  .surface.morphing { filter: blur(5px); }
+  .s-head { display: flex; align-items: center; gap: 8px; padding: 11px 13px;
+    border-bottom: 1px solid var(--border); flex: none; }
+  .s-mark { width: 20px; height: 20px; border-radius: 5px; background: var(--sky); flex: none; }
+  .s-field { flex: 1; font-size: 13px; color: var(--muted); }
+  .s-kbd { font-size: 11px; font-weight: 700; color: var(--muted);
+    border: 1px solid var(--border); background: var(--sunken); border-radius: 6px; padding: 2px 6px; }
+  .s-body { flex: 1; padding: 12px 13px; overflow: hidden; display: flex; flex-direction: column; gap: 8px; }
+  .s-msg { background: var(--sunken); border-radius: 10px; padding: 8px 10px; font-size: 12.5px; color: var(--ink); }
+  .s-chip { display: inline-block; font-size: 11.5px; color: var(--action);
+    border: 1px solid var(--border); border-radius: 999px; padding: 3px 9px; margin: 2px 4px 0 0; }
+
+  .controls { margin-top: 12px; display: flex; gap: 8px; align-items: center; }
+  .controls button { font: inherit; font-size: 12.5px; padding: 6px 12px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--ink); cursor: pointer; }
+  .controls button.on { background: var(--action); color: #fff; border-color: var(--action); }
+  .controls .hint { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+  <h1>BeakerSearch fluid dodge</h1>
+  <p class="sub">The surface springs into a new shape and glides to clear what is on screen, blurring the chat while it morphs, then settling crisp. Auto-rotating through scenes.</p>
+  <div class="caption" id="caption"></div>
+
+  <div class="stage">
+    <div class="topbar"><span class="dot"></span><span class="brand">ResearchOS</span></div>
+    <div class="body">
+      <div class="widget" id="graph"><div class="wt">Dose-response figure</div>
+        <div class="bars"><i style="height:40%"></i><i style="height:62%"></i><i style="height:78%"></i><i style="height:90%"></i><i style="height:96%"></i></div>
+      </div>
+      <div class="widget" id="table"><div class="wt">Data table</div>
+        <div class="grid-rows"><div></div><div></div><div></div><div></div><div></div></div>
+      </div>
+      <div class="widget" id="mol"><div class="wt">Molecule</div><div class="mol-ring"></div></div>
+      <div class="widget" id="cards"><div class="wt">Project cards</div>
+        <div class="grid-rows"><div></div><div></div><div></div></div>
+      </div>
+    </div>
+
+    <div class="surface" id="surface">
+      <div class="s-head"><span class="s-mark"></span><span class="s-field" id="sfield">Ask or search your work...</span><span class="s-kbd">Cmd K</span></div>
+      <div class="s-body" id="sbody"></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="toggle" class="on">Auto-rotate on</button>
+    <button id="next">Next scene</button>
+    <span class="hint">Watch the box reshape + slide + blur as it dodges each spotlight.</span>
+  </div>
+
+<script>
+  // Each scene is a target rect for the surface (in stage coordinates), the page
+  // widget it is getting out of the way of, a caption, and the chat body content.
+  // The rects deliberately morph between wide-short and tall-narrow shapes.
+  const scenes = [
+    { rect:[300,150,380,300], spot:null,    cap:"Resting centered, full chat",
+      field:"Ask or search your work...",
+      body:["Hi. Ask me about your work or jump to anything.", ["Find the TMRM protocol","What did I run last week"]] },
+    { rect:[700,150,250,360], spot:"graph", cap:"Graph spotlighted, morph 8x5 to 2x9 and glide right",
+      field:"explain this dose-response curve",
+      body:["The EC50 sits near the midpoint. Want the 4PL fit and its CI?", ["Fit 4PL","Compare 4PL vs 5PL"]] },
+    { rect:[560,80,380,200], spot:"table", cap:"Table spotlighted, glide up and widen",
+      field:"summarize this table",
+      body:["12 rows, 3 numeric columns. I can run a t-test or plot it.", ["Run a t-test","Plot it"]] },
+    { rect:[60,90,300,250], spot:"mol",   cap:"Molecule spotlighted, glide to the left and grow",
+      field:"what is this compound",
+      body:["IPTG, an IPTG-like inducer. Pull its PubChem record?", ["Open in Chemistry","Add to project"]] },
+    { rect:[330,300,330,250], spot:"cards", cap:"Cards spotlighted, settle lower-center",
+      field:"open my CRISPR project",
+      body:["Found CRISPR screen 2026. Opening it now.", ["Open project","Show tasks"]] },
+  ];
+
+  const surface = document.getElementById("surface");
+  const sbody = document.getElementById("sbody");
+  const sfield = document.getElementById("sfield");
+  const caption = document.getElementById("caption");
+  let i = -1, timer = null, auto = true;
+
+  function paintBody(scene){
+    const [msg, chips] = scene.body;
+    sbody.innerHTML = '<div class="s-msg">'+msg+'</div><div>'+
+      chips.map(c=>'<span class="s-chip">'+c+'</span>').join("")+'</div>';
+    sfield.textContent = scene.field;
+  }
+
+  function show(idx){
+    const scene = scenes[((idx % scenes.length)+scenes.length)%scenes.length];
+    i = ((idx % scenes.length)+scenes.length)%scenes.length;
+    caption.textContent = scene.cap;
+
+    // spotlight the right widget
+    document.querySelectorAll(".widget").forEach(w => w.classList.remove("spot"));
+    if (scene.spot) document.getElementById(scene.spot).classList.add("spot");
+
+    // morph: blur on, move + reshape, then blur off just past the 0.4s morph
+    surface.classList.add("morphing");
+    const [l,t,w,h] = scene.rect;
+    surface.style.left = l+"px"; surface.style.top = t+"px";
+    surface.style.width = w+"px"; surface.style.height = h+"px";
+    // swap the content mid-blur so the reflow is hidden behind the blur
+    setTimeout(() => paintBody(scene), 150);
+    setTimeout(() => surface.classList.remove("morphing"), 420);
+  }
+
+  function scheduleNext(){
+    clearTimeout(timer);
+    if (auto) timer = setTimeout(() => { show(i+1); scheduleNext(); }, 2600);
+  }
+
+  document.getElementById("next").addEventListener("click", () => { show(i+1); scheduleNext(); });
+  document.getElementById("toggle").addEventListener("click", (e) => {
+    auto = !auto;
+    e.target.classList.toggle("on", auto);
+    e.target.textContent = auto ? "Auto-rotate on" : "Auto-rotate off";
+    scheduleNext();
+  });
+
+  // start
+  show(0); scheduleNext();
+</script>
+</body>
+</html>
