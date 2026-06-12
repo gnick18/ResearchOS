@@ -1,7 +1,8 @@
 /* Scroll-reveal entrance for the marketing surfaces. Matches the login hero's
-   enterUp keyframe (a 16px rise plus fade on the same easing), but driven by a
-   class the Reveal component toggles from an IntersectionObserver instead of
-   firing once on load. Disabled under prefers-reduced-motion.
+   enterUp keyframe (a 16px rise plus fade on the same easing), driven by a class
+   the Reveal component toggles from an IntersectionObserver. The transition runs
+   both directions, so by default a section lifts in on the way down and settles
+   back out on the way up (bidirectional). Disabled under prefers-reduced-motion.
 
    No emojis, no em-dashes, no mid-sentence colons. */
 

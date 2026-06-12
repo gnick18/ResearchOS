@@ -6,14 +6,20 @@ import styles from "./Reveal.module.css";
 
 /**
  * Scroll-triggered entrance shared across the marketing surfaces (the welcome /
- * what-we-offer page and /pricing). It ports the login hero's enterUp easing, a
- * 16px rise plus fade on cubic-bezier(.2,.7,.2,1) over 0.6s, onto an
- * IntersectionObserver, so each section lifts in once as it scrolls on screen
- * and every marketing page animates as one family. The observer disconnects
- * after the first reveal, so a section never re-animates or flickers on the way
- * back up. Fully disabled under prefers-reduced-motion (the CSS resets to no
- * transform), and it shows immediately where IntersectionObserver is missing, so
- * nothing is ever stuck invisible.
+ * what-we-offer page, /ai, and /pricing). It ports the login hero's enterUp
+ * easing, a rise plus fade on cubic-bezier(.2,.7,.2,1), onto an
+ * IntersectionObserver so every marketing page animates as one family.
+ *
+ * By default the reveal is BIDIRECTIONAL: a section lifts in as it scrolls on
+ * screen and settles back out (fade plus a small drop) as it leaves, so going
+ * back up un-reveals what you passed and coming back down replays it. This is
+ * the deliberate "cooler scroll" feel. Pass `once` to keep the old one-shot
+ * behavior (reveal a single time, then stop observing) for any surface where
+ * re-animating would feel busy.
+ *
+ * Fully disabled under prefers-reduced-motion (the CSS resets to no transform),
+ * and it shows immediately where IntersectionObserver is missing, so nothing is
+ * ever stuck invisible.
  *
  * No emojis, no em-dashes, no mid-sentence colons.
  */
@@ -22,6 +28,7 @@ export default function Reveal({
   as = "div",
   delay = 0,
   className = "",
+  once = false,
 }: {
   children: ReactNode;
   /** The element to render. Defaults to a div. */
@@ -29,6 +36,8 @@ export default function Reveal({
   /** Stagger in milliseconds, applied as a transition-delay. */
   delay?: number;
   className?: string;
+  /** Reveal a single time and stop, instead of the default bidirectional toggle. */
+  once?: boolean;
 }) {
   const ref = useRef<HTMLElement | null>(null);
   const [shown, setShown] = useState(false);
@@ -42,17 +51,26 @@ export default function Reveal({
     }
     const io = new IntersectionObserver(
       (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          setShown(true);
-          io.disconnect();
+        const entry = entries[0];
+        if (!entry) return;
+        if (once) {
+          if (entry.isIntersecting) {
+            setShown(true);
+            io.disconnect();
+          }
+          return;
         }
+        // Bidirectional: track the on-screen state both ways so leaving
+        // un-reveals and re-entering replays.
+        setShown(entry.isIntersecting);
       },
-      // Fire a touch before the element is fully on screen.
-      { rootMargin: "0px 0px -8% 0px", threshold: 0.1 },
+      // Trigger a touch inside both edges so a section settles out just before
+      // it fully leaves and lifts in just before it fully arrives.
+      { rootMargin: "-8% 0px -8% 0px", threshold: 0.1 },
     );
     io.observe(el);
     return () => io.disconnect();
-  }, []);
+  }, [once]);
 
   return createElement(
     as,
