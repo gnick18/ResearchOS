@@ -3358,6 +3358,99 @@ export interface IDP {
   last_edited_by?: string;
 }
 
+// ── Mentoring compact + onboarding checklist (Check-ins Phase 3b) ──────────────
+//
+// checkins-phase3b bot, 2026-06-12. See docs/proposals/checkins-revamp.md
+// "Part 3, the academic layer" (the "Mentoring compact / expectations
+// agreement" and "New-member onboarding checklist" paragraphs) and the approved
+// mockup docs/mockups/2026-06-12-checkins-phase3-idp.html.
+//
+// Both records hang off a check-in space (`OneOnOne`). They live in the SPACE
+// OWNER's folder (`owner === space.owner`) and carry `shared_with =
+// membersSharedWith(members)` so every member reads AND writes them, exactly
+// like the space's weekly goals and action items. There is at most ONE compact
+// and ONE onboarding checklist per space (looked up by `space_id`).
+//
+// DATA-SHAPE FLAGGED: two NEW on-disk entities
+// (`users/<owner>/checkin_compacts/` and `users/<owner>/checkin_onboarding/`).
+// All additions are new; no existing field or layout changes.
+
+/** One row of the expectations compact. `label` is the topic (working hours,
+ *  authorship, communication, vacation), `value` is the agreed text (empty until
+ *  filled). */
+export interface CheckinCompactRow {
+  id: string;
+  label: string;
+  value: string;
+}
+
+/** A member's acknowledgement of the compact. Appended (idempotently) when they
+ *  click Acknowledge. */
+export interface CheckinCompactAck {
+  username: string;
+  /** ISO timestamp of the acknowledgement. */
+  at: string;
+}
+
+/**
+ * A one-time, structured expectations agreement for a check-in relationship.
+ * Both members edit the values and each acknowledges; "Acknowledged by both"
+ * shows once every member has. Either member may revisit (edit) it later.
+ */
+export interface CheckinCompact {
+  /** Globally-unique id (crypto.randomUUID). */
+  id: string;
+  /** The owning check-in space's id (`OneOnOne.id`). */
+  space_id: string;
+  /** Sharing owner — the space owner's folder the record lives in. Equals
+   *  `OneOnOne.owner`. Drives the per-user routing + `canRead`/`canWrite` owner
+   *  branch. */
+  owner: string;
+  /** The expectations rows (topic + agreed text). */
+  rows: CheckinCompactRow[];
+  /** One entry per member who has acknowledged the current agreement. */
+  acknowledged: CheckinCompactAck[];
+  /** Always `membersSharedWith(members)` — every member at "edit", so each can
+   *  edit the values and acknowledge. */
+  shared_with: SharedUser[];
+  created_at: string;
+  updated_at: string;
+}
+
+/** One item of the onboarding checklist. */
+export interface CheckinOnboardingItem {
+  id: string;
+  label: string;
+  done: boolean;
+  /** Username that checked it off, or null. */
+  done_by?: string | null;
+  /** ISO timestamp it was checked off, or null. */
+  done_at?: string | null;
+}
+
+/**
+ * A first-check-in onboarding checklist for a check-in space (access and keys,
+ * safety training, data-management practices, the lab norms doc, set the
+ * cadence). Any member may check items off (the permissive D2 model). Most
+ * relevant to a new-member space but exposed on every space.
+ */
+export interface CheckinOnboarding {
+  /** Globally-unique id (crypto.randomUUID). */
+  id: string;
+  /** The owning check-in space's id (`OneOnOne.id`). */
+  space_id: string;
+  /** Sharing owner — the space owner's folder the record lives in. Equals
+   *  `OneOnOne.owner`. */
+  owner: string;
+  /** The checklist items. */
+  items: CheckinOnboardingItem[];
+  /** Always `membersSharedWith(members)` — every member at "edit", so any member
+   *  may check an item off. */
+  shared_with: SharedUser[];
+  created_at: string;
+  updated_at: string;
+}
+
 // ── Lab Mode Notes ─────────────────────────────────────────────────────────────
 
 export interface LabNoteEntry {

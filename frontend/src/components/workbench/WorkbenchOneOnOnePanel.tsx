@@ -20,14 +20,28 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { labApi, oneOnOnesApi, usersApi } from "@/lib/local-api";
+import {
+  labApi,
+  oneOnOnesApi,
+  usersApi,
+  checkinCompactsApi,
+  checkinOnboardingApi,
+} from "@/lib/local-api";
 import { oneOnOneLabel } from "@/lib/one-on-one/label";
 import { normalizeOneOnOne } from "@/lib/one-on-one/normalize";
+import {
+  CHECKIN_TEMPLATES,
+  getCheckinTemplate,
+  templateCadence,
+} from "@/lib/checkins/templates";
 import type {
   Note,
   OneOnOne,
   OneOnOneActionItem,
   WeeklyGoal,
+  CheckinCompact,
+  CheckinCompactRow,
+  CheckinOnboarding,
 } from "@/lib/types";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
@@ -40,13 +54,25 @@ import type {
   WorkbenchRecentRef,
 } from "@/app/workbench/workbench-beaker-source";
 
-type AreaTab = "goals" | "meetings" | "notes" | "agenda" | "board" | "idp";
+type AreaTab =
+  | "goals"
+  | "meetings"
+  | "notes"
+  | "agenda"
+  | "board"
+  | "idp"
+  | "compact"
+  | "onboarding";
 
 // Check-ins Phase 2: a group space (3+ members) gets a "Task board" sub-tab
 // with per-assignee bands. Pair spaces keep the Phase 1 four-tab layout.
 // Check-ins Phase 3: a MENTORING pair space (pair WITH a mentor) gets an "IDP"
 // sub-tab. The trainee (the non-mentor member) sees "My IDP"; the mentor sees a
 // review surface. Peer pairs and groups have no IDP tab.
+// Check-ins Phase 3b: every space gets an "Expectations" (mentoring compact) and
+// an "Onboarding" (checklist) sub-tab. Both are started on demand (lazily) and
+// are most relevant to a new-member space, but are exposed generally rather than
+// forced on every space.
 function areaTabsFor(
   space: OneOnOne | null,
 ): Array<{ id: AreaTab; label: string }> {
@@ -64,6 +90,8 @@ function areaTabsFor(
   if (norm.kind === "pair" && norm.mentor) {
     base.push({ id: "idp", label: "IDP" });
   }
+  base.push({ id: "compact", label: "Expectations" });
+  base.push({ id: "onboarding", label: "Onboarding" });
   return base;
 }
 
@@ -98,6 +126,9 @@ const ooKey = ["one-on-ones"] as const;
 const goalsKey = (id: string) => ["one-on-one", id, "goals"] as const;
 const notesKeyFor = (id: string) => ["one-on-one", id, "notes"] as const;
 const itemsKey = (id: string) => ["one-on-one", id, "action-items"] as const;
+const compactKey = (id: string) => ["one-on-one", id, "compact"] as const;
+const onboardingKey = (id: string) =>
+  ["one-on-one", id, "onboarding"] as const;
 
 export default function WorkbenchOneOnOnePanel({
   currentUser,
@@ -350,6 +381,12 @@ export default function WorkbenchOneOnOnePanel({
                   />
                 );
               })()}
+            {area === "compact" && (
+              <CompactArea oneOnOne={selected} currentUser={currentUser} />
+            )}
+            {area === "onboarding" && (
+              <OnboardingArea oneOnOne={selected} currentUser={currentUser} />
+            )}
           </>
         )}
       </section>
@@ -1413,6 +1450,367 @@ function DeleteIconButton({
   );
 }
 
+// ── Template picker tile (new check-in dialog) ───────────────────────────────
+
+function TemplateTile({
+  label,
+  description,
+  initial,
+  selected,
+  onSelect,
+  testId,
+}: {
+  label: string;
+  description: string;
+  initial: string;
+  selected: boolean;
+  onSelect: () => void;
+  testId?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected}
+      data-testid={testId}
+      className={`flex flex-col gap-1 rounded-lg border px-2.5 py-2 text-left transition-colors ${
+        selected
+          ? "border-brand-action bg-brand-action/10"
+          : "border-border bg-surface hover:bg-surface-sunken"
+      }`}
+    >
+      <span className="flex items-center gap-1.5">
+        <span
+          aria-hidden="true"
+          className={`flex h-5 w-5 flex-none items-center justify-center rounded-full text-[11px] font-semibold ${
+            selected
+              ? "bg-brand-action text-white"
+              : "bg-surface-sunken text-foreground-muted"
+          }`}
+        >
+          {initial}
+        </span>
+        <span className="text-body font-medium text-foreground">{label}</span>
+      </span>
+      <span className="line-clamp-2 text-meta text-foreground-muted">
+        {description}
+      </span>
+    </button>
+  );
+}
+
+// ── Mentoring compact (expectations agreement) ───────────────────────────────
+// A one-time structured expectations doc per space. Both members edit the row
+// values and each acknowledges; "Acknowledged by both" shows when everyone has.
+// Editing the rows clears prior acknowledgements (re-agree the revision). It is
+// started lazily, so the tab opens with a Start affordance until one exists.
+
+function CompactArea({
+  oneOnOne,
+  currentUser,
+}: {
+  oneOnOne: OneOnOne;
+  currentUser: string;
+}) {
+  const queryClient = useQueryClient();
+  const members = useMemo(
+    () => normalizeOneOnOne(oneOnOne).members,
+    [oneOnOne],
+  );
+  const [draft, setDraft] = useState<CheckinCompactRow[] | null>(null);
+
+  const { data: compact, isLoading } = useQuery<CheckinCompact | null>({
+    queryKey: compactKey(oneOnOne.id),
+    queryFn: () => checkinCompactsApi.getForSpace(oneOnOne.id),
+  });
+
+  const invalidate = useCallback(
+    () =>
+      queryClient.invalidateQueries({ queryKey: compactKey(oneOnOne.id) }),
+    [queryClient, oneOnOne.id],
+  );
+
+  const startMutation = useMutation({
+    mutationFn: () => checkinCompactsApi.createForSpace(oneOnOne.id),
+    onSuccess: invalidate,
+  });
+  const saveMutation = useMutation({
+    mutationFn: (rows: CheckinCompactRow[]) =>
+      checkinCompactsApi.updateRows(compact!.id, rows, compact!.owner),
+    onSuccess: () => {
+      setDraft(null);
+      invalidate();
+    },
+  });
+  const ackMutation = useMutation({
+    mutationFn: () =>
+      checkinCompactsApi.acknowledge(compact!.id, compact!.owner),
+    onSuccess: invalidate,
+  });
+
+  const acknowledgedAll =
+    !!compact &&
+    members.length > 0 &&
+    members.every((m) =>
+      compact.acknowledged.some((a) => a.username === m),
+    );
+  const iAcknowledged =
+    !!compact && compact.acknowledged.some((a) => a.username === currentUser);
+
+  if (isLoading) {
+    return <p className="text-body italic text-foreground-muted">Loading…</p>;
+  }
+
+  if (!compact) {
+    return (
+      <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-border bg-surface-sunken/40 px-4 py-5 text-body text-foreground-muted">
+        <p>
+          A compact is a short expectations agreement, working hours, authorship,
+          communication, and time off, that you both write together and
+          acknowledge. Misaligned expectations is the most common cause of
+          mentoring friction, so naming them up front heads it off.
+        </p>
+        <button
+          type="button"
+          onClick={() => startMutation.mutate()}
+          disabled={startMutation.isPending}
+          data-testid="compact-start"
+          className="btn-brand flex items-center gap-1.5 rounded-lg px-3 py-2 text-body font-medium disabled:opacity-40"
+        >
+          <Icon name="check" className="h-4 w-4" />
+          Start the compact
+        </button>
+      </div>
+    );
+  }
+
+  const editing = draft !== null;
+  const rows = draft ?? compact.rows;
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-meta text-foreground-muted">
+          You both edit these and each acknowledge. Editing the agreement asks
+          everyone to acknowledge the revision again.
+        </p>
+        {editing ? (
+          <div className="flex flex-none items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setDraft(null)}
+              className="rounded-lg px-2.5 py-1.5 text-body font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => saveMutation.mutate(rows)}
+              disabled={saveMutation.isPending}
+              data-testid="compact-save"
+              className="btn-brand rounded-lg px-2.5 py-1.5 text-body font-medium disabled:opacity-40"
+            >
+              Save
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setDraft(compact.rows.map((r) => ({ ...r })))}
+            data-testid="compact-edit"
+            className="flex flex-none items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-body font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
+          >
+            <Icon name="pencil" className="h-4 w-4" />
+            Edit
+          </button>
+        )}
+      </div>
+
+      <ul className="flex flex-col divide-y divide-border rounded-xl border border-border bg-surface">
+        {rows.map((row, idx) => (
+          <li
+            key={row.id}
+            className="flex flex-col gap-1 px-3 py-2.5 sm:flex-row sm:items-start sm:gap-3"
+          >
+            <span className="flex-none pt-0.5 text-body font-semibold text-foreground-muted sm:w-44">
+              {row.label}
+            </span>
+            {editing ? (
+              <textarea
+                value={row.value}
+                onChange={(e) => {
+                  const next = rows.map((r, i) =>
+                    i === idx ? { ...r, value: e.target.value } : r,
+                  );
+                  setDraft(next);
+                }}
+                rows={2}
+                placeholder="Write what you have agreed."
+                className="min-h-[2.25rem] w-full rounded-lg border border-border bg-surface px-2.5 py-1.5 text-body text-foreground focus:border-brand-action focus:outline-none focus:ring-2 focus:ring-brand-action/30"
+              />
+            ) : (
+              <span className="text-body text-foreground">
+                {row.value.trim() ? (
+                  row.value
+                ) : (
+                  <span className="italic text-foreground-muted">
+                    Not filled in yet.
+                  </span>
+                )}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface-sunken/40 px-3 py-3">
+        <div className="flex items-center gap-2 text-body">
+          {acknowledgedAll ? (
+            <span className="flex items-center gap-1.5 font-medium text-green-600">
+              <Icon name="check" className="h-4 w-4" />
+              Acknowledged by both, revisit annually
+            </span>
+          ) : (
+            <span className="text-foreground-muted">
+              {compact.acknowledged.length === 0
+                ? "No one has acknowledged yet."
+                : `Acknowledged by ${compact.acknowledged
+                    .map((a) => a.username)
+                    .join(", ")}.`}
+            </span>
+          )}
+        </div>
+        {!iAcknowledged && !editing && (
+          <button
+            type="button"
+            onClick={() => ackMutation.mutate()}
+            disabled={ackMutation.isPending}
+            data-testid="compact-acknowledge"
+            className="btn-brand flex flex-none items-center gap-1.5 rounded-lg px-3 py-1.5 text-body font-medium disabled:opacity-40"
+          >
+            <Icon name="check" className="h-4 w-4" />
+            Acknowledge
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Onboarding checklist ─────────────────────────────────────────────────────
+// A first-check-in checklist (access, safety, data management, the norms doc,
+// the cadence). Any member may check an item off. Started lazily like the
+// compact.
+
+function OnboardingArea({
+  oneOnOne,
+  currentUser,
+}: {
+  oneOnOne: OneOnOne;
+  currentUser: string;
+}) {
+  // currentUser is accepted for symmetry + future per-checker attribution UI;
+  // the toggle records done_by server-side from the signed-in user.
+  void currentUser;
+  const queryClient = useQueryClient();
+
+  const { data: onboarding, isLoading } = useQuery<CheckinOnboarding | null>({
+    queryKey: onboardingKey(oneOnOne.id),
+    queryFn: () => checkinOnboardingApi.getForSpace(oneOnOne.id),
+  });
+
+  const invalidate = useCallback(
+    () =>
+      queryClient.invalidateQueries({ queryKey: onboardingKey(oneOnOne.id) }),
+    [queryClient, oneOnOne.id],
+  );
+
+  const startMutation = useMutation({
+    mutationFn: () => checkinOnboardingApi.createForSpace(oneOnOne.id),
+    onSuccess: invalidate,
+  });
+  const toggleMutation = useMutation({
+    mutationFn: (itemId: string) =>
+      checkinOnboardingApi.toggleItem(onboarding!.id, itemId, onboarding!.owner),
+    onSuccess: invalidate,
+  });
+
+  if (isLoading) {
+    return <p className="text-body italic text-foreground-muted">Loading…</p>;
+  }
+
+  if (!onboarding) {
+    return (
+      <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-border bg-surface-sunken/40 px-4 py-5 text-body text-foreground-muted">
+        <p>
+          A short onboarding checklist for a new member, access and keys, safety
+          training, data-management practices, the lab norms doc, and setting the
+          check-in cadence. Most labs have no formal onboarding, so this gives a
+          new person a clear first week.
+        </p>
+        <button
+          type="button"
+          onClick={() => startMutation.mutate()}
+          disabled={startMutation.isPending}
+          data-testid="onboarding-start"
+          className="btn-brand flex items-center gap-1.5 rounded-lg px-3 py-2 text-body font-medium disabled:opacity-40"
+        >
+          <Icon name="list" className="h-4 w-4" />
+          Start the checklist
+        </button>
+      </div>
+    );
+  }
+
+  const doneCount = onboarding.items.filter((i) => i.done).length;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-meta text-foreground-muted">
+        {doneCount} of {onboarding.items.length} done. Anyone in the space can
+        check an item off.
+      </p>
+      <ul className="flex flex-col gap-1">
+        {onboarding.items.map((item) => (
+          <li key={item.id}>
+            <button
+              type="button"
+              onClick={() => toggleMutation.mutate(item.id)}
+              data-testid={`onboarding-item-${item.id}`}
+              className="flex w-full items-center gap-2.5 rounded-lg border border-border bg-surface px-3 py-2 text-left transition-colors hover:bg-surface-sunken"
+            >
+              <span
+                aria-hidden="true"
+                className={`flex h-5 w-5 flex-none items-center justify-center rounded-md border ${
+                  item.done
+                    ? "border-brand-action bg-brand-action text-white"
+                    : "border-border bg-surface"
+                }`}
+              >
+                {item.done && <Icon name="check" className="h-3.5 w-3.5" />}
+              </span>
+              <span
+                className={`text-body ${
+                  item.done
+                    ? "text-foreground-muted line-through"
+                    : "text-foreground"
+                }`}
+              >
+                {item.label}
+              </span>
+              {item.done && item.done_by && (
+                <span className="ml-auto flex-none text-meta text-foreground-muted">
+                  {item.done_by}
+                </span>
+              )}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 // ── New check-in dialog (any account) ────────────────────────────────────────
 // Phase 2: a multi-select roster. Pick ONE person for a pair check-in (the "I
 // am the mentor" checkbox makes it a mentoring relationship), or pick TWO or
@@ -1435,6 +1833,10 @@ function NewOneOnOneDialog({
   const [selected, setSelected] = useState<string[]>([]);
   const [isMentor, setIsMentor] = useState(false);
   const [title, setTitle] = useState("");
+  // Check-ins Phase 3b: an optional career-stage template. "" = Blank (no
+  // template). Picking one sets the cadence default and seeds starter agenda
+  // items after the space is created.
+  const [templateId, setTemplateId] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1477,19 +1879,32 @@ function NewOneOnOneDialog({
     setError(null);
     try {
       const group = selected.length >= 2;
+      const template = templateId ? getCheckinTemplate(templateId) : undefined;
       const created = await oneOnOnesApi.create({
         members: [currentUser, ...selected],
         // The mentor edge only makes sense for a pair (one mentor, one mentee).
         mentor: !group && isMentor ? currentUser : null,
         title: group && title.trim() ? title.trim() : null,
+        // A picked template carries a suggested cadence; Blank leaves it null.
+        cadence: template ? templateCadence(template) : null,
       });
+      // Seed the picked template's starter agenda prompts as undone, unassigned
+      // action items, so a new space opens with a real agenda rather than blank.
+      if (template) {
+        for (const seed of template.agenda_seeds) {
+          await oneOnOnesApi.addActionItem({
+            oneOnOneId: created.id,
+            text: seed,
+          });
+        }
+      }
       onCreated(created);
     } catch (err) {
       console.error("Failed to create check-in:", err);
       setError("Could not start the check-in. Please try again.");
       setBusy(false);
     }
-  }, [selected, isMentor, title, currentUser, busy, onCreated]);
+  }, [selected, isMentor, title, templateId, currentUser, busy, onCreated]);
 
   return (
     <div
@@ -1575,6 +1990,39 @@ function NewOneOnOneDialog({
                 })}
               </ul>
             )}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">
+              Template (optional)
+            </label>
+            <p className="text-meta text-foreground-muted">
+              A template sets a cadence and seeds the agenda for a career stage or
+              relationship. Start from Blank to set everything up yourself.
+            </p>
+            <div
+              className="grid grid-cols-2 gap-1.5"
+              data-testid="oneonone-template-gallery"
+            >
+              <TemplateTile
+                label="Blank"
+                description="No preset. An empty space."
+                initial="—"
+                selected={templateId === ""}
+                onSelect={() => setTemplateId("")}
+              />
+              {CHECKIN_TEMPLATES.map((t) => (
+                <TemplateTile
+                  key={t.id}
+                  label={t.name}
+                  description={t.description}
+                  initial={t.name[0]}
+                  selected={templateId === t.id}
+                  onSelect={() => setTemplateId(t.id)}
+                  testId={`oneonone-template-${t.id}`}
+                />
+              ))}
+            </div>
           </div>
 
           {isGroup ? (
