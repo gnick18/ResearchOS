@@ -210,10 +210,17 @@ export type AiTool = {
   parameters: JsonSchema;
   execute: (args: Record<string, unknown>) => Promise<unknown>;
   /** When true, this tool performs an action and goes through the approval gate
-   *  in the agent loop (propose-then-approve in "ask" mode, direct in "auto"
-   *  mode, with a destructive hard-stop in both). Absent / false = read-only,
-   *  runs immediately. */
+   *  in the agent loop. In step review mode it shows a preview-and-confirm block
+   *  for every call; in plan review mode it runs once the plan is approved (or
+   *  pops a single confirm for a lone step), with a destructive hard-stop in
+   *  both. Absent / false = read-only, runs immediately. */
   action?: boolean;
+  /** When true, this is a non-action tool that still shows a preview-and-confirm
+   *  block in step review mode (the instant analysis/plot tools); ignored in plan
+   *  mode. It writes a new, reversible, version-controlled result rather than an
+   *  action, so it carries no `action` flag, but in step-by-step every meaningful
+   *  step is reviewed, so it gates there too. */
+  previewable?: boolean;
   /** For action tools, build the human approval summary and optional target ref
    *  from the parsed args, so the loop can show the user what will happen WITHOUT
    *  running the tool. Pure, never effectful. Optional, the loop falls back to a

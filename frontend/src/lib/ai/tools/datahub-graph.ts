@@ -55,6 +55,9 @@ import type {
   PlotSpec,
 } from "@/lib/datahub/model/types";
 import type { AiTool } from "./types";
+// Reuse the analysis tools' content cache (filled by list_datahub_tables) so the
+// sync graph preview can read the table's columns without an await.
+import { getCachedTableContent } from "./datahub-analysis";
 
 // ---------------------------------------------------------------------------
 // Injectable seam (so the tool unit-tests with no folder and no Loro).
@@ -510,8 +513,39 @@ export function buildGraph(
 }
 
 // ---------------------------------------------------------------------------
-// make_datahub_graph (NON-gated, builds + stores + navigates)
+// make_datahub_graph (previewable, builds + stores + navigates)
 // ---------------------------------------------------------------------------
+
+/**
+ * Build the one-line preview summary for the make_datahub_graph step, from the
+ * args and the cached table content (the SAME cache list_datahub_tables fills),
+ * WITHOUT building the figure. Pure, so the step-mode gate can render the
+ * preview-and-confirm block synchronously. Names the plotted columns where the
+ * content is cached, and falls back to a generic line otherwise.
+ */
+export function describeMakeGraph(args: Record<string, unknown>): {
+  summary: string;
+} {
+  const parsed = parseMakeGraphArgs(args);
+  const kindPhrase =
+    parsed.type === "bar"
+      ? "bar chart"
+      : parsed.type === "estimation"
+        ? "estimation plot"
+        : "dot plot";
+  const content = getCachedTableContent(parsed.tableId);
+  if (!content) {
+    return { summary: `plot a ${kindPhrase} of a Data Hub table` };
+  }
+  const colIds = resolveGraphColumns(content, parsed.columns);
+  const names = groupColumns(content)
+    .filter((c) => colIds.includes(c.id))
+    .map((c) => c.name);
+  const colPhrase = names.length > 0 ? `${names.join(", ")} from ` : "";
+  return {
+    summary: `plot a ${kindPhrase} of ${colPhrase}${content.meta.name}`,
+  };
+}
 
 export const makeDataHubGraphTool: AiTool = {
   name: "make_datahub_graph",
@@ -570,12 +604,14 @@ export const makeDataHubGraphTool: AiTool = {
     required: ["tableId"],
     additionalProperties: false,
   },
-  // No `action` flag (ai datahub-graph bot, 2026-06-11). This tool writes, but
-  // the write is non-destructive (a new, reversible, version-controlled plot,
-  // the editor's exact write path) and the user already consented by asking for
-  // the chart (and tapping any kind / error-bar choice through ask_user), so it
-  // must NOT flow through the per-action approval gate. Its safety is the
-  // explicit request, not a gate, exactly like run_datahub_analysis.
+  // No `action` flag, but `previewable: true` (ai review-mode bot, 2026-06-12).
+  // The write is non-destructive (a new, reversible, version-controlled plot, the
+  // editor's exact write path). In whole-plan mode it runs free (today's behavior,
+  // the explicit request is the consent). In step-by-step mode the previewable
+  // flag makes it show a preview-and-confirm block first, using describeMakeGraph
+  // to render the figure kind and columns WITHOUT building it.
+  previewable: true,
+  describeAction: describeMakeGraph,
   execute: async (args) => {
     const parsed = parseMakeGraphArgs(args);
     if (!parsed.tableId) {

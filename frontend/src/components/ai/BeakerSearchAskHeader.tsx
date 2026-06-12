@@ -19,8 +19,9 @@
 // History affordance: the clock/history icon is visible but wired to a no-op
 // tooltip ("Past chats coming in v2.1"). The past-chats list is deferred.
 //
-// Autonomy toggle: reads and writes useBeakerBotAutonomy, the same store the
-// dock's panel uses.
+// Review-mode control: reads and writes useBeakerBotReviewMode. Two modes,
+// "Step-by-step" (review every step) and "Whole-plan" (approve the plan once,
+// then it runs). There is no silent unattended mode.
 //
 // House style, Icon only, brand + semantic tokens, no emojis / em-dashes /
 // mid-sentence colons.
@@ -29,7 +30,7 @@ import { useState } from "react";
 import { Icon } from "@/components/icons";
 import BeakerBot from "@/components/BeakerBot";
 import Tooltip from "@/components/Tooltip";
-import { useBeakerBotAutonomy } from "@/lib/ai/autonomy-store";
+import { useBeakerBotReviewMode } from "@/lib/ai/review-mode-store";
 import { useConversationStore } from "@/lib/ai/conversation-store";
 import {
   conversationToMarkdown,
@@ -44,8 +45,8 @@ export default function BeakerSearchAskHeader({
   onBack: () => void;
   onNewChat: () => void;
 }) {
-  const autonomy = useBeakerBotAutonomy((s) => s.mode);
-  const toggleAutonomy = useBeakerBotAutonomy((s) => s.toggle);
+  const reviewMode = useBeakerBotReviewMode((s) => s.mode);
+  const toggleReviewMode = useBeakerBotReviewMode((s) => s.toggle);
 
   // The transcript has nothing to save until there is at least one message. We
   // read the count reactively so the Save-to control enables as soon as the
@@ -171,39 +172,56 @@ export default function BeakerSearchAskHeader({
         </button>
       </Tooltip>
 
-      {/* Autonomy toggle */}
-      <Tooltip
-        label={
-          autonomy === "auto"
-            ? "Auto mode. BeakerBot acts without asking, except for risky actions. Click to require approval."
-            : "Ask mode. BeakerBot asks before it acts. Click to let it act automatically."
-        }
-        placement="bottom"
+      {/* Review-mode control. Two modes, click the inactive one to switch. There
+          is no silent unattended mode, both modes review the work, step-by-step
+          confirms each step and whole-plan confirms the whole plan once. */}
+      <div
+        role="group"
+        aria-label="BeakerBot review mode"
+        data-testid="beakersearch-review-mode"
+        className="flex flex-shrink-0 items-center gap-0.5 rounded-md border border-border p-0.5"
       >
-        <button
-          type="button"
-          data-testid="beakersearch-autonomy-toggle"
-          aria-label={
-            autonomy === "auto"
-              ? "BeakerBot autonomy, auto. Switch to ask before doing."
-              : "BeakerBot autonomy, ask before doing. Switch to auto."
-          }
-          aria-pressed={autonomy === "auto"}
-          onClick={toggleAutonomy}
-          className={`flex flex-shrink-0 items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium transition-colors ${
-            autonomy === "auto"
-              ? "border-brand bg-brand/10 text-brand"
-              : "border-border text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
-          }`}
+        <Tooltip
+          label="Step-by-step. BeakerBot shows each step and waits for you to approve it before it runs."
+          placement="bottom"
         >
-          <Icon
-            name={autonomy === "auto" ? "bolt" : "ask"}
-            className="h-3.5 w-3.5"
-            title={autonomy === "auto" ? "Auto" : "Ask"}
-          />
-          {autonomy === "auto" ? "Auto" : "Ask"}
-        </button>
-      </Tooltip>
+          <button
+            type="button"
+            data-testid="beakersearch-review-step"
+            aria-label="Step-by-step review, approve each step"
+            aria-pressed={reviewMode === "step"}
+            onClick={reviewMode === "step" ? undefined : toggleReviewMode}
+            className={`flex items-center gap-1 rounded px-2 py-0.5 text-meta font-medium transition-colors ${
+              reviewMode === "step"
+                ? "bg-brand/10 text-brand"
+                : "text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+            }`}
+          >
+            <Icon name="check" className="h-3.5 w-3.5" title="Step-by-step" />
+            Step-by-step
+          </button>
+        </Tooltip>
+        <Tooltip
+          label="Whole-plan. BeakerBot proposes the whole plan up front, you approve it once, then it runs every step."
+          placement="bottom"
+        >
+          <button
+            type="button"
+            data-testid="beakersearch-review-plan"
+            aria-label="Whole-plan review, approve the plan once"
+            aria-pressed={reviewMode === "plan"}
+            onClick={reviewMode === "plan" ? undefined : toggleReviewMode}
+            className={`flex items-center gap-1 rounded px-2 py-0.5 text-meta font-medium transition-colors ${
+              reviewMode === "plan"
+                ? "bg-brand/10 text-brand"
+                : "text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+            }`}
+          >
+            <Icon name="list" className="h-3.5 w-3.5" title="Whole-plan" />
+            Whole-plan
+          </button>
+        </Tooltip>
+      </div>
 
       {/* Static "uses credit" hint */}
       <span className="rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">

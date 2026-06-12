@@ -37,7 +37,7 @@ import {
   readPlanSummary,
 } from "./tools/propose-plan";
 import { ASK_USER_TOOL_NAME, parseAskUserArgs } from "./tools/ask-user";
-import type { BeakerBotAutonomy } from "./autonomy-store";
+import type { BeakerBotReviewMode } from "./review-mode-store";
 
 // An OpenAI-compatible chat message. Tool plumbing needs the extra fields beyond
 // the plain { role, content } the foundation slice used. Content is nullable
@@ -101,14 +101,15 @@ export type RunAgentLoopOptions = {
   maxIterations?: number;
   // Optional status callback for the panel.
   onStatus?: (status: LoopStatus) => void;
-  // The user's autonomy mode for ACTION tools, read at dispatch time so the gate
+  // The user's review mode (step vs plan), read at dispatch time so the gate
   // respects the current setting. Injected (not imported) so the loop stays pure
-  // and unit-tests with a fixed value. Defaults to "ask", the safe mode, when
-  // absent, so a missing option can never widen autonomy.
-  getAutonomy?: () => BeakerBotAutonomy;
-  // The propose-then-approve bridge to the UI. The loop calls this for an action
-  // tool that needs the user's blessing (always in "ask" mode, and always for a
-  // destructive target even in "auto"). It resolves with the user's decision.
+  // and unit-tests with a fixed value. Defaults to "step", the safe mode, when
+  // absent, so a missing option can never widen to unattended running.
+  getReviewMode?: () => BeakerBotReviewMode;
+  // The propose-then-approve bridge to the UI. The loop calls this for a step
+  // that needs the user's blessing (every action and previewable step in "step"
+  // mode, an unapproved action in "plan" mode, and always a destructive target).
+  // It resolves with the user's decision.
   // Injected, so production wires it to the panel's confirm UI and tests pass a
   // fake. When absent, the loop treats every gated action as skipped, the safe
   // default (never act without an approver), so a misconfigured caller cannot
@@ -135,12 +136,13 @@ const GUARD_MESSAGE =
 
 // The gate dependencies threaded into tool dispatch. Kept as a small bag so the
 // dispatch signature stays readable as more is wired in. `planState` is a mutable
-// per-run flag, propose_plan flips `approved` to true on Approve, and once true
-// the routine action tools in this run run WITHOUT re-asking (the destructive
-// hard-stop still overrides it). It is an object, not a bare boolean, so the gate
-// can mutate it in place across calls within one run.
+// per-run flag, propose_plan flips `approved` to true on Approve, and in PLAN
+// mode once true the routine action tools in this run run WITHOUT re-asking (the
+// destructive hard-stop still overrides it). In STEP mode planState.approved does
+// NOT skip a confirm, every step is reviewed. It is an object, not a bare boolean,
+// so the gate can mutate it in place across calls within one run.
 type GateDeps = {
-  getAutonomy: () => BeakerBotAutonomy;
+  getReviewMode: () => BeakerBotReviewMode;
   requestApproval?: (request: ApprovalRequest) => Promise<ApprovalDecision>;
   planState: { approved: boolean };
 };
@@ -285,15 +287,27 @@ async function handleAskUser(
   };
 }
 
-// Decide whether an action tool call needs the user's approval before it runs,
-// and if so, ask. This is the reusable gate every action tool flows through, the
-// decision is driven by the tool's `action` flag, the tool's own `isDestructive`
-// check, the run-level plan approval, and the user's autonomy setting, NOT by
-// anything hardcoded to clicking.
+// Decide whether a tool call needs the user's approval before it runs, and if
+// so, ask. This is the reusable gate every gating tool flows through. The
+// decision is driven by the tool's `action` flag, the tool's `previewable` flag,
+// the tool's own `isDestructive` check, the run-level plan approval, and the
+// user's review mode (step vs plan), NOT by anything hardcoded to clicking.
+//
+// The exact decision table (safety-critical, see the unit tests).
+//   - NOT action AND NOT previewable -> PROCEED (pure read-only).
+//   - DESTRUCTIVE -> ALWAYS require a confirm, in BOTH modes, even if a plan was
+//     approved. The hard-stop is never bypassed.
+//   - reviewMode === "step" -> require a confirm for EVERY action OR previewable
+//     call. planState.approved does NOT skip it, each step is reviewed.
+//   - reviewMode === "plan":
+//       - previewable and NOT action -> PROCEED (the instant analysis/plot tools
+//         run free in plan mode, preserving today's behavior).
+//       - action -> PROCEED when planState.approved, else require a single confirm
+//         (the existing plan-approval / single-confirm fallback).
 //
 // Returns one of.
-//   - { proceed: true }  run the tool (read-only, or plan-approved, or approved,
-//     or auto-allowed)
+//   - { proceed: true }  run the tool (read-only, plan-approved action, or an
+//     instant previewable tool in plan mode)
 //   - { proceed: false, result } do NOT run, feed `result` back to the model so
 //     it can respond gracefully (the user skipped, or there is no approver)
 async function gateToolCall(
@@ -301,30 +315,32 @@ async function gateToolCall(
   args: Record<string, unknown>,
   deps: GateDeps,
 ): Promise<{ proceed: true } | { proceed: false; result: unknown }> {
-  // Read-only tools never gate, they run immediately, exactly as before.
-  if (!tool.action) return { proceed: true };
+  // Pure read-only tools never gate, they run immediately, exactly as before.
+  // A tool that is neither an action nor previewable changes nothing the user
+  // needs to review.
+  if (!tool.action && !tool.previewable) return { proceed: true };
 
-  // An action tool. Decide whether THIS call must confirm.
+  const reviewMode = deps.getReviewMode();
   const destructive = tool.isDestructive?.(args) === true;
-  const autonomy = deps.getAutonomy();
 
-  // The destructive hard-stop is absolute. A genuinely destructive or outward-
-  // facing step ALWAYS pops its own final confirm at the moment it runs, even
-  // inside an already-approved plan and even in "auto" mode. Plan approval and
-  // "auto" cover the ROUTINE steps only, they never bypass this.
+  // Decide whether THIS call may PROCEED without a confirm, per the decision
+  // table above. The destructive hard-stop is checked first and is absolute, it
+  // ALWAYS confirms in both modes even inside an approved plan, so we only look
+  // for a free pass when the step is not destructive.
   if (!destructive) {
-    // A non-destructive action runs without a confirm when EITHER the plan was
-    // already approved this run, OR the user is in "auto" mode. Plan approval is
-    // the new path, "auto" is the existing one.
-    if (deps.planState.approved || autonomy === "auto") {
-      return { proceed: true };
+    if (reviewMode === "plan") {
+      // Whole-plan. An instant previewable tool that is not an action runs free
+      // (today's behavior). A plan-approved action also runs free.
+      if (tool.previewable && !tool.action) return { proceed: true };
+      if (deps.planState.approved) return { proceed: true };
+      // Otherwise fall through to the single-confirm lone-step fallback.
     }
+    // Step-by-step always falls through to a per-step confirm, an approved plan
+    // does NOT skip it, every action OR previewable step is reviewed.
   }
 
-  // We reach here when a confirm is required, a destructive step (hard-stop), or
-  // a non-destructive action in "ask" mode with no approved plan (the fallback
-  // per-action confirm, so a lone single-step action still works). Without an
-  // approver we cannot safely act, so decline and tell the model.
+  // We reach here when a confirm is required. Without an approver we cannot
+  // safely run, so decline and tell the model.
   if (!deps.requestApproval) {
     return {
       proceed: false,
@@ -465,13 +481,13 @@ export async function runAgentLoop(
   // Work on a copy, so the caller's array is never mutated.
   const messages: LoopMessage[] = [...options.messages];
 
-  // Build the gate deps once. Autonomy defaults to "ask" (the safe mode) when the
-  // caller did not inject a reader. The approval request is wrapped so the panel
-  // sees an "awaiting-approval" status while the loop is paused on the user. The
-  // plan-approval flag is fresh per run and starts false, so an approval never
-  // leaks across separate user messages.
+  // Build the gate deps once. Review mode defaults to "step" (the safe, most
+  // transparent mode) when the caller did not inject a reader. The approval
+  // request is wrapped so the panel sees an "awaiting-approval" status while the
+  // loop is paused on the user. The plan-approval flag is fresh per run and
+  // starts false, so an approval never leaks across separate user messages.
   const gateDeps: GateDeps = {
-    getAutonomy: options.getAutonomy ?? (() => "ask"),
+    getReviewMode: options.getReviewMode ?? (() => "step"),
     requestApproval: options.requestApproval
       ? async (request) => {
           options.onStatus?.({

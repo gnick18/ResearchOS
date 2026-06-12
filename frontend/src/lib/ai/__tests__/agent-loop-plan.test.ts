@@ -8,16 +8,19 @@
 // Every property is asserted through runAgentLoop with injected fakes (callModel,
 // action tool, requestApproval), so no real DOM and no real model are involved.
 //
+// The "approve a plan then run routine steps free" path is now whole-plan review
+// mode (getReviewMode "plan"), so the property-2 tests run in plan mode. Step
+// mode reviews every step instead and is covered by agent-loop-review-gate.test.
+//
 // Properties pinned:
 //   1. propose_plan raises a "plan" approval request with the steps.
-//   2. Approve -> the run-level flag is set, a subsequent non-destructive action
-//      runs WITHOUT its own confirm.
+//   2. Approve in plan mode -> the run-level flag is set, a subsequent
+//      non-destructive action runs WITHOUT its own confirm.
 //   3. Cancel -> the action never runs, a graceful "cancelled" result reaches the
 //      model.
 //   4. A destructive step inside an approved plan STILL confirms (plan approval
 //      does not bypass the hard-stop), and a skip there does not run it.
-//   5. Fallback, ask mode + a single action with NO propose_plan still
-//      per-action confirms (the old behavior is intact).
+//   5. Fallback, a single action with NO propose_plan still per-action confirms.
 //   6. The plan flag is per-run, it does not leak across separate runs.
 //   7. propose_plan with no steps returns a graceful result without raising an
 //      approval, and with no approver it declines safely.
@@ -113,7 +116,8 @@ describe("plan flow: approve covers the routine steps", () => {
       messages: [USER_MESSAGE],
       tools: [proposePlanTool, tool],
       callModel,
-      getAutonomy: () => "ask",
+      // Whole-plan mode, an approved plan runs the routine steps free.
+      getReviewMode: () => "plan",
       requestApproval,
     });
 
@@ -145,7 +149,7 @@ describe("plan flow: approve covers the routine steps", () => {
       messages: [USER_MESSAGE],
       tools: [proposePlanTool, tool],
       callModel,
-      getAutonomy: () => "ask",
+      getReviewMode: () => "plan",
       requestApproval,
     });
 
@@ -179,7 +183,7 @@ describe("plan flow: cancel", () => {
       messages: [USER_MESSAGE],
       tools: [proposePlanTool, tool],
       callModel,
-      getAutonomy: () => "ask",
+      getReviewMode: () => "step",
       requestApproval,
     });
 
@@ -224,7 +228,9 @@ describe("plan flow: destructive step still confirms inside an approved plan", (
       messages: [USER_MESSAGE],
       tools: [proposePlanTool, tool],
       callModel,
-      getAutonomy: () => "ask",
+      // Whole-plan mode, where an approved plan WOULD let routine steps run free,
+      // so this proves the destructive hard-stop still confirms despite that.
+      getReviewMode: () => "plan",
       requestApproval,
     });
 
@@ -260,7 +266,7 @@ describe("plan flow: destructive step still confirms inside an approved plan", (
       messages: [USER_MESSAGE],
       tools: [proposePlanTool, tool],
       callModel,
-      getAutonomy: () => "ask",
+      getReviewMode: () => "plan",
       requestApproval,
     });
 
@@ -287,7 +293,7 @@ describe("plan flow: destructive step still confirms inside an approved plan", (
       messages: [USER_MESSAGE],
       tools: [proposePlanTool, tool],
       callModel,
-      getAutonomy: () => "auto",
+      getReviewMode: () => "plan",
       requestApproval,
     });
 
@@ -321,7 +327,7 @@ describe("plan flow: fallback per-action confirm with no plan", () => {
       messages: [USER_MESSAGE],
       tools: [proposePlanTool, tool],
       callModel,
-      getAutonomy: () => "ask",
+      getReviewMode: () => "step",
       requestApproval,
     });
 
@@ -352,7 +358,7 @@ describe("plan flow: approval does not leak across runs", () => {
       messages: [USER_MESSAGE],
       tools: [proposePlanTool, tool],
       callModel: callModel1,
-      getAutonomy: () => "ask",
+      getReviewMode: () => "plan",
       requestApproval,
     });
 
@@ -372,7 +378,7 @@ describe("plan flow: approval does not leak across runs", () => {
       ],
       tools: [proposePlanTool, tool],
       callModel: callModel2,
-      getAutonomy: () => "ask",
+      getReviewMode: () => "plan",
       requestApproval,
     });
 
@@ -400,7 +406,7 @@ describe("plan flow: degenerate propose_plan inputs", () => {
       messages: [USER_MESSAGE],
       tools: [proposePlanTool],
       callModel,
-      getAutonomy: () => "ask",
+      getReviewMode: () => "step",
       requestApproval,
     });
 
@@ -425,7 +431,7 @@ describe("plan flow: degenerate propose_plan inputs", () => {
       messages: [USER_MESSAGE],
       tools: [proposePlanTool],
       callModel,
-      getAutonomy: () => "ask",
+      getReviewMode: () => "step",
       // requestApproval intentionally absent.
     });
 

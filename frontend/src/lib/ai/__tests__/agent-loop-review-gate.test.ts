@@ -1,0 +1,351 @@
+// agent-loop review-mode gate decision-table tests (ai review-mode bot,
+// 2026-06-12).
+//
+// Pins the EXACT gate decision table that replaced the ask/auto autonomy gate.
+// This is safety-critical, so every branch is asserted through runAgentLoop with
+// injected fakes (callModel, tools, requestApproval, getReviewMode), no real DOM
+// and no real model.
+//
+// The table under test (gateToolCall in agent-loop.ts):
+//   - NOT action AND NOT previewable -> PROCEED (pure read-only).
+//   - DESTRUCTIVE -> ALWAYS confirm, in BOTH modes, even with planState.approved.
+//   - step mode -> confirm EVERY action OR previewable call.
+//   - plan mode:
+//       - previewable and NOT action -> PROCEED (instant tools run free).
+//       - action -> PROCEED when planState.approved, else a single confirm.
+//
+// House style, no em-dashes, no emojis, no mid-sentence colons.
+
+import { describe, it, expect, vi } from "vitest";
+import { runAgentLoop, type LoopMessage, type ModelResponse } from "../agent-loop";
+import type { AiTool, ApprovalDecision, ApprovalRequest } from "../tools/types";
+import { proposePlanTool } from "../tools/propose-plan";
+
+// ---- helpers ----------------------------------------------------------------
+
+function assistantWithToolCall(
+  name: string,
+  args: object,
+  callId = "call_1",
+): ModelResponse {
+  return {
+    choices: [
+      {
+        message: {
+          role: "assistant",
+          content: null,
+          tool_calls: [
+            {
+              id: callId,
+              type: "function",
+              function: { name, arguments: JSON.stringify(args) },
+            },
+          ],
+        },
+      },
+    ],
+  };
+}
+
+function assistantFinal(content: string): ModelResponse {
+  return { choices: [{ message: { role: "assistant", content } }] };
+}
+
+/** A read-only tool, neither action nor previewable. */
+function makeReadOnlyTool(): { tool: AiTool; execute: ReturnType<typeof vi.fn> } {
+  const execute = vi.fn(async () => ({ data: "x" }));
+  return {
+    execute,
+    tool: {
+      name: "read_thing",
+      description: "Read only.",
+      parameters: { type: "object", properties: {} },
+      execute,
+    },
+  };
+}
+
+/** An action tool (write_note style), optionally destructive. */
+function makeActionTool(opts: { destructive?: boolean } = {}): {
+  tool: AiTool;
+  execute: ReturnType<typeof vi.fn>;
+} {
+  const execute = vi.fn(async () => ({ ok: true }));
+  return {
+    execute,
+    tool: {
+      name: "do_action",
+      description: "An action tool.",
+      parameters: { type: "object", properties: {} },
+      action: true,
+      describeAction: () => ({ summary: "do the action" }),
+      isDestructive: opts.destructive ? () => true : undefined,
+      execute,
+    },
+  };
+}
+
+/** A previewable tool (run_datahub_analysis style), not an action, optionally
+ *  destructive (a contrived case used only to prove the hard-stop fires even on
+ *  a previewable tool). */
+function makePreviewableTool(opts: { destructive?: boolean } = {}): {
+  tool: AiTool;
+  execute: ReturnType<typeof vi.fn>;
+} {
+  const execute = vi.fn(async () => ({ ok: true }));
+  return {
+    execute,
+    tool: {
+      name: "run_preview",
+      description: "A previewable analysis tool.",
+      parameters: { type: "object", properties: {} },
+      previewable: true,
+      describeAction: () => ({ summary: "run the analysis" }),
+      isDestructive: opts.destructive ? () => true : undefined,
+      execute,
+    },
+  };
+}
+
+const USER: LoopMessage = { role: "user", content: "go" };
+
+/** Run a single tool call to completion and report what the gate did. */
+async function runOnce(opts: {
+  tool: AiTool;
+  reviewMode: "step" | "plan";
+  approve?: ApprovalDecision;
+  withApprover?: boolean;
+}): Promise<{ requests: ApprovalRequest[] }> {
+  const requests: ApprovalRequest[] = [];
+  const requestApproval = vi.fn(
+    async (req: ApprovalRequest): Promise<ApprovalDecision> => {
+      requests.push(req);
+      return opts.approve ?? "allow";
+    },
+  );
+  const callModel = vi
+    .fn<(m: LoopMessage[], t: unknown[]) => Promise<ModelResponse>>()
+    .mockResolvedValueOnce(assistantWithToolCall(opts.tool.name, {}))
+    .mockResolvedValueOnce(assistantFinal("done"));
+
+  await runAgentLoop({
+    messages: [USER],
+    tools: [opts.tool],
+    callModel,
+    getReviewMode: () => opts.reviewMode,
+    ...(opts.withApprover === false ? {} : { requestApproval }),
+  });
+  return { requests };
+}
+
+// ---- read-only proceeds (both modes) ----------------------------------------
+
+describe("gate decision table: pure read-only", () => {
+  it("proceeds with no confirm in step mode", async () => {
+    const { tool, execute } = makeReadOnlyTool();
+    const { requests } = await runOnce({ tool, reviewMode: "step" });
+    expect(requests).toHaveLength(0);
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it("proceeds with no confirm in plan mode", async () => {
+    const { tool, execute } = makeReadOnlyTool();
+    const { requests } = await runOnce({ tool, reviewMode: "plan" });
+    expect(requests).toHaveLength(0);
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---- destructive hard-stop confirms in BOTH modes ---------------------------
+
+describe("gate decision table: destructive hard-stop", () => {
+  it("confirms a destructive action in step mode", async () => {
+    const { tool, execute } = makeActionTool({ destructive: true });
+    const { requests } = await runOnce({ tool, reviewMode: "step" });
+    expect(requests).toHaveLength(1);
+    expect(requests[0].kind).toBe("action");
+    if (requests[0].kind === "action") expect(requests[0].destructive).toBe(true);
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it("confirms a destructive action in plan mode", async () => {
+    const { tool, execute } = makeActionTool({ destructive: true });
+    const { requests } = await runOnce({ tool, reviewMode: "plan" });
+    expect(requests).toHaveLength(1);
+    expect(requests[0].kind).toBe("action");
+    if (requests[0].kind === "action") expect(requests[0].destructive).toBe(true);
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it("confirms a destructive step in plan mode EVEN AFTER the plan was approved", async () => {
+    // propose_plan first (sets planState.approved), then a destructive action.
+    // The hard-stop must still raise its own confirm, two approvals total.
+    const { tool, execute } = makeActionTool({ destructive: true });
+    const requests: ApprovalRequest[] = [];
+    const requestApproval = vi.fn(
+      async (req: ApprovalRequest): Promise<ApprovalDecision> => {
+        requests.push(req);
+        return "allow";
+      },
+    );
+    const callModel = vi
+      .fn<(m: LoopMessage[], t: unknown[]) => Promise<ModelResponse>>()
+      .mockResolvedValueOnce(
+        assistantWithToolCall("propose_plan", { steps: ["Delete it"] }),
+      )
+      .mockResolvedValueOnce(assistantWithToolCall("do_action", {}, "call_2"))
+      .mockResolvedValueOnce(assistantFinal("done"));
+
+    await runAgentLoop({
+      messages: [USER],
+      tools: [proposePlanTool, tool],
+      callModel,
+      getReviewMode: () => "plan",
+      requestApproval,
+    });
+
+    expect(requests).toHaveLength(2);
+    expect(requests[0].kind).toBe("plan");
+    expect(requests[1].kind).toBe("action");
+    if (requests[1].kind === "action") expect(requests[1].destructive).toBe(true);
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it("confirms even a previewable tool when it reports itself destructive (both modes)", async () => {
+    for (const reviewMode of ["step", "plan"] as const) {
+      const { tool, execute } = makePreviewableTool({ destructive: true });
+      const { requests } = await runOnce({ tool, reviewMode });
+      expect(requests, `mode ${reviewMode}`).toHaveLength(1);
+      expect(execute).toHaveBeenCalledTimes(1);
+    }
+  });
+});
+
+// ---- step mode confirms action AND previewable ------------------------------
+
+describe("gate decision table: step mode confirms every step", () => {
+  it("confirms a non-destructive action tool", async () => {
+    const { tool, execute } = makeActionTool();
+    const { requests } = await runOnce({ tool, reviewMode: "step" });
+    expect(requests).toHaveLength(1);
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it("confirms a previewable tool (the instant analysis/plot tools gate in step mode)", async () => {
+    const { tool, execute } = makePreviewableTool();
+    const { requests } = await runOnce({ tool, reviewMode: "step" });
+    expect(requests).toHaveLength(1);
+    expect(requests[0].kind).toBe("action");
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT run a previewable tool when the user skips in step mode", async () => {
+    const { tool, execute } = makePreviewableTool();
+    const { requests } = await runOnce({
+      tool,
+      reviewMode: "step",
+      approve: "skip",
+    });
+    expect(requests).toHaveLength(1);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("an approved plan does NOT skip the per-step confirm in step mode", async () => {
+    // propose_plan approved, then a non-destructive action. Step mode reviews
+    // every step regardless, so this raises TWO approvals (plan + the step).
+    const { tool, execute } = makeActionTool();
+    const requests: ApprovalRequest[] = [];
+    const requestApproval = vi.fn(
+      async (req: ApprovalRequest): Promise<ApprovalDecision> => {
+        requests.push(req);
+        return "allow";
+      },
+    );
+    const callModel = vi
+      .fn<(m: LoopMessage[], t: unknown[]) => Promise<ModelResponse>>()
+      .mockResolvedValueOnce(
+        assistantWithToolCall("propose_plan", { steps: ["Do it"] }),
+      )
+      .mockResolvedValueOnce(assistantWithToolCall("do_action", {}, "call_2"))
+      .mockResolvedValueOnce(assistantFinal("done"));
+
+    await runAgentLoop({
+      messages: [USER],
+      tools: [proposePlanTool, tool],
+      callModel,
+      getReviewMode: () => "step",
+      requestApproval,
+    });
+
+    expect(requests).toHaveLength(2);
+    expect(requests[0].kind).toBe("plan");
+    expect(requests[1].kind).toBe("action");
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---- plan mode: previewable runs free, action gates on plan approval --------
+
+describe("gate decision table: plan mode", () => {
+  it("runs a previewable tool free (no confirm) in plan mode", async () => {
+    const { tool, execute } = makePreviewableTool();
+    const { requests } = await runOnce({ tool, reviewMode: "plan" });
+    expect(requests).toHaveLength(0);
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it("runs an action tool free WHEN the plan was approved", async () => {
+    // propose_plan approved (sets planState.approved), then a non-destructive
+    // action runs with NO second confirm, one approval total (the plan).
+    const { tool, execute } = makeActionTool();
+    const requests: ApprovalRequest[] = [];
+    const requestApproval = vi.fn(
+      async (req: ApprovalRequest): Promise<ApprovalDecision> => {
+        requests.push(req);
+        return "allow";
+      },
+    );
+    const callModel = vi
+      .fn<(m: LoopMessage[], t: unknown[]) => Promise<ModelResponse>>()
+      .mockResolvedValueOnce(
+        assistantWithToolCall("propose_plan", { steps: ["Do it"] }),
+      )
+      .mockResolvedValueOnce(assistantWithToolCall("do_action", {}, "call_2"))
+      .mockResolvedValueOnce(assistantFinal("done"));
+
+    await runAgentLoop({
+      messages: [USER],
+      tools: [proposePlanTool, tool],
+      callModel,
+      getReviewMode: () => "plan",
+      requestApproval,
+    });
+
+    expect(requests).toHaveLength(1);
+    expect(requests[0].kind).toBe("plan");
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it("confirms an action tool ONCE when the plan was NOT approved (lone-step fallback)", async () => {
+    const { tool, execute } = makeActionTool();
+    const { requests } = await runOnce({ tool, reviewMode: "plan" });
+    expect(requests).toHaveLength(1);
+    expect(requests[0].kind).toBe("action");
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---- no approver -> declined fail-safe (a gating call) ----------------------
+
+describe("gate decision table: no approver", () => {
+  it("declines a previewable tool in step mode when no approver is wired", async () => {
+    const { tool, execute } = makePreviewableTool();
+    const { requests } = await runOnce({
+      tool,
+      reviewMode: "step",
+      withApprover: false,
+    });
+    expect(requests).toHaveLength(0);
+    expect(execute).not.toHaveBeenCalled();
+  });
+});
