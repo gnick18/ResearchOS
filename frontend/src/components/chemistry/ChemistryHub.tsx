@@ -703,58 +703,65 @@ export function ChemistryHub({
           </select>
         </div>
 
-        {/* search mode toggle + input */}
+        {/* Library filter + structure search. Both act ONLY on your own
+            molecules. Finding NEW compounds is the PubChem action above, this
+            box never reaches outside your library. The default is a plain
+            filter so it does not read like a global chemical search. */}
         <div className="border-b border-border px-3 py-2 space-y-2">
-          {/* Text / Structure toggle */}
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setSearchMode("text")}
-              className={`rounded-md px-2.5 py-1 text-meta font-semibold transition-colors ${
-                searchMode === "text"
-                  ? "bg-accent-soft text-brand-action"
-                  : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
-              }`}
-            >
-              Text
-            </button>
-            <button
-              type="button"
-              onClick={() => setSearchMode("structure")}
-              className={`rounded-md px-2.5 py-1 text-meta font-semibold transition-colors ${
-                searchMode === "structure"
-                  ? "bg-accent-soft text-brand-action"
-                  : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
-              }`}
-            >
-              Structure
-            </button>
-            {searchMode === "text" ? (
-              <Tooltip label={`Sort by ${sort === "recent" ? "name" : "recent"}`}>
+          {searchMode === "text" ? (
+            <>
+              {/* Filter the molecules you already have */}
+              <div className="relative">
+                <Icon
+                  name="search"
+                  className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-foreground-muted"
+                />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Filter your molecules"
+                  aria-label="Filter your molecules by name, formula, or SMILES"
+                  className="w-full min-w-0 rounded-md border border-border bg-surface-raised pl-8 pr-2.5 py-1.5 text-body text-foreground placeholder:text-foreground-muted outline-none focus:border-brand-action"
+                />
+              </div>
+              <div className="flex items-center justify-between">
                 <button
                   type="button"
-                  onClick={() => setSort((s) => (s === "recent" ? "name" : "recent"))}
-                  aria-label="Toggle sort order"
-                  className="ml-auto shrink-0 rounded-md border border-border px-2 py-1 text-meta font-semibold text-foreground-muted hover:text-foreground"
+                  onClick={() => setSearchMode("structure")}
+                  className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-meta font-semibold text-brand-action hover:bg-accent-soft"
                 >
-                  {sort === "recent" ? "Recent" : "Name"}
+                  <Icon name="moleculeLinear" className="h-3.5 w-3.5" />
+                  Search by structure
                 </button>
-              </Tooltip>
-            ) : null}
-          </div>
-
-          {/* Text search input */}
-          {searchMode === "text" ? (
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search name, formula, SMILES"
-              className="w-full min-w-0 rounded-md border border-border bg-surface-raised px-2.5 py-1.5 text-body text-foreground placeholder:text-foreground-muted outline-none focus:border-brand-action"
-            />
+                <Tooltip label={`Sort by ${sort === "recent" ? "name" : "recent"}`}>
+                  <button
+                    type="button"
+                    onClick={() => setSort((s) => (s === "recent" ? "name" : "recent"))}
+                    aria-label="Toggle sort order"
+                    className="shrink-0 rounded-md border border-border px-2 py-1 text-meta font-semibold text-foreground-muted hover:text-foreground"
+                  >
+                    {sort === "recent" ? "Recent" : "Name"}
+                  </button>
+                </Tooltip>
+              </div>
+            </>
           ) : (
-            /* Structure search controls */
+            /* Structure search, still over your own library */
             <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-meta font-semibold text-foreground">
+                  Search your library by structure
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSearchMode("text")}
+                  className="inline-flex items-center gap-0.5 text-meta font-semibold text-foreground-muted hover:text-foreground"
+                >
+                  <Icon name="chevronLeft" className="h-3.5 w-3.5" />
+                  Filter
+                </button>
+              </div>
               {/* Substructure / Similar sub-toggle */}
               <div className="flex items-center gap-1">
                 <button
