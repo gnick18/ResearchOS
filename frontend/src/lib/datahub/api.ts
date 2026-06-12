@@ -179,6 +179,8 @@ export const dataHubApi = {
       table_type: data.table_type,
       // Optional Column-table entry format; absent stays absent (replicates).
       ...(data.entryFormat ? { entryFormat: data.entryFormat } : {}),
+      // Optional derived-table link; absent stays absent (a normal entered table).
+      ...(data.derivedFrom ? { derivedFrom: data.derivedFrom } : {}),
       created_at: now,
     };
     const content: DataHubDocContent = {
@@ -210,6 +212,7 @@ export const dataHubApi = {
       name: data.name ?? content.meta.name,
       table_type: data.table_type ?? content.meta.table_type,
       entryFormat: data.entryFormat ?? content.meta.entryFormat,
+      derivedFrom: data.derivedFrom ?? content.meta.derivedFrom,
       project_ids: data.project_ids ?? content.meta.project_ids,
       folder_path:
         data.folder_path !== undefined ? data.folder_path : content.meta.folder_path,

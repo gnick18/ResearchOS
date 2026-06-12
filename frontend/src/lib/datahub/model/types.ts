@@ -68,6 +68,41 @@ export type SubcolumnKind = "replicate" | "mean" | "sd" | "sem" | "n";
  */
 export type EntryFormat = "replicates" | "mean-sd-n" | "mean-sem-n";
 
+/**
+ * The Prism-style Data Processing transforms a DERIVED table can apply to a
+ * source table. A derived table's columns/rows are COMPUTED from its source
+ * (see DerivedFrom), not hand-entered. The exact math of each transform lives in
+ * datahub/transforms.ts (one pure function per kind); this union is the stored
+ * discriminator so a derived document records which transform produced it.
+ */
+export type TransformKind =
+  | "transform"
+  | "normalize"
+  | "transpose"
+  | "removeBaseline"
+  | "fractionOfTotal";
+
+/**
+ * The live link from a DERIVED table back to its SOURCE table. A document that
+ * carries this on its meta is a derived table: its columns/rows are recomputed
+ * from the source document's CURRENT content every time the derived document is
+ * opened (see the DATA-SHAPE NOTE on DataHubDocument.derivedFrom). A document
+ * WITHOUT derivedFrom is a normal entered table, byte-identical to today.
+ *
+ *   - sourceTableId is the DataHubDocument.id of the source table (a string id,
+ *     the same id space dataHubApi uses). The source may live under any owner;
+ *     the recompute path resolves it by id via dataHubApi.getContent.
+ *   - transform is which TransformKind produced this derived table.
+ *   - params are the transform-specific options (e.g. the function for
+ *     "transform", the baseline mode for "normalize"). The shape is owned by the
+ *     matching pure function in transforms.ts.
+ */
+export interface DerivedFrom {
+  sourceTableId: string;
+  transform: TransformKind;
+  params: Record<string, unknown>;
+}
+
 /** A single column definition (one entry in the table's column list). */
 export interface ColumnDef {
   id: string;
@@ -160,6 +195,26 @@ export interface DataHubDocument {
    * meaningful for table_type "column"; ignored for the other archetypes.
    */
   entryFormat?: EntryFormat;
+  /**
+   * DATA-SHAPE NOTE (derived tables, the live link).
+   *
+   * Optional and additive. Absent means this is a normal ENTERED table (the
+   * current behavior, columns/rows are hand-entered and authoritative), so a
+   * document written before this field existed reads back byte-identical and the
+   * recompute path is never engaged.
+   *
+   * Present means this is a DERIVED table. Its columns/rows are NOT authored. The
+   * persisted columns/rows are a snapshot of the last computed result (so the
+   * catalog mirror and any tool reading getContent still sees a valid table), but
+   * the SOURCE OF TRUTH is the source document plus this transform. On open the
+   * loader fetches the source's CURRENT content by sourceTableId and recomputes
+   * the columns/rows in memory, so a derived table always reflects fresh source
+   * data (the live link). We hold the recomputed content IN MEMORY ON OPEN rather
+   * than trusting the persisted snapshot, which keeps the link live with no cache
+   * staleness to reconcile; the persisted snapshot is only a fallback projection
+   * for list/getContent and for a deleted-source empty state.
+   */
+  derivedFrom?: DerivedFrom;
   created_at: string;
   last_edited_by?: string;
   last_edited_at?: string;
@@ -188,6 +243,13 @@ export interface DataHubCreate {
   table_type: DataHubTableType;
   /** Optional Column-table entry format; absent means "replicates". */
   entryFormat?: EntryFormat;
+  /**
+   * Optional derived-table link; absent makes a normal entered table. When set,
+   * the create caller should also seed the initial computed columns/rows snapshot
+   * (the next-phase Transform dialog does this); the recompute path keeps it fresh
+   * on every later open.
+   */
+  derivedFrom?: DerivedFrom;
   project_ids?: string[];
   folder_path?: string | null;
   columns?: ColumnDef[];
@@ -206,6 +268,8 @@ export interface DataHubUpdate {
   table_type?: DataHubTableType;
   /** Optional Column-table entry format; absent leaves the stored value as is. */
   entryFormat?: EntryFormat;
+  /** Optional derived-table link; absent leaves the stored value as is. */
+  derivedFrom?: DerivedFrom;
   project_ids?: string[];
   folder_path?: string | null;
   last_edited_by?: string;
