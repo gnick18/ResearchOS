@@ -290,7 +290,10 @@ export default function TermsOfService() {
             result, calculated value, sequence operation, or anything the AI
             assistant produces before you rely on it in your research or a
             publication. The AI can make mistakes, so treat its output as a
-            draft to review, not a final answer.
+            draft to review, not a final answer. ResearchOS does not provide
+            professional, medical, or legal advice, and nothing it produces is a
+            substitute for your own professional judgment or your
+            institution&apos;s review.
           </p>
         </Section>
 
@@ -306,10 +309,17 @@ export default function TermsOfService() {
           </p>
           <p>
             Where liability cannot be excluded by law, the total liability of
-            ResearchOS LLC for any claim related to the paid services is limited
-            to the amount you paid us for those services in the twelve months
-            before the claim. Some places do not allow certain limitations, so
-            parts of this section may not apply to you.
+            ResearchOS LLC for any claim arising out of or related to the
+            software or the service is limited to the greater of (a) the amount
+            you paid us in the twelve months before the claim, or (b) one
+            hundred US dollars.
+          </p>
+          <p>
+            Some jurisdictions do not allow the exclusion of certain warranties
+            or the limitation of certain damages, so some of the above may not
+            apply to you. In those places our warranties and our liability are
+            limited to the fullest extent permitted by law, and nothing in these
+            terms takes away a consumer right you have that cannot be waived.
           </p>
         </Section>
 
@@ -336,6 +346,44 @@ export default function TermsOfService() {
             page is visible in the public repository. If you keep using the
             service after a change takes effect, that means you accept the
             updated terms.
+          </p>
+        </Section>
+
+        <Section id="feedback" title="Feedback">
+          <p>
+            If you send us feedback, ideas, or bug reports about ResearchOS, we
+            may use them to improve the product without any obligation to you and
+            without owing you anything for them. You never have to send feedback,
+            and doing so does not hand us any rights to your own research, only
+            permission to act on the suggestion.
+          </p>
+        </Section>
+
+        <Section id="general" title="The general legal bits">
+          <p>
+            These terms, together with the{" "}
+            <Link
+              href="/privacy"
+              className="font-semibold text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
+            >
+              privacy policy
+            </Link>{" "}
+            and the AGPLv3 license where it governs the software, are the whole
+            agreement between you and ResearchOS LLC about the hosted service,
+            and they replace any earlier understanding on the subject. If any
+            part of these terms is found unenforceable, the rest stays in effect
+            and the unenforceable part is narrowed only as far as the law
+            requires.
+          </p>
+          <p>
+            If we do not enforce a part of these terms right away, that is not a
+            waiver of our right to do so later. You may not transfer your rights
+            under these terms without our consent. We may transfer ours to a
+            successor, for example if the project or company changes hands, in a
+            way that does not reduce your rights. We are also not responsible for
+            a failure or delay caused by something outside our reasonable
+            control, such as a network outage, an upstream provider, or another
+            event we cannot prevent.
           </p>
         </Section>
 
