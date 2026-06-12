@@ -575,6 +575,27 @@ export default function DataHubPage() {
     [openContent],
   );
 
+  // Rename a summary group on a summary-format Column table: its three
+  // subcolumns (mean / spread / n) share the group name, so the rename writes
+  // the new name to each of them (the foundation keys the group name off the
+  // mean column, but all three carry it). Mirrors the grouped-table rename path.
+  const handleRenameSummaryGroup = useCallback(
+    (datasetId: string, name: string) => {
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      const trimmed = name.trim();
+      if (trimmed === "") return;
+      for (const col of openContent.columns) {
+        if (col.role === "subcolumn" && col.datasetId === datasetId) {
+          updateColumnInDoc(handle.doc, col.id, { name: trimmed });
+        }
+      }
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+    },
+    [openContent],
+  );
+
   // Rename a column group on a Grouped table: every replicate column in the
   // group shares the group name, so a rename writes the new name to each of
   // them. Reprojects so the header and any two-way ANOVA pick up the new name.
@@ -1438,14 +1459,20 @@ export default function DataHubPage() {
     const addColumnLabel =
       type === "xy" ? "Add Y column" : type === "grouped" ? "Add group" : "Add group";
 
-    const addGroup: ToolbarGroup = [
-      {
+    // A summary-format Column table holds a single fixed row (the entered
+    // descriptives), so Add row does not apply there; only Add group does.
+    const summary =
+      type === "column" && isSummaryFormat(openContent.meta.entryFormat);
+
+    const addGroup: ToolbarGroup = [];
+    if (!summary) {
+      addGroup.push({
         icon: "plus",
         label: type === "survival" ? "Add subject" : "Add row",
         onClick: handleAddRow,
         testId: "datahub-toolbar-add-row",
-      },
-    ];
+      });
+    }
     if (type !== "survival") {
       addGroup.push({
         icon: "plus",
@@ -1742,6 +1769,7 @@ export default function DataHubPage() {
                     onCellCommit={handleCellCommit}
                     onAddRow={handleAddRow}
                     onAddColumn={handleAddColumn}
+                    onRenameSummaryGroup={handleRenameSummaryGroup}
                     crud={gridCrud}
                     hideAddControls
                   />
