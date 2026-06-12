@@ -41,24 +41,21 @@ vi.mock("@/components/ai/BeakerBotConversation", () => ({
   ),
 }));
 
-// BeakerSearchAskHeader renders as a stub with controllable callbacks.
+// BeakerSearchAskHeader renders as a stub with a controllable back callback.
 vi.mock("@/components/ai/BeakerSearchAskHeader", () => ({
-  default: ({
-    onBack,
-    onNewChat,
-  }: {
-    onBack: () => void;
-    onNewChat: () => void;
-  }) => (
+  default: ({ onBack }: { onBack: () => void }) => (
     <div data-testid="beakersearch-ask-header-stub">
       <button data-testid="beakersearch-back-to-search" onClick={onBack} type="button">
         Back
       </button>
-      <button data-testid="beakersearch-new-chat" onClick={onNewChat} type="button">
-        New chat
-      </button>
     </div>
   ),
+}));
+
+// The left history rail is its own component, stubbed here so the morph test
+// does not pull in the persistence layer (listThreads etc.).
+vi.mock("@/components/ai/BeakerChatRail", () => ({
+  default: () => <div data-testid="beaker-chat-rail-stub" />,
 }));
 
 // Suppress createPortal: render inline so queries work.
@@ -148,19 +145,8 @@ describe("CommandPalette ask-mode morph", () => {
     expect(onExitAskMode).toHaveBeenCalledTimes(1);
   });
 
-  it("calls clearConversation on the store when new-chat is clicked", () => {
-    render(
-      <CommandPalette
-        open
-        onClose={vi.fn()}
-        commands={[]}
-        askMode="ask"
-        onExitAskMode={vi.fn()}
-      />,
-    );
-    fireEvent.click(screen.getByTestId("beakersearch-new-chat"));
-    expect(mockClearConversation).toHaveBeenCalledTimes(1);
-  });
+  // New chat moved from the header into the left history rail (BeakerChatRail,
+  // stubbed here), so it is covered by the rail's own tests, not the morph test.
 
   it("renders nothing when palette is closed", () => {
     const { container } = render(
