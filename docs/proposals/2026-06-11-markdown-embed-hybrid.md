@@ -43,6 +43,19 @@ Backward compatible: an existing `[name](/path)` with no `#ros` renders as a chi
 
 The alone-in-paragraph rule is what Notion and Obsidian use, and it falls out naturally from the markdown AST (a paragraph whose only child is the link).
 
+### Images are the special case, native image syntax
+
+An image is not a link, it is content, and markdown already has a native form for it. So an image embed uses the standard markdown image syntax, not the `#ros` link form:
+
+```
+![Colony PCR, lanes 1 to 8, expected 1.2 kb band](Images/gel-pcr-screen.png#w=420)
+```
+
+- Outside ResearchOS this renders as a real image (better than a link, the picture actually shows). The alt text is the caption, the `#w=420` fragment is ignored.
+- Inside ResearchOS we upgrade the rendered `<img>` to the rich image embed, the same way we upgrade `<a>` object links to chips and embeds. The fragment carries options (`w` resize, later a `pin`), the alt text is the caption.
+
+This already half-exists. `RenderedMarkdown` intercepts the `img` node today and renders it through `AnnotatedImage`, which resolves the file and overlays the `.annot.json` annotations. The work is to add the embed controls (resize, caption, reposition, an Annotate button) and the matching CodeMirror widget. The bonus is that every image already in every note is already `![]()`, so they all gain the controls with no migration. Non-image files (pdf, csv, rmd) have no native markdown form, so those keep the `[name](/files/ID#ros=pdf)` link form.
+
 ## One renderer, two hosts
 
 A single `<ObjectEmbed type id view opts />` React component, lazy-loading a per-type renderer module. It is the only place per-type rendering lives, and it is consumed by both hosts so the editor and the preview never drift:
@@ -115,7 +128,7 @@ For every type: the inline chip, the default block view, other available views, 
 ### file  `/files/ID`  (render the content, by type)
 A file embed renders the file's CONTENT inline, with the renderer chosen by extension, so a note can inline any artifact from anywhere in the data folder (not only this note's own attachments). This is the powerful reframe of the original "file card": the card is just the fallback.
 - Chip: file icon + filename (inline mention, unchanged).
-- image (png / jpg / tif / gif): renders the actual image as a figure. The embed adds what native attachment cannot. Resize (`w=`), caption, reposition (it is a block line, so it moves with the text), and Annotate, which opens the existing photo-annotation editor and renders the `.annot.json` vector overlay on top of the image. Native attachment (the Images tab) still works for quick capture, the embed is the richer in-context option.
+- image (png / jpg / tif / gif): uses the NATIVE markdown image syntax `![caption](path#w=)`, not the `#ros` link form (see "Images are the special case" above), so the picture shows in any viewer. In-app it renders as a figure with what native attachment cannot give. Resize (`w=`), caption (the alt text), reposition (it is a block line, so it moves with the text), and Annotate, which opens the existing photo-annotation editor and renders the `.annot.json` vector overlay on top. Already half-built via `AnnotatedImage`.
 - pdf: an inline PDF viewer (a page, or first page plus expand), not a thumbnail card.
 - csv / tsv / xlsx: rendered through the Data Hub table view, the same grid plus summary the datahub-table embed uses, so a raw data file reads like a real table.
 - rmd / md / ipynb: rendered fully inline as a nested document inside the larger note (the markdown / notebook rendered, not shown as source).
