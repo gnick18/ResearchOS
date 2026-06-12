@@ -1,0 +1,16 @@
+{
+  "header": { "type": "esearch", "version": "0.3" },
+  "esearchresult": {
+    "count": "4",
+    "retmax": "4",
+    "retstart": "0",
+    "idlist": ["3509526", "3505192", "3503949", "10322146"],
+    "translationset": [
+      {
+        "from": "Aspergillus fumigatus[orgn]",
+        "to": "\"Aspergillus fumigatus\"[Organism]"
+      }
+    ],
+    "querytranslation": "cyp51A[All Fields] AND \"Aspergillus fumigatus\"[Organism]"
+  }
+}
