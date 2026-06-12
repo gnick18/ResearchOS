@@ -1214,9 +1214,10 @@ export function renderPlotSvg(
     `<line x1="${geo.x0}" y1="${geo.y0}" x2="${geo.x1}" y2="${geo.y0}" stroke="${AXIS_COLOR}" stroke-width="1"/>`,
   );
 
-  // Groups: bar, mean line, error bar, points, label. data-series on the primary
-  // fill element (the bar, else the first point / mean line) lets a direct edit
-  // on the plot hit-test which series the click landed on.
+  // Groups: bar, mean line, error bar, points, label. EVERY drawn element of a
+  // series carries data-series, so a double-click or right-click anywhere on the
+  // series (any point, the error bar, the mean line) hit-tests to it rather than
+  // only the one primary element.
   geo.groups.forEach((g, i) => {
     // An explicit per-series override always wins, even in mono mode. Otherwise a
     // mono plot uses a hatch pattern (bars) or a grey shade (points / lines).
@@ -1232,22 +1233,22 @@ export function renderPlotSvg(
     }
     if (g.meanY !== null) {
       parts.push(
-        `<line${g.bar ? "" : ` data-series="${i}"`} x1="${g.cx - g.meanHalf}" y1="${g.meanY}" x2="${g.cx + g.meanHalf}" y2="${g.meanY}" stroke="${lineColor}" stroke-width="2.4"/>`,
+        `<line data-series="${i}" x1="${g.cx - g.meanHalf}" y1="${g.meanY}" x2="${g.cx + g.meanHalf}" y2="${g.meanY}" stroke="${lineColor}" stroke-width="2.4"/>`,
       );
     }
     if (g.errorBar) {
       const eb = g.errorBar;
       parts.push(
-        `<line x1="${eb.cx}" y1="${eb.bottomY}" x2="${eb.cx}" y2="${eb.topY}" stroke="${lineColor}" stroke-width="1.6"/>` +
-          `<line x1="${eb.cx - eb.capHalf}" y1="${eb.topY}" x2="${eb.cx + eb.capHalf}" y2="${eb.topY}" stroke="${lineColor}" stroke-width="1.6"/>` +
-          `<line x1="${eb.cx - eb.capHalf}" y1="${eb.bottomY}" x2="${eb.cx + eb.capHalf}" y2="${eb.bottomY}" stroke="${lineColor}" stroke-width="1.6"/>`,
+        `<line data-series="${i}" x1="${eb.cx}" y1="${eb.bottomY}" x2="${eb.cx}" y2="${eb.topY}" stroke="${lineColor}" stroke-width="1.6"/>` +
+          `<line data-series="${i}" x1="${eb.cx - eb.capHalf}" y1="${eb.topY}" x2="${eb.cx + eb.capHalf}" y2="${eb.topY}" stroke="${lineColor}" stroke-width="1.6"/>` +
+          `<line data-series="${i}" x1="${eb.cx - eb.capHalf}" y1="${eb.bottomY}" x2="${eb.cx + eb.capHalf}" y2="${eb.bottomY}" stroke="${lineColor}" stroke-width="1.6"/>`,
       );
     }
-    g.points.forEach((p, k) => {
-      // Tag the first point of a non-bar group as the series hit-target.
-      const tag = !g.bar && k === 0 ? ` data-series="${i}"` : "";
+    g.points.forEach((p) => {
+      // Every point is a series hit-target, so a click on any replicate marker
+      // (not only the first) opens the color editor for the series.
       parts.push(
-        `<circle${tag} cx="${p.x}" cy="${p.y}" r="3" fill="${lineColor}" opacity="0.9"/>`,
+        `<circle data-series="${i}" cx="${p.x}" cy="${p.y}" r="3" fill="${lineColor}" opacity="0.9"/>`,
       );
     });
     parts.push(
@@ -1754,11 +1755,11 @@ export function renderXYPlotSvg(geo: XYPlotGeometry, style: PlotStyle): string {
     );
   }
 
-  // Raw observations. The first marker carries data-series="0" (an XY figure is
-  // a single series) so a direct edit on the plot can recolor it.
-  geo.points.forEach((p, k) => {
+  // Raw observations. Every marker carries data-series="0" (an XY figure is a
+  // single series) so a double-click or right-click on any point recolors it.
+  geo.points.forEach((p) => {
     parts.push(
-      `<circle${k === 0 ? ' data-series="0"' : ""} cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="3.2" fill="${geo.color}" opacity="0.9"/>`,
+      `<circle data-series="0" cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="3.2" fill="${geo.color}" opacity="0.9"/>`,
     );
   });
 
