@@ -28,16 +28,12 @@ import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Icon } from "@/components/icons";
-import BeakerBot from "@/components/BeakerBot";
 import { useAiChat } from "./useAiChat";
 import ObjectChip from "@/components/ObjectChip";
 import ObjectEmbed from "@/components/embeds/ObjectEmbed";
 import { parseObjectDeepLink, parseObjectEmbed } from "@/lib/references";
 import { loneEmbedFromChatParagraph, type ChatHastNode } from "./chat-embed-detect";
 import type { TransformApprovalRequest, TransformStepBlock } from "@/lib/ai/tools/types";
-import BeakerBotThinking from "./BeakerBotThinking";
-import { useThinkingVariant } from "./thinking-variant";
-import DevThinkingVariantButton from "./DevThinkingVariantButton";
 
 // Lightweight markdown renderer for assistant replies only. Scoped to this
 // component. Uses standard semantic elements styled by the app's Tailwind prose
@@ -178,7 +174,7 @@ function ChoicePrompt({
     >
       <div className="mb-2 flex items-start gap-2">
         <span className="text-brand">
-          <BeakerBot pose="idle" className="h-6 w-6" ariaLabel="BeakerBot has a question" />
+          <Icon name="ask" className="h-5 w-5" title="BeakerBot has a question" />
         </span>
         <p className="text-meta text-foreground">{question}</p>
       </div>
@@ -321,7 +317,7 @@ function TransformApprovalCard({
       {/* Header */}
       <div className="mb-2 flex items-start gap-2">
         <span className="text-brand">
-          <BeakerBot pose="pointing" className="h-6 w-6" ariaLabel="BeakerBot wants to transform a table" />
+          <Icon name="transform" className="h-5 w-5" title="Transform a table" />
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-meta font-semibold text-foreground">
@@ -417,7 +413,6 @@ export default function BeakerBotConversation({
   const listRef = useRef<HTMLDivElement | null>(null);
   // Which "thinking" indicator variant is live. Defaults to pulse; the dev
   // switcher (gated to development) lets us flip it without code.
-  const thinkingVariant = useThinkingVariant();
 
   // Bridge registration (useNavigationBridge + useBeakerBotMessageBridge) moved
   // to BeakerBotBridges (mounted once in app/layout.tsx). This component is now
@@ -464,11 +459,15 @@ export default function BeakerBotConversation({
                 m.content ? (
                   <AssistantMarkdown content={m.content} />
                 ) : (
-                  <span data-testid="beakerbot-status">
-                    <BeakerBotThinking
-                      variant={thinkingVariant}
-                      label={status ?? "Thinking"}
-                    />
+                  // Option C (2026-06-12). The thinking mascot folds into the
+                  // riding BeakerBot on the palette top edge (it bobs while he
+                  // works). In the thread we show the single grey status LABEL
+                  // only, no second beaker. The rider carries the live motion.
+                  <span
+                    data-testid="beakerbot-status"
+                    className="text-foreground-muted"
+                  >
+                    {status ?? "Thinking"}
                   </span>
                 )
               ) : (
@@ -497,11 +496,7 @@ export default function BeakerBotConversation({
         >
           <div className="mb-2 flex items-start gap-2">
             <span className="text-brand">
-              <BeakerBot
-                pose="pointing-up"
-                className="h-6 w-6"
-                ariaLabel="BeakerBot has a plan"
-              />
+              <Icon name="list" className="h-5 w-5" title="BeakerBot has a plan" />
             </span>
             <p className="text-meta text-foreground">
               {pendingApproval.request.summary
@@ -600,11 +595,7 @@ export default function BeakerBotConversation({
         >
           <div className="mb-2 flex items-start gap-2">
             <span className="text-brand">
-              <BeakerBot
-                pose="idle"
-                className="h-6 w-6"
-                ariaLabel="BeakerBot drafted a note"
-              />
+              <Icon name="pencil" className="h-5 w-5" title="BeakerBot drafted a note" />
             </span>
             <p className="text-meta text-foreground">
               {pendingApproval.request.mode === "create"
@@ -676,10 +667,6 @@ export default function BeakerBotConversation({
 
       {/* Composer */}
       <div className="border-t border-border p-3">
-        {/* Dev-only thinking-indicator switcher. Renders null in production. */}
-        <div className="mb-2 flex justify-end">
-          <DevThinkingVariantButton />
-        </div>
         <div className="flex items-end gap-2">
           <textarea
             data-testid="beakerbot-input"
