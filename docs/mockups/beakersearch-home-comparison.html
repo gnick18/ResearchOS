@@ -84,12 +84,14 @@
   /* app device frame */
   .device {
     position: relative;
+    display: flex;
+    flex-direction: column;
     background: var(--app-bg);
     border: 1px solid var(--border);
     border-radius: 16px;
     overflow: hidden;
     box-shadow: 0 25px 50px -18px rgba(0,0,0,0.40);
-    height: 560px;
+    height: 468px;
   }
 
   /* ===== app top bar ===== */
@@ -99,6 +101,7 @@
     background: var(--surface-raised);
     border-bottom: 1px solid var(--border);
     position: relative; z-index: 5;
+    flex: none; flex-wrap: nowrap; white-space: nowrap;
   }
   .logo { display: inline-flex; align-items: center; gap: 7px; flex: none; }
   .logo .mark { width: 22px; height: 22px; }
@@ -136,7 +139,7 @@
   .barslot { display: inline-flex; align-items: center; flex: 1; justify-content: center; min-width: 0; }
 
   /* ===== app body, Workbench empty state ===== */
-  .appbody { position: relative; height: calc(560px - 47px); overflow: hidden; }
+  .appbody { position: relative; flex: 1; min-height: 0; overflow: hidden; }
   .empty-state { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; padding: 20px; }
   .empty-state .eicon { width: 56px; height: 56px; color: var(--foreground-muted); opacity: 0.6; }
   .empty-state h2 { font-size: 18px; margin: 0; font-weight: 700; }
@@ -211,6 +214,12 @@
   body.cmt-on .cmt { cursor: crosshair; }
   body.cmt-on .cmt:hover { outline: 2px dashed var(--accent); outline-offset: -2px; border-radius: 8px; }
   .cmt { position: relative; }
+  /* The bottom-anchored mock elements set their own absolute position; the
+     blanket .cmt position:relative above would otherwise drop them into normal
+     flow (below the device frame, then clipped). Re-assert absolute at higher
+     specificity so they stay docked. Absolute still gives the pin its
+     positioning context, so comment pins keep working. */
+  .appbody .askbar.cmt, .appbody .launcher.cmt, .appbody .fab-cluster.cmt, .appbody .surface.cmt { position: absolute; }
   .pin { position: absolute; top: -8px; right: -8px; z-index: 30; min-width: 18px; height: 18px; padding: 0 4px; background: var(--pin); color: #fff; border-radius: 9px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.4); cursor: pointer; }
   .pin.hl { outline: 2px solid var(--foreground); }
 
