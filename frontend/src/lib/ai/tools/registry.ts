@@ -45,6 +45,7 @@ import { askUserTool } from "./ask-user";
 import {
   listDataHubTablesTool,
   runDataHubAnalysisTool,
+  compareModelsTool,
   listDataHubAnalysesTool,
   readDataHubAnalysisTool,
 } from "./datahub-analysis";
@@ -106,6 +107,11 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // through ask_user, so it carries no `action` flag and runs immediately like the
   // perception tools, then navigates the user to the result.
   runDataHubAnalysisTool,
+  // Non-gated for the same reason. compare_models fits two curve models on an XY
+  // table and reports the F test (nested) + AICc through the same validated
+  // runAnalysis path, storing a reversible analysis the user asked for, then
+  // navigates to it. The engine owns every fit and statistic.
+  compareModelsTool,
   // Non-gated for the same reason. make_datahub_graph builds a reversible,
   // version-controlled figure the user explicitly asked for (and whose graph type
   // / error bar they may have tapped through ask_user) through the validated plot

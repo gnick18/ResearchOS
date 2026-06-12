@@ -48,8 +48,15 @@ import {
 } from "@/lib/loro/datahub-doc";
 import { getCurrentUserCached } from "@/lib/storage/json-store";
 import { groupColumns } from "@/lib/datahub/column-table";
+import { isXYTable, yColumns } from "@/lib/datahub/xy-table";
+import { getModel, listModels } from "@/lib/datahub/engine";
 import { planAnalysis, type AnalysisIntent } from "@/lib/datahub/planner";
-import { runAnalysis, type AnalysisType, type RunOutcome } from "@/lib/datahub/run-analysis";
+import {
+  runAnalysis,
+  type AnalysisType,
+  type RunOutcome,
+  type NormalizedModelComparison,
+} from "@/lib/datahub/run-analysis";
 import { plainLanguageSummary, formatP } from "@/lib/datahub/plain-language";
 import type {
   AnalysisSpec,
@@ -623,6 +630,225 @@ export const runDataHubAnalysisTool: AiTool = {
     );
 
     return run.result satisfies RunAnalysisResult;
+  },
+};
+
+// ---------------------------------------------------------------------------
+// compare_models (XY model comparison, maps to the modelComparison engine type)
+// ---------------------------------------------------------------------------
+
+/** The model-supplied args for compare_models, before resolution. */
+export type CompareModelsArgs = {
+  tableId: string;
+  /** The two curve-fit model ids to compare (must differ). */
+  modelA: string;
+  modelB: string;
+  /** True when the pair is nested (e.g. 4PL vs 5PL), which enables the F test. */
+  nested: boolean;
+  /** Which Y column to fit, by name or id. Omit to use the first Y column. */
+  yColumn?: string;
+};
+
+/** The compact, model-friendly result compare_models relays after a run. */
+export type CompareModelsResult =
+  | {
+      ok: true;
+      table: string;
+      xName: string;
+      yName: string;
+      nested: boolean;
+      /** The full normalized comparison (F test + AICc + per-model lines). */
+      comparison: NormalizedModelComparison;
+      analysisId: string;
+    }
+  | { ok: false; error: string };
+
+/** Parse the loose tool args into typed CompareModelsArgs. Pure. */
+export function parseCompareModelsArgs(
+  args: Record<string, unknown>,
+): CompareModelsArgs {
+  return {
+    tableId: typeof args.tableId === "string" ? args.tableId : "",
+    modelA: typeof args.modelA === "string" ? args.modelA.trim() : "",
+    modelB: typeof args.modelB === "string" ? args.modelB.trim() : "",
+    nested: args.nested === true,
+    yColumn:
+      typeof args.yColumn === "string" && args.yColumn.trim()
+        ? args.yColumn.trim()
+        : undefined,
+  };
+}
+
+/**
+ * Resolve the model's Y-column reference (name OR id, case-insensitive on name)
+ * to a real Y-column id, or the first Y column when none is named or the
+ * reference does not match (so a typo never yields no fit). Returns null when
+ * the table has no Y column at all. Pure.
+ */
+export function resolveYColumnId(
+  content: DataHubDocContent,
+  yColumn: string | undefined,
+): string | null {
+  const ys = yColumns(content);
+  if (ys.length === 0) return null;
+  if (!yColumn) return ys[0].id;
+  const ref = yColumn.trim().toLowerCase();
+  const match = ys.find(
+    (c) => c.id === yColumn || c.name.trim().toLowerCase() === ref,
+  );
+  return (match ?? ys[0]).id;
+}
+
+/**
+ * Build a modelComparison AnalysisSpec for the request against live content and
+ * run it through the SAME runAnalysis path the wizard uses, so BeakerBot never
+ * computes a fit, an F statistic, or an AICc. The engine owns the math; this
+ * only maps the model's words (a table, two model ids, a nested flag) onto the
+ * validated spec. Pure given the content. Returns the spec to store plus the
+ * compact result, or an error.
+ */
+export function buildModelComparison(
+  content: DataHubDocContent,
+  parsed: CompareModelsArgs,
+):
+  | { ok: true; spec: AnalysisSpec; result: Extract<CompareModelsResult, { ok: true }> }
+  | { ok: false; error: string } {
+  if (!isXYTable(content)) {
+    return {
+      ok: false,
+      error:
+        "Model comparison runs on an XY table (an X column plus one or more Y columns), and that table is not one. Pick an XY table, for example a dose-response curve.",
+    };
+  }
+  if (!parsed.modelA || !parsed.modelB) {
+    return { ok: false, error: "Pass two model ids to compare (modelA and modelB)." };
+  }
+  if (parsed.modelA === parsed.modelB) {
+    return { ok: false, error: "Pick two DIFFERENT models to compare." };
+  }
+  if (!getModel(parsed.modelA) || !getModel(parsed.modelB)) {
+    const known = listModels().map((m) => m.id).join(", ");
+    return {
+      ok: false,
+      error: `One of those models is not one the fitter knows. Valid model ids: ${known}.`,
+    };
+  }
+
+  const yId = resolveYColumnId(content, parsed.yColumn);
+  if (!yId) {
+    return {
+      ok: false,
+      error: "That XY table has no Y column to fit. Add a Y column of measurements first.",
+    };
+  }
+
+  const spec: AnalysisSpec = {
+    id: `analysis-${Date.now()}`,
+    type: "modelComparison",
+    params: {
+      modelA: parsed.modelA,
+      modelB: parsed.modelB,
+      nested: parsed.nested ? "yes" : "no",
+    },
+    inputs: { columnIds: [yId] },
+    resultCache: null,
+    resultStale: false,
+  };
+
+  const outcome = runAnalysis(spec, content);
+  if (!outcome.ok) return { ok: false, error: outcome.error };
+  if (outcome.kind !== "modelComparison") {
+    return { ok: false, error: "The engine did not return a model comparison." };
+  }
+  spec.resultCache = outcome;
+
+  const result: Extract<CompareModelsResult, { ok: true }> = {
+    ok: true,
+    table: content.meta.name,
+    xName: outcome.xName,
+    yName: outcome.yName,
+    nested: outcome.nested,
+    comparison: outcome,
+    analysisId: spec.id,
+  };
+  return { ok: true, spec, result };
+}
+
+export const compareModelsTool: AiTool = {
+  name: "compare_models",
+  description:
+    "Compare two curve-fit models on the same XY (dose-response or time-course) Data Hub table to decide which one the data supports, then store the result and take the user to it. Use this when the user asks whether one model fits better than another (for example \"is a 5-parameter logistic better than a 4-parameter here\", \"compare one-site vs two-site binding\", \"4PL or 5PL?\"). Call list_datahub_tables first to get the XY table id. Pass the two model ids (modelA, modelB, they must differ) and a nested flag. Set nested true when one model is a special case of the other (4PL is nested in 5PL, one-site in two-site), which enables the extra-sum-of-squares F test; set it false for non-nested models, where only AICc is reported. The valid model ids are: logistic4pl, logistic5pl, michaelis-menten, exp-decay-1phase, exp-association-1phase, linear, polynomial2, gaussian. Optionally pass yColumn (a Y-column name or id) to choose which curve to fit when the table has more than one; omit to use the first. The app's engine fits both models and computes the F test (nested only) and AICc, you NEVER compute a fit, an F statistic, a p-value, or an AICc. This runs straight away, there is NO separate approval step, so do not call propose_plan for it. It saves the comparison into the table as a version-controlled analysis, navigates the user to the Data Hub so they see it, and returns the comparison. After it returns, give ONE short line, name the preferred model under the F test (if nested) and under AICc, and the key numbers (the F test p-value and the AICc delta). Never invent a number, only repeat what this returns.",
+  parameters: {
+    type: "object",
+    properties: {
+      tableId: {
+        type: "string",
+        description:
+          "The id of the XY Data Hub table to fit, from a list_datahub_tables result.",
+      },
+      modelA: {
+        type: "string",
+        description:
+          "The first curve-fit model id. One of: logistic4pl, logistic5pl, michaelis-menten, exp-decay-1phase, exp-association-1phase, linear, polynomial2, gaussian.",
+      },
+      modelB: {
+        type: "string",
+        description:
+          "The second curve-fit model id (must differ from modelA). Same valid set as modelA.",
+      },
+      nested: {
+        type: "boolean",
+        description:
+          "True when one model is a special case of the other (for example 4PL nested in 5PL, one-site in two-site), which enables the extra-sum-of-squares F test. False for non-nested models, where only AICc is reported. Set this from whether the pair is genuinely nested, do not guess true to force an F test.",
+      },
+      yColumn: {
+        type: "string",
+        description:
+          "Optional. Which Y column to fit, by name or id, when the XY table has more than one. Omit to fit the first Y column.",
+      },
+    },
+    required: ["tableId", "modelA", "modelB", "nested"],
+    additionalProperties: false,
+  },
+  // No `action` flag, mirroring run_datahub_analysis. The write is a new,
+  // reversible, version-controlled analysis and the user's request is the
+  // consent, so it must not flow through the per-action approval gate.
+  execute: async (args) => {
+    const parsed = parseCompareModelsArgs(args);
+    if (!parsed.tableId) {
+      return {
+        ok: false,
+        error:
+          "No table was given. Call list_datahub_tables first and pass the id of the XY table to fit.",
+      } satisfies CompareModelsResult;
+    }
+    const content = await datahubAnalysisDeps.resolveContent(parsed.tableId);
+    if (!content) {
+      return {
+        ok: false,
+        error:
+          "I could not open that table. It may have been deleted, or the id is wrong. List the tables again and try one of those.",
+      } satisfies CompareModelsResult;
+    }
+    cacheTableContent(parsed.tableId, content);
+
+    const built = buildModelComparison(content, parsed);
+    if (!built.ok) return { ok: false, error: built.error } satisfies CompareModelsResult;
+
+    const stored = await datahubAnalysisDeps.persistAnalysis(parsed.tableId, built.spec);
+    if (!stored) {
+      return {
+        ok: false,
+        error:
+          "The comparison computed but could not be saved to the table. The result is not stored.",
+      } satisfies CompareModelsResult;
+    }
+
+    datahubAnalysisDeps.navigate(
+      `/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`,
+    );
+
+    return built.result satisfies CompareModelsResult;
   },
 };
 

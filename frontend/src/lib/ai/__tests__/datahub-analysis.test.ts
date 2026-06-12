@@ -29,6 +29,10 @@ import {
   listDataHubAnalysesTool,
   readDataHubAnalysisTool,
   runDataHubAnalysisTool,
+  compareModelsTool,
+  parseCompareModelsArgs,
+  resolveYColumnId,
+  buildModelComparison,
 } from "../tools/datahub-analysis";
 
 // ---------------------------------------------------------------------------
@@ -87,6 +91,23 @@ function threeGroupContent(): DataHubDocContent {
       { id: "gC", name: "C", role: "y", dataType: "number" },
     ],
     rows,
+    analyses: [],
+    plots: [],
+  };
+}
+
+// An XY dose-response table (the SAME dataset the engine modelComparison test +
+// the D1 transparency pin use), so 4PL vs 5PL fits and the F / AICc are real.
+function doseResponseContent(): DataHubDocContent {
+  const xs = [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0];
+  const ys = [4.8, 6.1, 7.9, 12.5, 24.0, 47.0, 70.0, 86.0, 93.5, 96.8, 98.1];
+  return {
+    meta: meta({ id: "5", name: "Dose response", table_type: "xy" }),
+    columns: [
+      { id: "x", name: "log[dose]", role: "x", dataType: "number" },
+      { id: "y1", name: "Response", role: "y", dataType: "number" },
+    ],
+    rows: xs.map((x, i) => ({ id: `r${i}`, cells: { x, y1: ys[i] } })),
     analyses: [],
     plots: [],
   };
@@ -625,5 +646,162 @@ describe("read_datahub_analysis tool", () => {
     expect(listDataHubAnalysesTool.action).toBeFalsy();
     expect(listDataHubAnalysesTool.describeAction).toBeUndefined();
     expect(listDataHubAnalysesTool.isDestructive).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// compare_models (XY model comparison)
+// ---------------------------------------------------------------------------
+
+describe("parseCompareModelsArgs", () => {
+  it("reads the ids, trims, and maps nested to a boolean", () => {
+    const p = parseCompareModelsArgs({
+      tableId: "5",
+      modelA: " logistic4pl ",
+      modelB: "logistic5pl",
+      nested: true,
+      yColumn: " Response ",
+    });
+    expect(p).toEqual({
+      tableId: "5",
+      modelA: "logistic4pl",
+      modelB: "logistic5pl",
+      nested: true,
+      yColumn: "Response",
+    });
+  });
+
+  it("defaults nested to false and yColumn to undefined", () => {
+    const p = parseCompareModelsArgs({ tableId: "5", modelA: "a", modelB: "b" });
+    expect(p.nested).toBe(false);
+    expect(p.yColumn).toBeUndefined();
+  });
+});
+
+describe("resolveYColumnId", () => {
+  it("resolves a Y column by name (case-insensitive) and falls back to the first", () => {
+    const content = doseResponseContent();
+    expect(resolveYColumnId(content, "response")).toBe("y1");
+    expect(resolveYColumnId(content, "nonexistent")).toBe("y1");
+    expect(resolveYColumnId(content, undefined)).toBe("y1");
+  });
+});
+
+describe("buildModelComparison", () => {
+  it("builds a modelComparison spec and runs the engine (4PL vs 5PL, nested)", () => {
+    const content = doseResponseContent();
+    const built = buildModelComparison(
+      content,
+      parseCompareModelsArgs({
+        tableId: "5",
+        modelA: "logistic4pl",
+        modelB: "logistic5pl",
+        nested: true,
+      }),
+    );
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.spec.type).toBe("modelComparison");
+    expect(built.spec.params).toMatchObject({
+      modelA: "logistic4pl",
+      modelB: "logistic5pl",
+      nested: "yes",
+    });
+    expect(built.spec.inputs).toEqual({ columnIds: ["y1"] });
+    // The engine computed a real comparison; the F test is present for a nested
+    // pair and AICc is always present.
+    expect(built.result.comparison.kind).toBe("modelComparison");
+    expect(built.result.comparison.fTest).not.toBeNull();
+    expect(built.result.comparison.aicc.preferredId).toBeTruthy();
+    expect(built.result.analysisId).toBe(built.spec.id);
+  });
+
+  it("disables the F test when nested is false (AICc still present)", () => {
+    const built = buildModelComparison(
+      doseResponseContent(),
+      parseCompareModelsArgs({
+        tableId: "5",
+        modelA: "logistic4pl",
+        modelB: "logistic5pl",
+        nested: false,
+      }),
+    );
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.spec.params).toMatchObject({ nested: "no" });
+    expect(built.result.comparison.fTest).toBeNull();
+    expect(built.result.comparison.aicc.preferredId).toBeTruthy();
+  });
+
+  it("rejects a non-XY (Column) table", () => {
+    const built = buildModelComparison(
+      twoGroupContent(),
+      parseCompareModelsArgs({ tableId: "1", modelA: "logistic4pl", modelB: "logistic5pl", nested: true }),
+    );
+    expect(built.ok).toBe(false);
+    if (built.ok) return;
+    expect(built.error).toMatch(/XY table/i);
+  });
+
+  it("rejects two identical models", () => {
+    const built = buildModelComparison(
+      doseResponseContent(),
+      parseCompareModelsArgs({ tableId: "5", modelA: "logistic4pl", modelB: "logistic4pl", nested: true }),
+    );
+    expect(built.ok).toBe(false);
+    if (built.ok) return;
+    expect(built.error).toMatch(/DIFFERENT/i);
+  });
+
+  it("rejects an unknown model id and lists the valid ones", () => {
+    const built = buildModelComparison(
+      doseResponseContent(),
+      parseCompareModelsArgs({ tableId: "5", modelA: "logistic4pl", modelB: "not-a-model", nested: false }),
+    );
+    expect(built.ok).toBe(false);
+    if (built.ok) return;
+    expect(built.error).toMatch(/logistic4pl/);
+  });
+});
+
+describe("compare_models tool", () => {
+  it("is non-gated (no approval hooks), like run_datahub_analysis", () => {
+    expect(compareModelsTool.action).toBeFalsy();
+    expect(compareModelsTool.describeAction).toBeUndefined();
+    expect(compareModelsTool.isDestructive).toBeUndefined();
+  });
+
+  it("stores the comparison and navigates the user to it", async () => {
+    const content = doseResponseContent();
+    vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(content);
+    const persist = vi.spyOn(datahubAnalysisDeps, "persistAnalysis").mockResolvedValue(true);
+    const navigate = vi.spyOn(datahubAnalysisDeps, "navigate").mockImplementation(() => {});
+
+    const result = (await compareModelsTool.execute({
+      tableId: "5",
+      modelA: "logistic4pl",
+      modelB: "logistic5pl",
+      nested: true,
+    })) as { ok: boolean; analysisId?: string };
+    expect(result.ok).toBe(true);
+    expect(persist).toHaveBeenCalled();
+    expect(navigate).toHaveBeenCalledWith(
+      expect.stringContaining(`/datahub?doc=5&analysis=${(result as { analysisId: string }).analysisId}`),
+    );
+  });
+
+  it("does not navigate when the build fails (Column table)", async () => {
+    vi.spyOn(datahubAnalysisDeps, "resolveContent").mockResolvedValue(twoGroupContent());
+    vi.spyOn(datahubAnalysisDeps, "persistAnalysis").mockResolvedValue(true);
+    const navigate = vi.spyOn(datahubAnalysisDeps, "navigate").mockImplementation(() => {});
+
+    const result = (await compareModelsTool.execute({
+      tableId: "1",
+      modelA: "logistic4pl",
+      modelB: "logistic5pl",
+      nested: true,
+    })) as { ok: boolean };
+    expect(result.ok).toBe(false);
+    expect(navigate).not.toHaveBeenCalled();
   });
 });
