@@ -36,6 +36,10 @@ export {
   type GroupSummaryStat,
 } from "./anova";
 
+// Random-intercept linear mixed model (REML), the within-subject design's
+// regression cousin to repeated-measures ANOVA.
+export { randomInterceptModel } from "./mixed-model";
+
 // Correlation.
 export { pearson, spearman } from "./correlation";
 

@@ -35,6 +35,7 @@ import {
   wilcoxonSignedRank,
   kruskalWallis,
   repeatedMeasuresAnova,
+  randomInterceptModel,
   pearson,
   spearman,
   linearRegression,
@@ -68,6 +69,7 @@ import type { GlobalFitResult } from "@/lib/datahub/engine";
 import type {
   AnovaResult,
   RmAnovaResult,
+  MixedModelResult,
   TTestResult,
   CorrelationResult,
   LinearRegressionResult,
@@ -109,6 +111,7 @@ export type AnalysisType =
   | "wilcoxonSignedRank"
   | "kruskalWallis"
   | "repeatedMeasuresAnova"
+  | "linearMixedModel"
   | "correlationPearson"
   | "correlationSpearman"
   | "linearRegression"
@@ -154,6 +157,7 @@ export const COLUMN_ANALYSIS_TYPES: AnalysisType[] = [
   "wilcoxonSignedRank",
   "kruskalWallis",
   "repeatedMeasuresAnova",
+  "linearMixedModel",
   "multipleRegression",
 ];
 
@@ -297,6 +301,33 @@ export interface NormalizedRmAnova {
   pHuynhFeldt: number;
   conditionMeans: number[];
   table: RmAnovaResult["table"];
+}
+
+/**
+ * A normalized random-intercept linear mixed model result. The input is the same
+ * row-paired Column table the repeated-measures ANOVA reads (each row a subject,
+ * each selected column a within-subject condition), reshaped internally to long
+ * form. The condition is treatment-coded with the first column as the reference,
+ * so the fixed effects are the intercept (reference-condition mean) and one
+ * coefficient per non-reference condition (its difference from the reference),
+ * each with a Wald SE / z / two-sided p / 95% CI. The two variance components
+ * (the random-intercept group variance and the residual variance) and the REML
+ * log-likelihood come from the numeric REML optimum. `groups` is the resolved
+ * condition columns in order, complete-case rows only.
+ */
+export interface NormalizedMixedModel {
+  kind: "mixedModel";
+  type: "linearMixedModel";
+  test: string;
+  groups: RunGroup[];
+  fixedEffects: MixedModelResult["fixedEffects"];
+  groupVariance: number;
+  residualVariance: number;
+  remlLogLikelihood: number;
+  /** Number of subjects (groups) and total observations after listwise dropping. */
+  subjects: number;
+  observations: number;
+  conditionLabels: string[];
 }
 
 /**
@@ -695,6 +726,7 @@ export type NormalizedResult =
   | NormalizedTTest
   | NormalizedAnova
   | NormalizedRmAnova
+  | NormalizedMixedModel
   | NormalizedCorrelation
   | NormalizedRegression
   | NormalizedLogisticRegression
@@ -808,6 +840,13 @@ export function validAnalysisTypes(content: DataHubDocContent): AnalysisType[] {
     // the paired t-test already offered above, so we surface it from 3 columns
     // up alongside the other multi-group analyses.
     out.push("repeatedMeasuresAnova");
+    // The random-intercept linear mixed model reads the SAME within-subject
+    // columns as the repeated-measures ANOVA (each row a subject, each column a
+    // condition), reshaped to long form with a per-subject random intercept. It
+    // is the regression cousin of the RM-ANOVA, reporting per-condition fixed
+    // effects against the reference plus the two variance components, so we
+    // surface it from 3 columns up alongside its ANOVA sibling.
+    out.push("linearMixedModel");
     // Multiple regression treats one column as Y and the rest as predictors, so
     // it needs at least 3 columns (a Y plus 2 predictors).
     out.push("multipleRegression");
@@ -1774,6 +1813,37 @@ export function runAnalysis(
       pHuynhFeldt: r.pHuynhFeldt,
       conditionMeans: r.conditionMeans,
       table: r.table,
+    };
+  }
+
+  if (type === "linearMixedModel") {
+    if (groups.length < 2) {
+      return {
+        ok: false,
+        error: "A linear mixed model needs at least 2 condition columns.",
+      };
+    }
+    // Read the condition columns ALIGNED BY ROW, dropping any subject (row) with
+    // a missing or excluded cell in any condition (listwise, complete cases),
+    // the same balanced within-subject reshape the repeated-measures ANOVA uses.
+    const columnIds = groups.map((g) => g.columnId);
+    const rows = rowAlignedValues(content, columnIds);
+    const labels = groups.map((g) => g.name);
+    const r = randomInterceptModel(rows, labels);
+    if (!r.ok) return { ok: false, error: r.error };
+    return {
+      ok: true,
+      kind: "mixedModel",
+      type,
+      test: r.test,
+      groups,
+      fixedEffects: r.fixedEffects,
+      groupVariance: r.groupVariance,
+      residualVariance: r.residualVariance,
+      remlLogLikelihood: r.remlLogLikelihood,
+      subjects: r.groups,
+      observations: r.observations,
+      conditionLabels: r.conditionLabels,
     };
   }
 

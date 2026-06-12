@@ -354,6 +354,38 @@ export const STAT_PINS: StatPin[] = [
   { id: "rmanova_hf_epsilon", metric: "Repeated-measures ANOVA, Huynh-Feldt epsilon", reference: 0.732472, oracleId: "pingouin", tol: 1e-4, warn: 5e-4, unit: "eps" },
   { id: "rmanova_p_hf", metric: "Repeated-measures ANOVA, Huynh-Feldt corrected p", reference: 1.16e-6, oracleId: "pingouin", tol: 1e-7, warn: 5e-7, unit: "p" },
 
+  // --- random-intercept linear mixed model (statsmodels MixedLM, REML) ---
+  // The REPEATED fixture (6 subjects x 3 conditions) reshaped to long form: a
+  // response value, a treatment-coded condition fixed effect (P the reference),
+  // and a random intercept grouped by subject. All references come from
+  // statsmodels.regression.mixed_linear_model.MixedLM with groups=subject,
+  // re_formula="1", and the default REML fit.
+  //
+  // The FIXED-EFFECT coefficients and their standard errors are stable across
+  // implementations (the GLS solution at the optimal variance ratio is
+  // well-conditioned), so they pin TIGHT at tol 1e-3.
+  { id: "lmm_intercept_est", metric: "Linear mixed model, intercept estimate (reference P mean)", reference: 5.116667, oracleId: "statsmodels", tol: 1e-3, warn: 5e-3, unit: "estimate" },
+  { id: "lmm_intercept_se", metric: "Linear mixed model, intercept SE", reference: 0.12427, oracleId: "statsmodels", tol: 1e-3, warn: 5e-3, unit: "SE" },
+  { id: "lmm_q_est", metric: "Linear mixed model, condition Q estimate (Q minus reference)", reference: 0.5, oracleId: "statsmodels", tol: 1e-3, warn: 5e-3, unit: "estimate" },
+  { id: "lmm_q_se", metric: "Linear mixed model, condition Q SE", reference: 0.045948, oracleId: "statsmodels", tol: 1e-3, warn: 5e-3, unit: "SE" },
+  { id: "lmm_r_est", metric: "Linear mixed model, condition R estimate (R minus reference)", reference: 0.85, oracleId: "statsmodels", tol: 1e-3, warn: 5e-3, unit: "estimate" },
+  { id: "lmm_r_se", metric: "Linear mixed model, condition R SE", reference: 0.045948, oracleId: "statsmodels", tol: 1e-3, warn: 5e-3, unit: "SE" },
+  //
+  // The VARIANCE COMPONENTS and the REML log-likelihood come from a numeric
+  // optimum and are optimizer-sensitive, so they wobble at the third or fourth
+  // decimal between implementations (statsmodels uses an lbfgs search over the
+  // scaled random-effects covariance; this engine uses a bounded golden-section
+  // search on the profiled variance ratio). We pin them with an HONEST looser
+  // band rather than a tolerance we cannot meet across optimizers.
+  //   variance components: tol 5e-3 absolute (warn 1e-2). The observed delta on
+  //     this fixture is ~8e-6, well inside the band, but a tighter pin would be a
+  //     fragile promise about a numeric optimum.
+  //   REML log-likelihood: tol 1e-2 absolute (warn 5e-2). The observed delta here
+  //     is ~1e-6, but the log-likelihood inherits the same optimizer wobble.
+  { id: "lmm_group_var", metric: "Linear mixed model, between-subject variance (sigma_u^2)", reference: 0.086325, oracleId: "statsmodels", tol: 5e-3, warn: 1e-2, unit: "variance" },
+  { id: "lmm_residual_var", metric: "Linear mixed model, residual variance (sigma_e^2)", reference: 0.006334, oracleId: "statsmodels", tol: 5e-3, warn: 1e-2, unit: "variance" },
+  { id: "lmm_reml_loglike", metric: "Linear mixed model, REML log-likelihood", reference: 4.654847, oracleId: "statsmodels", tol: 1e-2, warn: 5e-2, unit: "logLik" },
+
   // --- correlation + regression (scipy.stats.pearsonr / spearmanr / linregress) ---
   { id: "pearson_r", metric: "Pearson correlation, r", reference: 0.999419, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "r" },
   { id: "pearson_p", metric: "Pearson correlation, p", reference: 4.89e-10, oracleId: "scipy", tol: 1e-9, warn: 5e-9, unit: "p" },

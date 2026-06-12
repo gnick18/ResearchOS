@@ -148,6 +148,47 @@ export interface RmAnovaResult {
   conditionLabels: string[];
 }
 
+/** One fixed-effect coefficient from a linear mixed model. */
+export interface MixedModelFixedEffect {
+  /** Term name. The intercept is "(Intercept)", each non-reference condition is
+   * its column name (treatment-coded against the first condition). */
+  name: string;
+  estimate: number;
+  /** Standard error from the inverse fixed-effect information at the optimum. */
+  standardError: number;
+  /** Wald z = estimate / standardError. */
+  z: number;
+  /** Two-sided normal p-value for z. */
+  pValue: number;
+  /** 95% Wald confidence interval, estimate +/- 1.96 * SE. */
+  ciLow: number;
+  ciHigh: number;
+}
+
+/**
+ * A random-intercept linear mixed model fit by REML. The data is the row-paired
+ * Column table reshaped to long form (response y, a treatment-coded categorical
+ * fixed effect for condition, and a random intercept grouped by subject). The
+ * fixed-effect coefficients and their SEs are stable across implementations; the
+ * variance components and the REML log-likelihood come from a numeric optimum and
+ * can wobble slightly between implementations.
+ */
+export interface MixedModelResult {
+  test: string;
+  fixedEffects: MixedModelFixedEffect[];
+  /** Between-subject variance sigma_u^2 (the random-intercept variance). */
+  groupVariance: number;
+  /** Residual variance sigma_e^2. */
+  residualVariance: number;
+  /** Restricted (REML) log-likelihood at the optimum. */
+  remlLogLikelihood: number;
+  /** Number of groups (subjects) and total observations after listwise dropping. */
+  groups: number;
+  observations: number;
+  /** The condition (column) names in order; the first is the reference level. */
+  conditionLabels: string[];
+}
+
 export interface CorrelationResult {
   method: "pearson" | "spearman";
   n: number;

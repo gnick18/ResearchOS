@@ -30,6 +30,7 @@ import {
   kruskalWallis,
   friedman,
   repeatedMeasuresAnova,
+  randomInterceptModel,
   pearson,
   spearman,
   linearRegression,
@@ -1230,6 +1231,20 @@ function runDatahubEngine(): Record<string, number> {
     repeatedMeasuresAnova(REPEATED, REPEATED_LABELS),
     "repeated-measures ANOVA",
   );
+  // Random-intercept linear mixed model on the SAME REPEATED fixture, reshaped to
+  // long form (response value, treatment-coded condition fixed effect with P the
+  // reference, random intercept by subject). Fit by REML, cross-checking
+  // statsmodels MixedLM. The fixed effects + SEs pin tight; the variance
+  // components and the REML log-likelihood pin on an honest looser band because a
+  // variance-component optimum is implementation-dependent.
+  const lmm = need(
+    randomInterceptModel(REPEATED, REPEATED_LABELS),
+    "linear mixed model",
+  );
+  const lmmIntercept = lmm.fixedEffects[0];
+  const lmmQ = lmm.fixedEffects[1];
+  const lmmR = lmm.fixedEffects[2];
+
   const pear = need(pearson(XY_X, XY_Y), "Pearson correlation");
   const spear = need(spearman(XY_X, XY_Y), "Spearman correlation");
   const reg = need(linearRegression(XY_X, XY_Y), "linear regression");
@@ -1477,6 +1492,16 @@ function runDatahubEngine(): Record<string, number> {
     rmanova_p_gg: rmAov.pGreenhouseGeisser,
     rmanova_hf_epsilon: rmAov.huynhFeldtEpsilon,
     rmanova_p_hf: rmAov.pHuynhFeldt,
+
+    lmm_intercept_est: lmmIntercept.estimate,
+    lmm_intercept_se: lmmIntercept.standardError,
+    lmm_q_est: lmmQ.estimate,
+    lmm_q_se: lmmQ.standardError,
+    lmm_r_est: lmmR.estimate,
+    lmm_r_se: lmmR.standardError,
+    lmm_group_var: lmm.groupVariance,
+    lmm_residual_var: lmm.residualVariance,
+    lmm_reml_loglike: lmm.remlLogLikelihood,
 
     pearson_r: pear.coefficient,
     pearson_p: pear.pValue,

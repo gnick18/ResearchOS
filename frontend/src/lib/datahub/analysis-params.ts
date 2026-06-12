@@ -226,6 +226,7 @@ export const ANALYSIS_PARAM_SCHEMA: Record<string, ParamField[]> = {
   oneWayAnova: [ONEWAY_POSTHOC_FIELD],
   kruskalWallis: [],
   repeatedMeasuresAnova: [],
+  linearMixedModel: [],
   twoWayAnova: [TWOWAY_POSTHOC_FIELD],
   correlationPearson: [],
   correlationSpearman: [],

@@ -36,6 +36,7 @@ import {
   type NormalizedRegression,
   type NormalizedResult,
   type NormalizedRmAnova,
+  type NormalizedMixedModel,
   type NormalizedSurvival,
   type NormalizedCoxRegression,
   type NormalizedTTest,
@@ -207,6 +208,77 @@ function RmAnovaStatsTable({ r }: { r: NormalizedRmAnova }) {
         (equal variances of the pairwise condition differences) is in doubt.
       </p>
       <KeyValueTable rows={esRows} testid="results-rmanova-corrections-table" />
+    </>
+  );
+}
+
+function MixedModelTable({ r }: { r: NormalizedMixedModel }) {
+  const reference = r.conditionLabels[0];
+  return (
+    <>
+      <table
+        className="w-full border-collapse text-body tabular-nums"
+        data-testid="results-mixed-model-table"
+      >
+        <thead>
+          <tr className="text-meta uppercase tracking-wide text-foreground-muted">
+            <th className="border-b border-border px-3 py-1.5 text-left">Term</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">Estimate</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">SE</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">z</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">p</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">95% CI</th>
+          </tr>
+        </thead>
+        <tbody>
+          {r.fixedEffects.map((c) => (
+            <tr key={c.name}>
+              <td className="border-b border-border px-3 py-1.5 text-foreground">
+                {c.name}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {num(c.estimate, 4)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {num(c.standardError, 4)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {num(c.z, 3)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {formatP(c.pValue)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {ciText([c.ciLow, c.ciHigh])}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <KeyValueTable
+        testid="results-mixed-model-variance-table"
+        rows={[
+          {
+            label: "Between-subject variance (sigma_u^2)",
+            value: num(r.groupVariance, 4),
+          },
+          {
+            label: "Residual variance (sigma_e^2)",
+            value: num(r.residualVariance, 4),
+          },
+          { label: "REML log-likelihood", value: num(r.remlLogLikelihood, 3) },
+          { label: "Subjects (groups)", value: num(r.subjects, 0) },
+          { label: "Observations", value: num(r.observations, 0) },
+        ]}
+      />
+      <p className="mt-2 max-w-xl text-meta text-foreground-muted">
+        The intercept is the mean response in the reference condition (
+        {reference}). Each other row is that condition minus the reference, with a
+        Wald z, p, and 95% interval. The random intercept lets each subject have
+        their own baseline, so the between-subject variance is the spread of those
+        baselines and the residual variance is the leftover within-subject scatter.
+        Fit by REML, the same method statsmodels MixedLM uses.
+      </p>
     </>
   );
 }
@@ -1112,6 +1184,14 @@ function resultTabs(result: NormalizedResult): {
           id: "anova",
           label: "ANOVA table",
           render: () => <RmAnovaStatsTable r={result} />,
+        },
+      ];
+    case "mixedModel":
+      return [
+        {
+          id: "tabular",
+          label: "Tabular results",
+          render: () => <MixedModelTable r={result} />,
         },
       ];
     case "survival":

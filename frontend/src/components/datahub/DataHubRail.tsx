@@ -51,6 +51,8 @@ function analysisLabel(type: string): string {
       return "Kruskal-Wallis";
     case "repeatedMeasuresAnova":
       return "Repeated-measures ANOVA";
+    case "linearMixedModel":
+      return "Linear mixed model";
     case "correlationPearson":
       return "Pearson correlation";
     case "correlationSpearman":

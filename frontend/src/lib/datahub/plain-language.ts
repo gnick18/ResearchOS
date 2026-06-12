@@ -11,6 +11,7 @@
 import type {
   NormalizedAnova,
   NormalizedRmAnova,
+  NormalizedMixedModel,
   NormalizedCorrelation,
   NormalizedDoseResponse,
   NormalizedGlobalFit,
@@ -88,6 +89,32 @@ function rmAnovaSummary(r: NormalizedRmAnova): string {
     return `At least one of ${list} differs across the ${r.conditions} conditions measured on the same ${r.subjects} subjects (${stat}; ${corrected}).`;
   }
   return `${list} look the same across the ${r.conditions} conditions (${stat}; ${corrected}). There is not enough evidence of a condition effect.`;
+}
+
+function mixedModelSummary(r: NormalizedMixedModel): string {
+  const reference = r.conditionLabels[0];
+  // The non-reference fixed effects (everything past the intercept) are the
+  // condition contrasts. Report the strongest one as the headline.
+  const contrasts = r.fixedEffects.slice(1);
+  const head = `random-intercept linear mixed model on ${r.observations} observations from ${r.subjects} subjects, fit by REML`;
+  if (contrasts.length === 0) {
+    return `A ${head}. No condition contrasts were estimated.`;
+  }
+  const significant = contrasts.filter((c) => c.pValue < ALPHA);
+  if (significant.length === 0) {
+    return `None of the conditions differ from the reference (${reference}) once each subject's own baseline is accounted for (${head}). There is not enough evidence of a condition effect.`;
+  }
+  const strongest = significant.reduce((best, c) =>
+    Math.abs(c.z) > Math.abs(best.z) ? c : best,
+  );
+  const direction = strongest.estimate >= 0 ? "higher" : "lower";
+  return `${strongest.name} is ${num(
+    Math.abs(strongest.estimate),
+    2,
+  )} ${direction} than the reference (${reference}) on average, holding each subject's baseline fixed (z = ${num(
+    strongest.z,
+    2,
+  )}, ${formatP(strongest.pValue)}; ${head}).`;
 }
 
 function ttestSummary(r: NormalizedTTest): string {
@@ -401,6 +428,7 @@ function coxSummary(r: NormalizedCoxRegression): string {
 export function plainLanguageSummary(result: NormalizedResult): string {
   if (result.kind === "anova") return anovaSummary(result);
   if (result.kind === "rmAnova") return rmAnovaSummary(result);
+  if (result.kind === "mixedModel") return mixedModelSummary(result);
   if (result.kind === "correlation") return correlationSummary(result);
   if (result.kind === "regression") return regressionSummary(result);
   if (result.kind === "logisticRegression")
