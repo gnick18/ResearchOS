@@ -555,8 +555,8 @@ export function CommandPalette({
       const r = el.getBoundingClientRect();
       // Perch near the UPPER-LEFT corner of the box (not center), riding a touch
       // higher than before since the mascot is now larger.
-      const left = r.left + 30;
-      const top = r.top - 22;
+      const left = r.left + 32;
+      const top = r.top - 30;
       const prev = riderPrevLeftRef.current;
       if (prev != null) {
         const delta = left - prev;
@@ -1136,15 +1136,15 @@ export function CommandPalette({
             data-testid="beakersearch-search-body"
             className="flex flex-1 flex-col overflow-hidden"
           >
-            {/* Search row: BeakerBot mark icon + input + CmdK hint. The icon
-                is the brand anchor across the morph (same position in both
-                search and ask modes). */}
+            {/* Search row: a plain magnifier (this is a search box). The single
+                beaker in search mode lives on the "Ask BeakerBot" row below, the
+                AI gateway, so the mascot appears once and comes alive only when
+                the user crosses into AI mode. */}
             <div className="flex items-center gap-2.5 border-b border-border px-3 pb-2.5 pt-2.5">
-              <BeakerBot
-                pose="idle"
-                animated={false}
-                className="h-5 w-5 flex-none"
-                ariaLabel="BeakerSearch"
+              <Icon
+                name="search"
+                className="h-4 w-4 flex-none text-foreground-muted"
+                title="Search"
               />
               <input
                 ref={inputRef}
@@ -1417,31 +1417,37 @@ export function CommandPalette({
               "left 0.4s cubic-bezier(.22,1,.36,1), top 0.4s cubic-bezier(.22,1,.36,1)",
           }}
         >
-          <div
-            className={
-              riderLanding && !morphing ? "beakersearch-rider-land" : undefined
-            }
-            style={{
-              transformOrigin: "50% 90%",
-              transition: "transform 0.4s cubic-bezier(.22,1,.36,1)",
-              transform: morphing
-                ? `translateY(-11px) rotate(${riderLean * 12}deg)`
-                : "translateY(0) rotate(0deg)",
-            }}
-          >
-            <BeakerBot
-              pose={
-                morphing && riderLean !== 0
-                  ? "pointing"
-                  : aiSending
-                    ? "thinking"
-                    : "idle"
+          {/* Awaken wrapper. Mounts only when ask mode opens, so its one-shot
+              entrance plays once, the static beaker rising up and growing into
+              the living rider ("we gave him life"). Uses the individual scale /
+              translate props so it composes with the lean transform below. */}
+          <div className="beakersearch-rider-awaken">
+            <div
+              className={
+                riderLanding && !morphing ? "beakersearch-rider-land" : undefined
               }
-              direction={riderLean < 0 ? "left" : "right"}
-              animated={aiSending || !morphing}
-              className="h-11 w-11 flex-none drop-shadow-md"
-              ariaLabel="BeakerBot"
-            />
+              style={{
+                transformOrigin: "50% 90%",
+                transition: "transform 0.4s cubic-bezier(.22,1,.36,1)",
+                transform: morphing
+                  ? `translateY(-11px) rotate(${riderLean * 12}deg)`
+                  : "translateY(0) rotate(0deg)",
+              }}
+            >
+              <BeakerBot
+                pose={
+                  morphing && riderLean !== 0
+                    ? "pointing"
+                    : aiSending
+                      ? "thinking"
+                      : "idle"
+                }
+                direction={riderLean < 0 ? "left" : "right"}
+                animated={aiSending || !morphing}
+                className="h-14 w-14 flex-none drop-shadow-md"
+                ariaLabel="BeakerBot"
+              />
+            </div>
           </div>
         </div>
       ) : null}

@@ -70,13 +70,20 @@ vi.mock("react-dom", async (importOriginal) => {
   };
 });
 
-// Stub the conversation store — only clearConversation is needed here.
-const mockClearConversation = vi.fn();
-vi.mock("@/lib/ai/conversation-store", () => ({
-  useConversationStore: {
-    getState: () => ({ clearConversation: mockClearConversation }),
-  },
+// Stub the conversation store. The rider reads `sending` via the hook form
+// (useConversationStore(selector)), and new-chat uses getState().clearConversation,
+// so the mock must be BOTH callable (a zustand-style selector hook) and carry a
+// getState method.
+const { mockClearConversation } = vi.hoisted(() => ({
+  mockClearConversation: vi.fn(),
 }));
+vi.mock("@/lib/ai/conversation-store", () => {
+  const state = { clearConversation: mockClearConversation, sending: false };
+  const useConversationStore = (selector?: (s: typeof state) => unknown) =>
+    selector ? selector(state) : state;
+  useConversationStore.getState = () => state;
+  return { useConversationStore };
+});
 
 import { CommandPalette } from "@/components/sequences/CommandPalette";
 

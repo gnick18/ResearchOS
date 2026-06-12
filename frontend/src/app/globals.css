@@ -1070,3 +1070,34 @@ body.recording-mode * {
 .beakersearch-rider-land {
   animation: beakersearch-rider-land 0.42s cubic-bezier(0.34, 1.4, 0.64, 1);
 }
+
+/* The static beaker "comes alive" when the user crosses into AI mode: it rises
+   up and grows from small into the living rider. Uses the individual scale /
+   translate properties (not the transform shorthand) so it composes with the
+   lean transform on the child wrapper. Plays once on mount, with a touch of
+   overshoot so it pops to life. */
+@keyframes beakersearch-rider-awaken {
+  0% {
+    opacity: 0;
+    scale: 0.35;
+    translate: 0 38px;
+  }
+  60% {
+    opacity: 1;
+    scale: 1.08;
+    translate: 0 -3px;
+  }
+  100% {
+    opacity: 1;
+    scale: 1;
+    translate: 0 0;
+  }
+}
+.beakersearch-rider-awaken {
+  animation: beakersearch-rider-awaken 0.62s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .beakersearch-rider-awaken {
+    animation: none;
+  }
+}
