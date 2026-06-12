@@ -1,11 +1,13 @@
 "use client";
 
-// BeakerBotConversation (ai convo-store bot, 2026-06-11; ai palette-morph bot, 2026-06-11).
+// BeakerBotConversation (ai convo-store bot, 2026-06-11; ai palette-morph bot,
+// 2026-06-11; ai chat-embeds bot, 2026-06-11).
 //
 // Reusable conversation body extracted from BeakerBotPanel. Contains the
 // message thread, the AssistantMarkdown renderer with ObjectChip tile upgrades,
-// all four approval-card shapes (plan, action, draft, choice), the status line,
-// and the composer (textarea + send button).
+// block embed rendering via ObjectEmbed, all four approval-card shapes (plan,
+// action, draft, choice), the status line, and the composer (textarea + send
+// button).
 //
 // It reads from the persistent conversation store via useAiChat(), so two
 // surfaces can render the same conversation simultaneously, and the state
@@ -28,20 +30,71 @@ import remarkGfm from "remark-gfm";
 import { Icon } from "@/components/icons";
 import { useAiChat } from "./useAiChat";
 import ObjectChip from "@/components/ObjectChip";
-import { parseObjectDeepLink } from "@/lib/references";
+import ObjectEmbed from "@/components/embeds/ObjectEmbed";
+import { parseObjectDeepLink, parseObjectEmbed } from "@/lib/references";
+import { loneEmbedFromChatParagraph, type ChatHastNode } from "./chat-embed-detect";
 
 // Lightweight markdown renderer for assistant replies only. Scoped to this
 // component. Uses standard semantic elements styled by the app's Tailwind prose
-// utilities. Object deep-links are rendered as ObjectChip instead of plain
-// anchors, turning a "write_note succeeded" reply into a real clickable tile.
-// External links still open in a new tab with rel=noopener.
+// utilities.
+//
+// Two rendering paths on top of the default:
+//   Block embeds: a paragraph that is a lone object-embed link (href carries
+//   a #ros= fragment, parseObjectEmbed returns isEmbed true) renders as
+//   <ObjectEmbed>, which dispatches to MoleculeEmbed, DataHubEmbed, etc. by
+//   type. Any renderer the shared embeds session adds flows in automatically
+//   because we dispatch through the same ObjectEmbed dispatcher.
+//
+//   Inline chips: an <a> whose href is a plain object deep-link (no #ros=
+//   fragment, or #ros=chip) renders as <ObjectChip>. Notes, tasks, and
+//   experiments open their popup in place; sequences navigate. The chip is the
+//   right choice for things that have a popup, the embed is the right choice
+//   for rich visuals (molecules, Data Hub tables).
+//
+//   External links still open in a new tab with rel=noopener.
 export function AssistantMarkdown({ content }: { content: string }) {
   return (
     <div className="prose prose-sm max-w-none text-foreground [&_a]:text-brand [&_a]:underline [&_code]:rounded [&_code]:bg-surface-overlay [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs [&_li]:my-0.5 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:my-1 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-surface-overlay [&_pre]:p-2 [&_strong]:font-semibold [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-4">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
+          // A paragraph that is a lone object-embed link renders as a block
+          // embed. Every other paragraph renders normally; this is additive.
+          // basePath is undefined for chat (no file-relative image paths).
+          p: ({ node, children, ...props }) => {
+            const lone = loneEmbedFromChatParagraph(node as unknown as ChatHastNode);
+            if (lone) {
+              return (
+                <ObjectEmbed
+                  descriptor={lone.descriptor}
+                  caption={lone.caption}
+                />
+              );
+            }
+            return <p {...props}>{children}</p>;
+          },
           a: ({ href, children, ...props }) => {
+            // An object embed link that ends up inline (mid-sentence) is
+            // handled here instead of via the p override. Treat it as a chip
+            // when it is a valid object deep-link, falling back to new-tab.
+            const embedDesc = parseObjectEmbed(href ?? "");
+            if (embedDesc && embedDesc.isEmbed) {
+              // Mid-sentence embed link: degrade to a chip (the block path
+              // above already handled the lone-paragraph case).
+              const label =
+                typeof children === "string"
+                  ? children
+                  : Array.isArray(children)
+                    ? children.join("")
+                    : String(children ?? embedDesc.id);
+              return (
+                <ObjectChip
+                  type={embedDesc.type}
+                  href={href ?? ""}
+                  label={label}
+                />
+              );
+            }
             const objectRef = parseObjectDeepLink(href ?? "");
             if (objectRef) {
               const label =
