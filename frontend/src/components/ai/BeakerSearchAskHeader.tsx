@@ -197,7 +197,6 @@ export default function BeakerSearchAskHeader({
                 : "text-foreground-muted hover:text-foreground"
             }`}
           >
-            <Icon name="check" className="h-3.5 w-3.5" title="Step-by-step" />
             Step-by-step
           </button>
         </Tooltip>
@@ -217,7 +216,6 @@ export default function BeakerSearchAskHeader({
                 : "text-foreground-muted hover:text-foreground"
             }`}
           >
-            <Icon name="list" className="h-3.5 w-3.5" title="Whole-plan" />
             Whole-plan
           </button>
         </Tooltip>

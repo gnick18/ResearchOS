@@ -534,20 +534,46 @@ export function describeMakeGraph(args: Record<string, unknown>): {
       : parsed.type === "estimation"
         ? "estimation plot"
         : "dot plot";
+  const errorBarPhrase = parsed.type === "estimation" ? "95% CI" : parsed.errorBar;
   const content = getCachedTableContent(parsed.tableId);
   if (!content) {
-    return { summary: `plot a ${kindPhrase} of a Data Hub table` };
+    // Content is not cached yet (the model did not list this table first). Still
+    // emit a step block so step-by-step mode always shows the rich preview-and-
+    // confirm card, just with the args we know (kind, error bar) and no resolved
+    // column names, never the generic Allow / Skip confirm.
+    return {
+      summary: `plot a ${kindPhrase} of a Data Hub table`,
+      stepPayload: {
+        kind: "step",
+        toolName: "make_datahub_graph",
+        iconName: "growth",
+        title: `Plot a ${kindPhrase}`,
+        steps: [
+          {
+            kind: "make_datahub_graph",
+            name: kindPhrase,
+            blurb: "Build a publication figure from the selected Data Hub table.",
+            params: [
+              { label: "Kind", value: kindPhrase },
+              { label: "Error", value: errorBarPhrase },
+            ],
+            ...(parsed.significanceBrackets
+              ? { previewLines: ["With significance brackets from the saved one-way ANOVA."] }
+              : {}),
+          },
+        ],
+      },
+    };
   }
   const colIds = resolveGraphColumns(content, parsed.columns);
   const names = groupColumns(content)
     .filter((c) => colIds.includes(c.id))
     .map((c) => c.name);
   const colPhrase = names.length > 0 ? `${names.join(", ")} from ` : "";
-  const errorBar = parsed.type === "estimation" ? "95% CI" : parsed.errorBar;
   const params: { label: string; value: string }[] = [
     { label: "Kind", value: kindPhrase },
     ...(names.length > 0 ? [{ label: "Columns", value: names.join(", ") }] : []),
-    { label: "Error", value: errorBar },
+    { label: "Error", value: errorBarPhrase },
     { label: "Table", value: content.meta.name },
   ];
   return {

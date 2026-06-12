@@ -357,15 +357,38 @@ export function describeRunAnalysis(args: Record<string, unknown>): {
 } {
   const parsed = parseRunAnalysisArgs(args);
   const content = getCachedTableContent(parsed.tableId);
+  // Emit a step block even when the table is not cached or the intent cannot be
+  // resolved yet, so step-by-step mode always shows the rich preview-and-confirm
+  // card rather than the generic Allow / Skip confirm. The pills are degraded
+  // (no resolved test or group names) but the step is still reviewable.
   if (!content) {
     return {
       summary:
         "run a statistical analysis on a Data Hub table (I will check the test assumptions before running it)",
+      stepPayload: stepPayloadFor({
+        toolName: "run_datahub_analysis",
+        iconName: "chart",
+        title: "Run a statistical analysis",
+        name: "Statistical analysis",
+        blurb: "I check the test assumptions, then run the right test.",
+        params: [],
+      }),
     };
   }
   const built = buildIntent(content, parsed);
   if ("error" in built) {
-    return { summary: `run a statistical analysis on ${content.meta.name}` };
+    return {
+      summary: `run a statistical analysis on ${content.meta.name}`,
+      stepPayload: stepPayloadFor({
+        toolName: "run_datahub_analysis",
+        iconName: "chart",
+        title: "Run a statistical analysis",
+        subtitle: `on ${content.meta.name}`,
+        name: "Statistical analysis",
+        blurb: "I check the test assumptions, then run the right test.",
+        params: [{ label: "Table", value: content.meta.name }],
+      }),
+    };
   }
   const plan = planAnalysis(content, built.intent);
   const names = groupColumns(content)
@@ -847,7 +870,23 @@ export function describeCompareModels(args: Record<string, unknown>): {
   const content = getCachedTableContent(parsed.tableId);
   const where = content ? ` on ${content.meta.name}` : "";
   const summary = `fit ${parsed.modelA} vs ${parsed.modelB}${nestedPhrase}${where}`;
-  if (!content) return { summary };
+  if (!content) {
+    return {
+      summary,
+      stepPayload: stepPayloadFor({
+        toolName: "compare_models",
+        iconName: "lineage",
+        title: `Compare ${parsed.modelA} vs ${parsed.modelB}`,
+        name: `Model comparison${nestedPhrase}`,
+        blurb: "Decide which model the curve data supports.",
+        params: [
+          { label: "Model A", value: parsed.modelA },
+          { label: "Model B", value: parsed.modelB },
+          { label: "Nested", value: parsed.nested ? "yes" : "no" },
+        ],
+      }),
+    };
+  }
   return {
     summary,
     stepPayload: stepPayloadFor({
@@ -1081,7 +1120,17 @@ export function describeMultipleRegression(args: Record<string, unknown>): {
   const parsed = parseMultipleRegressionArgs(args);
   const content = getCachedTableContent(parsed.tableId);
   if (!content || !parsed.yColumn || parsed.predictors.length === 0) {
-    return { summary: "run a multiple regression on a Data Hub table" };
+    return {
+      summary: "run a multiple regression on a Data Hub table",
+      stepPayload: stepPayloadFor({
+        toolName: "run_multiple_regression",
+        iconName: "chart",
+        title: "Run a multiple regression",
+        name: "Multiple regression (OLS)",
+        blurb: "Model one outcome from several predictor columns.",
+        params: [],
+      }),
+    };
   }
   const groups = groupColumns(content);
   const nameById = new Map(groups.map((c) => [c.id, c.name]));
@@ -1284,7 +1333,17 @@ export function describeLogisticRegression(args: Record<string, unknown>): {
   const parsed = parseLogisticRegressionArgs(args);
   const content = getCachedTableContent(parsed.tableId);
   if (!content) {
-    return { summary: "run a logistic regression on a Data Hub table" };
+    return {
+      summary: "run a logistic regression on a Data Hub table",
+      stepPayload: stepPayloadFor({
+        toolName: "run_logistic_regression",
+        iconName: "chart",
+        title: "Run a logistic regression",
+        name: "Binary logistic regression",
+        blurb: "Model a 0/1 outcome against the table's X column.",
+        params: [],
+      }),
+    };
   }
   const yId = resolveYColumnId(content, parsed.yColumn);
   const yName =
@@ -1488,7 +1547,22 @@ export function describeGlobalFit(args: Record<string, unknown>): {
   const content = getCachedTableContent(parsed.tableId);
   const where = content ? ` on ${content.meta.name}` : "";
   const summary = `globally fit ${parsed.model} across the curves${where} (sharing ${parsed.share})`;
-  if (!content) return { summary };
+  if (!content) {
+    return {
+      summary,
+      stepPayload: stepPayloadFor({
+        toolName: "global_fit",
+        iconName: "lineage",
+        title: `Global fit, ${parsed.model}`,
+        name: "Global (shared-parameter) fit",
+        blurb: "Fit one model shape to every Y curve at once.",
+        params: [
+          { label: "Model", value: parsed.model },
+          { label: "Share", value: parsed.share },
+        ],
+      }),
+    };
+  }
   return {
     summary,
     stepPayload: stepPayloadFor({
