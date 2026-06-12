@@ -71,6 +71,12 @@ export interface RowRecord {
  */
 export interface AnalysisSpec {
   id: string;
+  /**
+   * An optional user-given display name for this analysis (rail rename). Absent
+   * on every analysis made before rename existed, in which case the rail shows
+   * the computed type label instead. Additive and back-compat.
+   */
+  name?: string;
   /** The engine analysis identifier (e.g. "unpairedTTest", "oneWayAnova"). */
   type: string;
   /** Analysis-specific parameters (tails, post-hoc method, alpha, etc.). */
@@ -89,6 +95,12 @@ export interface AnalysisSpec {
  */
 export interface PlotSpec {
   id: string;
+  /**
+   * An optional user-given display name for this figure (rail rename). Absent on
+   * every figure made before rename existed, in which case the rail shows the
+   * figure title or the computed kind label instead. Additive and back-compat.
+   */
+  name?: string;
   /** The plot kind (e.g. "bar", "scatter", "xy", "survival"). */
   type: string;
   /** Full styling (colors, axes, error bars, fonts, legend, etc.). */

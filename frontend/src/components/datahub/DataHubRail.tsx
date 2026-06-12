@@ -20,9 +20,11 @@
 // House style: <Icon> only, Tooltip on icon-only buttons, brand + semantic
 // tokens, no emojis / em-dashes / mid-sentence colons.
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
+import { useOptionalContextMenu } from "@/components/context-menu/ContextMenuProvider";
+import type { EditMenuItem } from "@/components/sequences/SequenceEditMenu";
 import type { Project } from "@/lib/types";
 import type {
   AnalysisSpec,
@@ -82,6 +84,67 @@ function plotLabel(spec: PlotSpec): string {
   }
 }
 
+/**
+ * The inline rename input shown in place of a rail row's label while it is being
+ * renamed. Auto-focuses + selects, commits on Enter / blur, cancels on Escape.
+ * This is the rail analog of grid-crud-menu's ColumnRenameInput (same Enter /
+ * blur / Escape idiom, no window.prompt), styled flush inside a left-aligned row.
+ */
+function RailRenameInput({
+  initialName,
+  ariaLabel,
+  onCommit,
+  onCancel,
+  className,
+}: {
+  initialName: string;
+  ariaLabel: string;
+  onCommit: (name: string) => void;
+  onCancel: () => void;
+  className?: string;
+}) {
+  const ref = useRef<HTMLInputElement | null>(null);
+  // Escape sets a flag so the blur that follows does not also commit the value.
+  const cancelledRef = useRef(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => ref.current?.select(), 0);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <input
+      ref={ref}
+      type="text"
+      defaultValue={initialName}
+      aria-label={ariaLabel}
+      // The row's click / context handlers must not fire while editing the name.
+      onClick={(e) => e.stopPropagation()}
+      onContextMenu={(e) => e.stopPropagation()}
+      onBlur={(e) => {
+        if (cancelledRef.current) {
+          cancelledRef.current = false;
+          onCancel();
+          return;
+        }
+        onCommit(e.currentTarget.value);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.currentTarget.blur();
+        } else if (e.key === "Escape") {
+          cancelledRef.current = true;
+          e.currentTarget.blur();
+        }
+      }}
+      className={
+        className ??
+        "min-w-0 flex-1 rounded bg-surface-raised px-1 text-left text-meta text-foreground outline-none focus:ring-1 focus:ring-accent"
+      }
+    />
+  );
+}
+
 // "all" | "unfiled" | a stringified project id.
 export type Collection = "all" | "unfiled" | string;
 
@@ -132,6 +195,10 @@ function ChildRow({
   label,
   active,
   onSelect,
+  onContextMenu,
+  renaming,
+  onRenameCommit,
+  onRenameCancel,
   testId,
   trailing,
 }: {
@@ -139,6 +206,11 @@ function ChildRow({
   label: string;
   active: boolean;
   onSelect: () => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
+  /** When true, the label is swapped for the inline rename input. */
+  renaming?: boolean;
+  onRenameCommit?: (name: string) => void;
+  onRenameCancel?: () => void;
   testId?: string;
   trailing?: React.ReactNode;
 }) {
@@ -146,6 +218,7 @@ function ChildRow({
     <button
       type="button"
       onClick={onSelect}
+      onContextMenu={onContextMenu}
       data-testid={testId}
       className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-meta transition-colors ${
         active
@@ -157,7 +230,16 @@ function ChildRow({
         name={icon}
         className={`h-3.5 w-3.5 shrink-0 ${active ? "text-accent" : "text-foreground-muted"}`}
       />
-      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {renaming ? (
+        <RailRenameInput
+          initialName={label}
+          ariaLabel="Rename item"
+          onCommit={(name) => onRenameCommit?.(name)}
+          onCancel={() => onRenameCancel?.()}
+        />
+      ) : (
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+      )}
       {trailing}
     </button>
   );
@@ -211,6 +293,18 @@ export default function DataHubRail({
   onSelectPlot,
   onNewGraph,
   graphsEnabled,
+  onRenameTable,
+  onDuplicateTable,
+  onDeleteTable,
+  onExportTable,
+  onRenameAnalysis,
+  onDeleteAnalysis,
+  onReRunAnalysis,
+  onRenamePlot,
+  onDeletePlot,
+  onDuplicatePlot,
+  onExportPlotPng,
+  onExportPlotSvg,
 }: {
   projects: Project[];
   /** The tables visible under the active collection filter. */
@@ -241,6 +335,33 @@ export default function DataHubRail({
   onNewGraph: () => void;
   /** True once a table is open so a new graph can be added. */
   graphsEnabled: boolean;
+  // --- Right-click item actions (phase 2b). All optional so a rail rendered
+  // without them (an isolated render) simply shows no menu item for the missing
+  // action. The page wires the full set.
+  /** Rename a table (inline, commits the new display name). */
+  onRenameTable?: (id: string, name: string) => void;
+  /** Duplicate a table into a fresh "<name> copy" document. */
+  onDuplicateTable?: (id: string) => void;
+  /** Delete a table (both files). */
+  onDeleteTable?: (id: string) => void;
+  /** Export a table as a CSV download. */
+  onExportTable?: (id: string) => void;
+  /** Rename an analysis (inline). A blank name clears it back to the label. */
+  onRenameAnalysis?: (id: string, name: string) => void;
+  /** Delete an analysis. */
+  onDeleteAnalysis?: (id: string) => void;
+  /** Force-recompute an analysis against the current data and select it. */
+  onReRunAnalysis?: (id: string) => void;
+  /** Rename a figure (inline). A blank name clears it back to the label. */
+  onRenamePlot?: (id: string, name: string) => void;
+  /** Delete a figure. */
+  onDeletePlot?: (id: string) => void;
+  /** Duplicate a figure (clones the spec under a "<name> copy"). */
+  onDuplicatePlot?: (id: string) => void;
+  /** Export a figure as a PNG download (no need to open it). */
+  onExportPlotPng?: (id: string) => void;
+  /** Export a figure as an SVG download (no need to open it). */
+  onExportPlotSvg?: (id: string) => void;
 }) {
   const groups = useMemo(() => groupByFolder(tables), [tables]);
   // Closed folders by name. Folders start open (the mockup's default).
@@ -266,6 +387,213 @@ export default function DataHubRail({
       return next;
     });
 
+  // The app-wide right-click menu. Optional so an isolated render (a unit test
+  // that does not mount the provider) does not throw; the menus just never open.
+  const ctx = useOptionalContextMenu();
+  const openMenu = ctx?.openMenu ?? (() => {});
+
+  // Which rail item is being renamed inline, keyed by kind so a table, an
+  // analysis, and a figure can never collide on a shared id. null means none.
+  const [renaming, setRenaming] = useState<
+    { kind: "table" | "analysis" | "plot"; id: string } | null
+  >(null);
+  const isRenaming = (kind: "table" | "analysis" | "plot", id: string) =>
+    renaming?.kind === kind && renaming.id === id;
+  const cancelRename = useCallback(() => setRenaming(null), []);
+
+  // Build + open the table row's menu. Rename (inline), Duplicate, Delete, then a
+  // divider before Analyze / New graph / Export. A missing handler drops its item
+  // rather than rendering a dead one.
+  const openTableMenu = useCallback(
+    (e: React.MouseEvent, table: DataHubDocument) => {
+      const items: EditMenuItem[] = [];
+      if (onRenameTable) {
+        items.push({
+          id: "rename",
+          label: "Rename",
+          enabled: true,
+          onRun: () => setRenaming({ kind: "table", id: table.id }),
+        });
+      }
+      if (onDuplicateTable) {
+        items.push({
+          id: "duplicate",
+          label: "Duplicate",
+          enabled: true,
+          onRun: () => onDuplicateTable(table.id),
+        });
+      }
+      if (onDeleteTable) {
+        items.push({
+          id: "delete",
+          label: "Delete",
+          enabled: true,
+          destructive: true,
+          onRun: () => onDeleteTable(table.id),
+        });
+      }
+      // Analyze / New graph need the table open; selecting it first loads its
+      // doc, then the action fires against the now-open table.
+      const wasActive = table.id === selectedTableId;
+      items.push({
+        id: "analyze",
+        label: "Analyze",
+        enabled: true,
+        group: true,
+        onRun: () => {
+          if (!wasActive) onSelectTable(table.id);
+          onNewAnalysis();
+        },
+      });
+      items.push({
+        id: "new-graph",
+        label: "New graph",
+        enabled: true,
+        onRun: () => {
+          if (!wasActive) onSelectTable(table.id);
+          onNewGraph();
+        },
+      });
+      if (onExportTable) {
+        items.push({
+          id: "export-csv",
+          label: "Export (CSV)",
+          enabled: true,
+          group: true,
+          onRun: () => onExportTable(table.id),
+        });
+      }
+      openMenu(e, items);
+    },
+    [
+      onRenameTable,
+      onDuplicateTable,
+      onDeleteTable,
+      onExportTable,
+      onNewAnalysis,
+      onNewGraph,
+      onSelectTable,
+      selectedTableId,
+      openMenu,
+    ],
+  );
+
+  // Build + open an analysis child's menu. Rename, divider, Re-run, Make graph,
+  // divider, Delete (destructive).
+  const openAnalysisMenu = useCallback(
+    (e: React.MouseEvent, analysis: AnalysisSpec) => {
+      const items: EditMenuItem[] = [];
+      if (onRenameAnalysis) {
+        items.push({
+          id: "rename",
+          label: "Rename",
+          enabled: true,
+          onRun: () => setRenaming({ kind: "analysis", id: analysis.id }),
+        });
+      }
+      if (onReRunAnalysis) {
+        items.push({
+          id: "re-run",
+          label: "Re-run",
+          enabled: true,
+          group: true,
+          onRun: () => onReRunAnalysis(analysis.id),
+        });
+      }
+      // Make graph opens the New-graph dialog against the open table (the same
+      // chooser the rail's New graph button uses).
+      items.push({
+        id: "make-graph",
+        label: "Make graph",
+        enabled: graphsEnabled,
+        onRun: () => {
+          onSelectAnalysis(analysis.id);
+          onNewGraph();
+        },
+      });
+      if (onDeleteAnalysis) {
+        items.push({
+          id: "delete",
+          label: "Delete",
+          enabled: true,
+          destructive: true,
+          group: true,
+          onRun: () => onDeleteAnalysis(analysis.id),
+        });
+      }
+      openMenu(e, items);
+    },
+    [
+      onRenameAnalysis,
+      onReRunAnalysis,
+      onDeleteAnalysis,
+      onSelectAnalysis,
+      onNewGraph,
+      graphsEnabled,
+      openMenu,
+    ],
+  );
+
+  // Build + open a figure child's menu. Rename, Duplicate, divider, Export PNG,
+  // Export SVG, divider, Delete (destructive).
+  const openPlotMenu = useCallback(
+    (e: React.MouseEvent, plot: PlotSpec) => {
+      const items: EditMenuItem[] = [];
+      if (onRenamePlot) {
+        items.push({
+          id: "rename",
+          label: "Rename",
+          enabled: true,
+          onRun: () => setRenaming({ kind: "plot", id: plot.id }),
+        });
+      }
+      if (onDuplicatePlot) {
+        items.push({
+          id: "duplicate",
+          label: "Duplicate",
+          enabled: true,
+          onRun: () => onDuplicatePlot(plot.id),
+        });
+      }
+      if (onExportPlotPng) {
+        items.push({
+          id: "export-png",
+          label: "Export PNG",
+          enabled: true,
+          group: true,
+          onRun: () => onExportPlotPng(plot.id),
+        });
+      }
+      if (onExportPlotSvg) {
+        items.push({
+          id: "export-svg",
+          label: "Export SVG",
+          enabled: true,
+          onRun: () => onExportPlotSvg(plot.id),
+        });
+      }
+      if (onDeletePlot) {
+        items.push({
+          id: "delete",
+          label: "Delete",
+          enabled: true,
+          destructive: true,
+          group: true,
+          onRun: () => onDeletePlot(plot.id),
+        });
+      }
+      openMenu(e, items);
+    },
+    [
+      onRenamePlot,
+      onDuplicatePlot,
+      onExportPlotPng,
+      onExportPlotSvg,
+      onDeletePlot,
+      openMenu,
+    ],
+  );
+
   // Render one table as a family-tree node: the table row, then (when it is the
   // open table and not collapsed) its Results and Graphs nested beneath it,
   // indented under a left border. Only the open table has its analyses + plots
@@ -277,6 +605,7 @@ export default function DataHubRail({
     return (
       <div key={table.id}>
         <div
+          onContextMenu={(e) => openTableMenu(e, table)}
           className={`group flex w-full items-center gap-1 rounded-md pr-2 text-body transition-colors ${
             active
               ? "bg-accent-soft font-medium text-accent"
@@ -307,7 +636,20 @@ export default function DataHubRail({
               name="table"
               className={`h-4 w-4 shrink-0 ${active ? "text-accent" : "text-foreground-muted"}`}
             />
-            <span className="min-w-0 flex-1 truncate">{table.name}</span>
+            {isRenaming("table", table.id) ? (
+              <RailRenameInput
+                initialName={table.name}
+                ariaLabel="Rename table"
+                className="min-w-0 flex-1 rounded bg-surface-raised px-1 text-left text-body text-foreground outline-none focus:ring-1 focus:ring-accent"
+                onCommit={(name) => {
+                  setRenaming(null);
+                  onRenameTable?.(table.id, name);
+                }}
+                onCancel={cancelRename}
+              />
+            ) : (
+              <span className="min-w-0 flex-1 truncate">{table.name}</span>
+            )}
             <span className="shrink-0 rounded border border-border px-1 text-[10px] font-medium uppercase text-foreground-muted">
               {typeTag(table.table_type)}
             </span>
@@ -349,9 +691,16 @@ export default function DataHubRail({
                     <ChildRow
                       key={a.id}
                       icon="list"
-                      label={analysisLabel(a.type)}
+                      label={a.name ?? analysisLabel(a.type)}
                       active={a.id === selectedAnalysisId}
                       onSelect={() => onSelectAnalysis(a.id)}
+                      onContextMenu={(e) => openAnalysisMenu(e, a)}
+                      renaming={isRenaming("analysis", a.id)}
+                      onRenameCommit={(name) => {
+                        setRenaming(null);
+                        onRenameAnalysis?.(a.id, name);
+                      }}
+                      onRenameCancel={cancelRename}
                       trailing={
                         a.resultStale ? (
                           <Tooltip label="Re-runs on open">
@@ -392,9 +741,16 @@ export default function DataHubRail({
                     <ChildRow
                       key={p.id}
                       icon="chart"
-                      label={plotLabel(p)}
+                      label={p.name ?? plotLabel(p)}
                       active={p.id === selectedPlotId}
                       onSelect={() => onSelectPlot(p.id)}
+                      onContextMenu={(e) => openPlotMenu(e, p)}
+                      renaming={isRenaming("plot", p.id)}
+                      onRenameCommit={(name) => {
+                        setRenaming(null);
+                        onRenamePlot?.(p.id, name);
+                      }}
+                      onRenameCancel={cancelRename}
                     />
                   ))}
                 </div>

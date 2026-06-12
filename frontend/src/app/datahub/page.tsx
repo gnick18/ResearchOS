@@ -28,6 +28,7 @@ import type {
   CellValue,
   DataHubDocContent,
   DataHubDocument,
+  PlotSpec,
 } from "@/lib/datahub/model/types";
 import {
   openDataHubDoc,
@@ -43,7 +44,10 @@ import {
   removeColumnWithCells as removeColumnInDoc,
   getDataHubContent,
   setAnalysis as setAnalysisInDoc,
+  removeAnalysis as removeAnalysisInDoc,
   setPlot as setPlotInDoc,
+  removePlot as removePlotInDoc,
+  setTitle as setTitleInDoc,
   setCell,
 } from "@/lib/loro/datahub-doc";
 import {
@@ -79,6 +83,12 @@ import { runAnalysis } from "@/lib/datahub/run-analysis";
 import {
   buildPlotSpec,
   withStyle,
+  renderPlot,
+  readPlotStyle,
+  exportSvgMarkup,
+  exportPngPixels,
+  downloadSvg,
+  downloadPngAt,
   type PlotStyle,
 } from "@/lib/datahub/plot-spec";
 import DataHubRail, { type Collection } from "@/components/datahub/DataHubRail";
@@ -111,6 +121,33 @@ import { objectReferenceMarkdown } from "@/lib/references";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import { setBeakerContext } from "@/components/ai/context-bridge";
+
+/**
+ * A short, human label for a figure, used for the export filename stem (and the
+ * duplicate's base name). Prefers the user-given display name, then the figure's
+ * own title, then a label for its kind. Mirrors the rail's plotLabel.
+ */
+function plotExportLabel(spec: PlotSpec): string {
+  if (typeof spec.name === "string" && spec.name.trim() !== "") {
+    return spec.name.trim();
+  }
+  const style = readPlotStyle(spec);
+  const title = style.title.trim();
+  if (title !== "") return title;
+  switch (style.kind) {
+    case "columnBar":
+      return "Bar graph";
+    case "xyScatter":
+      return "XY graph";
+    case "groupedBar":
+      return "Grouped bar";
+    case "survivalCurve":
+      return "Survival curve";
+    case "columnScatter":
+    default:
+      return "Column scatter";
+  }
+}
 
 export default function DataHubPage() {
   const { currentUser } = useCurrentUser();
@@ -913,32 +950,248 @@ export default function DataHubPage() {
     }
   }, [selectedMeta]);
 
-  // Export the open table as a CSV download. Built from the live document
-  // content (columns + rows), so it reflects the latest edits without a re-open.
-  const handleExportTable = useCallback(() => {
-    if (!openContent || !selectedMeta) return;
-    downloadCsv(openContent, selectedMeta.name);
-  }, [openContent, selectedMeta]);
+  // Export a table as a CSV download. With no id (the toolbar) it exports the
+  // open table from the live document content, so the CSV reflects the latest
+  // edits without a re-open. With an id (a rail right-click on a non-open table)
+  // it reads that table's content from the readable mirror.
+  const handleExportTable = useCallback(
+    async (id?: string) => {
+      if (!id || (openContent && openIdRef.current === id)) {
+        if (!openContent || !selectedMeta) return;
+        downloadCsv(openContent, selectedMeta.name);
+        return;
+      }
+      const content = await dataHubApi.getContent(id);
+      if (content) downloadCsv(content, content.meta.name);
+    },
+    [openContent, selectedMeta],
+  );
+
+  // --- Rail item CRUD (right-click menus) ------------------------------------
+  // The rail's table / analysis / figure rows surface the same edit vocabulary
+  // the grids do. Table actions reuse the table handlers above; analysis + plot
+  // actions write through the open Loro doc (the same commit + reproject path
+  // every in-doc edit uses), so a rename / delete / duplicate is version
+  // controlled and converges like a cell edit.
+
+  // Rename a table by id. Writes the new title into the live doc (so the sidebar
+  // and the title round-trip from the CRDT) and syncs the readable mirror via the
+  // catalog update, passing the live content so the re-seed stays faithful to the
+  // open doc. A blank name is rejected (a table needs a label). Only the open
+  // table is renamed here, which is the only one the rail can target.
+  const handleRenameTable = useCallback(
+    async (id: string, name: string) => {
+      const trimmed = name.trim();
+      if (trimmed === "") return;
+      const handle = handleRef.current;
+      if (handle && openIdRef.current === id && openContent) {
+        setTitleInDoc(handle.doc, trimmed);
+        void handle.commit();
+        const live = getDataHubContent(handle.doc, id);
+        setOpenContent(live);
+        await dataHubApi.update(id, {
+          name: trimmed,
+          columns: live.columns,
+          rows: live.rows,
+          analyses: live.analyses,
+          plots: live.plots,
+        });
+      } else {
+        await dataHubApi.update(id, { name: trimmed });
+      }
+      await queryClient.invalidateQueries({ queryKey: ["datahub", "tables"] });
+    },
+    [openContent, queryClient],
+  );
+
+  // Rename one analysis. Sets the optional display name on its spec and commits;
+  // a blank name clears the name back to the computed label (rail falls back).
+  const handleRenameAnalysis = useCallback(
+    (analysisId: string, name: string) => {
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      const current = openContent.analyses.find((a) => a.id === analysisId);
+      if (!current) return;
+      const trimmed = name.trim();
+      const next = { ...current };
+      if (trimmed === "") delete next.name;
+      else next.name = trimmed;
+      setAnalysisInDoc(handle.doc, next);
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+    },
+    [openContent],
+  );
+
+  // Delete one analysis. Removes it from the doc, commits, reprojects, and clears
+  // the selection if it was the one open so the main panel falls back to the grid
+  // (never a blank / broken sheet pointing at a gone analysis).
+  const handleDeleteAnalysis = useCallback(
+    (analysisId: string) => {
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      removeAnalysisInDoc(handle.doc, analysisId);
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+      if (selectedAnalysisId === analysisId) setSelectedAnalysisId(null);
+    },
+    [openContent, selectedAnalysisId],
+  );
+
+  // Re-run one analysis. Forces a recompute against the current data (the engine
+  // re-runs deterministically from the stored choice + params), restamps the
+  // cache, clears the stale flag, then selects it so the fresh result is shown.
+  // Reuses runAnalysis, the same primitive the stale-rerun effect uses.
+  const handleReRunAnalysis = useCallback(
+    (analysisId: string) => {
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      const current = openContent.analyses.find((a) => a.id === analysisId);
+      if (!current) return;
+      const outcome = runAnalysis(current, openContent);
+      setAnalysisInDoc(handle.doc, {
+        ...current,
+        resultCache: outcome.ok ? outcome : null,
+        resultStale: false,
+      });
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+      setSelectedPlotId(null);
+      setSelectedAnalysisId(analysisId);
+    },
+    [openContent],
+  );
+
+  // Rename one figure. Sets the optional display name on its spec and commits; a
+  // blank name clears it (rail falls back to the figure title or kind label).
+  const handleRenamePlot = useCallback(
+    (plotId: string, name: string) => {
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      const current = openContent.plots.find((p) => p.id === plotId);
+      if (!current) return;
+      const trimmed = name.trim();
+      const next = { ...current };
+      if (trimmed === "") delete next.name;
+      else next.name = trimmed;
+      setPlotInDoc(handle.doc, next);
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+    },
+    [openContent],
+  );
+
+  // Delete one figure. Removes it from the doc, commits, reprojects, and clears
+  // the selection if it was the one open so the main panel falls back to the grid.
+  const handleDeletePlot = useCallback(
+    (plotId: string) => {
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      removePlotInDoc(handle.doc, plotId);
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+      if (selectedPlotId === plotId) setSelectedPlotId(null);
+    },
+    [openContent, selectedPlotId],
+  );
+
+  // Duplicate one figure. Clones the spec under a fresh id with a "<name> copy"
+  // display name (so the two are distinguishable in the rail), persists it, then
+  // selects the copy. The source style + source record carry over verbatim, so
+  // the copy draws identically until the user edits it.
+  const handleDuplicatePlot = useCallback(
+    (plotId: string) => {
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      const current = openContent.plots.find((p) => p.id === plotId);
+      if (!current) return;
+      const newId = `plot-${Date.now()}`;
+      const baseName = current.name ?? plotExportLabel(current);
+      const copy: PlotSpec = {
+        ...current,
+        id: newId,
+        name: `${baseName} copy`,
+        style: { ...current.style },
+        source: { ...current.source },
+      };
+      setPlotInDoc(handle.doc, copy);
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+      setSelectedAnalysisId(null);
+      setSelectedPlotId(newId);
+    },
+    [openContent],
+  );
+
+  // Export one figure as a PNG / SVG without opening it. Renders the spec against
+  // the live content (the same renderPlot the editor uses), resolves the linked
+  // ANOVA for brackets, then hands the SVG string to the size-aware export. The
+  // figure need not be the selected one.
+  const exportPlot = useCallback(
+    (plotId: string, format: "png" | "svg") => {
+      if (!openContent) return;
+      const spec = openContent.plots.find((p) => p.id === plotId);
+      if (!spec) return;
+      const aid = (spec.source as { analysisId?: unknown }).analysisId;
+      const analysis =
+        typeof aid === "string"
+          ? openContent.analyses.find((a) => a.id === aid) ?? null
+          : null;
+      const { svg, frame } = renderPlot(spec, openContent, analysis);
+      const stem = plotExportLabel(spec);
+      if (format === "svg") {
+        downloadSvg(exportSvgMarkup(svg, frame), stem);
+      } else {
+        const px = exportPngPixels(frame);
+        void downloadPngAt(svg, px.width, px.height, stem);
+      }
+    },
+    [openContent],
+  );
 
   // Duplicate the open table, its analyses, and its graphs into a fresh document
   // ("<name> copy"), via the same create path New table uses, then open it. The
   // duplicate carries the source table's collection + folder so it lands beside
   // the original. Analyses keep their cached results, so the copy opens ready.
-  const handleDuplicateTable = useCallback(async () => {
-    if (!openContent || !selectedMeta) return;
-    const created = await dataHubApi.create({
-      name: `${selectedMeta.name} copy`,
-      table_type: openContent.meta.table_type,
-      project_ids: selectedMeta.project_ids,
-      folder_path: selectedMeta.folder_path,
-      columns: openContent.columns,
-      rows: openContent.rows,
-      analyses: openContent.analyses,
-      plots: openContent.plots,
-    });
-    await queryClient.invalidateQueries({ queryKey: ["datahub", "tables"] });
-    setSelectedTableId(created.id);
-  }, [openContent, selectedMeta, queryClient]);
+  const handleDuplicateTable = useCallback(
+    async (id?: string) => {
+      // The open table (toolbar, or a rail right-click on it) duplicates from the
+      // live content so unsaved edits carry. A rail right-click on a non-open
+      // table reads that table's content + catalog meta from the mirror.
+      let name: string;
+      let content: DataHubDocContent;
+      let projectIds: string[];
+      let folderPath: string | null;
+      if (!id || (openContent && openIdRef.current === id)) {
+        if (!openContent || !selectedMeta) return;
+        name = selectedMeta.name;
+        content = openContent;
+        projectIds = selectedMeta.project_ids;
+        folderPath = selectedMeta.folder_path;
+      } else {
+        const loaded = await dataHubApi.getContent(id);
+        const meta = allTables.find((t) => t.id === id);
+        if (!loaded || !meta) return;
+        name = meta.name;
+        content = loaded;
+        projectIds = meta.project_ids;
+        folderPath = meta.folder_path;
+      }
+      const created = await dataHubApi.create({
+        name: `${name} copy`,
+        table_type: content.meta.table_type,
+        project_ids: projectIds,
+        folder_path: folderPath,
+        columns: content.columns,
+        rows: content.rows,
+        analyses: content.analyses,
+        plots: content.plots,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["datahub", "tables"] });
+      setSelectedTableId(created.id);
+    },
+    [openContent, selectedMeta, allTables, queryClient],
+  );
 
   // Delete the open table (both files), then refresh the catalog. The selection
   // self-heals to the next visible table through the existing resolve effect, so
@@ -1108,14 +1361,16 @@ export default function DataHubPage() {
         {
           icon: "cloning",
           label: "Duplicate",
-          onClick: handleDuplicateTable,
+          // Call with no id so the toolbar always targets the open table (an
+          // onClick event must not leak in as the id argument).
+          onClick: () => void handleDuplicateTable(),
           tooltip: "Copy this table with its analyses and graphs.",
           testId: "datahub-toolbar-duplicate",
         },
         {
           icon: "download",
           label: "Export",
-          onClick: handleExportTable,
+          onClick: () => void handleExportTable(),
           tooltip: "Download this table as a CSV.",
           testId: "datahub-toolbar-export",
         },
@@ -1186,6 +1441,23 @@ export default function DataHubPage() {
           }}
           onNewGraph={() => setNewGraphOpen(true)}
           graphsEnabled={!!openContent}
+          onRenameTable={handleRenameTable}
+          onDuplicateTable={handleDuplicateTable}
+          onDeleteTable={(id) => {
+            // Mirror the toolbar Delete: select the table so its confirm banner
+            // is visible, then arm it. Never a one-click destructive delete.
+            setSelectedTableId(id);
+            setConfirmDeleteTableId(id);
+          }}
+          onExportTable={(id) => void handleExportTable(id)}
+          onRenameAnalysis={handleRenameAnalysis}
+          onDeleteAnalysis={handleDeleteAnalysis}
+          onReRunAnalysis={handleReRunAnalysis}
+          onRenamePlot={handleRenamePlot}
+          onDeletePlot={handleDeletePlot}
+          onDuplicatePlot={handleDuplicatePlot}
+          onExportPlotPng={(id) => exportPlot(id, "png")}
+          onExportPlotSvg={(id) => exportPlot(id, "svg")}
         />
 
         <section

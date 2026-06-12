@@ -2062,6 +2062,21 @@ export async function downloadPng(
 }
 
 /**
+ * Rasterize + download a PNG at exact target pixel dimensions (the size-aware
+ * export, so a sized figure rasterizes at physicalInches * dpi). Pairs with
+ * exportPngPixels, which derives the dimensions from the figure frame.
+ */
+export async function downloadPngAt(
+  svg: string,
+  pixelWidth: number,
+  pixelHeight: number,
+  fileStem: string,
+): Promise<void> {
+  const blob = await svgToPngBlobAt(svg, pixelWidth, pixelHeight);
+  downloadBlob(blob, `${fileStem}.png`);
+}
+
+/**
  * Rasterize an SVG to a PNG Blob at exact target pixel dimensions. The source
  * figure's viewBox is the layout box, so drawing it to fill a width x height
  * canvas scales it crisply to the requested resolution. Used by the size-aware

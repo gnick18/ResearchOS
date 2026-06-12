@@ -48,7 +48,12 @@ vi.mock("@/lib/file-system/file-service", () => ({
   },
 }));
 
-import { getDataHubContent, setCell, setAnalysis } from "@/lib/loro/datahub-doc";
+import {
+  getDataHubContent,
+  setCell,
+  setAnalysis,
+  setPlot,
+} from "@/lib/loro/datahub-doc";
 import {
   persistDataHubContent,
   persistDataHubDoc,
@@ -153,5 +158,52 @@ describe("Data Hub store: real-folder persistence round-trip", () => {
       | undefined;
     expect(mirror?.meta.project_ids).toEqual(["3"]);
     expect(mirror?.meta.folder_path).toBe("Assays");
+  });
+
+  // The phase-2b rail-rename data-shape: the optional display name on an analysis
+  // and a figure must survive a real persist -> reload cycle through the Loro
+  // snapshot, and a nameless spec must come back without a name (label fallback).
+  it("a renamed analysis + figure name survives a reload; nameless falls back", async () => {
+    await persistDataHubContent(OWNER, ID, seedContent());
+
+    const doc1 = await loadOrRebuildDataHubDoc(OWNER, ID);
+    // One named analysis, one named figure (the rail rename), plus a nameless
+    // figure that must stay nameless on reload.
+    setAnalysis(doc1, {
+      id: "analysis-named",
+      name: "Primary t-test",
+      type: "unpairedTTest",
+      params: {},
+      inputs: {},
+      resultCache: null,
+      resultStale: false,
+    });
+    setPlot(doc1, {
+      id: "plot-named",
+      name: "Figure 1",
+      type: "columnScatter",
+      style: { title: "" },
+      source: {},
+    });
+    setPlot(doc1, {
+      id: "plot-bare",
+      type: "columnBar",
+      style: { title: "" },
+      source: {},
+    });
+    doc1.commit();
+    await persistDataHubDoc(OWNER, ID, doc1);
+
+    const doc2 = await loadOrRebuildDataHubDoc(OWNER, ID);
+    const reloaded = getDataHubContent(doc2, ID);
+
+    const a = reloaded.analyses.find((x) => x.id === "analysis-named")!;
+    expect(a.name).toBe("Primary t-test");
+    const named = reloaded.plots.find((p) => p.id === "plot-named")!;
+    expect(named.name).toBe("Figure 1");
+    // The nameless figure round-trips WITHOUT a name key, so the rail falls back
+    // to the computed kind label.
+    const bare = reloaded.plots.find((p) => p.id === "plot-bare")!;
+    expect("name" in bare).toBe(false);
   });
 });
