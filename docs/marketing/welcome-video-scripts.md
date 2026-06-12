@@ -11,7 +11,7 @@ Record scripts for the redesigned welcome / what-we-offer page (`docs/mockups/we
 - File naming matches the slots in the mockup. Hand me the files (or the Vercel Blob URLs) and I wire them in.
 
 ## Demo-ready check
-Record the ones that are built and stable now. For features still being finished, the script is ready when the feature is, just flag it. From the lineup: Chemistry Workbench, Sequence editor, Purchases/Inventory, Companion app are likely recordable now; **Data Hub** and the **AI assistant (BeakerBot)** record once they are far enough along (the AI is being verified in a separate chat).
+Record the ones that are built and stable now. For features still being finished, the script is ready when the feature is, just flag it. From the lineup: Chemistry Workbench, Sequence editor, Purchases/Inventory, and the companion photo-capture clip are likely recordable now; **Data Hub** and the **AI assistant (BeakerBot)** record once they are far enough along (the AI is being verified in a separate chat). For the companion spotlight, the **handwriting-to-text** and **barcode inventory** clips depend on those features being built, flag any that are not ready yet and record them when they land.
 
 ---
 
@@ -53,14 +53,47 @@ Record the ones that are built and stable now. For features still being finished
 3. Show the item appear in inventory, or the PI "send to department" hand-off control (8 to 13s).
 **Loop tip:** end on the populated purchases/inventory list.
 
-## 5. Companion app  ->  `companion-app.mp4`
-**Goal:** capture from the bench on your phone, it lands in the experiment.
-**Setup:** the companion app on a phone (screen-record the phone), plus the desktop open to the same experiment. Split-screen or a quick cut between the two is ideal.
-**Steps (~14s):**
-1. Phone, open the companion app, snap or pick a fake gel/bench photo (0 to 5s).
-2. Phone, route it to an experiment (5 to 8s).
-3. Cut to the desktop, the photo appears in that experiment (8 to 14s).
+## 5. Companion app (spotlight, four clips)
+The companion app is its own spotlight section, so it gets four short clips, one per capability, plus an optional montage. Record them as a phone screen-capture (and cut to the desktop where the result lands). Each is a small loop on its own. You can also stitch them into one `companion-app.mp4` montage (~25 to 30s) if you prefer a single video in the phone frame.
+
+**Shared setup:** the companion app on a phone, the desktop open to the same fixture experiment, fake-but-realistic content only. A quick cut from phone to desktop sells the "it lands on my computer" beat.
+
+### 5a. Snap a photo into the experiment  ->  `companion-snap.mp4`
+**Goal:** a bench photo lands in the right experiment, no cable, no retyping.
+**Steps (~11s):**
+1. Phone, open the companion app, snap or pick a fake gel/plate photo (0 to 4s).
+2. Phone, route it to an experiment (4 to 7s).
+3. Cut to the desktop, the photo appears in that experiment (7 to 11s).
 **Loop tip:** end on the desktop experiment showing the new photo.
+
+### 5b. Scan handwritten notes to text  ->  `companion-ocr.mp4`   (flag if not demo-ready)
+**Goal:** a page of bench scrawl becomes searchable text in the experiment.
+**Setup:** a handwritten fake note on paper (a quick protocol tweak, a few measurements).
+**Steps (~12s):**
+1. Phone, point the camera at the handwritten page in the companion app (0 to 4s).
+2. Show the extracted text appear from the image (4 to 8s).
+3. Save it as a note, then a quick cut to the desktop where the typed note sits in the experiment (8 to 12s).
+**Loop tip:** end on the clean extracted text.
+
+### 5c. Scan a barcode, inventory updates itself  ->  `companion-barcode.mp4`   (flag if not demo-ready)
+**Goal:** scanning a reagent barcode auto-deducts inventory, no manual count.
+**Setup:** a fake reagent box with a barcode, an inventory item set up for it with a starting count.
+**Steps (~12s):**
+1. Phone, open the scan view, scan the reagent barcode (0 to 5s).
+2. Show the item recognized (5 to 8s).
+3. Show the inventory count tick down automatically, on the phone or a cut to the desktop inventory (8 to 12s).
+**Loop tip:** rest on the decremented count.
+
+### 5d. Run methods on your phone, add variation notes  ->  `companion-method.mp4`
+**Goal:** run a method at the bench in reading mode instead of printing, and log a variation on the go.
+**Setup:** a fixture method with a few steps.
+**Steps (~14s):**
+1. Phone, open a method in reading mode, step through a couple of steps (0 to 6s).
+2. Add a variation note from the phone, like "doubled the incubation, 60 min" (6 to 10s).
+3. Quick cut to the desktop, the variation note is saved back to that run (10 to 14s).
+**Loop tip:** end on the saved variation note.
+
+**Montage option ->  `companion-app.mp4`:** play 5a, 5b, 5c, 5d back to back (~28s) for the single video that sits in the phone frame on the page. Record the four clips first, then I can stitch the montage if you want.
 
 ## 6. AI assistant (BeakerBot)  ->  `ai-assistant.mp4`   (record when demo-ready)
 **Goal:** ask your own research in plain language, your data, your AI.

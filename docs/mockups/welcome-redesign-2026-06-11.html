@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS welcome / what-we-offer redesign</title>
+<style>
+  :root {
+    --surface: #f8fafc; --surface-raised: #ffffff; --surface-sunken: #f1f5f9;
+    --foreground: #171717; --foreground-muted: #6b7280; --border: #e5e7eb;
+    --page-bg: #e2e8f0;
+    --brand-sky: #1AA0E6; --brand-action: #1283C9; --brand-ink: #111827; --brand-purple: #5B47D6;
+    --pkr-green: #2E8B45; --pkr-gold: #FFB81C;
+    --ok: #16a34a; --pin: #e11d48;
+    --rainbow: linear-gradient(90deg,#ffd2b0 0%,#fff1a8 25%,#b7ebb1 50%,#a6d2f4 75%,#d6b5f0 100%);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--page-bg); color: var(--foreground); }
+  .topbar { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 12px; padding: 11px 22px; background: var(--surface-raised); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .topbar h1 { font-size: 15px; margin: 0; font-weight: 800; }
+  .topbar p { margin: 0; font-size: 12px; color: var(--foreground-muted); }
+  .spacer { flex: 1; }
+  .btn { appearance: none; cursor: pointer; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground); border-radius: 8px; padding: 7px 12px; font-size: 12.5px; font-weight: 600; }
+  .btn:hover { border-color: var(--foreground-muted); }
+  .btn.on { background: var(--brand-action); border-color: var(--brand-action); color: #fff; }
+  .btn.danger { color: var(--pin); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 22px 22px 60px; }
+  .intro { font-size: 13.5px; color: var(--foreground-muted); line-height: 1.6; max-width: 84ch; margin: 4px 0 18px; }
+  .intro b { color: var(--foreground); }
+
+  .changes { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; margin-bottom: 26px; }
+  .change { border: 1px solid var(--border); background: var(--surface-raised); border-radius: 12px; padding: 11px 13px; display: flex; flex-direction: column; gap: 7px; }
+  .change.approved { border-color: var(--ok); box-shadow: inset 3px 0 0 var(--ok); }
+  .change.disapproved { border-color: var(--pin); box-shadow: inset 3px 0 0 var(--pin); }
+  .ctitle { font-weight: 700; font-size: 12.5px; }
+  .ctitle .tag { font-size: 10px; font-weight: 700; color: var(--brand-action); background: var(--surface-sunken); border-radius: 5px; padding: 1px 5px; margin-right: 6px; }
+  .cdesc { font-size: 11.5px; color: var(--foreground-muted); line-height: 1.5; }
+  .verdict { display: flex; align-items: center; gap: 8px; }
+  .vbtn { appearance: none; cursor: pointer; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground); border-radius: 7px; padding: 4px 9px; font-size: 11px; font-weight: 700; }
+  .vbtn.app.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .vbtn.dis.on { background: var(--pin); border-color: var(--pin); color: #fff; }
+  .vclear { appearance: none; cursor: pointer; border: none; background: none; color: var(--foreground-muted); font-size: 11px; text-decoration: underline; }
+
+  /* the proposed page */
+  .page { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 18px; overflow: hidden; }
+  .rb { height: 7px; background-image: var(--rainbow); }
+  .sec { position: relative; padding: 40px 40px; border-bottom: 1px solid var(--border); }
+  .sec:last-child { border-bottom: 0; }
+  .sec.tint { background: #f4f8fd; }
+  .kick { font-family: ui-monospace, monospace; font-size: 12px; font-weight: 700; color: var(--brand-action); letter-spacing: .02em; }
+  .h2 { font-size: 30px; font-weight: 800; letter-spacing: -.03em; color: var(--brand-ink); margin: 8px 0 6px; line-height: 1.1; }
+  .sub { font-size: 14.5px; color: #475569; line-height: 1.6; max-width: 62ch; }
+  .tagchip { display: inline-block; font-size: 11px; font-weight: 800; color: var(--pin); background: color-mix(in srgb, var(--pin) 12%, transparent); border-radius: 6px; padding: 2px 7px; position: absolute; top: 14px; right: 16px; }
+  .tagchip.new { color: var(--brand-action); background: color-mix(in srgb, var(--brand-action) 12%, transparent); }
+
+  table.cost { width: 100%; border-collapse: collapse; margin-top: 18px; font-size: 13.5px; }
+  table.cost th, table.cost td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  table.cost th { color: var(--foreground-muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  table.cost td.price { font-weight: 800; color: var(--brand-ink); text-align: right; white-space: nowrap; }
+  table.cost tr.total td { border-bottom: 0; padding-top: 14px; font-size: 15px; }
+  table.cost tr.total .ros { color: var(--ok); font-weight: 800; }
+  .bignum { font-size: 38px; font-weight: 800; letter-spacing: -.03em; color: var(--brand-ink); }
+  .bignum .free { background: var(--rainbow); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .pmnote { margin-top: 14px; font-size: 12.5px; color: var(--foreground-muted); border-top: 1px dashed var(--border); padding-top: 12px; }
+  .pmnote a { color: var(--brand-action); font-weight: 700; text-decoration: none; }
+
+  .feat { display: grid; grid-template-columns: 1.05fr .95fr; gap: 26px; align-items: center; }
+  .feat.alt { grid-template-columns: .95fr 1.05fr; }
+  .feat.alt .ftext { order: 2; }
+  .vid { border: 1px solid var(--border); border-radius: 14px; background: #0d1424; aspect-ratio: 16/10; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px; color: #8fb7d9; position: relative; overflow: hidden; }
+  .vid .play { width: 46px; height: 46px; border-radius: 99px; background: rgba(255,255,255,.12); display: flex; align-items: center; justify-content: center; }
+  .vid .play::after { content: ""; border-left: 14px solid #cfe6fb; border-top: 9px solid transparent; border-bottom: 9px solid transparent; margin-left: 4px; }
+  .vid .vlabel { font-size: 11px; font-weight: 700; }
+  .script { margin-top: 12px; font-size: 11.5px; color: var(--foreground-muted); background: var(--surface-sunken); border-radius: 10px; padding: 10px 12px; line-height: 1.5; }
+  .script b { color: var(--brand-action); }
+  .pills { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+  .fpill { font-size: 12px; font-weight: 700; color: var(--brand-ink); display: inline-flex; align-items: center; gap: 5px; }
+  .fpill::before { content: ""; width: 6px; height: 6px; border-radius: 99px; background: var(--brand-action); }
+
+  /* companion spotlight */
+  .spot { background: linear-gradient(160deg,#0e1830,#142a4a 58%,#10203c); color: #eaf2fb; border-color: #1d2f50; }
+  .spot .kick { color: #7fc4ff; }
+  .spot .h2 { color: #fff; }
+  .spot .sub { color: #b9cde6; }
+  .spotwrap { display: grid; grid-template-columns: .78fr 1.22fr; gap: 30px; align-items: center; margin-top: 10px; }
+  .phone { justify-self: center; width: 196px; aspect-ratio: 9/19; border-radius: 30px; border: 8px solid #060d1c; background: #0d1424; box-shadow: 0 20px 54px rgba(0,0,0,.55); position: relative; overflow: hidden; }
+  .phone::before { content: ""; position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 52px; height: 6px; border-radius: 99px; background: #060d1c; z-index: 2; }
+  .phone .pscreen { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 9px; color: #8fb7d9; font-size: 11px; font-weight: 700; text-align: center; padding: 0 14px; }
+  .phone .play { width: 44px; height: 44px; border-radius: 99px; background: rgba(255,255,255,.12); display: flex; align-items: center; justify-content: center; }
+  .phone .play::after { content: ""; border-left: 13px solid #cfe6fb; border-top: 8px solid transparent; border-bottom: 8px solid transparent; margin-left: 3px; }
+  .capgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .capcard { border: 1px solid #24375c; border-radius: 13px; padding: 14px; background: rgba(255,255,255,.04); }
+  .capcard .ct { font-size: 14px; font-weight: 800; color: #fff; }
+  .capcard .cd { font-size: 12px; color: #b9cde6; margin-top: 4px; line-height: 1.5; }
+
+  .steps { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-top: 20px; }
+  .step { border: 1px solid var(--border); border-radius: 12px; padding: 16px; background: var(--surface-raised); }
+  .step .n { font-size: 12px; font-weight: 800; color: var(--brand-action); }
+  .step .st { font-size: 14px; font-weight: 800; color: var(--brand-ink); margin: 4px 0 3px; }
+  .step .sd { font-size: 12px; color: var(--foreground-muted); line-height: 1.5; }
+
+  .mission { font-size: 15px; line-height: 1.7; color: #334155; max-width: 64ch; }
+  .mission b { color: var(--brand-ink); }
+  .sign { margin-top: 14px; font-size: 13px; color: var(--foreground-muted); }
+  .madison { background: linear-gradient(100deg, var(--pkr-green), var(--pkr-gold)); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 800; }
+
+  .trust { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-top: 18px; }
+  .tcard { border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+  .tcard .th { font-size: 13px; font-weight: 800; color: var(--brand-ink); }
+  .tcard .tb { font-size: 11.5px; color: var(--foreground-muted); margin-top: 3px; line-height: 1.45; }
+
+  .cta { text-align: center; }
+  .ctabtn { display: inline-block; margin-top: 14px; border-radius: 12px; padding: 13px 28px; font-size: 15px; font-weight: 800; color: #fff; background: linear-gradient(135deg,#1283c9,#5B47D6); }
+
+  /* comment pins + panel + editor (reused harness) */
+  body.cmt-on .cmt { cursor: crosshair; outline: 1px dashed transparent; }
+  body.cmt-on .cmt:hover { outline-color: var(--brand-action); }
+  .pin { position: absolute; top: 8px; left: 8px; z-index: 6; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; background: var(--pin); color: #fff; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+  .pin.hl { animation: pulse .7s; } @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.4); } }
+  .editor { position: fixed; z-index: 60; width: 270px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.25); padding: 12px; }
+  .editor .lbl { font-size: 11px; font-weight: 700; color: var(--foreground-muted); margin-bottom: 6px; }
+  .editor textarea { width: 100%; min-height: 64px; resize: vertical; border: 1px solid var(--border); border-radius: 8px; padding: 8px; font: inherit; font-size: 12px; background: var(--surface); color: var(--foreground); }
+  .editor .vchoice { display: flex; gap: 6px; margin: 8px 0; }
+  .editor .vchoice .vbtn.on { background: var(--brand-action); border-color: var(--brand-action); color: #fff; }
+  .editor .vchoice .vbtn.app.on { background: var(--ok); border-color: var(--ok); }
+  .editor .vchoice .vbtn.dis.on { background: var(--pin); border-color: var(--pin); }
+  .editor .acts { display: flex; align-items: center; gap: 6px; }
+  .panel { position: fixed; right: 16px; bottom: 16px; z-index: 50; width: 310px; max-height: 60vh; display: flex; flex-direction: column; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 10px 36px rgba(0,0,0,.25); overflow: hidden; }
+  .panel.collapsed .panelBody, .panel.collapsed .panelFoot { display: none; }
+  .panelHead { display: flex; align-items: center; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13px; }
+  .panelHead .cnt { font-size: 11px; color: var(--foreground-muted); }
+  .panelBody { overflow-y: auto; padding: 6px; }
+  .panelBody .empty { font-size: 11.5px; color: var(--foreground-muted); padding: 14px; text-align: center; }
+  .citem { display: flex; gap: 8px; padding: 8px; border-radius: 8px; cursor: pointer; }
+  .citem:hover { background: var(--surface-sunken); }
+  .citem .num { width: 18px; height: 18px; flex: none; border-radius: 99px; background: var(--pin); color: #fff; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+  .citem .tgt { font-size: 11px; font-weight: 700; }
+  .citem .txt { font-size: 11.5px; color: var(--foreground-muted); }
+  .citem .vbadge { font-size: 9.5px; font-weight: 800; }
+  .citem .x { margin-left: auto; border: none; background: none; color: var(--foreground-muted); cursor: pointer; font-size: 15px; }
+  .panelFoot { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--border); }
+  .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(20px); opacity: 0; background: var(--brand-ink); color: #fff; padding: 9px 16px; border-radius: 99px; font-size: 12.5px; font-weight: 600; z-index: 70; transition: all .2s; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  @media (max-width: 820px){ .feat,.feat.alt{grid-template-columns:1fr} .steps,.trust{grid-template-columns:1fr} .spotwrap{grid-template-columns:1fr} .capgrid{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div><h1>Welcome / what-we-offer redesign</h1><p>The proposed new marketing scroll. Approve/disapprove each section, click any section to pin a note, Export.</p></div>
+    <span class="spacer"></span>
+    <button class="btn" id="commentToggle">Comment mode: off</button>
+    <button class="btn" id="exportBtn">Export (copy)</button>
+    <button class="btn" id="downloadBtn">Download .md</button>
+    <button class="btn danger" id="clearBtn">Clear notes</button>
+  </div>
+
+  <div class="wrap">
+    <p class="intro">Built with the saas-landing-pages homepage framework and the positioning + messaging foundations. Leads on <b>own your data / replaces a stack</b>, adds the <b>competitor-cost</b> and <b>mission</b> sections you asked for, and showcases the new six features. This is the scroll-down content under the entry hero, so it opens on substance, not a second hero. Each feature has a one-line <b>record script</b> for the new video. Nothing is built yet.</p>
+
+    <div class="changes" id="changes"></div>
+
+    <div class="page">
+      <div class="rb"></div>
+
+      <!-- 1. THE STACK + COST -->
+      <section class="sec cmt" data-clabel="1. The stack you replace + cost">
+        <span class="tagchip new">section 1</span>
+        <div class="kick">// what your lab pays for now</div>
+        <div class="h2">One free app replaces a shelf of expensive software</div>
+        <div class="sub">Most labs pay for a separate tool for the notebook, the chemistry, the cloning, the stats, and the ordering. The licenses stack up and renew every year, per person. ResearchOS does all of it, free, in a folder on your own machine.</div>
+        <table class="cost">
+          <tr><th>The tool your lab pays for</th><th>What it does</th><th style="text-align:right">Academic price</th></tr>
+          <tr><td>LabArchives</td><td>Electronic lab notebook</td><td class="price">$330 / user / yr</td></tr>
+          <tr><td>SnapGene</td><td>Cloning and sequences</td><td class="price">$1,625 flat</td></tr>
+          <tr><td>GraphPad Prism</td><td>Stats and figures</td><td class="price">~$1,000s</td></tr>
+          <tr><td>ChemDraw</td><td>Chemical structures</td><td class="price">per-seat, pricey</td></tr>
+          <tr><td>Quartzy</td><td>Inventory and ordering</td><td class="price">$1,908 flat</td></tr>
+          <tr class="total"><td colspan="2"><span class="bignum">Thousands per year &rarr; <span class="free">free</span></span></td><td class="price ros">ResearchOS</td></tr>
+        </table>
+        <div class="pmnote">Free to use, with every feature included. The only thing that ever costs money is optional cloud storage, and we charge what it costs us. <a href="#">See exactly how it is priced &rarr;</a> (links to /pricing)</div>
+      </section>
+
+      <!-- 2. CHEMISTRY WORKBENCH -->
+      <section class="sec tint cmt" data-clabel="2. Chemistry Workbench">
+        <span class="tagchip new">section 2</span>
+        <div class="feat">
+          <div class="ftext">
+            <div class="kick">// no ChemDraw license</div>
+            <div class="h2" style="font-size:25px">Draw and search chemistry, built in</div>
+            <div class="sub">Draw a structure, pull the compound straight from PubChem, search the literature, and drop it into your experiment note. The drawing tool labs pay a fortune for, free.</div>
+            <div class="pills"><span class="fpill">Structure editor</span><span class="fpill">PubChem import</span><span class="fpill">Literature search</span></div>
+            <div class="script"><b>Record:</b> draw a small molecule, import a compound from PubChem by name, then drop the structure into an experiment note. ~12s, no cursor hunting.</div>
+          </div>
+          <div class="vid"><div class="play"></div><div class="vlabel">chemistry-workbench.mp4 (new)</div></div>
+        </div>
+      </section>
+
+      <!-- 3. DATA HUB -->
+      <section class="sec cmt" data-clabel="3. Data Hub (stats + figures)">
+        <span class="tagchip new">section 3</span>
+        <div class="feat alt">
+          <div class="vid"><div class="play"></div><div class="vlabel">data-hub-stats.mp4 (new)</div></div>
+          <div class="ftext">
+            <div class="kick">// no Prism license</div>
+            <div class="h2" style="font-size:25px">Run the stats and make the figure</div>
+            <div class="sub">Paste your data, run the test, make a publication-ready plot. Every statistic is validated in public against scipy, R, and Prism, so you can trust the number you cite.</div>
+            <div class="pills"><span class="fpill">Validated tests</span><span class="fpill">Publication figures</span><span class="fpill">No black box</span></div>
+            <div class="script"><b>Record:</b> paste a small dataset, run a t-test, generate a bar plot with error bars, then flash the /transparency page showing the match vs Prism. Flag if not demo-ready yet.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. SEQUENCE EDITOR -->
+      <section class="sec tint cmt" data-clabel="4. Sequence editor">
+        <span class="tagchip">section 4</span>
+        <div class="feat">
+          <div class="ftext">
+            <div class="kick">// no SnapGene license</div>
+            <div class="h2" style="font-size:25px">Plan a cloning, check the digest</div>
+            <div class="sub">Design a Gibson assembly, view the annotated map, check a digest. The cloning surface, in the same app as the notebook that records the result.</div>
+            <div class="pills"><span class="fpill">Cloning</span><span class="fpill">Annotated maps</span><span class="fpill">Digest check</span></div>
+            <div class="script"><b>Record:</b> open a plasmid map, set up a Gibson assembly, show the product. Can reuse the existing clip if still accurate.</div>
+          </div>
+          <div class="vid"><div class="play"></div><div class="vlabel">sequence-editor.mp4 (refresh)</div></div>
+        </div>
+      </section>
+
+      <!-- 5. PURCHASE / INVENTORY -->
+      <section class="sec cmt" data-clabel="5. Purchases + Inventory">
+        <span class="tagchip new">section 5</span>
+        <div class="feat alt">
+          <div class="vid"><div class="play"></div><div class="vlabel">purchases-inventory.mp4 (new)</div></div>
+          <div class="ftext">
+            <div class="kick">// no Quartzy</div>
+            <div class="h2" style="font-size:25px">Track orders and inventory</div>
+            <div class="sub">Log a purchase, attach the order PDF, and the PI can send it to the department in one click. Inventory and ordering for the whole lab, no extra subscription.</div>
+            <div class="pills"><span class="fpill">Order tracking</span><span class="fpill">Attach PDFs</span><span class="fpill">Send to department</span></div>
+            <div class="script"><b>Record:</b> add a purchase, attach an order PDF, show it appearing in inventory, then the PI "send to department" hand-off. ~12s.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. COMPANION APP (spotlight) -->
+      <section class="sec spot cmt" data-clabel="6. Companion app (spotlight)">
+        <span class="tagchip new">section 6 &middot; spotlight</span>
+        <div class="kick">// your lab, in your pocket</div>
+        <div class="h2">The companion app brings ResearchOS to the bench</div>
+        <div class="sub" style="max-width:64ch">Most of research happens standing at a bench, not sitting at a desk. The companion app on your phone is the bench end of your notebook, so the messy steps flow straight into the experiment on your computer. Nothing to retype later.</div>
+        <div class="spotwrap">
+          <div class="phone"><div class="pscreen"><div class="play"></div><div>companion-app.mp4 (new)</div></div></div>
+          <div class="capgrid">
+            <div class="capcard">
+              <div class="ct">Snap a photo into the experiment</div>
+              <div class="cd">Photograph a gel, a plate, or the bench and it lands in the right experiment on your computer at full resolution. No cable, no retyping.</div>
+            </div>
+            <div class="capcard">
+              <div class="ct">Scan handwritten notes to text</div>
+              <div class="cd">Point your phone at a page of bench scrawl and it pulls the text out, so a paper note becomes a searchable entry in the experiment.</div>
+            </div>
+            <div class="capcard">
+              <div class="ct">Scan a barcode, inventory updates itself</div>
+              <div class="cd">Scan the barcode on a reagent box and inventory deducts automatically as you use it. No spreadsheet, no manual count, the stock stays right.</div>
+            </div>
+            <div class="capcard">
+              <div class="ct">Run methods on your phone, not on paper</div>
+              <div class="cd">Open a method in reading mode and follow it step by step at the bench instead of printing it. Add a variation note from your phone and it saves back to the run.</div>
+            </div>
+          </div>
+        </div>
+        <div class="script" style="margin-top:18px"><b>Record:</b> one companion-app montage of all four, snap a gel photo to an experiment, scan a handwritten page to text, scan a reagent barcode and watch inventory tick down, open a method in reading mode and add a variation note. Phone screen-capture, ~25 to 30s, or four short clips. Full scripts in docs/marketing/welcome-video-scripts.md.</div>
+      </section>
+
+      <!-- 7. AI ASSISTANT -->
+      <section class="sec cmt" data-clabel="7. AI assistant">
+        <span class="tagchip new">section 7</span>
+        <div class="feat alt">
+          <div class="vid"><div class="play"></div><div class="vlabel">ai-assistant.mp4 (new)</div></div>
+          <div class="ftext">
+            <div class="kick">// your data, your AI</div>
+            <div class="h2" style="font-size:25px">Ask your own research</div>
+            <div class="sub">Point AI at the data you own and ask a plain-English question across your notes and results. Your data, your assistant, not a vendor mining your work.</div>
+            <div class="pills"><span class="fpill">Natural-language</span><span class="fpill">Over your own data</span><span class="fpill">You stay in control</span></div>
+            <div class="script"><b>Record:</b> type a question like "show my PCR runs that failed last month," show the answer pulling from real notes. Flag if not demo-ready yet.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8. HOW IT WORKS -->
+      <section class="sec tint cmt" data-clabel="8. How it works">
+        <span class="tagchip new">section 8</span>
+        <div class="kick">// how it works</div>
+        <div class="h2" style="font-size:25px">Three steps, your data never leaves unless you say so</div>
+        <div class="steps">
+          <div class="step"><div class="n">01</div><div class="st">Open a folder</div><div class="sd">Pick a folder on your own computer. That folder is always the original.</div></div>
+          <div class="step"><div class="n">02</div><div class="st">Work locally</div><div class="sd">Notebook, chemistry, stats, cloning, inventory. Fully offline if you want.</div></div>
+          <div class="step"><div class="n">03</div><div class="st">Sync if you choose</div><div class="sd">Turn on optional cloud to sync, share, or co-edit. Nothing uploads until you do.</div></div>
+        </div>
+      </section>
+
+      <!-- 9. MISSION -->
+      <section class="sec cmt" data-clabel="9. Why we exist (mission)">
+        <span class="tagchip new">section 9</span>
+        <div class="kick">// why we built this</div>
+        <div class="h2">Research software should be accessible and better, not expensive and locked</div>
+        <p class="mission">ResearchOS is an <b>open-source company</b> (AGPLv3) that grew out of a research fellowship at UW-Madison. The tools labs depend on are overpriced, and they hold your data hostage in someone else's cloud. We build free, open, local-first alternatives, and the goal is not just cheaper, it is <b>better</b>: you own your data, the science is validated in public, and a real, accountable business stands behind it. Good research tooling should be a public good, inspectable, ownable, and free.</p>
+        <div class="sign">Dr. Grant Nickles, founder &middot; <span class="madison">Built in Madison</span>, Wisconsin</div>
+      </section>
+
+      <!-- 10. NIH + ZENODO -->
+      <section class="sec tint cmt" data-clabel="10. NIH + Zenodo">
+        <span class="tagchip">section 10</span>
+        <div class="feat">
+          <div class="ftext">
+            <div class="kick">// built for grant-funded labs</div>
+            <div class="h2" style="font-size:25px">Grant-ready deposits, free</div>
+            <div class="sub">Records you own, real version history, clean exports, and a one-click Zenodo deposit carrying your ORCID and grant metadata. That covers an NIH Data Management and Sharing Plan, with no enterprise license to buy.</div>
+            <div class="pills"><span class="fpill">Records you own</span><span class="fpill">Version history</span><span class="fpill">Zenodo deposit</span></div>
+            <div class="script"><b>Record:</b> one-click Zenodo deposit from a record, showing the ORCID + grant metadata fields. ~10s.</div>
+          </div>
+          <div class="vid"><div class="play"></div><div class="vlabel">nih-zenodo.mp4 (refresh)</div></div>
+        </div>
+      </section>
+
+      <!-- 11. TRUST -->
+      <section class="sec cmt" data-clabel="11. Trust band">
+        <span class="tagchip new">section 11</span>
+        <div class="kick">// why you can trust a free tool</div>
+        <div class="h2" style="font-size:25px">Free, but accountable</div>
+        <div class="trust">
+          <div class="tcard"><div class="th">Your data is yours</div><div class="tb">Plain files on your disk. Leaving is closing a folder.</div></div>
+          <div class="tcard"><div class="th">Open source</div><div class="tb">AGPLv3. Read exactly how it works.</div></div>
+          <div class="tcard"><div class="th">Validated science</div><div class="tb">Our math is proven in public vs Biopython, primer3, R, Prism.</div></div>
+          <div class="tcard"><div class="th">Real business</div><div class="tb">A Wisconsin LLC, merchant of record, not a hobby link.</div></div>
+        </div>
+      </section>
+
+      <!-- 12. CTA -->
+      <section class="sec cmt cta" data-clabel="12. Final CTA">
+        <span class="tagchip new">section 12</span>
+        <div class="h2">Start your notebook in a minute</div>
+        <div class="sub" style="margin:0 auto">Free, no sign-up to start. You only sign in if you want to share with your lab.</div>
+        <a class="ctabtn" href="#">Start your notebook</a>
+        <div class="pmnote" style="text-align:center;border:0">Curious how the optional cloud is priced? <a href="#">See the pricing &rarr;</a></div>
+      </section>
+
+      <div class="rb"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel">
+    <div class="panelHead" id="panelHead"><b>Notes</b><span class="cnt">(<span id="cCount">0</span>)</span><span class="spacer"></span><span class="cnt" id="chev">hide</span></div>
+    <div class="panelBody" id="panelBody"></div>
+    <div class="panelFoot"><button class="btn" id="exportBtn2">Copy</button><button class="btn" id="downloadBtn2">.md</button></div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+  function esc(s){return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+  const STORE="ros-welcome-redesign-comments-v1";
+  let comments=[]; try{comments=JSON.parse(localStorage.getItem(STORE)||"[]");}catch{comments=[];}
+  function save(){try{localStorage.setItem(STORE,JSON.stringify(comments));}catch{}}
+  function renderPins(){
+    document.querySelectorAll(".pin").forEach(p=>p.remove());
+    const byT={}; comments.forEach((c,i)=>{(byT[c.target]=byT[c.target]||[]).push(i+1);});
+    document.querySelectorAll(".cmt").forEach(el=>{const lbl=el.getAttribute("data-clabel"); const nums=byT[lbl]; if(!nums)return; const pin=document.createElement("span"); pin.className="pin"; pin.textContent=nums.join(","); pin.addEventListener("click",ev=>{ev.stopPropagation();const f=comments.findIndex(c=>c.target===lbl);if(f>=0)openEditor(el,f,ev);}); el.appendChild(pin);});
+  }
+  function flashPin(t){document.querySelectorAll(".pin").forEach(p=>{const el=p.closest(".cmt");if(el&&el.getAttribute("data-clabel")===t){p.classList.add("hl");setTimeout(()=>p.classList.remove("hl"),700);}});}
+  function renderPanel(){
+    const body=document.getElementById("panelBody"); document.getElementById("cCount").textContent=comments.length;
+    if(!comments.length){body.innerHTML='<div class="empty">No notes yet. Turn on Comment mode and click any section.</div>';return;}
+    const vtag=v=>v==="approve"?'<span class="vbadge" style="color:var(--ok)">APPROVE</span> ':v==="disapprove"?'<span class="vbadge" style="color:var(--pin)">DISAPPROVE</span> ':"";
+    body.innerHTML=comments.map((c,i)=>`<div class="citem" data-i="${i}"><span class="num">${i+1}</span><div style="flex:1"><div class="tgt">${vtag(c.verdict)}${esc(c.target)}</div><div class="txt">${esc(c.text)||"<i>no text</i>"}</div></div><button class="x" data-del="${i}">&times;</button></div>`).join("");
+    body.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();comments.splice(+b.dataset.del,1);save();renderAll();}));
+    body.querySelectorAll(".citem").forEach(it=>it.addEventListener("click",e=>{if(e.target.closest("[data-del]"))return;const i=+it.dataset.i;const el=[...document.querySelectorAll(".cmt")].find(x=>x.getAttribute("data-clabel")===comments[i].target);if(el){el.scrollIntoView({block:"center",behavior:"smooth"});flashPin(comments[i].target);}}));
+  }
+  function renderAll(){renderPins();renderPanel();}
+  const CHANGES=[
+    {id:"stack",tag:"1",title:"Lead with the stack + cost",desc:"Open on the competitor-cost table (LabArchives, SnapGene, Prism, ChemDraw, Quartzy) and the thousands-per-year-to-free stat, with a handoff to /pricing."},
+    {id:"features",tag:"2-7",title:"Feature showcases",desc:"Chemistry Workbench, Data Hub, Sequence editor, Purchases/Inventory, and the AI assistant, each with a demo video and a record script. The Companion app gets its own spotlight, next."},
+    {id:"companion",tag:"6",title:"Companion app spotlight (new)",desc:"Its own distinct band, the phone is the bench end of the notebook. Four capabilities: snap photos into the experiment, scan handwritten notes to text, scan a barcode so inventory deducts itself, and run methods in reading mode with on-the-go variation notes."},
+    {id:"how",tag:"8",title:"How it works (3 steps)",desc:"Open a folder, work locally, sync if you choose. Reinforces local-first ownership."},
+    {id:"mission",tag:"9",title:"Why we exist (mission)",desc:"Open-source company, make research software accessible AND better, not just cheaper. Founder line + Built in Madison."},
+    {id:"nih",tag:"10",title:"NIH + Zenodo",desc:"Grant-ready deposit hook for funded labs."},
+    {id:"trust",tag:"11",title:"Trust band",desc:"Your data is yours, open source, validated science, real business."},
+    {id:"cta",tag:"12",title:"Final CTA + pricing handoff",desc:"Start your notebook, plus a link to /pricing for the cost detail."},
+  ];
+  const VSTORE="ros-welcome-redesign-verdicts-v1";
+  let verdicts={}; try{verdicts=JSON.parse(localStorage.getItem(VSTORE)||"{}");}catch{verdicts={};}
+  function saveVerdicts(){try{localStorage.setItem(VSTORE,JSON.stringify(verdicts));}catch{}}
+  function renderChanges(){
+    const wrap=document.getElementById("changes");
+    wrap.innerHTML=CHANGES.map(c=>{const v=verdicts[c.id]||""; const cls=v==="approve"?"approved":v==="disapprove"?"disapproved":"";
+      return `<div class="change ${cls}"><div><div class="ctitle"><span class="tag">${c.tag}</span>${esc(c.title)}</div><div class="cdesc">${esc(c.desc)}</div></div><div class="verdict"><button class="vbtn app ${v==="approve"?"on":""}" data-c="${c.id}" data-v="approve">Approve</button><button class="vbtn dis ${v==="disapprove"?"on":""}" data-c="${c.id}" data-v="disapprove">Disapprove</button>${v?`<button class="vclear" data-c="${c.id}" data-v="clear">clear</button>`:""}</div></div>`;}).join("");
+    wrap.querySelectorAll("[data-v]").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.c,v=b.dataset.v;if(v==="clear")delete verdicts[id];else verdicts[id]=verdicts[id]===v?undefined:v;if(!verdicts[id])delete verdicts[id];saveVerdicts();renderChanges();}));
+  }
+  let editorEl=null;
+  function closeEditor(){if(editorEl){editorEl.remove();editorEl=null;}}
+  function openEditor(targetEl,existingIndex,ev){
+    closeEditor(); const target=targetEl.getAttribute("data-clabel")||"Section"; const existing=existingIndex!=null?comments[existingIndex]:null; let pv=existing?(existing.verdict||""):"";
+    const ed=document.createElement("div");ed.className="editor";
+    ed.innerHTML=`<div class="lbl">${esc(target)}</div><textarea placeholder="Note, suggestion, or change request">${existing?esc(existing.text):""}</textarea><div class="vchoice"><button class="vbtn" data-vc="note">Note</button><button class="vbtn app" data-vc="approve">Approve</button><button class="vbtn dis" data-vc="disapprove">Disapprove</button></div><div class="acts">${existing?'<button class="btn danger" data-act="del">Delete</button>':""}<span class="spacer"></span><button class="btn" data-act="cancel">Cancel</button><button class="btn on" data-act="save">Save</button></div>`;
+    document.body.appendChild(ed);editorEl=ed;
+    const paint=()=>ed.querySelectorAll("[data-vc]").forEach(b=>b.classList.toggle("on",(b.dataset.vc==="note"&&!pv)||b.dataset.vc===pv));
+    ed.querySelectorAll("[data-vc]").forEach(b=>b.addEventListener("click",()=>{pv=b.dataset.vc==="note"?"":b.dataset.vc;paint();}));paint();
+    const x=ev?ev.clientX:targetEl.getBoundingClientRect().left; const y=ev?ev.clientY:targetEl.getBoundingClientRect().bottom;
+    ed.style.left=Math.min(Math.max(8,x-20),window.innerWidth-288)+"px"; ed.style.top=Math.min(y+10,window.innerHeight-220)+"px";
+    ed.querySelector("textarea").focus();
+    ed.querySelectorAll("[data-act]").forEach(b=>b.addEventListener("click",()=>{const act=b.dataset.act;if(act==="cancel")return closeEditor();if(act==="del"){if(existingIndex!=null){comments.splice(existingIndex,1);save();renderAll();}return closeEditor();}if(act==="save"){const text=ed.querySelector("textarea").value.trim();if(!text&&!pv)return closeEditor();if(existing){existing.text=text;existing.verdict=pv;}else comments.push({target,text,verdict:pv});save();renderAll();closeEditor();}}));
+    ed.addEventListener("keydown",e=>{if(e.key==="Escape")closeEditor();if(e.key==="Enter"&&(e.metaKey||e.ctrlKey))ed.querySelector('[data-act="save"]').click();});
+  }
+  document.addEventListener("click",e=>{if(!document.body.classList.contains("cmt-on"))return;if(e.target.closest(".editor")||e.target.closest(".panel")||e.target.closest(".topbar")||e.target.closest(".pin")||e.target.closest(".changes"))return;const cmt=e.target.closest(".cmt");if(!cmt)return;e.preventDefault();openEditor(cmt,null,e);});
+  const cBtn=document.getElementById("commentToggle");
+  cBtn.addEventListener("click",()=>{const on=document.body.classList.toggle("cmt-on");cBtn.classList.toggle("on",on);cBtn.textContent="Comment mode: "+(on?"on":"off");if(!on)closeEditor();});
+  document.getElementById("panelHead").addEventListener("click",()=>{const p=document.getElementById("panel");const col=p.classList.toggle("collapsed");document.getElementById("chev").textContent=col?"show":"hide";});
+  function buildMarkdown(){
+    let out="ResearchOS welcome / what-we-offer redesign, feedback\n\nVerdicts\n";
+    CHANGES.forEach(c=>{const v=verdicts[c.id];out+=`- ${c.title}: ${v==="approve"?"APPROVE":v==="disapprove"?"DISAPPROVE":"undecided"}\n`;});
+    out+="\nNotes\n"; if(!comments.length)out+="- none\n";
+    comments.forEach((c,i)=>{const tag=c.verdict==="approve"?"[APPROVE] ":c.verdict==="disapprove"?"[DISAPPROVE] ":"";out+=`${i+1}. ${tag}[${c.target}] ${c.text}\n`;});
+    return out;
+  }
+  function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),1500);}
+  async function doCopy(){const md=buildMarkdown();try{await navigator.clipboard.writeText(md);toast("Feedback copied, paste it back to me");}catch{window.prompt("Copy your feedback",md);}}
+  function doDownload(){const blob=new Blob([buildMarkdown()],{type:"text/markdown"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="welcome-redesign-feedback.md";a.click();URL.revokeObjectURL(a.href);}
+  document.getElementById("exportBtn").addEventListener("click",doCopy);
+  document.getElementById("exportBtn2").addEventListener("click",doCopy);
+  document.getElementById("downloadBtn").addEventListener("click",doDownload);
+  document.getElementById("downloadBtn2").addEventListener("click",doDownload);
+  document.getElementById("clearBtn").addEventListener("click",()=>{if(comments.length&&!confirm("Delete all notes?"))return;comments=[];save();renderAll();});
+  renderChanges(); renderAll();
+</script>
+</body>
+</html>
