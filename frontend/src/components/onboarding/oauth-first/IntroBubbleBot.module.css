@@ -11,6 +11,7 @@
   --rise: -70px;
   position: relative;
   margin: 0 auto;
+  cursor: pointer;
   animation: bob 3.4s ease-in-out infinite;
 }
 
@@ -137,9 +138,61 @@
   }
 }
 
+/* Heart easter egg: clicking the beaker pops pink hearts that drift up and fade,
+   mirroring the BeakerBot mark (same warm pink #ff5b8a, same 700ms pop). The
+   glyph is the approved <Icon name="heart">; the CSS fill overrides its inline
+   fill="none" so it reads as a solid heart, not an outline. */
+.heartLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+.heart {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  width: 30%;
+  opacity: 0;
+  transform: translate(-50%, 0) scale(0.2);
+  animation: introHeartPop 700ms ease-out 1 forwards;
+}
+.heartGlyph {
+  display: block;
+  width: 100%;
+  height: auto;
+  fill: #ff5b8a;
+  stroke: #ff5b8a;
+}
+
+@keyframes introHeartPop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(0.2);
+  }
+  18% {
+    opacity: 1;
+    transform: translate(-50%, -6px) scale(1.15);
+  }
+  35% {
+    opacity: 1;
+    transform: translate(-50%, -10px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--heart-drift-x, 0px)), var(--rise, -70px))
+      scale(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .introbot,
   .bubbles i {
     animation: none;
+  }
+  /* The heart pop still fires on click (it is a deliberate user action, not
+     ambient motion), but collapse the drift to a simple fade so it stays gentle. */
+  .heart {
+    animation-duration: 500ms;
   }
 }
