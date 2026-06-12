@@ -47,6 +47,7 @@ import { selectionTouchesNode } from "./selection-touches";
 import { inlineRevealTheme } from "./theme";
 import { TableWidget, FencedCodeWidget } from "./block-widgets";
 import { ImageWidget } from "./image-widget";
+import { EmbedWidget, parseLoneEmbedLink } from "./embed-widget";
 import { markdownKeymap } from "./markdown-keymap";
 import { stampHideExtension } from "./stamp-hide";
 
@@ -147,6 +148,19 @@ export function buildDeco(view: EditorView): InlineRevealDecorations {
       to: visTo,
       enter: (node) => {
         const name = node.name;
+
+        // OBJECT EMBED. A paragraph that is a lone object-embed link is rendered
+        // as a block widget by the StateField (buildBlockDeco). When it is not
+        // caret-touched, skip its children here so the inline walk does not emit
+        // Link / URL decorations underneath the block widget. A touched one falls
+        // through so the raw link source shows + styles normally.
+        if (name === "Paragraph") {
+          const touched = selectionTouchesNode(sel, node.from, node.to);
+          if (!touched && parseLoneEmbedLink(state.sliceDoc(node.from, node.to))) {
+            return false;
+          }
+          return undefined;
+        }
 
         // BLOCK WIDGETS (Table / FencedCode) are NOT emitted here. CM6 forbids
         // block decorations from a ViewPlugin.decorations provider ("Block
@@ -329,12 +343,31 @@ function toSet(ranges: CollectedRange[]): DecorationSet {
 export function buildBlockDeco(state: EditorState): InlineRevealDecorations {
   const sel = state.selection;
   const tree = syntaxTree(state);
+  const imageBasePath = state.facet(imageBasePathFacet);
   const blockRanges: CollectedRange[] = [];
   const atomicRanges: CollectedRange[] = [];
 
   tree.iterate({
     enter: (node) => {
       const name = node.name;
+
+      // OBJECT EMBED. An untouched paragraph that is a lone object-embed link
+      // collapses into a block widget rendering the React ObjectEmbed; a touched
+      // one emits nothing so the raw link source shows as editable text.
+      if (name === "Paragraph") {
+        if (node.to <= node.from) return undefined;
+        if (selectionTouchesNode(sel, node.from, node.to)) return undefined;
+        const lone = parseLoneEmbedLink(state.sliceDoc(node.from, node.to));
+        if (!lone) return undefined;
+        const deco = Decoration.replace({
+          widget: new EmbedWidget(lone.descriptor, lone.caption, imageBasePath),
+          block: true,
+        });
+        blockRanges.push({ from: node.from, to: node.to, deco });
+        atomicRanges.push({ from: node.from, to: node.to, deco });
+        return false;
+      }
+
       if (name !== "Table" && name !== "FencedCode") return undefined;
       // Do not descend into the block body either way (return false below).
       const touched = selectionTouchesNode(sel, node.from, node.to);
