@@ -88,9 +88,37 @@ function seedContent(): DataHubDocContent {
   };
 }
 
-vi.mock("@/lib/local-api", () => ({
-  projectsApi: { list: vi.fn(async () => []) },
-}));
+// The datahub page now transitively imports the BeakerBot AI tool registry,
+// which reaches method-catalog.ts; that module reads methodsApi / pcrApi /
+// lcGradientApi / plateApi / cellCultureApi / massSpecApi / filesApi from
+// @/lib/local-api at module load. Spread the real module so those exports
+// survive, and only stub projectsApi.list (what the page actually calls).
+vi.mock("@/lib/local-api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/local-api")>();
+  return {
+    ...actual,
+    projectsApi: { ...actual.projectsApi, list: vi.fn(async () => []) },
+  };
+});
+
+// The page renders NewAnalysisDialog, which calls useBeakerSearch. The tests
+// render <DataHubPage/> without the provider, so stub the hook with a minimal
+// no-op API (NewAnalysisDialog only uses openBeakerBot).
+vi.mock("@/components/beaker-search/BeakerSearchProvider", async (io) => {
+  const actual =
+    await io<typeof import("@/components/beaker-search/BeakerSearchProvider")>();
+  return {
+    ...actual,
+    useBeakerSearch: () => ({
+      open: false,
+      openPalette: () => {},
+      closePalette: () => {},
+      togglePalette: () => {},
+      hasSource: false,
+      openBeakerBot: () => {},
+    }),
+  };
+});
 
 vi.mock("@/lib/datahub/api", () => ({
   dataHubApi: {
