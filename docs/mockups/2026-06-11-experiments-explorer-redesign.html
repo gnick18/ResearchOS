@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Experiments tab redesign — cards to explorer (before / after)</title>
+<style>
+  :root {
+    --surface: #f8fafc; --surface-raised: #ffffff; --surface-overlay: #ffffff;
+    --surface-sunken: #f1f5f9; --border: #e5e7eb; --border-strong: #cbd5e1;
+    --fg: #111827; --fg-muted: #64748b; --fg-faint: #94a3b8;
+    --brand-action: #1283C9; --brand-purple: #5B47D6; --pin: #e11d48; --ok: #16a34a;
+    --blue: #2563eb; --blue-soft: #eff6ff; --amber: #d97706; --amber-soft: #fffbeb;
+    --green: #16a34a; --green-soft: #f0fdf4; --gray: #64748b; --gray-soft: #f1f5f9;
+    --purple: #7c3aed; --purple-soft: #f3effe;
+  }
+  body.dark {
+    --surface: #0a0e1a; --surface-raised: #1c2638; --surface-overlay: #28344c;
+    --surface-sunken: #0d1424; --border: rgba(255,255,255,0.16); --border-strong: rgba(255,255,255,0.28);
+    --fg: #e9eef7; --fg-muted: #9fb0c8; --fg-faint: #6b7c96; --pin: #fb7185; --ok: #4ade80;
+    --blue: #60a5fa; --blue-soft: rgba(37,99,235,0.18); --amber: #fbbf24; --amber-soft: rgba(217,119,6,0.18);
+    --green: #4ade80; --green-soft: rgba(22,163,74,0.18); --gray: #9fb0c8; --gray-soft: rgba(255,255,255,0.06);
+    --purple: #b69cff; --purple-soft: rgba(124,58,237,0.18);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--surface); color: var(--fg); line-height: 1.45; -webkit-font-smoothing: antialiased; }
+  a { color: var(--brand-action); }
+
+  header.top { position: sticky; top: 0; z-index: 40; display: flex; align-items: center; gap: 14px;
+    padding: 14px 22px; background: var(--surface-overlay); border-bottom: 1px solid var(--border); }
+  header.top h1 { font-size: 17px; margin: 0; font-weight: 800; letter-spacing: -0.01em; }
+  header.top .sub { font-size: 12.5px; color: var(--fg-muted); }
+  header.top .spacer { flex: 1; }
+  .btn { font: inherit; font-size: 13px; font-weight: 600; padding: 7px 13px; border-radius: 9px;
+    border: 1px solid var(--border-strong); background: var(--surface-raised); color: var(--fg); cursor: pointer; }
+  .btn:hover { border-color: var(--brand-action); }
+  .btn.on { background: var(--brand-action); border-color: var(--brand-action); color: #fff; }
+  .btn.danger { color: var(--pin); }
+
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 22px; }
+  .lead { color: var(--fg-muted); font-size: 14px; max-width: 900px; margin: 0 0 6px; }
+
+  .panes { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; margin-top: 18px; }
+  @media (max-width: 1100px) { .panes { grid-template-columns: 1fr; } }
+  .pane { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .pane > .label { padding: 9px 16px; font-size: 11px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; color: var(--fg-faint); border-bottom: 1px solid var(--border); }
+  .pane.before > .label { background: var(--surface-sunken); }
+  .pane.after > .label { background: linear-gradient(90deg, rgba(18,131,201,0.12), rgba(91,71,214,0.10)); color: var(--brand-action); }
+
+  /* ---------- BEFORE: kanban + result cards ---------- */
+  .before-body { padding: 14px; }
+  .b-section { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-faint); margin: 4px 2px 8px; }
+  .kanban { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
+  .kcol { background: var(--surface-sunken); border-radius: 10px; padding: 8px; min-height: 120px; }
+  .kcol h5 { margin: 0 0 8px; font-size: 11px; font-weight: 700; color: var(--fg-muted); display: flex; justify-content: space-between; }
+  .kcard { background: var(--surface-raised); border: 1px solid var(--border); border-left: 3px solid var(--blue); border-radius: 8px; padding: 8px; margin-bottom: 7px; font-size: 11.5px; }
+  .kcard .t { font-weight: 600; margin-bottom: 4px; line-height: 1.3; }
+  .kcard .m { color: var(--fg-faint); font-size: 10px; }
+  .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .rcard { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .rcard .hero { height: 70px; background: linear-gradient(135deg, #c7d2fe, #a7f3d0); }
+  .rcard .rb { padding: 9px 10px; }
+  .rcard .rt { font-weight: 600; font-size: 12px; margin-bottom: 4px; }
+  .rcard .rm { font-size: 10.5px; color: var(--fg-faint); }
+  .before-note { text-align: center; font-size: 12px; color: var(--fg-faint); padding: 12px 0 2px; font-style: italic; }
+
+  /* ---------- AFTER: explorer ---------- */
+  .explorer { display: grid; grid-template-columns: 222px 1fr; min-height: 560px; }
+  .rail { border-right: 1px solid var(--border); background: var(--surface-sunken); padding: 12px 10px; overflow-y: auto; }
+  .rail .sec-h { font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-faint); padding: 0 6px; margin: 14px 0 5px; }
+  .rail .sec-h:first-child { margin-top: 0; }
+  .nav { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; font-size: 13px; cursor: pointer; color: var(--fg); }
+  .nav:hover { background: var(--surface-raised); }
+  .nav.active { background: var(--brand-action); color: #fff; font-weight: 600; }
+  .nav.active .count { color: rgba(255,255,255,0.85); }
+  .nav .dot { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+  .nav .lbl { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nav .count { font-size: 11.5px; color: var(--fg-faint); font-variant-numeric: tabular-nums; }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; padding: 2px 4px; }
+  .chip { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-raised); color: var(--fg-muted); cursor: pointer; }
+  .chip.on { background: var(--brand-action); border-color: var(--brand-action); color: #fff; }
+
+  .listcol { display: flex; flex-direction: column; min-width: 0; }
+  .listbar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); }
+  .listbar .crumb { font-weight: 700; color: var(--fg); font-size: 14px; }
+  .listbar .spacer { flex: 1; }
+  .listbar .mini { font-size: 12px; color: var(--fg-faint); }
+  .seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 8px; overflow: hidden; }
+  .seg button { font: inherit; font-size: 12px; font-weight: 600; padding: 4px 11px; border: none; background: var(--surface-raised); color: var(--fg-muted); cursor: pointer; }
+  .seg button.on { background: var(--brand-action); color: #fff; }
+  .rows { overflow: auto; }
+
+  .row { display: flex; align-items: center; gap: 10px; padding: 9px 16px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13.5px; }
+  .row:hover { background: var(--surface-sunken); }
+  .badge { flex: none; font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; width: 92px; text-align: center; }
+  .badge.ready { background: var(--blue-soft); color: var(--blue); }
+  .badge.running { background: var(--blue-soft); color: var(--blue); }
+  .badge.blocked { background: var(--amber-soft); color: var(--amber); }
+  .badge.awaiting { background: var(--amber-soft); color: var(--amber); }
+  .badge.recent { background: var(--green-soft); color: var(--green); }
+  .badge.earlier { background: var(--gray-soft); color: var(--gray); }
+  .row .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .proj { flex: none; font-size: 11.5px; color: var(--fg-muted); }
+  .row .mchips { display: flex; gap: 4px; }
+  .row .mchip { font-size: 10.5px; color: var(--purple); background: var(--purple-soft); padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
+  .row .grow { flex: 1; min-width: 8px; }
+  .row .shared { flex: none; font-size: 10.5px; color: var(--amber); background: var(--amber-soft); padding: 1px 7px; border-radius: 999px; }
+  .row .resind { flex: none; position: relative; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; color: var(--green); }
+  .row .resind.has { background: var(--green-soft); }
+  .row .resind .thumb { display: none; position: absolute; right: 26px; top: -6px; width: 150px; height: 96px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.25); background: linear-gradient(135deg, #c7d2fe, #a7f3d0); z-index: 30; }
+  .row .resind.has:hover .thumb { display: block; }
+  .row .when { flex: none; font-size: 11.5px; color: var(--fg-faint); width: 64px; text-align: right; tabular-nums; }
+  .grouphead { padding: 7px 16px; background: var(--surface-sunken); border-bottom: 1px solid var(--border); font-size: 10.5px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: var(--fg-faint); }
+
+  /* board view */
+  .board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 14px; }
+  .bcol { background: var(--surface-sunken); border-radius: 10px; padding: 9px; }
+  .bcol h5 { margin: 0 0 8px; font-size: 11px; font-weight: 700; color: var(--fg-muted); display: flex; justify-content: space-between; }
+  .bcard { background: var(--surface-raised); border: 1px solid var(--border); border-left: 3px solid var(--blue); border-radius: 8px; padding: 8px 9px; margin-bottom: 7px; font-size: 12px; cursor: pointer; }
+  .bcard.blocked { border-left-color: var(--amber); }
+  .bcard .bt { font-weight: 600; line-height: 1.3; margin-bottom: 4px; }
+  .bcard .bm { font-size: 10px; color: var(--fg-faint); }
+
+  /* changes / comments (shared harness) */
+  .section-h { font-size: 18px; font-weight: 800; margin: 34px 0 4px; letter-spacing: -0.01em; }
+  .section-sub { color: var(--fg-muted); font-size: 13.5px; margin: 0 0 14px; }
+  .changes { display: grid; gap: 12px; }
+  .change { display: flex; gap: 14px; background: var(--surface-raised); border: 1px solid var(--border); border-left: 4px solid var(--border-strong); border-radius: 12px; padding: 14px 16px; }
+  .change.approved { border-left-color: var(--ok); }
+  .change.disapproved { border-left-color: var(--pin); }
+  .change .body { flex: 1; min-width: 0; }
+  .change .body h4 { margin: 0 0 4px; font-size: 14.5px; font-weight: 700; }
+  .change .body p { margin: 0; font-size: 13px; color: var(--fg-muted); }
+  .change .verdict { flex: none; display: flex; flex-direction: column; gap: 6px; width: 140px; }
+  .vbtn { font: inherit; font-size: 12.5px; font-weight: 600; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface-raised); color: var(--fg); cursor: pointer; text-align: center; }
+  .vbtn.ok.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .vbtn.dis.on { background: var(--pin); border-color: var(--pin); color: #fff; }
+  .change textarea { margin-top: 8px; width: 100%; height: 30px; resize: vertical; font: inherit; font-size: 12.5px; padding: 5px 8px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--fg); }
+
+  body.cmt-on { cursor: crosshair; }
+  body.cmt-on .row, body.cmt-on .nav, body.cmt-on .bcard, body.cmt-on .kcard, body.cmt-on .rcard { cursor: crosshair; }
+  .pin { position: absolute; transform: translate(-50%, -50%); min-width: 18px; height: 18px; padding: 0 4px; background: var(--pin); color: #fff; border-radius: 9px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; z-index: 50; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+  .cpanel { position: fixed; right: 16px; bottom: 16px; width: 320px; max-height: 70vh; display: flex; flex-direction: column; background: var(--surface-overlay); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 18px 50px rgba(0,0,0,0.3); z-index: 55; overflow: hidden; }
+  .cpanel .ch { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-bottom: 1px solid var(--border); }
+  .cpanel .ch h3 { margin: 0; font-size: 14px; font-weight: 800; flex: 1; }
+  .cpanel .ch .cCount { font-size: 12px; color: var(--fg-faint); }
+  .cbody { overflow: auto; padding: 8px; }
+  .cempty { color: var(--fg-faint); font-size: 12.5px; padding: 14px 8px; text-align: center; }
+  .citem { display: flex; gap: 8px; padding: 8px; border-radius: 9px; }
+  .citem:hover { background: var(--surface-sunken); }
+  .citem .num { flex: none; width: 18px; height: 18px; background: var(--pin); color: #fff; border-radius: 9px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+  .citem .ctxt { font-size: 12.5px; flex: 1; }
+  .citem .ctxt .tgt { color: var(--fg-faint); font-size: 11px; display: block; }
+  .citem .del { background: none; border: none; color: var(--fg-faint); cursor: pointer; font-size: 14px; }
+  .cfoot { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--border); }
+  .cfoot .btn { flex: 1; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Experiments tab — cards to explorer</h1>
+    <div class="sub">Before / after. Two-pane explorer, dense rows, Kanban kept as a Board toggle, results on hover.</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn" id="themeBtn">Dark</button>
+  <button class="btn" id="commentToggle">Comment mode: off</button>
+</header>
+
+<div class="wrap">
+  <p class="lead">Same experiments, two ways of showing them. Left is today (a Kanban pipeline stacked on top of hero-image result grids). Right is the proposal: a navigation rail (by status and by project) with dense scannable rows, the pipeline preserved behind a List/Board toggle, and result images moved to a hover preview so rows stay tight.</p>
+  <p class="lead"><strong>How to review:</strong> click rows and the rail. Try the List/Board toggle. Hover a green results marker to see the image come back on demand. Turn on Comment mode to pin notes. Below, mark each decision Approve or Disapprove, then Copy feedback.</p>
+
+  <div class="panes">
+    <!-- BEFORE -->
+    <div class="pane before">
+      <div class="label">Before — today</div>
+      <div class="before-body">
+        <div class="b-section">Pipeline</div>
+        <div class="kanban" id="beforeKanban"></div>
+        <div class="b-section">Recent results</div>
+        <div class="results-grid" id="beforeResults"></div>
+        <div class="before-note">... earlier-results archive continues below, more hero cards ...</div>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div class="pane after">
+      <div class="label">After — explorer</div>
+      <div class="explorer">
+        <aside class="rail" id="rail"></aside>
+        <div class="listcol">
+          <div class="listbar">
+            <span class="crumb" id="crumb">All experiments</span>
+            <span class="spacer"></span>
+            <span class="mini" id="listmini"></span>
+            <span class="seg" id="viewSeg">
+              <button data-view="list" class="on">List</button>
+              <button data-view="board">Board</button>
+            </span>
+          </div>
+          <div class="rows" id="rows"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="section-h">What changed, and why</h2>
+  <p class="section-sub">Nine decisions. Mark each so I build only what you want.</p>
+  <div class="changes" id="changes"></div>
+</div>
+
+<div class="cpanel" id="cpanel" style="display:none">
+  <div class="ch"><h3>Comments</h3><span class="cCount" id="cCount">0</span></div>
+  <div class="cbody" id="cbody"><div class="cempty" id="cEmpty">No comments yet. Turn on Comment mode and click any element.</div></div>
+  <div class="cfoot"><button class="btn" id="exportBtn">Copy feedback</button><button class="btn danger" id="clearBtn">Clear</button></div>
+</div>
+
+<script>
+/* ----------------------------- data ----------------------------- */
+// section: ready | blocked | running | awaiting | recent | earlier
+const EXPS = [
+  { id:1, name:'qPCR — fakeGFP expression vs control', section:'running', badge:'Day 2 of 4', project:'FakeYeast biofuel', methods:['qPCR fakeGFP'], when:'', results:false },
+  { id:2, name:'Heat-shock survival assay', section:'running', badge:'Day 1 of 3', project:'Stress tolerance', methods:['Heat-shock'], when:'', results:false },
+  { id:3, name:'Growth curves in YPD/glucose', section:'ready', badge:'Ready', project:'Stress tolerance', methods:['96-well growth'], when:'', results:false },
+  { id:4, name:'Re-streak top 4 transformants', section:'blocked', badge:'Blocked', project:'FakeYeast biofuel', methods:[], when:'', results:false },
+  { id:5, name:'Engineer FakeYeast for biofuel', section:'awaiting', badge:'No write-up', project:'FakeYeast biofuel', methods:['Gibson','DemoCheck PCR'], when:'', results:false },
+  { id:6, name:'LC-MS detection — flbA peptides', section:'recent', badge:'Result +2d', project:'FakeYeast biofuel', methods:['LC-MS'], when:'2d', results:true },
+  { id:7, name:'DemoCheck PCR — pYES integration', section:'recent', badge:'Result +4d', project:'FakeYeast biofuel', methods:['DemoCheck PCR'], when:'4d', results:true },
+  { id:8, name:'HeLa passaging — weekly 1:5 split', section:'recent', badge:'Result +1d', project:'Lab admin', methods:['HeLa passaging'], when:'1d', results:true, shared:'morgan' },
+  { id:9, name:'Plasmid mini-prep batch', section:'earlier', badge:'45d ago', project:'FakeYeast biofuel', methods:['Mini-prep'], when:'45d', results:true },
+  { id:10, name:'Reverse-phase HPLC — flbA quant', section:'earlier', badge:'60d ago', project:'Stress tolerance', methods:['RP-HPLC'], when:'60d', results:true },
+];
+const PROJECTS = [...new Set(EXPS.map(e => e.project))];
+const SECTION_LABEL = { ready:'Ready', running:'Running', blocked:'Blocked', awaiting:'Awaiting write-up', recent:'Recent results', earlier:'Earlier' };
+const SECTION_COLORVAR = { ready:'--blue', running:'--blue', blocked:'--amber', awaiting:'--amber', recent:'--green', earlier:'--gray' };
+const IN_FLIGHT = ['ready','running','blocked'];
+
+/* ----------------------------- BEFORE ----------------------------- */
+function renderBefore(){
+  const cols = [['ready','Ready'],['blocked','Blocked'],['running','Running'],['awaiting','Awaiting']];
+  document.getElementById('beforeKanban').innerHTML = cols.map(([sec,lbl]) => {
+    const items = EXPS.filter(e => e.section === sec || (sec==='awaiting' && e.section==='awaiting'));
+    return '<div class="kcol"><h5>'+lbl+'<span>'+items.length+'</span></h5>'
+      + items.map(e => '<div class="kcard" data-cmt="kanban card: '+e.name+'" style="border-left-color:var('+SECTION_COLORVAR[e.section]+')"><div class="t">'+e.name+'</div><div class="m">'+e.project+'</div></div>').join('')
+      + '</div>';
+  }).join('');
+  const recent = EXPS.filter(e => e.section==='recent');
+  document.getElementById('beforeResults').innerHTML = recent.map(e =>
+    '<div class="rcard" data-cmt="result card: '+e.name+'"><div class="hero"></div><div class="rb"><div class="rt">'+e.name+'</div><div class="rm">'+e.project+' · '+e.badge+'</div></div></div>'
+  ).join('');
+}
+
+/* ----------------------------- AFTER ----------------------------- */
+let activeNav = 'all';   // all | inflight | awaiting | recent | earlier | proj:<name>
+let activeMethod = null;
+let activeOwner = null;  // null | mine | shared
+let view = 'list';
+
+function navCount(key){
+  if (key==='all') return EXPS.length;
+  if (key==='inflight') return EXPS.filter(e=>IN_FLIGHT.includes(e.section)).length;
+  if (key==='awaiting') return EXPS.filter(e=>e.section==='awaiting').length;
+  if (key==='recent') return EXPS.filter(e=>e.section==='recent').length;
+  if (key==='earlier') return EXPS.filter(e=>e.section==='earlier').length;
+  if (key.startsWith('proj:')) return EXPS.filter(e=>e.project===key.slice(5)).length;
+  return 0;
+}
+function renderRail(){
+  let h = '<div class="sec-h">Status</div><div>';
+  const statusItems = [
+    ['all','All experiments','--brand-action'],
+    ['inflight','In flight','--blue'],
+    ['awaiting','Awaiting write-up','--amber'],
+    ['recent','Recent results','--green'],
+    ['earlier','Earlier','--gray'],
+  ];
+  statusItems.forEach(([k,l,c]) => {
+    h += '<div class="nav '+(activeNav===k?'active':'')+'" data-nav="'+k+'" data-cmt="rail: '+l+'"><span class="dot" style="background:var('+c+')"></span><span class="lbl">'+l+'</span><span class="count">'+navCount(k)+'</span></div>';
+  });
+  h += '</div><div class="sec-h">By project</div><div>';
+  PROJECTS.forEach(p => {
+    const k = 'proj:'+p;
+    h += '<div class="nav '+(activeNav===k?'active':'')+'" data-nav="'+k+'" data-cmt="rail project: '+p+'"><span class="dot" style="background:var(--purple)"></span><span class="lbl">'+p+'</span><span class="count">'+navCount(k)+'</span></div>';
+  });
+  h += '</div><div class="sec-h">Owner</div><div class="chips" id="ownerChips">'
+    + '<span class="chip '+(activeOwner==='mine'?'on':'')+'" data-owner="mine">Mine</span>'
+    + '<span class="chip '+(activeOwner==='shared'?'on':'')+'" data-owner="shared">Shared with me</span></div>';
+  const methods = [...new Set(EXPS.flatMap(e=>e.methods))];
+  h += '<div class="sec-h">Filter by method</div><div class="chips" id="methodChips">'
+    + methods.map(m => '<span class="chip '+(activeMethod===m?'on':'')+'" data-method="'+m+'">'+m+'</span>').join('') + '</div>';
+  document.getElementById('rail').innerHTML = h;
+}
+
+function matchesNav(e){
+  if (activeNav==='all') return true;
+  if (activeNav==='inflight') return IN_FLIGHT.includes(e.section);
+  if (activeNav==='awaiting') return e.section==='awaiting';
+  if (activeNav==='recent') return e.section==='recent';
+  if (activeNav==='earlier') return e.section==='earlier';
+  if (activeNav.startsWith('proj:')) return e.project===activeNav.slice(5);
+  return true;
+}
+function matchesFilters(e){
+  if (activeMethod && !e.methods.includes(activeMethod)) return false;
+  if (activeOwner==='mine' && e.shared) return false;
+  if (activeOwner==='shared' && !e.shared) return false;
+  return true;
+}
+function visibleExps(){ return EXPS.filter(e=>matchesNav(e)&&matchesFilters(e)); }
+
+const SECTION_ORDER = ['running','ready','blocked','awaiting','recent','earlier'];
+function rowHtml(e){
+  const mchips = e.methods.slice(0,2).map(m=>'<span class="mchip">'+m+'</span>').join('');
+  const more = e.methods.length>2 ? '<span class="mchip">+'+(e.methods.length-2)+'</span>' : '';
+  const shared = e.shared ? '<span class="shared">shared · '+e.shared+'</span>' : '';
+  const resicon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="1.6"/><path d="m6 17 4-4 3 3 2-2 3 3"/></svg>';
+  const res = e.results
+    ? '<span class="resind has" data-cmt="results: '+e.name+'">'+resicon+'<span class="thumb"></span></span>'
+    : '<span class="resind" title="no write-up yet"></span>';
+  return '<div class="row" data-cmt="row: '+e.name+'">'
+    + '<span class="badge '+e.section+'">'+e.badge+'</span>'
+    + '<span class="name">'+e.name+'</span>'
+    + '<span class="mchips">'+mchips+more+'</span>'
+    + '<span class="grow"></span>'
+    + shared
+    + '<span class="proj">'+e.project+'</span>'
+    + res
+    + '<span class="when">'+(e.when||'')+'</span>'
+    + '</div>';
+}
+function renderRows(){
+  document.getElementById('crumb').textContent =
+    activeNav==='all' ? 'All experiments'
+    : activeNav.startsWith('proj:') ? activeNav.slice(5)
+    : SECTION_LABEL[activeNav] || ({inflight:'In flight',awaiting:'Awaiting write-up',recent:'Recent results',earlier:'Earlier'}[activeNav]);
+  const list = visibleExps();
+  document.getElementById('listmini').textContent = list.length + (list.length===1?' experiment':' experiments');
+
+  const rowsEl = document.getElementById('rows');
+  if (view==='board'){
+    const cols = [['ready','Ready'],['blocked','Blocked'],['running','Running'],['awaiting','Awaiting']];
+    rowsEl.innerHTML = '<div class="board">' + cols.map(([sec,lbl])=>{
+      const items = list.filter(e=>e.section===sec);
+      return '<div class="bcol"><h5>'+lbl+'<span>'+items.length+'</span></h5>'
+        + items.map(e=>'<div class="bcard '+(sec==='blocked'?'blocked':'')+'" data-cmt="board card: '+e.name+'"><div class="bt">'+e.name+'</div><div class="bm">'+e.project+'</div></div>').join('')
+        + '</div>';
+    }).join('') + '</div>';
+    return;
+  }
+  // list view: group by section when viewing All / a project; flat when a single section is active
+  const grouped = (activeNav==='all' || activeNav.startsWith('proj:'));
+  if (!grouped){
+    rowsEl.innerHTML = list.map(rowHtml).join('') || '<div class="cempty">Nothing here.</div>';
+    return;
+  }
+  let h = '';
+  SECTION_ORDER.forEach(sec => {
+    const items = list.filter(e=>e.section===sec);
+    if (!items.length) return;
+    h += '<div class="grouphead">'+SECTION_LABEL[sec]+' · '+items.length+'</div>' + items.map(rowHtml).join('');
+  });
+  rowsEl.innerHTML = h || '<div class="cempty">Nothing here.</div>';
+}
+
+document.getElementById('rail').addEventListener('click', e => {
+  if (document.body.classList.contains('cmt-on')) return;
+  const nav = e.target.closest('.nav');
+  if (nav){ activeNav = nav.dataset.nav; renderRail(); renderRows(); return; }
+  const mc = e.target.closest('[data-method]');
+  if (mc){ activeMethod = activeMethod===mc.dataset.method ? null : mc.dataset.method; renderRail(); renderRows(); return; }
+  const oc = e.target.closest('[data-owner]');
+  if (oc){ activeOwner = activeOwner===oc.dataset.owner ? null : oc.dataset.owner; renderRail(); renderRows(); }
+});
+document.getElementById('viewSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  view = b.dataset.view;
+  document.querySelectorAll('#viewSeg button').forEach(x=>x.classList.toggle('on', x===b));
+  renderRows();
+});
+
+/* ----------------------------- changes ----------------------------- */
+const CHANGES = [
+  ['Two-pane explorer replaces the stacked card areas','The pipeline board, recent-results grid, and earlier archive become one explorer: a navigation rail on the left, a dense scannable list on the right. Click still opens the existing experiment popup.'],
+  ['Rail: navigate by status','All experiments, In flight, Awaiting write-up, Recent results, Earlier, each with a live count and a status color. Pick one to scope the list instead of scrolling three stacked areas.'],
+  ['Rail: navigate by project + filter by method / owner','A by-project list (counts), plus chips to filter by attached method and by Mine vs Shared with me. The project filter pills you have today move into the rail.'],
+  ['Dense rows replace cards','Each experiment is one row: status badge, name, method chips, project, a results marker, and a freshness/age label. Many more per screen, scannable at a glance.'],
+  ['Keep the Kanban as a Board toggle','A List / Board switch in the top bar. List is the default (dense); Board brings back the Ready / Blocked / Running / Awaiting pipeline columns when you want the at-a-glance view.'],
+  ['Result images move to hover','A row shows a small green "has results" marker; hover it to preview the result image. Keeps the visual recall without the tall hero cards.'],
+  ['Status as a colored badge per row','Ready / Running (Day N of M) / Blocked / Awaiting write-up / Result +Nd / age. The pipeline state is readable in the list, not only on the board.'],
+  ['Group the list by status when viewing All or a project','In All and per-project views the rows are grouped under section headers (Running, Ready, ...). Picking a single status shows a flat list. Replaces the separate flat-vs-grouped archive toggle and the "show more" caps.'],
+  ['Keep the detail popup, search, and project scoping unchanged','Clicking an experiment opens the same TaskDetailPopup (details / notes / method / results). This is a list-and-navigation redesign, not a change to how an experiment works.'],
+];
+const VSTORE = 'experiments-explorer-verdicts-v1';
+let verdicts = {};
+try { verdicts = JSON.parse(localStorage.getItem(VSTORE) || '{}'); } catch { verdicts = {}; }
+function saveV(){ try { localStorage.setItem(VSTORE, JSON.stringify(verdicts)); } catch {} }
+function renderChanges(){
+  document.getElementById('changes').innerHTML = CHANGES.map((c,i) => {
+    const v = verdicts[i] || {};
+    const cls = v.verdict==='ok'?'approved':v.verdict==='dis'?'disapproved':'';
+    return '<div class="change '+cls+'"><div class="body"><h4>'+(i+1)+'. '+c[0]+'</h4><p>'+c[1]+'</p>'
+      + '<textarea data-note="'+i+'" placeholder="Optional note...">'+(v.note||'')+'</textarea></div>'
+      + '<div class="verdict"><button class="vbtn ok '+(v.verdict==='ok'?'on':'')+'" data-v="ok" data-i="'+i+'">Approve</button>'
+      + '<button class="vbtn dis '+(v.verdict==='dis'?'on':'')+'" data-v="dis" data-i="'+i+'">Disapprove</button></div></div>';
+  }).join('');
+}
+document.getElementById('changes').addEventListener('click', e => {
+  const b = e.target.closest('.vbtn'); if (!b) return;
+  const i = b.dataset.i; verdicts[i] = verdicts[i]||{};
+  verdicts[i].verdict = verdicts[i].verdict===b.dataset.v ? null : b.dataset.v;
+  saveV(); renderChanges();
+});
+document.getElementById('changes').addEventListener('input', e => {
+  if (!e.target.dataset.note) return;
+  const i = e.target.dataset.note; verdicts[i] = verdicts[i]||{}; verdicts[i].note = e.target.value; saveV();
+});
+
+/* ----------------------------- comments ----------------------------- */
+const CSTORE = 'experiments-explorer-comments-v1';
+let comments = [];
+try { comments = JSON.parse(localStorage.getItem(CSTORE) || '[]'); } catch { comments = []; }
+function saveC(){ try { localStorage.setItem(CSTORE, JSON.stringify(comments)); } catch {} }
+const cpanel = document.getElementById('cpanel');
+document.getElementById('commentToggle').addEventListener('click', () => {
+  const on = document.body.classList.toggle('cmt-on');
+  document.getElementById('commentToggle').textContent = 'Comment mode: ' + (on?'on':'off');
+  document.getElementById('commentToggle').classList.toggle('on', on);
+  cpanel.style.display = on ? 'flex' : (comments.length ? 'flex' : 'none');
+});
+document.addEventListener('click', e => {
+  if (!document.body.classList.contains('cmt-on')) return;
+  if (e.target.closest('.cpanel') || e.target.closest('header.top')) return;
+  const host = e.target.closest('[data-cmt]');
+  const target = host ? host.dataset.cmt : 'page';
+  const note = prompt('Comment on "'+target+'":');
+  if (note){ comments.push({ x:e.pageX, y:e.pageY, target, note }); saveC(); renderComments(); }
+  e.preventDefault(); e.stopPropagation();
+}, true);
+function renderComments(){
+  document.querySelectorAll('.pin').forEach(p=>p.remove());
+  comments.forEach((c,i) => {
+    const pin = document.createElement('span');
+    pin.className='pin'; pin.textContent=(i+1); pin.style.left=c.x+'px'; pin.style.top=c.y+'px'; pin.title=c.note;
+    document.body.appendChild(pin);
+  });
+  document.getElementById('cCount').textContent = comments.length;
+  const body = document.getElementById('cbody');
+  if (!comments.length){ body.innerHTML = '<div class="cempty">No comments yet. Turn on Comment mode and click any element.</div>'; return; }
+  body.innerHTML = comments.map((c,i)=>'<div class="citem"><span class="num">'+(i+1)+'</span><span class="ctxt">'+c.note+'<span class="tgt">'+c.target+'</span></span><button class="del" data-i="'+i+'">&times;</button></div>').join('');
+}
+document.getElementById('cbody').addEventListener('click', e => {
+  const d = e.target.closest('.del'); if (!d) return;
+  comments.splice(+d.dataset.i,1); saveC(); renderComments();
+});
+document.getElementById('clearBtn').addEventListener('click', () => { if (confirm('Clear all comments?')){ comments=[]; saveC(); renderComments(); } });
+document.getElementById('exportBtn').addEventListener('click', () => {
+  let out = 'EXPERIMENTS EXPLORER REDESIGN — FEEDBACK\\n=========================================\\n\\nDECISIONS:\\n';
+  CHANGES.forEach((c,i) => {
+    const v = verdicts[i]||{};
+    const mark = v.verdict==='ok'?'[APPROVE]':v.verdict==='dis'?'[DISAPPROVE]':'[ -- ]';
+    out += '\\n'+mark+' '+(i+1)+'. '+c[0];
+    if (v.note) out += '\\n      note: '+v.note;
+  });
+  out += '\\n\\nPINNED COMMENTS:\\n';
+  if (!comments.length) out += '(none)\\n';
+  comments.forEach((c,i)=>{ out += '\\n'+(i+1)+'. ['+c.target+'] '+c.note; });
+  navigator.clipboard.writeText(out).then(()=>{ const b=document.getElementById('exportBtn'); const t=b.textContent; b.textContent='Copied!'; setTimeout(()=>b.textContent=t,1400); });
+});
+
+/* ----------------------------- theme + init ----------------------------- */
+document.getElementById('themeBtn').addEventListener('click', () => {
+  const dark = document.body.classList.toggle('dark');
+  document.getElementById('themeBtn').textContent = dark ? 'Light' : 'Dark';
+  renderComments();
+});
+renderBefore(); renderRail(); renderRows(); renderChanges(); renderComments();
+if (comments.length) cpanel.style.display = 'flex';
+</script>
+</body>
+</html>
