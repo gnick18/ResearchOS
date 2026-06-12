@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Where should BeakerSearch live</title>
+<style>
+  :root {
+    --surface-raised: #ffffff;
+    --surface-sunken: #f8fafc;
+    --foreground: #171717;
+    --foreground-muted: #6b7280;
+    --border: #e5e7eb;
+    --scrim: rgba(15, 23, 42, 0.30);
+    --sky: #1AA0E6;
+    --action: #1283C9;
+    --accent: #1283C9;
+    --page-bg: #e2e8f0;
+    --app-bg: #f1f5f9;
+    --pin: #e11d48;
+    --good: #16a34a;
+  }
+  html[data-theme="dark"] {
+    --surface-raised: #131c2e;
+    --surface-sunken: #0d1424;
+    --foreground: #f1f5f9;
+    --foreground-muted: #b4bfd0;
+    --border: rgba(255, 255, 255, 0.22);
+    --scrim: rgba(2, 6, 15, 0.55);
+    --sky: #38bdf8;
+    --action: #38bdf8;
+    --accent: #38bdf8;
+    --page-bg: #060a13;
+    --app-bg: #0a1120;
+    --pin: #fb7185;
+    --good: #4ade80;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--page-bg);
+    color: var(--foreground);
+    transition: background 0.2s;
+  }
+  .topbar {
+    position: sticky; top: 0; z-index: 60;
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 22px;
+    background: var(--surface-raised);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .topbar h1 { font-size: 15px; margin: 0; font-weight: 700; }
+  .topbar p { margin: 0; font-size: 12px; color: var(--foreground-muted); }
+  .spacer { flex: 1; }
+  .btn {
+    appearance: none; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface-sunken);
+    color: var(--foreground); border-radius: 8px;
+    padding: 7px 12px; font-size: 12.5px; font-weight: 600;
+  }
+  .btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.danger { color: var(--pin); }
+
+  /* segmented control */
+  .seg { display: flex; gap: 6px; padding: 18px 22px 0; max-width: 1280px; margin: 0 auto; flex-wrap: wrap; }
+  .seg button {
+    appearance: none; cursor: pointer; border: 1px solid var(--border);
+    background: var(--surface-raised); color: var(--foreground);
+    border-radius: 10px; padding: 9px 14px; font-size: 13px; font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .seg button .tag { font-size: 10.5px; font-weight: 700; color: var(--foreground-muted); }
+  .seg button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .seg button.on .tag { color: rgba(255,255,255,0.8); }
+  .seg button.rec::after { content: "recommended"; font-size: 9.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--sky); border: 1px solid var(--sky); border-radius: 999px; padding: 1px 6px; }
+  .seg button.on.rec::after { color: #fff; border-color: rgba(255,255,255,0.7); }
+
+  .stagewrap { max-width: 1280px; margin: 0 auto; padding: 16px 22px 8px; }
+  .stagelabel { font-size: 12.5px; color: var(--foreground-muted); margin: 0 0 12px; min-height: 18px; }
+  .stagelabel b { color: var(--foreground); font-weight: 600; }
+
+  /* app device frame */
+  .device {
+    position: relative;
+    background: var(--app-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 25px 50px -18px rgba(0,0,0,0.40);
+    height: 560px;
+  }
+
+  /* ===== app top bar ===== */
+  .appbar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 14px;
+    background: var(--surface-raised);
+    border-bottom: 1px solid var(--border);
+    position: relative; z-index: 5;
+  }
+  .logo { display: inline-flex; align-items: center; gap: 7px; flex: none; }
+  .logo .mark { width: 22px; height: 22px; }
+  .logo .name { font-size: 13.5px; font-weight: 700; }
+  .streak { flex: none; display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: #d97706; background: #fffbeb; border: 1px solid #fde68a; border-radius: 999px; padding: 2px 7px; }
+  html[data-theme="dark"] .streak { background: rgba(120,53,15,0.32); border-color: rgba(180,120,40,0.4); color: #fbbf24; }
+  .flame { width: 12px; height: 12px; }
+
+  .tabs { display: flex; align-items: center; gap: 2px; flex: none; }
+  .tab { font-size: 12.5px; font-weight: 600; color: var(--foreground-muted); padding: 5px 9px; border-radius: 7px; cursor: pointer; white-space: nowrap; }
+  .tab.active { color: var(--foreground); background: var(--surface-sunken); }
+  .tab.drag { color: var(--foreground); border: 1px dashed var(--border); }
+  .editbtns { display: flex; gap: 5px; flex: none; }
+  .minibtn { font-size: 11px; font-weight: 600; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground); border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+
+  /* the in-bar search pill */
+  .barsearch {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid var(--border); background: var(--surface-sunken);
+    color: var(--foreground-muted); border-radius: 9px;
+    padding: 6px 10px; font-size: 12.5px; cursor: pointer; flex: none;
+  }
+  .barsearch .mag { width: 14px; height: 14px; }
+  .barsearch .kbd { border: 1px solid var(--border); background: var(--surface-raised); border-radius: 5px; padding: 1px 5px; font-size: 10.5px; font-weight: 700; color: var(--foreground-muted); }
+  .barsearch.hero { border-color: var(--action); color: var(--foreground); box-shadow: 0 0 0 3px rgba(18,131,201,0.12); }
+
+  .utils { display: flex; align-items: center; gap: 3px; flex: none; }
+  .util { width: 28px; height: 28px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; color: var(--foreground-muted); cursor: pointer; }
+  .util:hover { background: var(--surface-sunken); }
+  .util svg { width: 16px; height: 16px; }
+  .avatar { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, #1AA0E6, #1283C9); color: #fff; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .divider { width: 1px; height: 22px; background: var(--border); flex: none; margin: 0 4px; }
+
+  /* group wrapper used for the isolated slot in Option C */
+  .barslot { display: inline-flex; align-items: center; flex: 1; justify-content: center; min-width: 0; }
+
+  /* ===== app body, Workbench empty state ===== */
+  .appbody { position: relative; height: calc(560px - 47px); overflow: hidden; }
+  .empty-state { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; padding: 20px; }
+  .empty-state .eicon { width: 56px; height: 56px; color: var(--foreground-muted); opacity: 0.6; }
+  .empty-state h2 { font-size: 18px; margin: 0; font-weight: 700; }
+  .empty-state p { font-size: 13px; color: var(--foreground-muted); margin: 0; max-width: 340px; line-height: 1.5; }
+  .empty-state .cta { margin-top: 6px; background: var(--action); color: #fff; border: none; border-radius: 9px; padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+  /* ===== bottom-right utility cluster (stays put in every state) ===== */
+  .fab-cluster { position: absolute; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 10px; z-index: 8; }
+  .fab { width: 46px; height: 46px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border); background: var(--surface-raised); color: var(--foreground-muted); box-shadow: 0 6px 16px -6px rgba(0,0,0,0.4); cursor: default; position: relative; }
+  .fab svg { width: 20px; height: 20px; }
+  .fab .ftag { position: absolute; right: 54px; top: 50%; transform: translateY(-50%); white-space: nowrap; font-size: 10.5px; font-weight: 600; color: var(--foreground-muted); background: var(--surface-raised); border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; opacity: 0; transition: opacity 0.15s; }
+  .fab:hover .ftag { opacity: 1; }
+
+  /* ===== Option A bottom-center ask bar ===== */
+  .askbar {
+    position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+    width: 460px; max-width: calc(100% - 140px);
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface-raised); border: 1px solid var(--border);
+    border-radius: 12px; padding: 10px 14px; cursor: pointer; z-index: 7;
+    box-shadow: 0 10px 30px -10px rgba(0,0,0,0.35);
+  }
+  .askbar .mark { width: 20px; height: 20px; flex: none; }
+  .askbar .mag { width: 15px; height: 15px; flex: none; color: var(--foreground-muted); }
+  .askbar .ph { flex: 1; font-size: 13px; color: var(--foreground-muted); }
+  .askbar .kbd { border: 1px solid var(--border); background: var(--surface-sunken); border-radius: 6px; padding: 2px 7px; font-size: 11px; font-weight: 700; color: var(--foreground-muted); flex: none; }
+
+  /* ===== Option B floating launcher (bottom-center) ===== */
+  .launcher {
+    position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%);
+    width: 58px; height: 58px; border-radius: 50%;
+    background: linear-gradient(135deg, #1AA0E6, #1283C9);
+    display: inline-flex; align-items: center; justify-content: center;
+    box-shadow: 0 12px 28px -8px rgba(18,131,201,0.6); cursor: pointer; z-index: 7;
+  }
+  .launcher svg { width: 30px; height: 30px; }
+  .launcher .llabel { position: absolute; bottom: 66px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 11px; font-weight: 600; color: var(--foreground); background: var(--surface-raised); border: 1px solid var(--border); border-radius: 7px; padding: 3px 9px; box-shadow: 0 4px 12px -4px rgba(0,0,0,0.3); }
+
+  /* ===== expanded centered BeakerSearch surface ===== */
+  .scrim { position: absolute; inset: 0; background: var(--scrim); backdrop-filter: blur(2px); z-index: 9; }
+  .surface {
+    position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%);
+    width: 480px; max-width: calc(100% - 60px); z-index: 10;
+    background: var(--surface-raised); border: 1px solid var(--border);
+    border-radius: 16px; overflow: hidden;
+    box-shadow: 0 30px 60px -18px rgba(0,0,0,0.55);
+  }
+  .s-hdr { display: flex; align-items: center; gap: 10px; padding: 12px 15px; border-bottom: 1px solid var(--border); }
+  .s-hdr .mark { width: 22px; height: 22px; flex: none; }
+  .s-hdr .word { font-size: 13.5px; font-weight: 600; flex: none; }
+  .s-hdr .field { flex: 1; font-size: 13.5px; color: var(--foreground); min-width: 0; }
+  .s-hdr .field .caret { display: inline-block; width: 1px; height: 15px; background: var(--accent); margin-left: 1px; vertical-align: -2px; animation: blink 1.1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .s-hdr .kbd { border: 1px solid var(--border); background: var(--surface-sunken); border-radius: 5px; padding: 2px 6px; font-size: 11px; font-weight: 700; color: var(--foreground-muted); flex: none; }
+  .s-body { padding: 12px 15px 14px; max-height: 280px; overflow-y: auto; }
+  .s-greet { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px; }
+  .s-greet .mark { width: 26px; height: 26px; flex: none; }
+  .s-greet .bubble { background: var(--surface-sunken); border: 1px solid var(--border); border-radius: 12px; padding: 9px 12px; font-size: 12.5px; line-height: 1.5; color: var(--foreground); }
+  .s-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 6px; }
+  .s-chip { font-size: 11.5px; font-weight: 500; color: var(--foreground); background: var(--surface-sunken); border: 1px solid var(--border); border-radius: 999px; padding: 5px 10px; cursor: pointer; }
+  .s-foot { display: flex; gap: 12px; align-items: center; padding: 9px 15px; border-top: 1px solid var(--border); font-size: 11px; color: var(--foreground-muted); }
+  .s-foot .k { border: 1px solid var(--border); background: var(--surface-sunken); border-radius: 5px; padding: 1px 5px; font-weight: 700; }
+  .s-foot .push { margin-left: auto; }
+
+  /* sub-state toggle button living inside the stage */
+  .substate { display: flex; gap: 8px; margin: 0 0 12px; }
+  .substate button { appearance: none; cursor: pointer; border: 1px solid var(--border); background: var(--surface-raised); color: var(--foreground); border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 600; }
+  .substate button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .substate.hide { display: none; }
+
+  /* ===== comment mode ===== */
+  body.cmt-on .cmt { cursor: crosshair; }
+  body.cmt-on .cmt:hover { outline: 2px dashed var(--accent); outline-offset: -2px; border-radius: 8px; }
+  .cmt { position: relative; }
+  .pin { position: absolute; top: -8px; right: -8px; z-index: 30; min-width: 18px; height: 18px; padding: 0 4px; background: var(--pin); color: #fff; border-radius: 9px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.4); cursor: pointer; }
+  .pin.hl { outline: 2px solid var(--foreground); }
+
+  .editor { position: fixed; z-index: 80; width: 280px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 18px 40px -10px rgba(0,0,0,0.55); padding: 12px; }
+  .editor .lbl { font-size: 11px; font-weight: 700; color: var(--foreground-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+  .editor textarea { width: 100%; min-height: 78px; resize: vertical; border: 1px solid var(--border); border-radius: 8px; padding: 8px; font: inherit; font-size: 13px; background: var(--surface-sunken); color: var(--foreground); }
+  .editor .acts { display: flex; gap: 8px; margin-top: 8px; }
+  .editor .acts .spacer { flex: 1; }
+  .editor .vchoice { display: flex; gap: 6px; margin-top: 8px; }
+  .editor .vchoice .vbtn { flex: 1; padding: 5px; }
+
+  /* ===== options review section ===== */
+  .review { max-width: 1280px; margin: 0 auto; padding: 6px 22px 100px; }
+  .review h3 { font-size: 14px; margin: 26px 0 6px; }
+  .review .sub { font-size: 12.5px; color: var(--foreground-muted); margin: 0 0 16px; max-width: 760px; line-height: 1.5; }
+
+  .winner { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 18px; }
+  .winner .wlabel { font-size: 13px; font-weight: 700; }
+  .winner .wopts { display: flex; gap: 8px; flex-wrap: wrap; }
+  .winner .wbtn { appearance: none; cursor: pointer; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground); border-radius: 8px; padding: 7px 13px; font-size: 12.5px; font-weight: 600; }
+  .winner .wbtn.on { background: var(--sky); border-color: var(--sky); color: #fff; }
+
+  .changes { display: grid; gap: 12px; }
+  .change { display: flex; gap: 14px; align-items: flex-start; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-raised); padding: 14px 16px; border-left-width: 4px; border-left-color: var(--border); }
+  .change.approved { border-left-color: var(--good); }
+  .change.disapproved { border-left-color: var(--pin); }
+  .change .ctext { flex: 1; min-width: 0; }
+  .change .ctitle { font-size: 14px; font-weight: 700; color: var(--foreground); margin-bottom: 3px; display: flex; align-items: center; gap: 8px; }
+  .change .ctitle .star { font-size: 9.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--sky); border: 1px solid var(--sky); border-radius: 999px; padding: 1px 7px; }
+  .change .cdesc { font-size: 12.5px; color: var(--foreground-muted); line-height: 1.55; }
+  .change .trade { font-size: 11.5px; color: var(--foreground); margin-top: 8px; background: var(--surface-sunken); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; line-height: 1.5; }
+  .change .trade b { font-weight: 700; }
+  .change .verdict { flex: none; display: flex; flex-direction: column; gap: 6px; width: 136px; }
+  .vrow { display: flex; gap: 6px; }
+  .vbtn { appearance: none; cursor: pointer; text-align: center; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground); border-radius: 8px; padding: 6px 8px; font-size: 12px; font-weight: 600; flex: 1; }
+  .vbtn.app.on { background: var(--good); border-color: var(--good); color: #fff; }
+  .vbtn.dis.on { background: var(--pin); border-color: var(--pin); color: #fff; }
+  .vclear { font-size: 11px; color: var(--foreground-muted); background: none; border: none; cursor: pointer; padding: 0; text-decoration: underline; align-self: flex-end; }
+
+  /* comments panel */
+  .panel { position: fixed; right: 18px; bottom: 18px; z-index: 70; width: 340px; max-height: 60vh; display: flex; flex-direction: column; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 18px 40px -10px rgba(0,0,0,0.55); }
+  .panel.collapsed .panel-body, .panel.collapsed .panel-foot { display: none; }
+  .panel-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .panel-head h3 { font-size: 13px; margin: 0; font-weight: 700; }
+  .panel-head .count { font-size: 11px; color: var(--foreground-muted); }
+  .panel-head .chev { margin-left: auto; color: var(--foreground-muted); font-size: 12px; }
+  .panel-body { overflow-y: auto; padding: 6px; }
+  .citem { display: flex; gap: 8px; padding: 8px; border-radius: 8px; }
+  .citem:hover { background: var(--surface-sunken); }
+  .citem .num { flex: none; width: 18px; height: 18px; background: var(--pin); color: #fff; border-radius: 9px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+  .citem .body { min-width: 0; flex: 1; }
+  .citem .tgt { font-size: 11px; color: var(--foreground-muted); }
+  .citem .txt { font-size: 13px; color: var(--foreground); white-space: pre-wrap; word-break: break-word; }
+  .citem .x { flex: none; cursor: pointer; color: var(--foreground-muted); font-size: 14px; border: none; background: none; }
+  .panel-foot { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); }
+  .vbadge { font-size: 11px; font-weight: 700; }
+  .empty { font-size: 12.5px; color: var(--foreground-muted); padding: 14px; text-align: center; }
+
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 90; background: var(--foreground); color: var(--surface-raised); font-size: 12.5px; font-weight: 600; padding: 9px 14px; border-radius: 8px; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <h1>Where should BeakerSearch live</h1>
+      <p>Switch between the four states. Turn on Comment mode, then click any part of a state to pin a note. Pick a winner below.</p>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn" id="commentToggle">Comment mode: off</button>
+    <button class="btn" id="themeToggle">Switch to dark</button>
+  </div>
+
+  <div class="seg" id="seg">
+    <button data-state="before" class="on"><span class="tag">Today</span> Before</button>
+    <button data-state="a" class="rec"><span class="tag">Option A</span> Bottom-center ask bar</button>
+    <button data-state="b"><span class="tag">Option B</span> Floating launcher</button>
+    <button data-state="c"><span class="tag">Option C</span> Isolated top slot</button>
+  </div>
+
+  <div class="stagewrap">
+    <p class="stagelabel" id="stageLabel"></p>
+    <div class="substate hide" id="substate">
+      <button data-sub="collapsed" class="on">Resting</button>
+      <button data-sub="expanded">Expanded into BeakerSearch</button>
+    </div>
+    <div class="device" id="device"></div>
+  </div>
+
+  <div class="review">
+    <h3>Pick the winner and rule on each option</h3>
+    <p class="sub">Each option is its own Approve or Disapprove decision, so you can like two and reject one. The single Pick the winner choice is what we build. Comments and verdicts both export.</p>
+
+    <div class="winner" id="winner">
+      <span class="wlabel">Pick the winner</span>
+      <div class="wopts" id="wopts"></div>
+    </div>
+
+    <div class="changes" id="changes"></div>
+  </div>
+
+  <div class="panel" id="panel">
+    <div class="panel-head" id="panelHead">
+      <h3>Comments</h3>
+      <span class="count" id="cCount">0</span>
+      <span class="chev" id="chev">hide</span>
+    </div>
+    <div class="panel-body" id="panelBody">
+      <div class="empty">No comments yet. Turn on Comment mode and click any part of a state.</div>
+    </div>
+    <div class="panel-foot">
+      <button class="btn" id="exportBtn">Copy decision</button>
+      <button class="btn" id="downloadBtn">Download .md</button>
+      <span style="flex:1"></span>
+      <button class="btn danger" id="clearBtn">Clear</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  /* ---------- shared SVG glyphs ---------- */
+  const beaker = (stroke) => `<svg viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v6l-4.5 8a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 9V3"/><path d="M7.5 15h9"/></svg>`;
+  const beakerWhite = `<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v6l-4.5 8a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 9V3"/><path d="M7.5 15h9"/></svg>`;
+  const mag = `<svg class="mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>`;
+  const flame = `<svg class="flame" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2s4 4 4 8a4 4 0 0 1-8 0c0-1 .5-2 .5-2S6 11 6 14a6 6 0 0 0 12 0c0-5-6-12-6-12z"/></svg>`;
+  const I = {
+    bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>',
+    inbox: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13l3.5 7v7a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-7z"/></svg>',
+    timer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></svg>',
+    phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>',
+    help: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.8.8c0 1.7-2.5 2-2.5 3.2"/><path d="M12 17h.01"/></svg>',
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M6 6l1 14a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-14"/></svg>',
+    chevdown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
+    flask: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v7l-5 8a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-8V3"/></svg>',
+    bug: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="6" width="8" height="12" rx="4"/><path d="M12 6V3M5 9h3M16 9h3M5 14h3M16 14h3M6 19l2-2M18 19l-2-2"/></svg>',
+    grid: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
+  };
+
+  /* ---------- reusable pieces ---------- */
+  function logoHtml() {
+    return `<span class="logo cmt" data-clabel="STATE / Logo and streak">
+      <span class="mark">${beaker('#1283C9')}</span><span class="name">ResearchOS</span>
+    </span>
+    <span class="streak cmt" data-clabel="STATE / Streak badge">${flame}12</span>`;
+  }
+  function tabsHtml(editing) {
+    const dragCls = editing ? ' drag' : '';
+    return `<span class="tabs cmt" data-clabel="STATE / Page tabs">
+      <span class="tab active${dragCls}">Gantt</span>
+      <span class="tab${dragCls}">Workbench</span>
+      <span class="tab${dragCls}">More ${I.chevdown}</span>
+    </span>`;
+  }
+  function pillHtml(hero) {
+    return `<span class="barsearch cmt${hero ? ' hero' : ''}" data-clabel="STATE / BeakerSearch pill">
+      ${mag}<span>BeakerSearch</span><span class="kbd">Cmd K</span>
+    </span>`;
+  }
+  function utilsHtml(opts) {
+    opts = opts || {};
+    const reset = opts.edit ? `<span class="editbtns cmt" data-clabel="STATE / Reset and Done"><span class="minibtn">Reset</span><span class="minibtn">Done</span></span>` : '';
+    return `${reset}<span class="utils cmt" data-clabel="STATE / Utility icons">
+      <span class="util">${I.bell}</span>
+      <span class="util">${I.inbox}</span>
+      <span class="util">${I.timer}</span>
+      <span class="util">${I.phone}</span>
+      <span class="util">${I.help}</span>
+      <span class="util">${I.trash}</span>
+      <span class="avatar">MA</span>
+    </span>`;
+  }
+  function emptyBody() {
+    return `<div class="empty-state cmt" data-clabel="STATE / Workbench empty body">
+      <span class="eicon">${I.grid}</span>
+      <h2>No projects yet</h2>
+      <p>Your Workbench is where active projects, experiments, and tasks come together. Start one to see it here.</p>
+      <button class="cta">New project</button>
+    </div>`;
+  }
+  function fabCluster() {
+    return `<div class="fab-cluster cmt" data-clabel="STATE / Calculators and Report-bug FABs">
+      <span class="fab">${I.flask}<span class="ftag">Calculators</span></span>
+      <span class="fab">${I.bug}<span class="ftag">Report a bug</span></span>
+    </div>`;
+  }
+  function surfaceHtml() {
+    return `<div class="scrim"></div>
+      <div class="surface cmt" data-clabel="STATE / Expanded BeakerSearch surface">
+        <div class="s-hdr">
+          <span class="mark">${beaker('#1283C9')}</span>
+          <span class="word">BeakerSearch</span>
+          <span class="field">summarize the mito assay<span class="caret"></span></span>
+          <span class="kbd">esc</span>
+        </div>
+        <div class="s-body">
+          <div class="s-greet">
+            <span class="mark">${beaker('#1AA0E6')}</span>
+            <span class="bubble">Hi Mira. Ask me about your work or jump to anything. I can search records, run a method, or draft an analysis.</span>
+          </div>
+          <div class="s-chips">
+            <span class="s-chip">Find the TMRM protocol</span>
+            <span class="s-chip">Open Mitochondria QC</span>
+            <span class="s-chip">What did I run last week</span>
+          </div>
+        </div>
+        <div class="s-foot">
+          <span><span class="k">&uarr;</span><span class="k">&darr;</span> navigate</span>
+          <span><span class="k">&crarr;</span> send or open</span>
+          <span class="push">Cmd K from anywhere</span>
+        </div>
+      </div>`;
+  }
+
+  /* ---------- state renderers ---------- */
+  function renderBefore() {
+    return `<div class="appbar">
+        ${logoHtml()}
+        ${tabsHtml(true)}
+        <span class="barslot" style="justify-content:flex-start;flex:none;margin-left:4px">${pillHtml(false)}</span>
+        <span class="spacer" style="flex:1"></span>
+        ${utilsHtml({ edit: true })}
+      </div>
+      <div class="appbody">
+        ${emptyBody()}
+        ${fabCluster()}
+      </div>`;
+  }
+  function renderA(expanded) {
+    return `<div class="appbar">
+        ${logoHtml()}
+        ${tabsHtml(false)}
+        <span class="spacer" style="flex:1"></span>
+        ${utilsHtml({})}
+      </div>
+      <div class="appbody">
+        ${emptyBody()}
+        ${fabCluster()}
+        ${expanded ? surfaceHtml() : `<div class="askbar cmt" data-clabel="STATE / Bottom-center ask bar">
+          <span class="mark">${beaker('#1AA0E6')}</span>${mag}
+          <span class="ph">Ask or search your work...</span>
+          <span class="kbd">Cmd K</span>
+        </div>`}
+      </div>`;
+  }
+  function renderB(expanded) {
+    return `<div class="appbar">
+        ${logoHtml()}
+        ${tabsHtml(false)}
+        <span class="spacer" style="flex:1"></span>
+        ${utilsHtml({})}
+      </div>
+      <div class="appbody">
+        ${emptyBody()}
+        ${fabCluster()}
+        ${expanded ? surfaceHtml() : `<div class="launcher cmt" data-clabel="STATE / BeakerBot launcher button">
+          <span class="llabel">Ask BeakerBot</span>${beakerWhite}
+        </div>`}
+      </div>`;
+  }
+  function renderC() {
+    return `<div class="appbar">
+        ${logoHtml()}
+        ${tabsHtml(false)}
+        <span class="divider"></span>
+        <span class="barslot">${pillHtml(true)}</span>
+        <span class="divider"></span>
+        ${utilsHtml({})}
+      </div>
+      <div class="appbody">
+        ${emptyBody()}
+        ${fabCluster()}
+      </div>`;
+  }
+
+  const LABELS = {
+    before: 'The pill is wedged between the drag-customizable tabs and the Reset, Done, bell, Inbox, timer, phone, help, trash, and avatar cluster. The app front door competes with nine utility controls on one row.',
+    a: 'The pill is gone from the top bar, so the bar reads calmer. A slim always-present ask bar sits docked bottom-center. Toggle Expanded to watch it morph in place into the centered BeakerSearch surface.',
+    b: 'The pill is gone from the top bar. A single sky-blue BeakerBot launcher sits bottom-center, set apart from the bottom-right Calculators and Report-bug cluster. Toggle Expanded to open the centered surface.',
+    c: 'The pill stays in the top bar but gets its own fixed center slot, fenced by dividers from the page tabs on the left and the utility icons on the right. The surrounding bar is slimmed.'
+  };
+
+  let state = 'before';
+  let sub = 'collapsed';
+
+  function render() {
+    const dev = document.getElementById('device');
+    let html;
+    if (state === 'before') html = renderBefore();
+    else if (state === 'a') html = renderA(sub === 'expanded');
+    else if (state === 'b') html = renderB(sub === 'expanded');
+    else html = renderC();
+    // stamp the state name into the comment labels so pins are state-specific
+    const name = state === 'before' ? 'Before' : state === 'a' ? 'Option A' : state === 'b' ? 'Option B' : 'Option C';
+    html = html.replace(/STATE \//g, name + ' / ');
+    dev.innerHTML = html;
+    document.getElementById('stageLabel').innerHTML = '<b>' + name + '.</b> ' + LABELS[state];
+    const ss = document.getElementById('substate');
+    ss.classList.toggle('hide', !(state === 'a' || state === 'b'));
+    renderPins();
+  }
+
+  document.querySelectorAll('#seg button').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#seg button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    state = b.dataset.state;
+    sub = 'collapsed';
+    document.querySelectorAll('#substate button').forEach(x => x.classList.toggle('on', x.dataset.sub === 'collapsed'));
+    render();
+  }));
+  document.querySelectorAll('#substate button').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('#substate button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    sub = b.dataset.sub;
+    render();
+  }));
+
+  function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  /* ---------- options review (Approve / Disapprove + tradeoffs) ---------- */
+  const OPTIONS = [
+    { id: 'a', title: 'Option A, Bottom-center ask bar', recommended: true,
+      desc: 'Remove the pill from the top bar and dock a slim always-present ask bar at the bottom-center reading "Ask or search your work...". On open it expands in place into the centered BeakerSearch surface.',
+      trade: '<b>Reach</b> highest, the bar is on screen at all times. <b>Discoverability</b> high, the placeholder copy invites typing. <b>Top-bar declutter</b> full, the pill leaves the bar. <b>Collision risk</b> low, it is centered and clear of the bottom-right utility FABs.' },
+    { id: 'b', title: 'Option B, Dedicated floating launcher', recommended: false,
+      desc: 'Remove the pill from the top bar and add one prominent sky-blue BeakerBot round launcher at the bottom-center, distinct from the bottom-right Calculators and Report-bug cluster. It opens the same centered surface.',
+      trade: '<b>Reach</b> high, a fixed button is always present. <b>Discoverability</b> medium, a round icon shows less intent than a text field. <b>Top-bar declutter</b> full, the pill leaves the bar. <b>Collision risk</b> medium, a second round button near the existing FAB cluster needs spacing to stay distinct.' },
+    { id: 'c', title: 'Option C, Keep it top but isolated', recommended: false,
+      desc: 'Leave the pill in the top bar but give it its own fixed center slot, fenced by dividers from the page tabs on the left and the utility icons on the right, and slim the rest of the bar.',
+      trade: '<b>Reach</b> medium, it lives only at the top. <b>Discoverability</b> medium, familiar but still one control among many. <b>Top-bar declutter</b> partial, the pill stays so the row is still busy. <b>Collision risk</b> low, no new floating element is added.' },
+  ];
+
+  const VSTORE = 'beakersearch-home-verdicts-v1';
+  const WSTORE = 'beakersearch-home-winner-v1';
+  let verdicts = {}; let winner = '';
+  try { verdicts = JSON.parse(localStorage.getItem(VSTORE) || '{}'); } catch { verdicts = {}; }
+  try { winner = localStorage.getItem(WSTORE) || ''; } catch { winner = ''; }
+  function saveV() { try { localStorage.setItem(VSTORE, JSON.stringify(verdicts)); } catch {} }
+  function saveW() { try { localStorage.setItem(WSTORE, winner); } catch {} }
+
+  function renderWinner() {
+    const wrap = document.getElementById('wopts');
+    wrap.innerHTML = OPTIONS.map(o => {
+      const short = o.id === 'a' ? 'Option A, ask bar' : o.id === 'b' ? 'Option B, launcher' : 'Option C, top slot';
+      return `<button class="wbtn ${winner === o.id ? 'on' : ''}" data-w="${o.id}">${short}</button>`;
+    }).join('');
+    wrap.querySelectorAll('[data-w]').forEach(b => b.addEventListener('click', () => {
+      winner = winner === b.dataset.w ? '' : b.dataset.w;
+      saveW(); renderWinner();
+    }));
+  }
+  renderWinner();
+
+  function renderChanges() {
+    const wrap = document.getElementById('changes');
+    wrap.innerHTML = OPTIONS.map(o => {
+      const v = verdicts[o.id] || '';
+      const cls = v === 'approve' ? 'approved' : v === 'disapprove' ? 'disapproved' : '';
+      return `<div class="change ${cls}" data-change="${o.id}">
+        <div class="ctext">
+          <div class="ctitle">${esc(o.title)}${o.recommended ? '<span class="star">recommended</span>' : ''}</div>
+          <div class="cdesc">${esc(o.desc)}</div>
+          <div class="trade">Tradeoffs. ${o.trade}</div>
+        </div>
+        <div class="verdict">
+          <div class="vrow">
+            <button class="vbtn app ${v === 'approve' ? 'on' : ''}" data-v="approve">Approve</button>
+            <button class="vbtn dis ${v === 'disapprove' ? 'on' : ''}" data-v="disapprove">Disapprove</button>
+          </div>
+          ${v ? '<button class="vclear" data-v="clear">clear</button>' : '<span style="height:14px"></span>'}
+        </div>
+      </div>`;
+    }).join('');
+    wrap.querySelectorAll('.change').forEach(card => {
+      const id = card.dataset.change;
+      card.querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', () => {
+        const v = b.dataset.v;
+        if (v === 'clear') delete verdicts[id];
+        else verdicts[id] = (verdicts[id] === v ? undefined : v);
+        if (!verdicts[id]) delete verdicts[id];
+        saveV(); renderChanges();
+      }));
+    });
+  }
+  renderChanges();
+
+  /* ---------- comments ---------- */
+  const STORE = 'beakersearch-home-comments-v1';
+  let comments = [];
+  try { comments = JSON.parse(localStorage.getItem(STORE) || '[]'); } catch { comments = []; }
+  function save() { try { localStorage.setItem(STORE, JSON.stringify(comments)); } catch {} }
+
+  function renderPins() {
+    document.querySelectorAll('.pin').forEach(p => p.remove());
+    const byTarget = {};
+    comments.forEach((c, i) => { (byTarget[c.target] = byTarget[c.target] || []).push(i + 1); });
+    document.querySelectorAll('.cmt').forEach(el => {
+      const lbl = el.getAttribute('data-clabel');
+      const nums = byTarget[lbl];
+      if (!nums) return;
+      const pin = document.createElement('span');
+      pin.className = 'pin';
+      pin.textContent = nums.join(',');
+      pin.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const first = comments.findIndex(c => c.target === lbl);
+        if (first >= 0) openEditor(el, first, ev);
+      });
+      el.appendChild(pin);
+    });
+  }
+  function renderPanel() {
+    const body = document.getElementById('panelBody');
+    document.getElementById('cCount').textContent = comments.length;
+    if (comments.length === 0) { body.innerHTML = '<div class="empty">No comments yet. Turn on Comment mode and click any part of a state.</div>'; return; }
+    const vtag = (v) => v === 'approve' ? '<span class="vbadge" style="color:var(--good)">APPROVE</span> ' : v === 'disapprove' ? '<span class="vbadge" style="color:var(--pin)">DISAPPROVE</span> ' : '';
+    body.innerHTML = comments.map((c, i) => `
+      <div class="citem" data-i="${i}">
+        <span class="num">${i + 1}</span>
+        <div class="body"><div class="tgt">${vtag(c.verdict)}${esc(c.target)}</div><div class="txt">${esc(c.text) || '<i>no text</i>'}</div></div>
+        <button class="x" data-del="${i}">&times;</button>
+      </div>`).join('');
+    body.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => { comments.splice(+b.dataset.del, 1); save(); renderAll(); }));
+  }
+  function renderAll() { renderPins(); renderPanel(); }
+
+  let editorEl = null;
+  function closeEditor() { if (editorEl) { editorEl.remove(); editorEl = null; } }
+  function clabelOf(el) { const c = el.closest('.cmt'); return c ? c.getAttribute('data-clabel') : 'Page'; }
+  function openEditor(targetEl, existingIndex, ev) {
+    closeEditor();
+    const target = clabelOf(targetEl);
+    const existing = existingIndex != null ? comments[existingIndex] : null;
+    let pendingVerdict = existing ? (existing.verdict || '') : '';
+    const ed = document.createElement('div');
+    ed.className = 'editor';
+    ed.innerHTML = `
+      <div class="lbl">${esc(target)}</div>
+      <textarea placeholder="Type your note, suggestion, or change request">${existing ? esc(existing.text) : ''}</textarea>
+      <div class="vchoice">
+        <button class="vbtn" data-vc="note">Note</button>
+        <button class="vbtn app" data-vc="approve">Approve</button>
+        <button class="vbtn dis" data-vc="disapprove">Disapprove</button>
+      </div>
+      <div class="acts">
+        ${existing ? '<button class="btn danger" data-act="del">Delete</button>' : ''}
+        <span class="spacer"></span>
+        <button class="btn" data-act="cancel">Cancel</button>
+        <button class="btn on" data-act="save">Save</button>
+      </div>`;
+    document.body.appendChild(ed);
+    editorEl = ed;
+    const paintVc = () => ed.querySelectorAll('[data-vc]').forEach(b => {
+      const seld = (b.dataset.vc === 'note' && !pendingVerdict) || b.dataset.vc === pendingVerdict;
+      b.classList.toggle('on', seld);
+    });
+    ed.querySelectorAll('[data-vc]').forEach(b => b.addEventListener('click', () => { pendingVerdict = b.dataset.vc === 'note' ? '' : b.dataset.vc; paintVc(); }));
+    paintVc();
+    const x = ev ? ev.clientX : targetEl.getBoundingClientRect().left;
+    const y = ev ? ev.clientY : targetEl.getBoundingClientRect().bottom;
+    const w = 280, vw = window.innerWidth, vh = window.innerHeight;
+    ed.style.left = Math.min(Math.max(8, x - 20), vw - w - 8) + 'px';
+    ed.style.top = Math.min(y + 10, vh - 220) + 'px';
+    ed.querySelector('textarea').focus();
+    ed.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
+      const act = b.dataset.act;
+      if (act === 'cancel') return closeEditor();
+      if (act === 'del') { if (existingIndex != null) { comments.splice(existingIndex, 1); save(); renderAll(); } return closeEditor(); }
+      if (act === 'save') {
+        const text = ed.querySelector('textarea').value.trim();
+        if (!text && !pendingVerdict) { closeEditor(); return; }
+        if (existing) { existing.text = text; existing.verdict = pendingVerdict; }
+        else { comments.push({ target, text, verdict: pendingVerdict }); }
+        save(); renderAll(); closeEditor();
+      }
+    }));
+    ed.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeEditor();
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) ed.querySelector('[data-act="save"]').click();
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!document.body.classList.contains('cmt-on')) return;
+    if (e.target.closest('.editor') || e.target.closest('.panel') || e.target.closest('.topbar') || e.target.closest('.seg') || e.target.closest('.substate') || e.target.closest('.pin') || e.target.closest('.review')) return;
+    const cmt = e.target.closest('.cmt');
+    if (!cmt) return;
+    e.preventDefault();
+    openEditor(cmt, null, e);
+  });
+
+  /* ---------- toggles ---------- */
+  const cBtn = document.getElementById('commentToggle');
+  cBtn.addEventListener('click', () => {
+    const on = document.body.classList.toggle('cmt-on');
+    cBtn.classList.toggle('on', on);
+    cBtn.textContent = 'Comment mode: ' + (on ? 'on' : 'off');
+    if (!on) closeEditor();
+  });
+  const tBtn = document.getElementById('themeToggle');
+  tBtn.addEventListener('click', () => {
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+    tBtn.textContent = dark ? 'Switch to dark' : 'Switch to light';
+  });
+  document.getElementById('panelHead').addEventListener('click', () => {
+    const p = document.getElementById('panel');
+    const col = p.classList.toggle('collapsed');
+    document.getElementById('chev').textContent = col ? 'show' : 'hide';
+  });
+
+  /* ---------- export ---------- */
+  function buildMarkdown() {
+    const nameOf = (id) => id === 'a' ? 'Option A, Bottom-center ask bar' : id === 'b' ? 'Option B, Floating launcher' : id === 'c' ? 'Option C, Isolated top slot' : '(none)';
+    let out = 'BeakerSearch front door, decision\n\n';
+    out += 'Winner\n';
+    out += '- ' + (winner ? nameOf(winner) : 'not picked yet') + '\n\n';
+    out += 'Per-option verdicts\n';
+    OPTIONS.forEach(o => {
+      const v = verdicts[o.id];
+      const mark = v === 'approve' ? 'APPROVE' : v === 'disapprove' ? 'DISAPPROVE' : 'undecided';
+      out += `- ${o.title}: ${mark}\n`;
+    });
+    out += '\nComments\n';
+    if (comments.length === 0) out += '- none\n';
+    comments.forEach((c, i) => {
+      const tag = c.verdict === 'approve' ? '[APPROVE] ' : c.verdict === 'disapprove' ? '[DISAPPROVE] ' : '';
+      out += `${i + 1}. ${tag}[${c.target}] ${c.text}\n`;
+    });
+    return out;
+  }
+  function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1600); }
+  document.getElementById('exportBtn').addEventListener('click', async () => {
+    const md = buildMarkdown();
+    try { await navigator.clipboard.writeText(md); toast('Decision copied. Paste it back to me.'); }
+    catch { window.prompt('Copy your decision', md); }
+  });
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    const blob = new Blob([buildMarkdown()], { type: 'text/markdown' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'beakersearch-home-decision.md';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    if (comments.length && !confirm('Delete all comments?')) return;
+    comments = []; save(); renderAll();
+  });
+
+  render();
+  renderAll();
+</script>
+</body>
+</html>
