@@ -1,0 +1,269 @@
+{
+  "meta": {
+    "id": "5",
+    "name": "Resistance vs FakeDrug-A dose (binary)",
+    "project_ids": [
+      "3"
+    ],
+    "folder_path": null,
+    "table_type": "xy",
+    "created_at": "2026-05-14T15:00:00.000Z",
+    "last_edited_by": "alex",
+    "last_edited_at": "2026-05-15T10:30:00.000Z"
+  },
+  "columns": [
+    {
+      "id": "col-x",
+      "name": "FakeDrug-A dose (mg/L)",
+      "role": "x",
+      "dataType": "number"
+    },
+    {
+      "id": "col-resist",
+      "name": "Resistant (1 = survived)",
+      "role": "y",
+      "dataType": "number"
+    }
+  ],
+  "rows": [
+    {
+      "id": "row-1",
+      "cells": {
+        "col-x": 0.5,
+        "col-resist": 0
+      }
+    },
+    {
+      "id": "row-2",
+      "cells": {
+        "col-x": 1,
+        "col-resist": 0
+      }
+    },
+    {
+      "id": "row-3",
+      "cells": {
+        "col-x": 1.5,
+        "col-resist": 0
+      }
+    },
+    {
+      "id": "row-4",
+      "cells": {
+        "col-x": 2,
+        "col-resist": 1
+      }
+    },
+    {
+      "id": "row-5",
+      "cells": {
+        "col-x": 2.5,
+        "col-resist": 0
+      }
+    },
+    {
+      "id": "row-6",
+      "cells": {
+        "col-x": 3,
+        "col-resist": 0
+      }
+    },
+    {
+      "id": "row-7",
+      "cells": {
+        "col-x": 3.5,
+        "col-resist": 1
+      }
+    },
+    {
+      "id": "row-8",
+      "cells": {
+        "col-x": 4,
+        "col-resist": 0
+      }
+    },
+    {
+      "id": "row-9",
+      "cells": {
+        "col-x": 4.5,
+        "col-resist": 1
+      }
+    },
+    {
+      "id": "row-10",
+      "cells": {
+        "col-x": 5,
+        "col-resist": 1
+      }
+    },
+    {
+      "id": "row-11",
+      "cells": {
+        "col-x": 5.5,
+        "col-resist": 0
+      }
+    },
+    {
+      "id": "row-12",
+      "cells": {
+        "col-x": 6,
+        "col-resist": 1
+      }
+    },
+    {
+      "id": "row-13",
+      "cells": {
+        "col-x": 6.5,
+        "col-resist": 1
+      }
+    },
+    {
+      "id": "row-14",
+      "cells": {
+        "col-x": 7,
+        "col-resist": 1
+      }
+    },
+    {
+      "id": "row-15",
+      "cells": {
+        "col-x": 7.5,
+        "col-resist": 0
+      }
+    },
+    {
+      "id": "row-16",
+      "cells": {
+        "col-x": 8,
+        "col-resist": 1
+      }
+    },
+    {
+      "id": "row-17",
+      "cells": {
+        "col-x": 8.5,
+        "col-resist": 1
+      }
+    },
+    {
+      "id": "row-18",
+      "cells": {
+        "col-x": 9,
+        "col-resist": 1
+      }
+    },
+    {
+      "id": "row-19",
+      "cells": {
+        "col-x": 9.5,
+        "col-resist": 1
+      }
+    },
+    {
+      "id": "row-20",
+      "cells": {
+        "col-x": 10,
+        "col-resist": 1
+      }
+    }
+  ],
+  "analyses": [
+    {
+      "id": "analysis-resist-logit",
+      "type": "logisticRegression",
+      "params": {},
+      "inputs": {
+        "columnIds": [
+          "col-resist"
+        ]
+      },
+      "resultCache": {
+        "ok": true,
+        "kind": "logisticRegression",
+        "type": "logisticRegression",
+        "xName": "FakeDrug-A dose (mg/L)",
+        "yName": "Resistant (1 = survived)",
+        "x": [
+          0.5,
+          1,
+          1.5,
+          2,
+          2.5,
+          3,
+          3.5,
+          4,
+          4.5,
+          5,
+          5.5,
+          6,
+          6.5,
+          7,
+          7.5,
+          8,
+          8.5,
+          9,
+          9.5,
+          10
+        ],
+        "y": [
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          1,
+          0,
+          1,
+          1,
+          0,
+          1,
+          1,
+          1,
+          0,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "n": 20,
+        "intercept": {
+          "name": "Intercept",
+          "estimate": -2.271012462874249,
+          "standardError": 1.2487235410249826,
+          "z": -1.8186671334874867,
+          "pValue": 0.0689622288634002,
+          "ci95": [
+            -4.71846562993054,
+            0.1764407041820415
+          ]
+        },
+        "slope": {
+          "name": "FakeDrug-A dose (mg/L)",
+          "estimate": 0.5529074769744802,
+          "standardError": 0.24641439699865667,
+          "z": 2.2438115780121985,
+          "pValue": 0.024844527152246387,
+          "ci95": [
+            0.06994413358495838,
+            1.035870820364002
+          ]
+        },
+        "oddsRatio": 1.7382997441728825,
+        "oddsRatioCI95": [
+          1.072448265740675,
+          2.817558755157866
+        ],
+        "logLikelihood": -9.561482579132889,
+        "nullLogLikelihood": -13.460233340185129,
+        "mcFaddenR2": 0.2896495671744883,
+        "xAtHalf": 4.10740052802554,
+        "auc": 0.84375,
+        "iterations": 6
+      },
+      "resultStale": false
+    }
+  ],
+  "plots": []
+}
