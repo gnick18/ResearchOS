@@ -10,14 +10,16 @@
 // It is the same sky-blue BeakerBot character, just the self-contained title-slide
 // rendering with the pastel-rainbow liquid. Lives under components/animations/
 // (icon-guard exempt) because it is a decorative animated mark, not a registry
-// icon. The gradient id is per-instance (useId) so two of these never collide.
+// icon. The gradient id is a FIXED string, not useId. useId shifts its SSR vs
+// client counter whenever the surrounding tree changes, which triggered a
+// hydration mismatch on this gradient (the same fix BeakerBot.tsx already made,
+// see its gradId note). Duplicate ids across instances are visually harmless,
+// url(#intro-beaker-liquid) resolves to the identical pastel stops either way.
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
-import { useId } from "react";
-
 export function IntroBeaker({ className }: { className?: string }) {
-  const liq = useId();
+  const liq = "intro-beaker-liquid";
   return (
     <svg
       viewBox="8 3 24 31"
