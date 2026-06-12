@@ -1,0 +1,32 @@
+{
+  "id": 2,
+  "title": "Group meeting 2026-05-19: fakeGFP results dry run",
+  "description": "Attendees: Dr. Castellanos, alex, morgan, remy.\n\nAgenda:\n1. Alex dry-runs the fakeGFP expression figures before the manuscript draft\n2. Morgan reader-scan status on the 96-well screen\n3. Journal club paper assignment\n\nNotes:\nAlex's Cq spread is tightening with the locked ACT1 reference. Morgan to post the reader CSV by Thursday. Remy is up to speed on yeast culture and takes the freezer-5 primer restock. Next data presenter is Morgan, journal club lead is Morgan.",
+  "is_running_log": false,
+  "is_shared": true,
+  "shared_with": [
+    {
+      "username": "mira",
+      "level": "edit"
+    },
+    {
+      "username": "alex",
+      "level": "edit"
+    },
+    {
+      "username": "morgan",
+      "level": "edit"
+    },
+    {
+      "username": "remy",
+      "level": "edit"
+    }
+  ],
+  "entries": [],
+  "comments": [],
+  "created_at": "2026-05-19T15:00:00Z",
+  "updated_at": "2026-05-19T15:30:00Z",
+  "username": "mira",
+  "one_on_one_id": "e4f5a6b7-c8d9-4e0a-1b2c-3d4e5f607182",
+  "note_kind": "meeting"
+}

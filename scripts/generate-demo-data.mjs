@@ -84,6 +84,11 @@ const MIRA_COLOR = "#f97316";   // orange
 // feature. Gray slate so he reads as visually "retired" against the
 // rest of the active palette.
 const SAM_COLOR = "#64748b";   // slate
+// Check-ins demo seed (checkins-demo bot, 2026-06-12): Remy Okafor, an
+// undergraduate rotation student. The newest, most junior active lab member,
+// the leaf of the 3-level mentorship tree (Mira -> Alex -> Remy). Violet so
+// the rotation student reads as distinct from blue/emerald/orange.
+const REMY_COLOR = "#8b5cf6";  // violet
 
 // ─── Markdown bodies (broken out for legibility) ─────────────────────────────
 
@@ -303,6 +308,12 @@ function buildEntries() {
       // / share / assignee pickers; his 2 historical comments below
       // continue to render with gray missing-user fallback.
       sam: { color: SAM_COLOR, created_at: "2025-09-01T00:00:00Z" },
+      // Check-ins demo seed (checkins-demo bot, 2026-06-12): Remy Okafor, the
+      // undergrad rotation student. Joined most recently (May 2026), the leaf
+      // of the Mira -> Alex -> Remy mentorship tree. Minimal presence: a valid
+      // lab member who appears in the roster and the tree, with no projects or
+      // tasks of their own.
+      remy: { color: REMY_COLOR, created_at: "2026-05-01T00:00:00Z" },
     },
   ]);
 
@@ -2711,6 +2722,379 @@ function buildEntries() {
       shared_with: OO_SHARED_WITH,
     },
   ]);
+
+  // ── Check-ins demo seed (checkins-demo bot, 2026-06-12) ─────────────────────
+  //
+  // Extends the single Mira<->Alex pair above into the full check-ins feature
+  // set for the marketing demo clip, ADDITIVELY. Nothing above changes. Seeds:
+  //
+  //   1. A 3-level mentorship tree with a top-level branch and a skip-level:
+  //        Mira -> Alex (existing pair, kept)
+  //        Mira -> Morgan (new pair)            -> top-level branch
+  //        Alex -> Remy   (new pair)            -> depth, 3 levels
+  //        Mira <-> Remy  (new pair, skip-level since Remy reports through Alex)
+  //      Each new space writes the post-revamp fields (members/mentor/kind) plus
+  //      the legacy labHead/member back-compat pair (it is a mentored pair).
+  //      The mentorship tree (lib/checkins/mentorship-tree.ts) is derived purely
+  //      from the `mentor` edge across the spaces a viewer can read, so:
+  //        - Mira's view: Mira -> {Alex, Morgan, Remy} (the branch).
+  //        - Alex's view: Mira -> Alex -> Remy (the 3-level depth).
+  //        - Remy's view: the Mira<->Remy space fires the skip-level badge,
+  //          because Remy also reports through Alex via the Alex<->Remy space
+  //          (isSkipLevel sees the closer mentor edge in the readable set).
+  //
+  //   2. A populated IDP owned by Alex (grad-stage career plan), reviewed by
+  //      Mira. Four shareable sections shared with the mentor, the values
+  //      reflection kept private. Lives in Alex's folder (idps/<uuid>.json).
+  //
+  //   3. A group space ("FakeYeast group meeting") with Mira mentor and members
+  //      [mira, alex, morgan, remy], carrying a task board (4 assigned action
+  //      items) and a presenter rotation (2 tracks).
+  //
+  // Skip-level + tree edges are validated against the pure helpers in
+  // lib/checkins/mentorship-tree.ts; the IDP shape against lib/idp and the
+  // rotation against lib/checkins/rotation-store.ts.
+
+  // Stable space + record ids (deterministic so the fixture is reproducible).
+  const OO_MIRA_MORGAN_ID = "b1c2d3e4-f5a6-4b7c-8d9e-0a1b2c3d4e5f";
+  const OO_ALEX_REMY_ID = "c2d3e4f5-a6b7-4c8d-9e0a-1b2c3d4e5f60";
+  const OO_MIRA_REMY_ID = "d3e4f5a6-b7c8-4d9e-0a1b-2c3d4e5f6071";
+  const OO_GROUP_ID = "e4f5a6b7-c8d9-4e0a-1b2c-3d4e5f607182";
+  const ALEX_IDP_ID = "f5a6b7c8-d9e0-4a1b-2c3d-4e5f60718293";
+  const GROUP_ROTATION_ID = "a6b7c8d9-e0a1-4b2c-3d4e-5f60718293a4";
+
+  const sharedEdit = (...usernames) =>
+    usernames.map((username) => ({ username, level: "edit" }));
+
+  // --- Pair: Mira mentors Morgan (the top-level branch) ---------------------
+  out.push([
+    `users/mira/one_on_ones/${OO_MIRA_MORGAN_ID}.json`,
+    {
+      id: OO_MIRA_MORGAN_ID,
+      members: ["mira", "morgan"],
+      mentor: "mira",
+      kind: "pair",
+      title: null,
+      labHead: "mira",
+      member: "morgan",
+      created_by: "mira",
+      owner: "mira",
+      created_at: "2026-04-02T09:00:00Z",
+      cadence: { every: "week" },
+      shared_with: sharedEdit("mira", "morgan"),
+    },
+  ]);
+
+  // --- Pair: Alex mentors Remy (depth, the 3rd level) -----------------------
+  out.push([
+    `users/alex/one_on_ones/${OO_ALEX_REMY_ID}.json`,
+    {
+      id: OO_ALEX_REMY_ID,
+      members: ["alex", "remy"],
+      mentor: "alex",
+      kind: "pair",
+      title: null,
+      labHead: "alex",
+      member: "remy",
+      created_by: "alex",
+      owner: "alex",
+      created_at: "2026-05-04T10:00:00Z",
+      cadence: { every: "week" },
+      shared_with: sharedEdit("alex", "remy"),
+    },
+  ]);
+
+  // --- Pair: Mira <-> Remy (skip-level, Remy reports through Alex) ----------
+  out.push([
+    `users/mira/one_on_ones/${OO_MIRA_REMY_ID}.json`,
+    {
+      id: OO_MIRA_REMY_ID,
+      members: ["mira", "remy"],
+      mentor: "mira",
+      kind: "pair",
+      title: "Skip-level with Remy",
+      labHead: "mira",
+      member: "remy",
+      created_by: "mira",
+      owner: "mira",
+      created_at: "2026-05-06T11:00:00Z",
+      cadence: { every: "month" },
+      shared_with: sharedEdit("mira", "remy"),
+    },
+  ]);
+
+  // --- IDP: Alex's grad-stage development plan, reviewed by Mira ------------
+  // Skill rating keys come from lib/idp/competencies.ts (group::slug). Self
+  // (proficiency) vs importance (for the target career). The gap drives the
+  // growth-area summary; high self ratings drive strengths.
+  out.push([
+    `users/alex/idps/${ALEX_IDP_ID}.json`,
+    {
+      id: ALEX_IDP_ID,
+      owner: "alex",
+      career_stage: "grad",
+      self_assessment: {
+        ratings: {
+          "research::experimental-design": { self: 4, importance: 5 },
+          "research::data-analysis-and-statistics": { self: 3, importance: 5 },
+          "research::reproducibility-and-data-management": { self: 4, importance: 4 },
+          "comm::scientific-writing": { self: 2, importance: 5 },
+          "comm::presenting-and-talks": { self: 3, importance: 4 },
+          "comm::grant-and-proposal-writing": { self: 2, importance: 4 },
+          "pdm::planning-and-prioritizing": { self: 3, importance: 4 },
+          "lead::mentoring-others": { self: 3, importance: 4 },
+          "lead::collaboration-and-teamwork": { self: 4, importance: 4 },
+          "rcr::research-ethics-and-integrity": { self: 4, importance: 5 },
+          "rcr::data-ownership-and-sharing-norms": { self: 3, importance: 4 },
+          "career::networking": { self: 2, importance: 4 },
+        },
+        responsibilities:
+          "Lead the fakeGFP expression project (cloning, yeast transformation, qPCR validation). Maintain the lab's shared qPCR primer inventory and the fluorescence reader SOP. Mentor Remy on basic yeast culture during their rotation.",
+      },
+      career_exploration: {
+        aspirations:
+          "Stay at the bench but move toward a role where I design the experiments and own the data story end to end. I am drawn to an industry scientist track at a synthetic-biology or therapeutics company, with a PI track as the open alternative if a strong postdoc fit appears.",
+        target_path: "Industry research scientist (synthetic biology), PI track as alternative",
+      },
+      goals: [
+        {
+          id: "alex-idp-goal-1",
+          text: "Submit the fakeGFP expression manuscript as first author by Q1 2027",
+          term: "long",
+          priority: "high",
+        },
+        {
+          id: "alex-idp-goal-2",
+          text: "Draft Chapter 2 of the dissertation and pass the committee meeting this fall",
+          term: "short",
+          priority: "high",
+        },
+        {
+          id: "alex-idp-goal-3",
+          text: "Strengthen scientific writing by drafting one figure-and-legend per week",
+          term: "short",
+          priority: "low",
+        },
+        {
+          id: "alex-idp-goal-4",
+          text: "Build an industry network through two informational interviews and one conference",
+          term: "long",
+          priority: "low",
+        },
+      ],
+      action_plan: [
+        {
+          id: "alex-idp-action-1",
+          objective: "Complete the fakeGFP qPCR validation dataset",
+          approach: "Run the 150 nM primer trial, lock the ACT1 reference, and finalize the three biological replicates",
+          target_date: "2026-07-15",
+          outcome: "Clean Cq dataset with SD under 0.15 across replicates, ready for the figure",
+          status: "in_progress",
+        },
+        {
+          id: "alex-idp-action-2",
+          objective: "Draft the manuscript methods and results sections",
+          approach: "Write one subsection per week, review each with Mira at the weekly check-in",
+          target_date: "2026-09-30",
+          outcome: "A complete methods and results draft circulated to coauthors",
+          status: "not_started",
+        },
+        {
+          id: "alex-idp-action-3",
+          objective: "Run two informational interviews with industry scientists",
+          approach: "Reach out through the department alumni list and a conference contact",
+          target_date: "2026-10-31",
+          outcome: "Two interviews completed with notes on the day-to-day and hiring path",
+          status: "not_started",
+        },
+      ],
+      mentor_review: {
+        comment:
+          "Strong technical footing and the project ownership is exactly where I want a third-year to be. The honest read on writing is right, so we will make the weekly figure-and-legend habit the priority and I will turn around feedback within 72 hours. Let us revisit the industry-versus-PI question after the committee meeting, no need to decide now.",
+        reviewed_by: "mira",
+        reviewed_at: "2026-05-22T15:00:00Z",
+        revisit_date: "2027-05-22",
+      },
+      values_reflection: {
+        note:
+          "What keeps me here is building something real that other people can use, not the title. I want a group small enough that I still touch the data. I worry about whether I am fast enough at writing, and I do not want a job that is all grant deadlines and no bench.",
+      },
+      shared_sections: {
+        self_assessment: true,
+        career_exploration: true,
+        goals: true,
+        action_plan: true,
+      },
+      mentor: "mira",
+      shared_with: [{ username: "mira", level: "view" }],
+      created_at: "2026-05-10T09:00:00Z",
+      updated_at: "2026-05-22T15:00:00Z",
+      last_edited_by: "mira",
+    },
+  ]);
+
+  // --- Group space: FakeYeast group meeting --------------------------------
+  // kind "group", Mira mentor, all four active members. Owned by Mira; every
+  // member at edit. Carries the task board and the presenter rotation below.
+  const GROUP_MEMBERS = ["mira", "alex", "morgan", "remy"];
+  out.push([
+    `users/mira/one_on_ones/${OO_GROUP_ID}.json`,
+    {
+      id: OO_GROUP_ID,
+      members: GROUP_MEMBERS,
+      mentor: "mira",
+      kind: "group",
+      title: "FakeYeast group meeting",
+      created_by: "mira",
+      owner: "mira",
+      created_at: "2026-04-03T09:00:00Z",
+      cadence: { every: "week", weekday: 2 },
+      shared_with: sharedEdit(...GROUP_MEMBERS),
+    },
+  ]);
+
+  // Task board: 4 action items scoped to the group, assigned across members so
+  // the per-assignee bands populate. Owned by the space owner (Mira).
+  const groupBoardItems = [
+    {
+      id: "ai-group-1",
+      text: "Present the fakeGFP expression results at next group meeting",
+      assignee: "alex",
+      due_date: "2026-05-26",
+      created_by: "mira",
+      created_at: "2026-05-19T09:00:00Z",
+    },
+    {
+      id: "ai-group-2",
+      text: "Finish the 96-well fluorescence reader scan and post the CSV",
+      assignee: "morgan",
+      due_date: "2026-05-22",
+      created_by: "morgan",
+      created_at: "2026-05-19T09:05:00Z",
+    },
+    {
+      id: "ai-group-3",
+      text: "Restock the ACT1 reference primer aliquots in freezer 5",
+      assignee: "remy",
+      due_date: "2026-05-23",
+      created_by: "alex",
+      created_at: "2026-05-19T09:10:00Z",
+    },
+    {
+      id: "ai-group-4",
+      text: "Circulate the journal-club paper two days before the meeting",
+      assignee: "morgan",
+      due_date: null,
+      is_done: true,
+      created_by: "mira",
+      created_at: "2026-05-12T09:00:00Z",
+    },
+  ];
+  for (const item of groupBoardItems) {
+    out.push([
+      `users/mira/one_on_one_action_items/${item.id}.json`,
+      {
+        id: item.id,
+        one_on_one_id: OO_GROUP_ID,
+        text: item.text,
+        is_done: item.is_done ?? false,
+        created_by: item.created_by,
+        created_at: item.created_at,
+        owner: "mira",
+        assignee: item.assignee,
+        due_date: item.due_date,
+        shared_with: sharedEdit(...GROUP_MEMBERS),
+      },
+    ]);
+  }
+
+  // Presenter rotation: two tracks over the group members, each with a current
+  // pointer so the Rotation tab shows "Up next" / "On deck". Lives in the space
+  // owner's folder (checkin_rotations/<uuid>.json).
+  out.push([
+    `users/mira/checkin_rotations/${GROUP_ROTATION_ID}.json`,
+    {
+      id: GROUP_ROTATION_ID,
+      space_id: OO_GROUP_ID,
+      owner: "mira",
+      tracks: [
+        {
+          id: "rot-track-data",
+          name: "Data presentation",
+          order: ["alex", "morgan", "remy"],
+          current_index: 1,
+        },
+        {
+          id: "rot-track-jc",
+          name: "Journal club",
+          order: ["morgan", "alex", "mira", "remy"],
+          current_index: 0,
+        },
+      ],
+      shared_with: sharedEdit(...GROUP_MEMBERS),
+      created_at: "2026-04-03T09:00:00Z",
+      updated_at: "2026-05-19T09:00:00Z",
+    },
+  ]);
+
+  // Two group meeting notes for richness (note_kind "meeting", scoped to the
+  // group space). Owned by Mira; shared with every member.
+  out.push([
+    "users/mira/notes/2.json",
+    {
+      id: 2,
+      title: "Group meeting 2026-05-19: fakeGFP results dry run",
+      description:
+        "Attendees: Dr. Castellanos, alex, morgan, remy.\n\nAgenda:\n1. Alex dry-runs the fakeGFP expression figures before the manuscript draft\n2. Morgan reader-scan status on the 96-well screen\n3. Journal club paper assignment\n\nNotes:\nAlex's Cq spread is tightening with the locked ACT1 reference. Morgan to post the reader CSV by Thursday. Remy is up to speed on yeast culture and takes the freezer-5 primer restock. Next data presenter is Morgan, journal club lead is Morgan.",
+      is_running_log: false,
+      is_shared: true,
+      shared_with: sharedEdit(...GROUP_MEMBERS),
+      entries: [],
+      comments: [],
+      created_at: "2026-05-19T15:00:00Z",
+      updated_at: "2026-05-19T15:30:00Z",
+      username: "mira",
+      one_on_one_id: OO_GROUP_ID,
+      note_kind: "meeting",
+    },
+  ]);
+
+  // --- Remy: minimal valid lab-member folder -------------------------------
+  // Just enough to be discovered (user-discovery scans users/* dirs) and to
+  // appear in the roster + mentorship tree. No projects, tasks, or methods.
+  out.push([
+    "users/remy/_counters.json",
+    {
+      projects: 0,
+      tasks: 0,
+      methods: 0,
+      events: 0,
+      goals: 0,
+      notes: 0,
+      purchase_items: 0,
+      lab_links: 0,
+      dependencies: 0,
+    },
+  ]);
+  out.push([
+    "users/remy/settings.json",
+    {
+      displayName: "Remy Okafor",
+      animationType: "celebration",
+      defaultGanttViewMode: "1-month",
+      defaultCalendarViewMode: "week",
+      showSharedByDefault: true,
+      visibleTabs: ["/experiments", "/gantt", "/methods", "/results", "/calendar"],
+      defaultLandingTab: "/",
+      sidebarShowTasks: true,
+      sidebarShowCalendarEvents: true,
+      sidebarEventsHorizonDays: 7,
+      coloredHeader: false,
+      // Remy is an undergraduate rotation student, a regular lab member.
+      account_type: "member",
+    },
+  ]);
+  out.push(["users/remy/_onboarding.json", DEMO_ONBOARDING_SIDECAR]);
 
   // Demo PI audit entries — showcase Mira having edited fields on
   // alex/morgan's records via Phase 5's session edit mode. The entries

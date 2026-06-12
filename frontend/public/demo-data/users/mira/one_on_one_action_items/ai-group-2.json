@@ -1,0 +1,29 @@
+{
+  "id": "ai-group-2",
+  "one_on_one_id": "e4f5a6b7-c8d9-4e0a-1b2c-3d4e5f607182",
+  "text": "Finish the 96-well fluorescence reader scan and post the CSV",
+  "is_done": false,
+  "created_by": "morgan",
+  "created_at": "2026-05-19T09:05:00Z",
+  "owner": "mira",
+  "assignee": "morgan",
+  "due_date": "2026-05-22",
+  "shared_with": [
+    {
+      "username": "mira",
+      "level": "edit"
+    },
+    {
+      "username": "alex",
+      "level": "edit"
+    },
+    {
+      "username": "morgan",
+      "level": "edit"
+    },
+    {
+      "username": "remy",
+      "level": "edit"
+    }
+  ]
+}

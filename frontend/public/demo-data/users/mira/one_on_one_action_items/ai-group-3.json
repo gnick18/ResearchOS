@@ -1,0 +1,29 @@
+{
+  "id": "ai-group-3",
+  "one_on_one_id": "e4f5a6b7-c8d9-4e0a-1b2c-3d4e5f607182",
+  "text": "Restock the ACT1 reference primer aliquots in freezer 5",
+  "is_done": false,
+  "created_by": "alex",
+  "created_at": "2026-05-19T09:10:00Z",
+  "owner": "mira",
+  "assignee": "remy",
+  "due_date": "2026-05-23",
+  "shared_with": [
+    {
+      "username": "mira",
+      "level": "edit"
+    },
+    {
+      "username": "alex",
+      "level": "edit"
+    },
+    {
+      "username": "morgan",
+      "level": "edit"
+    },
+    {
+      "username": "remy",
+      "level": "edit"
+    }
+  ]
+}

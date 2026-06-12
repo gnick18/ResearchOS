@@ -1,0 +1,139 @@
+{
+  "id": "f5a6b7c8-d9e0-4a1b-2c3d-4e5f60718293",
+  "owner": "alex",
+  "career_stage": "grad",
+  "self_assessment": {
+    "ratings": {
+      "research::experimental-design": {
+        "self": 4,
+        "importance": 5
+      },
+      "research::data-analysis-and-statistics": {
+        "self": 3,
+        "importance": 5
+      },
+      "research::reproducibility-and-data-management": {
+        "self": 4,
+        "importance": 4
+      },
+      "comm::scientific-writing": {
+        "self": 2,
+        "importance": 5
+      },
+      "comm::presenting-and-talks": {
+        "self": 3,
+        "importance": 4
+      },
+      "comm::grant-and-proposal-writing": {
+        "self": 2,
+        "importance": 4
+      },
+      "pdm::planning-and-prioritizing": {
+        "self": 3,
+        "importance": 4
+      },
+      "lead::mentoring-others": {
+        "self": 3,
+        "importance": 4
+      },
+      "lead::collaboration-and-teamwork": {
+        "self": 4,
+        "importance": 4
+      },
+      "rcr::research-ethics-and-integrity": {
+        "self": 4,
+        "importance": 5
+      },
+      "rcr::data-ownership-and-sharing-norms": {
+        "self": 3,
+        "importance": 4
+      },
+      "career::networking": {
+        "self": 2,
+        "importance": 4
+      }
+    },
+    "responsibilities": "Lead the fakeGFP expression project (cloning, yeast transformation, qPCR validation). Maintain the lab's shared qPCR primer inventory and the fluorescence reader SOP. Mentor Remy on basic yeast culture during their rotation."
+  },
+  "career_exploration": {
+    "aspirations": "Stay at the bench but move toward a role where I design the experiments and own the data story end to end. I am drawn to an industry scientist track at a synthetic-biology or therapeutics company, with a PI track as the open alternative if a strong postdoc fit appears.",
+    "target_path": "Industry research scientist (synthetic biology), PI track as alternative"
+  },
+  "goals": [
+    {
+      "id": "alex-idp-goal-1",
+      "text": "Submit the fakeGFP expression manuscript as first author by Q1 2027",
+      "term": "long",
+      "priority": "high"
+    },
+    {
+      "id": "alex-idp-goal-2",
+      "text": "Draft Chapter 2 of the dissertation and pass the committee meeting this fall",
+      "term": "short",
+      "priority": "high"
+    },
+    {
+      "id": "alex-idp-goal-3",
+      "text": "Strengthen scientific writing by drafting one figure-and-legend per week",
+      "term": "short",
+      "priority": "low"
+    },
+    {
+      "id": "alex-idp-goal-4",
+      "text": "Build an industry network through two informational interviews and one conference",
+      "term": "long",
+      "priority": "low"
+    }
+  ],
+  "action_plan": [
+    {
+      "id": "alex-idp-action-1",
+      "objective": "Complete the fakeGFP qPCR validation dataset",
+      "approach": "Run the 150 nM primer trial, lock the ACT1 reference, and finalize the three biological replicates",
+      "target_date": "2026-07-15",
+      "outcome": "Clean Cq dataset with SD under 0.15 across replicates, ready for the figure",
+      "status": "in_progress"
+    },
+    {
+      "id": "alex-idp-action-2",
+      "objective": "Draft the manuscript methods and results sections",
+      "approach": "Write one subsection per week, review each with Mira at the weekly check-in",
+      "target_date": "2026-09-30",
+      "outcome": "A complete methods and results draft circulated to coauthors",
+      "status": "not_started"
+    },
+    {
+      "id": "alex-idp-action-3",
+      "objective": "Run two informational interviews with industry scientists",
+      "approach": "Reach out through the department alumni list and a conference contact",
+      "target_date": "2026-10-31",
+      "outcome": "Two interviews completed with notes on the day-to-day and hiring path",
+      "status": "not_started"
+    }
+  ],
+  "mentor_review": {
+    "comment": "Strong technical footing and the project ownership is exactly where I want a third-year to be. The honest read on writing is right, so we will make the weekly figure-and-legend habit the priority and I will turn around feedback within 72 hours. Let us revisit the industry-versus-PI question after the committee meeting, no need to decide now.",
+    "reviewed_by": "mira",
+    "reviewed_at": "2026-05-22T15:00:00Z",
+    "revisit_date": "2027-05-22"
+  },
+  "values_reflection": {
+    "note": "What keeps me here is building something real that other people can use, not the title. I want a group small enough that I still touch the data. I worry about whether I am fast enough at writing, and I do not want a job that is all grant deadlines and no bench."
+  },
+  "shared_sections": {
+    "self_assessment": true,
+    "career_exploration": true,
+    "goals": true,
+    "action_plan": true
+  },
+  "mentor": "mira",
+  "shared_with": [
+    {
+      "username": "mira",
+      "level": "view"
+    }
+  ],
+  "created_at": "2026-05-10T09:00:00Z",
+  "updated_at": "2026-05-22T15:00:00Z",
+  "last_edited_by": "mira"
+}

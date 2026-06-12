@@ -1,0 +1,20 @@
+{
+  "displayName": "Remy Okafor",
+  "animationType": "celebration",
+  "defaultGanttViewMode": "1-month",
+  "defaultCalendarViewMode": "week",
+  "showSharedByDefault": true,
+  "visibleTabs": [
+    "/experiments",
+    "/gantt",
+    "/methods",
+    "/results",
+    "/calendar"
+  ],
+  "defaultLandingTab": "/",
+  "sidebarShowTasks": true,
+  "sidebarShowCalendarEvents": true,
+  "sidebarEventsHorizonDays": 7,
+  "coloredHeader": false,
+  "account_type": "member"
+}

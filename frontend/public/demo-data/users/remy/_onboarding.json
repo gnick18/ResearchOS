@@ -1,0 +1,25 @@
+{
+  "version": 5,
+  "first_seen_at": "2026-01-01T00:00:00.000Z",
+  "active_seconds": 0,
+  "feature_picks": {
+    "account_type": "lab",
+    "lab_storage": "local",
+    "purchases": "yes",
+    "calendar": "yes",
+    "goals": "yes",
+    "telegram": "yes",
+    "ai_helper": "full",
+    "links": "yes"
+  },
+  "wizard_completed_at": "2026-01-15T12:00:00.000Z",
+  "wizard_skipped_at": null,
+  "wizard_force_show": false,
+  "wizard_resume_state": null,
+  "lab_tour_pending": false,
+  "lab_tour_dismissed_at": null,
+  "lab_mode_tour_choice": null,
+  "archived": false,
+  "archived_at": null,
+  "archived_by": null
+}
