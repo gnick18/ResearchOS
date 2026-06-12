@@ -469,7 +469,15 @@ export const updateTaskTool: AiTool = {
     }
     if (typeof args.project === "string" || typeof args.project === "number") {
       const p = String(args.project).trim();
-      changes.push(p ? `move to project ${p}` : "remove from its project");
+      // A name reads cleanly in the confirm; a bare numeric id ("project 2")
+      // does not, so phrase that generically (the execute resolves the real one).
+      changes.push(
+        !p
+          ? "remove from its project"
+          : /^\d+$/.test(p)
+            ? "move to another project"
+            : `move to the "${p}" project`,
+      );
     }
     const changeText = changes.length > 0 ? changes.join(", ") : "no change";
     return { summary: `update task "${ref}": ${changeText}` };
