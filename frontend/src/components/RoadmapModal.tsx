@@ -56,51 +56,6 @@ function StatusBadge({ status }: { status: Status }) {
 /* Feature icons (inline SVG, no lucide, no emojis)                           */
 /* -------------------------------------------------------------------------- */
 
-/** Two overlapping document pages with a cursor on top — live collaboration. */
-function CollabIcon() {
-  return (
-    <svg
-      width="28"
-      height="28"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className="text-sky-600 dark:text-sky-300"
-    >
-      <rect x="3" y="4" width="11" height="14" rx="1.5" />
-      <rect x="10" y="7" width="11" height="14" rx="1.5" />
-      <path d="M14 14l2 6 1.5-2.5 2.5 1.5z" />
-    </svg>
-  );
-}
-
-/** Envelope with an outbound arrow — cross-lab sharing. */
-function SharingIcon() {
-  return (
-    <svg
-      width="28"
-      height="28"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className="text-sky-600 dark:text-sky-300"
-    >
-      <rect x="2" y="6" width="20" height="14" rx="2" />
-      <path d="M2 8l10 7 10-7" />
-      <path d="M16 3l3 3-3 3" />
-      <line x1="19" y1="6" x2="11" y2="6" />
-    </svg>
-  );
-}
-
 /** Document going up into a repository — NIH / Zenodo deposit. */
 function CloudUploadIcon() {
   return (
@@ -209,31 +164,17 @@ interface Feature {
 
 const FEATURES: Feature[] = [
   {
-    title: "Live collaboration",
-    status: "in-progress",
-    description:
-      "Google-Docs-style simultaneous editing on notes, methods, and experiments.",
-    icon: <CollabIcon />,
-  },
-  {
-    title: "Cross-lab sharing",
-    status: "building-next",
-    description:
-      "Send a note, method, or project to anyone by email — even a different lab, no shared folder needed.",
-    icon: <SharingIcon />,
-  },
-  {
-    title: "NIH + Zenodo deposit",
+    title: "One-click Zenodo deposit",
     status: "coming-soon",
     description:
-      "One-click deposit to Zenodo with your grant number and ORCID pre-filled. Supports your NIH Data Management Plan.",
+      "Publish straight to Zenodo from the browser with your grant number and ORCID pre-filled, so the DOI comes back without leaving the app. Guided deposit ships today.",
     icon: <CloudUploadIcon />,
   },
   {
-    title: "Lab inventory + barcode scan",
+    title: "Barcode scanning",
     status: "exploring",
     description:
-      "Track reagents and consumables by scanning barcodes. Beta-requested; pairs with the mobile app.",
+      "Scan reagent and consumable barcodes to track them in your existing inventory. Beta-requested; pairs with the phone app.",
     icon: <BarcodeIcon />,
   },
   {
@@ -401,7 +342,7 @@ export default function RoadmapModal({ open, onClose }: RoadmapModalProps) {
 
             {/* Desktop: horizontal strip connected by dashed lines.
                 On md+ we use a grid of equal columns. On mobile we stack. */}
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-5 md:auto-rows-fr md:gap-0">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-4 md:auto-rows-fr md:gap-0">
               {FEATURES.map((feature, i) => (
                 <div
                   key={feature.title}

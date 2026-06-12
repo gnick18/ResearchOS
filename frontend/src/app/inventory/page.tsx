@@ -436,7 +436,8 @@ function InventoryPageContent() {
               Inventory is not enabled
             </h2>
             <p className="mt-1.5 text-body text-foreground-muted">
-              This area is still being built. Check back soon.
+              Inventory is turned off for this workspace. Check back later or
+              ask your lab head to enable it.
             </p>
           </div>
         </div>
