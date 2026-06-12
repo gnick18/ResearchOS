@@ -1086,3 +1086,235 @@ describe("BeakerSearch v4 centered modal", () => {
     expect(dialog.getAttribute("aria-modal")).toBe("true");
   });
 });
+
+// ── BeakerSearch v2 Phase 3: command-mode routing ────────────────────────────
+//
+// Typing ">" enters command mode. The global "Go to" / "App" commands are
+// hidden in the default view and shown only after the ">" prefix.
+
+/** A shared command set that includes both page-level (Design / Edit) and
+ *  global-layer ("Go to" / "App") commands, mirroring the real provider shape
+ *  where useGlobalCommands appends the global layer to the page commands. */
+function makeCommandsWithGlobals(spies: Record<string, () => void> = {}): EditorCommand[] {
+  return [
+    {
+      id: "primer-design",
+      label: "Design primers",
+      group: "Design",
+      iconName: "primers",
+      run: spies["primer-design"] ?? (() => {}),
+    },
+    {
+      id: "protein-props",
+      label: "Protein properties",
+      group: "Analyze",
+      iconName: "protein",
+      run: spies["protein-props"] ?? (() => {}),
+    },
+    // Global "Go to" commands (the useGlobalCommands layer).
+    {
+      id: "goto-/workbench",
+      label: "Go to Workbench",
+      group: "Go to",
+      iconName: "assemble",
+      run: spies["goto-workbench"] ?? (() => {}),
+    },
+    {
+      id: "goto-/gantt",
+      label: "Go to Gantt",
+      group: "Go to",
+      iconName: "list",
+      run: spies["goto-gantt"] ?? (() => {}),
+    },
+    // Global "App" commands.
+    {
+      id: "app-toggle-theme",
+      label: "Toggle dark mode",
+      group: "App",
+      iconName: "eye",
+      run: spies["toggle-theme"] ?? (() => {}),
+    },
+  ];
+}
+
+describe("BeakerSearch v2 Phase 3: command-mode routing", () => {
+  it("default mode hides global Go-to and App commands from the result list", () => {
+    render(
+      <CommandPalette
+        open
+        onClose={() => {}}
+        commands={makeCommandsWithGlobals()}
+        selectionKind="none"
+        hasOrganism={false}
+      />,
+    );
+    // Work commands are visible at rest. "Design primers" may appear in both
+    // Suggested and Design groups, so check with getAllByText.
+    expect(screen.getAllByText("Design primers").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Protein properties").length).toBeGreaterThan(0);
+    // Global commands are NOT shown in the default view.
+    expect(screen.queryByText("Go to Workbench")).toBeNull();
+    expect(screen.queryByText("Go to Gantt")).toBeNull();
+    expect(screen.queryByText("Toggle dark mode")).toBeNull();
+    // Group labels for the global layer must not appear either.
+    expect(screen.queryByText("Go to")).toBeNull();
+    expect(screen.queryByText("App")).toBeNull();
+  });
+
+  it("typing '>' enters command mode and shows the global commands", () => {
+    render(
+      <CommandPalette
+        open
+        onClose={() => {}}
+        commands={makeCommandsWithGlobals()}
+        selectionKind="none"
+        hasOrganism={false}
+      />,
+    );
+    const input = screen.getByRole("combobox");
+    fireEvent.change(input, { target: { value: ">" } });
+    // Command mode: Go-to and App commands are now present.
+    expect(screen.getByText("Go to Workbench")).toBeTruthy();
+    expect(screen.getByText("Go to Gantt")).toBeTruthy();
+    expect(screen.getByText("Toggle dark mode")).toBeTruthy();
+  });
+
+  it("empty '>' shows ALL commands (the full discoverable command list)", () => {
+    render(
+      <CommandPalette
+        open
+        onClose={() => {}}
+        commands={makeCommandsWithGlobals()}
+        selectionKind="none"
+        hasOrganism={false}
+      />,
+    );
+    const input = screen.getByRole("combobox");
+    fireEvent.change(input, { target: { value: ">" } });
+    // All three global commands are shown with no filter applied.
+    expect(screen.getByText("Go to Workbench")).toBeTruthy();
+    expect(screen.getByText("Go to Gantt")).toBeTruthy();
+    expect(screen.getByText("Toggle dark mode")).toBeTruthy();
+  });
+
+  it("'> workbench' filters commands to the matching row only", () => {
+    render(
+      <CommandPalette
+        open
+        onClose={() => {}}
+        commands={makeCommandsWithGlobals()}
+        selectionKind="none"
+        hasOrganism={false}
+      />,
+    );
+    const input = screen.getByRole("combobox");
+    fireEvent.change(input, { target: { value: "> workbench" } });
+    expect(screen.getByText("Go to Workbench")).toBeTruthy();
+    // Gantt and theme do not match "workbench".
+    expect(screen.queryByText("Go to Gantt")).toBeNull();
+    expect(screen.queryByText("Toggle dark mode")).toBeNull();
+  });
+
+  it("command mode hides the work results (objects, sequences, artifacts)", () => {
+    const onNavigateObject = vi.fn();
+    const recent: GlobalIndexEntry[] = [
+      {
+        type: "project",
+        key: "grant:99",
+        label: "Mitochondria QC",
+        meta: "Project",
+        haystack: "mitochondria qc",
+        recencyAt: 0,
+        iconName: "folder",
+        href: "/workbench/projects/99",
+        enabled: true,
+      },
+    ];
+    render(
+      <CommandPalette
+        open
+        onClose={() => {}}
+        commands={makeCommandsWithGlobals()}
+        selectionKind="none"
+        hasOrganism={false}
+        sequences={makeSequences()}
+        artifacts={makeArtifacts()}
+        recentEntries={recent}
+        onNavigateObject={onNavigateObject}
+      />,
+    );
+    // Confirm they are visible in default mode first.
+    expect(screen.getByText("pGEX-3X")).toBeTruthy();
+    expect(screen.getByText("Mitochondria QC")).toBeTruthy();
+    // Switch to command mode.
+    const input = screen.getByRole("combobox");
+    fireEvent.change(input, { target: { value: ">" } });
+    // Work results are gone.
+    expect(screen.queryByText("pGEX-3X")).toBeNull();
+    expect(screen.queryByText("Mitochondria QC")).toBeNull();
+    // Global commands are now present.
+    expect(screen.getByText("Go to Workbench")).toBeTruthy();
+  });
+
+  it("command mode runs the selected command on Enter and closes", () => {
+    const run = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <CommandPalette
+        open
+        onClose={onClose}
+        commands={makeCommandsWithGlobals({ "goto-workbench": run })}
+        selectionKind="none"
+        hasOrganism={false}
+      />,
+    );
+    const input = screen.getByRole("combobox");
+    fireEvent.change(input, { target: { value: "> workbench" } });
+    // Highlight lands on "Go to Workbench" (first / only result).
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Enter" });
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("footer shows 'Commands' label in command mode and the '>' hint otherwise", () => {
+    render(
+      <CommandPalette
+        open
+        onClose={() => {}}
+        commands={makeCommandsWithGlobals()}
+        selectionKind="none"
+        hasOrganism={false}
+      />,
+    );
+    // Default mode: the hint span text contains "for commands".
+    // Use a regex because the span has mixed child nodes (Type + kbd + for commands).
+    expect(screen.getByText(/for commands/)).toBeTruthy();
+    // "Commands" (the command-mode label) should not yet appear.
+    expect(screen.queryByText(/^Commands$/)).toBeNull();
+    // Switch to command mode.
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: ">" } });
+    // The hint is gone; the "Commands" label is now shown.
+    expect(screen.queryByText(/for commands/)).toBeNull();
+    expect(screen.getByText(/^Commands$/)).toBeTruthy();
+  });
+
+  it("Ask BeakerBot escalation passes the stripped query (no '>' prefix)", () => {
+    const onEscalate = vi.fn();
+    render(
+      <CommandPalette
+        open
+        onClose={() => {}}
+        commands={makeCommandsWithGlobals()}
+        selectionKind="none"
+        hasOrganism={false}
+        onEscalate={onEscalate}
+      />,
+    );
+    const input = screen.getByRole("combobox");
+    // Type "> dark mode" then click the escalation row.
+    fireEvent.change(input, { target: { value: "> dark mode" } });
+    fireEvent.mouseDown(screen.getByText(/Ask BeakerBot/));
+    // The handler must receive "dark mode", not "> dark mode".
+    expect(onEscalate).toHaveBeenCalledWith("dark mode");
+  });
+});

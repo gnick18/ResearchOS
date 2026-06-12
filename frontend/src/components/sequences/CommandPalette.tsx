@@ -11,6 +11,17 @@
 // the thread. Back-to-search shrinks it back. The morph is now even simpler
 // because the surface is centered, not floating.
 //
+// BeakerSearch v2 Phase 3 (ai declutter bot, 2026-06-11): command de-clutter.
+// "Go to X" nav and "App" commands are now routed BEHIND a ">" prefix so the
+// default view leads with the user's work (objects, recent records, sequences,
+// artifacts) and the single Ask BeakerBot row. Typing ">" switches to command
+// mode: the leading ">" (and any trailing space) is stripped, the remainder
+// filters the global nav + app commands, and the work results are hidden so
+// commands lead cleanly. An empty ">" shows ALL commands at once (the
+// discoverable "show me everything" gesture). Non-global page commands that
+// carry a page-defined group are shown in both modes so the sequence editor
+// and other pages retain their own palette reach without the prefix.
+//
 // Icons render through <Icon> from the verified icon library (no inline svg,
 // the icon-guard enforces it); the BeakerBot mark renders via the component.
 // Voice in comments and copy, no em-dashes, no en-dashes, no emojis, no
@@ -415,11 +426,34 @@ export function CommandPalette({
 
   const typing = query.trim() !== "";
 
+  // BeakerSearch v2 Phase 3: command-mode routing. A query that starts with ">"
+  // switches to command mode. The leading ">" and any immediately following
+  // space are stripped to produce the bare filter text used for fuzzy matching.
+  // An empty ">" (bare prefix only) shows all commands.
+  const isCommandMode = query.startsWith(">");
+  const commandQuery = isCommandMode ? query.slice(1).replace(/^ /, "") : query;
+
+  // Global command groups (the "Go to X" + "App" layer). In DEFAULT mode these
+  // are stripped from the command list before building results so they never
+  // crowd the work view. In COMMAND mode the full commands list is passed (only
+  // the command groups are shown and the work sources are suppressed below).
+  const GLOBAL_GROUPS: ReadonlySet<string> = new Set(["Go to", "App"]);
+  const defaultModeCommands = useMemo(
+    () => commands.filter((c) => !GLOBAL_GROUPS.has(c.group)),
+    // GLOBAL_GROUPS is stable (module-level constant recreated per render but
+    // the Set membership never changes). We only depend on commands.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [commands],
+  );
+
   // BeakerSearch global object search, chunk 2. The cross-app object ranking
   // is DEBOUNCED (120 ms) so each keystroke does not re-rank the whole index.
+  // In command mode we pass a dummy empty query to the ranker because we show
+  // NO work results there; the debouncedQuery is still computed on the raw
+  // input so typing in default mode continues to rank correctly.
   const debouncedQuery = useDebouncedValue(query, 120);
   const objectGroups = useMemo<PaletteGroup[]>(() => {
-    if (!onNavigateObject) return EMPTY_PALETTE_GROUPS;
+    if (!onNavigateObject || isCommandMode) return EMPTY_PALETTE_GROUPS;
     const ranked = rankGlobalEntries(objectIndex, debouncedQuery, {
       now: Date.now(),
     });
@@ -432,26 +466,57 @@ export function CommandPalette({
         onRun: () => onNavigateObject(entry),
       })),
     }));
-  }, [objectIndex, debouncedQuery, onNavigateObject]);
+  }, [objectIndex, debouncedQuery, onNavigateObject, isCommandMode]);
 
   // BeakerSearch global object search, chunk 4. The cross-app Recent-records
-  // MRU, wired through the same jump path as the ranked object rows.
+  // MRU, wired through the same jump path as the ranked object rows. Hidden
+  // in command mode (commands lead, not work objects).
   const recentRecords = useMemo<PaletteItem[]>(() => {
-    if (!onNavigateObject || recentEntries.length === 0) return EMPTY_RECENT_RECORDS;
+    if (!onNavigateObject || recentEntries.length === 0 || isCommandMode) {
+      return EMPTY_RECENT_RECORDS;
+    }
     return recentEntries.map((entry) => ({
       kind: "object" as const,
       entry,
       onRun: () => onNavigateObject(entry),
     }));
-  }, [recentEntries, onNavigateObject]);
+  }, [recentEntries, onNavigateObject, isCommandMode]);
 
   // Grouped + flat heterogeneous results for the current query and selection
   // context. The trailing "Search everything" handoff row (chunk 3) is appended
   // LAST so it always sits at the very bottom.
+  //
+  // Command mode: pass only the full commands list (all groups), suppress all
+  // work sources (sequences, artifacts, navGroups, objectGroups, recentRecords),
+  // and use commandQuery as the filter text. The builder shows only matching
+  // command groups, which is exactly the desired "Go to / App" view.
+  //
+  // Default mode: pass commands with the global "Go to" / "App" groups stripped,
+  // pass all work sources, use the raw query.
   const groups = useMemo(() => {
+    if (isCommandMode) {
+      const base = buildPaletteResultsForQuery(
+        {
+          commands,
+          // Suppress all work sources in command mode.
+          sequences: EMPTY_SEQUENCES,
+          artifacts: EMPTY_ARTIFACTS,
+          collectionLabel: undefined,
+          selectionKind: "none",
+          hasOrganism: false,
+          suggestedIds: [],
+          navGroups: EMPTY_NAV_GROUPS,
+          objectGroups: EMPTY_PALETTE_GROUPS,
+          recentRecords: EMPTY_RECENT_RECORDS,
+        },
+        commandQuery,
+      );
+      return base;
+    }
+
     const base = buildPaletteResultsForQuery(
       {
-        commands,
+        commands: defaultModeCommands,
         sequences,
         artifacts,
         collectionLabel,
@@ -480,7 +545,10 @@ export function CommandPalette({
     };
     return [...base, searchAllGroup];
   }, [
+    isCommandMode,
+    commandQuery,
     commands,
+    defaultModeCommands,
     sequences,
     artifacts,
     collectionLabel,
@@ -516,9 +584,12 @@ export function CommandPalette({
 
   const restingGroups = useMemo<PaletteGroup[]>(() => {
     if (subMode !== "inline") return EMPTY_PALETTE_GROUPS;
+    // The resting (empty-query) background shown while an inline sub-flow is
+    // open. Mirrors the default-mode filtering: strip the global "Go to" /
+    // "App" groups so they are still reachable only via ">".
     return buildPaletteResultsForQuery(
       {
-        commands,
+        commands: defaultModeCommands,
         sequences,
         artifacts,
         collectionLabel,
@@ -535,7 +606,7 @@ export function CommandPalette({
     );
   }, [
     subMode,
-    commands,
+    defaultModeCommands,
     sequences,
     artifacts,
     collectionLabel,
@@ -753,7 +824,9 @@ export function CommandPalette({
           return;
         }
         if (hasEscalation && highlight === 0 && onEscalate) {
-          onEscalate(query);
+          // Pass the stripped commandQuery so BeakerBot gets clean text
+          // regardless of whether the user is in ">" command mode.
+          onEscalate(commandQuery);
           return;
         }
         const flatIdx = hasEscalation ? highlight - 1 : highlight;
@@ -770,6 +843,7 @@ export function CommandPalette({
       hasEscalation,
       onEscalate,
       query,
+      commandQuery,
       inSubflow,
       topSubflow,
       subItems.length,
@@ -938,14 +1012,16 @@ export function CommandPalette({
                 role="option"
                 aria-selected={highlight === 0}
                 aria-label={
-                  query.trim()
-                    ? `Ask BeakerBot about "${query.trim()}"`
+                  commandQuery.trim()
+                    ? `Ask BeakerBot about "${commandQuery.trim()}"`
                     : "Ask BeakerBot"
                 }
                 onMouseMove={() => setHighlight(0)}
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  onEscalate(query);
+                  // Pass the stripped commandQuery so BeakerBot receives clean
+                  // text, not a raw ">..." string, regardless of mode.
+                  onEscalate(commandQuery);
                 }}
                 className={`relative mx-2 mb-1 mt-1 flex cursor-pointer select-none items-center gap-3 rounded-xl border px-3 py-2.5 ${
                   highlight === 0
@@ -961,8 +1037,8 @@ export function CommandPalette({
                 />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-body font-semibold text-foreground">
-                    {query.trim()
-                      ? <>Ask BeakerBot about <span className="font-bold text-sky-700 dark:text-sky-300">&ldquo;{query.trim()}&rdquo;</span></>
+                    {commandQuery.trim()
+                      ? <>Ask BeakerBot about <span className="font-bold text-sky-700 dark:text-sky-300">&ldquo;{commandQuery.trim()}&rdquo;</span></>
                       : "Ask BeakerBot"}
                   </span>
                   <span className="block truncate text-[11px] text-foreground-muted">
@@ -992,7 +1068,11 @@ export function CommandPalette({
             >
               {flat.length === 0 ? (
                 <div className="px-4 py-8 text-center text-meta text-foreground-muted">
-                  {inSubflow ? "No matches. Press esc to go back." : "Nothing matches that search."}
+                  {inSubflow
+                    ? "No matches. Press esc to go back."
+                    : isCommandMode && commandQuery.trim() !== ""
+                      ? "No commands match that filter."
+                      : "Nothing matches that search."}
                 </div>
               ) : (
                 (() => {
@@ -1100,13 +1180,21 @@ export function CommandPalette({
                 </kbd>
                 {inSubflow ? "back" : "close"}
               </span>
-              <span className="ml-auto text-[10.5px]">
-                Type{" "}
-                <kbd className="rounded border border-border bg-surface px-1 font-semibold">
-                  &gt;
-                </kbd>{" "}
-                for commands
-              </span>
+              {/* In default mode: show the ">" discoverability hint.
+                  In command mode: confirm the mode with a label. */}
+              {isCommandMode ? (
+                <span className="ml-auto text-[10.5px] font-semibold text-sky-600 dark:text-sky-400">
+                  Commands
+                </span>
+              ) : (
+                <span className="ml-auto text-[10.5px]">
+                  Type{" "}
+                  <kbd className="rounded border border-border bg-surface px-1 font-semibold">
+                    &gt;
+                  </kbd>{" "}
+                  for commands
+                </span>
+              )}
             </div>
           </div>
         )}
