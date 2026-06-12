@@ -54,6 +54,7 @@ import type {
   DataHubDocContent,
   DataHubDocument,
   DataHubTableType,
+  EntryFormat,
   PlotSpec,
   RowRecord,
   SubcolumnKind,
@@ -64,6 +65,12 @@ import type {
 // ---------------------------------------------------------------------------
 
 export const META_KEY = "meta";
+/**
+ * The meta key holding a Column table's entry format ("mean-sd-n" / "mean-sem-n").
+ * Absent means "replicates" (the default), so the projection only emits the field
+ * when the key is present and a replicates document never carries the key.
+ */
+export const ENTRY_FORMAT_KEY = "entry_format";
 export const COLUMNS_KEY = "columns";
 export const ROWS_KEY = "rows";
 export const ANALYSES_KEY = "analyses";
@@ -200,6 +207,14 @@ export function seedDataHubDoc(content: DataHubDocContent): Uint8Array {
   const meta = doc.getMap(META_KEY);
   meta.set("title", content.meta.name ?? "");
   meta.set("table_type", content.meta.table_type);
+  // entry_format is written ONLY for the summary modes, so a "replicates" /
+  // absent document seeds byte-identically to before this field existed.
+  if (
+    content.meta.entryFormat === "mean-sd-n" ||
+    content.meta.entryFormat === "mean-sem-n"
+  ) {
+    meta.set(ENTRY_FORMAT_KEY, content.meta.entryFormat);
+  }
   meta.set("created_at", content.meta.created_at ?? "");
 
   // The deterministic cell-key order for every row is the column declaration
@@ -363,6 +378,12 @@ export function getDataHubContent(doc: LoroDoc, id = ""): DataHubDocContent {
     table_type: (asString(meta.get("table_type")) as DataHubTableType) ?? "column",
     created_at: asString(meta.get("created_at")) ?? "",
   };
+  // Only emit entryFormat when the key is present and a known summary mode, so a
+  // replicates document projects without the field (back-compat byte-identity).
+  const entryFormat = asString(meta.get(ENTRY_FORMAT_KEY));
+  if (entryFormat === "mean-sd-n" || entryFormat === "mean-sem-n") {
+    docMeta.entryFormat = entryFormat as EntryFormat;
+  }
   return {
     meta: docMeta,
     columns: projectColumns(doc),
@@ -618,4 +639,18 @@ export function removePlot(doc: LoroDoc, plotId: string): void {
 /** Set the document title in meta. Does NOT commit. */
 export function setTitle(doc: LoroDoc, title: string): void {
   getDataHubMeta(doc).set("title", title);
+}
+
+/**
+ * Set (or clear) a Column table's entry format in meta. Does NOT commit. Setting
+ * "replicates" deletes the key so the document returns to the byte-identical
+ * default rather than carrying an explicit "replicates" marker.
+ */
+export function setEntryFormat(doc: LoroDoc, format: EntryFormat): void {
+  const meta = getDataHubMeta(doc);
+  if (format === "mean-sd-n" || format === "mean-sem-n") {
+    meta.set(ENTRY_FORMAT_KEY, format);
+  } else if (meta.get(ENTRY_FORMAT_KEY) !== undefined) {
+    meta.delete(ENTRY_FORMAT_KEY);
+  }
 }

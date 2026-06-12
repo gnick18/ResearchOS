@@ -38,6 +38,36 @@ export type ColumnDataType = "number" | "text" | "date";
  */
 export type SubcolumnKind = "replicate" | "mean" | "sd" | "sem" | "n";
 
+/**
+ * How a Column table stores its data. The default (absent) is "replicates", the
+ * current behavior where each group column holds raw replicate measurements down
+ * the rows. The two summary modes let a researcher who only has the published /
+ * recorded summary (no raw replicates) enter the group descriptives directly,
+ * which is the Prism "Enter and plot error values already calculated elsewhere"
+ * data format. We split SD vs SEM into two explicit modes (rather than a single
+ * "summary" mode plus a spread-kind flag) because the spread kind is fixed for
+ * the whole table in Prism's UI, and a per-table mode keeps the engine dispatch
+ * and the future grid header unambiguous.
+ *
+ * SUMMARY STORAGE (the data-shape decision, documented for the grid + serializer):
+ * In a summary mode each GROUP is a parent Y dataset (a datasetId) carrying THREE
+ * subcolumns, one ColumnDef each, with role "subcolumn":
+ *   - subcolumnKind "mean"  holds the group mean
+ *   - subcolumnKind "sd" OR "sem" holds the spread (which one is fixed by the
+ *     table's entryFormat, so "mean-sd-n" uses "sd" and "mean-sem-n" uses "sem")
+ *   - subcolumnKind "n"     holds the replicate count
+ * The three subcolumns share the SAME datasetId (the group identity) and the
+ * table holds a SINGLE row, so each group is one (mean, spread, n) triple read
+ * out of that row's three cells. This reuses the existing ColumnRole "subcolumn",
+ * SubcolumnKind, datasetId, and the cell-level row model unchanged, so the Loro
+ * serializer and the per-cell CRDT merge need no new container. A group's display
+ * name is the parent dataset's name, carried on every subcolumn ColumnDef as its
+ * `name` (the three subcolumns of one group share a name; readGroupSummary reads
+ * it off the mean column). One row keeps the model minimal; a multi-row summary
+ * layout would imply replicate-of-summaries, which Prism does not have here.
+ */
+export type EntryFormat = "replicates" | "mean-sd-n" | "mean-sem-n";
+
 /** A single column definition (one entry in the table's column list). */
 export interface ColumnDef {
   id: string;
@@ -123,6 +153,13 @@ export interface DataHubDocument {
   /** Subfolder organization within a project, or null for the project root. */
   folder_path: string | null;
   table_type: DataHubTableType;
+  /**
+   * How a Column table stores its data. Optional and additive. Absent means
+   * "replicates" (the current behavior, raw replicates down the rows), so a
+   * document written before this field existed reads back byte-identical. Only
+   * meaningful for table_type "column"; ignored for the other archetypes.
+   */
+  entryFormat?: EntryFormat;
   created_at: string;
   last_edited_by?: string;
   last_edited_at?: string;
@@ -149,6 +186,8 @@ export interface DataHubDocContent {
 export interface DataHubCreate {
   name: string;
   table_type: DataHubTableType;
+  /** Optional Column-table entry format; absent means "replicates". */
+  entryFormat?: EntryFormat;
   project_ids?: string[];
   folder_path?: string | null;
   columns?: ColumnDef[];
@@ -165,6 +204,8 @@ export interface DataHubCreate {
 export interface DataHubUpdate {
   name?: string;
   table_type?: DataHubTableType;
+  /** Optional Column-table entry format; absent leaves the stored value as is. */
+  entryFormat?: EntryFormat;
   project_ids?: string[];
   folder_path?: string | null;
   last_edited_by?: string;

@@ -237,6 +237,71 @@ def ref_correlation_regression():
     return out
 
 
+def ref_from_stats():
+    """Reference values for the FROM-SUMMARY-STATS engine paths.
+
+    A Column table can hold ENTERED summary stats (mean + SD + n, or mean + SEM +
+    n) instead of raw replicates. The engine then runs the summary-compatible
+    tests from those stats. The faithful scipy oracle is ttest_ind_from_stats,
+    which takes (mean, std, nobs) per group, and f_oneway reconstructed from the
+    group summaries for the one-way ANOVA omnibus.
+
+    These MUST equal the raw ttest_ind / f_oneway references generated above,
+    because ttest_ind_from_stats is the same computation fed the matching summary
+    (scipy documents this equivalence), so the pins in datahub-stats.ts reuse the
+    SAME real-scipy reference values under from-stats ids. We still emit the
+    explicit from-stats numbers here so a scipy re-run proves the equivalence
+    directly rather than by assertion.
+
+    scipy.stats.ttest_ind_from_stats(mean1, std1, nobs1, mean2, std2, nobs2,
+                                     equal_var=...) returns the same t / p (and,
+    for Welch, the same df via the internal Welch-Satterthwaite) as
+    ttest_ind(A, B, equal_var=...). Our engine reconstructs SD from SEM when the
+    table stores SEM, so the SD-entered and SEM-entered cases are numerically the
+    same test and share one pin.
+    """
+    out = {}
+
+    def msn(arr):
+        a = np.asarray(arr, dtype=float)
+        # ddof=1 sample SD, matching our engine's sampleSD.
+        return float(a.mean()), float(a.std(ddof=1)), int(a.size)
+
+    mA, sA, nA = msn(GROUP_A)
+    mB, sB, nB = msn(GROUP_B)
+    mC, sC, nC = msn(GROUP_C)
+
+    # Welch (equal_var=False) and Student (equal_var=True) from stats.
+    w = st.ttest_ind_from_stats(mA, sA, nA, mB, sB, nB, equal_var=False)
+    out["fromstats_welch"] = {"t": r4(w.statistic), "df": r4(w.df), "p": r4(w.pvalue)}
+    s = st.ttest_ind_from_stats(mA, sA, nA, mB, sB, nB, equal_var=True)
+    out["fromstats_student"] = {"t": r4(s.statistic), "df": r4(s.df), "p": r4(s.pvalue)}
+
+    # One-sided tails on the Welch from-stats case.
+    wg = st.ttest_ind_from_stats(mA, sA, nA, mB, sB, nB, equal_var=False,
+                                 alternative="greater")
+    wl = st.ttest_ind_from_stats(mA, sA, nA, mB, sB, nB, equal_var=False,
+                                 alternative="less")
+    out["fromstats_welch_greater_p"] = r4(wg.pvalue)
+    out["fromstats_welch_less_p"] = r4(wl.pvalue)
+
+    # One-way ANOVA omnibus reconstructed from the group summaries:
+    #   SS_between = sum n_i (m_i - grand)^2 ;  SS_within = sum (n_i - 1) sd_i^2
+    # which equals f_oneway(A, B, C) on the equivalent raw data.
+    groups = [(mA, sA, nA), (mB, sB, nB), (mC, sC, nC)]
+    N = sum(n for _, _, n in groups)
+    k = len(groups)
+    grand = sum(n * m for m, _, n in groups) / N
+    ss_b = sum(n * (m - grand) ** 2 for m, _, n in groups)
+    ss_w = sum((n - 1) * sd ** 2 for _, sd, n in groups)
+    df_b, df_w = k - 1, N - k
+    F = (ss_b / df_b) / (ss_w / df_w)
+    p = float(st.f.sf(F, df_b, df_w))
+    out["fromstats_oneway"] = {"F": r4(F), "p": r4(p)}
+
+    return out
+
+
 def ref_param_options():
     """Reference values for the user-selectable analysis PARAMETERS.
 
@@ -376,6 +441,10 @@ PROVENANCE = {
         "mann_whitney": "scipy.stats.mannwhitneyu(A, B, method='asymptotic', use_continuity=True)",
         "wilcoxon": "scipy.stats.wilcoxon(PAIR_X, PAIR_Y)",
         "oneway": "scipy.stats.f_oneway(A, B, C)",
+        "from_stats.fromstats_welch": "scipy.stats.ttest_ind_from_stats(mA,sA,nA,mB,sB,nB, equal_var=False)",
+        "from_stats.fromstats_student": "scipy.stats.ttest_ind_from_stats(mA,sA,nA,mB,sB,nB, equal_var=True)",
+        "from_stats.fromstats_welch_{greater,less}_p": "scipy.stats.ttest_ind_from_stats(..., equal_var=False, alternative=...)",
+        "from_stats.fromstats_oneway": "f_oneway reconstructed from group (mean,sd,n): SS_b=sum n(m-grand)^2, SS_w=sum (n-1)sd^2",
         "tukey": "statsmodels.stats.multicomp.pairwise_tukeyhsd",
         "param_options.unpaired_welch_{greater,less}_p": "scipy.stats.ttest_ind(A, B, equal_var=False, alternative=...)",
         "param_options.paired_{greater,less}_p": "scipy.stats.ttest_rel(PAIR_X, PAIR_Y, alternative=...)",
@@ -407,6 +476,7 @@ def main():
     refs.update({"anova_twoway": ref_anova_twoway()})
     refs.update({"kruskal_friedman": ref_kruskal_friedman()})
     refs.update({"correlation_regression": ref_correlation_regression()})
+    refs.update({"from_stats": ref_from_stats()})
     refs.update({"assumptions": ref_assumptions()})
     refs.update({"survival": ref_survival()})
     refs.update({"chi_square": ref_chi_square()})

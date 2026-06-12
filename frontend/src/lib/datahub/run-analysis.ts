@@ -26,8 +26,10 @@
 
 import {
   oneWayAnova,
+  oneWayAnovaFromStats,
   twoWayAnova,
   unpairedTTest,
+  unpairedTTestFromStats,
   pairedTTest,
   mannWhitneyU,
   wilcoxonSignedRank,
@@ -53,6 +55,12 @@ import { readParams } from "@/lib/datahub/analysis-params";
 import type { Tail } from "@/lib/datahub/engine/types";
 import type { PostHocMethod } from "@/lib/datahub/engine/anova";
 import { columnValues, groupColumns } from "@/lib/datahub/column-table";
+import {
+  isSummaryFormat,
+  readGroupSummary,
+  summaryGroupIds,
+  type GroupSummary,
+} from "@/lib/datahub/summary-table";
 import { xColumn, xyPairs, yColumns } from "@/lib/datahub/xy-table";
 import {
   groupDatasets,
@@ -98,6 +106,23 @@ export const COLUMN_ANALYSIS_TYPES: AnalysisType[] = [
   "wilcoxonSignedRank",
   "kruskalWallis",
 ];
+
+/**
+ * The analysis types runnable from ENTERED SUMMARY STATS (mean / SD or SEM / n).
+ * Only the unpaired t-test and the one-way ANOVA omnibus reconstruct exactly
+ * from group summaries. Paired and rank-based tests, correlation, and regression
+ * all need the raw replicates (a paired test needs the row pairing, a rank test
+ * needs the values to rank), so they are guarded as needs-raw on a summary table.
+ */
+export const SUMMARY_ANALYSIS_TYPES: AnalysisType[] = [
+  "unpairedTTest",
+  "oneWayAnova",
+];
+
+/** Whether an analysis type can run from entered summary statistics. */
+export function summaryCanRun(type: AnalysisType): boolean {
+  return SUMMARY_ANALYSIS_TYPES.includes(type);
+}
 
 /** A resolved input group: the column id, its display name, and its values. */
 export interface RunGroup {
@@ -340,6 +365,16 @@ export function validAnalysisTypes(content: DataHubDocContent): AnalysisType[] {
   if (content.meta.table_type === "survival") {
     return hasSurvivalData(content) ? [...SURVIVAL_ANALYSIS_TYPES] : [];
   }
+  // A Column table in a summary entry format offers only the summary-compatible
+  // tests, gated by the number of entered groups (2+ for the unpaired t, 3+ for
+  // the one-way ANOVA). The paired and rank-based tests need raw replicates.
+  if (isSummaryFormat(content.meta.entryFormat)) {
+    const g = summaryGroupIds(content).length;
+    const out: AnalysisType[] = [];
+    if (g >= 2) out.push("unpairedTTest");
+    if (g >= 3) out.push("oneWayAnova");
+    return out;
+  }
   const k = groupColumns(content).length;
   const out: AnalysisType[] = [];
   if (k >= 2) {
@@ -526,6 +561,153 @@ function runTwoWayAnalysis(
 }
 
 /**
+ * Resolve a spec's input ids into entered group summaries on a summary-format
+ * Column table. The ids are dataset ids (the group identity in summary mode);
+ * unknown ids and groups missing a mean / SD / SEM / n are dropped. The display
+ * name is the group's current name so a rename flows through on re-run.
+ */
+export function resolveSummaryGroups(
+  content: DataHubDocContent,
+  groupIds: string[],
+): GroupSummary[] {
+  const out: GroupSummary[] = [];
+  for (const id of groupIds) {
+    const s = readGroupSummary(content, id);
+    if (s) out.push(s);
+  }
+  return out;
+}
+
+/**
+ * Run a summary-compatible analysis (unpaired t-test, one-way ANOVA omnibus) from
+ * ENTERED SUMMARY STATS. Tests that cannot run from a summary return a clear
+ * needs-raw failure rather than a wrong number. The summary's spread is converted
+ * to an SD for the engine (SEM * sqrt(n) when the table stores SEM).
+ */
+function runSummaryAnalysis(
+  type: AnalysisType,
+  content: DataHubDocContent,
+  spec: AnalysisSpec,
+): RunOutcome {
+  if (!summaryCanRun(type)) {
+    return {
+      ok: false,
+      error:
+        "This test needs raw replicate data. The table holds entered summary "
+        + "stats (mean, spread, n), which support only the unpaired t-test and "
+        + "the one-way ANOVA. Switch the table to replicates to run this test.",
+    };
+  }
+
+  // The spread the table stores; convert SEM to SD for the engine (SD = SEM * sqrt(n)).
+  const toSD = (s: GroupSummary): number | null => {
+    if (s.spread === null) return null;
+    if (s.spreadKind === "sem") {
+      if (s.n === null || s.n < 1) return null;
+      return s.spread * Math.sqrt(s.n);
+    }
+    return s.spread;
+  };
+
+  const groups = resolveSummaryGroups(content, specColumnIds(spec));
+
+  if (type === "oneWayAnova") {
+    if (groups.length < 3) {
+      return { ok: false, error: "One-way ANOVA needs at least 3 groups." };
+    }
+    const stats = groups.map((g) => ({
+      mean: g.mean ?? NaN,
+      sd: toSD(g) ?? NaN,
+      n: g.n ?? NaN,
+    }));
+    const r = oneWayAnovaFromStats(stats);
+    if (!r.ok) return { ok: false, error: r.error };
+    const between = tableRow(r.table, "Between groups");
+    const within = tableRow(r.table, "Within groups");
+    // Map back to named RunGroups so the sheet can still label each group. The
+    // raw values are unknown from a summary, so values[] is empty.
+    const runGroups: RunGroup[] = groups.map((g) => ({
+      columnId: g.datasetId,
+      name: g.name,
+      values: [],
+    }));
+    return {
+      ok: true,
+      kind: "anova",
+      type: "oneWayAnova",
+      test: r.test,
+      nonparametric: false,
+      // Post-hoc is not computable from summary stats; the engine returns no
+      // comparisons and the post-hoc family is reported as none.
+      postHoc: "none",
+      groups: runGroups,
+      statistic: r.statistic,
+      pValue: r.pValue,
+      dfBetween: between?.df ?? groups.length - 1,
+      dfWithin: within?.df ?? NaN,
+      table: r.table,
+      comparisons: r.comparisons,
+    };
+  }
+
+  // Unpaired t-test from two group summaries.
+  if (groups.length < 2) {
+    return { ok: false, error: "A two-group test needs exactly 2 groups." };
+  }
+  const [a, b] = groups;
+  const sdA = toSD(a);
+  const sdB = toSD(b);
+  if (
+    a.mean === null ||
+    b.mean === null ||
+    sdA === null ||
+    sdB === null ||
+    a.n === null ||
+    b.n === null
+  ) {
+    return {
+      ok: false,
+      error: "Enter a mean, a spread, and an n for both groups.",
+    };
+  }
+  const p = readParams(spec);
+  const tail = (p.tail as Tail | undefined) ?? "two-sided";
+  const variance = (p.variance as "welch" | "student" | undefined) ?? "welch";
+  const r = unpairedTTestFromStats({
+    mean1: a.mean,
+    sd1: sdA,
+    n1: a.n,
+    mean2: b.mean,
+    sd2: sdB,
+    n2: b.n,
+    tail,
+    variance,
+  });
+  if (!r.ok) return { ok: false, error: r.error };
+  const aGroup: RunGroup = { columnId: a.datasetId, name: a.name, values: [] };
+  const bGroup: RunGroup = { columnId: b.datasetId, name: b.name, values: [] };
+  return {
+    ok: true,
+    kind: "ttest",
+    type: "unpairedTTest",
+    test: r.test,
+    nonparametric: false,
+    tail,
+    variance,
+    groups: [aGroup, bGroup],
+    statistic: r.statistic,
+    df: r.df,
+    pValue: r.pValue,
+    effectSize: r.effectSize,
+    effectSizeLabel: r.effectSizeLabel,
+    ci95: r.ci95,
+    meanA: a.mean,
+    meanB: b.mean,
+    meanDiff: a.mean - b.mean,
+  };
+}
+
+/**
  * Run one analysis spec against the current table content and return a
  * normalized result (or a typed failure). Pure: no I/O, no Loro, no commit. The
  * caller stores the returned normalized result back into the spec's resultCache.
@@ -550,6 +732,17 @@ export function runAnalysis(
 
   if (type === "kaplanMeier") {
     return runSurvivalAnalysis(content);
+  }
+
+  // A Column table in a summary entry format dispatches the summary-compatible
+  // tests through the from-stats engine paths; unsupported tests return a clear
+  // needs-raw failure. Empty / "replicates" falls through to the raw path below,
+  // which is byte-identical to before this branch existed.
+  if (
+    content.meta.table_type === "column" &&
+    isSummaryFormat(content.meta.entryFormat)
+  ) {
+    return runSummaryAnalysis(type, content, spec);
   }
 
   const groups = resolveGroups(content, specColumnIds(spec));

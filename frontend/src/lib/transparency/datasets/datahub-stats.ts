@@ -209,6 +209,28 @@ export const STAT_PINS: StatPin[] = [
   { id: "tukey_ab_meandiff", metric: "Tukey HSD A vs B, mean difference (magnitude)", reference: 1.0633, oracleId: "statsmodels", tol: 1e-3, warn: 5e-3, unit: "diff" },
   { id: "tukey_bc_meandiff", metric: "Tukey HSD B vs C, mean difference (magnitude)", reference: 1.68, oracleId: "statsmodels", tol: 1e-3, warn: 5e-3, unit: "diff" },
 
+  // --- FROM ENTERED SUMMARY STATS (scipy.stats.ttest_ind_from_stats + f_oneway) ---
+  // A Column table can hold ENTERED summary stats (mean + SD + n, or mean + SEM +
+  // n) instead of raw replicates; the engine then runs the summary-compatible
+  // tests from those stats (unpaired t-test, one-way ANOVA omnibus). scipy's
+  // ttest_ind_from_stats is the same computation fed the matching summary, so for
+  // GROUP_A vs GROUP_B these from-stats references are IDENTICAL to the raw
+  // ttest_ind references above; we reuse those real-scipy values under from-stats
+  // ids and document the equivalence here. The generator emits the explicit
+  // ttest_ind_from_stats / f_oneway numbers so a scipy re-run proves it directly.
+  // The mean-SEM-n entry format reconstructs SD = SEM * sqrt(n) before the test,
+  // so it is numerically the same test and is covered by these same pins.
+  { id: "fromstats_welch_t", metric: "From-stats Welch t-test, t (ttest_ind_from_stats)", reference: -6.635761, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "t" },
+  { id: "fromstats_welch_df", metric: "From-stats Welch t-test, df", reference: 8.999992, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "df" },
+  { id: "fromstats_welch_p", metric: "From-stats Welch t-test, p", reference: 9.53e-5, oracleId: "scipy", tol: 1e-5, warn: 5e-5, unit: "p" },
+  { id: "fromstats_student_t", metric: "From-stats Student t-test, t (ttest_ind_from_stats, equal_var)", reference: -6.502685, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "t" },
+  { id: "fromstats_student_df", metric: "From-stats Student t-test, df", reference: 9.0, oracleId: "scipy", tol: 1e-6, warn: 1e-6, unit: "df" },
+  { id: "fromstats_student_p", metric: "From-stats Student t-test, p", reference: 0.000111, oracleId: "scipy", tol: 1e-5, warn: 5e-5, unit: "p" },
+  { id: "fromstats_welch_greater_p", metric: "From-stats Welch t-test, one-sided (greater) p", reference: 0.999952, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "p" },
+  { id: "fromstats_welch_less_p", metric: "From-stats Welch t-test, one-sided (less) p", reference: 4.76e-5, oracleId: "scipy", tol: 1e-5, warn: 5e-5, unit: "p" },
+  { id: "fromstats_oneway_f", metric: "From-stats one-way ANOVA, F (f_oneway from group mean/SD/n)", reference: 57.554971, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "F" },
+  { id: "fromstats_oneway_p", metric: "From-stats one-way ANOVA, p", reference: 9.19e-8, oracleId: "scipy", tol: 1e-8, warn: 5e-8, unit: "p" },
+
   // --- two-way ANOVA (statsmodels anova_lm, balanced) ---
   { id: "twoway_a_f", metric: "Two-way ANOVA, Dose F", reference: 281.901316, oracleId: "statsmodels", tol: 5e-3, warn: 5e-2, unit: "F" },
   { id: "twoway_a_p", metric: "Two-way ANOVA, Dose p", reference: 1.6e-7, oracleId: "statsmodels", tol: 1e-7, warn: 5e-7, unit: "p" },

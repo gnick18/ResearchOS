@@ -292,6 +292,101 @@ function oneWayPostHoc(
   return { ok: true, value: comps };
 }
 
+// --- One-way ANOVA from entered summary statistics ---
+
+/** One group's entered summary for the from-stats one-way ANOVA. */
+export interface GroupSummaryStat {
+  mean: number;
+  sd: number;
+  n: number;
+}
+
+/**
+ * One-way ANOVA computed from ENTERED SUMMARY STATISTICS (group mean / SD / n)
+ * rather than raw replicates. This is the omnibus F + p only; per-pair post-hoc
+ * comparisons are OUT OF SCOPE from summary data (the all-pairs construction
+ * needs either raw values or a per-pair pooled SE that a summary does not pin
+ * down unambiguously), so comparisons is always empty here and the caller must
+ * surface "post-hoc needs raw replicate data" if a user asks for it.
+ *
+ *   grand mean (weighted): xbar = sum(n_i * m_i) / sum(n_i)
+ *   SS_between = sum( n_i * (m_i - xbar)^2 )
+ *   SS_within  = sum( (n_i - 1) * sd_i^2 )            (since (n-1) sd^2 = SS_i)
+ *   df_between = k - 1,  df_within = N - k
+ *   F = (SS_between / df_between) / (SS_within / df_within)
+ *
+ * This is the standard reconstruction of f_oneway from group summaries and
+ * matches scipy.stats.f_oneway on equivalent raw data to floating point. The raw
+ * oneWayAnova path is unchanged.
+ */
+export function oneWayAnovaFromStats(
+  groups: GroupSummaryStat[],
+): EngineResult<AnovaResult> {
+  const valid = groups.filter(
+    (g) =>
+      Number.isFinite(g.mean) &&
+      Number.isFinite(g.sd) &&
+      g.sd >= 0 &&
+      g.n >= 1,
+  );
+  const k = valid.length;
+  if (k < 2) {
+    return { ok: false, error: "Need at least 2 groups with a mean, SD, and n." };
+  }
+
+  const N = valid.reduce((acc, g) => acc + g.n, 0);
+  const dfWithin = N - k;
+  if (dfWithin <= 0) {
+    return {
+      ok: false,
+      error: "Not enough total replicates (each group needs n >= 2).",
+    };
+  }
+  // A within-group SS needs n >= 2 in at least the groups that carry spread; a
+  // group with n = 1 contributes zero within SS, which is the correct behavior.
+
+  const grandMean =
+    valid.reduce((acc, g) => acc + g.n * g.mean, 0) / N;
+
+  let ssBetween = 0;
+  for (const g of valid) {
+    const d = g.mean - grandMean;
+    ssBetween += g.n * d * d;
+  }
+  let ssWithin = 0;
+  for (const g of valid) {
+    ssWithin += (g.n - 1) * g.sd * g.sd;
+  }
+
+  const dfBetween = k - 1;
+  const msBetween = ssBetween / dfBetween;
+  const msWithin = ssWithin / dfWithin;
+  if (!(msWithin > 0)) {
+    return {
+      ok: false,
+      error: "Zero within-group spread; F is undefined. Check the entered SDs.",
+    };
+  }
+  const F = msBetween / msWithin;
+  const pValue = fPValue(F, dfBetween, dfWithin);
+
+  const table: AnovaTableRow[] = [
+    { source: "Between groups", df: dfBetween, ss: ssBetween, ms: msBetween, f: F, pValue },
+    { source: "Within groups", df: dfWithin, ss: ssWithin, ms: msWithin, f: null, pValue: null },
+    { source: "Total", df: N - 1, ss: ssBetween + ssWithin, ms: NaN, f: null, pValue: null },
+  ];
+
+  return {
+    ok: true,
+    test: "One-way ANOVA",
+    table,
+    statistic: F,
+    pValue,
+    // Post-hoc comparisons are not computable from summary stats (see doc above).
+    comparisons: [],
+  };
+}
+
 // --- Two-way ANOVA ---
 
 export interface TwoWayCell {
