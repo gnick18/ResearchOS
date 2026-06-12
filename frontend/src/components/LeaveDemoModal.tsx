@@ -16,13 +16,11 @@ interface Props {
 
 /**
  * Modal shown when the visitor confirms exit from the public `/demo`
- * route. The trigger surfaces are `<FloatingLeaveDemoButton>` (the
- * always-visible amber pill in the bottom-right that follows the user
- * across every route while the sticky demo flag is set) and, paired
- * with it, `<OpenDocsButton>` which routes to wiki pages where this
- * same modal is reachable on browser-back via the same floating
- * button. The legacy `<DemoLabBanner>` referenced in older comments
- * was removed; there is no top-of-page banner today.
+ * route. The trigger surface is `<FloatingLeaveDemoButton>` (the
+ * always-visible muted pill in the bottom-right that follows the user
+ * across every route while the sticky demo flag is set). The legacy
+ * `<DemoLabBanner>` referenced in older comments was removed; there is
+ * no top-of-page banner today.
  *
  * After the V3 rip (Phase B 2026-05-22) the `/demo` route is fixture-mode
  * browsing only: no tour overlay, no tutorial query params. The legacy

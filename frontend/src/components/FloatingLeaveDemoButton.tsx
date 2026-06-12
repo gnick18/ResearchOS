@@ -28,8 +28,8 @@ import { DEMO_PILL_CLASS } from "./demo/floatingPill";
  * the screen. We never remove the escape entirely.
  *
  * Re-reads `getDemoMode()` on every pathname change so demo state survives a
- * hard-nav round trip (e.g., `<OpenDocsButton>`'s plain `<a href>` to a wiki
- * page, then browser back). Without the pathname dep, a stale-state BFCache
+ * hard-nav round trip (a plain `<a href>` to another page, then browser back).
+ * Without the pathname dep, a stale-state BFCache
  * restore or a freshly-mounted-too-early read could leave `show=false` even
  * though the sessionStorage flag is still set, so the pill silently
  * disappears.

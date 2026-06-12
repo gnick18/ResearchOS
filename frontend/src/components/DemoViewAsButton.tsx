@@ -35,8 +35,7 @@ import { DEMO_PILL_CLASS } from "./demo/floatingPill";
  * storage. See docs/marketing/welcome-demo-shot-list-2026-06-10.md.
  *
  * Rendered as a plain anchor (not a button + window.location), so the
- * navigation is a native link the browser always honors, the same robust
- * pattern OpenDocsButton uses for its hard-nav to the wiki.
+ * navigation is a native link the browser always honors.
  *
  * Mounted at providers level alongside FloatingLeaveDemoButton.
  */

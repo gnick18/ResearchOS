@@ -28,7 +28,6 @@ import FloatingLeaveDemoButton from "@/components/FloatingLeaveDemoButton";
 import DemoEntryCue from "@/components/DemoEntryCue";
 import DemoViewAsButton from "@/components/DemoViewAsButton";
 import WikiCaptureRefusedBanner from "@/components/WikiCaptureRefusedBanner";
-import OpenDocsButton from "@/components/OpenDocsButton";
 import SceneTriggerHost from "@/components/SceneTriggerHost";
 import AutoErrorConfirmHost from "@/components/AutoErrorConfirmHost";
 import { Splash } from "@/components/onboarding/Splash";
@@ -961,12 +960,10 @@ export function Providers({ children }: { children: ReactNode }) {
             never overlap those buttons. Each pill is position-agnostic now;
             this wrapper owns the placement. `pb-14` lifts the column clear of
             the 48px-tall dock, and the pointer-events pair keeps the empty
-            wrapper from eating clicks when no pill is shown. DemoViewAsButton +
-            the docs link render only inside /demo; Leave also shows pre-login,
-            where there is no dock and the column simply floats a touch higher. */}
+            wrapper from eating clicks when no pill is shown. DemoViewAsButton
+            renders only inside /demo; Leave also shows pre-login, where there
+            is no dock and the column simply floats a touch higher. */}
         <div className="fixed bottom-6 right-6 z-[60] flex flex-col items-end gap-2 pb-14 pointer-events-none [&>*]:pointer-events-auto">
-          {/* Demo-only: open the wiki page for the current view. */}
-          <OpenDocsButton />
           {/* Demo-only: flip the fixture identity between Alex (member) and
               Mira (lab head) so the PI-dashboard welcome clip can be recorded.
               Renders only inside /demo, never in real use or wiki capture. */}
