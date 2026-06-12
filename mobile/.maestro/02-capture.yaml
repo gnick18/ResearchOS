@@ -1,39 +1,38 @@
-# Clip 02: The capture / Inbox flow (camera-free).
+# Clip 02: The hero capture flow (snap a bench photo, caption it, send to the lab).
 #
-# WHY NOT the "Take a photo" flow: in demo mode the Notebook "Take a photo"
-# button (onTakePhoto in app/(tabs)/notebook.tsx) is NOT bypassed. It always
-# calls ImagePicker.requestCameraPermissionsAsync + launchCameraAsync, opening
-# the REAL device camera plus a permission dialog. That is not deterministic on
-# an emulator, so we record the already-deterministic seeded-Inbox flow instead.
+# Demo mode now bypasses the real camera: onTakePhoto (app/(tabs)/notebook.tsx)
+# short-circuits to the fixture image (DEMO_IMAGE_URI) when pairing.demo is true,
+# so there is no camera or permission dialog and the flow is fully deterministic.
+# "Send to Inbox" stages the capture, clears the preview, and sendCapture's demo
+# guard marks it sent + fires the "Sent to inbox" success (no relay).
 #
-# On first demo entry the Notebook asynchronously seeds two sample captures into
-# the Inbox (DEMO_IMAGE_URI thumbnails). This clip shows that Inbox, the two
-# seeded rows, and exercises "Send all".
+# NOTE: the destination chooser (route into Lab Notes / Results / an experiment)
+# only appears for a real pairing that carries an X25519 routing key; the demo
+# pairing has none, so the capture goes straight to the inbox here. To film the
+# chooser, record against a real laptop pairing.
 #
-# Records: demo Notebook -> Inbox section with 2 seeded captures -> Send all.
+# Records: demo Notebook -> Take a photo (fixture) -> caption -> Send to Inbox ->
+# success -> back on the Notebook actions.
 appId: app.researchos.companion
 ---
 - runFlow: subflows/enter-demo.yaml
-# Wait for the async demo seed to land the two sample captures in the Inbox.
-- extendedWaitUntil:
-    visible: "Inbox"
-    timeout: 15000
-# Scroll the Inbox into view (it sits below the Today glance + actions).
-- scrollUntilVisible:
-    element:
-      id: "notebook-inbox-row-0"
-    direction: DOWN
-    timeout: 12000
-- assertVisible:
-    id: "notebook-inbox-row-0"
-- assertVisible:
-    id: "notebook-inbox-row-1"
-# The seeded captions are part of the story.
-- assertVisible: "Demo: Plate 4 brightfield overview (GFP channel)"
-- assertVisible: "Demo: Post-trypsin cell suspension check"
-# Exercise the bulk "Send all" action. In demo mode the relay is short-circuited
-# so the rows settle (the burst + status text update); we just confirm the tap
-# is reachable and lands without leaving the Notebook.
+# Snap a bench photo. In demo this stages the fixture capture (no camera).
 - tapOn:
-    id: "notebook-inbox-send-all"
-- assertVisible: "Inbox"
+    id: "notebook-take-photo"
+- assertVisible:
+    id: "notebook-photo-preview"
+- assertVisible:
+    id: "notebook-caption-input"
+# Caption it the way you would at the bench.
+- tapOn:
+    id: "notebook-caption-input"
+- inputText: "Plate 4, GFP channel, 20x. Strong signal in wells C3 to C6."
+- hideKeyboard
+# Send it to the lab. In demo this lands in the inbox and fires the success
+# burst; the preview clears and we return to the Notebook actions.
+- tapOn:
+    id: "notebook-send-to-inbox"
+- extendedWaitUntil:
+    visible:
+      id: "notebook-take-photo"
+    timeout: 10000

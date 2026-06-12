@@ -63,6 +63,13 @@ export async function sendTextNote(
     if (bytes.length === 0) {
       return { ok: false, error: 'Note is empty.' };
     }
+    // Demo mode never touches the relay (mirrors fetchSnapshot's pairing.demo
+    // short-circuit). Report a clean success so the Try-the-demo quick-note flow
+    // shows the same success burst a paired phone would, with no network.
+    if (pairing.demo) {
+      if (!opts.suppressBurst) fireSuccess({ subtitle: 'Quick note' });
+      return { ok: true };
+    }
     const shaHex = bytesToHex(sha256(bytes));
     const captureId = makeNoteId();
     const createdAt = new Date().toISOString();

@@ -312,6 +312,16 @@ export default function NotebookScreen() {
   }, [pairing, sendingAll, captures, refreshCaptures]);
 
   const onTakePhoto = useCallback(async () => {
+    if (pairing?.demo) {
+      // In demo mode there is no real bench camera to route from, so stage the
+      // fixture capture directly. This skips the camera and its permission
+      // dialog, so the capture-and-route flow is fully deterministic to record.
+      setPreviewUri(DEMO_IMAGE_URI);
+      setPreviewDoc(null);
+      setPreviewOcr(null);
+      setCaption('');
+      return;
+    }
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
       Alert.alert(
@@ -331,7 +341,7 @@ export default function NotebookScreen() {
     setPreviewDoc(null);
     setPreviewOcr(null);
     setCaption('');
-  }, []);
+  }, [pairing?.demo]);
 
   // Scan a handwritten page. The native document scanner rectifies + cleans it
   // onto a white background and OCRs it on-device, then we stage the enhanced

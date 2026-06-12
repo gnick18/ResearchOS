@@ -58,25 +58,28 @@ to use for every clip below.
 | --- | --- |
 | `subflows/enter-demo.yaml` | (shared subflow, not a clip) clears state, launches, enters demo, waits for the demo Notebook. |
 | `01-pair-demo.yaml` | First run: unpaired Notebook -> Pair screen -> "Try the demo" -> populated demo Notebook with the Today glance (today / overdue / coming-up fixtures). |
-| `02-capture.yaml` | The Inbox with two seeded sample captures, then "Send all". (Camera-free, see note below.) |
-| `03-quick-note.yaml` | Quick note compose: open the panel, type a realistic bench title + body, the "Send to lab" button live. (See DEMO GAP below.) |
+| `02-capture.yaml` | The hero capture: Take a photo (fixture, no camera in demo) -> caption -> Send to Inbox -> success. (See chooser note below.) |
+| `03-quick-note.yaml` | Quick note compose: open the panel, type a realistic bench title + body, Send to lab -> the panel closes on a clean demo success. |
 | `04-inventory.yaml` | Inventory tab: tracked stocks with low / ok pills (DMEM, FBS, Puromycin) and purchase orders. |
 | `05-calc.yaml` | Bench calculator: Scientific "5*2+7" -> live "17", then Molarity (MW 58.44, 150 mM, 500 mL) -> mass to weigh out. |
 | `06-timer.yaml` | Bench timer: tap the 1 min quick-start preset -> a Running timer counts down. |
 
 ## Important notes / gotchas
 
-- **No camera in demo (clip 02).** The Notebook "Take a photo" button always
-  opens the real device camera (`onTakePhoto` is not demo-bypassed), which needs
-  a camera + permission dialog and is not deterministic on an emulator. So the
-  capture clip records the already-seeded Inbox + "Send all" instead. On first
-  demo entry the Notebook asynchronously seeds two sample captures.
-- **Quick note has no clean demo success (clip 03).** `sendTextNote` is not
-  demo-guarded, so "Send to lab" makes a real network call that fails in demo and
-  raises a "Note failed" alert. Clip 03 records the compose experience (the
-  on-camera-worthy part) and dismisses that alert if it appears. For a true
-  success clip, use a real laptop+relay pairing, or add a demo short-circuit to
-  `sendTextNote` (mirroring `fetchSnapshot`).
+- **Camera is bypassed in demo (clip 02).** `onTakePhoto` now short-circuits to
+  the fixture image when `pairing.demo` is true, so "Take a photo" stages a
+  capture with no camera or permission dialog. The capture then goes to the inbox
+  with a success burst (`sendCapture` is demo-guarded).
+- **Destination chooser needs a real pairing.** The "route into Lab Notes /
+  Results / an experiment" chooser only appears when the pairing carries an X25519
+  routing key; the demo pairing has none, so in demo the capture (and a quick
+  note) take the straight-to-inbox / plain-send path. `fetchSnapshot` does return
+  a demo "notebooks" fixture, so if a future demo pairing adds a key the chooser
+  is already populated. To film the chooser today, record against a real laptop
+  pairing.
+- **Quick note shows a clean demo success (clip 03).** `sendTextNote` now
+  short-circuits the relay when `pairing.demo` is true and reports success, so the
+  compose panel closes and the success burst fires (no "Note failed" alert).
 - **Android notification dialog.** On first demo entry the Notebook (and the
   Timer screen on mount) call `ensureNotificationPermission`, which on Android 13+
   raises a system "Allow notifications?" dialog. The flows dismiss it with an

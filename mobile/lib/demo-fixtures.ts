@@ -145,6 +145,73 @@ export const DEMO_INVENTORY_SNAPSHOT: InventorySnapshot = {
 };
 
 // ---------------------------------------------------------------------------
+// Notebooks snapshot fixture (name = "notebooks")
+// ---------------------------------------------------------------------------
+
+// The destination list the capture chooser routes into. Typed structurally to
+// the raw snapshot shape fetchNotebooks (lib/notebooks.ts) decodes, so demo mode
+// shows real destinations to pick instead of an empty chooser. Tone matches the
+// demo lab (HEK293 / GFP / p53 work above).
+export const DEMO_NOTEBOOKS_SNAPSHOT: {
+  generatedAt: string;
+  notebooks: Array<{
+    noteId: number;
+    owner: string;
+    title: string;
+    isRunningLog: boolean;
+    kind: 'own' | 'shared' | 'oneOnOne';
+    entries: Array<{ id: string; title: string; date: string }>;
+    lastEditedEntryId: string | null;
+    partnerUsername: string | null;
+    isLabHead: boolean | null;
+  }>;
+} = {
+  generatedAt: NOW_ISO,
+  notebooks: [
+    {
+      noteId: 1,
+      owner: 'you',
+      title: 'Lab Notes',
+      isRunningLog: true,
+      kind: 'own',
+      entries: [
+        { id: 'demo-nb1-e1', title: 'HEK293 passage 18 split', date: todayStr },
+        { id: 'demo-nb1-e2', title: 'Plate 4 imaging setup', date: todayStr },
+      ],
+      lastEditedEntryId: 'demo-nb1-e2',
+      partnerUsername: null,
+      isLabHead: null,
+    },
+    {
+      noteId: 2,
+      owner: 'you',
+      title: 'fakeGFP expression (chapter 2)',
+      isRunningLog: false,
+      kind: 'own',
+      entries: [
+        { id: 'demo-nb2-e1', title: 'Cq tightening with ACT1 reference', date: todayStr },
+      ],
+      lastEditedEntryId: 'demo-nb2-e1',
+      partnerUsername: null,
+      isLabHead: null,
+    },
+    {
+      noteId: 3,
+      owner: 'mira',
+      title: 'Results',
+      isRunningLog: false,
+      kind: 'shared',
+      entries: [
+        { id: 'demo-nb3-e1', title: 'p53 western, lysate batch 3', date: yesterdayStr },
+      ],
+      lastEditedEntryId: 'demo-nb3-e1',
+      partnerUsername: 'mira',
+      isLabHead: null,
+    },
+  ],
+};
+
+// ---------------------------------------------------------------------------
 // Demo capture seeding (called idempotently from the Notebook tab)
 // ---------------------------------------------------------------------------
 

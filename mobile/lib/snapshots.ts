@@ -6,7 +6,11 @@
 import { unsealSnapshot } from '@/lib/device-identity';
 import type { Pairing } from '@/lib/pairing';
 
-import { DEMO_TODAY_SNAPSHOT, DEMO_INVENTORY_SNAPSHOT } from '@/lib/demo-fixtures';
+import {
+  DEMO_TODAY_SNAPSHOT,
+  DEMO_INVENTORY_SNAPSHOT,
+  DEMO_NOTEBOOKS_SNAPSHOT,
+} from '@/lib/demo-fixtures';
 
 // ---- Canonical signed-byte string (MUST match relay/scripts/smoke-snapshot.mjs
 // and relay/src/worker.ts verbatim). The DEVICE Ed25519 key signs this; "device"
@@ -225,6 +229,9 @@ export async function fetchSnapshot(
   if (pairing.demo) {
     // Return the appropriate fixture without signing or fetching anything.
     if (name === 'inventory') return DEMO_INVENTORY_SNAPSHOT;
+    // The notebooks fixture gives the capture chooser real destinations to route
+    // into (Lab Notes / Results / an experiment) instead of an empty list.
+    if (name === 'notebooks') return DEMO_NOTEBOOKS_SNAPSHOT;
     // The method snapshot has no demo fixture (the read-mode method viewer is
     // driven by a real focused experiment on the laptop). Return null so the
     // viewer shows its "open a method from the laptop" empty state in demo mode.
