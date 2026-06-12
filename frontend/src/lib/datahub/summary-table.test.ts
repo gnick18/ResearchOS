@@ -18,6 +18,11 @@ import {
   summaryColumnId,
   summaryGroupIds,
   writeGroupSummaryCells,
+  sdFromSem,
+  semFromSd,
+  replicatesToSummaryPlan,
+  summaryToReplicatesPlan,
+  convertSpreadKindPlan,
 } from "./summary-table";
 import {
   seedDataHubDoc,
@@ -267,5 +272,140 @@ describe("entryFormat Loro round-trip", () => {
     setEntryFormat(doc, "replicates");
     doc.commit();
     expect(getDataHubContent(doc, "2").meta.entryFormat).toBeUndefined();
+  });
+});
+
+describe("entry-format conversions", () => {
+  /** A replicates Column table with two groups of three known replicates. */
+  function repThreeEach(): DataHubDocContent {
+    return {
+      meta: {
+        id: "10",
+        name: "Reps",
+        project_ids: [],
+        folder_path: null,
+        table_type: "column",
+        created_at: "2026-06-11T00:00:00Z",
+      },
+      columns: [
+        { id: "col-1", name: "Control", role: "y", dataType: "number" },
+        { id: "col-2", name: "Treated", role: "y", dataType: "number" },
+      ],
+      rows: [
+        { id: "row-1", cells: { "col-1": 2, "col-2": 10 } },
+        { id: "row-2", cells: { "col-1": 4, "col-2": 12 } },
+        { id: "row-3", cells: { "col-1": 6, "col-2": 14 } },
+      ],
+      analyses: [],
+      plots: [],
+    };
+  }
+
+  it("sdFromSem and semFromSd round-trip with a known n", () => {
+    // n = 4 so sqrt(n) = 2 exactly; SEM = SD / 2, SD = SEM * 2.
+    expect(semFromSd(0.8, 4)).toBeCloseTo(0.4, 12);
+    expect(sdFromSem(0.4, 4)).toBeCloseTo(0.8, 12);
+    // A round trip returns the original spread.
+    expect(sdFromSem(semFromSd(1.5, 9) as number, 9)).toBeCloseTo(1.5, 12);
+    // Missing / invalid n yields null rather than a divide by an unknown count.
+    expect(semFromSd(1, null)).toBeNull();
+    expect(sdFromSem(1, 0)).toBeNull();
+  });
+
+  it("replicatesToSummaryPlan computes the right mean / sd / n per group", () => {
+    const plan = replicatesToSummaryPlan(repThreeEach(), "mean-sd-n");
+    const content: DataHubDocContent = {
+      ...repThreeEach(),
+      meta: { ...repThreeEach().meta, entryFormat: "mean-sd-n" },
+      columns: plan.columns,
+      rows: plan.rows,
+    };
+    // Each group keeps its column id as the dataset id and its name.
+    expect(summaryGroupIds(content)).toEqual(["col-1", "col-2"]);
+    const g1 = readGroupSummary(content, "col-1");
+    // mean(2,4,6) = 4; sample sd of (2,4,6) = 2; n = 3.
+    expect(g1?.mean).toBeCloseTo(4, 12);
+    expect(g1?.spread).toBeCloseTo(2, 12);
+    expect(g1?.n).toBe(3);
+    expect(g1?.name).toBe("Control");
+    const g2 = readGroupSummary(content, "col-2");
+    // mean(10,12,14) = 12; sample sd = 2; n = 3.
+    expect(g2?.mean).toBeCloseTo(12, 12);
+    expect(g2?.spread).toBeCloseTo(2, 12);
+    expect(g2?.n).toBe(3);
+  });
+
+  it("replicatesToSummaryPlan stores SEM for the mean-sem-n format", () => {
+    const plan = replicatesToSummaryPlan(repThreeEach(), "mean-sem-n");
+    const content: DataHubDocContent = {
+      ...repThreeEach(),
+      meta: { ...repThreeEach().meta, entryFormat: "mean-sem-n" },
+      columns: plan.columns,
+      rows: plan.rows,
+    };
+    const g1 = readGroupSummary(content, "col-1");
+    // SEM = SD / sqrt(n) = 2 / sqrt(3).
+    expect(g1?.spreadKind).toBe("sem");
+    expect(g1?.spread).toBeCloseTo(2 / Math.sqrt(3), 12);
+  });
+
+  it("convertSpreadKindPlan converts SD to SEM losslessly with the stored n", () => {
+    // Build an SD table: spread = 0.8, n = 4 so SEM should be 0.4.
+    const sd = buildSummaryColumnTable(
+      [{ datasetId: "g1", name: "A", mean: 5, spread: 0.8, n: 4 }],
+      "mean-sd-n",
+    );
+    const sdContent: DataHubDocContent = {
+      meta: {
+        id: "11",
+        name: "sd",
+        project_ids: [],
+        folder_path: null,
+        table_type: "column",
+        entryFormat: "mean-sd-n",
+        created_at: "2026-06-11T00:00:00Z",
+      },
+      columns: sd.columns,
+      rows: sd.rows,
+      analyses: [],
+      plots: [],
+    };
+    const plan = convertSpreadKindPlan(sdContent, "mean-sem-n");
+    const semContent: DataHubDocContent = {
+      ...sdContent,
+      meta: { ...sdContent.meta, entryFormat: "mean-sem-n" },
+      columns: plan.columns,
+      rows: plan.rows,
+    };
+    const g1 = readGroupSummary(semContent, "g1");
+    expect(g1?.spreadKind).toBe("sem");
+    expect(g1?.mean).toBe(5);
+    expect(g1?.n).toBe(4);
+    expect(g1?.spread).toBeCloseTo(0.4, 12);
+
+    // And back to SD returns the original spread (round trip).
+    const back = convertSpreadKindPlan(semContent, "mean-sd-n");
+    const sdBack: DataHubDocContent = {
+      ...semContent,
+      meta: { ...semContent.meta, entryFormat: "mean-sd-n" },
+      columns: back.columns,
+      rows: back.rows,
+    };
+    expect(readGroupSummary(sdBack, "g1")?.spread).toBeCloseTo(0.8, 12);
+  });
+
+  it("summaryToReplicatesPlan keeps each group's mean as a single replicate", () => {
+    const plan = summaryToReplicatesPlan(summaryContent("mean-sd-n"), 6);
+    // Two groups -> two replicate columns, named for the groups, plain "y" role.
+    expect(plan.columns).toHaveLength(2);
+    expect(plan.columns.map((c) => c.name)).toEqual(["Control", "Treated"]);
+    expect(plan.columns.every((c) => c.role === "y")).toBe(true);
+    // The first row carries each group's entered mean; the rest are blank.
+    const c1 = plan.columns[0].id;
+    const c2 = plan.columns[1].id;
+    expect(plan.rows[0].cells[c1]).toBe(5.2);
+    expect(plan.rows[0].cells[c2]).toBe(6.1);
+    expect(plan.rows[1].cells[c1]).toBeNull();
+    expect(plan.rows).toHaveLength(6);
   });
 });

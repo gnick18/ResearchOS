@@ -642,6 +642,37 @@ export function setTitle(doc: LoroDoc, title: string): void {
 }
 
 /**
+ * Replace the whole table (every column and every row) with a new structure in
+ * one op. Clears both movable lists, then reinserts the new columns and rows in
+ * declared order with the same per-entry key ordering the seed uses, so the live
+ * doc matches what a fresh seed of the same content would produce. Does NOT
+ * commit. This is the structural-rewrite path the entry-format switch uses (the
+ * grid changes from replicate rows to a single summary row, or back), where a
+ * cell-by-cell diff would be far more ops than just reseeding the two lists.
+ * Analyses / plots / meta are untouched (an analysis that referenced a now-gone
+ * column id simply resolves to no values, which the run layer already handles).
+ */
+export function replaceTable(
+  doc: LoroDoc,
+  columns: ColumnDef[],
+  rows: RowRecord[],
+): void {
+  const cellKeyOrder = columns.map((c) => c.id);
+  const columnsList = getColumnsList(doc);
+  if (columnsList.length > 0) columnsList.delete(0, columnsList.length);
+  for (let i = 0; i < columns.length; i++) {
+    const map = columnsList.insertContainer(i, new LoroMap());
+    writeColumn(map, columns[i]);
+  }
+  const rowsList = getRowsList(doc);
+  if (rowsList.length > 0) rowsList.delete(0, rowsList.length);
+  for (let i = 0; i < rows.length; i++) {
+    const map = rowsList.insertContainer(i, new LoroMap());
+    writeRow(map, rows[i], cellKeyOrder);
+  }
+}
+
+/**
  * Set (or clear) a Column table's entry format in meta. Does NOT commit. Setting
  * "replicates" deletes the key so the document returns to the byte-identical
  * default rather than carrying an explicit "replicates" marker.
