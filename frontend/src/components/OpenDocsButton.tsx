@@ -52,7 +52,7 @@ export default function OpenDocsButton() {
   return (
     <a
       href={wikiHref}
-      className="fixed bottom-20 right-44 z-50 px-3 py-2 rounded-full bg-slate-900/85 hover:bg-slate-900 text-white text-body font-medium shadow-lg flex items-center gap-1.5 border border-white/10 transition-colors"
+      className="px-3 py-2 rounded-full bg-slate-900/85 hover:bg-slate-900 text-white text-body font-medium shadow-lg flex items-center gap-1.5 border border-white/10 transition-colors"
       aria-label="Open the docs for this view"
     >
       <span>Read the docs</span>

@@ -68,7 +68,7 @@ export default function FloatingLeaveDemoButton() {
       <button
         type="button"
         onClick={() => setModalOpen(true)}
-        className="fixed bottom-4 right-4 z-50 flex items-center gap-1.5 rounded-full border border-border bg-surface-raised/90 px-3 py-1.5 text-meta font-medium text-foreground-muted shadow-sm backdrop-blur transition-colors hover:bg-surface-sunken hover:text-foreground focus-visible:ring-2 focus-visible:ring-border focus-visible:ring-offset-2"
+        className="flex items-center gap-1.5 rounded-full border border-border bg-surface-raised/90 px-3 py-1.5 text-meta font-medium text-foreground-muted shadow-sm backdrop-blur transition-colors hover:bg-surface-sunken hover:text-foreground focus-visible:ring-2 focus-visible:ring-border focus-visible:ring-offset-2"
         aria-label={aria}
       >
         <Icon name="x" className="h-3.5 w-3.5" />
