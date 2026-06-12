@@ -8,22 +8,35 @@
 // Used in the editor's companion rail ("Papers & patents" tab) and reusable by the
 // hub "Find in literature" mode. It fetches once when mounted with a query, so the
 // parent should only mount it when the tab is open (lazy, not on every editor open).
+//
+// Updated (literature-explorer, 2026-06-12): adds an "Open explorer" button that
+// opens LiteratureExplorer for the current molecule + query, and a starred-papers
+// strip showing the molecule's saved DOIs/patents as one-click chips.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
+import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 import {
   europePmcPapers,
   pubchemLinks,
   patentGoogleUrl,
+  makePatentItem,
+  paperToExplorerItem,
+  type ExplorerItem,
   type Paper,
 } from "@/lib/chemistry/literature";
 import { resolveNameToCid } from "@/lib/chemistry/pubchem";
+import { type MoleculeMeta, type StarredPaper } from "@/lib/chemistry/api";
+import { LiteratureExplorer } from "./LiteratureExplorer";
 
 interface LitData {
   hitCount: number;
   papers: Paper[];
   patentCount: number;
   patents: string[];
+  /** All items combined for the explorer (papers as ExplorerItem + patent items). */
+  explorerItems: ExplorerItem[];
 }
 
 const nfmt = (n: number) => n.toLocaleString("en-US");
@@ -31,19 +44,35 @@ const nfmt = (n: number) => n.toLocaleString("en-US");
 export function MoleculeLiterature({
   query,
   cid,
+  molecule,
   maxPapers = 6,
   maxPatents = 12,
+  onStarsChanged,
 }: {
   /** Compound name (or any text) to search Europe PMC + resolve a CID from. */
   query: string;
   /** Known PubChem CID (e.g. for an imported compound); resolved from name if absent. */
   cid?: number;
+  /**
+   * The molecule this literature block belongs to. When provided, enables the
+   * "Open explorer" button and the starred-papers strip. When absent (e.g. the
+   * hub free-search mode with no molecule context), those features are hidden.
+   */
+  molecule?: MoleculeMeta;
   maxPapers?: number;
   maxPatents?: number;
+  /** Called after a star/unstar write so the parent can refresh the molecule. */
+  onStarsChanged?: (updated: MoleculeMeta) => void;
 }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<LitData | null>(null);
+  const [explorerOpen, setExplorerOpen] = useState(false);
+  // Local copy of molecule so star updates reflect immediately.
+  const [liveMolecule, setLiveMolecule] = useState<MoleculeMeta | undefined>(molecule);
+
+  // Keep liveMolecule in sync if the parent refreshes the prop.
+  useEffect(() => { setLiveMolecule(molecule); }, [molecule]);
 
   useEffect(() => {
     const q = query.trim();
@@ -83,11 +112,16 @@ export function MoleculeLiterature({
           );
           return;
         }
+        const explorerItems: ExplorerItem[] = [
+          ...epmc.papers.map(paperToExplorerItem),
+          ...links.patents.map(makePatentItem),
+        ];
         setData({
           hitCount: epmc.hitCount,
           papers: epmc.papers,
           patentCount: links.patents.length,
           patents: links.patents.slice(0, maxPatents),
+          explorerItems,
         });
       } catch {
         if (!cancelled) setError("Could not reach the literature sources.");
@@ -100,29 +134,66 @@ export function MoleculeLiterature({
     };
   }, [query, cid, maxPapers, maxPatents]);
 
+  const handleStarsChanged = useCallback((updated: MoleculeMeta) => {
+    setLiveMolecule(updated);
+    onStarsChanged?.(updated);
+  }, [onStarsChanged]);
+
+  // ---- render ----
+
+  const starredStrip = liveMolecule?.starred_papers?.length ? (
+    <StarredStrip papers={liveMolecule.starred_papers} />
+  ) : null;
+
   if (loading) {
     return (
-      <p className="text-meta text-foreground-muted py-2">
-        Fetching live from PubChem and Europe PMC…
-      </p>
+      <div>
+        {starredStrip}
+        <p className="text-meta text-foreground-muted py-2">
+          Fetching live from PubChem and Europe PMC…
+        </p>
+      </div>
     );
   }
   if (error) {
-    return <p className="text-meta text-red-600 dark:text-red-300 py-2">{error}</p>;
+    return (
+      <div>
+        {starredStrip}
+        <p className="text-meta text-red-600 dark:text-red-300 py-2">{error}</p>
+      </div>
+    );
   }
   if (!data || (!data.papers.length && !data.patents.length)) {
     return (
-      <p className="text-meta text-foreground-muted py-2">
-        No papers or patents found for this structure.
-      </p>
+      <div>
+        {starredStrip}
+        <p className="text-meta text-foreground-muted py-2">
+          No papers or patents found for this structure.
+        </p>
+      </div>
     );
   }
 
   return (
     <div>
-      <div className="flex gap-2 mb-3">
-        <Stat n={data.hitCount} label="papers" />
-        <Stat n={data.patentCount} label="patents" />
+      {starredStrip}
+
+      <div className="flex items-center gap-2 mb-3">
+        <div className="flex gap-2 flex-1">
+          <Stat n={data.hitCount} label="papers" />
+          <Stat n={data.patentCount} label="patents" />
+        </div>
+        {liveMolecule && (
+          <button
+            type="button"
+            data-testid="lit-explorer-open"
+            onClick={() => setExplorerOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold border border-border rounded-lg bg-surface hover:border-brand-action hover:text-brand-action text-foreground transition-colors flex-none"
+          >
+            <Icon name="search" className="w-3.5 h-3.5" />
+            View all
+          </button>
+        )}
       </div>
 
       {data.papers.length > 0 && (
@@ -139,6 +210,11 @@ export function MoleculeLiterature({
               </a>
               <div className="text-[11px] text-foreground-muted mt-0.5">
                 {[p.journal, p.year].filter(Boolean).join(" · ")}
+                {p.isReview && (
+                  <span className="ml-1 text-[10px] font-bold uppercase tracking-wide text-purple-600 dark:text-purple-300">
+                    Review
+                  </span>
+                )}
                 {p.citedBy > 0 ? ` · ${nfmt(p.citedBy)} cited` : ""}
               </div>
             </div>
@@ -165,7 +241,68 @@ export function MoleculeLiterature({
       <p className="text-[11px] text-foreground-muted mt-3">
         Live from Europe PMC (full-text mentions) + PubChem (curated links). The
         free 90 percent, not CAS curation.
+        {liveMolecule && data.explorerItems.length > 0 && (
+          <>
+            {" "}
+            <button
+              type="button"
+              data-testid="lit-explorer-open"
+              onClick={() => setExplorerOpen(true)}
+              className="text-brand-action hover:underline font-semibold"
+            >
+              Open full explorer
+            </button>{" "}
+            to filter by year, type, and star papers.
+          </>
+        )}
       </p>
+
+      {explorerOpen && liveMolecule && data.explorerItems.length > 0 && (
+        <LiteratureExplorer
+          molecule={liveMolecule}
+          items={data.explorerItems}
+          onClose={() => setExplorerOpen(false)}
+          onStarsChanged={handleStarsChanged}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Compact strip of starred papers/patents shown above the quick-peek results. */
+function StarredStrip({ papers }: { papers: StarredPaper[] }) {
+  if (!papers.length) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5 mb-3">
+      {papers.map((sp) => {
+        const key = sp.doi ?? sp.patent_id ?? sp.title;
+        const href = sp.doi
+          ? `https://doi.org/${sp.doi}`
+          : sp.patent_id
+            ? `https://patents.google.com/patent/${sp.patent_id.replace(/-/g, "")}/en`
+            : undefined;
+        const label = sp.doi ? `doi:${sp.doi}` : sp.patent_id ?? sp.title;
+        const chip = (
+          <span
+            key={key}
+            className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-surface-chip border border-border text-foreground"
+          >
+            <Icon name="star" className="w-3 h-3 text-amber-400 fill-current flex-none" />
+            <span className="max-w-[160px] truncate">
+              {sp.title.length > 34 ? sp.title.slice(0, 34) + "…" : sp.title}
+            </span>
+            <span className="text-foreground-muted font-mono ml-0.5">{label}</span>
+          </span>
+        );
+        if (href) {
+          return (
+            <a key={key} href={href} target="_blank" rel="noopener noreferrer">
+              {chip}
+            </a>
+          );
+        }
+        return chip;
+      })}
     </div>
   );
 }
