@@ -203,6 +203,48 @@ const ICONS_RAW = {
       </>
     ),
   },
+  library: {
+    concept: "Template library / catalog (shelved collection of templates)",
+    body: (
+      <>
+        <rect x="4" y="5" width="3.5" height="14" rx="0.8" />
+        <rect x="8.5" y="5" width="3.5" height="14" rx="0.8" />
+        <path d="M15 6.2 18.4 7.2 15.4 19.8 12 18.8 Z" />
+      </>
+    ),
+  },
+  reference: {
+    concept: "Literature reference / citation (an open reference book)",
+    body: (
+      <>
+        <path d="M12 6.5V19.5" />
+        <path d="M12 6.5C10 5 6 5 4 6.5V18.5c2-1.5 6-1.5 8 0" />
+        <path d="M12 6.5c2-1.5 6-1.5 8 0V18.5c-2-1.5-6-1.5-8 0" />
+      </>
+    ),
+  },
+  results: {
+    concept: "Analysis results (a results report, distinct from a graph)",
+    body: (
+      <>
+        <rect x="5" y="4" width="14" height="17" rx="2" />
+        <rect x="9" y="2.5" width="6" height="3" rx="1" />
+        <path d="M8.5 10.5h7" />
+        <path d="M8.5 13.5h4.5" />
+        <path d="M8.5 16.8 10 18.3 13 15.3" />
+      </>
+    ),
+  },
+  growth: {
+    concept: "Growth area / development (a sprout)",
+    body: (
+      <>
+        <path d="M12 21V11" />
+        <path d="M12 13C9 13 7 11 7 8C10 8 12 10 12 13" />
+        <path d="M12 11.5C15 11.5 17 9.5 17 6.5C14 6.5 12 8.5 12 11.5" />
+      </>
+    ),
+  },
   export: {
     concept: "Export",
     body: (

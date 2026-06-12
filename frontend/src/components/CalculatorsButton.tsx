@@ -426,7 +426,7 @@ function CalculatorsModalWithBuilder({ onClose }: { onClose: () => void }) {
                     " inline-flex items-center gap-1.5"
                   }
                 >
-                  <Icon name="book" className="w-4 h-4" />
+                  <Icon name="library" className="w-4 h-4" />
                   Template library
                 </button>
               </div>

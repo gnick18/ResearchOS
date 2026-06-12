@@ -267,7 +267,7 @@ function SharingControl({
             onClick={onSubmitToLibrary}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-meta font-semibold text-foreground-muted hover:text-foreground hover:bg-surface-sunken transition-colors"
           >
-            <Icon name="book" className="w-4 h-4" />
+            <Icon name="library" className="w-4 h-4" />
             Share to the library
           </button>
           <p className="mt-1 text-meta text-foreground-muted">
@@ -960,7 +960,7 @@ export function CalculatorEditView({
               onClick={onStartFromTemplate}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-meta font-semibold text-foreground-muted hover:text-foreground hover:bg-surface-sunken transition-colors"
             >
-              <Icon name="book" className="w-4 h-4" />
+              <Icon name="library" className="w-4 h-4" />
               Start from a template
             </button>
           )}
