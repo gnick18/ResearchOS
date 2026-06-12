@@ -80,6 +80,14 @@ import {
 } from "./chemistry-tools";
 import { transformTableTool } from "./transform-table";
 import { wrangleTableTool } from "./wrangle-table";
+import {
+  listSequencesTool,
+  readSequenceFeaturesTool,
+  fetchSequenceTool,
+  extractFeatureTool,
+  assembleGibsonTool,
+  digestLigateTool,
+} from "./cloning-tools";
 import type { AiTool } from "./types";
 
 // The read-only toolset, read-only with respect to the user's data. Exported on
@@ -145,6 +153,13 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // (create_molecule and import_molecule) live in ACTION_TOOLS below because they
   // create a new library record and go through the approval gate.
   searchPubChemTool,
+  // Cloning coworker READ tools. list_sequences gives the model real sequence ids
+  // + feature names; read_sequence_features returns one sequence's full annotation
+  // list (with coordinates + strand) so the model can pick a region to extract.
+  // Both cache the loaded detail so the action tools' synchronous describeAction
+  // can preview an extract / an assembly with no await. Neither writes or navigates.
+  listSequencesTool,
+  readSequenceFeaturesTool,
 ];
 
 // The action toolset. Each tool here carries action: true and goes through the
@@ -206,6 +221,26 @@ export const ACTION_TOOLS: AiTool[] = [
   importMoleculeTool,
   transformTableTool,
   wrangleTableTool,
+  // Cloning coworker WRITE tools (action: true, isDestructive false). Each maps a
+  // natural-language cloning request onto a validated, golden-tested engine and
+  // shows a per-write approval card before creating a new library sequence.
+  //   - fetch_sequence pulls a record from NCBI (by accession, or gene symbol +
+  //     organism, or a genome accession; size-capped) and saves it.
+  //   - extract_feature slices a region out of a sequence (by feature name or
+  //     coordinates, reverse-complementing a minus-strand region) via extractRegion.
+  //   - assemble_gibson runs assembleGibson over N fragments (homology, designed
+  //     junction primers, rebased features) and saves the construct.
+  //   - digest_ligate runs cutAndLigate (restriction + Golden Gate) and saves the
+  //     chosen product.
+  // The agent loop already chains tool calls, so "download GAPDH, pull the CDS,
+  // Gibson it into pUC19" runs fetch -> extract -> assemble, each gated by its own
+  // card. None is destructive (creating is reversible by deleting), so none forces
+  // the destructive hard-stop. The engines compute every base; the model only maps
+  // the request to engine calls and real ids.
+  fetchSequenceTool,
+  extractFeatureTool,
+  assembleGibsonTool,
+  digestLigateTool,
 ];
 
 // The coordination toolset. These tools neither read the user's data nor act on
