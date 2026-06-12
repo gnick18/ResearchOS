@@ -15,6 +15,7 @@ import { NavItem, HOME_HREF } from "@/lib/nav";
 import { resolveNavLayout, NavLayout } from "@/lib/nav-layout";
 import { useAppStore } from "@/lib/store";
 import { patchUserSettings } from "@/lib/settings/user-settings";
+import { isRecordingMode } from "@/lib/file-system/wiki-capture-mock";
 
 /**
  * The slim, drag-customizable global nav (design: docs/mockups/
@@ -59,13 +60,22 @@ export default function AppNavBar({
   const savedLayout = useAppStore((s) => s.navLayout);
   const setNavLayout = useAppStore((s) => s.setNavLayout);
 
+  // Recording surface (?record=1): flatten the nav so every tab is inline and
+  // directly clickable for the demo-video cursor (no collapsed More tray to open
+  // first). Computed post-mount to avoid a hydration mismatch; always false for
+  // real users, so the live nav is untouched.
+  const [recording, setRecording] = useState(false);
+  useEffect(() => setRecording(isRecordingMode()), []);
+
   // The reconciled split (saved layout intersected with the live nav set, or
   // the default split when nothing is saved). This is the SAVED arrangement;
-  // responsive overflow is computed on top of it below.
-  const resolved = useMemo(
-    () => resolveNavLayout(navItems, savedLayout),
-    [navItems, savedLayout],
-  );
+  // responsive overflow is computed on top of it below. In recording mode every
+  // item is forced inline so no nav target hides in the More tray.
+  const resolved = useMemo(() => {
+    const base = resolveNavLayout(navItems, savedLayout);
+    if (recording) return { inline: [...base.inline, ...base.more], more: [] };
+    return base;
+  }, [navItems, savedLayout, recording]);
 
   const [editing, setEditing] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -115,7 +125,9 @@ export default function AppNavBar({
   // More for display. While editing we show every inline tab (no auto-overflow)
   // so the user can drag any of them.
   useLayoutEffect(() => {
-    if (editing) {
+    // No responsive spill while editing (drag any tab) or recording (every tab
+    // stays inline + clickable for the cursor).
+    if (editing || recording) {
       setVisibleInlineCount(resolved.inline.length);
       return;
     }
@@ -148,7 +160,7 @@ export default function AppNavBar({
     const ro = new ResizeObserver(measure);
     ro.observe(navEl);
     return () => ro.disconnect();
-  }, [editing, resolved.inline]);
+  }, [editing, recording, resolved.inline]);
 
   // The displayed split: while editing, the full saved split. Otherwise, the
   // overflow-aware split (rightmost inline tabs that do not fit move to More).
