@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Phase 7 embeds polish, decisions</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --raised:#ffffff; --sunken:#eef1f5;
+    --ink:#111827; --muted:#6b7280; --faint:#9ca3af; --border:#e5e7eb;
+    --sky:#1AA0E6; --action:#1283C9; --amber:#F59E0B; --coral:#FF6F61; --green:#16a34a; --red:#dc2626;
+    --chipbg:#eef2f7;
+  }
+  .dark{
+    --bg:#0a0e1a; --panel:#1c2638; --raised:#1c2638; --sunken:#141b2b;
+    --ink:#e7ecf3; --muted:#9aa6b8; --faint:#6b7890; --border:#2a3650;
+    --chipbg:#28344c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,Inter,system-ui,sans-serif}
+  header{position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--border);padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  h1{font-size:17px;margin:0;font-weight:800;letter-spacing:-.2px}
+  .sub{color:var(--muted);font-size:12px;margin-top:2px}
+  .spacer{margin-left:auto}
+  button.tool{background:var(--sunken);color:var(--ink);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer}
+  button.tool:hover{border-color:var(--action)}
+  .estat{font-size:12px;color:var(--muted)}
+  main{max-width:1080px;margin:0 auto;padding:26px 22px 90px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:34px 0 12px;font-weight:700}
+  .lead{color:var(--muted);font-size:13px;max-width:760px;margin:0 0 8px}
+
+  /* mock screens */
+  .screens{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+  .screen{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+  .scaph{padding:10px 14px;border-bottom:1px solid var(--border);font-weight:700;font-size:12.5px;display:flex;align-items:center;gap:8px;background:var(--sunken)}
+  .scaph .tag{margin-left:auto;font-size:10px;font-weight:700;color:#fff;background:var(--sky);border-radius:999px;padding:2px 8px}
+  .scbody{padding:14px;display:flex;flex-direction:column;gap:10px}
+  .fig{border:1px solid var(--border);border-radius:11px;overflow:hidden;background:var(--raised)}
+  .fig-art{height:96px;display:grid;place-items:center;background:linear-gradient(135deg,#eef2ff,#e0f2fe);color:#5B47D6;font-weight:800;font-size:13px}
+  .dark .fig-art{background:linear-gradient(135deg,#26224a,#13314a);color:#a6b8ff}
+  .fig-cap{padding:8px 11px;border-top:1px solid var(--border);font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:8px}
+  .badge{font-size:10.5px;font-weight:700;border-radius:999px;padding:3px 8px;display:inline-flex;align-items:center;gap:5px}
+  .b-stale{background:rgba(245,158,11,.16);color:#b45309}
+  .dark .b-stale{color:#fbbf24}
+  .b-pin{background:rgba(18,131,201,.14);color:var(--action)}
+  .mini-act{margin-left:auto;font-size:10.5px;color:var(--action);font-weight:700;cursor:pointer}
+  .ico{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:11px;font-weight:800;color:#fff;flex:none}
+  .ico.mol{background:#5B47D6}.ico.seq{background:var(--sky)}.ico.dh{background:var(--amber)}.ico.note{background:#0ea5a3}.ico.cite{background:#0f766e}
+  .dep-name{font-weight:600;font-size:12.5px}
+  .dep-sub{color:var(--faint);font-size:11px}
+  .trans{border-left:3px solid var(--sky);background:var(--sunken);border-radius:0 9px 9px 0;padding:9px 12px}
+  .trans .src{font-size:10.5px;color:var(--faint);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+  .trans .body{font-size:12px;color:var(--ink)}
+  .vswitch{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-left:auto}
+  .vswitch button{background:var(--panel);color:var(--muted);border:none;padding:4px 9px;font-size:10.5px;font-weight:700;cursor:pointer}
+  .vswitch button+button{border-left:1px solid var(--border)}
+  .vswitch button.on{background:var(--action);color:#fff}
+  .cite-card{display:flex;gap:10px;border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--raised)}
+  .cite-card .meta{font-size:11px;color:var(--muted)}
+  .add-lib{font-size:10.5px;color:var(--action);font-weight:700;margin-top:5px;cursor:pointer}
+  .safety{font-size:11.5px;color:var(--muted);border-top:1px dashed var(--border);padding-top:9px}
+
+  /* decision cards */
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:14px}
+  .card .top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .did{font-size:11px;color:var(--faint);font-weight:700}
+  .ctitle{font-weight:800;font-size:15px;letter-spacing:-.2px}
+  .rec{margin-left:auto;font-size:10.5px;font-weight:800;color:#fff;background:var(--green);border-radius:999px;padding:3px 9px}
+  .flag{font-size:10px;font-weight:800;color:#7c2d12;background:rgba(245,158,11,.2);border-radius:999px;padding:3px 8px}
+  .dark .flag{color:#fbbf24}
+  .opts{display:flex;flex-direction:column;gap:7px;margin:10px 0}
+  .opt{border:1px solid var(--border);border-radius:10px;padding:9px 11px;background:var(--raised)}
+  .opt b{font-size:12.5px}
+  .opt.recommend{border-color:var(--green);box-shadow:inset 0 0 0 1px rgba(22,163,74,.25)}
+  .opt .ob{color:var(--muted);font-size:11.5px;margin-top:2px}
+  .why{font-size:12px;color:var(--muted);margin-top:4px}
+  .why b{color:var(--ink)}
+  .decide{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden}
+  .seg button{background:var(--panel);color:var(--muted);border:none;padding:7px 13px;font-size:12px;font-weight:700;cursor:pointer}
+  .seg button+button{border-left:1px solid var(--border)}
+  .seg button.on[data-v="approve"]{background:var(--green);color:#fff}
+  .seg button.on[data-v="modify"]{background:var(--amber);color:#1a1205}
+  .seg button.on[data-v="reject"]{background:var(--red);color:#fff}
+  .decide input{flex:1;min-width:200px;background:var(--sunken);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--ink);font-size:12px}
+  .order{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px 18px}
+  .order ol{margin:6px 0 0;padding-left:20px}
+  .order li{font-size:12.5px;margin-bottom:4px}
+  .foot{color:var(--faint);font-size:11px;text-align:center;margin-top:30px}
+  code{background:var(--chipbg);border-radius:5px;padding:1px 5px;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Phase 7, markdown embeds polish</h1>
+    <div class="sub">Mark up the six forks. Decisions persist locally; Export when done and paste back into chat.</div>
+  </div>
+  <div class="spacer"></div>
+  <span class="estat" id="estat">No decisions yet</span>
+  <button class="tool" id="themeBtn">Toggle dark</button>
+  <button class="tool" id="exportBtn">Export decisions</button>
+</header>
+
+<main>
+  <h2>What Phase 7 adds</h2>
+  <p class="lead">Embeds today are always live, which is right most of the time and is why collaboration and version control work for free. Phase 7 is the finishing layer. Freeze a figure as a record of a day and know when its source moves on, reuse a protocol paragraph everywhere, flip how an embed is shown without editing markup, cite a paper or a compound you have not saved, and make all of it read correctly on a phone. The raw stays a portable link throughout, so nothing here breaks the contract.</p>
+
+  <div class="screens">
+    <!-- PIN + STALENESS -->
+    <div class="screen">
+      <div class="scaph">Pin a figure, see when it ages <span class="tag">P7-1</span></div>
+      <div class="scbody">
+        <div class="fig">
+          <div class="fig-art">qPCR fold-change</div>
+          <div class="fig-cap"><span class="badge b-pin">pinned Jun 3</span> Figure 2, as run on batch 7</div>
+        </div>
+        <div class="fig">
+          <div class="fig-art">RDKit, Doxorubicin</div>
+          <div class="fig-cap"><span class="badge b-stale">source changed</span><span class="mini-act">View current, re-pin</span></div>
+        </div>
+        <div class="safety">A pinned embed freezes to a moment. When the live source moves on, a quiet badge offers View current and Re-pin, so a frozen record never silently rots.</div>
+      </div>
+    </div>
+
+    <!-- TRANSCLUSION + VIEW SWITCH -->
+    <div class="screen">
+      <div class="scaph">Reuse a section, flip a view <span class="tag">P7-2, P7-3</span></div>
+      <div class="scbody">
+        <div class="trans">
+          <div class="src">Transcluded from, Lysis SOP, step 3</div>
+          <div class="body">Resuspend the pellet in 200 uL cold lysis buffer, vortex 10 s, incubate on ice 5 min.</div>
+        </div>
+        <div style="font-size:11px;color:var(--faint)">Edit the source SOP and every note that transcludes it updates.</div>
+        <div class="fig">
+          <div class="fig-art">pUC19, feature ribbon</div>
+          <div class="fig-cap">Sequence
+            <span class="vswitch"><button>Map</button><button class="on">Ribbon</button><button>Bases</button></span>
+          </div>
+        </div>
+        <div class="safety">One tap switches map, ribbon, or bases, and the choice saves into the document.</div>
+      </div>
+    </div>
+
+    <!-- EXTERNAL EMBEDS -->
+    <div class="screen">
+      <div class="scaph">Cite a paper or an unsaved compound <span class="tag">P7-4</span></div>
+      <div class="scbody">
+        <div class="cite-card">
+          <span class="ico cite">D</span>
+          <div><div class="dep-name">Doxorubicin cardiotoxicity in vitro</div>
+          <div class="meta">Smith et al. 2024, J. Med. Chem. DOI 10.1021/...</div></div>
+        </div>
+        <div class="cite-card">
+          <span class="ico mol">M</span>
+          <div><div class="dep-name">Imatinib</div>
+          <div class="meta">PubChem CID 5291, rendered by RDKit</div>
+          <div class="add-lib">Add to my library &rarr;</div></div>
+        </div>
+        <div class="safety">DOI and PubMed render a citation card, PubChem and loose SMILES render a structure card. The raw stays a real external link, fetched metadata caches for offline, and the citations feed the export bibliography.</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>Decisions, mark up each</h2>
+  <p class="lead">Each fork has a recommended option (green). Approve to take the recommendation, Modify with a note, or Reject to defer. I build exactly what you approve, in the recommended order below. FLAG marks a data-shape touch I hold for your verify.</p>
+  <div id="list"></div>
+
+  <div class="order">
+    <div style="font-weight:800;font-size:13px">Recommended build order</div>
+    <ol>
+      <li><b>P7-3 view switching.</b> Pure UI over the renderers, no data-shape, a fast win.</li>
+      <li><b>P7-1 pinning and staleness.</b> Introduces the <code>&lt;note&gt;.ros-embeds.json</code> sidecar that P7-4 reuses.</li>
+      <li><b>P7-2 transclusion.</b> Builds on the parser and depth guard already in place.</li>
+      <li><b>P7-4 external embeds.</b> Reuses the literature companion fetch path and the P7-1 sidecar cache.</li>
+      <li><b>P7-6 mobile and accessibility.</b> A finishing pass once the renderers are final.</li>
+      <li><b>P7-5 BeakerBot authoring.</b> Relayed to the BeakerAI lane, ships on the AI timeline.</li>
+    </ol>
+  </div>
+
+  <div class="foot">Self-contained, nothing leaves your machine until you Export. Phase 7 mockup, 2026-06-12. Full write-up, docs/proposals/2026-06-12-phase7-polish.md</div>
+</main>
+
+<script>
+const D=[
+  {id:"P7-1",title:"Pinning and the staleness badge",rec:"A",flag:true,
+   why:"<b>Why:</b> a figure pasted into a lab note on the day of an experiment should be freezable as a record of that moment, and it should tell you when its source has moved on instead of silently rotting. Notes resolve from version history for free; types without history need a small snapshot.",
+   opts:[
+     {k:"A",t:"Live by default, opt-in pin, resolve smartly",b:"Pin adds <code>&pin=&lt;iso&gt;</code>. Notes resolve as-of-time from Loro history, no new storage. Types without history snapshot into a per-note sidecar <code>&lt;note&gt;.ros-embeds.json</code>. A quiet badge with View current and Re-pin appears when the live source moved on. FLAG, new per-note sidecar file.",rec:true},
+     {k:"B",t:"Live only, no pinning",b:"Simplest. But there is no way to freeze a figure as a record of a day; the export-baking provenance stamp is the only freeze."},
+     {k:"C",t:"Snapshot everything always",b:"Every embed stores a blob at insert time. Heavier storage, and it throws away the live-update benefit that makes embeds worth having."}
+   ]},
+  {id:"P7-2",title:"Transclusion, and how the raw stays portable",rec:"A",
+   why:"<b>Why:</b> a standard protocol paragraph should be written once and reused everywhere, edit the source and every transclusion updates. The real fork is the raw syntax, because the whole system depends on the raw being a portable link.",
+   opts:[
+     {k:"A",t:"Author with [[note#heading]], store as a portable link",b:"Type the familiar <code>![[note#heading]]</code>; on save we normalize to <code>[heading](/notes/ID#ros=transclude&section=heading)</code>, the same grammar as every other embed. Live, depth-guarded. Raw stays a real link, so collab and version control keep working.",rec:true},
+     {k:"B",t:"Keep literal [[ ]] in the raw",b:"Familiar to Obsidian users, but <code>![[ ]]</code> is not a portable link; it breaks the contract that the raw renders sensibly outside the tool and feeds collab and version control with no special code."},
+     {k:"C",t:"Whole-note transclusion only",b:"No section anchors, embed the whole note inline. Simpler, but the common case is reusing one paragraph, not a whole note."},
+     {k:"D",t:"Defer transclusion",b:"Ship the rest of Phase 7 without it."}
+   ]},
+  {id:"P7-3",title:"In-place view switching",rec:"A",
+   why:"<b>Why:</b> a sequence can read as a map, a ribbon, or raw bases, and a table as a grid or a summary. Today the view is fixed by the fragment at insert time, so changing it means re-inserting.",
+   opts:[
+     {k:"A",t:"One-tap switch that persists",b:"A small control on the rendered embed flips the view and rewrites the <code>#ros=view</code> in the source, so the choice sticks in the document. The author sets how each figure reads without touching markup.",rec:true},
+     {k:"B",t:"Ephemeral switch",b:"The view flips on screen but does not save to the document. Lighter, but the next reader sees the original view, so it is a viewer convenience, not an authoring tool."},
+     {k:"C",t:"Defer",b:"Leave the view fixed at insert time, change it by re-inserting."}
+   ]},
+  {id:"P7-4",title:"External and literature embeds",rec:"A",flag:true,
+   why:"<b>Why:</b> not everything worth embedding lives in your library. A note often needs to cite a paper or point at a compound you have not saved. These embed too, and stay portable because the raw is still a link to a real external URL.",
+   opts:[
+     {k:"A",t:"All four, cached for offline",b:"DOI and PubMed render a citation card via the literature companion fetch path. PubChem CID or loose SMILES renders a structure card through the RDKit path, with Add to my library. A bare URL gets a link preview. Metadata caches into the note sidecar so cards read offline and the export bibliography writes itself. FLAG, reuses the P7-1 sidecar.",rec:true},
+     {k:"B",t:"Citations only this round",b:"DOI and PubMed cards now, PubChem and URL later. Smaller surface, ships the most common case (paper citations) first."},
+     {k:"C",t:"Defer",b:"No external embeds in Phase 7."}
+   ]},
+  {id:"P7-5",title:"BeakerBot authoring",rec:"A",
+   why:"<b>Why:</b> BeakerBot should insert real embeds when it composes a note, not plain text. The author and read guide already exists. But embed authoring lives in the AI tools the BeakerAI session owns, and it should ship on the AI billing timeline, not before.",
+   opts:[
+     {k:"A",t:"Relay the spec to the BeakerAI lane, gate on AI go-live",b:"Hand the BeakerAI session the embed-authoring spec and the existing guide so BeakerBot inserts embeds, shipping when the AI billing arc ships. A coordination item, not an embeds-team build.",rec:true},
+     {k:"B",t:"Defer entirely until AI billing is live",b:"Revisit after the billing gate, no spec relay yet."}
+   ]},
+  {id:"P7-6",title:"Mobile and accessibility",rec:"A",
+   why:"<b>Why:</b> a shared note should read correctly on a phone and for a screen reader. This is the cross-cutting finishing pass once the renderers are final.",
+   opts:[
+     {k:"A",t:"Read-only everywhere, plus an accessibility pass",b:"Every embed renders read-only at least on mobile and the companion. The a11y pass gives each card caption-derived alt text, a keyboard-focusable Open, ARIA roles, and respects reduced-motion.",rec:true},
+     {k:"B",t:"Desktop first, defer mobile and a11y",b:"Ship the desktop polish now, do the mobile and accessibility pass as its own later round."}
+   ]}
+];
+
+const KEY="phase7EmbedsDecisions";
+const DEC=JSON.parse(localStorage.getItem(KEY)||"{}");
+function save(){localStorage.setItem(KEY,JSON.stringify(DEC));stat();}
+
+function render(){
+  document.getElementById("list").innerHTML=D.map(d=>{
+    const cur=DEC[d.id]||{};
+    return `<div class="card">
+      <div class="top"><span class="did">${d.id}</span><span class="ctitle">${d.title}</span>${d.flag?'<span class="flag">data-shape</span>':''}<span class="rec">rec ${d.rec}</span></div>
+      <div class="opts">${d.opts.map(o=>`
+        <div class="opt ${o.rec?'recommend':''}">
+          <b>${o.k}. ${o.t}</b>${o.rec?' <span style="color:var(--green);font-weight:700;font-size:11px">recommended</span>':''}
+          <div class="ob">${o.b}</div>
+        </div>`).join("")}</div>
+      <div class="why">${d.why}</div>
+      <div class="decide">
+        <span class="seg" data-id="${d.id}">
+          <button data-v="approve" class="${cur.v==='approve'?'on':''}">Approve</button>
+          <button data-v="modify" class="${cur.v==='modify'?'on':''}">Modify</button>
+          <button data-v="reject" class="${cur.v==='reject'?'on':''}">Reject</button>
+        </span>
+        <input data-note="${d.id}" placeholder="note or which option you want (optional)" value="${(cur.note||'').replace(/"/g,'&quot;')}"/>
+      </div>
+    </div>`;
+  }).join("");
+  bind();stat();
+}
+function bind(){
+  document.querySelectorAll(".seg").forEach(s=>{
+    s.querySelectorAll("button").forEach(b=>b.onclick=()=>{
+      const id=s.dataset.id;DEC[id]=DEC[id]||{};DEC[id].v=b.dataset.v;
+      s.querySelectorAll("button").forEach(x=>x.classList.remove("on"));b.classList.add("on");save();
+    });
+  });
+  document.querySelectorAll("[data-note]").forEach(i=>i.oninput=()=>{
+    const id=i.dataset.note;DEC[id]=DEC[id]||{};DEC[id].note=i.value;save();
+  });
+}
+function stat(){
+  const n=Object.values(DEC).filter(d=>d.v).length;
+  document.getElementById("estat").textContent=n?`${n} of ${D.length} decided`:"No decisions yet";
+}
+document.getElementById("themeBtn").onclick=()=>document.documentElement.classList.toggle("dark");
+document.getElementById("exportBtn").onclick=()=>{
+  const lines=["# Phase 7 embeds polish, decisions","",`_Marked up ${new Date().toISOString().slice(0,10)}_`,""];
+  D.forEach(d=>{
+    const c=DEC[d.id]||{};
+    const v=c.v?c.v.toUpperCase():"(undecided)";
+    lines.push(`## ${d.id} ${d.title}  ->  ${v}`);
+    lines.push(`Recommended: ${d.rec}.${c.note?"  Note: "+c.note:""}`);
+    lines.push("");
+  });
+  const txt=lines.join("\n");
+  navigator.clipboard.writeText(txt).then(()=>{},()=>{});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([txt],{type:"text/markdown"}));
+  a.download="phase7-embeds-decisions.md";a.click();
+};
+render();
+</script>
+</body>
+</html>
