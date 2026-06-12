@@ -80,6 +80,15 @@ export const ENTRY_FORMAT_KEY = "entry_format";
  * keeps the live link travelling with the doc through the CRDT and the mirror.
  */
 export const DERIVED_FROM_KEY = "derived_from";
+/**
+ * The meta key holding the EXCLUDED cell set, JSON-serialized (a string array of
+ * `"${rowId}:${columnId}"` keys, a non-scalar so stored as a string the way the
+ * derived link is). Absent / empty means nothing is excluded, so the seed only
+ * writes the key when the set is non-empty and a table with no exclusions carries
+ * no key, keeping it byte-identical to before this field existed. The excluded
+ * set travels with the doc through the CRDT and the mirror like the other meta.
+ */
+export const EXCLUDED_CELLS_KEY = "excluded_cells";
 export const COLUMNS_KEY = "columns";
 export const ROWS_KEY = "rows";
 export const ANALYSES_KEY = "analyses";
@@ -229,6 +238,17 @@ export function seedDataHubDoc(content: DataHubDocContent): Uint8Array {
   // the DerivedFrom shape is non-scalar.
   if (content.meta.derivedFrom) {
     meta.set(DERIVED_FROM_KEY, JSON.stringify(content.meta.derivedFrom));
+  }
+  // excluded_cells is written ONLY when the set is non-empty, so a table with no
+  // excluded values seeds byte-identically to before this field existed. Sorted
+  // so two devices excluding the same cells produce byte-equal output.
+  if (Array.isArray(content.meta.excludedCells) && content.meta.excludedCells.length > 0) {
+    const sorted = [...content.meta.excludedCells]
+      .filter((k): k is string => typeof k === "string")
+      .sort();
+    if (sorted.length > 0) {
+      meta.set(EXCLUDED_CELLS_KEY, JSON.stringify(sorted));
+    }
   }
   meta.set("created_at", content.meta.created_at ?? "");
 
@@ -414,6 +434,15 @@ export function getDataHubContent(doc: LoroDoc, id = ""): DataHubDocContent {
       transform: derived.transform,
       params: (derived.params ?? {}) as Record<string, unknown>,
     };
+  }
+  // Only emit excludedCells when the serialized key is present and parses into a
+  // non-empty string array, so a table with no exclusions projects without the
+  // field (back-compat byte-identity). A corrupt value is dropped (treated as no
+  // exclusions) rather than crashing the projection.
+  const excluded = parseJson<unknown>(meta.get(EXCLUDED_CELLS_KEY), null);
+  if (Array.isArray(excluded)) {
+    const keys = excluded.filter((k): k is string => typeof k === "string");
+    if (keys.length > 0) docMeta.excludedCells = keys;
   }
   return {
     meta: docMeta,
@@ -714,5 +743,25 @@ export function setEntryFormat(doc: LoroDoc, format: EntryFormat): void {
     meta.set(ENTRY_FORMAT_KEY, format);
   } else if (meta.get(ENTRY_FORMAT_KEY) !== undefined) {
     meta.delete(ENTRY_FORMAT_KEY);
+  }
+}
+
+/**
+ * Set (or clear) the EXCLUDED cell set in meta. Does NOT commit. An empty list
+ * deletes the key so the document returns to the byte-identical default rather
+ * than carrying an explicit empty array. The list is sorted before writing so a
+ * device that excludes the same cells in a different order still serializes the
+ * same bytes. This is the persistence sibling of toggleCellExclusion (which
+ * computes the new list); the grid calls toggle, then this, then commits.
+ */
+export function setExcludedCells(doc: LoroDoc, keys: string[]): void {
+  const meta = getDataHubMeta(doc);
+  const sorted = (Array.isArray(keys) ? keys : [])
+    .filter((k): k is string => typeof k === "string")
+    .sort();
+  if (sorted.length > 0) {
+    meta.set(EXCLUDED_CELLS_KEY, JSON.stringify(sorted));
+  } else if (meta.get(EXCLUDED_CELLS_KEY) !== undefined) {
+    meta.delete(EXCLUDED_CELLS_KEY);
   }
 }

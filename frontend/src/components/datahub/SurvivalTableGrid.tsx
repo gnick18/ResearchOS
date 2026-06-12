@@ -12,7 +12,8 @@
 import { useMemo } from "react";
 import { Icon } from "@/components/icons";
 import type { DataHubDocContent } from "@/lib/datahub/model/types";
-import { cellDisplay } from "@/lib/datahub/column-table";
+import { isCellExcluded } from "@/lib/datahub/cell-exclusion";
+import DataCell, { type ToggleCellExclusion } from "@/components/datahub/DataCell";
 import {
   timeColumn,
   eventColumn,
@@ -23,9 +24,25 @@ import {
   type GridCrudHandlers,
 } from "@/components/datahub/grid-crud-menu";
 
+/** True when a subject (its Time / Event pair) is excluded. Excluding either of
+ *  the two data cells drops the whole subject (see survival-table.survivalGroups),
+ *  so a Time / Event cell reads excluded when EITHER key is in the set. */
+function isSubjectExcluded(
+  content: DataHubDocContent,
+  rowId: string,
+  timeId: string,
+  eventId: string,
+): boolean {
+  return (
+    isCellExcluded(content, rowId, timeId) ||
+    isCellExcluded(content, rowId, eventId)
+  );
+}
+
 export default function SurvivalTableGrid({
   content,
   onCellCommit,
+  onToggleExclusion,
   onAddRow,
   hideAddControls = false,
   readOnly = false,
@@ -33,6 +50,11 @@ export default function SurvivalTableGrid({
 }: {
   content: DataHubDocContent;
   onCellCommit: (rowId: string, columnId: string, raw: string) => void;
+  /** Toggle whether a subject is excluded from the Kaplan-Meier curve and the
+   *  log-rank test. Only the Time and Event cells offer it (they are the
+   *  subject's data, and excluding either drops the subject); the Group cell is a
+   *  label, not a value, so it is not excludable. */
+  onToggleExclusion?: ToggleCellExclusion;
   onAddRow: () => void;
   /** Suppress the internal Add bar when the WorkspaceToolbar owns those actions. */
   hideAddControls?: boolean;
@@ -48,12 +70,22 @@ export default function SurvivalTableGrid({
     const t = timeColumn(content);
     const e = eventColumn(content);
     const g = groupColumn(content);
-    const out: { id: string; name: string; hint: string }[] = [];
-    if (t) out.push({ id: t.id, name: t.name, hint: "time" });
-    if (e) out.push({ id: e.id, name: e.name, hint: "1 = event, 0 = censored" });
-    if (g) out.push({ id: g.id, name: g.name, hint: "optional arm" });
+    // excludable marks the data columns (Time, Event) whose cells carry the
+    // subject's measurement. Excluding either drops the subject. The Group column
+    // is a label, not a value, so it is not excludable.
+    const out: { id: string; name: string; hint: string; excludable: boolean }[] = [];
+    if (t) out.push({ id: t.id, name: t.name, hint: "time", excludable: true });
+    if (e) out.push({ id: e.id, name: e.name, hint: "1 = event, 0 = censored", excludable: true });
+    if (g) out.push({ id: g.id, name: g.name, hint: "optional arm", excludable: false });
     return out;
   }, [content]);
+  // The Time / Event ids drive subject exclusion. Exclude / include is keyed on
+  // the Time cell as the canonical subject key, so toggling from either the Time
+  // or the Event cell hits the SAME key and stays symmetric (include undoes
+  // exactly what exclude set). The read path still drops the subject when either
+  // key is present, which keeps a hand-edited mirror working too.
+  const timeId = useMemo(() => timeColumn(content)?.id ?? null, [content]);
+  const eventId = useMemo(() => eventColumn(content)?.id ?? null, [content]);
   const rows = content.rows;
   // Row-only menu: pass through just the row handlers so the column menu can never
   // surface on this grid's fixed Time / Event / Group headers. Memoized so the
@@ -111,35 +143,30 @@ export default function SurvivalTableGrid({
                   {r + 1}
                 </td>
                 {cols.map((col) => (
-                  <td
+                  <DataCell
                     key={col.id}
-                    className="border border-border bg-surface-raised p-0 text-center"
-                  >
-                    <input
-                      type="text"
-                      defaultValue={cellDisplay(row.cells[col.id] ?? null)}
-                      key={`${row.id}:${col.id}:${cellDisplay(
-                        row.cells[col.id] ?? null,
-                      )}`}
-                      readOnly={readOnly}
-                      onBlur={
-                        readOnly
-                          ? undefined
-                          : (e) =>
-                              onCellCommit(row.id, col.id, e.currentTarget.value)
-                      }
-                      onKeyDown={(e) => {
-                        if (!readOnly && e.key === "Enter")
-                          e.currentTarget.blur();
-                      }}
-                      aria-label={`${col.name} subject ${r + 1}`}
-                      className={`w-full bg-transparent px-3 py-1.5 text-center text-body text-foreground outline-none ${
-                        readOnly
-                          ? "cursor-default text-foreground-muted"
-                          : "focus:bg-accent-soft"
-                      }`}
-                    />
-                  </td>
+                    rowId={row.id}
+                    // A Time / Event cell toggles on the Time key (the canonical
+                    // subject key) so exclude / include are symmetric; the cell
+                    // still edits its own value via onCellCommit (its real id).
+                    columnId={col.id}
+                    excludeColumnId={col.excludable ? timeId ?? col.id : col.id}
+                    value={row.cells[col.id] ?? null}
+                    // The whole subject is excluded when its Time or Event cell is,
+                    // so a Time / Event cell renders excluded whenever EITHER of the
+                    // subject's data cells is in the set. The Group cell is a label,
+                    // so it never reads excluded.
+                    excluded={
+                      col.excludable &&
+                      timeId !== null &&
+                      eventId !== null &&
+                      isSubjectExcluded(content, row.id, timeId, eventId)
+                    }
+                    onToggleExclusion={col.excludable ? onToggleExclusion : undefined}
+                    ariaLabel={`${col.name} subject ${r + 1}`}
+                    onCellCommit={onCellCommit}
+                    readOnly={readOnly}
+                  />
                 ))}
               </tr>
             ))}

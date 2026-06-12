@@ -17,6 +17,7 @@ import type {
   DataHubDocContent,
   RowRecord,
 } from "@/lib/datahub/model/types";
+import { isCellExcluded } from "@/lib/datahub/cell-exclusion";
 
 /** A single group column in the Column-table grid. */
 export interface GroupColumn {
@@ -88,8 +89,9 @@ export function groupColumns(content: DataHubDocContent): GroupColumn[] {
 }
 
 /**
- * The finite numeric values in one group column, read across every row. Empty
- * and non-numeric cells are skipped so the engine only sees real measurements.
+ * The finite numeric values in one group column, read across every row. Empty,
+ * non-numeric, AND excluded cells are skipped so the engine only sees real,
+ * not-excluded measurements (an excluded outlier is treated as absent).
  */
 export function columnValues(
   content: DataHubDocContent,
@@ -97,6 +99,7 @@ export function columnValues(
 ): number[] {
   const out: number[] = [];
   for (const row of content.rows) {
+    if (isCellExcluded(content, row.id, columnId)) continue;
     const v = row.cells[columnId];
     if (typeof v === "number" && Number.isFinite(v)) out.push(v);
     else if (typeof v === "string" && v.trim() !== "") {

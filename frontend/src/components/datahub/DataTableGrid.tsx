@@ -23,11 +23,12 @@ import { useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
 import type { DataHubDocContent } from "@/lib/datahub/model/types";
 import {
-  cellDisplay,
   computeAllGroupStats,
   formatStat,
   groupColumns,
 } from "@/lib/datahub/column-table";
+import { isCellExcluded } from "@/lib/datahub/cell-exclusion";
+import DataCell, { type ToggleCellExclusion } from "@/components/datahub/DataCell";
 import {
   entryFormatOf,
   isSummaryFormat,
@@ -186,6 +187,7 @@ function SummaryEditor({
 export default function DataTableGrid({
   content,
   onCellCommit,
+  onToggleExclusion,
   onAddRow,
   onAddColumn,
   onRenameSummaryGroup,
@@ -197,6 +199,8 @@ export default function DataTableGrid({
   /** Persist a single cell edit (row id, column id, the raw input string; the
    *  page parses it into a typed CellValue before writing). */
   onCellCommit: (rowId: string, columnId: string, raw: string) => void;
+  /** Toggle whether one replicate cell is excluded from analyses and plots. */
+  onToggleExclusion?: ToggleCellExclusion;
   onAddRow: () => void;
   onAddColumn: () => void;
   /** Rename a summary group (renames all three of its subcolumns). Summary mode
@@ -308,45 +312,17 @@ export default function DataTableGrid({
                       {r + 1}
                     </td>
                     {columns.map((col) => (
-                      <td
+                      <DataCell
                         key={col.id}
-                        className="border border-border bg-surface-raised p-0 text-center"
-                      >
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          defaultValue={cellDisplay(row.cells[col.id] ?? null)}
-                          // defaultValue + onBlur (uncontrolled per render) so the
-                          // debounced Loro commit + reproject does not fight the
-                          // caret while the user is mid-type. The key includes the
-                          // stored value so an external change (a collaborator's
-                          // edit) reseeds the input.
-                          key={`${row.id}:${col.id}:${cellDisplay(
-                            row.cells[col.id] ?? null,
-                          )}`}
-                          readOnly={readOnly}
-                          onBlur={
-                            readOnly
-                              ? undefined
-                              : (e) =>
-                                  onCellCommit(
-                                    row.id,
-                                    col.id,
-                                    e.currentTarget.value,
-                                  )
-                          }
-                          onKeyDown={(e) => {
-                            if (!readOnly && e.key === "Enter")
-                              e.currentTarget.blur();
-                          }}
-                          aria-label={`${col.name} replicate ${r + 1}`}
-                          className={`w-full bg-transparent px-3 py-1.5 text-center text-body text-foreground outline-none ${
-                            readOnly
-                              ? "cursor-default text-foreground-muted"
-                              : "focus:bg-accent-soft"
-                          }`}
-                        />
-                      </td>
+                        rowId={row.id}
+                        columnId={col.id}
+                        value={row.cells[col.id] ?? null}
+                        excluded={isCellExcluded(content, row.id, col.id)}
+                        onToggleExclusion={onToggleExclusion}
+                        ariaLabel={`${col.name} replicate ${r + 1}`}
+                        onCellCommit={onCellCommit}
+                        readOnly={readOnly}
+                      />
                     ))}
                   </tr>
                 ))}

@@ -20,6 +20,7 @@ import type {
   DataHubDocContent,
   RowRecord,
 } from "@/lib/datahub/model/types";
+import { isCellExcluded } from "@/lib/datahub/cell-exclusion";
 
 /** A single Y (response) column in the XY grid. */
 export interface YColumn {
@@ -110,7 +111,9 @@ function asFiniteNumber(v: CellValue | undefined): number | null {
 /**
  * Resolve the finite (x, y) pairs for one Y column. A row contributes a pair
  * only when BOTH its X cell and its Y cell are finite numbers, so a half-filled
- * row never skews the fit. The arrays come back aligned index-for-index.
+ * row never skews the fit. The arrays come back aligned index-for-index. An
+ * EXCLUDED cell (the X or the Y of the row) drops the whole pair, treated as
+ * absent, so an excluded outlier never reaches the correlation / regression.
  */
 export function xyPairs(
   content: DataHubDocContent,
@@ -121,6 +124,12 @@ export function xyPairs(
   const y: number[] = [];
   if (!xCol) return { yColumnId, x, y };
   for (const row of content.rows) {
+    if (
+      isCellExcluded(content, row.id, xCol.id) ||
+      isCellExcluded(content, row.id, yColumnId)
+    ) {
+      continue;
+    }
     const xv = asFiniteNumber(row.cells[xCol.id]);
     const yv = asFiniteNumber(row.cells[yColumnId]);
     if (xv === null || yv === null) continue;

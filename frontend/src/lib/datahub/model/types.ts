@@ -215,6 +215,26 @@ export interface DataHubDocument {
    * for list/getContent and for a deleted-source empty state.
    */
   derivedFrom?: DerivedFrom;
+  /**
+   * DATA-SHAPE NOTE (excluded values, the outlier set).
+   *
+   * Optional and additive. The keys of the data cells the researcher has marked
+   * as EXCLUDED, each key the string `"${rowId}:${columnId}"` (the same id space
+   * the rows and columns use). An excluded cell keeps its entered value (it is
+   * not deleted, and it stays visible and editable in the grid), but every
+   * analysis and every plot treats it as ABSENT, exactly like an empty cell, so
+   * it drops out of the group's value array, the mean / SD / SEM / n, the error
+   * bars, and the jittered replicate dots. This is the Prism "exclude an outlier"
+   * affordance.
+   *
+   * Absent or an empty array means nothing is excluded, which is byte-identical
+   * to a document written before this field existed (the serializer only writes
+   * the key when the set is non-empty, and the projection only emits the field
+   * then), so a normal table round-trips unchanged. Excluding only filters the
+   * input set, it never changes a test's math, so no scipy validation gate is
+   * needed for it.
+   */
+  excludedCells?: string[];
   created_at: string;
   last_edited_by?: string;
   last_edited_at?: string;

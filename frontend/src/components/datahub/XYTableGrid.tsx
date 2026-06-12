@@ -16,7 +16,8 @@
 import { useMemo } from "react";
 import { Icon } from "@/components/icons";
 import type { DataHubDocContent } from "@/lib/datahub/model/types";
-import { cellDisplay } from "@/lib/datahub/column-table";
+import { isCellExcluded } from "@/lib/datahub/cell-exclusion";
+import DataCell, { type ToggleCellExclusion } from "@/components/datahub/DataCell";
 import { pairCount, xColumn, yColumns } from "@/lib/datahub/xy-table";
 import {
   useGridCrudMenu,
@@ -27,6 +28,7 @@ import {
 export default function XYTableGrid({
   content,
   onCellCommit,
+  onToggleExclusion,
   onAddRow,
   onAddColumn,
   hideAddControls = false,
@@ -36,6 +38,9 @@ export default function XYTableGrid({
   content: DataHubDocContent;
   /** Persist a single cell edit (row id, column id, the raw input string). */
   onCellCommit: (rowId: string, columnId: string, raw: string) => void;
+  /** Toggle whether one X / Y cell is excluded from analyses and plots. An
+   *  excluded X or Y drops that row's (x, y) pair. */
+  onToggleExclusion?: ToggleCellExclusion;
   onAddRow: () => void;
   /** Append a new Y (response) column. */
   onAddColumn: () => void;
@@ -144,36 +149,17 @@ export default function XYTableGrid({
                   {r + 1}
                 </td>
                 {columns.map((col) => (
-                  <td
+                  <DataCell
                     key={col.id}
-                    className="border border-border bg-surface-raised p-0 text-center"
-                  >
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      defaultValue={cellDisplay(row.cells[col.id] ?? null)}
-                      key={`${row.id}:${col.id}:${cellDisplay(
-                        row.cells[col.id] ?? null,
-                      )}`}
-                      readOnly={readOnly}
-                      onBlur={
-                        readOnly
-                          ? undefined
-                          : (e) =>
-                              onCellCommit(row.id, col.id, e.currentTarget.value)
-                      }
-                      onKeyDown={(e) => {
-                        if (!readOnly && e.key === "Enter")
-                          e.currentTarget.blur();
-                      }}
-                      aria-label={`${col.name} row ${r + 1}`}
-                      className={`w-full bg-transparent px-3 py-1.5 text-center text-body text-foreground outline-none ${
-                        readOnly
-                          ? "cursor-default text-foreground-muted"
-                          : "focus:bg-accent-soft"
-                      }`}
-                    />
-                  </td>
+                    rowId={row.id}
+                    columnId={col.id}
+                    value={row.cells[col.id] ?? null}
+                    excluded={isCellExcluded(content, row.id, col.id)}
+                    onToggleExclusion={onToggleExclusion}
+                    ariaLabel={`${col.name} row ${r + 1}`}
+                    onCellCommit={onCellCommit}
+                    readOnly={readOnly}
+                  />
                 ))}
               </tr>
             ))}
