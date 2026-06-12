@@ -58,6 +58,7 @@ import {
   type NormalizedModelComparison,
 } from "@/lib/datahub/run-analysis";
 import { plainLanguageSummary, formatP } from "@/lib/datahub/plain-language";
+import { showCode } from "@/lib/datahub/show-code";
 import type {
   AnalysisSpec,
   DataHubDocContent,
@@ -1063,5 +1064,100 @@ export const readDataHubAnalysisTool: AiTool = {
     }
     cacheTableContent(tableId, content);
     return shapeStoredAnalysis(content, analysisId) satisfies StoredAnalysisResult;
+  },
+};
+
+// ---------------------------------------------------------------------------
+// get_analysis_code (READ-only): the reproducible show-the-code snippet
+// ---------------------------------------------------------------------------
+
+/** The reproducible analysis code for a stored result, or an error. */
+export type AnalysisCodeResult =
+  | {
+      ok: true;
+      table: string;
+      analysisId: string;
+      /** The analysis kind the code reproduces (e.g. "anova", "modelComparison"). */
+      kind: string;
+      language: "python";
+      /** The runnable snippet, with the real values baked in, the SAME show-the-
+       *  code the Data Hub renders. */
+      code: string;
+    }
+  | { ok: false; error: string };
+
+/**
+ * Shape one stored analysis into its reproducible code snippet. Pure given the
+ * content + id. The engine's showCode owns the snippet (it bakes the real group
+ * names / values in), so the model never writes the analysis code itself, it
+ * only relays what showCode returned. Reuses the same resultCache the read tool
+ * relays, so the code always matches the on-screen numbers.
+ */
+export function shapeAnalysisCode(
+  content: DataHubDocContent,
+  analysisId: string,
+): AnalysisCodeResult {
+  const spec = content.analyses.find((a) => a.id === analysisId);
+  if (!spec) {
+    return { ok: false, error: `Analysis ${analysisId} not found on that table.` };
+  }
+  const cached = spec.resultCache as RunOutcome | null;
+  if (!cached || !cached.ok) {
+    return {
+      ok: false,
+      error:
+        "That analysis has no stored result yet, so there is no code to show. Re-run it first.",
+    };
+  }
+  return {
+    ok: true,
+    table: content.meta.name,
+    analysisId: spec.id,
+    kind: cached.kind,
+    language: "python",
+    code: showCode(cached),
+  };
+}
+
+export const getAnalysisCodeTool: AiTool = {
+  name: "get_analysis_code",
+  description:
+    "Get the reproducible analysis code (a runnable Python snippet, with the real group names and values baked in) for one stored Data Hub analysis, the SAME show-the-code the Data Hub renders. Use this when the user asks for the code, the script, or the methods behind a test, or when you are writing results into a note or methods section and want to include the exact analysis code alongside the verdict so the work is reproducible. Call it with the table id and the analysis id (from run_datahub_analysis, compare_models, list_datahub_analyses, or the context message). It returns { kind, language, code }; drop the code into a note as a fenced ```python block via write_note. The engine wrote the snippet, you NEVER write or invent analysis code yourself, only relay what this returns. Read-only, it never navigates and never changes any data.",
+  parameters: {
+    type: "object",
+    properties: {
+      tableId: {
+        type: "string",
+        description:
+          "The id of the Data Hub table that owns the analysis.",
+      },
+      analysisId: {
+        type: "string",
+        description:
+          "The id of the analysis whose code to fetch. From run_datahub_analysis, compare_models, list_datahub_analyses, or the context message.",
+      },
+    },
+    required: ["tableId", "analysisId"],
+    additionalProperties: false,
+  },
+  execute: async (args) => {
+    const tableId = typeof args.tableId === "string" ? args.tableId : "";
+    const analysisId = typeof args.analysisId === "string" ? args.analysisId : "";
+    if (!tableId || !analysisId) {
+      return {
+        ok: false,
+        error: "Both tableId and analysisId are required.",
+      } satisfies AnalysisCodeResult;
+    }
+    const content = await datahubAnalysisDeps.resolveContent(tableId);
+    if (!content) {
+      return {
+        ok: false,
+        error:
+          "I could not open that table. It may have been deleted, or the id is wrong.",
+      } satisfies AnalysisCodeResult;
+    }
+    cacheTableContent(tableId, content);
+    return shapeAnalysisCode(content, analysisId) satisfies AnalysisCodeResult;
   },
 };
