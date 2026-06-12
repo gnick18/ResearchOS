@@ -6,6 +6,14 @@ const getContent = vi.fn();
 vi.mock("@/lib/datahub/api", () => ({
   dataHubApi: { getContent: (...a: unknown[]) => getContent(...a) },
 }));
+// Stub the engine formatters so the result-view wiring is testable without a
+// real NormalizedResult shape (those formatters have their own tests).
+vi.mock("@/lib/datahub/plain-language", () => ({
+  plainLanguageSummary: () => "A differs from B (p = 0.001).",
+}));
+vi.mock("@/lib/datahub/result-text", () => ({
+  resultToText: () => "A differs from B (p = 0.001).\n\nt\t4.21\ndf\t44",
+}));
 
 import DataHubEmbed from "./DataHubEmbed";
 import type { EmbedDescriptor } from "@/lib/references";
@@ -62,5 +70,39 @@ describe("DataHubEmbed", () => {
     render(<DataHubEmbed descriptor={tableDescriptor} caption="Gone" basePath="" />);
     await waitFor(() => expect(screen.getByText("Gone")).toBeInTheDocument());
     expect(screen.queryByText("time_h")).toBeNull();
+  });
+
+  it("renders the verdict + stats for a computed result view", async () => {
+    getContent.mockResolvedValue({
+      ...content,
+      analyses: [{ id: "a3", type: "ttest", name: "Welch t-test", resultCache: { ok: true, kind: "ttest" } }],
+    });
+    render(
+      <DataHubEmbed
+        descriptor={{ ...tableDescriptor, view: "result", opts: { analysis: "a3" } }}
+        caption="Welch t-test"
+        basePath=""
+      />,
+    );
+    await waitFor(() => expect(screen.getByText(/A differs from B/)).toBeInTheDocument());
+    expect(screen.getByText(/4\.21/)).toBeInTheDocument();
+  });
+
+  it("falls back to the card when the result has not been computed", async () => {
+    getContent.mockResolvedValue({
+      ...content,
+      analyses: [{ id: "a3", type: "ttest", name: "Welch t-test", resultCache: null }],
+    });
+    render(
+      <DataHubEmbed
+        descriptor={{ ...tableDescriptor, view: "result", opts: { analysis: "a3" } }}
+        caption="Not run"
+        basePath=""
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute("href", "/datahub?doc=2"),
+    );
+    expect(screen.queryByText(/A differs from B/)).toBeNull();
   });
 });
