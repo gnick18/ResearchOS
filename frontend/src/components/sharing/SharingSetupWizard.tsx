@@ -70,8 +70,11 @@ import {
 interface SharingSetupWizardProps {
   /** The folder-local username this identity is claimed for. */
   username: string;
-  /** Called once the directory publish succeeds (local link best-effort). */
-  onComplete: (result: { fingerprint: string }) => void;
+  /** Called once the directory publish succeeds (local link best-effort). The
+   *  canonical verified email is included when known (always on the email-OTP
+   *  path, where the caller may need it, e.g. lab-create binding the head to an
+   *  ORCID-proven email). */
+  onComplete: (result: { fingerprint: string; email?: string }) => void;
   /** Dismiss the wizard without finishing. */
   onClose: () => void;
   /** Which step to open on. Defaults to "choose". A caller that already wants
@@ -550,7 +553,10 @@ export default function SharingSetupWizard({
 
     setFingerprint(publishedFingerprint);
     setStep("done");
-    onComplete({ fingerprint: publishedFingerprint });
+    onComplete({
+      fingerprint: publishedFingerprint,
+      email: canonical || undefined,
+    });
   }, [
     material,
     existing,
