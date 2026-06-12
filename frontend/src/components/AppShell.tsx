@@ -651,7 +651,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         {pathname?.startsWith("/sequences") ||
         pathname?.startsWith("/chemistry") ||
         pathname?.startsWith("/datahub") ||
-        pathname?.startsWith("/methods") ? (
+        pathname?.startsWith("/methods") ||
+        pathname?.startsWith("/workbench") ? (
           /* Sequence editor is a full-bleed FOCUS surface (Grant
            *  2026-06-02): hide the app's left sidebar so the plasmid/
            *  map viewer gets the full width, SnapGene/Benchling-style.
@@ -661,8 +662,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
            *  (its own library grid), so it hides the Today rail too
            *  (Grant 2026-06-10). The /methods explorer is now the same:
            *  it has its own folder rail, so the Today rail just squeezes
-           *  the method list (Grant 2026-06-11). Cross-arc note: the
-           *  de-bloat arc owns AppShell — PRESERVE this carve-out when
+           *  the method list (Grant 2026-06-11). /workbench hides it too
+           *  (Grant 2026-06-11): it is tab-based (Projects / Experiments /
+           *  Notes / Lists / Check-ins, the latter two now with their own
+           *  explorers), so the Today rail was just clutter. Cross-arc note:
+           *  the de-bloat arc owns AppShell — PRESERVE this carve-out when
            *  simplifying the sidebar. */
           null
         ) : pathname === "/calendar" ? (
