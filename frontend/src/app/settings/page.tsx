@@ -14,8 +14,7 @@ import {
 import { computeFolderManifest } from "@/lib/lab/manifest";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import AppFooter from "@/components/AppFooter";
-import BetaDonationButton from "@/components/BetaDonationButton";
+import SettingsRailFooter from "@/components/settings/SettingsRailFooter";
 import AccountPasswordPopup from "@/components/AccountPasswordPopup";
 import DataSetupScreen from "@/components/DataSetupScreen";
 import UserLoginScreen from "@/components/UserLoginScreen";
@@ -732,16 +731,7 @@ function SettingsBodyInner({
           </div>
         }
         railSearch={<SettingsSearchBar />}
-        footer={
-          <>
-            {/* Support / Donate lives at the bottom of the settings scroll,
-                with the site footer, instead of floating over every page. */}
-            <div className="flex justify-center pt-4 pb-1">
-              <BetaDonationButton variant="link" tone="light" />
-            </div>
-            <AppFooter />
-          </>
-        }
+        railFooter={<SettingsRailFooter />}
       />
 
       {pwOpen && currentUser && (

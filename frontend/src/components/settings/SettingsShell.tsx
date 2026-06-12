@@ -78,7 +78,7 @@ export default function SettingsShell({
   roleLabel,
   headerExtra,
   railSearch,
-  footer,
+  railFooter,
   initialSectionId,
 }: {
   groups: SettingsGroupDef[];
@@ -93,10 +93,10 @@ export default function SettingsShell({
    *  rail items. Replaces the old full-width search bar that ate the top of the
    *  screen. */
   railSearch?: ReactNode;
-  /** Rendered at the very bottom of the scrolling content pane, so it only
-   *  comes into view once the user reaches the end of a section (the site
-   *  footer). Not a pinned bar. */
-  footer?: ReactNode;
+  /** Compact footer pinned to the bottom of the rail (the support ask + a small
+   *  link row), the Linear / VS Code pattern. Stays at the foot of the sidebar
+   *  while the section list above it scrolls. */
+  railFooter?: ReactNode;
   /** Section to open on when there is no `?section=` / `?tab=` in the URL.
    *  Used when the shell is mounted inside a modal (no query to read), e.g.
    *  the ProfileSettingsModal opens straight on the profile section. */
@@ -181,8 +181,10 @@ export default function SettingsShell({
         {/* ── Rail ── */}
         <nav
           aria-label="Settings sections"
-          className="border-b border-border bg-surface-raised p-2.5 md:border-b-0 md:border-r overflow-y-auto"
+          className="flex flex-col border-b border-border bg-surface-raised md:border-b-0 md:border-r"
         >
+          {/* Scrollable section list; the rail footer below stays pinned. */}
+          <div className="flex-1 overflow-y-auto p-2.5">
             {/* Compact search at the top of the rail, where it filters the list. */}
             {railSearch && <div className="px-1 pt-1 pb-2.5">{railSearch}</div>}
             <div className="flex items-center gap-2.5 px-2 py-1.5">
@@ -248,26 +250,27 @@ export default function SettingsShell({
                 </div>
               );
             })}
+          </div>
+          {/* Pinned to the bottom of the rail: the support ask + compact links. */}
+          {railFooter && (
+            <div className="shrink-0 border-t border-border p-3">{railFooter}</div>
+          )}
           </nav>
 
-        {/* ── Content pane: scrolls. The content area grows (flex-1) so the
-            footer is pushed to the bottom of the screen on a short section, and
-            scrolls off the bottom on a long one. It never floats mid-pane. ── */}
-        <div ref={paneRef} className="flex flex-col overflow-y-auto">
-          <div className="flex-1">
-            <div className="mx-auto max-w-4xl px-6 py-8 sm:px-8">
-              {activeSection ? (
-                <div key={activeSection.id} className="space-y-4">
-                  {activeSection.render()}
-                </div>
-              ) : (
-                <p className="text-body text-foreground-muted">
-                  Pick a section from the left.
-                </p>
-              )}
-            </div>
+        {/* ── Content pane: scrolls. No marketing footer here; the support ask
+            and links live at the bottom of the rail instead. ── */}
+        <div ref={paneRef} className="overflow-y-auto">
+          <div className="mx-auto max-w-4xl px-6 py-8 sm:px-8">
+            {activeSection ? (
+              <div key={activeSection.id} className="space-y-4">
+                {activeSection.render()}
+              </div>
+            ) : (
+              <p className="text-body text-foreground-muted">
+                Pick a section from the left.
+              </p>
+            )}
           </div>
-          {footer && <div className="shrink-0">{footer}</div>}
         </div>
       </div>
     </div>
