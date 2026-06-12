@@ -22,6 +22,7 @@ import type {
   NormalizedResult,
   NormalizedSurvival,
   NormalizedCoxRegression,
+  NormalizedGrubbsOutlier,
   NormalizedTTest,
   NormalizedTwoWayAnova,
 } from "@/lib/datahub/run-analysis";
@@ -421,6 +422,36 @@ function coxSummary(r: NormalizedCoxRegression): string {
   )}).`;
 }
 
+function grubbsSummary(r: NormalizedGrubbsOutlier): string {
+  const sweep = r.iterative ? "iterative" : "single-point";
+  if (r.totalOutliers === 0) {
+    if (r.columns.length === 1) {
+      return `No outliers were flagged in ${r.columns[0].name} by the ${sweep} Grubbs test at alpha ${num(
+        r.alpha,
+        2,
+      )}. Every value is within the range chance would produce for a sample this size.`;
+    }
+    return `No outliers were flagged across the ${r.columns.length} screened columns by the ${sweep} Grubbs test at alpha ${num(
+      r.alpha,
+      2,
+    )}. Every value is within the range chance would produce for a sample this size.`;
+  }
+  // Name the flagged values per column so the verdict points at the offending
+  // points, not just a count.
+  const flaggedCols = r.columns.filter((c) => c.result.outlierValues.length > 0);
+  const detail = flaggedCols
+    .map(
+      (c) =>
+        `${c.name} (${c.result.outlierValues.map((v) => num(v, 2)).join(", ")})`,
+    )
+    .join("; ");
+  const noun = r.totalOutliers === 1 ? "outlier" : "outliers";
+  return `The ${sweep} Grubbs test flagged ${r.totalOutliers} ${noun} at alpha ${num(
+    r.alpha,
+    2,
+  )}, in ${detail}. A flagged value is a candidate for review, not an automatic deletion, so confirm it against the experiment before removing it.`;
+}
+
 /**
  * The one-sentence (or two-sentence) plain-language verdict for a normalized
  * result. The ResultsSheet renders this above the stats table.
@@ -441,5 +472,6 @@ export function plainLanguageSummary(result: NormalizedResult): string {
   if (result.kind === "twoWayAnova") return twoWaySummary(result);
   if (result.kind === "survival") return survivalSummary(result);
   if (result.kind === "coxRegression") return coxSummary(result);
+  if (result.kind === "grubbsOutlier") return grubbsSummary(result);
   return ttestSummary(result);
 }

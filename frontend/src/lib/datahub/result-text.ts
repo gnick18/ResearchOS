@@ -383,6 +383,44 @@ export function resultToText(result: NormalizedResult): string {
       );
       break;
     }
+    case "grubbsOutlier": {
+      lines.push(
+        row("Test", "Grubbs outlier test"),
+        row("Significance (alpha)", n(result.alpha, 2)),
+        row("Sweep", result.iterative ? "Iterative" : "Single point"),
+        row("Outliers flagged (all columns)", n(result.totalOutliers, 0)),
+      );
+      for (const col of result.columns) {
+        lines.push(
+          "",
+          row(col.name, "Pass", "n", "Value", "Row", "G", "G critical", "Outlier"),
+        );
+        for (const s of col.result.steps) {
+          lines.push(
+            row(
+              "",
+              n(s.step, 0),
+              n(s.n, 0),
+              n(s.value, 4),
+              n(s.rowIndex + 1, 0),
+              n(s.g, 4),
+              n(s.gCritical, 4),
+              s.flagged ? "Yes" : "No",
+            ),
+          );
+        }
+        lines.push(
+          row(
+            "Cleaned n",
+            n(col.result.cleanedN, 0),
+            col.result.outlierValues.length > 0
+              ? `removed ${col.result.outlierValues.map((v) => n(v, 4)).join(", ")}`
+              : "no outliers",
+          ),
+        );
+      }
+      break;
+    }
     default: {
       // t-test family (parametric and rank tests).
       const statLabel = result.nonparametric

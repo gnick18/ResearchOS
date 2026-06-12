@@ -504,6 +504,7 @@ function labelForAnalysis(analysis: AnalysisSpec): string {
     linearRegression: "linear regression",
     kaplanMeier: "Kaplan-Meier survival analysis",
     coxRegression: "Cox proportional hazards regression",
+    grubbsOutlier: "Grubbs outlier test",
   };
   return map[analysis.type] ?? "analysis";
 }

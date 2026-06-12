@@ -38,7 +38,7 @@ const TYPE_META: Record<
   {
     label: string;
     blurb: string;
-    groupCount: "two" | "all" | "regression" | "globalFit";
+    groupCount: "two" | "all" | "regression" | "globalFit" | "screen";
   }
 > = {
   unpairedTTest: {
@@ -155,6 +155,12 @@ const TYPE_META: Record<
       "Fit a Cox model on the survival arms for the hazard ratio (with its 95% interval) of one arm versus the reference, plus the likelihood-ratio test and concordance.",
     groupCount: "all",
   },
+  grubbsOutlier: {
+    label: "Outlier detection (Grubbs)",
+    blurb:
+      "Screen each group column for a value that sits too far from the mean to be chance. Reports the Grubbs G and its critical value, every flagged outlier with its row, and the cleaned sample size. The iterative sweep clears more than one outlier from the same column.",
+    groupCount: "screen",
+  },
 };
 
 export default function NewAnalysisDialog({
@@ -240,10 +246,16 @@ export default function NewAnalysisDialog({
   // Global fitting reads EVERY Y column at once, so it needs no single-Y pick.
   const isGlobalFit =
     type !== null && TYPE_META[type].groupCount === "globalFit";
+  // Outlier screening reads EVERY group column at once (each is screened on its
+  // own), so like global fitting it needs no single-column pick, only that the
+  // table has at least one group column.
+  const isScreen = type !== null && TYPE_META[type].groupCount === "screen";
   // The predictors that are not the chosen Y column (Y cannot also be an X).
   const regPredictorsClean = regPredictors.filter((id) => id !== regYColumn);
   const canSubmit = wholeTable
     ? type !== null
+    : isScreen
+    ? type !== null && groups.length >= 1
     : isGlobalFit
       ? type !== null && !!xCol && ys.length >= 2
       : isXY
@@ -263,6 +275,8 @@ export default function NewAnalysisDialog({
     // no column selection.
     const columnIds = wholeTable
       ? []
+      : isScreen
+      ? groups.map((g) => g.id)
       : isGlobalFit
         ? ys.map((y) => y.id)
         : isXY
@@ -367,6 +381,14 @@ export default function NewAnalysisDialog({
                   parameters are shared after it runs.
                 </p>
               </div>
+            ) : isScreen ? (
+              <p className="mt-4 rounded-md border border-border bg-surface-raised px-3 py-2 text-meta text-foreground-muted">
+                Screens every group column on this table for outliers (
+                {groups.length}{" "}
+                {groups.length === 1 ? "column" : "columns"}:{" "}
+                {groups.map((g) => g.name).join(", ")}). Each column is screened
+                on its own. No column picking needed.
+              </p>
             ) : isXY ? (
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div>

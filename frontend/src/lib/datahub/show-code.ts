@@ -27,6 +27,7 @@ import type {
   NormalizedMixedModel,
   NormalizedSurvival,
   NormalizedCoxRegression,
+  NormalizedGrubbsOutlier,
   NormalizedTTest,
   NormalizedTwoWayAnova,
   RunGroup,
@@ -974,6 +975,73 @@ print(f"REML log-likelihood = {mdf.llf:.6g}")`;
 }
 
 /**
+ * Grubbs outlier test. There is no scipy.stats.grubbs, so the snippet computes
+ * the two-sided Grubbs G and the Bonferroni-corrected critical value by hand from
+ * scipy.stats.t (the same definition the engine uses), and runs the iterative
+ * sweep the same way. Each selected column is screened on its own. This needs
+ * only scipy, no extra package, so it matches the on-screen flags exactly.
+ */
+function grubbsCode(r: NormalizedGrubbsOutlier): string {
+  // Bake each screened column's real array in by name so the snippet reproduces
+  // the on-screen flags exactly.
+  const gv = groupVars(
+    r.columns.map(
+      (c): RunGroup => ({
+        columnId: c.columnId,
+        name: c.name,
+        values: c.values,
+      }),
+    ),
+  );
+  const entries = gv
+    .map((o) => `    ${pyStr(o.group.name.trim())}: ${pyList(o.group.values)},`)
+    .join("\n");
+  const colNames = gv.map((o) => pyStr(o.group.name.trim())).join(", ");
+  return `import numpy as np
+from scipy import stats
+
+# One array per screened column. The screen below reproduces the Data Hub flags
+# for alpha = ${r.alpha} in ${
+    r.iterative ? "iterative" : "single-point"
+  } mode.
+columns = {
+${entries}
+}
+labels = [${colNames}]
+
+def grubbs_critical(n, alpha=${r.alpha}):
+    # Bonferroni-corrected two-sided Grubbs critical value at sample size n.
+    if n < 3:
+        return float("nan")
+    df = n - 2
+    t = stats.t.ppf(1 - alpha / (2 * n), df)  # upper alpha/(2n) critical
+    return ((n - 1) / np.sqrt(n)) * np.sqrt(t**2 / (df + t**2))
+
+def grubbs(values, alpha=${r.alpha}, iterative=${r.iterative ? "True" : "False"}):
+    x = list(map(float, values))
+    flagged = []
+    while len(x) >= 3:
+        arr = np.asarray(x, float)
+        mean, sd = arr.mean(), arr.std(ddof=1)  # sample sd (n - 1)
+        i = int(np.argmax(np.abs(arr - mean)))
+        g = 0.0 if sd == 0 else abs(arr[i] - mean) / sd
+        g_crit = grubbs_critical(len(x), alpha)
+        print(f"n={len(x)} value={x[i]:.4g} G={g:.4f} G_crit={g_crit:.4f} "
+              f"outlier={g > g_crit}")
+        if g <= g_crit:
+            break
+        flagged.append(x.pop(i))
+        if not iterative:
+            break
+    return flagged
+
+for label in labels:
+    print(label)
+    out = grubbs(columns[label])
+    print("  flagged:", out, "cleaned n:", len(columns[label]) - len(out))`;
+}
+
+/**
  * The reproducible Python snippet for a normalized analysis result, with the
  * real group names and values baked in so it reproduces the on-screen numbers.
  */
@@ -993,5 +1061,6 @@ export function showCode(result: NormalizedResult): string {
   if (result.kind === "twoWayAnova") return twoWayCode(result);
   if (result.kind === "survival") return survivalCode(result);
   if (result.kind === "coxRegression") return coxRegressionCode(result);
+  if (result.kind === "grubbsOutlier") return grubbsCode(result);
   return ttestCode(result);
 }
