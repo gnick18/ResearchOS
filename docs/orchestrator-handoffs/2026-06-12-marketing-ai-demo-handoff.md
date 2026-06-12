@@ -1,44 +1,36 @@
-# Handoff: marketing redesign + AI surfacing + demo polish (2026-06-12)
+# Handoff: marketing + AI surfacing + demo + /ai page + /terms (2026-06-12, updated)
 
-Orchestrator session paused near the usage limit. This is the resume point if Grant switches accounts. All my work is committed on local main (interleaved with other sessions' datahub/embeds/checkins commits). Three sub-bots were in flight, see "In flight" below.
+Resume point for the marketing/AI/demo orchestrator session. Everything below is on LOCAL main unless noted. This supersedes the original pause-point handoff (the three in-flight sub-bots are all resolved now).
 
-## What this session shipped (all merged to local main)
-A long marketing + product-polish arc. Key commits (newest of mine first):
-- `c443ac715` feat(pricing): highlight the at-cost AI assistant in the savings calculator
-- `360057825` fix(pricing): savings calculator honest about a lab, not just $0 (solo = $0; lab pays optional cloud)
-- `ff2f6459d` fix(copy): app-wide stale-claim sweep (roadmap no longer lists shipped collab/cross-lab-sharing as upcoming)
-- `720078c85` fix(routing): public marketing/legal pages bypass the folder-connect gate (pricing/about/transparency/etc. were bouncing logged-out visitors to the landing)
-- `0da1d8a6a` fix(copy): real-time co-editing is shipped, not coming soon
-- `10c49e5a5` fix(login): funding acknowledgment moved to upper-right corner (balances the ResearchOS LLC signature upper-left)
-- `1ce4aeb92` feat(ia): split MarketingFooter (rich, public pages) from brand-only AppFooter (in-app); new MarketingNav + /about page; settings rail links thanks+about
-- earlier: shared marketing motion system (Reveal + MarketingBackdrop), welcome page rebuilt to approved IA, settings redesign (full-screen left-rail, X+Esc, rail footer), pricing AI section, SciFinder added to cost table, product chrome -> "ResearchOS LLC" (founder name kept only in origin story + legal), brand-only footer.
+## Shipped this session
 
-Full reference: `docs/audits/cross-linking-and-ia-audit-2026-06-11.md` (the route reachability audit + 10-company SaaS IA research + recommended IA that drove the footer/nav split).
+### /terms Terms of service (NEW, research-verified, DRAFT)
+- Built the public `/terms` page (`frontend/src/components/terms/TermsOfService.tsx` + `frontend/src/app/terms/page.tsx`), mirroring the `/privacy` page structure and voice. Footer legal row now reads Terms / Privacy / License, `/terms` is in `isPublicMarketingRoute` (bypasses the folder gate) and in the wiki-coverage `EXCLUDED_PREFIXES`. Also corrected the stale `/ai` exclusion comment (it is a marketing page now).
+- Ran a deep-research pass against real AGPLv3 / open-core SaaS terms (PostHog, Plausible, Grafana). Verdict: the draft was broadly right (license-vs-terms split, AS-IS + AGPL sections 15-16 + all-caps conspicuousness, 12-month liability-cap structure, no-arbitration / no-class-waiver, single-state Wisconsin law, cancel-anytime / no-unused-refund all match precedent).
+- Applied the precedent-backed fixes: a `$100` liability-cap FLOOR (greater-of-fees-or-$100, since a bare 12-month cap is $0 for free users), a consumer-law carve-out, a formal AI / no-professional-advice line, plus the missing standard boilerplate (feedback license, severability, entire agreement, no waiver, assignment, force majeure), an eligibility (13+) clause, and a basic DMCA/copyright-takedown clause.
+- STILL A DRAFT, do not ship to prod without a licensed Wisconsin attorney. Open for the lawyer: the exact dollar floor, EU/UK consumer-rights plus a possible GDPR data-processing addendum for international academic users, and sign-off on the DMCA + eligibility clauses. The effective date is a placeholder (June 12, 2026), set the real one at publish.
+- An `ACTION FOR GRANT` block was added to the top of AGENTS.md (surfaces on or after 2026-06-13) so a session tomorrow reminds Grant to find an affordable, good Wisconsin/Madison tech-SaaS-IP attorney and helps him run the search.
 
-## IN FLIGHT (3 background sub-bots, session-bound)
-These were dispatched in THIS session. If you switch accounts, their completion notifications are lost, but their work persists in worktrees. For each: pull its changed files onto current main, re-run gates filtered to those files (main is independently tsc-red, see Gotchas), commit with explicit paths, remove the worktree. Same pattern used all session. If a worktree is gone/incomplete, re-dispatch from the brief (the briefs are in this session's transcript).
+### /ai BeakerBot marketing page (NEW)
+- Retired the old in-app `/ai` palette-opener (Grant's call) and repurposed `/ai` as a public marketing sell page, built to the welcome-page quality bar (shared `MarketingNav` / `MarketingBackdrop` aurora / `Reveal` / `MarketingFooter`, the bold-rainbow treatment, `BeakerBot`). Five capability cards (Data Hub analysis + publication figure, primer design + Tm, PubChem chemistry, cross-type search, experiment chain on a Gantt), grounded in real shipped tools. Leads hard on how CHEAP the AI is (about a penny of compute per analysis, the 750,000-token free gift framed as about 25 cents of compute, no subscription or seat fees, a per-seat-tool contrast). Whitelisted public route, wiki-excluded. A humanizer pass restored contractions and tightened rhythm.
+- OPEN, the one concrete remaining marketing build item: `/ai` is ORPHANED. Nothing links to it yet. Wire a "Learn more about BeakerBot" link from the pricing AI section (`id="ai-pricing"`) and the welcome AI showcase, and add BeakerBot/AI to `MarketingNav` (it currently carries only `/` and `/demo`).
+- The approved review mockup is `docs/mockups/ai-showcase-2026-06-12.html` (Grant liked it).
 
-1. **demo-polish** (agentId a4fc9cb2f17a15d04, branch `worktree-agent-a4fc9cb2f17a15d04`). Makes `/demo` look like a real lab for video recording: (a) strip "DEMO" prefixes from `frontend/public/demo-data` names + realistic grant ids ("NIH R01 GM149023" etc., applied consistently); (b) `/demo?record=1` recording mode that hides ALL demo chrome + skips the entry warning (mirror the `?wikiCapture=1` suppression in `FloatingLeaveDemoButton`); (c) slim the normal demo for everyone, move "Leave demo" into `UserAvatarMenu` + a small subtle pill (keep an escape), soften the entry to one line. Grant chose "also slim it for everyone."
+### Prior in-flight sub-bots, all recovered and merged
+- ai-surface (the BeakerBot free-token gift surfaced across pricing/welcome/settings, one consistent economy of 30k per analysis, 7.5k per quick question, 750k free gift) and demo-polish (`/demo` reads like a real lab, 141 de-DEMO'd data files, `?record=1` recording mode, slimmer demo chrome) were recovered from their worktrees and merged. ai-showcase-mockup was re-dispatched and merged.
+- Copy fix: user discovery is shipped, so the WhatsNewModal "coming soon" line was dropped (Grant confirmed `/researchers` is live).
 
-2. **ai-surface** (agentId aa8d1e9b7e53f301d, branch `worktree-agent-aa8d1e9b7e53f301d`). Surfaces BeakerBot + the free-token gift across pricing/welcome/settings with ONE token economy: full analysis ~=30,000 tokens, quick question ~=7,500, free one-time sign-up gift = ~750,000 tokens framed as "about 20 to 25 full analyses or 100-plus quick questions" (SHOW TOKENS, never dollars/cents). Touches PlanPicker (free-token line on Free card), pricing AI section (lead with the gift, stronger heading, move higher, keep `id="ai-pricing"`), welcome AI showcase, and reconciles `lib/usage/usage-fixtures.ts` + `AiUsageSection`.
+### Earlier this session (from the original handoff)
+- Shared marketing motion system (`Reveal` + `MarketingBackdrop`), welcome page rebuilt to the approved IA, settings redesign (full-screen left-rail), pricing AI section + honest savings calculator, product chrome rebranded to ResearchOS LLC, the footer/nav IA split (`MarketingFooter` + `MarketingNav` + `/about`), and the public-marketing-route gate bypass.
 
-3. **ai-showcase-mockup** (agentId a98a5a980a1e9dd65). Builds `docs/mockups/ai-showcase-2026-06-12.html`, an interactive REVIEW mockup (settings-mockup harness) of a dedicated `/ai` page selling BeakerBot's real capabilities with prompt -> real-output cards. Worktree was not visible at pause (may have finished or not started). It is a docs/mockups file, pull it to main so the static mockup server (port 8777) serves it, then Grant reviews. Grounded capability list is in the brief (real tools: run_datahub_analysis, make_datahub_graph, design_primers, compute_tm, search_my_work, create_experiment_chain, write_note, etc., NOT navigation-only).
+## Open / pending
+- Wire the `/ai` entry points (orphaned, see above). This is the next obvious build task.
+- `/terms` attorney review (see the AGENTS.md ACTION block, surfaces 2026-06-13).
+- Standing, at the next prod deploy: set `NEXT_PUBLIC_OAUTH_FIRST_LOGIN=true` in Vercel Production to ship the redesigned login (built and local-only).
+- The "penny of compute" cost claim (on `/ai` and `/pricing`), Grant is aware and kept it.
+- Parked: the sponsor BeakerBot badge mockup, waiting only on GitHub approving the Sponsors profile.
+- Marketing redesign is browser-verified by Grant on `:3000` (he approved welcome, pricing, settings, and `/ai` this session).
 
-## Pending decisions Grant owes a call on
-- **3 ambiguous "coming soon" sharing claims** the stale-sweep flagged (still in code, unchanged): (a) `WhatsNewModal.tsx:262` "Find other ResearchOS users to share with, coming soon" (is user-directory discovery live?); (b) `SharingSection.tsx:701` "inbox opens once the receive screen ships"; (c) `SharingSection.tsx:694` collab storage line. Need Grant to say which are shipped, then fix the copy.
-- **The `/ai` page**: after Grant reviews the mockup, build the real page (it becomes the destination the pricing/welcome AI sections link to).
-- **No `/terms` page exists** (flagged in the IA build): the footer legal row omits Terms. Draft one when Grant wants (needs his legal review).
-
-## Standing reminders (do NOT drop)
-- **PENDING at next deploy**: set `NEXT_PUBLIC_OAUTH_FIRST_LOGIN=true` in Vercel Production to ship the redesigned login (built + enabled in Grant's local .env.local only; prod still on the legacy chooser; it bakes at build). Tracked in `docs/DEPLOYMENT.md` launch checklist + memory `project_pending_vercel_oauth_flag`. Remind Grant on any deploy/push mention.
-- The marketing redesign (welcome/pricing/settings/IA) is **gate-verified, not browser-verified** (cannot run a 2nd next dev). Grant eyeballs on :3000.
-
-## Gotchas
-- **main is currently tsc-red from ANOTHER session's in-flight Data Hub work** (`datahub/DataHubRail.tsx:617`, `datahub/transform/recipe.ts:130`). NOT from any of my changes. When verifying sub-bot output, FILTER tsc to the touched files. Grant's :3000 may throw a Data Hub type error until that session finishes.
-- Shared main checkout: other sessions commit interleaved. When merging a sub-bot, check `git log <merge-base>..HEAD -- <file>` for each file before checkout (none of my merges conflicted, but verify).
-- Token economy numbers (above) MUST stay consistent across pricing/welcome/settings; if the ai-surface bot used different numbers, reconcile to 30k/analysis, 7.5k/quick, 750k free gift.
-
-## How to view things on :3000
-- Redesigned login + welcome scroll: `http://localhost:3000/?previewLogin=1` (dev hook; works while logged in). `?previewLogin=signin` / `=off`.
-- Settings: avatar menu -> Settings (full-screen, X or Esc to leave).
-- Pricing/about/transparency: now reachable logged-out (routing fix above).
+## Gotchas reaffirmed this session
+- The single `main` checkout is shared across all running sessions, so any one session's `git checkout` or `git merge` drags every session (and Grant's `:3000`). ALWAYS `git branch --show-current` before committing. Build in isolated worktrees off `main`. Land by fast-forward only when the main checkout is free and not mid-merge, and never `git stash` in the shared tree. The recovery branch `wip/shared-tree-snapshot-2026-06-12` holds a snapshot of uncommitted shared-tree edits saved when we re-pinned the checkout back to `main`, so another session can recover its work from there.
+- The Data Hub tsc-red on main noted in the original handoff was fixed by the Data Hub session (`d62501944`).
