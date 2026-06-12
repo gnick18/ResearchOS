@@ -92,6 +92,47 @@ Current documented differences in the pinned set:
   approximation) while ours uses a numeric integral, so adjusted p can differ in
   the third decimal. Two of the three pairwise comparisons are pinned only on the
   mean difference because statsmodels clamps their adjusted p to exactly 0.
+- **Mann-Whitney one-sided (greater) p.** Both use the asymptotic normal
+  approximation, but the 0.5 continuity correction is applied toward the mean, so
+  on the far (upper) tail our p is about 0.002 smaller than scipy's (0.9959 vs
+  0.9977). The near tail (less) matches to floating point. Same decision at
+  alpha = 0.05.
+- **Wilcoxon one-sided p (both tails).** Same exact-vs-asymptotic difference as
+  the two-sided Wilcoxon pin. At n = 6 scipy uses the exact signed-rank
+  distribution (greater = 1.0, less = 0.015625) and our engine the normal
+  approximation (about 0.99 and 0.017).
+
+## Parameter (option) coverage
+
+The results panel lets a researcher change how a test runs (the "Test options"
+panel in `ResultsSheet`). The standing rule extends to options, so EVERY value a
+user can select is pinned, not just the defaults. The selectable options and
+their validated combinations:
+
+- **Tail** (two-sided / one-sided greater / one-sided less) on the unpaired t,
+  paired t, Mann-Whitney U, and Wilcoxon signed-rank. scipy's `alternative=`
+  matches our tail values one for one, so each one-sided p is pinned directly
+  against scipy rather than assumed to be half the two-sided p. Pins:
+  `unpaired_welch_greater_p` / `_less_p`, `paired_greater_p` / `_less_p`,
+  `mann_whitney_greater_p` / `_less_p`, `wilcoxon_greater_p` / `_less_p`.
+- **Variance** (Welch / Student) on the unpaired t. Both are pinned
+  (`unpaired_welch_*` against `equal_var=False`, `unpaired_student_*` against
+  `equal_var=True`).
+- **Post-hoc family** (Tukey / Sidak / Bonferroni / Holm-Sidak / none) on the
+  one-way ANOVA. Tukey is pinned against statsmodels' `pairwise_tukeyhsd`; Sidak,
+  Bonferroni, and Holm-Sidak are pinned against statsmodels' `multipletests`
+  applied to the POOLED-ERROR raw p-values (our engine forms each pairwise t from
+  the ANOVA error term `MSW`, the standard post-hoc construction, so the
+  reference reproduces that raw p before adjusting). Pins:
+  `posthoc_sidak_ac_p`, `posthoc_bonferroni_ac_p`, `posthoc_holm_sidak_ac_p`.
+  "None" is a UI-only choice (it drops the comparisons) so it needs no reference.
+- **Post-hoc factor** (A / B / none) on the two-way ANOVA selects which factor's
+  marginal means get the Tukey comparison; it does not change the ANOVA table
+  (already pinned) or introduce a new statistic to validate, so it has no
+  additional pin.
+- **No options** are exposed for correlation (two-sided only) or linear
+  regression (fixed 95 percent CI), because the engine does not compute the
+  alternatives. Those stay validated by their existing default pins.
 
 ## Pending references (engine work not yet done)
 

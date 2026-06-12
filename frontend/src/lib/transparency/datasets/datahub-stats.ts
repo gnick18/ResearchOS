@@ -145,6 +145,54 @@ export const STAT_PINS: StatPin[] = [
       + "a bug. Both lead to the same decision at alpha = 0.05.",
   },
 
+  // --- selectable PARAMETER options (every option a user can pick is pinned) ---
+  // One-sided tails. scipy's alternative= matches our tail values one for one,
+  // so a one-sided p is validated directly, not assumed to be half the two-sided.
+  { id: "unpaired_welch_greater_p", metric: "Welch unpaired t-test, one-sided (greater) p", reference: 0.999952, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "p" },
+  { id: "unpaired_welch_less_p", metric: "Welch unpaired t-test, one-sided (less) p", reference: 4.76e-5, oracleId: "scipy", tol: 1e-5, warn: 5e-5, unit: "p" },
+  { id: "paired_greater_p", metric: "Paired t-test, one-sided (greater) p", reference: 0.9999, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "p" },
+  { id: "paired_less_p", metric: "Paired t-test, one-sided (less) p", reference: 9.98e-5, oracleId: "scipy", tol: 1e-5, warn: 5e-5, unit: "p" },
+  {
+    id: "mann_whitney_greater_p", metric: "Mann-Whitney U, one-sided (greater) p", reference: 0.997672, oracleId: "scipy",
+    tol: 1e-4, warn: 3e-3, unit: "p",
+    difference:
+      "scipy and our engine both use the asymptotic normal approximation, but the "
+      + "0.5 continuity correction is applied toward the mean, so on the far (upper) "
+      + "tail our p is about 0.002 smaller (0.9959 vs 0.9977). The near tail (less) "
+      + "matches to floating point. This is the documented continuity-correction "
+      + "direction, not a bug, and both lead to the same decision at alpha = 0.05.",
+  },
+  { id: "mann_whitney_less_p", metric: "Mann-Whitney U, one-sided (less) p", reference: 0.004057, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "p" },
+  {
+    id: "wilcoxon_greater_p", metric: "Wilcoxon signed-rank, one-sided (greater) p", reference: 1.0, oracleId: "scipy",
+    tol: 0.001, warn: 0.02, unit: "p",
+    difference:
+      "scipy uses the EXACT signed-rank distribution at n = 6 (p = 1.0 for the "
+      + "greater tail here); our engine uses the normal approximation with a "
+      + "continuity correction (via @stdlib), giving p ~ 0.99. The roughly 0.01 gap "
+      + "is the documented exact-vs-asymptotic difference for small samples, not a "
+      + "bug. Both lead to the same decision at alpha = 0.05.",
+  },
+  {
+    id: "wilcoxon_less_p", metric: "Wilcoxon signed-rank, one-sided (less) p", reference: 0.015625, oracleId: "scipy",
+    tol: 0.001, warn: 0.01, unit: "p",
+    difference:
+      "scipy uses the EXACT signed-rank distribution at n = 6 (p = 0.015625); our "
+      + "engine uses the normal approximation with a continuity correction, giving "
+      + "p ~ 0.017. The roughly 0.0014 gap is the documented exact-vs-asymptotic "
+      + "difference for small samples (the same one noted on the two-sided pin), "
+      + "not a bug.",
+  },
+
+  // One-way ANOVA post-hoc families other than Tukey. Our engine forms each
+  // pairwise t from the pooled ANOVA error term (the standard post-hoc
+  // construction) then applies the family adjustment; the statsmodels reference
+  // adjusts the SAME pooled-error raw p with multipletests, so it matches our
+  // method. The B vs C pair is the smallest p; A vs C is the moderate one.
+  { id: "posthoc_sidak_ac_p", metric: "One-way ANOVA, Sidak A vs C adjusted p", reference: 0.002627, oracleId: "statsmodels", tol: 5e-5, warn: 5e-4, unit: "p" },
+  { id: "posthoc_bonferroni_ac_p", metric: "One-way ANOVA, Bonferroni A vs C adjusted p", reference: 0.002629, oracleId: "statsmodels", tol: 5e-5, warn: 5e-4, unit: "p" },
+  { id: "posthoc_holm_sidak_ac_p", metric: "One-way ANOVA, Holm-Sidak A vs C adjusted p", reference: 0.000876, oracleId: "statsmodels", tol: 5e-5, warn: 5e-4, unit: "p" },
+
   // --- one-way ANOVA (scipy.stats.f_oneway) + Tukey (statsmodels) ---
   { id: "oneway_f", metric: "One-way ANOVA, F", reference: 57.554971, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "F" },
   { id: "oneway_p", metric: "One-way ANOVA, p", reference: 9.19e-8, oracleId: "scipy", tol: 1e-8, warn: 5e-8, unit: "p" },

@@ -237,6 +237,86 @@ def ref_correlation_regression():
     return out
 
 
+def ref_param_options():
+    """Reference values for the user-selectable analysis PARAMETERS.
+
+    The Data Hub results panel lets a researcher change how a test runs (a
+    one-sided tail, the unpaired-t variance assumption, the ANOVA post-hoc
+    family). The standing rule is that every option a user can select is
+    validated against scipy / statsmodels, so each combination is generated
+    here and pinned in datahub-stats.ts.
+    """
+    out = {}
+
+    # --- one-sided tails. scipy's `alternative` matches our tail values. The
+    # "greater" tail tests whether the first sample's mean exceeds the second.
+    # For these data Group A < Group B, so "less" is the small-p direction.
+    tt_g = st.ttest_ind(GROUP_A, GROUP_B, equal_var=False, alternative="greater")
+    tt_l = st.ttest_ind(GROUP_A, GROUP_B, equal_var=False, alternative="less")
+    out["unpaired_welch_greater_p"] = r4(tt_g.pvalue)
+    out["unpaired_welch_less_p"] = r4(tt_l.pvalue)
+
+    pt_g = st.ttest_rel(PAIR_X, PAIR_Y, alternative="greater")
+    pt_l = st.ttest_rel(PAIR_X, PAIR_Y, alternative="less")
+    out["paired_greater_p"] = r4(pt_g.pvalue)
+    out["paired_less_p"] = r4(pt_l.pvalue)
+
+    mw_g = st.mannwhitneyu(GROUP_A, GROUP_B, alternative="greater",
+                           method="asymptotic", use_continuity=True)
+    mw_l = st.mannwhitneyu(GROUP_A, GROUP_B, alternative="less",
+                           method="asymptotic", use_continuity=True)
+    out["mann_whitney_greater_p"] = r4(mw_g.pvalue)
+    out["mann_whitney_less_p"] = r4(mw_l.pvalue)
+
+    wx_g = st.wilcoxon(PAIR_X, PAIR_Y, alternative="greater")
+    wx_l = st.wilcoxon(PAIR_X, PAIR_Y, alternative="less")
+    out["wilcoxon_greater_p"] = r4(wx_g.pvalue)
+    out["wilcoxon_less_p"] = r4(wx_l.pvalue)
+
+    # --- one-way ANOVA post-hoc families other than Tukey. Our engine forms each
+    # pairwise t-statistic from the POOLED ANOVA error term, not an independent
+    # two-sample t-test, which is the standard ANOVA post-hoc construction:
+    #   SE = sqrt(MSW * (1/na + 1/nb)), t = (mean_a - mean_b) / SE, df = dfWithin
+    # then it adjusts the resulting two-sided p-values with the chosen family.
+    # The faithful reference therefore reproduces that pooled-error raw p in
+    # scipy, then feeds it to statsmodels' multipletests for the SAME families,
+    # so the oracle matches our engine's method rather than a different test.
+    from itertools import combinations
+    from statsmodels.stats.multitest import multipletests
+    groups = {"A": GROUP_A, "B": GROUP_B, "C": GROUP_C}
+    names = list(groups)
+    k = len(names)
+    grand = [v for n in names for v in groups[n]]
+    N = len(grand)
+    grand_mean = sum(grand) / N
+    means = {n: (sum(groups[n]) / len(groups[n])) for n in names}
+    ss_within = sum((v - means[n]) ** 2 for n in names for v in groups[n])
+    df_within = N - k
+    ms_within = ss_within / df_within
+    pairs = list(combinations(names, 2))
+    raw = []
+    for a, b in pairs:
+        na, nb = len(groups[a]), len(groups[b])
+        se = (ms_within * (1 / na + 1 / nb)) ** 0.5
+        t = (means[a] - means[b]) / se
+        # Two-sided p from the Student t with the pooled within df.
+        raw.append(2 * st.t.sf(abs(t), df_within))
+
+    for method, key in [
+        ("sidak", "sidak"),
+        ("bonferroni", "bonferroni"),
+        ("holm-sidak", "holm_sidak"),
+    ]:
+        _reject, adj, _a, _b = multipletests(raw, alpha=0.05, method=method)
+        padj = {}
+        for (a, b), pa in zip(pairs, adj):
+            pkey = "__".join(sorted([a, b]))
+            padj[pkey] = r4(pa)
+        out[f"posthoc_{key}"] = padj
+
+    return out
+
+
 def ref_assumptions():
     out = {}
     sw = st.shapiro(GROUP_A + GROUP_B + GROUP_C)
@@ -297,6 +377,11 @@ PROVENANCE = {
         "wilcoxon": "scipy.stats.wilcoxon(PAIR_X, PAIR_Y)",
         "oneway": "scipy.stats.f_oneway(A, B, C)",
         "tukey": "statsmodels.stats.multicomp.pairwise_tukeyhsd",
+        "param_options.unpaired_welch_{greater,less}_p": "scipy.stats.ttest_ind(A, B, equal_var=False, alternative=...)",
+        "param_options.paired_{greater,less}_p": "scipy.stats.ttest_rel(PAIR_X, PAIR_Y, alternative=...)",
+        "param_options.mann_whitney_{greater,less}_p": "scipy.stats.mannwhitneyu(A, B, alternative=..., method='asymptotic', use_continuity=True)",
+        "param_options.wilcoxon_{greater,less}_p": "scipy.stats.wilcoxon(PAIR_X, PAIR_Y, alternative=...)",
+        "param_options.posthoc_{sidak,bonferroni,holm_sidak}": "statsmodels.stats.multitest.multipletests(raw_pooled_t_pvalues, method=...)",
         "twoway": "statsmodels ols + anova_lm(typ=2), y ~ C(Dose)+C(Time)+C(Dose):C(Time)",
         "kruskal": "scipy.stats.kruskal(A, B, C)",
         "friedman": "scipy.stats.friedmanchisquare(P, Q, R)",
@@ -318,6 +403,7 @@ def main():
     refs.update({"ttests": ref_ttests()})
     refs.update({"nonparametric": ref_nonparametric_two_group()})
     refs.update({"anova_oneway": ref_anova_oneway()})
+    refs.update({"param_options": ref_param_options()})
     refs.update({"anova_twoway": ref_anova_twoway()})
     refs.update({"kruskal_friedman": ref_kruskal_friedman()})
     refs.update({"correlation_regression": ref_correlation_regression()})
