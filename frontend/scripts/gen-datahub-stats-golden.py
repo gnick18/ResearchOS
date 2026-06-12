@@ -53,7 +53,7 @@ run Prism." Everything this script prints comes from a tool actually run.
 
 Run:
     python3 -m venv /tmp/dh-venv
-    /tmp/dh-venv/bin/pip install scipy statsmodels lifelines numpy
+    /tmp/dh-venv/bin/pip install scipy statsmodels lifelines numpy pingouin scikit-learn
     /tmp/dh-venv/bin/python frontend/scripts/gen-datahub-stats-golden.py
 
 Re-run any time and confirm the printed JSON still matches the constants pinned
@@ -78,6 +78,8 @@ import pingouin as pg
 import lifelines
 from lifelines import KaplanMeierFitter
 from lifelines.statistics import logrank_test
+import sklearn
+from sklearn.metrics import roc_auc_score, roc_curve
 
 
 # ---------------------------------------------------------------------------
@@ -476,6 +478,50 @@ def ref_logistic_regression():
         "auc": r4(auc),
         "iterations": int(result.mle_retvals.get("iterations", 0))
         if isinstance(result.mle_retvals, dict) else 0,
+    }
+
+
+def ref_roc():
+    """Reference ROC curve + AUC (D4 / Theme 4) via scikit-learn.
+
+    Reuses the same binary-outcome dataset (LOGIT_X score, LOGIT_Y label) the
+    logistic-regression case pins. sklearn.metrics.roc_auc_score is the AUC and
+    roc_curve gives the swept (fpr, tpr) points. The Hanley-McNeil (1982) closed
+    form supplies the standard error and the 95% CI, and Youden's J (max tpr-fpr)
+    picks the optimal threshold. All deterministic on this fixed data, so these
+    pin tight. The engine sweeps thresholds DESCENDING and reports the trapezoidal
+    AUC, which equals roc_auc_score exactly.
+    """
+    score = np.asarray(LOGIT_X, float)
+    y = np.asarray(LOGIT_Y, int)
+    auc = float(roc_auc_score(y, score))
+    fpr, tpr, thresholds = roc_curve(y, score)
+    n_pos = int((y == 1).sum())
+    n_neg = int((y == 0).sum())
+    q1 = auc / (2 - auc)
+    q2 = 2 * auc ** 2 / (1 + auc)
+    se = float(np.sqrt(
+        (auc * (1 - auc)
+         + (n_pos - 1) * (q1 - auc ** 2)
+         + (n_neg - 1) * (q2 - auc ** 2)) / (n_pos * n_neg)
+    ))
+    z = 1.959963984540054
+    ci_lo = float(max(0.0, auc - z * se))
+    ci_hi = float(min(1.0, auc + z * se))
+    # Youden's J over the curve points sklearn returns (it prepends an infinite
+    # threshold for the (0,0) origin; np.argmax skips it since J there is 0).
+    j = tpr - fpr
+    k = int(np.argmax(j))
+    return {
+        "auc": r4(auc),
+        "auc_se": r4(se),
+        "auc_ci_low": r4(ci_lo),
+        "auc_ci_high": r4(ci_hi),
+        "youden_threshold": r4(float(thresholds[k])),
+        "youden_sensitivity": r4(float(tpr[k])),
+        "youden_specificity": r4(float(1 - fpr[k])),
+        "n_positive": n_pos,
+        "n_negative": n_neg,
     }
 
 
@@ -1197,6 +1243,7 @@ def main():
     refs.update({"mixed_model": ref_mixed_model()})
     refs.update({"correlation_regression": ref_correlation_regression()})
     refs.update({"logistic_regression": ref_logistic_regression()})
+    refs.update({"roc": ref_roc()})
     refs.update({"multiple_regression": ref_multiple_regression()})
     refs.update({"dose_response": ref_dose_response()})
     refs.update({"model_comparison": ref_model_comparison()})
@@ -1255,7 +1302,8 @@ def main():
     print("=" * 72)
     print("DATA HUB STATISTICS GOLDEN VALUES")
     print(f"  scipy {scipy.__version__} | statsmodels {statsmodels.__version__} "
-          f"| lifelines {lifelines.__version__} | numpy {np.__version__}")
+          f"| lifelines {lifelines.__version__} | scikit-learn {sklearn.__version__} "
+          f"| numpy {np.__version__}")
     print("=" * 72)
     print(json.dumps(bundle, indent=2, sort_keys=False))
 

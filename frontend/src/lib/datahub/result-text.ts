@@ -235,6 +235,31 @@ export function resultToText(result: NormalizedResult): string {
       );
       break;
     }
+    case "rocCurve": {
+      lines.push(
+        row("AUC", n(result.auc, 6)),
+        row("AUC standard error", n(result.aucStandardError, 6)),
+        row("95% CI of AUC", ci([result.aucCiLow, result.aucCiHigh])),
+        row("Optimal threshold (Youden's J)", n(result.youdenThreshold, 6)),
+        row("Sensitivity at threshold", n(result.youdenSensitivity, 6)),
+        row("Specificity at threshold", n(result.youdenSpecificity, 6)),
+        row("Positives (Y = 1)", n(result.nPositive, 0)),
+        row("Negatives (Y = 0)", n(result.nNegative, 0)),
+        row("Rows (n)", n(result.n, 0)),
+        "",
+        row("Threshold", "FPR (1 - specificity)", "TPR (sensitivity)"),
+      );
+      for (const p of result.points) {
+        lines.push(
+          row(
+            Number.isFinite(p.threshold) ? n(p.threshold, 6) : "+inf",
+            n(p.fpr, 6),
+            n(p.tpr, 6),
+          ),
+        );
+      }
+      break;
+    }
     case "multipleRegression": {
       lines.push(row("Term", "Estimate", "SE", "t", "p", "95% CI"));
       for (const c of result.coefficients) {

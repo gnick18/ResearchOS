@@ -421,6 +421,23 @@ export const STAT_PINS: StatPin[] = [
   // from scipy.stats.rankdata; it equals sklearn.metrics.roc_auc_score exactly.
   { id: "lr_auc", metric: "Logistic regression, ROC AUC of fitted probabilities", reference: 0.8438, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "AUC" },
 
+  // --- ROC curve + AUC (Theme 4) vs scikit-learn ------------------------------
+  // The SAME binary-outcome dataset (LOGIT_X score, LOGIT_Y label) the logistic
+  // case pins, scored directly as a classifier. The engine sweeps every threshold
+  // to the ROC curve and reports the trapezoidal AUC, which equals
+  // sklearn.metrics.roc_auc_score exactly (a deterministic rank-based quantity, so
+  // it pins tight). The standard error and 95% CI follow the Hanley-McNeil (1982)
+  // closed form, the optimal cut point is Youden's J (max sensitivity +
+  // specificity - 1). Reference values from scikit-learn 1.9.0 roc_auc_score /
+  // roc_curve, the SE / CI hand-computed from the closed form in the generator.
+  { id: "roc_auc", metric: "ROC curve, area under the curve (AUC)", reference: 0.84375, oracleId: "sklearn", tol: 1e-4, warn: 5e-4, unit: "AUC" },
+  { id: "roc_auc_se", metric: "ROC curve, AUC standard error (Hanley-McNeil)", reference: 0.088396, oracleId: "sklearn", tol: 1e-4, warn: 5e-4, unit: "SE" },
+  { id: "roc_auc_ci_low", metric: "ROC curve, AUC 95% CI lower bound", reference: 0.670497, oracleId: "sklearn", tol: 1e-4, warn: 5e-4, unit: "AUC" },
+  { id: "roc_auc_ci_high", metric: "ROC curve, AUC 95% CI upper bound (clamped at 1)", reference: 1.0, oracleId: "sklearn", tol: 1e-4, warn: 5e-4, unit: "AUC" },
+  { id: "roc_youden_threshold", metric: "ROC curve, optimal threshold by Youden's J", reference: 4.5, oracleId: "sklearn", tol: 1e-4, warn: 5e-4, unit: "score" },
+  { id: "roc_youden_sensitivity", metric: "ROC curve, sensitivity at the Youden cut point", reference: 0.833333, oracleId: "sklearn", tol: 1e-4, warn: 5e-4, unit: "TPR" },
+  { id: "roc_youden_specificity", metric: "ROC curve, specificity at the Youden cut point", reference: 0.75, oracleId: "sklearn", tol: 1e-4, warn: 5e-4, unit: "TNR" },
+
   // --- multiple (OLS) linear regression (D5) vs statsmodels.api.OLS -----------
   // Closed-form ordinary least squares y = b0 + b1*x1 + b2*x2, so these pin tight
   // (the same 1e-4 band as the simple linreg pins, not the wide curve-fit bands).

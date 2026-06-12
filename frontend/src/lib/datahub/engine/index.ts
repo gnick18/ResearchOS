@@ -72,6 +72,13 @@ export {
   type GrubbsResult,
 } from "./grubbs";
 
+// ROC curve and AUC (binary outcome vs continuous score).
+export {
+  rocAuc,
+  type RocPoint,
+  type RocAucResult,
+} from "./roc";
+
 // Survival analysis (Kaplan-Meier + log-rank).
 export {
   kaplanMeier,

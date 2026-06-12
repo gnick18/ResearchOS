@@ -41,10 +41,16 @@ describe("Data Hub statistics validated against scipy / statsmodels / lifelines"
     }
   });
 
-  it("only checks against scipy, statsmodels, pingouin, or lifelines", () => {
+  it("only checks against scipy, statsmodels, pingouin, lifelines, or sklearn", () => {
     expect(domain).toBeDefined();
     if (!domain) return;
-    const allowed = new Set(["scipy", "statsmodels", "pingouin", "lifelines"]);
+    const allowed = new Set([
+      "scipy",
+      "statsmodels",
+      "pingouin",
+      "lifelines",
+      "sklearn",
+    ]);
     for (const c of domain.cases) {
       for (const cmp of c.comparisons) {
         expect(allowed.has(cmp.oracleId), `unexpected oracle ${cmp.oracleId}`).toBe(true);

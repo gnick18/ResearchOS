@@ -53,6 +53,9 @@ import {
   shapiroWilk,
   grubbsTest,
   type GrubbsResult,
+  rocAuc,
+  type RocAucResult,
+  type RocPoint,
   bootstrapDiffCI,
   meanDifference,
   fitModel,
@@ -125,7 +128,8 @@ export type AnalysisType =
   | "kaplanMeier"
   | "coxRegression"
   | "multipleRegression"
-  | "grubbsOutlier";
+  | "grubbsOutlier"
+  | "rocCurve";
 
 /** The analysis types that read a Survival table (time + event + group). */
 export const SURVIVAL_ANALYSIS_TYPES: AnalysisType[] = [
@@ -143,6 +147,7 @@ export const XY_ANALYSIS_TYPES: AnalysisType[] = [
   "correlationSpearman",
   "linearRegression",
   "logisticRegression",
+  "rocCurve",
   "doseResponse",
   "modelComparison",
   "globalFit",
@@ -419,6 +424,41 @@ export interface NormalizedLogisticRegression {
   /** Area under the ROC curve of the fitted probabilities. */
   auc: number;
   iterations: number;
+}
+
+/**
+ * A normalized ROC curve + AUC result. Reads a continuous score X and a binary
+ * outcome Y (0 = negative class, 1 = positive class) off an XY table, the same
+ * shape simple logistic regression uses. Sweeps every score threshold to trace
+ * the ROC curve (false positive rate vs true positive rate), reports the area
+ * under it (AUC, equal to the probability a random positive outscores a random
+ * negative) with its Hanley-McNeil standard error and 95% CI, and the optimal
+ * cut point by Youden's J with its sensitivity and specificity. The full curve
+ * is carried in `points` so the figure and the code snippet redraw it exactly.
+ */
+export interface NormalizedRocAuc {
+  kind: "rocCurve";
+  type: "rocCurve";
+  /** The score (predictor) column name. */
+  xName: string;
+  /** The binary outcome column name. */
+  yName: string;
+  /** The kept score values (finite X, binary Y). */
+  x: number[];
+  /** The kept outcome values, each 0 or 1. */
+  y: number[];
+  n: number;
+  nPositive: number;
+  nNegative: number;
+  auc: number;
+  aucStandardError: number;
+  aucCiLow: number;
+  aucCiHigh: number;
+  youdenThreshold: number;
+  youdenSensitivity: number;
+  youdenSpecificity: number;
+  /** The full ROC curve, from (0,0) to (1,1), one point per threshold. */
+  points: RocPoint[];
 }
 
 /**
@@ -767,6 +807,7 @@ export type NormalizedResult =
   | NormalizedCorrelation
   | NormalizedRegression
   | NormalizedLogisticRegression
+  | NormalizedRocAuc
   | NormalizedMultipleRegression
   | NormalizedDoseResponse
   | NormalizedModelComparison
@@ -1311,6 +1352,35 @@ function runXYAnalysis(
     };
   }
 
+  if (type === "rocCurve") {
+    // ROC reads the SAME XY shape as logistic regression (continuous score X,
+    // binary outcome Y). The engine drops any row whose Y is not 0/1 or whose X
+    // is not finite, so a stray value cannot bend the curve.
+    const r = rocAuc(x, y);
+    if (!r.ok) return { ok: false, error: r.error };
+    const res = r as RocAucResult & { ok: true };
+    return {
+      ok: true,
+      kind: "rocCurve",
+      type,
+      xName,
+      yName,
+      x,
+      y,
+      n: res.n,
+      nPositive: res.nPositive,
+      nNegative: res.nNegative,
+      auc: res.auc,
+      aucStandardError: res.aucStandardError,
+      aucCiLow: res.aucCiLow,
+      aucCiHigh: res.aucCiHigh,
+      youdenThreshold: res.youdenThreshold,
+      youdenSensitivity: res.youdenSensitivity,
+      youdenSpecificity: res.youdenSpecificity,
+      points: res.points,
+    };
+  }
+
   const r =
     type === "correlationSpearman" ? spearman(x, y) : pearson(x, y);
   if (!r.ok) return { ok: false, error: r.error };
@@ -1787,6 +1857,7 @@ export function runAnalysis(
     type === "correlationSpearman" ||
     type === "linearRegression" ||
     type === "logisticRegression" ||
+    type === "rocCurve" ||
     type === "doseResponse" ||
     type === "modelComparison" ||
     type === "globalFit"
