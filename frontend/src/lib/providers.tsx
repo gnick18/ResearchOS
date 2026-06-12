@@ -763,29 +763,6 @@ function AppContent({ children }: { children: ReactNode }) {
     );
   }
 
-  // Branded launch-into-app splash, once per day (Grant 2026-06-12: the splash
-  // IS the pretty loading screen that launches users into the app on their first
-  // session each day). The user is connected with an account selected, so this
-  // is the moment right before the workbench. It plays over the initial app data
-  // load, then the app renders underneath. This replaced the old per-login
-  // SuccessTransition (retired 2026-06-12, the splash is the launch moment now).
-  // Skipped in fixture modes (returned above anyway).
-  if (!splashSeen && !isDemoOrWikiCapture()) {
-    return (
-      <Splash
-        onComplete={() => {
-          try {
-            localStorage.setItem(SPLASH_DAY_KEY, localDayStamp());
-          } catch {
-            // storage unavailable (private mode edge); the splash may replay on
-            // the next load, harmless.
-          }
-          setSplashSeen(true);
-        }}
-      />
-    );
-  }
-
   // Onboarding wrapper. After the V3 rip (V3 rip Phase B 2026-05-22),
   // OnboardingProvider / OnboardingOrchestrator / useOnboarding are gone:
   // v4 is the only walkthrough and it mounts via V4MountForUser.
@@ -873,6 +850,26 @@ function AppContent({ children }: { children: ReactNode }) {
             genuine APP_VERSION upgrade; new accounts silently record the
             version. */}
         <WhatsNewManager username={currentUser} />
+        {/* Branded launch-into-app splash, once per day (Grant 2026-06-12: the
+            splash IS the pretty loading screen that launches users into the app
+            on their first session each day). Rendered as a fixed overlay ON TOP
+            of the real workbench (mounted underneath), so its rainbow exit flood
+            recedes to reveal the actual workspace, not a second BeakerBot. It
+            also covers the initial app data load. Replaced the old per-login
+            SuccessTransition. Skipped in fixture modes (returned above anyway). */}
+        {!splashSeen && !isDemoOrWikiCapture() && (
+          <Splash
+            onComplete={() => {
+              try {
+                localStorage.setItem(SPLASH_DAY_KEY, localDayStamp());
+              } catch {
+                // storage unavailable (private mode edge); the splash may replay
+                // on the next load, harmless.
+              }
+              setSplashSeen(true);
+            }}
+          />
+        )}
       </>
     </QueryClientProvider>
   );

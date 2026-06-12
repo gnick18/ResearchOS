@@ -205,25 +205,45 @@ export function Splash({ onComplete }: SplashProps) {
       requestAnimationFrame(tip);
     }, fillStart + fillDur);
 
-    // Exit rainbow flood after the tip + wordmark settle.
+    // Exit. The splash renders ON TOP of the real workbench, so the exit clears
+    // its own stage to transparent and lets the rainbow flood recede to reveal
+    // the live app underneath (not the BeakerBot again).
     const exitAt = 3100;
+    const centerEl = container.querySelector<HTMLElement>("#splash-center");
+    const dotsEl = container.querySelector<HTMLElement>("#splash-dots");
+    const skipEl = container.querySelector<HTMLElement>("#splash-skip");
+
+    // 1. Hide the counter and raise the rainbow flood to cover the whole stage.
     T(() => {
       pctEl.style.opacity = "0";
-      revealEl.style.transition = "opacity 550ms ease 200ms";
-      revealEl.style.opacity = "1";
       floodEl.style.transition = "height 950ms cubic-bezier(.72,0,.2,1)";
       floodEl.style.height = "135%";
     }, exitAt);
 
+    // 2. Once the flood has covered everything, dissolve the splash's own stage
+    //    (its background, the BeakerBot column, the dot grid, the Skip control)
+    //    so only the rainbow remains over the live workbench.
+    const coveredAt = exitAt + 900;
     T(() => {
-      floodEl.style.transition = "opacity 450ms ease";
-      floodEl.style.opacity = "0";
-    }, exitAt + 1050);
+      container.style.transition = "background 350ms ease";
+      container.style.background = "transparent";
+      [centerEl, dotsEl, skipEl].forEach((el) => {
+        if (!el) return;
+        el.style.transition = "opacity 250ms ease";
+        el.style.opacity = "0";
+      });
+    }, coveredAt);
 
-    // Fire onComplete after flood has had time to fade (exitAt + flood + fade).
+    // 3. Recede the flood to reveal the workbench underneath.
+    T(() => {
+      floodEl.style.transition = "opacity 500ms ease";
+      floodEl.style.opacity = "0";
+    }, coveredAt + 200);
+
+    // 4. Unmount the splash overlay once the flood has fully faded.
     T(() => {
       finish();
-    }, exitAt + 1050 + 500);
+    }, coveredAt + 200 + 500);
 
     return () => {
       clearAll();
@@ -309,6 +329,7 @@ export function Splash({ onComplete }: SplashProps) {
       >
         {/* Dot-grid overlay */}
         <div
+          id="splash-dots"
           className="absolute inset-0 pointer-events-none"
           style={{
             opacity: 0.5,
@@ -320,6 +341,7 @@ export function Splash({ onComplete }: SplashProps) {
 
         {/* Skip affordance (also fires on Escape). Quiet, corner-placed. */}
         <button
+          id="splash-skip"
           type="button"
           onClick={finish}
           className="absolute top-5 right-6 text-sm font-medium text-[#6b7280] hover:text-[#1283c9] transition-colors"
@@ -330,6 +352,7 @@ export function Splash({ onComplete }: SplashProps) {
 
         {/* Center column: bot + wordmark + tagline */}
         <div
+          id="splash-center"
           className="relative flex flex-col items-center"
           style={{ zIndex: 2 }}
         >
