@@ -31,6 +31,7 @@ import { useFileRenamePopup } from "@/components/FileRenamePopup";
 import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
 import ReceivedFromBadge from "@/components/ReceivedFromBadge";
 import Tooltip from "@/components/Tooltip";
+import { Icon, type IconName } from "@/components/icons";
 import type {
   Method,
   PCRProtocol,
@@ -125,6 +126,85 @@ function TemplateLibraryIcon({ className }: { className?: string }) {
   );
 }
 
+// ── Lineage forest ───────────────────────────────────────────────────────────
+// A method with `parent_method_id` is a fork (variant) of the method it points
+// at. The explorer nests variants under their base method, lineage wins over
+// folders, so a variant filed in a different folder still renders under its
+// base. Ids are unique only within an ownership bucket (own methods, or one
+// owner's shared methods), so a forest is always built from a single bucket.
+
+type MethodNode = { method: Method; children: MethodNode[]; depth: number };
+
+/** Effective parent id for `m` within `byId`, or null when it is a root.
+ *  Returns null for a missing / self / out-of-bucket parent, and breaks any
+ *  parent cycle (a malformed parent_method_id loop) by treating the method as
+ *  a root rather than looping forever. */
+function resolveParentId(m: Method, byId: Map<number, Method>): number | null {
+  const pid = m.parent_method_id;
+  if (pid == null || pid === m.id || !byId.has(pid)) return null;
+  const seen = new Set<number>([m.id]);
+  let cur: number | null = pid;
+  while (cur != null) {
+    if (seen.has(cur)) return null; // cycle — break here, treat m as a root
+    seen.add(cur);
+    const parent = byId.get(cur);
+    if (!parent) break;
+    const next = parent.parent_method_id;
+    cur = next != null && byId.has(next) ? next : null;
+  }
+  return pid;
+}
+
+/** Build the lineage forest for one ownership bucket. Roots are base methods
+ *  (no in-bucket parent); each node's children are its forks, sorted by name,
+ *  with a `depth` stamped for indentation. */
+function buildMethodForest(methods: Method[]): MethodNode[] {
+  const byId = new Map<number, Method>();
+  methods.forEach((m) => byId.set(m.id, m));
+  const nodeById = new Map<number, MethodNode>();
+  methods.forEach((m) => nodeById.set(m.id, { method: m, children: [], depth: 0 }));
+  const roots: MethodNode[] = [];
+  methods.forEach((m) => {
+    const node = nodeById.get(m.id)!;
+    const pid = resolveParentId(m, byId);
+    if (pid != null) {
+      nodeById.get(pid)!.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+  const stamp = (node: MethodNode, depth: number) => {
+    node.depth = depth;
+    node.children.sort((a, b) => a.method.name.localeCompare(b.method.name));
+    node.children.forEach((c) => stamp(c, depth + 1));
+  };
+  roots.sort((a, b) => a.method.name.localeCompare(b.method.name));
+  roots.forEach((r) => stamp(r, 0));
+  return roots;
+}
+
+/** Flatten a forest into visible rows. A family (a root and its descendants)
+ *  renders when ANY member matches `matches`, so a variant matching the active
+ *  folder pulls its out-of-folder base into view (lineage wins). Collapsed
+ *  bases hide their descendants. */
+function flattenForest(
+  roots: MethodNode[],
+  matches: (m: Method) => boolean,
+  isExpanded: (m: Method) => boolean,
+): MethodNode[] {
+  const out: MethodNode[] = [];
+  const familyMatches = (node: MethodNode): boolean =>
+    matches(node.method) || node.children.some(familyMatches);
+  const walk = (node: MethodNode) => {
+    out.push(node);
+    if (isExpanded(node.method)) node.children.forEach(walk);
+  };
+  roots.forEach((r) => {
+    if (familyMatches(r)) walk(r);
+  });
+  return out;
+}
+
 async function pickUniqueImageName(dirPath: string, desired: string): Promise<string> {
   const dot = desired.lastIndexOf(".");
   const stem = dot > 0 ? desired.slice(0, dot) : desired;
@@ -172,6 +252,15 @@ export default function MethodsPage() {
   // Sticks at the top of the page so the user can scan both sections
   // at once.
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Explorer navigation. `activeFolder` scopes the right pane: "all" (every
+  // own method), "shared" (the Shared with Lab view, grouped by owner), or a
+  // specific folder name. `activeType` is an optional method-type chip filter.
+  // `collapsedBases` tracks which base methods are collapsed in the lineage
+  // tree (default expanded, so a freshly created fork is visible right away).
+  const [activeFolder, setActiveFolder] = useState<string>("all");
+  const [activeType, setActiveType] = useState<string | null>(null);
+  const [collapsedBases, setCollapsedBases] = useState<Set<string>>(new Set());
 
   // Deep-link: `/methods?createMethod=public` auto-opens the create
   // modal with the whole-lab sharing pre-selected.
@@ -304,10 +393,68 @@ export default function MethodsPage() {
   // owner's private taxonomy doesn't leak into the receiver's library
   // (the original bug). v1 sub-grouping; flat would have worked too, but
   // owner-grouping gives receivers a cue about who shared each method.
-  const sharedGrouped = useMemo(
-    () => groupSharedMethodsByOwner(filteredSharedMethods),
-    [filteredSharedMethods],
+  // Lineage forests for the explorer. Built from the UNFILTERED buckets so a
+  // base method is always present to host its forks; search / type / folder
+  // filtering happens at flatten time (a family shows when any member matches).
+  const ownForest = useMemo(() => buildMethodForest(ownMethods), [ownMethods]);
+  const ownById = useMemo(() => {
+    const map = new Map<number, Method>();
+    ownMethods.forEach((m) => map.set(m.id, m));
+    return map;
+  }, [ownMethods]);
+  const sharedForestByOwner = useMemo(() => {
+    const out: Record<string, { roots: MethodNode[]; byId: Map<number, Method> }> = {};
+    for (const [label, list] of Object.entries(groupSharedMethodsByOwner(sharedMethods))) {
+      const byId = new Map<number, Method>();
+      list.forEach((m) => byId.set(m.id, m));
+      out[label] = { roots: buildMethodForest(list), byId };
+    }
+    return out;
+  }, [sharedMethods]);
+
+  // Distinct method types present across the whole library, for the rail's
+  // type-filter chips. Stable display order from the type registry's labels.
+  const presentTypes = useMemo(() => {
+    const seen = new Set<string>();
+    methods.forEach((m) => {
+      if (m.method_type) seen.add(m.method_type);
+    });
+    return Array.from(seen).sort((a, b) =>
+      getMethodTypeMeta(a as Method["method_type"]).label.localeCompare(
+        getMethodTypeMeta(b as Method["method_type"]).label,
+      ),
+    );
+  }, [methods]);
+
+  // Row-level filter predicate (search + type). Folder scoping is layered on
+  // separately for the own bucket so it can be skipped for the shared view.
+  const rowMatches = useCallback(
+    (m: Method) => {
+      if (!matchesMethodSearch(m, searchQuery)) return false;
+      if (activeType && m.method_type !== activeType) return false;
+      return true;
+    },
+    [searchQuery, activeType],
   );
+  const ownFolderMatches = useCallback(
+    (m: Method) => {
+      if (activeFolder === "all" || activeFolder === "shared") return true;
+      return (m.folder_path || "Uncategorized") === activeFolder;
+    },
+    [activeFolder],
+  );
+  const isExpanded = useCallback(
+    (m: Method) => !collapsedBases.has(`${m.owner}:${m.id}`),
+    [collapsedBases],
+  );
+  const toggleCollapse = useCallback((key: string) => {
+    setCollapsedBases((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
 
   // Folder list for the "My Methods" section. Empty categories the
   // user created go alongside the folders inferred from their owned
@@ -756,39 +903,111 @@ export default function MethodsPage() {
     [queryClient],
   );
 
-  // Renders a single method card. Shared between the My Methods and
-  // Shared with Lab sections so the markup, badges, and click target
-  // stay identical. The only behavioral difference is `isDraggable`,
-  // which we disable for shared methods (per brief: "shared methods
-  // should not be draggable into the user's own categories").
-  const renderMethodCard = (m: Method, isDraggable: boolean) => (
-    <div
-      key={`${m.owner}-${m.id}`}
-      // Hover-as-context (BeakerSearch step 4). The composite owner:id key the
-      // Methods source resolves to the hovered method when the palette opens
-      // while nothing is selected. SELECTED (an open viewer) still outranks it.
-      data-beaker-target={`method:${m.owner}:${m.id}`}
-      draggable={isDraggable}
-      onDragStart={isDraggable ? () => handleDragStart(m) : undefined}
-      className={`bg-surface-raised border border-border rounded-lg p-4 hover:shadow-sm transition-shadow cursor-pointer ${
-        draggedMethod?.id === m.id && draggedMethod?.owner === m.owner ? "opacity-50" : ""
-      }`}
-      onClick={() => setViewingMethod(m)}
-    >
-      <div className="flex items-center gap-2">
-        {isDraggable ? (
-          <span className="text-foreground-muted cursor-grab active:cursor-grabbing">
-            ⋮⋮
+  // Renders a single dense method row in the explorer tree. `bucketById`
+  // resolves the parent within the same ownership bucket so a variant can
+  // show an "in <folder>" pin when its base lives in a different folder
+  // (lineage wins over folders). `isOwnBucket` keeps drag-to-folder enabled
+  // for the user's own methods only; shared methods are not draggable.
+  const renderMethodRow = (
+    node: MethodNode,
+    bucketById: Map<number, Method>,
+    isOwnBucket: boolean,
+  ) => {
+    const m = node.method;
+    const meta = getMethodTypeMeta(m.method_type);
+    const TypeIcon = meta.icon;
+    const rowKey = `${m.owner}:${m.id}`;
+    const hasChildren = node.children.length > 0;
+    const expanded = isExpanded(m);
+    const isVariant = node.depth > 0;
+    const parent =
+      m.parent_method_id != null ? bucketById.get(m.parent_method_id) : undefined;
+    const showFolderPin =
+      isVariant && parent && (m.folder_path || "") !== (parent.folder_path || "");
+    const isPublic = m.is_public || isWholeLabShared(m.shared_with);
+    return (
+      <div
+        key={rowKey}
+        // Hover-as-context (BeakerSearch step 4). The composite owner:id key the
+        // Methods source resolves to the hovered method when the palette opens
+        // while nothing is selected. SELECTED (an open viewer) still outranks it.
+        data-beaker-target={`method:${m.owner}:${m.id}`}
+        draggable={isOwnBucket}
+        onDragStart={isOwnBucket ? () => handleDragStart(m) : undefined}
+        onClick={() => setViewingMethod(m)}
+        style={{ paddingLeft: 12 + node.depth * 22 }}
+        className={`group flex items-center gap-2 pr-3 py-2 border-b border-border cursor-pointer hover:bg-surface-sunken transition-colors ${
+          draggedMethod?.id === m.id && draggedMethod?.owner === m.owner
+            ? "opacity-50"
+            : ""
+        } ${isVariant ? "bg-surface/40" : ""}`}
+      >
+        {/* Disclosure triangle (base with forks) or an alignment spacer. */}
+        {hasChildren ? (
+          <button
+            type="button"
+            aria-label={expanded ? "Collapse variants" : "Expand variants"}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleCollapse(rowKey);
+            }}
+            className="flex-none p-0.5 text-foreground-muted hover:text-foreground rounded"
+          >
+            <Icon
+              name="chevronRight"
+              className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-90" : ""}`}
+            />
+          </button>
+        ) : (
+          <span className="flex-none w-[18px]" aria-hidden />
+        )}
+        {/* Type glyph chip. */}
+        <span
+          className={`flex-none grid place-items-center h-7 w-7 rounded-md ${meta.color.bg} ${meta.color.text}`}
+        >
+          <TypeIcon className="h-4 w-4" />
+        </span>
+        <span className="text-body font-medium text-foreground truncate">
+          {m.name}
+        </span>
+        {m.tags && m.tags.length > 0 && (
+          <span className="hidden md:flex items-center gap-1.5 flex-none">
+            {m.tags.slice(0, 2).map((tag) => (
+              <span key={tag} className="text-meta text-foreground-muted">
+                #{tag}
+              </span>
+            ))}
           </span>
-        ) : null}
-        <h4 className="text-body font-medium text-foreground flex-1">{m.name}</h4>
-        {/* Retire-from-lab control for PUBLIC methods (delete-affordances
-            bot, 2026-05-29). Public methods are ownerless, so the unified
-            write gate hides every per-viewer Delete button — leaving a stale
-            public method (e.g. one authored by a since-deleted user) with no
-            way to remove it. This card-level control routes through the
-            confirm-gated handleRetirePublicMethod. stopPropagation keeps the
-            card's open-on-click from also firing. */}
+        )}
+        {showFolderPin && (
+          <span className="flex-none text-meta text-foreground-muted border border-dashed border-border rounded px-1.5 py-0.5">
+            in {m.folder_path}
+          </span>
+        )}
+        <span className="flex-1 min-w-[8px]" />
+        {hasChildren && (
+          <span className="flex-none text-meta font-bold text-purple-600 dark:text-purple-300 bg-purple-50 dark:bg-purple-500/15 rounded-full px-2 py-0.5">
+            {node.children.length} variant{node.children.length > 1 ? "s" : ""}
+          </span>
+        )}
+        {isPublic && (
+          <span className="flex-none hidden lg:inline text-meta px-2 py-0.5 bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-300 rounded-full">
+            Public
+          </span>
+        )}
+        {m.last_edited_at && (
+          <span className="flex-none hidden xl:inline text-meta text-foreground-muted tabular-nums">
+            {new Date(m.last_edited_at).toLocaleDateString(undefined, {
+              month: "short",
+              day: "numeric",
+            })}
+          </span>
+        )}
+        {/* Retire-from-lab control for PUBLIC methods (delete-affordances bot,
+            2026-05-29). Public methods are ownerless, so the unified write gate
+            hides every per-viewer Delete button — leaving a stale public method
+            with no way to remove it. Shown on row hover; stopPropagation keeps
+            the row's open-on-click from also firing. */}
         {m.is_public && (
           <Tooltip label="Retire from lab" placement="left">
             <button
@@ -797,64 +1016,21 @@ export default function MethodsPage() {
                 e.stopPropagation();
                 void handleRetirePublicMethod(m);
               }}
-              className="flex-shrink-0 p-1 text-foreground-muted hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10 rounded transition-colors"
+              className="flex-none p-1 text-foreground-muted hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/10 rounded transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
               aria-label={`Retire ${m.name} from the lab`}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="3 6 5 6 21 6" />
-                <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
-                <path d="M10 11v6M14 11v6" />
-                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-              </svg>
+              <Icon name="trash" className="h-4 w-4" />
             </button>
           </Tooltip>
         )}
       </div>
-      <p className="text-meta text-foreground-muted mt-1 truncate">{m.source_path}</p>
-      <div className="flex items-center gap-2 mt-2">
-        {(() => {
-          const meta = getMethodTypeMeta(m.method_type);
-          return (
-            <span
-              className={`text-meta px-2 py-0.5 rounded-full ${meta.color.bg} ${meta.color.text}`}
-            >
-              {meta.label}
-            </span>
-          );
-        })()}
-        {(m.is_public || isWholeLabShared(m.shared_with)) && (
-          <span className="text-meta px-2 py-0.5 bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-300 rounded-full">
-            Public
-          </span>
-        )}
-        {m.parent_method_id && (
-          <span className="text-meta px-2 py-0.5 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-300 rounded-full">
-            Forked
-          </span>
-        )}
-      </div>
-      {m.tags && m.tags.length > 0 && (
-        <div className="flex gap-1 mt-2 flex-wrap">
-          {m.tags.map((tag) => (
-            <span
-              key={tag}
-              className="text-meta px-1.5 py-0.5 bg-surface-sunken text-foreground-muted rounded"
-            >
-              #{tag}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+    );
+  };
 
   // True when the page should show the "no methods yet" empty state,
   // i.e. the user has nothing of their own AND nothing shared with
-  // them. We keep this distinct from `methods.length === 0` so the
-  // empty-state copy doesn't shout at someone who can already see
-  // a healthy Shared with Lab section.
-  const sharedSectionIsEmpty = filteredSharedMethods.length === 0;
-  const ownSectionIsEmpty = filteredOwnMethods.length === 0 && allFolders.length === 0;
+  // them. The explorer's per-view empty states (renderExplorerList) now
+  // cover the messaging that the old two-section layout did.
 
   // BeakerSearch step 3, register the Method Library palette source while the
   // page is mounted. Reads the already-fetched state above (no second fetch) and
@@ -883,6 +1059,124 @@ export default function MethodsPage() {
     handleTemplateUsed,
     currentUser,
   });
+
+  // ── Explorer render helpers ────────────────────────────────────────────────
+  const crumbLabel =
+    activeFolder === "all"
+      ? "All methods"
+      : activeFolder === "shared"
+        ? "Shared with lab"
+        : activeFolder;
+
+  // Count of methods visible in the active view (whole families, ignoring
+  // collapse), for the list-bar summary.
+  const shownCount =
+    activeFolder === "shared"
+      ? Object.values(sharedForestByOwner).reduce(
+          (n, { roots }) => n + flattenForest(roots, rowMatches, () => true).length,
+          0,
+        )
+      : flattenForest(
+          ownForest,
+          (m) => rowMatches(m) && ownFolderMatches(m),
+          () => true,
+        ).length;
+
+  const renderRailItem = (
+    folder: string,
+    iconName: IconName,
+    label: string,
+    count: number,
+    opts?: { dropTarget?: boolean },
+  ) => {
+    const active = activeFolder === folder;
+    return (
+      <button
+        key={folder}
+        type="button"
+        onClick={() => setActiveFolder(folder)}
+        onDragOver={opts?.dropTarget ? (e) => handleDragOver(e, folder) : undefined}
+        onDragLeave={opts?.dropTarget ? handleDragLeave : undefined}
+        onDrop={opts?.dropTarget ? () => handleDrop(folder) : undefined}
+        className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-body text-left transition-colors ${
+          active
+            ? "bg-brand-action text-white font-medium"
+            : "text-foreground hover:bg-surface-raised"
+        } ${
+          opts?.dropTarget && dropTargetFolder === folder && !active
+            ? "ring-2 ring-brand-action"
+            : ""
+        }`}
+      >
+        <Icon name={iconName} className="h-4 w-4 flex-none opacity-85" />
+        <span className="flex-1 truncate">{label}</span>
+        <span
+          className={`text-meta tabular-nums ${active ? "text-white/80" : "text-foreground-muted"}`}
+        >
+          {count}
+        </span>
+      </button>
+    );
+  };
+
+  const renderEmptyState = (msg: string, showCreate = false) => (
+    <div className="p-12 text-center">
+      <p className="text-body text-foreground-muted mb-3">{msg}</p>
+      {showCreate && (
+        <button
+          onClick={() => setCreating(true)}
+          className="px-4 py-2 text-body bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          + New Method
+        </button>
+      )}
+    </div>
+  );
+
+  const renderExplorerList = () => {
+    if (activeFolder === "shared") {
+      const blocks = Object.keys(sharedForestByOwner)
+        .sort((a, b) => a.localeCompare(b))
+        .map((label) => {
+          const { roots, byId } = sharedForestByOwner[label];
+          const flat = flattenForest(roots, rowMatches, isExpanded);
+          if (!flat.length) return null;
+          return (
+            <div key={`shared-${label}`}>
+              <div className="px-4 py-1.5 bg-surface-sunken border-b border-border text-meta font-bold uppercase tracking-wider text-foreground-muted">
+                {label}
+              </div>
+              {flat.map((node) => renderMethodRow(node, byId, false))}
+            </div>
+          );
+        })
+        .filter(Boolean);
+      if (!blocks.length) {
+        return renderEmptyState(
+          searchQuery
+            ? "No shared methods match this search."
+            : "No methods shared with you yet.",
+        );
+      }
+      return <>{blocks}</>;
+    }
+    const flat = flattenForest(
+      ownForest,
+      (m) => rowMatches(m) && ownFolderMatches(m),
+      isExpanded,
+    );
+    if (!flat.length) {
+      return renderEmptyState(
+        searchQuery
+          ? "No methods of yours match this search."
+          : activeFolder === "all"
+            ? "You haven't created any methods yet."
+            : "No methods in this category yet.",
+        !searchQuery,
+      );
+    }
+    return <>{flat.map((node) => renderMethodRow(node, ownById, true))}</>;
+  };
 
   return (
     <AppShell>
@@ -939,172 +1233,112 @@ export default function MethodsPage() {
           </div>
         </div>
 
-        {/* ── Section 1: My Methods ─────────────────────────────────── */}
-        {/* The user's own private methods grouped by their personal
-            categories. + New Method and + New Category live in the
-            page header above and only ever populate THIS section. */}
-        <section
-          data-tour-target="methods-section-my"
-          className="mb-10"
-        >
-          <div className="flex items-baseline justify-between mb-3">
-            <h3 className="text-heading font-semibold text-foreground">My Methods</h3>
-            <p className="text-meta text-foreground-muted">
-              Methods you created, in your own categories.
+        {/* ── Explorer: folder rail + dense lineage tree ───────────────── */}
+        {/* The card grid was retired (it duplicated the click-through popup
+            and did not scale past a handful of methods). The rail scopes the
+            right pane to All methods, Shared with lab, or a single folder;
+            the right pane is a dense tree where forked variants nest under the
+            base method they came from. Lineage wins over folders, so a variant
+            filed elsewhere still renders under its base with an "in <folder>"
+            pin. */}
+        <div className="flex border border-border rounded-xl overflow-hidden bg-surface-raised min-h-[480px]">
+          {/* Rail */}
+          <aside className="w-56 flex-none border-r border-border bg-surface-sunken p-3 overflow-y-auto">
+            <p className="px-1.5 mb-1.5 text-meta font-bold uppercase tracking-wider text-foreground-muted">
+              Library
             </p>
-          </div>
-
-          {/* Drop zone for Uncategorized at the top of My Methods. Only
-              renders when a draggable (i.e. own) method is in flight. */}
-          {draggedMethod && (
-            <div
-              className={`mb-4 p-4 border-2 border-dashed rounded-lg text-center transition-colors ${
-                dropTargetFolder === "Uncategorized"
-                  ? "border-blue-400 bg-blue-50 dark:bg-blue-500/10"
-                  : "border-border"
-              }`}
-              onDragOver={(e) => handleDragOver(e, "Uncategorized")}
-              onDragLeave={handleDragLeave}
-              onDrop={() => handleDrop("Uncategorized")}
-            >
-              <span className="text-body text-foreground-muted">
-                Drop here to move to Uncategorized
-              </span>
+            <div className="space-y-0.5">
+              {renderRailItem("all", "list", "All methods", ownMethods.length)}
+              {renderRailItem("shared", "users", "Shared with lab", sharedMethods.length)}
+              <button
+                type="button"
+                onClick={() => setBrowsingTemplates(true)}
+                data-tour-target="methods-template-library-button"
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-body text-left text-foreground hover:bg-surface-raised transition-colors"
+              >
+                <TemplateLibraryIcon className="h-4 w-4 flex-none opacity-85" />
+                <span className="flex-1 truncate">Template library</span>
+              </button>
             </div>
-          )}
 
-          {ownSectionIsEmpty ? (
-            <div className="border-2 border-dashed border-border rounded-lg p-10 text-center">
-              <p className="text-body text-foreground-muted mb-2">
-                {searchQuery
-                  ? "No methods of yours match this search."
-                  : "You haven't created any methods yet."}
-              </p>
-              {!searchQuery && (
+            {allFolders.length > 0 && (
+              <>
+                <p className="px-1.5 mt-4 mb-1.5 text-meta font-bold uppercase tracking-wider text-foreground-muted">
+                  My folders
+                </p>
+                <div className="space-y-0.5">
+                  {allFolders
+                    .slice()
+                    .sort((a, b) => a.localeCompare(b))
+                    .map((folder) =>
+                      renderRailItem(
+                        folder,
+                        "folder",
+                        folder,
+                        (ownGrouped[folder] ?? ownMethods.filter(
+                          (m) => (m.folder_path || "Uncategorized") === folder,
+                        )).length,
+                        { dropTarget: true },
+                      ),
+                    )}
+                </div>
+              </>
+            )}
+
+            {presentTypes.length > 0 && (
+              <>
+                <p className="px-1.5 mt-4 mb-1.5 text-meta font-bold uppercase tracking-wider text-foreground-muted">
+                  Filter by type
+                </p>
+                <div className="flex flex-wrap gap-1.5 px-1">
+                  {presentTypes.map((t) => {
+                    const meta = getMethodTypeMeta(t as Method["method_type"]);
+                    const active = activeType === t;
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setActiveType(active ? null : t)}
+                        className={`text-meta font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                          active
+                            ? "bg-brand-action border-brand-action text-white"
+                            : "border-border text-foreground-muted hover:bg-surface-raised"
+                        }`}
+                      >
+                        {meta.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </aside>
+
+          {/* List pane */}
+          <div className="flex-1 min-w-0 flex flex-col">
+            <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border">
+              <span className="text-title font-semibold text-foreground truncate">
+                {crumbLabel}
+              </span>
+              {activeType && (
                 <button
-                  onClick={() => setCreating(true)}
-                  className="mt-2 px-4 py-2 text-body bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  type="button"
+                  onClick={() => setActiveType(null)}
+                  className="inline-flex items-center gap-1 text-meta text-brand-action hover:underline"
                 >
-                  + New Method
+                  {getMethodTypeMeta(activeType as Method["method_type"]).label}
+                  <Icon name="close" className="h-3 w-3" />
                 </button>
               )}
+              <span className="flex-1" />
+              <span className="text-meta text-foreground-muted">
+                {shownCount} {shownCount === 1 ? "method" : "methods"}
+                {" · variants nested under their base"}
+              </span>
             </div>
-          ) : (
-            allFolders
-              .slice()
-              .sort((a, b) => a.localeCompare(b))
-              .map((folder) => {
-                const folderMethods = ownGrouped[folder] || [];
-                const isEmpty = folderMethods.length === 0;
-                return (
-                  <div
-                    key={folder}
-                    className={`mb-6 rounded-lg transition-colors ${
-                      dropTargetFolder === folder
-                        ? "bg-blue-50 dark:bg-blue-500/10 ring-2 ring-blue-300"
-                        : ""
-                    }`}
-                    onDragOver={(e) => handleDragOver(e, folder)}
-                    onDragLeave={handleDragLeave}
-                    onDrop={() => handleDrop(folder)}
-                  >
-                    <div className="flex items-center justify-between mb-2 px-1">
-                      <h4 className="text-meta font-bold text-foreground-muted uppercase tracking-widest">
-                        {folder}
-                      </h4>
-                      {isEmpty && (
-                        <button
-                          onClick={() => {
-                            setPrefilledFolder(folder);
-                            setCreating(true);
-                          }}
-                          className="text-meta text-blue-600 dark:text-blue-300 hover:text-blue-700 dark:hover:text-blue-300"
-                        >
-                          + Add Method
-                        </button>
-                      )}
-                    </div>
-                    {isEmpty ? (
-                      <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
-                        <p className="text-body text-foreground-muted">
-                          No methods in this category
-                        </p>
-                        <p className="text-meta text-foreground-muted mt-1">
-                          Drag a method here or click &quot;Add Method&quot; above
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {folderMethods.map((m) => renderMethodCard(m, true))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-          )}
-        </section>
-
-        {/* ── Section 2: Shared with Lab ─────────────────────────────── */}
-        {/* Public methods + methods explicitly shared with this user.
-            Grouped by OWNER (lab member username, or "Lab" for the
-            public namespace), NOT by the owner's folder_path. Drag is
-            disabled, the receiver cannot move shared methods into
-            their own categories or rename someone else's folders. */}
-        <section data-tour-target="methods-section-shared" className="mt-8">
-          <div className="flex items-baseline justify-between mb-3">
-            <h3 className="text-heading font-semibold text-foreground">
-              Shared with Lab
-            </h3>
-            <p className="text-meta text-foreground-muted">
-              Shared across your lab. Anyone can use or copy them; only the
-              owner can edit.
-            </p>
+            <div className="flex-1 overflow-y-auto">{renderExplorerList()}</div>
           </div>
-
-          {sharedSectionIsEmpty ? (
-            <div className="border-2 border-dashed border-border rounded-lg p-10 text-center">
-              <p className="text-body text-foreground-muted">
-                {searchQuery
-                  ? "No shared methods match this search."
-                  : "No methods shared with you yet."}
-              </p>
-            </div>
-          ) : (
-            Object.keys(sharedGrouped)
-              .slice()
-              .sort((a, b) => a.localeCompare(b))
-              .map((ownerLabel) => {
-                const groupMethods = sharedGrouped[ownerLabel] || [];
-                return (
-                  <div key={`shared-${ownerLabel}`} className="mb-6 rounded-lg">
-                    <div className="flex items-center justify-between mb-2 px-1">
-                      <h4 className="text-meta font-bold text-foreground-muted uppercase tracking-widest">
-                        {ownerLabel}
-                      </h4>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                      {groupMethods.map((m) => renderMethodCard(m, false))}
-                    </div>
-                  </div>
-                );
-              })
-          )}
-        </section>
-
-        {methods.length === 0 && !creating && (
-          <div className="text-center py-16">
-            <p className="text-title text-foreground-muted mb-2">No methods yet</p>
-            <p className="text-body text-foreground-muted mb-6">
-              Add your first protocol as Markdown or upload a PDF
-            </p>
-            <button
-              onClick={() => setCreating(true)}
-              className="px-6 py-3 text-body bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              + New Method
-            </button>
-          </div>
-        )}
+        </div>
       </div>
 
       {/* Create Category Modal */}
@@ -1175,6 +1409,8 @@ export default function MethodsPage() {
         <ViewMethodModal
           method={viewingMethod}
           currentUser={currentUser}
+          allMethods={methods}
+          onOpenMethod={(m) => setViewingMethod(m)}
           onClose={() => setViewingMethod(null)}
           onDelete={handleDelete}
           onEditCompound={(method) => {
@@ -1299,6 +1535,8 @@ function CreateCategoryModal({
 function ViewMethodModal({
   method,
   currentUser,
+  allMethods,
+  onOpenMethod,
   onClose,
   onDelete,
   onEditCompound,
@@ -1306,6 +1544,12 @@ function ViewMethodModal({
 }: {
   method: Method;
   currentUser: string;
+  /** Full method list, used to resolve this method's lineage (its base and
+   *  its forks) for the Lineage box. */
+  allMethods: Method[];
+  /** Navigate the viewer to another method (jump up to a base or down to a
+   *  variant from the Lineage box). */
+  onOpenMethod: (method: Method) => void;
   onClose: () => void;
   onDelete: (id: number) => void;
   onEditCompound: (method: Method) => void;
@@ -1314,6 +1558,20 @@ function ViewMethodModal({
    *  child's record (or just closes the modal when the compound was empty). */
   onConvertedToChild: (childMethodId: number | null) => void;
 }) {
+  // Lineage: the base this method was forked from (if any) and the forks made
+  // from it. Resolve the parent by id, preferring the same owner so a shared
+  // and an own method with a colliding id don't cross-link. Variants are every
+  // method pointing back at this one.
+  const lineageParent =
+    method.parent_method_id != null
+      ? allMethods.find(
+          (m) => m.id === method.parent_method_id && m.owner === method.owner,
+        ) ?? allMethods.find((m) => m.id === method.parent_method_id)
+      : undefined;
+  const lineageVariants = allMethods.filter(
+    (m) => m.parent_method_id === method.id && m.owner === method.owner,
+  );
+  const hasLineage = Boolean(lineageParent) || lineageVariants.length > 0;
   // Unified Share entry point (2026-06-04): one Share button in the action
   // strip opens the two-tab UnifiedShareDialog (lab ACL + cross-boundary send),
   // replacing the standalone "Share outside this folder" send button.
@@ -1427,6 +1685,53 @@ function ViewMethodModal({
                   </svg>
                 </button>
               </Tooltip>
+            </div>
+          )}
+          {/* Lineage box. Surfaces the fork relationship that lives in
+              `parent_method_id`: jump up to the base this was forked from, or
+              down to any of its variants. Self-hides when the method has no
+              lineage. */}
+          {hasLineage && (
+            <div className="mx-4 mt-2 mb-1 border border-border rounded-lg overflow-hidden">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-sunken border-b border-border text-meta font-bold uppercase tracking-wider text-foreground-muted">
+                <Icon name="merge" className="h-3.5 w-3.5" />
+                Lineage
+              </div>
+              <div className="px-3 py-2 space-y-1.5">
+                {lineageParent && (
+                  <div className="flex items-center gap-2 text-body">
+                    <span className="flex-none w-20 text-meta font-bold uppercase tracking-wide text-foreground-muted">
+                      Forked from
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onOpenMethod(lineageParent)}
+                      className="font-medium text-brand-action hover:underline text-left truncate"
+                    >
+                      {lineageParent.name}
+                    </button>
+                  </div>
+                )}
+                {lineageVariants.length > 0 && (
+                  <div className="flex items-start gap-2 text-body">
+                    <span className="flex-none w-20 text-meta font-bold uppercase tracking-wide text-foreground-muted pt-0.5">
+                      Variants
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {lineageVariants.map((v) => (
+                        <button
+                          key={`${v.owner}:${v.id}`}
+                          type="button"
+                          onClick={() => onOpenMethod(v)}
+                          className="text-meta font-medium px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-500/15 text-purple-600 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-500/25"
+                        >
+                          {v.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
           {renderViewer()}
