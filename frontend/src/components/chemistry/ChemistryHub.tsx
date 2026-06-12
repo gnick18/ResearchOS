@@ -1188,6 +1188,7 @@ function RailAction({
   return (
     <button
       type="button"
+      data-testid={`chem-rail-${label.toLowerCase().replace(/\s+/g, "-")}`}
       onClick={onClick}
       className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-meta font-semibold transition-colors ${
         primary

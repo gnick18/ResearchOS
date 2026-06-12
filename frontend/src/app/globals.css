@@ -1014,3 +1014,12 @@ body.recording-mode [data-floating-dock],
 body.recording-mode [data-testid="beakerbot-summon"] {
   display: none !important;
 }
+
+/* Hide the real OS cursor in record mode so a screen capture shows ONLY the
+ * demo engine's rendered cursor (the page fills the screen in fullscreen, so
+ * this covers the whole recorded area). The engine cursor is a DOM element,
+ * not a CSS cursor, so it stays visible. */
+body.recording-mode,
+body.recording-mode * {
+  cursor: none !important;
+}

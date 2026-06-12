@@ -48,6 +48,7 @@ import IdleAnimationManager from "@/components/onboarding/IdleAnimationManager";
 import WhatsNewManager from "@/components/WhatsNewManager";
 import WikiCaptureBodyClass from "@/components/WikiCaptureBodyClass";
 import RecordingModeBodyClass from "@/components/RecordingModeBodyClass";
+import DemoVideoAutoplay from "@/components/DemoVideoAutoplay";
 import SharedFolderAutoRefresh from "@/components/SharedFolderAutoRefresh";
 import SpellcheckAutoSeed from "@/components/SpellcheckAutoSeed";
 import CaptureInboxPoller from "@/components/CaptureInboxPoller";
@@ -993,6 +994,9 @@ export function Providers({ children }: { children: ReactNode }) {
             marketing-video capture surface is pristine. No-op outside record
             mode. */}
         <RecordingModeBodyClass />
+        {/* Auto-plays a welcome-video clip (`?demo=<clipId>`) with the demo
+            engine's animated cursor. Demo/wiki-capture-gated; no-op otherwise. */}
+        <DemoVideoAutoplay />
         {/* Website-wide smart right-click framework (sequence editor master).
             Mounted here, above AppContent, so the single shared menu + the
             no-menu glyph + the one document-level contextmenu listener cover
