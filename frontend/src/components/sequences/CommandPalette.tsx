@@ -517,6 +517,78 @@ export function CommandPalette({
     return () => window.clearTimeout(t);
   }, [dodgeStyle, askMode]);
 
+  // Riding BeakerBot mascot (Option C, 2026-06-12). One LIVING mascot rides the
+  // top edge of the surface. It is rendered as a SIBLING of the surface (below)
+  // so the morph blur never touches it, it stays crisp while the box softens.
+  // Its left/top track the surface's resolved TOP edge and travel on the SAME
+  // spring curve as the box; while morphing it lifts + leans into the direction
+  // of travel, then plays a settle bob on arrival. Port of the feel prototyped
+  // in docs/mockups/beakersearch-fluid-dodge-demo.html.
+  const [riderPos, setRiderPos] = useState<{ left: number; top: number } | null>(
+    null,
+  );
+  // Lean direction during travel: -1 left, 1 right, 0 none. Cleared on settle.
+  const [riderLean, setRiderLean] = useState<-1 | 0 | 1>(0);
+  // Drives the one-shot landing bob; toggled on each arrival.
+  const [riderLanding, setRiderLanding] = useState(false);
+  const riderPrevLeftRef = useRef<number | null>(null);
+
+  // The mascot is only chrome for the chat. Thinking animation reads `sending`
+  // from the conversation store so the rider bobs while BeakerBot works.
+  const aiSending = useConversationStore((s) => s.sending);
+
+  // Recompute the rider's top-edge target whenever the surface could have moved
+  // (open, mode change, dodge corner change, viewport resize / scroll). We read
+  // the surface's resolved rect after layout so the rider tracks the REAL edge
+  // rather than a synthetic guess. rAF defers the read until the new layout is
+  // committed; the rider then springs to it on the same curve as the box.
+  useEffect(() => {
+    if (!open || askMode !== "ask") {
+      setRiderPos(null);
+      riderPrevLeftRef.current = null;
+      return;
+    }
+    let raf = 0;
+    const place = () => {
+      const el = surfaceRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      // Sit centered on the top edge, biased a touch left of center (matching
+      // the demo's `l + min(24, w*0.18)`), riding 17px above the border.
+      const left = r.left + Math.min(r.width / 2, r.width * 0.18 + 16);
+      const top = r.top - 17;
+      const prev = riderPrevLeftRef.current;
+      if (prev != null) {
+        const delta = left - prev;
+        setRiderLean(delta > 2 ? 1 : delta < -2 ? -1 : 0);
+      }
+      riderPrevLeftRef.current = left;
+      setRiderPos({ left, top });
+    };
+    // Place now (start rect) and again after the morph settles (target rect),
+    // so the rider ends exactly on the box's resolved top edge.
+    raf = window.requestAnimationFrame(place);
+    const settle = window.setTimeout(place, 440);
+    const onViewport = () => place();
+    window.addEventListener("resize", onViewport);
+    window.addEventListener("scroll", onViewport, true);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.clearTimeout(settle);
+      window.removeEventListener("resize", onViewport);
+      window.removeEventListener("scroll", onViewport, true);
+    };
+  }, [open, askMode, dodgeStyle, morphing]);
+
+  // When the morph finishes, drop the lean and play the one-shot settle bob.
+  useEffect(() => {
+    if (morphing || askMode !== "ask") return;
+    setRiderLean(0);
+    setRiderLanding(true);
+    const t = window.setTimeout(() => setRiderLanding(false), 440);
+    return () => window.clearTimeout(t);
+  }, [morphing, askMode]);
+
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
   // BeakerSearch v2 (sub-flow framework, chunk 1). The open picker STACK. [] is
@@ -1325,6 +1397,54 @@ export function CommandPalette({
           </div>
         )}
       </div>
+
+      {/* The riding BeakerBot. SIBLING of the surface so the morph blur never
+          reaches it (it stays crisp while the box softens). Fixed-positioned to
+          the surface's resolved top-edge coordinates, gliding on the same spring
+          curve. While morphing it lifts + leans into travel; on arrival it plays
+          a settle bob (riderLand keyframe in globals.css). Only present in Ask
+          mode (the chat). It bobs while BeakerBot is thinking. */}
+      {askMode === "ask" && riderPos ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed z-[80]"
+          style={{
+            left: `${riderPos.left}px`,
+            top: `${riderPos.top}px`,
+            transform: "translateX(-50%)",
+            willChange: "left, top",
+            transition:
+              "left 0.4s cubic-bezier(.22,1,.36,1), top 0.4s cubic-bezier(.22,1,.36,1)",
+          }}
+        >
+          <div
+            className={
+              riderLanding && !morphing ? "beakersearch-rider-land" : undefined
+            }
+            style={{
+              transformOrigin: "50% 90%",
+              transition: "transform 0.4s cubic-bezier(.22,1,.36,1)",
+              transform: morphing
+                ? `translateY(-11px) rotate(${riderLean * 12}deg)`
+                : "translateY(0) rotate(0deg)",
+            }}
+          >
+            <BeakerBot
+              pose={
+                morphing && riderLean !== 0
+                  ? "pointing"
+                  : aiSending
+                    ? "thinking"
+                    : "idle"
+              }
+              direction={riderLean < 0 ? "left" : "right"}
+              animated={aiSending || !morphing}
+              className="h-8 w-8 flex-none drop-shadow-md"
+              ariaLabel="BeakerBot"
+            />
+          </div>
+        </div>
+      ) : null}
     </>,
     document.body,
   );
