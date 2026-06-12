@@ -163,6 +163,7 @@ interface NotebookRowProps {
   onPress: () => void;
   showTopDivider?: boolean;
   inGroup?: boolean;
+  testID?: string;
 }
 
 function NotebookRow({
@@ -176,10 +177,12 @@ function NotebookRow({
   onPress,
   showTopDivider,
   inGroup,
+  testID,
 }: NotebookRowProps) {
   const { surface } = useTheme();
   return (
     <Pressable
+      testID={testID}
       style={({ pressed }) => [
         styles.optRow,
         inGroup && styles.optRowInGroup,
@@ -411,6 +414,7 @@ export function NotebookChooser({
                     {ownNbs.map((nb, idx) => (
                       <NotebookRow
                         key={nb.noteId}
+                        testID={`notebook-chooser-row-${idx}`}
                         title={nb.title}
                         subtitle={entrySubtitle(nb)}
                         icon={<NoteIcon color={amberColor} bg={amberBg} />}
@@ -474,6 +478,7 @@ export function NotebookChooser({
 
               {/* UNSORTED footer */}
               <Pressable
+                testID="notebook-chooser-unsorted"
                 style={({ pressed }) => [styles.unsortedBtn, pressed && styles.pressed]}
                 onPress={onUnsorted}
                 accessibilityRole="button"

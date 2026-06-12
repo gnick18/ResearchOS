@@ -844,6 +844,7 @@ export default function NotebookScreen() {
               Pair this phone with your laptop to send captures and notes to your lab.
             </ThemedText>
             <Button
+              testID="notebook-pair-cta"
               variant="primary"
               label="Pair this phone"
               onPress={() => router.push('/pair')}
@@ -1053,6 +1054,7 @@ export default function NotebookScreen() {
         {!previewUri ? (
           <View style={styles.actionRow}>
             <Pressable
+              testID="notebook-take-photo"
               onPress={onTakePhoto}
               style={({ pressed }) => [
                 styles.actionCard,
@@ -1065,6 +1067,7 @@ export default function NotebookScreen() {
               <ThemedText style={styles.actionLabel}>Take a photo</ThemedText>
             </Pressable>
             <Pressable
+              testID="notebook-quick-note"
               onPress={() => {
                 if (pairing) {
                   // Paired: show inline compose so we can open the chooser.
@@ -1093,6 +1096,7 @@ export default function NotebookScreen() {
             device. Dev client only, hidden in Expo Go via isScannerAvailable. */}
         {!previewUri && !quickNoteOpen && isScannerAvailable() ? (
           <Pressable
+            testID="notebook-scan-note"
             onPress={onScanNote}
             accessibilityRole="button"
             accessibilityLabel="Scan a handwritten note"
@@ -1120,6 +1124,7 @@ export default function NotebookScreen() {
         {/* Camera roll upload (below action row, no preview yet) */}
         {!previewUri && !quickNoteOpen ? (
           <Button
+            testID="notebook-upload-roll"
             variant="secondary"
             accent="amber"
             label="Upload from camera roll"
@@ -1132,6 +1137,7 @@ export default function NotebookScreen() {
             follow the recipe at the bench and jot variations. */}
         {!previewUri && !quickNoteOpen && pairing ? (
           <Button
+            testID="notebook-view-method"
             variant="secondary"
             accent="sky"
             label="View method on phone"
@@ -1143,6 +1149,7 @@ export default function NotebookScreen() {
         {quickNoteOpen ? (
           <Card style={{ gap: spacing.md }}>
             <TextInput
+              testID="notebook-quicknote-title"
               value={quickNoteTitle}
               onChangeText={setQuickNoteTitle}
               placeholder="Title, optional"
@@ -1160,6 +1167,7 @@ export default function NotebookScreen() {
               returnKeyType="next"
             />
             <TextInput
+              testID="notebook-quicknote-body"
               value={quickNoteBody}
               onChangeText={setQuickNoteBody}
               placeholder="Write your note"
@@ -1180,6 +1188,7 @@ export default function NotebookScreen() {
               textAlignVertical="top"
             />
             <Button
+              testID="notebook-quicknote-send"
               variant="primary"
               label="Send to lab"
               loading={quickNoteSending}
@@ -1206,7 +1215,7 @@ export default function NotebookScreen() {
             {/* The image and the annotation overlay both letterbox the same way
                 (contain + the SVG viewBox's default xMidYMid meet) so committed
                 shapes land exactly where they were drawn. */}
-            <View style={[styles.preview, { borderRadius: radii.md, overflow: 'hidden' }]}>
+            <View testID="notebook-photo-preview" style={[styles.preview, { borderRadius: radii.md, overflow: 'hidden' }]}>
               <Image
                 source={{ uri: previewUri }}
                 style={StyleSheet.absoluteFill}
@@ -1215,6 +1224,7 @@ export default function NotebookScreen() {
               {previewDoc ? <AnnotationOverlay doc={previewDoc} /> : null}
             </View>
             <TextInput
+              testID="notebook-caption-input"
               value={caption}
               onChangeText={setCaption}
               placeholder="Add a caption, optional"
@@ -1232,6 +1242,7 @@ export default function NotebookScreen() {
               multiline
             />
             <Button
+              testID="notebook-annotate"
               variant="secondary"
               accent="amber"
               label={previewDoc ? 'Edit annotations' : 'Annotate'}
@@ -1240,6 +1251,7 @@ export default function NotebookScreen() {
               disabled={saving}
             />
             <Button
+              testID="notebook-send-to-inbox"
               variant="primary"
               label="Send to Inbox"
               loading={saving}
@@ -1247,6 +1259,7 @@ export default function NotebookScreen() {
               disabled={saving}
             />
             <Button
+              testID="notebook-discard"
               variant="secondary"
               accent="coral"
               label="Discard"
@@ -1275,6 +1288,7 @@ export default function NotebookScreen() {
                   (c) => c.status === 'queued' || c.status === 'failed',
                 ) ? (
                   <Pressable
+                    testID="notebook-inbox-send-all"
                     onPress={onSendAll}
                     disabled={sendingAll}
                     hitSlop={8}
@@ -1285,7 +1299,7 @@ export default function NotebookScreen() {
                     </ThemedText>
                   </Pressable>
                 ) : null}
-                <Pressable onPress={onRemoveAll} hitSlop={8} accessibilityRole="button">
+                <Pressable testID="notebook-inbox-remove-all" onPress={onRemoveAll} hitSlop={8} accessibilityRole="button">
                   <ThemedText style={[styles.inboxAction, { color: palette.coral }]}>
                     Remove all
                   </ThemedText>
@@ -1299,6 +1313,7 @@ export default function NotebookScreen() {
               {captures.map((capture, i) => (
                 <CaptureRow
                   key={capture.id}
+                  testID={`notebook-inbox-row-${i}`}
                   capture={capture}
                   onRemove={onRemove}
                   onSend={paired ? sendOne : undefined}
@@ -1403,6 +1418,7 @@ function CaptureRow({
   onSend,
   isLast,
   retrying,
+  testID,
 }: {
   capture: Capture;
   onRemove: (id: string) => void;
@@ -1411,6 +1427,7 @@ function CaptureRow({
   // True while a failed capture is in its automatic-retry backoff, so the row
   // reads "Waiting for connection" instead of "Couldn't send".
   retrying?: boolean;
+  testID?: string;
 }) {
   const { surface, radii } = useTheme();
   const sent = capture.status === 'sent';
@@ -1434,6 +1451,7 @@ function CaptureRow({
   return (
     <Swipeable renderRightActions={renderRightActions} overshootRight={false}>
       <View
+        testID={testID}
         style={[
           styles.inboxRow,
           { backgroundColor: surface.surface },

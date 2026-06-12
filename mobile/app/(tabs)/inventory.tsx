@@ -130,6 +130,7 @@ export default function InventoryScreen() {
               Pair this phone with your laptop to see your lab inventory.
             </ThemedText>
             <Button
+              testID="inventory-pair-cta"
               variant="primary"
               label="Pair this phone"
               onPress={() => router.push('/pair')}
@@ -145,6 +146,7 @@ export default function InventoryScreen() {
 
             {/* Add a purchase item (manual path) */}
             <Button
+              testID="inventory-add-purchase"
               variant="secondary"
               label="+ Add a purchase item"
               onPress={() => router.push('/add-purchase')}
@@ -186,6 +188,7 @@ export default function InventoryScreen() {
                 {shownStocks.map((stock, i) => (
                   <TrackedStockRow
                     key={stock.stockId != null ? String(stock.stockId) : `stock-${i}`}
+                    testID={`inventory-tracked-row-${i}`}
                     stock={stock}
                     last={i === shownStocks.length - 1}
                   />
@@ -205,6 +208,7 @@ export default function InventoryScreen() {
                 {recentPurchases.map((po, i) => (
                   <PurchaseOrderRow
                     key={po.purchaseItemId != null ? String(po.purchaseItemId) : `po-${i}`}
+                    testID={`inventory-order-row-${i}`}
                     purchase={po}
                     last={i === recentPurchases.length - 1}
                   />
@@ -228,6 +232,7 @@ function ScanHeroCard({ onPress }: { onPress: () => void }) {
   const { radii, elevation } = useTheme();
   return (
     <Pressable
+      testID="inventory-scan-package"
       onPress={onPress}
       style={({ pressed }) => [
         styles.scanHero,
@@ -257,9 +262,11 @@ function ScanHeroCard({ onPress }: { onPress: () => void }) {
 function TrackedStockRow({
   stock,
   last,
+  testID,
 }: {
   stock: TrackedStock;
   last: boolean;
+  testID?: string;
 }) {
   const { surface } = useTheme();
   const name = stock.itemName ?? 'Unknown item';
@@ -276,7 +283,7 @@ function TrackedStockRow({
     : `${remaining}${unitLabel ? ` ${unitLabel}` : ''} left`;
 
   return (
-    <View style={[styles.listRow, last ? styles.rowLast : null]}>
+    <View testID={testID} style={[styles.listRow, last ? styles.rowLast : null]}>
       <View style={[styles.stockIcon, { backgroundColor: palette.sky }]}>
         <Ionicons name="cube-outline" size={18} color={palette.white} />
       </View>
@@ -310,9 +317,11 @@ function TrackedStockRow({
 function PurchaseOrderRow({
   purchase,
   last,
+  testID,
 }: {
   purchase: RecentPurchase;
   last: boolean;
+  testID?: string;
 }) {
   const { surface } = useTheme();
   const name = purchase.name ?? 'Unknown item';
@@ -328,7 +337,7 @@ function PurchaseOrderRow({
   const status = 'ordered';
 
   return (
-    <View style={[styles.listRow, last ? styles.rowLast : null]}>
+    <View testID={testID} style={[styles.listRow, last ? styles.rowLast : null]}>
       <View style={styles.rowText}>
         <ThemedText style={[styles.rowTitle, { color: surface.text }]} numberOfLines={1}>
           {name}

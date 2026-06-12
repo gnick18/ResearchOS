@@ -251,6 +251,7 @@ export default function PairScreen() {
             the bench.
           </ThemedText>
           <Button
+            testID="pair-allow-camera"
             variant="primary"
             label="Allow camera access"
             onPress={requestPermission}
@@ -267,6 +268,7 @@ export default function PairScreen() {
             />
           ) : (
             <Button
+              testID="pair-enter-code"
               variant="secondary"
               label="Enter a code"
               onPress={() => setShowManual(true)}
@@ -333,6 +335,7 @@ function DemoLink({ onPress, saving }: { onPress: () => void; saving: boolean })
   const { surface } = useTheme();
   return (
     <Pressable
+      testID="pair-try-demo"
       onPress={onPress}
       disabled={saving}
       hitSlop={8}
@@ -386,6 +389,7 @@ function ManualEntry({
         Enter a code manually
       </ThemedText>
       <TextInput
+        testID="pair-code-input"
         value={value}
         onChangeText={onChangeText}
         placeholder="Paste or type the pairing code"
@@ -406,6 +410,7 @@ function ManualEntry({
         returnKeyType="done"
       />
       <Button
+        testID="pair-submit-code"
         variant="secondary"
         label="Pair with code"
         onPress={onSubmit}
