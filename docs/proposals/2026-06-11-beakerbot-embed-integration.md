@@ -107,6 +107,8 @@ An image is NOT an object link. It uses native markdown image syntax so it shows
 | `analysis` | Data Hub analysis id (for `ros=result`) | `analysis=a3` |
 | `plot` | Data Hub plot id (for `ros=plot`) | `plot=p1` |
 | `ref` | portable content identity (cross-library, optional) | `ref=ik:LUKBXSAW` |
+| `section` | the note heading to transclude (for `ros=transclude`) | `section=Lysis%20step` |
+| `pin` | freeze to a snapshot id (set by the user, not by BeakerBot) | `pin=s_a1b2c3` |
 
 Unknown keys are ignored, so the grammar can grow without breaking older content.
 
@@ -162,9 +164,19 @@ User: in a sentence, reference the pUC19 sequence (seq 5)
   We cloned the insert into [pUC19](/sequences?seq=5) and verified by PCR.
 ```
 
+## Phase 7 additions (2026-06-12, for the BeakerAI lane)
+
+These are now built on main. This section is the spec for wiring embed authoring into `lib/ai/tools/*` (the BeakerAI lane owns those files, the embeds team does not touch them, so this is the relay).
+
+- **Transclusion (section embeds).** A note can pull in a section of another note, live. BeakerBot can author it two ways. The convenience form is `![[Note Title#Heading]]`, which ResearchOS normalizes ON SAVE into the portable link `[Heading](/notes/ID#ros=transclude&section=Heading)`. The direct form is to emit that link itself when you already have the note id (preferred, since you skip the title-resolution step and there is no ambiguity). Transclusion is depth-guarded (max depth 3, cycles caught), so a note that transcludes itself or forms a loop renders a calm placeholder rather than looping. Use a transclusion when a standard protocol paragraph should be written once and reused, not copied.
+- **Pinning.** A user can pin an embed to freeze it as a record of a moment; a pinned embed carries `&pin=s_xxx` and renders a frozen snapshot. BeakerBot should NOT author `pin` (pinning is a deliberate user action against a per-note sidecar). Just know that an embed you read back may be pinned, and that a frozen embed shows a "pinned" badge plus a staleness badge when its live source has moved on.
+- **In-place view switching.** The `#ros=view` you choose is the DEFAULT view; the user can flip it in place (a Data Hub embed between table / plot / result, a sequence between map and bases) and the choice persists back into the link. So pick the most useful default view for the point you are making, and do not fight a user who switches it.
+- **External and literature embeds (P7-4, in progress).** DOI / PubMed render a citation card and a PubChem CID or a loose SMILES renders a structure card, the raw staying a real external URL (`[Smith et al. 2024](https://doi.org/10.x#ros=cite)`). When this lands, BeakerBot can cite a paper or a compound the user has not saved. Do not emit these until the renderers ship; until then write a plain link.
+
 ## Code references
 
 - `frontend/src/lib/references.ts` — `objectReferenceMarkdown`, `objectEmbedMarkdown`, `buildObjectEmbedHref`, `parseObjectEmbed`, `parseObjectDeepLink`, `DEFAULT_EMBED_VIEW`, `EmbedDescriptor`, `EmbedOpts`, the `OBJECT_ROUTES` map (single source of truth for every deep link).
+- `frontend/src/lib/embeds/` — `markdown-section.ts` (section extraction), `normalize-transclusions.ts` (the `![[ ]]` save-time rewrite), `embed-pins.ts` (the pin sidecar).
 - `frontend/src/components/embeds/ObjectEmbed.tsx` — the block-embed dispatcher + the per-type renderer registry.
 - `frontend/src/components/ObjectChip.tsx` — the inline chip (with hover-card preview).
 - `frontend/src/components/RenderedMarkdown.tsx` — the Preview renderer (block embed via the `p` override, chip via the `a` override, image via the `img` override).

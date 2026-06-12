@@ -22,7 +22,7 @@ import {
   validAnalysisTypes,
   type AnalysisType,
 } from "@/lib/datahub/run-analysis";
-import { Icon } from "@/components/icons";
+import BeakerBot from "@/components/BeakerBot";
 import { AI_ASSISTANT_ENABLED } from "@/lib/ai/config";
 import { useBeakerSearch } from "@/components/beaker-search/BeakerSearchProvider";
 import { sendToBeakerBot } from "@/components/ai/message-bridge";
@@ -479,7 +479,7 @@ export default function NewAnalysisDialog({
               className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-body font-medium text-brand-action hover:bg-accent-soft"
               data-testid="datahub-help-me-choose"
             >
-              <Icon name="vial" className="h-3.5 w-3.5" />
+              <BeakerBot pose="pointing" className="h-6 w-6" ariaLabel="BeakerBot" />
               Help me choose
             </button>
           ) : (

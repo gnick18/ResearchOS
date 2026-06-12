@@ -117,7 +117,7 @@ export default function DataHubEmbed({ descriptor, caption, figureLabel, onViewC
     if (!svg) {
       return <ObjectEmbedCard descriptor={descriptor} caption={caption} />;
     }
-    const plotTitle = caption || plot?.name || state.content.meta.name;
+    const plotTitle = plot?.name || state.content.meta.name || caption;
     const plotHref = objectDeepLink("datahub", descriptor.id);
     return (
       <div>
@@ -168,7 +168,7 @@ export default function DataHubEmbed({ descriptor, caption, figureLabel, onViewC
     } catch {
       return <ObjectEmbedCard descriptor={descriptor} caption={caption} />;
     }
-    const resultTitle = caption || analysis.name || state.content.meta.name;
+    const resultTitle = analysis.name || state.content.meta.name || caption;
     const resultHref = objectDeepLink("datahub", descriptor.id);
     return (
       <div>
@@ -211,7 +211,7 @@ export default function DataHubEmbed({ descriptor, caption, figureLabel, onViewC
   const maxCols = descriptor.opts.cols ?? 6;
   const showCols = columns.slice(0, maxCols);
   const showRows = rows.slice(0, maxRows);
-  const title = caption || state.content.meta.name;
+  const title = state.content.meta.name || caption;
   const href = objectDeepLink("datahub", descriptor.id);
   const dims = `${rows.length} ${rows.length === 1 ? "row" : "rows"} × ${columns.length} ${columns.length === 1 ? "col" : "cols"}`;
 

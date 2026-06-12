@@ -2255,13 +2255,11 @@ export default function SequencesPage() {
         onClose={() => setExplorerOpen(false)}
         onImportOrganism={({ organism, accession }) => {
           setExplorerOpen(false);
-          // A tip assembly row carries an accession, landing the import on the
-          // accession tab as a genome import; an organism-only jump opens the gene
-          // tab seeded with the organism.
+          // A tip assembly row carries an accession, which opens the guided
+          // flow's accession escape hatch seeded with it; an organism-only jump
+          // seeds the wizard's organism step.
           setNcbiPrefill(
-            accession
-              ? { tab: "accession", accession, organism }
-              : { tab: "gene", organism },
+            accession ? { accession, organism } : { organism },
           );
           setNcbiOpen(true);
         }}

@@ -58,8 +58,9 @@
   .chk input{accent-color:var(--action)}
   .chk .ct{margin-left:auto;font-size:11px;color:var(--muted);background:var(--chip);border-radius:10px;padding:1px 7px}
   .chk .dot{width:9px;height:9px;border-radius:2px;flex:none}
-  .rng{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
-  .rng input[type=range]{flex:1;accent-color:var(--action)}
+  .yrrange{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+  .yrin{width:66px;font:inherit;font-size:12px;padding:6px 7px;border:1px solid var(--line);border-radius:7px;background:var(--raised);color:var(--ink);text-align:center}
+  .yrin:focus{outline:none;border-color:var(--action)}
   .main{flex:1;display:flex;flex-direction:column;min-width:0}
   .tools{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)}
   .tools input.q{flex:1;font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--raised);color:var(--ink)}
@@ -162,9 +163,9 @@
         <label class="chk"><input type="checkbox" id="fPatent" checked><span class="dot" style="background:var(--amber)"></span>Patents<span class="ct" id="cPatent"></span></label>
         <label class="chk"><input type="checkbox" id="fStar"><span class="dot" style="background:var(--gold)"></span>Starred only<span class="ct" id="cStar"></span></label>
         <h4>Years <span id="histTotal" style="font-weight:400;text-transform:none;letter-spacing:0;float:right"></span></h4>
-        <div class="cap">Papers per year, click a bar. Purple = reviews.</div>
+        <div class="cap">Papers per year, click a bar to zoom. Purple = reviews.</div>
         <div class="hist" id="hist"></div>
-        <div class="rng"><span class="mono" style="font-size:11px">from</span><input type="range" id="yr" min="1970" max="2024" value="1970"><span id="yrLab" class="mono">1970</span></div>
+        <div class="yrrange"><input class="yrin" id="yrMin" type="number" inputmode="numeric"/><span>to</span><input class="yrin" id="yrMax" type="number" inputmode="numeric"/></div>
         <h4>Reset</h4>
         <button class="btn" id="resetFilters" style="width:100%">Clear filters</button>
       </div>
@@ -207,7 +208,10 @@ const CORPUS=[
 const fmt=n=>n.toLocaleString("en-US");
 
 /* ---------- filter state ---------- */
-const F={research:true,review:true,patent:true,starOnly:false,fromYear:1970,q:"",sort:"year",pickYear:null};
+// Default range spans the oldest paper found to the present, both editable.
+const OLDEST=Math.min(...CORPUS.map(p=>p.y));
+const NOW=new Date().getFullYear();
+const F={research:true,review:true,patent:true,starOnly:false,minYear:OLDEST,maxYear:NOW,q:"",sort:"year"};
 const STAR_KEY="litExplorerStars";
 let stars=new Set(JSON.parse(localStorage.getItem(STAR_KEY)||"[]"));
 function saveStars(){localStorage.setItem(STAR_KEY,JSON.stringify([...stars]));renderStarred();}
@@ -218,8 +222,7 @@ function passes(p){
   if(p.type==="review"&&!F.review) return false;
   if(p.type==="patent"&&!F.patent) return false;
   if(F.starOnly&&!stars.has(keyOf(p))) return false;
-  if(p.y<F.fromYear) return false;
-  if(F.pickYear!=null&&p.y!==F.pickYear) return false;
+  if(p.y<F.minYear||p.y>F.maxYear) return false;
   if(F.q){const s=(p.t+" "+p.a+" "+p.j).toLowerCase();if(!s.includes(F.q.toLowerCase())) return false;}
   return true;
 }
@@ -238,41 +241,43 @@ function renderCounts(){
   document.getElementById("cPatent").textContent=c("patent");
   document.getElementById("cStar").textContent=stars.size;
 }
+// Pick a bin size so the active range shows ~8-15 bars (yearly when zoomed in).
+function binSizeFor(span){
+  for(const s of [1,2,5,10,25]){ if(Math.ceil(span/s)<=15) return s; }
+  return 25;
+}
 function renderHist(){
-  const rows=CORPUS.filter(p=>{
-    if(p.type==="research"&&!F.research)return false;
-    if(p.type==="review"&&!F.review)return false;
-    if(p.type==="patent"&&!F.patent)return false;
-    return true;
-  });
-  // bucket into 5-year bins
-  const bins={};
-  for(let y=1935;y<=2024;y+=5) bins[y]={total:0,rev:0,label:y};
-  rows.forEach(p=>{const b=Math.floor(p.y/5)*5; if(bins[b]){bins[b].total++; if(p.type==="review")bins[b].rev++;}});
-  const arr=Object.values(bins);
-  const max=Math.max(1,...arr.map(b=>b.total));
-  document.getElementById("hist").innerHTML=arr.map(b=>{
+  // Bars honor the type toggles, but span the ACTIVE [minYear, maxYear] range so
+  // the plot zooms with the year filter.
+  const typeOk=p=>!((p.type==="research"&&!F.research)||(p.type==="review"&&!F.review)||(p.type==="patent"&&!F.patent));
+  const lo=Math.min(F.minYear,F.maxYear), hi=Math.max(F.minYear,F.maxYear);
+  const span=hi-lo+1, size=binSizeFor(span);
+  const start=Math.floor(lo/size)*size;
+  const bins=[];
+  for(let y=start;y<=hi;y+=size) bins.push({y,total:0,rev:0});
+  CORPUS.forEach(p=>{ if(!typeOk(p)||p.y<lo||p.y>hi) return; const i=Math.floor((p.y-start)/size); if(bins[i]){bins[i].total++; if(p.type==="review")bins[i].rev++;} });
+  const max=Math.max(1,...bins.map(b=>b.total));
+  document.getElementById("hist").innerHTML=bins.map(b=>{
     const h=b.total/max*100;
     const cls=b.rev>b.total/2?"bar rev":"bar";
-    const sel=F.pickYear!=null&&Math.floor(F.pickYear/5)*5===b.label?'style="outline:2px solid var(--ink)"':'';
-    return `<div class="${cls}" data-bin="${b.label}" ${sel} title="${b.label}-${b.label+4}: ${b.total} papers, ${b.rev} reviews" style="height:${Math.max(3,h)}%">
-      <span class="v">${b.total||""}</span><span class="lab">${b.label%10===0?("'"+String(b.label).slice(2)):""}</span></div>`;
+    const end=Math.min(hi,b.y+size-1);
+    const lab=(size===1?b.y%5===0:b.y%10===0)?("'"+String(b.y).slice(2)):"";
+    return `<div class="${cls}" data-lo="${b.y}" data-hi="${end}" title="${b.y}${size>1?"-"+end:""}: ${b.total} papers, ${b.rev} reviews" style="height:${Math.max(3,h)}%">
+      <span class="v">${b.total||""}</span><span class="lab">${lab}</span></div>`;
   }).join("");
   document.querySelectorAll(".hist .bar").forEach(el=>el.addEventListener("click",()=>{
-    const bin=+el.dataset.bin;
-    // toggle: clicking selects that 5-year window via fromYear+pickYear-ish; here pick the bin midpoint behavior by filtering to the bin
-    F.pickYear = F.pickYear!=null && Math.floor(F.pickYear/5)*5===bin ? null : bin+2; // representative
-    // simpler: filter to the whole bin
-    F._bin = F._bin===bin?null:bin;
-    renderAll();
+    // Clicking a bar zooms the range to that bin (updates the inputs + plot + results).
+    F.minYear=+el.dataset.lo; F.maxYear=+el.dataset.hi; syncYearInputs(); renderAll();
   }));
-  document.getElementById("histTotal").textContent=rows.length+" shown";
+  document.getElementById("histTotal").textContent=CORPUS.filter(p=>passes(p)).length+" shown";
 }
-// override bin filtering to whole 5-year window
-function passesBin(p){ if(F._bin==null) return true; return p.y>=F._bin && p.y<F._bin+5; }
+function syncYearInputs(){
+  const a=document.getElementById("yrMin"), b=document.getElementById("yrMax");
+  if(a) a.value=F.minYear; if(b) b.value=F.maxYear;
+}
 
 function renderResults(){
-  let r=CORPUS.filter(p=>passes(p)&&passesBin(p));
+  let r=CORPUS.filter(passes);
   if(F.sort==="year") r.sort((a,b)=>b.y-a.y);
   else if(F.sort==="cited") r.sort((a,b)=>b.c-a.c);
   else if(F.sort==="title") r.sort((a,b)=>a.t.localeCompare(b.t));
@@ -310,7 +315,7 @@ function renderStarred(){
 function renderAll(){renderCounts();renderHist();renderResults();renderStarred();}
 
 /* ---------- wire ---------- */
-function openModal(){document.getElementById("scrim").classList.add("open");renderAll();}
+function openModal(){document.getElementById("scrim").classList.add("open");syncYearInputs();renderAll();}
 function closeModal(){document.getElementById("scrim").classList.remove("open");}
 document.getElementById("openExplorer").onclick=openModal;
 document.getElementById("openExplorer2").onclick=openModal;
@@ -325,14 +330,26 @@ document.getElementById("scrim").addEventListener("click",e=>{if(e.target.id==="
     renderAll();
   });
 });
-document.getElementById("yr").addEventListener("input",e=>{F.fromYear=+e.target.value;document.getElementById("yrLab").textContent=e.target.value;renderResults();renderHist();});
+function commitYears(){
+  let lo=parseInt(document.getElementById("yrMin").value,10);
+  let hi=parseInt(document.getElementById("yrMax").value,10);
+  if(isNaN(lo)) lo=OLDEST; if(isNaN(hi)) hi=NOW;
+  if(lo>hi){const t=lo;lo=hi;hi=t;} // tolerate swapped entry
+  F.minYear=lo; F.maxYear=hi; syncYearInputs(); renderAll();
+}
+["yrMin","yrMax"].forEach(id=>{
+  const el=document.getElementById(id);
+  el.addEventListener("change",commitYears);
+  el.addEventListener("keydown",e=>{if(e.key==="Enter")commitYears();});
+});
 document.getElementById("q").addEventListener("input",e=>{F.q=e.target.value;renderResults();});
 document.getElementById("sort").addEventListener("change",e=>{F.sort=e.target.value;renderResults();});
 document.getElementById("resetFilters").addEventListener("click",()=>{
-  F.research=F.review=F.patent=true;F.starOnly=false;F.fromYear=1970;F.q="";F.sort="year";F._bin=null;F.pickYear=null;
+  F.research=F.review=F.patent=true;F.starOnly=false;F.minYear=OLDEST;F.maxYear=NOW;F.q="";F.sort="year";
   document.getElementById("fResearch").checked=document.getElementById("fReview").checked=document.getElementById("fPatent").checked=true;
-  document.getElementById("fStar").checked=false;document.getElementById("yr").value=1970;document.getElementById("yrLab").textContent="1970";
-  document.getElementById("q").value="";document.getElementById("sort").value="year";renderAll();
+  document.getElementById("fStar").checked=false;
+  document.getElementById("q").value="";document.getElementById("sort").value="year";
+  syncYearInputs();renderAll();
 });
 
 /* ---------- decisions ---------- */
@@ -341,8 +358,8 @@ const D=[
    body:"The inline Find-in-literature stays as a quick peek; a <b>View all</b> button opens the full-screen explorer with the filter rail, histogram, and sort. Heavy lists never crowd the molecule page."},
   {id:"L-2",title:"Filters: research / reviews / patents, year, search",rec:"Approve",
    body:"Left rail toggles for research vs reviews vs patents (reviews come from the Europe PMC <code>pubType</code>, which we will start mapping), a from-year slider, a starred-only toggle, plus a text filter and a sort (newest / most cited / title)."},
-  {id:"L-3",title:"Papers-per-year histogram in the left rail",rec:"Approve",
-   body:"The count bar plot lives in the left filter rail, Google Scholar style, binned by year (purple where reviews dominate). Click a bar to filter to that window. Built from each hit's <code>pubYear</code>, no extra fetch."},
+  {id:"L-3",title:"Year histogram + editable min/max range, in the left rail",rec:"Approve",
+   body:"The papers-per-year bar plot lives in the left rail, Google Scholar style (purple where reviews dominate). Two editable year fields (default oldest paper found to present) set the range, typing a year re-scales the plot AND the search results to that window. Click a bar to zoom to it. Built from each hit's <code>pubYear</code>, no extra fetch."},
   {id:"L-4",title:"Star a paper to save its DOI onto the molecule",rec:"Approve",flag:true,
    body:"Starring writes the DOI (or patent id) into the molecule sidecar so it persists and shows the next time that molecule is opened. <b>FLAG, data-shape:</b> a new additive optional field <code>MoleculeMeta.starred_papers?: { doi?, pid?, title, year, type, journal, starred_at }[]</code> on <code>molecules/{id}.meta.json</code>, back-compatible (older molecules omit it)."},
   {id:"L-5",title:"Show starred papers on the molecule, and build it into the demo",rec:"Approve",

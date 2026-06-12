@@ -66,7 +66,7 @@ export default function TaskEmbed({ descriptor, caption }: EmbedRendererProps) {
   }
 
   const task = state.task;
-  const title = caption || task.name;
+  const title = task.name || caption;
   const statusLabel = task.is_complete ? "Complete" : "In progress";
   const href = objectDeepLink("task", descriptor.id);
 

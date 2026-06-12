@@ -79,6 +79,12 @@ const EMBED_RENDERERS: Partial<
   experiment: lazy(() => import("./ExperimentEmbed")),
 };
 
+// P7-2 transclusion. A note embed whose view is "transclude" renders its section
+// LIVE via TransclusionEmbed instead of the normal NoteEmbed card. Kept lazy so the
+// recursive markdown renderer only loads when a transclusion is actually on screen,
+// and out of the per-type map so it never collides with the "note" card renderer.
+const TransclusionEmbed = lazy(() => import("./TransclusionEmbed"));
+
 const TYPE_ICON: Record<ObjectRefType, IconName> = {
   sequence: "sequence",
   collection: "folder",
@@ -314,6 +320,31 @@ export default function ObjectEmbed({
   onViewChange,
   pinContext,
 }: EmbedRendererProps) {
+  // P7-2 transclusion. A note embed with view "transclude" renders a live section
+  // of another note, recursion-guarded. It is NOT pinnable or view-switchable in
+  // v1, so it short-circuits the whole pin / stale / view-switch machinery below
+  // and renders inside the same quiet figure frame. Hooks above this point are not
+  // yet declared, so this early return precedes them (no conditional-hook hazard).
+  if (descriptor.type === "note" && descriptor.view === "transclude") {
+    return (
+      <figure
+        className="my-3 mx-0 overflow-hidden rounded-xl border border-border bg-surface-raised"
+        data-embed-type={descriptor.type}
+        data-embed-view={descriptor.view}
+      >
+        <Suspense
+          fallback={<ObjectEmbedCard descriptor={descriptor} caption={caption} loading />}
+        >
+          <TransclusionEmbed
+            descriptor={descriptor}
+            caption={caption}
+            basePath={basePath}
+          />
+        </Suspense>
+      </figure>
+    );
+  }
+
   const Renderer = EMBED_RENDERERS[descriptor.type];
 
   // A pinned embed renders its FROZEN snapshot, not live. The pin id rides the
@@ -473,10 +504,19 @@ export default function ObjectEmbed({
 
 /**
  * The caption line below a figure-type embed (molecule, sequence, Data Hub).
- * Renders a <figcaption> when the document numbers figures (figureLabel present)
- * OR the user wrote a caption that differs from the object's own name, so the
- * default case (caption == name, no numbering) stays clean with no redundant
- * line. Must be rendered inside the ObjectEmbed <figure>.
+ *
+ * The embed title already shows the live object name (the renderers use
+ * name-first priority). This component is ONLY for opt-in figure numbering:
+ * when figureLabel is present (e.g. "Figure 1") it renders a figcaption that
+ * reads "Figure 1. <live name>", so a renamed object never surfaces a stale
+ * label. When figureLabel is absent, nothing is rendered regardless of the
+ * baked caption text. A future dedicated caption field is the right home for
+ * deliberate custom captions.
+ *
+ * Prop signature is unchanged (caption, name, figureLabel) so call sites do
+ * not need updates.
+ *
+ * Voice: no em-dashes, no emojis, no mid-sentence colons.
  */
 export function EmbedCaption({
   caption,
@@ -487,14 +527,12 @@ export function EmbedCaption({
   name?: string;
   figureLabel?: string;
 }) {
-  const text = caption || name || "";
+  if (!figureLabel) return null;
+  const text = name || caption || "";
   if (!text) return null;
-  if (!figureLabel && text === name) return null;
   return (
     <figcaption className="border-t border-border px-3 py-2 text-meta text-foreground-muted">
-      {figureLabel ? (
-        <span className="font-semibold text-foreground">{figureLabel}. </span>
-      ) : null}
+      <span className="font-semibold text-foreground">{figureLabel}. </span>
       {text}
     </figcaption>
   );

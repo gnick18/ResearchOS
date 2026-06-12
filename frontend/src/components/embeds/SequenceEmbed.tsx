@@ -83,7 +83,7 @@ export default function SequenceEmbed({ descriptor, caption, figureLabel, onView
   const length = d.length || d.seq.length || 1;
   const isProtein = String(d.seq_type).toLowerCase().includes("protein");
   const unit = isProtein ? "aa" : "bp";
-  const title = caption || d.display_name;
+  const title = d.display_name || caption;
   const href = objectDeepLink("sequence", descriptor.id);
   const facts = `${length.toLocaleString()} ${unit} · ${d.circular ? "Circular" : "Linear"} · ${d.feature_count} ${d.feature_count === 1 ? "feature" : "features"}`;
 

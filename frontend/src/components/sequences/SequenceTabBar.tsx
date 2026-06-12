@@ -10,6 +10,14 @@
 // (the "Restriction sites" toggle, whose flyout opens the full enzyme picker),
 // so there is no redundant Enzymes tab here.
 //
+// seq flyout bot — Map and Sequence are the real CANVAS view modes (radio,
+// mutually exclusive, they swap the whole map). Features, Primers, and History
+// no longer blank the canvas. They are TOGGLE buttons that pop a flyout panel up
+// over the live map (a chevron on the button signals it pops up, and rotates
+// when open). Clicking an open flyout's button closes it; only one flyout is
+// ever open. The bar reports both the active canvas mode and which flyout (if
+// any) is open up to the editor.
+//
 // It is a pure presentation control: it owns no view logic, just renders the
 // tabs and reports the chosen `viewMode` up. Inline SVG icons only (no emoji /
 // no icon library, per project convention); icon-only affordances are labelled.
@@ -70,9 +78,30 @@ function IconHistory({ className }: { className?: string }) {
     </svg>
   );
 }
+function IconChevron({ className }: { className?: string }) {
+  // seq flyout bot — the pop-up affordance on the flyout tabs (Features /
+  // Primers / History). It points UP (the panel pops up from the button) and
+  // rotates 180deg via a CSS class when its flyout is open.
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M6 15l6-6 6 6" />
+    </svg>
+  );
+}
+
+/** seq flyout bot — Map / Sequence swap the CANVAS (radio). Features / Primers /
+ *  History pop a flyout panel over the canvas (toggle). */
+export type SequenceTabKind = "canvas" | "flyout";
+
+/** The flyout view modes (the ones that pop up over the canvas, not swap it). */
+export type SequenceFlyoutMode = "features" | "primers" | "history";
+
+/** The canvas view modes (the ones that genuinely swap the whole map). */
+export type SequenceCanvasMode = "map" | "sequence";
 
 interface TabDef {
   id: SequenceViewMode;
+  kind: SequenceTabKind;
   label: string;
   hint: string;
   Icon: (props: { className?: string }) => React.ReactElement;
@@ -81,8 +110,16 @@ interface TabDef {
 }
 
 export interface SequenceTabBarProps {
-  active: SequenceViewMode;
-  onChange: (mode: SequenceViewMode) => void;
+  /** The active CANVAS mode (Map or Sequence). Always one of the two; flyouts do
+   *  not change this. Drives the radio highlight on Map / Sequence. */
+  active: SequenceCanvasMode;
+  /** Which flyout panel is open over the canvas, or null when none is. Drives the
+   *  toggled-on highlight + rotated chevron on Features / Primers / History. */
+  openFlyout: SequenceFlyoutMode | null;
+  /** Pick a canvas mode (Map / Sequence). Closes any open flyout up in the host. */
+  onChange: (mode: SequenceCanvasMode) => void;
+  /** Toggle a flyout panel open/closed (Features / Primers / History). */
+  onToggleFlyout: (mode: SequenceFlyoutMode) => void;
   featureCount: number;
   primerCount: number;
   /** sequence editor master (redesign phase 2). Where the bar is anchored. The
@@ -112,17 +149,19 @@ export function normalizeViewMode(mode: string | null | undefined): SequenceView
 
 export default function SequenceTabBar({
   active,
+  openFlyout,
   onChange,
+  onToggleFlyout,
   featureCount,
   primerCount,
   position = "top",
 }: SequenceTabBarProps) {
   const tabs: TabDef[] = [
-    { id: "map", label: "Map", hint: "Whole-molecule map view", Icon: IconMap },
-    { id: "sequence", label: "Sequence", hint: "Base-level sequence view", Icon: IconSequence },
-    { id: "features", label: "Features", hint: "Feature list and editing", Icon: IconFeatures, count: featureCount || undefined },
-    { id: "primers", label: "Primers", hint: "Primer list and design", Icon: IconPrimers, count: primerCount || undefined },
-    { id: "history", label: "History", hint: "Edit and version history", Icon: IconHistory },
+    { id: "map", kind: "canvas", label: "Map", hint: "Whole-molecule map view", Icon: IconMap },
+    { id: "sequence", kind: "canvas", label: "Sequence", hint: "Base-level sequence view", Icon: IconSequence },
+    { id: "features", kind: "flyout", label: "Features", hint: "Feature list and editing (pops up over the map)", Icon: IconFeatures, count: featureCount || undefined },
+    { id: "primers", kind: "flyout", label: "Primers", hint: "Primer list and design (pops up over the map)", Icon: IconPrimers, count: primerCount || undefined },
+    { id: "history", kind: "flyout", label: "History", hint: "Edit and version history (pops up over the map)", Icon: IconHistory },
   ];
 
   return (
@@ -136,14 +175,27 @@ export default function SequenceTabBar({
       }`}
     >
       {tabs.map((t) => {
-        const selected = active === t.id;
+        // seq flyout bot — a canvas tab is "selected" when it is the active canvas
+        // mode; a flyout tab is "selected" when its panel is currently open over
+        // the canvas. Both share the same active styling so the bar reads as one
+        // row, but flyout tabs carry the up-chevron pop affordance + aria-expanded
+        // and dispatch a TOGGLE instead of a radio change.
+        const isFlyout = t.kind === "flyout";
+        const selected = isFlyout
+          ? openFlyout === (t.id as SequenceFlyoutMode)
+          : active === (t.id as SequenceCanvasMode);
         return (
           <Tooltip key={t.id} label={t.hint}>
             <button
               type="button"
               role="tab"
               aria-selected={selected}
-              onClick={() => onChange(t.id)}
+              aria-expanded={isFlyout ? selected : undefined}
+              onClick={() =>
+                isFlyout
+                  ? onToggleFlyout(t.id as SequenceFlyoutMode)
+                  : onChange(t.id as SequenceCanvasMode)
+              }
               data-testid={`seq-tab-${t.id}`}
               className={`relative flex items-center gap-1.5 rounded-t-md px-3 py-1.5 text-meta font-medium transition-colors ${
                 selected
@@ -161,6 +213,13 @@ export default function SequenceTabBar({
                 >
                   {t.count}
                 </span>
+              ) : null}
+              {isFlyout ? (
+                <IconChevron
+                  className={`ml-0.5 h-3 w-3 transition-transform ${
+                    selected ? "rotate-180" : ""
+                  }`}
+                />
               ) : null}
             </button>
           </Tooltip>

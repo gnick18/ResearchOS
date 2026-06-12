@@ -60,6 +60,7 @@ import { LabSessionMount } from "@/components/lab/LabSessionMount";
 // BeakerSearch step 2a, the app-chrome front-door pill. Visible on every app
 // page, opens the always-present global Cmd-K palette.
 import BeakerSearchPill from "@/components/beaker-search/BeakerSearchPill";
+import BeakerSearchBottomBar from "@/components/beaker-search/BeakerSearchBottomBar";
 import AppNavBar from "@/components/AppNavBar";
 import type { NavItem } from "@/lib/nav";
 
@@ -372,6 +373,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           {/* BeakerSearch step 2a, the app-wide front door. Leads the action
               cluster so the Cmd-K palette is discoverable on every page; the
               Sequences toolbar keeps its own pill (minor redundancy is fine). */}
+          {/* TODO(beakerai): remove top-nav BeakerSearchPill once nav-slimming
+              coordinates. BeakerSearch's permanent home is now the bottom-center
+              ask bar (BeakerSearchBottomBar, rendered below). The pill stays for
+              now so removing it from this contended top-nav surface is sequenced
+              with the global-nav-slimming session, not done head-on. Both open
+              the same surface in the meantime, which is fine. */}
           <BeakerSearchPill />
           <NotificationBadge pill={tinted} />
           <InboxBadge />
@@ -651,6 +658,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         {!onSequences && <FeedbackButton onClick={openBugReport} />}
       </div>
+
+      {/* BeakerAI build. BeakerSearch's permanent home, a slim always-present
+          ask bar docked bottom-CENTER on every route (Option A). It opens the
+          same shared BeakerSearch surface the top-nav pill and Cmd K open, so it
+          is an additional trigger, not a second surface. Centered, so it clears
+          the bottom-right utility cluster above and the /sequences bottom-left
+          FAB below. It hides itself under record / capture mode (it owns that
+          logic, mirroring the dock and flask). */}
+      <BeakerSearchBottomBar />
 
       {/* On /sequences the Report-bug FAB lives here at the bottom-LEFT instead
           of the bottom-right cluster, so it stays available without floating

@@ -89,7 +89,7 @@ export default function MethodEmbed({ descriptor, caption }: EmbedRendererProps)
   }
 
   const { method, bodyExcerpt } = state;
-  const title = caption || method.name;
+  const title = method.name || caption;
   const typeLabel = methodTypeLabel(method.method_type);
   const href = objectDeepLink("method", descriptor.id);
 

@@ -71,19 +71,35 @@ export default function OverlapHomologyHero({ junctions, primers, annealTargetTm
               </div>
 
               {/* The two strands with the shared overlap band. Fragment A's 3' tail
-                  on top, fragment B's 5' head below, the overlap identical on both
-                  (it is the same homology, present once at the seam). */}
+                  on top, fragment B's 5' head below, the overlap IDENTICAL on both
+                  (it is the same homology, same strand, present once at the seam,
+                  not a complement). Fixed-width strand tag + context cells anchor
+                  the overlap to the SAME column in both rows regardless of the
+                  fragment names (which already sit in the header above), so the
+                  bases stack and the identity ticks line up base-for-base. */}
               {hasOverlap ? (
                 <div className="overflow-x-auto rounded bg-surface-sunken px-2 py-1.5 font-mono text-[11px] leading-relaxed">
-                  <div className="flex items-center gap-1 whitespace-nowrap text-foreground-muted">
-                    <span className="text-foreground-muted">{aName} 3'</span>
-                    <span className="text-foreground-muted">…</span>
-                    <span className="rounded-sm bg-sky-100 dark:bg-sky-500/15 px-0.5 text-sky-800 dark:text-sky-300">{jn.overlapSeq}</span>
+                  {/* Fragment A 3' end. Body trails left (…), overlap at the 3' terminus. */}
+                  <div className="whitespace-nowrap">
+                    <span className="inline-block w-6 shrink-0 pr-1 text-right text-foreground-muted">3'</span>
+                    <span className="inline-block w-3 shrink-0 text-right text-foreground-muted">…</span>
+                    <span className="bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300">{jn.overlapSeq}</span>
                   </div>
-                  <div className="flex items-center gap-1 whitespace-nowrap text-foreground-muted">
-                    <span className="text-foreground-muted">{bName} 5'</span>
-                    <span className="rounded-sm bg-sky-100 dark:bg-sky-500/15 px-0.5 text-sky-800 dark:text-sky-300">{jn.overlapSeq}</span>
-                    <span className="text-foreground-muted">…</span>
+                  {/* Identity ticks: every base is shared, so every position matches. */}
+                  <div className="whitespace-nowrap text-sky-400 dark:text-sky-500" aria-hidden="true">
+                    <span className="inline-block w-6 shrink-0" />
+                    <span className="inline-block w-3 shrink-0" />
+                    <span>{"│".repeat(jn.overlapSeq.length)}</span>
+                  </div>
+                  {/* Fragment B 5' end. Overlap at the 5' terminus, body trails right (…). */}
+                  <div className="whitespace-nowrap">
+                    <span className="inline-block w-6 shrink-0 pr-1 text-right text-foreground-muted">5'</span>
+                    <span className="inline-block w-3 shrink-0" />
+                    <span className="bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300">{jn.overlapSeq}</span>
+                    <span className="inline-block w-3 shrink-0 text-foreground-muted">…</span>
+                  </div>
+                  <div className="mt-1 text-[10px] text-foreground-muted">
+                    Shared homology, same strand, present once in the product.
                   </div>
                 </div>
               ) : (

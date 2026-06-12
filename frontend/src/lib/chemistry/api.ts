@@ -73,6 +73,38 @@ export interface MoleculeMeta {
   h_bond_acceptor_count?: number | null;
   /** Topological polar surface area in square angstroms (TPSA). */
   tpsa?: number | null;
+  // DATA-SHAPE FLAG (literature-explorer, 2026-06-12): additive, back-compatible.
+  // Older molecules simply omit this field. Mirrors the xlogp/descriptor pattern.
+  /**
+   * Papers and patents starred by the user in the literature explorer for this
+   * molecule. Saved into the sidecar so starred items persist across sessions
+   * and show as a one-click strip when the molecule is reopened.
+   */
+  starred_papers?: StarredPaper[];
+}
+
+/**
+ * A paper or patent the user has starred from the literature explorer for a
+ * specific molecule. Persisted in MoleculeMeta.starred_papers[].
+ *
+ * DATA-SHAPE FLAG: new optional array field on molecules/{id}.meta.json.
+ * Additive and back-compatible -- older molecules omit it.
+ */
+export interface StarredPaper {
+  /** DOI for research / review papers (absent for patents). */
+  doi?: string;
+  /** PubChem patent id for patent items (absent for papers). */
+  patent_id?: string;
+  title: string;
+  year: string;
+  type: "research" | "review" | "patent";
+  journal?: string;
+  /** Europe PMC source (e.g. "MED"). */
+  source?: string;
+  /** Europe PMC article id. */
+  id?: string;
+  /** ISO timestamp when the user starred this item. */
+  starred_at: string;
 }
 
 /**
@@ -380,6 +412,20 @@ export async function restoreVersion(
   }
 }
 
+/**
+ * Write the starred_papers list for a molecule. Replaces the whole array so the
+ * caller owns the merge (add or remove). Metadata-only update, does not touch the
+ * Molfile or trigger a history checkpoint (starring is not a structural save).
+ * Returns the updated MoleculeMeta, or null when the molecule does not exist.
+ */
+export async function setStarredPapers(
+  id: string,
+  papers: StarredPaper[],
+): Promise<MoleculeMeta | null> {
+  const username = await getCurrentUserCached();
+  return moleculeStore.updateMeta(id, { starred_papers: papers }, username);
+}
+
 /** Namespaced handle to mirror the other `*Api` modules in the codebase. */
 export const moleculesApi = {
   list,
@@ -392,4 +438,5 @@ export const moleculesApi = {
   getHistory,
   reconstructMoleculeAt,
   restoreVersion,
+  setStarredPapers,
 };

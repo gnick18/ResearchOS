@@ -38,11 +38,10 @@ const STAGE_MESSAGES: Record<NonNullable<LoadingStage>, string> = {
 
 const STAGE_SUBTITLES: Record<NonNullable<LoadingStage>, string> = {
   "opening-picker":
-    "Asking the OS for a folder dialog. If your research folder lives in OneDrive / iCloud / Dropbox, this step can take 15-60 seconds the first time — the OS has to spin up its file provider. This is not a freeze.",
+    "Asking the OS for a folder dialog. If your research folder lives in OneDrive / iCloud / Dropbox, this step can take 15-60 seconds the first time, while the OS spins up its file provider. This is not a freeze.",
   connecting: "Waiting for the system to hand us a folder handle…",
   "verifying-permission": "If your browser shows a prompt, click Allow.",
-  "validating-folder":
-    "Cloud folders are slow on first read while the OS catches up. This is normal.",
+  "validating-folder": "Reading what is already in the folder.",
   "discovering-users": "Scanning users/ for everyone with data here.",
   "warming-cache": "Checking cached file versions against disk.",
   preparing: "Loading projects, tasks, and recent activity.",
@@ -51,7 +50,6 @@ const STAGE_SUBTITLES: Record<NonNullable<LoadingStage>, string> = {
 // Rotated every few seconds during long stages so the user can tell the
 // screen is still alive (not frozen by Chrome).
 const REASSURANCE_MESSAGES = [
-  "Still here. Cloud folders are slow on first connect — it's the OS, not us.",
   "Tip: once it's loaded, everything after this stays snappy.",
   "Your data is being read directly from disk — no server in the middle.",
   "Big folder? The first scan can take a minute. Subsequent loads are faster.",
@@ -197,8 +195,7 @@ export default function StagedLoadingScreen({
               Taking too long? Choose a different folder
             </button>
             <p className="text-meta text-foreground-muted mt-2">
-              Cloud folders (OneDrive, Box, Dropbox) can stall here. A folder on
-              your local disk loads instantly.
+              A folder on your local disk connects instantly.
             </p>
           </div>
         )}

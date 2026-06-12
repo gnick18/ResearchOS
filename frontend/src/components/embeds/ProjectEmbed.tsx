@@ -48,7 +48,7 @@ export default function ProjectEmbed({ descriptor, caption }: EmbedRendererProps
   }
 
   const project = state.project;
-  const title = caption || project.name;
+  const title = project.name || caption;
   const href = objectDeepLink("project", descriptor.id);
 
   return (

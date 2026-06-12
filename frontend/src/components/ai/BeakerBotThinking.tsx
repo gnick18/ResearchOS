@@ -22,7 +22,7 @@
 //
 // House style, no em-dashes, no emojis, no mid-sentence colons.
 
-import { Icon } from "@/components/icons";
+import BeakerBot from "@/components/BeakerBot";
 import styles from "./BeakerBotThinking.module.css";
 
 export type ThinkingVariant = "pulse" | "beaker" | "blink";
@@ -57,23 +57,12 @@ function ThinkingIndicator({ variant }: { variant: ThinkingVariant }) {
         data-testid="beakerbot-thinking-indicator"
         data-variant="beaker"
         aria-hidden="true"
-        className="relative inline-flex h-5 w-5 items-center justify-center"
+        className="relative inline-flex h-6 w-6 items-center justify-center"
       >
-        {/* CSS bubble dots rising over the vessel. Positioned over the vial
-            mouth, no svg. */}
-        <span
-          className={`${styles.bubble} ${styles.bubbleDelay1} absolute left-[6px] top-1 h-1 w-1 rounded-full bg-brand-sky`}
-        />
-        <span
-          className={`${styles.bubble} ${styles.bubbleDelay2} absolute left-[10px] top-0.5 h-1 w-1 rounded-full bg-brand-sky`}
-        />
-        <span
-          className={`${styles.bubble} ${styles.bubbleDelay3} absolute left-[13px] top-1.5 h-1 w-1 rounded-full bg-brand-sky`}
-        />
-        <Icon
-          name="vial"
-          className={`${styles.beakerVessel} h-5 w-5 text-brand-sky`}
-        />
+        {/* The mascot IS BeakerBot. Its own "thinking" pose animates (the manual
+            CSS bubbles are dropped, the pose carries the motion). Sized up to h-6
+            so the face reads; a 40x40 figure is illegible at the old h-5. */}
+        <BeakerBot pose="thinking" animated className="h-6 w-6" ariaLabel="BeakerBot thinking" />
       </span>
     );
   }

@@ -242,6 +242,26 @@ function demoDocs(): DemoDocSpec[] {
     },
   ]);
 
+  // 7) XY table: two dose-response curves that share Bottom / Top / Hill and
+  //    differ only in EC50, the textbook case for a global (shared-parameter) fit.
+  //    The D3 global-fit transparency dataset (curve A EC50 10x lower than B).
+  const multiCurve = xyTable(
+    "log[drug] (M)",
+    [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0],
+    [
+      {
+        id: "col-ya",
+        name: "FakeDrug-A (% inhibition)",
+        values: [0.9, 2.9, 8.6, 23.0, 50.4, 75.9, 90.8, 96.9, 99.1, 99.6, 100.1],
+      },
+      {
+        id: "col-yb",
+        name: "FakeDrug-B (% inhibition)",
+        values: [0.1, 0.4, 0.8, 2.9, 8.6, 23.4, 50.4, 75.9, 90.8, 96.9, 99.1],
+      },
+    ],
+  );
+
   return [
     {
       id: "1",
@@ -355,6 +375,28 @@ function demoDocs(): DemoDocSpec[] {
         id: "analysis-yield-mlr",
         type: "multipleRegression",
         columnIds: ["col-yield", "col-sugar", "col-aer"],
+      },
+    },
+    {
+      id: "7",
+      name: "Two-drug dose-response (global fit)",
+      table_type: "xy",
+      project_ids: [PROJ_STRESS],
+      folder_path: null,
+      columns: multiCurve.columns,
+      rows: multiCurve.rows,
+      analysis: {
+        id: "analysis-globalfit",
+        type: "globalFit",
+        columnIds: ["col-ya", "col-yb"],
+      },
+      plot: {
+        id: "plot-multicurve-xy",
+        kind: "xyScatter",
+        yColumnId: "col-ya",
+        yTitle: "% inhibition",
+        xTitle: "log[drug] (M)",
+        title: "Two-drug dose-response",
       },
     },
   ];

@@ -123,9 +123,7 @@ describe("FolderConnectGate drop zone", () => {
   it("renders the drop-zone with default hint copy", () => {
     const { container } = renderGate();
     expect(screen.getByTestId("link-folder-drop-zone")).toBeInTheDocument();
-    expect(container.textContent).toContain(
-      "Drop your folder here, or click below to pick",
-    );
+    expect(container.textContent).toContain("Drag your data folder here");
   });
 
   it("shows the dragging-over visual treatment when a folder is dragged in", () => {
@@ -138,7 +136,7 @@ describe("FolderConnectGate drop zone", () => {
 
     expect(zone.className).toContain("border-blue-400");
     expect(zone.className).toContain("bg-blue-500/15");
-    expect(zone.textContent).toContain("Release to link this folder");
+    expect(zone.textContent).toContain("Release to connect this folder");
   });
 
   it("calls connectWithHandle on folder drop", async () => {
