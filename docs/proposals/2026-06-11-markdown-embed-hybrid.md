@@ -169,7 +169,7 @@ A pinned embed shows a quiet "source changed since you pinned this" badge when t
 
 Every figure or table embed carries an optional caption, and the link text doubles as it. `[Welch t-test of endpoint OD, YPD vs glucose](/datahub?doc=2&analysis=a3#ros=result)` renders the card with that line as its caption, and the same text is what shows as a plain link outside the tool, so no new syntax is needed. For an image the caption is the native alt text. Captions are what bake into a published figure or table caption.
 
-Embeds can auto-number in document order (Figure 1, Table 2), and an inline mention can reference the number ("see Figure 1"), recomputed as the note changes. This is what makes a note read like a paper draft.
+Embeds can auto-number in document order (Figure 1, Table 2), and an inline mention can reference the number ("see Figure 1"), recomputed as the note changes. This is what makes a note read like a paper draft. Numbering is OPT-IN per document, not global, an experiment has two linked docs (lab notes and results) and you may want the results figures numbered but not the lab notes.
 
 ## Export and publish baking
 
@@ -259,11 +259,15 @@ The `/` picker (`ReferencePicker`, pull) and the "Send to" picker (`SendReferenc
 
 Each phase lands behind the same additive pipeline, so an existing note with plain links is never affected until the user inserts an embed. Phases 0 to 3 are the embed system itself, 4 to 7 are what make it safe to share, publish, and reuse.
 
-## Open questions for the mockup review
+## Decisions locked (2026-06-11)
 
-- Card density and chrome, how much border / header each embed card carries vs a borderless inline look.
-- Default views per type (is a sequence's default `map` or `features`, is a molecule's default bare `structure` or the identity `card`).
-- Whether inline chips should get a hover-card preview in Phase 1 or wait for Phase 7.
-- Caption mechanism, the link text doubling as the caption (proposed) vs an explicit trailing caption line, and whether auto-numbering is on by default or opt-in per note.
+- Caption = the link text doubles as the caption (no new syntax). Images use the native alt text.
+- Auto-numbering = opt-in PER DOCUMENT, not global (an experiment's results doc can be numbered while its lab notes are not).
+- Default block views = sequence `map`, molecule identity `card`.
+- Inline chip hover-card previews land in Phase 1.
+
+## Still open
+
+- Card density and chrome, how much border / header each embed card carries vs a borderless inline look (a Phase 1 visual call).
 - Share-with-dependencies default, does the share-time warning offer to bundle in one click, and does a bundle default to including all dependencies or let the sharer pick.
 - Side-by-side layout, do we support two embeds in a row (compare two plots / two maps) via a column option, or keep the single-column markdown flow.
