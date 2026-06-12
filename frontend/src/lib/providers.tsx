@@ -619,7 +619,14 @@ function AppContent({ children }: { children: ReactNode }) {
     !currentUser &&
     entryAction === null &&
     !isDemoOrWikiCapture() &&
-    !signInInFlight
+    !signInInFlight &&
+    // A provider return (OAuth-first sign-in / free / lab-create) comes back to
+    // ?sharingClaim=1 with NO ?signIn param and a module that has reset
+    // entryAction on the full-page redirect, so without this guard the landing
+    // gate bounces the just-signed-in user straight back to the landing. Yield so
+    // the flow falls through to FolderConnectGate (the "save your account" step),
+    // where connecting a folder lets SharingClaimResume / LabCreateResume finish.
+    !sharingClaimReturn
   ) {
     // OAuth-first landing (entry-flow redesign change 1). One light deck-style
     // intro replaces the start-chooser. Create account opens the existing
@@ -728,6 +735,23 @@ function AppContent({ children }: { children: ReactNode }) {
           onBack={() => {
             entryActionThisLoad = null;
             setEntryAction(null);
+            // If we got here via an OAuth-first claim return, abandon it on Back
+            // by stripping ?sharingClaim, otherwise sharingClaimReturn stays true
+            // and this same gate re-renders (a Back loop). Stripping it lets the
+            // landing show again.
+            if (
+              typeof window !== "undefined" &&
+              new URLSearchParams(window.location.search).has("sharingClaim")
+            ) {
+              const url = new URL(window.location.href);
+              url.searchParams.delete("sharingClaim");
+              window.history.replaceState(
+                null,
+                "",
+                url.pathname + url.search + url.hash,
+              );
+              window.dispatchEvent(new Event("researchos:locationchange"));
+            }
           }}
         />
       </QueryClientProvider>
