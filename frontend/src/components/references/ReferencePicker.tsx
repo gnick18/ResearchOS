@@ -121,7 +121,7 @@ function PickerRow({
 
 export default function ReferencePicker({ onPick, onClose }: ReferencePickerProps) {
   const [tab, setTab] = useState<Tab>(defaultTab);
-  const [mode, setMode] = useState<InsertMode>("mention");
+  const [mode, setMode] = useState<InsertMode>("embed");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [molecules, setMolecules] = useState<Molecule[]>([]);
