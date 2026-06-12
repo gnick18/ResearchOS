@@ -38,7 +38,7 @@ import { fileURLToPath } from "node:url";
 import { LoroDoc } from "loro-crdt";
 import { seedDataHubDoc, getDataHubContent } from "@/lib/loro/datahub-doc";
 import { runAnalysis } from "@/lib/datahub/run-analysis";
-import { buildPlotSpec } from "@/lib/datahub/plot-spec";
+import { buildPlotSpec, type FitModelId } from "@/lib/datahub/plot-spec";
 import type {
   AnalysisSpec,
   ColumnDef,
@@ -147,6 +147,8 @@ interface DemoDocSpec {
     yTitle?: string;
     xTitle?: string;
     title?: string;
+    /** Fitted curve to bake into the figure (defaults to linear in the builder). */
+    fitModel?: FitModelId;
   };
 }
 
@@ -349,6 +351,7 @@ function demoDocs(): DemoDocSpec[] {
         yTitle: "% inhibition",
         xTitle: "log[FakeDrug-A] (M)",
         title: "Dose-response, FakeDrug-A inhibition",
+        fitModel: "logistic4pl",
       },
     },
     {
@@ -460,6 +463,7 @@ function buildContent(spec: DemoDocSpec): DataHubDocContent {
         yTitle: spec.plot.yTitle,
         xTitle: spec.plot.xTitle,
         title: spec.plot.title,
+        fitModel: spec.plot.fitModel,
       }),
     );
   }
