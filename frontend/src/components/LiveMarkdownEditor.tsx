@@ -41,7 +41,6 @@ const ImageAnnotatorModal = dynamic(() => import("./ImageAnnotatorModal"), {
 });
 import ImageStrip from "./ImageStrip";
 import Tooltip from "./Tooltip";
-import { isTourSyntheticEscape } from "./onboarding/v4/steps/walkthrough/lib/synthetic-escape";
 import FileStrip, { FILE_STRIP_DRAG_MIME } from "./FileStrip";
 import ImageTrashDropZone from "./ImageTrashDropZone";
 import FileTrashDropZone from "./FileTrashDropZone";
@@ -1738,10 +1737,6 @@ export default function LiveMarkdownEditor({
     if (typeof document === "undefined") return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      // CRITICAL tour interplay (§9): the markdown beats fire
-      // dispatchTourSyntheticEscape to commit blocks. Those must keep
-      // committing without exiting focus mode, so bail before anything else.
-      if (isTourSyntheticEscape(e)) return;
       // Modifier-combo Escape is not our toggle; let it pass through.
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
       // Only act when PARKED: no block mid-edit, no block selected, and no

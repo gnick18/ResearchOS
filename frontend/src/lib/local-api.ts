@@ -152,7 +152,18 @@ import { mondayOf } from "./weekly-goals/week";
 import { computeFundingSpend, computeUncategorizedSpend } from "./funding/spend";
 import { SharedNotebookStore } from "./shared-notebooks/store";
 import { OneOnOneStore, OneOnOneActionItemStore } from "./one-on-one/store";
-import { normalizeOneOnOne } from "./one-on-one/normalize";
+import {
+  normalizeOneOnOne,
+  normalizeOneOnOneActionItem,
+  normalizeWeeklyGoal,
+} from "./one-on-one/normalize";
+import {
+  reconcileSyncedTask,
+  pushCompletionToTask,
+  reconcileCompletionFromTask,
+  type TaskSyncOps,
+  type SyncedTaskDraft,
+} from "./one-on-one/action-item-sync";
 import type { Notebook } from "./types";
 
 const projectsStore = new JsonStore<Project>("projects");
@@ -6084,6 +6095,71 @@ function oneOnOneShareList(oneOnOne: OneOnOne): SharedUser[] {
   return membersSharedWith(normalizeOneOnOne(oneOnOne).members);
 }
 
+// Check-ins revamp Phase 2 (checkins-phase2 bot, 2026-06-12). The owner-scoped
+// task operations backing the D4 action-item -> Task sync. Every write lands in
+// the SPACE OWNER's task namespace via the per-user `tasksStore`, so a non-owner
+// member adding an assigned item does NOT create a task in their own folder.
+// This is the exact shape a PI-assigned task carries (owner = space owner,
+// assignee = member, shared_with = the member at "edit"), so the to-do surfaces
+// in the assignee's Lists view with no cross-user write.
+const checkinTaskSyncOps: TaskSyncOps = {
+  createTask: async (owner: string, draft: SyncedTaskDraft): Promise<Task> => {
+    const durationDays = 1;
+    const record: Omit<Task, "id"> = {
+      project_id: 0, // STANDALONE — the proven falsy-project path in WorkbenchListsPanel.
+      name: draft.name,
+      start_date: draft.start_date,
+      duration_days: durationDays,
+      end_date: canonicalEndDate({
+        start_date: draft.start_date,
+        duration_days: durationDays,
+      }),
+      is_high_level: false,
+      is_complete: draft.is_complete,
+      task_type: "list",
+      weekend_override: null,
+      method_ids: [],
+      deviation_log: null,
+      tags: null,
+      sort_order: 0,
+      experiment_color: null,
+      sub_tasks: null,
+      method_attachments: [],
+      comments: [],
+      owner,
+      shared_with: draft.shared_with,
+      assignee: draft.assignee,
+      source: draft.source,
+    };
+    return tasksStore.createForUser(record, owner);
+  },
+  updateTask: async (
+    owner: string,
+    id: number,
+    patch: Partial<Task>,
+  ): Promise<Task | null> => {
+    // Recompute the derived end_date when the date inputs change, mirroring
+    // tasksApi.update, so the synced task's timeline stays correct.
+    const next: Partial<Task> = { ...patch };
+    if (patch.start_date !== undefined || patch.duration_days !== undefined) {
+      const existing = await tasksStore.getForUser(id, owner);
+      if (existing) {
+        next.end_date = canonicalEndDate({
+          start_date: patch.start_date ?? existing.start_date,
+          duration_days: patch.duration_days ?? existing.duration_days,
+        });
+      }
+    }
+    return tasksStore.updateForUser(id, next, owner);
+  },
+  deleteTask: async (owner: string, id: number): Promise<void> => {
+    await tasksStore.deleteForUser(id, owner);
+  },
+  getTask: async (owner: string, id: number): Promise<Task | null> => {
+    return tasksStore.getForUser(id, owner);
+  },
+};
+
 export const oneOnOnesApi = {
   /**
    * Create a check-in space. Any account can create one (the lab-head gate is
@@ -6176,6 +6252,8 @@ export const oneOnOnesApi = {
     oneOnOneId: string;
     text: string;
     week_of?: string;
+    /** Check-ins Phase 2: optional single assignee for the group goal board. */
+    assignee?: string | null;
   }): Promise<WeeklyGoal> => {
     const oneOnOne = await findOneOnOne(params.oneOnOneId);
     if (!oneOnOne) {
@@ -6183,6 +6261,8 @@ export const oneOnOnesApi = {
     }
     const author = await getCurrentUserCached();
     assertMember(oneOnOne, author);
+    const assignee = params.assignee ?? null;
+    if (assignee !== null) assertMember(oneOnOne, assignee);
     const now = new Date().toISOString();
     return weeklyGoalsStore.create({
       owner: author,
@@ -6194,6 +6274,7 @@ export const oneOnOnesApi = {
       is_shared: true,
       shared_with: oneOnOneShareList(oneOnOne),
       one_on_one_id: params.oneOnOneId,
+      assignee,
     });
   },
 
@@ -6272,6 +6353,10 @@ export const oneOnOnesApi = {
   addActionItem: async (params: {
     oneOnOneId: string;
     text: string;
+    /** Check-ins Phase 2 (D3): optional single assignee + due date. When BOTH
+     *  are set the item materializes a real Task (D4). */
+    assignee?: string | null;
+    due_date?: string | null;
   }): Promise<OneOnOneActionItem> => {
     const oneOnOne = await findOneOnOne(params.oneOnOneId);
     if (!oneOnOne) {
@@ -6279,6 +6364,8 @@ export const oneOnOnesApi = {
     }
     const author = await getCurrentUserCached();
     assertMember(oneOnOne, author);
+    const assignee = params.assignee ?? null;
+    if (assignee !== null) assertMember(oneOnOne, assignee);
     const now = new Date().toISOString();
     const data: Omit<OneOnOneActionItem, "id"> = {
       one_on_one_id: params.oneOnOneId,
@@ -6289,14 +6376,81 @@ export const oneOnOnesApi = {
       // Canonical home is the space owner's (creator's) folder.
       owner: oneOnOne.owner,
       shared_with: oneOnOneShareList(oneOnOne),
+      assignee,
+      due_date: params.due_date ?? null,
+      synced_task_id: null,
     };
-    return oneOnOneActionItemsStore.create(data);
+    const created = await oneOnOneActionItemsStore.create(data);
+    // D4: materialize a synced Task when the item already has both fields.
+    const { synced_task_id } = await reconcileSyncedTask(
+      checkinTaskSyncOps,
+      oneOnOne.owner,
+      { synced_task_id: null, one_on_one_id: created.one_on_one_id, id: created.id },
+      created,
+    );
+    if (synced_task_id !== (created.synced_task_id ?? null)) {
+      return (
+        (await oneOnOneActionItemsStore.updateForUser(
+          created.id,
+          { synced_task_id },
+          oneOnOne.owner,
+        )) ?? { ...created, synced_task_id }
+      );
+    }
+    return created;
+  },
+
+  /**
+   * Edit an action item's text / assignee / due_date, then reconcile its synced
+   * Task (D4): create it the moment the item first has both an assignee and a
+   * due date, update name/date/assignee while it has both, or detach + delete
+   * the task when either field is cleared. Returns the updated item or null.
+   */
+  updateActionItem: async (
+    id: string,
+    patch: { text?: string; assignee?: string | null; due_date?: string | null },
+    owner?: string,
+  ): Promise<OneOnOneActionItem | null> => {
+    const home = owner ?? (await resolveActionItemOwner(id));
+    if (!home) return null;
+    const existingRaw = await oneOnOneActionItemsStore.getForUser(id, home);
+    if (!existingRaw) return null;
+    const existing = normalizeOneOnOneActionItem(existingRaw);
+    if (patch.assignee !== undefined && patch.assignee !== null) {
+      const oneOnOne = await findOneOnOne(existing.one_on_one_id);
+      if (oneOnOne) assertMember(oneOnOne, patch.assignee);
+    }
+    const next = normalizeOneOnOneActionItem({
+      ...existing,
+      ...(patch.text !== undefined ? { text: patch.text } : {}),
+      ...(patch.assignee !== undefined ? { assignee: patch.assignee } : {}),
+      ...(patch.due_date !== undefined ? { due_date: patch.due_date } : {}),
+    });
+    const { synced_task_id } = await reconcileSyncedTask(
+      checkinTaskSyncOps,
+      home,
+      existing,
+      next,
+    );
+    return oneOnOneActionItemsStore.updateForUser(
+      id,
+      {
+        ...(patch.text !== undefined ? { text: patch.text } : {}),
+        ...(patch.assignee !== undefined ? { assignee: patch.assignee } : {}),
+        ...(patch.due_date !== undefined ? { due_date: patch.due_date } : {}),
+        synced_task_id,
+      },
+      home,
+    );
   },
 
   /**
    * Toggle (or set) an action item's done state. Action items live in the lab
    * head's folder; pass `owner` for explicitness (defaults to a discovery walk
    * via `findOneOnOne` of the item's parent). Returns null if not found.
+   *
+   * D4: completing the item ALSO completes its synced Task (and vice versa, via
+   * the read-time reconcile in `getOneOnOneActionItems`).
    */
   toggleActionItem: async (
     id: string,
@@ -6306,18 +6460,31 @@ export const oneOnOnesApi = {
     if (!labHead) return null;
     const existing = await oneOnOneActionItemsStore.getForUser(id, labHead);
     if (!existing) return null;
-    return oneOnOneActionItemsStore.updateForUser(
+    const updated = await oneOnOneActionItemsStore.updateForUser(
       id,
       { is_done: !existing.is_done },
       labHead,
     );
+    if (updated) {
+      await pushCompletionToTask(
+        checkinTaskSyncOps,
+        labHead,
+        normalizeOneOnOneActionItem(updated),
+      );
+    }
+    return updated;
   },
 
   /** Delete an action item from the lab head's folder. Pass `owner` for
-   *  explicitness (defaults to a discovery walk). */
+   *  explicitness (defaults to a discovery walk). D4: also deletes the synced
+   *  Task so a member's to-do never outlives the action item that spawned it. */
   deleteActionItem: async (id: string, owner?: string): Promise<boolean> => {
     const labHead = owner ?? (await resolveActionItemOwner(id));
     if (!labHead) return false;
+    const existing = await oneOnOneActionItemsStore.getForUser(id, labHead);
+    if (existing && typeof existing.synced_task_id === "number") {
+      await checkinTaskSyncOps.deleteTask(labHead, existing.synced_task_id);
+    }
     return oneOnOneActionItemsStore.deleteForUser(id, labHead);
   },
 };
@@ -8398,7 +8565,7 @@ export const labApi = {
       const userGoals = await weeklyGoalsStore.listAllForUser(username);
       for (const goal of userGoals) {
         if (goal.one_on_one_id !== oneOnOneId) continue;
-        const stamped = { ...goal, owner: goal.owner || username };
+        const stamped = normalizeWeeklyGoal({ ...goal, owner: goal.owner || username });
         const shareable = {
           owner: stamped.owner,
           shared_with: stamped.shared_with ?? [],
@@ -8424,8 +8591,30 @@ export const labApi = {
       const items = await oneOnOneActionItemsStore.listAllForUser(username);
       for (const item of items) {
         if (item.one_on_one_id !== oneOnOneId) continue;
-        const stamped = { ...item, owner: item.owner || username };
-        if (canRead(stamped, viewer)) out.push(stamped);
+        const stamped = normalizeOneOnOneActionItem({
+          ...item,
+          owner: item.owner || username,
+        });
+        if (!canRead(stamped, viewer)) continue;
+        // D4 TASK -> ITEM completion: if the member completed the synced to-do
+        // in their Lists view, the task's is_complete wins. Reconcile on read
+        // and write the corrected is_done back into the owner's folder so the
+        // check-in space and the Lists view converge. No cross-owner write —
+        // the item lives in `stamped.owner`'s folder, which is where we write.
+        const reconciled = await reconcileCompletionFromTask(
+          checkinTaskSyncOps,
+          stamped.owner,
+          stamped,
+        );
+        if (reconciled.changed) {
+          stamped.is_done = reconciled.is_done;
+          await oneOnOneActionItemsStore.updateForUser(
+            stamped.id,
+            { is_done: reconciled.is_done },
+            stamped.owner,
+          );
+        }
+        out.push(stamped);
       }
     }
     return out;

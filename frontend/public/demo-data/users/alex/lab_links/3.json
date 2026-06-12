@@ -1,8 +1,8 @@
 {
   "id": 3,
-  "title": "AddGene (demo)",
+  "title": "AddGene",
   "url": "https://example.org/demo-addgene",
-  "description": "Plasmid repository — demo links only.",
+  "description": "Plasmid repository links.",
   "category": "Bioinformatics tools",
   "color": "#3b82f6",
   "preview_image_url": null,

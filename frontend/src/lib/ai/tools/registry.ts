@@ -79,6 +79,7 @@ import {
   importMoleculeTool,
 } from "./chemistry-tools";
 import { transformTableTool } from "./transform-table";
+import { wrangleTableTool } from "./wrangle-table";
 import type { AiTool } from "./types";
 
 // The read-only toolset, read-only with respect to the user's data. Exported on
@@ -184,6 +185,16 @@ export const READ_ONLY_TOOLS: AiTool[] = [
 // blurb, param pills, and a live first-rows preview) before anything is created.
 // Only on Approve does it create the new derived table and navigate the user to it.
 // The engine computes every cell; the model only maps and relays.
+//
+// wrangle_table is the full-pipeline sibling of transform_table (action: true,
+// isDestructive false). Where transform_table applies one column transform,
+// wrangle_table runs a multi-step RELATIONAL recipe (join, groupby, filter, pivot,
+// unpivot, union, derive, sort, dedupe, select, drop, rename, plus the five column
+// transforms) over one or more existing tables through the real pipeline engine
+// (executePipeline), and shows the user a block card with one step per op before
+// anything is created. Only on Approve does it create the derived table (storing the
+// { sources, recipe } link) and navigate the user to it. The engine computes every
+// cell; the model only maps the request to ops and real table ids.
 export const ACTION_TOOLS: AiTool[] = [
   clickElementTool,
   writeNoteTool,
@@ -194,6 +205,7 @@ export const ACTION_TOOLS: AiTool[] = [
   createMoleculeTool,
   importMoleculeTool,
   transformTableTool,
+  wrangleTableTool,
 ];
 
 // The coordination toolset. These tools neither read the user's data nor act on

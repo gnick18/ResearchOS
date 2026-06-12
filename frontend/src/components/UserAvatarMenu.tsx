@@ -29,6 +29,13 @@ import { useProfileModal } from "@/lib/sharing/profile-modal-store";
 import { rainbowTheme } from "@/lib/colors";
 import RainbowOrb from "@/components/RainbowOrb";
 import { useTheme } from "@/lib/theme/use-theme";
+import { Icon } from "@/components/icons";
+import {
+  getDemoMode,
+  isRecordingMode,
+  isWikiCaptureMode,
+} from "@/lib/file-system/wiki-capture-mock";
+import LeaveDemoModal from "@/components/LeaveDemoModal";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -41,8 +48,6 @@ export interface UserAvatarMenuProps {
   primaryColor: string;
   /** Whether the header is currently tinted (colored header opt-in). */
   tinted: boolean;
-  /** Whether navigation is disabled by the onboarding walkthrough. */
-  navDisabledByTour: boolean;
   /** Current pathname for active-state styling. */
   pathname: string | null;
 }
@@ -203,12 +208,24 @@ export default function UserAvatarMenu({
   currentUser,
   primaryColor,
   tinted,
-  navDisabledByTour,
   pathname,
 }: UserAvatarMenuProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const sharing = useSharingIdentity();
+
+  // Quiet escape hatch from the public /demo: a "Leave demo" row in this menu
+  // is the primary way out now that the old loud orange floating cluster was
+  // slimmed to a small corner pill. Mirrors the chrome components' gate
+  // (demo on, not wiki-capture, not recording) so it never shows in a real
+  // install or in a clean capture/recording surface. Synced on pathname
+  // change because the sticky demo flag is read from sessionStorage.
+  const [inDemo, setInDemo] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing local state with the external sessionStorage demo flag on every route change
+    setInDemo(getDemoMode() && !isWikiCaptureMode() && !isRecordingMode());
+  }, [pathname]);
 
   // Dark-mode toggle lives in this menu now (moved out of the top bar to free
   // header space). The row flips the theme and keeps the menu open so the user
@@ -286,26 +303,6 @@ export default function UserAvatarMenu({
       className="absolute inset-0 h-full w-full"
     />
   ) : null;
-
-  // Tour-disabled state: render a non-interactive button matching the gear's
-  // disabled treatment so the walkthrough spotlight area is consistent.
-  if (navDisabledByTour) {
-    return (
-      <button
-        type="button"
-        disabled
-        aria-disabled="true"
-        aria-label="Account (disabled during walkthrough)"
-        className={`relative w-7 h-7 rounded-full flex items-center justify-center text-meta font-semibold cursor-not-allowed opacity-50 ${
-          tinted ? "ring-2 ring-white/40" : ""
-        }`}
-        style={avatarStyle}
-      >
-        {orb}
-        <span className="relative">{initial(currentUser)}</span>
-      </button>
-    );
-  }
 
   const onSettings = pathname === "/settings";
 
@@ -386,8 +383,32 @@ export default function UserAvatarMenu({
               {isDark ? <SunIcon /> : <MoonIcon />}
               {isDark ? "Light mode" : "Dark mode"}
             </DropdownItem>
+            {inDemo && (
+              <>
+                <div className="my-1 h-px bg-border" />
+                <DropdownItem
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setOpen(false);
+                    setLeaveOpen(true);
+                  }}
+                >
+                  <Icon
+                    name="x"
+                    className="h-4 w-4 shrink-0 text-foreground-muted"
+                  />
+                  Leave demo
+                </DropdownItem>
+              </>
+            )}
           </div>
         </div>
+      )}
+      {inDemo && (
+        <LeaveDemoModal
+          isOpen={leaveOpen}
+          onClose={() => setLeaveOpen(false)}
+        />
       )}
     </div>
   );

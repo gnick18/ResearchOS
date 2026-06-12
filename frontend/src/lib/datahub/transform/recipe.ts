@@ -127,7 +127,7 @@ export function transformOpToLegacy(
 ): { transform: TransformKind; params: Record<string, unknown> } | null {
   switch (op.kind) {
     case "column-transform":
-      return { transform: "transform", params: op.params as Record<string, unknown> };
+      return { transform: "transform", params: op.params as unknown as Record<string, unknown> };
     case "normalize":
       return { transform: "normalize", params: op.params as Record<string, unknown> };
     case "transpose":

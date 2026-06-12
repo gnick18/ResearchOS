@@ -39,14 +39,22 @@ import type {
   WorkbenchRecentRef,
 } from "@/app/workbench/workbench-beaker-source";
 
-type AreaTab = "goals" | "meetings" | "notes" | "agenda";
+type AreaTab = "goals" | "meetings" | "notes" | "agenda" | "board";
 
-const AREA_TABS: Array<{ id: AreaTab; label: string }> = [
-  { id: "goals", label: "Weekly goals" },
-  { id: "meetings", label: "Meeting notes" },
-  { id: "notes", label: "Notes" },
-  { id: "agenda", label: "Agenda" },
-];
+// Check-ins Phase 2: a group space (3+ members) gets a "Task board" sub-tab
+// with per-assignee bands. Pair spaces keep the Phase 1 four-tab layout.
+function areaTabsFor(kind: "pair" | "group"): Array<{ id: AreaTab; label: string }> {
+  const base: Array<{ id: AreaTab; label: string }> = [
+    { id: "goals", label: "Weekly goals" },
+    { id: "meetings", label: "Meeting notes" },
+    { id: "notes", label: "Notes" },
+    { id: "agenda", label: "Agenda" },
+  ];
+  if (kind === "group") {
+    base.push({ id: "board", label: "Task board" });
+  }
+  return base;
+}
 
 interface WorkbenchOneOnOnePanelProps {
   /** The signed-in username (drives the role-relative label + perspective). */
@@ -108,6 +116,18 @@ export default function WorkbenchOneOnOnePanel({
     () => oneOnOnes.find((o) => o.id === selectedId) ?? null,
     [oneOnOnes, selectedId],
   );
+
+  // The sub-tabs available for the selected space (the Task board only exists
+  // for a group). Reset the active tab if the selection no longer offers it
+  // (e.g. switching from a group to a pair while "board" was open).
+  const areaTabs = useMemo(
+    () =>
+      areaTabsFor(selected ? normalizeOneOnOne(selected).kind : "pair"),
+    [selected],
+  );
+  useEffect(() => {
+    if (!areaTabs.some((t) => t.id === area)) setArea(areaTabs[0].id);
+  }, [areaTabs, area]);
 
   // BeakerSearch cross-tab jump (spec 4.2). Select the pending 1:1 once on mount
   // (or open the new-dialog for the "__create__" sentinel), then clear. The 1:1
@@ -270,7 +290,7 @@ export default function WorkbenchOneOnOnePanel({
         ) : (
           <>
             <div className="mb-4 flex items-center gap-1 border-b border-border pb-2">
-              {AREA_TABS.map((t) => (
+              {areaTabs.map((t) => (
                 <button
                   key={t.id}
                   type="button"
@@ -294,6 +314,9 @@ export default function WorkbenchOneOnOnePanel({
               <NotesArea oneOnOne={selected} kind="note" currentUser={currentUser} />
             )}
             {area === "agenda" && <AgendaArea oneOnOne={selected} />}
+            {area === "board" && (
+              <TaskBoardArea oneOnOne={selected} currentUser={currentUser} />
+            )}
           </>
         )}
       </section>
@@ -692,6 +715,494 @@ function AgendaArea({ oneOnOne }: { oneOnOne: OneOnOne }) {
   );
 }
 
+// ── Task board (group spaces) ────────────────────────────────────────────────
+// Check-ins Phase 2 (D2/D3/D4). A dense per-assignee board over the SAME action
+// items the Agenda tab shows, surfaced for a group space. A "Shared" band holds
+// unassigned items (anyone owns them, D2); each assigned member gets their own
+// band with an assignee chip + due-date chip per row. The Everyone / Mine
+// toggle filters to the viewer's own assignments. Any member can check any item
+// (D2); only the assignee or the item creator may delete (D2/D3). An item with
+// both an assignee and a due date materializes a real Task in that member's
+// Lists view (D4), wired in `oneOnOnesApi.addActionItem` / `updateActionItem`.
+
+function TaskBoardArea({
+  oneOnOne,
+  currentUser,
+}: {
+  oneOnOne: OneOnOne;
+  currentUser: string;
+}) {
+  const queryClient = useQueryClient();
+  const members = useMemo(
+    () => normalizeOneOnOne(oneOnOne).members,
+    [oneOnOne],
+  );
+  const [scope, setScope] = useState<"everyone" | "mine">("everyone");
+  const [editing, setEditing] = useState<OneOnOneActionItem | null>(null);
+
+  const { data: items = [] } = useQuery<OneOnOneActionItem[]>({
+    queryKey: itemsKey(oneOnOne.id),
+    queryFn: () => labApi.getOneOnOneActionItems(oneOnOne.id),
+  });
+
+  const invalidate = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: itemsKey(oneOnOne.id) }),
+    [queryClient, oneOnOne.id],
+  );
+
+  const addMutation = useMutation({
+    mutationFn: (params: {
+      text: string;
+      assignee: string | null;
+      due_date: string | null;
+    }) =>
+      oneOnOnesApi.addActionItem({ oneOnOneId: oneOnOne.id, ...params }),
+    onSuccess: invalidate,
+  });
+  const toggleMutation = useMutation({
+    mutationFn: (item: OneOnOneActionItem) =>
+      oneOnOnesApi.toggleActionItem(item.id, item.owner),
+    onSuccess: invalidate,
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (item: OneOnOneActionItem) =>
+      oneOnOnesApi.deleteActionItem(item.id, item.owner),
+    onSuccess: invalidate,
+  });
+  const editMutation = useMutation({
+    mutationFn: (params: {
+      id: string;
+      owner: string;
+      patch: { text?: string; assignee?: string | null; due_date?: string | null };
+    }) => oneOnOnesApi.updateActionItem(params.id, params.patch, params.owner),
+    onSuccess: () => {
+      invalidate();
+      setEditing(null);
+    },
+  });
+
+  // Bands: a "Shared" band (assignee null) first, then one per member, in the
+  // space's member order. Scope "mine" keeps only the viewer's own band.
+  const bands = useMemo(() => {
+    const filtered =
+      scope === "mine"
+        ? items.filter((i) => i.assignee === currentUser)
+        : items;
+    const byAssignee = new Map<string, OneOnOneActionItem[]>();
+    const shared: OneOnOneActionItem[] = [];
+    for (const i of filtered) {
+      if (i.assignee) {
+        const list = byAssignee.get(i.assignee) ?? [];
+        list.push(i);
+        byAssignee.set(i.assignee, list);
+      } else {
+        shared.push(i);
+      }
+    }
+    const sortBand = (list: OneOnOneActionItem[]) =>
+      [...list].sort(
+        (a, b) =>
+          Number(a.is_done) - Number(b.is_done) ||
+          (a.due_date ?? "9999").localeCompare(b.due_date ?? "9999") ||
+          b.created_at.localeCompare(a.created_at),
+      );
+    const out: Array<{
+      key: string;
+      label: string;
+      accent: string;
+      items: OneOnOneActionItem[];
+    }> = [];
+    if (scope === "everyone") {
+      out.push({
+        key: "__shared__",
+        label: "Shared",
+        accent: "bg-foreground-muted",
+        items: sortBand(shared),
+      });
+    }
+    members.forEach((m, idx) => {
+      const list = byAssignee.get(m) ?? [];
+      if (scope === "mine" && m !== currentUser) return;
+      out.push({
+        key: m,
+        label: m === currentUser ? `${m} (you)` : m,
+        accent: BAND_ACCENTS[idx % BAND_ACCENTS.length],
+        items: sortBand(list),
+      });
+    });
+    return out;
+  }, [items, members, scope, currentUser]);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <BoardAddRow members={members} busy={addMutation.isPending} onAdd={(p) => addMutation.mutate(p)} />
+
+      <div className="flex items-center gap-1">
+        {(["everyone", "mine"] as const).map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => setScope(s)}
+            data-testid={`oneonone-board-scope-${s}`}
+            className={`rounded-lg px-3 py-1 text-meta font-medium transition-colors ${
+              scope === s
+                ? "bg-brand-action/10 text-brand-action"
+                : "text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+            }`}
+          >
+            {s === "everyone" ? "Everyone" : "Mine"}
+          </button>
+        ))}
+      </div>
+
+      {bands.every((b) => b.items.length === 0) ? (
+        <EmptyArea label="No tasks yet. Add one above and assign it to a member with a due date to send it to their to-do list." />
+      ) : (
+        <div className="flex flex-col gap-4">
+          {bands.map((band) => (
+            <div key={band.key} className="flex flex-col gap-1">
+              <div className="flex items-center gap-2 px-1">
+                <span
+                  aria-hidden="true"
+                  className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${band.accent}`}
+                />
+                <p className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">
+                  {band.label}
+                </p>
+                <span className="text-meta text-foreground-muted">
+                  {band.items.length}
+                </span>
+              </div>
+              {band.items.length === 0 ? (
+                <p className="px-3 py-2 text-meta italic text-foreground-muted">
+                  Nothing assigned yet.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-1">
+                  {band.items.map((item) => (
+                    <BoardRow
+                      key={item.id}
+                      item={item}
+                      currentUser={currentUser}
+                      onToggle={() => toggleMutation.mutate(item)}
+                      onEdit={() => setEditing(item)}
+                      onDelete={() => deleteMutation.mutate(item)}
+                    />
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {editing && (
+        <EditTaskDialog
+          item={editing}
+          members={members}
+          busy={editMutation.isPending}
+          onClose={() => setEditing(null)}
+          onSave={(patch) =>
+            editMutation.mutate({
+              id: editing.id,
+              owner: editing.owner,
+              patch,
+            })
+          }
+        />
+      )}
+    </div>
+  );
+}
+
+// Colored band accents, cycled by member index, mirroring the explorer pattern.
+const BAND_ACCENTS = [
+  "bg-sky-500",
+  "bg-emerald-500",
+  "bg-violet-500",
+  "bg-amber-500",
+  "bg-rose-500",
+  "bg-teal-500",
+];
+
+function BoardRow({
+  item,
+  currentUser,
+  onToggle,
+  onEdit,
+  onDelete,
+}: {
+  item: OneOnOneActionItem;
+  currentUser: string;
+  onToggle: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  // D2/D3: only the assignee or the creator may delete; anyone can check.
+  const canDelete =
+    item.created_by === currentUser || item.assignee === currentUser;
+  return (
+    <li className="group flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-label={item.is_done ? "Mark not done" : "Mark done"}
+        className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border transition-colors ${
+          item.is_done
+            ? "border-brand-action bg-brand-action text-white"
+            : "border-border text-transparent hover:border-brand-action"
+        }`}
+      >
+        <Icon name="check" className="h-3.5 w-3.5" />
+      </button>
+      <span
+        className={`min-w-0 flex-1 text-body ${
+          item.is_done
+            ? "text-foreground-muted line-through"
+            : "text-foreground"
+        }`}
+      >
+        {item.text}
+      </span>
+      {item.assignee ? (
+        <Tooltip label={`Assigned to ${item.assignee}`}>
+          <span className="flex flex-shrink-0 items-center gap-1 rounded-full bg-surface-sunken px-2 py-0.5 text-meta text-foreground-muted">
+            <Icon name="users" className="h-3 w-3" />
+            {item.assignee}
+          </span>
+        </Tooltip>
+      ) : null}
+      {item.due_date ? (
+        <span className="flex flex-shrink-0 items-center gap-1 rounded-full bg-surface-sunken px-2 py-0.5 text-meta text-foreground-muted">
+          <Icon name="today" className="h-3 w-3" />
+          {item.due_date}
+        </span>
+      ) : null}
+      <Tooltip label="Edit task">
+        <button
+          type="button"
+          onClick={onEdit}
+          aria-label="Edit task"
+          className="flex-shrink-0 rounded p-1 text-foreground-muted opacity-0 transition-opacity hover:text-brand-action group-hover:opacity-100"
+        >
+          <Icon name="pencil" className="h-4 w-4" />
+        </button>
+      </Tooltip>
+      {canDelete && (
+        <DeleteIconButton label="Delete task" onClick={onDelete} />
+      )}
+    </li>
+  );
+}
+
+/** The board's add row: text + assignee picker + due-date picker. Assigning a
+ *  member AND a due date materializes a real Task in that member's Lists (D4). */
+function BoardAddRow({
+  members,
+  busy,
+  onAdd,
+}: {
+  members: string[];
+  busy: boolean;
+  onAdd: (p: { text: string; assignee: string | null; due_date: string | null }) => void;
+}) {
+  const [text, setText] = useState("");
+  const [assignee, setAssignee] = useState<string>("");
+  const [due, setDue] = useState<string>("");
+
+  const submit = () => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    onAdd({
+      text: trimmed,
+      assignee: assignee || null,
+      due_date: due || null,
+    });
+    setText("");
+    setAssignee("");
+    setDue("");
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <input
+        type="text"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") submit();
+        }}
+        placeholder="Add a task"
+        data-testid="oneonone-board-add-text"
+        className="min-w-[10rem] flex-1 rounded-lg border border-border bg-surface px-3 py-2 text-body text-foreground focus:border-brand-action focus:outline-none focus:ring-2 focus:ring-brand-action/30"
+      />
+      <select
+        value={assignee}
+        onChange={(e) => setAssignee(e.target.value)}
+        aria-label="Assign to"
+        data-testid="oneonone-board-add-assignee"
+        className="flex-shrink-0 rounded-lg border border-border bg-surface px-3 py-2 text-body text-foreground focus:border-brand-action focus:outline-none focus:ring-2 focus:ring-brand-action/30"
+      >
+        <option value="">Shared</option>
+        {members.map((m) => (
+          <option key={m} value={m}>
+            {m}
+          </option>
+        ))}
+      </select>
+      <input
+        type="date"
+        value={due}
+        onChange={(e) => setDue(e.target.value)}
+        aria-label="Due date"
+        data-testid="oneonone-board-add-due"
+        className="flex-shrink-0 rounded-lg border border-border bg-surface px-3 py-2 text-body text-foreground focus:border-brand-action focus:outline-none focus:ring-2 focus:ring-brand-action/30"
+      />
+      <button
+        type="button"
+        onClick={submit}
+        disabled={busy || !text.trim()}
+        className="btn-brand flex items-center gap-1.5 rounded-lg px-3 py-2 text-body font-medium disabled:opacity-40"
+      >
+        <Icon name="plus" className="h-4 w-4" />
+        Add
+      </button>
+    </div>
+  );
+}
+
+/** Edit an existing board task: text, assignee, due date. Clearing the assignee
+ *  or due date detaches the synced Task (D4), handled server-side. */
+function EditTaskDialog({
+  item,
+  members,
+  busy,
+  onClose,
+  onSave,
+}: {
+  item: OneOnOneActionItem;
+  members: string[];
+  busy: boolean;
+  onClose: () => void;
+  onSave: (patch: {
+    text: string;
+    assignee: string | null;
+    due_date: string | null;
+  }) => void;
+}) {
+  const [text, setText] = useState(item.text);
+  const [assignee, setAssignee] = useState<string>(item.assignee ?? "");
+  const [due, setDue] = useState<string>(item.due_date ?? "");
+
+  useEscapeToClose(onClose);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Edit task"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="w-full max-w-md rounded-xl bg-surface-raised shadow-xl">
+        <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-4">
+          <h2 className="text-title font-semibold text-foreground">Edit task</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="flex-shrink-0 rounded-lg p-1 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+          >
+            <Icon name="close" className="h-[18px] w-[18px]" />
+          </button>
+        </div>
+        <div className="flex flex-col gap-4 px-5 py-4">
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="oneonone-edit-text"
+              className="text-meta font-semibold uppercase tracking-wide text-foreground-muted"
+            >
+              Task
+            </label>
+            <input
+              id="oneonone-edit-text"
+              type="text"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-body text-foreground focus:border-brand-action focus:outline-none focus:ring-2 focus:ring-brand-action/30"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="oneonone-edit-assignee"
+              className="text-meta font-semibold uppercase tracking-wide text-foreground-muted"
+            >
+              Assignee
+            </label>
+            <select
+              id="oneonone-edit-assignee"
+              value={assignee}
+              onChange={(e) => setAssignee(e.target.value)}
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-body text-foreground focus:border-brand-action focus:outline-none focus:ring-2 focus:ring-brand-action/30"
+            >
+              <option value="">Shared (no assignee)</option>
+              {members.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="oneonone-edit-due"
+              className="text-meta font-semibold uppercase tracking-wide text-foreground-muted"
+            >
+              Due date
+            </label>
+            <input
+              id="oneonone-edit-due"
+              type="date"
+              value={due}
+              onChange={(e) => setDue(e.target.value)}
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-body text-foreground focus:border-brand-action focus:outline-none focus:ring-2 focus:ring-brand-action/30"
+            />
+          </div>
+          <p className="text-meta text-foreground-muted">
+            Assign a member and set a due date to send this to their to-do list.
+            Clear either one to keep it here only.
+          </p>
+        </div>
+        <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg px-4 py-2 text-body font-medium text-foreground-muted transition-colors hover:bg-surface-sunken"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              onSave({
+                text: text.trim() || item.text,
+                assignee: assignee || null,
+                due_date: due || null,
+              })
+            }
+            disabled={busy}
+            className="btn-brand rounded-lg px-4 py-2 text-body font-medium disabled:opacity-40"
+          >
+            {busy ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Shared little pieces ─────────────────────────────────────────────────────
 
 function AddRow({
@@ -870,8 +1381,10 @@ function DeleteIconButton({
 }
 
 // ── New check-in dialog (any account) ────────────────────────────────────────
-// Phase 1 keeps it to ONE other person plus a "I am the mentor" checkbox. The
-// multi-select group picker is phase 2.
+// Phase 2: a multi-select roster. Pick ONE person for a pair check-in (the "I
+// am the mentor" checkbox makes it a mentoring relationship), or pick TWO or
+// more for a group check-in (3+ members total). The mentor option only applies
+// to a pair, so it is hidden once a group is selected.
 
 function NewOneOnOneDialog({
   currentUser,
@@ -886,12 +1399,16 @@ function NewOneOnOneDialog({
 }) {
   const [roster, setRoster] = useState<string[]>([]);
   const [loadingRoster, setLoadingRoster] = useState(true);
-  const [selected, setSelected] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
   const [isMentor, setIsMentor] = useState(false);
+  const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEscapeToClose(onClose);
+
+  // A pair (one other person) supports the mentor flag; a group does not.
+  const isGroup = selected.length >= 2;
 
   useEffect(() => {
     let cancelled = false;
@@ -915,14 +1432,23 @@ function NewOneOnOneDialog({
     };
   }, [existingPartners]);
 
+  const toggle = useCallback((u: string) => {
+    setSelected((prev) =>
+      prev.includes(u) ? prev.filter((x) => x !== u) : [...prev, u],
+    );
+  }, []);
+
   const handleCreate = useCallback(async () => {
-    if (!selected || busy) return;
+    if (selected.length === 0 || busy) return;
     setBusy(true);
     setError(null);
     try {
+      const group = selected.length >= 2;
       const created = await oneOnOnesApi.create({
-        members: [currentUser, selected],
-        mentor: isMentor ? currentUser : null,
+        members: [currentUser, ...selected],
+        // The mentor edge only makes sense for a pair (one mentor, one mentee).
+        mentor: !group && isMentor ? currentUser : null,
+        title: group && title.trim() ? title.trim() : null,
       });
       onCreated(created);
     } catch (err) {
@@ -930,7 +1456,7 @@ function NewOneOnOneDialog({
       setError("Could not start the check-in. Please try again.");
       setBusy(false);
     }
-  }, [selected, isMentor, currentUser, busy, onCreated]);
+  }, [selected, isMentor, title, currentUser, busy, onCreated]);
 
   return (
     <div
@@ -942,7 +1468,7 @@ function NewOneOnOneDialog({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-md rounded-xl bg-surface-raised shadow-xl">
+      <div className="flex max-h-[85vh] w-full max-w-md flex-col rounded-xl bg-surface-raised shadow-xl">
         <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
           <div className="flex items-center gap-2">
             <span aria-hidden="true" className="text-brand-action">
@@ -953,8 +1479,8 @@ function NewOneOnOneDialog({
                 Start a check-in
               </h2>
               <p className="text-meta text-foreground-muted">
-                Pick anyone in your folder. You both share its goals, notes, and
-                agenda.
+                Pick one person for a one-on-one, or several for a group. Everyone
+                shares its goals, notes, and task board.
               </p>
             </div>
           </div>
@@ -968,13 +1494,10 @@ function NewOneOnOneDialog({
           </button>
         </div>
 
-        <div className="flex flex-col gap-4 px-5 py-4">
+        <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-5 py-4">
           <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="oneonone-new-member"
-              className="text-meta font-semibold uppercase tracking-wide text-foreground-muted"
-            >
-              Person
+            <label className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">
+              People
             </label>
             {loadingRoster ? (
               <p className="text-body italic text-foreground-muted">
@@ -986,38 +1509,76 @@ function NewOneOnOneDialog({
                 everyone, or no one else has joined your data folder yet.
               </p>
             ) : (
-              <select
-                id="oneonone-new-member"
-                value={selected}
-                onChange={(e) => setSelected(e.target.value)}
-                data-testid="oneonone-new-member-select"
-                className="w-full rounded-lg border border-border px-3 py-2 text-body focus:border-brand-action focus:outline-none focus:ring-2 focus:ring-brand-action/30"
+              <ul
+                className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-lg border border-border bg-surface p-1"
+                data-testid="oneonone-new-member-list"
               >
-                <option value="">Pick a person…</option>
-                {roster.map((u) => (
-                  <option key={u} value={u}>
-                    {u}
-                  </option>
-                ))}
-              </select>
+                {roster.map((u) => {
+                  const checked = selected.includes(u);
+                  return (
+                    <li key={u}>
+                      <label
+                        className={`flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-body transition-colors ${
+                          checked
+                            ? "bg-brand-action/10 text-foreground"
+                            : "text-foreground hover:bg-surface-sunken"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggle(u)}
+                          data-testid={`oneonone-new-member-${u}`}
+                          className="h-4 w-4 flex-shrink-0 rounded border-border text-brand-action focus:ring-brand-action/30"
+                        />
+                        <Icon
+                          name="users"
+                          className="h-4 w-4 flex-shrink-0 text-foreground-muted"
+                        />
+                        <span className="truncate">{u}</span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </div>
 
-          <label className="flex items-start gap-2.5">
-            <input
-              type="checkbox"
-              checked={isMentor}
-              onChange={(e) => setIsMentor(e.target.checked)}
-              data-testid="oneonone-new-mentor-checkbox"
-              className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-border text-brand-action focus:ring-brand-action/30"
-            />
-            <span className="text-body text-foreground">
-              This is a mentoring relationship (I am the mentor).
-              <span className="mt-0.5 block text-meta text-foreground-muted">
-                Leave unchecked for a peer check-in.
+          {isGroup ? (
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="oneonone-new-title"
+                className="text-meta font-semibold uppercase tracking-wide text-foreground-muted"
+              >
+                Group name (optional)
+              </label>
+              <input
+                id="oneonone-new-title"
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. Aim 2 team"
+                data-testid="oneonone-new-title"
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-body text-foreground focus:border-brand-action focus:outline-none focus:ring-2 focus:ring-brand-action/30"
+              />
+            </div>
+          ) : (
+            <label className="flex items-start gap-2.5">
+              <input
+                type="checkbox"
+                checked={isMentor}
+                onChange={(e) => setIsMentor(e.target.checked)}
+                data-testid="oneonone-new-mentor-checkbox"
+                className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-border text-brand-action focus:ring-brand-action/30"
+              />
+              <span className="text-body text-foreground">
+                This is a mentoring relationship (I am the mentor).
+                <span className="mt-0.5 block text-meta text-foreground-muted">
+                  Leave unchecked for a peer check-in.
+                </span>
               </span>
-            </span>
-          </label>
+            </label>
+          )}
 
           {error && <p className="text-body text-red-500">{error}</p>}
         </div>
@@ -1033,11 +1594,15 @@ function NewOneOnOneDialog({
           <button
             type="button"
             onClick={() => void handleCreate()}
-            disabled={!selected || busy}
+            disabled={selected.length === 0 || busy}
             data-testid="oneonone-new-member-confirm"
             className="btn-brand rounded-lg px-4 py-2 text-body font-medium disabled:opacity-40"
           >
-            {busy ? "Starting…" : "Start check-in"}
+            {busy
+              ? "Starting…"
+              : isGroup
+                ? "Start group check-in"
+                : "Start check-in"}
           </button>
         </div>
       </div>

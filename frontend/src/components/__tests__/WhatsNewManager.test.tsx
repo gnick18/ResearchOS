@@ -61,14 +61,6 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
-const tourState: { mode: "in-product-walkthrough" | null } = { mode: null };
-vi.mock("@/components/onboarding/v4/TourController", () => ({
-  useOptionalTourController: () =>
-    tourState.mode === null
-      ? null
-      : ({ tourMode: tourState.mode } as { tourMode: string | null }),
-}));
-
 const captureState = { value: false };
 vi.mock("@/lib/file-system/wiki-capture-mock", () => ({
   isDemoOrWikiCapture: () => captureState.value,
@@ -109,7 +101,6 @@ const SETTINGS_PATH = `users/${USER}/settings.json`;
 
 beforeEach(() => {
   memFs.clear();
-  tourState.mode = null;
   captureState.value = false;
   // The modal fires the corner BeakerBotMouseWaveScene on open, whose
   // effect reads window.matchMedia (prefers-reduced-motion). jsdom does
@@ -190,20 +181,6 @@ describe("WhatsNewManager", () => {
     await waitFor(async () => {
       const settings = await readUserSettings(USER);
       expect(settings.lastSeenAnnouncementVersion).toBe("0.3.0");
-    });
-    expect(screen.queryByTestId("whats-new-modal")).toBeNull();
-  });
-
-  it("suppressed while the onboarding tour is active", async () => {
-    tourState.mode = "in-product-walkthrough";
-    seedLastSeen("0.1.0");
-    render(<WhatsNewManager username={USER} />);
-
-    // Even though there are missed releases, the tour gate blocks it. Wait
-    // a tick for the settings read to resolve, then assert nothing shown.
-    await waitFor(async () => {
-      const settings = await readUserSettings(USER);
-      expect(settings.lastSeenAnnouncementVersion).toBe("0.1.0");
     });
     expect(screen.queryByTestId("whats-new-modal")).toBeNull();
   });

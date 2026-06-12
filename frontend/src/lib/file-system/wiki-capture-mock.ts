@@ -301,6 +301,58 @@ export function isWikiCaptureMode(): boolean {
   return getWikiCaptureVariant() !== null;
 }
 
+/** sessionStorage key for the sticky recording-mode flag. Set once
+ *  `?record=1` is observed; read by `isRecordingMode()`. Stickiness mirrors
+ *  the wiki-capture / v4-preview pattern so an in-app `router.push` that
+ *  strips the query string doesn't drop us out of recording mode mid-route. */
+export const RECORDING_MODE_STICKY_KEY = "researchos:recording-mode";
+
+/** Recording mode for marketing-video capture. True when:
+ *  - the URL carries `?record=1` (or `?record=0` is absent and a prior page
+ *    in this tab observed `?record=1`, via the sticky session flag), OR
+ *  - the sticky flag was set on an earlier in-tab navigation.
+ *
+ *  When on, the normal /demo chrome (leave-demo cluster, view-as toggle,
+ *  open-docs button) is suppressed and the demo entry interstitial is
+ *  skipped, so `/demo?record=1` is a pristine surface with zero demo UI for
+ *  a clean screen recording. This is ADDITIVE on top of demo mode and never
+ *  changes which data loads.
+ *
+ *  Like the public demo flag (and unlike wiki-capture) it has no
+ *  production / localhost guard, because the whole point is to record the
+ *  real deployed surface. Passing `?record=0` explicitly turns it back off
+ *  and clears the sticky flag, so there is always a way out. SSR-safe. */
+export function isRecordingMode(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const urlValue = params.get("record");
+    if (urlValue === "0" || urlValue === "false") {
+      try {
+        sessionStorage.removeItem(RECORDING_MODE_STICKY_KEY);
+      } catch {
+        // best-effort
+      }
+      return false;
+    }
+    if (urlValue === "1" || urlValue === "true") {
+      try {
+        sessionStorage.setItem(RECORDING_MODE_STICKY_KEY, "1");
+      } catch {
+        // sessionStorage can throw in private-mode browsers; ignore.
+      }
+      return true;
+    }
+    try {
+      return sessionStorage.getItem(RECORDING_MODE_STICKY_KEY) === "1";
+    } catch {
+      return false;
+    }
+  } catch {
+    return false;
+  }
+}
+
 /** sessionStorage key for the sticky demo-mode flag. Set once on first
  *  successful fixture install (see `markDemoMode()`); cleared by
  *  `<LeaveDemoModal>` on the way out. Survives in-tab navigation so demo
@@ -396,6 +448,7 @@ export function clearAllStickyDemoFlags(): void {
   const keys: readonly string[] = [
     ...STICKY_DEMO_MODE_KEYS,
     WIKI_CAPTURE_STICKY_KEY,
+    RECORDING_MODE_STICKY_KEY,
     FORCE_CONTROLS_STICKY_KEY,
     UNLOCK_SESSION_STICKY_KEY,
     DEMO_VIEW_AS_KEY,

@@ -13,7 +13,6 @@ import {
   type PendingCelebration,
 } from "@/lib/streak/milestone-scheduler";
 import { onStreakMilestoneCrossed } from "@/lib/streak/streak-activity-tracker";
-import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
 import { useBeakerBotAnimations } from "@/hooks/useBeakerBotAnimations";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import BeakerBotPoseCelebrationScene from "./BeakerBotPoseCelebrationScene";
@@ -161,12 +160,9 @@ export default function CelebrationManager({ username }: CelebrationManagerProps
   // component mount. Re-mounts (next app load) reset it.
   const [sessionLocked, setSessionLocked] = useState(false);
 
-  // The tour controller may or may not be mounted depending on where
-  // the manager renders. useOptionalTourController returns null when
-  // no provider is in the tree, in which case we treat the tour as
-  // inactive (the manager fires normally).
-  const tour = useOptionalTourController();
-  const tourActive = tour !== null && tour.tourMode !== null;
+  // The v4 tour engine has been removed. No tour is ever active now,
+  // so the manager always fires normally.
+  const tourActive = false;
 
   // BeakerBot-animations opt-out (beakerbot-joy manager). `undefined`
   // while the read is in flight, `false` when the user turned it off,

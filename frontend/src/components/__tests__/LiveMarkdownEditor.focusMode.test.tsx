@@ -1,16 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import LiveMarkdownEditor from "../LiveMarkdownEditor";
-import { buildTourSyntheticKeyboardEvent } from "../onboarding/v4/steps/walkthrough/lib/synthetic-escape";
-
 /**
  * Writing Focus Mode test coverage (FOCUS_WRITING_MODE_DESIGN.md,
  * focus-writing-mode build bot 2026-05-29).
  *
- * Pins the four LOCKED decisions (§0) and the top correctness risk (§7):
- *   1. Guarded Escape exit (only when PARKED), with an early-return on a
- *      tour-synthetic Escape so the walkthrough's block-commit Escapes
- *      never bounce the user out of focus mode mid-demo.
+ * Pins the LOCKED decisions (§0) and the top correctness risk (§7):
+ *   1. Guarded Escape exit (only when PARKED).
  *   2. Cmd/Ctrl+Shift+F toggles focus mode on AND off.
  *   3. Focus-mode's OWN Save button is wired via saveRef + calls onExplicitSave.
  *   4. Compact Edit / Preview + a single Attachments toggle on the calm
@@ -138,28 +134,12 @@ describe("LiveMarkdownEditor: Writing Focus Mode", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
-  it("guarded Escape exits when parked, and early-returns on a tour-synthetic Escape (decision 1, §9)", () => {
+  it("guarded Escape exits when parked (decision 1)", () => {
     render(<LiveMarkdownEditor value="hello" onChange={vi.fn()} />);
     act(() => {
       fireEvent.click(screen.getByTestId("hybrid-editor-focus-toggle"));
     });
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-
-    // A TOUR-SYNTHETIC Escape must NOT exit (the walkthrough fires these to
-    // commit blocks mid-demo; bouncing out would break the cluster).
-    act(() => {
-      document.dispatchEvent(
-        buildTourSyntheticKeyboardEvent("keydown", {
-          key: "Escape",
-          bubbles: true,
-          cancelable: true,
-        }),
-      );
-    });
-    expect(
-      screen.queryByRole("dialog"),
-      "tour-synthetic Escape should NOT exit focus mode",
-    ).toBeInTheDocument();
 
     // A REAL, parked Escape (no block mid-edit, no modifiers) exits.
     // The inline CM6 editor is always parked (no hybrid-style block textarea

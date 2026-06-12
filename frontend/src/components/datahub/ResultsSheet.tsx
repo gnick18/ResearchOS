@@ -14,7 +14,7 @@
 // House style: <Icon> only, brand + semantic tokens, no emojis / em-dashes /
 // mid-sentence colons.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import WorkspaceToolbar, {
@@ -36,6 +36,7 @@ import {
 } from "@/lib/datahub/run-analysis";
 import { formatP, plainLanguageSummary } from "@/lib/datahub/plain-language";
 import { showCode } from "@/lib/datahub/show-code";
+import { chainCode, type ContentResolver } from "@/lib/datahub/chain-code";
 import { resultToText } from "@/lib/datahub/result-text";
 import CodePanel from "@/components/datahub/CodePanel";
 import StyledSelect from "@/components/datahub/StyledSelect";
@@ -689,11 +690,19 @@ export default function ResultsSheet({
   onGraphResult,
   onChangeAnalysis,
   onParamChange,
+  resolveContent,
 }: {
   spec: AnalysisSpec;
   content: DataHubDocContent;
   /** The analysis's display title (from the rail). */
   title: string;
+  /**
+   * Resolve any table's raw stored content by id, so the Code export can walk
+   * this analysis's source-table lineage and emit the WHOLE chain (base table
+   * to transforms to this analysis). When absent, the Code panel falls back to
+   * the single-step analysis snippet (the pre-lineage behavior).
+   */
+  resolveContent?: ContentResolver;
   /** Open the chooser to run another analysis on this same table. */
   onNewAnalysis?: () => void;
   /** Turn this result into a figure (opens the New graph dialog on the table). */
@@ -720,6 +729,30 @@ export default function ResultsSheet({
   // Always recompute from the live content so an edit to a replicate is
   // reflected. The page restamps the stored cache separately.
   const outcome = useMemo(() => runAnalysis(spec, content), [spec, content]);
+
+  // The lineage-aware Code export: the whole chain from the source table's base
+  // data through every transform to this analysis. It is async (it resolves the
+  // source tables by id), so it is computed into state when the Code panel is
+  // open and the inputs change. Without a resolver we fall back to the single
+  // analysis snippet (the pre-lineage behavior, still correct).
+  const [chainSource, setChainSource] = useState<string>("");
+  useEffect(() => {
+    if (!showingCode) return;
+    if (!resolveContent) {
+      setChainSource(outcome.ok ? showCode(outcome) : "");
+      return;
+    }
+    let active = true;
+    void chainCode(
+      { kind: "analysis", tableId: content.meta.id, content, analysis: spec },
+      resolveContent,
+    ).then((code) => {
+      if (active) setChainSource(code);
+    });
+    return () => {
+      active = false;
+    };
+  }, [showingCode, resolveContent, spec, content, outcome]);
 
   const tabs = useMemo(
     () => (outcome.ok ? resultTabs(outcome) : []),
@@ -872,7 +905,10 @@ export default function ResultsSheet({
   }
 
   const result: NormalizedResult = outcome;
-  const code = showCode(result);
+  // The Code panel shows the lineage-aware chain (state, async). Until it
+  // resolves, fall back to the single-step analysis snippet so the panel never
+  // flashes empty.
+  const code = chainSource || showCode(result);
   const current = tabs[safeTab];
 
   return (
@@ -939,7 +975,7 @@ export default function ResultsSheet({
           <div className="mt-5" data-testid="results-code">
             <CodePanel
               code={code}
-              caption="Every analysis can show the exact open-source code that reproduces it, so you can paste it into a notebook and get the same numbers rather than trust a black box."
+              caption="This reproduces the result from the base table, loading the data and running every transform before the analysis, so you can paste it into a notebook and get the same numbers rather than trust a black box."
               testId="results-code-panel"
             />
           </div>

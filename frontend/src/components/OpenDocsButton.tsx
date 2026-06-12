@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { getDemoMode, isWikiCaptureMode } from "@/lib/file-system/wiki-capture-mock";
+import {
+  getDemoMode,
+  isRecordingMode,
+  isWikiCaptureMode,
+} from "@/lib/file-system/wiki-capture-mock";
 import { getWikiForRoute } from "@/lib/wiki/nav";
 
 /**
@@ -18,7 +22,9 @@ import { getWikiForRoute } from "@/lib/wiki/nav";
  * Wiki-capture exemption: paired with the same `!isWikiCaptureMode()`
  * gate as `<FloatingLeaveDemoButton>` — when the capture script lands
  * on a `/demo` path with `?wikiCapture=1`, this button would otherwise
- * appear in the bottom-right of every screenshot.
+ * appear in the bottom-right of every screenshot. Recording mode
+ * (`?record=1`) is suppressed the same way so a marketing-video surface
+ * carries no demo chrome.
  */
 export default function OpenDocsButton() {
   const pathname = usePathname() ?? "";
@@ -33,7 +39,7 @@ export default function OpenDocsButton() {
   // sync.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing local React state with the external sessionStorage demo flag on every route change
-    setInDemo(getDemoMode() && !isWikiCaptureMode());
+    setInDemo(getDemoMode() && !isWikiCaptureMode() && !isRecordingMode());
   }, [pathname]);
 
   if (!inDemo) return null;

@@ -14,8 +14,6 @@ import UserLoginScreen from "@/components/UserLoginScreen";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
 import { useIsLabHead } from "@/hooks/useIsLabHead";
-import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
-import { V4_PREVIEW_STICKY_KEY } from "@/lib/file-system/wiki-capture-mock";
 import { decideLandingRedirect } from "./page-landing-redirect";
 import type { Task } from "@/lib/types";
 import { taskKey } from "@/lib/types";
@@ -49,19 +47,6 @@ export default function HomePage() {
   // instead of compounding into a second redirect via defaultLandingTab.
   const defaultLandingTab = useAppStore((s) => s.defaultLandingTab);
   const isLabHead = useIsLabHead(currentUser || null);
-  // The v4 onboarding walkthrough mounts page.tsx inside
-  // <TourControllerProvider>, so the live tour mode is readable here. The
-  // walkthrough's dashboard phase navigates to "/" via the controller's
-  // router.push; the tour-active guard below keeps the one-shot landing
-  // bounce from firing mid-tour. `tourMode !== null` is true across every
-  // tour phase; the sticky preview flag is a belt-and-suspenders for the
-  // brief reload window before TourBootstrap re-starts the controller.
-  const tourController = useOptionalTourController();
-  const tourActive =
-    (tourController?.tourMode ?? null) !== null ||
-    (typeof window !== "undefined" &&
-      typeof sessionStorage !== "undefined" &&
-      sessionStorage.getItem(V4_PREVIEW_STICKY_KEY) === "1");
   useEffect(() => {
     // "/" renders nothing now, so it ALWAYS bounces to the role landing,
     // EXCEPT while a deep-link is being handled (a popup is opening on "/")
@@ -76,7 +61,7 @@ export default function HomePage() {
       isLabHead,
       defaultLandingTab,
       fromRedirect: searchParams?.get("from") ?? null,
-      tourActive,
+      tourActive: false,
     });
     if (decision.kind === "replace") {
       router.replace(decision.to);
@@ -94,7 +79,6 @@ export default function HomePage() {
     currentUser,
     defaultLandingTab,
     isLabHead,
-    tourActive,
     router,
     searchParams,
     selectedTask,

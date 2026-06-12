@@ -21,6 +21,8 @@ import { marked, type Token, type Tokens } from "marked";
 
 import { slugify } from "./slug";
 import { demoteHeadings, extractUserContent, hasUserContent } from "./markdown";
+import { parseObjectEmbed } from "@/lib/references";
+import { bakeAllEmbeds, scanEmbedRefs, type BakedEmbed } from "./bake-embeds";
 import {
   buildSourceInstance,
   type AttachmentOrigin,
@@ -202,6 +204,7 @@ export function buildExperimentParts(
   ReactPDF: any,
   payload: ExperimentExportPayload,
   idPrefix = "",
+  bakedEmbeds?: Map<string, BakedEmbed>,
 ): ExperimentPdfParts {
   const { View, Text, Image, Link, StyleSheet } = ReactPDF;
   const h = React.createElement;
@@ -379,6 +382,86 @@ export function buildExperimentParts(
       marginTop: 8,
       marginBottom: 4,
     },
+
+    // ── Baked embed figure styles ──────────────────────────────────────────
+    embedFigureWrapper: {
+      marginVertical: 10,
+      borderWidth: 1,
+      borderColor: "#e5e7eb",
+      borderStyle: "solid",
+      borderRadius: 4,
+    },
+    embedCaption: {
+      fontSize: 9,
+      color: "#555",
+      textAlign: "center",
+      marginTop: 4,
+      marginBottom: 6,
+      paddingHorizontal: 6,
+    },
+    embedFigureImage: {
+      maxWidth: 432,
+      objectFit: "contain",
+      alignSelf: "center",
+      marginTop: 6,
+    },
+    embedCardTitle: {
+      fontSize: 11,
+      fontFamily: "Inter",
+      fontWeight: "bold",
+      marginBottom: 2,
+    },
+    embedCardSubtitle: {
+      fontSize: 9,
+      color: "#666",
+      marginBottom: 2,
+    },
+    embedCardMeta: {
+      fontSize: 9,
+      color: "#888",
+    },
+    embedCardPadding: {
+      paddingHorizontal: 8,
+      paddingVertical: 6,
+    },
+    embedMissingWrapper: {
+      marginVertical: 6,
+      borderWidth: 1,
+      borderColor: "#d1d5db",
+      borderStyle: "dashed",
+      borderRadius: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 5,
+    },
+    embedMissingText: {
+      fontSize: 10,
+      color: "#9ca3af",
+      fontStyle: "italic",
+    },
+    embedTextBody: {
+      fontSize: 10,
+      color: "#333",
+      fontFamily: "Courier",
+      paddingHorizontal: 8,
+      paddingVertical: 6,
+    },
+
+    // Referenced objects appendix
+    refObjectsHeading: {
+      fontSize: 14,
+      fontFamily: "Inter",
+      fontWeight: "bold",
+      marginTop: 14,
+      marginBottom: 8,
+      paddingBottom: 4,
+      borderBottomWidth: 1,
+      borderBottomColor: "#cccccc",
+      borderBottomStyle: "solid",
+    },
+    refObjectsItem: {
+      fontSize: 10,
+      marginBottom: 4,
+    },
   });
 
   // ── Markdown AST walker ──────────────────────────────────────────────────
@@ -386,6 +469,11 @@ export function buildExperimentParts(
   interface RenderCtx {
     origin: AttachmentOrigin;
     attachments: ExperimentAttachment[];
+    /** Pre-baked embed data, keyed by the exact link href. When present, lone
+     *  embed-link paragraphs are rendered as rich figures rather than plain
+     *  links. Optional so that code paths that don't bake (combined-pdf,
+     *  method bodies) degrade gracefully to the plain-link fallback. */
+    bakedEmbeds?: Map<string, BakedEmbed>;
   }
 
   function renderInline(
@@ -591,6 +679,113 @@ export function buildExperimentParts(
     );
   }
 
+  /** Render a pre-baked embed as a PDF react-pdf node. */
+  function renderBakedEmbed(
+    baked: BakedEmbed,
+    key: string,
+  ): React.ReactNode {
+    // Build the caption line text (used by multiple kinds below).
+    const captionText = (label: string | null, caption: string): string | null => {
+      if (!label && !caption) return null;
+      if (label && caption) return `${label}. ${caption}`;
+      return label || caption || null;
+    };
+
+    switch (baked.kind) {
+      case "image": {
+        const capText = captionText(baked.label, baked.caption);
+        // Scale the image to fit the content width (432 pt) while preserving
+        // the aspect ratio. @react-pdf maxWidth + objectFit handles this well.
+        const aspectRatio = baked.height / Math.max(baked.width, 1);
+        const displayW = Math.min(432, baked.width);
+        const displayH = Math.round(displayW * aspectRatio);
+        return h(
+          View,
+          { key, style: styles.embedFigureWrapper, wrap: false },
+          h(Image, {
+            src: baked.dataUrl,
+            style: { ...styles.embedFigureImage, width: displayW, height: displayH },
+          }),
+          capText
+            ? h(Text, { style: styles.embedCaption }, capText)
+            : null,
+        );
+      }
+
+      case "table": {
+        const capText = captionText(baked.label, baked.caption);
+        return h(
+          View,
+          { key, style: { ...styles.embedFigureWrapper, marginBottom: 10 }, wrap: false },
+          h(
+            View,
+            { style: styles.tableRow },
+            ...baked.columns.map((col, c) =>
+              h(Text, { key: `${key}-h${c}`, style: styles.tableCellHeader }, col),
+            ),
+          ),
+          ...baked.rows.map((row, r) =>
+            h(
+              View,
+              { key: `${key}-r${r}`, style: styles.tableRow },
+              ...row.map((cell, c) =>
+                h(Text, { key: `${key}-r${r}c${c}`, style: styles.tableCell }, cell),
+              ),
+            ),
+          ),
+          capText
+            ? h(Text, { style: styles.embedCaption }, capText)
+            : null,
+        );
+      }
+
+      case "text": {
+        const capText = captionText(baked.label, baked.caption);
+        return h(
+          View,
+          { key, style: styles.embedFigureWrapper, wrap: false },
+          h(Text, { style: styles.embedTextBody }, baked.body),
+          capText
+            ? h(Text, { style: styles.embedCaption }, capText)
+            : null,
+        );
+      }
+
+      case "card": {
+        const capText = captionText(baked.label, baked.caption);
+        return h(
+          View,
+          { key, style: styles.embedFigureWrapper, wrap: false },
+          h(
+            View,
+            { style: styles.embedCardPadding },
+            h(Text, { style: styles.embedCardTitle }, baked.title),
+            baked.subtitle
+              ? h(Text, { style: styles.embedCardSubtitle }, baked.subtitle)
+              : null,
+            ...baked.meta.map((line, mi) =>
+              h(Text, { key: `${key}-m${mi}`, style: styles.embedCardMeta }, line),
+            ),
+          ),
+          capText
+            ? h(Text, { style: styles.embedCaption }, capText)
+            : null,
+        );
+      }
+
+      case "missing":
+        return h(
+          View,
+          { key, style: styles.embedMissingWrapper },
+          h(
+            Text,
+            { style: styles.embedMissingText },
+            `Referenced object: ${baked.name} (not available in this export)`,
+          ),
+        );
+    }
+  }
+
   function renderListItem(
     item: Tokens.ListItem,
     ctx: RenderCtx,
@@ -665,6 +860,24 @@ export function buildExperimentParts(
               renderImageBlock(tt.tokens[0] as Tokens.Image, ctx, key),
             );
             return;
+          }
+          // If the paragraph is a single link whose href is a block embed,
+          // render the pre-baked figure/table/card rather than a plain link.
+          if (
+            tt.tokens.length === 1 &&
+            (tt.tokens[0] as Token).type === "link"
+          ) {
+            const linkTok = tt.tokens[0] as Tokens.Link;
+            const descriptor = parseObjectEmbed(linkTok.href);
+            if (descriptor && descriptor.isEmbed && ctx.bakedEmbeds) {
+              const baked = ctx.bakedEmbeds.get(linkTok.href);
+              if (baked) {
+                out.push(renderBakedEmbed(baked, key));
+                return;
+              }
+              // Bake map present but this href is absent: fall through to the
+              // plain-link path below (degrade gracefully, no crash).
+            }
           }
           out.push(
             h(
@@ -808,6 +1021,14 @@ export function buildExperimentParts(
       groupedFiles.methods.length >
     0;
 
+  // Scan for referenced objects across notes + results so we can render the
+  // "Referenced objects" appendix. Method bodies are scanned in a future
+  // follow-up (method markdown paths require a separate load step; see report).
+  const notesEmbedRefs = scanEmbedRefs(notesUserMd);
+  const resultsEmbedRefs = scanEmbedRefs(resultsUserMd);
+  const allEmbedRefs = [...notesEmbedRefs, ...resultsEmbedRefs];
+  const hasEmbeds = allEmbedRefs.length > 0;
+
   const tocEntries: { id: string; title: string }[] = [];
   if (hasNotes) tocEntries.push({ id: anchor("section-labnotes"), title: "Lab Notes" });
   if (hasResults) tocEntries.push({ id: anchor("section-results"), title: "Results" });
@@ -825,6 +1046,8 @@ export function buildExperimentParts(
     tocEntries.push({ id: anchor("section-deviation"), title: "Deviation log" });
   if (hasFiles)
     tocEntries.push({ id: anchor("section-files"), title: "Files attached" });
+  if (hasEmbeds)
+    tocEntries.push({ id: anchor("section-ref-objects"), title: "Referenced objects" });
 
   // ── Section renderers ────────────────────────────────────────────────────
 
@@ -839,7 +1062,7 @@ export function buildExperimentParts(
       h(Text, { style: styles.h2 }, "Lab Notes"),
       ...renderMarkdown(
         notesUserMd,
-        { origin: "notes", attachments },
+        { origin: "notes", attachments, bakedEmbeds },
         "ln",
       ),
     );
@@ -856,7 +1079,7 @@ export function buildExperimentParts(
       h(Text, { style: styles.h2 }, "Results"),
       ...renderMarkdown(
         resultsUserMd,
-        { origin: "results", attachments },
+        { origin: "results", attachments, bakedEmbeds },
         "rs",
       ),
     );
@@ -2077,6 +2300,38 @@ export function buildExperimentParts(
     );
   }
 
+  /** Appendix: a plain selectable-text list of every embedded object reference
+   *  found in notes + results. Shows type, name (from caption), and the
+   *  figure/table label when figure-numbering is on. */
+  function ReferencedObjectsAppendix() {
+    const children: React.ReactNode[] = [
+      h(Text, { style: styles.refObjectsHeading }, "Referenced objects"),
+    ];
+    allEmbedRefs.forEach((ref, i) => {
+      const baked = bakedEmbeds?.get(ref.href);
+      // Build a human-readable line: "Figure 1. My molecule (molecule)"
+      // or just "My plot (datahub)" when numbering is off.
+      const typeLabel = ref.descriptor.type.charAt(0).toUpperCase() + ref.descriptor.type.slice(1);
+      const namePart = ref.caption || ref.descriptor.id;
+      let line = `${namePart} (${typeLabel})`;
+      if (baked && baked.label) {
+        line = `${baked.label}. ${line}`;
+      }
+      children.push(
+        h(Text, { key: `ro-${i}`, style: styles.refObjectsItem }, `• ${line}`),
+      );
+    });
+    return h(
+      SectionView,
+      {
+        id: anchor("section-ref-objects"),
+        bookmark: { title: "Referenced objects", fit: true },
+        style: styles.sectionWrap,
+      },
+      ...children,
+    );
+  }
+
   // ── Collect section nodes ────────────────────────────────────────────────
   //
   // Each key is namespaced by `idPrefix` so a combined document holding
@@ -2095,6 +2350,7 @@ export function buildExperimentParts(
   if (hasSubTasks) contentChildren.push(h(SubTasksSection, { key: `${idPrefix}st` }));
   if (hasDeviation) contentChildren.push(h(DeviationSection, { key: `${idPrefix}dv` }));
   if (hasFiles) contentChildren.push(h(FilesAppendix, { key: `${idPrefix}fa` }));
+  if (hasEmbeds) contentChildren.push(h(ReferencedObjectsAppendix, { key: `${idPrefix}ro` }));
 
   // Provenance manifest, embedded as PDF metadata so downstream tooling can
   // detect "this came from a ResearchOS export" without inspecting content.
@@ -2145,9 +2401,31 @@ export async function buildPdf(
   });
 
   const { task, project, meta } = payload;
+
+  // Pre-bake all block-embed references found in notes + results so the PDF
+  // renderer can emit rich figures rather than bare links. The bake pass runs
+  // BEFORE building the react-pdf tree; bakeAllEmbeds returns a Map keyed by
+  // the exact href so the sync renderBlock walker can do a cheap O(1) lookup.
+  // Method-body embeds are left for a follow-up (see report) because method
+  // markdown bodies require their own async load step.
+  let bakedEmbeds: Map<string, BakedEmbed> | undefined;
+  try {
+    const markdownsToBake = [
+      payload.notesMarkdown ?? "",
+      payload.resultsMarkdown ?? "",
+    ];
+    bakedEmbeds = await bakeAllEmbeds(markdownsToBake);
+  } catch (err) {
+    // A complete bake failure is non-fatal; the PDF still renders, embeds
+    // degrade to plain links.
+    console.warn("[export/pdf] bakeAllEmbeds failed, embeds will render as links", err);
+  }
+
   const { tocEntries, contentChildren, manifest } = buildExperimentParts(
     ReactPDF,
     payload,
+    "",
+    bakedEmbeds,
   );
 
   function MetaRow({ label, value }: { label: string; value: string }) {

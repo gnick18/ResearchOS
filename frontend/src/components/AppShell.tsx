@@ -20,7 +20,6 @@ import CalculatorsButton from "./CalculatorsButton";
 import DevTestNotificationButton from "./DevTestNotificationButton";
 import DevDemoToggleButton from "./DevDemoToggleButton";
 import DevBeakerBotGalleryButton from "./DevBeakerBotGalleryButton";
-import DevForceWalkthroughButton from "./DevForceWalkthroughButton";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import FeedbackModal from "./FeedbackModal";
 import Wordmark from "./Wordmark";
@@ -42,7 +41,6 @@ import { useIsLabHead } from "@/hooks/useIsLabHead";
 import { deriveVisibleTabs } from "@/lib/onboarding/feature-picks-tabs";
 import { usePrefetchOnHover } from "@/lib/perf/use-prefetch-on-hover";
 import { headerGradient, rainbowTheme } from "@/lib/colors";
-import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
 import UserAvatarMenu from "@/components/UserAvatarMenu";
 import ResearcherProfileModal from "@/components/researchers/ResearcherProfileModal";
 import ProfileSettingsModal from "@/components/profile/ProfileSettingsModal";
@@ -286,19 +284,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return out;
   }, [navItemsWithOverview]);
 
-  // Onboarding v4 L23: while the in-product walkthrough is active, the
-  // top-nav tabs are visually disabled + onClick-suppressed so the user
-  // can't navigate away from the step's anchor. BeakerBot's cursor uses
-  // `useRouter().push()` for programmatic navigation, which bypasses the
-  // DOM click event and so still works under the gate. `useOptionalTourController`
-  // returns `null` when the provider isn't mounted (the production state
-  // until P4+P11 land), so this is a strict no-op until the tour
-  // controller activates.
-  const tourController = useOptionalTourController();
-  const navDisabledByTour =
-    tourController?.tourMode === "in-product-walkthrough" &&
-    !tourController.paused;
-
   // Header is tinted only when (a) a user is signed in, AND (b) the user
   // has opted into a colored header in Settings → Profile. Either off →
   // the classic white header. On the tinted variant, every interactive
@@ -331,20 +316,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     : undefined;
 
   return (
-    // `data-app-shell-mounted` is the static DOM marker the v4 tour
-    // bootstrap uses to detect whether the underlying app rendered
-    // (vs Next.js 404 fallback, error boundary, pre-login screen, etc).
-    // Onboarding v4 P12 follow-up: when Grant restarts the dev server
-    // and the root route compiles into a 404, the v4 Resume modal
-    // still portals onto document.body but `controller.start` + the
-    // expectedRoute push silently no-op because there is no AppShell
-    // to render the next step into. TourBootstrap queries for this
-    // attribute on Resume; if it's missing it hard-reloads the target
-    // route instead of soft-locking the user on the 404. Keep this
-    // static (not state-derived) so it is present immediately on first
-    // paint — the selector must resolve synchronously from the very
-    // first render.
-    <div data-app-shell-mounted className="h-screen flex flex-col bg-surface-sunken">
+    <div className="h-screen flex flex-col bg-surface-sunken">
       {/* Showcase unlock Curtain Reveal overlay (portaled to body when
           the 7th brand-mark click fires). Null otherwise. */}
       {revealElement}
@@ -376,7 +348,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         {/* Navigation */}
         <nav
           className="flex items-center gap-1"
-          data-tour-nav-disabled={navDisabledByTour ? "true" : undefined}
         >
           {navItems.map((item) => {
             // The Supplies hub item (href "/supplies" under the flag) is the
@@ -415,48 +386,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             // account-type override here is gone. Visibility gate
             // (`picks.links === "yes"`) still lives in deriveVisibleTabs.
             const displayLabel = item.label;
-            // Onboarding v4 L23: when an in-product walkthrough is
-            // running, render each nav-item as a non-Link button that
-            // visually grays out + suppresses click. Cursor-driven
-            // programmatic navigation (via Next router) still works,
-            // since it bypasses the DOM click event entirely.
-            if (navDisabledByTour) {
-              // Keep the active-tab indicator even when nav clicks are
-              // disabled during a walkthrough. Grant flagged that the
-              // current route was visually indistinguishable from the
-              // others while the cursor was driving, so the user had no
-              // anchor for "where am I." Active stays full-opacity with
-              // its normal selected styling; inactive dims to opacity-50.
-              const inactiveStyle = tinted
-                ? "px-3 py-1.5 text-body rounded-full shadow-sm bg-white/75 text-gray-700 opacity-50"
-                : "px-3 py-1.5 text-body rounded-lg text-foreground-muted opacity-50";
-              const activeStyle = tinted
-                ? "px-3 py-1.5 text-body rounded-full shadow-sm bg-white text-gray-900 font-medium"
-                : "px-3 py-1.5 text-body rounded-lg bg-accent-soft text-accent font-medium";
-              return (
-                <button
-                  key={item.href}
-                  type="button"
-                  disabled
-                  aria-disabled="true"
-                  aria-current={isActive ? "page" : undefined}
-                  data-tour-nav-item={item.href}
-                  data-tour-target={tourTarget}
-                  className={`${isActive ? activeStyle : inactiveStyle} transition-colors cursor-not-allowed`}
-                  onClick={(e) => {
-                    // Defensive: <button disabled> already no-ops click in
-                    // the browser, but a synthetic-event test or a future
-                    // refactor that swaps the element off `disabled` would
-                    // start firing onClick. preventDefault + stopPropagation
-                    // make the gate explicit either way.
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                >
-                  {displayLabel}
-                </button>
-              );
-            }
             if (tinted) {
               return (
                 <Link
@@ -615,21 +544,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               </svg>
             </Link>
           </Tooltip>
-          {/* User avatar menu — replaces the settings gear. Circular chip
-              showing the user's initial + color; click opens a dropdown with
-              Researcher profile and Settings links. The same tour gate as the
-              old gear applies: disabled + non-interactive during the walkthrough
-              so a mid-tour click cannot navigate away from the current step.
-              (Onboarding v4 L23 — same reasoning as the gear it replaces.) */}
-          {/* Dark-mode toggle moved into the avatar dropdown (UserAvatarMenu) to
-              free top-bar space; Settings > Appearance still has the full
-              light/dark/system choice. */}
+          {/* User avatar menu: circular chip showing the user's initial + color;
+              click opens a dropdown with Researcher profile and Settings links.
+              Dark-mode toggle lives here too (moved from top-bar to free space). */}
           {currentUser && (
             <UserAvatarMenu
               currentUser={currentUser}
               primaryColor={baseColor}
               tinted={tinted}
-              navDisabledByTour={navDisabledByTour}
               pathname={pathname}
             />
           )}
@@ -750,8 +672,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         {showDevDock && (
           <>
             <DevBeakerBotGalleryButton />
-
-            <DevForceWalkthroughButton inline />
 
             <DevTestNotificationButton />
 

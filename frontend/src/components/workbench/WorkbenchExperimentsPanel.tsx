@@ -33,7 +33,11 @@ import {
   findNextInChain,
   type WorkbenchSection,
 } from "@/lib/workbench/sectionAssignment";
-import { BEAKERBOT_LAB_USERNAME } from "@/components/onboarding/v4/steps/lab/lib/lab-fake-user";
+// The BeakerBot demo-lab user is the only owner whose shared tasks are
+// filtered out of the real workbench view (they were seeded during the
+// deleted v4 onboarding walkthrough). The constant is inlined here; it
+// is the sole production consumer.
+const BEAKERBOT_LAB_USERNAME = "beakerbot";
 import type {
   WorkbenchInitialOpen,
   WorkbenchRecentRef,

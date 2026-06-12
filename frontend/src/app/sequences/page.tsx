@@ -39,6 +39,7 @@ import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
 import BulkSequenceSendDialog from "@/components/sharing/BulkSequenceSendDialog";
 import ReceivedFromBadge from "@/components/ReceivedFromBadge";
 import RestoredBadge from "@/components/RestoredBadge";
+import ObjectBacklinks from "@/components/ObjectBacklinks";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { sequencesApi, projectsApi } from "@/lib/local-api";
 import { emitSequenceDeleted } from "@/lib/sequences/delete-toast-bus";
@@ -1691,6 +1692,12 @@ export default function SequencesPage() {
                       <span className="truncate">{selected.organism}</span>
                     </span>
                   ) : null}
+                  {/* Backlinks panel — self-hides when the sequence has no references. */}
+                  <ObjectBacklinks
+                    type="sequence"
+                    id={String(selected.id)}
+                    className="mt-3"
+                  />
                 </div>
               ) : (
                 <div>

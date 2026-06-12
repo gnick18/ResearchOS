@@ -106,9 +106,6 @@ vi.mock("@/components/DevDemoToggleButton", () => ({ default: () => null }));
 vi.mock("@/components/DevBeakerBotGalleryButton", () => ({
   default: () => null,
 }));
-vi.mock("@/components/DevForceWalkthroughButton", () => ({
-  default: () => null,
-}));
 vi.mock("@/components/BeakerBot", () => ({ default: () => null }));
 vi.mock("@/components/StreakBadge", () => ({ default: () => null }));
 vi.mock("@/components/DataSetupScreen", () => ({ default: () => null }));

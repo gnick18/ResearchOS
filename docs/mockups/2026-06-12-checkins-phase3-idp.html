@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Check-ins Phase 3, the academic layer (IDP, presets, privacy)</title>
+<style>
+  html[data-theme="light"]{
+    --surface:#f8fafc; --surface-raised:#fff; --surface-overlay:#fff; --surface-sunken:#f1f5f9;
+    --border:#e5e7eb; --border-strong:#cbd5e1; --fg:#111827; --fg-muted:#64748b; --fg-faint:#94a3b8;
+    --brand-sky:#1AA0E6; --brand-action:#1283C9; --brand-purple:#5B47D6; --pin:#e11d48; --ok:#16a34a;
+    --blue:#2563eb; --blue-soft:#eff6ff; --amber:#d97706; --amber-soft:#fffbeb;
+    --green:#16a34a; --green-soft:#f0fdf4; --purple:#7c3aed; --purple-soft:#f3effe;
+    --rose:#e11d48; --rose-soft:#fff1f3;
+  }
+  html[data-theme="dark"]{
+    --surface:#0a0e1a; --surface-raised:#1c2638; --surface-overlay:#28344c; --surface-sunken:#0d1424;
+    --border:rgba(255,255,255,.16); --border-strong:rgba(255,255,255,.28); --fg:#e9eef7; --fg-muted:#9fb0c8; --fg-faint:#6b7c96;
+    --brand-sky:#1AA0E6; --brand-action:#1283C9; --brand-purple:#7c66ff; --pin:#fb7185; --ok:#4ade80;
+    --blue:#60a5fa; --blue-soft:rgba(37,99,235,.18); --amber:#fbbf24; --amber-soft:rgba(217,119,6,.2);
+    --green:#4ade80; --green-soft:rgba(22,163,74,.2); --purple:#b69cff; --purple-soft:rgba(124,58,237,.22); --rose:#fb7185; --rose-soft:rgba(225,29,72,.2);
+  }
+  *{box-sizing:border-box}html,body{margin:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--surface);color:var(--fg);line-height:1.45;-webkit-font-smoothing:antialiased}
+  a{color:var(--brand-action)}
+  header.top{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:14px;padding:13px 22px;background:var(--surface-overlay);border-bottom:1px solid var(--border)}
+  header.top h1{font-size:16.5px;margin:0;font-weight:800;letter-spacing:-.01em}
+  header.top .sub{font-size:12px;color:var(--fg-muted)}
+  header.top .spacer{flex:1}
+  .btn{font:inherit;font-size:13px;font-weight:600;padding:7px 13px;border-radius:9px;border:1px solid var(--border-strong);background:var(--surface-raised);color:var(--fg);cursor:pointer}
+  .btn:hover{border-color:var(--brand-action)}.btn.on{background:var(--brand-action);border-color:var(--brand-action);color:#fff}.btn.danger{color:var(--pin)}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px}
+  .lead{color:var(--fg-muted);font-size:13.5px;max-width:960px;margin:0 0 8px}
+  .legend{display:flex;flex-wrap:wrap;gap:10px 18px;font-size:12.5px;color:var(--fg-muted);background:var(--surface-raised);border:1px solid var(--border);border-radius:12px;padding:11px 15px;margin:12px 0 6px}
+  .legend b{color:var(--fg)}
+  .legend .k{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+
+  .section-h{font-size:17px;font-weight:800;margin:30px 0 3px;letter-spacing:-.01em;display:flex;align-items:center;gap:9px}
+  .section-h .badge{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:2px 9px}
+  .badge.core{background:var(--green-soft);color:var(--green)}
+  .badge.later{background:var(--surface-sunken);color:var(--fg-faint);border:1px solid var(--border)}
+  .section-sub{color:var(--fg-muted);font-size:13px;margin:0 0 14px;max-width:920px}
+
+  /* the IDP shell */
+  .idp{background:var(--surface-raised);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+  .idp-top{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .idp-top .who{display:flex;align-items:center;gap:9px}
+  .av{width:30px;height:30px;border-radius:999px;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:700;flex:none}
+  .idp-top .nm{font-size:15px;font-weight:800}
+  .idp-top .nm small{display:block;font-weight:500;font-size:11.5px;color:var(--fg-muted)}
+  .idp-top .spc{flex:1}
+  .stageseg{display:inline-flex;border:1px solid var(--border-strong);border-radius:10px;overflow:hidden}
+  .stageseg button{font:inherit;font-size:12px;font-weight:600;padding:6px 12px;border:none;background:var(--surface-raised);color:var(--fg-muted);cursor:pointer;border-left:1px solid var(--border)}
+  .stageseg button:first-child{border-left:none}
+  .stageseg button.on{background:var(--brand-action);color:#fff}
+  .stagehint{width:100%;font-size:11.5px;color:var(--fg-faint);margin-top:2px}
+
+  .complhook{display:flex;gap:9px;font-size:12px;color:var(--amber);background:var(--amber-soft);border-bottom:1px solid var(--border);padding:9px 18px}
+  .complhook svg{flex:none;margin-top:1px}
+
+  .idp-body{padding:16px 18px}
+  .idp-sec{border:1px solid var(--border);border-radius:12px;margin-bottom:12px;overflow:hidden;background:var(--surface-raised)}
+  .idp-sec>.sh{display:flex;align-items:center;gap:9px;padding:11px 14px;background:var(--surface-sunken);cursor:pointer;user-select:none}
+  .idp-sec>.sh .n{width:21px;height:21px;border-radius:7px;background:var(--brand-action);color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center;flex:none}
+  .idp-sec>.sh .ti{font-size:13.5px;font-weight:700;flex:1}
+  .idp-sec>.sh .meta{font-size:11px;color:var(--fg-faint);font-weight:500}
+  .idp-sec>.sh .chev{transition:transform .15s;color:var(--fg-faint)}
+  .idp-sec.collapsed>.sh .chev{transform:rotate(-90deg)}
+  .idp-sec>.body{padding:13px 15px}
+  .idp-sec.collapsed>.body{display:none}
+
+  /* per-section share */
+  .share{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;border:1px solid var(--border-strong);border-radius:999px;padding:3px 9px;cursor:pointer;color:var(--fg-muted);background:var(--surface-raised)}
+  .share.on{background:var(--green-soft);border-color:var(--green);color:var(--green)}
+  .share .ic{width:13px;height:13px;display:grid;place-items:center}
+  .share.priv{color:var(--fg-faint)}
+
+  /* competency groups */
+  .cgrp{border:1px solid var(--border);border-radius:10px;margin-bottom:9px;overflow:hidden}
+  .cgrp>.gh{display:flex;align-items:center;gap:8px;padding:9px 11px;cursor:pointer;user-select:none;font-size:12.5px;font-weight:600}
+  .cgrp>.gh .chev{margin-left:auto;color:var(--fg-faint);transition:transform .15s}
+  .cgrp.collapsed>.gh .chev{transform:rotate(-90deg)}
+  .cgrp>.rows{border-top:1px solid var(--border);padding:4px 11px 8px}
+  .cgrp.collapsed>.rows{display:none}
+  .cgrp.hiddenrow{display:none}
+  .skillrow{display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid var(--border);font-size:12.5px;flex-wrap:wrap}
+  .skillrow:last-child{border-bottom:none}
+  .skillrow.hiddenrow{display:none}
+  .skillrow .sn{flex:1;min-width:140px}
+  .rater{display:inline-flex;align-items:center;gap:4px}
+  .rater .rl{font-size:10px;color:var(--fg-faint);width:42px;text-align:right}
+  .pips{display:inline-flex;gap:3px}
+  .pip{width:17px;height:17px;border-radius:5px;border:1.5px solid var(--border-strong);background:var(--surface-raised);font-size:10px;color:var(--fg-faint);cursor:pointer;display:grid;place-items:center;padding:0;font-weight:600}
+  .pip.on{background:var(--brand-action);border-color:var(--brand-action);color:#fff}
+  .pips.imp .pip.on{background:var(--purple);border-color:var(--purple)}
+
+  .summary{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+  .sumcard{flex:1;min-width:200px;border:1px solid var(--border);border-radius:10px;padding:9px 12px;background:var(--surface-sunken)}
+  .sumcard .lab{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;margin-bottom:5px;display:flex;align-items:center;gap:6px}
+  .sumcard.str .lab{color:var(--green)}.sumcard.grow .lab{color:var(--amber)}
+  .sumcard .tags{display:flex;flex-wrap:wrap;gap:5px}
+  .stag{font-size:11px;font-weight:600;border-radius:999px;padding:2px 9px}
+  .sumcard.str .stag{background:var(--green-soft);color:var(--green)}
+  .sumcard.grow .stag{background:var(--amber-soft);color:var(--amber)}
+  .sumempty{font-size:11.5px;color:var(--fg-faint)}
+
+  textarea.ftx,input.ftx{width:100%;font:inherit;font-size:12.5px;padding:8px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surface-sunken);color:var(--fg);resize:vertical}
+  .flab{font-size:11px;font-weight:700;color:var(--fg-muted);margin:8px 0 4px;display:block}
+
+  /* explore links */
+  .explore{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 4px}
+  .exlink{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;border:1px solid var(--border-strong);border-radius:9px;padding:7px 11px;color:var(--brand-action);background:var(--surface-raised);text-decoration:none}
+  .exlink:hover{border-color:var(--brand-action)}
+  .exlink small{color:var(--fg-faint);font-weight:500}
+
+  /* goals + tables */
+  .goalrow{display:flex;align-items:center;gap:9px;padding:7px 2px;border-bottom:1px solid var(--border);font-size:12.5px}
+  .goalrow input.gt{flex:1;border:none;background:transparent;font:inherit;color:var(--fg);padding:3px}
+  .goalrow input.gt:focus{outline:none}
+  .prio{font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 9px;cursor:pointer;border:1px solid var(--border-strong);color:var(--fg-muted);background:var(--surface-raised)}
+  .prio.high{background:var(--rose-soft);color:var(--rose);border-color:var(--rose)}
+  .prio.low{background:var(--blue-soft);color:var(--blue);border-color:var(--blue)}
+  .delrow{background:none;border:none;color:var(--fg-faint);cursor:pointer;font-size:15px;line-height:1;padding:0 4px}
+  .addrow{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--brand-action);background:none;border:1px dashed var(--border-strong);border-radius:8px;padding:6px 11px;cursor:pointer;margin-top:8px}
+
+  .acttable{width:100%;border-collapse:collapse;font-size:12px}
+  .acttable th{padding:6px 9px;text-align:left;color:var(--fg-faint);font-size:10px;text-transform:uppercase;font-weight:800;letter-spacing:.04em}
+  .acttable td{padding:7px 9px;border-top:1px solid var(--border);vertical-align:middle}
+  .acttable input.at{width:100%;border:none;background:transparent;font:inherit;font-size:12px;color:var(--fg);padding:2px}
+  .acttable input.at:focus{outline:none}
+  .statusseg{display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden}
+  .statusseg button{font:inherit;font-size:10.5px;font-weight:600;padding:3px 7px;border:none;background:var(--surface-raised);color:var(--fg-faint);cursor:pointer;border-left:1px solid var(--border)}
+  .statusseg button:first-child{border-left:none}
+  .statusseg button.on{background:var(--brand-action);color:#fff}
+  .chip{font-size:10px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+  .chip.due{background:var(--blue-soft);color:var(--blue)}
+  .addtask{font-size:10.5px;font-weight:700;border:1px solid var(--green);color:var(--green);background:var(--green-soft);border-radius:999px;padding:2px 9px;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+  .addtask.added{background:var(--green);color:#fff;cursor:default}
+  .synced-note{font-size:11px;color:var(--green);margin-top:7px;display:flex;align-items:center;gap:6px}
+
+  /* mentor review */
+  .mreview{display:grid;gap:10px}
+  .signoff{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--fg-muted)}
+  .signoff .pill{border:1px solid var(--border);border-radius:8px;padding:5px 10px;background:var(--surface-sunken)}
+  .reviewbadge{font-size:11px;font-weight:700;color:var(--brand-purple);background:var(--purple-soft);border-radius:999px;padding:3px 10px}
+
+  /* values opt-in */
+  .values{border:1px dashed var(--border-strong);border-radius:12px;margin:14px 0 0;overflow:hidden;background:var(--surface-raised)}
+  .values>.vh{display:flex;align-items:center;gap:9px;padding:11px 14px;cursor:pointer;user-select:none}
+  .values>.vh .lk{font-size:11px;font-weight:700;color:var(--fg-faint);border:1px solid var(--border);border-radius:999px;padding:2px 9px;display:inline-flex;align-items:center;gap:5px}
+  .values>.vh .chev{margin-left:auto;color:var(--fg-faint);transition:transform .15s}
+  .values.collapsed>.vh .chev{transform:rotate(-90deg)}
+  .values>.vb{padding:0 15px 14px;border-top:1px solid var(--border)}
+  .values.collapsed>.vb{display:none}
+  .vrank{display:flex;align-items:center;gap:10px;padding:7px 2px;border-bottom:1px solid var(--border);font-size:12.5px}
+  .vrank .vn{flex:1}
+
+  /* PI view panel */
+  .pi-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){.pi-grid{grid-template-columns:1fr}}
+  .glass{border:1px solid var(--border);border-radius:13px;overflow:hidden;background:var(--surface-raised)}
+  .glass>.gh2{padding:9px 13px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:7px;color:var(--fg-muted)}
+  .glass>.gb{padding:13px}
+  .pi-line{display:flex;align-items:center;gap:9px;font-size:13px;padding:6px 0}
+  .pi-line .ok-ic{color:var(--green)}
+  .blur-stack{filter:blur(4px);opacity:.5;pointer-events:none;font-size:12px;color:var(--fg-muted);line-height:1.9}
+  .never{font-size:11.5px;color:var(--fg-faint);margin-top:8px;display:flex;align-items:center;gap:6px}
+
+  /* template gallery */
+  .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+  .tcard{border:1px solid var(--border);border-radius:12px;padding:12px 13px;background:var(--surface-raised)}
+  .tcard .tt{font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;margin-bottom:4px}
+  .tcard .ic{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;color:#fff;flex:none}
+  .tcard p{margin:0;font-size:12px;color:var(--fg-muted)}
+  .seedcount{font-size:12px;color:var(--fg-faint);margin-top:10px}
+
+  /* compact + onboarding */
+  .two-up{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){.two-up{grid-template-columns:1fr}}
+  .compactrow{display:flex;align-items:center;gap:9px;padding:8px 2px;border-bottom:1px solid var(--border);font-size:12.5px}
+  .compactrow .lbl{font-weight:600;width:140px;flex:none;color:var(--fg-muted)}
+  .ack{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--green);background:var(--green-soft);border:1px solid var(--green);border-radius:9px;padding:8px 12px;margin-top:11px}
+  .checkrow{display:flex;align-items:center;gap:10px;padding:7px 2px;border-bottom:1px solid var(--border);font-size:12.5px;cursor:pointer}
+  .checkrow:last-child{border:none}
+  .cbx{width:17px;height:17px;border:1.5px solid var(--border-strong);border-radius:5px;flex:none;display:grid;place-items:center}
+  .cbx.done{background:var(--brand-action);border-color:var(--brand-action);color:#fff}
+  .checkrow.done .ct{color:var(--fg-faint);text-decoration:line-through}
+
+  /* phase 4 placeholders */
+  .p4{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+  .p4card{border:1px dashed var(--border-strong);border-radius:12px;padding:13px;background:var(--surface-sunken)}
+  .p4card .pt{font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:7px;margin-bottom:4px}
+  .p4card p{margin:0;font-size:11.5px;color:var(--fg-muted)}
+  .p4card .lt{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--fg-faint);background:var(--surface-raised);border:1px solid var(--border);border-radius:999px;padding:2px 8px;margin-left:auto}
+
+  /* change cards */
+  .changes{display:grid;gap:12px}
+  .change{display:flex;gap:14px;background:var(--surface-raised);border:1px solid var(--border);border-left:4px solid var(--border-strong);border-radius:12px;padding:14px 16px}
+  .change.approved{border-left-color:var(--ok)}.change.disapproved{border-left-color:var(--pin)}
+  .change .body{flex:1;min-width:0}.change .body h4{margin:0 0 4px;font-size:14px;font-weight:700}.change .body p{margin:0;font-size:12.5px;color:var(--fg-muted)}
+  .change .verdict{flex:none;display:flex;flex-direction:column;gap:6px;width:132px}
+  .vbtn{font:inherit;font-size:12.5px;font-weight:600;padding:6px 10px;border-radius:8px;border:1px solid var(--border-strong);background:var(--surface-raised);color:var(--fg);cursor:pointer;text-align:center}
+  .vbtn.ok.on{background:var(--ok);border-color:var(--ok);color:#fff}.vbtn.dis.on{background:var(--pin);border-color:var(--pin);color:#fff}
+  .change textarea{margin-top:8px;width:100%;height:30px;resize:vertical;font:inherit;font-size:12.5px;padding:5px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface-sunken);color:var(--fg)}
+
+  /* comment harness */
+  body.cmt-on{cursor:crosshair}
+  body.cmt-on .cmt{outline:1px dashed rgba(18,131,201,.4);outline-offset:1px}
+  body.cmt-on .cmt:hover{outline:2px solid var(--brand-action);background:rgba(18,131,201,.06)}
+  .pin{position:absolute;transform:translate(-50%,-50%);min-width:19px;height:19px;padding:0 4px;background:var(--pin);color:#fff;border-radius:10px;font-size:11px;font-weight:700;line-height:19px;text-align:center;z-index:50;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+  .pin.app{background:var(--ok)}.pin.dis{background:var(--amber)}
+  .editor{position:fixed;width:280px;background:var(--surface-overlay);border:1px solid var(--border);border-radius:12px;box-shadow:0 18px 50px rgba(0,0,0,.35);z-index:70;padding:11px}
+  .editor .lbl{font-size:11px;color:var(--fg-faint);margin-bottom:6px}
+  .editor textarea{width:100%;height:60px;resize:vertical;font:inherit;font-size:12.5px;padding:7px;border-radius:8px;border:1px solid var(--border);background:var(--surface-sunken);color:var(--fg)}
+  .vchoice{display:flex;gap:6px;margin:8px 0}
+  .vchoice .vb{flex:1;font:inherit;font-size:11.5px;font-weight:600;padding:5px;border-radius:7px;border:1px solid var(--border-strong);background:var(--surface-raised);color:var(--fg-muted);cursor:pointer}
+  .vchoice .vb.on{background:var(--brand-action);border-color:var(--brand-action);color:#fff}
+  .vchoice .vb.app.on{background:var(--ok);border-color:var(--ok)}
+  .vchoice .vb.dis.on{background:var(--amber);border-color:var(--amber)}
+  .editor .acts{display:flex;gap:7px;align-items:center}.editor .acts .spacer{flex:1}
+  .cpanel{position:fixed;right:16px;bottom:16px;width:330px;max-height:72vh;display:flex;flex-direction:column;background:var(--surface-overlay);border:1px solid var(--border);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.3);z-index:55;overflow:hidden}
+  .cpanel .ch{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--border)}.cpanel .ch h3{margin:0;font-size:14px;font-weight:800;flex:1}.cpanel .ch .cCount{font-size:12px;color:var(--fg-faint)}
+  .cbody{overflow:auto;padding:8px}.cempty{color:var(--fg-faint);font-size:12.5px;padding:14px 8px;text-align:center}
+  .citem{display:flex;gap:8px;padding:8px;border-radius:9px}.citem:hover{background:var(--surface-sunken)}
+  .citem .num{flex:none;width:19px;height:19px;color:#fff;border-radius:10px;font-size:11px;font-weight:700;line-height:19px;text-align:center;background:var(--pin)}
+  .citem .num.app{background:var(--ok)}.citem .num.dis{background:var(--amber)}
+  .citem .ctxt{font-size:12.5px;flex:1}.citem .ctxt .tgt{color:var(--fg-faint);font-size:11px;display:block}.citem .del{background:none;border:none;color:var(--fg-faint);cursor:pointer;font-size:14px}
+  .vtag{font-size:9.5px;font-weight:800;letter-spacing:.03em;border-radius:4px;padding:1px 5px;margin-right:5px}
+  .vtag.app{background:var(--green-soft);color:var(--green)}.vtag.dis{background:var(--amber-soft);color:var(--amber)}
+  .cfoot{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px;border-top:1px solid var(--border)}.cfoot .wide{grid-column:1/-1}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--fg);color:var(--surface);font-size:13px;font-weight:600;padding:9px 16px;border-radius:10px;z-index:90;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Check-ins Phase 3, the academic layer</h1>
+    <div class="sub">Mockup for review. Individual Development Plan, career-stage presets, privacy, and the supporting academic surfaces.</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn" id="themeToggle">Switch to dark</button>
+  <button class="btn" id="commentToggle">Comment mode: off</button>
+</header>
+
+<div class="wrap">
+  <p class="lead">This is a design mockup, not the real app. Phase 1 (any account starts a space) and Phase 2 (group task board plus action-item-to-task sync) are already specced. This artifact is the <b>academic layer</b> that makes Check-ins read as built for a lab instead of a re-skinned corporate tool. The centerpiece is the Individual Development Plan, a living document the trainee owns and the mentor reviews.</p>
+  <div class="legend">
+    <span class="k"><b>How to review</b></span>
+    <span class="k">Expand IDP sections and competency groups, set the 1 to 5 ratings, switch the career-stage preset, flip the per-section share toggles.</span>
+    <span class="k"><span class="dot" style="background:var(--brand-action)"></span> your self-rating</span>
+    <span class="k"><span class="dot" style="background:var(--purple)"></span> how much it matters</span>
+    <span class="k"><b>Comment mode</b> click any element to pin a note and tag it Approve / Disapprove.</span>
+    <span class="k"><b>Per-change</b> Approve / Disapprove on each proposed piece below.</span>
+    <span class="k"><b>Export</b> Copy or Download .md, then paste it back into chat.</span>
+  </div>
+
+  <!-- ================= IDP ================= -->
+  <h2 class="section-h cmt">The Individual Development Plan <span class="badge core">Core differentiator</span></h2>
+  <p class="section-sub">Five sections, modeled on AAAS myIDP plus the UW-Madison Grad School IDP (one shared lineage), deliberately lighter than the full 15-page UW packet. It is the trainee's document. The mentor reviews and signs off, the trainee edits. NIH progress reports now expect an IDP to exist, so this is a compliance hook, not just a nicety.</p>
+
+  <div class="idp" id="idp">
+    <div class="idp-top">
+      <div class="who cmt">
+        <span class="av" style="background:#16a34a">M</span>
+        <span class="nm">Mira's development plan<small>You mentor Mira here. She owns this plan; you review it.</small></span>
+      </div>
+      <span class="spc"></span>
+      <div class="cmt" style="text-align:right">
+        <div class="stageseg" id="stageSeg">
+          <button data-stage="undergrad">Undergrad</button>
+          <button data-stage="grad" class="on">Grad student</button>
+          <button data-stage="postdoc">Postdoc</button>
+          <button data-stage="staff">Staff scientist</button>
+        </div>
+        <div class="stagehint" id="stageHint">One form, filtered by stage. Switching hides or surfaces rows, it does not load a different form.</div>
+      </div>
+    </div>
+
+    <div class="complhook cmt">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/></svg>
+      <span>Compliance hook. Your lab-head view shows only "IDP on file, last updated Jun 4," never the contents. NSF has required since May 2024 that an IDP exists. The why, the plan stays the trainee's so candid self-assessment stays safe.</span>
+    </div>
+
+    <div class="idp-body" id="idpBody"></div>
+  </div>
+
+  <!-- ============ PRIVACY / PI VIEW ============ -->
+  <h2 class="section-h cmt">Privacy and what the PI sees <span class="badge core">Core</span></h2>
+  <p class="section-sub">The IDP is private by default, local-first like a note. The trainee shares specific sections (usually Goals and the Action plan) and can withhold raw self-ratings or a non-academic career interest. The mentor gets a review surface, the lab head gets a status line only.</p>
+  <div class="pi-grid">
+    <div class="glass cmt">
+      <div class="gh2"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="2.3"/></svg> What you (the mentor) see</div>
+      <div class="gb">
+        <div class="pi-line"><svg class="ok-ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5 9-11"/></svg> Goals (shared by Mira)</div>
+        <div class="pi-line"><svg class="ok-ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5 9-11"/></svg> Action plan (shared by Mira)</div>
+        <div class="pi-line" style="color:var(--fg-faint)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> Raw self-ratings (kept private by Mira)</div>
+        <div class="pi-line"><svg class="ok-ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M3 20l4-1 11-11-3-3L4 16z"/></svg> A place to comment and sign off</div>
+      </div>
+    </div>
+    <div class="glass cmt">
+      <div class="gh2"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/></svg> What the lab head / PI sees</div>
+      <div class="gb">
+        <div class="pi-line"><svg class="ok-ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5 9-11"/></svg> <b>IDP on file</b>, last updated Jun 4, 2026</div>
+        <div class="blur-stack" aria-hidden="true">Self-assessment ratings hidden from this view<br>Career aspirations hidden from this view<br>Goal detail hidden from this view</div>
+        <div class="never"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M5 5l14 14"/></svg> The PI never sees the contents, only that a plan exists and when it was touched (NSF compliance).</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TEMPLATES ============ -->
+  <h2 class="section-h cmt">Career-stage-aware check-in templates <span class="badge core">Core</span></h2>
+  <p class="section-sub">About six seed templates from static JSON, the way the method catalog works, not a 500-template marketplace. Each seeds the agenda and IDP defaults for a stage or a relationship type.</p>
+  <div class="gallery" id="gallery"></div>
+  <p class="seedcount">Six seeds, not a marketplace. New ones ship as static JSON, the same pattern as the method catalog.</p>
+
+  <!-- ============ COMPACT + ONBOARDING ============ -->
+  <h2 class="section-h cmt">Expectations compact and onboarding checklist <span class="badge core">Core</span></h2>
+  <p class="section-sub">Misaligned expectations is the number one cause of mentoring breakdowns (CIMER). A one-time compact per relationship and a first-check-in onboarding checklist head that off.</p>
+  <div class="two-up">
+    <div class="glass cmt">
+      <div class="gh2"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg> Mentoring compact (Mira and you)</div>
+      <div class="gb">
+        <div class="compactrow"><span class="lbl">Working hours</span><span>Flexible, core 10 to 4, no expectation of nights or weekends.</span></div>
+        <div class="compactrow"><span class="lbl">Authorship</span><span>First author on work you primarily drive; discuss order early.</span></div>
+        <div class="compactrow"><span class="lbl">Communication</span><span>Weekly check-in plus async questions any time.</span></div>
+        <div class="compactrow"><span class="lbl">Vacation</span><span>Two weeks notice for planned leave, no accrual tracking.</span></div>
+        <div class="ack"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5 9-11"/></svg> Acknowledged by both · revisit annually</div>
+      </div>
+    </div>
+    <div class="glass cmt">
+      <div class="gh2"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> New-member onboarding checklist</div>
+      <div class="gb" id="onboard"></div>
+    </div>
+  </div>
+
+  <!-- ============ PHASE 4 ============ -->
+  <h2 class="section-h cmt">Where the rest of the academic layer goes <span class="badge later">Phase 4 (later)</span></h2>
+  <p class="section-sub">Placeholders so the whole shape is visible. These build later on the same spine, they are not part of this Phase 3 review.</p>
+  <div class="p4">
+    <div class="p4card cmt"><div class="pt"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="19" r="2"/><path d="M12 7v5M12 12H6v5M12 12h6v5"/></svg> Mentorship-tree view <span class="lt">Phase 4</span></div><p>Lab hierarchy drawn from the mentor edges. Each check-in space is one edge; the tree is a view over them.</p></div>
+    <div class="p4card cmt"><div class="pt"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg> Presenter / journal-club rotation <span class="lt">Phase 4</span></div><p>Auto-rotating schedule for a group space, with a prep nudge for the upcoming presenter.</p></div>
+    <div class="p4card cmt"><div class="pt"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/></svg> Thesis-committee template <span class="lt">Phase 4</span></div><p>A group space on annual cadence, pre-circulate the progress report, private-session structure via private notes.</p></div>
+    <div class="p4card cmt"><div class="pt"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 7-7"/><path d="M14 8h6v6"/></svg> Skip-level cue <span class="lt">Phase 4</span></div><p>When a PI checks in past a direct mentor, surface the direct mentor so it reads as a skip-level.</p></div>
+  </div>
+
+  <!-- ============ CHANGES ============ -->
+  <h2 class="section-h">The proposed pieces, mark each</h2>
+  <p class="section-sub">Approve or disapprove each piece of the Phase 3 academic layer. Verdicts persist in this browser.</p>
+  <div class="changes" id="changes"></div>
+</div>
+
+<div class="cpanel" id="cpanel" style="display:none">
+  <div class="ch"><h3>Comments</h3><span class="cCount" id="cCount">0</span></div>
+  <div class="cbody" id="cbody"><div class="cempty">No comments yet. Turn on Comment mode and click any element.</div></div>
+  <div class="cfoot">
+    <button class="btn" id="exportBtn">Copy feedback</button>
+    <button class="btn" id="downloadBtn">Download .md</button>
+    <button class="btn danger wide" id="clearBtn">Clear all comments</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ---------- IDP data ---------- */
+/* competency groups, each with skills. stages mark which rows show per preset.
+   stages: u=undergrad, g=grad, p=postdoc, s=staff. A skill shows if its stage set includes the active stage. */
+const ALL = ["undergrad","grad","postdoc","staff"];
+const COMP_GROUPS = [
+  {id:"research", name:"Research and technical", stages:ALL, skills:[
+    {n:"Experimental design", self:4, imp:4, stages:ALL},
+    {n:"Data analysis and statistics", self:3, imp:5, stages:ALL},
+    {n:"Reproducibility and data management", self:3, imp:4, stages:ALL},
+    {n:"Designing a research program", self:1, imp:3, stages:["postdoc","staff"]},
+  ]},
+  {id:"comm", name:"Communication and writing", stages:ALL, skills:[
+    {n:"Scientific writing", self:2, imp:5, stages:ALL},
+    {n:"Presenting and talks", self:3, imp:4, stages:ALL},
+    {n:"Grant and proposal writing", self:1, imp:4, stages:["grad","postdoc","staff"]},
+  ]},
+  {id:"pdm", name:"Project and data management", stages:ALL, skills:[
+    {n:"Planning and prioritizing", self:3, imp:4, stages:ALL},
+    {n:"Budget and resource management", self:1, imp:2, stages:["postdoc","staff"]},
+  ]},
+  {id:"lead", name:"Leadership and mentoring", stages:ALL, skills:[
+    {n:"Mentoring others", self:2, imp:3, stages:["grad","postdoc","staff"]},
+    {n:"Leading a team", self:1, imp:4, stages:["postdoc","staff"]},
+    {n:"Collaboration and teamwork", self:4, imp:4, stages:ALL},
+  ]},
+  {id:"rcr", name:"Responsible conduct of research", stages:ALL, skills:[
+    {n:"Research ethics and integrity", self:4, imp:5, stages:ALL},
+    {n:"Data ownership and sharing norms", self:3, imp:4, stages:ALL},
+  ]},
+  {id:"career", name:"Career and professional development", stages:ALL, skills:[
+    {n:"Networking", self:2, imp:3, stages:ALL},
+    {n:"Job search and interviewing", self:1, imp:5, stages:["postdoc","staff"]},
+    {n:"Negotiation", self:1, imp:3, stages:["postdoc","staff"]},
+  ]},
+];
+
+const STAGE_HINTS = {
+  undergrad:"Undergrad. Self-assessment and short-term goals lead; grant-writing, budget, mentoring-others, and job-search rows are hidden.",
+  grad:"Grad student. The full default set, goals seeded with prelim and thesis milestones.",
+  postdoc:"Postdoc. Leadership, independence, and job-search rows surface; this is where the career-advancement work lives.",
+  staff:"Staff scientist. Project and people management lead; academic job-search rows recede.",
+};
+
+let stage = "grad";
+/* ratings live here so the summary recomputes; key is "groupId::skillName" */
+const ratings = {};
+COMP_GROUPS.forEach(g=>g.skills.forEach(sk=>{ratings[g.id+"::"+sk.n]={self:sk.self,imp:sk.imp};}));
+
+const visible = sk => sk.stages.includes(stage);
+
+/* section open/closed + group open/closed state */
+const secOpen = {self:true, explore:false, goals:false, action:false, review:false};
+const grpOpen = {}; COMP_GROUPS.forEach((g,i)=>grpOpen[g.id]=i===0); // first expanded
+const shareState = {self:false, explore:false, goals:true, action:true, review:true};
+let valuesOpen = false;
+
+/* goals + action data (local, resets on reload) */
+let shortGoals = [
+  {t:"Submit the Aim 1 manuscript", prio:"high"},
+  {t:"Finish the touchdown PCR optimization", prio:""},
+];
+let longGoals = [
+  {t:"First-author paper and a national talk", prio:"high"},
+  {t:"Decide between academia and industry", prio:"low"},
+];
+let actions = [
+  {obj:"Take the scientific writing workshop", appr:"Grad-school short course, weekly", date:"2026-09-15", out:"A full Aim 1 draft", status:"in", task:false},
+  {obj:"Pass the prelim exam", appr:"Mock exam plus committee feedback", date:"2026-06-20", out:"Committee sign-off", status:"done", task:true},
+];
+let valuesRanks = [
+  {n:"Intellectual challenge", r:1},
+  {n:"Work-life balance", r:2},
+  {n:"Job security", r:3},
+  {n:"Salary", r:4},
+  {n:"Prestige", r:5},
+];
+
+/* ---------- render IDP ---------- */
+function pips(groupId, skillName, kind){
+  const val = ratings[groupId+"::"+skillName][kind];
+  let h='<span class="pips '+(kind==="imp"?"imp":"")+'" data-g="'+esc(groupId)+'" data-s="'+esc(skillName)+'" data-k="'+kind+'">';
+  for(let i=1;i<=5;i++) h+='<button class="pip '+(i<=val?"on":"")+'" data-v="'+i+'">'+i+'</button>';
+  return h+'</span>';
+}
+function competencyGroups(){
+  return COMP_GROUPS.map(g=>{
+    const skillsVis = g.skills.filter(visible);
+    if(!skillsVis.length) return "";
+    const open = grpOpen[g.id];
+    const rows = g.skills.map(sk=>{
+      const hid = visible(sk)?"":"hiddenrow";
+      return '<div class="skillrow '+hid+'"><span class="sn">'+esc(sk.n)+'</span>'
+        +'<span class="rater"><span class="rl">you</span>'+pips(g.id,sk.n,"self")+'</span>'
+        +'<span class="rater"><span class="rl">matters</span>'+pips(g.id,sk.n,"imp")+'</span></div>';
+    }).join("");
+    return '<div class="cgrp '+(open?"":"collapsed")+'" data-grp="'+esc(g.id)+'"><div class="gh cmt">'
+      +'<svg class="chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>'
+      +esc(g.name)+' <span style="color:var(--fg-faint);font-weight:500;font-size:11px">('+skillsVis.length+')</span></div>'
+      +'<div class="rows">'+rows+'</div></div>';
+  }).join("");
+}
+function summaryHTML(){
+  const str=[], grow=[];
+  COMP_GROUPS.forEach(g=>g.skills.forEach(sk=>{
+    if(!visible(sk)) return;
+    const r=ratings[g.id+"::"+sk.n];
+    if(r.self>=4) str.push(sk.n);
+    if(r.self<=2) grow.push({n:sk.n, gap:r.imp-r.self});
+  }));
+  grow.sort((a,b)=>b.gap-a.gap);
+  const strTags = str.length?str.map(n=>'<span class="stag">'+esc(n)+'</span>').join(""):'<span class="sumempty">No 4 to 5 ratings yet.</span>';
+  const growTags = grow.length?grow.map(o=>'<span class="stag">'+esc(o.n)+(o.gap>=3?' · big gap':'')+'</span>').join(""):'<span class="sumempty">No 1 to 2 ratings yet.</span>';
+  return '<div class="summary">'
+    +'<div class="sumcard str"><div class="lab"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12l5 5 9-11"/></svg> Strengths (you rated 4 to 5)</div><div class="tags">'+strTags+'</div></div>'
+    +'<div class="sumcard grow"><div class="lab"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v6M12 22v-4M4 12H2M22 12h-2"/><circle cx="12" cy="14" r="4"/></svg> Growth areas (rated 1 to 2)</div><div class="tags">'+growTags+'</div></div>'
+    +'</div><p style="font-size:11px;color:var(--fg-faint);margin:8px 0 0">The gap between your rating and how much a skill matters is the signal that feeds your goals. Scientific writing here is the classic low-skill, high-importance case.</p>';
+}
+function goalRows(list, key){
+  return list.map((gl,i)=>{
+    const pc = gl.prio==="high"?"high":gl.prio==="low"?"low":"";
+    const pl = gl.prio==="high"?"High":gl.prio==="low"?"Low":"Priority";
+    return '<div class="goalrow"><input class="gt" value="'+esc(gl.t)+'" data-gk="'+key+'" data-gi="'+i+'">'
+      +'<button class="prio '+pc+'" data-prio="'+key+'" data-gi="'+i+'">'+pl+'</button>'
+      +'<button class="delrow" data-delgoal="'+key+'" data-gi="'+i+'">&times;</button></div>';
+  }).join("");
+}
+function actionRows(){
+  return actions.map((a,i)=>{
+    const dated = !!a.date;
+    const statusBtns = [["ns","Not started"],["in","In progress"],["done","Done"]].map(s=>
+      '<button class="'+(a.status===s[0]?"on":"")+'" data-act-status="'+i+'" data-s="'+s[0]+'">'+s[1]+'</button>').join("");
+    let taskCell = '<span style="color:var(--fg-faint);font-size:11px">add a target date</span>';
+    if(dated){
+      taskCell = a.task
+        ? '<span class="addtask added"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5 9-11"/></svg> On Mira\'s tasks</span>'
+        : '<button class="addtask" data-addtask="'+i+'"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg> Add to tasks</button>';
+    }
+    return '<tr><td><input class="at" value="'+esc(a.obj)+'" data-af="obj" data-ai="'+i+'"></td>'
+      +'<td><input class="at" value="'+esc(a.appr)+'" data-af="appr" data-ai="'+i+'"></td>'
+      +'<td>'+(dated?'<span class="chip due">'+fmtDate(a.date)+'</span>':'<span style="color:var(--fg-faint)">—</span>')+'</td>'
+      +'<td><input class="at" value="'+esc(a.out)+'" data-af="out" data-ai="'+i+'"></td>'
+      +'<td><div class="statusseg">'+statusBtns+'</div></td>'
+      +'<td>'+taskCell+'<button class="delrow" data-delact="'+i+'" style="float:right">&times;</button></td></tr>';
+  }).join("");
+}
+function fmtDate(iso){ if(!iso) return ""; const d=new Date(iso+"T00:00:00"); return d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}); }
+
+function shareToggle(key, label){
+  const on = shareState[key];
+  return '<button class="share '+(on?"on":"priv")+'" data-share="'+key+'">'
+    +'<span class="ic">'+(on
+      ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a3 3 0 1 0-2.8-4M6 12a3 3 0 1 0 0 .01M18 16a3 3 0 1 0-2.8 4M8.6 13.5l6.8 3.5M15.4 6.5L8.6 10.5"/></svg>'
+      : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>')
+    +'</span>'+(on?"Shared with mentor":"Private")+'</button>';
+}
+function sec(key, num, title, meta, inner, share){
+  const open = secOpen[key];
+  return '<div class="idp-sec '+(open?"":"collapsed")+'" data-sec="'+key+'"><div class="sh cmt">'
+    +'<span class="n">'+num+'</span><span class="ti">'+esc(title)+'</span>'
+    +(meta?'<span class="meta">'+meta+'</span>':'')
+    +(share!==false?shareToggle(key):'')
+    +'<svg class="chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>'
+    +'</div><div class="body">'+inner+'</div></div>';
+}
+function renderIDP(){
+  let h="";
+  // 1 self-assessment
+  h+=sec("self","1","Self-assessment","rate each skill 1 to 5, then how much it matters 1 to 5",
+    competencyGroups()
+    + summaryHTML()
+    + '<label class="flab">Current responsibilities and near-term requirements</label>'
+    + '<textarea class="ftx" rows="2" placeholder="What you are responsible for now, and any near-term requirements (quals, committee, fellowship renewal)...">Two cloning projects for Aim 2, weekly growth assays, and the prelim in June.</textarea>');
+  // 2 career exploration
+  h+=sec("explore","2","Career exploration","aspirations and a target path",
+    '<label class="flab">Career aspirations</label>'
+    + '<textarea class="ftx" rows="2" placeholder="Where you are headed and why...">Tenure-track faculty at a research university, ideally running a synthetic-biology lab.</textarea>'
+    + '<label class="flab">Target path</label>'
+    + '<input class="ftx" value="Academic principal investigator">'
+    + '<label class="flab" style="margin-top:10px">Explore career paths</label>'
+    + '<div class="explore">'
+    + '<a class="exlink" href="#" onclick="return false">myIDP <small>(AAAS)</small></a>'
+    + '<a class="exlink" href="#" onclick="return false">ImaginePhD <small>(humanities and social sciences)</small></a>'
+    + '<a class="exlink" href="#" onclick="return false">ChemIDP <small>(ACS, chemistry)</small></a>'
+    + '</div>'
+    + '<p style="font-size:11.5px;color:var(--fg-faint);margin:6px 0 0">We do not rebuild the career-matching algorithm, that is myIDP\'s whole product. The trainee runs the assessment there and records the result here, exactly what UW does.</p>');
+  // 3 goals
+  h+=sec("goals","3","Goals","short-term and long-term, with an optional priority",
+    '<label class="flab">Short-term (6 months or less)</label>'+goalRows(shortGoals,"short")
+    + '<button class="addrow" data-addgoal="short"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg> Add a short-term goal</button>'
+    + '<label class="flab" style="margin-top:12px">Long-term (more than 6 months)</label>'+goalRows(longGoals,"long")
+    + '<button class="addrow" data-addgoal="long"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg> Add a long-term goal</button>');
+  // 4 action plan
+  h+=sec("action","4","Action plan","the UW four-column SMART table",
+    '<table class="acttable"><thead><tr><th>Objective / skill to learn</th><th>Approach and strategy</th><th>Target date</th><th>Done when</th><th>Status</th><th></th></tr></thead><tbody>'
+    + actionRows() + '</tbody></table>'
+    + '<button class="addrow" data-addact="1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg> Add an action row</button>'
+    + '<div class="synced-note"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9M21 3v6h-6"/></svg> A dated row can become a real to-do on Mira\'s Lists (the Phase 2 action-item-to-task sync). It lands next to her other lab work, not siloed here.</div>');
+  // 5 mentor review
+  h+=sec("review","5","Mentor review","a comment and sign-off, not co-ownership",
+    '<div class="mreview">'
+    + '<div style="display:flex;align-items:center;gap:8px"><span class="reviewbadge" style="font-size:11px;font-weight:700;color:var(--brand-purple);background:var(--purple-soft);border-radius:999px;padding:3px 10px">Review, not co-ownership</span><span style="font-size:11.5px;color:var(--fg-faint)">You comment and acknowledge. Mira edits the plan.</span></div>'
+    + '<label class="flab">Your comment as mentor</label>'
+    + '<textarea class="ftx" rows="2">Strong on experimental design and ethics. Let us make scientific writing the headline this year, the workshop plus a full Aim 1 draft by September is the right call.</textarea>'
+    + '<div class="signoff"><span class="pill">Reviewed on <b>Jun 4, 2026</b></span><span class="pill">Next revisit <b>Jun 2027</b> (annual)</span><button class="btn" style="font-size:12px;padding:5px 11px" onclick="return false">Sign off</button></div>'
+    + '</div>');
+  // values opt-in (private, collapsed by default)
+  h+='<div class="values '+(valuesOpen?"":"collapsed")+'" id="valuesBlk"><div class="vh cmt" data-valtoggle="1">'
+    +'<span style="font-size:13px;font-weight:700">Values reflection</span>'
+    +'<span class="lk"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> Optional · private to you</span>'
+    +'<svg class="chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg></div>'
+    +'<div class="vb"><p style="font-size:11.5px;color:var(--fg-muted);margin:10px 0 8px">Ranking what matters to you (pay, work-life balance, prestige) is a private reflection, never shared or mentor-reviewed. The why, ranking personal priorities inside a doc your funder reviews carries the same power-asymmetry problem we cut the mood traffic lights for.</p>'
+    + valuesRanks.map((v,i)=>'<div class="vrank"><span style="width:18px;color:var(--fg-faint);font-weight:700">'+(i+1)+'</span><span class="vn">'+esc(v.n)+'</span></div>').join("")
+    +'<p style="font-size:11px;color:var(--fg-faint);margin:8px 0 0">Drag-to-rank in the real build. Even myIDP does not use this for matching, it is purely for the trainee\'s own clarity.</p></div></div>';
+
+  document.getElementById("idpBody").innerHTML=h;
+}
+
+/* ---------- stage presets ---------- */
+function renderStageHint(){ document.getElementById("stageHint").textContent = STAGE_HINTS[stage]; }
+document.getElementById("stageSeg").addEventListener("click",e=>{
+  if(document.body.classList.contains("cmt-on")) return;
+  const b=e.target.closest("[data-stage]"); if(!b) return;
+  stage=b.dataset.stage;
+  document.querySelectorAll("#stageSeg button").forEach(x=>x.classList.toggle("on",x===b));
+  renderStageHint(); renderIDP();
+});
+
+/* ---------- IDP body interactions ---------- */
+document.getElementById("idpBody").addEventListener("click",e=>{
+  if(document.body.classList.contains("cmt-on")) return;
+  // section header toggle (but not when clicking the share button)
+  const sh=e.target.closest(".sh");
+  if(sh && !e.target.closest("[data-share]")){
+    const k=sh.closest("[data-sec]").dataset.sec; secOpen[k]=!secOpen[k]; sh.closest("[data-sec]").classList.toggle("collapsed"); return;
+  }
+  // per-section share
+  const shareBtn=e.target.closest("[data-share]");
+  if(shareBtn){ const k=shareBtn.dataset.share; shareState[k]=!shareState[k]; renderIDP(); return; }
+  // competency group toggle
+  const gh=e.target.closest(".gh");
+  if(gh){ const g=gh.closest("[data-grp]").dataset.grp; grpOpen[g]=!grpOpen[g]; gh.closest("[data-grp]").classList.toggle("collapsed"); return; }
+  // rating pip
+  const pip=e.target.closest(".pip");
+  if(pip){
+    const wrap=pip.closest(".pips"); const g=wrap.dataset.g, s=wrap.dataset.s, k=wrap.dataset.k;
+    ratings[g+"::"+s][k]=+pip.dataset.v;
+    // repaint pips locally + summary
+    wrap.querySelectorAll(".pip").forEach(p=>p.classList.toggle("on",+p.dataset.v<=ratings[g+"::"+s][k]));
+    const sec=document.querySelector('[data-sec="self"] .summary'); if(sec){ const tmp=document.createElement("div"); tmp.innerHTML=summaryHTML(); sec.replaceWith(tmp.firstChild); }
+    return;
+  }
+  // priority cycle
+  const pr=e.target.closest("[data-prio]");
+  if(pr){ const list=pr.dataset.prio==="short"?shortGoals:longGoals; const i=+pr.dataset.gi; const cur=list[i].prio;
+    list[i].prio = cur===""?"high":cur==="high"?"low":""; renderIDP(); return; }
+  // delete goal
+  const dg=e.target.closest("[data-delgoal]");
+  if(dg){ const list=dg.dataset.delgoal==="short"?shortGoals:longGoals; list.splice(+dg.dataset.gi,1); renderIDP(); return; }
+  // add goal
+  const ag=e.target.closest("[data-addgoal]");
+  if(ag){ (ag.dataset.addgoal==="short"?shortGoals:longGoals).push({t:"",prio:""}); renderIDP(); return; }
+  // action status
+  const as=e.target.closest("[data-act-status]");
+  if(as){ actions[+as.dataset.actStatus].status=as.dataset.s; renderIDP(); return; }
+  // add to tasks
+  const at=e.target.closest("[data-addtask]");
+  if(at){ actions[+at.dataset.addtask].task=true; renderIDP(); toast("Added to Mira's Lists as a real to-do (Phase 2 sync)."); return; }
+  // delete action
+  const da=e.target.closest("[data-delact]");
+  if(da){ actions.splice(+da.dataset.delact,1); renderIDP(); return; }
+  // add action
+  const aa=e.target.closest("[data-addact]");
+  if(aa){ actions.push({obj:"",appr:"",date:"",out:"",status:"ns",task:false}); renderIDP(); return; }
+  // values toggle
+  const vt=e.target.closest("[data-valtoggle]");
+  if(vt){ valuesOpen=!valuesOpen; document.getElementById("valuesBlk").classList.toggle("collapsed"); return; }
+});
+/* keep text edits in the model so re-render does not wipe them */
+document.getElementById("idpBody").addEventListener("input",e=>{
+  const t=e.target;
+  if(t.dataset.gk!=null){ (t.dataset.gk==="short"?shortGoals:longGoals)[+t.dataset.gi].t=t.value; }
+  if(t.dataset.af!=null){ actions[+t.dataset.ai][t.dataset.af]=t.value; }
+});
+
+/* ---------- templates gallery ---------- */
+const TEMPLATES = [
+  {n:"Undergrad", c:"#1AA0E6", d:"Skills, course balance, and the is-research-for-me question. Lighter self-assessment, short-term goals."},
+  {n:"Grad student", c:"#16a34a", d:"Prelim and aims progress, committee timeline. The full IDP default set."},
+  {n:"Postdoc", c:"#5B47D6", d:"Independence, the job market, the first grant. Leadership and career-advancement rows."},
+  {n:"Staff scientist", c:"#d97706", d:"Project and people management, deemphasizes academic job-search items."},
+  {n:"Thesis committee", c:"#7c3aed", d:"A group space on annual cadence, pre-circulate the progress report and Specific Aims."},
+  {n:"Onboarding", c:"#2563eb", d:"A first check-in with the access, safety, and data-management checklist plus the cadence."},
+];
+function initial(s){return s[0];}
+document.getElementById("gallery").innerHTML = TEMPLATES.map(t=>
+  '<div class="tcard cmt"><div class="tt"><span class="ic" style="background:'+t.c+'">'+initial(t.n)+'</span>'+esc(t.n)+'</div><p>'+esc(t.d)+'</p></div>').join("");
+
+/* ---------- onboarding checklist ---------- */
+const ONBOARD = [
+  {t:"Access and keys (building, lab, shared drives)", done:true},
+  {t:"Required safety training booked", done:true},
+  {t:"Data-management practices walkthrough", done:false},
+  {t:"Read the lab norms / compact doc", done:false},
+  {t:"Set the check-in cadence", done:false},
+];
+function renderOnboard(){
+  document.getElementById("onboard").innerHTML = ONBOARD.map((o,i)=>
+    '<div class="checkrow '+(o.done?"done":"")+'" data-onb="'+i+'"><span class="cbx '+(o.done?"done":"")+'">'
+    +(o.done?'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5 9-11"/></svg>':'')
+    +'</span><span class="ct">'+esc(o.t)+'</span></div>').join("");
+}
+document.getElementById("onboard").addEventListener("click",e=>{
+  if(document.body.classList.contains("cmt-on")) return;
+  const r=e.target.closest("[data-onb]"); if(!r) return; const i=+r.dataset.onb; ONBOARD[i].done=!ONBOARD[i].done; renderOnboard();
+});
+
+/* ---------- change cards ---------- */
+const CHANGES = [
+  ["The IDP, built for real","A living five-section Individual Development Plan per trainee (self-assessment, career exploration, goals, action plan, mentor review). The differentiator and an NIH progress-report hook. (D5)"],
+  ["myIDP dual rating in self-assessment","Each skill carries two 1-to-5 ratings, your proficiency AND how much it matters for the target career. The gap drives the goals. A live strengths-vs-growth summary recomputes as you rate."],
+  ["Six collapsible competency groups","Research and technical, Communication and writing, Project and data management, Leadership and mentoring, Responsible conduct of research, Career and professional development. Each expands to skill rows."],
+  ["Career exploration links out, does not rebuild matching","Aspirations and a target path, plus a link-out row to myIDP / ImaginePhD / ChemIDP. The trainee records the result back here. We do not rebuild the matching algorithm."],
+  ["Action plan rows can become real tasks","The UW four-column SMART table with a status. A dated row gets an Add-to-tasks affordance that materializes a real to-do on the trainee's Lists (the Phase 2 sync), so it lives next to their other lab work."],
+  ["Career-stage preset switcher (one form, filtered)","Undergrad / Grad / Postdoc / Staff filter the same form. Undergrad hides grant-writing, budget, mentoring-others, and job-search rows; Postdoc surfaces leadership and job-search. Six templates feel like fifty."],
+  ["Privacy model and the PI status-only view","The IDP is private by default with per-section sharing. The mentor gets a review surface, the PI sees only IDP-on-file plus a date, never the contents (NSF compliance)."],
+  ["Values reflection is opt-in and trainee-private","The values ranking ships collapsed, opt-in, and never shared or mentor-reviewed, the same power-asymmetry reason the mood traffic lights were cut. (Confirmed 2026-06-12)"],
+  ["Six career-stage check-in templates","About six seed templates from static JSON (Undergrad, Grad, Postdoc, Staff, Thesis committee, Onboarding), the method-catalog pattern, not a marketplace."],
+  ["Mentoring compact and onboarding checklist","A one-time expectations compact per relationship (hours, authorship, communication, vacation) both acknowledge, plus a first-check-in onboarding checklist."],
+];
+const VSTORE="checkins-p3-verdicts-v1";
+let verdicts={}; try{verdicts=JSON.parse(localStorage.getItem(VSTORE)||"{}")}catch{verdicts={}}
+function saveV(){try{localStorage.setItem(VSTORE,JSON.stringify(verdicts))}catch{}}
+function renderChanges(){
+  document.getElementById("changes").innerHTML=CHANGES.map((c,i)=>{const v=verdicts[i]||{};const cls=v.verdict==="ok"?"approved":v.verdict==="dis"?"disapproved":"";
+    return '<div class="change '+cls+'"><div class="body"><h4>'+(i+1)+'. '+esc(c[0])+'</h4><p>'+esc(c[1])+'</p><textarea data-note="'+i+'" placeholder="Optional note...">'+esc(v.note||"")+'</textarea></div>'
+      +'<div class="verdict"><button class="vbtn ok '+(v.verdict==="ok"?"on":"")+'" data-v="ok" data-i="'+i+'">Approve</button><button class="vbtn dis '+(v.verdict==="dis"?"on":"")+'" data-v="dis" data-i="'+i+'">Disapprove</button></div></div>';
+  }).join("");
+}
+document.getElementById("changes").addEventListener("click",e=>{const b=e.target.closest(".vbtn");if(!b)return;const i=b.dataset.i;verdicts[i]=verdicts[i]||{};verdicts[i].verdict=verdicts[i].verdict===b.dataset.v?null:b.dataset.v;saveV();renderChanges();});
+document.getElementById("changes").addEventListener("input",e=>{if(e.target.dataset.note==null)return;const i=e.target.dataset.note;verdicts[i]=verdicts[i]||{};verdicts[i].note=e.target.value;saveV();});
+
+/* ---------- comment harness ---------- */
+const CSTORE="checkins-p3-comments-v1";
+let comments=[]; try{comments=JSON.parse(localStorage.getItem(CSTORE)||"[]")}catch{comments=[]}
+function saveC(){try{localStorage.setItem(CSTORE,JSON.stringify(comments))}catch{}}
+const cpanel=document.getElementById("cpanel");
+function clabel(el){ const c=el.closest(".cmt"); if(!c) return "page";
+  const h=c.querySelector("h2,h4,.ti,.gh2,.tt,.pt,.nm,.gh,.sn"); return (h?h.textContent:c.textContent).trim().replace(/\s+/g," ").slice(0,60); }
+
+/* editor popover */
+let editorEl=null;
+function closeEditor(){ if(editorEl){editorEl.remove();editorEl=null;} }
+function openEditor(targetEl, existingIndex, ev){
+  closeEditor();
+  const target = existingIndex!=null ? comments[existingIndex].target : clabel(targetEl);
+  const existing = existingIndex!=null ? comments[existingIndex] : null;
+  let pv = existing ? (existing.verdict||"") : "";
+  const ed=document.createElement("div"); ed.className="editor";
+  ed.innerHTML='<div class="lbl">'+esc(target)+'</div>'
+    +'<textarea placeholder="Your note, suggestion, or change request">'+(existing?esc(existing.text):"")+'</textarea>'
+    +'<div class="vchoice"><button class="vb" data-vc="note">Note</button><button class="vb app" data-vc="approve">Approve</button><button class="vb dis" data-vc="disapprove">Disapprove</button></div>'
+    +'<div class="acts">'+(existing?'<button class="btn danger" data-act="del">Delete</button>':'')+'<span class="spacer"></span><button class="btn" data-act="cancel">Cancel</button><button class="btn on" data-act="save">Save</button></div>';
+  document.body.appendChild(ed); editorEl=ed;
+  const paint=()=>ed.querySelectorAll("[data-vc]").forEach(b=>b.classList.toggle("on",(b.dataset.vc==="note"&&!pv)||b.dataset.vc===pv));
+  ed.querySelectorAll("[data-vc]").forEach(b=>b.addEventListener("click",()=>{pv=b.dataset.vc==="note"?"":b.dataset.vc;paint();}));
+  paint();
+  const x=ev?ev.clientX:targetEl.getBoundingClientRect().left, y=ev?ev.clientY:targetEl.getBoundingClientRect().bottom;
+  const w=280, vw=innerWidth, vh=innerHeight;
+  ed.style.left=Math.min(Math.max(8,x-20),vw-w-8)+"px"; ed.style.top=Math.min(y+10,vh-230)+"px";
+  ed.querySelector("textarea").focus();
+  ed.querySelectorAll("[data-act]").forEach(b=>b.addEventListener("click",()=>{
+    const a=b.dataset.act;
+    if(a==="cancel") return closeEditor();
+    if(a==="del"){ if(existingIndex!=null){comments.splice(existingIndex,1);saveC();renderComments();} return closeEditor(); }
+    if(a==="save"){ const text=ed.querySelector("textarea").value.trim(); if(!text&&!pv){closeEditor();return;}
+      if(existing){existing.text=text;existing.verdict=pv;} else {comments.push({x:ev.pageX,y:ev.pageY,target,text,verdict:pv});}
+      saveC();renderComments();closeEditor(); }
+  }));
+  ed.addEventListener("keydown",e=>{ if(e.key==="Escape")closeEditor(); if(e.key==="Enter"&&(e.metaKey||e.ctrlKey))ed.querySelector('[data-act="save"]').click(); });
+}
+document.addEventListener("click",e=>{
+  if(!document.body.classList.contains("cmt-on")) return;
+  if(e.target.closest(".editor")||e.target.closest(".cpanel")||e.target.closest("header.top")||e.target.closest(".pin")) return;
+  const c=e.target.closest(".cmt"); if(!c) return;
+  e.preventDefault(); e.stopPropagation(); openEditor(c,null,e);
+},true);
+function renderComments(){
+  document.querySelectorAll(".pin").forEach(p=>p.remove());
+  comments.forEach((c,i)=>{ const pin=document.createElement("span"); pin.className="pin "+(c.verdict==="approve"?"app":c.verdict==="disapprove"?"dis":""); pin.textContent=i+1;
+    pin.style.left=c.x+"px"; pin.style.top=c.y+"px"; pin.title=c.text; pin.addEventListener("click",ev=>{ev.stopPropagation();openEditor(pin,i,ev);}); document.body.appendChild(pin); });
+  document.getElementById("cCount").textContent=comments.length;
+  const body=document.getElementById("cbody");
+  if(!comments.length){ body.innerHTML='<div class="cempty">No comments yet. Turn on Comment mode and click any element.</div>'; return; }
+  body.innerHTML=comments.map((c,i)=>{ const vc=c.verdict==="approve"?"app":c.verdict==="disapprove"?"dis":"";
+    const vtag=c.verdict==="approve"?'<span class="vtag app">APPROVE</span>':c.verdict==="disapprove"?'<span class="vtag dis">DISAPPROVE</span>':"";
+    return '<div class="citem"><span class="num '+vc+'">'+(i+1)+'</span><span class="ctxt">'+vtag+esc(c.text)+'<span class="tgt">'+esc(c.target)+'</span></span><button class="del" data-i="'+i+'">&times;</button></div>'; }).join("");
+}
+document.getElementById("cbody").addEventListener("click",e=>{const d=e.target.closest(".del");if(!d)return;comments.splice(+d.dataset.i,1);saveC();renderComments();});
+document.getElementById("clearBtn").addEventListener("click",()=>{if(comments.length&&!confirm("Clear all comments?"))return;comments=[];saveC();renderComments();});
+
+document.getElementById("commentToggle").addEventListener("click",()=>{
+  const on=document.body.classList.toggle("cmt-on");
+  const b=document.getElementById("commentToggle"); b.textContent="Comment mode: "+(on?"on":"off"); b.classList.toggle("on",on);
+  cpanel.style.display=on?"flex":(comments.length?"flex":"none"); if(!on)closeEditor();
+});
+
+/* ---------- export ---------- */
+function buildMarkdown(){
+  let out="# Check-ins Phase 3 (academic layer / IDP), feedback\n\n";
+  out+="## Decisions on the proposed pieces\n\n";
+  CHANGES.forEach((c,i)=>{ const v=verdicts[i]||{}; const m=v.verdict==="ok"?"APPROVE":v.verdict==="dis"?"DISAPPROVE":"undecided";
+    out+="- **"+c[0]+"**: "+m+(v.note?" ("+v.note+")":"")+"\n"; });
+  out+="\n## Pinned comments\n\n";
+  if(!comments.length) out+="- none\n";
+  comments.forEach((c,i)=>{ const tag=c.verdict==="approve"?"[APPROVE] ":c.verdict==="disapprove"?"[DISAPPROVE] ":""; out+=(i+1)+". "+tag+"["+c.target+"] "+c.text+"\n"; });
+  return out;
+}
+function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),1700);}
+document.getElementById("exportBtn").addEventListener("click",async()=>{ const md=buildMarkdown();
+  try{await navigator.clipboard.writeText(md);toast("Feedback copied. Paste it back into chat.");}catch{window.prompt("Copy your feedback",md);} });
+document.getElementById("downloadBtn").addEventListener("click",()=>{ const blob=new Blob([buildMarkdown()],{type:"text/markdown"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="checkins-phase3-idp-feedback.md"; a.click(); URL.revokeObjectURL(a.href); });
+
+/* ---------- theme ---------- */
+document.getElementById("themeToggle").addEventListener("click",()=>{
+  const dark=document.documentElement.getAttribute("data-theme")==="dark";
+  document.documentElement.setAttribute("data-theme",dark?"light":"dark");
+  document.getElementById("themeToggle").textContent=dark?"Switch to dark":"Switch to light";
+});
+
+/* ---------- init ---------- */
+renderStageHint(); renderIDP(); renderOnboard(); renderChanges(); renderComments();
+if(comments.length) cpanel.style.display="flex";
+</script>
+</body>
+</html>

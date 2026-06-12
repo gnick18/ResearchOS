@@ -32,6 +32,7 @@ import type {
   PlotSpec,
 } from "@/lib/datahub/model/types";
 import { readPlotStyle } from "@/lib/datahub/plot-spec";
+import { primarySourceId } from "@/lib/datahub/transform/recipe";
 
 /** A short, human label for an analysis type (rail row text). */
 function analysisLabel(type: string): string {
@@ -613,8 +614,12 @@ export default function DataHubRail({
     // A derived table is computed from a source via a transform; mark it so it
     // reads differently from an entered table in the rail.
     const derived = table.derivedFrom;
+    // sourceTableId is the legacy single-op field; primarySourceId reads either
+    // it or the new recipe.sources[0] so the rail still names the source after
+    // the derivedFrom widening.
+    const derivedSourceId = derived ? primarySourceId(derived) : null;
     const sourceName = derived
-      ? nameById.get(derived.sourceTableId) ?? "another table"
+      ? (derivedSourceId ? nameById.get(derivedSourceId) ?? "another table" : "another table")
       : null;
     return (
       <div key={table.id}>
