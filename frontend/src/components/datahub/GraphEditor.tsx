@@ -116,9 +116,11 @@ function Seg<T extends string>({
 }
 
 /**
- * One section of the right dock. A full-width top divider plus an uppercase
- * muted header group the controls the way the approved mockup does, so each
- * group reads as its own block down the panel.
+ * One section of the right dock. A full-width neutral gray band (the approved
+ * "Neutral gray band" treatment from datahub-section-headers.html) carries the
+ * uppercase header so each group reads as its own block down the panel. The
+ * band's bottom border separates it from the body, so the body needs no top
+ * divider of its own.
  */
 function Section({
   title,
@@ -131,16 +133,16 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="border-t border-border px-3.5 py-3 first:border-t-0">
-      <div className="mb-2 flex items-center gap-1.5">
+    <div>
+      <div className="flex items-center gap-1.5 border-b border-border bg-surface-sunken px-3.5 py-2">
         {icon ? (
-          <Icon name={icon} className="h-3 w-3 text-foreground-muted" />
+          <Icon name={icon} className="h-3 w-3 text-foreground" />
         ) : null}
-        <h3 className="text-[11px] font-bold uppercase tracking-wide text-foreground-muted">
+        <h3 className="text-[11px] font-bold uppercase tracking-wide text-foreground">
           {title}
         </h3>
       </div>
-      {children}
+      <div className="px-3.5 py-3">{children}</div>
     </div>
   );
 }
