@@ -177,6 +177,8 @@ export const dataHubApi = {
       project_ids: data.project_ids ?? [],
       folder_path: data.folder_path ?? null,
       table_type: data.table_type,
+      // Optional Column-table entry format; absent stays absent (replicates).
+      ...(data.entryFormat ? { entryFormat: data.entryFormat } : {}),
       created_at: now,
     };
     const content: DataHubDocContent = {
@@ -207,6 +209,7 @@ export const dataHubApi = {
       id,
       name: data.name ?? content.meta.name,
       table_type: data.table_type ?? content.meta.table_type,
+      entryFormat: data.entryFormat ?? content.meta.entryFormat,
       project_ids: data.project_ids ?? content.meta.project_ids,
       folder_path:
         data.folder_path !== undefined ? data.folder_path : content.meta.folder_path,
