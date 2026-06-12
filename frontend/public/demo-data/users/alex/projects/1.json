@@ -12,5 +12,6 @@
   "is_archived": false,
   "archived_at": null,
   "owner": "alex",
-  "shared_with": []
+  "shared_with": [],
+  "funding_account_id": 1
 }

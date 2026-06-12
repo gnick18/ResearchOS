@@ -3,11 +3,45 @@
   "imageW": 900,
   "imageH": 600,
   "shapes": [
-    { "id": "el1", "type": "ellipse", "x": 250, "y": 300, "w": 110, "h": 44, "color": "#e11d48", "strokeWidth": 4 },
-    { "id": "ar1", "type": "arrow", "x1": 470, "y1": 150, "x2": 330, "y2": 300, "color": "#2563eb", "strokeWidth": 4 },
-    { "id": "tx1", "type": "text", "x": 250, "y": 110, "text": "T1 positive", "color": "#111827", "fontSize": 26 },
-    { "id": "tx2", "type": "text", "x": 470, "y": 110, "text": "~1.4 kb", "color": "#111827", "fontSize": 26 }
+    {
+      "id": "el1",
+      "type": "ellipse",
+      "x": 250,
+      "y": 300,
+      "w": 110,
+      "h": 44,
+      "color": "#e11d48",
+      "strokeWidth": 4
+    },
+    {
+      "id": "ar1",
+      "type": "arrow",
+      "x1": 470,
+      "y1": 150,
+      "x2": 330,
+      "y2": 300,
+      "color": "#2563eb",
+      "strokeWidth": 4
+    },
+    {
+      "id": "tx1",
+      "type": "text",
+      "x": 250,
+      "y": 110,
+      "text": "T1 positive",
+      "color": "#111827",
+      "fontSize": 26
+    },
+    {
+      "id": "tx2",
+      "type": "text",
+      "x": 470,
+      "y": 110,
+      "text": "~1.4 kb",
+      "color": "#111827",
+      "fontSize": 26
+    }
   ],
-  "updatedAt": "2026-05-13T18:00:00.000Z",
+  "updatedAt": "2026-05-13T18:00:00Z",
   "updatedBy": "alex"
 }
