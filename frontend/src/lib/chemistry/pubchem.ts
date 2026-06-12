@@ -14,6 +14,8 @@
 //
 // Honors PubChem's courtesy limits (~5 req/sec, 400 req/min) at the call site.
 
+import { cachedFetch } from "./fetch-cache";
+
 const PUG = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound";
 
 /** Identity a PubChem compound carries into the library on import. */
@@ -115,7 +117,7 @@ export function mapPropertyRecord(r: PugPropertyRecord): PubChemCompound {
 
 /** Resolve a compound name to its primary CID, or null if there is no match. */
 export async function resolveNameToCid(name: string): Promise<number | null> {
-  const res = await fetch(
+  const res = await cachedFetch(
     `${PUG}/name/${encodeURIComponent(name)}/cids/JSON`,
   );
   if (!res.ok) return null;
@@ -128,7 +130,7 @@ export async function resolveNameToCids(
   name: string,
   max = 8,
 ): Promise<number[]> {
-  const res = await fetch(`${PUG}/name/${encodeURIComponent(name)}/cids/JSON`);
+  const res = await cachedFetch(`${PUG}/name/${encodeURIComponent(name)}/cids/JSON`);
   if (!res.ok) return [];
   const data = (await res.json()) as { IdentifierList?: { CID?: number[] } };
   return (data.IdentifierList?.CID ?? []).slice(0, max);
@@ -139,7 +141,7 @@ export async function fetchCompoundsByCids(
   cids: number[],
 ): Promise<PubChemCompound[]> {
   if (cids.length === 0) return [];
-  const res = await fetch(
+  const res = await cachedFetch(
     `${PUG}/cid/${cids.join(",")}/property/${PUG_PROPERTY_LIST}/JSON`,
   );
   if (!res.ok) throw new Error(`PubChem property lookup failed (HTTP ${res.status})`);
@@ -161,7 +163,7 @@ export async function autocompleteNames(
   query: string,
   max = 8,
 ): Promise<string[]> {
-  const res = await fetch(
+  const res = await cachedFetch(
     `${AUTOCOMPLETE}/${encodeURIComponent(query)}/json?limit=${max}`,
   ).catch(() => null);
   if (!res || !res.ok) return [];
@@ -213,7 +215,7 @@ export async function searchCompounds(
 export async function fetchCompoundByCid(
   cid: number,
 ): Promise<PubChemCompound> {
-  const res = await fetch(
+  const res = await cachedFetch(
     `${PUG}/cid/${cid}/property/${PUG_PROPERTY_LIST}/JSON`,
   );
   if (!res.ok) throw new Error(`PubChem property lookup failed (HTTP ${res.status})`);
@@ -240,7 +242,7 @@ export async function searchCompound(query: string): Promise<PubChemCompound> {
 
 /** Fetch the raw 2D SDF for a CID (the structure to persist + render). */
 export async function fetchSdf(cid: number): Promise<string> {
-  const res = await fetch(sdfUrl(cid));
+  const res = await cachedFetch(sdfUrl(cid));
   if (!res.ok) throw new Error(`PubChem SDF fetch failed (HTTP ${res.status})`);
   return res.text();
 }
