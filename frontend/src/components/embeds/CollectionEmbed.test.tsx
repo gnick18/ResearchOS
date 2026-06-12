@@ -36,7 +36,7 @@ describe("CollectionEmbed", () => {
     render(<CollectionEmbed descriptor={descriptor} caption="" basePath="" />);
     await waitFor(() => expect(screen.getByText("Plasmid Library")).toBeInTheDocument());
     expect(screen.getByText("Collection")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /^Open/ })).toHaveAttribute(
       "href",
       "/sequences?collection=12",
     );

@@ -67,7 +67,7 @@ describe("DataHubEmbed", () => {
       />,
     );
     await waitFor(() =>
-      expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute("href", "/datahub?doc=2"),
+      expect(screen.getByRole("link", { name: /^Open/ })).toHaveAttribute("href", "/datahub?doc=2"),
     );
     expect(screen.queryByText("time_h")).toBeNull();
   });
@@ -110,7 +110,7 @@ describe("DataHubEmbed", () => {
       />,
     );
     await waitFor(() =>
-      expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute("href", "/datahub?doc=2"),
+      expect(screen.getByRole("link", { name: /^Open/ })).toHaveAttribute("href", "/datahub?doc=2"),
     );
     expect(screen.queryByText(/A differs from B/)).toBeNull();
   });

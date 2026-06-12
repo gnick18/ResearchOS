@@ -53,7 +53,7 @@ describe("TaskEmbed", () => {
     render(<TaskEmbed descriptor={descriptor} caption="" basePath="" />);
     await waitFor(() => expect(screen.getByText("ELISA Plate Run")).toBeInTheDocument());
     expect(screen.getByText("In progress")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /^Open/ })).toHaveAttribute(
       "href",
       "/?openTask=self%3A5",
     );

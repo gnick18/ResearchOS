@@ -212,7 +212,7 @@ export default function StructureCard({ descriptor, caption, sidecarPath }: Exte
           href={openUrl}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label={`Open structure on PubChem: ${title}`}
+          aria-label={`Open structure on PubChem ${title}`}
           className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
         >
           Open

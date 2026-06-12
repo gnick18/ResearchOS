@@ -65,7 +65,7 @@ export default function ProjectEmbed({ descriptor, caption }: EmbedRendererProps
         <span className="flex-1" />
         <a
           href={href}
-          aria-label={`Open project: ${title}`}
+          aria-label={`Open project ${title}`}
           className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
         >
           Open

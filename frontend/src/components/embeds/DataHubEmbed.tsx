@@ -127,7 +127,7 @@ export default function DataHubEmbed({ descriptor, caption, figureLabel, onViewC
           {viewSwitch}
           <a
             href={plotHref}
-            aria-label={`Open Data Hub: ${plotTitle}`}
+            aria-label={`Open Data Hub ${plotTitle}`}
             className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
           >
             Open
@@ -135,7 +135,7 @@ export default function DataHubEmbed({ descriptor, caption, figureLabel, onViewC
         </div>
         <div
           role="img"
-          aria-label={`Plot: ${plotTitle}`}
+          aria-label={`Plot ${plotTitle}`}
           className="flex justify-center overflow-x-auto px-3 py-3"
           dangerouslySetInnerHTML={{ __html: svg }}
         />
@@ -181,7 +181,7 @@ export default function DataHubEmbed({ descriptor, caption, figureLabel, onViewC
           {viewSwitch}
           <a
             href={resultHref}
-            aria-label={`Open Data Hub: ${resultTitle}`}
+            aria-label={`Open Data Hub ${resultTitle}`}
             className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
           >
             Open
@@ -228,7 +228,7 @@ export default function DataHubEmbed({ descriptor, caption, figureLabel, onViewC
         {viewSwitch}
         <a
           href={href}
-          aria-label={`Open Data Hub: ${title}`}
+          aria-label={`Open Data Hub ${title}`}
           className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
         >
           Open

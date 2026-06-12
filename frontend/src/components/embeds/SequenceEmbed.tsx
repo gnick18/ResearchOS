@@ -100,7 +100,7 @@ export default function SequenceEmbed({ descriptor, caption, figureLabel, onView
       <EmbedViewSwitch views={SEQUENCE_VIEWS} current={view} onSelect={selectView} />
       <a
         href={href}
-        aria-label={`Open sequence: ${title}`}
+        aria-label={`Open sequence ${title}`}
         className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
       >
         Open

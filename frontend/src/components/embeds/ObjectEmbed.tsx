@@ -169,7 +169,7 @@ export function ObjectEmbedCard({
       {!loading ? (
         <a
           href={href}
-          aria-label={`Open ${TYPE_LABEL[descriptor.type]}: ${label}`}
+          aria-label={`Open ${TYPE_LABEL[descriptor.type]} ${label}`}
           className="shrink-0 rounded-md border border-border px-2.5 py-1 text-meta font-semibold text-foreground-muted transition-colors hover:border-brand-action hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
         >
           Open
@@ -335,7 +335,7 @@ export default function ObjectEmbed({
     return (
       <figure
         className="my-3 mx-0 overflow-hidden rounded-xl border border-border bg-surface-raised"
-        aria-label={`${TYPE_LABEL[descriptor.type]} embed: ${caption || descriptor.id}`}
+        aria-label={`${TYPE_LABEL[descriptor.type]} embed ${caption || descriptor.id}`}
         data-embed-type={descriptor.type}
         data-embed-view={descriptor.view}
       >
@@ -463,7 +463,7 @@ export default function ObjectEmbed({
   return (
     <figure
       className="my-3 mx-0 overflow-hidden rounded-xl border border-border bg-surface-raised"
-      aria-label={`${TYPE_LABEL[descriptor.type]} embed: ${caption || descriptor.id}`}
+      aria-label={`${TYPE_LABEL[descriptor.type]} embed ${caption || descriptor.id}`}
       data-embed-type={descriptor.type}
       data-embed-view={descriptor.view}
       data-embed-pinned={showFrozen ? "true" : undefined}

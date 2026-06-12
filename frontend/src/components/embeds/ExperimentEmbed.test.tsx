@@ -51,7 +51,7 @@ describe("ExperimentEmbed", () => {
     const dot = document.querySelector("span[aria-hidden]") as HTMLElement | null;
     expect(dot).not.toBeNull();
     expect(dot?.style.background).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /^Open/ })).toHaveAttribute(
       "href",
       "/?openTask=self%3A3",
     );

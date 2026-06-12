@@ -40,7 +40,7 @@ describe("NoteEmbed", () => {
     render(<NoteEmbed descriptor={descriptor} caption="" basePath="" />);
     await waitFor(() => expect(screen.getByText("PCR Optimization Log")).toBeInTheDocument());
     expect(screen.getByText(/Annealing at 58C gave clean bands/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute("href", "/notes/7");
+    expect(screen.getByRole("link", { name: /^Open/ })).toHaveAttribute("href", "/notes/7");
   });
 
   it("shows the unavailable card when the note is gone", async () => {
