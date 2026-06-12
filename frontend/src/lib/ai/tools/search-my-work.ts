@@ -31,6 +31,7 @@ export const searchMyWorkTool: AiTool = {
     "Call this when the user refers to a piece of their work by name or description and it is NOT already identified in the context line and NOT something you just created this turn. " +
     "For example: \"open my CRISPR cloning note\", \"find the Tm method\", \"where is the growth-curve table\". " +
     "Pass a types filter when the user's request clearly names one type (for example \"my notes\" or \"that method\"). " +
+    "Pass since and / or until (YYYY-MM-DD) when the user scopes by time (for example \"the t-test from last week\", \"notes I edited in May\", \"experiments since June 1\"); the date window is day-granular and inclusive, and it drops artifacts with no date (most purchases). Resolve relative phrasing like \"last week\" to absolute YYYY-MM-DD dates yourself using the current date in the context line before calling. " +
     "Returns { count, results: ArtifactBrief[] } where each brief has type, id, title, subtitle, date, projectIds, deepLink, and keywords. " +
     "Once you have a brief, call the matching read tool by type and id to get the body, and use its deepLink if the user wants to navigate there or write a reference into a note. " +
     "If several briefs match and it is ambiguous which one the user means, call ask_user with the brief titles as options so the user taps the right one. " +
@@ -54,6 +55,16 @@ export const searchMyWorkTool: AiTool = {
         description:
           "Maximum number of results to return. Defaults to 12. Increase for a broader scan, decrease for a tighter list.",
       },
+      since: {
+        type: "string",
+        description:
+          "Optional inclusive lower date bound as YYYY-MM-DD. Only artifacts edited or created on or after this day are returned. Resolve relative phrasing (\"last week\", \"since June\") to an absolute date yourself first.",
+      },
+      until: {
+        type: "string",
+        description:
+          "Optional inclusive upper date bound as YYYY-MM-DD. Only artifacts edited or created on or before this day are returned.",
+      },
     },
     required: ["query"],
     additionalProperties: false,
@@ -67,7 +78,11 @@ export const searchMyWorkTool: AiTool = {
       typeof args.limit === "number" && args.limit > 0
         ? Math.min(args.limit, 50)
         : undefined;
-    const results = await searchMyWork(query, { types, limit });
+    const since =
+      typeof args.since === "string" && args.since.trim() ? args.since.trim() : undefined;
+    const until =
+      typeof args.until === "string" && args.until.trim() ? args.until.trim() : undefined;
+    const results = await searchMyWork(query, { types, limit, since, until });
     return { count: results.length, results };
   },
 };

@@ -245,6 +245,17 @@ export function tokenize(text: string | null | undefined): string[] {
     .filter((t) => t.length > 1);
 }
 
+/**
+ * The YYYY-MM-DD day prefix of a date-ish string, or null when it has no usable
+ * leading ISO date. Used to compare a brief's date against a day-granular window
+ * without timezone / time-of-day pitfalls. Pure, no I/O.
+ */
+export function dayPrefix(value: string | null | undefined): string | null {
+  if (!value || typeof value !== "string") return null;
+  const m = value.match(/^\d{4}-\d{2}-\d{2}/);
+  return m ? m[0] : null;
+}
+
 /** Remove duplicate tokens while preserving order. Pure, no I/O. */
 function dedupe(tokens: string[]): string[] {
   const seen = new Set<string>();
@@ -366,16 +377,36 @@ export const artifactIndexDeps: ArtifactIndexDeps = {
  * @param query - Natural-language search string (e.g. "CRISPR cloning note").
  * @param opts.types - Optional filter to a subset of type discriminants.
  * @param opts.limit - Maximum number of results (default 12).
+ * @param opts.since - Optional inclusive lower date bound (YYYY-MM-DD), day-
+ *   granular; drops briefs edited / created before it and briefs with no date.
+ * @param opts.until - Optional inclusive upper date bound (YYYY-MM-DD), day-
+ *   granular; drops briefs after it and briefs with no date.
  * @param deps - Injectable seam for testing without a real folder.
  */
 export async function searchMyWork(
   query: string,
-  opts?: { types?: string[]; limit?: number },
+  opts?: { types?: string[]; limit?: number; since?: string; until?: string },
   deps: ArtifactIndexDeps = artifactIndexDeps,
 ): Promise<ArtifactBrief[]> {
   const queryTokens = tokenize(query);
   const limit = opts?.limit ?? 12;
   const typeFilter = opts?.types && opts.types.length > 0 ? new Set(opts.types) : null;
+  // Day-granular date window. Compare YYYY-MM-DD prefixes so a full ISO
+  // timestamp ("2026-06-10T15:00:00Z") and a date-only value compare on the
+  // same day, sidestepping timezone / time-of-day edge cases.
+  const sinceDay = dayPrefix(opts?.since);
+  const untilDay = dayPrefix(opts?.until);
+  const hasDateBound = sinceDay !== null || untilDay !== null;
+  const inDateWindow = (brief: ArtifactBrief): boolean => {
+    if (!hasDateBound) return true;
+    const day = dayPrefix(brief.date);
+    // A brief with no usable date cannot be placed in a window, so a date-
+    // bounded search excludes it rather than guessing.
+    if (day === null) return false;
+    if (sinceDay !== null && day < sinceDay) return false;
+    if (untilDay !== null && day > untilDay) return false;
+    return true;
+  };
 
   // Run all list() calls concurrently. Per-type failure is silently skipped.
   const [
@@ -434,9 +465,14 @@ export async function searchMyWork(
   addBriefs(experimentsResult, experimentToBrief, "experiment");
   addBriefs(moleculesResult, moleculeToBrief, "molecule");
 
+  // Apply the optional date window before scoring, so a "from last week" search
+  // ranks only the in-window briefs (and never spends a result slot on one that
+  // falls outside it).
+  const windowed = hasDateBound ? allBriefs.filter(inDateWindow) : allBriefs;
+
   // Score and sort. An empty query returns all briefs sorted by date (most
   // recent first), so the model can answer "what do I have?" cheaply.
-  const scored = allBriefs.map((brief) => ({
+  const scored = windowed.map((brief) => ({
     brief,
     score: scoreBrief(brief, queryTokens),
   }));
