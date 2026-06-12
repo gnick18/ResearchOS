@@ -321,7 +321,18 @@ describe("design_primers tool", () => {
       sequence: GC_RICH_TEMPLATE,
       region_start: 0,
       region_end: GC_RICH_TEMPLATE.length,
-    }) as { ok: boolean; primers?: Array<{ direction: string; tm_celsius: number }> };
+    }) as {
+      ok: boolean;
+      primers?: Array<{
+        direction: string;
+        tm_celsius: number;
+        self_complementarity: {
+          self_dimer_run: number;
+          three_prime_dimer_run: number;
+          hairpin_stem: number;
+        };
+      }>;
+    };
     // Either we found primers (ok:true) or we did not (ok:false with error).
     // We assert the response is well-formed, not a crash.
     if (result.ok) {
@@ -331,6 +342,15 @@ describe("design_primers tool", () => {
         // Tm must be within Primer3 window (57-63 C) or the engine score would reject it.
         expect(p.tm_celsius).toBeGreaterThanOrEqual(57);
         expect(p.tm_celsius).toBeLessThanOrEqual(63);
+        // Every candidate must relay the engine's self-complementarity check as
+        // non-negative integer run lengths (0 = none), never undefined.
+        expect(p.self_complementarity).toBeDefined();
+        expect(p.self_complementarity.self_dimer_run).toBeGreaterThanOrEqual(0);
+        expect(Number.isInteger(p.self_complementarity.self_dimer_run)).toBe(true);
+        expect(
+          p.self_complementarity.three_prime_dimer_run,
+        ).toBeGreaterThanOrEqual(0);
+        expect(p.self_complementarity.hairpin_stem).toBeGreaterThanOrEqual(0);
       }
     } else {
       expect(typeof (result as { ok: false; error: string }).error).toBe("string");
