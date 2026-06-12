@@ -35,7 +35,7 @@ export default function AppFooter({
   return (
     <footer
       data-testid="app-footer"
-      className={`relative border-t border-border bg-surface-raised py-10 ${className}`}
+      className={`relative border-t border-border bg-surface-raised py-6 ${className}`}
     >
       {/* Brand rainbow hairline along the top edge: the BeakerBot liquid ramp,
           the same gradient as the banner + avatars, used as a quiet brand
@@ -44,18 +44,19 @@ export default function AppFooter({
         aria-hidden
         className="brand-rainbow-bg absolute inset-x-0 top-0 h-[3px]"
       />
-      <div className="mx-auto flex max-w-5xl flex-col items-center gap-4 px-6 text-center">
-        {/* Product brand sign-off, then the RISE funder credit below it. */}
-        {/* The footer now themes via tokens, so the wordmark uses the foreground
-            token (dark ink in light, light in dark) instead of a pinned ink. */}
+      {/* Compact: the wordmark, the funding acknowledgment, then the author
+          credit and the Built-in-Madison line share one row, with the trust
+          links on the last row. Keeps every credit but on fewer, tighter lines
+          so the footer never dominates a short page. */}
+      <div className="mx-auto flex max-w-3xl flex-col items-center gap-2 px-6 text-center">
         <Wordmark
-          size="md"
+          size="sm"
           textOnly={hideMark}
           animated={false}
           markEasterEgg="none"
           textClassName="text-foreground"
         />
-        <p className="text-body text-foreground-muted">
+        <p className="max-w-[72ch] text-meta leading-relaxed text-foreground-muted">
           Supported by a UW Distinguished Research Fellowship at UW-Madison
           (Office of the Vice Chancellor for Research, with funding from the
           Wisconsin Alumni Research Foundation). Free and open source on{" "}
@@ -70,17 +71,19 @@ export default function AppFooter({
           </a>
           .
         </p>
-        <p className="text-meta text-foreground-muted" data-testid="app-footer-author">
-          Built by Dr. Grant R. Nickles, PhD.
-        </p>
-        {/* Wisconsin LLC identity line: sits between the author credit and the
-            trust/credits link row, compact enough not to dominate the footer. */}
-        <MadeInMadison variant="line" tone="soft" />
+        {/* Author credit + the Wisconsin LLC identity line on one row. */}
+        <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 text-meta text-foreground-muted">
+          <span data-testid="app-footer-author">
+            Built by Dr. Grant R. Nickles, PhD.
+          </span>
+          <span aria-hidden="true">·</span>
+          <MadeInMadison variant="line" tone="soft" />
+        </div>
         {/* Subtle credit + trust links: the /open-source page thanks the
             community and carries the full attribution; the /transparency page
             shows our bioinformatic tools checked against Biopython and primer3
             on every code change. */}
-        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-meta text-foreground-muted">
+        <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 text-meta text-foreground-muted">
           <Link
             href="/pricing"
             className="underline-offset-2 hover:text-foreground hover:underline"

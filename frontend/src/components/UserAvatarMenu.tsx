@@ -26,7 +26,6 @@ import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import { compactFingerprint } from "@/lib/sharing/profile";
 import { isRealSharingEnabled } from "@/lib/sharing/oauth-availability";
 import { useProfileModal } from "@/lib/sharing/profile-modal-store";
-import { useSettingsModal } from "@/lib/settings/settings-modal-store";
 import { rainbowTheme } from "@/lib/colors";
 import RainbowOrb from "@/components/RainbowOrb";
 import { useTheme } from "@/lib/theme/use-theme";
@@ -239,16 +238,9 @@ export default function UserAvatarMenu({
   // Settings opens as a living popup over the current page (Apple-style zoom
   // from the clicked point), the full settings body. The unified Settings shell
   // (settings-build bot, 2026-06-11) folds the old "Profile settings" entry in,
-  // so this single Settings link is the one place to edit yourself.
-  const openSettings = useSettingsModal((s) => s.open);
-  const openSettingsModal = useCallback(
-    (e: React.MouseEvent) => {
-      setOpen(false);
-      openSettings({ x: e.clientX, y: e.clientY });
-    },
-    [openSettings],
-  );
-
+  // so this single Settings link is the one place to edit yourself. It now
+  // routes to the full /settings page rather than a small popup, the left-rail
+  // settings are a full-page layout and were cramped in the modal.
   const close = useCallback(() => setOpen(false), []);
   const toggle = useCallback(() => setOpen((v) => !v), []);
 
@@ -380,7 +372,7 @@ export default function UserAvatarMenu({
                 Find researchers
               </DropdownItem>
             )}
-            <DropdownItem onClick={openSettingsModal}>
+            <DropdownItem href="/settings" onClick={close}>
               <GearIcon />
               Settings
             </DropdownItem>
