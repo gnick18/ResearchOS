@@ -25,6 +25,11 @@ import { Icon } from "@/components/icons";
 import { moleculesApi, type Molecule } from "@/lib/chemistry/api";
 import { emitMoleculeDeleted } from "@/lib/chemistry/delete-toast-bus";
 import { projectsApi } from "@/lib/local-api";
+import { useContextMenu } from "@/components/context-menu/ContextMenuProvider";
+import type { EditMenuItem } from "@/components/sequences/SequenceEditMenu";
+import { referenceClipboardText } from "@/lib/copy-reference";
+import { objectReferenceMarkdown } from "@/lib/references";
+import SendReferencePicker from "@/components/references/SendReferencePicker";
 import {
   clampListWidth,
   DEFAULT_LIST_WIDTH,
@@ -68,7 +73,12 @@ export function ChemistryHub({
   // Undo toast, mirroring the sequences library.
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  // Right-click quick-actions menu state. renameTarget drives the rename modal;
+  // sendMolecule drives the "Send to..." picker.
+  const [renameTarget, setRenameTarget] = useState<Molecule | null>(null);
+  const [sendMolecule, setSendMolecule] = useState<Molecule | null>(null);
   const queryClient = useQueryClient();
+  const { openMenu } = useContextMenu();
 
   // Structure search state (v2 Phase 2). When searchMode === "structure", the
   // text input becomes a SMILES/SMARTS field and the list is replaced by async
@@ -498,6 +508,113 @@ export function ChemistryHub({
     [checkedIds, bulkBusy, molecules, queryClient],
   );
 
+  // Right-click quick actions for a single molecule. The infra is the same
+  // website-wide context-menu framework the sequences library uses; the items
+  // mirror it (minus Share, which molecules do not have). Rename + Duplicate are
+  // the genuinely new affordances (neither exists in the detail pane today).
+  const invalidateMolecules = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ["molecules"] });
+    await queryClient.invalidateQueries({ queryKey: ["project-molecules"] });
+  }, [queryClient]);
+
+  const handleRenameConfirm = useCallback(
+    async (next: string) => {
+      const target = renameTarget;
+      setRenameTarget(null);
+      const trimmed = next.trim();
+      if (!target || !trimmed || trimmed === target.name) return;
+      await moleculesApi.update(target.id, { name: trimmed });
+      await invalidateMolecules();
+    },
+    [renameTarget, invalidateMolecules],
+  );
+
+  const handleDuplicate = useCallback(
+    async (m: Molecule) => {
+      // Duplicate needs the source Molfile (create re-derives identity from it),
+      // so fetch the full record first. The copy lands in the same collections.
+      const detail = await moleculesApi.get(m.id);
+      if (!detail) return;
+      const copy = await moleculesApi.create(detail.molfile, {
+        name: `${m.name} copy`,
+        project_ids: m.project_ids,
+        source: m.source,
+      });
+      await invalidateMolecules();
+      setSelectedId(copy.meta.id);
+      setMainView("auto");
+    },
+    [invalidateMolecules],
+  );
+
+  const handleCopyReference = useCallback((m: Molecule) => {
+    void navigator.clipboard
+      ?.writeText(referenceClipboardText("molecule", m.id, m.name))
+      .catch(() => {});
+  }, []);
+
+  const handleDeleteOne = useCallback(
+    async (m: Molecule) => {
+      const ok = await moleculesApi.remove(m.id);
+      if (!ok) return;
+      if (selectedId === m.id) setSelectedId(null);
+      await invalidateMolecules();
+      emitMoleculeDeleted({
+        ids: [m.id],
+        label: "1 molecule",
+        onRestored: () => {
+          void invalidateMolecules();
+        },
+      });
+    },
+    [selectedId, invalidateMolecules],
+  );
+
+  const buildMoleculeMenu = useCallback(
+    (m: Molecule): EditMenuItem[] => [
+      {
+        id: "edit",
+        label: "Edit structure",
+        enabled: true,
+        onRun: () => onOpenMolecule(m.id),
+      },
+      {
+        id: "rename",
+        label: "Rename",
+        enabled: true,
+        onRun: () => setRenameTarget(m),
+      },
+      {
+        id: "duplicate",
+        label: "Duplicate",
+        enabled: true,
+        onRun: () => void handleDuplicate(m),
+      },
+      {
+        id: "copy-reference",
+        label: "Copy reference for a note",
+        enabled: true,
+        group: true,
+        onRun: () => handleCopyReference(m),
+      },
+      {
+        id: "send",
+        label: "Send to a note, experiment, or method",
+        enabled: true,
+        onRun: () => setSendMolecule(m),
+      },
+      {
+        id: "delete",
+        label: "Delete",
+        enabled: true,
+        destructive: true,
+        group: true,
+        onRun: () => void handleDeleteOne(m),
+      },
+    ],
+    [onOpenMolecule, handleDuplicate, handleCopyReference, handleDeleteOne],
+  );
+
   return (
     <div ref={splitRef} className="relative flex h-full min-h-0 px-4 pb-4 gap-0">
       {/* Re-open pill, shown only when the rail is collapsed. */}
@@ -744,6 +861,7 @@ export function ChemistryHub({
                         selected={selectedId === m.id}
                         checked={checkedIds.has(m.id)}
                         onToggleCheck={() => toggleChecked(m.id)}
+                        onContextMenu={(e) => openMenu(e, buildMoleculeMenu(m))}
                         onClick={() => {
                           setSelectedId(m.id);
                           setMainView("auto");
@@ -774,6 +892,7 @@ export function ChemistryHub({
                           selected={selectedId === m.id}
                           checked={checkedIds.has(m.id)}
                           onToggleCheck={() => toggleChecked(m.id)}
+                        onContextMenu={(e) => openMenu(e, buildMoleculeMenu(m))}
                           onClick={() => {
                             setSelectedId(m.id);
                             setMainView("auto");
@@ -942,6 +1061,91 @@ export function ChemistryHub({
           />
         )}
       </section>
+
+      {/* Right-click quick-action modals. */}
+      {renameTarget && (
+        <MoleculeRenameModal
+          current={renameTarget.name}
+          onCancel={() => setRenameTarget(null)}
+          onConfirm={(name) => void handleRenameConfirm(name)}
+        />
+      )}
+      {sendMolecule && (
+        <SendReferencePicker
+          referenceMarkdown={objectReferenceMarkdown(
+            "molecule",
+            sendMolecule.id,
+            sendMolecule.name,
+          )}
+          sourceLabel={sendMolecule.name}
+          onClose={() => setSendMolecule(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Small rename modal for a molecule, reached from the right-click menu. Mirrors
+ *  the sequences rename affordance: a prefilled input, Enter to save, Escape to
+ *  cancel. */
+function MoleculeRenameModal({
+  current,
+  onCancel,
+  onConfirm,
+}: {
+  current: string;
+  onCancel: () => void;
+  onConfirm: (name: string) => void;
+}) {
+  const [value, setValue] = useState(current);
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4 bg-black/20"
+      onMouseDown={onCancel}
+    >
+      <div
+        className="w-full max-w-sm bg-surface-raised border border-border rounded-xl shadow-2xl p-4"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-body font-semibold text-foreground mb-2">Rename molecule</h3>
+        <input
+          ref={inputRef}
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              onConfirm(value);
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              onCancel();
+            }
+          }}
+          className="w-full px-3 py-2 text-body text-foreground bg-surface border border-border rounded-lg outline-none focus:border-brand-action"
+        />
+        <div className="mt-3 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-3 py-1.5 text-meta font-medium text-foreground-muted hover:text-foreground rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => onConfirm(value)}
+            className="px-3 py-1.5 text-meta font-semibold text-white bg-brand-action rounded-lg hover:opacity-90 transition-opacity"
+          >
+            Save
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -984,6 +1188,7 @@ function MoleculeRow({
   checked,
   onToggleCheck,
   onClick,
+  onContextMenu,
   similarityScore,
 }: {
   molecule: Molecule;
@@ -992,6 +1197,9 @@ function MoleculeRow({
   checked: boolean;
   onToggleCheck: () => void;
   onClick: () => void;
+  /** Right-click handler, wired by the hub to open the molecule quick-actions
+   *  menu (Edit / Rename / Duplicate / Copy reference / Send to / Delete). */
+  onContextMenu?: (e: React.MouseEvent) => void;
   /** When defined, a Tanimoto similarity score in [0,1] is shown as a badge. */
   similarityScore?: number;
 }) {
@@ -1004,6 +1212,7 @@ function MoleculeRow({
       : null;
   return (
     <li
+      onContextMenu={onContextMenu}
       className={`flex items-center border-b border-border ${
         selected ? "bg-accent-soft" : ""
       }`}
