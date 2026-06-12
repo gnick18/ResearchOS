@@ -23,9 +23,12 @@ import { useAppStore } from "@/lib/store";
 import { taskResultsBase } from "@/lib/tasks/results-paths";
 
 /** The kinds of document a reference can be pushed into. An experiment exposes
- *  two independent docs, so it splits into two target kinds. */
+ *  two independent docs, so it splits into two target kinds. `new-note` is a
+ *  create target, it mints a fresh note from the markdown instead of appending
+ *  to an existing one (used by the BeakerBot chat export). */
 export type SendTargetKind =
   | "note"
+  | "new-note"
   | "experiment-results"
   | "experiment-labnotes"
   | "method";
@@ -99,12 +102,41 @@ async function sendToExperimentDoc(
   );
 }
 
+/** Append `referenceMarkdown` to an existing note. When `asNewEntry` is set the
+ *  markdown lands in a FRESH dated entry rather than appended to the latest one,
+ *  which keeps a large block (a chat transcript) from being mixed into an
+ *  in-progress entry. */
 async function sendToNote(
   target: SendTarget,
   referenceMarkdown: string,
+  asNewEntry = false,
 ): Promise<void> {
   let note = await notesApi.get(target.id, target.owner);
   if (!note) throw new Error("note not found");
+
+  // Chat export: create its own dated entry so an existing note is never
+  // clobbered and the transcript stands on its own.
+  if (asNewEntry) {
+    const today = new Date().toISOString().slice(0, 10);
+    const created = await notesApi.addEntry(
+      target.id,
+      { title: target.name || today, date: today, content: referenceMarkdown },
+      target.owner,
+    );
+    const newEntries = created?.entries ?? [];
+    if (!created || newEntries.length === 0) {
+      throw new Error("addEntry returned no entries");
+    }
+    const newEntryId = newEntries[newEntries.length - 1].id;
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("note:routed", {
+          detail: { noteId: target.id, owner: target.owner, entryId: newEntryId },
+        }),
+      );
+    }
+    return;
+  }
 
   const entries = note.entries ?? [];
   let targetEntryId: string;
@@ -170,6 +202,17 @@ async function sendToMethod(
   );
 }
 
+/** Create a brand-new note seeded with `markdown` as its first dated entry. The
+ *  `name` on the target is used as both the note title and the entry title. */
+async function createNote(target: SendTarget, markdown: string): Promise<void> {
+  const today = new Date().toISOString().slice(0, 10);
+  const title = target.name || `BeakerBot chat ${today}`;
+  await notesApi.create({
+    title,
+    entries: [{ title, date: today, content: markdown }],
+  });
+}
+
 /**
  * Append a reference (an `objectReferenceMarkdown` link, which renders as an
  * ObjectChip) to the chosen target's body. Open-aware so a live editor is never
@@ -185,7 +228,38 @@ export async function sendReferenceToTarget(
       return sendToExperimentDoc(target, referenceMarkdown);
     case "note":
       return sendToNote(target, referenceMarkdown);
+    case "new-note":
+      return createNote(target, referenceMarkdown);
     case "method":
       return sendToMethod(target, referenceMarkdown);
+  }
+}
+
+/**
+ * Send an arbitrary markdown block (a BeakerBot chat transcript) to the chosen
+ * target. This shares every append path with sendReferenceToTarget, the only
+ * differences are that it lands the markdown in its OWN block so an existing
+ * document is never clobbered:
+ *   - new-note   -> mint a fresh note seeded with the transcript.
+ *   - note       -> add a fresh dated entry (not append to the latest one).
+ *   - experiment -> append as its own blank-line-separated block (open-aware).
+ *   - method     -> append as its own blank-line-separated block.
+ * The markdown is passed through verbatim, which is what keeps the assistant
+ * turns' inline embed links live in the destination.
+ */
+export async function sendMarkdownToTarget(
+  target: SendTarget,
+  markdown: string,
+): Promise<void> {
+  switch (target.kind) {
+    case "experiment-results":
+    case "experiment-labnotes":
+      return sendToExperimentDoc(target, markdown);
+    case "note":
+      return sendToNote(target, markdown, true);
+    case "new-note":
+      return createNote(target, markdown);
+    case "method":
+      return sendToMethod(target, markdown);
   }
 }

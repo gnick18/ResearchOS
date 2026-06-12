@@ -4,12 +4,17 @@
 //
 // The chat chrome that appears inside the BeakerSearch palette when it is in
 // Ask mode. Contains (left to right): back-to-search control, BeakerBot mark
-// + "BeakerBot" title, New chat button, History stub, autonomy toggle, and a
-// static "uses credit" hint.
+// + "BeakerBot" title, Save-to control, New chat button, History stub, autonomy
+// toggle, and a static "uses credit" hint.
 //
 // Props:
 //   onBack         -> return to search mode (back control click)
 //   onNewChat      -> call clearConversation() to start fresh
+//
+// Save to: serializes the whole transcript (already markdown, with the embed
+// links inline) and opens the destination picker. Picking a note / experiment
+// drops the conversation in, where the same `#ros=` fragment makes the embeds
+// render live. Disabled while there is nothing to save.
 //
 // History affordance: the clock/history icon is visible but wired to a no-op
 // tooltip ("Past chats coming in v2.1"). The past-chats list is deferred.
@@ -20,10 +25,17 @@
 // House style, Icon only, brand + semantic tokens, no emojis / em-dashes /
 // mid-sentence colons.
 
+import { useState } from "react";
 import { Icon } from "@/components/icons";
 import BeakerBot from "@/components/BeakerBot";
 import Tooltip from "@/components/Tooltip";
 import { useBeakerBotAutonomy } from "@/lib/ai/autonomy-store";
+import { useConversationStore } from "@/lib/ai/conversation-store";
+import {
+  conversationToMarkdown,
+  defaultConversationTitle,
+} from "@/lib/ai/conversation-to-markdown";
+import ExportConversationPicker from "@/components/references/ExportConversationPicker";
 
 export default function BeakerSearchAskHeader({
   onBack,
@@ -35,7 +47,59 @@ export default function BeakerSearchAskHeader({
   const autonomy = useBeakerBotAutonomy((s) => s.mode);
   const toggleAutonomy = useBeakerBotAutonomy((s) => s.toggle);
 
+  // The transcript has nothing to save until there is at least one message. We
+  // read the count reactively so the Save-to control enables as soon as the
+  // first turn lands.
+  const messageCount = useConversationStore((s) => s.messages.length);
+  // Export picker state. payload is captured at click time so the picker pushes
+  // a stable snapshot even if the conversation keeps streaming behind it.
+  const [exportPayload, setExportPayload] = useState<{
+    markdown: string;
+    defaultTitle: string;
+  } | null>(null);
+  // A small confirmation toast after a successful (or failed) save.
+  const [toast, setToast] = useState<{ message: string; ok: boolean } | null>(
+    null,
+  );
+
+  const openExport = () => {
+    const messages = useConversationStore.getState().messages;
+    if (messages.length === 0) return;
+    setExportPayload({
+      markdown: conversationToMarkdown(messages),
+      defaultTitle: defaultConversationTitle(messages),
+    });
+  };
+
   return (
+    <>
+      {exportPayload ? (
+        <ExportConversationPicker
+          markdown={exportPayload.markdown}
+          defaultTitle={exportPayload.defaultTitle}
+          onClose={() => setExportPayload(null)}
+          onResult={(message, ok) => setToast({ message, ok })}
+        />
+      ) : null}
+      {toast ? (
+        <div
+          role="status"
+          data-testid="beakersearch-save-toast"
+          className={`mx-3 mt-2 rounded-md border px-3 py-1.5 text-meta ${
+            toast.ok
+              ? "border-brand bg-brand/5 text-foreground"
+              : "border-red-400 bg-red-50 text-red-700"
+          }`}
+        >
+          {toast.message}
+        </div>
+      ) : null}
+      {renderHeader()}
+    </>
+  );
+
+  function renderHeader() {
+    return (
     <div className="flex items-center gap-2 border-b border-border px-3 py-2">
       {/* Back to search */}
       <Tooltip label="Back to search" placement="bottom">
@@ -60,6 +124,27 @@ export default function BeakerSearchAskHeader({
       <span className="flex-1 text-body font-semibold text-foreground">
         BeakerBot
       </span>
+
+      {/* Save the conversation to a note or experiment */}
+      <Tooltip
+        label={
+          messageCount === 0
+            ? "Nothing to save yet"
+            : "Save this conversation to a note or experiment"
+        }
+        placement="bottom"
+      >
+        <button
+          type="button"
+          data-testid="beakersearch-save-to"
+          aria-label="Save this conversation to a note or experiment"
+          onClick={openExport}
+          disabled={messageCount === 0}
+          className="flex h-7 w-7 flex-none items-center justify-center rounded-md border border-transparent text-foreground-muted hover:border-border hover:bg-surface-sunken hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-transparent disabled:hover:bg-transparent"
+        >
+          <Icon name="export" className="h-4 w-4" title="Save to" />
+        </button>
+      </Tooltip>
 
       {/* History stub (v2.1 deferred) */}
       <Tooltip label="Past chats coming in v2.1" placement="bottom">
@@ -125,5 +210,6 @@ export default function BeakerSearchAskHeader({
         uses credit
       </span>
     </div>
-  );
+    );
+  }
 }

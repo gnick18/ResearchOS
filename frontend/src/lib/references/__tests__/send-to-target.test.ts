@@ -8,6 +8,7 @@ const writeFile = vi.fn();
 const notesGet = vi.fn();
 const notesUpdateEntry = vi.fn();
 const notesAddEntry = vi.fn();
+const notesCreate = vi.fn();
 
 vi.mock("@/lib/local-api", () => ({
   filesApi: {
@@ -18,6 +19,7 @@ vi.mock("@/lib/local-api", () => ({
     get: (...a: unknown[]) => notesGet(...a),
     updateEntry: (...a: unknown[]) => notesUpdateEntry(...a),
     addEntry: (...a: unknown[]) => notesAddEntry(...a),
+    create: (...a: unknown[]) => notesCreate(...a),
   },
 }));
 
@@ -32,7 +34,7 @@ vi.mock("@/lib/tasks/results-paths", () => ({
     `users/${t.owner}/results/task-${t.id}`,
 }));
 
-import { sendReferenceToTarget } from "../send-to-target";
+import { sendReferenceToTarget, sendMarkdownToTarget } from "../send-to-target";
 
 const REF = "[Plasmid pUC19](/sequences?seq=12)";
 
@@ -144,5 +146,67 @@ describe("sendReferenceToTarget", () => {
         REF,
       ),
     ).rejects.toThrow();
+  });
+});
+
+// A serialized chat transcript. The embed link inside it is the load-bearing
+// detail, it must survive the append verbatim so the destination renders the
+// same live embed.
+const TRANSCRIPT = `### BeakerBot conversation\n\n**You**\n\nRun a t-test.\n\nHere is the result.\n\n[Growth (t-test)](/datahub?doc=42#ros=results)`;
+
+describe("sendMarkdownToTarget", () => {
+  it("mints a new note seeded with the transcript", async () => {
+    notesCreate.mockResolvedValue({ id: 9, entries: [] });
+    await sendMarkdownToTarget(
+      { kind: "new-note", id: 0, owner: "", name: "My chat (2026-06-12)" },
+      TRANSCRIPT,
+    );
+    expect(notesCreate).toHaveBeenCalledTimes(1);
+    const [data] = notesCreate.mock.calls[0];
+    expect(data.title).toBe("My chat (2026-06-12)");
+    expect(data.entries).toHaveLength(1);
+    // The embed link survives byte-for-byte into the new note.
+    expect(data.entries[0].content).toBe(TRANSCRIPT);
+    expect(data.entries[0].content).toContain("#ros=results");
+  });
+
+  it("adds a fresh dated entry to an existing note, not appending to the latest", async () => {
+    notesGet.mockResolvedValue({
+      id: 3,
+      username: "alex",
+      entries: [{ id: "e1", content: "in progress", updated_at: "2026-06-10" }],
+    });
+    notesAddEntry.mockResolvedValue({
+      id: 3,
+      username: "alex",
+      entries: [
+        { id: "e1", content: "in progress" },
+        { id: "e2", content: TRANSCRIPT },
+      ],
+    });
+    await sendMarkdownToTarget(
+      { kind: "note", id: 3, owner: "alex", name: "Lab log" },
+      TRANSCRIPT,
+    );
+    // A fresh entry is added; the existing latest entry is NOT touched.
+    expect(notesAddEntry).toHaveBeenCalledTimes(1);
+    expect(notesUpdateEntry).not.toHaveBeenCalled();
+    const [noteId, data, owner] = notesAddEntry.mock.calls[0];
+    expect(noteId).toBe(3);
+    expect(data.content).toBe(TRANSCRIPT);
+    expect(owner).toBe("alex");
+  });
+
+  it("appends the transcript as its own block to an experiment results doc", async () => {
+    readFile.mockResolvedValue({ content: "Old results" });
+    await sendMarkdownToTarget(
+      { kind: "experiment-results", id: 7, owner: "alex", name: "Exp 7" },
+      TRANSCRIPT,
+    );
+    const [path, content] = writeFile.mock.calls[0];
+    expect(path).toBe("users/alex/results/task-7/results.md");
+    expect(content).toBe(`Old results\n\n${TRANSCRIPT}`);
+    // The embed link is preserved through the append.
+    expect(content).toContain("#ros=results");
   });
 });
