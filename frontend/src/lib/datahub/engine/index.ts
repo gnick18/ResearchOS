@@ -41,6 +41,13 @@ export { pearson, spearman } from "./correlation";
 // Linear regression.
 export { linearRegression } from "./regression-linear";
 
+// Binary logistic regression (IRLS / Newton-Raphson MLE).
+export {
+  logisticRegression,
+  type LogisticRegressionResult,
+  type LogisticCoefficient,
+} from "./regression-logistic";
+
 // Assumption checks (normality + equal variance).
 export { shapiroWilk, levene, brownForsythe } from "./assumptions";
 

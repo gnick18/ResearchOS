@@ -110,6 +110,19 @@ PAIR_Y = [row[1] for row in REPEATED]
 XY_X = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
 XY_Y = [2.1, 3.9, 6.2, 7.8, 10.1, 12.2, 13.8, 16.1]
 
+# A binary-outcome XY dataset for simple logistic regression (D4). A continuous
+# predictor x (e.g. a dose) and a binary y (0/1 outcome) with MODERATE overlap so
+# the maximum-likelihood fit converges cleanly and there is no perfect separation
+# (which would blow the coefficients up). Mirrored verbatim in datahub-stats.ts.
+LOGIT_X = [
+    0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0,
+    5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0,
+]
+LOGIT_Y = [
+    0, 0, 0, 1, 0, 0, 1, 0, 1, 1,
+    0, 1, 1, 1, 0, 1, 1, 1, 1, 1,
+]
+
 # A dose-response dataset for the 4PL / 5PL curve fit (D1). x = log10(dose in M),
 # an 11-point serial dilution; y = response. Mirrored verbatim in datahub-stats.ts.
 DOSE_LOG_CONC = [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0]
@@ -259,6 +272,55 @@ def ref_correlation_regression():
         "rSquared": r4(lr.rvalue ** 2),
     }
     return out
+
+
+def ref_logistic_regression():
+    """Reference simple (binary) logistic regression (D4) via statsmodels Logit.
+
+    Fits P(Y=1) = 1 / (1 + exp(-(b0 + b1*x))) by maximum likelihood (Newton). We
+    add a constant with sm.add_constant so params[0] is the intercept and params[1]
+    is the slope. SE come from the inverse Fisher information (.bse), the p-values
+    from the Wald z (.pvalues), the odds ratio is exp(slope), McFadden pseudo-R2 is
+    result.prsquared, and the AUC of the fitted probabilities is roc_auc_score. All
+    deterministic given the data and the standard zero start, so these pin tight.
+    """
+    x = np.asarray(LOGIT_X, float)
+    y = np.asarray(LOGIT_Y, float)
+    X = sm.add_constant(x)
+    model = sm.Logit(y, X)
+    result = model.fit(disp=0, method="newton")
+    b0, b1 = float(result.params[0]), float(result.params[1])
+    se0, se1 = float(result.bse[0]), float(result.bse[1])
+    p0, p1 = float(result.pvalues[0]), float(result.pvalues[1])
+    odds_ratio = float(np.exp(b1))
+    or_lo = float(np.exp(b1 - 1.959963984540054 * se1))
+    or_hi = float(np.exp(b1 + 1.959963984540054 * se1))
+    x_at_half = float(-b0 / b1)
+    # AUC via the rank-sum (Mann-Whitney) form on the fitted probabilities using
+    # scipy.stats.rankdata. This equals sklearn.metrics.roc_auc_score exactly and
+    # keeps the oracle as scipy (no extra dependency). Cross-checked below.
+    probs = np.asarray(result.predict(X))
+    ranks = st.rankdata(probs)
+    pos = y == 1
+    npos = int(pos.sum()); nneg = int((~pos).sum())
+    auc = float((ranks[pos].sum() - npos * (npos + 1) / 2) / (npos * nneg))
+    return {
+        "intercept": r4(b0),
+        "slope": r4(b1),
+        "interceptSE": r4(se0),
+        "slopeSE": r4(se1),
+        "interceptP": r4(p0),
+        "slopeP": r4(p1),
+        "oddsRatio": r4(odds_ratio),
+        "oddsRatioCI95": [r4(or_lo), r4(or_hi)],
+        "logLikelihood": r4(float(result.llf)),
+        "nullLogLikelihood": r4(float(result.llnull)),
+        "mcFaddenR2": r4(float(result.prsquared)),
+        "xAtHalf": r4(x_at_half),
+        "auc": r4(auc),
+        "iterations": int(result.mle_retvals.get("iterations", 0))
+        if isinstance(result.mle_retvals, dict) else 0,
+    }
 
 
 def ref_dose_response():
@@ -786,6 +848,7 @@ def main():
     refs.update({"anova_twoway": ref_anova_twoway()})
     refs.update({"kruskal_friedman": ref_kruskal_friedman()})
     refs.update({"correlation_regression": ref_correlation_regression()})
+    refs.update({"logistic_regression": ref_logistic_regression()})
     refs.update({"dose_response": ref_dose_response()})
     refs.update({"model_comparison": ref_model_comparison()})
     refs.update({"from_stats": ref_from_stats()})
@@ -806,6 +869,8 @@ def main():
         "PAIR_Y": PAIR_Y,
         "XY_X": XY_X,
         "XY_Y": XY_Y,
+        "LOGIT_X": LOGIT_X,
+        "LOGIT_Y": LOGIT_Y,
         "DOSE_LOG_CONC": DOSE_LOG_CONC,
         "DOSE_RESPONSE": DOSE_RESPONSE,
         "TWOWAY": TWOWAY,

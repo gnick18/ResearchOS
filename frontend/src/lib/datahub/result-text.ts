@@ -117,6 +117,38 @@ export function resultToText(result: NormalizedResult): string {
       );
       break;
     }
+    case "logisticRegression": {
+      lines.push(
+        row("Term", "Estimate", "SE", "z", "p", "95% CI"),
+        row(
+          "Intercept",
+          n(result.intercept.estimate, 6),
+          n(result.intercept.standardError, 6),
+          n(result.intercept.z, 4),
+          formatP(result.intercept.pValue),
+          ci(result.intercept.ci95),
+        ),
+        row(
+          `Slope (${result.slope.name})`,
+          n(result.slope.estimate, 6),
+          n(result.slope.standardError, 6),
+          n(result.slope.z, 4),
+          formatP(result.slope.pValue),
+          ci(result.slope.ci95),
+        ),
+        "",
+        row("Odds ratio (per unit X)", n(result.oddsRatio, 6)),
+        row("95% CI of odds ratio", ci(result.oddsRatioCI95)),
+        row("X at P=0.5", n(result.xAtHalf, 6)),
+        row("McFadden pseudo-R-squared", n(result.mcFaddenR2, 6)),
+        row("Log-likelihood", n(result.logLikelihood, 4)),
+        row("Null log-likelihood", n(result.nullLogLikelihood, 4)),
+        row("ROC AUC", Number.isFinite(result.auc) ? n(result.auc, 4) : ""),
+        row("Iterations", n(result.iterations, 0)),
+        row("Rows (n)", n(result.n, 0)),
+      );
+      break;
+    }
     case "doseResponse": {
       // Use exponential text for the EC50 so a sub-nanomolar dose stays readable.
       const conc = (x: number): string =>

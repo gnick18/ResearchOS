@@ -66,9 +66,33 @@ describe("run-analysis: XY valid types", () => {
       "correlationPearson",
       "correlationSpearman",
       "linearRegression",
+      "logisticRegression",
       "doseResponse",
       "modelComparison",
     ]);
+  });
+});
+
+describe("run-analysis: simple logistic regression through the XY pipe", () => {
+  // Moderate-overlap binary dataset, pinned against statsmodels in the engine
+  // test. Here we confirm the run-analysis path resolves names and normalizes.
+  const LX = [
+    0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5,
+    8.0, 8.5, 9.0, 9.5, 10.0,
+  ];
+  const LY = [0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1];
+
+  it("reports the slope, odds ratio, X at P=0.5, and McFadden pseudo-R2", () => {
+    const out = runAnalysis(spec("logisticRegression"), xyContent(LX, LY));
+    if (!out.ok || out.kind !== "logisticRegression") {
+      throw new Error("expected logisticRegression");
+    }
+    expect(out.slope.estimate).toBeCloseTo(0.5529, 3);
+    expect(out.intercept.estimate).toBeCloseTo(-2.271, 3);
+    expect(out.oddsRatio).toBeCloseTo(1.7383, 3);
+    expect(out.xAtHalf).toBeCloseTo(4.1074, 3);
+    expect(out.mcFaddenR2).toBeCloseTo(0.2896, 4);
+    expect(out.xName).toBe("Dose");
   });
 });
 

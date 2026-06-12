@@ -12,6 +12,7 @@ import type {
   NormalizedAnova,
   NormalizedCorrelation,
   NormalizedDoseResponse,
+  NormalizedLogisticRegression,
   NormalizedModelComparison,
   NormalizedRegression,
   NormalizedResult,
@@ -135,6 +136,31 @@ function regressionSummary(r: NormalizedRegression): string {
     r.rSquared * 100,
     0,
   )} percent of the variation in ${r.yName}.`;
+}
+
+function logisticRegressionSummary(r: NormalizedLogisticRegression): string {
+  const sig = r.slope.pValue < ALPHA;
+  const dir = r.slope.estimate >= 0 ? "raises" : "lowers";
+  const orPart =
+    Number.isFinite(r.oddsRatioCI95[0]) && Number.isFinite(r.oddsRatioCI95[1])
+      ? ` (95% CI ${num(r.oddsRatioCI95[0], 2)} to ${num(r.oddsRatioCI95[1], 2)})`
+      : "";
+  const stat = `odds ratio ${num(r.oddsRatio, 2)}${orPart}, ${formatP(
+    r.slope.pValue,
+  )}`;
+  const lead = sig
+    ? `Each one-unit rise in ${r.xName} ${dir} the odds of ${r.yName} (${stat}).`
+    : `${r.xName} shows no clear effect on the odds of ${r.yName} (${stat}).`;
+  const half = Number.isFinite(r.xAtHalf)
+    ? ` The model crosses an even 50/50 chance at a ${r.xName} of about ${num(
+        r.xAtHalf,
+        2,
+      )}.`
+    : "";
+  return `${lead}${half} McFadden pseudo-R-squared is ${num(
+    r.mcFaddenR2,
+    3,
+  )} (n = ${r.n}).`;
 }
 
 /** A concentration for inline prose (scientific notation for tiny/large doses). */
@@ -265,6 +291,8 @@ export function plainLanguageSummary(result: NormalizedResult): string {
   if (result.kind === "anova") return anovaSummary(result);
   if (result.kind === "correlation") return correlationSummary(result);
   if (result.kind === "regression") return regressionSummary(result);
+  if (result.kind === "logisticRegression")
+    return logisticRegressionSummary(result);
   if (result.kind === "doseResponse") return doseResponseSummary(result);
   if (result.kind === "modelComparison") return modelComparisonSummary(result);
   if (result.kind === "twoWayAnova") return twoWaySummary(result);

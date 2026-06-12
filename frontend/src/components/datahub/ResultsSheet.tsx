@@ -29,6 +29,7 @@ import {
   type NormalizedAnova,
   type NormalizedCorrelation,
   type NormalizedDoseResponse,
+  type NormalizedLogisticRegression,
   type NormalizedModelComparison,
   type NormalizedRegression,
   type NormalizedResult,
@@ -344,6 +345,79 @@ function RegressionTable({ r }: { r: NormalizedRegression }) {
         { label: "Pairs (n)", value: num(r.n, 0) },
       ]}
     />
+  );
+}
+
+function LogisticRegressionTable({
+  r,
+}: {
+  r: NormalizedLogisticRegression;
+}) {
+  return (
+    <>
+      <table
+        className="w-full border-collapse text-body tabular-nums"
+        data-testid="results-logistic-coefficients-table"
+      >
+        <thead>
+          <tr className="text-meta uppercase tracking-wide text-foreground-muted">
+            <th className="border-b border-border px-3 py-1.5 text-left">Term</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">Estimate</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">SE</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">z</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">p</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">95% CI</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[r.intercept, r.slope].map((c) => (
+            <tr key={c.name}>
+              <td className="border-b border-border px-3 py-1.5 text-foreground">
+                {c.name === "Intercept" ? "Intercept" : `Slope (${c.name})`}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {num(c.estimate, 4)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {num(c.standardError, 4)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {num(c.z, 3)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {formatP(c.pValue)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {ciText(c.ci95)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <KeyValueTable
+        testid="results-logistic-fit-table"
+        rows={[
+          { label: "Odds ratio (per unit X)", value: num(r.oddsRatio, 4) },
+          { label: "95% CI of odds ratio", value: ciText(r.oddsRatioCI95) },
+          { label: "X at P=0.5", value: num(r.xAtHalf, 4) },
+          { label: "McFadden pseudo-R-squared", value: num(r.mcFaddenR2, 4) },
+          { label: "Log-likelihood", value: num(r.logLikelihood, 3) },
+          { label: "Null log-likelihood", value: num(r.nullLogLikelihood, 3) },
+          {
+            label: "ROC AUC",
+            value: Number.isFinite(r.auc) ? num(r.auc, 4) : "-",
+          },
+          { label: "Iterations", value: num(r.iterations, 0) },
+          { label: "Rows (n)", value: num(r.n, 0) },
+        ]}
+      />
+      <p className="mt-2 max-w-xl text-meta text-foreground-muted">
+        The odds ratio is exp(slope), the multiplicative change in the odds of
+        Y=1 for each one-unit rise in X. An odds ratio of 1 means X carries no
+        information. X at P=0.5 is the value where the model predicts an even
+        chance, the dose-response style midpoint.
+      </p>
+    </>
   );
 }
 
@@ -690,6 +764,14 @@ function resultTabs(result: NormalizedResult): {
           id: "tabular",
           label: "Tabular results",
           render: () => <RegressionTable r={result} />,
+        },
+      ];
+    case "logisticRegression":
+      return [
+        {
+          id: "tabular",
+          label: "Tabular results",
+          render: () => <LogisticRegressionTable r={result} />,
         },
       ];
     case "doseResponse":
