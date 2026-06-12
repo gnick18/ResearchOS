@@ -230,6 +230,17 @@ describe("parseExternalEmbed", () => {
     expect(r?.kind).toBe("link");
     expect(r?.url).toBe("https://nature.com/articles/s123");
   });
+
+  it("parses a bare SMILES with explicit #ros=structure", () => {
+    const r = parseExternalEmbed("CC(=O)Nc1ccc(O)cc1#ros=structure");
+    expect(r?.kind).toBe("structure");
+    expect(r?.smiles).toBe("CC(=O)Nc1ccc(O)cc1");
+  });
+
+  it("does not read a bare SMILES as an embed without #ros=structure", () => {
+    expect(parseExternalEmbed("CC(=O)Nc1ccc(O)cc1")).toBeNull();
+    expect(parseExternalEmbed("CC(=O)Nc1ccc(O)cc1#ros=cite")).toBeNull();
+  });
 });
 
 // ── buildExternalEmbedMarkdown ────────────────────────────────────────────────

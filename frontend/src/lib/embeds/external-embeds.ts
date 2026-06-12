@@ -211,9 +211,6 @@ export function parseExternalEmbed(
   const urlPart = hashIdx >= 0 ? raw.slice(0, hashIdx) : raw;
   const fragment = hashIdx >= 0 ? raw.slice(hashIdx + 1) : "";
 
-  // Only proceed when the href looks external (avoids re-processing internal routes).
-  if (!isExternalHref(urlPart)) return null;
-
   // The explicit `#ros=` view, if any.
   let explicitKind: ExternalEmbedKind | null = null;
   if (fragment) {
@@ -223,6 +220,16 @@ export function parseExternalEmbed(
       explicitKind = rosView;
     }
   }
+
+  // A bare SMILES is not a URL, so it only becomes an embed when the author
+  // opts in with `#ros=structure` (avoids reading arbitrary alone-paragraph
+  // text as a molecule). This must be checked before the external-href gate.
+  if (explicitKind === "structure" && !isExternalHref(urlPart) && detectSmiles(urlPart)) {
+    return { href: raw, url: urlPart, kind: "structure", smiles: urlPart };
+  }
+
+  // Only proceed when the href looks external (avoids re-processing internal routes).
+  if (!isExternalHref(urlPart)) return null;
 
   const inferred = inferExternalKind(urlPart);
   // A recognized external href with a bad inferred kind still deserves a link card.
