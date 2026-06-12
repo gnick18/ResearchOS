@@ -854,14 +854,14 @@ export default function WelcomePage({
         {/* ── 3. CHEMISTRY WORKBENCH ──────────────────────────────────── */}
         <FeatureRow
           tint
-          kicker="// no ChemDraw license"
+          kicker="// no ChemDraw or SciFinder license"
           title="Draw and search chemistry, built in"
-          body="Draw a structure, pull the compound straight from PubChem, search the literature, and drop it into your experiment note. The drawing tool labs pay a fortune for, free."
-          pills={["Structure editor", "PubChem import", "Literature search"]}
+          body="Draw a structure like you would in ChemDraw, pull the compound straight from PubChem, then search the literature and patents by structure, a free stab at what most labs open SciFinder for. Drop any of it into your experiment note. The tools labs pay a fortune for, free."
+          pills={["Structure editor", "PubChem import", "Literature and patent search"]}
           visual={
             <RainbowFrame>
               <DemoLoopPlaceholder
-                claim="Draw a small molecule, import a compound from PubChem, then drop the structure into an experiment note."
+                claim="Draw a small molecule, import a compound from PubChem, search the literature and patents by structure, then drop it into an experiment note."
                 tag="Chemistry Workbench"
               />
             </RainbowFrame>
