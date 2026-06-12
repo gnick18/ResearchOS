@@ -717,33 +717,21 @@ function SettingsBodyInner({
           isLabHead ? "Lab head" : isLabMode ? "Lab member" : undefined
         }
         headerExtra={
-          <div className="space-y-3">
-            {/* The header keeps the `settings-folder-section` spotlight anchor
-                so the dormant v4 tour's "this is where your lab folder lives"
-                narration (settings-tour-folder) still resolves if re-enabled. */}
-            <header
-              data-tour-target="settings-folder-section"
-              className="flex items-center justify-between"
-            >
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-heading font-bold text-foreground">
-                    Settings
-                  </h1>
-                  <VersionBadge />
-                </div>
-                <p className="text-body text-foreground-muted mt-1">
-                  Stored in{" "}
-                  <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">
-                    users/{currentUser}/settings.json
-                  </code>
-                </p>
-              </div>
-              <SavedIndicator saving={saving} recentlySaved={recentlySaved} />
-            </header>
-            <SettingsSearchBar />
+          // Slim top bar: a compact title and the saved indicator, nothing more.
+          // Keeps the `settings-folder-section` spotlight anchor for the dormant
+          // v4 tour. The search moved into the rail (railSearch below).
+          <div
+            data-tour-target="settings-folder-section"
+            className="flex items-center justify-between gap-3"
+          >
+            <div className="flex min-w-0 items-center gap-2">
+              <h1 className="text-title font-bold text-foreground">Settings</h1>
+              <VersionBadge />
+            </div>
+            <SavedIndicator saving={saving} recentlySaved={recentlySaved} />
           </div>
         }
+        railSearch={<SettingsSearchBar />}
         footer={
           <>
             {/* Support / Donate lives at the bottom of the settings scroll,

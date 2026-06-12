@@ -77,6 +77,7 @@ export default function SettingsShell({
   currentUser,
   roleLabel,
   headerExtra,
+  railSearch,
   footer,
   initialSectionId,
 }: {
@@ -85,9 +86,13 @@ export default function SettingsShell({
   currentUser: string;
   /** Small role line under the name in the rail header (e.g. "Lab head"). */
   roleLabel?: string;
-  /** Optional node rendered in the full-width top strip (the title + search bar
-   *  + saved indicator the page already builds). */
+  /** Optional node rendered in the slim top bar (a compact title + the saved
+   *  indicator). Kept short, the search now lives in the rail. */
   headerExtra?: ReactNode;
+  /** Compact search input rendered at the top of the rail, where it filters the
+   *  rail items. Replaces the old full-width search bar that ate the top of the
+   *  screen. */
+  railSearch?: ReactNode;
   /** Rendered at the very bottom of the scrolling content pane, so it only
    *  comes into view once the user reaches the end of a section (the site
    *  footer). Not a pinned bar. */
@@ -163,10 +168,10 @@ export default function SettingsShell({
 
   return (
     <div className="min-h-0 flex-1 flex flex-col bg-surface-sunken">
-      {/* Full-width top strip: title, search, saved indicator. Extra right
-          padding reserves room for the page's fixed close button (X). */}
+      {/* Slim top bar: a compact title + the saved indicator. The page's fixed
+          close button (X) sits at the far right, so reserve right padding. */}
       {headerExtra && (
-        <div className="shrink-0 border-b border-border bg-surface-raised py-4 pl-4 pr-16 sm:pl-6">
+        <div className="shrink-0 border-b border-border bg-surface-raised py-2.5 pl-4 pr-16 sm:pl-6">
           {headerExtra}
         </div>
       )}
@@ -178,7 +183,9 @@ export default function SettingsShell({
           aria-label="Settings sections"
           className="border-b border-border bg-surface-raised p-2.5 md:border-b-0 md:border-r overflow-y-auto"
         >
-            <div className="flex items-center gap-2.5 px-2 py-2.5">
+            {/* Compact search at the top of the rail, where it filters the list. */}
+            {railSearch && <div className="px-1 pt-1 pb-2.5">{railSearch}</div>}
+            <div className="flex items-center gap-2.5 px-2 py-1.5">
               <UserAvatar username={currentUser} size="sm" />
               <div className="min-w-0 leading-tight">
                 <p className="text-body font-bold text-foreground truncate">
