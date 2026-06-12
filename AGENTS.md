@@ -252,6 +252,21 @@ The master bot can spawn a sub-agent with Chrome MCP access to verify UI fixes a
 
 Fixture coverage gaps to think about when adding new verifications: if a recipe needs `is_shared_with_me` data, extend `scripts/generate-demo-data.mjs` (the fixture is regenerated from there into `wiki-capture-fixture.ts`). If a recipe needs to verify a real-data behavior (the user's actual files on disk, real telegram/calendar tokens, prod OAuth env), it's not bot-doable — punt to the user.
 
+### Mouse-driven testing: hand Grant a Chrome-extension prompt (2026-06-12, standing preference)
+
+Grant's standing preference: when a feature needs MOUSE-driven testing (real drag-and-drop, long-press, pointer reorder, hover, anything where genuine pointer movement matters), do NOT default to driving it yourself through Claude Code (Preview MCP / Playwright / a headless verifier bot). In practice the **Claude in Chrome extension driving Grant's own browser works noticeably better for this than an orchestrator-run server**, and Grant prefers it. So for mouse-heavy verification, write Grant a self-contained prompt he can paste straight into the Claude in Chrome extension and run himself. He pastes it, the extension drives the mouse against his live app, he relays the result.
+
+Synthetic `dispatchEvent` pointer events often do NOT cross a component's drag move-threshold (confirmed on the nav drag-customize build, 2026-06-12); only a genuine pointer drag fires it. That is the core reason the extension path is more reliable for this class of test.
+
+Keep using orchestrator-driven Preview/headless verification for everything that is NOT mouse-feel dependent (structure, snapshots, console errors, responsive resize, navigation, state reads, persistence wiring) and for work Grant should not have to babysit. Reserve the hand-Grant-a-prompt path for the mouse-feel bits.
+
+The prompt you hand Grant should be self-contained and explicit, since the extension has no session context:
+- One-line feature description + the exact URL/route to open (his `localhost:3000` is fine here, it is HIS browser and HIS choice, the no-:3000 rule is only for orchestrator-spawned servers).
+- Any setup (connect a scratch folder, enter a mode, navigate to the surface that shows the feature).
+- A numbered list of mouse actions with the EXACT pass/fail criterion for each (for example, "drag the Methods tab left of GANTT, release, confirm the inline order becomes Workbench, Methods, GANTT").
+- What to report back (per-step pass/fail + anything that looked off).
+- House voice still applies (no em-dashes, no emojis, no mid-sentence colons).
+
 ### Claude Preview MCP verification preamble (2026-05-25)
 
 When dispatching a sub-bot that uses `mcp__Claude_Preview__*` tools to drive the live app, run this preamble first or the bot will silently test stale code. The trap: a previous round may have patched `<worktree>/.claude/launch.json` to start `node /tmp/proxy_<port>.js` which forwards to a long-stale `next-server` process. Claude Preview faithfully connects to that proxy and sees code from whatever commit the dev server was first started against, even though source on disk is current.
