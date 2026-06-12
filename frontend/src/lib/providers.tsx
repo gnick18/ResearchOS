@@ -527,6 +527,17 @@ function AppContent({ children }: { children: ReactNode }) {
     );
   }
 
+  // The demo-video studio launcher is a folderless dev console of clip links. It
+  // must render in ANY browser (notably Safari, so recordings dodge Chrome's
+  // "Claude is debugging" automation banner) without the File System Access gate.
+  // The clips it links to (/demo?record=1) already bypass the gate via the demo
+  // branch below, so the whole record flow works in Safari from this page.
+  if (pathname === "/dev/demo-videos") {
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+  }
+
   // Fixture-backed modes (wiki-capture signed-in variant on localhost, or
   // the public /demo route in any environment): FileSystemProvider has
   // seeded the in-memory fixture and set state to connected. Skip every
