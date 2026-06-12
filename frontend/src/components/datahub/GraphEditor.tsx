@@ -23,6 +23,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import PaletteStudio from "@/components/datahub/PaletteStudio";
+import StyledSelect from "@/components/datahub/StyledSelect";
 import PlotColorPicker from "@/components/datahub/PlotColorPicker";
 import PlotColorEditor from "@/components/datahub/PlotColorEditor";
 import type {
@@ -609,20 +610,19 @@ export default function GraphEditor({
         <Section title="Graph style">
           {isXY ? (
             <Ctl label="Fitted curve">
-              <select
-                value={style.fitModel}
-                onChange={(e) =>
-                  onStyleChange({ fitModel: e.target.value as FitModelId })
-                }
-                className="max-w-[150px] rounded-md border border-border bg-surface-overlay px-2 py-1 text-meta text-foreground focus:border-sky-400 focus:outline-none"
-                data-testid="datahub-style-fitmodel"
-              >
-                {FIT_MODEL_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+              <div className="max-w-[150px]" data-testid="datahub-style-fitmodel">
+                <StyledSelect
+                  value={style.fitModel}
+                  options={FIT_MODEL_OPTIONS.map((o) => ({
+                    value: o.value,
+                    label: o.label,
+                  }))}
+                  onChange={(v) =>
+                    onStyleChange({ fitModel: v as FitModelId })
+                  }
+                  ariaLabel="Fitted curve"
+                />
+              </div>
             </Ctl>
           ) : isGrouped ? (
             <Ctl label="Error bars">
