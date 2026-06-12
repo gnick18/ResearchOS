@@ -80,6 +80,7 @@ import {
 } from "@/lib/datahub/grouped-grid-crud";
 import { buildEmptySurvivalTable } from "@/lib/datahub/survival-table";
 import { runAnalysis } from "@/lib/datahub/run-analysis";
+import { coerceParam } from "@/lib/datahub/analysis-params";
 import {
   buildPlotSpec,
   withStyle,
@@ -1023,6 +1024,33 @@ export default function DataHubPage() {
     [openContent],
   );
 
+  // Change one editable parameter on an analysis (tail, variance, post-hoc).
+  // Writes the validated value into spec.params and marks the cache stale so the
+  // stale-rerun effect recomputes against the engine with the new option. The
+  // open ResultsSheet also recomputes live on the next render, so the tables,
+  // verdict, and Show-the-code all reflect the change immediately. Mirrors the
+  // rename path (set spec, commit, reproject) so it is version-controlled the
+  // same way every other in-doc edit is.
+  const handleAnalysisParamChange = useCallback(
+    (analysisId: string, key: string, value: string) => {
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      const current = openContent.analyses.find((a) => a.id === analysisId);
+      if (!current) return;
+      const coerced = coerceParam(current.type, key, value);
+      if (coerced === null) return; // out-of-schema edit, ignore
+      const nextParams = { ...current.params, [key]: coerced };
+      setAnalysisInDoc(handle.doc, {
+        ...current,
+        params: nextParams,
+        resultStale: true,
+      });
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+    },
+    [openContent],
+  );
+
   // Delete one analysis. Removes it from the doc, commits, reprojects, and clears
   // the selection if it was the one open so the main panel falls back to the grid
   // (never a blank / broken sheet pointing at a gone analysis).
@@ -1509,6 +1537,9 @@ export default function DataHubPage() {
               onNewAnalysis={() => setNewAnalysisOpen(true)}
               onGraphResult={() => setNewGraphOpen(true)}
               onChangeAnalysis={() => setNewAnalysisOpen(true)}
+              onParamChange={(key, value) =>
+                handleAnalysisParamChange(selectedAnalysis.id, key, value)
+              }
             />
           ) : selectedMeta && openContent ? (
             <div className="flex min-h-0 flex-1 flex-col">
