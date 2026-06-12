@@ -124,26 +124,29 @@ function HistBar({
 function PaperRow({
   item,
   isStarred,
-  moleculeId,
+  starsEnabled,
   onStarChange,
 }: {
   item: ExplorerItem;
   isStarred: boolean;
-  moleculeId: string;
+  /** When false (no molecule, e.g. hub free-search), the star toggle is hidden. */
+  starsEnabled: boolean;
   onStarChange: (item: ExplorerItem, starred: boolean) => void;
 }) {
   if (item.type === "patent") {
     return (
       <div className="flex gap-2.5 px-3 py-2.5 border-b border-border">
-        <button
-          type="button"
-          data-testid="lit-explorer-star"
-          aria-label={isStarred ? "Unstar patent" : "Star this patent"}
-          onClick={() => onStarChange(item, !isStarred)}
-          className={`flex-none w-5 h-5 mt-0.5 ${isStarred ? "text-amber-400 fill-current" : "text-border hover:text-amber-400"} transition-colors`}
-        >
-          <Icon name="star" className="w-full h-full" />
-        </button>
+        {starsEnabled && (
+          <button
+            type="button"
+            data-testid="lit-explorer-star"
+            aria-label={isStarred ? "Unstar patent" : "Star this patent"}
+            onClick={() => onStarChange(item, !isStarred)}
+            className={`flex-none w-5 h-5 mt-0.5 ${isStarred ? "text-amber-400 fill-current" : "text-border hover:text-amber-400"} transition-colors`}
+          >
+            <Icon name="star" className="w-full h-full" />
+          </button>
+        )}
         <div className="flex-1 min-w-0">
           <a
             href={item.url}
@@ -163,15 +166,17 @@ function PaperRow({
 
   return (
     <div className="flex gap-2.5 px-3 py-2.5 border-b border-border">
-      <button
-        type="button"
-        data-testid="lit-explorer-star"
-        aria-label={isStarred ? "Unstar paper" : "Star this paper for this molecule"}
-        onClick={() => onStarChange(item, !isStarred)}
-        className={`flex-none w-5 h-5 mt-0.5 ${isStarred ? "text-amber-400 fill-current" : "text-border hover:text-amber-400"} transition-colors`}
-      >
-        <Icon name="star" className="w-full h-full" />
-      </button>
+      {starsEnabled && (
+        <button
+          type="button"
+          data-testid="lit-explorer-star"
+          aria-label={isStarred ? "Unstar paper" : "Star this paper for this molecule"}
+          onClick={() => onStarChange(item, !isStarred)}
+          className={`flex-none w-5 h-5 mt-0.5 ${isStarred ? "text-amber-400 fill-current" : "text-border hover:text-amber-400"} transition-colors`}
+        >
+          <Icon name="star" className="w-full h-full" />
+        </button>
+      )}
       <div className="flex-1 min-w-0">
         <a
           href={item.url}
@@ -210,8 +215,14 @@ function PaperRow({
 // ---- main component ---------------------------------------------------------
 
 export interface LiteratureExplorerProps {
-  /** The molecule this explorer is opened for. */
-  molecule: MoleculeMeta;
+  /**
+   * The molecule this explorer is opened for. Optional: the hub free-search mode
+   * has no molecule to star into, so the explorer opens read-only (star toggles
+   * and the starred-only filter are hidden) and reads nothing off molecule.*.
+   */
+  molecule?: MoleculeMeta;
+  /** Heading label when there is no molecule (e.g. the searched compound name). */
+  title?: string;
   /** Pre-loaded items to show (papers from Europe PMC + patents from PubChem). */
   items: ExplorerItem[];
   /** True Europe PMC paper hit count (the loaded papers are a top-cited sample of this). */
@@ -226,12 +237,16 @@ export interface LiteratureExplorerProps {
 
 export function LiteratureExplorer({
   molecule,
+  title,
   items,
   paperTotal,
   patentTotal,
   onClose,
   onStarsChanged,
 }: LiteratureExplorerProps) {
+  // No molecule (hub free-search) means nothing to star into: open read-only.
+  const starsEnabled = !!molecule;
+  const heading = molecule?.name ?? title ?? "your search";
   const oldestYear = useMemo(() => {
     const years = items
       .filter((it) => it.type !== "patent")
@@ -257,7 +272,7 @@ export function LiteratureExplorer({
   // Starred keys derived from the molecule sidecar (DOIs + patent ids).
   const [starredKeys, setStarredKeys] = useState<Set<string>>(() => {
     const keys = new Set<string>();
-    for (const sp of molecule.starred_papers ?? []) {
+    for (const sp of molecule?.starred_papers ?? []) {
       if (sp.doi) keys.add(sp.doi);
       if (sp.patent_id) keys.add(sp.patent_id);
     }
@@ -318,6 +333,7 @@ export function LiteratureExplorer({
   // Write star state to the molecule sidecar.
   const handleStarChange = useCallback(
     async (item: ExplorerItem, star: boolean) => {
+      if (!molecule) return; // read-only mode: nowhere to persist stars
       const key = itemKey(item);
       const newKeys = new Set(starredKeys);
       if (star) {
@@ -340,7 +356,7 @@ export function LiteratureExplorer({
         setSaving(false);
       }
     },
-    [starredKeys, items, molecule.id, onStarsChanged],
+    [starredKeys, items, molecule, onStarsChanged],
   );
 
   // Close on Escape.
@@ -365,13 +381,13 @@ export function LiteratureExplorer({
         className="w-[min(940px,94vw)] h-[min(640px,90vh)] bg-surface border border-border rounded-2xl overflow-hidden flex flex-col shadow-2xl"
         role="dialog"
         aria-modal="true"
-        aria-label={`Literature explorer for ${molecule.name}`}
+        aria-label={`Literature explorer for ${heading}`}
       >
         {/* header */}
         <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border bg-surface-raised flex-none">
           <span className="font-bold text-foreground">
             Literature for{" "}
-            <span className="text-brand-action">{molecule.name}</span>
+            <span className="text-brand-action">{heading}</span>
             <small className="ml-2 font-normal text-foreground-muted text-[12px]">
               ({filtered.length} of {items.length})
             </small>
@@ -446,19 +462,21 @@ export function LiteratureExplorer({
                 {patentCount}
               </span>
             </label>
-            <label className="flex items-center gap-2 px-1.5 py-1 rounded-lg cursor-pointer hover:bg-surface-chip text-[13px]">
-              <input
-                type="checkbox"
-                checked={filters.starredOnly}
-                onChange={(e) => setFilters((f) => ({ ...f, starredOnly: e.target.checked }))}
-                className="accent-brand-action"
-              />
-              <span className="w-2.5 h-2.5 rounded-sm flex-none bg-amber-400" />
-              Starred only
-              <span className="ml-auto text-[11px] text-foreground-muted bg-surface-chip px-1.5 rounded-full">
-                {starredCount}
-              </span>
-            </label>
+            {starsEnabled && (
+              <label className="flex items-center gap-2 px-1.5 py-1 rounded-lg cursor-pointer hover:bg-surface-chip text-[13px]">
+                <input
+                  type="checkbox"
+                  checked={filters.starredOnly}
+                  onChange={(e) => setFilters((f) => ({ ...f, starredOnly: e.target.checked }))}
+                  className="accent-brand-action"
+                />
+                <span className="w-2.5 h-2.5 rounded-sm flex-none bg-amber-400" />
+                Starred only
+                <span className="ml-auto text-[11px] text-foreground-muted bg-surface-chip px-1.5 rounded-full">
+                  {starredCount}
+                </span>
+              </label>
+            )}
 
             {/* The badge counts are the loaded sample, not the whole corpus. A
                 well-studied compound has thousands of papers and patents; we load
@@ -574,7 +592,7 @@ export function LiteratureExplorer({
                     key={itemKey(item)}
                     item={item}
                     isStarred={starredKeys.has(itemKey(item))}
-                    moleculeId={molecule.id}
+                    starsEnabled={starsEnabled}
                     onStarChange={handleStarChange}
                   />
                 ))

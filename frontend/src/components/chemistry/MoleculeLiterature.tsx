@@ -190,7 +190,7 @@ export function MoleculeLiterature({
           <Stat n={data.hitCount} label="papers" />
           <Stat n={data.patentCount} label="patents" />
         </div>
-        {liveMolecule && (
+        {data.explorerItems.length > 0 && (
           <button
             type="button"
             data-testid="lit-explorer-open"
@@ -248,7 +248,7 @@ export function MoleculeLiterature({
       <p className="text-[11px] text-foreground-muted mt-3">
         Live from Europe PMC (full-text mentions) + PubChem (curated links). The
         free 90 percent, not CAS curation.
-        {liveMolecule && data.explorerItems.length > 0 && (
+        {data.explorerItems.length > 0 && (
           <>
             {" "}
             <button
@@ -259,14 +259,15 @@ export function MoleculeLiterature({
             >
               Open full explorer
             </button>{" "}
-            to filter by year, type, and star papers.
+            to filter by year, type{liveMolecule ? ", and star papers" : ""}.
           </>
         )}
       </p>
 
-      {explorerOpen && liveMolecule && data.explorerItems.length > 0 && (
+      {explorerOpen && data.explorerItems.length > 0 && (
         <LiteratureExplorer
           molecule={liveMolecule}
+          title={query}
           items={data.explorerItems}
           paperTotal={data.hitCount}
           patentTotal={data.patentCount}
