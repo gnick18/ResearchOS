@@ -8,6 +8,8 @@ import {
   isWikiCaptureMode,
 } from "@/lib/file-system/wiki-capture-mock";
 import { getWikiForRoute } from "@/lib/wiki/nav";
+import { Icon } from "@/components/icons";
+import { DEMO_PILL_CLASS } from "./demo/floatingPill";
 
 /**
  * Secondary affordance shown alongside `<FloatingLeaveDemoButton>` while
@@ -52,11 +54,11 @@ export default function OpenDocsButton() {
   return (
     <a
       href={wikiHref}
-      className="px-3 py-2 rounded-full bg-slate-900/85 hover:bg-slate-900 text-white text-body font-medium shadow-lg flex items-center gap-1.5 border border-white/10 transition-colors"
+      className={DEMO_PILL_CLASS}
       aria-label="Open the docs for this view"
     >
+      <Icon name="book" className="h-3.5 w-3.5" />
       <span>Read the docs</span>
-      <span aria-hidden>↗</span>
     </a>
   );
 }

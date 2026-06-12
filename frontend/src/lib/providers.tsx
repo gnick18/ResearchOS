@@ -973,16 +973,19 @@ export function Providers({ children }: { children: ReactNode }) {
           <DemoViewAsButton />
           <FloatingLeaveDemoButton />
         </div>
-        {/* Dev-only one-click clean-slate session. Mounted here (Providers
-            level, above AppContent) like FloatingLeaveDemoButton so it shows on
-            the pre-login connect / picker / login surfaces, not just the
-            signed-in app. Spins up a throwaway in-browser (OPFS) folder, mints
-            an identity, and signs in with no folder picker. Renders nothing in
-            production or once a user is signed in. (mobile manager) */}
-        <DevEphemeralSessionButton />
-        {/* Dev-only: rerun ./start.sh to restart the dev server without the
-            terminal. Mounted here so it floats on every surface in dev. */}
-        <DevRestartServerButton />
+        {/* Dev-only floating tools, grouped as ONE bottom-LEFT column so they
+            never overlap each other or the right-side demo cluster. These are
+            gated on NODE_ENV === "development", so they never reach the deployed
+            /demo, which is why they keep their own dev-signal colors (sky /
+            purple) instead of the production pill aesthetic. Each tool is
+            position-agnostic now; this wrapper owns the placement.
+            DevEphemeralSessionButton, a one-click clean-slate OPFS session that
+            shows on the pre-login surfaces too; DevRestartServerButton, reruns
+            ./start.sh. The pointer-events pair keeps the empty wrapper inert. */}
+        <div className="fixed bottom-6 left-6 z-[500] flex flex-col-reverse items-start gap-3 pointer-events-none [&>*]:pointer-events-auto">
+          <DevEphemeralSessionButton />
+          <DevRestartServerButton />
+        </div>
         {/* Global host for fire-and-forget easter-egg scenes (BugStomp,
             etc.). Mounted at this level — above AppContent — so the
             scene can fire from pre-login surfaces (UserLoginScreen has

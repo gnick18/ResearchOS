@@ -10,6 +10,7 @@ import {
 } from "@/lib/file-system/wiki-capture-mock";
 import { getCurrentUser } from "@/lib/file-system/indexeddb-store";
 import { Icon } from "@/components/icons";
+import { DEMO_PILL_CLASS } from "./demo/floatingPill";
 
 /**
  * Demo-only "view as lab head" toggle. Renders only inside the public
@@ -78,7 +79,7 @@ export default function DemoViewAsButton() {
     <a
       href={destination}
       onClick={onClick}
-      className="flex items-center gap-1.5 rounded-full border border-border bg-surface-raised/90 px-3 py-1.5 text-meta font-medium text-foreground-muted shadow-sm backdrop-blur transition-colors hover:bg-surface-sunken hover:text-foreground focus-visible:ring-2 focus-visible:ring-border focus-visible:ring-offset-2"
+      className={DEMO_PILL_CLASS}
       aria-label={label}
     >
       <Icon name="eye" className="h-3.5 w-3.5" />
