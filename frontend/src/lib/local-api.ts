@@ -6304,13 +6304,52 @@ function oneOnOneShareList(oneOnOne: OneOnOne): SharedUser[] {
   return membersSharedWith(normalizeOneOnOne(oneOnOne).members);
 }
 
+/**
+ * Propagate a synced check-in task's `shared_with` into each recipient's
+ * `users/<recipient>/_shared_with_me.json` manifest (+ bell notification), and
+ * prune recipients no longer shared with. The D4 ops write the task straight
+ * into the space owner's folder via the raw `tasksStore`, which sets
+ * `shared_with` on the RECORD but never touches recipients' manifests.
+ * `fetchAllTasksIncludingShared` (the Lists view's source) reads ONLY those
+ * manifests, so without this the assignee never sees the to-do in their own
+ * Lists. This mirrors what `tasksApi.shareTaskAs` does for a normal owner-
+ * scoped share. The owner reads the task as owner, so they are never added.
+ */
+async function propagateCheckinTaskShares(input: {
+  owner: string;
+  taskId: number;
+  name: string;
+  prevShared: SharedUser[];
+  nextShared: SharedUser[];
+}): Promise<void> {
+  const sharedAt = new Date().toISOString();
+  const nextNames = new Set(input.nextShared.map((s) => s.username));
+  for (const prev of input.prevShared) {
+    if (prev.username !== input.owner && !nextNames.has(prev.username)) {
+      await removeReceiverShare(prev.username, "task", input.taskId, input.owner);
+    }
+  }
+  for (const next of input.nextShared) {
+    if (next.username === input.owner) continue;
+    const permission = next.level === "edit" ? "edit" : "view";
+    await addReceiverShare(
+      next.username,
+      "task",
+      { id: input.taskId, owner: input.owner, permission, shared_at: sharedAt },
+      input.name,
+    );
+  }
+}
+
 // Check-ins revamp Phase 2 (checkins-phase2 bot, 2026-06-12). The owner-scoped
 // task operations backing the D4 action-item -> Task sync. Every write lands in
 // the SPACE OWNER's task namespace via the per-user `tasksStore`, so a non-owner
 // member adding an assigned item does NOT create a task in their own folder.
 // This is the exact shape a PI-assigned task carries (owner = space owner,
-// assignee = member, shared_with = the member at "edit"), so the to-do surfaces
-// in the assignee's Lists view with no cross-user write.
+// assignee = member, shared_with = the member at "edit"). Each op then calls
+// `propagateCheckinTaskShares` so the share reaches the assignee's
+// `_shared_with_me.json` manifest and the to-do actually surfaces in their
+// Lists view (the raw store write alone does not do this).
 const checkinTaskSyncOps: TaskSyncOps = {
   createTask: async (owner: string, draft: SyncedTaskDraft): Promise<Task> => {
     const durationDays = 1;
@@ -6340,18 +6379,28 @@ const checkinTaskSyncOps: TaskSyncOps = {
       assignee: draft.assignee,
       source: draft.source,
     };
-    return tasksStore.createForUser(record, owner);
+    const created = await tasksStore.createForUser(record, owner);
+    await propagateCheckinTaskShares({
+      owner,
+      taskId: created.id,
+      name: created.name,
+      prevShared: [],
+      nextShared: draft.shared_with,
+    });
+    return created;
   },
   updateTask: async (
     owner: string,
     id: number,
     patch: Partial<Task>,
   ): Promise<Task | null> => {
+    // Read the current record once: needed both to recompute end_date and to
+    // reconcile the share manifests (a reassign drops the old recipient).
+    const existing = await tasksStore.getForUser(id, owner);
     // Recompute the derived end_date when the date inputs change, mirroring
     // tasksApi.update, so the synced task's timeline stays correct.
     const next: Partial<Task> = { ...patch };
     if (patch.start_date !== undefined || patch.duration_days !== undefined) {
-      const existing = await tasksStore.getForUser(id, owner);
       if (existing) {
         next.end_date = canonicalEndDate({
           start_date: patch.start_date ?? existing.start_date,
@@ -6359,9 +6408,31 @@ const checkinTaskSyncOps: TaskSyncOps = {
         });
       }
     }
-    return tasksStore.updateForUser(id, next, owner);
+    const updated = await tasksStore.updateForUser(id, next, owner);
+    if (updated) {
+      await propagateCheckinTaskShares({
+        owner,
+        taskId: id,
+        name: updated.name,
+        prevShared: (existing?.shared_with ?? []) as SharedUser[],
+        nextShared: (patch.shared_with ?? existing?.shared_with ?? []) as SharedUser[],
+      });
+    }
+    return updated;
   },
   deleteTask: async (owner: string, id: number): Promise<void> => {
+    // Prune the assignee's manifest entry before removing the task, so a
+    // detach / clear-assignee / delete does not leave a dangling Lists row.
+    const existing = await tasksStore.getForUser(id, owner);
+    if (existing) {
+      await propagateCheckinTaskShares({
+        owner,
+        taskId: id,
+        name: existing.name,
+        prevShared: (existing.shared_with ?? []) as SharedUser[],
+        nextShared: [],
+      });
+    }
     await tasksStore.deleteForUser(id, owner);
   },
   getTask: async (owner: string, id: number): Promise<Task | null> => {
