@@ -48,6 +48,7 @@ import { inlineRevealTheme } from "./theme";
 import { TableWidget, FencedCodeWidget } from "./block-widgets";
 import { ImageWidget } from "./image-widget";
 import { EmbedWidget, parseLoneEmbedLink } from "./embed-widget";
+import type { EmbedPinContext } from "@/components/embeds/ObjectEmbed";
 import { ObjectChipWidget, parseObjectLink } from "./object-chip-widget";
 import { markdownKeymap } from "./markdown-keymap";
 import { stampHideExtension } from "./stamp-hide";
@@ -66,6 +67,25 @@ export const imageBasePathFacet = Facet.define<string | undefined, string | unde
 /** Wrap a base path as the extension the editor spreads in to configure it. */
 export function imageBasePathExt(basePath: string | undefined) {
   return imageBasePathFacet.of(basePath);
+}
+
+/**
+ * The doc-level embed-pin context (markdown embed hybrid P7-1a). When configured,
+ * an embed block widget resolves its frozen snapshot from the sidecar and offers a
+ * Pin / Unpin control. When unset (the default), embeds render live with no pin
+ * control, so the byte-for-byte round-trip is untouched. Facet.combine takes the
+ * first configured value (single producer in practice, the editor host).
+ */
+export const embedPinContextFacet = Facet.define<
+  EmbedPinContext | undefined,
+  EmbedPinContext | undefined
+>({
+  combine: (values) => (values.length > 0 ? values[0] : undefined),
+});
+
+/** Wrap a pin context as the extension the editor spreads in to configure it. */
+export function embedPinContextExt(context: EmbedPinContext | undefined) {
+  return embedPinContextFacet.of(context);
 }
 
 /**
@@ -367,6 +387,7 @@ export function buildBlockDeco(state: EditorState): InlineRevealDecorations {
   const sel = state.selection;
   const tree = syntaxTree(state);
   const imageBasePath = state.facet(imageBasePathFacet);
+  const pinContext = state.facet(embedPinContextFacet);
   const blockRanges: CollectedRange[] = [];
   const atomicRanges: CollectedRange[] = [];
 
@@ -383,7 +404,7 @@ export function buildBlockDeco(state: EditorState): InlineRevealDecorations {
         const lone = parseLoneEmbedLink(state.sliceDoc(node.from, node.to));
         if (!lone) return undefined;
         const deco = Decoration.replace({
-          widget: new EmbedWidget(lone.descriptor, lone.caption, imageBasePath),
+          widget: new EmbedWidget(lone.descriptor, lone.caption, imageBasePath, pinContext),
           block: true,
         });
         blockRanges.push({ from: node.from, to: node.to, deco });
