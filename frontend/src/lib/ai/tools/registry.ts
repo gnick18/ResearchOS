@@ -73,6 +73,11 @@ import {
   designPrimersTool,
   createSequenceTool,
 } from "./sequence-tools";
+import {
+  searchPubChemTool,
+  createMoleculeTool,
+  importMoleculeTool,
+} from "./chemistry-tools";
 import type { AiTool } from "./types";
 
 // The read-only toolset, read-only with respect to the user's data. Exported on
@@ -133,6 +138,11 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   reverseComplementTool,
   findOrfsTool,
   designPrimersTool,
+  // Chemistry Workbench tools. search_pubchem is read-only (a network read to
+  // PubChem, a public NIH resource; no local write). The two write tools
+  // (create_molecule and import_molecule) live in ACTION_TOOLS below because they
+  // create a new library record and go through the approval gate.
+  searchPubChemTool,
 ];
 
 // The action toolset. Each tool here carries action: true and goes through the
@@ -157,6 +167,14 @@ export const READ_ONLY_TOOLS: AiTool[] = [
 // create_sequence is the sequence coworker write tool (action: true, isDestructive
 // false). The user sees a preview showing the sequence name, type, and length before
 // anything is saved. Only on Approve does the sequence write to the library.
+//
+// create_molecule and import_molecule are the chemistry coworker write tools
+// (action: true, isDestructive false). create_molecule derives formula + MW from
+// the user-supplied SMILES via RDKit, then writes a "drawn" molecule record.
+// import_molecule fetches an existing compound from PubChem by CID (name, formula,
+// MW, and 2D SDF), then writes a "pubchem" molecule record. The user sees a preview
+// of the name + CID (for import) or name + SMILES (for create) before anything is
+// written. Only on Approve does the molecule write to the library.
 export const ACTION_TOOLS: AiTool[] = [
   clickElementTool,
   writeNoteTool,
@@ -164,6 +182,8 @@ export const ACTION_TOOLS: AiTool[] = [
   rescheduleExperimentTool,
   createExperimentChainTool,
   createSequenceTool,
+  createMoleculeTool,
+  importMoleculeTool,
 ];
 
 // The coordination toolset. These tools neither read the user's data nor act on
