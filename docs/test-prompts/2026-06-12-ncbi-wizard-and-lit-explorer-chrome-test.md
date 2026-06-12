@@ -65,7 +65,7 @@ TEST A1: walk the wizard to a windowed gene import
     screen. Click "Done". Confirm a new sequence for the cyp51A region appears in
     the list and opens, much smaller than a whole chromosome. Screenshot it.
 
-TEST A2: the size guard on a big download (no soft-lock)
+TEST A2: the SOFT size confirm on a big-but-allowed download (no soft-lock)
 14. Open "Download from NCBI" again. Type Aspergillus fumigatus, pick the species,
     and on the step 2 assemblies list click the "Whole genome" button on the
     reference assembly's row (the right-hand button this time).
@@ -76,6 +76,25 @@ TEST A2: the size guard on a big download (no soft-lock)
     list with nothing downloaded (the escape works, not trapped). Screenshot the
     confirm card before cancelling.
     (Do NOT click "Download anyway" unless you want to wait on a ~29 Mb download.)
+
+TEST A3: the HARD cap (over 50 Mb) hands you the same genome via NCBI Datasets
+This needs a genome bigger than the 50 Mb in-browser cap, so use a large one.
+17. Open "Download from NCBI" again. Type: Homo sapiens   and pick the "Homo
+    sapiens" species suggestion. On the assemblies list, click the "Whole genome"
+    button on the reference (GRCh38 / GCF_000001405...) row.
+18. PASS CHECK. Instead of the amber "import anyway?" confirm, a refusal card
+    should appear (the human genome is far over 50 Mb). Confirm it has BOTH:
+    - a blue button "Open this genome on NCBI Datasets", and
+    - a copy-ready command line that contains the SAME accession you tried, e.g.
+      "datasets download genome accession GCF_000001405... --include genome",
+      with a copy icon.
+    There must be NO "Download anyway" here (it is refused, not just warned).
+    Screenshot the card.
+19. Click the copy icon, then confirm the icon changes to a check (copied). You can
+    optionally paste somewhere to confirm the command carries the right accession.
+20. Hover (do not necessarily click) the "Open this genome on NCBI Datasets" button
+    and confirm its link points at ncbi.nlm.nih.gov/datasets/genome/<that same
+    accession>/. Report the URL you see.
 
 == FEATURE 2: Chemistry literature explorer (gliotoxin) ==
 
@@ -111,8 +130,12 @@ For each step say whether the mouse interaction worked. Call out specifically:
 - NCBI wizard: did clicking the assembly ROW (step 8) advance to chromosomes?
 - NCBI wizard: was the FIRST cyp51A gene hit (step 11) enabled and clickable?
 - NCBI wizard: did the windowed import produce a small annotated sequence?
-- Size guard: did the amber "~29 Mb, import anyway?" card appear, and did Cancel
-  cleanly back out (step 16)?
+- Size guard (soft): did the amber "~29 Mb, import anyway?" card appear, and did
+  Cancel cleanly back out (step 16)?
+- Size guard (hard, A3): for the human genome, did the refusal card appear with
+  BOTH the "Open this genome on NCBI Datasets" link and a copy-ready command
+  carrying the same accession (no "Download anyway")? Did copy flip to a check,
+  and did the link point at the datasets genome page for that accession?
 - Lit explorer: did the "View all" / "Open full explorer" button appear and open
   the explorer (step 21)?
 - Lit explorer: did the year filter rescale results, and did starring persist as a
