@@ -238,6 +238,135 @@ export function logRank(
   };
 }
 
+export interface GehanBreslowWilcoxonGroup {
+  name: string;
+  n: number;
+  /** Gehan-weighted observed events (sum of w_j d_kj). */
+  observed: number;
+  /** Gehan-weighted expected events (sum of w_j n_kj d_j / n_j). */
+  expected: number;
+}
+
+export interface GehanBreslowWilcoxonResult {
+  test: string;
+  chiSquare: number;
+  df: number;
+  pValue: number;
+  groups: GehanBreslowWilcoxonGroup[];
+}
+
+/**
+ * The Gehan-Breslow-Wilcoxon test comparing two or more survival curves. This is
+ * the same observed-minus-expected machinery as the log-rank test, but each
+ * event time's contribution is weighted by w_j, the total number at risk across
+ * all groups at that time. Because w_j is large early (when the risk sets are
+ * full) and shrinks as subjects fail or censor, the test gives early deaths more
+ * weight than the standard log-rank, which weights every event time equally. So
+ * it is more sensitive to early separation of the curves. GraphPad Prism reports
+ * both statistics on the Kaplan-Meier comparison.
+ *
+ * Returns the chi-square statistic, its degrees of freedom (groups - 1), the
+ * p-value, and the per-group Gehan-weighted observed vs expected events. Uses the
+ * hypergeometric variance-covariance scaled by w_j^2 and a reduced quadratic
+ * form, so it is correct for any number of groups.
+ */
+export function gehanBreslowWilcoxon(
+  groups: { name: string; observations: SurvivalObservation[] }[],
+): EngineResult<GehanBreslowWilcoxonResult> {
+  const g = groups.length;
+  if (g < 2) {
+    return {
+      ok: false,
+      error: "Gehan-Breslow-Wilcoxon needs at least 2 groups.",
+    };
+  }
+  const cleaned = groups.map((grp) => ({
+    name: grp.name,
+    obs: cleanObservations(grp.observations),
+  }));
+  if (cleaned.some((grp) => grp.obs.length === 0)) {
+    return { ok: false, error: "Every group needs at least one observation." };
+  }
+
+  const allObs = cleaned.flatMap((grp) => grp.obs);
+  const eventTimes = [
+    ...new Set(allObs.filter((o) => o.event === 1).map((o) => o.time)),
+  ].sort((a, b) => a - b);
+
+  const observed = new Array(g).fill(0);
+  const expected = new Array(g).fill(0);
+  // Variance-covariance accumulator (g x g), scaled by the Gehan weight squared.
+  const V: number[][] = Array.from({ length: g }, () => new Array(g).fill(0));
+
+  for (const t of eventTimes) {
+    const nTotal = allObs.filter((o) => o.time >= t).length;
+    const dTotal = allObs.filter((o) => o.time === t && o.event === 1).length;
+    if (nTotal <= 1 || dTotal === 0) continue;
+    // Gehan weight at this time is the total number at risk.
+    const w = nTotal;
+    const nk = cleaned.map((grp) => grp.obs.filter((o) => o.time >= t).length);
+    const dk = cleaned.map(
+      (grp) => grp.obs.filter((o) => o.time === t && o.event === 1).length,
+    );
+    // Common factor for the hypergeometric variance at this time, weighted by
+    // w^2 (the weight applies to the observed-minus-expected difference, so it
+    // squares into the variance).
+    const c = (w * w * dTotal * (nTotal - dTotal)) / (nTotal - 1);
+    for (let k = 0; k < g; k++) {
+      observed[k] += w * dk[k];
+      expected[k] += w * (nk[k] * dTotal) / nTotal;
+      const pk = nk[k] / nTotal;
+      V[k][k] += c * pk * (1 - pk);
+      for (let l = k + 1; l < g; l++) {
+        const pl = nk[l] / nTotal;
+        const cov = -c * pk * pl;
+        V[k][l] += cov;
+        V[l][k] += cov;
+      }
+    }
+  }
+
+  // Reduced quadratic form: drop the last group (the covariance matrix has rank
+  // g - 1). chi2 = u_r^T V_r^{-1} u_r over the first g - 1 groups.
+  const dim = g - 1;
+  const u: number[] = [];
+  for (let k = 0; k < dim; k++) u.push(observed[k] - expected[k]);
+  const Vr: number[][] = [];
+  for (let k = 0; k < dim; k++) {
+    Vr.push(V[k].slice(0, dim));
+  }
+
+  let chiSquare: number;
+  try {
+    const uVec = new Matrix([u]); // 1 x dim
+    const VrInv = pseudoInverse(new Matrix(Vr)); // dim x dim
+    const q = uVec.mmul(VrInv).mmul(uVec.transpose()); // 1 x 1
+    chiSquare = q.get(0, 0);
+  } catch {
+    return {
+      ok: false,
+      error: "Gehan-Breslow-Wilcoxon variance matrix is singular.",
+    };
+  }
+  if (!Number.isFinite(chiSquare) || chiSquare < 0) chiSquare = 0;
+
+  const pValue = chiSquarePValue(chiSquare, dim);
+
+  return {
+    ok: true,
+    test: "Gehan-Breslow-Wilcoxon test",
+    chiSquare,
+    df: dim,
+    pValue,
+    groups: cleaned.map((grp, k) => ({
+      name: grp.name,
+      n: grp.obs.length,
+      observed: observed[k],
+      expected: expected[k],
+    })),
+  };
+}
+
 // Cox proportional hazards regression.
 //
 // We fit the semiparametric Cox model by maximizing the Efron partial

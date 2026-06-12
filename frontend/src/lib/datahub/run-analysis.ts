@@ -45,6 +45,7 @@ import {
   type MultipleRegressionCoefficient,
   kaplanMeier,
   logRank,
+  gehanBreslowWilcoxon,
   coxPH,
   type CoxCoefficient,
   shapiroWilk,
@@ -615,6 +616,16 @@ export interface NormalizedSurvival {
   groups: NormalizedSurvivalGroup[];
   /** The log-rank test across the groups, or null with fewer than two groups. */
   logRank: {
+    chiSquare: number;
+    df: number;
+    pValue: number;
+    perGroup: { name: string; observed: number; expected: number }[];
+  } | null;
+  /**
+   * The Gehan-Breslow-Wilcoxon test across the groups (the early-weighted
+   * variant of the log-rank test), or null with fewer than two groups.
+   */
+  gehanBreslowWilcoxon: {
     chiSquare: number;
     df: number;
     pValue: number;
@@ -1312,6 +1323,7 @@ function runSurvivalAnalysis(content: DataHubDocContent): RunOutcome {
   }
 
   let lr: NormalizedSurvival["logRank"] = null;
+  let gbw: NormalizedSurvival["gehanBreslowWilcoxon"] = null;
   if (groups.length >= 2) {
     const r = logRank(groups);
     if (r.ok) {
@@ -1326,9 +1338,29 @@ function runSurvivalAnalysis(content: DataHubDocContent): RunOutcome {
         })),
       };
     }
+    const w = gehanBreslowWilcoxon(groups);
+    if (w.ok) {
+      gbw = {
+        chiSquare: w.chiSquare,
+        df: w.df,
+        pValue: w.pValue,
+        perGroup: w.groups.map((x) => ({
+          name: x.name,
+          observed: x.observed,
+          expected: x.expected,
+        })),
+      };
+    }
   }
 
-  return { ok: true, kind: "survival", type: "kaplanMeier", groups: normGroups, logRank: lr };
+  return {
+    ok: true,
+    kind: "survival",
+    type: "kaplanMeier",
+    groups: normGroups,
+    logRank: lr,
+    gehanBreslowWilcoxon: gbw,
+  };
 }
 
 /**

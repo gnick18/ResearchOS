@@ -44,6 +44,7 @@ import {
   brownForsythe,
   kaplanMeier,
   logRank,
+  gehanBreslowWilcoxon,
   coxPH,
   percentileInterval,
   biasCorrection,
@@ -1316,6 +1317,13 @@ function runDatahubEngine(): Record<string, number> {
     ]),
     "log-rank",
   );
+  const gbw = need(
+    gehanBreslowWilcoxon([
+      { name: "Treat", observations: SURV_TREAT },
+      { name: "Control", observations: SURV_CONTROL },
+    ]),
+    "Gehan-Breslow-Wilcoxon",
+  );
 
   // Cox proportional hazards on the same two arms. The covariate is the arm
   // indicator (Treatment = 1, Control = 0), matching the lifelines reference
@@ -1513,6 +1521,8 @@ function runDatahubEngine(): Record<string, number> {
     km_median: km.median ?? NaN,
     logrank_chi2: lr.chiSquare,
     logrank_p: lr.pValue,
+    gehan_chi2: gbw.chiSquare,
+    gehan_p: gbw.pValue,
     cox_coef: coxArm.coef,
     cox_se: coxArm.se,
     cox_z: coxArm.z,

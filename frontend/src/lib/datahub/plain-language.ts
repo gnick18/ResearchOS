@@ -333,10 +333,16 @@ function survivalSummary(r: NormalizedSurvival): string {
     r.logRank.chiSquare,
     2,
   )}, ${formatP(r.logRank.pValue)}`;
+  const gbwPart = r.gehanBreslowWilcoxon
+    ? ` The Gehan-Breslow-Wilcoxon test, which weights early time points more, gives chi-square(${r.gehanBreslowWilcoxon.df}) = ${num(
+        r.gehanBreslowWilcoxon.chiSquare,
+        2,
+      )}, ${formatP(r.gehanBreslowWilcoxon.pValue)}.`
+    : "";
   if (r.logRank.pValue < ALPHA) {
-    return `${lead} The survival curves differ between groups (${stat}), so the event happens at a different rate across arms.`;
+    return `${lead} The survival curves differ between groups (${stat}), so the event happens at a different rate across arms.${gbwPart}`;
   }
-  return `${lead} The survival curves are statistically indistinguishable (${stat}). There is not enough evidence that the arms differ.`;
+  return `${lead} The survival curves are statistically indistinguishable (${stat}). There is not enough evidence that the arms differ.${gbwPart}`;
 }
 
 function coxSummary(r: NormalizedCoxRegression): string {

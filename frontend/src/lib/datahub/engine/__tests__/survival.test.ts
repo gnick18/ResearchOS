@@ -3,6 +3,7 @@ import { describe as suite, it, expect } from "vitest";
 import {
   kaplanMeier,
   logRank,
+  gehanBreslowWilcoxon,
   coxPH,
   type SurvivalObservation,
   type CoxObservation,
@@ -94,12 +95,44 @@ suite("log-rank vs R survdiff (aml dataset)", () => {
   });
 });
 
+// The Gehan-Breslow-Wilcoxon test (the early-weighted log-rank variant). The
+// reference comes from lifelines.statistics.logrank_test(..., weightings=
+// "wilcoxon") on the same aml dataset (lifelines 0.30.3).
+suite("Gehan-Breslow-Wilcoxon vs lifelines (aml dataset)", () => {
+  const r = gehanBreslowWilcoxon([
+    { name: "Maintained", observations: MAINTAINED },
+    { name: "Nonmaintained", observations: NONMAINTAINED },
+  ]);
+
+  it("matches the chi-square statistic, df, and p-value", () => {
+    if (!r.ok) throw new Error("expected ok");
+    expect(r.df).toBe(1);
+    // lifelines weightings="wilcoxon": chi2 = 2.723312, p = 0.098893.
+    expect(r.chiSquare).toBeCloseTo(2.723312, 3);
+    expect(r.pValue).toBeCloseTo(0.098893, 4);
+  });
+
+  it("weights early times more, so it differs from the log-rank chi-square", () => {
+    const lr = logRank([
+      { name: "Maintained", observations: MAINTAINED },
+      { name: "Nonmaintained", observations: NONMAINTAINED },
+    ]);
+    if (!r.ok || !lr.ok) throw new Error("expected ok");
+    expect(r.chiSquare).not.toBeCloseTo(lr.chiSquare, 3);
+  });
+});
+
 suite("survival engine guards", () => {
   it("rejects an empty Kaplan-Meier input", () => {
     expect(kaplanMeier([]).ok).toBe(false);
   });
   it("rejects a single-group log-rank", () => {
     expect(logRank([{ name: "A", observations: MAINTAINED }]).ok).toBe(false);
+  });
+  it("rejects a single-group Gehan-Breslow-Wilcoxon", () => {
+    expect(
+      gehanBreslowWilcoxon([{ name: "A", observations: MAINTAINED }]).ok,
+    ).toBe(false);
   });
 });
 
