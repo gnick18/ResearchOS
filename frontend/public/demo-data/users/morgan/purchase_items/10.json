@@ -9,7 +9,7 @@
   "shipping_fees": 0,
   "total_price": 65,
   "notes": null,
-  "funding_string": "DEMO-Internal-Bridge",
+  "funding_string": "Internal Bridge Fund",
   "vendor": "Thermo",
   "category": "Consumables"
 }

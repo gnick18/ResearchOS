@@ -1,6 +1,6 @@
 {
   "id": 1,
-  "name": "[Demo protocol] qPCR fakeGFP expression",
+  "name": "qPCR fakeGFP expression",
   "gradient": {
     "initial": [
       {
@@ -67,7 +67,7 @@
       "amount_per_reaction": "20"
     }
   ],
-  "notes": "Demo qPCR — use ACT1 as housekeeping reference. Public version available at users/public.",
+  "notes": "use ACT1 as housekeeping reference. Public version available at users/public.",
   "tags": [
     "demo",
     "qPCR",

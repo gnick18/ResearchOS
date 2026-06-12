@@ -1,7 +1,7 @@
 {
   "id": 3,
   "project_id": null,
-  "name": "DEMO: Submit DOE renewal abstract",
+  "name": "Submit DOE renewal abstract",
   "start_date": "2026-05-01",
   "end_date": "2026-05-29",
   "color": "#ef4444",
@@ -23,7 +23,7 @@
     },
     {
       "id": "sg4",
-      "text": "Submit through demo portal",
+      "text": "Submit through the order portal",
       "is_complete": false
     }
   ],

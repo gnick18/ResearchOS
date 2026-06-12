@@ -1,8 +1,8 @@
 {
   "id": 1,
-  "title": "Benchling (demo workspace)",
+  "title": "Benchling",
   "url": "https://example.org/demo-benchling",
-  "description": "Cloning notebook for the demo lab.",
+  "description": "Cloning notebook for the lab.",
   "category": "Bioinformatics tools",
   "color": "#3b82f6",
   "preview_image_url": null,
