@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useCallback, type ReactNode, type CSSProperties } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { notesApi, labApi, notebooksApi } from "@/lib/local-api";
 import type { Note, NoteCreate, LabNote, SharedNotebook, Notebook } from "@/lib/types";
-import NoteCard from "./NoteCard";
 import NoteListRow from "./NoteListRow";
 import NoteDetailPopup from "./NoteDetailPopup";
 import ContextMenu from "./ContextMenu";
+import { Icon } from "@/components/icons";
 import { emitNoteDeleted } from "@/lib/notes/delete-toast-bus";
 import SharedNotebookView from "./notebooks/SharedNotebookView";
 import StartSharedNotebookDialog from "./notebooks/StartSharedNotebookDialog";
@@ -20,7 +20,6 @@ import LivingPopup from "@/components/ui/LivingPopup";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { usePiRecordMenu } from "@/hooks/usePiRecordMenu";
 import { useIsLabMode } from "@/hooks/useIsLabMode";
-import Tooltip from "./Tooltip";
 import type {
   WorkbenchInitialOpen,
   WorkbenchRecentRef,
@@ -32,9 +31,7 @@ import type {
 // order, a month group-by, a "Shared with lab" filter, and an incremental
 // "Show more" window — keep the surface navigable at scale without touching
 // search, the data model, or the notebook switcher.
-type ViewMode = "grid" | "list";
 type SortKey = "updated" | "created" | "title";
-type GroupBy = "none" | "month";
 
 // Initial render cap + page size for the incremental "Show more" window. We
 // never mount 700 cards/rows at once: the first ~60 notes (in sort order,
@@ -52,16 +49,18 @@ function noteTime(value: string | null | undefined): number {
   return Number.isNaN(t) ? Number.NEGATIVE_INFINITY : t;
 }
 
-// Month bucket key + human label from an ISO-ish date string. Notes whose
-// grouping date is missing/invalid fall into a single "Undated" bucket that
-// always sorts last.
-function monthBucket(value: string | null | undefined): { key: string; label: string } {
-  const t = noteTime(value);
-  if (t === Number.NEGATIVE_INFINITY) return { key: "0000-00", label: "Undated" };
-  const d = new Date(t);
-  const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-  const label = d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-  return { key, label };
+// Inline style for a notebook-color band: the notebook's color as the text +
+// left accent, plus a faint tint of it as the background. Returns undefined for
+// a missing color (the Unfiled band uses neutral Tailwind classes instead).
+function bandTint(color: string | undefined): CSSProperties | undefined {
+  if (!color) return undefined;
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(color.trim());
+  if (!m) return { color, borderLeftColor: color };
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return { color, borderLeftColor: color, backgroundColor: `rgba(${r},${g},${b},0.10)` };
 }
 
 function isSharedNote(note: Note | LabNote): boolean {
@@ -133,25 +132,11 @@ export default function NotesPanel({
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<"all" | "single" | "running">("all");
 
-  // Notes scale state (notes-scale bot, 2026-06-02). View mode defaults to
-  // the existing card grid; sort defaults to recently-updated (the current
-  // behavior); grouping + shared-filter default off so the surface is
-  // byte-for-byte unchanged until the user reaches for a control.
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  // Notes explorer (2026-06-11 redesign). The dense list is the only layout
+  // now; sort defaults to recently-updated; the shared-filter defaults off.
+  // Rows group under notebook-color bands in the All view (see notesBody).
   const [sortKey, setSortKey] = useState<SortKey>("updated");
-  const [groupBy, setGroupBy] = useState<GroupBy>("none");
   const [sharedOnly, setSharedOnly] = useState(false);
-  // Folded group keys (month grouping). We DON'T seed this set; instead the
-  // effective collapsed state is derived (see `isGroupCollapsed`): every month
-  // group EXCEPT the newest defaults to collapsed so a multi-year library opens
-  // as a tidy list of month headers rather than a long scroll. Once the user
-  // explicitly toggles a group its key lands in `userToggledGroups` and the
-  // derived default no longer applies to it: their manual state (tracked in
-  // `collapsedGroups`) wins from then on.
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  // Keys the user has explicitly expanded/collapsed. Manual toggles always win
-  // over the newest-month-only default below.
-  const [userToggledGroups, setUserToggledGroups] = useState<Set<string>>(new Set());
   // Incremental render window: how many notes are currently mounted.
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
@@ -491,78 +476,51 @@ export default function NotesPanel({
     return noteTime(b.updated_at) - noteTime(a.updated_at);
   });
 
-  // The date field a note is grouped by. The two recency sorts group by
-  // their own field; Title sort groups by updated_at (per the brief).
-  const groupDateOf = (note: Note | LabNote): string | null | undefined =>
-    sortKey === "created" ? note.created_at : note.updated_at;
-
-  // Build month groups (newest month first; the "Undated" bucket sorts
-  // last via its 0000-00 key). Each group's notes stay in the active sort.
-  const monthGroups =
-    groupBy === "month"
-      ? (() => {
-          const buckets = new Map<
-            string,
-            { key: string; label: string; notes: (Note | LabNote)[] }
-          >();
-          for (const note of sortedNotes) {
-            const { key, label } = monthBucket(groupDateOf(note));
-            const bucket = buckets.get(key) ?? { key, label, notes: [] };
-            bucket.notes.push(note);
-            buckets.set(key, bucket);
-          }
-          return Array.from(buckets.values()).sort((a, b) =>
-            b.key.localeCompare(a.key),
-          );
-        })()
-      : null;
-
-  // Incremental render. We walk the sorted list (flat, or group-by-group in
-  // group order) and only mount the first `visibleCount` notes, so a 700-note
-  // library never mounts 700 cards/rows at once. "Show more" reveals the
-  // next PAGE_SIZE. The slicing is order-stable, so groups fill top-to-bottom.
+  // Incremental render. We walk the sorted list and only mount the first
+  // `visibleCount` notes, so a 700-note library never mounts 700 rows at once.
+  // "Show more" reveals the next PAGE_SIZE. The slicing is order-stable, so
+  // notebook bands fill top-to-bottom.
   const totalNotes = sortedNotes.length;
   const hasMore = visibleCount < totalNotes;
 
-  // The newest month group (descending sort puts it first). Used by the
-  // default-collapse rule: only this group is expanded until the user says
-  // otherwise.
-  const newestGroupKey = monthGroups?.[0]?.key ?? null;
-
-  // Effective collapsed state for a month group. If the user has explicitly
-  // toggled the group, their choice (recorded in `collapsedGroups`) wins.
-  // Otherwise the default is: the newest month is expanded, every older month
-  // (and the "Undated" bucket, whose key sorts last) is collapsed.
-  const isGroupCollapsed = (key: string): boolean =>
-    userToggledGroups.has(key)
-      ? collapsedGroups.has(key)
-      : key !== newestGroupKey;
-
-  const toggleGroup = (key: string) => {
-    // Capture the CURRENT effective state so the first manual toggle flips what
-    // the user actually sees (the derived default), not an empty baseline.
-    const currentlyCollapsed = isGroupCollapsed(key);
-    setUserToggledGroups((prev) => {
-      if (prev.has(key)) return prev;
-      const next = new Set(prev);
-      next.add(key);
-      return next;
-    });
-    setCollapsedGroups((prev) => {
-      const next = new Set(prev);
-      if (currentlyCollapsed) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
+  // Notebook-band grouping for the All view: rows sit under colored notebook
+  // bands (each notebook's own color), Unfiled last. A single-notebook (or
+  // Unfiled) selection renders a flat list. Lab Mode is flat (no notebooks).
+  // Bands honor the active sort (notebooks ordered by their freshest note) and
+  // the incremental window via the shared sortedNotes order.
+  const notebookColorOf = (id: string): string | undefined =>
+    allNotebooks.find((n) => n.id === id)?.color;
+  const notebookTitleOf = (id: string): string =>
+    allNotebooks.find((n) => n.id === id)?.title?.trim() || "Notebook";
+  const showNotebookBands = !isLabMode && selection.kind === "all";
+  const notebookBands = showNotebookBands
+    ? (() => {
+        const buckets = new Map<string, (Note | LabNote)[]>();
+        for (const note of sortedNotes) {
+          const key = notebookIdOf(note) ?? "__unfiled__";
+          const arr = buckets.get(key) ?? [];
+          arr.push(note);
+          buckets.set(key, arr);
+        }
+        // Order: notebooks (by first-appearance in the sorted list, i.e. the
+        // freshest note wins), Unfiled always last.
+        const keys = Array.from(buckets.keys()).filter((k) => k !== "__unfiled__");
+        if (buckets.has("__unfiled__")) keys.push("__unfiled__");
+        return keys.map((key) => ({
+          key,
+          label: key === "__unfiled__" ? "Unfiled" : notebookTitleOf(key),
+          color: key === "__unfiled__" ? undefined : notebookColorOf(key),
+          notes: buckets.get(key)!,
+        }));
+      })()
+    : null;
 
   // Reset the incremental window whenever the effective result set changes
-  // (search / type filter / shared filter / sort), so "Show more" always
-  // starts from the top of the new list instead of stranding the user mid-
-  // window. Grouping + view-mode don't change membership, so they're excluded.
+  // (search / type filter / shared filter / sort / rail selection), so
+  // "Show more" always starts from the top of the new list.
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [searchQuery, filterType, sharedOnly, sortKey, selection, groupBy]);
+  }, [searchQuery, filterType, sharedOnly, sortKey, selection]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -600,6 +558,57 @@ export default function NotesPanel({
     );
   }
 
+  // Type + owner filter chips, pinned to the bottom of the rail (Notes
+  // explorer redesign). Replaces the old toolbar filter cluster.
+  const chipClass = (on: boolean) =>
+    `px-2.5 py-1 text-meta font-medium rounded-full border transition-colors ${
+      on
+        ? "bg-brand-action border-brand-action text-white"
+        : "border-border text-foreground-muted hover:bg-surface-raised"
+    }`;
+  const railFilters = (
+    <div className="space-y-2 border-t border-border pt-3">
+      <div>
+        <p className="px-1 mb-1.5 text-meta font-bold uppercase tracking-wider text-foreground-muted">
+          Type
+        </p>
+        <div className="flex flex-wrap gap-1.5 px-1">
+          <button
+            type="button"
+            onClick={() => setFilterType(filterType === "single" ? "all" : "single")}
+            className={chipClass(filterType === "single")}
+          >
+            Notes
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterType(filterType === "running" ? "all" : "running")}
+            className={chipClass(filterType === "running")}
+          >
+            Running logs
+          </button>
+        </div>
+      </div>
+      {showSharedWithLab && (
+        <div>
+          <p className="px-1 mb-1.5 text-meta font-bold uppercase tracking-wider text-foreground-muted">
+            Owner
+          </p>
+          <div className="flex flex-wrap gap-1.5 px-1">
+            <button
+              type="button"
+              data-testid="notes-filter-shared"
+              onClick={() => setSharedOnly((v) => !v)}
+              className={chipClass(sharedOnly)}
+            >
+              Shared with lab
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   // The notebook left rail (personal-mode only). Lab Mode renders no rail.
   const rail = !isLabMode ? (
     <NotebookRail
@@ -616,6 +625,7 @@ export default function NotesPanel({
       onDeleteNotebook={(nb) => setDeleteConfirmFor(nb)}
       onAddMember={(nb) => setAddMemberFor(nb)}
       onCustomizeAppearance={(nb) => setAppearanceFor(nb)}
+      footer={railFilters}
     />
   ) : null;
 
@@ -762,102 +772,71 @@ export default function NotesPanel({
     );
   }
 
-  // Render one note as either a grid card or a dense list row. `globalIndex`
-  // is the note's position in the full sorted list, used BOTH for the
-  // incremental window AND for the lab-mode first-card tour target (which
-  // must land on the very first note regardless of grouping).
+  // Render one note as a dense list row. `globalIndex` is the note's position
+  // in the full sorted list (the incremental window + the lab-mode first-row
+  // tour target both key off it).
   const renderNote = (note: Note | LabNote, globalIndex: number) => {
     const tourTarget =
-      // Lab Mode fix manager R1 (2026-05-22): the lab-mode-notes cursor demo
-      // clicks the first card. Only stamp in lab mode + grid view so the
-      // tour target doesn't leak into the per-user /notes page or the row
-      // view (the lab-mode tour drives the grid).
-      isLabMode && viewMode === "grid" && globalIndex === 0
-        ? "lab-mode-notes-first-card"
-        : undefined;
-    const onTileContextMenu = (e: React.MouseEvent) => {
-      e.preventDefault();
-      setNoteMenu({ x: e.clientX, y: e.clientY, note });
-    };
-    if (viewMode === "list") {
-      return (
-        <div key={`${note.username}:${note.id}`} onContextMenu={onTileContextMenu}>
-          <NoteListRow
-            note={note}
-            onClick={() => setSelectedNote(note)}
-            isLabMode={isLabMode}
-          />
-        </div>
-      );
-    }
+      isLabMode && globalIndex === 0 ? "lab-mode-notes-first-card" : undefined;
     return (
-      <div key={`${note.username}:${note.id}`} onContextMenu={onTileContextMenu}>
-        <NoteCard
+      <div
+        key={`${note.username}:${note.id}`}
+        data-tour-target={tourTarget}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setNoteMenu({ x: e.clientX, y: e.clientY, note });
+        }}
+      >
+        <NoteListRow
           note={note}
           onClick={() => setSelectedNote(note)}
           isLabMode={isLabMode}
-          tourTarget={tourTarget}
         />
       </div>
     );
   };
 
-  // Container for a run of notes in the active view (grid = the original
-  // 1/2/3/4-col card grid; list = a hairline-divided stack of dense rows).
-  const NotesContainer = ({ children }: { children: ReactNode }) =>
-    viewMode === "list" ? (
-      <div className="divide-y divide-border border border-border rounded-lg overflow-hidden bg-surface-raised">
-        {children}
-      </div>
-    ) : (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {children}
-      </div>
-    );
+  // A hairline-divided stack of dense rows (the only layout now).
+  const NotesContainer = ({ children }: { children: ReactNode }) => (
+    <div className="divide-y divide-border border border-border rounded-lg overflow-hidden bg-surface-raised">
+      {children}
+    </div>
+  );
 
-  // Body: flat (sorted) OR month-grouped, both windowed by `visibleCount`.
-  // We track a running global index so the incremental cap spans groups.
+  // Body: notebook-banded (All view) or flat, both windowed by `visibleCount`.
+  // A running global index keeps the incremental cap spanning bands.
   const indexOf = new Map<Note | LabNote, number>();
   sortedNotes.forEach((n, i) => indexOf.set(n, i));
 
   let notesBody: ReactNode;
-  if (groupBy === "month" && monthGroups) {
+  if (notebookBands) {
     notesBody = (
       <div className="space-y-5">
-        {monthGroups.map((group) => {
-          // Only mount this group's notes that fall inside the window.
-          const visibleInGroup = group.notes.filter(
+        {notebookBands.map((band) => {
+          const visibleInBand = band.notes.filter(
             (n) => (indexOf.get(n) ?? 0) < visibleCount,
           );
-          if (visibleInGroup.length === 0) return null;
-          const collapsed = isGroupCollapsed(group.key);
+          if (visibleInBand.length === 0) return null;
           return (
-            <div key={group.key} data-testid={`notes-group-${group.key}`}>
-              <button
-                type="button"
-                onClick={() => toggleGroup(group.key)}
-                aria-expanded={!collapsed}
-                className="flex items-center gap-2 w-full text-left mb-2 group/header"
+            <div key={band.key} data-testid={`notes-band-${band.key}`}>
+              <div
+                className={`flex items-center gap-2 px-3 py-1.5 mb-2 rounded-md border-l-[3px] text-meta font-bold uppercase tracking-wider ${
+                  band.color
+                    ? ""
+                    : "bg-surface-sunken text-foreground-muted border-l-gray-300 dark:border-l-gray-600"
+                }`}
+                style={bandTint(band.color)}
               >
-                <svg
-                  className={`w-4 h-4 text-foreground-muted transition-transform ${collapsed ? "" : "rotate-90"}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-                <span className="text-body font-semibold text-foreground">{group.label}</span>
-                <span className="text-meta text-foreground-muted bg-surface-sunken px-2 py-0.5 rounded-full">
-                  {group.notes.length}
-                </span>
-              </button>
-              {!collapsed && (
-                <NotesContainer>
-                  {visibleInGroup.map((note) => renderNote(note, indexOf.get(note) ?? 0))}
-                </NotesContainer>
-              )}
+                <span
+                  className={`w-2.5 h-2.5 rounded-full flex-none ${band.color ? "" : "bg-gray-400"}`}
+                  style={band.color ? { backgroundColor: band.color } : undefined}
+                />
+                <span className="flex-1">{band.label}</span>
+                <span className="opacity-70">{band.notes.length}</span>
+              </div>
+              <NotesContainer>
+                {visibleInBand.map((note) => renderNote(note, indexOf.get(note) ?? 0))}
+              </NotesContainer>
             </div>
           );
         })}
@@ -906,143 +885,20 @@ export default function NotesPanel({
           />
         </div>
 
-        {/* Filter + arrange controls. Two coherent clusters that wrap as
-            units: the type/shared filters, then sort + group-by + view. */}
-        <div className="flex items-center gap-x-3 gap-y-2 flex-wrap">
-          {/* Cluster 1: type + shared filters */}
-          <div className="flex items-center gap-2">
-          <button
-            onClick={() => setFilterType("all")}
-            aria-pressed={filterType === "all"}
-            className={`px-3 py-1.5 text-body rounded-lg transition-colors ${
-              filterType === "all"
-                ? "bg-brand-action/10 text-brand-action"
-                : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
-            }`}
-          >
-            All
-          </button>
-          <button
-            onClick={() => setFilterType("single")}
-            aria-pressed={filterType === "single"}
-            className={`px-3 py-1.5 text-body rounded-lg transition-colors ${
-              filterType === "single"
-                ? "bg-brand-action/10 text-brand-action"
-                : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
-            }`}
-          >
-            Single
-          </button>
-          <button
-            onClick={() => setFilterType("running")}
-            aria-pressed={filterType === "running"}
-            className={`px-3 py-1.5 text-body rounded-lg transition-colors ${
-              filterType === "running"
-                ? "bg-brand-action/10 text-brand-action"
-                : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
-            }`}
-          >
-            Running Logs
-          </button>
-
-          {/* Shared-with-lab filter (notes-scale bot). Composes (AND) with
-              the type filter above; does not replace it. Hidden in a solo
-              folder, where there is no lab to share with. */}
-          {showSharedWithLab && (
-          <button
-            onClick={() => setSharedOnly((v) => !v)}
-            aria-pressed={sharedOnly}
-            data-testid="notes-filter-shared"
-            className={`flex items-center gap-1 px-3 py-1.5 text-body rounded-lg transition-colors ${
-              sharedOnly
-                ? "bg-brand-action/10 text-brand-action"
-                : "bg-surface-sunken text-foreground-muted hover:bg-surface-sunken"
-            }`}
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4zm6 0a3 3 0 10-2.83-4" />
-            </svg>
-            Shared with lab
-          </button>
-          )}
-          </div>
-
-          {/* Cluster 2: sort + group-by selects kept together, with the
-              grid/list view toggle next to them. */}
-          <div className="flex items-center gap-2">
-          {/* Sort control (notes-scale bot) */}
+        {/* Sort control. The type / owner filters now live in the rail. */}
+        <div className="flex items-center gap-2">
           <label className="sr-only" htmlFor="notes-sort">Sort notes</label>
           <select
             id="notes-sort"
             value={sortKey}
             onChange={(e) => setSortKey(e.target.value as SortKey)}
             data-testid="notes-sort"
-            className="px-2 py-1.5 text-body rounded-lg bg-surface-sunken text-foreground hover:bg-surface-sunken border-none focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"
+            className="px-2 py-1.5 text-body rounded-lg bg-surface-sunken text-foreground border-none focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"
           >
             <option value="updated">Recently updated</option>
             <option value="created">Recently created</option>
             <option value="title">Title A-Z</option>
           </select>
-
-          {/* Group-by control (notes-scale bot) */}
-          <label className="sr-only" htmlFor="notes-group">Group notes</label>
-          <select
-            id="notes-group"
-            value={groupBy}
-            onChange={(e) => setGroupBy(e.target.value as GroupBy)}
-            data-testid="notes-group"
-            className="px-2 py-1.5 text-body rounded-lg bg-surface-sunken text-foreground hover:bg-surface-sunken border-none focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"
-          >
-            <option value="none">No grouping</option>
-            <option value="month">By month</option>
-          </select>
-
-          <span className="w-px h-6 bg-surface-sunken mx-0.5" aria-hidden="true" />
-
-          {/* View-mode toggle (notes-scale bot): grid (current cards) | list
-              (dense rows). Each icon-only button wrapped in Tooltip. */}
-          <div
-            className="flex items-center rounded-lg bg-surface-sunken p-0.5"
-            data-testid="notes-view-toggle"
-            role="group"
-            aria-label="Note view mode"
-          >
-            <Tooltip label="Card grid">
-              <button
-                onClick={() => setViewMode("grid")}
-                aria-pressed={viewMode === "grid"}
-                aria-label="Card grid view"
-                data-testid="notes-view-grid"
-                className={`p-1.5 rounded-md transition-colors ${
-                  viewMode === "grid"
-                    ? "bg-surface-raised text-brand-action shadow-sm"
-                    : "text-foreground-muted hover:text-foreground"
-                }`}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h5a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM13 5a1 1 0 011-1h5a1 1 0 011 1v5a1 1 0 01-1 1h-5a1 1 0 01-1-1V5zM4 14a1 1 0 011-1h5a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1v-5zM13 14a1 1 0 011-1h5a1 1 0 011 1v5a1 1 0 01-1 1h-5a1 1 0 01-1-1v-5z" />
-                </svg>
-              </button>
-            </Tooltip>
-            <Tooltip label="Dense list">
-              <button
-                onClick={() => setViewMode("list")}
-                aria-pressed={viewMode === "list"}
-                aria-label="Dense list view"
-                data-testid="notes-view-list"
-                className={`p-1.5 rounded-md transition-colors ${
-                  viewMode === "list"
-                    ? "bg-surface-raised text-brand-action shadow-sm"
-                    : "text-foreground-muted hover:text-foreground"
-                }`}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </button>
-            </Tooltip>
-          </div>
-          </div>
         </div>
 
         {/* New note button (not in Lab Mode) */}
@@ -1153,6 +1009,11 @@ export default function NotesPanel({
           onClose={() => setNoteMenu(null)}
           items={[
             {
+              label: "Open",
+              icon: <Icon name="eye" className="h-4 w-4 text-foreground-muted" />,
+              onClick: () => setSelectedNote(noteMenu.note),
+            },
+            {
               label: (noteMenu.note.comments?.length ?? 0) > 0 ? "View / add comment" : "Add a comment",
               icon: (
                 <svg className="h-4 w-4 text-foreground-muted" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true">
@@ -1161,7 +1022,7 @@ export default function NotesPanel({
               ),
               onClick: () => openNoteComments(noteMenu.note),
             },
-            // Move-to-notebook: personal mode only (Lab Mode is read-only).
+            // Move-to-notebook + Delete: personal mode only (Lab Mode is read-only).
             ...(!isLabMode
               ? [
                   {
@@ -1176,6 +1037,11 @@ export default function NotesPanel({
                       const { x, y, note } = noteMenu;
                       setMoveMenu({ x, y, note: note as Note });
                     },
+                  },
+                  {
+                    label: "Delete",
+                    icon: <Icon name="trash" className="h-4 w-4 text-red-500" />,
+                    onClick: () => handleNoteDelete(noteMenu.note.id),
                   },
                 ]
               : []),

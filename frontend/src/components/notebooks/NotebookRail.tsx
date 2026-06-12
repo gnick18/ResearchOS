@@ -47,6 +47,9 @@ interface NotebookRailProps {
   onDeleteNotebook: (notebook: Notebook) => void;
   onAddMember: (notebook: Notebook) => void;
   onCustomizeAppearance: (notebook: Notebook) => void;
+  /** Optional content pinned to the bottom of the rail (e.g. type / owner
+   *  filter chips for the Notes explorer). */
+  footer?: ReactNode;
 }
 
 const ICON_CLASS = "h-4 w-4 flex-shrink-0";
@@ -155,6 +158,7 @@ export default function NotebookRail({
   onDeleteNotebook,
   onAddMember,
   onCustomizeAppearance,
+  footer,
 }: NotebookRailProps) {
   // The open overflow menu (one at a time), positioned at the cursor.
   const [menu, setMenu] = useState<{
@@ -336,6 +340,7 @@ export default function NotebookRail({
           ]}
         />
       )}
+      {footer ? <div className="mt-auto pt-3">{footer}</div> : null}
     </nav>
   );
 }
