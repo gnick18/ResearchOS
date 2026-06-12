@@ -938,6 +938,18 @@ function ContigsStep({
         Pulled live from the assembly. Browse and grab a whole chromosome, or just search a gene and we land you on the right one.
       </p>
 
+      {/* Gene search is the common path, so it leads here instead of sitting
+          below a long chromosome list where it was easy to miss. */}
+      <button
+        type="button"
+        disabled={busy}
+        onClick={onSearchGene}
+        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md bg-sky-600 px-3.5 py-2 text-meta font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-50"
+      >
+        <Icon name="search" className="h-3.5 w-3.5" />
+        Search a gene instead
+      </button>
+
       {loading ? (
         <p className="mt-3 flex items-center gap-2 text-meta text-foreground-muted">
           <Icon name="refresh" className="h-3.5 w-3.5 animate-spin text-sky-500" />
@@ -1000,15 +1012,6 @@ function ContigsStep({
         >
           <Icon name="chevronLeft" className="h-3.5 w-3.5" />
           Back
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={onSearchGene}
-          className="ml-auto flex items-center gap-1.5 rounded-md bg-sky-600 px-3.5 py-1.5 text-meta font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-50"
-        >
-          <Icon name="search" className="h-3.5 w-3.5" />
-          Search a gene instead
         </button>
       </div>
     </div>
