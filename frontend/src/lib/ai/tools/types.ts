@@ -250,8 +250,9 @@ export type AiTool = {
     transformPayload?: TransformApprovalRequest;
   };
   /** For action tools, decide whether THIS specific call must hard-stop for a
-   *  confirm even in "auto" mode (the destructive safety net). Pure. Optional,
-   *  absent = never forces a confirm beyond the autonomy setting. */
+   *  confirm in BOTH review modes, even inside an already-approved whole plan
+   *  (the destructive safety net). Pure. Optional, absent = never forces a
+   *  confirm beyond what the review mode already requires. */
   isDestructive?: (args: Record<string, unknown>) => boolean;
 };
 

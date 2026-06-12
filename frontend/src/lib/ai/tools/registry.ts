@@ -15,9 +15,10 @@
 //
 // The first action tool is click_element, which dispatches a real click for the
 // user. It carries action: true, so the agent loop routes it through the approval
-// gate (propose-then-approve in "ask" autonomy, direct in "auto", with a
-// destructive hard-stop in both). A genuinely destructive or outward-facing future
-// write tool reuses the SAME flag and gate, one import and one array entry.
+// gate (a per-step confirm in step-by-step review mode, plan-approved or a single
+// confirm in whole-plan mode, with a destructive hard-stop in both). A genuinely
+// destructive or outward-facing future write tool reuses the SAME flag and gate,
+// one import and one array entry.
 //
 // run_datahub_analysis is the exception that proves the rule. It DOES write (a new
 // version-controlled AnalysisSpec), but it is non-destructive AND the user already

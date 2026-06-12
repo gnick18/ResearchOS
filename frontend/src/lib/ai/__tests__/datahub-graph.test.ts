@@ -440,9 +440,13 @@ describe("buildGraph", () => {
 // ---------------------------------------------------------------------------
 
 describe("make_datahub_graph tool", () => {
-  it("is NOT a gated action, so a build never raises an approval request", () => {
+  it("is previewable, not a gated action (ai review-mode bot)", () => {
+    // No `action` flag, so whole-plan mode runs it free. `previewable` true, so
+    // step-by-step mode shows a preview-and-confirm block from its synchronous
+    // describeAction. No isDestructive hook, the plot write is reversible.
     expect(makeDataHubGraphTool.action).toBeFalsy();
-    expect(makeDataHubGraphTool.describeAction).toBeUndefined();
+    expect(makeDataHubGraphTool.previewable).toBe(true);
+    expect(typeof makeDataHubGraphTool.describeAction).toBe("function");
     expect(makeDataHubGraphTool.isDestructive).toBeUndefined();
   });
 

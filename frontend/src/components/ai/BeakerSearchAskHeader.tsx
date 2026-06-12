@@ -4,8 +4,8 @@
 //
 // The chat chrome that appears inside the BeakerSearch palette when it is in
 // Ask mode. Contains (left to right): back-to-search control, BeakerBot mark
-// + "BeakerBot" title, Save-to control, New chat button, History stub, autonomy
-// toggle, and a static "uses credit" hint.
+// + "BeakerBot" title, Save-to control, New chat button, History stub, the
+// review-mode control, and a static "uses credit" hint.
 //
 // Props:
 //   onBack         -> return to search mode (back control click)
