@@ -115,6 +115,33 @@ const ICONS_RAW = {
       </>
     ),
   },
+  labTree: {
+    concept: "Lab / mentorship hierarchy (people who mentor whom)",
+    body: (
+      <>
+        <circle cx="12" cy="4" r="1.8" />
+        <path d="M9.4 8.6a2.6 2.6 0 0 1 5.2 0" />
+        <circle cx="6" cy="15.5" r="1.8" />
+        <path d="M3.8 19.6a2.2 2.2 0 0 1 4.4 0" />
+        <circle cx="18" cy="15.5" r="1.8" />
+        <path d="M15.8 19.6a2.2 2.2 0 0 1 4.4 0" />
+        <path d="M12 8.6V11" />
+        <path d="M6 11h12" />
+        <path d="M6 11v2.7" />
+        <path d="M18 11v2.7" />
+      </>
+    ),
+  },
+  storageNested: {
+    concept: "Inventory storage location (containers nested within a container)",
+    body: (
+      <>
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <rect x="6" y="6" width="5" height="5" rx="1" />
+        <rect x="13" y="13" width="5" height="5" rx="1" />
+      </>
+    ),
+  },
   export: {
     concept: "Export",
     body: (

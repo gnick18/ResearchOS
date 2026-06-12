@@ -253,7 +253,7 @@ export default function WorkbenchOneOnOnePanel({
                   showTree ? "text-brand-action" : "text-foreground-muted"
                 }`}
               >
-                <Icon name="tree" className="h-[18px] w-[18px]" />
+                <Icon name="labTree" className="h-[18px] w-[18px]" />
               </button>
             </Tooltip>
             <Tooltip label="Start a check-in">
@@ -348,7 +348,7 @@ export default function WorkbenchOneOnOnePanel({
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between gap-2 border-b border-border pb-2">
               <h3 className="flex items-center gap-2 text-body font-semibold text-foreground">
-                <Icon name="tree" className="h-4 w-4 text-foreground-muted" />
+                <Icon name="labTree" className="h-4 w-4 text-foreground-muted" />
                 Lab tree
               </h3>
               <button

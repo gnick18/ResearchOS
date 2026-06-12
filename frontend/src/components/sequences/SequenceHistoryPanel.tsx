@@ -482,7 +482,7 @@ function ResultsSection({
   return (
     <div className="border-b border-border" data-testid="sequence-results-section">
       <div className="flex items-center gap-2 bg-surface-sunken/60 px-4 py-1.5">
-        <Icon name="tree" className="h-3.5 w-3.5 text-foreground-muted" />
+        <Icon name="chart" className="h-3.5 w-3.5 text-foreground-muted" />
         <span className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">
           Results
         </span>

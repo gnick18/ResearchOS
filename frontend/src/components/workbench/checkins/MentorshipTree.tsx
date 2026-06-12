@@ -112,7 +112,7 @@ export default function MentorshipTree({
         data-testid="mentorship-tree-empty"
       >
         <div className="flex items-center gap-2 text-foreground">
-          <Icon name="tree" className="h-4 w-4 text-foreground-muted" />
+          <Icon name="labTree" className="h-4 w-4 text-foreground-muted" />
           <span className="font-medium">No mentoring relationships yet</span>
         </div>
         <p>
@@ -127,7 +127,7 @@ export default function MentorshipTree({
   return (
     <div className="flex flex-col gap-4" data-testid="mentorship-tree">
       <div className="flex items-center gap-2 text-meta text-foreground-muted">
-        <Icon name="tree" className="h-4 w-4" />
+        <Icon name="labTree" className="h-4 w-4" />
         <span>
           Who checks in with whom. A mentor sits above the people they mentor.
           You see only the relationships in check-ins you can read.

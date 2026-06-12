@@ -397,7 +397,7 @@ function NonBoxPane({
   return (
     <div className="flex h-full min-h-[18rem] flex-col items-center justify-center text-center">
       <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-surface-sunken text-foreground-muted">
-        <Icon name="tree" className="h-6 w-6" />
+        <Icon name="storageNested" className="h-6 w-6" />
       </div>
       <h3 className="text-title font-semibold text-foreground">{node.name}</h3>
       <p className="mt-1.5 max-w-sm text-body text-foreground-muted">
