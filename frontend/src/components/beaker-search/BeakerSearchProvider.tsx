@@ -97,6 +97,10 @@ export interface BeakerSearchApi {
    *  feeds BeakerSearch its own context" from "global-only". Not a gate on
    *  opening. */
   hasSource: boolean;
+  /** Open the palette directly in Ask mode, resuming the persisted BeakerBot
+   *  conversation. No query is seeded. This is the FAB's action: tapping the
+   *  floating summon button opens BeakerBot without launching a search. */
+  openBeakerBot: () => void;
 }
 
 /** The source-registration API, for useBeakerSearchSource. Kept internal to
@@ -143,6 +147,15 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
     setAskMode("search");
   }, []);
   const togglePalette = useCallback(() => setOpen((cur) => !cur), []);
+
+  // Phase 4: the FAB opens the palette directly in Ask mode, resuming the
+  // persisted conversation. No query is seeded (the user just wants to
+  // continue the chat). The palette stays in Ask mode until the user presses
+  // back-to-search or closes it.
+  const openBeakerBot = useCallback(() => {
+    setOpen(true);
+    setAskMode("ask");
+  }, []);
 
   // The always-present GLOBAL layer (cross-page nav + safe app commands).
   const globalCommands = useGlobalCommands();
@@ -260,8 +273,8 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
   }, [activePage, globalCommands]);
 
   const api = useMemo<BeakerSearchApi>(
-    () => ({ open, openPalette, closePalette, togglePalette, hasSource }),
-    [open, openPalette, closePalette, togglePalette, hasSource],
+    () => ({ open, openPalette, closePalette, togglePalette, hasSource, openBeakerBot }),
+    [open, openPalette, closePalette, togglePalette, hasSource, openBeakerBot],
   );
 
   const registry = useMemo<BeakerSearchRegistry>(
