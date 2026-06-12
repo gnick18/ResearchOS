@@ -64,3 +64,21 @@ export {
   type FitOptions,
   type NonlinearModel,
 } from "./fit";
+
+// Power and sample-size planning (a study-design calculator, not stored data).
+export {
+  powerTwoSampleT,
+  sampleSizeTwoSampleT,
+  detectableDTwoSampleT,
+  powerPairedT,
+  sampleSizePairedT,
+  detectableDzPairedT,
+  powerOneWayAnova,
+  sampleSizeOneWayAnova,
+  detectableFOneWayAnova,
+  cohenFFromEtaSquared,
+  etaSquaredFromCohenF,
+  powerCorrelation,
+  sampleSizeCorrelation,
+  detectableRCorrelation,
+} from "./power";
