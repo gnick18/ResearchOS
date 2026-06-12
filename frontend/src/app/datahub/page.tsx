@@ -1175,6 +1175,7 @@ export default function DataHubPage() {
                     onCellCommit={handleCellCommit}
                     onAddRow={handleAddRow}
                     onAddColumn={handleAddColumn}
+                    crud={gridCrud}
                     hideAddControls
                   />
                 ) : openContent.meta.table_type === "grouped" ? (
@@ -1184,6 +1185,7 @@ export default function DataHubPage() {
                     onAddRow={handleAddRow}
                     onAddColumn={handleAddColumn}
                     onRenameGroup={handleRenameGroup}
+                    crud={gridCrud}
                     hideAddControls
                   />
                 ) : openContent.meta.table_type === "survival" ? (
@@ -1191,6 +1193,7 @@ export default function DataHubPage() {
                     content={openContent}
                     onCellCommit={handleCellCommit}
                     onAddRow={handleAddRow}
+                    crud={gridCrud}
                     hideAddControls
                   />
                 ) : (

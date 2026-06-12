@@ -107,7 +107,10 @@ export function useGridCrudMenu(
           onRun: () => setRenamingColumnId(columnId),
         });
       }
-      if (handlers.onDuplicateColumn) {
+      // Duplicate is gated behind the same non-structural check as rename: copying
+      // a structural axis (the XY X column, the Grouped row label) would mint a
+      // second role-x column and corrupt the table, so it is withheld there.
+      if (handlers.onDuplicateColumn && canRenameColumn(content, columnId)) {
         items.push({
           id: "duplicate",
           label: `Duplicate ${colNoun}`,

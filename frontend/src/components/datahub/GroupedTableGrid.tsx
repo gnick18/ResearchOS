@@ -18,6 +18,10 @@ import { Icon } from "@/components/icons";
 import type { DataHubDocContent } from "@/lib/datahub/model/types";
 import { cellDisplay } from "@/lib/datahub/column-table";
 import { groupDatasets, rowLabelColumn } from "@/lib/datahub/grouped-table";
+import {
+  useGridCrudMenu,
+  type GridCrudHandlers,
+} from "@/components/datahub/grid-crud-menu";
 
 export default function GroupedTableGrid({
   content,
@@ -26,6 +30,7 @@ export default function GroupedTableGrid({
   onAddColumn,
   onRenameGroup,
   hideAddControls = false,
+  crud,
 }: {
   content: DataHubDocContent;
   onCellCommit: (rowId: string, columnId: string, raw: string) => void;
@@ -36,10 +41,25 @@ export default function GroupedTableGrid({
   onRenameGroup: (datasetId: string, name: string) => void;
   /** Suppress the internal Add bar when the WorkspaceToolbar owns those actions. */
   hideAddControls?: boolean;
+  /** Right-click CRUD callbacks. A Grouped table's columns are REPLICATE
+   *  subcolumns bound into datasetId groups, not free-standing data columns, so a
+   *  generic per-column delete / duplicate / insert would leave uneven replicate
+   *  counts and orphan a group. Only the ROW menu (insert / delete row) is wired
+   *  here; group-level rename already lives inline on the group header, and Add
+   *  group lives in the toolbar. The per-column menu is deliberately withheld
+   *  (FLAGGED for a later group-aware phase). */
+  crud?: GridCrudHandlers;
 }) {
   const labelCol = useMemo(() => rowLabelColumn(content), [content]);
   const groups = useMemo(() => groupDatasets(content), [content]);
   const rows = content.rows;
+  // Row-only menu (see the crud prop note): the column menu would corrupt the
+  // replicate-group structure, so it is not attached on this grid.
+  const rowOnlyCrud = useMemo<GridCrudHandlers>(
+    () => ({ onDeleteRow: crud?.onDeleteRow, onInsertRowAt: crud?.onInsertRowAt }),
+    [crud?.onDeleteRow, crud?.onInsertRowAt],
+  );
+  const menu = useGridCrudMenu(content, rowOnlyCrud);
 
   return (
     <div data-testid="datahub-grouped-grid">
@@ -116,7 +136,10 @@ export default function GroupedTableGrid({
           <tbody>
             {rows.map((row, r) => (
               <tr key={row.id}>
-                <td className="border border-border bg-surface-sunken px-3 py-1 text-center text-meta text-foreground-muted">
+                <td
+                  onContextMenu={(e) => menu.openRowMenu(e, row.id)}
+                  className="border border-border bg-surface-sunken px-3 py-1 text-center text-meta text-foreground-muted"
+                >
                   {r + 1}
                 </td>
                 {labelCol && (
