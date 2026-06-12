@@ -66,7 +66,7 @@ export default function Reveal({
       },
       // Trigger a touch inside both edges so a section settles out just before
       // it fully leaves and lifts in just before it fully arrives.
-      { rootMargin: "-8% 0px -8% 0px", threshold: 0.1 },
+      { rootMargin: "-10% 0px -10% 0px", threshold: 0.1 },
     );
     io.observe(el);
     return () => io.disconnect();

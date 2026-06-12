@@ -1,17 +1,18 @@
-/* Scroll-reveal entrance for the marketing surfaces. Matches the login hero's
-   enterUp keyframe (a 16px rise plus fade on the same easing), driven by a class
-   the Reveal component toggles from an IntersectionObserver. The transition runs
-   both directions, so by default a section lifts in on the way down and settles
-   back out on the way up (bidirectional). Disabled under prefers-reduced-motion.
+/* Scroll-reveal entrance for the marketing surfaces. Ports the login hero's
+   enterUp easing onto a class the Reveal component toggles from an
+   IntersectionObserver. A 24px rise plus a slight 0.98 scale and a fade over
+   0.65s on cubic-bezier(.2,.7,.2,1). The transition runs both directions, so by
+   default a section lifts in on the way down and settles back out on the way up
+   (bidirectional). Disabled under prefers-reduced-motion.
 
    No emojis, no em-dashes, no mid-sentence colons. */
 
 .reveal {
   opacity: 0;
-  transform: translateY(16px);
+  transform: translateY(24px) scale(0.98);
   transition:
-    opacity 0.6s cubic-bezier(0.2, 0.7, 0.2, 1),
-    transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+    opacity 0.65s cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 0.65s cubic-bezier(0.2, 0.7, 0.2, 1);
   will-change: opacity, transform;
 }
 
