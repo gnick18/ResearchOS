@@ -54,6 +54,9 @@ interface GoldenFile {
     dedupe: Record<string, TableRef>;
     union: Record<string, TableRef>;
     chains: Record<string, TableRef>;
+    derive: Record<string, TableRef>;
+    pivot: Record<string, TableRef>;
+    unpivot: Record<string, TableRef>;
   };
 }
 
@@ -195,6 +198,10 @@ const TABLE_NULL_KEYS = fixtureContent("TABLE_NULL_KEYS");
 const TABLE_NULL_KEYS_B = fixtureContent("TABLE_NULL_KEYS_B");
 const TABLE_MM_LEFT = fixtureContent("TABLE_MM_LEFT");
 const TABLE_MM_RIGHT = fixtureContent("TABLE_MM_RIGHT");
+const TABLE_DERIVE = fixtureContent("TABLE_DERIVE");
+const TABLE_LONG = fixtureContent("TABLE_LONG");
+const TABLE_LONG_DUP = fixtureContent("TABLE_LONG_DUP");
+const TABLE_WIDE = fixtureContent("TABLE_WIDE");
 
 // Helper to build a sources map for multi-table ops.
 function sources(...pairs: [string, DataHubDocContent][]): Map<string, DataHubDocContent> {
@@ -555,6 +562,86 @@ describe("union (pandas-validated)", () => {
       ops: [{ kind: "union", otherRef: "MISSING" }],
     };
     expect("error" in executePipeline(TABLE_A, pipeline, new Map())).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Derive tests (foundation 1b)
+// ---------------------------------------------------------------------------
+
+describe("derive (pandas-validated)", () => {
+  it("derive sum_ab = a + b matches pandas vectorized add", () => {
+    const pipeline: TransformPipeline = {
+      ops: [{ kind: "derive", outputName: "sum_ab", formula: "a + b" }],
+    };
+    const result = executePipeline(TABLE_DERIVE, pipeline, new Map());
+    assertMatchesRef("derive.sum_ab", result, GOLDEN.references.derive["sum_ab"]);
+  });
+
+  it("derive lin = a * 2 - c matches pandas", () => {
+    const pipeline: TransformPipeline = {
+      ops: [{ kind: "derive", outputName: "lin", formula: "a * 2 - c" }],
+    };
+    const result = executePipeline(TABLE_DERIVE, pipeline, new Map());
+    assertMatchesRef("derive.lin", result, GOLDEN.references.derive["lin"]);
+  });
+
+  it("derive ratio = a / b matches pandas (divide-by-zero -> null)", () => {
+    const pipeline: TransformPipeline = {
+      ops: [{ kind: "derive", outputName: "ratio", formula: "a / b" }],
+    };
+    const result = executePipeline(TABLE_DERIVE, pipeline, new Map());
+    assertMatchesRef("derive.ratio", result, GOLDEN.references.derive["ratio"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Pivot tests (foundation 1b)
+// ---------------------------------------------------------------------------
+
+describe("pivot (pandas-validated)", () => {
+  it("pivot long -> wide matches pandas pivot_table (missing cell -> null)", () => {
+    const pipeline: TransformPipeline = {
+      ops: [{ kind: "pivot", index: ["sample"], columns: "gene", values: "level" }],
+    };
+    const result = executePipeline(TABLE_LONG, pipeline, new Map());
+    assertMatchesRef("pivot.basic", result, GOLDEN.references.pivot["basic"]);
+  });
+
+  it("pivot collision aggregates with mean, matching pivot_table default", () => {
+    const pipeline: TransformPipeline = {
+      ops: [{ kind: "pivot", index: ["sample"], columns: "gene", values: "level" }],
+    };
+    const result = executePipeline(TABLE_LONG_DUP, pipeline, new Map());
+    assertMatchesRef("pivot.collision", result, GOLDEN.references.pivot["collision"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Unpivot tests (foundation 1b)
+// ---------------------------------------------------------------------------
+
+describe("unpivot (pandas-validated)", () => {
+  it("unpivot wide -> long matches pandas melt (explicit columns + names)", () => {
+    const pipeline: TransformPipeline = {
+      ops: [{
+        kind: "unpivot",
+        idVars: ["sample"],
+        valueVars: ["actin", "tubulin"],
+        varName: "gene",
+        valueName: "level",
+      }],
+    };
+    const result = executePipeline(TABLE_WIDE, pipeline, new Map());
+    assertMatchesRef("unpivot.explicit", result, GOLDEN.references.unpivot["explicit"]);
+  });
+
+  it("unpivot default valueVars and names match pandas melt", () => {
+    const pipeline: TransformPipeline = {
+      ops: [{ kind: "unpivot", idVars: ["sample"] }],
+    };
+    const result = executePipeline(TABLE_WIDE, pipeline, new Map());
+    assertMatchesRef("unpivot.defaults", result, GOLDEN.references.unpivot["defaults"]);
   });
 });
 

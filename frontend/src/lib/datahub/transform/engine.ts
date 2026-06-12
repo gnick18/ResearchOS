@@ -49,6 +49,7 @@
  */
 
 import type { DataHubDocContent, ColumnDef, RowRecord, CellValue } from "@/lib/datahub/model/types";
+import { evaluateExpression } from "@/lib/calculators/custom";
 import type {
   TransformPipeline,
   TransformOp,
@@ -61,6 +62,9 @@ import type {
   SortOp,
   DedupeOp,
   UnionOp,
+  DeriveOp,
+  PivotOp,
+  UnpivotOp,
   FilterNode,
   FilterCondition,
   AggFunc,
@@ -667,6 +671,209 @@ function applyUnion(table: InternalTable, other: InternalTable, _op: UnionOp): I
 }
 
 // ---------------------------------------------------------------------------
+// Derive (computed column via the calc builder expression engine)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the per-row evaluation scope. Every column name maps to that row's cell
+ * value. Numeric strings are coerced to numbers so a formula like "a + b" does
+ * arithmetic even when the source cell is a string "2" (matching how the calc
+ * builder binds numeric inputs). Empty / null cells are left as NaN so any
+ * formula touching them produces a non-finite result, which the caller maps to
+ * null. Non-numeric text cells are passed through as-is so string-aware formulas
+ * (for example the calc builder's "if" returning a label) still see the text.
+ */
+function deriveScope(row: Record<string, CellValue>): Record<string, unknown> {
+  const scope: Record<string, unknown> = {};
+  for (const [name, value] of Object.entries(row)) {
+    if (value === null || value === undefined || value === "") {
+      scope[name] = NaN;
+    } else if (typeof value === "number") {
+      scope[name] = value;
+    } else {
+      const n = Number(value);
+      scope[name] = Number.isFinite(n) ? n : value;
+    }
+  }
+  return scope;
+}
+
+function applyDerive(table: InternalTable, op: DeriveOp): InternalTable | string {
+  if (!op.outputName || op.outputName.trim() === "")
+    return `derive: outputName must be a non-empty column name`;
+  if (!op.formula || op.formula.trim() === "")
+    return `derive: formula must be a non-empty expression`;
+
+  // The new column overwrites an existing same-named column in place (keeps the
+  // column order stable) or is appended when the name is new.
+  const exists = table.columns.includes(op.outputName);
+  const columns = exists ? table.columns : [...table.columns, op.outputName];
+
+  const rows = table.rows.map((row) => {
+    const scope = deriveScope(row);
+    const result = evaluateExpression(op.formula, scope);
+    // Missing / non-numeric inputs, a parse error, or a non-finite number all
+    // collapse to null instead of crashing the pipeline. A finite number is
+    // stored as a number; a non-empty string result is stored as text.
+    let cell: CellValue;
+    if (typeof result === "number") {
+      cell = Number.isFinite(result) ? result : null;
+    } else if (typeof result === "string") {
+      cell = result === "" ? null : result;
+    } else {
+      cell = null;
+    }
+    return { ...row, [op.outputName]: cell };
+  });
+
+  return { columns, rows };
+}
+
+// ---------------------------------------------------------------------------
+// Pivot (long -> wide, pandas pivot_table with aggfunc=mean)
+// ---------------------------------------------------------------------------
+
+/** Mean of the numeric members of a collided (index, key) cell, or a single
+ *  passthrough value when there is no collision. Returns null when nothing is
+ *  numeric and there is no single non-numeric value to pass through. */
+function pivotCellValue(cells: CellValue[]): CellValue {
+  if (cells.length === 1) return cells[0] ?? null;
+  const nums = cells
+    .filter((v) => !isEmpty(v))
+    .map((v) => (typeof v === "number" ? v : Number(v)))
+    .filter((n) => Number.isFinite(n));
+  if (nums.length === 0) return null;
+  return nums.reduce((a, b) => a + b, 0) / nums.length;
+}
+
+/** Deterministic ascending comparison of distinct key values. Numbers sort
+ *  numerically, anything else sorts as strings, matching pandas sorted columns. */
+function compareKeyValues(a: string, b: string): number {
+  const an = Number(a);
+  const bn = Number(b);
+  if (a !== "" && b !== "" && Number.isFinite(an) && Number.isFinite(bn)) {
+    return an - bn;
+  }
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+function applyPivot(table: InternalTable, op: PivotOp): InternalTable | string {
+  const { index, columns: keyCol, values: valCol } = op;
+  if (index.length === 0) return `pivot: index must list at least one column`;
+  for (const col of index) {
+    if (!table.columns.includes(col))
+      return `pivot: index column "${col}" not found`;
+  }
+  if (!table.columns.includes(keyCol))
+    return `pivot: columns key "${keyCol}" not found`;
+  if (!table.columns.includes(valCol))
+    return `pivot: values column "${valCol}" not found`;
+
+  // Distinct key values become new columns, sorted ascending.
+  const keySet = new Set<string>();
+  for (const row of table.rows) {
+    const k = row[keyCol];
+    if (k !== null && k !== undefined) keySet.add(String(k));
+  }
+  const keyColumns = [...keySet].sort(compareKeyValues);
+
+  // Bucket value cells by (index tuple, key value). Preserve first-seen order
+  // of the index tuples for deterministic output rows. pandas pivot_table sorts
+  // its index, so we sort the index rows by their tuple at the end to match.
+  const groups = new Map<string, { idx: Record<string, CellValue>; cells: Map<string, CellValue[]> }>();
+  const order: string[] = [];
+  for (const row of table.rows) {
+    const idxKey = rowKey(row, index);
+    if (!groups.has(idxKey)) {
+      const idx: Record<string, CellValue> = {};
+      for (const col of index) idx[col] = row[col] ?? null;
+      groups.set(idxKey, { idx, cells: new Map() });
+      order.push(idxKey);
+    }
+    const k = row[keyCol];
+    if (k === null || k === undefined) continue; // null keys drop, like pandas
+    const kStr = String(k);
+    const bucket = groups.get(idxKey)!.cells;
+    if (!bucket.has(kStr)) bucket.set(kStr, []);
+    bucket.get(kStr)!.push(row[valCol] ?? null);
+  }
+
+  const outputCols = [...index, ...keyColumns];
+  const resultRows: Record<string, CellValue>[] = order.map((idxKey) => {
+    const { idx, cells } = groups.get(idxKey)!;
+    const r: Record<string, CellValue> = {};
+    for (const col of index) r[col] = idx[col];
+    for (const kCol of keyColumns) {
+      const bucket = cells.get(kCol);
+      r[kCol] = bucket ? pivotCellValue(bucket) : null;
+    }
+    return r;
+  });
+
+  // pandas pivot_table sorts the resulting index ascending.
+  resultRows.sort((a, b) => {
+    for (const col of index) {
+      const av = a[col] ?? null;
+      const bv = b[col] ?? null;
+      const aNull = av === null;
+      const bNull = bv === null;
+      if (aNull && bNull) continue;
+      if (aNull) return 1;
+      if (bNull) return -1;
+      const cmp =
+        typeof av === "number" && typeof bv === "number"
+          ? av - bv
+          : String(av) < String(bv) ? -1 : String(av) > String(bv) ? 1 : 0;
+      if (cmp !== 0) return cmp;
+    }
+    return 0;
+  });
+
+  return { columns: outputCols, rows: resultRows };
+}
+
+// ---------------------------------------------------------------------------
+// Unpivot (wide -> long, pandas melt)
+// ---------------------------------------------------------------------------
+
+function applyUnpivot(table: InternalTable, op: UnpivotOp): InternalTable | string {
+  const idVars = op.idVars ?? [];
+  for (const col of idVars) {
+    if (!table.columns.includes(col))
+      return `unpivot: id column "${col}" not found`;
+  }
+
+  const idSet = new Set(idVars);
+  // valueVars defaults to all non-id columns in table order (pandas melt).
+  const valueVars =
+    op.valueVars && op.valueVars.length > 0
+      ? op.valueVars
+      : table.columns.filter((c) => !idSet.has(c));
+  for (const col of valueVars) {
+    if (!table.columns.includes(col))
+      return `unpivot: value column "${col}" not found`;
+  }
+
+  const varName = op.varName ?? "variable";
+  const valueName = op.valueName ?? "value";
+
+  const columns = [...idVars, varName, valueName];
+  const resultRows: Record<string, CellValue>[] = [];
+  // pandas melt order: for each value variable, emit every input row in order.
+  for (const vVar of valueVars) {
+    for (const row of table.rows) {
+      const r: Record<string, CellValue> = {};
+      for (const col of idVars) r[col] = row[col] ?? null;
+      r[varName] = vVar;
+      r[valueName] = row[vVar] ?? null;
+      resultRows.push(r);
+    }
+  }
+
+  return { columns, rows: resultRows };
+}
+
+// ---------------------------------------------------------------------------
 // Pipeline executor
 // ---------------------------------------------------------------------------
 
@@ -731,6 +938,12 @@ function executeOp(
       const other = contentToInternal(otherContent);
       return applyUnion(table, other, op);
     }
+    case "derive":
+      return applyDerive(table, op);
+    case "pivot":
+      return applyPivot(table, op);
+    case "unpivot":
+      return applyUnpivot(table, op);
     default: {
       // TypeScript exhaustiveness guard. If a new op kind is added to
       // TransformOp without a case here, this will be a type error.
