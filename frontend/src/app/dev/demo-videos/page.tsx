@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { DEMO_CLIP_META } from "@/lib/demo-video/scripts";
 
 // Dev launcher for the welcome-video clips. Open this in one tab, then click a
@@ -30,7 +29,7 @@ export default function DemoVideoStudioPage() {
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
         {DEMO_CLIP_META.map((clip) => (
-          <Link
+          <a
             key={clip.id}
             href={`/demo?record=1&demo=${clip.id}`}
             className="group flex flex-col rounded-xl border border-border bg-surface-raised p-5 transition-colors hover:border-brand-action hover:bg-surface-sunken"
@@ -48,7 +47,7 @@ export default function DemoVideoStudioPage() {
                 Open &amp; record →
               </span>
             </div>
-          </Link>
+          </a>
         ))}
       </div>
     </div>
