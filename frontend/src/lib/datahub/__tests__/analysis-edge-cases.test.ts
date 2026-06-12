@@ -65,6 +65,19 @@ describe("analysis edge cases: XY", () => {
     ]);
     expect(runAnalysis(spec("correlationPearson", ["y1"]), c).ok).toBe(false);
   });
+
+  it("dose-response with too few points for the 4PL fails cleanly", () => {
+    // 4PL has 4 params; 4 points is underdetermined, the engine must reject it.
+    const c = content("xy", cols, [
+      { id: "r1", cells: { x: -8, y1: 5 } },
+      { id: "r2", cells: { x: -7, y1: 20 } },
+      { id: "r3", cells: { x: -6, y1: 60 } },
+      { id: "r4", cells: { x: -5, y1: 95 } },
+    ]);
+    const out = runAnalysis(spec("doseResponse", ["y1"]), c);
+    expect(out.ok).toBe(false);
+    if (!out.ok) expect(out.error.length).toBeGreaterThan(0);
+  });
 });
 
 describe("analysis edge cases: Grouped (two-way ANOVA)", () => {

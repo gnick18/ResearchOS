@@ -91,6 +91,12 @@ const TYPE_META: Record<
       "Fit a straight line y = intercept + slope x. Reports the slope, intercept, their confidence intervals, and R-squared.",
     groupCount: "two",
   },
+  doseResponse: {
+    label: "Dose-response curve",
+    blurb:
+      "Fit a 4PL or 5PL logistic to log(dose) vs response. Reports the EC50 / IC50 with a 95% confidence interval, the Hill slope, the Top and Bottom plateaus, and R-squared.",
+    groupCount: "two",
+  },
   twoWayAnova: {
     label: "Two-way ANOVA",
     blurb:

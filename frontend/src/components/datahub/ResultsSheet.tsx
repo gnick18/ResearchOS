@@ -28,6 +28,7 @@ import {
   runAnalysis,
   type NormalizedAnova,
   type NormalizedCorrelation,
+  type NormalizedDoseResponse,
   type NormalizedRegression,
   type NormalizedResult,
   type NormalizedSurvival,
@@ -345,6 +346,54 @@ function RegressionTable({ r }: { r: NormalizedRegression }) {
   );
 }
 
+/**
+ * Format a concentration (EC50 and friends) compactly. A dose can span many
+ * orders of magnitude, so we use scientific notation outside a comfortable
+ * fixed-point band and trim the readable middle to 4 significant figures.
+ */
+function conc(x: number | null | undefined): string {
+  if (x === null || x === undefined || !Number.isFinite(x)) return "-";
+  const a = Math.abs(x);
+  if (a !== 0 && (a < 1e-3 || a >= 1e4)) return x.toExponential(3);
+  return Number(x.toPrecision(4)).toString();
+}
+
+/** A concentration CI rendered "a to b" with the same compact formatting. */
+function concCI(ci: [number, number] | null | undefined): string {
+  if (!ci || !Number.isFinite(ci[0]) || !Number.isFinite(ci[1])) return "-";
+  return `${conc(ci[0])} to ${conc(ci[1])}`;
+}
+
+function DoseResponseTable({ r }: { r: NormalizedDoseResponse }) {
+  const rows = [
+    { label: "Model", value: r.modelLabel },
+    { label: "EC50 / IC50", value: conc(r.ec50) },
+    { label: "95% CI of EC50", value: concCI(r.ec50CI95) },
+    { label: "Hill slope", value: num(r.hillSlope.value, 3) },
+    { label: "95% CI of Hill slope", value: ciText(r.hillSlope.ci95) },
+    { label: "Top", value: num(r.top.value, 3) },
+    { label: "95% CI of Top", value: ciText(r.top.ci95) },
+    { label: "Bottom", value: num(r.bottom.value, 3) },
+    { label: "95% CI of Bottom", value: ciText(r.bottom.ci95) },
+  ];
+  if (r.asymmetryS) {
+    rows.push({ label: "Asymmetry (S)", value: num(r.asymmetryS.value, 3) });
+    rows.push({ label: "95% CI of S", value: ciText(r.asymmetryS.ci95) });
+  }
+  rows.push({ label: "R-squared", value: num(r.rSquared, 4) });
+  rows.push({ label: "Points (n)", value: num(r.n, 0) });
+  return (
+    <>
+      <KeyValueTable testid="results-dose-response-table" rows={rows} />
+      <p className="mt-2 max-w-xl text-meta text-foreground-muted">
+        The EC50 (the IC50 for an inhibition curve) is the dose at the
+        half-maximal response, fit on log(dose). Its confidence interval is
+        asymmetric in dose units because the fit is symmetric in log space.
+      </p>
+    </>
+  );
+}
+
 function TwoWayAnovaStatsTable({ r }: { r: NormalizedTwoWayAnova }) {
   return (
     <>
@@ -553,6 +602,14 @@ function resultTabs(result: NormalizedResult): {
           id: "tabular",
           label: "Tabular results",
           render: () => <RegressionTable r={result} />,
+        },
+      ];
+    case "doseResponse":
+      return [
+        {
+          id: "tabular",
+          label: "Tabular results",
+          render: () => <DoseResponseTable r={result} />,
         },
       ];
     default:

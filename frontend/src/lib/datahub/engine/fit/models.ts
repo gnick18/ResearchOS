@@ -67,6 +67,83 @@ const fourPL: NonlinearModel = {
 };
 
 /**
+ * 5-parameter logistic, asymmetric (variable slope plus an asymmetry exponent S).
+ * Dose-response on log(dose), the Prism "asymmetric (five parameter)" model.
+ *   y = Bottom + (Top - Bottom) / (1 + 10^((logEC50 - x) * HillSlope))^S
+ * Parameters: [Bottom, Top, logEC50, HillSlope, S].
+ *
+ * S relaxes the 4PL's forced symmetry about the inflection point, so the curve
+ * can approach its top and bottom plateaus at different rates. The 4PL is the
+ * special case S = 1.
+ *
+ * IMPORTANT, the EC50 is NOT 10^logEC50 when S != 1. The logEC50 PARAMETER marks
+ * the curve's inflection-related midpoint, not the concentration at the true
+ * half-maximal response. The reported EC50 is the concentration where the
+ * response is exactly halfway between Bottom and Top, y = (Top + Bottom) / 2.
+ * Setting the model equal to that midpoint and solving for x gives
+ *   (1 + 10^((logEC50 - x) * HillSlope))^S = 2
+ *   10^((logEC50 - x) * HillSlope) = 2^(1/S) - 1
+ *   x_EC50 = logEC50 - log10(2^(1/S) - 1) / HillSlope
+ * so EC50 = 10^x_EC50. At S = 1 the correction term is log10(2^1 - 1) = log10(1)
+ * = 0 and this collapses to EC50 = 10^logEC50, matching the 4PL exactly. We
+ * report both the raw logEC50 parameter and the corrected logEC50True / EC50.
+ */
+function fivePLHalfMaxShift(hill: number, s: number): number {
+  // The constant offset from the logEC50 parameter to the true half-max logEC50.
+  // 2^(1/S) - 1 is positive for S > 0, so its log10 is real; guard a degenerate
+  // Hill of 0 (the curve has no defined midpoint then) with NaN.
+  if (!(hill !== 0) || !(s > 0)) return NaN;
+  return -Math.log10(Math.pow(2, 1 / s) - 1) / hill;
+}
+
+const fivePL: NonlinearModel = {
+  id: "logistic5pl",
+  label: "5-parameter logistic (asymmetric)",
+  paramNames: ["Bottom", "Top", "logEC50", "HillSlope", "S"],
+  fn:
+    ([bottom, top, logEC50, hill, s]) =>
+    (x: number) =>
+      bottom +
+      (top - bottom) / Math.pow(1 + Math.pow(10, (logEC50 - x) * hill), s),
+  initialGuess: (x, y) => {
+    const { lo, hi } = range(y);
+    const mid = (lo + hi) / 2;
+    let bestX = x[Math.floor(x.length / 2)];
+    let bestDist = Infinity;
+    for (let i = 0; i < x.length; i++) {
+      const d = Math.abs(y[i] - mid);
+      if (d < bestDist) {
+        bestDist = d;
+        bestX = x[i];
+      }
+    }
+    // Start at the symmetric 4PL (S = 1); the optimizer relaxes S from there.
+    return [lo, hi, bestX, 1, 1];
+  },
+  defaultBounds: () => ({
+    // S must stay positive for the model and the half-max shift to be defined.
+    min: [-Infinity, -Infinity, -Infinity, -Infinity, 1e-3],
+    max: [Infinity, Infinity, Infinity, Infinity, Infinity],
+  }),
+  derived: ([, , logEC50, hill, s]) => {
+    const shift = fivePLHalfMaxShift(hill, s);
+    const logEC50True = logEC50 + shift;
+    const ec50 = Math.pow(10, logEC50True);
+    return {
+      // The true half-maximal-response concentration (NOT 10^logEC50 for S != 1).
+      EC50: ec50,
+      IC50: ec50,
+      // The raw fitted parameter (the inflection-related midpoint).
+      logEC50,
+      // The corrected half-max logEC50 the EC50 is 10^ of.
+      logEC50True,
+      // The asymmetry exponent, surfaced so a reader can see how far from 4PL.
+      S: s,
+    };
+  },
+};
+
+/**
  * Michaelis-Menten enzyme kinetics.
  *   v = Vmax * S / (Km + S)
  * Parameters: [Vmax, Km]. x is substrate concentration S.
@@ -215,6 +292,7 @@ const gaussian: NonlinearModel = {
 
 export const MODELS: Record<string, NonlinearModel> = {
   [fourPL.id]: fourPL,
+  [fivePL.id]: fivePL,
   [michaelisMenten.id]: michaelisMenten,
   [expDecay.id]: expDecay,
   [expAssociation.id]: expAssociation,
@@ -229,4 +307,15 @@ export function getModel(id: string): NonlinearModel | undefined {
 
 export function listModels(): Array<{ id: string; label: string }> {
   return Object.values(MODELS).map((m) => ({ id: m.id, label: m.label }));
+}
+
+/**
+ * The offset from a 5PL logEC50 parameter to the true half-maximal-response
+ * logEC50, exported so the dose-response analysis can transform the fitter's CI
+ * on the logEC50 parameter into the corrected half-max logEC50 (and thence EC50)
+ * without re-deriving the formula. See `fivePL` for the derivation. Returns 0 for
+ * the symmetric case (S = 1), since the 4PL needs no correction.
+ */
+export function fivePLLogEC50Shift(hill: number, s: number): number {
+  return fivePLHalfMaxShift(hill, s);
 }

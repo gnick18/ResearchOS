@@ -81,6 +81,114 @@ suite("4-parameter logistic dose-response (EC50)", () => {
   });
 });
 
+suite("5-parameter logistic dose-response (asymmetric, EC50)", () => {
+  // Self-consistency, the same noise-free check used for the 4PL. Data generated
+  // from known 5PL parameters must be recovered, and the reported EC50 must be the
+  // TRUE half-maximal-response concentration, NOT 10^logEC50 (they differ when
+  // S != 1). With Bottom=0, Top=100, logEC50=-6, Hill=1, S=2 the true half-max
+  // logEC50 is logEC50 - log10(2^(1/S) - 1)/Hill = -6 - log10(2^0.5 - 1)/1
+  //   = -6 - log10(0.41421356) = -6 - (-0.382776) = -5.617224, EC50 = 2.414e-6.
+  const BOTTOM = 0;
+  const TOP = 100;
+  const LOG_EC50 = -6;
+  const HILL = 1;
+  const S = 2;
+  const xs = [-9, -8, -7.5, -7, -6.5, -6, -5.5, -5, -4.5, -4, -3, -2];
+  const f5 = (x: number) =>
+    BOTTOM +
+    (TOP - BOTTOM) / Math.pow(1 + Math.pow(10, (LOG_EC50 - x) * HILL), S);
+  const ys = xs.map(f5);
+  const r = fitModel("logistic5pl", xs, ys);
+
+  it("recovers the five generating parameters", () => {
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.values.Bottom).toBeCloseTo(BOTTOM, 2);
+    expect(r.values.Top).toBeCloseTo(TOP, 2);
+    expect(r.values.logEC50).toBeCloseTo(LOG_EC50, 2);
+    expect(r.values.HillSlope).toBeCloseTo(HILL, 2);
+    expect(r.values.S).toBeCloseTo(S, 2);
+  });
+
+  it("reports the TRUE half-max EC50, not 10^logEC50, for S != 1", () => {
+    if (!r.ok) throw new Error("expected ok");
+    // The naive 10^logEC50 would be 1e-6; the correct half-max EC50 is 2.414e-6.
+    const trueLogEC50 = LOG_EC50 - Math.log10(Math.pow(2, 1 / S) - 1) / HILL;
+    expect(r.derived?.logEC50True).toBeCloseTo(trueLogEC50, 3);
+    expect(r.derived?.EC50).toBeCloseTo(Math.pow(10, trueLogEC50), 9);
+    expect(r.derived?.EC50).not.toBeCloseTo(1e-6, 9);
+    expect(r.rSquared).toBeGreaterThan(0.9999);
+  });
+});
+
+suite("4PL + 5PL vs scipy.optimize.curve_fit reference", () => {
+  // A fixed, noisy dose-response dataset (a 9-point-plus serial dilution; x is
+  // log10(dose in M)). scipy.optimize.curve_fit was run in a throwaway venv
+  // (numpy + scipy 1.17.1) on EXACTLY these arrays with the SAME model defs the
+  // engine uses:
+  //
+  //   def fpl(x, bottom, top, logec50, hill):
+  //       return bottom + (top - bottom) / (1 + 10**((logec50 - x) * hill))
+  //   def f5pl(x, bottom, top, logec50, hill, s):
+  //       return bottom + (top - bottom) / (1 + 10**((logec50 - x) * hill))**s
+  //   curve_fit(fpl,  xs, ys, p0=[min(ys), max(ys), x_at_midpoint, 1])
+  //   curve_fit(f5pl, xs, ys, p0=[min(ys), max(ys), x_at_midpoint, 1, 1])
+  //
+  // EC50 = 10^logEC50True; the 95% CI transforms the t-based logEC50 CI through
+  // 10^(.). scipy reference output (see the D1 sub-bot report):
+  //
+  //   4PL: Bottom=4.708439 Top=98.298557 logEC50=-6.393451 Hill=0.930926
+  //        EC50=4.041561e-07  EC50_CI=[3.841206e-07, 4.252365e-07]
+  //        R2=0.99988139  SSR=1.888844  df=7
+  //   5PL: Bottom=5.161668 Top=98.685689 logEC50param=-6.533206 Hill=0.873379
+  //        S=1.236331  logEC50_true=-6.391352  EC50_true=4.061143e-07
+  //        EC50_CI=[2.344336e-07, 7.035204e-07]  R2=0.99991617  SSR=1.335071  df=6
+  //
+  // Tolerance, 3 significant figures on EC50 and the headline parameters. A
+  // nonlinear least-squares solution depends on the optimizer (Levenberg-Marquardt
+  // here vs scipy's trust-region-reflective by default) and the initial guess, so
+  // the converged minimum agrees to a few sig figs rather than bit-for-bit. The
+  // wide-tolerance comparisons below assert agreement well within that band.
+  const xs = [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0];
+  const ys = [4.8, 6.1, 7.9, 12.5, 24.0, 47.0, 70.0, 86.0, 93.5, 96.8, 98.1];
+
+  it("4PL matches the scipy EC50, Hill, Top, Bottom, R2", () => {
+    const r = fitModel("logistic4pl", xs, ys);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.values.Bottom).toBeCloseTo(4.708439, 2);
+    expect(r.values.Top).toBeCloseTo(98.298557, 2);
+    expect(r.values.logEC50).toBeCloseTo(-6.393451, 3);
+    expect(r.values.HillSlope).toBeCloseTo(0.930926, 3);
+    expect(r.derived?.EC50).toBeGreaterThan(4.02e-7);
+    expect(r.derived?.EC50).toBeLessThan(4.06e-7);
+    expect(r.rSquared).toBeCloseTo(0.99988139, 4);
+    // The EC50 95% CI brackets the point estimate and matches scipy to ~3 sig figs.
+    const logp = r.parameters.find((p) => p.name === "logEC50")!;
+    const ec50Lo = Math.pow(10, logp.ci95[0]);
+    const ec50Hi = Math.pow(10, logp.ci95[1]);
+    expect(ec50Lo).toBeGreaterThan(3.82e-7);
+    expect(ec50Lo).toBeLessThan(3.86e-7);
+    expect(ec50Hi).toBeGreaterThan(4.23e-7);
+    expect(ec50Hi).toBeLessThan(4.28e-7);
+  });
+
+  it("5PL matches the scipy true EC50, S, R2 and an EC50 != 10^logEC50param", () => {
+    const r = fitModel("logistic5pl", xs, ys);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.values.Top).toBeCloseTo(98.685689, 1);
+    expect(r.values.S).toBeCloseTo(1.236331, 1);
+    // True half-max EC50 ~4.06e-7, agreeing with the 4PL (same underlying curve).
+    expect(r.derived?.EC50).toBeGreaterThan(3.9e-7);
+    expect(r.derived?.EC50).toBeLessThan(4.3e-7);
+    expect(r.derived?.logEC50True).toBeCloseTo(-6.391352, 2);
+    // The raw logEC50 parameter (~-6.53) is distinct from the half-max logEC50.
+    expect(r.values.logEC50).toBeLessThan(r.derived!.logEC50True - 0.05);
+    expect(r.rSquared).toBeGreaterThan(0.9998);
+  });
+});
+
 suite("exponential decay one-phase", () => {
   it("recovers rate constant, tau, and half-life", () => {
     // y = Plateau + (Y0 - Plateau) e^{-K x}; Y0 = 100, Plateau = 10, K = 0.5.
@@ -145,6 +253,7 @@ suite("fitter guards + registry", () => {
   it("registry lists the required models", () => {
     const ids = listModels().map((m) => m.id);
     expect(ids).toContain("logistic4pl");
+    expect(ids).toContain("logistic5pl");
     expect(ids).toContain("michaelis-menten");
     expect(ids).toContain("exp-decay-1phase");
     expect(ids).toContain("exp-association-1phase");

@@ -117,6 +117,41 @@ export function resultToText(result: NormalizedResult): string {
       );
       break;
     }
+    case "doseResponse": {
+      // Use exponential text for the EC50 so a sub-nanomolar dose stays readable.
+      const conc = (x: number): string =>
+        !Number.isFinite(x)
+          ? ""
+          : Math.abs(x) !== 0 && (Math.abs(x) < 1e-3 || Math.abs(x) >= 1e4)
+            ? x.toExponential(4)
+            : Number(x.toPrecision(5)).toString();
+      const concCi = (c: [number, number]): string =>
+        !Number.isFinite(c[0]) || !Number.isFinite(c[1])
+          ? ""
+          : `${conc(c[0])} to ${conc(c[1])}`;
+      lines.push(
+        row("Model", result.modelLabel),
+        row("EC50 / IC50", conc(result.ec50)),
+        row("95% CI of EC50", concCi(result.ec50CI95)),
+        row("Hill slope", n(result.hillSlope.value, 4)),
+        row("95% CI of Hill slope", ci(result.hillSlope.ci95)),
+        row("Top", n(result.top.value, 4)),
+        row("95% CI of Top", ci(result.top.ci95)),
+        row("Bottom", n(result.bottom.value, 4)),
+        row("95% CI of Bottom", ci(result.bottom.ci95)),
+      );
+      if (result.asymmetryS) {
+        lines.push(
+          row("Asymmetry (S)", n(result.asymmetryS.value, 4)),
+          row("95% CI of S", ci(result.asymmetryS.ci95)),
+        );
+      }
+      lines.push(
+        row("R-squared", n(result.rSquared, 6)),
+        row("Points (n)", n(result.n, 0)),
+      );
+      break;
+    }
     default: {
       // t-test family (parametric and rank tests).
       const statLabel = result.nonparametric

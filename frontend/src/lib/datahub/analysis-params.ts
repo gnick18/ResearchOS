@@ -111,6 +111,24 @@ const TWOWAY_POSTHOC_FIELD: ParamField = {
 };
 
 /**
+ * Curve model for the dose-response analysis. The 4PL is the symmetric default a
+ * pharmacologist reaches for first; the 5PL adds an asymmetry exponent for curves
+ * that approach their top and bottom plateaus at different rates. Both fit the same
+ * EC50 / Hill / Top / Bottom readouts, validated against scipy.optimize.curve_fit.
+ */
+const DOSE_RESPONSE_MODEL_FIELD: ParamField = {
+  key: "model",
+  label: "Curve model",
+  control: "seg",
+  options: [
+    { value: "logistic4pl", label: "4PL (symmetric)" },
+    { value: "logistic5pl", label: "5PL (asymmetric)" },
+  ],
+  default: "logistic4pl",
+  why: "The 4-parameter logistic assumes the curve is symmetric about its midpoint and is the standard dose-response fit. The 5-parameter logistic adds an asymmetry term for curves that bend toward one plateau faster than the other, at the cost of one more parameter to estimate.",
+};
+
+/**
  * The schema per analysis type. An empty array means the engine takes no
  * editable options for that analysis (correlation, regression). The order here
  * is the order the controls render in the panel.
@@ -126,6 +144,7 @@ export const ANALYSIS_PARAM_SCHEMA: Record<string, ParamField[]> = {
   correlationPearson: [],
   correlationSpearman: [],
   linearRegression: [],
+  doseResponse: [DOSE_RESPONSE_MODEL_FIELD],
   kaplanMeier: [],
 };
 

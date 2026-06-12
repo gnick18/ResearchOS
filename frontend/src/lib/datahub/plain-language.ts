@@ -11,6 +11,7 @@
 import type {
   NormalizedAnova,
   NormalizedCorrelation,
+  NormalizedDoseResponse,
   NormalizedRegression,
   NormalizedResult,
   NormalizedSurvival,
@@ -135,6 +136,40 @@ function regressionSummary(r: NormalizedRegression): string {
   )} percent of the variation in ${r.yName}.`;
 }
 
+/** A concentration for inline prose (scientific notation for tiny/large doses). */
+function concText(x: number): string {
+  if (!Number.isFinite(x)) return "n/a";
+  const a = Math.abs(x);
+  if (a !== 0 && (a < 1e-3 || a >= 1e4)) return x.toExponential(2);
+  return Number(x.toPrecision(3)).toString();
+}
+
+function doseResponseSummary(r: NormalizedDoseResponse): string {
+  const modelWord = r.model === "logistic5pl" ? "5PL (asymmetric)" : "4PL";
+  const ciPart =
+    Number.isFinite(r.ec50CI95[0]) && Number.isFinite(r.ec50CI95[1])
+      ? ` (95% CI ${concText(r.ec50CI95[0])} to ${concText(r.ec50CI95[1])})`
+      : "";
+  const fitWord =
+    r.rSquared >= 0.98
+      ? "fits the data closely"
+      : r.rSquared >= 0.9
+        ? "fits the data reasonably well"
+        : "fits the data only loosely, so read the EC50 with caution";
+  return `The half-maximal response (EC50) is at a ${r.xName} of about ${concText(
+    r.ec50,
+  )}${ciPart}, with a Hill slope of ${num(
+    r.hillSlope.value,
+    2,
+  )}. The ${modelWord} curve runs from a bottom plateau of ${num(
+    r.bottom.value,
+    2,
+  )} to a top of ${num(r.top.value, 2)} and ${fitWord} (R-squared = ${num(
+    r.rSquared,
+    3,
+  )}, n = ${r.n}).`;
+}
+
 function twoWaySummary(r: NormalizedTwoWayAnova): string {
   const effect = (name: string, f: number, p: number, dfText: string): string => {
     const stat = `F${dfText} = ${num(f)}, ${formatP(p)}`;
@@ -196,6 +231,7 @@ export function plainLanguageSummary(result: NormalizedResult): string {
   if (result.kind === "anova") return anovaSummary(result);
   if (result.kind === "correlation") return correlationSummary(result);
   if (result.kind === "regression") return regressionSummary(result);
+  if (result.kind === "doseResponse") return doseResponseSummary(result);
   if (result.kind === "twoWayAnova") return twoWaySummary(result);
   if (result.kind === "survival") return survivalSummary(result);
   return ttestSummary(result);

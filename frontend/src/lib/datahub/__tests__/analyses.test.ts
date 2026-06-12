@@ -441,3 +441,110 @@ describe("show-code", () => {
     expect(code).toContain("r-squared = {r ** 2");
   });
 });
+
+describe("dose-response analysis (D1)", () => {
+  const XMETA: DataHubDocument = {
+    id: "dr",
+    name: "Agonist dose-response",
+    project_ids: [],
+    folder_path: null,
+    table_type: "xy",
+    created_at: "2026-06-12T00:00:00.000Z",
+  };
+  // x = log10(dose), an 11-point curve generated from a known 4PL plus a little
+  // wobble (Bottom~5, Top~98, logEC50~-6.4, Hill~0.93). The same arrays the
+  // engine's scipy-pinned reference test uses, so the analysis-layer EC50 matches.
+  const XS = [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0];
+  const YS = [4.8, 6.1, 7.9, 12.5, 24.0, 47.0, 70.0, 86.0, 93.5, 96.8, 98.1];
+
+  function drContent(): DataHubDocContent {
+    return {
+      meta: XMETA,
+      columns: [
+        { id: "x", name: "log[dose]", role: "x" as const, dataType: "number" as const },
+        { id: "y1", name: "Response", role: "y" as const, dataType: "number" as const },
+      ],
+      rows: XS.map((x, i) => ({ id: `r${i}`, cells: { x, y1: YS[i] } })),
+      analyses: [],
+      plots: [],
+    };
+  }
+
+  function drSpec(model?: "logistic4pl" | "logistic5pl"): AnalysisSpec {
+    return {
+      id: "dr-spec",
+      type: "doseResponse",
+      params: model ? { model } : {},
+      inputs: { columnIds: ["y1"] },
+      resultCache: null,
+      resultStale: false,
+    };
+  }
+
+  it("is offered on an XY table alongside correlation and regression", () => {
+    const types = validAnalysisTypes(drContent());
+    expect(types).toContain("doseResponse");
+    expect(types).toContain("linearRegression");
+    expect(types).toContain("correlationPearson");
+  });
+
+  it("4PL reports EC50, Hill, Top, Bottom, R2 matching the scipy reference", () => {
+    const out = runAnalysis(drSpec(), drContent());
+    expect(out.ok).toBe(true);
+    if (!out.ok || out.kind !== "doseResponse") throw new Error("expected DR");
+    expect(out.model).toBe("logistic4pl");
+    // EC50 ~ 4.04e-7 (scipy curve_fit reference), to 3 sig figs.
+    expect(out.ec50).toBeGreaterThan(4.02e-7);
+    expect(out.ec50).toBeLessThan(4.06e-7);
+    // The CI is asymmetric in dose units and brackets the EC50.
+    expect(out.ec50CI95[0]).toBeLessThan(out.ec50);
+    expect(out.ec50CI95[1]).toBeGreaterThan(out.ec50);
+    expect(out.ec50CI95[0]).toBeGreaterThan(3.82e-7);
+    expect(out.ec50CI95[1]).toBeLessThan(4.28e-7);
+    expect(out.hillSlope.value).toBeCloseTo(0.930926, 2);
+    expect(out.top.value).toBeCloseTo(98.298557, 1);
+    expect(out.bottom.value).toBeCloseTo(4.708439, 1);
+    expect(out.rSquared).toBeGreaterThan(0.9998);
+    expect(out.asymmetryS).toBeNull();
+  });
+
+  it("5PL fits the asymmetric model and reports the true half-max EC50", () => {
+    const out = runAnalysis(drSpec("logistic5pl"), drContent());
+    expect(out.ok).toBe(true);
+    if (!out.ok || out.kind !== "doseResponse") throw new Error("expected DR");
+    expect(out.model).toBe("logistic5pl");
+    expect(out.asymmetryS).not.toBeNull();
+    // Same underlying curve, so the half-max EC50 agrees with the 4PL (~4.06e-7).
+    expect(out.ec50).toBeGreaterThan(3.9e-7);
+    expect(out.ec50).toBeLessThan(4.3e-7);
+    expect(out.rSquared).toBeGreaterThan(0.9998);
+  });
+
+  it("the plain-language verdict names the EC50 and Hill slope", () => {
+    const out = runAnalysis(drSpec(), drContent());
+    if (!out.ok) throw new Error("run failed");
+    const sentence = plainLanguageSummary(out);
+    expect(sentence).toContain("EC50");
+    expect(sentence).toContain("Hill slope");
+    expect(sentence).not.toContain("—");
+  });
+
+  it("show-the-code emits a runnable curve_fit with the EC50 readout", () => {
+    const out = runAnalysis(drSpec(), drContent());
+    if (!out.ok) throw new Error("run failed");
+    const code = showCode(out);
+    expect(code).toContain("from scipy.optimize import curve_fit");
+    expect(code).toContain("def model_4pl");
+    expect(code).toContain("ec50 = 10**logec50");
+    expect(code).toContain("R-squared");
+  });
+
+  it("show-the-code emits the 5PL half-max correction for the asymmetric fit", () => {
+    const out = runAnalysis(drSpec("logistic5pl"), drContent());
+    if (!out.ok) throw new Error("run failed");
+    const code = showCode(out);
+    expect(code).toContain("def model_5pl");
+    // The half-max shift is the defining 5PL correction (EC50 != 10^logEC50).
+    expect(code).toContain("2**(1.0/s) - 1.0");
+  });
+});

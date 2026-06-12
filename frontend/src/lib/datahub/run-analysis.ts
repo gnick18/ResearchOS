@@ -42,8 +42,11 @@ import {
   shapiroWilk,
   bootstrapDiffCI,
   meanDifference,
+  fitModel,
+  fivePLLogEC50Shift,
   type KaplanMeierStep,
 } from "@/lib/datahub/engine";
+import type { FitResult } from "@/lib/datahub/engine/types";
 import type {
   AnovaResult,
   TTestResult,
@@ -84,6 +87,7 @@ export type AnalysisType =
   | "correlationPearson"
   | "correlationSpearman"
   | "linearRegression"
+  | "doseResponse"
   | "twoWayAnova"
   | "kaplanMeier";
 
@@ -95,6 +99,7 @@ export const XY_ANALYSIS_TYPES: AnalysisType[] = [
   "correlationPearson",
   "correlationSpearman",
   "linearRegression",
+  "doseResponse",
 ];
 
 /** The analysis types that read a Grouped table (row factor x column groups). */
@@ -275,6 +280,57 @@ export interface NormalizedRegression {
   residualSE: number;
 }
 
+/** One fitted curve parameter with its standard error and 95% CI. */
+export interface DoseResponseParam {
+  name: string;
+  value: number;
+  standardError: number;
+  ci95: [number, number];
+}
+
+/**
+ * A normalized dose-response result (the signature pharmacology fit). Fits a 4PL
+ * (default) or 5PL (asymmetric) logistic to log(dose) vs response and reports the
+ * EC50 / IC50 with its 95% CI, the Hill slope, the Top and Bottom plateaus (each
+ * with a CI), and R-squared, the Prism-familiar readout set.
+ *
+ * THE EC50 CI TRANSFORM. The fitter estimates a t-based CI on the logEC50 in log
+ * space (symmetric there). Since EC50 = 10^logEC50True, the linear-space CI is
+ * [10^lo, 10^hi], which is ASYMMETRIC about the EC50 point estimate (the upper
+ * arm is longer). For the 5PL the logEC50 PARAMETER is not the half-max logEC50,
+ * so the CI is shifted to the true half-max logEC50 before exponentiating, using
+ * the same closed-form offset the engine derives (see fivePLLogEC50Shift). For the
+ * 4PL the offset is 0 and logEC50True == logEC50.
+ */
+export interface NormalizedDoseResponse {
+  kind: "doseResponse";
+  type: "doseResponse";
+  /** "logistic4pl" (symmetric) or "logistic5pl" (asymmetric). */
+  model: "logistic4pl" | "logistic5pl";
+  /** Human model label, e.g. "4-parameter logistic (variable slope)". */
+  modelLabel: string;
+  xName: string;
+  yName: string;
+  x: number[];
+  y: number[];
+  n: number;
+  /** EC50 = IC50 at the true half-maximal response (linear-dose units). */
+  ec50: number;
+  /** Asymmetric 95% CI of the EC50 in linear-dose units ([10^lo, 10^hi]). */
+  ec50CI95: [number, number];
+  /** The half-max logEC50 the EC50 is 10^ of (== logEC50 param for 4PL). */
+  logEC50: number;
+  /** Hill slope, Top, Bottom (each name + value + SE + CI), in display order. */
+  hillSlope: DoseResponseParam;
+  top: DoseResponseParam;
+  bottom: DoseResponseParam;
+  /** The 5PL asymmetry exponent S, or null for the 4PL. */
+  asymmetryS: DoseResponseParam | null;
+  rSquared: number;
+  /** Residual degrees of freedom n - p, so the report can show the fit basis. */
+  df: number;
+}
+
 /**
  * A normalized two-way ANOVA result. The full ANOVA table (factor A, factor B,
  * interaction, error, total) plus the three effect F / p values pulled out for
@@ -331,6 +387,7 @@ export type NormalizedResult =
   | NormalizedAnova
   | NormalizedCorrelation
   | NormalizedRegression
+  | NormalizedDoseResponse
   | NormalizedTwoWayAnova
   | NormalizedSurvival;
 
@@ -390,6 +447,10 @@ export function resolveGroups(
 export function validAnalysisTypes(content: DataHubDocContent): AnalysisType[] {
   if (content.meta.table_type === "xy") {
     if (xColumn(content) && yColumns(content).length >= 1) {
+      // Dose-response needs more than its 4 (4PL) or 5 (5PL) parameters to fit,
+      // but the precise point-count guard lives in the run (the engine rejects an
+      // underdetermined fit cleanly), so the type is offered whenever an XY pairing
+      // exists. The default 4PL is the listed-first XY analysis after regression.
       return [...XY_ANALYSIS_TYPES];
     }
     return [];
@@ -443,6 +504,88 @@ function resolveXY(
   return { xName: xCol.name, yName: yCol.name, x: pairs.x, y: pairs.y };
 }
 
+/** Pull one fitted parameter (value + SE + CI) out of a FitResult by name. */
+function fitParam(fit: FitResult, name: string): DoseResponseParam {
+  const p = fit.parameters.find((q) => q.name === name);
+  return {
+    name,
+    value: p?.value ?? NaN,
+    standardError: p?.standardError ?? NaN,
+    ci95: p?.ci95 ?? [NaN, NaN],
+  };
+}
+
+/**
+ * Fit a dose-response curve (4PL default, 5PL optional) to the resolved XY pairs
+ * and normalize the EC50 / Hill / Top / Bottom / R-squared readouts.
+ *
+ * THE EC50 CI. The fitter reports a symmetric t-based CI on the logEC50 parameter
+ * in log space. EC50 = 10^logEC50True, so the linear-dose CI is [10^lo, 10^hi],
+ * which is asymmetric about the EC50 point estimate. For the 5PL the logEC50
+ * PARAMETER is not the half-max logEC50, so the log-space CI is shifted by the
+ * closed-form half-max offset (fivePLLogEC50Shift) before exponentiating; for the
+ * 4PL that offset is 0. This reuses the fitter's already-computed covariance, it
+ * does not re-derive any standard errors.
+ */
+function runDoseResponse(
+  spec: AnalysisSpec,
+  xName: string,
+  yName: string,
+  x: number[],
+  y: number[],
+): RunOutcome {
+  const model =
+    (readParams(spec).model as "logistic4pl" | "logistic5pl" | undefined) ??
+    "logistic4pl";
+  const fit = fitModel(model, x, y);
+  if (!fit.ok) return { ok: false, error: fit.error };
+  const res = fit as FitResult & { ok: true };
+
+  const logParam = res.parameters.find((p) => p.name === "logEC50");
+  if (!logParam) {
+    return { ok: false, error: "Dose-response fit produced no logEC50." };
+  }
+  // The half-max offset is 0 for the 4PL and the closed-form 5PL correction for
+  // the 5PL. The same offset translates both the point estimate and the CI bounds
+  // from the raw logEC50 parameter to the true half-max logEC50, so the EC50 CI
+  // is the exponentiated, shifted, t-based interval (asymmetric in linear dose).
+  const sValue = model === "logistic5pl" ? (res.values.S ?? NaN) : NaN;
+  const shift =
+    model === "logistic5pl"
+      ? fivePLLogEC50Shift(res.values.HillSlope ?? NaN, sValue)
+      : 0;
+  const logEC50True = logParam.value + shift;
+  const ec50 = Math.pow(10, logEC50True);
+  const ciLo = Math.pow(10, logParam.ci95[0] + shift);
+  const ciHi = Math.pow(10, logParam.ci95[1] + shift);
+  // Exponentiation preserves order, so [10^lo, 10^hi] is already sorted; guard a
+  // degenerate (non-finite) CI by falling back to NaNs the sheet renders as a dash.
+  const ec50CI95: [number, number] =
+    Number.isFinite(ciLo) && Number.isFinite(ciHi) ? [ciLo, ciHi] : [NaN, NaN];
+
+  return {
+    ok: true,
+    kind: "doseResponse",
+    type: "doseResponse",
+    model,
+    modelLabel: res.modelLabel,
+    xName,
+    yName,
+    x,
+    y,
+    n: x.length,
+    ec50,
+    ec50CI95,
+    logEC50: logEC50True,
+    hillSlope: fitParam(res, "HillSlope"),
+    top: fitParam(res, "Top"),
+    bottom: fitParam(res, "Bottom"),
+    asymmetryS: model === "logistic5pl" ? fitParam(res, "S") : null,
+    rSquared: res.rSquared,
+    df: res.df,
+  };
+}
+
 /** Run a correlation or linear regression on the resolved XY pairs. */
 function runXYAnalysis(
   type: AnalysisType,
@@ -457,6 +600,10 @@ function runXYAnalysis(
     };
   }
   const { xName, yName, x, y } = resolved;
+
+  if (type === "doseResponse") {
+    return runDoseResponse(spec, xName, yName, x, y);
+  }
 
   if (type === "linearRegression") {
     const r = linearRegression(x, y);
@@ -796,7 +943,8 @@ export function runAnalysis(
   if (
     type === "correlationPearson" ||
     type === "correlationSpearman" ||
-    type === "linearRegression"
+    type === "linearRegression" ||
+    type === "doseResponse"
   ) {
     return runXYAnalysis(type, content, spec);
   }

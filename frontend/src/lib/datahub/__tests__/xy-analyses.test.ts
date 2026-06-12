@@ -60,12 +60,13 @@ const SX = [1, 2, 3, 4, 5, 6, 7];
 const SY = [10, 9, 2.5, 6, 4, 3, 2];
 
 describe("run-analysis: XY valid types", () => {
-  it("offers correlation and regression once an XY table has X and Y", () => {
+  it("offers correlation, regression, and dose-response once an XY table has X and Y", () => {
     const types = validAnalysisTypes(xyContent(SX, SY));
     expect(types).toEqual([
       "correlationPearson",
       "correlationSpearman",
       "linearRegression",
+      "doseResponse",
     ]);
   });
 });

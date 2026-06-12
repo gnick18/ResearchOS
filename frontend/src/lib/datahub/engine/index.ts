@@ -60,6 +60,7 @@ export {
   fitModel,
   getModel,
   listModels,
+  fivePLLogEC50Shift,
   MODELS,
   type FitOptions,
   type NonlinearModel,
