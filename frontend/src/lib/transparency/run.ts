@@ -33,6 +33,7 @@ import {
   spearman,
   linearRegression,
   logisticRegression,
+  multipleRegression,
   fitModel,
   fivePLLogEC50Shift,
   extraSumOfSquaresF,
@@ -87,6 +88,9 @@ import {
   KM_READ_TIMES,
   LOGIT_X,
   LOGIT_Y,
+  MLR_X1,
+  MLR_X2,
+  MLR_Y,
   PAIR_X,
   PAIR_Y,
   POWER_ALPHA,
@@ -1229,6 +1233,19 @@ function runDatahubEngine(): Record<string, number> {
     "logistic regression",
   );
 
+  // Multiple linear regression (D5). Fit y = b0 + b1*x1 + b2*x2 by OLS on the same
+  // fixed arrays statsmodels OLS was run on, then read off the coefficients (with
+  // the x1 slope SE and the x2 slope p), R-squared, adjusted R-squared, the overall
+  // F, and the x1 VIF. Closed-form OLS, so these reproduce the pins exactly.
+  const mlr = need(
+    multipleRegression(
+      MLR_X1.map((v, i) => [v, MLR_X2[i]]),
+      MLR_Y,
+      ["x1", "x2"],
+    ),
+    "multiple regression",
+  );
+
   // Dose-response (D1). Fit the 4PL and the 5PL to the same fixed log(dose) vs
   // response arrays scipy.optimize.curve_fit was run on, and read off the EC50 (the
   // true half-max concentration; for the 5PL via the closed-form half-max shift),
@@ -1415,6 +1432,16 @@ function runDatahubEngine(): Record<string, number> {
     lr_odds_ratio: logit.oddsRatio,
     lr_mcfadden_r2: logit.mcFaddenR2,
     lr_auc: logit.auc,
+
+    mlr_intercept: mlr.intercept.estimate,
+    mlr_x1_slope: mlr.slopes[0].estimate,
+    mlr_x2_slope: mlr.slopes[1].estimate,
+    mlr_x1_slope_se: mlr.slopes[0].standardError,
+    mlr_x2_slope_p: mlr.slopes[1].pValue,
+    mlr_r2: mlr.rSquared,
+    mlr_adj_r2: mlr.adjRSquared,
+    mlr_f: mlr.fStatistic,
+    mlr_x1_vif: mlr.slopes[0].vif,
 
     dr4pl_ec50: dr4Ec50,
     dr4pl_hill: dr4.values.HillSlope,

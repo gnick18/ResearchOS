@@ -66,6 +66,19 @@ export const LOGIT_Y = [
 ];
 
 /**
+ * A multiple-regression dataset (D5). Two predictors x1, x2 and a response y, with
+ * mild correlation between the predictors so the VIF is meaningful (about 3.5) but
+ * not pathological. statsmodels.api.OLS on sm.add_constant([x1, x2]) produces the
+ * pinned coefficients / SE / p / R-squared / adjusted R-squared / overall F / VIF
+ * below. Mirrored verbatim in the golden generator.
+ */
+export const MLR_X1 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+export const MLR_X2 = [2, 5, 3, 8, 4, 9, 6, 11, 7, 13, 10, 14];
+export const MLR_Y = [
+  4.1, 7.8, 8.9, 13.2, 13.0, 18.7, 18.2, 24.1, 22.0, 28.9, 27.1, 32.0,
+];
+
+/**
  * A dose-response dataset for the 4PL / 5PL curve fit (D1). x is log10(dose in M),
  * an 11-point serial dilution; y is the response. scipy.optimize.curve_fit on these
  * exact arrays produces the pinned EC50 / Hill / Top / Bottom / R-squared below.
@@ -332,6 +345,23 @@ export const STAT_PINS: StatPin[] = [
   // AUC is the rank-sum (Mann-Whitney) form on the fitted probabilities, computed
   // from scipy.stats.rankdata; it equals sklearn.metrics.roc_auc_score exactly.
   { id: "lr_auc", metric: "Logistic regression, ROC AUC of fitted probabilities", reference: 0.8438, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "AUC" },
+
+  // --- multiple (OLS) linear regression (D5) vs statsmodels.api.OLS -----------
+  // Closed-form ordinary least squares y = b0 + b1*x1 + b2*x2, so these pin tight
+  // (the same 1e-4 band as the simple linreg pins, not the wide curve-fit bands).
+  // Reference values from statsmodels 0.14 OLS(y, sm.add_constant([x1, x2])).fit():
+  // params for the coefficients, bse for the SE, pvalues for the slope p, rsquared
+  // and rsquared_adj for the fit, fvalue for the overall F. The VIF is the standard
+  // statsmodels variance_inflation_factor on the design matrix WITH the constant.
+  { id: "mlr_intercept", metric: "Multiple regression, intercept (b0)", reference: 1.013494, oracleId: "statsmodels", tol: 1e-4, warn: 5e-4, unit: "b0" },
+  { id: "mlr_x1_slope", metric: "Multiple regression, x1 slope (b1)", reference: 1.764407, oracleId: "statsmodels", tol: 1e-4, warn: 5e-4, unit: "b1" },
+  { id: "mlr_x2_slope", metric: "Multiple regression, x2 slope (b2)", reference: 0.741460, oracleId: "statsmodels", tol: 1e-4, warn: 5e-4, unit: "b2" },
+  { id: "mlr_x1_slope_se", metric: "Multiple regression, x1 slope standard error", reference: 0.095008, oracleId: "statsmodels", tol: 1e-4, warn: 5e-4, unit: "SE" },
+  { id: "mlr_x2_slope_p", metric: "Multiple regression, x2 slope two-sided p", reference: 1.532892e-5, oracleId: "statsmodels", tol: 1e-6, warn: 5e-6, unit: "p" },
+  { id: "mlr_r2", metric: "Multiple regression, R-squared", reference: 0.996270, oracleId: "statsmodels", tol: 1e-4, warn: 5e-4, unit: "R2" },
+  { id: "mlr_adj_r2", metric: "Multiple regression, adjusted R-squared", reference: 0.995441, oracleId: "statsmodels", tol: 1e-4, warn: 5e-4, unit: "R2" },
+  { id: "mlr_f", metric: "Multiple regression, overall F", reference: 1201.815499, oracleId: "statsmodels", tol: 1e-3, warn: 5e-3, unit: "F" },
+  { id: "mlr_x1_vif", metric: "Multiple regression, x1 variance inflation factor", reference: 3.542373, oracleId: "statsmodels", tol: 1e-4, warn: 5e-4, unit: "VIF" },
 
   // --- dose-response curve fit (D1): 4PL + 5PL vs scipy.optimize.curve_fit ---
   // The signature pharmacology fit. x = log10(dose), y = response. EC50 is the

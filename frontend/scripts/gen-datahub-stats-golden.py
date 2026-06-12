@@ -73,6 +73,7 @@ import statsmodels.api as sm
 from statsmodels.formula.api import ols
 from statsmodels.stats.multicomp import pairwise_tukeyhsd
 from statsmodels.stats.power import TTestIndPower
+from statsmodels.stats.outliers_influence import variance_inflation_factor
 import pingouin as pg
 import lifelines
 from lifelines import KaplanMeierFitter
@@ -121,6 +122,17 @@ LOGIT_X = [
 LOGIT_Y = [
     0, 0, 0, 1, 0, 0, 1, 0, 1, 1,
     0, 1, 1, 1, 0, 1, 1, 1, 1, 1,
+]
+
+# A multiple-regression dataset (D5). Two predictors x1, x2 and a response y, with
+# mild correlation between the predictors so the VIF is meaningful but not
+# pathological (no near-collinearity). statsmodels.api.OLS on sm.add_constant([x1,
+# x2]) produces the pinned coefficients / SE / p / R2 / F / VIF. Mirrored verbatim
+# in datahub-stats.ts.
+MLR_X1 = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0]
+MLR_X2 = [2.0, 5.0, 3.0, 8.0, 4.0, 9.0, 6.0, 11.0, 7.0, 13.0, 10.0, 14.0]
+MLR_Y = [
+    4.1, 7.8, 8.9, 13.2, 13.0, 18.7, 18.2, 24.1, 22.0, 28.9, 27.1, 32.0,
 ]
 
 # A dose-response dataset for the 4PL / 5PL curve fit (D1). x = log10(dose in M),
@@ -320,6 +332,51 @@ def ref_logistic_regression():
         "auc": r4(auc),
         "iterations": int(result.mle_retvals.get("iterations", 0))
         if isinstance(result.mle_retvals, dict) else 0,
+    }
+
+
+def ref_multiple_regression():
+    """Reference multiple (OLS) linear regression (D5) via statsmodels OLS.
+
+    Fits y = b0 + b1*x1 + b2*x2 by ordinary least squares. We add a constant with
+    sm.add_constant so params[0] is the intercept, params[1] the x1 slope, params[2]
+    the x2 slope. SE come from .bse, the t and p from .tvalues / .pvalues, R2 from
+    .rsquared, adjusted R2 from .rsquared_adj, the residual standard error from
+    sqrt(.mse_resid), the overall F from .fvalue / .f_pvalue, and the log-likelihood
+    from .llf. The VIF of each predictor is the standard
+    statsmodels.stats.outliers_influence.variance_inflation_factor on the design
+    matrix WITH the constant (so index 1 is x1, index 2 is x2). Closed-form OLS, so
+    these pin tight.
+    """
+    x1 = np.asarray(MLR_X1, float)
+    x2 = np.asarray(MLR_X2, float)
+    y = np.asarray(MLR_Y, float)
+    X = sm.add_constant(np.column_stack([x1, x2]))
+    result = sm.OLS(y, X).fit()
+    b0, b1, b2 = (float(v) for v in result.params)
+    se0, se1, se2 = (float(v) for v in result.bse)
+    t0, t1, t2 = (float(v) for v in result.tvalues)
+    p0, p1, p2 = (float(v) for v in result.pvalues)
+    vif1 = float(variance_inflation_factor(X, 1))
+    vif2 = float(variance_inflation_factor(X, 2))
+    return {
+        "intercept": r4(b0),
+        "x1Slope": r4(b1),
+        "x2Slope": r4(b2),
+        "interceptSE": r4(se0),
+        "x1SlopeSE": r4(se1),
+        "x2SlopeSE": r4(se2),
+        "x1SlopeT": r4(t1),
+        "x1SlopeP": r4(p1),
+        "x2SlopeP": r4(p2),
+        "rSquared": r4(float(result.rsquared)),
+        "adjRSquared": r4(float(result.rsquared_adj)),
+        "residualSE": r4(float(np.sqrt(result.mse_resid))),
+        "fStatistic": r4(float(result.fvalue)),
+        "fPValue": r4(float(result.f_pvalue)),
+        "logLikelihood": r4(float(result.llf)),
+        "x1Vif": r4(vif1),
+        "x2Vif": r4(vif2),
     }
 
 
@@ -817,6 +874,7 @@ PROVENANCE = {
         "pearson": "scipy.stats.pearsonr(X, Y)",
         "spearman": "scipy.stats.spearmanr(X, Y)",
         "linreg": "scipy.stats.linregress(X, Y)",
+        "multiple_regression": "statsmodels.api.OLS(y, sm.add_constant([x1, x2])).fit(); params/bse/tvalues/pvalues, rsquared, rsquared_adj, sqrt(mse_resid), fvalue, f_pvalue, llf; VIF = statsmodels.stats.outliers_influence.variance_inflation_factor(X, j)",
         "dose_response.fourpl": "scipy.optimize.curve_fit(4PL: bottom+(top-bottom)/(1+10**((logec50-x)*hill)) ); EC50=10**logEC50",
         "dose_response.fivepl": "scipy.optimize.curve_fit(5PL: 4PL denom **s ); true EC50=10**(logEC50 - log10(2**(1/s)-1)/hill)",
         "model_comparison": "curve_fit 4PL + 5PL; extra-sum-of-squares F = ((SS1-SS2)/(DF1-DF2))/(SS2/DF2), p=scipy.stats.f.sf; AICc=n*ln(SS/n)+2K+2K(K+1)/(n-K-1), K=nparams+1",
@@ -849,6 +907,7 @@ def main():
     refs.update({"kruskal_friedman": ref_kruskal_friedman()})
     refs.update({"correlation_regression": ref_correlation_regression()})
     refs.update({"logistic_regression": ref_logistic_regression()})
+    refs.update({"multiple_regression": ref_multiple_regression()})
     refs.update({"dose_response": ref_dose_response()})
     refs.update({"model_comparison": ref_model_comparison()})
     refs.update({"from_stats": ref_from_stats()})
@@ -871,6 +930,9 @@ def main():
         "XY_Y": XY_Y,
         "LOGIT_X": LOGIT_X,
         "LOGIT_Y": LOGIT_Y,
+        "MLR_X1": MLR_X1,
+        "MLR_X2": MLR_X2,
+        "MLR_Y": MLR_Y,
         "DOSE_LOG_CONC": DOSE_LOG_CONC,
         "DOSE_RESPONSE": DOSE_RESPONSE,
         "TWOWAY": TWOWAY,

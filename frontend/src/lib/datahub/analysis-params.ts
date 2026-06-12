@@ -199,6 +199,7 @@ export const ANALYSIS_PARAM_SCHEMA: Record<string, ParamField[]> = {
     COMPARE_NESTED_FIELD,
   ],
   kaplanMeier: [],
+  multipleRegression: [],
 };
 
 /** The schema for one analysis type (empty if the type takes no options). */

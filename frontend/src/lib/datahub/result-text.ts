@@ -149,6 +149,46 @@ export function resultToText(result: NormalizedResult): string {
       );
       break;
     }
+    case "multipleRegression": {
+      lines.push(row("Term", "Estimate", "SE", "t", "p", "95% CI"));
+      for (const c of result.coefficients) {
+        lines.push(
+          row(
+            c.name,
+            n(c.estimate, 6),
+            n(c.standardError, 6),
+            n(c.t, 4),
+            formatP(c.pValue),
+            ci(c.ci95),
+          ),
+        );
+      }
+      lines.push("", row("Term", "Std. beta", "VIF"));
+      for (const c of result.slopes) {
+        lines.push(
+          row(
+            c.name,
+            Number.isFinite(c.standardizedBeta) ? n(c.standardizedBeta, 4) : "",
+            Number.isFinite(c.vif) ? n(c.vif, 4) : "inf",
+          ),
+        );
+      }
+      lines.push(
+        "",
+        row("R-squared", n(result.rSquared, 6)),
+        row("Adjusted R-squared", n(result.adjRSquared, 6)),
+        row("Residual SE (sigma)", n(result.residualSE, 6)),
+        row(
+          `Overall F (${result.fDfNum}, ${result.fDfDen})`,
+          n(result.fStatistic, 6),
+        ),
+        row("Overall F p", formatP(result.fPValue)),
+        row("Log-likelihood", n(result.logLikelihood, 4)),
+        row("Predictors (k)", n(result.nPredictors, 0)),
+        row("Rows (n)", n(result.n, 0)),
+      );
+      break;
+    }
     case "doseResponse": {
       // Use exponential text for the EC50 so a sub-nanomolar dose stays readable.
       const conc = (x: number): string =>

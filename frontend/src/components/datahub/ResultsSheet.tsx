@@ -30,6 +30,7 @@ import {
   type NormalizedCorrelation,
   type NormalizedDoseResponse,
   type NormalizedLogisticRegression,
+  type NormalizedMultipleRegression,
   type NormalizedModelComparison,
   type NormalizedRegression,
   type NormalizedResult,
@@ -421,6 +422,89 @@ function LogisticRegressionTable({
   );
 }
 
+function MultipleRegressionTable({
+  r,
+}: {
+  r: NormalizedMultipleRegression;
+}) {
+  return (
+    <>
+      <table
+        className="w-full border-collapse text-body tabular-nums"
+        data-testid="results-multiple-regression-coefficients-table"
+      >
+        <thead>
+          <tr className="text-meta uppercase tracking-wide text-foreground-muted">
+            <th className="border-b border-border px-3 py-1.5 text-left">Term</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">Estimate</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">SE</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">t</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">p</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">95% CI</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">Std. beta</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">VIF</th>
+          </tr>
+        </thead>
+        <tbody>
+          {r.coefficients.map((c) => (
+            <tr key={c.name}>
+              <td className="border-b border-border px-3 py-1.5 text-foreground">
+                {c.name}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {num(c.estimate, 4)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {num(c.standardError, 4)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {num(c.t, 3)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {formatP(c.pValue)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {ciText(c.ci95)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {Number.isFinite(c.standardizedBeta)
+                  ? num(c.standardizedBeta, 3)
+                  : "-"}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {Number.isFinite(c.vif) ? num(c.vif, 2) : "inf"}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <KeyValueTable
+        testid="results-multiple-regression-fit-table"
+        rows={[
+          { label: "R-squared", value: num(r.rSquared, 4) },
+          { label: "Adjusted R-squared", value: num(r.adjRSquared, 4) },
+          { label: "Residual SE (sigma)", value: num(r.residualSE, 4) },
+          {
+            label: `Overall F (${r.fDfNum}, ${r.fDfDen})`,
+            value: num(r.fStatistic, 3),
+          },
+          { label: "Overall F p", value: formatP(r.fPValue) },
+          { label: "Log-likelihood", value: num(r.logLikelihood, 3) },
+          { label: "Predictors (k)", value: num(r.nPredictors, 0) },
+          { label: "Rows (n)", value: num(r.n, 0) },
+        ]}
+      />
+      <p className="mt-2 max-w-xl text-meta text-foreground-muted">
+        Each slope is the change in {r.yName} for a one-unit rise in that
+        predictor while the others are held constant. The standardized beta puts
+        the slopes on a common scale for comparison. VIF flags
+        multicollinearity, where a value above about 5 to 10 means a predictor is
+        largely explained by the others, which inflates its standard error.
+      </p>
+    </>
+  );
+}
+
 /**
  * Format a concentration (EC50 and friends) compactly. A dose can span many
  * orders of magnitude, so we use scientific notation outside a comfortable
@@ -772,6 +856,14 @@ function resultTabs(result: NormalizedResult): {
           id: "tabular",
           label: "Tabular results",
           render: () => <LogisticRegressionTable r={result} />,
+        },
+      ];
+    case "multipleRegression":
+      return [
+        {
+          id: "tabular",
+          label: "Tabular results",
+          render: () => <MultipleRegressionTable r={result} />,
         },
       ];
     case "doseResponse":

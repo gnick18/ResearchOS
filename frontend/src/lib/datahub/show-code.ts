@@ -17,6 +17,7 @@ import type {
   NormalizedCorrelation,
   NormalizedDoseResponse,
   NormalizedLogisticRegression,
+  NormalizedMultipleRegression,
   NormalizedModelComparison,
   NormalizedRegression,
   NormalizedResult,
@@ -453,6 +454,38 @@ print(f"X at P=0.5 = {-b0 / b1:.4g}")
 print(f"McFadden pseudo-R2 = {result.prsquared:.4g}")`;
 }
 
+function multipleRegressionCode(r: NormalizedMultipleRegression): string {
+  // One numpy array per predictor column so the snippet reads like a real script.
+  const cols = r.predictorNames
+    .map((name, j) => {
+      const col = r.predictors.map((row) => row[j]);
+      const safe = name.replace(/[^A-Za-z0-9_]/g, "_") || `x${j + 1}`;
+      return `${safe} = ${pyList(col)}`;
+    })
+    .join("\n");
+  const stacked = r.predictorNames
+    .map((name, j) => name.replace(/[^A-Za-z0-9_]/g, "_") || `x${j + 1}`)
+    .join(", ");
+  return `import numpy as np
+import statsmodels.api as sm
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+
+y = ${pyList(r.y)}
+${cols}
+
+# Multiple linear regression y = b0 + b1*x1 + ... + bk*xk by ordinary least
+# squares. add_constant puts the intercept first, so params[0] is b0.
+X = sm.add_constant(np.column_stack([${stacked}]))
+result = sm.OLS(np.asarray(y, float), X).fit()
+
+print(result.summary())
+
+# Each predictor's variance inflation factor (multicollinearity). Index 0 is the
+# constant, so the predictors start at index 1.
+for i in range(1, X.shape[1]):
+    print(f"VIF[{i}] = {variance_inflation_factor(X, i):.4g}")`;
+}
+
 function doseResponseCode(r: NormalizedDoseResponse): string {
   const x = pyList(r.x);
   const y = pyList(r.y);
@@ -665,6 +698,8 @@ export function showCode(result: NormalizedResult): string {
   if (result.kind === "regression") return regressionCode(result);
   if (result.kind === "logisticRegression")
     return logisticRegressionCode(result);
+  if (result.kind === "multipleRegression")
+    return multipleRegressionCode(result);
   if (result.kind === "doseResponse") return doseResponseCode(result);
   if (result.kind === "modelComparison") return modelComparisonCode(result);
   if (result.kind === "twoWayAnova") return twoWayCode(result);

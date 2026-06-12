@@ -35,7 +35,7 @@ export interface NewAnalysisSubmit {
 
 const TYPE_META: Record<
   AnalysisType,
-  { label: string; blurb: string; groupCount: "two" | "all" }
+  { label: string; blurb: string; groupCount: "two" | "all" | "regression" }
 > = {
   unpairedTTest: {
     label: "Unpaired t-test",
@@ -72,6 +72,12 @@ const TYPE_META: Record<
     blurb:
       "Compare three or more groups without assuming a normal distribution. The rank-based answer to a non-normal one-way ANOVA.",
     groupCount: "all",
+  },
+  multipleRegression: {
+    label: "Multiple linear regression",
+    blurb:
+      "Predict one Y column from two or more predictor columns by ordinary least squares. Reports each coefficient with its standard error, t, p, and 95% interval, plus R-squared, adjusted R-squared, the overall F test, and per-predictor VIF.",
+    groupCount: "regression",
   },
   correlationPearson: {
     label: "Pearson correlation",
@@ -168,6 +174,9 @@ export default function NewAnalysisDialog({
   const [groupB, setGroupB] = useState<string>("");
   // The Y column an XY analysis runs against (the X column is the table's one).
   const [yColumn, setYColumn] = useState<string>("");
+  // Multiple regression: the response column plus the chosen predictor ids.
+  const [regYColumn, setRegYColumn] = useState<string>("");
+  const [regPredictors, setRegPredictors] = useState<string[]>([]);
 
   // Reset the form each open: default to the first valid type and the first two
   // groups (or the first Y column for an XY table) so the common case is one
@@ -179,6 +188,10 @@ export default function NewAnalysisDialog({
     setGroupA(groups[0]?.id ?? "");
     setGroupB(groups[1]?.id ?? "");
     setYColumn(ys[0]?.id ?? "");
+    // Default the regression Y to the first column and every OTHER column to a
+    // predictor, the common all-predictors-but-Y starting point.
+    setRegYColumn(groups[0]?.id ?? "");
+    setRegPredictors(groups.slice(1).map((g) => g.id));
   }, [open, validTypes, groups, ys]);
 
   // Escape closes.
@@ -194,14 +207,22 @@ export default function NewAnalysisDialog({
   if (!open) return null;
 
   const isPair = type !== null && TYPE_META[type].groupCount === "two";
+  const isRegression =
+    type !== null && TYPE_META[type].groupCount === "regression";
+  // The predictors that are not the chosen Y column (Y cannot also be an X).
+  const regPredictorsClean = regPredictors.filter((id) => id !== regYColumn);
   const canSubmit = wholeTable
     ? type !== null
     : isXY
       ? type !== null && yColumn !== "" && !!xCol
-      : type !== null &&
-        (isPair
-          ? groupA !== "" && groupB !== "" && groupA !== groupB
-          : groups.length >= 3);
+      : isRegression
+        ? type !== null &&
+          regYColumn !== "" &&
+          regPredictorsClean.length >= 2
+        : type !== null &&
+          (isPair
+            ? groupA !== "" && groupB !== "" && groupA !== groupB
+            : groups.length >= 3);
 
   const submit = () => {
     if (!canSubmit || type === null) return;
@@ -211,10 +232,18 @@ export default function NewAnalysisDialog({
       ? []
       : isXY
         ? [yColumn]
-        : isPair
-          ? [groupA, groupB]
-          : groups.map((g) => g.id);
+        : isRegression
+          ? [regYColumn, ...regPredictorsClean]
+          : isPair
+            ? [groupA, groupB]
+            : groups.map((g) => g.id);
     onSubmit({ type, columnIds });
+  };
+
+  const togglePredictor = (id: string) => {
+    setRegPredictors((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
+    );
   };
 
   return (
@@ -312,6 +341,53 @@ export default function NewAnalysisDialog({
                       </option>
                     ))}
                   </select>
+                </div>
+              </div>
+            ) : isRegression ? (
+              <div className="mt-4 flex flex-col gap-3">
+                <div>
+                  <label className="block text-meta font-medium uppercase tracking-wide text-foreground-muted">
+                    Y column (outcome)
+                  </label>
+                  <select
+                    value={regYColumn}
+                    onChange={(e) => setRegYColumn(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-border bg-surface-raised px-2 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
+                  >
+                    {groups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-meta font-medium uppercase tracking-wide text-foreground-muted">
+                    Predictor columns (pick 2 or more)
+                  </label>
+                  <div className="mt-1 flex flex-col gap-1 rounded-md border border-border bg-surface-raised p-2">
+                    {groups
+                      .filter((g) => g.id !== regYColumn)
+                      .map((g) => (
+                        <label
+                          key={g.id}
+                          className="flex items-center gap-2 rounded px-1.5 py-1 text-body text-foreground hover:bg-surface-sunken"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={regPredictors.includes(g.id)}
+                            onChange={() => togglePredictor(g.id)}
+                            className="h-3.5 w-3.5 accent-sky-500"
+                          />
+                          {g.name}
+                        </label>
+                      ))}
+                  </div>
+                  {regPredictorsClean.length < 2 && (
+                    <p className="mt-1 text-meta text-amber-600">
+                      Pick at least 2 predictor columns.
+                    </p>
+                  )}
                 </div>
               </div>
             ) : isPair ? (

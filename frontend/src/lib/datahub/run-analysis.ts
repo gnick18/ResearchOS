@@ -40,6 +40,9 @@ import {
   logisticRegression,
   type LogisticRegressionResult,
   type LogisticCoefficient,
+  multipleRegression,
+  type MultipleRegressionResult,
+  type MultipleRegressionCoefficient,
   kaplanMeier,
   logRank,
   shapiroWilk,
@@ -70,6 +73,7 @@ import { readParams } from "@/lib/datahub/analysis-params";
 import type { Tail } from "@/lib/datahub/engine/types";
 import type { PostHocMethod } from "@/lib/datahub/engine/anova";
 import { columnValues, groupColumns } from "@/lib/datahub/column-table";
+import { isCellExcluded } from "@/lib/datahub/cell-exclusion";
 import {
   isSummaryFormat,
   readGroupSummary,
@@ -100,7 +104,8 @@ export type AnalysisType =
   | "doseResponse"
   | "modelComparison"
   | "twoWayAnova"
-  | "kaplanMeier";
+  | "kaplanMeier"
+  | "multipleRegression";
 
 /** The analysis types that read a Survival table (time + event + group). */
 export const SURVIVAL_ANALYSIS_TYPES: AnalysisType[] = ["kaplanMeier"];
@@ -126,6 +131,7 @@ export const COLUMN_ANALYSIS_TYPES: AnalysisType[] = [
   "mannWhitneyU",
   "wilcoxonSignedRank",
   "kruskalWallis",
+  "multipleRegression",
 ];
 
 /**
@@ -326,6 +332,42 @@ export interface NormalizedLogisticRegression {
   iterations: number;
 }
 
+/**
+ * A normalized multiple linear regression result (Prism's "Multiple linear
+ * regression"). Fits y = b0 + b1*x1 + ... + bk*xk by ordinary least squares on
+ * one Y column and two or more predictor columns of a Column table. Reports each
+ * coefficient (intercept and every slope) with its SE, t, two-sided Student-t p,
+ * 95% CI, standardized beta, and VIF; plus the overall fit (R-squared, adjusted
+ * R-squared, residual standard error sigma, the overall F with its df and p, and
+ * the log-likelihood). The raw Y and predictor matrix are carried so the code
+ * snippet reproduces the numbers.
+ */
+export interface NormalizedMultipleRegression {
+  kind: "multipleRegression";
+  type: "multipleRegression";
+  /** The Y (response) column name. */
+  yName: string;
+  /** The predictor column names, in coefficient order. */
+  predictorNames: string[];
+  /** The response values for the kept rows. */
+  y: number[];
+  /** One row per kept observation, each a predictor vector (length k). */
+  predictors: number[][];
+  n: number;
+  nPredictors: number;
+  coefficients: MultipleRegressionCoefficient[];
+  intercept: MultipleRegressionCoefficient;
+  slopes: MultipleRegressionCoefficient[];
+  rSquared: number;
+  adjRSquared: number;
+  residualSE: number;
+  fStatistic: number;
+  fDfNum: number;
+  fDfDen: number;
+  fPValue: number;
+  logLikelihood: number;
+}
+
 /** One fitted curve parameter with its standard error and 95% CI. */
 export interface DoseResponseParam {
   name: string;
@@ -504,6 +546,7 @@ export type NormalizedResult =
   | NormalizedCorrelation
   | NormalizedRegression
   | NormalizedLogisticRegression
+  | NormalizedMultipleRegression
   | NormalizedDoseResponse
   | NormalizedModelComparison
   | NormalizedTwoWayAnova
@@ -600,6 +643,9 @@ export function validAnalysisTypes(content: DataHubDocContent): AnalysisType[] {
   }
   if (k >= 3) {
     out.push("oneWayAnova", "kruskalWallis");
+    // Multiple regression treats one column as Y and the rest as predictors, so
+    // it needs at least 3 columns (a Y plus 2 predictors).
+    out.push("multipleRegression");
   }
   return out;
 }
@@ -923,6 +969,93 @@ function runXYAnalysis(
   };
 }
 
+/**
+ * Read one cell as a finite number, or null. Mirrors columnValues' parse (a
+ * numeric cell, or a numeric-looking string), but per row so the caller can keep
+ * rows aligned across columns. An excluded cell reads as null (treated absent).
+ */
+function numericCell(
+  content: DataHubDocContent,
+  rowId: string,
+  columnId: string,
+): number | null {
+  if (isCellExcluded(content, rowId, columnId)) return null;
+  const v = content.rows.find((r) => r.id === rowId)?.cells[columnId];
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+/**
+ * Run a multiple linear regression. The spec stores the Y column id first and
+ * the predictor column ids after it (inputs.columnIds = [yId, x1Id, x2Id, ...]).
+ * We read the columns row by row and keep only rows where the Y and EVERY
+ * predictor are finite, so the design matrix stays aligned. The engine fits OLS
+ * via the normal equations.
+ */
+function runMultipleRegression(
+  content: DataHubDocContent,
+  spec: AnalysisSpec,
+): RunOutcome {
+  const ids = specColumnIds(spec);
+  if (ids.length < 3) {
+    return {
+      ok: false,
+      error: "Multiple regression needs a Y column and at least 2 predictors.",
+    };
+  }
+  const byId = new Map(groupColumns(content).map((c) => [c.id, c.name]));
+  const yId = ids[0];
+  const xIds = ids.slice(1);
+  if (!byId.has(yId) || !xIds.every((id) => byId.has(id))) {
+    return { ok: false, error: "Pick a Y column and 2 or more predictor columns." };
+  }
+  const yName = byId.get(yId) as string;
+  const predictorNames = xIds.map((id) => byId.get(id) as string);
+
+  // Build row-aligned Y and predictor matrix, dropping any row with a missing or
+  // non-finite Y or predictor (listwise deletion, what Prism and statsmodels do).
+  const y: number[] = [];
+  const predictors: number[][] = [];
+  for (const row of content.rows) {
+    const yv = numericCell(content, row.id, yId);
+    if (yv === null) continue;
+    const xs = xIds.map((id) => numericCell(content, row.id, id));
+    if (xs.some((v) => v === null)) continue;
+    y.push(yv);
+    predictors.push(xs as number[]);
+  }
+
+  const r = multipleRegression(predictors, y, predictorNames);
+  if (!r.ok) return { ok: false, error: r.error };
+  const res = r as MultipleRegressionResult & { ok: true };
+  return {
+    ok: true,
+    kind: "multipleRegression",
+    type: "multipleRegression",
+    yName,
+    predictorNames,
+    y,
+    predictors,
+    n: res.n,
+    nPredictors: res.nPredictors,
+    coefficients: res.coefficients,
+    intercept: res.intercept,
+    slopes: res.slopes,
+    rSquared: res.rSquared,
+    adjRSquared: res.adjRSquared,
+    residualSE: res.residualSE,
+    fStatistic: res.fStatistic,
+    fDfNum: res.fDfNum,
+    fDfDen: res.fDfDen,
+    fPValue: res.fPValue,
+    logLikelihood: res.logLikelihood,
+  };
+}
+
 function tableRow(table: AnovaResult["table"], source: string) {
   return table.find((r) => r.source === source);
 }
@@ -1226,6 +1359,10 @@ export function runAnalysis(
 
   if (type === "kaplanMeier") {
     return runSurvivalAnalysis(content);
+  }
+
+  if (type === "multipleRegression") {
+    return runMultipleRegression(content, spec);
   }
 
   // A Column table in a summary entry format dispatches the summary-compatible

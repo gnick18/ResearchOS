@@ -661,3 +661,95 @@ describe("model comparison analysis (D2)", () => {
     expect(code).toContain("def aicc");
   });
 });
+
+describe("multiple linear regression analysis (D5)", () => {
+  // A Column table with one Y column and two predictor columns. Same fixed arrays
+  // the engine + transparency pins use, so the run-layer result matches statsmodels.
+  const MLR_X1 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  const MLR_X2 = [2, 5, 3, 8, 4, 9, 6, 11, 7, 13, 10, 14];
+  const MLR_Y = [4.1, 7.8, 8.9, 13.2, 13.0, 18.7, 18.2, 24.1, 22.0, 28.9, 27.1, 32.0];
+
+  function mlrContent(): DataHubDocContent {
+    const cols = [
+      { id: "y", name: "Yield" },
+      { id: "x1", name: "Temp" },
+      { id: "x2", name: "Time" },
+    ];
+    const series: Record<string, number[]> = { y: MLR_Y, x1: MLR_X1, x2: MLR_X2 };
+    const rows = Array.from({ length: MLR_Y.length }, (_, r) => ({
+      id: `row-${r + 1}`,
+      cells: {
+        y: series.y[r],
+        x1: series.x1[r],
+        x2: series.x2[r],
+      } as Record<string, number>,
+    }));
+    return {
+      meta: { ...META, table_type: "column" },
+      columns: cols.map((c) => ({
+        id: c.id,
+        name: c.name,
+        role: "y" as const,
+        dataType: "number" as const,
+      })),
+      rows,
+      analyses: [],
+      plots: [],
+    };
+  }
+
+  // inputs.columnIds = [Y, x1, x2].
+  const mlrSpec = (): AnalysisSpec => spec("multipleRegression", ["y", "x1", "x2"]);
+
+  it("offers multiple regression once the table has 3 or more columns", () => {
+    expect(validAnalysisTypes(mlrContent())).toContain("multipleRegression");
+  });
+
+  it("fits OLS coefficients matching statsmodels", () => {
+    const out = runAnalysis(mlrSpec(), mlrContent());
+    if (!out.ok || out.kind !== "multipleRegression") throw new Error("run failed");
+    expect(out.intercept.estimate).toBeCloseTo(1.0135, 3);
+    expect(out.slopes[0].estimate).toBeCloseTo(1.7644, 3);
+    expect(out.slopes[1].estimate).toBeCloseTo(0.7415, 3);
+    expect(out.predictorNames).toEqual(["Temp", "Time"]);
+    expect(out.n).toBe(12);
+  });
+
+  it("reports the overall fit and F test", () => {
+    const out = runAnalysis(mlrSpec(), mlrContent());
+    if (!out.ok || out.kind !== "multipleRegression") throw new Error("run failed");
+    expect(out.rSquared).toBeCloseTo(0.9963, 4);
+    expect(out.adjRSquared).toBeCloseTo(0.9954, 4);
+    expect(out.fStatistic).toBeCloseTo(1201.8155, 2);
+    expect(out.fDfNum).toBe(2);
+    expect(out.fDfDen).toBe(9);
+  });
+
+  it("reports the per-predictor VIF", () => {
+    const out = runAnalysis(mlrSpec(), mlrContent());
+    if (!out.ok || out.kind !== "multipleRegression") throw new Error("run failed");
+    expect(out.slopes[0].vif).toBeCloseTo(3.5424, 3);
+  });
+
+  it("fails clearly with fewer than 2 predictors", () => {
+    const out = runAnalysis(spec("multipleRegression", ["y", "x1"]), mlrContent());
+    expect(out.ok).toBe(false);
+  });
+
+  it("plain-language verdict names the fit without forbidden punctuation", () => {
+    const out = runAnalysis(mlrSpec(), mlrContent());
+    if (!out.ok) throw new Error("run failed");
+    const sentence = plainLanguageSummary(out);
+    expect(sentence).toContain("R-squared");
+    expect(sentence).not.toContain("—");
+  });
+
+  it("show-the-code emits statsmodels OLS plus VIF", () => {
+    const out = runAnalysis(mlrSpec(), mlrContent());
+    if (!out.ok) throw new Error("run failed");
+    const code = showCode(out);
+    expect(code).toContain("sm.OLS");
+    expect(code).toContain("add_constant");
+    expect(code).toContain("variance_inflation_factor");
+  });
+});

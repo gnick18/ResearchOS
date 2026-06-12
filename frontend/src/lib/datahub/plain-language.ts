@@ -13,6 +13,7 @@ import type {
   NormalizedCorrelation,
   NormalizedDoseResponse,
   NormalizedLogisticRegression,
+  NormalizedMultipleRegression,
   NormalizedModelComparison,
   NormalizedRegression,
   NormalizedResult,
@@ -163,6 +164,40 @@ function logisticRegressionSummary(r: NormalizedLogisticRegression): string {
   )} (n = ${r.n}).`;
 }
 
+function multipleRegressionSummary(r: NormalizedMultipleRegression): string {
+  const k = r.nPredictors;
+  const fitWord =
+    r.rSquared >= 0.9
+      ? "explains most of the variation in"
+      : r.rSquared >= 0.5
+        ? "explains a moderate share of the variation in"
+        : "explains only a small share of the variation in";
+  const overall =
+    r.fPValue < ALPHA
+      ? `The model as a whole is significant (F(${r.fDfNum}, ${r.fDfDen}) = ${num(
+          r.fStatistic,
+          2,
+        )}, ${formatP(r.fPValue)}).`
+      : `The model as a whole is not significant (F(${r.fDfNum}, ${r.fDfDen}) = ${num(
+          r.fStatistic,
+          2,
+        )}, ${formatP(r.fPValue)}).`;
+  // Name the predictors that carry their own weight (a significant slope).
+  const sigSlopes = r.slopes.filter((s) => s.pValue < ALPHA).map((s) => s.name);
+  const slopeWord =
+    sigSlopes.length === 0
+      ? "No single predictor stands out once the others are held constant."
+      : sigSlopes.length === r.slopes.length
+        ? "Each predictor contributes once the others are held constant."
+        : `${sigSlopes.join(" and ")} contribute${
+            sigSlopes.length === 1 ? "s" : ""
+          } once the other predictors are held constant.`;
+  return `The ${k} predictors together ${fitWord} ${r.yName} (R-squared ${num(
+    r.rSquared,
+    3,
+  )}, adjusted ${num(r.adjRSquared, 3)}, n = ${r.n}). ${overall} ${slopeWord}`;
+}
+
 /** A concentration for inline prose (scientific notation for tiny/large doses). */
 function concText(x: number): string {
   if (!Number.isFinite(x)) return "n/a";
@@ -293,6 +328,8 @@ export function plainLanguageSummary(result: NormalizedResult): string {
   if (result.kind === "regression") return regressionSummary(result);
   if (result.kind === "logisticRegression")
     return logisticRegressionSummary(result);
+  if (result.kind === "multipleRegression")
+    return multipleRegressionSummary(result);
   if (result.kind === "doseResponse") return doseResponseSummary(result);
   if (result.kind === "modelComparison") return modelComparisonSummary(result);
   if (result.kind === "twoWayAnova") return twoWaySummary(result);

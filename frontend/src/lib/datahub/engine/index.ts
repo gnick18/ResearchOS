@@ -48,6 +48,13 @@ export {
   type LogisticCoefficient,
 } from "./regression-logistic";
 
+// Multiple (OLS) linear regression via the normal equations.
+export {
+  multipleRegression,
+  type MultipleRegressionResult,
+  type MultipleRegressionCoefficient,
+} from "./regression-multiple";
+
 // Assumption checks (normality + equal variance).
 export { shapiroWilk, levene, brownForsythe } from "./assumptions";
 
