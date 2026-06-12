@@ -123,7 +123,7 @@ const purchases: DemoStep[] = [
 
 export const DEMO_CLIPS: Record<string, DemoStep[]> = {
   chemistry,
-  dataHub,
+  datahub: dataHub,
   sequences,
   purchases,
 };
