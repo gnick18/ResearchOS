@@ -49,7 +49,7 @@ export default function MoleculeEmbed({ descriptor, caption, figureLabel }: Embe
   }
 
   const m = state.meta;
-  const title = caption || m.name;
+  const title = m.name || caption;
   const facts = [m.formula, m.mol_weight != null ? `${m.mol_weight.toFixed(2)} g/mol` : null]
     .filter(Boolean)
     .join(" · ");

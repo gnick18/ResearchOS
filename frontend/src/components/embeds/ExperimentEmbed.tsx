@@ -67,7 +67,7 @@ export default function ExperimentEmbed({ descriptor, caption }: EmbedRendererPr
   }
 
   const task = state.task;
-  const title = caption || task.name;
+  const title = task.name || caption;
   const href = objectDeepLink("experiment", descriptor.id);
 
   return (
