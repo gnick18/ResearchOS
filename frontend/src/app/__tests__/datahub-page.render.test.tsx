@@ -179,15 +179,16 @@ describe("DataHubPage — slice 1 skeleton + Column-table loop", () => {
     expect(await screen.findByTestId("datahub-rail")).toBeInTheDocument();
     expect(screen.getByTestId("datahub-collection-select")).toBeInTheDocument();
 
-    // Results + Graphs are present as empty-state placeholders.
-    expect(screen.getByTestId("datahub-results-section")).toBeInTheDocument();
-    expect(screen.getByTestId("datahub-graphs-section")).toBeInTheDocument();
-    expect(screen.getByText(/No analyses yet/i)).toBeInTheDocument();
-    expect(screen.getByText(/No graphs yet/i)).toBeInTheDocument();
-
     // The seeded table opens and its grid renders.
     await screen.findByTestId("datahub-data-grid");
     expect(screen.getAllByText("Cell viability assay").length).toBeGreaterThan(0);
+
+    // The open table auto-expands, so its Results + Graphs subgroups render
+    // nested under it as empty-state placeholders.
+    expect(await screen.findByTestId("datahub-results-section")).toBeInTheDocument();
+    expect(screen.getByTestId("datahub-graphs-section")).toBeInTheDocument();
+    expect(screen.getByText(/No analyses yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/No graphs yet/i)).toBeInTheDocument();
   });
 
   it("nests a stored analysis under its table in the rail family tree", async () => {
@@ -197,9 +198,10 @@ describe("DataHubPage — slice 1 skeleton + Column-table loop", () => {
     // The open table auto-expands, so its Results subgroup is visible and the
     // analysis row lives INSIDE that nested section (the family tree), not in a
     // separate flat list.
+    await screen.findByTestId("datahub-data-grid");
     const results = await screen.findByTestId("datahub-results-section");
     expect(
-      within(results).getByText(/Unpaired t-test/i),
+      await within(results).findByText(/Unpaired t-test/i),
     ).toBeInTheDocument();
   });
 
