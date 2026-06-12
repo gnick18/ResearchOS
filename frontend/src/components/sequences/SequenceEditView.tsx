@@ -75,6 +75,12 @@ import {
   buildSelectionMenuItems,
 } from "@/lib/sequences/context-menu-items";
 import { findOrfs } from "@/lib/sequences/orf";
+import {
+  extractRegion,
+  extractedRegionToImported,
+  type ExtractTarget,
+} from "@/lib/sequences/extract-region";
+import type { ImportedSequence } from "@/lib/sequences/import";
 import { selectTranslationFeatures } from "@/lib/sequences/translation-tracks";
 import {
   setMolecularClip,
@@ -663,6 +669,7 @@ export default function SequenceEditView({
   onExploreInTree,
   onLookupTaxonomy,
   onOpenAssemble,
+  onCreateSequenceFromRegion,
   collectionSequences = EMPTY_COLLECTION_SEQUENCES,
   collectionLabel,
   onOpenSequence,
@@ -694,6 +701,13 @@ export default function SequenceEditView({
    *  in; absent in embedded / read-only surfaces, where the rail's Cloning
    *  panel falls back to a calm note. */
   onOpenAssemble?: () => void;
+  /** sequences / extract-locus — create a NEW standalone library sequence from a
+   *  region of THIS one (a selected feature, which carries its strand, or the live
+   *  base selection). The child builds the ImportedSequence via the pure extract
+   *  engine; the page owns the create + list refresh + selection and resolves the
+   *  new sequence's id (or null on failure). Absent in read-only / embedded
+   *  surfaces, where the Extract button self-hides. */
+  onCreateSequenceFromRegion?: (imported: ImportedSequence) => Promise<number | null>;
   /** When true, the surface is a read-only inspector: no caret/keystroke edit,
    *  no clipboard, no Save, no Add/Edit/Delete feature actions. Selection +
    *  readout still work, and double-clicking a feature opens its READ-ONLY info
@@ -3371,6 +3385,81 @@ export default function SequenceEditView({
     [readoutSelection, doc.seq, readoutSelectedFeature],
   );
 
+  // sequences / extract-locus — "Extract to new sequence". Enabled when a feature
+  // is selected OR a base range is active (and the page wired the create callback,
+  // so it self-hides on read-only / embedded surfaces). A selected feature wins
+  // (it carries strand); otherwise the live half-open [lo, hi) selection is cut on
+  // the forward strand.
+  const canExtractRegion =
+    !!onCreateSequenceFromRegion &&
+    !readOnly &&
+    (selectedFeatureIdx != null || sel.hasRange);
+
+  const handleExtractRegion = useCallback(async () => {
+    if (!onCreateSequenceFromRegion) return;
+    const sourceName = sequence.display_name || doc.name || "sequence";
+    // The extract engine reads .seq + .annotations; feed it the LIVE edited
+    // document (docAnnotations is the rendered SequenceAnnotation[], primer_bind
+    // excluded), so the cut matches exactly what the user sees.
+    const detailForExtract: SequenceDetail = {
+      ...sequence,
+      seq: doc.seq,
+      annotations: docAnnotations,
+    };
+
+    let target: ExtractTarget;
+    let name: string;
+    if (selectedFeatureIdx != null) {
+      const feat = doc.features[selectedFeatureIdx];
+      if (!feat) {
+        setCopyStatus({ tone: "warn", text: "That feature is no longer selected." });
+        return;
+      }
+      // Decision: extract a selected feature BY COORDINATES (its own span +
+      // strand), not by name. selectedFeatureIdx indexes doc.features, but the
+      // engine's by-name lookup takes the FIRST annotation with that name and
+      // docAnnotations drops primer_bind, so a name match could resolve to a
+      // different instance on a sequence with duplicate feature names. Coords off
+      // the selected feature's own span extract exactly the instance in hand.
+      // feat.end is INCLUSIVE (the app convention); the target end is EXCLUSIVE.
+      target = {
+        start: feat.start,
+        end: feat.end + 1,
+        strand: feat.strand === -1 ? -1 : 1,
+      };
+      name = `${feat.name || "feature"} (from ${sourceName})`;
+    } else if (sel.hasRange) {
+      // The editor selection is already half-open [lo, hi); the target end is
+      // EXCLUSIVE too, so pass it straight (strand 1, forward).
+      target = { start: sel.lo, end: sel.hi };
+      name = `${sourceName} region ${sel.lo + 1}..${sel.hi}`;
+    } else {
+      return;
+    }
+
+    const region = extractRegion(detailForExtract, target);
+    if ("error" in region) {
+      setCopyStatus({ tone: "warn", text: region.error });
+      return;
+    }
+    const imported = extractedRegionToImported(region, name);
+    const newId = await onCreateSequenceFromRegion(imported);
+    if (newId == null) {
+      setCopyStatus({ tone: "warn", text: "Could not create the extracted sequence." });
+    }
+  }, [
+    onCreateSequenceFromRegion,
+    sequence,
+    doc.name,
+    doc.seq,
+    doc.features,
+    docAnnotations,
+    selectedFeatureIdx,
+    sel.hasRange,
+    sel.lo,
+    sel.hi,
+  ]);
+
   // The shared Edit-menu action list (one source of truth for the toolbar
   // dropdown AND the right-click context menu). Destructive ops (Cut, Paste,
   // Paste RC, Delete, case-change) are OMITTED entirely on the read-only surface.
@@ -5743,6 +5832,31 @@ export default function SequenceEditView({
             >
               <SelectionReadoutContent readout={readout} />
             </span>
+            {/* sequences / extract-locus — pull the selected feature (carries its
+                strand) or the active base range out as a new standalone library
+                sequence. Sits with the live selection readout so the cut and its
+                bounds read together on camera. Self-hides unless the page wired
+                the create callback (read-only / embedded surfaces omit it). */}
+            {onCreateSequenceFromRegion && !readOnly ? (
+              <Tooltip
+                label={
+                  canExtractRegion
+                    ? "Make a new sequence from the selected feature or range"
+                    : "Select a feature or a range to extract it as a new sequence"
+                }
+              >
+                <button
+                  type="button"
+                  data-testid="seq-extract-region-btn"
+                  onClick={handleExtractRegion}
+                  disabled={!canExtractRegion}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-surface-sunken px-2.5 py-1 text-meta font-semibold text-foreground-muted transition-colors hover:bg-surface hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-surface-sunken disabled:hover:text-foreground-muted"
+                >
+                  <Icon name="cut" className="h-3.5 w-3.5" />
+                  <span>Extract</span>
+                </button>
+              </Tooltip>
+            ) : null}
             <SequenceLineageFooter
               organism={sequence.organism}
               taxId={sequence.tax_id}

@@ -1091,6 +1091,24 @@ export default function SequencesPage() {
     [persistNew, activeProjectIds],
   );
 
+  // sequences / extract-locus — "Extract to new sequence" from the editor. The
+  // child builds the ImportedSequence (a feature span or a base selection cut out
+  // as its own molecule via the pure extract engine); the page owns the create +
+  // list refresh + selection, reusing the same persistNew the import paths use so
+  // the new sequence opens immediately. Returns its new id, or null on failure.
+  const handleCreateFromRegion = useCallback(
+    async (imported: ImportedSequence): Promise<number | null> => {
+      const id = await persistNew([imported], activeProjectIds);
+      if (id != null) {
+        setStatus({ text: `Extracted "${imported.display_name}".`, tone: "ok" });
+      } else {
+        setStatus({ text: "Could not extract that region to a new sequence.", tone: "error" });
+      }
+      return id;
+    },
+    [persistNew, activeProjectIds],
+  );
+
   // Resolve a collection id (a stringified project id) to its display name, for
   // the destination-named status line. Falls back to "Unfiled" for null / no
   // match (the All / Unfiled views, or a project that has since disappeared).
@@ -2145,6 +2163,7 @@ export default function SequencesPage() {
                   }}
                   onLookupTaxonomy={() => setTaxonomyOpen(true)}
                   onOpenAssemble={() => setAssembleOpen(true)}
+                  onCreateSequenceFromRegion={handleCreateFromRegion}
                   collectionSequences={collectionSiblings}
                   collectionLabel={collectionLabel}
                   onOpenSequence={setSelectedId}

@@ -11,7 +11,8 @@
 // House style, no em-dashes, no emojis, no mid-sentence colons.
 
 import { describe, it, expect } from "vitest";
-import { extractRegion } from "./extract-region";
+import { extractRegion, extractedRegionToImported } from "./extract-region";
+import { genbankToDetail } from "./parse";
 import type { SequenceAnnotation, SequenceDetail } from "../types";
 
 // A 21 bp linear DNA with two features. Annotation ends are INCLUSIVE (the app
@@ -148,5 +149,40 @@ describe("extractRegion - error cases", () => {
   it("errors when start >= end", () => {
     const r = extractRegion(detail(), { start: 8, end: 4 });
     expect("error" in r).toBe(true);
+  });
+});
+
+// sequences / extract-locus — the wrapping/naming helper. The slice math is
+// covered above; here we only assert that an ExtractedRegion becomes an
+// ImportedSequence with the chosen name, dna type, the new bases, and its
+// rebased annotations carried through as GenBank features.
+describe("extractedRegionToImported", () => {
+  it("wraps a feature extraction into a named dna ImportedSequence", () => {
+    const r = extractRegion(detail(), { featureName: "fwd-cds" });
+    if ("error" in r) throw new Error(r.error);
+    const imported = extractedRegionToImported(r, "fwd-cds (from Source)");
+    expect(imported.display_name).toBe("fwd-cds (from Source)");
+    expect(imported.seq_type).toBe("dna");
+    expect(imported.length).toBe(r.seq.length);
+    // The GenBank round-trips back to the same bases and carries the feature.
+    const back = genbankToDetail(imported.genbank, {
+      id: -1,
+      display_name: imported.display_name,
+      project_ids: [],
+      added_at: new Date().toISOString(),
+      seq_type: "dna",
+    });
+    expect(back).not.toBeNull();
+    expect(back?.seq).toBe(r.seq);
+    expect(back?.annotations.map((a) => a.name)).toContain("fwd-cds");
+  });
+
+  it("falls back to a calm name and carries no features for a bare slice", () => {
+    const r = extractRegion(detail(), { start: 0, end: 4 });
+    if ("error" in r) throw new Error(r.error);
+    const imported = extractedRegionToImported(r, "   ");
+    expect(imported.display_name).toBe("Extracted sequence");
+    expect(imported.seq_type).toBe("dna");
+    expect(imported.length).toBe(4);
   });
 });

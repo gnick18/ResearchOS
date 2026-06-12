@@ -31,6 +31,12 @@
 // Voice in comments, no em-dashes, no emojis, no mid-sentence colons.
 
 import { reverseComplement } from "./primer";
+import {
+  jsonToGenbank,
+  type ParsedFeature,
+  type ParsedSequence,
+} from "@/vendor/bio-parsers";
+import type { ImportedSequence } from "./import";
 import type { SequenceAnnotation, SequenceDetail } from "../types";
 
 /** How the caller picks the region to extract. */
@@ -181,5 +187,42 @@ export function extractRegion(
     sourceEnd: end,
     strand,
     featureName: resolved.featureName,
+  };
+}
+
+// sequences / extract-locus — wrap an ExtractedRegion + a chosen name into an
+// ImportedSequence (the shape sequencesApi.create wants). PURE so it is unit
+// testable next to the slice math. The rebased annotations carry through as
+// GenBank features (SequenceAnnotation uses inclusive ends + direction -1|0|1;
+// ParsedFeature wants strand 1|-1, so direction 0 maps to forward). The bases
+// already read 5'->3' on the new molecule, so no further coordinate work here.
+export function extractedRegionToImported(
+  region: ExtractedRegion,
+  name: string,
+): ImportedSequence {
+  const displayName = name.trim() || "Extracted sequence";
+  const features: ParsedFeature[] = region.annotations.map((a) => ({
+    name: a.name,
+    start: a.start,
+    end: a.end, // already inclusive on the new molecule
+    strand: a.direction === -1 ? -1 : 1,
+    type: a.type ?? "misc_feature",
+    color: a.color,
+  }));
+  const parsed: ParsedSequence = {
+    name: displayName.replace(/\s+/g, "_").slice(0, 60) || "seq",
+    sequence: region.seq,
+    circular: false, // an extracted region is always a linear fragment
+    type: "DNA",
+    features,
+  };
+  // jsonToGenbank returns false only for an unserializable record (no bases); an
+  // extracted region always carries bases, so coerce to "" defensively.
+  const genbank = jsonToGenbank(parsed, {}) || "";
+  return {
+    display_name: displayName,
+    genbank,
+    seq_type: "dna",
+    length: region.seq.length,
   };
 }
