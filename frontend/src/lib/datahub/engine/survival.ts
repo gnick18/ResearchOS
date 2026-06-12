@@ -25,7 +25,8 @@
 
 import { Matrix, pseudoInverse } from "ml-matrix";
 
-import { chiSquarePValue, normalQuantile } from "./dists";
+import { chiSquarePValue, normalQuantile, normalPValue } from "./dists";
+import { solveWithInverse } from "./linalg";
 import type { EngineResult } from "./types";
 
 /** One survival observation: a time and whether the event was observed (1) or
@@ -234,5 +235,320 @@ export function logRank(
       observed: observed[k],
       expected: expected[k],
     })),
+  };
+}
+
+// Cox proportional hazards regression.
+//
+// We fit the semiparametric Cox model by maximizing the Efron partial
+// log-likelihood with Newton-Raphson. Efron is lifelines' CoxPHFitter default
+// tie handling, so the coefficients match that reference on tied event times
+// (which the classic leukemia dataset has many of). The baseline hazard is left
+// unspecified; only the regression coefficients (log hazard ratios) are
+// estimated.
+//
+// For a single covariate the Data Hub passes the arm indicator (Treatment = 1,
+// Control = 0), so exp(coef) is the treatment-vs-control hazard ratio. The
+// solver itself is general over k covariates.
+//
+// Efron partial log-likelihood. Order subjects by time. At each distinct event
+// time t with d tied events, let R be the risk set (time >= t) and D the tied
+// events. Efron replaces the single risk-set denominator with d denominators,
+// the l-th removing a fraction l/d of the tied events' weight (l = 0 .. d - 1),
+// which approximates the exact tied-data likelihood far better than Breslow.
+// The gradient and the observed information (negative Hessian) follow from the
+// fractionally weighted risk-set means at each Efron step.
+
+/** One Cox covariate row: its covariate vector and event indicator at a time. */
+export interface CoxObservation {
+  time: number;
+  event: number;
+  /** Covariate values for this subject, one per predictor. */
+  covariates: number[];
+}
+
+/** A fitted Cox coefficient for one covariate. */
+export interface CoxCoefficient {
+  name: string;
+  /** The coefficient (log hazard ratio). */
+  coef: number;
+  /** Standard error from the inverse observed information at the MLE. */
+  se: number;
+  /** z = coef / se. */
+  z: number;
+  /** Two-sided normal p-value. */
+  pValue: number;
+  /** Hazard ratio exp(coef). */
+  hazardRatio: number;
+  /** 95% Wald confidence interval for the hazard ratio. */
+  hrCiLow: number;
+  hrCiHigh: number;
+}
+
+export interface CoxResult {
+  test: string;
+  /** Observations used (rows dropped for missing/invalid time or event). */
+  n: number;
+  /** Events observed (the rest are right censored). */
+  events: number;
+  coefficients: CoxCoefficient[];
+  /** Maximized partial log-likelihood at the fitted coefficients. */
+  logLikelihood: number;
+  /** Partial log-likelihood of the null model (all coefficients zero). */
+  nullLogLikelihood: number;
+  /** Likelihood-ratio statistic 2 (ll - nullLl) vs the null model. */
+  lrChiSquare: number;
+  /** Degrees of freedom of the LR test (number of covariates). */
+  lrDf: number;
+  lrPValue: number;
+  /** Harrell's concordance (c-index) over comparable pairs. */
+  concordance: number;
+  /** Newton-Raphson iterations run before convergence. */
+  iterations: number;
+}
+
+/** Keep rows with finite, non-negative time and a finite covariate vector. */
+function cleanCoxRows(rows: CoxObservation[]): CoxObservation[] {
+  const out: CoxObservation[] = [];
+  for (const r of rows) {
+    if (typeof r.time !== "number" || !Number.isFinite(r.time) || r.time < 0) {
+      continue;
+    }
+    if (!r.covariates.every((v) => typeof v === "number" && Number.isFinite(v))) {
+      continue;
+    }
+    out.push({
+      time: r.time,
+      event: r.event === 1 ? 1 : 0,
+      covariates: r.covariates.slice(),
+    });
+  }
+  return out;
+}
+
+/**
+ * The Breslow partial log-likelihood, its gradient, and the observed
+ * information matrix at a coefficient vector. Subjects are walked from the
+ * latest time to the earliest so the risk-set running sums build up
+ * incrementally.
+ */
+function coxPartial(
+  rows: CoxObservation[],
+  beta: number[],
+): { ll: number; grad: number[]; info: number[][] } {
+  const p = beta.length;
+  // Process distinct times from largest to smallest; the risk set only grows.
+  const order = [...rows].sort((a, b) => b.time - a.time);
+  let ll = 0;
+  const grad = new Array<number>(p).fill(0);
+  const info: number[][] = Array.from({ length: p }, () =>
+    new Array<number>(p).fill(0),
+  );
+
+  // Running risk-set accumulators (subjects with time >= current time).
+  let riskSum = 0; // sum of exp(eta)
+  const riskX = new Array<number>(p).fill(0); // sum of exp(eta) * x
+  const riskXX: number[][] = Array.from({ length: p }, () =>
+    new Array<number>(p).fill(0),
+  ); // sum of exp(eta) * x x'
+
+  let i = 0;
+  while (i < order.length) {
+    const t = order[i].time;
+    // Add every subject at this time to the risk set first, and separately
+    // accumulate the tied EVENTS at this time (Efron mixes the tied events back
+    // out of the risk set in fractional steps).
+    let j = i;
+    let dEvents = 0;
+    const sumEventX = new Array<number>(p).fill(0); // sum of x over the d events
+    let tieSum = 0; // sum of exp(eta) over the d events
+    const tieX = new Array<number>(p).fill(0); // sum of exp(eta) * x over events
+    const tieXX: number[][] = Array.from({ length: p }, () =>
+      new Array<number>(p).fill(0),
+    );
+    while (j < order.length && order[j].time === t) {
+      const x = order[j].covariates;
+      let eta = 0;
+      for (let a = 0; a < p; a++) eta += beta[a] * x[a];
+      const w = Math.exp(eta);
+      riskSum += w;
+      for (let a = 0; a < p; a++) {
+        riskX[a] += w * x[a];
+        for (let b = 0; b < p; b++) riskXX[a][b] += w * x[a] * x[b];
+      }
+      if (order[j].event === 1) {
+        dEvents += 1;
+        for (let a = 0; a < p; a++) {
+          sumEventX[a] += x[a];
+          tieX[a] += w * x[a];
+          for (let b = 0; b < p; b++) tieXX[a][b] += w * x[a] * x[b];
+        }
+        tieSum += w;
+      }
+      j += 1;
+    }
+
+    if (dEvents > 0 && riskSum > 0) {
+      // Efron's tie handling (lifelines' CoxPHFitter default). Each of the d
+      // tied events sees a risk-set denominator with a fraction l/d of the tied
+      // events' weight removed, l = 0 .. d - 1.
+      let etaEventSum = 0;
+      for (let a = 0; a < p; a++) etaEventSum += beta[a] * sumEventX[a];
+      ll += etaEventSum;
+
+      for (let l = 0; l < dEvents; l++) {
+        const f = l / dEvents;
+        const denom = riskSum - f * tieSum;
+        if (denom <= 0) continue;
+        ll -= Math.log(denom);
+        // Fractionally adjusted first and second moments at this Efron step.
+        const num1 = new Array<number>(p).fill(0);
+        for (let a = 0; a < p; a++) num1[a] = riskX[a] - f * tieX[a];
+        const mean = new Array<number>(p).fill(0);
+        for (let a = 0; a < p; a++) mean[a] = num1[a] / denom;
+        for (let a = 0; a < p; a++) {
+          grad[a] -= mean[a];
+          for (let b = 0; b < p; b++) {
+            const second = (riskXX[a][b] - f * tieXX[a][b]) / denom;
+            info[a][b] += second - mean[a] * mean[b];
+          }
+        }
+      }
+      // The events' own covariate sum enters the gradient once.
+      for (let a = 0; a < p; a++) grad[a] += sumEventX[a];
+    }
+    i = j;
+  }
+
+  return { ll, grad, info };
+}
+
+/**
+ * Harrell's concordance (c-index). Over all comparable pairs (one subject has
+ * an event strictly before the other subject's time), the pair is concordant
+ * when the higher-risk subject (larger linear predictor) is the one who failed
+ * first. Ties in risk score count as half.
+ */
+function concordance(rows: CoxObservation[], beta: number[]): number {
+  const eta = rows.map((r) => {
+    let s = 0;
+    for (let a = 0; a < beta.length; a++) s += beta[a] * r.covariates[a];
+    return s;
+  });
+  let concordant = 0;
+  let comparable = 0;
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].event !== 1) continue;
+    for (let j = 0; j < rows.length; j++) {
+      if (i === j) continue;
+      // i fails at time_i; the pair is comparable when j is still at risk then,
+      // i.e. time_j > time_i (j either fails later or is censored later).
+      if (rows[j].time > rows[i].time) {
+        comparable += 1;
+        if (eta[i] > eta[j]) concordant += 1;
+        else if (eta[i] === eta[j]) concordant += 0.5;
+      }
+    }
+  }
+  return comparable === 0 ? 0.5 : concordant / comparable;
+}
+
+/**
+ * Fit a Cox proportional hazards model by Newton-Raphson on the Breslow partial
+ * log-likelihood. names labels each covariate column. Reports per covariate the
+ * coefficient, SE, z, two-sided p, hazard ratio and its 95% Wald interval, plus
+ * the maximized log-likelihood, the likelihood-ratio test vs the null, and
+ * Harrell's concordance.
+ */
+export function coxPH(
+  observations: CoxObservation[],
+  names: string[],
+): EngineResult<CoxResult> {
+  const rows = cleanCoxRows(observations);
+  const n = rows.length;
+  if (n === 0) {
+    return { ok: false, error: "No finite survival observations." };
+  }
+  const events = rows.filter((r) => r.event === 1).length;
+  if (events === 0) {
+    return { ok: false, error: "Cox regression needs at least one event." };
+  }
+  const p = names.length;
+  if (p === 0 || rows.some((r) => r.covariates.length !== p)) {
+    return { ok: false, error: "Cox regression needs at least one covariate." };
+  }
+
+  // The null partial log-likelihood (all coefficients zero) anchors the LR test.
+  const nullFit = coxPartial(rows, new Array<number>(p).fill(0));
+  const nullLogLikelihood = nullFit.ll;
+
+  // Newton-Raphson. beta_{k+1} = beta_k + I^{-1} grad, with I the observed
+  // information (negative Hessian). solveWithInverse gives both the step and the
+  // inverse information reused as the coefficient covariance at the MLE.
+  let beta = new Array<number>(p).fill(0);
+  let inverse: number[][] | null = null;
+  let logLikelihood = nullLogLikelihood;
+  let iterations = 0;
+  const maxIter = 50;
+  for (let it = 0; it < maxIter; it++) {
+    iterations = it + 1;
+    const fit = coxPartial(rows, beta);
+    const solved = solveWithInverse(fit.info, fit.grad);
+    if (solved === null) {
+      return {
+        ok: false,
+        error: "Cox information matrix is singular (collinear covariates).",
+      };
+    }
+    const step = solved.solution;
+    const next = beta.map((b, a) => b + step[a]);
+    inverse = solved.inverse;
+    logLikelihood = coxPartial(rows, next).ll;
+    const delta = step.reduce((m, s) => Math.max(m, Math.abs(s)), 0);
+    beta = next;
+    if (delta < 1e-9) break;
+  }
+  if (inverse === null) {
+    return { ok: false, error: "Cox regression failed to converge." };
+  }
+
+  const z975 = normalQuantile(0.975, 0, 1);
+  const coefficients: CoxCoefficient[] = beta.map((coef, a) => {
+    const variance = inverse![a][a];
+    const se = variance > 0 ? Math.sqrt(variance) : NaN;
+    const z = se > 0 ? coef / se : NaN;
+    const pValue = Number.isFinite(z) ? normalPValue(z, "two-sided") : NaN;
+    const hazardRatio = Math.exp(coef);
+    const hrCiLow = Math.exp(coef - z975 * se);
+    const hrCiHigh = Math.exp(coef + z975 * se);
+    return {
+      name: names[a],
+      coef,
+      se,
+      z,
+      pValue,
+      hazardRatio,
+      hrCiLow,
+      hrCiHigh,
+    };
+  });
+
+  let lrChiSquare = 2 * (logLikelihood - nullLogLikelihood);
+  if (!Number.isFinite(lrChiSquare) || lrChiSquare < 0) lrChiSquare = 0;
+  const lrPValue = chiSquarePValue(lrChiSquare, p);
+
+  return {
+    ok: true,
+    test: "Cox proportional hazards",
+    n,
+    events,
+    coefficients,
+    logLikelihood,
+    nullLogLikelihood,
+    lrChiSquare,
+    lrDf: p,
+    lrPValue,
+    concordance: concordance(rows, beta),
+    iterations,
   };
 }

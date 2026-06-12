@@ -24,6 +24,7 @@ import type {
   NormalizedRegression,
   NormalizedResult,
   NormalizedSurvival,
+  NormalizedCoxRegression,
   NormalizedTTest,
   NormalizedTwoWayAnova,
   RunGroup,
@@ -845,6 +846,22 @@ res = multivariate_logrank_test(df["duration"], df["group"], df["event"])
 print(f"chi2 = {res.test_statistic:.4g}, p = {res.p_value:.4g}")`;
 }
 
+function coxRegressionCode(r: NormalizedCoxRegression): string {
+  const covName = r.coefficients[0]?.name ?? "arm";
+  return `from lifelines import CoxPHFitter
+
+# df has columns: duration, event (1/0), and ${covName} (the arm indicator,
+# 1 for the comparison arm and 0 for the reference arm). Efron tie handling
+# is lifelines' default, so the coefficients match what the Data Hub reports.
+# df = pd.DataFrame({"duration": [...], "event": [...], "${covName}": [...]})
+
+cph = CoxPHFitter()
+cph.fit(df, duration_col="duration", event_col="event")
+cph.print_summary()  # coef, exp(coef) = hazard ratio, se, z, p, 95% CI
+print("log-likelihood", cph.log_likelihood_)
+print("concordance", cph.concordance_index_)`;
+}
+
 /**
  * The reproducible Python snippet for a normalized analysis result, with the
  * real group names and values baked in so it reproduces the on-screen numbers.
@@ -862,5 +879,6 @@ export function showCode(result: NormalizedResult): string {
   if (result.kind === "globalFit") return globalFitCode(result);
   if (result.kind === "twoWayAnova") return twoWayCode(result);
   if (result.kind === "survival") return survivalCode(result);
+  if (result.kind === "coxRegression") return coxRegressionCode(result);
   return ttestCode(result);
 }

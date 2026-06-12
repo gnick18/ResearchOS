@@ -89,6 +89,30 @@ export function resultToText(result: NormalizedResult): string {
       }
       break;
     }
+    case "coxRegression": {
+      lines.push(row("Term", "Coef", "SE", "z", "p", "HR", "95% CI"));
+      for (const c of result.coefficients) {
+        lines.push(
+          row(
+            c.name,
+            n(c.coef, 4),
+            n(c.se, 4),
+            n(c.z, 3),
+            formatP(c.pValue),
+            n(c.hazardRatio, 4),
+            `${n(c.hrCiLow, 3)} to ${n(c.hrCiHigh, 3)}`,
+          ),
+        );
+      }
+      lines.push(
+        "",
+        row("Concordance", n(result.concordance, 4)),
+        row("Log-likelihood", n(result.logLikelihood, 3)),
+        row("LR chi-square", `${n(result.lrChiSquare, 3)} (df ${result.lrDf})`),
+        row("LR p", formatP(result.lrPValue)),
+      );
+      break;
+    }
     case "correlation": {
       lines.push(
         row("Method", result.method === "spearman" ? "Spearman rank" : "Pearson"),

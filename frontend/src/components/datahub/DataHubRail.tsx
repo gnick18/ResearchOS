@@ -59,6 +59,8 @@ function analysisLabel(type: string): string {
       return "Two-way ANOVA";
     case "kaplanMeier":
       return "Survival analysis";
+    case "coxRegression":
+      return "Cox proportional hazards";
     default:
       return type;
   }

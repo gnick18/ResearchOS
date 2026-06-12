@@ -465,6 +465,25 @@ export const STAT_PINS: StatPin[] = [
   { id: "logrank_chi2", metric: "Log-rank test, chi-square", reference: 11.036361, oracleId: "lifelines", tol: 1e-3, warn: 5e-3, unit: "chi2" },
   { id: "logrank_p", metric: "Log-rank test, p", reference: 0.000893, oracleId: "lifelines", tol: 1e-4, warn: 5e-4, unit: "p" },
 
+  // Cox proportional hazards (Treatment vs Control, the arm indicator coded
+  // Treatment = 1, Control = 0), Efron tie handling to match lifelines'
+  // CoxPHFitter default. The Newton-Raphson fit is deterministic, so the
+  // tolerances are tight.
+  { id: "cox_coef", metric: "Cox PH, coefficient (log hazard ratio, Treatment vs Control)", reference: -1.370812, oracleId: "lifelines", tol: 1e-3, warn: 5e-3, unit: "coef" },
+  { id: "cox_se", metric: "Cox PH, coefficient standard error", reference: 0.441773, oracleId: "lifelines", tol: 1e-3, warn: 5e-3, unit: "se" },
+  { id: "cox_z", metric: "Cox PH, z statistic", reference: -3.10298, oracleId: "lifelines", tol: 1e-3, warn: 5e-3, unit: "z" },
+  { id: "cox_p", metric: "Cox PH, two-sided p", reference: 0.001916, oracleId: "lifelines", tol: 1e-4, warn: 5e-4, unit: "p" },
+  { id: "cox_hr", metric: "Cox PH, hazard ratio exp(coef)", reference: 0.253901, oracleId: "lifelines", tol: 1e-3, warn: 5e-3, unit: "HR" },
+  { id: "cox_hr_ci_low", metric: "Cox PH, hazard ratio 95% CI lower", reference: 0.106814, oracleId: "lifelines", tol: 1e-3, warn: 5e-3, unit: "HR" },
+  { id: "cox_hr_ci_high", metric: "Cox PH, hazard ratio 95% CI upper", reference: 0.603534, oracleId: "lifelines", tol: 1e-3, warn: 5e-3, unit: "HR" },
+  { id: "cox_log_likelihood", metric: "Cox PH, partial log-likelihood", reference: -72.396745, oracleId: "lifelines", tol: 1e-3, warn: 5e-3, unit: "ll" },
+  { id: "cox_lr_chi2", metric: "Cox PH, likelihood-ratio chi-square vs null", reference: 11.307176, oracleId: "lifelines", tol: 1e-3, warn: 5e-3, unit: "chi2" },
+  { id: "cox_lr_p", metric: "Cox PH, likelihood-ratio p", reference: 0.000772, oracleId: "lifelines", tol: 1e-4, warn: 5e-4, unit: "p" },
+  // Concordance carries a slightly looser tolerance than the other Cox pins:
+  // lifelines and our engine differ only in the exact tied-risk-score
+  // convention, a sub-1e-2 wobble on this tie-heavy two-arm dataset.
+  { id: "cox_concordance", metric: "Cox PH, Harrell concordance (c-index)", reference: 0.684512, oracleId: "lifelines", tol: 5e-3, warn: 1e-2, unit: "c" },
+
   // --- ESTIMATION LAYER (E1): effect sizes + their confidence intervals ---
   // Effect sizes are pinned on the SAME fixed dataset as the tests above. Cohen's
   // d and Hedges' g come from pingouin.compute_effsize (which equals the standard

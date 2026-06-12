@@ -501,6 +501,7 @@ function labelForAnalysis(analysis: AnalysisSpec): string {
     correlationSpearman: "Spearman correlation",
     linearRegression: "linear regression",
     kaplanMeier: "Kaplan-Meier survival analysis",
+    coxRegression: "Cox proportional hazards regression",
   };
   return map[analysis.type] ?? "analysis";
 }
