@@ -30,6 +30,11 @@ export interface EmbedRendererProps {
    *  ("Figure 1", "Table 2"). Figure-type renderers prefix their caption with it.
    *  Undefined when numbering is off. */
   figureLabel?: string;
+  /** When present, the embed can switch its view in place AND persist the choice.
+   *  The CM6 editor passes a closure that rewrites the source line; the read-only
+   *  Preview passes nothing, so a multi-view embed there switches only on screen.
+   *  Multi-view renderers always update their local view first, then call this. */
+  onViewChange?: (newView: string) => void;
 }
 
 // Per-type rich renderers, added as each phase lands. A type absent here uses the
@@ -139,7 +144,13 @@ export function ObjectEmbedCard({
   );
 }
 
-export default function ObjectEmbed({ descriptor, caption, basePath, figureLabel }: EmbedRendererProps) {
+export default function ObjectEmbed({
+  descriptor,
+  caption,
+  basePath,
+  figureLabel,
+  onViewChange,
+}: EmbedRendererProps) {
   const Renderer = EMBED_RENDERERS[descriptor.type];
   return (
     <figure
@@ -156,6 +167,7 @@ export default function ObjectEmbed({ descriptor, caption, basePath, figureLabel
             caption={caption}
             basePath={basePath}
             figureLabel={figureLabel}
+            onViewChange={onViewChange}
           />
         </Suspense>
       ) : (

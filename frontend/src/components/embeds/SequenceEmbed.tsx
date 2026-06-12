@@ -12,8 +12,9 @@
 import { useEffect, useState } from "react";
 import { sequencesApi } from "@/lib/local-api";
 import type { SequenceDetail } from "@/lib/types";
-import { objectDeepLink } from "@/lib/references";
+import { objectDeepLink, DEFAULT_EMBED_VIEW } from "@/lib/references";
 import { ObjectEmbedCard, UnavailableEmbedCard, EmbedCaption, type EmbedRendererProps } from "./ObjectEmbed";
+import EmbedViewSwitch, { type EmbedViewOption } from "./EmbedViewSwitch";
 
 type LoadState =
   | { k: "loading" }
@@ -27,8 +28,27 @@ const VIEW_W = 720;
 const PAD = 16;
 const BASE_Y = 46;
 
-export default function SequenceEmbed({ descriptor, caption, figureLabel }: EmbedRendererProps) {
+// A sequence record always carries its bases, so both views render from the
+// already-loaded detail. Map is the feature ribbon, bases is the raw monospace.
+const SEQUENCE_VIEWS: EmbedViewOption[] = [
+  { value: "map", label: "Map" },
+  { value: "bases", label: "Bases" },
+];
+
+// How many residues the bases view previews before the trailing tail count.
+const BASES_PREVIEW = 240;
+
+export default function SequenceEmbed({ descriptor, caption, figureLabel, onViewChange }: EmbedRendererProps) {
   const [state, setState] = useState<LoadState>({ k: "loading" });
+  // The view rendered right now, initialized from the saved descriptor view. A
+  // switch updates this immediately (instant flip) and, in the editor, persists.
+  const [view, setView] = useState<string>(
+    descriptor.view && descriptor.view !== "chip" ? descriptor.view : DEFAULT_EMBED_VIEW.sequence,
+  );
+  const selectView = (next: string) => {
+    setView(next);
+    onViewChange?.(next);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -61,7 +81,8 @@ export default function SequenceEmbed({ descriptor, caption, figureLabel }: Embe
 
   const d = state.detail;
   const length = d.length || d.seq.length || 1;
-  const unit = String(d.seq_type).toLowerCase().includes("protein") ? "aa" : "bp";
+  const isProtein = String(d.seq_type).toLowerCase().includes("protein");
+  const unit = isProtein ? "aa" : "bp";
   const title = caption || d.display_name;
   const href = objectDeepLink("sequence", descriptor.id);
   const facts = `${length.toLocaleString()} ${unit} · ${d.circular ? "Circular" : "Linear"} · ${d.feature_count} ${d.feature_count === 1 ? "feature" : "features"}`;
@@ -69,19 +90,51 @@ export default function SequenceEmbed({ descriptor, caption, figureLabel }: Embe
   const span = VIEW_W - 2 * PAD;
   const xOf = (pos: number) => PAD + (Math.max(0, Math.min(length, pos)) / length) * span;
 
+  // The shared header. Map and bases both render under it, with the same facts,
+  // Open link, and the view switch.
+  const header = (
+    <div className="flex items-center gap-2 border-b border-border bg-surface-sunken px-3 py-2">
+      <span className="truncate text-body font-semibold text-foreground">{title}</span>
+      <span className="shrink-0 text-meta text-foreground-muted">{facts}</span>
+      <span className="flex-1" />
+      <EmbedViewSwitch views={SEQUENCE_VIEWS} current={view} onSelect={selectView} />
+      <a
+        href={href}
+        className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground"
+      >
+        Open
+      </a>
+    </div>
+  );
+
+  // Bases view: a cheap read-only monospace preview of the first residues, with a
+  // trailing count of how many more were not shown. Not the interactive map.
+  if (view === "bases") {
+    const seq = (d.seq || "").toUpperCase();
+    const preview = seq.slice(0, BASES_PREVIEW);
+    const remaining = Math.max(0, seq.length - preview.length);
+    return (
+      <div>
+        {header}
+        <div className="px-3 py-3">
+          <p className="mb-1 text-meta text-foreground-muted">
+            {`${length.toLocaleString()} ${unit} · ${isProtein ? "Protein" : d.seq_type}`}
+          </p>
+          <pre className="overflow-x-auto whitespace-pre-wrap break-all font-mono text-meta leading-relaxed text-foreground">
+            {preview || "(no sequence)"}
+            {remaining > 0 ? (
+              <span className="text-foreground-muted">{` … +${remaining.toLocaleString()} more ${unit}`}</span>
+            ) : null}
+          </pre>
+        </div>
+        <EmbedCaption caption={caption} name={d.display_name} figureLabel={figureLabel} />
+      </div>
+    );
+  }
+
   return (
     <div>
-      <div className="flex items-center gap-2 border-b border-border bg-surface-sunken px-3 py-2">
-        <span className="truncate text-body font-semibold text-foreground">{title}</span>
-        <span className="shrink-0 text-meta text-foreground-muted">{facts}</span>
-        <span className="flex-1" />
-        <a
-          href={href}
-          className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground"
-        >
-          Open
-        </a>
-      </div>
+      {header}
       <div className="px-3 py-3">
         <svg viewBox={`0 0 ${VIEW_W} 72`} width="100%" height="72" role="img" aria-label={`${title} feature map`}>
           {/* backbone */}

@@ -341,3 +341,20 @@ export function objectEmbedMarkdown(
 ): string {
   return `[${escapeLinkText(name)}](${buildObjectEmbedHref(type, id, opts)})`;
 }
+
+/** Swap only the view of an object-embed href, preserving type, id, and every opt
+ *  (region / rows / cols / analysis / plot / pin / ref / size hints). Rebuilds
+ *  through buildObjectEmbedHref so the byte form matches a freshly built embed of
+ *  the new view. An href that does not parse as one of our object refs (an
+ *  external URL, an anchor, a mailto) is returned unchanged, so this is safe to
+ *  run over any link. A bare object link (view "chip") DOES parse, so it gains the
+ *  new block view. Round-tripping back to the original view is byte-identical
+ *  because the same builder produces both. */
+export function swapEmbedView(href: string, newView: string): string {
+  const descriptor = parseObjectEmbed(href);
+  if (!descriptor) return href;
+  return buildObjectEmbedHref(descriptor.type, descriptor.id, {
+    view: newView,
+    ...descriptor.opts,
+  });
+}

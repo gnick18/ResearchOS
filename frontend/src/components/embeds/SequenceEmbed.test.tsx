@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 
 const get = vi.fn();
 vi.mock("@/lib/local-api", () => ({
@@ -59,5 +59,35 @@ describe("SequenceEmbed", () => {
     await waitFor(() => expect(screen.getByText("Gone")).toBeInTheDocument());
     expect(screen.getByText(/Not available/)).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Open" })).toBeNull();
+  });
+
+  it("offers a Map / Bases view switch", async () => {
+    get.mockResolvedValue(detail);
+    render(<SequenceEmbed descriptor={descriptor} caption="pUC19" basePath="" />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Map" })).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Bases" })).toBeInTheDocument();
+  });
+
+  it("switches to the monospace bases view ephemerally (no onViewChange)", async () => {
+    get.mockResolvedValue({ ...detail, seq: "ATGCATGCAT", length: 10 });
+    render(<SequenceEmbed descriptor={descriptor} caption="pUC19" basePath="" />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Bases" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Bases" }));
+    // The feature map is gone, the monospace bases preview is shown.
+    await waitFor(() => expect(screen.queryByRole("img", { name: /feature map/ })).toBeNull());
+    const pre = screen.getByText("ATGCATGCAT");
+    expect(pre.tagName).toBe("PRE");
+    expect(pre.className).toMatch(/font-mono/);
+  });
+
+  it("calls onViewChange with the new view when provided (editor persistence)", async () => {
+    get.mockResolvedValue(detail);
+    const onViewChange = vi.fn();
+    render(
+      <SequenceEmbed descriptor={descriptor} caption="pUC19" basePath="" onViewChange={onViewChange} />,
+    );
+    await waitFor(() => expect(screen.getByRole("button", { name: "Bases" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Bases" }));
+    expect(onViewChange).toHaveBeenCalledWith("bases");
   });
 });
