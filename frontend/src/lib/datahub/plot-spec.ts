@@ -55,6 +55,12 @@ import {
 } from "@/lib/datahub/grouped-table";
 import { survivalGroups } from "@/lib/datahub/survival-table";
 import { fitModel, getModel, kaplanMeier } from "@/lib/datahub/engine";
+import type { BootstrapMethod } from "@/lib/datahub/engine/bootstrap";
+import {
+  layoutEstimationPlot,
+  renderEstimationSvg,
+  type EstimationGeometry,
+} from "@/lib/datahub/estimation-plot";
 import {
   paletteById,
   samplePalette,
@@ -78,7 +84,15 @@ export type PlotKind =
   | "columnBar"
   | "xyScatter"
   | "groupedBar"
-  | "survivalCurve";
+  | "survivalCurve"
+  // E2 estimation plots (the effect-size-with-CI figure, the modern alternative
+  // to the bar-with-stars). "estimationGardnerAltman" is the two-group form (raw
+  // data left, the bootstrap mean-difference distribution + CI on a second axis
+  // right). "estimationCumming" is the multi-group extension sharing one control,
+  // one difference panel per non-control group. Both consume the validated E4
+  // bootstrap and never recompute a statistic.
+  | "estimationGardnerAltman"
+  | "estimationCumming";
 
 /** Which error bar a figure draws, computed from the raw replicates. */
 export type ErrorBarKind = "sd" | "sem" | "none";
@@ -151,6 +165,28 @@ export interface PlotStyle {
   dpi?: number;
   resizeMode?: ResizeMode;
   aspectLocked?: boolean;
+  /**
+   * Estimation-plot fields (E2). All optional and additive, so a figure of any
+   * other kind reads back byte-identical and only an estimation figure carries
+   * them.
+   *
+   * `estimationPaired` draws the paired variant (slope lines between the matched
+   * points, and a paired mean-difference bootstrap) instead of the unpaired
+   * (independent-groups) one. `estimationControlIndex` is which group is the
+   * shared reference the differences are taken against (default the first group,
+   * index 0); the difference axis is aligned so zero sits at that group's mean.
+   * `estimationCi` is the CI level the bootstrap reports (default 0.95).
+   * `estimationB` and `estimationSeed` pin the bootstrap resample count and the
+   * PRNG seed, so the distribution + CI redraw bit-for-bit (the same seed
+   * convention E4 uses). `estimationBootMethod` picks the CI method ("bca" the
+   * DABEST default, or "percentile").
+   */
+  estimationPaired?: boolean;
+  estimationControlIndex?: number;
+  estimationCi?: number;
+  estimationB?: number;
+  estimationSeed?: number;
+  estimationBootMethod?: BootstrapMethod;
 }
 
 /** The unit a figure's width / height is typed in (and stored as). */
@@ -204,8 +240,21 @@ export function defaultPlotStyle(): PlotStyle {
     dpi: 300,
     resizeMode: "relayout",
     aspectLocked: true,
+    // Estimation-plot defaults. They sit unread by every non-estimation figure,
+    // and an estimation figure overrides them through buildEstimationSpec.
+    estimationPaired: false,
+    estimationControlIndex: 0,
+    estimationCi: 0.95,
+    estimationB: 5000,
+    estimationSeed: 12345,
+    estimationBootMethod: "bca",
   };
 }
+
+/** The default bootstrap resamples an estimation figure draws its density from. */
+export const ESTIMATION_DEFAULT_B = 5000;
+/** The default seed, matching the E4 bootstrap default so a figure is reproducible. */
+export const ESTIMATION_DEFAULT_SEED = 12345;
 
 // ---------------------------------------------------------------------------
 // Figure-size units (px / in / cm) <-> design pixels
@@ -304,6 +353,8 @@ export function readPlotStyle(spec: PlotSpec): PlotStyle {
     "xyScatter",
     "groupedBar",
     "survivalCurve",
+    "estimationGardnerAltman",
+    "estimationCumming",
   ];
   const kind = KINDS.includes(s.kind as PlotKind)
     ? (s.kind as PlotKind)
@@ -372,6 +423,38 @@ export function readPlotStyle(spec: PlotSpec): PlotStyle {
         : d.resizeMode,
     aspectLocked:
       typeof s.aspectLocked === "boolean" ? s.aspectLocked : d.aspectLocked,
+    // Estimation-plot fields. Each falls to its default when absent, so an old
+    // spec (or any non-estimation figure) reads back unchanged.
+    estimationPaired:
+      typeof s.estimationPaired === "boolean"
+        ? s.estimationPaired
+        : d.estimationPaired,
+    estimationControlIndex:
+      typeof s.estimationControlIndex === "number" &&
+      Number.isInteger(s.estimationControlIndex) &&
+      s.estimationControlIndex >= 0
+        ? s.estimationControlIndex
+        : d.estimationControlIndex,
+    estimationCi:
+      typeof s.estimationCi === "number" &&
+      s.estimationCi > 0 &&
+      s.estimationCi < 1
+        ? s.estimationCi
+        : d.estimationCi,
+    estimationB:
+      typeof s.estimationB === "number" &&
+      Number.isFinite(s.estimationB) &&
+      s.estimationB >= 100
+        ? Math.round(s.estimationB)
+        : d.estimationB,
+    estimationSeed:
+      typeof s.estimationSeed === "number" && Number.isFinite(s.estimationSeed)
+        ? Math.round(s.estimationSeed)
+        : d.estimationSeed,
+    estimationBootMethod:
+      s.estimationBootMethod === "percentile" || s.estimationBootMethod === "bca"
+        ? (s.estimationBootMethod as BootstrapMethod)
+        : d.estimationBootMethod,
   };
 }
 
@@ -404,6 +487,9 @@ export function buildPlotSpec(args: {
   yTitle?: string;
   xTitle?: string;
   title?: string;
+  /** For an estimation figure, the paired variant and the control group index. */
+  estimationPaired?: boolean;
+  estimationControlIndex?: number;
 }): PlotSpec {
   const style = defaultPlotStyle();
   style.kind = args.kind;
@@ -411,6 +497,10 @@ export function buildPlotSpec(args: {
   if (args.xTitle !== undefined) style.xTitle = args.xTitle;
   if (args.title !== undefined) style.title = args.title;
   if (args.fitModel !== undefined) style.fitModel = args.fitModel;
+  if (args.estimationPaired !== undefined)
+    style.estimationPaired = args.estimationPaired;
+  if (args.estimationControlIndex !== undefined)
+    style.estimationControlIndex = args.estimationControlIndex;
   const source: PlotSource = {
     tableId: args.tableId,
     analysisId: args.analysisId ?? null,
@@ -486,9 +576,9 @@ function activePalette(style: PlotStyle): Palette {
 
 // Fixed axis / text colors (slate scale), shared by every theme so the chrome
 // reads the same as the rest of the app and survives rasterization.
-const AXIS_COLOR = "#94a3b8";
-const TICK_TEXT = "#64748b";
-const LABEL_TEXT = "#334155";
+export const AXIS_COLOR = "#94a3b8";
+export const TICK_TEXT = "#64748b";
+export const LABEL_TEXT = "#334155";
 
 // ---------------------------------------------------------------------------
 // Geometry (pure, unit-tested)
@@ -931,7 +1021,7 @@ export function layoutPlot(
 // ---------------------------------------------------------------------------
 
 /** Minimal XML-escape for text content (group names, axis titles). */
-function esc(s: string): string {
+export function esc(s: string): string {
   return s
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -939,7 +1029,7 @@ function esc(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function fmtTick(value: number): string {
+export function fmtTick(value: number): string {
   // Integers print plainly; fractional ticks keep up to two decimals, trimmed.
   if (Number.isInteger(value)) return String(value);
   return String(Math.round(value * 100) / 100);
@@ -1272,7 +1362,8 @@ export function renderPlot(
     | PlotGeometry
     | XYPlotGeometry
     | GroupedBarGeometry
-    | SurvivalCurveGeometry;
+    | SurvivalCurveGeometry
+    | EstimationGeometry;
   style: PlotStyle;
   frame: FigureFrame;
 } {
@@ -1305,6 +1396,11 @@ export function renderPlot(
   if (style.kind === "survivalCurve") {
     const geometry = layoutSurvivalCurve(content, style);
     const svg = onScreen(renderSurvivalCurveSvg(geometry, style));
+    return { svg, geometry, style, frame };
+  }
+  if (style.kind === "estimationGardnerAltman" || style.kind === "estimationCumming") {
+    const geometry = layoutEstimationPlot(content, style);
+    const svg = onScreen(renderEstimationSvg(geometry, style));
     return { svg, geometry, style, frame };
   }
   const groups = resolvePlotGroups(content, style);
