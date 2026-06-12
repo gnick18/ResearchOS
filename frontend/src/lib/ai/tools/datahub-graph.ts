@@ -121,12 +121,17 @@ export const datahubGraphDeps: DataHubGraphDeps = {
  * to the mean. These map onto the engine's PlotKind ("columnScatter" /
  * "columnBar") so the model never has to know the internal kind names.
  */
-export type GraphType = "dot" | "bar";
+export type GraphType = "dot" | "bar" | "estimation";
 
 /** The model-supplied arguments, before mapping to a PlotSpec. */
 export type MakeGraphArgs = {
   tableId: string;
-  /** "dot" (the default) for a column dot plot, "bar" for a bar chart. */
+  /**
+   * "dot" (the default) for a column dot plot, "bar" for a bar chart, or
+   * "estimation" for the effect-size figure (the raw data plus the bootstrap
+   * mean-difference and its CI). An estimation request of two groups draws a
+   * Gardner-Altman plot, three or more a Cumming plot sharing the control.
+   */
   type: GraphType;
   /** Which error bar to draw, computed by the engine from the raw replicates. */
   errorBar: ErrorBarKind;
@@ -136,11 +141,21 @@ export type MakeGraphArgs = {
   showPoints?: boolean;
   /** Optional figure title. */
   title?: string;
+  /** For an estimation figure, the control group by name or id (default the first). */
+  control?: string;
+  /** For a two-group estimation figure, draw the paired variant (matched rows). */
+  paired?: boolean;
 };
 
-/** Map the model graph type onto the engine PlotKind. */
+/**
+ * Map the model graph type onto the engine PlotKind. The estimation type resolves
+ * to Gardner-Altman vs Cumming by the plotted group count, decided in buildGraph
+ * where the count is known, so this returns the two-group kind by default.
+ */
 export function toPlotKind(type: GraphType): PlotKind {
-  return type === "bar" ? "columnBar" : "columnScatter";
+  if (type === "bar") return "columnBar";
+  if (type === "estimation") return "estimationGardnerAltman";
+  return "columnScatter";
 }
 
 /** Parse the loose tool args into a typed MakeGraphArgs, defaulting safely. */
@@ -148,7 +163,12 @@ export function parseMakeGraphArgs(
   args: Record<string, unknown>,
 ): MakeGraphArgs {
   const tableId = typeof args.tableId === "string" ? args.tableId : "";
-  const type: GraphType = args.type === "bar" ? "bar" : "dot";
+  const type: GraphType =
+    args.type === "bar"
+      ? "bar"
+      : args.type === "estimation"
+        ? "estimation"
+        : "dot";
   const errorBar: ErrorBarKind =
     args.errorBar === "sd" || args.errorBar === "none"
       ? (args.errorBar as ErrorBarKind)
@@ -159,7 +179,9 @@ export function parseMakeGraphArgs(
   const showPoints =
     typeof args.showPoints === "boolean" ? args.showPoints : undefined;
   const title = typeof args.title === "string" ? args.title : undefined;
-  return { tableId, type, errorBar, columns, showPoints, title };
+  const control = typeof args.control === "string" ? args.control : undefined;
+  const paired = typeof args.paired === "boolean" ? args.paired : undefined;
+  return { tableId, type, errorBar, columns, showPoints, title, control, paired };
 }
 
 /**
@@ -240,10 +262,40 @@ export function buildGraph(
     };
   }
 
-  const kind = toPlotKind(parsed.type);
   const names = groups
     .filter((c) => columnIds.includes(c.id))
     .map((c) => c.name);
+
+  // An estimation figure needs at least two groups (a control and one other), so
+  // reject early with a plain reason rather than building an empty figure.
+  if (parsed.type === "estimation" && groups.length < 2) {
+    return {
+      ok: false,
+      error:
+        "An estimation plot needs at least two groups (a control plus one or more to compare). That table has only one group.",
+    };
+  }
+
+  // Resolve the estimation kind by group count (two = Gardner-Altman, three or
+  // more = Cumming) and the control group the differences are taken against.
+  const estCumming = parsed.type === "estimation" && groups.length >= 3;
+  const kind =
+    parsed.type === "estimation"
+      ? estCumming
+        ? "estimationCumming"
+        : "estimationGardnerAltman"
+      : toPlotKind(parsed.type);
+
+  // The control group index in the table's group order. The model may name it by
+  // name or id; default the first group when unresolved.
+  let controlIndex = 0;
+  if (parsed.type === "estimation" && parsed.control) {
+    const ref = parsed.control.trim().toLowerCase();
+    const idx = groups.findIndex(
+      (g) => g.id === parsed.control || g.name.trim().toLowerCase() === ref,
+    );
+    if (idx >= 0) controlIndex = idx;
+  }
 
   // Build the spec through the validated engine builder (buildPlotSpec seeds the
   // default publication style + the source), then apply the requested kind,
@@ -257,15 +309,20 @@ export function buildGraph(
     tableId: content.meta.id,
     yTitle: content.meta.name || "Value",
     title: parsed.title,
+    estimationPaired:
+      parsed.type === "estimation" && !estCumming ? parsed.paired : undefined,
+    estimationControlIndex:
+      parsed.type === "estimation" ? controlIndex : undefined,
   });
   const spec = withStyle(base, {
     errorBar: parsed.errorBar,
     // A bar chart shows points only when the model explicitly asks; a dot plot
-    // shows them by default (it is the point plot). The model can override.
+    // shows them by default (it is the point plot). An estimation figure always
+    // shows the raw points (that is half its purpose). The model can override.
     showPoints:
       parsed.showPoints !== undefined
         ? parsed.showPoints
-        : parsed.type === "dot",
+        : parsed.type === "dot" || parsed.type === "estimation",
     // No analysis is linked from a bare chart request, so do not draw brackets
     // (they need a stored ANOVA). The user can add them in the editor.
     showBrackets: false,
@@ -301,7 +358,7 @@ export const makeDataHubGraphTool: AiTool = {
       type: {
         type: "string",
         description:
-          "The graph type. \"dot\" (the default) draws each replicate as a point over the group mean line (a Prism column dot plot). \"bar\" draws a bar to each group mean. Choose from what the user asked for, or call ask_user when it is unspecified and matters.",
+          "The graph type. \"dot\" (the default) draws each replicate as a point over the group mean line (a Prism column dot plot). \"bar\" draws a bar to each group mean. \"estimation\" draws an effect-size figure (the raw data plus the bootstrap mean-difference and its 95% CI on a second axis, a Gardner-Altman plot for two groups or a Cumming plot for three or more sharing a control). Choose from what the user asked for, or call ask_user when it is unspecified and matters.",
       },
       errorBar: {
         type: "string",
@@ -323,6 +380,16 @@ export const makeDataHubGraphTool: AiTool = {
         type: "string",
         description:
           "An optional figure title shown above the plot. Omit for no title.",
+      },
+      control: {
+        type: "string",
+        description:
+          "For an estimation plot only. The control group (by name or id) that every mean difference is taken against. Defaults to the first group.",
+      },
+      paired: {
+        type: "boolean",
+        description:
+          "For a two-group estimation plot only. Set true when the two columns are the same subjects measured twice (each row is a matched pair), which draws slope lines and a paired mean difference.",
       },
     },
     required: ["tableId"],
