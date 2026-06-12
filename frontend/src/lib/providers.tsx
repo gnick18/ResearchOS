@@ -336,6 +336,20 @@ function AppContent({ children }: { children: ReactNode }) {
   // the connect flow kept trapping the business page).
   const isOperatorRoute = isOperatorSurface(pathname);
 
+  // Public marketing / legal pages (pricing, about, and the trust pages) must
+  // render for ANYONE, including a logged-out visitor with no folder. They carry
+  // their own MarketingNav + footer and need no folder. Without this bypass they
+  // fell through to the folder-connect gate below, so a "See exactly how it is
+  // priced" link from the landing just bounced back to the top of the landing.
+  const isPublicMarketingRoute =
+    pathname === "/pricing" ||
+    pathname === "/about" ||
+    pathname === "/transparency" ||
+    pathname === "/open-source" ||
+    pathname === "/thanks" ||
+    pathname === "/sponsors" ||
+    pathname === "/privacy";
+
   // QueryClient is a module-level singleton (see `appQueryClient` below)
   // so non-React-tree consumers (e.g. the onboarding-v4 cursor scripts
   // that fire programmatic API calls outside the component tree) can
@@ -526,6 +540,15 @@ function AppContent({ children }: { children: ReactNode }) {
   // Operator surfaces render their own page (which carries its OAuth operator
   // sign-in) and nothing else, bypassing every gate and popup below.
   if (isOperatorRoute) {
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+  }
+
+  // Public marketing / legal pages render directly for anyone, no folder gate,
+  // so links to them from the landing actually open the page (the /pricing bounce
+  // bug). They bring their own chrome and need nothing from the app shell.
+  if (isPublicMarketingRoute) {
     return (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
