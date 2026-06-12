@@ -15,6 +15,8 @@ import { useEffect } from "react";
 import { useSyncExternalStore } from "react";
 import type { LabSessionController } from "@/lib/lab/lab-session";
 import SharingProviderButtons from "@/components/sharing/SharingProviderButtons";
+import LandingBackdrop from "@/components/onboarding/oauth-first/LandingBackdrop";
+import { IntroBubbleBot } from "@/components/onboarding/oauth-first/IntroBubbleBot";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 
 export function LabSignInGate({
@@ -58,10 +60,10 @@ export function LabSignInGate({
     const message =
       state.kind === "authenticating" ? "Signing in..." : "Unlocking your lab...";
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-surface z-50">
-        <div className="flex flex-col items-center gap-4 p-8 rounded-xl bg-surface-raised border border-border shadow-lg max-w-sm w-full mx-4">
-          {/* Simple spinner via Tailwind animate-spin */}
-          <div className="w-8 h-8 rounded-full border-4 border-border border-t-accent animate-spin" />
+      <div className="light-scope fixed inset-0 flex items-center justify-center bg-white z-50">
+        <LandingBackdrop />
+        <div className="relative z-10 flex flex-col items-center gap-4 p-8 rounded-xl bg-surface-raised border border-border shadow-lg max-w-sm w-full mx-4">
+          <IntroBubbleBot size="sm" />
           <p className="text-body text-foreground text-center">{message}</p>
         </div>
       </div>
@@ -76,9 +78,11 @@ export function LabSignInGate({
       : "Your lab data is end-to-end encrypted; sign in to unlock it.";
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-surface z-50">
-      <div className="flex flex-col gap-5 p-8 rounded-xl bg-surface-raised border border-border shadow-lg max-w-sm w-full mx-4">
-        <div className="flex flex-col gap-1">
+    <div className="light-scope fixed inset-0 flex items-center justify-center bg-white z-50">
+      <LandingBackdrop />
+      <div className="relative z-10 flex flex-col gap-5 p-8 rounded-xl bg-surface-raised border border-border shadow-lg max-w-sm w-full mx-4">
+        <div className="flex flex-col items-center gap-2 text-center">
+          <IntroBubbleBot size="sm" />
           <h1 className="text-heading font-semibold text-foreground">
             Sign in to your lab
           </h1>

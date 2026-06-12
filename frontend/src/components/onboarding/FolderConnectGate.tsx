@@ -33,6 +33,8 @@ import BrowserNotSupported from "@/components/BrowserNotSupported";
 import BetaDonationButton from "@/components/BetaDonationButton";
 import FeedbackModal from "@/components/FeedbackModal";
 import BeakerBot from "@/components/BeakerBot";
+import LandingBackdrop from "@/components/onboarding/oauth-first/LandingBackdrop";
+import { IntroBubbleBot } from "@/components/onboarding/oauth-first/IntroBubbleBot";
 import { Icon } from "@/components/icons";
 import PickerWalkthroughModal from "@/components/picker-walkthrough/PickerWalkthroughModal";
 import RiseCredentialsStamp from "@/components/RiseCredentialsStamp";
@@ -177,7 +179,7 @@ export default function FolderConnectGate({
   // the account picker (UserLoginScreen).
   if (needsInitialization) {
     return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-surface-sunken via-surface to-surface-sunken">
+      <div className="light-scope fixed inset-0 z-[100] flex items-center justify-center bg-white">
         <BackdropTexture />
         <div className="relative z-10 w-full max-w-lg mx-4">
           <BrandHeader subtitle={`Connected to: ${directoryName}`} />
@@ -239,7 +241,7 @@ export default function FolderConnectGate({
   // The connect surface. Shown when no folder is attached: after a cancelled
   // picker (retry here), or on the sign-in-with-provider resume path.
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-br from-surface-sunken via-surface to-surface-sunken">
+    <div className="light-scope fixed inset-0 z-[100] flex items-center justify-center bg-white">
       <VersionBadge tone="surface" className="fixed top-3 left-4 z-[110]" />
       <BackdropTexture />
 
@@ -468,35 +470,19 @@ export default function FolderConnectGate({
 
 /** Shared dotted backdrop texture used by both gate surfaces. */
 function BackdropTexture() {
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute inset-0 overflow-hidden"
-    >
-      <div className="absolute left-1/2 top-[-12%] h-[60vh] w-[85vw] -translate-x-1/2 rounded-full bg-gradient-to-br from-brand-sky/30 via-brand-purple/15 to-transparent opacity-70 blur-3xl dark:opacity-40" />
-      <div
-        className="absolute inset-0 opacity-[0.05]"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23475569' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-        }}
-      />
-    </div>
-  );
+  // Unified with the OAuth-first landing: the shared deck backdrop (radial wash,
+  // masked dot grid, drifting auroras + floating beakers, rainbow bars).
+  return <LandingBackdrop />;
 }
 
 /** BeakerBot-in-gradient-pill brand header used by the init surface. */
 function BrandHeader({ subtitle }: { subtitle: string }) {
   return (
     <div className="text-center mb-8">
-      <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-sky to-brand-purple shadow-lg mb-4">
-        <BeakerBot
-          pose="idle"
-          noLiquid
-          ariaLabel="ResearchOS BeakerBot logo"
-          className="w-8 h-8 text-white"
-        />
+      <div className="mb-4 flex justify-center">
+        <IntroBubbleBot size="sm" />
       </div>
-      <h1 className="text-display font-extrabold tracking-tight text-foreground">
+      <h1 className="text-display font-extrabold tracking-tight text-brand-ink">
         ResearchOS
       </h1>
       <p className="text-foreground-muted mt-2">{subtitle}</p>
