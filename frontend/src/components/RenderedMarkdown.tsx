@@ -85,6 +85,20 @@ function loneEmbedFromParagraph(
   return null;
 }
 
+/** Payload passed to `onImageClick` when a rendered image is clicked. */
+export interface ImageClickPayload {
+  /** Raw markdown src (before blob-URL resolution). */
+  originalSrc: string;
+  /** Alt text from the markdown. */
+  alt: string;
+  /** Screen X coordinate of the click event. */
+  x: number;
+  /** Screen Y coordinate of the click event. */
+  y: number;
+  /** Current width percentage from a #w= fragment, or null if none. */
+  currentWidth: number | null;
+}
+
 interface RenderedMarkdownProps {
   content: string;
   /**
@@ -104,6 +118,20 @@ interface RenderedMarkdownProps {
    *  pin must not resolve (chips, card previews, method picker, ...), so those
    *  callers are byte-for-byte unchanged. */
   embedPinSidecar?: string;
+  /**
+   * When provided, rendered images become clickable and this callback fires
+   * with the image details. LiveMarkdownEditor uses this to open the resize
+   * popover from Preview mode. Absent on all other read-only callers, so
+   * those are byte-for-byte unchanged.
+   */
+  onImageClick?: (payload: ImageClickPayload) => void;
+  /**
+   * When provided, `Files/` anchor clicks are intercepted and forwarded here
+   * instead of following the raw href. LiveMarkdownEditor wires this to its
+   * existing file-viewer / download handler so Preview mode handles file links
+   * the same way the inline editor does.
+   */
+  onFileLinkClick?: (href: string) => void;
 }
 
 /**
@@ -121,6 +149,8 @@ export default function RenderedMarkdown({
   className,
   enableSyntaxHighlight = false,
   embedPinSidecar,
+  onImageClick,
+  onFileLinkClick,
 }: RenderedMarkdownProps) {
   const [resolvedBlobUrls, setResolvedBlobUrls] = useState<Map<string, string>>(new Map());
 
@@ -222,23 +252,43 @@ export default function RenderedMarkdown({
             return <p {...props}>{children}</p>;
           },
           a: ({ href, children, ...props }) => {
-            const ref = parseObjectDeepLink(href ? String(href) : null);
+            const hrefStr = href ? String(href) : "";
+            const ref = parseObjectDeepLink(hrefStr || null);
             if (ref) {
               // An in-app object reference. Upgrade it to a live chip. The link
               // text is the object name; fall back to the href when empty.
-              const label = linkChildrenText(children) || String(href ?? "");
+              const label = linkChildrenText(children) || hrefStr;
               return (
-                <ObjectChip type={ref.type} href={String(href)} label={label} />
+                <ObjectChip type={ref.type} href={hrefStr} label={label} />
               );
             }
-            // Any non-object link renders exactly as a normal markdown link.
+            // Files/ links: intercept when the caller supplied a handler so
+            // preview mode can open the file viewer / trigger a download.
+            if (onFileLinkClick) {
+              let decoded = hrefStr;
+              try { decoded = decodeURI(hrefStr); } catch { /* fall through */ }
+              const clean = decoded.startsWith("./") ? decoded.slice(2) : decoded;
+              if (clean.startsWith("Files/")) {
+                return (
+                  <a
+                    href={hrefStr}
+                    onClick={(e) => { e.preventDefault(); onFileLinkClick(hrefStr); }}
+                    className="text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 underline cursor-pointer"
+                    {...props}
+                  >
+                    {children}
+                  </a>
+                );
+              }
+            }
+            // Any other link renders as a normal markdown link.
             return (
               <a href={href} {...props}>
                 {children}
               </a>
             );
           },
-          img: ({ src, alt, ...props }) => {
+          img: ({ src, alt, width, ...props }) => {
             const rawSrc = String(src || "");
             // Strip the #w=<number> fragment BEFORE resolution so the path
             // matches what the blob-URL cache keyed on. The fragment is a
@@ -251,10 +301,15 @@ export default function RenderedMarkdown({
             const resolvedSrc = resolvedBlobUrls.get(originalSrc) ?? originalSrc;
             const annotFilename = filenameFromMarkdownSrc(originalSrc);
             const hasCaption = typeof alt === "string" && alt.length > 0;
-            const figureStyle: React.CSSProperties | undefined =
-              embedWidth !== undefined
-                ? { margin: 0, maxWidth: embedWidth }
-                : undefined;
+            // When a click handler is wired (e.g. Preview mode in the editor),
+            // parse the current width percentage from the width prop so the
+            // resize popover initialises at the right value.
+            const currentWidthPct = onImageClick
+              ? (() => {
+                  const w = typeof width === "string" ? parseInt(width, 10) : (typeof width === "number" ? width : NaN);
+                  return isNaN(w) ? null : w;
+                })()
+              : null;
             const imageElement = (
               <>
                 <AnnotatedImage
@@ -262,8 +317,22 @@ export default function RenderedMarkdown({
                   alt={alt || ""}
                   basePath={basePath}
                   filename={annotFilename ?? undefined}
-                  className="max-w-full rounded-lg"
+                  className={`max-w-full rounded-lg${onImageClick ? " cursor-pointer" : ""}`}
                   style={embedWidth !== undefined ? { maxWidth: "100%" } : undefined}
+                  draggable={false}
+                  onDragOver={onImageClick ? (e) => e.preventDefault() : undefined}
+                  onDrop={onImageClick ? (e) => e.preventDefault() : undefined}
+                  onClick={onImageClick ? (e) => {
+                    e.stopPropagation();
+                    onImageClick({
+                      originalSrc,
+                      alt: String(alt || ""),
+                      x: e.clientX + 6,
+                      y: e.clientY + 6,
+                      currentWidth: currentWidthPct,
+                    });
+                  } : undefined}
+                  title={onImageClick ? "Click to resize" : undefined}
                   {...props}
                 />
                 {/* Scanned handwriting: hidden editable OCR text reveal under

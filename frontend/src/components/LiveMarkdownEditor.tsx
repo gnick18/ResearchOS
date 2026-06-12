@@ -4,14 +4,8 @@ import { useCallback, useRef, useState, useEffect, useLayoutEffect } from "react
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import { usePreloadOnIdle } from "@/lib/perf/use-preload-on-idle";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import rehypeRaw from "rehype-raw";
-import rehypeHighlight from "rehype-highlight";
-import rehypeSanitize from "rehype-sanitize";
-import { markdownSanitizeSchema } from "@/lib/markdown/sanitize-schema";
-import remarkUnderline from "@/lib/markdown/remark-underline";
 import { extractUserContent } from "@/lib/stamp-utils";
+import RenderedMarkdown, { type ImageClickPayload } from "./RenderedMarkdown";
 import { FIGURE_DIRECTIVE } from "@/lib/embeds/figure-numbering";
 import { attachmentsApi } from "@/lib/local-api";
 import InlineMarkdownEditor from "./InlineMarkdownEditor";
@@ -29,10 +23,8 @@ import MarkdownShortcutsSidebar from "./MarkdownShortcutsSidebar";
 import { blobUrlResolver, encodeAttachmentRefPath } from "@/lib/utils/blob-url-resolver";
 import { fileService } from "@/lib/file-system/file-service";
 import ImageResizePopover from "./ImageResizePopover";
-import AnnotatedImage from "./AnnotatedImage";
-import { OcrReveal } from "./OcrImage";
 import { filenameFromMarkdownSrc } from "@/lib/attachments/annotations";
-import { rewriteImageBySrcAlt, parseWidthPercent } from "@/lib/image-resize-utils";
+import { rewriteImageBySrcAlt } from "@/lib/image-resize-utils";
 
 // Konva-based annotation editor: loaded client-only (SSR-unsafe) and only when
 // the user opens it from the resize popover's Annotate action.
@@ -68,25 +60,6 @@ import {
 } from "@/lib/markdown/editor-width-preset";
 import { useOptionalCurrentUser } from "@/lib/file-system/file-system-context";
 import { patchUserSettings, readUserSettings } from "@/lib/settings/user-settings";
-
-// Transparent 1×1 GIF used as the `src` placeholder while the real blob URL
-// is being resolved asynchronously, so the browser never tries to fetch the
-// raw local path (which would 404 against the Next.js dev server).
-const IMAGE_PLACEHOLDER =
-  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-
-// Strip CommonMark title and surrounding angle brackets from a raw URL
-// captured between (...). Keeps filenames with spaces routable through the
-// blob-URL cache. The previous `[^)\s]+` regex truncated at the first
-// whitespace, so the cache key never matched what react-markdown later
-// passed to the <img> renderer.
-function canonicalizeRefSrc(raw: string): string {
-  let src = raw.trim();
-  const titleMatch = src.match(/^(.+?)\s+["'].*["']\s*$/);
-  if (titleMatch) src = titleMatch[1].trim();
-  if (src.startsWith("<") && src.endsWith(">")) src = src.slice(1, -1);
-  return src;
-}
 
 // Type for editor mode. "inline" is the CodeMirror 6 Typora-style surface
 // (now the sole editor). "preview" is the read-only ReactMarkdown render.
@@ -526,7 +499,6 @@ export default function LiveMarkdownEditor({
     const id = window.setTimeout(() => setMissingImageRehydrateToast(null), 3500);
     return () => window.clearTimeout(id);
   }, [missingImageRehydrateToast]);
-  const [resolvedBlobUrls, setResolvedBlobUrls] = useState<Map<string, string>>(new Map());
   // Active file-link click prompt. The modal shows a View/Download choice for
   // text-like + PDF files; binary types skip the prompt and download
   // immediately from the click handler. `resolvedPath` is pre-resolved so the
@@ -666,56 +638,10 @@ export default function LiveMarkdownEditor({
   // opened from the resize popover's Annotate action.
   const [annotatingFilename, setAnnotatingFilename] = useState<string | null>(null);
 
-  // Resolve relative image references to blob URLs whenever the markdown or
-  // the active mode changes. The mode dependency is a safety net: if a child
-  // component ever wipes the singleton blobUrlResolver cache while we're
-  // still mounted (e.g. an aggressive sibling cleanup), switching modes will
-  // re-populate freshly from disk so the new render doesn't show dead URLs.
-  useEffect(() => {
-    // Capture lazily up to the closing paren so filenames with spaces survive,
-    // then canonicalize so the cache key matches whatever react-markdown
-    // hands the <img> override below. The old `[^)\s]+` form truncated
-    // `Images/Emile ID card-1.jpg` down to `Images/Emile` and the cache
-    // lookup always missed.
-    const imageRegex = /!\[[^\]]*\]\(([^)\n]+?)\)/g;
-    const htmlRegex = /<img\s+[^>]*src=["']([^"']+)["']/gi;
-    const srcs = new Set<string>();
-    let m: RegExpExecArray | null;
-    while ((m = imageRegex.exec(value)) !== null) srcs.add(canonicalizeRefSrc(m[1]));
-    while ((m = htmlRegex.exec(value)) !== null) srcs.add(m[1]);
-
-    let cancelled = false;
-    (async () => {
-      const newPairs: Array<[string, string]> = [];
-      for (const src of srcs) {
-        if (!blobUrlResolver.isLocalPath(src)) continue;
-        const resolvedPath = blobUrlResolver.resolvePath(src, imageBasePath);
-        const cached = blobUrlResolver.getCachedUrl(resolvedPath);
-        if (cached) {
-          newPairs.push([src, cached]);
-          continue;
-        }
-        const url = await blobUrlResolver.getBlobUrl(resolvedPath);
-        if (url) newPairs.push([src, url]);
-      }
-      if (cancelled || newPairs.length === 0) return;
-      setResolvedBlobUrls((prev) => {
-        const next = new Map(prev);
-        let changed = false;
-        for (const [src, url] of newPairs) {
-          if (next.get(src) !== url) {
-            next.set(src, url);
-            changed = true;
-          }
-        }
-        return changed ? next : prev;
-      });
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [value, imageBasePath, currentMode]);
-
+  // RenderedMarkdown now owns its own blob-URL resolver for the Preview render
+  // path (it resolves image srcs independently). The revokeAll cleanup keeps
+  // the singleton tidy when the editor unmounts; the resolver may still hold
+  // URLs from InlineMarkdownEditor's own resolution passes.
   useEffect(() => () => blobUrlResolver.revokeAll(), []);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const brokenImagePopupRef = useRef<HTMLDivElement>(null);
@@ -774,32 +700,6 @@ export default function LiveMarkdownEditor({
       }
     },
     [imageResize, value, onChange],
-  );
-
-  /**
-   * Handle broken image detection - when an image fails to load
-   * Adds to a queue and processes one at a time
-   */
-  const handleImageError = useCallback(
-    (event: React.SyntheticEvent<HTMLImageElement>, originalSrc: string, alt: string) => {
-      // Check if we've already processed this src
-      if (processedBrokenSrcsRef.current.has(originalSrc)) {
-        return;
-      }
-      
-      // Mark this src as processed
-      processedBrokenSrcsRef.current.add(originalSrc);
-      
-      // Add to the queue
-      setBrokenImageQueue(prev => {
-        // Check if already in queue
-        if (prev.some(img => img.originalSrc === originalSrc)) {
-          return prev;
-        }
-        return [...prev, { originalSrc, alt, kind: "image", element: null }];
-      });
-    },
-    []
   );
 
   /**
@@ -2289,105 +2189,28 @@ export default function LiveMarkdownEditor({
                   className={`light-scope prose prose-sm prose-gray ${measureClass} px-6 py-4 rounded-md border border-border bg-surface-raised`}
                   style={{ lineHeight: "1.7" }}
                 >
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm, remarkUnderline]}
-                    rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSanitizeSchema], rehypeHighlight]}
-                    components={{
-                      a: ({ href, children, ...aProps }) => {
-                        const rawHref = typeof href === "string" ? href : "";
-                        let decoded = rawHref;
-                        try {
-                          decoded = decodeURI(rawHref);
-                        } catch {
-                          // not valid percent-encoding — fall through
-                        }
-                        const isFileLink =
-                          decoded.startsWith("Files/") || decoded.startsWith("./Files/");
-                        if (!isFileLink) {
-                          // External / non-file refs render as a normal link.
-                          return <a href={rawHref} {...aProps}>{children}</a>;
-                        }
-                        return (
-                          <a
-                            href={rawHref}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              void handleFileLinkClick(rawHref);
-                            }}
-                            className="text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-200 underline cursor-pointer"
-                            {...aProps}
-                          >
-                            {children}
-                          </a>
-                        );
-                      },
-                      img: ({ src, alt, width, ...props }) => {
-                        const currentWidthPct = parseWidthPercent(width as string | number | undefined);
-                        const originalSrc = String(src || "");
-                        const originalAlt = String(alt || "");
-                        // Canonicalize before the cache lookup so URLs with
-                        // CommonMark titles or angle brackets line up with
-                        // the entries the pre-resolve effect wrote.
-                        const cacheKey = canonicalizeRefSrc(originalSrc);
-                        const cachedBlob = resolvedBlobUrls.get(cacheKey);
-                        // While we're waiting for the async blob URL for a
-                        // local path, render a transparent placeholder so the
-                        // browser doesn't request — and 404 on — the raw path.
-                        const needsResolution =
-                          blobUrlResolver.isLocalPath(originalSrc) && !cachedBlob;
-                        const resolvedSrc = needsResolution
-                          ? IMAGE_PLACEHOLDER
-                          : (cachedBlob ?? originalSrc);
-                        // Derive the on-disk filename so AnnotatedImage can load
-                        // the `.annot.json` overlay. Null for remote/data refs;
-                        // those render as a bare img with no overlay.
-                        const annotFilename = filenameFromMarkdownSrc(originalSrc);
-                        return (
-                          <>
-                          <AnnotatedImage
-                            src={resolvedSrc}
-                            alt={originalAlt}
-                            width={width}
-                            basePath={imageBasePath}
-                            filename={annotFilename ?? undefined}
-                            className="max-w-full rounded-lg cursor-pointer"
-                            // These three props are mandatory: without them
-                            // Chrome intercepts native file drops with its
-                            // "replace image" default before React's outer
-                            // handlers run, breaking attachments when the
-                            // cursor is over a rendered image.
-                            draggable={false}
-                            onDragOver={(e) => e.preventDefault()}
-                            onDrop={(e) => e.preventDefault()}
-                            onError={(e) => handleImageError(e, originalSrc, originalAlt)}
-                            onClick={(e) => {
-                              if (disabled) return;
-                              e.stopPropagation();
-                              setImageResize({
-                                imageSrc: originalSrc,
-                                imageAlt: originalAlt,
-                                x: e.clientX + 6,
-                                y: e.clientY + 6,
-                                currentWidth: currentWidthPct,
-                              });
-                            }}
-                            title="Click to resize"
-                            {...props}
-                          />
-                          {/* Scanned handwriting: the hidden editable OCR text
-                              reveal under the enhanced image. Null for normal
-                              images (no .ocr.json sidecar). */}
-                          <OcrReveal
-                            basePath={imageBasePath}
-                            filename={annotFilename ?? undefined}
-                          />
-                          </>
-                        );
-                      },
+                  {/* Preview render path: RenderedMarkdown handles object
+                      embeds, external embeds, transclusion chips, and images
+                      consistently with every other read-only surface. The two
+                      optional callbacks wire the image click-to-resize popover
+                      and the Files/ link viewer so Preview stays feature-
+                      complete with the old plain-ReactMarkdown path. */}
+                  <RenderedMarkdown
+                    content={preserveBlankLines(previewValue)}
+                    basePath={imageBasePath}
+                    enableSyntaxHighlight
+                    embedPinSidecar={embedPinContext?.sidecarPath}
+                    onImageClick={disabled ? undefined : (payload: ImageClickPayload) => {
+                      setImageResize({
+                        imageSrc: payload.originalSrc,
+                        imageAlt: payload.alt,
+                        x: payload.x,
+                        y: payload.y,
+                        currentWidth: payload.currentWidth,
+                      });
                     }}
-                  >
-                    {preserveBlankLines(previewValue)}
-                  </ReactMarkdown>
+                    onFileLinkClick={(href) => { void handleFileLinkClick(href); }}
+                  />
                 </div>
               ) : (
                 <p className="text-body text-foreground-muted italic">
