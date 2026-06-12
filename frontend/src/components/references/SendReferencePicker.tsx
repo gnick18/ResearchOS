@@ -20,7 +20,9 @@ import {
   notesApi,
   methodsApi,
   fetchAllTasksIncludingShared,
+  buildCurrentViewer,
 } from "@/lib/local-api";
+import { canWrite } from "@/lib/sharing/unified";
 import {
   sendReferenceToTarget,
   type SendTarget,
@@ -52,16 +54,33 @@ async function loadTargets(): Promise<{
   experiments: Task[];
   methods: Method[];
 }> {
-  const [notes, tasks, methods] = await Promise.all([
+  const [viewer, notes, tasks, methods] = await Promise.all([
+    buildCurrentViewer(),
     notesApi.list().catch(() => [] as Note[]),
     fetchAllTasksIncludingShared().catch(() => [] as Task[]),
     methodsApi.list().catch(() => [] as Method[]),
   ]);
+  // Only offer targets the viewer can actually write to, so a send to a
+  // view-only shared note / experiment / method never fails after the fact.
+  // Notes route by `username` (their owner-folder field), tasks + methods by
+  // `owner`; both carry `shared_with` for the edit-share check.
   return {
-    notes,
-    experiments: tasks.filter((t) => t.task_type === "experiment"),
-    // Only a markdown method has a body a chip can be appended to.
-    methods: methods.filter((m) => m.method_type === "markdown" && m.source_path),
+    notes: notes.filter((n) =>
+      canWrite({ owner: n.username, shared_with: n.shared_with ?? [] }, viewer),
+    ),
+    experiments: tasks.filter(
+      (t) =>
+        t.task_type === "experiment" &&
+        canWrite({ owner: t.owner, shared_with: t.shared_with ?? [] }, viewer),
+    ),
+    // A chip can only be appended to a markdown method's body, and only if the
+    // viewer can write it.
+    methods: methods.filter(
+      (m) =>
+        m.method_type === "markdown" &&
+        m.source_path &&
+        canWrite({ owner: m.owner, shared_with: m.shared_with ?? [] }, viewer),
+    ),
   };
 }
 

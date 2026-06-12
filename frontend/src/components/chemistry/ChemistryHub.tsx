@@ -77,6 +77,10 @@ export function ChemistryHub({
   // sendMolecule drives the "Send to..." picker.
   const [renameTarget, setRenameTarget] = useState<Molecule | null>(null);
   const [sendMolecule, setSendMolecule] = useState<Molecule | null>(null);
+  // Transient confirmation after a "Send to..." completes (the hub has no other
+  // toast surface for it, unlike the sequence header's status line).
+  const [sendNotice, setSendNotice] = useState<string | null>(null);
+  const sendNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queryClient = useQueryClient();
   const { openMenu } = useContextMenu();
 
@@ -1079,7 +1083,21 @@ export function ChemistryHub({
           )}
           sourceLabel={sendMolecule.name}
           onClose={() => setSendMolecule(null)}
+          onResult={(message) => {
+            setSendNotice(message);
+            if (sendNoticeTimer.current) clearTimeout(sendNoticeTimer.current);
+            sendNoticeTimer.current = setTimeout(() => setSendNotice(null), 2600);
+          }}
         />
+      )}
+      {sendNotice && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg bg-foreground text-surface text-meta font-medium shadow-2xl"
+        >
+          {sendNotice}
+        </div>
       )}
     </div>
   );
