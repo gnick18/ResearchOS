@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { listByProject, moleculesApi, type Molecule } from "./api";
+import { listByProject, moleculesApi, setStarredPapers, type Molecule, type StarredPaper } from "./api";
 import { moleculeStore } from "./molecule-store";
 
 /**
@@ -65,5 +65,63 @@ describe("Molecule/meta shape", () => {
     expect(mol.project_ids).toContain("proj-a");
     expect(typeof mol.added_at).toBe("string");
     expect(mol.source).toBe("drawn");
+  });
+
+  it("starred_papers is an optional field on MoleculeMeta (back-compat)", () => {
+    // Old molecules without starred_papers parse fine (no required field).
+    const mol: Molecule = {
+      id: "mol-2",
+      name: "Gliotoxin",
+      project_ids: [],
+      added_at: "2026-06-12T00:00:00.000Z",
+    };
+    expect(mol.starred_papers).toBeUndefined();
+  });
+});
+
+describe("moleculesApi.setStarredPapers", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("writes starred_papers via updateMeta and returns the updated sidecar", async () => {
+    const existing: Molecule = {
+      id: "42",
+      name: "Gliotoxin",
+      project_ids: [],
+      added_at: "2026-06-12T00:00:00.000Z",
+    };
+    const starred: StarredPaper[] = [
+      {
+        doi: "10.1099/mic.0.27847-0",
+        title: "Gliotoxin and the epipolythiodioxopiperazines, a review",
+        year: "2005",
+        type: "review",
+        journal: "Microbiology",
+        starred_at: "2026-06-12T10:00:00.000Z",
+      },
+    ];
+    const updated: Molecule = { ...existing, starred_papers: starred };
+
+    vi.spyOn(moleculeStore, "updateMeta").mockResolvedValue(updated);
+
+    const result = await setStarredPapers("42", starred);
+    expect(result).not.toBeNull();
+    expect(result?.starred_papers).toHaveLength(1);
+    expect(result?.starred_papers?.[0].doi).toBe("10.1099/mic.0.27847-0");
+    expect(result?.starred_papers?.[0].type).toBe("review");
+
+    // Confirm updateMeta was called with the starred_papers patch.
+    expect(moleculeStore.updateMeta).toHaveBeenCalledWith(
+      "42",
+      { starred_papers: starred },
+      expect.any(String),
+    );
+  });
+
+  it("returns null when the molecule does not exist", async () => {
+    vi.spyOn(moleculeStore, "updateMeta").mockResolvedValue(null);
+    const result = await setStarredPapers("nonexistent", []);
+    expect(result).toBeNull();
   });
 });
