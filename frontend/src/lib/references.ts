@@ -146,16 +146,27 @@ export function objectDeepLink(type: ObjectRefType, id: string | number): string
   return OBJECT_ROUTES[type].build(String(id));
 }
 
+/** Escape a name for safe use as markdown link text. Backslash and BOTH brackets
+ *  are escaped so a `[` or `]` in the name (e.g. `pGEX-3X [clone]`) cannot break
+ *  the `[text](url)` form. Parens in the name are fine, CommonMark allows them in
+ *  link text, and the destination is always a percent-encoded deep link. */
+function escapeLinkText(name: string): string {
+  return (name ?? "")
+    .replace(/\\/g, "\\\\")
+    .replace(/\[/g, "\\[")
+    .replace(/]/g, "\\]");
+}
+
 /** A markdown link to an object, `[name](<deepLink>)`. Pasted into a note this
  *  yields a link our renderer upgrades to a chip; pasted elsewhere it stays
- *  readable markdown. The name is escaped so a `]` in it cannot break the link. */
+ *  readable markdown. This is the inline MENTION form (no embed fragment), see
+ *  `objectEmbedMarkdown` for the block-embed form. */
 export function objectReferenceMarkdown(
   type: ObjectRefType,
   id: string | number,
   name: string,
 ): string {
-  const safeName = (name ?? "").replace(/\\/g, "\\\\").replace(/]/g, "\\]");
-  return `[${safeName}](${objectDeepLink(type, id)})`;
+  return `[${escapeLinkText(name)}](${objectDeepLink(type, id)})`;
 }
 
 /** Recognize one of our internal object routes. Tolerant of an absolute app URL
@@ -187,4 +198,146 @@ export function parseObjectDeepLink(
     if (id != null) return { type, id };
   }
   return null;
+}
+
+// ── Embed layer (markdown + ResearchOS embed hybrid, Phase 0) ───────────────
+//
+// An object reference is upgraded from a plain link to a rich embed by a `#ros=`
+// URL fragment, e.g. `[pUC19](/sequences?seq=2#ros=map&region=1-500)`. Outside
+// ResearchOS this stays a clickable link (the fragment is ignored), inside, the
+// renderer reads the fragment and draws the object. No fragment, or `#ros=chip`,
+// means the inline chip (today's behavior), so every existing reference is
+// untouched. See docs/proposals/2026-06-11-markdown-embed-hybrid.md.
+//
+// This module is the FORMAT + PARSER only. It does not render anything, the
+// `ObjectEmbed` component and the per-type renderers consume `parseObjectEmbed`
+// in later phases.
+
+/** Options carried in the `#ros=` fragment, all optional. Unknown keys are
+ *  ignored so the grammar can grow without breaking older parsers. */
+export interface EmbedOpts {
+  /** Sequence base range to focus, e.g. "1-500". */
+  region?: string;
+  /** Table-preview row / column counts. */
+  rows?: number;
+  cols?: number;
+  /** Size hints (px) for a map / plot / image. */
+  w?: number;
+  h?: number;
+  /** Sub-object id inside a Data Hub doc (an analysis result / a plot). */
+  analysis?: string;
+  plot?: string;
+  /** Freeze to a point in time, an ISO timestamp or a snapshot id. */
+  pin?: string;
+  /** Portable content identity for cross-library resolution. The path id is only
+   *  a hint, this is what survives being shared into another person's library. */
+  ref?: string;
+}
+
+/** A parsed embed reference. `view` is the render mode, "chip" (the default)
+ *  renders the inline pill, any other value is a block embed view. `isEmbed` is
+ *  the convenience flag for "render as a block, not a chip". */
+export interface EmbedDescriptor {
+  type: ObjectRefType;
+  id: string;
+  view: string;
+  isEmbed: boolean;
+  opts: EmbedOpts;
+}
+
+/** The default block view per type (the view used when an embed is inserted
+ *  without an explicit one). Locked 2026-06-11, sequence = map, molecule = the
+ *  identity card. */
+export const DEFAULT_EMBED_VIEW: Record<ObjectRefType, string> = {
+  sequence: "map",
+  collection: "card",
+  method: "card",
+  note: "card",
+  file: "file",
+  project: "card",
+  molecule: "card",
+  datahub: "table",
+  task: "card",
+  experiment: "results",
+};
+
+const EMBED_STR_KEYS = ["region", "analysis", "plot", "pin", "ref"] as const;
+const EMBED_INT_KEYS = ["rows", "cols", "w", "h"] as const;
+
+/** Parse the `#ros=...` fragment into a view + opts. Tolerant, an empty or
+ *  malformed fragment yields no view and empty opts. */
+function parseEmbedFragment(fragment: string): { view?: string; opts: EmbedOpts } {
+  const opts: EmbedOpts = {};
+  const clean = fragment.replace(/^#/, "");
+  if (!clean) return { opts };
+  const params = new URLSearchParams(clean);
+  for (const k of EMBED_STR_KEYS) {
+    const v = params.get(k);
+    if (v) (opts as Record<string, unknown>)[k] = v;
+  }
+  for (const k of EMBED_INT_KEYS) {
+    const v = params.get(k);
+    if (v != null && v !== "") {
+      const n = Number.parseInt(v, 10);
+      if (Number.isFinite(n)) (opts as Record<string, unknown>)[k] = n;
+    }
+  }
+  const view = params.get("ros") || undefined;
+  return { view, opts };
+}
+
+/** Recognize an object reference AND its embed fragment. Returns the type, id,
+ *  view ("chip" when no `#ros=` is present), and opts, or null for any href that
+ *  is not one of our object routes. Backward compatible, a plain
+ *  `[name](/path)` parses to `view: "chip", isEmbed: false`. */
+export function parseObjectEmbed(
+  href: string | null | undefined,
+): EmbedDescriptor | null {
+  if (!href) return null;
+  const raw = href.trim();
+  if (raw.length === 0) return null;
+
+  // Split the fragment off so the path parser sees a clean deep link. (The URL
+  // parser in parseObjectDeepLink also drops the fragment, but we need it here.)
+  const hashIdx = raw.indexOf("#");
+  const pathPart = hashIdx >= 0 ? raw.slice(0, hashIdx) : raw;
+  const fragment = hashIdx >= 0 ? raw.slice(hashIdx + 1) : "";
+
+  const base = parseObjectDeepLink(pathPart);
+  if (!base) return null;
+
+  const { view: fragView, opts } = parseEmbedFragment(fragment);
+  const view = fragView ?? "chip";
+  return { type: base.type, id: base.id, view, isEmbed: view !== "chip", opts };
+}
+
+/** Build the href for an embed, `<deepLink>#ros=<view>&...`. A "chip" view (or
+ *  none) and no opts produces a bare deep link (identical to the mention form),
+ *  so the chip path stays byte-for-byte unchanged. */
+export function buildObjectEmbedHref(
+  type: ObjectRefType,
+  id: string | number,
+  opts: { view?: string } & EmbedOpts = {},
+): string {
+  const base = objectDeepLink(type, id);
+  const { view, ...rest } = opts;
+  const params = new URLSearchParams();
+  if (view && view !== "chip") params.set("ros", view);
+  for (const [k, v] of Object.entries(rest)) {
+    if (v != null && v !== "") params.set(k, String(v));
+  }
+  const frag = params.toString();
+  return frag ? `${base}#${frag}` : base;
+}
+
+/** A markdown link that renders as a block embed, `[caption](<deepLink>#ros=...)`.
+ *  The link text doubles as the caption (locked 2026-06-11). Outside ResearchOS
+ *  it is a normal link, inside, the renderer draws the embed. */
+export function objectEmbedMarkdown(
+  type: ObjectRefType,
+  id: string | number,
+  name: string,
+  opts: { view?: string } & EmbedOpts = {},
+): string {
+  return `[${escapeLinkText(name)}](${buildObjectEmbedHref(type, id, opts)})`;
 }
