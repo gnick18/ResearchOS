@@ -65,6 +65,15 @@ import {
   groupDatasets,
   DEFAULT_GROUPED_REPLICATES,
 } from "@/lib/datahub/grouped-table";
+import {
+  buildAddedReplicate,
+  buildDuplicateGroupPlan,
+  buildInsertGroupColumns,
+  canDeleteGroup,
+  canRemoveReplicate,
+  groupColumnIds,
+  replicateToRemove,
+} from "@/lib/datahub/grouped-grid-crud";
 import { buildEmptySurvivalTable } from "@/lib/datahub/survival-table";
 import { runAnalysis } from "@/lib/datahub/run-analysis";
 import {
@@ -565,6 +574,122 @@ export default function DataHubPage() {
     [openContent],
   );
 
+  // --- Grouped grid group CRUD (right-click on the group header) -------------
+  // A Grouped table's columns are replicate subcolumns bound into datasetId
+  // groups, so these act on a WHOLE group (delete / duplicate / insert) or its
+  // replicate COUNT (add / remove) rather than on a single column. Same commit
+  // path as above; the guards live in lib/datahub/grouped-grid-crud so the menu
+  // disables an action and these handlers stay a no-op if one slips through.
+
+  // Delete a whole group: drop every replicate column of the datasetId plus its
+  // cell from each row. Guarded so the last remaining group is never removed.
+  const handleDeleteGroup = useCallback(
+    (datasetId: string) => {
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      if (!canDeleteGroup(openContent, datasetId)) return;
+      for (const colId of groupColumnIds(openContent, datasetId)) {
+        removeColumnInDoc(handle.doc, colId);
+      }
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+    },
+    [openContent],
+  );
+
+  // Duplicate a whole group: clone every replicate column under a fresh datasetId
+  // ("<name> copy"), inserted right after the source group, copying each row's
+  // value across so the new group is a full copy.
+  const handleDuplicateGroup = useCallback(
+    (datasetId: string) => {
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      const stamp = Date.now();
+      const newDatasetId = `grp-${stamp}`;
+      const plan = buildDuplicateGroupPlan(
+        openContent,
+        datasetId,
+        newDatasetId,
+        (i) => `${newDatasetId}-r${i + 1}`,
+      );
+      if (!plan) return;
+      plan.columns.forEach((col, i) => {
+        addColumnAtInDoc(handle.doc, col, plan.insertAt + i);
+      });
+      for (const row of openContent.rows) {
+        for (const col of plan.columns) {
+          const sourceId = plan.valueSourceByNewId[col.id];
+          setCell(handle.doc, row.id, col.id, row.cells[sourceId] ?? null);
+        }
+      }
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+    },
+    [openContent],
+  );
+
+  // Grow one group by a replicate: append a blank replicate column to the group
+  // (shared name + datasetId), backfilled null on every row.
+  const handleAddReplicate = useCallback(
+    (datasetId: string) => {
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      const newId = `${datasetId}-r-${Date.now()}`;
+      const added = buildAddedReplicate(openContent, datasetId, newId);
+      if (!added) return;
+      addColumnAtInDoc(handle.doc, added.column, added.insertAt);
+      for (const row of openContent.rows) {
+        setCell(handle.doc, row.id, newId, null);
+      }
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+    },
+    [openContent],
+  );
+
+  // Shrink one group by a replicate: drop its last replicate column plus cells.
+  // Guarded so a group never loses its last replicate.
+  const handleRemoveReplicate = useCallback(
+    (datasetId: string) => {
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      if (!canRemoveReplicate(openContent, datasetId)) return;
+      const colId = replicateToRemove(openContent, datasetId);
+      if (!colId) return;
+      removeColumnInDoc(handle.doc, colId);
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+    },
+    [openContent],
+  );
+
+  // Insert a fresh empty group at a column index (the menu passes the clicked
+  // group's start for "before" or its end for "after"). The new group inherits the
+  // table's replicate count so every group stays even, each subcolumn backfilled
+  // null on every row.
+  const handleInsertGroupAt = useCallback(
+    (index: number) => {
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      const stamp = Date.now();
+      const newDatasetId = `grp-${stamp}`;
+      const columns = buildInsertGroupColumns(
+        openContent,
+        newDatasetId,
+        (i) => `${newDatasetId}-r${i + 1}`,
+      );
+      columns.forEach((col, i) => {
+        addColumnAtInDoc(handle.doc, col, index + i);
+      });
+      for (const row of openContent.rows) {
+        for (const col of columns) setCell(handle.doc, row.id, col.id, null);
+      }
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+    },
+    [openContent],
+  );
+
   // Bundle the grid CRUD callbacks once so each grid receives a stable object for
   // its right-click menus. The grid decides which items to surface from the table
   // type plus the per-column guards.
@@ -576,6 +701,11 @@ export default function DataHubPage() {
       onRenameColumn: handleRenameColumn,
       onDuplicateColumn: handleDuplicateColumn,
       onInsertColumnAt: handleInsertColumnAt,
+      onDeleteGroup: handleDeleteGroup,
+      onDuplicateGroup: handleDuplicateGroup,
+      onAddReplicate: handleAddReplicate,
+      onRemoveReplicate: handleRemoveReplicate,
+      onInsertGroupAt: handleInsertGroupAt,
     }),
     [
       handleDeleteRow,
@@ -584,6 +714,11 @@ export default function DataHubPage() {
       handleRenameColumn,
       handleDuplicateColumn,
       handleInsertColumnAt,
+      handleDeleteGroup,
+      handleDuplicateGroup,
+      handleAddReplicate,
+      handleRemoveReplicate,
+      handleInsertGroupAt,
     ],
   );
 

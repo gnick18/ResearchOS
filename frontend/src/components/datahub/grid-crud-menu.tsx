@@ -30,6 +30,12 @@ import {
   rowIndex,
   rowNoun,
 } from "@/lib/datahub/grid-crud";
+import {
+  canDeleteGroup,
+  canRemoveReplicate,
+  groupEndIndex,
+  groupStartIndex,
+} from "@/lib/datahub/grouped-grid-crud";
 
 /** The CRUD callbacks a grid forwards from the page. All optional so a grid that
  *  only wires a safe subset (e.g. a corrupting action is withheld) can omit one;
@@ -41,6 +47,15 @@ export interface GridCrudHandlers {
   onRenameColumn?: (columnId: string, name: string) => void;
   onDuplicateColumn?: (columnId: string) => void;
   onInsertColumnAt?: (index: number) => void;
+  /** Group-aware actions for the Grouped grid header (a colspan group of
+   *  replicate subcolumns). A Grouped table's columns are bound into datasetId
+   *  groups, so the generic per-column actions above are NOT wired there; these
+   *  operate on a whole group or its replicate count instead. */
+  onDeleteGroup?: (datasetId: string) => void;
+  onDuplicateGroup?: (datasetId: string) => void;
+  onAddReplicate?: (datasetId: string) => void;
+  onRemoveReplicate?: (datasetId: string) => void;
+  onInsertGroupAt?: (index: number) => void;
 }
 
 export interface GridCrudMenu {
@@ -53,6 +68,11 @@ export interface GridCrudMenu {
   openRowMenu: (
     e: { preventDefault: () => void; stopPropagation: () => void; clientX: number; clientY: number },
     rowId: string,
+  ) => void;
+  /** Open the GROUP-header menu for a Grouped table's group at the pointer. */
+  openGroupMenu: (
+    e: { preventDefault: () => void; stopPropagation: () => void; clientX: number; clientY: number },
+    datasetId: string,
   ) => void;
   /** The column id currently being renamed inline, or null. */
   renamingColumnId: string | null;
@@ -181,9 +201,73 @@ export function useGridCrudMenu(
     [content, handlers, rNoun, openMenu],
   );
 
+  // The Grouped grid's header is a colspan group of replicate subcolumns, not a
+  // single data column, so it gets its own menu: whole-group actions (delete /
+  // duplicate / insert before / insert after) plus replicate-count actions (add /
+  // remove). The guards keep the table from losing its last group or a group its
+  // last replicate.
+  const openGroupMenu = useCallback<GridCrudMenu["openGroupMenu"]>(
+    (e, datasetId) => {
+      const items: EditMenuItem[] = [];
+      if (handlers.onDuplicateGroup) {
+        items.push({
+          id: "duplicate-group",
+          label: "Duplicate group",
+          enabled: true,
+          onRun: () => handlers.onDuplicateGroup?.(datasetId),
+        });
+      }
+      if (handlers.onAddReplicate) {
+        items.push({
+          id: "add-replicate",
+          label: "Add replicate",
+          enabled: true,
+          group: true,
+          onRun: () => handlers.onAddReplicate?.(datasetId),
+        });
+      }
+      if (handlers.onRemoveReplicate) {
+        items.push({
+          id: "remove-replicate",
+          label: "Remove replicate",
+          enabled: canRemoveReplicate(content, datasetId),
+          onRun: () => handlers.onRemoveReplicate?.(datasetId),
+        });
+      }
+      if (handlers.onInsertGroupAt) {
+        items.push({
+          id: "insert-group-before",
+          label: "Insert group before",
+          enabled: true,
+          group: true,
+          onRun: () => handlers.onInsertGroupAt?.(groupStartIndex(content, datasetId)),
+        });
+        items.push({
+          id: "insert-group-after",
+          label: "Insert group after",
+          enabled: true,
+          onRun: () => handlers.onInsertGroupAt?.(groupEndIndex(content, datasetId)),
+        });
+      }
+      if (handlers.onDeleteGroup) {
+        items.push({
+          id: "delete-group",
+          label: "Delete group",
+          enabled: canDeleteGroup(content, datasetId),
+          destructive: true,
+          group: true,
+          onRun: () => handlers.onDeleteGroup?.(datasetId),
+        });
+      }
+      openMenu(e, items);
+    },
+    [content, handlers, openMenu],
+  );
+
   return {
     openColumnMenu,
     openRowMenu,
+    openGroupMenu,
     renamingColumnId,
     beginRename,
     commitRename,

@@ -44,22 +44,40 @@ export default function GroupedTableGrid({
   /** Right-click CRUD callbacks. A Grouped table's columns are REPLICATE
    *  subcolumns bound into datasetId groups, not free-standing data columns, so a
    *  generic per-column delete / duplicate / insert would leave uneven replicate
-   *  counts and orphan a group. Only the ROW menu (insert / delete row) is wired
-   *  here; group-level rename already lives inline on the group header, and Add
-   *  group lives in the toolbar. The per-column menu is deliberately withheld
-   *  (FLAGGED for a later group-aware phase). */
+   *  counts and orphan a group. The generic per-column menu is therefore NOT
+   *  attached here; instead the row menu (insert / delete row) lives on the
+   *  row-number cell and a GROUP-aware menu (delete / duplicate group, add /
+   *  remove replicate, insert group before / after) lives on the group header. */
   crud?: GridCrudHandlers;
 }) {
   const labelCol = useMemo(() => rowLabelColumn(content), [content]);
   const groups = useMemo(() => groupDatasets(content), [content]);
   const rows = content.rows;
-  // Row-only menu (see the crud prop note): the column menu would corrupt the
-  // replicate-group structure, so it is not attached on this grid.
-  const rowOnlyCrud = useMemo<GridCrudHandlers>(
-    () => ({ onDeleteRow: crud?.onDeleteRow, onInsertRowAt: crud?.onInsertRowAt }),
-    [crud?.onDeleteRow, crud?.onInsertRowAt],
+  // Row + group menus only (see the crud prop note): the generic column menu
+  // would corrupt the replicate-group structure, so its handlers are not
+  // forwarded. The group handlers operate on a whole datasetId or its replicate
+  // count, which keeps the groups even.
+  const groupedCrud = useMemo<GridCrudHandlers>(
+    () => ({
+      onDeleteRow: crud?.onDeleteRow,
+      onInsertRowAt: crud?.onInsertRowAt,
+      onDeleteGroup: crud?.onDeleteGroup,
+      onDuplicateGroup: crud?.onDuplicateGroup,
+      onAddReplicate: crud?.onAddReplicate,
+      onRemoveReplicate: crud?.onRemoveReplicate,
+      onInsertGroupAt: crud?.onInsertGroupAt,
+    }),
+    [
+      crud?.onDeleteRow,
+      crud?.onInsertRowAt,
+      crud?.onDeleteGroup,
+      crud?.onDuplicateGroup,
+      crud?.onAddReplicate,
+      crud?.onRemoveReplicate,
+      crud?.onInsertGroupAt,
+    ],
   );
-  const menu = useGridCrudMenu(content, rowOnlyCrud);
+  const menu = useGridCrudMenu(content, groupedCrud);
 
   return (
     <div data-testid="datahub-grouped-grid">
@@ -104,6 +122,7 @@ export default function GroupedTableGrid({
                 <th
                   key={g.datasetId}
                   colSpan={g.replicateColumnIds.length}
+                  onContextMenu={(e) => menu.openGroupMenu(e, g.datasetId)}
                   className="border border-border bg-surface-sunken px-2 py-1 text-center"
                 >
                   <input
