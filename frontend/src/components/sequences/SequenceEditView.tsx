@@ -170,7 +170,10 @@ import SequenceOverviewBar, { type OverviewFeature } from "./SequenceOverviewBar
 import SequenceOverviewZoomSlider from "./SequenceOverviewZoomSlider";
 import LinearMap, { type LinearMapFeature } from "./LinearMap";
 import { spanFromShiftClick, buildFeatureCard, buildPrimerCard } from "@/lib/sequences/linear-map-select";
-import SequenceTabBar, { type SequenceViewMode } from "./SequenceTabBar";
+import SequenceTabBar, {
+  type SequenceViewMode,
+  type SequenceFlyoutMode,
+} from "./SequenceTabBar";
 import SequenceCoordinateBar from "./SequenceCoordinateBar";
 import SequencePrimersPanel from "./SequencePrimersPanel";
 import SequenceHistoryPanel from "./SequenceHistoryPanel";
@@ -835,12 +838,40 @@ export default function SequenceEditView({
   }, [persistPrefs, view]);
   // seq nav bot — the SnapGene BOTTOM-TAB view switcher. `viewMode` is the
   // primary "which view" state (Map / Sequence / Features / Primers /
-  // History). Restriction enzymes are a display LAYER, not a tab. The Map +
-  // Sequence tabs render the SeqViz viewer (Map = a
-  // zoomed-out feature map, Sequence = base-level detail); the rest render their
-  // panels in the main content area. This is orthogonal to the horizontal
+  // History). Restriction enzymes are a display LAYER, not a tab.
+  //
+  // seq flyout bot — Map and Sequence are the only CANVAS modes (they swap the
+  // SeqViz viewer: Map = a zoomed-out feature map, Sequence = base-level detail).
+  // Features / Primers / History no longer blank the canvas. We keep ONE
+  // `viewMode` state (so every existing setViewMode(...) caller keeps working)
+  // and DERIVE two things from it:
+  //   - `lastCanvasMode`: the most recent Map/Sequence value. The canvas always
+  //     renders THIS, so the molecule stays mounted underneath an open flyout.
+  //   - `openFlyout`: features/primers/history when viewMode is one of those,
+  //     else null. That branch renders in a dismissable overlay over the canvas
+  //     instead of replacing it.
+  // setViewMode("primers") therefore OPENS the Primers flyout over the live
+  // canvas (it never blanks it); setViewMode("map"|"sequence") swaps the canvas
+  // and closes the flyout. This is orthogonal to the horizontal
   // SequenceDisplayStrip (which toggles WHAT is drawn on the map).
   const [viewMode, setViewMode] = useState<SequenceViewMode>(initialViewMode ?? "sequence");
+  // The last Map/Sequence value seen. Seeded from the initial mode when it is a
+  // canvas mode, else defaults to "map" (so a `?view=features` deep link opens
+  // the flyout over the Map, never a blank canvas).
+  const [lastCanvasMode, setLastCanvasMode] = useState<"map" | "sequence">(
+    initialViewMode === "sequence" ? "sequence" : "map",
+  );
+  // Keep lastCanvasMode in lockstep with viewMode whenever viewMode is itself a
+  // canvas mode (covers deep-link / command-palette / programmatic setViewMode
+  // callers, not just the tab bar's onChange).
+  useEffect(() => {
+    if (viewMode === "map" || viewMode === "sequence") setLastCanvasMode(viewMode);
+  }, [viewMode]);
+  // Which flyout (if any) is open over the canvas. null on the canvas modes.
+  const openFlyout: SequenceFlyoutMode | null =
+    viewMode === "features" || viewMode === "primers" || viewMode === "history"
+      ? viewMode
+      : null;
   const [featureEditor, setFeatureEditor] = useState<FeatureEditorRequest | null>(null);
   // annotate-from-reference bot — homology-based "transfer features from a
   // reference" dialog (open via the Feature menu).
@@ -1354,12 +1385,58 @@ export default function SequenceEditView({
     setPrimersCheckNonce((n) => n + 1);
   }, []);
 
+  // seq flyout bot — flyout open/close plumbing for the bottom tab bar.
+  //   closeFlyout: drop back to the last canvas mode (Map / Sequence).
+  //   selectCanvas: pick a canvas mode (also closes any open flyout, since the
+  //     derived openFlyout becomes null once viewMode is a canvas mode).
+  //   toggleFlyout: open a flyout, or close it if it is already the open one.
+  const closeFlyout = useCallback(() => {
+    setViewMode((cur) =>
+      cur === "features" || cur === "primers" || cur === "history"
+        ? lastCanvasMode
+        : cur,
+    );
+  }, [lastCanvasMode]);
+  const selectCanvas = useCallback((mode: "map" | "sequence") => {
+    setViewMode(mode);
+  }, []);
+  const toggleFlyout = useCallback(
+    (mode: SequenceFlyoutMode) => {
+      setViewMode((cur) => (cur === mode ? lastCanvasMode : mode));
+    },
+    [lastCanvasMode],
+  );
+  // seq flyout bot — NO SOFT-LOCK. Escape always dismisses an open flyout (in
+  // addition to the button toggle + the panel's own close X), landing back on the
+  // live canvas. Capture phase so it closes even if a child handles Escape, but it
+  // is a no-op when no flyout is open so it never swallows other Escape uses.
+  useEffect(() => {
+    if (!(viewMode === "features" || viewMode === "primers" || viewMode === "history"))
+      return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        closeFlyout();
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [viewMode, closeFlyout]);
+
+  // seq flyout bot — `canvasMode` is the mode the CANVAS renders. Map / Sequence
+  // are the canvas modes; when a flyout (features/primers/history) is open the
+  // canvas keeps rendering the last canvas mode underneath, so the molecule never
+  // unmounts. All map-rendering branches below key off `canvasMode`, NOT
+  // `viewMode` (which may be a flyout value). `editable` additionally requires no
+  // flyout open so you cannot type into bases hidden under a panel.
+  const canvasMode = lastCanvasMode;
+
   // The topology toggle in the rail can force a circular plasmid to render as
   // linear; a genuinely linear molecule always renders linear. For a circular
   // plasmid, the Map tab shows JUST the ring (full size, no sequence panel) and
   // the Sequence tab shows the ring PLUS the linear sequence ("both").
   const viewer = doc.circular && !view.forceLinear
-    ? viewMode === "map"
+    ? canvasMode === "map"
       ? "circular"
       : "both"
     : "linear";
@@ -1378,8 +1455,15 @@ export default function SequenceEditView({
   // and a LINEAR molecule renders a feature MAP by pinning the zoom to MAP_ZOOM
   // (feature arrows, not legible bases). The zoom slider / coordinate cluster and
   // the editable detail surface belong to the Sequence tab.
-  const showViewer = viewMode === "map" || viewMode === "sequence";
-  const isMapView = viewMode === "map";
+  // seq flyout bot — the canvas is ALWAYS shown now. Features / Primers / History
+  // pop a flyout OVER it instead of replacing it, so `showViewer` is constant.
+  // The few places that used `showViewer` to mean "is a canvas mode active"
+  // (greying the Show strip / zoom cluster off-canvas, the protein drawer guard)
+  // now use `flyoutOpen` instead. Map/Sequence-specific canvas behaviour keys off
+  // `canvasMode`.
+  const flyoutOpen = openFlyout !== null;
+  const showViewer = true;
+  const isMapView = canvasMode === "map";
   // linear map bot — the LINEAR MAP render path. In Map mode a LINEAR molecule
   // now renders the dedicated SnapGene-style single-line LinearMap (one strand
   // fit to width + ruler + feature arrows below + enzyme/primer labels above)
@@ -1816,11 +1900,14 @@ export default function SequenceEditView({
   // recompute loop uses). Only fires on the transition INTO the sequence view,
   // not on selection changes made while already in it (so a base-view drag-select
   // never yanks the scroll).
-  const prevViewModeRef = useRef(viewMode);
+  // seq flyout bot — track the CANVAS mode (Map / Sequence) here, not viewMode.
+  // We want to reframe only on the transition INTO the Sequence canvas; opening a
+  // flyout no longer changes the canvas, so it must not retrigger this.
+  const prevCanvasModeRef = useRef(canvasMode);
   useEffect(() => {
-    const prev = prevViewModeRef.current;
-    prevViewModeRef.current = viewMode;
-    if (viewMode !== "sequence" || prev === "sequence") return;
+    const prev = prevCanvasModeRef.current;
+    prevCanvasModeRef.current = canvasMode;
+    if (canvasMode !== "sequence" || prev === "sequence") return;
     if (!isLinearViewer || !externalSel) return;
     // overview frame — this is the VIEW TRANSITION into the Sequence view (e.g.
     // coming from the Map) with an active selection, which is DIFFERENT from a
@@ -1839,7 +1926,7 @@ export default function SequenceEditView({
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [viewMode, isLinearViewer, externalSel, scrollMainToBp, doc.seq.length]);
+  }, [canvasMode, isLinearViewer, externalSel, scrollMainToBp, doc.seq.length]);
 
   // Features projected to the overview bar (whole sequence, as arrows). Uses the
   // same visibility filtering as the main map so hidden types stay hidden.
@@ -5234,8 +5321,13 @@ export default function SequenceEditView({
           vertical space and the chrome never stacks at the top. */}
 
       {/* Tab content. The vertical ViewControlRail is retired; its toggles now
-          live in the horizontal display strip in the bottom zone. */}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+          live in the horizontal display strip in the bottom zone.
+
+          seq flyout bot — `relative` so the Features / Primers / History FLYOUT
+          (rendered as the last child of this row) can absolutely position itself
+          OVER the canvas + rail, rising from the bottom (just above the pinned
+          bottom zone). */}
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {/* seq nav bot — Map + Sequence: the SeqViz viewer + the persistent top
               overview strip (linear) + the bottom coordinate / zoom cluster. The
@@ -5443,7 +5535,7 @@ export default function SequenceEditView({
                   highlights={findHighlights}
                   viewer={viewer}
                   zoom={{ linear: viewerLinearZoom, circular: view.circularZoom }}
-                  editable={!readOnly && viewMode === "sequence"}
+                  editable={!readOnly && canvasMode === "sequence" && !flyoutOpen}
                   onEdit={requestEdit}
                   onAnnotationDoubleClick={handleAnnotationDoubleClick}
                   // circular qol bot — CIRCULAR map selection QoL: single/shift-click
@@ -5568,65 +5660,10 @@ export default function SequenceEditView({
             </>
           ) : null}
 
-          {/* FEATURES tab — reuses the FeaturesPanel content as a full-width view. */}
-          {viewMode === "features" ? (
-            <FeaturesPanel
-              features={doc.features}
-              view={view}
-              onViewChange={setView}
-              onSelectFeature={selectFeature}
-              selectedIndex={selectedFeatureIdx}
-              onAddFeature={openAddFeature}
-              canAdd={!readOnly}
-              readOnly={readOnly}
-              onEditFeature={readOnly ? openViewFeature : openEditFeature}
-              onDuplicateFeature={duplicateFeatureAt}
-              onDeleteFeature={deleteFeatureAt}
-              onRecolorFeature={recolorFeatureAt}
-              onRecolorType={recolorType}
-            />
-          ) : null}
-
-          {/* PRIMERS tab — derived from primer_bind features; design via the
-              existing PrimerDialog. */}
-          {viewMode === "primers" ? (
-            <SequencePrimersPanel
-              features={doc.features}
-              template={doc.seq}
-              selection={sel.hasRange ? { start: sel.lo, end: sel.hi } : null}
-              onSelectPrimer={(index) => {
-                setViewMode("sequence");
-                selectFeature(index);
-              }}
-              onEditPrimer={openEditPrimer}
-              selectedIndex={selectedFeatureIdx}
-              onAddCustomPrimer={openPrimerDialog}
-              onAddPrimer={addPrimerFeature}
-              onDeletePrimer={deleteFeatureAt}
-              readOnly={readOnly}
-              currentSequenceId={sequence.id}
-              loadLibrary={loadLibrary}
-              initialMode="check"
-              initialModeNonce={primersCheckNonce}
-            />
-          ) : null}
-
-          {/* HISTORY tab — real per-sequence version timeline (seq history bot).
-              Each Save records a version; restore loads an earlier one back. */}
-          {viewMode === "history" ? (
-            <SequenceHistoryPanel
-              sequenceId={sequence.id}
-              owner={historyOwner}
-              headCanonical={headCanonical}
-              canRestore={!readOnly && RESTORE_ENABLED}
-              onRestore={handleRestoreVersion}
-              restoreAudit={sequence._restore_audit}
-              artifacts={artifacts}
-              sequenceVersion={sequenceVersion}
-              onOpenArtifact={handleOpenArtifact}
-              onDeleteArtifact={handleDeleteArtifact}
-            />
-          ) : null}
+          {/* seq flyout bot — Features / Primers / History no longer render here
+              (they used to BLANK the canvas). They now pop a flyout panel UP over
+              the live canvas, hosted in the dismissable overlay below (a sibling of
+              this column, anchored to the bottom of the canvas + rail row). */}
         </div>
 
         {/* sequence editor master — RIGHT-DOCKED PROTEIN-PROPERTIES DRAWER. A flex
@@ -5677,6 +5714,127 @@ export default function SequenceEditView({
             contextBar={inspectorContextBar}
           />
         ) : null}
+
+        {/* seq flyout bot — THE FLYOUT. Features / Primers / History pop UP from
+            their bottom-bar button and OVERLAY the live canvas (the map stays
+            mounted + interactive around it), instead of blanking the canvas. It is
+            absolutely positioned within this `relative` canvas + rail row, pinned
+            to the bottom-left so it visually rises from the tab that opened it, and
+            sits just above the pinned bottom zone. NO SOFT-LOCK: it carries a header
+            close X, the bottom-bar button toggles it, and Escape dismisses it.
+            Reuses the existing panels verbatim. */}
+        {openFlyout ? (
+          <div
+            role="dialog"
+            aria-modal="false"
+            aria-label={
+              openFlyout === "features"
+                ? "Features"
+                : openFlyout === "primers"
+                  ? "Primers"
+                  : "History"
+            }
+            // Pop up from the bottom-left over the canvas. max-h keeps a sliver of
+            // map visible at the top so it reads as an overlay, not a new screen.
+            // Features is a compact fixed-width list; Primers / History are wider
+            // panels, so the flyout sizes to the panel it hosts.
+            className={`absolute bottom-0 left-0 z-40 flex max-h-[72%] max-w-[92%] flex-col overflow-hidden rounded-t-lg border border-b-0 border-border bg-surface-raised shadow-2xl ${
+              openFlyout === "features" ? "w-72" : "w-[32rem]"
+            }`}
+          >
+            {/* Header + close affordance. */}
+            <div className="flex shrink-0 items-center justify-between border-b border-border bg-surface-sunken px-3 py-1.5">
+              <span className="text-meta font-semibold text-foreground">
+                {openFlyout === "features"
+                  ? "Features"
+                  : openFlyout === "primers"
+                    ? "Primers"
+                    : "History"}
+              </span>
+              <Tooltip label="Close (Esc)">
+                <button
+                  type="button"
+                  onClick={closeFlyout}
+                  data-testid="seq-flyout-close"
+                  aria-label="Close panel"
+                  className="inline-flex h-6 w-6 items-center justify-center rounded text-foreground-muted transition-colors hover:bg-surface hover:text-foreground"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-3.5 w-3.5"
+                    aria-hidden="true"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </Tooltip>
+            </div>
+            {/* Panel body. The existing panels are reused verbatim; they own their
+                own scroll and h-full to the flex body. */}
+            <div className="flex min-h-0 flex-1 overflow-hidden">
+              {openFlyout === "features" ? (
+                <FeaturesPanel
+                  features={doc.features}
+                  view={view}
+                  onViewChange={setView}
+                  onSelectFeature={selectFeature}
+                  selectedIndex={selectedFeatureIdx}
+                  onAddFeature={openAddFeature}
+                  canAdd={!readOnly}
+                  readOnly={readOnly}
+                  onEditFeature={readOnly ? openViewFeature : openEditFeature}
+                  onDuplicateFeature={duplicateFeatureAt}
+                  onDeleteFeature={deleteFeatureAt}
+                  onRecolorFeature={recolorFeatureAt}
+                  onRecolorType={recolorType}
+                />
+              ) : null}
+              {openFlyout === "primers" ? (
+                <SequencePrimersPanel
+                  features={doc.features}
+                  template={doc.seq}
+                  selection={sel.hasRange ? { start: sel.lo, end: sel.hi } : null}
+                  onSelectPrimer={(index) => {
+                    // jump to the primer on the canvas, then dismiss the flyout so
+                    // the map (now scrolled to the primer) is fully visible.
+                    setViewMode("sequence");
+                    selectFeature(index);
+                  }}
+                  onEditPrimer={openEditPrimer}
+                  selectedIndex={selectedFeatureIdx}
+                  onAddCustomPrimer={openPrimerDialog}
+                  onAddPrimer={addPrimerFeature}
+                  onDeletePrimer={deleteFeatureAt}
+                  readOnly={readOnly}
+                  currentSequenceId={sequence.id}
+                  loadLibrary={loadLibrary}
+                  initialMode="check"
+                  initialModeNonce={primersCheckNonce}
+                />
+              ) : null}
+              {openFlyout === "history" ? (
+                <SequenceHistoryPanel
+                  sequenceId={sequence.id}
+                  owner={historyOwner}
+                  headCanonical={headCanonical}
+                  canRestore={!readOnly && RESTORE_ENABLED}
+                  onRestore={handleRestoreVersion}
+                  restoreAudit={sequence._restore_audit}
+                  artifacts={artifacts}
+                  sequenceVersion={sequenceVersion}
+                  onOpenArtifact={handleOpenArtifact}
+                  onDeleteArtifact={handleDeleteArtifact}
+                />
+              ) : null}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* sequence editor master (redesign, two-zone chrome). THE PINNED BOTTOM
@@ -5687,100 +5845,71 @@ export default function SequenceEditView({
             3. the view tabs (Find on the left, the Map / Sequence / Features /
                Primers / History tabs, then the live coordinate readout + the
                taxonomy footer on the right).
-          On the Features / Primers / History tabs the Show chips + the zoom
-          cluster DISABLE IN PLACE (greyed, non-interactive) rather than
-          disappearing, so nothing jumps. */}
+          seq flyout bot — Features / Primers / History no longer blank the
+          canvas; they pop a flyout OVER it. The canvas (and therefore the Show
+          chips + the zoom cluster, which drive it) stays live underneath, so this
+          spine no longer disables in place. It always renders the live cluster
+          for the active canvas mode. */}
       <div className="shrink-0 border-t border-border">
-        {/* 1. Show display strip. Disabled in place off the canvas tabs. */}
+        {/* 1. Show display strip. Always live now (the canvas it controls is
+            always visible, even behind an open flyout). */}
         <SequenceDisplayStrip
           view={view}
           onViewChange={setView}
           circular={doc.circular}
           featureTypes={featureTypes}
-          disabled={!showViewer}
+          disabled={false}
         />
 
-        {/* 2. Coordinate / zoom cluster. Always present at a constant height. On
-            the canvas tabs it is the live cluster (linear coordinate bar, circular
-            zoom control, or the Map "whole molecule" indicator). Off the canvas
-            tabs it disables in place: the same cluster shape for THIS molecule's
-            topology, greyed and non-interactive, so the row never reflows. */}
-        {showViewer ? (
-          isLinearViewer ? (
-            <SequenceCoordinateBar
-              seqLength={doc.seq.length}
-              window={overviewWindow}
-              zoom={linearZoom}
-              onZoomChange={(z) => setView((v) => ({ ...v, linearZoom: z }))}
-              onScrollToBp={scrollMainToBp}
-              // nav polish bot — in Map view the molecule is shown whole, so the
-              // window cluster (slider / bp-in-view / readout / minimap) is stale;
-              // collapse it to a "Whole molecule (N bp)" indicator.
-              mapMode={viewMode === "map"}
-              // seq polish batch bot — FIX 3: hold the bp readout / bp-in-view
-              // field until the true visible window has been measured.
-              measured={windowMeasured}
-            />
-          ) : viewMode === "map" ? (
-            // circular molecule in Map view: the ring IS the whole-molecule map,
-            // so the circular zoom slider is irrelevant. Calm indicator.
-            <div className="flex items-center gap-2 bg-surface px-3 py-2 text-meta text-foreground-muted">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-3.5 w-3.5 text-foreground-muted"
-                aria-hidden="true"
-              >
-                <circle cx="12" cy="12" r="8" />
-                <path d="M12 4v3M20 12h-3M12 20v-3M4 12h3" />
-              </svg>
-              <span>
-                Whole molecule
-                <span className="ml-1 font-mono text-foreground">
-                  ({doc.seq.length.toLocaleString()} bp)
-                </span>
+        {/* 2. Coordinate / zoom cluster. Always the live cluster for the active
+            canvas mode (linear coordinate bar, circular zoom control, or the Map
+            "whole molecule" indicator). */}
+        {isLinearViewer ? (
+          <SequenceCoordinateBar
+            seqLength={doc.seq.length}
+            window={overviewWindow}
+            zoom={linearZoom}
+            onZoomChange={(z) => setView((v) => ({ ...v, linearZoom: z }))}
+            onScrollToBp={scrollMainToBp}
+            // nav polish bot — in Map view the molecule is shown whole, so the
+            // window cluster (slider / bp-in-view / readout / minimap) is stale;
+            // collapse it to a "Whole molecule (N bp)" indicator.
+            mapMode={canvasMode === "map"}
+            // seq polish batch bot — FIX 3: hold the bp readout / bp-in-view
+            // field until the true visible window has been measured.
+            measured={windowMeasured}
+          />
+        ) : canvasMode === "map" ? (
+          // circular molecule in Map view: the ring IS the whole-molecule map,
+          // so the circular zoom slider is irrelevant. Calm indicator.
+          <div className="flex items-center gap-2 bg-surface px-3 py-2 text-meta text-foreground-muted">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-3.5 w-3.5 text-foreground-muted"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="8" />
+              <path d="M12 4v3M20 12h-3M12 20v-3M4 12h3" />
+            </svg>
+            <span>
+              Whole molecule
+              <span className="ml-1 font-mono text-foreground">
+                ({doc.seq.length.toLocaleString()} bp)
               </span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-3 bg-surface px-3 py-1.5">
-              <SequenceZoomControl
-                axis="circular"
-                zoom={view.circularZoom}
-                onZoomChange={(z) => setView((v) => ({ ...v, circularZoom: z }))}
-              />
-            </div>
-          )
+            </span>
+          </div>
         ) : (
-          // Off the canvas tabs: the cluster disables IN PLACE. Render the same
-          // shape this molecule's topology would show on the canvas (linear ->
-          // coordinate bar, circular -> circular zoom), wrapped non-interactive so
-          // the row keeps its height and the controls grey out without vanishing.
-          <div
-            className="pointer-events-none select-none opacity-40"
-            aria-disabled="true"
-          >
-            {doc.circular ? (
-              <div className="flex items-center gap-3 bg-surface px-3 py-1.5">
-                <SequenceZoomControl
-                  axis="circular"
-                  zoom={view.circularZoom}
-                  onZoomChange={() => {}}
-                />
-              </div>
-            ) : (
-              <SequenceCoordinateBar
-                seqLength={doc.seq.length}
-                window={overviewWindow}
-                zoom={linearZoom}
-                onZoomChange={() => {}}
-                onScrollToBp={() => {}}
-                measured={windowMeasured}
-              />
-            )}
+          <div className="flex items-center gap-3 bg-surface px-3 py-1.5">
+            <SequenceZoomControl
+              axis="circular"
+              zoom={view.circularZoom}
+              onZoomChange={(z) => setView((v) => ({ ...v, circularZoom: z }))}
+            />
           </div>
         )}
 
@@ -5815,8 +5944,10 @@ export default function SequenceEditView({
           </Tooltip>
 
           <SequenceTabBar
-            active={viewMode}
-            onChange={setViewMode}
+            active={canvasMode}
+            openFlyout={openFlyout}
+            onChange={selectCanvas}
+            onToggleFlyout={toggleFlyout}
             featureCount={doc.features.length}
             primerCount={primerCount}
             position="bottom"
