@@ -1,0 +1,78 @@
+/* Ambient brand backdrop shared by the marketing surfaces. Ported verbatim from
+   the login hero (OAuthFirstLanding.module.css) so the welcome and pricing pages
+   paint the exact same drifting pastel-rainbow auroras and dot-grid stage. All
+   decorative, pointer-events none, disabled under prefers-reduced-motion.
+
+   No emojis, no em-dashes, no mid-sentence colons. */
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.aurora {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(64px);
+  pointer-events: none;
+  /* Pastel-rainbow conic, endpoints matched so the wrap is seamless under blur. */
+  background: conic-gradient(
+    from 0deg,
+    #ffd2b0,
+    #fff1a8,
+    #b7ebb1,
+    #a6d2f4,
+    #d6b5f0,
+    #ffd2b0
+  );
+}
+.a1 { width: 480px; height: 480px; top: 2%; left: -160px; opacity: 0.28; animation: drift1 26s ease-in-out infinite; }
+.a2 { width: 560px; height: 560px; bottom: 0%; right: -180px; opacity: 0.28; animation: drift2 31s ease-in-out infinite; }
+.a3 { width: 340px; height: 340px; top: 44%; left: 3%; opacity: 0.18; animation: drift1 35s ease-in-out infinite reverse; }
+.a4 { width: 380px; height: 380px; top: 22%; right: 5%; opacity: 0.18; animation: drift2 29s ease-in-out infinite reverse; }
+
+/* The hero wants the brand to sing, so bump every aurora up a notch. */
+.vivid .a1, .vivid .a2 { opacity: 0.42; }
+.vivid .a3, .vivid .a4 { opacity: 0.3; }
+
+@keyframes drift1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(42px, -34px) scale(1.14); }
+}
+@keyframes drift2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-52px, 30px) scale(1.1); }
+}
+
+/* Faint dot grid that gives a section a stage instead of floating in void,
+   masked to a soft ellipse so it fades out before the edges. */
+.dotgrid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(
+    circle,
+    rgba(18, 131, 201, 0.1) 1px,
+    transparent 1.5px
+  );
+  background-size: 24px 24px;
+  -webkit-mask-image: radial-gradient(
+    ellipse 60% 54% at 50% 42%,
+    #000 20%,
+    transparent 74%
+  );
+  mask-image: radial-gradient(
+    ellipse 60% 54% at 50% 42%,
+    #000 20%,
+    transparent 74%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora {
+    animation: none;
+  }
+}

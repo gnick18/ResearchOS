@@ -8,6 +8,8 @@
 
 import type { ReactNode } from "react";
 
+import Reveal from "@/components/marketing/Reveal";
+
 export function Section({
   id,
   children,
@@ -22,7 +24,9 @@ export function Section({
       id={id}
       className={`border-b border-border px-6 py-8 last:border-b-0 sm:px-8 ${className}`}
     >
-      {children}
+      {/* Shared marketing scroll-reveal: each band lifts in as it scrolls on
+          screen, the same entrance the welcome page and login hero use. */}
+      <Reveal>{children}</Reveal>
     </section>
   );
 }
