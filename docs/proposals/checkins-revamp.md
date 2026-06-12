@@ -139,6 +139,28 @@ Global constraint: ResearchOS is local-first, so every reminder / notification /
 - D5, IDP. BUILD IT FOR REAL, sequenced. A first-class structured IDP in the academic-layer phase (phase 3), after the spine refactor + group tasks land. It is the differentiator and an NIH progress-report requirement.
 - D6, naming. "Check-ins" is the umbrella for EVERYONE. Retire the role-flipped "Mentoring" tab label; relationship/direction is shown inside each space.
 
+## Phase 2 build spec (locked 2026-06-12)
+
+Group check-ins plus the D4 task sync. Grant confirmed D4 = create a REAL Task (not a read-only overlay), 2026-06-12.
+
+### Data-shape additions (FLAG, all additive + back-compat)
+- `OneOnOneActionItem` gains `assignee?: string \| null` (D3 single assignee; a member username or null = shared/everyone), `due_date?: string \| null` (YYYY-MM-DD), and `synced_task_id?: number \| null` (the id of the Task this item created via D4, null until synced). A missing field on an old on-disk record normalizes to null on read.
+- `WeeklyGoal` gains `assignee?: string \| null` (same meaning; group goal board).
+- `Task` gains `source?: { kind: "checkin_action_item"; one_on_one_id: string; action_item_id: string } \| null`, the back-link from a D4-synced task to the action item that spawned it. Absent on every normal task; additive.
+
+### D4 sync model (reuses the Lab-Head assign pattern, no cross-user write)
+A check-in action item that has BOTH an `assignee` and a `due_date` materializes a real Task:
+- `task_type: "list"`, `project_id: 0` (STANDALONE, the proven falsy-project path in `WorkbenchListsPanel` so it needs no project), `name` = the action-item text, `start_date` = `end_date` = the due date (duration 1 day).
+- `owner` = the check-in space owner (NOT the assignee), `assignee` = the member, `shared_with` includes the assignee at "edit". This is exactly how a PI-assigned task surfaces in a member's view today, so it lands in the assignee's Lists / to-do surface with no cross-user write and no new ownership invariant. It is a to-do, so it lives in the Lists panel, not the experiment GANTT.
+- `source` is stamped on the Task; `synced_task_id` is stamped on the action item (bidirectional link).
+- Trigger: create the moment the item first has both fields. Editing the text/date updates the task name/date. Completing EITHER side completes the other. Deleting the action item deletes the synced task. Clearing the assignee or due date detaches + deletes the synced task (the item reverts to an in-space-only action item).
+- All writes route through `oneOnOneActionItemsApi` + `tasksApi` so the back-links stay consistent; never raw store writes.
+
+### UI (reuse the dense-row + colored-band explorer pattern)
+- The new-check-in dialog accepts MULTIPLE members (multi-select); 3+ members => `kind: "group"`.
+- A group space gets a "Task board" sub-tab: a Shared band (unassigned, anyone owns, D2) + one band per assignee, with an Everyone / Mine toggle. Per-item assignee chip + due-date chip. Any member can check any item (D2); only assignee or creator deletes.
+- A "Groups" section in the Check-ins rail.
+
 ## Sources
 
 Corporate tools: Fellow (1:1 agendas, action items, templates), Lattice (1:1 log, carry-forward talking points, action items, analytics), 15Five (weekly rhythm, sentiment), Hypercontext/SoapBox (shared agenda, private notes), Range and Geekbot (async standups, mood, flags), skip-level meeting literature (Lighthouse, Radical Candor).
