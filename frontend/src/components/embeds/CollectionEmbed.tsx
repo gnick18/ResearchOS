@@ -13,7 +13,7 @@ import { useEffect, useState } from "react";
 import { projectsApi } from "@/lib/local-api";
 import type { Project } from "@/lib/types";
 import { objectDeepLink } from "@/lib/references";
-import { ObjectEmbedCard, type EmbedRendererProps } from "./ObjectEmbed";
+import { ObjectEmbedCard, UnavailableEmbedCard, type EmbedRendererProps } from "./ObjectEmbed";
 
 type LoadState =
   | { k: "loading" }
@@ -40,10 +40,11 @@ export default function CollectionEmbed({ descriptor, caption }: EmbedRendererPr
     };
   }, [descriptor.id]);
 
-  if (state.k !== "ok") {
-    return (
-      <ObjectEmbedCard descriptor={descriptor} caption={caption} loading={state.k === "loading"} />
-    );
+  if (state.k === "loading") {
+    return <ObjectEmbedCard descriptor={descriptor} caption={caption} loading />;
+  }
+  if (state.k === "missing") {
+    return <UnavailableEmbedCard descriptor={descriptor} caption={caption} />;
   }
 
   const project = state.project;

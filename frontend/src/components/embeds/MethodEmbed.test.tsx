@@ -40,11 +40,11 @@ describe("MethodEmbed", () => {
     expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute("href", "/methods/12");
   });
 
-  it("falls back to the generic card when the method is gone", async () => {
+  it("shows the unavailable card when the method is gone", async () => {
     getMethod.mockResolvedValue(null);
     render(<MethodEmbed descriptor={descriptor} caption="My Method" basePath="" />);
-    await waitFor(() =>
-      expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute("href", "/methods/12"),
-    );
+    await waitFor(() => expect(screen.getByText("My Method")).toBeInTheDocument());
+    expect(screen.getByText(/Not available/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open" })).toBeNull();
   });
 });

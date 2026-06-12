@@ -38,11 +38,11 @@ describe("ProjectEmbed", () => {
     expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute("href", "/projects/3");
   });
 
-  it("falls back to the generic card when the project is gone", async () => {
+  it("shows the unavailable card when the project is gone", async () => {
     get.mockResolvedValue(null);
     render(<ProjectEmbed descriptor={descriptor} caption="My Project" basePath="" />);
-    await waitFor(() =>
-      expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute("href", "/projects/3"),
-    );
+    await waitFor(() => expect(screen.getByText("My Project")).toBeInTheDocument());
+    expect(screen.getByText(/Not available/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open" })).toBeNull();
   });
 });

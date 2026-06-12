@@ -74,6 +74,35 @@ const TYPE_LABEL: Record<ObjectRefType, string> = {
   experiment: "Experiment",
 };
 
+/** Shown when an embed's object is not available to the viewer: deleted,
+ *  not shared, or absent from the share bundle. Name-only, no "Open" link (there
+ *  is nothing to open). Neutral wording ("Not available") covers both the owner's
+ *  own deleted object and a recipient who was not given access. */
+export function UnavailableEmbedCard({
+  descriptor,
+  caption,
+}: {
+  descriptor: EmbedDescriptor;
+  caption: string;
+}) {
+  const label = caption || descriptor.id;
+  return (
+    <div className="flex items-center gap-3 px-4 py-3">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-sunken text-foreground-muted">
+        <Icon name="eyeOff" className="h-5 w-5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-body font-semibold text-foreground">{label}</p>
+        <p className="text-meta text-foreground-muted">
+          {TYPE_LABEL[descriptor.type]}
+          {" · "}
+          Not available
+        </p>
+      </div>
+    </div>
+  );
+}
+
 /** The universal fallback, and the Suspense placeholder while a rich renderer
  *  loads. A calm card, icon + caption + type, that opens the object. Uses only
  *  the descriptor, so it never has to read data and never fails. */

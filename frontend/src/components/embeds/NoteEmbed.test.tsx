@@ -43,11 +43,11 @@ describe("NoteEmbed", () => {
     expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute("href", "/notes/7");
   });
 
-  it("falls back to the generic card when the note is gone", async () => {
+  it("shows the unavailable card when the note is gone", async () => {
     get.mockResolvedValue(null);
     render(<NoteEmbed descriptor={descriptor} caption="My Note" basePath="" />);
-    await waitFor(() =>
-      expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute("href", "/notes/7"),
-    );
+    await waitFor(() => expect(screen.getByText("My Note")).toBeInTheDocument());
+    expect(screen.getByText(/Not available/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open" })).toBeNull();
   });
 });

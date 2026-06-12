@@ -17,7 +17,7 @@ import { resultToText } from "@/lib/datahub/result-text";
 import { plainLanguageSummary } from "@/lib/datahub/plain-language";
 import type { NormalizedResult } from "@/lib/datahub/run-analysis";
 import { objectDeepLink } from "@/lib/references";
-import { ObjectEmbedCard, EmbedCaption, type EmbedRendererProps } from "./ObjectEmbed";
+import { ObjectEmbedCard, UnavailableEmbedCard, EmbedCaption, type EmbedRendererProps } from "./ObjectEmbed";
 
 type LoadState =
   | { k: "loading" }
@@ -51,10 +51,11 @@ export default function DataHubEmbed({ descriptor, caption, figureLabel }: Embed
     };
   }, [descriptor.id]);
 
-  if (state.k !== "ok") {
-    return (
-      <ObjectEmbedCard descriptor={descriptor} caption={caption} loading={state.k === "loading"} />
-    );
+  if (state.k === "loading") {
+    return <ObjectEmbedCard descriptor={descriptor} caption={caption} loading />;
+  }
+  if (state.k === "missing") {
+    return <UnavailableEmbedCard descriptor={descriptor} caption={caption} />;
   }
 
   // Plot view: render the figure SVG from the document's plot spec, reusing the
