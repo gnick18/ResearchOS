@@ -153,6 +153,10 @@ Editable shared tasks: most mutating `tasksApi` methods (`update`, `move`, `dele
 
 ## 4. Working conventions
 
+### No business, financial, or personal info in the repo (it is PUBLIC)
+
+`github.com/gnick18/ResearchOS` is a PUBLIC, clonable repo. NEVER commit business, financial, legal-strategy, or personal-operational details: bank or brokerage names, account/routing/EIN numbers, registered-agent name or address, capital-contribution mechanics, the owner's private legal plans, or any internal financial figures not already on the public `/pricing` page. Those belong in `~/Documents/ResearchOS_LLC/` (outside the repo) or in agent memory (`~/.claude`, not tracked). Customer-facing copy (`docs/branding/BILLING_FACTS.md`, the public pricing/terms/privacy pages) is the only billing content that belongs in-repo. If you need to record sensitive context, write it to the LLC folder and leave a non-sensitive pointer. A history-purge plan for already-leaked content lives at `~/Documents/ResearchOS_LLC/repo-privacy-cleanup-plan.md`.
+
 ### Sub-agents (spawn vs inline)
 
 Big chunks of work were done by spawning fresh agents in their own worktrees via the `Agent` tool (or its older alias `mcp__ccd_session__spawn_task`). The orchestration model is **flat**: the master bot dispatches sub-bots directly, processes their reports, cherry-picks commits, and manages the in-flight queue. There is no intermediate manager tier; sub-bots are single-purpose and do not coordinate with each other.
