@@ -62,7 +62,7 @@ vi.mock("../file-system/user-discovery", () => ({
 }));
 
 // Imports must come after the mocks.
-import { oneOnOnesApi, labApi } from "../local-api";
+import { oneOnOnesApi, labApi, tasksApi } from "../local-api";
 import { clearCurrentUserCache } from "../storage/json-store";
 
 function setCurrentUser(name: string) {
@@ -293,6 +293,104 @@ describe("item stamping: weekly goals / notes / action items", () => {
     const removed = await oneOnOnesApi.deleteActionItem(item.id);
     expect(removed).toBe(true);
     expect(await labApi.getOneOnOneActionItems(oo.id)).toEqual([]);
+  });
+
+  it("D4 sync: an assigned + dated action item materializes a real Task in the owner's folder", async () => {
+    setCurrentUser("pi");
+    const oo = await oneOnOnesApi.create({
+      members: ["pi", "student", "other"], // group space, owner = pi
+    });
+
+    // A member adds an item assigned to another member with a due date.
+    setCurrentUser("student");
+    const item = await oneOnOnesApi.addActionItem({
+      oneOnOneId: oo.id,
+      text: "Run the gel",
+      assignee: "other",
+      due_date: "2026-06-20",
+    });
+    expect(typeof item.synced_task_id).toBe("number");
+
+    // The synced Task lives in the SPACE OWNER's (pi's) folder, not student's.
+    const taskId = item.synced_task_id as number;
+    const task = await tasksApi.get(taskId, "pi");
+    expect(task).not.toBeNull();
+    expect(task!.owner).toBe("pi");
+    expect(task!.assignee).toBe("other");
+    expect(task!.task_type).toBe("list");
+    expect(task!.project_id).toBe(0);
+    expect(task!.start_date).toBe("2026-06-20");
+    expect(task!.shared_with).toEqual([{ username: "other", level: "edit" }]);
+    expect(task!.source).toEqual({
+      kind: "checkin_action_item",
+      one_on_one_id: oo.id,
+      action_item_id: item.id,
+    });
+  });
+
+  it("D4 sync: editing detaches + deletes the task when the assignee is cleared", async () => {
+    setCurrentUser("pi");
+    const oo = await oneOnOnesApi.create({ members: ["pi", "student", "other"] });
+    const item = await oneOnOnesApi.addActionItem({
+      oneOnOneId: oo.id,
+      text: "x",
+      assignee: "other",
+      due_date: "2026-06-20",
+    });
+    const taskId = item.synced_task_id as number;
+    expect(await tasksApi.get(taskId, "pi")).not.toBeNull();
+
+    const updated = await oneOnOnesApi.updateActionItem(
+      item.id,
+      { assignee: null },
+      "pi",
+    );
+    expect(updated?.synced_task_id ?? null).toBeNull();
+    expect(await tasksApi.get(taskId, "pi")).toBeNull();
+  });
+
+  it("D4 sync: toggling the item complete completes its synced Task", async () => {
+    setCurrentUser("pi");
+    const oo = await oneOnOnesApi.create({ members: ["pi", "student", "other"] });
+    const item = await oneOnOnesApi.addActionItem({
+      oneOnOneId: oo.id,
+      text: "x",
+      assignee: "other",
+      due_date: "2026-06-20",
+    });
+    const taskId = item.synced_task_id as number;
+    await oneOnOnesApi.toggleActionItem(item.id, "pi");
+    expect((await tasksApi.get(taskId, "pi"))!.is_complete).toBe(true);
+  });
+
+  it("D4 sync: deleting the item deletes its synced Task", async () => {
+    setCurrentUser("pi");
+    const oo = await oneOnOnesApi.create({ members: ["pi", "student", "other"] });
+    const item = await oneOnOnesApi.addActionItem({
+      oneOnOneId: oo.id,
+      text: "x",
+      assignee: "other",
+      due_date: "2026-06-20",
+    });
+    const taskId = item.synced_task_id as number;
+    await oneOnOnesApi.deleteActionItem(item.id, "pi");
+    expect(await tasksApi.get(taskId, "pi")).toBeNull();
+  });
+
+  it("D4 sync: completing the synced Task reconciles the item on next read", async () => {
+    setCurrentUser("pi");
+    const oo = await oneOnOnesApi.create({ members: ["pi", "student", "other"] });
+    const item = await oneOnOnesApi.addActionItem({
+      oneOnOneId: oo.id,
+      text: "x",
+      assignee: "other",
+      due_date: "2026-06-20",
+    });
+    const taskId = item.synced_task_id as number;
+    // The assignee completes the to-do directly in their Lists view.
+    await tasksApi.update(taskId, { is_complete: true }, "pi");
+    const seen = await labApi.getOneOnOneActionItems(oo.id);
+    expect(seen.find((i) => i.id === item.id)?.is_done).toBe(true);
   });
 
   it("item creation rejects a non-member and a missing space", async () => {

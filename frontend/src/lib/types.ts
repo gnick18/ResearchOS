@@ -635,6 +635,19 @@ export interface Task {
   // bootstrap bridge for a freshly-imported experiment before its Results
   // sidecar is written for the first time.
   results_collab_doc_id?: string;
+  // Check-ins revamp Phase 2 (checkins-phase2 bot, 2026-06-12). See
+  // docs/proposals/checkins-revamp.md "Phase 2 build spec". The back-link from
+  // a D4-synced task to the check-in action item that spawned it. Present ONLY
+  // on a task materialized by the action-item -> Task sync; absent on every
+  // normal task. ADDITIVE + back-compat: `normalizeTaskRecord` defaults a
+  // missing value to undefined gracefully (it is read-only metadata, never
+  // user-edited). Denylisted in canonicalize.ts so it never pollutes a VC
+  // delta, mirroring `revert_undo_window`.
+  source?: {
+    kind: "checkin_action_item";
+    one_on_one_id: string;
+    action_item_id: string;
+  } | null;
 }
 
 /**
@@ -2985,6 +2998,12 @@ export interface WeeklyGoal {
   // (Replaces the retired notebook weekly-task path; weekly goals belong to
   // 1:1s now, not notebooks.)
   one_on_one_id?: string;
+  // Check-ins revamp Phase 2 (checkins-phase2 bot, 2026-06-12). See
+  // docs/proposals/checkins-revamp.md "Phase 2 build spec". Optional single
+  // assignee for a group goal board (a member username, or null/absent =
+  // shared / everyone). ADDITIVE + back-compat: absent on every pre-Phase-2
+  // goal; `normalizeWeeklyGoalRecord` defaults it to null on read.
+  assignee?: string | null;
 }
 
 export interface WeeklyGoalCreate {
@@ -3154,6 +3173,21 @@ export interface OneOnOneActionItem {
   owner: string;
   /** Always `membersSharedWith([labHead, member])` — both at "edit". */
   shared_with: SharedUser[];
+  // Check-ins revamp Phase 2 (checkins-phase2 bot, 2026-06-12). See
+  // docs/proposals/checkins-revamp.md "Phase 2 build spec". All three are
+  // ADDITIVE + back-compat: a record written before Phase 2 reads with these
+  // absent, and `normalizeOneOnOneActionItem` (lib/one-on-one/normalize.ts)
+  // defaults each to null on read so callers never see `undefined`.
+  /** D3 single assignee — a member username, or null = shared / everyone. When
+   *  set together with `due_date`, the item materializes a real Task (D4). */
+  assignee?: string | null;
+  /** YYYY-MM-DD the item is due. Together with `assignee` it triggers the D4
+   *  Task sync. Null = no due date (in-space-only item). */
+  due_date?: string | null;
+  /** The numeric id of the Task this item spawned via D4, in the space owner's
+   *  task namespace. Null until synced; cleared when the item detaches (the
+   *  assignee or due_date is removed) or is deleted. */
+  synced_task_id?: number | null;
 }
 
 // ── Lab Mode Notes ─────────────────────────────────────────────────────────────
