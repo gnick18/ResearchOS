@@ -7,21 +7,29 @@
  *
  * House style, no em-dashes, no emojis, no mid-sentence colons. */
 
-/* ---- pulse: a single dot that breathes ------------------------------------ */
+/* ---- pulse: a beaker-blue blob that breathes and slowly tumbles, morphing its
+ *      outline as it goes (the Claude-style "alive" morph, in our blue) ------- */
 
 .pulseDot {
-  animation: bbThinkingPulse 1.3s ease-in-out infinite;
+  animation: bbThinkingPulse 2.4s ease-in-out infinite;
 }
 
 @keyframes bbThinkingPulse {
   0%,
   100% {
-    transform: scale(0.7);
-    opacity: 0.45;
+    border-radius: 48% 52% 50% 50% / 52% 48% 52% 48%;
+    transform: scale(0.62) rotate(0deg);
+    opacity: 0.55;
   }
-  50% {
-    transform: scale(1);
+  33% {
+    border-radius: 62% 38% 55% 45% / 60% 52% 48% 40%;
+    transform: scale(0.95) rotate(45deg);
     opacity: 1;
+  }
+  66% {
+    border-radius: 40% 60% 45% 55% / 45% 55% 45% 55%;
+    transform: scale(0.82) rotate(-35deg);
+    opacity: 0.85;
   }
 }
 

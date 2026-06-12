@@ -8,7 +8,8 @@
 //
 // Three variants are built so the user can flip between them live and pick the
 // best (see the dev switcher in BeakerBotConversation and the gallery page):
-//   - pulse:  one beaker-blue dot that breathes (scale + opacity).
+//   - pulse:  a beaker-blue blob that breathes and slowly tumbles, morphing its
+//             outline as it goes (the default, a Claude-style "alive" morph).
 //   - beaker: the registry vial glyph in beaker-blue, gently bobbing, with CSS
 //             bubble dots rising over it.
 //   - blink:  three beaker-blue dots blinking in sequence (typing-indicator).
@@ -86,7 +87,7 @@ function ThinkingIndicator({ variant }: { variant: ThinkingVariant }) {
       className="inline-flex h-5 w-5 items-center justify-center"
     >
       <span
-        className={`${styles.pulseDot} inline-block h-2.5 w-2.5 rounded-full bg-brand-sky`}
+        className={`${styles.pulseDot} inline-block h-3.5 w-3.5 rounded-full bg-brand-sky`}
       />
     </span>
   );
