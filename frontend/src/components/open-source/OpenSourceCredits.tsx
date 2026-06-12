@@ -21,7 +21,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import AppFooter from "../AppFooter";
+
+import MarketingFooter from "@/components/MarketingFooter";
+import MarketingNav from "@/components/MarketingNav";
 
 /* ───────────── data shape (mirrors credits.json) ───────────────────────── */
 
@@ -139,23 +141,7 @@ export default function OpenSourceCredits() {
 
   return (
     <div className="flex min-h-screen flex-col bg-surface-sunken text-foreground">
-      {/* Header / back to app */}
-      <header className="border-b border-border bg-surface-raised">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <Link
-            href="/"
-            className="text-body font-medium text-foreground-muted underline-offset-2 hover:text-foreground hover:underline"
-          >
-            ResearchOS
-          </Link>
-          <Link
-            href="/"
-            className="text-body font-medium text-sky-700 dark:text-sky-300 underline-offset-2 hover:text-sky-900 hover:underline"
-          >
-            Back to the app
-          </Link>
-        </div>
-      </header>
+      <MarketingNav />
 
       <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-12">
         {/* ── Heartfelt intro ── */}
@@ -187,6 +173,16 @@ export default function OpenSourceCredits() {
               account of what we build on.
             </p>
           </div>
+          <p className="mt-5 text-body text-foreground-muted">
+            For the people who fund the project directly, see{" "}
+            <Link
+              href="/thanks"
+              className="font-medium text-sky-700 underline-offset-2 hover:underline dark:text-sky-300"
+            >
+              Sponsors and thanks
+            </Link>
+            .
+          </p>
         </section>
 
         {error && (
@@ -392,7 +388,7 @@ export default function OpenSourceCredits() {
         )}
       </main>
 
-      <AppFooter />
+      <MarketingFooter />
     </div>
   );
 }

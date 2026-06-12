@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
-import AppFooter from "@/components/AppFooter";
 import MadeInMadison from "@/components/MadeInMadison";
+import MarketingFooter from "@/components/MarketingFooter";
+import MarketingNav from "@/components/MarketingNav";
 import CompetitorSavings from "@/components/pricing/CompetitorSavings";
 import CostMath from "@/components/pricing/CostMath";
 import FeatureGrid, {
@@ -149,25 +149,9 @@ const AI_ITEMS: FeatureItem[] = [
 export default function PricingPage() {
   return (
     <div className="min-h-screen bg-surface-sunken">
+      <MarketingNav />
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between gap-4">
-          <Link
-            href="/"
-            className="text-body font-medium text-foreground-muted underline-offset-2 hover:text-foreground hover:underline"
-          >
-            ← ResearchOS
-          </Link>
-          {/* Keep the privacy policy reachable now that the shared footer is just
-              a brand sign-off. */}
-          <Link
-            href="/privacy"
-            className="text-meta font-medium text-foreground-muted underline-offset-2 hover:text-foreground hover:underline"
-          >
-            Privacy
-          </Link>
-        </div>
-
-        <div className="mt-6 overflow-hidden rounded-3xl border border-border bg-surface">
+        <div className="overflow-hidden rounded-3xl border border-border bg-surface">
           <PricingHero />
 
           {/* Two-part model */}
@@ -293,7 +277,7 @@ export default function PricingPage() {
         </div>
       </div>
 
-      <AppFooter />
+      <MarketingFooter />
     </div>
   );
 }

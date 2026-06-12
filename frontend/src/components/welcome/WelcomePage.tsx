@@ -50,6 +50,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import BeakerBot from "@/components/BeakerBot";
 import { Icon } from "@/components/icons";
+import MarketingFooter from "@/components/MarketingFooter";
 import SponsorStrip from "@/components/SponsorStrip";
 import BeakerBotPeek from "@/components/welcome/BeakerBotPeek";
 import Wordmark from "@/components/Wordmark";
@@ -1244,20 +1245,7 @@ export default function WelcomePage({
         <SponsorStrip variant="welcome" />
 
         {/* ── Footer ──────────────────────────────────────────────────── */}
-        <footer className="border-t border-[#e3eaf3] bg-[#f3f7fc] px-6 py-10 text-center text-meta text-[#8593a8]">
-          <div className="inline-flex items-center gap-2 font-bold text-[#475569]">
-            <BeakerBot
-              pose="idle"
-              animated={false}
-              ariaLabel="ResearchOS"
-              className="h-5 w-5 text-brand-sky"
-            />
-            ResearchOS
-          </div>
-          <div className="mt-2">
-            Free and open source &middot; AGPLv3 &middot; Built at UW-Madison
-          </div>
-        </footer>
+        <MarketingFooter />
       </div>
 
       {/* Roadmap modal */}

@@ -11,13 +11,13 @@
  * an inline SVG.
  */
 
-import Link from "next/link";
+import MarketingFooter from "@/components/MarketingFooter";
+import MarketingNav from "@/components/MarketingNav";
 
 import { buildTransparencyReport } from "@/lib/transparency/run";
 import { agreementCounts } from "@/lib/transparency/summary";
 import type { TransparencyReport } from "@/lib/transparency/types";
 
-import AppFooter from "../AppFooter";
 import DifferencesSpotlight from "./DifferencesSpotlight";
 import TransparencyTabs from "./TransparencyTabs";
 
@@ -28,12 +28,9 @@ export default function TransparencyView() {
 
   return (
     <div className="min-h-screen bg-surface-sunken">
+      <MarketingNav />
       <div className="mx-auto max-w-5xl px-6 py-12">
-        <Link href="/" className="text-body font-medium text-foreground-muted underline-offset-2 hover:text-foreground hover:underline">
-          ← ResearchOS
-        </Link>
-
-        <header className="mt-6 rounded-2xl border border-border bg-surface-raised p-8 shadow-sm sm:p-10">
+        <header className="rounded-2xl border border-border bg-surface-raised p-8 shadow-sm sm:p-10">
           <p className="mb-3 text-body font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-300">Method validation</p>
           <h1 className="mb-5 text-display font-bold tracking-tight text-foreground sm:text-4xl">
             Validation of bioinformatic calculations against peer-reviewed alternatives
@@ -78,7 +75,7 @@ export default function TransparencyView() {
         </div>
       </div>
 
-      <AppFooter />
+      <MarketingFooter />
     </div>
   );
 }

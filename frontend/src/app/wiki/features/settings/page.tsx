@@ -78,7 +78,8 @@ export default function SettingsFeaturePage() {
       <p>
         Near the top of the page, after the Data folder and Account cards, a
         small pointer card sends you to your{" "}
-        <Link href="/profile">Profile page</Link>. Your display name, avatar
+        <Link href="/settings?section=profile">Profile section</Link>. Your
+        display name, avatar
         color, ORCID, researcher profile, and your account and keys all live
         there now, so this card is just a doorway with a <strong>Go to your
         Profile</strong> button (it reads <strong>Set up on your Profile</strong>{" "}
