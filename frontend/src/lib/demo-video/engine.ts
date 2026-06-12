@@ -358,9 +358,76 @@ export async function runScript(steps: DemoStep[], opts: RunOptions = {}): Promi
   }
 }
 
+/** Public wrapper: wait for a selector to be present + visible. */
+export function waitForElement(
+  sel: Selector,
+  timeoutMs = 8000,
+  signal?: AbortSignal,
+): Promise<HTMLElement> {
+  return waitForEl(sel, timeoutMs, signal);
+}
+
+const COUNTDOWN_ID = "ros-demo-countdown";
+
+/**
+ * Show a centered N-second countdown overlay, then resolve. Gives the operator
+ * a beat to start the screen recording after the app has loaded and before the
+ * cursor begins. Removed when it reaches zero (or on abort).
+ */
+export async function showCountdown(seconds: number, signal?: AbortSignal): Promise<void> {
+  document.getElementById(COUNTDOWN_ID)?.remove();
+  const overlay = document.createElement("div");
+  overlay.id = COUNTDOWN_ID;
+  overlay.setAttribute("aria-hidden", "true");
+  Object.assign(overlay.style, {
+    position: "fixed",
+    inset: "0",
+    zIndex: "2147483646",
+    pointerEvents: "none",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  } as CSSStyleDeclaration);
+  const num = document.createElement("div");
+  Object.assign(num.style, {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "180px",
+    height: "180px",
+    borderRadius: "9999px",
+    background: "rgba(255,255,255,0.78)",
+    backdropFilter: "blur(6px)",
+    boxShadow: "0 10px 40px rgba(0,0,0,0.18)",
+    color: "#2563eb",
+    fontSize: "104px",
+    fontWeight: "800",
+    fontVariantNumeric: "tabular-nums",
+    lineHeight: "1",
+  } as CSSStyleDeclaration);
+  overlay.appendChild(num);
+  document.body.appendChild(overlay);
+  try {
+    for (let n = seconds; n >= 1; n--) {
+      num.textContent = String(n);
+      num.animate(
+        [
+          { transform: "scale(1.22)", opacity: 0.25 },
+          { transform: "scale(1)", opacity: 1 },
+        ],
+        { duration: 320, easing: "cubic-bezier(.2,.7,.2,1)" },
+      );
+      await sleep(1000, signal);
+    }
+  } finally {
+    overlay.remove();
+  }
+}
+
 /** Remove the cursor element (e.g. when a run is cancelled). */
 export function teardownDemoCursor(): void {
   document.getElementById(CURSOR_ID)?.remove();
+  document.getElementById(COUNTDOWN_ID)?.remove();
   cursorX = -50;
   cursorY = -50;
 }
