@@ -2,7 +2,12 @@
 
 import { useEffect, useRef } from "react";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
-import { runScript, teardownDemoCursor } from "@/lib/demo-video/engine";
+import {
+  runScript,
+  teardownDemoCursor,
+  showCountdown,
+  waitForElement,
+} from "@/lib/demo-video/engine";
 import { DEMO_CLIPS } from "@/lib/demo-video/scripts";
 
 /**
@@ -40,13 +45,22 @@ export default function DemoVideoAutoplay() {
       teardownDemoCursor();
       const controller = new AbortController();
       abortRef.current = controller;
-      runScript(steps, {
-        signal: controller.signal,
-        onStep: (label) => {
-          // eslint-disable-next-line no-console
-          console.log(`[demo-video:${clipId}] ${label}`);
-        },
-      }).catch((err) => {
+      void (async () => {
+        // Wait until the app shell is past the loading screen (Sequences is
+        // always a nav item), then a 5s countdown gives the operator time to
+        // start recording, then the cursor begins.
+        await waitForElement('a[href="/sequences"]', 15000, controller.signal).catch(
+          () => {},
+        );
+        await showCountdown(5, controller.signal);
+        await runScript(steps, {
+          signal: controller.signal,
+          onStep: (label) => {
+            // eslint-disable-next-line no-console
+            console.log(`[demo-video:${clipId}] ${label}`);
+          },
+        });
+      })().catch((err) => {
         if ((err as Error)?.name !== "AbortError") {
           // eslint-disable-next-line no-console
           console.error(`[demo-video:${clipId}]`, err);
@@ -54,9 +68,8 @@ export default function DemoVideoAutoplay() {
       });
     }
 
-    // Give the demo app a beat to finish its loading screen before the cursor
-    // starts; each step also waits for its own target, so this is just slack.
-    const startTimer = window.setTimeout(play, 1500);
+    // Kick off once mounted; play() waits for the app shell itself.
+    const startTimer = window.setTimeout(play, 200);
 
     function onKey(e: KeyboardEvent) {
       const el = document.activeElement as HTMLElement | null;
