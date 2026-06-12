@@ -32,6 +32,8 @@ import {
   pearson,
   spearman,
   linearRegression,
+  fitModel,
+  fivePLLogEC50Shift,
   shapiroWilk,
   levene,
   brownForsythe,
@@ -74,6 +76,8 @@ import {
   BOOT_DISTRIBUTION,
   BOOT_OBSERVED,
   BOOT_STATS,
+  DOSE_LOG_CONC,
+  DOSE_RESPONSE,
   GROUP_A,
   GROUP_B,
   GROUP_C,
@@ -1205,6 +1209,16 @@ function runDatahubEngine(): Record<string, number> {
   const pear = need(pearson(XY_X, XY_Y), "Pearson correlation");
   const spear = need(spearman(XY_X, XY_Y), "Spearman correlation");
   const reg = need(linearRegression(XY_X, XY_Y), "linear regression");
+
+  // Dose-response (D1). Fit the 4PL and the 5PL to the same fixed log(dose) vs
+  // response arrays scipy.optimize.curve_fit was run on, and read off the EC50 (the
+  // true half-max concentration; for the 5PL via the closed-form half-max shift),
+  // Hill / Top / Bottom / S, and R-squared. EC50 = 10^logEC50True.
+  const dr4 = need(fitModel("logistic4pl", DOSE_LOG_CONC, DOSE_RESPONSE), "4PL fit");
+  const dr5 = need(fitModel("logistic5pl", DOSE_LOG_CONC, DOSE_RESPONSE), "5PL fit");
+  const dr5Shift = fivePLLogEC50Shift(dr5.values.HillSlope, dr5.values.S);
+  const dr4Ec50 = dr4.derived?.EC50 ?? NaN;
+  const dr5Ec50 = Math.pow(10, dr5.values.logEC50 + dr5Shift);
   const sw = need(shapiroWilk([...GROUP_A, ...GROUP_B, ...GROUP_C]), "Shapiro-Wilk");
   const lev = need(levene([GROUP_A, GROUP_B, GROUP_C]), "Levene");
   const bf = need(brownForsythe([GROUP_A, GROUP_B, GROUP_C]), "Brown-Forsythe");
@@ -1349,6 +1363,15 @@ function runDatahubEngine(): Record<string, number> {
     linreg_slope: reg.slope,
     linreg_intercept: reg.intercept,
     linreg_r2: reg.rSquared,
+
+    dr4pl_ec50: dr4Ec50,
+    dr4pl_hill: dr4.values.HillSlope,
+    dr4pl_top: dr4.values.Top,
+    dr4pl_bottom: dr4.values.Bottom,
+    dr4pl_r2: dr4.rSquared,
+    dr5pl_ec50: dr5Ec50,
+    dr5pl_s: dr5.values.S,
+    dr5pl_r2: dr5.rSquared,
 
     shapiro_w: sw.statistic,
     shapiro_p: sw.pValue,

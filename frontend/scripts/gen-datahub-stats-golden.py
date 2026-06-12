@@ -67,7 +67,7 @@ import json
 import numpy as np
 import scipy
 import scipy.stats as st
-from scipy.optimize import brentq
+from scipy.optimize import brentq, curve_fit
 import statsmodels
 import statsmodels.api as sm
 from statsmodels.formula.api import ols
@@ -109,6 +109,11 @@ PAIR_Y = [row[1] for row in REPEATED]
 # An XY dataset for correlation + simple linear regression.
 XY_X = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
 XY_Y = [2.1, 3.9, 6.2, 7.8, 10.1, 12.2, 13.8, 16.1]
+
+# A dose-response dataset for the 4PL / 5PL curve fit (D1). x = log10(dose in M),
+# an 11-point serial dilution; y = response. Mirrored verbatim in datahub-stats.ts.
+DOSE_LOG_CONC = [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0]
+DOSE_RESPONSE = [4.8, 6.1, 7.9, 12.5, 24.0, 47.0, 70.0, 86.0, 93.5, 96.8, 98.1]
 
 # A balanced two-way design: factor "Dose" (Low/High) x factor "Time" (AM/PM),
 # 3 replicates per cell. Cells are (dose, time, value).
@@ -252,6 +257,57 @@ def ref_correlation_regression():
         "slope": r4(lr.slope),
         "intercept": r4(lr.intercept),
         "rSquared": r4(lr.rvalue ** 2),
+    }
+    return out
+
+
+def ref_dose_response():
+    """Reference 4PL + 5PL dose-response fits (D1) via scipy.optimize.curve_fit.
+
+    x = log10(dose), y = response. The 4PL is the symmetric variable-slope model;
+    the 5PL adds an asymmetry exponent S. The EC50 is the dose at the TRUE
+    half-maximal response. For the 4PL that is exactly 10**logEC50; for the 5PL it
+    is NOT, because the logEC50 parameter is not the half-max midpoint when S != 1.
+    Solving model = (Top+Bottom)/2 for x gives the closed-form half-max shift
+    x_EC50 = logEC50 - log10(2**(1/S) - 1)/Hill, the same formula the engine uses.
+    """
+    out = {}
+    x = np.asarray(DOSE_LOG_CONC, float)
+    y = np.asarray(DOSE_RESPONSE, float)
+    ss_tot = float(np.sum((y - y.mean()) ** 2))
+
+    def fpl(xx, bottom, top, logec50, hill):
+        return bottom + (top - bottom) / (1.0 + 10.0 ** ((logec50 - xx) * hill))
+
+    def f5pl(xx, bottom, top, logec50, hill, s):
+        return bottom + (top - bottom) / (1.0 + 10.0 ** ((logec50 - xx) * hill)) ** s
+
+    mid = (y.min() + y.max()) / 2.0
+    x_mid = x[int(np.argmin(np.abs(y - mid)))]
+
+    # 4PL.
+    p0_4 = [y.min(), y.max(), x_mid, 1.0]
+    popt4, _ = curve_fit(fpl, x, y, p0=p0_4, maxfev=200000)
+    b4, t4, le4, h4 = popt4
+    ss_res4 = float(np.sum((y - fpl(x, *popt4)) ** 2))
+    out["fourpl"] = {
+        "ec50": float(10.0 ** le4),
+        "hill": float(h4),
+        "top": float(t4),
+        "bottom": float(b4),
+        "rSquared": 1.0 - ss_res4 / ss_tot,
+    }
+
+    # 5PL.
+    p0_5 = [y.min(), y.max(), x_mid, 1.0, 1.0]
+    popt5, _ = curve_fit(f5pl, x, y, p0=p0_5, maxfev=200000)
+    b5, t5, le5, h5, s5 = popt5
+    ss_res5 = float(np.sum((y - f5pl(x, *popt5)) ** 2))
+    logec50_true5 = le5 - np.log10(2.0 ** (1.0 / s5) - 1.0) / h5
+    out["fivepl"] = {
+        "ec50_true": float(10.0 ** logec50_true5),
+        "s": float(s5),
+        "rSquared": 1.0 - ss_res5 / ss_tot,
     }
     return out
 
@@ -639,6 +695,8 @@ PROVENANCE = {
         "pearson": "scipy.stats.pearsonr(X, Y)",
         "spearman": "scipy.stats.spearmanr(X, Y)",
         "linreg": "scipy.stats.linregress(X, Y)",
+        "dose_response.fourpl": "scipy.optimize.curve_fit(4PL: bottom+(top-bottom)/(1+10**((logec50-x)*hill)) ); EC50=10**logEC50",
+        "dose_response.fivepl": "scipy.optimize.curve_fit(5PL: 4PL denom **s ); true EC50=10**(logEC50 - log10(2**(1/s)-1)/hill)",
         "shapiro": "scipy.stats.shapiro(A+B+C)",
         "levene_mean": "scipy.stats.levene(A, B, C, center='mean')  [our levene()]",
         "levene_median": "scipy.stats.levene(A, B, C, center='median')  [our brownForsythe()]",
@@ -667,6 +725,7 @@ def main():
     refs.update({"anova_twoway": ref_anova_twoway()})
     refs.update({"kruskal_friedman": ref_kruskal_friedman()})
     refs.update({"correlation_regression": ref_correlation_regression()})
+    refs.update({"dose_response": ref_dose_response()})
     refs.update({"from_stats": ref_from_stats()})
     refs.update({"assumptions": ref_assumptions()})
     refs.update({"survival": ref_survival()})
@@ -685,6 +744,8 @@ def main():
         "PAIR_Y": PAIR_Y,
         "XY_X": XY_X,
         "XY_Y": XY_Y,
+        "DOSE_LOG_CONC": DOSE_LOG_CONC,
+        "DOSE_RESPONSE": DOSE_RESPONSE,
         "TWOWAY": TWOWAY,
         "SURV_TREAT": SURV_TREAT,
         "SURV_CONTROL": SURV_CONTROL,

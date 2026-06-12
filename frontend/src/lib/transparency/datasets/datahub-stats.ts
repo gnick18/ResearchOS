@@ -50,6 +50,18 @@ export const PAIR_Y = REPEATED.map((r) => r[1]);
 export const XY_X = [1, 2, 3, 4, 5, 6, 7, 8];
 export const XY_Y = [2.1, 3.9, 6.2, 7.8, 10.1, 12.2, 13.8, 16.1];
 
+/**
+ * A dose-response dataset for the 4PL / 5PL curve fit (D1). x is log10(dose in M),
+ * an 11-point serial dilution; y is the response. scipy.optimize.curve_fit on these
+ * exact arrays produces the pinned EC50 / Hill / Top / Bottom / R-squared below.
+ */
+export const DOSE_LOG_CONC = [
+  -9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0,
+];
+export const DOSE_RESPONSE = [
+  4.8, 6.1, 7.9, 12.5, 24.0, 47.0, 70.0, 86.0, 93.5, 96.8, 98.1,
+];
+
 /** A balanced two-way design: Dose (Low/High) x Time (AM/PM), 3 reps per cell. */
 export const TWOWAY: TwoWayCell[] = (
   [
@@ -288,6 +300,26 @@ export const STAT_PINS: StatPin[] = [
   { id: "linreg_slope", metric: "Linear regression, slope", reference: 1.997619, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "slope" },
   { id: "linreg_intercept", metric: "Linear regression, intercept", reference: 0.035714, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "intercept" },
   { id: "linreg_r2", metric: "Linear regression, R-squared", reference: 0.998839, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "R2" },
+
+  // --- dose-response curve fit (D1): 4PL + 5PL vs scipy.optimize.curve_fit ---
+  // The signature pharmacology fit. x = log10(dose), y = response. EC50 is the
+  // true half-maximal-response concentration (for the 5PL that is NOT 10^logEC50).
+  // A nonlinear least-squares minimum depends on the optimizer and the initial
+  // guess, so the engine (Levenberg-Marquardt) and scipy (trust-region-reflective)
+  // agree to a few significant figures rather than bit-for-bit. EC50 values are in
+  // molar (~4e-7), so a tol of 5e-9 is roughly 1 percent, well inside the 3 sig-fig
+  // band documented in the engine fit test, while still rejecting any real drift.
+  { id: "dr4pl_ec50", metric: "4PL dose-response, EC50 (curve_fit)", reference: 4.041561e-7, oracleId: "scipy", tol: 5e-9, warn: 2e-8, unit: "EC50" },
+  { id: "dr4pl_hill", metric: "4PL dose-response, Hill slope", reference: 0.930926, oracleId: "scipy", tol: 5e-3, warn: 2e-2, unit: "Hill" },
+  { id: "dr4pl_top", metric: "4PL dose-response, Top plateau", reference: 98.298557, oracleId: "scipy", tol: 5e-2, warn: 2e-1, unit: "Top" },
+  { id: "dr4pl_bottom", metric: "4PL dose-response, Bottom plateau", reference: 4.708439, oracleId: "scipy", tol: 5e-2, warn: 2e-1, unit: "Bottom" },
+  { id: "dr4pl_r2", metric: "4PL dose-response, R-squared", reference: 0.99988139, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "R2" },
+  // 5PL (asymmetric). The true half-max EC50 agrees with the 4PL (same curve); the
+  // asymmetry exponent S and R-squared are pinned too. S has the widest band since
+  // it trades off against Hill at this noise level.
+  { id: "dr5pl_ec50", metric: "5PL dose-response, true half-max EC50 (curve_fit)", reference: 4.061143e-7, oracleId: "scipy", tol: 2e-8, warn: 8e-8, unit: "EC50" },
+  { id: "dr5pl_s", metric: "5PL dose-response, asymmetry exponent S", reference: 1.236331, oracleId: "scipy", tol: 5e-2, warn: 2e-1, unit: "S" },
+  { id: "dr5pl_r2", metric: "5PL dose-response, R-squared", reference: 0.99991617, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "R2" },
 
   // --- assumption checks (scipy.stats.shapiro / levene) ---
   { id: "shapiro_w", metric: "Shapiro-Wilk, W", reference: 0.934647, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "W" },

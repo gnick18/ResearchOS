@@ -15,6 +15,7 @@
 import type {
   NormalizedAnova,
   NormalizedCorrelation,
+  NormalizedDoseResponse,
   NormalizedRegression,
   NormalizedResult,
   NormalizedSurvival,
@@ -334,6 +335,103 @@ print(f"slope = {fit.slope:.4g}, intercept = {fit.intercept:.4g}")
 print(f"R-squared = {fit.rvalue ** 2:.4g}, slope SE = {fit.stderr:.4g}")`;
 }
 
+/**
+ * Reproducible scipy.optimize.curve_fit for a dose-response fit (4PL default,
+ * 5PL when the analysis chose the asymmetric model). Emits the model def, the
+ * curve_fit call with the same data-driven initial guess the engine uses, and the
+ * EC50 / Hill readout. The 5PL EC50 readout uses the closed-form half-max
+ * correction (the EC50 is NOT 10^logEC50 when S != 1), the same formula the engine
+ * documents, so the printed EC50 matches the on-screen value.
+ */
+function doseResponseCode(r: NormalizedDoseResponse): string {
+  const x = pyList(r.x);
+  const y = pyList(r.y);
+  if (r.model === "logistic5pl") {
+    return `import numpy as np
+from scipy.optimize import curve_fit
+from scipy import stats
+
+x = ${x}
+y = ${y}
+
+# 5-parameter logistic (asymmetric), x = log10(dose). Bottom, Top, logEC50,
+# HillSlope, S. The 4PL is the special case S = 1.
+def model_5pl(x, bottom, top, logec50, hill, s):
+    return bottom + (top - bottom) / (1 + 10**((logec50 - x) * hill))**s
+
+# Data-driven starting guess: plateaus from the data range, logEC50 at the
+# half-max x, slope 1, symmetric (S = 1) to start.
+lo, hi = min(y), max(y)
+mid = (lo + hi) / 2
+x_mid = x[min(range(len(x)), key=lambda i: abs(y[i] - mid))]
+p0 = [lo, hi, x_mid, 1.0, 1.0]
+
+popt, pcov = curve_fit(model_5pl, x, y, p0=p0, maxfev=200000)
+bottom, top, logec50, hill, s = popt
+perr = np.sqrt(np.diag(pcov))
+
+# The EC50 is the dose at the half-maximal response, which for S != 1 is NOT
+# 10**logEC50. Solve model = (Top+Bottom)/2 for x:
+#   x_EC50 = logEC50 - log10(2**(1/S) - 1) / HillSlope
+shift = -np.log10(2**(1.0/s) - 1.0) / hill
+logec50_true = logec50 + shift
+ec50 = 10**logec50_true
+
+# 95% CI on the EC50: t-based CI on the logEC50 parameter, shifted to the true
+# half-max logEC50, then exponentiated (asymmetric in dose units).
+df = len(x) - len(popt)
+tcrit = stats.t.ppf(0.975, df)
+lo_log = logec50 - tcrit * perr[2] + shift
+hi_log = logec50 + tcrit * perr[2] + shift
+print(f"EC50 = {ec50:.4g}  95% CI [{10**lo_log:.4g}, {10**hi_log:.4g}]")
+print(f"Hill = {hill:.4g}, Top = {top:.4g}, Bottom = {bottom:.4g}, S = {s:.4g}")
+
+resid = y - model_5pl(np.asarray(x), *popt)
+ss_res = np.sum(resid**2)
+ss_tot = np.sum((np.asarray(y) - np.mean(y))**2)
+print(f"R-squared = {1 - ss_res/ss_tot:.4g}")`;
+  }
+  return `import numpy as np
+from scipy.optimize import curve_fit
+from scipy import stats
+
+x = ${x}
+y = ${y}
+
+# 4-parameter logistic (variable slope), x = log10(dose). The Prism
+# "log(agonist) vs response" dose-response model. Bottom, Top, logEC50, HillSlope.
+def model_4pl(x, bottom, top, logec50, hill):
+    return bottom + (top - bottom) / (1 + 10**((logec50 - x) * hill))
+
+# Data-driven starting guess: plateaus from the data range, logEC50 at the
+# half-max x, slope 1.
+lo, hi = min(y), max(y)
+mid = (lo + hi) / 2
+x_mid = x[min(range(len(x)), key=lambda i: abs(y[i] - mid))]
+p0 = [lo, hi, x_mid, 1.0]
+
+popt, pcov = curve_fit(model_4pl, x, y, p0=p0, maxfev=200000)
+bottom, top, logec50, hill = popt
+perr = np.sqrt(np.diag(pcov))
+
+# EC50 (the IC50 for an inhibition curve) is the dose at the half-maximal
+# response. For the symmetric 4PL that is exactly 10**logEC50.
+ec50 = 10**logec50
+
+# 95% CI on the EC50: t-based CI on logEC50, then exponentiated (asymmetric in
+# dose units because the fit is symmetric in log space).
+df = len(x) - len(popt)
+tcrit = stats.t.ppf(0.975, df)
+print(f"EC50 = {ec50:.4g}  95% CI [{10**(logec50 - tcrit*perr[2]):.4g}, "
+      f"{10**(logec50 + tcrit*perr[2]):.4g}]")
+print(f"Hill = {hill:.4g}, Top = {top:.4g}, Bottom = {bottom:.4g}")
+
+resid = y - model_4pl(np.asarray(x), *popt)
+ss_res = np.sum(resid**2)
+ss_tot = np.sum((np.asarray(y) - np.mean(y))**2)
+print(f"R-squared = {1 - ss_res/ss_tot:.4g}")`;
+}
+
 function twoWayCode(r: NormalizedTwoWayAnova): string {
   // Reconstruct the long-format observations from the ANOVA so the snippet
   // builds the same DataFrame statsmodels fits (factorA x factorB with repeats).
@@ -388,6 +486,7 @@ export function showCode(result: NormalizedResult): string {
   if (result.kind === "anova") return anovaCode(result);
   if (result.kind === "correlation") return correlationCode(result);
   if (result.kind === "regression") return regressionCode(result);
+  if (result.kind === "doseResponse") return doseResponseCode(result);
   if (result.kind === "twoWayAnova") return twoWayCode(result);
   if (result.kind === "survival") return survivalCode(result);
   return ttestCode(result);
