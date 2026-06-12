@@ -214,6 +214,10 @@ export interface LiteratureExplorerProps {
   molecule: MoleculeMeta;
   /** Pre-loaded items to show (papers from Europe PMC + patents from PubChem). */
   items: ExplorerItem[];
+  /** True Europe PMC paper hit count (the loaded papers are a top-cited sample of this). */
+  paperTotal?: number;
+  /** True PubChem-linked patent count (the loaded patents may be a capped sample of this). */
+  patentTotal?: number;
   /** Called when the user closes the explorer. */
   onClose: () => void;
   /** Called when starred_papers changes so the parent can refresh the molecule. */
@@ -223,6 +227,8 @@ export interface LiteratureExplorerProps {
 export function LiteratureExplorer({
   molecule,
   items,
+  paperTotal,
+  patentTotal,
   onClose,
   onStarsChanged,
 }: LiteratureExplorerProps) {
@@ -453,6 +459,22 @@ export function LiteratureExplorer({
                 {starredCount}
               </span>
             </label>
+
+            {/* The badge counts are the loaded sample, not the whole corpus. A
+                well-studied compound has thousands of papers and patents; we load
+                the most-cited papers + a capped patent slice, so spell out the
+                true totals to avoid reading the sample as the full picture. */}
+            {(paperTotal != null && paperTotal > researchCount + reviewCount) ||
+            (patentTotal != null && patentTotal > patentCount) ? (
+              <p className="mt-2 text-[10px] leading-tight text-foreground-muted">
+                Showing the top {(researchCount + reviewCount).toLocaleString("en-US")}
+                {paperTotal != null ? ` of ${paperTotal.toLocaleString("en-US")}` : ""} papers
+                {patentTotal != null
+                  ? ` and ${patentCount.toLocaleString("en-US")} of ${patentTotal.toLocaleString("en-US")} patents`
+                  : ""}
+                . Most-cited first.
+              </p>
+            ) : null}
 
             {/* Year histogram */}
             <p className="text-[10px] uppercase tracking-widest text-foreground-muted font-semibold mt-3.5 mb-1">

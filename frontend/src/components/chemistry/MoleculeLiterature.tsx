@@ -41,11 +41,18 @@ interface LitData {
 
 const nfmt = (n: number) => n.toLocaleString("en-US");
 
+// The explorer mixes papers and patents into one histogram + list. PubChem can
+// link thousands of patents to a well-studied compound (gliotoxin returns ~9k),
+// which would swamp the papers 1000:1 and make the view read as patent-only.
+// Cap the patents fed to the explorer to roughly the paper sample size so both
+// types are represented; the true total is still surfaced as "of N".
+const EXPLORER_PATENT_CAP = 200;
+
 export function MoleculeLiterature({
   query,
   cid,
   molecule,
-  maxPapers = 6,
+  maxPapers = 200,
   maxPatents = 12,
   onStarsChanged,
 }: {
@@ -114,7 +121,7 @@ export function MoleculeLiterature({
         }
         const explorerItems: ExplorerItem[] = [
           ...epmc.papers.map(paperToExplorerItem),
-          ...links.patents.map(makePatentItem),
+          ...links.patents.slice(0, EXPLORER_PATENT_CAP).map(makePatentItem),
         ];
         setData({
           hitCount: epmc.hitCount,
@@ -261,6 +268,8 @@ export function MoleculeLiterature({
         <LiteratureExplorer
           molecule={liveMolecule}
           items={data.explorerItems}
+          paperTotal={data.hitCount}
+          patentTotal={data.patentCount}
           onClose={() => setExplorerOpen(false)}
           onStarsChanged={handleStarsChanged}
         />
@@ -291,7 +300,9 @@ function StarredStrip({ papers }: { papers: StarredPaper[] }) {
             <span className="max-w-[160px] truncate">
               {sp.title.length > 34 ? sp.title.slice(0, 34) + "…" : sp.title}
             </span>
-            <span className="text-foreground-muted font-mono ml-0.5">{label}</span>
+            {label !== sp.title ? (
+              <span className="text-foreground-muted font-mono ml-0.5">{label}</span>
+            ) : null}
           </span>
         );
         if (href) {
