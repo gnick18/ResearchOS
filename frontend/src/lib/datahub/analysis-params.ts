@@ -225,6 +225,7 @@ export const ANALYSIS_PARAM_SCHEMA: Record<string, ParamField[]> = {
   wilcoxonSignedRank: [TAIL_FIELD],
   oneWayAnova: [ONEWAY_POSTHOC_FIELD],
   kruskalWallis: [],
+  repeatedMeasuresAnova: [],
   twoWayAnova: [TWOWAY_POSTHOC_FIELD],
   correlationPearson: [],
   correlationSpearman: [],

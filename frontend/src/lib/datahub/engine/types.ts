@@ -110,6 +110,44 @@ export interface AnovaResult {
   effectSize: AnovaEffectSize | null;
 }
 
+/**
+ * One-way repeated-measures ANOVA result. Each subject (row) is measured under
+ * every within-subject condition, so the design partitions the total variation
+ * into a between-subjects term, the condition effect, and the residual error.
+ *
+ * The uncorrected F / df / p come straight from the classic decomposition. The
+ * repeated-measures F is sensitive to a sphericity violation (unequal variances
+ * of the pairwise condition differences), so we also report the
+ * Greenhouse-Geisser and Huynh-Feldt epsilons and the p-values they imply when
+ * the condition and error df are multiplied by epsilon. Partial eta-squared is
+ * the share of variance the condition explains after the between-subjects
+ * variation is set aside.
+ */
+export interface RmAnovaResult {
+  test: string;
+  table: AnovaTableRow[];
+  /** Uncorrected condition F and p, surfaced for convenience. */
+  statistic: number;
+  pValue: number;
+  /** k conditions, n subjects (complete cases only after listwise dropping). */
+  conditions: number;
+  subjects: number;
+  /** Uncorrected condition and error degrees of freedom. */
+  dfConditions: number;
+  dfError: number;
+  /** SS_conditions / (SS_conditions + SS_error). */
+  partialEtaSquared: number;
+  /** Greenhouse-Geisser epsilon and the p with df scaled by it. */
+  greenhouseGeisserEpsilon: number;
+  pGreenhouseGeisser: number;
+  /** Huynh-Feldt epsilon and the p with df scaled by it. */
+  huynhFeldtEpsilon: number;
+  pHuynhFeldt: number;
+  /** Per-condition mean across subjects, in condition order. */
+  conditionMeans: number[];
+  conditionLabels: string[];
+}
+
 export interface CorrelationResult {
   method: "pearson" | "spearman";
   n: number;

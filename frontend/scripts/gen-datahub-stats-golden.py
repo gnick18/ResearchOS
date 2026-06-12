@@ -285,6 +285,62 @@ def ref_kruskal_friedman():
     return out
 
 
+def ref_rm_anova():
+    # One-way repeated-measures ANOVA on REPEATED (rows = subjects, columns =
+    # the three within-subject conditions P, Q, R). statsmodels AnovaRM gives
+    # the uncorrected F / df / p; pingouin rm_anova(correction=True) gives the
+    # Greenhouse-Geisser and Huynh-Feldt epsilons plus the GG-corrected p (and
+    # the sphericity test) on the SAME data.
+    import pandas as pd
+
+    rows = []
+    for subj, triple in enumerate(REPEATED):
+        for ci, cond in enumerate(REPEATED_LABELS):
+            rows.append({"subject": subj, "condition": cond, "value": triple[ci]})
+    df = pd.DataFrame(rows)
+
+    from statsmodels.stats.anova import AnovaRM
+    aov = AnovaRM(df, depvar="value", subject="subject", within=["condition"]).fit()
+    tbl = aov.anova_table
+    F = float(tbl["F Value"].iloc[0])
+    df1 = float(tbl["Num DF"].iloc[0])
+    df2 = float(tbl["Den DF"].iloc[0])
+    p = float(tbl["Pr > F"].iloc[0])
+
+    pg_aov = pg.rm_anova(
+        data=df, dv="value", within="condition", subject="subject",
+        correction=True, detailed=True,
+    )
+    eff = pg_aov[pg_aov["Source"] == "condition"].iloc[0]
+    err = pg_aov[pg_aov["Source"] == "Error"].iloc[0]
+    gg_eps = float(eff["eps"])
+    p_gg = float(eff["p_GG_corr"])
+    # partial eta-squared = SS_effect / (SS_effect + SS_error). pingouin reports
+    # ng2 (generalized eta-squared); for a one-way RM design we want the partial
+    # form, which the engine reports, so compute it from the SS columns directly.
+    ss_eff = float(eff["SS"])
+    ss_err = float(err["SS"])
+    np2 = ss_eff / (ss_eff + ss_err)
+
+    # Huynh-Feldt epsilon + HF-corrected p are not columns of pg.rm_anova, so
+    # derive them from pingouin's epsilon machinery and the same F.
+    hf_eps = float(pg.epsilon(data=df, dv="value", within="condition",
+                              subject="subject", correction="hf"))
+    p_hf = float(st.f.sf(F, df1 * hf_eps, df2 * hf_eps))
+
+    return {
+        "F": r4(F),
+        "df1": r4(df1),
+        "df2": r4(df2),
+        "p": r4(p),
+        "partial_eta_sq": r4(np2),
+        "gg_epsilon": r4(gg_eps),
+        "p_gg": r4(p_gg),
+        "hf_epsilon": r4(hf_eps),
+        "p_hf": r4(p_hf),
+    }
+
+
 def ref_correlation_regression():
     out = {}
     p = st.pearsonr(XY_X, XY_Y)
@@ -1017,6 +1073,7 @@ def main():
     refs.update({"param_options": ref_param_options()})
     refs.update({"anova_twoway": ref_anova_twoway()})
     refs.update({"kruskal_friedman": ref_kruskal_friedman()})
+    refs.update({"rm_anova": ref_rm_anova()})
     refs.update({"correlation_regression": ref_correlation_regression()})
     refs.update({"logistic_regression": ref_logistic_regression()})
     refs.update({"multiple_regression": ref_multiple_regression()})

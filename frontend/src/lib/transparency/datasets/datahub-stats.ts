@@ -340,6 +340,20 @@ export const STAT_PINS: StatPin[] = [
   { id: "friedman_chi2", metric: "Friedman, chi-square", reference: 12.0, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "chi2" },
   { id: "friedman_p", metric: "Friedman, p", reference: 0.002479, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "p" },
 
+  // --- one-way repeated-measures ANOVA (statsmodels AnovaRM + pingouin rm_anova) ---
+  // The REPEATED fixture (6 subjects x 3 conditions). The uncorrected F / p come
+  // from statsmodels.stats.anova.AnovaRM; partial eta-squared and the
+  // Greenhouse-Geisser / Huynh-Feldt sphericity epsilons + their corrected
+  // p-values come from pingouin.rm_anova(correction=True) (HF epsilon via
+  // pingouin.epsilon). The F decomposition is deterministic, so these pin tight.
+  { id: "rmanova_f", metric: "Repeated-measures ANOVA, condition F", reference: 172.894737, oracleId: "statsmodels", tol: 1e-3, warn: 5e-3, unit: "F" },
+  { id: "rmanova_p", metric: "Repeated-measures ANOVA, uncorrected p", reference: 1.75e-8, oracleId: "statsmodels", tol: 1e-9, warn: 5e-9, unit: "p" },
+  { id: "rmanova_partial_eta_sq", metric: "Repeated-measures ANOVA, partial eta-squared", reference: 0.971893, oracleId: "pingouin", tol: 1e-4, warn: 5e-4, unit: "eta2" },
+  { id: "rmanova_gg_epsilon", metric: "Repeated-measures ANOVA, Greenhouse-Geisser epsilon", reference: 0.624567, oracleId: "pingouin", tol: 1e-4, warn: 5e-4, unit: "eps" },
+  { id: "rmanova_p_gg", metric: "Repeated-measures ANOVA, Greenhouse-Geisser corrected p", reference: 6.32e-6, oracleId: "pingouin", tol: 1e-7, warn: 5e-7, unit: "p" },
+  { id: "rmanova_hf_epsilon", metric: "Repeated-measures ANOVA, Huynh-Feldt epsilon", reference: 0.732472, oracleId: "pingouin", tol: 1e-4, warn: 5e-4, unit: "eps" },
+  { id: "rmanova_p_hf", metric: "Repeated-measures ANOVA, Huynh-Feldt corrected p", reference: 1.16e-6, oracleId: "pingouin", tol: 1e-7, warn: 5e-7, unit: "p" },
+
   // --- correlation + regression (scipy.stats.pearsonr / spearmanr / linregress) ---
   { id: "pearson_r", metric: "Pearson correlation, r", reference: 0.999419, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "r" },
   { id: "pearson_p", metric: "Pearson correlation, p", reference: 4.89e-10, oracleId: "scipy", tol: 1e-9, warn: 5e-9, unit: "p" },

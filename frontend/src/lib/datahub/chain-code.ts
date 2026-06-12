@@ -497,6 +497,7 @@ function labelForAnalysis(analysis: AnalysisSpec): string {
     mannWhitneyU: "Mann-Whitney U test",
     wilcoxonSignedRank: "Wilcoxon signed-rank test",
     kruskalWallis: "Kruskal-Wallis test",
+    repeatedMeasuresAnova: "repeated-measures ANOVA",
     correlationPearson: "Pearson correlation",
     correlationSpearman: "Spearman correlation",
     linearRegression: "linear regression",

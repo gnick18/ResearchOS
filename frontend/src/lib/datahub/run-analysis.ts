@@ -34,6 +34,7 @@ import {
   mannWhitneyU,
   wilcoxonSignedRank,
   kruskalWallis,
+  repeatedMeasuresAnova,
   pearson,
   spearman,
   linearRegression,
@@ -66,6 +67,7 @@ import type { FitResult } from "@/lib/datahub/engine/types";
 import type { GlobalFitResult } from "@/lib/datahub/engine";
 import type {
   AnovaResult,
+  RmAnovaResult,
   TTestResult,
   CorrelationResult,
   LinearRegressionResult,
@@ -77,7 +79,11 @@ import type {
 import { readParams, globalFitSharedNames } from "@/lib/datahub/analysis-params";
 import type { Tail } from "@/lib/datahub/engine/types";
 import type { PostHocMethod } from "@/lib/datahub/engine/anova";
-import { columnValues, groupColumns } from "@/lib/datahub/column-table";
+import {
+  columnValues,
+  groupColumns,
+  rowAlignedValues,
+} from "@/lib/datahub/column-table";
 import { isCellExcluded } from "@/lib/datahub/cell-exclusion";
 import {
   isSummaryFormat,
@@ -102,6 +108,7 @@ export type AnalysisType =
   | "mannWhitneyU"
   | "wilcoxonSignedRank"
   | "kruskalWallis"
+  | "repeatedMeasuresAnova"
   | "correlationPearson"
   | "correlationSpearman"
   | "linearRegression"
@@ -146,6 +153,7 @@ export const COLUMN_ANALYSIS_TYPES: AnalysisType[] = [
   "mannWhitneyU",
   "wilcoxonSignedRank",
   "kruskalWallis",
+  "repeatedMeasuresAnova",
   "multipleRegression",
 ];
 
@@ -258,6 +266,37 @@ export interface NormalizedAnova {
    * design defines none.
    */
   effectSize: AnovaResult["effectSize"];
+}
+
+/**
+ * A normalized one-way repeated-measures ANOVA result. Each input column is a
+ * within-subject condition and each table row is the same subject measured under
+ * every condition, so the result carries the uncorrected condition F / df / p,
+ * partial eta-squared, and the Greenhouse-Geisser and Huynh-Feldt sphericity
+ * epsilons with their corrected p-values. The per-condition means (and labels)
+ * are carried for the readout and so the code snippet reproduces the run. `groups`
+ * is the resolved condition columns in order, complete-case rows only.
+ */
+export interface NormalizedRmAnova {
+  kind: "rmAnova";
+  type: "repeatedMeasuresAnova";
+  test: string;
+  groups: RunGroup[];
+  /** Subjects (complete-case rows) and conditions (columns). */
+  subjects: number;
+  conditions: number;
+  /** Uncorrected condition F and p. */
+  statistic: number;
+  pValue: number;
+  dfConditions: number;
+  dfError: number;
+  partialEtaSquared: number;
+  greenhouseGeisserEpsilon: number;
+  pGreenhouseGeisser: number;
+  huynhFeldtEpsilon: number;
+  pHuynhFeldt: number;
+  conditionMeans: number[];
+  table: RmAnovaResult["table"];
 }
 
 /**
@@ -655,6 +694,7 @@ export interface NormalizedCoxRegression {
 export type NormalizedResult =
   | NormalizedTTest
   | NormalizedAnova
+  | NormalizedRmAnova
   | NormalizedCorrelation
   | NormalizedRegression
   | NormalizedLogisticRegression
@@ -762,6 +802,12 @@ export function validAnalysisTypes(content: DataHubDocContent): AnalysisType[] {
   }
   if (k >= 3) {
     out.push("oneWayAnova", "kruskalWallis");
+    // Repeated-measures ANOVA reads the SAME columns as a within-subject design
+    // (each row is one subject measured under each condition column). The
+    // engine accepts 2+ conditions, but a 2-condition repeated design is just
+    // the paired t-test already offered above, so we surface it from 3 columns
+    // up alongside the other multi-group analyses.
+    out.push("repeatedMeasuresAnova");
     // Multiple regression treats one column as Y and the rest as predictors, so
     // it needs at least 3 columns (a Y plus 2 predictors).
     out.push("multipleRegression");
@@ -1693,6 +1739,43 @@ export function runAnalysis(
   }
 
   const groups = resolveGroups(content, specColumnIds(spec));
+
+  if (type === "repeatedMeasuresAnova") {
+    if (groups.length < 2) {
+      return {
+        ok: false,
+        error: "Repeated-measures ANOVA needs at least 2 condition columns.",
+      };
+    }
+    // Read the condition columns ALIGNED BY ROW, dropping any subject (row) with
+    // a missing or excluded cell in any condition (listwise, complete cases),
+    // which is what a balanced repeated-measures design requires.
+    const columnIds = groups.map((g) => g.columnId);
+    const rows = rowAlignedValues(content, columnIds);
+    const labels = groups.map((g) => g.name);
+    const r = repeatedMeasuresAnova(rows, labels);
+    if (!r.ok) return { ok: false, error: r.error };
+    return {
+      ok: true,
+      kind: "rmAnova",
+      type,
+      test: r.test,
+      groups,
+      subjects: r.subjects,
+      conditions: r.conditions,
+      statistic: r.statistic,
+      pValue: r.pValue,
+      dfConditions: r.dfConditions,
+      dfError: r.dfError,
+      partialEtaSquared: r.partialEtaSquared,
+      greenhouseGeisserEpsilon: r.greenhouseGeisserEpsilon,
+      pGreenhouseGeisser: r.pGreenhouseGeisser,
+      huynhFeldtEpsilon: r.huynhFeldtEpsilon,
+      pHuynhFeldt: r.pHuynhFeldt,
+      conditionMeans: r.conditionMeans,
+      table: r.table,
+    };
+  }
 
   if (type === "oneWayAnova" || type === "kruskalWallis") {
     if (groups.length < 3) {

@@ -28,6 +28,7 @@ export {
   twoWayAnova,
   kruskalWallis,
   friedman,
+  repeatedMeasuresAnova,
   type PostHocMethod,
   type OneWayOptions,
   type TwoWayOptions,

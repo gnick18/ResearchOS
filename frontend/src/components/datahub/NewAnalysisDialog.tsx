@@ -77,6 +77,12 @@ const TYPE_META: Record<
       "Compare three or more groups without assuming a normal distribution. The rank-based answer to a non-normal one-way ANOVA.",
     groupCount: "all",
   },
+  repeatedMeasuresAnova: {
+    label: "Repeated-measures ANOVA",
+    blurb:
+      "Compare three or more conditions measured on the same subjects, row by row. Reports the condition F, partial eta-squared, and the Greenhouse-Geisser and Huynh-Feldt sphericity corrections. Use this when each row is one subject and each column is a condition.",
+    groupCount: "all",
+  },
   multipleRegression: {
     label: "Multiple linear regression",
     blurb:

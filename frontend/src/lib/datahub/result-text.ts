@@ -72,6 +72,33 @@ export function resultToText(result: NormalizedResult): string {
       }
       break;
     }
+    case "rmAnova": {
+      lines.push(row("Source", "SS", "df", "MS", "F", "p"));
+      for (const r of result.table) {
+        lines.push(
+          row(
+            r.source,
+            n(r.ss, 2),
+            r.df,
+            Number.isFinite(r.ms) ? n(r.ms, 2) : "",
+            r.f === null ? "" : n(r.f, 3),
+            r.pValue === null ? "" : formatP(r.pValue),
+          ),
+        );
+      }
+      lines.push(
+        "",
+        row("Partial eta-squared", n(result.partialEtaSquared, 4)),
+        row(
+          "Greenhouse-Geisser epsilon",
+          n(result.greenhouseGeisserEpsilon, 4),
+        ),
+        row("Greenhouse-Geisser p", formatP(result.pGreenhouseGeisser)),
+        row("Huynh-Feldt epsilon", n(result.huynhFeldtEpsilon, 4)),
+        row("Huynh-Feldt p", formatP(result.pHuynhFeldt)),
+      );
+      break;
+    }
     case "survival": {
       lines.push(row("Group", "Subjects", "Events", "Median survival"));
       for (const g of result.groups) {
