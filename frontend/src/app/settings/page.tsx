@@ -714,6 +714,16 @@ function SettingsBodyInner({
             <SettingsSearchBar />
           </div>
         }
+        footer={
+          <>
+            {/* Support / Donate lives at the bottom of the settings scroll,
+                with the site footer, instead of floating over every page. */}
+            <div className="flex justify-center pt-4 pb-1">
+              <BetaDonationButton variant="link" tone="light" />
+            </div>
+            <AppFooter />
+          </>
+        }
       />
 
       {pwOpen && currentUser && (
@@ -743,15 +753,6 @@ function SettingsBodyInner({
           }}
         />
       )}
-      <div className="shrink-0">
-        {/* Support / Donate moved here from the global floating cluster
-            (2026-06-05): the ask now lives on Settings instead of floating
-            over every page. */}
-        <div className="flex justify-center pt-4 pb-1">
-          <BetaDonationButton variant="link" tone="light" />
-        </div>
-        <AppFooter />
-      </div>
     </div>
   );
 }

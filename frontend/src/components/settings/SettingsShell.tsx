@@ -77,6 +77,7 @@ export default function SettingsShell({
   currentUser,
   roleLabel,
   headerExtra,
+  footer,
   initialSectionId,
 }: {
   groups: SettingsGroupDef[];
@@ -84,9 +85,13 @@ export default function SettingsShell({
   currentUser: string;
   /** Small role line under the name in the rail header (e.g. "Lab head"). */
   roleLabel?: string;
-  /** Optional node rendered in the pane header strip (the search bar + saved
-   *  indicator the page already builds). */
+  /** Optional node rendered in the full-width top strip (the title + search bar
+   *  + saved indicator the page already builds). */
   headerExtra?: ReactNode;
+  /** Rendered at the very bottom of the scrolling content pane, so it only
+   *  comes into view once the user reaches the end of a section (the site
+   *  footer). Not a pinned bar. */
+  footer?: ReactNode;
   /** Section to open on when there is no `?section=` / `?tab=` in the URL.
    *  Used when the shell is mounted inside a modal (no query to read), e.g.
    *  the ProfileSettingsModal opens straight on the profile section. */
@@ -158,14 +163,20 @@ export default function SettingsShell({
 
   return (
     <div className="min-h-0 flex-1 flex flex-col bg-surface-sunken">
-      <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 py-6 flex-1 min-h-0 flex flex-col">
-        {headerExtra && <div className="mb-4 shrink-0">{headerExtra}</div>}
-        <div className="grid grid-cols-1 md:grid-cols-[244px_1fr] gap-0 bg-surface-raised border border-border rounded-2xl overflow-hidden flex-1 min-h-0">
-          {/* ── Rail ── */}
-          <nav
-            aria-label="Settings sections"
-            className="border-b md:border-b-0 md:border-r border-border bg-surface-raised/60 p-2.5 overflow-y-auto"
-          >
+      {/* Full-width top strip: title, search, saved indicator. */}
+      {headerExtra && (
+        <div className="shrink-0 border-b border-border bg-surface-raised px-4 py-4 sm:px-6">
+          {headerExtra}
+        </div>
+      )}
+      {/* Full-bleed rail + pane filling the rest of the screen. No centered
+          card; the rail is flush to the left edge and the pane fills the rest. */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[256px_1fr]">
+        {/* ── Rail ── */}
+        <nav
+          aria-label="Settings sections"
+          className="border-b border-border bg-surface-raised p-2.5 md:border-b-0 md:border-r overflow-y-auto"
+        >
             <div className="flex items-center gap-2.5 px-2 py-2.5">
               <UserAvatar username={currentUser} size="sm" />
               <div className="min-w-0 leading-tight">
@@ -231,8 +242,10 @@ export default function SettingsShell({
             })}
           </nav>
 
-          {/* ── Content pane ── */}
-          <div ref={paneRef} className="overflow-y-auto p-6 sm:p-8">
+        {/* ── Content pane: scrolls, with the footer at the very bottom so it
+            only comes into view once the user reaches the end of a section. ── */}
+        <div ref={paneRef} className="overflow-y-auto">
+          <div className="mx-auto max-w-4xl px-6 py-8 sm:px-8">
             {activeSection ? (
               <div key={activeSection.id} className="space-y-4">
                 {activeSection.render()}
@@ -243,6 +256,7 @@ export default function SettingsShell({
               </p>
             )}
           </div>
+          {footer && <div className="mt-6">{footer}</div>}
         </div>
       </div>
     </div>
