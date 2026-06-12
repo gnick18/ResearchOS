@@ -131,14 +131,39 @@ export async function removePin(sidecarPath: string, shortId: string): Promise<v
   await fileService.writeJson(sidecarPath, { version: 1, pins: nextPins });
 }
 
+/** Replace a pin IN PLACE under an existing short id, keeping that id (P7-1b
+ *  Re-pin). The fragment already carries `&pin=<shortId>`, so re-pinning must reuse
+ *  the same id, only the frozen snapshot / identity / pinnedAt change. Writes the
+ *  pin under `shortId` whether or not it was already present (a missing id is just
+ *  added under that exact id, never minted fresh), so the on-disk record catches up
+ *  to the live source without rewriting the source line. */
+export async function updatePin(
+  sidecarPath: string,
+  shortId: string,
+  pin: EmbedPin,
+): Promise<void> {
+  const file = await readPins(sidecarPath);
+  const next: EmbedPinsFile = {
+    version: 1,
+    pins: { ...file.pins, [shortId]: pin },
+  };
+  await fileService.writeJson(sidecarPath, next);
+}
+
 // ── Snapshot + identity capture ────────────────────────────────────────────────
 
-/** Load the source record for an embed and compute its portable identity. Reuses
- *  the SAME load paths the bakers use, so there is no second per-type loader to
- *  drift. Returns null when the record cannot be loaded or the type carries no
+/** Load the source record for an embed and compute its LIVE portable identity.
+ *  Reuses the SAME load paths the bakers use, so there is no second per-type loader
+ *  to drift. Returns null when the record cannot be loaded or the type carries no
  *  identity (the snapshot still pins, identity is only for the 1b staleness check).
- */
-async function identityForEmbed(descriptor: EmbedDescriptor): Promise<string | null> {
+ *
+ *  Exported because P7-1b's staleness check (ObjectEmbed) compares this live value
+ *  against the stored `pin.identity`. Both the snapshot capture (snapshotEmbed) and
+ *  the staleness check go through this one loader, so they can never disagree about
+ *  how a type's identity is computed. */
+export async function liveIdentityForEmbed(
+  descriptor: EmbedDescriptor,
+): Promise<string | null> {
   const { type, id } = descriptor;
   try {
     switch (type) {
@@ -213,7 +238,7 @@ export async function snapshotEmbed(
 ): Promise<{ snapshot: BakedEmbed; identity: string | null }> {
   const [snapshot, identity] = await Promise.all([
     bakeOne(descriptor, caption, null),
-    identityForEmbed(descriptor),
+    liveIdentityForEmbed(descriptor),
   ]);
   return { snapshot, identity };
 }

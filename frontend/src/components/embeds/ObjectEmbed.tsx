@@ -20,7 +20,13 @@ import { Icon } from "@/components/icons";
 import type { IconName } from "@/components/icons";
 import { objectDeepLink, type EmbedDescriptor, type ObjectRefType } from "@/lib/references";
 import type { BakeEmbedsDeps } from "@/lib/export/bake-embeds";
-import { getPin, type EmbedPin } from "@/lib/embeds/embed-pins";
+import {
+  getPin,
+  liveIdentityForEmbed,
+  buildPin,
+  updatePin,
+  type EmbedPin,
+} from "@/lib/embeds/embed-pins";
 import BakedEmbedView from "./BakedEmbedView";
 
 /** The doc-level pin context, present only in an editor host. When supplied, the
@@ -202,6 +208,68 @@ function PinControl({
   );
 }
 
+/** A quiet text button used by the staleness row (View current / show pinned /
+ *  Re-pin). No inline svg, calm muted styling that matches the Pin control. */
+function StaleAction({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="shrink-0 rounded-md border border-border px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:border-brand-action hover:text-foreground"
+    >
+      {label}
+    </button>
+  );
+}
+
+/** The quiet "source changed since you pinned this" badge plus its actions. Amber /
+ *  muted, text only (no inline svg, no emoji). Rendered only when the staleness check
+ *  proved the live source moved on AND we are showing the frozen snapshot. View
+ *  current toggles the live render for this session without touching the pin; Re-pin
+ *  (editor only) recaptures the snapshot and clears the badge. */
+function StaleRow({
+  viewingCurrent,
+  canRepin,
+  repinning,
+  onToggleView,
+  onRepin,
+}: {
+  viewingCurrent: boolean;
+  canRepin: boolean;
+  repinning: boolean;
+  onToggleView: () => void;
+  onRepin: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-t border-amber-200 bg-amber-50 px-3 py-1.5 dark:border-amber-500/30 dark:bg-amber-500/10">
+      <span
+        data-embed-stale="true"
+        className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-meta font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300"
+      >
+        source changed since you pinned this
+      </span>
+      <span className="ml-auto inline-flex items-center gap-2">
+        <StaleAction
+          label={viewingCurrent ? "Show pinned" : "View current"}
+          onClick={onToggleView}
+        />
+        {canRepin ? (
+          <StaleAction
+            label={repinning ? "Re-pinning…" : "Re-pin"}
+            onClick={onRepin}
+          />
+        ) : null}
+      </span>
+    </div>
+  );
+}
+
 /** The footer holding the pinned badge and / or the Pin-Unpin control. Renders
  *  nothing when there is neither a badge nor a control (the no-pin-context case),
  *  so today's embeds get no extra chrome. */
@@ -277,10 +345,81 @@ export default function ObjectEmbed({
     };
   }, [pinId, sidecarPath]);
 
+  // P7-1b staleness. A frozen pin should never silently rot. When a pin is found we
+  // compare the pin's stored identity (portableIdentityFor at pin time) against the
+  // source's LIVE identity. They differ -> the source moved on -> show a quiet badge.
+  // Best-effort and async, a failure (or a type / record with no portable identity)
+  // leaves `stale` false, so the check can never produce a false positive and never
+  // blocks the frozen render.
+  const [stale, setStale] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setStale(false);
+    // Only a resolved pin that carries a non-null identity can be stale. A pin with
+    // a null identity (a type without a portable identity, e.g. datahub / file) is
+    // never flagged.
+    if (!pin || pin.identity == null) return;
+    (async () => {
+      try {
+        const live = await liveIdentityForEmbed(descriptor);
+        // live == null means the source is gone or carries no identity: keep the
+        // frozen pin, no stale badge (that is the whole point of a pin).
+        if (!cancelled && live != null && live !== pin.identity) {
+          setStale(true);
+        }
+      } catch {
+        // Best-effort. A failure leaves stale false.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // pin object identity changes on every resolve / re-pin, which is exactly when
+    // we want to re-run; descriptor is stable per embed line.
+  }, [pin, descriptor]);
+
+  // View current. A purely local, view-only toggle (works in preview AND editor): it
+  // renders the LIVE embed for this viewing session WITHOUT touching the pin or the
+  // fragment. Resets whenever the underlying pin changes (a fresh resolve / re-pin).
+  const [viewingCurrent, setViewingCurrent] = useState(false);
+  useEffect(() => {
+    setViewingCurrent(false);
+  }, [pin]);
+
+  // Re-pin. Recapture the snapshot and UPDATE the stored pin in place, keeping the
+  // same short id so the fragment (&pin=s_xxx) never needs rewriting. Editor-only:
+  // gated on the same editor signal 1a uses to decide Pin / Unpin (the host wired
+  // onPin / onUnpin closures). A read-only preview gets a sidecarPath but no
+  // closures, so it can View current but never Re-pin. After a successful re-pin the
+  // badge clears and the refreshed frozen state shows.
+  const [repinning, setRepinning] = useState(false);
+  const isEditorHost = Boolean(pinContext?.onPin || pinContext?.onUnpin);
+  const canRepin = Boolean(sidecarPath && pinId && isEditorHost);
+
+  const handleRepin = async () => {
+    if (!sidecarPath || !pinId || repinning) return;
+    setRepinning(true);
+    try {
+      const fresh = await buildPin(descriptor, caption, pinContext?.deps);
+      await updatePin(sidecarPath, pinId, fresh);
+      setPin(fresh);
+      setStale(false);
+      setViewingCurrent(false);
+    } catch {
+      // A re-pin failure leaves the existing frozen pin and the stale badge in
+      // place, the user can retry. Nothing destructive happened.
+    } finally {
+      setRepinning(false);
+    }
+  };
+
   // While a pin id is present but not yet resolved, hold the live render back so we
   // do not flash live -> frozen. Once resolved, a found pin renders frozen; a
-  // missing pin (sidecar gone or id removed) falls back to live, gracefully.
-  const showFrozen = Boolean(pin);
+  // missing pin (sidecar gone or id removed) falls back to live, gracefully. The
+  // View-current toggle overrides the frozen render for this session only.
+  const hasPin = Boolean(pin);
+  const showFrozen = hasPin && !viewingCurrent;
   const awaitingPin = Boolean(pinId && sidecarPath) && !pinResolved;
 
   return (
@@ -289,6 +428,7 @@ export default function ObjectEmbed({
       data-embed-type={descriptor.type}
       data-embed-view={descriptor.view}
       data-embed-pinned={showFrozen ? "true" : undefined}
+      data-embed-stale={stale ? "true" : undefined}
     >
       {showFrozen && pin ? (
         <BakedEmbedView snapshot={pin.snapshot} caption={caption} descriptor={descriptor} />
@@ -309,6 +449,18 @@ export default function ObjectEmbed({
       ) : (
         <ObjectEmbedCard descriptor={descriptor} caption={caption} />
       )}
+      {/* The stale row shows only on a found pin whose live source has moved on. It
+          stays visible while View-current is toggled (so the user can flip back),
+          and clears after a successful Re-pin. */}
+      {hasPin && stale ? (
+        <StaleRow
+          viewingCurrent={viewingCurrent}
+          canRepin={canRepin}
+          repinning={repinning}
+          onToggleView={() => setViewingCurrent((v) => !v)}
+          onRepin={handleRepin}
+        />
+      ) : null}
       <PinFooter
         pin={pin}
         pinContext={pinContext}

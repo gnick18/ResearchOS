@@ -72,6 +72,7 @@ import {
   getPin,
   putPin,
   removePin,
+  updatePin,
   snapshotEmbed,
   buildPin,
   pinsSidecarForBasePath,
@@ -140,6 +141,47 @@ describe("sidecar access layer", () => {
 
   it("removePin on a missing id is a silent no-op", async () => {
     await expect(removePin(SIDECAR, "s_ghost")).resolves.toBeUndefined();
+  });
+});
+
+describe("updatePin (P7-1b Re-pin)", () => {
+  it("replaces a pin in place, KEEPING the same short id", async () => {
+    const id = await putPin(SIDECAR, samplePin({ pinnedAt: "2026-01-01T00:00:00.000Z" }));
+
+    const refreshed = samplePin({
+      pinnedAt: "2026-06-12T12:00:00.000Z",
+      identity: "NEWKEY-INCHI",
+      snapshot: { ...fakeBaked, caption: "Refreshed" },
+    });
+    await updatePin(SIDECAR, id, refreshed);
+
+    // Same id, refreshed fields.
+    const got = await getPin(SIDECAR, id);
+    expect(got).toEqual(refreshed);
+    expect(got?.pinnedAt).toBe("2026-06-12T12:00:00.000Z");
+    expect(got?.identity).toBe("NEWKEY-INCHI");
+
+    // The map still has exactly one pin under exactly that id (no new id minted).
+    const file = await readPins(SIDECAR);
+    expect(Object.keys(file.pins)).toEqual([id]);
+  });
+
+  it("does not clobber sibling pins when updating one", async () => {
+    const a = await putPin(SIDECAR, samplePin({ id: "a" }));
+    const b = await putPin(SIDECAR, samplePin({ id: "b" }));
+    await updatePin(SIDECAR, a, samplePin({ id: "a", identity: "CHANGED" }));
+    expect((await getPin(SIDECAR, a))?.identity).toBe("CHANGED");
+    // Sibling b is untouched.
+    expect((await getPin(SIDECAR, b))?.identity).toBe("ABCDEF-INCHI");
+  });
+
+  it("adds the pin under the exact id when the sidecar is missing", async () => {
+    // Re-pin against a fragment id whose sidecar entry is gone: write it back under
+    // that same id rather than minting a fresh one.
+    await updatePin(SIDECAR, "s_keepme", samplePin({ identity: "RESTORED" }));
+    const got = await getPin(SIDECAR, "s_keepme");
+    expect(got?.identity).toBe("RESTORED");
+    expect(Object.keys((await readPins(SIDECAR)).pins)).toEqual(["s_keepme"]);
   });
 });
 

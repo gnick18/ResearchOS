@@ -1,17 +1,33 @@
 // @vitest-environment jsdom
 // Coverage for the pin path in the ObjectEmbed dispatcher (markdown embed hybrid
-// P7-1a). With a pin context AND a stored pin, the embed renders the FROZEN
+// P7-1a + P7-1b). With a pin context AND a stored pin, the embed renders the FROZEN
 // snapshot plus the "pinned <date>" badge instead of the live renderer. With the
 // pin missing (sidecar gone or id removed) it falls back to live, gracefully.
+//
+// P7-1b adds the staleness check: when the live source's portable identity differs
+// from the pin's stored identity, a "source changed since you pinned this" badge
+// shows with View-current (view-only) and Re-pin (editor-only) actions.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import type { EmbedPin } from "@/lib/embeds/embed-pins";
+import type { EmbedDescriptor } from "@/lib/references";
 
 // Mock the pins access layer so no fileService / disk is involved.
 const getPinMock = vi.fn<(sidecar: string, id: string) => Promise<EmbedPin | null>>();
+const liveIdentityMock =
+  vi.fn<(descriptor: EmbedDescriptor) => Promise<string | null>>();
+const buildPinMock =
+  vi.fn<(descriptor: EmbedDescriptor, caption: string, deps?: unknown) => Promise<EmbedPin>>();
+const updatePinMock =
+  vi.fn<(sidecar: string, shortId: string, pin: EmbedPin) => Promise<void>>();
 vi.mock("@/lib/embeds/embed-pins", () => ({
   getPin: (sidecar: string, id: string) => getPinMock(sidecar, id),
+  liveIdentityForEmbed: (descriptor: EmbedDescriptor) => liveIdentityMock(descriptor),
+  buildPin: (descriptor: EmbedDescriptor, caption: string, deps?: unknown) =>
+    buildPinMock(descriptor, caption, deps),
+  updatePin: (sidecar: string, shortId: string, pin: EmbedPin) =>
+    updatePinMock(sidecar, shortId, pin),
 }));
 
 // Stub the lazy per-type renderer so the live path renders something deterministic
@@ -21,7 +37,6 @@ vi.mock("./MoleculeEmbed", () => ({
 }));
 
 import ObjectEmbed from "./ObjectEmbed";
-import type { EmbedDescriptor } from "@/lib/references";
 
 const pinnedDescriptor: EmbedDescriptor = {
   type: "molecule",
@@ -49,6 +64,11 @@ const frozenPin: EmbedPin = {
 
 beforeEach(() => {
   getPinMock.mockReset();
+  liveIdentityMock.mockReset();
+  buildPinMock.mockReset();
+  updatePinMock.mockReset();
+  // Default: live identity matches the pin (not stale) unless a test overrides it.
+  liveIdentityMock.mockResolvedValue("ABCDEF-INCHI");
 });
 
 describe("ObjectEmbed pin path", () => {
@@ -119,5 +139,183 @@ describe("ObjectEmbed pin path", () => {
       expect(screen.getByTestId("live-molecule")).toBeInTheDocument(),
     );
     expect(screen.getByRole("button", { name: "Pin" })).toBeInTheDocument();
+  });
+});
+
+const SIDECAR = "users/alex/notes/3/notes.ros-embeds.json";
+const STALE_TEXT = /source changed since you pinned this/;
+
+describe("ObjectEmbed staleness (P7-1b)", () => {
+  it("shows the stale badge when the live identity differs from the pin", async () => {
+    getPinMock.mockResolvedValue(frozenPin); // identity "ABCDEF-INCHI"
+    liveIdentityMock.mockResolvedValue("MOVED-ON-INCHI"); // live differs
+    render(
+      <ObjectEmbed
+        descriptor={pinnedDescriptor}
+        caption="Resveratrol"
+        pinContext={{ sidecarPath: SIDECAR }}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByText(STALE_TEXT)).toBeInTheDocument(),
+    );
+    // Frozen card still shows underneath the badge.
+    expect(screen.getByText("Resveratrol (frozen)")).toBeInTheDocument();
+    expect(liveIdentityMock).toHaveBeenCalled();
+  });
+
+  it("shows no stale badge when the live identity equals the pin", async () => {
+    getPinMock.mockResolvedValue(frozenPin);
+    liveIdentityMock.mockResolvedValue("ABCDEF-INCHI"); // equal -> not stale
+    render(
+      <ObjectEmbed
+        descriptor={pinnedDescriptor}
+        caption="Resveratrol"
+        pinContext={{ sidecarPath: SIDECAR }}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByText("Resveratrol (frozen)")).toBeInTheDocument(),
+    );
+    // Give the async identity check a tick to settle, then assert no badge.
+    await waitFor(() => expect(liveIdentityMock).toHaveBeenCalled());
+    expect(screen.queryByText(STALE_TEXT)).toBeNull();
+  });
+
+  it("never flags a pin whose stored identity is null (no false positive)", async () => {
+    getPinMock.mockResolvedValue({ ...frozenPin, identity: null });
+    liveIdentityMock.mockResolvedValue("ANYTHING");
+    render(
+      <ObjectEmbed
+        descriptor={pinnedDescriptor}
+        caption="Resveratrol"
+        pinContext={{ sidecarPath: SIDECAR }}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByText("Resveratrol (frozen)")).toBeInTheDocument(),
+    );
+    // A null-identity pin short-circuits before the live load, so no badge and the
+    // live identity loader is never consulted.
+    expect(screen.queryByText(STALE_TEXT)).toBeNull();
+    expect(liveIdentityMock).not.toHaveBeenCalled();
+  });
+
+  it("never flags when the live source is gone (live identity null)", async () => {
+    getPinMock.mockResolvedValue(frozenPin); // identity present
+    liveIdentityMock.mockResolvedValue(null); // source gone / no identity
+    render(
+      <ObjectEmbed
+        descriptor={pinnedDescriptor}
+        caption="Resveratrol"
+        pinContext={{ sidecarPath: SIDECAR }}
+      />,
+    );
+    // The frozen pin still renders (the point of a pin), with no stale badge.
+    await waitFor(() =>
+      expect(screen.getByText("Resveratrol (frozen)")).toBeInTheDocument(),
+    );
+    await waitFor(() => expect(liveIdentityMock).toHaveBeenCalled());
+    expect(screen.queryByText(STALE_TEXT)).toBeNull();
+  });
+});
+
+describe("ObjectEmbed View current + Re-pin (P7-1b)", () => {
+  it("View current toggles to the live renderer and back without touching the pin", async () => {
+    getPinMock.mockResolvedValue(frozenPin);
+    liveIdentityMock.mockResolvedValue("MOVED-ON-INCHI");
+    render(
+      <ObjectEmbed
+        descriptor={pinnedDescriptor}
+        caption="Resveratrol"
+        pinContext={{ sidecarPath: SIDECAR }}
+      />,
+    );
+    // Frozen by default, live renderer not mounted.
+    await waitFor(() => expect(screen.getByText(STALE_TEXT)).toBeInTheDocument());
+    expect(screen.getByText("Resveratrol (frozen)")).toBeInTheDocument();
+    expect(screen.queryByTestId("live-molecule")).toBeNull();
+
+    // View current -> the live renderer mounts, the frozen card is gone.
+    fireEvent.click(screen.getByRole("button", { name: "View current" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("live-molecule")).toBeInTheDocument(),
+    );
+    expect(screen.queryByText("Resveratrol (frozen)")).toBeNull();
+    // Pin was never modified by viewing current.
+    expect(updatePinMock).not.toHaveBeenCalled();
+
+    // Show pinned -> back to the frozen snapshot.
+    fireEvent.click(screen.getByRole("button", { name: "Show pinned" }));
+    await waitFor(() =>
+      expect(screen.getByText("Resveratrol (frozen)")).toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId("live-molecule")).toBeNull();
+  });
+
+  it("View current works in read-only preview but Re-pin does NOT show there", async () => {
+    // sidecarPath present but no onPin / onUnpin = read-only preview host. View
+    // current is view-only state, so it must still work; Re-pin (an editing action)
+    // must NOT show.
+    getPinMock.mockResolvedValue(frozenPin);
+    liveIdentityMock.mockResolvedValue("MOVED-ON-INCHI");
+    render(
+      <ObjectEmbed
+        descriptor={pinnedDescriptor}
+        caption="Resveratrol"
+        pinContext={{ sidecarPath: SIDECAR }}
+      />,
+    );
+    await waitFor(() => expect(screen.getByText(STALE_TEXT)).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "View current" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Re-pin" })).toBeNull();
+  });
+
+  it("Re-pin shows in an editor host (onUnpin closure present)", async () => {
+    getPinMock.mockResolvedValue(frozenPin);
+    liveIdentityMock.mockResolvedValue("MOVED-ON-INCHI");
+    render(
+      <ObjectEmbed
+        descriptor={pinnedDescriptor}
+        caption="Resveratrol"
+        pinContext={{ sidecarPath: SIDECAR, onUnpin: vi.fn() }}
+      />,
+    );
+    await waitFor(() => expect(screen.getByText(STALE_TEXT)).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Re-pin" })).toBeInTheDocument();
+  });
+
+  it("Re-pin recaptures the snapshot, updates the SAME id, and clears the badge", async () => {
+    getPinMock.mockResolvedValue(frozenPin);
+    liveIdentityMock.mockResolvedValue("MOVED-ON-INCHI");
+    const refreshed: EmbedPin = {
+      ...frozenPin,
+      pinnedAt: "2026-06-13T00:00:00.000Z",
+      identity: "MOVED-ON-INCHI",
+      snapshot: { ...frozenPin.snapshot, title: "Resveratrol (re-pinned)" } as EmbedPin["snapshot"],
+    };
+    buildPinMock.mockResolvedValue(refreshed);
+    updatePinMock.mockResolvedValue();
+
+    render(
+      <ObjectEmbed
+        descriptor={pinnedDescriptor}
+        caption="Resveratrol"
+        pinContext={{ sidecarPath: SIDECAR, onUnpin: vi.fn() }}
+      />,
+    );
+    await waitFor(() => expect(screen.getByText(STALE_TEXT)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Re-pin" }));
+
+    // updatePin called with the SAME short id from the fragment (s_abc123).
+    await waitFor(() =>
+      expect(updatePinMock).toHaveBeenCalledWith(SIDECAR, "s_abc123", refreshed),
+    );
+    expect(buildPinMock).toHaveBeenCalledWith(pinnedDescriptor, "Resveratrol", undefined);
+
+    // The badge clears and the refreshed frozen snapshot now shows.
+    await waitFor(() => expect(screen.queryByText(STALE_TEXT)).toBeNull());
+    expect(screen.getByText("Resveratrol (re-pinned)")).toBeInTheDocument();
   });
 });
