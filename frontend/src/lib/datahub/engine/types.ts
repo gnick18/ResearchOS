@@ -39,6 +39,18 @@ export interface TTestResult {
   /** Effect size: Cohen's d for t tests, rank-biserial for nonparametric. */
   effectSize: number;
   effectSizeLabel: string;
+  /**
+   * Hedges' g, the small-sample bias-corrected Cohen's d (g = J * d). Null for
+   * the nonparametric rank tests, where the rank-biserial r in effectSize is the
+   * reported effect size and no parametric d / g exists.
+   */
+  hedgesG: number | null;
+  /**
+   * 95% confidence interval of the STANDARDIZED effect size (Cohen's d) via the
+   * noncentral t distribution. This is distinct from ci95, which is the CI of
+   * the mean difference. Null for the nonparametric rank tests.
+   */
+  effectSizeCI95: [number, number] | null;
   /** Confidence interval of the difference in means where defined. */
   ci95: [number, number] | null;
   groupA?: Descriptives;
@@ -67,6 +79,22 @@ export interface PairwiseComparison {
   method: string;
 }
 
+/**
+ * Effect size for an omnibus ANOVA. eta-squared is the proportion of total
+ * variance the grouping explains; omega-squared is its less biased counterpart.
+ * Each carries a 95% CI from the noncentral F pivot. For Kruskal-Wallis there
+ * are no sums of squares, so we report epsilon-squared (the rank-based analogue)
+ * in etaSquared with omegaSquared and both CIs left null and an honest label.
+ */
+export interface AnovaEffectSize {
+  /** "eta-squared" for ANOVA, "epsilon-squared" for Kruskal-Wallis. */
+  label: string;
+  etaSquared: number;
+  omegaSquared: number | null;
+  /** 95% CI of eta-squared via the noncentral F pivot; null when not defined. */
+  etaSquaredCI95: [number, number] | null;
+}
+
 export interface AnovaResult {
   test: string;
   table: AnovaTableRow[];
@@ -74,6 +102,12 @@ export interface AnovaResult {
   statistic: number;
   pValue: number;
   comparisons: PairwiseComparison[];
+  /**
+   * Omnibus effect size (eta-squared / omega-squared + CI for ANOVA,
+   * epsilon-squared for Kruskal-Wallis). Null only when the design cannot define
+   * one (for example the two-way table, which is left to its per-effect rows).
+   */
+  effectSize: AnovaEffectSize | null;
 }
 
 export interface CorrelationResult {
@@ -85,6 +119,14 @@ export interface CorrelationResult {
   df: number;
   pValue: number;
   ci95: [number, number];
+  /** Coefficient of determination r^2, the share of variance explained. */
+  rSquared: number;
+  /**
+   * 95% CI of r^2, obtained by squaring the (sorted) Fisher-z CI bounds of the
+   * coefficient. When the coefficient CI straddles zero the lower r^2 bound is
+   * clamped to 0, since r^2 cannot be negative.
+   */
+  rSquaredCI95: [number, number];
 }
 
 export interface LinearRegressionResult {

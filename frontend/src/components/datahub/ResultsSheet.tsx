@@ -107,8 +107,29 @@ function AnovaStatsTable({ r }: { r: NormalizedAnova }) {
         SS is the sum of squares, df the degrees of freedom, MS the mean square,
         and F the ratio the p-value comes from.
       </p>
+      {r.effectSize ? <AnovaEffectSizeTable es={r.effectSize} /> : null}
     </>
   );
+}
+
+/**
+ * Omnibus effect size for an ANOVA / Kruskal-Wallis. eta-squared (or
+ * epsilon-squared for the rank test) is the share of variance the grouping
+ * explains, so the reader sees how big the difference is, not just whether it is
+ * significant. omega-squared and the CI appear only when defined.
+ */
+function AnovaEffectSizeTable({ es }: { es: NormalizedAnova["effectSize"] }) {
+  if (!es) return null;
+  const rows: { label: string; value: string }[] = [
+    { label: es.label, value: num(es.etaSquared, 3) },
+  ];
+  if (es.etaSquaredCI95) {
+    rows.push({ label: `95% CI of ${es.label}`, value: ciText(es.etaSquaredCI95) });
+  }
+  if (es.omegaSquared !== null && Number.isFinite(es.omegaSquared)) {
+    rows.push({ label: "omega-squared", value: num(es.omegaSquared, 3) });
+  }
+  return <KeyValueTable rows={rows} testid="results-anova-effectsize-table" />;
 }
 
 function ComparisonsTable({
@@ -201,6 +222,20 @@ function TTestTable({ r }: { r: NormalizedTTest }) {
           },
         ]),
     { label: r.effectSizeLabel, value: num(r.effectSize) },
+    // Standardized effect size CI plus Hedges' g. The rank tests report only the
+    // rank-biserial r above (no parametric d / g / noncentral-t CI exists), so
+    // these rows appear only for the parametric t tests.
+    ...(r.effectSizeCI95
+      ? [
+          {
+            label: `95% CI of ${r.effectSizeLabel}`,
+            value: ciText(r.effectSizeCI95),
+          },
+        ]
+      : []),
+    ...(r.hedgesG !== null && Number.isFinite(r.hedgesG)
+      ? [{ label: "Hedges' g", value: num(r.hedgesG) }]
+      : []),
   ];
   return (
     <table
@@ -265,6 +300,8 @@ function CorrelationTable({ r }: { r: NormalizedCorrelation }) {
         { label: "Method", value: r.method === "spearman" ? "Spearman rank" : "Pearson" },
         { label: `Coefficient (${sym})`, value: num(r.coefficient, 3) },
         { label: "95% CI of " + sym, value: ciText(r.ci95) },
+        { label: "R-squared", value: num(r.rSquared, 3) },
+        { label: "95% CI of R-squared", value: ciText(r.rSquaredCI95) },
         { label: "t", value: num(r.statistic) },
         { label: "df", value: num(r.df, 0) },
         { label: "p", value: formatP(r.pValue) },
