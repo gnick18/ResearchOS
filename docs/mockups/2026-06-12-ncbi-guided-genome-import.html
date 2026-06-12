@@ -160,6 +160,14 @@ const CONTIGS=[
 ];
 const GENE={symbol:"cyp51A",locus:"AFUA_4G06890",desc:"cytochrome P450, sterol 14-alpha demethylase",
   contig:"NC_007197.1",chr:"4",contigLen:3923705,begin:1777375,end:1781822,orientation:"minus",exons:2};
+// candidate hits from an esearch (db=gene, scoped to the organism). Verified live:
+// "sterol 14-alpha-demethylase AND Aspergillus fumigatus[orgn]" -> cyp51A, erg25B;
+// "cyp51" -> cyp51A, cyp51B. So a NAME or PROTEIN DESCRIPTION resolves, not just a symbol.
+const GENE_HITS=[
+  {symbol:"cyp51A",locus:"AFUA_4G06890",desc:"cytochrome P450, sterol 14-alpha-demethylase",chr:"4",pick:true},
+  {symbol:"cyp51B",locus:"AFUA_7G03740",desc:"sterol 14-alpha-demethylase, paralog",chr:"7"},
+  {symbol:"erg25B",locus:"AFUA_4G04820",desc:"sterol desaturase family protein",chr:"4"},
+];
 const NEIGHBORS=[
   {locus:"AFUA_4G06870",lo:1769900,hi:1772100},
   {locus:"asn2 / AFUA_4G06880",lo:1773600,hi:1776300},
@@ -204,7 +212,12 @@ function stepOrganism(){
       <div class="main"><div class="t">${x.t}</div><div class="meta">${x.meta}</div></div>
       <span class="tag">${x.meta.split(",")[0]}</span>
     </div>`).join("")}</div>
-  <div class="nav"><span class="note">Pick the species to see its genomes.</span></div>`;
+  <div class="nav"><span class="note">Pick the species to see its genomes.</span>
+    <button class="btn" id="accHatch" style="margin-left:auto">I have an accession</button></div>
+  <div id="accBox" style="display:none;margin-top:10px" class="placard">
+    <div class="sub" style="margin-bottom:8px">Know exactly what you want? Paste any accession (gene NM_/NG_, genome GCF_/GCA_, or a contig NC_) and skip the guided path.</div>
+    <div class="field"><input class="txt mono" placeholder="e.g. NC_007197.1 or GCF_000002655.1" value="NC_007197.1"/><button class="btn primary" data-go="5">Go</button></div>
+  </div>`;
 }
 function stepAssemblies(){
   return `<h2>Genomes for <b>Aspergillus fumigatus</b></h2><p class="hint">The reference genome is flagged, so you do not have to know the accession. This is wired too (listTaxonAssemblies, isReference).</p>
@@ -212,7 +225,9 @@ function stepAssemblies(){
     <div class="row" data-go="3" data-pick="asm">
       <div class="main"><div class="t mono">${a.acc} <span style="font-family:inherit;color:var(--muted);font-weight:400">${a.name}</span></div><div class="meta">${a.sub} &middot; ${a.level} level</div></div>
       ${a.ref?'<span class="tag ref">Reference</span>':'<span class="tag">'+a.level+'</span>'}
+      <button class="btn" data-go="6" title="Download every contig in this assembly">Whole genome</button>
     </div>`).join("")}</div>
+  <div class="note">Click a genome to browse its chromosomes, or grab the whole assembly at once with Whole genome.</div>
   <div class="nav"><button class="btn back" data-go="1">Back</button></div>`;
 }
 function stepContigs(){
@@ -225,23 +240,22 @@ function stepContigs(){
         <div style="height:4px;border-radius:3px;background:var(--chip);margin-top:6px"><div style="height:100%;border-radius:3px;background:var(--action);width:${(c.len/max*100).toFixed(0)}%"></div></div>
       </div>
       <span class="tag chr">Chr ${c.chr}</span>
+      <button class="btn" data-go="6" title="Download this whole chromosome">Whole chromosome</button>
     </div>`).join("")}</div>
+  <div class="note">Grab a whole chromosome, or search a gene to land on the right one and window it.</div>
   <div class="nav"><button class="btn back" data-go="2">Back</button><button class="btn primary" data-go="4">Search a gene instead</button></div>`;
 }
 function stepGene(){
-  return `<h2>Find a gene</h2><p class="hint">Type a symbol or locus tag. We resolve which chromosome and where, from the gene report (gene/symbol/taxon, the genomic_locations placement).</p>
-  <div class="field"><input class="txt" id="geneIn" value="cyp51A" autocomplete="off"/><button class="btn primary" id="geneFind">Find</button></div>
-  <div class="placard" id="geneResult">
-    <div class="g">${GENE.symbol} <span style="font-size:12px;color:var(--muted);font-weight:500">${GENE.locus}</span></div>
-    <div class="sub">${GENE.desc}</div>
-    <div class="kv">
-      <span class="k">Chromosome</span><span>${GENE.chr} <span class="mono">(${GENE.contig})</span></span>
-      <span class="k">Location</span><span class="mono">${fmt(GENE.begin)}..${fmt(GENE.end)}</span>
-      <span class="k">Strand</span><span>${GENE.orientation} (reverse)</span>
-      <span class="k">Span</span><span>${fmt(GENE.end-GENE.begin+1)} bp, ${GENE.exons} exons</span>
-    </div>
-  </div>
-  <div class="nav"><button class="btn back" data-go="3">Back to chromosomes</button><button class="btn primary" data-go="5">Use this gene</button></div>`;
+  return `<h2>Search a gene</h2><p class="hint">Type a symbol, a locus tag, or the protein name if that is all you know. We search NCBI Gene scoped to this organism (esearch), then resolve where each hit sits. You do not need the accession.</p>
+  <div class="field"><input class="txt" id="geneIn" value="cyp51A" autocomplete="off" placeholder="cyp51A, or sterol 14-alpha-demethylase"/><button class="btn primary" id="geneFind">Search</button></div>
+  <div class="list" id="geneHits">${GENE_HITS.map(h=>`
+    <div class="row ${h.pick?'sel':''}" data-go="5" data-pick="gene">
+      <div class="main"><div class="t">${h.symbol} <span class="mono" style="color:var(--muted);font-weight:400">${h.locus}</span></div>
+        <div class="meta">${h.desc} &middot; chromosome ${h.chr}</div></div>
+      <span class="tag chr">Chr ${h.chr}</span>
+    </div>`).join("")}</div>
+  <div class="note" style="margin-top:10px">Not seeing it? <a href="https://www.ncbi.nlm.nih.gov/gene/?term=Aspergillus+fumigatus" target="_blank" style="color:var(--action)">Search on NCBI Gene</a>, then paste the accession or symbol back here.</div>
+  <div class="nav"><button class="btn back" data-go="3">Back to chromosomes</button></div>`;
 }
 function stepWindow(){
   const lo=Math.max(1,GENE.begin-flank), hi=Math.min(GENE.contigLen,GENE.end+flank);
@@ -288,20 +302,33 @@ function stepDone(){
 
 function bindBody(){
   document.querySelectorAll("[data-go]").forEach(el=>el.addEventListener("click",e=>{e.stopPropagation();go(+el.dataset.go);}));
-  const gf=document.getElementById("geneFind"); if(gf) gf.addEventListener("click",()=>document.getElementById("geneResult").style.display="block");
+  const ah=document.getElementById("accHatch"); if(ah) ah.addEventListener("click",()=>{const b=document.getElementById("accBox");b.style.display=b.style.display==="none"?"block":"none";});
+  const gf=document.getElementById("geneFind"), gi=document.getElementById("geneIn");
+  function runGeneSearch(){
+    const q=(gi.value||"").toLowerCase().trim();
+    const hits=GENE_HITS.filter(h=>!q||h.symbol.toLowerCase().includes(q)||h.locus.toLowerCase().includes(q)||h.desc.toLowerCase().includes(q));
+    document.getElementById("geneHits").innerHTML=(hits.length?hits:GENE_HITS).map(h=>`
+      <div class="row ${h.pick?'sel':''}" data-go="5" data-pick="gene">
+        <div class="main"><div class="t">${h.symbol} <span class="mono" style="color:var(--muted);font-weight:400">${h.locus}</span></div>
+          <div class="meta">${h.desc} &middot; chromosome ${h.chr}</div></div>
+        <span class="tag chr">Chr ${h.chr}</span></div>`).join("");
+    document.querySelectorAll("#geneHits [data-go]").forEach(el=>el.addEventListener("click",e=>{e.stopPropagation();go(+el.dataset.go);}));
+  }
+  if(gf) gf.addEventListener("click",runGeneSearch);
+  if(gi) gi.addEventListener("keydown",e=>{if(e.key==="Enter")runGeneSearch();});
   const fl=document.getElementById("flankIn"); if(fl) fl.addEventListener("input",()=>{flank=Math.max(0,+fl.value||0);render();setTimeout(()=>{const f=document.getElementById("flankIn");if(f){f.focus();f.setSelectionRange(f.value.length,f.value.length);}},0);});
 }
 
 /* ---------- decisions ---------- */
 const D=[
-  {id:"NB-1",title:"Replace the typed tabs with this guided flow",rec:"Approve",
-   body:"Keep an Advanced or Accession escape hatch for power users who already know the accession, but lead with the guided path. The three current tabs become a fallback, not the front door."},
+  {id:"NB-1",title:"Guided front door, accession quick-path kept",rec:"Approve",updated:true,
+   body:"UPDATED from your note. Guided flow is the front door, and an <b>I have an accession</b> button (on step 1) drops to a paste-and-go field for people who already know exactly what they want. Nobody is forced through the wizard."},
   {id:"NB-2",title:"Window default is gene plus a flank, editable",rec:"Approve",
-   body:"Default to the gene span plus <code>1000 bp</code> each side, shown as an editable number, so you keep promoter and terminator context. The alternative is a fixed centered size or the bare gene. You picked gene plus a flank."},
-  {id:"NB-3",title:"Keep the Contigs step, or skip it",rec:"Approve",
-   body:"Show the chromosome list as its own browsable step (proves we pulled the genome, and lets you grab a whole small contig), with a Search a gene instead shortcut. Or collapse it and jump straight from reference to gene search."},
-  {id:"NB-4",title:"Gene lookup source",rec:"Approve",
-   body:"Resolve placement from the Datasets gene report (<code>genomic_locations</code>), with E-utilities <code>esummary</code> as a fallback when Datasets has no placement. Both verified to return chromosome 4, 1,777,375..1,781,822 for cyp51A."},
+   body:"Default to the gene span plus <code>1000 bp</code> each side, shown as an editable number, so you keep promoter and terminator context. You picked gene plus a flank."},
+  {id:"NB-3",title:"Every path optional, whole genome too",rec:"Approve",updated:true,
+   body:"UPDATED from your note. Each step keeps a full-download option, <b>Whole genome</b> on an assembly, <b>Whole chromosome</b> on a contig, or window-around-a-gene. Some people just want the whole thing, so no step forces you to narrow."},
+  {id:"NB-4",title:"Search a gene by name, not just accession",rec:"Approve",updated:true,
+   body:"UPDATED from your note. The gene step is a real <b>search</b> (NCBI esearch, scoped to the organism), so a symbol, a locus tag, or a protein name all resolve. Verified live, sterol 14-alpha-demethylase finds cyp51A. A Search on NCBI Gene link is the fallback when our search comes up empty."},
   {id:"NB-5",title:"This guided flow becomes the sequences demo clip",rec:"Approve",
    body:"Record the welcome-page Sequence clip as this exact walk (organism, reference, cyp51A, window), then Extract and Assemble into pEGFP-N1. Precache the NCBI calls during the countdown so it is instant on camera."},
 ];
@@ -312,7 +339,7 @@ function dlist(){
   document.getElementById("dlist").innerHTML=D.map(d=>{
     const c=DEC[d.id]||{};
     return `<div class="card">
-      <div class="ctop"><span class="did">${d.id}</span><span class="ctitle">${d.title}</span><span class="rec">rec ${d.rec}</span></div>
+      <div class="ctop"><span class="did">${d.id}</span><span class="ctitle">${d.title}</span>${d.updated?'<span class="tag ref" style="font-size:10px">revised</span>':''}<span class="rec">rec ${d.rec}</span></div>
       <div class="cbody">${d.body}</div>
       <div class="decide">
         <span class="seg" data-id="${d.id}">
