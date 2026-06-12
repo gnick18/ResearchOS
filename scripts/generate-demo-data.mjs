@@ -3791,7 +3791,91 @@ function buildEntries() {
   out.push(...readBackStore("users/alex/datahub", [".json"]));
   out.push(...readBackStore("users/alex/molecules", [".meta.json", ".mol"]));
 
+  relocateStuffedNoteBodies(out);
+
   return out;
+}
+
+// A handful of demo notes were authored with their entire body text crammed
+// into the one-line `description` field and an empty `entries` array, so the
+// note popup rendered the whole body in the summary slot. This pass relocates
+// each such body (verbatim) into a single note entry and swaps the description
+// for a short summary. It mirrors the one-off fix in
+// frontend/scripts/fix-demo-note-descriptions.mjs exactly, so a regen
+// reproduces that committed fix instead of wiping it. Keyed by demo-tree path.
+// HR root-cause follow-up, 2026-06-11.
+const STUFFED_NOTE_FIXES = {
+  "users/alex/notes/1.json": {
+    desc: "Transformed FakeYeast-001 with pYES-GAL1::flbA using the LiAc protocol.",
+    label: "transformation run",
+  },
+  "users/alex/notes/3.json": {
+    desc: "Bench card for the column mini-prep.",
+    label: "mini-prep recipe",
+  },
+  "users/alex/notes/4.json": {
+    desc: "Lab meeting on strain design, covering flbA integration data and the 96-well screen plan.",
+    label: "lab meeting notes",
+  },
+  "users/alex/notes/6.json": {
+    desc: "Reorganizing -80 freezer 3, shelf 2 (what was kept and what was discarded).",
+    label: "freezer cleanout",
+  },
+  "users/alex/notes/7.json": {
+    desc: "Prep card for the 1:1 calendar event.",
+    label: "1:1 prep",
+  },
+  "users/mira/notes/1.json": {
+    desc: "Check-in covering the chapter 2 figure plan, fakeGFP data, and conference travel.",
+    label: "check-in notes",
+  },
+  "users/morgan/notes/2.json": {
+    desc: "Bench card for setting up the 96-well fluorescence screen.",
+    label: "screen prep checklist",
+  },
+  "users/morgan/notes/3.json": {
+    desc: "Lab meeting recap, taken from my seat.",
+    label: "meeting notes",
+  },
+  "users/morgan/notes/4.json": {
+    desc: "Whiteboard session to design a GFP heat-stress survival assay for the FY-Δgal80 library.",
+    label: "brainstorm notes",
+  },
+  "users/morgan/notes/5.json": {
+    desc: "Tracking the reagents I'm responsible for on shelf 2.",
+    label: "reagent tracker",
+  },
+  "users/morgan/notes/7.json": {
+    desc: "First proper screen of the FY-Δgal80 candidate library off the H1 reader.",
+    label: "reader run",
+  },
+};
+
+function relocateStuffedNoteBodies(entries) {
+  for (const entry of entries) {
+    const fix = STUFFED_NOTE_FIXES[entry[0]];
+    if (!fix) continue;
+    const note = entry[1];
+    if (!Array.isArray(note.entries) || note.entries.length !== 0) {
+      throw new Error(
+        `relocateStuffedNoteBodies: ${entry[0]} expected empty entries, got ${
+          Array.isArray(note.entries) ? note.entries.length : typeof note.entries
+        }`,
+      );
+    }
+    const ymd = note.created_at.slice(0, 10); // YYYY-MM-DD from ISO created_at
+    note.entries = [
+      {
+        id: `${note.username}-note${note.id}-e1`,
+        title: `${ymd}: ${fix.label}`,
+        date: ymd,
+        content: note.description, // verbatim relocation, no rewrite
+        created_at: note.created_at,
+        updated_at: note.updated_at,
+      },
+    ];
+    note.description = fix.desc;
+  }
 }
 
 /**
