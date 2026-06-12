@@ -195,6 +195,79 @@ describe("buildGraph", () => {
     );
     expect(built.ok).toBe(false);
   });
+
+  it("builds a two-group estimation request as a Gardner-Altman figure", () => {
+    const built = buildGraph(
+      twoGroupContent(),
+      parseMakeGraphArgs({
+        tableId: "1",
+        type: "estimation",
+        control: "Control",
+        paired: true,
+      }),
+    );
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.spec.type).toBe("estimationGardnerAltman");
+    const style = readPlotStyle(built.spec);
+    expect(style.kind).toBe("estimationGardnerAltman");
+    // Paired carried through, control resolved to the first group (index 0).
+    expect(style.estimationPaired).toBe(true);
+    expect(style.estimationControlIndex).toBe(0);
+    // An estimation figure always shows the raw points (half its purpose).
+    expect(style.showPoints).toBe(true);
+  });
+
+  it("builds a three-group estimation request as a Cumming figure", () => {
+    // A three-group table (a control plus two others) makes a Cumming plot.
+    const content: DataHubDocContent = {
+      meta: meta({ id: "3", name: "Three" }),
+      columns: [
+        { id: "c1", name: "Control", role: "y", dataType: "number" },
+        { id: "c2", name: "Drug A", role: "y", dataType: "number" },
+        { id: "c3", name: "Drug B", role: "y", dataType: "number" },
+      ],
+      rows: [0, 1, 2, 3, 4].map((i) => ({
+        id: `r${i}`,
+        cells: { c1: 10 + i, c2: 18 + i, c3: 14 + i },
+      })),
+      analyses: [],
+      plots: [],
+    };
+    const built = buildGraph(
+      content,
+      parseMakeGraphArgs({
+        tableId: "3",
+        type: "estimation",
+        control: "Drug A",
+      }),
+    );
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(built.spec.type).toBe("estimationCumming");
+    const style = readPlotStyle(built.spec);
+    // The control resolved to Drug A (index 1); paired is ignored for Cumming.
+    expect(style.estimationControlIndex).toBe(1);
+    expect(style.estimationPaired).toBe(false);
+  });
+
+  it("rejects an estimation request when the table has only one group", () => {
+    const content: DataHubDocContent = {
+      meta: meta({ id: "1g", name: "One" }),
+      columns: [{ id: "c1", name: "Control", role: "y", dataType: "number" }],
+      rows: [
+        { id: "r0", cells: { c1: 1 } },
+        { id: "r1", cells: { c1: 2 } },
+      ],
+      analyses: [],
+      plots: [],
+    };
+    const built = buildGraph(
+      content,
+      parseMakeGraphArgs({ tableId: "1g", type: "estimation" }),
+    );
+    expect(built.ok).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
