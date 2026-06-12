@@ -3,11 +3,10 @@
 // Milestone twirl BeakerBot trigger (twirl-milestones bot).
 //
 // Fires the celebratory `twirlMilestone` scene ONCE on the FIRST
-// occurrence of each of three rare checkpoint moments, so the twirl
+// occurrence of each of two rare checkpoint moments, so the twirl
 // stays sprinkled and special:
-//   1. Finishing the v4 onboarding walkthrough (tour-goodbye outro).
-//   2. The user marking their FIRST experiment complete.
-//   3. The FIRST time a whole project is fully done (every task in a
+//   1. The user marking their FIRST experiment complete.
+//   2. The FIRST time a whole project is fully done (every task in a
 //      project complete).
 //
 // The FOURTH milestone the product team wanted to celebrate (the first
@@ -37,12 +36,10 @@ import { useEffect } from "react";
 import { useSceneTriggerStore } from "@/lib/scene-trigger-store";
 import { taskCompletionEvents } from "@/lib/tasks/task-completion-events";
 import { readUserSettings } from "@/lib/settings/user-settings";
-import { TOUR_GOODBYE_PLAY_OUTRO_EVENT } from "@/components/onboarding/v4/steps/cleanup/TourGoodbyeStep";
-
-/** The three milestones this hook owns. The 7-day streak is intentionally
- *  absent (CelebrationManager owns that twirl). */
+/** The milestones this hook owns. The 7-day streak is intentionally
+ *  absent (CelebrationManager owns that twirl). The tour-completion
+ *  milestone was removed with the v4 tour. */
 export type TwirlMilestone =
-  | "tourComplete"
   | "firstExperiment"
   | "firstProject";
 
@@ -153,32 +150,12 @@ export async function fireTwirlMilestone(
  * Pass the active username; when null (no signed-in user) the hook is a
  * no-op.
  *
- * Subscribes to:
- *   - the `tour-goodbye:play-outro` window event (tour completion). The
- *     twirl fires AFTER the goodbye overlay routes home, so it lands as a
- *     fresh beat rather than stacking on the goodbye confetti.
- *   - the task-completion event bus (first experiment + first project).
+ * Subscribes to the task-completion event bus (first experiment + first
+ * project). The tour-completion milestone was removed with the v4 tour.
  */
 export function useMilestoneTwirlTrigger(username: string | null): void {
   useEffect(() => {
     if (!username) return;
-    if (typeof window === "undefined") return;
-
-    // --- Tour completion ---------------------------------------------
-    // The goodbye overlay runs its own ~4.4s cheer/wave/route-home outro.
-    // Fire the twirl after that budget so the two celebrations don't
-    // overlap; by then the user is on the home surface and the twirl
-    // reads as a separate "nice work finishing the tour" flourish.
-    const TOUR_OUTRO_BUDGET_MS = 5000;
-    let tourTimer: ReturnType<typeof setTimeout> | undefined;
-    const onTourGoodbye = () => {
-      if (tourTimer !== undefined) return;
-      tourTimer = setTimeout(() => {
-        tourTimer = undefined;
-        void fireTwirlMilestone(username, "tourComplete");
-      }, TOUR_OUTRO_BUDGET_MS);
-    };
-    window.addEventListener(TOUR_GOODBYE_PLAY_OUTRO_EVENT, onTourGoodbye);
 
     // --- Task completion (first experiment + first project) ----------
     const unsubscribeTasks = taskCompletionEvents.onCompleted((detail) => {
@@ -193,8 +170,6 @@ export function useMilestoneTwirlTrigger(username: string | null): void {
     });
 
     return () => {
-      window.removeEventListener(TOUR_GOODBYE_PLAY_OUTRO_EVENT, onTourGoodbye);
-      if (tourTimer !== undefined) clearTimeout(tourTimer);
       unsubscribeTasks();
     };
   }, [username]);
@@ -204,7 +179,7 @@ export function useMilestoneTwirlTrigger(username: string | null): void {
  *  of the public API; tests import this directly. */
 export function __resetMilestoneTwirlTriggerForTests(username: string): void {
   if (typeof window === "undefined") return;
-  for (const m of ["tourComplete", "firstExperiment", "firstProject"] as const) {
+  for (const m of ["firstExperiment", "firstProject"] as const) {
     try {
       window.localStorage.removeItem(milestoneFlagKey(username, m));
     } catch {
