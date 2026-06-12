@@ -121,6 +121,46 @@ TABLE_MM_RIGHT_ROWS = [
 ]
 TABLE_MM_RIGHT_COLS = ["k", "right_val"]
 
+# TABLE_DERIVE: clean numeric columns for derive arithmetic.
+# We only validate formulas where the calc engine and pandas agree (basic
+# arithmetic). The calc engine's own helper functions (mean, sd, shannon, and
+# so on) are validated against their own golden tests, not against pandas here.
+TABLE_DERIVE_ROWS = [
+    {"a": 1.0, "b": 2.0, "c": 3.0},
+    {"a": 4.0, "b": 5.0, "c": 6.0},
+    {"a": 7.0, "b": 8.0, "c": 9.0},
+    {"a": 10.0, "b": 0.0, "c": 2.0},
+]
+TABLE_DERIVE_COLS = ["a", "b", "c"]
+
+# TABLE_LONG: a long-format table for pivot (one row per sample/gene pair).
+TABLE_LONG_ROWS = [
+    {"sample": "S1", "gene": "actin",   "level": 10.0},
+    {"sample": "S1", "gene": "tubulin", "level": 20.0},
+    {"sample": "S2", "gene": "actin",   "level": 30.0},
+    {"sample": "S2", "gene": "tubulin", "level": 40.0},
+    {"sample": "S3", "gene": "actin",   "level": 50.0},
+    # S3 has no tubulin row, so that pivot cell must be null.
+]
+TABLE_LONG_COLS = ["sample", "gene", "level"]
+
+# TABLE_LONG_DUP: same shape as TABLE_LONG but with a deliberate duplicate
+# (sample S1, gene actin appears twice), to exercise the collision policy.
+TABLE_LONG_DUP_ROWS = [
+    {"sample": "S1", "gene": "actin",   "level": 10.0},
+    {"sample": "S1", "gene": "actin",   "level": 30.0},  # collision with the row above
+    {"sample": "S1", "gene": "tubulin", "level": 20.0},
+    {"sample": "S2", "gene": "actin",   "level": 50.0},
+]
+TABLE_LONG_DUP_COLS = ["sample", "gene", "level"]
+
+# TABLE_WIDE: a wide-format table for unpivot (melt).
+TABLE_WIDE_ROWS = [
+    {"sample": "S1", "actin": 10.0, "tubulin": 20.0},
+    {"sample": "S2", "actin": 30.0, "tubulin": 40.0},
+]
+TABLE_WIDE_COLS = ["sample", "actin", "tubulin"]
+
 
 def make_df(rows, cols):
     """Create a pandas DataFrame from a list-of-dict fixture, preserving column order."""
@@ -435,6 +475,106 @@ def ref_chains():
     }
 
 
+def ref_derive():
+    """Derive (computed column) references.
+
+    We validate ONLY basic arithmetic formulas where the calc engine and pandas
+    agree element-wise (a + b, a * 2 - c, a / b). The calc engine's helper
+    functions (mean, sd, shannon, and so on) are NOT validated against pandas
+    here; those have their own golden tests under frontend/src/lib/calculators.
+    pandas computes the same column with plain vectorized arithmetic, then the
+    engine must match value-for-value. Division producing a non-finite value
+    (a / b where b == 0) maps to null on the engine side, so we mirror that by
+    replacing inf with None in the reference.
+    """
+    d = make_df(TABLE_DERIVE_ROWS, TABLE_DERIVE_COLS)
+    results = {}
+
+    def with_derived(col_name, series):
+        out = d.copy()
+        # Map non-finite (inf from divide-by-zero) to null, matching the engine.
+        cleaned = series.replace([np.inf, -np.inf], np.nan)
+        out[col_name] = cleaned
+        return {"columns": list(out.columns), "rows": df_to_records(out)}
+
+    # sum_ab = a + b
+    results["sum_ab"] = with_derived("sum_ab", d["a"] + d["b"])
+
+    # lin = a * 2 - c
+    results["lin"] = with_derived("lin", d["a"] * 2 - d["c"])
+
+    # ratio = a / b (the b == 0 row yields inf -> null)
+    results["ratio"] = with_derived("ratio", d["a"] / d["b"])
+
+    return results
+
+
+def ref_pivot():
+    """Pivot (long -> wide) references via pandas pivot_table (aggfunc=mean).
+
+    The engine's collision policy is pivot_table's aggregate-by-mean, and its
+    column order is the sorted distinct key values, so we use pivot_table here
+    (NOT DataFrame.pivot, which raises on duplicate index/column pairs). The
+    index is reset so the index columns appear as ordinary columns, matching the
+    engine's flat-table output. pivot_table sorts both the index and the columns
+    ascending by default, which is exactly the engine's documented ordering.
+    """
+    results = {}
+
+    # No collision: each (sample, gene) pair is unique. S3 has no tubulin, so
+    # that cell must be null.
+    long_df = make_df(TABLE_LONG_ROWS, TABLE_LONG_COLS)
+    wide = pd.pivot_table(
+        long_df, index="sample", columns="gene", values="level", aggfunc="mean"
+    )
+    wide = wide.reset_index()
+    wide.columns.name = None
+    results["basic"] = {"columns": list(wide.columns), "rows": df_to_records(wide)}
+
+    # Collision: (S1, actin) appears twice (10 and 30). pivot_table averages to
+    # 20, matching the engine's mean collision policy.
+    dup_df = make_df(TABLE_LONG_DUP_ROWS, TABLE_LONG_DUP_COLS)
+    wide_dup = pd.pivot_table(
+        dup_df, index="sample", columns="gene", values="level", aggfunc="mean"
+    )
+    wide_dup = wide_dup.reset_index()
+    wide_dup.columns.name = None
+    results["collision"] = {
+        "columns": list(wide_dup.columns),
+        "rows": df_to_records(wide_dup),
+    }
+
+    return results
+
+
+def ref_unpivot():
+    """Unpivot (wide -> long) references via pandas melt.
+
+    melt row order is grouped by value variable, then input row, which is the
+    engine's documented order. We validate both an explicit-valueVars melt with
+    custom var/value names and a default melt (all non-id columns, default
+    variable/value names).
+    """
+    results = {}
+    wide = make_df(TABLE_WIDE_ROWS, TABLE_WIDE_COLS)
+
+    # Explicit value columns with custom names.
+    m = pd.melt(
+        wide,
+        id_vars=["sample"],
+        value_vars=["actin", "tubulin"],
+        var_name="gene",
+        value_name="level",
+    )
+    results["explicit"] = {"columns": list(m.columns), "rows": df_to_records(m)}
+
+    # Default value columns (all non-id) and default variable/value names.
+    m2 = pd.melt(wide, id_vars=["sample"])
+    results["defaults"] = {"columns": list(m2.columns), "rows": df_to_records(m2)}
+
+    return results
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -460,6 +600,10 @@ def main():
             "TABLE_NULL_KEYS_B": {"columns": TABLE_NULL_KEYS_B_COLS, "rows": TABLE_NULL_KEYS_B_ROWS},
             "TABLE_MM_LEFT": {"columns": TABLE_MM_LEFT_COLS, "rows": TABLE_MM_LEFT_ROWS},
             "TABLE_MM_RIGHT": {"columns": TABLE_MM_RIGHT_COLS, "rows": TABLE_MM_RIGHT_ROWS},
+            "TABLE_DERIVE": {"columns": TABLE_DERIVE_COLS, "rows": TABLE_DERIVE_ROWS},
+            "TABLE_LONG": {"columns": TABLE_LONG_COLS, "rows": TABLE_LONG_ROWS},
+            "TABLE_LONG_DUP": {"columns": TABLE_LONG_DUP_COLS, "rows": TABLE_LONG_DUP_ROWS},
+            "TABLE_WIDE": {"columns": TABLE_WIDE_COLS, "rows": TABLE_WIDE_ROWS},
         },
         "references": {
             "join": ref_join(),
@@ -473,6 +617,9 @@ def main():
             "dedupe": ref_dedupe(),
             "union": ref_union(),
             "chains": ref_chains(),
+            "derive": ref_derive(),
+            "pivot": ref_pivot(),
+            "unpivot": ref_unpivot(),
         },
     }
 
