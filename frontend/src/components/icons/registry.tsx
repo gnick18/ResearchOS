@@ -931,6 +931,23 @@ const ICONS_RAW = {
     ),
   },
 
+  // ── Literature explorer ─────────────────────────────────────────────────────
+  // star: outlined star for the save-paper toggle in the literature explorer.
+  // Callers fill it via className (fill-current or fill-amber-400) when starred.
+  star: {
+    concept: "Star / save a paper to a molecule",
+    body: (
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+    ),
+  },
+  // filter: funnel icon for the literature explorer filter rail toggle button.
+  filter: {
+    concept: "Filter / funnel",
+    body: (
+      <path d="M3 4h18l-7 9v7l-4-2v-5L3 4z" />
+    ),
+  },
+
   // ── Wisconsin state silhouette (MadeInMadison badge, brand identity) ────────
   // Accurate Wisconsin border (MIT state-svg-defs, viewBox cropped to the shape).
   // Grant approved in the 2026-06-10 pricing-page mockup (.wibadge). The circle
