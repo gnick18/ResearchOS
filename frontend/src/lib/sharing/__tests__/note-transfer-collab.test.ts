@@ -144,6 +144,7 @@ describe("importNoteBundle with collab_doc_id", () => {
         collab_doc_id: TEST_DOC_ID,
       },
       attachments: [],
+      embeddedObjects: [] as import("@/lib/sharing/bundle").BundleEmbeddedObject[],
       metadata: {},
     };
 
@@ -175,6 +176,7 @@ describe("importNoteBundle with collab_doc_id", () => {
         // no collab_doc_id
       },
       attachments: [],
+      embeddedObjects: [] as import("@/lib/sharing/bundle").BundleEmbeddedObject[],
       metadata: {},
     };
 
