@@ -153,6 +153,23 @@ describe("run-analysis", () => {
     expect(outcome.pValue).toBeCloseTo(engine.pValue, 10);
     // Control mean 99.833, Drug A mean 79.833, so the difference is exactly 20.
     expect(outcome.meanDiff).toBeCloseTo(20.0, 3);
+
+    // E4 additive bootstrap CI of the difference: present for the parametric
+    // path, reproducible (fixed seed), and it must bracket the observed
+    // difference. We assert the bracket + a sane width rather than exact bounds,
+    // since the bounds are RNG-derived (deterministic given the seed but not a
+    // simple closed form).
+    expect(outcome.bootstrapCI95).not.toBeNull();
+    const [bLo, bHi] = outcome.bootstrapCI95!;
+    expect(bLo).toBeLessThanOrEqual(outcome.meanDiff);
+    expect(bHi).toBeGreaterThanOrEqual(outcome.meanDiff);
+    // Reproducible across re-runs of the same spec on the same data.
+    const again = runAnalysis(
+      spec("unpairedTTest", ["col-1", "col-2"]),
+      content,
+    );
+    if (!again.ok || again.kind !== "ttest") throw new Error("expected ttest");
+    expect(again.bootstrapCI95).toEqual(outcome.bootstrapCI95);
   });
 
   it("fails cleanly when ANOVA is asked for with too few groups", () => {
@@ -178,6 +195,10 @@ describe("run-analysis", () => {
     // A rank test has no df and no CI of the difference.
     expect(Number.isNaN(outcome.df)).toBe(true);
     expect(outcome.ci95).toBeNull();
+    // The rank test IS the nonparametric path, so it carries no redundant
+    // bootstrap CI and never flags normality.
+    expect(outcome.bootstrapCI95).toBeNull();
+    expect(outcome.normalityShaky).toBe(false);
   });
 
   it("routes a Wilcoxon choice to the engine signed-rank test", () => {

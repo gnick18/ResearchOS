@@ -221,6 +221,21 @@ function TTestTable({ r }: { r: NormalizedTTest }) {
             value: r.ci95 ? `${num(r.ci95[0])} to ${num(r.ci95[1])}` : "-",
           },
         ]),
+    // Distribution-free bootstrap CI of the difference, an additive robust
+    // companion to the parametric CI above. Shown whenever the engine computed
+    // one (the raw-data parametric t-tests). The label notes when normality
+    // looked shaky, since that is exactly when this interval is the more honest
+    // one to read.
+    ...(r.bootstrapCI95
+      ? [
+          {
+            label: r.normalityShaky
+              ? "Bootstrap 95% CI of the difference (normality looks shaky, prefer this)"
+              : "Bootstrap 95% CI of the difference",
+            value: ciText(r.bootstrapCI95),
+          },
+        ]
+      : []),
     { label: r.effectSizeLabel, value: num(r.effectSize) },
     // Standardized effect size CI plus Hedges' g. The rank tests report only the
     // rank-biserial r above (no parametric d / g / noncentral-t CI exists), so
