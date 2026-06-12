@@ -790,6 +790,7 @@ export function ChemistryHub({
               {/* SMILES / SMARTS input */}
               <input
                 type="text"
+                data-testid="chem-structure-query-input"
                 value={structureQuery}
                 onChange={(e) => setStructureQuery(e.target.value)}
                 placeholder={

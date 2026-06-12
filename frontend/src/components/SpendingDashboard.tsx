@@ -398,7 +398,7 @@ export default function SpendingDashboard({
   const exportDisabled = filteredItems.length === 0;
 
   return (
-    <div ref={rootRef} className="mt-12 border-t-2 border-border pt-8">
+    <div ref={rootRef} className="mt-12 border-t-2 border-border pt-8" data-testid="purchases-spending-dashboard">
       <div className="flex items-baseline justify-between mb-4">
         <div>
           <h3 className="text-heading font-semibold text-foreground">
@@ -490,7 +490,7 @@ export default function SpendingDashboard({
       </div>
 
       {/* FUNDING ACCOUNTS — meaningful even at zero state. */}
-      <section className="mb-8">
+      <section className="mb-8" data-testid="purchases-funding-rollup">
         <h4 className="text-meta font-bold text-foreground-muted uppercase tracking-wider mb-3">
           Funding accounts
         </h4>

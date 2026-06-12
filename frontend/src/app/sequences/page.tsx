@@ -2006,6 +2006,7 @@ export default function SequencesPage() {
                     <button
                       type="button"
                       onClick={() => selectSequenceFromList(s.id)}
+                      data-testid={`seq-list-row-${s.id}`}
                       className="flex min-w-0 flex-1 items-center gap-2 py-2 pl-1 text-left"
                     >
                       <MoleculeIcon

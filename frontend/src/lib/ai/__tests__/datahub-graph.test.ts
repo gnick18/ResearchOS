@@ -58,6 +58,30 @@ function twoGroupContent(): DataHubDocContent {
   };
 }
 
+// The two-group table plus a stored one-way ANOVA whose Tukey comparison is
+// significant, so a significanceBrackets request links it and draws a bracket.
+function twoGroupContentWithAnova(): DataHubDocContent {
+  const base = twoGroupContent();
+  return {
+    ...base,
+    analyses: [
+      {
+        id: "an-1",
+        type: "oneWayAnova",
+        params: {},
+        inputs: {},
+        resultCache: {
+          kind: "anova",
+          comparisons: [
+            { groupA: "Control", groupB: "Drug", pAdjusted: 0.0001 },
+          ],
+        },
+        resultStale: false,
+      },
+    ],
+  };
+}
+
 // A three-group column table, so an estimation request resolves to Cumming.
 function threeGroupContent(): DataHubDocContent {
   const control = [10, 11, 9, 12, 10, 11];
@@ -257,6 +281,54 @@ describe("buildGraph", () => {
       parseMakeGraphArgs({ tableId: "1", title: "GFP expression" }),
     );
     expect(built.ok && readPlotStyle(built.spec).title).toBe("GFP expression");
+  });
+
+  it("links a stored one-way ANOVA and draws brackets when significanceBrackets is set", () => {
+    const content = twoGroupContentWithAnova();
+    const built = buildGraph(
+      content,
+      parseMakeGraphArgs({
+        tableId: "1",
+        type: "bar",
+        errorBar: "sem",
+        significanceBrackets: true,
+      }),
+    );
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    // The stored ANOVA is linked on the source and brackets are turned on, so
+    // the engine reads its Tukey comparisons and draws the stars (the model
+    // never computes a star).
+    expect(readPlotSource(built.spec).analysisId).toBe("an-1");
+    expect(readPlotStyle(built.spec).showBrackets).toBe(true);
+    expect(built.result.bracketsDrawn).toBe(true);
+  });
+
+  it("fails with a run-the-ANOVA-first message when brackets are asked but none is saved", () => {
+    const built = buildGraph(
+      twoGroupContent(),
+      parseMakeGraphArgs({
+        tableId: "1",
+        type: "bar",
+        significanceBrackets: true,
+      }),
+    );
+    expect(built.ok).toBe(false);
+    if (built.ok) return;
+    expect(built.error).toMatch(/one-way ANOVA/i);
+    expect(built.error).toMatch(/run_datahub_analysis/);
+  });
+
+  it("leaves brackets off when significanceBrackets is not set, even with a stored ANOVA", () => {
+    const built = buildGraph(
+      twoGroupContentWithAnova(),
+      parseMakeGraphArgs({ tableId: "1", type: "bar" }),
+    );
+    expect(built.ok).toBe(true);
+    if (!built.ok) return;
+    expect(readPlotStyle(built.spec).showBrackets).toBe(false);
+    expect(readPlotSource(built.spec).analysisId).toBeNull();
+    expect(built.result.bracketsDrawn).toBe(false);
   });
 
   it("errors when the table has no group columns to plot", () => {
