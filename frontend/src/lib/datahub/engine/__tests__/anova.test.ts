@@ -4,8 +4,20 @@ import {
   friedman,
   kruskalWallis,
   oneWayAnova,
+  repeatedMeasuresAnova,
   twoWayAnova,
 } from "../anova";
+
+// The shared transparency fixture: 6 subjects x 3 conditions (rows = subjects).
+// Mirrored from src/lib/transparency/datasets/datahub-stats.ts (REPEATED).
+const REPEATED = [
+  [5.1, 5.8, 6.0],
+  [4.9, 5.5, 5.7],
+  [5.6, 6.1, 6.4],
+  [5.0, 5.4, 5.9],
+  [5.3, 5.7, 6.2],
+  [4.8, 5.2, 5.6],
+];
 
 // scipy.stats.f_oneway documented mussel-shell example. F = 7.121019471642447,
 // p = 0.0002812242314534544.
@@ -209,5 +221,44 @@ suite("Friedman vs scipy documented example", () => {
     expect(Number.isFinite(r.statistic)).toBe(true);
     expect(r.pValue).toBeGreaterThanOrEqual(0);
     expect(r.pValue).toBeLessThanOrEqual(1);
+  });
+});
+
+suite("Repeated-measures ANOVA vs statsmodels AnovaRM + pingouin rm_anova", () => {
+  it("matches the pinned reference values on the REPEATED fixture", () => {
+    const r = repeatedMeasuresAnova(REPEATED, ["P", "Q", "R"]);
+    if (!r.ok) throw new Error("expected ok");
+    // statsmodels.stats.anova.AnovaRM (uncorrected): F = 172.894737,
+    // num df = 2, den df = 10, p = 1.75e-08.
+    expect(r.dfConditions).toBe(2);
+    expect(r.dfError).toBe(10);
+    expect(r.statistic).toBeCloseTo(172.894737, 4);
+    expect(r.pValue).toBeCloseTo(1.75e-8, 10);
+    // pingouin rm_anova partial eta-squared = SS_cond/(SS_cond+SS_error).
+    expect(r.partialEtaSquared).toBeCloseTo(0.971893, 5);
+    // pingouin sphericity epsilons + corrected p-values.
+    expect(r.greenhouseGeisserEpsilon).toBeCloseTo(0.624567, 5);
+    expect(r.pGreenhouseGeisser).toBeCloseTo(6.32e-6, 8);
+    expect(r.huynhFeldtEpsilon).toBeCloseTo(0.732472, 5);
+    expect(r.pHuynhFeldt).toBeCloseTo(1.16e-6, 8);
+    // The corrected p-values are at or above the uncorrected p (df shrink only
+    // makes the test more conservative).
+    expect(r.pGreenhouseGeisser).toBeGreaterThanOrEqual(r.pValue);
+    expect(r.pHuynhFeldt).toBeGreaterThanOrEqual(r.pValue);
+    // Condition means in P, Q, R order.
+    expect(r.conditionMeans[0]).toBeCloseTo(5.1167, 3);
+    expect(r.conditionLabels).toEqual(["P", "Q", "R"]);
+  });
+
+  it("drops subjects with a missing condition (complete cases only)", () => {
+    const withGap = [...REPEATED, [5.0, NaN, 5.5]];
+    const r = repeatedMeasuresAnova(withGap, ["P", "Q", "R"]);
+    if (!r.ok) throw new Error("expected ok");
+    expect(r.subjects).toBe(6);
+  });
+
+  it("rejects fewer than 2 conditions or 2 subjects", () => {
+    expect(repeatedMeasuresAnova([[1], [2]], ["P"]).ok).toBe(false);
+    expect(repeatedMeasuresAnova([[1, 2]], ["P", "Q"]).ok).toBe(false);
   });
 });

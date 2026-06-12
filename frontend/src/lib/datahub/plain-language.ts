@@ -10,6 +10,7 @@
 
 import type {
   NormalizedAnova,
+  NormalizedRmAnova,
   NormalizedCorrelation,
   NormalizedDoseResponse,
   NormalizedGlobalFit,
@@ -64,6 +65,29 @@ function anovaSummary(r: NormalizedAnova): string {
     return `At least one of ${list} stands apart from the rest (${stat}).${pairTail}`;
   }
   return `${list} look the same on this measure (${stat}). There is not enough evidence to call any group different.`;
+}
+
+function rmAnovaSummary(r: NormalizedRmAnova): string {
+  const names = r.groups.map((g) => g.name);
+  const list =
+    names.length <= 2
+      ? names.join(" and ")
+      : `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+  const stat = `repeated-measures ANOVA, F(${r.dfConditions}, ${r.dfError}) = ${num(
+    r.statistic,
+  )}, ${formatP(r.pValue)}`;
+  // The Greenhouse-Geisser p is the conservative sphericity-corrected reading; we
+  // report it alongside so a sphericity violation does not silently change the
+  // verdict. eta-p2 is the partial eta-squared share of variance.
+  const corrected = `partial eta-squared = ${num(
+    r.partialEtaSquared,
+    2,
+  )}, Greenhouse-Geisser ${formatP(r.pGreenhouseGeisser)}`;
+
+  if (r.pValue < ALPHA) {
+    return `At least one of ${list} differs across the ${r.conditions} conditions measured on the same ${r.subjects} subjects (${stat}; ${corrected}).`;
+  }
+  return `${list} look the same across the ${r.conditions} conditions (${stat}; ${corrected}). There is not enough evidence of a condition effect.`;
 }
 
 function ttestSummary(r: NormalizedTTest): string {
@@ -376,6 +400,7 @@ function coxSummary(r: NormalizedCoxRegression): string {
  */
 export function plainLanguageSummary(result: NormalizedResult): string {
   if (result.kind === "anova") return anovaSummary(result);
+  if (result.kind === "rmAnova") return rmAnovaSummary(result);
   if (result.kind === "correlation") return correlationSummary(result);
   if (result.kind === "regression") return regressionSummary(result);
   if (result.kind === "logisticRegression")

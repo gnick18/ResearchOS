@@ -23,6 +23,7 @@ import type {
   NormalizedModelComparison,
   NormalizedRegression,
   NormalizedResult,
+  NormalizedRmAnova,
   NormalizedSurvival,
   NormalizedCoxRegression,
   NormalizedTTest,
@@ -876,11 +877,64 @@ print("concordance", cph.concordance_index_)`;
 }
 
 /**
+ * One-way repeated-measures ANOVA. statsmodels AnovaRM gives the uncorrected
+ * F / df / p; pingouin rm_anova gives the same F plus the Greenhouse-Geisser and
+ * Huynh-Feldt sphericity corrections (epsilon + corrected p) and partial
+ * eta-squared. The condition columns are baked in as parallel arrays and stacked
+ * into the long-form dataframe both tools read (one row per subject-condition).
+ */
+function rmAnovaCode(r: NormalizedRmAnova): string {
+  const gv = groupVars(r.groups);
+  const assigns = gv
+    .map((o) => `${o.var} = ${pyList(o.group.values)}`)
+    .join("\n");
+  const condArrays = gv.map((o) => o.var.trim()).join(", ");
+  const condNames = gv.map((o) => pyStr(o.group.name.trim())).join(", ");
+  return `import numpy as np
+import pandas as pd
+import pingouin as pg
+from statsmodels.stats.anova import AnovaRM
+
+# Each array is one within-subject condition; row i is the same subject i.
+${assigns}
+
+conditions = [${condArrays}]
+labels = [${condNames}]
+n = len(conditions[0])
+
+# Stack into the long-form frame both tools read (one row per subject-condition).
+rows = []
+for subj in range(n):
+    for label, values in zip(labels, conditions):
+        rows.append({"subject": subj, "condition": label, "value": values[subj]})
+df = pd.DataFrame(rows)
+
+# Uncorrected F / df / p (statsmodels AnovaRM)
+aov = AnovaRM(df, depvar="value", subject="subject", within=["condition"]).fit()
+print(aov.anova_table)
+
+# Sphericity corrections + partial eta-squared (pingouin)
+rm = pg.rm_anova(
+    data=df, dv="value", within="condition", subject="subject",
+    correction=True, detailed=True,
+)
+eff = rm[rm["Source"] == "condition"].iloc[0]
+err = rm[rm["Source"] == "Error"].iloc[0]
+partial_eta_sq = eff["SS"] / (eff["SS"] + err["SS"])
+hf_eps = pg.epsilon(data=df, dv="value", within="condition",
+                    subject="subject", correction="hf")
+print(f"partial eta-squared = {partial_eta_sq:.4g}")
+print(f"Greenhouse-Geisser epsilon = {eff['eps']:.4g}, p-GG = {eff['p_GG_corr']:.4g}")
+print(f"Huynh-Feldt epsilon = {hf_eps:.4g}")`;
+}
+
+/**
  * The reproducible Python snippet for a normalized analysis result, with the
  * real group names and values baked in so it reproduces the on-screen numbers.
  */
 export function showCode(result: NormalizedResult): string {
   if (result.kind === "anova") return anovaCode(result);
+  if (result.kind === "rmAnova") return rmAnovaCode(result);
   if (result.kind === "correlation") return correlationCode(result);
   if (result.kind === "regression") return regressionCode(result);
   if (result.kind === "logisticRegression")

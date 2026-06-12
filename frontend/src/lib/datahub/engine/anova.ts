@@ -28,6 +28,7 @@ import type {
   AnovaTableRow,
   EngineResult,
   PairwiseComparison,
+  RmAnovaResult,
 } from "./types";
 import { clean, mean as meanOf, rankWithTies, sum } from "./util";
 
@@ -856,5 +857,224 @@ export function friedman(
     // Kendall's W would be the matching effect size for Friedman, but E1 scopes
     // omnibus effect sizes to one-way ANOVA and Kruskal-Wallis, so none here.
     effectSize: null,
+  };
+}
+
+// --- One-way repeated-measures ANOVA + sphericity corrections ---
+
+/**
+ * Greenhouse-Geisser sphericity epsilon from the k-by-k covariance matrix of the
+ * within-subject conditions (Box 1954). Working with the condition covariance
+ * matrix S:
+ *
+ *   dbar  = mean of the diagonal of S
+ *   sbar  = mean of every entry of S
+ *   rbar_i = mean of row i of S
+ *
+ *   epsilon_GG = (k^2 * (dbar - sbar)^2)
+ *              / ( (k - 1) * ( sum_ij S_ij^2
+ *                              - 2k * sum_i rbar_i^2
+ *                              + k^2 * sbar^2 ) )
+ *
+ * epsilon ranges from 1/(k-1) (worst sphericity violation) to 1 (sphericity
+ * holds). The Huynh-Feldt epsilon corrects the conservative bias of the GG
+ * estimate (Huynh & Feldt 1976):
+ *
+ *   epsilon_HF = min( 1, (n*(k-1)*eps_GG - 2) / ((k-1)*(n - 1 - (k-1)*eps_GG)) )
+ *
+ * where n is the number of subjects and k the number of conditions.
+ */
+function sphericityEpsilons(
+  cov: number[][],
+  k: number,
+  n: number,
+): { gg: number; hf: number } {
+  const rowMeans = cov.map((row) => meanOf(row));
+  const dbar = meanOf(cov.map((row, i) => row[i]));
+  let sbar = 0;
+  for (let i = 0; i < k; i++) for (let j = 0; j < k; j++) sbar += cov[i][j];
+  sbar /= k * k;
+
+  let sumSq = 0;
+  for (let i = 0; i < k; i++) for (let j = 0; j < k; j++) sumSq += cov[i][j] * cov[i][j];
+  let sumRowMeanSq = 0;
+  for (let i = 0; i < k; i++) sumRowMeanSq += rowMeans[i] * rowMeans[i];
+
+  const numerator = k * k * (dbar - sbar) * (dbar - sbar);
+  const denominator =
+    (k - 1) * (sumSq - 2 * k * sumRowMeanSq + k * k * sbar * sbar);
+  let gg = denominator > 0 ? numerator / denominator : 1;
+  // Clamp to the theoretical [1/(k-1), 1] range against floating-point spill.
+  const lower = 1 / (k - 1);
+  if (gg < lower) gg = lower;
+  if (gg > 1) gg = 1;
+
+  const hfNum = n * (k - 1) * gg - 2;
+  const hfDen = (k - 1) * (n - 1 - (k - 1) * gg);
+  let hf = hfDen !== 0 ? hfNum / hfDen : 1;
+  if (hf > 1) hf = 1;
+  if (hf < lower) hf = lower;
+
+  return { gg, hf };
+}
+
+/**
+ * One-way repeated-measures ANOVA. `rows` are the subjects, each an array of the
+ * k condition measurements in `conditionLabels` order (the same row-paired
+ * Column table the paired t-test reads, with 2+ condition columns). Subjects are
+ * complete cases only, so the caller must drop any row with a missing condition
+ * before passing it here; this function additionally guards by requiring every
+ * row to be finite and length k.
+ *
+ * The total variation is partitioned into between-subjects, the condition
+ * effect, and the residual error:
+ *
+ *   SS_total      = sum over all cells of (x - grand mean)^2
+ *   SS_subjects   = k * sum_i (subject_i mean - grand mean)^2
+ *   SS_conditions = n * sum_j (condition_j mean - grand mean)^2
+ *   SS_error      = SS_total - SS_subjects - SS_conditions
+ *
+ * with df_conditions = k - 1 and df_error = (k - 1)(n - 1). The condition F is
+ * MS_conditions / MS_error and the uncorrected p comes from the F upper tail.
+ * Greenhouse-Geisser and Huynh-Feldt epsilons + their corrected p-values address
+ * a sphericity violation. Partial eta-squared is SS_conditions / (SS_conditions
+ * + SS_error). Cross-checked against statsmodels AnovaRM (F/df/p) and pingouin
+ * rm_anova (epsilons + corrected p).
+ */
+export function repeatedMeasuresAnova(
+  rows: number[][],
+  conditionLabels?: string[],
+): EngineResult<RmAnovaResult> {
+  const complete = rows.filter(
+    (r) => r.length > 0 && r.every((v) => Number.isFinite(v)),
+  );
+  const n = complete.length;
+  if (n < 2) {
+    return { ok: false, error: "Need at least 2 subjects with complete data." };
+  }
+  const k = complete[0].length;
+  if (k < 2) {
+    return { ok: false, error: "Need at least 2 conditions." };
+  }
+  if (!complete.every((r) => r.length === k)) {
+    return { ok: false, error: "Every subject must have the same number of conditions." };
+  }
+
+  const labels =
+    conditionLabels && conditionLabels.length === k
+      ? conditionLabels
+      : Array.from({ length: k }, (_, i) => `C${i + 1}`);
+
+  const all: number[] = [];
+  for (const r of complete) for (const v of r) all.push(v);
+  const grandMean = meanOf(all);
+
+  const subjectMeans = complete.map((r) => meanOf(r));
+  const conditionMeans: number[] = [];
+  for (let j = 0; j < k; j++) {
+    conditionMeans.push(meanOf(complete.map((r) => r[j])));
+  }
+
+  let ssTotal = 0;
+  for (const r of complete) {
+    for (const v of r) {
+      const d = v - grandMean;
+      ssTotal += d * d;
+    }
+  }
+  let ssSubjects = 0;
+  for (const sm of subjectMeans) {
+    const d = sm - grandMean;
+    ssSubjects += k * d * d;
+  }
+  let ssConditions = 0;
+  for (const cm of conditionMeans) {
+    const d = cm - grandMean;
+    ssConditions += n * d * d;
+  }
+  const ssError = ssTotal - ssSubjects - ssConditions;
+
+  const dfConditions = k - 1;
+  const dfSubjects = n - 1;
+  const dfError = dfConditions * dfSubjects;
+  if (dfError <= 0) {
+    return { ok: false, error: "Not enough subjects to estimate the error term." };
+  }
+
+  const msConditions = ssConditions / dfConditions;
+  const msError = ssError / dfError;
+  const F = msError > 0 ? msConditions / msError : NaN;
+  const pValue = fPValue(F, dfConditions, dfError);
+  const partialEtaSquared =
+    ssConditions + ssError > 0 ? ssConditions / (ssConditions + ssError) : NaN;
+
+  // Sample covariance matrix of the k conditions across the n subjects, for the
+  // sphericity epsilons. Divide by (n - 1) for the unbiased covariance.
+  const cov: number[][] = Array.from({ length: k }, () => new Array<number>(k).fill(0));
+  for (let i = 0; i < k; i++) {
+    for (let j = 0; j < k; j++) {
+      let acc = 0;
+      for (let s = 0; s < n; s++) {
+        acc += (complete[s][i] - conditionMeans[i]) * (complete[s][j] - conditionMeans[j]);
+      }
+      cov[i][j] = acc / (n - 1);
+    }
+  }
+  const { gg, hf } = sphericityEpsilons(cov, k, n);
+  const pGreenhouseGeisser = fPValue(F, dfConditions * gg, dfError * gg);
+  const pHuynhFeldt = fPValue(F, dfConditions * hf, dfError * hf);
+
+  const table: AnovaTableRow[] = [
+    {
+      source: "Conditions",
+      df: dfConditions,
+      ss: ssConditions,
+      ms: msConditions,
+      f: F,
+      pValue,
+    },
+    {
+      source: "Subjects",
+      df: dfSubjects,
+      ss: ssSubjects,
+      ms: ssSubjects / dfSubjects,
+      f: null,
+      pValue: null,
+    },
+    {
+      source: "Error",
+      df: dfError,
+      ss: ssError,
+      ms: msError,
+      f: null,
+      pValue: null,
+    },
+    {
+      source: "Total",
+      df: n * k - 1,
+      ss: ssTotal,
+      ms: NaN,
+      f: null,
+      pValue: null,
+    },
+  ];
+
+  return {
+    ok: true,
+    test: "Repeated-measures ANOVA",
+    table,
+    statistic: F,
+    pValue,
+    conditions: k,
+    subjects: n,
+    dfConditions,
+    dfError,
+    partialEtaSquared,
+    greenhouseGeisserEpsilon: gg,
+    pGreenhouseGeisser,
+    huynhFeldtEpsilon: hf,
+    pHuynhFeldt,
+    conditionMeans,
+    conditionLabels: labels,
   };
 }

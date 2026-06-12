@@ -35,6 +35,7 @@ import {
   type NormalizedModelComparison,
   type NormalizedRegression,
   type NormalizedResult,
+  type NormalizedRmAnova,
   type NormalizedSurvival,
   type NormalizedCoxRegression,
   type NormalizedTTest,
@@ -136,6 +137,78 @@ function AnovaEffectSizeTable({ es }: { es: NormalizedAnova["effectSize"] }) {
     rows.push({ label: "omega-squared", value: num(es.omegaSquared, 3) });
   }
   return <KeyValueTable rows={rows} testid="results-anova-effectsize-table" />;
+}
+
+/**
+ * One-way repeated-measures ANOVA table. The condition row carries the F and the
+ * uncorrected p; below the table the sphericity corrections (Greenhouse-Geisser
+ * and Huynh-Feldt epsilon + corrected p) and partial eta-squared are shown, so a
+ * sphericity violation does not quietly change the verdict.
+ */
+function RmAnovaStatsTable({ r }: { r: NormalizedRmAnova }) {
+  const esRows: { label: string; value: string }[] = [
+    { label: "Partial eta-squared", value: num(r.partialEtaSquared, 3) },
+    {
+      label: "Greenhouse-Geisser epsilon",
+      value: num(r.greenhouseGeisserEpsilon, 3),
+    },
+    {
+      label: "p (Greenhouse-Geisser)",
+      value: formatP(r.pGreenhouseGeisser),
+    },
+    { label: "Huynh-Feldt epsilon", value: num(r.huynhFeldtEpsilon, 3) },
+    { label: "p (Huynh-Feldt)", value: formatP(r.pHuynhFeldt) },
+  ];
+  return (
+    <>
+      <table
+        className="w-full border-collapse text-body tabular-nums"
+        data-testid="results-rmanova-table"
+      >
+        <thead>
+          <tr className="text-meta uppercase tracking-wide text-foreground-muted">
+            <th className="border-b border-border px-3 py-1.5 text-left">Source</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">SS</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">df</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">MS</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">F</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">p</th>
+          </tr>
+        </thead>
+        <tbody>
+          {r.table.map((row) => (
+            <tr key={row.source}>
+              <td className="border-b border-border px-3 py-1.5 text-foreground">
+                {row.source}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {num(row.ss, 1)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {row.df}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {Number.isFinite(row.ms) ? num(row.ms, 1) : "-"}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {row.f === null ? "" : num(row.f, 1)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {row.pValue === null ? "" : formatP(row.pValue)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-2 text-meta text-foreground-muted">
+        Each row is one subject measured under every condition. The condition row
+        carries the effect F and its uncorrected p. The Greenhouse-Geisser and
+        Huynh-Feldt corrections below adjust the p when the sphericity assumption
+        (equal variances of the pairwise condition differences) is in doubt.
+      </p>
+      <KeyValueTable rows={esRows} testid="results-rmanova-corrections-table" />
+    </>
+  );
 }
 
 function ComparisonsTable({
@@ -1033,6 +1106,14 @@ function resultTabs(result: NormalizedResult): {
       }
       return tabs;
     }
+    case "rmAnova":
+      return [
+        {
+          id: "anova",
+          label: "ANOVA table",
+          render: () => <RmAnovaStatsTable r={result} />,
+        },
+      ];
     case "survival":
       return [
         {

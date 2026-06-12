@@ -29,6 +29,7 @@ import {
   twoWayAnova,
   kruskalWallis,
   friedman,
+  repeatedMeasuresAnova,
   pearson,
   spearman,
   linearRegression,
@@ -1221,6 +1222,14 @@ function runDatahubEngine(): Record<string, number> {
   const aov2 = need(twoWayAnova(TWOWAY), "two-way ANOVA");
   const kw = need(kruskalWallis({ A: GROUP_A, B: GROUP_B, C: GROUP_C }), "Kruskal-Wallis");
   const fr = need(friedman(REPEATED, REPEATED_LABELS), "Friedman");
+  // One-way repeated-measures ANOVA on the SAME REPEATED fixture (6 subjects x 3
+  // conditions). Uncorrected F / df / p cross-check statsmodels AnovaRM; partial
+  // eta-squared and the Greenhouse-Geisser / Huynh-Feldt epsilons + corrected p
+  // cross-check pingouin rm_anova.
+  const rmAov = need(
+    repeatedMeasuresAnova(REPEATED, REPEATED_LABELS),
+    "repeated-measures ANOVA",
+  );
   const pear = need(pearson(XY_X, XY_Y), "Pearson correlation");
   const spear = need(spearman(XY_X, XY_Y), "Spearman correlation");
   const reg = need(linearRegression(XY_X, XY_Y), "linear regression");
@@ -1460,6 +1469,14 @@ function runDatahubEngine(): Record<string, number> {
     kruskal_p: kw.pValue,
     friedman_chi2: fr.statistic,
     friedman_p: fr.pValue,
+
+    rmanova_f: rmAov.statistic,
+    rmanova_p: rmAov.pValue,
+    rmanova_partial_eta_sq: rmAov.partialEtaSquared,
+    rmanova_gg_epsilon: rmAov.greenhouseGeisserEpsilon,
+    rmanova_p_gg: rmAov.pGreenhouseGeisser,
+    rmanova_hf_epsilon: rmAov.huynhFeldtEpsilon,
+    rmanova_p_hf: rmAov.pHuynhFeldt,
 
     pearson_r: pear.coefficient,
     pearson_p: pear.pValue,

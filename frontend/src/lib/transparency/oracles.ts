@@ -191,6 +191,18 @@ export const STATSMODELS: OracleRef = {
   url: "https://www.statsmodels.org/",
 };
 
+export const PINGOUIN: OracleRef = {
+  id: "pingouin",
+  name: "Pingouin",
+  version: "0.6.1",
+  entrypoint:
+    "pingouin.rm_anova(correction=True) (Greenhouse-Geisser / Huynh-Feldt "
+    + "sphericity corrections) and pingouin.epsilon",
+  citation: "Vallat 2018, Pingouin: statistics in Python, JOSS 3(31):1026",
+  generator: "frontend/scripts/gen-datahub-stats-golden.py",
+  url: "https://pingouin-stats.org/",
+};
+
 export const LIFELINES: OracleRef = {
   id: "lifelines",
   name: "lifelines",
@@ -222,5 +234,6 @@ export const ORACLES: Record<string, OracleRef> = {
   [PUBLISHED_QPCR.id]: PUBLISHED_QPCR,
   [SCIPY.id]: SCIPY,
   [STATSMODELS.id]: STATSMODELS,
+  [PINGOUIN.id]: PINGOUIN,
   [LIFELINES.id]: LIFELINES,
 };

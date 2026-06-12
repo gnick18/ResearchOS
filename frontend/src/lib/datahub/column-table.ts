@@ -111,6 +111,47 @@ export function columnValues(
 }
 
 /**
+ * Read several group columns ALIGNED BY ROW, dropping any row that is missing,
+ * non-numeric, or excluded in ANY of the requested columns (listwise / complete
+ * cases). Each returned inner array is one row's values across `columnIds` in the
+ * given order, so the row pairing is preserved. This is the matrix a paired or
+ * repeated-measures test reads (where each row is the same subject measured under
+ * each condition column). Rows are returned in table order; column ids unknown to
+ * the table contribute a non-finite cell and so drop every row, which the caller
+ * guards by passing only resolved ids.
+ */
+export function rowAlignedValues(
+  content: DataHubDocContent,
+  columnIds: string[],
+): number[][] {
+  const out: number[][] = [];
+  for (const row of content.rows) {
+    const cells: number[] = [];
+    let complete = true;
+    for (const id of columnIds) {
+      if (isCellExcluded(content, row.id, id)) {
+        complete = false;
+        break;
+      }
+      const v = row.cells[id];
+      let num: number | null = null;
+      if (typeof v === "number" && Number.isFinite(v)) num = v;
+      else if (typeof v === "string" && v.trim() !== "") {
+        const n = Number(v);
+        if (Number.isFinite(n)) num = n;
+      }
+      if (num === null) {
+        complete = false;
+        break;
+      }
+      cells.push(num);
+    }
+    if (complete) out.push(cells);
+  }
+  return out;
+}
+
+/**
  * Footer stats for one group, computed via the engine `describe`. Returns nulls
  * (not NaN) for the degenerate cases so the UI can render an em-free dash rather
  * than "NaN". n is always the real finite count.
