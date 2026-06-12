@@ -31,6 +31,7 @@ import { useFileRenamePopup } from "@/components/FileRenamePopup";
 import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
 import ReceivedFromBadge from "@/components/ReceivedFromBadge";
 import Tooltip from "@/components/Tooltip";
+import ObjectBacklinks from "@/components/ObjectBacklinks";
 import { Icon, type IconName } from "@/components/icons";
 import ContextMenu, { type ContextMenuItem } from "@/components/ContextMenu";
 import type {
@@ -1948,6 +1949,9 @@ function ViewMethodModal({
             </div>
           )}
           {renderViewer()}
+          {/* Backlinks — where this method is referenced across notes and
+              experiments. Self-hides when there are none. */}
+          <ObjectBacklinks type="method" id={String(method.id)} className="mt-4" />
         </div>
         {/* Experiments sidebar */}
         <MethodExperimentsSidebar methodId={method.id} methodName={method.name} />
