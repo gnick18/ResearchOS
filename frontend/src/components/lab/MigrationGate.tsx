@@ -9,8 +9,11 @@
 //     it, everyone else is packaged into portable copies),
 //   - a LABMATE is offered "Take my data to my own folder" (they export just
 //     themselves and leave, the shared folder stays intact for the rest).
-// Both can choose "Keep it shared for now", which dismisses the gate for this
-// session (it returns on the next launch until the folder is converted).
+// Both can choose "Keep it shared for now", which dismisses the gate for THIS
+// folder durably (a per-folder localStorage flag), so a user who deliberately
+// runs a shared folder is not re-nagged on every reload or relaunch. The
+// migration is still reachable on demand from Settings; clearing the flag (or
+// site data) re-surfaces the gate.
 //
 // Nothing is ever deleted, and nothing happens without an explicit confirm on
 // the following preview screen. It is explicitly suppressed in demo mode: the
@@ -20,7 +23,7 @@
 //
 // House style: no emojis, no em-dashes, no mid-sentence colons.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import LivingPopup from "@/components/ui/LivingPopup";
 import { Icon } from "@/components/icons";
@@ -33,12 +36,18 @@ import { getDemoMode } from "@/lib/file-system/wiki-capture-mock";
 import MigrateToSoloModal from "./MigrateToSoloModal";
 import SelfExportModal from "./SelfExportModal";
 
-const DISMISS_KEY = "ros_migration_gate_dismissed_v1";
+// Per-folder so dismissing one shared folder does not silence the nudge for a
+// different multi-user folder the same browser later connects.
+const DISMISS_KEY_PREFIX = "ros_migration_gate_dismissed_v1";
 
-function readDismissed(): boolean {
+function dismissKey(folder: string | null | undefined): string {
+  return `${DISMISS_KEY_PREFIX}::${folder ?? "_unknown_"}`;
+}
+
+function readDismissed(folder: string | null | undefined): boolean {
   if (typeof window === "undefined") return false;
   try {
-    return window.sessionStorage.getItem(DISMISS_KEY) === "1";
+    return window.localStorage.getItem(dismissKey(folder)) === "1";
   } catch {
     return false;
   }
@@ -50,14 +59,20 @@ export default function MigrationGate() {
   const pathname = usePathname();
   const { directoryName, disconnect } = useFileSystem();
   const queryClient = useQueryClient();
-  const [dismissed, setDismissed] = useState<boolean>(() => readDismissed());
+  const [dismissed, setDismissed] = useState<boolean>(false);
   const [mode, setMode] = useState<"convert" | "selfexport" | null>(null);
+
+  // Re-read the per-folder dismissal whenever the connected folder changes (the
+  // name is null on the first render, before the handle resolves).
+  useEffect(() => {
+    setDismissed(readDismissed(directoryName));
+  }, [directoryName]);
 
   const dismiss = () => {
     try {
-      window.sessionStorage.setItem(DISMISS_KEY, "1");
+      window.localStorage.setItem(dismissKey(directoryName), "1");
     } catch {
-      /* sessionStorage unavailable, in-memory dismiss still applies */
+      /* localStorage unavailable, in-memory dismiss still applies */
     }
     setDismissed(true);
   };

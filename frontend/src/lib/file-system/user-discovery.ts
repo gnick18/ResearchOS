@@ -67,7 +67,8 @@ export async function ensureFolderStructure(): Promise<boolean> {
     }
 
     return true;
-  } catch {
+  } catch (err) {
+    console.error("ensureFolderStructure failed:", err);
     return false;
   }
 }
