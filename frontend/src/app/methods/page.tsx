@@ -47,6 +47,7 @@ import CodingWorkflowViewer from "@/components/CodingWorkflowViewer";
 import QpcrAnalysisViewer from "@/components/QpcrAnalysisViewer";
 import { getMethodTypeMeta } from "@/lib/methods/method-type-registry";
 import { deriveExcerptFromMarkdown } from "@/lib/methods/excerpt";
+import { forkMethod } from "@/lib/methods/fork-method";
 import { CreateMethodModal } from "@/components/methods/CreateMethodModal";
 import { MethodTemplateLibraryModal } from "@/components/methods/MethodTemplateLibraryModal";
 import {
@@ -261,6 +262,10 @@ export default function MethodsPage() {
   const [activeFolder, setActiveFolder] = useState<string>("all");
   const [activeType, setActiveType] = useState<string | null>(null);
   const [collapsedBases, setCollapsedBases] = useState<Set<string>>(new Set());
+  // The method currently being forked. Set by the popup's "Fork" button or a
+  // list row's fork action; opens the name-the-variant modal.
+  const [forkingSource, setForkingSource] = useState<Method | null>(null);
+  const [forkBusy, setForkBusy] = useState(false);
 
   // Deep-link: `/methods?createMethod=public` auto-opens the create
   // modal with the whole-lab sharing pre-selected.
@@ -903,6 +908,32 @@ export default function MethodsPage() {
     [queryClient],
   );
 
+  // Create a fork (variant) of `forkingSource` under `newName`. Clones the
+  // per-type content (forkMethod), refetches, makes sure the base is expanded
+  // so the new variant is visible nested under it, then opens the fork.
+  const handleForkConfirm = useCallback(
+    async (newName: string) => {
+      if (!forkingSource) return;
+      setForkBusy(true);
+      try {
+        const created = await forkMethod(forkingSource, newName);
+        await queryClient.refetchQueries({ queryKey: ["methods"] });
+        setCollapsedBases((prev) => {
+          const next = new Set(prev);
+          next.delete(`${forkingSource.owner}:${forkingSource.id}`);
+          return next;
+        });
+        setForkingSource(null);
+        setViewingMethod(created);
+      } catch (e) {
+        alert(e instanceof Error ? e.message : "Failed to fork method");
+      } finally {
+        setForkBusy(false);
+      }
+    },
+    [forkingSource, queryClient],
+  );
+
   // Renders a single dense method row in the explorer tree. `bucketById`
   // resolves the parent within the same ownership bucket so a variant can
   // show an "in <folder>" pin when its base lives in a different folder
@@ -1003,6 +1034,23 @@ export default function MethodsPage() {
             })}
           </span>
         )}
+        {/* Fork (create a variant) — popup + row action per Grant. Clones the
+            method's content into a new private variant linked back via
+            parent_method_id. Shown on row hover; stopPropagation keeps the
+            row's open-on-click from also firing. */}
+        <Tooltip label="Fork (create a variant)" placement="left">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setForkingSource(m);
+            }}
+            className="flex-none p-1 text-foreground-muted hover:text-brand-action hover:bg-surface-raised rounded transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+            aria-label={`Fork ${m.name}`}
+          >
+            <Icon name="copy" className="h-4 w-4" />
+          </button>
+        </Tooltip>
         {/* Retire-from-lab control for PUBLIC methods (delete-affordances bot,
             2026-05-29). Public methods are ownerless, so the unified write gate
             hides every per-viewer Delete button — leaving a stale public method
@@ -1411,6 +1459,7 @@ export default function MethodsPage() {
           currentUser={currentUser}
           allMethods={methods}
           onOpenMethod={(m) => setViewingMethod(m)}
+          onFork={(m) => setForkingSource(m)}
           onClose={() => setViewingMethod(null)}
           onDelete={handleDelete}
           onEditCompound={(method) => {
@@ -1431,7 +1480,89 @@ export default function MethodsPage() {
           }}
         />
       )}
+
+      {/* Fork (name-the-variant) modal. Opened from the viewer's Fork button or
+          a list row's fork action. */}
+      {forkingSource && (
+        <ForkMethodModal
+          source={forkingSource}
+          busy={forkBusy}
+          onCancel={() => setForkingSource(null)}
+          onConfirm={handleForkConfirm}
+        />
+      )}
     </AppShell>
+  );
+}
+
+// ── Fork Method Modal ─────────────────────────────────────────────────────────
+
+function ForkMethodModal({
+  source,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  source: Method;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: (newName: string) => void;
+}) {
+  const [name, setName] = useState(`${source.name} (variant)`);
+  const trimmed = name.trim();
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm">
+      <div className="bg-surface-overlay border border-border rounded-xl shadow-2xl max-w-md w-full mx-4">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h3 className="text-title font-semibold text-foreground">Fork method</h3>
+          <Tooltip label="Close" placement="bottom">
+            <button
+              onClick={onCancel}
+              className="text-foreground-muted hover:text-foreground"
+              aria-label="Close"
+            >
+              <Icon name="close" className="h-4 w-4" />
+            </button>
+          </Tooltip>
+        </div>
+        <div className="p-6">
+          <p className="text-meta text-foreground-muted mb-3">
+            Creates an independent copy of{" "}
+            <span className="font-medium text-foreground">{source.name}</span>{" "}
+            that you can edit freely. It stays linked to the original as a
+            variant, so you can always see where it came from.
+          </p>
+          <label className="block text-meta font-medium text-foreground-muted mb-1">
+            Variant name
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full px-3 py-2 border border-border rounded-lg text-body bg-surface-raised focus:outline-none focus:ring-2 focus:ring-blue-500"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && trimmed && !busy) onConfirm(trimmed);
+            }}
+          />
+        </div>
+        <div className="flex gap-3 justify-end px-6 py-4 border-t border-border">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => trimmed && onConfirm(trimmed)}
+            disabled={!trimmed || busy}
+            className="px-4 py-2 text-body text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+          >
+            {busy ? "Forking..." : "Create variant"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1537,6 +1668,7 @@ function ViewMethodModal({
   currentUser,
   allMethods,
   onOpenMethod,
+  onFork,
   onClose,
   onDelete,
   onEditCompound,
@@ -1550,6 +1682,8 @@ function ViewMethodModal({
   /** Navigate the viewer to another method (jump up to a base or down to a
    *  variant from the Lineage box). */
   onOpenMethod: (method: Method) => void;
+  /** Start a fork of this method (opens the name-the-variant modal). */
+  onFork: (method: Method) => void;
   onClose: () => void;
   onDelete: (id: number) => void;
   onEditCompound: (method: Method) => void;
@@ -1644,20 +1778,27 @@ function ViewMethodModal({
               />
             </div>
           )}
-          {/* Action strip for the user's OWN method. "Extend into kit" wraps a
-              non-compound method into a new compound; the unified Share button
-              opens the two-tab dialog (lab ACL + cross-boundary encrypted-copy
-              send). Both gate on !is_shared_with_me, a received method is not the
-              user's to wrap or re-share from here. */}
-          {!method.is_shared_with_me && (
-            <div className="flex items-center justify-end gap-1 px-4 pt-3 pb-1">
-              {method.method_type !== "compound" && (
-                <WrapAsCompoundAction method={method} onWrapped={handleWrapped} />
-              )}
-              <Tooltip
-                label="Share"
-                placement="bottom"
+          {/* Action strip. Fork is always available (forking a shared or
+              public method = make my own private variant). "Extend into kit"
+              and the unified Share button gate on !is_shared_with_me, a
+              received method is not the user's to wrap or re-share from here. */}
+          <div className="flex items-center justify-end gap-2 px-4 pt-3 pb-1">
+            <Tooltip label="Fork (create a variant)" placement="bottom">
+              <button
+                type="button"
+                aria-label="Fork this method"
+                onClick={() => onFork(method)}
+                className="inline-flex items-center gap-1 text-meta font-medium text-brand-action hover:underline px-1.5 py-1"
               >
+                <Icon name="copy" className="h-4 w-4" />
+                Fork
+              </button>
+            </Tooltip>
+            {!method.is_shared_with_me && method.method_type !== "compound" && (
+              <WrapAsCompoundAction method={method} onWrapped={handleWrapped} />
+            )}
+            {!method.is_shared_with_me && (
+              <Tooltip label="Share" placement="bottom">
                 <button
                   type="button"
                   aria-label="Share"
@@ -1685,8 +1826,8 @@ function ViewMethodModal({
                   </svg>
                 </button>
               </Tooltip>
-            </div>
-          )}
+            )}
+          </div>
           {/* Lineage box. Surfaces the fork relationship that lives in
               `parent_method_id`: jump up to the base this was forked from, or
               down to any of its variants. Self-hides when the method has no
