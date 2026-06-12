@@ -225,10 +225,10 @@ export default function GuidedAnalysisWizard({
         role="dialog"
         aria-modal="true"
         aria-label="Guided analysis"
-        className="relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-surface-overlay shadow-xl"
+        className="relative flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-xl border border-border bg-surface-overlay shadow-xl"
       >
         {/* Header */}
-        <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+        <div className="flex flex-none items-center gap-2 border-b border-border px-4 py-3">
           <Icon name="features" className="h-4 w-4 text-accent" />
           <span className="text-body font-semibold text-foreground">
             Guided analysis
@@ -239,7 +239,7 @@ export default function GuidedAnalysisWizard({
         </div>
 
         {/* Body */}
-        <div className="px-4 py-4" data-testid="wizard-body">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4" data-testid="wizard-body">
           {step === 0 && (
             <div data-testid="wizard-step-family">
               <p className="mb-3 text-body font-semibold text-foreground">
@@ -372,7 +372,7 @@ export default function GuidedAnalysisWizard({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-border px-4 py-3">
+        <div className="flex flex-none items-center justify-between border-t border-border px-4 py-3">
           <button
             type="button"
             onClick={back}

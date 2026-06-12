@@ -211,6 +211,13 @@ describe("estimation geometry + SVG structure", () => {
     expect(geo.dataY1).toBeLessThan(geo.dataY0);
     expect(geo.diffY1).toBeLessThan(geo.diffY0);
     expect(geo.dataY0).toBeLessThan(geo.diffY1);
+    // The panels are clearly separated and the difference axis's top tick is
+    // trimmed off the boundary, so its label cannot sit adjacent to the data
+    // axis's bottom tick (the cramped-panels / touching-duplicate-tick fix).
+    expect(geo.diffY1 - geo.dataY0).toBeGreaterThanOrEqual(20);
+    const dataBottomTick = Math.max(...geo.dataTicks.map((t) => t.y));
+    const diffTopTick = Math.min(...geo.diffTicks.map((t) => t.y));
+    expect(diffTopTick - dataBottomTick).toBeGreaterThanOrEqual(20);
     // One difference panel (one non-control group).
     expect(geo.panels.length).toBe(1);
     const panel = geo.panels[0];

@@ -50,7 +50,19 @@ function anovaSummary(r: NormalizedAnova): string {
     names.length <= 2
       ? names.join(" and ")
       : `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
-  const postHocLabel = r.nonparametric ? "Dunn" : "Tukey";
+  // The narrative names the post-hoc family the result actually used, so it stays
+  // in step when the user switches the family in Test options (it used to always
+  // say "Tukey"). The nonparametric Kruskal-Wallis path always uses Dunn.
+  const POST_HOC_LABEL: Record<string, string> = {
+    tukey: "Tukey",
+    dunnett: "Dunnett",
+    sidak: "Sidak",
+    bonferroni: "Bonferroni",
+    "holm-sidak": "Holm-Sidak",
+  };
+  const postHocLabel = r.nonparametric
+    ? "Dunn"
+    : POST_HOC_LABEL[r.postHoc] ?? "Tukey";
   const stat = r.nonparametric
     ? `Kruskal-Wallis, H(${r.dfBetween}) = ${num(r.statistic)}, ${formatP(
         r.pValue,
@@ -61,8 +73,13 @@ function anovaSummary(r: NormalizedAnova): string {
 
   if (r.pValue < ALPHA) {
     const sig = r.comparisons.filter((c) => c.significant).length;
-    const pairTail =
-      sig > 0
+    // With the post-hoc family set to None the engine returns no comparisons, so
+    // the verdict points at the omnibus result alone rather than a pairwise
+    // family that was not run.
+    const noPostHoc = !r.nonparametric && r.postHoc === "none";
+    const pairTail = noPostHoc
+      ? " Turn on a post-hoc family in Test options to see which pairs differ."
+      : sig > 0
         ? ` ${sig} of ${r.comparisons.length} pairs differ after ${postHocLabel} correction, so see the comparisons below for which ones.`
         : ` The omnibus test is significant, so see the ${postHocLabel} comparisons for where the difference sits.`;
     return `At least one of ${list} stands apart from the rest (${stat}).${pairTail}`;

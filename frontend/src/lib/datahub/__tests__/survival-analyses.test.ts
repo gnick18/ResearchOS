@@ -94,6 +94,60 @@ describe("run-analysis: Kaplan-Meier + log-rank through the survival pipe", () =
   });
 });
 
+function coxSpec(referenceGroup?: string): AnalysisSpec {
+  return {
+    id: "cox1",
+    type: "coxRegression",
+    params: referenceGroup ? { referenceGroup } : {},
+    inputs: {},
+    resultCache: null,
+    resultStale: false,
+  };
+}
+
+describe("run-analysis: Cox reference-arm orientation", () => {
+  it("defaults the reference to the first arm and is byte-identical with no param", () => {
+    const withParam = runAnalysis(coxSpec("Maintained"), amlContent());
+    const noParam = runAnalysis(coxSpec(), amlContent());
+    if (
+      !withParam.ok ||
+      withParam.kind !== "coxRegression" ||
+      !noParam.ok ||
+      noParam.kind !== "coxRegression"
+    ) {
+      throw new Error("expected cox results");
+    }
+    // The first arm in the table is "Maintained", so the explicit default and the
+    // absent param resolve to the same orientation.
+    expect(noParam.coefficients[0].coef).toBeCloseTo(
+      withParam.coefficients[0].coef,
+      10,
+    );
+  });
+
+  it("inverts the hazard ratio when the other arm is the reference", () => {
+    const refMaint = runAnalysis(coxSpec("Maintained"), amlContent());
+    const refNon = runAnalysis(coxSpec("Nonmaintained"), amlContent());
+    if (
+      !refMaint.ok ||
+      refMaint.kind !== "coxRegression" ||
+      !refNon.ok ||
+      refNon.kind !== "coxRegression"
+    ) {
+      throw new Error("expected cox results");
+    }
+    const hrMaint = refMaint.coefficients[0].hazardRatio;
+    const hrNon = refNon.coefficients[0].hazardRatio;
+    // Flipping the reference just flips the 0/1 coding, so the coefficient negates
+    // and the hazard ratio inverts (HR and 1/HR), no math change.
+    expect(refNon.coefficients[0].coef).toBeCloseTo(
+      -refMaint.coefficients[0].coef,
+      6,
+    );
+    expect(hrNon).toBeCloseTo(1 / hrMaint, 4);
+  });
+});
+
 describe("plot-spec: survival curve", () => {
   it("lays out one step curve per group starting at survival 1", () => {
     const content = amlContent();

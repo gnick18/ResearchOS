@@ -52,9 +52,11 @@ import CodePanel from "@/components/datahub/CodePanel";
 import StyledSelect from "@/components/datahub/StyledSelect";
 import {
   paramSchema,
+  resolveDynamicSchema,
   readParams,
   type ParamField,
 } from "@/lib/datahub/analysis-params";
+import { survivalGroups } from "@/lib/datahub/survival-table";
 
 /** GraphPad-style significance stars from an adjusted p-value. */
 function stars(p: number): string {
@@ -1579,7 +1581,7 @@ function ParametersPanel({
   fields: ParamField[];
   onParamChange: (key: string, value: string) => void;
 }) {
-  const values = readParams(spec);
+  const stored = readParams(spec);
   return (
     <div
       className="rounded-lg border border-border bg-surface-raised"
@@ -1596,14 +1598,23 @@ function ParametersPanel({
         </span>
       </div>
       <div className="flex flex-col gap-3.5 px-3.5 py-3">
-        {fields.map((field) => (
-          <ParamRow
-            key={field.key}
-            field={field}
-            value={values[field.key]}
-            onChange={(v) => onParamChange(field.key, v)}
-          />
-        ))}
+        {fields.map((field) => {
+          // A dynamic field (the Cox reference arm) has no stored value until the
+          // user picks one, so fall back to the resolved field default (the first
+          // arm) rather than the empty static default.
+          const value =
+            stored[field.key] !== undefined && stored[field.key] !== ""
+              ? stored[field.key]
+              : field.default;
+          return (
+            <ParamRow
+              key={field.key}
+              field={field}
+              value={value}
+              onChange={(v) => onParamChange(field.key, v)}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -1649,8 +1660,16 @@ export default function ResultsSheet({
 
   // The editable options for this analysis type. Some types (correlation,
   // regression, Kruskal-Wallis) have none, in which case the Parameters
-  // affordance is hidden rather than opening an empty panel.
-  const paramFields = paramSchema(spec.type);
+  // affordance is hidden rather than opening an empty panel. The Cox reference
+  // arm is a dynamic-option field, so its dropdown is filled from the open
+  // survival table's arm labels here.
+  const paramFields = useMemo(() => {
+    if (spec.type !== "coxRegression") return paramSchema(spec.type);
+    const armOptions = survivalGroups(content)
+      .filter((g) => g.observations.length > 0)
+      .map((g) => ({ value: g.name, label: g.name }));
+    return resolveDynamicSchema(spec.type, { referenceGroup: armOptions });
+  }, [spec.type, content]);
   const canEditParams = Boolean(onParamChange) && paramFields.length > 0;
 
   // Always recompute from the live content so an edit to a replicate is

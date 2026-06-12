@@ -47,6 +47,14 @@ export interface ParamField {
   default: string;
   /** A one-line reason the option exists (states the why for the user). */
   why: string;
+  /**
+   * When true the option list is not fixed in this schema; it is resolved from
+   * the open table at render time (for example the survival arm labels for the
+   * Cox reference group). The validator then accepts any non-empty string, since
+   * the engine itself falls back safely to its default when a stored label no
+   * longer matches a current group.
+   */
+  dynamicOptions?: boolean;
 }
 
 /** Tail control, shared by the tests whose engine accepts an `alternative`. */
@@ -240,6 +248,24 @@ const GRUBBS_MODE_FIELD: ParamField = {
 };
 
 /**
+ * Reference arm for the Cox proportional hazards model. The hazard ratio is
+ * reported for the other arm versus this one, so picking the reference decides
+ * the orientation (HR below 1 means the comparison arm is protective relative to
+ * the reference). The options are the table's arm labels, resolved at render
+ * time, so this field declares no fixed list. The default is the first arm,
+ * which keeps a stored result with no param byte-identical to before.
+ */
+const COX_REFERENCE_FIELD: ParamField = {
+  key: "referenceGroup",
+  label: "Reference arm",
+  control: "select",
+  options: [],
+  default: "",
+  dynamicOptions: true,
+  why: "The hazard ratio compares the other arm against this reference. Choose the arm you want to measure against, usually the control or vehicle, so a hazard ratio below 1 reads as the treatment lowering the hazard.",
+};
+
+/**
  * The schema per analysis type. An empty array means the engine takes no
  * editable options for that analysis (correlation, regression). The order here
  * is the order the controls render in the panel.
@@ -266,7 +292,7 @@ export const ANALYSIS_PARAM_SCHEMA: Record<string, ParamField[]> = {
     COMPARE_NESTED_FIELD,
   ],
   kaplanMeier: [],
-  coxRegression: [],
+  coxRegression: [COX_REFERENCE_FIELD],
   multipleRegression: [],
   globalFit: [GLOBAL_FIT_MODEL_FIELD, GLOBAL_FIT_SHARE_FIELD],
   grubbsOutlier: [GRUBBS_ALPHA_FIELD, GRUBBS_MODE_FIELD],
@@ -299,6 +325,28 @@ export function paramSchema(type: string): ParamField[] {
   return ANALYSIS_PARAM_SCHEMA[type] ?? [];
 }
 
+/**
+ * Fill in the option list for every dynamic-option field from a per-key map the
+ * caller resolves against the open table (for example the Cox reference arm
+ * labels). A field with no entry in the map keeps its empty list. Fixed-option
+ * fields pass through unchanged. The first resolved option also becomes the
+ * field default so a panel with no stored value shows the natural first arm.
+ */
+export function resolveDynamicSchema(
+  type: string,
+  optionsByKey: Record<string, ParamOption[]>,
+): ParamField[] {
+  return paramSchema(type).map((field) => {
+    if (!field.dynamicOptions) return field;
+    const options = optionsByKey[field.key] ?? [];
+    return {
+      ...field,
+      options,
+      default: options[0]?.value ?? field.default,
+    };
+  });
+}
+
 /** True when this analysis type exposes at least one editable parameter. */
 export function hasEditableParams(type: string): boolean {
   return paramSchema(type).length > 0;
@@ -326,8 +374,12 @@ export function readParams(spec: AnalysisSpec): Record<string, string> {
   const out: Record<string, string> = {};
   for (const field of fields) {
     const raw = stored[field.key];
-    const valid =
-      typeof raw === "string" && field.options.some((o) => o.value === raw);
+    // A dynamic-option field (the Cox reference arm) accepts any stored string,
+    // since its valid values are the table's current arm labels, not a fixed
+    // list. The engine falls back safely when the label no longer matches.
+    const valid = field.dynamicOptions
+      ? typeof raw === "string" && raw !== ""
+      : typeof raw === "string" && field.options.some((o) => o.value === raw);
     out[field.key] = valid ? (raw as string) : field.default;
   }
   return out;
@@ -345,5 +397,8 @@ export function coerceParam(
 ): string | null {
   const field = paramSchema(type).find((f) => f.key === key);
   if (!field) return null;
+  // A dynamic-option field accepts any non-empty string (the table's current arm
+  // labels), since its valid values are not fixed in the schema.
+  if (field.dynamicOptions) return value !== "" ? value : null;
   return field.options.some((o) => o.value === value) ? value : null;
 }

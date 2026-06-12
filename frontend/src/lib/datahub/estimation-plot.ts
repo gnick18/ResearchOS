@@ -349,11 +349,13 @@ export function layoutEstimationPlot(
   const resolved = resolveContrasts(content, style, groups);
 
   // Split the vertical space: the data axis gets the top ~58%, the difference
-  // axis the bottom, with a small gutter between them so the two frames read as
-  // separate panels (the Gardner-Altman stacked layout).
+  // axis the bottom, with a gutter between them so the two frames read as
+  // separate panels (the Gardner-Altman stacked layout). The gutter is wide
+  // enough that the data axis's bottom tick label and the difference axis's top
+  // tick label never touch across the boundary.
   const innerTop = padT;
   const innerBottom = height - padB;
-  const gutter = 22;
+  const gutter = 34;
   const splitY = innerTop + (innerBottom - innerTop) * 0.56;
   const dataY1 = innerTop; // top (pixel-min)
   const dataY0 = splitY - gutter / 2; // bottom of the data panel
@@ -414,10 +416,15 @@ export function layoutEstimationPlot(
     .domain([diffAxis.lo, diffAxis.hi])
     .range([diffY0, diffY1]);
   const DiffY = (v: number) => diffScale(v);
-  const diffTicks: EstTick[] = diffAxis.values.map((v) => ({
-    value: v,
-    y: DiffY(v),
-  }));
+  // Drop a difference tick that lands right against the panel boundary (the top
+  // of the difference axis), so its label cannot sit adjacent to the data axis's
+  // bottom tick label across the split. That adjacency produced the touching
+  // duplicate numbers (two "30"s) at the panel boundary. The axis line still runs
+  // to diffY1; only the boundary label is trimmed.
+  const diffBoundaryTrim = gutter / 2 + 2;
+  const diffTicks: EstTick[] = diffAxis.values
+    .map((v) => ({ value: v, y: DiffY(v) }))
+    .filter((t) => t.y > diffY1 + diffBoundaryTrim - 1e-6);
   const zeroY = DiffY(0);
 
   // Group bands across the data axis. Every group gets a column; the difference

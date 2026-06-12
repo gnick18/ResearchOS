@@ -262,6 +262,25 @@ describe("plain-language", () => {
     expect(sentence).not.toContain("—");
   });
 
+  it("names the actual post-hoc family in the ANOVA prose", () => {
+    const content = demoContent();
+    const tukeySpec = spec("oneWayAnova", ["col-1", "col-2", "col-3"]);
+    const tukey = runAnalysis(tukeySpec, content);
+    if (!tukey.ok) throw new Error("run failed");
+    expect(plainLanguageSummary(tukey)).toContain("Tukey");
+
+    // Switching the family to Bonferroni must update the narrative too, not keep
+    // saying Tukey while the comparisons table recomputes.
+    const bonf = runAnalysis(
+      { ...tukeySpec, params: { postHoc: "bonferroni" } },
+      content,
+    );
+    if (!bonf.ok) throw new Error("run failed");
+    const sentence = plainLanguageSummary(bonf);
+    expect(sentence).toContain("Bonferroni");
+    expect(sentence).not.toContain("Tukey");
+  });
+
   it("names the higher group for a significant t-test", () => {
     const content = demoContent();
     const outcome = runAnalysis(
