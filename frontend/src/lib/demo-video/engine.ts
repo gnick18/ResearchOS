@@ -24,6 +24,7 @@ export type Selector =
 export type DemoStep =
   | { action: "moveTo"; target: Selector; durationMs?: number }
   | { action: "click"; target: Selector; durationMs?: number }
+  | { action: "rightClick"; target: Selector; durationMs?: number }
   | {
       action: "type";
       target: Selector;
@@ -285,6 +286,26 @@ function dispatchClick(el: HTMLElement, x: number, y: number): void {
   el.dispatchEvent(new MouseEvent("click", base));
 }
 
+/** Dispatch a realistic right-click (context menu) sequence on an element. */
+function dispatchContextMenu(el: HTMLElement, x: number, y: number): void {
+  const base = {
+    bubbles: true,
+    cancelable: true,
+    clientX: x,
+    clientY: y,
+    view: window,
+    button: 2,
+    buttons: 2,
+  };
+  el.dispatchEvent(new PointerEvent("pointerover", base as PointerEventInit));
+  el.dispatchEvent(new MouseEvent("mouseover", base));
+  el.dispatchEvent(new PointerEvent("pointerdown", base as PointerEventInit));
+  el.dispatchEvent(new MouseEvent("mousedown", base));
+  el.dispatchEvent(new PointerEvent("pointerup", base as PointerEventInit));
+  el.dispatchEvent(new MouseEvent("mouseup", base));
+  el.dispatchEvent(new MouseEvent("contextmenu", base));
+}
+
 /** Dispatch a pointer+mouse event at a screen point, on the element under it. */
 function dispatchMouseAt(kind: "down" | "move" | "up", x: number, y: number): void {
   const el = document.elementFromPoint(x, y) as HTMLElement | null;
@@ -357,6 +378,14 @@ async function runStep(step: DemoStep, opts: RunOptions): Promise<void> {
       clickRipple(x, y);
       await sleep(90, opts.signal);
       dispatchClick(el, x, y);
+      return;
+    }
+    case "rightClick": {
+      const el = await moveToEl(step.target, step.durationMs ?? 700, opts);
+      const { x, y } = centerOf(el);
+      clickRipple(x, y);
+      await sleep(90, opts.signal);
+      dispatchContextMenu(el, x, y);
       return;
     }
     case "type": {
