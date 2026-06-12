@@ -13,8 +13,10 @@
 // session (it returns on the next launch until the folder is converted).
 //
 // Nothing is ever deleted, and nothing happens without an explicit confirm on
-// the following preview screen. Mounted in the signed-in providers branch, so it
-// never fires in demo / wiki-capture mode.
+// the following preview screen. It is explicitly suppressed in demo mode: the
+// demo fixture is a multi-user lab (so isLabMode is true), and the gate must not
+// nag a visitor exploring /demo to migrate the fixture. The demo overrides the
+// linked folder, so the gate waits and reappears once they leave demo.
 //
 // House style: no emojis, no em-dashes, no mid-sentence colons.
 
@@ -27,6 +29,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useIsLabMode, LAB_MODE_QUERY_KEY } from "@/hooks/useIsLabMode";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { isOperatorSurface } from "@/lib/routes/operator-surface";
+import { getDemoMode } from "@/lib/file-system/wiki-capture-mock";
 import MigrateToSoloModal from "./MigrateToSoloModal";
 import SelfExportModal from "./SelfExportModal";
 
@@ -70,6 +73,13 @@ export default function MigrationGate() {
 
   // Operator surfaces (admin + LLC business) are carved out from every gate.
   if (isOperatorSurface(pathname)) return null;
+
+  // Never in demo mode. The demo fixture is a multi-user lab, so isLabMode is
+  // true, but a visitor exploring /demo must not be nagged to migrate the
+  // fixture. The demo overrides the real linked folder; the gate reappears once
+  // they leave demo (this component re-renders on pathname change). Reading
+  // getDemoMode() here, not usePathname, also catches the sticky in-tab flag.
+  if (getDemoMode()) return null;
 
   // Only for a real, signed-in user in a multi-user folder.
   if (!currentUser || !isLabMode) return null;
