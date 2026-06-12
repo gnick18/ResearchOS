@@ -196,6 +196,117 @@
           "right_val": 30
         }
       ]
+    },
+    "TABLE_DERIVE": {
+      "columns": [
+        "a",
+        "b",
+        "c"
+      ],
+      "rows": [
+        {
+          "a": 1.0,
+          "b": 2.0,
+          "c": 3.0
+        },
+        {
+          "a": 4.0,
+          "b": 5.0,
+          "c": 6.0
+        },
+        {
+          "a": 7.0,
+          "b": 8.0,
+          "c": 9.0
+        },
+        {
+          "a": 10.0,
+          "b": 0.0,
+          "c": 2.0
+        }
+      ]
+    },
+    "TABLE_LONG": {
+      "columns": [
+        "sample",
+        "gene",
+        "level"
+      ],
+      "rows": [
+        {
+          "sample": "S1",
+          "gene": "actin",
+          "level": 10.0
+        },
+        {
+          "sample": "S1",
+          "gene": "tubulin",
+          "level": 20.0
+        },
+        {
+          "sample": "S2",
+          "gene": "actin",
+          "level": 30.0
+        },
+        {
+          "sample": "S2",
+          "gene": "tubulin",
+          "level": 40.0
+        },
+        {
+          "sample": "S3",
+          "gene": "actin",
+          "level": 50.0
+        }
+      ]
+    },
+    "TABLE_LONG_DUP": {
+      "columns": [
+        "sample",
+        "gene",
+        "level"
+      ],
+      "rows": [
+        {
+          "sample": "S1",
+          "gene": "actin",
+          "level": 10.0
+        },
+        {
+          "sample": "S1",
+          "gene": "actin",
+          "level": 30.0
+        },
+        {
+          "sample": "S1",
+          "gene": "tubulin",
+          "level": 20.0
+        },
+        {
+          "sample": "S2",
+          "gene": "actin",
+          "level": 50.0
+        }
+      ]
+    },
+    "TABLE_WIDE": {
+      "columns": [
+        "sample",
+        "actin",
+        "tubulin"
+      ],
+      "rows": [
+        {
+          "sample": "S1",
+          "actin": 10.0,
+          "tubulin": 20.0
+        },
+        {
+          "sample": "S2",
+          "actin": 30.0,
+          "tubulin": 40.0
+        }
+      ]
     }
   },
   "references": {
@@ -1374,6 +1485,215 @@
             "sample_id": "S2",
             "genotype": "mutA",
             "expression": 3.4
+          }
+        ]
+      }
+    },
+    "derive": {
+      "sum_ab": {
+        "columns": [
+          "a",
+          "b",
+          "c",
+          "sum_ab"
+        ],
+        "rows": [
+          {
+            "a": 1.0,
+            "b": 2.0,
+            "c": 3.0,
+            "sum_ab": 3.0
+          },
+          {
+            "a": 4.0,
+            "b": 5.0,
+            "c": 6.0,
+            "sum_ab": 9.0
+          },
+          {
+            "a": 7.0,
+            "b": 8.0,
+            "c": 9.0,
+            "sum_ab": 15.0
+          },
+          {
+            "a": 10.0,
+            "b": 0.0,
+            "c": 2.0,
+            "sum_ab": 10.0
+          }
+        ]
+      },
+      "lin": {
+        "columns": [
+          "a",
+          "b",
+          "c",
+          "lin"
+        ],
+        "rows": [
+          {
+            "a": 1.0,
+            "b": 2.0,
+            "c": 3.0,
+            "lin": -1.0
+          },
+          {
+            "a": 4.0,
+            "b": 5.0,
+            "c": 6.0,
+            "lin": 2.0
+          },
+          {
+            "a": 7.0,
+            "b": 8.0,
+            "c": 9.0,
+            "lin": 5.0
+          },
+          {
+            "a": 10.0,
+            "b": 0.0,
+            "c": 2.0,
+            "lin": 18.0
+          }
+        ]
+      },
+      "ratio": {
+        "columns": [
+          "a",
+          "b",
+          "c",
+          "ratio"
+        ],
+        "rows": [
+          {
+            "a": 1.0,
+            "b": 2.0,
+            "c": 3.0,
+            "ratio": 0.5
+          },
+          {
+            "a": 4.0,
+            "b": 5.0,
+            "c": 6.0,
+            "ratio": 0.8
+          },
+          {
+            "a": 7.0,
+            "b": 8.0,
+            "c": 9.0,
+            "ratio": 0.875
+          },
+          {
+            "a": 10.0,
+            "b": 0.0,
+            "c": 2.0,
+            "ratio": null
+          }
+        ]
+      }
+    },
+    "pivot": {
+      "basic": {
+        "columns": [
+          "sample",
+          "actin",
+          "tubulin"
+        ],
+        "rows": [
+          {
+            "sample": "S1",
+            "actin": 10.0,
+            "tubulin": 20.0
+          },
+          {
+            "sample": "S2",
+            "actin": 30.0,
+            "tubulin": 40.0
+          },
+          {
+            "sample": "S3",
+            "actin": 50.0,
+            "tubulin": null
+          }
+        ]
+      },
+      "collision": {
+        "columns": [
+          "sample",
+          "actin",
+          "tubulin"
+        ],
+        "rows": [
+          {
+            "sample": "S1",
+            "actin": 20.0,
+            "tubulin": 20.0
+          },
+          {
+            "sample": "S2",
+            "actin": 50.0,
+            "tubulin": null
+          }
+        ]
+      }
+    },
+    "unpivot": {
+      "explicit": {
+        "columns": [
+          "sample",
+          "gene",
+          "level"
+        ],
+        "rows": [
+          {
+            "sample": "S1",
+            "gene": "actin",
+            "level": 10.0
+          },
+          {
+            "sample": "S2",
+            "gene": "actin",
+            "level": 30.0
+          },
+          {
+            "sample": "S1",
+            "gene": "tubulin",
+            "level": 20.0
+          },
+          {
+            "sample": "S2",
+            "gene": "tubulin",
+            "level": 40.0
+          }
+        ]
+      },
+      "defaults": {
+        "columns": [
+          "sample",
+          "variable",
+          "value"
+        ],
+        "rows": [
+          {
+            "sample": "S1",
+            "variable": "actin",
+            "value": 10.0
+          },
+          {
+            "sample": "S2",
+            "variable": "actin",
+            "value": 30.0
+          },
+          {
+            "sample": "S1",
+            "variable": "tubulin",
+            "value": 20.0
+          },
+          {
+            "sample": "S2",
+            "variable": "tubulin",
+            "value": 40.0
           }
         ]
       }
