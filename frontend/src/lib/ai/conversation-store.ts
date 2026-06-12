@@ -169,6 +169,27 @@ function requestApproval(
   });
 }
 
+// While the typewriter reveals an answer char by char, a partially-typed
+// markdown link or object embed (for example "[Bar chart](/datahub?doc=1#ros=plot&plo")
+// would render as raw, broken markdown until its closing ")" arrives, then snap
+// into an embed card. Clamp the visible text to drop a trailing link that is
+// still mid-formation, so a reference only ever appears once it is whole. A
+// complete link, or plain prose that merely contains a "[", is left untouched.
+export function clampPartialEmbed(text: string): string {
+  const open = text.lastIndexOf("[");
+  if (open === -1) return text;
+  const tail = text.slice(open);
+  // A complete [label](url) at the tail is safe to show.
+  if (/^\[[^\]]*\]\([^)]*\)/.test(tail)) return text;
+  // Hide only a clearly-forming link: the url part "](" has opened but not
+  // closed, or the label bracket itself is still open. Prose like "see [1]"
+  // (a closed bracket not followed by "(") matches neither and shows normally.
+  if (/^\[[^\]]*\]\([^)]*$/.test(tail) || /^\[[^\]]*$/.test(tail)) {
+    return text.slice(0, open);
+  }
+  return text;
+}
+
 // Typewriter reveal. Updates the assistant message incrementally so the answer
 // does not pop in all at once. Returns a promise that resolves when the full
 // text is shown.
@@ -181,7 +202,7 @@ function revealAnswer(assistantId: string, answer: string): Promise<void> {
     let shown = 0;
     const tick = () => {
       shown = Math.min(answer.length, shown + REVEAL_STEP_CHARS);
-      const text = answer.slice(0, shown);
+      const text = clampPartialEmbed(answer.slice(0, shown));
       useConversationStore.setState((state) => ({
         messages: state.messages.map((m) =>
           m.id === assistantId ? { ...m, content: text } : m,

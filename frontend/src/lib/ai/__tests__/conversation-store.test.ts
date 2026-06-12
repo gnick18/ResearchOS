@@ -27,6 +27,7 @@ import {
   useConversationStore,
   resetConversationModule,
   getConversationHistory,
+  clampPartialEmbed,
 } from "../conversation-store";
 import type { LoopMessage } from "../agent-loop";
 
@@ -387,5 +388,32 @@ describe("clearConversation", () => {
     expect(getConversationHistory()).toHaveLength(0);
     expect(useConversationStore.getState().error).toBeNull();
     expect(useConversationStore.getState().pendingApproval).toBeNull();
+  });
+});
+
+describe("clampPartialEmbed (typewriter does not flash a half-formed link)", () => {
+  it("hides a link whose url is still being typed", () => {
+    expect(clampPartialEmbed("See the plot [Bar chart](/datahub?doc=1#ros=plot&plo")).toBe(
+      "See the plot ",
+    );
+  });
+
+  it("hides a link whose label bracket is still open", () => {
+    expect(clampPartialEmbed("Here it is [Bar char")).toBe("Here it is ");
+  });
+
+  it("shows a complete link untouched", () => {
+    const full = "Done [Bar chart](/datahub?doc=1#ros=plot)";
+    expect(clampPartialEmbed(full)).toBe(full);
+  });
+
+  it("leaves prose that merely contains a closed bracket", () => {
+    expect(clampPartialEmbed("As shown in ref [1] above")).toBe(
+      "As shown in ref [1] above",
+    );
+  });
+
+  it("returns text with no bracket unchanged", () => {
+    expect(clampPartialEmbed("just some prose")).toBe("just some prose");
   });
 });
