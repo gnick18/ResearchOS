@@ -26,6 +26,7 @@ import PaletteStudio from "@/components/datahub/PaletteStudio";
 import StyledSelect from "@/components/datahub/StyledSelect";
 import PlotColorPicker from "@/components/datahub/PlotColorPicker";
 import PlotColorEditor from "@/components/datahub/PlotColorEditor";
+import ScrollableNumberInput from "@/components/datahub/ScrollableNumberInput";
 import type {
   AnalysisSpec,
   DataHubDocContent,
@@ -116,9 +117,11 @@ function Seg<T extends string>({
 }
 
 /**
- * One section of the right dock. A full-width top divider plus an uppercase
- * muted header group the controls the way the approved mockup does, so each
- * group reads as its own block down the panel.
+ * One section of the right dock. A full-width neutral gray band (the approved
+ * "Neutral gray band" treatment from datahub-section-headers.html) carries the
+ * uppercase header so each group reads as its own block down the panel. The
+ * band's bottom border separates it from the body, so the body needs no top
+ * divider of its own.
  */
 function Section({
   title,
@@ -131,16 +134,16 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="border-t border-border px-3.5 py-3 first:border-t-0">
-      <div className="mb-2 flex items-center gap-1.5">
+    <div>
+      <div className="flex items-center gap-1.5 border-b border-border bg-surface-sunken px-3.5 py-2">
         {icon ? (
-          <Icon name={icon} className="h-3 w-3 text-foreground-muted" />
+          <Icon name={icon} className="h-3 w-3 text-foreground" />
         ) : null}
-        <h3 className="text-[11px] font-bold uppercase tracking-wide text-foreground-muted">
+        <h3 className="text-[11px] font-bold uppercase tracking-wide text-foreground">
           {title}
         </h3>
       </div>
-      {children}
+      <div className="px-3.5 py-3">{children}</div>
     </div>
   );
 }
@@ -230,26 +233,26 @@ function FigureSizeControls({
   return (
     <div data-testid="datahub-figure-size">
       <Ctl label="Width">
-        <input
-          type="number"
+        <ScrollableNumberInput
           min={0}
+          max={unit === "px" ? 8000 : unit === "cm" ? 200 : 80}
           step={unit === "px" ? 10 : 0.1}
           value={dispW}
-          onChange={(e) => setWidth(Number(e.target.value))}
+          onChange={setWidth}
           className={numClass}
-          aria-label="Figure width"
+          ariaLabel="Figure width"
           data-testid="datahub-size-width"
         />
       </Ctl>
       <Ctl label="Height">
-        <input
-          type="number"
+        <ScrollableNumberInput
           min={0}
+          max={unit === "px" ? 8000 : unit === "cm" ? 200 : 80}
           step={unit === "px" ? 10 : 0.1}
           value={dispH}
-          onChange={(e) => setHeight(Number(e.target.value))}
+          onChange={setHeight}
           className={numClass}
-          aria-label="Figure height"
+          ariaLabel="Figure height"
           data-testid="datahub-size-height"
         />
       </Ctl>
@@ -281,17 +284,16 @@ function FigureSizeControls({
         </button>
       </Ctl>
       <Ctl label="Export DPI">
-        <input
-          type="number"
+        <ScrollableNumberInput
           min={72}
-          step={50}
+          max={1200}
+          step={10}
           value={dpi}
-          onChange={(e) => {
-            const v = Number(e.target.value);
+          onChange={(v) => {
             if (Number.isFinite(v) && v > 0) onStyleChange({ dpi: Math.round(v) });
           }}
           className={numClass}
-          aria-label="Export DPI"
+          ariaLabel="Export DPI"
           data-testid="datahub-size-dpi"
         />
       </Ctl>
