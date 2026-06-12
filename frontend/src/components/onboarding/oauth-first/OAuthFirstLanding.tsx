@@ -91,7 +91,7 @@ export function OAuthFirstLanding({
   return (
     <LightOnly>
       <div
-        className="h-screen overflow-y-auto snap-y snap-proximity"
+        className="h-screen overflow-y-auto snap-y snap-mandatory"
         onScroll={(e) =>
           setScrolled(e.currentTarget.scrollTop > window.innerHeight * 0.6)
         }
