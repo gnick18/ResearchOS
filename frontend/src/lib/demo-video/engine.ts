@@ -18,7 +18,8 @@
 export type Selector =
   | string // raw CSS selector
   | { testid: string } // [data-testid="…"]
-  | { text: string; within?: string }; // first element whose trimmed text === text
+  | { text: string; within?: string } // first element whose trimmed text === text
+  | { textContains: string; within?: string }; // most specific clickable el containing text
 
 export type DemoStep =
   | { action: "moveTo"; target: Selector; durationMs?: number }
@@ -43,7 +44,18 @@ export type DemoStep =
       durationMs?: number;
     }
   | { action: "wait"; ms: number }
-  | { action: "moveToPoint"; x: number; y: number; durationMs?: number };
+  | { action: "moveToPoint"; x: number; y: number; durationMs?: number }
+  | {
+      // Press-drag-release within an element, positions given as fractions
+      // [0..1] of its bounding box (resolution-independent). Used to select a
+      // sequence stretch so the Tm/GC badge appears.
+      action: "drag";
+      target: Selector;
+      fromFrac: [number, number];
+      toFrac: [number, number];
+      durationMs?: number;
+      steps?: number;
+    };
 
 export interface RunOptions {
   /** ms to wait for a target element to appear before giving up. Default 8000. */
@@ -185,6 +197,7 @@ async function tweenCursorTo(
 function selectorToString(sel: Selector): string {
   if (typeof sel === "string") return sel;
   if ("testid" in sel) return `[data-testid="${sel.testid}"]`;
+  if ("textContains" in sel) return `textContains:"${sel.textContains}"`;
   return `text:"${sel.text}"`;
 }
 
@@ -195,7 +208,28 @@ function queryOnce(sel: Selector): HTMLElement | null {
   if ("testid" in sel) {
     return document.querySelector<HTMLElement>(`[data-testid="${sel.testid}"]`);
   }
-  // text match
+  if ("textContains" in sel) {
+    // Most specific (shortest-text) visible clickable element containing the
+    // substring. Restricting to clickables avoids matching wrapper containers.
+    const scope = sel.within
+      ? document.querySelector(sel.within) ?? document
+      : document;
+    const wanted = sel.textContains.trim();
+    let best: HTMLElement | null = null;
+    let bestLen = Infinity;
+    const clickables = scope.querySelectorAll<HTMLElement>(
+      "a,button,[role='button'],[role='tab']",
+    );
+    for (const el of Array.from(clickables)) {
+      const txt = (el.textContent ?? "").trim();
+      if (txt.includes(wanted) && isVisible(el) && txt.length < bestLen) {
+        best = el;
+        bestLen = txt.length;
+      }
+    }
+    return best;
+  }
+  // exact text match
   const scope = sel.within
     ? document.querySelector(sel.within) ?? document
     : document;
@@ -249,6 +283,22 @@ function dispatchClick(el: HTMLElement, x: number, y: number): void {
   el.dispatchEvent(new PointerEvent("pointerup", base as PointerEventInit));
   el.dispatchEvent(new MouseEvent("mouseup", base));
   el.dispatchEvent(new MouseEvent("click", base));
+}
+
+/** Dispatch a pointer+mouse event at a screen point, on the element under it. */
+function dispatchMouseAt(kind: "down" | "move" | "up", x: number, y: number): void {
+  const el = document.elementFromPoint(x, y) as HTMLElement | null;
+  if (!el) return;
+  const init = {
+    bubbles: true,
+    cancelable: true,
+    clientX: x,
+    clientY: y,
+    view: window,
+    buttons: kind === "up" ? 0 : 1,
+  };
+  el.dispatchEvent(new PointerEvent(`pointer${kind}`, init as PointerEventInit));
+  el.dispatchEvent(new MouseEvent(`mouse${kind}`, init));
 }
 
 /** Set a React-controlled input/textarea value so onChange fires. */
@@ -342,6 +392,29 @@ async function runStep(step: DemoStep, opts: RunOptions): Promise<void> {
         );
         await sleep(interval, opts.signal);
       }
+      return;
+    }
+    case "drag": {
+      const el = await waitForEl(step.target, opts.waitTimeoutMs ?? 8000, opts.signal);
+      el.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+      await sleep(180, opts.signal);
+      const r = el.getBoundingClientRect();
+      const sx = r.left + step.fromFrac[0] * r.width;
+      const sy = r.top + step.fromFrac[1] * r.height;
+      const ex = r.left + step.toFrac[0] * r.width;
+      const ey = r.top + step.toFrac[1] * r.height;
+      await tweenCursorTo(sx, sy, step.durationMs ?? 600, opts.signal);
+      dispatchMouseAt("down", sx, sy);
+      const n = step.steps ?? 24;
+      for (let i = 1; i <= n; i++) {
+        const t = i / n;
+        const x = sx + (ex - sx) * t;
+        const y = sy + (ey - sy) * t;
+        placeCursor(x, y);
+        dispatchMouseAt("move", x, y);
+        await sleep(16, opts.signal);
+      }
+      dispatchMouseAt("up", ex, ey);
       return;
     }
   }
