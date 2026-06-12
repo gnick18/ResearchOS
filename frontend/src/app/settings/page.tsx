@@ -13,7 +13,7 @@ import {
 } from "@/lib/lab/retention";
 import { computeFolderManifest } from "@/lib/lab/manifest";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import AppFooter from "@/components/AppFooter";
 import BetaDonationButton from "@/components/BetaDonationButton";
@@ -89,6 +89,12 @@ import {
   useSettingsSearch,
 } from "./search-context";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
+import SettingsShell, {
+  type SettingsGroupDef,
+} from "@/components/settings/SettingsShell";
+import ProfileSettingsContent from "@/components/profile/ProfileSettingsContent";
+import AiUsageSection from "@/components/settings/sections/AiUsageSection";
+import CloudStorageUsageSection from "@/components/settings/sections/CloudStorageUsageSection";
 
 const GANTT_VIEW_OPTIONS: { value: UserSettings["defaultGanttViewMode"]; label: string }[] = [
   { value: "1week", label: "1 week" },
@@ -134,51 +140,37 @@ export default function SettingsPage() {
  * the provider here, the modal mount fell back to the context default
  * whose `setQuery` is a no-op, so typing in the search bar did nothing.
  */
-export function SettingsBody() {
+export function SettingsBody({
+  initialSectionId,
+}: {
+  /** Section to open on when the shell is mounted without a `?section=` query
+   *  (i.e. inside a modal). The /settings route leaves this unset and reads the
+   *  URL instead. */
+  initialSectionId?: string;
+} = {}) {
   return (
     <SettingsSearchProvider>
-      <SettingsBodyInner />
+      <SettingsBodyInner initialSectionId={initialSectionId} />
     </SettingsSearchProvider>
   );
 }
 
-/**
- * Settings tab identifier. Drives the Personal / Lab Mode split introduced
- * by settings tabs manager 2026-05-23. Solo accounts (no lab folder) never
- * see the tab strip at all — the value is purely cosmetic for them and
- * defaults to "personal".
- */
-type SettingsTab = "personal" | "lab";
-
-function isSettingsTab(value: string | null | undefined): value is SettingsTab {
-  return value === "personal" || value === "lab";
-}
-
-/**
- * Normalize a `?tab=...` query param into a canonical SettingsTab id.
- * Accepts the canonical ids ("personal", "lab") AND the visible-label
- * alias "lab-mode" (the tab strip label is "Lab Mode", and external docs
- * / wiki links sometimes use that form). Returns null on anything else
- * so the caller can fall back to the default tab rather than silently
- * dropping users on Personal when they asked for Lab Mode.
- */
-function normalizeSettingsTab(
-  value: string | null | undefined,
-): SettingsTab | null {
-  if (value === "lab-mode") return "lab";
-  if (isSettingsTab(value)) return value;
-  return null;
-}
+// The old Personal / Lab Mode tab identifier + its `?tab=` normalizer were
+// retired by the settings-build bot (2026-06-11) when the left-rail shell
+// replaced the tab strip. Old `?tab=lab` deep-links still resolve, the mapping
+// now lives in SettingsShell.defaultSectionForTab.
 
 // Exported so the SettingsModal (avatar-menu "Settings") can render the exact
 // same body inside a popup. The modal lazy-imports this via next/dynamic to
 // avoid a circular import (this page imports AppShell, which mounts the modal).
-function SettingsBodyInner() {
+function SettingsBodyInner({
+  initialSectionId,
+}: {
+  initialSectionId?: string;
+}) {
   const { currentUser, isConnected, directoryName } = useFileSystem();
   const hydrateFromSettings = useAppStore((s) => s.hydrateFromSettings);
   const queryClient = useQueryClient();
-  const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -228,88 +220,6 @@ function SettingsBodyInner() {
   // the tab (the role gate, unchanged).
   const derivedLabMode = useIsLabMode() ?? false;
   const isLabMode = settings?.account_type === "lab_head" || derivedLabMode;
-  // Tab state. Read the initial value from the `?tab=...` query so a
-  // deep-link or in-session back-nav lands the user on the same tab.
-  // Solo users never see the tab strip but we still respect the query
-  // so a stray `?tab=lab` URL doesn't loop them through an inert state.
-  // Accepts "personal" / "lab" plus the "lab-mode" alias so wiki +
-  // README links that use the visible label still resolve correctly.
-  const initialTab: SettingsTab =
-    normalizeSettingsTab(searchParams.get("tab")) ?? "personal";
-  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
-
-  // Keep the URL query in sync as the user clicks between tabs so they can
-  // deep-link a screenshot ("see Lab Mode") and so Back/Forward restores
-  // the right view. Use router.replace to avoid history bloat.
-  const handleTabChange = useCallback(
-    (next: SettingsTab) => {
-      setActiveTab(next);
-      const params = new URLSearchParams(searchParams.toString());
-      if (next === "personal") {
-        params.delete("tab");
-      } else {
-        params.set("tab", next);
-      }
-      const query = params.toString();
-      router.replace(query ? `/settings?${query}` : "/settings", {
-        scroll: false,
-      });
-    },
-    [router, searchParams],
-  );
-
-  // Sync when the URL changes from outside (e.g. an in-product Link
-  // points at /settings?tab=lab). Only mirrors valid values so a stale
-  // `?tab=garbage` stays harmless. The "lab-mode" alias normalizes to
-  // "lab" so external links with the visible-label form still flip the
-  // tab without bouncing the user back to Personal.
-  useEffect(() => {
-    const normalized = normalizeSettingsTab(searchParams.get("tab"));
-    if (normalized !== null && normalized !== activeTab) {
-      setActiveTab(normalized);
-    }
-    // We intentionally don't include `activeTab` here — this is a one-
-    // way URL → state sync; the other direction is handled by
-    // `handleTabChange`. Including it would create a loop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
-
-  // The wrapping <div className="flex-1 overflow-y-auto"> is the actual
-  // scroll container — not window. Calling el.scrollIntoView() defaults
-  // to scrolling the nearest scrolling ancestor, which is unreliable
-  // here because the container only mounts after `loading` flips false.
-  // We need a direct handle to call scrollTo() on the right element.
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  // One-shot guard so we only honor the URL hash on first content render,
-  // not again when the user switches accounts mid-session.
-  const scrolledToHashRef = useRef(false);
-
-  // Scroll to URL hash (e.g. /settings#ai-helper, #behavior, #personalize)
-  // once the section is actually in the DOM. Onboarding-tip setupActions
-  // navigate here, so this is the entry point users hit cold.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (loading) return;
-    if (scrolledToHashRef.current) return;
-    const hash = window.location.hash.slice(1);
-    if (!hash) return;
-    scrolledToHashRef.current = true;
-    // Defer one frame so layout has settled after this commit; otherwise
-    // offsetTop / getBoundingClientRect can read stale geometry.
-    const raf = requestAnimationFrame(() => {
-      const container = scrollContainerRef.current;
-      if (!container) return;
-      const el = document.getElementById(hash);
-      if (!el) return;
-      const top =
-        el.getBoundingClientRect().top -
-        container.getBoundingClientRect().top +
-        container.scrollTop;
-      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      container.scrollTo({ top, behavior: reduced ? "auto" : "smooth" });
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [loading]);
 
   // Load on mount + when the active user changes.
   useEffect(() => {
@@ -413,77 +323,134 @@ function SettingsBodyInner() {
     );
   }
 
-  return (
-    <div
-      ref={scrollContainerRef}
-      className="min-h-0 flex-1 overflow-y-auto flex flex-col bg-surface-sunken"
-    >
-      <div className="max-w-3xl mx-auto w-full px-6 py-8 space-y-8">
-        {/* Onboarding v4 §6.10 Settings phase redesign 2026-05-22
-            (Settings manager): the page header doubles as the
-            spotlight anchor for the `settings-tour-folder` narration
-            beat. The `users/<user>/settings.json` line is the closest
-            in-product surface that references the user's connected
-            lab folder, so BeakerBot anchors there when narrating
-            "this is where your lab folder lives." The dedicated
-            folder-switching UI lives on the entry screen
-            (ResearchFolderSetupNew); a FOLLOW-UP could surface a
-            "Change folder" button right here for parity with the
-            narration. */}
-        <header
-          data-tour-target="settings-folder-section"
-          className="flex items-center justify-between"
-        >
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-heading font-bold text-foreground">Settings</h1>
-              <VersionBadge />
-            </div>
-            <p className="text-body text-foreground-muted mt-1">
-              Stored in <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">users/{currentUser}/settings.json</code>
-            </p>
-          </div>
-          <SavedIndicator saving={saving} recentlySaved={recentlySaved} />
-        </header>
+  // ── Section registry → the SettingsShell rail IA ──────────────────────────
+  //
+  // settings-build bot (2026-06-11): the old Personal / Lab Mode scroll-wall is
+  // replaced by a grouped left rail + content pane. Each section below reuses an
+  // EXISTING section component with its existing wiring and role gates, so no
+  // control changed how it reads or writes. The page still owns the loaded
+  // `settings` + `update`, and passes them through exactly as before.
+  //
+  // The Lab group is gated on the same predicate the old Lab Mode tab used
+  // (isLabMode), and each lab-head-only section keeps its own account_type gate.
+  const isLabHead = shouldShowLabHeadAuditTrail(settings);
 
-        {/* Inline filter bar (settings search UX manager, 2026-05-23):
-            scrolls with the page so it stays in reach but never blocks
-            the header. Typing here filters every SectionShell + every
-            SearchableRow on this page by case-insensitive substring on
-            the row's label or description. Empty query is a no-op. */}
-        <SettingsSearchBar />
-        <SettingsSearchEmptyState />
-
-        {/* Settings tabs manager 2026-05-23: split lab-admin work from
-            personal preferences. Solo accounts never see this strip
-            (single-stream layout, identical to the pre-tabs page). Lab
-            accounts see Personal (default) and Lab Mode. Account Type +
-            PI admin + Lab Roster live under Lab Mode; everything
-            else stays in Personal. */}
-        {isLabMode && (
-          <SettingsTabStrip
-            activeTab={activeTab}
-            onTabChange={handleTabChange}
-          />
-        )}
-
-        {/* key={currentUser} resets each section's local draft state when
-            the lab user switches mid-session, so we never show user A's
-            half-typed display-name draft to user B. */}
-        {(!isLabMode || activeTab === "personal") && (
-          <>
-            <DataFolderSection
-              directoryName={directoryName}
-              onConnectOrSwitch={() => setShowDataSetup(true)}
-            />
-            <AccountSection
-              currentUser={currentUser}
-              onSwitchUser={() => setShowUserSwitch(true)}
-            />
-            <ProfilePointerCard sharing={sharing} />
-            <ProfessionalModeSection settings={settings} update={update} />
-            <TabsSection settings={settings} update={update} />
-            <LabArchivesSection />
+  const groups: SettingsGroupDef[] = [
+    {
+      label: "You",
+      sections: [
+        {
+          id: "profile",
+          group: "You",
+          title: "Profile & appearance",
+          icon: "users",
+          keywords:
+            "display name avatar color gradient header tint orcid affiliation publications researcher profile public account keys identity sharing email fingerprint recovery",
+          // Folds the old /profile page fully in (appearance, researcher
+          // profile, public-profile card, account and keys). Same component the
+          // /profile route renders, so all of its flows are preserved.
+          render: () => <ProfileSettingsContent />,
+        },
+        {
+          id: "account",
+          group: "You",
+          title: "Account & security",
+          icon: "shield",
+          keywords:
+            "account user switch sign in out login logout password lock security google github unlock",
+          render: () => (
+            <>
+              <AccountSection
+                currentUser={currentUser}
+                onSwitchUser={() => setShowUserSwitch(true)}
+              />
+              <SecuritySection
+                pwExists={pwExists}
+                claimed={
+                  sharing.status === "ready" ||
+                  sharing.status === "needs-restore"
+                }
+                onOpen={() => setPwOpen(true)}
+              />
+            </>
+          ),
+        },
+      ],
+    },
+    {
+      label: "Usage & billing",
+      sections: [
+        {
+          id: "ai",
+          group: "Usage & billing",
+          title: "AI usage",
+          icon: "bolt",
+          flag: "new",
+          keywords:
+            "beakerbot tokens balance buy prepaid trial metered cost analysis figure question write-up billing pricing",
+          render: () => <AiUsageSection />,
+        },
+        {
+          id: "storage",
+          group: "Usage & billing",
+          title: "Cloud storage",
+          icon: "cloud",
+          flag: "new",
+          keywords:
+            "cloud storage used cap GB plan inbox shares sync billing pricing beta",
+          render: () => <CloudStorageUsageSection />,
+        },
+      ],
+    },
+    {
+      label: "Workspace",
+      sections: [
+        {
+          id: "appearance",
+          group: "Workspace",
+          title: "Appearance & motion",
+          icon: "sun",
+          keywords:
+            "theme light dark system animation motion beakerbot professional mode sparkles celebration playful",
+          render: () => (
+            <>
+              <AppearanceSection />
+              <AnimationSection settings={settings} update={update} />
+              <ProfessionalModeSection settings={settings} update={update} />
+            </>
+          ),
+        },
+        {
+          id: "defaults",
+          group: "Workspace",
+          title: "Defaults",
+          icon: "gauge",
+          keywords:
+            "gantt calendar date time format show shared default view",
+          render: () => <DefaultsSection settings={settings} update={update} />,
+        },
+        {
+          id: "sidebar",
+          group: "Workspace",
+          title: "Sidebar & tabs",
+          icon: "list",
+          keywords:
+            "tabs visible landing sidebar tasks calendar events horizon days",
+          render: () => (
+            <>
+              <TabsSection settings={settings} update={update} />
+              <SidebarSection settings={settings} update={update} />
+            </>
+          ),
+        },
+        {
+          id: "companion",
+          group: "Workspace",
+          title: "Companion",
+          icon: "phone",
+          keywords:
+            "companion phone pair pairing mobile capture photo qr relay inbox camera bench notes scan today glance devices hub open",
+          render: () => (
             <SectionShell
               id="devices"
               title="Companion"
@@ -493,36 +460,261 @@ function SettingsBodyInner() {
               <OpenCompanionHubButton />
               <DevicesSection ready={sharing.isReady} />
             </SectionShell>
-            <AIHelperSection />
-            <SidebarSection settings={settings} update={update} />
-            <DefaultsSection settings={settings} update={update} />
-            <AppearanceSection />
-            <AnimationSection settings={settings} update={update} />
-            <BehaviorSection settings={settings} update={update} />
-            <StreaksSection />
-            <TrashAndHistorySection settings={settings} update={update} />
-            <DataInventorySection />
-            <MaintenanceSection />
-            <TipsSection />
-            <SecuritySection
-              pwExists={pwExists}
-              claimed={
-                sharing.status === "ready" || sharing.status === "needs-restore"
-              }
-              onOpen={() => setPwOpen(true)}
+          ),
+        },
+        {
+          id: "aihelper",
+          group: "Workspace",
+          title: "AI Helper",
+          icon: "ask",
+          keywords:
+            "ai helper schema prompt external chatgpt claude copy clipboard provider",
+          render: () => <AIHelperSection />,
+        },
+        {
+          id: "behavior",
+          group: "Workspace",
+          title: "Behavior",
+          icon: "check",
+          keywords:
+            "behavior confirm destructive spell check spelling editor outline",
+          render: () => <BehaviorSection settings={settings} update={update} />,
+        },
+        {
+          id: "streaks",
+          group: "Workspace",
+          title: "Streaks & PTO",
+          icon: "today",
+          keywords: "streak streaks pto time off vacation daily activity",
+          render: () => <StreaksSection />,
+        },
+        {
+          id: "tips",
+          group: "Workspace",
+          title: "Tips",
+          icon: "book",
+          keywords: "tips feature hints onboarding help walkthrough",
+          render: () => <TipsSection />,
+        },
+      ],
+    },
+    {
+      label: "Data",
+      sections: [
+        {
+          id: "folder",
+          group: "Data",
+          title: "Data folder",
+          icon: "folder",
+          keywords:
+            "data folder directory connect switch research storage disk location",
+          render: () => (
+            <DataFolderSection
+              directoryName={directoryName}
+              onConnectOrSwitch={() => setShowDataSetup(true)}
             />
+          ),
+        },
+        {
+          id: "inventory",
+          group: "Data",
+          title: "Inventory & export",
+          icon: "box",
+          keywords:
+            "files disk indexeddb cache external calls api network privacy export orphaned artifacts",
+          render: () => <DataInventorySection />,
+        },
+        {
+          id: "trash",
+          group: "Data",
+          title: "Trash & history",
+          icon: "trash",
+          keywords:
+            "trash delete soft-delete restore cleanup window history version control orphaned",
+          render: () => (
+            <TrashAndHistorySection settings={settings} update={update} />
+          ),
+        },
+        {
+          id: "maintenance",
+          group: "Data",
+          title: "Maintenance",
+          icon: "bolt",
+          keywords:
+            "repair method links source paths formats reconcile import experiment zip migrate convert solo migration history",
+          render: () => <MaintenanceSection />,
+        },
+        {
+          id: "labarchives",
+          group: "Data",
+          title: "Lab archives",
+          icon: "database",
+          keywords: "lab archives accessible restore retention finished work",
+          render: () => <LabArchivesSection />,
+        },
+        {
+          id: "offline",
+          group: "Data",
+          title: "Offline & sync",
+          icon: "refresh",
+          keywords:
+            "offline mode network proxy server outbound block disable api sync conflicts",
+          render: () => (
             <OfflineModeSection settings={settings} update={update} />
-          </>
-        )}
+          ),
+        },
+      ],
+    },
+    // Lab group, gated on the same predicate the old Lab Mode tab used. Each
+    // lab-head-only section keeps its own account_type gate unchanged.
+    ...(isLabMode
+      ? [
+          {
+            label: "Lab",
+            labBadge: true,
+            sections: [
+              {
+                id: "members",
+                group: "Lab",
+                title: "Members & roster",
+                icon: "users" as const,
+                keywords: "members archive restore roster lab people",
+                render: () => <LabRosterSection />,
+              },
+              ...(LAB_TIER_ENABLED && isLabHead
+                ? [
+                    {
+                      id: "membership",
+                      group: "Lab",
+                      title: "Membership & agreement",
+                      icon: "userPlus" as const,
+                      keywords:
+                        "invite member join link lab tier add request agreement mode solo lab visibility approval",
+                      render: () => (
+                        <>
+                          <LabMembershipSection />
+                          <LabAgreementSection
+                            settings={settings}
+                            update={update}
+                          />
+                        </>
+                      ),
+                    },
+                  ]
+                : isLabHead
+                  ? [
+                      {
+                        id: "membership",
+                        group: "Lab",
+                        title: "Membership & agreement",
+                        icon: "userPlus" as const,
+                        keywords:
+                          "agreement mode solo lab visibility approval lab head",
+                        render: () => (
+                          <LabAgreementSection
+                            settings={settings}
+                            update={update}
+                          />
+                        ),
+                      },
+                    ]
+                  : []),
+              {
+                id: "accounttype",
+                group: "Lab",
+                title: "Account type",
+                icon: "shield" as const,
+                keywords: "account type member pi lab head role",
+                render: () => (
+                  <AccountTypeSection settings={settings} update={update} />
+                ),
+              },
+              ...(isLabHead
+                ? [
+                    {
+                      id: "audit",
+                      group: "Lab",
+                      title: "Audit trail",
+                      icon: "history" as const,
+                      keywords:
+                        "audit log history pi lab head edits trail changes",
+                      render: () => <LabAuditTrailSection />,
+                    },
+                    {
+                      id: "retention",
+                      group: "Lab",
+                      title: "Retention registry",
+                      icon: "file" as const,
+                      keywords:
+                        "retention registry policy r2 compliance funder data retention member",
+                      render: () => (
+                        <RetentionRegistrySection currentUser={currentUser} />
+                      ),
+                    },
+                    {
+                      id: "routing",
+                      group: "Lab",
+                      title: "Department routing",
+                      icon: "mail" as const,
+                      keywords:
+                        "department routing contacts email template purchase send hand off accountant stores",
+                      render: () => (
+                        <PurchaseRoutingSection
+                          settings={settings}
+                          update={update}
+                        />
+                      ),
+                    },
+                  ]
+                : []),
+            ],
+          } satisfies SettingsGroupDef,
+        ]
+      : []),
+  ];
 
-        {isLabMode && activeTab === "lab" && (
-          <LabModeTabContent
-            settings={settings}
-            update={update}
-            currentUser={currentUser}
-          />
-        )}
-      </div>
+  // key={currentUser} on the shell resets each section's local draft state when
+  // the lab user switches mid-session, so we never show user A's half-typed
+  // draft to user B (the same guard the old scroll-wall had).
+  return (
+    <div className="min-h-0 flex-1 flex flex-col bg-surface-sunken">
+      <SettingsShell
+        key={currentUser}
+        groups={groups}
+        currentUser={currentUser}
+        initialSectionId={initialSectionId}
+        roleLabel={
+          isLabHead ? "Lab head" : isLabMode ? "Lab member" : undefined
+        }
+        headerExtra={
+          <div className="space-y-3">
+            {/* The header keeps the `settings-folder-section` spotlight anchor
+                so the dormant v4 tour's "this is where your lab folder lives"
+                narration (settings-tour-folder) still resolves if re-enabled. */}
+            <header
+              data-tour-target="settings-folder-section"
+              className="flex items-center justify-between"
+            >
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-heading font-bold text-foreground">
+                    Settings
+                  </h1>
+                  <VersionBadge />
+                </div>
+                <p className="text-body text-foreground-muted mt-1">
+                  Stored in{" "}
+                  <code className="px-1 py-0.5 bg-surface-sunken rounded text-meta">
+                    users/{currentUser}/settings.json
+                  </code>
+                </p>
+              </div>
+              <SavedIndicator saving={saving} recentlySaved={recentlySaved} />
+            </header>
+            <SettingsSearchBar />
+          </div>
+        }
+      />
 
       {pwOpen && currentUser && (
         <AccountPasswordPopup
@@ -551,11 +743,11 @@ function SettingsBodyInner() {
           }}
         />
       )}
-      <div className="mt-auto">
+      <div className="shrink-0">
         {/* Support / Donate moved here from the global floating cluster
             (2026-06-05): the ask now lives on Settings instead of floating
             over every page. */}
-        <div className="flex justify-center pt-8 pb-1">
+        <div className="flex justify-center pt-4 pb-1">
           <BetaDonationButton variant="link" tone="light" />
         </div>
         <AppFooter />
@@ -644,57 +836,6 @@ function SettingsSearchBar() {
           </Tooltip>
         </div>
       )}
-    </div>
-  );
-}
-
-/**
- * Empty-state surface (settings search UX manager, 2026-05-23). Renders
- * a single line when the user has an active query but every section on
- * the page has hidden itself. Polls the DOM for visible sections after
- * each query change so we don't have to thread "did anything match?"
- * back up from every SectionShell. Cheap: one querySelectorAll on the
- * settings page scope each time the lowered query changes.
- */
-function SettingsSearchEmptyState() {
-  const { query, lower, active } = useSettingsSearch();
-  const [noMatches, setNoMatches] = useState(false);
-
-  useEffect(() => {
-    if (!active) {
-      // Reset on next frame so the effect body avoids the synchronous
-      // setState-in-effect lint (cascading-render warning). Same
-      // deferral that the post-query measure uses below.
-      const reset = requestAnimationFrame(() => setNoMatches(false));
-      return () => cancelAnimationFrame(reset);
-    }
-    // Defer to next frame so SectionShells have committed their
-    // `hidden` attribute based on the new query.
-    const raf = requestAnimationFrame(() => {
-      const sections = document.querySelectorAll<HTMLElement>(
-        '[data-settings-section-marker="1"]',
-      );
-      let anyVisible = false;
-      for (const s of sections) {
-        if (!s.hidden) {
-          anyVisible = true;
-          break;
-        }
-      }
-      setNoMatches(!anyVisible && sections.length > 0);
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [active, lower]);
-
-  if (!active || !noMatches) return null;
-  return (
-    <div
-      role="status"
-      className="rounded-lg border border-border bg-surface-sunken px-4 py-3 text-body text-foreground-muted"
-    >
-      No settings match{" "}
-      <span className="font-medium text-foreground">&ldquo;{query}&rdquo;</span>.
-      Try a different keyword.
     </div>
   );
 }
@@ -885,39 +1026,10 @@ function AccountSection({
   );
 }
 
-// Profile editing AND the sharing account (Account and keys, inbox, storage)
-// both live on the dedicated Profile page now (2026-06-06). This Settings
-// section is a pure pointer there, set-up included, so there is no forked
-// account surface in Settings.
-function ProfilePointerCard({
-  sharing,
-}: {
-  sharing: ReturnType<typeof useSharingIdentity>;
-}) {
-  const notSetUp = sharing.status === "none";
-  return (
-    <SectionShell
-      id="personalize"
-      title="Profile and account"
-      description="Your name, avatar color, ORCID, researcher profile, and your account and keys all live on your Profile page."
-      searchKeywords="display name color avatar gradient primary secondary swatch palette personalize header tint orcid id researcher identifier profile account keys identity sharing email fingerprint recovery inbox storage"
-    >
-      <div className="flex items-start justify-between gap-4">
-        <p className="text-body text-foreground leading-relaxed max-w-prose">
-          {notSetUp
-            ? "Set up sharing and manage your name, avatar color, ORCID, and keys on your Profile page."
-            : "Edit your display name, avatar color, ORCID, researcher profile, and your account and keys on your Profile page."}
-        </p>
-        <Link
-          href="/profile"
-          className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap"
-        >
-          {notSetUp ? "Set up on your Profile" : "Go to your Profile"}
-        </Link>
-      </div>
-    </SectionShell>
-  );
-}
+// The old "Profile and account" pointer card linked OUT to a separate /profile
+// page. The settings-build bot (2026-06-11) folded that page fully into the new
+// "Profile & appearance" rail section (it renders ProfileSettingsContent inline),
+// so the pointer card is retired and there is one place to edit yourself.
 
 /**
  * Lab Head Phase 1 (lab head Phase 1 manager, 2026-05-23): account-role
@@ -1211,57 +1323,6 @@ function LabAuditTrailSection() {
   );
 }
 
-/**
- * Settings tabs manager 2026-05-23: Personal / Lab Mode segmented
- * control. Modeled after the Workbench tab strip
- * (`frontend/src/app/workbench/page.tsx`) so the two surfaces feel
- * consistent. Renders nothing for solo accounts — the caller already
- * gates on `isLabMode`.
- */
-function SettingsTabStrip({
-  activeTab,
-  onTabChange,
-}: {
-  activeTab: SettingsTab;
-  onTabChange: (next: SettingsTab) => void;
-}) {
-  return (
-    <div
-      className="flex items-center gap-1 border-b border-border pb-3"
-      role="tablist"
-      aria-label="Settings sections"
-    >
-      <button
-        type="button"
-        role="tab"
-        aria-selected={activeTab === "personal"}
-        onClick={() => onTabChange("personal")}
-        data-tour-target="settings-tab-personal"
-        className={`px-4 py-2 rounded-lg text-body font-medium transition-colors ${
-          activeTab === "personal"
-            ? "bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300"
-            : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
-        }`}
-      >
-        Personal
-      </button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={activeTab === "lab"}
-        onClick={() => onTabChange("lab")}
-        data-tour-target="settings-tab-lab"
-        className={`px-4 py-2 rounded-lg text-body font-medium transition-colors ${
-          activeTab === "lab"
-            ? "bg-amber-100 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300"
-            : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
-        }`}
-      >
-        Lab Mode
-      </button>
-    </div>
-  );
-}
 
 /**
  * Department-routing config (PURCHASE_DOCS_AND_ROUTING.md, the Purchasing module
@@ -1733,108 +1794,6 @@ function RetentionRegistrySection({ currentUser }: { currentUser: string }) {
         {busy ? "Recording..." : "Record retention"}
       </button>
     </SectionShell>
-  );
-}
-
-/**
- * Lab Head hub Phase 1 (LAB_HEAD_HUB.md, 2026-06-10): a small uppercase label
- * that visually clusters the Lab Mode cards into groups (People / Oversight /
- * Account) instead of a flat stack. It hides itself while a settings search is
- * active, so search shows a clean flat list of matching cards with no orphaned
- * group headings.
- */
-function HubGroupHeading({ children }: { children: React.ReactNode }) {
-  const { active } = useSettingsSearch();
-  if (active) return null;
-  return (
-    <h3 className="px-1 text-meta font-semibold uppercase tracking-wide text-foreground-muted">
-      {children}
-    </h3>
-  );
-}
-
-/**
- * Settings tabs manager 2026-05-23, reorganized into the Lab Head hub by
- * LAB_HEAD_HUB.md (2026-06-10). The Lab Mode tab is the lab head's configuration
- * and oversight surface (the live "what needs me today" view is Lab Overview).
- * The cards are grouped rather than flat:
- *
- *   People    — Lab Roster (everyone, archive gated internally) + Lab membership
- *               (lab head + lab tier).
- *   Oversight — the lab audit trail (lab head only). Reserved slot for an
- *               approvals + flag policy card linking to the live queues.
- *   Account   — member vs lab_head toggle. Visible to every lab account, the
- *               entry point for becoming a lab head.
- *
- * Two optional modules are reserved (invisible until the PI enables them): a
- * Data & retention card (LAB_ARCHIVE_CONTINUITY.md) and a Purchasing routing
- * card (PURCHASE_DOCS_AND_ROUTING.md). They mount between Oversight and Account.
- *
- * The Lab Mode tab is also visible to a member in a lab workspace, so lab-head
- * surfaces gate on the actual account_type (shouldShowLabHeadAuditTrail), not the
- * looser isLabMode tab flag. The old PI edit-mode password section was removed
- * with the PI edit-session feature.
- */
-function LabModeTabContent({
-  settings,
-  update,
-  currentUser,
-}: {
-  settings: UserSettings;
-  update: (patch: Partial<UserSettings>) => Promise<void>;
-  currentUser: string;
-}) {
-  const isLabHead = shouldShowLabHeadAuditTrail(settings);
-  return (
-    <>
-      {/* People: who is in the lab. */}
-      <div className="space-y-4">
-        <HubGroupHeading>People</HubGroupHeading>
-        <LabRosterSection />
-        {LAB_TIER_ENABLED && isLabHead && <LabMembershipSection />}
-        {isLabHead && (
-          <LabAgreementSection settings={settings} update={update} />
-        )}
-      </div>
-
-      {/* Oversight: the durable record. Lab-head only, so the whole group
-          (heading included) is gated to avoid an orphaned heading for members. */}
-      {isLabHead && (
-        <div className="space-y-4">
-          <HubGroupHeading>Oversight</HubGroupHeading>
-          <LabAuditTrailSection />
-          {/* Reserved slot (LAB_HEAD_HUB.md): an Approvals & flag-policy card
-              that links to the live queues on Lab Overview + lab-inbox. */}
-        </div>
-      )}
-
-      {/* Data & retention: the lab-archive registry module (lab-head only). The
-          PI's compliance dashboard recording where each member's data is
-          retained. LAB_ARCHIVE_CONTINUITY.md. */}
-      {isLabHead && (
-        <div className="space-y-4">
-          <HubGroupHeading>Data &amp; retention</HubGroupHeading>
-          <RetentionRegistrySection currentUser={currentUser} />
-        </div>
-      )}
-
-      {/* Purchasing: the department-routing module (lab-head only). The card
-          itself is how a PI enables/configures routing, so it shows whenever the
-          viewer is a lab head; the "Send to department" affordance on purchases
-          stays hidden until routing.enabled is true. */}
-      {isLabHead && (
-        <div className="space-y-4">
-          <HubGroupHeading>Purchasing</HubGroupHeading>
-          <PurchaseRoutingSection settings={settings} update={update} />
-        </div>
-      )}
-
-      {/* Account: role + account type. */}
-      <div className="space-y-4">
-        <HubGroupHeading>Account</HubGroupHeading>
-        <AccountTypeSection settings={settings} update={update} />
-      </div>
-    </>
   );
 }
 

@@ -1,10 +1,14 @@
 "use client";
 
-// In-app "Profile settings" popup. Mounted once in AppShell. The avatar-menu
-// "Profile settings" entry opens it; the appearance + researcher-profile body
-// renders inside the shared LivingPopup (hazy blurred backdrop, zoom-from-icon,
-// X / scrim / Escape close). The /profile route stays as the direct-link
-// fallback.
+// In-app quick "edit my profile" popup. Mounted once in AppShell, now opened
+// only from the researcher directory ("Edit your profile" on your own card). The
+// avatar-menu "Profile settings" entry was retired by the settings-build bot
+// (2026-06-11) when profile editing folded into the unified Settings shell.
+//
+// It renders ProfileSettingsContent, the SAME body the Settings "Profile &
+// appearance" rail section renders, so this stays a focused one-surface quick
+// edit rather than mounting the whole rail shell inside a small popup. The
+// canonical home is /settings?section=profile; this is the in-context shortcut.
 
 import LivingPopup from "@/components/ui/LivingPopup";
 import ProfileSettingsContent from "@/components/profile/ProfileSettingsContent";

@@ -26,7 +26,6 @@ import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import { compactFingerprint } from "@/lib/sharing/profile";
 import { isRealSharingEnabled } from "@/lib/sharing/oauth-availability";
 import { useProfileModal } from "@/lib/sharing/profile-modal-store";
-import { useProfileSettingsModal } from "@/lib/profile/profile-settings-modal-store";
 import { useSettingsModal } from "@/lib/settings/settings-modal-store";
 import { rainbowTheme } from "@/lib/colors";
 import RainbowOrb from "@/components/RainbowOrb";
@@ -223,7 +222,6 @@ export default function UserAvatarMenu({
   // opens the in-app popup over the current page; otherwise it links to the
   // profile editor card in Settings so they can create one.
   const openProfile = useProfileModal((s) => s.open);
-  const openProfileSettings = useProfileSettingsModal((s) => s.open);
   const ownFingerprint = sharing.sidecar?.fingerprint ?? null;
 
   const openOwnProfile = useCallback(
@@ -238,17 +236,10 @@ export default function UserAvatarMenu({
     [ownFingerprint, openProfile],
   );
 
-  // Profile settings opens as a living popup over the current page (Apple-style
-  // zoom from the clicked point), not a navigation to /profile.
-  const openSettingsPopup = useCallback(
-    (e: React.MouseEvent) => {
-      setOpen(false);
-      openProfileSettings({ x: e.clientX, y: e.clientY });
-    },
-    [openProfileSettings],
-  );
-
-  // Settings opens the same way, the full settings body as a living popup.
+  // Settings opens as a living popup over the current page (Apple-style zoom
+  // from the clicked point), the full settings body. The unified Settings shell
+  // (settings-build bot, 2026-06-11) folds the old "Profile settings" entry in,
+  // so this single Settings link is the one place to edit yourself.
   const openSettings = useSettingsModal((s) => s.open);
   const openSettingsModal = useCallback(
     (e: React.MouseEvent) => {
@@ -383,10 +374,6 @@ export default function UserAvatarMenu({
                 My public profile
               </DropdownItem>
             )}
-            <DropdownItem onClick={openSettingsPopup}>
-              <PersonIcon />
-              Profile settings
-            </DropdownItem>
             {isRealSharingEnabled() && (
               <DropdownItem href="/researchers" onClick={close}>
                 <DirectoryIcon />
