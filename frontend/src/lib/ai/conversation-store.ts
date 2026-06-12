@@ -201,6 +201,26 @@ export function reviewModeDirective(mode: BeakerBotReviewMode): string {
   return "REVIEW MODE: step-by-step. Do not call propose_plan for the self-gating Data Hub and write tools; each one shows its own review block at the moment it runs, and that block is the consent. Follow the per-tool guidance.";
 }
 
+// Today's date as a context line, so the model resolves relative dates ("next
+// Monday", "in two weeks") to a real ISO date instead of guessing the weekday.
+// Local date (not UTC) since the user's "today" is local. Injected each turn so
+// it is never stale. Exported pure for tests; pass `now` in tests.
+export function todayContext(now: Date = new Date()): string {
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  const weekday = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ][now.getDay()];
+  return `Today is ${yyyy}-${mm}-${dd} (${weekday}). Resolve any relative date the user gives ("next Monday", "in two weeks", "tomorrow") against this, to a real ISO YYYY-MM-DD date.`;
+}
+
 // Typewriter reveal. Updates the assistant message incrementally so the answer
 // does not pop in all at once. Returns a promise that resolves when the full
 // text is shown.
@@ -274,20 +294,25 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       return;
     }
     // Restore the full loop history so the next send continues context, and the
-    // display transcript so the panel renders the prior turns.
+    // display transcript so the panel renders the prior turns. Drop any empty
+    // assistant bubble, an interrupted turn (for example a reload that raced the
+    // post-reply save) would otherwise render forever as a "Thinking" placeholder.
     historyStore = stored.history ?? [];
+    const restoredMessages = (stored.messages ?? []).filter(
+      (m) => !(m.role === "assistant" && m.content.trim() === ""),
+    );
     // Keep the message-id counter ahead of any restored id so newly minted ids
     // never collide with restored ones. Restored ids look like "msg-<n>-<ts>",
     // so parse the <n> and take the max.
     let maxN = 0;
-    for (const m of stored.messages ?? []) {
+    for (const m of restoredMessages) {
       const match = /^msg-(\d+)-/.exec(m.id);
       if (match) maxN = Math.max(maxN, Number(match[1]));
     }
     counterStore = maxN;
     pendingApprovalRef = null;
     set({
-      messages: stored.messages ?? [],
+      messages: restoredMessages,
       sending: false,
       status: null,
       error: null,
@@ -347,7 +372,13 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       const title = deriveChatTitle(trimmed);
       const created = await createChat({
         title,
-        messages: get().messages,
+        // Persist without the empty assistant placeholder, so a reload before
+        // the reply lands leaves a recoverable user-only chat, never an empty
+        // assistant bubble that reopens as a stuck "Thinking". The completed
+        // assistant turn is written by the saveChat after revealAnswer below.
+        messages: get().messages.filter(
+          (m) => !(m.role === "assistant" && m.content === ""),
+        ),
         history: historyStore,
       });
       if (created) {
@@ -381,9 +412,10 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     // (whole-plan). Read fresh every send so flipping the header mid-conversation
     // takes effect on the next turn. The page context, when present, follows it.
     const reviewDirective = reviewModeDirective(getReviewMode());
+    const dateLine = todayContext();
     const injectedContent = ctxDescription
-      ? `${reviewDirective}\n\n${ctxDescription}`
-      : reviewDirective;
+      ? `${dateLine}\n\n${reviewDirective}\n\n${ctxDescription}`
+      : `${dateLine}\n\n${reviewDirective}`;
     // Hold the per-turn message by reference so it can be removed from the
     // persisted history after the run. The loop returns the input array with new
     // turns appended (it only pushes, never clones), so the SAME object identity

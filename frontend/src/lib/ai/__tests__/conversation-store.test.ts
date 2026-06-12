@@ -29,6 +29,7 @@ import {
   getConversationHistory,
   clampPartialEmbed,
   reviewModeDirective,
+  todayContext,
 } from "../conversation-store";
 import type { LoopMessage } from "../agent-loop";
 
@@ -431,5 +432,20 @@ describe("reviewModeDirective (the model is told the active review mode)", () =>
     const d = reviewModeDirective("step");
     expect(d).toContain("step-by-step");
     expect(d).toContain("Do not call propose_plan");
+  });
+});
+
+describe("todayContext (the model is told today's date + weekday)", () => {
+  it("formats the date and weekday so relative dates resolve", () => {
+    // Friday 2026-06-12. "next Monday" must resolve to 2026-06-15, not Sunday.
+    const c = todayContext(new Date(2026, 5, 12));
+    expect(c).toContain("2026-06-12");
+    expect(c).toContain("Friday");
+    expect(c).toContain("relative date");
+  });
+
+  it("zero-pads month and day", () => {
+    const c = todayContext(new Date(2026, 0, 5));
+    expect(c).toContain("2026-01-05");
   });
 });
