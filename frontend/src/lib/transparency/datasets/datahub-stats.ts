@@ -321,6 +321,27 @@ export const STAT_PINS: StatPin[] = [
   { id: "dr5pl_s", metric: "5PL dose-response, asymmetry exponent S", reference: 1.236331, oracleId: "scipy", tol: 5e-2, warn: 2e-1, unit: "S" },
   { id: "dr5pl_r2", metric: "5PL dose-response, R-squared", reference: 0.99991617, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "R2" },
 
+  // --- model comparison (D2): 4PL vs 5PL on the SAME dose-response dataset ---
+  // The Prism "Compare models" capability. The 4PL is nested inside the 5PL (it
+  // is the 5PL with S = 1), so both methods apply: the extra-sum-of-squares F
+  // test and AICc. Every number below is computed from the residual sum of
+  // squares of two scipy.optimize.curve_fit fits, so it inherits the same
+  // optimizer-dependence as the dose-response pins above (a nonlinear least
+  // squares minimum is reproducible to a few significant figures, not bit for
+  // bit). The F statistic ~2.49 and the two AICc values ~2.6 / ~9.8 therefore use
+  // the same kind of honest absolute tolerance the dr* pins do (tol ~5e-2 on a
+  // value of that scale is roughly 1 to 2 percent, well inside the agreement the
+  // engine fit test documents, while still catching real drift). The F-test
+  // p-value gets a tighter band since it is a smooth function of F. The two
+  // preferred-model DECISIONS are pinned as 0/1 (0 = keep the simpler 4PL), which
+  // are exact and use a hair-width tolerance.
+  { id: "mc_f", metric: "Model comparison, extra-sum-of-squares F (4PL vs 5PL)", reference: 2.4887354780354016, oracleId: "scipy", tol: 5e-2, warn: 2e-1, unit: "F" },
+  { id: "mc_f_p", metric: "Model comparison, F-test p-value", reference: 0.16573886826020975, oracleId: "scipy", tol: 5e-3, warn: 2e-2, unit: "p" },
+  { id: "mc_aicc_4pl", metric: "Model comparison, AICc of the 4PL", reference: 2.61876769835445, oracleId: "scipy", tol: 5e-2, warn: 2e-1, unit: "AICc" },
+  { id: "mc_aicc_5pl", metric: "Model comparison, AICc of the 5PL", reference: 9.80198134601153, oracleId: "scipy", tol: 5e-2, warn: 2e-1, unit: "AICc" },
+  { id: "mc_f_prefers_complex", metric: "Model comparison, F test prefers the complex model (1=yes)", reference: 0, oracleId: "scipy", tol: 1e-9, warn: 1e-9, unit: "decision" },
+  { id: "mc_aicc_prefers_complex", metric: "Model comparison, AICc prefers the complex model (1=yes)", reference: 0, oracleId: "scipy", tol: 1e-9, warn: 1e-9, unit: "decision" },
+
   // --- assumption checks (scipy.stats.shapiro / levene) ---
   { id: "shapiro_w", metric: "Shapiro-Wilk, W", reference: 0.934647, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "W" },
   { id: "shapiro_p", metric: "Shapiro-Wilk, p", reference: 0.234207, oracleId: "scipy", tol: 5e-3, warn: 2e-2, unit: "p" },

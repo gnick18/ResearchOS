@@ -12,6 +12,7 @@ import type {
   NormalizedAnova,
   NormalizedCorrelation,
   NormalizedDoseResponse,
+  NormalizedModelComparison,
   NormalizedRegression,
   NormalizedResult,
   NormalizedSurvival,
@@ -170,6 +171,39 @@ function doseResponseSummary(r: NormalizedDoseResponse): string {
   )}, n = ${r.n}).`;
 }
 
+function modelComparisonSummary(r: NormalizedModelComparison): string {
+  const pref = r.aicc.preferredLabel;
+  // Lead with the AICc verdict since it is always defined. The evidence ratio
+  // turns the delta into "how many times more likely", which reads plainly.
+  const ratio = r.aicc.evidenceRatio;
+  const ratioPart =
+    Number.isFinite(ratio) && ratio >= 1.5
+      ? ` and is about ${num(ratio, ratio >= 100 ? 0 : 1)} times more likely to be the better description (AICc lower by ${num(
+          r.aicc.deltaAbs,
+          1,
+        )})`
+      : ` (AICc lower by ${num(r.aicc.deltaAbs, 1)})`;
+  const closeCall =
+    Number.isFinite(ratio) && ratio < 1.5
+      ? " The two are close, so the data do not strongly favor either model."
+      : "";
+  let fPart = "";
+  if (r.fTest) {
+    const stat = `F(${r.fTest.dfNumerator}, ${r.fTest.dfDenominator}) = ${num(
+      r.fTest.f,
+      2,
+    )}, ${formatP(r.fTest.pValue)}`;
+    fPart =
+      r.fTest.pValue < ALPHA
+        ? ` The extra-sum-of-squares F test agrees the added complexity is justified (${stat}), preferring ${r.fTest.preferredLabel}.`
+        : ` The extra-sum-of-squares F test finds the added complexity is not justified (${stat}), so it keeps the simpler ${r.fTest.preferredLabel}.`;
+  } else {
+    fPart =
+      " The models are not nested, so only the AICc comparison applies (no F test).";
+  }
+  return `By AICc the data prefer ${pref}${ratioPart}.${closeCall}${fPart}`;
+}
+
 function twoWaySummary(r: NormalizedTwoWayAnova): string {
   const effect = (name: string, f: number, p: number, dfText: string): string => {
     const stat = `F${dfText} = ${num(f)}, ${formatP(p)}`;
@@ -232,6 +266,7 @@ export function plainLanguageSummary(result: NormalizedResult): string {
   if (result.kind === "correlation") return correlationSummary(result);
   if (result.kind === "regression") return regressionSummary(result);
   if (result.kind === "doseResponse") return doseResponseSummary(result);
+  if (result.kind === "modelComparison") return modelComparisonSummary(result);
   if (result.kind === "twoWayAnova") return twoWaySummary(result);
   if (result.kind === "survival") return survivalSummary(result);
   return ttestSummary(result);

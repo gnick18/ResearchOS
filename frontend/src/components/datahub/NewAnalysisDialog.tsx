@@ -97,6 +97,12 @@ const TYPE_META: Record<
       "Fit a 4PL or 5PL logistic to log(dose) vs response. Reports the EC50 / IC50 with a 95% confidence interval, the Hill slope, the Top and Bottom plateaus, and R-squared.",
     groupCount: "two",
   },
+  modelComparison: {
+    label: "Compare models",
+    blurb:
+      "Fit two curve models to the same X and Y, then say which one to keep. Reports the extra-sum-of-squares F test for nested models and AICc for any pair.",
+    groupCount: "two",
+  },
   twoWayAnova: {
     label: "Two-way ANOVA",
     blurb:

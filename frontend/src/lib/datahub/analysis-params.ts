@@ -129,6 +129,53 @@ const DOSE_RESPONSE_MODEL_FIELD: ParamField = {
 };
 
 /**
+ * The two model picks plus the nested flag for the model-comparison analysis.
+ * Both pickers list the same fittable curve models; the run layer orders them by
+ * parameter count so the F test always treats the simpler model as the baseline.
+ * The model ids must match the engine's MODELS registry exactly.
+ */
+const MODEL_OPTIONS: ParamOption[] = [
+  { value: "logistic4pl", label: "4PL logistic (variable slope)" },
+  { value: "logistic5pl", label: "5PL logistic (asymmetric)" },
+  { value: "michaelis-menten", label: "Michaelis-Menten" },
+  { value: "exp-decay-1phase", label: "One-phase exponential decay" },
+  { value: "exp-association-1phase", label: "One-phase exponential association" },
+  { value: "linear", label: "Linear" },
+  { value: "polynomial2", label: "Quadratic polynomial" },
+  { value: "gaussian", label: "Gaussian" },
+];
+
+const COMPARE_MODEL_A_FIELD: ParamField = {
+  key: "modelA",
+  label: "First model",
+  control: "select",
+  options: MODEL_OPTIONS,
+  default: "logistic4pl",
+  why: "The two models are fit to the same data and ranked. Their parameter count decides which one the F test treats as the simpler baseline, so pick order does not matter.",
+};
+
+const COMPARE_MODEL_B_FIELD: ParamField = {
+  key: "modelB",
+  label: "Second model",
+  control: "select",
+  options: MODEL_OPTIONS,
+  default: "logistic5pl",
+  why: "Compared against the first model. The lower-AICc model is preferred, and for a nested pair the F test says whether the extra parameters earn their keep.",
+};
+
+const COMPARE_NESTED_FIELD: ParamField = {
+  key: "nested",
+  label: "Models nested",
+  control: "seg",
+  options: [
+    { value: "yes", label: "Nested" },
+    { value: "no", label: "Not nested" },
+  ],
+  default: "yes",
+  why: "The extra-sum-of-squares F test only applies when the simpler model is a special case of the complex one (for example a 4PL is the 5PL with the asymmetry fixed at 1). AICc works either way, so a not-nested pair still gets an AICc verdict.",
+};
+
+/**
  * The schema per analysis type. An empty array means the engine takes no
  * editable options for that analysis (correlation, regression). The order here
  * is the order the controls render in the panel.
@@ -145,6 +192,11 @@ export const ANALYSIS_PARAM_SCHEMA: Record<string, ParamField[]> = {
   correlationSpearman: [],
   linearRegression: [],
   doseResponse: [DOSE_RESPONSE_MODEL_FIELD],
+  modelComparison: [
+    COMPARE_MODEL_A_FIELD,
+    COMPARE_MODEL_B_FIELD,
+    COMPARE_NESTED_FIELD,
+  ],
   kaplanMeier: [],
 };
 

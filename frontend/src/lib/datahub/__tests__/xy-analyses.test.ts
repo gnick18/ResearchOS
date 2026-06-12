@@ -67,6 +67,7 @@ describe("run-analysis: XY valid types", () => {
       "correlationSpearman",
       "linearRegression",
       "doseResponse",
+      "modelComparison",
     ]);
   });
 });

@@ -1,6 +1,13 @@
 import { describe as suite, it, expect } from "vitest";
 
-import { fitModel, listModels } from "../fit";
+import {
+  fitModel,
+  listModels,
+  aicc,
+  aiccCompare,
+  extraSumOfSquaresF,
+  type ModelFitSummary,
+} from "../fit";
 
 suite("Michaelis-Menten vs R nls Puromycin reference", () => {
   // R's built-in Puromycin dataset, treated state. The R nls fit
@@ -258,5 +265,66 @@ suite("fitter guards + registry", () => {
     expect(ids).toContain("exp-decay-1phase");
     expect(ids).toContain("exp-association-1phase");
     expect(ids).toContain("linear");
+  });
+});
+
+suite("model comparison (D2): F test + AICc", () => {
+  // The dose-response dataset (also the scipy-pinned transparency dataset). Fit
+  // both nested models and check the comparison math against the scipy reference.
+  const XS = [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0];
+  const YS = [4.8, 6.1, 7.9, 12.5, 24.0, 47.0, 70.0, 86.0, 93.5, 96.8, 98.1];
+
+  it("extra-sum-of-squares F matches scipy (F ~ 2.49, p ~ 0.166)", () => {
+    const dr4 = fitModel("logistic4pl", XS, YS);
+    const dr5 = fitModel("logistic5pl", XS, YS);
+    if (!dr4.ok || !dr5.ok) throw new Error("fits failed");
+    const simple: ModelFitSummary = {
+      id: "logistic4pl",
+      label: "4PL",
+      ssr: dr4.ssr,
+      nParams: 4,
+      n: XS.length,
+    };
+    const complex: ModelFitSummary = {
+      id: "logistic5pl",
+      label: "5PL",
+      ssr: dr5.ssr,
+      nParams: 5,
+      n: XS.length,
+    };
+    const f = extraSumOfSquaresF(simple, complex);
+    expect(f.dfNumerator).toBe(1);
+    expect(f.dfDenominator).toBe(6);
+    expect(f.f).toBeCloseTo(2.4887, 1);
+    expect(f.pValue).toBeCloseTo(0.16574, 2);
+    // p > 0.05, keep the simpler model.
+    expect(f.preferredId).toBe("logistic4pl");
+
+    const a = aiccCompare([simple, complex]);
+    expect(a.preferredId).toBe("logistic4pl");
+    const a4 = a.models.find((m) => m.id === "logistic4pl")!;
+    const a5 = a.models.find((m) => m.id === "logistic5pl")!;
+    expect(a4.aicc).toBeCloseTo(2.6188, 1);
+    expect(a5.aicc).toBeCloseTo(9.8020, 1);
+    expect(a4.probability + a5.probability).toBeCloseTo(1, 9);
+  });
+
+  it("aicc uses K = nparams + 1 and the small-sample correction", () => {
+    // Hand-check the closed form: n=10, ssr=5, K=4 -> 10*ln(0.5)+8 + (2*4*5)/(10-4-1).
+    const expected =
+      10 * Math.log(5 / 10) + 2 * 4 + (2 * 4 * (4 + 1)) / (10 - 4 - 1);
+    expect(aicc(5, 3, 10)).toBeCloseTo(expected, 9);
+    // Undefined correction (n - K - 1 <= 0) returns NaN.
+    expect(Number.isNaN(aicc(5, 8, 10))).toBe(true);
+  });
+
+  it("the F test is undefined for a non-nested (equal-param) pair", () => {
+    const a: ModelFitSummary = { id: "linear", label: "L", ssr: 3, nParams: 2, n: 8 };
+    const b: ModelFitSummary = { id: "mm", label: "MM", ssr: 2, nParams: 2, n: 8 };
+    const f = extraSumOfSquaresF(a, b);
+    expect(Number.isNaN(f.f)).toBe(true);
+    // AICc still ranks them.
+    const cmp = aiccCompare([a, b]);
+    expect(["linear", "mm"]).toContain(cmp.preferredId);
   });
 });

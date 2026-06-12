@@ -34,6 +34,8 @@ import {
   linearRegression,
   fitModel,
   fivePLLogEC50Shift,
+  extraSumOfSquaresF,
+  aiccCompare,
   shapiroWilk,
   levene,
   brownForsythe,
@@ -1219,6 +1221,31 @@ function runDatahubEngine(): Record<string, number> {
   const dr5Shift = fivePLLogEC50Shift(dr5.values.HillSlope, dr5.values.S);
   const dr4Ec50 = dr4.derived?.EC50 ?? NaN;
   const dr5Ec50 = Math.pow(10, dr5.values.logEC50 + dr5Shift);
+
+  // Model comparison (D2). Reuse the two fits above (same dataset). The 4PL is
+  // the simpler model (4 params), the 5PL is the complex one (5 params), and the
+  // pair is nested, so both the extra-sum-of-squares F test and AICc apply. Every
+  // number is derived from the two fits' residual sums of squares, the same path
+  // run-analysis uses, so it reproduces the on-screen comparison.
+  const mcSimple = {
+    id: "logistic4pl",
+    label: "4PL",
+    ssr: dr4.ssr,
+    nParams: 4,
+    n: DOSE_LOG_CONC.length,
+  };
+  const mcComplex = {
+    id: "logistic5pl",
+    label: "5PL",
+    ssr: dr5.ssr,
+    nParams: 5,
+    n: DOSE_LOG_CONC.length,
+  };
+  const mcF = extraSumOfSquaresF(mcSimple, mcComplex);
+  const mcAicc = aiccCompare([mcSimple, mcComplex]);
+  const mcAicc4 = mcAicc.models.find((m) => m.id === "logistic4pl")!.aicc;
+  const mcAicc5 = mcAicc.models.find((m) => m.id === "logistic5pl")!.aicc;
+
   const sw = need(shapiroWilk([...GROUP_A, ...GROUP_B, ...GROUP_C]), "Shapiro-Wilk");
   const lev = need(levene([GROUP_A, GROUP_B, GROUP_C]), "Levene");
   const bf = need(brownForsythe([GROUP_A, GROUP_B, GROUP_C]), "Brown-Forsythe");
@@ -1372,6 +1399,13 @@ function runDatahubEngine(): Record<string, number> {
     dr5pl_ec50: dr5Ec50,
     dr5pl_s: dr5.values.S,
     dr5pl_r2: dr5.rSquared,
+    mc_f: mcF.f,
+    mc_f_p: mcF.pValue,
+    mc_aicc_4pl: mcAicc4,
+    mc_aicc_5pl: mcAicc5,
+    // Decisions as 0/1: 1 means the COMPLEX (5PL) model is preferred.
+    mc_f_prefers_complex: mcF.preferredId === "logistic5pl" ? 1 : 0,
+    mc_aicc_prefers_complex: mcAicc.preferredId === "logistic5pl" ? 1 : 0,
 
     shapiro_w: sw.statistic,
     shapiro_p: sw.pValue,

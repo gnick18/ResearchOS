@@ -548,3 +548,116 @@ describe("dose-response analysis (D1)", () => {
     expect(code).toContain("2**(1.0/s) - 1.0");
   });
 });
+
+describe("model comparison analysis (D2)", () => {
+  const XMETA: DataHubDocument = {
+    id: "mc",
+    name: "Compare models",
+    project_ids: [],
+    folder_path: null,
+    table_type: "xy",
+    created_at: "2026-06-12T00:00:00.000Z",
+  };
+  // The SAME dose-response dataset the D1 + transparency pins use, so the F and
+  // AICc match the scipy reference exactly.
+  const XS = [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0];
+  const YS = [4.8, 6.1, 7.9, 12.5, 24.0, 47.0, 70.0, 86.0, 93.5, 96.8, 98.1];
+
+  function mcContent(): DataHubDocContent {
+    return {
+      meta: XMETA,
+      columns: [
+        { id: "x", name: "log[dose]", role: "x" as const, dataType: "number" as const },
+        { id: "y1", name: "Response", role: "y" as const, dataType: "number" as const },
+      ],
+      rows: XS.map((x, i) => ({ id: `r${i}`, cells: { x, y1: YS[i] } })),
+      analyses: [],
+      plots: [],
+    };
+  }
+
+  function mcSpec(
+    modelA = "logistic4pl",
+    modelB = "logistic5pl",
+    nested = "yes",
+  ): AnalysisSpec {
+    return {
+      id: "mc-spec",
+      type: "modelComparison",
+      params: { modelA, modelB, nested },
+      inputs: { columnIds: ["y1"] },
+      resultCache: null,
+      resultStale: false,
+    };
+  }
+
+  it("is offered on an XY table", () => {
+    expect(validAnalysisTypes(mcContent())).toContain("modelComparison");
+  });
+
+  it("4PL vs 5PL F test and AICc match the scipy reference", () => {
+    const out = runAnalysis(mcSpec(), mcContent());
+    expect(out.ok).toBe(true);
+    if (!out.ok || out.kind !== "modelComparison") throw new Error("expected MC");
+    // The simpler model is ordered first regardless of pick order.
+    expect(out.simpler.id).toBe("logistic4pl");
+    expect(out.complex.id).toBe("logistic5pl");
+    // Extra-sum-of-squares F ~ 2.49, df (1, 6), p ~ 0.166 (scipy reference).
+    expect(out.fTest).not.toBeNull();
+    expect(out.fTest!.f).toBeCloseTo(2.4887, 1);
+    expect(out.fTest!.dfNumerator).toBe(1);
+    expect(out.fTest!.dfDenominator).toBe(6);
+    expect(out.fTest!.pValue).toBeCloseTo(0.16574, 2);
+    // p > 0.05, so the F test keeps the simpler 4PL.
+    expect(out.fTest!.preferredId).toBe("logistic4pl");
+    // AICc: 4PL ~ 2.62, 5PL ~ 9.80 (scipy reference); 4PL preferred.
+    expect(out.simpler.aicc).toBeCloseTo(2.6188, 1);
+    expect(out.complex.aicc).toBeCloseTo(9.8020, 1);
+    expect(out.aicc.preferredId).toBe("logistic4pl");
+    // Akaike weights sum to 1 and favor the 4PL.
+    expect(out.simpler.aiccProbability + out.complex.aiccProbability).toBeCloseTo(1, 6);
+    expect(out.simpler.aiccProbability).toBeGreaterThan(out.complex.aiccProbability);
+    expect(out.simpler.aiccDelta).toBe(0);
+  });
+
+  it("pick order does not change which model is the baseline", () => {
+    const swapped = runAnalysis(mcSpec("logistic5pl", "logistic4pl"), mcContent());
+    if (!swapped.ok || swapped.kind !== "modelComparison") throw new Error("MC");
+    expect(swapped.simpler.id).toBe("logistic4pl");
+    expect(swapped.complex.id).toBe("logistic5pl");
+  });
+
+  it("a not-nested pair reports AICc only, no F test", () => {
+    const out = runAnalysis(mcSpec("logistic4pl", "logistic5pl", "no"), mcContent());
+    if (!out.ok || out.kind !== "modelComparison") throw new Error("MC");
+    expect(out.nested).toBe(false);
+    expect(out.fTest).toBeNull();
+    // AICc still produces a verdict.
+    expect(out.aicc.preferredId).toBe("logistic4pl");
+    expect(plainLanguageSummary(out)).toContain("not nested");
+  });
+
+  it("rejects comparing a model with itself", () => {
+    const out = runAnalysis(mcSpec("logistic4pl", "logistic4pl"), mcContent());
+    expect(out.ok).toBe(false);
+  });
+
+  it("plain-language verdict names the preferred model", () => {
+    const out = runAnalysis(mcSpec(), mcContent());
+    if (!out.ok) throw new Error("run failed");
+    const sentence = plainLanguageSummary(out);
+    expect(sentence).toContain("AICc");
+    expect(sentence).not.toContain("—");
+  });
+
+  it("show-the-code emits curve_fit for both models plus F and AICc", () => {
+    const out = runAnalysis(mcSpec(), mcContent());
+    if (!out.ok) throw new Error("run failed");
+    const code = showCode(out);
+    expect(code).toContain("from scipy.optimize import curve_fit");
+    expect(code).toContain("def model_logistic4pl");
+    expect(code).toContain("def model_logistic5pl");
+    expect(code).toContain("stats.f.sf");
+    expect(code).toContain("def aicc");
+  });
+});

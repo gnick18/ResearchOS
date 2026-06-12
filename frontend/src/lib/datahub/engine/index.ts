@@ -62,8 +62,15 @@ export {
   listModels,
   fivePLLogEC50Shift,
   MODELS,
+  aicc,
+  aiccCompare,
+  extraSumOfSquaresF,
   type FitOptions,
   type NonlinearModel,
+  type ModelFitSummary,
+  type FTestComparison,
+  type AiccComparison,
+  type AiccModelLine,
 } from "./fit";
 
 // Bootstrap / resampling confidence intervals (distribution-free, the robust

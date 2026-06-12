@@ -152,6 +152,45 @@ export function resultToText(result: NormalizedResult): string {
       );
       break;
     }
+    case "modelComparison": {
+      lines.push(
+        row("Model", "Params", "SS", "R-squared", "AICc", "AICc delta", "Probability"),
+        row(
+          result.simpler.label,
+          result.simpler.nParams,
+          n(result.simpler.ssr, 4),
+          n(result.simpler.rSquared, 6),
+          n(result.simpler.aicc, 3),
+          n(result.simpler.aiccDelta, 3),
+          n(result.simpler.aiccProbability, 4),
+        ),
+        row(
+          result.complex.label,
+          result.complex.nParams,
+          n(result.complex.ssr, 4),
+          n(result.complex.rSquared, 6),
+          n(result.complex.aicc, 3),
+          n(result.complex.aiccDelta, 3),
+          n(result.complex.aiccProbability, 4),
+        ),
+        "",
+        row("AICc preferred", result.aicc.preferredLabel),
+        row("Evidence ratio", n(result.aicc.evidenceRatio, 2)),
+      );
+      if (result.fTest) {
+        lines.push(
+          "",
+          row("Extra-sum-of-squares F", n(result.fTest.f, 4)),
+          row("df", `${result.fTest.dfNumerator}, ${result.fTest.dfDenominator}`),
+          row("p", formatP(result.fTest.pValue)),
+          row("F-test preferred", result.fTest.preferredLabel),
+        );
+      } else {
+        lines.push("", row("F test", "not nested, AICc only"));
+      }
+      lines.push(row("Points (n)", n(result.n, 0)));
+      break;
+    }
     default: {
       // t-test family (parametric and rank tests).
       const statLabel = result.nonparametric

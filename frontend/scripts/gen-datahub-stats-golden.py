@@ -312,6 +312,66 @@ def ref_dose_response():
     return out
 
 
+def ref_model_comparison():
+    """Reference model comparison (D2): 4PL vs 5PL on the dose-response dataset.
+
+    Both models are fit with scipy.optimize.curve_fit on the SAME x = log10(dose),
+    y = response arrays. The 4PL is nested inside the 5PL (the 4PL is the 5PL with
+    S = 1), so both methods Prism uses apply:
+
+      - Extra-sum-of-squares F test. model 2 = complex (5PL, 5 params, fewer df):
+          F = ((SS1 - SS2)/(DF1 - DF2)) / (SS2/DF2)
+          p = scipy.stats.f.sf(F, DF1 - DF2, DF2)
+      - AICc, K = n_params + 1 (the +1 for the variance):
+          AICc = n*ln(SS/n) + 2K + (2K(K+1))/(n - K - 1)
+    """
+    x = np.asarray(DOSE_LOG_CONC, float)
+    y = np.asarray(DOSE_RESPONSE, float)
+    n = x.size
+
+    def fpl(xx, bottom, top, logec50, hill):
+        return bottom + (top - bottom) / (1.0 + 10.0 ** ((logec50 - xx) * hill))
+
+    def f5pl(xx, bottom, top, logec50, hill, s):
+        return bottom + (top - bottom) / (1.0 + 10.0 ** ((logec50 - xx) * hill)) ** s
+
+    mid = (y.min() + y.max()) / 2.0
+    x_mid = x[int(np.argmin(np.abs(y - mid)))]
+
+    popt4, _ = curve_fit(fpl, x, y, p0=[y.min(), y.max(), x_mid, 1.0], maxfev=200000)
+    popt5, _ = curve_fit(
+        f5pl, x, y, p0=[y.min(), y.max(), x_mid, 1.0, 1.0], maxfev=200000
+    )
+    ss4 = float(np.sum((y - fpl(x, *popt4)) ** 2))
+    ss5 = float(np.sum((y - f5pl(x, *popt5)) ** 2))
+
+    # 4PL is the simpler model (4 params); 5PL is the complex one (5 params).
+    np4, np5 = 4, 5
+    df1 = n - np4  # simpler model residual df
+    df2 = n - np5  # complex model residual df
+    f_stat = ((ss4 - ss5) / (df1 - df2)) / (ss5 / df2)
+    p_f = float(st.f.sf(f_stat, df1 - df2, df2))
+
+    def aicc(ss, n_params):
+        k = n_params + 1
+        return n * np.log(ss / n) + 2 * k + (2 * k * (k + 1)) / (n - k - 1)
+
+    aicc4 = float(aicc(ss4, np4))
+    aicc5 = float(aicc(ss5, np5))
+
+    return {
+        "f": float(f_stat),
+        "df1": int(df1 - df2),
+        "df2": int(df2),
+        "p_f": p_f,
+        "aicc_4pl": aicc4,
+        "aicc_5pl": aicc5,
+        # decisions pinned as 0/1: 1 means the COMPLEX (5PL) model is preferred.
+        "f_prefers_complex": 1 if p_f < 0.05 else 0,
+        "aicc_prefers_complex": 1 if aicc5 < aicc4 else 0,
+    }
+
+
 def ref_from_stats():
     """Reference values for the FROM-SUMMARY-STATS engine paths.
 
@@ -697,6 +757,7 @@ PROVENANCE = {
         "linreg": "scipy.stats.linregress(X, Y)",
         "dose_response.fourpl": "scipy.optimize.curve_fit(4PL: bottom+(top-bottom)/(1+10**((logec50-x)*hill)) ); EC50=10**logEC50",
         "dose_response.fivepl": "scipy.optimize.curve_fit(5PL: 4PL denom **s ); true EC50=10**(logEC50 - log10(2**(1/s)-1)/hill)",
+        "model_comparison": "curve_fit 4PL + 5PL; extra-sum-of-squares F = ((SS1-SS2)/(DF1-DF2))/(SS2/DF2), p=scipy.stats.f.sf; AICc=n*ln(SS/n)+2K+2K(K+1)/(n-K-1), K=nparams+1",
         "shapiro": "scipy.stats.shapiro(A+B+C)",
         "levene_mean": "scipy.stats.levene(A, B, C, center='mean')  [our levene()]",
         "levene_median": "scipy.stats.levene(A, B, C, center='median')  [our brownForsythe()]",
@@ -726,6 +787,7 @@ def main():
     refs.update({"kruskal_friedman": ref_kruskal_friedman()})
     refs.update({"correlation_regression": ref_correlation_regression()})
     refs.update({"dose_response": ref_dose_response()})
+    refs.update({"model_comparison": ref_model_comparison()})
     refs.update({"from_stats": ref_from_stats()})
     refs.update({"assumptions": ref_assumptions()})
     refs.update({"survival": ref_survival()})

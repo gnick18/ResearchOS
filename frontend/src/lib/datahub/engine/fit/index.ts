@@ -8,3 +8,12 @@ export {
   fivePLLogEC50Shift,
   type NonlinearModel,
 } from "./models";
+export {
+  aicc,
+  aiccCompare,
+  extraSumOfSquaresF,
+  type ModelFitSummary,
+  type FTestComparison,
+  type AiccComparison,
+  type AiccModelLine,
+} from "./compare";

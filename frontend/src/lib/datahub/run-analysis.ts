@@ -44,7 +44,13 @@ import {
   meanDifference,
   fitModel,
   fivePLLogEC50Shift,
+  extraSumOfSquaresF,
+  aiccCompare,
+  getModel,
   type KaplanMeierStep,
+  type ModelFitSummary,
+  type FTestComparison,
+  type AiccComparison,
 } from "@/lib/datahub/engine";
 import type { FitResult } from "@/lib/datahub/engine/types";
 import type {
@@ -88,6 +94,7 @@ export type AnalysisType =
   | "correlationSpearman"
   | "linearRegression"
   | "doseResponse"
+  | "modelComparison"
   | "twoWayAnova"
   | "kaplanMeier";
 
@@ -100,6 +107,7 @@ export const XY_ANALYSIS_TYPES: AnalysisType[] = [
   "correlationSpearman",
   "linearRegression",
   "doseResponse",
+  "modelComparison",
 ];
 
 /** The analysis types that read a Grouped table (row factor x column groups). */
@@ -331,6 +339,76 @@ export interface NormalizedDoseResponse {
   df: number;
 }
 
+/** One model's summary line inside a normalized comparison result. */
+export interface ModelComparisonLine {
+  /** Stable model id (e.g. "logistic4pl"). */
+  id: string;
+  /** Human model label. */
+  label: string;
+  /** Number of fitted parameters. */
+  nParams: number;
+  /** Residual sum of squares at the converged fit. */
+  ssr: number;
+  /** R-squared of the fit, a familiar goodness-of-fit readout. */
+  rSquared: number;
+  /** AICc value (small-sample-corrected Akaike Information Criterion). */
+  aicc: number;
+  /** AICc minus the best (0 for the preferred model). */
+  aiccDelta: number;
+  /** Akaike weight: probability this model is the better of the two. */
+  aiccProbability: number;
+}
+
+/**
+ * A normalized model-comparison result (the Prism "Compare models" capability).
+ * Fits TWO curve models to the SAME XY data and reports both methods Prism uses:
+ *
+ *   - The extra-sum-of-squares F test for NESTED models (the simpler model is a
+ *     special case of the complex one), with F, the two df, p, and the model it
+ *     prefers at alpha = 0.05. Only emitted when the user marks the pair nested.
+ *   - AICc for either nested or non-nested pairs, with each model's AICc, the
+ *     difference, the Akaike weights (probability each model is correct), and the
+ *     preferred model.
+ *
+ * Both readouts come from real fit output (residual sum of squares + parameter
+ * count) via the engine's compare module, not a reimplementation here.
+ */
+export interface NormalizedModelComparison {
+  kind: "modelComparison";
+  type: "modelComparison";
+  xName: string;
+  yName: string;
+  x: number[];
+  y: number[];
+  n: number;
+  /** The simpler model (fewer parameters) and the more complex model. */
+  simpler: ModelComparisonLine;
+  complex: ModelComparisonLine;
+  /** True when the user asserted the pair is nested (enables the F test). */
+  nested: boolean;
+  /** The extra-sum-of-squares F test, or null when the pair is not nested. */
+  fTest: {
+    f: number;
+    dfNumerator: number;
+    dfDenominator: number;
+    pValue: number;
+    /** Human label of the model the F test prefers at alpha = 0.05. */
+    preferredLabel: string;
+    preferredId: string;
+    alpha: number;
+  } | null;
+  /** The AICc verdict (always present). */
+  aicc: {
+    /** Human label of the lower-AICc model. */
+    preferredLabel: string;
+    preferredId: string;
+    /** Absolute AICc difference between the two models. */
+    deltaAbs: number;
+    /** Evidence ratio of the preferred over the other model. */
+    evidenceRatio: number;
+  };
+}
+
 /**
  * A normalized two-way ANOVA result. The full ANOVA table (factor A, factor B,
  * interaction, error, total) plus the three effect F / p values pulled out for
@@ -388,6 +466,7 @@ export type NormalizedResult =
   | NormalizedCorrelation
   | NormalizedRegression
   | NormalizedDoseResponse
+  | NormalizedModelComparison
   | NormalizedTwoWayAnova
   | NormalizedSurvival;
 
@@ -586,6 +665,124 @@ function runDoseResponse(
   };
 }
 
+/**
+ * Compare two curve models fit to the same XY pairs (the Prism "Compare models"
+ * capability). Reads the two model ids and the nested flag from the spec params,
+ * fits each model through the SAME engine the dose-response analysis uses, and
+ * hands the residual sum of squares + parameter counts to the engine's compare
+ * module for the extra-sum-of-squares F test (nested pairs only) and AICc (always).
+ *
+ * The two models are ordered by parameter count so the F test always treats the
+ * model with fewer parameters as the "simpler" one regardless of pick order. A
+ * tie in parameter count disables the F test (the F test needs the complex model
+ * to spend strictly more parameters) while AICc still reports a verdict.
+ */
+function runModelComparison(
+  spec: AnalysisSpec,
+  xName: string,
+  yName: string,
+  x: number[],
+  y: number[],
+): RunOutcome {
+  const p = readParams(spec);
+  const idA = (p.modelA as string | undefined) ?? "logistic4pl";
+  const idB = (p.modelB as string | undefined) ?? "logistic5pl";
+  const nested = (p.nested as string | undefined) === "yes";
+  if (idA === idB) {
+    return { ok: false, error: "Pick two different models to compare." };
+  }
+  const modelA = getModel(idA);
+  const modelB = getModel(idB);
+  if (!modelA || !modelB) {
+    return { ok: false, error: "Pick two models the fitter knows." };
+  }
+  const fitA = fitModel(idA, x, y);
+  if (!fitA.ok) return { ok: false, error: `${modelA.label}: ${fitA.error}` };
+  const fitB = fitModel(idB, x, y);
+  if (!fitB.ok) return { ok: false, error: `${modelB.label}: ${fitB.error}` };
+  const n = x.length;
+
+  // Order by parameter count so the F test always sees the simpler model first.
+  // A tie keeps the user's order but disables the F test below.
+  const sumA: ModelFitSummary = {
+    id: idA,
+    label: modelA.label,
+    ssr: fitA.ssr,
+    nParams: modelA.paramNames.length,
+    n,
+  };
+  const sumB: ModelFitSummary = {
+    id: idB,
+    label: modelB.label,
+    ssr: fitB.ssr,
+    nParams: modelB.paramNames.length,
+    n,
+  };
+  const [simple, complex] =
+    sumA.nParams <= sumB.nParams ? [sumA, sumB] : [sumB, sumA];
+  const fitById: Record<string, typeof fitA & { ok: true }> = {
+    [idA]: fitA as typeof fitA & { ok: true },
+    [idB]: fitB as typeof fitB & { ok: true },
+  };
+
+  const labelOf = (id: string): string =>
+    id === simple.id ? simple.label : complex.label;
+
+  const line = (s: ModelFitSummary, aiccLine: AiccComparison["models"][number]): ModelComparisonLine => ({
+    id: s.id,
+    label: s.label,
+    nParams: s.nParams,
+    ssr: s.ssr,
+    rSquared: fitById[s.id].rSquared,
+    aicc: aiccLine.aicc,
+    aiccDelta: aiccLine.delta,
+    aiccProbability: aiccLine.probability,
+  });
+
+  const aiccResult = aiccCompare([simple, complex]);
+  const aiccLineOf = (id: string) =>
+    aiccResult.models.find((m) => m.id === id)!;
+
+  // The F test only runs for a nested pair with a strict parameter increase.
+  const canFTest = nested && complex.nParams > simple.nParams;
+  let fTest: NormalizedModelComparison["fTest"] = null;
+  if (canFTest) {
+    const f: FTestComparison = extraSumOfSquaresF(simple, complex);
+    fTest = {
+      f: f.f,
+      dfNumerator: f.dfNumerator,
+      dfDenominator: f.dfDenominator,
+      pValue: f.pValue,
+      preferredLabel: labelOf(f.preferredId),
+      preferredId: f.preferredId,
+      alpha: f.alpha,
+    };
+  }
+
+  return {
+    ok: true,
+    kind: "modelComparison",
+    type: "modelComparison",
+    xName,
+    yName,
+    x,
+    y,
+    n,
+    simpler: line(simple, aiccLineOf(simple.id)),
+    complex: line(complex, aiccLineOf(complex.id)),
+    nested,
+    fTest,
+    aicc: {
+      preferredLabel: labelOf(aiccResult.preferredId),
+      preferredId: aiccResult.preferredId,
+      deltaAbs: Math.abs(
+        aiccLineOf(simple.id).aicc - aiccLineOf(complex.id).aicc,
+      ),
+      evidenceRatio: aiccResult.evidenceRatio,
+    },
+  };
+}
+
 /** Run a correlation or linear regression on the resolved XY pairs. */
 function runXYAnalysis(
   type: AnalysisType,
@@ -603,6 +800,10 @@ function runXYAnalysis(
 
   if (type === "doseResponse") {
     return runDoseResponse(spec, xName, yName, x, y);
+  }
+
+  if (type === "modelComparison") {
+    return runModelComparison(spec, xName, yName, x, y);
   }
 
   if (type === "linearRegression") {
@@ -944,7 +1145,8 @@ export function runAnalysis(
     type === "correlationPearson" ||
     type === "correlationSpearman" ||
     type === "linearRegression" ||
-    type === "doseResponse"
+    type === "doseResponse" ||
+    type === "modelComparison"
   ) {
     return runXYAnalysis(type, content, spec);
   }

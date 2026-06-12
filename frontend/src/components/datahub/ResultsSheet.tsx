@@ -29,6 +29,7 @@ import {
   type NormalizedAnova,
   type NormalizedCorrelation,
   type NormalizedDoseResponse,
+  type NormalizedModelComparison,
   type NormalizedRegression,
   type NormalizedResult,
   type NormalizedSurvival,
@@ -394,6 +395,93 @@ function DoseResponseTable({ r }: { r: NormalizedDoseResponse }) {
   );
 }
 
+function ModelComparisonTable({ r }: { r: NormalizedModelComparison }) {
+  const lines = [r.simpler, r.complex];
+  return (
+    <>
+      <table
+        className="w-full border-collapse text-body tabular-nums"
+        data-testid="results-model-comparison-table"
+      >
+        <thead>
+          <tr className="text-meta uppercase tracking-wide text-foreground-muted">
+            <th className="border-b border-border px-3 py-1.5 text-left">Model</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">Params</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">SS</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">R-squared</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">AICc</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">AICc delta</th>
+            <th className="border-b border-border px-3 py-1.5 text-right">Probability</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lines.map((m) => {
+            const preferred = m.id === r.aicc.preferredId;
+            return (
+              <tr key={m.id} className={preferred ? "bg-accent-soft" : ""}>
+                <td className="border-b border-border px-3 py-1.5 text-foreground">
+                  {m.label}
+                  {preferred ? " (preferred)" : ""}
+                </td>
+                <td className="border-b border-border px-3 py-1.5 text-right">
+                  {m.nParams}
+                </td>
+                <td className="border-b border-border px-3 py-1.5 text-right">
+                  {num(m.ssr, 3)}
+                </td>
+                <td className="border-b border-border px-3 py-1.5 text-right">
+                  {num(m.rSquared, 4)}
+                </td>
+                <td className="border-b border-border px-3 py-1.5 text-right">
+                  {num(m.aicc, 2)}
+                </td>
+                <td className="border-b border-border px-3 py-1.5 text-right">
+                  {num(m.aiccDelta, 2)}
+                </td>
+                <td className="border-b border-border px-3 py-1.5 text-right">
+                  {num(m.aiccProbability, 4)}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <KeyValueTable
+        testid="results-model-comparison-verdict"
+        rows={[
+          { label: "AICc prefers", value: r.aicc.preferredLabel },
+          {
+            label: "Evidence ratio",
+            value: Number.isFinite(r.aicc.evidenceRatio)
+              ? `${num(r.aicc.evidenceRatio, 2)} x`
+              : "-",
+          },
+          ...(r.fTest
+            ? [
+                {
+                  label: "Extra-sum-of-squares F",
+                  value: `F(${r.fTest.dfNumerator}, ${r.fTest.dfDenominator}) = ${num(
+                    r.fTest.f,
+                    3,
+                  )}`,
+                },
+                { label: "F-test p", value: formatP(r.fTest.pValue) },
+                { label: "F-test prefers", value: r.fTest.preferredLabel },
+              ]
+            : [{ label: "F test", value: "not nested, AICc only" }]),
+          { label: "Points (n)", value: num(r.n, 0) },
+        ]}
+      />
+      <p className="mt-2 max-w-xl text-meta text-foreground-muted">
+        The lower AICc is preferred, and the probabilities say how likely each
+        model is the better description. For nested models the
+        extra-sum-of-squares F test says whether the extra parameters earn their
+        keep at alpha 0.05.
+      </p>
+    </>
+  );
+}
+
 function TwoWayAnovaStatsTable({ r }: { r: NormalizedTwoWayAnova }) {
   return (
     <>
@@ -610,6 +698,14 @@ function resultTabs(result: NormalizedResult): {
           id: "tabular",
           label: "Tabular results",
           render: () => <DoseResponseTable r={result} />,
+        },
+      ];
+    case "modelComparison":
+      return [
+        {
+          id: "tabular",
+          label: "Tabular results",
+          render: () => <ModelComparisonTable r={result} />,
         },
       ];
     default:

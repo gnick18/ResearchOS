@@ -16,6 +16,7 @@ import type {
   NormalizedAnova,
   NormalizedCorrelation,
   NormalizedDoseResponse,
+  NormalizedModelComparison,
   NormalizedRegression,
   NormalizedResult,
   NormalizedSurvival,
@@ -23,6 +24,81 @@ import type {
   NormalizedTwoWayAnova,
   RunGroup,
 } from "@/lib/datahub/run-analysis";
+
+/**
+ * Python model definitions for the comparison snippet, one per fittable model in
+ * the engine registry. Each entry gives a unique function name, the def body, its
+ * parameter count, and a data-driven p0 expression that mirrors the engine's
+ * initialGuess so curve_fit lands on the same fit. Keyed by the engine model id.
+ */
+const PY_MODELS: Record<
+  string,
+  { name: string; def: string; nParams: number; p0: string }
+> = {
+  logistic4pl: {
+    name: "model_logistic4pl",
+    def:
+      "def model_logistic4pl(x, bottom, top, logec50, hill):\n" +
+      "    return bottom + (top - bottom) / (1 + 10**((logec50 - x) * hill))",
+    nParams: 4,
+    p0:
+      "[min(y), max(y), x[min(range(len(x)), key=lambda i: abs(y[i] - (min(y)+max(y))/2))], 1.0]",
+  },
+  logistic5pl: {
+    name: "model_logistic5pl",
+    def:
+      "def model_logistic5pl(x, bottom, top, logec50, hill, s):\n" +
+      "    return bottom + (top - bottom) / (1 + 10**((logec50 - x) * hill))**s",
+    nParams: 5,
+    p0:
+      "[min(y), max(y), x[min(range(len(x)), key=lambda i: abs(y[i] - (min(y)+max(y))/2))], 1.0, 1.0]",
+  },
+  "michaelis-menten": {
+    name: "model_michaelis_menten",
+    def:
+      "def model_michaelis_menten(x, vmax, km):\n" +
+      "    return vmax * x / (km + x)",
+    nParams: 2,
+    p0: "[max(y) * 1.1, max(np.mean(x), 1e-6)]",
+  },
+  "exp-decay-1phase": {
+    name: "model_exp_decay",
+    def:
+      "def model_exp_decay(x, y0, plateau, k):\n" +
+      "    return plateau + (y0 - plateau) * np.exp(-k * x)",
+    nParams: 3,
+    p0: "[y[0], y[-1], 1.0 / (max(x) - min(x) or 1)]",
+  },
+  "exp-association-1phase": {
+    name: "model_exp_association",
+    def:
+      "def model_exp_association(x, y0, plateau, k):\n" +
+      "    return y0 + (plateau - y0) * (1 - np.exp(-k * x))",
+    nParams: 3,
+    p0: "[y[0], y[-1], 1.0 / (max(x) - min(x) or 1)]",
+  },
+  linear: {
+    name: "model_linear",
+    def: "def model_linear(x, slope, intercept):\n    return slope * x + intercept",
+    nParams: 2,
+    p0: "[0.0, np.mean(y)]",
+  },
+  polynomial2: {
+    name: "model_polynomial2",
+    def: "def model_polynomial2(x, a, b, c):\n    return a * x * x + b * x + c",
+    nParams: 3,
+    p0: "[0.0, 0.0, np.mean(y)]",
+  },
+  gaussian: {
+    name: "model_gaussian",
+    def:
+      "def model_gaussian(x, amp, mu, sigma, offset):\n" +
+      "    return amp * np.exp(-((x - mu)**2) / (2 * sigma * sigma)) + offset",
+    nParams: 4,
+    p0:
+      "[max(y) - min(y), x[max(range(len(y)), key=lambda i: y[i])], (max(x) - min(x))/4 or 1, min(y)]",
+  },
+};
 
 /** A Python identifier from a group name (lowercase, non-word to underscore). */
 function pyVar(name: string, fallback: string): string {
@@ -432,6 +508,73 @@ ss_tot = np.sum((np.asarray(y) - np.mean(y))**2)
 print(f"R-squared = {1 - ss_res/ss_tot:.4g}")`;
 }
 
+/**
+ * Reproducible Python for the model comparison: fit both models to the same XY
+ * data with scipy.optimize.curve_fit, then compute the extra-sum-of-squares F
+ * test (for a nested pair) and AICc for each model. The model defs and the same
+ * data-driven p0 the engine uses are baked in so the printed F / p / AICc match
+ * the on-screen numbers. AICc uses K = n_params + 1 (the +1 for the variance).
+ */
+function modelComparisonCode(r: NormalizedModelComparison): string {
+  const x = pyList(r.x);
+  const y = pyList(r.y);
+  const s = PY_MODELS[r.simpler.id];
+  const c = PY_MODELS[r.complex.id];
+  if (!s || !c) {
+    return "# Model comparison snippet unavailable for the chosen models.";
+  }
+  const fBlock = r.nested
+    ? `
+# Extra-sum-of-squares F test (the two models are nested, the simpler model is a
+# special case of the complex one). model 2 = complex (more params, fewer df).
+df1 = len(x) - ${s.nParams}
+df2 = len(x) - ${c.nParams}
+f_stat = ((ss_simple - ss_complex) / (df1 - df2)) / (ss_complex / df2)
+p_f = stats.f.sf(f_stat, df1 - df2, df2)
+print(f"F({df1 - df2}, {df2}) = {f_stat:.4g}, p = {p_f:.4g}")
+print("F test prefers:", "${c.name}" if p_f < 0.05 else "${s.name}")
+`
+    : `
+# The models are not nested, so the extra-sum-of-squares F test does not apply.
+# Compare them with AICc only.
+`;
+  return `import numpy as np
+from scipy.optimize import curve_fit
+from scipy import stats
+
+x = ${x}
+y = ${y}
+xa = np.asarray(x, dtype=float)
+ya = np.asarray(y, dtype=float)
+
+# Simpler model (fewer parameters).
+${s.def}
+# More complex model.
+${c.def}
+
+popt_s, _ = curve_fit(${s.name}, x, y, p0=${s.p0}, maxfev=200000)
+popt_c, _ = curve_fit(${c.name}, x, y, p0=${c.p0}, maxfev=200000)
+
+ss_simple = np.sum((ya - ${s.name}(xa, *popt_s))**2)
+ss_complex = np.sum((ya - ${c.name}(xa, *popt_c))**2)
+
+def aicc(ss, n_params, n):
+    k = n_params + 1  # +1 for the estimated residual variance
+    return n * np.log(ss / n) + 2*k + (2*k*(k+1)) / (n - k - 1)
+
+n = len(x)
+aicc_s = aicc(ss_simple, ${s.nParams}, n)
+aicc_c = aicc(ss_complex, ${c.nParams}, n)
+delta = abs(aicc_s - aicc_c)
+# Akaike weights (probability each model is the better of the two).
+w = np.exp(-0.5 * (np.array([aicc_s, aicc_c]) - min(aicc_s, aicc_c)))
+prob = w / w.sum()
+print(f"AICc: simpler = {aicc_s:.4g}, complex = {aicc_c:.4g}, delta = {delta:.4g}")
+print(f"Probabilities: simpler = {prob[0]:.4g}, complex = {prob[1]:.4g}")
+print("AICc prefers:", "${c.name}" if aicc_c < aicc_s else "${s.name}")
+${fBlock}`;
+}
+
 function twoWayCode(r: NormalizedTwoWayAnova): string {
   // Reconstruct the long-format observations from the ANOVA so the snippet
   // builds the same DataFrame statsmodels fits (factorA x factorB with repeats).
@@ -487,6 +630,7 @@ export function showCode(result: NormalizedResult): string {
   if (result.kind === "correlation") return correlationCode(result);
   if (result.kind === "regression") return regressionCode(result);
   if (result.kind === "doseResponse") return doseResponseCode(result);
+  if (result.kind === "modelComparison") return modelComparisonCode(result);
   if (result.kind === "twoWayAnova") return twoWayCode(result);
   if (result.kind === "survival") return survivalCode(result);
   return ttestCode(result);
