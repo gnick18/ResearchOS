@@ -56,10 +56,11 @@ export default function DemoVideoAutoplay() {
         void prewarm().catch(() => {});
       }
       void (async () => {
-        // Wait until the app shell is past the loading screen (Sequences is
-        // always a nav item), then a 5s countdown gives the operator time to
+        // Wait until the app shell is past the loading screen (Workbench is a
+        // core nav item for every role, including the lab-head demoViewAs used
+        // by the check-ins clip), then a 5s countdown gives the operator time to
         // start recording, then the cursor begins.
-        await waitForElement('a[href="/sequences"]', 15000, controller.signal).catch(
+        await waitForElement('a[href="/workbench"]', 15000, controller.signal).catch(
           () => {},
         );
         await showCountdown(5, controller.signal);

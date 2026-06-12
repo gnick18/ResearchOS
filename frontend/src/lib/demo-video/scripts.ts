@@ -370,6 +370,64 @@ const chemistryGliotoxin: DemoStep[] = [
   { action: "wait", ms: 1600 },
 ];
 
+// --- Check-ins (the 1:1 / mentorship surface, "built for academic labs"):
+// the relationship rail -> the lab mentorship tree -> a trainee's IDP -> the
+// group check-in task board -> the presenter rotation -> the career-stage
+// templates. Recorded as MIRA (the lab head) via demoViewAs, so the tree shows
+// the whole lab and the IDP is reviewed from the mentor side. All data is the
+// in-memory demo fixture (no network), so pacing is forgiving and the engine's
+// per-target wait covers any mount lag. Space-row beats target the space's
+// distinctive label; if a label match opens the wrong row at record time,
+// re-take (backtick). ---
+const PANEL = '[data-testid="workbench-oneonone-panel"]';
+const checkins: DemoStep[] = [
+  { action: "wait", ms: 900 },
+  { action: "click", target: NAV("/workbench"), durationMs: 850 },
+  { action: "wait", ms: 1500 },
+  // Beat 1: open the Check-ins tab. The rail groups spaces by relationship
+  // (your mentees, skip-level, groups).
+  { action: "moveTo", target: `[data-tour-target="workbench-oneonone-tab"]`, durationMs: 700 },
+  { action: "click", target: `[data-tour-target="workbench-oneonone-tab"]`, durationMs: 350 },
+  { action: "wait", ms: 1600 },
+  // Beat 2: the lab mentorship tree. As Mira it shows the branch + depth
+  // (Mira -> Alex, Morgan, Remy; Alex -> Remy).
+  { action: "moveTo", target: { testid: "oneonone-view-tree-rail" }, durationMs: 700 },
+  { action: "click", target: { testid: "oneonone-view-tree-rail" }, durationMs: 350 },
+  { action: "wait", ms: 1800 },
+  { action: "moveTo", target: { testid: "mentorship-tree" }, durationMs: 800 },
+  { action: "wait", ms: 1800 },
+  { action: "click", target: { testid: "oneonone-tree-close" }, durationMs: 500 },
+  { action: "wait", ms: 900 },
+  // Beat 3: open Alex's check-in, then the IDP (individual development plan).
+  // The IDP tab only shows on a mentoring pair; "Alex" is the pair's label.
+  { action: "click", target: { textContains: "Alex", within: PANEL }, durationMs: 800 },
+  { action: "wait", ms: 1300 },
+  { action: "click", target: { textContains: "IDP", within: PANEL }, durationMs: 700 },
+  { action: "wait", ms: 1500 },
+  { action: "moveTo", target: { testid: "idp-form" }, durationMs: 800 },
+  { action: "wait", ms: 2000 },
+  // Beat 4: open the group check-in, then its per-assignee task board.
+  { action: "click", target: { textContains: "FakeYeast group meeting", within: PANEL }, durationMs: 800 },
+  { action: "wait", ms: 1300 },
+  { action: "click", target: { textContains: "Task board", within: PANEL }, durationMs: 700 },
+  { action: "wait", ms: 1400 },
+  { action: "moveTo", target: { testid: "oneonone-board-scope-everyone" }, durationMs: 700 },
+  { action: "wait", ms: 1400 },
+  // Beat 5: the presenter rotation (data presentation + journal club tracks).
+  { action: "click", target: { textContains: "Rotation", within: PANEL }, durationMs: 700 },
+  { action: "wait", ms: 1300 },
+  { action: "moveTo", target: { testid: "rotation-area" }, durationMs: 800 },
+  { action: "wait", ms: 1800 },
+  // Beat 6: closing flourish — start a check-in to reveal the career-stage
+  // template gallery (undergrad / grad / postdoc / staff / thesis committee).
+  // Ends with the gallery open, nothing to unblock.
+  { action: "moveTo", target: { testid: "oneonone-start-rail" }, durationMs: 700 },
+  { action: "click", target: { testid: "oneonone-start-rail" }, durationMs: 350 },
+  { action: "wait", ms: 1200 },
+  { action: "moveTo", target: { testid: "oneonone-template-gallery" }, durationMs: 800 },
+  { action: "wait", ms: 1800 },
+];
+
 export const DEMO_CLIPS: Record<string, DemoStep[]> = {
   chemistry,
   datahub: dataHub,
@@ -377,6 +435,7 @@ export const DEMO_CLIPS: Record<string, DemoStep[]> = {
   purchases,
   sequencesNcbi,
   chemistryGliotoxin,
+  checkins,
 };
 
 export type DemoClipId = keyof typeof DEMO_CLIPS;
@@ -390,6 +449,10 @@ export interface DemoClipMeta {
   /** One-line "no <tool>" hook. */
   hook: string;
   summary: string;
+  /** Optional demo "view as" persona for the recording surface (the `/demo`
+   *  route's internal `?demoViewAs=` override). Defaults to alex when absent.
+   *  Used by the check-ins clip to record the lab-head (Mira) view. */
+  viewAs?: string;
 }
 
 export const DEMO_CLIP_META: DemoClipMeta[] = [
@@ -440,5 +503,14 @@ export const DEMO_CLIP_META: DemoClipMeta[] = [
     hook: "no SciFinder license",
     summary:
       "Alternate chemistry clip: import gliotoxin, open its Papers & patents, launch the explorer, narrow the year range, filter by type, and star a paper.",
+  },
+  {
+    id: "checkins",
+    label: "Check-ins (built for labs)",
+    file: "checkins-mentorship.mp4",
+    hook: "built for academic labs",
+    summary:
+      "Recorded as the lab head: the relationship rail, the lab mentorship tree, a trainee's IDP, the group task board, the presenter rotation, and the career-stage templates.",
+    viewAs: "mira",
   },
 ];

@@ -31,7 +31,7 @@ export default function DemoVideoStudioPage() {
         {DEMO_CLIP_META.map((clip) => (
           <a
             key={clip.id}
-            href={`/demo?record=1&demo=${clip.id}`}
+            href={`/demo?record=1&demo=${clip.id}${clip.viewAs ? `&demoViewAs=${clip.viewAs}` : ""}`}
             className="group flex flex-col rounded-xl border border-border bg-surface-raised p-5 transition-colors hover:border-brand-action hover:bg-surface-sunken"
           >
             <div className="flex items-baseline justify-between gap-2">
