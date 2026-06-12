@@ -30,7 +30,7 @@ import TwoPartModel from "@/components/pricing/TwoPartModel";
 export const metadata: Metadata = {
   title: "Pricing | ResearchOS",
   description:
-    "The ResearchOS local notebook is free and open source forever. The only paid part is optional cloud storage for shared and co-edited documents. Individuals and labs pay what it costs us, larger institutions pay a little more to keep it free for everyone else. See the competitor savings, the plan builders, and the actual cost math. Everything is free during the beta.",
+    "The ResearchOS local notebook is free and open source forever. The only paid parts are optional cloud storage and the optional AI assistant, both metered at cost. Individuals and labs pay what it costs us, larger institutions pay a little more to keep it free for everyone else. See the competitor savings, the plan builders, the AI pricing, and the actual cost math. Everything is free during the beta.",
 };
 
 const METERING_ITEMS: FeatureItem[] = [
@@ -115,6 +115,37 @@ const SUPPORT_ITEMS: FeatureItem[] = [
   },
 ];
 
+const AI_ITEMS: FeatureItem[] = [
+  {
+    icon: "heart",
+    title: "Free tokens when you sign up",
+    body: [
+      "Every new account gets a one-time batch of tokens to try BeakerBot, no card needed. How far they stretch depends on what you ask. A quick question is cheap, a full analysis costs more, and the batch works out to roughly 20 to 25 full analyses or over 100 quick questions. Plenty to see what BeakerBot does before you spend anything.",
+    ],
+  },
+  {
+    icon: "gauge",
+    title: "Then metered, near cost",
+    body: [
+      "After the trial you buy prepaid credits, and each task draws down what it actually cost us to run plus a thin buffer for processing. You always see your token balance and what the last task cost. No subscription, you pay only for what you use.",
+    ],
+  },
+  {
+    icon: "lock",
+    title: "Cheap because your data stays home",
+    body: [
+      "We run an open-weight model and the agent loop runs in your browser, so only a small result ever crosses to the model, never your files. Low cost and your-data-stays-home are the same fact.",
+    ],
+  },
+  {
+    icon: "users",
+    title: "Or have your lab or institution cover it",
+    body: [
+      "A lab, department, or institution can fund a shared pool, so members use BeakerBot without paying out of pocket. Departments and institutions pay a small sustaining rate above cost, the same as storage, and that keeps the free sign-up tokens free for everyone.",
+    ],
+  },
+];
+
 export default function PricingPage() {
   return (
     <div className="min-h-screen bg-surface-sunken">
@@ -132,8 +163,8 @@ export default function PricingPage() {
           {/* Two-part model */}
           <Section>
             <SectionHeading
-              title="Two parts, and only one of them ever costs money"
-              subtitle="Knowing which part is which is the whole pricing model. The reason cloud stays cheap is the local-first design, your daily work never leaves your disk."
+              title="The app is free. Two optional things ever cost money."
+              subtitle="Your data has two parts, your folder on your own disk which is free, and the cloud copy you choose to sync or share which is the paid storage part. The one other optional paid thing is the AI assistant, also metered at cost and covered below. The reason it all stays cheap is the local-first design, your daily work never leaves your disk."
             />
             <TwoPartModel />
           </Section>
@@ -184,6 +215,21 @@ export default function PricingPage() {
             <FeatureGrid items={METERING_ITEMS} />
             <p className="mx-auto mt-4 max-w-2xl text-center text-sm font-bold leading-snug text-brand-purple">
               Your editing is never metered.
+            </p>
+          </Section>
+
+          {/* The AI is the one metered thing, at cost, a separate optional meter */}
+          <Section>
+            <SectionHeading
+              title="The AI assistant is the one thing that is metered, and it is at cost"
+              subtitle="The app, search, editing, and collaboration are all free and unmetered. BeakerBot, the optional AI assistant, is the single exception, because each AI task calls a hosted model that costs us real money. It is a separate optional meter from your storage plan, you can use one, both, or neither."
+            />
+            <FeatureGrid items={AI_ITEMS} />
+            <p className="mx-auto mt-5 max-w-2xl border-t border-dashed border-border pt-3.5 text-center text-[12px] leading-relaxed text-foreground-muted">
+              <b className="text-foreground">Why no final AI prices yet.</b> We
+              hold the exact token grant and credit prices until a few real tasks
+              show what they actually cost, the same way we set storage from data
+              instead of guessing. During the beta the AI is free.
             </p>
           </Section>
 
