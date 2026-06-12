@@ -1003,7 +1003,7 @@ function ReviewImportModal({
       // entityType / entity / attachments, so supply an empty metadata object to
       // satisfy the type without inventing data.
       const { noteId } = await importNoteBundle(
-        { ...received, metadata: {} },
+        { ...received, embeddedObjects: [], metadata: {} },
         { currentUser, senderEmail, senderFingerprint },
       );
 

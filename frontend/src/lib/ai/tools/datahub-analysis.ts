@@ -351,6 +351,15 @@ export type RunAnalysisResult =
       keyStatistic: string;
       pValue: number | null;
       nonparametricFallback: boolean;
+      /** The engine-computed effect size as a human line (Cohen's d / Hedges' g
+       *  + CI for t tests, eta / omega-squared for ANOVA, r-squared for
+       *  correlation). Null for kinds with no effect size in this slice. */
+      effectSize: string | null;
+      /** A robustness note when the engine flagged borderline normality and
+       *  computed a distribution-free bootstrap CI of the difference, so the
+       *  model can say the result holds up without assuming normality. Null
+       *  otherwise. */
+      robustness: string | null;
       analysisId: string;
     }
   | { ok: false; error: string };
@@ -387,6 +396,71 @@ function keyStatisticOf(outcome: Extract<ReturnType<typeof runAnalysis>, { ok: t
   // The remaining normalized kinds are not produced by the means family this
   // slice plans, but keep a safe default rather than throw.
   return { pValue: null, keyStatistic: "see the stored result", nonparametric: false };
+}
+
+/** Format a finite number to at most 2 decimals, trimming trailing zeros. */
+function fmtNum(n: number): string {
+  if (!Number.isFinite(n)) return "n/a";
+  return n.toFixed(2).replace(/\.?0+$/, "");
+}
+
+/** Format a 95% CI pair as a human clause, or null when not finite. */
+function fmtCI(ci: [number, number] | null): string | null {
+  if (!ci || !Number.isFinite(ci[0]) || !Number.isFinite(ci[1])) return null;
+  return `95% CI ${fmtNum(ci[0])} to ${fmtNum(ci[1])}`;
+}
+
+/**
+ * Pull the effect size, and where the engine computed one a robustness note, out
+ * of a normalized outcome as human strings the model can relay. The engine
+ * produced every number here, this only formats what it returned, nothing is
+ * invented. Returns nulls for kinds that carry no effect size in this slice.
+ */
+function effectSizeOf(outcome: Extract<ReturnType<typeof runAnalysis>, { ok: true }>): {
+  effectSize: string | null;
+  robustness: string | null;
+} {
+  if (outcome.kind === "ttest") {
+    // effectSizeLabel is "Cohen's d" on the parametric path, the rank-biserial
+    // label on a nonparametric rank test.
+    let es = `${outcome.effectSizeLabel} = ${fmtNum(outcome.effectSize)}`;
+    if (outcome.hedgesG !== null) {
+      const ci = fmtCI(outcome.effectSizeCI95);
+      es += ` (Hedges' g ${fmtNum(outcome.hedgesG)}${ci ? `, ${ci}` : ""})`;
+    }
+    // Surface the distribution-free read only when normality is borderline AND a
+    // bootstrap CI of the difference exists, so the model can volunteer that the
+    // difference holds up without assuming normality.
+    let robustness: string | null = null;
+    if (outcome.normalityShaky && outcome.bootstrapCI95) {
+      robustness = `Normality is borderline, so a distribution-free bootstrap 95% CI of the difference is ${fmtNum(
+        outcome.bootstrapCI95[0],
+      )} to ${fmtNum(outcome.bootstrapCI95[1])}.`;
+    }
+    return { effectSize: es, robustness };
+  }
+  if (outcome.kind === "anova") {
+    const e = outcome.effectSize;
+    if (!e) return { effectSize: null, robustness: null };
+    let es = `${e.label} = ${fmtNum(e.etaSquared)}`;
+    const extras: string[] = [];
+    if (e.omegaSquared !== null) extras.push(`omega-squared ${fmtNum(e.omegaSquared)}`);
+    const ci = fmtCI(e.etaSquaredCI95);
+    if (ci) extras.push(ci);
+    if (extras.length > 0) es += ` (${extras.join(", ")})`;
+    return { effectSize: es, robustness: null };
+  }
+  if (outcome.kind === "correlation") {
+    const ci = fmtCI(outcome.rSquaredCI95);
+    return {
+      effectSize: `r-squared = ${fmtNum(outcome.rSquared)}${ci ? ` (${ci})` : ""}`,
+      robustness: null,
+    };
+  }
+  if (outcome.kind === "regression") {
+    return { effectSize: `r-squared = ${fmtNum(outcome.rSquared)}`, robustness: null };
+  }
+  return { effectSize: null, robustness: null };
 }
 
 /**
@@ -438,6 +512,7 @@ export function planAndRun(
     .filter((c) => built.columnIds.includes(c.id))
     .map((c) => c.name);
   const stat = keyStatisticOf(outcome);
+  const eff = effectSizeOf(outcome);
   // The means family this slice plans yields a ttest or anova kind, both of which
   // carry an engine `test` label. Fall back to the planner label otherwise.
   const testLabel =
@@ -453,6 +528,8 @@ export function planAndRun(
     keyStatistic: stat.keyStatistic,
     pValue: stat.pValue,
     nonparametricFallback: stat.nonparametric && requested === null,
+    effectSize: eff.effectSize,
+    robustness: eff.robustness,
     analysisId: spec.id,
   };
   return { ok: true, spec, result };
@@ -461,7 +538,7 @@ export function planAndRun(
 export const runDataHubAnalysisTool: AiTool = {
   name: "run_datahub_analysis",
   description:
-    "Run a statistical analysis on a Data Hub table, store the result, and take the user to see it. Use this when the user asks to run a test or compare groups (for example \"run a t-test on Control vs Drug\" or \"compare these groups\"). Call list_datahub_tables first to get the table id and the real column names, then, if the table has more groups than the test needs, call ask_user so the user picks the exact groups. Then call this with the table id and those columns. You do not pick the test, the app's planner picks the right test for the data and checks its assumptions. This runs straight away, there is NO separate approval step, the user's request and their group pick are the consent, so do not call propose_plan for it and do not ask the user to allow it. It saves the result into that table as a version-controlled analysis, navigates the user to the Data Hub doc so they see it, and returns the verdict plus the key statistic. After it returns, give ONE short line, the plain-language verdict and the key number it returned. Never invent a statistic, only repeat the numbers this returns.",
+    "Run a statistical analysis on a Data Hub table, store the result, and take the user to see it. Use this when the user asks to run a test or compare groups (for example \"run a t-test on Control vs Drug\" or \"compare these groups\"). Call list_datahub_tables first to get the table id and the real column names, then, if the table has more groups than the test needs, call ask_user so the user picks the exact groups. Then call this with the table id and those columns. You do not pick the test, the app's planner picks the right test for the data and checks its assumptions. This runs straight away, there is NO separate approval step, the user's request and their group pick are the consent, so do not call propose_plan for it and do not ask the user to allow it. It saves the result into that table as a version-controlled analysis, navigates the user to the Data Hub doc so they see it, and returns the verdict, the key statistic, and the effect size. After it returns, give ONE short line, the plain-language verdict, the key number, and the effect size it returned (for example Cohen's d or eta-squared). If the result carries a robustness note, add it, the difference holds up even without assuming the data is normal. Never invent a statistic, only repeat the numbers this returns.",
   parameters: {
     type: "object",
     properties: {
@@ -648,6 +725,8 @@ export type StoredAnalysisResult =
       keyStatistic: string;
       pValue: number | null;
       nonparametric: boolean;
+      effectSize: string | null;
+      robustness: string | null;
     }
   | { ok: false; error: string };
 
@@ -692,6 +771,7 @@ export function shapeStoredAnalysis(
     .map((id) => byId.get(id) ?? id)
     .filter(Boolean);
   const stat = keyStatisticOf(outcome);
+  const eff = effectSizeOf(outcome);
   // The means family (ttest / anova) carries a model-readable test label.
   // Use it when it is there; fall back to the spec type for other kinds.
   const testLabel =
@@ -708,6 +788,8 @@ export function shapeStoredAnalysis(
     keyStatistic: stat.keyStatistic,
     pValue: stat.pValue,
     nonparametric: stat.nonparametric,
+    effectSize: eff.effectSize,
+    robustness: eff.robustness,
   };
 }
 

@@ -201,3 +201,49 @@ describe("plot-code: xy scatter", () => {
     expect(c.toLowerCase()).toContain("could not be reproduced");
   });
 });
+
+describe("plot-code: estimation plot", () => {
+  it("emits a seeded bootstrap and a two-panel figure for the unpaired case", () => {
+    const spec = withStyle(
+      buildPlotSpec({
+        id: "pe",
+        kind: "estimationGardnerAltman",
+        tableId: "1",
+        yTitle: "Viability",
+      }),
+      { estimationSeed: 99, estimationB: 4000 },
+    );
+    const code = plotCode(spec, twoGroupContent());
+    expect(code).toContain("import numpy as np");
+    expect(code).toContain("import matplotlib.pyplot as plt");
+    // The seed and B are baked so the snippet redraws reproducibly.
+    expect(code).toContain("default_rng(99)");
+    expect(code).toContain("B = 4000");
+    // Two panels (the data axis and the difference axis).
+    expect(code).toContain("ax_data");
+    expect(code).toContain("ax_diff");
+    // The difference panel draws the bootstrap distribution + the CI + the dot.
+    expect(code).toContain("violinplot");
+    expect(code).toContain("np.quantile(boot");
+    expect(code).toContain("axhline(0");
+    // The independent two-sample resampling (group minus control).
+    expect(code).toContain("rng.choice(ctrl");
+  });
+
+  it("emits the paired difference resampling and slope lines when paired", () => {
+    const spec = withStyle(
+      buildPlotSpec({
+        id: "pep",
+        kind: "estimationGardnerAltman",
+        tableId: "1",
+      }),
+      { estimationPaired: true },
+    );
+    const code = plotCode(spec, twoGroupContent());
+    // The paired path resamples the per-pair differences, not the two groups.
+    expect(code).toContain("pairs[:, 1] - pairs[:, 0]");
+    expect(code).toContain("pairs = np.array(pairs).reshape(-1, 2)");
+    // The slope lines connect each matched pair on the data axis.
+    expect(code).toContain("ax_data.plot(xs, ys");
+  });
+});

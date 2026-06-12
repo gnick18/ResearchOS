@@ -1533,6 +1533,8 @@ export default function DataHubPage() {
         analysisId: data.analysisId,
         yColumnId: data.yColumnId ?? null,
         fitModel: data.fitModel,
+        estimationPaired: data.estimationPaired,
+        estimationControlIndex: data.estimationControlIndex,
         yTitle: isXY
           ? yName ?? selectedMeta?.name ?? "Y"
           : isSurvival

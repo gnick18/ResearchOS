@@ -120,6 +120,7 @@ function buildMaterializeBundle(invite: PendingInvite): ReadBundleResult {
       collab_doc_id: invite.collabDocId,
     },
     attachments: [],
+    embeddedObjects: [],
     metadata: {},
   };
 }

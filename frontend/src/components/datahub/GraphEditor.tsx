@@ -475,6 +475,9 @@ export default function GraphEditor({
   const isXY = style.kind === "xyScatter";
   const isGrouped = style.kind === "groupedBar";
   const isSurvival = style.kind === "survivalCurve";
+  const isEstimation =
+    style.kind === "estimationGardnerAltman" ||
+    style.kind === "estimationCumming";
   // The live figure. Recomputed whenever the spec, the table, or the linked
   // analysis changes (a cell edit reprojects content, so the points move).
   const { svg, geometry, frame } = useMemo(
@@ -686,6 +689,57 @@ export default function GraphEditor({
               A survival curve has no per-bar style. Tune colors and labels in the
               sections below.
             </p>
+          ) : isEstimation ? (
+            <>
+              <Ctl label="Control group">
+                <select
+                  value={style.estimationControlIndex ?? 0}
+                  onChange={(e) =>
+                    onStyleChange({
+                      estimationControlIndex: Number(e.target.value),
+                    })
+                  }
+                  className="max-w-[150px] rounded-md border border-border bg-surface-overlay px-2 py-1 text-meta text-foreground focus:border-sky-400 focus:outline-none"
+                  aria-label="Control group"
+                >
+                  {seriesInfo.names.map((name, i) => (
+                    <option key={i} value={i}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </Ctl>
+              <Ctl label="CI method">
+                <Seg<"bca" | "percentile">
+                  value={style.estimationBootMethod ?? "bca"}
+                  options={[
+                    { value: "bca", label: "BCa" },
+                    { value: "percentile", label: "Pct" },
+                  ]}
+                  onChange={(v) => onStyleChange({ estimationBootMethod: v })}
+                />
+              </Ctl>
+              {style.kind === "estimationGardnerAltman" &&
+              seriesInfo.count === 2 ? (
+                <Ctl label="Paired">
+                  <Seg<"on" | "off">
+                    value={style.estimationPaired ? "on" : "off"}
+                    options={[
+                      { value: "off", label: "No" },
+                      { value: "on", label: "Yes" },
+                    ]}
+                    onChange={(v) =>
+                      onStyleChange({ estimationPaired: v === "on" })
+                    }
+                  />
+                </Ctl>
+              ) : null}
+              <p className="mt-2 text-[11px] text-foreground-muted">
+                The mean difference and its CI come from a bootstrap, the same
+                numbers an estimation analysis reports. The density on the
+                difference axis is that bootstrap distribution.
+              </p>
+            </>
           ) : (
             <>
               <Ctl label="Chart type">

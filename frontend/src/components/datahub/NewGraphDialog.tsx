@@ -32,6 +32,10 @@ export interface NewGraphSubmit {
   yColumnId?: string | null;
   /** For an XY figure, the initial fitted-curve model. */
   fitModel?: FitModelId;
+  /** For an estimation figure, the paired variant (matched rows). */
+  estimationPaired?: boolean;
+  /** For an estimation figure, which group is the shared control. */
+  estimationControlIndex?: number;
 }
 
 /** The fitted-curve choices the XY graph dialog offers. */
@@ -63,6 +67,13 @@ const KINDS: {
     kind: "columnBar",
     label: "Bar with error bars",
     blurb: "A bar to the group mean with SD or SEM error bars.",
+    enabled: true,
+  },
+  {
+    kind: "estimationGardnerAltman",
+    label: "Estimation plot (effect size)",
+    blurb:
+      "The raw data plus the bootstrap mean-difference and its 95% CI on a second axis. Shows the size of the effect, not just a significance star. Needs two or more groups.",
     enabled: true,
   },
   {
@@ -104,6 +115,14 @@ export default function NewGraphDialog({
   const [useBrackets, setUseBrackets] = useState(true);
   const [yColumn, setYColumn] = useState<string>("");
   const [fitModel, setFitModel] = useState<FitModelId>("linear");
+  const [estPaired, setEstPaired] = useState(false);
+  const [estControl, setEstControl] = useState(0);
+
+  // The estimation kind is selected when the user picks either estimation entry.
+  // Two groups makes a Gardner-Altman, three or more makes a Cumming (shared
+  // control, one difference panel per other group); we resolve which at submit.
+  const isEstimationSelected =
+    kind === "estimationGardnerAltman" || kind === "estimationCumming";
 
   useEffect(() => {
     if (!open) return;
@@ -119,6 +138,8 @@ export default function NewGraphDialog({
     setUseBrackets(true);
     setYColumn(ys[0]?.id ?? "");
     setFitModel("linear");
+    setEstPaired(false);
+    setEstControl(0);
   }, [open, isXY, isGrouped, isSurvival, ys]);
 
   useEffect(() => {
@@ -136,7 +157,9 @@ export default function NewGraphDialog({
     ? yColumn !== ""
     : isGrouped || isSurvival
       ? true
-      : groups.length >= 1;
+      : isEstimationSelected
+        ? groups.length >= 2
+        : groups.length >= 1;
 
   const submit = () => {
     if (!canSubmit) return;
@@ -155,6 +178,18 @@ export default function NewGraphDialog({
     }
     if (isSurvival) {
       onSubmit({ kind: "survivalCurve", analysisId: null });
+      return;
+    }
+    if (isEstimationSelected) {
+      // Two groups draws a Gardner-Altman, three or more a Cumming. Paired only
+      // applies to the two-group Gardner-Altman (matched rows of one contrast).
+      const cumming = groups.length >= 3;
+      onSubmit({
+        kind: cumming ? "estimationCumming" : "estimationGardnerAltman",
+        analysisId: null,
+        estimationPaired: cumming ? false : estPaired,
+        estimationControlIndex: Math.min(estControl, groups.length - 1),
+      });
       return;
     }
     onSubmit({
@@ -273,7 +308,48 @@ export default function NewGraphDialog({
               })}
             </div>
 
-            {anova ? (
+            {isEstimationSelected ? (
+              <>
+                <label className="mt-4 block text-meta font-medium uppercase tracking-wide text-foreground-muted">
+                  Control group
+                </label>
+                <select
+                  value={estControl}
+                  onChange={(e) => setEstControl(Number(e.target.value))}
+                  className="mt-1 w-full rounded-md border border-border bg-surface-raised px-2 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
+                  data-testid="datahub-newgraph-est-control"
+                >
+                  {groups.map((g, i) => (
+                    <option key={g.id} value={i}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+                {groups.length === 2 ? (
+                  <label className="mt-3 flex items-start gap-2 rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={estPaired}
+                      onChange={(e) => setEstPaired(e.target.checked)}
+                      className="mt-0.5"
+                      data-testid="datahub-newgraph-est-paired"
+                    />
+                    <span>
+                      Paired. The two columns are the same subjects measured
+                      twice, so each row is a matched pair. Draws slope lines and
+                      a paired mean difference.
+                    </span>
+                  </label>
+                ) : (
+                  <p className="mt-3 rounded-md border border-border bg-surface-raised px-3 py-2 text-meta text-foreground-muted">
+                    Three or more groups draws a Cumming plot, one difference
+                    panel per group against the control. The mean difference and
+                    its 95% CI come from a bootstrap, the same numbers an
+                    estimation analysis reports.
+                  </p>
+                )}
+              </>
+            ) : anova ? (
               <label className="mt-4 flex items-start gap-2 rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-foreground">
                 <input
                   type="checkbox"

@@ -221,3 +221,72 @@ describe("seeded reproducibility and the two-sample path", () => {
     expect(flat!.ci[1]).toBeCloseTo(4, 10);
   });
 });
+
+// --- E2 keepDistribution: the resample array the estimation plot consumes ---
+//
+// The estimation plot draws its density from the SAME sorted resample array the
+// CI percentiles are read from. These pin that contract: the array is sorted, of
+// the right length, off by default, and its percentile bounds equal the reported
+// percentile CI (so the plot density and the plot CI cannot diverge).
+
+describe("keepDistribution (E2 estimation plot consumes the resamples)", () => {
+  it("is absent by default and present when asked, sorted and of length B", () => {
+    const sample = [2, 4, 6, 8, 10, 12, 14, 16];
+    const off = bootstrapCI(sample, sampleMean, { B: 600, seed: 9 });
+    expect(off).not.toBeNull();
+    // Off by default, so the existing result shape is byte-identical.
+    expect(off!.distribution).toBeUndefined();
+
+    const on = bootstrapCI(sample, sampleMean, {
+      B: 600,
+      seed: 9,
+      keepDistribution: true,
+    });
+    expect(on).not.toBeNull();
+    const dist = on!.distribution;
+    expect(dist).toBeDefined();
+    // Every resample of a finite sample yields a finite mean, so length === B.
+    expect(dist!.length).toBe(600);
+    // Sorted ascending.
+    for (let i = 1; i < dist!.length; i++) {
+      expect(dist![i]).toBeGreaterThanOrEqual(dist![i - 1]);
+    }
+  });
+
+  it("the kept distribution's percentile bounds equal the reported percentile CI", () => {
+    const a = [10, 11, 9, 10, 12, 8, 11, 10];
+    const b = [15, 16, 14, 15, 17, 13, 16, 15];
+    const res = bootstrapDiffCI(a, b, meanDifference, {
+      B: 2000,
+      seed: 7,
+      method: "percentile",
+      keepDistribution: true,
+    });
+    expect(res).not.toBeNull();
+    const dist = res!.distribution!;
+    // The percentile CI is exactly percentileInterval of the kept array. Reuse
+    // the same extractor the engine uses so this asserts identity, not a re-derive.
+    const [lo, hi] = percentileInterval(dist, res!.alpha);
+    expect(res!.ci[0]).toBeCloseTo(lo, 12);
+    expect(res!.ci[1]).toBeCloseTo(hi, 12);
+  });
+
+  it("the kept array is a copy, so mutating it cannot corrupt a later read", () => {
+    const sample = [1, 3, 5, 7, 9];
+    const res = bootstrapCI(sample, sampleMean, {
+      B: 300,
+      seed: 1,
+      keepDistribution: true,
+    });
+    const dist = res!.distribution!;
+    const firstBefore = dist[0];
+    dist[0] = Number.NaN;
+    // A second identical call is unaffected by the mutation above.
+    const again = bootstrapCI(sample, sampleMean, {
+      B: 300,
+      seed: 1,
+      keepDistribution: true,
+    });
+    expect(again!.distribution![0]).toBe(firstBefore);
+  });
+});

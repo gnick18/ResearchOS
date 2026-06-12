@@ -260,6 +260,10 @@ describe("planAndRun", () => {
     expect(run.result.pValue as number).toBeLessThan(0.05);
     expect(run.result.verdict).toMatch(/Drug|Control/);
     expect(run.result.keyStatistic).toMatch(/p/);
+    // The parametric t-test surfaces its effect size for the model to relay
+    // (Cohen's d plus the bias-corrected Hedges' g), straight from the engine.
+    expect(run.result.effectSize).toMatch(/Cohen's d/);
+    expect(run.result.effectSize).toMatch(/Hedges' g/);
   });
 
   it("errors on a non-runnable request rather than fabricating a result", () => {
