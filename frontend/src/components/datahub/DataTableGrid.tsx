@@ -19,7 +19,7 @@
 // House style: <Icon> only, Tooltip on icon-only buttons, brand + semantic
 // tokens, no emojis / em-dashes / mid-sentence colons.
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Icon } from "@/components/icons";
 import type { DataHubDocContent } from "@/lib/datahub/model/types";
 import {
@@ -79,10 +79,11 @@ function SummaryCell({
 /**
  * The summary editor: one column per group, three labeled rows (Mean, the
  * format's spread, N). Replaces the replicate rows when the table is in a
- * summary entry format. Group headers rename inline on double-click (the rename
- * flows to all three of the group's subcolumns via onRenameSummaryGroup). There
- * is exactly one summary row, so each cell is keyed by (the single summary row
- * id, the group's kind-subcolumn id).
+ * summary entry format. Group headers rename inline on double-click (Enter /
+ * blur commits, Escape cancels -- same idiom as the replicate-mode header via
+ * ColumnRenameInput). The rename flows to all three of the group's subcolumns
+ * via onRenameSummaryGroup. There is exactly one summary row, so each cell is
+ * keyed by (the single summary row id, the group's kind-subcolumn id).
  */
 function SummaryEditor({
   content,
@@ -93,6 +94,7 @@ function SummaryEditor({
   onCellCommit: (rowId: string, columnId: string, raw: string) => void;
   onRenameSummaryGroup?: (datasetId: string, name: string) => void;
 }) {
+  const [renamingGroupId, setRenamingGroupId] = useState<string | null>(null);
   const groups = useMemo(() => readAllGroupSummaries(content), [content]);
   const spreadKind = spreadKindOf(entryFormatOf(content));
   const spreadLabel = spreadKind === "sem" ? "SEM" : "SD";
@@ -118,14 +120,24 @@ function SummaryEditor({
                 key={g.datasetId}
                 onDoubleClick={() => {
                   if (!onRenameSummaryGroup) return;
-                  const next = window.prompt("Rename group", g.name);
-                  if (next !== null && next.trim() !== "") {
-                    onRenameSummaryGroup(g.datasetId, next.trim());
-                  }
+                  setRenamingGroupId(g.datasetId);
                 }}
                 className="min-w-[96px] border border-border bg-surface-sunken px-3 py-1.5 text-center text-body font-semibold text-foreground"
               >
-                {g.name}
+                {renamingGroupId === g.datasetId ? (
+                  <ColumnRenameInput
+                    initialName={g.name}
+                    onCommit={(name) => {
+                      setRenamingGroupId(null);
+                      if (name.trim() !== "") {
+                        onRenameSummaryGroup?.(g.datasetId, name.trim());
+                      }
+                    }}
+                    onCancel={() => setRenamingGroupId(null)}
+                  />
+                ) : (
+                  g.name
+                )}
               </th>
             ))}
           </tr>
