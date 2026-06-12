@@ -40,6 +40,7 @@ import { createPortal } from "react-dom";
 import { Icon } from "@/components/icons";
 import BeakerBot from "@/components/BeakerBot";
 import BeakerBotConversation from "@/components/ai/BeakerBotConversation";
+import BeakerChatRail from "@/components/ai/BeakerChatRail";
 import BeakerSearchAskHeader from "@/components/ai/BeakerSearchAskHeader";
 import { useConversationStore } from "@/lib/ai/conversation-store";
 import {
@@ -1091,6 +1092,11 @@ export function CommandPalette({
           maxHeight: "76vh",
           minHeight: askMode === "ask" ? "min(440px, 76vh)" : undefined,
           height: askMode === "ask" ? "min(440px, 76vh)" : undefined,
+          // Widen in Ask mode to fit the left history rail beside the
+          // conversation (the rail is ~212px). Search mode keeps the lean
+          // max-w-[600px] from the class. Inline maxWidth beats the class.
+          maxWidth:
+            askMode === "ask" ? "min(820px, calc(100vw - 40px))" : undefined,
           // Fluid morph (fun pass, 2026-06-12). A springy ease-out
           // (cubic-bezier(.22,1,.36,1)) gives the size + corner glide a single
           // settling motion instead of a linear slide, and will-change promotes
@@ -1101,7 +1107,7 @@ export function CommandPalette({
           // Soften the chat while the box reshapes + glides, then sharpen back.
           filter: morphing ? "blur(5px)" : "blur(0px)",
           transition:
-            "min-height 0.4s cubic-bezier(.22,1,.36,1), height 0.4s cubic-bezier(.22,1,.36,1), left 0.4s cubic-bezier(.22,1,.36,1), top 0.4s cubic-bezier(.22,1,.36,1), width 0.4s cubic-bezier(.22,1,.36,1), inset 0.4s cubic-bezier(.22,1,.36,1), filter 0.32s cubic-bezier(.22,1,.36,1)",
+            "min-height 0.4s cubic-bezier(.22,1,.36,1), height 0.4s cubic-bezier(.22,1,.36,1), left 0.4s cubic-bezier(.22,1,.36,1), top 0.4s cubic-bezier(.22,1,.36,1), width 0.4s cubic-bezier(.22,1,.36,1), max-width 0.4s cubic-bezier(.22,1,.36,1), inset 0.4s cubic-bezier(.22,1,.36,1), filter 0.32s cubic-bezier(.22,1,.36,1)",
           // Dodge override: replaces inset-x-0/top-[12vh] when a spotlight
           // target would be covered. null = centered (the CSS class wins).
           ...dodgeStyle,
@@ -1124,11 +1130,14 @@ export function CommandPalette({
                 to   { opacity: 1; transform: translateY(0); }
               }
             `}</style>
-            <BeakerSearchAskHeader
-              onBack={() => onExitAskMode?.()}
-              onNewChat={() => useConversationStore.getState().clearConversation()}
-            />
-            <BeakerBotConversation className="flex-1" />
+            <BeakerSearchAskHeader onBack={() => onExitAskMode?.()} />
+            {/* Two panes: the persistent left history rail + the conversation.
+                The rail makes the surface wider in ask mode (see the surface
+                maxWidth below). */}
+            <div className="flex min-h-0 flex-1">
+              <BeakerChatRail />
+              <BeakerBotConversation className="min-w-0 flex-1" />
+            </div>
           </div>
         ) : (
           <div
