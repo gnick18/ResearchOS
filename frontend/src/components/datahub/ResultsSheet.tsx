@@ -858,9 +858,45 @@ function SurvivalTables({ r }: { r: NormalizedSurvival }) {
           </tbody>
         </table>
       )}
+
+      {r.gehanBreslowWilcoxon && (
+        <table
+          className="mt-4 w-full max-w-md border-collapse text-body tabular-nums"
+          data-testid="results-gehan-table"
+        >
+          <tbody>
+            <tr>
+              <td className="border-b border-border px-3 py-1.5 text-foreground-muted">
+                Gehan-Breslow-Wilcoxon chi-square
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right text-foreground">
+                {num(r.gehanBreslowWilcoxon.chiSquare)}
+              </td>
+            </tr>
+            <tr>
+              <td className="border-b border-border px-3 py-1.5 text-foreground-muted">
+                df
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right text-foreground">
+                {r.gehanBreslowWilcoxon.df}
+              </td>
+            </tr>
+            <tr>
+              <td className="border-b border-border px-3 py-1.5 text-foreground-muted">
+                p
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right text-foreground">
+                {formatP(r.gehanBreslowWilcoxon.pValue)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      )}
       <p className="mt-2 max-w-xl text-meta text-foreground-muted">
         Median survival is the time the survival curve crosses 50 percent. The
-        log-rank test compares the whole curves, not just the medians.
+        log-rank test compares the whole curves, not just the medians. The
+        Gehan-Breslow-Wilcoxon test is the same comparison with more weight on
+        early time points, so it is more sensitive to early differences.
       </p>
     </>
   );

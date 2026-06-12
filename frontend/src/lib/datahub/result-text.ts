@@ -87,6 +87,17 @@ export function resultToText(result: NormalizedResult): string {
           row("p", formatP(result.logRank.pValue)),
         );
       }
+      if (result.gehanBreslowWilcoxon) {
+        lines.push(
+          "",
+          row(
+            "Gehan-Breslow-Wilcoxon chi-square",
+            n(result.gehanBreslowWilcoxon.chiSquare, 3),
+          ),
+          row("df", result.gehanBreslowWilcoxon.df),
+          row("p", formatP(result.gehanBreslowWilcoxon.pValue)),
+        );
+      }
       break;
     }
     case "coxRegression": {

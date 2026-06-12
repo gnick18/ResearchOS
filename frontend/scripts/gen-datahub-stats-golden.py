@@ -752,6 +752,17 @@ def ref_survival():
         "df": 1,
         "p": r4(lr.p_value),
     }
+    # Gehan-Breslow-Wilcoxon Treatment vs Control. Same comparison as the
+    # log-rank test, but each event time is weighted by the number at risk, so
+    # early deaths count more. lifelines exposes it via weightings="wilcoxon".
+    gbw = logrank_test(
+        t, tc, event_observed_A=e, event_observed_B=ec, weightings="wilcoxon"
+    )
+    out["gehan"] = {
+        "chi2": r4(gbw.test_statistic),
+        "df": 1,
+        "p": r4(gbw.p_value),
+    }
     # Cox proportional hazards on the same two arms. The single covariate is the
     # arm indicator (Treatment = 1, Control = 0), matching how the Data Hub codes
     # the comparison-vs-reference contrast. Efron tie handling is lifelines'

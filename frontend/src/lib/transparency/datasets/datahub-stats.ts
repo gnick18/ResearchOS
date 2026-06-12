@@ -464,6 +464,10 @@ export const STAT_PINS: StatPin[] = [
   { id: "km_median", metric: "Kaplan-Meier median survival (Treatment)", reference: 22.0, oracleId: "lifelines", tol: 1e-6, warn: 1e-6, unit: "t" },
   { id: "logrank_chi2", metric: "Log-rank test, chi-square", reference: 11.036361, oracleId: "lifelines", tol: 1e-3, warn: 5e-3, unit: "chi2" },
   { id: "logrank_p", metric: "Log-rank test, p", reference: 0.000893, oracleId: "lifelines", tol: 1e-4, warn: 5e-4, unit: "p" },
+  // Gehan-Breslow-Wilcoxon, the early-weighted log-rank variant. Same dataset,
+  // lifelines.statistics.logrank_test(..., weightings="wilcoxon").
+  { id: "gehan_chi2", metric: "Gehan-Breslow-Wilcoxon test, chi-square", reference: 10.500922, oracleId: "lifelines", tol: 1e-3, warn: 5e-3, unit: "chi2" },
+  { id: "gehan_p", metric: "Gehan-Breslow-Wilcoxon test, p", reference: 0.001193, oracleId: "lifelines", tol: 1e-4, warn: 5e-4, unit: "p" },
 
   // Cox proportional hazards (Treatment vs Control, the arm indicator coded
   // Treatment = 1, Control = 0), Efron tie handling to match lifelines'

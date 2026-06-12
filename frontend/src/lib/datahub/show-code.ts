@@ -843,7 +843,20 @@ for name, sub in df.groupby("group"):
     print(name, kmf.median_survival_time_)
 
 res = multivariate_logrank_test(df["duration"], df["group"], df["event"])
-print(f"chi2 = {res.test_statistic:.4g}, p = {res.p_value:.4g}")`;
+print(f"log-rank chi2 = {res.test_statistic:.4g}, p = {res.p_value:.4g}")
+
+# Gehan-Breslow-Wilcoxon is the same comparison with each event time weighted
+# by the number at risk, so early deaths count more. Two groups here.
+from lifelines.statistics import logrank_test
+g = sorted(df["group"].unique())
+a = df[df["group"] == g[0]]
+b = df[df["group"] == g[1]]
+gbw = logrank_test(
+    a["duration"], b["duration"],
+    event_observed_A=a["event"], event_observed_B=b["event"],
+    weightings="wilcoxon",
+)
+print(f"Gehan-Breslow-Wilcoxon chi2 = {gbw.test_statistic:.4g}, p = {gbw.p_value:.4g}")`;
 }
 
 function coxRegressionCode(r: NormalizedCoxRegression): string {
