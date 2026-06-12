@@ -815,12 +815,22 @@ export default function DataHubPage() {
     }
   }, [selectedMeta]);
 
-  // Export the open table as a CSV download. Built from the live document
-  // content (columns + rows), so it reflects the latest edits without a re-open.
-  const handleExportTable = useCallback(() => {
-    if (!openContent || !selectedMeta) return;
-    downloadCsv(openContent, selectedMeta.name);
-  }, [openContent, selectedMeta]);
+  // Export a table as a CSV download. With no id (the toolbar) it exports the
+  // open table from the live document content, so the CSV reflects the latest
+  // edits without a re-open. With an id (a rail right-click on a non-open table)
+  // it reads that table's content from the readable mirror.
+  const handleExportTable = useCallback(
+    async (id?: string) => {
+      if (!id || (openContent && openIdRef.current === id)) {
+        if (!openContent || !selectedMeta) return;
+        downloadCsv(openContent, selectedMeta.name);
+        return;
+      }
+      const content = await dataHubApi.getContent(id);
+      if (content) downloadCsv(content, content.meta.name);
+    },
+    [openContent, selectedMeta],
+  );
 
   // --- Rail item CRUD (right-click menus) ------------------------------------
   // The rail's table / analysis / figure rows surface the same edit vocabulary
@@ -1008,21 +1018,45 @@ export default function DataHubPage() {
   // ("<name> copy"), via the same create path New table uses, then open it. The
   // duplicate carries the source table's collection + folder so it lands beside
   // the original. Analyses keep their cached results, so the copy opens ready.
-  const handleDuplicateTable = useCallback(async () => {
-    if (!openContent || !selectedMeta) return;
-    const created = await dataHubApi.create({
-      name: `${selectedMeta.name} copy`,
-      table_type: openContent.meta.table_type,
-      project_ids: selectedMeta.project_ids,
-      folder_path: selectedMeta.folder_path,
-      columns: openContent.columns,
-      rows: openContent.rows,
-      analyses: openContent.analyses,
-      plots: openContent.plots,
-    });
-    await queryClient.invalidateQueries({ queryKey: ["datahub", "tables"] });
-    setSelectedTableId(created.id);
-  }, [openContent, selectedMeta, queryClient]);
+  const handleDuplicateTable = useCallback(
+    async (id?: string) => {
+      // The open table (toolbar, or a rail right-click on it) duplicates from the
+      // live content so unsaved edits carry. A rail right-click on a non-open
+      // table reads that table's content + catalog meta from the mirror.
+      let name: string;
+      let content: DataHubDocContent;
+      let projectIds: string[];
+      let folderPath: string | null;
+      if (!id || (openContent && openIdRef.current === id)) {
+        if (!openContent || !selectedMeta) return;
+        name = selectedMeta.name;
+        content = openContent;
+        projectIds = selectedMeta.project_ids;
+        folderPath = selectedMeta.folder_path;
+      } else {
+        const loaded = await dataHubApi.getContent(id);
+        const meta = allTables.find((t) => t.id === id);
+        if (!loaded || !meta) return;
+        name = meta.name;
+        content = loaded;
+        projectIds = meta.project_ids;
+        folderPath = meta.folder_path;
+      }
+      const created = await dataHubApi.create({
+        name: `${name} copy`,
+        table_type: content.meta.table_type,
+        project_ids: projectIds,
+        folder_path: folderPath,
+        columns: content.columns,
+        rows: content.rows,
+        analyses: content.analyses,
+        plots: content.plots,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["datahub", "tables"] });
+      setSelectedTableId(created.id);
+    },
+    [openContent, selectedMeta, allTables, queryClient],
+  );
 
   // Delete the open table (both files), then refresh the catalog. The selection
   // self-heals to the next visible table through the existing resolve effect, so
@@ -1192,14 +1226,16 @@ export default function DataHubPage() {
         {
           icon: "cloning",
           label: "Duplicate",
-          onClick: handleDuplicateTable,
+          // Call with no id so the toolbar always targets the open table (an
+          // onClick event must not leak in as the id argument).
+          onClick: () => void handleDuplicateTable(),
           tooltip: "Copy this table with its analyses and graphs.",
           testId: "datahub-toolbar-duplicate",
         },
         {
           icon: "download",
           label: "Export",
-          onClick: handleExportTable,
+          onClick: () => void handleExportTable(),
           tooltip: "Download this table as a CSV.",
           testId: "datahub-toolbar-export",
         },
@@ -1270,6 +1306,23 @@ export default function DataHubPage() {
           }}
           onNewGraph={() => setNewGraphOpen(true)}
           graphsEnabled={!!openContent}
+          onRenameTable={handleRenameTable}
+          onDuplicateTable={handleDuplicateTable}
+          onDeleteTable={(id) => {
+            // Mirror the toolbar Delete: select the table so its confirm banner
+            // is visible, then arm it. Never a one-click destructive delete.
+            setSelectedTableId(id);
+            setConfirmDeleteTableId(id);
+          }}
+          onExportTable={() => handleExportTable()}
+          onRenameAnalysis={handleRenameAnalysis}
+          onDeleteAnalysis={handleDeleteAnalysis}
+          onReRunAnalysis={handleReRunAnalysis}
+          onRenamePlot={handleRenamePlot}
+          onDeletePlot={handleDeletePlot}
+          onDuplicatePlot={handleDuplicatePlot}
+          onExportPlotPng={(id) => exportPlot(id, "png")}
+          onExportPlotSvg={(id) => exportPlot(id, "svg")}
         />
 
         <section

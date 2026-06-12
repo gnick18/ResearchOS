@@ -151,6 +151,17 @@ export const dataHubApi = {
   },
 
   /**
+   * Get one document's full content (columns / rows / analyses / plots) by id,
+   * read from the readable mirror, or null when not found. Lets a caller act on a
+   * table it has not opened in the editor (e.g. a rail right-click Duplicate /
+   * Export on a non-open table) without scanning a Loro snapshot.
+   */
+  async getContent(id: string): Promise<DataHubDocContent | null> {
+    const found = await findById(id);
+    return found ? found.content : null;
+  },
+
+  /**
    * Create a new document for the current user, allocating a fresh id and writing
    * both the `.loro` sidecar and the `.json` mirror. Optional content (columns /
    * rows / analyses / plots) seeds the initial table; omitted means empty.
