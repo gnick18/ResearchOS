@@ -33,6 +33,7 @@ This is why the URL-fragment form wins over a fenced `researchos` block (not cli
 | `w` / `h` | plot / map size hint | `w=480` |
 | `analysis` / `plot` | sub-object id inside a Data Hub doc | `analysis=a3` |
 | `pin` | freeze to a point in time (see Pinning) | `pin=2026-06-11T19:00:00Z` |
+| `ref` | portable content identity for cross-library resolution (see Portable identity), the path id is only a hint | `ref=ik:LUKBXSAW...` |
 
 Backward compatible: an existing `[name](/path)` with no `#ros` renders as a chip exactly as today. Nothing in existing notes changes.
 
@@ -180,7 +181,18 @@ Embeds create dependencies, so sharing has to be dependency-aware:
 - **Share-time warning.** When a note is shared, if it embeds objects the recipient will not be able to see, warn the sharer ("this note links to N items the recipient cannot access") before sending.
 - **Share with dependencies, as one package.** Optionally bundle the note plus everything it embeds, sequences, molecules, tables, files, into a single package sent over the existing cross-boundary relay (end to end, ephemeral, never stored). The recipient accepts the package and chooses, per item or in bulk, which collection on their own machine each thing lands in.
 - **Permission-aware rendering.** In a shared note an embed of an object the viewer cannot access renders a calm "shared by X, no access" placeholder carrying only the name and type, never the underlying data.
+- **Request access.** That placeholder carries a Request access button, the same affordance Google and Microsoft show when you open something you cannot see. It sends a request to the object's owner (over the existing relay and identity directory), who gets a notification to approve or deny. On approve the item is delivered through the same dependency package, and the embed resolves on its own the moment it lands (see Portable identity below). The owner can optionally remember a grant ("always let X see what I share with them"), so repeat requests are not needed.
 - **Inbound shares are project-less.** A shared individual item does not inherit the sharer's project. It arrives project-less, grouped under "shared by X" (the received-from view), and the user files it into their own collections later. A project travels with the share only when the WHOLE project is shared, then its membership comes along. The cross-boundary transfer path already drops the sender's project_ids and lands items Unfiled or recipient-chosen, so it already matches this rule, the change is the same-folder share case where a shared item currently shows under its owner's project.
+
+## Portable identity and seamless resolution
+
+This is what makes a received embed light up on its own. An embed must resolve by a stable, content-portable identity, not the sender's local id, which is meaningless in another person's library (their copy gets its own id).
+
+- Molecules resolve by InChIKey (already canonical and content-derived). Sequences by a content hash of the record, or the NCBI accession when present. Files by content hash. Notes, methods, tables, and experiments by an origin uuid that travels with every copy of the object.
+- The embed link carries this stable ref in the fragment (`...#ros=map&ref=ik:LUKBXSAW...`), the local id in the path stays only as a fast-path hint. Plain markdown still ignores the fragment, so portability is unchanged.
+- The resolver matches the stable ref against the recipient's WHOLE library. The moment the object exists anywhere in their local ResearchOS, received through a share, granted through request-access, or created or imported independently, every embed that references it resolves and renders, with no manual re-linking. Until then it shows the placeholder and Request access.
+
+The same mechanism is why one embed renders correctly for both the sender and the recipient even though their local ids differ, and why moving or re-importing an object never breaks an embed that points at it.
 
 ## Transclusion (section embeds)
 
@@ -216,7 +228,7 @@ The `/` picker (`ReferencePicker`, pull) and the "Send to" picker (`SendReferenc
 4. **Phase 3, remaining types.** method, purchase, inventory, experiment-results, note, file (pdf / csv / notebook), project.
 5. **Phase 4, backlinks + share safety.** The system-wide "Referenced in" scanner, permission-aware rendering in shared notes, and the share-time dependency warning.
 6. **Phase 5, export and publish baking.** Freeze embeds to self-contained figures / tables for PDF export and for the publish / Zenodo / transparency paths, with captions and numbers.
-7. **Phase 6, share with dependencies.** Bundle a note plus its embedded objects into one cross-boundary package, recipient chooses where each lands, and reconcile the same-folder share case to the project-less inbound rule.
+7. **Phase 6, share with dependencies + request access.** Bundle a note plus its embedded objects into one cross-boundary package, recipient chooses where each lands. The portable-identity resolver (received objects light up their embeds anywhere in the local library), the Request-access button plus the approve / deny handshake over the relay, and the same-folder project-less reconcile.
 8. **Phase 7, polish.** Pin + staleness badge, transclusion, in-place view switching, chip hover-card previews, BeakerBot authoring, mobile + accessibility passes.
 
 Each phase lands behind the same additive pipeline, so an existing note with plain links is never affected until the user inserts an embed. Phases 0 to 3 are the embed system itself, 4 to 7 are what make it safe to share, publish, and reuse.
