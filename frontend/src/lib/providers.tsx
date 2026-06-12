@@ -343,12 +343,14 @@ function AppContent({ children }: { children: ReactNode }) {
   // priced" link from the landing just bounced back to the top of the landing.
   const isPublicMarketingRoute =
     pathname === "/pricing" ||
+    pathname === "/ai" ||
     pathname === "/about" ||
     pathname === "/transparency" ||
     pathname === "/open-source" ||
     pathname === "/thanks" ||
     pathname === "/sponsors" ||
-    pathname === "/privacy";
+    pathname === "/privacy" ||
+    pathname === "/terms";
 
   // QueryClient is a module-level singleton (see `appQueryClient` below)
   // so non-React-tree consumers (e.g. the onboarding-v4 cursor scripts

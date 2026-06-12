@@ -89,6 +89,11 @@ import type {
   SharedNotebook,
   OneOnOne,
   OneOnOneActionItem,
+  IDP,
+  IdpGoal,
+  IdpActionRow,
+  IdpSectionKey,
+  CareerStage,
   NoteComment,
   TaskComment,
   ImageMetadata,
@@ -164,6 +169,17 @@ import {
   type TaskSyncOps,
   type SyncedTaskDraft,
 } from "./one-on-one/action-item-sync";
+import { IdpStore } from "./idp/store";
+import { normalizeIdpForViewer } from "./idp/visibility";
+import { allSkillIds } from "./idp/competencies";
+import {
+  addRowToTasks,
+  reconcileRowTask,
+  reconcileRowStatusFromTask,
+  deleteRowTask,
+  type IdpTaskSyncOps,
+  type IdpSyncedTaskDraft,
+} from "./idp/action-task-sync";
 import type { Notebook } from "./types";
 
 const projectsStore = new JsonStore<Project>("projects");
@@ -221,6 +237,7 @@ const sharedNotebooksStore = new SharedNotebookStore();
 // member discovers it via `labApi.getOneOnOnes`.
 const oneOnOnesStore = new OneOnOneStore();
 const oneOnOneActionItemsStore = new OneOnOneActionItemStore();
+const idpsStore = new IdpStore();
 const fundingAccountsStore = getLabStore<FundingAccount>("funding_accounts");
 
 // Inventory v1 data layer (inventory-chunk1 sub-bot of HR, 2026-06-07).
@@ -6611,6 +6628,428 @@ export const oneOnOnesApi = {
       await checkinTaskSyncOps.deleteTask(labHead, existing.synced_task_id);
     }
     return oneOnOneActionItemsStore.deleteForUser(id, labHead);
+  },
+};
+
+// ── Individual Development Plan (Check-ins Phase 3) ───────────────────────────
+//
+// checkins-phase3 bot, 2026-06-12. See docs/proposals/checkins-revamp.md "IDP
+// structure". An IDP is owned by the TRAINEE and lives in their folder. The
+// trainee edits; the mentor reviews (comment + sign-off) gated to the sections
+// the trainee shared, via `normalizeIdpForViewer`. The lab head gets a STATUS
+// LINE only (`getStatusForMember`), never contents.
+
+/** The owner-scoped task ops backing the IDP action-row -> Task sync (D4-style,
+ *  but trainee-owned, so every write lands in the trainee's namespace). The task
+ *  shape mirrors the check-in synced task: standalone Lists task, project_id 0,
+ *  duration 1, `source` back-linking to the IDP row. */
+const idpTaskSyncOps: IdpTaskSyncOps = {
+  createTask: async (owner: string, draft: IdpSyncedTaskDraft): Promise<Task> => {
+    const durationDays = 1;
+    const record: Omit<Task, "id"> = {
+      project_id: 0, // STANDALONE — the proven falsy-project path in WorkbenchListsPanel.
+      name: draft.name,
+      start_date: draft.start_date,
+      duration_days: durationDays,
+      end_date: canonicalEndDate({
+        start_date: draft.start_date,
+        duration_days: durationDays,
+      }),
+      is_high_level: false,
+      is_complete: draft.is_complete,
+      task_type: "list",
+      weekend_override: null,
+      method_ids: [],
+      deviation_log: null,
+      tags: null,
+      sort_order: 0,
+      experiment_color: null,
+      sub_tasks: null,
+      method_attachments: [],
+      comments: [],
+      owner,
+      shared_with: draft.shared_with,
+      assignee: null,
+      source: draft.source,
+    };
+    return tasksStore.createForUser(record, owner);
+  },
+  updateTask: async (
+    owner: string,
+    id: number,
+    patch: Partial<Task>,
+  ): Promise<Task | null> => {
+    const next: Partial<Task> = { ...patch };
+    if (patch.start_date !== undefined || patch.duration_days !== undefined) {
+      const existing = await tasksStore.getForUser(id, owner);
+      if (existing) {
+        next.end_date = canonicalEndDate({
+          start_date: patch.start_date ?? existing.start_date,
+          duration_days: patch.duration_days ?? existing.duration_days,
+        });
+      }
+    }
+    return tasksStore.updateForUser(id, next, owner);
+  },
+  deleteTask: async (owner: string, id: number): Promise<void> => {
+    await tasksStore.deleteForUser(id, owner);
+  },
+  getTask: async (owner: string, id: number): Promise<Task | null> => {
+    return tasksStore.getForUser(id, owner);
+  },
+};
+
+/** Seed an empty ratings map: every competency skill keyed with a null self +
+ *  null importance, so the form renders every row unrated. */
+function seedIdpRatings(): IDP["self_assessment"]["ratings"] {
+  const ratings: IDP["self_assessment"]["ratings"] = {};
+  for (const id of allSkillIds()) ratings[id] = { self: null, importance: null };
+  return ratings;
+}
+
+/** YYYY-MM-DD one year from now (the default annual revisit date). */
+function oneYearFromNowDate(): string {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Resolve an IDP by id across the lab (it lives in the trainee's folder). */
+async function findIdp(id: string): Promise<IDP | null> {
+  const usernames = await discoverUsers();
+  for (const username of usernames) {
+    const rec = await idpsStore.getForUser(id, username);
+    if (rec) return { ...rec, owner: rec.owner || username };
+  }
+  return null;
+}
+
+/** Reconcile every dated, synced action row's status from its task (the trainee
+ *  may have checked the to-do off in Lists), writing the IDP back if anything
+ *  changed. Returns the reconciled IDP. Owner-only path (the trainee owns the
+ *  tasks). */
+async function reconcileIdpActionStatuses(idp: IDP): Promise<IDP> {
+  let changed = false;
+  const rows = await Promise.all(
+    idp.action_plan.map(async (row) => {
+      const { status, changed: rowChanged } = await reconcileRowStatusFromTask(
+        idpTaskSyncOps,
+        idp.owner,
+        row,
+      );
+      if (rowChanged) {
+        changed = true;
+        return { ...row, status };
+      }
+      return row;
+    }),
+  );
+  if (!changed) return idp;
+  const updated = { ...idp, action_plan: rows };
+  await idpsStore.writeForUser(updated, idp.owner);
+  return updated;
+}
+
+export const idpsApi = {
+  /**
+   * The member's current IDP, or null. Returns the most-recently-updated record
+   * if several exist in their folder. For the OWNER (current user === member)
+   * the full record is returned (with action-row statuses reconciled from their
+   * tasks). For a NON-owner (a mentor) the record passes through
+   * `normalizeIdpForViewer`, which blanks unshared sections and always strips
+   * the values reflection, and returns null if the viewer cannot read it.
+   */
+  getForMember: async (username: string): Promise<IDP | null> => {
+    const all = await idpsStore.listAllForUser(username);
+    if (all.length === 0) return null;
+    all.sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1));
+    const idp = { ...all[0], owner: all[0].owner || username };
+    const viewer = await buildCurrentViewer();
+    if (idp.owner === viewer.username) {
+      // Owner: reconcile action-row completion from their tasks, return full.
+      return reconcileIdpActionStatuses(idp);
+    }
+    return normalizeIdpForViewer(idp, viewer);
+  },
+
+  /**
+   * Status-only compliance read for the lab head / PI view. Returns whether an
+   * IDP exists for the member and when it was last updated. NEVER returns
+   * contents (NSF compliance: the PI sees only that a plan exists).
+   */
+  getStatusForMember: async (
+    username: string,
+  ): Promise<{ exists: boolean; updated_at: string | null }> => {
+    const all = await idpsStore.listAllForUser(username);
+    if (all.length === 0) return { exists: false, updated_at: null };
+    all.sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1));
+    return { exists: true, updated_at: all[0].updated_at };
+  },
+
+  /**
+   * Create the current user's IDP. They are the owner (the trainee). Seeds an
+   * empty ratings map (every competency skill, unrated), empty sections, an
+   * annual revisit date, and no shared sections. `mentor` (optional) is recorded
+   * and added to `shared_with` so the review surface can load it; per-section
+   * sharing still gates the contents.
+   */
+  create: async (params: {
+    career_stage: CareerStage;
+    mentor?: string | null;
+  }): Promise<IDP> => {
+    const owner = await getCurrentUserCached();
+    const now = new Date().toISOString();
+    const mentor = params.mentor ?? null;
+    const data: Omit<IDP, "id"> = {
+      owner,
+      career_stage: params.career_stage,
+      self_assessment: { ratings: seedIdpRatings(), responsibilities: "" },
+      career_exploration: { aspirations: "", target_path: "" },
+      goals: [],
+      action_plan: [],
+      mentor_review: {
+        comment: "",
+        reviewed_by: null,
+        reviewed_at: null,
+        revisit_date: oneYearFromNowDate(),
+      },
+      values_reflection: null,
+      shared_sections: {
+        self_assessment: false,
+        career_exploration: false,
+        goals: false,
+        action_plan: false,
+      },
+      mentor,
+      // A mentor is added at "view" so the review surface can read the IDP;
+      // per-section sharing still blanks the contents until the trainee shares.
+      shared_with: mentor ? [{ username: mentor, level: "read" }] : [],
+      created_at: now,
+      updated_at: now,
+      last_edited_by: owner,
+    };
+    return idpsStore.create(data);
+  },
+
+  /**
+   * Patch an IDP. Stamps `updated_at` + `last_edited_by`. The caller (the
+   * owner, or the mentor on a review/sign-off) routes through here so the stamps
+   * stay consistent. Writes to the IDP's owner folder.
+   */
+  update: async (id: string, patch: Partial<IDP>): Promise<IDP | null> => {
+    const existing = await findIdp(id);
+    if (!existing) return null;
+    const actor = (await getCurrentUserCached()) ?? existing.owner;
+    return idpsStore.updateForUser(
+      id,
+      { ...patch, updated_at: new Date().toISOString(), last_edited_by: actor },
+      existing.owner,
+    );
+  },
+
+  /** Set the career stage (drives the preset filter). Owner-only edit. */
+  setCareerStage: async (
+    id: string,
+    career_stage: CareerStage,
+  ): Promise<IDP | null> => {
+    return idpsApi.update(id, { career_stage });
+  },
+
+  /** Set a single competency skill's dual rating (self and/or importance). */
+  setRating: async (
+    id: string,
+    skillId: string,
+    rating: { self: number | null; importance: number | null },
+  ): Promise<IDP | null> => {
+    const existing = await findIdp(id);
+    if (!existing) return null;
+    const ratings = {
+      ...existing.self_assessment.ratings,
+      [skillId]: rating,
+    };
+    return idpsApi.update(id, {
+      self_assessment: { ...existing.self_assessment, ratings },
+    });
+  },
+
+  /** Set the self-assessment responsibilities free-text box. */
+  setResponsibilities: async (
+    id: string,
+    responsibilities: string,
+  ): Promise<IDP | null> => {
+    const existing = await findIdp(id);
+    if (!existing) return null;
+    return idpsApi.update(id, {
+      self_assessment: { ...existing.self_assessment, responsibilities },
+    });
+  },
+
+  /** Set the career-exploration aspirations + target-path fields. */
+  setCareerExploration: async (
+    id: string,
+    career_exploration: { aspirations: string; target_path: string },
+  ): Promise<IDP | null> => {
+    return idpsApi.update(id, { career_exploration });
+  },
+
+  /** Replace the goals list (the form manages add/edit/remove client-side then
+   *  persists the whole list). */
+  setGoals: async (id: string, goals: IdpGoal[]): Promise<IDP | null> => {
+    return idpsApi.update(id, { goals });
+  },
+
+  /** Set a per-section share toggle. When ANY section is shared the mentor stays
+   *  in `shared_with` (added at create); turning everything off leaves the
+   *  share row in place but blanks every section on the mentor's read. */
+  setSectionShared: async (
+    id: string,
+    section: IdpSectionKey,
+    shared: boolean,
+  ): Promise<IDP | null> => {
+    const existing = await findIdp(id);
+    if (!existing) return null;
+    const shared_sections = { ...existing.shared_sections, [section]: shared };
+    // Keep shared_with consistent: a mentor present => at least a read row so
+    // the review surface can load the (section-filtered) record.
+    let shared_with = existing.shared_with;
+    if (existing.mentor) {
+      const hasRow = shared_with.some((s) => s.username === existing.mentor);
+      if (!hasRow) {
+        shared_with = [
+          ...shared_with,
+          { username: existing.mentor, level: "read" },
+        ];
+      }
+    }
+    return idpsApi.update(id, { shared_sections, shared_with });
+  },
+
+  /** Set the optional, ALWAYS-private values reflection. Owner-only; never
+   *  shared. Pass null to clear it. */
+  setValuesReflection: async (
+    id: string,
+    values_reflection: { note: string } | null,
+  ): Promise<IDP | null> => {
+    return idpsApi.update(id, { values_reflection });
+  },
+
+  /** The mentor's review: comment + sign-off. Sets `reviewed_by` /
+   *  `reviewed_at` to the current user + now, and optionally a new revisit
+   *  date. The mentor is in `shared_with`, so `canWrite`-style routing is the
+   *  IDP owner's folder (the mentor writes a comment into the trainee's record,
+   *  exactly like a PI comment). */
+  submitReview: async (
+    id: string,
+    params: { comment: string; revisit_date?: string | null },
+  ): Promise<IDP | null> => {
+    const existing = await findIdp(id);
+    if (!existing) return null;
+    const reviewer = (await getCurrentUserCached()) ?? "";
+    const mentor_review: IDP["mentor_review"] = {
+      comment: params.comment,
+      reviewed_by: reviewer,
+      reviewed_at: new Date().toISOString(),
+      revisit_date:
+        params.revisit_date ?? existing.mentor_review.revisit_date,
+    };
+    return idpsApi.update(id, { mentor_review });
+  },
+
+  // ── Action-plan rows + the D4-style task sync ──────────────────────────────
+
+  /** Append a blank action-plan row. */
+  addActionRow: async (id: string): Promise<IDP | null> => {
+    const existing = await findIdp(id);
+    if (!existing) return null;
+    const row: IdpActionRow = {
+      id: crypto.randomUUID(),
+      objective: "",
+      approach: "",
+      target_date: null,
+      outcome: "",
+      status: "not_started",
+      synced_task_id: null,
+    };
+    return idpsApi.update(id, { action_plan: [...existing.action_plan, row] });
+  },
+
+  /**
+   * Update an action-plan row's editable fields. Reconciles its synced task
+   * (renames / re-dates / completes, or detaches + deletes the task when the
+   * date is cleared). Owner-only (the trainee owns both the IDP and the task).
+   */
+  updateActionRow: async (
+    id: string,
+    rowId: string,
+    patch: Partial<
+      Pick<
+        IdpActionRow,
+        "objective" | "approach" | "target_date" | "outcome" | "status"
+      >
+    >,
+  ): Promise<IDP | null> => {
+    const existing = await findIdp(id);
+    if (!existing) return null;
+    const idx = existing.action_plan.findIndex((r) => r.id === rowId);
+    if (idx === -1) return existing;
+    const next: IdpActionRow = { ...existing.action_plan[idx], ...patch };
+    const { synced_task_id } = await reconcileRowTask(
+      idpTaskSyncOps,
+      existing.owner,
+      next,
+    );
+    next.synced_task_id = synced_task_id;
+    const action_plan = [...existing.action_plan];
+    action_plan[idx] = next;
+    return idpsApi.update(id, { action_plan });
+  },
+
+  /**
+   * The "Add to tasks" affordance: materialize a real standalone Lists task for
+   * a DATED row, in the trainee's namespace. Stamps `synced_task_id` back.
+   */
+  addActionRowToTasks: async (
+    id: string,
+    rowId: string,
+  ): Promise<IDP | null> => {
+    const existing = await findIdp(id);
+    if (!existing) return null;
+    const idx = existing.action_plan.findIndex((r) => r.id === rowId);
+    if (idx === -1) return existing;
+    const row = existing.action_plan[idx];
+    const { synced_task_id } = await addRowToTasks(
+      idpTaskSyncOps,
+      existing.owner,
+      existing.id,
+      row,
+    );
+    const action_plan = [...existing.action_plan];
+    action_plan[idx] = { ...row, synced_task_id };
+    return idpsApi.update(id, { action_plan });
+  },
+
+  /** Delete an action-plan row, deleting its synced task too. */
+  deleteActionRow: async (id: string, rowId: string): Promise<IDP | null> => {
+    const existing = await findIdp(id);
+    if (!existing) return null;
+    const row = existing.action_plan.find((r) => r.id === rowId);
+    if (row) await deleteRowTask(idpTaskSyncOps, existing.owner, row);
+    const action_plan = existing.action_plan.filter((r) => r.id !== rowId);
+    return idpsApi.update(id, { action_plan });
+  },
+
+  /** Delete the whole IDP (owner-only), sweeping any synced tasks first. */
+  delete: async (id: string): Promise<boolean> => {
+    const existing = await findIdp(id);
+    if (!existing) return false;
+    const actor = await getCurrentUserCached();
+    if (existing.owner !== actor) {
+      throw new Error("Only the trainee can delete their IDP.");
+    }
+    for (const row of existing.action_plan) {
+      await deleteRowTask(idpTaskSyncOps, existing.owner, row);
+    }
+    return idpsStore.deleteForUser(id, existing.owner);
   },
 };
 

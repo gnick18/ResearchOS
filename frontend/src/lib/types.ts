@@ -654,11 +654,23 @@ export interface Task {
   // missing value to undefined gracefully (it is read-only metadata, never
   // user-edited). Denylisted in canonicalize.ts so it never pollutes a VC
   // delta, mirroring `revert_undo_window`.
-  source?: {
-    kind: "checkin_action_item";
-    one_on_one_id: string;
-    action_item_id: string;
-  } | null;
+  // Check-ins Phase 3 (checkins-phase3 bot, 2026-06-12) extends the union with
+  // the `idp_action` kind, the back-link from a Task materialized by an IDP
+  // action-plan row (D4-style sync, but the trainee owns BOTH the IDP and the
+  // task, so no cross-user write). Same field name, so the `source` denylist in
+  // canonicalize.ts still covers it without change.
+  source?:
+    | {
+        kind: "checkin_action_item";
+        one_on_one_id: string;
+        action_item_id: string;
+      }
+    | {
+        kind: "idp_action";
+        idp_id: string;
+        row_id: string;
+      }
+    | null;
   // Phase 6a portable identity (phase6a-foundation bot, 2026-06-12): see
   // Project.source_uuid for the full contract. Experiments and list tasks share
   // this field via the Task interface. Minted at create time; lazy-backfilled on
@@ -3212,6 +3224,138 @@ export interface OneOnOneActionItem {
    *  task namespace. Null until synced; cleared when the item detaches (the
    *  assignee or due_date is removed) or is deleted. */
   synced_task_id?: number | null;
+}
+
+// ── Individual Development Plan (Check-ins Phase 3) ───────────────────────────
+//
+// checkins-phase3 bot, 2026-06-12. See docs/proposals/checkins-revamp.md "IDP
+// structure" and the approved mockup docs/mockups/2026-06-12-checkins-phase3-idp
+// .html. The IDP is the academic-layer centerpiece, a living document the
+// TRAINEE owns and the mentor reviews (a review, not co-ownership). It models
+// the five-section spine shared by AAAS myIDP and the UW-Madison Grad School IDP
+// (self-assess, explore, set goals, act, review-and-revisit-annually).
+//
+// HOME FOLDER + STORE: an IDP is owned by the trainee, so the record lives in
+// THEIR folder only (`owner === trainee`), keyed on a globally-unique
+// crypto.randomUUID at `users/<owner>/idps/<uuid>.json` via the thin string-
+// keyed per-user store in lib/idp/store.ts (a sibling of the one-on-one store).
+// The mentor discovers it via the sharing-respecting aggregation, then every
+// non-owner read passes through `normalizeIdpForViewer` (lib/idp/visibility.ts)
+// which blanks any section the trainee has not shared AND always strips the
+// private values reflection. This is the "trainee owns it, mentor reviews
+// shared sections, PI sees only a status line" model real IDPs use.
+
+/** A trainee's career stage. Drives the preset filter on the IDP form. */
+export type CareerStage = "undergrad" | "grad" | "postdoc" | "staff";
+
+/** A goal's horizon: short-term (6 months or less) vs long-term. */
+export type IdpGoalTerm = "short" | "long";
+
+/** An action-plan row's status. */
+export type IdpActionStatus = "not_started" | "in_progress" | "done";
+
+/** The four mentor-shareable IDP sections (the values reflection is never in
+ *  this set — it is always trainee-private and never shared). */
+export type IdpSectionKey =
+  | "self_assessment"
+  | "career_exploration"
+  | "goals"
+  | "action_plan";
+
+/** A single competency skill's dual rating. `self` is the trainee's
+ *  proficiency/confidence (1 to 5); `importance` is how much the skill matters
+ *  for the career they want (1 to 5). The gap between them is the goal signal.
+ *  Either is null until the trainee rates it. */
+export interface IdpSkillRating {
+  self: number | null;
+  importance: number | null;
+}
+
+/** A career or yearly goal. `term` splits short vs long; `priority` is the
+ *  optional UW high/low tag (null = untagged). */
+export interface IdpGoal {
+  id: string;
+  text: string;
+  term: IdpGoalTerm;
+  priority: "high" | "low" | null;
+}
+
+/** A row in the UW four-column SMART action plan. A row that has a
+ *  `target_date` can become a real Lists task (D4); `synced_task_id` is the
+ *  back-link to that task in the trainee's namespace (null until synced). */
+export interface IdpActionRow {
+  id: string;
+  objective: string;
+  approach: string;
+  /** YYYY-MM-DD, or null when the row is not yet dated. */
+  target_date: string | null;
+  /** The "done-when" outcome. */
+  outcome: string;
+  status: IdpActionStatus;
+  /** Set when the trainee adds this dated row to their tasks (D4). The task
+   *  lives in the TRAINEE's namespace (owner === trainee), so no cross-user
+   *  write. Null until synced; cleared on detach/delete. */
+  synced_task_id?: number | null;
+}
+
+/** The mentor's review of the IDP. A comment plus a sign-off date and an annual
+ *  revisit date. NOT co-ownership: the mentor comments and acknowledges, the
+ *  trainee edits the plan. */
+export interface IdpMentorReview {
+  comment: string;
+  /** The mentor username that signed off, or null if not yet reviewed. */
+  reviewed_by: string | null;
+  /** ISO timestamp of the sign-off, or null. */
+  reviewed_at: string | null;
+  /** YYYY-MM-DD, defaults to +1 year on create (annual cadence). */
+  revisit_date: string | null;
+}
+
+/**
+ * An Individual Development Plan. Trainee-owned, mentor-reviewed. Stored in the
+ * trainee's folder; `owner` drives the `canRead`/`canWrite` owner branch.
+ *
+ * DATA-SHAPE FLAGGED: this is a NEW on-disk entity (`users/<owner>/idps/`). All
+ * additions are new; no existing field or layout changes.
+ */
+export interface IDP {
+  /** Globally-unique id (crypto.randomUUID). */
+  id: string;
+  /** The trainee username. The record lives in THEIR folder; drives the
+   *  `canRead` owner branch. Equals the creator. */
+  owner: string;
+  career_stage: CareerStage;
+  /** Section 1. Skill ratings keyed by competency-skill id (see
+   *  lib/idp/competencies.ts), plus the free-text responsibilities box. */
+  self_assessment: {
+    ratings: Record<string, IdpSkillRating>;
+    responsibilities: string;
+  };
+  /** Section 2. Free-text aspirations + a target-path field (the matching
+   *  itself is done off-app at myIDP / ImaginePhD / ChemIDP). */
+  career_exploration: { aspirations: string; target_path: string };
+  /** Section 3. Short and long-term goals with optional priority. */
+  goals: IdpGoal[];
+  /** Section 4. The UW four-column SMART action plan rows. */
+  action_plan: IdpActionRow[];
+  /** Section 5. The mentor's review (comment + sign-off + revisit date). */
+  mentor_review: IdpMentorReview;
+  /** The optional, ALWAYS trainee-private values reflection. Never returned to
+   *  a non-owner reader (stripped to null in `normalizeIdpForViewer`). Null /
+   *  absent = the trainee has not opted in. */
+  values_reflection?: { note: string } | null;
+  /** Which of the four shareable sections the mentor may see. A section set to
+   *  false is blanked for any non-owner viewer. */
+  shared_sections: Record<IdpSectionKey, boolean>;
+  /** The mentor username this IDP is shared with for review, or null. */
+  mentor?: string | null;
+  /** `[{username: mentor, level: "view"}]` when any section is shared, else
+   *  `[]`. Drives `canRead` for the mentor's review surface. */
+  shared_with: SharedUser[];
+  created_at: string;
+  updated_at: string;
+  /** Username that last wrote the record (trainee on edit, mentor on sign-off). */
+  last_edited_by?: string;
 }
 
 // ── Lab Mode Notes ─────────────────────────────────────────────────────────────

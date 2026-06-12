@@ -159,6 +159,10 @@ export interface NormalizedTTest {
   pValue: number;
   effectSize: number;
   effectSizeLabel: string;
+  /** Hedges' g (bias-corrected d), or null for the rank tests. */
+  hedgesG: number | null;
+  /** 95% CI of the standardized effect (d/dz) via noncentral t, or null. */
+  effectSizeCI95: [number, number] | null;
   ci95: [number, number] | null;
   meanA: number;
   meanB: number;
@@ -191,6 +195,12 @@ export interface NormalizedAnova {
   dfWithin: number;
   table: AnovaResult["table"];
   comparisons: AnovaResult["comparisons"];
+  /**
+   * Omnibus effect size (eta-squared + omega-squared + CI for ANOVA,
+   * epsilon-squared for Kruskal-Wallis), straight from the engine. Null when the
+   * design defines none.
+   */
+  effectSize: AnovaResult["effectSize"];
 }
 
 /**
@@ -217,6 +227,10 @@ export interface NormalizedCorrelation {
   df: number;
   pValue: number;
   ci95: [number, number];
+  /** Coefficient of determination r^2, the share of variance explained. */
+  rSquared: number;
+  /** 95% CI of r^2, from squaring the sorted coefficient CI bounds. */
+  rSquaredCI95: [number, number];
 }
 
 /**
@@ -470,6 +484,8 @@ function runXYAnalysis(
     df: res.df,
     pValue: res.pValue,
     ci95: res.ci95,
+    rSquared: res.rSquared,
+    rSquaredCI95: res.rSquaredCI95,
   };
 }
 
@@ -655,6 +671,7 @@ function runSummaryAnalysis(
       dfWithin: within?.df ?? NaN,
       table: r.table,
       comparisons: r.comparisons,
+      effectSize: r.effectSize,
     };
   }
 
@@ -708,6 +725,8 @@ function runSummaryAnalysis(
     pValue: r.pValue,
     effectSize: r.effectSize,
     effectSizeLabel: r.effectSizeLabel,
+    hedgesG: r.hedgesG,
+    effectSizeCI95: r.effectSizeCI95,
     ci95: r.ci95,
     meanA: a.mean,
     meanB: b.mean,
@@ -791,6 +810,7 @@ export function runAnalysis(
       dfWithin: within?.df ?? NaN,
       table: r.table,
       comparisons: r.comparisons,
+      effectSize: r.effectSize,
     };
   }
 
@@ -849,6 +869,8 @@ export function runAnalysis(
       pValue: res.pValue,
       effectSize: res.effectSize,
       effectSizeLabel: res.effectSizeLabel,
+      hedgesG: res.hedgesG,
+      effectSizeCI95: res.effectSizeCI95,
       ci95: res.ci95,
       meanA,
       meanB,

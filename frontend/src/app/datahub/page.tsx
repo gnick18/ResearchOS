@@ -135,6 +135,7 @@ import GuidedAnalysisWizard, {
 import NewGraphDialog, {
   type NewGraphSubmit,
 } from "@/components/datahub/NewGraphDialog";
+import PowerPlannerDialog from "@/components/datahub/PowerPlannerDialog";
 import TransformDialog, {
   type TransformSubmit,
 } from "@/components/datahub/TransformDialog";
@@ -239,6 +240,10 @@ export default function DataHubPage() {
   // analysis selection in the main panel.
   const [selectedPlotId, setSelectedPlotId] = useState<string | null>(null);
   const [newGraphOpen, setNewGraphOpen] = useState(false);
+  // The power / sample-size planner open state. The planner is a stateless
+  // calculator, so it carries no table or content; it is reachable with or
+  // without a table open (a researcher plans a study before any data exists).
+  const [powerPlannerOpen, setPowerPlannerOpen] = useState(false);
   // The Transform dialog open state. It creates a DERIVED table from the open
   // table, or (when the open table is itself derived) edits its transform in
   // place. A single flag drives both since the dialog reads its mode from
@@ -1781,6 +1786,14 @@ export default function DataHubPage() {
           testId: "datahub-toolbar-new-graph",
         },
         {
+          icon: "gauge",
+          label: "Plan study",
+          onClick: () => setPowerPlannerOpen(true),
+          tooltip:
+            "Power and sample-size planner. Find the N you need, the power you have, or the smallest effect you can detect.",
+          testId: "datahub-toolbar-plan-study",
+        },
+        {
           icon: "merge",
           label: derived ? "Edit transform" : "Transform",
           onClick: () => setTransformOpen(true),
@@ -1881,6 +1894,7 @@ export default function DataHubPage() {
           onNewTable={() => setNewTableOpen(true)}
           onNewFolder={() => setNewTableOpen(true)}
           onImport={() => setImportOpen(true)}
+          onPlanStudy={() => setPowerPlannerOpen(true)}
           counts={counts}
           analyses={openContent?.analyses ?? []}
           selectedAnalysisId={selectedAnalysisId}
@@ -2227,6 +2241,11 @@ export default function DataHubPage() {
         content={openContent}
         onCancel={() => setNewGraphOpen(false)}
         onSubmit={handleNewGraph}
+      />
+
+      <PowerPlannerDialog
+        open={powerPlannerOpen}
+        onCancel={() => setPowerPlannerOpen(false)}
       />
 
       <TransformDialog

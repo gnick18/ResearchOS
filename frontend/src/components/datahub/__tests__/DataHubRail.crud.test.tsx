@@ -106,6 +106,7 @@ function renderRail(
         onNewTable={() => {}}
         onNewFolder={() => {}}
         onImport={() => {}}
+        onPlanStudy={() => {}}
         counts={{ all: 1, unfiled: 1, perProject: new Map() }}
         analyses={over.analyses ?? [analysis]}
         selectedAnalysisId={null}

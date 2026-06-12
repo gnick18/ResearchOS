@@ -137,7 +137,7 @@ export default function MarketingFooter({
         </div>
 
         {/* Thin legal bottom row: brand sign-off on the left, legal links on the
-            right. Terms has no page yet, so it is omitted on purpose. */}
+            right (Terms, Privacy, the AGPLv3 license). */}
         <div className="mt-10 flex flex-col gap-3 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-meta text-foreground-muted">
             <Wordmark
@@ -151,6 +151,13 @@ export default function MarketingFooter({
             <MadeInMadison variant="line" tone="soft" />
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-foreground-muted">
+            <Link
+              href="/terms"
+              className="underline-offset-2 transition-colors hover:text-foreground hover:underline"
+            >
+              Terms
+            </Link>
+            <span aria-hidden="true">·</span>
             <Link
               href="/privacy"
               className="underline-offset-2 transition-colors hover:text-foreground hover:underline"

@@ -52,6 +52,7 @@ const EXCLUDED_PREFIXES = [
   "/pricing", // public pricing page (two-part model + competitor savings + plan builders + cost math); marketing/informational, no AppShell, not a documented app feature (like /welcome and /transparency)
   "/sharing-setup-test", // dev-only test harness for the cross-boundary sharing setup wizard (NODE_ENV=development gated, renders "not available" in prod); not a user feature
   "/privacy", // privacy policy (legal/informational, no AppShell, not a documented app feature; like /open-source). OAuth providers require a privacy-policy URL
+  "/terms", // terms of service (legal/informational, no AppShell, not a documented app feature; like /privacy and /open-source)
   "/welcome-preview", // internal design preview for the welcome page redesign, not a documented user feature
   "/dev-gate", // dev-only lab-flow entry route (IS_DEV gated, not a documented user feature; like /sharing-setup-test)
   "/dev-join", // dev-only lab-flow entry route (IS_DEV gated, not a documented user feature; like /sharing-setup-test)
@@ -64,7 +65,7 @@ const EXCLUDED_PREFIXES = [
   "/profile", // pending wiki page (Profile "your stuff": appearance + researcher profile, split out of Settings)
   "/supplies", // pending wiki page (Supplies v2 unified page; replaces split Inventory + Purchases routes)
   "/chemistry", // pending wiki page (Chemistry Workbench, the ChemDraw alternative; in active build, owed before launch)
-  "/ai", // pending wiki page (AI assistant unified search front door; in active design/build)
+  "/ai", // public BeakerBot marketing page (sells the AI assistant; no AppShell, like /pricing and /welcome, not a documented in-app feature)
   "/chemistry-embed-check", // dev-only Ketcher/RDKit embed probe (not a documented user feature; like /sharing-setup-test)
 ];
 
