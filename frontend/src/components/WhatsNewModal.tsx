@@ -262,7 +262,7 @@ function SignInChoiceCards({
             <ChoiceCheck /> Find other ResearchOS users to share with, coming soon.
           </li>
           <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
-            <ChoiceCheck /> Live collaboration, coming soon.
+            <ChoiceCheck /> Real-time co-editing on shared notes.
           </li>
         </ul>
         {/* Four identity providers, equal weight, in a 2x2 grid. ORCID sits

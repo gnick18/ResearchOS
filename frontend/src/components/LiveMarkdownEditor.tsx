@@ -12,6 +12,7 @@ import rehypeSanitize from "rehype-sanitize";
 import { markdownSanitizeSchema } from "@/lib/markdown/sanitize-schema";
 import remarkUnderline from "@/lib/markdown/remark-underline";
 import { extractUserContent } from "@/lib/stamp-utils";
+import { FIGURE_DIRECTIVE } from "@/lib/embeds/figure-numbering";
 import { attachmentsApi } from "@/lib/local-api";
 import InlineMarkdownEditor from "./InlineMarkdownEditor";
 
@@ -2013,6 +2014,41 @@ export default function LiveMarkdownEditor({
                 className="px-2.5 py-1 text-meta bg-surface-sunken text-foreground-muted rounded hover:bg-foreground-muted/15 transition-colors"
               >
                 Insert ref
+              </button>
+            </Tooltip>
+          )}
+
+          {/* Number figures toggle. Inserts / removes the portable
+              `<!-- ros:number-figures -->` directive (hidden in the editor, kept
+              in the saved .md) so embedded figures + tables get "Figure N" /
+              "Table N" labels in this document. Per-document, no global setting. */}
+          {enableReferencePicker && !disabled && (
+            <Tooltip
+              label={
+                FIGURE_DIRECTIVE.test(value)
+                  ? "Stop numbering figures and tables in this document"
+                  : "Number the figures and tables in this document (Figure 1, Table 2)"
+              }
+              placement="bottom"
+            >
+              <button
+                type="button"
+                aria-pressed={FIGURE_DIRECTIVE.test(value)}
+                aria-label="Number figures"
+                onClick={() => {
+                  const on = FIGURE_DIRECTIVE.test(value);
+                  const next = on
+                    ? value.replace(/^[^\n]*<!--\s*ros:number-figures\s*-->[^\n]*\n?/m, "")
+                    : `<!-- ros:number-figures -->\n${value}`;
+                  onChange(next);
+                }}
+                className={`px-2.5 py-1 text-meta rounded transition-colors ${
+                  FIGURE_DIRECTIVE.test(value)
+                    ? "bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300"
+                    : "bg-surface-sunken text-foreground-muted hover:bg-foreground-muted/15"
+                }`}
+              >
+                Number figures
               </button>
             </Tooltip>
           )}

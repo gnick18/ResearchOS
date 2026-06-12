@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
-import AppFooter from "@/components/AppFooter";
 import MadeInMadison from "@/components/MadeInMadison";
+import MarketingFooter from "@/components/MarketingFooter";
+import MarketingNav from "@/components/MarketingNav";
 import CompetitorSavings from "@/components/pricing/CompetitorSavings";
 import CostMath from "@/components/pricing/CostMath";
 import FeatureGrid, {
@@ -149,15 +149,9 @@ const AI_ITEMS: FeatureItem[] = [
 export default function PricingPage() {
   return (
     <div className="min-h-screen bg-surface-sunken">
+      <MarketingNav />
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <Link
-          href="/"
-          className="text-body font-medium text-foreground-muted underline-offset-2 hover:text-foreground hover:underline"
-        >
-          ← ResearchOS
-        </Link>
-
-        <div className="mt-6 overflow-hidden rounded-3xl border border-border bg-surface">
+        <div className="overflow-hidden rounded-3xl border border-border bg-surface">
           <PricingHero />
 
           {/* Two-part model */}
@@ -218,8 +212,9 @@ export default function PricingPage() {
             </p>
           </Section>
 
-          {/* The AI is the one metered thing, at cost, a separate optional meter */}
-          <Section>
+          {/* The AI is the one metered thing, at cost, a separate optional meter.
+              id="ai-pricing" so the competitor-savings AI highlight can link here. */}
+          <Section id="ai-pricing">
             <SectionHeading
               title="The AI assistant is the one thing that is metered, and it is at cost"
               subtitle="The app, search, editing, and collaboration are all free and unmetered. BeakerBot, the optional AI assistant, is the single exception, because each AI task calls a hosted model that costs us real money. It is a separate optional meter from your storage plan, you can use one, both, or neither."
@@ -283,7 +278,7 @@ export default function PricingPage() {
         </div>
       </div>
 
-      <AppFooter />
+      <MarketingFooter />
     </div>
   );
 }

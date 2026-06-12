@@ -1,0 +1,1095 @@
+/**
+ * datahub/transform/engine.ts
+ *
+ * The deterministic, pure transform engine for Data Hub. Executes a
+ * TransformPipeline over DataHubDocContent and returns a new DataHubDocContent
+ * (never mutates sources).
+ *
+ * ORDERING AND TYPE-COERCION RULES (documented to match pandas):
+ *
+ *   Ordering:
+ *     - sort() is the only op that explicitly reorders rows. All other ops
+ *       (filter, groupby, join, union, dedupe) preserve the current row order
+ *       of the left/primary table, then append right-table rows (join outer,
+ *       union) in the order they appear in the right table. This matches
+ *       pandas default behavior (merge preserves left order; concat preserves
+ *       input order).
+ *     - sort() uses a stable sort (Array.prototype.sort is stable in V8 >=70
+ *       and in the spec since ES2019). Equal keys preserve prior order.
+ *     - Null placement in sort: asc defaults to nulls-last; desc defaults to
+ *       nulls-first. This matches pandas sort_values(na_position=...) defaults.
+ *
+ *   Type coercion on join keys:
+ *     - If one table has a numeric value and the other has a string
+ *       representation of the same number (e.g. 1 vs "1"), the engine coerces
+ *       BOTH to string for key comparison, matching pandas merge behavior with
+ *       mixed-dtype keys. This is documented in the join implementation.
+ *     - null and "" are treated as distinct from any non-null value. Two nulls
+ *       match each other (pandas inner join drops null-key rows; this engine
+ *       ALSO drops null-key rows for inner/left/right joins and only emits them
+ *       as unmatched rows in outer joins, matching pandas merge(how="outer")).
+ *
+ *   Groupby aggregation types:
+ *     - sd uses sample standard deviation (ddof=1), matching pandas default.
+ *     - mean / median of an empty group returns null (pandas returns NaN,
+ *       which the engine normalizes to null for storage).
+ *     - count counts non-null values (matching pandas GroupBy.count).
+ *     - nunique counts distinct non-null values.
+ *     - concat joins string representations with ", " (default separator).
+ *     - first returns the first non-null value, or null if all are null.
+ *
+ *   Union column alignment:
+ *     - Columns are aligned by name. Columns present in only one table get
+ *       null values in the other table's rows. Column order in the result is:
+ *       (1) all columns from the primary table in their declared order, then
+ *       (2) any additional columns from the second table not already present,
+ *       in their declared order. This matches pandas concat(axis=0) behavior.
+ *
+ * House voice: no em-dashes, no emojis, no mid-sentence colons.
+ */
+
+import type { DataHubDocContent, ColumnDef, RowRecord, CellValue } from "@/lib/datahub/model/types";
+import { evaluateExpression } from "@/lib/calculators/custom";
+import {
+  transformValues,
+  normalize,
+  transpose,
+  removeBaseline,
+  fractionOfTotal,
+} from "@/lib/datahub/transforms";
+import type {
+  TransformPipeline,
+  TransformOp,
+  JoinOp,
+  FilterOp,
+  GroupByOp,
+  SelectOp,
+  DropOp,
+  RenameOp,
+  SortOp,
+  DedupeOp,
+  UnionOp,
+  DeriveOp,
+  PivotOp,
+  UnpivotOp,
+  ColumnTransformOp,
+  NormalizeColumnOp,
+  TransposeColumnOp,
+  RemoveBaselineColumnOp,
+  FractionOfTotalColumnOp,
+  FilterNode,
+  FilterCondition,
+  AggFunc,
+  AggSpec,
+  SortKey,
+} from "./pipeline";
+
+// ---------------------------------------------------------------------------
+// Internal table representation
+// ---------------------------------------------------------------------------
+
+/**
+ * The engine works on an internal flat table: an ordered list of columns
+ * (by name) and an ordered list of row objects (each a plain Record).
+ * Conversion to/from DataHubDocContent happens only at the entry and exit
+ * of executePipeline, keeping the internal logic simple.
+ *
+ * `content` carries the ROLE-AWARE DataHubDocContent this flat table came from,
+ * but ONLY while the table still corresponds 1:1 to that content (column ids,
+ * roles, and row ids intact). contentToInternal sets it; the folded column
+ * transforms (which delegate to transforms.ts and need the column roles to match
+ * the standalone single-op result byte-for-byte) read it. Every RELATIONAL op
+ * (join / filter / groupby / select / drop / rename / sort / dedupe / union /
+ * derive / pivot / unpivot) builds a fresh flat table WITHOUT `content`, because
+ * it has restructured the rows/columns away from any original content. When
+ * `content` is absent a column transform synthesizes a generic role-"y" content
+ * from the flat table instead, so it still runs, just without the original roles.
+ */
+interface InternalTable {
+  columns: string[];
+  rows: Record<string, CellValue>[];
+  content?: DataHubDocContent;
+}
+
+// ---------------------------------------------------------------------------
+// Conversion helpers
+// ---------------------------------------------------------------------------
+
+function contentToInternal(content: DataHubDocContent): InternalTable {
+  const columns = content.columns.map((c) => c.name);
+  const rows = content.rows.map((row) => {
+    const r: Record<string, CellValue> = {};
+    for (const col of content.columns) {
+      const v = row.cells[col.id];
+      r[col.name] = v !== undefined ? v : null;
+    }
+    return r;
+  });
+  // Keep the role-aware content so a folded column transform can delegate to the
+  // standalone transforms.ts function byte-for-byte while the table is still an
+  // unreshaped 1:1 view of this content.
+  return { columns, rows, content };
+}
+
+/**
+ * Convert back to DataHubDocContent. Column types are inferred from the
+ * observed values: if all non-null values are numeric the column is "number",
+ * otherwise "text". The result table always has table_type "column" (the
+ * generic flat-table archetype) and empty analyses/plots (those belong to the
+ * source; the transform result is a new document).
+ */
+function internalToContent(
+  table: InternalTable,
+  name: string,
+): DataHubDocContent {
+  const columns: ColumnDef[] = table.columns.map((colName, i) => {
+    const values = table.rows.map((r) => r[colName]);
+    const isNumeric = values.every(
+      (v) =>
+        v === null ||
+        v === undefined ||
+        (typeof v === "number" && !Number.isNaN(v)) ||
+        (typeof v === "string" && v !== "" && Number.isFinite(Number(v))),
+    );
+    return {
+      id: `col-${i + 1}`,
+      name: colName,
+      role: "y" as const,
+      dataType: isNumeric ? ("number" as const) : ("text" as const),
+    };
+  });
+
+  const colNameToId = new Map(columns.map((c) => [c.name, c.id]));
+
+  const rows: RowRecord[] = table.rows.map((row, i) => {
+    const cells: Record<string, CellValue> = {};
+    for (const col of columns) {
+      const v = row[col.name];
+      cells[col.id] = v !== undefined ? v : null;
+    }
+    return { id: `row-${i + 1}`, cells };
+  });
+
+  return {
+    meta: {
+      id: `transform-result-${Date.now()}`,
+      name,
+      project_ids: [],
+      folder_path: null,
+      table_type: "column",
+      created_at: new Date().toISOString(),
+    },
+    columns,
+    rows,
+    analyses: [],
+    plots: [],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Filter evaluation
+// ---------------------------------------------------------------------------
+
+function coerceToNumber(v: CellValue): number {
+  if (typeof v === "number") return v;
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return NaN;
+}
+
+function isEmpty(v: CellValue): boolean {
+  return v === null || v === undefined || v === "" || (typeof v === "number" && Number.isNaN(v));
+}
+
+function evalCondition(row: Record<string, CellValue>, cond: FilterCondition): boolean {
+  const cell = row[cond.column];
+  const { op, value } = cond;
+
+  switch (op) {
+    case "is_empty":
+      return isEmpty(cell);
+    case "eq":
+      if (isEmpty(cell) && isEmpty(value as CellValue)) return true;
+      if (isEmpty(cell) || isEmpty(value as CellValue)) return false;
+      if (typeof value === "number") return coerceToNumber(cell) === value;
+      return String(cell) === String(value);
+    case "ne":
+      return !evalCondition(row, { ...cond, op: "eq" });
+    case "lt":
+      return coerceToNumber(cell) < coerceToNumber(value as CellValue);
+    case "le":
+      return coerceToNumber(cell) <= coerceToNumber(value as CellValue);
+    case "gt":
+      return coerceToNumber(cell) > coerceToNumber(value as CellValue);
+    case "ge":
+      return coerceToNumber(cell) >= coerceToNumber(value as CellValue);
+    case "contains":
+      return !isEmpty(cell) && String(cell).includes(String(value));
+    case "regex":
+      if (isEmpty(cell)) return false;
+      try {
+        return new RegExp(String(value)).test(String(cell));
+      } catch {
+        return false;
+      }
+    case "in": {
+      const set = Array.isArray(value) ? value : [value];
+      return set.some((v) => evalCondition(row, { column: cond.column, op: "eq", value: v as string | number }));
+    }
+    default:
+      return false;
+  }
+}
+
+function evalFilterNode(row: Record<string, CellValue>, node: FilterNode): boolean {
+  switch (node.type) {
+    case "condition":
+      return evalCondition(row, node.condition);
+    case "not":
+      return !evalFilterNode(row, node.child);
+    case "and":
+      return node.children.every((child) => evalFilterNode(row, child));
+    case "or":
+      return node.children.some((child) => evalFilterNode(row, child));
+    default:
+      return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Aggregation helpers
+// ---------------------------------------------------------------------------
+
+function sampleSd(values: number[]): number | null {
+  if (values.length < 2) return null;
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  const variance = values.reduce((s, v) => s + (v - mean) ** 2, 0) / (values.length - 1);
+  return Math.sqrt(variance);
+}
+
+function median(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 1) return sorted[mid];
+  return (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function aggregate(
+  cells: CellValue[],
+  spec: AggSpec,
+): CellValue {
+  const separator = spec.separator ?? ", ";
+
+  switch (spec.func) {
+    case "count":
+      return cells.filter((v) => !isEmpty(v)).length;
+
+    case "nunique": {
+      const nonNull = cells.filter((v) => !isEmpty(v));
+      return new Set(nonNull.map((v) => String(v))).size;
+    }
+
+    case "first": {
+      const nonNull = cells.filter((v) => !isEmpty(v));
+      return nonNull.length > 0 ? nonNull[0] : null;
+    }
+
+    case "concat": {
+      return cells
+        .filter((v) => !isEmpty(v))
+        .map((v) => {
+          // Match pandas float str() formatting: whole-number floats get ".0"
+          // (e.g. 4.0 -> "4.0", not "4"). This mirrors how pandas object/float64
+          // columns serialize in concat aggregation.
+          if (typeof v === "number" && Number.isFinite(v) && Number.isInteger(v)) {
+            return `${v}.0`;
+          }
+          return String(v);
+        })
+        .join(separator);
+    }
+
+    default: {
+      // Numeric aggregations: mean, sum, min, max, median, sd
+      const nums = cells
+        .filter((v) => !isEmpty(v))
+        .map((v) => (typeof v === "number" ? v : Number(v)))
+        .filter((n) => Number.isFinite(n));
+
+      if (nums.length === 0) return null;
+
+      switch (spec.func) {
+        case "sum":
+          return nums.reduce((a, b) => a + b, 0);
+        case "mean":
+          return nums.reduce((a, b) => a + b, 0) / nums.length;
+        case "min":
+          return Math.min(...nums);
+        case "max":
+          return Math.max(...nums);
+        case "median":
+          return median(nums);
+        case "sd":
+          return sampleSd(nums);
+        default:
+          return null;
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Join key helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Normalize a join key value to a string for comparison. Mixed numeric/string
+ * keys are both stringified so that 1 and "1" compare equal, matching pandas
+ * merge behavior with object-dtype keys.
+ */
+function keyToString(v: CellValue): string {
+  if (v === null || v === undefined) return "\0NULL\0";
+  return String(v);
+}
+
+function rowKey(row: Record<string, CellValue>, on: string[]): string {
+  return on.map((col) => keyToString(row[col])).join("\0SEP\0");
+}
+
+const NULL_KEY_SENTINEL = on_keys_sentinel();
+function on_keys_sentinel() {
+  // A sentinel that represents "at least one key column is null".
+  return "\0NULL\0";
+}
+
+function hasNullKey(row: Record<string, CellValue>, on: string[]): boolean {
+  return on.some((col) => {
+    const v = row[col];
+    return v === null || v === undefined;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Op implementations
+// ---------------------------------------------------------------------------
+
+function applyJoin(table: InternalTable, right: InternalTable, op: JoinOp): InternalTable | string {
+  const { on, how, suffixLeft = "_x", suffixRight = "_y" } = op;
+
+  // Validate key columns exist.
+  for (const key of on) {
+    if (!table.columns.includes(key))
+      return `join: key column "${key}" not found in left table`;
+    if (!right.columns.includes(key))
+      return `join: key column "${key}" not found in right table`;
+  }
+
+  // Determine non-key columns.
+  const leftNonKey = table.columns.filter((c) => !on.includes(c));
+  const rightNonKey = right.columns.filter((c) => !on.includes(c));
+
+  // Detect name collisions and build suffix mapping.
+  const leftNonKeySet = new Set(leftNonKey);
+  const rightNonKeySet = new Set(rightNonKey);
+  const collisions = new Set([...leftNonKey].filter((c) => rightNonKeySet.has(c)));
+
+  function leftColName(c: string) {
+    return collisions.has(c) ? `${c}${suffixLeft}` : c;
+  }
+  function rightColName(c: string) {
+    return collisions.has(c) ? `${c}${suffixRight}` : c;
+  }
+
+  // Build result column list: keys, then left non-keys (possibly suffixed),
+  // then right non-keys (possibly suffixed). Matches pandas merge column order.
+  const resultCols: string[] = [
+    ...on,
+    ...leftNonKey.map(leftColName),
+    ...rightNonKey.map(rightColName),
+  ];
+
+  // Index the right table by key.
+  const rightIndex = new Map<string, Record<string, CellValue>[]>();
+  for (const row of right.rows) {
+    const k = rowKey(row, on);
+    if (!rightIndex.has(k)) rightIndex.set(k, []);
+    rightIndex.get(k)!.push(row);
+  }
+
+  const resultRows: Record<string, CellValue>[] = [];
+  const matchedRightKeys = new Set<string>();
+
+  // For outer join: track which right rows were matched.
+  const rightRowMatched = new Set<number>();
+
+  for (const leftRow of table.rows) {
+    const k = rowKey(leftRow, on);
+    const isNullKey = hasNullKey(leftRow, on);
+
+    // pandas merge drops null-key rows for inner/left/right; for outer they
+    // become unmatched rows (no right match possible).
+    const matches =
+      !isNullKey && rightIndex.has(k) ? rightIndex.get(k)! : [];
+
+    if (matches.length > 0) {
+      for (let ri = 0; ri < matches.length; ri++) {
+        const rightRow = matches[ri];
+        // Mark right row index as matched.
+        const globalIdx = right.rows.indexOf(rightRow);
+        rightRowMatched.add(globalIdx);
+
+        const merged: Record<string, CellValue> = {};
+        for (const col of on) merged[col] = leftRow[col];
+        for (const col of leftNonKey) merged[leftColName(col)] = leftRow[col] ?? null;
+        for (const col of rightNonKey) merged[rightColName(col)] = rightRow[col] ?? null;
+        resultRows.push(merged);
+      }
+    } else if (how === "left" || how === "outer") {
+      // Unmatched left row: fill right columns with null.
+      const merged: Record<string, CellValue> = {};
+      for (const col of on) merged[col] = leftRow[col];
+      for (const col of leftNonKey) merged[leftColName(col)] = leftRow[col] ?? null;
+      for (const col of rightNonKey) merged[rightColName(col)] = null;
+      resultRows.push(merged);
+    }
+    // inner / right: unmatched left rows are dropped.
+  }
+
+  // For right / outer join: add unmatched right rows.
+  if (how === "right" || how === "outer") {
+    for (let ri = 0; ri < right.rows.length; ri++) {
+      if (rightRowMatched.has(ri)) continue;
+      const rightRow = right.rows[ri];
+      const merged: Record<string, CellValue> = {};
+      for (const col of on) merged[col] = rightRow[col];
+      for (const col of leftNonKey) merged[leftColName(col)] = null;
+      for (const col of rightNonKey) merged[rightColName(col)] = rightRow[col] ?? null;
+      resultRows.push(merged);
+    }
+  }
+
+  // pandas outer and right joins sort the result by key columns (nulls last).
+  // Left and inner joins preserve the left table's row order.
+  if (how === "outer" || how === "right") {
+    resultRows.sort((a, b) => {
+      for (const col of on) {
+        const av = a[col] ?? null;
+        const bv = b[col] ?? null;
+        const aNull = av === null;
+        const bNull = bv === null;
+        if (aNull && bNull) continue;
+        if (aNull) return 1;  // nulls last
+        if (bNull) return -1;
+        const cmp =
+          typeof av === "number" && typeof bv === "number"
+            ? av - bv
+            : String(av) < String(bv) ? -1 : String(av) > String(bv) ? 1 : 0;
+        if (cmp !== 0) return cmp;
+      }
+      return 0;
+    });
+  }
+
+  return { columns: resultCols, rows: resultRows };
+}
+
+function applyFilter(table: InternalTable, op: FilterOp): InternalTable | string {
+  const rows = table.rows.filter((row) => evalFilterNode(row, op.node));
+  return { columns: table.columns, rows };
+}
+
+function applyGroupBy(table: InternalTable, op: GroupByOp): InternalTable | string {
+  const { by, aggregations } = op;
+
+  for (const col of by) {
+    if (!table.columns.includes(col))
+      return `groupby: group column "${col}" not found`;
+  }
+  for (const agg of aggregations) {
+    if (!table.columns.includes(agg.column))
+      return `groupby: aggregate column "${agg.column}" not found`;
+  }
+
+  // Group rows by the key tuple.
+  const groups = new Map<string, Record<string, CellValue>[]>();
+  const keyOrder: string[] = []; // preserve first-seen order of groups
+  for (const row of table.rows) {
+    const k = rowKey(row, by);
+    if (!groups.has(k)) {
+      groups.set(k, []);
+      keyOrder.push(k);
+    }
+    groups.get(k)!.push(row);
+  }
+
+  // Build output column list.
+  const outputCols: string[] = [
+    ...by,
+    ...aggregations.map((a) => a.outputName ?? `${a.column}_${a.func}`),
+  ];
+
+  const resultRows: Record<string, CellValue>[] = [];
+  for (const k of keyOrder) {
+    const groupRows = groups.get(k)!;
+    const resultRow: Record<string, CellValue> = {};
+
+    // Copy group key values from the first row.
+    for (const col of by) resultRow[col] = groupRows[0][col];
+
+    // Compute each aggregation.
+    for (const agg of aggregations) {
+      const cells = groupRows.map((r) => r[agg.column]);
+      const outName = agg.outputName ?? `${agg.column}_${agg.func}`;
+      resultRow[outName] = aggregate(cells, agg);
+    }
+
+    resultRows.push(resultRow);
+  }
+
+  return { columns: outputCols, rows: resultRows };
+}
+
+function applySelect(table: InternalTable, op: SelectOp): InternalTable | string {
+  for (const col of op.columns) {
+    if (!table.columns.includes(col))
+      return `select: column "${col}" not found`;
+  }
+  const rows = table.rows.map((row) => {
+    const r: Record<string, CellValue> = {};
+    for (const col of op.columns) r[col] = row[col] ?? null;
+    return r;
+  });
+  return { columns: op.columns, rows };
+}
+
+function applyDrop(table: InternalTable, op: DropOp): InternalTable | string {
+  for (const col of op.columns) {
+    if (!table.columns.includes(col))
+      return `drop: column "${col}" not found`;
+  }
+  const dropSet = new Set(op.columns);
+  const columns = table.columns.filter((c) => !dropSet.has(c));
+  const rows = table.rows.map((row) => {
+    const r: Record<string, CellValue> = {};
+    for (const col of columns) r[col] = row[col] ?? null;
+    return r;
+  });
+  return { columns, rows };
+}
+
+function applyRename(table: InternalTable, op: RenameOp): InternalTable | string {
+  for (const oldName of Object.keys(op.mapping)) {
+    if (!table.columns.includes(oldName))
+      return `rename: column "${oldName}" not found`;
+  }
+  const columns = table.columns.map((c) => op.mapping[c] ?? c);
+  const rows = table.rows.map((row) => {
+    const r: Record<string, CellValue> = {};
+    for (const col of table.columns) {
+      const newName = op.mapping[col] ?? col;
+      r[newName] = row[col] ?? null;
+    }
+    return r;
+  });
+  return { columns, rows };
+}
+
+function compareValues(a: CellValue, b: CellValue): number {
+  // Both null: equal.
+  if (a === null && b === null) return 0;
+  // null vs non-null: caller determines placement via nulls option.
+  if (a === null) return 1; // nulls last by default (overridden below)
+  if (b === null) return -1;
+  // Both numeric: numeric comparison.
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  // Mixed or both string: lexicographic.
+  return String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0;
+}
+
+function applySort(table: InternalTable, op: SortOp): InternalTable | string {
+  for (const key of op.by) {
+    if (!table.columns.includes(key.column))
+      return `sort: column "${key.column}" not found`;
+  }
+
+  const rows = [...table.rows].sort((a, b) => {
+    for (const key of op.by) {
+      const av = a[key.column] ?? null;
+      const bv = b[key.column] ?? null;
+      const aNull = av === null;
+      const bNull = bv === null;
+
+      // Determine null placement.
+      const dir = key.direction === "desc" ? -1 : 1;
+      // asc defaults to nulls-last; desc defaults to nulls-first.
+      const nullsPos = key.nulls ?? (key.direction === "desc" ? "first" : "last");
+
+      if (aNull && bNull) continue;
+      // Null placement is direction-independent: "last" always means the end
+      // of the sorted array; "first" always means the start. This matches
+      // pandas na_position behavior.
+      if (aNull) return nullsPos === "last" ? 1 : -1;
+      if (bNull) return nullsPos === "last" ? -1 : 1;
+
+      const cmp = compareValues(av, bv);
+      if (cmp !== 0) return dir * cmp;
+    }
+    return 0;
+  });
+
+  return { columns: table.columns, rows };
+}
+
+function applyDedupe(table: InternalTable, op: DedupeOp): InternalTable | string {
+  const subset = op.subset && op.subset.length > 0 ? op.subset : table.columns;
+  for (const col of subset) {
+    if (!table.columns.includes(col))
+      return `dedupe: column "${col}" not found`;
+  }
+  const keep = op.keep ?? "first";
+  const rows = keep === "first"
+    ? dedupeFirst(table.rows, subset)
+    : dedupeLast(table.rows, subset);
+  return { columns: table.columns, rows };
+}
+
+function dedupeFirst(rows: Record<string, CellValue>[], subset: string[]): Record<string, CellValue>[] {
+  const seen = new Set<string>();
+  const result: Record<string, CellValue>[] = [];
+  for (const row of rows) {
+    const k = rowKey(row, subset);
+    if (!seen.has(k)) {
+      seen.add(k);
+      result.push(row);
+    }
+  }
+  return result;
+}
+
+function dedupeLast(rows: Record<string, CellValue>[], subset: string[]): Record<string, CellValue>[] {
+  // Keep last occurrence: reverse, dedupe-first, reverse back.
+  return dedupeFirst([...rows].reverse(), subset).reverse();
+}
+
+function applyUnion(table: InternalTable, other: InternalTable, _op: UnionOp): InternalTable | string {
+  // Column order: primary table columns first, then any new columns from other.
+  const primarySet = new Set(table.columns);
+  const extraCols = other.columns.filter((c) => !primarySet.has(c));
+  const columns = [...table.columns, ...extraCols];
+
+  const resultRows: Record<string, CellValue>[] = [];
+
+  for (const row of table.rows) {
+    const r: Record<string, CellValue> = {};
+    for (const col of columns) r[col] = row[col] ?? null;
+    resultRows.push(r);
+  }
+  for (const row of other.rows) {
+    const r: Record<string, CellValue> = {};
+    for (const col of columns) r[col] = row[col] ?? null;
+    resultRows.push(r);
+  }
+
+  return { columns, rows: resultRows };
+}
+
+// ---------------------------------------------------------------------------
+// Derive (computed column via the calc builder expression engine)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the per-row evaluation scope. Every column name maps to that row's cell
+ * value. Numeric strings are coerced to numbers so a formula like "a + b" does
+ * arithmetic even when the source cell is a string "2" (matching how the calc
+ * builder binds numeric inputs). Empty / null cells are left as NaN so any
+ * formula touching them produces a non-finite result, which the caller maps to
+ * null. Non-numeric text cells are passed through as-is so string-aware formulas
+ * (for example the calc builder's "if" returning a label) still see the text.
+ */
+function deriveScope(row: Record<string, CellValue>): Record<string, unknown> {
+  const scope: Record<string, unknown> = {};
+  for (const [name, value] of Object.entries(row)) {
+    if (value === null || value === undefined || value === "") {
+      scope[name] = NaN;
+    } else if (typeof value === "number") {
+      scope[name] = value;
+    } else {
+      const n = Number(value);
+      scope[name] = Number.isFinite(n) ? n : value;
+    }
+  }
+  return scope;
+}
+
+function applyDerive(table: InternalTable, op: DeriveOp): InternalTable | string {
+  if (!op.outputName || op.outputName.trim() === "")
+    return `derive: outputName must be a non-empty column name`;
+  if (!op.formula || op.formula.trim() === "")
+    return `derive: formula must be a non-empty expression`;
+
+  // The new column overwrites an existing same-named column in place (keeps the
+  // column order stable) or is appended when the name is new.
+  const exists = table.columns.includes(op.outputName);
+  const columns = exists ? table.columns : [...table.columns, op.outputName];
+
+  const rows = table.rows.map((row) => {
+    const scope = deriveScope(row);
+    const result = evaluateExpression(op.formula, scope);
+    // Missing / non-numeric inputs, a parse error, or a non-finite number all
+    // collapse to null instead of crashing the pipeline. A finite number is
+    // stored as a number; a non-empty string result is stored as text.
+    let cell: CellValue;
+    if (typeof result === "number") {
+      cell = Number.isFinite(result) ? result : null;
+    } else if (typeof result === "string") {
+      cell = result === "" ? null : result;
+    } else {
+      cell = null;
+    }
+    return { ...row, [op.outputName]: cell };
+  });
+
+  return { columns, rows };
+}
+
+// ---------------------------------------------------------------------------
+// Pivot (long -> wide, pandas pivot_table with aggfunc=mean)
+// ---------------------------------------------------------------------------
+
+/** Mean of the numeric members of a collided (index, key) cell, or a single
+ *  passthrough value when there is no collision. Returns null when nothing is
+ *  numeric and there is no single non-numeric value to pass through. */
+function pivotCellValue(cells: CellValue[]): CellValue {
+  if (cells.length === 1) return cells[0] ?? null;
+  const nums = cells
+    .filter((v) => !isEmpty(v))
+    .map((v) => (typeof v === "number" ? v : Number(v)))
+    .filter((n) => Number.isFinite(n));
+  if (nums.length === 0) return null;
+  return nums.reduce((a, b) => a + b, 0) / nums.length;
+}
+
+/** Deterministic ascending comparison of distinct key values. Numbers sort
+ *  numerically, anything else sorts as strings, matching pandas sorted columns. */
+function compareKeyValues(a: string, b: string): number {
+  const an = Number(a);
+  const bn = Number(b);
+  if (a !== "" && b !== "" && Number.isFinite(an) && Number.isFinite(bn)) {
+    return an - bn;
+  }
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+function applyPivot(table: InternalTable, op: PivotOp): InternalTable | string {
+  const { index, columns: keyCol, values: valCol } = op;
+  if (index.length === 0) return `pivot: index must list at least one column`;
+  for (const col of index) {
+    if (!table.columns.includes(col))
+      return `pivot: index column "${col}" not found`;
+  }
+  if (!table.columns.includes(keyCol))
+    return `pivot: columns key "${keyCol}" not found`;
+  if (!table.columns.includes(valCol))
+    return `pivot: values column "${valCol}" not found`;
+
+  // Distinct key values become new columns, sorted ascending.
+  const keySet = new Set<string>();
+  for (const row of table.rows) {
+    const k = row[keyCol];
+    if (k !== null && k !== undefined) keySet.add(String(k));
+  }
+  const keyColumns = [...keySet].sort(compareKeyValues);
+
+  // Bucket value cells by (index tuple, key value). Preserve first-seen order
+  // of the index tuples for deterministic output rows. pandas pivot_table sorts
+  // its index, so we sort the index rows by their tuple at the end to match.
+  const groups = new Map<string, { idx: Record<string, CellValue>; cells: Map<string, CellValue[]> }>();
+  const order: string[] = [];
+  for (const row of table.rows) {
+    const idxKey = rowKey(row, index);
+    if (!groups.has(idxKey)) {
+      const idx: Record<string, CellValue> = {};
+      for (const col of index) idx[col] = row[col] ?? null;
+      groups.set(idxKey, { idx, cells: new Map() });
+      order.push(idxKey);
+    }
+    const k = row[keyCol];
+    if (k === null || k === undefined) continue; // null keys drop, like pandas
+    const kStr = String(k);
+    const bucket = groups.get(idxKey)!.cells;
+    if (!bucket.has(kStr)) bucket.set(kStr, []);
+    bucket.get(kStr)!.push(row[valCol] ?? null);
+  }
+
+  const outputCols = [...index, ...keyColumns];
+  const resultRows: Record<string, CellValue>[] = order.map((idxKey) => {
+    const { idx, cells } = groups.get(idxKey)!;
+    const r: Record<string, CellValue> = {};
+    for (const col of index) r[col] = idx[col];
+    for (const kCol of keyColumns) {
+      const bucket = cells.get(kCol);
+      r[kCol] = bucket ? pivotCellValue(bucket) : null;
+    }
+    return r;
+  });
+
+  // pandas pivot_table sorts the resulting index ascending.
+  resultRows.sort((a, b) => {
+    for (const col of index) {
+      const av = a[col] ?? null;
+      const bv = b[col] ?? null;
+      const aNull = av === null;
+      const bNull = bv === null;
+      if (aNull && bNull) continue;
+      if (aNull) return 1;
+      if (bNull) return -1;
+      const cmp =
+        typeof av === "number" && typeof bv === "number"
+          ? av - bv
+          : String(av) < String(bv) ? -1 : String(av) > String(bv) ? 1 : 0;
+      if (cmp !== 0) return cmp;
+    }
+    return 0;
+  });
+
+  return { columns: outputCols, rows: resultRows };
+}
+
+// ---------------------------------------------------------------------------
+// Unpivot (wide -> long, pandas melt)
+// ---------------------------------------------------------------------------
+
+function applyUnpivot(table: InternalTable, op: UnpivotOp): InternalTable | string {
+  const idVars = op.idVars ?? [];
+  for (const col of idVars) {
+    if (!table.columns.includes(col))
+      return `unpivot: id column "${col}" not found`;
+  }
+
+  const idSet = new Set(idVars);
+  // valueVars defaults to all non-id columns in table order (pandas melt).
+  const valueVars =
+    op.valueVars && op.valueVars.length > 0
+      ? op.valueVars
+      : table.columns.filter((c) => !idSet.has(c));
+  for (const col of valueVars) {
+    if (!table.columns.includes(col))
+      return `unpivot: value column "${col}" not found`;
+  }
+
+  const varName = op.varName ?? "variable";
+  const valueName = op.valueName ?? "value";
+
+  const columns = [...idVars, varName, valueName];
+  const resultRows: Record<string, CellValue>[] = [];
+  // pandas melt order: for each value variable, emit every input row in order.
+  for (const vVar of valueVars) {
+    for (const row of table.rows) {
+      const r: Record<string, CellValue> = {};
+      for (const col of idVars) r[col] = row[col] ?? null;
+      r[varName] = vVar;
+      r[valueName] = row[vVar] ?? null;
+      resultRows.push(r);
+    }
+  }
+
+  return { columns, rows: resultRows };
+}
+
+// ---------------------------------------------------------------------------
+// Folded column transforms (delegate to transforms.ts, never reimplement math)
+// ---------------------------------------------------------------------------
+
+/**
+ * Synthesize a role-aware DataHubDocContent from a flat InternalTable that no
+ * longer carries its original content (a relational op reshaped it). Columns are
+ * generic role "y" data columns with stable col-N ids and row-N ids, matching the
+ * shape internalToContent produces, so a delegated column transform still has a
+ * valid content to run against.
+ */
+function internalToBareContent(table: InternalTable): DataHubDocContent {
+  const columns: ColumnDef[] = table.columns.map((colName, i) => ({
+    id: `col-${i + 1}`,
+    name: colName,
+    role: "y" as const,
+    dataType: "number" as const,
+  }));
+  const rows: RowRecord[] = table.rows.map((row, i) => {
+    const cells: Record<string, CellValue> = {};
+    for (const col of columns) {
+      const v = row[col.name];
+      cells[col.id] = v !== undefined ? v : null;
+    }
+    return { id: `row-${i + 1}`, cells };
+  });
+  return {
+    meta: {
+      id: `transform-step-${Date.now()}`,
+      name: "",
+      project_ids: [],
+      folder_path: null,
+      table_type: "column",
+      created_at: new Date().toISOString(),
+    },
+    columns,
+    rows,
+    analyses: [],
+    plots: [],
+  };
+}
+
+/** Re-flatten a transforms.ts result content into an InternalTable, carrying the
+ *  result content forward so a SUBSEQUENT column transform can also delegate
+ *  role-aware. */
+function contentResultToInternal(content: DataHubDocContent): InternalTable {
+  const columns = content.columns.map((c) => c.name);
+  const rows = content.rows.map((row) => {
+    const r: Record<string, CellValue> = {};
+    for (const col of content.columns) {
+      const v = row.cells[col.id];
+      r[col.name] = v !== undefined ? v : null;
+    }
+    return r;
+  });
+  return { columns, rows, content };
+}
+
+/**
+ * Run one folded column transform by delegating to its pure function in
+ * transforms.ts. When the table still carries its original role-aware content the
+ * delegation is byte-identical to calling transforms.ts directly (so a legacy
+ * single-op derived table recomputes unchanged). Otherwise a generic role-"y"
+ * content is synthesized from the reshaped flat table first.
+ */
+function applyColumnTransform(
+  table: InternalTable,
+  run: (content: DataHubDocContent) => DataHubDocContent,
+): InternalTable {
+  const source = table.content ?? internalToBareContent(table);
+  const result = run(source);
+  return contentResultToInternal(result);
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline executor
+// ---------------------------------------------------------------------------
+
+/**
+ * Execute a TransformPipeline over a primary DataHubDocContent. Returns a
+ * new DataHubDocContent on success, or an error string on any failure.
+ *
+ * When the final step is a folded column transform whose input still carried the
+ * original role-aware content (a pipeline made only of column transforms, the
+ * legacy single-op shape), the result body (columns / rows / table_type) is taken
+ * from that role-aware content so it is byte-identical to calling the standalone
+ * transforms.ts function. Otherwise (any relational op ran, so roles were lost)
+ * the result is the flattened generic role-"y" table_type "column" table. Either
+ * way the result name follows the engine contract and analyses/plots are empty.
+ */
+export function executePipeline(
+  primary: DataHubDocContent,
+  pipeline: TransformPipeline,
+  sources: Map<string, DataHubDocContent>,
+): { content: DataHubDocContent } | { error: string } {
+  let table = contentToInternal(primary);
+
+  for (let i = 0; i < pipeline.ops.length; i++) {
+    const op = pipeline.ops[i];
+    const result = executeOp(table, op, sources, i);
+    if (typeof result === "string") {
+      return { error: `op[${i}] (${op.kind}): ${result}` };
+    }
+    table = result;
+  }
+
+  const name = primary.meta.name + " (transformed)";
+
+  // A role-aware content survives only when every op was a folded column
+  // transform (relational ops drop it). In that case take its columns/rows/
+  // table_type verbatim so the engine output equals the standalone transforms.ts
+  // call. The meta id/name still follow the engine contract.
+  if (table.content) {
+    const body = table.content;
+    return {
+      content: {
+        meta: {
+          id: `transform-result-${Date.now()}`,
+          name,
+          project_ids: [],
+          folder_path: null,
+          table_type: body.meta.table_type,
+          created_at: new Date().toISOString(),
+        },
+        columns: body.columns.map((c) => ({ ...c })),
+        rows: body.rows.map((r) => ({ id: r.id, cells: { ...r.cells } })),
+        analyses: [],
+        plots: [],
+      },
+    };
+  }
+
+  return { content: internalToContent(table, name) };
+}
+
+function executeOp(
+  table: InternalTable,
+  op: TransformOp,
+  sources: Map<string, DataHubDocContent>,
+  idx: number,
+): InternalTable | string {
+  switch (op.kind) {
+    case "join": {
+      const rightContent = sources.get(op.rightRef);
+      if (!rightContent)
+        return `join: source table "${op.rightRef}" not found in sources map`;
+      const right = contentToInternal(rightContent);
+      return applyJoin(table, right, op);
+    }
+    case "filter":
+      return applyFilter(table, op);
+    case "groupby":
+      return applyGroupBy(table, op);
+    case "select":
+      return applySelect(table, op);
+    case "drop":
+      return applyDrop(table, op);
+    case "rename":
+      return applyRename(table, op);
+    case "sort":
+      return applySort(table, op);
+    case "dedupe":
+      return applyDedupe(table, op);
+    case "union": {
+      const otherContent = sources.get(op.otherRef);
+      if (!otherContent)
+        return `union: source table "${op.otherRef}" not found in sources map`;
+      const other = contentToInternal(otherContent);
+      return applyUnion(table, other, op);
+    }
+    case "derive":
+      return applyDerive(table, op);
+    case "pivot":
+      return applyPivot(table, op);
+    case "unpivot":
+      return applyUnpivot(table, op);
+    case "column-transform":
+      return applyColumnTransform(table, (c) => transformValues(c, op.params));
+    case "normalize":
+      return applyColumnTransform(table, (c) => normalize(c, op.params));
+    case "transpose":
+      return applyColumnTransform(table, (c) => transpose(c, op.params));
+    case "remove-baseline":
+      return applyColumnTransform(table, (c) => removeBaseline(c, op.params));
+    case "fraction-of-total":
+      return applyColumnTransform(table, (c) => fractionOfTotal(c, op.params));
+    default: {
+      // TypeScript exhaustiveness guard. If a new op kind is added to
+      // TransformOp without a case here, this will be a type error.
+      const _exhaustive: never = op;
+      return `unknown op kind "${(op as TransformOp).kind}"`;
+    }
+  }
+}

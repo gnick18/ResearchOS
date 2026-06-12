@@ -32,8 +32,8 @@
 import Link from "next/link";
 
 import BeakerBot from "@/components/BeakerBot";
-import Wordmark from "@/components/Wordmark";
-import AppFooter from "@/components/AppFooter";
+import MarketingFooter from "@/components/MarketingFooter";
+import MarketingNav from "@/components/MarketingNav";
 import ConfettiLayer from "@/components/animations/ConfettiLayer";
 import { Icon } from "@/components/icons";
 import { sponsors } from "@/data/sponsors";
@@ -279,20 +279,7 @@ export default function ThanksPage() {
       {/* Thin rainbow ribbon pinned to the very top edge, the brand signature. */}
       <div aria-hidden className="h-[5px] w-full" style={{ background: RAINBOW }} />
 
-      {/* Header / back to app */}
-      <header className="border-b border-border bg-surface-raised">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <Link href="/" aria-label="ResearchOS home" className="inline-flex">
-            <Wordmark size="md" animated={false} className="gap-2.5" />
-          </Link>
-          <Link
-            href="/"
-            className="text-body font-medium text-brand-action underline-offset-2 hover:underline"
-          >
-            Back to the app
-          </Link>
-        </div>
-      </header>
+      <MarketingNav />
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-6">
         {/* ── Hero ── */}
@@ -411,7 +398,7 @@ export default function ThanksPage() {
         </section>
       </main>
 
-      <AppFooter />
+      <MarketingFooter />
     </div>
   );
 }

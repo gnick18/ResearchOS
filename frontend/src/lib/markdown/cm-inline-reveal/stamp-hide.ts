@@ -159,13 +159,36 @@ interface StampHideState {
   atomic: DecorationSet;
 }
 
+/** The opt-in figure-numbering directive. A toolbar toggle inserts / removes it,
+ *  and it is hidden here so the editor stays clean while the comment survives in
+ *  the saved .md (so numbering is portable and round-trips byte for byte). */
+function isNumberFiguresDirective(state: EditorState, from: number, to: number): boolean {
+  return /<!--\s*ros:number-figures\s*-->/.test(state.sliceDoc(from, to));
+}
+
 function build(state: EditorState): StampHideState {
+  const ranges: Array<{ from: number; to: number }> = [];
+
   const span = findStampSpan(state);
-  if (!span) {
+  if (span) ranges.push(span);
+
+  // Hide the figure-numbering directive line wherever it sits.
+  const tree = syntaxTree(state);
+  tree.iterate({
+    enter: (node) => {
+      if (node.name === "CommentBlock" && isNumberFiguresDirective(state, node.from, node.to)) {
+        const endLine = state.doc.lineAt(node.to);
+        ranges.push({ from: node.from, to: Math.min(endLine.to + 1, state.doc.length) });
+      }
+    },
+  });
+
+  if (ranges.length === 0) {
     return { decorations: Decoration.none, atomic: Decoration.none };
   }
+  ranges.sort((a, b) => a.from - b.from);
   const builder = new RangeSetBuilder<Decoration>();
-  builder.add(span.from, span.to, HIDDEN_STAMP);
+  for (const r of ranges) builder.add(r.from, r.to, HIDDEN_STAMP);
   const set = builder.finish();
   return { decorations: set, atomic: set };
 }

@@ -65,6 +65,29 @@ describe("BEAKERBOT_SYSTEM_PROMPT", () => {
     expect(runAt).toBeGreaterThan(askAt);
   });
 
+  it("includes the analysis-finder protocol with trigger, wizard questions, and free-text escape", () => {
+    // The analysis finder must be present as a named section.
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(
+      /Helping the user choose an analysis/i,
+    );
+    // The trigger phrases must be covered.
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/which test should I use/i);
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/help me choose an analysis/i);
+    // The three wizard questions must be present: goal, group count, pairing.
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/Compare groups/);
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/Two groups/);
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/Same samples \(paired\)/);
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/Different samples \(independent\)/);
+    // The free-text escape must be present.
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/FREE-TEXT escape/i);
+    // The wizard must feed run_datahub_analysis, not a new tool.
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(
+      /run_datahub_analysis.*planner picks the exact test/,
+    );
+    // The coverage note must mention what is and isn't supported.
+    expect(BEAKERBOT_SYSTEM_PROMPT).toMatch(/correlation/i);
+  });
+
   it("includes narrow-panel formatting guidance telling BeakerBot to avoid tables", () => {
     // The panel is a narrow sidebar. BeakerBot must know not to produce wide
     // markdown tables that would overflow it.

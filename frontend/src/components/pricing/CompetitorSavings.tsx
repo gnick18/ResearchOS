@@ -24,21 +24,28 @@ export default function CompetitorSavings() {
     Object.fromEntries(COMPETITORS.map((c) => [c.id, !!c.defaultOn])),
   );
 
-  const { stackTotal, rosCloud, save, save5 } = useMemo(() => {
+  const isLab = people > 1;
+
+  const { stackTotal, rosCost, save, save5 } = useMemo(() => {
     let total = 0;
     for (const c of COMPETITORS) {
       if (!on[c.id]) continue;
       total += c.mode === "user" ? c.cost * people : c.cost;
     }
+    // A solo researcher genuinely pays nothing: the whole app runs free on their
+    // own disk and they need no cloud. A lab exists to collaborate, which needs
+    // the optional cloud, so a lab's real ResearchOS cost is that cloud, not $0.
+    // We only count the cloud for a lab, so we never claim a team of eight is free.
     const cloud = people * CLOUD_PER_PERSON_YR;
-    const saved = Math.max(0, total - cloud);
+    const cost = isLab ? cloud : 0;
+    const saved = Math.max(0, total - cost);
     return {
       stackTotal: total,
-      rosCloud: cloud,
+      rosCost: cost,
       save: saved,
       save5: saved * 5,
     };
-  }, [people, on]);
+  }, [people, on, isLab]);
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -127,20 +134,26 @@ export default function CompetitorSavings() {
               {usd0(stackTotal)} / yr
             </b>
           </div>
-          <div className="flex items-baseline justify-between gap-3 py-1.5 text-[12.5px] text-foreground-muted">
-            <span>
-              ResearchOS, the notebook, sequences and inventory, on your disk
-            </span>
-            <b className="font-semibold tabular-nums text-green-600 dark:text-green-400">
-              $0
-            </b>
-          </div>
-          <div className="flex items-baseline justify-between gap-3 py-1.5 text-[12.5px] text-foreground-muted">
-            <span>Optional cloud for sharing, if your lab shares heavily</span>
-            <b className="font-semibold tabular-nums text-foreground">
-              ~{usd0(rosCloud)} / yr
-            </b>
-          </div>
+          {isLab ? (
+            <div className="flex items-baseline justify-between gap-3 py-1.5 text-[12.5px] text-foreground-muted">
+              <span>
+                ResearchOS, free on your disk, you pay only the optional cloud so
+                the lab can share
+              </span>
+              <b className="font-semibold tabular-nums text-foreground">
+                ~{usd0(rosCost)} / yr
+              </b>
+            </div>
+          ) : (
+            <div className="flex items-baseline justify-between gap-3 py-1.5 text-[12.5px] text-foreground-muted">
+              <span>
+                ResearchOS, the whole app free on your own disk, solo and local
+              </span>
+              <b className="font-semibold tabular-nums text-green-600 dark:text-green-400">
+                $0
+              </b>
+            </div>
+          )}
           <div className="mt-1.5 flex items-baseline justify-between gap-3 border-t border-border pt-3 text-foreground">
             <span className="text-[12.5px]">You save</span>
             <span className="text-3xl font-extrabold tabular-nums text-green-600 dark:text-green-400">
@@ -151,13 +164,31 @@ export default function CompetitorSavings() {
             <span className="h-2 w-2 flex-none rounded-full bg-brand-action" />
             <span>about {usd0(save5)} over 5 years</span>
           </div>
+          {/* AI is not in the savings math (it is a separate metered-at-cost
+              feature, not a fixed line), but it is a real value-add over the
+              stack, so highlight it here and point to the AI pricing below. */}
+          <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-2.5 text-[11.5px] leading-snug text-foreground dark:border-sky-500/30 dark:bg-sky-500/10">
+            <span className="font-bold text-brand-action">
+              Plus an AI assistant, at cost.
+            </span>{" "}
+            BeakerBot reasons over the data on your own disk for about a penny a
+            task, with free tokens to start. It is the only metered part, and it
+            is priced near our cost, not an enterprise AI upsell.{" "}
+            <a
+              href="#ai-pricing"
+              className="font-semibold text-brand-action underline-offset-2 hover:underline"
+            >
+              See how AI is priced
+            </a>
+            .
+          </div>
           <p className="mt-2.5 text-[11.5px] leading-snug text-foreground-muted">
             List prices, so a negotiated campus license runs lower per seat, but
-            the gap stays large. The ResearchOS notebook is free and runs on your
-            disk. The one thing you might pay for is optional cloud sharing, free
-            up to the 5 GB pool, then a few dollars a month per person. We subtract
-            a heavy-use estimate of that here rather than pretend ResearchOS is
-            free.
+            the gap stays large. A solo researcher pays nothing, the whole app
+            runs free on their own disk. A lab pays only for the optional cloud it
+            shares through, free up to the 5 GB pool, then a few dollars a month
+            per person, and we count a heavy-use estimate of that here rather than
+            pretend a team of eight is free.
           </p>
         </div>
       </div>

@@ -1,38 +1,69 @@
-// 1:1 revamp (oneonone data+strip bot, 2026-06-07). See
-// docs/proposals/NOTEBOOKS_AND_ONE_ON_ONE_REVAMP.md (Locked decisions, round 2).
+// Check-ins revamp Phase 1 (checkins-revamp bot, 2026-06-11). See
+// docs/proposals/checkins-revamp.md (decisions D6 + naming).
 //
-// The 1:1 label is ROLE-RELATIVE: it names the COUNTERPART and frames the
-// relationship from who is looking. A lab head sees the "Mentoring" framing
-// labeled by the member; a member sees the "Check-ins" framing labeled by the
-// lab head. There is no fixed "1:1s" label.
+// The tab is "Check-ins" for EVERYONE (the role-flipped "Mentoring" label is
+// retired, D6). A space is labeled by its people, framed by who is looking. For
+// a pair space we name the OTHER member; the relationship direction (you mentor
+// them / they mentor you / peers) is available as a soft hint derived from the
+// `mentor` edge, shown inside the space rather than baked into the tab name.
 //
-// These are PURE helpers (no I/O), so the UI derives the label from the viewer
-// + the record alone.
+// These are PURE helpers (no I/O), generalized over the normalized member array
+// so they never crash on a missing legacy `labHead`.
 
 import type { OneOnOne } from "../types";
+import { normalizeOneOnOne, otherMember } from "./normalize";
 
 type ViewerAccountType = "solo" | "lab" | "lab_head";
 
+/** A soft, role-relative relationship hint for a pair space. */
+export type RelationshipHint =
+  | "you-mentor-them"
+  | "they-mentor-you"
+  | "peer"
+  | "group";
+
 /**
- * The per-1:1 entry label, derived from who is looking.
- * - Lab head: "<member> - Mentoring".
- * - Member (or anyone who is not the lab head): "<labHead> - Check-ins".
+ * The per-space entry label, derived from who is looking.
+ * - Pair space: the OTHER member's name (or the space `title` if set).
+ * - Group space: the `title` if set, else a "N people" summary.
  *
- * Identity is by username (not account_type), so a lab head viewing their own
- * 1:1 always gets the Mentoring framing and the member always gets Check-ins.
+ * Generalized over `members`, so it never reads the legacy `labHead`/`member`
+ * directly and never crashes when those are absent.
  */
 export function oneOnOneLabel(viewer: string, oneOnOne: OneOnOne): string {
-  if (viewer === oneOnOne.labHead) {
-    return `${oneOnOne.member} - Mentoring`;
+  const normalized = normalizeOneOnOne(oneOnOne);
+  if (normalized.title) return normalized.title;
+
+  if (normalized.kind === "group") {
+    const others = normalized.members.filter((m) => m !== viewer);
+    return others.length > 0
+      ? `${others.slice(0, 2).join(", ")}${others.length > 2 ? ` +${others.length - 2}` : ""}`
+      : "Group check-in";
   }
-  return `${oneOnOne.labHead} - Check-ins`;
+
+  return otherMember(normalized, viewer) ?? "Check-in";
 }
 
 /**
- * The Workbench tab label for a viewer, by their account type.
- * - Lab head: "Mentoring".
- * - Everyone else: "Check-ins".
+ * A soft, role-relative relationship hint for the open space, derived from the
+ * `mentor` edge. Display-only ("you mentor Mira here" style cues).
  */
-export function oneOnOneTabLabel(viewerAccountType: ViewerAccountType): string {
-  return viewerAccountType === "lab_head" ? "Mentoring" : "Check-ins";
+export function relationshipHint(
+  viewer: string,
+  oneOnOne: OneOnOne,
+): RelationshipHint {
+  const normalized = normalizeOneOnOne(oneOnOne);
+  if (normalized.kind === "group") return "group";
+  if (!normalized.mentor) return "peer";
+  if (normalized.mentor === viewer) return "you-mentor-them";
+  return "they-mentor-you";
+}
+
+/**
+ * The Workbench tab label. "Check-ins" for EVERYONE (D6); the role-flipped
+ * "Mentoring" label is retired. The account-type argument is kept so callers do
+ * not have to change, but it no longer affects the result.
+ */
+export function oneOnOneTabLabel(_viewerAccountType: ViewerAccountType): string {
+  return "Check-ins";
 }

@@ -1,0 +1,1702 @@
+{
+  "provenance": {
+    "pandas": "3.0.3",
+    "numpy": "2.4.6",
+    "python": "3.12.6 (main, Sep  6 2024, 19:03:47) [Clang 15.0.0 (clang-1500.3.9.4)]",
+    "description": "Reference values for the Data Hub transform engine, computed by pandas. Every operation matches the engine's documented ordering and type-coercion rules."
+  },
+  "fixtures": {
+    "TABLE_A": {
+      "columns": [
+        "sample_id",
+        "strain",
+        "expression"
+      ],
+      "rows": [
+        {
+          "sample_id": "S1",
+          "strain": "WT",
+          "expression": 1.2
+        },
+        {
+          "sample_id": "S2",
+          "strain": "mutA",
+          "expression": 3.4
+        },
+        {
+          "sample_id": "S3",
+          "strain": "mutB",
+          "expression": 2.1
+        },
+        {
+          "sample_id": "S4",
+          "strain": "WT",
+          "expression": 1.5
+        },
+        {
+          "sample_id": "S5",
+          "strain": "mutA",
+          "expression": 4.0
+        },
+        {
+          "sample_id": "S6",
+          "strain": "mutB",
+          "expression": null
+        }
+      ]
+    },
+    "TABLE_B": {
+      "columns": [
+        "sample_id",
+        "passage",
+        "condition"
+      ],
+      "rows": [
+        {
+          "sample_id": "S1",
+          "passage": 3,
+          "condition": "LB"
+        },
+        {
+          "sample_id": "S2",
+          "passage": 5,
+          "condition": "M9"
+        },
+        {
+          "sample_id": "S3",
+          "passage": 3,
+          "condition": "LB"
+        },
+        {
+          "sample_id": "S7",
+          "passage": 2,
+          "condition": "M9"
+        }
+      ]
+    },
+    "TABLE_C": {
+      "columns": [
+        "sample_id",
+        "strain",
+        "expression"
+      ],
+      "rows": [
+        {
+          "sample_id": "S7",
+          "strain": "WT",
+          "expression": 0.9
+        },
+        {
+          "sample_id": "S8",
+          "strain": "mutA",
+          "expression": 2.8
+        }
+      ]
+    },
+    "TABLE_DUPES": {
+      "columns": [
+        "key",
+        "val"
+      ],
+      "rows": [
+        {
+          "key": "A",
+          "val": 1
+        },
+        {
+          "key": "B",
+          "val": 2
+        },
+        {
+          "key": "A",
+          "val": 3
+        },
+        {
+          "key": "C",
+          "val": 4
+        },
+        {
+          "key": "B",
+          "val": 5
+        }
+      ]
+    },
+    "TABLE_NULL_KEYS": {
+      "columns": [
+        "id",
+        "value"
+      ],
+      "rows": [
+        {
+          "id": "X1",
+          "value": 10
+        },
+        {
+          "id": null,
+          "value": 20
+        },
+        {
+          "id": "X3",
+          "value": 30
+        }
+      ]
+    },
+    "TABLE_NULL_KEYS_B": {
+      "columns": [
+        "id",
+        "extra"
+      ],
+      "rows": [
+        {
+          "id": "X1",
+          "extra": "a"
+        },
+        {
+          "id": "X2",
+          "extra": "b"
+        }
+      ]
+    },
+    "TABLE_MM_LEFT": {
+      "columns": [
+        "k",
+        "left_val"
+      ],
+      "rows": [
+        {
+          "k": "X",
+          "left_val": 1
+        },
+        {
+          "k": "X",
+          "left_val": 2
+        },
+        {
+          "k": "Y",
+          "left_val": 3
+        }
+      ]
+    },
+    "TABLE_MM_RIGHT": {
+      "columns": [
+        "k",
+        "right_val"
+      ],
+      "rows": [
+        {
+          "k": "X",
+          "right_val": 10
+        },
+        {
+          "k": "X",
+          "right_val": 20
+        },
+        {
+          "k": "Z",
+          "right_val": 30
+        }
+      ]
+    },
+    "TABLE_DERIVE": {
+      "columns": [
+        "a",
+        "b",
+        "c"
+      ],
+      "rows": [
+        {
+          "a": 1.0,
+          "b": 2.0,
+          "c": 3.0
+        },
+        {
+          "a": 4.0,
+          "b": 5.0,
+          "c": 6.0
+        },
+        {
+          "a": 7.0,
+          "b": 8.0,
+          "c": 9.0
+        },
+        {
+          "a": 10.0,
+          "b": 0.0,
+          "c": 2.0
+        }
+      ]
+    },
+    "TABLE_LONG": {
+      "columns": [
+        "sample",
+        "gene",
+        "level"
+      ],
+      "rows": [
+        {
+          "sample": "S1",
+          "gene": "actin",
+          "level": 10.0
+        },
+        {
+          "sample": "S1",
+          "gene": "tubulin",
+          "level": 20.0
+        },
+        {
+          "sample": "S2",
+          "gene": "actin",
+          "level": 30.0
+        },
+        {
+          "sample": "S2",
+          "gene": "tubulin",
+          "level": 40.0
+        },
+        {
+          "sample": "S3",
+          "gene": "actin",
+          "level": 50.0
+        }
+      ]
+    },
+    "TABLE_LONG_DUP": {
+      "columns": [
+        "sample",
+        "gene",
+        "level"
+      ],
+      "rows": [
+        {
+          "sample": "S1",
+          "gene": "actin",
+          "level": 10.0
+        },
+        {
+          "sample": "S1",
+          "gene": "actin",
+          "level": 30.0
+        },
+        {
+          "sample": "S1",
+          "gene": "tubulin",
+          "level": 20.0
+        },
+        {
+          "sample": "S2",
+          "gene": "actin",
+          "level": 50.0
+        }
+      ]
+    },
+    "TABLE_WIDE": {
+      "columns": [
+        "sample",
+        "actin",
+        "tubulin"
+      ],
+      "rows": [
+        {
+          "sample": "S1",
+          "actin": 10.0,
+          "tubulin": 20.0
+        },
+        {
+          "sample": "S2",
+          "actin": 30.0,
+          "tubulin": 40.0
+        }
+      ]
+    }
+  },
+  "references": {
+    "join": {
+      "inner": {
+        "columns": [
+          "sample_id",
+          "strain",
+          "expression",
+          "passage",
+          "condition"
+        ],
+        "rows": [
+          {
+            "sample_id": "S1",
+            "strain": "WT",
+            "expression": 1.2,
+            "passage": 3,
+            "condition": "LB"
+          },
+          {
+            "sample_id": "S2",
+            "strain": "mutA",
+            "expression": 3.4,
+            "passage": 5,
+            "condition": "M9"
+          },
+          {
+            "sample_id": "S3",
+            "strain": "mutB",
+            "expression": 2.1,
+            "passage": 3,
+            "condition": "LB"
+          }
+        ]
+      },
+      "left": {
+        "columns": [
+          "sample_id",
+          "strain",
+          "expression",
+          "passage",
+          "condition"
+        ],
+        "rows": [
+          {
+            "sample_id": "S1",
+            "strain": "WT",
+            "expression": 1.2,
+            "passage": 3.0,
+            "condition": "LB"
+          },
+          {
+            "sample_id": "S2",
+            "strain": "mutA",
+            "expression": 3.4,
+            "passage": 5.0,
+            "condition": "M9"
+          },
+          {
+            "sample_id": "S3",
+            "strain": "mutB",
+            "expression": 2.1,
+            "passage": 3.0,
+            "condition": "LB"
+          },
+          {
+            "sample_id": "S4",
+            "strain": "WT",
+            "expression": 1.5,
+            "passage": null,
+            "condition": null
+          },
+          {
+            "sample_id": "S5",
+            "strain": "mutA",
+            "expression": 4.0,
+            "passage": null,
+            "condition": null
+          },
+          {
+            "sample_id": "S6",
+            "strain": "mutB",
+            "expression": null,
+            "passage": null,
+            "condition": null
+          }
+        ]
+      },
+      "right": {
+        "columns": [
+          "sample_id",
+          "strain",
+          "expression",
+          "passage",
+          "condition"
+        ],
+        "rows": [
+          {
+            "sample_id": "S1",
+            "strain": "WT",
+            "expression": 1.2,
+            "passage": 3,
+            "condition": "LB"
+          },
+          {
+            "sample_id": "S2",
+            "strain": "mutA",
+            "expression": 3.4,
+            "passage": 5,
+            "condition": "M9"
+          },
+          {
+            "sample_id": "S3",
+            "strain": "mutB",
+            "expression": 2.1,
+            "passage": 3,
+            "condition": "LB"
+          },
+          {
+            "sample_id": "S7",
+            "strain": null,
+            "expression": null,
+            "passage": 2,
+            "condition": "M9"
+          }
+        ]
+      },
+      "outer": {
+        "columns": [
+          "sample_id",
+          "strain",
+          "expression",
+          "passage",
+          "condition"
+        ],
+        "rows": [
+          {
+            "sample_id": "S1",
+            "strain": "WT",
+            "expression": 1.2,
+            "passage": 3.0,
+            "condition": "LB"
+          },
+          {
+            "sample_id": "S2",
+            "strain": "mutA",
+            "expression": 3.4,
+            "passage": 5.0,
+            "condition": "M9"
+          },
+          {
+            "sample_id": "S3",
+            "strain": "mutB",
+            "expression": 2.1,
+            "passage": 3.0,
+            "condition": "LB"
+          },
+          {
+            "sample_id": "S4",
+            "strain": "WT",
+            "expression": 1.5,
+            "passage": null,
+            "condition": null
+          },
+          {
+            "sample_id": "S5",
+            "strain": "mutA",
+            "expression": 4.0,
+            "passage": null,
+            "condition": null
+          },
+          {
+            "sample_id": "S6",
+            "strain": "mutB",
+            "expression": null,
+            "passage": null,
+            "condition": null
+          },
+          {
+            "sample_id": "S7",
+            "strain": null,
+            "expression": null,
+            "passage": 2.0,
+            "condition": "M9"
+          }
+        ]
+      }
+    },
+    "join_null_keys": {
+      "inner": {
+        "columns": [
+          "id",
+          "value",
+          "extra"
+        ],
+        "rows": [
+          {
+            "id": "X1",
+            "value": 10,
+            "extra": "a"
+          }
+        ]
+      },
+      "left": {
+        "columns": [
+          "id",
+          "value",
+          "extra"
+        ],
+        "rows": [
+          {
+            "id": "X1",
+            "value": 10,
+            "extra": "a"
+          },
+          {
+            "id": null,
+            "value": 20,
+            "extra": null
+          },
+          {
+            "id": "X3",
+            "value": 30,
+            "extra": null
+          }
+        ]
+      },
+      "outer": {
+        "columns": [
+          "id",
+          "value",
+          "extra"
+        ],
+        "rows": [
+          {
+            "id": "X1",
+            "value": 10.0,
+            "extra": "a"
+          },
+          {
+            "id": "X2",
+            "value": null,
+            "extra": "b"
+          },
+          {
+            "id": "X3",
+            "value": 30.0,
+            "extra": null
+          },
+          {
+            "id": null,
+            "value": 20.0,
+            "extra": null
+          }
+        ]
+      }
+    },
+    "join_many_many": {
+      "columns": [
+        "k",
+        "left_val",
+        "right_val"
+      ],
+      "rows": [
+        {
+          "k": "X",
+          "left_val": 1,
+          "right_val": 10
+        },
+        {
+          "k": "X",
+          "left_val": 1,
+          "right_val": 20
+        },
+        {
+          "k": "X",
+          "left_val": 2,
+          "right_val": 10
+        },
+        {
+          "k": "X",
+          "left_val": 2,
+          "right_val": 20
+        }
+      ]
+    },
+    "filter": {
+      "strain_eq_WT": {
+        "columns": [
+          "sample_id",
+          "strain",
+          "expression"
+        ],
+        "rows": [
+          {
+            "sample_id": "S1",
+            "strain": "WT",
+            "expression": 1.2
+          },
+          {
+            "sample_id": "S4",
+            "strain": "WT",
+            "expression": 1.5
+          }
+        ]
+      },
+      "expression_gt_2": {
+        "columns": [
+          "sample_id",
+          "strain",
+          "expression"
+        ],
+        "rows": [
+          {
+            "sample_id": "S2",
+            "strain": "mutA",
+            "expression": 3.4
+          },
+          {
+            "sample_id": "S3",
+            "strain": "mutB",
+            "expression": 2.1
+          },
+          {
+            "sample_id": "S5",
+            "strain": "mutA",
+            "expression": 4.0
+          }
+        ]
+      },
+      "strain_contains_mut": {
+        "columns": [
+          "sample_id",
+          "strain",
+          "expression"
+        ],
+        "rows": [
+          {
+            "sample_id": "S2",
+            "strain": "mutA",
+            "expression": 3.4
+          },
+          {
+            "sample_id": "S3",
+            "strain": "mutB",
+            "expression": 2.1
+          },
+          {
+            "sample_id": "S5",
+            "strain": "mutA",
+            "expression": 4.0
+          },
+          {
+            "sample_id": "S6",
+            "strain": "mutB",
+            "expression": null
+          }
+        ]
+      },
+      "expression_is_empty": {
+        "columns": [
+          "sample_id",
+          "strain",
+          "expression"
+        ],
+        "rows": [
+          {
+            "sample_id": "S6",
+            "strain": "mutB",
+            "expression": null
+          }
+        ]
+      },
+      "strain_in_WT_mutA": {
+        "columns": [
+          "sample_id",
+          "strain",
+          "expression"
+        ],
+        "rows": [
+          {
+            "sample_id": "S1",
+            "strain": "WT",
+            "expression": 1.2
+          },
+          {
+            "sample_id": "S2",
+            "strain": "mutA",
+            "expression": 3.4
+          },
+          {
+            "sample_id": "S4",
+            "strain": "WT",
+            "expression": 1.5
+          },
+          {
+            "sample_id": "S5",
+            "strain": "mutA",
+            "expression": 4.0
+          }
+        ]
+      },
+      "strain_mutA_and_expr_gt_2": {
+        "columns": [
+          "sample_id",
+          "strain",
+          "expression"
+        ],
+        "rows": [
+          {
+            "sample_id": "S2",
+            "strain": "mutA",
+            "expression": 3.4
+          },
+          {
+            "sample_id": "S5",
+            "strain": "mutA",
+            "expression": 4.0
+          }
+        ]
+      },
+      "not_strain_WT": {
+        "columns": [
+          "sample_id",
+          "strain",
+          "expression"
+        ],
+        "rows": [
+          {
+            "sample_id": "S2",
+            "strain": "mutA",
+            "expression": 3.4
+          },
+          {
+            "sample_id": "S3",
+            "strain": "mutB",
+            "expression": 2.1
+          },
+          {
+            "sample_id": "S5",
+            "strain": "mutA",
+            "expression": 4.0
+          },
+          {
+            "sample_id": "S6",
+            "strain": "mutB",
+            "expression": null
+          }
+        ]
+      }
+    },
+    "groupby": {
+      "expression_mean": {
+        "columns": [
+          "strain",
+          "expression_mean"
+        ],
+        "rows": [
+          {
+            "strain": "WT",
+            "expression_mean": 1.35
+          },
+          {
+            "strain": "mutA",
+            "expression_mean": 3.7
+          },
+          {
+            "strain": "mutB",
+            "expression_mean": 2.1
+          }
+        ]
+      },
+      "expression_sum": {
+        "columns": [
+          "strain",
+          "expression_sum"
+        ],
+        "rows": [
+          {
+            "strain": "WT",
+            "expression_sum": 2.7
+          },
+          {
+            "strain": "mutA",
+            "expression_sum": 7.4
+          },
+          {
+            "strain": "mutB",
+            "expression_sum": 2.1
+          }
+        ]
+      },
+      "expression_count": {
+        "columns": [
+          "strain",
+          "expression_count"
+        ],
+        "rows": [
+          {
+            "strain": "WT",
+            "expression_count": 2
+          },
+          {
+            "strain": "mutA",
+            "expression_count": 2
+          },
+          {
+            "strain": "mutB",
+            "expression_count": 1
+          }
+        ]
+      },
+      "expression_min": {
+        "columns": [
+          "strain",
+          "expression_min"
+        ],
+        "rows": [
+          {
+            "strain": "WT",
+            "expression_min": 1.2
+          },
+          {
+            "strain": "mutA",
+            "expression_min": 3.4
+          },
+          {
+            "strain": "mutB",
+            "expression_min": 2.1
+          }
+        ]
+      },
+      "expression_max": {
+        "columns": [
+          "strain",
+          "expression_max"
+        ],
+        "rows": [
+          {
+            "strain": "WT",
+            "expression_max": 1.5
+          },
+          {
+            "strain": "mutA",
+            "expression_max": 4.0
+          },
+          {
+            "strain": "mutB",
+            "expression_max": 2.1
+          }
+        ]
+      },
+      "expression_median": {
+        "columns": [
+          "strain",
+          "expression_median"
+        ],
+        "rows": [
+          {
+            "strain": "WT",
+            "expression_median": 1.35
+          },
+          {
+            "strain": "mutA",
+            "expression_median": 3.7
+          },
+          {
+            "strain": "mutB",
+            "expression_median": 2.1
+          }
+        ]
+      },
+      "expression_sd": {
+        "columns": [
+          "strain",
+          "expression_sd"
+        ],
+        "rows": [
+          {
+            "strain": "WT",
+            "expression_sd": 0.2121320343559642
+          },
+          {
+            "strain": "mutA",
+            "expression_sd": 0.4242640687119284
+          },
+          {
+            "strain": "mutB",
+            "expression_sd": null
+          }
+        ]
+      },
+      "expression_first": {
+        "columns": [
+          "strain",
+          "expression_first"
+        ],
+        "rows": [
+          {
+            "strain": "WT",
+            "expression_first": 1.2
+          },
+          {
+            "strain": "mutA",
+            "expression_first": 3.4
+          },
+          {
+            "strain": "mutB",
+            "expression_first": 2.1
+          }
+        ]
+      },
+      "expression_nunique": {
+        "columns": [
+          "strain",
+          "expression_nunique"
+        ],
+        "rows": [
+          {
+            "strain": "WT",
+            "expression_nunique": 2
+          },
+          {
+            "strain": "mutA",
+            "expression_nunique": 2
+          },
+          {
+            "strain": "mutB",
+            "expression_nunique": 1
+          }
+        ]
+      },
+      "expression_concat": {
+        "columns": [
+          "strain",
+          "expression_concat"
+        ],
+        "rows": [
+          {
+            "strain": "WT",
+            "expression_concat": "1.2, 1.5"
+          },
+          {
+            "strain": "mutA",
+            "expression_concat": "3.4, 4.0"
+          },
+          {
+            "strain": "mutB",
+            "expression_concat": "2.1"
+          }
+        ]
+      }
+    },
+    "groupby_empty_group": {
+      "columns": [
+        "group",
+        "val_mean"
+      ],
+      "rows": [
+        {
+          "group": "A",
+          "val_mean": 1.5
+        },
+        {
+          "group": "B",
+          "val_mean": null
+        }
+      ]
+    },
+    "select_drop_rename": {
+      "select_sid_expr": {
+        "columns": [
+          "sample_id",
+          "expression"
+        ],
+        "rows": [
+          {
+            "sample_id": "S1",
+            "expression": 1.2
+          },
+          {
+            "sample_id": "S2",
+            "expression": 3.4
+          },
+          {
+            "sample_id": "S3",
+            "expression": 2.1
+          },
+          {
+            "sample_id": "S4",
+            "expression": 1.5
+          },
+          {
+            "sample_id": "S5",
+            "expression": 4.0
+          },
+          {
+            "sample_id": "S6",
+            "expression": null
+          }
+        ]
+      },
+      "drop_expression": {
+        "columns": [
+          "sample_id",
+          "strain"
+        ],
+        "rows": [
+          {
+            "sample_id": "S1",
+            "strain": "WT"
+          },
+          {
+            "sample_id": "S2",
+            "strain": "mutA"
+          },
+          {
+            "sample_id": "S3",
+            "strain": "mutB"
+          },
+          {
+            "sample_id": "S4",
+            "strain": "WT"
+          },
+          {
+            "sample_id": "S5",
+            "strain": "mutA"
+          },
+          {
+            "sample_id": "S6",
+            "strain": "mutB"
+          }
+        ]
+      },
+      "rename_expr_strain": {
+        "columns": [
+          "sample_id",
+          "genotype",
+          "expr_value"
+        ],
+        "rows": [
+          {
+            "sample_id": "S1",
+            "genotype": "WT",
+            "expr_value": 1.2
+          },
+          {
+            "sample_id": "S2",
+            "genotype": "mutA",
+            "expr_value": 3.4
+          },
+          {
+            "sample_id": "S3",
+            "genotype": "mutB",
+            "expr_value": 2.1
+          },
+          {
+            "sample_id": "S4",
+            "genotype": "WT",
+            "expr_value": 1.5
+          },
+          {
+            "sample_id": "S5",
+            "genotype": "mutA",
+            "expr_value": 4.0
+          },
+          {
+            "sample_id": "S6",
+            "genotype": "mutB",
+            "expr_value": null
+          }
+        ]
+      }
+    },
+    "sort": {
+      "expression_asc": {
+        "columns": [
+          "sample_id",
+          "strain",
+          "expression"
+        ],
+        "rows": [
+          {
+            "sample_id": "S1",
+            "strain": "WT",
+            "expression": 1.2
+          },
+          {
+            "sample_id": "S4",
+            "strain": "WT",
+            "expression": 1.5
+          },
+          {
+            "sample_id": "S3",
+            "strain": "mutB",
+            "expression": 2.1
+          },
+          {
+            "sample_id": "S2",
+            "strain": "mutA",
+            "expression": 3.4
+          },
+          {
+            "sample_id": "S5",
+            "strain": "mutA",
+            "expression": 4.0
+          },
+          {
+            "sample_id": "S6",
+            "strain": "mutB",
+            "expression": null
+          }
+        ]
+      },
+      "expression_desc": {
+        "columns": [
+          "sample_id",
+          "strain",
+          "expression"
+        ],
+        "rows": [
+          {
+            "sample_id": "S6",
+            "strain": "mutB",
+            "expression": null
+          },
+          {
+            "sample_id": "S5",
+            "strain": "mutA",
+            "expression": 4.0
+          },
+          {
+            "sample_id": "S2",
+            "strain": "mutA",
+            "expression": 3.4
+          },
+          {
+            "sample_id": "S3",
+            "strain": "mutB",
+            "expression": 2.1
+          },
+          {
+            "sample_id": "S4",
+            "strain": "WT",
+            "expression": 1.5
+          },
+          {
+            "sample_id": "S1",
+            "strain": "WT",
+            "expression": 1.2
+          }
+        ]
+      },
+      "strain_asc_expr_desc": {
+        "columns": [
+          "sample_id",
+          "strain",
+          "expression"
+        ],
+        "rows": [
+          {
+            "sample_id": "S4",
+            "strain": "WT",
+            "expression": 1.5
+          },
+          {
+            "sample_id": "S1",
+            "strain": "WT",
+            "expression": 1.2
+          },
+          {
+            "sample_id": "S5",
+            "strain": "mutA",
+            "expression": 4.0
+          },
+          {
+            "sample_id": "S2",
+            "strain": "mutA",
+            "expression": 3.4
+          },
+          {
+            "sample_id": "S3",
+            "strain": "mutB",
+            "expression": 2.1
+          },
+          {
+            "sample_id": "S6",
+            "strain": "mutB",
+            "expression": null
+          }
+        ]
+      }
+    },
+    "dedupe": {
+      "all_first": {
+        "columns": [
+          "key",
+          "val"
+        ],
+        "rows": [
+          {
+            "key": "A",
+            "val": 1
+          },
+          {
+            "key": "B",
+            "val": 2
+          },
+          {
+            "key": "A",
+            "val": 3
+          },
+          {
+            "key": "C",
+            "val": 4
+          },
+          {
+            "key": "B",
+            "val": 5
+          }
+        ]
+      },
+      "all_last": {
+        "columns": [
+          "key",
+          "val"
+        ],
+        "rows": [
+          {
+            "key": "A",
+            "val": 1
+          },
+          {
+            "key": "B",
+            "val": 2
+          },
+          {
+            "key": "A",
+            "val": 3
+          },
+          {
+            "key": "C",
+            "val": 4
+          },
+          {
+            "key": "B",
+            "val": 5
+          }
+        ]
+      },
+      "key_subset_first": {
+        "columns": [
+          "key",
+          "val"
+        ],
+        "rows": [
+          {
+            "key": "A",
+            "val": 1
+          },
+          {
+            "key": "B",
+            "val": 2
+          },
+          {
+            "key": "C",
+            "val": 4
+          }
+        ]
+      },
+      "key_subset_last": {
+        "columns": [
+          "key",
+          "val"
+        ],
+        "rows": [
+          {
+            "key": "A",
+            "val": 3
+          },
+          {
+            "key": "C",
+            "val": 4
+          },
+          {
+            "key": "B",
+            "val": 5
+          }
+        ]
+      }
+    },
+    "union": {
+      "same_schema": {
+        "columns": [
+          "sample_id",
+          "strain",
+          "expression"
+        ],
+        "rows": [
+          {
+            "sample_id": "S1",
+            "strain": "WT",
+            "expression": 1.2
+          },
+          {
+            "sample_id": "S2",
+            "strain": "mutA",
+            "expression": 3.4
+          },
+          {
+            "sample_id": "S3",
+            "strain": "mutB",
+            "expression": 2.1
+          },
+          {
+            "sample_id": "S4",
+            "strain": "WT",
+            "expression": 1.5
+          },
+          {
+            "sample_id": "S5",
+            "strain": "mutA",
+            "expression": 4.0
+          },
+          {
+            "sample_id": "S6",
+            "strain": "mutB",
+            "expression": null
+          },
+          {
+            "sample_id": "S7",
+            "strain": "WT",
+            "expression": 0.9
+          },
+          {
+            "sample_id": "S8",
+            "strain": "mutA",
+            "expression": 2.8
+          }
+        ]
+      },
+      "extra_column": {
+        "columns": [
+          "sample_id",
+          "strain",
+          "expression",
+          "batch"
+        ],
+        "rows": [
+          {
+            "sample_id": "S1",
+            "strain": "WT",
+            "expression": 1.2,
+            "batch": null
+          },
+          {
+            "sample_id": "S2",
+            "strain": "mutA",
+            "expression": 3.4,
+            "batch": null
+          },
+          {
+            "sample_id": "S3",
+            "strain": "mutB",
+            "expression": 2.1,
+            "batch": null
+          },
+          {
+            "sample_id": "S4",
+            "strain": "WT",
+            "expression": 1.5,
+            "batch": null
+          },
+          {
+            "sample_id": "S5",
+            "strain": "mutA",
+            "expression": 4.0,
+            "batch": null
+          },
+          {
+            "sample_id": "S6",
+            "strain": "mutB",
+            "expression": null,
+            "batch": null
+          },
+          {
+            "sample_id": "SX",
+            "strain": null,
+            "expression": null,
+            "batch": "B2"
+          }
+        ]
+      }
+    },
+    "chains": {
+      "join_filter_groupby": {
+        "columns": [
+          "strain",
+          "expression_mean"
+        ],
+        "rows": [
+          {
+            "strain": "WT",
+            "expression_mean": 1.2
+          },
+          {
+            "strain": "mutA",
+            "expression_mean": 3.4
+          },
+          {
+            "strain": "mutB",
+            "expression_mean": 2.1
+          }
+        ]
+      },
+      "left_join_select_sort": {
+        "columns": [
+          "sample_id",
+          "strain",
+          "expression",
+          "condition"
+        ],
+        "rows": [
+          {
+            "sample_id": "S1",
+            "strain": "WT",
+            "expression": 1.2,
+            "condition": "LB"
+          },
+          {
+            "sample_id": "S4",
+            "strain": "WT",
+            "expression": 1.5,
+            "condition": null
+          },
+          {
+            "sample_id": "S3",
+            "strain": "mutB",
+            "expression": 2.1,
+            "condition": "LB"
+          },
+          {
+            "sample_id": "S2",
+            "strain": "mutA",
+            "expression": 3.4,
+            "condition": "M9"
+          },
+          {
+            "sample_id": "S5",
+            "strain": "mutA",
+            "expression": 4.0,
+            "condition": null
+          },
+          {
+            "sample_id": "S6",
+            "strain": "mutB",
+            "expression": null,
+            "condition": null
+          }
+        ]
+      },
+      "filter_rename_dedupe": {
+        "columns": [
+          "sample_id",
+          "genotype",
+          "expression"
+        ],
+        "rows": [
+          {
+            "sample_id": "S1",
+            "genotype": "WT",
+            "expression": 1.2
+          },
+          {
+            "sample_id": "S2",
+            "genotype": "mutA",
+            "expression": 3.4
+          }
+        ]
+      }
+    },
+    "derive": {
+      "sum_ab": {
+        "columns": [
+          "a",
+          "b",
+          "c",
+          "sum_ab"
+        ],
+        "rows": [
+          {
+            "a": 1.0,
+            "b": 2.0,
+            "c": 3.0,
+            "sum_ab": 3.0
+          },
+          {
+            "a": 4.0,
+            "b": 5.0,
+            "c": 6.0,
+            "sum_ab": 9.0
+          },
+          {
+            "a": 7.0,
+            "b": 8.0,
+            "c": 9.0,
+            "sum_ab": 15.0
+          },
+          {
+            "a": 10.0,
+            "b": 0.0,
+            "c": 2.0,
+            "sum_ab": 10.0
+          }
+        ]
+      },
+      "lin": {
+        "columns": [
+          "a",
+          "b",
+          "c",
+          "lin"
+        ],
+        "rows": [
+          {
+            "a": 1.0,
+            "b": 2.0,
+            "c": 3.0,
+            "lin": -1.0
+          },
+          {
+            "a": 4.0,
+            "b": 5.0,
+            "c": 6.0,
+            "lin": 2.0
+          },
+          {
+            "a": 7.0,
+            "b": 8.0,
+            "c": 9.0,
+            "lin": 5.0
+          },
+          {
+            "a": 10.0,
+            "b": 0.0,
+            "c": 2.0,
+            "lin": 18.0
+          }
+        ]
+      },
+      "ratio": {
+        "columns": [
+          "a",
+          "b",
+          "c",
+          "ratio"
+        ],
+        "rows": [
+          {
+            "a": 1.0,
+            "b": 2.0,
+            "c": 3.0,
+            "ratio": 0.5
+          },
+          {
+            "a": 4.0,
+            "b": 5.0,
+            "c": 6.0,
+            "ratio": 0.8
+          },
+          {
+            "a": 7.0,
+            "b": 8.0,
+            "c": 9.0,
+            "ratio": 0.875
+          },
+          {
+            "a": 10.0,
+            "b": 0.0,
+            "c": 2.0,
+            "ratio": null
+          }
+        ]
+      }
+    },
+    "pivot": {
+      "basic": {
+        "columns": [
+          "sample",
+          "actin",
+          "tubulin"
+        ],
+        "rows": [
+          {
+            "sample": "S1",
+            "actin": 10.0,
+            "tubulin": 20.0
+          },
+          {
+            "sample": "S2",
+            "actin": 30.0,
+            "tubulin": 40.0
+          },
+          {
+            "sample": "S3",
+            "actin": 50.0,
+            "tubulin": null
+          }
+        ]
+      },
+      "collision": {
+        "columns": [
+          "sample",
+          "actin",
+          "tubulin"
+        ],
+        "rows": [
+          {
+            "sample": "S1",
+            "actin": 20.0,
+            "tubulin": 20.0
+          },
+          {
+            "sample": "S2",
+            "actin": 50.0,
+            "tubulin": null
+          }
+        ]
+      }
+    },
+    "unpivot": {
+      "explicit": {
+        "columns": [
+          "sample",
+          "gene",
+          "level"
+        ],
+        "rows": [
+          {
+            "sample": "S1",
+            "gene": "actin",
+            "level": 10.0
+          },
+          {
+            "sample": "S2",
+            "gene": "actin",
+            "level": 30.0
+          },
+          {
+            "sample": "S1",
+            "gene": "tubulin",
+            "level": 20.0
+          },
+          {
+            "sample": "S2",
+            "gene": "tubulin",
+            "level": 40.0
+          }
+        ]
+      },
+      "defaults": {
+        "columns": [
+          "sample",
+          "variable",
+          "value"
+        ],
+        "rows": [
+          {
+            "sample": "S1",
+            "variable": "actin",
+            "value": 10.0
+          },
+          {
+            "sample": "S2",
+            "variable": "actin",
+            "value": 30.0
+          },
+          {
+            "sample": "S1",
+            "variable": "tubulin",
+            "value": 20.0
+          },
+          {
+            "sample": "S2",
+            "variable": "tubulin",
+            "value": 40.0
+          }
+        ]
+      }
+    }
+  }
+}

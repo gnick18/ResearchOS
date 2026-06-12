@@ -24,7 +24,9 @@
  */
 
 import Link from "next/link";
-import AppFooter from "../AppFooter";
+
+import MarketingFooter from "@/components/MarketingFooter";
+import MarketingNav from "@/components/MarketingNav";
 
 const EFFECTIVE_DATE = "June 4, 2026";
 const CONTACT_EMAIL = "gnickles@wisc.edu";
@@ -52,23 +54,7 @@ function Section({
 export default function PrivacyPolicy() {
   return (
     <div className="flex min-h-screen flex-col bg-surface-sunken text-foreground">
-      {/* Header / back to app */}
-      <header className="border-b border-border bg-surface-raised">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
-          <Link
-            href="/"
-            className="text-body font-medium text-foreground-muted underline-offset-2 hover:text-foreground hover:underline"
-          >
-            ResearchOS
-          </Link>
-          <Link
-            href="/"
-            className="text-body font-medium text-sky-700 dark:text-sky-300 underline-offset-2 hover:text-sky-900 hover:underline"
-          >
-            Back to the app
-          </Link>
-        </div>
-      </header>
+      <MarketingNav />
 
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
         {/* Intro */}
@@ -337,7 +323,7 @@ export default function PrivacyPolicy() {
         </Section>
       </main>
 
-      <AppFooter />
+      <MarketingFooter />
     </div>
   );
 }

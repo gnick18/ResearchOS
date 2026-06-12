@@ -26,6 +26,10 @@ export interface EmbedRendererProps {
   caption: string;
   /** The note's directory, for renderers that read files relative to it. */
   basePath?: string;
+  /** When the document opts into figure numbering, the label for this embed
+   *  ("Figure 1", "Table 2"). Figure-type renderers prefix their caption with it.
+   *  Undefined when numbering is off. */
+  figureLabel?: string;
 }
 
 // Per-type rich renderers, added as each phase lands. A type absent here uses the
@@ -106,11 +110,11 @@ export function ObjectEmbedCard({
   );
 }
 
-export default function ObjectEmbed({ descriptor, caption, basePath }: EmbedRendererProps) {
+export default function ObjectEmbed({ descriptor, caption, basePath, figureLabel }: EmbedRendererProps) {
   const Renderer = EMBED_RENDERERS[descriptor.type];
   return (
-    <div
-      className="my-3 overflow-hidden rounded-xl border border-border bg-surface-raised"
+    <figure
+      className="my-3 mx-0 overflow-hidden rounded-xl border border-border bg-surface-raised"
       data-embed-type={descriptor.type}
       data-embed-view={descriptor.view}
     >
@@ -118,11 +122,45 @@ export default function ObjectEmbed({ descriptor, caption, basePath }: EmbedRend
         <Suspense
           fallback={<ObjectEmbedCard descriptor={descriptor} caption={caption} loading />}
         >
-          <Renderer descriptor={descriptor} caption={caption} basePath={basePath} />
+          <Renderer
+            descriptor={descriptor}
+            caption={caption}
+            basePath={basePath}
+            figureLabel={figureLabel}
+          />
         </Suspense>
       ) : (
         <ObjectEmbedCard descriptor={descriptor} caption={caption} />
       )}
-    </div>
+    </figure>
+  );
+}
+
+/**
+ * The caption line below a figure-type embed (molecule, sequence, Data Hub).
+ * Renders a <figcaption> when the document numbers figures (figureLabel present)
+ * OR the user wrote a caption that differs from the object's own name, so the
+ * default case (caption == name, no numbering) stays clean with no redundant
+ * line. Must be rendered inside the ObjectEmbed <figure>.
+ */
+export function EmbedCaption({
+  caption,
+  name,
+  figureLabel,
+}: {
+  caption: string;
+  name?: string;
+  figureLabel?: string;
+}) {
+  const text = caption || name || "";
+  if (!text) return null;
+  if (!figureLabel && text === name) return null;
+  return (
+    <figcaption className="border-t border-border px-3 py-2 text-meta text-foreground-muted">
+      {figureLabel ? (
+        <span className="font-semibold text-foreground">{figureLabel}. </span>
+      ) : null}
+      {text}
+    </figcaption>
   );
 }

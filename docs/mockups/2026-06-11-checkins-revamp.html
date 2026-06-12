@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Check-ins revamp — 1:1 to mentorship trees + group check-ins (before / after)</title>
+<style>
+  :root {
+    --surface:#f8fafc; --surface-raised:#fff; --surface-overlay:#fff; --surface-sunken:#f1f5f9;
+    --border:#e5e7eb; --border-strong:#cbd5e1; --fg:#111827; --fg-muted:#64748b; --fg-faint:#94a3b8;
+    --brand-action:#1283C9; --brand-purple:#5B47D6; --pin:#e11d48; --ok:#16a34a;
+    --blue:#2563eb; --blue-soft:#eff6ff; --amber:#d97706; --amber-soft:#fffbeb;
+    --green:#16a34a; --green-soft:#f0fdf4; --purple:#7c3aed; --purple-soft:#f3effe;
+    --rose:#e11d48; --rose-soft:#fff1f3;
+  }
+  body.dark {
+    --surface:#0a0e1a; --surface-raised:#1c2638; --surface-overlay:#28344c; --surface-sunken:#0d1424;
+    --border:rgba(255,255,255,.16); --border-strong:rgba(255,255,255,.28); --fg:#e9eef7; --fg-muted:#9fb0c8; --fg-faint:#6b7c96;
+    --pin:#fb7185; --ok:#4ade80; --blue:#60a5fa; --blue-soft:rgba(37,99,235,.18); --amber:#fbbf24; --amber-soft:rgba(217,119,6,.18);
+    --green:#4ade80; --green-soft:rgba(22,163,74,.18); --purple:#b69cff; --purple-soft:rgba(124,58,237,.18); --rose:#fb7185; --rose-soft:rgba(225,29,72,.18);
+  }
+  *{box-sizing:border-box}html,body{margin:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--surface);color:var(--fg);line-height:1.45;-webkit-font-smoothing:antialiased}
+  a{color:var(--brand-action)}
+  header.top{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:14px;padding:14px 22px;background:var(--surface-overlay);border-bottom:1px solid var(--border)}
+  header.top h1{font-size:17px;margin:0;font-weight:800;letter-spacing:-.01em}
+  header.top .sub{font-size:12.5px;color:var(--fg-muted)}
+  header.top .spacer{flex:1}
+  .btn{font:inherit;font-size:13px;font-weight:600;padding:7px 13px;border-radius:9px;border:1px solid var(--border-strong);background:var(--surface-raised);color:var(--fg);cursor:pointer}
+  .btn:hover{border-color:var(--brand-action)}.btn.on{background:var(--brand-action);border-color:var(--brand-action);color:#fff}.btn.danger{color:var(--pin)}
+  .wrap{max-width:1320px;margin:0 auto;padding:22px}
+  .lead{color:var(--fg-muted);font-size:14px;max-width:920px;margin:0 0 6px}
+  .panes{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;margin-top:18px}
+  @media(max-width:1180px){.panes{grid-template-columns:1fr}}
+  .pane{background:var(--surface-raised);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+  .pane>.label{padding:9px 16px;font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--fg-faint);border-bottom:1px solid var(--border)}
+  .pane.before>.label{background:var(--surface-sunken)}
+  .pane.after>.label{background:linear-gradient(90deg,rgba(18,131,201,.12),rgba(91,71,214,.1));color:var(--brand-action)}
+
+  /* BEFORE */
+  .before-body{padding:14px;display:grid;grid-template-columns:150px 1fr;gap:12px}
+  .b-rail{border-right:1px solid var(--border);padding-right:10px}
+  .b-rail .h{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--fg-faint);margin-bottom:8px}
+  .b-rail .item{font-size:12.5px;padding:8px;border-radius:8px;background:var(--surface-sunken);color:var(--fg)}
+  .b-sub{display:flex;gap:14px;font-size:12.5px;color:var(--fg-faint);border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:10px}
+  .b-sub .on{color:var(--brand-action);font-weight:700}
+  .b-goal{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:7px 0;border-bottom:1px solid var(--border)}
+  .b-goal .cb{width:15px;height:15px;border:1px solid var(--border-strong);border-radius:4px;flex:none}
+  .b-note{text-align:center;font-size:11.5px;color:var(--fg-faint);font-style:italic;padding:10px 0 2px;grid-column:1/-1}
+
+  /* AFTER explorer */
+  .explorer{display:grid;grid-template-columns:240px 1fr;min-height:600px}
+  .rail{border-right:1px solid var(--border);background:var(--surface-sunken);padding:12px 10px;overflow-y:auto}
+  .rail .sech{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-faint);padding:0 6px;margin:14px 0 5px;display:flex;align-items:center;gap:5px}
+  .rail .sech:first-of-type{margin-top:0}
+  .nav{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;font-size:13px;cursor:pointer;color:var(--fg)}
+  .nav:hover{background:var(--surface-raised)}
+  .nav.active{background:var(--brand-action);color:#fff;font-weight:600}
+  .nav .av{width:22px;height:22px;border-radius:999px;flex:none;display:grid;place-items:center;font-size:10px;font-weight:700;color:#fff}
+  .nav .gv{width:22px;height:22px;border-radius:7px;flex:none;display:grid;place-items:center;color:#fff}
+  .nav .lbl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .nav .lbl small{display:block;font-size:10.5px;color:var(--fg-faint);font-weight:400}
+  .nav.active .lbl small{color:rgba(255,255,255,.8)}
+  .railbtn{width:100%;display:flex;align-items:center;gap:7px;justify-content:center;font-size:12.5px;font-weight:600;padding:8px;border-radius:9px;border:1px dashed var(--border-strong);background:transparent;color:var(--brand-action);cursor:pointer;margin-top:4px}
+  .treebtn{width:100%;display:flex;align-items:center;gap:7px;font-size:12px;padding:7px 8px;border-radius:8px;color:var(--fg-muted);cursor:pointer;background:transparent;border:none}
+  .treebtn:hover{background:var(--surface-raised)}
+
+  .detail{display:flex;flex-direction:column;min-width:0}
+  .dhead{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border)}
+  .dhead .ttl{font-size:15px;font-weight:800}
+  .dhead .who{font-size:12px;color:var(--fg-muted)}
+  .dhead .cad{margin-left:auto;font-size:11.5px;color:var(--fg-faint);border:1px solid var(--border);border-radius:999px;padding:2px 9px}
+  .dhead .role{font-size:11px;font-weight:700;color:var(--purple);background:var(--purple-soft);border-radius:999px;padding:2px 9px}
+  .subtabs{display:flex;gap:2px;padding:6px 12px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .subtab{font-size:12.5px;font-weight:600;padding:5px 11px;border-radius:8px;color:var(--fg-muted);cursor:pointer}
+  .subtab:hover{background:var(--surface-sunken)}
+  .subtab.on{background:var(--brand-action);color:#fff}
+  .dbody{padding:14px 16px;overflow:auto}
+
+  .band{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:7px;border-left:3px solid var(--bc,var(--border-strong));background:var(--bbg,var(--surface-sunken));color:var(--bc,var(--fg-muted));font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;margin:12px 0 6px}
+  .band:first-child{margin-top:0}
+  .row{display:flex;align-items:center;gap:9px;padding:8px 4px;border-bottom:1px solid var(--border);font-size:13px}
+  .cb{width:16px;height:16px;border:1.5px solid var(--border-strong);border-radius:5px;flex:none;display:grid;place-items:center;cursor:pointer}
+  .cb.done{background:var(--brand-action);border-color:var(--brand-action);color:#fff}
+  .row.done .tx{color:var(--fg-faint);text-decoration:line-through}
+  .tx{flex:1;min-width:0}
+  .chip{font-size:10.5px;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap}
+  .chip.person{background:var(--surface-sunken);color:var(--fg-muted)}
+  .chip.carry{background:var(--amber-soft);color:var(--amber)}
+  .chip.author{background:transparent;color:var(--fg-faint);font-weight:400}
+  .chip.gantt{background:var(--green-soft);color:var(--green)}
+  .chip.due{background:var(--blue-soft);color:var(--blue)}
+  .seg{display:inline-flex;border:1px solid var(--border-strong);border-radius:8px;overflow:hidden;margin-left:auto}
+  .seg button{font:inherit;font-size:12px;font-weight:600;padding:3px 11px;border:none;background:var(--surface-raised);color:var(--fg-muted);cursor:pointer}
+  .seg button.on{background:var(--brand-action);color:#fff}
+  .add{display:flex;gap:8px;margin:10px 0 4px}
+  .add input{flex:1;font:inherit;font-size:12.5px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-sunken);color:var(--fg-muted)}
+  .add .b{font-size:12.5px;font-weight:600;padding:7px 12px;border-radius:8px;background:var(--brand-action);color:#fff;border:none}
+
+  .cols2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .card{border:1px solid var(--border);border-radius:11px;overflow:hidden}
+  .card .ch{padding:7px 11px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px}
+  .card .cb-{padding:10px 11px;font-size:12.5px;color:var(--fg-muted);line-height:1.5}
+  .lock{font-size:10px;color:var(--fg-faint)}
+
+  /* IDP */
+  .idp-sec{border:1px solid var(--border);border-radius:11px;margin-bottom:10px;overflow:hidden}
+  .idp-sec .h{padding:8px 12px;font-size:12px;font-weight:700;background:var(--surface-sunken);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px}
+  .idp-sec .bd{padding:10px 12px;font-size:12.5px;color:var(--fg-muted)}
+  .idp-sec .h{display:flex;align-items:center}
+  .idp-sec table{width:100%;border-collapse:collapse;font-size:12px}
+  .idp-sec table th{padding:7px 10px;text-align:left;color:var(--fg-faint);font-size:10.5px;text-transform:uppercase;font-weight:700}
+  .idp-sec table td{padding:7px 10px;border-top:1px solid var(--border);vertical-align:top}
+  .dual{display:flex;align-items:center;gap:7px;font-size:12px;padding:4px 0}
+  .dual .nm{flex:1;min-width:0}
+  .dual .lab{font-size:10px;color:var(--fg-faint)}
+  .skill{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:4px 0}
+  .meter{flex:1;height:6px;border-radius:3px;background:var(--surface-sunken);overflow:hidden;max-width:160px}
+  .meter i{display:block;height:100%;background:var(--brand-action)}
+  .stagebadge{font-size:11px;font-weight:700;color:var(--green);background:var(--green-soft);border-radius:999px;padding:2px 9px}
+  .complhook{font-size:11.5px;color:var(--amber);background:var(--amber-soft);border:1px solid var(--border);border-radius:8px;padding:6px 10px;margin-bottom:10px}
+
+  /* timeline */
+  .tl{position:relative;padding-left:18px}
+  .tl::before{content:"";position:absolute;left:5px;top:4px;bottom:4px;width:2px;background:var(--border)}
+  .tl .ev{position:relative;padding:6px 0 12px}
+  .tl .ev::before{content:"";position:absolute;left:-16px;top:9px;width:9px;height:9px;border-radius:999px;background:var(--brand-action);border:2px solid var(--surface-raised)}
+  .tl .ev.mile::before{background:var(--green)}
+  .tl .ev .d{font-size:11px;color:var(--fg-faint)}
+  .tl .ev .t{font-size:13px;font-weight:600}
+
+  /* rotation */
+  .rot{display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border);font-size:13px}
+  .rot .nx{font-size:10.5px;font-weight:700;color:var(--blue);background:var(--blue-soft);border-radius:999px;padding:1px 8px}
+
+  /* tree panel */
+  .scrim{position:fixed;inset:0;background:rgba(8,12,22,.45);display:none;place-items:center;z-index:60;padding:24px}
+  .scrim.show{display:grid}
+  .treecard{width:min(540px,96vw);background:var(--surface-overlay);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+  .treecard .h{display:flex;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border);font-weight:800}
+  .treecard .h .x{margin-left:auto;cursor:pointer;color:var(--fg-faint);background:none;border:none;font-size:20px;line-height:1}
+  .tree{padding:18px 20px;font-size:13px}
+  .tnode{display:flex;align-items:center;gap:8px;padding:4px 0}
+  .tnode .av{width:24px;height:24px;border-radius:999px;display:grid;place-items:center;color:#fff;font-size:10px;font-weight:700;flex:none}
+  .tnode small{color:var(--fg-faint)}
+  .tchild{margin-left:26px;border-left:2px solid var(--border);padding-left:14px}
+  .tme{font-weight:800;color:var(--brand-action)}
+
+  /* changes/comments harness */
+  .section-h{font-size:18px;font-weight:800;margin:34px 0 4px;letter-spacing:-.01em}
+  .section-sub{color:var(--fg-muted);font-size:13.5px;margin:0 0 14px}
+  .changes{display:grid;gap:12px}
+  .change{display:flex;gap:14px;background:var(--surface-raised);border:1px solid var(--border);border-left:4px solid var(--border-strong);border-radius:12px;padding:14px 16px}
+  .change.approved{border-left-color:var(--ok)}.change.disapproved{border-left-color:var(--pin)}
+  .change .body{flex:1;min-width:0}.change .body h4{margin:0 0 4px;font-size:14.5px;font-weight:700}.change .body p{margin:0;font-size:13px;color:var(--fg-muted)}
+  .change .verdict{flex:none;display:flex;flex-direction:column;gap:6px;width:140px}
+  .vbtn{font:inherit;font-size:12.5px;font-weight:600;padding:6px 10px;border-radius:8px;border:1px solid var(--border-strong);background:var(--surface-raised);color:var(--fg);cursor:pointer;text-align:center}
+  .vbtn.ok.on{background:var(--ok);border-color:var(--ok);color:#fff}.vbtn.dis.on{background:var(--pin);border-color:var(--pin);color:#fff}
+  .change textarea{margin-top:8px;width:100%;height:30px;resize:vertical;font:inherit;font-size:12.5px;padding:5px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface-sunken);color:var(--fg)}
+  body.cmt-on{cursor:crosshair}body.cmt-on .row,body.cmt-on .nav,body.cmt-on .subtab,body.cmt-on .card{cursor:crosshair}
+  .pin{position:absolute;transform:translate(-50%,-50%);min-width:18px;height:18px;padding:0 4px;background:var(--pin);color:#fff;border-radius:9px;font-size:11px;font-weight:700;line-height:18px;text-align:center;z-index:50;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+  .cpanel{position:fixed;right:16px;bottom:16px;width:320px;max-height:70vh;display:flex;flex-direction:column;background:var(--surface-overlay);border:1px solid var(--border);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.3);z-index:55;overflow:hidden}
+  .cpanel .ch{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--border)}.cpanel .ch h3{margin:0;font-size:14px;font-weight:800;flex:1}.cpanel .ch .cCount{font-size:12px;color:var(--fg-faint)}
+  .cbody{overflow:auto;padding:8px}.cempty{color:var(--fg-faint);font-size:12.5px;padding:14px 8px;text-align:center}
+  .citem{display:flex;gap:8px;padding:8px;border-radius:9px}.citem:hover{background:var(--surface-sunken)}
+  .citem .num{flex:none;width:18px;height:18px;background:var(--pin);color:#fff;border-radius:9px;font-size:11px;font-weight:700;line-height:18px;text-align:center}
+  .citem .ctxt{font-size:12.5px;flex:1}.citem .ctxt .tgt{color:var(--fg-faint);font-size:11px;display:block}.citem .del{background:none;border:none;color:var(--fg-faint);cursor:pointer;font-size:14px}
+  .cfoot{display:flex;gap:8px;padding:10px;border-top:1px solid var(--border)}.cfoot .btn{flex:1}
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Check-ins revamp — 1:1 to mentorship trees + group check-ins</h1>
+    <div class="sub">Before / after. Any account, mentorship tree, group task board, IDP. Decisions locked.</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn" id="themeBtn">Dark</button>
+  <button class="btn" id="commentToggle">Comment mode: off</button>
+</header>
+
+<div class="wrap">
+  <p class="lead">Today's Check-ins is one shape (a lab head meeting one member) that only a lab head can create. The proposal generalizes it: anyone starts a space with anyone, a space holds two people (1:1) or many (group), mentorship is a per-space direction so the lab tree falls out for free, and a group space gets a task board with shared + assigned tasks. On top of that spine sits the academic layer (career-stage templates, IDP, timeline) that generic 1:1 tools miss.</p>
+  <p class="lead"><strong>How to review:</strong> in the After pane, click spaces in the rail (you're "Alex," a postdoc: mentee of your PI, mentor of Mira + Sam, and in a group). Switch sub-tabs. Open "View lab tree." Try the group's Everyone/Mine task toggle. Comment mode pins notes; mark each decision below.</p>
+
+  <div class="panes">
+    <div class="pane before">
+      <div class="label">Before — today</div>
+      <div class="before-body">
+        <div class="b-rail">
+          <div class="h">Your check-ins</div>
+          <div class="item">mira - Check-ins</div>
+        </div>
+        <div>
+          <div class="b-sub"><span class="on">Weekly goals</span><span>Meeting notes</span><span>Notes</span><span>Agenda</span></div>
+          <div class="b-goal"><span class="cb"></span> Draft chapter 2 outline (due May 30)</div>
+          <div class="b-goal"><span class="cb"></span> Send feedback on fakeGFP data</div>
+          <div class="b-note">One relationship shape. Only a lab head can create one. No groups, no tasks-by-person, no development plan, no tree.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pane after">
+      <div class="label">After — Check-ins explorer</div>
+      <div class="explorer">
+        <aside class="rail" id="rail"></aside>
+        <div class="detail" id="detail"></div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="section-h">What changed, and why</h2>
+  <p class="section-sub">Twelve build pieces (all six design decisions already locked). Mark each.</p>
+  <div class="changes" id="changes"></div>
+</div>
+
+<div class="scrim" id="scrim"><div class="treecard" id="treecard"></div></div>
+
+<div class="cpanel" id="cpanel" style="display:none">
+  <div class="ch"><h3>Comments</h3><span class="cCount" id="cCount">0</span></div>
+  <div class="cbody" id="cbody"><div class="cempty">No comments yet. Turn on Comment mode and click any element.</div></div>
+  <div class="cfoot"><button class="btn" id="exportBtn">Copy feedback</button><button class="btn danger" id="clearBtn">Clear</button></div>
+</div>
+
+<script>
+/* people */
+const P = {
+  alex:{n:"Alex (you)",c:"#1283C9",i:"A"}, lee:{n:"Dr. Lee",c:"#5B47D6",i:"L"},
+  mira:{n:"Mira",c:"#16a34a",i:"M"}, sam:{n:"Sam",c:"#d97706",i:"S"}, jo:{n:"Jo",c:"#e11d48",i:"J"}, kai:{n:"Kai",c:"#06b6d4",i:"K"},
+};
+const av = (id,cls)=>'<span class="'+(cls||"av")+'" style="background:'+P[id].c+'">'+P[id].i+'</span>';
+
+/* spaces */
+const SPACES = [
+  {id:"lee", kind:"pair", group:"mentor", with:["lee"], title:"Dr. Lee", sub:"your PI", role:"You're mentored", cad:"Weekly · Mon"},
+  {id:"mira", kind:"pair", group:"mentees", with:["mira"], title:"Mira", sub:"grad student", role:"You mentor", cad:"Weekly · Wed"},
+  {id:"sam", kind:"pair", group:"mentees", with:["sam"], title:"Sam", sub:"undergrad", role:"You mentor", cad:"Biweekly"},
+  {id:"aim2", kind:"group", group:"groups", with:["alex","mira","sam","jo","kai"], title:"Aim 2 team", sub:"5 members", role:"Group", cad:"Weekly · Fri"},
+  {id:"labmtg", kind:"group", group:"groups", with:["lee","alex","mira","sam","jo"], title:"Lab meeting", sub:"whole lab", role:"Group", cad:"Weekly · Tue"},
+];
+const SP = Object.fromEntries(SPACES.map(s=>[s.id,s]));
+let active="mira", subtab="agenda";
+
+function railGroup(key,label,icon){
+  const items=SPACES.filter(s=>s.group===key);
+  if(!items.length) return "";
+  let h='<div class="sech">'+label+'</div>';
+  items.forEach(s=>{
+    const a=active===s.id;
+    const ic = s.kind==="group"
+      ? '<span class="gv" style="background:'+P[s.with[1]||s.with[0]].c+'">'+s.with.length+'</span>'
+      : av(s.with[0]);
+    h+='<div class="nav '+(a?"active":"")+'" data-space="'+s.id+'" data-cmt="space: '+s.title+'">'+ic+'<span class="lbl">'+s.title+'<small>'+s.sub+'</small></span></div>';
+  });
+  return h;
+}
+function renderRail(){
+  let h='<div class="sech">Check-ins</div>';
+  h+='<button class="treebtn" data-tree="1" data-cmt="view lab tree"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="19" r="2"/><path d="M12 7v5M12 12H6v5M12 12h6v5"/></svg> View lab tree</button>';
+  h+=railGroup("mentor","Your mentor");
+  h+=railGroup("mentees","Your mentees");
+  h+=railGroup("groups","Groups");
+  h+='<button class="railbtn" data-cmt="start a check-in">+ Start a check-in</button>';
+  document.getElementById("rail").innerHTML=h;
+}
+
+/* sub-tabs per space kind */
+function tabsFor(s){
+  if(s.kind==="group") return [["agenda","Agenda"],["tasks","Task board"],["notes","Notes"],["rotation","Rotation"],["timeline","Timeline"]];
+  const t=[["agenda","Agenda"],["tasks","Tasks & goals"],["notes","Notes"],["timeline","Timeline"]];
+  if(s.group==="mentees"||s.group==="mentor") t.splice(3,0,["idp","IDP"]);
+  return t;
+}
+
+function cb(done){return '<span class="cb '+(done?"done":"")+'">'+(done?'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5 9-11"/></svg>':'')+'</span>';}
+
+function bodyAgenda(s){
+  return '<div class="band">Carried over</div>'
+    +'<div class="row">'+cb(false)+'<span class="tx">Decide whether to rerun the LC-MS with the new column</span><span class="chip carry">from Jun 4</span><span class="chip author">added by '+(s.id==="lee"?"Dr. Lee":"you")+'</span></div>'
+    +'<div class="band">This week’s talking points</div>'
+    +'<div class="row">'+cb(false)+'<span class="tx">Conference travel — abstract deadline</span><span class="chip author">added by you</span></div>'
+    +'<div class="row">'+cb(false)+'<span class="tx">Stuck on the Gibson assembly, 0 colonies twice</span><span class="chip author">added by '+(s.kind==="pair"&&s.group==="mentees"?"Mira":"you")+'</span></div>'
+    +'<div class="band">Action items</div>'
+    +'<div class="row">'+cb(false)+'<span class="tx">Send Mira the annotated Aim 2 figure</span><span class="chip due">due Jun 13</span><span class="chip gantt">on your tasks</span></div>'
+    +'<div class="add"><input placeholder="Add a talking point or action item..." readonly><button class="b">Add</button></div>';
+}
+function taskRow(txt,who,done,due,gantt){
+  return '<div class="row '+(done?"done":"")+'">'+cb(done)+'<span class="tx">'+txt+'</span>'
+    +(due?'<span class="chip due">due '+due+'</span>':'')
+    +(gantt?'<span class="chip gantt">on '+(who==="you"?"your":who)+' tasks</span>':'')
+    +(who?'<span class="chip person">'+av(who==="you"?"alex":who,"")+' '+(who==="you"?"you":P[who]?P[who].n:who)+'</span>':'')+'</div>';
+}
+function bodyTasks(s){
+  if(s.kind!=="group"){
+    return '<p style="font-size:12.5px;color:var(--fg-muted);margin:0 0 8px">Shared goals for this 1:1. Either of you adds and checks them off; an item with a due date also lands on the owner’s task list.</p>'
+      +taskRow("Draft chapter 2 outline","mira",false,"Jun 13",true)
+      +taskRow("Review chapter 2 outline","you",true,null,false)
+      +taskRow("Send feedback on fakeGFP expression data","you",false,"Jun 16",true)
+      +'<div class="add"><input placeholder="Add a goal..." readonly><button class="b">Add</button></div>';
+  }
+  // group board
+  return '<div style="display:flex;align-items:center;margin-bottom:6px"><span style="font-size:12.5px;color:var(--fg-muted)">Anyone can check any item. Assign one to a person, or leave it shared.</span>'
+    +'<span class="seg"><button class="on">Everyone</button><button>Mine</button></span></div>'
+    +'<div class="band" style="--bc:var(--fg-muted);--bbg:var(--surface-sunken)">Shared · anyone</div>'
+    +taskRow("Order Aim 2 reagents (shared list)",null,false,"Jun 12",false)
+    +taskRow("Book the confocal for Thursday",null,true,null,false)
+    +'<div class="band" style="--bc:var(--green);--bbg:var(--green-soft)">Mira</div>'
+    +taskRow("Run the 96-well growth curves","mira",false,"Jun 13",true)
+    +'<div class="band" style="--bc:var(--amber);--bbg:var(--amber-soft)">Sam</div>'
+    +taskRow("Image the SD-Ura plates","sam",false,"Jun 14",true)
+    +'<div class="band" style="--bc:var(--blue);--bbg:var(--blue-soft)">You</div>'
+    +taskRow("Write up the LC-MS method","you",false,"Jun 15",true)
+    +'<div class="add"><input placeholder="Add a task, assign it (or leave shared)..." readonly><button class="b">Add</button></div>';
+}
+function bodyNotes(){
+  return '<div class="cols2">'
+    +'<div class="card"><div class="ch"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="2.3"/></svg> Shared notes</div><div class="cb-">Agreed: switch Aim 2 to the touchdown protocol. Next committee meeting targeted for September.</div></div>'
+    +'<div class="card"><div class="ch"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> Private <span class="lock">only you</span></div><div class="cb-">Mira seems stretched thin, watch the timeline. Don’t raise authorship yet.</div></div>'
+    +'</div>';
+}
+function bodyIDP(s){
+  const who=s.with[0];
+  const dual=(name,self,imp)=>'<div class="dual"><span class="nm">'+name+'</span>'
+    +'<span class="lab">you</span><span class="meter" style="max-width:64px"><i style="width:'+(self*20)+'%"></i></span>'
+    +'<span class="lab">matters</span><span class="meter" style="max-width:64px"><i style="width:'+(imp*20)+'%;background:var(--purple)"></i></span></div>';
+  const act=(obj,appr,when,out,done)=>'<tr><td>'+cb(done)+'</td><td>'+obj+'</td><td style="color:var(--fg-muted)">'+appr+'</td><td><span class="chip due">'+when+'</span> <span class="chip gantt">task</span></td><td style="color:var(--fg-muted)">'+out+'</td></tr>';
+  return '<div class="complhook">Modeled on AAAS myIDP + the UW-Madison IDP. It is '+P[who].n+'’s document, they choose what to share; you review and sign off. Your lab-head view shows only "IDP on file, updated Jun 4" (NSF now requires that an IDP exists, never its contents).</div>'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="font-size:13px;font-weight:700">'+P[who].n+'’s development plan</span><span class="stagebadge">Grad student</span></div>'
+    +'<div class="idp-sec"><div class="h">1 · Self-assessment<span style="margin-left:auto;font-weight:400;color:var(--fg-faint);font-size:10.5px">rate skill + how much it matters</span></div><div class="bd">'
+      +dual("Experimental design",4,4)+dual("Scientific writing",2,5)+dual("Presenting / talks",3,4)+dual("Mentoring others",2,3)
+      +'<div style="margin-top:8px;font-size:11.5px">Growth area (low skill, high importance): <b>scientific writing</b>. <span style="color:var(--fg-faint)">~6 collapsed competency groups; this is the myIDP dual-rating mechanic.</span></div></div></div>'
+    +'<div class="idp-sec"><div class="h">2 · Career exploration</div><div class="bd">Target path: tenure-track faculty. <a href="#" onclick="return false">Explore fit on myIDP / ImaginePhD →</a> then record the result here. (We link out for the career-matching, we do not rebuild it, exactly what UW does.)</div></div>'
+    +'<div class="idp-sec"><div class="h">3 · Goals</div><div class="bd"><b>Short-term (≤6 mo):</b> submit Aim 1 manuscript. &nbsp; <b>Long-term:</b> first-author paper, present nationally.</div></div>'
+    +'<div class="idp-sec"><div class="h">4 · Action plan<span style="margin-left:auto;font-weight:400;color:var(--green);font-size:10.5px">target dates become tasks</span></div><div class="bd" style="padding:0">'
+      +'<table><thead><tr><th></th><th>Objective / skill</th><th>Approach</th><th>Target</th><th>Done when</th></tr></thead><tbody>'
+      +act("Take the writing workshop","Grad-school course","Sep","Draft ready",false)
+      +act("Pass prelim","Mock exam + committee","Jun","Committee sign-off",true)
+      +'</tbody></table></div></div>'
+    +'<div class="idp-sec"><div class="h">5 · Mentor review</div><div class="bd">Reviewed by you on Jun 4 · next revisit Jun 2027 (annual). "Strong on design, let’s prioritize writing this year."</div></div>';
+}
+function bodyTimeline(){
+  return '<div class="tl">'
+    +'<div class="ev mile"><div class="d">Jun 4, 2026</div><div class="t">Milestone — passed prelim</div></div>'
+    +'<div class="ev"><div class="d">Jun 4, 2026</div><div class="t">Check-in — discussed Aim 2 pivot, 3 action items</div></div>'
+    +'<div class="ev"><div class="d">May 28, 2026</div><div class="t">Check-in — chapter 2 outline, conference plan</div></div>'
+    +'<div class="ev"><div class="d">May 21, 2026</div><div class="t">Check-in — cloning troubleshooting</div></div>'
+    +'</div>';
+}
+function bodyRotation(s){
+  return '<p style="font-size:12.5px;color:var(--fg-muted);margin:0 0 8px">Who presents / leads journal club, auto-rotating. The next presenter gets a prep nudge.</p>'
+    +'<div class="rot"><span class="nx">Next · Jun 18</span>'+av("alex","")+' <span class="tx">You — data blitz</span></div>'
+    +'<div class="rot">Jun 25 '+av("mira","")+' <span class="tx">Mira — journal club</span></div>'
+    +'<div class="rot">Jul 2 '+av("sam","")+' <span class="tx">Sam — data blitz</span></div>'
+    +'<div class="rot">Jul 9 '+av("jo","")+' <span class="tx">Jo — journal club</span></div>';
+}
+function renderDetail(){
+  const s=SP[active];
+  const tabs=tabsFor(s);
+  if(!tabs.some(t=>t[0]===subtab)) subtab=tabs[0][0];
+  let h='<div class="dhead">'+(s.kind==="group"?'<span class="gv" style="width:28px;height:28px;background:'+P[s.with[1]||s.with[0]].c+'">'+s.with.length+'</span>':av(s.with[0]))
+    +'<div><div class="ttl">'+s.title+'</div><div class="who">'+(s.kind==="group"?s.with.map(w=>P[w].n.replace(" (you)","")).join(", "):s.sub)+'</div></div>'
+    +'<span class="role">'+s.role+'</span><span class="cad">'+s.cad+'</span></div>';
+  h+='<div class="subtabs">'+tabs.map(t=>'<span class="subtab '+(subtab===t[0]?"on":"")+'" data-sub="'+t[0]+'" data-cmt="subtab: '+t[1]+'">'+t[1]+'</span>').join("")+'</div>';
+  h+='<div class="dbody">';
+  if(subtab==="agenda") h+=bodyAgenda(s);
+  else if(subtab==="tasks") h+=bodyTasks(s);
+  else if(subtab==="notes") h+=bodyNotes();
+  else if(subtab==="idp") h+=bodyIDP(s);
+  else if(subtab==="timeline") h+=bodyTimeline();
+  else if(subtab==="rotation") h+=bodyRotation(s);
+  h+='</div>';
+  document.getElementById("detail").innerHTML=h;
+}
+
+document.getElementById("rail").addEventListener("click",e=>{
+  if(document.body.classList.contains("cmt-on")) return;
+  if(e.target.closest("[data-tree]")){openTree();return;}
+  const nav=e.target.closest("[data-space]");
+  if(nav){active=nav.dataset.space;renderRail();renderDetail();}
+});
+document.getElementById("detail").addEventListener("click",e=>{
+  if(document.body.classList.contains("cmt-on")) return;
+  const st=e.target.closest("[data-sub]");
+  if(st){subtab=st.dataset.sub;renderDetail();return;}
+  const seg=e.target.closest(".seg button");
+  if(seg){seg.parentElement.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b===seg));return;}
+  const c=e.target.closest(".cb");
+  if(c){c.classList.toggle("done");c.closest(".row")&&c.closest(".row").classList.toggle("done");
+    c.innerHTML=c.classList.contains("done")?'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5 9-11"/></svg>':'';}
+});
+
+/* tree */
+function openTree(){
+  document.getElementById("treecard").innerHTML='<div class="h">Lab mentorship tree<button class="x" onclick="closeTree()">&times;</button></div>'
+    +'<div class="tree">'
+    +'<div class="tnode">'+av("lee","av")+'<span>Dr. Lee <small>PI</small></span></div>'
+    +'<div class="tchild"><div class="tnode">'+av("alex","av")+'<span class="tme">Alex (you) <small>postdoc</small></span></div>'
+      +'<div class="tchild">'
+        +'<div class="tnode">'+av("mira","av")+'<span>Mira <small>grad student</small></span></div>'
+        +'<div class="tchild"><div class="tnode">'+av("sam","av")+'<span>Sam <small>undergrad</small></span></div></div>'
+      +'</div></div>'
+    +'<p style="font-size:12px;color:var(--fg-faint);margin-top:14px">You’re a mentee (of Dr. Lee) and a mentor (of Mira, who mentors Sam) at the same time. Each edge is one check-in space; the tree is just a view over them.</p>'
+    +'</div>';
+  document.getElementById("scrim").classList.add("show");
+}
+function closeTree(){document.getElementById("scrim").classList.remove("show");}
+document.getElementById("scrim").addEventListener("click",e=>{if(e.target.id==="scrim")closeTree();});
+
+/* changes */
+const CHANGES=[
+  ["Any account can start a check-in; tab always shows","Drop the lab-head-only gate. Anyone starts a space with anyone. The Check-ins tab shows for every account, with an empty state + Start a check-in button so the first one is reachable. (D1)"],
+  ["One model for 1:1 and group","Replace the two-field 1:1 record with a member-array space: two members renders as a 1:1, three or more as a group. One code path. Reuses the N-member notebook sharing we already have."],
+  ["Rail grouped by relationship","Spaces sit under Your mentor / Your mentees / Groups, each row showing the people (or a member count for groups) and color. Click to open."],
+  ["Mentorship is a per-space direction; lab tree is a view","A space optionally records who the mentor is. Your PI→you→Mira→Sam chain is four spaces; the lab tree (View lab tree) is just a view over them. You’re mentor and mentee at once, naturally."],
+  ["Group task board: shared + assigned","A group space has a task board: a Shared band anyone owns, plus per-person bands. Single assignee per task (a chip shows who). Everyone / Mine views. (D2: anyone can check any item. D3: single assignee.)"],
+  ["Action items sync to the person’s tasks / GANTT","An action item or assigned task with a due date also lands on that person’s main task list, shown with an “on your tasks” chip, so it lives next to their other lab work. (D4)"],
+  ["Rolling agenda: carry-forward + talking points","Unchecked agenda items carry forward with a “from <date>” badge. Either party adds talking points before the meeting, with authorship shown."],
+  ["Notes: shared + private-to-you","Shared notes beside a private column only you can see (the mentor’s candid read), in one view."],
+  ["IDP on mentoring spaces","A structured Individual Development Plan (skills self-assessment, career goals, agreed yearly goals) on mentor/mentee spaces, with a career-stage badge. Built for real, sequenced after the spine + group work. NIH progress-report hook. (D5)"],
+  ["Career-stage templates","The agenda/IDP template adapts to the mentee’s stage (undergrad / grad / postdoc / staff). ~6 seed templates from static JSON, not a marketplace."],
+  ["Per-space timeline + milestones","A scrollable history of every past check-in for this relationship, with milestone entries (passed prelim, paper accepted). The paper trail for annual reviews."],
+  ["Group extras: presenter rotation (+ committee template)","Group spaces get an auto-rotating presenter / journal-club schedule with a prep nudge. A thesis committee is just a group space template (annual cadence, pre-circulate report, private sessions)."],
+];
+const VSTORE="checkins-verdicts-v1";let verdicts={};try{verdicts=JSON.parse(localStorage.getItem(VSTORE)||"{}")}catch{verdicts={}}
+function saveV(){try{localStorage.setItem(VSTORE,JSON.stringify(verdicts))}catch{}}
+function renderChanges(){
+  document.getElementById("changes").innerHTML=CHANGES.map((c,i)=>{const v=verdicts[i]||{};const cls=v.verdict==="ok"?"approved":v.verdict==="dis"?"disapproved":"";
+    return '<div class="change '+cls+'"><div class="body"><h4>'+(i+1)+'. '+c[0]+'</h4><p>'+c[1]+'</p><textarea data-note="'+i+'" placeholder="Optional note...">'+(v.note||"")+'</textarea></div>'
+      +'<div class="verdict"><button class="vbtn ok '+(v.verdict==="ok"?"on":"")+'" data-v="ok" data-i="'+i+'">Approve</button><button class="vbtn dis '+(v.verdict==="dis"?"on":"")+'" data-v="dis" data-i="'+i+'">Disapprove</button></div></div>';
+  }).join("");
+}
+document.getElementById("changes").addEventListener("click",e=>{const b=e.target.closest(".vbtn");if(!b)return;const i=b.dataset.i;verdicts[i]=verdicts[i]||{};verdicts[i].verdict=verdicts[i].verdict===b.dataset.v?null:b.dataset.v;saveV();renderChanges();});
+document.getElementById("changes").addEventListener("input",e=>{if(!e.target.dataset.note)return;const i=e.target.dataset.note;verdicts[i]=verdicts[i]||{};verdicts[i].note=e.target.value;saveV();});
+
+/* comments */
+const CSTORE="checkins-comments-v1";let comments=[];try{comments=JSON.parse(localStorage.getItem(CSTORE)||"[]")}catch{comments=[]}
+function saveC(){try{localStorage.setItem(CSTORE,JSON.stringify(comments))}catch{}}
+const cpanel=document.getElementById("cpanel");
+document.getElementById("commentToggle").addEventListener("click",()=>{const on=document.body.classList.toggle("cmt-on");document.getElementById("commentToggle").textContent="Comment mode: "+(on?"on":"off");document.getElementById("commentToggle").classList.toggle("on",on);cpanel.style.display=on?"flex":(comments.length?"flex":"none");});
+document.addEventListener("click",e=>{if(!document.body.classList.contains("cmt-on"))return;if(e.target.closest(".cpanel")||e.target.closest("header.top")||e.target.closest(".treecard"))return;const host=e.target.closest("[data-cmt]");const target=host?host.dataset.cmt:"page";const note=prompt('Comment on "'+target+'":');if(note){comments.push({x:e.pageX,y:e.pageY,target,note});saveC();renderComments();}e.preventDefault();e.stopPropagation();},true);
+function renderComments(){document.querySelectorAll(".pin").forEach(p=>p.remove());comments.forEach((c,i)=>{const pin=document.createElement("span");pin.className="pin";pin.textContent=i+1;pin.style.left=c.x+"px";pin.style.top=c.y+"px";pin.title=c.note;document.body.appendChild(pin);});document.getElementById("cCount").textContent=comments.length;const body=document.getElementById("cbody");if(!comments.length){body.innerHTML='<div class="cempty">No comments yet. Turn on Comment mode and click any element.</div>';return;}body.innerHTML=comments.map((c,i)=>'<div class="citem"><span class="num">'+(i+1)+'</span><span class="ctxt">'+c.note+'<span class="tgt">'+c.target+'</span></span><button class="del" data-i="'+i+'">&times;</button></div>').join("");}
+document.getElementById("cbody").addEventListener("click",e=>{const d=e.target.closest(".del");if(!d)return;comments.splice(+d.dataset.i,1);saveC();renderComments();});
+document.getElementById("clearBtn").addEventListener("click",()=>{if(confirm("Clear all comments?")){comments=[];saveC();renderComments();}});
+document.getElementById("exportBtn").addEventListener("click",()=>{let out="CHECK-INS REVAMP — FEEDBACK\\n===========================\\n\\nDECISIONS (locked) confirmed in the mockup.\\n\\nBUILD PIECES:\\n";CHANGES.forEach((c,i)=>{const v=verdicts[i]||{};const m=v.verdict==="ok"?"[APPROVE]":v.verdict==="dis"?"[DISAPPROVE]":"[ -- ]";out+="\\n"+m+" "+(i+1)+". "+c[0];if(v.note)out+="\\n      note: "+v.note;});out+="\\n\\nPINNED COMMENTS:\\n";if(!comments.length)out+="(none)\\n";comments.forEach((c,i)=>{out+="\\n"+(i+1)+". ["+c.target+"] "+c.note;});navigator.clipboard.writeText(out).then(()=>{const b=document.getElementById("exportBtn");const t=b.textContent;b.textContent="Copied!";setTimeout(()=>b.textContent=t,1400);});});
+
+document.getElementById("themeBtn").addEventListener("click",()=>{const d=document.body.classList.toggle("dark");document.getElementById("themeBtn").textContent=d?"Light":"Dark";renderComments();});
+renderRail();renderDetail();renderChanges();renderComments();if(comments.length)cpanel.style.display="flex";
+</script>
+</body>
+</html>

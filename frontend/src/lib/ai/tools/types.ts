@@ -1,4 +1,4 @@
-// BeakerBot tool layer types (ai tools bot, 2026-06-10).
+// BeakerBot tool layer types (ai tools bot, 2026-06-10; ai transform-tool bot, 2026-06-11).
 //
 // A tool is the unit the agent loop dispatches. The model is told each tool's
 // name, description, and JSON-Schema parameters, and when it decides to call one
@@ -117,7 +117,53 @@ export type ApprovalRequest =
        *  enabled, for example 2 for a two-group t-test. Undefined means any
        *  number from one up. */
       count?: number;
+    }
+  | {
+      kind: "transform";
+      /** The tool that raised the transform approval (transform_table). */
+      toolName: string;
+      /** The human-readable name of the source table, for the card header. */
+      sourceName: string;
+      /** The proposed name for the new derived table, for the card header. */
+      resultName: string;
+      /** The ordered list of transform step blocks to render in the card. v1
+       *  emits exactly one block. The array shape is the multi-step pipeline
+       *  interface so the card generalizes without a type change. */
+      steps: TransformStepBlock[];
     };
+
+/**
+ * One step block inside a transform approval card. Carries the step's kind,
+ * its human label and blurb (from KIND_META in TransformDialog), the param
+ * pills (label/value pairs the card renders as readable chips), and an optional
+ * real preview of the first rows of the transformed output.
+ *
+ * The kind is a TransformKind string. Typed as string here so this file does
+ * not depend on datahub/model/types, keeping the tool layer self-contained.
+ */
+export type TransformStepBlock = {
+  /** The TransformKind discriminator string (e.g. "normalize"). */
+  kind: string;
+  /** Human label from KIND_META (e.g. "Normalize"). */
+  name: string;
+  /** One-line blurb from KIND_META. */
+  blurb: string;
+  /** Human-readable param pills to render on the card. */
+  params: { label: string; value: string }[];
+  /** A live preview of the first rows of the transformed output. Optional;
+   *  absent when the engine could not run (bad params). */
+  preview?: {
+    columns: string[];
+    rows: string[][];
+  };
+};
+
+/**
+ * A TransformApprovalRequest is the `kind:"transform"` member of ApprovalRequest,
+ * re-exported as a named type so transform-table.ts can reference it directly
+ * without repeating the shape. It IS the ApprovalRequest variant, just narrowed.
+ */
+export type TransformApprovalRequest = Extract<ApprovalRequest, { kind: "transform" }>;
 
 // The UI's answer to a request on the bridge. The plan and action shapes resolve
 // with the two-value approval decision, "allow" proceeds (run the action, or
@@ -188,6 +234,13 @@ export type AiTool = {
       title?: string;
       noteTitle?: string;
     };
+    /**
+     * When present, the gate raises a `kind:"transform"` block-card approval
+     * instead of a one-line `kind:"action"` confirm. The user sees the step
+     * block(s), param pills, and a live preview, then Approves or Rejects.
+     * Resolves with allow / skip on the same bridge as the draft path.
+     */
+    transformPayload?: TransformApprovalRequest;
   };
   /** For action tools, decide whether THIS specific call must hard-stop for a
    *  confirm even in "auto" mode (the destructive safety net). Pure. Optional,

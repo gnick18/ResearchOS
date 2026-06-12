@@ -40,6 +40,20 @@ export default function SettingsRailFooter() {
         </Link>
         <span aria-hidden="true">·</span>
         <Link
+          href="/thanks"
+          className="underline-offset-2 hover:text-foreground hover:underline"
+        >
+          Sponsors and thanks
+        </Link>
+        <span aria-hidden="true">·</span>
+        <Link
+          href="/about"
+          className="underline-offset-2 hover:text-foreground hover:underline"
+        >
+          About
+        </Link>
+        <span aria-hidden="true">·</span>
+        <Link
           href="/privacy"
           className="underline-offset-2 hover:text-foreground hover:underline"
         >

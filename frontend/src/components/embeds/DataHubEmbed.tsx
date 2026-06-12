@@ -17,7 +17,7 @@ import { resultToText } from "@/lib/datahub/result-text";
 import { plainLanguageSummary } from "@/lib/datahub/plain-language";
 import type { NormalizedResult } from "@/lib/datahub/run-analysis";
 import { objectDeepLink } from "@/lib/references";
-import { ObjectEmbedCard, type EmbedRendererProps } from "./ObjectEmbed";
+import { ObjectEmbedCard, EmbedCaption, type EmbedRendererProps } from "./ObjectEmbed";
 
 type LoadState =
   | { k: "loading" }
@@ -31,7 +31,7 @@ function cellText(value: unknown): string {
   return String(value);
 }
 
-export default function DataHubEmbed({ descriptor, caption }: EmbedRendererProps) {
+export default function DataHubEmbed({ descriptor, caption, figureLabel }: EmbedRendererProps) {
   const [state, setState] = useState<LoadState>({ k: "loading" });
 
   useEffect(() => {
@@ -97,6 +97,11 @@ export default function DataHubEmbed({ descriptor, caption }: EmbedRendererProps
           className="flex justify-center overflow-x-auto px-3 py-3"
           dangerouslySetInnerHTML={{ __html: svg }}
         />
+        <EmbedCaption
+          caption={caption}
+          name={plot?.name || state.content.meta.name}
+          figureLabel={figureLabel}
+        />
       </div>
     );
   }
@@ -146,6 +151,11 @@ export default function DataHubEmbed({ descriptor, caption }: EmbedRendererProps
             </pre>
           ) : null}
         </div>
+        <EmbedCaption
+          caption={caption}
+          name={analysis.name || state.content.meta.name}
+          figureLabel={figureLabel}
+        />
       </div>
     );
   }
@@ -215,6 +225,7 @@ export default function DataHubEmbed({ descriptor, caption }: EmbedRendererProps
           </tbody>
         </table>
       </div>
+      <EmbedCaption caption={caption} name={state.content.meta.name} figureLabel={figureLabel} />
     </div>
   );
 }

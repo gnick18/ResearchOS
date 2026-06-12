@@ -136,7 +136,12 @@ import NewGraphDialog, {
 import TransformDialog, {
   type TransformSubmit,
 } from "@/components/datahub/TransformDialog";
-import { runTransform } from "@/lib/datahub/transforms";
+import { executePipeline } from "@/lib/datahub/transform/engine";
+import {
+  legacyOpToTransformOp,
+  primarySourceId,
+  singleOpForDialog,
+} from "@/lib/datahub/transform/recipe";
 import ResultsSheet from "@/components/datahub/ResultsSheet";
 import GraphEditor from "@/components/datahub/GraphEditor";
 import WorkspaceToolbar, {
@@ -1082,13 +1087,18 @@ export default function DataHubPage() {
   const derivedInfo = useMemo(() => {
     const link = openContent?.meta.derivedFrom;
     if (!link) return null;
-    const sourceMeta =
-      allTables.find((t) => t.id === link.sourceTableId) ?? null;
+    // Read the primary source id from either link shape (legacy single-op or a
+    // phase-2 recipe). A single editable column transform gets its own label; a
+    // multi-step pipeline reads as the generic "a pipeline" label (the phase-3
+    // builder owns multi-step editing).
+    const sourceId = primarySourceId(link);
+    if (!sourceId) return null;
+    const sourceMeta = allTables.find((t) => t.id === sourceId) ?? null;
+    const single = singleOpForDialog(link);
     return {
-      sourceId: link.sourceTableId,
+      sourceId,
       sourceMeta,
-      transform: link.transform,
-      label: transformLabel(link.transform),
+      label: single ? transformLabel(single.transform) : "a pipeline",
     };
   }, [openContent, allTables]);
 
@@ -1517,25 +1527,30 @@ export default function DataHubPage() {
       let sourceId: string;
       let sourceContent: DataHubDocContent | null;
       if (existing) {
-        sourceId = existing.sourceTableId;
+        // Read the primary source from either link shape (a derived table edited
+        // here is always single-op, but it may already be stored in either shape).
+        sourceId = primarySourceId(existing) ?? openIdRef.current;
         sourceContent = await dataHubApi.getContent(sourceId);
       } else {
         sourceId = openIdRef.current;
         sourceContent = openContent;
       }
 
-      const derivedFrom = {
-        sourceTableId: sourceId,
-        transform: data.transform,
-        params: data.params,
-      };
+      // The single-op dialog now writes a ONE-op recipe (the new derivedFrom
+      // shape), not the legacy { transform, params }. The one op is the folded
+      // column transform for the chosen kind, so it runs through the same engine
+      // the recompute path uses. The multi-step builder is phase 3.
+      const op = legacyOpToTransformOp(data.transform, data.params);
+      const derivedFrom = { sources: [sourceId], recipe: [op] };
 
       // Compute the snapshot when the source is available. A missing source (only
       // possible on an edit whose source was deleted) seeds an empty snapshot; the
       // recompute path then surfaces the deleted-source empty state on open.
-      const snapshot = sourceContent
-        ? runTransform(data.transform, sourceContent, data.params)
+      const pipelineResult = sourceContent
+        ? executePipeline(sourceContent, { ops: [op] }, new Map([[sourceId, sourceContent]]))
         : null;
+      const snapshot =
+        pipelineResult && "content" in pipelineResult ? pipelineResult.content : null;
 
       if (existing) {
         // Edit in place: update the link + snapshot on the derived document. The
@@ -1591,8 +1606,13 @@ export default function DataHubPage() {
       setTransformSourceContent(openContent);
       return;
     }
+    const sourceId = primarySourceId(existing);
+    if (!sourceId) {
+      setTransformSourceContent(openContent);
+      return;
+    }
     let cancelled = false;
-    void dataHubApi.getContent(existing.sourceTableId).then((c) => {
+    void dataHubApi.getContent(sourceId).then((c) => {
       if (!cancelled) setTransformSourceContent(c);
     });
     return () => {
@@ -1794,7 +1814,11 @@ export default function DataHubPage() {
           collection={collection}
           onCollectionChange={setCollection}
           selectedTableId={selectedTableId}
-          onSelectTable={setSelectedTableId}
+          onSelectTable={(id) => {
+            setSelectedAnalysisId(null);
+            setSelectedPlotId(null);
+            setSelectedTableId(id);
+          }}
           onNewTable={() => setNewTableOpen(true)}
           onNewFolder={() => setNewTableOpen(true)}
           onImport={() => setImportOpen(true)}
