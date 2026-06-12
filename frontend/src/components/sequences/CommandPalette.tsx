@@ -500,6 +500,23 @@ export function CommandPalette({
     return unsub;
   }, [open]);
 
+  // Fluid morph blur (fun pass, 2026-06-12). Whenever the surface RESHAPES, a
+  // dodge corner change or the Ask-mode grow, briefly blur it so the chat
+  // softens away while the box morphs into its new shape and slides, then
+  // sharpens back as it settles. The 420ms clear sits just past the 0.4s morph.
+  // The mount guard skips the initial open so first paint does not blur.
+  const [morphing, setMorphing] = useState(false);
+  const morphMountRef = useRef(false);
+  useEffect(() => {
+    if (!morphMountRef.current) {
+      morphMountRef.current = true;
+      return;
+    }
+    setMorphing(true);
+    const t = window.setTimeout(() => setMorphing(false), 420);
+    return () => window.clearTimeout(t);
+  }, [dodgeStyle, askMode]);
+
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
   // BeakerSearch v2 (sub-flow framework, chunk 1). The open picker STACK. [] is
@@ -1008,9 +1025,11 @@ export function CommandPalette({
           // the morphing properties to their own layer so the box reshapes
           // smoothly AS it travels on x / y rather than juddering. Same 0.4s
           // duration as the approved morph spec.
-          willChange: "left, top, width, height, min-height",
+          willChange: "left, top, width, height, min-height, filter",
+          // Soften the chat while the box reshapes + glides, then sharpen back.
+          filter: morphing ? "blur(5px)" : "blur(0px)",
           transition:
-            "min-height 0.4s cubic-bezier(.22,1,.36,1), height 0.4s cubic-bezier(.22,1,.36,1), left 0.4s cubic-bezier(.22,1,.36,1), top 0.4s cubic-bezier(.22,1,.36,1), width 0.4s cubic-bezier(.22,1,.36,1), inset 0.4s cubic-bezier(.22,1,.36,1)",
+            "min-height 0.4s cubic-bezier(.22,1,.36,1), height 0.4s cubic-bezier(.22,1,.36,1), left 0.4s cubic-bezier(.22,1,.36,1), top 0.4s cubic-bezier(.22,1,.36,1), width 0.4s cubic-bezier(.22,1,.36,1), inset 0.4s cubic-bezier(.22,1,.36,1), filter 0.32s cubic-bezier(.22,1,.36,1)",
           // Dodge override: replaces inset-x-0/top-[12vh] when a spotlight
           // target would be covered. null = centered (the CSS class wins).
           ...dodgeStyle,
