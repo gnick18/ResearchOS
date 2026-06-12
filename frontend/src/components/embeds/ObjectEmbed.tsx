@@ -39,6 +39,9 @@ const EMBED_RENDERERS: Partial<
   note: lazy(() => import("./NoteEmbed")),
   method: lazy(() => import("./MethodEmbed")),
   project: lazy(() => import("./ProjectEmbed")),
+  collection: lazy(() => import("./CollectionEmbed")),
+  task: lazy(() => import("./TaskEmbed")),
+  experiment: lazy(() => import("./ExperimentEmbed")),
 };
 
 const TYPE_ICON: Record<ObjectRefType, IconName> = {
