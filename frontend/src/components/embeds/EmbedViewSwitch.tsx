@@ -29,11 +29,16 @@ export interface EmbedViewSwitchProps {
 
 /** Render nothing when there is only one view (or none), a one-option switch is
  *  visual noise. Otherwise a tight segmented control of text-label buttons, the
- *  current one highlighted. */
+ *  current one highlighted. The group carries aria-label so screen readers
+ *  announce it as "View" rather than a nameless cluster of buttons. */
 export default function EmbedViewSwitch({ views, current, onSelect }: EmbedViewSwitchProps) {
   if (views.length < 2) return null;
   return (
-    <span className="ml-auto inline-flex shrink-0 overflow-hidden rounded-lg border border-border">
+    <span
+      role="group"
+      aria-label="View"
+      className="ml-auto inline-flex shrink-0 overflow-hidden rounded-lg border border-border"
+    >
       {views.map((v) => {
         const on = v.value === current;
         return (
@@ -43,7 +48,7 @@ export default function EmbedViewSwitch({ views, current, onSelect }: EmbedViewS
             aria-pressed={on}
             onClick={() => onSelect(v.value)}
             className={
-              "border-l border-border px-2.5 py-1 text-meta font-bold transition-colors first:border-l-0 " +
+              "border-l border-border px-2.5 py-1 text-meta font-bold transition-colors first:border-l-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-action " +
               (on
                 ? "bg-brand-action text-white"
                 : "bg-surface-sunken text-foreground-muted hover:text-foreground")

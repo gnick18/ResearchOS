@@ -176,10 +176,10 @@ export default function StructureCard({ descriptor, caption, sidecarPath }: Exte
 
   return (
     <div>
-      <div className="flex items-center gap-2 border-b border-border bg-surface-sunken px-3 py-2">
+      <div className="flex min-w-0 items-center gap-2 border-b border-border bg-surface-sunken px-3 py-2">
         <span className="truncate text-body font-semibold text-foreground">{title}</span>
         {facts ? (
-          <span className="truncate text-meta text-foreground-muted">{facts}</span>
+          <span className="shrink-0 text-meta text-foreground-muted">{facts}</span>
         ) : null}
         <span className="flex-1" />
         <Tooltip label="Add this compound to your molecule library">
@@ -187,7 +187,7 @@ export default function StructureCard({ descriptor, caption, sidecarPath }: Exte
             type="button"
             onClick={() => handleAddToLibrary(d)}
             disabled={saveState !== "idle"}
-            className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground disabled:opacity-50"
+            className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
           >
             {saveLabel}
           </button>
@@ -196,13 +196,18 @@ export default function StructureCard({ descriptor, caption, sidecarPath }: Exte
           href={openUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground"
+          aria-label={`Open structure on PubChem: ${title}`}
+          className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
         >
           Open
         </a>
       </div>
       <div className="flex items-center justify-center px-3 py-3">
-        <span className="grid h-[140px] w-[200px] place-items-center overflow-hidden rounded-md border border-border bg-white">
+        <span
+          role="img"
+          aria-label={`Chemical structure of ${title}`}
+          className="grid h-[140px] w-[200px] place-items-center overflow-hidden rounded-md border border-border bg-white"
+        >
           {d.smiles ? (
             <MoleculeThumbnail structure={d.smiles} width={200} height={140} />
           ) : d.pngUrl ? (
@@ -210,7 +215,7 @@ export default function StructureCard({ descriptor, caption, sidecarPath }: Exte
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={d.pngUrl}
-              alt={title}
+              alt={`Chemical structure of ${title}`}
               width={200}
               height={140}
               className="object-contain"

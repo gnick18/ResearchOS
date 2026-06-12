@@ -136,7 +136,8 @@ export default function CiteCard({ descriptor, caption, sidecarPath }: ExternalC
           href={d.url || descriptor.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="shrink-0 rounded-md border border-border px-2.5 py-1 text-meta font-semibold text-foreground-muted transition-colors hover:border-brand-action hover:text-foreground"
+          aria-label={`Open paper: ${d.title || caption || descriptor.doiOrPmid || "citation"}`}
+          className="shrink-0 rounded-md border border-border px-2.5 py-1 text-meta font-semibold text-foreground-muted transition-colors hover:border-brand-action hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
         >
           Open
         </a>
