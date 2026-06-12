@@ -553,10 +553,10 @@ export function CommandPalette({
       const el = surfaceRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
-      // Sit centered on the top edge, biased a touch left of center (matching
-      // the demo's `l + min(24, w*0.18)`), riding 17px above the border.
-      const left = r.left + Math.min(r.width / 2, r.width * 0.18 + 16);
-      const top = r.top - 17;
+      // Perch near the UPPER-LEFT corner of the box (not center), riding a touch
+      // higher than before since the mascot is now larger.
+      const left = r.left + 30;
+      const top = r.top - 22;
       const prev = riderPrevLeftRef.current;
       if (prev != null) {
         const delta = left - prev;
@@ -1439,7 +1439,7 @@ export function CommandPalette({
               }
               direction={riderLean < 0 ? "left" : "right"}
               animated={aiSending || !morphing}
-              className="h-8 w-8 flex-none drop-shadow-md"
+              className="h-11 w-11 flex-none drop-shadow-md"
               ariaLabel="BeakerBot"
             />
           </div>

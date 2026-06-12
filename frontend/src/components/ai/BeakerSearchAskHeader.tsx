@@ -3,8 +3,10 @@
 // BeakerSearchAskHeader (ai palette-morph bot, 2026-06-11).
 //
 // The chat chrome that appears inside the BeakerSearch palette when it is in
-// Ask mode. Contains (left to right): back-to-search control, BeakerBot mark
-// + "BeakerBot" title, Save-to control, New chat button, History stub, the
+// Ask mode. Contains (left to right): back-to-search control, the "BeakerBot AI"
+// wordmark (no static mark, the riding mascot up top is the only beaker; "AI" in
+// the welcome-page rainbow gradient), Save-to control, New chat button, History,
+// the
 // review-mode control, and a static "uses credit" hint.
 //
 // Props:
@@ -28,7 +30,6 @@
 
 import { useState } from "react";
 import { Icon } from "@/components/icons";
-import BeakerBot from "@/components/BeakerBot";
 import Tooltip from "@/components/Tooltip";
 import { useBeakerBotReviewMode } from "@/lib/ai/review-mode-store";
 import { useConversationStore } from "@/lib/ai/conversation-store";
@@ -125,16 +126,23 @@ export default function BeakerSearchAskHeader({
         </button>
       </Tooltip>
 
-      {/* BeakerBot mark + title */}
-      <BeakerBot
-        pose="idle"
-        animated={false}
-        className="h-5 w-5 flex-none"
-        ariaLabel=""
-      />
+      {/* Brand wordmark. No static mark, the riding mascot up top is the only
+          beaker; the "AI" reads in the welcome-page pastel-rainbow gradient. */}
       <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
         <span className="flex-none text-body font-semibold text-foreground">
-          BeakerBot
+          BeakerBot{" "}
+          <span
+            className="font-bold"
+            style={{
+              backgroundImage:
+                "linear-gradient(90deg, #f7a072, #f2c94c, #6bbf59, #5aa9e6, #b08fdb)",
+              WebkitBackgroundClip: "text",
+              backgroundClip: "text",
+              color: "transparent",
+            }}
+          >
+            AI
+          </span>
         </span>
         {currentTitle ? (
           <span
