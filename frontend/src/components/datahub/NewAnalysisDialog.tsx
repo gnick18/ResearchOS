@@ -311,14 +311,17 @@ export default function NewAnalysisDialog({
         role="dialog"
         aria-modal="true"
         aria-label="New analysis"
-        className="relative w-full max-w-md rounded-lg border border-border bg-surface-overlay p-5 shadow-xl"
+        className="relative flex max-h-[90vh] w-full max-w-md flex-col rounded-lg border border-border bg-surface-overlay shadow-xl"
       >
-        <h2 className="text-title font-semibold text-foreground">New analysis</h2>
-        <p className="mt-1 text-meta text-foreground-muted">
-          The result reads from this table live, so an edit to a replicate
-          re-runs the test. You only choose the comparison once.
-        </p>
+        <div className="flex-none px-5 pt-5">
+          <h2 className="text-title font-semibold text-foreground">New analysis</h2>
+          <p className="mt-1 text-meta text-foreground-muted">
+            The result reads from this table live, so an edit to a replicate
+            re-runs the test. You only choose the comparison once.
+          </p>
+        </div>
 
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-1">
         {validTypes.length === 0 ? (
           <p className="mt-4 rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-foreground-muted">
             {isXY
@@ -516,8 +519,9 @@ export default function NewAnalysisDialog({
             )}
           </>
         )}
+        </div>
 
-        <div className="mt-5 flex items-center justify-between gap-2">
+        <div className="flex flex-none items-center justify-between gap-2 border-t border-border px-5 py-4">
           {AI_ASSISTANT_ENABLED ? (
             <button
               type="button"

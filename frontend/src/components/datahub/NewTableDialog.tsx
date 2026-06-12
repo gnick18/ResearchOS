@@ -113,7 +113,7 @@ export default function NewTableDialog({
         role="dialog"
         aria-modal="true"
         aria-label="New data table"
-        className="relative w-full max-w-md rounded-lg border border-border bg-surface-overlay p-5 shadow-xl"
+        className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg border border-border bg-surface-overlay p-5 shadow-xl"
       >
         <h2 className="text-title font-semibold text-foreground">New data table</h2>
         <p className="mt-1 text-meta text-foreground-muted">

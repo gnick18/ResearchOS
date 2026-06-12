@@ -258,7 +258,7 @@ export default function PowerPlannerDialog({
         role="dialog"
         aria-modal="true"
         aria-label="Power and sample-size planner"
-        className="relative w-full max-w-lg rounded-lg border border-border bg-surface-overlay p-5 shadow-xl"
+        className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-surface-overlay p-5 shadow-xl"
       >
         <div className="flex items-start gap-2">
           <Icon name="gauge" className="mt-0.5 h-5 w-5 shrink-0 text-brand-action" />
