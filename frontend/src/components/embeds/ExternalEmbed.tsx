@@ -59,9 +59,17 @@ export default function ExternalEmbed({
   caption,
   sidecarPath,
 }: ExternalCardProps) {
+  const figureLabel =
+    descriptor.kind === "cite"
+      ? `Citation embed: ${caption || descriptor.url}`
+      : descriptor.kind === "structure"
+        ? `Structure embed: ${caption || descriptor.url}`
+        : `Link embed: ${caption || descriptor.url}`;
+
   return (
     <figure
       className="my-3 mx-0 overflow-hidden rounded-xl border border-border bg-surface-raised"
+      aria-label={figureLabel}
       data-embed-type="external"
       data-embed-kind={descriptor.kind}
     >

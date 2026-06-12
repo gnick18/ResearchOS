@@ -121,18 +121,21 @@ export default function DataHubEmbed({ descriptor, caption, figureLabel, onViewC
     const plotHref = objectDeepLink("datahub", descriptor.id);
     return (
       <div>
-        <div className="flex items-center gap-2 border-b border-border bg-surface-sunken px-3 py-2">
+        <div className="flex min-w-0 items-center gap-2 border-b border-border bg-surface-sunken px-3 py-2">
           <span className="truncate text-body font-semibold text-foreground">{plotTitle}</span>
           <span className="flex-1" />
           {viewSwitch}
           <a
             href={plotHref}
-            className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground"
+            aria-label={`Open Data Hub: ${plotTitle}`}
+            className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
           >
             Open
           </a>
         </div>
         <div
+          role="img"
+          aria-label={`Plot: ${plotTitle}`}
           className="flex justify-center overflow-x-auto px-3 py-3"
           dangerouslySetInnerHTML={{ __html: svg }}
         />
@@ -172,13 +175,14 @@ export default function DataHubEmbed({ descriptor, caption, figureLabel, onViewC
     const resultHref = objectDeepLink("datahub", descriptor.id);
     return (
       <div>
-        <div className="flex items-center gap-2 border-b border-border bg-surface-sunken px-3 py-2">
+        <div className="flex min-w-0 items-center gap-2 border-b border-border bg-surface-sunken px-3 py-2">
           <span className="truncate text-body font-semibold text-foreground">{resultTitle}</span>
           <span className="flex-1" />
           {viewSwitch}
           <a
             href={resultHref}
-            className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground"
+            aria-label={`Open Data Hub: ${resultTitle}`}
+            className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
           >
             Open
           </a>
@@ -217,14 +221,15 @@ export default function DataHubEmbed({ descriptor, caption, figureLabel, onViewC
 
   return (
     <div>
-      <div className="flex items-center gap-2 border-b border-border bg-surface-sunken px-3 py-2">
+      <div className="flex min-w-0 items-center gap-2 border-b border-border bg-surface-sunken px-3 py-2">
         <span className="truncate text-body font-semibold text-foreground">{title}</span>
         <span className="shrink-0 text-meta text-foreground-muted">{dims}</span>
         <span className="flex-1" />
         {viewSwitch}
         <a
           href={href}
-          className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground"
+          aria-label={`Open Data Hub: ${title}`}
+          className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
         >
           Open
         </a>

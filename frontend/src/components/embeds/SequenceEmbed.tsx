@@ -93,14 +93,15 @@ export default function SequenceEmbed({ descriptor, caption, figureLabel, onView
   // The shared header. Map and bases both render under it, with the same facts,
   // Open link, and the view switch.
   const header = (
-    <div className="flex items-center gap-2 border-b border-border bg-surface-sunken px-3 py-2">
+    <div className="flex min-w-0 items-center gap-2 border-b border-border bg-surface-sunken px-3 py-2">
       <span className="truncate text-body font-semibold text-foreground">{title}</span>
       <span className="shrink-0 text-meta text-foreground-muted">{facts}</span>
       <span className="flex-1" />
       <EmbedViewSwitch views={SEQUENCE_VIEWS} current={view} onSelect={selectView} />
       <a
         href={href}
-        className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground"
+        aria-label={`Open sequence: ${title}`}
+        className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
       >
         Open
       </a>

@@ -46,7 +46,7 @@ function TransclusionHeader({
   href: string;
 }) {
   return (
-    <div className="flex items-center gap-2 border-b border-border bg-surface-sunken px-3 py-2">
+    <div className="flex min-w-0 items-center gap-2 border-b border-border bg-surface-sunken px-3 py-2">
       <span className="truncate text-meta text-foreground-muted">
         Transcluded from{" "}
         <span className="font-semibold text-foreground">{noteTitle}</span>
@@ -60,7 +60,8 @@ function TransclusionHeader({
       <span className="flex-1" />
       <a
         href={href}
-        className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground"
+        aria-label={`Open source note: ${noteTitle}`}
+        className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
       >
         Open
       </a>
@@ -92,7 +93,7 @@ function SectionNotFoundCard({
 }) {
   return (
     <div>
-      <div className="flex items-center gap-2 border-b border-border bg-surface-sunken px-3 py-2">
+      <div className="flex min-w-0 items-center gap-2 border-b border-border bg-surface-sunken px-3 py-2">
         <span className="truncate text-meta text-foreground-muted">
           Transcluded from{" "}
           <span className="font-semibold text-foreground">{noteTitle}</span>
@@ -100,7 +101,8 @@ function SectionNotFoundCard({
         <span className="flex-1" />
         <a
           href={href}
-          className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground"
+          aria-label={`Open source note: ${noteTitle}`}
+          className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
         >
           Open
         </a>

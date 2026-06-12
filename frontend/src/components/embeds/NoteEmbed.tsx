@@ -64,12 +64,13 @@ export default function NoteEmbed({ descriptor, caption }: EmbedRendererProps) {
 
   return (
     <div>
-      <div className="flex items-center gap-2 border-b border-border bg-surface-sunken px-3 py-2">
+      <div className="flex min-w-0 items-center gap-2 border-b border-border bg-surface-sunken px-3 py-2">
         <span className="truncate text-body font-semibold text-foreground">{title}</span>
         <span className="flex-1" />
         <a
           href={href}
-          className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground"
+          aria-label={`Open note: ${title}`}
+          className="shrink-0 rounded-md px-2 py-0.5 text-meta font-semibold text-foreground-muted transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action"
         >
           Open
         </a>
