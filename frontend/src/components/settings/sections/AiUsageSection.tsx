@@ -62,7 +62,7 @@ export default function AiUsageSection() {
         {AI_USAGE_FIXTURE.includesSignupTrial && (
           <div className="mt-2">
             <span className="inline-block rounded-md bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-meta font-semibold px-2 py-0.5">
-              Includes your one-time sign-up trial
+              Includes your one-time sign-up gift, about 750,000 tokens
             </span>
           </div>
         )}

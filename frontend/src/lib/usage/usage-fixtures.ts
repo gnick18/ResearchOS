@@ -7,14 +7,16 @@
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
-/** AI token balance fixtures, the prepaid pool for BeakerBot. */
+/** AI token balance fixtures, the prepaid pool for BeakerBot. Consistent with
+ *  the /pricing token economy, a full analysis is about 30,000 tokens and a
+ *  quick question about 7,500, and the free sign-up gift is about 750,000. */
 export const AI_USAGE_FIXTURE = {
-  /** Tokens left in the prepaid pool. */
-  tokensLeft: 12_400,
+  /** Tokens left in the prepaid pool. About 18 analyses at ~30k each. */
+  tokensLeft: 540_000,
   /** Plain-value translation of the balance, kept honest with a "depends" hedge. */
   balanceTranslation:
-    "about 16 full analyses or 80-plus quick questions, depending on how big each question is",
-  /** Whether the one-time sign-up trial tokens are still part of this balance. */
+    "about 18 full analyses or 70-plus quick questions, depending on how big each question is",
+  /** Whether the one-time sign-up gift tokens are still part of this balance. */
   includesSignupTrial: true,
   /** Whether the AI is free during the beta (it is, today). */
   freeDuringBeta: true,
@@ -28,27 +30,28 @@ export interface RecentAiTask {
 }
 
 export const RECENT_AI_TASKS_FIXTURE: RecentAiTask[] = [
-  { name: "t-test on growth data", kind: "analysis", tokens: 1_240 },
-  { name: "Bar plot with error bars", kind: "figure", tokens: 980 },
-  { name: "Which PCR runs failed last month", kind: "question", tokens: 340 },
-  { name: "Summarize and write up the result", kind: "write-up", tokens: 2_110 },
+  { name: "t-test on growth data", kind: "analysis", tokens: 31_200 },
+  { name: "Bar plot with error bars", kind: "figure", tokens: 26_800 },
+  { name: "Which PCR runs failed last month", kind: "question", tokens: 7_100 },
+  { name: "Summarize and write up the result", kind: "write-up", tokens: 34_500 },
 ];
 
-/** A prepaid token block the user can buy. The task estimates are rough and
- *  match the /pricing framing ("about N tasks"). */
+/** A prepaid top-up the user can buy. The estimates are rough and match the
+ *  /pricing framing, near our cost a full analysis is about a penny, so a $10
+ *  block is hundreds of analyses. */
 export interface TokenBlock {
   /** Dollar price, shown verbatim. */
   price: string;
-  /** Rough number of tasks the block covers. */
+  /** Rough number of analyses the block covers. */
   tasks: string;
   /** Whether this is the suggested / pre-selected block. */
   recommended?: boolean;
 }
 
 export const TOKEN_BLOCKS_FIXTURE: TokenBlock[] = [
-  { price: "$10", tasks: "about 700 tasks" },
-  { price: "$25", tasks: "about 1,800 tasks", recommended: true },
-  { price: "$50", tasks: "about 3,600 tasks" },
+  { price: "$10", tasks: "about 700 analyses" },
+  { price: "$25", tasks: "about 1,800 analyses", recommended: true },
+  { price: "$50", tasks: "about 3,600 analyses" },
 ];
 
 /** Cloud storage fixtures, the optional synced copy. */
