@@ -134,6 +134,17 @@ interface InlineMarkdownEditorProps {
   imageBasePath?: string;
 
   // ---------------------------------------------------------------------------
+  // Reference picker hook (Chemistry Phase 3). Additive and OFF by default.
+  // ---------------------------------------------------------------------------
+  /** When set, called when the user types "/" at a word boundary (start of a
+   *  token, possibly after whitespace). The host opens its ReferencePicker and
+   *  when the user picks an item inserts the markdown via insertRef. The "/"
+   *  that triggered this is removed from the document before the callback fires
+   *  so a picked reference replaces the slash cleanly. When absent the slash
+   *  behaves exactly as normal text insertion (zero change to existing sites). */
+  onRequestReference?: () => void;
+
+  // ---------------------------------------------------------------------------
   // Loro CRDT pilot (additive; when absent the editor behaves exactly as today)
   // ---------------------------------------------------------------------------
   /** When set, the editor runs in Loro mode: seeds from the Loro text, binds
@@ -321,6 +332,7 @@ export default function InlineMarkdownEditor({
   loroBaseNote,
   collabEphemeral,
   collabUser,
+  onRequestReference,
 }: InlineMarkdownEditorProps) {
   // loroActive is stable after mount: when a handle is provided, the editor is
   // in Loro mode for its entire lifetime. We compute it once from the prop
@@ -350,6 +362,10 @@ export default function InlineMarkdownEditor({
   const onChangeRef = useRef(onChange);
   const onExplicitSaveRef = useRef(onExplicitSave);
   const onDirtyChangeRef = useRef(onDirtyChange);
+  // Reference picker callback (Chemistry Phase 3). Absent on all existing call
+  // sites; only the opt-in surfaces pass this. Mirrored into a ref like the
+  // other callbacks so the once-built updateListener always sees the live fn.
+  const onRequestReferenceRef = useRef(onRequestReference);
   // Chip 2b: mirror imageBasePath into a ref so the once-at-mount makeState can
   // read the current value (and the disabled-reconfigure picks up a later swap)
   // without re-binding the whole editor or destabilizing makeState.
@@ -383,6 +399,9 @@ export default function InlineMarkdownEditor({
   useEffect(() => {
     onDirtyChangeRef.current = onDirtyChange;
   }, [onDirtyChange]);
+  useEffect(() => {
+    onRequestReferenceRef.current = onRequestReference;
+  }, [onRequestReference]);
   useEffect(() => {
     imageBasePathRef.current = imageBasePath;
   }, [imageBasePath]);
@@ -519,6 +538,61 @@ export default function InlineMarkdownEditor({
       const updateListener = mods.EditorView.updateListener.of((update) => {
         if (!update.docChanged) return;
         if (echoingRef.current) return;
+
+        // Reference picker slash trigger (Chemistry Phase 3). When the user
+        // types "/" as a single character at a word boundary (start of the doc,
+        // or preceded by whitespace / newline), fire the reference picker and
+        // remove the "/" from the document. This mirrors how many editors (Notion,
+        // Linear) open a command menu on "/". The check is deliberately simple
+        // and conservative: only fires on a plain "/" single-char insert on a
+        // single selection range, never inside a code fence or an existing URL.
+        // The guard reads the ref so this once-built listener always sees the
+        // latest callback without needing to rebuild.
+        const requestRef = onRequestReferenceRef.current;
+        if (requestRef) {
+          // Check: exactly one change (the "/" insert), exactly one selection range.
+          const changes = update.changes;
+          const sel = update.state.selection;
+          if (sel.ranges.length === 1) {
+            let singleSlash = false;
+            let insertPos = -1;
+            changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
+              // A single "/" insertion with no deletion (toA === fromA).
+              if (fromA === toA && inserted.toString() === "/") {
+                singleSlash = true;
+                insertPos = fromA;
+              }
+            });
+            if (singleSlash && insertPos >= 0) {
+              // Check that the character immediately before the "/" is whitespace,
+              // a newline, or the doc starts at this position — i.e., a word boundary.
+              const doc = update.state.doc;
+              const atBoundary =
+                insertPos === 0 ||
+                /[\s\n]/.test(doc.sliceString(insertPos - 1, insertPos));
+              if (atBoundary) {
+                // Remove the "/" from the doc (undo the insert) then open the picker.
+                // Use echoingRef to suppress the re-fire of onChange/dirty for this
+                // cleanup dispatch, just as we do for external value reconciliation.
+                const view = (update as { view?: import("@codemirror/view").EditorView }).view;
+                if (view) {
+                  echoingRef.current = true;
+                  try {
+                    view.dispatch({
+                      changes: { from: insertPos, to: insertPos + 1, insert: "" },
+                    });
+                  } finally {
+                    echoingRef.current = false;
+                  }
+                  // Fire the reference picker callback.
+                  requestRef();
+                  return; // Skip the normal onChange/dirty path for this update.
+                }
+              }
+            }
+          }
+        }
+
         const next = update.state.doc.toString();
         lastAcceptedRef.current = next;
         setDirty(true);

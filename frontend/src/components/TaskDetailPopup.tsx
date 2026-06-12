@@ -4821,6 +4821,8 @@ function LabNotesTab({ task, readOnly = false, ownerUsername, onRegisterFlushSav
                   loroEntryIndex={LORO_PILOT_ENABLED ? 0 : undefined}
                   collabEphemeral={collabActive ? collab.ephemeral : undefined}
                   collabUser={collabActive ? collabUser : undefined}
+                  // Chemistry Phase 3: reference picker.
+                  enableReferencePicker
                 />
               )}
               </div>

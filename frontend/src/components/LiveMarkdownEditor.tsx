@@ -14,6 +14,14 @@ import remarkUnderline from "@/lib/markdown/remark-underline";
 import { extractUserContent } from "@/lib/stamp-utils";
 import { attachmentsApi } from "@/lib/local-api";
 import InlineMarkdownEditor from "./InlineMarkdownEditor";
+
+// ReferencePicker is lazy (loads the heavy list APIs + MoleculeThumbnail RDKit
+// only when opened). next/dynamic gives a no-SSR wrapper so the initial bundle
+// is unaffected. `dynamic` is already imported above from "next/dynamic".
+const ReferencePicker = dynamic(
+  () => import("./references/ReferencePicker"),
+  { ssr: false },
+);
 import type { EditorLoroHandle } from "@/lib/loro/editor-handle";
 import type { Note } from "@/lib/types";
 import MarkdownShortcutsSidebar from "./MarkdownShortcutsSidebar";
@@ -236,6 +244,17 @@ interface LiveMarkdownEditorProps {
   collabEphemeral?: import("loro-crdt").EphemeralStore<import("loro-codemirror").EphemeralState>;
   /** Cursor identity for this peer (name + colorClassName). */
   collabUser?: import("loro-codemirror").UserState;
+
+  // ---------------------------------------------------------------------------
+  // Reference picker (Chemistry Phase 3). Opt-in: only surfaces that pass
+  // enableReferencePicker={true} show the "Insert reference" toolbar button
+  // and the slash-command trigger. Existing call sites are byte-identical when
+  // this prop is absent (defaults to false).
+  // ---------------------------------------------------------------------------
+  /** When true, adds an "Insert reference" button to the toolbar and wires the
+   *  "/" slash trigger to open the ReferencePicker modal. Defaults to false so
+   *  existing call sites are unaffected. */
+  enableReferencePicker?: boolean;
 }
 
 /**
@@ -273,6 +292,7 @@ export default function LiveMarkdownEditor({
   loroBaseNote,
   collabEphemeral,
   collabUser,
+  enableReferencePicker = false,
 }: LiveMarkdownEditorProps) {
   // The markdown editor lets you annotate dropped/embedded images, so warm the
   // lazy annotator chunk on idle. ImageStrip isn't always mounted alongside this
@@ -301,6 +321,11 @@ export default function LiveMarkdownEditor({
     },
     [onFocusModeChange],
   );
+
+  // Reference picker (Chemistry Phase 3). State lives here in LiveMarkdownEditor
+  // so the toolbar button and the InlineMarkdownEditor slash callback both toggle
+  // the same modal. Only active when enableReferencePicker is true.
+  const [referencePickerOpen, setReferencePickerOpen] = useState(false);
 
   // Buffer-safety bridge (FOCUS_WRITING_MODE_DESIGN.md §7). Wired for
   // belt-and-suspenders safety across the focus-mode portal flip. Element
@@ -1980,6 +2005,23 @@ export default function LiveMarkdownEditor({
             </Tooltip>
           )}
 
+          {/* Insert Reference (Chemistry Phase 3). Only shown when the host
+              opts in via enableReferencePicker. Opens the tabbed picker for
+              Molecules / Sequences / Methods; the chosen row inserts the
+              objectReferenceMarkdown at the CM6 caret via insertRef. */}
+          {enableReferencePicker && !disabled && (
+            <Tooltip label="Insert reference (molecule, sequence, or method)" placement="bottom">
+              <button
+                type="button"
+                aria-label="Insert reference"
+                onClick={() => setReferencePickerOpen(true)}
+                className="px-2.5 py-1 text-meta bg-surface-sunken text-foreground-muted rounded hover:bg-foreground-muted/15 transition-colors"
+              >
+                Insert ref
+              </button>
+            </Tooltip>
+          )}
+
           {/* Attachment Strip Toggle — shows a scrollable strip of every
               image OR non-image file attached to this experiment along the
               bottom. A small Images / Files tab bar above the strip switches
@@ -2355,6 +2397,7 @@ export default function LiveMarkdownEditor({
                   loroBaseNote={loroBaseNote}
                   collabEphemeral={collabEphemeral}
                   collabUser={collabUser}
+                  onRequestReference={enableReferencePicker ? () => setReferencePickerOpen(true) : undefined}
                 />
               </div>
             </div>
@@ -2889,6 +2932,21 @@ export default function LiveMarkdownEditor({
       {portalContainerRef.current
         ? createPortal(frame, portalContainerRef.current)
         : null}
+
+      {/* Reference picker modal (Chemistry Phase 3). Rendered outside the
+          portal so it is never clipped by the editor's overflow parents.
+          Only mounts when enableReferencePicker is true AND the picker is
+          open, so the default (picker off) adds exactly zero nodes to the
+          DOM. When a reference is picked, insert it at the CM6 caret via
+          the existing insertRef. */}
+      {enableReferencePicker && referencePickerOpen && (
+        <ReferencePicker
+          onPick={(markdown) => {
+            insertRef.current?.(markdown);
+          }}
+          onClose={() => setReferencePickerOpen(false)}
+        />
+      )}
     </>
   );
 }

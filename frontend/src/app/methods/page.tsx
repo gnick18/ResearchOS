@@ -1861,6 +1861,8 @@ function MarkdownMethodViewer({
                 saveRef={editorSaveRef}
                 onExplicitSave={(v) => { void handleSave(v); }}
                 onDirtyChange={setEditorDirty}
+                // Chemistry Phase 3: reference picker.
+                enableReferencePicker
               />
               {uploadWarning && (
                 <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg flex items-start gap-2">

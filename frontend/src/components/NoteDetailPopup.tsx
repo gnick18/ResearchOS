@@ -2291,6 +2291,8 @@ export default function NoteDetailPopup({
                   // no regression for single-user editing or the undo behavior.
                   collabEphemeral={collabActive ? collab.ephemeral : undefined}
                   collabUser={collabActive ? collabUser : undefined}
+                  // Chemistry Phase 3: reference picker (molecule / sequence / method).
+                  enableReferencePicker
                 />
                 )
               ) : (
@@ -2334,6 +2336,8 @@ export default function NoteDetailPopup({
                   // Phase 3 chunk 5a: live collab cursors (see running-log branch).
                   collabEphemeral={collabActive ? collab.ephemeral : undefined}
                   collabUser={collabActive ? collabUser : undefined}
+                  // Chemistry Phase 3: reference picker.
+                  enableReferencePicker
                 />
                 )
               )

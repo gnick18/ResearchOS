@@ -6,8 +6,9 @@
 // editing happens in the Ketcher popup (Edit structure), which is heavy to mount,
 // so clicking around the rail shows this instant RDKit view instead.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
@@ -18,6 +19,7 @@ import { referenceClipboardText } from "@/lib/copy-reference";
 import { MoleculeThumbnail } from "./MoleculeThumbnail";
 import { MoleculeLiterature } from "./MoleculeLiterature";
 import { LipinskiBadge } from "./LipinskiBadge";
+import type { BacklinkEntry } from "@/lib/chemistry/molecule-backlinks";
 
 export function MoleculeDetail({
   molecule,
@@ -31,12 +33,18 @@ export function MoleculeDetail({
   onDeleted: () => void;
 }) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [copied, setCopied] = useState<string | null>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showLit, setShowLit] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const cancelDeleteRef = useRef<HTMLButtonElement | null>(null);
+
+  // Backlinks ("Used in") state. Loaded lazily on mount, shown up front in the
+  // detail pane so the user can see all cross-references at a glance.
+  const [backlinks, setBacklinks] = useState<BacklinkEntry[] | null>(null);
+  const [backlinksLoading, setBacklinksLoading] = useState(true);
 
   // Druglikeness descriptors (chemistry v2 Phase 1c). The browse view stores
   // only core identity in the meta, so we compute the heavier descriptors on
@@ -60,12 +68,43 @@ export function MoleculeDetail({
     };
   }, [molecule.smiles]);
 
+  // Load backlinks on mount (and when the molecule id changes). On-demand scan,
+  // no persistent index — the molecule detail is opened at most once at a time.
+  useEffect(() => {
+    let cancelled = false;
+    setBacklinksLoading(true);
+    setBacklinks(null);
+    import("@/lib/chemistry/molecule-backlinks")
+      .then(({ scanMoleculeBacklinks }) => scanMoleculeBacklinks(molecule.id))
+      .then((entries) => {
+        if (cancelled) return;
+        setBacklinks(entries);
+        setBacklinksLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setBacklinks([]);
+        setBacklinksLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [molecule.id]);
+
   // When the destructive confirm row appears, land focus on the safe choice
   // (Cancel) rather than leaving it on the now-unmounted "Delete molecule"
   // trigger, so a keyboard user does not tab into the red button by accident.
   useEffect(() => {
     if (confirmDelete) cancelDeleteRef.current?.focus();
   }, [confirmDelete]);
+
+  // Navigate to a backlink entry. Notes open via the normal router push.
+  const navigateToBacklink = useCallback(
+    (entry: BacklinkEntry) => {
+      router.push(entry.href);
+    },
+    [router],
+  );
 
   const projectName = useMemo(() => {
     const map = new Map<string, string>();
@@ -319,6 +358,38 @@ export function MoleculeDetail({
               </select>
             ) : null}
           </div>
+        </div>
+
+        {/* Used in (backlinks) — shown up front so cross-references are
+            visible at a glance. On-demand scan, no persistent index. */}
+        <div className="mt-6">
+          <h4 className="text-[11px] uppercase tracking-wide text-foreground-muted mb-2">
+            Used in
+          </h4>
+          {backlinksLoading ? (
+            <p className="text-meta text-foreground-muted">Scanning for references…</p>
+          ) : backlinks && backlinks.length > 0 ? (
+            <div className="flex flex-col gap-1">
+              {backlinks.map((entry) => (
+                <button
+                  key={`${entry.type}-${entry.id}`}
+                  type="button"
+                  onClick={() => navigateToBacklink(entry)}
+                  className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-body text-foreground hover:bg-accent-soft text-left transition-colors"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-brand-action shrink-0" />
+                  <span className="text-meta text-foreground-muted shrink-0 capitalize">
+                    {entry.type}
+                  </span>
+                  <span className="truncate font-medium">{entry.title}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-meta text-foreground-muted">
+              Not referenced anywhere yet.
+            </p>
+          )}
         </div>
 
         {/* literature (lazy) */}
