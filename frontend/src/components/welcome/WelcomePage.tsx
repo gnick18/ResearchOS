@@ -376,6 +376,7 @@ const COST_ROWS: { tool: string; does: string; price: string }[] = [
   { tool: "SnapGene", does: "Cloning and sequences", price: "$1,625 flat" },
   { tool: "GraphPad Prism", does: "Stats and figures", price: "~$1,000s" },
   { tool: "ChemDraw", does: "Chemical structures", price: "per seat, pricey" },
+  { tool: "SciFinder", does: "Chemical literature and patent search", price: "institutional license, pricey" },
   { tool: "Quartzy", does: "Inventory and ordering", price: "$1,908 flat" },
 ];
 
@@ -838,10 +839,14 @@ export default function WelcomePage({
           </BeakerBotPeek>
 
           <p className="mx-auto mt-6 max-w-[64ch] text-center text-body leading-relaxed text-[#64748b]">
-            SnapGene genuinely goes deeper on cloning and Quartzy has the bigger
-            vendor catalog. ResearchOS wins by folding the notebook, the sequence
-            tool, and inventory into one free suite with your data on your own
-            disk. Two-way Quartzy sync is on the roadmap, so you can keep the
+            SnapGene genuinely goes deeper on cloning, Quartzy has the bigger
+            vendor catalog, and SciFinder and Reaxys go deeper on curated
+            reaction databases. The chemistry workbench covers what most labs
+            actually open SciFinder for, searching the literature and patents by
+            structure, including substructure search across 28 million patents,
+            free. ResearchOS wins by folding the notebook, the sequence tool,
+            chemistry, and inventory into one free suite with your data on your
+            own disk. Two-way Quartzy sync is on the roadmap, so you can keep the
             ordering tools your lab already uses.
           </p>
         </section>
