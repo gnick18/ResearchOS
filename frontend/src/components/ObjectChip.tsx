@@ -18,6 +18,10 @@
 // RenderedMarkdown renders) open in place when possible, with navigate as the
 // universal fallback for types without a popup yet.
 //
+// HR-embeds-hover (2026-06-11): on hover (or keyboard focus) a lazy preview
+// card appears below the chip, loaded on first hover only. ChipHoverCard wraps
+// the button but does NOT alter its click / navigation / popup behavior at all.
+//
 // Inline SVG icons only (no emojis). Voice. No em-dashes, no mid-sentence colons.
 
 import { useRouter } from "next/navigation";
@@ -25,6 +29,7 @@ import type { ObjectRefType } from "@/lib/references";
 import { parseObjectDeepLink } from "@/lib/references";
 import { openObjectPopup } from "@/components/ai/object-popup-bridge";
 import { Icon } from "@/components/icons";
+import ChipHoverCard from "@/components/ChipHoverCard";
 
 // Types that open as a real popup in the root host. All others navigate.
 // Kept in sync with ObjectPopupHost's POPUP_CAPABLE set. If you add a type
@@ -122,6 +127,12 @@ function ChipIcon({ type, className }: { type: ObjectRefType; className?: string
  * the real item popup in place without leaving the current view or the BeakerBot
  * conversation. For all other types the chip navigates as before, and navigation
  * is also the automatic fallback whenever the popup host is not mounted.
+ *
+ * HR-embeds-hover: ChipHoverCard wraps the button to add a lazy preview card on
+ * hover. The card is purely additive — it does not alter the button's behavior.
+ * When parseObjectDeepLink cannot extract an id from the href (should not happen
+ * for a well-formed chip, but graceful degradation for future edge cases), the
+ * button renders without a hover card.
  */
 export default function ObjectChip({
   type,
@@ -133,7 +144,8 @@ export default function ObjectChip({
   label: string;
 }) {
   const router = useRouter();
-  return (
+
+  const button = (
     <button
       type="button"
       data-object-chip={type}
@@ -159,4 +171,18 @@ export default function ObjectChip({
       <span className="truncate">{label}</span>
     </button>
   );
+
+  // Attempt to parse the object id from the href. If parsing succeeds, wrap
+  // the button in a hover card; otherwise render the button as-is. Parsing
+  // should always succeed for a well-formed chip, but the fallback keeps the
+  // chip functional for any unexpected edge case.
+  const parsed = parseObjectDeepLink(href);
+  if (parsed) {
+    return (
+      <ChipHoverCard type={parsed.type} id={parsed.id} label={label}>
+        {button}
+      </ChipHoverCard>
+    );
+  }
+  return button;
 }
