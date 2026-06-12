@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Markdown + ResearchOS embeds</title>
+<style>
+  :root {
+    --bg: #f1f5f9;
+    --surface: #ffffff;
+    --sunken: #f8fafc;
+    --border: #e2e8f0;
+    --text: #0f172a;
+    --muted: #64748b;
+    --faint: #94a3b8;
+    --accent: #0284c7;
+    --accent-soft: #e0f2fe;
+    --green: #16a34a;
+    --amber: #d97706;
+    --rose: #e11d48;
+    --purple: #7c3aed;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: var(--sans); line-height: 1.5;
+  }
+  .page { max-width: 860px; margin: 0 auto; padding: 28px 20px 80px; }
+  header.intro h1 { font-size: 22px; margin: 0 0 6px; }
+  header.intro p { color: var(--muted); margin: 0 0 4px; font-size: 14px; max-width: 70ch; }
+  .toolbar {
+    position: sticky; top: 0; z-index: 5; background: var(--bg);
+    display: flex; align-items: center; gap: 10px; padding: 14px 0 12px; margin-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .seg { display: inline-flex; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 3px; }
+  .seg button {
+    border: 0; background: transparent; font-family: var(--sans); font-size: 13px; font-weight: 600;
+    color: var(--muted); padding: 5px 14px; border-radius: 7px; cursor: pointer;
+  }
+  .seg button.on { background: var(--accent); color: #fff; }
+  .hint { color: var(--faint); font-size: 12px; }
+
+  .note {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 30px 34px; box-shadow: 0 1px 3px rgba(15,23,42,.05);
+  }
+  .note h2 { font-size: 26px; margin: 0 0 2px; letter-spacing: -.01em; }
+  .note .lede { color: var(--muted); margin: 0 0 22px; font-size: 14px; }
+  .note p { margin: 0 0 16px; font-size: 15px; }
+  .note h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); margin: 26px 0 12px; }
+
+  /* inline chip */
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px; vertical-align: baseline;
+    padding: 1px 8px 1px 6px; border-radius: 999px; border: 1px solid var(--border);
+    background: var(--sunken); font-size: 13.5px; font-weight: 600; color: var(--text);
+    text-decoration: none; line-height: 1.7;
+  }
+  .chip svg { width: 13px; height: 13px; flex: none; color: var(--accent); }
+  .chip .thumb { width: 16px; height: 16px; border-radius: 3px; border: 1px solid var(--border); background:#fff; }
+
+  /* block embed card */
+  .embed {
+    border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+    margin: 0 0 16px; background: var(--surface);
+  }
+  .embed > .ehead {
+    display: flex; align-items: center; gap: 8px; padding: 9px 12px;
+    border-bottom: 1px solid var(--border); background: var(--sunken);
+  }
+  .embed .ehead .ic { width: 15px; height: 15px; color: var(--accent); flex: none; }
+  .embed .ehead .title { font-weight: 700; font-size: 14px; }
+  .embed .ehead .sub { color: var(--muted); font-size: 12.5px; }
+  .embed .ehead .spacer { flex: 1; }
+  .embed .ehead .views { display: flex; gap: 2px; }
+  .embed .ehead .views span {
+    font-size: 11px; font-weight: 600; color: var(--muted); padding: 2px 7px; border-radius: 6px;
+  }
+  .embed .ehead .views span.on { background: var(--accent-soft); color: var(--accent); }
+  .embed .ehead .live { font-size: 10.5px; font-weight: 700; color: var(--green); display: inline-flex; align-items: center; gap: 4px; }
+  .embed .ehead .live::before { content: ""; width: 6px; height: 6px; border-radius: 999px; background: var(--green); }
+  .embed .ebody { padding: 12px 14px; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; }
+  .b-green { background: #dcfce7; color: #15803d; }
+  .b-amber { background: #fef3c7; color: #b45309; }
+  .b-blue { background: var(--accent-soft); color: var(--accent); }
+  .b-rose { background: #ffe4e6; color: #be123c; }
+
+  table.mini { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  table.mini th, table.mini td { border: 1px solid var(--border); padding: 4px 8px; text-align: right; }
+  table.mini th { background: var(--sunken); color: var(--muted); font-weight: 600; }
+  table.mini td:first-child, table.mini th:first-child { text-align: left; }
+  .fade-row td { color: var(--faint); }
+
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 16px; font-size: 13px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; font-weight: 600; }
+
+  .stat-row { display: flex; gap: 22px; flex-wrap: wrap; }
+  .stat { }
+  .stat .n { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+
+  .raw { font-family: var(--mono); font-size: 12.5px; color: #334155; background: var(--sunken);
+    border: 1px dashed var(--border); border-radius: 8px; padding: 10px 12px; white-space: pre-wrap; word-break: break-all; }
+  .raw .lk { color: var(--accent); }
+  .raw .frag { color: var(--purple); font-weight: 600; }
+  .raw .cm { color: var(--faint); }
+
+  /* Raw mode: hide the rendered card chrome, show the portable link line. */
+  .note.rawmode .embed .ehead, .note.rawmode .embed .ebody, .note.rawmode .chip-line .rendered { display: none !important; }
+  .note:not(.rawmode) .embed .raw, .note:not(.rawmode) .chip-line .rawline { display: none; }
+  .note.rawmode .embed { border: 0; margin: 0 0 6px; background: transparent; }
+  .note.rawmode .embed .raw { border: 0; background: transparent; padding: 2px 0; }
+  .chip-line .rawline { font-family: var(--mono); font-size: 12.5px; color:#334155; }
+  .embed .raw { margin: 0; border-radius: 0; border: 0; border-top: 1px dashed var(--border); }
+
+  .filecard { display:flex; align-items:center; gap:12px; }
+  .filecard .thumbimg { width: 64px; height: 48px; border-radius: 6px; border:1px solid var(--border); background:
+    linear-gradient(135deg,#bae6fd,#0ea5e9); flex:none; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="intro">
+    <h1>Markdown + ResearchOS embeds</h1>
+    <p>A reference is still a plain markdown link on disk, so the file works in any tool. Inside ResearchOS the renderer reads a <code>#ros=</code> fragment and draws the real object. Toggle Raw to see the portable source under every embed.</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="seg">
+      <button id="b-rendered" class="on" onclick="setMode('rendered')">Rendered</button>
+      <button id="b-raw" onclick="setMode('raw')">Raw markdown</button>
+    </div>
+    <span class="hint">Same note, two views. The raw is what lands in the <code>.md</code> file.</span>
+  </div>
+
+  <div class="note" id="note">
+    <h2>Strain 47 cloning + growth</h2>
+    <p class="lede">Lab note, Alex Rivera, Jun 11 2026</p>
+
+    <p class="chip-line">
+      <span class="rendered">We cloned
+        <a class="chip" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4c6 4 8 12 14 16M19 4C13 8 11 16 5 20"/></svg>pGEX-3X (U13852)</a>
+        and dosed with
+        <a class="chip" href="#"><span class="thumb"></span>Resveratrol</a>,
+        following
+        <a class="chip" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h12M4 10h16M4 15h10"/></svg>Gibson Assembly</a>.
+      </span>
+      <span class="rawline">We cloned <span style="color:#0284c7">[pGEX-3X (U13852)](/sequences?seq=2)</span> and dosed with <span style="color:#0284c7">[Resveratrol](/chemistry?molecule=3)</span>, following <span style="color:#0284c7">[Gibson Assembly](/methods/12)</span>.</span>
+    </p>
+    <p class="hint" style="margin-top:-8px">An inline mention stays a small chip. Put a reference on its own line and it becomes a live block embed below.</p>
+
+    <h3>Construct</h3>
+    <!-- SEQUENCE -->
+    <div class="embed">
+      <div class="ehead">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4c6 4 8 12 14 16M19 4C13 8 11 16 5 20"/></svg>
+        <span class="title">pGEX-3X (U13852)</span>
+        <span class="sub">4,956 bp &middot; Circular &middot; 8 features</span>
+        <span class="spacer"></span>
+        <span class="views"><span class="on">Map</span><span>Features</span><span>Sequence</span></span>
+        <span class="live">Live</span>
+      </div>
+      <div class="ebody">
+        <svg viewBox="0 0 760 90" width="100%" height="90">
+          <line x1="20" y1="45" x2="740" y2="45" stroke="#cbd5e1" stroke-width="2"/>
+          <rect x="60" y="32" width="120" height="26" rx="4" fill="#bfdbfe"/><text x="120" y="49" font-size="11" text-anchor="middle" fill="#1e3a8a">lac promoter</text>
+          <polygon points="220,32 360,32 380,45 360,58 220,58" fill="#bbf7d0"/><text x="295" y="49" font-size="11" text-anchor="middle" fill="#14532d">GST tag</text>
+          <polygon points="410,32 600,32 620,45 600,58 410,58" fill="#fde68a"/><text x="510" y="49" font-size="11" text-anchor="middle" fill="#78350f">insert ORF</text>
+          <rect x="650" y="32" width="80" height="26" rx="4" fill="#fbcfe8"/><text x="690" y="49" font-size="11" text-anchor="middle" fill="#831843">AmpR</text>
+          <text x="20" y="78" font-size="10" fill="#94a3b8">1</text><text x="735" y="78" font-size="10" fill="#94a3b8">4956</text>
+        </svg>
+      </div>
+      <div class="raw">[pGEX-3X (U13852)](<span class="lk">/sequences?seq=2</span><span class="frag">#ros=map</span>)</div>
+    </div>
+
+    <h3>Compound dosed</h3>
+    <!-- MOLECULE -->
+    <div class="embed">
+      <div class="ehead">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4"/></svg>
+        <span class="title">Resveratrol</span>
+        <span class="sub">C14H12O3 &middot; 228.24 g/mol</span>
+        <span class="spacer"></span>
+        <span class="badge b-green">Lipinski 0 violations</span>
+      </div>
+      <div class="ebody" style="display:flex; align-items:center; gap:18px;">
+        <svg viewBox="0 0 200 120" width="200" height="120">
+          <g stroke="#0f172a" stroke-width="1.6" fill="none">
+            <polygon points="40,30 60,20 80,30 80,50 60,60 40,50"/>
+            <line x1="80" y1="40" x2="105" y2="40"/><line x1="105" y1="37" x2="125" y2="37"/>
+            <polygon points="125,30 145,20 165,30 165,50 145,60 125,50"/>
+            <line x1="40" y1="50" x2="25" y2="62"/><line x1="80" y1="50" x2="95" y2="62"/>
+            <line x1="165" y1="40" x2="182" y2="40"/>
+          </g>
+          <text x="20" y="70" font-size="10" fill="#dc2626">HO</text>
+          <text x="92" y="74" font-size="10" fill="#dc2626">OH</text>
+          <text x="184" y="44" font-size="10" fill="#dc2626">OH</text>
+        </svg>
+        <dl class="kv">
+          <dt>SMILES</dt><dd style="font-family:var(--mono);font-size:11px">Oc1ccc(/C=C/c2cc(O)cc(O)c2)cc1</dd>
+          <dt>InChIKey</dt><dd style="font-family:var(--mono);font-size:11px">LUKBXSAWLPMMSZ-OWOJBTEDSA-N</dd>
+          <dt>cLogP</dt><dd>3.1</dd>
+          <dt>TPSA</dt><dd>60.7</dd>
+        </dl>
+      </div>
+      <div class="raw">[Resveratrol](<span class="lk">/chemistry?molecule=3</span><span class="frag">#ros=card</span>)</div>
+    </div>
+
+    <h3>Growth data</h3>
+    <!-- DATA TABLE -->
+    <div class="embed">
+      <div class="ehead">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 4v16"/></svg>
+        <span class="title">Growth curve, YPD vs 4% glucose</span>
+        <span class="sub">48 rows &times; 5 cols</span>
+        <span class="spacer"></span>
+        <span class="views"><span class="on">Table</span><span>Summary</span></span>
+        <span class="live">Live</span>
+      </div>
+      <div class="ebody">
+        <table class="mini">
+          <thead><tr><th>time_h</th><th>YPD_od</th><th>glu_od</th><th>YPD_sd</th><th>glu_sd</th></tr></thead>
+          <tbody>
+            <tr><td>0</td><td>0.04</td><td>0.04</td><td>0.01</td><td>0.01</td></tr>
+            <tr><td>2</td><td>0.11</td><td>0.09</td><td>0.02</td><td>0.01</td></tr>
+            <tr><td>4</td><td>0.38</td><td>0.21</td><td>0.03</td><td>0.02</td></tr>
+            <tr><td>6</td><td>0.92</td><td>0.44</td><td>0.05</td><td>0.03</td></tr>
+            <tr class="fade-row"><td>&hellip;</td><td>&hellip;</td><td>&hellip;</td><td>&hellip;</td><td>&hellip;</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="raw">[Growth curve, YPD vs 4% glucose](<span class="lk">/datahub?doc=2</span><span class="frag">#ros=table&rows=8</span>)</div>
+    </div>
+
+    <h3>Figure</h3>
+    <!-- PLOT -->
+    <div class="embed">
+      <div class="ehead">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5M4 19h16M8 15l4-5 3 3 4-6"/></svg>
+        <span class="title">OD600 over time</span>
+        <span class="sub">line, mean &plusmn; SD</span>
+        <span class="spacer"></span>
+        <span class="live">Live</span>
+      </div>
+      <div class="ebody">
+        <svg viewBox="0 0 720 220" width="100%" height="220">
+          <line x1="50" y1="190" x2="690" y2="190" stroke="#cbd5e1"/><line x1="50" y1="20" x2="50" y2="190" stroke="#cbd5e1"/>
+          <polyline fill="none" stroke="#0284c7" stroke-width="2.5" points="50,185 150,170 250,120 350,70 450,45 550,38 650,35"/>
+          <polyline fill="none" stroke="#d97706" stroke-width="2.5" points="50,185 150,178 250,150 350,120 450,100 550,92 650,90"/>
+          <text x="660" y="32" font-size="11" fill="#0284c7">YPD</text>
+          <text x="660" y="104" font-size="11" fill="#d97706">4% glu</text>
+          <text x="360" y="212" font-size="11" fill="#94a3b8" text-anchor="middle">time (h)</text>
+        </svg>
+      </div>
+      <div class="raw">[OD600 over time](<span class="lk">/datahub?doc=2&plot=p1</span><span class="frag">#ros=plot&w=720</span>)</div>
+    </div>
+
+    <h3>Statistics</h3>
+    <!-- RESULT -->
+    <div class="embed">
+      <div class="ehead">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M8 14l3-3 2 2 3-4"/></svg>
+        <span class="title">Welch t-test, endpoint OD</span>
+        <span class="sub">YPD vs 4% glucose</span>
+        <span class="spacer"></span>
+        <span class="live">Live</span>
+      </div>
+      <div class="ebody">
+        <div class="stat-row">
+          <div class="stat"><div class="n">t = 4.21</div><div class="l">statistic</div></div>
+          <div class="stat"><div class="n">44.3</div><div class="l">df</div></div>
+          <div class="stat"><div class="n">0.00012</div><div class="l">p value</div></div>
+          <div class="stat"><div class="n">1.32</div><div class="l">Cohen d</div></div>
+          <div class="stat"><div class="n">[0.21, 0.58]</div><div class="l">95% CI of diff</div></div>
+        </div>
+      </div>
+      <div class="raw">[Welch t-test, endpoint OD](<span class="lk">/datahub?doc=2&analysis=a3</span><span class="frag">#ros=result</span>)</div>
+    </div>
+
+    <h3>Other object types, same model</h3>
+
+    <!-- METHOD -->
+    <div class="embed">
+      <div class="ehead">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h12M4 10h16M4 15h10"/></svg>
+        <span class="title">Gibson Assembly</span><span class="sub">protocol</span>
+        <span class="spacer"></span><span class="badge b-blue">3 fragments</span>
+      </div>
+      <div class="ebody" style="font-size:13.5px;color:#334155">
+        1. Mix fragments at 0.05 pmol each with 2x master mix &middot; 2. 50 &deg;C, 60 min &middot; 3. Transform 2 &micro;L into competent cells.
+      </div>
+      <div class="raw">[Gibson Assembly](<span class="lk">/methods/12</span><span class="frag">#ros=card</span>)</div>
+    </div>
+
+    <!-- PURCHASE -->
+    <div class="embed">
+      <div class="ehead">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2l1.5 3h9L18 2M4 6h16l-1.5 11a2 2 0 01-2 1.7H7.5a2 2 0 01-2-1.7z"/></svg>
+        <span class="title">Q5 High-Fidelity 2X Master Mix</span><span class="sub">NEB M0492S</span>
+        <span class="spacer"></span><span class="badge b-amber">Ordered</span>
+      </div>
+      <div class="ebody">
+        <dl class="kv">
+          <dt>Vendor</dt><dd>New England Biolabs</dd>
+          <dt>Qty</dt><dd>2 &times; 100 rxn</dd>
+          <dt>Unit</dt><dd>$78.00</dd>
+          <dt>Total</dt><dd>$156.00</dd>
+          <dt>Ordered</dt><dd>Jun 9 2026</dd>
+        </dl>
+      </div>
+      <div class="raw">[Q5 2X Master Mix](<span class="lk">/purchases?item=88</span><span class="frag">#ros=order</span>)</div>
+    </div>
+
+    <!-- INVENTORY -->
+    <div class="embed">
+      <div class="ehead">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/></svg>
+        <span class="title">Kanamycin sulfate</span><span class="sub">Sigma 60615</span>
+        <span class="spacer"></span><span class="badge b-rose">Low stock</span>
+      </div>
+      <div class="ebody">
+        <dl class="kv">
+          <dt>Location</dt><dd>Freezer B, shelf 2</dd>
+          <dt>On hand</dt><dd>1.2 g</dd>
+          <dt>Expiry</dt><dd>2027-03</dd>
+        </dl>
+      </div>
+      <div class="raw">[Kanamycin sulfate](<span class="lk">/supplies?item=21</span><span class="frag">#ros=reagent</span>)</div>
+    </div>
+
+    <!-- NOTE -->
+    <div class="embed">
+      <div class="ehead">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h11l3 3v13H5z"/><path d="M9 9h6M9 13h6M9 17h4"/></svg>
+        <span class="title">Media prep recipes</span><span class="sub">note &middot; edited Jun 8</span>
+      </div>
+      <div class="ebody" style="font-size:13.5px;color:#334155">
+        YPD: 10 g yeast extract, 20 g peptone, 20 g dextrose per L. Autoclave 20 min &hellip;
+      </div>
+      <div class="raw">[Media prep recipes](<span class="lk">/notes/7</span><span class="frag">#ros=card</span>)</div>
+    </div>
+
+    <!-- FILE -->
+    <div class="embed">
+      <div class="ehead">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l3 3v17H6z"/><path d="M15 2v4h4"/></svg>
+        <span class="title">gel-pcr-screen.png</span><span class="sub">image &middot; 248 KB</span>
+      </div>
+      <div class="ebody">
+        <div class="filecard"><span class="thumbimg"></span><span style="font-size:13px;color:var(--muted)">Colony PCR, lanes 1 to 8, expected 1.2 kb band</span></div>
+      </div>
+      <div class="raw">[gel-pcr-screen.png](<span class="lk">/files/4012</span><span class="frag">#ros=file</span>)</div>
+    </div>
+
+    <!-- PROJECT -->
+    <div class="embed">
+      <div class="ehead">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+        <span class="title">Strain engineering 2026</span><span class="sub">project</span>
+        <span class="spacer"></span><span style="width:10px;height:10px;border-radius:3px;background:#7c3aed;display:inline-block"></span>
+      </div>
+      <div class="ebody">
+        <div class="stat-row">
+          <div class="stat"><div class="n">14</div><div class="l">experiments</div></div>
+          <div class="stat"><div class="n">9</div><div class="l">notes</div></div>
+          <div class="stat"><div class="n">23</div><div class="l">sequences</div></div>
+          <div class="stat"><div class="n">6</div><div class="l">molecules</div></div>
+        </div>
+      </div>
+      <div class="raw">[Strain engineering 2026](<span class="lk">/projects/5</span><span class="frag">#ros=card</span>)</div>
+    </div>
+
+  </div>
+
+  <p class="hint" style="margin-top:18px">Every <span class="frag" style="color:#7c3aed;font-family:var(--mono)">#ros=</span> fragment is ignored by plain markdown tools, so the same file opens as a normal set of links in Obsidian, GitHub, or a text editor. Pinning would add <span style="font-family:var(--mono)">&amp;pin=&lt;timestamp&gt;</span> to freeze one embed.</p>
+</div>
+
+<script>
+  function setMode(m) {
+    var note = document.getElementById('note');
+    var br = document.getElementById('b-rendered');
+    var bw = document.getElementById('b-raw');
+    if (m === 'raw') { note.classList.add('rawmode'); bw.classList.add('on'); br.classList.remove('on'); }
+    else { note.classList.remove('rawmode'); br.classList.add('on'); bw.classList.remove('on'); }
+  }
+</script>
+</body>
+</html>
