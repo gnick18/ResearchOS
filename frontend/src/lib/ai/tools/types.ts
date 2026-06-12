@@ -130,6 +130,25 @@ export type ApprovalRequest =
        *  emits exactly one block. The array shape is the multi-step pipeline
        *  interface so the card generalizes without a type change. */
       steps: TransformStepBlock[];
+    }
+  | {
+      kind: "step";
+      /** The previewable tool that raised the step approval (run_datahub_analysis,
+       *  compare_models, make_datahub_graph, the regression / global-fit family). */
+      toolName: string;
+      /** An Icon-registry glyph name for the step badge (e.g. "chart" for a stat
+       *  test, "growth" for a plot, "lineage" for a model comparison). Rendered via
+       *  the <Icon> component, so it must be a real registry name. */
+      iconName: string;
+      /** The card header line, what the step will do (e.g. "Run a Welch t-test,
+       *  Control vs Drug"). */
+      title: string;
+      /** An optional second header line (e.g. the table it acts on). */
+      subtitle?: string;
+      /** The ordered step blocks. The previewable analysis / plot / model tools
+       *  emit exactly one block; the array shape keeps the card future-proof for a
+       *  multi-step preview without a type change. */
+      steps: TransformStepBlock[];
     };
 
 /**
@@ -156,6 +175,12 @@ export type TransformStepBlock = {
     columns: string[];
     rows: string[][];
   };
+  /** A non-tabular live preview, a few short readout lines (e.g. the resolved
+   *  test name and the groups for a stat test, the figure kind and columns for a
+   *  plot, the two models for a comparison). Used by the previewable analysis /
+   *  plot tools whose preview is not a table. Optional; rendered under the params
+   *  when present. */
+  previewLines?: string[];
 };
 
 /**
@@ -164,6 +189,15 @@ export type TransformStepBlock = {
  * without repeating the shape. It IS the ApprovalRequest variant, just narrowed.
  */
 export type TransformApprovalRequest = Extract<ApprovalRequest, { kind: "transform" }>;
+
+/**
+ * The `kind:"step"` member of ApprovalRequest, re-exported so the previewable
+ * analysis / plot / model tools can build it directly. It reuses TransformStepBlock
+ * for the per-step body (label, blurb, param pills, and either a table or readout-
+ * line preview) but carries its own generic header (icon, title, subtitle) rather
+ * than the transform-specific source / result naming.
+ */
+export type StepApprovalRequest = Extract<ApprovalRequest, { kind: "step" }>;
 
 // The UI's answer to a request on the bridge. The plan and action shapes resolve
 // with the two-value approval decision, "allow" proceeds (run the action, or
@@ -248,6 +282,14 @@ export type AiTool = {
      * Resolves with allow / skip on the same bridge as the draft path.
      */
     transformPayload?: TransformApprovalRequest;
+    /**
+     * When present, the gate raises a `kind:"step"` rich-block approval instead
+     * of the one-line `kind:"action"` confirm. Used by the previewable analysis,
+     * plot, and model tools so each step shows a labelled block with input pills
+     * and a readout preview before it runs. Resolves with allow / skip on the
+     * same bridge as the transform path.
+     */
+    stepPayload?: StepApprovalRequest;
   };
   /** For action tools, decide whether THIS specific call must hard-stop for a
    *  confirm in BOTH review modes, even inside an already-approved whole plan

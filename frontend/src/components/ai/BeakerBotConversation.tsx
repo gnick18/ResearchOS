@@ -34,7 +34,12 @@ import ObjectChip from "@/components/ObjectChip";
 import ObjectEmbed from "@/components/embeds/ObjectEmbed";
 import { parseObjectDeepLink, parseObjectEmbed } from "@/lib/references";
 import { loneEmbedFromChatParagraph, type ChatHastNode } from "./chat-embed-detect";
-import type { TransformApprovalRequest, TransformStepBlock } from "@/lib/ai/tools/types";
+import type {
+  StepApprovalRequest,
+  TransformApprovalRequest,
+  TransformStepBlock,
+} from "@/lib/ai/tools/types";
+import type { IconName } from "@/components/icons";
 import BeakerBotThinking from "./BeakerBotThinking";
 import { useThinkingVariant } from "./thinking-variant";
 import DevThinkingVariantButton from "./DevThinkingVariantButton";
@@ -396,6 +401,129 @@ function TransformApprovalCard({
   );
 }
 
+// ---------------------------------------------------------------------------
+// StepApprovalCard, the rich-block approval for a previewable analysis, plot, or
+// model step (run_datahub_analysis, compare_models, make_datahub_graph, the
+// regression / global-fit family) in step-by-step review mode. Reuses the
+// transform card's step-block layout (param pills + live preview) with a generic
+// header and a type icon, and renders the readout-line preview the analysis tools
+// emit instead of a table. House style, Icon only, brand + semantic tokens.
+// ---------------------------------------------------------------------------
+
+function StepApprovalCard({
+  request,
+  onApprove,
+  onReject,
+}: {
+  request: StepApprovalRequest;
+  onApprove: () => void;
+  onReject: () => void;
+}) {
+  return (
+    <div
+      data-testid="beakerbot-approval-step"
+      className="mx-4 mb-2 rounded-md border border-brand bg-brand/5 px-3 py-2"
+    >
+      {/* Header */}
+      <div className="mb-2 flex items-start gap-2">
+        <span className="text-brand">
+          <BeakerBot
+            pose="pointing"
+            className="h-6 w-6"
+            ariaLabel="BeakerBot wants to run a step"
+          />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-meta font-semibold text-foreground">{request.title}</p>
+          {request.subtitle ? (
+            <p className="text-meta text-foreground-muted">{request.subtitle}</p>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Step blocks */}
+      <div className="mb-2 flex flex-col gap-2">
+        {request.steps.map((step, index) => (
+          <div
+            key={index}
+            className="flex gap-2 rounded-md border border-border bg-surface-raised px-3 py-2"
+            data-testid="beakerbot-step-block"
+          >
+            {/* Type-icon badge */}
+            <div className="flex h-6 w-6 flex-none items-center justify-center rounded-md bg-brand/10 text-brand">
+              <Icon
+                name={request.iconName as IconName}
+                className="h-3.5 w-3.5"
+                title={step.name}
+              />
+            </div>
+            {/* Step body */}
+            <div className="min-w-0 flex-1">
+              <p className="text-body font-semibold text-foreground">{step.name}</p>
+              <p className="mt-0.5 text-meta text-foreground-muted">{step.blurb}</p>
+              {/* Param pills */}
+              {step.params.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {step.params.map((pill) => (
+                    <span
+                      key={pill.label}
+                      className="rounded-full border border-border bg-surface-sunken px-2 py-0.5 text-meta text-foreground-muted"
+                    >
+                      <span className="font-medium text-foreground">{pill.label}</span>
+                      {": "}
+                      {pill.value}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {/* Live table preview, when present (none of the analysis tools emit
+                  one today, kept so the card stays drop-in for a future tabular
+                  preview). */}
+              {step.preview && <TransformPreviewTable preview={step.preview} />}
+              {/* Readout-line preview (the resolved test, the figure plan, the
+                  model pair). */}
+              {step.previewLines && step.previewLines.length > 0 && (
+                <div
+                  className="mt-2 rounded-md border border-dashed border-border bg-surface-sunken px-2.5 py-2"
+                  data-testid="beakerbot-step-preview"
+                >
+                  {step.previewLines.map((line, li) => (
+                    <p key={li} className="text-meta text-foreground-muted">
+                      {line}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          data-testid="beakerbot-step-approve"
+          onClick={onApprove}
+          className="btn-brand flex items-center gap-1 rounded-md px-3 py-1.5 text-meta font-medium"
+        >
+          <Icon name="check" className="h-3.5 w-3.5" title="Approve" />
+          Approve and run
+        </button>
+        <button
+          type="button"
+          data-testid="beakerbot-step-reject"
+          onClick={onReject}
+          className="flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+        >
+          <Icon name="close" className="h-3.5 w-3.5" title="Reject" />
+          Reject
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // The full conversation body: thread, approvals, status, composer.
 // Accepts an optional className to let the parent control sizing.
 export default function BeakerBotConversation({
@@ -655,6 +783,18 @@ export default function BeakerBotConversation({
       {pendingApproval && pendingApproval.request.kind === "transform" ? (
         <TransformApprovalCard
           key={pendingApproval.request.resultName}
+          request={pendingApproval.request}
+          onApprove={() => resolveApproval("allow")}
+          onReject={() => resolveApproval("skip")}
+        />
+      ) : null}
+
+      {/* Step block card (the previewable analysis / plot / model tools). Generic
+          header + a type-icon block with param pills and a readout preview, then
+          Approve / Reject. Keyed on the title so a re-call remounts cleanly. */}
+      {pendingApproval && pendingApproval.request.kind === "step" ? (
+        <StepApprovalCard
+          key={pendingApproval.request.title}
           request={pendingApproval.request}
           onApprove={() => resolveApproval("allow")}
           onReject={() => resolveApproval("skip")}

@@ -335,6 +335,71 @@ describe("gate decision table: plan mode", () => {
   });
 });
 
+// ---- step-payload rich block (previewable analysis / plot / model tools) ----
+
+/** A previewable tool whose describeAction returns a `stepPayload`, the rich
+ *  block the analysis / plot / model tools raise in step-by-step mode. */
+function makeStepPayloadTool(): {
+  tool: AiTool;
+  execute: ReturnType<typeof vi.fn>;
+} {
+  const execute = vi.fn(async () => ({ ok: true }));
+  return {
+    execute,
+    tool: {
+      name: "run_step_preview",
+      description: "A previewable tool that emits a rich step block.",
+      parameters: { type: "object", properties: {} },
+      previewable: true,
+      describeAction: () => ({
+        summary: "run the analysis",
+        stepPayload: {
+          kind: "step",
+          toolName: "run_step_preview",
+          iconName: "chart",
+          title: "Run a Welch t-test",
+          subtitle: "on Control vs Drug in fakeGFP",
+          steps: [
+            {
+              kind: "run_step_preview",
+              name: "Welch t-test",
+              blurb: "Statistical test of Control vs Drug.",
+              params: [{ label: "Test", value: "Welch t-test" }],
+              previewLines: ["Assumptions, Normality OK."],
+            },
+          ],
+        },
+      }),
+      execute,
+    },
+  };
+}
+
+describe("gate decision table: step-payload rich block", () => {
+  it("raises a kind:step request in step mode and runs on approve", async () => {
+    const { tool, execute } = makeStepPayloadTool();
+    const { requests } = await runOnce({ tool, reviewMode: "step", approve: "allow" });
+    expect(requests).toHaveLength(1);
+    expect(requests[0].kind).toBe("step");
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not run the tool when the step is rejected", async () => {
+    const { tool, execute } = makeStepPayloadTool();
+    const { requests } = await runOnce({ tool, reviewMode: "step", approve: "skip" });
+    expect(requests).toHaveLength(1);
+    expect(requests[0].kind).toBe("step");
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("runs free in plan mode (previewable non-action, no confirm)", async () => {
+    const { tool, execute } = makeStepPayloadTool();
+    const { requests } = await runOnce({ tool, reviewMode: "plan" });
+    expect(requests).toHaveLength(0);
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+});
+
 // ---- no approver -> declined fail-safe (a gating call) ----------------------
 
 describe("gate decision table: no approver", () => {
