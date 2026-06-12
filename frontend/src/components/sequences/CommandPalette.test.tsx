@@ -5,10 +5,10 @@
 // Suggested biasing. No inline icon markup here (the icon-guard forbids it);
 // icons render through the verified Icon registry inside the component.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
-import { CommandPalette, type DockControl } from "./CommandPalette";
+import { CommandPalette } from "./CommandPalette";
 import type { EditorCommand } from "./editor-commands";
 import type { GlobalIndexEntry } from "@/components/beaker-search/global-index";
 
@@ -19,15 +19,8 @@ vi.mock("next/navigation", () => ({
   usePathname: () => _mockPathname,
 }));
 
-// v3 persists the dock geometry to localStorage; clear it between tests so a
-// tucked-state from one test cannot leak the peek tab into the next render.
 beforeEach(() => {
   _mockPathname = "/sequences/1";
-  try {
-    window.localStorage.clear();
-  } catch {
-    // jsdom without storage; nothing to clear.
-  }
 });
 afterEach(() => cleanup());
 
@@ -114,7 +107,7 @@ function makeCommands(spies: Record<string, () => void> = {}): EditorCommand[] {
 }
 
 describe("CommandPalette", () => {
-  it("renders nothing when closed and a labelled dialog when open", () => {
+  it("renders nothing when closed and a labelled modal dialog when open", () => {
     const { rerender } = render(
       <CommandPalette
         open={false}
@@ -135,11 +128,11 @@ describe("CommandPalette", () => {
         hasOrganism={false}
       />,
     );
-    // BeakerSearch v3. The dock is a NON-MODAL labelled region (role="dialog"
-    // without aria-modal), labelled "BeakerSearch".
+    // v4 centered modal: role="dialog" WITH aria-modal="true", labelled
+    // "BeakerSearch". Replaces the v3 non-modal floating dock.
     const dialog = screen.getByRole("dialog", { name: "BeakerSearch" });
     expect(dialog).toBeTruthy();
-    expect(dialog.getAttribute("aria-modal")).toBeNull();
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
     // The input is a combobox over a labelled listbox.
     expect(screen.getByRole("combobox")).toBeTruthy();
     expect(
@@ -348,20 +341,10 @@ describe("CommandPalette", () => {
         hasOrganism={false}
       />,
     );
-    // Scope every assertion to the palette's OWN dialog. "BeakerSearch" also
-    // renders on the chrome pill button and the tucked peek-tab, both of which
-    // are siblings OUTSIDE this dialog (see CommandPalette.tsx: the wordmark at
-    // ~:1353 lives inside the role="dialog" div, the peek-tab at ~:1283 does
-    // not). Under full-suite load a sibling render's "BeakerSearch" node can
-    // bleed into document.body, so a bare screen.getByText matched two and threw
-    // getMultipleElementsFoundError ~1 in 5 full runs. within(dialog) pins the
-    // check to this palette and is immune to any stray node by construction.
-    const dialog = screen.getByRole("dialog");
-    // The wordmark in the header row.
-    expect(within(dialog).getByText("BeakerSearch")).toBeTruthy();
-    // The real BeakerBot mark (rendered via the component, role=img).
-    expect(within(dialog).getByLabelText("BeakerBot")).toBeTruthy();
-    // The input now identifies as BeakerSearch.
+    // v4 centered modal: the dialog is aria-labelled "BeakerSearch" and is
+    // aria-modal. The combobox inside identifies as "BeakerSearch".
+    const dialog = screen.getByRole("dialog", { name: "BeakerSearch" });
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
     expect(within(dialog).getByRole("combobox", { name: "BeakerSearch" })).toBeTruthy();
   });
 
@@ -381,10 +364,10 @@ describe("CommandPalette", () => {
     expect(options[0].textContent).toContain("Design primers");
   });
 
-  it("clears the query on pathname change, leaves the dock open", () => {
+  it("clears the query on pathname change, leaves the modal open", () => {
     // Type a query, then simulate navigating to a different page by changing
     // the mocked pathname and rerendering. The combobox value must be empty;
-    // the dialog must still be present (dock stays open).
+    // the dialog must still be present (modal stays open).
     const { rerender } = render(
       <CommandPalette
         open
@@ -1072,60 +1055,24 @@ describe("CommandPalette sub-flows", () => {
   });
 });
 
-// ── BeakerSearch v3, Cmd-K RESTORES a collapsed / tucked dock ────────────────
+// ── BeakerSearch v4 centered modal, Cmd-K toggles ────────────────────────────
 //
-// The dock can be OPEN yet collapsed (pill) or tucked (off-edge peek tab). A
-// plain toggle would CLOSE it on Cmd-K, which loses the dock the user only meant
-// to bring back. The provider's Cmd-K handler consults the dock's collapsed /
-// tucked sub-state (published via dockControlRef) and restores instead. This
-// harness mirrors that provider wiring exactly so the integration is covered
-// without rendering the heavy app shell.
-function RestoreHarness({ commands }: { commands: EditorCommand[] }) {
-  const [open, setOpen] = useState(false);
-  const openRef = useRef(open);
-  openRef.current = open;
-  const dockControlRef = useRef<DockControl | null>(null);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (
-        (e.metaKey || e.ctrlKey) &&
-        !e.shiftKey &&
-        e.key.toLowerCase() === "k"
-      ) {
-        e.preventDefault();
-        if (!openRef.current) {
-          setOpen(true);
-          return;
-        }
-        const ctrl = dockControlRef.current;
-        if (ctrl && (ctrl.collapsed || ctrl.tucked)) {
-          if (ctrl.tucked) ctrl.untuck();
-          if (ctrl.collapsed) ctrl.expand();
-          return;
-        }
-        setOpen(false);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-  return (
-    <CommandPalette
-      open={open}
-      onClose={() => setOpen(false)}
-      commands={commands}
-      selectionKind="none"
-      hasOrganism={false}
-      dockControlRef={dockControlRef}
-    />
-  );
-}
+// v4 is a plain modal. Cmd-K opens when closed, closes when open. No
+// collapsed / tucked state to restore.
 
-describe("BeakerSearch v3 dock restore", () => {
-  it("expands a collapsed dock when its header chevron is clicked", () => {
-    // The double-toggle regression: the chevron's onClick expanded the dock, but
-    // the same click bubbled to the header (which also toggles collapse when the
-    // dock is collapsed), undoing it in one event so the button looked dead.
+describe("BeakerSearch v4 centered modal", () => {
+  it("Cmd-K opens the modal and a second Cmd-K closes it", () => {
+    render(<PaletteHarness commands={makeCommands()} />);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(screen.getByRole("combobox")).toBeTruthy();
+    // Second Cmd-K closes.
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("the modal is aria-modal=true (centered, not floating)", () => {
     render(
       <CommandPalette
         open
@@ -1135,45 +1082,7 @@ describe("BeakerSearch v3 dock restore", () => {
         hasOrganism={false}
       />,
     );
-    // Expanded, so the search input (the collapsible body) is present.
-    expect(screen.getByRole("combobox")).toBeTruthy();
-    fireEvent.click(screen.getByLabelText("Collapse BeakerSearch"));
-    // Collapsed to the pill, the body (and its input) is gone.
-    expect(screen.queryByRole("combobox")).toBeNull();
-    // The chevron now reads "Expand BeakerSearch" and must actually expand.
-    fireEvent.click(screen.getByLabelText("Expand BeakerSearch"));
-    expect(screen.getByRole("combobox")).toBeTruthy();
-  });
-
-  it("Cmd-K expands a collapsed dock instead of closing it", () => {
-    render(<RestoreHarness commands={makeCommands()} />);
-    // Closed -> open.
-    fireEvent.keyDown(window, { key: "k", metaKey: true });
-    expect(screen.getByRole("dialog")).toBeTruthy();
-    expect(screen.getByRole("combobox")).toBeTruthy();
-    // Collapse to the pill.
-    fireEvent.click(screen.getByLabelText("Collapse BeakerSearch"));
-    expect(screen.queryByRole("combobox")).toBeNull();
-    expect(screen.getByRole("dialog")).toBeTruthy();
-    // Cmd-K must EXPAND, not close.
-    fireEvent.keyDown(window, { key: "k", metaKey: true });
-    expect(screen.getByRole("dialog")).toBeTruthy();
-    expect(screen.getByRole("combobox")).toBeTruthy();
-    // Now fully visible, so Cmd-K closes as before.
-    fireEvent.keyDown(window, { key: "k", metaKey: true });
-    expect(screen.queryByRole("dialog")).toBeNull();
-  });
-
-  it("Cmd-K untucks a tucked dock instead of closing it", () => {
-    render(<RestoreHarness commands={makeCommands()} />);
-    fireEvent.keyDown(window, { key: "k", metaKey: true });
-    expect(screen.getByRole("dialog")).toBeTruthy();
-    // Hide the dock off the nearest edge into its peek tab.
-    fireEvent.click(screen.getByLabelText("Hide to edge"));
-    expect(screen.getByLabelText("Show BeakerSearch")).toBeTruthy();
-    // Cmd-K must UNTUCK, not close, so the peek tab gives way to the full dock.
-    fireEvent.keyDown(window, { key: "k", metaKey: true });
-    expect(screen.queryByLabelText("Show BeakerSearch")).toBeNull();
-    expect(screen.getByRole("dialog")).toBeTruthy();
+    const dialog = screen.getByRole("dialog", { name: "BeakerSearch" });
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
   });
 });

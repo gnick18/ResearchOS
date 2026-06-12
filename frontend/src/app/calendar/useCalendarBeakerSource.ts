@@ -38,8 +38,7 @@ import { taskKey } from "@/lib/types";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAppStore } from "@/lib/store";
 import { useBeakerSearchSource } from "@/components/beaker-search/useBeakerSearchSource";
-import { useBeakerHoveredKey } from "@/components/beaker-search/BeakerSearchProvider";
-import { parseBeakerTargetKey } from "@/components/beaker-search/beaker-hover";
+// beaker-hover.ts deleted (ai centered-redesign bot): hover bias removed.
 import {
   type CalendarView,
   eventCoversDate,
@@ -496,25 +495,8 @@ export function useCalendarBeakerSource(deps: CalendarBeakerPageDeps): void {
     [view, currentDate, eventCount],
   );
 
-  // HOVERED. The event the cursor was over when the palette opened (null while
-  // closed). Parse its data-beaker-target key the same way the views stamp it
-  // ("event:<native id>" / "external:<external id>"), then resolve to the live
-  // entity. SELECTED still outranks this in the builder, so a real open event
-  // wins over a stale hover.
-  const hoveredKey = useBeakerHoveredKey();
-  const hovered = useMemo<CalendarSourceData["hovered"]>(() => {
-    const parsed = parseBeakerTargetKey(hoveredKey);
-    if (!parsed) return null;
-    if (parsed.kind === "event") {
-      const event = events.find((e) => String(e.id) === parsed.key);
-      return event ? { kind: "native", event } : null;
-    }
-    if (parsed.kind === "external") {
-      const event = externalEvents.find((e) => String(e.id) === parsed.key);
-      return event ? { kind: "external", event } : null;
-    }
-    return null;
-  }, [hoveredKey, events, externalEvents]);
+  // Hover bias removed (ai centered-redesign bot). hovered is always null.
+  const hovered: CalendarSourceData["hovered"] = null;
 
   const source = useMemo(() => {
     const data: CalendarSourceData = {

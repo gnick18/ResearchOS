@@ -42,8 +42,7 @@ import {
   type MethodUpdate,
 } from "@/lib/local-api";
 import { useBeakerSearchSource } from "@/components/beaker-search/useBeakerSearchSource";
-import { useBeakerHoveredKey } from "@/components/beaker-search/BeakerSearchProvider";
-import { parseBeakerTargetKey } from "@/components/beaker-search/beaker-hover";
+// beaker-hover.ts deleted (ai centered-redesign bot): hover bias removed.
 import { useMethodPermissions } from "@/hooks/useMethodPermissions";
 import {
   fetchMethodCatalogManifest,
@@ -295,20 +294,8 @@ export function useMethodsBeakerSource(args: UseMethodsBeakerSourceArgs): void {
     [args, openMethod, recordRecent, invalidate],
   );
 
-  // HOVERED. The method card the cursor was over when the palette opened (null
-  // while closed). Parse its data-beaker-target key the way page.tsx stamps it
-  // ("method:<owner>:<id>"), then resolve to the live method by composite
-  // owner:id. SELECTED still outranks this in the builder, so a real open method
-  // / compound builder wins. A public method's card stamps owner "public", so
-  // the same composite match resolves it.
-  const hoveredKey = useBeakerHoveredKey();
-  const hovered = useMemo<Method | null>(() => {
-    const parsed = parseBeakerTargetKey(hoveredKey);
-    if (!parsed || parsed.kind !== "method") return null;
-    return (
-      args.methods.find((m) => `${m.owner}:${m.id}` === parsed.key) ?? null
-    );
-  }, [hoveredKey, args.methods]);
+  // Hover bias removed (ai centered-redesign bot). hovered is always null.
+  const hovered: Method | null = null;
 
   const source = useMemo(() => {
     // recentVersion is a memo dependency so a new open rebuilds the MRU group.

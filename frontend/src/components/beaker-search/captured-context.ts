@@ -1,14 +1,12 @@
-// BeakerSearch v3 captured-context labels. v3 adds a "Re-check page" action that
-// re-captures what the user is pointing at, what they have selected, and where
-// they are. This pure helper turns those raw values into the friendly one-line
-// labels the dock's context card shows, so the bias the result ranking applies
-// is visible. No DOM, no clock; the React layer reads the raw values and hands
-// them here.
+// BeakerSearch captured-context labels. This pure helper turns raw values
+// (route, a beaker-target key, a text selection) into the friendly one-line
+// labels that can be used for display or logging. No DOM, no clock; the React
+// layer reads the raw values and hands them here.
+//
+// beaker-hover.ts is deleted; parseBeakerTargetKey is inlined below.
 //
 // Voice in comments and copy, no em-dashes, no en-dashes, no emojis, no
 // mid-sentence colons.
-
-import { parseBeakerTargetKey } from "./beaker-hover";
 
 /** What "Re-check page" captured, already display-ready. Each field is null when
  *  nothing of that sort was found, so the card can render a quiet "none". */
@@ -19,6 +17,20 @@ export interface CapturedContext {
   pointer: string | null;
   /** A short excerpt of the current text selection. */
   selection: string | null;
+}
+
+/** Split a `data-beaker-target` value into its kind prefix and the rest of the
+ *  key. The kind is everything before the FIRST colon, the key is everything
+ *  after (which itself may contain colons, e.g. a composite "owner:id").
+ *  Returns null when there is no kind separator. Inlined from the now-deleted
+ *  beaker-hover.ts; kept here because prettyPointer below still uses it. */
+function parseBeakerTargetKey(
+  value: string | null | undefined,
+): { kind: string; key: string } | null {
+  if (!value) return null;
+  const i = value.indexOf(":");
+  if (i <= 0 || i === value.length - 1) return null;
+  return { kind: value.slice(0, i), key: value.slice(i + 1) };
 }
 
 /** Friendly names for the known `data-beaker-target` kinds, so "task" reads as

@@ -45,8 +45,7 @@ import {
   piEditKey,
 } from "@/lib/lab/pi-edit-guard";
 import { useBeakerSearchSource } from "@/components/beaker-search/useBeakerSearchSource";
-import { useBeakerHoveredKey } from "@/components/beaker-search/BeakerSearchProvider";
-import { parseBeakerTargetKey } from "@/components/beaker-search/beaker-hover";
+// beaker-hover.ts deleted (ai centered-redesign bot): hover bias removed.
 import { isMiscProject, MISC_CATEGORY_LABEL } from "@/lib/purchases/misc-project";
 import {
   isPurchasePending,
@@ -127,12 +126,9 @@ export function usePurchasesBeakerSource(args: UsePurchasesBeakerSourceArgs): vo
   const accountType = useAccountType(currentUser || null);
   const isLabHead = accountType === "lab_head";
 
-  // HOVERED context (spec 2.3). The shared BeakerSearchProvider snapshots the
-  // `data-beaker-target` key of the last tagged element hovered before the
-  // palette opened. The order cards tag themselves `purchase:${taskKey}`, so we
-  // read that snapshot here and resolve it below (SELECTED still outranks
-  // HOVERED, enforced in hoveredTask + the pure builder's resolveFocus).
-  const hoveredKey = useBeakerHoveredKey();
+  // Hover bias removed (ai centered-redesign bot). hoveredKey is always null;
+  // hoveredTask is always null (selected context only).
+  const hoveredKey: string | null = null;
 
   // ── Queries, mirroring the page's keys so the cache is shared (no refetch). ─
   const { data: projects = [] } = useQuery({
@@ -242,17 +238,8 @@ export function usePurchasesBeakerSource(args: UsePurchasesBeakerSourceArgs): vo
     [sortedTasks, purchasesByTask],
   );
 
-  // The hovered order, resolved from the provider key `purchase:${taskKey}`. A
-  // live selection always wins, so this is null when an order is selected. The
-  // key is parsed into its kind + composite "{self|owner}:{id}" taskKey, the
-  // kind is matched, and the taskKey resolves the order from the same purchase
-  // tasks the page renders.
-  const hoveredTask = useMemo<Task | null>(() => {
-    if (args.selectedTask) return null;
-    const parsed = parseBeakerTargetKey(hoveredKey);
-    if (!parsed || parsed.kind !== PURCHASE_HOVER_KIND) return null;
-    return purchaseTasks.find((t) => taskKey(t) === parsed.key) ?? null;
-  }, [args.selectedTask, hoveredKey, purchaseTasks]);
+  // Hover bias removed; hoveredTask is always null (hover feature deleted).
+  const hoveredTask: Task | null = null;
 
   // The focused order's owner + first pending item drive the PI edit-confirm
   // gate (the session substitution). hasLiveSession = already confirmed for this

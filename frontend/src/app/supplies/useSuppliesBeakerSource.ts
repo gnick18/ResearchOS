@@ -34,8 +34,7 @@ import {
   piEditKey,
 } from "@/lib/lab/pi-edit-guard";
 import { useBeakerSearchSource } from "@/components/beaker-search/useBeakerSearchSource";
-import { useBeakerHoveredKey } from "@/components/beaker-search/BeakerSearchProvider";
-import { parseBeakerTargetKey } from "@/components/beaker-search/beaker-hover";
+// beaker-hover.ts deleted (ai centered-redesign bot): hover bias removed.
 import { normalizeSharedWith, WHOLE_LAB_SENTINEL } from "@/lib/sharing/unified";
 import {
   isPurchasePending,
@@ -133,11 +132,8 @@ export function useSuppliesBeakerSource(args: UseSuppliesBeakerSourceArgs): void
   const currentUser = providerCurrentUser ?? "";
   const isLabHead = useIsLabHead(currentUser || null) === true;
 
-  // HOVERED context. The shared provider snapshots the `data-beaker-target` key
-  // of the last tagged element hovered before the palette opened. The supply rows
-  // tag themselves `supply:${supply.key}`, so we read that snapshot and resolve
-  // it below (SELECTED still outranks HOVERED).
-  const hoveredKey = useBeakerHoveredKey();
+  // Hover bias removed (ai centered-redesign bot). hoveredKey is always null.
+  const hoveredKey: string | null = null;
 
   const itemsById = useMemo(() => {
     const m = new Map<number, InventoryItem>();
@@ -153,12 +149,8 @@ export function useSuppliesBeakerSource(args: UseSuppliesBeakerSourceArgs): void
     [args.selectedKey, args.supplies],
   );
 
-  const hoveredSupply = useMemo<Supply | null>(() => {
-    if (args.selectedKey != null) return null;
-    const parsed = parseBeakerTargetKey(hoveredKey);
-    if (!parsed || parsed.kind !== SUPPLY_HOVER_KIND) return null;
-    return args.supplies.find((s) => s.key === parsed.key) ?? null;
-  }, [args.selectedKey, hoveredKey, args.supplies]);
+  // Hover bias removed; hoveredSupply is always null.
+  const hoveredSupply: Supply | null = null;
 
   // The focused supply's first open line + its owner drive the PI edit-confirm
   // gate (the session substitution). hasLiveSession = already confirmed for that

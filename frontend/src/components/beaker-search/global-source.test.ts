@@ -11,10 +11,11 @@ import type { GlobalIndexEntry } from "./global-index";
 import {
   GLOBAL_OVERALL_CAP,
   GLOBAL_PER_TYPE_CAP,
-  activePageTypeForPath,
   rankGlobalEntries,
   scoreGlobalEntry,
 } from "./global-source";
+// activePageTypeForPath removed (ai centered-redesign bot): the v4 centered
+// modal no longer suppresses results by active page type.
 
 // A fixed clock for the recency boost, so "fresh" vs "stale" is deterministic.
 const NOW = 1_700_000_000_000;
@@ -99,8 +100,8 @@ describe("scoreGlobalEntry", () => {
 describe("rankGlobalEntries", () => {
   it("returns no groups for an empty or whitespace query", () => {
     const entries = [entry({ haystack: "alpha" })];
-    expect(rankGlobalEntries(entries, "", { now: NOW, activePageType: null })).toEqual([]);
-    expect(rankGlobalEntries(entries, "   ", { now: NOW, activePageType: null })).toEqual([]);
+    expect(rankGlobalEntries(entries, "", { now: NOW })).toEqual([]);
+    expect(rankGlobalEntries(entries, "   ", { now: NOW })).toEqual([]);
   });
 
   it("drops entries the query does not match", () => {
@@ -108,7 +109,7 @@ describe("rankGlobalEntries", () => {
       entry({ key: "self:1", haystack: "alpha beta" }),
       entry({ key: "self:2", haystack: "gamma delta" }),
     ];
-    const groups = rankGlobalEntries(entries, "alpha", { now: NOW, activePageType: null });
+    const groups = rankGlobalEntries(entries, "alpha", { now: NOW });
     expect(allEntries(groups).map((e) => e.key)).toEqual(["self:1"]);
   });
 
@@ -119,29 +120,16 @@ describe("rankGlobalEntries", () => {
       entry({ type: "task", key: "t:1", haystack: "alpha t" }),
       entry({ type: "project", key: "p:1", haystack: "alpha p" }),
     ];
-    const groups = rankGlobalEntries(entries, "alpha", { now: NOW, activePageType: null });
+    const groups = rankGlobalEntries(entries, "alpha", { now: NOW });
     expect(groups.map((g) => g.type)).toEqual(["task", "project", "sequence", "method"]);
     expect(groups.map((g) => g.title)).toEqual(["Tasks", "Projects", "Sequences", "Methods"]);
-  });
-
-  it("suppresses the active page's own type (on-page de-dup)", () => {
-    const entries = [
-      entry({ type: "sequence", key: "s:1", haystack: "alpha s" }),
-      entry({ type: "task", key: "t:1", haystack: "alpha t" }),
-    ];
-    const groups = rankGlobalEntries(entries, "alpha", {
-      now: NOW,
-      activePageType: "sequence",
-    });
-    expect(groups.map((g) => g.type)).toEqual(["task"]);
-    expect(allEntries(groups).some((e) => e.type === "sequence")).toBe(false);
   });
 
   it("caps each type at GLOBAL_PER_TYPE_CAP", () => {
     const entries = Array.from({ length: GLOBAL_PER_TYPE_CAP + 3 }, (_, i) =>
       entry({ type: "task", key: `t:${i}`, haystack: `alpha ${i}` }),
     );
-    const groups = rankGlobalEntries(entries, "alpha", { now: NOW, activePageType: null });
+    const groups = rankGlobalEntries(entries, "alpha", { now: NOW });
     const tasks = groups.find((g) => g.type === "task");
     expect(tasks?.entries.length).toBe(GLOBAL_PER_TYPE_CAP);
   });
@@ -153,7 +141,7 @@ describe("rankGlobalEntries", () => {
         entry({ type, key: `${type}:${i}`, haystack: `alpha ${i}` }),
       ),
     );
-    const groups = rankGlobalEntries(entries, "alpha", { now: NOW, activePageType: null });
+    const groups = rankGlobalEntries(entries, "alpha", { now: NOW });
     expect(allEntries(groups).length).toBe(GLOBAL_OVERALL_CAP);
   });
 
@@ -170,7 +158,7 @@ describe("rankGlobalEntries", () => {
     // Per-type cap is 5, so only 5 tasks survive; the method (weight 0) still
     // ranks below those 5 tasks but there is room under the overall cap, so it
     // should appear. This asserts the per-type cap and overall cap compose.
-    const groups = rankGlobalEntries(entries, "alpha", { now: NOW, activePageType: null });
+    const groups = rankGlobalEntries(entries, "alpha", { now: NOW });
     const tasks = groups.find((g) => g.type === "task");
     const methods = groups.find((g) => g.type === "method");
     expect(tasks?.entries.length).toBe(GLOBAL_PER_TYPE_CAP);
@@ -192,7 +180,7 @@ describe("rankGlobalEntries", () => {
       type: "task",
       haystack: "primer design for PCR amplification",
     });
-    const groups = rankGlobalEntries([noise, signal], "primer", { now: NOW, activePageType: null });
+    const groups = rankGlobalEntries([noise, signal], "primer", { now: NOW });
     const keys = allEntries(groups).map((e) => e.key);
     // The noise task must not appear; the signal task must appear and lead.
     expect(keys).not.toContain("t:noise");
@@ -207,7 +195,7 @@ describe("rankGlobalEntries", () => {
       type: "task",
       haystack: "PCR-screen integrants colony pcr",
     });
-    const groups = rankGlobalEntries([hyphenTask], "PCR screen", { now: NOW, activePageType: null });
+    const groups = rankGlobalEntries([hyphenTask], "PCR screen", { now: NOW });
     expect(allEntries(groups).map((e) => e.key)).toContain("t:pcr-screen");
   });
 
@@ -219,50 +207,23 @@ describe("rankGlobalEntries", () => {
       type: "task",
       haystack: "yearly results for eastern analytical system format",
     });
-    const groups = rankGlobalEntries([unrelated], "yeast transformation", { now: NOW, activePageType: null });
+    const groups = rankGlobalEntries([unrelated], "yeast transformation", { now: NOW });
     expect(allEntries(groups).map((e) => e.key)).not.toContain("t:unrelated");
   });
 
   it("regression: known-good queries still surface their expected top hit", () => {
     const pcr = entry({ key: "t:pcr", type: "task", haystack: "PCR optimization protocol" });
     const other = entry({ key: "t:other", type: "task", haystack: "cell culture maintenance" });
-    const groups = rankGlobalEntries([pcr, other], "PCR", { now: NOW, activePageType: null });
+    const groups = rankGlobalEntries([pcr, other], "PCR", { now: NOW });
     const keys = allEntries(groups).map((e) => e.key);
     expect(keys).toContain("t:pcr");
     expect(keys[0]).toBe("t:pcr");
   });
 });
 
-describe("activePageTypeForPath", () => {
-  it("maps the core entity routes to their hosted type", () => {
-    expect(activePageTypeForPath("/methods")).toBe("method");
-    expect(activePageTypeForPath("/sequences")).toBe("sequence");
-    expect(activePageTypeForPath("/inventory")).toBe("inventory");
-    expect(activePageTypeForPath("/datahub")).toBe("datahub");
-    expect(activePageTypeForPath("/chemistry")).toBe("molecule");
-    // Purchases are their own hosted type now (not grouped under task).
-    expect(activePageTypeForPath("/purchases")).toBe("purchase");
-    expect(activePageTypeForPath("/workbench/projects/7")).toBe("project");
-    expect(activePageTypeForPath("/")).toBe("task");
-    expect(activePageTypeForPath("/workbench")).toBe("task");
-    expect(activePageTypeForPath("/gantt")).toBe("task");
-  });
-
-  it("prefers the deeper project route over the bare workbench task mapping", () => {
-    expect(activePageTypeForPath("/workbench/projects/7?owner=alex")).toBe("project");
-  });
-
-  it("returns null for a route hosting none of the four core types", () => {
-    expect(activePageTypeForPath("/links")).toBeNull();
-    expect(activePageTypeForPath("/settings")).toBeNull();
-    expect(activePageTypeForPath(null)).toBeNull();
-    expect(activePageTypeForPath(undefined)).toBeNull();
-  });
-
-  it("tolerates a trailing slash", () => {
-    expect(activePageTypeForPath("/methods/")).toBe("method");
-  });
-});
+// activePageTypeForPath describe block removed (ai centered-redesign bot):
+// the function was deleted from global-source.ts because the v4 centered modal
+// no longer applies an on-page type suppression bias.
 
 describe("additive fuzzy pass (MiniSearch typo + OCR tolerance)", () => {
   it("finds a record by a typo'd query the strict subsequence pass misses", () => {
@@ -275,7 +236,7 @@ describe("additive fuzzy pass (MiniSearch typo + OCR tolerance)", () => {
     // exactly the OCR-garble case (cycles -> cyels).
     const strict = scoreGlobalEntry("cyels", entries[0], NOW);
     expect(strict).toBeNull();
-    const groups = rankGlobalEntries(entries, "cyels", { now: NOW, activePageType: null });
+    const groups = rankGlobalEntries(entries, "cyels", { now: NOW });
     const found = allEntries(groups);
     expect(found.map((e) => e.key)).toContain("self:10");
   });
@@ -285,7 +246,7 @@ describe("additive fuzzy pass (MiniSearch typo + OCR tolerance)", () => {
       entry({ type: "method", key: "self:20", label: "protocol", haystack: "protocol" }),
       entry({ type: "method", key: "self:21", label: "protacol typo doc", haystack: "protacol typo doc" }),
     ];
-    const groups = rankGlobalEntries(entries, "protocol", { now: NOW, activePageType: null });
+    const groups = rankGlobalEntries(entries, "protocol", { now: NOW });
     const found = allEntries(groups);
     // Both surface (exact + fuzzy), but the exact strict match leads.
     expect(found[0].key).toBe("self:20");
@@ -294,7 +255,7 @@ describe("additive fuzzy pass (MiniSearch typo + OCR tolerance)", () => {
 
   it("matches a partial prefix the strict pass would also catch, without regressing", () => {
     const entries = [entry({ type: "task", key: "self:30", label: "Miniprep batch", haystack: "miniprep batch" })];
-    const groups = rankGlobalEntries(entries, "minip", { now: NOW, activePageType: null });
+    const groups = rankGlobalEntries(entries, "minip", { now: NOW });
     expect(allEntries(groups).map((e) => e.key)).toContain("self:30");
   });
 });

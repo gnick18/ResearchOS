@@ -35,8 +35,7 @@ import {
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAppStore } from "@/lib/store";
 import { useBeakerSearchSource } from "@/components/beaker-search/useBeakerSearchSource";
-import { useBeakerHoveredKey } from "@/components/beaker-search/BeakerSearchProvider";
-import { parseBeakerTargetKey } from "@/components/beaker-search/beaker-hover";
+// beaker-hover.ts deleted (ai centered-redesign bot): hover bias removed.
 import {
   matchesAnyProjectFilter,
   STANDALONE_FILTER_KEY,
@@ -632,35 +631,8 @@ export function useWorkbenchBeakerSource(deps: WorkbenchBeakerPageDeps): void {
     };
   }, [selection, experiments, lists, notes, oneOnOnes, currentUser]);
 
-  // HOVERED. The card / row the cursor was over when the palette opened (null
-  // while closed). Parse its data-beaker-target key the same way the panels stamp
-  // it (experiment:<taskKey> / list:<taskKey> / project:<owner>:<id> /
-  // note:note-<owner>:<id>), then resolve to the live entity. SELECTED still
-  // outranks this in the builder, so a real open entity wins over a stale hover.
-  const hoveredKey = useBeakerHoveredKey();
-  const hovered = useMemo<WorkbenchSourceData["hovered"]>(() => {
-    const parsed = parseBeakerTargetKey(hoveredKey);
-    if (!parsed) return null;
-    if (parsed.kind === "experiment") {
-      const task = experiments.find((t) => taskKey(t) === parsed.key);
-      return task ? { kind: "experiment", task } : null;
-    }
-    if (parsed.kind === "list") {
-      const task = lists.find((t) => taskKey(t) === parsed.key);
-      return task ? { kind: "list", task } : null;
-    }
-    if (parsed.kind === "project") {
-      const project = projects.find((p) => `${p.owner}:${p.id}` === parsed.key);
-      return project ? { kind: "project", project } : null;
-    }
-    if (parsed.kind === "note") {
-      const note = notes.find(
-        (n) => `note-${n.username || currentUser}:${n.id}` === parsed.key,
-      );
-      return note ? { kind: "note", note } : null;
-    }
-    return null;
-  }, [hoveredKey, experiments, lists, projects, notes, currentUser]);
+  // Hover bias removed (ai centered-redesign bot). hovered is always null.
+  const hovered: WorkbenchSourceData["hovered"] = null;
 
   const handlers = useMemo<WorkbenchSourceHandlers>(
     () => ({

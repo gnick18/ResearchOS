@@ -1,12 +1,12 @@
 // sequence editor master (chunk 2 sub-bot). BeakerSearch global object search,
 // chunk 2, the PURE ranking + grouping brain for the cross-app NAVIGATE source.
 //
-// rankGlobalEntries takes the flat GlobalIndexEntry[] from chunk 1, a query, the
-// active user's clock (now), and the active page's own type, and returns the
-// ranked, capped, per-type groups the provider feeds into the palette. It is
-// pure, no React, no Date.now(), no DOM, so the ranking rule (decision 7), the
-// caps, and the on-page de-dup are unit-tested without rendering (mirrors
-// global-index.test.ts and editor-commands.ts).
+// rankGlobalEntries takes the flat GlobalIndexEntry[] from chunk 1, a query,
+// and the active user's clock (now), and returns the ranked, capped, per-type
+// groups the provider feeds into the palette. It is pure, no React, no
+// Date.now(), no DOM, so the ranking rule (decision 7), the caps, and the type
+// weights are unit-tested without rendering (mirrors global-index.test.ts and
+// editor-commands.ts).
 //
 // The score (decision 7), score = fuzzyScore(query, entry.haystack) + a per-type
 // nudge (Task +3 > Project +2 > Sequence +1 > Method +0) + a recency boost
@@ -84,37 +84,6 @@ export const GLOBAL_TYPE_TITLE: Record<GlobalObjectType, string> = {
   molecule: "Molecules",
   purchase: "Purchases",
 };
-
-/** Map a route pathname to the object type the page hosts as its primary entity,
- *  so the global group for that type is suppressed (doc 5.5, on-page de-dup). The
- *  page source already surfaces those records with richer, action-bearing rows.
- *
- *  /methods -> method, /sequences -> sequence, the home page plus /workbench /
- *  /gantt / /purchases all host tasks (the openTask handler / task containers) ->
- *  task. /workbench/projects/<id> is a single project's page, so a project there
- *  is the page's own context -> project. Any other route hosts none of the four,
- *  so nothing is suppressed (returns null). */
-export function activePageTypeForPath(
-  pathname: string | null | undefined,
-): GlobalObjectType | null {
-  if (!pathname) return null;
-  // Strip a trailing slash and the query / hash (defensive, pathname is path
-  // only, but a caller passing a fuller string still resolves cleanly).
-  const path = pathname.split(/[?#]/)[0].replace(/\/+$/, "") || "/";
-  if (path === "/methods" || path.startsWith("/methods/")) return "method";
-  if (path === "/sequences" || path.startsWith("/sequences/")) return "sequence";
-  if (path === "/inventory" || path.startsWith("/inventory/")) return "inventory";
-  if (path === "/datahub" || path.startsWith("/datahub/")) return "datahub";
-  if (path === "/chemistry" || path.startsWith("/chemistry/")) return "molecule";
-  if (path === "/purchases" || path.startsWith("/purchases/")) return "purchase";
-  // A single project's page is project context; check it BEFORE the bare
-  // /workbench task mapping so the deeper route wins.
-  if (path.startsWith("/workbench/projects/")) return "project";
-  if (path === "/" ) return "task";
-  if (path === "/workbench" || path.startsWith("/workbench/")) return "task";
-  if (path === "/gantt" || path.startsWith("/gantt/")) return "task";
-  return null;
-}
 
 /** The recency boost for an entry, +min(4, weeksFreshness) from entry.recencyAt
  *  against `now` (epoch ms). A record with no stamp (recencyAt 0) or a future
@@ -207,11 +176,9 @@ export interface GlobalObjectGroup {
 }
 
 /** Options for rankGlobalEntries. `now` is the live clock (the caller passes
- *  Date.now(); tests pass a fixed epoch). `activePageType` is the page's own
- *  type, whose group is suppressed (doc 5.5); null suppresses nothing. */
+ *  Date.now(); tests pass a fixed epoch). */
 export interface RankGlobalOptions {
   now: number;
-  activePageType: GlobalObjectType | null;
 }
 
 /** Rank the index against the query and return the per-type object groups.
@@ -219,11 +186,10 @@ export interface RankGlobalOptions {
  *  Empty query => no groups at all (the global source contributes nothing to the
  *  empty view here; the Recent-records MRU is chunk 4). Non-empty query => every
  *  entry is scored, null-fuzzyScore entries are dropped, the survivors are sorted
- *  best-first, the active page's own type is dropped (doc 5.5), each type is
- *  capped at 5, then the whole set is capped at 12 overall while keeping the
- *  best-scored entries (so a 12-cut never silently keeps a weaker entry over a
- *  stronger one of another type). Groups print in GLOBAL_TYPE_ORDER; the provider
- *  applies the existing "lead with the top hit's group" rule on the merged list. */
+ *  best-first, each type is capped at 5, then the whole set is capped at 12
+ *  overall while keeping the best-scored entries. Groups print in
+ *  GLOBAL_TYPE_ORDER; the provider applies the existing "lead with the top hit's
+ *  group" rule on the merged list. */
 export function rankGlobalEntries(
   entries: GlobalIndexEntry[],
   query: string,
@@ -232,14 +198,12 @@ export function rankGlobalEntries(
   const trimmed = query.trim();
   if (trimmed === "") return [];
 
-  const { now, activePageType } = options;
+  const { now } = options;
 
-  // 1. Score + drop non-matches + drop the active page's own type. These are the
-  //    STRICT (subsequence) matches, the exact behavior as before.
+  // 1. Score + drop non-matches. These are the STRICT (subsequence) matches.
   const scored: Array<{ entry: GlobalIndexEntry; score: number; strict: boolean }> = [];
   const seen = new Set<string>();
   for (const entry of entries) {
-    if (activePageType != null && entry.type === activePageType) continue;
     const score = scoreGlobalEntry(trimmed, entry, now);
     if (score != null) {
       scored.push({ entry, score, strict: true });
@@ -249,16 +213,15 @@ export function rankGlobalEntries(
 
   // 1b. Additive fuzzy pass. MiniSearch contributes the edit-distance / prefix
   //     matches the strict pass missed (typos, OCR garble), each only if not
-  //     already a strict hit and not the active page's own type. Tagged
-  //     strict:false so they rank as a tier BELOW every strict hit. Wrapped so a
-  //     failure leaves the strict-only result exactly as before.
+  //     already a strict hit. Tagged strict:false so they rank as a tier BELOW
+  //     every strict hit. Wrapped so a failure leaves the strict-only result
+  //     exactly as before.
   const fuzzy = getFuzzyIndex(entries);
   if (fuzzy && cachedByIid) {
     try {
       for (const hit of fuzzy.search(trimmed)) {
         const entry = cachedByIid.get(hit.id as string);
         if (!entry) continue;
-        if (activePageType != null && entry.type === activePageType) continue;
         const iid = iidOf(entry);
         if (seen.has(iid)) continue;
         scored.push({ entry, score: hit.score, strict: false });

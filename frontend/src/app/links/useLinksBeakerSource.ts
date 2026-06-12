@@ -24,8 +24,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { labLinksApi } from "@/lib/local-api";
 import { isWholeLabShared } from "@/lib/sharing/unified";
 import { useBeakerSearchSource } from "@/components/beaker-search/useBeakerSearchSource";
-import { useBeakerHoveredKey } from "@/components/beaker-search/BeakerSearchProvider";
-import { parseBeakerTargetKey } from "@/components/beaker-search/beaker-hover";
+// beaker-hover.ts deleted (ai centered-redesign bot): hover bias removed.
 import type { LabLink } from "@/lib/types";
 import {
   buildLinksSource,
@@ -93,16 +92,8 @@ function scrollToSelector(selector: string): void {
 export function useLinksBeakerSource(args: UseLinksBeakerSourceArgs): void {
   const queryClient = useQueryClient();
 
-  // Hovered-as-context (step 4). The provider snapshots the last tagged element
-  // the pointer was over before the palette opened. We only forward keys of our
-  // own "link" kind, so a stray task / lab-member hover never biases this page.
-  // The forwarded value is the full "link:{owner}:{id}" target the builder's
-  // resolveFocus matches against, and SELECTED (editingLink) still outranks it.
-  const rawHoveredKey = useBeakerHoveredKey();
-  const hoveredKey = useMemo(() => {
-    const parsed = parseBeakerTargetKey(rawHoveredKey);
-    return parsed?.kind === "link" ? rawHoveredKey : null;
-  }, [rawHoveredKey]);
+  // Hover bias removed (ai centered-redesign bot). hoveredKey is always null.
+  const hoveredKey: string | null = null;
 
   // Category filter, now LIFTED to the page (spec 2.3 lift A). The page owns the
   // state + setter and hands them in, so selecting a category in the palette
@@ -244,7 +235,6 @@ export function useLinksBeakerSource(args: UseLinksBeakerSourceArgs): void {
     activeCategory,
     args.currentUser,
     args.profileMap,
-    hoveredKey,
     handlers,
   ]);
 
