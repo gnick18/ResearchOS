@@ -908,9 +908,18 @@ interface RawGeneReport {
       description?: string;
       tax_id?: number | string;
       taxname?: string;
+      locus_tag?: string;
+      orientation?: string;
       annotations?: Array<{
+        assembly_accession?: string;
         genomic_locations?: Array<{
-          genomic_range?: { begin?: number | string; end?: number | string };
+          genomic_accession_version?: string;
+          sequence_name?: string;
+          genomic_range?: {
+            begin?: number | string;
+            end?: number | string;
+            orientation?: string;
+          };
         }>;
       }>;
     };
@@ -949,6 +958,175 @@ export function parseGeneReport(raw: unknown): NcbiPreview {
     taxId: gene.tax_id != null ? String(gene.tax_id) : undefined,
     lengthBp: geneSpanBp(gene),
   };
+}
+
+// --- Gene genomic placement (pure, separate from the preview) ----------------
+//
+// The placement is the chromosomal position that lets the wizard jump from a
+// gene symbol to a contig + window. It lives at
+// gene.annotations[].genomic_locations[] and arrives in the same gene
+// dataset_report as the preview. Parsed separately so it stays unit-testable
+// without going through the full NcbiPreview path.
+
+/** The chromosomal placement of a gene, sufficient to build an efetch window. */
+export interface GenePlacement {
+  /** Gene symbol (e.g. "cyp51A"). */
+  symbol: string;
+  /** Numeric gene id, when the report carries one. */
+  geneId?: string;
+  /** INSDC locus tag (e.g. "AFUA_4G06890"). */
+  locusTag?: string;
+  /** The RefSeq contig accession (e.g. "NC_007197.1"). */
+  contigAccession: string;
+  /** Chromosome or molecule name (e.g. "4"), when the report carries one. */
+  contigName?: string;
+  /** 1-based inclusive start position on the contig. */
+  begin: number;
+  /** 1-based inclusive end position on the contig. */
+  end: number;
+  /** Strand orientation. */
+  orientation: "plus" | "minus";
+  /** Assembly accession the annotation belongs to (e.g. "GCF_000002655.1"). */
+  assemblyAccession?: string;
+}
+
+/**
+ * Parse the genomic placement out of a gene dataset_report. Returns the
+ * placement from the first genomic_location of the first annotation (the
+ * current RefSeq annotation), or null when the report carries no placement.
+ * Does NOT throw on a missing placement so callers can handle the
+ * no-annotation case gracefully. Pure: unit-tested against a saved cyp51A
+ * fixture with no network.
+ */
+export function parseGenePlacement(raw: unknown): GenePlacement | null {
+  const root = (raw || {}) as RawGeneReport;
+  const gene = Array.isArray(root.reports) ? root.reports[0]?.gene : undefined;
+  if (!gene) return null;
+
+  const ann = Array.isArray(gene.annotations) ? gene.annotations[0] : undefined;
+  if (!ann) return null;
+
+  const loc = Array.isArray(ann.genomic_locations)
+    ? ann.genomic_locations[0]
+    : undefined;
+  if (!loc) return null;
+
+  const contigAccession = asString(loc.genomic_accession_version);
+  if (!contigAccession) return null;
+
+  const range = loc.genomic_range;
+  const begin = asNumber(range?.begin);
+  const end = asNumber(range?.end);
+  if (begin === undefined || end === undefined) return null;
+
+  const rawOrient = (
+    asString(range?.orientation) ||
+    asString(gene.orientation) ||
+    "plus"
+  ).toLowerCase();
+  const orientation: "plus" | "minus" = rawOrient === "minus" ? "minus" : "plus";
+
+  return {
+    symbol: asString(gene.symbol) || "",
+    geneId: gene.gene_id != null ? String(gene.gene_id) : undefined,
+    locusTag: asString(gene.locus_tag),
+    contigAccession,
+    contigName: asString(loc.sequence_name),
+    begin,
+    end,
+    orientation,
+    assemblyAccession: asString(ann.assembly_accession),
+  };
+}
+
+// --- Assembly sequence list (contig list for an assembly) --------------------
+//
+// The sequence_reports endpoint returns one record per contig / chromosome in
+// an assembly. We use it to map the gene's contig accession to a length so the
+// wizard can clamp the efetch window at the contig boundary. Parsing is pure and
+// unit-tested against a saved GCF_000002655.1 fixture.
+
+/** One contig / chromosome row from the sequence_reports endpoint. */
+export interface AssemblySequence {
+  /** RefSeq contig accession (e.g. "NC_007194.1"). */
+  refseqAccession: string;
+  /** GenBank contig accession (e.g. "CM000169.1"), when present. */
+  genbankAccession?: string;
+  /** Display name. chr_name takes priority; falls back to sequence_name. */
+  name: string;
+  /** Total length of the contig / chromosome in bp. */
+  lengthBp: number;
+  /** Molecule type (e.g. "Chromosome"), when the report carries one. */
+  moleculeType?: string;
+  /** Sequence role (e.g. "assembled-molecule"), when the report carries one. */
+  role?: string;
+}
+
+/** The sequence_reports response subset we read. Every field optional so a
+ *  shape drift degrades to a sparse list rather than a crash. */
+interface RawSequenceReport {
+  reports?: Array<{
+    refseq_accession?: string;
+    genbank_accession?: string;
+    chr_name?: string;
+    sequence_name?: string;
+    length?: number | string;
+    assigned_molecule_location_type?: string;
+    role?: string;
+  }>;
+}
+
+/**
+ * Parse the sequence_reports JSON into an AssemblySequence array. Assembled
+ * chromosomes sort before other molecule types, then by length descending so
+ * the largest chromosomes appear first. Records with no RefSeq accession are
+ * dropped. Pure: unit-tested against a saved fixture with no network.
+ */
+export function parseAssemblySequences(raw: unknown): AssemblySequence[] {
+  const root = (raw || {}) as RawSequenceReport;
+  const out: AssemblySequence[] = [];
+  for (const r of root.reports || []) {
+    const acc = asString(r?.refseq_accession);
+    if (!acc) continue;
+    const len = asNumber(r?.length);
+    if (len === undefined) continue;
+    out.push({
+      refseqAccession: acc,
+      genbankAccession: asString(r?.genbank_accession),
+      name: asString(r?.chr_name) || asString(r?.sequence_name) || acc,
+      lengthBp: len,
+      moleculeType: asString(r?.assigned_molecule_location_type),
+      role: asString(r?.role),
+    });
+  }
+  // Assembled chromosomes first, then by length descending (stable within each
+  // group so the API order is preserved for equal-length records).
+  return out
+    .map((s, i) => ({ s, i }))
+    .sort((x, y) => {
+      const xChr = (x.s.moleculeType || "").toLowerCase() === "chromosome";
+      const yChr = (y.s.moleculeType || "").toLowerCase() === "chromosome";
+      if (xChr !== yChr) return xChr ? -1 : 1;
+      if (y.s.lengthBp !== x.s.lengthBp) return y.s.lengthBp - x.s.lengthBp;
+      return x.i - y.i;
+    })
+    .map((e) => e.s);
+}
+
+/**
+ * Fetch the contig list for one assembly accession. Browser-direct over the
+ * CORS-open Datasets v2 endpoint. Returns the parsed, sorted rows. One call,
+ * no pagination (most assemblies have fewer than a few thousand sequences and
+ * the endpoint returns all of them). Pure parse is unit-tested separately.
+ */
+export async function listAssemblySequences(
+  accession: string,
+  signal?: AbortSignal,
+): Promise<AssemblySequence[]> {
+  const acc = (accession || "").trim();
+  if (!acc) throw new NcbiDatasetsError("Enter an assembly accession.");
+  const url = `${NCBI_DATASETS_BASE}/genome/accession/${encodeURIComponent(acc)}/sequence_reports`;
+  return parseAssemblySequences(await getJson(url, signal));
 }
 
 // --- Network (thin) ---------------------------------------------------------

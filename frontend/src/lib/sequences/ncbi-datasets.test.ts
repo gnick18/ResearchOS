@@ -9,6 +9,8 @@ import {
   parseGeneReport,
   parseGenomeReport,
   parseTaxonAssemblies,
+  parseAssemblySequences,
+  parseGenePlacement,
   isGenusOrBelow,
   checkCaps,
   sniffAccessionKind,
@@ -16,10 +18,14 @@ import {
   NCBI_CAPS,
   NcbiDatasetsError,
   type NcbiPreview,
+  type AssemblySequence,
+  type GenePlacement,
 } from "./ncbi-datasets";
 import brca1Report from "./__fixtures__/ncbi/brca1-gene-report.json";
 import ecoliReport from "./__fixtures__/ncbi/ecoli-genome-report.json";
 import ecoliAssemblies from "./__fixtures__/ncbi/ecoli-taxon-assemblies.json";
+import af293SeqReports from "./__fixtures__/ncbi/af293-sequence-reports.json";
+import cyp51aReport from "./__fixtures__/ncbi/cyp51a-gene-report-330879.json";
 
 describe("parseGeneReport (real BRCA1 fixture)", () => {
   const p = parseGeneReport(brca1Report);
@@ -216,5 +222,109 @@ describe("isGenusOrBelow", () => {
     expect(isGenusOrBelow("")).toBe(false);
     expect(isGenusOrBelow(undefined)).toBe(false);
     expect(isGenusOrBelow("clade")).toBe(false);
+  });
+});
+
+// --- parseAssemblySequences (Af293 GCF_000002655.1 trimmed fixture) ----------
+
+describe("parseAssemblySequences (Af293 GCF_000002655.1 fixture, 3 records)", () => {
+  const seqs = parseAssemblySequences(af293SeqReports);
+
+  it("parses 3 records from the fixture", () => {
+    expect(seqs.length).toBe(3);
+  });
+
+  it("populates refseqAccession, name, and lengthBp", () => {
+    // First record is chromosome 1.
+    expect(seqs[0].refseqAccession).toBe("NC_007194.1");
+    expect(seqs[0].name).toBe("1");
+    expect(seqs[0].lengthBp).toBe(4918979);
+    expect(seqs[0].genbankAccession).toBe("CM000169.1");
+    expect(seqs[0].moleculeType).toBe("Chromosome");
+    expect(seqs[0].role).toBe("assembled-molecule");
+  });
+
+  it("sorts chromosomes first, then by length descending", () => {
+    // All three fixture records are Chromosomes so the length-desc sort applies.
+    // Chr 1 (4918979) > Chr 2 (4844472) > Chr 3 (4079167).
+    expect(seqs[0].lengthBp).toBeGreaterThanOrEqual(seqs[1].lengthBp);
+    expect(seqs[1].lengthBp).toBeGreaterThanOrEqual(seqs[2].lengthBp);
+    for (const s of seqs) {
+      expect(s.moleculeType).toBe("Chromosome");
+    }
+  });
+
+  it("sorts non-chromosome rows after chromosomes", () => {
+    // Inject a non-chromosome record alongside two chromosomes and confirm
+    // it sinks to the end regardless of length.
+    const mixed = parseAssemblySequences({
+      reports: [
+        {
+          refseq_accession: "NT_001.1",
+          sequence_name: "unplaced-1",
+          length: 9_999_999,
+          assigned_molecule_location_type: "Mitochondrion",
+          role: "assembled-molecule",
+        },
+        {
+          refseq_accession: "NC_001.1",
+          chr_name: "1",
+          length: 1_000_000,
+          assigned_molecule_location_type: "Chromosome",
+          role: "assembled-molecule",
+        },
+      ],
+    });
+    expect(mixed[0].moleculeType).toBe("Chromosome");
+    expect(mixed[1].moleculeType).toBe("Mitochondrion");
+  });
+
+  it("returns an empty array on a sparse response without throwing", () => {
+    expect(parseAssemblySequences({})).toEqual([]);
+    expect(parseAssemblySequences({ reports: [] })).toEqual([]);
+    // A record missing refseq_accession is dropped.
+    expect(
+      parseAssemblySequences({
+        reports: [{ sequence_name: "unresolvable", length: 100 }],
+      }),
+    ).toEqual([]);
+  });
+});
+
+// --- parseGenePlacement (cyp51A on Af293 strain 330879) ----------------------
+
+describe("parseGenePlacement (cyp51A Af293 fixture)", () => {
+  const placement = parseGenePlacement(cyp51aReport);
+
+  it("returns a non-null placement", () => {
+    expect(placement).not.toBeNull();
+  });
+
+  it("parses contigAccession, begin, end, orientation", () => {
+    expect(placement!.contigAccession).toBe("NC_007197.1");
+    expect(placement!.begin).toBe(1777375);
+    expect(placement!.end).toBe(1781822);
+    expect(placement!.orientation).toBe("minus");
+  });
+
+  it("parses symbol, locusTag, assemblyAccession", () => {
+    expect(placement!.symbol).toBe("cyp51A");
+    expect(placement!.locusTag).toBe("AFUA_4G06890");
+    expect(placement!.assemblyAccession).toBe("GCF_000002655.1");
+    expect(placement!.contigName).toBe("4");
+    expect(placement!.geneId).toBe("3509526");
+  });
+
+  it("returns null when the report has no annotations", () => {
+    expect(parseGenePlacement({ reports: [{ gene: { symbol: "x" } }] })).toBeNull();
+    expect(parseGenePlacement({ reports: [] })).toBeNull();
+    expect(parseGenePlacement({})).toBeNull();
+  });
+
+  it("returns null when the genomic_locations array is empty", () => {
+    const noLoc = {
+      reports: [{ gene: { symbol: "x", annotations: [{ assembly_accession: "GCF_x", genomic_locations: [] }] } }],
+    };
+    expect(parseGenePlacement(noLoc)).toBeNull();
   });
 });

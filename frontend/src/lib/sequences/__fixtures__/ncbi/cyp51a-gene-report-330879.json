@@ -1,0 +1,30 @@
+{
+  "reports": [
+    {
+      "gene": {
+        "gene_id": "3509526",
+        "symbol": "cyp51A",
+        "locus_tag": "AFUA_4G06890",
+        "tax_id": "330879",
+        "taxname": "Aspergillus fumigatus Af293",
+        "orientation": "minus",
+        "annotations": [
+          {
+            "assembly_accession": "GCF_000002655.1",
+            "genomic_locations": [
+              {
+                "genomic_accession_version": "NC_007197.1",
+                "sequence_name": "4",
+                "genomic_range": {
+                  "begin": "1777375",
+                  "end": "1781822",
+                  "orientation": "minus"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

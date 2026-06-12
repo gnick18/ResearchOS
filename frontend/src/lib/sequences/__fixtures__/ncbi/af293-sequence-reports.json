@@ -1,0 +1,43 @@
+{
+  "reports": [
+    {
+      "assembly_accession": "GCF_000002655.1",
+      "chr_name": "1",
+      "assigned_molecule_location_type": "Chromosome",
+      "refseq_accession": "NC_007194.1",
+      "assembly_unit": "Primary Assembly",
+      "length": 4918979,
+      "genbank_accession": "CM000169.1",
+      "gc_count": "2431021",
+      "gc_percent": 50,
+      "role": "assembled-molecule",
+      "sequence_name": "1"
+    },
+    {
+      "assembly_accession": "GCF_000002655.1",
+      "chr_name": "2",
+      "assigned_molecule_location_type": "Chromosome",
+      "refseq_accession": "NC_007195.1",
+      "assembly_unit": "Primary Assembly",
+      "length": 4844472,
+      "genbank_accession": "CM000170.1",
+      "gc_count": "2406037",
+      "gc_percent": 50,
+      "role": "assembled-molecule",
+      "sequence_name": "2"
+    },
+    {
+      "assembly_accession": "GCF_000002655.1",
+      "chr_name": "3",
+      "assigned_molecule_location_type": "Chromosome",
+      "refseq_accession": "NC_007196.1",
+      "assembly_unit": "Primary Assembly",
+      "length": 4079167,
+      "genbank_accession": "CM000171.1",
+      "gc_count": "2021072",
+      "gc_percent": 49.5,
+      "role": "assembled-molecule",
+      "sequence_name": "3"
+    }
+  ]
+}
