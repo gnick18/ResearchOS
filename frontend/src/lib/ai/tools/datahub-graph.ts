@@ -50,6 +50,7 @@ import {
   type PlotStyle,
 } from "@/lib/datahub/plot-spec";
 import type {
+  AnalysisSpec,
   DataHubDocContent,
   PlotSpec,
 } from "@/lib/datahub/model/types";
@@ -148,6 +149,15 @@ export type MakeGraphArgs = {
   /** Optional figure title. */
   title?: string;
   /**
+   * Dot / bar only. Draw significance brackets (stars) over the bars from a
+   * stored one-way ANOVA's Tukey comparisons, exactly the NewGraphDialog
+   * "use brackets" toggle. The brackets need a one-way ANOVA already saved on
+   * the SAME table (run run_datahub_analysis first); the build links that stored
+   * analysis by id so the engine, not the model, draws the stars. Ignored for an
+   * estimation figure (which carries its own effect-size CI instead).
+   */
+  significanceBrackets?: boolean;
+  /**
    * Estimation-only. The control group (by name or id) the differences are taken
    * against. Resolved to its index in the plotted column order; omit to use the
    * first plotted group.
@@ -232,6 +242,7 @@ export function parseMakeGraphArgs(
     args.bootstrapMethod === "bca" || args.bootstrapMethod === "percentile"
       ? (args.bootstrapMethod as BootstrapMethodOption)
       : undefined;
+  const significanceBrackets = args.significanceBrackets === true;
   return {
     tableId,
     type,
@@ -239,6 +250,7 @@ export function parseMakeGraphArgs(
     columns,
     showPoints,
     title,
+    significanceBrackets,
     control,
     paired,
     ci,
@@ -268,6 +280,20 @@ export function resolveGraphColumns(
     if (id && !out.includes(id)) out.push(id);
   }
   return out;
+}
+
+/**
+ * Find a stored one-way ANOVA on the table, the analysis whose Tukey
+ * comparisons feed significance brackets (the same `oneWayAnova` lookup
+ * NewGraphDialog uses for its "use brackets" toggle). Returns the first match,
+ * or null when the table has no saved one-way ANOVA. BeakerBot only LINKS this
+ * stored analysis, it never recomputes the comparisons; the user (or a prior
+ * run_datahub_analysis call) is what put the validated ANOVA on the table.
+ */
+export function findStoredAnova(
+  content: DataHubDocContent,
+): AnalysisSpec | null {
+  return content.analyses.find((a) => a.type === "oneWayAnova") ?? null;
 }
 
 /**
@@ -315,6 +341,9 @@ export type MakeGraphResult =
       control?: string;
       /** True when an estimation figure drew the paired (matched) variant. */
       paired?: boolean;
+      /** True when a dot / bar figure drew significance brackets from a linked
+       *  one-way ANOVA. Absent / false when none were drawn. */
+      bracketsDrawn?: boolean;
     }
   | { ok: false; error: string };
 
@@ -421,6 +450,26 @@ export function buildGraph(
 
   const kind = toPlotKind(parsed.type);
 
+  // Significance brackets (stars) need a stored one-way ANOVA on this table, the
+  // engine reads its Tukey comparisons and draws a bracket over each significant
+  // pair. When the model asks for brackets we LINK that stored analysis by id
+  // (the NewGraphDialog "use brackets" path); the engine, not the model, draws
+  // the stars. When the model asks for brackets but no ANOVA is saved yet, fail
+  // with a clear next step so the model runs run_datahub_analysis first rather
+  // than storing a figure with empty brackets.
+  let anovaId: string | null = null;
+  if (parsed.significanceBrackets) {
+    const anova = findStoredAnova(content);
+    if (!anova) {
+      return {
+        ok: false,
+        error:
+          "Significance brackets need a one-way ANOVA saved on this table first, the brackets come from its Tukey pairwise comparisons. Run run_datahub_analysis with a one-way ANOVA on these groups, then call make_datahub_graph again with significanceBrackets set.",
+      };
+    }
+    anovaId = anova.id;
+  }
+
   // Build the spec through the validated engine builder (buildPlotSpec seeds the
   // default publication style + the source), then apply the requested kind,
   // error bar, and point toggle through withStyle (the same style write the
@@ -430,6 +479,7 @@ export function buildGraph(
     id,
     kind,
     tableId: content.meta.id,
+    analysisId: anovaId,
     yTitle: content.meta.name || "Value",
     title: parsed.title,
   });
@@ -441,9 +491,10 @@ export function buildGraph(
       parsed.showPoints !== undefined
         ? parsed.showPoints
         : parsed.type === "dot",
-    // No analysis is linked from a bare chart request, so do not draw brackets
-    // (they need a stored ANOVA). The user can add them in the editor.
-    showBrackets: false,
+    // Draw brackets only when the model asked AND a stored ANOVA was linked
+    // above (anovaId set). A bare chart leaves them off; the user can still add
+    // them in the editor later.
+    showBrackets: anovaId !== null,
   });
 
   const result: Extract<MakeGraphResult, { ok: true }> = {
@@ -453,6 +504,7 @@ export function buildGraph(
     errorBar: parsed.errorBar,
     columns: names,
     plotId: id,
+    bracketsDrawn: anovaId !== null,
   };
   return { ok: true, spec, result };
 }
@@ -464,7 +516,7 @@ export function buildGraph(
 export const makeDataHubGraphTool: AiTool = {
   name: "make_datahub_graph",
   description:
-    "Build a publication figure from a Data Hub table, store it, and take the user to see it. Use this when the user asks to plot, chart, or graph their Data Hub data (for example \"make a bar chart of fakeGFP expression with SEM error bars\" or \"plot the growth curve\"). Call list_datahub_tables first to get the table id and the real column names, then call this with that table id. You pick the table, the graph TYPE (\"dot\" for a column dot plot of individual points over the mean, the default, \"bar\" for a bar chart of the means, or \"estimation\" for an effect-size plot, see below), and the error bar (\"sem\", \"sd\", or \"none\"). The \"estimation\" type draws the modern effect-size-with-confidence-interval figure (an estimation plot, also called a Gardner-Altman or Cumming plot, the DABEST-style alternative to a bar chart with significance stars): it shows every group's raw data plus the bootstrap distribution of the mean difference and its CI, so a reader sees the SIZE of the effect rather than only a yes / no star. Ask for it when the user wants an estimation plot, a Gardner-Altman plot, a Cumming plot, an effect-size plot, or a mean-difference / difference-with-CI figure. For an estimation plot you may also pass \"control\" (the group name or id every difference is taken against, default the first plotted group) and \"paired\" (true for matched / repeated-measures data, valid only when exactly two groups are plotted). The two-groups-vs-three-or-more choice (Gardner-Altman vs Cumming) is made for you from the group count, you do not pick it. If the user did not say which graph type or error bar they want and it matters, call ask_user (select \"one\") so they tap the choice (for example \"Bar with SEM\" vs \"Dot plot\" vs \"Estimation plot\") before you call this. The app's plot engine builds the figure itself, you never compute or invent a bar height, a mean, an error bar, a mean difference, a confidence interval, or any plotted value. This runs straight away, there is NO separate approval step, the user's request (and any choice they tapped) is the consent, so do not call propose_plan for it and do not ask the user to allow it. It saves the figure into that table as a version-controlled plot, navigates the user to the Data Hub so they see it, and returns what it plotted. After it returns, give ONE short line naming the chart it built.",
+    "Build a publication figure from a Data Hub table, store it, and take the user to see it. Use this when the user asks to plot, chart, or graph their Data Hub data (for example \"make a bar chart of fakeGFP expression with SEM error bars\" or \"plot the growth curve\"). Call list_datahub_tables first to get the table id and the real column names, then call this with that table id. You pick the table, the graph TYPE (\"dot\" for a column dot plot of individual points over the mean, the default, \"bar\" for a bar chart of the means, or \"estimation\" for an effect-size plot, see below), and the error bar (\"sem\", \"sd\", or \"none\"). The \"estimation\" type draws the modern effect-size-with-confidence-interval figure (an estimation plot, also called a Gardner-Altman or Cumming plot, the DABEST-style alternative to a bar chart with significance stars): it shows every group's raw data plus the bootstrap distribution of the mean difference and its CI, so a reader sees the SIZE of the effect rather than only a yes / no star. Ask for it when the user wants an estimation plot, a Gardner-Altman plot, a Cumming plot, an effect-size plot, or a mean-difference / difference-with-CI figure. For an estimation plot you may also pass \"control\" (the group name or id every difference is taken against, default the first plotted group) and \"paired\" (true for matched / repeated-measures data, valid only when exactly two groups are plotted). The two-groups-vs-three-or-more choice (Gardner-Altman vs Cumming) is made for you from the group count, you do not pick it. If the user did not say which graph type or error bar they want and it matters, call ask_user (select \"one\") so they tap the choice (for example \"Bar with SEM\" vs \"Dot plot\" vs \"Estimation plot\") before you call this. The app's plot engine builds the figure itself, you never compute or invent a bar height, a mean, an error bar, a mean difference, a confidence interval, or any plotted value. This runs straight away, there is NO separate approval step, the user's request (and any choice they tapped) is the consent, so do not call propose_plan for it and do not ask the user to allow it. For a dot or bar chart you may also pass \"significanceBrackets\" true to draw significance stars over the groups from a one-way ANOVA's Tukey comparisons, but that needs a one-way ANOVA already saved on the table, so run run_datahub_analysis (one-way ANOVA) first, then make the chart with significanceBrackets set (the call fails with a clear next step if no ANOVA is saved). It saves the figure into that table as a version-controlled plot, navigates the user to the Data Hub so they see it, and returns what it plotted. After it returns, give ONE short line naming the chart it built.",
   parameters: {
     type: "object",
     properties: {
@@ -503,6 +555,11 @@ export const makeDataHubGraphTool: AiTool = {
         type: "boolean",
         description:
           "Draw each raw replicate as a jittered point. Defaults to true for a dot plot and false for a bar chart. Set true to overlay points on a bar chart.",
+      },
+      significanceBrackets: {
+        type: "boolean",
+        description:
+          "Dot or bar charts only. Set true to draw significance brackets (stars) over the groups from a one-way ANOVA's Tukey pairwise comparisons. This needs a one-way ANOVA ALREADY SAVED on the same table, so run run_datahub_analysis with a one-way ANOVA on these groups FIRST, then call this with significanceBrackets true. The engine reads the stored comparisons and brackets only the significant pairs (p < 0.05); you never compute or place a star. If no ANOVA is saved yet the call fails and tells you to run one first. Ignored for an estimation plot.",
       },
       title: {
         type: "string",

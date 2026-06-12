@@ -826,6 +826,31 @@ body {
   animation: jiggle 0.3s ease-in-out infinite;
 }
 
+/* Nav edit-mode jiggle (AppNavBar). Two offset keyframes so neighbouring tabs
+ * feel alive while the user arranges them, the iOS app-icon gesture. */
+@keyframes nav-jiggle-a {
+  0% { transform: rotate(-1.1deg); }
+  50% { transform: rotate(1.1deg); }
+  100% { transform: rotate(-1.1deg); }
+}
+@keyframes nav-jiggle-b {
+  0% { transform: rotate(1deg); }
+  50% { transform: rotate(-1deg); }
+  100% { transform: rotate(1deg); }
+}
+.nav-jiggle {
+  animation: nav-jiggle-a 0.28s ease-in-out infinite;
+}
+.nav-jiggle-b {
+  animation-name: nav-jiggle-b;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-jiggle,
+  .nav-jiggle-b {
+    animation: none;
+  }
+}
+
 /* Drop indicator animation */
 @keyframes drop-pulse {
   0%, 100% { opacity: 0.6; transform: scaleY(1); }

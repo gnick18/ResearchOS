@@ -731,6 +731,7 @@ function PurchasesPageContent() {
                 <div
                   className="flex items-center justify-between px-5 py-3 border-b border-border cursor-pointer hover:bg-surface-sunken"
                   onClick={() => setSelectedTask(isOpen ? null : task)}
+                  data-testid={`purchase-row-${tkey}`}
                 >
                   <div className="flex items-center gap-3">
                     {/* Completion indicator */}

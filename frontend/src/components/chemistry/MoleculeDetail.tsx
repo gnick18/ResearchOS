@@ -222,7 +222,7 @@ export function MoleculeDetail({
             </table>
 
             {props ? (
-              <div className="mt-3">
+              <div className="mt-3" data-testid="mol-detail-props">
                 <h4 className="text-[11px] uppercase tracking-wide text-foreground-muted mb-1.5">
                   Properties
                 </h4>

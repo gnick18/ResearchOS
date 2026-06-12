@@ -113,14 +113,11 @@ describe("ExperimentEmbed", () => {
     expect(screen.queryByText("Internal Name")).toBeNull();
   });
 
-  it("falls back to the generic card when the experiment is gone", async () => {
+  it("shows the unavailable card when the experiment is gone", async () => {
     get.mockResolvedValue(null);
     render(<ExperimentEmbed descriptor={descriptor} caption="My Experiment" basePath="" />);
-    await waitFor(() =>
-      expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute(
-        "href",
-        "/?openTask=self%3A3",
-      ),
-    );
+    await waitFor(() => expect(screen.getByText("My Experiment")).toBeInTheDocument());
+    expect(screen.getByText(/Not available/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open" })).toBeNull();
   });
 });

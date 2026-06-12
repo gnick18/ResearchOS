@@ -47,6 +47,7 @@ export function LiteratureSearch() {
 
       <div className="flex gap-2 max-w-xl">
         <input
+          data-testid="lit-search-input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
@@ -57,6 +58,7 @@ export function LiteratureSearch() {
         />
         <button
           type="button"
+          data-testid="lit-search-submit"
           onClick={() => run(input)}
           disabled={!input.trim()}
           className="inline-flex items-center gap-2 px-4 py-2 text-body font-semibold text-white rounded-lg bg-gradient-to-br from-brand-action to-brand-purple disabled:opacity-60"

@@ -116,18 +116,15 @@ describe("TaskEmbed", () => {
     expect(get).toHaveBeenCalledWith(9, "alice");
   });
 
-  it("falls back to the generic card when the task is gone", async () => {
+  it("shows the unavailable card when the task is gone", async () => {
     get.mockResolvedValue(null);
     render(<TaskEmbed descriptor={descriptor} caption="My Task" basePath="" />);
-    await waitFor(() =>
-      expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute(
-        "href",
-        "/?openTask=self%3A5",
-      ),
-    );
+    await waitFor(() => expect(screen.getByText("My Task")).toBeInTheDocument());
+    expect(screen.getByText(/Not available/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open" })).toBeNull();
   });
 
-  it("falls back to the generic card when the task key is malformed", async () => {
+  it("shows the unavailable card when the task key is malformed", async () => {
     const badDescriptor: EmbedDescriptor = {
       type: "task",
       id: "notakey",
@@ -136,8 +133,7 @@ describe("TaskEmbed", () => {
       opts: {},
     };
     render(<TaskEmbed descriptor={badDescriptor} caption="Bad Key" basePath="" />);
-    await waitFor(() =>
-      expect(screen.getByRole("link", { name: "Open" })).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText(/Not available/)).toBeInTheDocument());
+    expect(screen.queryByRole("link", { name: "Open" })).toBeNull();
   });
 });

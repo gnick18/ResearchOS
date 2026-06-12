@@ -28,6 +28,7 @@ export interface SettingsHydration {
   calendarViewMode: CalendarViewMode;  // Calendar default
   showShared: boolean;
   visibleTabs: string[];
+  navLayout: { inline: string[]; more: string[] } | null;
   defaultLandingTab: string;
   sidebarShowTasks: boolean;
   sidebarShowCalendarEvents: boolean;
@@ -163,6 +164,11 @@ interface AppState extends ConnectionState {
 
   visibleTabs: string[];
   setVisibleTabs: (tabs: string[]) => void;
+
+  /** The inline-vs-More nav split, layered on top of visibleTabs. `null` = the
+   *  default split (synthesized in AppShell against the live rendered nav). */
+  navLayout: { inline: string[]; more: string[] } | null;
+  setNavLayout: (layout: { inline: string[]; more: string[] } | null) => void;
 
   defaultLandingTab: string;
   setDefaultLandingTab: (href: string) => void;
@@ -325,6 +331,9 @@ export const useAppStore = create<AppState>()((set) => ({
   visibleTabs: DEFAULT_VISIBLE_TABS,
   setVisibleTabs: (tabs) => set({ visibleTabs: tabs }),
 
+  navLayout: null,
+  setNavLayout: (layout) => set({ navLayout: layout }),
+
   defaultLandingTab: "/",
   setDefaultLandingTab: (href) => set({ defaultLandingTab: href }),
 
@@ -356,6 +365,7 @@ export const useAppStore = create<AppState>()((set) => ({
       calendarViewMode: s.calendarViewMode,
       showShared: s.showShared,
       visibleTabs: s.visibleTabs,
+      navLayout: s.navLayout,
       defaultLandingTab: s.defaultLandingTab,
       sidebarShowTasks: s.sidebarShowTasks,
       sidebarShowCalendarEvents: s.sidebarShowCalendarEvents,
@@ -372,6 +382,7 @@ export const useAppStore = create<AppState>()((set) => ({
       calendarViewMode: "month",
       showShared: true,
       visibleTabs: DEFAULT_VISIBLE_TABS,
+      navLayout: null,
       defaultLandingTab: "/",
       sidebarShowTasks: true,
       sidebarShowCalendarEvents: false,

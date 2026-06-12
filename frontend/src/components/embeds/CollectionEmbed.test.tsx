@@ -42,14 +42,11 @@ describe("CollectionEmbed", () => {
     );
   });
 
-  it("falls back to the generic card when the project is gone", async () => {
+  it("shows the unavailable card when the collection is gone", async () => {
     get.mockResolvedValue(null);
     render(<CollectionEmbed descriptor={descriptor} caption="My Collection" basePath="" />);
-    await waitFor(() =>
-      expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute(
-        "href",
-        "/sequences?collection=12",
-      ),
-    );
+    await waitFor(() => expect(screen.getByText("My Collection")).toBeInTheDocument());
+    expect(screen.getByText(/Not available/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open" })).toBeNull();
   });
 });

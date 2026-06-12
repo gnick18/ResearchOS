@@ -242,6 +242,11 @@ export interface UserSettings {
   // Nav / layout
   visibleTabs: string[];          // hrefs from NAV_ITEMS — Home is always shown regardless of contents
   defaultLandingTab: string;      // href; falls back to HOME_HREF if not visible
+  /** Layered ON TOP of `visibleTabs`: of the tabs that are visible at all,
+   *  which sit inline in the bar vs. in the "More" overflow, and in what order.
+   *  Both arrays are ordered hrefs. Absent = the default split. Reconciled to
+   *  the current rendered nav set on read (see normalize). Additive, no migration. */
+  navLayout?: { inline: string[]; more: string[] };
 
   // View defaults (mirror Zustand fields, but disk-backed)
   defaultGanttViewMode: ViewMode;
@@ -519,6 +524,44 @@ function normalize(raw: Partial<UserSettings> | null | undefined): UserSettings 
   // Home is always visible — it's the safe fallback landing tab.
   if (!visibleTabs.includes(HOME_HREF)) visibleTabs.unshift(HOME_HREF);
   merged.visibleTabs = visibleTabs;
+
+  // navLayout (additive, optional): the inline-vs-More split layered on top of
+  // visibleTabs. Absent stays absent (the component synthesizes the default
+  // split against the live rendered nav set, not here). When present, sanitize
+  // both arrays the same way as visibleTabs (drop invalid hrefs, migrate
+  // renames), de-dupe across the two lists, and force Home first in inline.
+  if (raw && (raw as Partial<UserSettings>).navLayout) {
+    const rawLayout = (raw as Partial<UserSettings>).navLayout!;
+    const seen = new Set<string>();
+    const clean = (list: unknown): string[] => {
+      if (!Array.isArray(list)) return [];
+      const out: string[] = [];
+      for (const entry of list) {
+        if (typeof entry !== "string") continue;
+        const href = migrateHref(entry);
+        if (!isValidTabHref(href)) continue;
+        if (seen.has(href)) continue;
+        seen.add(href);
+        out.push(href);
+      }
+      return out;
+    };
+    const inline = clean(rawLayout.inline);
+    const more = clean(rawLayout.more);
+    // Home, when present in either list, is forced to inline[0].
+    const stripHome = (list: string[]) =>
+      list.filter((h) => h !== HOME_HREF);
+    if (seen.has(HOME_HREF)) {
+      merged.navLayout = {
+        inline: [HOME_HREF, ...stripHome(inline)],
+        more: stripHome(more),
+      };
+    } else {
+      merged.navLayout = { inline, more };
+    }
+  } else {
+    delete merged.navLayout;
+  }
 
   merged.defaultLandingTab = migrateHref(merged.defaultLandingTab);
   if (!isValidTabHref(merged.defaultLandingTab) || !visibleTabs.includes(merged.defaultLandingTab)) {

@@ -89,10 +89,13 @@ function Seg<T extends string>({
   value,
   options,
   onChange,
+  testIdPrefix,
 }: {
   value: T;
   options: { value: T; label: string }[];
   onChange: (v: T) => void;
+  /** Optional prefix for data-testid on each option button, e.g. "datahub-charttype" → "datahub-charttype-columnBar". */
+  testIdPrefix?: string;
 }) {
   return (
     <div className="inline-flex overflow-hidden rounded-md border border-border">
@@ -103,6 +106,7 @@ function Seg<T extends string>({
             key={o.value}
             type="button"
             onClick={() => onChange(o.value)}
+            data-testid={testIdPrefix ? `${testIdPrefix}-${o.value}` : undefined}
             className={`px-2 py-1 text-meta font-medium transition-colors ${
               i > 0 ? "border-l border-border" : ""
             } ${
@@ -752,6 +756,7 @@ export default function GraphEditor({
                     { value: "columnBar", label: "Bar" },
                   ]}
                   onChange={(kind) => onStyleChange({ kind })}
+                  testIdPrefix="datahub-charttype"
                 />
               </Ctl>
 
@@ -764,6 +769,7 @@ export default function GraphEditor({
                     { value: "none", label: "None" },
                   ]}
                   onChange={(v) => onStyleChange({ errorBar: v })}
+                  testIdPrefix="datahub-errorbars"
                 />
               </Ctl>
 
@@ -775,6 +781,7 @@ export default function GraphEditor({
                     { value: "off", label: "Off" },
                   ]}
                   onChange={(v) => onStyleChange({ showPoints: v === "on" })}
+                  testIdPrefix="datahub-points"
                 />
               </Ctl>
 
@@ -786,6 +793,7 @@ export default function GraphEditor({
                     { value: "off", label: "Off" },
                   ]}
                   onChange={(v) => onStyleChange({ showBrackets: v === "on" })}
+                  testIdPrefix="datahub-brackets"
                 />
               </Ctl>
             </>

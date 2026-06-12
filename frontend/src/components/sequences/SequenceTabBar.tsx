@@ -144,6 +144,7 @@ export default function SequenceTabBar({
               role="tab"
               aria-selected={selected}
               onClick={() => onChange(t.id)}
+              data-testid={`seq-tab-${t.id}`}
               className={`relative flex items-center gap-1.5 rounded-t-md px-3 py-1.5 text-meta font-medium transition-colors ${
                 selected
                   ? "bg-surface text-sky-700 shadow-[inset_0_-2px_0_0_#0284c7] dark:text-sky-300"
