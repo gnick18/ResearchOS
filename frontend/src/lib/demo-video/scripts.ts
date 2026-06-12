@@ -129,3 +129,46 @@ export const DEMO_CLIPS: Record<string, DemoStep[]> = {
 };
 
 export type DemoClipId = keyof typeof DEMO_CLIPS;
+
+/** Display metadata for the demo-video studio launcher (dev/demo-videos). */
+export interface DemoClipMeta {
+  id: string;
+  label: string;
+  /** Welcome-page mp4 slot this clip records into. */
+  file: string;
+  /** One-line "no <tool>" hook. */
+  hook: string;
+  summary: string;
+}
+
+export const DEMO_CLIP_META: DemoClipMeta[] = [
+  {
+    id: "chemistry",
+    label: "Chemistry Workbench",
+    file: "chemistry-workbench.mp4",
+    hook: "no ChemDraw / SciFinder license",
+    summary: "Open PubChem, search caffeine, import the real structure.",
+  },
+  {
+    id: "datahub",
+    label: "Data Hub (stats + figure)",
+    file: "data-hub-stats.mp4",
+    hook: "no Prism license",
+    summary:
+      "Open the two-group table, show the validated t-test, then the bar plot with error bars.",
+  },
+  {
+    id: "sequences",
+    label: "Sequence editor",
+    file: "sequence-editor.mp4",
+    hook: "no SnapGene",
+    summary: "Spin the circular plasmid map, then highlight to pop the Tm/GC badge.",
+  },
+  {
+    id: "purchases",
+    label: "Purchases + Inventory",
+    file: "purchases-inventory.mp4",
+    hook: "no Quartzy",
+    summary: "Show the order list with funding rollup, then log a new purchase.",
+  },
+];
