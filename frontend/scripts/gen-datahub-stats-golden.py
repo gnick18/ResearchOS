@@ -67,7 +67,7 @@ import json
 import numpy as np
 import scipy
 import scipy.stats as st
-from scipy.optimize import brentq, curve_fit
+from scipy.optimize import brentq, curve_fit, least_squares
 import statsmodels
 import statsmodels.api as sm
 from statsmodels.formula.api import ols
@@ -139,6 +139,20 @@ MLR_Y = [
 # an 11-point serial dilution; y = response. Mirrored verbatim in datahub-stats.ts.
 DOSE_LOG_CONC = [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0]
 DOSE_RESPONSE = [4.8, 6.1, 7.9, 12.5, 24.0, 47.0, 70.0, 86.0, 93.5, 96.8, 98.1]
+
+# Two dose-response curves for the GLOBAL (shared-parameter) fit (D3). The two
+# curves SHARE Bottom, Top, and Hill slope and differ ONLY in logEC50, the
+# pharmacology textbook case for a shared-parameter fit. Both share the same
+# x grid (an 11-point serial dilution on log10 dose). The y values are generated
+# from a clean 4PL with Bottom=0, Top=100, Hill=1 and a tiny fixed deterministic
+# wobble so scipy and our engine land on the same minimum without random draws:
+#   curve A logEC50 = -7.0, curve B logEC50 = -6.0 (a 10-fold EC50 shift).
+# Verbatim-mirrored in datahub-stats.ts.
+GLOBAL_FIT_X = [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0]
+# Curve A (logEC50 = -7.0): half-max at x = -7.0.
+GLOBAL_FIT_YA = [0.9, 2.9, 8.6, 23.0, 50.4, 75.9, 90.8, 96.9, 99.1, 99.6, 100.1]
+# Curve B (logEC50 = -6.0): half-max at x = -6.0, the same shape shifted +1 in x.
+GLOBAL_FIT_YB = [0.1, 0.4, 0.8, 2.9, 8.6, 23.4, 50.4, 75.9, 90.8, 96.9, 99.1]
 
 # A balanced two-way design: factor "Dose" (Low/High) x factor "Time" (AM/PM),
 # 3 replicates per cell. Cells are (dose, time, value).
@@ -488,6 +502,62 @@ def ref_model_comparison():
         # decisions pinned as 0/1: 1 means the COMPLEX (5PL) model is preferred.
         "f_prefers_complex": 1 if p_f < 0.05 else 0,
         "aicc_prefers_complex": 1 if aicc5 < aicc4 else 0,
+    }
+
+
+def ref_global_fit():
+    """Reference GLOBAL (shared-parameter) 4PL fit (D3) via scipy least_squares.
+
+    Two dose-response curves are fit together with ONE 4PL form. Bottom, Top, and
+    Hill are SHARED (one value each, fit globally); logEC50 is LOCAL (one value per
+    curve). The packed parameter vector is [Bottom, Top, Hill, logEC50_A, logEC50_B].
+    The residual closure stacks both curves' residuals into one vector, so the
+    optimizer minimizes the combined sum of squares, exactly the engine's global
+    objective. EC50 = 10**logEC50 per curve (4PL). The global R-squared pools every
+    point of both curves about a single mean (1 - SS_res_total/SS_tot_total), the
+    Prism global-fit convention the engine reports.
+    """
+    x = np.asarray(GLOBAL_FIT_X, float)
+    ya = np.asarray(GLOBAL_FIT_YA, float)
+    yb = np.asarray(GLOBAL_FIT_YB, float)
+    y_all = np.concatenate([ya, yb])
+
+    def model(xx, bottom, top, logec50, hill):
+        return bottom + (top - bottom) / (1.0 + 10.0 ** ((logec50 - xx) * hill))
+
+    # packed = [Bottom, Top, Hill, logEC50_A, logEC50_B]; Bottom/Top/Hill shared.
+    def residuals(p):
+        bottom, top, hill, le_a, le_b = p
+        ra = model(x, bottom, top, le_a, hill) - ya
+        rb = model(x, bottom, top, le_b, hill) - yb
+        return np.concatenate([ra, rb])
+
+    # Initial guess mirrors the engine: shared params averaged from each curve's
+    # single-fit heuristic, local logEC50 seeded near each curve's own midpoint.
+    p0 = [0.0, 100.0, 1.0, -7.0, -6.0]
+    sol = least_squares(residuals, p0, method="lm", max_nfev=200000)
+    bottom, top, hill, le_a, le_b = sol.x
+
+    ss_res = float(np.sum(residuals(sol.x) ** 2))
+    ss_tot = float(np.sum((y_all - y_all.mean()) ** 2))
+    r_squared = 1.0 - ss_res / ss_tot
+
+    return {
+        # Shared parameters (one global value each).
+        "bottom": float(bottom),
+        "top": float(top),
+        "hill": float(hill),
+        # Local EC50 per curve (linear dose = 10**logEC50 for the 4PL).
+        "ec50_a": float(10.0 ** le_a),
+        "ec50_b": float(10.0 ** le_b),
+        "logec50_a": float(le_a),
+        "logec50_b": float(le_b),
+        # Global goodness of fit pooled over both curves.
+        "rSquared": float(r_squared),
+        "ss_res_total": ss_res,
+        "n_datasets": 2,
+        "n_total": int(y_all.size),
+        "n_params": 5,
     }
 
 
@@ -878,6 +948,7 @@ PROVENANCE = {
         "dose_response.fourpl": "scipy.optimize.curve_fit(4PL: bottom+(top-bottom)/(1+10**((logec50-x)*hill)) ); EC50=10**logEC50",
         "dose_response.fivepl": "scipy.optimize.curve_fit(5PL: 4PL denom **s ); true EC50=10**(logEC50 - log10(2**(1/s)-1)/hill)",
         "model_comparison": "curve_fit 4PL + 5PL; extra-sum-of-squares F = ((SS1-SS2)/(DF1-DF2))/(SS2/DF2), p=scipy.stats.f.sf; AICc=n*ln(SS/n)+2K+2K(K+1)/(n-K-1), K=nparams+1",
+        "global_fit": "scipy.optimize.least_squares(method='lm') on a stacked residual closure over 2 curves; packed=[Bottom,Top,Hill,logEC50_A,logEC50_B] with Bottom/Top/Hill shared, logEC50 local; EC50=10**logEC50; global R2 = 1 - SS_res_total/SS_tot_total pooled over both curves",
         "shapiro": "scipy.stats.shapiro(A+B+C)",
         "levene_mean": "scipy.stats.levene(A, B, C, center='mean')  [our levene()]",
         "levene_median": "scipy.stats.levene(A, B, C, center='median')  [our brownForsythe()]",
@@ -910,6 +981,7 @@ def main():
     refs.update({"multiple_regression": ref_multiple_regression()})
     refs.update({"dose_response": ref_dose_response()})
     refs.update({"model_comparison": ref_model_comparison()})
+    refs.update({"global_fit": ref_global_fit()})
     refs.update({"from_stats": ref_from_stats()})
     refs.update({"assumptions": ref_assumptions()})
     refs.update({"survival": ref_survival()})
@@ -935,6 +1007,9 @@ def main():
         "MLR_Y": MLR_Y,
         "DOSE_LOG_CONC": DOSE_LOG_CONC,
         "DOSE_RESPONSE": DOSE_RESPONSE,
+        "GLOBAL_FIT_X": GLOBAL_FIT_X,
+        "GLOBAL_FIT_YA": GLOBAL_FIT_YA,
+        "GLOBAL_FIT_YB": GLOBAL_FIT_YB,
         "TWOWAY": TWOWAY,
         "SURV_TREAT": SURV_TREAT,
         "SURV_CONTROL": SURV_CONTROL,

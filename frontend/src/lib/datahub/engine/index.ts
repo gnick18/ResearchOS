@@ -72,6 +72,7 @@ export {
 // Nonlinear curve fitting (the crown jewel).
 export {
   fitModel,
+  fitGlobal,
   getModel,
   listModels,
   fivePLLogEC50Shift,
@@ -80,6 +81,10 @@ export {
   aiccCompare,
   extraSumOfSquaresF,
   type FitOptions,
+  type GlobalDataset,
+  type GlobalFitOptions,
+  type GlobalFitParameter,
+  type GlobalFitResult,
   type NonlinearModel,
   type ModelFitSummary,
   type FTestComparison,

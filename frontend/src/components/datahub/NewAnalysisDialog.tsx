@@ -35,7 +35,11 @@ export interface NewAnalysisSubmit {
 
 const TYPE_META: Record<
   AnalysisType,
-  { label: string; blurb: string; groupCount: "two" | "all" | "regression" }
+  {
+    label: string;
+    blurb: string;
+    groupCount: "two" | "all" | "regression" | "globalFit";
+  }
 > = {
   unpairedTTest: {
     label: "Unpaired t-test",
@@ -114,6 +118,12 @@ const TYPE_META: Record<
     blurb:
       "Fit two curve models to the same X and Y, then say which one to keep. Reports the extra-sum-of-squares F test for nested models and AICc for any pair.",
     groupCount: "two",
+  },
+  globalFit: {
+    label: "Global fit (shared parameters)",
+    blurb:
+      "Fit one dose-response curve shape to every Y column at once, sharing the Hill slope and the plateaus while each curve keeps its own EC50. Reports each shared parameter once and an EC50 per curve, so you can compare potencies with all curves held to a common shape.",
+    groupCount: "globalFit",
   },
   twoWayAnova: {
     label: "Two-way ANOVA",
@@ -209,11 +219,16 @@ export default function NewAnalysisDialog({
   const isPair = type !== null && TYPE_META[type].groupCount === "two";
   const isRegression =
     type !== null && TYPE_META[type].groupCount === "regression";
+  // Global fitting reads EVERY Y column at once, so it needs no single-Y pick.
+  const isGlobalFit =
+    type !== null && TYPE_META[type].groupCount === "globalFit";
   // The predictors that are not the chosen Y column (Y cannot also be an X).
   const regPredictorsClean = regPredictors.filter((id) => id !== regYColumn);
   const canSubmit = wholeTable
     ? type !== null
-    : isXY
+    : isGlobalFit
+      ? type !== null && !!xCol && ys.length >= 2
+      : isXY
       ? type !== null && yColumn !== "" && !!xCol
       : isRegression
         ? type !== null &&
@@ -230,7 +245,9 @@ export default function NewAnalysisDialog({
     // no column selection.
     const columnIds = wholeTable
       ? []
-      : isXY
+      : isGlobalFit
+        ? ys.map((y) => y.id)
+        : isXY
         ? [yColumn]
         : isRegression
           ? [regYColumn, ...regPredictorsClean]
@@ -316,6 +333,22 @@ export default function NewAnalysisDialog({
                 runs the log-rank test when there are two or more groups. No
                 column picking needed.
               </p>
+            ) : isGlobalFit ? (
+              <div className="mt-4 flex flex-col gap-3">
+                <div>
+                  <label className="block text-meta font-medium uppercase tracking-wide text-foreground-muted">
+                    X column
+                  </label>
+                  <div className="mt-1 w-full rounded-md border border-border bg-surface-sunken px-2 py-1.5 text-body text-foreground-muted">
+                    {xCol?.name ?? "X"}
+                  </div>
+                </div>
+                <p className="rounded-md border border-border bg-surface-raised px-3 py-2 text-meta text-foreground-muted">
+                  Fits every Y column on this table together ({ys.length}{" "}
+                  curves: {ys.map((c) => c.name).join(", ")}). Choose which
+                  parameters are shared after it runs.
+                </p>
+              </div>
             ) : isXY ? (
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div>

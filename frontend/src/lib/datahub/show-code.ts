@@ -12,10 +12,12 @@
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
+import { globalFitSharedNames } from "@/lib/datahub/analysis-params";
 import type {
   NormalizedAnova,
   NormalizedCorrelation,
   NormalizedDoseResponse,
+  NormalizedGlobalFit,
   NormalizedLogisticRegression,
   NormalizedMultipleRegression,
   NormalizedModelComparison,
@@ -642,6 +644,161 @@ print("AICc prefers:", "${c.name}" if aicc_c < aicc_s else "${s.name}")
 ${fBlock}`;
 }
 
+/**
+ * Reproducible Python for the GLOBAL (shared-parameter) fit. Builds a stacked
+ * residual closure over every curve with scipy.optimize.least_squares, where the
+ * packed vector holds one slot per SHARED parameter and one slot per dataset per
+ * LOCAL parameter, exactly the engine's layout. The shared/local split and each
+ * curve's data are baked in so the printed shared parameters, each local EC50,
+ * and the global R-squared match the on-screen numbers.
+ */
+function globalFitCode(r: NormalizedGlobalFit): string {
+  // Model parameter order matches the engine: Bottom, Top, logEC50, HillSlope (+S).
+  const allParams =
+    r.model === "logistic5pl"
+      ? ["Bottom", "Top", "logEC50", "HillSlope", "S"]
+      : ["Bottom", "Top", "logEC50", "HillSlope"];
+  const sharedSet = new Set(globalFitSharedNames(r.share));
+  // logEC50 is always local in every preset; reflect that here regardless.
+  sharedSet.delete("logEC50");
+  const isShared = (name: string) => sharedSet.has(name);
+
+  const nCurves = r.curves.length;
+  // Build the curve data lists.
+  const curveData = r.curves
+    .map(
+      (c, i) =>
+        `x${i} = ${pyList(c.x)}\ny${i} = ${pyList(c.y)}  # ${c.name}`,
+    )
+    .join("\n");
+
+  // Build the packed-vector layout comment and unpack expressions. We lay shared
+  // params first (one slot each), then each local param as a block of nCurves.
+  const sharedNames = allParams.filter(isShared);
+  const localNames = allParams.filter((nm) => !isShared(nm));
+  const layoutParts: string[] = [];
+  const unpackLines: string[] = [];
+  let cursor = 0;
+  for (const nm of sharedNames) {
+    layoutParts.push(`${nm}(shared)`);
+    unpackLines.push(`    ${nm} = p[${cursor}]`);
+    cursor += 1;
+  }
+  for (const nm of localNames) {
+    layoutParts.push(`${nm}(local x${nCurves})`);
+    unpackLines.push(
+      `    ${nm} = [p[${cursor} + d] for d in range(${nCurves})]`,
+    );
+    cursor += nCurves;
+  }
+  const P = cursor;
+
+  // The 4PL / 5PL model body, choosing per-curve local values by index d.
+  const modelBody =
+    r.model === "logistic5pl"
+      ? "bottom + (top - bottom) / (1 + 10**((logec50 - xx) * hill))**s"
+      : "bottom + (top - bottom) / (1 + 10**((logec50 - xx) * hill))";
+
+  // For each curve d, the per-parameter value is the shared scalar or the local
+  // list indexed by d.
+  const valExpr = (nm: string, lower: string) =>
+    isShared(nm) ? lower : `${lower}[d]`;
+  const evalArgs = [
+    `bottom=${valExpr("Bottom", "Bottom")}`,
+    `top=${valExpr("Top", "Top")}`,
+    `logec50=${valExpr("logEC50", "logEC50")}`,
+    `hill=${valExpr("HillSlope", "HillSlope")}`,
+  ];
+  if (r.model === "logistic5pl") {
+    evalArgs.push(`s=${valExpr("S", "S")}`);
+  }
+
+  // Initial guess for the packed vector: shared params averaged, local seeded per
+  // curve. We just bake the engine's converged-near guess from the data ranges.
+  const p0Parts: string[] = [];
+  for (const nm of sharedNames) {
+    if (nm === "Bottom") p0Parts.push("min(min(y) for y in ys)");
+    else if (nm === "Top") p0Parts.push("max(max(y) for y in ys)");
+    else if (nm === "HillSlope") p0Parts.push("1.0");
+    else if (nm === "S") p0Parts.push("1.0");
+  }
+  for (const nm of localNames) {
+    if (nm === "logEC50") {
+      // One starting logEC50 per curve at each curve's own half-max x.
+      p0Parts.push(
+        `*[x[min(range(len(x)), key=lambda i: abs(y[i] - (min(y)+max(y))/2))] for x, y in zip(xs, ys)]`,
+      );
+    } else if (nm === "Bottom") p0Parts.push(`*[min(y) for y in ys]`);
+    else if (nm === "Top") p0Parts.push(`*[max(y) for y in ys]`);
+    else if (nm === "HillSlope") p0Parts.push(`*[1.0 for _ in ys]`);
+    else if (nm === "S") p0Parts.push(`*[1.0 for _ in ys]`);
+  }
+
+  // The 5PL half-max correction uses each curve's own Hill and S (shared scalar
+  // or local list). Index per curve so it is correct whether or not Hill is shared.
+  const hillExpr = isShared("HillSlope") ? "HillSlope" : "HillSlope[d]";
+  const sExpr = isShared("S") ? "S" : "S[d]";
+  const leExpr = "logEC50[d]";
+  const ec50Line =
+    r.model === "logistic5pl"
+      ? `ec50 = []
+for d in range(${nCurves}):
+    shift = -np.log10(2**(1.0/(${sExpr})) - 1.0) / (${hillExpr})  # half-max correction
+    ec50.append(10**(${leExpr} + shift))`
+      : `ec50 = [10**le for le in logEC50]`;
+
+  const xsList = Array.from({ length: nCurves }, (_, i) => `x${i}`).join(", ");
+  const ysList = Array.from({ length: nCurves }, (_, i) => `y${i}`).join(", ");
+  const names = r.curves.map((c) => pyStr(c.name)).join(", ");
+
+  return `import numpy as np
+from scipy.optimize import least_squares
+
+# Global (shared-parameter) dose-response fit. One ${
+    r.model === "logistic5pl" ? "5PL" : "4PL"
+  } curve shape is fit to
+# every dataset at once. Shared parameters take one value across all curves;
+# local parameters are fit separately per curve.
+${curveData}
+
+xs = [${xsList}]
+ys = [${ysList}]
+names = [${names}]
+
+def curve(xx, bottom, top, logec50, hill${r.model === "logistic5pl" ? ", s" : ""}):
+    return ${modelBody}
+
+# Packed parameter vector layout: ${layoutParts.join(", ")}
+# (${P} parameters total across ${nCurves} curves).
+def unpack(p):
+${unpackLines.join("\n")}
+    return ${allParams.join(", ")}
+
+def residuals(p):
+    ${allParams.join(", ")} = unpack(p)
+    res = []
+    for d in range(${nCurves}):
+        xa = np.asarray(xs[d], dtype=float)
+        res.append(curve(xa, ${evalArgs.join(", ")}) - np.asarray(ys[d], dtype=float))
+    return np.concatenate(res)
+
+p0 = [${p0Parts.join(", ")}]
+sol = least_squares(residuals, p0, method="lm", max_nfev=200000)
+${allParams.join(", ")} = unpack(sol.x)
+
+# EC50 per curve (10**logEC50 for the 4PL; half-max-corrected for the 5PL).
+${ec50Line}
+for nm, e in zip(names, ec50):
+    print(f"{nm}: EC50 = {e:.4g}")
+print("Shared:", ${sharedNames.map((nm) => `f"${nm}={${nm}:.4g}"`).join(", ") || '"(none)"'})
+
+# Global R-squared pools every point of every curve about one mean.
+y_all = np.concatenate([np.asarray(y, dtype=float) for y in ys])
+ss_res = float(np.sum(residuals(sol.x)**2))
+ss_tot = float(np.sum((y_all - y_all.mean())**2))
+print(f"Global R-squared = {1 - ss_res/ss_tot:.6g}")`;
+}
+
 function twoWayCode(r: NormalizedTwoWayAnova): string {
   // Reconstruct the long-format observations from the ANOVA so the snippet
   // builds the same DataFrame statsmodels fits (factorA x factorB with repeats).
@@ -702,6 +859,7 @@ export function showCode(result: NormalizedResult): string {
     return multipleRegressionCode(result);
   if (result.kind === "doseResponse") return doseResponseCode(result);
   if (result.kind === "modelComparison") return modelComparisonCode(result);
+  if (result.kind === "globalFit") return globalFitCode(result);
   if (result.kind === "twoWayAnova") return twoWayCode(result);
   if (result.kind === "survival") return survivalCode(result);
   return ttestCode(result);

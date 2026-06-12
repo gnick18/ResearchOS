@@ -176,6 +176,44 @@ const COMPARE_NESTED_FIELD: ParamField = {
 };
 
 /**
+ * Curve model for the global (shared-parameter) fit. Scoped to the dose-response
+ * family, the case global fitting is built for. The 4PL is the symmetric default;
+ * the 5PL adds the asymmetry exponent. Both share / localize the same way.
+ */
+const GLOBAL_FIT_MODEL_FIELD: ParamField = {
+  key: "model",
+  label: "Curve model",
+  control: "seg",
+  options: [
+    { value: "logistic4pl", label: "4PL (symmetric)" },
+    { value: "logistic5pl", label: "5PL (asymmetric)" },
+  ],
+  default: "logistic4pl",
+  why: "Global fitting holds one curve shape across every dataset. The 4-parameter logistic is the symmetric standard; the 5-parameter logistic adds an asymmetry term for curves that bend toward one plateau faster than the other.",
+};
+
+/**
+ * Which parameters are SHARED across all datasets in the global fit. Every other
+ * parameter is fit LOCAL (one value per dataset). The default shares the Hill
+ * slope and both plateaus and keeps the EC50 local, the standard pharmacology
+ * choice that lets you compare EC50s with all curves held to a common shape. The
+ * stored value is a preset; the run layer expands it to the explicit shared list.
+ */
+const GLOBAL_FIT_SHARE_FIELD: ParamField = {
+  key: "share",
+  label: "Shared parameters",
+  control: "select",
+  options: [
+    { value: "hill-top-bottom", label: "Hill, Top, Bottom (EC50 local)" },
+    { value: "hill", label: "Hill only (Top, Bottom, EC50 local)" },
+    { value: "top-bottom", label: "Top, Bottom (Hill, EC50 local)" },
+    { value: "all-but-ec50", label: "Everything except EC50" },
+  ],
+  default: "hill-top-bottom",
+  why: "A shared parameter is fit to one value across every curve; a local parameter is fit separately per curve. Sharing the Hill slope and the plateaus while keeping the EC50 local is the standard way to compare potencies with all curves constrained to a common shape. The asymmetry term of the 5PL is always shared.",
+};
+
+/**
  * The schema per analysis type. An empty array means the engine takes no
  * editable options for that analysis (correlation, regression). The order here
  * is the order the controls render in the panel.
@@ -200,7 +238,30 @@ export const ANALYSIS_PARAM_SCHEMA: Record<string, ParamField[]> = {
   ],
   kaplanMeier: [],
   multipleRegression: [],
+  globalFit: [GLOBAL_FIT_MODEL_FIELD, GLOBAL_FIT_SHARE_FIELD],
 };
+
+/**
+ * Expand a global-fit `share` preset into the explicit list of model parameter
+ * names fit as SHARED. The names match the dose-response models' paramNames
+ * (Bottom, Top, logEC50, HillSlope, and S for the 5PL). logEC50 is never shared
+ * (the EC50 is the per-curve readout the analysis exists to compare), and the
+ * 5PL asymmetry exponent S is always shared so the shape is common. An unknown
+ * preset falls back to the pharmacology default.
+ */
+export function globalFitSharedNames(share: string): string[] {
+  switch (share) {
+    case "hill":
+      return ["HillSlope", "S"];
+    case "top-bottom":
+      return ["Top", "Bottom", "S"];
+    case "all-but-ec50":
+      return ["Bottom", "Top", "HillSlope", "S"];
+    case "hill-top-bottom":
+    default:
+      return ["HillSlope", "Top", "Bottom", "S"];
+  }
+}
 
 /** The schema for one analysis type (empty if the type takes no options). */
 export function paramSchema(type: string): ParamField[] {

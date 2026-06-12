@@ -2,6 +2,13 @@
 
 export { fitModel, type FitOptions } from "./fitter";
 export {
+  fitGlobal,
+  type GlobalDataset,
+  type GlobalFitOptions,
+  type GlobalFitParameter,
+  type GlobalFitResult,
+} from "./global";
+export {
   MODELS,
   getModel,
   listModels,

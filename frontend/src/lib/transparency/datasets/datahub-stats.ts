@@ -90,6 +90,25 @@ export const DOSE_RESPONSE = [
   4.8, 6.1, 7.9, 12.5, 24.0, 47.0, 70.0, 86.0, 93.5, 96.8, 98.1,
 ];
 
+/**
+ * Two dose-response curves for the GLOBAL (shared-parameter) fit (D3). Both curves
+ * share Bottom, Top, and the Hill slope and differ only in logEC50, the textbook
+ * case for a shared-parameter fit. They share the same x grid (an 11-point serial
+ * dilution on log10 dose). Curve A has logEC50 = -7.0; curve B is the same shape
+ * shifted to logEC50 = -6.0 (a 10-fold EC50 difference). A stacked-residual
+ * scipy.optimize.least_squares over both curves produces the pinned shared
+ * parameters, each local EC50, and the global R-squared below.
+ */
+export const GLOBAL_FIT_X = [
+  -9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0,
+];
+export const GLOBAL_FIT_YA = [
+  0.9, 2.9, 8.6, 23.0, 50.4, 75.9, 90.8, 96.9, 99.1, 99.6, 100.1,
+];
+export const GLOBAL_FIT_YB = [
+  0.1, 0.4, 0.8, 2.9, 8.6, 23.4, 50.4, 75.9, 90.8, 96.9, 99.1,
+];
+
 /** A balanced two-way design: Dose (Low/High) x Time (AM/PM), 3 reps per cell. */
 export const TWOWAY: TwoWayCell[] = (
   [
@@ -403,6 +422,25 @@ export const STAT_PINS: StatPin[] = [
   { id: "mc_aicc_5pl", metric: "Model comparison, AICc of the 5PL", reference: 9.80198134601153, oracleId: "scipy", tol: 5e-2, warn: 2e-1, unit: "AICc" },
   { id: "mc_f_prefers_complex", metric: "Model comparison, F test prefers the complex model (1=yes)", reference: 0, oracleId: "scipy", tol: 1e-9, warn: 1e-9, unit: "decision" },
   { id: "mc_aicc_prefers_complex", metric: "Model comparison, AICc prefers the complex model (1=yes)", reference: 0, oracleId: "scipy", tol: 1e-9, warn: 1e-9, unit: "decision" },
+
+  // --- global (shared-parameter) fit (D3): one 4PL across two curves ---
+  // Prism "global fitting". Bottom, Top, and Hill are SHARED (one value across both
+  // curves); each curve keeps its own local EC50. The reference comes from a stacked
+  // scipy.optimize.least_squares over both curves' residuals, the same combined
+  // objective the engine minimizes. Like the dr* pins, a nonlinear least-squares
+  // minimum is optimizer-dependent, so these use HONEST absolute tolerance bands
+  // (the engine and scipy agree to several significant figures, not bit for bit),
+  // NOT the tight OLS bands. The EC50s are in molar (~1e-7 / ~1e-6), so a tol of
+  // 5e-9 / 5e-8 is roughly a few percent, well inside the agreement the engine fit
+  // test documents while still catching real drift. The shared plateaus get a wider
+  // absolute band (the data ride the plateau slowly, so Top/Bottom are softly
+  // determined); Hill and the global R-squared are tightly determined.
+  { id: "gf_bottom", metric: "Global fit, shared Bottom plateau (least_squares)", reference: -0.07607039616151008, oracleId: "scipy", tol: 5e-2, warn: 2e-1, unit: "Bottom" },
+  { id: "gf_top", metric: "Global fit, shared Top plateau", reference: 99.8897423546475, oracleId: "scipy", tol: 5e-2, warn: 2e-1, unit: "Top" },
+  { id: "gf_hill", metric: "Global fit, shared Hill slope", reference: 1.0145544554504538, oracleId: "scipy", tol: 5e-3, warn: 2e-2, unit: "Hill" },
+  { id: "gf_ec50_a", metric: "Global fit, curve A local EC50 (10^logEC50)", reference: 1.0050971311020784e-7, oracleId: "scipy", tol: 5e-9, warn: 2e-8, unit: "EC50" },
+  { id: "gf_ec50_b", metric: "Global fit, curve B local EC50 (10^logEC50)", reference: 1.0001309039322815e-6, oracleId: "scipy", tol: 5e-8, warn: 2e-7, unit: "EC50" },
+  { id: "gf_r2", metric: "Global fit, global R-squared (pooled over both curves)", reference: 0.9999619363150706, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "R2" },
 
   // --- assumption checks (scipy.stats.shapiro / levene) ---
   { id: "shapiro_w", metric: "Shapiro-Wilk, W", reference: 0.934647, oracleId: "scipy", tol: 1e-3, warn: 5e-3, unit: "W" },

@@ -2,6 +2,7 @@ import { describe as suite, it, expect } from "vitest";
 
 import {
   fitModel,
+  fitGlobal,
   listModels,
   aicc,
   aiccCompare,
@@ -326,5 +327,89 @@ suite("model comparison (D2): F test + AICc", () => {
     // AICc still ranks them.
     const cmp = aiccCompare([a, b]);
     expect(["linear", "mm"]).toContain(cmp.preferredId);
+  });
+});
+
+suite("Global (shared-parameter) fit vs scipy least_squares reference", () => {
+  // Two dose-response curves sharing Bottom, Top, and Hill slope, differing only
+  // in logEC50 (curve A at -7, curve B at -6, a 10-fold EC50 shift). A stacked
+  // scipy.optimize.least_squares fit over both curves (gen-datahub-stats-golden.py)
+  // lands at the global minimum below. A nonlinear least-squares minimum is
+  // optimizer-dependent, so the engine (Levenberg-Marquardt) and scipy
+  // (trust-region) agree to several significant figures, hence the honest bands.
+  //   Bottom = -0.07607, Top = 99.8897, Hill = 1.014554
+  //   EC50_A = 1.0050971e-7, EC50_B = 1.0001309e-6, global R2 = 0.99996194
+  const X = [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0];
+  const YA = [0.9, 2.9, 8.6, 23.0, 50.4, 75.9, 90.8, 96.9, 99.1, 99.6, 100.1];
+  const YB = [0.1, 0.4, 0.8, 2.9, 8.6, 23.4, 50.4, 75.9, 90.8, 96.9, 99.1];
+
+  const r = fitGlobal(
+    "logistic4pl",
+    [
+      { label: "A", x: X, y: YA },
+      { label: "B", x: X, y: YB },
+    ],
+    ["Bottom", "Top", "HillSlope"],
+  );
+
+  it("converges", () => {
+    expect(r.ok).toBe(true);
+  });
+
+  const get = (name: string, ds: string | null) =>
+    r.ok ? r.parameters.find((p) => p.name === name && p.datasetLabel === ds)! : null;
+
+  it("recovers the shared Bottom / Top / Hill within scipy tolerance", () => {
+    if (!r.ok) throw new Error("fit failed");
+    expect(get("Bottom", null)!.value).toBeCloseTo(-0.07607, 2);
+    expect(get("Top", null)!.value).toBeCloseTo(99.8897, 1);
+    expect(get("HillSlope", null)!.value).toBeCloseTo(1.014554, 2);
+    // The shared parameters appear exactly once (datasetLabel null).
+    expect(r.parameters.filter((p) => p.name === "HillSlope").length).toBe(1);
+  });
+
+  it("fits a separate local EC50 per curve", () => {
+    if (!r.ok) throw new Error("fit failed");
+    const leA = get("logEC50", "A")!;
+    const leB = get("logEC50", "B")!;
+    expect(Math.pow(10, leA.value)).toBeCloseTo(1.0050971e-7, 8);
+    expect(Math.pow(10, leB.value)).toBeCloseTo(1.0001309e-6, 7);
+    // logEC50 has one row per dataset (the local readout the analysis compares).
+    expect(r.parameters.filter((p) => p.name === "logEC50").length).toBe(2);
+  });
+
+  it("reports the pooled global R-squared and fit dimensions", () => {
+    if (!r.ok) throw new Error("fit failed");
+    expect(r.rSquared).toBeCloseTo(0.9999619363, 6);
+    expect(r.nDatasets).toBe(2);
+    expect(r.nTotal).toBe(22);
+    expect(r.nParams).toBe(5);
+    expect(r.df).toBe(17);
+    expect(r.sharedNames).toEqual(["Bottom", "Top", "HillSlope"]);
+    expect(r.localNames).toEqual(["logEC50"]);
+  });
+
+  it("carries finite standard errors and CIs on every parameter", () => {
+    if (!r.ok) throw new Error("fit failed");
+    for (const p of r.parameters) {
+      expect(Number.isFinite(p.standardError)).toBe(true);
+      expect(Number.isFinite(p.ci95[0])).toBe(true);
+      expect(Number.isFinite(p.ci95[1])).toBe(true);
+      expect(p.ci95[0]).toBeLessThan(p.ci95[1]);
+    }
+  });
+
+  it("rejects a single dataset and an empty dataset", () => {
+    const one = fitGlobal("logistic4pl", [{ label: "A", x: X, y: YA }], ["Top"]);
+    expect(one.ok).toBe(false);
+    const empty = fitGlobal(
+      "logistic4pl",
+      [
+        { label: "A", x: X, y: YA },
+        { label: "B", x: [], y: [] },
+      ],
+      ["Top", "Bottom", "HillSlope"],
+    );
+    expect(empty.ok).toBe(false);
   });
 });

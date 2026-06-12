@@ -29,6 +29,7 @@ import {
   type NormalizedAnova,
   type NormalizedCorrelation,
   type NormalizedDoseResponse,
+  type NormalizedGlobalFit,
   type NormalizedLogisticRegression,
   type NormalizedMultipleRegression,
   type NormalizedModelComparison,
@@ -640,6 +641,101 @@ function ModelComparisonTable({ r }: { r: NormalizedModelComparison }) {
   );
 }
 
+function GlobalFitTable({ r }: { r: NormalizedGlobalFit }) {
+  return (
+    <>
+      <KeyValueTable
+        testid="results-global-fit-model"
+        rows={[{ label: "Model", value: r.modelLabel }]}
+      />
+      {/* Shared parameters: one fitted value + CI for every curve. */}
+      <table
+        className="mt-4 w-full max-w-md border-collapse text-body tabular-nums"
+        data-testid="results-global-fit-shared-table"
+      >
+        <thead>
+          <tr className="text-meta uppercase tracking-wide text-foreground-muted">
+            <th className="border-b border-border px-3 py-1.5 text-left">
+              Shared parameter
+            </th>
+            <th className="border-b border-border px-3 py-1.5 text-right">
+              Value
+            </th>
+            <th className="border-b border-border px-3 py-1.5 text-right">
+              95% CI
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {r.sharedParams.map((p) => (
+            <tr key={p.name}>
+              <td className="border-b border-border px-3 py-1.5 text-foreground">
+                {p.name}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {num(p.value, 3)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {ciText(p.ci95)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {/* Local EC50 per curve: the readout the global fit exists to compare. */}
+      <table
+        className="mt-4 w-full border-collapse text-body tabular-nums"
+        data-testid="results-global-fit-local-table"
+      >
+        <thead>
+          <tr className="text-meta uppercase tracking-wide text-foreground-muted">
+            <th className="border-b border-border px-3 py-1.5 text-left">
+              Curve
+            </th>
+            <th className="border-b border-border px-3 py-1.5 text-right">
+              EC50 / IC50
+            </th>
+            <th className="border-b border-border px-3 py-1.5 text-right">
+              95% CI of EC50
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {r.localParams.map((lp) => (
+            <tr key={lp.datasetLabel}>
+              <td className="border-b border-border px-3 py-1.5 text-foreground">
+                {lp.datasetLabel}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {conc(lp.ec50)}
+              </td>
+              <td className="border-b border-border px-3 py-1.5 text-right">
+                {concCI(lp.ec50CI95)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <KeyValueTable
+        testid="results-global-fit-stats"
+        rows={[
+          { label: "Global R-squared", value: num(r.rSquared, 4) },
+          { label: "Total residual SS", value: num(r.ssrTotal, 3) },
+          { label: "Datasets", value: num(r.nDatasets, 0) },
+          { label: "Total points", value: num(r.nTotal, 0) },
+          { label: "Total parameters", value: num(r.nParams, 0) },
+        ]}
+      />
+      <p className="mt-2 max-w-xl text-meta text-foreground-muted">
+        One curve shape is fit to every dataset at once. The shared parameters
+        take a single value across all curves while each curve keeps its own
+        EC50, so the EC50s are directly comparable. The global R-squared pools
+        every point of every curve about one mean.
+      </p>
+    </>
+  );
+}
+
 function TwoWayAnovaStatsTable({ r }: { r: NormalizedTwoWayAnova }) {
   return (
     <>
@@ -880,6 +976,14 @@ function resultTabs(result: NormalizedResult): {
           id: "tabular",
           label: "Tabular results",
           render: () => <ModelComparisonTable r={result} />,
+        },
+      ];
+    case "globalFit":
+      return [
+        {
+          id: "tabular",
+          label: "Tabular results",
+          render: () => <GlobalFitTable r={result} />,
         },
       ];
     default:

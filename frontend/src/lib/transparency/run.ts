@@ -35,6 +35,7 @@ import {
   logisticRegression,
   multipleRegression,
   fitModel,
+  fitGlobal,
   fivePLLogEC50Shift,
   extraSumOfSquaresF,
   aiccCompare,
@@ -82,6 +83,9 @@ import {
   BOOT_STATS,
   DOSE_LOG_CONC,
   DOSE_RESPONSE,
+  GLOBAL_FIT_X,
+  GLOBAL_FIT_YA,
+  GLOBAL_FIT_YB,
   GROUP_A,
   GROUP_B,
   GROUP_C,
@@ -1280,6 +1284,26 @@ function runDatahubEngine(): Record<string, number> {
   const mcAicc4 = mcAicc.models.find((m) => m.id === "logistic4pl")!.aicc;
   const mcAicc5 = mcAicc.models.find((m) => m.id === "logistic5pl")!.aicc;
 
+  // Global (shared-parameter) fit (D3). One 4PL across two curves that share
+  // Bottom, Top, and Hill; each curve keeps its own local EC50. This is the SAME
+  // stacked-residual objective the scipy least_squares golden fits, so the shared
+  // parameters, each local EC50, and the global R-squared reproduce the gf_* pins.
+  const gf = need(
+    fitGlobal(
+      "logistic4pl",
+      [
+        { label: "A", x: GLOBAL_FIT_X, y: GLOBAL_FIT_YA },
+        { label: "B", x: GLOBAL_FIT_X, y: GLOBAL_FIT_YB },
+      ],
+      ["Bottom", "Top", "HillSlope"],
+    ),
+    "global fit",
+  );
+  const gfParam = (name: string, ds: string | null) =>
+    gf.parameters.find((p) => p.name === name && p.datasetLabel === ds)!;
+  const gfEc50A = Math.pow(10, gfParam("logEC50", "A").value);
+  const gfEc50B = Math.pow(10, gfParam("logEC50", "B").value);
+
   const sw = need(shapiroWilk([...GROUP_A, ...GROUP_B, ...GROUP_C]), "Shapiro-Wilk");
   const lev = need(levene([GROUP_A, GROUP_B, GROUP_C]), "Levene");
   const bf = need(brownForsythe([GROUP_A, GROUP_B, GROUP_C]), "Brown-Forsythe");
@@ -1458,6 +1482,12 @@ function runDatahubEngine(): Record<string, number> {
     // Decisions as 0/1: 1 means the COMPLEX (5PL) model is preferred.
     mc_f_prefers_complex: mcF.preferredId === "logistic5pl" ? 1 : 0,
     mc_aicc_prefers_complex: mcAicc.preferredId === "logistic5pl" ? 1 : 0,
+    gf_bottom: gfParam("Bottom", null).value,
+    gf_top: gfParam("Top", null).value,
+    gf_hill: gfParam("HillSlope", null).value,
+    gf_ec50_a: gfEc50A,
+    gf_ec50_b: gfEc50B,
+    gf_r2: gf.rSquared,
 
     shapiro_w: sw.statistic,
     shapiro_p: sw.pValue,

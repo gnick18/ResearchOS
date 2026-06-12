@@ -49,6 +49,7 @@ import {
   bootstrapDiffCI,
   meanDifference,
   fitModel,
+  fitGlobal,
   fivePLLogEC50Shift,
   extraSumOfSquaresF,
   aiccCompare,
@@ -59,6 +60,7 @@ import {
   type AiccComparison,
 } from "@/lib/datahub/engine";
 import type { FitResult } from "@/lib/datahub/engine/types";
+import type { GlobalFitResult } from "@/lib/datahub/engine";
 import type {
   AnovaResult,
   TTestResult,
@@ -69,7 +71,7 @@ import type {
   AnalysisSpec,
   DataHubDocContent,
 } from "@/lib/datahub/model/types";
-import { readParams } from "@/lib/datahub/analysis-params";
+import { readParams, globalFitSharedNames } from "@/lib/datahub/analysis-params";
 import type { Tail } from "@/lib/datahub/engine/types";
 import type { PostHocMethod } from "@/lib/datahub/engine/anova";
 import { columnValues, groupColumns } from "@/lib/datahub/column-table";
@@ -103,6 +105,7 @@ export type AnalysisType =
   | "logisticRegression"
   | "doseResponse"
   | "modelComparison"
+  | "globalFit"
   | "twoWayAnova"
   | "kaplanMeier"
   | "multipleRegression";
@@ -110,7 +113,11 @@ export type AnalysisType =
 /** The analysis types that read a Survival table (time + event + group). */
 export const SURVIVAL_ANALYSIS_TYPES: AnalysisType[] = ["kaplanMeier"];
 
-/** The analysis types that read an XY table (one X column paired with a Y). */
+/**
+ * The analysis types that read an XY table. Most pair the single X with ONE Y;
+ * globalFit is the exception (it reads SEVERAL Y datasets at once), so it is
+ * offered only when the table has two or more Y columns. See validAnalysisTypes.
+ */
 export const XY_ANALYSIS_TYPES: AnalysisType[] = [
   "correlationPearson",
   "correlationSpearman",
@@ -118,6 +125,7 @@ export const XY_ANALYSIS_TYPES: AnalysisType[] = [
   "logisticRegression",
   "doseResponse",
   "modelComparison",
+  "globalFit",
 ];
 
 /** The analysis types that read a Grouped table (row factor x column groups). */
@@ -489,6 +497,74 @@ export interface NormalizedModelComparison {
   };
 }
 
+/** One shared parameter of a global fit: a single value + SE + CI for all curves. */
+export interface GlobalSharedParam {
+  name: string;
+  value: number;
+  standardError: number;
+  ci95: [number, number];
+}
+
+/** One curve's local parameter (e.g. its own EC50): value + SE + CI + the EC50. */
+export interface GlobalLocalParam {
+  /** The dataset (Y column) label this local value belongs to. */
+  datasetLabel: string;
+  /** The fitted logEC50 parameter value + its SE and (log-space) CI. */
+  logEC50: number;
+  logEC50SE: number;
+  logEC50CI95: [number, number];
+  /** EC50 = 10^logEC50True (linear dose), and its asymmetric CI [10^lo, 10^hi]. */
+  ec50: number;
+  ec50CI95: [number, number];
+}
+
+/**
+ * A normalized GLOBAL (shared-parameter) fit result (Prism "global fitting").
+ * Fits ONE dose-response curve form (4PL default, 5PL optional) to SEVERAL Y
+ * datasets at once. Each parameter is either SHARED across all curves (one value
+ * fit globally) or LOCAL (fit per curve). The signature case shares the Hill
+ * slope and the Top / Bottom plateaus and keeps the EC50 (logEC50) local, so the
+ * EC50s can be compared with every curve held to a common shape.
+ *
+ * THE EC50 CI TRANSFORM is the same as the single dose-response fit. The fitter
+ * estimates a t-based CI on each curve's logEC50 in log space (symmetric there);
+ * EC50 = 10^logEC50True, so the linear-dose CI is [10^lo, 10^hi], asymmetric about
+ * the EC50 point. For the 5PL the logEC50 parameter is shifted to the true half-max
+ * by the closed-form offset before exponentiating (the same fivePLLogEC50Shift the
+ * single fit uses); for the 4PL the offset is 0.
+ */
+export interface NormalizedGlobalFit {
+  kind: "globalFit";
+  type: "globalFit";
+  /** "logistic4pl" (symmetric) or "logistic5pl" (asymmetric). */
+  model: "logistic4pl" | "logistic5pl";
+  modelLabel: string;
+  /** The shared `share` preset, for the show-code / plain-language reproduction. */
+  share: string;
+  xName: string;
+  /** The Y dataset (column) names, in fit order. */
+  datasetNames: string[];
+  /** The shared X grid (each curve reads its own finite pairs off this X). */
+  /** The raw (x, y) arrays per curve, so the sheet can plot and the code can rerun. */
+  curves: { name: string; x: number[]; y: number[] }[];
+  /** Shared parameters (Hill / Top / Bottom by default), one value each. */
+  sharedParams: GlobalSharedParam[];
+  /** Local parameters, one EC50 (+ logEC50) per curve. */
+  localParams: GlobalLocalParam[];
+  /** Number of curves fit together. */
+  nDatasets: number;
+  /** Total finite points across all curves. */
+  nTotal: number;
+  /** Total free parameters in the global vector. */
+  nParams: number;
+  /** Total residual sum of squares across all curves. */
+  ssrTotal: number;
+  /** Global R-squared 1 - SS_res_total/SS_tot_total (pooled over every point). */
+  rSquared: number;
+  /** Total residual degrees of freedom N_total - P. */
+  df: number;
+}
+
 /**
  * A normalized two-way ANOVA result. The full ANOVA table (factor A, factor B,
  * interaction, error, total) plus the three effect F / p values pulled out for
@@ -549,6 +625,7 @@ export type NormalizedResult =
   | NormalizedMultipleRegression
   | NormalizedDoseResponse
   | NormalizedModelComparison
+  | NormalizedGlobalFit
   | NormalizedTwoWayAnova
   | NormalizedSurvival;
 
@@ -612,7 +689,12 @@ export function validAnalysisTypes(content: DataHubDocContent): AnalysisType[] {
       // but the precise point-count guard lives in the run (the engine rejects an
       // underdetermined fit cleanly), so the type is offered whenever an XY pairing
       // exists. The default 4PL is the listed-first XY analysis after regression.
-      return [...XY_ANALYSIS_TYPES];
+      // Global fitting is the one XY analysis that reads SEVERAL Y datasets, so it
+      // is offered only once the table has two or more Y columns to share across.
+      const hasMultipleY = yColumns(content).length >= 2;
+      return XY_ANALYSIS_TYPES.filter(
+        (t) => t !== "globalFit" || hasMultipleY,
+      );
     }
     return [];
   }
@@ -868,12 +950,131 @@ function runModelComparison(
   };
 }
 
+/**
+ * Run a GLOBAL (shared-parameter) dose-response fit across SEVERAL Y datasets at
+ * once. Unlike the single-Y XY analyses, this reads every Y column on the table
+ * (each its own finite (x, y) pairs against the shared X), so it resolves its own
+ * datasets rather than going through resolveXY. The `share` preset is expanded to
+ * the explicit shared-parameter list; every other model parameter is fit local
+ * (one value per curve). Both readouts Prism reports come straight out of the
+ * engine's fitGlobal: each shared parameter's single value + SE + CI, and each
+ * curve's local EC50 (transformed from the logEC50 CI exactly as the single
+ * dose-response fit does), plus the global R-squared and the fit stats.
+ */
+function runGlobalFit(
+  content: DataHubDocContent,
+  spec: AnalysisSpec,
+): RunOutcome {
+  const xCol = xColumn(content);
+  if (!xCol) {
+    return { ok: false, error: "Global fitting needs an X column." };
+  }
+  const yCols = yColumns(content);
+  if (yCols.length < 2) {
+    return {
+      ok: false,
+      error: "Global fitting needs at least 2 Y datasets to share parameters across.",
+    };
+  }
+
+  const params = readParams(spec);
+  const model =
+    (params.model as "logistic4pl" | "logistic5pl" | undefined) ?? "logistic4pl";
+  const sharedNames = globalFitSharedNames(params.share ?? "hill-top-bottom");
+
+  // Resolve each Y column into its own finite (x, y) dataset against the shared X.
+  const datasets = yCols.map((c) => {
+    const pairs = xyPairs(content, c.id);
+    return { label: c.name, x: pairs.x, y: pairs.y };
+  });
+
+  const fit = fitGlobal(model, datasets, sharedNames);
+  if (!fit.ok) return { ok: false, error: fit.error };
+  const res = fit as GlobalFitResult & { ok: true };
+
+  // Shared parameters: pass the engine's single value + SE + CI straight through,
+  // in the model's declared order (Bottom, Top, HillSlope, [S]).
+  const sharedParams: GlobalSharedParam[] = res.parameters
+    .filter((p) => p.shared)
+    .map((p) => ({
+      name: p.name,
+      value: p.value,
+      standardError: p.standardError,
+      ci95: p.ci95,
+    }));
+
+  // The 5PL half-max shift translates each curve's logEC50 parameter to its true
+  // half-max logEC50. It depends on that curve's Hill slope and S, which may be
+  // shared (one value) or local (per curve). Resolve each per curve so the shift
+  // is correct whether or not Hill is shared (S is shared in every EC50-local
+  // preset). For the 4PL the shift is 0.
+  const sharedValue = (name: string): number | undefined =>
+    res.parameters.find((p) => p.name === name && p.shared)?.value;
+  const localValue = (name: string, label: string): number | undefined =>
+    res.parameters.find(
+      (p) => p.name === name && !p.shared && p.datasetLabel === label,
+    )?.value;
+  const curveValue = (name: string, label: string): number =>
+    sharedValue(name) ?? localValue(name, label) ?? NaN;
+  const shiftFor = (label: string): number =>
+    model === "logistic5pl"
+      ? fivePLLogEC50Shift(curveValue("HillSlope", label), curveValue("S", label))
+      : 0;
+
+  // Local EC50 per curve, transformed from the logEC50 CI exactly as runDoseResponse.
+  const localParams: GlobalLocalParam[] = res.parameters
+    .filter((p) => p.name === "logEC50" && !p.shared)
+    .map((p) => {
+      const shift = shiftFor(p.datasetLabel ?? "");
+      const logEC50True = p.value + shift;
+      const ec50 = Math.pow(10, logEC50True);
+      const ciLo = Math.pow(10, p.ci95[0] + shift);
+      const ciHi = Math.pow(10, p.ci95[1] + shift);
+      const ec50CI95: [number, number] =
+        Number.isFinite(ciLo) && Number.isFinite(ciHi) ? [ciLo, ciHi] : [NaN, NaN];
+      return {
+        datasetLabel: p.datasetLabel ?? "",
+        logEC50: logEC50True,
+        logEC50SE: p.standardError,
+        logEC50CI95: [p.ci95[0] + shift, p.ci95[1] + shift],
+        ec50,
+        ec50CI95,
+      };
+    });
+
+  return {
+    ok: true,
+    kind: "globalFit",
+    type: "globalFit",
+    model,
+    modelLabel: res.modelLabel,
+    share: params.share ?? "hill-top-bottom",
+    xName: xCol.name,
+    datasetNames: res.datasetLabels,
+    curves: datasets.map((d) => ({ name: d.label, x: d.x, y: d.y })),
+    sharedParams,
+    localParams,
+    nDatasets: res.nDatasets,
+    nTotal: res.nTotal,
+    nParams: res.nParams,
+    ssrTotal: res.ssrTotal,
+    rSquared: res.rSquared,
+    df: res.df,
+  };
+}
+
 /** Run a correlation or linear regression on the resolved XY pairs. */
 function runXYAnalysis(
   type: AnalysisType,
   content: DataHubDocContent,
   spec: AnalysisSpec,
 ): RunOutcome {
+  // Global fitting reads SEVERAL Y datasets, so it resolves its own inputs before
+  // the single-Y resolveXY (which would otherwise reject when no single Y is set).
+  if (type === "globalFit") {
+    return runGlobalFit(content, spec);
+  }
+
   const resolved = resolveXY(content, spec);
   if (!resolved) {
     return {
@@ -1348,7 +1549,8 @@ export function runAnalysis(
     type === "linearRegression" ||
     type === "logisticRegression" ||
     type === "doseResponse" ||
-    type === "modelComparison"
+    type === "modelComparison" ||
+    type === "globalFit"
   ) {
     return runXYAnalysis(type, content, spec);
   }

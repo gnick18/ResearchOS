@@ -158,3 +158,89 @@ describe("run-analysis: XY failure modes", () => {
     expect(out.ok).toBe(false);
   });
 });
+
+describe("run-analysis: global (shared-parameter) fit through the XY pipe", () => {
+  // A two-Y XY table: one shared X (log10 dose), two response columns that share
+  // Bottom/Top/Hill and differ only in EC50. Pinned against the same scipy
+  // least_squares reference the engine + transparency gate use.
+  const GX = [-9.0, -8.5, -8.0, -7.5, -7.0, -6.5, -6.0, -5.5, -5.0, -4.5, -4.0];
+  const GYA = [0.9, 2.9, 8.6, 23.0, 50.4, 75.9, 90.8, 96.9, 99.1, 99.6, 100.1];
+  const GYB = [0.1, 0.4, 0.8, 2.9, 8.6, 23.4, 50.4, 75.9, 90.8, 96.9, 99.1];
+
+  function multiYContent(): DataHubDocContent {
+    const rows = GX.map((xv, i) => ({
+      id: `row-${i + 1}`,
+      cells: { x: xv, y1: GYA[i], y2: GYB[i] } as Record<
+        string,
+        number | string | null
+      >,
+    }));
+    return {
+      meta: META,
+      columns: [
+        { id: "x", name: "log[Dose]", role: "x", dataType: "number" },
+        { id: "y1", name: "Drug A", role: "y", dataType: "number" },
+        { id: "y2", name: "Drug B", role: "y", dataType: "number" },
+      ],
+      rows,
+      analyses: [],
+      plots: [],
+    };
+  }
+
+  function gfSpec(): AnalysisSpec {
+    return {
+      id: "g1",
+      type: "globalFit",
+      params: {},
+      inputs: { columnIds: ["y1", "y2"] },
+      resultCache: null,
+      resultStale: false,
+    };
+  }
+
+  it("offers globalFit only once the table has two or more Y columns", () => {
+    expect(validAnalysisTypes(multiYContent())).toContain("globalFit");
+    // A single-Y XY table does not offer it.
+    expect(validAnalysisTypes(xyContent(GX, GYA))).not.toContain("globalFit");
+  });
+
+  it("shares Bottom/Top/Hill and reports a separate EC50 per curve", () => {
+    const out = runAnalysis(gfSpec(), multiYContent());
+    if (!out.ok || out.kind !== "globalFit") {
+      throw new Error("expected globalFit");
+    }
+    expect(out.nDatasets).toBe(2);
+    expect(out.nTotal).toBe(22);
+    expect(out.nParams).toBe(5);
+    // Three shared parameters, each a single value across both curves.
+    const sharedNames = out.sharedParams.map((p) => p.name).sort();
+    expect(sharedNames).toEqual(["Bottom", "HillSlope", "Top"]);
+    const hill = out.sharedParams.find((p) => p.name === "HillSlope")!;
+    expect(hill.value).toBeCloseTo(1.014554, 2);
+    // One local EC50 per curve, the readout the analysis exists to compare.
+    expect(out.localParams.length).toBe(2);
+    const byName = Object.fromEntries(
+      out.localParams.map((lp) => [lp.datasetLabel, lp.ec50]),
+    );
+    expect(byName["Drug A"]).toBeCloseTo(1.0050971e-7, 8);
+    expect(byName["Drug B"]).toBeCloseTo(1.0001309e-6, 7);
+    expect(out.rSquared).toBeCloseTo(0.9999619363, 6);
+  });
+
+  it("honors the share preset (Hill only keeps Top/Bottom local)", () => {
+    const s = gfSpec();
+    s.params = { model: "logistic4pl", share: "hill" };
+    const out = runAnalysis(s, multiYContent());
+    if (!out.ok || out.kind !== "globalFit") {
+      throw new Error("expected globalFit");
+    }
+    // Only Hill is shared now; Top and Bottom become local (not in sharedParams).
+    expect(out.sharedParams.map((p) => p.name)).toEqual(["HillSlope"]);
+  });
+
+  it("fails cleanly when the table has only one Y column", () => {
+    const out = runAnalysis(gfSpec(), xyContent(GX, GYA));
+    expect(out.ok).toBe(false);
+  });
+});

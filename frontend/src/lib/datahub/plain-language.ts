@@ -12,6 +12,7 @@ import type {
   NormalizedAnova,
   NormalizedCorrelation,
   NormalizedDoseResponse,
+  NormalizedGlobalFit,
   NormalizedLogisticRegression,
   NormalizedMultipleRegression,
   NormalizedModelComparison,
@@ -265,6 +266,25 @@ function modelComparisonSummary(r: NormalizedModelComparison): string {
   return `By AICc the data prefer ${pref}${ratioPart}.${closeCall}${fPart}`;
 }
 
+function globalFitSummary(r: NormalizedGlobalFit): string {
+  const modelWord = r.model === "logistic5pl" ? "5PL (asymmetric)" : "4PL";
+  // Lead with the comparison of per-curve EC50s, the reason to fit globally.
+  const ec50Part = r.localParams
+    .map((lp) => `${lp.datasetLabel} ${concText(lp.ec50)}`)
+    .join(", ");
+  const sharedList = r.sharedParams.map((p) => p.name).join(", ");
+  const fitWord =
+    r.rSquared >= 0.98
+      ? "fits the curves closely"
+      : r.rSquared >= 0.9
+        ? "fits the curves reasonably well"
+        : "fits the curves only loosely, so read the EC50s with caution";
+  return `Fitting one ${modelWord} shape to all ${r.nDatasets} curves at once with ${sharedList} shared, each curve keeps its own EC50: ${ec50Part}. The global fit ${fitWord} (R-squared = ${num(
+    r.rSquared,
+    3,
+  )} across ${r.nTotal} points, ${r.nParams} parameters). Because every curve is held to the same shape, these EC50s are directly comparable.`;
+}
+
 function twoWaySummary(r: NormalizedTwoWayAnova): string {
   const effect = (name: string, f: number, p: number, dfText: string): string => {
     const stat = `F${dfText} = ${num(f)}, ${formatP(p)}`;
@@ -332,6 +352,7 @@ export function plainLanguageSummary(result: NormalizedResult): string {
     return multipleRegressionSummary(result);
   if (result.kind === "doseResponse") return doseResponseSummary(result);
   if (result.kind === "modelComparison") return modelComparisonSummary(result);
+  if (result.kind === "globalFit") return globalFitSummary(result);
   if (result.kind === "twoWayAnova") return twoWaySummary(result);
   if (result.kind === "survival") return survivalSummary(result);
   return ttestSummary(result);

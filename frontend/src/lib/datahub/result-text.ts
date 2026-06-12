@@ -263,6 +263,40 @@ export function resultToText(result: NormalizedResult): string {
       lines.push(row("Points (n)", n(result.n, 0)));
       break;
     }
+    case "globalFit": {
+      const conc = (x: number): string =>
+        !Number.isFinite(x)
+          ? ""
+          : Math.abs(x) !== 0 && (Math.abs(x) < 1e-3 || Math.abs(x) >= 1e4)
+            ? x.toExponential(4)
+            : Number(x.toPrecision(5)).toString();
+      const concCi = (c: [number, number]): string =>
+        !Number.isFinite(c[0]) || !Number.isFinite(c[1])
+          ? ""
+          : `${conc(c[0])} to ${conc(c[1])}`;
+      lines.push(row("Model", result.modelLabel));
+      // Shared parameters (one global value each).
+      lines.push("", row("Shared parameter", "Value", "95% CI"));
+      for (const p of result.sharedParams) {
+        lines.push(row(p.name, n(p.value, 4), ci(p.ci95)));
+      }
+      // Local EC50 per curve.
+      lines.push("", row("Curve", "EC50 / IC50", "95% CI of EC50"));
+      for (const lp of result.localParams) {
+        lines.push(
+          row(lp.datasetLabel, conc(lp.ec50), concCi(lp.ec50CI95)),
+        );
+      }
+      lines.push(
+        "",
+        row("Global R-squared", n(result.rSquared, 6)),
+        row("Total residual SS", n(result.ssrTotal, 4)),
+        row("Datasets", n(result.nDatasets, 0)),
+        row("Total points", n(result.nTotal, 0)),
+        row("Total parameters", n(result.nParams, 0)),
+      );
+      break;
+    }
     default: {
       // t-test family (parametric and rank tests).
       const statLabel = result.nonparametric
