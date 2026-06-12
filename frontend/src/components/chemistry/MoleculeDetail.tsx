@@ -16,6 +16,8 @@ import { moleculesApi, type Molecule } from "@/lib/chemistry/api";
 import { emitMoleculeDeleted } from "@/lib/chemistry/delete-toast-bus";
 import { computeIdentity, lipinski, type MoleculeIdentity } from "@/lib/chemistry/rdkit";
 import { referenceClipboardText } from "@/lib/copy-reference";
+import { objectReferenceMarkdown } from "@/lib/references";
+import SendReferencePicker from "@/components/references/SendReferencePicker";
 import { MoleculeThumbnail } from "./MoleculeThumbnail";
 import { MoleculeLiterature } from "./MoleculeLiterature";
 import { LipinskiBadge } from "./LipinskiBadge";
@@ -36,6 +38,12 @@ export function MoleculeDetail({
   const router = useRouter();
   const [copied, setCopied] = useState<string | null>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // "Send to..." picker: pushes this molecule's reference chip straight into a
+  // chosen note / experiment doc / method (the push direction).
+  const [sendOpen, setSendOpen] = useState(false);
+  // Transient confirmation for a completed send, shown in the same status line
+  // the copy actions use.
+  const [notice, setNotice] = useState<string | null>(null);
   const [showLit, setShowLit] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -177,6 +185,7 @@ export function MoleculeDetail({
   ];
 
   return (
+    <>
     <div className="min-h-0 flex-1 overflow-y-auto [overscroll-behavior:contain] @container">
       <div className="max-w-4xl mx-auto px-6 py-6">
         {/* header */}
@@ -296,13 +305,16 @@ export function MoleculeDetail({
               >
                 Copy reference for a note
               </ToolItem>
+              <ToolItem onClick={() => setSendOpen(true)}>
+                Send to a note, experiment, or method…
+              </ToolItem>
             </div>
             <p
               role="status"
               aria-live="polite"
               className="text-meta text-brand-action mt-2 min-h-[1.25rem]"
             >
-              {copied ? `Copied ${copied}.` : ""}
+              {notice ?? (copied ? `Copied ${copied}.` : "")}
             </p>
 
             {/* linked projects */}
@@ -458,6 +470,23 @@ export function MoleculeDetail({
         </div>
       </div>
     </div>
+    {sendOpen && (
+      <SendReferencePicker
+        referenceMarkdown={objectReferenceMarkdown(
+          "molecule",
+          molecule.id,
+          molecule.name,
+        )}
+        sourceLabel={molecule.name}
+        onClose={() => setSendOpen(false)}
+        onResult={(message) => {
+          setNotice(message);
+          if (copyTimer.current) clearTimeout(copyTimer.current);
+          copyTimer.current = setTimeout(() => setNotice(null), 2200);
+        }}
+      />
+    )}
+    </>
   );
 }
 

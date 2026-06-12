@@ -12,6 +12,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import AppShell from "@/components/AppShell";
 import Tooltip from "@/components/Tooltip";
 import { Icon } from "@/components/icons";
+import SendReferencePicker from "@/components/references/SendReferencePicker";
+import { objectReferenceMarkdown } from "@/lib/references";
 import SequenceEditView from "@/components/sequences/SequenceEditView";
 import { usePreloadOnIdle } from "@/lib/perf/use-preload-on-idle";
 import SequenceNewDialog, {
@@ -358,6 +360,9 @@ export default function SequencesPage() {
   );
   // Cross-boundary "Share outside this folder" dialog for the open sequence.
   const [shareOpen, setShareOpen] = useState(false);
+  // "Send to..." picker for the open sequence: pushes a reference chip straight
+  // into a chosen note / experiment doc / method (the push direction).
+  const [sendOpen, setSendOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   // Structured progress for a MULTI-file import, driving the centered
   // ImportProgressOverlay (+ the beforeunload guard). Null when no multi-file
@@ -1599,6 +1604,20 @@ export default function SequencesPage() {
                           <Icon name="copy" className="h-4 w-4" />
                         </button>
                       </Tooltip>
+                      {/* Send to... pushes this sequence's reference chip
+                          straight into a chosen note, experiment (results or
+                          lab notes), or method, no copy-paste. Mirrors the
+                          chemistry molecule's "Send to..." action. */}
+                      <Tooltip label="Send to a note, experiment, or method" placement="bottom">
+                        <button
+                          type="button"
+                          onClick={() => setSendOpen(true)}
+                          aria-label="Send to a note, experiment, or method"
+                          className="rounded p-1.5 text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
+                        >
+                          <Icon name="export" className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
                       <Tooltip label="Share" placement="bottom">
                         <button
                           type="button"
@@ -2230,6 +2249,22 @@ export default function SequencesPage() {
           isOpen
           target={{ kind: "sequence", sequence: selected, owner: currentUser }}
           onClose={() => setShareOpen(false)}
+        />
+      )}
+
+      {/* Send the open sequence's reference into a note / experiment / method. */}
+      {sendOpen && selected && (
+        <SendReferencePicker
+          referenceMarkdown={objectReferenceMarkdown(
+            "sequence",
+            String(selected.id),
+            selected.display_name,
+          )}
+          sourceLabel={selected.display_name}
+          onClose={() => setSendOpen(false)}
+          onResult={(text, ok) =>
+            setStatus({ text, tone: ok ? "ok" : "error" })
+          }
         />
       )}
 
