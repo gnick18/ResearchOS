@@ -60,6 +60,16 @@ the build that the capture runs against:
   `NEXT_PUBLIC_CALC_BUILDER=1 npm run build && npm run start -- -p 3001`, then
   `npm run wiki:screenshots`.
 
+- The 8 `chemistry-*.png` shots (`/wiki/features/chemistry`) need
+  `NEXT_PUBLIC_CHEMISTRY_ENABLED=1` in the build, or `/chemistry` renders the "not
+  enabled" gate. Unlike calc-builder these are ALREADY captured, so a wiki-wide
+  re-capture that forgets the flag will OVERWRITE the good shots with the disabled
+  gate. Build with the flag on, e.g.
+  `NEXT_PUBLIC_CHEMISTRY_ENABLED=1 npm run build && npm run start -- -p 3001`, then
+  `npm run wiki:screenshots`. The same rule applies to any other flag-gated route
+  whose shots get captured (e.g. Data Hub's `NEXT_PUBLIC_DATAHUB_ENABLED`), so a
+  full re-capture should build with every such flag on at once.
+
 These three are HELD until the builder UI is locked. Until they are captured the
 wiki shows the "screenshot pending" placeholder for them, which is fine. Their
 route entries (with the modal-open + builder click steps) already live in

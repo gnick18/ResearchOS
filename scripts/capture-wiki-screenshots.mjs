@@ -4272,6 +4272,11 @@ const FIXTURE_ROUTES = [
   },
 
   // ── Chemistry workbench shots ─────────────────────────────────────────────
+  // ENV REQUIREMENT: the captured server must be BUILT with
+  // NEXT_PUBLIC_CHEMISTRY_ENABLED=1, or /chemistry renders the "not enabled" gate
+  // and a re-capture overwrites these 8 shots with broken ones. The flag bakes at
+  // build time and this script only connects to a pre-built server, so set it on
+  // the build, not here. See the feature-flagged section of WIKI_SCREENSHOTS.md.
   // The ?wikiCapture=1 fixture seeds 4 molecules for alex under project 1
   // (Ethanol, Acetic acid, Glycerol, Resveratrol), each with a real Molfile +
   // SMILES/InChIKey/formula/weight, so the library, the detail view, and the
