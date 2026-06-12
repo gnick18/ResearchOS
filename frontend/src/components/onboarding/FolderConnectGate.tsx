@@ -80,6 +80,7 @@ export default function FolderConnectGate({
   const {
     connect,
     connectWithHandle,
+    disconnect,
     isLoading,
     error,
     needsInitialization,
@@ -209,8 +210,15 @@ export default function FolderConnectGate({
                   )}
                 </button>
                 <button
-                  onClick={onBack}
-                  className="px-4 py-3 bg-surface-sunken hover:bg-surface-sunken/70 text-foreground font-medium rounded-lg transition-all"
+                  onClick={async () => {
+                    // Drop the still-attached empty folder so needsInitialization
+                    // clears, then back out to the entry start. onBack alone left
+                    // this screen up because the handle stayed connected.
+                    await disconnect();
+                    onBack();
+                  }}
+                  disabled={isLoading}
+                  className="px-4 py-3 bg-surface-sunken hover:bg-surface-sunken/70 text-foreground font-medium rounded-lg transition-all disabled:opacity-50"
                 >
                   Cancel
                 </button>
