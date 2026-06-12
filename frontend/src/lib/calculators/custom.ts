@@ -436,6 +436,23 @@ function evalExpr(
 }
 
 /**
+ * Evaluate a SINGLE expression against a caller-supplied scope using the exact
+ * same parser, helper functions, and constants the Custom Calculator Builder
+ * uses. This exists so other features (such as the Data Hub transform engine's
+ * "derive" op) can compute formulas in the one expression language ResearchOS
+ * ships, instead of introducing a second one. Pure and non-throwing: a malformed
+ * expression or a missing variable yields `undefined` (the caller decides how to
+ * surface that, typically as null). The semantics here are unchanged from the
+ * private evaluator that powers steps, conditionals, and outputs.
+ */
+export function evaluateExpression(
+  expr: string,
+  scope: Record<string, unknown>,
+): unknown {
+  return evalExpr(expr, scope);
+}
+
+/**
  * Run a `CustomCalculator` over a map of input values. Pure (no I/O); safe to
  * call on every keystroke for the live preview. Never throws: a malformed
  * expression yields a NaN output value with a "—" display.

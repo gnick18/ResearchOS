@@ -180,12 +180,85 @@ export interface UnionOp {
 }
 
 /**
- * The full set of supported transform operations.
+ * Compute a NEW column from a formula over existing columns and append it.
  *
- * RESERVED (foundation 1b, NOT implemented here):
- *   | { kind: "derive"; ... }     computed column via expr-eval
- *   | { kind: "pivot"; ... }      long -> wide
- *   | { kind: "unpivot"; ... }    wide -> long
+ * The formula is written in the Custom Calculator Builder's expression language
+ * (the expr-eval-fork parser at frontend/src/lib/calculators/custom.ts). It is
+ * reused verbatim so ResearchOS ships ONE expression language, not two. Column
+ * names are bound as variables, so a formula like "a + b" or "a * 2 - c" sees
+ * the row's "a", "b", "c" cell values.
+ *
+ * Each row is evaluated independently. A row whose referenced cells are missing
+ * or non-numeric (so the formula cannot produce a finite number) yields null in
+ * the new column rather than crashing the pipeline. This mirrors how the rest of
+ * the engine treats bad cells as null instead of throwing.
+ */
+export interface DeriveOp {
+  kind: "derive";
+  /** Name of the new column to append. */
+  outputName: string;
+  /** Formula in the calc builder's expression language, over column names. */
+  formula: string;
+}
+
+/**
+ * Reshape long -> wide (pandas pivot_table).
+ *
+ * index columns are kept as the row identity. The distinct values of the
+ * `columns` key column each become a new output column, filled with the
+ * `values` column's cell for the matching (index, key) pair.
+ *
+ * COLLISION POLICY (stated, not pandas pivot's "raise"):
+ *   When more than one input row shares the same (index, key) pair, this engine
+ *   AGGREGATES them with mean, matching pandas pivot_table default aggfunc.
+ *   pandas DataFrame.pivot raises on duplicate pairs; pivot_table aggregates.
+ *   We pick pivot_table's aggregate-by-mean so the op is total (never errors on
+ *   real data) and so it composes after a groupby. Non-numeric value cells in a
+ *   collided cell are ignored for the mean; an all-non-numeric collision yields
+ *   null. A single (non-collided) value passes through unchanged (numeric or
+ *   text), so text values survive when there is no duplication.
+ *
+ * COLUMN ORDER (deterministic): index columns in their given order, then the
+ * distinct key values SORTED ascending (numbers numerically, otherwise as
+ * strings), matching pandas pivot_table's sorted-columns default.
+ */
+export interface PivotOp {
+  kind: "pivot";
+  /** Columns kept as the row identity (the wide table's left-hand columns). */
+  index: string[];
+  /** The key column whose distinct values become new columns. */
+  columns: string;
+  /** The value column spread into the new columns. */
+  values: string;
+}
+
+/**
+ * Reshape wide -> long (pandas melt).
+ *
+ * idVars are kept on every output row. Each valueVars column is gathered into
+ * two new columns: varName holds the source column's name, valueName holds its
+ * cell. The result has one row per (input row, valueVar) pair.
+ *
+ * Row order matches pandas melt: for each value variable in order, emit every
+ * input row in order (so the result is grouped by variable, then by input row).
+ *
+ * valueVars defaults to ALL columns not listed in idVars, in their table order
+ * (pandas melt default). varName defaults to "variable", valueName to "value".
+ */
+export interface UnpivotOp {
+  kind: "unpivot";
+  /** Columns kept on every output row. */
+  idVars: string[];
+  /** Columns gathered into the key/value pair. Defaults to all non-id columns. */
+  valueVars?: string[];
+  /** Name of the column holding the gathered column names. Defaults to "variable". */
+  varName?: string;
+  /** Name of the column holding the gathered cell values. Defaults to "value". */
+  valueName?: string;
+}
+
+/**
+ * The full set of supported transform operations.
  */
 export type TransformOp =
   | JoinOp
@@ -196,7 +269,10 @@ export type TransformOp =
   | RenameOp
   | SortOp
   | DedupeOp
-  | UnionOp;
+  | UnionOp
+  | DeriveOp
+  | PivotOp
+  | UnpivotOp;
 
 // ---------------------------------------------------------------------------
 // Pipeline
