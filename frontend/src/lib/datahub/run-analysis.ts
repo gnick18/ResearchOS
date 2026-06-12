@@ -1568,7 +1568,7 @@ function runSurvivalAnalysis(content: DataHubDocContent): RunOutcome {
  * (covariate 0); each later arm gets covariate 1, so exp(coef) is that arm's
  * hazard ratio versus the reference. With one arm there is nothing to compare.
  */
-function runCoxAnalysis(content: DataHubDocContent): RunOutcome {
+function runCoxAnalysis(content: DataHubDocContent, spec?: AnalysisSpec): RunOutcome {
   const groups = survivalGroups(content).filter(
     (g) => g.observations.length > 0,
   );
@@ -1578,17 +1578,30 @@ function runCoxAnalysis(content: DataHubDocContent): RunOutcome {
       error: "Cox regression needs two arms (a reference and a comparison).",
     };
   }
-  // First arm is the reference (indicator 0); the second arm is the comparison
-  // (indicator 1). The covariate is named for the comparison arm.
-  const reference = groups[0].name;
-  const comparison = groups[1].name;
+  // The reference arm is coded 0 and the comparison arm is coded 1, so the
+  // hazard ratio reads "comparison vs reference". The reference defaults to the
+  // first arm, but the user can pick any arm through the referenceGroup param;
+  // choosing the other arm just flips the 0/1 coding and inverts the HR, no math
+  // change. An unknown / absent param keeps the first-arm default byte-identical.
+  const refParam = spec?.params?.referenceGroup;
+  const refIndex =
+    typeof refParam === "string"
+      ? Math.max(
+          0,
+          groups.findIndex((g) => g.name === refParam),
+        )
+      : 0;
+  const referenceArm = groups[refIndex] ?? groups[0];
+  const comparisonArm = groups.find((g) => g !== referenceArm) ?? groups[1];
+  const reference = referenceArm.name;
+  const comparison = comparisonArm.name;
   const rows = [
-    ...groups[0].observations.map((o) => ({
+    ...referenceArm.observations.map((o) => ({
       time: o.time,
       event: o.event,
       covariates: [0],
     })),
-    ...groups[1].observations.map((o) => ({
+    ...comparisonArm.observations.map((o) => ({
       time: o.time,
       event: o.event,
       covariates: [1],
@@ -1874,7 +1887,7 @@ export function runAnalysis(
   }
 
   if (type === "coxRegression") {
-    return runCoxAnalysis(content);
+    return runCoxAnalysis(content, spec);
   }
 
   if (type === "multipleRegression") {
