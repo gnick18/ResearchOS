@@ -21,15 +21,15 @@
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
-import BeakerBot from "@/components/BeakerBot";
 import LightOnly from "@/components/LightOnly";
 import MadeInMadison from "@/components/MadeInMadison";
 import Wordmark from "@/components/Wordmark";
 import WelcomePage from "@/components/welcome/WelcomePage";
 import { Icon } from "@/components/icons";
 import { IntroBubbleBot } from "./IntroBubbleBot";
+import LandingBackdrop from "./LandingBackdrop";
 import styles from "./OAuthFirstLanding.module.css";
 
 export interface OAuthFirstLandingProps {
@@ -37,20 +37,6 @@ export interface OAuthFirstLandingProps {
   onCreateAccount: () => void;
   /** Open the Welcome-back sign-in screen (Sign in). */
   onSignIn: () => void;
-}
-
-// A floating BeakerBot mark, faded, used as deck-style background decoration.
-function FloatBot({ className }: { className?: string }) {
-  return (
-    <div className={`pointer-events-none absolute opacity-10 ${className ?? ""}`} aria-hidden>
-      <BeakerBot
-        pose="idle"
-        animated={false}
-        ariaLabel=""
-        className="w-full text-brand-sky"
-      />
-    </div>
-  );
 }
 
 export function OAuthFirstLanding({
@@ -62,28 +48,6 @@ export function OAuthFirstLanding({
   // Scroll-reactive sticky top bar, hidden over the entry hero, fades in once
   // the user scrolls into the marketing content.
   const [scrolled, setScrolled] = useState(false);
-  // Cursor parallax for the decorative layer (auroras, beakers, bubbles).
-  const fxRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const layer = fxRef.current;
-    if (!layer) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    let raf = 0;
-    const onMove = (e: MouseEvent) => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        const dx = (e.clientX - window.innerWidth / 2) / (window.innerWidth / 2);
-        const dy =
-          (e.clientY - window.innerHeight / 2) / (window.innerHeight / 2);
-        layer.style.transform = `translate(${(-dx * 12).toFixed(1)}px, ${(-dy * 10).toFixed(1)}px)`;
-      });
-    };
-    window.addEventListener("mousemove", onMove);
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      cancelAnimationFrame(raf);
-    };
-  }, []);
 
   const scrollTo = (ref: React.RefObject<HTMLElement | null>) =>
     ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -129,36 +93,11 @@ export function OAuthFirstLanding({
         <section
           ref={startRef}
           className="relative min-h-screen w-full overflow-hidden flex flex-col items-center justify-center px-6 py-16 text-center"
-          style={{
-            background:
-              "radial-gradient(560px 360px at 50% 6%, #ffffff 0%, #f6f9ff 55%, #eef4ff 100%)",
-          }}
         >
-          {/* Dot-grid stage behind the hero (static, masked to fade at edges). */}
-          <div aria-hidden className={styles.dotgrid} />
-
-          {/* Parallax decorative layer: drifting auroras, floating beakers, and
-              the rising bubble field. Shifts slightly opposite the cursor. */}
-          <div ref={fxRef} className={styles.parallaxLayer} aria-hidden>
-            <div className={`${styles.aurora} ${styles.a1}`} />
-            <div className={`${styles.aurora} ${styles.a2}`} />
-            <div className={`${styles.aurora} ${styles.a3}`} />
-            <div className={`${styles.aurora} ${styles.a4}`} />
-            <FloatBot className={`${styles.floaty} top-[12%] left-[7%] w-20`} />
-            <FloatBot className={`${styles.floaty} ${styles.s2} bottom-[15%] left-[11%] w-14`} />
-            <FloatBot className={`${styles.floaty} ${styles.s3} top-[15%] right-[8%] w-16`} />
-            <FloatBot className={`${styles.floaty} ${styles.s4} bottom-[13%] right-[6%] w-24`} />
-          </div>
-
-          {/* Rainbow bars, top and bottom. */}
-          <div
-            aria-hidden
-            className="absolute inset-x-0 top-0 h-[7px] z-[2] brand-rainbow-bg"
-          />
-          <div
-            aria-hidden
-            className="absolute inset-x-0 bottom-0 h-[7px] z-[2] brand-rainbow-bg"
-          />
+          {/* Shared deck backdrop (radial wash, masked dot grid, drifting auroras
+              + floating beakers on a cursor-parallax layer, rainbow bars), the
+              single source of truth reused by every entry surface. */}
+          <LandingBackdrop />
 
           {/* The ResearchOS LLC signature, upper-left. */}
           <div className="absolute left-5 top-4 z-[4] inline-flex items-center gap-2 text-[10px] font-medium text-slate-500">
