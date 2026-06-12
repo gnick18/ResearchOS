@@ -164,6 +164,24 @@ export default function CompetitorSavings() {
             <span className="h-2 w-2 flex-none rounded-full bg-brand-action" />
             <span>about {usd0(save5)} over 5 years</span>
           </div>
+          {/* AI is not in the savings math (it is a separate metered-at-cost
+              feature, not a fixed line), but it is a real value-add over the
+              stack, so highlight it here and point to the AI pricing below. */}
+          <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-2.5 text-[11.5px] leading-snug text-foreground dark:border-sky-500/30 dark:bg-sky-500/10">
+            <span className="font-bold text-brand-action">
+              Plus an AI assistant, at cost.
+            </span>{" "}
+            BeakerBot reasons over the data on your own disk for about a penny a
+            task, with free tokens to start. It is the only metered part, and it
+            is priced near our cost, not an enterprise AI upsell.{" "}
+            <a
+              href="#ai-pricing"
+              className="font-semibold text-brand-action underline-offset-2 hover:underline"
+            >
+              See how AI is priced
+            </a>
+            .
+          </div>
           <p className="mt-2.5 text-[11.5px] leading-snug text-foreground-muted">
             List prices, so a negotiated campus license runs lower per seat, but
             the gap stays large. A solo researcher pays nothing, the whole app
