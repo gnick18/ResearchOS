@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -15,6 +15,7 @@ import { filenameFromMarkdownSrc } from "@/lib/attachments/annotations";
 import { parseObjectDeepLink, parseObjectEmbed, type EmbedDescriptor } from "@/lib/references";
 import ObjectChip from "@/components/ObjectChip";
 import ObjectEmbed from "@/components/embeds/ObjectEmbed";
+import { buildFigureNumberPlan } from "@/lib/embeds/figure-numbering";
 
 /** Flatten an `a` element's React children to plain text, so a deep-link chip can
  *  label itself with the link text (the object name) even when the markdown
@@ -100,6 +101,14 @@ export default function RenderedMarkdown({
 }: RenderedMarkdownProps) {
   const [resolvedBlobUrls, setResolvedBlobUrls] = useState<Map<string, string>>(new Map());
 
+  // Opt-in figure / table numbering (the `<!-- ros:number-figures -->` directive).
+  // The plan is built from the content in document order; the counter is reset at
+  // the start of every render and incremented once per block embed in the `p`
+  // override, so it tracks document order (react-markdown renders in order).
+  const figurePlan = useMemo(() => buildFigureNumberPlan(content), [content]);
+  const figureIndexRef = useRef(0);
+  figureIndexRef.current = 0;
+
   useEffect(() => {
     if (!content) return;
     const imageRegex = /!\[([^\]]*)\]\(([^)\s]+)/g;
@@ -160,11 +169,15 @@ export default function RenderedMarkdown({
           p: ({ node, children, ...props }) => {
             const lone = loneEmbedFromParagraph(node as unknown as HastNode);
             if (lone) {
+              const figureLabel = figurePlan.enabled
+                ? figurePlan.labelAt(figureIndexRef.current++)
+                : undefined;
               return (
                 <ObjectEmbed
                   descriptor={lone.descriptor}
                   caption={lone.caption}
                   basePath={basePath}
+                  figureLabel={figureLabel}
                 />
               );
             }
