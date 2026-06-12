@@ -52,6 +52,11 @@ import { makeDataHubGraphTool } from "./datahub-graph";
 import { listNotesTool, writeNoteTool } from "./write-note";
 import { searchMyWorkTool } from "./search-my-work";
 import {
+  createExperimentTool,
+  rescheduleExperimentTool,
+  createExperimentChainTool,
+} from "./experiment-tools";
+import {
   readNoteTool,
   readMethodTool,
   readSequenceTool,
@@ -122,7 +127,22 @@ export const READ_ONLY_TOOLS: AiTool[] = [
 // content with Approve / Reject), and only on Approve does it write. Create and
 // append are non-destructive and version-controlled, so it never forces the
 // destructive hard-stop, the preview is the consent.
-export const ACTION_TOOLS: AiTool[] = [clickElementTool, writeNoteTool];
+//
+// create_experiment, reschedule_experiment, create_experiment_chain are the
+// experiment scheduling coworker tools. All three are gated writes (action: true,
+// isDestructive false). The user sees a preview of exactly what will be written
+// (name, dates, or the full proposed chain) before anything is created or moved.
+// create_experiment_chain also wires finish-to-start Gantt dependency edges so the
+// chain relationship is visible on the schedule. None is destructive (creating is
+// reversible by deleting, rescheduling leaves the experiment intact), so none forces
+// the destructive hard-stop.
+export const ACTION_TOOLS: AiTool[] = [
+  clickElementTool,
+  writeNoteTool,
+  createExperimentTool,
+  rescheduleExperimentTool,
+  createExperimentChainTool,
+];
 
 // The coordination toolset. These tools neither read the user's data nor act on
 // it, they steer the user-input flow itself, and the loop recognizes each by name
