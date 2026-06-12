@@ -854,6 +854,330 @@ export const compareModelsTool: AiTool = {
 };
 
 // ---------------------------------------------------------------------------
+// run_multiple_regression (Column table, maps to the multipleRegression engine)
+// ---------------------------------------------------------------------------
+
+/** The model-supplied args for run_multiple_regression. */
+export type MultipleRegressionArgs = {
+  tableId: string;
+  /** The response (Y) column, by name or id. */
+  yColumn: string;
+  /** The predictor columns, by name or id, in order (two or more). */
+  predictors: string[];
+};
+
+/** The compact result run_multiple_regression relays. */
+export type MultipleRegressionToolResult =
+  | {
+      ok: true;
+      table: string;
+      yName: string;
+      predictorNames: string[];
+      n: number;
+      rSquared: number;
+      adjRSquared: number;
+      fStatistic: number;
+      fPValue: number;
+      /** The full normalized result (per-coefficient estimate/se/t/p/ci95/vif). */
+      regression: Extract<RunOutcome, { kind: "multipleRegression" }>;
+      analysisId: string;
+    }
+  | { ok: false; error: string };
+
+/** Parse the loose args into typed MultipleRegressionArgs. Pure. */
+export function parseMultipleRegressionArgs(
+  args: Record<string, unknown>,
+): MultipleRegressionArgs {
+  return {
+    tableId: typeof args.tableId === "string" ? args.tableId : "",
+    yColumn: typeof args.yColumn === "string" ? args.yColumn.trim() : "",
+    predictors: Array.isArray(args.predictors)
+      ? args.predictors.filter((p): p is string => typeof p === "string")
+      : [],
+  };
+}
+
+/**
+ * Build a multipleRegression spec for the request against live content and run
+ * it through the SAME runAnalysis path the wizard uses. The engine fits OLS; the
+ * model only maps a Y column and an ordered list of predictor columns onto
+ * inputs.columnIds = [yId, ...predictorIds]. Pure given the content. Returns the
+ * spec to store plus the compact result, or an error.
+ */
+export function buildMultipleRegression(
+  content: DataHubDocContent,
+  parsed: MultipleRegressionArgs,
+):
+  | { ok: true; spec: AnalysisSpec; result: Extract<MultipleRegressionToolResult, { ok: true }> }
+  | { ok: false; error: string } {
+  if (groupColumns(content).length === 0) {
+    return {
+      ok: false,
+      error:
+        "Multiple regression runs on a Column table of measurement columns, and that table has none. Pick a Column table.",
+    };
+  }
+  const yIds = resolveColumnIds(content, [parsed.yColumn]);
+  if (yIds.length === 0) {
+    return {
+      ok: false,
+      error: "I could not find that Y (response) column. List the table again and pick a real column name.",
+    };
+  }
+  const yId = yIds[0];
+  // Resolve predictors, dropping the Y column if it was also named there.
+  const predictorIds = resolveColumnIds(content, parsed.predictors).filter((id) => id !== yId);
+  if (predictorIds.length < 2) {
+    return {
+      ok: false,
+      error:
+        "Multiple regression needs a Y column and at least 2 distinct predictor columns. Name two or more predictors that are not the Y column.",
+    };
+  }
+
+  const spec: AnalysisSpec = {
+    id: `analysis-${Date.now()}`,
+    type: "multipleRegression",
+    params: {},
+    inputs: { columnIds: [yId, ...predictorIds] },
+    resultCache: null,
+    resultStale: false,
+  };
+
+  const outcome = runAnalysis(spec, content);
+  if (!outcome.ok) return { ok: false, error: outcome.error };
+  if (outcome.kind !== "multipleRegression") {
+    return { ok: false, error: "The engine did not return a multiple regression." };
+  }
+  spec.resultCache = outcome;
+
+  const result: Extract<MultipleRegressionToolResult, { ok: true }> = {
+    ok: true,
+    table: content.meta.name,
+    yName: outcome.yName,
+    predictorNames: outcome.predictorNames,
+    n: outcome.n,
+    rSquared: outcome.rSquared,
+    adjRSquared: outcome.adjRSquared,
+    fStatistic: outcome.fStatistic,
+    fPValue: outcome.fPValue,
+    regression: outcome,
+    analysisId: spec.id,
+  };
+  return { ok: true, spec, result };
+}
+
+export const runMultipleRegressionTool: AiTool = {
+  name: "run_multiple_regression",
+  description:
+    "Fit an ordinary-least-squares multiple linear regression on a Column table (y = b0 + b1*x1 + ... + bk*xk), store the result, and take the user to it. Use this when the user wants to model one outcome from two or more predictor columns (for example \"regress yield on temperature, pH, and time\" or \"predict expression from dose and timepoint\"). Call list_datahub_tables first to get the table id and the real column names, then pass the Y (response) column and an ordered list of two or more predictor columns. The engine fits OLS by the normal equations, drops rows with any missing value (listwise), and reports each coefficient with its standard error, t, p, and 95% CI, plus R-squared, adjusted R-squared, the residual SE, the overall F test with its p, and each predictor's VIF (collinearity). You NEVER compute a coefficient, a p-value, an R-squared, or a VIF, the engine does. It errors cleanly when fewer than 2 predictors are given or there are too few rows (n must exceed predictors + 1); relay that message. This runs straight away, there is NO separate approval step, so do not call propose_plan for it. It saves the result as a version-controlled analysis, navigates the user to the Data Hub so they see it, and returns the fit. After it returns, give ONE short line, the R-squared and adjusted R-squared, the overall F test p-value, and call out any predictor with a high VIF (above about 5 to 10) as collinear. Never invent a number, only repeat what this returns.",
+  parameters: {
+    type: "object",
+    properties: {
+      tableId: {
+        type: "string",
+        description: "The id of the Column Data Hub table to fit, from a list_datahub_tables result.",
+      },
+      yColumn: {
+        type: "string",
+        description: "The response (Y) column to model, by name or id.",
+      },
+      predictors: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "The predictor (X) columns, by name or id, in the order you want them reported. Provide two or more, and none equal to the Y column.",
+      },
+    },
+    required: ["tableId", "yColumn", "predictors"],
+    additionalProperties: false,
+  },
+  execute: async (args) => {
+    const parsed = parseMultipleRegressionArgs(args);
+    if (!parsed.tableId) {
+      return {
+        ok: false,
+        error: "No table was given. Call list_datahub_tables first and pass the table id.",
+      } satisfies MultipleRegressionToolResult;
+    }
+    const content = await datahubAnalysisDeps.resolveContent(parsed.tableId);
+    if (!content) {
+      return {
+        ok: false,
+        error: "I could not open that table. It may have been deleted, or the id is wrong.",
+      } satisfies MultipleRegressionToolResult;
+    }
+    cacheTableContent(parsed.tableId, content);
+
+    const built = buildMultipleRegression(content, parsed);
+    if (!built.ok) return { ok: false, error: built.error } satisfies MultipleRegressionToolResult;
+
+    const stored = await datahubAnalysisDeps.persistAnalysis(parsed.tableId, built.spec);
+    if (!stored) {
+      return {
+        ok: false,
+        error: "The regression computed but could not be saved to the table. The result is not stored.",
+      } satisfies MultipleRegressionToolResult;
+    }
+    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
+    return built.result satisfies MultipleRegressionToolResult;
+  },
+};
+
+// ---------------------------------------------------------------------------
+// run_logistic_regression (XY table, maps to the logisticRegression engine)
+// ---------------------------------------------------------------------------
+
+/** The model-supplied args for run_logistic_regression. */
+export type LogisticRegressionArgs = {
+  tableId: string;
+  /** The binary (0/1) outcome column, by name or id. The predictor is the
+   *  table's X column. */
+  yColumn?: string;
+};
+
+/** The compact result run_logistic_regression relays. */
+export type LogisticRegressionToolResult =
+  | {
+      ok: true;
+      table: string;
+      xName: string;
+      yName: string;
+      n: number;
+      oddsRatio: number;
+      oddsRatioCI95: [number, number];
+      mcFaddenR2: number;
+      auc: number;
+      xAtHalf: number;
+      regression: Extract<RunOutcome, { kind: "logisticRegression" }>;
+      analysisId: string;
+    }
+  | { ok: false; error: string };
+
+/** Parse the loose args into typed LogisticRegressionArgs. Pure. */
+export function parseLogisticRegressionArgs(
+  args: Record<string, unknown>,
+): LogisticRegressionArgs {
+  return {
+    tableId: typeof args.tableId === "string" ? args.tableId : "",
+    yColumn:
+      typeof args.yColumn === "string" && args.yColumn.trim() ? args.yColumn.trim() : undefined,
+  };
+}
+
+/**
+ * Build a logisticRegression spec for the request against live content and run
+ * it through the SAME runAnalysis path the wizard uses. The binary outcome is
+ * the chosen Y column (inputs.columnIds[0]); the single predictor is the XY
+ * table's X column. The engine fits the logistic; the model only picks which Y
+ * column is the binary outcome. Pure given the content.
+ */
+export function buildLogisticRegression(
+  content: DataHubDocContent,
+  parsed: LogisticRegressionArgs,
+):
+  | { ok: true; spec: AnalysisSpec; result: Extract<LogisticRegressionToolResult, { ok: true }> }
+  | { ok: false; error: string } {
+  if (!isXYTable(content)) {
+    return {
+      ok: false,
+      error:
+        "Logistic regression runs on an XY table (an X column plus a binary 0/1 Y column), and that table is not one. Pick an XY table.",
+    };
+  }
+  const yId = resolveYColumnId(content, parsed.yColumn);
+  if (!yId) {
+    return {
+      ok: false,
+      error: "That XY table has no Y column to use as the binary outcome.",
+    };
+  }
+  const spec: AnalysisSpec = {
+    id: `analysis-${Date.now()}`,
+    type: "logisticRegression",
+    params: {},
+    inputs: { columnIds: [yId] },
+    resultCache: null,
+    resultStale: false,
+  };
+
+  const outcome = runAnalysis(spec, content);
+  if (!outcome.ok) return { ok: false, error: outcome.error };
+  if (outcome.kind !== "logisticRegression") {
+    return { ok: false, error: "The engine did not return a logistic regression." };
+  }
+  spec.resultCache = outcome;
+
+  const result: Extract<LogisticRegressionToolResult, { ok: true }> = {
+    ok: true,
+    table: content.meta.name,
+    xName: outcome.xName,
+    yName: outcome.yName,
+    n: outcome.n,
+    oddsRatio: outcome.oddsRatio,
+    oddsRatioCI95: outcome.oddsRatioCI95,
+    mcFaddenR2: outcome.mcFaddenR2,
+    auc: outcome.auc,
+    xAtHalf: outcome.xAtHalf,
+    regression: outcome,
+    analysisId: spec.id,
+  };
+  return { ok: true, spec, result };
+}
+
+export const runLogisticRegressionTool: AiTool = {
+  name: "run_logistic_regression",
+  description:
+    "Fit a binary logistic regression on an XY table (the probability of a 0/1 outcome as a function of the table's X column), store the result, and take the user to it. Use this when the user has a yes/no, pass/fail, or 0/1 outcome and wants to model it against a continuous X (for example \"logistic regression of survival on dose\" or \"does concentration predict the binary response\"). Call list_datahub_tables first to get the XY table id, then pass the binary Y column to use as the outcome (the single predictor is the table's X column). Omit yColumn to use the first Y column. The Y column must hold a binary 0/1 outcome. The engine fits the logistic by maximum likelihood and reports the odds ratio with its 95% CI, McFadden's pseudo R-squared, the AUC, and the X where probability is 0.5. You NEVER compute a coefficient, an odds ratio, or an AUC, the engine does, and it errors cleanly on data it cannot fit; relay that message. This runs straight away, there is NO separate approval step, so do not call propose_plan for it. It saves the result as a version-controlled analysis, navigates the user to the Data Hub so they see it, and returns the fit. After it returns, give ONE short line, the odds ratio with its CI, McFadden's R-squared, and the AUC. Never invent a number, only repeat what this returns.",
+  parameters: {
+    type: "object",
+    properties: {
+      tableId: {
+        type: "string",
+        description: "The id of the XY Data Hub table to fit, from a list_datahub_tables result.",
+      },
+      yColumn: {
+        type: "string",
+        description:
+          "The binary (0/1) outcome column, by name or id. Omit to use the first Y column. The predictor is the table's X column.",
+      },
+    },
+    required: ["tableId"],
+    additionalProperties: false,
+  },
+  execute: async (args) => {
+    const parsed = parseLogisticRegressionArgs(args);
+    if (!parsed.tableId) {
+      return {
+        ok: false,
+        error: "No table was given. Call list_datahub_tables first and pass the XY table id.",
+      } satisfies LogisticRegressionToolResult;
+    }
+    const content = await datahubAnalysisDeps.resolveContent(parsed.tableId);
+    if (!content) {
+      return {
+        ok: false,
+        error: "I could not open that table. It may have been deleted, or the id is wrong.",
+      } satisfies LogisticRegressionToolResult;
+    }
+    cacheTableContent(parsed.tableId, content);
+
+    const built = buildLogisticRegression(content, parsed);
+    if (!built.ok) return { ok: false, error: built.error } satisfies LogisticRegressionToolResult;
+
+    const stored = await datahubAnalysisDeps.persistAnalysis(parsed.tableId, built.spec);
+    if (!stored) {
+      return {
+        ok: false,
+        error: "The regression computed but could not be saved to the table. The result is not stored.",
+      } satisfies LogisticRegressionToolResult;
+    }
+    datahubAnalysisDeps.navigate(`/datahub?doc=${parsed.tableId}&analysis=${built.result.analysisId}`);
+    return built.result satisfies LogisticRegressionToolResult;
+  },
+};
+
+// ---------------------------------------------------------------------------
 // list_datahub_analyses (READ-only)
 // ---------------------------------------------------------------------------
 

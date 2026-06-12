@@ -46,6 +46,8 @@ import {
   listDataHubTablesTool,
   runDataHubAnalysisTool,
   compareModelsTool,
+  runMultipleRegressionTool,
+  runLogisticRegressionTool,
   listDataHubAnalysesTool,
   readDataHubAnalysisTool,
   getAnalysisCodeTool,
@@ -113,6 +115,12 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // runAnalysis path, storing a reversible analysis the user asked for, then
   // navigates to it. The engine owns every fit and statistic.
   compareModelsTool,
+  // Non-gated for the same reason. run_multiple_regression and
+  // run_logistic_regression fit a regression through the same validated
+  // runAnalysis path, storing a reversible analysis the user asked for, then
+  // navigate to it. The engine owns every coefficient and statistic.
+  runMultipleRegressionTool,
+  runLogisticRegressionTool,
   // Non-gated for the same reason. make_datahub_graph builds a reversible,
   // version-controlled figure the user explicitly asked for (and whose graph type
   // / error bar they may have tapped through ask_user) through the validated plot
