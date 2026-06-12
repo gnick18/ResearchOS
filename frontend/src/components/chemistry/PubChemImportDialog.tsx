@@ -201,6 +201,12 @@ function CandidateCard({
         name: compound.name,
         source: "pubchem",
         pubchem_cid: compound.cid,
+        // Persist PubChem's physicochemical descriptors onto the sidecar so they
+        // travel with the molecule record, the same as the BeakerBot import path.
+        xlogp: compound.xlogp,
+        h_bond_donor_count: compound.h_bond_donor_count,
+        h_bond_acceptor_count: compound.h_bond_acceptor_count,
+        tpsa: compound.tpsa,
       });
       onImported(detail.meta.id);
     } catch {

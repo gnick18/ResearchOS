@@ -480,6 +480,13 @@ export const importMoleculeTool: AiTool = {
         name: compound.name,
         source: "pubchem",
         pubchem_cid: compound.cid,
+        // Persist PubChem's physicochemical descriptors onto the sidecar so they
+        // survive on the molecule record, not just in a chat answer. Each is the
+        // value PubChem reported or null when it has none for this compound.
+        xlogp: compound.xlogp,
+        h_bond_donor_count: compound.h_bond_donor_count,
+        h_bond_acceptor_count: compound.h_bond_acceptor_count,
+        tpsa: compound.tpsa,
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "The molecule could not be saved.";

@@ -60,6 +60,19 @@ export interface MoleculeMeta {
   source?: MoleculeSource;
   /** PubChem CID when `source === "pubchem"`. */
   pubchem_cid?: number;
+  // PubChem-sourced physicochemical descriptors. Present ONLY on
+  // PubChem-imported molecules (source === "pubchem"). Hand-drawn and
+  // file-imported molecules leave these undefined. Each is the value PubChem
+  // reports, or null when PubChem has no value for the compound. These are
+  // additive and back-compatible, every prior molecule simply omits them.
+  /** Computed octanol-water partition coefficient (XLogP), a lipophilicity descriptor. */
+  xlogp?: number | null;
+  /** Hydrogen-bond donor count. */
+  h_bond_donor_count?: number | null;
+  /** Hydrogen-bond acceptor count. */
+  h_bond_acceptor_count?: number | null;
+  /** Topological polar surface area in square angstroms (TPSA). */
+  tpsa?: number | null;
 }
 
 /**
@@ -81,6 +94,13 @@ export interface MoleculeInput {
   project_ids?: string[];
   source?: MoleculeSource;
   pubchem_cid?: number;
+  // PubChem-sourced physicochemical descriptors, supplied only on a PubChem
+  // import so they persist on the sidecar. Omit them for hand-drawn and
+  // file-imported molecules so the fields stay undefined on disk.
+  xlogp?: number | null;
+  h_bond_donor_count?: number | null;
+  h_bond_acceptor_count?: number | null;
+  tpsa?: number | null;
 }
 
 /**
@@ -102,6 +122,24 @@ async function identityPatch(
   } catch {
     return {};
   }
+}
+
+/**
+ * Build a sidecar patch carrying only the PubChem descriptors that were
+ * actually supplied. Undefined inputs (the hand-drawn / file-imported path)
+ * produce no keys, so non-PubChem molecules never get descriptor keys written
+ * (no null-key spam). A descriptor PubChem reported as null IS written as null,
+ * which records "PubChem has no value for this compound" rather than "unknown".
+ */
+function descriptorPatch(input: MoleculeInput): Partial<MoleculeMeta> {
+  const patch: Partial<MoleculeMeta> = {};
+  if (input.xlogp !== undefined) patch.xlogp = input.xlogp;
+  if (input.h_bond_donor_count !== undefined)
+    patch.h_bond_donor_count = input.h_bond_donor_count;
+  if (input.h_bond_acceptor_count !== undefined)
+    patch.h_bond_acceptor_count = input.h_bond_acceptor_count;
+  if (input.tpsa !== undefined) patch.tpsa = input.tpsa;
+  return patch;
 }
 
 /** List every molecule in the current user's library (metadata only). */
@@ -149,6 +187,9 @@ export async function create(
     source: input.source ?? "drawn",
     pubchem_cid: input.pubchem_cid,
     ...identity,
+    // PubChem descriptors only when supplied; a non-PubChem create passes
+    // nothing so we never write undefined keys onto the sidecar.
+    ...descriptorPatch(input),
   });
   // chem-history bot: record genesis checkpoint AFTER the .mol is written.
   // Best-effort; a history write failure must never block the save.
