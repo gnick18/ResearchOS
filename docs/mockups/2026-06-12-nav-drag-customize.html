@@ -216,7 +216,7 @@
     <span class="k"><b>2.</b> Right-click a tab or empty bar space, then Customize tabs.</span>
     <span class="k"><b>3.</b> Open More, then Customize tabs at the bottom.</span>
     <span class="k"><b>While editing</b> drag tabs to reorder, drag one into Hidden to hide it, drag one out of Hidden back onto the bar to show it.</span>
-    <span class="k">Press <kbd>Esc</kbd> or the Done pill to finish. Reset to default lives inside edit mode.</span>
+    <span class="k">Press <kbd>Enter</kbd> or <kbd>Esc</kbd>, or the Done pill, to finish. Reset to default lives inside edit mode.</span>
     <span class="k"><b>Comment mode</b> click any element to pin a note and tag it Approve or Disapprove.</span>
     <span class="k"><b>Export</b> Copy or Download .md, then paste it back into chat.</span>
   </div>
@@ -242,7 +242,7 @@
       </div>
       <div class="editbanner">
         <span><b>Editing tabs.</b> Drag to reorder, or drag into Hidden in the More menu to tuck a tab away. Drag from Hidden back here to bring it inline.</span>
-        <span class="esc">Press Esc or Done to finish</span>
+        <span class="esc">Press Enter or Esc, or Done, to finish</span>
       </div>
       <div class="pagebody cmt" id="pagebody"></div>
     </div>
@@ -373,7 +373,7 @@ function enterEdit(){
   // make tabs + hidden items draggable
   setDraggable(true);
   openMore(); // the Hidden tray is the drop target, so show it
-  toast("Edit mode. Drag tabs in or out of Hidden, press Esc when done.");
+  toast("Edit mode. Drag tabs in or out of Hidden, press Enter or Esc when done.");
 }
 function exitEdit(){
   if(!editing) return;
@@ -392,7 +392,15 @@ function setDraggable(on){
 
 document.getElementById("doneBtn").addEventListener("click", e=>{ e.stopPropagation(); exitEdit(); });
 document.getElementById("resetBtn").addEventListener("click", e=>{ e.stopPropagation(); resetArrangement(); setDraggable(true); openMore(); toast("Reset to the default arrangement."); });
-document.addEventListener("keydown", e=>{ if(e.key==="Escape" && editing){ exitEdit(); } });
+document.addEventListener("keydown", e=>{
+  // Enter and Escape both CONFIRM and exit edit mode. The arrangement saves
+  // live as you drag, so there is no destructive cancel; both keys just mean
+  // "I am done, keep it". Skip when typing in a field (e.g. a comment note).
+  if(!editing) return;
+  const t=e.target;
+  if(t && (t.tagName==="INPUT" || t.tagName==="TEXTAREA" || t.isContentEditable)) return;
+  if(e.key==="Enter" || e.key==="Escape"){ e.preventDefault(); exitEdit(); }
+});
 
 /* ---------- long-press to enter edit (the primary, app-icon gesture) ---------- */
 /* disambiguate click vs long-press vs drag-start:
