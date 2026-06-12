@@ -62,14 +62,6 @@ import AuditTrailViewer from "@/components/lab-head/AuditTrailViewer";
 import { loadIdentity } from "@/lib/sharing/identity/storage";
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
 import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
-import {
-  clearWizardCompletion,
-  countOrphanedArtifacts,
-  patchOnboarding,
-  readOnboarding,
-  replayOnboarding,
-} from "@/lib/onboarding/sidecar";
-import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
 import StreaksSection from "./StreaksSection";
 import { patchStreak } from "@/lib/streak/streak-sidecar";
 import { useTheme, type ThemeChoice } from "@/lib/theme/use-theme";
@@ -3342,155 +3334,26 @@ function AIHelperSection() {
 }
 
 /**
- * Onboarding section. Surfaces the "Re-run welcome tour" button that
- * resets the v4 sidecar completion/skip/resume fields + clears
- * feature_picks (so Phase 1 setup runs again), then calls
- * `tourController.start()` to re-fire the v4 walkthrough in place
- * (no page reload). The legacy "tips mode picker" + "Replay tips"
- * controls were removed with sidecar v3 -> v4 (P0 of the Onboarding
- * v3 arc per ONBOARDING_V3_PROPOSAL.md §10); the v4 walkthrough
- * subsumes both.
+ * Onboarding section. The v4 tour engine has been removed; this section now
+ * surfaces the What's New popup and the demo lab exploration button.
  */
 function TipsSection() {
-  const { currentUser } = useFileSystem();
-  const tourController = useOptionalTourController();
-  const router = useRouter();
-  const [status, setStatus] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   // What's-new on-demand re-open (whats-new bot). Shows the FULL release
   // history (every release expanded) so the popup is viewable any time,
   // not just on a genuine upgrade. Does NOT touch last-seen.
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
-  // Wave 1 sidecar hardening manager (v2): orphan-artifact recovery
-  // banner. On mount (and when the active user changes) we read the
-  // sidecar's artifacts-created count, scoped to the case where the
-  // wizard wholesale ended (completed OR skipped). A positive count
-  // means a prior tour left demo data on the real account that the
-  // end-of-tour auto-cleanup never reached. The amber banner below
-  // surfaces the count and pushes the user toward the existing Re-run
-  // CTA, which runs the tour through to its auto-cleanup sweep.
-  const [orphanedArtifactCount, setOrphanedArtifactCount] = useState(0);
-
-  useEffect(() => {
-    if (!currentUser) {
-      setOrphanedArtifactCount(0);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const count = await countOrphanedArtifacts(currentUser);
-        if (!cancelled) setOrphanedArtifactCount(count);
-      } catch (err) {
-        // Best-effort probe; an unreadable sidecar means we just don't
-        // show the banner. The Re-run CTA itself still works.
-        console.warn(
-          "[Settings/Tips] orphan-artifact probe failed",
-          err,
-        );
-        if (!cancelled) setOrphanedArtifactCount(0);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [currentUser]);
-
-  const handleRerunWizard = useCallback(async () => {
-    if (!currentUser) return;
-    setBusy(true);
-    setStatus(null);
-    try {
-      // Clear all v4 completion / skip / resume + feature_picks so the
-      // tour starts from a clean slate (Phase 1 setup re-runs, then
-      // the in-product walkthrough). wizard_force_show is cleared too:
-      // V3's DevForceTipButton compat path is gone after the V3 rip
-      // (Phase B 2026-05-22) and v4's TourController never consulted
-      // that flag.
-      await patchOnboarding(currentUser, (cur) => ({
-        ...cur,
-        wizard_completed_at: null,
-        wizard_skipped_at: null,
-        wizard_resume_state: null,
-        feature_picks: null,
-        wizard_force_show: false,
-        lab_tour_pending: false,
-        lab_tour_dismissed_at: null,
-      }));
-      // Reset the controller's in-memory feature_picks snapshot so the
-      // re-run's gating machine sees the cleared picks immediately.
-      tourController?.setFeaturePicks(null);
-      setStatus("Re-running the tour. BeakerBot is on the way.");
-      setTimeout(() => {
-        setBusy(false);
-        router.push("/");
-        // TourBootstrap is one-shot per mount with `[username, previewMode]`
-        // deps. V4MountForUser sits in providers.tsx ABOVE every route, so
-        // TourBootstrap does NOT remount on `router.push("/")`; its sidecar
-        // probe ran once at first login and never re-fires. Calling start()
-        // directly is the only thing that gets the tour out the door after
-        // a re-run. The prior "navigate to / and let TourBootstrap re-probe
-        // naturally" path quietly no-opped (this surfaced as "click re-run,
-        // land on home, nothing happens"). The earlier comment here feared
-        // an infinite re-probe loop on every /wiki/* visit, but the deps
-        // were narrowed to `[username, previewMode]` long ago, so a fresh
-        // start() write to the sidecar can not re-trigger the probe.
-        //
-        // The first applicable step's `expectedRoute` auto-navigate effect
-        // in TourController routes to home if the router.push has not yet
-        // landed by the time start() flips currentStep to "welcome".
-        tourController?.start();
-      }, 600);
-    } catch (err) {
-      console.error("[Settings/Tips] re-run wizard failed", err);
-      setStatus("Couldn't reset. See console for details.");
-      setBusy(false);
-    }
-  }, [currentUser, tourController, router]);
 
   return (
     <SectionShell
       title="Onboarding"
-      tourTarget="settings-rerun-section"
-      description="Re-run the welcome tour to revisit setup picks and the BeakerBot walkthrough on your real account."
-      searchKeywords="welcome tour walkthrough tips BeakerBot replay re-run reset wizard what's new whats new release notes changelog updates announcement"
+      description="Revisit release highlights or explore the demo lab."
+      searchKeywords="what's new whats new release notes changelog updates announcement demo"
     >
-      {orphanedArtifactCount > 0 && (
-        <div
-          className="mb-3 rounded-md border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 px-3 py-2 text-meta text-amber-900 dark:text-amber-300"
-          data-testid="settings-orphan-artifact-banner"
-        >
-          Your previous tour left {orphanedArtifactCount} demo
-          {orphanedArtifactCount > 1 ? " items" : " item"} in your folder.
-          Re-running the tour will offer to clean
-          {orphanedArtifactCount > 1 ? " them" : " it"} up at the end.
-        </div>
-      )}
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <p className="text-body text-foreground">Re-run welcome tour</p>
-          <p className="text-meta text-foreground-muted mt-1">
-            Launches the BeakerBot walkthrough again. New users see
-            this once on first sign-in; existing users can opt back in
-            here.
-          </p>
-          {status && <p className="text-meta text-emerald-600 dark:text-emerald-300 mt-2">{status}</p>}
-        </div>
-        <button
-          type="button"
-          onClick={handleRerunWizard}
-          disabled={busy || !currentUser}
-          data-testid="settings-rerun-welcome-tour"
-          className="px-3 py-2 text-body bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg whitespace-nowrap"
-        >
-          {busy ? "Resetting..." : "Re-run tour"}
-        </button>
-      </div>
       {/* What's new (whats-new bot): re-open the developer-announcement
           popup showing the full release history on demand. The popup
           otherwise fires only on a genuine APP_VERSION upgrade, so this
           row keeps it reachable any time. */}
-      <div className="mt-4 flex items-start justify-between gap-4 border-t border-border pt-4">
+      <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <p className="text-body text-foreground">What&apos;s new</p>
           <p className="text-meta text-foreground-muted mt-1">

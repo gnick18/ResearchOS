@@ -41,8 +41,6 @@ export interface UserAvatarMenuProps {
   primaryColor: string;
   /** Whether the header is currently tinted (colored header opt-in). */
   tinted: boolean;
-  /** Whether navigation is disabled by the onboarding walkthrough. */
-  navDisabledByTour: boolean;
   /** Current pathname for active-state styling. */
   pathname: string | null;
 }
@@ -203,7 +201,6 @@ export default function UserAvatarMenu({
   currentUser,
   primaryColor,
   tinted,
-  navDisabledByTour,
   pathname,
 }: UserAvatarMenuProps) {
   const [open, setOpen] = useState(false);
@@ -286,26 +283,6 @@ export default function UserAvatarMenu({
       className="absolute inset-0 h-full w-full"
     />
   ) : null;
-
-  // Tour-disabled state: render a non-interactive button matching the gear's
-  // disabled treatment so the walkthrough spotlight area is consistent.
-  if (navDisabledByTour) {
-    return (
-      <button
-        type="button"
-        disabled
-        aria-disabled="true"
-        aria-label="Account (disabled during walkthrough)"
-        className={`relative w-7 h-7 rounded-full flex items-center justify-center text-meta font-semibold cursor-not-allowed opacity-50 ${
-          tinted ? "ring-2 ring-white/40" : ""
-        }`}
-        style={avatarStyle}
-      >
-        {orb}
-        <span className="relative">{initial(currentUser)}</span>
-      </button>
-    );
-  }
 
   const onSettings = pathname === "/settings";
 

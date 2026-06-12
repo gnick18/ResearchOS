@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import WhatsNewModal from "./WhatsNewModal";
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
-import { useOptionalTourController } from "@/components/onboarding/v4/TourController";
 import { useLastSeenAnnouncementVersion } from "@/hooks/useLastSeenAnnouncementVersion";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import { patchUserSettings } from "@/lib/settings/user-settings";
@@ -76,8 +75,6 @@ export default function WhatsNewManager({ username }: Props) {
   const [decidedFor, setDecidedFor] = useState<string | null>(null);
 
   const router = useRouter();
-  const tour = useOptionalTourController();
-  const tourActive = tour !== null && tour.tourMode !== null;
   const captureMode = isDemoOrWikiCapture();
 
   const seen = useLastSeenAnnouncementVersion(username);
@@ -85,7 +82,6 @@ export default function WhatsNewManager({ username }: Props) {
   // ------- Seed: decide whether to show, record, or stay quiet --------
   useEffect(() => {
     if (!username) return;
-    if (tourActive) return;
     if (captureMode) return;
     if (seen.status !== "ready") return;
     // Already decided for this username on this mount; don't re-run.
@@ -114,7 +110,7 @@ export default function WhatsNewManager({ username }: Props) {
     setDecidedFor(username);
     if (missed.length === 0) return;
     setPhase({ kind: "showing", missed });
-  }, [username, tourActive, captureMode, seen, decidedFor]);
+  }, [username, captureMode, seen, decidedFor]);
 
   // Reset the per-mount decision lock when the active user changes, so a
   // user switch re-evaluates the new account's catch-up state.

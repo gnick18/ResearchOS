@@ -14,7 +14,6 @@ import { usePathname } from "next/navigation";
 import { FileSystemProvider, useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/file-system-context";
 import {
   isDemoOrWikiCapture,
-  isV4PreviewMode,
 } from "@/lib/file-system/wiki-capture-mock";
 import FolderConnectGate from "@/components/onboarding/FolderConnectGate";
 import BrowserNotSupported from "@/components/BrowserNotSupported";
@@ -31,7 +30,6 @@ import WikiCaptureRefusedBanner from "@/components/WikiCaptureRefusedBanner";
 import OpenDocsButton from "@/components/OpenDocsButton";
 import SceneTriggerHost from "@/components/SceneTriggerHost";
 import AutoErrorConfirmHost from "@/components/AutoErrorConfirmHost";
-import V4MountForUser from "@/components/onboarding/v4/V4MountForUser";
 import { Splash } from "@/components/onboarding/Splash";
 import { EntrySnapSurface } from "@/components/onboarding/EntrySnapSurface";
 import { OAuthFirstLanding } from "@/components/onboarding/oauth-first/OAuthFirstLanding";
@@ -495,27 +493,11 @@ function AppContent({ children }: { children: ReactNode }) {
   }
 
   if (isWikiRoute) {
-    // Wiki-pointer multi-beat redesign 2026-05-22 (Wiki pointer manager).
-    // When a signed-in real user is mid-tour and the §6.12 wiki-pointer
-    // cluster navigates them to a /wiki/* page, the wiki layout's
-    // dedicated provider tree would normally drop V4MountForUser and
-    // kill the tour mid-walk (see WikiPointerStep R4 2026-05-22 for the
-    // bug we hit before the cluster redesign). Re-mounting V4MountForUser
-    // inside the wiki early-return keeps the tour controller alive
-    // across the wiki visit. Gating on `isConnected && currentUser`
-    // means brand-new visitors (the wiki's original target audience)
-    // still get the slim wiki-only tree.
-    //
-    // Lab Mode retirement R5 (2026-05-23): the legacy `lab` pseudo-user
-    // guard that mirrored AppContent's signed-in branch is gone. After
-    // R5 nobody can sign in as the lab sentinel, so every signed-in
-    // user pulls in V4 here too.
-    const wikiUserHasTour = isConnected && !!currentUser;
-    if (wikiUserHasTour) {
+    // Wiki route for a signed-in real user: render children inside the
+    // query client. The v4 tour wrapper is gone; no tour to keep alive here.
+    if (isConnected && currentUser) {
       return (
-        <QueryClientProvider client={queryClient}>
-          <V4MountForUser username={currentUser}>{children}</V4MountForUser>
-        </QueryClientProvider>
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
       );
     }
     return (
@@ -543,29 +525,12 @@ function AppContent({ children }: { children: ReactNode }) {
   // screenshots that captured the picker UI in this mode may need
   // recapturing — flagged in §8 for the wiki manager.
   if (isDemoOrWikiCapture() && currentUser) {
-    // Demo + wiki-capture: render children only. V4MountForUser only
-    // mounts when the URL explicitly opts in via `?wizard-preview=1`
-    // or `?wizardSeedStep=…` (the v4 preview / screenshot pipeline).
-    // The V3 sequencer carve-out is gone (V3 rip Phase B 2026-05-22).
-    //
-    // Plain `/demo` and bare `?wikiCapture=1` skip the orchestrator
-    // entirely: fixture data, demo banner, floating Leave Demo button
-    // (mounted at the `<Providers>` level), no tour overlay.
-    //
-    // Sticky check (live-test R3 cascade fix 2026-05-21): isV4PreviewMode
-    // reads URL params AND sessionStorage so in-tab navigations whose
-    // hrefs strip the query string don't drop V4MountForUser. Without
-    // this, every cursor-driven router.push from a step body (project
-    // card click, wiki nav, methods nav, etc.) unmounted the v4 tour
-    // and re-summoned the V4ResumePrompt mid-walkthrough.
-    const wantsV4Mount = isV4PreviewMode();
+    // Demo + wiki-capture: render children directly. The v4 tour preview
+    // pipeline (wizard-preview / wizardSeedStep) no longer needs a special
+    // mount now that the tour engine is gone.
     return (
       <QueryClientProvider client={queryClient}>
-        {wantsV4Mount ? (
-          <V4MountForUser username={currentUser}>{children}</V4MountForUser>
-        ) : (
-          <>{children}</>
-        )}
+        <>{children}</>
       </QueryClientProvider>
     );
   }
@@ -917,38 +882,25 @@ function AppContent({ children }: { children: ReactNode }) {
           on the first paint of the signed-in surface. Single-shot,
           clears its own sessionStorage flag on read. */}
       <PendingELNImportMount />
-      <V4MountForUser username={currentUser}>
+      <>
         {children}
-        {/* CelebrationManager is a peer of TourBootstrap inside
-            the TourControllerProvider tree. Inside the provider so
-            useOptionalTourController() returns the live controller
-            value (the manager defers firing while a tour is
-            active, per proposal §6.7 "don't overlap with the
-            bottom-right tour BeakerBot"). */}
+        {/* CelebrationManager: fires milestone BeakerBot celebrations (streak
+            badges etc.) based on the streak sidecar. useOptionalTourController
+            returns null when no provider is in the tree, so the manager
+            runs normally now that the tour engine is gone. */}
         <CelebrationManager username={currentUser} />
-        {/* MilestoneTwirlMount (twirl-milestones bot): peer of
-            CelebrationManager. Fires the celebratory BeakerBot twirl once
-            on the first occurrence of three rare checkpoint moments (tour
-            complete, first experiment complete, first project fully
-            done), deduped per-user in localStorage and gated by the same
-            BeakerBot-animations opt-out. The 7-day-streak twirl is owned
-            by CelebrationManager so it never double-celebrates. */}
+        {/* MilestoneTwirlMount: fires the BeakerBot twirl on rare checkpoint
+            moments (first experiment complete, first project done), deduped
+            per-user in localStorage. */}
         <MilestoneTwirlMount username={currentUser} />
-        {/* IdleAnimationManager: peer of CelebrationManager. Fires a
-            random BeakerBot scene from IDLE_POOL after the user has
-            been idle for IDLE_THRESHOLD_MS. One per session, gated by
-            sessionStorage. Independent of the streak/milestone path
-            CelebrationManager owns. */}
+        {/* IdleAnimationManager: fires a random BeakerBot scene after the user
+            has been idle for IDLE_THRESHOLD_MS. One per session. */}
         <IdleAnimationManager />
-        {/* WhatsNewManager: developer-announcement / "What's New" popup
-            (whats-new bot). Peer of CelebrationManager so it lives inside
-            the TourControllerProvider tree and defers while a tour is
-            active. Fires only on a genuine APP_VERSION upgrade; a
-            brand-new account silently records the version and stays
-            quiet. Gated to the logged-in/connected surface by virtue of
-            mounting under V4MountForUser. */}
+        {/* WhatsNewManager: developer-announcement popup. Fires only on a
+            genuine APP_VERSION upgrade; new accounts silently record the
+            version. */}
         <WhatsNewManager username={currentUser} />
-      </V4MountForUser>
+      </>
     </QueryClientProvider>
   );
 }
