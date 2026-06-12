@@ -179,7 +179,7 @@ export default function BeakerSearchAskHeader({
         role="group"
         aria-label="BeakerBot review mode"
         data-testid="beakersearch-review-mode"
-        className="flex flex-shrink-0 items-center gap-0.5 rounded-md border border-border p-0.5"
+        className="flex flex-shrink-0 items-center gap-0.5 rounded-md border border-border bg-surface-sunken p-0.5"
       >
         <Tooltip
           label="Step-by-step. BeakerBot shows each step and waits for you to approve it before it runs."
@@ -193,8 +193,8 @@ export default function BeakerSearchAskHeader({
             onClick={reviewMode === "step" ? undefined : toggleReviewMode}
             className={`flex items-center gap-1 rounded px-2 py-0.5 text-meta font-medium transition-colors ${
               reviewMode === "step"
-                ? "bg-brand/10 text-brand"
-                : "text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+                ? "bg-brand text-white shadow-sm"
+                : "text-foreground-muted hover:text-foreground"
             }`}
           >
             <Icon name="check" className="h-3.5 w-3.5" title="Step-by-step" />
@@ -213,8 +213,8 @@ export default function BeakerSearchAskHeader({
             onClick={reviewMode === "plan" ? undefined : toggleReviewMode}
             className={`flex items-center gap-1 rounded px-2 py-0.5 text-meta font-medium transition-colors ${
               reviewMode === "plan"
-                ? "bg-brand/10 text-brand"
-                : "text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+                ? "bg-brand text-white shadow-sm"
+                : "text-foreground-muted hover:text-foreground"
             }`}
           >
             <Icon name="list" className="h-3.5 w-3.5" title="Whole-plan" />

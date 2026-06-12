@@ -42,7 +42,6 @@ import type {
 import type { IconName } from "@/components/icons";
 import BeakerBotThinking from "./BeakerBotThinking";
 import { useThinkingVariant } from "./thinking-variant";
-import DevThinkingVariantButton from "./DevThinkingVariantButton";
 
 // Lightweight markdown renderer for assistant replies only. Scoped to this
 // component. Uses standard semantic elements styled by the app's Tailwind prose
@@ -816,10 +815,6 @@ export default function BeakerBotConversation({
 
       {/* Composer */}
       <div className="border-t border-border p-3">
-        {/* Dev-only thinking-indicator switcher. Renders null in production. */}
-        <div className="mb-2 flex justify-end">
-          <DevThinkingVariantButton />
-        </div>
         <div className="flex items-end gap-2">
           <textarea
             data-testid="beakerbot-input"
