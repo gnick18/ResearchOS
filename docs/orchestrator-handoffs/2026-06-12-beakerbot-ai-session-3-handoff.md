@@ -1,0 +1,54 @@
+# BeakerAI session 3 handoff, 2026-06-12
+
+For: the next agent on the BeakerAI / BeakerBot lane (possibly a different account). House voice: no em-dashes, no emojis, no mid-sentence colons. Continues `docs/orchestrator-handoffs/2026-06-12-beakerbot-ai-session-2-handoff.md` (session 2, the billing arc) and `2026-06-12-beakerbot-ai-session-handoff.md` (session 1). Read those for the prior arc.
+
+## The lane (unchanged)
+
+This session ("BeakerAI") owns BeakerBot (in-app AI assistant) + BeakerSearch (the unified palette) + all AI orchestration, under `frontend/src/lib/ai/` + `frontend/src/components/ai/` + `frontend/src/components/beaker-search/`; the prompt is `lib/ai/system-prompt.ts`, the tool registry is `lib/ai/tools/registry.ts`, the agent loop is `lib/ai/agent-loop.ts`. It CONSUMES the Data Hub engine READ-ONLY (the "Data v2" session owns `lib/datahub/`). Coordinate via shared docs + Grant relays (you CANNOT send_message to Data v2). BeakerBot only does what a user could do by hand.
+
+## What landed this session (all on local main, NOT pushed, gate-verified, NOT browser-verified)
+
+Every analysis tool is consume-only, non-gated by the OLD model (see review modes below for the new gating), stores a version-controlled analysis, navigates the user to it, and ends with a `[<caption>](/datahub?doc=<id>#ros=result&analysis=<id>)` embed. The engine owns every number.
+
+- **Four polish items.** Significance brackets in `make_datahub_graph` (links a stored one-way ANOVA via `analysisId` + `showBrackets`, fails clean if none saved). Restriction-overhang cloning primers in `design_primers` (prepends an enzyme site from the validated dataset via a new `enzymeSiteForPrimer` in `lib/sequences/cut-ligate.ts`, refuses ambiguous sites). A `since`/`until` day-granular date window on `search_my_work` (new `dayPrefix` helper). Method-template auto-attach in `create_experiment_chain` (`methodTemplateSlug` per step, reuse-or-instantiate via a `from-template:<slug>` provenance tag, uses `instantiateMethodFromTemplate`).
+- **Theme 2 analysis family** (consuming Data v2's engine fields, the full set): `compare_models` (`modelComparison`, extra-sum-of-squares F + AICc), `run_logistic_regression` (`logisticRegression`, binary Y from `columnIds[0]` + the table X as predictor), `run_multiple_regression` (`multipleRegression`, `inputs.columnIds = [yId, ...predictorIds]`, requires 2+ distinct predictors), `global_fit` (`globalFit`, shared-parameter fit across all Y columns of an XY table, params `{model, share}`). All in `lib/ai/tools/datahub-analysis.ts`.
+- **`get_analysis_code`** relays the engine's `showCode()` Python for a stored analysis so the model drops the exact stat code into a note (read-only).
+- **Mascot swap** (`3e8f2787c`): the generic `vial` glyph became the real `<BeakerBot pose=...>` on the conversation headers, the "Help me choose" button, and the thinking "beaker" A/B variant (bumped to h-6 per the sizing gotcha; pulse default + dev switcher intact).
+- **BeakerSearch bottom-center ask bar** (`8fcd4e8c3`, Option A): `BeakerSearchBottomBar` docked bottom-center on every route, opens the same surface as the pill / Cmd K (`useBeakerSearch().openPalette()`), hides under record / capture. Additive, the top-nav `BeakerSearchPill` STAYS with a `TODO(beakerai)` until the nav-slimming session coordinates its removal. Spec `docs/proposals/beakersearch-home-bottom-bar.md`, mockup `docs/mockups/beakersearch-home-comparison.html`.
+- **REVIEW MODES** (`merge ...`, then `35743e1d7` for global_fit, `7b6ab99aa` test fix): replaces the ask/auto autonomy model with two review modes. New `lib/ai/review-mode-store.ts` (`BeakerBotReviewMode = "step" | "plan"`, default `"step"`, `getReviewMode()` sync getter, localStorage `ros.beakerbot.reviewMode`; `autonomy-store.ts` DELETED). New `previewable?: boolean` on `AiTool`, set on the six instant analysis tools (`run_datahub_analysis`, `make_datahub_graph`, `compare_models`, `run_multiple_regression`, `run_logistic_regression`, `global_fit`). `gateToolCall` rewritten. Two-mode segmented control in `BeakerSearchAskHeader`. Design `docs/proposals/beakerbot-review-modes.md`, approved mockup `docs/mockups/beakerbot-review-modes.html`.
+
+### The review-modes gate decision table (SAFETY-CRITICAL, do not weaken)
+
+In `gateToolCall` (`lib/ai/agent-loop.ts`), tested in `lib/ai/__tests__/agent-loop-review-gate.test.ts`:
+1. `!action && !previewable` -> PROCEED (pure read-only).
+2. `destructive` (isDestructive) -> ALWAYS confirm, both modes, even with an approved plan (checked FIRST, never bypassed). This is the hard-stop.
+3. `reviewMode === "step"` -> confirm EVERY action OR previewable step; an approved plan does NOT skip it.
+4. `reviewMode === "plan"`: a previewable non-action tool runs free; an action runs free if `planState.approved`, else a single confirm.
+5. Confirm required but no approver -> decline with the unchanged message.
+
+## Queued / gated (NOT built)
+
+- **Review-modes rich per-step preview block.** The approved mockup shows a rich block per step (label, inputs, a live preview where cheap, like the wrangle_table card). It is NOT built. Previews currently ride the EXISTING approval card via each previewable tool's sync `describeAction` (`describeRunAnalysis`, `describeCompareModels`, `describeMakeGraph`, `describeMultipleRegression`, `describeLogisticRegression`, `describeGlobalFit`, all one-line summaries). The rich-block rendering is the next build and needs Grant's :3000 (cannot be unit-verified). Open mockup question Grant should still confirm: whole-plan renders each result inline as it runs (the mockup assumes yes).
+- **Top-nav pill removal.** `BeakerSearchPill` still renders in `AppShell` with a `TODO(beakerai)`. Removing it touches the contended top-nav surface the global-nav-slimming session owns. Sequence it with that session, do not edit `AppShell`'s top bar head-on.
+- **`run_dose_response` single-curve tool (OFFERED, not built).** The family has compare/logistic/multiple/global but no standalone single-curve dose-response fit (the "fit a 4PL, give me the EC50/IC50" intent). It fits the same single-Y XY mold as logistic; a small tool if Grant / Data v2 want it.
+
+## Coordination state with Data v2
+
+Theme 2 is DONE on both sides (dose-response engine + compare_models + logistic + multiple + global_fit, every one with a tool). Data v2 has nothing pending. Incoming: **Theme 3** (survival + repeated-measures, Cox PH / Gehan-Breslow / RM-ANOVA / mixed-effects) and **Theme 4** (diagnostics, ROUT/Grubbs outliers / QQ-residual plots / ROC). Data v2 relays each new AnalysisType + its `Normalized...` result shape + the `inputs`/`params` convention as it lands; apply the same tool-vs-planner fork: single-table fixed-input analyses (outlier flaggers, ROC, diagnostics) are thin single-table tools or the planner path; richer-input ones (Cox PH with time+event+covariates, RM-ANOVA with within/between factors + subject id) want their own predictors-to-spec tool like multiple regression / global fit.
+
+## Traps reaffirmed this session (IMPORTANT)
+
+- **The shared `main` checkout is contended the WHOLE time** by parallel sessions (HEAD moved 6+ times in single turns). ALWAYS `git rev-parse main` before/after committing. Commit by EXPLICIT pathspec; `git commit -- <paths>` only matches TRACKED files, so NEW files silently skip (a commit aborted on that this session, landed nothing). For new files, `git add <paths>` first, THEN commit. A pathspec-commit that errors can abort entirely while HEAD shows a parallel session's commit, verify your sha after.
+- **Bash cwd persists across calls.** A `cd frontend` earlier made a later root-relative `git` command fail (looked for `frontend/frontend/...`). `cd /Users/gnickles/Desktop/ResearchOS` at the start of git commands.
+- **Sub-bot worktrees anchor on a base that drifts.** The review-modes bot branched before `global_fit` landed and its `git merge main` did not pick it up cleanly, so it shipped without `global_fit` previewable + describeAction (added in `35743e1d7` during integration). When a bot reports "X does not exist," check whether X landed AFTER its base. To integrate a behind-main bot branch, `git merge` it INTO main (3-way preserves both); do NOT merge the branch's stale state over newer main.
+- **Mock-completeness break.** `experiment-tools` now imports `method-catalog`, whose `DEFAULT_DEPS` eagerly references `methodsApi`/`pcrApi`/etc at module load. Any test that `vi.mock`s `@/lib/local-api` and transitively imports the tool chain must define those exports or the suite fails to LOAD (caught `BeakerBotConversation.test.tsx`, fixed `7b6ab99aa`). Run a BROAD `vitest run src/lib/ai src/components/ai` after any tool-import change, not just the touched file's test.
+- **Foreign `providers.tsx` WIP** (`SPLASH_SEEN_KEY` deleted but still used) was reding the shared `tsc` / `:3000` build for much of the session (not ours, likely the splash/onboarding session). It cleared by the review-modes merge time. If it reappears, it blocks Grant's :3000 visual verification of all the UI work above.
+- **icon-guard** blocks NEW inline `<svg>` under `frontend/src`. Reuse the `<Icon>` registry or `<BeakerBot>`. `cherry-pick` skips the hook; a direct `commit` runs it.
+
+## Verification owed (NONE browser-verified by the orchestrator)
+
+All of the above is gate-verified only (tsc 0 tree-wide, `vitest run src/lib/ai src/components/ai` = 692 pass). Grant's :3000 pass owes: the mascot swap at real size, the bottom-center ask bar, and review modes end to end (the header toggle + the step-by-step preview/confirm flow). The review-modes rich-block build, when done, gets the post-redesign verifier loop.
+
+## Memory + docs
+
+Recall: `[[project_ai_assistant]]`, `[[project_beakerbot_context_index]]`, `[[project_datahub_v2_stats]]`, `[[project_ai_billing_build]]`, `[[feedback_mascot_is_beakerbot]]`. Design docs: `docs/proposals/beakerbot-review-modes.md`, `beakersearch-home-bottom-bar.md`, `beakerbot-mascot-icon-swap.md`. Mockups: `docs/mockups/beakerbot-review-modes.html`, `beakersearch-home-comparison.html`.
