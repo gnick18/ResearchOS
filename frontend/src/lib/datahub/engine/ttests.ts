@@ -9,10 +9,56 @@ import ttest2 from "@stdlib/stats-ttest2";
 import ttest from "@stdlib/stats-ttest";
 import wilcoxon from "@stdlib/stats-wilcoxon";
 
-import { normalPValue, tCritTwoSided, tPValue } from "./dists";
+import {
+  noncentralTDeltaForCdf,
+  normalPValue,
+  tCritTwoSided,
+  tPValue,
+} from "./dists";
 import { describeUnsafe } from "./descriptive";
 import type { Descriptives, EngineResult, Tail, TTestResult } from "./types";
 import { clean, mean as meanOf, rankWithTies, sampleVariance, sum } from "./util";
+
+/**
+ * Hedges' small-sample bias correction applied to Cohen's d. For two groups the
+ * correction factor is J = 1 - 3 / (4 * (na + nb) - 9), so g = J * d. This is
+ * the standard fix because Cohen's d slightly overstates the population effect
+ * at small n; Hedges' g is the less biased estimate.
+ */
+function hedgesG(d: number, na: number, nb: number): number {
+  if (!Number.isFinite(d)) return NaN;
+  const j = 1 - 3 / (4 * (na + nb) - 9);
+  return j * d;
+}
+
+/**
+ * 95% confidence interval for a standardized two-group effect size (Cohen's d or
+ * Hedges' g) via the noncentral t pivot. The observed t statistic follows a
+ * noncentral t with noncentrality delta = effect / sqrt(1/na + 1/nb); inverting
+ * the noncentral t CDF at 0.975 and 0.025 for delta and dividing back by the
+ * same scale gives the interval. The scale `s` is sqrt(1/na + 1/nb) so the
+ * caller passes the effect on the d/g scale and gets a d/g-scale interval. When
+ * a g interval is wanted, multiply the d interval bounds by the Hedges J factor
+ * (the noncentral pivot is built on d, and g is a fixed rescaling of d).
+ * Returns null when df is not finite (the nonparametric tests).
+ */
+function standardizedEffectCI(
+  d: number,
+  na: number,
+  nb: number,
+  df: number,
+): [number, number] | null {
+  if (!Number.isFinite(d) || !Number.isFinite(df) || df <= 0) return null;
+  const scale = Math.sqrt(1 / na + 1 / nb);
+  if (!(scale > 0)) return null;
+  // The observed t equals d / scale; solve for the delta values that put this
+  // t at the 0.975 and 0.025 CDF points, then rescale to the effect-size axis.
+  const tObs = d / scale;
+  const deltaHi = noncentralTDeltaForCdf(0.025, tObs, df);
+  const deltaLo = noncentralTDeltaForCdf(0.975, tObs, df);
+  if (!Number.isFinite(deltaLo) || !Number.isFinite(deltaHi)) return null;
+  return [deltaLo * scale, deltaHi * scale];
+}
 
 export interface UnpairedOptions {
   tail?: Tail;
@@ -52,6 +98,14 @@ export function unpairedTTest(
   const label =
     variance === "equal" ? "Student's two-sample t-test" : "Welch's t-test";
 
+  const d = cohensD(a, b);
+  // The standardized-effect CI uses the pooled df (na + nb - 2), the convention
+  // pingouin / the noncentral-t method use even for the Welch test, since the
+  // standardized effect is defined on the pooled SD.
+  const pooledDf = a.length + b.length - 2;
+  const dCI = standardizedEffectCI(d, a.length, b.length, pooledDf);
+  const g = hedgesG(d, a.length, b.length);
+
   return {
     ok: true,
     test: label,
@@ -59,8 +113,10 @@ export function unpairedTTest(
     df: out.df,
     pValue: out.pValue,
     tail,
-    effectSize: cohensD(a, b),
+    effectSize: d,
     effectSizeLabel: "Cohen's d",
+    hedgesG: g,
+    effectSizeCI95: dCI,
     ci95: out.ci,
     groupA: describeUnsafe(a),
     groupB: describeUnsafe(b),
@@ -182,6 +238,9 @@ export function unpairedTTestFromStats(
   // Cohen's d from the pooled SD of the two summaries.
   const pooledSD = Math.sqrt(((n1 - 1) * v1 + (n2 - 1) * v2) / (n1 + n2 - 2));
   const effectSize = pooledSD === 0 ? NaN : meanDiff / pooledSD;
+  const pooledDf = n1 + n2 - 2;
+  const effectSizeCI95 = standardizedEffectCI(effectSize, n1, n2, pooledDf);
+  const g = hedgesG(effectSize, n1, n2);
 
   return {
     ok: true,
@@ -192,6 +251,8 @@ export function unpairedTTestFromStats(
     tail,
     effectSize,
     effectSizeLabel: "Cohen's d",
+    hedgesG: g,
+    effectSizeCI95,
     ci95,
     groupA: descriptivesFromStats(mean1, sd1, n1),
     groupB: descriptivesFromStats(mean2, sd2, n2),
@@ -213,12 +274,31 @@ export function pairedTTest(
   }
   const tail: Tail = options.tail ?? "two-sided";
   const diffs = a.map((v, i) => v - b[i]);
+  const nPairs = diffs.length;
 
   // Paired t test is a one-sample t test on the differences vs mu = 0.
   const out = ttest(diffs, { alternative: tail });
 
   // Effect size: Cohen's d_z = mean(diff) / sd(diff).
   const dz = out.mean / Math.sqrt(sampleVariance(diffs));
+
+  // Standardized-effect CI for the paired case via the noncentral t pivot. Here
+  // t = d_z * sqrt(n) follows a noncentral t with df = n - 1 and noncentrality
+  // delta = d_z_pop * sqrt(n), so the scale that maps t back to d_z is
+  // 1 / sqrt(n). Hedges' g uses the same (na + nb) = 2n correction so the J
+  // factor is built on the pooled-sample size convention pingouin applies to
+  // the paired d as well.
+  const dzScale = 1 / Math.sqrt(nPairs);
+  const tObs = Number.isFinite(dz) ? dz / dzScale : NaN;
+  let effectSizeCI95: [number, number] | null = null;
+  if (Number.isFinite(tObs) && out.df > 0) {
+    const deltaHi = noncentralTDeltaForCdf(0.025, tObs, out.df);
+    const deltaLo = noncentralTDeltaForCdf(0.975, tObs, out.df);
+    if (Number.isFinite(deltaLo) && Number.isFinite(deltaHi)) {
+      effectSizeCI95 = [deltaLo * dzScale, deltaHi * dzScale];
+    }
+  }
+  const g = hedgesG(dz, nPairs, nPairs);
 
   return {
     ok: true,
@@ -229,6 +309,8 @@ export function pairedTTest(
     tail,
     effectSize: dz,
     effectSizeLabel: "Cohen's dz",
+    hedgesG: g,
+    effectSizeCI95,
     ci95: out.ci,
     groupA: describeUnsafe(a),
     groupB: describeUnsafe(b),
@@ -299,6 +381,10 @@ export function mannWhitneyU(
     tail,
     effectSize: rRankBiserial,
     effectSizeLabel: "rank-biserial r",
+    // A rank test has no parametric standardized d, so g and a noncentral-t CI
+    // are not defined; rank-biserial r above is the honest effect size here.
+    hedgesG: null,
+    effectSizeCI95: null,
     ci95: null,
     groupA: describeUnsafe(a),
     groupB: describeUnsafe(b),
@@ -351,6 +437,10 @@ export function wilcoxonSignedRank(
     tail,
     effectSize: rRankBiserial,
     effectSizeLabel: "rank-biserial r",
+    // A rank test has no parametric standardized d, so g and a noncentral-t CI
+    // are not defined; the matched-pairs rank-biserial r above is the effect.
+    hedgesG: null,
+    effectSizeCI95: null,
     ci95: null,
     groupA: describeUnsafe(a),
     groupB: describeUnsafe(b),

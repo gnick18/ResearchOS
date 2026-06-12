@@ -52,6 +52,16 @@ export function resultToText(result: NormalizedResult): string {
           ),
         );
       }
+      if (result.kind === "anova" && result.effectSize) {
+        const es = result.effectSize;
+        lines.push("", row(es.label, n(es.etaSquared, 4)));
+        if (es.etaSquaredCI95) {
+          lines.push(row(`95% CI of ${es.label}`, ci(es.etaSquaredCI95)));
+        }
+        if (es.omegaSquared !== null && Number.isFinite(es.omegaSquared)) {
+          lines.push(row("omega-squared", n(es.omegaSquared, 4)));
+        }
+      }
       if (result.comparisons.length > 0) {
         lines.push("", row("Comparison", "Mean diff", "Adj. p"));
         for (const c of result.comparisons) {
@@ -84,6 +94,8 @@ export function resultToText(result: NormalizedResult): string {
         row("Method", result.method === "spearman" ? "Spearman rank" : "Pearson"),
         row(`Coefficient (${result.coefficientLabel})`, n(result.coefficient, 4)),
         row("95% CI", ci(result.ci95)),
+        row("R-squared", n(result.rSquared, 4)),
+        row("95% CI of R-squared", ci(result.rSquaredCI95)),
         row("t", n(result.statistic, 4)),
         row("df", n(result.df, 0)),
         row("p", formatP(result.pValue)),
@@ -127,6 +139,14 @@ export function resultToText(result: NormalizedResult): string {
         lines.push(row("95% CI of difference", ci(result.ci95)));
       }
       lines.push(row(result.effectSizeLabel, n(result.effectSize, 4)));
+      if (result.effectSizeCI95) {
+        lines.push(
+          row(`95% CI of ${result.effectSizeLabel}`, ci(result.effectSizeCI95)),
+        );
+      }
+      if (result.hedgesG !== null && Number.isFinite(result.hedgesG)) {
+        lines.push(row("Hedges' g", n(result.hedgesG, 4)));
+      }
       break;
     }
   }

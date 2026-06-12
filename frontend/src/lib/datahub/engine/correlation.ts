@@ -37,6 +37,26 @@ function fisherCI(r: number, n: number): [number, number] {
   return [Math.tanh(z - zCrit * se), Math.tanh(z + zCrit * se)];
 }
 
+/**
+ * 95% CI of the coefficient of determination r^2. r^2 is a monotone transform
+ * of |r| on each side of zero, so we square the Fisher-z CI bounds of r and sort
+ * them. When the coefficient interval straddles zero the smallest |bound| is
+ * zero in r^2 terms, so the lower r^2 bound is clamped to 0 (r^2 cannot be
+ * negative). Returns [NaN, NaN] when the coefficient CI is undefined.
+ */
+function rSquaredCIFromCoefCI(
+  coefCI: [number, number],
+): [number, number] {
+  const [lo, hi] = coefCI;
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return [NaN, NaN];
+  const sqLo = lo * lo;
+  const sqHi = hi * hi;
+  const straddlesZero = lo <= 0 && hi >= 0;
+  const lower = straddlesZero ? 0 : Math.min(sqLo, sqHi);
+  const upper = Math.max(sqLo, sqHi);
+  return [lower, upper];
+}
+
 function pairClean(
   x: ArrayLike<number>,
   y: ArrayLike<number>,
@@ -80,6 +100,7 @@ export function pearson(
     Math.abs(r) >= 1 ? Infinity : r * Math.sqrt(df / (1 - r * r));
   const pValue = Math.abs(r) >= 1 ? 0 : tPValue(t, df, "two-sided");
 
+  const ci95 = fisherCI(r, n);
   return {
     ok: true,
     method: "pearson",
@@ -88,7 +109,9 @@ export function pearson(
     statistic: t,
     df,
     pValue,
-    ci95: fisherCI(r, n),
+    ci95,
+    rSquared: r * r,
+    rSquaredCI95: rSquaredCIFromCoefCI(ci95),
   };
 }
 
@@ -113,6 +136,8 @@ export function spearman(
     Math.abs(rho) >= 1 ? Infinity : rho * Math.sqrt(df / (1 - rho * rho));
   const pValue = Math.abs(rho) >= 1 ? 0 : tPValue(t, df, "two-sided");
 
+  // Fisher CI is an approximation for Spearman but the conventional reported one.
+  const ci95 = fisherCI(rho, n);
   return {
     ok: true,
     method: "spearman",
@@ -121,7 +146,8 @@ export function spearman(
     statistic: t,
     df,
     pValue,
-    // Fisher CI is an approximation for Spearman but the conventional reported one.
-    ci95: fisherCI(rho, n),
+    ci95,
+    rSquared: rho * rho,
+    rSquaredCI95: rSquaredCIFromCoefCI(ci95),
   };
 }

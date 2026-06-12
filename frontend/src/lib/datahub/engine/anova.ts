@@ -17,17 +17,69 @@ import kruskalTest from "@stdlib/stats-kruskal-test";
 import {
   chiSquarePValue,
   fPValue,
+  noncentralFLambdaForCdf,
   normalPValue,
   studentizedRangePValue,
   tPValue,
 } from "./dists";
 import type {
+  AnovaEffectSize,
   AnovaResult,
   AnovaTableRow,
   EngineResult,
   PairwiseComparison,
 } from "./types";
 import { clean, mean as meanOf, rankWithTies, sum } from "./util";
+
+/**
+ * Omnibus effect size for a one-way ANOVA from its sums of squares.
+ *
+ *   eta-squared    = SS_between / SS_total
+ *   omega-squared  = (SS_between - df_between * MS_within)
+ *                    / (SS_total + MS_within)
+ *
+ * eta-squared is the share of total variance the grouping explains; it is
+ * slightly upward biased, so omega-squared is the less biased estimate of the
+ * population value.
+ *
+ * The 95% CI of eta-squared comes from the noncentral F pivot (Smithson 2001):
+ * invert the noncentral F CDF at the observed F for the noncentrality lambda at
+ * the 0.975 and 0.025 probability points, then map each lambda to eta-squared by
+ *   eta2 = lambda / (lambda + N)
+ * where N is the total sample size. A lambda lower bound of 0 maps to eta2 = 0.
+ */
+function anovaEffectSize(
+  ssBetween: number,
+  ssWithin: number,
+  dfBetween: number,
+  dfWithin: number,
+  msWithin: number,
+  N: number,
+  F: number,
+): AnovaEffectSize {
+  const ssTotal = ssBetween + ssWithin;
+  const etaSquared = ssTotal > 0 ? ssBetween / ssTotal : NaN;
+  const omegaSquared =
+    ssTotal + msWithin > 0
+      ? (ssBetween - dfBetween * msWithin) / (ssTotal + msWithin)
+      : null;
+
+  let etaSquaredCI95: [number, number] | null = null;
+  if (Number.isFinite(F) && F > 0 && dfBetween > 0 && dfWithin > 0 && N > 0) {
+    const lambdaLo = noncentralFLambdaForCdf(0.975, F, dfBetween, dfWithin);
+    const lambdaHi = noncentralFLambdaForCdf(0.025, F, dfBetween, dfWithin);
+    if (Number.isFinite(lambdaLo) && Number.isFinite(lambdaHi)) {
+      etaSquaredCI95 = [lambdaLo / (lambdaLo + N), lambdaHi / (lambdaHi + N)];
+    }
+  }
+
+  return {
+    label: "eta-squared",
+    etaSquared,
+    omegaSquared,
+    etaSquaredCI95,
+  };
+}
 
 export type PostHocMethod =
   | "tukey"
@@ -179,6 +231,15 @@ export function oneWayAnova(
     statistic: omni.statistic,
     pValue: omni.pValue,
     comparisons: comparisons.value,
+    effectSize: anovaEffectSize(
+      ssBetween,
+      ssWithin,
+      dfBetween,
+      dfWithin,
+      msWithin,
+      N,
+      F,
+    ),
   };
 }
 
@@ -384,6 +445,15 @@ export function oneWayAnovaFromStats(
     pValue,
     // Post-hoc comparisons are not computable from summary stats (see doc above).
     comparisons: [],
+    effectSize: anovaEffectSize(
+      ssBetween,
+      ssWithin,
+      dfBetween,
+      dfWithin,
+      msWithin,
+      N,
+      F,
+    ),
   };
 }
 
@@ -560,6 +630,10 @@ export function twoWayAnova(
     statistic: interaction.f ?? NaN,
     pValue: interaction.pValue ?? NaN,
     comparisons,
+    // A single omnibus effect size is ambiguous for a two-factor design (each
+    // effect would need its own partial eta-squared). E1 scopes effect sizes to
+    // the one-way ANOVA, so the two-way table reports none here.
+    effectSize: null,
   };
 }
 
@@ -665,6 +739,22 @@ export function kruskalWallis(
     alpha,
   );
 
+  // Epsilon-squared is the rank analogue of eta-squared for Kruskal-Wallis. A
+  // rank test has no sums of squares, so there is no parametric eta / omega and
+  // no noncentral-F CI; we report epsilon-squared in etaSquared with an honest
+  // label and leave omega-squared and the CI null.
+  //   epsilon-squared = H * (N + 1) / (N^2 - 1)
+  // Reference: Tomczak & Tomczak (2014), "The need to report effect size
+  // estimates revisited".
+  const epsilonSquared =
+    N > 1 ? (Hcorr * (N + 1)) / (N * N - 1) : NaN;
+  const effectSize: AnovaEffectSize = {
+    label: "epsilon-squared",
+    etaSquared: epsilonSquared,
+    omegaSquared: null,
+    etaSquaredCI95: null,
+  };
+
   return {
     ok: true,
     test: "Kruskal-Wallis",
@@ -672,6 +762,7 @@ export function kruskalWallis(
     statistic: Hcorr,
     pValue,
     comparisons,
+    effectSize,
   };
 }
 
@@ -762,5 +853,8 @@ export function friedman(
     statistic: stat,
     pValue,
     comparisons: comps,
+    // Kendall's W would be the matching effect size for Friedman, but E1 scopes
+    // omnibus effect sizes to one-way ANOVA and Kruskal-Wallis, so none here.
+    effectSize: null,
   };
 }

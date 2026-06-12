@@ -185,6 +185,9 @@ declare module "jstat" {
   }
   interface JStatStatic {
     tukey: TukeyNamespace;
+    // Regularized incomplete beta I_x(a, b); the series building block for the
+    // noncentral t and noncentral F CDFs used by the effect-size CIs.
+    ibeta: (x: number, a: number, b: number) => number;
   }
   export const jStat: JStatStatic;
 }
