@@ -1065,6 +1065,12 @@ export default function WelcomePage({
               className="font-bold text-brand-action transition-colors hover:text-brand-ink"
             >
               See how the tokens are priced <span aria-hidden>&rarr;</span>
+            </a>{" "}
+            <a
+              href="/ai"
+              className="font-bold text-brand-action transition-colors hover:text-brand-ink"
+            >
+              See everything BeakerBot can do <span aria-hidden>&rarr;</span>
             </a>
           </p>
         </FeatureRow>

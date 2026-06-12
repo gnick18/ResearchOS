@@ -183,6 +183,15 @@ export default function PricingPage() {
               </p>
             </div>
             <FeatureGrid items={AI_ITEMS} />
+            <p className="mt-6 text-center">
+              <a
+                href="/ai"
+                className="inline-flex items-center gap-1.5 text-body font-bold text-brand-action transition-colors hover:text-brand-ink"
+              >
+                See everything BeakerBot can do{" "}
+                <span aria-hidden>&rarr;</span>
+              </a>
+            </p>
             <p className="mx-auto mt-5 max-w-2xl border-t border-dashed border-border pt-3.5 text-center text-[12px] leading-relaxed text-foreground-muted">
               <b className="text-foreground">Why no final AI prices yet.</b> We
               hold the exact top-up prices until a few real tasks show what they
