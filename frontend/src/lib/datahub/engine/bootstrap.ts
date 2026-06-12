@@ -33,6 +33,16 @@ export interface BootstrapOptions {
   method?: BootstrapMethod;
   /** PRNG seed. A fixed seed makes the CI reproducible and testable. */
   seed?: number;
+  /**
+   * When true, the result carries the full SORTED array of finite resample
+   * statistics in `distribution`. WHY this opt-in flag exists: an estimation
+   * plot (E2) draws the bootstrap sampling distribution as a density / violin,
+   * which needs every resample value, not just the two CI bounds. Keeping the
+   * array out of the default result avoids holding B numbers on every CI a table
+   * footer computes. Off by default, so the result shape is byte-identical to
+   * before this flag existed for every existing caller.
+   */
+  keepDistribution?: boolean;
 }
 
 export interface BootstrapResult {
@@ -46,6 +56,15 @@ export interface BootstrapResult {
   /** Bias-correction z0 and acceleration a (only the BCa path fills these). */
   z0: number | null;
   acceleration: number | null;
+  /**
+   * The full SORTED array of finite resample statistics, present ONLY when the
+   * caller passed keepDistribution. Length is the number of resamples that
+   * produced a finite statistic (at most B). The CI bounds are the requested
+   * percentiles of exactly this array, so an estimation plot drawing the density
+   * from it cannot diverge from the reported CI. Absent (undefined) on every
+   * default-options result, so the shape is unchanged for existing callers.
+   */
+  distribution?: number[];
 }
 
 const DEFAULT_B = 2000;
@@ -221,15 +240,19 @@ export function bootstrapCI(
   const sorted = [...finite].sort((x, y) => x - y);
 
   if (method === "percentile") {
-    return {
-      observed,
-      ci: percentileInterval(sorted, alpha),
-      method,
-      alpha,
-      B,
-      z0: null,
-      acceleration: null,
-    };
+    return withDistribution(
+      {
+        observed,
+        ci: percentileInterval(sorted, alpha),
+        method,
+        alpha,
+        B,
+        z0: null,
+        acceleration: null,
+      },
+      sorted,
+      options.keepDistribution,
+    );
   }
 
   // BCa: compute z0 from the resamples and a from the jackknife, then read off
@@ -243,12 +266,32 @@ export function bootstrapCI(
   // BCa can in rare degenerate cases invert the bounds (heavy acceleration on a
   // tiny sample); order them so the interval is always [low, high].
   const ci: [number, number] = lo <= hi ? [lo, hi] : [hi, lo];
-  return { observed, ci, method, alpha, B, z0, acceleration: a };
+  return withDistribution(
+    { observed, ci, method, alpha, B, z0, acceleration: a },
+    sorted,
+    options.keepDistribution,
+  );
 }
 
 /** Keep an adjusted percentile strictly inside (0, 1) for quantileSorted. */
 function clampProb(p: number): number {
   return Math.min(1 - 1e-9, Math.max(1e-9, p));
+}
+
+/**
+ * Attach the sorted resample distribution to a result when the caller asked for
+ * it. WHY a shared helper: both the one-sample and two-sample paths build the
+ * same `sorted` array, and an estimation plot consumes the identical array the
+ * CI percentiles are read from, so wiring it in one place keeps the two in lock
+ * step. A fresh copy is returned so the caller cannot mutate the internal array.
+ */
+function withDistribution(
+  result: BootstrapResult,
+  sorted: number[],
+  keep: boolean | undefined,
+): BootstrapResult {
+  if (!keep) return result;
+  return { ...result, distribution: [...sorted] };
 }
 
 /**
@@ -290,15 +333,19 @@ export function bootstrapDiffCI(
   const sorted = [...finite].sort((x, y) => x - y);
 
   if (method === "percentile") {
-    return {
-      observed,
-      ci: percentileInterval(sorted, alpha),
-      method,
-      alpha,
-      B,
-      z0: null,
-      acceleration: null,
-    };
+    return withDistribution(
+      {
+        observed,
+        ci: percentileInterval(sorted, alpha),
+        method,
+        alpha,
+        B,
+        z0: null,
+        acceleration: null,
+      },
+      sorted,
+      options.keepDistribution,
+    );
   }
 
   const z0 = biasCorrection(finite, observed);
@@ -308,7 +355,11 @@ export function bootstrapDiffCI(
   const lo = quantileSorted(sorted, clampProb(pLo));
   const hi = quantileSorted(sorted, clampProb(pHi));
   const ci: [number, number] = lo <= hi ? [lo, hi] : [hi, lo];
-  return { observed, ci, method, alpha, B, z0, acceleration: a2 };
+  return withDistribution(
+    { observed, ci, method, alpha, B, z0, acceleration: a2 },
+    sorted,
+    options.keepDistribution,
+  );
 }
 
 /**
