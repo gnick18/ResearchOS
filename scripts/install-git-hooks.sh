@@ -9,9 +9,11 @@
 #   1. Icon ratchet guard  - blocks a NEW inline <svg> under frontend/src.
 #   2. Credits self-heal    - when package.json changes, regenerate + stage the
 #                             open-source credits so committed NOTICES never drift.
+#   3. Privacy guard        - blocks staging business/financial/personal info into
+#                             this PUBLIC repo (EIN/SSN patterns + a local denylist).
 #
-# Both checks live in TRACKED scripts; this hook is just the trigger. Both fail
-# OPEN so a tooling hiccup never wedges a commit.
+# All checks live in TRACKED scripts; this hook is just the trigger. They fail
+# OPEN on a tooling hiccup so it never wedges a commit (privacy guard exit 2).
 
 set -euo pipefail
 
@@ -45,6 +47,16 @@ if printf '%s\n' "$staged" | grep -qE '(^|/)package\.json$'; then
   selfheal="$root/scripts/credits-precommit.mjs"
   if [ -f "$selfheal" ]; then
     node "$selfheal" || true   # fails open by design
+  fi
+fi
+
+# --- 3. Privacy guard (the repo is PUBLIC; runs on every staged file) ----------
+if [ -n "$staged" ]; then
+  privacy="$root/scripts/privacy-guard-precommit.mjs"
+  if [ -f "$privacy" ]; then
+    node "$privacy"
+    # 1 = sensitive content staged; block. 0 clean / 2 tooling error = allow.
+    [ "$?" -eq 1 ] && exit 1
   fi
 fi
 

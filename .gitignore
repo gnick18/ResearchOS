@@ -75,3 +75,8 @@ scripts/activity-report/_commit-data.json
 scripts/activity-report/_batches/
 scripts/activity-report/_agent-map.json
 scripts/activity-report/_milestones_block.txt
+
+# Privacy guard local denylist (repo is public): the specific sensitive terms
+# the pre-commit privacy-guard catches (bank/brokerage names, address, etc.).
+# Kept local so the denylist itself never lands in the public repo.
+.privacy-denylist
