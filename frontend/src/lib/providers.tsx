@@ -955,11 +955,24 @@ export function Providers({ children }: { children: ReactNode }) {
             tab). Replaces the old loud always-on banner so the demo reads
             like a real lab; suppressed in wiki-capture and recording modes. */}
         <DemoEntryCue />
-        <FloatingLeaveDemoButton />
-        {/* Demo-only: flip the fixture identity between Alex (member) and
-            Mira (lab head) so the PI-dashboard welcome clip can be recorded.
-            Renders only inside /demo, never in real use or wiki capture. */}
-        <DemoViewAsButton />
+        {/* Demo-mode floating affordances, grouped as ONE right-aligned column
+            anchored ABOVE the bottom-right FAB dock (AppShell mounts the
+            calculator / feedback circles at `bottom-6 right-6`) so the pills
+            never overlap those buttons. Each pill is position-agnostic now;
+            this wrapper owns the placement. `pb-14` lifts the column clear of
+            the 48px-tall dock, and the pointer-events pair keeps the empty
+            wrapper from eating clicks when no pill is shown. DemoViewAsButton +
+            the docs link render only inside /demo; Leave also shows pre-login,
+            where there is no dock and the column simply floats a touch higher. */}
+        <div className="fixed bottom-6 right-6 z-[60] flex flex-col items-end gap-2 pb-14 pointer-events-none [&>*]:pointer-events-auto">
+          {/* Demo-only: open the wiki page for the current view. */}
+          <OpenDocsButton />
+          {/* Demo-only: flip the fixture identity between Alex (member) and
+              Mira (lab head) so the PI-dashboard welcome clip can be recorded.
+              Renders only inside /demo, never in real use or wiki capture. */}
+          <DemoViewAsButton />
+          <FloatingLeaveDemoButton />
+        </div>
         {/* Dev-only one-click clean-slate session. Mounted here (Providers
             level, above AppContent) like FloatingLeaveDemoButton so it shows on
             the pre-login connect / picker / login surfaces, not just the
@@ -970,7 +983,6 @@ export function Providers({ children }: { children: ReactNode }) {
         {/* Dev-only: rerun ./start.sh to restart the dev server without the
             terminal. Mounted here so it floats on every surface in dev. */}
         <DevRestartServerButton />
-        <OpenDocsButton />
         {/* Global host for fire-and-forget easter-egg scenes (BugStomp,
             etc.). Mounted at this level — above AppContent — so the
             scene can fire from pre-login surfaces (UserLoginScreen has
