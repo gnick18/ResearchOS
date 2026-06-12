@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { fileService } from "@/lib/file-system/file-service";
 import BetaNotice from "@/components/BetaNotice";
+import { IntroBubbleBot } from "@/components/onboarding/oauth-first/IntroBubbleBot";
 import { useTheme } from "@/lib/theme/use-theme";
 import type { LoadingStage } from "@/lib/file-system/file-system-context";
 
@@ -121,8 +122,11 @@ export default function StagedLoadingScreen({
       />
 
       <div className="relative max-w-xl w-full mx-4 text-center">
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-brand-sky to-brand-purple shadow-lg mb-6">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-white"></div>
+        {/* The bubbling BeakerBot is the brand loading mark (Grant 2026-06-11),
+            in place of the old gradient-square spinner. It loops, so it fits any
+            load duration, and the progress bar below still signals real motion. */}
+        <div className="mb-6 flex justify-center">
+          <IntroBubbleBot size="lg" />
         </div>
 
         {/* Indeterminate progress bar that runs on the compositor thread so it
