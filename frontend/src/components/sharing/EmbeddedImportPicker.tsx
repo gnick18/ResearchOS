@@ -4,8 +4,11 @@
 // bundle. For each item the row shows what will happen on import:
 //
 //   "linked"          -- the recipient already has the same object (dedup via
-//                        resolveByPortableId matched). Read-only "Link existing"
-//                        badge. No destination control.
+//                        resolveByPortableId matched). Default state. Shows a
+//                        "Link existing / Import a fresh copy" toggle. When the
+//                        recipient switches to "Import a fresh copy", the href
+//                        enters forceImportHrefs and (for collection types) a
+//                        destination dropdown appears.
 //   "snapshot"        -- a Data Hub snapshot (dataKind === "snapshot"). Read-only
 //                        "Kept as frozen result snapshot" label.
 //   "not-included"    -- a file type (deferred). Read-only "Not included" label.
@@ -17,11 +20,10 @@
 //                        do not file into a collection).
 //
 // The component calls onChange once after the initial dedup pass resolves, and
-// again whenever any destination dropdown changes. The emitted
-// destinationByHref map follows the ImportEmbeddedObjectsOpts contract: hrefs
-// for items in the "Shared by <sender>" default sentinel are OMITTED (so the
-// import's default-collection path runs); hrefs explicitly assigned to one of
-// the recipient's existing collections carry { projectId }.
+// again whenever any choice or destination dropdown changes. The emitted result
+// carries both maps in one object:
+//   destinationByHref -- per-item collection overrides (sentinel default = omit)
+//   forceImportHrefs  -- hrefs the recipient switched to "import fresh" on a dup
 //
 // House voice: no em-dashes, no emojis, no mid-sentence colons.
 
@@ -68,7 +70,7 @@ const TYPE_LABEL: Record<ObjectRefType, string> = {
 
 type RowKind =
   | "resolving"        // dedup check in progress
-  | "linked"           // portableId matched an existing local object
+  | "linked"           // portableId matched an existing local object (default: link)
   | "snapshot"         // datahub snapshot (frozen, not recreated)
   | "not-included"     // file type (deferred)
   | "import-filed"     // fresh molecule / sequence / datahub full (collection dropdown)
@@ -101,7 +103,20 @@ function classifyRow(
   return "import-unfiled";
 }
 
+/** Whether this type supports filing into a collection (project_ids). */
+function supportsCollection(type: ObjectRefType): boolean {
+  return type === "molecule" || type === "sequence" || type === "datahub";
+}
+
 // ── Props ─────────────────────────────────────────────────────────────────────
+
+/** The result emitted by the picker on every change. */
+export interface EmbeddedImportPickerResult {
+  /** Per-item destination collection overrides. Omitted hrefs use the default. */
+  destinationByHref: Map<string, ImportDestination>;
+  /** Hrefs the recipient switched from "Link existing" to "Import a fresh copy". */
+  forceImportHrefs: Set<string>;
+}
 
 export interface EmbeddedImportPickerProps {
   embeddedObjects: BundleEmbeddedObject[];
@@ -109,19 +124,19 @@ export interface EmbeddedImportPickerProps {
   /** Used to label the default destination: "Shared by <senderLabel>". */
   senderLabel: string;
   /**
-   * Called once after the initial dedup pass resolves (with the default map,
-   * which may be empty if all items use the sentinel default or link existing),
-   * and again whenever a destination dropdown changes.
+   * Called once after the initial dedup pass resolves (with the default result,
+   * which has empty maps since all items use sentinel defaults on first render),
+   * and again whenever a choice or destination dropdown changes.
    */
-  onChange: (destinationByHref: Map<string, ImportDestination>) => void;
+  onChange: (result: EmbeddedImportPickerResult) => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 /**
  * Pre-import picker that classifies each embedded object and lets the recipient
- * choose a destination collection for fresh imports. Dedup hints run on mount
- * via resolveByPortableId (parallel, one-time check per item).
+ * choose a destination collection for fresh imports, and optionally override a
+ * duplicate row to import a fresh copy instead of linking the existing one.
  */
 export function EmbeddedImportPicker({
   embeddedObjects,
@@ -143,6 +158,11 @@ export function EmbeddedImportPicker({
   const [destinationByHref, setDestinationByHref] = useState<
     Map<string, ImportDestination>
   >(new Map());
+
+  // Hrefs on which the recipient switched a dup row to "import fresh".
+  const [forceImportHrefs, setForceImportHrefs] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Collections available to the recipient for the destination dropdowns.
   const [collections, setCollections] = useState<Project[]>([]);
@@ -178,7 +198,7 @@ export function EmbeddedImportPicker({
       // Nothing to check. Fire initial onChange immediately.
       if (!initialFiredRef.current) {
         initialFiredRef.current = true;
-        onChange(new Map());
+        onChange({ destinationByHref: new Map(), forceImportHrefs: new Set() });
       }
       return;
     }
@@ -208,9 +228,9 @@ export function EmbeddedImportPicker({
       });
       if (!initialFiredRef.current) {
         initialFiredRef.current = true;
-        // Initial map is empty (all use sentinel default) since the user has
-        // not yet changed any dropdown.
-        onChange(new Map());
+        // Initial result has empty maps (all use sentinel defaults, all dups
+        // use the default link behavior).
+        onChange({ destinationByHref: new Map(), forceImportHrefs: new Set() });
       }
     });
 
@@ -228,24 +248,53 @@ export function EmbeddedImportPicker({
     for (const obj of embeddedObjects) {
       const isDup = isDupMap.get(obj.href) ?? false;
       const kind = classifyRow(obj, isDupMap.has(obj.href) ? isDup : null);
-      if (kind === "linked") links++;
+      if (kind === "linked") {
+        // A dup switched to "import fresh" counts as an import, not a link.
+        if (forceImportHrefs.has(obj.href)) {
+          imports++;
+        } else {
+          links++;
+        }
+      }
       if (kind === "import-filed" || kind === "import-unfiled") imports++;
     }
     return { importCount: imports, linkCount: links };
-  }, [embeddedObjects, isDupMap]);
+  }, [embeddedObjects, isDupMap, forceImportHrefs]);
 
-  // ── Dropdown change handler ────────────────────────────────────────────────
+  // ── Destination dropdown change handler ───────────────────────────────────
 
   function handleDestinationChange(href: string, projectId: string | null) {
     setDestinationByHref((prev) => {
       const next = new Map(prev);
       if (projectId === null) {
-        // Sentinel default selected: omit this href from the map.
         next.delete(href);
       } else {
         next.set(href, { projectId });
       }
-      onChange(next);
+      onChange({ destinationByHref: next, forceImportHrefs });
+      return next;
+    });
+  }
+
+  // ── Dup-row choice handler ────────────────────────────────────────────────
+
+  function handleDupChoiceChange(href: string, importFresh: boolean) {
+    setForceImportHrefs((prev) => {
+      const next = new Set(prev);
+      if (importFresh) {
+        next.add(href);
+      } else {
+        next.delete(href);
+        // When switching back to "link existing", clear any destination
+        // override set for this href (it would go unused).
+        setDestinationByHref((prevDest) => {
+          if (!prevDest.has(href)) return prevDest;
+          const nextDest = new Map(prevDest);
+          nextDest.delete(href);
+          return nextDest;
+        });
+      }
+      onChange({ destinationByHref, forceImportHrefs: next });
       return next;
     });
   }
@@ -274,77 +323,124 @@ export function EmbeddedImportPicker({
           const icon = TYPE_ICON[obj.type] ?? ("file" as IconName);
           const typeLabel = TYPE_LABEL[obj.type] ?? obj.type;
           const destination = destinationByHref.get(obj.href) ?? null;
+          const isForceImport = forceImportHrefs.has(obj.href);
 
           return (
             <li
               key={obj.href}
-              className="flex items-center gap-3 px-3 py-2.5 min-h-0"
+              className="flex flex-col gap-1.5 px-3 py-2.5 min-h-0"
             >
-              {/* Type icon */}
-              <Tooltip label={typeLabel}>
-                <span className="shrink-0 text-foreground-muted">
-                  <Icon name={icon} className="h-4 w-4" />
-                </span>
-              </Tooltip>
+              {/* Top row: icon + name + status/control */}
+              <div className="flex items-center gap-3">
+                {/* Type icon */}
+                <Tooltip label={typeLabel}>
+                  <span className="shrink-0 text-foreground-muted">
+                    <Icon name={icon} className="h-4 w-4" />
+                  </span>
+                </Tooltip>
 
-              {/* Name */}
-              <span
-                className="flex-1 min-w-0 text-body text-foreground truncate"
-                title={obj.name}
-              >
-                {obj.name || typeLabel}
-              </span>
-
-              {/* Status / destination control */}
-              {kind === "resolving" && (
-                <span className="text-meta text-foreground-muted shrink-0">
-                  Checking
-                </span>
-              )}
-
-              {kind === "linked" && (
-                <span className="text-meta text-emerald-600 dark:text-emerald-300 shrink-0 font-medium">
-                  Link existing
-                </span>
-              )}
-
-              {kind === "snapshot" && (
-                <span className="text-meta text-foreground-muted shrink-0">
-                  Kept as frozen result snapshot
-                </span>
-              )}
-
-              {kind === "not-included" && (
-                <span className="text-meta text-foreground-muted shrink-0">
-                  Not included
-                </span>
-              )}
-
-              {kind === "import-unfiled" && (
-                <span className="text-meta text-foreground-muted shrink-0">
-                  Import fresh
-                </span>
-              )}
-
-              {kind === "import-filed" && (
-                <select
-                  aria-label={`Destination for ${obj.name || typeLabel}`}
-                  value={destination?.projectId ?? ""}
-                  onChange={(e) =>
-                    handleDestinationChange(
-                      obj.href,
-                      e.target.value === "" ? null : e.target.value,
-                    )
-                  }
-                  className="shrink-0 text-meta text-foreground bg-surface-raised border border-border rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[160px]"
+                {/* Name */}
+                <span
+                  className="flex-1 min-w-0 text-body text-foreground truncate"
+                  title={obj.name}
                 >
-                  <option value="">{defaultLabel}</option>
-                  {collections.map((col) => (
-                    <option key={col.id} value={String(col.id)}>
-                      {col.name}
-                    </option>
-                  ))}
-                </select>
+                  {obj.name || typeLabel}
+                </span>
+
+                {/* Status / destination control */}
+                {kind === "resolving" && (
+                  <span className="text-meta text-foreground-muted shrink-0">
+                    Checking
+                  </span>
+                )}
+
+                {kind === "linked" && (
+                  <span className="shrink-0">
+                    <select
+                      aria-label={`Import choice for ${obj.name || typeLabel}`}
+                      value={isForceImport ? "fresh" : "link"}
+                      onChange={(e) =>
+                        handleDupChoiceChange(obj.href, e.target.value === "fresh")
+                      }
+                      className="text-meta text-foreground bg-surface-raised border border-border rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="link">Link existing</option>
+                      <option value="fresh">Import a fresh copy</option>
+                    </select>
+                  </span>
+                )}
+
+                {kind === "snapshot" && (
+                  <span className="text-meta text-foreground-muted shrink-0">
+                    Kept as frozen result snapshot
+                  </span>
+                )}
+
+                {kind === "not-included" && (
+                  <span className="text-meta text-foreground-muted shrink-0">
+                    Not included
+                  </span>
+                )}
+
+                {kind === "import-unfiled" && (
+                  <span className="text-meta text-foreground-muted shrink-0">
+                    Import fresh
+                  </span>
+                )}
+
+                {kind === "import-filed" && (
+                  <select
+                    aria-label={`Destination for ${obj.name || typeLabel}`}
+                    value={destination?.projectId ?? ""}
+                    onChange={(e) =>
+                      handleDestinationChange(
+                        obj.href,
+                        e.target.value === "" ? null : e.target.value,
+                      )
+                    }
+                    className="shrink-0 text-meta text-foreground bg-surface-raised border border-border rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[160px]"
+                  >
+                    <option value="">{defaultLabel}</option>
+                    {collections.map((col) => (
+                      <option key={col.id} value={String(col.id)}>
+                        {col.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Second row: destination dropdown for a dup switched to "import fresh" (collection types only) */}
+              {kind === "linked" && isForceImport && supportsCollection(obj.type) && (
+                <div className="flex items-center gap-3 pl-7">
+                  <select
+                    aria-label={`Destination for fresh copy of ${obj.name || typeLabel}`}
+                    value={destination?.projectId ?? ""}
+                    onChange={(e) =>
+                      handleDestinationChange(
+                        obj.href,
+                        e.target.value === "" ? null : e.target.value,
+                      )
+                    }
+                    className="text-meta text-foreground bg-surface-raised border border-border rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[200px]"
+                  >
+                    <option value="">{defaultLabel}</option>
+                    {collections.map((col) => (
+                      <option key={col.id} value={String(col.id)}>
+                        {col.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Label for non-collection dup types switched to "import fresh" */}
+              {kind === "linked" && isForceImport && !supportsCollection(obj.type) && (
+                <div className="pl-7">
+                  <span className="text-meta text-foreground-muted">
+                    Will import as a new {TYPE_LABEL[obj.type]?.toLowerCase() ?? obj.type}
+                  </span>
+                </div>
               )}
             </li>
           );

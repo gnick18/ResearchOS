@@ -990,15 +990,18 @@ function ReviewImportModal({
     return { title, entries };
   }, [received]);
 
-  // Per-item destination overrides built by EmbeddedImportPicker. Keyed by the
-  // original embed href, value is the recipient's chosen collection projectId.
-  // Hrefs missing from this map use the import layer's default "Shared by
-  // <sender>" collection. Initialized empty (all items use the default on
-  // first render; the picker calls onChange once dedup resolves and again on
-  // each dropdown change).
+  // Per-item destination overrides and force-import overrides built by
+  // EmbeddedImportPicker. destinationByHref is keyed by the original embed href
+  // (value = recipient's chosen collection). forceImportHrefs is the set of
+  // hrefs the recipient switched from "Link existing" to "Import a fresh copy".
+  // Both are initialized empty (all items use the defaults on first render;
+  // the picker calls onChange once dedup resolves and again on each change).
   const [embeddedDestinationByHref, setEmbeddedDestinationByHref] = useState<
     Map<string, { projectId: string }>
   >(new Map());
+  const [embeddedForceImportHrefs, setEmbeddedForceImportHrefs] = useState<
+    Set<string>
+  >(new Set());
 
   const handleImport = useCallback(async () => {
     if (!received) return;
@@ -1032,7 +1035,10 @@ function ReviewImportModal({
           currentUser,
           senderEmail,
           senderFingerprint,
-          embeddedObjectOpts: { destinationByHref: embeddedDestinationByHref },
+          embeddedObjectOpts: {
+            destinationByHref: embeddedDestinationByHref,
+            forceImportHrefs: embeddedForceImportHrefs,
+          },
         },
       );
 
@@ -1341,7 +1347,10 @@ function ReviewImportModal({
                   senderLabel={
                     received.sender?.email ?? senderLabel(item.senderEmailHash)
                   }
-                  onChange={setEmbeddedDestinationByHref}
+                  onChange={({ destinationByHref, forceImportHrefs }) => {
+                    setEmbeddedDestinationByHref(destinationByHref);
+                    setEmbeddedForceImportHrefs(forceImportHrefs);
+                  }}
                 />
               )}
             </>

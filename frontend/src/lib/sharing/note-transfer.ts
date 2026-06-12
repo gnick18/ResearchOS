@@ -275,14 +275,14 @@ export async function importNoteBundle(
     /**
      * Phase 6c. Options for importing the embedded objects that arrived with
      * the bundle. When absent, a default is built from currentUser + senderEmail.
-     * The UI can populate destinationByHref from a per-item picker before calling
-     * importNoteBundle.
+     * The UI can populate destinationByHref and forceImportHrefs from the
+     * EmbeddedImportPicker before calling importNoteBundle.
      *
-     * TODO(Phase 6c follow-up): the per-item picker UI in SharedWithMeTab is
-     * STUBBED. Auto behavior (link dups, file new items into "Shared by <sender>")
-     * is complete. Wire destinationByHref once the picker is built.
+     * destinationByHref: per-item destination collection overrides.
+     * forceImportHrefs: hrefs the recipient explicitly chose to import fresh
+     * instead of linking to an existing local duplicate.
      */
-    embeddedObjectOpts?: Pick<ImportEmbeddedObjectsOpts, "destinationByHref">;
+    embeddedObjectOpts?: Pick<ImportEmbeddedObjectsOpts, "destinationByHref" | "forceImportHrefs">;
   },
 ): Promise<{ noteId: number }> {
   if (!result.valid) {
@@ -330,6 +330,7 @@ export async function importNoteBundle(
       currentUser: opts.currentUser,
       senderLabel: opts.senderEmail,
       destinationByHref: opts.embeddedObjectOpts?.destinationByHref,
+      forceImportHrefs: opts.embeddedObjectOpts?.forceImportHrefs,
     });
 
     // Rewrite embed hrefs in each entry's content so imported/linked objects
