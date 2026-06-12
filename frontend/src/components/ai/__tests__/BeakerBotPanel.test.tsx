@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import BeakerBotPanel from "../BeakerBotPanel";
+import { resetConversationModule } from "@/lib/ai/conversation-store";
 
 // Render + agent-loop pin for the BeakerBot panel. The panel now drives the
 // browser agent loop, which posts to the proxy with stream:false and reads the
@@ -9,11 +10,15 @@ import BeakerBotPanel from "../BeakerBotPanel";
 // to end (the loop calls the proxy twice, runs the tool locally, then renders the
 // final answer), the proxy error surfaces in the panel, assistant markdown renders
 // as HTML elements (bold, lists), and user text is kept as plain text.
+//
+// Isolation note (ai convo-store bot, 2026-06-11): the conversation state is
+// now module-level (Zustand store). Each test must reset it via
+// resetConversationModule() so state from one test never leaks into the next.
 
-// The panel now mounts the navigation bridge (useNavigationBridge), which reads
-// the App Router via next/navigation. There is no router provider in these unit
-// renders, so mock next/navigation with inert stubs. The bridge only registers a
-// handler here, it does not navigate during these tests.
+// The panel now mounts the navigation bridge (useNavigationBridge) and the
+// message bridge (useBeakerBotMessageBridge) inside BeakerBotConversation,
+// which reads the App Router via next/navigation. There is no router provider
+// in these unit renders, so mock next/navigation with inert stubs.
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
@@ -103,10 +108,15 @@ function toolCall(name: string, args: object) {
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  // Reset the module-level conversation store so each test starts with a clean
+  // slate. Without this, a completed conversation from test N leaks messages
+  // into test N+1 because the store is module-scoped, not component-scoped.
+  resetConversationModule();
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
+  resetConversationModule();
 });
 
 describe("BeakerBotPanel", () => {

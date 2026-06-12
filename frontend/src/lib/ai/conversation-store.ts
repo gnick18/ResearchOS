@@ -1,0 +1,369 @@
+// Persistent conversation store for BeakerBot (ai convo-store bot, 2026-06-11).
+//
+// Lifts the conversation state that used to live inside the component-scoped
+// useAiChat hook into a module-level Zustand store. The motivation is Phase 2 of
+// the BeakerSearch v2 redesign, where the SAME conversation must render inside
+// the BeakerSearch palette (a modal that mounts and unmounts) without losing
+// state. A module store survives any component unmount.
+//
+// What is stored here vs on the module level:
+//   - Zustand reactive state (triggers re-renders): messages, sending, status,
+//     error, pendingApproval. These are the fields BeakerBotPanel and
+//     BeakerBotConversation need to render correctly.
+//   - Module-level (non-reactive, must not trigger re-renders): historyStore
+//     (the full loop history with system + tool turns), counterStore (message ID
+//     counter), pendingApprovalRef (the resolver for the in-flight promise).
+//     These are mutable references the send logic updates without needing to
+//     schedule a React render. Using Zustand setState for them would cause
+//     needless re-renders and would not help the consumer.
+//
+// The approval bridge pattern. requestApproval builds a Promise and stores its
+// resolver in the module-level pendingApprovalRef. When the user clicks Allow /
+// Skip / Approve / Cancel, resolveApproval forwards the decision to that
+// resolver. This is identical to the old pendingApprovalRef.current pattern,
+// just module-scoped instead of component-scoped, so it survives remounts.
+//
+// The send function and all logic (loop launch, context injection, history
+// management, typewriter reveal) live here as store actions, accessible via the
+// hook or directly from tests.
+//
+// House style, no em-dashes, no emojis, no mid-sentence colons.
+
+import { create } from "zustand";
+import {
+  runAgentLoop,
+  type LoopMessage,
+  type LoopStatus,
+} from "@/lib/ai/agent-loop";
+import { callModelViaProxy, ProxyError } from "@/lib/ai/proxy-client";
+import { DEFAULT_TOOLS } from "@/lib/ai/tools/registry";
+import { BEAKERBOT_SYSTEM_PROMPT } from "@/lib/ai/system-prompt";
+import { getAutonomyMode } from "@/lib/ai/autonomy-store";
+import {
+  getBeakerContext,
+  describeBeakerContext,
+} from "@/components/ai/context-bridge";
+import { resolveRef } from "@/lib/ai/page-perception";
+import {
+  showSpotlight,
+  dismissSpotlight,
+} from "@/components/ai/spotlight-controller";
+import type {
+  ApprovalRequest,
+  ApprovalDecision,
+  ChoiceDecision,
+} from "@/lib/ai/tools/types";
+
+// Re-export ChatMessage and ChatRole so consumers need not import from the old
+// hook location (the hook re-exports them for back-compat).
+export type ChatRole = "user" | "assistant";
+
+export type ChatMessage = {
+  id: string;
+  role: ChatRole;
+  content: string;
+};
+
+// The pending approval the UI renders while the loop is paused on the user.
+// Carries the human summary plus a resolver. Clicking Allow / Skip in the UI
+// calls the resolver, which unblocks the loop's requestApproval promise.
+export type PendingApproval = {
+  request: ApprovalRequest;
+  resolve: (decision: ApprovalDecision) => void;
+};
+
+// A small map from tool name to a human status line the panel shows while a
+// tool runs. Falls back to a generic line for any tool not listed.
+const TOOL_STATUS: Record<string, string> = {
+  get_my_tasks: "checking your tasks",
+  get_my_projects: "looking at your projects",
+  read_page: "looking at the page",
+  go_to_page: "taking you there",
+  guide_to_element: "showing you where",
+  click_element: "clicking for you",
+  propose_plan: "planning the steps",
+  ask_user: "asking what you would like",
+  list_datahub_tables: "looking at your data tables",
+  run_datahub_analysis: "running the analysis",
+  list_datahub_analyses: "looking at stored analyses",
+  read_datahub_analysis: "reading the stored result",
+  list_notes: "looking through your notes",
+  write_note: "drafting a note for you",
+};
+
+function statusLabel(s: LoopStatus): string {
+  if (s.phase === "tool") {
+    return TOOL_STATUS[s.toolName] ?? "looking something up";
+  }
+  if (s.phase === "awaiting-approval") {
+    if (s.toolName === "ask_user") return "waiting for your choice";
+    if (s.toolName === "write_note") return "waiting for your review";
+    return "waiting for your go-ahead";
+  }
+  return "thinking";
+}
+
+// Typewriter reveal constants.
+const REVEAL_STEP_CHARS = 3;
+const REVEAL_INTERVAL_MS = 16;
+
+// ---- Module-level mutable state (not reactive, never causes re-renders) ------
+
+// The full loop history (system prompt + all turns, including tool turns). Kept
+// off React state because the UI only needs user + assistant text turns.
+let historyStore: LoopMessage[] = [];
+
+// Message ID counter. Monotonically increasing per session; a full page reload
+// resets it, which is acceptable.
+let counterStore = 0;
+
+// The resolver for the currently in-flight approval promise. Set in
+// requestApproval, cleared (to null) by the resolve wrapper when the user
+// answers. This is the exact pattern the old pendingApprovalRef played, now at
+// module scope so it persists across remounts.
+let pendingApprovalRef: PendingApproval | null = null;
+
+// ---- Zustand store (reactive state + actions) ---------------------------------
+
+interface ConversationState {
+  messages: ChatMessage[];
+  sending: boolean;
+  status: string | null;
+  error: string | null;
+  pendingApproval: PendingApproval | null;
+}
+
+interface ConversationActions {
+  send: (text: string) => Promise<void>;
+  resolveApproval: (decision: ApprovalDecision) => void;
+  resolveChoice: (selected: string[], cancelled: boolean) => void;
+  /** Reset the conversation to an empty state (clear messages + history). */
+  clearConversation: () => void;
+}
+
+type ConversationStore = ConversationState & ConversationActions;
+
+// The internal requestApproval function. Lives outside the Zustand slice so it
+// can be called from send() without going through getState().
+function requestApproval(
+  request: ApprovalRequest,
+): Promise<ApprovalDecision> {
+  // For single-action approvals, spotlight the target element so the user sees
+  // exactly what BeakerBot wants to do before allowing it.
+  if (request.kind === "action" && request.ref) {
+    const el = resolveRef(request.ref);
+    if (el) {
+      showSpotlight(el, `BeakerBot wants to ${request.summary}.`);
+    }
+  }
+
+  return new Promise<ApprovalDecision>((resolve) => {
+    const pending: PendingApproval = {
+      request,
+      resolve: (decision) => {
+        // Guard against a double-resolve. If pendingApprovalRef no longer
+        // points at this pending, another answer already won.
+        if (pendingApprovalRef !== pending) return;
+        pendingApprovalRef = null;
+        dismissSpotlight();
+        useConversationStore.setState({ pendingApproval: null });
+        resolve(decision);
+      },
+    };
+    pendingApprovalRef = pending;
+    useConversationStore.setState({ pendingApproval: pending });
+  });
+}
+
+// Typewriter reveal. Updates the assistant message incrementally so the answer
+// does not pop in all at once. Returns a promise that resolves when the full
+// text is shown.
+function revealAnswer(assistantId: string, answer: string): Promise<void> {
+  return new Promise<void>((resolve) => {
+    if (answer.length === 0) {
+      resolve();
+      return;
+    }
+    let shown = 0;
+    const tick = () => {
+      shown = Math.min(answer.length, shown + REVEAL_STEP_CHARS);
+      const text = answer.slice(0, shown);
+      useConversationStore.setState((state) => ({
+        messages: state.messages.map((m) =>
+          m.id === assistantId ? { ...m, content: text } : m,
+        ),
+      }));
+      if (shown >= answer.length) {
+        resolve();
+        return;
+      }
+      setTimeout(tick, REVEAL_INTERVAL_MS);
+    };
+    tick();
+  });
+}
+
+function nextId(): string {
+  counterStore += 1;
+  return `msg-${counterStore}-${Date.now()}`;
+}
+
+export const useConversationStore = create<ConversationStore>((set, get) => ({
+  // Initial state.
+  messages: [],
+  sending: false,
+  status: null,
+  error: null,
+  pendingApproval: null,
+
+  clearConversation: () => {
+    historyStore = [];
+    counterStore = 0;
+    pendingApprovalRef = null;
+    set({
+      messages: [],
+      sending: false,
+      status: null,
+      error: null,
+      pendingApproval: null,
+    });
+  },
+
+  resolveApproval: (decision: ApprovalDecision) => {
+    pendingApprovalRef?.resolve(decision);
+  },
+
+  resolveChoice: (selected: string[], cancelled: boolean) => {
+    const decision: ChoiceDecision = { kind: "choice", selected, cancelled };
+    pendingApprovalRef?.resolve(decision);
+  },
+
+  send: async (text: string) => {
+    const trimmed = text.trim();
+    // Guard: discard empty input or a concurrent send (only one loop at a time).
+    if (!trimmed || get().sending) return;
+
+    set({ error: null });
+    const userMessage: ChatMessage = {
+      id: nextId(),
+      role: "user",
+      content: trimmed,
+    };
+    const assistantId = nextId();
+
+    // Seed an empty assistant bubble so the status line and the revealed answer
+    // have a visible target right away.
+    set((state) => ({
+      messages: [
+        ...state.messages,
+        userMessage,
+        { id: assistantId, role: "assistant", content: "" },
+      ],
+      sending: true,
+      status: "thinking",
+    }));
+
+    // Build the loop input. Seed the system prompt once; carry the running
+    // history forward so multi-turn context and prior tool results persist.
+    if (historyStore.length === 0) {
+      historyStore = [{ role: "system", content: BEAKERBOT_SYSTEM_PROMPT }];
+    }
+
+    // Inject a fresh per-turn context message so the model can resolve "this"
+    // or "the result" to the entity the user currently has open. The context is
+    // rebuilt on every send from the live context-bridge store, so it always
+    // reflects the current page state. It is NOT persisted to historyStore
+    // because:
+    //   1. It must never go stale, a context captured two turns ago is wrong.
+    //   2. Storing it would duplicate it on every subsequent send.
+    // The persisted history starts at index 0 (the base system prompt). The
+    // context message, when present, is spliced in at index 1, immediately
+    // after the base system prompt and before the conversation turns.
+    const ctxDescription = describeBeakerContext(getBeakerContext());
+    // Hold the per-turn context message by reference so it can be removed from
+    // the persisted history after the run. The loop returns the input array with
+    // new turns appended (it only pushes, never clones), so the SAME object
+    // identity survives, and an identity filter strips exactly the one we
+    // injected.
+    const contextMessage: LoopMessage | null = ctxDescription
+      ? { role: "system", content: ctxDescription }
+      : null;
+    const loopInput: LoopMessage[] = contextMessage
+      ? [
+          historyStore[0], // base system prompt
+          contextMessage, // fresh per-turn context
+          ...historyStore.slice(1), // rest of persisted history
+          { role: "user", content: trimmed },
+        ]
+      : [
+          ...historyStore,
+          { role: "user", content: trimmed },
+        ];
+
+    try {
+      const result = await runAgentLoop({
+        messages: loopInput,
+        tools: DEFAULT_TOOLS,
+        callModel: callModelViaProxy,
+        onStatus: (s) => set({ status: statusLabel(s) }),
+        // Read the live autonomy mode at each dispatch, so flipping the toggle
+        // mid-conversation takes effect on the next action.
+        getAutonomy: getAutonomyMode,
+        requestApproval,
+      });
+
+      // Persist the full loop history (including tool turns) for the next send,
+      // but strip the per-turn context message by reference so it never persists.
+      // Persisting it would let a stale context line accumulate, one extra system
+      // message per send.
+      historyStore = contextMessage
+        ? result.messages.filter((m) => m !== contextMessage)
+        : result.messages;
+      set({ status: null });
+
+      if (result.answer.length === 0) {
+        set((state) => ({
+          messages: state.messages.filter((m) => m.id !== assistantId),
+          error: "BeakerBot returned an empty reply. Try again.",
+        }));
+        return;
+      }
+      await revealAnswer(assistantId, result.answer);
+    } catch (err) {
+      set({ status: null });
+      const message =
+        err instanceof ProxyError
+          ? err.message
+          : "Something went wrong talking to BeakerBot. Try again.";
+      set((state) => ({
+        error: message,
+        messages: state.messages.filter((m) => m.id !== assistantId),
+      }));
+    } finally {
+      set({ sending: false });
+    }
+  },
+}));
+
+// ---- Test helpers (not for production use) -----------------------------------
+// Exported so tests can inspect or reset module-level state without importing
+// the internals directly.
+
+/** Returns the current loop history. For tests. */
+export function getConversationHistory(): LoopMessage[] {
+  return historyStore;
+}
+
+/** Resets module-level state (history, counter, approval ref). For tests. */
+export function resetConversationModule(): void {
+  historyStore = [];
+  counterStore = 0;
+  pendingApprovalRef = null;
+  useConversationStore.setState({
+    messages: [],
+    sending: false,
+    status: null,
+    error: null,
+    pendingApproval: null,
+  });
+}
