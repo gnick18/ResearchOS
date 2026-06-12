@@ -48,6 +48,8 @@ import {
   type BundleAttachment,
   type BundleSender,
 } from "@/lib/sharing/bundle";
+import { collectEmbeddedObjects } from "@/lib/sharing/embedded-object-collect";
+import type { CollectEmbeddedObjectsOpts } from "@/lib/sharing/embedded-object-collect";
 import { fileService } from "@/lib/file-system/file-service";
 import { listImagesInFolder } from "@/lib/attachments/image-folder";
 import { readSharingIdentity } from "@/lib/sharing/identity/sidecar";
@@ -153,17 +155,25 @@ function sanitizeNoteEntity(source: {
  * attachments. Reads the note's Images/ folder off disk; if that folder is
  * absent or empty, attachments is [].
  *
+ * Phase 6b: also collects every object block-embedded in the note's entry
+ * bodies and adds them as embeddedObjects in the bundle input. By default all
+ * embeds are included (D1). Pass opts.embedOpts to restrict or customize:
+ *   opts.embedOpts.excludeHrefs  -- hrefs to skip (share-dialog deselect list)
+ *   opts.embedOpts.fullDataHrefs -- Data Hub hrefs to carry as full dataset (D8)
+ *
  * @param opts.collabDocId - Phase 3c chunk 3a. When provided (read from the
  *   live Loro meta map by the caller), this id is written into the bundle
  *   entity so the recipient's copy carries the same id and can auto-join the
  *   shared relay room. When absent the note is treated as non-collab (the
  *   recipient mints their own id on first share, which is the correct behavior
  *   for a note that has never been through a live session).
+ * @param opts.embedOpts - Phase 6b. Controls which embedded objects are
+ *   collected and how they are serialized. Defaults to include-all.
  */
 export async function buildNoteBundleInput(
   note: Note,
   ownerUsername: string,
-  opts?: { collabDocId?: string },
+  opts?: { collabDocId?: string; embedOpts?: CollectEmbeddedObjectsOpts },
 ): Promise<BuildBundleInput> {
   // Merge the collabDocId from the caller (Loro meta) into the note-like
   // source so sanitizeNoteEntity picks it up. We shallow-clone to avoid
@@ -204,6 +214,18 @@ export async function buildNoteBundleInput(
       ? { email: identity.email, fingerprint: identity.fingerprint }
       : undefined;
 
+  // Phase 6b: collect all objects embedded in the note's entry bodies. We scan
+  // every entry's content for block-embed links and serialize each object. A
+  // failing loader is silently skipped; the embed shows as a no-access
+  // placeholder on the recipient side (Phase 6d).
+  const allMarkdown = (entity.entries ?? [])
+    .map((e: { content: string }) => e.content ?? "")
+    .join("\n");
+  const { objects: embeddedObjects } = await collectEmbeddedObjects(
+    allMarkdown,
+    opts?.embedOpts,
+  );
+
   return {
     // v1: a fresh share identity per send. See the VERSIONING note in the
     // header for the dedupe-on-resend enhancement that supersedes this.
@@ -214,6 +236,7 @@ export async function buildNoteBundleInput(
     entity,
     attachments,
     sender,
+    embeddedObjects: embeddedObjects.length > 0 ? embeddedObjects : undefined,
   };
 }
 

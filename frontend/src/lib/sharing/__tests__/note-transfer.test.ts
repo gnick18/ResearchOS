@@ -236,6 +236,7 @@ function makeValidResult(overrides: Partial<ReadBundleResult> = {}): ReadBundleR
       shared_with: [{ username: "evil", level: "edit" }],
     },
     attachments: [{ name: "x.png", bytes: PNG_BYTES }],
+    embeddedObjects: [],
     metadata: {},
     ...overrides,
   };

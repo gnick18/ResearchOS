@@ -408,7 +408,7 @@ export default function AcceptInvitePage() {
       const senderFingerprint = received.sender?.fingerprint || "";
       const senderEmail = received.sender?.email || "an invited share";
       const { noteId } = await importNoteBundle(
-        { ...received, metadata: {} },
+        { ...received, embeddedObjects: [], metadata: {} },
         { currentUser, senderEmail, senderFingerprint },
       );
 
