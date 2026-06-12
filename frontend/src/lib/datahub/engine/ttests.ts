@@ -9,9 +9,9 @@ import ttest2 from "@stdlib/stats-ttest2";
 import ttest from "@stdlib/stats-ttest";
 import wilcoxon from "@stdlib/stats-wilcoxon";
 
-import { normalPValue } from "./dists";
+import { normalPValue, tCritTwoSided, tPValue } from "./dists";
 import { describeUnsafe } from "./descriptive";
-import type { EngineResult, Tail, TTestResult } from "./types";
+import type { Descriptives, EngineResult, Tail, TTestResult } from "./types";
 import { clean, mean as meanOf, rankWithTies, sampleVariance, sum } from "./util";
 
 export interface UnpairedOptions {
@@ -64,6 +64,137 @@ export function unpairedTTest(
     ci95: out.ci,
     groupA: describeUnsafe(a),
     groupB: describeUnsafe(b),
+  };
+}
+
+export interface UnpairedFromStatsInput {
+  mean1: number;
+  sd1: number;
+  n1: number;
+  mean2: number;
+  sd2: number;
+  n2: number;
+  tail?: Tail;
+  /** "welch" (default, unequal variance) or "student" (pooled / equal var). */
+  variance?: "welch" | "student";
+}
+
+/**
+ * Build a partial Descriptives from entered summary stats. Only mean / sd / sem /
+ * n are known from a summary, so the quantile-based fields (median, quartiles,
+ * min, max) are NaN and the CI of the mean is the Student-t interval on n - 1 df.
+ * This lets the from-stats result carry groupA / groupB descriptives in the same
+ * shape the raw path does, with the unknown order statistics left as NaN.
+ */
+function descriptivesFromStats(m: number, sd: number, n: number): Descriptives {
+  const sem = n >= 2 && Number.isFinite(sd) ? sd / Math.sqrt(n) : NaN;
+  let ci95: [number, number] = [NaN, NaN];
+  if (n >= 2 && Number.isFinite(sem)) {
+    const half = tCritTwoSided(0.05, n - 1) * sem;
+    ci95 = [m - half, m + half];
+  }
+  const variance = Number.isFinite(sd) ? sd * sd : NaN;
+  const cvPercent =
+    m !== 0 && Number.isFinite(sd) ? (100 * sd) / Math.abs(m) : NaN;
+  return {
+    n,
+    mean: m,
+    sd,
+    sem,
+    variance,
+    median: NaN,
+    q1: NaN,
+    q3: NaN,
+    min: NaN,
+    max: NaN,
+    ci95,
+    cvPercent,
+  };
+}
+
+/**
+ * Unpaired (two-sample) t-test computed from ENTERED SUMMARY STATISTICS rather
+ * than raw replicates. Matches scipy.stats.ttest_ind_from_stats for both the
+ * Welch (unequal variance, default) and Student (pooled, equal variance) cases.
+ *
+ * Welch:   t = (m1 - m2) / sqrt(s1^2/n1 + s2^2/n2)
+ *          df via the Welch-Satterthwaite approximation
+ * Student: sp^2 = ((n1-1) s1^2 + (n2-1) s2^2) / (n1 + n2 - 2)
+ *          t = (m1 - m2) / sqrt(sp^2 (1/n1 + 1/n2)),  df = n1 + n2 - 2
+ *
+ * The 95% CI of the mean difference uses the same df and the t critical value.
+ * Cohen's d is computed from the pooled SD of the two summaries (the same
+ * definition the raw path uses, expressed in terms of the entered SDs). This is
+ * the summary-compatible sibling of unpairedTTest; the raw path is unchanged.
+ */
+export function unpairedTTestFromStats(
+  input: UnpairedFromStatsInput,
+): EngineResult<TTestResult> {
+  const { mean1, sd1, n1, mean2, sd2, n2 } = input;
+  if (
+    !Number.isFinite(mean1) ||
+    !Number.isFinite(mean2) ||
+    !Number.isFinite(sd1) ||
+    !Number.isFinite(sd2)
+  ) {
+    return { ok: false, error: "Enter a mean and an SD for each group." };
+  }
+  if (n1 < 2 || n2 < 2) {
+    return { ok: false, error: "Each group needs n of at least 2." };
+  }
+  if (sd1 < 0 || sd2 < 0) {
+    return { ok: false, error: "SD cannot be negative." };
+  }
+  const tail: Tail = input.tail ?? "two-sided";
+  const useStudent = input.variance === "student";
+
+  const v1 = sd1 * sd1;
+  const v2 = sd2 * sd2;
+  const meanDiff = mean1 - mean2;
+
+  let se: number;
+  let df: number;
+  let label: string;
+  if (useStudent) {
+    const pooledVar = ((n1 - 1) * v1 + (n2 - 1) * v2) / (n1 + n2 - 2);
+    se = Math.sqrt(pooledVar * (1 / n1 + 1 / n2));
+    df = n1 + n2 - 2;
+    label = "Student's two-sample t-test";
+  } else {
+    se = Math.sqrt(v1 / n1 + v2 / n2);
+    const num = (v1 / n1 + v2 / n2) ** 2;
+    const den =
+      (v1 / n1) ** 2 / (n1 - 1) + (v2 / n2) ** 2 / (n2 - 1);
+    df = den === 0 ? NaN : num / den;
+    label = "Welch's t-test";
+  }
+  if (!(se > 0)) {
+    return { ok: false, error: "Zero spread in both groups; t is undefined." };
+  }
+
+  const statistic = meanDiff / se;
+  const pValue = tPValue(statistic, df, tail);
+
+  // 95% CI of the mean difference, two-sided t critical value on the same df.
+  const half = tCritTwoSided(0.05, df) * se;
+  const ci95: [number, number] = [meanDiff - half, meanDiff + half];
+
+  // Cohen's d from the pooled SD of the two summaries.
+  const pooledSD = Math.sqrt(((n1 - 1) * v1 + (n2 - 1) * v2) / (n1 + n2 - 2));
+  const effectSize = pooledSD === 0 ? NaN : meanDiff / pooledSD;
+
+  return {
+    ok: true,
+    test: label,
+    statistic,
+    df,
+    pValue,
+    tail,
+    effectSize,
+    effectSizeLabel: "Cohen's d",
+    ci95,
+    groupA: descriptivesFromStats(mean1, sd1, n1),
+    groupB: descriptivesFromStats(mean2, sd2, n2),
   };
 }
 

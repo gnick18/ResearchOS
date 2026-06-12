@@ -13,15 +13,18 @@ export { describe } from "./descriptive";
 // Two-group tests.
 export {
   unpairedTTest,
+  unpairedTTestFromStats,
   pairedTTest,
   mannWhitneyU,
   wilcoxonSignedRank,
   type UnpairedOptions,
+  type UnpairedFromStatsInput,
 } from "./ttests";
 
 // ANOVA family + nonparametric counterparts.
 export {
   oneWayAnova,
+  oneWayAnovaFromStats,
   twoWayAnova,
   kruskalWallis,
   friedman,
@@ -29,6 +32,7 @@ export {
   type OneWayOptions,
   type TwoWayOptions,
   type TwoWayCell,
+  type GroupSummaryStat,
 } from "./anova";
 
 // Correlation.
