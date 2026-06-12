@@ -4,6 +4,7 @@ import {
   buildObjectEmbedHref,
   objectEmbedMarkdown,
   objectReferenceMarkdown,
+  swapEmbedView,
   DEFAULT_EMBED_VIEW,
   type ObjectRefType,
 } from "./references";
@@ -117,6 +118,56 @@ describe("markdown builders", () => {
     expect(objectReferenceMarkdown("sequence", 2, "pGEX-3X (U13852)")).toBe(
       "[pGEX-3X (U13852)](/sequences?seq=2)",
     );
+  });
+});
+
+describe("swapEmbedView", () => {
+  it("swaps the view while preserving type and id", () => {
+    expect(swapEmbedView("/sequences?seq=2#ros=map", "bases")).toBe(
+      "/sequences?seq=2#ros=bases",
+    );
+  });
+
+  it("preserves every opt across the swap", () => {
+    const before = "/datahub?doc=2#ros=table&rows=8&cols=4&analysis=a3&pin=2026-06-11T19:00:00Z";
+    const after = swapEmbedView(before, "result");
+    const d = parseObjectEmbed(after);
+    expect(d?.view).toBe("result");
+    expect(d?.opts).toMatchObject({
+      rows: 8,
+      cols: 4,
+      analysis: "a3",
+      pin: "2026-06-11T19:00:00Z",
+    });
+  });
+
+  it("preserves a sequence region opt", () => {
+    const after = swapEmbedView("/sequences?seq=2#ros=map&region=1-500", "bases");
+    const d = parseObjectEmbed(after);
+    expect(d?.view).toBe("bases");
+    expect(d?.opts.region).toBe("1-500");
+  });
+
+  it("returns a non-object href unchanged", () => {
+    expect(swapEmbedView("https://example.com/page", "map")).toBe(
+      "https://example.com/page",
+    );
+    expect(swapEmbedView("#some-anchor", "map")).toBe("#some-anchor");
+    expect(swapEmbedView("mailto:a@b.com", "map")).toBe("mailto:a@b.com");
+  });
+
+  it("applies a view to a plain object link (it parses as an object ref)", () => {
+    // A bare object link has view "chip". Swapping gives it a real block view,
+    // which is what an insert-as-embed flow wants. Only truly non-object hrefs
+    // are passed through untouched.
+    expect(swapEmbedView("/sequences?seq=2", "map")).toBe("/sequences?seq=2#ros=map");
+  });
+
+  it("round-trips back to the original view byte-for-byte", () => {
+    const original = "/datahub?doc=2#ros=table&rows=8&cols=4";
+    const flipped = swapEmbedView(original, "plot");
+    const back = swapEmbedView(flipped, "table");
+    expect(back).toBe(original);
   });
 });
 
