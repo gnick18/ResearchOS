@@ -57,6 +57,7 @@ import {
   powerTwoSampleT,
   sampleSizeTwoSampleT,
 } from "@/lib/datahub/engine";
+import { qqPositions } from "@/lib/datahub/diagnostic-plot";
 import { digestEnzymes, fragmentSizes } from "@/lib/sequences/enzyme-filters";
 import { translate } from "@/vendor/seqviz/sequence";
 
@@ -1253,6 +1254,20 @@ function runDatahubEngine(): Record<string, number> {
   const spear = need(spearman(XY_X, XY_Y), "Spearman correlation");
   const reg = need(linearRegression(XY_X, XY_Y), "linear regression");
 
+  // Diagnostic plots (Theme 4): the PLOTTED positions, validated like any stat.
+  // QQ plot of GROUP_A. qqPositions orders the sample and pairs each value with
+  // the theoretical normal quantile at (i - 0.5)/n, plus the least-squares
+  // reference line scipy.stats.probplot draws. The theoretical extremes and the
+  // line slope / intercept are pinned against scipy.
+  const qq = qqPositions(GROUP_A, "GROUP_A");
+  const qqTheoFirst = qq.points[0]?.theoretical ?? NaN;
+  const qqTheoLast = qq.points[qq.points.length - 1]?.theoretical ?? NaN;
+  // Residual plot of the simple regression. The plotted y values are the OLS
+  // residuals the engine already returns; the residual sum of squares pins every
+  // plotted y at once, and the first / last residual pin the per-point positions.
+  const regResiduals = reg.residuals;
+  const residualSS = regResiduals.reduce((acc, r) => acc + r * r, 0);
+
   // Simple logistic regression (D4). Fit P(Y=1) = 1 / (1 + exp(-(b0 + b1*x))) by
   // maximum likelihood (IRLS) on the same fixed binary dataset statsmodels Logit
   // was run on, then read off the intercept / slope (with the slope SE and Wald p),
@@ -1551,6 +1566,15 @@ function runDatahubEngine(): Record<string, number> {
     roc_youden_sensitivity: roc.youdenSensitivity,
     roc_youden_specificity: roc.youdenSpecificity,
 
+    // Diagnostic plots (Theme 4): the validated plotted positions.
+    qq_theoretical_first: qqTheoFirst,
+    qq_theoretical_last: qqTheoLast,
+    qq_line_slope: qq.lineSlope,
+    qq_line_intercept: qq.lineIntercept,
+    residual_ss: residualSS,
+    residual_first: regResiduals[0] ?? NaN,
+    residual_last: regResiduals[regResiduals.length - 1] ?? NaN,
+
     mlr_intercept: mlr.intercept.estimate,
     mlr_x1_slope: mlr.slopes[0].estimate,
     mlr_x2_slope: mlr.slopes[1].estimate,
@@ -1709,7 +1733,10 @@ function buildDatahubStatsDomain(): DomainReport {
       + "Spearman correlation, simple linear regression, Shapiro-Wilk and Levene / "
       + "Brown-Forsythe assumption checks, the Grubbs outlier test, the ROC curve "
       + "with its area under the curve (AUC, against scikit-learn) and Kaplan-Meier "
-      + "survival with the log-rank test. It also validates the estimation layer that "
+      + "survival with the log-rank test. The diagnostic figures are validated on "
+      + "their plotted positions too, the normal QQ plot's theoretical quantiles and "
+      + "reference line against scipy.stats.probplot and the residual plot's residuals "
+      + "against statsmodels OLS. It also validates the estimation layer that "
       + "turns a p-value "
       + "into a measured effect, the Cohen's d / Hedges' g and standardized-effect "
       + "confidence intervals on the t-tests, eta-squared and omega-squared on the "

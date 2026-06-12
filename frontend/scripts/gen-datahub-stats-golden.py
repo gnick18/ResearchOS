@@ -570,6 +570,71 @@ def ref_multiple_regression():
     }
 
 
+def ref_qq_plot():
+    """Reference normal QQ-plot positions (Theme 4 diagnostic) via scipy.
+
+    The QQ plot orders a sample and plots it against the theoretical normal
+    quantiles. We pin against the (i - 0.5)/n midpoint plotting positions through
+    the inverse normal, which is what our engine computes (normalQuantile of
+    (i - 0.5)/n) and what GraphPad and the classic probability-plot textbooks use,
+    computed directly here with st.norm.ppf so the oracle is unambiguous. The
+    reference line is the least-squares fit of the ordered sample on those
+    theoretical quantiles (slope, intercept), the same line scipy.stats.probplot
+    draws. GROUP_A is the fixed sample.
+    """
+    sample = np.asarray(GROUP_A, float)
+    n = sample.size
+    ordered = np.sort(sample)
+    # Midpoint plotting positions (i - 0.5)/n, i = 1..n, through the inverse
+    # normal. This matches the engine's normalQuantile((i - 0.5)/n).
+    positions = (np.arange(1, n + 1) - 0.5) / n
+    theoretical = st.norm.ppf(positions)
+    # Least-squares reference line: ordered sample regressed on the theoretical
+    # quantiles (so y = slope * theoretical + intercept).
+    slope, intercept = np.polyfit(theoretical, ordered, 1)
+    return {
+        "n": int(n),
+        # The first and last theoretical x positions (the extremes pin the axis).
+        "theoretical_first": r4(float(theoretical[0])),
+        "theoretical_last": r4(float(theoretical[-1])),
+        # The ordered sample extremes the points are plotted at.
+        "ordered_first": r4(float(ordered[0])),
+        "ordered_last": r4(float(ordered[-1])),
+        # The reference-line fit.
+        "line_slope": r4(float(slope)),
+        "line_intercept": r4(float(intercept)),
+    }
+
+
+def ref_residual_plot():
+    """Reference residual-vs-fitted positions (Theme 4 diagnostic) via statsmodels.
+
+    The residual plot draws the OLS fitted values (x axis) against the residuals
+    (y axis) with a y = 0 reference line. statsmodels OLS on the XY_X / XY_Y
+    fixture (the same simple regression the linreg pins use) gives .fittedvalues
+    and .resid. We pin the residual sum of squares (a single stable summary of
+    every plotted y position) plus the first and last residual so the per-point
+    positions are pinned, not just an aggregate. The fitted values are an affine
+    function of the slope / intercept already pinned, so the residuals are the
+    new diagnostic quantity here.
+    """
+    x = np.asarray(XY_X, float)
+    y = np.asarray(XY_Y, float)
+    X = sm.add_constant(x)
+    result = sm.OLS(y, X).fit()
+    resid = np.asarray(result.resid, float)
+    fitted = np.asarray(result.fittedvalues, float)
+    ssr = float(np.sum(resid ** 2))
+    return {
+        "n": int(x.size),
+        "residual_ss": r4(ssr),
+        "residual_first": r4(float(resid[0])),
+        "residual_last": r4(float(resid[-1])),
+        "fitted_first": r4(float(fitted[0])),
+        "fitted_last": r4(float(fitted[-1])),
+    }
+
+
 def ref_dose_response():
     """Reference 4PL + 5PL dose-response fits (D1) via scipy.optimize.curve_fit.
 
@@ -1245,6 +1310,8 @@ def main():
     refs.update({"logistic_regression": ref_logistic_regression()})
     refs.update({"roc": ref_roc()})
     refs.update({"multiple_regression": ref_multiple_regression()})
+    refs.update({"qq_plot": ref_qq_plot()})
+    refs.update({"residual_plot": ref_residual_plot()})
     refs.update({"dose_response": ref_dose_response()})
     refs.update({"model_comparison": ref_model_comparison()})
     refs.update({"global_fit": ref_global_fit()})

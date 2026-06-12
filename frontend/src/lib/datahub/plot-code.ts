@@ -31,6 +31,11 @@ import {
   type PlotGroup,
 } from "@/lib/datahub/plot-spec";
 import { pairedRows } from "@/lib/datahub/estimation-plot";
+import {
+  resolveQQSample,
+  residualPositions,
+  rocCurveData,
+} from "@/lib/datahub/diagnostic-plot";
 import { yColumns, xyPairs } from "@/lib/datahub/xy-table";
 import { getModel, fitModel } from "@/lib/datahub/engine";
 
@@ -538,6 +543,144 @@ function estimationCode(
 // Public entry point
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Diagnostic plots (Theme 4): normal QQ, residual-vs-fitted, and the ROC visual
+// ---------------------------------------------------------------------------
+
+/**
+ * Reproduce a normal QQ plot in scipy + matplotlib. The same ordered sample the
+ * figure draws is baked in, and scipy.stats.probplot draws the points and the
+ * least-squares reference line. The sample is a Column-table group, or a linked
+ * regression's residuals (resolved exactly as the renderer resolves it).
+ */
+function qqCode(
+  content: DataHubDocContent,
+  style: PlotStyle,
+  analysis: AnalysisSpec | null,
+): string {
+  const { w, h } = figsizeInches(style);
+  const dpi = figureDpi(style);
+  const sample = resolveQQSample(content, style, analysis);
+  const values = sample ? sample.values.filter((v) => Number.isFinite(v)) : [];
+  const name = sample ? sample.name : "Sample";
+  const lines: string[] = [];
+  lines.push(header("Normal QQ plot"));
+  lines.push("");
+  lines.push("import numpy as np");
+  lines.push("import matplotlib.pyplot as plt");
+  lines.push("from scipy import stats");
+  lines.push("");
+  lines.push(`sample = ${pyList(values)}  # ${name}`);
+  lines.push("");
+  lines.push(
+    `fig, ax = plt.subplots(figsize=(${inchAttr(w)}, ${inchAttr(h)}))`,
+  );
+  // probplot draws the ordered sample against the theoretical normal quantiles
+  // and the least-squares reference line, the same positions the figure plots.
+  lines.push("stats.probplot(np.asarray(sample, float), dist=\"norm\", plot=ax)");
+  lines.push(
+    `ax.set_xlabel(${pyStr(style.xTitle.trim() !== "" ? style.xTitle : "Theoretical quantiles")})`,
+  );
+  lines.push(
+    `ax.set_ylabel(${pyStr(style.yTitle.trim() !== "" ? style.yTitle : "Sample quantiles")})`,
+  );
+  lines.push(
+    `ax.set_title(${pyStr(style.title.trim() !== "" ? style.title : `Normal QQ plot (${name})`)})`,
+  );
+  lines.push("");
+  lines.push(footer(dpi));
+  return lines.join("\n");
+}
+
+/**
+ * Reproduce a residual-vs-fitted plot in matplotlib. The fitted values and
+ * residuals the figure draws (recomputed from the linked regression's
+ * coefficients) are baked in, with a dashed y = 0 reference line.
+ */
+function residualCode(
+  style: PlotStyle,
+  analysis: AnalysisSpec | null,
+): string {
+  const { w, h } = figsizeInches(style);
+  const dpi = figureDpi(style);
+  const data = residualPositions(analysis);
+  const fitted = data ? data.points.map((p) => p.fitted) : [];
+  const resid = data ? data.points.map((p) => p.residual) : [];
+  const yName = data ? data.yName : "Y";
+  const lines: string[] = [];
+  lines.push(header("Residual vs fitted plot"));
+  lines.push("");
+  lines.push("import matplotlib.pyplot as plt");
+  lines.push("");
+  lines.push(`fitted = ${pyList(fitted)}  # model fitted values for ${yName}`);
+  lines.push(`residuals = ${pyList(resid)}  # observed minus fitted`);
+  lines.push("");
+  lines.push(
+    `fig, ax = plt.subplots(figsize=(${inchAttr(w)}, ${inchAttr(h)}))`,
+  );
+  lines.push("ax.axhline(0, color=\"#94a3b8\", linestyle=\"--\", linewidth=1)");
+  lines.push(
+    `ax.scatter(fitted, residuals, color=${pyStr(style.colorOverrides?.[0] ?? "#0284c7")}, alpha=0.9)`,
+  );
+  lines.push(
+    `ax.set_xlabel(${pyStr(style.xTitle.trim() !== "" ? style.xTitle : "Fitted value")})`,
+  );
+  lines.push(
+    `ax.set_ylabel(${pyStr(style.yTitle.trim() !== "" ? style.yTitle : "Residual")})`,
+  );
+  if (style.title.trim() !== "")
+    lines.push(`ax.set_title(${pyStr(style.title)})`);
+  lines.push("");
+  lines.push(footer(dpi));
+  return lines.join("\n");
+}
+
+/**
+ * Reproduce the ROC curve visual in matplotlib. The validated swept points and
+ * AUC from the linked rocCurve analysis are baked in, with the chance diagonal.
+ */
+function rocCode(
+  style: PlotStyle,
+  analysis: AnalysisSpec | null,
+): string {
+  const { w, h } = figsizeInches(style);
+  const dpi = figureDpi(style);
+  const data = rocCurveData(analysis);
+  const fpr = data ? data.points.map((p) => p.fpr) : [];
+  const tpr = data ? data.points.map((p) => p.tpr) : [];
+  const auc = data ? data.auc : NaN;
+  const lines: string[] = [];
+  lines.push(header("ROC curve"));
+  lines.push("");
+  lines.push("import matplotlib.pyplot as plt");
+  lines.push("");
+  lines.push(`fpr = ${pyList(fpr)}  # false positive rate`);
+  lines.push(`tpr = ${pyList(tpr)}  # true positive rate`);
+  lines.push(`auc = ${pyNum(auc)}  # area under the curve`);
+  lines.push("");
+  lines.push(
+    `fig, ax = plt.subplots(figsize=(${inchAttr(w)}, ${inchAttr(h)}))`,
+  );
+  lines.push("ax.plot([0, 1], [0, 1], color=\"#94a3b8\", linestyle=\"--\", linewidth=1)");
+  lines.push(
+    `ax.plot(fpr, tpr, color=${pyStr(style.colorOverrides?.[0] ?? "#0284c7")}, linewidth=2, label=f"AUC = {auc:.3f}")`,
+  );
+  lines.push("ax.set_xlim(0, 1)");
+  lines.push("ax.set_ylim(0, 1)");
+  lines.push(
+    `ax.set_xlabel(${pyStr(style.xTitle.trim() !== "" ? style.xTitle : "False positive rate")})`,
+  );
+  lines.push(
+    `ax.set_ylabel(${pyStr(style.yTitle.trim() !== "" ? style.yTitle : "True positive rate")})`,
+  );
+  if (style.title.trim() !== "")
+    lines.push(`ax.set_title(${pyStr(style.title)})`);
+  lines.push("ax.legend(loc=\"lower right\")");
+  lines.push("");
+  lines.push(footer(dpi));
+  return lines.join("\n");
+}
+
 /**
  * The runnable matplotlib script that reproduces a figure on screen, with the
  * real group names + values baked in. The optional analysis is accepted for
@@ -554,6 +697,7 @@ export function plotCode(
   _analysis?: AnalysisSpec | null,
 ): string {
   const style = readPlotStyle(spec);
+  const analysis = _analysis ?? null;
   if (style.kind === "xyScatter") {
     return xyScatterCode(spec, content, style);
   }
@@ -562,6 +706,15 @@ export function plotCode(
     style.kind === "estimationCumming"
   ) {
     return estimationCode(spec, content, style);
+  }
+  if (style.kind === "qqPlot") {
+    return qqCode(content, style, analysis);
+  }
+  if (style.kind === "residualPlot") {
+    return residualCode(style, analysis);
+  }
+  if (style.kind === "rocCurve") {
+    return rocCode(style, analysis);
   }
   const groups = resolvePlotGroups(content, style);
   if (style.kind === "columnBar") {

@@ -1526,6 +1526,13 @@ export default function DataHubPage() {
       const yName = data.yColumnId
         ? yColumns(openContent).find((c) => c.id === data.yColumnId)?.name
         : undefined;
+      // Diagnostic plots (qqPlot / residualPlot / rocCurve) set their own axis
+      // titles from the diagnostic renderer, so the table-name seeding below is
+      // skipped for them (an empty yTitle / xTitle lets the renderer default).
+      const isDiagnostic =
+        data.kind === "qqPlot" ||
+        data.kind === "residualPlot" ||
+        data.kind === "rocCurve";
       const spec = buildPlotSpec({
         id,
         kind: data.kind,
@@ -1535,12 +1542,15 @@ export default function DataHubPage() {
         fitModel: data.fitModel,
         estimationPaired: data.estimationPaired,
         estimationControlIndex: data.estimationControlIndex,
-        yTitle: isXY
-          ? yName ?? selectedMeta?.name ?? "Y"
-          : isSurvival
-            ? "Survival"
-            : selectedMeta?.name ?? "Value",
-        xTitle: isXY ? "X" : isSurvival ? "Time" : undefined,
+        diagnosticColumnIndex: data.diagnosticColumnIndex,
+        yTitle: isDiagnostic
+          ? ""
+          : isXY
+            ? yName ?? selectedMeta?.name ?? "Y"
+            : isSurvival
+              ? "Survival"
+              : selectedMeta?.name ?? "Value",
+        xTitle: isDiagnostic ? "" : isXY ? "X" : isSurvival ? "Time" : undefined,
       });
       setPlotInDoc(handle.doc, spec);
       void handle.commit();

@@ -455,6 +455,28 @@ export const STAT_PINS: StatPin[] = [
   { id: "mlr_f", metric: "Multiple regression, overall F", reference: 1201.815499, oracleId: "statsmodels", tol: 1e-3, warn: 5e-3, unit: "F" },
   { id: "mlr_x1_vif", metric: "Multiple regression, x1 variance inflation factor", reference: 3.542373, oracleId: "statsmodels", tol: 1e-4, warn: 5e-4, unit: "VIF" },
 
+  // --- diagnostic plots (Theme 4): the PLOTTED positions, validated ----------
+  // A QQ plot and a residual plot are diagnostics, but the positions they draw
+  // are computed values, so they are pinned like any statistic. The ROC visual
+  // needs no new pin (the ROC analysis above is already validated against
+  // scikit-learn); the renderer reads those same validated points.
+  //
+  // QQ plot of GROUP_A. The x positions are the theoretical normal quantiles at
+  // the midpoint plotting positions (i - 0.5)/n through scipy.stats.norm.ppf, and
+  // the reference line is the least-squares fit of the ordered sample on those
+  // quantiles (the line scipy.stats.probplot draws). The theoretical positions
+  // are symmetric, so the first equals minus the last; both are pinned.
+  { id: "qq_theoretical_first", metric: "Normal QQ plot, first (smallest) theoretical quantile (n = 6)", reference: -1.382994, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "z" },
+  { id: "qq_theoretical_last", metric: "Normal QQ plot, last (largest) theoretical quantile (n = 6)", reference: 1.382994, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "z" },
+  { id: "qq_line_slope", metric: "Normal QQ plot, reference-line slope (probplot least-squares fit)", reference: 0.289656, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "slope" },
+  { id: "qq_line_intercept", metric: "Normal QQ plot, reference-line intercept (sample mean)", reference: 5.116667, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "intercept" },
+  // Residual plot of the simple regression on XY_X vs XY_Y. The plotted y values
+  // are the OLS residuals; the residual sum of squares pins every plotted y at
+  // once, and the first / last residual pin the per-point positions.
+  { id: "residual_ss", metric: "Residual plot, residual sum of squares (statsmodels OLS resid)", reference: 0.194762, oracleId: "statsmodels", tol: 1e-4, warn: 5e-4, unit: "SS" },
+  { id: "residual_first", metric: "Residual plot, first residual (statsmodels OLS resid[0])", reference: 0.066667, oracleId: "statsmodels", tol: 1e-4, warn: 5e-4, unit: "resid" },
+  { id: "residual_last", metric: "Residual plot, last residual (statsmodels OLS resid[-1])", reference: 0.083333, oracleId: "statsmodels", tol: 1e-4, warn: 5e-4, unit: "resid" },
+
   // --- dose-response curve fit (D1): 4PL + 5PL vs scipy.optimize.curve_fit ---
   // The signature pharmacology fit. x = log10(dose), y = response. EC50 is the
   // true half-maximal-response concentration (for the 5PL that is NOT 10^logEC50).

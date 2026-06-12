@@ -62,6 +62,11 @@ import {
   type EstimationGeometry,
 } from "@/lib/datahub/estimation-plot";
 import {
+  layoutDiagnosticPlot,
+  renderDiagnosticSvg,
+  type DiagnosticGeometry,
+} from "@/lib/datahub/diagnostic-plot";
+import {
   paletteById,
   samplePalette,
   DEFAULT_PALETTE_ID,
@@ -92,7 +97,16 @@ export type PlotKind =
   // one difference panel per non-control group. Both consume the validated E4
   // bootstrap and never recompute a statistic.
   | "estimationGardnerAltman"
-  | "estimationCumming";
+  | "estimationCumming"
+  // Theme 4 diagnostic plots (the figures a reviewer asks for alongside a fit).
+  // "qqPlot" is the normal QQ plot of a sample (a Column group) or a linked
+  // regression's residuals. "residualPlot" is residual-vs-fitted for a linked
+  // linear / multiple regression. "rocCurve" is the visual for an already-
+  // computed + validated rocCurve analysis. All three are analysis-computed
+  // plots and render through the same SVG pipeline (see diagnostic-plot.ts).
+  | "qqPlot"
+  | "residualPlot"
+  | "rocCurve";
 
 /** Which error bar a figure draws, computed from the raw replicates. */
 export type ErrorBarKind = "sd" | "sem" | "none";
@@ -187,6 +201,14 @@ export interface PlotStyle {
   estimationB?: number;
   estimationSeed?: number;
   estimationBootMethod?: BootstrapMethod;
+  /**
+   * Diagnostic-plot field (Theme 4). Which Column-table group a QQ plot draws
+   * when it is NOT sourced from a linked regression's residuals (the index into
+   * the table's group columns, default the first group, index 0). Optional and
+   * additive, so any non-diagnostic figure reads back byte-identical and only a
+   * QQ figure sourced from a table group carries it.
+   */
+  diagnosticColumnIndex?: number;
 }
 
 /** The unit a figure's width / height is typed in (and stored as). */
@@ -248,6 +270,9 @@ export function defaultPlotStyle(): PlotStyle {
     estimationB: 5000,
     estimationSeed: 12345,
     estimationBootMethod: "bca",
+    // Diagnostic-plot default. Unread by every non-diagnostic figure; a QQ figure
+    // sourced from a table group overrides it through buildPlotSpec.
+    diagnosticColumnIndex: 0,
   };
 }
 
@@ -355,6 +380,9 @@ export function readPlotStyle(spec: PlotSpec): PlotStyle {
     "survivalCurve",
     "estimationGardnerAltman",
     "estimationCumming",
+    "qqPlot",
+    "residualPlot",
+    "rocCurve",
   ];
   const kind = KINDS.includes(s.kind as PlotKind)
     ? (s.kind as PlotKind)
@@ -455,6 +483,14 @@ export function readPlotStyle(spec: PlotSpec): PlotStyle {
       s.estimationBootMethod === "percentile" || s.estimationBootMethod === "bca"
         ? (s.estimationBootMethod as BootstrapMethod)
         : d.estimationBootMethod,
+    // Diagnostic-plot field. Falls to its default (0) when absent, so an old spec
+    // (or any non-diagnostic figure) reads back unchanged.
+    diagnosticColumnIndex:
+      typeof s.diagnosticColumnIndex === "number" &&
+      Number.isInteger(s.diagnosticColumnIndex) &&
+      s.diagnosticColumnIndex >= 0
+        ? s.diagnosticColumnIndex
+        : d.diagnosticColumnIndex,
   };
 }
 
@@ -490,6 +526,8 @@ export function buildPlotSpec(args: {
   /** For an estimation figure, the paired variant and the control group index. */
   estimationPaired?: boolean;
   estimationControlIndex?: number;
+  /** For a QQ figure sourced from a table group, which group to plot. */
+  diagnosticColumnIndex?: number;
 }): PlotSpec {
   const style = defaultPlotStyle();
   style.kind = args.kind;
@@ -501,6 +539,8 @@ export function buildPlotSpec(args: {
     style.estimationPaired = args.estimationPaired;
   if (args.estimationControlIndex !== undefined)
     style.estimationControlIndex = args.estimationControlIndex;
+  if (args.diagnosticColumnIndex !== undefined)
+    style.diagnosticColumnIndex = args.diagnosticColumnIndex;
   const source: PlotSource = {
     tableId: args.tableId,
     analysisId: args.analysisId ?? null,
@@ -1363,7 +1403,8 @@ export function renderPlot(
     | XYPlotGeometry
     | GroupedBarGeometry
     | SurvivalCurveGeometry
-    | EstimationGeometry;
+    | EstimationGeometry
+    | DiagnosticGeometry;
   style: PlotStyle;
   frame: FigureFrame;
 } {
@@ -1401,6 +1442,15 @@ export function renderPlot(
   if (style.kind === "estimationGardnerAltman" || style.kind === "estimationCumming") {
     const geometry = layoutEstimationPlot(content, style);
     const svg = onScreen(renderEstimationSvg(geometry, style));
+    return { svg, geometry, style, frame };
+  }
+  if (
+    style.kind === "qqPlot" ||
+    style.kind === "residualPlot" ||
+    style.kind === "rocCurve"
+  ) {
+    const geometry = layoutDiagnosticPlot(content, style, analysis);
+    const svg = onScreen(renderDiagnosticSvg(geometry, style));
     return { svg, geometry, style, frame };
   }
   const groups = resolvePlotGroups(content, style);
