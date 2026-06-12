@@ -15,6 +15,10 @@
  * No em-dashes, no emojis, no mid-sentence colons.
  */
 
+// Type-only import (erased at compile, so it adds no runtime dependency and no
+// runtime cycle). A derived table's recipe is a list of pipeline TransformOp.
+import type { TransformOp } from "@/lib/datahub/transform/pipeline";
+
 /**
  * The Prism-style table archetypes Data Hub targets. "column" and "xy" are the
  * priority; "grouped" and "survival" are declared so the model and the on-disk
@@ -89,18 +93,44 @@ export type TransformKind =
  * opened (see the DATA-SHAPE NOTE on DataHubDocument.derivedFrom). A document
  * WITHOUT derivedFrom is a normal entered table, byte-identical to today.
  *
- *   - sourceTableId is the DataHubDocument.id of the source table (a string id,
- *     the same id space dataHubApi uses). The source may live under any owner;
- *     the recompute path resolves it by id via dataHubApi.getContent.
- *   - transform is which TransformKind produced this derived table.
- *   - params are the transform-specific options (e.g. the function for
- *     "transform", the baseline mode for "normalize"). The shape is owned by the
- *     matching pure function in transforms.ts.
+ * DATA-SHAPE (widened in phase 2 to a PIPELINE recipe, back-compat):
+ *
+ * A derived table now stores a PIPELINE (an ordered recipe of TransformOp), not
+ * a single transform. The widened shape is:
+ *   - sources is the ORDERED list of source table ids. sources[0] is the PRIMARY
+ *     source the recipe runs over; join / union ops reference the rest by id.
+ *   - recipe is the ordered TransformOp[] the pipeline engine runs (see
+ *     transform/engine.ts). The five Prism column transforms are now TransformOp
+ *     variants too (folded in phase 2 chunk 1), so a single-op recipe expresses
+ *     exactly what the legacy single-transform link expressed.
+ *
+ * LEGACY READ (back-compat, byte-stable):
+ *
+ * A document written before phase 2 carries the OLD single-op fields and no
+ * recipe. It reads as a single-op pipeline, sources = [sourceTableId] and
+ * recipe = [ the one folded TransformOp built from transform + params ], and
+ * recomputes to the IDENTICAL result it produced before (the folded op delegates
+ * to the same transforms.ts function). resolveRecipe() does this normalization;
+ * the serializer keeps writing nothing extra for an unchanged legacy doc, so it
+ * stays byte-stable on disk, and only a NEW recipe writes the new keys.
+ *
+ *   - sourceTableId / transform / params are the LEGACY single-op fields. They
+ *     are optional now because a new recipe-shaped link omits them. The exact
+ *     math of each TransformKind lives in datahub/transforms.ts.
  */
 export interface DerivedFrom {
-  sourceTableId: string;
-  transform: TransformKind;
-  params: Record<string, unknown>;
+  /** Legacy single-op source id. Present on pre-phase-2 docs; sources[0] mirrors
+   *  it on a widened link. */
+  sourceTableId?: string;
+  /** Legacy single-op transform kind. Present on pre-phase-2 docs only. */
+  transform?: TransformKind;
+  /** Legacy single-op params. Present on pre-phase-2 docs only. */
+  params?: Record<string, unknown>;
+  /** Ordered source table ids. sources[0] is the primary; join / union ops
+   *  reference the rest. Present on a phase-2 recipe link. */
+  sources?: string[];
+  /** Ordered pipeline the engine runs. Present on a phase-2 recipe link. */
+  recipe?: TransformOp[];
 }
 
 /** A single column definition (one entry in the table's column list). */
