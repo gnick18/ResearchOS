@@ -272,10 +272,18 @@ def ref_from_stats():
     mC, sC, nC = msn(GROUP_C)
 
     # Welch (equal_var=False) and Student (equal_var=True) from stats.
+    # scipy.stats.ttest_ind_from_stats returns a plain Ttest_indResult namedtuple
+    # with only .statistic and .pvalue (no .df, unlike ttest_ind), so the degrees
+    # of freedom are computed here directly. Welch uses Welch-Satterthwaite;
+    # Student (pooled) uses n1 + n2 - 2.
+    vA, vB = sA ** 2, sB ** 2
+    welch_df = ((vA / nA + vB / nB) ** 2
+                / ((vA / nA) ** 2 / (nA - 1) + (vB / nB) ** 2 / (nB - 1)))
+    student_df = float(nA + nB - 2)
     w = st.ttest_ind_from_stats(mA, sA, nA, mB, sB, nB, equal_var=False)
-    out["fromstats_welch"] = {"t": r4(w.statistic), "df": r4(w.df), "p": r4(w.pvalue)}
+    out["fromstats_welch"] = {"t": r4(w.statistic), "df": r4(welch_df), "p": r4(w.pvalue)}
     s = st.ttest_ind_from_stats(mA, sA, nA, mB, sB, nB, equal_var=True)
-    out["fromstats_student"] = {"t": r4(s.statistic), "df": r4(s.df), "p": r4(s.pvalue)}
+    out["fromstats_student"] = {"t": r4(s.statistic), "df": r4(student_df), "p": r4(s.pvalue)}
 
     # One-sided tails on the Welch from-stats case.
     wg = st.ttest_ind_from_stats(mA, sA, nA, mB, sB, nB, equal_var=False,
