@@ -42,6 +42,11 @@ import {
   columnValues,
   type GroupStats,
 } from "@/lib/datahub/column-table";
+import {
+  isSummaryFormat,
+  readAllGroupSummaries,
+  type GroupSummary,
+} from "@/lib/datahub/summary-table";
 import { xColumn, xyPairs, yColumns } from "@/lib/datahub/xy-table";
 import {
   cellMean,
@@ -639,14 +644,65 @@ export function errorMagnitude(
 }
 
 /**
- * Resolve the plotted groups for a column table: the group columns, each with
- * its engine-backed stats (computeAllGroupStats) and its raw finite values, in
- * declared column order, colored under the style.
+ * Build a GroupStats from an ENTERED summary (mean + spread + n). The table
+ * stores ONE spread (SD or SEM, fixed by its format), so the other is derived
+ * with the stored n (SEM = SD / sqrt(n), SD = SEM * sqrt(n)). This lets a figure
+ * draw whichever errorBar kind the user picks regardless of which spread the
+ * table holds, the same conversion the from-stats analysis path uses. A missing
+ * n leaves the derived spread null, so errorMagnitude falls back to no bar
+ * rather than dividing by an unknown count.
+ */
+function statsFromSummary(s: GroupSummary): GroupStats {
+  const n = s.n !== null && Number.isFinite(s.n) && s.n >= 1 ? s.n : null;
+  let sd: number | null = null;
+  let sem: number | null = null;
+  if (s.spread !== null && Number.isFinite(s.spread)) {
+    if (s.spreadKind === "sem") {
+      sem = s.spread;
+      sd = n !== null ? s.spread * Math.sqrt(n) : null;
+    } else {
+      sd = s.spread;
+      sem = n !== null ? s.spread / Math.sqrt(n) : null;
+    }
+  }
+  return { mean: s.mean, sd, sem, n: n ?? 0 };
+}
+
+/**
+ * Resolve the plotted groups for a column table.
+ *
+ * In the default replicates format each group column carries its engine-backed
+ * stats (computeAllGroupStats) and its raw finite values, in declared column
+ * order, colored under the style. This path is byte-identical to before summary
+ * tables existed.
+ *
+ * In a SUMMARY entry format there are no raw replicates: each group's stats come
+ * from its ENTERED mean + spread + n (statsFromSummary), and values[] is empty.
+ * A columnScatter figure of a summary table therefore draws the mean line and
+ * the error bar but no per-replicate dots (there are none to plot), which is the
+ * sensible fall-back the brief asks for: the figure stays a bars / mean-with-
+ * error plot rather than an empty scatter.
  */
 export function resolvePlotGroups(
   content: DataHubDocContent,
   style: PlotStyle,
 ): PlotGroup[] {
+  if (
+    content.meta.table_type === "column" &&
+    isSummaryFormat(content.meta.entryFormat)
+  ) {
+    const summaries = readAllGroupSummaries(content);
+    const colors = seriesColors(style, summaries.length);
+    return summaries.map((s, i) => ({
+      id: s.datasetId,
+      name: s.name,
+      color: colors[i] ?? "#000000",
+      stats: statsFromSummary(s),
+      // No raw replicates in a summary table, so no jittered points are drawn.
+      values: [],
+    }));
+  }
+
   const cols = groupColumns(content);
   const allStats = computeAllGroupStats(content);
   // Sample the active palette once to the real group count, then apply any

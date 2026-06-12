@@ -306,6 +306,13 @@ export type NormalizedResult =
 export interface RunFailure {
   ok: false;
   error: string;
+  /**
+   * True when the failure is specifically that the table holds entered summary
+   * stats but the chosen test needs raw replicate values (a paired / rank-based
+   * test, correlation, or regression). The UI shows a friendly "switch the table
+   * to Replicates to run it" message for this case rather than a generic error.
+   */
+  needsRaw?: boolean;
 }
 
 export type RunOutcome =
@@ -592,6 +599,7 @@ function runSummaryAnalysis(
   if (!summaryCanRun(type)) {
     return {
       ok: false,
+      needsRaw: true,
       error:
         "This test needs raw replicate data. The table holds entered summary "
         + "stats (mean, spread, n), which support only the unpaired t-test and "

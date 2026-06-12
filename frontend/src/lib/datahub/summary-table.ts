@@ -28,6 +28,11 @@ import type {
   EntryFormat,
   RowRecord,
 } from "@/lib/datahub/model/types";
+import {
+  buildEmptyColumnTable,
+  computeGroupStats,
+  groupColumns,
+} from "@/lib/datahub/column-table";
 
 /** Whether an entry format is one of the two summary modes (not "replicates"). */
 export function isSummaryFormat(format: EntryFormat | undefined): boolean {
@@ -266,4 +271,127 @@ export function writeGroupSummaryCells(
       ? [{ id: rowId, cells }]
       : content.rows.map((r, i) => (i === 0 ? { id: r.id, cells } : r));
   return { ...content, rows };
+}
+
+// ---------------------------------------------------------------------------
+// Entry-format conversions (used by the grid Table-format control)
+//
+// Switching a Column table between replicates and a summary mode is a STRUCTURAL
+// rewrite of its columns + rows, not a metadata flip. These pure planners compute
+// the new { columns, rows } so the page can apply them through the Loro mutators
+// and write the new entryFormat in one commit. They never touch the engine math;
+// they only reshape the stored grid. Each is lossy in one direction (replicates
+// to summary drops the raw values; summary to replicates cannot recover them),
+// so the calling UI confirms before applying.
+// ---------------------------------------------------------------------------
+
+/** SD from a stored SEM (SD = SEM * sqrt(n)); null when n is missing / invalid. */
+export function sdFromSem(sem: number, n: number | null): number | null {
+  if (n === null || !Number.isFinite(n) || n < 1) return null;
+  return sem * Math.sqrt(n);
+}
+
+/** SEM from a stored SD (SEM = SD / sqrt(n)); null when n is missing / invalid. */
+export function semFromSd(sd: number, n: number | null): number | null {
+  if (n === null || !Number.isFinite(n) || n < 1) return null;
+  return sd / Math.sqrt(n);
+}
+
+/**
+ * Build the summary { columns, rows } for a replicates Column table, computing
+ * each group's mean + spread (SD or SEM per the target format) + n from its raw
+ * replicates via the same engine the footer uses. A group with too few finite
+ * values seeds a blank spread (null) the user can fill in. The datasetId is the
+ * existing column id so the group keeps its identity (and any figure that names
+ * groups by name keeps matching). This DROPS the raw replicate values, which is
+ * why the caller confirms first.
+ */
+export function replicatesToSummaryPlan(
+  content: DataHubDocContent,
+  format: EntryFormat,
+): { columns: ColumnDef[]; rows: RowRecord[] } {
+  const spreadKind = spreadKindOf(
+    format === "replicates" ? "mean-sd-n" : format,
+  );
+  const groups = groupColumns(content).map((col) => {
+    const s = computeGroupStats(content, col.id);
+    const spread = spreadKind === "sem" ? s.sem : s.sd;
+    return {
+      datasetId: col.id,
+      name: col.name,
+      mean: s.mean,
+      spread: spread,
+      n: s.n > 0 ? s.n : null,
+    };
+  });
+  return buildSummaryColumnTable(groups, format);
+}
+
+/**
+ * Build the replicates { columns, rows } from a summary Column table. The raw
+ * replicates cannot be recovered from a mean + spread + n, so this keeps each
+ * group's entered MEAN as a single replicate (row 1) under a plain "y" column,
+ * preserving the group name and identity, and seeds the remaining replicate rows
+ * blank. A group with no entered mean seeds entirely blank. The caller confirms
+ * the data loss (the spread + n are dropped) before applying.
+ */
+export function summaryToReplicatesPlan(
+  content: DataHubDocContent,
+  rows = 6,
+): { columns: ColumnDef[]; rows: RowRecord[] } {
+  const summaries = readAllGroupSummaries(content);
+  const groupCount = Math.max(1, summaries.length);
+  const base = buildEmptyColumnTable(groupCount, Math.max(1, rows));
+  // Rename the seeded "Group N" columns to the entered group names and seed the
+  // first row with each group's mean (the only number a summary can carry into
+  // a replicate grid). The seeded ids are col-1, col-2, ... in order.
+  const columns: ColumnDef[] = base.columns.map((col, i) => {
+    const s = summaries[i];
+    return s ? { ...col, name: s.name } : col;
+  });
+  const rowRecords: RowRecord[] = base.rows.map((row, r) => {
+    if (r !== 0) return row;
+    const cells: Record<string, CellValue> = { ...row.cells };
+    columns.forEach((col, i) => {
+      const s = summaries[i];
+      cells[col.id] = s && s.mean !== null ? s.mean : null;
+    });
+    return { id: row.id, cells };
+  });
+  return { columns, rows: rowRecords };
+}
+
+/**
+ * Build the summary { columns, rows } for switching a summary table's spread
+ * between SD and SEM (mean-sd-n <-> mean-sem-n). This is LOSSLESS, converting
+ * each group's stored spread with its n (SEM = SD / sqrt(n) and back), so no
+ * confirm is needed. A group whose n is missing keeps a blank spread rather than
+ * dividing by an unknown count. The mean and n carry over unchanged.
+ */
+export function convertSpreadKindPlan(
+  content: DataHubDocContent,
+  toFormat: EntryFormat,
+): { columns: ColumnDef[]; rows: RowRecord[] } {
+  const fromKind = spreadKindOf(entryFormatOf(content));
+  const toKind = spreadKindOf(
+    toFormat === "replicates" ? "mean-sd-n" : toFormat,
+  );
+  const summaries = readAllGroupSummaries(content);
+  const groups = summaries.map((s) => {
+    let spread = s.spread;
+    if (spread !== null && fromKind !== toKind) {
+      spread =
+        toKind === "sem"
+          ? semFromSd(spread, s.n)
+          : sdFromSem(spread, s.n);
+    }
+    return {
+      datasetId: s.datasetId,
+      name: s.name,
+      mean: s.mean,
+      spread,
+      n: s.n,
+    };
+  });
+  return buildSummaryColumnTable(groups, toFormat);
 }

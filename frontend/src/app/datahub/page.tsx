@@ -28,6 +28,7 @@ import type {
   CellValue,
   DataHubDocContent,
   DataHubDocument,
+  EntryFormat,
   PlotSpec,
 } from "@/lib/datahub/model/types";
 import {
@@ -49,6 +50,8 @@ import {
   removePlot as removePlotInDoc,
   setTitle as setTitleInDoc,
   setCell,
+  replaceTable as replaceTableInDoc,
+  setEntryFormat as setEntryFormatInDoc,
 } from "@/lib/loro/datahub-doc";
 import {
   buildBlankRow,
@@ -63,6 +66,16 @@ import {
   buildEmptyColumnTable,
   parseCellInput,
 } from "@/lib/datahub/column-table";
+import {
+  isSummaryFormat,
+  entryFormatOf,
+  spreadKindOf,
+  summaryGroupIds,
+  summaryColumnId,
+  replicatesToSummaryPlan,
+  summaryToReplicatesPlan,
+  convertSpreadKindPlan,
+} from "@/lib/datahub/summary-table";
 import { buildEmptyXYTable, yColumns } from "@/lib/datahub/xy-table";
 import {
   buildEmptyGroupedTable,
@@ -94,6 +107,7 @@ import {
 } from "@/lib/datahub/plot-spec";
 import DataHubRail, { type Collection } from "@/components/datahub/DataHubRail";
 import DataTableGrid from "@/components/datahub/DataTableGrid";
+import TableFormatControl from "@/components/datahub/TableFormatControl";
 import XYTableGrid from "@/components/datahub/XYTableGrid";
 import GroupedTableGrid from "@/components/datahub/GroupedTableGrid";
 import SurvivalTableGrid from "@/components/datahub/SurvivalTableGrid";
@@ -458,6 +472,42 @@ export default function DataHubPage() {
       return;
     }
 
+    // A summary-format Column table adds a whole group, which is three
+    // subcolumns (mean, the format's spread, n) sharing one datasetId, plus a
+    // null cell each in the single summary row. The new group seeds blank so the
+    // user fills the three numbers in.
+    if (tableType === "column" && isSummaryFormat(openContent.meta.entryFormat)) {
+      const spreadKind = spreadKindOf(entryFormatOf(openContent));
+      const datasetId = `grp-${stamp}`;
+      const name = `Group ${summaryGroupIds(openContent).length + 1}`;
+      const kinds: Array<"mean" | "sd" | "sem" | "n"> = [
+        "mean",
+        spreadKind,
+        "n",
+      ];
+      const newColIds: string[] = [];
+      for (const kind of kinds) {
+        const id = summaryColumnId(datasetId, kind);
+        newColIds.push(id);
+        addColumnToDoc(handle.doc, {
+          id,
+          name,
+          role: "subcolumn",
+          dataType: "number",
+          datasetId,
+          subcolumnKind: kind,
+        });
+      }
+      // The summary table holds a single row; backfill the new group's cells on
+      // every existing row (there is one) so the projection reads cleanly.
+      for (const row of openContent.rows) {
+        for (const id of newColIds) setCell(handle.doc, row.id, id, null);
+      }
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+      return;
+    }
+
     const isXY = tableType === "xy";
     const colId = `col-${stamp}`;
     if (isXY) {
@@ -485,6 +535,66 @@ export default function DataHubPage() {
     void handle.commit();
     setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
   }, [openContent]);
+
+  // Switch a Column table's entry format (Replicates / Mean+SD+N / Mean+SEM+N).
+  // This is a STRUCTURAL rewrite, not a metadata flip: the grid changes from
+  // replicate rows to a single summary row (or back), so we reshape the columns
+  // + rows AND write the new format in one commit, mirroring the same Loro path
+  // every other table edit uses. The lossy-switch confirms live in the control;
+  // by the time this fires the user has accepted the reshape.
+  //   - to a summary mode: compute each group's mean / spread / n from its
+  //     replicates and replace the raw values with the three-subcolumn summary.
+  //   - to replicates from a summary: reseed a replicate grid, keeping each
+  //     group's mean as a single replicate (the raw values cannot be recovered).
+  //   - SD <-> SEM: convert the stored spread losslessly with the stored n.
+  const handleSwitchEntryFormat = useCallback(
+    (next: EntryFormat) => {
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      if (openContent.meta.table_type !== "column") return;
+      const current = entryFormatOf(openContent);
+      if (next === current) return;
+
+      const currentlySummary = isSummaryFormat(current);
+      const nextSummary = isSummaryFormat(next);
+      let plan: { columns: typeof openContent.columns; rows: typeof openContent.rows };
+      if (!currentlySummary && nextSummary) {
+        plan = replicatesToSummaryPlan(openContent, next);
+      } else if (currentlySummary && !nextSummary) {
+        plan = summaryToReplicatesPlan(openContent);
+      } else {
+        // summary <-> summary: a lossless SD <-> SEM spread conversion.
+        plan = convertSpreadKindPlan(openContent, next);
+      }
+
+      replaceTableInDoc(handle.doc, plan.columns, plan.rows);
+      setEntryFormatInDoc(handle.doc, next);
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+    },
+    [openContent],
+  );
+
+  // Rename a summary group on a summary-format Column table: its three
+  // subcolumns (mean / spread / n) share the group name, so the rename writes
+  // the new name to each of them (the foundation keys the group name off the
+  // mean column, but all three carry it). Mirrors the grouped-table rename path.
+  const handleRenameSummaryGroup = useCallback(
+    (datasetId: string, name: string) => {
+      const handle = handleRef.current;
+      if (!handle || !openContent || openIdRef.current == null) return;
+      const trimmed = name.trim();
+      if (trimmed === "") return;
+      for (const col of openContent.columns) {
+        if (col.role === "subcolumn" && col.datasetId === datasetId) {
+          updateColumnInDoc(handle.doc, col.id, { name: trimmed });
+        }
+      }
+      void handle.commit();
+      setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
+    },
+    [openContent],
+  );
 
   // Rename a column group on a Grouped table: every replicate column in the
   // group shares the group name, so a rename writes the new name to each of
@@ -1349,14 +1459,20 @@ export default function DataHubPage() {
     const addColumnLabel =
       type === "xy" ? "Add Y column" : type === "grouped" ? "Add group" : "Add group";
 
-    const addGroup: ToolbarGroup = [
-      {
+    // A summary-format Column table holds a single fixed row (the entered
+    // descriptives), so Add row does not apply there; only Add group does.
+    const summary =
+      type === "column" && isSummaryFormat(openContent.meta.entryFormat);
+
+    const addGroup: ToolbarGroup = [];
+    if (!summary) {
+      addGroup.push({
         icon: "plus",
         label: type === "survival" ? "Add subject" : "Add row",
         onClick: handleAddRow,
         testId: "datahub-toolbar-add-row",
-      },
-    ];
+      });
+    }
     if (type !== "survival") {
       addGroup.push({
         icon: "plus",
@@ -1563,6 +1679,17 @@ export default function DataHubPage() {
                     {refCopied ? "Copied reference" : "Copy reference"}
                   </button>
                 </Tooltip>
+                {/* Entry-format control, Column tables only. Lets a researcher
+                    switch to entering already-calculated summary stats (Mean,
+                    SD or SEM, N) when they do not have the raw replicates. */}
+                {openContent.meta.table_type === "column" ? (
+                  <div className="ml-auto">
+                    <TableFormatControl
+                      format={entryFormatOf(openContent)}
+                      onChange={handleSwitchEntryFormat}
+                    />
+                  </div>
+                ) : null}
               </div>
 
               <WorkspaceToolbar testId="datahub-table-toolbar" groups={tableToolbarGroups} />
@@ -1605,7 +1732,9 @@ export default function DataHubPage() {
                       ? "Grouped table. Each row is a category and each column group is a second factor, with replicate subcolumns for a two-way ANOVA."
                       : openContent.meta.table_type === "survival"
                         ? "Survival table. Each row is a subject with a time, an event indicator (1 or 0), and an optional group for Kaplan-Meier and the log-rank test."
-                        : "Column table. Each column is a treatment group, each row a replicate."}
+                        : isSummaryFormat(openContent.meta.entryFormat)
+                          ? `Column table, summary entry. Each column is a group, and you enter its mean, ${spreadKindOf(entryFormatOf(openContent)).toUpperCase()}, and n directly. Graphs and the summary-compatible tests draw from those numbers.`
+                          : "Column table. Each column is a treatment group, each row a replicate."}
                 </p>
                 {openContent.meta.table_type === "xy" ? (
                   <XYTableGrid
@@ -1640,6 +1769,7 @@ export default function DataHubPage() {
                     onCellCommit={handleCellCommit}
                     onAddRow={handleAddRow}
                     onAddColumn={handleAddColumn}
+                    onRenameSummaryGroup={handleRenameSummaryGroup}
                     crud={gridCrud}
                     hideAddControls
                   />
