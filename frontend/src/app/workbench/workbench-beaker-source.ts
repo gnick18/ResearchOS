@@ -636,10 +636,9 @@ function buildCommands(
     out.push({
       id: "workbench-oneonone-delete",
       label: `Delete ${name}`,
-      detail: data.isLabHead ? "removes the 1:1" : "lab head only",
+      detail: "removes the check-in",
       group: WORKBENCH_GROUP_SELECTED,
       iconName: "trash",
-      enabled: data.isLabHead,
       run: () => handlers.deleteOneOnOne(oo),
     });
   }
@@ -684,12 +683,10 @@ function buildCommands(
   });
   out.push({
     id: "workbench-new-oneonone",
-    label: "New 1:1",
-    detail: data.isLabHead ? undefined : "lab head only",
-    keywords: "mentoring check-in",
+    label: "New check-in",
+    keywords: "mentoring 1:1 one-on-one peer",
     group: WORKBENCH_GROUP_CREATE,
     iconName: "userPlus",
-    enabled: data.isLabHead,
     run: handlers.createOneOnOne,
   });
 
@@ -1050,7 +1047,11 @@ function oneOnOneNavItem(
     id: `oneonone-${oo.id}`,
     label: data.oneOnOneNameOf(oo),
     detail: detailOverride ?? "weekly goals",
-    keywords: [oo.labHead, oo.member].filter(Boolean).join(" "),
+    // Generalized over the member array (records arrive normalized from
+    // getOneOnOnes); fall back to the legacy binary for any un-normalized one.
+    keywords: (oo.members ?? [oo.labHead, oo.member])
+      .filter((m): m is string => Boolean(m))
+      .join(" "),
     iconName: ICON_ONEONONE,
     tone: "person",
     onRun: () =>

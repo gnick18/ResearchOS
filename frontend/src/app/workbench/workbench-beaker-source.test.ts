@@ -125,7 +125,7 @@ function makeData(over: Partial<WorkbenchSourceData> = {}): WorkbenchSourceData 
   const oneOnOnes = over.oneOnOnes ?? [makeOneOnOne()];
   return {
     activeTab: "experiments",
-    oneOnOneTabLabel: "Mentoring",
+    oneOnOneTabLabel: "Check-ins",
     showOneOnOneTab: true,
     isLabHead: true,
     currentUser: "alex",
@@ -171,12 +171,12 @@ describe("buildWorkbenchSource context card", () => {
     expect(card.selection).toBeUndefined();
   });
 
-  it("prints the role-relative 1:1 tab label in the meta", () => {
+  it("prints the check-ins tab label in the meta", () => {
     const card = buildWorkbenchSource(
       makeData({ activeTab: "oneonone" }),
       noopHandlers,
     ).contextCard!;
-    expect(card.meta).toBe("Mentoring, 1 active 1:1");
+    expect(card.meta).toBe("Check-ins, 1 active 1:1");
   });
 
   it("adds the filtered-to clause for a single project filter (Experiments tab)", () => {
@@ -258,19 +258,20 @@ describe("buildWorkbenchSource commands", () => {
     expect(byId.get("workbench-notebook-all")?.group).toBe("Open a notebook");
   });
 
-  it("gates New 1:1 on lab-head", () => {
+  it("New check-in is available to any account (no lab-head gate, Phase 1)", () => {
     const head = new Map(
       buildWorkbenchSource(makeData({ isLabHead: true }), noopHandlers).commands.map(
         (c) => [c.id, c],
       ),
     );
-    expect(head.get("workbench-new-oneonone")?.enabled).toBe(true);
+    // `enabled` is omitted (undefined) = always enabled.
+    expect(head.get("workbench-new-oneonone")?.enabled).toBeUndefined();
     const member = new Map(
       buildWorkbenchSource(makeData({ isLabHead: false }), noopHandlers).commands.map(
         (c) => [c.id, c],
       ),
     );
-    expect(member.get("workbench-new-oneonone")?.enabled).toBe(false);
+    expect(member.get("workbench-new-oneonone")?.enabled).toBeUndefined();
   });
 
   it("disables the tab switch for the tab you are on and hides the 1:1 tab when gated", () => {
@@ -346,7 +347,7 @@ describe("buildWorkbenchSource commands", () => {
     expect(cmds2.find((c) => c.id === "workbench-list-toggle")?.enabled).toBe(true);
   });
 
-  it("greys note move + delete for a view-only note and gates 1:1 delete on lab-head", () => {
+  it("greys note move + delete for a view-only note; check-in delete is offered to any account (API enforces owner-only)", () => {
     const noteCmds = buildWorkbenchSource(
       makeData({
         activeTab: "notes",
@@ -358,6 +359,9 @@ describe("buildWorkbenchSource commands", () => {
     expect(noteCmds.find((c) => c.id === "workbench-note-move")?.enabled).toBe(false);
     expect(noteCmds.find((c) => c.id === "workbench-note-delete")?.enabled).toBe(false);
 
+    // Phase 1 retires the lab-head gate on the BeakerSearch delete command; the
+    // owner-only guard lives in oneOnOnesApi.delete instead. `enabled` is
+    // omitted (undefined) so the command is always offered + present.
     const ooCmds = buildWorkbenchSource(
       makeData({
         activeTab: "oneonone",
@@ -366,7 +370,9 @@ describe("buildWorkbenchSource commands", () => {
       }),
       noopHandlers,
     ).commands;
-    expect(ooCmds.find((c) => c.id === "workbench-oneonone-delete")?.enabled).toBe(false);
+    expect(
+      ooCmds.find((c) => c.id === "workbench-oneonone-delete")?.enabled,
+    ).toBeUndefined();
   });
 
   // BeakerSearch v2 (sub-flow framework, chunk 2). The INLINE move-to-notebook flow.
@@ -550,7 +556,7 @@ describe("buildWorkbenchSource nav groups", () => {
       "Go to Experiments",
       "Go to Notes",
       "Go to Lists",
-      "Go to Mentoring",
+      "Go to Check-ins",
     ]);
 
     const gated = buildWorkbenchSource(
@@ -558,7 +564,7 @@ describe("buildWorkbenchSource nav groups", () => {
       noopHandlers,
     ).navGroups!;
     const tabJump = gated.find((g) => g.title === "Go to a tab")!;
-    expect(tabJump.items.map((i) => i.label)).not.toContain("Go to Mentoring");
+    expect(tabJump.items.map((i) => i.label)).not.toContain("Go to Check-ins");
     // The 1:1 jump group also vanishes when gated.
     expect(gated.some((g) => g.title === "Jump to a 1:1")).toBe(false);
   });

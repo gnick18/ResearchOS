@@ -1,21 +1,28 @@
 "use client";
 
-// 1:1 revamp (oneonone surface bot, 2026-06-07). See
-// docs/proposals/NOTEBOOKS_AND_ONE_ON_ONE_REVAMP.md. The lab-head <-> member 1:1
-// surface, mounted as the 5th Workbench tab. A left list of the viewer's 1:1s
-// (labeled role-relative via `oneOnOneLabel`) plus a main pane with four
-// sub-tabs both members edit: Weekly goals, Meeting notes, Notes, Agenda.
+// Check-ins revamp Phase 1 (checkins-revamp bot, 2026-06-11). See
+// docs/proposals/checkins-revamp.md. The generalized check-in surface, mounted
+// as a Workbench tab for EVERY account. A left rail of the viewer's spaces,
+// grouped by the mentor edge (your mentor / your mentees / peers / groups) and
+// labeled by the counterpart via `oneOnOneLabel`, plus a main pane with four
+// sub-tabs every member edits: Weekly goals, Meeting notes, Notes, Agenda.
+//
+// Phase 1: any account can start a space (the lab-head gate is retired); the
+// new-check-in dialog picks ONE other person plus a "I am the mentor" checkbox.
+// Multi-person groups, per-task assignees, IDP, templates, and the tree view
+// are later phases and are NOT built here.
 //
 // Reads route through `labApi.getOneOnOne*` (sharing-respecting aggregations);
-// writes route through `oneOnOnesApi`. No data-model changes here. House style:
-// `<Icon>` only, brand tokens, `<Tooltip>` on icon-only buttons, no em-dashes,
-// no emojis, no mid-sentence colons in copy.
+// writes route through `oneOnOnesApi`. House style: `<Icon>` only, brand tokens,
+// `<Tooltip>` on icon-only buttons, no em-dashes, no emojis, no mid-sentence
+// colons in copy.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { labApi, oneOnOnesApi, usersApi } from "@/lib/local-api";
 import { oneOnOneLabel } from "@/lib/one-on-one/label";
+import { normalizeOneOnOne } from "@/lib/one-on-one/normalize";
 import type {
   Note,
   OneOnOne,
@@ -44,7 +51,9 @@ const AREA_TABS: Array<{ id: AreaTab; label: string }> = [
 interface WorkbenchOneOnOnePanelProps {
   /** The signed-in username (drives the role-relative label + perspective). */
   currentUser: string;
-  /** True when the viewer is a lab head (gates the "New 1:1" + delete actions). */
+  /** True when the viewer is a lab head. Phase 1 no longer gates create/delete
+   *  on this (any account can start a space), but it is kept for the
+   *  BeakerSearch source + future role-aware copy. */
   isLabHead: boolean;
   /** BeakerSearch cross-tab jump (spec 4.2). A pending {kind:"oneonone", key}
    *  intent selects the matching 1:1 once on mount (or opens the new-dialog for
@@ -64,7 +73,8 @@ const itemsKey = (id: string) => ["one-on-one", id, "action-items"] as const;
 
 export default function WorkbenchOneOnOnePanel({
   currentUser,
-  isLabHead,
+  // isLabHead is still accepted (parent passes it) but Phase 1 no longer gates
+  // create/delete on it; any account can start a space.
   initialOpen = null,
   onInitialOpenConsumed,
   onSelectionChange,
@@ -105,7 +115,7 @@ export default function WorkbenchOneOnOnePanel({
   useEffect(() => {
     if (!initialOpen || initialOpen.kind !== "oneonone") return;
     if (initialOpen.key === "__create__") {
-      if (isLabHead) setShowNewDialog(true);
+      setShowNewDialog(true);
     } else {
       const id = initialOpen.key.replace(/^oneonone-/, "");
       if (oneOnOnes.some((o) => o.id === id)) setSelectedId(id);
@@ -132,85 +142,131 @@ export default function WorkbenchOneOnOnePanel({
     },
   });
 
+  // Group the spaces by the mentor edge (proposal Part 1, rail grouping).
+  // - "Your mentor": pair spaces where someone ELSE is the mentor.
+  // - "Your mentees": pair spaces where YOU are the mentor.
+  // - "Peers": pair spaces with no mentor.
+  // - "Groups": 3+ member spaces (phase 2 builds their UI; here they just list).
+  const railGroups = useMemo(
+    () => groupSpacesByRelationship(oneOnOnes, currentUser),
+    [oneOnOnes, currentUser],
+  );
+
   return (
     <div className="flex gap-4" data-testid="workbench-oneonone-panel">
-      {/* Left list */}
+      {/* Left rail */}
       <aside className="w-64 flex-shrink-0">
         <div className="mb-2 flex items-center justify-between px-1">
           <h3 className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">
-            {isLabHead ? "Your mentees" : "Your check-ins"}
+            Check-ins
           </h3>
-          {isLabHead && (
-            <Tooltip label="Start a new 1:1">
-              <button
-                type="button"
-                onClick={() => setShowNewDialog(true)}
-                aria-label="Start a new 1:1"
-                className="rounded-lg p-1 text-brand-action transition-colors hover:bg-surface-sunken"
-              >
-                <Icon name="userPlus" className="h-[18px] w-[18px]" />
-              </button>
-            </Tooltip>
-          )}
+          <Tooltip label="Start a check-in">
+            <button
+              type="button"
+              onClick={() => setShowNewDialog(true)}
+              aria-label="Start a check-in"
+              data-testid="oneonone-start-rail"
+              className="rounded-lg p-1 text-brand-action transition-colors hover:bg-surface-sunken"
+            >
+              <Icon name="userPlus" className="h-[18px] w-[18px]" />
+            </button>
+          </Tooltip>
         </div>
 
         {oneOnOnes.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border bg-surface-sunken/50 px-3 py-3 text-body text-foreground-muted">
             <p>
-              {isLabHead
-                ? "No 1:1s yet. Start one with a lab member to share weekly goals, meeting notes, and an agenda."
-                : "You are not in any 1:1s yet. Your lab head sets these up."}
+              No check-ins yet. Start one with anyone to share weekly goals,
+              meeting notes, and an agenda.
             </p>
+            <button
+              type="button"
+              onClick={() => setShowNewDialog(true)}
+              data-testid="oneonone-start-empty-rail"
+              className="btn-brand mt-3 flex items-center gap-1.5 rounded-lg px-3 py-2 text-body font-medium"
+            >
+              <Icon name="userPlus" className="h-4 w-4" />
+              Start a check-in
+            </button>
             <Link
               href="/wiki/features/one-on-ones"
-              className="mt-2 inline-block text-meta font-medium text-brand-action hover:underline"
+              className="mt-3 inline-block text-meta font-medium text-brand-action hover:underline"
             >
               Learn more
             </Link>
           </div>
         ) : (
-          <ul className="flex flex-col gap-1">
-            {oneOnOnes.map((oo) => {
-              const active = oo.id === selectedId;
-              return (
-                <li key={oo.id}>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedId(oo.id)}
-                    onContextMenu={(e) => {
-                      if (!isLabHead) return;
-                      e.preventDefault();
-                      setMenu({ x: e.clientX, y: e.clientY, oo });
-                    }}
-                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-body transition-colors ${
-                      active
-                        ? "bg-brand-action/10 text-foreground"
-                        : "text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
-                    }`}
-                  >
-                    <Icon
-                      name="users"
-                      className="h-4 w-4 flex-shrink-0 text-foreground-muted"
-                    />
-                    <span className="truncate">
-                      {oneOnOneLabel(currentUser, oo)}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="flex flex-col gap-3">
+            {railGroups.map((group) => (
+              <div key={group.key} className="flex flex-col gap-1">
+                <p className="px-1 text-meta font-semibold uppercase tracking-wide text-foreground-muted">
+                  {group.label}
+                </p>
+                <ul className="flex flex-col gap-1">
+                  {group.spaces.map((oo) => {
+                    const active = oo.id === selectedId;
+                    return (
+                      <li key={oo.id}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedId(oo.id)}
+                          onContextMenu={(e) => {
+                            const owner =
+                              oo.owner === currentUser ||
+                              oo.created_by === currentUser;
+                            if (!owner) return;
+                            e.preventDefault();
+                            setMenu({ x: e.clientX, y: e.clientY, oo });
+                          }}
+                          className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-body transition-colors ${
+                            active
+                              ? "bg-brand-action/10 text-foreground"
+                              : "text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+                          }`}
+                        >
+                          <Icon
+                            name="users"
+                            className="h-4 w-4 flex-shrink-0 text-foreground-muted"
+                          />
+                          <span className="truncate">
+                            {oneOnOneLabel(currentUser, oo)}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
         )}
       </aside>
 
       {/* Main pane */}
       <section className="min-w-0 flex-1">
         {!selected ? (
-          <div className="flex h-48 items-center justify-center rounded-xl border border-dashed border-border bg-surface-sunken/40 text-body text-foreground-muted">
-            {oneOnOnes.length === 0
-              ? "Nothing to show yet."
-              : "Select a 1:1 to view its weekly goals, meeting notes, and agenda."}
-          </div>
+          oneOnOnes.length === 0 ? (
+            <div className="flex h-48 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-surface-sunken/40 px-6 text-center text-body text-foreground-muted">
+              <p>
+                Check-ins are a shared space for weekly goals, meeting notes, and
+                a rolling agenda. Start one with a mentor, a mentee, or a peer.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowNewDialog(true)}
+                data-testid="oneonone-start-main"
+                className="btn-brand flex items-center gap-1.5 rounded-lg px-3 py-2 text-body font-medium"
+              >
+                <Icon name="userPlus" className="h-4 w-4" />
+                Start a check-in
+              </button>
+            </div>
+          ) : (
+            <div className="flex h-48 items-center justify-center rounded-xl border border-dashed border-border bg-surface-sunken/40 text-body text-foreground-muted">
+              Select a check-in to view its weekly goals, meeting notes, and
+              agenda.
+            </div>
+          )
         ) : (
           <>
             <div className="mb-4 flex items-center gap-1 border-b border-border pb-2">
@@ -244,7 +300,8 @@ export default function WorkbenchOneOnOnePanel({
 
       {showNewDialog && (
         <NewOneOnOneDialog
-          existingMembers={oneOnOnes.map((o) => o.member)}
+          currentUser={currentUser}
+          existingPartners={existingPartners(oneOnOnes, currentUser)}
           onClose={() => setShowNewDialog(false)}
           onCreated={(created) => {
             queryClient.invalidateQueries({ queryKey: ooKey });
@@ -261,7 +318,7 @@ export default function WorkbenchOneOnOnePanel({
           onClose={() => setMenu(null)}
           items={[
             {
-              label: "Delete 1:1",
+              label: "Delete check-in",
               icon: <Icon name="trash" className="h-4 w-4 text-red-500" />,
               onClick: () => deleteMutation.mutate(menu.oo.id),
             },
@@ -615,6 +672,14 @@ function AgendaArea({ oneOnOne }: { oneOnOne: OneOnOne }) {
               >
                 {item.text}
               </span>
+              {!item.is_done && isCarriedOver(item.created_at) && (
+                <Tooltip label="Open since your last check-in, still on the agenda">
+                  <span className="flex flex-shrink-0 items-center gap-1 rounded-full bg-surface-sunken px-2 py-0.5 text-meta text-foreground-muted">
+                    <Icon name="history" className="h-3 w-3" />
+                    carried over
+                  </span>
+                </Tooltip>
+              )}
               <DeleteIconButton
                 label="Delete item"
                 onClick={() => deleteMutation.mutate(item)}
@@ -702,6 +767,79 @@ function todayISO(): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** How long an unchecked agenda item must sit before it shows the gentle
+ *  "carried over" cue. The proposal frames this softly (NOT "overdue"). */
+const CARRY_OVER_DAYS = 7;
+
+/** True when `createdAtISO` is older than `CARRY_OVER_DAYS`. Display-only. */
+function isCarriedOver(createdAtISO: string): boolean {
+  const created = new Date(createdAtISO).getTime();
+  if (Number.isNaN(created)) return false;
+  const ageMs = Date.now() - created;
+  return ageMs > CARRY_OVER_DAYS * 24 * 60 * 60 * 1000;
+}
+
+/** A rail section: a relationship group with its spaces. */
+interface RailGroup {
+  key: "mentor" | "mentees" | "peers" | "groups";
+  label: string;
+  spaces: OneOnOne[];
+}
+
+/**
+ * Group the viewer's spaces by the mentor edge (proposal Part 1):
+ *   - "Your mentor": pair spaces where someone else is the mentor.
+ *   - "Your mentees": pair spaces where YOU are the mentor.
+ *   - "Peers": pair spaces with no mentor.
+ *   - "Groups": 3+ member spaces (phase 2 owns their UI; here they just list).
+ * Empty groups are dropped so the rail only shows sections that have spaces.
+ */
+function groupSpacesByRelationship(
+  spaces: OneOnOne[],
+  viewer: string,
+): RailGroup[] {
+  const buckets: Record<RailGroup["key"], OneOnOne[]> = {
+    mentor: [],
+    mentees: [],
+    peers: [],
+    groups: [],
+  };
+  for (const oo of spaces) {
+    const n = normalizeOneOnOne(oo);
+    if (n.kind === "group") {
+      buckets.groups.push(oo);
+    } else if (!n.mentor) {
+      buckets.peers.push(oo);
+    } else if (n.mentor === viewer) {
+      buckets.mentees.push(oo);
+    } else {
+      buckets.mentor.push(oo);
+    }
+  }
+  const order: Array<{ key: RailGroup["key"]; label: string }> = [
+    { key: "mentor", label: "Your mentor" },
+    { key: "mentees", label: "Your mentees" },
+    { key: "peers", label: "Peers" },
+    { key: "groups", label: "Groups" },
+  ];
+  return order
+    .map(({ key, label }) => ({ key, label, spaces: buckets[key] }))
+    .filter((g) => g.spaces.length > 0);
+}
+
+/** The set of people the viewer already has a PAIR space with (so the new-space
+ *  dialog can hide them). Group members are not excluded (phase 1 only creates
+ *  pair spaces). */
+function existingPartners(spaces: OneOnOne[], viewer: string): string[] {
+  const out = new Set<string>();
+  for (const oo of spaces) {
+    const n = normalizeOneOnOne(oo);
+    if (n.kind !== "pair") continue;
+    for (const m of n.members) if (m !== viewer) out.add(m);
+  }
+  return [...out];
+}
+
 function EmptyArea({ label }: { label: string }) {
   return (
     <p className="rounded-lg border border-dashed border-border bg-surface-sunken/40 px-3 py-4 text-body text-foreground-muted">
@@ -731,20 +869,25 @@ function DeleteIconButton({
   );
 }
 
-// ── New 1:1 dialog (lab head only) ───────────────────────────────────────────
+// ── New check-in dialog (any account) ────────────────────────────────────────
+// Phase 1 keeps it to ONE other person plus a "I am the mentor" checkbox. The
+// multi-select group picker is phase 2.
 
 function NewOneOnOneDialog({
-  existingMembers,
+  currentUser,
+  existingPartners,
   onClose,
   onCreated,
 }: {
-  existingMembers: string[];
+  currentUser: string;
+  existingPartners: string[];
   onClose: () => void;
   onCreated: (created: OneOnOne) => void;
 }) {
   const [roster, setRoster] = useState<string[]>([]);
   const [loadingRoster, setLoadingRoster] = useState(true);
   const [selected, setSelected] = useState("");
+  const [isMentor, setIsMentor] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -756,7 +899,7 @@ function NewOneOnOneDialog({
       try {
         const { users, current_user } = await usersApi.list();
         if (cancelled) return;
-        const taken = new Set(existingMembers);
+        const taken = new Set(existingPartners);
         setRoster(
           users.filter((u) => u && u !== current_user && !taken.has(u)).sort(),
         );
@@ -770,28 +913,31 @@ function NewOneOnOneDialog({
     return () => {
       cancelled = true;
     };
-  }, [existingMembers]);
+  }, [existingPartners]);
 
   const handleCreate = useCallback(async () => {
     if (!selected || busy) return;
     setBusy(true);
     setError(null);
     try {
-      const created = await oneOnOnesApi.create({ member: selected });
+      const created = await oneOnOnesApi.create({
+        members: [currentUser, selected],
+        mentor: isMentor ? currentUser : null,
+      });
       onCreated(created);
     } catch (err) {
-      console.error("Failed to create 1:1:", err);
-      setError("Could not start the 1:1. Please try again.");
+      console.error("Failed to create check-in:", err);
+      setError("Could not start the check-in. Please try again.");
       setBusy(false);
     }
-  }, [selected, busy, onCreated]);
+  }, [selected, isMentor, currentUser, busy, onCreated]);
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Start a new 1:1"
+      aria-label="Start a check-in"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -804,11 +950,11 @@ function NewOneOnOneDialog({
             </span>
             <div>
               <h2 className="text-title font-semibold text-foreground">
-                Start a new 1:1
+                Start a check-in
               </h2>
               <p className="text-meta text-foreground-muted">
-                Pick a lab member to mentor. You both share its goals, notes,
-                and agenda.
+                Pick anyone in your folder. You both share its goals, notes, and
+                agenda.
               </p>
             </div>
           </div>
@@ -828,16 +974,16 @@ function NewOneOnOneDialog({
               htmlFor="oneonone-new-member"
               className="text-meta font-semibold uppercase tracking-wide text-foreground-muted"
             >
-              Member
+              Person
             </label>
             {loadingRoster ? (
               <p className="text-body italic text-foreground-muted">
-                Loading lab members…
+                Loading people…
               </p>
             ) : roster.length === 0 ? (
               <p className="rounded-lg border border-dashed border-border bg-surface-sunken/50 px-3 py-3 text-body text-foreground-muted">
-                No other lab members are available. Everyone already has a 1:1,
-                or no one else has joined your data folder yet.
+                No one else is available. You already have a check-in with
+                everyone, or no one else has joined your data folder yet.
               </p>
             ) : (
               <select
@@ -847,7 +993,7 @@ function NewOneOnOneDialog({
                 data-testid="oneonone-new-member-select"
                 className="w-full rounded-lg border border-border px-3 py-2 text-body focus:border-brand-action focus:outline-none focus:ring-2 focus:ring-brand-action/30"
               >
-                <option value="">Pick a lab member…</option>
+                <option value="">Pick a person…</option>
                 {roster.map((u) => (
                   <option key={u} value={u}>
                     {u}
@@ -856,6 +1002,22 @@ function NewOneOnOneDialog({
               </select>
             )}
           </div>
+
+          <label className="flex items-start gap-2.5">
+            <input
+              type="checkbox"
+              checked={isMentor}
+              onChange={(e) => setIsMentor(e.target.checked)}
+              data-testid="oneonone-new-mentor-checkbox"
+              className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-border text-brand-action focus:ring-brand-action/30"
+            />
+            <span className="text-body text-foreground">
+              This is a mentoring relationship (I am the mentor).
+              <span className="mt-0.5 block text-meta text-foreground-muted">
+                Leave unchecked for a peer check-in.
+              </span>
+            </span>
+          </label>
 
           {error && <p className="text-body text-red-500">{error}</p>}
         </div>
@@ -875,7 +1037,7 @@ function NewOneOnOneDialog({
             data-testid="oneonone-new-member-confirm"
             className="btn-brand rounded-lg px-4 py-2 text-body font-medium disabled:opacity-40"
           >
-            {busy ? "Starting…" : "Start 1:1"}
+            {busy ? "Starting…" : "Start check-in"}
           </button>
         </div>
       </div>

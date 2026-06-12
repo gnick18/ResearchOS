@@ -3081,23 +3081,55 @@ export type SharedNotebook = Notebook;
 // store in lib/one-on-one/store.ts (a sibling of the notebook store). The lab
 // head's folder is the canonical home; the member discovers it via the
 // sharing-respecting aggregation on `labApi.getOneOnOnes`.
+// Check-ins revamp Phase 1 (checkins-revamp bot, 2026-06-11). See
+// docs/proposals/checkins-revamp.md. The OneOnOne is generalized from a fixed
+// lab-head <-> member binary into an any-account "check-in space" with a
+// `members[]` array and an optional mentorship direction. The change is
+// ADDITIVE and BACKWARD COMPATIBLE: the legacy `labHead`/`member` fields are
+// now OPTIONAL so old on-disk records still parse, and every read path runs a
+// record through `normalizeOneOnOne` (lib/one-on-one/normalize.ts) so the rest
+// of the code only ever sees a populated `members`/`mentor`/`kind`.
 export interface OneOnOne {
   /** Globally-unique id (crypto.randomUUID). Referenced by `Note.one_on_one_id`,
    *  `WeeklyGoal.one_on_one_id`, and `OneOnOneActionItem.one_on_one_id`. */
   id: string;
-  /** The lab-head username. Creator + owner of the 1:1. */
-  labHead: string;
-  /** The member username. */
-  member: string;
-  /** Username that created the record (always === labHead). */
+  /** LEGACY (optional). The lab-head username for an old two-person mentoring
+   *  record. Phase 1 still writes this ONLY for a 2-person space WITH a mentor
+   *  (`labHead = mentor`) so any pre-revamp reader keeps working; peer + group
+   *  spaces leave it undefined. New code reads `members`/`mentor` instead. */
+  labHead?: string;
+  /** LEGACY (optional). The non-lab-head member username for an old two-person
+   *  record. See `labHead`. New code reads `members`. */
+  member?: string;
+  /** The participants, two or more. `members[0]` is the creator (=== owner ===
+   *  created_by). Always populated after `normalizeOneOnOne`; may be absent on a
+   *  pre-revamp on-disk record (derived from `labHead`/`member` on read). */
+  members?: string[];
+  /** A member who is the mentor for this space, or null for a peer space. A
+   *  pair space with a mentor is a mentoring relationship; with no mentor it is
+   *  a peer check-in. Derived from `labHead` on a legacy record. */
+  mentor?: string | null;
+  /** "pair" (2 members) or "group" (3+). Stored so the UI + templates branch
+   *  without guessing; derived from member count. */
+  kind?: "pair" | "group";
+  /** Optional human title (e.g. "Aim 2 team"). Absent = the UI falls back to the
+   *  other member's name. */
+  title?: string | null;
+  /** Optional recurring cadence, drives the "your check-in is coming up" prompt.
+   *  Phase 1 stores it but does not yet act on it. */
+  cadence?: {
+    every: "week" | "2weeks" | "month" | "none";
+    weekday?: number;
+  } | null;
+  /** Username that created the record. Equals `members[0]` and `owner`. */
   created_by: string;
   /** ISO timestamp of creation. */
   created_at: string;
   /** Sharing owner — drives `canRead`/`canWrite`'s owner branch and the
-   *  per-user folder the record lives in. Equals `labHead`. */
+   *  per-user folder the record lives in. Equals the creator (`members[0]`). */
   owner: string;
-  /** Always `membersSharedWith([labHead, member])` — both at "edit", deduped.
-   *  Both people read AND write the 1:1 and everything scoped to it. */
+  /** Always `membersSharedWith(members)` — every member at "edit", deduped.
+   *  Everyone reads AND writes the space and everything scoped to it. */
   shared_with: SharedUser[];
 }
 
