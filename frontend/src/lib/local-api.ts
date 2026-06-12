@@ -94,6 +94,10 @@ import type {
   IdpActionRow,
   IdpSectionKey,
   CareerStage,
+  CheckinCompact,
+  CheckinCompactRow,
+  CheckinOnboarding,
+  CheckinOnboardingItem,
   NoteComment,
   TaskComment,
   ImageMetadata,
@@ -172,6 +176,9 @@ import {
 import { IdpStore } from "./idp/store";
 import { normalizeIdpForViewer } from "./idp/visibility";
 import { allSkillIds } from "./idp/competencies";
+import { CheckinCompactStore } from "./checkins/compact-store";
+import { CheckinOnboardingStore } from "./checkins/onboarding-store";
+import { COMPACT_SEED_LABELS, ONBOARDING_SEED_LABELS } from "./checkins/seeds";
 import {
   addRowToTasks,
   reconcileRowTask,
@@ -238,6 +245,14 @@ const sharedNotebooksStore = new SharedNotebookStore();
 const oneOnOnesStore = new OneOnOneStore();
 const oneOnOneActionItemsStore = new OneOnOneActionItemStore();
 const idpsStore = new IdpStore();
+// Check-ins Phase 3b (checkins-phase3b bot, 2026-06-12). String-keyed per-user
+// stores at `users/<spaceOwner>/checkin_compacts/<uuid>.json` and
+// `users/<spaceOwner>/checkin_onboarding/<uuid>.json` (sibling of the one-on-one
+// store). Each record hangs off a check-in space and lives in the space owner's
+// folder with `shared_with` = every member at "edit". See
+// `checkinCompactsApi` / `checkinOnboardingApi` below.
+const checkinCompactsStore = new CheckinCompactStore();
+const checkinOnboardingStore = new CheckinOnboardingStore();
 const fundingAccountsStore = getLabStore<FundingAccount>("funding_accounts");
 
 // Inventory v1 data layer (inventory-chunk1 sub-bot of HR, 2026-06-07).
@@ -6195,6 +6210,10 @@ export const oneOnOnesApi = {
     members: string[];
     mentor?: string | null;
     title?: string | null;
+    /** Check-ins Phase 3b: an optional recurring cadence, applied from a picked
+     *  template's `suggested_cadence`. Null / absent leaves the space cadence-
+     *  free (the prior default). */
+    cadence?: { every: "week" | "2weeks" | "month"; weekday?: number } | null;
   }): Promise<OneOnOne> => {
     const creator = await getCurrentUserCached();
     // Force the creator into members[0], de-duped, preserving order.
@@ -6214,7 +6233,7 @@ export const oneOnOnesApi = {
       mentor,
       kind,
       title: params.title ?? null,
-      cadence: null,
+      cadence: params.cadence ?? null,
       created_by: creator,
       created_at: now,
       owner: creator,
@@ -6503,6 +6522,230 @@ export const oneOnOnesApi = {
       await checkinTaskSyncOps.deleteTask(labHead, existing.synced_task_id);
     }
     return oneOnOneActionItemsStore.deleteForUser(id, labHead);
+  },
+};
+
+// ── Mentoring compact + onboarding checklist (Check-ins Phase 3b) ─────────────
+//
+// checkins-phase3b bot, 2026-06-12. See docs/proposals/checkins-revamp.md
+// "Part 3, the academic layer". Both records hang off a check-in space, live in
+// the SPACE OWNER's folder, and carry `shared_with` = every member at "edit", so
+// every member reads, edits, and (for the compact) acknowledges. There is at
+// most one compact and one onboarding checklist per space; the api looks them up
+// by `space_id` over the owner's records.
+
+/** Normalize a compact read off disk so callers never see undefined fields. */
+function normalizeCompact(raw: CheckinCompact): CheckinCompact {
+  return {
+    ...raw,
+    rows: Array.isArray(raw.rows) ? raw.rows : [],
+    acknowledged: Array.isArray(raw.acknowledged) ? raw.acknowledged : [],
+    shared_with: Array.isArray(raw.shared_with) ? raw.shared_with : [],
+  };
+}
+
+/** Find the single compact for a space (lives in the space owner's folder).
+ *  Returns the normalized record or null. */
+async function findCompactForSpace(
+  spaceId: string,
+): Promise<CheckinCompact | null> {
+  const space = await findOneOnOne(spaceId);
+  if (!space) return null;
+  const all = await checkinCompactsStore.listAllForUser(space.owner);
+  const match = all
+    .filter((c) => c.space_id === spaceId)
+    .sort((a, b) => (a.created_at < b.created_at ? -1 : 1))[0];
+  return match ? normalizeCompact({ ...match, owner: match.owner || space.owner }) : null;
+}
+
+export const checkinCompactsApi = {
+  /** The space's compact, or null if none has been started yet. Any member may
+   *  read it (they are in `shared_with`). */
+  getForSpace: async (spaceId: string): Promise<CheckinCompact | null> => {
+    return findCompactForSpace(spaceId);
+  },
+
+  /**
+   * Start the space's compact, seeding the standard AAMC-style topic rows with
+   * empty values. Idempotent: if one already exists it is returned unchanged
+   * (so two members opening the tab at once do not create two). Lives in the
+   * space owner's folder; `shared_with` = every member at "edit".
+   */
+  createForSpace: async (spaceId: string): Promise<CheckinCompact> => {
+    const existing = await findCompactForSpace(spaceId);
+    if (existing) return existing;
+    const space = await findOneOnOne(spaceId);
+    if (!space) throw new Error(`check-in space ${spaceId} not found`);
+    const author = await getCurrentUserCached();
+    assertMember(space, author);
+    const now = new Date().toISOString();
+    const rows: CheckinCompactRow[] = COMPACT_SEED_LABELS.map((label) => ({
+      id: crypto.randomUUID(),
+      label,
+      value: "",
+    }));
+    return checkinCompactsStore.create({
+      space_id: spaceId,
+      owner: space.owner,
+      rows,
+      acknowledged: [],
+      shared_with: oneOnOneShareList(space),
+      created_at: now,
+      updated_at: now,
+    });
+  },
+
+  /**
+   * Replace the compact's rows (the UI manages add/edit client-side then
+   * persists the whole list). Editing the agreement CLEARS every prior
+   * acknowledgement, since the thing they agreed to has changed, so both must
+   * re-acknowledge the revision. Returns the updated record or null.
+   */
+  updateRows: async (
+    id: string,
+    rows: CheckinCompactRow[],
+    owner: string,
+  ): Promise<CheckinCompact | null> => {
+    const updated = await checkinCompactsStore.updateForUser(
+      id,
+      { rows, acknowledged: [], updated_at: new Date().toISOString() },
+      owner,
+    );
+    return updated ? normalizeCompact(updated) : null;
+  },
+
+  /**
+   * Record the current user's acknowledgement. Idempotent: a member already in
+   * `acknowledged` is left as-is (no duplicate entry, the original timestamp
+   * stands). Returns the updated record or null.
+   */
+  acknowledge: async (
+    id: string,
+    owner: string,
+  ): Promise<CheckinCompact | null> => {
+    const existing = await checkinCompactsStore.getForUser(id, owner);
+    if (!existing) return null;
+    const actor = await getCurrentUserCached();
+    const acks = Array.isArray(existing.acknowledged)
+      ? existing.acknowledged
+      : [];
+    if (acks.some((a) => a.username === actor)) {
+      return normalizeCompact(existing);
+    }
+    const updated = await checkinCompactsStore.updateForUser(
+      id,
+      {
+        acknowledged: [...acks, { username: actor, at: new Date().toISOString() }],
+        updated_at: new Date().toISOString(),
+      },
+      owner,
+    );
+    return updated ? normalizeCompact(updated) : null;
+  },
+};
+
+/** Normalize an onboarding checklist read off disk. */
+function normalizeOnboarding(raw: CheckinOnboarding): CheckinOnboarding {
+  return {
+    ...raw,
+    items: Array.isArray(raw.items)
+      ? raw.items.map((i) => ({
+          ...i,
+          done: Boolean(i.done),
+          done_by: i.done_by ?? null,
+          done_at: i.done_at ?? null,
+        }))
+      : [],
+    shared_with: Array.isArray(raw.shared_with) ? raw.shared_with : [],
+  };
+}
+
+/** Find the single onboarding checklist for a space. */
+async function findOnboardingForSpace(
+  spaceId: string,
+): Promise<CheckinOnboarding | null> {
+  const space = await findOneOnOne(spaceId);
+  if (!space) return null;
+  const all = await checkinOnboardingStore.listAllForUser(space.owner);
+  const match = all
+    .filter((o) => o.space_id === spaceId)
+    .sort((a, b) => (a.created_at < b.created_at ? -1 : 1))[0];
+  return match
+    ? normalizeOnboarding({ ...match, owner: match.owner || space.owner })
+    : null;
+}
+
+export const checkinOnboardingApi = {
+  /** The space's onboarding checklist, or null if none has been started. */
+  getForSpace: async (spaceId: string): Promise<CheckinOnboarding | null> => {
+    return findOnboardingForSpace(spaceId);
+  },
+
+  /**
+   * Start the space's onboarding checklist, seeding the standard items (access
+   * and keys, safety training, data-management, the lab norms doc, set the
+   * cadence). Idempotent: returns the existing checklist if one is already
+   * there. Lives in the space owner's folder; every member at "edit".
+   */
+  createForSpace: async (spaceId: string): Promise<CheckinOnboarding> => {
+    const existing = await findOnboardingForSpace(spaceId);
+    if (existing) return existing;
+    const space = await findOneOnOne(spaceId);
+    if (!space) throw new Error(`check-in space ${spaceId} not found`);
+    const author = await getCurrentUserCached();
+    assertMember(space, author);
+    const now = new Date().toISOString();
+    const items: CheckinOnboardingItem[] = ONBOARDING_SEED_LABELS.map(
+      (label) => ({
+        id: crypto.randomUUID(),
+        label,
+        done: false,
+        done_by: null,
+        done_at: null,
+      }),
+    );
+    return checkinOnboardingStore.create({
+      space_id: spaceId,
+      owner: space.owner,
+      items,
+      shared_with: oneOnOneShareList(space),
+      created_at: now,
+      updated_at: now,
+    });
+  },
+
+  /**
+   * Toggle one checklist item's done state (any member may, the permissive D2
+   * model). Sets / clears `done_by` + `done_at` to the actor + now. Returns the
+   * updated record or null.
+   */
+  toggleItem: async (
+    id: string,
+    itemId: string,
+    owner: string,
+  ): Promise<CheckinOnboarding | null> => {
+    const existing = await checkinOnboardingStore.getForUser(id, owner);
+    if (!existing) return null;
+    const actor = await getCurrentUserCached();
+    const now = new Date().toISOString();
+    const items = (Array.isArray(existing.items) ? existing.items : []).map(
+      (item) => {
+        if (item.id !== itemId) return item;
+        const nextDone = !item.done;
+        return {
+          ...item,
+          done: nextDone,
+          done_by: nextDone ? actor : null,
+          done_at: nextDone ? now : null,
+        };
+      },
+    );
+    const updated = await checkinOnboardingStore.updateForUser(
+      id,
+      { items, updated_at: now },
+      owner,
+    );
+    return updated ? normalizeOnboarding(updated) : null;
   },
 };
 
