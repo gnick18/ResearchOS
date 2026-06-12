@@ -34,7 +34,8 @@ const EMBED_RENDERERS: Partial<
   Record<ObjectRefType, ComponentType<EmbedRendererProps>>
 > = {
   molecule: lazy(() => import("./MoleculeEmbed")),
-  // sequence + datahub renderers slot in here next.
+  datahub: lazy(() => import("./DataHubEmbed")),
+  // sequence renderer slots in here next.
 };
 
 const TYPE_ICON: Record<ObjectRefType, IconName> = {
