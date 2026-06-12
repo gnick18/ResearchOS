@@ -1773,17 +1773,42 @@ export function buildDoseResponse(
  */
 export function describeDoseResponse(args: Record<string, unknown>): {
   summary: string;
+  stepPayload?: StepApprovalRequest;
 } {
   const parsed = parseDoseResponseArgs(args);
   const content = getCachedTableContent(parsed.tableId);
   if (!content) {
-    return { summary: `fit a ${parsed.model} dose-response curve on a Data Hub table` };
+    return {
+      summary: `fit a ${parsed.model} dose-response curve on a Data Hub table`,
+      stepPayload: stepPayloadFor({
+        toolName: "run_dose_response",
+        iconName: "growth",
+        title: `Fit a ${parsed.model} dose-response curve`,
+        name: "Dose-response fit",
+        blurb: "Fit the curve and read out the EC50/IC50.",
+        params: [{ label: "Model", value: parsed.model }],
+      }),
+    };
   }
   const yId = resolveYColumnId(content, parsed.yColumn);
   const yName =
     (yId && yColumns(content).find((c) => c.id === yId)?.name) || "the curve";
   return {
     summary: `fit a ${parsed.model} dose-response curve to ${yName} in ${content.meta.name}`,
+    stepPayload: stepPayloadFor({
+      toolName: "run_dose_response",
+      iconName: "growth",
+      title: `Fit a ${parsed.model} dose-response curve`,
+      subtitle: `to ${yName} in ${content.meta.name}`,
+      name: "Dose-response fit",
+      blurb: `Fit ${yName} and read out the EC50/IC50.`,
+      params: [
+        { label: "Model", value: parsed.model },
+        { label: "Curve", value: yName },
+        { label: "Table", value: content.meta.name },
+      ],
+      previewLines: ["Reports the EC50/IC50 with CI, the Hill slope, the plateaus, and R-squared."],
+    }),
   };
 }
 
