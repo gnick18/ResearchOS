@@ -12,8 +12,9 @@ import { blobUrlResolver } from "@/lib/utils/blob-url-resolver";
 import AnnotatedImage from "@/components/AnnotatedImage";
 import { OcrReveal } from "@/components/OcrImage";
 import { filenameFromMarkdownSrc } from "@/lib/attachments/annotations";
-import { parseObjectDeepLink } from "@/lib/references";
+import { parseObjectDeepLink, parseObjectEmbed, type EmbedDescriptor } from "@/lib/references";
 import ObjectChip from "@/components/ObjectChip";
+import ObjectEmbed from "@/components/embeds/ObjectEmbed";
 
 /** Flatten an `a` element's React children to plain text, so a deep-link chip can
  *  label itself with the link text (the object name) even when the markdown
@@ -29,6 +30,42 @@ function linkChildrenText(children: React.ReactNode): string {
     return linkChildrenText(props?.children);
   }
   return "";
+}
+
+/** A minimal hast node shape, enough to inspect a paragraph's children. */
+interface HastNode {
+  type: string;
+  tagName?: string;
+  value?: string;
+  properties?: { href?: unknown };
+  children?: HastNode[];
+}
+
+/** Collect the visible text of a hast subtree (a link's text is its caption). */
+function hastText(node: HastNode | undefined): string {
+  if (!node) return "";
+  if (node.type === "text") return node.value ?? "";
+  return (node.children ?? []).map(hastText).join("");
+}
+
+/** When a paragraph is exactly one object-embed link (ignoring surrounding
+ *  whitespace), return its descriptor + caption so it renders as a block embed.
+ *  Otherwise null, and the paragraph renders normally. This is the alone-in-a-
+ *  paragraph rule, an embed link mid-sentence stays an inline chip. */
+function loneEmbedFromParagraph(
+  node: HastNode | undefined,
+): { descriptor: EmbedDescriptor; caption: string } | null {
+  if (!node || !Array.isArray(node.children)) return null;
+  const meaningful = node.children.filter(
+    (c) => !(c.type === "text" && /^\s*$/.test(c.value ?? "")),
+  );
+  if (meaningful.length !== 1) return null;
+  const el = meaningful[0];
+  if (el.type !== "element" || el.tagName !== "a") return null;
+  const href = el.properties?.href;
+  const descriptor = parseObjectEmbed(typeof href === "string" ? href : null);
+  if (!descriptor || !descriptor.isEmbed) return null;
+  return { descriptor, caption: hastText(el).trim() };
 }
 
 interface RenderedMarkdownProps {
@@ -114,6 +151,21 @@ export default function RenderedMarkdown({
         remarkPlugins={[remarkGfm, remarkUnderline]}
         rehypePlugins={rehypePlugins}
         components={{
+          // A paragraph that is a lone object-embed link renders as a block
+          // embed. Every other paragraph renders normally, so this is additive.
+          p: ({ node, children, ...props }) => {
+            const lone = loneEmbedFromParagraph(node as unknown as HastNode);
+            if (lone) {
+              return (
+                <ObjectEmbed
+                  descriptor={lone.descriptor}
+                  caption={lone.caption}
+                  basePath={basePath}
+                />
+              );
+            }
+            return <p {...props}>{children}</p>;
+          },
           a: ({ href, children, ...props }) => {
             const ref = parseObjectDeepLink(href ? String(href) : null);
             if (ref) {
