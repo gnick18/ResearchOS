@@ -226,6 +226,8 @@
   "components/workbench/WorkbenchProjectsPanel.tsx": 4,
   "lib/attachments/annotations.test.ts": 1,
   "lib/attachments/annotations.ts": 1,
+  "lib/datahub/diagnostic-plot.ts": 1,
+  "lib/datahub/__tests__/diagnostic-plot.test.ts": 2,
   "lib/datahub/estimation-plot.ts": 1,
   "lib/datahub/plot-spec.ts": 4,
   "lib/export/__tests__/bake-embeds.test.ts": 2,

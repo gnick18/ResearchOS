@@ -26,7 +26,7 @@ import type { PlotKind, FitModelId } from "@/lib/datahub/plot-spec";
 
 export interface NewGraphSubmit {
   kind: PlotKind;
-  /** The linked ANOVA analysis id for brackets, or null. */
+  /** The linked analysis id (ANOVA brackets, or a diagnostic-plot source), or null. */
   analysisId: string | null;
   /** For an XY figure, the Y column to plot against X. */
   yColumnId?: string | null;
@@ -36,6 +36,8 @@ export interface NewGraphSubmit {
   estimationPaired?: boolean;
   /** For an estimation figure, which group is the shared control. */
   estimationControlIndex?: number;
+  /** For a QQ figure sourced from a table group, which group to plot. */
+  diagnosticColumnIndex?: number;
 }
 
 /** The fitted-curve choices the XY graph dialog offers. */
@@ -90,6 +92,22 @@ function findAnova(content: DataHubDocContent | null): AnalysisSpec | null {
   return content.analyses.find((a) => a.type === "oneWayAnova") ?? null;
 }
 
+/** Find a stored regression on the table (its residuals feed the diagnostics). */
+function findRegression(content: DataHubDocContent | null): AnalysisSpec | null {
+  if (!content) return null;
+  return (
+    content.analyses.find(
+      (a) => a.type === "linearRegression" || a.type === "multipleRegression",
+    ) ?? null
+  );
+}
+
+/** Find a stored ROC curve analysis on the table (it feeds the ROC visual). */
+function findRoc(content: DataHubDocContent | null): AnalysisSpec | null {
+  if (!content) return null;
+  return content.analyses.find((a) => a.type === "rocCurve") ?? null;
+}
+
 export default function NewGraphDialog({
   open,
   content,
@@ -110,6 +128,11 @@ export default function NewGraphDialog({
   );
   const ys = useMemo(() => (content ? yColumns(content) : []), [content]);
   const anova = useMemo(() => findAnova(content), [content]);
+  // The analyses on the table that a diagnostic plot can draw from. A regression
+  // feeds the residual plot (and lets the QQ plot use its residuals); a ROC curve
+  // analysis feeds the ROC visual.
+  const regression = useMemo(() => findRegression(content), [content]);
+  const roc = useMemo(() => findRoc(content), [content]);
 
   const [kind, setKind] = useState<PlotKind>("columnScatter");
   const [useBrackets, setUseBrackets] = useState(true);
@@ -160,6 +183,21 @@ export default function NewGraphDialog({
       : isEstimationSelected
         ? groups.length >= 2
         : groups.length >= 1;
+
+  // The three diagnostic plots a reviewer asks for alongside a fit. A QQ plot of
+  // a table group is always available on a Column table; a residual plot needs a
+  // linked regression; the ROC visual needs a linked ROC curve analysis. Each
+  // submits immediately (no extra options), carrying the source analysis id.
+  const submitDiagnostic = (
+    plotKind: "qqPlot" | "residualPlot" | "rocCurve",
+    analysisId: string | null,
+  ) => {
+    onSubmit({
+      kind: plotKind,
+      analysisId,
+      diagnosticColumnIndex: 0,
+    });
+  };
 
   const submit = () => {
     if (!canSubmit) return;
@@ -369,6 +407,69 @@ export default function NewGraphDialog({
               </p>
             )}
           </>
+        )}
+
+        {/* Diagnostic plots: the figures a reviewer asks for alongside a fit.
+            Shown whenever at least one is available (a Column group for the QQ
+            plot, a linked regression for residuals, a linked ROC analysis for
+            the ROC visual). Each is a one-click create with no extra options. */}
+        {(groups.length >= 1 || regression || roc) && (
+          <div className="mt-4" data-testid="datahub-newgraph-diagnostics">
+            <p className="text-meta font-medium uppercase tracking-wide text-foreground-muted">
+              Diagnostic plots
+            </p>
+            <div className="mt-1 flex flex-col gap-2">
+              {groups.length >= 1 && (
+                <button
+                  type="button"
+                  onClick={() => submitDiagnostic("qqPlot", regression?.id ?? null)}
+                  className="rounded-md border border-border bg-surface-raised px-3 py-2 text-left transition-colors hover:bg-surface-sunken"
+                  data-testid="datahub-newgraph-qq"
+                >
+                  <span className="block text-body font-medium text-foreground">
+                    Normal QQ plot
+                  </span>
+                  <span className="mt-0.5 block text-meta text-foreground-muted">
+                    {regression
+                      ? "Checks whether the regression residuals are normal, the ordered values against the theoretical normal quantiles with a reference line."
+                      : "Checks whether a sample is normal, the ordered values against the theoretical normal quantiles with a reference line."}
+                  </span>
+                </button>
+              )}
+              {regression && (
+                <button
+                  type="button"
+                  onClick={() => submitDiagnostic("residualPlot", regression.id)}
+                  className="rounded-md border border-border bg-surface-raised px-3 py-2 text-left transition-colors hover:bg-surface-sunken"
+                  data-testid="datahub-newgraph-residual"
+                >
+                  <span className="block text-body font-medium text-foreground">
+                    Residual vs fitted
+                  </span>
+                  <span className="mt-0.5 block text-meta text-foreground-muted">
+                    The regression residuals against the fitted values, with a
+                    zero line. A fan or a curve flags a model that does not fit.
+                  </span>
+                </button>
+              )}
+              {roc && (
+                <button
+                  type="button"
+                  onClick={() => submitDiagnostic("rocCurve", roc.id)}
+                  className="rounded-md border border-border bg-surface-raised px-3 py-2 text-left transition-colors hover:bg-surface-sunken"
+                  data-testid="datahub-newgraph-roc"
+                >
+                  <span className="block text-body font-medium text-foreground">
+                    ROC curve
+                  </span>
+                  <span className="mt-0.5 block text-meta text-foreground-muted">
+                    The true positive rate against the false positive rate from
+                    the ROC analysis, with the chance diagonal and the AUC.
+                  </span>
+                </button>
+              )}
+            </div>
+          </div>
         )}
 
         <div className="mt-5 flex justify-end gap-2">
