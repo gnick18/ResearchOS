@@ -16,6 +16,7 @@ import type {
   NormalizedAnova,
   NormalizedCorrelation,
   NormalizedDoseResponse,
+  NormalizedLogisticRegression,
   NormalizedModelComparison,
   NormalizedRegression,
   NormalizedResult,
@@ -419,6 +420,39 @@ print(f"R-squared = {fit.rvalue ** 2:.4g}, slope SE = {fit.stderr:.4g}")`;
  * correction (the EC50 is NOT 10^logEC50 when S != 1), the same formula the engine
  * documents, so the printed EC50 matches the on-screen value.
  */
+/**
+ * Reproducible Python for simple (binary) logistic regression via statsmodels
+ * Logit. add_constant gives params[0] = intercept, params[1] = slope. The odds
+ * ratio is exp(slope) with the exponentiated Wald CI, and result.prsquared is the
+ * McFadden pseudo-R-squared the sheet shows. The same fixed X and binary Y are
+ * baked in so the printout reproduces the on-screen numbers.
+ */
+function logisticRegressionCode(r: NormalizedLogisticRegression): string {
+  return `import numpy as np
+import statsmodels.api as sm
+
+x = ${pyList(r.x)}
+y = ${pyList(r.y)}  # binary outcome (0 or 1)
+
+# Simple logistic regression P(Y=1) = 1 / (1 + exp(-(b0 + b1*x))), fit by maximum
+# likelihood. add_constant makes params[0] the intercept and params[1] the slope.
+X = sm.add_constant(np.asarray(x, float))
+result = sm.Logit(np.asarray(y, float), X).fit(disp=0)
+
+print(result.summary())
+
+b0, b1 = result.params
+se = result.bse
+# Odds ratio for the slope = exp(b1), with the exponentiated 95% Wald CI.
+odds_ratio = np.exp(b1)
+or_lo, or_hi = np.exp(b1 - 1.959964 * se[1]), np.exp(b1 + 1.959964 * se[1])
+print(f"odds ratio = {odds_ratio:.4g}  95% CI [{or_lo:.4g}, {or_hi:.4g}]")
+
+# The x where P = 0.5 is -b0/b1 (the dose-response-style midpoint).
+print(f"X at P=0.5 = {-b0 / b1:.4g}")
+print(f"McFadden pseudo-R2 = {result.prsquared:.4g}")`;
+}
+
 function doseResponseCode(r: NormalizedDoseResponse): string {
   const x = pyList(r.x);
   const y = pyList(r.y);
@@ -629,6 +663,8 @@ export function showCode(result: NormalizedResult): string {
   if (result.kind === "anova") return anovaCode(result);
   if (result.kind === "correlation") return correlationCode(result);
   if (result.kind === "regression") return regressionCode(result);
+  if (result.kind === "logisticRegression")
+    return logisticRegressionCode(result);
   if (result.kind === "doseResponse") return doseResponseCode(result);
   if (result.kind === "modelComparison") return modelComparisonCode(result);
   if (result.kind === "twoWayAnova") return twoWayCode(result);

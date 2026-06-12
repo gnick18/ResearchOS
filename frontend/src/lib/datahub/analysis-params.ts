@@ -191,6 +191,7 @@ export const ANALYSIS_PARAM_SCHEMA: Record<string, ParamField[]> = {
   correlationPearson: [],
   correlationSpearman: [],
   linearRegression: [],
+  logisticRegression: [],
   doseResponse: [DOSE_RESPONSE_MODEL_FIELD],
   modelComparison: [
     COMPARE_MODEL_A_FIELD,

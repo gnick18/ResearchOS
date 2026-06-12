@@ -51,6 +51,21 @@ export const XY_X = [1, 2, 3, 4, 5, 6, 7, 8];
 export const XY_Y = [2.1, 3.9, 6.2, 7.8, 10.1, 12.2, 13.8, 16.1];
 
 /**
+ * A binary-outcome XY dataset for simple logistic regression (D4). A continuous
+ * predictor x and a binary y (0/1) with MODERATE overlap so the maximum-likelihood
+ * fit converges cleanly (no perfect separation, which would blow the coefficients
+ * up). statsmodels.api.Logit on these exact arrays produces the pinned intercept /
+ * slope / SE / p / odds ratio / McFadden pseudo-R-squared below.
+ */
+export const LOGIT_X = [
+  0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5,
+  8.0, 8.5, 9.0, 9.5, 10.0,
+];
+export const LOGIT_Y = [
+  0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1,
+];
+
+/**
  * A dose-response dataset for the 4PL / 5PL curve fit (D1). x is log10(dose in M),
  * an 11-point serial dilution; y is the response. scipy.optimize.curve_fit on these
  * exact arrays produces the pinned EC50 / Hill / Top / Bottom / R-squared below.
@@ -300,6 +315,23 @@ export const STAT_PINS: StatPin[] = [
   { id: "linreg_slope", metric: "Linear regression, slope", reference: 1.997619, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "slope" },
   { id: "linreg_intercept", metric: "Linear regression, intercept", reference: 0.035714, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "intercept" },
   { id: "linreg_r2", metric: "Linear regression, R-squared", reference: 0.998839, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "R2" },
+
+  // --- simple logistic regression (D4) vs statsmodels.api.Logit ---
+  // P(Y=1) = 1 / (1 + exp(-(b0 + b1*x))), fit by maximum likelihood (IRLS /
+  // Newton). The MLE is deterministic given the data and the standard zero start,
+  // so our IRLS lands on the exact statsmodels solution and these pin tight (no
+  // wide optimizer band, unlike the nonlinear curve fits below). Reference values
+  // from statsmodels 0.14 Logit(...).fit(method="newton"); odds ratio = exp(b1);
+  // McFadden pseudo-R2 = result.prsquared; AUC from sklearn roc_auc_score.
+  { id: "lr_intercept", metric: "Logistic regression, intercept (b0)", reference: -2.271, oracleId: "statsmodels", tol: 1e-3, warn: 5e-3, unit: "b0" },
+  { id: "lr_slope", metric: "Logistic regression, slope (b1)", reference: 0.5529, oracleId: "statsmodels", tol: 1e-4, warn: 5e-4, unit: "b1" },
+  { id: "lr_slope_se", metric: "Logistic regression, slope standard error", reference: 0.2464, oracleId: "statsmodels", tol: 1e-4, warn: 5e-4, unit: "SE" },
+  { id: "lr_slope_p", metric: "Logistic regression, slope Wald p", reference: 0.0248, oracleId: "statsmodels", tol: 1e-3, warn: 5e-3, unit: "p" },
+  { id: "lr_odds_ratio", metric: "Logistic regression, odds ratio exp(b1)", reference: 1.7383, oracleId: "statsmodels", tol: 1e-4, warn: 5e-4, unit: "OR" },
+  { id: "lr_mcfadden_r2", metric: "Logistic regression, McFadden pseudo-R-squared", reference: 0.2896, oracleId: "statsmodels", tol: 1e-4, warn: 5e-4, unit: "R2" },
+  // AUC is the rank-sum (Mann-Whitney) form on the fitted probabilities, computed
+  // from scipy.stats.rankdata; it equals sklearn.metrics.roc_auc_score exactly.
+  { id: "lr_auc", metric: "Logistic regression, ROC AUC of fitted probabilities", reference: 0.8438, oracleId: "scipy", tol: 1e-4, warn: 5e-4, unit: "AUC" },
 
   // --- dose-response curve fit (D1): 4PL + 5PL vs scipy.optimize.curve_fit ---
   // The signature pharmacology fit. x = log10(dose), y = response. EC50 is the

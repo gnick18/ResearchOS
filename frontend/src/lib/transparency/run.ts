@@ -32,6 +32,7 @@ import {
   pearson,
   spearman,
   linearRegression,
+  logisticRegression,
   fitModel,
   fivePLLogEC50Shift,
   extraSumOfSquaresF,
@@ -84,6 +85,8 @@ import {
   GROUP_B,
   GROUP_C,
   KM_READ_TIMES,
+  LOGIT_X,
+  LOGIT_Y,
   PAIR_X,
   PAIR_Y,
   POWER_ALPHA,
@@ -1212,6 +1215,20 @@ function runDatahubEngine(): Record<string, number> {
   const spear = need(spearman(XY_X, XY_Y), "Spearman correlation");
   const reg = need(linearRegression(XY_X, XY_Y), "linear regression");
 
+  // Simple logistic regression (D4). Fit P(Y=1) = 1 / (1 + exp(-(b0 + b1*x))) by
+  // maximum likelihood (IRLS) on the same fixed binary dataset statsmodels Logit
+  // was run on, then read off the intercept / slope (with the slope SE and Wald p),
+  // the odds ratio exp(b1), McFadden pseudo-R-squared, and the ROC AUC. The MLE is
+  // deterministic given the data and the zero start, so these reproduce the pins.
+  const logit = need(
+    logisticRegression(
+      LOGIT_X.map((x) => [x]),
+      LOGIT_Y,
+      ["x"],
+    ),
+    "logistic regression",
+  );
+
   // Dose-response (D1). Fit the 4PL and the 5PL to the same fixed log(dose) vs
   // response arrays scipy.optimize.curve_fit was run on, and read off the EC50 (the
   // true half-max concentration; for the 5PL via the closed-form half-max shift),
@@ -1390,6 +1407,14 @@ function runDatahubEngine(): Record<string, number> {
     linreg_slope: reg.slope,
     linreg_intercept: reg.intercept,
     linreg_r2: reg.rSquared,
+
+    lr_intercept: logit.intercept.estimate,
+    lr_slope: logit.slope.estimate,
+    lr_slope_se: logit.slope.standardError,
+    lr_slope_p: logit.slope.pValue,
+    lr_odds_ratio: logit.oddsRatio,
+    lr_mcfadden_r2: logit.mcFaddenR2,
+    lr_auc: logit.auc,
 
     dr4pl_ec50: dr4Ec50,
     dr4pl_hill: dr4.values.HillSlope,

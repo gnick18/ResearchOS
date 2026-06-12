@@ -37,6 +37,9 @@ import {
   pearson,
   spearman,
   linearRegression,
+  logisticRegression,
+  type LogisticRegressionResult,
+  type LogisticCoefficient,
   kaplanMeier,
   logRank,
   shapiroWilk,
@@ -93,6 +96,7 @@ export type AnalysisType =
   | "correlationPearson"
   | "correlationSpearman"
   | "linearRegression"
+  | "logisticRegression"
   | "doseResponse"
   | "modelComparison"
   | "twoWayAnova"
@@ -106,6 +110,7 @@ export const XY_ANALYSIS_TYPES: AnalysisType[] = [
   "correlationPearson",
   "correlationSpearman",
   "linearRegression",
+  "logisticRegression",
   "doseResponse",
   "modelComparison",
 ];
@@ -288,6 +293,39 @@ export interface NormalizedRegression {
   residualSE: number;
 }
 
+/**
+ * A normalized simple logistic-regression result (Prism's "Simple logistic
+ * regression"). Fits P(Y=1) = 1 / (1 + exp(-(b0 + b1*x))) by maximum likelihood
+ * (IRLS) on one continuous X and one binary Y. Reports the intercept and slope
+ * (each with SE, Wald z, two-sided normal p, and a log-odds 95% CI), the odds
+ * ratio exp(b1) with its 95% CI, the model fit (log-likelihood, null
+ * log-likelihood, McFadden pseudo-R-squared, iterations), the X at P=0.5
+ * (-b0/b1, the dose-response-style readout Prism shows), and the ROC AUC of the
+ * fitted probabilities. The raw values are carried so the code snippet reproduces
+ * the numbers.
+ */
+export interface NormalizedLogisticRegression {
+  kind: "logisticRegression";
+  type: "logisticRegression";
+  xName: string;
+  yName: string;
+  x: number[];
+  y: number[];
+  n: number;
+  intercept: LogisticCoefficient;
+  slope: LogisticCoefficient;
+  oddsRatio: number;
+  oddsRatioCI95: [number, number];
+  logLikelihood: number;
+  nullLogLikelihood: number;
+  mcFaddenR2: number;
+  /** The X where P = 0.5, namely -b0/b1. Labeled "X at P=0.5" in the UI. */
+  xAtHalf: number;
+  /** Area under the ROC curve of the fitted probabilities. */
+  auc: number;
+  iterations: number;
+}
+
 /** One fitted curve parameter with its standard error and 95% CI. */
 export interface DoseResponseParam {
   name: string;
@@ -465,6 +503,7 @@ export type NormalizedResult =
   | NormalizedAnova
   | NormalizedCorrelation
   | NormalizedRegression
+  | NormalizedLogisticRegression
   | NormalizedDoseResponse
   | NormalizedModelComparison
   | NormalizedTwoWayAnova
@@ -830,6 +869,35 @@ function runXYAnalysis(
     };
   }
 
+  if (type === "logisticRegression") {
+    // Simple logistic regression is the k=1 case of the engine's IRLS fit; pass
+    // a single-predictor design matrix and the binary Y. The engine drops any row
+    // whose Y is not 0/1, so a stray value cannot corrupt the maximum-likelihood fit.
+    const r = logisticRegression(x.map((xv) => [xv]), y, [xName]);
+    if (!r.ok) return { ok: false, error: r.error };
+    const res = r as LogisticRegressionResult & { ok: true };
+    return {
+      ok: true,
+      kind: "logisticRegression",
+      type,
+      xName,
+      yName,
+      x,
+      y,
+      n: res.n,
+      intercept: res.intercept,
+      slope: res.slope,
+      oddsRatio: res.oddsRatio,
+      oddsRatioCI95: res.oddsRatioCI95,
+      logLikelihood: res.logLikelihood,
+      nullLogLikelihood: res.nullLogLikelihood,
+      mcFaddenR2: res.mcFaddenR2,
+      xAtHalf: res.xAtHalf,
+      auc: res.auc,
+      iterations: res.iterations,
+    };
+  }
+
   const r =
     type === "correlationSpearman" ? spearman(x, y) : pearson(x, y);
   if (!r.ok) return { ok: false, error: r.error };
@@ -1145,6 +1213,7 @@ export function runAnalysis(
     type === "correlationPearson" ||
     type === "correlationSpearman" ||
     type === "linearRegression" ||
+    type === "logisticRegression" ||
     type === "doseResponse" ||
     type === "modelComparison"
   ) {

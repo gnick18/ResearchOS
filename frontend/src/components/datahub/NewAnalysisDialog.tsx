@@ -91,6 +91,12 @@ const TYPE_META: Record<
       "Fit a straight line y = intercept + slope x. Reports the slope, intercept, their confidence intervals, and R-squared.",
     groupCount: "two",
   },
+  logisticRegression: {
+    label: "Simple logistic regression",
+    blurb:
+      "Fit P(Y=1) from one X column and a binary 0/1 Y by maximum likelihood. Reports the slope and intercept, the odds ratio with a 95% confidence interval, McFadden pseudo-R-squared, and the X where P=0.5.",
+    groupCount: "two",
+  },
   doseResponse: {
     label: "Dose-response curve",
     blurb:
