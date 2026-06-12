@@ -349,7 +349,8 @@ function AppContent({ children }: { children: ReactNode }) {
     pathname === "/open-source" ||
     pathname === "/thanks" ||
     pathname === "/sponsors" ||
-    pathname === "/privacy";
+    pathname === "/privacy" ||
+    pathname === "/terms";
 
   // QueryClient is a module-level singleton (see `appQueryClient` below)
   // so non-React-tree consumers (e.g. the onboarding-v4 cursor scripts
