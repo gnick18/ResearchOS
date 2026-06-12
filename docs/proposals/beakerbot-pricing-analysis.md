@@ -58,6 +58,7 @@ Stripe takes 2.9% + $0.30 per charge. A one-cent task cannot carry a $0.30 fee, 
 - The user buys a block (suggest **$10 / $25 / $50**), one Stripe charge, which amortizes the $0.30 fee (about 6% on a $10 block, about 4% on a $25 block). Each block tops up the token balance at the current rate.
 - Each task debits its actual cost times a thin buffer from the balance.
 - **Present the balance as tokens, not dollars (Grant 2026-06-11), the convention every AI tool uses.** A token count reads as generous ("980,000 tokens left") where the same value in dollars reads as stingy ("49 cents left"), and tokens are the familiar mental model. Keep the per-task readout ("last task 31k tokens") and add a one-line explainer ("a token is a small chunk of text, a typical question is a few thousand"). Behind the scenes we still account in dollars for Stripe and for our own cost, the token display is just the user-facing layer. The mockup's "$4.10 credit left" becomes a token balance.
+- **Translate tokens into plain value, because not everyone knows how far a token goes (Grant 2026-06-11).** Near the balance, say roughly what it covers and that it depends on the size of the question, for example "about 20 to 25 full analyses or 100-plus quick questions." A bare token count is abstract, the translation is what makes it feel concrete and generous.
 
 ### The free trial (one-time, bounded, NOT a recurring monthly grant)
 A recurring monthly free allowance is the wrong call here, and Grant flagged it correctly (2026-06-11). AI is a variable per-use cost, so a recurring per-user free amount is an UNBOUNDED liability that scales with adoption. At $2 to $3 per user per month, a few thousand free users is already thousands of dollars a month, every month, forever, and there is no per-seat subscription absorbing it. Storage can carry a free pool because it is cheap and capped at 5 GB per lab. AI cannot.
@@ -94,7 +95,7 @@ Replaces the generic AI section in the welcome redesign mockup. Leads with what 
 >
 > One search box does two things. **BeakerSearch** finds anything across your notes, experiments, methods, sequences, data, and orders, instantly, on your own machine, free and always on. When you want more, hand the same query to **BeakerBot**, the AI coworker that reasons over your work, runs a real analysis, makes a plot, and writes it up, always with your approval before it changes anything.
 >
-> Search is free because it runs on your device. BeakerBot is optional, with free tokens to try it, then metered near cost, because each AI task calls a hosted model that costs us real money. Your files never leave your machine either way, BeakerBot moves answers, not your data.
+> Search is free because it runs on your device. BeakerBot is optional, with free tokens when you sign up (enough for dozens of questions), then metered near cost, because each AI task calls a hosted model that costs us real money. Your files never leave your machine either way, BeakerBot moves answers, not your data.
 
 ### Pricing page (the new AI section, separate from the storage plans)
 
@@ -102,7 +103,7 @@ Replaces the generic AI section in the welcome redesign mockup. Leads with what 
 >
 > The app and local search are free. The only AI you pay for is BeakerBot, the assistant that reasons, analyzes, plots, and writes for you, because each of those tasks calls a hosted model that costs us real money to run.
 >
-> - **Free tokens to start.** Every account gets a one-time batch of tokens to try BeakerBot, enough for dozens of questions, so you can see what it does before you spend anything.
+> - **Free tokens when you sign up.** Every new account gets a one-time batch of tokens to try BeakerBot, no card needed. How far they stretch depends on what you ask. A quick question is cheap, a full analysis costs more, and the batch works out to roughly 20 to 25 full analyses or over 100 quick questions. Plenty to see what BeakerBot does before you spend anything.
 > - **Then prepaid credits, near cost.** Buy a block, and each task draws down what it actually cost us to run, plus a thin buffer for processing. You always see your balance and what the last task cost.
 > - **Or have your lab cover it.** A lab or department can fund a shared pool, so members use BeakerBot without paying out of pocket.
 > - **Why it is cheap.** We run an open-weight model and the agent loop runs in your browser, so only a small result ever crosses to the model, never your files. Low cost and your-data-stays-home are the same fact.
