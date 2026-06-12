@@ -12,9 +12,10 @@
 // Why a tiny zustand store with localStorage, not the file-backed user-settings.
 // The agent loop runs OUTSIDE React (the tool dispatch is a plain async call),
 // so it needs to read the current mode synchronously without a hook and without
-// a folder read. A localStorage-mirrored store gives both, a hook for the panel
-// toggle and a plain getter the loop calls. It mirrors how panel-store.ts holds
-// the open/closed flag, kept out of per-route React state on purpose.
+// a folder read. A localStorage-mirrored store gives both, a hook for the
+// toggle and a plain getter the loop calls. The pattern (a tiny zustand store
+// kept out of per-route React state on purpose) is the same one the retired
+// dock store once used.
 //
 // Persistence is per-browser-profile (localStorage), which is the right grain
 // for a UI safety preference, the same machine the user clicks "auto" on is the

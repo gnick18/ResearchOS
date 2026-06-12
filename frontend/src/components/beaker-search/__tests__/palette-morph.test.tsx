@@ -170,18 +170,9 @@ describe("CommandPalette ask-mode morph", () => {
   });
 });
 
-describe("escalation panel-store regression guard", () => {
-  it("the panel store is never touched by escalation (v1 regression, v4 confirmed)", async () => {
-    // v1 escalation called useBeakerBotPanel.getState().open() which opened
-    // the separate dock. v2 morphed the palette instead. v4 (Phase 4) retires
-    // the dock entirely: the panel store is now unused in production code.
-    // The store still exists (panel-store.ts is kept for reference), but no
-    // escalation path touches it. This test confirms the invariant holds.
-    const { useBeakerBotPanel } = await import("@/lib/ai/panel-store");
-    expect(useBeakerBotPanel.getState().isOpen).toBe(false);
-    // Escalation (escalateToBeakerBot) morphs the palette. The FAB
-    // (openBeakerBot) opens the palette in Ask mode. Neither touches this
-    // store. The value stays false throughout.
-    expect(useBeakerBotPanel.getState().isOpen).toBe(false);
-  });
-});
+// The "escalation panel-store regression guard" block was removed with the
+// retirement of the docked panel (Phase 4). The old dock store (panel-store.ts,
+// useBeakerBotPanel) is deleted, so the regression it guarded (escalation
+// opening a separate dock) is now structurally impossible. Escalation morphs
+// the palette and the FAB (openBeakerBot) opens it in Ask mode; there is no
+// dock store left to touch.
