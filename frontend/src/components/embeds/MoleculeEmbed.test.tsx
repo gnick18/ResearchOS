@@ -35,14 +35,11 @@ describe("MoleculeEmbed", () => {
     expect(screen.getByText(/228\.24 g\/mol/)).toBeInTheDocument();
   });
 
-  it("falls back to the generic card when the molecule is gone", async () => {
+  it("shows the unavailable card when the molecule is gone", async () => {
     get.mockResolvedValue(null);
     render(<MoleculeEmbed descriptor={descriptor} caption="Resveratrol" basePath="" />);
-    await waitFor(() =>
-      expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute(
-        "href",
-        "/chemistry?molecule=4",
-      ),
-    );
+    await waitFor(() => expect(screen.getByText("Resveratrol")).toBeInTheDocument());
+    expect(screen.getByText(/Not available/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open" })).toBeNull();
   });
 });

@@ -14,7 +14,7 @@ import { useEffect, useState } from "react";
 import { tasksApi } from "@/lib/local-api";
 import type { Task } from "@/lib/types";
 import { objectDeepLink } from "@/lib/references";
-import { ObjectEmbedCard, type EmbedRendererProps } from "./ObjectEmbed";
+import { ObjectEmbedCard, UnavailableEmbedCard, type EmbedRendererProps } from "./ObjectEmbed";
 
 type LoadState =
   | { k: "loading" }
@@ -58,10 +58,11 @@ export default function TaskEmbed({ descriptor, caption }: EmbedRendererProps) {
     };
   }, [descriptor.id]);
 
-  if (state.k !== "ok") {
-    return (
-      <ObjectEmbedCard descriptor={descriptor} caption={caption} loading={state.k === "loading"} />
-    );
+  if (state.k === "loading") {
+    return <ObjectEmbedCard descriptor={descriptor} caption={caption} loading />;
+  }
+  if (state.k === "missing") {
+    return <UnavailableEmbedCard descriptor={descriptor} caption={caption} />;
   }
 
   const task = state.task;

@@ -53,11 +53,11 @@ describe("SequenceEmbed", () => {
     await waitFor(() => expect(screen.getByText(/220 aa · Linear · 0 features/)).toBeInTheDocument());
   });
 
-  it("falls back to the generic card when the sequence is gone", async () => {
+  it("shows the unavailable card when the sequence is gone", async () => {
     get.mockResolvedValue(null);
     render(<SequenceEmbed descriptor={descriptor} caption="Gone" basePath="" />);
-    await waitFor(() =>
-      expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute("href", "/sequences?seq=5"),
-    );
+    await waitFor(() => expect(screen.getByText("Gone")).toBeInTheDocument());
+    expect(screen.getByText(/Not available/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open" })).toBeNull();
   });
 });

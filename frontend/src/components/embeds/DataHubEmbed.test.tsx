@@ -65,10 +65,12 @@ describe("DataHubEmbed", () => {
     expect(screen.queryByText("time_h")).toBeNull();
   });
 
-  it("falls back to the card when the doc is gone", async () => {
+  it("shows the unavailable card when the doc is gone", async () => {
     getContent.mockResolvedValue(null);
     render(<DataHubEmbed descriptor={tableDescriptor} caption="Gone" basePath="" />);
     await waitFor(() => expect(screen.getByText("Gone")).toBeInTheDocument());
+    expect(screen.getByText(/Not available/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open" })).toBeNull();
     expect(screen.queryByText("time_h")).toBeNull();
   });
 

@@ -14,7 +14,7 @@ import { useEffect, useState } from "react";
 import { moleculesApi, type MoleculeMeta } from "@/lib/chemistry/api";
 import { MoleculeThumbnail } from "@/components/chemistry/MoleculeThumbnail";
 import { objectDeepLink } from "@/lib/references";
-import { ObjectEmbedCard, EmbedCaption, type EmbedRendererProps } from "./ObjectEmbed";
+import { ObjectEmbedCard, UnavailableEmbedCard, EmbedCaption, type EmbedRendererProps } from "./ObjectEmbed";
 
 type LoadState =
   | { k: "loading" }
@@ -41,11 +41,11 @@ export default function MoleculeEmbed({ descriptor, caption, figureLabel }: Embe
     };
   }, [descriptor.id]);
 
-  // Loading and deleted both fall back to the generic card (calm, no crash).
-  if (state.k !== "ok") {
-    return (
-      <ObjectEmbedCard descriptor={descriptor} caption={caption} loading={state.k === "loading"} />
-    );
+  if (state.k === "loading") {
+    return <ObjectEmbedCard descriptor={descriptor} caption={caption} loading />;
+  }
+  if (state.k === "missing") {
+    return <UnavailableEmbedCard descriptor={descriptor} caption={caption} />;
   }
 
   const m = state.meta;
