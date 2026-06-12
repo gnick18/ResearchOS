@@ -254,6 +254,101 @@ describe("datahub-doc model", () => {
     expect(plots.map((p) => p.id)).toEqual(["p1"]);
   });
 
+  it("round-trips the optional analysis + plot display name", () => {
+    const doc = importSeed(makeContent());
+    // Rename via the upsert path (set name on an existing analysis / plot).
+    setAnalysis(doc, {
+      id: "a1",
+      name: "Primary t-test",
+      type: "unpairedTTest",
+      params: { tails: 2, alpha: 0.05 },
+      inputs: { groupA: "c-y1", groupB: "c-y2" },
+      resultCache: null,
+      resultStale: true,
+    });
+    setPlot(doc, {
+      id: "p1",
+      name: "Figure 1",
+      type: "xy",
+      style: { color: "#3b82f6" },
+      source: { x: "c-x", y: ["c-y1"] },
+    });
+    doc.commit();
+    const content = getDataHubContent(doc);
+    expect(content.analyses.find((a) => a.id === "a1")!.name).toBe(
+      "Primary t-test",
+    );
+    expect(content.plots.find((p) => p.id === "p1")!.name).toBe("Figure 1");
+  });
+
+  it("omits the name field entirely when absent (label fallback, back-compat)", () => {
+    const doc = importSeed(makeContent());
+    const content = getDataHubContent(doc);
+    // The seed content has no name, so the projection must not invent one. The
+    // rail uses this absence to fall back to the computed type / kind label.
+    expect("name" in content.analyses[0]).toBe(false);
+    expect("name" in content.plots[0]).toBe(false);
+  });
+
+  it("a nameless spec seeds byte-for-byte the same as before name existed", () => {
+    // Determinism (and back-compat) guard: adding the optional field must not
+    // change the serialized bytes for a spec that never sets it.
+    const content = makeContent();
+    const a = seedDataHubDoc(content);
+    const b = seedDataHubDoc(content);
+    expect(Array.from(a)).toEqual(Array.from(b));
+  });
+
+  it("a blank rename clears the name back to the label fallback", () => {
+    const doc = importSeed(makeContent());
+    setAnalysis(doc, {
+      id: "a1",
+      name: "Named",
+      type: "unpairedTTest",
+      params: {},
+      inputs: {},
+      resultCache: null,
+      resultStale: false,
+    });
+    doc.commit();
+    expect(getDataHubContent(doc).analyses[0].name).toBe("Named");
+    // Re-upsert without a name (what the page does when the rename is blanked).
+    setAnalysis(doc, {
+      id: "a1",
+      type: "unpairedTTest",
+      params: {},
+      inputs: {},
+      resultCache: null,
+      resultStale: false,
+    });
+    doc.commit();
+    expect("name" in getDataHubContent(doc).analyses[0]).toBe(false);
+  });
+
+  it("duplicating a plot spec copies its style + source verbatim under a new id", () => {
+    // The shape the page's duplicatePlot relies on: a cloned spec round-trips as
+    // an independent figure with the same style / source and a copy name.
+    const doc = importSeed(makeContent());
+    const source = getDataHubContent(doc).plots.find((p) => p.id === "p1")!;
+    const copy = {
+      ...source,
+      id: "p1-copy",
+      name: "XY graph copy",
+      style: { ...source.style },
+      source: { ...source.source },
+    };
+    setPlot(doc, copy);
+    doc.commit();
+    const plots = getDataHubContent(doc).plots;
+    expect(plots.map((p) => p.id)).toEqual(["p1", "p1-copy"]);
+    const dup = plots.find((p) => p.id === "p1-copy")!;
+    expect(dup.style).toEqual(source.style);
+    expect(dup.source).toEqual(source.source);
+    expect(dup.name).toBe("XY graph copy");
+    // The original is untouched (no name leaked onto it).
+    expect("name" in plots.find((p) => p.id === "p1")!).toBe(false);
+  });
+
   it("setTitle updates meta", () => {
     const doc = importSeed(makeContent());
     setTitle(doc, "Renamed assay");

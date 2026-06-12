@@ -87,11 +87,15 @@ const ANALYSIS_SCALAR_KEYS = ["id", "type", "resultStale"] as const;
 const ANALYSIS_PARAMS_KEY = "params";
 const ANALYSIS_INPUTS_KEY = "inputs";
 const ANALYSIS_RESULT_KEY = "resultCache";
+/** Optional analysis display name (absent until the user renames it). */
+const ANALYSIS_NAME_KEY = "name";
 
 /** Fixed declared key order for a plot map entry. */
 const PLOT_SCALAR_KEYS = ["id", "type"] as const;
 const PLOT_STYLE_KEY = "style";
 const PLOT_SOURCE_KEY = "source";
+/** Optional figure display name (absent until the user renames it). */
+const PLOT_NAME_KEY = "name";
 
 // ---------------------------------------------------------------------------
 // Internal helpers (parse / read)
@@ -146,20 +150,33 @@ function writeRow(map: LoroMap, row: RowRecord, cellKeyOrder: string[]): void {
   }
 }
 
-/** Write an analysis spec into a (freshly inserted) map, fixed order. */
+/** Write an analysis spec into a (freshly inserted) map, fixed order. The
+ *  optional display name is only written when present so a spec without a name
+ *  serializes byte-for-byte the same as before rename existed. */
 function writeAnalysis(map: LoroMap, a: AnalysisSpec): void {
   map.set("id", a.id);
   map.set("type", a.type);
   map.set("resultStale", a.resultStale ?? false);
+  // The name key is only present when set. On an in-place upsert (rename, then a
+  // rename back to blank) the stale key is deleted so the projection drops it and
+  // the rail falls back to the computed label.
+  if (typeof a.name === "string") map.set(ANALYSIS_NAME_KEY, a.name);
+  else if (map.get(ANALYSIS_NAME_KEY) !== undefined) map.delete(ANALYSIS_NAME_KEY);
   map.set(ANALYSIS_PARAMS_KEY, JSON.stringify(a.params ?? {}));
   map.set(ANALYSIS_INPUTS_KEY, JSON.stringify(a.inputs ?? {}));
   map.set(ANALYSIS_RESULT_KEY, JSON.stringify(a.resultCache ?? null));
 }
 
-/** Write a plot spec into a (freshly inserted) map, fixed order. */
+/** Write a plot spec into a (freshly inserted) map, fixed order. The optional
+ *  display name is only written when present so a spec without a name serializes
+ *  byte-for-byte the same as before rename existed. */
 function writePlot(map: LoroMap, p: PlotSpec): void {
   map.set("id", p.id);
   map.set("type", p.type);
+  // See writeAnalysis: only present when set, deleted on a rename-to-blank so the
+  // figure falls back to its title / kind label.
+  if (typeof p.name === "string") map.set(PLOT_NAME_KEY, p.name);
+  else if (map.get(PLOT_NAME_KEY) !== undefined) map.delete(PLOT_NAME_KEY);
   map.set(PLOT_STYLE_KEY, JSON.stringify(p.style ?? {}));
   map.set(PLOT_SOURCE_KEY, JSON.stringify(p.source ?? {}));
 }
@@ -291,8 +308,10 @@ function projectAnalyses(doc: LoroDoc): AnalysisSpec[] {
     if (!map) continue;
     const id = asString(map.get("id"));
     if (id === null) continue;
+    const name = asString(map.get(ANALYSIS_NAME_KEY));
     out.push({
       id,
+      ...(name !== null ? { name } : {}),
       type: asString(map.get("type")) ?? "",
       params: parseJson<Record<string, unknown>>(map.get(ANALYSIS_PARAMS_KEY), {}),
       inputs: parseJson<Record<string, unknown>>(map.get(ANALYSIS_INPUTS_KEY), {}),
@@ -314,8 +333,10 @@ function projectPlots(doc: LoroDoc): PlotSpec[] {
     if (!map) continue;
     const id = asString(map.get("id"));
     if (id === null) continue;
+    const name = asString(map.get(PLOT_NAME_KEY));
     out.push({
       id,
+      ...(name !== null ? { name } : {}),
       type: asString(map.get("type")) ?? "",
       style: parseJson<Record<string, unknown>>(map.get(PLOT_STYLE_KEY), {}),
       source: parseJson<Record<string, unknown>>(map.get(PLOT_SOURCE_KEY), {}),
