@@ -565,6 +565,28 @@ export default function DataHubPage() {
     [openContent],
   );
 
+  // Bundle the grid CRUD callbacks once so each grid receives a stable object for
+  // its right-click menus. The grid decides which items to surface from the table
+  // type plus the per-column guards.
+  const gridCrud = useMemo(
+    () => ({
+      onDeleteRow: handleDeleteRow,
+      onInsertRowAt: handleInsertRowAt,
+      onDeleteColumn: handleDeleteColumn,
+      onRenameColumn: handleRenameColumn,
+      onDuplicateColumn: handleDuplicateColumn,
+      onInsertColumnAt: handleInsertColumnAt,
+    }),
+    [
+      handleDeleteRow,
+      handleInsertRowAt,
+      handleDeleteColumn,
+      handleRenameColumn,
+      handleDuplicateColumn,
+      handleInsertColumnAt,
+    ],
+  );
+
   // Create a new Column table (seeded empty), refresh the catalog, and open it.
   const handleNewTable = useCallback(
     async (data: NewTableSubmit) => {
@@ -1177,6 +1199,7 @@ export default function DataHubPage() {
                     onCellCommit={handleCellCommit}
                     onAddRow={handleAddRow}
                     onAddColumn={handleAddColumn}
+                    crud={gridCrud}
                     hideAddControls
                   />
                 )}
