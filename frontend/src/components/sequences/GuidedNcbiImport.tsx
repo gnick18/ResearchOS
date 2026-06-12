@@ -79,6 +79,17 @@ function mbLabel(bp: number): string {
   return mb >= 10 ? `${Math.round(mb)} Mb` : `${mb.toFixed(1)} Mb`;
 }
 
+/** When a genome is over the in-browser cap, hand the user that EXACT genome two
+ *  ways out: a one-click link to its NCBI Datasets page (browser download) and a
+ *  copy-ready Datasets CLI command, both pre-filled with the assembly accession.
+ *  Both keep the user on the same genome instead of dead-ending on a text note. */
+function datasetsGenomeEscape(accession: string): { webUrl: string; cli: string } {
+  return {
+    webUrl: `https://www.ncbi.nlm.nih.gov/datasets/genome/${encodeURIComponent(accession)}/`,
+    cli: `datasets download genome accession ${accession} --include genome`,
+  };
+}
+
 export interface GuidedNcbiImportProps {
   /** Called with the parsed, provenance-tagged sequences on a successful
    *  import. The page persists them via its existing persistNew path. */
@@ -138,6 +149,13 @@ export default function GuidedNcbiImport({
   const [confirm, setConfirm] = useState<
     null | { sizeLabel: string; proceed: () => void }
   >(null);
+  // An over-the-hard-cap block: the genome is too big for an in-browser import,
+  // so we refuse it but hand the user the same genome via NCBI Datasets (a web
+  // link + a copy-ready CLI command). Cleared on navigation.
+  const [blocked, setBlocked] = useState<
+    null | { reason: string; webUrl: string; cli: string }
+  >(null);
+  const [copiedCli, setCopiedCli] = useState(false);
 
   const newController = useCallback(() => {
     abortRef.current?.abort();
@@ -149,6 +167,9 @@ export default function GuidedNcbiImport({
   useEffect(() => {
     return () => abortRef.current?.abort();
   }, []);
+
+  // Reset the copy-command affordance whenever the block changes or clears.
+  useEffect(() => setCopiedCli(false), [blocked]);
 
   // Best-effort named-lineage resolve (one per import, drops on failure, never
   // blocks the import, re-raises an abort).
@@ -228,7 +249,10 @@ export default function GuidedNcbiImport({
         );
         const cap = checkCaps(preview);
         if (!cap.ok) {
-          setError(cap.reason ?? "This genome is too large to import in the browser.");
+          setBlocked({
+            reason: cap.reason ?? "This genome is too large to import in the browser.",
+            ...datasetsGenomeEscape(target.accession),
+          });
           return;
         }
         setBusy(false);
@@ -293,11 +317,17 @@ export default function GuidedNcbiImport({
       setError(null);
       setConfirm(null);
       if (seq.lengthBp > NCBI_CAPS.maxGenomeBp) {
-        setError(
+        const reason =
           `This chromosome is ${mbLabel(seq.lengthBp)}, over the ` +
-            `${mbLabel(NCBI_CAPS.maxGenomeBp)} limit for an in-browser import. ` +
-            `For a record this size, use the NCBI Datasets command-line tool.`,
-        );
+          `${mbLabel(NCBI_CAPS.maxGenomeBp)} limit for an in-browser import. ` +
+          `For a record this size, get it from NCBI Datasets.`;
+        // The chromosome itself is not a genome accession, so route the escape to
+        // the parent assembly we browsed into (the same genome).
+        if (assembly?.accession) {
+          setBlocked({ reason, ...datasetsGenomeEscape(assembly.accession) });
+        } else {
+          setError(reason);
+        }
         return;
       }
       if (seq.lengthBp > SOFT_WARN_BP) {
@@ -309,7 +339,7 @@ export default function GuidedNcbiImport({
       }
       void downloadWholeContig(seq);
     },
-    [downloadWholeContig],
+    [assembly, downloadWholeContig],
   );
 
   /** efetch the gene-plus-flank window and hand the import back. */
@@ -362,7 +392,10 @@ export default function GuidedNcbiImport({
           const preview = await previewByAccession(acc, c.signal);
           const cap = checkCaps(preview);
           if (!cap.ok) {
-            setError(cap.reason ?? "This genome is too large to import in the browser.");
+            setBlocked({
+              reason: cap.reason ?? "This genome is too large to import in the browser.",
+              ...datasetsGenomeEscape(preview.accession),
+            });
             return;
           }
           setBusyLabel("Downloading and unpacking the assembly...");
@@ -415,6 +448,7 @@ export default function GuidedNcbiImport({
       abortRef.current?.abort();
       setError(null);
       setConfirm(null);
+      setBlocked(null);
       setBusy(false);
       setBusyLabel("");
       setStep(next);
@@ -432,6 +466,7 @@ export default function GuidedNcbiImport({
     setFlank(DEFAULT_FLANK);
     setError(null);
     setConfirm(null);
+    setBlocked(null);
     setDoneSummary("");
     setBusy(false);
     setBusyLabel("");
@@ -480,6 +515,54 @@ export default function GuidedNcbiImport({
           <div className="mb-3 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 dark:border-rose-500/30 dark:bg-rose-500/15">
             <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
             <p className="text-meta leading-relaxed text-rose-700 dark:text-rose-300">{error}</p>
+          </div>
+        ) : null}
+
+        {/* Over the hard cap: too big for an in-browser import, so refuse it but
+            hand the user the same genome via NCBI Datasets (web + CLI). */}
+        {blocked ? (
+          <div
+            className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 dark:border-rose-500/30 dark:bg-rose-500/15"
+            data-testid="ncbi-too-large"
+          >
+            <div className="flex items-start gap-2">
+              <Icon name="alert" className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
+              <p className="text-meta leading-relaxed text-rose-700 dark:text-rose-300">
+                {blocked.reason}
+              </p>
+            </div>
+            <div className="mt-2.5 flex flex-col gap-2">
+              <a
+                href={blocked.webUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="ncbi-too-large-open"
+                className="inline-flex items-center justify-center gap-1.5 rounded-md bg-sky-600 px-3 py-1.5 text-meta font-medium text-white transition-colors hover:bg-sky-700"
+              >
+                <Icon name="export" className="h-3.5 w-3.5" />
+                Open this genome on NCBI Datasets
+              </a>
+              <div className="flex items-center gap-2 rounded-md border border-border bg-surface-sunken px-2.5 py-1.5">
+                <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap font-mono text-meta text-foreground">
+                  {blocked.cli}
+                </code>
+                <Tooltip label={copiedCli ? "Copied" : "Copy command"}>
+                  <button
+                    type="button"
+                    data-testid="ncbi-too-large-copy"
+                    onClick={() => {
+                      void navigator.clipboard
+                        ?.writeText(blocked.cli)
+                        .then(() => setCopiedCli(true))
+                        .catch(() => {});
+                    }}
+                    className="shrink-0 rounded p-1 text-foreground-muted transition-colors hover:bg-surface-raised hover:text-foreground"
+                  >
+                    <Icon name={copiedCli ? "check" : "copy"} className="h-3.5 w-3.5" />
+                  </button>
+                </Tooltip>
+              </div>
+            </div>
           </div>
         ) : null}
 
