@@ -237,11 +237,15 @@ describe("activePageTypeForPath", () => {
   it("maps the core entity routes to their hosted type", () => {
     expect(activePageTypeForPath("/methods")).toBe("method");
     expect(activePageTypeForPath("/sequences")).toBe("sequence");
+    expect(activePageTypeForPath("/inventory")).toBe("inventory");
+    expect(activePageTypeForPath("/datahub")).toBe("datahub");
+    expect(activePageTypeForPath("/chemistry")).toBe("molecule");
+    // Purchases are their own hosted type now (not grouped under task).
+    expect(activePageTypeForPath("/purchases")).toBe("purchase");
     expect(activePageTypeForPath("/workbench/projects/7")).toBe("project");
     expect(activePageTypeForPath("/")).toBe("task");
     expect(activePageTypeForPath("/workbench")).toBe("task");
     expect(activePageTypeForPath("/gantt")).toBe("task");
-    expect(activePageTypeForPath("/purchases")).toBe("task");
   });
 
   it("prefers the deeper project route over the bare workbench task mapping", () => {
