@@ -14,6 +14,8 @@ import TaskDetailPopup from "@/components/TaskDetailPopup";
 import ContextMenu from "@/components/ContextMenu";
 import TaskModal from "@/components/TaskModal";
 import Tooltip from "@/components/Tooltip";
+import { Icon } from "@/components/icons";
+import { fileService } from "@/lib/file-system/file-service";
 import SharedFromPill from "@/components/workbench/SharedFromPill";
 import ExperimentResultCard, {
   type ExperimentCardMethod,
@@ -44,14 +46,6 @@ const DEFAULT_COLORS = [
 
 const projectKey = (p: Pick<Project, "id" | "owner">) => `${p.owner}:${p.id}`;
 
-const SECTION_ORDER: WorkbenchSection[] = [
-  "ready",
-  "blocked",
-  "running",
-  "awaiting",
-  "recent",
-];
-
 // The four in-flight pipeline stages rendered as a side-by-side kanban
 // row (experiments-kanban density redesign, 2026-06-02). "recent" is NOT
 // a board column — it lives in the results zone below the board with its
@@ -81,9 +75,6 @@ const SECTION_HELP: Record<WorkbenchSection, string> = {
   scheduled: "Future-scheduled experiments",
 };
 
-const EARLIER_LABEL = "Earlier results";
-const EARLIER_HELP = "Completed more than 30 days ago — full archive";
-
 const RECENT_WINDOW_DAYS = 30;
 const FRESHNESS_WINDOW_DAYS = 7;
 
@@ -101,6 +92,164 @@ interface SectionEntry {
   daysFromStart: number | null;
   blockingParents: Task[];
   nextInChain: Task | null;
+}
+
+// Display section for the explorer. Folds "recent" past the 30-day window into
+// "earlier"; everything else maps straight through. "scheduled" is filtered out
+// of the list (it stays a footer hint).
+type DisplaySection =
+  | "running"
+  | "ready"
+  | "blocked"
+  | "awaiting"
+  | "recent"
+  | "earlier"
+  | "scheduled";
+
+function displaySectionOf(e: SectionEntry): DisplaySection {
+  if (
+    e.section === "recent" &&
+    (e.daysFromEnd === null || e.daysFromEnd > RECENT_WINDOW_DAYS)
+  ) {
+    return "earlier";
+  }
+  return e.section;
+}
+
+// The order status bands render in the dense list.
+const LIST_SECTION_ORDER: DisplaySection[] = [
+  "running",
+  "ready",
+  "blocked",
+  "awaiting",
+  "recent",
+  "earlier",
+];
+
+const DISPLAY_LABEL: Record<DisplaySection, string> = {
+  running: "Running",
+  ready: "Ready",
+  blocked: "Blocked",
+  awaiting: "Awaiting write-up",
+  recent: "Recent results",
+  earlier: "Earlier",
+  scheduled: "Scheduled later",
+};
+
+// Per-status color tokens, shared by the list bands, row badges, the rail dots,
+// and the board column headers so a status looks the same everywhere (Grant:
+// "the colors should be retained between list and board for categories").
+interface StatusStyle {
+  text: string;
+  band: string; // band header bg + left accent + text
+  badge: string; // pill bg + text
+  dot: string; // small square dot bg
+  cardAccent: string; // board card left border
+}
+const STATUS_STYLE: Record<
+  "running" | "ready" | "blocked" | "awaiting" | "recent" | "earlier",
+  StatusStyle
+> = {
+  running: {
+    text: "text-blue-700 dark:text-blue-300",
+    band: "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 border-l-blue-500",
+    badge: "bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300",
+    dot: "bg-blue-500",
+    cardAccent: "border-l-blue-500",
+  },
+  ready: {
+    text: "text-blue-700 dark:text-blue-300",
+    band: "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 border-l-blue-500",
+    badge: "bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300",
+    dot: "bg-blue-500",
+    cardAccent: "border-l-blue-500",
+  },
+  blocked: {
+    text: "text-amber-700 dark:text-amber-300",
+    band: "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border-l-amber-500",
+    badge: "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300",
+    dot: "bg-amber-500",
+    cardAccent: "border-l-amber-500",
+  },
+  awaiting: {
+    text: "text-amber-700 dark:text-amber-300",
+    band: "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border-l-amber-500",
+    badge: "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300",
+    dot: "bg-amber-500",
+    cardAccent: "border-l-amber-500",
+  },
+  recent: {
+    text: "text-emerald-700 dark:text-emerald-300",
+    band: "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-l-emerald-500",
+    badge: "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+    dot: "bg-emerald-500",
+    cardAccent: "border-l-emerald-500",
+  },
+  earlier: {
+    text: "text-foreground-muted",
+    band: "bg-surface-sunken text-foreground-muted border-l-gray-300 dark:border-l-gray-600",
+    badge: "bg-surface-sunken text-foreground-muted",
+    dot: "bg-gray-400",
+    cardAccent: "border-l-gray-400",
+  },
+};
+
+/** A green "has results" marker that reveals the result image (or text
+ *  preview) on hover. The blob resolves lazily on first hover so the list
+ *  doesn't read every experiment's image up front. */
+function ResultHoverThumb({
+  path,
+  preview,
+}: {
+  path: string | null;
+  preview: string | null;
+}) {
+  const [hover, setHover] = useState(false);
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!hover || !path) return;
+    let cancelled = false;
+    let revoke: string | null = null;
+    (async () => {
+      const blob = await fileService.readFileAsBlob(path);
+      if (cancelled || !blob) return;
+      const objectUrl = URL.createObjectURL(blob);
+      revoke = objectUrl;
+      setUrl(objectUrl);
+    })();
+    return () => {
+      cancelled = true;
+      if (revoke) URL.revokeObjectURL(revoke);
+    };
+  }, [hover, path]);
+  return (
+    <span
+      className="relative flex-none"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      <span className="grid place-items-center w-6 h-6 rounded-md bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300">
+        <Icon name="camera" className="w-3.5 h-3.5" />
+      </span>
+      {hover && (path || preview) && (
+        <span className="absolute right-8 top-1/2 -translate-y-1/2 z-50 w-48 rounded-lg border border-border bg-surface-overlay shadow-xl overflow-hidden">
+          {path ? (
+            url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={url} alt="" className="w-full h-24 object-cover" />
+            ) : (
+              <span className="block w-full h-24 bg-surface-sunken" />
+            )
+          ) : null}
+          {preview && (
+            <span className="block p-2 text-meta text-foreground-muted line-clamp-3">
+              {preview}
+            </span>
+          )}
+        </span>
+      )}
+    </span>
+  );
 }
 
 function freshnessFor(entry: SectionEntry): {
@@ -167,42 +316,27 @@ export default function WorkbenchExperimentsPanel({
   // Right-click "Add a comment": opens the popup with the comments rail expanded.
   const [commentIntent, setCommentIntent] = useState(false);
   const [tileMenu, setTileMenu] = useState<{ x: number; y: number; task: Task } | null>(null);
+  // Right-click "Open results" / "Add a comment" intents: open the popup on the
+  // results tab / with the comments rail expanded.
+  const [resultsIntent, setResultsIntent] = useState(false);
   const openTaskComments = (t: Task) => {
     setSelectedTask(t);
     setCommentIntent(true);
   };
-  const [earlierLayout, setEarlierLayout] = useState<"flat" | "grouped">(
-    "flat",
-  );
-  // Earlier-results archive navigation (grows unbounded over years).
-  // By-project groups are collapsible and default-collapsed; expanded groups
-  // and flat mode cap their card count behind a "show more" control.
-  const EARLIER_GROUP_CAP = 12;
-  const EARLIER_FLAT_PAGE = 24;
-  const [expandedEarlierGroups, setExpandedEarlierGroups] = useState<
-    Set<string>
-  >(() => new Set());
-  const [expandedEarlierGroupCaps, setExpandedEarlierGroupCaps] = useState<
-    Set<string>
-  >(() => new Set());
-  const [earlierFlatVisible, setEarlierFlatVisible] =
-    useState(EARLIER_FLAT_PAGE);
-  const toggleEarlierGroup = useCallback((pk: string) => {
-    setExpandedEarlierGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(pk)) next.delete(pk);
-      else next.add(pk);
-      return next;
-    });
-  }, []);
-  const setEarlierLayoutReset = useCallback(
-    (layout: "flat" | "grouped") => {
-      setEarlierLayout(layout);
-      setEarlierFlatVisible(EARLIER_FLAT_PAGE);
-      setExpandedEarlierGroupCaps(new Set());
-    },
-    [EARLIER_FLAT_PAGE],
-  );
+  const openTaskResults = (t: Task) => {
+    setSelectedTask(t);
+    setResultsIntent(true);
+  };
+
+  // Explorer navigation. `view` toggles the dense list vs the Kanban board.
+  // `activeNav` scopes the list: "all", a status ("inflight"/"awaiting"/
+  // "recent"/"earlier"), or a project ("proj:<owner>:<id>"). `activeMethod` /
+  // `activeOwner` are the rail filter chips.
+  const [view, setView] = useState<"list" | "board">("list");
+  const [activeNav, setActiveNav] = useState<string>("all");
+  const [activeMethod, setActiveMethod] = useState<number | null>(null);
+  const [activeOwner, setActiveOwner] = useState<"mine" | "shared" | null>(null);
+
   const selectedProjectIds = useAppStore((s) => s.selectedProjectIds);
   const setIsCreatingTask = useAppStore((s) => s.setIsCreatingTask);
   const setNewTaskStartDate = useAppStore((s) => s.setNewTaskStartDate);
@@ -308,67 +442,10 @@ export default function WorkbenchExperimentsPanel({
     });
   }, [experiments, probes, blockingMap, today, allTasks, dependencies]);
 
-  // Filter out "scheduled" + "recent" beyond the 30-day window from the
-  // visible body. They land in a separate scheduled-later/earlier hint
-  // below the main sections.
-  const visibleEntries = useMemo(() => {
-    return entries.filter((e) => {
-      if (e.section === "scheduled") return false;
-      if (e.section === "recent") {
-        // Cap "Recent results" at the 30-day window; older landings go to
-        // "Earlier".
-        return (
-          e.daysFromEnd !== null &&
-          e.daysFromEnd >= 0 &&
-          e.daysFromEnd <= RECENT_WINDOW_DAYS
-        );
-      }
-      return true;
-    });
-  }, [entries]);
-
-  // Completed experiments past the 30-day Recent window. The Earlier
-  // section absorbs everything the standalone /results page used to host
-  // (no time cap — scrollable archive). Newest-completed first, which
-  // for `daysFromEnd` (days since completion) means smallest first.
-  const earlierEntries = useMemo(() => {
-    const list = entries.filter(
-      (e) =>
-        e.section === "recent" &&
-        (e.daysFromEnd === null || e.daysFromEnd > RECENT_WINDOW_DAYS),
-    );
-    list.sort((a, b) => (a.daysFromEnd ?? Infinity) - (b.daysFromEnd ?? Infinity));
-    return list;
-  }, [entries]);
-
   const scheduledCount = useMemo(
     () => entries.filter((e) => e.section === "scheduled").length,
     [entries],
   );
-
-  const grouped = useMemo(() => {
-    const m = new Map<WorkbenchSection, SectionEntry[]>();
-    for (const key of SECTION_ORDER) m.set(key, []);
-    for (const e of visibleEntries) m.get(e.section)?.push(e);
-
-    // Per-section default sort.
-    m.get("ready")?.sort((a, b) =>
-      a.task.start_date.localeCompare(b.task.start_date),
-    );
-    m.get("blocked")?.sort((a, b) =>
-      a.task.start_date.localeCompare(b.task.start_date),
-    );
-    m.get("running")?.sort((a, b) =>
-      b.task.start_date.localeCompare(a.task.start_date),
-    );
-    m.get("awaiting")?.sort(
-      (a, b) => (b.daysFromEnd ?? 0) - (a.daysFromEnd ?? 0),
-    );
-    m.get("recent")?.sort(
-      (a, b) => (a.daysFromEnd ?? 0) - (b.daysFromEnd ?? 0),
-    );
-    return m;
-  }, [visibleEntries]);
 
   // Project lookup tables.
   const projectColors = useMemo(() => {
@@ -405,6 +482,151 @@ export default function WorkbenchExperimentsPanel({
       null,
     [methods],
   );
+
+  // ── Explorer computed data ──────────────────────────────────────────────
+  const projNavKey = useCallback(
+    (t: Task) => `proj:${t.owner}:${t.project_id ?? 0}`,
+    [],
+  );
+
+  // Universe for the explorer: every experiment entry except future-scheduled
+  // ones (those stay a footer hint), narrowed by the rail's method / owner
+  // chips. The status-nav and project-nav selections are applied per consumer
+  // so the rail counts stay stable as you click around.
+  const baseFiltered = useMemo(() => {
+    return entries.filter((e) => {
+      if (displaySectionOf(e) === "scheduled") return false;
+      if (activeOwner === "mine" && e.task.is_shared_with_me) return false;
+      if (activeOwner === "shared" && !e.task.is_shared_with_me) return false;
+      if (
+        activeMethod != null &&
+        !(e.task.method_ids ?? []).includes(activeMethod)
+      )
+        return false;
+      return true;
+    });
+  }, [entries, activeOwner, activeMethod]);
+
+  const statusCounts = useMemo(() => {
+    const c = { all: 0, inflight: 0, awaiting: 0, recent: 0, earlier: 0 };
+    for (const e of baseFiltered) {
+      c.all += 1;
+      const ds = displaySectionOf(e);
+      if (ds === "ready" || ds === "blocked" || ds === "running") c.inflight += 1;
+      else if (ds === "awaiting") c.awaiting += 1;
+      else if (ds === "recent") c.recent += 1;
+      else if (ds === "earlier") c.earlier += 1;
+    }
+    return c;
+  }, [baseFiltered]);
+
+  const railProjects = useMemo(() => {
+    const m = new Map<string, { name: string; color: string; count: number }>();
+    for (const e of baseFiltered) {
+      const k = projNavKey(e.task);
+      if (!m.has(k)) {
+        m.set(k, {
+          name: projectNameFor(e.task),
+          color:
+            projectColors[`${e.task.owner}:${e.task.project_id}`] ??
+            DEFAULT_COLORS[0],
+          count: 0,
+        });
+      }
+      m.get(k)!.count += 1;
+    }
+    return Array.from(m.entries())
+      .map(([key, v]) => ({ key, ...v }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [baseFiltered, projNavKey, projectNameFor, projectColors]);
+
+  const railMethods = useMemo(() => {
+    const m = new Map<number, { name: string; count: number }>();
+    for (const e of baseFiltered) {
+      for (const mid of e.task.method_ids ?? []) {
+        const meth = methodLookup(e.task, mid);
+        if (!meth) continue;
+        if (!m.has(meth.id)) m.set(meth.id, { name: meth.name, count: 0 });
+        m.get(meth.id)!.count += 1;
+      }
+    }
+    return Array.from(m.entries())
+      .map(([id, v]) => ({ id, ...v }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [baseFiltered, methodLookup]);
+
+  const matchesNav = useCallback(
+    (e: SectionEntry) => {
+      if (activeNav === "all") return true;
+      const ds = displaySectionOf(e);
+      if (activeNav === "inflight")
+        return ds === "ready" || ds === "blocked" || ds === "running";
+      if (activeNav === "awaiting") return ds === "awaiting";
+      if (activeNav === "recent") return ds === "recent";
+      if (activeNav === "earlier") return ds === "earlier";
+      if (activeNav.startsWith("proj:")) return projNavKey(e.task) === activeNav;
+      return true;
+    },
+    [activeNav, projNavKey],
+  );
+
+  // Dense-list rows, grouped by status band. A single-status nav selection
+  // shows a flat list (one band); All and per-project views show every band.
+  const listGrouped = useMemo(() => {
+    const items = baseFiltered.filter(matchesNav);
+    const m = new Map<DisplaySection, SectionEntry[]>();
+    for (const sec of LIST_SECTION_ORDER) m.set(sec, []);
+    for (const e of items) {
+      const ds = displaySectionOf(e);
+      if (ds === "scheduled") continue;
+      m.get(ds)?.push(e);
+    }
+    m.get("ready")?.sort((a, b) =>
+      a.task.start_date.localeCompare(b.task.start_date),
+    );
+    m.get("blocked")?.sort((a, b) =>
+      a.task.start_date.localeCompare(b.task.start_date),
+    );
+    m.get("running")?.sort((a, b) =>
+      b.task.start_date.localeCompare(a.task.start_date),
+    );
+    m.get("awaiting")?.sort((a, b) => (b.daysFromEnd ?? 0) - (a.daysFromEnd ?? 0));
+    m.get("recent")?.sort((a, b) => (a.daysFromEnd ?? 0) - (b.daysFromEnd ?? 0));
+    m.get("earlier")?.sort(
+      (a, b) => (a.daysFromEnd ?? Infinity) - (b.daysFromEnd ?? Infinity),
+    );
+    return m;
+  }, [baseFiltered, matchesNav]);
+
+  const listCount = useMemo(
+    () =>
+      Array.from(listGrouped.values()).reduce((n, arr) => n + arr.length, 0),
+    [listGrouped],
+  );
+
+  // Board view: the four in-flight stages, respecting the method/owner chips
+  // and a project-nav selection (a status-nav selection does not apply to the
+  // board, which spans all in-flight statuses by definition).
+  const boardGrouped = useMemo(() => {
+    const m = new Map<WorkbenchSection, SectionEntry[]>();
+    for (const key of BOARD_STAGES) m.set(key, []);
+    for (const e of baseFiltered) {
+      if (activeNav.startsWith("proj:") && projNavKey(e.task) !== activeNav)
+        continue;
+      if (BOARD_STAGES.includes(e.section)) m.get(e.section)?.push(e);
+    }
+    m.get("ready")?.sort((a, b) =>
+      a.task.start_date.localeCompare(b.task.start_date),
+    );
+    m.get("blocked")?.sort((a, b) =>
+      a.task.start_date.localeCompare(b.task.start_date),
+    );
+    m.get("running")?.sort((a, b) =>
+      b.task.start_date.localeCompare(a.task.start_date),
+    );
+    m.get("awaiting")?.sort((a, b) => (b.daysFromEnd ?? 0) - (a.daysFromEnd ?? 0));
+    return m;
+  }, [baseFiltered, activeNav, projNavKey]);
 
   const handleCreateExperiment = useCallback(() => {
     setNewTaskStartDate(null);
@@ -458,15 +680,15 @@ export default function WorkbenchExperimentsPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTask]);
 
-  const totalCount = visibleEntries.length;
+  // Whole-panel empty state fires only when there are no experiments at all
+  // (scheduled-only still shows the explorer with a footer hint).
+  const hasAnyExperiments = entries.length > 0;
 
-  // All four board stages empty -> collapse the 4-column board to a single
-  // quiet message (the Recent/Earlier results grids below still render, so
-  // this is distinct from the whole-panel "No experiments yet" state).
+  // All four board stages empty (given current filters) -> a single quiet
+  // message in place of the 4-column board.
   const boardAllEmpty = useMemo(
-    () =>
-      BOARD_STAGES.every((key) => (grouped.get(key)?.length ?? 0) === 0),
-    [grouped],
+    () => BOARD_STAGES.every((key) => (boardGrouped.get(key)?.length ?? 0) === 0),
+    [boardGrouped],
   );
 
   const renderCard = (entry: SectionEntry, compact = false) => {
@@ -595,11 +817,124 @@ export default function WorkbenchExperimentsPanel({
     );
   };
 
+  // Dense list row. Status badge (colored by section), name, method chips,
+  // project, and a results marker that reveals the image on hover. Click opens
+  // the detail popup; right-click opens the row menu.
+  const renderRow = (entry: SectionEntry) => {
+    const t = entry.task;
+    const ds = displaySectionOf(entry);
+    const style = STATUS_STYLE[ds === "scheduled" ? "earlier" : ds];
+    const fresh = freshnessFor(entry);
+    const badgeText =
+      ds === "awaiting" ? "No write-up" : fresh.label ?? DISPLAY_LABEL[ds];
+    const rowMethods = (t.method_ids ?? [])
+      .map((mid) => methodLookup(t, mid))
+      .filter((m): m is Method => m !== null);
+    return (
+      <div
+        key={taskKey(t)}
+        data-beaker-target={`experiment:${taskKey(t)}`}
+        data-testid="experiment-row"
+        onClick={() => setSelectedTask(t)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          setTileMenu({ x: e.clientX, y: e.clientY, task: t });
+        }}
+        className="group flex items-center gap-3 px-4 py-2 border-b border-border cursor-pointer hover:bg-surface-sunken transition-colors"
+      >
+        <span
+          className={`flex-none text-meta font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${style.badge}`}
+        >
+          {badgeText}
+        </span>
+        <span className="text-body font-medium text-foreground truncate">
+          {t.name}
+        </span>
+        {rowMethods.length > 0 && (
+          <span className="hidden md:flex items-center gap-1 flex-none">
+            {rowMethods.slice(0, 2).map((m) => (
+              <span
+                key={m.id}
+                className="text-meta text-purple-600 dark:text-purple-300 bg-purple-50 dark:bg-purple-500/15 rounded-full px-2 py-0.5 whitespace-nowrap"
+              >
+                {m.name}
+              </span>
+            ))}
+            {rowMethods.length > 2 && (
+              <span className="text-meta text-foreground-muted">
+                +{rowMethods.length - 2}
+              </span>
+            )}
+          </span>
+        )}
+        <span className="flex-1 min-w-[8px]" />
+        {t.is_shared_with_me && <SharedFromPill owner={t.owner} />}
+        <span className="hidden lg:inline flex-none text-meta text-foreground-muted">
+          {projectNameFor(t)}
+        </span>
+        {entry.probe.hasResult ? (
+          <ResultHoverThumb
+            path={entry.probe.heroImagePath}
+            preview={entry.probe.resultsPreview}
+          />
+        ) : (
+          <span className="w-6 flex-none" aria-hidden />
+        )}
+      </div>
+    );
+  };
+
+  const renderNavItem = (
+    key: string,
+    label: string,
+    dotClass: string,
+    count: number,
+  ) => {
+    const active = activeNav === key;
+    return (
+      <button
+        key={key}
+        type="button"
+        onClick={() => setActiveNav(key)}
+        className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-body text-left transition-colors ${
+          active
+            ? "bg-brand-action text-white font-medium"
+            : "text-foreground hover:bg-surface-raised"
+        }`}
+      >
+        <span
+          className={`w-2.5 h-2.5 rounded-sm flex-none ${active ? "bg-white/80" : dotClass}`}
+        />
+        <span className="flex-1 truncate">{label}</span>
+        <span
+          className={`text-meta tabular-nums ${active ? "text-white/80" : "text-foreground-muted"}`}
+        >
+          {count}
+        </span>
+      </button>
+    );
+  };
+
+  const crumbLabel =
+    activeNav === "all"
+      ? "All experiments"
+      : activeNav.startsWith("proj:")
+        ? railProjects.find((p) => p.key === activeNav)?.name ?? "Project"
+        : (
+            {
+              inflight: "In flight",
+              awaiting: "Awaiting write-up",
+              recent: "Recent results",
+              earlier: "Earlier",
+            } as Record<string, string>
+          )[activeNav] ?? "Experiments";
+
+  const railSecH =
+    "px-1.5 mt-4 mb-1.5 text-meta font-bold uppercase tracking-wider text-foreground-muted";
+
   return (
     <div data-current-tab="experiments" data-tour-target="workbench-shared-experiments">
-      {totalCount === 0 ? (
-        // Empty state: one big primary action in the middle, no redundant
-        // top-right button (Grant 2026-06-09).
+      {!hasAnyExperiments ? (
         <div className="text-center py-12 rounded-xl border border-border bg-surface-sunken">
           <p className="text-title text-foreground mb-2">No experiments yet</p>
           <p className="text-body text-foreground-muted mb-6">
@@ -614,320 +949,220 @@ export default function WorkbenchExperimentsPanel({
           </button>
         </div>
       ) : (
-        <div className="space-y-8">
-          {/* Pipeline board: the four in-flight stages as a side-by-side
-              kanban row (each column is self-labeled, so the row header
-              carries only the + New Experiment button). When all four
-              stages are empty the board collapses to one quiet message. */}
-          <section>
-            <div className="flex items-center justify-end mb-3">
-              <button
-                onClick={handleCreateExperiment}
-                data-tour-target="workbench-new-experiment"
-                className="px-3 py-1.5 text-body bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                + New Experiment
-              </button>
-            </div>
-            {boardAllEmpty ? (
-              // All four board stages empty -> a single quiet message in
-              // place of the 4-column board. Recent/Earlier results below
-              // still render normally.
-              <p className="text-body text-gray-400 text-center py-8">
-                No in-flight experiments
+        <>
+          <div className="flex border border-border rounded-xl overflow-hidden bg-surface-raised min-h-[480px]">
+            {/* Rail: status + project navigation, owner + method filters. */}
+            <aside className="w-56 flex-none border-r border-border bg-surface-sunken p-3 overflow-y-auto">
+              <p className="px-1.5 mb-1.5 text-meta font-bold uppercase tracking-wider text-foreground-muted">
+                Status
               </p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                {BOARD_STAGES.map((key) => {
-                  const items = grouped.get(key) ?? [];
-                  return (
-                    <div key={key} className="flex flex-col">
-                      <div className="flex items-center gap-1.5 mb-3">
-                        <h3 className="text-meta font-semibold text-gray-900 uppercase tracking-wide">
-                          {SECTION_LABEL[key]}
-                          <span className="ml-1.5 text-gray-400 normal-case font-normal">
-                            ({items.length})
-                          </span>
-                        </h3>
-                        <Tooltip label={SECTION_HELP[key]} placement="top">
-                          <span
-                            className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-gray-300 hover:text-gray-500 cursor-help"
-                            aria-label={SECTION_HELP[key]}
-                          >
-                            <svg
-                              className="w-3.5 h-3.5"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                              strokeWidth={2}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                              />
-                            </svg>
-                          </span>
-                        </Tooltip>
-                      </div>
-                      {items.length === 0 ? (
-                        key === "awaiting" ? (
-                          <div className="text-meta text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/30 rounded-md px-3 py-2">
-                            All recent experiments have results logged.
-                          </div>
-                        ) : (
-                          <p className="text-meta text-gray-300">Nothing here</p>
-                        )
-                      ) : (
-                        <div className="space-y-3 max-h-[34rem] overflow-y-auto pr-1">
-                          {items.map((e) => renderCard(e, true))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+              <div className="space-y-0.5">
+                {renderNavItem("all", "All experiments", "bg-foreground-muted", statusCounts.all)}
+                {renderNavItem("inflight", "In flight", "bg-blue-500", statusCounts.inflight)}
+                {renderNavItem("awaiting", "Awaiting write-up", "bg-amber-500", statusCounts.awaiting)}
+                {renderNavItem("recent", "Recent results", "bg-emerald-500", statusCounts.recent)}
+                {renderNavItem("earlier", "Earlier", "bg-gray-400", statusCounts.earlier)}
               </div>
-            )}
-          </section>
 
-          {/* Recent results zone: project-grouped, wide grid, full
-              (non-compact) cards since results carry media. */}
-          {(() => {
-            const items = grouped.get("recent") ?? [];
-            if (items.length === 0) return null;
-            // Project-grouped layout (Recent results only).
-            const groups = new Map<string, SectionEntry[]>();
-            for (const e of items) {
-              const pk = `${e.task.owner}:${e.task.project_id}`;
-              if (!groups.has(pk)) groups.set(pk, []);
-              groups.get(pk)!.push(e);
-            }
-            const sortedProjectKeys = Array.from(groups.keys()).sort(
-              (a, b) => {
-                // Most-recent-result-within-project first
-                // (smallest daysFromEnd wins).
-                const aMin = Math.min(
-                  ...groups.get(a)!.map((e) => e.daysFromEnd ?? Infinity),
-                );
-                const bMin = Math.min(
-                  ...groups.get(b)!.map((e) => e.daysFromEnd ?? Infinity),
-                );
-                return aMin - bMin;
-              },
-            );
-            const showProjectHeaders = sortedProjectKeys.length >= 2;
-            return (
-              <section>
-                <div className="flex items-baseline justify-between mb-3">
-                  <h3 className="text-body font-semibold text-gray-900 uppercase tracking-wide">
-                    {SECTION_LABEL.recent}
-                    <span className="ml-2 text-gray-400 normal-case font-normal">
-                      ({items.length})
-                    </span>
-                  </h3>
-                  <span className="text-meta text-gray-400">
-                    {SECTION_HELP.recent}
-                  </span>
-                </div>
-                <div className="space-y-5">
-                  {sortedProjectKeys.map((pk) => {
-                    const projectEntries = groups.get(pk)!;
-                    const firstTask = projectEntries[0].task;
-                    const pName = projectNameFor(firstTask);
-                    const pColor = projectColors[pk] ?? DEFAULT_COLORS[0];
-                    return (
-                      <div key={pk}>
-                        {showProjectHeaders && (
-                          <div className="flex items-center gap-2 mb-2">
-                            <span
-                              className="w-2 h-2 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: pColor }}
-                              aria-hidden
-                            />
-                            <span className="text-meta font-medium text-gray-600">
-                              {pName}
-                            </span>
-                            <span className="text-meta text-gray-400">
-                              ({projectEntries.length})
-                            </span>
-                          </div>
-                        )}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                          {projectEntries.map((e) => renderCard(e))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            );
-          })()}
-          {earlierEntries.length > 0 && (
-            <section>
-              <div className="flex items-baseline justify-between mb-3">
-                <h3 className="text-body font-semibold text-gray-900 uppercase tracking-wide">
-                  {EARLIER_LABEL}
-                  <span className="ml-2 text-gray-400 normal-case font-normal">
-                    ({earlierEntries.length})
-                  </span>
-                </h3>
-                <span className="text-meta text-gray-400">{EARLIER_HELP}</span>
-              </div>
-              <div className="flex items-center gap-1 mb-3 text-meta">
-                <button
-                  type="button"
-                  onClick={() => setEarlierLayoutReset("flat")}
-                  className={`px-2 py-1 rounded-md transition-colors ${
-                    earlierLayout === "flat"
-                      ? "bg-gray-200 dark:bg-surface-raised text-gray-900 dark:text-foreground font-medium"
-                      : "text-gray-500 dark:text-foreground-muted hover:bg-gray-100 dark:hover:bg-surface-sunken"
-                  }`}
-                >
-                  Flat
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEarlierLayoutReset("grouped")}
-                  className={`px-2 py-1 rounded-md transition-colors ${
-                    earlierLayout === "grouped"
-                      ? "bg-gray-200 dark:bg-surface-raised text-gray-900 dark:text-foreground font-medium"
-                      : "text-gray-500 dark:text-foreground-muted hover:bg-gray-100 dark:hover:bg-surface-sunken"
-                  }`}
-                >
-                  By project
-                </button>
-              </div>
-              {earlierLayout === "flat" ? (
+              {railProjects.length > 0 && (
                 <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {earlierEntries
-                      .slice(0, earlierFlatVisible)
-                      .map((e) => renderCard(e))}
+                  <p className={railSecH}>By project</p>
+                  <div className="space-y-0.5">
+                    {railProjects.map((p) => {
+                      const active = activeNav === p.key;
+                      return (
+                        <button
+                          key={p.key}
+                          type="button"
+                          onClick={() => setActiveNav(p.key)}
+                          className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-body text-left transition-colors ${
+                            active
+                              ? "bg-brand-action text-white font-medium"
+                              : "text-foreground hover:bg-surface-raised"
+                          }`}
+                        >
+                          <span
+                            className={`w-2.5 h-2.5 rounded-full flex-none ${active ? "bg-white/80" : ""}`}
+                            style={active ? undefined : { backgroundColor: p.color }}
+                          />
+                          <span className="flex-1 truncate">{p.name}</span>
+                          <span
+                            className={`text-meta tabular-nums ${active ? "text-white/80" : "text-foreground-muted"}`}
+                          >
+                            {p.count}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
-                  {earlierEntries.length > earlierFlatVisible && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEarlierFlatVisible((v) => v + EARLIER_FLAT_PAGE)
-                      }
-                      className="mt-3 text-meta font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md px-2 py-1 transition-colors"
-                    >
-                      Show more (
-                      {earlierEntries.length - earlierFlatVisible} more)
-                    </button>
-                  )}
                 </>
-              ) : (
-                (() => {
-                  const groups = new Map<string, SectionEntry[]>();
-                  for (const e of earlierEntries) {
-                    const pk = `${e.task.owner}:${e.task.project_id}`;
-                    if (!groups.has(pk)) groups.set(pk, []);
-                    groups.get(pk)!.push(e);
-                  }
-                  const sortedKeys = Array.from(groups.keys()).sort((a, b) => {
-                    const aMin = Math.min(
-                      ...groups.get(a)!.map((e) => e.daysFromEnd ?? Infinity),
-                    );
-                    const bMin = Math.min(
-                      ...groups.get(b)!.map((e) => e.daysFromEnd ?? Infinity),
-                    );
-                    return aMin - bMin;
-                  });
-                  return (
-                    <div className="space-y-2">
-                      {sortedKeys.map((pk) => {
-                        const projectEntries = groups.get(pk)!;
-                        const firstTask = projectEntries[0].task;
-                        const pName = projectNameFor(firstTask);
-                        const pColor = projectColors[pk] ?? DEFAULT_COLORS[0];
-                        const isExpanded = expandedEarlierGroups.has(pk);
-                        const capLifted = expandedEarlierGroupCaps.has(pk);
-                        const visibleEntries =
-                          capLifted ||
-                          projectEntries.length <= EARLIER_GROUP_CAP
-                            ? projectEntries
-                            : projectEntries.slice(0, EARLIER_GROUP_CAP);
-                        const hiddenCount =
-                          projectEntries.length - visibleEntries.length;
+              )}
+
+              <p className={railSecH}>Owner</p>
+              <div className="flex flex-wrap gap-1.5 px-1">
+                {(["mine", "shared"] as const).map((o) => (
+                  <button
+                    key={o}
+                    type="button"
+                    onClick={() => setActiveOwner(activeOwner === o ? null : o)}
+                    className={`text-meta font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                      activeOwner === o
+                        ? "bg-brand-action border-brand-action text-white"
+                        : "border-border text-foreground-muted hover:bg-surface-raised"
+                    }`}
+                  >
+                    {o === "mine" ? "Mine" : "Shared with me"}
+                  </button>
+                ))}
+              </div>
+
+              {railMethods.length > 0 && (
+                <>
+                  <p className={railSecH}>Filter by method</p>
+                  <div className="flex flex-wrap gap-1.5 px-1">
+                    {railMethods.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() =>
+                          setActiveMethod(activeMethod === m.id ? null : m.id)
+                        }
+                        className={`text-meta font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                          activeMethod === m.id
+                            ? "bg-brand-action border-brand-action text-white"
+                            : "border-border text-foreground-muted hover:bg-surface-raised"
+                        }`}
+                      >
+                        {m.name}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </aside>
+
+            {/* List / Board pane. */}
+            <div className="flex-1 min-w-0 flex flex-col">
+              <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border">
+                <span className="text-title font-semibold text-foreground truncate">
+                  {crumbLabel}
+                </span>
+                <span className="flex-1" />
+                {view === "list" && (
+                  <span className="text-meta text-foreground-muted hidden sm:inline">
+                    {listCount} {listCount === 1 ? "experiment" : "experiments"}
+                  </span>
+                )}
+                <span className="inline-flex rounded-lg border border-border overflow-hidden">
+                  {(["list", "board"] as const).map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setView(v)}
+                      className={`text-meta font-semibold px-3 py-1 ${
+                        view === v
+                          ? "bg-brand-action text-white"
+                          : "bg-surface-raised text-foreground-muted hover:bg-surface-sunken"
+                      }`}
+                    >
+                      {v === "list" ? "List" : "Board"}
+                    </button>
+                  ))}
+                </span>
+                <button
+                  onClick={handleCreateExperiment}
+                  data-tour-target="workbench-new-experiment"
+                  className="px-3 py-1.5 text-body bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  + New Experiment
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto">
+                {view === "board" ? (
+                  boardAllEmpty ? (
+                    <p className="text-body text-foreground-muted text-center py-12">
+                      No in-flight experiments
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 p-4">
+                      {BOARD_STAGES.map((key) => {
+                        const items = boardGrouped.get(key) ?? [];
+                        const style = STATUS_STYLE[key as keyof typeof STATUS_STYLE];
                         return (
-                          <div key={pk}>
-                            <button
-                              type="button"
-                              onClick={() => toggleEarlierGroup(pk)}
-                              aria-expanded={isExpanded}
-                              className="flex w-full items-center gap-2 px-1 py-1.5 rounded-md text-left hover:bg-gray-50 dark:hover:bg-surface-raised transition-colors"
-                            >
-                              <svg
-                                viewBox="0 0 12 12"
-                                aria-hidden="true"
-                                className={`w-3 h-3 flex-shrink-0 text-gray-400 transition-transform ${
-                                  isExpanded ? "rotate-90" : ""
-                                }`}
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
+                          <div key={key} className="flex flex-col">
+                            <Tooltip label={SECTION_HELP[key]} placement="top">
+                              <div
+                                className={`flex items-center justify-between mb-3 px-2 py-1 rounded-md border-l-[3px] ${style.band}`}
                               >
-                                <path d="M4 2l4 4-4 4" />
-                              </svg>
-                              <span
-                                className="w-2 h-2 rounded-full flex-shrink-0"
-                                style={{ backgroundColor: pColor }}
-                                aria-hidden="true"
-                              />
-                              <span
-                                className="text-body font-bold uppercase tracking-widest"
-                                style={{ color: pColor }}
-                              >
-                                {pName}
-                              </span>
-                              <span className="text-meta text-gray-400 font-normal normal-case tracking-normal">
-                                ({projectEntries.length})
-                              </span>
-                            </button>
-                            {isExpanded && (
-                              <div className="mt-2 mb-2 pl-5">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                  {visibleEntries.map((e) => renderCard(e))}
+                                <h3 className="text-meta font-bold uppercase tracking-wide">
+                                  {SECTION_LABEL[key]}
+                                </h3>
+                                <span className="text-meta font-normal opacity-70">
+                                  {items.length}
+                                </span>
+                              </div>
+                            </Tooltip>
+                            {items.length === 0 ? (
+                              key === "awaiting" ? (
+                                <div className="text-meta text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/30 rounded-md px-3 py-2">
+                                  All recent experiments have results logged.
                                 </div>
-                                {hiddenCount > 0 && (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setExpandedEarlierGroupCaps((prev) => {
-                                        const next = new Set(prev);
-                                        next.add(pk);
-                                        return next;
-                                      })
-                                    }
-                                    className="mt-3 text-meta font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md px-2 py-1 transition-colors"
-                                  >
-                                    Show all {projectEntries.length}
-                                  </button>
-                                )}
+                              ) : (
+                                <p className="text-meta text-foreground-muted">
+                                  Nothing here
+                                </p>
+                              )
+                            ) : (
+                              <div className="space-y-3 max-h-[34rem] overflow-y-auto pr-1">
+                                {items.map((e) => renderCard(e, true))}
                               </div>
                             )}
                           </div>
                         );
                       })}
                     </div>
-                  );
-                })()
-              )}
-            </section>
-          )}
+                  )
+                ) : (
+                  (() => {
+                    const bands = LIST_SECTION_ORDER.filter(
+                      (sec) => (listGrouped.get(sec)?.length ?? 0) > 0,
+                    );
+                    if (bands.length === 0) {
+                      return (
+                        <p className="text-body text-foreground-muted text-center py-12">
+                          No experiments match this view.
+                        </p>
+                      );
+                    }
+                    return bands.map((sec) => {
+                      const items = listGrouped.get(sec)!;
+                      const style = STATUS_STYLE[sec as keyof typeof STATUS_STYLE];
+                      return (
+                        <div key={sec}>
+                          <div
+                            className={`px-4 py-1.5 border-b border-border border-l-[3px] text-meta font-bold uppercase tracking-wider ${style.band}`}
+                          >
+                            {DISPLAY_LABEL[sec]} &middot; {items.length}
+                          </div>
+                          {items.map((e) => renderRow(e))}
+                        </div>
+                      );
+                    });
+                  })()
+                )}
+              </div>
+            </div>
+          </div>
 
           {scheduledCount > 0 && (
-            <div className="text-meta text-gray-400 pt-2">
+            <div className="text-meta text-foreground-muted pt-2">
               <span>{scheduledCount} scheduled later</span>
             </div>
           )}
-        </div>
+        </>
       )}
 
-      {/* Task Detail Popup */}
       {tileMenu && (
         <ContextMenu
           x={tileMenu.x}
@@ -935,12 +1170,20 @@ export default function WorkbenchExperimentsPanel({
           onClose={() => setTileMenu(null)}
           items={[
             {
-              label: tileMenu.task.comments?.length ? "View / add comment" : "Add a comment",
-              icon: (
-                <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M7 8h10M7 12h6m-7 9l4-4h10a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h1v4z" />
-                </svg>
-              ),
+              label: "Open",
+              icon: <Icon name="eye" className="h-4 w-4" />,
+              onClick: () => setSelectedTask(tileMenu.task),
+            },
+            {
+              label: "Open results",
+              icon: <Icon name="camera" className="h-4 w-4" />,
+              onClick: () => openTaskResults(tileMenu.task),
+            },
+            {
+              label: tileMenu.task.comments?.length
+                ? "View / add comment"
+                : "Add a comment",
+              icon: <Icon name="ask" className="h-4 w-4" />,
               onClick: () => openTaskComments(tileMenu.task),
             },
           ]}
@@ -958,16 +1201,18 @@ export default function WorkbenchExperimentsPanel({
           onClose={() => {
             setSelectedTask(null);
             setCommentIntent(false);
+            setResultsIntent(false);
           }}
           onNavigateToTask={(task) => {
             setSelectedTask(task);
             setCommentIntent(false);
+            setResultsIntent(false);
           }}
+          initialTab={resultsIntent ? "results" : undefined}
           initialCommentsOpen={commentIntent}
         />
       )}
 
-      {/* Create Task Modal */}
       <TaskModal projects={projects} />
     </div>
   );
