@@ -423,7 +423,7 @@ function FigureResizeFrame({
           data-testid="datahub-figure-resize-handle"
         >
           <Icon
-            name="scale"
+            name="resize"
             className="pointer-events-none h-3 w-3 text-foreground-muted"
           />
         </div>

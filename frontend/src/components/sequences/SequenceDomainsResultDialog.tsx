@@ -69,7 +69,7 @@ export default function SequenceDomainsResultDialog({
         {/* Stale banner */}
         {stale ? (
           <div className="flex items-center gap-2 border-b border-border bg-amber-50 px-5 py-2.5 text-meta text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
-            <Icon name="history" className="h-4 w-4 flex-shrink-0" />
+            <Icon name="hourglass" className="h-4 w-4 flex-shrink-0" />
             <span className="min-w-0 flex-1">
               The sequence changed since this scan ran, so these hits may no longer
               line up.

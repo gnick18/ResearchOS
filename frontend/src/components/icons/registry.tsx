@@ -153,6 +153,56 @@ const ICONS_RAW = {
       </>
     ),
   },
+  calculator: {
+    concept: "Saved calculator (a lab calculator from the builder)",
+    body: (
+      <>
+        <rect x="5" y="3" width="14" height="18" rx="2" />
+        <rect x="7" y="5.5" width="10" height="3" rx="0.6" />
+        <circle cx="8.5" cy="12.5" r="0.9" fill="currentColor" stroke="none" />
+        <circle cx="12" cy="12.5" r="0.9" fill="currentColor" stroke="none" />
+        <circle cx="15.5" cy="12.5" r="0.9" fill="currentColor" stroke="none" />
+        <circle cx="8.5" cy="16.5" r="0.9" fill="currentColor" stroke="none" />
+        <circle cx="12" cy="16.5" r="0.9" fill="currentColor" stroke="none" />
+        <circle cx="15.5" cy="16.5" r="0.9" fill="currentColor" stroke="none" />
+      </>
+    ),
+  },
+  move: {
+    concept: "Move / relocate (reposition an item, e.g. inventory)",
+    body: (
+      <>
+        <path d="M12 4V20" />
+        <path d="M4 12H20" />
+        <path d="M9.5 6.5 12 4 14.5 6.5" />
+        <path d="M9.5 17.5 12 20 14.5 17.5" />
+        <path d="M6.5 9.5 4 12 6.5 14.5" />
+        <path d="M17.5 9.5 20 12 17.5 14.5" />
+      </>
+    ),
+  },
+  lineage: {
+    concept: "Lineage / variant family (a method's fork ancestry)",
+    body: (
+      <>
+        <path d="M7 7.2V16.8" />
+        <circle cx="7" cy="5.5" r="1.7" />
+        <circle cx="7" cy="18.5" r="1.7" />
+        <path d="M7 11C12 11 17 12 17 14.3" />
+        <circle cx="17" cy="16" r="1.7" />
+      </>
+    ),
+  },
+  resize: {
+    concept: "Resize (drag to resize a figure / element)",
+    body: (
+      <>
+        <path d="M7 7 17 17" />
+        <path d="M7 12.5V7H12.5" />
+        <path d="M17 11.5V17H11.5" />
+      </>
+    ),
+  },
   export: {
     concept: "Export",
     body: (
