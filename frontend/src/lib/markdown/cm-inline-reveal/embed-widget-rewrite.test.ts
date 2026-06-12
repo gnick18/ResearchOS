@@ -13,7 +13,12 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { markdown } from "@codemirror/lang-markdown";
 
-import { rewriteLoneEmbedLine, rewriteEmbedViewAtLine } from "./embed-widget";
+import {
+  rewriteLoneEmbedLine,
+  rewriteEmbedViewAtLine,
+  rewriteEmbedPinLine,
+  rewriteEmbedPinAtLine,
+} from "./embed-widget";
 
 describe("rewriteLoneEmbedLine (pure)", () => {
   it("swaps only the view, preserving the caption", () => {
@@ -94,6 +99,96 @@ describe("rewriteEmbedViewAtLine (dispatches against a real EditorView)", () => 
     const before = "[pUC19](/sequences?seq=2)";
     const view = viewFor(before);
     rewriteEmbedViewAtLine(view, view.state.doc.line(1).from, "map");
+    expect(view.state.doc.toString()).toBe(before);
+    view.destroy();
+  });
+});
+
+describe("rewriteEmbedPinLine (pure, P7-1a)", () => {
+  it("adds a pin opt, preserving the caption and the view", () => {
+    const before = "[pUC19 map](/sequences?seq=2#ros=map)";
+    expect(rewriteEmbedPinLine(before, "s_abc123")).toBe(
+      "[pUC19 map](/sequences?seq=2#ros=map&pin=s_abc123)",
+    );
+  });
+
+  it("removes the pin opt when pinId is null", () => {
+    const before = "[pUC19 map](/sequences?seq=2#ros=map&pin=s_abc123)";
+    expect(rewriteEmbedPinLine(before, null)).toBe(
+      "[pUC19 map](/sequences?seq=2#ros=map)",
+    );
+  });
+
+  it("add then remove returns the original line byte-for-byte", () => {
+    const original = "[Growth curve](/datahub?doc=2#ros=table&rows=8&cols=4)";
+    const pinned = rewriteEmbedPinLine(original, "s_xy9zab")!;
+    const back = rewriteEmbedPinLine(pinned, null)!;
+    expect(back).toBe(original);
+  });
+
+  it("preserves a caption with brackets and parens across a pin", () => {
+    const before = "[pGEX-3X \\[clone\\] (U13852)](/sequences?seq=2#ros=map)";
+    expect(rewriteEmbedPinLine(before, "s_abc123")).toBe(
+      "[pGEX-3X \\[clone\\] (U13852)](/sequences?seq=2#ros=map&pin=s_abc123)",
+    );
+  });
+
+  it("returns null for a line that is not a lone embed link", () => {
+    expect(rewriteEmbedPinLine("just prose", "s_abc123")).toBeNull();
+    // A plain object link (no #ros) is not an embed, so the rewrite is a no-op.
+    expect(rewriteEmbedPinLine("[pUC19](/sequences?seq=2)", "s_abc123")).toBeNull();
+  });
+});
+
+describe("rewriteEmbedPinAtLine (dispatches against a real EditorView, P7-1a)", () => {
+  function viewFor(doc: string): EditorView {
+    const state = EditorState.create({ doc, extensions: [markdown()] });
+    return new EditorView({ state, parent: document.body });
+  }
+
+  it("pins the embed line and leaves the rest of the doc byte-identical", () => {
+    const before = [
+      "# Notes",
+      "",
+      "[pUC19 map](/sequences?seq=2#ros=map)",
+      "",
+      "Trailing prose.",
+    ].join("\n");
+    const view = viewFor(before);
+    const pos = view.state.doc.line(3).from;
+    rewriteEmbedPinAtLine(view, pos, "s_abc123");
+    expect(view.state.doc.toString()).toBe(
+      [
+        "# Notes",
+        "",
+        "[pUC19 map](/sequences?seq=2#ros=map&pin=s_abc123)",
+        "",
+        "Trailing prose.",
+      ].join("\n"),
+    );
+    view.destroy();
+  });
+
+  it("unpinning restores the original document byte-for-byte", () => {
+    const original = [
+      "# Notes",
+      "",
+      "[pUC19 map](/sequences?seq=2#ros=map)",
+      "",
+      "Trailing prose.",
+    ].join("\n");
+    const view = viewFor(original);
+    const pos = () => view.state.doc.line(3).from;
+    rewriteEmbedPinAtLine(view, pos(), "s_abc123");
+    rewriteEmbedPinAtLine(view, pos(), null);
+    expect(view.state.doc.toString()).toBe(original);
+    view.destroy();
+  });
+
+  it("does nothing when the line at pos is not a lone embed", () => {
+    const before = "# Notes\n\nplain prose line";
+    const view = viewFor(before);
+    rewriteEmbedPinAtLine(view, view.state.doc.line(3).from, "s_abc123");
     expect(view.state.doc.toString()).toBe(before);
     view.destroy();
   });

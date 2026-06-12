@@ -740,8 +740,12 @@ export async function bakeAllEmbeds(
   return result;
 }
 
-/** Bake a single embed descriptor into its PDF-ready representation. */
-async function bakeOne(
+/** Bake a single embed descriptor into its PDF-ready representation. Exported so
+ *  the pin layer (P7-1a) can freeze ONE embed into the same BakedEmbed shape the
+ *  export pre-pass produces, reusing the exact per-type bakers (no second set of
+ *  loaders to drift). `label` is null for a pin (figure numbering is an export
+ *  concern, not a pin concern). */
+export async function bakeOne(
   descriptor: EmbedDescriptor,
   caption: string,
   label: string | null,

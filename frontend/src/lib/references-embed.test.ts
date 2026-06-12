@@ -5,6 +5,7 @@ import {
   objectEmbedMarkdown,
   objectReferenceMarkdown,
   swapEmbedView,
+  setEmbedOpt,
   DEFAULT_EMBED_VIEW,
   type ObjectRefType,
 } from "./references";
@@ -168,6 +169,55 @@ describe("swapEmbedView", () => {
     const flipped = swapEmbedView(original, "plot");
     const back = swapEmbedView(flipped, "table");
     expect(back).toBe(original);
+  });
+});
+
+describe("setEmbedOpt (pin fragment seam)", () => {
+  it("adds a pin opt, preserving the view and other opts", () => {
+    const after = setEmbedOpt("/sequences?seq=2#ros=map&region=1-500", "pin", "s_abc123");
+    const d = parseObjectEmbed(after);
+    expect(d?.view).toBe("map");
+    expect(d?.opts.pin).toBe("s_abc123");
+    expect(d?.opts.region).toBe("1-500");
+  });
+
+  it("removes the pin opt when value is null", () => {
+    const after = setEmbedOpt("/datahub?doc=2#ros=table&pin=s_abc123&rows=8", "pin", null);
+    const d = parseObjectEmbed(after);
+    expect(d?.opts.pin).toBeUndefined();
+    expect(d?.opts.rows).toBe(8);
+    expect(d?.view).toBe("table");
+  });
+
+  it("add then remove returns the original href byte-for-byte", () => {
+    const original = "/sequences?seq=2#ros=map&region=1-500";
+    const pinned = setEmbedOpt(original, "pin", "s_abc123");
+    expect(pinned).not.toBe(original);
+    const unpinned = setEmbedOpt(pinned, "pin", null);
+    expect(unpinned).toBe(original);
+  });
+
+  it("add then remove is byte-identical on a multi-opt Data Hub embed", () => {
+    // Canonical opt order (string opts before int opts), the order a freshly built
+    // embed produces. setEmbedOpt rebuilds through the same builder, so a canonical
+    // href round-trips byte-for-byte. (A hand-authored non-canonical href is
+    // normalized to canonical on the first rebuild, which is correct behavior.)
+    const original = "/datahub?doc=2#ros=table&analysis=a3&rows=8&cols=4";
+    const pinned = setEmbedOpt(original, "pin", "s_xy9zab");
+    const unpinned = setEmbedOpt(pinned, "pin", null);
+    expect(unpinned).toBe(original);
+  });
+
+  it("returns a non-object href unchanged", () => {
+    expect(setEmbedOpt("https://example.com/page", "pin", "s_abc123")).toBe(
+      "https://example.com/page",
+    );
+    expect(setEmbedOpt("mailto:a@b.com", "pin", null)).toBe("mailto:a@b.com");
+  });
+
+  it("an empty-string value clears the opt (same as null)", () => {
+    const after = setEmbedOpt("/sequences?seq=2#ros=map&pin=s_abc123", "pin", "");
+    expect(parseObjectEmbed(after)?.opts.pin).toBeUndefined();
   });
 });
 

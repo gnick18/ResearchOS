@@ -15,10 +15,26 @@
 //
 // Voice: no em-dashes, no emojis, no mid-sentence colons.
 
-import { lazy, Suspense, type ComponentType } from "react";
+import { lazy, Suspense, useEffect, useState, type ComponentType } from "react";
 import { Icon } from "@/components/icons";
 import type { IconName } from "@/components/icons";
 import { objectDeepLink, type EmbedDescriptor, type ObjectRefType } from "@/lib/references";
+import type { BakeEmbedsDeps } from "@/lib/export/bake-embeds";
+import { getPin, type EmbedPin } from "@/lib/embeds/embed-pins";
+import BakedEmbedView from "./BakedEmbedView";
+
+/** The doc-level pin context, present only in an editor host. When supplied, the
+ *  embed reads its frozen snapshot from `sidecarPath` and (when editable) offers a
+ *  Pin / Unpin control. `deps` is threaded to snapshotEmbed for parity with the
+ *  bake API. `onPin` / `onUnpin` persist the `pin` opt on the source line (the CM6
+ *  rewrite); when absent the embed renders frozen but offers no control (read-only
+ *  Preview). */
+export interface EmbedPinContext {
+  sidecarPath: string;
+  deps?: BakeEmbedsDeps;
+  onPin?: (descriptor: EmbedDescriptor, caption: string) => void;
+  onUnpin?: (descriptor: EmbedDescriptor) => void;
+}
 
 export interface EmbedRendererProps {
   descriptor: EmbedDescriptor;
@@ -35,6 +51,10 @@ export interface EmbedRendererProps {
    *  Preview passes nothing, so a multi-view embed there switches only on screen.
    *  Multi-view renderers always update their local view first, then call this. */
   onViewChange?: (newView: string) => void;
+  /** When present, the embed can freeze / unfreeze a pinned snapshot. Only an
+   *  editor host supplies it; every read-only caller leaves it undefined and the
+   *  embed behaves exactly as today. */
+  pinContext?: EmbedPinContext;
 }
 
 // Per-type rich renderers, added as each phase lands. A type absent here uses the
@@ -144,21 +164,137 @@ export function ObjectEmbedCard({
   );
 }
 
+/** The quiet "pinned <date>" badge shown on a frozen embed. Small, muted, text
+ *  only (no inline svg, no emoji). Reuses the calm `.badge`-style look. */
+function PinnedBadge({ pinnedAt }: { pinnedAt: string }) {
+  let label = "pinned";
+  const d = new Date(pinnedAt);
+  if (!Number.isNaN(d.getTime())) {
+    label = `pinned ${d.toLocaleDateString()}`;
+  }
+  return (
+    <span
+      data-embed-pinned="true"
+      className="inline-flex items-center rounded-full bg-surface-sunken px-2 py-0.5 text-meta font-semibold text-foreground-muted"
+    >
+      {label}
+    </span>
+  );
+}
+
+/** The Pin / Unpin action. Text label, no inline svg, so the icon guard holds. Only
+ *  rendered when the editor host supplied the matching closure. */
+function PinControl({
+  pinned,
+  onClick,
+}: {
+  pinned: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="shrink-0 rounded-md border border-border px-2.5 py-1 text-meta font-semibold text-foreground-muted transition-colors hover:border-brand-action hover:text-foreground"
+    >
+      {pinned ? "Unpin" : "Pin"}
+    </button>
+  );
+}
+
+/** The footer holding the pinned badge and / or the Pin-Unpin control. Renders
+ *  nothing when there is neither a badge nor a control (the no-pin-context case),
+ *  so today's embeds get no extra chrome. */
+function PinFooter({
+  pin,
+  pinContext,
+  descriptor,
+  caption,
+}: {
+  pin: EmbedPin | null;
+  pinContext?: EmbedPinContext;
+  descriptor: EmbedDescriptor;
+  caption: string;
+}) {
+  const canPin = Boolean(pinContext?.onPin);
+  const canUnpin = Boolean(pinContext?.onUnpin);
+  const showControl = pin ? canUnpin : canPin;
+  if (!pin && !showControl) return null;
+  return (
+    <div className="flex items-center gap-2 border-t border-border px-3 py-1.5">
+      {pin ? <PinnedBadge pinnedAt={pin.pinnedAt} /> : null}
+      <span className="ml-auto inline-flex">
+        {showControl ? (
+          <PinControl
+            pinned={Boolean(pin)}
+            onClick={() => {
+              if (pin) pinContext?.onUnpin?.(descriptor);
+              else pinContext?.onPin?.(descriptor, caption);
+            }}
+          />
+        ) : null}
+      </span>
+    </div>
+  );
+}
+
 export default function ObjectEmbed({
   descriptor,
   caption,
   basePath,
   figureLabel,
   onViewChange,
+  pinContext,
 }: EmbedRendererProps) {
   const Renderer = EMBED_RENDERERS[descriptor.type];
+
+  // A pinned embed renders its FROZEN snapshot, not live. The pin id rides the
+  // fragment (descriptor.opts.pin); the snapshot lives in the doc sidecar. We can
+  // only resolve it when an editor / read-only host supplied a sidecarPath, every
+  // other caller leaves pinContext undefined and behaves exactly as today.
+  const pinId = descriptor.opts.pin;
+  const sidecarPath = pinContext?.sidecarPath;
+  const [pin, setPin] = useState<EmbedPin | null>(null);
+  const [pinResolved, setPinResolved] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!pinId || !sidecarPath) {
+      setPin(null);
+      setPinResolved(true);
+      return;
+    }
+    setPinResolved(false);
+    (async () => {
+      const found = await getPin(sidecarPath, pinId);
+      if (!cancelled) {
+        setPin(found);
+        setPinResolved(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pinId, sidecarPath]);
+
+  // While a pin id is present but not yet resolved, hold the live render back so we
+  // do not flash live -> frozen. Once resolved, a found pin renders frozen; a
+  // missing pin (sidecar gone or id removed) falls back to live, gracefully.
+  const showFrozen = Boolean(pin);
+  const awaitingPin = Boolean(pinId && sidecarPath) && !pinResolved;
+
   return (
     <figure
       className="my-3 mx-0 overflow-hidden rounded-xl border border-border bg-surface-raised"
       data-embed-type={descriptor.type}
       data-embed-view={descriptor.view}
+      data-embed-pinned={showFrozen ? "true" : undefined}
     >
-      {Renderer ? (
+      {showFrozen && pin ? (
+        <BakedEmbedView snapshot={pin.snapshot} caption={caption} descriptor={descriptor} />
+      ) : awaitingPin ? (
+        <ObjectEmbedCard descriptor={descriptor} caption={caption} loading />
+      ) : Renderer ? (
         <Suspense
           fallback={<ObjectEmbedCard descriptor={descriptor} caption={caption} loading />}
         >
@@ -173,6 +309,12 @@ export default function ObjectEmbed({
       ) : (
         <ObjectEmbedCard descriptor={descriptor} caption={caption} />
       )}
+      <PinFooter
+        pin={pin}
+        pinContext={pinContext}
+        descriptor={descriptor}
+        caption={caption}
+      />
     </figure>
   );
 }

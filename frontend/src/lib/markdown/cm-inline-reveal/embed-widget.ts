@@ -29,8 +29,13 @@ import { WidgetType, type EditorView } from "@codemirror/view";
 import { createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
-import ObjectEmbed from "@/components/embeds/ObjectEmbed";
-import { parseObjectEmbed, swapEmbedView, type EmbedDescriptor } from "@/lib/references";
+import ObjectEmbed, { type EmbedPinContext } from "@/components/embeds/ObjectEmbed";
+import {
+  parseObjectEmbed,
+  swapEmbedView,
+  setEmbedOpt,
+  type EmbedDescriptor,
+} from "@/lib/references";
 
 /** A paragraph that is exactly one object-embed link. Caption is the link text
  *  (unescaped), descriptor is the parsed embed. Null for anything else. */
@@ -102,6 +107,41 @@ export function rewriteEmbedViewAtLine(
   }
 }
 
+/** Pure line rewrite: given a line that is a lone embed link, return the same line
+ *  with its `pin` opt set to `pinId` (add) or removed (pass null). Caption and
+ *  whitespace are preserved, only the href changes. Returns null when the line is
+ *  not a lone embed link or the rewrite is a no-op. Add-then-remove is byte-for-byte
+ *  identical because setEmbedOpt rebuilds through the same builder. Exported for
+ *  unit testing without an EditorView. */
+export function rewriteEmbedPinLine(
+  lineText: string,
+  pinId: string | null,
+): string | null {
+  const loc = locateEmbedHref(lineText);
+  if (!loc) return null;
+  const rewritten = setEmbedOpt(loc.href, "pin", pinId);
+  if (rewritten === loc.href) return null;
+  return lineText.slice(0, loc.hrefStart) + rewritten + lineText.slice(loc.hrefEnd);
+}
+
+/** Resolve the line at `pos`, set / clear its `pin` opt, and dispatch the change.
+ *  Best effort, a stale position or a non-embed line is a silent no-op (the
+ *  document is never corrupted). Never throws. */
+export function rewriteEmbedPinAtLine(
+  view: EditorView,
+  pos: number,
+  pinId: string | null,
+): void {
+  try {
+    const line = view.state.doc.lineAt(pos);
+    const next = rewriteEmbedPinLine(line.text, pinId);
+    if (next == null || next === line.text) return;
+    view.dispatch({ changes: { from: line.from, to: line.to, insert: next } });
+  } catch {
+    // posAtDOM gave a stale position, or the line moved. Do nothing.
+  }
+}
+
 export class EmbedWidget extends WidgetType {
   private root: Root | null = null;
 
@@ -109,6 +149,11 @@ export class EmbedWidget extends WidgetType {
     readonly descriptor: EmbedDescriptor,
     readonly caption: string,
     readonly basePath: string | undefined,
+    /** Doc-level pin context (sidecar path + bake deps). Undefined when the host
+     *  did not configure pinning, then the widget renders today's live embed with
+     *  no Pin control. The onPin / onUnpin closures are built per-toDOM so they can
+     *  resolve the live caret position. */
+    readonly pinContext: EmbedPinContext | undefined,
   ) {
     super();
   }
@@ -123,6 +168,10 @@ export class EmbedWidget extends WidgetType {
       other.descriptor.view === this.descriptor.view &&
       other.caption === this.caption &&
       other.basePath === this.basePath &&
+      // The sidecar path is part of identity, a different doc sidecar resolves a
+      // different frozen snapshot. The closures are rebuilt per-toDOM so they are
+      // not compared.
+      other.pinContext?.sidecarPath === this.pinContext?.sidecarPath &&
       JSON.stringify(other.descriptor.opts) === JSON.stringify(this.descriptor.opts)
     );
   }
@@ -146,6 +195,49 @@ export class EmbedWidget extends WidgetType {
         // posAtDOM could not place the widget. Do nothing.
       }
     };
+
+    // Pin / Unpin closures (P7-1a). Only built when the host configured a pin
+    // context. Pin freezes a snapshot into the sidecar, then rewrites the source
+    // line to carry `&pin=s_xxx`. Unpin removes the sidecar entry, then drops the
+    // `pin` opt. The caret position is resolved fresh at click time via posAtDOM,
+    // never cached, so a doc edit elsewhere cannot make us write to a stale offset.
+    const pinContext = this.pinContext;
+    const pinHandlers: EmbedPinContext | undefined = pinContext?.sidecarPath
+      ? {
+          sidecarPath: pinContext.sidecarPath,
+          deps: pinContext.deps,
+          onPin: (descriptor, caption) => {
+            void (async () => {
+              try {
+                const { buildPin, putPin } = await import("@/lib/embeds/embed-pins");
+                const pin = await buildPin(descriptor, caption, pinContext.deps);
+                const shortId = await putPin(pinContext.sidecarPath, pin);
+                const pos = view.posAtDOM(wrap);
+                rewriteEmbedPinAtLine(view, pos, shortId);
+              } catch {
+                // A bake / write / position failure leaves the embed live and
+                // unpinned. Best effort, never throw into the editor.
+              }
+            })();
+          },
+          onUnpin: (descriptor) => {
+            void (async () => {
+              try {
+                const { removePin } = await import("@/lib/embeds/embed-pins");
+                const existing = descriptor.opts.pin;
+                if (existing) {
+                  await removePin(pinContext.sidecarPath, existing);
+                }
+                const pos = view.posAtDOM(wrap);
+                rewriteEmbedPinAtLine(view, pos, null);
+              } catch {
+                // Leave the pin in place rather than corrupt the line.
+              }
+            })();
+          },
+        }
+      : undefined;
+
     try {
       this.root = createRoot(wrap);
       this.root.render(
@@ -154,6 +246,7 @@ export class EmbedWidget extends WidgetType {
           caption: this.caption,
           basePath: this.basePath,
           onViewChange,
+          pinContext: pinHandlers,
         }),
       );
     } catch {

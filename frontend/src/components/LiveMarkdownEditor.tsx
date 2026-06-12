@@ -255,6 +255,13 @@ interface LiveMarkdownEditorProps {
    *  "/" slash trigger to open the ReferencePicker modal. Defaults to false so
    *  existing call sites are unaffected. */
   enableReferencePicker?: boolean;
+
+  /** Markdown embed hybrid P7-1a: the doc-level pin context (sidecar path + bake
+   *  deps), forwarded to InlineMarkdownEditor. When set, a pinned block embed
+   *  renders its frozen snapshot and offers a Pin / Unpin control. Absent on every
+   *  surface that does not own a per-document embed sidecar, so those are
+   *  byte-for-byte unchanged. */
+  embedPinContext?: import("@/components/embeds/ObjectEmbed").EmbedPinContext;
 }
 
 /**
@@ -293,6 +300,7 @@ export default function LiveMarkdownEditor({
   collabEphemeral,
   collabUser,
   enableReferencePicker = false,
+  embedPinContext,
 }: LiveMarkdownEditorProps) {
   // The markdown editor lets you annotate dropped/embedded images, so warm the
   // lazy annotator chunk on idle. ImageStrip isn't always mounted alongside this
@@ -2428,6 +2436,7 @@ export default function LiveMarkdownEditor({
                   loroBaseNote={loroBaseNote}
                   collabEphemeral={collabEphemeral}
                   collabUser={collabUser}
+                  embedPinContext={embedPinContext}
                   onRequestReference={enableReferencePicker ? () => setReferencePickerOpen(true) : undefined}
                 />
               </div>
