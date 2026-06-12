@@ -49,6 +49,9 @@ import type {
   AnalysisSpec,
   DataHubDocContent,
 } from "@/lib/datahub/model/types";
+import { readParams } from "@/lib/datahub/analysis-params";
+import type { Tail } from "@/lib/datahub/engine/types";
+import type { PostHocMethod } from "@/lib/datahub/engine/anova";
 import { columnValues, groupColumns } from "@/lib/datahub/column-table";
 import { xColumn, xyPairs, yColumns } from "@/lib/datahub/xy-table";
 import {
@@ -121,6 +124,10 @@ export interface NormalizedTTest {
   test: string;
   /** True for the rank-based nonparametric tests (no df, no CI of difference). */
   nonparametric: boolean;
+  /** The resolved tail used for the test, so the code snippet matches the run. */
+  tail: Tail;
+  /** Resolved variance assumption (unpaired t only; null for the others). */
+  variance: "welch" | "student" | null;
   groups: [RunGroup, RunGroup];
   statistic: number;
   df: number;
@@ -145,6 +152,12 @@ export interface NormalizedAnova {
   test: string;
   /** True for Kruskal-Wallis (rank-based, no sums of squares). */
   nonparametric: boolean;
+  /**
+   * The resolved post-hoc family used for the comparisons. Kruskal-Wallis is
+   * always Dunn (the engine has no choice there), one-way ANOVA reflects the
+   * chosen family so the code snippet and the comparisons table agree.
+   */
+  postHoc: PostHocMethod;
   groups: RunGroup[];
   statistic: number;
   pValue: number;
@@ -217,6 +230,8 @@ export interface NormalizedTwoWayAnova {
   /** The row factor name (the row-label column) and the column factor name. */
   factorAName: string;
   factorBName: string;
+  /** Which factor's marginal means were compared, or "none" when skipped. */
+  postHocFactor: "A" | "B" | "none";
   table: AnovaResult["table"];
   comparisons: AnovaResult["comparisons"];
   fA: number;
@@ -465,7 +480,10 @@ function runSurvivalAnalysis(content: DataHubDocContent): RunOutcome {
 }
 
 /** Run a two-way ANOVA on a Grouped table's flattened observations. */
-function runTwoWayAnalysis(content: DataHubDocContent): RunOutcome {
+function runTwoWayAnalysis(
+  content: DataHubDocContent,
+  spec: AnalysisSpec,
+): RunOutcome {
   const observations = twoWayObservations(content);
   if (observations.length === 0) {
     return {
@@ -473,7 +491,18 @@ function runTwoWayAnalysis(content: DataHubDocContent): RunOutcome {
       error: "Label each row and fill the group replicates before running a two-way ANOVA.",
     };
   }
-  const r = twoWayAnova(observations, { postHocFactor: "B" });
+  // "B" is the default (matches the prior hardcoded behavior); "none" drops the
+  // post-hoc comparisons by not passing a factor to the engine.
+  const factorChoice = readParams(spec).postHocFactor as
+    | "A"
+    | "B"
+    | "none"
+    | undefined;
+  const postHocFactor: "A" | "B" | "none" = factorChoice ?? "B";
+  const r = twoWayAnova(
+    observations,
+    postHocFactor === "none" ? {} : { postHocFactor },
+  );
   if (!r.ok) return { ok: false, error: r.error };
   const rowA = tableRow(r.table, "Factor A");
   const rowB = tableRow(r.table, "Factor B");
@@ -484,6 +513,7 @@ function runTwoWayAnalysis(content: DataHubDocContent): RunOutcome {
     type: "twoWayAnova",
     factorAName: rowLabelColumn(content)?.name || "Row factor",
     factorBName: "Group",
+    postHocFactor,
     table: r.table,
     comparisons: r.comparisons,
     fA: rowA?.f ?? NaN,
@@ -515,7 +545,7 @@ export function runAnalysis(
   }
 
   if (type === "twoWayAnova") {
-    return runTwoWayAnalysis(content);
+    return runTwoWayAnalysis(content, spec);
   }
 
   if (type === "kaplanMeier") {
@@ -532,10 +562,17 @@ export function runAnalysis(
     }
     const data: Record<string, number[]> = {};
     for (const g of groups) data[g.name] = g.values;
+    // One-way ANOVA reads its post-hoc family from the spec ("tukey" default,
+    // matching the prior hardcode); Kruskal-Wallis has no choice (Dunn always),
+    // so its post-hoc field is reported as Dunn for the snippet/label.
+    const postHoc: PostHocMethod =
+      type === "kruskalWallis"
+        ? "tukey"
+        : ((readParams(spec).postHoc as PostHocMethod | undefined) ?? "tukey");
     const r =
       type === "kruskalWallis"
         ? kruskalWallis(data)
-        : oneWayAnova(data, { postHoc: "tukey" });
+        : oneWayAnova(data, { postHoc });
     if (!r.ok) return { ok: false, error: r.error };
     const between = tableRow(r.table, "Between groups");
     const within = tableRow(r.table, "Within groups");
@@ -545,6 +582,7 @@ export function runAnalysis(
       type,
       test: r.test,
       nonparametric: type === "kruskalWallis",
+      postHoc,
       groups,
       statistic: r.statistic,
       pValue: r.pValue,
@@ -565,19 +603,31 @@ export function runAnalysis(
       return { ok: false, error: "A two-group test needs exactly 2 groups." };
     }
     const [a, b] = groups;
+    // All four two-group tests honor a tail; only the unpaired t exposes the
+    // variance assumption. Defaults ("two-sided", "welch") reproduce the prior
+    // hardcoded behavior for an empty params bag.
+    const p = readParams(spec);
+    const tail = (p.tail as Tail | undefined) ?? "two-sided";
+    const variance =
+      type === "unpairedTTest"
+        ? ((p.variance as "welch" | "student" | undefined) ?? "welch")
+        : null;
     let r: ReturnType<typeof unpairedTTest>;
     switch (type) {
       case "pairedTTest":
-        r = pairedTTest(a.values, b.values);
+        r = pairedTTest(a.values, b.values, { tail });
         break;
       case "mannWhitneyU":
-        r = mannWhitneyU(a.values, b.values);
+        r = mannWhitneyU(a.values, b.values, { tail });
         break;
       case "wilcoxonSignedRank":
-        r = wilcoxonSignedRank(a.values, b.values);
+        r = wilcoxonSignedRank(a.values, b.values, { tail });
         break;
       default:
-        r = unpairedTTest(a.values, b.values);
+        r = unpairedTTest(a.values, b.values, {
+          tail,
+          variance: variance ?? "welch",
+        });
     }
     if (!r.ok) return { ok: false, error: r.error };
     const res = r as TTestResult & { ok: true };
@@ -590,6 +640,8 @@ export function runAnalysis(
       test: res.test,
       nonparametric:
         type === "mannWhitneyU" || type === "wilcoxonSignedRank",
+      tail,
+      variance,
       groups: [a, b],
       statistic: res.statistic,
       df: res.df,
