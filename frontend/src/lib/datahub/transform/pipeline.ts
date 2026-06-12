@@ -17,6 +17,14 @@
  * House voice: no em-dashes, no emojis, no mid-sentence colons.
  */
 
+import type {
+  TransformParams,
+  NormalizeParams,
+  TransposeParams,
+  RemoveBaselineParams,
+  FractionOfTotalParams,
+} from "@/lib/datahub/transforms";
+
 // ---------------------------------------------------------------------------
 // Supporting types
 // ---------------------------------------------------------------------------
@@ -257,6 +265,56 @@ export interface UnpivotOp {
   valueName?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Column transforms folded into the pipeline (Prism "Data Processing")
+// ---------------------------------------------------------------------------
+//
+// The five single-op column transforms (transform / normalize / transpose /
+// remove-baseline / fraction-of-total) shipped first as standalone pure
+// functions in datahub/transforms.ts and a single-op derived-table link. We fold
+// them in as TransformOp variants here so the engine has ONE verb set covering
+// both the relational verbs above and the column transforms. The engine
+// DELEGATES each of these to the existing pure function in transforms.ts (it does
+// NOT reimplement the math), so the folded op and the direct transforms.ts call
+// produce identical results.
+//
+// Each op carries the matching transforms.ts param shape verbatim, reused so the
+// stored recipe and the standalone function share one params contract.
+
+/** Apply a per-cell function (log / sqrt / square / reciprocal / linear) to every
+ *  data value. Delegates to transformValues in transforms.ts. */
+export interface ColumnTransformOp {
+  kind: "column-transform";
+  params: TransformParams;
+}
+
+/** Rescale each column to a percent of a baseline (max / sum / first / minMax).
+ *  Delegates to normalize in transforms.ts. */
+export interface NormalizeColumnOp {
+  kind: "normalize";
+  params: NormalizeParams;
+}
+
+/** Swap rows and columns. Delegates to transpose in transforms.ts. */
+export interface TransposeColumnOp {
+  kind: "transpose";
+  params: TransposeParams;
+}
+
+/** Subtract a baseline (a column / each column's first row / a constant) from
+ *  every data value. Delegates to removeBaseline in transforms.ts. */
+export interface RemoveBaselineColumnOp {
+  kind: "remove-baseline";
+  params: RemoveBaselineParams;
+}
+
+/** Express each value as a fraction or percent of a column / row / grand total.
+ *  Delegates to fractionOfTotal in transforms.ts. */
+export interface FractionOfTotalColumnOp {
+  kind: "fraction-of-total";
+  params: FractionOfTotalParams;
+}
+
 /**
  * The full set of supported transform operations.
  */
@@ -272,7 +330,12 @@ export type TransformOp =
   | UnionOp
   | DeriveOp
   | PivotOp
-  | UnpivotOp;
+  | UnpivotOp
+  | ColumnTransformOp
+  | NormalizeColumnOp
+  | TransposeColumnOp
+  | RemoveBaselineColumnOp
+  | FractionOfTotalColumnOp;
 
 // ---------------------------------------------------------------------------
 // Pipeline

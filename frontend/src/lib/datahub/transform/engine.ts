@@ -50,6 +50,13 @@
 
 import type { DataHubDocContent, ColumnDef, RowRecord, CellValue } from "@/lib/datahub/model/types";
 import { evaluateExpression } from "@/lib/calculators/custom";
+import {
+  transformValues,
+  normalize,
+  transpose,
+  removeBaseline,
+  fractionOfTotal,
+} from "@/lib/datahub/transforms";
 import type {
   TransformPipeline,
   TransformOp,
@@ -65,6 +72,11 @@ import type {
   DeriveOp,
   PivotOp,
   UnpivotOp,
+  ColumnTransformOp,
+  NormalizeColumnOp,
+  TransposeColumnOp,
+  RemoveBaselineColumnOp,
+  FractionOfTotalColumnOp,
   FilterNode,
   FilterCondition,
   AggFunc,
@@ -81,10 +93,22 @@ import type {
  * (by name) and an ordered list of row objects (each a plain Record).
  * Conversion to/from DataHubDocContent happens only at the entry and exit
  * of executePipeline, keeping the internal logic simple.
+ *
+ * `content` carries the ROLE-AWARE DataHubDocContent this flat table came from,
+ * but ONLY while the table still corresponds 1:1 to that content (column ids,
+ * roles, and row ids intact). contentToInternal sets it; the folded column
+ * transforms (which delegate to transforms.ts and need the column roles to match
+ * the standalone single-op result byte-for-byte) read it. Every RELATIONAL op
+ * (join / filter / groupby / select / drop / rename / sort / dedupe / union /
+ * derive / pivot / unpivot) builds a fresh flat table WITHOUT `content`, because
+ * it has restructured the rows/columns away from any original content. When
+ * `content` is absent a column transform synthesizes a generic role-"y" content
+ * from the flat table instead, so it still runs, just without the original roles.
  */
 interface InternalTable {
   columns: string[];
   rows: Record<string, CellValue>[];
+  content?: DataHubDocContent;
 }
 
 // ---------------------------------------------------------------------------
@@ -93,7 +117,6 @@ interface InternalTable {
 
 function contentToInternal(content: DataHubDocContent): InternalTable {
   const columns = content.columns.map((c) => c.name);
-  const colIdToName = new Map(content.columns.map((c) => [c.id, c.name]));
   const rows = content.rows.map((row) => {
     const r: Record<string, CellValue> = {};
     for (const col of content.columns) {
@@ -102,7 +125,10 @@ function contentToInternal(content: DataHubDocContent): InternalTable {
     }
     return r;
   });
-  return { columns, rows };
+  // Keep the role-aware content so a folded column transform can delegate to the
+  // standalone transforms.ts function byte-for-byte while the table is still an
+  // unreshaped 1:1 view of this content.
+  return { columns, rows, content };
 }
 
 /**
@@ -874,6 +900,80 @@ function applyUnpivot(table: InternalTable, op: UnpivotOp): InternalTable | stri
 }
 
 // ---------------------------------------------------------------------------
+// Folded column transforms (delegate to transforms.ts, never reimplement math)
+// ---------------------------------------------------------------------------
+
+/**
+ * Synthesize a role-aware DataHubDocContent from a flat InternalTable that no
+ * longer carries its original content (a relational op reshaped it). Columns are
+ * generic role "y" data columns with stable col-N ids and row-N ids, matching the
+ * shape internalToContent produces, so a delegated column transform still has a
+ * valid content to run against.
+ */
+function internalToBareContent(table: InternalTable): DataHubDocContent {
+  const columns: ColumnDef[] = table.columns.map((colName, i) => ({
+    id: `col-${i + 1}`,
+    name: colName,
+    role: "y" as const,
+    dataType: "number" as const,
+  }));
+  const rows: RowRecord[] = table.rows.map((row, i) => {
+    const cells: Record<string, CellValue> = {};
+    for (const col of columns) {
+      const v = row[col.name];
+      cells[col.id] = v !== undefined ? v : null;
+    }
+    return { id: `row-${i + 1}`, cells };
+  });
+  return {
+    meta: {
+      id: `transform-step-${Date.now()}`,
+      name: "",
+      project_ids: [],
+      folder_path: null,
+      table_type: "column",
+      created_at: new Date().toISOString(),
+    },
+    columns,
+    rows,
+    analyses: [],
+    plots: [],
+  };
+}
+
+/** Re-flatten a transforms.ts result content into an InternalTable, carrying the
+ *  result content forward so a SUBSEQUENT column transform can also delegate
+ *  role-aware. */
+function contentResultToInternal(content: DataHubDocContent): InternalTable {
+  const columns = content.columns.map((c) => c.name);
+  const rows = content.rows.map((row) => {
+    const r: Record<string, CellValue> = {};
+    for (const col of content.columns) {
+      const v = row.cells[col.id];
+      r[col.name] = v !== undefined ? v : null;
+    }
+    return r;
+  });
+  return { columns, rows, content };
+}
+
+/**
+ * Run one folded column transform by delegating to its pure function in
+ * transforms.ts. When the table still carries its original role-aware content the
+ * delegation is byte-identical to calling transforms.ts directly (so a legacy
+ * single-op derived table recomputes unchanged). Otherwise a generic role-"y"
+ * content is synthesized from the reshaped flat table first.
+ */
+function applyColumnTransform(
+  table: InternalTable,
+  run: (content: DataHubDocContent) => DataHubDocContent,
+): InternalTable {
+  const source = table.content ?? internalToBareContent(table);
+  const result = run(source);
+  return contentResultToInternal(result);
+}
+
+// ---------------------------------------------------------------------------
 // Pipeline executor
 // ---------------------------------------------------------------------------
 
@@ -881,7 +981,13 @@ function applyUnpivot(table: InternalTable, op: UnpivotOp): InternalTable | stri
  * Execute a TransformPipeline over a primary DataHubDocContent. Returns a
  * new DataHubDocContent on success, or an error string on any failure.
  *
- * The result table has table_type "column" and empty analyses/plots.
+ * When the final step is a folded column transform whose input still carried the
+ * original role-aware content (a pipeline made only of column transforms, the
+ * legacy single-op shape), the result body (columns / rows / table_type) is taken
+ * from that role-aware content so it is byte-identical to calling the standalone
+ * transforms.ts function. Otherwise (any relational op ran, so roles were lost)
+ * the result is the flattened generic role-"y" table_type "column" table. Either
+ * way the result name follows the engine contract and analyses/plots are empty.
  */
 export function executePipeline(
   primary: DataHubDocContent,
@@ -900,6 +1006,31 @@ export function executePipeline(
   }
 
   const name = primary.meta.name + " (transformed)";
+
+  // A role-aware content survives only when every op was a folded column
+  // transform (relational ops drop it). In that case take its columns/rows/
+  // table_type verbatim so the engine output equals the standalone transforms.ts
+  // call. The meta id/name still follow the engine contract.
+  if (table.content) {
+    const body = table.content;
+    return {
+      content: {
+        meta: {
+          id: `transform-result-${Date.now()}`,
+          name,
+          project_ids: [],
+          folder_path: null,
+          table_type: body.meta.table_type,
+          created_at: new Date().toISOString(),
+        },
+        columns: body.columns.map((c) => ({ ...c })),
+        rows: body.rows.map((r) => ({ id: r.id, cells: { ...r.cells } })),
+        analyses: [],
+        plots: [],
+      },
+    };
+  }
+
   return { content: internalToContent(table, name) };
 }
 
@@ -944,6 +1075,16 @@ function executeOp(
       return applyPivot(table, op);
     case "unpivot":
       return applyUnpivot(table, op);
+    case "column-transform":
+      return applyColumnTransform(table, (c) => transformValues(c, op.params));
+    case "normalize":
+      return applyColumnTransform(table, (c) => normalize(c, op.params));
+    case "transpose":
+      return applyColumnTransform(table, (c) => transpose(c, op.params));
+    case "remove-baseline":
+      return applyColumnTransform(table, (c) => removeBaseline(c, op.params));
+    case "fraction-of-total":
+      return applyColumnTransform(table, (c) => fractionOfTotal(c, op.params));
     default: {
       // TypeScript exhaustiveness guard. If a new op kind is added to
       // TransformOp without a case here, this will be a type error.
