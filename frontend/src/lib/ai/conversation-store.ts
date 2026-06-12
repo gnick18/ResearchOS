@@ -33,7 +33,6 @@ import { create } from "zustand";
 import {
   runAgentLoop,
   type LoopMessage,
-  type LoopStatus,
 } from "@/lib/ai/agent-loop";
 import { callModelViaProxy, ProxyError } from "@/lib/ai/proxy-client";
 import { DEFAULT_TOOLS } from "@/lib/ai/tools/registry";
@@ -53,6 +52,7 @@ import type {
   ApprovalDecision,
   ChoiceDecision,
 } from "@/lib/ai/tools/types";
+import { statusLabel } from "@/components/ai/thinking-status";
 
 // Re-export ChatMessage and ChatRole so consumers need not import from the old
 // hook location (the hook re-exports them for back-compat).
@@ -72,36 +72,10 @@ export type PendingApproval = {
   resolve: (decision: ApprovalDecision) => void;
 };
 
-// A small map from tool name to a human status line the panel shows while a
-// tool runs. Falls back to a generic line for any tool not listed.
-const TOOL_STATUS: Record<string, string> = {
-  get_my_tasks: "checking your tasks",
-  get_my_projects: "looking at your projects",
-  read_page: "looking at the page",
-  go_to_page: "taking you there",
-  guide_to_element: "showing you where",
-  click_element: "clicking for you",
-  propose_plan: "planning the steps",
-  ask_user: "asking what you would like",
-  list_datahub_tables: "looking at your data tables",
-  run_datahub_analysis: "running the analysis",
-  list_datahub_analyses: "looking at stored analyses",
-  read_datahub_analysis: "reading the stored result",
-  list_notes: "looking through your notes",
-  write_note: "drafting a note for you",
-};
-
-function statusLabel(s: LoopStatus): string {
-  if (s.phase === "tool") {
-    return TOOL_STATUS[s.toolName] ?? "looking something up";
-  }
-  if (s.phase === "awaiting-approval") {
-    if (s.toolName === "ask_user") return "waiting for your choice";
-    if (s.toolName === "write_note") return "waiting for your review";
-    return "waiting for your go-ahead";
-  }
-  return "thinking";
-}
+// The map from loop status to a friendly grey status line now lives in the
+// shared, unit-tested helper components/ai/thinking-status.ts (imported as
+// statusLabel above), so the conversation store and the BeakerBotThinking
+// indicator agree on the wording.
 
 // Typewriter reveal constants.
 const REVEAL_STEP_CHARS = 3;
