@@ -13,9 +13,13 @@ import AnnotatedImage from "@/components/AnnotatedImage";
 import { OcrReveal } from "@/components/OcrImage";
 import { filenameFromMarkdownSrc } from "@/lib/attachments/annotations";
 import { parseObjectDeepLink, parseObjectEmbed, type EmbedDescriptor } from "@/lib/references";
+import { parseExternalEmbed, type ExternalEmbedDescriptor } from "@/lib/embeds/external-embeds";
 import ObjectChip from "@/components/ObjectChip";
 import ObjectEmbed from "@/components/embeds/ObjectEmbed";
+import { lazy, Suspense } from "react";
 import { buildFigureNumberPlan } from "@/lib/embeds/figure-numbering";
+
+const ExternalEmbed = lazy(() => import("@/components/embeds/ExternalEmbed"));
 
 /** Flatten an `a` element's React children to plain text, so a deep-link chip can
  *  label itself with the link text (the object name) even when the markdown
@@ -55,7 +59,7 @@ function hastText(node: HastNode | undefined): string {
  *  paragraph rule, an embed link mid-sentence stays an inline chip. */
 function loneEmbedFromParagraph(
   node: HastNode | undefined,
-): { descriptor: EmbedDescriptor; caption: string } | null {
+): { descriptor: EmbedDescriptor; caption: string } | { external: ExternalEmbedDescriptor; caption: string } | null {
   if (!node || !Array.isArray(node.children)) return null;
   const meaningful = node.children.filter(
     (c) => !(c.type === "text" && /^\s*$/.test(c.value ?? "")),
@@ -64,9 +68,21 @@ function loneEmbedFromParagraph(
   const el = meaningful[0];
   if (el.type !== "element" || el.tagName !== "a") return null;
   const href = el.properties?.href;
-  const descriptor = parseObjectEmbed(typeof href === "string" ? href : null);
-  if (!descriptor || !descriptor.isEmbed) return null;
-  return { descriptor, caption: hastText(el).trim() };
+  const hrefStr = typeof href === "string" ? href : null;
+
+  // Internal object embed (existing path, byte-unchanged when no external match).
+  const descriptor = parseObjectEmbed(hrefStr);
+  if (descriptor?.isEmbed) return { descriptor, caption: hastText(el).trim() };
+
+  // External embed (DOI, PMID, PubChem, bare URL with #ros= fragment).
+  // Only render as a block embed when the `#ros=` fragment is present (same
+  // alone-in-a-paragraph rule applies: a bare external link stays a link).
+  const external = parseExternalEmbed(hrefStr);
+  if (external && hrefStr?.includes("#ros=")) {
+    return { external, caption: hastText(el).trim() };
+  }
+
+  return null;
 }
 
 interface RenderedMarkdownProps {
@@ -176,6 +192,18 @@ export default function RenderedMarkdown({
           p: ({ node, children, ...props }) => {
             const lone = loneEmbedFromParagraph(node as unknown as HastNode);
             if (lone) {
+              // External embed (DOI, PMID, PubChem, bare URL).
+              if ("external" in lone) {
+                return (
+                  <Suspense fallback={null}>
+                    <ExternalEmbed
+                      descriptor={lone.external}
+                      caption={lone.caption}
+                      sidecarPath={embedPinSidecar}
+                    />
+                  </Suspense>
+                );
+              }
               const figureLabel = figurePlan.enabled
                 ? figurePlan.labelAt(figureIndexRef.current++)
                 : undefined;
