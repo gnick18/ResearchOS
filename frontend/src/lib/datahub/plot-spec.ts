@@ -1023,12 +1023,28 @@ export function layoutPlot(
     }
     const legDrop = 6;
     const tier = 18;
+    // The bars that will actually be drawn (both endpoints resolve to a group).
+    const drawn = bracketRequests.filter(
+      (req) =>
+        groupGeo[req.i]?.cx !== undefined && groupGeo[req.j]?.cx !== undefined,
+    );
+    // Where the topmost bracket's span line and its label would land if we just
+    // stacked up from the tallest element. The label sits 3px above the span.
+    const topSpanY = highest - 14 - (drawn.length - 1) * tier;
+    const topLabelY = topSpanY - 3;
+    // The title (when shown) sits above the plot area at y1 - 14, so its glyphs
+    // run roughly y1 - 14 - (f + 1) .. y1 - 14. Keep every bracket label clear
+    // of it AND inside the canvas by holding a ceiling a little below the top
+    // axis inset. When the stack would rise past that ceiling, push it down as a
+    // block (the spacing between bars is unchanged, only the whole stack shifts).
+    const hasTitle = style.title.trim() !== "";
+    const ceiling = hasTitle ? y1 + 6 : 4;
+    const shiftDown = topLabelY < ceiling ? ceiling - topLabelY : 0;
     let level = 0;
-    for (const req of bracketRequests) {
-      const a = groupGeo[req.i]?.cx;
-      const b = groupGeo[req.j]?.cx;
-      if (a === undefined || b === undefined) continue;
-      const spanY = highest - 14 - level * tier;
+    for (const req of drawn) {
+      const a = groupGeo[req.i]!.cx;
+      const b = groupGeo[req.j]!.cx;
+      const spanY = highest - 14 - level * tier + shiftDown;
       brackets.push({
         leftX: a,
         rightX: b,

@@ -431,6 +431,25 @@ describe("plot-spec: significance brackets", () => {
     const geo = layoutPlot(groups, style, reqs);
     expect(geo.brackets).toHaveLength(0);
   });
+
+  it("keeps the top bracket clear of the title and inside the canvas", () => {
+    const content = threeGroupContent();
+    const style: PlotStyle = { ...defaultPlotStyle(), title: "Figure 1" };
+    const groups = resolvePlotGroups(content, style);
+    const reqs = bracketRequestsFromAnalysis(ANOVA_SPEC, groups);
+    const geo = layoutPlot(groups, style, reqs);
+    expect(geo.brackets.length).toBeGreaterThan(0);
+    // No bracket label may rise into the title band above the top axis inset,
+    // and no span may clip off the top of the canvas.
+    for (const b of geo.brackets) {
+      expect(b.labelY).toBeGreaterThanOrEqual(geo.y1);
+      expect(b.spanY).toBeGreaterThan(0);
+    }
+    // The block keeps its uniform tier spacing after any downward shift.
+    if (geo.brackets.length >= 2) {
+      expect(geo.brackets[1].spanY).toBeCloseTo(geo.brackets[0].spanY - 18, 6);
+    }
+  });
 });
 
 describe("plot-spec: SVG serialization", () => {
