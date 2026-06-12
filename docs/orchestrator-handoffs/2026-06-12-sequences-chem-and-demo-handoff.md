@@ -76,6 +76,22 @@ and where noted, browser-verified by Grant.
 - data-testids: `lit-explorer-open`, `lit-explorer-star`,
   `lit-explorer-filter-research`, `lit-explorer-year-min`, `lit-explorer-year-max`.
 
+### 5. Gibson junction display fix + cloning-alignment audit (post-test)
+- Grant noticed the Gibson "Homology junctions" two rows did not stack: each row
+  was prefixed with the full fragment name, and different name lengths pushed the
+  overlap sequences to different x. The data was correct (the overlap is IDENTITY,
+  the same `Junction.overlapSeq` shown on both ends, not a complement, by
+  construction). Fixed `OverlapHomologyHero.tsx`: short fixed-width `3'`/`5'`
+  strand tags (names already in the junction header), fixed-width context cells
+  so the overlap lands in the SAME column in both rows, identity ticks between the
+  rows, and a "shared homology, same strand, present once in the product" note.
+  Commit `e966c5b18`.
+- Audited the other cloning displays for the same variable-label-breaks-mono
+  bug. NONE others affected: StickyEndLadderHero (fixed strand tags +
+  whitespace-pre), GoldenGateFingerprintHero (overhang chips), GatewayCrossoverHero
+  (truncated names + att chips), CompareSequencesDialog (fixed w-12 coord gutters +
+  aligned midline), junction-primers PrimerCell list (independent rows). All sound.
+
 ## Status table
 | Piece | State |
 |---|---|
