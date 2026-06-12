@@ -288,6 +288,72 @@ describe("importEmbeddedObjects: file type", () => {
   });
 });
 
+// ── forceImportHrefs: dup override (Phase 6c follow-up) ──────────────────────
+
+describe("importEmbeddedObjects forceImportHrefs", () => {
+  it("(a) force-imported dup: returns action 'imported' (not 'linked'), creates a new copy", async () => {
+    // resolveByPortableId would return a match (there is a local dup).
+    mockResolveByPortableId.mockResolvedValue({ id: "mol-existing" });
+    mockMoleculesCreate.mockResolvedValue({ meta: { id: "mol-fresh" }, molfile: "" } as never);
+
+    const obj = makeMoleculeObj();
+    const result = await importEmbeddedObjects([obj], {
+      currentUser: "Recipient",
+      senderLabel: "sender@lab.edu",
+      forceImportHrefs: new Set([obj.href]),
+    });
+
+    expect(result.resolutions).toHaveLength(1);
+    const r = result.resolutions[0];
+    // Must be imported (fresh copy created), not linked.
+    expect(r.action).toBe("imported");
+    expect(r.localId).toBe("mol-fresh");
+    // resolveByPortableId should NOT have been called (auto-link was bypassed).
+    expect(mockResolveByPortableId).not.toHaveBeenCalled();
+    // A new molecule was created.
+    expect(mockMoleculesCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("(b) same dup href WITHOUT forceImportHrefs: returns action 'linked' (regression guard)", async () => {
+    // resolveByPortableId returns a match -> auto-link by default.
+    mockResolveByPortableId.mockResolvedValue({ id: "mol-existing" });
+
+    const obj = makeMoleculeObj();
+    const result = await importEmbeddedObjects([obj], {
+      currentUser: "Recipient",
+      senderLabel: "sender@lab.edu",
+      // forceImportHrefs is absent (default behavior).
+    });
+
+    expect(result.resolutions).toHaveLength(1);
+    const r = result.resolutions[0];
+    expect(r.action).toBe("linked");
+    expect(r.localId).toBe("mol-existing");
+    // No new molecule was created.
+    expect(mockMoleculesCreate).not.toHaveBeenCalled();
+  });
+
+  it("force-import with explicit destination: files into the given collection", async () => {
+    mockResolveByPortableId.mockResolvedValue({ id: "mol-existing" });
+    mockMoleculesCreate.mockResolvedValue({ meta: { id: "mol-fresh" }, molfile: "" } as never);
+
+    const obj = makeMoleculeObj();
+    await importEmbeddedObjects([obj], {
+      currentUser: "Recipient",
+      senderLabel: "sender@lab.edu",
+      forceImportHrefs: new Set([obj.href]),
+      destinationByHref: new Map([[obj.href, { projectId: "77" }]]),
+    });
+
+    expect(mockMoleculesCreate).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ project_ids: ["77"] }),
+    );
+    // The default collection should NOT be created (an explicit destination was given).
+    expect(mockProjectsCreate).not.toHaveBeenCalled();
+  });
+});
+
 // ── ReceiveShareResult carries embeddedObjects (relay passthrough) ────────────
 
 describe("ReceiveShareResult embeddedObjects passthrough", () => {

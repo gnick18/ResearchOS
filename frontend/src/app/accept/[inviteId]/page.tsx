@@ -161,15 +161,17 @@ export default function AcceptInvitePage() {
   );
   const [seqProjectId, setSeqProjectId] = useState<number | null>(null);
 
-  // Phase 6c: per-item destination overrides built by EmbeddedImportPicker for
-  // note bundles that carry embedded objects. Threaded into importNoteBundle so
-  // the import layer files each object into the right collection (or links to an
-  // existing local copy for portableId-matched items). Initialized empty (all
-  // items use the default "Shared by <sender>" collection on first render; the
-  // picker calls onChange once dedup resolves and again on each dropdown change).
+  // Phase 6c: per-item destination overrides and force-import overrides built
+  // by EmbeddedImportPicker for note bundles that carry embedded objects.
+  // destinationByHref: per-href collection choice (omit = default "Shared by <sender>").
+  // forceImportHrefs: hrefs the recipient switched from "Link existing" to
+  // "Import a fresh copy". Both initialized empty on first render.
   const [embeddedDestinationByHref, setEmbeddedDestinationByHref] = useState<
     Map<string, { projectId: string }>
   >(new Map());
+  const [embeddedForceImportHrefs, setEmbeddedForceImportHrefs] = useState<
+    Set<string>
+  >(new Set());
 
   // The unlock code the recipient pastes when they arrived via the keyless email
   // link (no fragment). Setting keyHex from a valid code re-runs the fetch effect
@@ -430,7 +432,10 @@ export default function AcceptInvitePage() {
           currentUser,
           senderEmail,
           senderFingerprint,
-          embeddedObjectOpts: { destinationByHref: embeddedDestinationByHref },
+          embeddedObjectOpts: {
+            destinationByHref: embeddedDestinationByHref,
+            forceImportHrefs: embeddedForceImportHrefs,
+          },
         },
       );
 
@@ -618,7 +623,10 @@ export default function AcceptInvitePage() {
               imp={imp}
               onSetUpSharing={() => setWizardOpen(true)}
               onImport={() => void handleImport()}
-              onEmbeddedDestinationChange={setEmbeddedDestinationByHref}
+              onEmbeddedChange={({ destinationByHref, forceImportHrefs }) => {
+                setEmbeddedDestinationByHref(destinationByHref);
+                setEmbeddedForceImportHrefs(forceImportHrefs);
+              }}
             />
           )}
 
@@ -850,7 +858,7 @@ function ReadyBody({
   imp,
   onSetUpSharing,
   onImport,
-  onEmbeddedDestinationChange,
+  onEmbeddedChange,
 }: {
   preview: PreviewShape;
   valid: boolean;
@@ -863,9 +871,7 @@ function ReadyBody({
   imp: ImportPhase;
   onSetUpSharing: () => void;
   onImport: () => void;
-  onEmbeddedDestinationChange: (
-    map: Map<string, { projectId: string }>,
-  ) => void;
+  onEmbeddedChange: (result: import("@/components/sharing/EmbeddedImportPicker").EmbeddedImportPickerResult) => void;
 }) {
   if (imp.phase === "done") {
     return (
@@ -950,7 +956,7 @@ function ReadyBody({
           embeddedObjects={embeddedObjects}
           currentUser={currentUser}
           senderLabel={senderIdentity}
-          onChange={onEmbeddedDestinationChange}
+          onChange={onEmbeddedChange}
         />
       )}
 

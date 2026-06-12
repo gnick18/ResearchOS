@@ -95,14 +95,15 @@ export interface ImportEmbeddedObjectsOpts {
    * embed href. When a href is absent from this map, the default collection is
    * used. When the map itself is absent, the default collection applies to all
    * items.
-   *
-   * TODO(Phase 6c follow-up): wire a per-item picker in SharedWithMeTab that
-   * populates this map before calling importNoteBundle. The import logic below
-   * is fully wired; the picker UI is STUBBED (see SharedWithMeTab). Default
-   * behavior (auto-link dups, auto-file new items into "Shared by <sender>")
-   * is complete and correct without the picker.
    */
   destinationByHref?: Map<string, ImportDestination>;
+  /**
+   * Hrefs the recipient explicitly chose to import as a fresh copy even though a
+   * content-identity duplicate exists locally. For these, skip the D4 auto-link
+   * and recreate a new copy (filed per destinationByHref or the default
+   * collection). Absent or not-containing-a-href -> the default auto-link applies.
+   */
+  forceImportHrefs?: Set<string>;
 }
 
 // ── UTF-8 decode helper ───────────────────────────────────────────────────────
@@ -423,8 +424,9 @@ async function importOneObject(
   getDefaultCollectionId: () => Promise<string | null>,
 ): Promise<EmbedResolution> {
   // D4: dedup by portable identity. If the recipient already has this object,
-  // link to their existing copy without importing.
-  if (obj.portableId) {
+  // link to their existing copy without importing. The forceImportHrefs opt-out
+  // bypasses this check so the recipient can import a fresh copy instead.
+  if (obj.portableId && !opts.forceImportHrefs?.has(obj.href)) {
     try {
       const local = await resolveByPortableId(obj.type, obj.portableId, opts.currentUser);
       if (local) {
