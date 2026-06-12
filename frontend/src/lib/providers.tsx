@@ -342,6 +342,7 @@ function AppContent({ children }: { children: ReactNode }) {
   // priced" link from the landing just bounced back to the top of the landing.
   const isPublicMarketingRoute =
     pathname === "/pricing" ||
+    pathname === "/ai" ||
     pathname === "/about" ||
     pathname === "/transparency" ||
     pathname === "/open-source" ||
