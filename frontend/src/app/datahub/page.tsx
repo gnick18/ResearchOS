@@ -1314,7 +1314,7 @@ export default function DataHubPage() {
             setSelectedTableId(id);
             setConfirmDeleteTableId(id);
           }}
-          onExportTable={() => handleExportTable()}
+          onExportTable={(id) => void handleExportTable(id)}
           onRenameAnalysis={handleRenameAnalysis}
           onDeleteAnalysis={handleDeleteAnalysis}
           onReRunAnalysis={handleReRunAnalysis}
