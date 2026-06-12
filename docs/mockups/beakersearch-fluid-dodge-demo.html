@@ -85,6 +85,24 @@
   .s-chip { display: inline-block; font-size: 11.5px; color: var(--action);
     border: 1px solid var(--border); border-radius: 999px; padding: 3px 9px; margin: 2px 4px 0 0; }
 
+  /* THE RIDING MASCOT. A SIBLING of the surface (not a child), so the surface's
+     blur never touches it, it stays crisp while the box softens. It tracks the
+     box's top edge and travels on the SAME morph curve, and leans toward the
+     direction of travel so it reads as steering the box, settling upright. */
+  .rider {
+    position: absolute; z-index: 30; width: 34px; height: 34px; border-radius: 9px;
+    background: linear-gradient(160deg, var(--sky), var(--action));
+    box-shadow: 0 4px 10px -2px rgba(18,131,201,0.5);
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+    transform-origin: 50% 90%;
+    transition:
+      left var(--morph), top var(--morph),
+      transform 0.4s cubic-bezier(.22,1,.36,1);
+  }
+  .rider .eye { width: 5px; height: 5px; border-radius: 50%; background: #fff; margin-top: -3px; }
+  .rider.lean-left { transform: rotate(-11deg); }
+  .rider.lean-right { transform: rotate(11deg); }
+
   .controls { margin-top: 12px; display: flex; gap: 8px; align-items: center; }
   .controls button { font: inherit; font-size: 12.5px; padding: 6px 12px; border-radius: 8px;
     border: 1px solid var(--border); background: var(--surface); color: var(--ink); cursor: pointer; }
@@ -116,6 +134,11 @@
       <div class="s-head"><span class="s-mark"></span><span class="s-field" id="sfield">Ask or search your work...</span><span class="s-kbd">Cmd K</span></div>
       <div class="s-body" id="sbody"></div>
     </div>
+
+    <!-- The mascot rides ON TOP of the surface (sibling, not child), so the
+         box blur never touches it. It tracks the box top edge and leans into
+         the move. -->
+    <div class="rider" id="rider"><span class="eye"></span><span class="eye"></span></div>
   </div>
 
   <div class="controls">
@@ -150,7 +173,9 @@
   const sbody = document.getElementById("sbody");
   const sfield = document.getElementById("sfield");
   const caption = document.getElementById("caption");
+  const rider = document.getElementById("rider");
   let i = -1, timer = null, auto = true;
+  let prevLeft = 300; // tracks the box's last x so the rider can lean into the move
 
   function paintBody(scene){
     const [msg, chips] = scene.body;
@@ -173,9 +198,24 @@
     const [l,t,w,h] = scene.rect;
     surface.style.left = l+"px"; surface.style.top = t+"px";
     surface.style.width = w+"px"; surface.style.height = h+"px";
+
+    // The mascot rides the box's top edge, staying crisp (it is a sibling, the
+    // blur never reaches it). It travels on the same morph curve and leans
+    // toward the direction of travel so it reads as steering the box, then
+    // settles upright. It sits just left of center on the top border.
+    rider.classList.remove("lean-left", "lean-right");
+    if (l > prevLeft) rider.classList.add("lean-right");
+    else if (l < prevLeft) rider.classList.add("lean-left");
+    rider.style.left = (l + Math.min(24, w * 0.18)) + "px";
+    rider.style.top = (t - 17) + "px";
+    prevLeft = l;
+
     // swap the content mid-blur so the reflow is hidden behind the blur
     setTimeout(() => paintBody(scene), 150);
-    setTimeout(() => surface.classList.remove("morphing"), 420);
+    setTimeout(() => {
+      surface.classList.remove("morphing");
+      rider.classList.remove("lean-left", "lean-right"); // settle upright
+    }, 420);
   }
 
   function scheduleNext(){
