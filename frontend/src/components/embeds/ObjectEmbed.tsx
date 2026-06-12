@@ -35,7 +35,7 @@ const EMBED_RENDERERS: Partial<
 > = {
   molecule: lazy(() => import("./MoleculeEmbed")),
   datahub: lazy(() => import("./DataHubEmbed")),
-  // sequence renderer slots in here next.
+  sequence: lazy(() => import("./SequenceEmbed")),
 };
 
 const TYPE_ICON: Record<ObjectRefType, IconName> = {

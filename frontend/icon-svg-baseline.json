@@ -112,6 +112,7 @@
   "components/calendar/MonthView.tsx": 1,
   "components/calendar/WeekView.tsx": 1,
   "components/context-menu/NoMenuGlyph.tsx": 1,
+  "components/embeds/SequenceEmbed.tsx": 1,
   "components/experiments/ExperimentResultCard.tsx": 1,
   "components/history/EntityVersionHistorySidebar.tsx": 5,
   "components/history/TaskDocVersionHistory.tsx": 1,
