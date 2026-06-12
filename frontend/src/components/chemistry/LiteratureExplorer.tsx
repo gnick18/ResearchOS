@@ -22,8 +22,6 @@ import Tooltip from "@/components/Tooltip";
 import {
   buildYearBins,
   applyExplorerFilters,
-  makePatentItem,
-  paperToExplorerItem,
   type ExplorerItem,
   type ExplorerFilters,
   type YearBin,
