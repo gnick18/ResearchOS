@@ -23,11 +23,13 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { DATAHUB_ENABLED } from "@/lib/datahub/config";
 import { getDemoMode } from "@/lib/file-system/wiki-capture-mock";
 import { dataHubApi } from "@/lib/datahub/api";
+import { recipesApi } from "@/lib/datahub/recipes-store";
 import { recomputeDerived } from "@/lib/datahub/derived";
 import { chainCode } from "@/lib/datahub/chain-code";
 import CodePanel from "@/components/datahub/CodePanel";
 import { projectsApi } from "@/lib/local-api";
 import type {
+  AnalysisSpec,
   CellValue,
   DataHubDocContent,
   DataHubDocument,
@@ -1193,14 +1195,16 @@ export default function DataHubPage() {
   // { type, columnIds } shape, so a guided run is indistinguishable from a manual
   // one once it lands.
   const createAnalysis = useCallback(
-    (data: { type: string; columnIds: string[] }) => {
+    (data: { type: string; columnIds: string[]; params?: Record<string, unknown> }) => {
       const handle = handleRef.current;
       if (!handle || !openContent || openIdRef.current == null) return;
       const id = `analysis-${Date.now()}`;
       const spec = {
         id,
         type: data.type,
-        params: {},
+        // A recipe-applied analysis carries the recipe's Test-options bag; a plain
+        // pick seeds an empty params bag (the engine defaults), as before.
+        params: data.params ?? {},
         inputs: { columnIds: data.columnIds },
         resultCache: null as unknown,
         resultStale: false,
@@ -1214,6 +1218,23 @@ export default function DataHubPage() {
       setSelectedAnalysisId(id);
     },
     [openContent],
+  );
+
+  // Save the current analysis as a reusable recipe. Captures the REUSABLE part
+  // (the analysis type + its Test-options params) plus the table TYPE it applies
+  // to, so the New analysis dialog can offer it on any other table of that kind.
+  // The table-specific inputs (column ids) and the cached result are NOT saved,
+  // since a recipe re-runs against a fresh table's own columns.
+  const handleSaveRecipe = useCallback(
+    (name: string, analysis: AnalysisSpec, content: DataHubDocContent) => {
+      void recipesApi.create({
+        name,
+        analysisType: analysis.type,
+        params: analysis.params ?? {},
+        tableType: content.meta.table_type,
+      });
+    },
+    [],
   );
 
   const handleNewAnalysis = useCallback(
@@ -2112,6 +2133,9 @@ export default function DataHubPage() {
               onChangeAnalysis={() => setNewAnalysisOpen(true)}
               onParamChange={(key, value) =>
                 handleAnalysisParamChange(selectedAnalysis.id, key, value)
+              }
+              onSaveRecipe={(name) =>
+                handleSaveRecipe(name, selectedAnalysis, openContent)
               }
               resolveContent={resolveTableContent}
             />
