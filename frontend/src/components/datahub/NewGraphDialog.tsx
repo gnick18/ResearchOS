@@ -86,6 +86,27 @@ const KINDS: {
   },
 ];
 
+/** The three Parts-of-whole figures, offered on a Parts-of-whole table. */
+const PARTS_OF_WHOLE_KINDS: { kind: PlotKind; label: string; blurb: string }[] = [
+  {
+    kind: "pie",
+    label: "Pie",
+    blurb:
+      "One wedge per category, sized by value, labeled with the category and its percent of the total.",
+  },
+  {
+    kind: "donut",
+    label: "Donut",
+    blurb: "The pie with a center hole and the total in the middle.",
+  },
+  {
+    kind: "stackedBar",
+    label: "100% stacked bar",
+    blurb:
+      "A single column that sums to 100 percent, one segment per category.",
+  },
+];
+
 /** Find a stored one-way ANOVA on the table (its Tukey pairs feed brackets). */
 function findAnova(content: DataHubDocContent | null): AnalysisSpec | null {
   if (!content) return null;
@@ -163,6 +184,7 @@ export default function NewGraphDialog({
   const isXY = content?.meta.table_type === "xy";
   const isGrouped = content?.meta.table_type === "grouped";
   const isSurvival = content?.meta.table_type === "survival";
+  const isPartsOfWhole = content?.meta.table_type === "partsOfWhole";
   const groups = useMemo(
     () => (content ? groupColumns(content) : []),
     [content],
@@ -197,7 +219,9 @@ export default function NewGraphDialog({
           ? "groupedBar"
           : isSurvival
             ? "survivalCurve"
-            : "columnScatter",
+            : isPartsOfWhole
+              ? "pie"
+              : "columnScatter",
     );
     setUseBrackets(true);
     const firstY = ys[0]?.id ?? "";
@@ -207,7 +231,7 @@ export default function NewGraphDialog({
     setFitModel(defaultFitModel(content, firstY));
     setEstPaired(false);
     setEstControl(0);
-  }, [open, isXY, isGrouped, isSurvival, ys, content]);
+  }, [open, isXY, isGrouped, isSurvival, isPartsOfWhole, ys, content]);
 
   useEffect(() => {
     if (!open) return;
@@ -222,7 +246,7 @@ export default function NewGraphDialog({
 
   const canSubmit = isXY
     ? yColumn !== ""
-    : isGrouped || isSurvival
+    : isGrouped || isSurvival || isPartsOfWhole
       ? true
       : isEstimationSelected
         ? groups.length >= 2
@@ -260,6 +284,11 @@ export default function NewGraphDialog({
     }
     if (isSurvival) {
       onSubmit({ kind: "survivalCurve", analysisId: null });
+      return;
+    }
+    if (isPartsOfWhole) {
+      // kind holds the chosen pie / donut / stacked-bar from the picker.
+      onSubmit({ kind, analysisId: null });
       return;
     }
     if (isEstimationSelected) {
@@ -310,6 +339,42 @@ export default function NewGraphDialog({
             group, with error bars from the replicates. Tune the error-bar type
             and colors from the style panel after it opens.
           </p>
+        ) : isPartsOfWhole ? (
+          <>
+            <label className="mt-4 block text-meta font-medium uppercase tracking-wide text-foreground-muted">
+              Figure
+            </label>
+            <div className="mt-1 flex flex-col gap-2">
+              {PARTS_OF_WHOLE_KINDS.map((k) => {
+                const active = kind === k.kind;
+                return (
+                  <button
+                    key={k.kind}
+                    type="button"
+                    onClick={() => setKind(k.kind)}
+                    className={`rounded-md border px-3 py-2 text-left transition-colors ${
+                      active
+                        ? "border-sky-400 bg-accent-soft"
+                        : "border-border bg-surface-raised hover:bg-surface-sunken"
+                    }`}
+                    data-testid={`datahub-newgraph-${k.kind}`}
+                  >
+                    <span className="block text-body font-medium text-foreground">
+                      {k.label}
+                    </span>
+                    <span className="mt-0.5 block text-meta text-foreground-muted">
+                      {k.blurb}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-3 rounded-md border border-border bg-surface-raised px-3 py-2 text-meta text-foreground-muted">
+              Each slice is one category sized by its share of the total. Recolor
+              the slices and (for the donut) the hole size from the style panel
+              after it opens.
+            </p>
+          </>
         ) : isXY ? (
           ys.length === 0 ? (
             <p className="mt-4 rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-foreground-muted">
