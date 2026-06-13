@@ -14,7 +14,7 @@
 
 import { auth } from "@/lib/sharing/auth";
 import { json } from "@/lib/sharing/directory/guard";
-import { ownerKeyForEmail } from "@/lib/billing/owner";
+import { ownerKeyForEmailSafe } from "@/lib/billing/owner";
 import { DEPT_TIER_ENABLED } from "@/lib/dept/config";
 import { ensureDeptSchema, getDepartment, enrollLabHeadActive } from "@/lib/billing/dept";
 import {
@@ -48,7 +48,8 @@ export async function POST(request: Request): Promise<Response> {
   const session = await auth();
   const email = session?.user?.email;
   if (!email) return json(401, { error: "sign in required" });
-  const labHeadOwnerKey = ownerKeyForEmail(email);
+  const labHeadOwnerKey = ownerKeyForEmailSafe(email);
+  if (!labHeadOwnerKey) return json(503, { error: "billing identity unavailable" });
 
   let body: { invite?: unknown };
   try {

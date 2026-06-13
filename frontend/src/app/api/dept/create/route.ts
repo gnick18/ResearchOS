@@ -12,7 +12,7 @@
 
 import { auth } from "@/lib/sharing/auth";
 import { json } from "@/lib/sharing/directory/guard";
-import { ownerKeyForEmail } from "@/lib/billing/owner";
+import { ownerKeyForEmailSafe } from "@/lib/billing/owner";
 import { DEPT_TIER_ENABLED } from "@/lib/dept/config";
 import {
   ensureDeptSchema,
@@ -30,7 +30,8 @@ export async function POST(request: Request): Promise<Response> {
   const session = await auth();
   const email = session?.user?.email;
   if (!email) return json(401, { error: "sign in required" });
-  const adminOwnerKey = ownerKeyForEmail(email);
+  const adminOwnerKey = ownerKeyForEmailSafe(email);
+  if (!adminOwnerKey) return json(503, { error: "billing identity unavailable" });
 
   let body: { deptId?: unknown; name?: unknown; adminEd25519Pub?: unknown };
   try {

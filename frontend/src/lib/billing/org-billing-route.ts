@@ -15,7 +15,7 @@
 
 import { json } from "@/lib/sharing/directory/guard";
 import { auth } from "@/lib/sharing/auth";
-import { ownerKeyForEmail } from "@/lib/billing/owner";
+import { ownerKeyForEmailSafe } from "@/lib/billing/owner";
 import { isBillingEnabled } from "@/lib/billing/config";
 import { ensureBusinessSchema, getEntity } from "@/lib/business/db";
 import {
@@ -67,7 +67,8 @@ export async function handleOrgBillingGet(spec: OrgBillingSpec): Promise<Respons
   const session = await auth();
   const email = session?.user?.email;
   if (!email) return json(401, { error: "sign in required" });
-  const adminOwnerKey = ownerKeyForEmail(email);
+  const adminOwnerKey = ownerKeyForEmailSafe(email);
+  if (!adminOwnerKey) return json(503, { error: "billing identity unavailable" });
 
   try {
     await ensureOrgBillingSchema();
@@ -106,7 +107,8 @@ export async function runOrgBillingPost(
   const session = await auth();
   const email = session?.user?.email;
   if (!email) return json(401, { error: "sign in required" });
-  const adminOwnerKey = ownerKeyForEmail(email);
+  const adminOwnerKey = ownerKeyForEmailSafe(email);
+  if (!adminOwnerKey) return json(503, { error: "billing identity unavailable" });
 
   let body: Record<string, unknown>;
   try {

@@ -14,3 +14,22 @@ import { getPepper } from "@/lib/sharing/directory/guard";
 export function ownerKeyForEmail(email: string): string {
   return hashEmail(canonicalizeEmail(email), getPepper());
 }
+
+/**
+ * Same as ownerKeyForEmail, but returns null instead of throwing when the hash
+ * cannot be computed (the usual cause is a missing DIRECTORY_HMAC_PEPPER on the
+ * server). Callers should treat null as a clean 503 rather than letting the throw
+ * escape as an opaque empty 500. The real error is logged server-side so a
+ * misconfig is debuggable.
+ */
+export function ownerKeyForEmailSafe(email: string): string | null {
+  try {
+    return ownerKeyForEmail(email);
+  } catch (e) {
+    console.error(
+      "[billing] could not hash the owner key (is DIRECTORY_HMAC_PEPPER set?):",
+      e instanceof Error ? e.message : e,
+    );
+    return null;
+  }
+}

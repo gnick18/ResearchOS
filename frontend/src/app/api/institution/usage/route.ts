@@ -9,7 +9,7 @@
 
 import { auth } from "@/lib/sharing/auth";
 import { json } from "@/lib/sharing/directory/guard";
-import { ownerKeyForEmail } from "@/lib/billing/owner";
+import { ownerKeyForEmailSafe } from "@/lib/billing/owner";
 import { INSTITUTION_TIER_ENABLED } from "@/lib/institution/config";
 import {
   ensureInstitutionSchema,
@@ -68,7 +68,8 @@ export async function GET(): Promise<Response> {
   const session = await auth();
   const email = session?.user?.email;
   if (!email) return json(401, { error: "sign in required" });
-  const adminOwnerKey = ownerKeyForEmail(email);
+  const adminOwnerKey = ownerKeyForEmailSafe(email);
+  if (!adminOwnerKey) return json(503, { error: "billing identity unavailable" });
 
   try {
     await ensureInstitutionSchema();

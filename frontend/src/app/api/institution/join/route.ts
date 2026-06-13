@@ -11,7 +11,7 @@
 
 import { auth } from "@/lib/sharing/auth";
 import { json } from "@/lib/sharing/directory/guard";
-import { ownerKeyForEmail } from "@/lib/billing/owner";
+import { ownerKeyForEmailSafe } from "@/lib/billing/owner";
 import { INSTITUTION_TIER_ENABLED } from "@/lib/institution/config";
 import {
   ensureInstitutionSchema,
@@ -50,7 +50,8 @@ export async function POST(request: Request): Promise<Response> {
   const session = await auth();
   const email = session?.user?.email;
   if (!email) return json(401, { error: "sign in required" });
-  const callerKey = ownerKeyForEmail(email);
+  const callerKey = ownerKeyForEmailSafe(email);
+  if (!callerKey) return json(503, { error: "billing identity unavailable" });
 
   let body: { invite?: unknown };
   try {
