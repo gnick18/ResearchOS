@@ -145,9 +145,20 @@ const VERB: Record<string, string> = {
 // suitable column from the dataset schema.
 // ---------------------------------------------------------------------------
 
+/** A column name usable as a bare identifier in the shared formula language (the
+ *  derive expr-eval parser binds simple identifiers, so a name with spaces /
+ *  punctuation cannot be referenced directly). */
+function isFormulaSafe(name: string): boolean {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name);
+}
+
 function defaultOp(kind: string, cols: string[], numericCols: string[]): TransformOp | null {
   const firstNum = numericCols[0] ?? cols[0] ?? "column";
   const first = cols[0] ?? "column";
+  // A derive formula references columns by bare identifier; seed with the first
+  // identifier-safe numeric column so the default never produces a name the
+  // formula language cannot bind. When none qualifies, seed a constant.
+  const formulaCol = numericCols.find(isFormulaSafe);
   switch (kind) {
     case "filter":
       return {
@@ -159,7 +170,11 @@ function defaultOp(kind: string, cols: string[], numericCols: string[]): Transfo
     case "drop":
       return { kind: "drop", columns: [cols[cols.length - 1] ?? first] };
     case "derive":
-      return { kind: "derive", outputName: "new_column", formula: `${firstNum} * 1` };
+      return {
+        kind: "derive",
+        outputName: "new_column",
+        formula: formulaCol ? `${formulaCol} * 1` : "1",
+      };
     case "rename":
       return { kind: "rename", mapping: { [first]: `${first}_renamed` } };
     case "sort":
