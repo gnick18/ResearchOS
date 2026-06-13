@@ -97,6 +97,15 @@ export {
   type CoxResult,
 } from "./survival";
 
+// Categorical association tests on an R x C contingency table (chi-square test
+// of independence + 2x2 Yates correction, Fisher's exact, relative risk, and
+// odds ratio).
+export {
+  contingencyTest,
+  type ContingencyResult,
+  type RatioMeasure,
+} from "./contingency";
+
 // Nonlinear curve fitting (the crown jewel).
 export {
   fitModel,
