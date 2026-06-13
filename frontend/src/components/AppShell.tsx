@@ -399,18 +399,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         style={headerStyle}
       >
         <PillWrap on={tinted}>
-          {/* Canonical lockup via the shared <Wordmark>. The mark click
-              still drives the heart easter egg and the showcase unlock
-              (clicks 1 to 6 spawn hearts, click 7 fires the Curtain
-              Reveal into /showcase). The streak badge sits between the
-              mark and the wordmark per proposal §6.1 (hidden at count 0,
-              when streaks are disabled, or pre-login). textAs="h1" keeps
-              the header's existing document outline. */}
+          {/* Canonical lockup via the shared <Wordmark>, text-only here: the
+              BeakerBot mark is dropped from the header because BeakerBot lives
+              permanently on the search palette, so the mascot was redundant
+              chrome. The 7-click showcase unlock (clicks 1 to 6 spawn hearts,
+              click 7 fires the Curtain Reveal into /showcase) moves onto the
+              "ResearchOS" text. The streak badge stays in its slot ahead of
+              the wordmark per proposal §6.1 (hidden at count 0, when streaks
+              are disabled, or pre-login). textAs="h1" keeps the header's
+              existing document outline. */}
           <Wordmark
             size="sm"
             textAs="h1"
-            markTestId="appshell-beakerbot-brand"
-            onMarkClick={onBeakerBotClick}
+            textOnly
+            textTestId="appshell-beakerbot-brand"
+            onTextClick={onBeakerBotClick}
             aside={<StreakBadge username={currentUser} />}
           />
         </PillWrap>

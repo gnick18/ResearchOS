@@ -47,6 +47,12 @@ export interface WordmarkProps {
   animated?: boolean;
   /** Mark click handler (e.g. the app-header heart egg + showcase unlock). */
   onMarkClick?: () => void;
+  /** Click handler on the wordmark TEXT. Used by the app header, which hides
+   *  the mark (BeakerBot lives on the search palette) yet keeps the 7-click
+   *  showcase unlock by moving it onto the "ResearchOS" text. */
+  onTextClick?: () => void;
+  /** data-testid forwarded onto the wordmark text. */
+  textTestId?: string;
   /** Mark click easter egg. Defaults to "heart" so the lockup stays playful;
    *  pass "none" for a purely decorative, inert mark. */
   markEasterEgg?: "heart" | "none";
@@ -74,8 +80,10 @@ export default function Wordmark({
   alive = false,
   animated = true,
   onMarkClick,
+  onTextClick,
   markEasterEgg = "heart",
   markTestId,
+  textTestId,
   textAs = "span",
   textClassName = "text-foreground",
   ariaLabel = "ResearchOS BeakerBot logo",
@@ -105,6 +113,8 @@ export default function Wordmark({
       {aside}
       {!markOnly && (
         <TextTag
+          onClick={onTextClick}
+          data-testid={textTestId}
           className={`${s.text} font-extrabold tracking-tight ${textClassName}`}
         >
           ResearchOS
