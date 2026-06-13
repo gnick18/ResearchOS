@@ -1,24 +1,27 @@
-// Method tab = the method LIBRARY browser (companion method library, 2026-06-13).
+// Method tab = the method LIBRARY browser (companion method library,
+// 2026-06-13; offline sync wired 2026-06-13).
 //
 // The Method tab is your whole method library with phone-modern search, type
 // filter chips, and a Type/A-Z/Recent sort. Methods attached to your ACTIVE
 // experiments are recommended in a highlighted band on top with a live Active
 // dot. Tapping any method opens the big-text read mode (app/method-detail.tsx).
 //
-// REAL vs FIXTURE (read this before wiring C):
-//   - The active-experiment recommendations band is REAL. It uses the
-//     MethodProjection list the laptop already publishes via
-//     fetchSnapshot('method'). Tapping a rec deep-links to /method-detail?read=1.
-//   - The big library list is FIXTURE-backed (lib/method-library DEMO_LIBRARY)
-//     because the bulk-library publish path does not exist yet (deferred to the
-//     offline-sync task). The offline download prompt + status chip are UI-only
-//     placeholders. Tapping a fixture row routes to /method-detail (the
-//     published method screen) for now; the real per-method open lands with the
-//     library backend.
+// REAL vs DEMO:
+//   - The active-experiment recommendations band uses the MethodProjection list
+//     the laptop publishes via fetchSnapshot('method'). Tapping a rec deep-links
+//     to /method-detail?read=1 (the focused experiment method).
+//   - The big library list is the REAL offline cache (lib/method-library-store).
+//     On mount it loads the cache instantly (works offline), then syncs in the
+//     background. The offline download prompt + status chip reflect real state:
+//     not-downloaded / downloading / offline-ready / update-available. Tapping a
+//     library row opens read mode for THAT method from the cached projection,
+//     via /method-detail?uid=<owner:id>, so read mode works at the bench with no
+//     signal. In demo mode the DEMO_LIBRARY fixture stands in so recordings work.
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -33,25 +36,58 @@ import { ScreenFrame } from '@/components/ui/ScreenFrame';
 import { useTheme, palette } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
-import { fetchSnapshot, type MethodSnapshot, type MethodProjection } from '@/lib/snapshots';
+import {
+  fetchSnapshot,
+  type MethodSnapshot,
+  type MethodProjection,
+  type LibraryMethodEntry,
+} from '@/lib/snapshots';
 import {
   DEMO_LIBRARY,
   METHOD_TYPE_META,
   typeMeta,
   nextSort,
   sortLabel,
-  type LibraryMethod,
   type LibrarySort,
 } from '@/lib/method-library';
+import {
+  loadCachedLibrary,
+  syncLibrary,
+  getFavorites,
+  toggleFavorite,
+  getOptIn,
+  setOptIn,
+  checkLibraryUpdate,
+} from '@/lib/method-library-store';
 
-// UI-only offline states (placeholder pending the sync backend). The label uses
-// the fixture count so the UI reads as believable.
-type OfflineState = 'ready' | 'update' | 'none';
+// A library row as the list renders it. Built from the cached LibraryMethodEntry
+// (real) or the DEMO_LIBRARY fixture (demo mode), normalized to one shape.
+type Row = {
+  uid: string;
+  name: string;
+  type: string; // a key in METHOD_TYPE_META (resolvedType / methodType)
+  favorite: boolean;
+  onPhone: boolean; // downloaded for offline use (true once cached)
+};
+
+// Real offline sync states. 'downloading' covers both the initial download and
+// applying an update.
+type OfflineState = 'none' | 'downloading' | 'ready' | 'update';
 
 function offlineChipLabel(state: OfflineState, count: number): string {
+  if (state === 'downloading') return 'Downloading';
   if (state === 'ready') return `${count} offline`;
   if (state === 'update') return 'Update available';
   return 'Download for offline';
+}
+
+// Pick the display type for a cached entry: the resolved viewer type maps to a
+// METHOD_TYPE_META key when one exists, else fall back to the raw methodType.
+function entryType(m: LibraryMethodEntry): string {
+  const resolved = m.resolvedType ?? m.methodType ?? 'markdown';
+  if (resolved in METHOD_TYPE_META) return resolved;
+  if (m.methodType && m.methodType in METHOD_TYPE_META) return m.methodType;
+  return resolved;
 }
 
 // ---- Type-colored icon badge ----------------------------------------------
@@ -70,7 +106,15 @@ function TypeIcon({ type, size = 34 }: { type: string; size?: number }) {
 }
 
 // ---- A library row ---------------------------------------------------------
-function MethodRow({ m, onPress }: { m: LibraryMethod; onPress: () => void }) {
+function MethodRow({
+  m,
+  onPress,
+  onToggleFav,
+}: {
+  m: Row;
+  onPress: () => void;
+  onToggleFav: () => void;
+}) {
   const { surface } = useTheme();
   const meta = typeMeta(m.type);
   return (
@@ -87,7 +131,18 @@ function MethodRow({ m, onPress }: { m: LibraryMethod; onPress: () => void }) {
         </ThemedText>
         <ThemedText style={[styles.mrowSub, { color: surface.muted }]}>{meta.label}</ThemedText>
       </View>
-      {m.favorite ? <Ionicons name="star" size={15} color={palette.amber} /> : null}
+      <Pressable
+        onPress={onToggleFav}
+        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityLabel={m.favorite ? `Unfavorite ${m.name}` : `Favorite ${m.name}`}
+      >
+        <Ionicons
+          name={m.favorite ? 'star' : 'star-outline'}
+          size={16}
+          color={m.favorite ? palette.amber : surface.muted}
+        />
+      </Pressable>
       {m.onPhone ? <Ionicons name="checkmark-circle" size={16} color={palette.success} /> : null}
     </Pressable>
   );
@@ -97,11 +152,17 @@ export default function MethodLibraryScreen() {
   const router = useRouter();
   const { surface, radii } = useTheme();
   const { pairing } = usePairing();
+  const isDemo = !!pairing?.demo;
 
   // Real active-experiment method snapshot (drives the recommendations band).
   const [snapshot, setSnapshot] = useState<MethodSnapshot | null>(null);
 
-  const load = useCallback(async () => {
+  // The library rows (real cache, or DEMO_LIBRARY in demo mode).
+  const [rowsAll, setRowsAll] = useState<Row[]>([]);
+  const [offline, setOffline] = useState<OfflineState>('none');
+  const [promptOpen, setPromptOpen] = useState(false);
+
+  const loadSnapshot = useCallback(async () => {
     if (!pairing) {
       setSnapshot(null);
       return;
@@ -115,49 +176,170 @@ export default function MethodLibraryScreen() {
     }
   }, [pairing]);
 
-  const pairingKey = pairing ? `${pairing.u}:${pairing.relayUrl}` : 'none';
+  // Map cached entries -> display rows.
+  const toRows = useCallback(
+    (methods: LibraryMethodEntry[]): Row[] =>
+      methods.map((m, i) => ({
+        uid: m.uid ?? `idx-${i}`,
+        name: m.name ?? 'Method',
+        type: entryType(m),
+        favorite: false, // overlaid from the local favorites set below
+        onPhone: true, // anything in the cache is on the phone
+      })),
+    [],
+  );
+
+  // Demo rows from the fixture, normalized to the Row shape.
+  const demoRows: Row[] = useMemo(
+    () =>
+      DEMO_LIBRARY.map((m) => ({
+        uid: m.id,
+        name: m.name,
+        type: m.type,
+        favorite: m.favorite,
+        onPhone: m.onPhone,
+      })),
+    [],
+  );
+
+  // Overlay the local-only favorites set onto a row list.
+  const applyFavorites = useCallback(async (rows: Row[]): Promise<Row[]> => {
+    const favs = await getFavorites();
+    return rows.map((r) => ({ ...r, favorite: favs.has(r.uid) }));
+  }, []);
+
+  // Load the cache (instant, offline-ok) then sync in the background.
+  const loadLibrary = useCallback(async () => {
+    if (isDemo) {
+      setRowsAll(demoRows);
+      setOffline('ready');
+      return;
+    }
+    if (!pairing) {
+      setRowsAll([]);
+      setOffline('none');
+      return;
+    }
+
+    const optedIn = await getOptIn();
+    const cached = await loadCachedLibrary();
+    if (cached.methods.length > 0) {
+      setRowsAll(await applyFavorites(toRows(cached.methods)));
+      setOffline('ready');
+    } else if (!optedIn) {
+      setRowsAll([]);
+      setOffline('none');
+    }
+
+    // Background sync (only when opted in). Never blocks the cache render.
+    if (optedIn) {
+      const result = await syncLibrary(pairing, signWithDevice);
+      setRowsAll(await applyFavorites(toRows(result.methods)));
+      if (result.methods.length > 0) setOffline('ready');
+      else if (result.ok) setOffline('none');
+    } else {
+      // Not opted in but a fetch might show there is something to download. Quiet
+      // check so the prompt copy can be honest, no save until the user accepts.
+      const check = await checkLibraryUpdate(pairing, signWithDevice);
+      if (check?.latestVersion) setOffline('none');
+    }
+  }, [isDemo, pairing, demoRows, applyFavorites, toRows]);
+
+  const pairingKey = pairing ? `${pairing.u}:${pairing.relayUrl}:${isDemo}` : 'none';
   useEffect(() => {
-    void load();
+    void loadSnapshot();
+    void loadLibrary();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pairingKey]);
   useFocusEffect(
     useCallback(() => {
-      void load();
-    }, [load]),
+      void loadSnapshot();
+      void loadLibrary();
+    }, [loadSnapshot, loadLibrary]),
   );
 
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<string>('all');
   const [sort, setSort] = useState<LibrarySort>('type');
-  // UI-only offline state cycle (placeholder pending the sync backend).
-  const [offline, setOffline] = useState<OfflineState>('ready');
-  const [promptOpen, setPromptOpen] = useState(false);
 
   const activeMethods: MethodProjection[] = Array.isArray(snapshot?.methods)
     ? snapshot!.methods!
     : [];
   const experimentName = snapshot?.experimentName;
 
-  // Filtered + searched fixture rows.
+  const total = rowsAll.length;
+
+  // Filtered + searched rows.
   const rows = useMemo(() => {
     const ql = query.trim().toLowerCase();
-    return DEMO_LIBRARY.filter((m) => {
+    return rowsAll.filter((m) => {
       if (filter !== 'all' && m.type !== filter) return false;
       if (!ql) return true;
       return m.name.toLowerCase().includes(ql) || typeMeta(m.type).label.toLowerCase().includes(ql);
     });
-  }, [query, filter]);
+  }, [rowsAll, query, filter]);
 
   // The recs band shows only when not actively searching/filtering.
   const showRecs = !query.trim() && filter === 'all' && activeMethods.length > 0;
 
-  const filterChips = ['all', ...Object.keys(METHOD_TYPE_META)];
+  // Only show the type filter chips that actually appear in the library.
+  const presentTypes = useMemo(() => {
+    const set = new Set(rowsAll.map((r) => r.type));
+    return Object.keys(METHOD_TYPE_META).filter((t) => set.has(t));
+  }, [rowsAll]);
+  const filterChips = ['all', ...presentTypes];
 
-  // Open read mode. Real published method deep-links straight to read mode; a
-  // fixture row routes to the method screen (the real per-method fetch lands
-  // with the library backend).
-  const openReal = useCallback(() => router.push('/method-detail?read=1'), [router]);
-  const openFixture = useCallback(() => router.push('/method-detail'), [router]);
+  // Begin the offline download: opt in, run an initial sync, show progress.
+  const beginDownload = useCallback(async () => {
+    setPromptOpen(false);
+    if (!pairing || isDemo) return;
+    setOffline('downloading');
+    await setOptIn(true);
+    const result = await syncLibrary(pairing, signWithDevice);
+    setRowsAll(await applyFavorites(toRows(result.methods)));
+    setOffline(result.methods.length > 0 ? 'ready' : 'none');
+  }, [pairing, isDemo, applyFavorites, toRows]);
+
+  // Apply an available update (re-sync, which saves the new version).
+  const applyUpdate = useCallback(async () => {
+    if (!pairing || isDemo) return;
+    setOffline('downloading');
+    const result = await syncLibrary(pairing, signWithDevice);
+    setRowsAll(await applyFavorites(toRows(result.methods)));
+    setOffline('ready');
+  }, [pairing, isDemo, applyFavorites, toRows]);
+
+  // Status chip tap: route by real state.
+  const onChipPress = useCallback(() => {
+    if (offline === 'none') {
+      setPromptOpen(true);
+    } else if (offline === 'update') {
+      void applyUpdate();
+    }
+    // 'ready' and 'downloading' are non-interactive.
+  }, [offline, applyUpdate]);
+
+  // Open read mode. A real library row resolves from the offline cache by uid; a
+  // rec deep-links to the focused experiment method. Demo rows route by uid too
+  // (the demo cache is the fixture, resolved the same way once wired live).
+  const openLibraryRow = useCallback(
+    (uid: string) => {
+      // Demo mode has no cached projection (the rows are a fixture), so route to
+      // the focused-method read screen so demo recordings still open read mode.
+      if (isDemo) {
+        router.push('/method-detail?read=1');
+        return;
+      }
+      router.push(`/method-detail?uid=${encodeURIComponent(uid)}`);
+    },
+    [router, isDemo],
+  );
+  const openRec = useCallback(() => router.push('/method-detail?read=1'), [router]);
+
+  const onToggleFav = useCallback(async (uid: string) => {
+    const next = await toggleFavorite(uid);
+    setRowsAll((prev) => prev.map((r) => (r.uid === uid ? { ...r, favorite: next } : r)));
+  }, []);
 
   // Group rows by type for the default "Type" sort, else flat sorted list.
   const grouped = useMemo(() => {
@@ -165,10 +347,10 @@ export default function MethodLibraryScreen() {
       return [{ type: null as string | null, items: [...rows].sort((a, b) => a.name.localeCompare(b.name)) }];
     }
     if (sort === 'recent') {
-      // No real recency yet, keep fixture order as a stand-in.
+      // No real recency yet, keep cache order as a stand-in.
       return [{ type: null as string | null, items: rows }];
     }
-    const byType = new Map<string, LibraryMethod[]>();
+    const byType = new Map<string, Row[]>();
     rows.forEach((m) => {
       const arr = byType.get(m.type) ?? [];
       arr.push(m);
@@ -184,18 +366,9 @@ export default function MethodLibraryScreen() {
           <ThemedText type="title" style={styles.title}>
             Methods
           </ThemedText>
-          {/* Offline status chip (UI placeholder pending the sync backend). */}
+          {/* Offline status chip (real sync state). */}
           <Pressable
-            onPress={() => {
-              // UI-only cycle, placeholder pending the sync backend. In the
-              // "Download for offline" state the chip opens the download prompt
-              // (the real trigger is a post-pair ask once the backend exists).
-              if (offline === 'none') {
-                setPromptOpen(true);
-                return;
-              }
-              setOffline((s) => (s === 'ready' ? 'update' : 'none'));
-            }}
+            onPress={onChipPress}
             style={[
               styles.offchip,
               { borderColor: surface.border, backgroundColor: surface.sunken },
@@ -205,15 +378,19 @@ export default function MethodLibraryScreen() {
             accessibilityRole="button"
             accessibilityLabel="Offline status"
           >
-            <View
-              style={[
-                styles.offdot,
-                {
-                  backgroundColor:
-                    offline === 'ready' ? palette.success : offline === 'update' ? palette.warning : surface.muted,
-                },
-              ]}
-            />
+            {offline === 'downloading' ? (
+              <ActivityIndicator size="small" color={surface.muted} />
+            ) : (
+              <View
+                style={[
+                  styles.offdot,
+                  {
+                    backgroundColor:
+                      offline === 'ready' ? palette.success : offline === 'update' ? palette.warning : surface.muted,
+                  },
+                ]}
+              />
+            )}
             <ThemedText
               style={[
                 styles.offtxt,
@@ -223,7 +400,7 @@ export default function MethodLibraryScreen() {
                 },
               ]}
             >
-              {offlineChipLabel(offline, DEMO_LIBRARY.length)}
+              {offlineChipLabel(offline, total)}
             </ThemedText>
           </Pressable>
         </View>
@@ -234,7 +411,7 @@ export default function MethodLibraryScreen() {
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder={`Search ${DEMO_LIBRARY.length} methods`}
+            placeholder={total > 0 ? `Search ${total} methods` : 'Search methods'}
             placeholderTextColor={surface.placeholder}
             style={[styles.searchInput, { color: surface.text }]}
             autoCapitalize="none"
@@ -249,34 +426,36 @@ export default function MethodLibraryScreen() {
       </View>
 
       {/* Horizontal type filter chips. */}
-      <View style={[styles.filtersWrap, { backgroundColor: surface.surface }]}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
-          {filterChips.map((t) => {
-            const on = filter === t;
-            const label = t === 'all' ? 'All' : typeMeta(t).label;
-            return (
-              <Pressable
-                key={t}
-                onPress={() => setFilter(t)}
-                style={[
-                  styles.fchip,
-                  { borderColor: surface.border, backgroundColor: surface.sunken },
-                  on && { backgroundColor: palette.sky, borderColor: palette.sky },
-                ]}
-              >
-                <ThemedText style={[styles.fchipTxt, { color: on ? palette.white : surface.muted }]}>
-                  {label}
-                </ThemedText>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
+      {filterChips.length > 1 ? (
+        <View style={[styles.filtersWrap, { backgroundColor: surface.surface }]}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
+            {filterChips.map((t) => {
+              const on = filter === t;
+              const label = t === 'all' ? 'All' : typeMeta(t).label;
+              return (
+                <Pressable
+                  key={t}
+                  onPress={() => setFilter(t)}
+                  style={[
+                    styles.fchip,
+                    { borderColor: surface.border, backgroundColor: surface.sunken },
+                    on && { backgroundColor: palette.sky, borderColor: palette.sky },
+                  ]}
+                >
+                  <ThemedText style={[styles.fchipTxt, { color: on ? palette.white : surface.muted }]}>
+                    {label}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      ) : null}
 
       {/* Count + sort. */}
       <View style={[styles.sortRow, { backgroundColor: surface.surface, borderBottomColor: surface.border }]}>
         <ThemedText style={[styles.cnt, { color: surface.muted }]}>
-          {rows.length} of {DEMO_LIBRARY.length} methods
+          {rows.length} of {total} methods
         </ThemedText>
         <Pressable onPress={() => setSort((s) => nextSort(s))} hitSlop={8} accessibilityRole="button" accessibilityLabel="Change sort">
           <ThemedText style={[styles.sortTxt, { color: palette.sky }]}>Sort: {sortLabel(sort)}</ThemedText>
@@ -304,7 +483,7 @@ export default function MethodLibraryScreen() {
               return (
                 <Pressable
                   key={m.methodId ?? i}
-                  onPress={openReal}
+                  onPress={openRec}
                   style={[styles.recmeth, { backgroundColor: surface.surface, borderColor: surface.border }]}
                   accessibilityRole="button"
                   accessibilityLabel={`Open ${m.name ?? 'method'}`}
@@ -324,8 +503,26 @@ export default function MethodLibraryScreen() {
           </View>
         ) : null}
 
-        {/* Library list (FIXTURE). */}
-        {rows.length === 0 ? (
+        {/* Library list. */}
+        {total === 0 && offline === 'none' ? (
+          <View style={styles.emptyWrap}>
+            <Ionicons name="cloud-download-outline" size={40} color={surface.muted} />
+            <ThemedText style={[styles.emptyTtl, { color: surface.text }]}>
+              Your library is not on this phone yet
+            </ThemedText>
+            <ThemedText style={[styles.emptyDesc, { color: surface.muted }]}>
+              Download it so read mode works at the bench with no signal.
+            </ThemedText>
+            <Pressable
+              onPress={() => setPromptOpen(true)}
+              style={[styles.emptyBtn, { backgroundColor: palette.sky }]}
+              accessibilityRole="button"
+              accessibilityLabel="Download library"
+            >
+              <ThemedText style={[styles.emptyBtnTxt, { color: palette.white }]}>Download for offline</ThemedText>
+            </Pressable>
+          </View>
+        ) : rows.length === 0 ? (
           <ThemedText style={[styles.noResult, { color: surface.muted }]}>
             No methods match. Try a different term or filter.
           </ThemedText>
@@ -338,22 +535,27 @@ export default function MethodLibraryScreen() {
                 </ThemedText>
               ) : null}
               {g.items.map((m) => (
-                <MethodRow key={m.id} m={m} onPress={openFixture} />
+                <MethodRow
+                  key={m.uid}
+                  m={m}
+                  onPress={() => openLibraryRow(m.uid)}
+                  onToggleFav={() => void onToggleFav(m.uid)}
+                />
               ))}
             </View>
           ))
         )}
       </ScrollView>
 
-      {/* Offline download prompt (UI placeholder pending the sync backend). */}
+      {/* Offline download prompt (real download trigger). */}
       {promptOpen ? (
         <>
           <Pressable style={styles.scrim} onPress={() => setPromptOpen(false)} accessibilityLabel="Dismiss" />
           <View style={[styles.prompt, { backgroundColor: surface.surface, borderTopColor: surface.border }]}>
             <ThemedText style={[styles.promptTtl, { color: surface.text }]}>Download your method library?</ThemedText>
             <ThemedText style={[styles.promptDesc, { color: surface.muted }]}>
-              Keep all {DEMO_LIBRARY.length} methods on this phone so read mode works at the bench with no signal. We
-              will quietly update it when your laptop changes a method.
+              Keep your methods on this phone so read mode works at the bench with no signal. We will quietly update it
+              when your laptop changes a method.
             </ThemedText>
             <View style={styles.promptActs}>
               <Pressable
@@ -365,10 +567,7 @@ export default function MethodLibraryScreen() {
                 <ThemedText style={[styles.promptBtnTxt, { color: surface.text }]}>Not now</ThemedText>
               </Pressable>
               <Pressable
-                onPress={() => {
-                  setPromptOpen(false);
-                  setOffline('ready');
-                }}
+                onPress={() => void beginDownload()}
                 style={[styles.promptBtn, { backgroundColor: palette.sky }]}
                 accessibilityRole="button"
                 accessibilityLabel="Download"
@@ -415,6 +614,11 @@ const styles = StyleSheet.create({
   mrowSub: { fontSize: 11, marginTop: 1 },
   grphdr: { fontSize: 10.5, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase', paddingVertical: 6, paddingHorizontal: 4, marginTop: 6 },
   noResult: { textAlign: 'center', fontSize: 13, paddingVertical: 40, paddingHorizontal: 20 },
+  emptyWrap: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 28, gap: 10 },
+  emptyTtl: { fontSize: 16, fontWeight: '800', textAlign: 'center' },
+  emptyDesc: { fontSize: 13, lineHeight: 20, textAlign: 'center' },
+  emptyBtn: { marginTop: 8, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 22 },
+  emptyBtnTxt: { fontSize: 14.5, fontWeight: '800' },
   scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(8,18,34,0.34)' },
   prompt: { position: 'absolute', left: 0, right: 0, bottom: 0, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderTopWidth: 1, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 28 },
   promptTtl: { fontSize: 17, fontWeight: '800' },

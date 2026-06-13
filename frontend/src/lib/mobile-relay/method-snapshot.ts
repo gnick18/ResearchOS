@@ -161,7 +161,7 @@ export interface MethodSnapshot {
  * MethodTabs.resolveMethodType so the phone projection picks the same renderer
  * the laptop would. Honors method_type when set, else sniffs source_path.
  */
-function resolveMethodType(
+export function resolveMethodType(
   methodType: string | null | undefined,
   sourcePath: string | null | undefined,
 ): MethodProjection["resolvedType"] {
@@ -229,7 +229,7 @@ function parseJsonSafe<T>(raw: string | null | undefined): T | null {
  * source protocol the method's source_path points at. Mirrors the
  * attachment-or-source fallback in PcrMethodTabContent.
  */
-async function buildPcrProjection(
+export async function buildPcrProjection(
   method: Method,
   attachment: TaskMethodAttachment | undefined,
 ): Promise<{ pcr: MethodPcrProjection; keyParams: MethodProjection["keyParams"] }> {
@@ -295,7 +295,7 @@ function toPcrStep(s: { name: string; temperature: number; duration: string }): 
  * Build the LC projection. The attachment's lc_gradient override snapshot wins;
  * otherwise read the source LCGradientProtocol. Mirrors LcMethodTabContent.
  */
-async function buildLcProjection(
+export async function buildLcProjection(
   method: Method,
   attachment: TaskMethodAttachment | undefined,
 ): Promise<{ lc: MethodLcProjection; keyParams: MethodProjection["keyParams"] }> {
@@ -356,7 +356,7 @@ async function buildLcProjection(
  * sealed blob); the phone shows the ordered child list and the researcher opens
  * the full kit on the laptop. Flagged for review.
  */
-async function buildCompoundProjection(
+export async function buildCompoundProjection(
   method: Method,
   allMethods: Method[],
 ): Promise<{ compound: MethodCompoundProjection; keyParams: MethodProjection["keyParams"] }> {
@@ -387,7 +387,7 @@ async function buildCompoundProjection(
  * source .md the method's source_path points at. Best-effort, returns null when
  * neither is available so the phone shows an empty-state instead of crashing.
  */
-async function buildBody(
+export async function buildBody(
   method: Method,
   attachment: TaskMethodAttachment | undefined,
 ): Promise<string | null> {

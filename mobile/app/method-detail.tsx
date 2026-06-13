@@ -23,7 +23,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/themed-text';
@@ -38,6 +38,7 @@ import { useTheme, palette } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
 import { fetchSnapshot, type MethodSnapshot, type MethodProjection } from '@/lib/snapshots';
+import { getCachedMethod } from '@/lib/method-library-store';
 import { postAddVariation } from '@/lib/add-variation';
 
 // ── Per-type read renderers ──────────────────────────────────────────────────
@@ -383,10 +384,14 @@ type VariationStatus = { kind: 'idle' } | { kind: 'sent' } | { kind: 'failed' };
 
 export default function MethodScreen() {
   const { surface } = useTheme();
+  const router = useRouter();
   const { pairing } = usePairing();
-  // The library tab can deep-link with ?read=1 to open read mode straight away
-  // for the (single) published method.
-  const params = useLocalSearchParams<{ read?: string }>();
+  // The library tab can deep-link two ways:
+  //   ?read=1        open read mode for the focused experiment's (single)
+  //                  published "method" snapshot (active-experiment rec).
+  //   ?uid=<owner:id> open read mode for ONE method resolved from the offline
+  //                  library cache (any library row, works with no signal).
+  const params = useLocalSearchParams<{ read?: string; uid?: string }>();
 
   const [snapshot, setSnapshot] = useState<MethodSnapshot | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -396,6 +401,10 @@ export default function MethodScreen() {
   const [variationStatus, setVariationStatus] = useState<VariationStatus>({ kind: 'idle' });
   // Index of the method shown full-screen in read mode, or null for the list.
   const [readIndex, setReadIndex] = useState<number | null>(null);
+  // A single LIBRARY method resolved from the offline cache (the ?uid path).
+  // When set, the whole screen is its read mode, no experiment snapshot needed.
+  const [cachedMethod, setCachedMethod] = useState<MethodProjection | null>(null);
+  const [cachedLoaded, setCachedLoaded] = useState(false);
 
   const load = useCallback(async () => {
     if (!pairing) {
@@ -418,10 +427,37 @@ export default function MethodScreen() {
 
   // Reload whenever the screen regains focus (the researcher publishes from the
   // laptop, then opens this screen, so a focus-time fetch picks up the snapshot).
+  // Skip the experiment fetch entirely when this is a library (?uid) open, since
+  // a library method is resolved from the offline cache, not the focused
+  // experiment snapshot.
   useFocusEffect(
     useCallback(() => {
-      void load();
-    }, [load]),
+      if (!params.uid) void load();
+    }, [load, params.uid]),
+  );
+
+  // Library (?uid) open: resolve the one method from the offline cache. Works
+  // with no signal, the cache is the source of truth at the bench.
+  useFocusEffect(
+    useCallback(() => {
+      const uid = params.uid;
+      if (!uid) {
+        setCachedMethod(null);
+        setCachedLoaded(false);
+        return;
+      }
+      let active = true;
+      void (async () => {
+        const m = await getCachedMethod(uid);
+        if (active) {
+          setCachedMethod(m);
+          setCachedLoaded(true);
+        }
+      })();
+      return () => {
+        active = false;
+      };
+    }, [params.uid]),
   );
 
   const onAddVariation = useCallback(
@@ -458,6 +494,47 @@ export default function MethodScreen() {
       // We only auto-open once per focus when the flag is present.
     }, [params.read, methods.length]),
   );
+
+  // Library (?uid) open: the whole screen is the one cached method's read mode.
+  // A library method is not tied to an experiment, so add-variation is disabled
+  // (it would have nowhere to route). We still resolve it the same way the card
+  // viewer does, from a full MethodProjection, so PCR / LC / compound / body all
+  // render offline.
+  if (params.uid) {
+    if (!cachedLoaded) {
+      return (
+        <ScreenFrame>
+          <ScreenHeader />
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator color={surface.muted} />
+          </View>
+        </ScreenFrame>
+      );
+    }
+    if (!cachedMethod) {
+      return (
+        <ScreenFrame>
+          <ScreenHeader />
+          <EmptyState
+            icon="flask-outline"
+            text="This method is not downloaded yet. Open the Methods tab and download your library for offline use."
+          />
+        </ScreenFrame>
+      );
+    }
+    return (
+      <ScreenFrame edges={['top', 'bottom']}>
+        <MethodReadMode
+          method={cachedMethod}
+          onClose={() => router.back()}
+          onAddVariation={async () => {
+            // No-op: a library method has no experiment to route a variation to.
+          }}
+          variationBusy={false}
+        />
+      </ScreenFrame>
+    );
+  }
 
   // Full-screen read mode takes over the whole screen (no header, no tab chrome
   // since this is a pushed stack screen). expo-keep-awake fires inside it.

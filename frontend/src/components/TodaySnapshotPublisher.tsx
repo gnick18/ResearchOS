@@ -24,6 +24,10 @@ import { publishTodayToAllDevices } from "@/lib/mobile-relay/today-snapshot";
 import { publishInventoryToAllDevices } from "@/lib/mobile-relay/inventory-snapshot";
 import { publishNotebooksToAllDevices } from "@/lib/mobile-relay/notebooks-snapshot";
 import { publishCalculatorsToAllDevices } from "@/lib/mobile-relay/calculators-snapshot";
+import {
+  buildLibrarySnapshot,
+  publishLibrarySnapshot,
+} from "@/lib/mobile-relay/library-snapshot";
 import { publishTimersToAllDevices } from "@/lib/mobile-relay/timers-snapshot";
 import { publishNotificationsToAllDevices } from "@/lib/mobile-relay/notifications-snapshot";
 import { publishNotifyConfig } from "@/lib/mobile-relay/client";
@@ -38,12 +42,25 @@ const PUBLISH_INTERVAL_MS = 60_000;
 // not double-publish within this window.
 const MIN_GAP_MS = 30_000;
 
+// The whole-library snapshot is bigger + more expensive to build than the small
+// today / inventory snapshots (it reads every method's source protocol), so it
+// runs on a SLOWER cadence (every Nth pass) AND only seals + uploads when its
+// content hash changed since the last publish. The build itself still runs each
+// library pass to compute the hash, but a seal + per-device upload is skipped
+// when nothing changed. lastLibraryVersion is module-scoped so it survives the
+// effect re-running (folder reconnect / focus churn) within one tab session.
+const LIBRARY_PASS_EVERY = 5; // ~ every 5 minutes at the 60s base cadence
+let lastLibraryVersion: string | null = null;
+
 export default function TodaySnapshotPublisher() {
   const { currentUser, isConnected } = useFileSystem();
 
   // A run-lock so overlapping triggers (interval + focus) don't double-publish.
   const runningRef = useRef(false);
   const lastRunRef = useRef(0);
+  // Counts publish passes so the heavier library snapshot runs on a slower
+  // cadence (every LIBRARY_PASS_EVERY passes) rather than every minute.
+  const passCountRef = useRef(0);
 
   useEffect(() => {
     if (!isConnected || !currentUser) return;
@@ -100,6 +117,34 @@ export default function TodaySnapshotPublisher() {
           console.info(
             `[calculators-publisher] published to ${calc.published} device(s), skipped ${calc.skipped}`,
           );
+        }
+        // Library snapshot: the WHOLE method library so paired phones can browse
+        // + read mode every method offline. Runs on a slower cadence (every
+        // LIBRARY_PASS_EVERY passes) because it reads every method's source
+        // protocol, and only seals + uploads when its content hash changed since
+        // the last publish (the build runs to compute the hash, the upload is
+        // skipped when unchanged). The hash is deterministic over the projected
+        // content, so an unchanged library is a cheap no-op upload.
+        if (cancelled) return;
+        passCountRef.current += 1;
+        if (passCountRef.current % LIBRARY_PASS_EVERY === 1) {
+          try {
+            const librarySnap = await buildLibrarySnapshot();
+            if (cancelled) return;
+            if (librarySnap.version !== lastLibraryVersion) {
+              const lib = await publishLibrarySnapshot(keys, librarySnap);
+              lastLibraryVersion = librarySnap.version;
+              if (lib.published > 0 || lib.skipped > 0) {
+                console.info(
+                  `[library-publisher] published to ${lib.published} device(s), skipped ${lib.skipped} (version ${lib.version.slice(0, 12)})`,
+                );
+              }
+            }
+          } catch (err) {
+            // Non-fatal: a missed library publish only delays the offline cache
+            // refresh to the next slow-cadence pass.
+            console.warn("[library-publisher] publish failed (will retry)", err);
+          }
         }
         // Timers snapshot: the laptop's own running timers so they mirror onto
         // the phone. Also published on change (the effect below) for near-instant

@@ -134,6 +134,50 @@ export type MethodSnapshot = {
   methods?: MethodProjection[];
 };
 
+// ---- Library snapshot (offline method-library sync, 2026-06-13) ------------
+//
+// The laptop auto-publishes the user's WHOLE method library (own + lab-shared +
+// public) under the name "library", on a slower cadence than the small
+// snapshots and only when its content hash changed. Each entry is a FULL
+// MethodProjection (the same shape read mode renders for the focused "method"
+// snapshot) plus a little library metadata (a stable owner-namespaced uid, the
+// owner label, and an isShared flag). The phone caches it locally for offline
+// browse + read mode (see lib/method-library-store.ts). All fields are
+// tolerated missing so an older laptop shape never crashes the screen.
+//
+// `version` is a deterministic content hash. The phone compares it against the
+// cached version and only re-saves when it differs, so an unchanged library is
+// a cheap no-op sync.
+
+export type LibraryMethodEntry = MethodProjection & {
+  /** Stable, owner-namespaced id. Two members with the same numeric record id
+   *  never collide on the phone (e.g. "alex:5" vs "self:5"). */
+  uid?: string;
+  /** Owner username, for the "Shared by <owner>" line on a lab method. */
+  ownerLabel?: string;
+  /** True when owned by another lab member (read-only). */
+  isShared?: boolean;
+};
+
+export type LibrarySnapshot = {
+  generatedAt?: string;
+  /** Deterministic content hash, drives the cached-vs-fetched update check. */
+  version?: string;
+  methods?: LibraryMethodEntry[];
+};
+
+/** Typed convenience over fetchSnapshot for the "library" snapshot. Returns null
+ *  when the laptop has not published yet (or in demo mode, so the library tab
+ *  falls back to its demo fixture). Mirrors fetchCalculatorsSnapshot. */
+export async function fetchLibrarySnapshot(
+  pairing: Pairing,
+  deviceSign: (message: string) => Promise<string>,
+): Promise<LibrarySnapshot | null> {
+  return (await fetchSnapshot('library', pairing, deviceSign)) as
+    | LibrarySnapshot
+    | null;
+}
+
 // ---- Calculators snapshot (Custom Calculator Builder Phase 3, 2026-06-10) ----
 //
 // The laptop auto-publishes a sealed projection of the calculators the user can
@@ -260,6 +304,10 @@ export async function fetchSnapshot(
     // driven by a real focused experiment on the laptop). Return null so the
     // viewer shows its "open a method from the laptop" empty state in demo mode.
     if (name === 'method') return null;
+    // The library snapshot has no relay fixture; the library tab keeps its own
+    // DEMO_LIBRARY fixture for demo mode so demo recordings still work. Return
+    // null so the tab falls back to that fixture instead of an empty cache.
+    if (name === 'library') return null;
     // The calculators snapshot has no demo fixture (custom calculators are
     // user-authored on a real laptop). Return null so the viewer shows its
     // "build one on the laptop" empty state in demo mode.
