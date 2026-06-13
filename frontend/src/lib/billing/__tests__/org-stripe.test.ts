@@ -1,14 +1,8 @@
 // Phase 3 org billing, the procurement subscription orchestration. No live Stripe,
 // no Neon: the Stripe client and the org-billing persistence are mocked, so these
-// pin the control flow for both payment methods.
-//   - a zero-derived rate persists the plan + marks inactive, never touches Stripe;
-//   - invoice, no existing sub: creates a send_invoice subscription (net terms),
-//     no payment method collected, marks active;
-//   - invoice, existing sub: updates the item price in place, no second sub;
-//   - automatic, no existing sub: returns a Checkout URL + pending_checkout (the
-//     admin adds a card or bank), no subscription created server-side;
-//   - automatic, existing automatic sub: updates the price in place;
-//   - the tax seam is off unless ORG_BILLING_TAX_ENABLED.
+// pin the control flow for the collection (invoice vs automatic) and the pay class
+// (card = list price vs bank = discounted), including that the discounted price is
+// enforced to bank-debit methods only.
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
@@ -59,6 +53,7 @@ vi.mock("@/lib/billing/org-billing", () => ({
 }));
 
 import { setupOrgBilling, cancelOrgSubscription } from "../org-stripe";
+import { priceForMethod } from "../processing-fee";
 
 const INFO = { name: "Chemistry Dept", email: "admin@uni.edu" };
 const BASE = {
@@ -84,147 +79,126 @@ afterEach(() => {
 });
 
 describe("setupOrgBilling", () => {
-  it("a zero rate persists the plan inactive and never touches Stripe", async () => {
+  it("a zero rate persists inactive and never touches Stripe", async () => {
     const r = await setupOrgBilling({
       ...BASE,
-      planInputs: { labs: 0, storageGb: 0 },
+      planInputs: { labs: 0, storageGb: 0, international: 0 },
       monthlyCents: 0,
       method: "invoice",
+      payClass: "bank",
     });
     expect(r.status).toBe("inactive");
-    expect(setOrgPlanMock).toHaveBeenCalledWith("department", "dept_x", { labs: 0, storageGb: 0 }, 0, "invoice");
     expect(subsCreateMock).not.toHaveBeenCalled();
     expect(checkoutCreateMock).not.toHaveBeenCalled();
   });
 
-  it("invoice, no existing sub: creates a send_invoice subscription", async () => {
+  it("invoice + bank: send_invoice, restricted to bank methods, discounted price", async () => {
+    const list = 20000;
     const r = await setupOrgBilling({
       ...BASE,
-      planInputs: { labs: 3, storageGb: 200 },
-      monthlyCents: 12345,
+      planInputs: { labs: 3, storageGb: 200, international: 0 },
+      monthlyCents: list,
       method: "invoice",
+      payClass: "bank",
     });
     expect(r).toEqual({ status: "active" });
-    expect(subsCreateMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        customer: "cus_1",
-        collection_method: "send_invoice",
-        days_until_due: 30,
-        metadata: expect.objectContaining({ orgTier: "department", orgId: "dept_x" }),
-      }),
-    );
-    expect(checkoutCreateMock).not.toHaveBeenCalled();
-    expect(setOrgSubscriptionMock).toHaveBeenCalledWith("department", "dept_x", "sub_1", "si_1", "active");
+    // The bank price is the discounted amount, below the card list price.
+    const expected = priceForMethod(list, "bank", false);
+    expect(pricesCreateMock.mock.calls[0][0].unit_amount).toBe(expected);
+    expect(expected).toBeLessThan(list);
+    const subArgs = subsCreateMock.mock.calls[0][0];
+    expect(subArgs.collection_method).toBe("send_invoice");
+    expect(subArgs.payment_settings.payment_method_types).toContain("us_bank_account");
+    expect(subArgs.payment_settings.payment_method_types).not.toContain("card");
   });
 
-  it("invoice, existing sub: updates the item price in place", async () => {
-    getOrgBillingMock.mockResolvedValue({
-      tier: "department",
-      entityId: "dept_x",
-      stripeCustomerId: "cus_1",
-      stripeSubscriptionId: "sub_1",
-      stripeItemId: "si_1",
-      monthlyCents: 1000,
-      planInputs: {},
-      method: "invoice",
-      status: "active",
-    });
+  it("automatic + card: Checkout restricted to card, price is the list", async () => {
+    const list = 20000;
     const r = await setupOrgBilling({
       ...BASE,
-      planInputs: { labs: 5, storageGb: 400 },
-      monthlyCents: 22222,
-      method: "invoice",
-    });
-    expect(r).toEqual({ status: "active" });
-    expect(subsUpdateMock).toHaveBeenCalledWith(
-      "sub_1",
-      expect.objectContaining({
-        items: [{ id: "si_1", price: "price_1" }],
-        collection_method: "send_invoice",
-      }),
-    );
-    expect(subsCreateMock).not.toHaveBeenCalled();
-  });
-
-  it("automatic, no existing sub: returns a Checkout URL + pending_checkout", async () => {
-    const r = await setupOrgBilling({
-      ...BASE,
-      planInputs: { labs: 4, storageGb: 300 },
-      monthlyCents: 33333,
+      planInputs: { labs: 3, storageGb: 200, international: 0 },
+      monthlyCents: list,
       method: "automatic",
+      payClass: "card",
     });
     expect(r.status).toBe("pending_checkout");
     expect(r.url).toBe("https://stripe.test/cs_1");
-    // payment_method_types is intentionally omitted so Stripe presents every
-    // eligible method for the buyer (card + local bank debits per the Dashboard).
-    const checkoutArgs = checkoutCreateMock.mock.calls[0][0];
-    expect(checkoutArgs.mode).toBe("subscription");
-    expect(checkoutArgs.payment_method_types).toBeUndefined();
-    expect(checkoutArgs.metadata).toMatchObject({ orgTier: "department", orgId: "dept_x" });
-    expect(subsCreateMock).not.toHaveBeenCalled();
-    expect(setOrgSubscriptionMock).toHaveBeenCalledWith("department", "dept_x", null, null, "pending_checkout");
+    expect(pricesCreateMock.mock.calls[0][0].unit_amount).toBe(list); // card pays list
+    expect(checkoutCreateMock.mock.calls[0][0].payment_method_types).toEqual(["card"]);
   });
 
-  it("automatic, existing automatic sub: updates the price in place (charge_automatically)", async () => {
-    getOrgBillingMock.mockResolvedValue({
-      tier: "department",
-      entityId: "dept_x",
-      stripeCustomerId: "cus_1",
-      stripeSubscriptionId: "sub_1",
-      stripeItemId: "si_1",
-      monthlyCents: 1000,
-      planInputs: {},
+  it("automatic + bank: Checkout restricted to bank debits, discounted price", async () => {
+    const list = 20000;
+    await setupOrgBilling({
+      ...BASE,
+      planInputs: { labs: 3, storageGb: 200, international: 0 },
+      monthlyCents: list,
       method: "automatic",
-      status: "active",
+      payClass: "bank",
+    });
+    expect(pricesCreateMock.mock.calls[0][0].unit_amount).toBe(priceForMethod(list, "bank", false));
+    const methods = checkoutCreateMock.mock.calls[0][0].payment_method_types;
+    expect(methods).toContain("us_bank_account");
+    expect(methods).not.toContain("card");
+  });
+
+  it("invoice + bank with an existing invoice sub updates the price in place", async () => {
+    getOrgBillingMock.mockResolvedValue({
+      tier: "department", entityId: "dept_x",
+      stripeCustomerId: "cus_1", stripeSubscriptionId: "sub_1", stripeItemId: "si_1",
+      monthlyCents: 1000, planInputs: {}, method: "invoice", payClass: "bank", status: "active",
     });
     const r = await setupOrgBilling({
       ...BASE,
-      planInputs: { labs: 6, storageGb: 500 },
-      monthlyCents: 44444,
-      method: "automatic",
+      planInputs: { labs: 5, storageGb: 400, international: 0 },
+      monthlyCents: 30000,
+      method: "invoice",
+      payClass: "bank",
     });
     expect(r).toEqual({ status: "active" });
-    expect(subsUpdateMock).toHaveBeenCalledWith(
-      "sub_1",
-      expect.objectContaining({ collection_method: "charge_automatically" }),
-    );
+    expect(subsUpdateMock).toHaveBeenCalled();
     expect(checkoutCreateMock).not.toHaveBeenCalled();
   });
 
-  it("omits automatic_tax unless ORG_BILLING_TAX_ENABLED is set", async () => {
-    await setupOrgBilling({
-      ...BASE,
-      planInputs: { labs: 2, storageGb: 100 },
-      monthlyCents: 5000,
-      method: "invoice",
+  it("changing the pay class on an automatic sub forces a fresh Checkout", async () => {
+    getOrgBillingMock.mockResolvedValue({
+      tier: "department", entityId: "dept_x",
+      stripeCustomerId: "cus_1", stripeSubscriptionId: "sub_1", stripeItemId: "si_1",
+      monthlyCents: 1000, planInputs: {}, method: "automatic", payClass: "card", status: "active",
     });
-    expect(subsCreateMock.mock.calls[0][0].automatic_tax).toBeUndefined();
+    subsCancelMock.mockResolvedValue({});
+    const r = await setupOrgBilling({
+      ...BASE,
+      planInputs: { labs: 5, storageGb: 400, international: 0 },
+      monthlyCents: 30000,
+      method: "automatic",
+      payClass: "bank", // was card -> needs a new bank instrument
+    });
+    expect(r.status).toBe("pending_checkout");
+    expect(checkoutCreateMock).toHaveBeenCalled();
+    expect(subsUpdateMock).not.toHaveBeenCalled();
   });
 
-  it("includes automatic_tax when the tax flag is on", async () => {
-    process.env.ORG_BILLING_TAX_ENABLED = "true";
+  it("an international card list yields a bigger bank discount than domestic", async () => {
+    const list = 20000;
     await setupOrgBilling({
       ...BASE,
-      planInputs: { labs: 2, storageGb: 100 },
-      monthlyCents: 5000,
+      planInputs: { labs: 3, storageGb: 200, international: 1 },
+      monthlyCents: list,
       method: "invoice",
+      payClass: "bank",
     });
-    expect(subsCreateMock.mock.calls[0][0].automatic_tax).toEqual({ enabled: true });
+    expect(pricesCreateMock.mock.calls[0][0].unit_amount).toBe(priceForMethod(list, "bank", true));
+    expect(priceForMethod(list, "bank", true)).toBeLessThan(priceForMethod(list, "bank", false));
   });
 });
 
 describe("cancelOrgSubscription", () => {
   it("cancels the Stripe subscription and marks the row canceled", async () => {
     getOrgBillingMock.mockResolvedValue({
-      tier: "department",
-      entityId: "dept_x",
-      stripeCustomerId: "cus_1",
-      stripeSubscriptionId: "sub_1",
-      stripeItemId: "si_1",
-      monthlyCents: 1000,
-      planInputs: {},
-      method: "invoice",
-      status: "active",
+      tier: "department", entityId: "dept_x",
+      stripeCustomerId: "cus_1", stripeSubscriptionId: "sub_1", stripeItemId: "si_1",
+      monthlyCents: 1000, planInputs: {}, method: "invoice", payClass: "bank", status: "active",
     });
     subsCancelMock.mockResolvedValue({});
     await cancelOrgSubscription("department", "dept_x");

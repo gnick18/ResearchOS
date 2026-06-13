@@ -25,6 +25,7 @@ import {
   type OrgTier,
 } from "@/lib/billing/org-billing";
 import { setupOrgBilling } from "@/lib/billing/org-stripe";
+import type { PayClass } from "@/lib/billing/processing-fee";
 
 /** A resolved org entity the caller administers. */
 export interface ResolvedOrgEntity {
@@ -80,6 +81,7 @@ export async function handleOrgBillingGet(spec: OrgBillingSpec): Promise<Respons
       entity,
       status: row?.status ?? "inactive",
       method: row?.method ?? "invoice",
+      payClass: row?.payClass ?? "bank",
       monthlyCents: row?.monthlyCents ?? 0,
       planInputs: row?.planInputs ?? {},
     });
@@ -119,9 +121,12 @@ export async function runOrgBillingPost(
     typeof body.poNumber === "string" && body.poNumber.trim()
       ? body.poNumber.trim()
       : null;
-  // The payment method the admin chose: an emailed invoice (net terms) or
-  // auto-charge a card/bank. Defaults to invoice, the procurement-canonical path.
+  // The collection the admin chose: an emailed invoice (net terms) or auto-charge
+  // on file. Defaults to invoice, the procurement-canonical path.
   const method: OrgBillingMethod = body.method === "automatic" ? "automatic" : "invoice";
+  // The pay class: card (list price) or bank debit (discounted). Defaults to bank,
+  // since an invoice is normally paid by ACH and that earns the lower rate.
+  const payClass: PayClass = body.payClass === "card" ? "card" : "bank";
 
   let returnOrigin: string;
   try {
@@ -147,10 +152,11 @@ export async function runOrgBillingPost(
       planInputs: inputs,
       monthlyCents,
       method,
+      payClass,
       poNumber,
       returnOrigin,
     });
-    return json(200, { ok: true, monthlyCents, method, ...result });
+    return json(200, { ok: true, monthlyCents, method, payClass, ...result });
   } catch {
     return json(500, { error: "billing setup failed" });
   }

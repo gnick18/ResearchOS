@@ -45,6 +45,10 @@ export type OrgTier = "department" | "institution";
  */
 export type OrgBillingMethod = "invoice" | "automatic";
 
+/** How the org pays, by method CATEGORY: card (list price) or bank debit
+ *  (discounted). Drives the price and which Stripe methods are allowed. */
+export type OrgPayClass = "card" | "bank";
+
 /** A Stripe subscription billed by sent invoice moves through these states; we
  *  normalize Stripe's set onto active / past_due / canceled / inactive. */
 export type OrgBillingStatus =
@@ -69,6 +73,8 @@ export interface OrgBillingRecord {
   planInputs: Record<string, number>;
   /** How the org pays: an emailed invoice (net terms) or auto-charge on file. */
   method: OrgBillingMethod;
+  /** Card (list price) or bank debit (discounted). */
+  payClass: OrgPayClass;
   status: OrgBillingStatus;
 }
 
@@ -81,6 +87,7 @@ type OrgRow = {
   monthly_cents: string | number | null;
   plan_inputs: unknown;
   method: string | null;
+  pay_class: string | null;
   status: string;
 };
 
@@ -89,6 +96,9 @@ function normalizeTier(raw: string): OrgTier {
 }
 function normalizeMethod(raw: string | null): OrgBillingMethod {
   return raw === "automatic" ? "automatic" : "invoice";
+}
+function normalizePayClass(raw: string | null): OrgPayClass {
+  return raw === "bank" ? "bank" : "card";
 }
 function normalizeStatus(raw: string): OrgBillingStatus {
   if (
@@ -123,6 +133,7 @@ function rowToRecord(r: OrgRow): OrgBillingRecord {
     monthlyCents: Number(r.monthly_cents ?? 0),
     planInputs: parseInputs(r.plan_inputs),
     method: normalizeMethod(r.method),
+    payClass: normalizePayClass(r.pay_class),
     status: normalizeStatus(r.status),
   };
 }
@@ -139,14 +150,16 @@ export async function ensureOrgBillingSchema(): Promise<void> {
       monthly_cents          bigint not null default 0,
       plan_inputs            jsonb not null default '{}'::jsonb,
       method                 text not null default 'invoice',
+      pay_class              text not null default 'card',
       status                 text not null default 'inactive',
       created_at             timestamptz default now(),
       updated_at             timestamptz default now(),
       primary key (tier, entity_id)
     )
   `;
-  // Forward-migrate a row that predates the payment-method choice.
+  // Forward-migrate rows that predate the payment-method + pay-class columns.
   await sql`ALTER TABLE org_billing ADD COLUMN IF NOT EXISTS method text not null default 'invoice'`;
+  await sql`ALTER TABLE org_billing ADD COLUMN IF NOT EXISTS pay_class text not null default 'card'`;
 }
 
 export async function getOrgBilling(
@@ -156,7 +169,7 @@ export async function getOrgBilling(
   const sql = getSql();
   const rows = (await sql`
     SELECT tier, entity_id, stripe_customer_id, stripe_subscription_id,
-           stripe_item_id, monthly_cents, plan_inputs, method, status
+           stripe_item_id, monthly_cents, plan_inputs, method, pay_class, status
     FROM org_billing WHERE tier = ${tier} AND entity_id = ${entityId} LIMIT 1
   `) as OrgRow[];
   return rows.length ? rowToRecord(rows[0]) : null;
@@ -170,7 +183,7 @@ export async function getOrgBillingBySubId(
   const sql = getSql();
   const rows = (await sql`
     SELECT tier, entity_id, stripe_customer_id, stripe_subscription_id,
-           stripe_item_id, monthly_cents, plan_inputs, method, status
+           stripe_item_id, monthly_cents, plan_inputs, method, pay_class, status
     FROM org_billing WHERE stripe_subscription_id = ${stripeSubscriptionId} LIMIT 1
   `) as OrgRow[];
   return rows.length ? rowToRecord(rows[0]) : null;
@@ -201,15 +214,17 @@ export async function setOrgPlan(
   planInputs: Record<string, number>,
   monthlyCents: number,
   method: OrgBillingMethod,
+  payClass: OrgPayClass,
 ): Promise<void> {
   const sql = getSql();
   await sql`
-    INSERT INTO org_billing (tier, entity_id, plan_inputs, monthly_cents, method, updated_at)
-    VALUES (${tier}, ${entityId}, ${JSON.stringify(planInputs)}, ${Math.max(0, Math.round(monthlyCents))}, ${method}, now())
+    INSERT INTO org_billing (tier, entity_id, plan_inputs, monthly_cents, method, pay_class, updated_at)
+    VALUES (${tier}, ${entityId}, ${JSON.stringify(planInputs)}, ${Math.max(0, Math.round(monthlyCents))}, ${method}, ${payClass}, now())
     ON CONFLICT (tier, entity_id) DO UPDATE SET
       plan_inputs = ${JSON.stringify(planInputs)},
       monthly_cents = ${Math.max(0, Math.round(monthlyCents))},
       method = ${method},
+      pay_class = ${payClass},
       updated_at = now()
   `;
 }

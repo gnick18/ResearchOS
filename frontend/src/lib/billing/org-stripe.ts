@@ -26,6 +26,7 @@ import type Stripe from "stripe";
 
 import { isOrgTaxEnabled, ORG_INVOICE_NET_DAYS } from "./config";
 import { getStripe } from "./stripe";
+import { priceForMethod, stripeMethodsFor, type PayClass } from "./processing-fee";
 import {
   getOrgBilling,
   setOrgCustomer,
@@ -90,17 +91,29 @@ export async function setupOrgBilling(args: {
   entityId: string;
   info: OrgCustomerInfo;
   planInputs: Record<string, number>;
+  /** The CARD list price (cents) the plan derived to. The actual charge depends
+   *  on the pay class: card pays the list, a bank debit gets the discount. */
   monthlyCents: number;
+  /** Collection: an emailed invoice (net terms) or an auto-charge on file. */
   method: OrgBillingMethod;
+  /** Pay class: card (list price) or bank debit (discounted price). */
+  payClass: PayClass;
   /** Optional PO number to stamp on the invoice (invoice method). */
   poNumber?: string | null;
   /** Origin for Checkout return URLs (automatic first-time setup). */
   returnOrigin: string;
 }): Promise<OrgBillingSetupResult> {
-  const { tier, entityId, info, planInputs, monthlyCents, method } = args;
+  const { tier, entityId, info, planInputs, monthlyCents, method, payClass } = args;
   const stripe = getStripe();
 
-  await setOrgPlan(tier, entityId, planInputs, monthlyCents, method);
+  // The actual charged amount: card pays the list, a bank debit gets the discount
+  // reflecting the lower processing fee. International only raises the CARD list
+  // (an international card costs us more); the bank price stays low.
+  const international = planInputs.international === 1;
+  const chargeCents = priceForMethod(monthlyCents, payClass, international);
+
+  // Store the charged amount as the row's monthly_cents (what they actually pay).
+  await setOrgPlan(tier, entityId, planInputs, chargeCents, method, payClass);
 
   if (monthlyCents <= 0) {
     await cancelOrgSubscription(tier, entityId);
@@ -111,29 +124,39 @@ export async function setupOrgBilling(args: {
   const customerId = await ensureOrgCustomer(tier, entityId, info);
   const existing = await getOrgBilling(tier, entityId);
 
-  // A standalone monthly Price reflecting the derived rate, referenced by id by
+  // A standalone monthly Price reflecting the charged amount, referenced by id by
   // every path (the subscription-item update type does not accept inline
   // product_data, so one Price object is the portable way to set the amount).
   const price = await stripe.prices.create({
     currency: "usd",
-    unit_amount: Math.round(monthlyCents),
+    unit_amount: chargeCents,
     recurring: { interval: "month" },
     product_data: { name: `${TIER_PRODUCT_LABEL[tier]} (${info.name})` },
   });
   const metadata: Stripe.MetadataParam = { orgTier: tier, orgId: entityId };
   if (args.poNumber) metadata.poNumber = args.poNumber;
   const tax = isOrgTaxEnabled() ? { automatic_tax: { enabled: true } } : {};
+  // The discount is honest because it is enforced: a bank (discounted) price is
+  // only ever payable by a bank debit, a card price only by a card.
+  const allowedMethods = stripeMethodsFor(payClass);
 
   const hasSub = !!(existing?.stripeSubscriptionId && existing.stripeItemId);
-  // We can update the price in place when a subscription exists, EXCEPT when
-  // switching INTO automatic from invoice, which needs a payment method we have
-  // to collect via Checkout. Switching automatic -> invoice is fine in place
-  // (send_invoice needs no saved card).
-  const switchingIntoAutomatic = method === "automatic" && existing?.method !== "automatic";
-  if (hasSub && !switchingIntoAutomatic) {
+  // We can update in place when a subscription exists, EXCEPT when the saved
+  // payment instrument cannot satisfy the new choice: any automatic setup whose
+  // collection or pay class changed needs a fresh Checkout to collect the right
+  // instrument (a card cannot be charged as a bank debit, or vice versa). An
+  // invoice never has a saved instrument, so it always updates in place.
+  const needsFreshCheckout =
+    method === "automatic" &&
+    (existing?.method !== "automatic" || existing?.payClass !== payClass);
+  if (hasSub && !needsFreshCheckout) {
     const collection =
       method === "invoice"
-        ? { collection_method: "send_invoice" as const, days_until_due: ORG_INVOICE_NET_DAYS }
+        ? {
+            collection_method: "send_invoice" as const,
+            days_until_due: ORG_INVOICE_NET_DAYS,
+            payment_settings: { payment_method_types: allowedMethods },
+          }
         : { collection_method: "charge_automatically" as const };
     const updated = await stripe.subscriptions.update(existing!.stripeSubscriptionId!, {
       items: [{ id: existing!.stripeItemId!, price: price.id }],
@@ -152,13 +175,16 @@ export async function setupOrgBilling(args: {
     return { status: "active" };
   }
 
-  // Fresh setup. Invoice: create the subscription directly (no payment method).
+  // Fresh setup. Invoice: create the subscription directly (no saved instrument),
+  // restricting the hosted invoice to the chosen pay class so a bank-discounted
+  // invoice can only be paid by a bank debit.
   if (method === "invoice") {
     const created = await stripe.subscriptions.create({
       customer: customerId,
       items: [{ price: price.id }],
       collection_method: "send_invoice",
       days_until_due: ORG_INVOICE_NET_DAYS,
+      payment_settings: { payment_method_types: allowedMethods },
       metadata,
       ...tax,
     });
@@ -172,21 +198,20 @@ export async function setupOrgBilling(args: {
     return { status: "active" };
   }
 
-  // Automatic first-time setup. Cancel any prior (invoice) subscription so the
-  // org is never billed twice, then collect a card or bank via Checkout. The
-  // subscription is created on completion and the webhook marks it active.
+  // Automatic setup. Cancel any prior subscription so the org is never billed
+  // twice, then collect the chosen instrument via Checkout (restricted to the
+  // pay class). The subscription is created on completion and the webhook marks
+  // it active. Stripe presents only the methods in allowedMethods that are
+  // eligible for this customer and currency (so international bank debits appear
+  // where the Dashboard + billing currency support them).
   if (existing?.stripeSubscriptionId) {
     await cancelOrgSubscription(tier, entityId);
   }
-  // Omit payment_method_types so Stripe presents every recurring-capable method
-  // eligible for this customer and currency (card everywhere, plus local bank
-  // debits like ACH / SEPA / BACS where the Stripe Dashboard enables them). This
-  // lets international accounts pay without a code change per region; enabling a
-  // new method (or a new billing currency) is a Stripe Dashboard action.
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer: customerId,
     line_items: [{ price: price.id, quantity: 1 }],
+    payment_method_types: allowedMethods,
     metadata,
     subscription_data: { metadata },
     success_url: `${args.returnOrigin}/${tier === "institution" ? "institution" : "department"}?billing=success`,

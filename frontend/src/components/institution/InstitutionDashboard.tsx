@@ -14,7 +14,12 @@ import {
   centsToUsd,
   INSTITUTION_RATE,
 } from "@/lib/institution/plan";
-import PayMethodChoice from "@/components/billing/PayMethodChoice";
+import { bankSavingCents, priceForMethod } from "@/lib/billing/processing-fee";
+import PayMethodChoice, {
+  payOptionRequest,
+  requestToPayOption,
+  type OrgPayOption,
+} from "@/components/billing/PayMethodChoice";
 
 interface LabUsage {
   labHeadKey: string;
@@ -51,6 +56,7 @@ interface BillingResponse {
   billingEnabled?: boolean;
   status?: string;
   method?: "invoice" | "automatic";
+  payClass?: "card" | "bank";
   monthlyCents?: number;
   /** Present when an automatic setup needs the admin to finish Stripe Checkout. */
   url?: string;
@@ -65,10 +71,11 @@ export default function InstitutionDashboard() {
   const [labs, setLabs] = useState(1);
   const [storageGb, setStorageGb] = useState(50);
   const [seeded, setSeeded] = useState(false);
-  // Billing state. method = how the institution pays (invoice vs auto-charge).
+  // Billing state. payOpt = how the institution pays (invoice/bank, auto variants).
   const [billing, setBilling] = useState<BillingResponse | null>(null);
-  const [method, setMethod] = useState<"invoice" | "automatic">("invoice");
-  // Billed outside the US: passes the higher international processing cost through.
+  const [payOpt, setPayOpt] = useState<OrgPayOption>("invoice_bank");
+  // Billed outside the US: raises the card list price (an international card costs
+  // us more). The bank rate stays low, so bank payers are unaffected.
   const [international, setInternational] = useState(false);
   const [poNumber, setPoNumber] = useState("");
   const [saving, setSaving] = useState(false);
@@ -83,7 +90,9 @@ export default function InstitutionDashboard() {
         const data = (await res.json()) as BillingResponse;
         if (cancelled) return;
         setBilling(data);
-        if (data.method) setMethod(data.method);
+        if (data.method && data.payClass) {
+          setPayOpt(requestToPayOption(data.method, data.payClass));
+        }
       } catch {
         /* best effort */
       }
@@ -96,6 +105,7 @@ export default function InstitutionDashboard() {
   async function activatePlan() {
     setSaving(true);
     setSaveMsg(null);
+    const { method, payClass } = payOptionRequest(payOpt);
     try {
       const res = await fetch("/api/institution/billing", {
         method: "POST",
@@ -104,6 +114,7 @@ export default function InstitutionDashboard() {
           labs,
           storageGb,
           method,
+          payClass,
           international,
           poNumber: method === "invoice" && poNumber ? poNumber : undefined,
         }),
@@ -115,7 +126,7 @@ export default function InstitutionDashboard() {
         window.location.href = data.url;
         return;
       } else {
-        setBilling({ billingEnabled: true, status: data.status, method, monthlyCents: data.monthlyCents });
+        setBilling({ billingEnabled: true, status: data.status, method, payClass, monthlyCents: data.monthlyCents });
         setSaveMsg(
           method === "invoice"
             ? "Plan active. Stripe will email the invoice."
@@ -159,6 +170,14 @@ export default function InstitutionDashboard() {
       deriveInstitutionRate({ activeLabs: labs, storageGB: storageGb, international }),
     [labs, storageGb, international],
   );
+
+  // The card list price is rate.totalCents; a bank debit pays a discount.
+  const chosen = payOptionRequest(payOpt);
+  const bankSave = bankSavingCents(rate.totalCents, international);
+  const chargeCents =
+    chosen.payClass === "bank"
+      ? priceForMethod(rate.totalCents, "bank", international)
+      : rate.totalCents;
 
   if (!usage) {
     return <p className="text-meta text-foreground-muted">Loading usage&hellip;</p>;
@@ -205,8 +224,14 @@ export default function InstitutionDashboard() {
           )}
         </div>
         <p className="mt-2 text-heading font-bold text-foreground">
-          {centsToUsd(rate.totalCents)}
+          {centsToUsd(chargeCents)}
           <span className="text-body font-medium text-foreground-muted">/mo</span>
+          {chosen.payClass === "bank" && bankSave > 0 && (
+            <span className="ml-2 text-meta font-medium text-foreground-muted">
+              card list {centsToUsd(rate.totalCents)}, bank transfer saves{" "}
+              {centsToUsd(bankSave)}
+            </span>
+          )}
         </p>
 
         {billing?.billingEnabled ? (
@@ -215,8 +240,10 @@ export default function InstitutionDashboard() {
               <p className="text-meta text-foreground">
                 Billing active at <b>{centsToUsd(billing.monthlyCents ?? 0)}/mo</b>
                 {billing.method === "automatic"
-                  ? ", auto-charged to the card or bank on file."
-                  : ", invoiced to your email on net 30 terms."}{" "}
+                  ? billing.payClass === "card"
+                    ? ", auto-charged to the card on file."
+                    : ", auto-charged to the bank account on file."
+                  : ", invoiced to your email on net 30 terms, paid by bank transfer."}{" "}
                 Adjust the plan above and update any time.
               </p>
             ) : (
@@ -225,10 +252,14 @@ export default function InstitutionDashboard() {
               </p>
             )}
 
-            <PayMethodChoice method={method} onChange={setMethod} />
+            <PayMethodChoice
+              value={payOpt}
+              onChange={setPayOpt}
+              bankSaving={bankSave > 0 ? centsToUsd(bankSave) : undefined}
+            />
 
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              {method === "invoice" && (
+              {chosen.method === "invoice" && (
                 <input
                   type="text"
                   value={poNumber}
@@ -247,8 +278,10 @@ export default function InstitutionDashboard() {
                   ? "Saving…"
                   : billing.status === "active"
                     ? "Update plan"
-                    : method === "automatic"
-                      ? "Add a card or bank"
+                    : chosen.method === "automatic"
+                      ? chosen.payClass === "card"
+                        ? "Add a card"
+                        : "Add a bank account"
                       : "Activate billing"}
               </button>
               {saveMsg && <span className="text-meta text-foreground-muted">{saveMsg}</span>}
