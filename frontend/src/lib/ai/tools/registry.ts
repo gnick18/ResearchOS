@@ -74,7 +74,7 @@ import { summarizeInventoryTool } from "./summarize-inventory";
 import { labDigestTool } from "./lab-digest";
 import { listLabMembersTool } from "./lab-members";
 import { searchLiteratureTool } from "./search-literature";
-import { listPhyloTreesTool, readPhyloTreeTool } from "./phylo-tools";
+import { listPhyloTreesTool, readPhyloTreeTool, generateTreeTool } from "./phylo-tools";
 import {
   createExperimentTool,
   rescheduleExperimentTool,
@@ -263,10 +263,14 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // Phylogenetics READ tools. list_phylo_trees / read_phylo_tree surface the
   // user's saved trees by name or id and hand the model the embed markdown to
   // SHOW one as a chat card (the /phylo embed pipeline is built + frozen by the
-  // Phylogenetics lane). Read-only, the model never invents a tree or a tip
-  // count, and building a tree stays navigate + guide for now.
+  // Phylogenetics lane). generate_tree builds a runnable recipe (alignment +
+  // trimming + model selection + tree inference + support) from catalog options
+  // and returns the commands / install steps / conda env / run script / markdown
+  // for the user to run on their own machine. All three are read-only: the model
+  // never invents a tree, a tip count, or a flag, and no compute runs in-app.
   listPhyloTreesTool,
   readPhyloTreeTool,
+  generateTreeTool,
   // Cloning coworker READ tools. list_sequences gives the model real sequence ids
   // + feature names; read_sequence_features returns one sequence's full annotation
   // list (with coordinates + strand) so the model can pick a region to extract.
