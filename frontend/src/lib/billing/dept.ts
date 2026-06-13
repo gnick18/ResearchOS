@@ -204,3 +204,24 @@ export async function getDeptForLabHead(
   `) as { dept_id: string }[];
   return rows.length ? rows[0].dept_id : null;
 }
+
+/** The department a given admin owns, or null. Backs the dept-admin surface so a
+ *  returning admin loads their dept without threading the id through settings. */
+export async function getDepartmentByAdmin(
+  adminOwnerKey: string,
+): Promise<DepartmentRecord | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT dept_id, name, admin_owner_key, admin_ed25519_pub
+    FROM departments WHERE admin_owner_key = ${adminOwnerKey}
+    ORDER BY created_at LIMIT 1
+  `) as DeptRow[];
+  if (!rows.length) return null;
+  const r = rows[0];
+  return {
+    deptId: r.dept_id,
+    name: r.name,
+    adminOwnerKey: r.admin_owner_key,
+    adminEd25519Pub: r.admin_ed25519_pub,
+  };
+}
