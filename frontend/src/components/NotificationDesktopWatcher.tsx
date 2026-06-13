@@ -9,9 +9,9 @@ import { readUserSettings } from "@/lib/settings/user-settings";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   normalizeNotificationPreferences,
-  notificationCategory,
   pushChannelsForNotification,
 } from "@/lib/notifications/preferences";
+import { notificationDisplayText } from "@/lib/notifications/display";
 import type { Notification as RosNotification } from "@/lib/types";
 
 /**
@@ -30,29 +30,6 @@ import type { Notification as RosNotification } from "@/lib/types";
  *
  * No emojis, no em-dashes, no mid-sentence colons.
  */
-function desktopText(n: RosNotification): { title: string; body: string } {
-  const titles: Record<string, string> = {
-    shared: "Shared with you",
-    comments: "New comment",
-    lab: "Lab announcement",
-    purchases: "Purchase update",
-    reminders: "Reminder",
-  };
-  const r = n as unknown as Record<string, unknown>;
-  const pick = (...keys: string[]): string => {
-    for (const k of keys) {
-      const v = r[k];
-      if (typeof v === "string" && v.trim()) return v;
-    }
-    return "";
-  };
-  const title = titles[notificationCategory(n.type)] ?? "ResearchOS";
-  const body =
-    pick("message", "preview", "item_name", "event_title", "title", "note") ||
-    "Open ResearchOS to see it.";
-  return { title, body };
-}
-
 export default function NotificationDesktopWatcher() {
   const { currentUser } = useFileSystem();
   const { status } = useSharingIdentity();
@@ -98,7 +75,7 @@ export default function NotificationDesktopWatcher() {
         if (firstSeed || n.read) continue;
         const ch = pushChannelsForNotification(prefs, n.type, now, hasAccount);
         if (!ch.laptop && !ch.email) continue;
-        const { title, body } = desktopText(n);
+        const { title, body } = notificationDisplayText(n);
         if (ch.laptop && Notification.permission === "granted") {
           try {
             new Notification(title, { body, tag: n.id });
